@@ -1,44 +1,40 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [PATCH 9/9] fix sparse warnings
-Date: Mon, 14 Jan 2008 18:59:25 +0100
-Message-ID: <18315.41725.417992.715140@robur.slu.se>
-References: <20080112064513.803976049@linux-foundation.org>
-	<20080112064646.659443238@linux-foundation.org>
-	<4788A17D.5070903@cosmosbay.com>
-	<20080112130824.54cc1fc3@deepthought>
-	<18315.16984.456053.250600@robur.slu.se>
-	<478B9D0B.5040301@cosmosbay.com>
+From: Kim Phillips <kim.phillips@freescale.com>
+Subject: Re: [PATCH 0/3] UCC TDM driver for MPC83xx platforms
+Date: Mon, 14 Jan 2008 12:00:51 -0600
+Message-ID: <20080114120051.3207043b.kim.phillips@freescale.com>
+References: <FBA61160C48B8D438F3323FEFB4EF2C259F2F6@zin33exm24.fsl.freescale.net>
+	<FBA61160C48B8D438F3323FEFB4EF2C26E7653@zin33exm24.fsl.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Robert Olsson <robert.olsson@its.uu.se>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: <sfr@canb.auug.org.au>, <rubini@vision.unipv.it>,
+	<linux-ppcdev@ozlabs.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	"Gala Kumar" <kumar.gala@freescale.com>,
+	"Barkowski Michael" <Michael.Barkowski@freescale.com>,
+	"Kalra Ashish" <ashish.kalra@freescale.com>,
+	"Cutler Richard" <Rich.Cutler@freescale.com>
+To: "Aggrwal Poonam" <Poonam.Aggrwal@freescale.com>,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:37991 "EHLO mx1.slu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751346AbYANSAG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jan 2008 13:00:06 -0500
-In-Reply-To: <478B9D0B.5040301@cosmosbay.com>
+Received: from de01egw02.freescale.net ([192.88.165.103]:47206 "EHLO
+	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750851AbYANSBN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 13:01:13 -0500
+In-Reply-To: <FBA61160C48B8D438F3323FEFB4EF2C26E7653@zin33exm24.fsl.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 10 Jan 2008 21:41:20 -0700
+"Aggrwal Poonam" <Poonam.Aggrwal@freescale.com> wrote:
 
-Eric Dumazet writes:
+> Hello  All
+> 
+> I am waiting for more feedback on the patches.
+> 
+> If there are no objections please consider them for 2.6.25.
+> 
+if this isn't going to go through Alessandro Rubini/misc drivers, can
+it go through the akpm/mm tree?
 
- > > Thats 231173/241649 = 96% with the current Internet routing.
- > >
- > > How about if would have a fastpath and store one entry direct in the 
- > > leaf struct this to avoid loading the leaf_info list in most cases?
- > >
- > > One could believe that both lookup and dump could improve.
- > >
- > You mean to include one "leaf_info" inside leaf structure, so that we 
- > can access it without cache line miss ?
-
- Yes.
-
- Cheers
-					--ro
+Kim
