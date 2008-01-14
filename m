@@ -1,89 +1,80 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 6/8 net-2.6.25] [ARP] neigh_parms_put(destroy) are essentially local to core/neighbour.c.
-Date: Mon, 14 Jan 2008 17:59:59 +0300
-Message-ID: <1200322801-19054-6-git-send-email-den@openvz.org>
+Subject: [PATCH 3/8 net-2.6.25] [IPV4] fib_rules_unregister is essentially void.
+Date: Mon, 14 Jan 2008 17:59:56 +0300
+Message-ID: <1200322801-19054-3-git-send-email-den@openvz.org>
 References: <478B78CB.4030404@openvz.org>
 Cc: netdev@vger.kernel.org, devel@openvz.org,
 	"Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:58765 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:63849 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753292AbYANPAB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jan 2008 10:00:01 -0500
+	id S1753283AbYANPAA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 10:00:00 -0500
 In-Reply-To: <478B78CB.4030404@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make them static.
+fib_rules_unregister is called only after successful register and the return
+code is never checked.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- include/net/neighbour.h |    7 -------
- net/core/neighbour.c    |   11 ++++++++++-
- 2 files changed, 10 insertions(+), 8 deletions(-)
+ include/net/fib_rules.h |    2 +-
+ net/core/fib_rules.c    |   21 ++++-----------------
+ 2 files changed, 5 insertions(+), 18 deletions(-)
 
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index a0d42a5..ebbfb50 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -213,7 +213,6 @@ extern struct neighbour 	*neigh_event_ns(struct neigh_table *tbl,
- 
- extern struct neigh_parms	*neigh_parms_alloc(struct net_device *dev, struct neigh_table *tbl);
- extern void			neigh_parms_release(struct neigh_table *tbl, struct neigh_parms *parms);
--extern void			neigh_parms_destroy(struct neigh_parms *parms);
- extern unsigned long		neigh_rand_reach_time(unsigned long base);
- 
- extern void			pneigh_enqueue(struct neigh_table *tbl, struct neigh_parms *p,
-@@ -254,12 +253,6 @@ static inline void __neigh_parms_put(struct neigh_parms *parms)
- 	atomic_dec(&parms->refcnt);
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 88f870f..34349f9 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -104,7 +104,7 @@ static inline u32 frh_get_table(struct fib_rule_hdr *frh, struct nlattr **nla)
  }
  
--static inline void neigh_parms_put(struct neigh_parms *parms)
--{
--	if (atomic_dec_and_test(&parms->refcnt))
--		neigh_parms_destroy(parms);
--}
+ extern int fib_rules_register(struct net *, struct fib_rules_ops *);
+-extern int fib_rules_unregister(struct net *, struct fib_rules_ops *);
++extern void fib_rules_unregister(struct net *, struct fib_rules_ops *);
+ extern void                     fib_rules_cleanup_ops(struct fib_rules_ops *);
+ 
+ extern int			fib_rules_lookup(struct fib_rules_ops *,
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 0eecf4c..42ccaf5 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -115,29 +115,16 @@ void fib_rules_cleanup_ops(struct fib_rules_ops *ops)
+ }
+ EXPORT_SYMBOL_GPL(fib_rules_cleanup_ops);
+ 
+-int fib_rules_unregister(struct net *net, struct fib_rules_ops *ops)
++void fib_rules_unregister(struct net *net, struct fib_rules_ops *ops)
+ {
+-	int err = 0;
+-	struct fib_rules_ops *o;
+ 
+ 	spin_lock(&net->rules_mod_lock);
+-	list_for_each_entry(o, &net->rules_ops, list) {
+-		if (o == ops) {
+-			list_del_rcu(&o->list);
+-			fib_rules_cleanup_ops(ops);
+-			goto out;
+-		}
+-	}
 -
- static inline struct neigh_parms *neigh_parms_clone(struct neigh_parms *parms)
- {
- 	atomic_inc(&parms->refcnt);
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 9b0b773..41394db 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -55,6 +55,8 @@
+-	err = -ENOENT;
+-out:
++	list_del_rcu(&ops->list);
++	fib_rules_cleanup_ops(ops);
+ 	spin_unlock(&net->rules_mod_lock);
  
- #define PNEIGH_HASHMASK		0xF
- 
-+static inline void neigh_parms_put(struct neigh_parms *parms);
-+
- static void neigh_timer_handler(unsigned long arg);
- static void __neigh_notify(struct neighbour *n, int type, int flags);
- static void neigh_update_notify(struct neighbour *neigh);
-@@ -1348,7 +1350,7 @@ void neigh_parms_release(struct neigh_table *tbl, struct neigh_parms *parms)
- 	NEIGH_PRINTK1("neigh_parms_release: not found\n");
+ 	synchronize_rcu();
+-	if (!err)
+-		release_net(net);
+-
+-	return err;
++	release_net(net);
  }
  
--void neigh_parms_destroy(struct neigh_parms *parms)
-+static void neigh_parms_destroy(struct neigh_parms *parms)
- {
- 	release_net(parms->net);
- 	if (parms->dev)
-@@ -1356,6 +1358,13 @@ void neigh_parms_destroy(struct neigh_parms *parms)
- 	kfree(parms);
- }
- 
-+static inline void neigh_parms_put(struct neigh_parms *parms)
-+{
-+	if (atomic_dec_and_test(&parms->refcnt))
-+		neigh_parms_destroy(parms);
-+}
-+
-+
- static struct lock_class_key neigh_table_proxy_queue_class;
- 
- void neigh_table_init_no_netlink(struct neigh_table *tbl)
+ EXPORT_SYMBOL_GPL(fib_rules_unregister);
 -- 
 1.5.3.rc5
 
