@@ -1,46 +1,51 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [TOKENRING]: rif_timer not initialized properly
-Date: Mon, 14 Jan 2008 07:30:00 +0100
-Message-ID: <478B0168.1060809@cosmosbay.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [FIB]: full_children & empty_children should be uint, not
+ ushort
+Date: Sun, 13 Jan 2008 22:32:05 -0800 (PST)
+Message-ID: <20080113.223205.38618230.davem@davemloft.net>
+References: <4788A17D.5070903@cosmosbay.com>
+	<478A58BD.8010304@cosmosbay.com>
+	<18314.35427.947982.424287@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010704050106060601040502"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dada1@cosmosbay.com, stephen.hemminger@vyatta.com,
+	robert.olsson@its.uu.se, netdev@vger.kernel.org
+To: Robert.Olsson@data.slu.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:34472 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751546AbYANGaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 01:30:11 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49603
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750830AbYANGcF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 01:32:05 -0500
+In-Reply-To: <18314.35427.947982.424287@robur.slu.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010704050106060601040502
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+=46rom: Robert Olsson <Robert.Olsson@data.slu.se>
+Date: Sun, 13 Jan 2008 23:02:11 +0100
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+>=20
+> Eric Dumazet writes:
+>  > Eric Dumazet a =E9crit :
+>  > > 4) full_children & empty_children being 'unsigned short',
+>  > >    we probably are limited to 2^15 elements, but I could not
+>  > >    find this limit enforced somewhere.
+>=20
+>  > Two fixes are possible : Enlarge full_children & empty_children to=
+ 32bits, or=20
+>  > force a limit in code to never exceed 2^15 children in a tnode. I =
+chose the=20
+>  > first solution since it can be done with 0 memory cost on 64bit ar=
+ches.
+ ...
+>  Thanks for spotting this. No we don't want put limits on the (root) =
+node size.
+>  You see the comment in code is correct so unsigned short are some le=
+ftover from=20
+>  old testing which could have hit us hard as the routing table slowly=
+ grows.
+ ...
+> Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
 
---------------010704050106060601040502
-Content-Type: text/plain;
- name="tr.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="tr.patch"
-
-diff --git a/net/802/tr.c b/net/802/tr.c
-index a2bd0f2..1e115e5 100644
---- a/net/802/tr.c
-+++ b/net/802/tr.c
-@@ -642,7 +642,7 @@ struct net_device *alloc_trdev(int sizeof_priv)
- static int __init rif_init(void)
- {
- 	init_timer(&rif_timer);
--	rif_timer.expires  = sysctl_tr_rif_timeout;
-+	rif_timer.expires  = jiffies + sysctl_tr_rif_timeout;
- 	rif_timer.data     = 0L;
- 	rif_timer.function = rif_check_expire;
- 	add_timer(&rif_timer);
-
---------------010704050106060601040502--
+Applied, thanks everyone.
