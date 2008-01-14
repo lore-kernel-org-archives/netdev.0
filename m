@@ -1,85 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fib_semantics: prevent long hash chains in access
- server config
-Date: Sun, 13 Jan 2008 18:11:18 -0800 (PST)
-Message-ID: <20080113.181118.08046749.davem@davemloft.net>
-References: <20080112185819.GA12775@kvack.org>
-	<20080112.213857.68003780.davem@davemloft.net>
-	<20080113175849.GC12775@kvack.org>
+Subject: Re: Netconf at conf.au 2008?
+Date: Sun, 13 Jan 2008 18:12:27 -0800 (PST)
+Message-ID: <20080113.181227.67682894.davem@davemloft.net>
+References: <147a89290801112252gfcfaf11h1d25ee3c66e75881@mail.gmail.com>
+	<20080113181751.GA15063@lapse.madduck.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: bcrl@kvack.org
+To: madduck@madduck.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47351
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47354
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753947AbYANCLT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 21:11:19 -0500
-In-Reply-To: <20080113175849.GC12775@kvack.org>
+	by vger.kernel.org with ESMTP id S1753689AbYANCM1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 21:12:27 -0500
+In-Reply-To: <20080113181751.GA15063@lapse.madduck.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin LaHaise <bcrl@kvack.org>
-Date: Sun, 13 Jan 2008 12:58:49 -0500
+From: martin f krafft <madduck@madduck.net>
+Date: Sun, 13 Jan 2008 19:17:51 +0100
 
-> Ah, you're right indeed.  It's probably easier for me to change how the 
-> daemon adds the local ip address for these point to point interfaces.
+> also sprach Andy Johnson <johnsonzjo@gmail.com> [2008.01.12.0752 +0100]:
+> > I saw somewhere (maybe in this mailing list a while ago) that
+> > there might be a  Linux Kernel Developers' Netconf conference  at
+> > conf.au 2008.
+> 
+> I think you may be mixing things up, and it may be my fault in ways.
+> I am developing netconf: http://netconf.alioth.debian.org. I am
+> aware of the NETCONF protocol and have considered renaming my
+> project, but looking around, it seemed to me that NETCONF isn't
+> really all that active, and so I chose to keep the name. If people
+> think that wasn't wise, I'm willing to listen...
 
-I guess you didn't understand, I checked in the following
-patch which implements things correctly.
-
-commit d5414fdd4098742a5a9d255c4b9af587318c525f
-Author: David S. Miller <davem@davemloft.net>
-Date:   Sat Jan 12 21:49:01 2008 -0800
-
-    [IPV4] FIB: Include nexthop device indexes in fib_info hashfn.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 3ed920b..0e08df4 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -194,6 +194,15 @@ static __inline__ int nh_comp(const struct fib_info *fi, const struct fib_info *
- 	return 0;
- }
- 
-+static inline unsigned int fib_devindex_hashfn(unsigned int val)
-+{
-+	unsigned int mask = DEVINDEX_HASHSIZE - 1;
-+
-+	return (val ^
-+		(val >> DEVINDEX_HASHBITS) ^
-+		(val >> (DEVINDEX_HASHBITS * 2))) & mask;
-+}
-+
- static inline unsigned int fib_info_hashfn(const struct fib_info *fi)
- {
- 	unsigned int mask = (fib_hash_size - 1);
-@@ -202,6 +211,9 @@ static inline unsigned int fib_info_hashfn(const struct fib_info *fi)
- 	val ^= fi->fib_protocol;
- 	val ^= (__force u32)fi->fib_prefsrc;
- 	val ^= fi->fib_priority;
-+	for_nexthops(fi) {
-+		val ^= fib_devindex_hashfn(nh->nh_oif);
-+	} endfor_nexthops(fi)
- 
- 	return (val ^ (val >> 7) ^ (val >> 12)) & mask;
- }
-@@ -232,15 +244,6 @@ static struct fib_info *fib_find_info(const struct fib_info *nfi)
- 	return NULL;
- }
- 
--static inline unsigned int fib_devindex_hashfn(unsigned int val)
--{
--	unsigned int mask = DEVINDEX_HASHSIZE - 1;
--
--	return (val ^
--		(val >> DEVINDEX_HASHBITS) ^
--		(val >> (DEVINDEX_HASHBITS * 2))) & mask;
--}
--
- /* Check, that the gateway is already configured.
-    Used only by redirect accept routine.
-  */
+Netconf is the name of the usually annual conference the core
+Linux networking developer organize.
