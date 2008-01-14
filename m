@@ -1,31 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 8/8] [PKTGEN]: uninline getCurUs
-Date: Mon, 14 Jan 2008 00:54:36 -0800 (PST)
-Message-ID: <20080114.005436.70685206.davem@davemloft.net>
-References: <Pine.LNX.4.64.0801140920580.31652@kivilampi-30.cs.helsinki.fi>
-	<20080113.235113.170762359.davem@davemloft.net>
-	<Pine.LNX.4.64.0801140952100.31652@kivilampi-30.cs.helsinki.fi>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Netperf TCP_RR(loopback) 10% regression in 2.6.24-rc6,	comparing
+ with 2.6.22
+Date: Mon, 14 Jan 2008 11:21:17 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0801141118450.31652@kivilampi-30.cs.helsinki.fi>
+References: <1199871330.3298.132.camel@ymzhang> <1200043854.3265.24.camel@ymzhang>
+ <Pine.LNX.4.64.0801141036400.31652@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-940495112-1200302477=:31652"
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45328
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751490AbYANIyj convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jan 2008 03:54:39 -0500
-In-Reply-To: <Pine.LNX.4.64.0801140952100.31652@kivilampi-30.cs.helsinki.fi>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33314 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752121AbYANJVT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 04:21:19 -0500
+In-Reply-To: <Pine.LNX.4.64.0801141036400.31652@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Mon, 14 Jan 2008 10:33:34 +0200 (EET)
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> Thanks anyway for the tips & all, I think we have it now working
-> and I can return to inlines and rexmit_skb_hint things & other TCP
-> stuff rather than this hinderance. I've some interesting results
-> from net header inlines checks I ran overnight :-).
+---696243703-940495112-1200302477=:31652
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Great, I look forward to seeing it :)
+On Mon, 14 Jan 2008, Ilpo Järvinen wrote:
+
+> On Fri, 11 Jan 2008, Zhang, Yanmin wrote:
+> 
+> > On Wed, 2008-01-09 at 17:35 +0800, Zhang, Yanmin wrote: 
+> > > 
+> > > As a matter of fact, 2.6.23 has about 6% regression and 2.6.24-rc's
+> > > regression is between 16%~11%.
+> > > 
+> > > I tried to use bisect to locate the bad patch between 2.6.22 and 2.6.23-rc1,
+> > > but the bisected kernel wasn't stable and went crazy.
+> 
+> TCP work between that is very much non-existing.
+
+I _really_ meant 2.6.22 - 2.6.23-rc1, not 2.6.24-rc1 in case you had a 
+typo there which is not that uncommon while typing kernel versions... :-)
+
+-- 
+ i.
+---696243703-940495112-1200302477=:31652--
