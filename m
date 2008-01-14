@@ -1,55 +1,31 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Netperf TCP_RR(loopback) 10% regression in 2.6.24-rc6,	comparing
- with 2.6.22
-Date: Mon, 14 Jan 2008 10:44:40 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0801141036400.31652@kivilampi-30.cs.helsinki.fi>
-References: <1199871330.3298.132.camel@ymzhang> <1200043854.3265.24.camel@ymzhang>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH 8/8] [PKTGEN]: uninline getCurUs
+Date: Mon, 14 Jan 2008 00:54:36 -0800 (PST)
+Message-ID: <20080114.005436.70685206.davem@davemloft.net>
+References: <Pine.LNX.4.64.0801140920580.31652@kivilampi-30.cs.helsinki.fi>
+	<20080113.235113.170762359.davem@davemloft.net>
+	<Pine.LNX.4.64.0801140952100.31652@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:58335 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751417AbYANIom (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 03:44:42 -0500
-In-Reply-To: <1200043854.3265.24.camel@ymzhang>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45328
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751490AbYANIyj convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 03:54:39 -0500
+In-Reply-To: <Pine.LNX.4.64.0801140952100.31652@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 11 Jan 2008, Zhang, Yanmin wrote:
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Mon, 14 Jan 2008 10:33:34 +0200 (EET)
 
-> On Wed, 2008-01-09 at 17:35 +0800, Zhang, Yanmin wrote: 
-> > The regression is:
-> > 1)stoakley with 2 qual-core processors: 11%;
-> > 2)Tulsa with 4 dual-core(+hyperThread) processors:13%;
-> I have new update on this issue and also cc to netdev maillist.
-> Thank David Miller for pointing me the netdev maillist.
-> 
-> > 
-> > The test command is:
-> > #sudo taskset -c 7 ./netserver
-> > #sudo taskset -c 0 ./netperf -t TCP_RR -l 60 -H 127.0.0.1 -i 50,3 -I 99,5 -- -r 1,1
-> > 
-> > As a matter of fact, 2.6.23 has about 6% regression and 2.6.24-rc's
-> > regression is between 16%~11%.
-> > 
-> > I tried to use bisect to locate the bad patch between 2.6.22 and 2.6.23-rc1,
-> > but the bisected kernel wasn't stable and went crazy.
+> Thanks anyway for the tips & all, I think we have it now working
+> and I can return to inlines and rexmit_skb_hint things & other TCP
+> stuff rather than this hinderance. I've some interesting results
+> from net header inlines checks I ran overnight :-).
 
-TCP work between that is very much non-existing.
-
-Using git-reset's to select a nearby merge point instead of default 
-commit where bisection lands might be help in case the bisected kernel 
-breaks.
-
-Also, limiting bisection under a subsystem might reduce probability of 
-brokeness (might at least be able to narrow it down quite a lot), e.g.
-
-git bisect start net/
-
-
--- 
- i.
+Great, I look forward to seeing it :)
