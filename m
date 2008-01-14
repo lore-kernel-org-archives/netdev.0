@@ -1,134 +1,71 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] [IPV4] fib_trie: size and statistics
-Date: Mon, 14 Jan 2008 12:57:55 -0800
-Message-ID: <20080114125755.6157a3bf@deepthought>
-References: <20080112064646.282104074@linux-foundation.org>
-	<20080112.205520.55747078.davem@davemloft.net>
-	<4789A29C.6080000@linux-foundation.org>
-	<20080112.214417.154179770.davem@davemloft.net>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: [BUG] skge 0000:02:05: read data parity error
+Date: Mon, 14 Jan 2008 23:01:05 +0200
+Message-ID: <20080114210105.GG9847@does.not.exist>
+References: <6101e8c40801141157j1ce7d3f0if2e4eb2344b6c844@mail.gmail.com> <20080114125200.28cb4c69@deepthought>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: robert.olsson@its.uu.se, netdev@vger.kernel.org,
-	stephen.hemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:46993 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750830AbYANVBK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 16:01:10 -0500
-In-Reply-To: <20080112.214417.154179770.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Pinter =?utf-8?B?KFBpbnTDqXIgT2xpdsOpcik=?=
+	<oliver.pntr@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, gregkh@suse.de
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754213AbYANVCY@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080114125200.28cb4c69@deepthought>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Show number of entries in trie, the size field was being set but never used,
-but it only counted leaves, not all entries. Refactor the two cases in
-fib_triestat_seq_show into a single routine.
+On Mon, Jan 14, 2008 at 12:52:00PM -0800, Stephen Hemminger wrote:
+> On Mon, 14 Jan 2008 20:57:49 +0100
+> "Oliver Pinter (Pint=C3=A9r Oliv=C3=A9r)" <oliver.pntr@gmail.com> wro=
+te:
+>=20
+> > Hi All!
+> >=20
+> > It is fully reproductable under 2.6.22.15, 2.6.23.13 (all tainted a=
+nd
+> > not tainted [4 different kernel] ) and 2 different PC:
+> >=20
+> > [BUG] skge 0000:02:05: read data parity error
+> > [BUG] skge 0000:02:05: read data parity error
+> >=20
+> > steps:
+> > 1. login as root
+> > 2. start mc
+> > 3. cd /sys/bus/pci/drivers/skge/0000:02:05.0
+> > 4. press F3 (mcview) on resource0
+> > 5. the system hang up, without panic or bug ... only this message
+> > printed 2x: [BUG] skge 0000:02:05: read data parity error
+>=20
+> This is not a bug.
+>=20
+> The hardware has some debug registers that if accessed cause a read
+> back to the host. Since this can point anywhere, it will cause errors
+> or system hang.
+>=20
+> The point is don't do it.
 
-Note: the stat structure was being malloc'd but the stack usage isn't so
-high (288 bytes) that it is worth the additional complexity.
+Is it really a good idea that _reading_ files under /sys can kill your=20
+machine?
 
-Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
----
-Patch against current net-2.6.25
+That sounds like a huge trap for people debugging their machine (or e.g=
+=2E=20
+forgetting to exclude /sys from their backup).
 
---- a/net/ipv4/fib_trie.c	2008-01-14 10:16:06.000000000 -0800
-+++ b/net/ipv4/fib_trie.c	2008-01-14 10:30:11.000000000 -0800
-@@ -148,10 +148,10 @@ struct trie_stat {
- 
- struct trie {
- 	struct node *trie;
-+	unsigned int size;
- #ifdef CONFIG_IP_FIB_TRIE_STATS
- 	struct trie_use_stats stats;
- #endif
--	int size;
- };
- 
- static void put_child(struct trie *t, struct tnode *tn, int i, struct node *n);
-@@ -1045,7 +1045,6 @@ static struct list_head *fib_insert_node
- 		insert_leaf_info(&l->list, li);
- 		goto done;
- 	}
--	t->size++;
- 	l = leaf_new();
- 
- 	if (!l)
-@@ -1258,6 +1257,8 @@ static int fn_trie_insert(struct fib_tab
- 	list_add_tail_rcu(&new_fa->fa_list,
- 			  (fa ? &fa->fa_list : fa_head));
- 
-+	t->size++;
-+
- 	rt_cache_flush(-1);
- 	rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, tb->tb_id,
- 		  &cfg->fc_nlinfo, 0);
-@@ -2128,50 +2129,34 @@ static void trie_show_usage(struct seq_f
- }
- #endif /*  CONFIG_IP_FIB_TRIE_STATS */
- 
-+static void fib_trie_show(struct seq_file *seq, const char *name, struct trie *trie)
-+{
-+	struct trie_stat stat;
-+
-+	seq_printf(seq, "%s: %d\n", name, trie->size);
-+	trie_collect_stats(trie, &stat);
-+	trie_show_stats(seq, &stat);
-+#ifdef CONFIG_IP_FIB_TRIE_STATS
-+	trie_show_usage(seq, &trie->stats);
-+#endif
-+}
- 
- static int fib_triestat_seq_show(struct seq_file *seq, void *v)
- {
- 	struct net *net = (struct net *)seq->private;
--	struct trie *trie_local, *trie_main;
--	struct trie_stat *stat;
- 	struct fib_table *tb;
- 
--	trie_local = NULL;
-+	seq_printf(seq,
-+		   "Basic info: size of leaf: %Zd bytes, size of tnode: %Zd bytes.\n",
-+		   sizeof(struct leaf), sizeof(struct tnode));
-+
- 	tb = fib_get_table(net, RT_TABLE_LOCAL);
- 	if (tb)
--		trie_local = (struct trie *) tb->tb_data;
--
--	trie_main = NULL;
-+		fib_trie_show(seq, "Local", (struct trie *) tb->tb_data);
-+
- 	tb = fib_get_table(net, RT_TABLE_MAIN);
- 	if (tb)
--		trie_main = (struct trie *) tb->tb_data;
--
--
--	stat = kmalloc(sizeof(*stat), GFP_KERNEL);
--	if (!stat)
--		return -ENOMEM;
--
--	seq_printf(seq, "Basic info: size of leaf: %Zd bytes, size of tnode: %Zd bytes.\n",
--		   sizeof(struct leaf), sizeof(struct tnode));
--
--	if (trie_local) {
--		seq_printf(seq, "Local:\n");
--		trie_collect_stats(trie_local, stat);
--		trie_show_stats(seq, stat);
--#ifdef CONFIG_IP_FIB_TRIE_STATS
--		trie_show_usage(seq, &trie_local->stats);
--#endif
--	}
--
--	if (trie_main) {
--		seq_printf(seq, "Main:\n");
--		trie_collect_stats(trie_main, stat);
--		trie_show_stats(seq, stat);
--#ifdef CONFIG_IP_FIB_TRIE_STATS
--		trie_show_usage(seq, &trie_main->stats);
--#endif
--	}
--	kfree(stat);
-+		fib_trie_show(seq, "Main", (struct trie *) tb->tb_data);
- 
- 	return 0;
- }
+cu
+Adrian
+
+--=20
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
+ in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
