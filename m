@@ -1,40 +1,63 @@
-From: Greg KH <gregkh@suse.de>
+From: Adrian Bunk <bunk@kernel.org>
 Subject: Re: [BUG] skge 0000:02:05: read data parity error
-Date: Mon, 14 Jan 2008 13:48:28 -0800
-Message-ID: <20080114214828.GA8128@suse.de>
+Date: Mon, 14 Jan 2008 23:52:09 +0200
+Message-ID: <20080114215209.GK9847@does.not.exist>
 References: <6101e8c40801141157j1ce7d3f0if2e4eb2344b6c844@mail.gmail.com> <20080114125200.28cb4c69@deepthought> <20080114210105.GG9847@does.not.exist> <6101e8c40801141331n3cb66c04pc74ff07faf04c8fd@mail.gmail.com> <20080114213453.GJ9847@does.not.exist> <6101e8c40801141341hcb17b08h2fd5244bccb21928@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Adrian Bunk <bunk@kernel.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Oliver Pinter (Pint?r Oliv?r)" <oliver.pntr@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	gregkh@suse.de
+To: Oliver Pinter =?utf-8?B?KFBpbnTDqXIgT2xpdsOpcik=?=
+	<oliver.pntr@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:50773 "EHLO mx2.suse.de"
+Received: from smtp5.pp.htv.fi ([213.243.153.39]:57627 "EHLO smtp5.pp.htv.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750921AbYANVs0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jan 2008 16:48:26 -0500
+	id S1752577AbYANVxJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 16:53:09 -0500
 Content-Disposition: inline
 In-Reply-To: <6101e8c40801141341hcb17b08h2fd5244bccb21928@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 14, 2008 at 10:41:52PM +0100, Oliver Pinter (Pint?r Oliv?r) wrote:
+On Mon, Jan 14, 2008 at 10:41:52PM +0100, Oliver Pinter (Pint=C3=A9r Ol=
+iv=C3=A9r) wrote:
 > On 1/14/08, Adrian Bunk <bunk@kernel.org> wrote:
-> > On Mon, Jan 14, 2008 at 10:31:03PM +0100, Oliver Pinter (Pint?r Oliv?r)
+> > On Mon, Jan 14, 2008 at 10:31:03PM +0100, Oliver Pinter (Pint=C3=A9=
+r Oliv=C3=A9r)
 > > wrote:
-> > > I think, it is a potential security breakpoint, when applications with
-> > > root permission its read, then a machine is freezed, or only i thin
+> > > I think, it is a potential security breakpoint, when applications=
+ with
+> > > root permission its read, then a machine is freezed, or only i th=
+in
 > > > it's?
 > >
 > > When you are root there are infinite ways to kill your machine, so
 > > there's nothing security related about this issue.
-> 
+>=20
 > Yes, i know, but when some application or daemons read some file with
 > running root privileges, then ...
+>=20
+> thanks, then it is only a "feature" and not bug.
 
-It's always been that way, this is nothing new.
+It might be a bug in the application.
 
-thanks,
+But there are worse things than crashing your machine (e.g. getting you=
+r=20
+/etc/shadow) that can happen when someone with bad intentions can read=20
+files with root privileges.
 
-greg k-h
+> Thanks,
+> Oliver
+
+cu
+Adrian
+
+--=20
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
