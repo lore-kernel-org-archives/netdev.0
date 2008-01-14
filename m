@@ -1,56 +1,35 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: 2.6.24-rc6-mm1 - oddness with IPv4/v6 mapped sockets hanging...
-Date: Mon, 14 Jan 2008 13:05:48 -0500
-Message-ID: <31130.1200333948@turing-police.cc.vt.edu>
-References: <30887.1200209733@turing-police.cc.vt.edu> <7197.1200327338@turing-police.cc.vt.edu>
-            <200801141136.41140.paul.moore@hp.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: occasionally corrupted network stats in /proc/net/dev
+Date: Mon, 14 Jan 2008 10:08:59 -0800
+Message-ID: <478BA53B.9060504@candelatech.com>
+References: <478B99E6.2050800@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1200333948_3045P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
+Cc: netdev@vger.kernel.org
+To: Mark Seger <Mark.Seger@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from turing-police.cc.vt.edu ([128.173.14.107]:57322 "EHLO
-	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750898AbYANSF7 (ORCPT
-	<RFC822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 13:05:59 -0500
-In-Reply-To: Your message of "Mon, 14 Jan 2008 11:36:40 EST."
-             <200801141136.41140.paul.moore@hp.com>
+Received: from ns2.lanforge.com ([66.165.47.211]:39800 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750985AbYANSJC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 13:09:02 -0500
+In-Reply-To: <478B99E6.2050800@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1200333948_3045P
-Content-Type: text/plain; charset=us-ascii
+Mark Seger wrote:
+> I had posted the following on linux-net and haven't see any responses 
+> possibly because nobody had any or that list is obsolete.  I have been 
+> told this is the current list for everything networking on linux so I 
+> thought I'd try again...
+Do you see this with multiple network drivers, or just with one 
+particular driver.  If so, which one?
 
-On Mon, 14 Jan 2008 11:36:40 EST, Paul Moore said:
+Thanks,
+Ben
 
-> Are you still only seeing these problems on loopback?  I can't help but wonder 
-> if this is the skb_clone() problem where it wasn't copying skb->iif causing 
-> SELinux to silently drop the packets.
-
-Yes, I've only spotted it on loopback.  The odd part is that I had reverted the
-one commit 9c6ad8f6895db7a517c04c2147cb5e7ffb83a315 "Convert the netif code to
-use ifindex values" - so either I managed to get the revert terribly wrong,
-or there's something else odd going on.  The first time around, I was seeing
-hangs during a TCP 3-packet handshake - this time data flows for some number
-of packets before hanging.
-
-I'm pulling  git://git.infradead.org/users/pcmoore/lblnet-2.6_testing at the
-moment, and seeing if there's already a fix in there for this.
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
 
 
---==_Exmh_1200333948_3045P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.8 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFHi6R8cC3lWbTT17ARArXKAKDffj0290XpKY6OITSMmqU9uGnHQACg9r43
-Aw9JW6hnv12Wlfj2OQzS3jU=
-=7/3J
------END PGP SIGNATURE-----
-
---==_Exmh_1200333948_3045P--
