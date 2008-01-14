@@ -1,40 +1,44 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: Re: [patch 5/7] netxen: fix race in interrupt / napi
-Date: Mon, 14 Jan 2008 10:00:21 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0801140959480.2721@dut46.unminc.com>
-References: <20071226182352.704678179@netxen.com> <20071226182927.778015972@netxen.com>
- <4789414B.40800@garzik.org>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [PATCH 9/9] fix sparse warnings
+Date: Mon, 14 Jan 2008 18:59:25 +0100
+Message-ID: <18315.41725.417992.715140@robur.slu.se>
+References: <20080112064513.803976049@linux-foundation.org>
+	<20080112064646.659443238@linux-foundation.org>
+	<4788A17D.5070903@cosmosbay.com>
+	<20080112130824.54cc1fc3@deepthought>
+	<18315.16984.456053.250600@robur.slu.se>
+	<478B9D0B.5040301@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Robert Olsson <robert.olsson@its.uu.se>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:34492 "EHLO
-	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751343AbYANR7f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 12:59:35 -0500
-In-Reply-To: <4789414B.40800@garzik.org>
+Received: from mx1.slu.se ([130.238.96.70]:37991 "EHLO mx1.slu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751346AbYANSAG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 13:00:06 -0500
+In-Reply-To: <478B9D0B.5040301@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ok, I will respin the failed patches.
 
-Thanks,
--Dhananjay
+Eric Dumazet writes:
 
-On Sat, 12 Jan 2008, Jeff Garzik wrote:
+ > > Thats 231173/241649 = 96% with the current Internet routing.
+ > >
+ > > How about if would have a fastpath and store one entry direct in the 
+ > > leaf struct this to avoid loading the leaf_info list in most cases?
+ > >
+ > > One could believe that both lookup and dump could improve.
+ > >
+ > You mean to include one "leaf_info" inside leaf structure, so that we 
+ > can access it without cache line miss ?
 
-> patch conflicted with
-> 
-> commit 1706287f6eb58726a9a0e5cbbde87f49757615e3
-> Author: David S. Miller <davem@davemloft.net>
-> Date:   Mon Jan 7 20:51:29 2008 -0800
-> 
->     [NETXEN]: Fix ->poll() done logic.
-> 
->     If work_done >= budget we should always elide the NAPI
->     completion.
-> 
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> 
+ Yes.
+
+ Cheers
+					--ro
