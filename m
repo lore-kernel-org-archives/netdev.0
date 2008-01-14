@@ -1,37 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Netconf at conf.au 2008?
-Date: Sun, 13 Jan 2008 18:12:27 -0800 (PST)
-Message-ID: <20080113.181227.67682894.davem@davemloft.net>
-References: <147a89290801112252gfcfaf11h1d25ee3c66e75881@mail.gmail.com>
-	<20080113181751.GA15063@lapse.madduck.net>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Subject: Re: Netperf TCP_RR(loopback) 10% regression in
+	2.6.24-rc6,	comparing with 2.6.22
+Date: Mon, 14 Jan 2008 11:11:32 +0800
+Message-ID: <1200280292.3151.24.camel@ymzhang>
+References: <1199871330.3298.132.camel@ymzhang>
+	 <1200043854.3265.24.camel@ymzhang>  <4787ADDA.7090602@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: madduck@madduck.net
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47354
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753689AbYANCM1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 21:12:27 -0500
-In-Reply-To: <20080113181751.GA15063@lapse.madduck.net>
+Received: from mga10.intel.com ([192.55.52.92]:60495 "EHLO
+	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751360AbYANDOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 22:14:45 -0500
+In-Reply-To: <4787ADDA.7090602@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: martin f krafft <madduck@madduck.net>
-Date: Sun, 13 Jan 2008 19:17:51 +0100
-
-> also sprach Andy Johnson <johnsonzjo@gmail.com> [2008.01.12.0752 +0100]:
-> > I saw somewhere (maybe in this mailing list a while ago) that
-> > there might be a  Linux Kernel Developers' Netconf conference  at
-> > conf.au 2008.
+On Fri, 2008-01-11 at 09:56 -0800, Rick Jones wrote:
+> >>The test command is:
+> >>#sudo taskset -c 7 ./netserver
+> >>#sudo taskset -c 0 ./netperf -t TCP_RR -l 60 -H 127.0.0.1 -i 50,3 -I 99,5 -- -r 1,1
 > 
-> I think you may be mixing things up, and it may be my fault in ways.
-> I am developing netconf: http://netconf.alioth.debian.org. I am
-> aware of the NETCONF protocol and have considered renaming my
-> project, but looking around, it seemed to me that NETCONF isn't
-> really all that active, and so I chose to keep the name. If people
-> think that wasn't wise, I'm willing to listen...
+> A couple of comments/questions on the command lines:
+Thanks for your kind comments.
 
-Netconf is the name of the usually annual conference the core
-Linux networking developer organize.
+> 
+> *) netperf/netserver support CPU affinity within themselves with the 
+> global -T option to netperf.  Is the result with taskset much different? 
+>    The equivalent to the above would be to run netperf with:
+> 
+> ./netperf -T 0,7 ..
+I checked the source codes and didn't find this option.
+I use netperf V2.3 (I found the number in the makefile).
+
+> .
+> 
+> The one possibly salient difference between the two is that when done 
+> within netperf, the initial process creation will take place wherever 
+> the scheduler wants it.
+> 
+> *) The -i option to set the confidence iteration count will silently cap 
+> the max at 30.
+Indeed, you are right.
+
+-yanmin
+
+
