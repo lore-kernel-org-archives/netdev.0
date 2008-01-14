@@ -1,98 +1,61 @@
-From: supersud501 <supersud501@yahoo.de>
-Subject: Re: [Bugme-new] [Bug 9721] New: wake on lan fails with sky2 module
-Date: Sun, 13 Jan 2008 23:53:18 +0100
-Message-ID: <478A965E.8070306@yahoo.de>
-References: <bug-9721-10286@http.bugzilla.kernel.org/> <478A743C.9050405@yahoo.de> <20080113125708.070b4843.akpm@linux-foundation.org> <200801132227.59229.rjw@sisk.pl>
+From: Neil Brown <neilb@suse.de>
+Subject: Re: Top 10 kernel oopses for the week ending January 5th, 2008
+Date: Mon, 14 Jan 2008 12:36:10 +1100
+Message-ID: <18314.48266.220382.180206@notabene.brown>
+References: <477FF149.4070609@linux.intel.com>
+	<20080105213935.GN27894@ZenIV.linux.org.uk>
+	<20080107174431.GC27741@fieldses.org>
+	<4782CF9C.6000508@gmail.com>
+	<alpine.LFD.1.00.0801071851120.3148@woody.linux-foundation.org>
+	<20080108055917.GZ27894@ZenIV.linux.org.uk>
+	<18309.39804.31974.851666@notabene.brown>
+	<20080110055359.GA27894@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-acpi@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp002.mail.ukl.yahoo.com ([217.12.11.33]:36270 "HELO
-	smtp002.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753303AbYAMWxV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 17:53:21 -0500
-In-Reply-To: <200801132227.59229.rjw@sisk.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Kevin Winchester <kjwinchester@gmail.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDev <netdev@vger.kernel.org>, gregkh@suse.de
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755385AbYANBgj@vger.kernel.org>
+In-Reply-To: message from Al Viro on Thursday January 10
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-Rafael J. Wysocki wrote:
-> I wonder if commit 84cd2dfb04d23a961c5f537baa243fa54d0987ac
-> "sky2: remove check for PCI wakeup setting from BIOS" has anything to do with
-> it, btw.
+On Thursday January 10, viro@ZenIV.linux.org.uk wrote:
+> On Thu, Jan 10, 2008 at 03:13:48PM +1100, Neil Brown wrote:
+> > > What guarantees that it doesn't happen before we get to callback?  AFAICS,
+> > > nothing whatsoever...
+> > 
+> > Yes, that's bad isn't it :-)
+> > 
+> > I think I should be using sysfs_schedule_callback here.  That makes the 
+> > required 'get' and 'put' calls.... but it can fail with -ENOMEM.  I
+> > wonder what I do if -ENOMEM???  Maybe I'll just continue to roll my
+> > one :-( 
 > 
-> supersud501, can you please check if the bug is still present in the current
-> Linus' tree?
+> How about this instead (completely untested)
 > 
+> 	* split failure exits
+> 	* switch to kick_rdev_from_array()
+> 	* fold unbind_rdev_from_array() into it (no other callers anymore)
+> 	* take export_rdev() into failure case in bind_rdev_to_array()
+> 	* in kick_rdev_from_array() do what export_rdev() does sans
+> kobject_put() and do that before schedule_work().  Take kobject_put() into
+> delayed_delete().
 
-I checked it (after git pulling the dir), and it still doesn't work. but 
-the dmesg-output wasn't filled with those errors i reported before anymore.
+While there are probably some good ideas in there, I think fixing this
+particular bug is much simpler.  Just take a reference to the object
+before scheduling the worker, and drop it when the worker has done
+its work.
 
-after removing that one commit ("enable PCI config writes") wol works 
-again, but the dmesg output is filled too! so that seems to be the 
-source of the full dmesg-output. here a little bit more of the 
-dmesg-output (but maybe i should open a new bug report?)
+I have a closer look at the idea of no required export_rdev after a
+failed bind_rdev_to_array.  On the surface it does seem to make the
+code nicer.
 
-[...] rmmod sky2 --->
-
-[ 1182.964000] sky2 eth0: disabling interface
-[ 1183.255862] ACPI: PCI interrupt for device 0000:02:00.0 disabled
-
-	modprobe syk2 -->
-
-[ 1192.951021] ACPI: PCI Interrupt 0000:02:00.0[A] -> GSI 19 (level, 
-low) -> IRQ 19
-[ 1192.951034] PCI: Setting latency timer of device 0000:02:00.0 to 64
-[ 1192.951618] sky2 0000:02:00.0: v1.20 addr 0xf89fc000 irq 19 Yukon-EC 
-(0xb6) rev 2
-[ 1192.951636] sky2 0000:02:00.0: ignoring stuck error report bit
-[ 1192.952425] sky2 eth0: addr 00:18:f3:fe:93:11
-
-	ifdown eth0 && ifup eth0 -->
-
-[ 1207.425171] sky2 eth0: enabling interface
-[ 1209.806138] printk: 97 messages suppressed.
-[ 1209.806143] sky2 0000:02:00.0: error interrupt status=0x80000010
-[ 1209.807184] sky2 eth0: Link is up at 100 Mbps, full duplex, flow 
-control rx
-[ 1209.807502] sky2 0000:02:00.0: error interrupt status=0x80000000
-[ 1210.621117] sky2 0000:02:00.0: error interrupt status=0xc0000000
-[ 1210.660325] sky2 0000:02:00.0: error interrupt status=0x80000000
-[ 1210.996873] sky2 0000:02:00.0: error interrupt status=0xc0000000
-[ 1211.645470] printk: 1 messages suppressed.
-[ 1211.645474] sky2 0000:02:00.0: error interrupt status=0xc0000000
-[ 1216.656564] printk: 328 messages suppressed.
-[ 1216.656569] sky2 0000:02:00.0: error interrupt status=0x80000000
-[ 1221.653677] printk: 17 messages suppressed.
-[ 1221.653681] sky2 0000:02:00.0: error interrupt status=0x80000000
-
---> every 5 sec a new error
-[...]
-
-
--------------
-
-and i noticed one more thing (i thought would just happen occasionally):
-
-everytime wol does not work (sending the magic packet does nothing), i 
-have to cut off my pc completely from power because otherwise (powering 
-it up by power button) it hangs endless on hard-disk-dedection (s-ata). 
-other users with my mobo report same issues from time to time, but mine 
-seems to be 100% reproducable.
-
-reenabling wol by removing the commit fixes this problem, too. the next 
-new bug report i think.
-
--------------
-
-
-btw, if anyone could tell me a way to rebuild only some modules (so i 
-get the .ko file directly and can replace it by hand in 
-/lib/modules/...) i could hack around a little bit too in sky2.c (or so) 
-without the need to reinstall the whole kernel in order to test it...
+Thanks,
+NeilBrown
