@@ -1,48 +1,79 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: 2.6.24-rc6-mm1 - oddness with IPv4/v6 mapped sockets hanging...
-Date: Mon, 14 Jan 2008 14:07:46 -0500
-Message-ID: <200801141407.46345.paul.moore@hp.com>
-References: <30887.1200209733@turing-police.cc.vt.edu> <32065.1200334930@turing-police.cc.vt.edu> <1030.1200336639@turing-police.cc.vt.edu>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: occasionally corrupted network stats in /proc/net/dev
+Date: Mon, 14 Jan 2008 20:12:59 +0100
+Message-ID: <478BB43B.8060905@cosmosbay.com>
+References: <478B99E6.2050800@hp.com> <478BA53B.9060504@candelatech.com> <478BA8D7.8050803@hp.com> <478BAF47.10607@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Valdis.Kletnieks@vt.edu
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org,
+	mchan@broadcom.com
+To: Mark Seger <Mark.Seger@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:4421 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750702AbYANTHy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 14:07:54 -0500
-In-Reply-To: <1030.1200336639@turing-police.cc.vt.edu>
-Content-Disposition: inline
+Received: from smtp2f.orange.fr ([80.12.242.151]:2136 "EHLO smtp2f.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750908AbYANTNU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 14:13:20 -0500
+Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf2f12.orange.fr (SMTP Server) with ESMTP id 9572970001A3
+	for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 20:13:18 +0100 (CET)
+In-Reply-To: <478BAF47.10607@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 14 January 2008 1:50:39 pm Valdis.Kletnieks@vt.edu wrote:
-> On Mon, 14 Jan 2008 13:22:10 EST, Valdis.Kletnieks@vt.edu said:
-> > Apparently the only new commit in there since the tree that was in
-> > 24-rc6-mm1 is 5d95575903fd3865b884952bd93c339d48725c33 adding some
-> > warning printk's.  Would it be more productive to test against the full
-> > tree, or leaving out the one commit I already reverted?
+Mark Seger a =E9crit :
+> Ignore that last one as it was pointed out to me that we have both ni=
+c=20
+> installed on many of our systems and ethtool told me the one=20
+> associated with the nic is actually the broadcom one.
 >
-> <voice=Emily Litella> Nevermind... </voice> :)
+> version:        1.4.38 E1B1EC867DEEB8027B2DA0F
+> license:        GPL
+> description:    Broadcom NetXtreme II BCM5706/5708 Driver
 >
-> The new commit won't apply with the other one reverted - it patches
-> security/selinux/netnode.c which was created by the problematic commit...
 
-There have been quite a few changes in lblnet-2.6_testing since 2.6.24-rc6-mm1 
-so I would recommend taking the whole tree.  I'm also not quite sure if 
-simply reverting the "Convert the netif code to use ifindex values" patch 
-would solve the problem as there are other patches in the rc6-mm1 tree that 
-rely on skb->iif being valid (new code, not converted code).  If you want to 
-stick with a _relatively_ vanilla rc6-mm1 tree I would leave everything in 
-and simply apply the following patch which solved the skb_clone()/iif 
-problem:
+I remember some tg3 chips actually have bugs when reporting stats....=20
+once in a while
 
-http://git.infradead.org/?p=users/pcmoore/lblnet-2.6_testing;a=commitdiff;h=02f1c89d6e36507476f78108a3dcc78538be460b
+CCed to Michael Chan to get some details.
 
--- 
-paul moore
-linux security @ hp
+
+> -mark
+>
+> Mark Seger wrote:
+>> I'll try to get data on the other systems reporting it and as I said=
+=20
+>> it does not  happen all that often AND you have to be looking for=20
+>> it.  The system I've personally seen it happen on several times is=20
+>> running RHEL4/U4 which redhat numbers 2.6.9-42 and from modinfo I se=
+e:
+>> version:        7.0.33-k2-NAPI 51E97FEE51D0772AFC89130
+>> description:    Intel(R) PRO/1000 Network Driver
+>>
+>> -mark
+>>
+>> Ben Greear wrote:
+>>> Mark Seger wrote:
+>>>> I had posted the following on linux-net and haven't see any=20
+>>>> responses possibly because nobody had any or that list is=20
+>>>> obsolete.  I have been told this is the current list for everythin=
+g=20
+>>>> networking on linux so I thought I'd try again...
+>>> Do you see this with multiple network drivers, or just with one=20
+>>> particular driver.  If so, which one?
+>>>
+>>> Thanks,
+>>> Ben
+>>>
+>
+> --=20
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
+
+
+
+
