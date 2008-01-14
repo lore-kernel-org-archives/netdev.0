@@ -1,48 +1,67 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH net-2.6.25] [ARP] Move inet_addr_type call after simple error checks in arp_contructor.
-Date: Mon, 14 Jan 2008 16:53:32 +0300
-Message-ID: <1200318812-18333-1-git-send-email-den@openvz.org>
+Subject: [PATCH 2/2 net-2.6.25] [NETNS] Process inet_confirm_addr in the correct namespace.
+Date: Mon, 14 Jan 2008 17:04:41 +0300
+Message-ID: <1200319481-18459-2-git-send-email-den@openvz.org>
+References: <1200319481-18459-1-git-send-email-den@openvz.org>
 Cc: netdev@vger.kernel.org, devel@openvz.org,
 	"Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:56500 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:55198 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751051AbYANNxc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jan 2008 08:53:32 -0500
+	id S1751055AbYANOEk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 09:04:40 -0500
+In-Reply-To: <1200319481-18459-1-git-send-email-den@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The neighbour entry will be destroyed in the case of error, so it is pointless
-to perform constly routing table lookup in this case.
+inet_confirm_addr can be called with NULL in_dev from arp_ignore iff
+scope is RT_SCOPE_LINK.
+
+Lets always pass the device and check for RT_SCOPE_LINK scope inside
+inet_confirm_addr. This let us take network namespace from in_device a
+need for an additional argument.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- net/ipv4/arp.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/ipv4/arp.c     |    1 -
+ net/ipv4/devinet.c |    6 ++++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
 diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index b715ec0..49c24ff 100644
+index f38e1a9..b715ec0 100644
 --- a/net/ipv4/arp.c
 +++ b/net/ipv4/arp.c
-@@ -235,8 +235,6 @@ static int arp_constructor(struct neighbour *neigh)
- 	struct in_device *in_dev;
- 	struct neigh_parms *parms;
+@@ -402,7 +400,6 @@ static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
+ 	case 3:	/* Do not reply for scope host addresses */
+ 		sip = 0;
+ 		scope = RT_SCOPE_LINK;
+-		in_dev = NULL;
+ 		break;
+ 	case 4:	/* Reserved */
+ 	case 5:
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index dc1665a..4569c69 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -978,13 +978,15 @@ __be32 inet_confirm_addr(struct in_device *in_dev,
+ {
+ 	__be32 addr = 0;
+ 	struct net_device *dev;
++	struct net *net;
  
--	neigh->type = inet_addr_type(&init_net, addr);
--
+-	if (in_dev != NULL)
++	if (scope != RT_SCOPE_LINK)
+ 		return confirm_addr_indev(in_dev, dst, local, scope);
+ 
++	net = in_dev->dev->nd_net;
+ 	read_lock(&dev_base_lock);
  	rcu_read_lock();
- 	in_dev = __in_dev_get_rcu(dev);
- 	if (in_dev == NULL) {
-@@ -244,6 +242,8 @@ static int arp_constructor(struct neighbour *neigh)
- 		return -EINVAL;
- 	}
- 
-+	neigh->type = inet_addr_type(&init_net, addr);
-+
- 	parms = in_dev->arp_parms;
- 	__neigh_parms_put(neigh->parms);
- 	neigh->parms = neigh_parms_clone(parms);
+-	for_each_netdev(&init_net, dev) {
++	for_each_netdev(net, dev) {
+ 		if ((in_dev = __in_dev_get_rcu(dev))) {
+ 			addr = confirm_addr_indev(in_dev, dst, local, scope);
+ 			if (addr)
 -- 
 1.5.3.rc5
 
