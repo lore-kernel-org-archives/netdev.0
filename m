@@ -1,54 +1,67 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: 2.6.24-rc6-mm1 - oddness with IPv4/v6 mapped sockets hanging...
-Date: Mon, 14 Jan 2008 11:36:40 -0500
-Message-ID: <200801141136.41140.paul.moore@hp.com>
-References: <30887.1200209733@turing-police.cc.vt.edu> <7197.1200327338@turing-police.cc.vt.edu>
+From: "martin f. krafft" <madduck@madduck.net>
+Subject: Re: Netconf at conf.au 2008?
+Date: Mon, 14 Jan 2008 17:39:29 +0100
+Message-ID: <20080114163929.GB1082@lapse.madduck.net>
+References: <147a89290801112252gfcfaf11h1d25ee3c66e75881@mail.gmail.com> <20080113181751.GA15063@lapse.madduck.net> <20080114.200634.103807161.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Valdis.Kletnieks@vt.edu
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="XF85m9dhOBO43t/C"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:24364 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750851AbYANQgv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 11:36:51 -0500
-In-Reply-To: <7197.1200327338@turing-police.cc.vt.edu>
+Received: from seamus.madduck.net ([213.203.238.82]:51598 "EHLO
+	seamus.madduck.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751166AbYANQhO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 11:37:14 -0500
+Received: from lapse.madduck.net (ppp-88-217-67-167.dynamic.mnet-online.de [88.217.67.167])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client CN "lapse.madduck.net", Issuer "CAcert Class 3 Root" (verified OK))
+	by seamus.madduck.net (postfix) with ESMTP id 4FB2D41FB2B
+	for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 17:37:21 +0100 (CET)
 Content-Disposition: inline
+In-Reply-To: <20080114.200634.103807161.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 14 January 2008 11:15:38 am Valdis.Kletnieks@vt.edu wrote:
-> On Sun, 13 Jan 2008 02:35:33 EST, Valdis.Kletnieks@vt.edu said:
-> > I'm seeing problems with Sendmail on 24-rc6-mm1, where the main Sendmail
-> > is listening on ::1/25, and Fetchmail connects to 127.0.0.1:25 to inject
-> > mail it has just fetched from an outside server via IMAP - it will often
-> > just hang and not make any further progress. Looking at netstat shows
-> > something interesting:
-> >
-> > % netstat -n -a -A inet | grep 25
-> > tcp        0   5108 127.0.0.1:59355             127.0.0.1:25             
-> >   ESTABLISHED
->
-> The IPv6 is apparently a red herring - this morning I'm seeing the same
-> problem with another totally separate pair of programs that are IPv4-only,
-> hanging on loopback.
 
-Are you still only seeing these problems on loopback?  I can't help but wonder 
-if this is the skb_clone() problem where it wasn't copying skb->iif causing 
-SELinux to silently drop the packets.  Then again, I'm not sure if there is a 
-clone operation in the code path are going down.  From what I can remember I 
-only saw clones on some of the multicast stuff but I'm still learning some of 
-the darker corners of the stack.
+--XF85m9dhOBO43t/C
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-If you've got some spare cycles, the kernel below should both have the 
-clone/iif fix (it's in Linus' tree now) as well as some printks when errors 
-occur so packet's are no longer silently dropped by SELinux.
+also sprach YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <yoshf=
+uji@linux-ipv6.org> [2008.01.14.1206 +0100]:
+> Very confusing to me...
 
- * git://git.infradead.org/users/pcmoore/lblnet-2.6_testing
+FYI:
+http://lists.alioth.debian.org/pipermail/netconf-devel/2008-January/000214.=
+html
 
--- 
-paul moore
-linux security @ hp
+However, I am not entirely convinced. I think
+conference/tool/protocol are far apart enough so that the name does
+not clash.
+
+--=20
+martin | http://madduck.net/ | http://two.sentenc.es/
+=20
+"perhaps debian is concerned more about technical excellence rather
+ than ease of use by breaking software. in the former we may excel.
+ in the latter we have to concede the field to microsoft. guess
+ where i want to go today?"
+                                                 -- manoj srivastava
+=20
+spamtraps: madduck.bogus@madduck.net
+
+--XF85m9dhOBO43t/C
+Content-Type: application/pgp-signature; name="digital_signature_gpg.asc"
+Content-Description: Digital signature (see http://martin-krafft.net/gpg/)
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFHi5BBIgvIgzMMSnURAjOBAKC7HrODz+Qcu6RulC6AL8EsI0xkoACfephn
+QE7UQv0uPeSrpTAoPTClJnY=
+=RThV
+-----END PGP SIGNATURE-----
+
+--XF85m9dhOBO43t/C--
