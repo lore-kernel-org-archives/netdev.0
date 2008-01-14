@@ -1,67 +1,126 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 2/9] get rid of unused revision element
-Date: Mon, 14 Jan 2008 08:35:55 -0800
-Message-ID: <20080114083555.48792f6b@deepthought>
-References: <20080112064646.132747871@linux-foundation.org>
-	<20080112.205059.223738374.davem@davemloft.net>
-	<18315.19232.437801.553809@robur.slu.se>
-	<20080114.040657.117757802.davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 9721] New: wake on lan fails with sky2 module
+Date: Mon, 14 Jan 2008 08:39:26 -0800
+Message-ID: <20080114083926.03232343@deepthought>
+References: <bug-9721-10286@http.bugzilla.kernel.org/>
+	<200801112216.08992.rjw@sisk.pl>
+	<4787EB69.9060900@yahoo.de>
+	<200801120010.22440.rjw@sisk.pl>
+	<478A1083.5060406@yahoo.de>
+	<478A2976.9000204@yahoo.de>
+	<20080113112712.e93f07a4.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, robert.olsson@its.uu.se,
-	netdev@vger.kernel.org, stephen.hemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:55298 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751438AbYANQjd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 11:39:33 -0500
-In-Reply-To: <20080114.040657.117757802.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: supersud501 <supersud501@yahoo.de>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org,
+	linux-acpi@vger.kernel.org, bugme-daemon@bugzilla.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <20080113112712.e93f07a4.akpm@linux-foundation.org>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 14 Jan 2008 04:06:57 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+On Sun, 13 Jan 2008 11:27:12 -0800
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-> From: Robert Olsson <Robert.Olsson@data.slu.se>
-> Date: Mon, 14 Jan 2008 12:44:32 +0100
+> On Sun, 13 Jan 2008 16:08:38 +0100 supersud501 <supersud501@yahoo.de> wrote:
 > 
-> >  The idea was to have a selective flush of route cache entries when
-> >  a fib insert/delete happened. From what I remember you added another/
-> >  better solution. Just a list with route cache entries pointing to parent 
-> >  route. So yes this was obsoleted by your/our effort to avoid total 
-> >  flushing of the route cache. Unfinished work.
+> > 
+> > 
+> > supersud501 wrote:
+> > > 
+> > > 
+> > > Rafael J. Wysocki wrote:
+> > > 
+> > >>
+> > >> Since it seems to be 100% reproducible, it would be very helpful if 
+> > >> you could
+> > >> use git-bisect to identify the offending commit.
+> > >>
+> > > 
+> > > allright, bisect found the offending commit, here's what i've done:
+> > > 
+> > > first i started bisect with the following command (since i assumed it is 
+> > > a net-driver problem):
+> > > 
+> > > git-bisect start 'v2.6.24-rc6' 'v2.6.23' '--' 'drivers/net/'
+> > > 
+> > > after building many kernels and saying good/bad if wol worked/didn't 
+> > > work etc. it identified the following commit:
+> > > 
+> > > # bad: [ac93a3946b676025fa55356180e8321639744b31] sky2: enable PCI 
+> > > config writes
+> > > 
+> > > and refs/bisect/bad gives:
+> > > 
+> > > 14:16:53 /usr/src/linux-2.6/.git # cat refs/bisect/bad
+> > > ac93a3946b676025fa55356180e8321639744b31
+> > > 
+> > > 
+> > > need some more info?
+> > > 
+> > 
+> > i just checked it: commented out the passage of the commit in kernel 
+> > 2.6.24-rc7-git4 and compiled it: wol WORKS. so this one line is causing 
+> > my wol-disturbance...
+> > 
+> > 
 > 
-> Yes, that's right.  The synchronization was very hard.
+> So simply reverting this:
 > 
-> But there is another issue, see below....
+> commit ac93a3946b676025fa55356180e8321639744b31
+> Author: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date:   Mon Nov 5 15:52:08 2007 -0800
 > 
-> >  According to  http://bgpupdates.potaroo.net/instability/bgpupd.html
-> >  (last in page) we currently flush the route cache 2.80 times per second. 
-> >  when using full Internet routing with Linux. Maybe we're forced to pick 
-> >  up this thread again someday.
+>     sky2: enable PCI config writes
+>     
+>     On some boards, PCI configuration space access is turned off by default.
+>     The 2.6.24 driver doesn't turn it on, and should have.
+>     
+>     Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+>     Signed-off-by: Jeff Garzik <jeff@garzik.org>
 > 
-> This proves we need to solve this problem.
+> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> index c27c7d6..4f41a94 100644
+> --- a/drivers/net/sky2.c
+> +++ b/drivers/net/sky2.c
+> @@ -2791,6 +2791,9 @@ static void sky2_reset(struct sky2_hw *hw)
+>  	sky2_write8(hw, B0_CTST, CS_RST_SET);
+>  	sky2_write8(hw, B0_CTST, CS_RST_CLR);
+>  
+> +	/* allow writes to PCI config */
+> +	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
+> +
+>  	/* clear PCI errors, if any */
+>  	pci_read_config_word(pdev, PCI_STATUS, &status);
+>  	status |= PCI_STATUS_ERROR_BITS;
 > 
-> The reason I've never gone back to that work is that I didn't
-> want to do it while we still had multiple FIB data structure
-> implementations.
+> fixes this regression?
 > 
-> Someone needs to go over whatever deficiencies exist in fib_trie
-> vs. fib_hash so that we can delete fib_hash and move over to using
-> fib_trie always.  It makes no sense to implement everything
-> interfacing into that code twice.
+> If so, we should revert that change.
 > 
-> There was a full consensus that this was the way to move forward,
-> we just need the dirty work to be done.
+> > but i noticed another "bug" on 2.6.24-rc7-git with sky2: dmesg shows a 
+> > lot of lines every 5 seconds:
+> > 
+> > [...]
+> > [  357.400462] sky2 0000:02:00.0: error interrupt status=0xc0000000
+> > [  362.442039] printk: 41 messages suppressed.
+> > [  362.442043] sky2 0000:02:00.0: error interrupt status=0x80000000
+> > [  367.439151] printk: 18 messages suppressed.
+> > [  367.439156] sky2 0000:02:00.0: error interrupt status=0x80000000
+> > [  372.436267] printk: 30 messages suppressed.
+> > [  372.436271] sky2 0000:02:00.0: error interrupt status=0x80000000
+> > [  377.350236] printk: 19 messages suppressed.
+> > [...]
+> > 
+> > since i do not notice any errors (yet) i'll wait till next rc, maybe it 
+> > will be gone then...
 > 
-> If someone wants to show their gratitude for my getting rid of
-> the multipath cached routing code, the above work would be a
-> great way to do so (hint hint) :-)
+> That's not good.  is this new behaviour?
+> 
 
-I will be glad to get this working.  Is there any point in doing the a
-small systems version as well?
+No, reverting that change will break other systems (including mine).
 
 -- 
 Stephen Hemminger <stephen.hemminger@vyatta.com>
