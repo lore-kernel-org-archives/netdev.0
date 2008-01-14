@@ -1,79 +1,112 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: questions on NAPI processing latency and dropped network packets
-Date: Mon, 14 Jan 2008 13:25:22 -0600
-Message-ID: <478BB722.1020004@nortel.com>
-References: <478654C3.60806@nortel.com> <2c0942db0801112137k3f3f885ek212d5cbaecb7fea0@mail.gmail.com> <478B8473.6080506@nortel.com> <478B943C.7080009@cosmosbay.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [FIB]: Avoid using static variables without proper locking
+Date: Mon, 14 Jan 2008 20:27:11 +0100
+Message-ID: <478BB78F.8060609@cosmosbay.com>
+References: <20080112064513.803976049@linux-foundation.org>	<20080112064646.659443238@linux-foundation.org>	<4788A17D.5070903@cosmosbay.com>	<20080112130824.54cc1fc3@deepthought>	<18315.16984.456053.250600@robur.slu.se>	<478B9D0B.5040301@cosmosbay.com> <18315.41725.417992.715140@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ray Lee <ray-lk@madrabbit.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: multipart/mixed;
+ boundary="------------020303030908000203050701"
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zcars04f.nortel.com ([47.129.242.57]:47190 "EHLO
-	zcars04f.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751390AbYANT0O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 14:26:14 -0500
-In-Reply-To: <478B943C.7080009@cosmosbay.com>
+Received: from smtp2a.orange.fr ([80.12.242.139]:21465 "EHLO smtp2a.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754485AbYANT1Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 14:27:16 -0500
+Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf2a06.orange.fr (SMTP Server) with ESMTP id 382AF700008A
+	for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 20:27:15 +0100 (CET)
+In-Reply-To: <18315.41725.417992.715140@robur.slu.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Chris Friesen a =C3=A9crit :
+This is a multi-part message in MIME format.
+--------------020303030908000203050701
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
->> Based on profiling and instrumentation it seems like the cost of=20
->> sctp_endpoint_lookup_assoc() more than triples, which means that the=
-=20
->> amount of time that bottom halves are disabled in that function also=
-=20
->> triples.
->=20
-> Any idea of the size of sctp hash size you have ?
-> (your dmesg probably includes a message starting with SCTP: Hash tabl=
-es=20
-> configured...
-> How many concurrent sctp sockets are handled ?
+fib_trie_seq_show() uses two helper functions, rtn_scope() and 
+rtn_type() that can
+write to static storage without locking.
 
-Our lab is currently rebooting, but I'll try and get this once it's bac=
-k up.
+Just pass to them a temporary buffer to avoid potential  corruption
+(probably not triggerable but still...)
 
-> Maybe sctp_assoc_hashfn() is too weak for your use, and some chains a=
-re=20
-> *really* long.
-
-Based on the profiling information we're spending time in=20
-sctp_endpoint_lookup_assoc() which doesn't actually use hashes, so I=20
-can't see how the hash would be related.  I'm pretty new to SCTP though=
-,=20
-so I may be missing something.
-
-Here's the top results from readprofile, unfortunately these are=20
-aggregated across both cpus so they don't really show what's going on.=20
-The key thing is that sctp_endpoint_lookup_assoc() is the most expensiv=
-e=20
-kernel routine on this entire system.
-
-   3147 .power4_idle                              22.4786
-   1712 .native_idle                              20.3810
-   1234 .sctp_endpoint_lookup_assoc                2.1725
-   1212 ._spin_unlock_irqrestore                   6.4468
-    778 .do_futex                                  0.3791
-    447 ._spin_unlock_irq                          4.2981
-    313 .fget                                      1.7784
-    277 .fput                                      3.8472
-    275 .kfree                                     0.7473
-    234 .__kmalloc                                 0.5571
-    131 SystemCall_common                          0.3411
-    130 .sctp_assoc_is_match                       0.6373
-    123 .lock_sock                                 0.4155
-    119 .find_vma                                  0.6919
-    116 .kmem_cache_alloc                          0.3580
-    111 .kmem_cache_free                           0.3343
-    106 .skb_release_data                          0.4907
-    102 .__copy_tofrom_user                        0.0724
-    100 .exit_elf_binfmt                           1.9231
-    100 .do_select                                 0.0820
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
 
-Chris
+
+--------------020303030908000203050701
+Content-Type: text/plain;
+ name="fib_trie.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="fib_trie.patch"
+
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 8d8c291..15a555a 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -2276,10 +2276,8 @@ static void seq_indent(struct seq_file *seq, int n)
+ 	while (n-- > 0) seq_puts(seq, "   ");
+ }
+ 
+-static inline const char *rtn_scope(enum rt_scope_t s)
++static inline const char *rtn_scope(char *buf, size_t len, enum rt_scope_t s)
+ {
+-	static char buf[32];
+-
+ 	switch (s) {
+ 	case RT_SCOPE_UNIVERSE: return "universe";
+ 	case RT_SCOPE_SITE:	return "site";
+@@ -2287,7 +2285,7 @@ static inline const char *rtn_scope(enum rt_scope_t s)
+ 	case RT_SCOPE_HOST:	return "host";
+ 	case RT_SCOPE_NOWHERE:	return "nowhere";
+ 	default:
+-		snprintf(buf, sizeof(buf), "scope=%d", s);
++		snprintf(buf, len, "scope=%d", s);
+ 		return buf;
+ 	}
+ }
+@@ -2307,13 +2305,11 @@ static const char *rtn_type_names[__RTN_MAX] = {
+ 	[RTN_XRESOLVE] = "XRESOLVE",
+ };
+ 
+-static inline const char *rtn_type(unsigned t)
++static inline const char *rtn_type(char *buf, size_t len, unsigned t)
+ {
+-	static char buf[32];
+-
+ 	if (t < __RTN_MAX && rtn_type_names[t])
+ 		return rtn_type_names[t];
+-	snprintf(buf, sizeof(buf), "type %d", t);
++	snprintf(buf, len, "type %d", t);
+ 	return buf;
+ }
+ 
+@@ -2351,13 +2347,19 @@ static int fib_trie_seq_show(struct seq_file *seq, void *v)
+ 		seq_printf(seq, "  |-- %d.%d.%d.%d\n", NIPQUAD(val));
+ 		for (i = 32; i >= 0; i--) {
+ 			struct leaf_info *li = find_leaf_info(l, i);
++
+ 			if (li) {
+ 				struct fib_alias *fa;
++
+ 				list_for_each_entry_rcu(fa, &li->falh, fa_list) {
++					char buf1[32], buf2[32];
++
+ 					seq_indent(seq, iter->depth+1);
+ 					seq_printf(seq, "  /%d %s %s", i,
+-						   rtn_scope(fa->fa_scope),
+-						   rtn_type(fa->fa_type));
++						   rtn_scope(buf1, sizeof(buf1),
++							     fa->fa_scope),
++						   rtn_type(buf2, sizeof(buf2),
++							     fa->fa_type));
+ 					if (fa->fa_tos)
+ 						seq_printf(seq, "tos =%d\n",
+ 							   fa->fa_tos);
+
+--------------020303030908000203050701--
+
+
