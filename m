@@ -1,68 +1,48 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [PATCH 9/9] fix sparse warnings
-Date: Mon, 14 Jan 2008 12:07:04 +0100
-Message-ID: <18315.16984.456053.250600@robur.slu.se>
-References: <20080112064513.803976049@linux-foundation.org>
-	<20080112064646.659443238@linux-foundation.org>
-	<4788A17D.5070903@cosmosbay.com>
-	<20080112130824.54cc1fc3@deepthought>
+From: Dzianis Kahanovich <mahatma@bspu.unibel.by>
+Subject: Re: [PATCH 2.6.23+] ingress classify to [nf]mark
+Date: Mon, 14 Jan 2008 13:40:00 -0200
+Message-ID: <478B8250.90602@bspu.unibel.by>
+References: <47866C69.3080904@bspu.unibel.by>	 <1200001167.4443.38.camel@localhost>  <4787A663.4030204@bspu.unibel.by>	 <1200063541.4483.42.camel@localhost>  <4787D49E.6080906@bspu.unibel.by>	 <1200107027.4477.36.camel@localhost>  <4788FF45.702@bspu.unibel.by> <1200253484.4427.33.camel@localhost>
+Reply-To: mahatma@eu.by
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=KOI8-R; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>,
-	Robert Olsson <robert.olsson@its.uu.se>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Cc: hadi@cyberus.ca, mahatma@eu.by
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:58809 "EHLO mx1.slu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756250AbYANLHm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jan 2008 06:07:42 -0500
-In-Reply-To: <20080112130824.54cc1fc3@deepthought>
+Received: from mail.bspu.unibel.by ([195.50.2.21]:40262 "EHLO
+	mail.bspu.unibel.by" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755753AbYANLlm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 06:41:42 -0500
+In-Reply-To: <1200253484.4427.33.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+jamal wrote:
 
-Thanks for hacking and improving and the trie... another idea that could
-be also tested. If we look into routing table we see that most leafs 
-only has one prefix
+>> I in doubts only about "action continue".
+>> To "and/or" behaviour one of best usage are (example):
+> 
+> I dont think you should be touching the action part at all primarily
+> because actions can set the mark after classification. 
 
-Main:
-        Aver depth:     2.57
-        Max depth:      7
-        Leaves:         231173
+Yes, I only do it by inertia after "#define tc_index mark".
 
-ip route | wc -l 
-241649
+I not understand why "tc_index" changed in this place. 1) there are ingress 2) 
+there are "OK" action. Are "tc_index" will not changed after: "tc filter add 
+dev eth0 parent ffff: ... flowid 1:1 action continue" ? In general - are 
+tc_index useful in ingress? (may be tc_index used in [nf]mark-style, but even 
+in netfilter it feature migrate - IMHO, may be I time to time do not see in 
+needed place)
 
-Thats 231173/241649 = 96% with the current Internet routing.
+Sorry, I just change focus from existing "tc_index=..." to common behaviour ;)
 
-How about if would have a fastpath and store one entry direct in the 
-leaf struct this to avoid loading the leaf_info list in most cases?
+[...]
+> Please refer to what i said above; if what i said still doesnt make
+> sense i can create (the simple) patch.
 
-One could believe that both lookup and dump could improve.
+A bit vague... sorry...
 
-Cheers.
-					--ro
-
-
-
-Stephen Hemminger writes:
-
- > Remember that the code should be optimized for lookup, not management
- > operations. We ran into this during testing (the test suite was looking
- > for number of routes), thats why I put in the size field.
- > 
- > The existing dump code is really slow:
- > 
- > 1) FIB_TRIE   Under KVM:
- >      load 164393 routes		12.436 sec
- >      ip route | wc -l		12.569 sec
- >      grep /proc/net/route	25.357 sec
- > 
- > 99% of the cpu time is spent in nextleaf() during these dump operations.
- > 
- > 2) FIB_HASH 	Under KVM:
- >      load 164393 routes		10.833 sec
- >      ip route | wc -l		1.981 sec
- >      grep /proc/net/route	0.204 sec
+-- 
+WBR,
+Denis Kaganovich,  mahatma@eu.by  http://mahatma.bspu.unibel.by
