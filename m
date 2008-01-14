@@ -1,65 +1,81 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH net-2.6.25] [NETNS] Make arp code network namespace consistent.
-Date: Mon, 14 Jan 2008 16:48:20 +0300
-Message-ID: <1200318504-18215-1-git-send-email-den@openvz.org>
+Subject: [PATCH net-2.6.25] [IPV4] fib_rules_unregister is essentially void.
+Date: Mon, 14 Jan 2008 16:48:21 +0300
+Message-ID: <1200318504-18215-2-git-send-email-den@openvz.org>
+References: <1200318504-18215-1-git-send-email-den@openvz.org>
 Cc: netdev@vger.kernel.org, devel@openvz.org,
 	den1/0006-ARP-Move-inet_addr_type-call-after-simple-error-ch.patch@sw.ru,
 	"Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:57680 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:63218 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751327AbYANNs2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751325AbYANNs2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 14 Jan 2008 08:48:28 -0500
+In-Reply-To: <1200318504-18215-1-git-send-email-den@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some calls in the arp.c have network namespace as an argument. Getting
-init_net inside these functions is simply inconsistent. Fix this.
+fib_rules_unregister is called only after successful register and the return
+code is never checked.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- net/ipv4/arp.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ include/net/fib_rules.h |    2 +-
+ net/core/fib_rules.c    |   21 ++++-----------------
+ 2 files changed, 5 insertions(+), 18 deletions(-)
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 49c24ff..0db7d49 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -969,13 +969,13 @@ static int arp_req_set_public(struct net *net, struct arpreq *r,
- 	if (mask && mask != htonl(0xFFFFFFFF))
- 		return -EINVAL;
- 	if (!dev && (r->arp_flags & ATF_COM)) {
--		dev = dev_getbyhwaddr(&init_net, r->arp_ha.sa_family,
-+		dev = dev_getbyhwaddr(net, r->arp_ha.sa_family,
- 				r->arp_ha.sa_data);
- 		if (!dev)
- 			return -ENODEV;
- 	}
- 	if (mask) {
--		if (pneigh_lookup(&arp_tbl, &init_net, &ip, dev, 1) == NULL)
-+		if (pneigh_lookup(&arp_tbl, net, &ip, dev, 1) == NULL)
- 			return -ENOBUFS;
- 		return 0;
- 	}
-@@ -1084,7 +1084,7 @@ static int arp_req_delete_public(struct net *net, struct arpreq *r,
- 	__be32 mask = ((struct sockaddr_in *)&r->arp_netmask)->sin_addr.s_addr;
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 88f870f..34349f9 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -104,7 +104,7 @@ static inline u32 frh_get_table(struct fib_rule_hdr *frh, struct nlattr **nla)
+ }
  
- 	if (mask == htonl(0xFFFFFFFF))
--		return pneigh_delete(&arp_tbl, &init_net, &ip, dev);
-+		return pneigh_delete(&arp_tbl, net, &ip, dev);
+ extern int fib_rules_register(struct net *, struct fib_rules_ops *);
+-extern int fib_rules_unregister(struct net *, struct fib_rules_ops *);
++extern void fib_rules_unregister(struct net *, struct fib_rules_ops *);
+ extern void                     fib_rules_cleanup_ops(struct fib_rules_ops *);
  
- 	if (mask)
- 		return -EINVAL;
-@@ -1162,7 +1162,7 @@ int arp_ioctl(struct net *net, unsigned int cmd, void __user *arg)
- 	rtnl_lock();
- 	if (r.arp_dev[0]) {
- 		err = -ENODEV;
--		if ((dev = __dev_get_by_name(&init_net, r.arp_dev)) == NULL)
-+		if ((dev = __dev_get_by_name(net, r.arp_dev)) == NULL)
- 			goto out;
+ extern int			fib_rules_lookup(struct fib_rules_ops *,
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 0eecf4c..42ccaf5 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -115,29 +115,16 @@ void fib_rules_cleanup_ops(struct fib_rules_ops *ops)
+ }
+ EXPORT_SYMBOL_GPL(fib_rules_cleanup_ops);
  
- 		/* Mmmm... It is wrong... ARPHRD_NETROM==0 */
+-int fib_rules_unregister(struct net *net, struct fib_rules_ops *ops)
++void fib_rules_unregister(struct net *net, struct fib_rules_ops *ops)
+ {
+-	int err = 0;
+-	struct fib_rules_ops *o;
+ 
+ 	spin_lock(&net->rules_mod_lock);
+-	list_for_each_entry(o, &net->rules_ops, list) {
+-		if (o == ops) {
+-			list_del_rcu(&o->list);
+-			fib_rules_cleanup_ops(ops);
+-			goto out;
+-		}
+-	}
+-
+-	err = -ENOENT;
+-out:
++	list_del_rcu(&ops->list);
++	fib_rules_cleanup_ops(ops);
+ 	spin_unlock(&net->rules_mod_lock);
+ 
+ 	synchronize_rcu();
+-	if (!err)
+-		release_net(net);
+-
+-	return err;
++	release_net(net);
+ }
+ 
+ EXPORT_SYMBOL_GPL(fib_rules_unregister);
 -- 
 1.5.3.rc5
 
