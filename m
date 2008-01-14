@@ -1,31 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 4/4][NETNS][RAW]: Create the
- /proc/net/raw(6) in each namespace.
-Date: Mon, 14 Jan 2008 05:37:17 -0800 (PST)
-Message-ID: <20080114.053717.29122628.davem@davemloft.net>
-References: <478B5FE4.3020602@openvz.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH net-2.6.25] [ARP] Remove forward declaration of neigh_changeaddr.
+Date: Mon, 14 Jan 2008 16:48:23 +0300
+Message-ID: <1200318504-18215-4-git-send-email-den@openvz.org>
+References: <1200318504-18215-1-git-send-email-den@openvz.org>
+ <1200318504-18215-2-git-send-email-den@openvz.org>
+ <1200318504-18215-3-git-send-email-den@openvz.org>
+Cc: netdev@vger.kernel.org, devel@openvz.org,
+	den1/0006-ARP-Move-inet_addr_type-call-after-simple-error-ch.patch@sw.ru,
+	"Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48275
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751247AbYANNhT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 08:37:19 -0500
-In-Reply-To: <478B5FE4.3020602@openvz.org>
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:56338 "EHLO iris.sw.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750832AbYANNs2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 08:48:28 -0500
+In-Reply-To: <1200318504-18215-3-git-send-email-den@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Mon, 14 Jan 2008 16:13:08 +0300
+No need for this. It is declared in the neighbour.h
 
-> To do so, just register the proper subsystem and create files in
-> ->init callbacks.
-> 
-> No other special per-namespace handling for raw sockets is required.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ net/core/neighbour.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-Applied.
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 2eab6a5..9b0b773 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -59,7 +59,6 @@ static void neigh_timer_handler(unsigned long arg);
+ static void __neigh_notify(struct neighbour *n, int type, int flags);
+ static void neigh_update_notify(struct neighbour *neigh);
+ static int pneigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
+-void neigh_changeaddr(struct neigh_table *tbl, struct net_device *dev);
+ 
+ static struct neigh_table *neigh_tables;
+ #ifdef CONFIG_PROC_FS
+-- 
+1.5.3.rc5
+
