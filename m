@@ -1,37 +1,40 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Netperf TCP_RR(loopback) 10% regression in	2.6.24-rc6,	comparing
- with 2.6.22
-Date: Mon, 14 Jan 2008 09:46:08 -0800
-Message-ID: <478B9FE0.3040801@hp.com>
-References: <1199871330.3298.132.camel@ymzhang>	<1200043854.3265.24.camel@ymzhang>  <4787ADDA.7090602@hp.com> <1200280292.3151.24.camel@ymzhang>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: Re: [patch 5/7] netxen: fix race in interrupt / napi
+Date: Mon, 14 Jan 2008 10:00:21 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0801140959480.2721@dut46.unminc.com>
+References: <20071226182352.704678179@netxen.com> <20071226182927.778015972@netxen.com>
+ <4789414B.40800@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:9973 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750720AbYANRqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 12:46:10 -0500
-In-Reply-To: <1200280292.3151.24.camel@ymzhang>
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:34492 "EHLO
+	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751343AbYANR7f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 12:59:35 -0500
+In-Reply-To: <4789414B.40800@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>*) netperf/netserver support CPU affinity within themselves with the 
->>global -T option to netperf.  Is the result with taskset much different? 
->>   The equivalent to the above would be to run netperf with:
->>
->>./netperf -T 0,7 ..
+Ok, I will respin the failed patches.
+
+Thanks,
+-Dhananjay
+
+On Sat, 12 Jan 2008, Jeff Garzik wrote:
+
+> patch conflicted with
 > 
-> I checked the source codes and didn't find this option.
-> I use netperf V2.3 (I found the number in the makefile).
-
-Indeed, that version pre-dates the -T option.  If you weren't already 
-chasing a regression I'd suggest an upgrade to 2.4.mumble.  Once you are 
-at a point where changing another variable won't muddle things you may 
-want to consider upgrading.
-
-happy benchmarking,
-
-rick jones
+> commit 1706287f6eb58726a9a0e5cbbde87f49757615e3
+> Author: David S. Miller <davem@davemloft.net>
+> Date:   Mon Jan 7 20:51:29 2008 -0800
+> 
+>     [NETXEN]: Fix ->poll() done logic.
+> 
+>     If work_done >= budget we should always elide the NAPI
+>     completion.
+> 
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> 
