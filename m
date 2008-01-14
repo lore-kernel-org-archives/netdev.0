@@ -1,41 +1,34 @@
-From: Mark Seger <Mark.Seger@hp.com>
-Subject: Re: occasionally corrupted network stats in /proc/net/dev
-Date: Mon, 14 Jan 2008 13:24:23 -0500
-Message-ID: <478BA8D7.8050803@hp.com>
-References: <478B99E6.2050800@hp.com> <478BA53B.9060504@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH]drivers/net/phy/: default return value in ioctl phy.c
+Date: Mon, 14 Jan 2008 12:48:21 -0600
+Message-ID: <E7E3FE26-AD70-4660-9D5E-7A6FCEC67127@freescale.com>
+References: <014901c83c06$da9223e0$2b00a8c0@ARV127>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Rini van Zetten <rini@arvoo.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:35508 "EHLO palrel12.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751198AbYANSYj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jan 2008 13:24:39 -0500
-In-Reply-To: <478BA53B.9060504@candelatech.com>
+Received: from de01egw01.freescale.net ([192.88.165.102]:63902 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750739AbYANSsi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 13:48:38 -0500
+In-Reply-To: <014901c83c06$da9223e0$2b00a8c0@ARV127>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'll try to get data on the other systems reporting it and as I said it 
-does not  happen all that often AND you have to be looking for it.  The 
-system I've personally seen it happen on several times is running 
-RHEL4/U4 which redhat numbers 2.6.9-42 and from modinfo I see:
-version:        7.0.33-k2-NAPI 51E97FEE51D0772AFC89130
-description:    Intel(R) PRO/1000 Network Driver
 
--mark
+On Dec 11, 2007, at 09:02, Rini van Zetten wrote:
 
-Ben Greear wrote:
-> Mark Seger wrote:
->> I had posted the following on linux-net and haven't see any responses 
->> possibly because nobody had any or that list is obsolete.  I have 
->> been told this is the current list for everything networking on linux 
->> so I thought I'd try again...
-> Do you see this with multiple network drivers, or just with one 
-> particular driver.  If so, which one?
+> Hello Andy,
 >
-> Thanks,
-> Ben
+> This patch (to 2.6.23.9) add a default return value EOPNOTSUPP to  
+> the ioctl function. The problem with the always 0 return value is  
+> that the iwconfig (wireless) tool found a valid device when an  
+> ethernet device uses the phy abstraction layer.
+> I 've tetsted this with the macb driver.
 >
+>
+> Signed-off-by: Rini van Zetten <rini@arvoo.nl>
 
+Acked-by: Andy Fleming <afleming@freescale.com>
