@@ -1,51 +1,54 @@
-From: Valdis.Kletnieks@vt.edu
+From: Paul Moore <paul.moore@hp.com>
 Subject: Re: 2.6.24-rc6-mm1 - oddness with IPv4/v6 mapped sockets hanging...
-Date: Mon, 14 Jan 2008 11:15:38 -0500
-Message-ID: <7197.1200327338@turing-police.cc.vt.edu>
-References: <30887.1200209733@turing-police.cc.vt.edu>
+Date: Mon, 14 Jan 2008 11:36:40 -0500
+Message-ID: <200801141136.41140.paul.moore@hp.com>
+References: <30887.1200209733@turing-police.cc.vt.edu> <7197.1200327338@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1200327338_3131P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Valdis.Kletnieks@vt.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from turing-police.cc.vt.edu ([128.173.14.107]:37607 "EHLO
-	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750759AbYANQPn (ORCPT
-	<RFC822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 11:15:43 -0500
-In-Reply-To: Your message of "Sun, 13 Jan 2008 02:35:33 EST."
-             <30887.1200209733@turing-police.cc.vt.edu>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:24364 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750851AbYANQgv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 11:36:51 -0500
+In-Reply-To: <7197.1200327338@turing-police.cc.vt.edu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1200327338_3131P
-Content-Type: text/plain; charset=us-ascii
+On Monday 14 January 2008 11:15:38 am Valdis.Kletnieks@vt.edu wrote:
+> On Sun, 13 Jan 2008 02:35:33 EST, Valdis.Kletnieks@vt.edu said:
+> > I'm seeing problems with Sendmail on 24-rc6-mm1, where the main Sendmail
+> > is listening on ::1/25, and Fetchmail connects to 127.0.0.1:25 to inject
+> > mail it has just fetched from an outside server via IMAP - it will often
+> > just hang and not make any further progress. Looking at netstat shows
+> > something interesting:
+> >
+> > % netstat -n -a -A inet | grep 25
+> > tcp        0   5108 127.0.0.1:59355             127.0.0.1:25             
+> >   ESTABLISHED
+>
+> The IPv6 is apparently a red herring - this morning I'm seeing the same
+> problem with another totally separate pair of programs that are IPv4-only,
+> hanging on loopback.
 
-On Sun, 13 Jan 2008 02:35:33 EST, Valdis.Kletnieks@vt.edu said:
+Are you still only seeing these problems on loopback?  I can't help but wonder 
+if this is the skb_clone() problem where it wasn't copying skb->iif causing 
+SELinux to silently drop the packets.  Then again, I'm not sure if there is a 
+clone operation in the code path are going down.  From what I can remember I 
+only saw clones on some of the multicast stuff but I'm still learning some of 
+the darker corners of the stack.
 
-> I'm seeing problems with Sendmail on 24-rc6-mm1, where the main Sendmail is
-> listening on ::1/25, and Fetchmail connects to 127.0.0.1:25 to inject mail it
-> has just fetched from an outside server via IMAP - it will often just hang and
-> not make any further progress. Looking at netstat shows something interesting:
-> 
-> % netstat -n -a -A inet | grep 25
-> tcp        0   5108 127.0.0.1:59355             127.0.0.1:25                ESTABLISHED 
+If you've got some spare cycles, the kernel below should both have the 
+clone/iif fix (it's in Linus' tree now) as well as some printks when errors 
+occur so packet's are no longer silently dropped by SELinux.
 
-The IPv6 is apparently a red herring - this morning I'm seeing the same problem
-with another totally separate pair of programs that are IPv4-only, hanging
-on loopback.
+ * git://git.infradead.org/users/pcmoore/lblnet-2.6_testing
 
---==_Exmh_1200327338_3131P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.8 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFHi4qqcC3lWbTT17ARAuYSAKCWuGdoG2L7WQouMM8j0JydjkEJpQCg7qmT
-u0koDo54Oa1lLgWWNRCVaec=
-=F8Rx
------END PGP SIGNATURE-----
-
---==_Exmh_1200327338_3131P--
+-- 
+paul moore
+linux security @ hp
