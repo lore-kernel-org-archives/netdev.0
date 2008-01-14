@@ -1,117 +1,70 @@
-From: "=?ISO-8859-1?Q?Oliver_Pinter_(Pint=E9r_Oliv=E9r)?="
-	<oliver.pntr@gmail.com>
-Subject: [BUG] skge 0000:02:05: read data parity error
-Date: Mon, 14 Jan 2008 20:57:49 +0100
-Message-ID: <6101e8c40801141157j1ce7d3f0if2e4eb2344b6c844@mail.gmail.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: 2.6.24-rc6-mm1 - oddness with IPv4/v6 mapped sockets hanging...
+Date: Mon, 14 Jan 2008 15:02:12 -0500
+Message-ID: <200801141502.12954.paul.moore@hp.com>
+References: <30887.1200209733@turing-police.cc.vt.edu> <200801141407.46345.paul.moore@hp.com> <3727.1200339422@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	oliver.pntr@gmail.com
-To: linux-kernel@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Valdis.Kletnieks@vt.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:65085 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751745AbYANT5v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 14:57:51 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so2378456fga.17
-        for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 11:57:49 -0800 (PST)
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:33729 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751923AbYANUCV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 15:02:21 -0500
+In-Reply-To: <3727.1200339422@turing-police.cc.vt.edu>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All!
+On Monday 14 January 2008 2:37:02 pm Valdis.Kletnieks@vt.edu wrote:
+> On Mon, 14 Jan 2008 14:07:46 EST, Paul Moore said:
+> > There have been quite a few changes in lblnet-2.6_testing since
+> > 2.6.24-rc6-mm1 so I would recommend taking the whole tree.  I'm also not
+> > quite sure if
+>
+> Weird.  I did a 'git clone
+> git://git.infradead.org/users/pcmoore/lblnet-2.6_testing' into a new
+> directory this morning, and doing a 'git log' against that only showed the
+> one added commit:
+>
+> commit 5d95575903fd3865b884952bd93c339d48725c33
+> Author: Paul Moore <paul.moore@hp.com>
+> Date:   Wed Jan 9 15:30:23 2008 -0500
+>
+>     SELinux: Add warning messages on network denial due to error
+>
+>     Currently network traffic can be sliently dropped due to non-avc errors
+> which can lead to much confusion when trying to debug the problem.  This
+> patch adds warning messages so that when these events occur there is a user
+> visible notification.
+>
+>     Signed-off-by: Paul Moore <paul.moore@hp.com>
+>
+> commit 9259ca5fd8b9fbdd2c3edade593dead905d8391e
+> Author: Paul Moore <paul.moore@hp.com>
+> Date:   Wed Jan 9 15:30:23 2008 -0500
+>
+>     SELinux: Add network ingress and egress control permission checks
+> (already in 24-rc6-mm1).
+>
+> Somebody please tell me it's my git-idiocy..
 
-It is fully reproductable under 2.6.22.15, 2.6.23.13 (all tainted and
-not tainted [4 different kernel] ) and 2 different PC:
+It might be something on my end with managing the lblnet-2.6_testing git tree; 
+I'm still pretty clueless when it comes to git.
 
-[BUG] skge 0000:02:05: read data parity error
-[BUG] skge 0000:02:05: read data parity error
+I've got a git tree on my dev machine which is backed against Linus' tree and 
+managed via stacked-git.  I update the patches in this tree, refresh them 
+against new bits from Linus, etc and when something significant changes I 
+update the git tree on infradead.org and post a new patchset to the related 
+lists.  The process of updating the git tree on infradead.org usually 
+involves deleting the entire tree located there, re-creating it, and then 
+doing a git-push from my dev machine.  I have no idea if this is "correct" or 
+not, but I've often wondered if this is a the "right" way to do it ...
 
-steps:
-1. login as root
-2. start mc
-3. cd /sys/bus/pci/drivers/skge/0000:02:05.0
-4. press F3 (mcview) on resource0
-5. the system hang up, without panic or bug ... only this message
-printed 2x: [BUG] skge 0000:02:05: read data parity error
-
-when I used cat for show what is in file , then bocome this message:
- cat: resource0: Input/output error
-but the permissions is:
- -rw------- 1 root root 16384 2008-01-14 20:36 resource0
-
-when I used mcview for show whats in file, then the system hang up,
-and not reagiert neither for SysRQ-s, only for hard reset.
-
------------
-
-PC1.:
-00:00.0 Host bridge [0600]: Intel Corporation 945G/GZ/P/PL Express
-Memory Controller Hub [8086:2770] (rev 02)
-00:01.0 PCI bridge [0604]: Intel Corporation 945G/GZ/P/PL Express PCI
-Express Root Port [8086:2771] (rev 02)
-00:1b.0 Audio device [0403]: Intel Corporation 82801G (ICH7 Family)
-High Definition Audio Controller [8086:27d8] (rev 01)
-00:1d.0 USB Controller [0c03]: Intel Corporation 82801G (ICH7 Family)
-USB UHCI #1 [8086:27c8] (rev 01)
-00:1d.1 USB Controller [0c03]: Intel Corporation 82801G (ICH7 Family)
-USB UHCI #2 [8086:27c9] (rev 01)
-00:1d.2 USB Controller [0c03]: Intel Corporation 82801G (ICH7 Family)
-USB UHCI #3 [8086:27ca] (rev 01)
-00:1d.3 USB Controller [0c03]: Intel Corporation 82801G (ICH7 Family)
-USB UHCI #4 [8086:27cb] (rev 01)
-00:1d.7 USB Controller [0c03]: Intel Corporation 82801G (ICH7 Family)
-USB2 EHCI Controller [8086:27cc] (rev 01)
-00:1e.0 PCI bridge [0604]: Intel Corporation 82801 PCI Bridge
-[8086:244e] (rev e1)
-00:1f.0 ISA bridge [0601]: Intel Corporation 82801GB/GR (ICH7 Family)
-LPC Interface Bridge [8086:27b8] (rev 01)
-00:1f.2 IDE interface [0101]: Intel Corporation 82801GB/GR/GH (ICH7
-Family) Serial ATA Storage Controller IDE [8086:27c0] (rev 01)
-00:1f.3 SMBus [0c05]: Intel Corporation 82801G (ICH7 Family) SMBus
-Controller [8086:27da] (rev 01)
-01:00.0 VGA compatible controller [0300]: nVidia Corporation GeForce
-7300 GS [10de:01df] (rev a1)
-02:01.0 Ethernet controller [0200]: Atheros Communications, Inc.
-AR5212 802.11abg NIC [168c:0013] (rev 01)
-02:05.0 Ethernet controller [0200]: Marvell Technology Group Ltd.
-88E8001 Gigabit Ethernet Controller [11ab:4320] (rev 13)
-
-PC2:
-00:00.0 Host bridge [0600]: Intel Corporation 82875P/E7210 Memory
-Controller Hub [8086:2578] (rev 02)
-00:01.0 PCI bridge [0604]: Intel Corporation 82875P Processor to AGP
-Controller [8086:2579] (rev 02)
-00:06.0 System peripheral [0880]: Intel Corporation 82875P/E7210
-Processor to I/O Memory Interface [8086:257e] (rev 02)
-00:1d.0 USB Controller [0c03]: Intel Corporation 82801EB/ER
-(ICH5/ICH5R) USB UHCI Controller #1 [8086:24d2] (rev 02)
-00:1d.1 USB Controller [0c03]: Intel Corporation 82801EB/ER
-(ICH5/ICH5R) USB UHCI Controller #2 [8086:24d4] (rev 02)
-00:1d.7 USB Controller [0c03]: Intel Corporation 82801EB/ER
-(ICH5/ICH5R) USB2 EHCI Controller [8086:24dd] (rev 02)
-00:1e.0 PCI bridge [0604]: Intel Corporation 82801 PCI Bridge
-[8086:244e] (rev c2)
-00:1f.0 ISA bridge [0601]: Intel Corporation 82801EB/ER (ICH5/ICH5R)
-LPC Interface Bridge [8086:24d0] (rev 02)
-00:1f.1 IDE interface [0101]: Intel Corporation 82801EB/ER
-(ICH5/ICH5R) IDE Controller [8086:24db] (rev 02)
-00:1f.2 RAID bus controller [0104]: Intel Corporation 82801ER (ICH5R)
-SATA Controller [8086:24df] (rev 02)
-00:1f.3 SMBus [0c05]: Intel Corporation 82801EB/ER (ICH5/ICH5R) SMBus
-Controller [8086:24d3] (rev 02)
-00:1f.5 Multimedia audio controller [0401]: Intel Corporation
-82801EB/ER (ICH5/ICH5R) AC'97 Audio Controller [8086:24d5] (rev 02)
-01:00.0 VGA compatible controller [0300]: ATI Technologies Inc RV350
-AP [Radeon 9600] [1002:4150]
-01:00.1 Display controller [0380]: ATI Technologies Inc RV350 AP
-[Radeon 9600] (Secondary) [1002:4170]
-02:05.0 Ethernet controller [0200]: 3Com Corporation 3c940
-10/100/1000Base-T [Marvell] [10b7:1700] (rev 12)
-02:0a.0 Ethernet controller [0200]: Atheros Communications, Inc.
-AR5212/AR5213 Multiprotocol MAC/baseband processor [168c:0013] (rev
-01)
 -- 
-Thanks,
-Oliver
+paul moore
+linux security @ hp
