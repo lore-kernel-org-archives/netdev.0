@@ -1,81 +1,70 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: 2.6.24-rc6-mm1 - oddness with IPv4/v6 mapped sockets hanging...
-Date: Mon, 14 Jan 2008 14:37:02 -0500
-Message-ID: <3727.1200339422@turing-police.cc.vt.edu>
-References: <30887.1200209733@turing-police.cc.vt.edu> <32065.1200334930@turing-police.cc.vt.edu> <1030.1200336639@turing-police.cc.vt.edu>
-            <200801141407.46345.paul.moore@hp.com>
+From: Matheos Worku <Matheos.Worku@Sun.COM>
+Subject: Re: [PATCH 2/2] ixgb: enable sun hardware support for broadcom phy
+Date: Mon, 14 Jan 2008 11:43:51 -0800
+Message-ID: <478BBB77.40404@sun.com>
+References: <20071214194829.15478.2510.stgit@localhost.localdomain>
+ <20071214194836.15478.85555.stgit@localhost.localdomain>
+ <47671FBD.4010402@garzik.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1200339422_3045P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754627AbYANThz@vger.kernel.org>
-In-Reply-To: Your message of "Mon, 14 Jan 2008 14:07:46 EST."
-             <200801141407.46345.paul.moore@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; format=flowed; charset=UTF-8
+Content-Transfer-Encoding: 7BIT
+Cc: Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sca-es-mail-2.Sun.COM ([192.18.43.133]:49796 "EHLO
+	sca-es-mail-2.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751218AbYANTxt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 14:53:49 -0500
+Received: from fe-sfbay-09.sun.com ([192.18.43.129])
+	by sca-es-mail-2.sun.com (8.13.7+Sun/8.12.9) with ESMTP id m0EJhw9A029743
+	for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 11:43:59 -0800 (PST)
+Received: from conversion-daemon.fe-sfbay-09.sun.com by fe-sfbay-09.sun.com
+ (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
+ id <0JUN00801F2FGQ00@fe-sfbay-09.sun.com>
+ (original mail from Matheos.Worku@Sun.COM) for netdev@vger.kernel.org; Mon,
+ 14 Jan 2008 11:43:58 -0800 (PST)
+In-reply-to: <47671FBD.4010402@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1200339422_3045P
-Content-Type: text/plain; charset=us-ascii
-
-On Mon, 14 Jan 2008 14:07:46 EST, Paul Moore said:
-> There have been quite a few changes in lblnet-2.6_testing since 2.6.24-rc6-mm1 
-> so I would recommend taking the whole tree.  I'm also not quite sure if
-
-Weird.  I did a 'git clone git://git.infradead.org/users/pcmoore/lblnet-2.6_testing'
-into a new directory this morning, and doing a 'git log' against that only
-showed the one added commit:
-
-commit 5d95575903fd3865b884952bd93c339d48725c33
-Author: Paul Moore <paul.moore@hp.com>
-Date:   Wed Jan 9 15:30:23 2008 -0500
-
-    SELinux: Add warning messages on network denial due to error
-    
-    Currently network traffic can be sliently dropped due to non-avc errors which
-    can lead to much confusion when trying to debug the problem.  This patch adds
-    warning messages so that when these events occur there is a user visible
-    notification.
-    
-    Signed-off-by: Paul Moore <paul.moore@hp.com>
-
-commit 9259ca5fd8b9fbdd2c3edade593dead905d8391e
-Author: Paul Moore <paul.moore@hp.com>
-Date:   Wed Jan 9 15:30:23 2008 -0500
-
-    SELinux: Add network ingress and egress control permission checks
-(already in 24-rc6-mm1).
-
-Somebody please tell me it's my git-idiocy..
-
-> simply reverting the "Convert the netif code to use ifindex values" patch 
-> would solve the problem as there are other patches in the rc6-mm1 tree that 
-> rely on skb->iif being valid (new code, not converted code).
-
-That would explain why I'm still seeing issues..
-
->  If you want to 
-> stick with a _relatively_ vanilla rc6-mm1 tree I would leave everything in 
-> and simply apply the following patch which solved the skb_clone()/iif 
-> problem:
+Jeff Garzik wrote:
+> Auke Kok wrote:
+>> From: Matheos Worku <matheos.worku@sun.com>
+>>
+>> Implement support for a SUN-specific PHY.
+>>
+>> SUN provides a modified 82597-based board with their own
+>> PHY that works with very little modification to the code. This
+>> patch implements this new PHY which is identified by the
+>> subvendor device ID. The device ID of the adapter remains
+>> the same.
+>>
+>> Signed-off-by: Matheos Worku <matheos.worku@sun.com>
+>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+>> ---
+>>
+>>  drivers/net/ixgb/ixgb_hw.c   |   82 
+>> +++++++++++++++++++++++++++++++++++++++++-
+>>  drivers/net/ixgb/ixgb_hw.h   |    3 +-
+>>  drivers/net/ixgb/ixgb_ids.h  |    4 ++
+>>  drivers/net/ixgb/ixgb_main.c |   10 +++--
+>>  4 files changed, 91 insertions(+), 8 deletions(-)
 > 
-> http://git.infradead.org/?p=users/pcmoore/lblnet-2.6_testing;a=commitdiff;h=02f1c89d6e36507476f78108a3dcc78538be460b
+> applied #upstream
+> 
+> 
 
-OK, I'll go look at that..
+Jeff,
+Bleated Happy New Year.
+
+I was wondering when this patch will  make  it to Linus' and other 
+trees. I just checked Linus's and other net trees, including 
+git.kernel.org/?p=linux/kernel/git/jgarzik/netdev-2.6.git and I see only 
+the other patch's commit: 3fd7131feacc01c1e23e46c416228f36ebdcc0d4, and 
+not this patch.
 
 
---==_Exmh_1200339422_3045P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.8 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFHi7necC3lWbTT17ARApWSAJoCRBTA+TdiD6uxi9gFnXLzsJUDgwCfT13L
-DOuKABOin+QMHz1nM8AOUt4=
-=fWeY
------END PGP SIGNATURE-----
-
---==_Exmh_1200339422_3045P--
+Regards
+Matheos
