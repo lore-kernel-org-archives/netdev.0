@@ -1,54 +1,63 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [BUG] skge 0000:02:05: read data parity error
-Date: Mon, 14 Jan 2008 12:52:00 -0800
-Message-ID: <20080114125200.28cb4c69@deepthought>
-References: <6101e8c40801141157j1ce7d3f0if2e4eb2344b6c844@mail.gmail.com>
+From: Mark Seger <Mark.Seger@hp.com>
+Subject: Re: Why are network counters only updated once a second?
+Date: Mon, 14 Jan 2008 16:00:27 -0500
+Message-ID: <478BCD6B.4020009@hp.com>
+References: <478BC662.6030004@hp.com> <478BC9ED.2000204@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	oliver.pntr@gmail.com
-To: "Oliver Pinter (=?UTF-8?B?UGludMOpciBPbGl2w6ly?=)"
-	<oliver.pntr@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754085AbYANUyv@vger.kernel.org>
-In-Reply-To: <6101e8c40801141157j1ce7d3f0if2e4eb2344b6c844@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from palrel12.hp.com ([156.153.255.237]:54342 "EHLO palrel12.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750708AbYANVAn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 16:00:43 -0500
+In-Reply-To: <478BC9ED.2000204@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 14 Jan 2008 20:57:49 +0100
-"Oliver Pinter (Pint=C3=A9r Oliv=C3=A9r)" <oliver.pntr@gmail.com> wrote=
-:
 
-> Hi All!
->=20
-> It is fully reproductable under 2.6.22.15, 2.6.23.13 (all tainted and
-> not tainted [4 different kernel] ) and 2 different PC:
->=20
-> [BUG] skge 0000:02:05: read data parity error
-> [BUG] skge 0000:02:05: read data parity error
->=20
-> steps:
-> 1. login as root
-> 2. start mc
-> 3. cd /sys/bus/pci/drivers/skge/0000:02:05.0
-> 4. press F3 (mcview) on resource0
-> 5. the system hang up, without panic or bug ... only this message
-> printed 2x: [BUG] skge 0000:02:05: read data parity error
->=20
 
-This is not a bug.
+Eric Dumazet wrote:
+> Mark Seger a =E9crit :
+>> I had mentioned this in my previous post but perhaps it might get=20
+>> more attention all by itself.  I can't say for sure when this=20
+>> changed, but for the longest time network counters were only updated=
+=20
+>> once every 0.9765 seconds and unless you used a tools like collectl=20
+>> that could monitor at fractional intervals, your traffic was=20
+>> under-reported AND you'd get periodic spikes of double the actual=20
+>> rate.  See http://collectl.sourceforge.net/NetworkStats.html for a=20
+>> more complete explanation.
+>>
+>> Eventually the frequency became better aligned at a 1 second interva=
+l=20
+>> because now the number look better, but the problem I see is that=20
+>> when the sampling interval is very close to the monitoring interval=20
+>> you still get periodic incorrect data.  Furthermore, you now need to=
+=20
+>> know which way the counters are updated before you pick a sampling=20
+>> interval!  But the real point is if anyone ever wants to do finer=20
+>> grained monitoring, say every 1/2 or even tenth of a second, they=20
+>> can't because the counters won't change between samples.  Has this=20
+>> ever been discussed before?
+>>
+>
+> Yes it was discussed before. Some devices perform counters updates=20
+> directly at the NIC level, and one in a while a transfert of counters=
+=20
+> is done to the host.
+>
+> This is supposed to be better, especially on SMP.
+>
+> Maybe you need to setup accounting rules with iptables, so that you=20
+> can perform counter sampling at whatever rate you want ?
+Maybe I wasn't clear enough.  I'm grabbing the counters from=20
+/proc/net/dev and whatever mechanism is being used only ports them with=
+=20
+a granularity of about once a second.  This means any of the standard=20
+tools that use /proc to get their data will all have the same problem.
+-mark
 
-The hardware has some debug registers that if accessed cause a read
-back to the host. Since this can point anywhere, it will cause errors
-or system hang.
-
-The point is don't do it.
-
---=20
-Stephen Hemminger <stephen.hemminger@vyatta.com>
---
-To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
- in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
