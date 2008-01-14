@@ -1,51 +1,85 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Netconf at conf.au 2008?
-Date: Sun, 13 Jan 2008 18:08:02 -0800 (PST)
-Message-ID: <20080113.180802.243708508.davem@davemloft.net>
-References: <147a89290801112252gfcfaf11h1d25ee3c66e75881@mail.gmail.com>
-	<1200236025.6171.79.camel@andromache>
+Subject: Re: [PATCH] fib_semantics: prevent long hash chains in access
+ server config
+Date: Sun, 13 Jan 2008 18:11:18 -0800 (PST)
+Message-ID: <20080113.181118.08046749.davem@davemloft.net>
+References: <20080112185819.GA12775@kvack.org>
+	<20080112.213857.68003780.davem@davemloft.net>
+	<20080113175849.GC12775@kvack.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johnsonzjo@gmail.com, netdev@vger.kernel.org
-To: gdt@gdt.id.au
+Cc: netdev@vger.kernel.org
+To: bcrl@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57521
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47351
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752925AbYANCID (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 21:08:03 -0500
-In-Reply-To: <1200236025.6171.79.camel@andromache>
+	by vger.kernel.org with ESMTP id S1753947AbYANCLT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 21:11:19 -0500
+In-Reply-To: <20080113175849.GC12775@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Glen Turner <gdt@gdt.id.au>
-Date: Mon, 14 Jan 2008 01:23:45 +1030
+From: Benjamin LaHaise <bcrl@kvack.org>
+Date: Sun, 13 Jan 2008 12:58:49 -0500
 
-> 
-> On Sat, 2008-01-12 at 08:52 +0200, Andy Johnson wrote:
-> > I saw somewhere (maybe in this mailing list a while ago) that there
-> > might be a  Linux Kernel Developers' Netconf conference  at conf.au
-> > 2008.
-> > 
-> > Does anyone here know if  such a thing is planned ?
-> 
-> I don't know.
+> Ah, you're right indeed.  It's probably easier for me to change how the 
+> daemon adds the local ip address for these point to point interfaces.
 
-We wanted to do a netconf in Sydney right before LCA08, but an unnamed
-company with a multi billion dollar market capitalization that uses
-Linux networking technology on thousands upon thounsands of their
-servers didn't want to pony up for some funding to cover airfare and
-hotel expenses for several of the attendees.  They wanted to provide
-nothing more than a conference room and then get their names in bright
-lights so they could say they "sponsored" netconf.
+I guess you didn't understand, I checked in the following
+patch which implements things correctly.
 
-So, no, there will be no netconf at LCA08.  But many of us will be
-there anyways and chatting in any event :-)
+commit d5414fdd4098742a5a9d255c4b9af587318c525f
+Author: David S. Miller <davem@davemloft.net>
+Date:   Sat Jan 12 21:49:01 2008 -0800
 
-Thanks for the offer for the network pipe.  I'm not interested
-personally as I like to relax during the conference not hack actively
-on anything too seriously.  I'm there to present, keep up semi
-regularly with my email, and chat with folks.
+    [IPV4] FIB: Include nexthop device indexes in fib_info hashfn.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Now, if this were available outside of the conference so that we could
-play with it remotely from where we work, that's more interesting.
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 3ed920b..0e08df4 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -194,6 +194,15 @@ static __inline__ int nh_comp(const struct fib_info *fi, const struct fib_info *
+ 	return 0;
+ }
+ 
++static inline unsigned int fib_devindex_hashfn(unsigned int val)
++{
++	unsigned int mask = DEVINDEX_HASHSIZE - 1;
++
++	return (val ^
++		(val >> DEVINDEX_HASHBITS) ^
++		(val >> (DEVINDEX_HASHBITS * 2))) & mask;
++}
++
+ static inline unsigned int fib_info_hashfn(const struct fib_info *fi)
+ {
+ 	unsigned int mask = (fib_hash_size - 1);
+@@ -202,6 +211,9 @@ static inline unsigned int fib_info_hashfn(const struct fib_info *fi)
+ 	val ^= fi->fib_protocol;
+ 	val ^= (__force u32)fi->fib_prefsrc;
+ 	val ^= fi->fib_priority;
++	for_nexthops(fi) {
++		val ^= fib_devindex_hashfn(nh->nh_oif);
++	} endfor_nexthops(fi)
+ 
+ 	return (val ^ (val >> 7) ^ (val >> 12)) & mask;
+ }
+@@ -232,15 +244,6 @@ static struct fib_info *fib_find_info(const struct fib_info *nfi)
+ 	return NULL;
+ }
+ 
+-static inline unsigned int fib_devindex_hashfn(unsigned int val)
+-{
+-	unsigned int mask = DEVINDEX_HASHSIZE - 1;
+-
+-	return (val ^
+-		(val >> DEVINDEX_HASHBITS) ^
+-		(val >> (DEVINDEX_HASHBITS * 2))) & mask;
+-}
+-
+ /* Check, that the gateway is already configured.
+    Used only by redirect accept routine.
+  */
