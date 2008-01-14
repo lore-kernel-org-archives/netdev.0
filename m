@@ -1,43 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [AX25]: sparse cleanups
-Date: Sun, 13 Jan 2008 22:29:59 -0800 (PST)
-Message-ID: <20080113.222959.82928660.davem@davemloft.net>
-References: <4789EF88.9090303@cosmosbay.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [TOKENRING]: rif_timer not initialized properly
+Date: Mon, 14 Jan 2008 07:30:00 +0100
+Message-ID: <478B0168.1060809@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Content-Type: multipart/mixed;
+ boundary="------------010704050106060601040502"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49600
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751443AbYANG37 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 01:29:59 -0500
-In-Reply-To: <4789EF88.9090303@cosmosbay.com>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:34472 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751546AbYANGaL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 01:30:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Sun, 13 Jan 2008 12:01:28 +0100
+This is a multi-part message in MIME format.
+--------------010704050106060601040502
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> net/ax25/ax25_route.c:251:13: warning: context imbalance in 
-> 'ax25_rt_seq_start' - wrong count at exit
-> net/ax25/ax25_route.c:276:13: warning: context imbalance in 'ax25_rt_seq_stop' 
-> - unexpected unlock
-> net/ax25/ax25_std_timer.c:65:25: warning: expensive signed divide
-> net/ax25/ax25_uid.c:46:1: warning: symbol 'ax25_uid_list' was not declared. 
-> Should it be static?
-> net/ax25/ax25_uid.c:146:13: warning: context imbalance in 'ax25_uid_seq_start' 
-> - wrong count at exit
-> net/ax25/ax25_uid.c:169:13: warning: context imbalance in 'ax25_uid_seq_stop' 
-> - unexpected unlock
-> net/ax25/af_ax25.c:573:28: warning: expensive signed divide
-> net/ax25/af_ax25.c:1865:13: warning: context imbalance in 'ax25_info_start' - 
-> wrong count at exit
-> net/ax25/af_ax25.c:1888:13: warning: context imbalance in 'ax25_info_stop' - 
-> unexpected unlock
-> net/ax25/ax25_ds_timer.c:133:25: warning: expensive signed divide
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Applied, thanks.
+--------------010704050106060601040502
+Content-Type: text/plain;
+ name="tr.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="tr.patch"
+
+diff --git a/net/802/tr.c b/net/802/tr.c
+index a2bd0f2..1e115e5 100644
+--- a/net/802/tr.c
++++ b/net/802/tr.c
+@@ -642,7 +642,7 @@ struct net_device *alloc_trdev(int sizeof_priv)
+ static int __init rif_init(void)
+ {
+ 	init_timer(&rif_timer);
+-	rif_timer.expires  = sysctl_tr_rif_timeout;
++	rif_timer.expires  = jiffies + sysctl_tr_rif_timeout;
+ 	rif_timer.data     = 0L;
+ 	rif_timer.function = rif_check_expire;
+ 	add_timer(&rif_timer);
+
+--------------010704050106060601040502--
