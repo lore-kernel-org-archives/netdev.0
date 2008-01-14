@@ -1,48 +1,48 @@
-From: Dzianis Kahanovich <mahatma@bspu.unibel.by>
-Subject: Re: [PATCH 2.6.23+] ingress classify to [nf]mark
-Date: Mon, 14 Jan 2008 13:40:00 -0200
-Message-ID: <478B8250.90602@bspu.unibel.by>
-References: <47866C69.3080904@bspu.unibel.by>	 <1200001167.4443.38.camel@localhost>  <4787A663.4030204@bspu.unibel.by>	 <1200063541.4483.42.camel@localhost>  <4787D49E.6080906@bspu.unibel.by>	 <1200107027.4477.36.camel@localhost>  <4788FF45.702@bspu.unibel.by> <1200253484.4427.33.camel@localhost>
-Reply-To: mahatma@eu.by
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [PATCH 2/9] get rid of unused revision element
+Date: Mon, 14 Jan 2008 12:44:32 +0100
+Message-ID: <18315.19232.437801.553809@robur.slu.se>
+References: <20080112064513.803976049@linux-foundation.org>
+	<20080112064646.132747871@linux-foundation.org>
+	<20080112.205059.223738374.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, mahatma@eu.by
-To: netdev@vger.kernel.org
+Cc: shemminger@linux-foundation.org, robert.olsson@its.uu.se,
+	netdev@vger.kernel.org, stephen.hemminger@vyatta.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bspu.unibel.by ([195.50.2.21]:40262 "EHLO
-	mail.bspu.unibel.by" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755753AbYANLlm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 06:41:42 -0500
-In-Reply-To: <1200253484.4427.33.camel@localhost>
+Received: from mx1.slu.se ([130.238.96.70]:59389 "EHLO mx1.slu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754953AbYANLou (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 06:44:50 -0500
+In-Reply-To: <20080112.205059.223738374.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-jamal wrote:
 
->> I in doubts only about "action continue".
->> To "and/or" behaviour one of best usage are (example):
-> 
-> I dont think you should be touching the action part at all primarily
-> because actions can set the mark after classification. 
+David Miller writes:
 
-Yes, I only do it by inertia after "#define tc_index mark".
+ > > The revision element must of been part of an earlier design,
+ > > because currently it is set but never used.
+ > > 
+ > > Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
+ > 
+ > I suspect Robert wanted to play around with some generation
+ > ID optimizations but never got around to it.
 
-I not understand why "tc_index" changed in this place. 1) there are ingress 2) 
-there are "OK" action. Are "tc_index" will not changed after: "tc filter add 
-dev eth0 parent ffff: ... flowid 1:1 action continue" ? In general - are 
-tc_index useful in ingress? (may be tc_index used in [nf]mark-style, but even 
-in netfilter it feature migrate - IMHO, may be I time to time do not see in 
-needed place)
+ The idea was to have a selective flush of route cache entries when
+ a fib insert/delete happened. From what I remember you added another/
+ better solution. Just a list with route cache entries pointing to parent 
+ route. So yes this was obsoleted by your/our effort to avoid total 
+ flushing of the route cache. Unfinished work.
+ 
+ According to  http://bgpupdates.potaroo.net/instability/bgpupd.html
+ (last in page) we currently flush the route cache 2.80 times per second. 
+ when using full Internet routing with Linux. Maybe we're forced to pick 
+ up this thread again someday.
 
-Sorry, I just change focus from existing "tc_index=..." to common behaviour ;)
-
-[...]
-> Please refer to what i said above; if what i said still doesnt make
-> sense i can create (the simple) patch.
-
-A bit vague... sorry...
-
--- 
-WBR,
-Denis Kaganovich,  mahatma@eu.by  http://mahatma.bspu.unibel.by
+ Cheers.
+					--ro
+ 
+ 
