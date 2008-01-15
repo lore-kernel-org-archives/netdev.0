@@ -1,159 +1,73 @@
-From: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
-Subject: [PATCH 4/4] bonding: Fix some RTNL taking
-Date: Tue, 15 Jan 2008 15:36:08 +0900
-Message-ID: <20080115063650.236883000@miraclelinux.com>
-References: <20080115063604.577118000@miraclelinux.com>
-Cc: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 3/6] [IPV4] trie: put leaf nodes in a slab cache
+Date: Tue, 15 Jan 2008 07:49:39 +0100
+Message-ID: <478C5783.6030508@cosmosbay.com>
+References: <20080112064646.282104074@linux-foundation.org>	<20080112.205520.55747078.davem@davemloft.net>	<4789A29C.6080000@linux-foundation.org>	<20080112.214417.154179770.davem@davemloft.net>	<20080114125755.6157a3bf@deepthought>	<20080114164450.55f8c9b2@deepthought> <20080114164621.2bc5011f@deepthought>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, robert.olsson@its.uu.se,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.miraclelinux.com ([219.118.163.66]:9820 "EHLO
-	dhcp-0021.miraclelinux.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751781AbYAOGeZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 01:34:25 -0500
-Content-Disposition: inline; filename=bonding-fix-some-rtnl-taking.patch
+Received: from gw1.cosmosbay.com ([86.65.150.130]:56853 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752039AbYAOGt4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 01:49:56 -0500
+In-Reply-To: <20080114164621.2bc5011f@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix some RTNL lock taking:
+Stephen Hemminger a =E9crit :
+> This improves locality for operations that touch all the leaves.
+> Later patch will grow the size of the leaf so it becomes more
+> important.
+>=20
+> Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
+>=20
+>=20
+> --- a/net/ipv4/fib_trie.c	2008-01-14 12:26:51.000000000 -0800
+> +++ b/net/ipv4/fib_trie.c	2008-01-14 13:41:00.000000000 -0800
+> @@ -162,6 +162,7 @@ static struct tnode *halve(struct trie *
+>  static void tnode_free(struct tnode *tn);
+> =20
+>  static struct kmem_cache *fn_alias_kmem __read_mostly;
+> +static struct kmem_cache *trie_leaf_kmem __read_mostly;
+> =20
+>  static inline struct tnode *node_parent(struct node *node)
+>  {
+> @@ -316,7 +317,8 @@ static inline void alias_free_mem_rcu(st
+> =20
+>  static void __leaf_free_rcu(struct rcu_head *head)
+>  {
+> -	kfree(container_of(head, struct leaf, rcu));
+> +	struct leaf *leaf =3D container_of(head, struct leaf, rcu);
+> +	kmem_cache_free(trie_leaf_kmem, leaf);
+>  }
+> =20
+>  static void __leaf_info_free_rcu(struct rcu_head *head)
+> @@ -366,7 +368,7 @@ static inline void tnode_free(struct tno
+> =20
+>  static struct leaf *leaf_new(void)
+>  {
+> -	struct leaf *l =3D kmalloc(sizeof(struct leaf),  GFP_KERNEL);
+> +	struct leaf *l =3D kmem_cache_alloc(trie_leaf_kmem, GFP_KERNEL);
+>  	if (l) {
+>  		l->parent =3D T_LEAF;
+>  		INIT_HLIST_HEAD(&l->list);
+> @@ -1927,6 +1929,9 @@ void __init fib_hash_init(void)
+>  {
+>  	fn_alias_kmem =3D kmem_cache_create("ip_fib_alias", sizeof(struct f=
+ib_alias),
+>  					  0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+> +
+> +	trie_leaf_kmem =3D kmem_cache_create("ip_fib_trie", sizeof(struct l=
+eaf),
+> +					   0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+>  }
+> =20
 
-* RTNL (mutex; may sleep) must not be taken under read_lock (spinlock; must be
-atomic). However, RTNL is taken under read_lock in bond_loadbalance_arp_mon()
-and bond_activebackup_arp_mon(). So change code to take RTNL outside of read_lock.
+Do we really need HWCACHE_ALIGN ? so many wasted space ...
 
-* rtnl_unlock() calls netdev_run_todo() which takes net_todo_run_mutex, and
-rtnl_unlock() is called under read_lock in bond_mii_monitor(). So for the same
-reason as above, change code to call rtnl_unlock() outside of read_lock.
 
-Signed-off-by: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
----
- drivers/net/bonding/bond_main.c |   24 ++++++++++--------------
- 1 file changed, 10 insertions(+), 14 deletions(-)
-
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2372,6 +2372,7 @@ void bond_mii_monitor(struct work_struct
- 	struct bonding *bond = container_of(work, struct bonding,
- 					    mii_work.work);
- 	unsigned long delay;
-+	int need_unlock = 0;
- 
- 	read_lock(&bond->lock);
- 	if (bond->kill_timers) {
-@@ -2383,13 +2384,16 @@ void bond_mii_monitor(struct work_struct
- 		rtnl_lock();
- 		read_lock(&bond->lock);
- 		__bond_mii_monitor(bond, 1);
--		rtnl_unlock();
-+		need_unlock = 1;
- 	}
- 
- 	delay = ((bond->params.miimon * HZ) / 1000) ? : 1;
--	read_unlock(&bond->lock);
- 	if (bond->params.miimon)
- 		queue_delayed_work(bond->wq, &bond->mii_work, delay);
-+	read_unlock(&bond->lock);
-+	/* rtnl_unlock() may sleep, so call it after read_unlock() */
-+	if (need_unlock)
-+		rtnl_unlock();
- }
- 
- static __be32 bond_glean_dev_ip(struct net_device *dev)
-@@ -2698,6 +2702,7 @@ void bond_loadbalance_arp_mon(struct wor
- 	int delta_in_ticks;
- 	int i;
- 
-+	rtnl_lock();
- 	read_lock(&bond->lock);
- 
- 	delta_in_ticks = (bond->params.arp_interval * HZ) / 1000;
-@@ -2791,14 +2796,11 @@ void bond_loadbalance_arp_mon(struct wor
- 	}
- 
- 	if (do_failover) {
--		rtnl_lock();
- 		write_lock_bh(&bond->curr_slave_lock);
- 
- 		bond_select_active_slave(bond);
- 
- 		write_unlock_bh(&bond->curr_slave_lock);
--		rtnl_unlock();
--
- 	}
- 
- re_arm:
-@@ -2806,6 +2808,7 @@ re_arm:
- 		queue_delayed_work(bond->wq, &bond->lb_arp_work, delta_in_ticks);
- out:
- 	read_unlock(&bond->lock);
-+	rtnl_unlock();
- }
- 
- /*
-@@ -2831,6 +2834,7 @@ void bond_activebackup_arp_mon(struct wo
- 	int delta_in_ticks;
- 	int i;
- 
-+	rtnl_lock();
- 	read_lock(&bond->lock);
- 
- 	delta_in_ticks = (bond->params.arp_interval * HZ) / 1000;
-@@ -2855,8 +2859,6 @@ void bond_activebackup_arp_mon(struct wo
- 
- 				slave->link = BOND_LINK_UP;
- 
--				rtnl_lock();
--
- 				write_lock_bh(&bond->curr_slave_lock);
- 
- 				if ((!bond->curr_active_slave) &&
-@@ -2892,7 +2894,6 @@ void bond_activebackup_arp_mon(struct wo
- 				}
- 
- 				write_unlock_bh(&bond->curr_slave_lock);
--				rtnl_unlock();
- 			}
- 		} else {
- 			read_lock(&bond->curr_slave_lock);
-@@ -2962,7 +2963,6 @@ void bond_activebackup_arp_mon(struct wo
- 			       bond->dev->name,
- 			       slave->dev->name);
- 
--			rtnl_lock();
- 			write_lock_bh(&bond->curr_slave_lock);
- 
- 			bond_select_active_slave(bond);
-@@ -2970,8 +2970,6 @@ void bond_activebackup_arp_mon(struct wo
- 
- 			write_unlock_bh(&bond->curr_slave_lock);
- 
--			rtnl_unlock();
--
- 			bond->current_arp_slave = slave;
- 
- 			if (slave) {
-@@ -2989,13 +2987,10 @@ void bond_activebackup_arp_mon(struct wo
- 			       bond->primary_slave->dev->name);
- 
- 			/* primary is up so switch to it */
--			rtnl_lock();
- 			write_lock_bh(&bond->curr_slave_lock);
- 			bond_change_active_slave(bond, bond->primary_slave);
- 			write_unlock_bh(&bond->curr_slave_lock);
- 
--			rtnl_unlock();
--
- 			slave = bond->primary_slave;
- 			slave->jiffies = jiffies;
- 		} else {
-@@ -3064,6 +3059,7 @@ re_arm:
- 	}
- out:
- 	read_unlock(&bond->lock);
-+	rtnl_unlock();
- }
- 
- /*------------------------------ proc/seq_file-------------------------------*/
-
--- 
-Makito SHIOKAWA
-MIRACLE LINUX CORPORATION 
