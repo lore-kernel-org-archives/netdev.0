@@ -1,37 +1,91 @@
-From: Daniel Mack <daniel@caiaq.de>
-Subject: Re: DM9000_IRQ_FLAGS
-Date: Tue, 15 Jan 2008 12:42:27 +0100
-Message-ID: <20080115114227.GA7868@buzzloop.caiaq.de>
-References: <20071211191823.GD15295@buzzloop.caiaq.de> <3efb10970712111231r29f9fba1l3528d805d1009c52@mail.gmail.com> <20071212134153.GA21510@buzzloop.caiaq.de> <20071220094626.GB9216@fluff.org.uk> <3efb10970712200154u4c224071q6f5d5d7bb3bf0aa1@mail.gmail.com>
+From: "Aggrwal Poonam" <Poonam.Aggrwal@freescale.com>
+Subject: RE: [PATCH 0/3] UCC TDM driver for MPC83xx platforms
+Date: Tue, 15 Jan 2008 17:35:39 +0530
+Message-ID: <FBA61160C48B8D438F3323FEFB4EF2C26E7A6F@zin33exm24.fsl.freescale.net>
+References: <FBA61160C48B8D438F3323FEFB4EF2C259F2F6@zin33exm24.fsl.freescale.net> <FBA61160C48B8D438F3323FEFB4EF2C26E7653@zin33exm24.fsl.freescale.net> <20080114120051.3207043b.kim.phillips@freescale.com> <20080114131530.9d33f50a.akpm@linux-foundation.org> <5927F7A4-D42A-40F6-AE9C-EDA34738A752@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Dooks <ben@fluff.org>, netdev@vger.kernel.org
-To: Remy Bohmer <linux@bohmer.net>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: "Phillips Kim" <Kim.Phillips@freescale.com>,
+	<sfr@canb.auug.org.au>, <rubini@vision.unipv.it>,
+	<linux-ppcdev@ozlabs.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	"Barkowski Michael" <Michael.Barkowski@freescale.com>,
+	"Kalra Ashish" <ashish.kalra@freescale.com>,
+	"Cutler Richard" <Rich.Cutler@freescale.com>,
+	"Suresh PV" <pala@freescale.com>
+To: "Kumar Gala" <galak@kernel.crashing.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from buzzloop.caiaq.de ([212.112.241.133]:45446 "EHLO
-	buzzloop.caiaq.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750888AbYAOLmc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 06:42:32 -0500
-Content-Disposition: inline
-In-Reply-To: <3efb10970712200154u4c224071q6f5d5d7bb3bf0aa1@mail.gmail.com>
+Received: from az33egw01.freescale.net ([192.88.158.102]:41912 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750757AbYAOMGC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 07:06:02 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <5927F7A4-D42A-40F6-AE9C-EDA34738A752@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 20, 2007 at 10:54:34AM +0100, Remy Bohmer wrote:
-> > I did have a go at trying to get people to pass the information this
-> > way, but it seem to be ignored last time I sent it. I can dig out the
-> > code that converts resource->flags to IRQT_ flags.
-> 
-> I thought this issue was already solved by using set_irq_type() in the
-> BSP, just like all the other boards do...
+Thanks Kumar/Morton/Kim
 
-Yes, exactly. I was trapped by another board file which specifies
-interrupt types using 'struct resources'->flags for that
-(arch/arm/mach-pxa/trizeps4.c) which is, as you pointed out earlier, not
-the way to go. 
+I shall make a small paragraph which describes the TDM driver
+architecture and the interfaces it exposes.
 
-Sorry for the noise.
+As far as 8315 TDM is concerned it is a non QE driver and quite
+different from this except for the functionality and external interface
+it exposes.
 
-Best regards,
-Daniel
+Right now TDM is not a full-fledged bus driver which probably can be
+done may be very similar to SPI.
 
+Please give your suggestions on this.
+
+With Regards
+Poonam 
+ 
+ 
+
+-----Original Message-----
+From: Kumar Gala [mailto:galak@kernel.crashing.org] 
+Sent: Tuesday, January 15, 2008 9:01 AM
+To: Andrew Morton
+Cc: Phillips Kim; Aggrwal Poonam; sfr@canb.auug.org.au;
+rubini@vision.unipv.it; linux-ppcdev@ozlabs.kernel.org;
+netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Barkowski Michael;
+Kalra Ashish; Cutler Richard
+Subject: Re: [PATCH 0/3] UCC TDM driver for MPC83xx platforms
+
+
+On Jan 14, 2008, at 3:15 PM, Andrew Morton wrote:
+
+> On Mon, 14 Jan 2008 12:00:51 -0600
+> Kim Phillips <kim.phillips@freescale.com> wrote:
+>
+>> On Thu, 10 Jan 2008 21:41:20 -0700
+>> "Aggrwal Poonam" <Poonam.Aggrwal@freescale.com> wrote:
+>>
+>>> Hello  All
+>>>
+>>> I am waiting for more feedback on the patches.
+>>>
+>>> If there are no objections please consider them for 2.6.25.
+>>>
+>> if this isn't going to go through Alessandro Rubini/misc drivers, can
+
+>> it go through the akpm/mm tree?
+>>
+>
+> That would work.  But it might be more appropriate to go Kumar-
+> >paulus->Linus.
+
+I'm ok w/taking the arch/powerpc bits, but I"m a bit concerned about  
+the driver itself.  I'm wondering if we need a TDM framework in the  
+kernel.
+
+I guess if Poonam could possibly describe how this driver is actually  
+used that would be helpful.  I see we have 8315 with a discrete TDM  
+block and I'm guessing 82xx/85xx based CPM parts of some form of TDM  
+as well.
+
+- k
