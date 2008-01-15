@@ -1,35 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [IPV4] fib_trie: size and statistics
-Date: Mon, 14 Jan 2008 23:12:06 -0800 (PST)
-Message-ID: <20080114.231206.217868623.davem@davemloft.net>
-References: <4789A29C.6080000@linux-foundation.org>
-	<20080112.214417.154179770.davem@davemloft.net>
-	<20080114125755.6157a3bf@deepthought>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: questions on NAPI processing latency and dropped network
+	packets
+Date: Tue, 15 Jan 2008 08:19:50 +0100
+Message-ID: <20080115071950.GA1696@ff.dom.local>
+References: <478B86BA.1050706@nortel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: robert.olsson@its.uu.se, netdev@vger.kernel.org,
-	stephen.hemminger@vyatta.com
-To: shemminger@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Chris Friesen <cfriesen@nortel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40550
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751954AbYAOHMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 02:12:12 -0500
-In-Reply-To: <20080114125755.6157a3bf@deepthought>
+Received: from ug-out-1314.google.com ([66.249.92.170]:49678 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752369AbYAOHNb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 02:13:31 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so42783ugc.16
+        for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 23:13:29 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <478B86BA.1050706@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Mon, 14 Jan 2008 12:57:55 -0800
-
-> Show number of entries in trie, the size field was being set but never used,
-> but it only counted leaves, not all entries. Refactor the two cases in
-> fib_triestat_seq_show into a single routine.
+On 14-01-2008 16:58, Chris Friesen wrote:
+...
+> How close to bleeding edge do we need to be for it to be considered 
+> acceptable to ask questions on netdev?
 > 
-> Note: the stat structure was being malloc'd but the stack usage isn't so
-> high (288 bytes) that it is worth the additional complexity.
-> 
-> Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
+> Given that the embedded space tends to be perpetually stuck on older 
+> kernels (our "current" release is based on 2.6.14) do you have any 
+> suggestion on how we can obtain information that would be available on 
+> netdev if we were using newer kernels?
 
-Applied, thanks.
+IMHO, checking this with a current stable, which probably you are going
+to do some day, anyway, should be 100% acceptable: giving some input to
+netdev, while still working for yourself.
+
+Regards,
+Jarek P.
