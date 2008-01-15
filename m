@@ -1,42 +1,52 @@
-From: Glen Turner <gdt@gdt.id.au>
-Subject: Re: Packetlost when "tc qdisc del dev eth0 root"
-Date: Wed, 16 Jan 2008 09:46:07 +1030
-Message-ID: <1200438967.5860.11.camel@andromache>
-References: <478C94B7.3070503@bigtelecom.ru> <478CD9D6.3000504@trash.net>
-	 <478D226E.1050209@gmail.com>
-	 <20080116004602.zn4y94e8sg0w4o8k@mail.bigtelecom.ru>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: [PATCH] ne2k: add minimal ethtool setting support
+Date: Tue, 15 Jan 2008 15:48:05 -0800
+Message-ID: <20080115154805.69150f76@deepthought>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: slavon@bigtelecom.ru
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Paul Gortmaker <p_gortmaker@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:50255 "EHLO
-	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751123AbYAOXUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 18:20:21 -0500
-In-Reply-To: <20080116004602.zn4y94e8sg0w4o8k@mail.bigtelecom.ru>
+Received: from mail.vyatta.com ([216.93.170.194]:35662 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758208AbYAOXuw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jan 2008 18:50:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add minimal ethtool settings support for ne2k driver. This is needed
+for KVM/QEMU environment where ne2k seems to be the simplest stupid
+hardware used.
 
-On Wed, 2008-01-16 at 00:46 +0300, slavon@bigtelecom.ru wrote:
+Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
 
-> But i have above 45 k classes and qdiscs.... After some time i will  
-> need patch to up max qdisc and classes more then 65k (> 0xfffe) =)))
-> Also i have very bad TC commands performance then i have more then 10k rules.
+--- a/drivers/net/ne2k-pci.c	2008-01-15 11:21:02.000000000 -0800
++++ b/drivers/net/ne2k-pci.c	2008-01-15 15:43:17.000000000 -0800
+@@ -634,8 +634,21 @@ static void ne2k_pci_get_drvinfo(struct 
+ 	strcpy(info->bus_info, pci_name(pci_dev));
+ }
+ 
++static int ne2k_pci_get_settings(struct net_device *dev,
++				 struct ethtool_cmd *cmd)
++{
++	cmd->speed		= SPEED_10;
++	cmd->duplex		= (ei_status.ne2k_flags & FORCE_FDX)
++				   ? DUPLEX_FULL : DUPLEX_HALF;
++	cmd->port		= PORT_TP;
++	cmd->transceiver	= XCVR_INTERNAL;
++	cmd->autoneg		= AUTONEG_DISABLE;
++	return 0;
++}
++
+ static const struct ethtool_ops ne2k_pci_ethtool_ops = {
+ 	.get_drvinfo		= ne2k_pci_get_drvinfo,
++	.get_settings		= ne2k_get_settings,
+ };
+ 
+ static void __devexit ne2k_pci_remove_one (struct pci_dev *pdev)
 
-In contrast a "brand name" router will support 4 to 16 queues
-per (sub-)interface.  Your large number of queues exceeds
-expectations.
 
-What are you trying to do?  You may be better off inventing a
-new qdisc to meet your need (eg, to do per-IP traffic shaping
-or, less complexly, a traffic shaping based on the value of mark
-which might offend DiffServ purists) or have, say, 1000 output
-rates based on a marking and use the ipset feature of Netfilter
-to set the mark.  Using 1000 rates gives an error of 0.1% which
-is unlikely to be noticed by your customers given the larger
-effects of shaping on TCP performance but is beneath the
-level where you are noticing performance issues.
-
+-- 
+Stephen Hemminger <stephen.hemminger@vyatta.com>
