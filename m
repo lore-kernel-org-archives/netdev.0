@@ -1,32 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/6] [IPV4] trie: put leaf nodes in a slab cache
-Date: Mon, 14 Jan 2008 23:29:56 -0800 (PST)
-Message-ID: <20080114.232956.118294179.davem@davemloft.net>
-References: <20080114125755.6157a3bf@deepthought>
-	<20080114164450.55f8c9b2@deepthought>
-	<20080114164621.2bc5011f@deepthought>
+From: "Rami Rosen" <ramirose@gmail.com>
+Subject: [PATCH net-2.6.25] [XFRM] Remove unused definition XFRM_POLICY_LOCALOK in linux/xfrm.h + typos in net/xfrm.h
+Date: Tue, 15 Jan 2008 10:17:37 +0200
+Message-ID: <eb3ff54b0801150017s425c2d10xe570cc70d2ca596b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: robert.olsson@its.uu.se, netdev@vger.kernel.org
-To: stephen.hemminger@vyatta.com
+Content-Type: multipart/mixed;
+	boundary="----=_Part_5236_4779733.1200385057667"
+To: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36222
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752028AbYAOH36 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 02:29:58 -0500
-In-Reply-To: <20080114164621.2bc5011f@deepthought>
+Received: from fg-out-1718.google.com ([72.14.220.155]:54378 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751075AbYAOIRj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 03:17:39 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so2579096fga.17
+        for <netdev@vger.kernel.org>; Tue, 15 Jan 2008 00:17:37 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Date: Mon, 14 Jan 2008 16:46:21 -0800
+------=_Part_5236_4779733.1200385057667
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> This improves locality for operations that touch all the leaves.
-> Later patch will grow the size of the leaf so it becomes more
-> important.
-> 
-> Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Hi,
+- XFRM_POLICY_LOCALOK in linux/xfrm.h is unused definition.
+- correct 4 typos in net/xfrm.h
 
-I'll let 3, 4, 5, and 6 sit while you work out the issues
-brought up by Eric Dumazet.
+Regards,
+Rami Rosen
+
+
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+------=_Part_5236_4779733.1200385057667
+Content-Type: text/plain; name=patch.txt
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fbg678rc0
+Content-Disposition: attachment; filename=patch.txt
+
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgveGZybS5oIGIvaW5jbHVkZS9saW51eC94ZnJtLmgK
+aW5kZXggOWI1YjAwYy4uZjVjZmI3NSAxMDA2NDQKLS0tIGEvaW5jbHVkZS9saW51eC94ZnJtLmgK
+KysrIGIvaW5jbHVkZS9saW51eC94ZnJtLmgKQEAgLTM2Myw3ICszNjMsNiBAQCBzdHJ1Y3QgeGZy
+bV91c2VycG9saWN5X2luZm8gewogI2RlZmluZSBYRlJNX1BPTElDWV9BTExPVwkwCiAjZGVmaW5l
+IFhGUk1fUE9MSUNZX0JMT0NLCTEKIAlfX3U4CQkJCWZsYWdzOwotI2RlZmluZSBYRlJNX1BPTElD
+WV9MT0NBTE9LCTEJLyogQWxsb3cgdXNlciB0byBvdmVycmlkZSBnbG9iYWwgcG9saWN5ICovCiAJ
+LyogQXV0b21hdGljYWxseSBleHBhbmQgc2VsZWN0b3IgdG8gaW5jbHVkZSBtYXRjaGluZyBJQ01Q
+IHBheWxvYWRzLiAqLwogI2RlZmluZSBYRlJNX1BPTElDWV9JQ01QCTIKIAlfX3U4CQkJCXNoYXJl
+OwpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQveGZybS5oIGIvaW5jbHVkZS9uZXQveGZybS5oCmlu
+ZGV4IDVlYmI5YmEuLjA5YjliZGEgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbmV0L3hmcm0uaAorKysg
+Yi9pbmNsdWRlL25ldC94ZnJtLmgKQEAgLTczLDcgKzczLDcgQEAgZXh0ZXJuIHN0cnVjdCBtdXRl
+eCB4ZnJtX2NmZ19tdXRleDsKICAgIExvb2t1cCBpcyBwbGFpbiBsaW5lYXIgc2VhcmNoIHVudGls
+IHRoZSBmaXJzdCBtYXRjaCB3aXRoIHNlbGVjdG9yLgogCiAgICBJZiAiYWN0aW9uIiBpcyAiYmxv
+Y2siLCB0aGVuIHdlIHByb2hpYml0IHRoZSBmbG93LCBvdGhlcndpc2U6Ci0gICBpZiAieGZybXNf
+bnIiIGlzIHplcm8sIHRoZSBmbG93IHBhc3NlcyB1bnRyYW5zZm9ybWVkLiBPdGhlcndpc2UsCisg
+ICBpZiAieGZybV9uciIgaXMgemVybywgdGhlIGZsb3cgcGFzc2VzIHVudHJhbnNmb3JtZWQuIE90
+aGVyd2lzZSwKICAgIHBvbGljeSBlbnRyeSBoYXMgbGlzdCBvZiB1cCB0byBYRlJNX01BWF9ERVBU
+SCB0cmFuc2Zvcm1hdGlvbnMsCiAgICBkZXNjcmliZWQgYnkgdGVtcGxhdGVzIHhmcm1fdG1wbC4g
+RWFjaCB0ZW1wbGF0ZSBpcyByZXNvbHZlZAogICAgdG8gYSBjb21wbGV0ZSB4ZnJtX3N0YXRlIChz
+ZWUgYmVsb3cpIGFuZCB3ZSBwYWNrIGJ1bmRsZSBvZiB0cmFuc2Zvcm1hdGlvbnMKQEAgLTg0LDEw
+ICs4NCwxMCBAQCBleHRlcm4gc3RydWN0IG11dGV4IHhmcm1fY2ZnX211dGV4OwogICAgICAgICAg
+ICAgICAgICAgICAgfC0tLS4gY2hpbGQgLi0+IGRzdCAtLiB4ZnJtIC4tPiB4ZnJtX3N0YXRlICMz
+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwtLS0uIGNoaWxkIC4tPiBO
+VUxMCiAKLSAgIEJ1bmRsZXMgYXJlIGNhY2hlZCBhdCB4cmZtX3BvbGljeSBzdHJ1Y3QgKGZpZWxk
+IC0+YnVuZGxlcykuCisgICBCdW5kbGVzIGFyZSBjYWNoZWQgYXQgeGZybV9wb2xpY3kgc3RydWN0
+IChmaWVsZCAtPmJ1bmRsZXMpLgogCiAKLSAgIFJlc29sdXRpb24gb2YgeHJmbV90bXBsCisgICBS
+ZXNvbHV0aW9uIG9mIHhmcm1fdG1wbAogICAgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgIFRl
+bXBsYXRlIGNvbnRhaW5zOgogICAgMS4gLT5tb2RlCQlNb2RlOiB0cmFuc3BvcnQgb3IgdHVubmVs
+CkBAIC0xMzMsNyArMTMzLDcgQEAgc3RydWN0IHhmcm1fc3RhdGUKIAogCXUzMgkJCWdlbmlkOwog
+Ci0JLyogS2V5IG1hbmdlciBiaXRzICovCisJLyogS2V5IG1hbmFnZXIgYml0cyAqLwogCXN0cnVj
+dCB7CiAJCXU4CQlzdGF0ZTsKIAkJdTgJCWR5aW5nOwo=
+------=_Part_5236_4779733.1200385057667--
