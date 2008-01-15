@@ -1,95 +1,49 @@
-From: Frank Rowand <frank.rowand@am.sony.com>
-Subject: [PATCH] 8390: fix CONFIG_LOCKDEP error, 2.6.24-rc7
-Date: Tue, 15 Jan 2008 14:23:26 -0800
-Message-ID: <1200435806.4092.22.camel@bx740>
-Reply-To: frank.rowand@am.sony.com
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Packetlost when "tc qdisc del dev eth0 root"
+Date: Tue, 15 Jan 2008 23:32:54 +0100
+Message-ID: <20080115223254.GB2680@ami.dom.local>
+References: <478C94B7.3070503@bigtelecom.ru> <478CD9D6.3000504@trash.net> <478D226E.1050209@gmail.com> <20080116004602.zn4y94e8sg0w4o8k@mail.bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: p_gortmaker@yahoo.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: slavon@bigtelecom.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-sin.frontbridge.com ([207.46.51.80]:36516 "EHLO
-	outbound3-sin-R.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752477AbYAOWYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 17:24:40 -0500
+Received: from nf-out-0910.google.com ([64.233.182.184]:9947 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756204AbYAOW3H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 17:29:07 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so10240nfb.21
+        for <netdev@vger.kernel.org>; Tue, 15 Jan 2008 14:29:06 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080116004602.zn4y94e8sg0w4o8k@mail.bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Rowand <frank.rowand@am.sony.com>
+On Wed, Jan 16, 2008 at 12:46:02AM +0300, slavon@bigtelecom.ru wrote:
+...
+> Hmmm... i found way to fix this for me... but its not look good
+>
+> Scheme look like:
+> Root - prio bands 3 priomap 0 0 0 0 ....
+> --- Class 1
+> --- Class 2
+> -------- Copy of all table (Last this qdisc be root)
+> --- Class 3
+> -------- Copy of all table (Last this qdisc be root)
+>
+> 2. Add filter to root - flowid all packets to class 2
+> 3. Delete qdisc at class 3
+> 4. Create all table on class 3 (~20k qdiscs and 20k classes)
+> 5. Replace filter on root - flowid all packets to class 3
+> 6. If need update go to step 3, but use class 2
+>
+> All work good... and packets not dropeed =)
+> But i have above 45 k classes and qdiscs.... After some time i will need 
+> patch to up max qdisc and classes more then 65k (> 0xfffe) =)))
+> Also i have very bad TC commands performance then i have more then 10k rules.
 
-Turning on CONFIG_LOCKDEP for CONFIG_PREEMPT invokes a path which may
-sleep with IRQs disabled.  Change disable_irq_nosync_lockdep() to
-disable_irq_nosync(), etc.  Note the comment near the top of
-drivers/net/lib8390.c, which is an lkml email from Alan Cox, pre-saging
-the need of this patch.
+Right! I get your idea (not all details...), and this really shows
+there is needed something simpler for this. 
 
-Signed-off-by: Frank Rowand <frank.rowand@am.sony.com>
----
- drivers/net/lib8390.c |   14 	7 +	7 -	0 !
- 1 files changed, 7 insertions(+), 7 deletions(-)
-
-Index: linux-2.6.24-rc5/drivers/net/lib8390.c
-===================================================================
---- linux-2.6.24-rc5.orig/drivers/net/lib8390.c
-+++ linux-2.6.24-rc5/drivers/net/lib8390.c
-@@ -284,7 +284,7 @@ static void ei_tx_timeout(struct net_dev
- 
- 	/* Ugly but a reset can be slow, yet must be protected */
- 
--	disable_irq_nosync_lockdep(dev->irq);
-+	disable_irq_nosync(dev->irq);
- 	spin_lock(&ei_local->page_lock);
- 
- 	/* Try to restart the card.  Perhaps the user has fixed something. */
-@@ -292,7 +292,7 @@ static void ei_tx_timeout(struct net_dev
- 	__NS8390_init(dev, 1);
- 
- 	spin_unlock(&ei_local->page_lock);
--	enable_irq_lockdep(dev->irq);
-+	enable_irq(dev->irq);
- 	netif_wake_queue(dev);
- }
- 
-@@ -334,7 +334,7 @@ static int ei_start_xmit(struct sk_buff 
- 	 *	Slow phase with lock held.
- 	 */
- 
--	disable_irq_nosync_lockdep_irqsave(dev->irq, &flags);
-+	disable_irq_nosync(dev->irq);
- 
- 	spin_lock(&ei_local->page_lock);
- 
-@@ -373,7 +373,7 @@ static int ei_start_xmit(struct sk_buff 
- 		netif_stop_queue(dev);
- 		ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
- 		spin_unlock(&ei_local->page_lock);
--		enable_irq_lockdep_irqrestore(dev->irq, &flags);
-+		enable_irq(dev->irq);
- 		ei_local->stat.tx_errors++;
- 		return 1;
- 	}
-@@ -414,7 +414,7 @@ static int ei_start_xmit(struct sk_buff 
- 	ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
- 
- 	spin_unlock(&ei_local->page_lock);
--	enable_irq_lockdep_irqrestore(dev->irq, &flags);
-+	enable_irq(dev->irq);
- 
- 	dev_kfree_skb (skb);
- 	ei_local->stat.tx_bytes += send_length;
-@@ -530,9 +530,9 @@ static irqreturn_t __ei_interrupt(int ir
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void __ei_poll(struct net_device *dev)
- {
--	disable_irq_lockdep(dev->irq);
-+	disable_irq(dev->irq);
- 	__ei_interrupt(dev->irq, dev);
--	enable_irq_lockdep(dev->irq);
-+	enable_irq(dev->irq);
- }
- #endif
- 
-
-
-
+Thanks,
+Jarek P.
