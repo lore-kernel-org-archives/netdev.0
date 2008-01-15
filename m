@@ -1,40 +1,61 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NETFILTER]: Supress some sparse warnings
-Date: Tue, 15 Jan 2008 16:45:41 +0100
-Message-ID: <478CD525.3000000@trash.net>
-References: <20080115124046.1c10dfeb.dada1@cosmosbay.com>
+Subject: Re: Not understand some in htb_do_events function
+Date: Tue, 15 Jan 2008 16:54:41 +0100
+Message-ID: <478CD741.7040004@trash.net>
+References: <478C86E6.3050508@bigtelecom.ru> <478C87D9.1010305@trash.net> <478CA02A.1070308@cdi.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080115124046.1c10dfeb.dada1@cosmosbay.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Badalian Vyacheslav <slavon@bigtelecom.ru>, netdev@vger.kernel.org
+To: Martin Devera <devik@cdi.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:43226 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751326AbYAOPyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 10:54:54 -0500
+In-Reply-To: <478CA02A.1070308@cdi.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Hi Patrick
+Martin Devera wrote:
+> Patrick McHardy wrote:
+>> Badalian Vyacheslav wrote:
+>>> Hello all.
+>>> I have many messages like "htb: too many events !" in dmesg.
+>>>
+>>> Try to see code and find that function try do 500 events at call.
+>>> Hm... may anyone ask why 500? Why its not dynamic value based on 
+>>> performance of PC?
+>>
+>>
+>> Thats a good question, I wonder why it is limited at all.
+>> Martin, any hints?
+>>
+> Hi, I recently replied someone to the same question:
 > 
-> Please find some sparse cleanups, against net-2.6.25
+>  > it is possible when during one jiffie (1 or 10ms) more than 500 classes
+>  > changed its state. It is meant to protect your system from livelock.
+>  > The constant should be set to something like
+>  > bogomips/bogocomplexity_of_state_change but it was not done.
 > 
-> Thank you
+> the solution I have in my mind is to change
+>    if (net_ratelimit())
+>                  printk(KERN_WARNING "htb: too many events !\n");
+>          return HZ/10;
+>  to
+>    return 1;
 > 
-> [NETFILTER]: Supress some sparse warnings
-> 
->   CHECK   net/netfilter/nf_conntrack_expect.c
-> net/netfilter/nf_conntrack_expect.c:429:13: warning: context imbalance in 'exp_seq_start' - wrong count at exit
-> net/netfilter/nf_conntrack_expect.c:441:13: warning: context imbalance in 'exp_seq_stop' - unexpected unlock
->   CHECK   net/netfilter/nf_log.c
-> net/netfilter/nf_log.c:105:13: warning: context imbalance in 'seq_start' - wrong count at exit
-> net/netfilter/nf_log.c:125:13: warning: context imbalance in 'seq_stop' - unexpected unlock
->   CHECK   net/netfilter/nfnetlink_queue.c
-> net/netfilter/nfnetlink_queue.c:363:7: warning: symbol 'size' shadows an earlier one
-> net/netfilter/nfnetlink_queue.c:217:9: originally declared here
-> net/netfilter/nfnetlink_queue.c:847:13: warning: context imbalance in 'seq_start' - wrong count at exit
-> net/netfilter/nfnetlink_queue.c:859:13: warning: context imbalance in 'seq_stop' - unexpected unlock
+> to drain extra events asap. It the time of writing I was not able to
+> come with better solution and there were more bugs related to this
+> part of code than now.
 
-Applied, thanks Eric.
+So this was meant to protect against endless loops?
 
+> We want way to smooth big burst of events over more dequeue invocations
+> in order to not slow dequeue too much. Constant 500 is max. allowed
+> "slowdown" of dequeue.
+> Any bright idea how to do it more elegant, Patrick ?
+
+
+Unfortunately not, but I believe simply removing the limit
+completely would be better than picking an arbitary value.
