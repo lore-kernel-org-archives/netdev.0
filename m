@@ -1,71 +1,134 @@
-From: "Rami Rosen" <ramirose@gmail.com>
-Subject: [PATCH net-2.6.25] [XFRM] Remove unused definition XFRM_POLICY_LOCALOK in linux/xfrm.h + typos in net/xfrm.h
-Date: Tue, 15 Jan 2008 10:17:37 +0200
-Message-ID: <eb3ff54b0801150017s425c2d10xe570cc70d2ca596b@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [FIB]: Fix rcu_dereference() abuses in fib_trie.c
+Date: Tue, 15 Jan 2008 09:29:40 +0100
+Message-ID: <20080115092940.311fb2c3.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_5236_4779733.1200385057667"
-To: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:54378 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751075AbYAOIRj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 03:17:39 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so2579096fga.17
-        for <netdev@vger.kernel.org>; Tue, 15 Jan 2008 00:17:37 -0800 (PST)
+Received: from pfx2.jmh.fr ([194.153.89.55]:56308 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750702AbYAOI3p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jan 2008 03:29:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_5236_4779733.1200385057667
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+node_parent() and tnode_get_child() currently use rcu_dereference().
 
-Hi,
-- XFRM_POLICY_LOCALOK in linux/xfrm.h is unused definition.
-- correct 4 typos in net/xfrm.h
+These functions are called from both 
+- readers only paths (where rcu_dereference() is needed), and 
+- writer path (where rcu_dereference() is not needed)
 
-Regards,
-Rami Rosen
+To make explicit where rcu_dereference() is really needed, I introduced
+new node_parent_rcu() and tnode_get_child_rcu() functions which use
+rcu_dereference(), while node_parent() and tnode_get_child() dont use it.
 
+Then I changed calling sites where rcu_dereference() was really needed to
+call the _rcu() variants.
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
+This should have no impact but for alpha architecture, and may help future
+sparse checks.
 
-------=_Part_5236_4779733.1200385057667
-Content-Type: text/plain; name=patch.txt
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fbg678rc0
-Content-Disposition: attachment; filename=patch.txt
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgveGZybS5oIGIvaW5jbHVkZS9saW51eC94ZnJtLmgK
-aW5kZXggOWI1YjAwYy4uZjVjZmI3NSAxMDA2NDQKLS0tIGEvaW5jbHVkZS9saW51eC94ZnJtLmgK
-KysrIGIvaW5jbHVkZS9saW51eC94ZnJtLmgKQEAgLTM2Myw3ICszNjMsNiBAQCBzdHJ1Y3QgeGZy
-bV91c2VycG9saWN5X2luZm8gewogI2RlZmluZSBYRlJNX1BPTElDWV9BTExPVwkwCiAjZGVmaW5l
-IFhGUk1fUE9MSUNZX0JMT0NLCTEKIAlfX3U4CQkJCWZsYWdzOwotI2RlZmluZSBYRlJNX1BPTElD
-WV9MT0NBTE9LCTEJLyogQWxsb3cgdXNlciB0byBvdmVycmlkZSBnbG9iYWwgcG9saWN5ICovCiAJ
-LyogQXV0b21hdGljYWxseSBleHBhbmQgc2VsZWN0b3IgdG8gaW5jbHVkZSBtYXRjaGluZyBJQ01Q
-IHBheWxvYWRzLiAqLwogI2RlZmluZSBYRlJNX1BPTElDWV9JQ01QCTIKIAlfX3U4CQkJCXNoYXJl
-OwpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQveGZybS5oIGIvaW5jbHVkZS9uZXQveGZybS5oCmlu
-ZGV4IDVlYmI5YmEuLjA5YjliZGEgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbmV0L3hmcm0uaAorKysg
-Yi9pbmNsdWRlL25ldC94ZnJtLmgKQEAgLTczLDcgKzczLDcgQEAgZXh0ZXJuIHN0cnVjdCBtdXRl
-eCB4ZnJtX2NmZ19tdXRleDsKICAgIExvb2t1cCBpcyBwbGFpbiBsaW5lYXIgc2VhcmNoIHVudGls
-IHRoZSBmaXJzdCBtYXRjaCB3aXRoIHNlbGVjdG9yLgogCiAgICBJZiAiYWN0aW9uIiBpcyAiYmxv
-Y2siLCB0aGVuIHdlIHByb2hpYml0IHRoZSBmbG93LCBvdGhlcndpc2U6Ci0gICBpZiAieGZybXNf
-bnIiIGlzIHplcm8sIHRoZSBmbG93IHBhc3NlcyB1bnRyYW5zZm9ybWVkLiBPdGhlcndpc2UsCisg
-ICBpZiAieGZybV9uciIgaXMgemVybywgdGhlIGZsb3cgcGFzc2VzIHVudHJhbnNmb3JtZWQuIE90
-aGVyd2lzZSwKICAgIHBvbGljeSBlbnRyeSBoYXMgbGlzdCBvZiB1cCB0byBYRlJNX01BWF9ERVBU
-SCB0cmFuc2Zvcm1hdGlvbnMsCiAgICBkZXNjcmliZWQgYnkgdGVtcGxhdGVzIHhmcm1fdG1wbC4g
-RWFjaCB0ZW1wbGF0ZSBpcyByZXNvbHZlZAogICAgdG8gYSBjb21wbGV0ZSB4ZnJtX3N0YXRlIChz
-ZWUgYmVsb3cpIGFuZCB3ZSBwYWNrIGJ1bmRsZSBvZiB0cmFuc2Zvcm1hdGlvbnMKQEAgLTg0LDEw
-ICs4NCwxMCBAQCBleHRlcm4gc3RydWN0IG11dGV4IHhmcm1fY2ZnX211dGV4OwogICAgICAgICAg
-ICAgICAgICAgICAgfC0tLS4gY2hpbGQgLi0+IGRzdCAtLiB4ZnJtIC4tPiB4ZnJtX3N0YXRlICMz
-CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwtLS0uIGNoaWxkIC4tPiBO
-VUxMCiAKLSAgIEJ1bmRsZXMgYXJlIGNhY2hlZCBhdCB4cmZtX3BvbGljeSBzdHJ1Y3QgKGZpZWxk
-IC0+YnVuZGxlcykuCisgICBCdW5kbGVzIGFyZSBjYWNoZWQgYXQgeGZybV9wb2xpY3kgc3RydWN0
-IChmaWVsZCAtPmJ1bmRsZXMpLgogCiAKLSAgIFJlc29sdXRpb24gb2YgeHJmbV90bXBsCisgICBS
-ZXNvbHV0aW9uIG9mIHhmcm1fdG1wbAogICAgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgIFRl
-bXBsYXRlIGNvbnRhaW5zOgogICAgMS4gLT5tb2RlCQlNb2RlOiB0cmFuc3BvcnQgb3IgdHVubmVs
-CkBAIC0xMzMsNyArMTMzLDcgQEAgc3RydWN0IHhmcm1fc3RhdGUKIAogCXUzMgkJCWdlbmlkOwog
-Ci0JLyogS2V5IG1hbmdlciBiaXRzICovCisJLyogS2V5IG1hbmFnZXIgYml0cyAqLwogCXN0cnVj
-dCB7CiAJCXU4CQlzdGF0ZTsKIAkJdTgJCWR5aW5nOwo=
-------=_Part_5236_4779733.1200385057667--
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 6dab753..e053775 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -165,9 +165,13 @@ static struct kmem_cache *fn_alias_kmem __read_mostly;
+ 
+ static inline struct tnode *node_parent(struct node *node)
+ {
+-	struct tnode *ret;
++	return (struct tnode *)(node->parent & ~NODE_TYPE_MASK);
++}
++
++static inline struct tnode *node_parent_rcu(struct node *node)
++{
++	struct tnode *ret = node_parent(node);
+ 
+-	ret = (struct tnode *)(node->parent & ~NODE_TYPE_MASK);
+ 	return rcu_dereference(ret);
+ }
+ 
+@@ -177,13 +181,18 @@ static inline void node_set_parent(struct node *node, struct tnode *ptr)
+ 			   (unsigned long)ptr | NODE_TYPE(node));
+ }
+ 
+-/* rcu_read_lock needs to be hold by caller from readside */
++static inline struct node *tnode_get_child(struct tnode *tn, unsigned int i)
++{
++	BUG_ON(i >= 1U << tn->bits);
+ 
+-static inline struct node *tnode_get_child(struct tnode *tn, int i)
++	return tn->child[i];
++}
++
++static inline struct node *tnode_get_child_rcu(struct tnode *tn, unsigned int i)
+ {
+-	BUG_ON(i >= 1 << tn->bits);
++	struct node *ret = tnode_get_child(tn, i);
+ 
+-	return rcu_dereference(tn->child[i]);
++	return rcu_dereference(ret);
+ }
+ 
+ static inline int tnode_child_length(const struct tnode *tn)
+@@ -938,7 +947,7 @@ fib_find_node(struct trie *t, u32 key)
+ 
+ 		if (tkey_sub_equals(tn->key, pos, tn->pos-pos, key)) {
+ 			pos = tn->pos + tn->bits;
+-			n = tnode_get_child(tn, tkey_extract_bits(key, tn->pos, tn->bits));
++			n = tnode_get_child_rcu(tn, tkey_extract_bits(key, tn->pos, tn->bits));
+ 		} else
+ 			break;
+ 	}
+@@ -1685,7 +1694,7 @@ static struct leaf *nextleaf(struct trie *t, struct leaf *thisleaf)
+ 
+ 		p = (struct tnode*) trie;  /* Start */
+ 	} else
+-		p = node_parent(c);
++		p = node_parent_rcu(c);
+ 
+ 	while (p) {
+ 		int pos, last;
+@@ -1722,7 +1731,7 @@ static struct leaf *nextleaf(struct trie *t, struct leaf *thisleaf)
+ up:
+ 		/* No more children go up one step  */
+ 		c = (struct node *) p;
+-		p = node_parent(c);
++		p = node_parent_rcu(c);
+ 	}
+ 	return NULL; /* Ready. Root of trie */
+ }
+@@ -1984,7 +1993,7 @@ static struct node *fib_trie_get_next(struct fib_trie_iter *iter)
+ 		 iter->tnode, iter->index, iter->depth);
+ rescan:
+ 	while (cindex < (1<<tn->bits)) {
+-		struct node *n = tnode_get_child(tn, cindex);
++		struct node *n = tnode_get_child_rcu(tn, cindex);
+ 
+ 		if (n) {
+ 			if (IS_LEAF(n)) {
+@@ -2003,7 +2012,7 @@ rescan:
+ 	}
+ 
+ 	/* Current node exhausted, pop back up */
+-	p = node_parent((struct node *)tn);
++	p = node_parent_rcu((struct node *)tn);
+ 	if (p) {
+ 		cindex = tkey_extract_bits(tn->key, p->pos, p->bits)+1;
+ 		tn = p;
+@@ -2312,7 +2321,7 @@ static int fib_trie_seq_show(struct seq_file *seq, void *v)
+ 	if (v == SEQ_START_TOKEN)
+ 		return 0;
+ 
+-	if (!node_parent(n)) {
++	if (!node_parent_rcu(n)) {
+ 		if (iter->trie == iter->trie_local)
+ 			seq_puts(seq, "<local>:\n");
+ 		else
