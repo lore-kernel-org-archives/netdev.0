@@ -1,102 +1,90 @@
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: [PATCH 02/03] ISATAP V2 (ndisc.c; route.c changes)
-Date: Tue, 15 Jan 2008 11:59:06 -0800
-Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDDAD@XCH-NW-7V2.nw.nos.boeing.com>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC29@XCH-NW-7V2.nw.nos.boeing.com><39C363776A4E8C4A94691D2BD9D1C9A1029EDC45@XCH-NW-7V2.nw.nos.boeing.com><20071129102940.GC22537@gondor.apana.org.au> <20071129.195459.55971471.yoshfuji@linux-ipv6.org> <39C363776A4E8C4A94691D2BD9D1C9A1029EDDAC@XCH-NW-7V2.nw.nos.boeing.com>
+From: "Ritesh Kumar" <ritesh@cs.unc.edu>
+Subject: SO_RCVBUF doesn't change receiver advertised window
+Date: Tue, 15 Jan 2008 15:36:15 -0500
+Message-ID: <f47983b00801151236l3b06f6dci35898fee71f6a942@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="ISO-2022-JP"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
-To: <netdev@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slb-smtpout-01.boeing.com ([130.76.64.48]:63049 "EHLO
-	slb-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751460AbYAOUci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 15:32:38 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDDAC@XCH-NW-7V2.nw.nos.boeing.com>
+Received: from wx-out-0506.google.com ([66.249.82.237]:34205 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753215AbYAOUgS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 15:36:18 -0500
+Received: by wx-out-0506.google.com with SMTP id h31so1502164wxd.4
+        for <netdev@vger.kernel.org>; Tue, 15 Jan 2008 12:36:17 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch updates the Linux the Intra-Site Automatic Tunnel Addressing
-Protocol (ISATAP) implementation. It places the ISATAP potential router
-list (PRL) in the kernel and adds three new private ioctls for PRL
-management. The diffs are specific to the netdev net-2.6.25 development
-tree taken by "git pull" on 1/14/08.
+Hi,
+    I am using linux 2.6.20 and am trying to limit the receiver window
+size for a TCP connection. However, it seems that auto tuning is not
+turning itself off even after I use the syscall
 
-Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
+rwin=65536
+setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &rwin, sizeof(rwin));
 
---- net-2.6.25/net/ipv6/ndisc.c.orig	2008-01-14 15:35:55.000000000 -0800
-+++ net-2.6.25/net/ipv6/ndisc.c	2008-01-15 09:02:23.000000000 -0800
-@@ -1090,6 +1090,12 @@ static void ndisc_router_discovery(struc
- 		return;
- 	}
- 
-+	if (skb->rtr_type == RTRTYPE_HOST) {
-+		ND_PRINTK2(KERN_WARNING
-+			   "ICMPv6 RA: from host or unauthorized router\n");
-+		return;
-+	}
-+
- 	/*
- 	 *	set the RA_RECV flag in the interface
- 	 */
-@@ -1113,6 +1119,10 @@ static void ndisc_router_discovery(struc
- 		return;
- 	}
- 
-+	/* skip link-specific parameters from interior routers */
-+	if (skb->rtr_type == RTRTYPE_INTERIOR)
-+		goto skip_linkparms;
-+
- 	if (in6_dev->if_flags & IF_RS_SENT) {
- 		/*
- 		 *	flag that an RA was received after an RS was sent
-@@ -1227,6 +1237,8 @@ skip_defrtr:
- 		}
- 	}
- 
-+skip_linkparms:
-+
- 	/*
- 	 *	Process options.
- 	 */
-@@ -1266,6 +1278,10 @@ skip_defrtr:
- 	}
- #endif
- 
-+	/* skip link-specific ndopts from interior routers */
-+	if (skb->rtr_type == RTRTYPE_INTERIOR)
-+		goto out;
-+
- 	if (in6_dev->cnf.accept_ra_pinfo && ndopts.nd_opts_pi) {
- 		struct nd_opt_hdr *p;
- 		for (p = ndopts.nd_opts_pi;
-@@ -1329,6 +1345,14 @@ static void ndisc_redirect_rcv(struct sk
- 	int optlen;
- 	u8 *lladdr = NULL;
- 
-+	switch (skb->rtr_type) {
-+	case RTRTYPE_HOST:
-+	case RTRTYPE_INTERIOR:
-+		ND_PRINTK2(KERN_WARNING
-+			   "ICMPv6 Redirect: from host or unauthorized router\n");
-+		return;
-+	}
-+
- 	if (!(ipv6_addr_type(&ipv6_hdr(skb)->saddr) & IPV6_ADDR_LINKLOCAL)) {
- 		ND_PRINTK2(KERN_WARNING
- 			   "ICMPv6 Redirect: source address is not link-local.\n");
---- net-2.6.25/net/ipv6/route.c.orig	2008-01-14 15:39:40.000000000 -0800
-+++ net-2.6.25/net/ipv6/route.c	2008-01-14 15:39:55.000000000 -0800
-@@ -1655,8 +1655,6 @@ struct rt6_info *rt6_get_dflt_router(str
- 	return rt;
- }
- 
--EXPORT_SYMBOL(rt6_get_dflt_router);
--
- struct rt6_info *rt6_add_dflt_router(struct in6_addr *gwaddr,
- 				     struct net_device *dev,
- 				     unsigned int pref)
+and verify using
+
+getsockopt(sock, SOL_SOCKET, SO_RCVBUF, &rwin, &rwin_size);
+
+that RCVBUF indeed is getting set (the value returned from getsockopt
+is double that, 131072).
+
+The above calls are made before connect() on the client side and
+before bind(), accept() on the server side. Bulk data is being sent
+from the client to the server. The client and the server machines also
+have tcp_moderate_rcvbuf set to 0 (though I don't think that's really
+needed; setting a value to SO_RCVBUF should automatically turnoff auto
+tuning.).
+
+However the tcp trace shows the SYN, SYN/ACK and the first few packets as:
+14:34:18.831703 IP 192.168.1.153.45038 > 192.168.2.204.9999: S
+3947298186:3947298186(0) win 5840 <mss 1460,sackOK,timestamp 2842625
+0,nop,wscale 5>
+14:34:18.836000 IP 192.168.2.204.9999 > 192.168.1.153.45038: S
+3955381015:3955381015(0) ack 3947298187 win 5792 <mss
+1460,sackOK,timestamp 2843649 2842625,nop,wscale 2>
+14:34:18.837654 IP 192.168.1.153.45038 > 192.168.2.204.9999: . ack 1
+win 183 <nop,nop,timestamp 2842634 2843649>
+14:34:18.837849 IP 192.168.1.153.45038 > 192.168.2.204.9999: .
+1:1449(1448) ack 1 win 183 <nop,nop,timestamp 2842634 2843649>
+14:34:18.837851 IP 192.168.1.153.45038 > 192.168.2.204.9999: P
+1449:1461(12) ack 1 win 183 <nop,nop,timestamp 2842634 2843649>
+14:34:18.839001 IP 192.168.2.204.9999 > 192.168.1.153.45038: . ack
+1449 win 2172 <nop,nop,timestamp 2843652 2842634>
+14:34:18.839011 IP 192.168.2.204.9999 > 192.168.1.153.45038: . ack
+1461 win 2172 <nop,nop,timestamp 2843652 2842634>
+14:34:18.840875 IP 192.168.1.153.45038 > 192.168.2.204.9999: .
+1461:2909(1448) ack 1 win 183 <nop,nop,timestamp 2842637 2843652>
+14:34:18.840997 IP 192.168.1.153.45038 > 192.168.2.204.9999: .
+2909:4357(1448) ack 1 win 183 <nop,nop,timestamp 2842637 2843652>
+14:34:18.841120 IP 192.168.1.153.45038 > 192.168.2.204.9999: .
+4357:5805(1448) ack 1 win 183 <nop,nop,timestamp 2842637 2843652>
+14:34:18.841244 IP 192.168.1.153.45038 > 192.168.2.204.9999: .
+5805:7253(1448) ack 1 win 183 <nop,nop,timestamp 2842637 2843652>
+14:34:18.841388 IP 192.168.2.204.9999 > 192.168.1.153.45038: . ack
+2909 win 2896 <nop,nop,timestamp 2843655 2842637>
+14:34:18.841399 IP 192.168.2.204.9999 > 192.168.1.153.45038: . ack
+4357 win 3620 <nop,nop,timestamp 2843655 2842637>
+14:34:18.841413 IP 192.168.2.204.9999 > 192.168.1.153.45038: . ack
+5805 win 4344 <nop,nop,timestamp 2843655 2842637>
+
+As you can see, the syn and syn ack show rcv windows to be 5840 and
+5792 and it automatically increases for the receiver to values 2172
+till 4344 and more in the later part of the trace till 24214.
+
+The values for the tcp sysctl variables are given below:
+/proc/sys/net/ipv4/tcp_moderate_rcvbuf  0
+/proc/sys/net/ipv4/tcp_mem             32768   43690   65536
+/proc/sys/net/ipv4/tcp_rmem            4096    87380   1398080
+/proc/sys/net/ipv4/tcp_wmem           4096    16384   1398080
+/proc/sys/net/core/rmem_max          131071
+/proc/sys/net/core/wmem_max         131071
+/proc/sys/net/core/wmem_default      109568
+/proc/sys/net/core/rmem_default       109568
+
+I will really appreciate your help,
+
+Ritesh
