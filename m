@@ -1,44 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][IPV6]: Mischecked tw match in
- __inet6_check_established.
-Date: Tue, 15 Jan 2008 03:33:43 -0800 (PST)
-Message-ID: <20080115.033343.80000789.davem@davemloft.net>
-References: <478C7B6C.3030002@openvz.org>
+From: Daniel Mack <daniel@caiaq.de>
+Subject: Re: [PATCH] enable SMC911X for ARCH_MX3
+Date: Tue, 15 Jan 2008 12:36:52 +0100
+Message-ID: <20080115113652.GA7549@buzzloop.caiaq.de>
+References: <20071211191233.GC15295@buzzloop.caiaq.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58628
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750901AbYAOLdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 06:33:44 -0500
-In-Reply-To: <478C7B6C.3030002@openvz.org>
+Received: from buzzloop.caiaq.de ([212.112.241.133]:39157 "EHLO
+	buzzloop.caiaq.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750851AbYAOLg4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 06:36:56 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by buzzloop.caiaq.de (Postfix) with ESMTP id 40FE97F4020
+	for <netdev@vger.kernel.org>; Tue, 15 Jan 2008 12:36:55 +0100 (CET)
+Received: from buzzloop.caiaq.de ([127.0.0.1])
+	by localhost (buzzloop.caiaq.de [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id T886Q58z1L0S for <netdev@vger.kernel.org>;
+	Tue, 15 Jan 2008 12:36:52 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20071211191233.GC15295@buzzloop.caiaq.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Tue, 15 Jan 2008 12:22:52 +0300
+Hi,
 
-> When looking for a conflicting connection the !sk->sk_bound_dev_if
-> check is performed only for live sockets, but not for timewait-ed.
-> 
-> This is not the case for ipv4, for __inet6_lookup_established in
-> both ipv4 and ipv6 and for other places that check for tw-s.
-> 
-> Was this missed accidentally? If so, then this patch fixes it and
-> besides makes use if the dif variable declared in the function.
-> 
-> Fits both, net-2.6 and net-2.6.25.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+On Tue, Dec 11, 2007 at 08:12:33PM +0100, Daniel Mack wrote:
+> this patch enables SMX911X support for Freescale's MX3 platforms.
 
-This fix definitely looks correct.
+Just wanted to know whether as this patch was accepted?
 
-I just sent Linus a pull request for other 2.6.24 fixes,
-so I'll toss this into my net-2.6 tree tomorrow after
-he pulls that stuff in.
-
-Thanks!
-
+Best regards,
+Daniel
