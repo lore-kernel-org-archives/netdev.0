@@ -1,83 +1,45 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC 6/6] fib_trie: combine leaf and info
-Date: Tue, 15 Jan 2008 19:10:31 +0100
-Message-ID: <20080115191031.7ce7219b.dada1@cosmosbay.com>
-References: <20080112064646.282104074@linux-foundation.org>
-	<20080112.205520.55747078.davem@davemloft.net>
-	<4789A29C.6080000@linux-foundation.org>
-	<20080112.214417.154179770.davem@davemloft.net>
-	<20080114125755.6157a3bf@deepthought>
-	<20080114164450.55f8c9b2@deepthought>
-	<20080114164621.2bc5011f@deepthought>
-	<20080114164727.210047f6@deepthought>
-	<20080114185843.0981f0ff@deepthought>
-	<20080114210716.4b09c84d@deepthought>
-	<478C4EB7.6060807@cosmosbay.com>
-	<478C4FBE.5040308@cosmosbay.com>
-	<20080115081905.3b8b6f05@deepthought>
-	<18316.58111.211387.271534@robur.slu.se>
-	<20080115182544.98c18d08.dada1@cosmosbay.com>
-	<20080115094753.32e35823@deepthought>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: sky2 patch in 2.6.24-rc7-git6 breaks POST - commit
+ 84cd2dfb04d23a961c5f537baa243fa54d0987ac
+Date: Tue, 15 Jan 2008 10:09:47 -0800
+Message-ID: <20080115100947.4ec6cda0@deepthought>
+References: <df47b87a0801150301w6b970decwdd4bd256aa2ca9ac@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	David Miller <davem@davemloft.net>, robert.olsson@its.uu.se,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>
+To: "Ioan Ionita" <opslynx@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:41372 "EHLO pfx2.jmh.fr"
+Received: from mail.vyatta.com ([216.93.170.194]:56809 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751173AbYAOSKc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jan 2008 13:10:32 -0500
-In-Reply-To: <20080115094753.32e35823@deepthought>
+	id S1752259AbYAOSMa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jan 2008 13:12:30 -0500
+In-Reply-To: <df47b87a0801150301w6b970decwdd4bd256aa2ca9ac@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 15 Jan 2008 09:47:53 -0800
-Stephen Hemminger <stephen.hemminger@vyatta.com> wrote:
+On Tue, 15 Jan 2008 13:01:47 +0200
+"Ioan Ionita" <opslynx@gmail.com> wrote:
 
-> This is how I did it:
+> Hi,
 > 
-> --- a/net/ipv4/fib_trie.c	2008-01-15 09:14:53.000000000 -0800
-> +++ b/net/ipv4/fib_trie.c	2008-01-15 09:21:48.000000000 -0800
-> @@ -101,13 +101,6 @@ struct node {
->  	t_key key;
->  };
->  
-> -struct leaf {
-> -	unsigned long parent;
-> -	t_key key;
-> -	struct hlist_head list;
-> -	struct rcu_head rcu;
-> -};
-> -
->  struct leaf_info {
->  	struct hlist_node hlist;
->  	struct rcu_head rcu;
-> @@ -115,6 +108,13 @@ struct leaf_info {
->  	struct list_head falh;
->  };
->  
-> +struct leaf {
-> +	unsigned long parent;
-> +	t_key key;
-> +	struct hlist_head list;
-> +	struct rcu_head rcu;
-> +};
-
-I like this :)
-
-Your design is clean, but we waste some space (rcu in leaf_info "included"), we probably can do a litle bit better
-(moving rcu at the end of leaf_info, and kmem_cache_create("ip_fib_trie", sizeof(struct leaf) + sizeof(struct_leaf_info) - sizeof(struct rcu_head))
-
- 
-> -	trie_leaf_kmem = kmem_cache_create("ip_fib_trie", sizeof(struct leaf),
-> +	trie_leaf_kmem = kmem_cache_create("ip_fib_trie",
-> +					   sizeof(struct leaf) + sizeof(struct leaf_info),
->  					   0, SLAB_PANIC, NULL);
->  }
->  
+> I have an Asus Commando motherboard, p965 chipset with Marvell
+> 88E8056 and 88E8001 gigabit lan onboard. skge and sky2 are compiled
+> in.
+> When booting linux-2.6.24-rc7-git6, everything seemed fine, but when
+> attempting to reboot, the machine would freeze on POST, right before
+> detecting AHCI drives.
+> In order to get it to POST, a reset or shutdown from the power button
+> is not enough, I actually have to cut power to the motherboard using
+> the PSU's power switch!
+> 
+> I first thought that the BIOS or CMOS may have gotten corrupted, but
+> eventually I fund that linux was the culprit. After a git bisect, I
+> found the bad commit below
 > 
 
-Thank you
+Is Wake On Lan enabled in the BIOS?
+
+-- 
+Stephen Hemminger <stephen.hemminger@vyatta.com>
