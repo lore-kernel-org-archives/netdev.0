@@ -1,105 +1,39 @@
-From: Martin Devera <devik@cdi.cz>
-Subject: Re: Not understand some in htb_do_events function
-Date: Tue, 15 Jan 2008 14:54:53 +0100
-Message-ID: <478CBB2D.8010207@cdi.cz>
-References: <478C86E6.3050508@bigtelecom.ru> <478C87D9.1010305@trash.net> <478CA02A.1070308@cdi.cz> <478CBA44.1090909@bigtelecom.ru>
+From: Frans Pop <elendil@planet.nl>
+Subject: Re: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
+Date: Tue, 15 Jan 2008 15:04:09 +0100
+Message-ID: <200801151504.10047.elendil@planet.nl>
+References: <200801150625.10823.elendil@planet.nl> <20080114.215317.38045859.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www1.cdi.cz ([194.213.194.49]:55384 "EHLO www1.cdi.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751267AbYAONzC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jan 2008 08:55:02 -0500
-In-Reply-To: <478CBA44.1090909@bigtelecom.ru>
+Received: from hpsmtp-eml20.KPNXCHANGE.COM ([213.75.38.85]:47927 "EHLO
+	hpsmtp-eml20.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750801AbYAOOEM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 09:04:12 -0500
+In-Reply-To: <20080114.215317.38045859.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Badalian Vyacheslav wrote:
-> Martin Devera =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->> Patrick McHardy wrote:
->>> Badalian Vyacheslav wrote:
->>>> Hello all.
->>>> I have many messages like "htb: too many events !" in dmesg.
->>>>
->>>> Try to see code and find that function try do 500 events at call.
->>>> Hm... may anyone ask why 500? Why its not dynamic value based on=20
->>>> performance of PC?
->>>
->>>
->>> Thats a good question, I wonder why it is limited at all.
->>> Martin, any hints?
->>>
->>>
->>
->> Hi, I recently replied someone to the same question:
->>
->> > it is possible when during one jiffie (1 or 10ms) more than 500 cl=
-asses
->> > changed its state. It is meant to protect your system from liveloc=
-k.
->> > The constant should be set to something like
->> > bogomips/bogocomplexity_of_state_change but it was not done.
->>
->> the solution I have in my mind is to change
->>    if (net_ratelimit())
->>                  printk(KERN_WARNING "htb: too many events !\n");
->>          return HZ/10;
->>  to
->>    return 1;
->>
->> to drain extra events asap. It the time of writing I was not able to
->> come with better solution and there were more bugs related to this
->> part of code than now.
->> We want way to smooth big burst of events over more dequeue invocati=
-ons
->> in order to not slow dequeue too much. Constant 500 is max. allowed
->> "slowdown" of dequeue.
->> Any bright idea how to do it more elegant, Patrick ?
->>
->> brgds, devik
->=20
-> Hmm.. i simple see that if i get messages like this in dmesg my PC li=
-mit=20
-> speed, but i have many free CPU and HTB classes have not full bandwid=
-th=20
-> load....
-> If i delete half rules - i get bandwidth that i wont. I wrong underst=
-and=20
-> that if we have this limit (constant 500) my PC can't get full perfor=
-mance?
->=20
-> Look scheme (example in my memory... not real numbers... for idea onl=
-y):
-> HTB (default 1)
-> - Class 1 (rate 250mbs cell 500 prio 1)
-> ---- Here 8000 HTB rules (parent 1) (rate 1kbs, cell from 200kbs to 5=
-mbs)
-> - Class 2 (rate 250mbs cell 500 prio 1)
->=20
-> I always go to 2.
-> try ttcp.
-> current rate in class 1 - above 150mbs
-> current rate in class 2 - above 200mbs
-> Load avg above 0.10 - 0.25
-> Idle - 80%
->=20
-> Try delete half rules
-> current rate in class 1 - above 100mbs
-> current rate in class 2 - above 400mbs
-> Load avg above 0.10 - 0.25
-> Idle - 80%
->=20
-> All traffic in class 2 do i witch ttcp! its not deleted clients from=20
-> class 1.
->=20
-> Any idea? Thanks.
+On Tuesday 15 January 2008, David Miller wrote:
+> From: Frans Pop <elendil@planet.nl>
+> > kernel: e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+>
+> Does this make the problem go away?
 
-The change above (returning 1 instead of HZ/10) should help, it was tes=
-ted. Also
-you CAN increase the 500 to say 2000. I didn't the change as I'm not su=
-re it is
-good generic fix...
+Yes, it very much looks like that solves it.
+I ran with the patch for 6 hours or so without any errors. I then switched 
+back to an unpatched kernel and they reappeared immediately.
+
+> (Note this isn't the final correct patch we should apply.  There
+>  is no reason why this revert back to the older ->poll() logic
+>  here should have any effect on the TX hang triggering...)
+
+s/no reason/no obvious reason/ ? ;-)
+
+Cheers,
+FJP
