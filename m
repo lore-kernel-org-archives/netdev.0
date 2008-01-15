@@ -1,90 +1,44 @@
-From: "Ritesh Kumar" <ritesh@cs.unc.edu>
-Subject: SO_RCVBUF doesn't change receiver advertised window
-Date: Tue, 15 Jan 2008 15:36:15 -0500
-Message-ID: <f47983b00801151236l3b06f6dci35898fee71f6a942@mail.gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 1/3] skb_partial_csum_set
+Date: Wed, 16 Jan 2008 08:03:05 +1100
+Message-ID: <200801160803.06052.rusty@rustcorp.com.au>
+References: <200801152141.56172.rusty@rustcorp.com.au> <20080115.031422.06112893.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.237]:34205 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753215AbYAOUgS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 15:36:18 -0500
-Received: by wx-out-0506.google.com with SMTP id h31so1502164wxd.4
-        for <netdev@vger.kernel.org>; Tue, 15 Jan 2008 12:36:17 -0800 (PST)
+Received: from ozlabs.org ([203.10.76.45]:38499 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754904AbYAOVDn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jan 2008 16:03:43 -0500
+In-Reply-To: <20080115.031422.06112893.davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-    I am using linux 2.6.20 and am trying to limit the receiver window
-size for a TCP connection. However, it seems that auto tuning is not
-turning itself off even after I use the syscall
+On Tuesday 15 January 2008 22:14:22 David Miller wrote:
+> From: Rusty Russell <rusty@rustcorp.com.au>
+> Date: Tue, 15 Jan 2008 21:41:55 +1100
+>
+> > Implement skb_partial_csum_set, for setting partial csums on untrusted
+> > packets.
+> >
+> > Use it in virtio_net (replacing buggy version there), it's also going
+> > to be used by TAP for partial csum support.
+> >
+> > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+>
+> Looks fine to me.
+>
+> Acked-by: David S. Miller <davem@davemloft.net>
+>
+> If you like I can merge this into my net-2.6.25 tree, or alternatively
+> if it makes your life easier you then you can handle it yourself.
 
-rwin=65536
-setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &rwin, sizeof(rwin));
+Thanks, that will reduce coordination pain.
 
-and verify using
-
-getsockopt(sock, SOL_SOCKET, SO_RCVBUF, &rwin, &rwin_size);
-
-that RCVBUF indeed is getting set (the value returned from getsockopt
-is double that, 131072).
-
-The above calls are made before connect() on the client side and
-before bind(), accept() on the server side. Bulk data is being sent
-from the client to the server. The client and the server machines also
-have tcp_moderate_rcvbuf set to 0 (though I don't think that's really
-needed; setting a value to SO_RCVBUF should automatically turnoff auto
-tuning.).
-
-However the tcp trace shows the SYN, SYN/ACK and the first few packets as:
-14:34:18.831703 IP 192.168.1.153.45038 > 192.168.2.204.9999: S
-3947298186:3947298186(0) win 5840 <mss 1460,sackOK,timestamp 2842625
-0,nop,wscale 5>
-14:34:18.836000 IP 192.168.2.204.9999 > 192.168.1.153.45038: S
-3955381015:3955381015(0) ack 3947298187 win 5792 <mss
-1460,sackOK,timestamp 2843649 2842625,nop,wscale 2>
-14:34:18.837654 IP 192.168.1.153.45038 > 192.168.2.204.9999: . ack 1
-win 183 <nop,nop,timestamp 2842634 2843649>
-14:34:18.837849 IP 192.168.1.153.45038 > 192.168.2.204.9999: .
-1:1449(1448) ack 1 win 183 <nop,nop,timestamp 2842634 2843649>
-14:34:18.837851 IP 192.168.1.153.45038 > 192.168.2.204.9999: P
-1449:1461(12) ack 1 win 183 <nop,nop,timestamp 2842634 2843649>
-14:34:18.839001 IP 192.168.2.204.9999 > 192.168.1.153.45038: . ack
-1449 win 2172 <nop,nop,timestamp 2843652 2842634>
-14:34:18.839011 IP 192.168.2.204.9999 > 192.168.1.153.45038: . ack
-1461 win 2172 <nop,nop,timestamp 2843652 2842634>
-14:34:18.840875 IP 192.168.1.153.45038 > 192.168.2.204.9999: .
-1461:2909(1448) ack 1 win 183 <nop,nop,timestamp 2842637 2843652>
-14:34:18.840997 IP 192.168.1.153.45038 > 192.168.2.204.9999: .
-2909:4357(1448) ack 1 win 183 <nop,nop,timestamp 2842637 2843652>
-14:34:18.841120 IP 192.168.1.153.45038 > 192.168.2.204.9999: .
-4357:5805(1448) ack 1 win 183 <nop,nop,timestamp 2842637 2843652>
-14:34:18.841244 IP 192.168.1.153.45038 > 192.168.2.204.9999: .
-5805:7253(1448) ack 1 win 183 <nop,nop,timestamp 2842637 2843652>
-14:34:18.841388 IP 192.168.2.204.9999 > 192.168.1.153.45038: . ack
-2909 win 2896 <nop,nop,timestamp 2843655 2842637>
-14:34:18.841399 IP 192.168.2.204.9999 > 192.168.1.153.45038: . ack
-4357 win 3620 <nop,nop,timestamp 2843655 2842637>
-14:34:18.841413 IP 192.168.2.204.9999 > 192.168.1.153.45038: . ack
-5805 win 4344 <nop,nop,timestamp 2843655 2842637>
-
-As you can see, the syn and syn ack show rcv windows to be 5840 and
-5792 and it automatically increases for the receiver to values 2172
-till 4344 and more in the later part of the trace till 24214.
-
-The values for the tcp sysctl variables are given below:
-/proc/sys/net/ipv4/tcp_moderate_rcvbuf  0
-/proc/sys/net/ipv4/tcp_mem             32768   43690   65536
-/proc/sys/net/ipv4/tcp_rmem            4096    87380   1398080
-/proc/sys/net/ipv4/tcp_wmem           4096    16384   1398080
-/proc/sys/net/core/rmem_max          131071
-/proc/sys/net/core/wmem_max         131071
-/proc/sys/net/core/wmem_default      109568
-/proc/sys/net/core/rmem_default       109568
-
-I will really appreciate your help,
-
-Ritesh
+Cheers,
+Rusty.
