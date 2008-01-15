@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [IPV4] fib_trie: size and statistics
-Date: Mon, 14 Jan 2008 23:28:16 -0800 (PST)
-Message-ID: <20080114.232816.102558214.davem@davemloft.net>
-References: <20080112.214417.154179770.davem@davemloft.net>
-	<20080114125755.6157a3bf@deepthought>
-	<478C58FD.9030407@cosmosbay.com>
+Subject: Re: [PATCH 3/6] [IPV4] trie: put leaf nodes in a slab cache
+Date: Mon, 14 Jan 2008 23:29:56 -0800 (PST)
+Message-ID: <20080114.232956.118294179.davem@davemloft.net>
+References: <20080114125755.6157a3bf@deepthought>
+	<20080114164450.55f8c9b2@deepthought>
+	<20080114164621.2bc5011f@deepthought>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, robert.olsson@its.uu.se,
-	netdev@vger.kernel.org, stephen.hemminger@vyatta.com
-To: dada1@cosmosbay.com
+Cc: robert.olsson@its.uu.se, netdev@vger.kernel.org
+To: stephen.hemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46350
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36222
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751887AbYAOH2W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 02:28:22 -0500
-In-Reply-To: <478C58FD.9030407@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1752028AbYAOH36 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 02:29:58 -0500
+In-Reply-To: <20080114164621.2bc5011f@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 15 Jan 2008 07:55:57 +0100
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Date: Mon, 14 Jan 2008 16:46:21 -0800
 
-> Keeping a 'size' counter is not necessary, since trie_collect_stats() must go
-> through all the tree and get this information for free.
+> This improves locality for operations that touch all the leaves.
+> Later patch will grow the size of the leaf so it becomes more
+> important.
 > 
-> This 'size' field only slows down inserts/deletes and dirty a cacheline that 
-> readers will hit.
+> Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
 
-Good point, we can do this better in a follow-on patch.
+I'll let 3, 4, 5, and 6 sit while you work out the issues
+brought up by Eric Dumazet.
