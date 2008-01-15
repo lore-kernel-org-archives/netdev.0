@@ -1,55 +1,45 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Packetlost when "tc qdisc del dev eth0 root"
-Date: Tue, 15 Jan 2008 22:15:26 +0100
-Message-ID: <478D226E.1050209@gmail.com>
-References: <478C94B7.3070503@bigtelecom.ru> <478CD9D6.3000504@trash.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC 6/6] fib_trie: combine leaf and info
+Date: Tue, 15 Jan 2008 22:16:23 +0100
+Message-ID: <478D22A7.6080506@cosmosbay.com>
+References: <20080112064646.282104074@linux-foundation.org>	<20080112.205520.55747078.davem@davemloft.net>	<4789A29C.6080000@linux-foundation.org>	<20080112.214417.154179770.davem@davemloft.net>	<20080114125755.6157a3bf@deepthought>	<20080114164450.55f8c9b2@deepthought>	<20080114164621.2bc5011f@deepthought>	<20080114164727.210047f6@deepthought>	<20080114185843.0981f0ff@deepthought>	<20080114210716.4b09c84d@deepthought>	<478C4EB7.6060807@cosmosbay.com>	<478C4FBE.5040308@cosmosbay.com>	<20080115081905.3b8b6f05@deepthought>	<18316.58111.211387.271534@robur.slu.se>	<20080115182544.98c18d08.dada1@cosmosbay.com>	<20080115094753.32e35823@deepthought> <18317.5368.952926.46132@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Badalian Vyacheslav <slavon@bigtelecom.ru>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, robert.olsson@its.uu.se,
+	netdev@vger.kernel.org
+To: Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:47145 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751422AbYAOVML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 16:12:11 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so124584ugc.16
-        for <netdev@vger.kernel.org>; Tue, 15 Jan 2008 13:12:08 -0800 (PST)
-In-Reply-To: <478CD9D6.3000504@trash.net>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:44100 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750955AbYAOVQg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 16:16:36 -0500
+In-Reply-To: <18317.5368.952926.46132@robur.slu.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote, On 01/15/2008 05:05 PM:
+Robert Olsson a =E9crit :
+>=20
+> Stephen Hemminger writes:
+>  > This is how I did it:
+>=20
+>  Yes looks like an elegant solution. Did you even test it?
+>  Maybe we see some effects in just dumping a full table?
+>=20
+>  Anyway lookup should be tested in some way. We can a lot
+>  of analyzing before getting to right entry, local_table
+>  backtracking, main lookup w. ev. backtracking etc.  So
+>  hopefully we get paid for this work.
+>=20
+>  Also it might be idea to do some analysis of the fib_aliases
+>  list. Maybe the trick can be done again? ;)
+>=20
 
-> Badalian Vyacheslav wrote:
+Back in 2.6.9 times, sizeof(bi_alias) was 16 bytes on i386
 
-...
+Nowadays, 64/128 bytes are the norm :(
 
-> Yes, packets in the old qdisc are lost.
-> 
->> Maybe if tc do changes - need create second queue (hash of rules or how 
->> you named it?) and do changes at it. Then replace old queue rules by 
->> created new.
->> Logic -
->> 1. Do snapshot
->> 2. Do changes in shapshot
->> 3. All new packets go to snapshot
->> 4. If old queue not have packets - delete it.
->> 5. Snapshot its default.
-> 
-> 
-> That doesn't really work since qdiscs keep internal state that
-> in large parts depends on the packets queued. Take the qlen as
-> a simple example, the new qdisc doesn't know about the packets
-> in the old one and will exceed the limit.
-
-But, some similar alternative to killing packets 'to death' could
-be imagined, I suppose (in the future, of course!). So, e.g. doing
-the switch automatically after last packet has been dequeued (maybe
-even with some 'special' function/mode for this). After all even
-with accuracy lost, it could be less visible for clients than
-current way?
-
-Regards,
-Jarek P.
+SLAB_HWCACHE_ALIGN is not our friend.
 
