@@ -1,39 +1,41 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
-Date: Tue, 15 Jan 2008 15:04:09 +0100
-Message-ID: <200801151504.10047.elendil@planet.nl>
-References: <200801150625.10823.elendil@planet.nl> <20080114.215317.38045859.davem@davemloft.net>
+From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+Subject: [patch v3] Documentation: add a guideline for hard_start_xmit method
+Date: Tue, 15 Jan 2008 06:25:27 -0800 (PST)
+Message-ID: <492102.15643.qm@web52012.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hpsmtp-eml20.KPNXCHANGE.COM ([213.75.38.85]:47927 "EHLO
-	hpsmtp-eml20.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750801AbYAOOEM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 09:04:12 -0500
-In-Reply-To: <20080114.215317.38045859.davem@davemloft.net>
-Content-Disposition: inline
+Received: from web52012.mail.re2.yahoo.com ([206.190.48.28]:29745 "HELO
+	web52012.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750733AbYAOOZc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 09:25:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 15 January 2008, David Miller wrote:
-> From: Frans Pop <elendil@planet.nl>
-> > kernel: e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
->
-> Does this make the problem go away?
+From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
 
-Yes, it very much looks like that solves it.
-I ran with the patch for 6 hours or so without any errors. I then switched 
-back to an unpatched kernel and they reappeared immediately.
+Add a guideline not to modify SKBs.
 
-> (Note this isn't the final correct patch we should apply.  There
->  is no reason why this revert back to the older ->poll() logic
->  here should have any effect on the TX hang triggering...)
+Signed-off-by: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
 
-s/no reason/no obvious reason/ ? ;-)
+---
 
-Cheers,
-FJP
+--- a/Documentation/networking/driver.txt 2008-01-13 07:14:01.608291500 +0200
++++ b/Documentation/networking/driver.txt 2008-01-15 16:16:14.636054000 +0200
+@@ -61,7 +61,10 @@ Transmit path guidelines:
+ 2) Do not forget to update netdev->trans_start to jiffies after
+    each new tx packet is given to the hardware.
+ 
+-3) Do not forget that once you return 0 from your hard_start_xmit
++3) A hard_start_xmit method must not modify the shared parts of a
++   cloned SKB.
++
++4) Do not forget that once you return 0 from your hard_start_xmit
+    method, it is your driver's responsibility to free up the SKB
+    and in some finite amount of time.
+
+
+      ____________________________________________________________________________________
+Never miss a thing.  Make Yahoo your home page. 
+http://www.yahoo.com/r/hs
