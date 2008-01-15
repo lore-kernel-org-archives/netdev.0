@@ -1,45 +1,35 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][IPV6]: Mischecked tw match in __inet6_check_established.
-Date: Tue, 15 Jan 2008 12:22:52 +0300
-Message-ID: <478C7B6C.3030002@openvz.org>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Not understand some in htb_do_events function
+Date: Tue, 15 Jan 2008 13:11:50 +0300
+Message-ID: <478C86E6.3050508@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:59644 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750733AbYAOJWz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jan 2008 04:22:55 -0500
+Received: from mail.bigtelecom.ru ([87.255.0.61]:33867 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753572AbYAOKL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 05:11:59 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by mail.bigtelecom.ru (Postfix) with ESMTP id B5C7CA6C2C2
+	for <netdev@vger.kernel.org>; Tue, 15 Jan 2008 13:11:57 +0300 (MSK)
+Received: from mail.bigtelecom.ru ([127.0.0.1])
+	by localhost (mail.bigtelecom.ru [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 7KmgumM6Fjcs for <netdev@vger.kernel.org>;
+	Tue, 15 Jan 2008 13:11:50 +0300 (MSK)
+Received: from [87.255.0.131] (slavon.bigtelecom.ru [87.255.0.131])
+	by mail.bigtelecom.ru (Postfix) with ESMTP id CF78EA6C185
+	for <netdev@vger.kernel.org>; Tue, 15 Jan 2008 13:11:50 +0300 (MSK)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When looking for a conflicting connection the !sk->sk_bound_dev_if
-check is performed only for live sockets, but not for timewait-ed.
+Hello all.
+I have many messages like "htb: too many events !" in dmesg.
 
-This is not the case for ipv4, for __inet6_lookup_established in
-both ipv4 and ipv6 and for other places that check for tw-s.
+Try to see code and find that function try do 500 events at call.
+Hm... may anyone ask why 500? Why its not dynamic value based on 
+performance of PC?
 
-Was this missed accidentally? If so, then this patch fixes it and
-besides makes use if the dif variable declared in the function.
+Thanks for answers.
 
-Fits both, net-2.6 and net-2.6.25.
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
-
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index d0b3447..a66a7d8 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -193,7 +193,7 @@ static int __inet6_check_established(struct inet_timewait_death_row *death_row,
- 		   sk2->sk_family	       == PF_INET6	 &&
- 		   ipv6_addr_equal(&tw6->tw_v6_daddr, saddr)	 &&
- 		   ipv6_addr_equal(&tw6->tw_v6_rcv_saddr, daddr) &&
--		   sk2->sk_bound_dev_if == sk->sk_bound_dev_if) {
-+		   (!sk2->sk_bound_dev_if || sk2->sk_bound_dev_if == dif)) {
- 			if (twsk_unique(sk, sk2, twp))
- 				goto unique;
- 			else
