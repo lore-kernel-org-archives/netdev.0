@@ -1,44 +1,33 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 1/3] skb_partial_csum_set
-Date: Wed, 16 Jan 2008 08:03:05 +1100
-Message-ID: <200801160803.06052.rusty@rustcorp.com.au>
-References: <200801152141.56172.rusty@rustcorp.com.au> <20080115.031422.06112893.davem@davemloft.net>
+From: Mark Seger <Mark.Seger@hp.com>
+Subject: Is there an easy way for non-privileged users to determine an interface's
+ speed?
+Date: Tue, 15 Jan 2008 16:07:21 -0500
+Message-ID: <478D2089.9050701@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:38499 "EHLO ozlabs.org"
+Received: from palrel12.hp.com ([156.153.255.237]:57464 "EHLO palrel12.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754904AbYAOVDn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jan 2008 16:03:43 -0500
-In-Reply-To: <20080115.031422.06112893.davem@davemloft.net>
-Content-Disposition: inline
+	id S1752693AbYAOVHg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jan 2008 16:07:36 -0500
+Received: from seeaxp.zko.hp.com (seeaxp.zko.hp.com [16.116.23.219])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by palrel12.hp.com (Postfix) with ESMTP id CED5B348C1
+	for <netdev@vger.kernel.org>; Tue, 15 Jan 2008 13:07:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 15 January 2008 22:14:22 David Miller wrote:
-> From: Rusty Russell <rusty@rustcorp.com.au>
-> Date: Tue, 15 Jan 2008 21:41:55 +1100
->
-> > Implement skb_partial_csum_set, for setting partial csums on untrusted
-> > packets.
-> >
-> > Use it in virtio_net (replacing buggy version there), it's also going
-> > to be used by TAP for partial csum support.
-> >
-> > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
->
-> Looks fine to me.
->
-> Acked-by: David S. Miller <davem@davemloft.net>
->
-> If you like I can merge this into my net-2.6.25 tree, or alternatively
-> if it makes your life easier you then you can handle it yourself.
+I think the current answer is they can't but I also wanted to confirm it 
+with this list.  I had hoped I might be able to find it in /proc, /sys 
+or with a utility like ethtool or even ifconfig, but alas it's nowhere 
+to be seen.  So if I'm correct, that leads to the second question of why 
+not?  Would it be that tough to put it in under /sys/class/net/*?  One 
+of the reasons I ask is that I'd like to be able to tell if a network 
+pipe is nearing its capacity and so be able to alert someone about it 
+when it occurs.
+-mark
 
-Thanks, that will reduce coordination pain.
 
-Cheers,
-Rusty.
