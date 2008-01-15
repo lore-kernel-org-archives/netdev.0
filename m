@@ -1,46 +1,45 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 3/4] bonding: Fix work rearming
-Date: Tue, 15 Jan 2008 10:05:32 +0100
-Message-ID: <20080115090532.GB1696@ff.dom.local>
-References: <20080115063650.149555000@miraclelinux.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][IPV6]: Mischecked tw match in __inet6_check_established.
+Date: Tue, 15 Jan 2008 12:22:52 +0300
+Message-ID: <478C7B6C.3030002@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:27696 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752183AbYAOI7M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 03:59:12 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so51337ugc.16
-        for <netdev@vger.kernel.org>; Tue, 15 Jan 2008 00:59:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080115063650.149555000@miraclelinux.com>
+Received: from sacred.ru ([62.205.161.221]:59644 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750733AbYAOJWz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jan 2008 04:22:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15-01-2008 07:36, Makito SHIOKAWA wrote:
-> Change code not to rearm bond_mii_monitor() when value 0 is set for miimon.
-> 
-> Signed-off-by: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
-> ---
->  drivers/net/bonding/bond_main.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2388,7 +2388,8 @@ void bond_mii_monitor(struct work_struct
->  
->  	delay = ((bond->params.miimon * HZ) / 1000) ? : 1;
->  	read_unlock(&bond->lock);
-> -	queue_delayed_work(bond->wq, &bond->mii_work, delay);
-> +	if (bond->params.miimon)
-> +		queue_delayed_work(bond->wq, &bond->mii_work, delay);
->  }
+When looking for a conflicting connection the !sk->sk_bound_dev_if
+check is performed only for live sockets, but not for timewait-ed.
 
-Maybe I miss something, but is this bond_mii_monitor() function
-supposed to be ever started if (!bond->params.miimon)? (IOW: isn't
-it enough to control this where the parameter is changed only?)
+This is not the case for ipv4, for __inet6_lookup_established in
+both ipv4 and ipv6 and for other places that check for tw-s.
 
-Regards,
-Jarek P.
+Was this missed accidentally? If so, then this patch fixes it and
+besides makes use if the dif variable declared in the function.
+
+Fits both, net-2.6 and net-2.6.25.
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
+index d0b3447..a66a7d8 100644
+--- a/net/ipv6/inet6_hashtables.c
++++ b/net/ipv6/inet6_hashtables.c
+@@ -193,7 +193,7 @@ static int __inet6_check_established(struct inet_timewait_death_row *death_row,
+ 		   sk2->sk_family	       == PF_INET6	 &&
+ 		   ipv6_addr_equal(&tw6->tw_v6_daddr, saddr)	 &&
+ 		   ipv6_addr_equal(&tw6->tw_v6_rcv_saddr, daddr) &&
+-		   sk2->sk_bound_dev_if == sk->sk_bound_dev_if) {
++		   (!sk2->sk_bound_dev_if || sk2->sk_bound_dev_if == dif)) {
+ 			if (twsk_unique(sk, sk2, twp))
+ 				goto unique;
+ 			else
