@@ -1,7 +1,7 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: [RFC 6/6] fib_trie: combine leaf and info
-Date: Tue, 15 Jan 2008 18:59:50 +0100
-Message-ID: <18316.62614.638753.831122@robur.slu.se>
+Date: Tue, 15 Jan 2008 19:10:31 +0100
+Message-ID: <20080115191031.7ce7219b.dada1@cosmosbay.com>
 References: <20080112064646.282104074@linux-foundation.org>
 	<20080112.205520.55747078.davem@davemloft.net>
 	<4789A29C.6080000@linux-foundation.org>
@@ -17,39 +17,67 @@ References: <20080112064646.282104074@linux-foundation.org>
 	<20080115081905.3b8b6f05@deepthought>
 	<18316.58111.211387.271534@robur.slu.se>
 	<20080115182544.98c18d08.dada1@cosmosbay.com>
+	<20080115094753.32e35823@deepthought>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>,
 	David Miller <davem@davemloft.net>, robert.olsson@its.uu.se,
 	netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:56178 "EHLO mx1.slu.se"
+Received: from pfx2.jmh.fr ([194.153.89.55]:41372 "EHLO pfx2.jmh.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750702AbYAOSAU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jan 2008 13:00:20 -0500
-In-Reply-To: <20080115182544.98c18d08.dada1@cosmosbay.com>
+	id S1751173AbYAOSKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jan 2008 13:10:32 -0500
+In-Reply-To: <20080115094753.32e35823@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 15 Jan 2008 09:47:53 -0800
+Stephen Hemminger <stephen.hemminger@vyatta.com> wrote:
 
-Eric Dumazet writes:
+> This is how I did it:
+> 
+> --- a/net/ipv4/fib_trie.c	2008-01-15 09:14:53.000000000 -0800
+> +++ b/net/ipv4/fib_trie.c	2008-01-15 09:21:48.000000000 -0800
+> @@ -101,13 +101,6 @@ struct node {
+>  	t_key key;
+>  };
+>  
+> -struct leaf {
+> -	unsigned long parent;
+> -	t_key key;
+> -	struct hlist_head list;
+> -	struct rcu_head rcu;
+> -};
+> -
+>  struct leaf_info {
+>  	struct hlist_node hlist;
+>  	struct rcu_head rcu;
+> @@ -115,6 +108,13 @@ struct leaf_info {
+>  	struct list_head falh;
+>  };
+>  
+> +struct leaf {
+> +	unsigned long parent;
+> +	t_key key;
+> +	struct hlist_head list;
+> +	struct rcu_head rcu;
+> +};
 
- > 
- > So you think that a leaf cannot have 2 infos, one 'embeded' and one in the list ?
+I like this :)
+
+Your design is clean, but we waste some space (rcu in leaf_info "included"), we probably can do a litle bit better
+(moving rcu at the end of leaf_info, and kmem_cache_create("ip_fib_trie", sizeof(struct leaf) + sizeof(struct_leaf_info) - sizeof(struct rcu_head))
+
  
- Hello,
- 
- The model I thought of is to have either: 
+> -	trie_leaf_kmem = kmem_cache_create("ip_fib_trie", sizeof(struct leaf),
+> +	trie_leaf_kmem = kmem_cache_create("ip_fib_trie",
+> +					   sizeof(struct leaf) + sizeof(struct leaf_info),
+>  					   0, SLAB_PANIC, NULL);
+>  }
+>  
+> 
 
- 1) One leaf_info embedded in leaf. A fast-path leaf. FP-leaf
- Or 
- 2) The intct old leaf_info list with arbitrary number leaf_infos
-
- If plen_iinfo is >=0  It's a FP-leaf
- 
- Cheers.
-					--ro
-
+Thank you
