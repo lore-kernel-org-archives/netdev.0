@@ -1,35 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25] [XFRM] Remove unused definition
- XFRM_POLICY_LOCALOK in linux/xfrm.h + typos in net/xfrm.h
-Date: Tue, 15 Jan 2008 00:47:06 -0800 (PST)
-Message-ID: <20080115.004706.107988820.davem@davemloft.net>
-References: <eb3ff54b0801150017s425c2d10xe570cc70d2ca596b@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 3/4] bonding: Fix work rearming
+Date: Tue, 15 Jan 2008 10:05:32 +0100
+Message-ID: <20080115090532.GB1696@ff.dom.local>
+References: <20080115063650.149555000@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: ramirose@gmail.com
+To: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39733
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751283AbYAOIrN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 03:47:13 -0500
-In-Reply-To: <eb3ff54b0801150017s425c2d10xe570cc70d2ca596b@mail.gmail.com>
+Received: from ug-out-1314.google.com ([66.249.92.170]:27696 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752183AbYAOI7M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 03:59:12 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so51337ugc.16
+        for <netdev@vger.kernel.org>; Tue, 15 Jan 2008 00:59:10 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080115063650.149555000@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rami Rosen" <ramirose@gmail.com>
-Date: Tue, 15 Jan 2008 10:17:37 +0200
+On 15-01-2008 07:36, Makito SHIOKAWA wrote:
+> Change code not to rearm bond_mii_monitor() when value 0 is set for miimon.
+> 
+> Signed-off-by: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
+> ---
+>  drivers/net/bonding/bond_main.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -2388,7 +2388,8 @@ void bond_mii_monitor(struct work_struct
+>  
+>  	delay = ((bond->params.miimon * HZ) / 1000) ? : 1;
+>  	read_unlock(&bond->lock);
+> -	queue_delayed_work(bond->wq, &bond->mii_work, delay);
+> +	if (bond->params.miimon)
+> +		queue_delayed_work(bond->wq, &bond->mii_work, delay);
+>  }
 
-> Hi,
-> - XFRM_POLICY_LOCALOK in linux/xfrm.h is unused definition.
-> - correct 4 typos in net/xfrm.h
+Maybe I miss something, but is this bond_mii_monitor() function
+supposed to be ever started if (!bond->params.miimon)? (IOW: isn't
+it enough to control this where the parameter is changed only?)
 
-Values in linux/xfrm.h are user visible, so I am worried that this
-might break the build of some userland application.
-
-Herbert explained that this value is unused inside of the
-kernel, and that is true, but I'm not so sure that there
-are no applications using the value.
-
-We might have to keep it there.
+Regards,
+Jarek P.
