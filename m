@@ -1,135 +1,45 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC 6/6] fib_trie: combine leaf and info
-Date: Tue, 15 Jan 2008 18:25:44 +0100
-Message-ID: <20080115182544.98c18d08.dada1@cosmosbay.com>
-References: <20080112064646.282104074@linux-foundation.org>
-	<20080112.205520.55747078.davem@davemloft.net>
-	<4789A29C.6080000@linux-foundation.org>
-	<20080112.214417.154179770.davem@davemloft.net>
-	<20080114125755.6157a3bf@deepthought>
-	<20080114164450.55f8c9b2@deepthought>
-	<20080114164621.2bc5011f@deepthought>
-	<20080114164727.210047f6@deepthought>
-	<20080114185843.0981f0ff@deepthought>
-	<20080114210716.4b09c84d@deepthought>
-	<478C4EB7.6060807@cosmosbay.com>
-	<478C4FBE.5040308@cosmosbay.com>
-	<20080115081905.3b8b6f05@deepthought>
-	<18316.58111.211387.271534@robur.slu.se>
+From: Eugene Surovegin <ebs@ebshome.net>
+Subject: Re: [PATCH] net: EMAC: Fix problem with mtu > 4080 on non TAH
+	equipped 4xx PPC's
+Date: Tue, 15 Jan 2008 09:32:02 -0800
+Message-ID: <20080115173202.GA1268@gate.ebshome.net>
+References: <1200400809-19720-1-git-send-email-sr@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, robert.olsson@its.uu.se,
-	netdev@vger.kernel.org
-To: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: Stefan Roese <sr@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:40777 "EHLO pfx2.jmh.fr"
+Received: from gate.ebshome.net ([208.106.21.240]:48548 "EHLO gate.ebshome.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752610AbYAORZp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jan 2008 12:25:45 -0500
-In-Reply-To: <18316.58111.211387.271534@robur.slu.se>
+	id S1750851AbYAORcF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jan 2008 12:32:05 -0500
+Content-Disposition: inline
+In-Reply-To: <1200400809-19720-1-git-send-email-sr@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 15 Jan 2008 17:44:47 +0100
-Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+On Tue, Jan 15, 2008 at 01:40:09PM +0100, Stefan Roese wrote:
+> Currently, all non TAH equipped 4xx PPC's call emac_start_xmit() upon
+> xmit. This routine doesn't check if the frame length exceeds the max.
+> MAL buffer size.
+> 
+> This patch now changes the driver to call emac_start_xmit_sg() on all
+> platforms and not only the TAH equipped ones (440GX). This enables an
+> MTU of 9000 instead 4080.
+> 
+> Tested on Kilauea (405EX) with gbit link -> jumbo frames enabled.
+> 
+> Signed-off-by: Stefan Roese <sr@denx.de>
+> ---
+> Eugene & Ben, do you see any problems with this patch? If not, then I'll
+> send another version for the newemac driver too.
 
-> 
-> Stephen Hemminger writes:
-> 
->  > Okay, I would rather see the leaf_info explicit inside the leaf, also
->  > your scheme probably breaks if I add two prefixes and then delete the first.
->  > Let me have a go at it.
-> 
->  I took Eric's patch a bit further... 
->  
->  Support for delete and dump is needed before any testing at all
->  and maybe some macro for checking and setting FP-leaf's
-> 
->  Cheers.
-> 					--ro
-> 
-> 
-> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-> index 6dab753..f5b276c 100644
-> --- a/net/ipv4/fib_trie.c
-> +++ b/net/ipv4/fib_trie.c
-> @@ -97,22 +97,32 @@ typedef unsigned int t_key;
->  #define IS_LEAF(n) (n->parent & T_LEAF)
->  
->  struct node {
-> -	unsigned long parent;
-> -	t_key key;
-> +	unsigned long		parent;
-> +	t_key			key;
->  };
->  
->  struct leaf {
-> -	unsigned long parent;
-> -	t_key key;
-> -	struct hlist_head list;
-> -	struct rcu_head rcu;
-> +	unsigned long		parent;
-> +	t_key			key;
-> +	/*
-> +	 * Because we often have only one info per leaf, we embedd one here
-> +	 * to save some space and speedup lookups (sharing cache line)
-> +	 * a sort of fastpatch leaf (FP-leaf) this indicated a negative of
-> +	 * plen_iinfo.
-> +	 * Note : not inside a structure so that we dont have holes on 64bit 
-> +	 */
-> +	int 			plen_iinfo;
-> +	struct list_head	falh_iinfo;
+Hmm, so why not make GigE support a condition to hook SG version of 
+xmit then? I don't like when you change behaviour for chips where it 
+perefectly legal not to do this check because you cannot change MTU 
+anyways.
 
-yep, I renamed them to einfo_plen & einfo_falh
-
-> +
-> +	struct hlist_head	list;
-> +	struct rcu_head		rcu;
->  };
->  
->  struct leaf_info {
-> -	struct hlist_node hlist;
-> -	struct rcu_head rcu;
-> -	int plen;
-> -	struct list_head falh;
-> +	struct hlist_node	hlist;
-> +	int			plen;
-> +	struct list_head	falh;
-> +	struct rcu_head		rcu;
->  };
->  
->  struct tnode {
-> @@ -364,11 +374,13 @@ static inline void tnode_free(struct tnode *tn)
->  		call_rcu(&tn->rcu, __tnode_free_rcu);
->  }
->  
-> -static struct leaf *leaf_new(void)
-> +static struct leaf *leaf_new(int plen)
->  {
->  	struct leaf *l = kmalloc(sizeof(struct leaf),  GFP_KERNEL);
->  	if (l) {
->  		l->parent = T_LEAF;
-> +		l->plen_iinfo = plen;
-> +		INIT_LIST_HEAD(&l->falh_iinfo);
->  		INIT_HLIST_HEAD(&l->list);
->  	}
->  	return l;
-> @@ -890,7 +902,16 @@ static struct leaf_info *find_leaf_info(struct leaf *l, int plen)
->  
->  static inline struct list_head * get_fa_head(struct leaf *l, int plen)
->  {
-> -	struct leaf_info *li = find_leaf_info(l, plen);
-> +	struct leaf_info *li;
-> +
-> +	if (l->plen_iinfo >= 0) {
-> +		if(l->plen_iinfo == plen)
-> +			return &l->falh_iinfo;
-> +		else
-> +			return NULL;
-> +	}
-
-So you think that a leaf cannot have 2 infos, one 'embeded' and one in the list ?
-
+-- 
+Eugene
 
