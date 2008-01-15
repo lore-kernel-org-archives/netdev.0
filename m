@@ -1,88 +1,44 @@
-From: slavon@bigtelecom.ru
-Subject: Re: Packetlost when "tc qdisc del dev eth0 root"
-Date: Wed, 16 Jan 2008 00:46:02 +0300
-Message-ID: <20080116004602.zn4y94e8sg0w4o8k@mail.bigtelecom.ru>
-References: <478C94B7.3070503@bigtelecom.ru> <478CD9D6.3000504@trash.net>
-	<478D226E.1050209@gmail.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
+Date: Tue, 15 Jan 2008 13:53:43 -0800
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52042FA541@orsmsx418.amr.corp.intel.com>
+References: <200801150625.10823.elendil@planet.nl><20080114.215317.38045859.davem@davemloft.net><200801151504.10047.elendil@planet.nl> <20080115190458.rxt3yhb2o8o404kc@mail.bigtelecom.ru>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset=UTF-8;
-	DelSp="Yes";
-	format="flowed"
+	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: Patrick McHardy <kaber@trash.net>,
-	Badalian Vyacheslav <slavon@bigtelecom.ru>,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bigtelecom.ru ([87.255.0.61]:46325 "EHLO
-	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751446AbYAOVqG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 16:46:06 -0500
-In-Reply-To: <478D226E.1050209@gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: <slavon@bigtelecom.ru>, "Frans Pop" <elendil@planet.nl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757421AbYAOVyO@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20080115190458.rxt3yhb2o8o404kc@mail.bigtelecom.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Quoting Jarek Poplawski <jarkao2@gmail.com>:
+slavon@bigtelecom.ru wrote:
+> Quoting Frans Pop <elendil@planet.nl>:
+>>> (Note this isn't the final correct patch we should apply.  There  is
+>>> no reason why this revert back to the older ->poll() logic  here
+>>> should have any effect on the TX hang triggering...)
+>> 
+>> s/no reason/no obvious reason/ ? ;-)
 
-> Patrick McHardy wrote, On 01/15/2008 05:05 PM:
->
->> Badalian Vyacheslav wrote:
->
-> ...
->
->> Yes, packets in the old qdisc are lost.
->>
->>> Maybe if tc do changes - need create second queue (hash of rules or how
->>> you named it?) and do changes at it. Then replace old queue rules by
->>> created new.
->>> Logic -
->>> 1. Do snapshot
->>> 2. Do changes in shapshot
->>> 3. All new packets go to snapshot
->>> 4. If old queue not have packets - delete it.
->>> 5. Snapshot its default.
->>
->>
->> That doesn't really work since qdiscs keep internal state that
->> in large parts depends on the packets queued. Take the qlen as
->> a simple example, the new qdisc doesn't know about the packets
->> in the old one and will exceed the limit.
->
-> But, some similar alternative to killing packets 'to death' could
-> be imagined, I suppose (in the future, of course!). So, e.g. doing
-> the switch automatically after last packet has been dequeued (maybe
-> even with some 'special' function/mode for this). After all even
-> with accuracy lost, it could be less visible for clients than
-> current way?
->
-> Regards,
-> Jarek P.
+The tx code has an "early exit" that tries to limit the amount of tx
+packets handled in a single poll loop and requires napi or interrupt
+rescheduling based on the return value from e1000_clean_tx_irq.
 
-Hmmm... i found way to fix this for me... but its not look good
+see this code in e1000_clean_tx_irq
 
-Scheme look like:
-Root - prio bands 3 priomap 0 0 0 0 ....
---- Class 1
---- Class 2
--------- Copy of all table (Last this qdisc be root)
---- Class 3
--------- Copy of all table (Last this qdisc be root)
+4005 #ifdef CONFIG_E1000_NAPI
+4006 #define E1000_TX_WEIGHT 64
+4007 >       >       /* weight of a sort for tx, to avoid endless
+transmit cleanup */
+4008 >       >       if (count++ == E1000_TX_WEIGHT) break;
+4009 #endif
 
-2. Add filter to root - flowid all packets to class 2
-3. Delete qdisc at class 3
-4. Create all table on class 3 (~20k qdiscs and 20k classes)
-5. Replace filter on root - flowid all packets to class 3
-6. If need update go to step 3, but use class 2
+I think that is probably related.  For a test you could apply the
+original patch, and remove this "break" just by commenting out line
+4008.  This would guarantee all tx work is cleaned at every e1000_clean
 
-All work good... and packets not dropeed =)
-But i have above 45 k classes and qdiscs.... After some time i will  
-need patch to up max qdisc and classes more then 65k (> 0xfffe) =)))
-Also i have very bad TC commands performance then i have more then 10k rules.
-
-Thanks =)
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
-
+Jesse
