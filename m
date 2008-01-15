@@ -1,56 +1,84 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: questions on NAPI processing latency and dropped network packets
-Date: Tue, 15 Jan 2008 10:09:09 -0500
-Message-ID: <478CCC95.8030405@hp.com>
-References: <478654C3.60806@nortel.com> <2c0942db0801112137k3f3f885ek212d5cbaecb7fea0@mail.gmail.com> <478B8473.6080506@nortel.com> <478B943C.7080009@cosmosbay.com> <478BB722.1020004@nortel.com> <478BB904.3060903@cosmosbay.com> <478BBFE3.9030707@nortel.com>
+From: Radoslaw Szkodzinski (AstralStorm) <lkml@astralstorm.puszkin.org>
+Subject: Re: questions on NAPI processing latency and dropped network
+ packets
+Date: Tue, 15 Jan 2008 16:17:05 +0100
+Message-ID: <20080115161705.0724250d@astralstorm.puszkin.org>
+References: <20080115071950.GA1696@ff.dom.local>
+	<478CC76B.1020804@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <dada1@cosmosbay.com>, Ray Lee <ray-lk@madrabbit.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chris Friesen <cfriesen@nortel.com>
+Content-Type: multipart/signed; boundary="Sig_/8tJObg510IBp.7DfwEaB7GX";
+ protocol="application/pgp-signature"; micalg=PGP-SHA1
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Chris Friesen" <cfriesen@nortel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:41902 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750912AbYAOPJL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 10:09:11 -0500
-In-Reply-To: <478BBFE3.9030707@nortel.com>
+Received: from chello089077127128.chello.pl ([89.77.127.128]:45659 "EHLO
+	astralstorm.puszkin.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751001AbYAOPXo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 10:23:44 -0500
+In-Reply-To: <478CC76B.1020804@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Friesen wrote:
-> Eric Dumazet wrote:
->> Chris Friesen a =C3=A9crit :
+--Sig_/8tJObg510IBp.7DfwEaB7GX
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 15 Jan 2008 08:47:07 -0600
+"Chris Friesen" <cfriesen@nortel.com> wrote:
+
+> Jarek Poplawski wrote:
 >=20
->>> Based on the profiling information we're spending time in=20
->>> sctp_endpoint_lookup_assoc() which doesn't actually use hashes, so =
-I=20
->>> can't see how the hash would be related.  I'm pretty new to SCTP=20
->>> though, so I may be missing something.
->>
->> Well, it does use hashes :)
->>
->>        hash =3D sctp_assoc_hashfn(ep->base.bind_addr.port, rport);
->>        head =3D &sctp_assoc_hashtable[hash];
->>        read_lock(&head->lock);
->>        sctp_for_each_hentry(epb, node, &head->chain) {
->>            /* maybe your machine is traversing here a *really* long=20
->> chain */
->>            }
+> > IMHO, checking this with a current stable, which probably you are going
+> > to do some day, anyway, should be 100% acceptable: giving some input to
+> > netdev, while still working for yourself.
 >=20
+> While I would love to do this, it's not that simple.
 >=20
-> The latest released kernel doesn't have this code, it was only added =
-in=20
-> November.  The SCTP maintainer just pointed me to the patch, and made=
+> Some of our hardware is not supported on mainline, so we need per-kernel=
 =20
-> some other suggestions as well.
->=20
+> version patches to even bring up the blade.  The blades netboot via a=20
+> jumbo-frame network, so kernel extensions are needed to handle setting=20
+> the MTU before mounting the rootfs.
 
-Yes,  the hash code only got added to 2.6.24.  Before that, it was
-a linear list traversal which sucked.
+Why? Can't you use a small initramfs to set it up?
 
-I need to take a look at the locking to see if we can further reduce
-the time that bottom half is disabled.
+> The blade in question uses CKRM=20
+> which doesn't exist for newer kernels so the problem may simply be=20
+> hidden by scheduling differences.
 
--vlad
+Current spiritual successor is Ingo's realtime patchset I guess.
+
+> The userspace application uses other=20
+> kernel features that are not in mainline (and likely some of them won't=20
+> ever be in mainline--I know because I've tried).
+
+What would these be? Some proc or sysfs files that were removed or
+renamed?
+Maybe they can be worked around w/o changing the application at all, or
+very minor changes.
+
+Also, be sure to check if there are pauses with other CPU hogs.
+
+> Basically, the number of changes required for our environment makes it=20
+> difficult to just boot up the latest kernel.
+
+Yes, adding an initramfs is non-trivial (some busybox + shell
+scripting), but not all that hard either.
+And maintaining one is easier than patching the kernel.
+(usually 0 maintenance, maybe minor fixes sometimes)
+
+--Sig_/8tJObg510IBp.7DfwEaB7GX
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.8 (GNU/Linux)
+
+iEYEARECAAYFAkeMznoACgkQBlhXA0ALOYMwvACgkLIEPeMlYnCDE/ylqXZl+OU2
+TkgAnR1FlNKBsGNvJhPY+hbbawXi5dEh
+=T8Zj
+-----END PGP SIGNATURE-----
+
+--Sig_/8tJObg510IBp.7DfwEaB7GX--
