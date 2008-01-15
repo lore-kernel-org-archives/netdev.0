@@ -1,44 +1,44 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
-Date: Tue, 15 Jan 2008 13:53:43 -0800
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52042FA541@orsmsx418.amr.corp.intel.com>
-References: <200801150625.10823.elendil@planet.nl><20080114.215317.38045859.davem@davemloft.net><200801151504.10047.elendil@planet.nl> <20080115190458.rxt3yhb2o8o404kc@mail.bigtelecom.ru>
+From: Martin Devera <devik@cdi.cz>
+Subject: Re: Not understand some in htb_do_events function
+Date: Tue, 15 Jan 2008 22:58:29 +0100
+Message-ID: <478D2C85.2090008@cdi.cz>
+References: <478C86E6.3050508@bigtelecom.ru> <478C87D9.1010305@trash.net> <478CA02A.1070308@cdi.cz> <478CD741.7040004@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: <slavon@bigtelecom.ru>, "Frans Pop" <elendil@planet.nl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757421AbYAOVyO@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <20080115190458.rxt3yhb2o8o404kc@mail.bigtelecom.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Badalian Vyacheslav <slavon@bigtelecom.ru>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www1.cdi.cz ([194.213.194.49]:34078 "EHLO www1.cdi.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755964AbYAOV6e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jan 2008 16:58:34 -0500
+In-Reply-To: <478CD741.7040004@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-slavon@bigtelecom.ru wrote:
-> Quoting Frans Pop <elendil@planet.nl>:
->>> (Note this isn't the final correct patch we should apply.  There  is
->>> no reason why this revert back to the older ->poll() logic  here
->>> should have any effect on the TX hang triggering...)
->> 
->> s/no reason/no obvious reason/ ? ;-)
+> 
+> So this was meant to protect against endless loops?
+> 
+>> We want way to smooth big burst of events over more dequeue invocations
+>> in order to not slow dequeue too much. Constant 500 is max. allowed
+>> "slowdown" of dequeue.
+>> Any bright idea how to do it more elegant, Patrick ?
+> 
+> 
+> Unfortunately not, but I believe simply removing the limit
+> completely would be better than picking an arbitary value.
 
-The tx code has an "early exit" that tries to limit the amount of tx
-packets handled in a single poll loop and requires napi or interrupt
-rescheduling based on the return value from e1000_clean_tx_irq.
+Grrr my comp crashed while I was writing this mail. Well the second
+attempt.
+When we allow unlimited events per dequeue, then there is case where
+all N classes in qdisc can be in the event queue with the same target
+time. Then they will all be acted on in the loop within single dequeue,
+costing us say some milliseconds. Additionaly, it tends to repeat itself
+then in cycles.
+Maybe it is acceptable but it seemed to me as rather big latency.
+Thus I wanted to do only limited work per dequeue call. One possibility
+is to remove the limit and "see what happend in wild".
 
-see this code in e1000_clean_tx_irq
-
-4005 #ifdef CONFIG_E1000_NAPI
-4006 #define E1000_TX_WEIGHT 64
-4007 >       >       /* weight of a sort for tx, to avoid endless
-transmit cleanup */
-4008 >       >       if (count++ == E1000_TX_WEIGHT) break;
-4009 #endif
-
-I think that is probably related.  For a test you could apply the
-original patch, and remove this "break" just by commenting out line
-4008.  This would guarantee all tx work is cleaned at every e1000_clean
-
-Jesse
+What do u think about to do limited no of transitions and then schedule
+tasklet to do the rest (again in limited buckets) ?
