@@ -1,117 +1,95 @@
-From: slavon@bigtelecom.ru
-Subject: Re: Packetlost when "tc qdisc del dev eth0 root"
-Date: Wed, 16 Jan 2008 01:04:59 +0300
-Message-ID: <20080116010459.676cchrf8ko4wk8o@mail.bigtelecom.ru>
-References: <478C94B7.3070503@bigtelecom.ru> <478CD9D6.3000504@trash.net>
-	<478D226E.1050209@gmail.com>
-	<20080116004602.zn4y94e8sg0w4o8k@mail.bigtelecom.ru>
+From: Frank Rowand <frank.rowand@am.sony.com>
+Subject: [PATCH] 8390: fix CONFIG_LOCKDEP error, 2.6.24-rc7
+Date: Tue, 15 Jan 2008 14:23:26 -0800
+Message-ID: <1200435806.4092.22.camel@bx740>
+Reply-To: frank.rowand@am.sony.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=UTF-8;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 8BIT
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: slavon@bigtelecom.ru
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: p_gortmaker@yahoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bigtelecom.ru ([87.255.0.61]:48880 "EHLO
-	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756469AbYAOWFB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 17:05:01 -0500
-In-Reply-To: <20080116004602.zn4y94e8sg0w4o8k@mail.bigtelecom.ru>
-Content-Disposition: inline
+Received: from outbound-sin.frontbridge.com ([207.46.51.80]:36516 "EHLO
+	outbound3-sin-R.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752477AbYAOWYk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 17:24:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Good night! =)
+From: Frank Rowand <frank.rowand@am.sony.com>
 
-Sorry... i was wrong...
-I see that problem more serious....
+Turning on CONFIG_LOCKDEP for CONFIG_PREEMPT invokes a path which may
+sleep with IRQs disabled.  Change disable_irq_nosync_lockdep() to
+disable_irq_nosync(), etc.  Note the comment near the top of
+drivers/net/lib8390.c, which is an lkml email from Alan Cox, pre-saging
+the need of this patch.
 
-Lets see to scheme
+Signed-off-by: Frank Rowand <frank.rowand@am.sony.com>
+---
+ drivers/net/lib8390.c |   14 	7 +	7 -	0 !
+ 1 files changed, 7 insertions(+), 7 deletions(-)
 
-Class 1
----qdisc
-------- 10k classes
-Class 2
----qdisc
-------- 10k classes
-
-All traffic go to class 2... class 1 qdisc not have packets and if we  
-delete it - packets not lost... in theory... lets try delete class 1  
-qdisc (all childrens delete too)...
-PC freeze on 2-5 seconds... its not forward any traffic at this  
-moment... its great tree lock?
-
-Its normal or code need to more accurate lock?
-
-Thanks!
-
-> Quoting Jarek Poplawski <jarkao2@gmail.com>:
->
->> Patrick McHardy wrote, On 01/15/2008 05:05 PM:
->>
->>> Badalian Vyacheslav wrote:
->>
->> ...
->>
->>> Yes, packets in the old qdisc are lost.
->>>
->>>> Maybe if tc do changes - need create second queue (hash of rules or how
->>>> you named it?) and do changes at it. Then replace old queue rules by
->>>> created new.
->>>> Logic -
->>>> 1. Do snapshot
->>>> 2. Do changes in shapshot
->>>> 3. All new packets go to snapshot
->>>> 4. If old queue not have packets - delete it.
->>>> 5. Snapshot its default.
->>>
->>>
->>> That doesn't really work since qdiscs keep internal state that
->>> in large parts depends on the packets queued. Take the qlen as
->>> a simple example, the new qdisc doesn't know about the packets
->>> in the old one and will exceed the limit.
->>
->> But, some similar alternative to killing packets 'to death' could
->> be imagined, I suppose (in the future, of course!). So, e.g. doing
->> the switch automatically after last packet has been dequeued (maybe
->> even with some 'special' function/mode for this). After all even
->> with accuracy lost, it could be less visible for clients than
->> current way?
->>
->> Regards,
->> Jarek P.
->
-> Hmmm... i found way to fix this for me... but its not look good
->
-> Scheme look like:
-> Root - prio bands 3 priomap 0 0 0 0 ....
-> --- Class 1
-> --- Class 2
-> -------- Copy of all table (Last this qdisc be root)
-> --- Class 3
-> -------- Copy of all table (Last this qdisc be root)
->
-> 2. Add filter to root - flowid all packets to class 2
-> 3. Delete qdisc at class 3
-> 4. Create all table on class 3 (~20k qdiscs and 20k classes)
-> 5. Replace filter on root - flowid all packets to class 3
-> 6. If need update go to step 3, but use class 2
->
-> All work good... and packets not dropeed =)
-> But i have above 45 k classes and qdiscs.... After some time i will
-> need patch to up max qdisc and classes more then 65k (> 0xfffe) =)))
-> Also i have very bad TC commands performance then i have more then 10k rules.
->
-> Thanks =)
->
-> ----------------------------------------------------------------
-> This message was sent using IMP, the Internet Messaging Program.
+Index: linux-2.6.24-rc5/drivers/net/lib8390.c
+===================================================================
+--- linux-2.6.24-rc5.orig/drivers/net/lib8390.c
++++ linux-2.6.24-rc5/drivers/net/lib8390.c
+@@ -284,7 +284,7 @@ static void ei_tx_timeout(struct net_dev
+ 
+ 	/* Ugly but a reset can be slow, yet must be protected */
+ 
+-	disable_irq_nosync_lockdep(dev->irq);
++	disable_irq_nosync(dev->irq);
+ 	spin_lock(&ei_local->page_lock);
+ 
+ 	/* Try to restart the card.  Perhaps the user has fixed something. */
+@@ -292,7 +292,7 @@ static void ei_tx_timeout(struct net_dev
+ 	__NS8390_init(dev, 1);
+ 
+ 	spin_unlock(&ei_local->page_lock);
+-	enable_irq_lockdep(dev->irq);
++	enable_irq(dev->irq);
+ 	netif_wake_queue(dev);
+ }
+ 
+@@ -334,7 +334,7 @@ static int ei_start_xmit(struct sk_buff 
+ 	 *	Slow phase with lock held.
+ 	 */
+ 
+-	disable_irq_nosync_lockdep_irqsave(dev->irq, &flags);
++	disable_irq_nosync(dev->irq);
+ 
+ 	spin_lock(&ei_local->page_lock);
+ 
+@@ -373,7 +373,7 @@ static int ei_start_xmit(struct sk_buff 
+ 		netif_stop_queue(dev);
+ 		ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+ 		spin_unlock(&ei_local->page_lock);
+-		enable_irq_lockdep_irqrestore(dev->irq, &flags);
++		enable_irq(dev->irq);
+ 		ei_local->stat.tx_errors++;
+ 		return 1;
+ 	}
+@@ -414,7 +414,7 @@ static int ei_start_xmit(struct sk_buff 
+ 	ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+ 
+ 	spin_unlock(&ei_local->page_lock);
+-	enable_irq_lockdep_irqrestore(dev->irq, &flags);
++	enable_irq(dev->irq);
+ 
+ 	dev_kfree_skb (skb);
+ 	ei_local->stat.tx_bytes += send_length;
+@@ -530,9 +530,9 @@ static irqreturn_t __ei_interrupt(int ir
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void __ei_poll(struct net_device *dev)
+ {
+-	disable_irq_lockdep(dev->irq);
++	disable_irq(dev->irq);
+ 	__ei_interrupt(dev->irq, dev);
+-	enable_irq_lockdep(dev->irq);
++	enable_irq(dev->irq);
+ }
+ #endif
+ 
 
 
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
 
