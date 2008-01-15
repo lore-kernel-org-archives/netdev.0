@@ -1,65 +1,68 @@
-From: slavon@bigtelecom.ru
-Subject: Re: Packetlost when "tc qdisc del dev eth0 root"
-Date: Tue, 15 Jan 2008 19:11:09 +0300
-Message-ID: <20080115191109.j54rx0t008k8wook@mail.bigtelecom.ru>
-References: <478C94B7.3070503@bigtelecom.ru> <478CD9D6.3000504@trash.net>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [RFC 6/6] fib_trie: combine leaf and info
+Date: Tue, 15 Jan 2008 08:19:05 -0800
+Message-ID: <20080115081905.3b8b6f05@deepthought>
+References: <20080112064646.282104074@linux-foundation.org>
+	<20080112.205520.55747078.davem@davemloft.net>
+	<4789A29C.6080000@linux-foundation.org>
+	<20080112.214417.154179770.davem@davemloft.net>
+	<20080114125755.6157a3bf@deepthought>
+	<20080114164450.55f8c9b2@deepthought>
+	<20080114164621.2bc5011f@deepthought>
+	<20080114164727.210047f6@deepthought>
+	<20080114185843.0981f0ff@deepthought>
+	<20080114210716.4b09c84d@deepthought>
+	<478C4EB7.6060807@cosmosbay.com>
+	<478C4FBE.5040308@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=UTF-8;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 8BIT
-Cc: Badalian Vyacheslav <slavon@bigtelecom.ru>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, robert.olsson@its.uu.se,
+	netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bigtelecom.ru ([87.255.0.61]:58823 "EHLO
-	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751300AbYAOQLM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 11:11:12 -0500
-In-Reply-To: <478CD9D6.3000504@trash.net>
-Content-Disposition: inline
+Received: from mail.vyatta.com ([216.93.170.194]:54518 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751001AbYAOQVt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 11:21:49 -0500
+In-Reply-To: <478C4FBE.5040308@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I understand. Thanks!
+On Tue, 15 Jan 2008 07:16:30 +0100
+Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-> Badalian Vyacheslav wrote:
->> Hello all. Have packetlost when do "tc qdisc del dev eth0 root".
->>
->> look:
->>
->> slavon ~ # ping -f 87.255.1.134
->> PING 87.255.1.134 (87.255.1.134) 56(84) bytes of data.
->> .
->> .....................................................................................................................................................................................................................................................................   
->> .
->> --- 87.255.1.134 ping statistics ---
->> 60811 packets transmitted, 60544 received, 0% packet loss, time 39528ms
->> rtt min/avg/max/mdev = 0.203/0.579/3227.655/13.124 ms, pipe 219,   
->> ipg/ewma 0.650/2.197 ms
->>
->> Its normal?
->
-> Yes, packets in the old qdisc are lost.
->
->> Maybe if tc do changes - need create second queue (hash of rules or  
->>  how you named it?) and do changes at it. Then replace old queue   
->> rules by created new.
->> Logic -
->> 1. Do snapshot
->> 2. Do changes in shapshot
->> 3. All new packets go to snapshot
->> 4. If old queue not have packets - delete it.
->> 5. Snapshot its default.
->
->
-> That doesn't really work since qdiscs keep internal state that
-> in large parts depends on the packets queued. Take the qlen as
-> a simple example, the new qdisc doesn't know about the packets
-> in the old one and will exceed the limit.
+> Eric Dumazet a =C3=A9crit :
+> > Stephen Hemminger a =C3=A9crit :
+> >> Combine the prefix information and the leaf together into one
+> >> allocation. This is furthur simplified by converting the hlist
+> >> into a simple bitfield.
+> >>
+> >> Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
+> >>
+> >> This patch is experimental (ie it boots and loads routes), but
+> >> is slower for the 163,000 route dump test.
+> >>
+> >=20
+> > Its also very memory expensive. That was not Robert suggestion I be=
+lieve.
+> >=20
+> > Its suggestion is to embedd one info into each leaves.
+> >=20
+> > Please find attached to this mail a preliminary and incomplete patc=
+h I=20
+> > wrote this morning before coffee :), to get the idea.
+>=20
+> Oops, patch reversed, sorry, and against another work pending in my t=
+ree.
+>=20
+> Now time for cofee :)
+>=20
 
+Okay, I would rather see the leaf_info explicit inside the leaf, also
+your scheme probably breaks if I add two prefixes and then delete the f=
+irst.
+Let me have a go at it.
 
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
-
+--=20
+Stephen Hemminger <stephen.hemminger@vyatta.com>
