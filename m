@@ -1,47 +1,29 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH] ICMP: ICMP_MIB_OUTMSGS increment duplicated
-Date: Wed, 16 Jan 2008 17:59:23 +0800
-Message-ID: <478DD57B.6020503@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
+Date: Wed, 16 Jan 2008 02:29:53 -0800 (PST)
+Message-ID: <20080116.022953.184520911.davem@davemloft.net>
+References: <36D9DB17C6DE9E40B059440DB8D95F52042FA541@orsmsx418.amr.corp.intel.com>
+	<20080115.210214.170759690.davem@davemloft.net>
+	<200801160956.09053.elendil@planet.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	David L Stevens <dlstevens@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:50683 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751352AbYAPKAp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jan 2008 05:00:45 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jesse.brandeburg@intel.com, slavon@bigtelecom.ru,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: elendil@planet.nl
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753940AbYAPKaX@vger.kernel.org>
+In-Reply-To: <200801160956.09053.elendil@planet.nl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In tree net-2.6.25, commit "96793b482540f3a26e2188eaf75cb56b7829d3e3"
-made a mistake.
+From: Frans Pop <elendil@planet.nl>
+Date: Wed, 16 Jan 2008 09:56:08 +0100
 
-In that patch, David L added a icmp_out_count() in ip_push_pending_frames(),
-remove icmp_out_count() from icmp_reply(). But he forgot to remove 
-icmp_out_count() from icmp_send() too.
-Since icmp_send and icmp_reply will call icmp_push_reply, which will call
-ip_push_pending_frames, a duplicated increment happened in icmp_send.
+> On Wednesday 16 January 2008, David Miller wrote:
+> > Ok, here is the patch I'll propose to fix this.  The goal is to make
+> > it as simple as possible without regressing the thing we were trying
+> > to fix.
+> 
+> Looks good to me. Tested with -rc8.
 
-This patch remove the icmp_out_count from icmp_send too.
-
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
-diff -Nurp linux-2.6.24.rc8.org/net/ipv4/icmp.c linux-2.6.24.rc8/net/ipv4/icmp.c
---- linux-2.6.24.rc8.org/net/ipv4/icmp.c	2008-01-16 17:45:02.000000000 +0800
-+++ linux-2.6.24.rc8/net/ipv4/icmp.c	2008-01-16 17:52:13.000000000 +0800
-@@ -540,7 +540,6 @@ void icmp_send(struct sk_buff *skb_in, i
- 	icmp_param.data.icmph.checksum	 = 0;
- 	icmp_param.skb	  = skb_in;
- 	icmp_param.offset = skb_network_offset(skb_in);
--	icmp_out_count(icmp_param.data.icmph.type);
- 	inet_sk(icmp_socket->sk)->tos = tos;
- 	ipc.addr = iph->saddr;
- 	ipc.opt = &icmp_param.replyopts;
-
---
-WCN
-
-
+Thanks for testing.
