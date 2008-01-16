@@ -1,41 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Not understand some in htb_do_events function
-Date: Tue, 15 Jan 2008 21:07:29 -0800 (PST)
-Message-ID: <20080115.210729.128392129.davem@davemloft.net>
-References: <478C87D9.1010305@trash.net>
-	<478CA02A.1070308@cdi.cz>
-	<478CD741.7040004@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Packetlost when "tc qdisc del dev eth0 root"
+Date: Wed, 16 Jan 2008 06:12:02 +0100
+Message-ID: <478D9222.7030603@trash.net>
+References: <478C94B7.3070503@bigtelecom.ru> <478CD9D6.3000504@trash.net>	<478D226E.1050209@gmail.com>	<20080116004602.zn4y94e8sg0w4o8k@mail.bigtelecom.ru> <20080116010459.676cchrf8ko4wk8o@mail.bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: devik@cdi.cz, slavon@bigtelecom.ru, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
+To: slavon@bigtelecom.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57727
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751248AbYAPFHa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2008 00:07:30 -0500
-In-Reply-To: <478CD741.7040004@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:59947 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750912AbYAPFMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2008 00:12:22 -0500
+In-Reply-To: <20080116010459.676cchrf8ko4wk8o@mail.bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 15 Jan 2008 16:54:41 +0100
-
-> Martin Devera wrote:
-> > to drain extra events asap. It the time of writing I was not able to
-> > come with better solution and there were more bugs related to this
-> > part of code than now.
+slavon@bigtelecom.ru wrote:
+> Good night! =)
 > 
-> So this was meant to protect against endless loops?
+> Sorry... i was wrong...
+> I see that problem more serious....
+> 
+> Lets see to scheme
+> 
+> Class 1
+> ---qdisc
+> ------- 10k classes
+> Class 2
+> ---qdisc
+> ------- 10k classes
+> 
+> All traffic go to class 2... class 1 qdisc not have packets and if we 
+> delete it - packets not lost... in theory... lets try delete class 1 
+> qdisc (all childrens delete too)...
+> PC freeze on 2-5 seconds... its not forward any traffic at this 
+> moment... its great tree lock?
+> 
+> Its normal or code need to more accurate lock?
 
-I think, as Martin tried to explain further, it's trying
-to avoid cases where the amount of work is extremely large.
 
-Heuristics like this are by definition going to hit cases
-where the value chosen is wrong or inappropriate.  On fast
-cpus maybe a value of 50000 instead of 500 would work "best"
+htb class destruction can be quite expansive if one of the rb trees
+needs to be rebalanced. Doing that for 10000 classes would explain
+the delay.
 
-Therefore I would suggest removing the limit altogether for now and in
-the long term work on whatever deficiencies in the algorithm make this
-expensive enough to warrant limits in the first place.
