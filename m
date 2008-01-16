@@ -1,82 +1,89 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 4/4] bonding: Fix some RTNL taking
-Date: Wed, 16 Jan 2008 13:44:50 +0100
-Message-ID: <20080116124450.GD2307@ff.dom.local>
-References: <20080115063650.236883000@miraclelinux.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2.6.23+] ingress classify to [nf]mark
+Date: Wed, 16 Jan 2008 07:45:09 -0500
+Message-ID: <1200487509.4457.33.camel@localhost>
+References: <47866C69.3080904@bspu.unibel.by>
+	 <1200001167.4443.38.camel@localhost>  <4787A663.4030204@bspu.unibel.by>
+	 <1200063541.4483.42.camel@localhost>  <4787D49E.6080906@bspu.unibel.by>
+	 <1200107027.4477.36.camel@localhost>  <4788FF45.702@bspu.unibel.by>
+	 <1200253484.4427.33.camel@localhost>  <478B8250.90602@bspu.unibel.by>
+	 <1200315372.4427.75.camel@localhost>  <478BE021.1070408@bspu.unibel.by>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
+To: mahatma@eu.by
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.188]:5780 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756233AbYAPMif (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2008 07:38:35 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so38820fkz.5
-        for <netdev@vger.kernel.org>; Wed, 16 Jan 2008 04:38:33 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080115063650.236883000@miraclelinux.com>
+Received: from py-out-1112.google.com ([64.233.166.180]:2948 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751363AbYAPMpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2008 07:45:13 -0500
+Received: by py-out-1112.google.com with SMTP id u52so367172pyb.10
+        for <netdev@vger.kernel.org>; Wed, 16 Jan 2008 04:45:12 -0800 (PST)
+In-Reply-To: <478BE021.1070408@bspu.unibel.by>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15-01-2008 07:36, Makito SHIOKAWA wrote:
-> Fix some RTNL lock taking:
-> 
-> * RTNL (mutex; may sleep) must not be taken under read_lock (spinlock; must be
-> atomic). However, RTNL is taken under read_lock in bond_loadbalance_arp_mon()
-> and bond_activebackup_arp_mon(). So change code to take RTNL outside of read_lock.
-> 
-> * rtnl_unlock() calls netdev_run_todo() which takes net_todo_run_mutex, and
-> rtnl_unlock() is called under read_lock in bond_mii_monitor(). So for the same
-> reason as above, change code to call rtnl_unlock() outside of read_lock.
-> 
-> Signed-off-by: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
-> ---
->  drivers/net/bonding/bond_main.c |   24 ++++++++++--------------
->  1 file changed, 10 insertions(+), 14 deletions(-)
-> 
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2372,6 +2372,7 @@ void bond_mii_monitor(struct work_struct
->  	struct bonding *bond = container_of(work, struct bonding,
->  					    mii_work.work);
->  	unsigned long delay;
-> +	int need_unlock = 0;
->  
->  	read_lock(&bond->lock);
->  	if (bond->kill_timers) {
-> @@ -2383,13 +2384,16 @@ void bond_mii_monitor(struct work_struct
->  		rtnl_lock();
->  		read_lock(&bond->lock);
->  		__bond_mii_monitor(bond, 1);
-> -		rtnl_unlock();
-> +		need_unlock = 1;
+On Mon, 2008-14-01 at 20:20 -0200, Dzianis Kahanovich wrote:
+> jamal wrote:
+[..] 
 
-Maybe I'm wrong, but since this read_lock() is given and taken anyway,
-it seems this looks a bit better to me (why hold this rtnl longer
-than needed?):
-		read_unlock(&bond->lock);
-		rtnl_unlock();
-		read_lock(&bond->lock);
+> > Did that make sense?
+>
+> After current "#endif" - may be.
 
-On the other hand, probably 'if (bond->kill_timers)' could be repeated
-after this read_lock() retaking.
+I am afraid that would be counter to expected behavior. 
+Default is meant to apply when no value has been defined. Mark of 0 for
+example doesnt mean "default". Let me demonstrate with the ifdefs again
+with some arbitrary example:
 
->  	}
->  
->  	delay = ((bond->params.miimon * HZ) / 1000) ? : 1;
-> -	read_unlock(&bond->lock);
->  	if (bond->params.miimon)
->  		queue_delayed_work(bond->wq, &bond->mii_work, delay);
+-----------------
+#ifdef CONFIG_NET_CLS_ACT
+..classify ...
+    .. action 1 sets mark to 0x11111
+    .. action 2 checks some state and conditionally let action 3 execute
+    .. action 3 sets mark to 0
 
-If this if () is really necessary here, then this should be better
-before "delay = ..." with a block.
+if OK is returned set tc_index based on classid
 
-> +	read_unlock(&bond->lock);
-> +	/* rtnl_unlock() may sleep, so call it after read_unlock() */
-> +	if (need_unlock)
-> +		rtnl_unlock();
->  }
+#else // no actions compiled
+..classify
+.... jamal suggests: set default mark and tc_index for ingress here
+#endif
 
-Regards,
-Jarek P.
+// mahatma wants to set default for mark and tcindex here 
+// so it works for both actions and none-action code
+------------------------
+
+Lets look at the case of actions compiled in:
+I have defined my policies (in user space) so that the mark can be set
+to either 0 or 0x1111 depending on some runtime state. 
+Your default (kernel) code is now going to overide my policy - which is
+bad. Even in the case of OK being returned, it is wrong to set tc_index;
+unfortunately, we dont have an action that can set tc_index today; if we
+did, we would need to remove that setting.
+
+You other intent was to set the value of mark based on the value of
+classid. You _can do that today already_ with no changes via a policy in
+user space. You suggested to do an ifdef so you wont have to type in the
+line which says how to mark, and i said that was a bad idea (we need
+less ifdefs not more). 
+
+For the case of no actions compiled in:
+nothing can write into the values of either tcindex or mark after
+classification (on ingress), so it is ok to override. If you did this
+for egress as well, that would be wrong because it is expected that some
+qdiscs may set or utilize these metadatum.
+
+I am not sure if it made more sense this time?
+
+> What "result" are with:
+> 1) no filters?
+> 2) 1 filter only, with "action continue"?
+
+Please refer to above verbosity and see if it all makes better sense.
+
+cheers,
+jamal
+
