@@ -1,93 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: memory leakage in bridge(kernel-2.6.23.14)
-Date: Wed, 16 Jan 2008 04:31:06 -0800 (PST)
-Message-ID: <20080116.043106.42218321.davem@davemloft.net>
-References: <S1755641AbYAPH4o/20080116075644Z+1872@vger.kernel.org>
-	<200801161006.AZZ53966@topsec.com.cn>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 4/4] bonding: Fix some RTNL taking
+Date: Wed, 16 Jan 2008 13:44:50 +0100
+Message-ID: <20080116124450.GD2307@ff.dom.local>
+References: <20080115063650.236883000@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
-To: wyb@topsec.com.cn
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33141
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753845AbYAPMbH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2008 07:31:07 -0500
-In-Reply-To: <200801161006.AZZ53966@topsec.com.cn>
+Received: from fk-out-0910.google.com ([209.85.128.188]:5780 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756233AbYAPMif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2008 07:38:35 -0500
+Received: by fk-out-0910.google.com with SMTP id z23so38820fkz.5
+        for <netdev@vger.kernel.org>; Wed, 16 Jan 2008 04:38:33 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080115063650.236883000@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <wyb@topsec.com.cn>
-Date: Wed, 16 Jan 2008 18:04:53 +0800
+On 15-01-2008 07:36, Makito SHIOKAWA wrote:
+> Fix some RTNL lock taking:
+> 
+> * RTNL (mutex; may sleep) must not be taken under read_lock (spinlock; must be
+> atomic). However, RTNL is taken under read_lock in bond_loadbalance_arp_mon()
+> and bond_activebackup_arp_mon(). So change code to take RTNL outside of read_lock.
+> 
+> * rtnl_unlock() calls netdev_run_todo() which takes net_todo_run_mutex, and
+> rtnl_unlock() is called under read_lock in bond_mii_monitor(). So for the same
+> reason as above, change code to call rtnl_unlock() outside of read_lock.
+> 
+> Signed-off-by: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
+> ---
+>  drivers/net/bonding/bond_main.c |   24 ++++++++++--------------
+>  1 file changed, 10 insertions(+), 14 deletions(-)
+> 
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -2372,6 +2372,7 @@ void bond_mii_monitor(struct work_struct
+>  	struct bonding *bond = container_of(work, struct bonding,
+>  					    mii_work.work);
+>  	unsigned long delay;
+> +	int need_unlock = 0;
+>  
+>  	read_lock(&bond->lock);
+>  	if (bond->kill_timers) {
+> @@ -2383,13 +2384,16 @@ void bond_mii_monitor(struct work_struct
+>  		rtnl_lock();
+>  		read_lock(&bond->lock);
+>  		__bond_mii_monitor(bond, 1);
+> -		rtnl_unlock();
+> +		need_unlock = 1;
 
-> In SMP, if a bridge fdb is being created when another CPU at the same time
-> delete the bridge, this newly created fdb may incur a leakage:
+Maybe I'm wrong, but since this read_lock() is given and taken anyway,
+it seems this looks a bit better to me (why hold this rtnl longer
+than needed?):
+		read_unlock(&bond->lock);
+		rtnl_unlock();
+		read_lock(&bond->lock);
 
-netdev@vger.kernel.org (CC:'d) is the proper place to report
-things like this.
+On the other hand, probably 'if (bond->kill_timers)' could be repeated
+after this read_lock() retaking.
 
-'linux-net' is only for general user questions about the networking,
-not for bug reports, patch postings, or developer discussion.  The
-'netdev' list is for that.
+>  	}
+>  
+>  	delay = ((bond->params.miimon * HZ) / 1000) ? : 1;
+> -	read_unlock(&bond->lock);
+>  	if (bond->params.miimon)
+>  		queue_delayed_work(bond->wq, &bond->mii_work, delay);
 
-Thank you.
+If this if () is really necessary here, then this should be better
+before "delay = ..." with a block.
 
-> 
-> CPU0:
-> 
-> static void del_nbp(struct net_bridge_port *p)
-> {
-> 	/*
-> 	 * CPU1 enter br_fdb_update(), bridge port is still valid.
-> 	 */
-> 	......
-> 	spin_lock_bh(&br->lock);
-> 	br_stp_disable_port(p);
-> 	spin_unlock_bh(&br->lock);
-> 
-> 	br_ifinfo_notify(RTM_DELLINK, p);
-> 
-> 	br_fdb_delete_by_port(br, p, 1);
-> 
-> 	/*
-> 	 * CPU1 call fdb_create() for the being deleted bridge,
-> 	 * a fdb would be add to bridge's fdb hash table, and will never
-> 	 * be freed. because when deleting a bridge, linux flush fdb for
-> each
-> 	 * bridge port, but this newly created fdb belong to no bridge port
-> 	 */
-> 	......
-> }
-> 
-> To fix this, fdb_create() should be changed to:
-> {
-> 	struct net_bridge_fdb_entry *fdb;
-> 
-> 	/*
-> 	 * if the bridge port is deleted, then return.
-> 	 */
-> 	if (!(source->state == BR_STATE_LEARNING ||
-> 	      source->state == BR_STATE_FORWARDING))
-> 		return;
-> 
-> 	fdb = kmem_cache_alloc(br_fdb_cache, GFP_ATOMIC);
-> 	if (fdb) {
-> 		memcpy(fdb->addr.addr, addr, ETH_ALEN);
-> 		atomic_set(&fdb->use_count, 1);
-> 		hlist_add_head_rcu(&fdb->hlist, head);
-> 
-> 		fdb->dst = source;
-> 		fdb->is_local = is_local;
-> 		fdb->is_static = is_local;
-> 		fdb->ageing_timer = jiffies;
-> 	}
-> 	return fdb;
-> }
-> 
-> 
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +	read_unlock(&bond->lock);
+> +	/* rtnl_unlock() may sleep, so call it after read_unlock() */
+> +	if (need_unlock)
+> +		rtnl_unlock();
+>  }
+
+Regards,
+Jarek P.
