@@ -1,90 +1,94 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
-Date: Wed, 16 Jan 2008 18:07:38 +0100
-Message-ID: <18318.14810.877279.41815@robur.slu.se>
-References: <36D9DB17C6DE9E40B059440DB8D95F52042FA541@orsmsx418.amr.corp.intel.com>
-	<20080115.210214.170759690.davem@davemloft.net>
-	<200801160956.09053.elendil@planet.nl>
-	<20080116.022953.184520911.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [IPV4] FIB_HASH : Avoid unecessary loop in fn_hash_dump_zone()
+Date: Wed, 16 Jan 2008 18:19:25 +0100
+Message-ID: <20080116181925.2c5c540f.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: elendil@planet.nl, jesse.brandeburg@intel.com,
-	slavon@bigtelecom.ru, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:52585 "EHLO mx1.slu.se"
+Received: from pfx2.jmh.fr ([194.153.89.55]:57047 "EHLO pfx2.jmh.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751477AbYAPRHn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jan 2008 12:07:43 -0500
-In-Reply-To: <20080116.022953.184520911.davem@davemloft.net>
+	id S1750824AbYAPRUN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jan 2008 12:20:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+I noticed "ip route list" was slower than "cat /proc/net/route" on a machine with a full Internet
+routing table (214392 entries : Special thanks to Robert ;) )
 
-David Miller writes:
- > > On Wednesday 16 January 2008, David Miller wrote:
- > > > Ok, here is the patch I'll propose to fix this.  The goal is to make
- > > > it as simple as possible without regressing the thing we were trying
- > > > to fix.
- > > 
- > > Looks good to me. Tested with -rc8.
- > 
- > Thanks for testing.
+This is similar to problem reported in commit d8c9283089287341c85a0a69de32c2287a990e71
 
- Yes that code looks nice. I'm using the patch but I've noticed another 
- phenomena with the current e1000 driver. There is a race when taking a 
- device down at high traffic loads. I've tracked and instrumented and it 
- seems like occasionly irq_sem can get bump up so interrupts can't be 
- enabled again.
+Fix is to avoid scanning the begining of fz_hash table, but directly seek to the right offset.
 
+Before patch :
 
-eth0 e1000_irq_enable sem = 1    <- High netload
-eth0 e1000_irq_enable sem = 1
-eth0 e1000_irq_enable sem = 1
-eth0 e1000_irq_enable sem = 1
-eth0 e1000_irq_enable sem = 1
-eth0 e1000_irq_enable sem = 1
-eth0 e1000_irq_enable sem = 1    <- ifconfig eth0 down
-eth0 e1000_irq_disable sem = 2
+time ip route >/tmp/ROUTE
 
-**e1000_open                     <- ifconfig eth0 up
-eth0 e1000_irq_disable sem = 3      Dead. irq's can't be enabled
-e1000_irq_enable miss
-eth0 e1000_irq_enable sem = 2
-e1000_irq_enable miss
-eth0 e1000_irq_enable sem = 1
-ADDRCONF(NETDEV_UP): eth0: link is not ready
+real    0m1.285s
+user    0m0.712s
+sys     0m0.436s
 
+After patch
 
-Cheers
-					--ro
+# time ip route >/tmp/ROUTE
 
-static void
-e1000_irq_disable(struct e1000_adapter *adapter)
-{
-        atomic_inc(&adapter->irq_sem);
-        E1000_WRITE_REG(&adapter->hw, IMC, ~0);
-        E1000_WRITE_FLUSH(&adapter->hw);
-        synchronize_irq(adapter->pdev->irq);
+real    0m0.835s
+user    0m0.692s
+sys     0m0.124s
 
-        if(adapter->netdev->ifindex == 3)
-        printk("%s e1000_irq_disable sem = %d\n",  adapter->netdev->name,
-               atomic_read(&adapter->irq_sem));
-}
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-static void
-e1000_irq_enable(struct e1000_adapter *adapter)
-{
-        if (likely(atomic_dec_and_test(&adapter->irq_sem))) {
-                E1000_WRITE_REG(&adapter->hw, IMS, IMS_ENABLE_MASK);
-                E1000_WRITE_FLUSH(&adapter->hw);
-                }
-        else
-                printk("e1000_irq_enable miss\n");
+ net/ipv4/fib_hash.c |   20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
 
-        if(adapter->netdev->ifindex == 3)
-          printk("%s e1000_irq_enable sem = %d\n",  adapter->netdev->name,
-                 atomic_read(&adapter->irq_sem));
-}
+diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+index 527a6e0..4156988 100644
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -718,19 +718,18 @@ fn_hash_dump_zone(struct sk_buff *skb, struct netlink_callback *cb,
+ {
+ 	int h, s_h;
+ 
++	if (fz->fz_hash == NULL)
++		return skb->len;
+ 	s_h = cb->args[3];
+-	for (h=0; h < fz->fz_divisor; h++) {
+-		if (h < s_h) continue;
+-		if (h > s_h)
+-			memset(&cb->args[4], 0,
+-			       sizeof(cb->args) - 4*sizeof(cb->args[0]));
+-		if (fz->fz_hash == NULL ||
+-		    hlist_empty(&fz->fz_hash[h]))
++	for (h = s_h; h < fz->fz_divisor; h++) {
++		if (hlist_empty(&fz->fz_hash[h]))
+ 			continue;
+-		if (fn_hash_dump_bucket(skb, cb, tb, fz, &fz->fz_hash[h])<0) {
++		if (fn_hash_dump_bucket(skb, cb, tb, fz, &fz->fz_hash[h]) < 0) {
+ 			cb->args[3] = h;
+ 			return -1;
+ 		}
++		memset(&cb->args[4], 0,
++		       sizeof(cb->args) - 4*sizeof(cb->args[0]));
+ 	}
+ 	cb->args[3] = h;
+ 	return skb->len;
+@@ -746,14 +745,13 @@ static int fn_hash_dump(struct fib_table *tb, struct sk_buff *skb, struct netlin
+ 	read_lock(&fib_hash_lock);
+ 	for (fz = table->fn_zone_list, m=0; fz; fz = fz->fz_next, m++) {
+ 		if (m < s_m) continue;
+-		if (m > s_m)
+-			memset(&cb->args[3], 0,
+-			       sizeof(cb->args) - 3*sizeof(cb->args[0]));
+ 		if (fn_hash_dump_zone(skb, cb, tb, fz) < 0) {
+ 			cb->args[2] = m;
+ 			read_unlock(&fib_hash_lock);
+ 			return -1;
+ 		}
++		memset(&cb->args[3], 0,
++		       sizeof(cb->args) - 3*sizeof(cb->args[0]));
+ 	}
+ 	read_unlock(&fib_hash_lock);
+ 	cb->args[2] = m;
