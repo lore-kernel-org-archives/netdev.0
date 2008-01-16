@@ -1,423 +1,129 @@
-From: "Aggrwal Poonam" <Poonam.Aggrwal@freescale.com>
-Subject: RE: [PATCH 1/3] drivers/misc :UCC based TDM driver for MPC83xx platforms.
-Date: Wed, 16 Jan 2008 09:50:30 +0530
-Message-ID: <FBA61160C48B8D438F3323FEFB4EF2C26E7ABB@zin33exm24.fsl.freescale.net>
-References: <Pine.LNX.4.64.0712101710270.29623@linux121> <20080114131441.878979d2.akpm@linux-foundation.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Bugme-new] [Bug 9758] New: net_device refcnt bug when NFQUEUEing
+ bridged packets
+Date: Wed, 16 Jan 2008 05:54:13 +0100
+Message-ID: <478D8DF5.7080901@trash.net>
+References: <bug-9758-10286@http.bugzilla.kernel.org/> <20080115155655.d1a24eaf.akpm@linux-foundation.org>
 Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------020902030108020702040900"
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: jckn@gmx.net,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080115155655.d1a24eaf.akpm@linux-foundation.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------020902030108020702040900
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Andrew Morton wrote:
+> On Tue, 15 Jan 2008 15:28:31 -0800 (PST)
+> bugme-daemon@bugzilla.kernel.org wrote:
+> 
+>> http://bugzilla.kernel.org/show_bug.cgi?id=9758
+>>
+>> The bug is probably around since the combination bridge+NFQUEUE is possible,
+>> and does not depend on distro or environment:
+>>
+>> Packets that are to be sent out over a bridge device are skb_clone()d in
+>> br_loop() before traversing the appropriate (FORWARD/OUTPUT) NF chain.
+>> The copies made by skb_clone() share their nf_bridge metadata with the
+>> original, which is no problem usually.
+>> If however one or more packets of a br_loop() run end up in a NFQUEUE,
+>> their shared nf_bridge metadata causes trouble when they are about to be
+>> reinjected: nf_reinject() decrements the net_device refcounts that were
+>> previously upped when queueing the packet in __nf_queue(), but as
+>> skb->nf_bridge->physoutdev points to the same device for all these
+>> packets, most (if not all) of them will affect the wrong refcnt.
+>>
+>> (I originally encountered the bug on a Xen host because the hypervisor
+>> refused to shutdown a virtual device with non-zero refcount... but it is
+>> perfectly reproducible with a standard kernel, too, although it was a
+>> bit more tedious to create a test scenario, involving a couple of UMLs.)
+>>
+>> I'd suggest to make a real copy of the nf_bridge member in br_loop() if
+>> CONFIG_BRIDGE_NETFILTER is defined, remedying the entanglement. I'd go ahead
+>> and create a patch, but I'm unsure as to where that logic should be
+>> implemented.
+
+
+Very nice catch, that explains quite a few bug reports about
+refcnt leaks. Your patch looks correct and performs the copying
+in the logically correct place, it would be nicer to keep this
+crap limited to bridge netfilter however.
+
+What should work is to perform the copying in br_netfilter.c
+at the spots where phsyoutdev is assigned. As an optimization
+we should be able to avoid the copying in most cases by
+checking that the bridge info has a refcount above 1.
+
+Could you test whether this patch also fixes the problem?
+
+
+
+--------------020902030108020702040900
 Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <rubini@vision.unipv.it>, <linux-kernel@vger.kernel.org>,
-	<linuxppc-dev@ozlabs.org>, <netdev@vger.kernel.org>,
-	<kumar.gala@freescale.co>,
-	"Barkowski Michael" <Michael.Barkowski@freescale.com>,
-	"Phillips Kim" <Kim.Phillips@freescale.com>,
-	"Kalra Ashish" <ashish.kalra@freescale.com>,
-	"Cutler Richard" <Rich.Cutler@freescale.com>
-To: "Andrew Morton" <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:39685 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757486AbYAPEUj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 23:20:39 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20080114131441.878979d2.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-Thanks Morton for your comments,
-I shall incorporate them and reesnd the patch.
-
-With Regards
-Poonam 
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 0e884fe..9759bd7 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -142,6 +142,22 @@ static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)
+ 	return skb->nf_bridge;
+ }
  
++static inline struct nf_bridge_info *nf_bridge_unshare(struct sk_buff *skb)
++{
++	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
++
++	if (atomic_read(&nf_bridge->use) > 1) {
++		struct nf_bridge_info *tmp = nf_bridge_alloc(skb);
++
++		if (tmp) {
++			memcpy(tmp, nf_bridge, sizeof(struct nf_bridge_info));
++			nf_bridge_put(nf_bridge);
++		}
++		nf_bridge = tmp;
++	}
++	return nf_bridge;
++}
++
+ static inline void nf_bridge_push_encap_header(struct sk_buff *skb)
+ {
+ 	unsigned int len = nf_bridge_encap_header_len(skb);
+@@ -637,6 +653,11 @@ static unsigned int br_nf_forward_ip(unsigned int hook, struct sk_buff *skb,
+ 	if (!skb->nf_bridge)
+ 		return NF_ACCEPT;
  
++	/* Need exclusive nf_bridge_info since we might have multiple
++	 * different physoutdevs. */
++	if (!nf_bridge_unshare(skb))
++		return NF_DROP;
++
+ 	parent = bridge_parent(out);
+ 	if (!parent)
+ 		return NF_DROP;
+@@ -718,6 +739,11 @@ static unsigned int br_nf_local_out(unsigned int hook, struct sk_buff *skb,
+ 	if (!skb->nf_bridge)
+ 		return NF_ACCEPT;
+ 
++	/* Need exclusive nf_bridge_info since we might have multiple
++	 * different physoutdevs. */
++	if (!nf_bridge_unshare(skb))
++		return NF_DROP;
++
+ 	nf_bridge = skb->nf_bridge;
+ 	if (!(nf_bridge->mask & BRNF_BRIDGED_DNAT))
+ 		return NF_ACCEPT;
 
------Original Message-----
-From: Andrew Morton [mailto:akpm@linux-foundation.org] 
-Sent: Tuesday, January 15, 2008 2:45 AM
-To: Aggrwal Poonam
-Cc: rubini@vision.unipv.it; linux-kernel@vger.kernel.org;
-linuxppc-dev@ozlabs.org; netdev@vger.kernel.org;
-kumar.gala@freescale.co; Barkowski Michael; Phillips Kim; Kalra Ashish;
-Cutler Richard
-Subject: Re: [PATCH 1/3] drivers/misc :UCC based TDM driver for MPC83xx
-platforms.
-
-On Mon, 10 Dec 2007 17:34:44 +0530 (IST)
-Poonam_Aggrwal-b10812 <b10812@freescale.com> wrote:
-
-> From: Poonam Aggrwal <b10812@freescale.com>
-> 
-> The UCC TDM driver basically multiplexes and demultiplexes data from 
-> different channels. It can interface with for example SLIC kind of 
-> devices to receive TDM data  demultiplex it and send to upper 
-> applications. At the transmit end it receives data for different 
-> channels multiplexes it and sends them on the TDM channel. It 
-> internally uses TSA( Time Slot Assigner) which does multiplexing and 
-> demultiplexing, UCC to perform SDMA between host buffers and the TSA,
-CMX to connect TSA to UCC.
-> 
-> This driver will run on MPC8323E-RDB platforms.
-> 
-> ...
->
-> +#define PREV_PHASE(x) ((x == 0) ? MAX_PHASE : (x - 1)) #define 
-> +NEXT_PHASE(x) (((x + 1) > MAX_PHASE) ? 0 : (x + 1))
-
-These macros can reference their arg more than once and are hence
-dangerous.  What does PREV_PHASE(foo++) do to foo?
-
-And, in general: do not implement in cpp that which could have been
-implemented in C.
-
-> +static struct ucc_tdm_info utdm_primary_info = {
-> +	.uf_info = {
-> +		.tsa = 1,
-> +		.cdp = 1,
-> +		.cds = 1,
-> +		.ctsp = 1,
-> +		.ctss = 1,
-> +		.revd = 1,
-> +		.urfs = 0x128,
-> +		.utfs = 0x128,
-> +		.utfet = 0,
-> +		.utftt = 0x128,
-> +		.ufpt = 256,
-> +		.ttx_trx =
-UCC_FAST_GUMR_TRANSPARENT_TTX_TRX_TRANSPARENT,
-> +		.tenc = UCC_FAST_TX_ENCODING_NRZ,
-> +		.renc = UCC_FAST_RX_ENCODING_NRZ,
-> +		.tcrc = UCC_FAST_16_BIT_CRC,
-> +		.synl = UCC_FAST_SYNC_LEN_NOT_USED,
-> +	},
-> +	.ucc_busy = 0,
-> +};
-> +
-> +static struct ucc_tdm_info utdm_info[8];
-> +
-> +static void dump_siram(struct tdm_ctrl *tdm_c) { #if defined(DEBUG)
-
-Microscopic note: kernel code tends to do
-
-	#ifdef FOO
-
-if only one identifier is being tested and
-
-	#if defined(FOO) && defined(BAR)
-
-if more than one is being tested.
-
-There is no rational reason for this ;)
-
-> +	int i;
-> +	u16 phy_num_ts;
-> +
-> +	phy_num_ts = tdm_c->physical_num_ts;
-> +
-> +	pr_debug("SI TxRAM dump\n");
-> +	/* each slot entry in SI RAM is of 2 bytes */
-> +	for (i = 0; i < phy_num_ts * 2; i++)
-> +		pr_debug("%x ", in_8(&qe_immr->sir.tx[i]));
-> +	pr_debug("\nSI RxRAM dump\n");
-> +	for (i = 0; i < phy_num_ts * 2; i++)
-> +		pr_debug("%x ", in_8(&qe_immr->sir.rx[i]));
-> +	pr_debug("\n");
-> +#endif
-> +}
-> +
-> +/*
-> + * converts u-law compressed samples to linear PCM
-> + * If the CONFIG_TDM_LINEAR_PCM flag is not set the
-> + * TDM driver receives u-law compressed data from the
-> + * SLIC device. This function converts the compressed
-> + * data to linear PCM and sends it to upper layers.
-> + */
-> +static inline int ulaw2int(unsigned char log) {
-> +	u32 sign, segment, temp, quant;
-> +	int val;
-> +
-> +	temp = log ^ 0xFF;
-> +	sign = (temp & 0x80) >> 7;
-> +	segment = (temp & 0x70) >> 4;
-> +	quant = temp & 0x0F;
-> +	quant <<= 1;
-> +	quant += 33;
-> +	quant <<= segment;
-> +	if (sign)
-> +		val = 33 - quant;
-> +	else
-> +		val = quant - 33;
-> +
-> +	val *= 4;
-> +	return val;
-> +}
-> +
-> +/*
-> + * converts linear PCM samples to u-law compressed format.
-> + * If the CONFIG_TDM_LINEAR_PCM flag is not set the
-> + * TDM driver calls this function to convert the PCM samples
-> + * to u-law compressed format before sending them to SLIC
-> + * device.
-> + */
-> +static inline u8 int2ulaw(short linear) {
-> +	u8  quant, ret;
-> +	u16 output, absol, temp;
-> +	u32 i, sign;
-> +	char segment;
-> +
-> +	ret = 0;
-> +	if (linear >= 0)
-> +		linear = (linear >> 2);
-> +	else
-> +		linear = (0xc000 | (linear >> 2));
-> +
-> +	absol = abs(linear) + 33;
-> +	temp = absol;
-> +	sign = (linear >= 0) ? 1 : 0;
-> +	for (i = 0; i < 16; i++) {
-> +		output = temp & 0x8000;
-> +		if (output)
-> +			break;
-> +		temp <<= 1;
-> +	}
-> +	segment = 11 - i;
-> +	quant = (absol >> segment) & 0x0F;
-> +	segment--;
-> +	segment <<= 4;
-> +	output = segment + quant;
-> +	if (absol > 8191)
-> +		output = 0x7F;
-> +	if (sign)
-> +		ret ^= 0xFF;
-> +	else
-> +		ret ^= 0x7F;
-> +	return ret;
-> +}
-
-hrm, how many copies of ulaw/alaw conversion functions do we need in the
-tree before someone writes a library function for it?
-
-> +	out_be16(&rx_bd->status, bd_status);
-> +	out_be32(&rx_bd->buf,
-> +		 tdm_c->dma_input_addr + i * SAMPLE_DEPTH * act_num_ts);
-> +
-> +	bd_status = (u16) ((T_R | T_CM | T_W) >> 16);
-> +	bd_len =  SAMPLE_DEPTH * act_num_ts;
-> +	out_be16(&tx_bd->length, bd_len);
-> +	out_be16(&tx_bd->status, bd_status);
-> +	out_be32(&tx_bd->buf,
-> +		 tdm_c->dma_output_addr + i * SAMPLE_DEPTH *
-act_num_ts);
-> +
-> +	config_si(tdm_c);
-> +
-> +	setbits32(&qe_immr->ic.qimr, (0x80000000 >> ucc));
-
-The compiler treats 0xNNN constants as unsigned so this works OK.  I'd
-have put a UL on the end of the constant to be sure ;)
-
-> +static int tdm_start(struct tdm_ctrl *tdm_c) {
-> +	if (request_irq(tdm_c->ut_info->uf_info.irq, tdm_isr,
-> +					0, "tdm", tdm_c)) {
-> +		printk(KERN_ERR "%s: request_irq for tdm_isr failed\n",
-> +			__FUNCTION__);
-> +		return -ENODEV;
-> +	}
-> +
-> +	ucc_fast_enable(tdm_c->uf_private, COMM_DIR_RX | COMM_DIR_TX);
-> +
-> +#if !defined(CONFIG_TDM_LINEAR_PCM)
-> +	pr_info("%s 8-bit u-law compressed mode active\n",
-__FUNCTION__); 
-> +#else
-> +	pr_info("%s 16-bit linear pcm mode active with"
-> +		" slots 0 & 2\n", __FUNCTION__);
-> +#endif
-
-Is this the sort of thing which should be controlled at compile-time?
-I'd have thought that a runtime control would be more appropriate (a
-sysfs knob or a module parameter).  Or just work it out automagically?
-
-
-> +	dump_siram(tdm_c);
-> +	dump_ucc(tdm_c);
-> +
-> +	setbits8(&(qe_immr->si1.siglmr1_h), (0x1 << tdm_c->tdm_port));
-> +	pr_info("%s UCC based TDM enabled\n", __FUNCTION__);
-> +
-> +	return 0;
-> +}
->
-> ...
->
-> +static void tdm_read(u32 driver_handle, short chn_id, short
-*pcm_buffer,
-> +								short
-len)
-> +{
-> +	int i;
-> +	u32 phase_rx;
-> +	/* point to where to start for the current phase data processing
-*/
-> +	u32 temp_rx;
-> +
-> +	struct tdm_ctrl *tdm_c = (struct tdm_ctrl *)(driver_handle);
-
-eek.  What are we doing here, casting a 32-bit quantity to a kernel
-pointer?
-
-a) Seems to rule out ever using this driver on a 64-bit system
-
-b) It's generally suspicious and indicates that some rethinking is
-needed.
-
-> +#if !defined(CONFIG_TDM_LINEAR_PCM)
-> +	u8 *input_tdm_buffer = tdm_c->tdm_input_data;
-> +
-> +#else
-> +	u16 *input_tdm_buffer =
-> +		(u16 *)tdm_c->tdm_input_data;
-> +
-> +#endif
-> +	phase_rx = tdm_c->phase_rx;
-> +	phase_rx = PREV_PHASE(phase_rx);
-> +
-> +	temp_rx = phase_rx * SAMPLE_DEPTH * EFF_ACTIVE_CH;
-> +
-> +#if defined(UCC_CACHE_SNOOPING_DISABLED)
-> +	flush_dcache_range((size_t) &input_tdm_buffer[temp_rx],
-> +				(size_t) &input_tdm_buffer[temp_rx +
-> +						SAMPLE_DEPTH *
-ACTIVE_CH]);
-> +#endif
-
-Again, is it appropriate that this behaviour be determined at
-compile-time?
-This is very user- and packager- and distributor-unfriendly.
-
-> +	for (i = 0; i < len; i++) {
-> +#if !defined(CONFIG_TDM_LINEAR_PCM)
-> +		pcm_buffer[i] =
-> +			ulaw2int(input_tdm_buffer[i * EFF_ACTIVE_CH +
-> +						temp_rx + chn_id]);
-> +#else
-> +		pcm_buffer[i] =
-> +			input_tdm_buffer[i * EFF_ACTIVE_CH + temp_rx +
-chn_id]; #endif
-> +
-> +	}
-> +
-> +}
-> +
-> +static int ucc_tdm_probe(struct of_device *ofdev,
-> +			 const struct of_device_id *match) {
-> +	struct device_node *np = ofdev->node;
-> +	struct resource res;
-> +	const unsigned int *prop;
-> +	u32 ucc_num, device_num, err, ret = 0;
-> +	struct device_node *np_tmp = NULL;
-> +	dma_addr_t physaddr;
-> +	void *tdm_buff;
-> +	struct ucc_tdm_info *ut_info;
-> +
-> +	prop = of_get_property(np, "device-id", NULL);
-> +	ucc_num = *prop - 1;
-> +	if ((ucc_num < 0) || (ucc_num > 7))
-> +		return -ENODEV;
-> +
-> +	ut_info = &utdm_info[ucc_num];
-> +	if (ut_info == NULL) {
-> +		printk(KERN_ERR "additional data missing\n");
-> +		return -ENODEV;
-> +	}
-> +	if (ut_info->ucc_busy) {
-> +		printk(KERN_ERR "UCC in use by another TDM driver
-instance\n");
-> +		return -EBUSY;
-> +	}
-> +
-> +	ut_info->ucc_busy = 1;
-> +	tdm_ctrl[num_tdm_devices++] =
-> +		kzalloc(sizeof(struct tdm_ctrl), GFP_KERNEL);
-
-Shouldn't this check for (num_tdm_devices > MAX_NUM_TDM_DEVICES))?
-
-> +	if (!tdm_ctrl[num_tdm_devices - 1]) {
-> +		printk(KERN_ERR "%s: no memory to allocate for"
-> +			" tdm control structure\n", __FUNCTION__);
-> +		num_tdm_devices--;
-> +		return -ENOMEM;
-> +	}
-> +	device_num = num_tdm_devices - 1;
-> +
-> +	tdm_ctrl[device_num]->device = &ofdev->dev;
-> +	tdm_ctrl[device_num]->ut_info = ut_info;
-> +
-> +	tdm_ctrl[device_num]->ut_info->uf_info.ucc_num = ucc_num;
-> +
-> +	prop = of_get_property(np, "fsl,tdm-num", NULL);
-> +	if (prop == NULL) {
-> +		ret = -EINVAL;
-> +		goto get_property_error;
-> +	}
->
-> ...
->
-> +
-> +#define SET_RX_SI_RAM(n, val)		\
-> +		out_be16((u16 *)&qe_immr->sir.rx[(n)*2], (u16)(val))
-> +
-> +#define SET_TX_SI_RAM(n, val)		\
-> +		out_be16((u16 *)&qe_immr->sir.tx[(n)*2], (u16)(val))
-
-I don't think there's anything which requires that these be imlemented
-in the preprocessor?
-
-> +struct tdm_cfg {
-> +	u8 com_pin;		/* Common receive and transmit pins
-> +				 * 0 = separate pins
-> +				 * 1 = common pins
-> +				 */
-> +
-> +	u8 fr_sync_level;	/* SLx bit Frame Sync Polarity
-> +				 * 0 = L1R/TSYNC active logic "1"
-> +				 * 1 = L1R/TSYNC active logic "0"
-> +				 */
-> +
-> +	u8 clk_edge;		/* CEx bit Tx Rx Clock Edge
-> +				 * 0 = TX data on rising edge of clock
-> +				 * RX data on falling edge
-> +				 * 1 = TX data on falling edge of clock
-> +				 * RX data on rising edge
-> +				 */
-> +
-> +	u8 fr_sync_edge;	/* FEx bit Frame sync edge
-> +				 * Determine when the sync pulses are
-sampled
-> +				 * 0 = Falling edge
-> +				 * 1 = Rising edge
-> +				 */
-> +
-> +	u8 rx_fr_sync_delay;	/* TFSDx/RFSDx bits Frame Sync Delay
-> +				 * 00 = no bit delay
-> +				 * 01 = 1 bit delay
-> +				 * 10 = 2 bit delay
-> +				 * 11 = 3 bit delay
-> +				 */
-> +
-> +	u8 tx_fr_sync_delay;	/* TFSDx/RFSDx bits Frame Sync Delay
-> +				 * 00 = no bit delay
-> +				 * 01 = 1 bit delay
-> +				 * 10 = 2 bit delay
-> +				 * 11 = 3 bit delay
-> +				 */
-> +
-> +	u8 active_num_ts;	/* Number of active time slots in TDM
-> +				 * assume same active Rx/Tx time slots
-> +				 */
-> +};
-
-Nice commenting.
-
-
+--------------020902030108020702040900--
