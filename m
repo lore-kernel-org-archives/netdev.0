@@ -1,115 +1,47 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [patch] add net_device_stats support to ethtool
-Date: Wed, 16 Jan 2008 10:46:58 -0800
-Message-ID: <478E5122.1060009@candelatech.com>
-References: <200801161529.m0GFTfYR005096@sallyv1.ics.uci.edu>	<478E46F6.4070901@candelatech.com> <200801161834.m0GIYCIr027613@sallyv1.ics.uci.edu>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 9758] New: net_device refcnt bug when
+ NFQUEUEing bridged packets
+Date: Wed, 16 Jan 2008 10:56:32 -0800
+Message-ID: <20080116105632.2532812c@speedy>
+References: <bug-9758-10286@http.bugzilla.kernel.org/>
+	<20080115155655.d1a24eaf.akpm@linux-foundation.org>
+	<478D8DF5.7080901@trash.net>
+	<478D8F29.5040703@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Dan Nicolaescu <dann@ics.uci.edu>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:33610 "EHLO ns2.lanforge.com"
+Received: from mail.vyatta.com ([216.93.170.194]:55479 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750986AbYAPSqy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jan 2008 13:46:54 -0500
-In-Reply-To: <200801161834.m0GIYCIr027613@sallyv1.ics.uci.edu>
+	id S1751419AbYAPS4d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jan 2008 13:56:33 -0500
+In-Reply-To: <478D8F29.5040703@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan Nicolaescu wrote:
-> Ben Greear <greearb@candelatech.com> writes:
->
->   > Dan Nicolaescu wrote:
->   > > Hi,
->   > >
->   > > I have posted this patch in the past with absolutely no reply.
->   > > I would appreciate some sort of feedback of the form interested/not
->   > > interested.  Should I just drop it?
->   > >
->   > >   
->   > I like it, but why not offer this for all devices since they all have
->   > these stats.
->   >
->   > Could add new handlers called something like .get_strings_generic, or
->   > just add this to the higher-level ethtool handling before it looks for
->   > handlers.
->
-> If I get your point, then the difference would be that drivers would add
-> to the initialization of the ethtool structure something like:
->   
-I meant something more like this (this will not apply..I hand-edited it 
-to remove
-some extraneous crap from my patch...and I'm sure it's white-space damaged).
+On Wed, 16 Jan 2008 05:59:21 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index c5e0593..095d1eb 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
+> Patrick McHardy wrote:
+> > Very nice catch, that explains quite a few bug reports about
+> > refcnt leaks. Your patch looks correct and performs the copying
+> > in the logically correct place, it would be nicer to keep this
+> > crap limited to bridge netfilter however.
+> > 
+> > What should work is to perform the copying in br_netfilter.c
+> > at the spots where phsyoutdev is assigned. As an optimization
+> > we should be able to avoid the copying in most cases by
+> > checking that the bridge info has a refcount above 1.
+> > 
+> > Could you test whether this patch also fixes the problem?
+> 
+> 
+> That patch had a bug, we need to set the refcount of the
+> new bridge info to 1 after performing the copy.
+> 
 
-+/* Handle some generic ethtool commands here */
-+static int ethtool_get_netdev_stats(struct net_device *dev, void 
-*useraddr) {
-+   
-+    struct ethtool_ndstats* nds = (struct ethtool_ndstats*)(useraddr);
-+     
-+    struct net_device_stats *stats = dev->get_stats(dev);
-+    if (stats) {
-+        if (copy_to_user(nds->data, stats, sizeof(*stats))) {
-+            return -EFAULT;
-+        }
-+    }
-+    else {
-+        return -EOPNOTSUPP;
-+    }
-+    return 0;
-+}
-+
-+
- /* The main entry point in this file.  Called from net/core/dev.c */
- 
- int dev_ethtool(struct ifreq *ifr)
-@@ -796,9 +884,6 @@ int dev_ethtool(struct ifreq *ifr)
-     if (!dev || !netif_device_present(dev))
-         return -ENODEV;
- 
--    if (!dev->ethtool_ops)
--        return -EOPNOTSUPP;
--
-     if (copy_from_user(&ethcmd, useraddr, sizeof (ethcmd)))
-         return -EFAULT;
- 
-@@ -823,12 +908,25 @@ int dev_ethtool(struct ifreq *ifr)
-             return -EPERM;
-     }
- 
--    if (dev->ethtool_ops->begin)
-+    if (dev->ethtool_ops && dev->ethtool_ops->begin)
-         if ((rc = dev->ethtool_ops->begin(dev)) < 0)
-             return rc;
- 
-     old_features = dev->features;
- 
-+    /* Handle some generic operations that do not require specific
-+     * ethtool handlers.
-+     */
-+    switch (ethcmd) {
-+    case ETHTOOL_GNDSTATS:
-+        return ethtool_get_netdev_stats(dev, useraddr);
-+    default:
-+        break;
-+    }
-+
-+    if (!dev->ethtool_ops)
-+        return -EOPNOTSUPP;
-+
-     switch (ethcmd) {
-     case ETHTOOL_GSET:
-         rc = ethtool_get_settings(dev, useraddr);
-
-
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+This looks good, but you could use a structure assignment rather memcpy
+(just a personal style preference because assignment is typed and memcpy
+is not).
