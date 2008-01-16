@@ -1,63 +1,46 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9758] New: net_device refcnt bug when
- NFQUEUEing bridged packets
-Date: Tue, 15 Jan 2008 15:56:55 -0800
-Message-ID: <20080115155655.d1a24eaf.akpm@linux-foundation.org>
-References: <bug-9758-10286@http.bugzilla.kernel.org/>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, jckn@gmx.net
-To: netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/3] virtio: Net header needs gso_hdr_len
+Date: Wed, 16 Jan 2008 11:06:21 +1100
+Message-ID: <E1JEvnR-0006ax-00@gondolin.me.apana.org.au>
+References: <200801152143.37112.rusty@rustcorp.com.au>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: rusty@rustcorp.com.au (Rusty Russell)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:53477 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759767AbYAOX5b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 18:57:31 -0500
-In-Reply-To: <bug-9758-10286@http.bugzilla.kernel.org/>
+Received: from rhun.apana.org.au ([64.62.148.172]:41939 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751848AbYAPAG0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 19:06:26 -0500
+In-Reply-To: <200801152143.37112.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 15 Jan 2008 15:28:31 -0800 (PST)
-bugme-daemon@bugzilla.kernel.org wrote:
+Rusty Russell <rusty@rustcorp.com.au> wrote:
+> It's far easier to deal with GSO if we don't have to parse the packet
+> to figure out the header length.  Add the field to the virtio_net_hdr
+> struct (and fix the spaces that somehow crept in there).
+> 
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> ---
+> drivers/net/virtio_net.c   |    4 +++-
+> include/linux/virtio_net.h |   11 ++++++-----
+> 2 files changed, 9 insertions(+), 6 deletions(-)
+> 
+> diff -r 24ef33a4ab14 drivers/net/virtio_net.c
+> --- a/drivers/net/virtio_net.c  Tue Jan 15 16:59:58 2008 +1100
+> +++ b/drivers/net/virtio_net.c  Tue Jan 15 21:21:40 2008 +1100
+> @@ -126,6 +126,7 @@ static void receive_skb(struct net_devic
+>                /* Header must be checked, and gso_segs computed. */
+>                skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
+>                skb_shinfo(skb)->gso_segs = 0;
+> +               skb_set_transport_header(skb, hdr->gso_hdr_len);
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=9758
-> 
->            Summary: net_device refcnt bug when NFQUEUEing bridged packets
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.24-rc7
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Netfilter/Iptables
->         AssignedTo: networking_netfilter-iptables@kernel-bugs.osdl.org
->         ReportedBy: jckn@gmx.net
-> 
-> 
-> The bug is probably around since the combination bridge+NFQUEUE is possible,
-> and does not depend on distro or environment:
-> 
-> Packets that are to be sent out over a bridge device are skb_clone()d in
-> br_loop() before traversing the appropriate (FORWARD/OUTPUT) NF chain.
-> The copies made by skb_clone() share their nf_bridge metadata with the
-> original, which is no problem usually.
-> If however one or more packets of a br_loop() run end up in a NFQUEUE,
-> their shared nf_bridge metadata causes trouble when they are about to be
-> reinjected: nf_reinject() decrements the net_device refcounts that were
-> previously upped when queueing the packet in __nf_queue(), but as
-> skb->nf_bridge->physoutdev points to the same device for all these
-> packets, most (if not all) of them will affect the wrong refcnt.
-> 
-> (I originally encountered the bug on a Xen host because the hypervisor
-> refused to shutdown a virtual device with non-zero refcount... but it is
-> perfectly reproducible with a standard kernel, too, although it was a
-> bit more tedious to create a test scenario, involving a couple of UMLs.)
-> 
-> I'd suggest to make a real copy of the nf_bridge member in br_loop() if
-> CONFIG_BRIDGE_NETFILTER is defined, remedying the entanglement. I'd go ahead
-> and create a patch, but I'm unsure as to where that logic should be
-> implemented.
+Why do we need this? When receiving GSO packets from an untrusted
+source the network stack will fill in the transport header offset
+after verifying that the headers are sane.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
