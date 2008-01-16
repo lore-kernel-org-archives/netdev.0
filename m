@@ -1,95 +1,39 @@
-From: "Kalra Ashish" <ashish.kalra@freescale.com>
-Subject: RE: [PATCH 0/3] UCC TDM driver for MPC83xx platforms
-Date: Wed, 16 Jan 2008 17:17:38 +0530
-Message-ID: <2A6F278C5B66C4459AF4013E77A40CD301149086@zin33exm20.fsl.freescale.net>
-References: <5927F7A4-D42A-40F6-AE9C-EDA34738A752@kernel.crashing.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: "Phillips Kim" <Kim.Phillips@freescale.com>,
-	"Aggrwal Poonam" <Poonam.Aggrwal@freescale.com>,
-	<sfr@canb.auug.org.au>, <rubini@vision.unipv.it>,
-	<linux-ppcdev@ozlabs.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	"Barkowski Michael" <Michael.Barkowski@freescale.com>,
-	"Cutler Richard" <Rich.Cutler@freescale.com>,
-	"Kalra Ashish" <ashish.kalra@freescale.com>,
-	"Suresh PV" <pala@freescale.com>
-To: "Kumar Gala" <galak@kernel.crashing.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] ICMP: ICMP_MIB_OUTMSGS increment duplicated
+Date: Wed, 16 Jan 2008 22:49:01 +1100
+Message-ID: <E1JF6lR-0007sF-00@gondolin.me.apana.org.au>
+References: <478DD57B.6020503@cn.fujitsu.com>
+Cc: davem@davemloft.net, dlstevens@us.ibm.com, netdev@vger.kernel.org
+To: wangchen@cn.fujitsu.com (Wang Chen)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:34799 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751453AbYAPLsA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2008 06:48:00 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <5927F7A4-D42A-40F6-AE9C-EDA34738A752@kernel.crashing.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:37175 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751595AbYAPLtW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2008 06:49:22 -0500
+In-Reply-To: <478DD57B.6020503@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello All,
- 
-I am sure that the TDM bus driver model/framework will make us put a lot
-more programming effort without
-any assurance of the code being accepted by the Linux community,
-especially as there are many
-Telephony/VoIP stack implementations in Linux such as the Sangoma
-WANPIPE Kernel suite which
-have their own Zaptel TDM (channelized zero-copy) interface layer. There
-are other High Speed serial (HSS)
-API interfaces, again supporting channelized and/or prioritized API
-interfaces. All these implementations 
-are proprietary and have their own tightly coupled upper layers and
-hardware abstraction layers. It is
-difficult to predict that these stacks will move towards a generic TDM
-bus driver interface. Therefore, i think
-we can have our own tightly coupled interface with our VoIP framework
-and let us the keep the driver as it is,
-i.e., as a misc driver.
+Wang Chen <wangchen@cn.fujitsu.com> wrote:
+> In tree net-2.6.25, commit "96793b482540f3a26e2188eaf75cb56b7829d3e3"
+> made a mistake.
+> 
+> In that patch, David L added a icmp_out_count() in ip_push_pending_frames(),
+> remove icmp_out_count() from icmp_reply(). But he forgot to remove 
+> icmp_out_count() from icmp_send() too.
+> Since icmp_send and icmp_reply will call icmp_push_reply, which will call
+> ip_push_pending_frames, a duplicated increment happened in icmp_send.
 
-Ashish
+Actually having the icmp_out_count call in ip_push_pending_frames seems
+inconsistent.  Having it there means that we count raw socket ICMP packets
+too.  But we don't do that for any other protocol, e.g., raw UDP packets
+don't get counted.
 
------Original Message-----
-From: Kumar Gala [mailto:galak@kernel.crashing.org] 
-Sent: Tuesday, January 15, 2008 9:01 AM
-To: Andrew Morton
-Cc: Phillips Kim; Aggrwal Poonam; sfr@canb.auug.org.au;
-rubini@vision.unipv.it; linux-ppcdev@ozlabs.kernel.org;
-netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Barkowski Michael;
-Kalra Ashish; Cutler Richard
-Subject: Re: [PATCH 0/3] UCC TDM driver for MPC83xx platforms
+So was the inclusion of raw ICMP packets intentional?
 
-
-On Jan 14, 2008, at 3:15 PM, Andrew Morton wrote:
-
-> On Mon, 14 Jan 2008 12:00:51 -0600
-> Kim Phillips <kim.phillips@freescale.com> wrote:
->
->> On Thu, 10 Jan 2008 21:41:20 -0700
->> "Aggrwal Poonam" <Poonam.Aggrwal@freescale.com> wrote:
->>
->>> Hello  All
->>>
->>> I am waiting for more feedback on the patches.
->>>
->>> If there are no objections please consider them for 2.6.25.
->>>
->> if this isn't going to go through Alessandro Rubini/misc drivers, can
-
->> it go through the akpm/mm tree?
->>
->
-> That would work.  But it might be more appropriate to go Kumar-
-> >paulus->Linus.
-
-I'm ok w/taking the arch/powerpc bits, but I"m a bit concerned about  
-the driver itself.  I'm wondering if we need a TDM framework in the  
-kernel.
-
-I guess if Poonam could possibly describe how this driver is actually  
-used that would be helpful.  I see we have 8315 with a discrete TDM  
-block and I'm guessing 82xx/85xx based CPM parts of some form of TDM  
-as well.
-
-- k
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
