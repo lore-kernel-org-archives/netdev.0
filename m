@@ -1,47 +1,107 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9758] New: net_device refcnt bug when
- NFQUEUEing bridged packets
-Date: Wed, 16 Jan 2008 10:56:32 -0800
-Message-ID: <20080116105632.2532812c@speedy>
-References: <bug-9758-10286@http.bugzilla.kernel.org/>
-	<20080115155655.d1a24eaf.akpm@linux-foundation.org>
-	<478D8DF5.7080901@trash.net>
-	<478D8F29.5040703@trash.net>
+Subject: Re: memory leakage in bridge(kernel-2.6.23.14)
+Date: Wed, 16 Jan 2008 11:04:08 -0800
+Message-ID: <20080116110408.21d46e7e@speedy>
+References: <S1755641AbYAPH4o/20080116075644Z+1872@vger.kernel.org>
+	<200801161006.AZZ53966@topsec.com.cn>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+To: <wyb@topsec.com.cn>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:55479 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([216.93.170.194]:55697 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751419AbYAPS4d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jan 2008 13:56:33 -0500
-In-Reply-To: <478D8F29.5040703@trash.net>
+	id S1752235AbYAPTEJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jan 2008 14:04:09 -0500
+In-Reply-To: <200801161006.AZZ53966@topsec.com.cn>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 16 Jan 2008 05:59:21 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On Wed, 16 Jan 2008 18:04:53 +0800
+<wyb@topsec.com.cn> wrote:
 
-> Patrick McHardy wrote:
-> > Very nice catch, that explains quite a few bug reports about
-> > refcnt leaks. Your patch looks correct and performs the copying
-> > in the logically correct place, it would be nicer to keep this
-> > crap limited to bridge netfilter however.
-> > 
-> > What should work is to perform the copying in br_netfilter.c
-> > at the spots where phsyoutdev is assigned. As an optimization
-> > we should be able to avoid the copying in most cases by
-> > checking that the bridge info has a refcount above 1.
-> > 
-> > Could you test whether this patch also fixes the problem?
 > 
+> In SMP, if a bridge fdb is being created when another CPU at the same time
+> delete the bridge, this newly created fdb may incur a leakage:
 > 
-> That patch had a bug, we need to set the refcount of the
-> new bridge info to 1 after performing the copy.
+> CPU0:
+> 
+> static void del_nbp(struct net_bridge_port *p)
+> {
+> 	/*
+> 	 * CPU1 enter br_fdb_update(), bridge port is still valid.
+> 	 */
+> 	......
+> 	spin_lock_bh(&br->lock);
+> 	br_stp_disable_port(p);
+> 	spin_unlock_bh(&br->lock);
+> 
+> 	br_ifinfo_notify(RTM_DELLINK, p);
+> 
+> 	br_fdb_delete_by_port(br, p, 1);
+> 
+> 	/*
+> 	 * CPU1 call fdb_create() for the being deleted bridge,
+> 	 * a fdb would be add to bridge's fdb hash table, and will never
+> 	 * be freed. because when deleting a bridge, linux flush fdb for
+> each
+> 	 * bridge port, but this newly created fdb belong to no bridge port
+> 	 */
+> 	......
+> }
+> 
+> To fix this, fdb_create() should be changed to:
+> {
+> 	struct net_bridge_fdb_entry *fdb;
+> 
+> 	/*
+> 	 * if the bridge port is deleted, then return.
+> 	 */
+> 	if (!(source->state == BR_STATE_LEARNING ||
+> 	      source->state == BR_STATE_FORWARDING))
+> 		return;
+> 
+> 	fdb = kmem_cache_alloc(br_fdb_cache, GFP_ATOMIC);
+> 	if (fdb) {
+> 		memcpy(fdb->addr.addr, addr, ETH_ALEN);
+> 		atomic_set(&fdb->use_count, 1);
+> 		hlist_add_head_rcu(&fdb->hlist, head);
+> 
+> 		fdb->dst = source;
+> 		fdb->is_local = is_local;
+> 		fdb->is_static = is_local;
+> 		fdb->ageing_timer = jiffies;
+> 	}
+> 	return fdb;
+> }
 > 
 
-This looks good, but you could use a structure assignment rather memcpy
-(just a personal style preference because assignment is typed and memcpy
-is not).
+That check is not enough, since the state might change during
+fdb_create.
+
+
+I think fdb_delete_by_port needs to be moved after RCU barrier event.
+Something like this (untested) patch.
+
+--- a/net/bridge/br_if.c	2008-01-16 11:00:09.000000000 -0800
++++ b/net/bridge/br_if.c	2008-01-16 11:01:11.000000000 -0800
+@@ -116,6 +116,9 @@ static void destroy_nbp_rcu(struct rcu_h
+ {
+ 	struct net_bridge_port *p =
+ 			container_of(head, struct net_bridge_port, rcu);
++
++	br_fdb_delete_by_port(p->br, p, 1);
++
+ 	destroy_nbp(p);
+ }
+ 
+@@ -143,8 +146,6 @@ static void del_nbp(struct net_bridge_po
+ 
+ 	br_ifinfo_notify(RTM_DELLINK, p);
+ 
+-	br_fdb_delete_by_port(br, p, 1);
+-
+ 	list_del_rcu(&p->list);
+ 
+ 	rcu_assign_pointer(dev->br_port, NULL);
