@@ -1,49 +1,35 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
-Date: Wed, 16 Jan 2008 23:09:47 -0800
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F520432DA91@orsmsx418.amr.corp.intel.com>
-References: <200801151504.10047.elendil@planet.nl><20080115190458.rxt3yhb2o8o404kc@mail.bigtelecom.ru><36D9DB17C6DE9E40B059440DB8D95F52042FA541@orsmsx418.amr.corp.intel.com> <20080115.210214.170759690.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH] Fixing SA/SP dumps on netlink/af_key
+Date: Wed, 16 Jan 2008 23:16:54 -0800 (PST)
+Message-ID: <20080116.231654.74131878.davem@davemloft.net>
+References: <E1JFHDM-00010A-00@gondolin.me.apana.org.au>
+	<478EF542.1010702@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <slavon@bigtelecom.ru>, <elendil@planet.nl>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, hadi@cyberus.ca,
+	netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:4689 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753778AbYAQHJt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 02:09:49 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20080115.210214.170759690.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47538
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751022AbYAQHRA convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jan 2008 02:17:00 -0500
+In-Reply-To: <478EF542.1010702@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-> Date: Tue, 15 Jan 2008 13:53:43 -0800
-> 
->> The tx code has an "early exit" that tries to limit the amount of tx
->> packets handled in a single poll loop and requires napi or interrupt
->> rescheduling based on the return value from e1000_clean_tx_irq.
-> 
-> That explains everything, thanks Jesse.
-> 
-> Ok, here is the patch I'll propose to fix this.  The goal is to make
-> it as simple as possible without regressing the thing we were trying
-> to fix.
+=46rom: Timo_Ter=E4s <timo.teras@iki.fi>
+Date: Thu, 17 Jan 2008 08:27:14 +0200
 
-We spent Wednesday trying to reproduce (without the patch) these issues
-without much luck, and have applied the patch cleanly and will continue
-testing it.  Given the simplicity of the changes, and the community
-testing, I'll give my ack and we will continue testing.
+> I don't know about netlink. But pfkey works in *BSD too and it is RFC=
+'d.
+> So I'd say pfkey might be a bit more portable. Though netlink is defi=
+nitely
+> more robust and extensive.
 
-I think we should fix Robert's (unrelated, but in this thread) reported
-issue before 2.6.24 final if we can, and I'll look at that tonight and
-tomorrow.
+The RFCs say absolutely nothing about policy interfaces for AF_KEY,
+everybody rolls their own in slightly incompatible ways.
 
-Thanks for your work on this Dave,
- Jesse
-
-Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+It is therefore anything but standardized.
