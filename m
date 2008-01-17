@@ -1,38 +1,49 @@
-From: Jason Uhlenkott <jasonuhl@jasonuhl.org>
-Subject: [PATCH] e1000e Kconfig: remove ref to nonexistant docs
-Date: Wed, 16 Jan 2008 23:03:17 -0800
-Message-ID: <20080117070317.GA7922@aurum.uhlenkott.net>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
+Date: Wed, 16 Jan 2008 23:09:47 -0800
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F520432DA91@orsmsx418.amr.corp.intel.com>
+References: <200801151504.10047.elendil@planet.nl><20080115190458.rxt3yhb2o8o404kc@mail.bigtelecom.ru><36D9DB17C6DE9E40B059440DB8D95F52042FA541@orsmsx418.amr.corp.intel.com> <20080115.210214.170759690.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Auke Kok <auke-jan.h.kok@intel.com>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <slavon@bigtelecom.ru>, <elendil@planet.nl>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from adsl-67-117-79-109.dsl.sntc01.pacbell.net ([67.117.79.109]:1871
-	"EHLO aurum.uhlenkott.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753385AbYAQHI2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 02:08:28 -0500
-Content-Disposition: inline
+Received: from mga01.intel.com ([192.55.52.88]:4689 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753778AbYAQHJt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 02:09:49 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20080115.210214.170759690.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no Documentation/networking/e1000e.txt.
+David Miller wrote:
+> From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+> Date: Tue, 15 Jan 2008 13:53:43 -0800
+> 
+>> The tx code has an "early exit" that tries to limit the amount of tx
+>> packets handled in a single poll loop and requires napi or interrupt
+>> rescheduling based on the return value from e1000_clean_tx_irq.
+> 
+> That explains everything, thanks Jesse.
+> 
+> Ok, here is the patch I'll propose to fix this.  The goal is to make
+> it as simple as possible without regressing the thing we were trying
+> to fix.
 
-Signed-off-by: Jason Uhlenkott <jasonuhl@jasonuhl.org>
-Cc: Auke Kok <auke-jan.h.kok@intel.com>
----
+We spent Wednesday trying to reproduce (without the patch) these issues
+without much luck, and have applied the patch cleanly and will continue
+testing it.  Given the simplicity of the changes, and the community
+testing, I'll give my ack and we will continue testing.
 
-Index: linux/drivers/net/Kconfig
-===================================================================
---- linux.orig/drivers/net/Kconfig	2008-01-16 17:48:03.041103083 -0800
-+++ linux/drivers/net/Kconfig	2008-01-16 23:00:23.647430487 -0800
-@@ -1976,9 +1976,6 @@
- 
- 	  <http://support.intel.com>
- 
--	  More specific information on configuring the driver is in
--	  <file:Documentation/networking/e1000e.txt>.
--
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called e1000e.
- 
+I think we should fix Robert's (unrelated, but in this thread) reported
+issue before 2.6.24 final if we can, and I'll look at that tonight and
+tomorrow.
+
+Thanks for your work on this Dave,
+ Jesse
+
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
