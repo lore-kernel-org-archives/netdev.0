@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH] Fixing SA/SP dumps on netlink/af_key
-Date: Wed, 16 Jan 2008 23:16:54 -0800 (PST)
-Message-ID: <20080116.231654.74131878.davem@davemloft.net>
-References: <E1JFHDM-00010A-00@gondolin.me.apana.org.au>
-	<478EF542.1010702@iki.fi>
+Subject: Re: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
+Date: Wed, 16 Jan 2008 23:20:37 -0800 (PST)
+Message-ID: <20080116.232037.261622584.davem@davemloft.net>
+References: <36D9DB17C6DE9E40B059440DB8D95F52042FA541@orsmsx418.amr.corp.intel.com>
+	<20080115.210214.170759690.davem@davemloft.net>
+	<36D9DB17C6DE9E40B059440DB8D95F520432DA91@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: herbert@gondor.apana.org.au, hadi@cyberus.ca,
-	netdev@vger.kernel.org
-To: timo.teras@iki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: slavon@bigtelecom.ru, elendil@planet.nl, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47538
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45086
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751022AbYAQHRA convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jan 2008 02:17:00 -0500
-In-Reply-To: <478EF542.1010702@iki.fi>
+	by vger.kernel.org with ESMTP id S1751721AbYAQHUm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 02:20:42 -0500
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F520432DA91@orsmsx418.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timo_Ter=E4s <timo.teras@iki.fi>
-Date: Thu, 17 Jan 2008 08:27:14 +0200
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Date: Wed, 16 Jan 2008 23:09:47 -0800
 
-> I don't know about netlink. But pfkey works in *BSD too and it is RFC=
-'d.
-> So I'd say pfkey might be a bit more portable. Though netlink is defi=
-nitely
-> more robust and extensive.
+> We spent Wednesday trying to reproduce (without the patch) these issues
+> without much luck, and have applied the patch cleanly and will continue
+> testing it.  Given the simplicity of the changes, and the community
+> testing, I'll give my ack and we will continue testing.
 
-The RFCs say absolutely nothing about policy interfaces for AF_KEY,
-everybody rolls their own in slightly incompatible ways.
+You need a slow CPU, and you need to make sure you do actually
+trigger the TX limiting code there.
 
-It is therefore anything but standardized.
+I bet your cpus are fast enough that it simply never triggers.
+:-)
+
+> Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+
+Thanks for reviewing Jesse.
