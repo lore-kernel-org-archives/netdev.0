@@ -1,38 +1,96 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [RFC][PATCH] Fixing SA/SP dumps on netlink/af_key
-Date: Thu, 17 Jan 2008 08:27:14 +0200
-Message-ID: <478EF542.1010702@iki.fi>
-References: <E1JFHDM-00010A-00@gondolin.me.apana.org.au>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH] request_irq() always returns -EINVAL with a NULL handler.
+Date: Thu, 17 Jan 2008 17:57:58 +1100
+Message-ID: <200801171757.59026.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:43419 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752198AbYAQG0B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 01:26:01 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so556892fga.17
-        for <netdev@vger.kernel.org>; Wed, 16 Jan 2008 22:26:00 -0800 (PST)
-In-Reply-To: <E1JFHDM-00010A-00@gondolin.me.apana.org.au>
+Received: from ozlabs.org ([203.10.76.45]:36575 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751570AbYAQHAh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jan 2008 02:00:37 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> jamal <hadi@cyberus.ca> wrote:
->> There are two issues that are inter-mingled in there. The most important
->> is pf_key not being robust on dump. The other being the accurracy of
-> 
-> IMHO doing significant work on af_key is a waste of time.  It has no
-> advantages at all over xfrm_user since neither is portable.  So we
-> should discourage people from using af_key wherever possible.
+I assume that these ancient network drivers were trying to find out if
+an irq is available.  eepro.c expecting +EBUSY was doubly wrong.
 
-I don't know about netlink. But pfkey works in *BSD too and it is RFC'd.
-So I'd say pfkey might be a bit more portable. Though netlink is definitely
-more robust and extensive.
+I'm not sure that can_request_irq() is the right thing, but these drivers
+are definitely wrong.
 
-Cheers,
-  Timo
+request_irq should BUG() on bad input, and these would have been found
+earlier.
 
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/net/3c503.c |    2 +-
+ drivers/net/e2100.c |    2 +-
+ drivers/net/eepro.c |    2 +-
+ drivers/net/hp.c    |    2 +-
+ kernel/irq/manage.c |    1 +
+ 5 files changed, 5 insertions(+), 4 deletions(-)
 
+diff -r 0b7e4fbb6238 drivers/net/3c503.c
+--- a/drivers/net/3c503.c	Thu Jan 17 15:49:34 2008 +1100
++++ b/drivers/net/3c503.c	Thu Jan 17 16:40:28 2008 +1100
+@@ -379,7 +379,7 @@ el2_open(struct net_device *dev)
+ 
+ 	outb(EGACFR_NORM, E33G_GACFR);	/* Enable RAM and interrupts. */
+ 	do {
+-	    if (request_irq (*irqp, NULL, 0, "bogus", dev) != -EBUSY) {
++	    if (can_request_irq(*irqp, 0)) {
+ 		/* Twinkle the interrupt, and check if it's seen. */
+ 		unsigned long cookie = probe_irq_on();
+ 		outb_p(0x04 << ((*irqp == 9) ? 2 : *irqp), E33G_IDCFR);
+diff -r 0b7e4fbb6238 drivers/net/e2100.c
+--- a/drivers/net/e2100.c	Thu Jan 17 15:49:34 2008 +1100
++++ b/drivers/net/e2100.c	Thu Jan 17 16:40:28 2008 +1100
+@@ -202,7 +202,7 @@ static int __init e21_probe1(struct net_
+ 	if (dev->irq < 2) {
+ 		int irqlist[] = {15,11,10,12,5,9,3,4}, i;
+ 		for (i = 0; i < 8; i++)
+-			if (request_irq (irqlist[i], NULL, 0, "bogus", NULL) != -EBUSY) {
++			if (can_request_irq(irqlist[i], 0)) {
+ 				dev->irq = irqlist[i];
+ 				break;
+ 			}
+diff -r 0b7e4fbb6238 drivers/net/eepro.c
+--- a/drivers/net/eepro.c	Thu Jan 17 15:49:34 2008 +1100
++++ b/drivers/net/eepro.c	Thu Jan 17 16:40:28 2008 +1100
+@@ -914,7 +914,7 @@ static int	eepro_grab_irq(struct net_dev
+ 
+ 		eepro_sw2bank0(ioaddr); /* Switch back to Bank 0 */
+ 
+-		if (request_irq (*irqp, NULL, IRQF_SHARED, "bogus", dev) != EBUSY) {
++		if (can_request_irq(*irqp, IRQF_SHARED)) {
+ 			unsigned long irq_mask;
+ 			/* Twinkle the interrupt, and check if it's seen */
+ 			irq_mask = probe_irq_on();
+diff -r 0b7e4fbb6238 drivers/net/hp.c
+--- a/drivers/net/hp.c	Thu Jan 17 15:49:34 2008 +1100
++++ b/drivers/net/hp.c	Thu Jan 17 16:40:28 2008 +1100
+@@ -170,7 +170,7 @@ static int __init hp_probe1(struct net_d
+ 		int *irqp = wordmode ? irq_16list : irq_8list;
+ 		do {
+ 			int irq = *irqp;
+-			if (request_irq (irq, NULL, 0, "bogus", NULL) != -EBUSY) {
++			if (can_request_irq(irq, 0)) {
+ 				unsigned long cookie = probe_irq_on();
+ 				/* Twinkle the interrupt, and check if it's seen. */
+ 				outb_p(irqmap[irq] | HP_RUN, ioaddr + HP_CONFIGURE);
+diff -r 0b7e4fbb6238 kernel/irq/manage.c
+--- a/kernel/irq/manage.c	Thu Jan 17 15:49:34 2008 +1100
++++ b/kernel/irq/manage.c	Thu Jan 17 16:40:28 2008 +1100
+@@ -252,6 +252,7 @@ int can_request_irq(unsigned int irq, un
+ 
+ 	return !action;
+ }
++EXPORT_SYMBOL(can_request_irq);
+ 
+ void compat_irq_chip_set_default_handler(struct irq_desc *desc)
+ {
