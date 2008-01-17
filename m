@@ -1,38 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC][PATCH] Fixing SA/SP dumps on netlink/af_key
-Date: Thu, 17 Jan 2008 22:11:06 +1100
-Message-ID: <20080117111106.GA8932@gondor.apana.org.au>
-References: <E1JFHDM-00010A-00@gondolin.me.apana.org.au> <1200533980.4451.100.camel@localhost> <20080117021743.GA5182@gondor.apana.org.au> <478EED98.6080603@iki.fi>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 3/4] bonding: Fix work rearming
+Date: Thu, 17 Jan 2008 12:18:22 +0100
+Message-ID: <20080117111822.GB1710@ff.dom.local>
+References: <20080115090532.GB1696@ff.dom.local> <478D77D7.60703@miraclelinux.com> <20080116133646.GE2307@ff.dom.local> <478EE7FC.4040301@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jamal <hadi@cyberus.ca>, netdev@vger.kernel.org
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35800 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751238AbYAQLLN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 06:11:13 -0500
+Received: from fk-out-0910.google.com ([209.85.128.189]:55305 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180AbYAQLMA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 06:12:00 -0500
+Received: by fk-out-0910.google.com with SMTP id z23so373372fkz.5
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2008 03:11:56 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <478EED98.6080603@iki.fi>
+In-Reply-To: <478EE7FC.4040301@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 17, 2008 at 07:54:32AM +0200, Timo Ter=E4s wrote:
->
-> > Racoon doesn't use pfkey dumping as far as I know.
->=20
-> ipsec-tools racoon uses pfkey and only pfkey. And it's non trivial to
-> make it use netlink; it relies heavily all around the code to pfkey
-> structs. It also runs on BSD so we cannot rip pfkey away; adding a
-> layer to work with both pfkey and netlink would be doable, but just a
-> lot of work.
+On Thu, Jan 17, 2008 at 02:30:36PM +0900, Makito SHIOKAWA wrote:
+>> But, since during this change from sysfs cancel_delayed_work_sync()
+>> could be probably used, and it's rather efficient with killing
+>> rearming works, it seems this check could be unnecessary yet.
+> What going to be cancelled in bonding_store_miimon() when setting miimon to 
+> 0 is arp monitor, not mii monitor. So, this check will be needed to stop 
+> rearming mii monitor when value 0 is set to miimon.
 
-Sure racoon uses pfkey but the question is does it use pfkey dumping?
+Hmm... I'm not sure I understand your point, but it seems both
+bonding_store_arp_interval() and bonding_store_miimon() where this
+field could be changed, currently use cancel_delayed_work() with
+flush_workqueue(), so I presume, there is no rtnl_lock() nor
+write_lock(&bond->lock) held, so cancel_delayed_work_sync() could
+be used, which doesn't require this additional check.
 
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+...Unless you mean that despite miimon value is changed there,
+mii_work for some reason can't be cancelled at the same time?
+
+Of course, if there is such a reason for doing this check each time
+a work runs instead of controlling where the value changes, then OK!
+
+Regards,
+Jarek P.
