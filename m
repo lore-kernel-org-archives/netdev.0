@@ -1,53 +1,50 @@
-From: jamal <hadi@cyberus.ca>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
 Subject: Re: [RFC][PATCH] Fixing SA/SP dumps on netlink/af_key
-Date: Thu, 17 Jan 2008 08:18:24 -0500
-Message-ID: <1200575904.4508.60.camel@localhost>
-References: <E1JFHDM-00010A-00@gondolin.me.apana.org.au>
-	 <1200533980.4451.100.camel@localhost>
-	 <20080117021743.GA5182@gondor.apana.org.au> <478EED98.6080603@iki.fi>
-	 <1200573750.4508.29.camel@localhost>
-	 <20080117125016.GA9820@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+Date: Thu, 17 Jan 2008 15:31:14 +0200
+Message-ID: <478F58A2.6030209@iki.fi>
+References: <E1JFHDM-00010A-00@gondolin.me.apana.org.au> <1200533980.4451.100.camel@localhost> <20080117021743.GA5182@gondor.apana.org.au> <478EED98.6080603@iki.fi> <1200573750.4508.29.camel@localhost> <20080117125016.GA9820@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Cc: jamal <hadi@cyberus.ca>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.179]:36128 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952AbYAQNSa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 08:18:30 -0500
-Received: by py-out-1112.google.com with SMTP id u52so960519pyb.10
-        for <netdev@vger.kernel.org>; Thu, 17 Jan 2008 05:18:29 -0800 (PST)
+Received: from fg-out-1718.google.com ([72.14.220.156]:15533 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750953AbYAQN37 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 08:29:59 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so673658fga.17
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2008 05:29:58 -0800 (PST)
 In-Reply-To: <20080117125016.GA9820@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-17-01 at 23:50 +1100, Herbert Xu wrote:
-
+Herbert Xu wrote:
+> On Thu, Jan 17, 2008 at 07:42:30AM -0500, jamal wrote:
+>> Looking at the pfkey RFC one more time, heres a funny quote:
+>> "
+>> The dump message is used for debugging
+>> purposes only and is not intended for production use.
+>> "
+> 
 > In fact it goes much further:
 > 
 >    Support for the dump message MAY be discontinued in future versions
 >    of PF_KEY.  Key management applications MUST NOT depend on this
 >    message for basic operation.
 
-No doubt PF_KEY being an RFC has caused a lot of damage. 
-Once something is deployed, unfortunately, it grows a foot and sometimes
-a head[1]. 
-Note: it's a big dilema in my mind as well and i agree in principle with
-both Dave and you (we really should not be helping pfkey grow another
-ear on the forehead); the only way i am convincing myself otherwise is
-to note that Racoon/ipsec-tools is out there, shipped as default ipsec
-user management tools by most if not all linux distros. If we really
-want to stop the beast lets cut out the umbilicall code - just take out
-pfkey altogether from Linux ;->
+I guess the idea was that application should know about the SAs it
+created. Though a SA dump needs to be done if you want to check
+for existing entries (created by other processes, or if you are
+recovering from a crash).
 
+SPD dumping is still a must if you want to work nicely with kernel.
 
-cheers,
-jamal
-
-[1] Whatever fix/approach Timo has will eventually show up in the BSDs
-and solaris for example 
+As noted earlier pfkey is not really standardized. E.g. the SPD
+dumping message are not in the RFC as David noted. The above RFC
+comments and the fact that SPD stuff is unspecified made me think
+that making non-atomic dumps would be a lot better alternative then
+leaving the socket to bad state which would make the application
+completely unusable.
 
