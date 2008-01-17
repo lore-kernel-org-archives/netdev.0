@@ -1,39 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
-Date: Wed, 16 Jan 2008 23:20:37 -0800 (PST)
-Message-ID: <20080116.232037.261622584.davem@davemloft.net>
-References: <36D9DB17C6DE9E40B059440DB8D95F52042FA541@orsmsx418.amr.corp.intel.com>
-	<20080115.210214.170759690.davem@davemloft.net>
-	<36D9DB17C6DE9E40B059440DB8D95F520432DA91@orsmsx418.amr.corp.intel.com>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [RFC][PATCH] Fixing SA/SP dumps on netlink/af_key
+Date: Thu, 17 Jan 2008 09:38:15 +0200
+Message-ID: <478F05E7.6070503@iki.fi>
+References: <E1JFHDM-00010A-00@gondolin.me.apana.org.au>	<478EF542.1010702@iki.fi> <20080116.231654.74131878.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: slavon@bigtelecom.ru, elendil@planet.nl, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jesse.brandeburg@intel.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, hadi@cyberus.ca,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45086
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751721AbYAQHUm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 02:20:42 -0500
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F520432DA91@orsmsx418.amr.corp.intel.com>
+Received: from fg-out-1718.google.com ([72.14.220.152]:48315 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753828AbYAQHhD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 02:37:03 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so575671fga.17
+        for <netdev@vger.kernel.org>; Wed, 16 Jan 2008 23:37:01 -0800 (PST)
+In-Reply-To: <20080116.231654.74131878.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Date: Wed, 16 Jan 2008 23:09:47 -0800
+David Miller wrote:
+> From: Timo_Ter=E4s <timo.teras@iki.fi>
+> Date: Thu, 17 Jan 2008 08:27:14 +0200
+>=20
+>> I don't know about netlink. But pfkey works in *BSD too and it is RF=
+C'd.
+>> So I'd say pfkey might be a bit more portable. Though netlink is def=
+initely
+>> more robust and extensive.
+>=20
+> The RFCs say absolutely nothing about policy interfaces for AF_KEY,
+> everybody rolls their own in slightly incompatible ways.
+>=20
+> It is therefore anything but standardized.
 
-> We spent Wednesday trying to reproduce (without the patch) these issues
-> without much luck, and have applied the patch cleanly and will continue
-> testing it.  Given the simplicity of the changes, and the community
-> testing, I'll give my ack and we will continue testing.
+Yes, there's non-standardized extensions. But the point was that there =
+are
+other implementations of pfkey. And ipsec-tools racoon is an example of
+a widely used application that runs in Linux and *BSD using this API. S=
+o
+for the time being I'd consider having pfkey fixes as a good thing. Thi=
+s
+pfkey dumping problem seems to be affecting many users.
 
-You need a slow CPU, and you need to make sure you do actually
-trigger the TX limiting code there.
-
-I bet your cpus are fast enough that it simply never triggers.
-:-)
-
-> Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-
-Thanks for reviewing Jesse.
+- Timo
