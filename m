@@ -1,32 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC][PATCH] Fixing SA/SP dumps on netlink/af_key
-Date: Thu, 17 Jan 2008 13:17:43 +1100
-Message-ID: <20080117021743.GA5182@gondor.apana.org.au>
-References: <E1JFHDM-00010A-00@gondolin.me.apana.org.au> <1200533980.4451.100.camel@localhost>
+From: Dan Nicolaescu <dann@ics.uci.edu>
+Subject: Re: [patch] add net_device_stats support to ethtool
+Date: Wed, 16 Jan 2008 21:13:19 -0800
+Message-ID: <200801170513.m0H5DNaQ004767@sallyv1.ics.uci.edu>
+References: <200801161529.m0GFTfYR005096@sallyv1.ics.uci.edu>
+	<478E46F6.4070901@candelatech.com>
+	<200801161834.m0GIYCIr027613@sallyv1.ics.uci.edu>
+	<478E5122.1060009@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:53227 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751761AbYAQCRt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2008 21:17:49 -0500
-Content-Disposition: inline
-In-Reply-To: <1200533980.4451.100.camel@localhost>
+Received: from sallyv1.ics.uci.edu ([128.195.1.109]:46167 "EHLO
+	sallyv1.ics.uci.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750820AbYAQFOs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 00:14:48 -0500
+In-Reply-To: <478E5122.1060009@candelatech.com> (Ben Greear's message of "Wed,
+	16 Jan 2008 10:46:58 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 16, 2008 at 08:39:40PM -0500, jamal wrote:
->
-> I wouldnt disagree except some apps like racoon which depend on pfkey
-> are unfortunately beyond repair. Timo has a pretty good handle on the
+Ben Greear <greearb@candelatech.com> writes:
 
-Racoon doesn't use pfkey dumping as far as I know.
+  > Dan Nicolaescu wrote:
+  > > Ben Greear <greearb@candelatech.com> writes:
+  > >
+  > >   > Dan Nicolaescu wrote:
+  > >   > > Hi,
+  > >   > >
+  > >   > > I have posted this patch in the past with absolutely no reply.
+  > >   > > I would appreciate some sort of feedback of the form interested/not
+  > >   > > interested.  Should I just drop it?
+  > >   > >
+  > >   > >     > I like it, but why not offer this for all devices since
+  > > they all have
+  > >   > these stats.
+  > >   >
+  > >   > Could add new handlers called something like .get_strings_generic, or
+  > >   > just add this to the higher-level ethtool handling before it looks for
+  > >   > handlers.
+  > >
+  > > If I get your point, then the difference would be that drivers would add
+  > > to the initialization of the ethtool structure something like:
+  > >   
+  > I meant something more like this (this will not apply..I hand-edited
+  > it to remove
+  > some extraneous crap from my patch...and I'm sure it's white-space damaged).
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+OK.
+Hopefully someone can pick up these patches to be merged...
