@@ -1,32 +1,51 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH] ICMP: ICMP_MIB_OUTMSGS increment duplicated
-Date: Thu, 17 Jan 2008 08:55:50 +0800
-Message-ID: <478EA796.9080001@cn.fujitsu.com>
-References: <OF0A9FA609.40104566-ON882573D2.0057C6DA-882573D2.005A0894@us.ibm.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC][PATCH] Fixing SA/SP dumps on netlink/af_key
+Date: Wed, 16 Jan 2008 20:25:57 -0500
+Message-ID: <1200533157.4451.86.camel@localhost>
+References: <478A038B.4090900@iki.fi> <1200491531.4457.91.camel@localhost>
+	 <478E1479.3020204@iki.fi>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:64076 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750917AbYAQA5K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jan 2008 19:57:10 -0500
-In-Reply-To: <OF0A9FA609.40104566-ON882573D2.0057C6DA-882573D2.005A0894@us.ibm.com>
+Received: from py-out-1112.google.com ([64.233.166.182]:46377 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750858AbYAQB0B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2008 20:26:01 -0500
+Received: by py-out-1112.google.com with SMTP id u52so676095pyb.10
+        for <netdev@vger.kernel.org>; Wed, 16 Jan 2008 17:26:00 -0800 (PST)
+In-Reply-To: <478E1479.3020204@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Stevens said the following on 2008-1-17 0:23:
-> Wang,
->         I think your patch is correct; did you test the same case for 
-> IPv6?
-> 
+On Wed, 2008-16-01 at 16:28 +0200, Timo Ter=E4s wrote:
+[..]
+> Creating a separate af_key patch would not be a big problem. I was
+> just hoping avoiding it as the xfrm_state / xfrm_policy changes
+> modify the API and requires changing af_key also.
 
-I've tested IPv4, but IPv6 not yet.
-If Davem accept this one, I will see the IPv6, or you take care of it.
+The way dumping is done by xfrm_user is consistent across all netlink
+not just ipsec. Thats why i said it had broader implications.=20
+OTOH, theres a clear issue with pf_key.
 
---
-WCN
+> No. I'm not creating second copies of the SADB/SPD entries. The entri=
+es
+> are just added to one more list.
+
+Ah, sorry - yes, that sounds reasonable.
+So what happens if i delete an entry; does it get removed from the list=
+?
+Also what happens on modification?
+
+> If more entries are added, you can get notifications of them.
+
+how would a user app (example racoon) appropriately deal with it?
+Example an entry sits in the dump-list, it gets deleted - an event gets
+generated user-space and later that entry shows up in user space dump.
+
+cheers,
+jamal
 
