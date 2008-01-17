@@ -1,47 +1,46 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9767] New: missing native u32 classifier for
- routing policy
-Date: Thu, 17 Jan 2008 00:46:12 -0800
-Message-ID: <20080117004612.e815a3e0.akpm@linux-foundation.org>
-References: <bug-9767-10286@http.bugzilla.kernel.org/>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH] Fixing SA/SP dumps on netlink/af_key
+Date: Thu, 17 Jan 2008 00:49:00 -0800 (PST)
+Message-ID: <20080117.004900.58497170.davem@davemloft.net>
+References: <478F05E7.6070503@iki.fi>
+	<20080116.235923.208347316.davem@davemloft.net>
+	<478F0DA5.2060401@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, pupilla@hotmail.com
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, hadi@cyberus.ca,
+	netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:39458 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753972AbYAQIqC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 03:46:02 -0500
-In-Reply-To: <bug-9767-10286@http.bugzilla.kernel.org/>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59437
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752540AbYAQItB convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jan 2008 03:49:01 -0500
+In-Reply-To: <478F0DA5.2060401@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 Jan 2008 00:30:49 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+=46rom: Timo_Ter=E4s <timo.teras@iki.fi>
+Date: Thu, 17 Jan 2008 10:11:17 +0200
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=9767
-> 
->            Summary: missing native u32 classifier for routing policy
->            Product: Networking
->            Version: 2.5
->      KernelVersion: all since 2.2
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: low
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: pupilla@hotmail.com
-> 
-> 
-> This is not a bug report, but a feature request.
-> routing policy database management is supported since linux 2.2, but it lacks
-> u32 selector (matching by IP protocols, transport ports).
-> fwmark is a workaround for this missing feature, but source ip address
-> selection will not work anyway: the mark value can't be used for source address
-> selection because at the time source address selection is performed, there is
-> no packet yet and thus no mark value.
-> 
+> I thought my patch would qualify as "life support" bug fix.
+> Currently racoon fails to work if there are too many SPDs or SAs
+> because the kernel cannot handle the dump request properly. And this
+> is what my patch fixes for pfkey. It adds no new features or
+> functionality; just makes the dumping work with large databases.
+
+Racoon should use netlink for reasons far and beyond the
+problem you are trying to address.
+
+The dumping behavior of AF_KEY is just horrific, as one of
+several examples.
+
+> Then there's also the xfrm dumping changes which change the
+> algorithm from O(n^2) to O(n) with some memory overhead, but
+> that is a different story. Any comments on that?
+
+I have no general objections to those changes although I am
+backlogged and thus have not studied them in detail.  Jamal
+is having what appears to be a healthy dialogue with you about
+the details so I'm not concerned much :)
