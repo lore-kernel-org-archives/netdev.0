@@ -1,41 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH] Fixing SA/SP dumps on netlink/af_key
-Date: Thu, 17 Jan 2008 02:06:16 -0800 (PST)
-Message-ID: <20080117.020616.136852595.davem@davemloft.net>
-References: <478F2205.80403@iki.fi>
-	<20080117.014458.16733544.davem@davemloft.net>
-	<478F276D.8080407@iki.fi>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 0/3 net-2.6.25] call FIB rule->action in the correct namespace
+Date: Thu, 17 Jan 2008 13:08:51 +0300
+Message-ID: <478F2933.1000007@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: herbert@gondor.apana.org.au, hadi@cyberus.ca,
-	netdev@vger.kernel.org
-To: timo.teras@iki.fi
+Content-Type: text/plain; charset=KOI8-R
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53741
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754213AbYAQKGQ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jan 2008 05:06:16 -0500
-In-Reply-To: <478F276D.8080407@iki.fi>
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:50620 "EHLO iris.sw.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754477AbYAQKJA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jan 2008 05:09:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timo_Ter=E4s <timo.teras@iki.fi>
-Date: Thu, 17 Jan 2008 12:01:17 +0200
+FIB rule->action should operate in the same namespace as fib_lookup.
+This is definitely missed right now.
 
-> David Miller wrote:
-> > This is an inherent aspect of AF_KEY (and what it was
-> > derived from, BSD routing sockets).
->=20
-> Yes, this is the way BSD does it.
-> =20
-> > It has to provide dumps atomically, and if there is no
-> > space there is no way to provide those entries which
-> > would require more rcvbuf space.
->=20
-> RFC does not say it has to be atomic.
+There are two ways to implement this: pass struct net into another rules
+API call (2 levels) or place netns into rule struct directly. The second
+approach seems better as the code will grow less.
 
-Every application out there in the universe expects BSD socket
-semantics, and therefore atomic dumps.  You cannot "fix" things
-without breaking applications.
+Additionally, the patchset cleanups struct net from
+fib_rules_register/unregister to have network namespace context at the
+time of default rules creation.
+
+Signed-off-by: Denis V. Lunev <den@openvz.org>
