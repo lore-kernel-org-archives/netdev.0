@@ -1,40 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
-Date: Thu, 17 Jan 2008 00:00:02 -0800 (PST)
-Message-ID: <20080117.000002.37027317.davem@davemloft.net>
-References: <36D9DB17C6DE9E40B059440DB8D95F520432DA91@orsmsx418.amr.corp.intel.com>
-	<20080116.232037.261622584.davem@davemloft.net>
-	<200801170851.56029.elendil@planet.nl>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [RFC][PATCH] Fixing SA/SP dumps on netlink/af_key
+Date: Thu, 17 Jan 2008 10:11:17 +0200
+Message-ID: <478F0DA5.2060401@iki.fi>
+References: <478EF542.1010702@iki.fi>	<20080116.231654.74131878.davem@davemloft.net>	<478F05E7.6070503@iki.fi> <20080116.235923.208347316.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jesse.brandeburg@intel.com, slavon@bigtelecom.ru,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: elendil@planet.nl
+Cc: herbert@gondor.apana.org.au, hadi@cyberus.ca,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48887
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752925AbYAQIAE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 03:00:04 -0500
-In-Reply-To: <200801170851.56029.elendil@planet.nl>
+Received: from fg-out-1718.google.com ([72.14.220.153]:47110 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751132AbYAQIKE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 03:10:04 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so585089fga.17
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2008 00:10:03 -0800 (PST)
+In-Reply-To: <20080116.235923.208347316.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frans Pop <elendil@planet.nl>
-Date: Thu, 17 Jan 2008 08:51:55 +0100
+David Miller wrote:
+> Doing anything other than "life support" bug fixes for AF_KEY is
+> inappropriate.
 
-> On Thursday 17 January 2008, David Miller wrote:
-> > From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-> >
-> > > We spent Wednesday trying to reproduce (without the patch) these issues
-> > > without much luck, and have applied the patch cleanly and will continue
-> > > testing it.  Given the simplicity of the changes, and the community
-> > > testing, I'll give my ack and we will continue testing.
-> >
-> > You need a slow CPU, and you need to make sure you do actually
-> > trigger the TX limiting code there.
-> 
-> Hmmm. Is a dual core Pentium D 3.20GHz considered slow these days?
+Yes. I thought my patch would qualify as "life support" bug fix.
+Currently racoon fails to work if there are too many SPDs or SAs
+because the kernel cannot handle the dump request properly. And
+this is what my patch fixes for pfkey. It adds no new features or
+functionality; just makes the dumping work with large databases.
 
-No of course :-)  I guess it therefore depends upon the load
-as well.
+Then there's also the xfrm dumping changes which change the
+algorithm from O(n^2) to O(n) with some memory overhead, but
+that is a different story. Any comments on that?
+
+- Timo
