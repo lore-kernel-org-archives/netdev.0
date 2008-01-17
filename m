@@ -1,81 +1,76 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 1/3 net-2.6.25] Add netns to fib_rules_ops.
-Date: Thu, 17 Jan 2008 13:09:16 +0300
-Message-ID: <1200564558-7869-1-git-send-email-den@openvz.org>
+Subject: [PATCH 3/3 net-2.6.25] Process FIB rule action in the context of the namespace.
+Date: Thu, 17 Jan 2008 13:09:18 +0300
+Message-ID: <1200564558-7869-3-git-send-email-den@openvz.org>
 References: <478F2933.1000007@openvz.org>
 Cc: netdev@vger.kernel.org, devel@openvz.org, dlezcano@fr.ibm.com,
 	containers@lists.osdl.org, "Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:61340 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:55127 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754554AbYAQKJS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754548AbYAQKJS (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 17 Jan 2008 05:09:18 -0500
 In-Reply-To: <478F2933.1000007@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The backward link from FIB rules operations to the network namespace will
-allow to simplify the API a bit.
+Save namespace context on the fib rule at the rule creation time and call
+routing lookup in the correct namespace.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 Acked-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 ---
  include/net/fib_rules.h |    1 +
- net/decnet/dn_rules.c   |    1 +
- net/ipv4/fib_rules.c    |    2 ++
- net/ipv6/fib6_rules.c   |    1 +
- 4 files changed, 5 insertions(+), 0 deletions(-)
+ net/core/fib_rules.c    |    2 ++
+ net/ipv4/fib_rules.c    |    2 +-
+ 3 files changed, 4 insertions(+), 1 deletions(-)
 
 diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-index 4f47250..6910e01 100644
+index 7f9f4ae..34349f9 100644
 --- a/include/net/fib_rules.h
 +++ b/include/net/fib_rules.h
-@@ -67,6 +67,7 @@ struct fib_rules_ops
- 	const struct nla_policy	*policy;
- 	struct list_head	rules_list;
- 	struct module		*owner;
-+	struct net		*fro_net;
+@@ -22,6 +22,7 @@ struct fib_rule
+ 	u32			target;
+ 	struct fib_rule *	ctarget;
+ 	struct rcu_head		rcu;
++	struct net *		fr_net;
  };
  
- #define FRA_GENERIC_POLICY \
-diff --git a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
-index c1fae23..964e658 100644
---- a/net/decnet/dn_rules.c
-+++ b/net/decnet/dn_rules.c
-@@ -249,6 +249,7 @@ static struct fib_rules_ops dn_fib_rules_ops = {
- 	.policy		= dn_fib_rule_policy,
- 	.rules_list	= LIST_HEAD_INIT(dn_fib_rules_ops.rules_list),
- 	.owner		= THIS_MODULE,
-+	.fro_net	= &init_net,
- };
+ struct fib_lookup_arg
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 3cd4f13..42ccaf5 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -29,6 +29,7 @@ int fib_default_rule_add(struct fib_rules_ops *ops,
+ 	r->pref = pref;
+ 	r->table = table;
+ 	r->flags = flags;
++	r->fr_net = ops->fro_net;
  
- void __init dn_fib_rules_init(void)
+ 	/* The lock is not required here, the list in unreacheable
+ 	 * at the moment this function is called */
+@@ -242,6 +243,7 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 		err = -ENOMEM;
+ 		goto errout;
+ 	}
++	rule->fr_net = net;
+ 
+ 	if (tb[FRA_PRIORITY])
+ 		rule->pref = nla_get_u32(tb[FRA_PRIORITY]);
 diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index 72232ab..8d0ebe7 100644
+index 3b7affd..d2001f1 100644
 --- a/net/ipv4/fib_rules.c
 +++ b/net/ipv4/fib_rules.c
-@@ -315,6 +315,8 @@ int __net_init fib4_rules_init(struct net *net)
- 	if (ops == NULL)
- 		return -ENOMEM;
- 	INIT_LIST_HEAD(&ops->rules_list);
-+	ops->fro_net = net;
-+
- 	fib_rules_register(net, ops);
+@@ -91,7 +91,7 @@ static int fib4_rule_action(struct fib_rule *rule, struct flowi *flp,
+ 		goto errout;
+ 	}
  
- 	err = fib_default_rules_init(ops);
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 76437a1..ead5ab2 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -249,6 +249,7 @@ static struct fib_rules_ops fib6_rules_ops = {
- 	.policy			= fib6_rule_policy,
- 	.rules_list		= LIST_HEAD_INIT(fib6_rules_ops.rules_list),
- 	.owner			= THIS_MODULE,
-+	.fro_net		= &init_net,
- };
+-	if ((tbl = fib_get_table(&init_net, rule->table)) == NULL)
++	if ((tbl = fib_get_table(rule->fr_net, rule->table)) == NULL)
+ 		goto errout;
  
- static int __init fib6_default_rules_init(void)
+ 	err = tbl->tb_lookup(tbl, flp, (struct fib_result *) arg->result);
 -- 
 1.5.3.rc5
 
