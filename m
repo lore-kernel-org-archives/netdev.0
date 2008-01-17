@@ -1,45 +1,59 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH 1/8] [TCP]: Uninline tcp_set_state
-Date: Thu, 17 Jan 2008 13:41:21 +0100
-Message-ID: <p73myr4bp5a.fsf@bingen.suse.de>
-References: <12001308173969-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<12001308171262-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<20080112130355.74c39ae7@deepthought>
-	<Pine.LNX.4.64.0801140858040.31652@kivilampi-30.cs.helsinki.fi>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC][PATCH] Fixing SA/SP dumps on netlink/af_key
+Date: Thu, 17 Jan 2008 07:42:30 -0500
+Message-ID: <1200573750.4508.29.camel@localhost>
+References: <E1JFHDM-00010A-00@gondolin.me.apana.org.au>
+	 <1200533980.4451.100.camel@localhost>
+	 <20080117021743.GA5182@gondor.apana.org.au>  <478EED98.6080603@iki.fi>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Netdev <netdev@vger.kernel.org>
-To: =?iso-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:38723 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751061AbYAQMlX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 07:41:23 -0500
-In-Reply-To: <Pine.LNX.4.64.0801140858040.31652@kivilampi-30.cs.helsinki.fi>
- ("Ilpo =?iso-8859-1?Q?J=E4rvinen=22's?= message of "Mon\, 14 Jan 2008
- 09\:20\:26 +0200 \(EET\)")
+Received: from py-out-1112.google.com ([64.233.166.178]:45274 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751557AbYAQMmf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 07:42:35 -0500
+Received: by py-out-1112.google.com with SMTP id u52so948832pyb.10
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2008 04:42:34 -0800 (PST)
+In-Reply-To: <478EED98.6080603@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> writes:
->
-> Besides, it not always that obvious that gcc is able to determine "th=
-e
-> constant state", considering e.g., the complexity in the cases with
-> tcp_rcv_synsent_state_process, tcp_close_state, tcp_done. In such cas=
-es
-> uninlining should be done and gcc is probably not able to mix both ca=
-ses
-> nicely for a single function?
+On Thu, 2008-17-01 at 07:54 +0200, Timo Ter=E4s wrote:
 
-I think it would be cleanest to completely unswitch the function=20
-and split into tcp_set_closed()  / tcp_set_established() / tcp_other_st=
-ate()=20
-called by the callers directly.
+> You listen for the events. It is guaranteed that if the dumping code
+> does return the entry to be deleted, the deletion notification will
+> occur after that dump entry.
 
-That would probably lose the state trace, but I never found=20
-that useful for anything.
+Ok, sounds reasonable - as long as there is a known order for
+occurances, then there will be no ambiguity.
+I am assuming that the same ordering will happen with
+updates/modifications?
+To go back to what i suggested earlier - is it possible to have this in
+two stages? First pfkey with expected behavior being the same as curren=
+t
+netlink; then later the optimizations you are talking about.
 
--Andi
+Looking at the pfkey RFC one more time, heres a funny quote:
+"
+The dump message is used for debugging
+purposes only and is not intended for production use.
+"
+
+One thing Dave mentioned thats extremely important is to ensure no ABI =
+breakage.=20
+Think of racoon 0.6 which knows nothing of this; it should continue to =
+work.
+
+Dave: One reason i paid attention to this is because it was on your TOD=
+O
+list from netconf 2005 ;-> It has just been sitting in the background
+memory cells since.
+
+cheers,
+jamal
+
