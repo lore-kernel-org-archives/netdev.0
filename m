@@ -1,44 +1,69 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 3/4] bonding: Fix work rearming
-Date: Thu, 17 Jan 2008 12:18:22 +0100
-Message-ID: <20080117111822.GB1710@ff.dom.local>
-References: <20080115090532.GB1696@ff.dom.local> <478D77D7.60703@miraclelinux.com> <20080116133646.GE2307@ff.dom.local> <478EE7FC.4040301@miraclelinux.com>
+From: Neil Turton <nturton@solarflare.com>
+Subject: [PATCH net-2.6.25] net: Improve cache line coherency of ingress qdisc
+Date: Thu, 17 Jan 2008 11:04:44 +0000
+Message-ID: <478F364C.1000301@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-net-drivers <linux-net-drivers@solarflare.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.189]:55305 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751180AbYAQLMA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 06:12:00 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so373372fkz.5
-        for <netdev@vger.kernel.org>; Thu, 17 Jan 2008 03:11:56 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <478EE7FC.4040301@miraclelinux.com>
+Received: from 216-237-3-220.orange.nextweb.net ([216.237.3.220]:15509 "EHLO
+	OCEX01.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751071AbYAQLVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 06:21:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 17, 2008 at 02:30:36PM +0900, Makito SHIOKAWA wrote:
->> But, since during this change from sysfs cancel_delayed_work_sync()
->> could be probably used, and it's rather efficient with killing
->> rearming works, it seems this check could be unnecessary yet.
-> What going to be cancelled in bonding_store_miimon() when setting miimon to 
-> 0 is arp monitor, not mii monitor. So, this check will be needed to stop 
-> rearming mii monitor when value 0 is set to miimon.
+Move the ingress qdisc members of struct net_device from the transmit
+cache line to the receive cache line to avoid cache line ping-pong.
+These members are only used on the receive path.
 
-Hmm... I'm not sure I understand your point, but it seems both
-bonding_store_arp_interval() and bonding_store_miimon() where this
-field could be changed, currently use cancel_delayed_work() with
-flush_workqueue(), so I presume, there is no rtnl_lock() nor
-write_lock(&bond->lock) held, so cancel_delayed_work_sync() could
-be used, which doesn't require this additional check.
+Signed-off-by: Neil Turton <nturton@solarflare.com>
+---
 
-...Unless you mean that despite miimon value is changed there,
-mii_work for some reason can't be cancelled at the same time?
+--- net-2.6.25.git-orig/include/linux/netdevice.h	2008-01-15 17:43:08.000000000 +0000
++++ net-2.6.25.git-ndt1/include/linux/netdevice.h	2008-01-16 09:46:19.000000000 +0000
+@@ -597,37 +597,37 @@ struct net_device
+ /*
+  * Cache line mostly used on receive path (including eth_type_trans())
+  */
+ 	unsigned long		last_rx;	/* Time of last Rx	*/
+ 	/* Interface address info used in eth_type_trans() */
+ 	unsigned char		dev_addr[MAX_ADDR_LEN];	/* hw address, (before bcast 
+ 							because most packets are unicast) */
+ 
+ 	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
+ 
++	/* ingress path synchronizer */
++	spinlock_t		ingress_lock;
++	struct Qdisc		*qdisc_ingress;
++
+ /*
+  * Cache line mostly used on queue transmit path (qdisc)
+  */
+ 	/* device queue lock */
+ 	spinlock_t		queue_lock ____cacheline_aligned_in_smp;
+ 	struct Qdisc		*qdisc;
+ 	struct Qdisc		*qdisc_sleeping;
+ 	struct list_head	qdisc_list;
+ 	unsigned long		tx_queue_len;	/* Max frames per queue allowed */
+ 
+ 	/* Partially transmitted GSO packet. */
+ 	struct sk_buff		*gso_skb;
+ 
+-	/* ingress path synchronizer */
+-	spinlock_t		ingress_lock;
+-	struct Qdisc		*qdisc_ingress;
+-
+ /*
+  * One part is mostly used on xmit path (device)
+  */
+ 	/* hard_start_xmit synchronizer */
+ 	spinlock_t		_xmit_lock ____cacheline_aligned_in_smp;
+ 	/* cpu id of processor entered to hard_start_xmit or -1,
+ 	   if nobody entered there.
+ 	 */
+ 	int			xmit_lock_owner;
+ 	void			*priv;	/* pointer to private data	*/
 
-Of course, if there is such a reason for doing this check each time
-a work runs instead of controlling where the value changes, then OK!
-
-Regards,
-Jarek P.
