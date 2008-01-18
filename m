@@ -1,67 +1,114 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [patch for 2.6.24? 1/1] bonding: locking fix
-Date: Thu, 17 Jan 2008 15:42:43 -0800
-Message-ID: <20080117154243.9ee4265c.akpm@linux-foundation.org>
-References: <200801140904.m0E94vJd020425@imap1.linux-foundation.org>
-	<Pine.LNX.4.64.0801142313350.26034@bizon.gios.gov.pl>
-	<20080114144754.29a448ad.akpm@linux-foundation.org>
-	<16796.1200351673@death>
+From: Samuel Ortiz <samuel@sortiz.org>
+Subject: [PATCH] [IrDA] af_irda memory leak fixes
+Date: Fri, 18 Jan 2008 08:53:22 +0100
+Message-ID: <20080118075322.GB3063@sortiz.org>
+Reply-To: Samuel Ortiz <samuel@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: olel@ans.pl, davem@davemloft.net, jeff@garzik.org,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: irda-users@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jesper Juhl <jesper.juhl@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:53837 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758895AbYAQXnV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 18:43:21 -0500
-In-Reply-To: <16796.1200351673@death>
+Received: from smtp23.orange.fr ([193.252.22.126]:21285 "EHLO smtp23.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756203AbYAQXu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jan 2008 18:50:58 -0500
+Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf2323.orange.fr (SMTP Server) with ESMTP id 6FC57700009E
+	for <netdev@vger.kernel.org>; Fri, 18 Jan 2008 00:50:56 +0100 (CET)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 14 Jan 2008 15:01:13 -0800
-Jay Vosburgh <fubar@us.ibm.com> wrote:
+Hi Dave,
 
-> Andrew Morton <akpm@linux-foundation.org> wrote:
-> [...]
-> >That's bond_lock.
-> >
-> >This patch (below) addresses what appears to me to be an obvious
-> >imbalance in rtnl_lock.
-> >
-> >I don't care how it's fixed, really.  Someone please fix it?
-> 
-> 	I posted a correct patch for this a few days ago:
-> 
-> http://marc.info/?l=linux-netdev&m=119975746803886&w=2
-> 
-> 	The correct fix requires more than simply removing the rtnl calls.
-> 
-> 	I've got a few other patches in the pipeline, so I'm planning to
-> repost the set the above patch was a part of plus a few others, most
-> likely tomorrow.
+Here goes an IrDA patch against your latest net-2.6 tree.
 
-Can we get this bug fixed please?  Today?  It has been known about for more
-than two months.
+This patch fixes some af_irda memory leaks.
+It also checks for irias_new_obect() return value.
 
-I can only assume that people don't use this feature much because this bug
-will kill your kernel, every time.
+Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
+---
+ net/irda/af_irda.c |   30 +++++++++++++++++++++++++++---
+ 1 file changed, 27 insertions(+), 3 deletions(-)
 
-Applying this:
-
---- a/drivers/net/bonding/bond_sysfs.c~bonding-locking-fix
-+++ a/drivers/net/bonding/bond_sysfs.c
-@@ -1111,8 +1111,6 @@ static ssize_t bonding_store_primary(str
- out:
- 	write_unlock_bh(&bond->lock);
+Index: net-2.6-davem/net/irda/af_irda.c
+===================================================================
+--- net-2.6-davem.orig/net/irda/af_irda.c	2008-01-17 06:00:10.000000000 +0100
++++ net-2.6-davem/net/irda/af_irda.c	2008-01-18 08:37:36.000000000 +0100
+@@ -802,12 +802,18 @@
+ 	}
+ #endif /* CONFIG_IRDA_ULTRA */
  
--	rtnl_unlock();
--
- 	return count;
- }
- static DEVICE_ATTR(primary, S_IRUGO | S_IWUSR, bonding_show_primary, bonding_store_primary);
++	self->ias_obj = irias_new_object(addr->sir_name, jiffies);
++	if (self->ias_obj == NULL)
++		return -ENOMEM;
++
+ 	err = irda_open_tsap(self, addr->sir_lsap_sel, addr->sir_name);
+-	if (err < 0)
++	if (err < 0) {
++		kfree(self->ias_obj->name);
++		kfree(self->ias_obj);
+ 		return err;
++	}
+ 
+ 	/*  Register with LM-IAS */
+-	self->ias_obj = irias_new_object(addr->sir_name, jiffies);
+ 	irias_add_integer_attrib(self->ias_obj, "IrDA:TinyTP:LsapSel",
+ 				 self->stsap_sel, IAS_KERNEL_ATTR);
+ 	irias_insert_object(self->ias_obj);
+@@ -1825,7 +1831,7 @@
+ 	struct irda_ias_set    *ias_opt;
+ 	struct ias_object      *ias_obj;
+ 	struct ias_attrib *	ias_attr;	/* Attribute in IAS object */
+-	int opt;
++	int opt, free_ias = 0;
+ 
+ 	IRDA_DEBUG(2, "%s(%p)\n", __FUNCTION__, self);
+ 
+@@ -1881,11 +1887,20 @@
+ 			/* Create a new object */
+ 			ias_obj = irias_new_object(ias_opt->irda_class_name,
+ 						   jiffies);
++			if (ias_obj == NULL) {
++				kfree(ias_opt);
++				return -ENOMEM;
++			}
++			free_ias = 1;
+ 		}
+ 
+ 		/* Do we have the attribute already ? */
+ 		if(irias_find_attrib(ias_obj, ias_opt->irda_attrib_name)) {
+ 			kfree(ias_opt);
++			if (free_ias) {
++				kfree(ias_obj->name);
++				kfree(ias_obj);
++			}
+ 			return -EINVAL;
+ 		}
+ 
+@@ -1904,6 +1919,11 @@
+ 			if(ias_opt->attribute.irda_attrib_octet_seq.len >
+ 			   IAS_MAX_OCTET_STRING) {
+ 				kfree(ias_opt);
++				if (free_ias) {
++					kfree(ias_obj->name);
++					kfree(ias_obj);
++				}
++
+ 				return -EINVAL;
+ 			}
+ 			/* Add an octet sequence attribute */
+@@ -1932,6 +1952,10 @@
+ 			break;
+ 		default :
+ 			kfree(ias_opt);
++			if (free_ias) {
++				kfree(ias_obj->name);
++				kfree(ias_obj);
++			}
+ 			return -EINVAL;
+ 		}
+ 		irias_insert_object(ias_obj);
 
-
-is better than doing nothing.
