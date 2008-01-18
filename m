@@ -1,37 +1,77 @@
-From: Olaf Hering <olaf@aepfle.de>
-Subject: [PATCH] add modalias info to mv643xx_eth.ko
-Date: Fri, 18 Jan 2008 10:38:05 +0100
-Message-ID: <20080118093805.GA28004@aepfle.de>
+From: "Masato Miyagi" <miyagi-masato@msg.biglobe.ne.jp>
+Subject: [PATCH] Fix module names in net/sched/Kconfig
+Date: Fri, 18 Jan 2008 18:04:45 +0900 (JST)
+Message-ID: <20080118.180032.81651835.miyagi-masato@msg.biglobe.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Dale Farnsworth <dale@farnsworth.org>
-To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="----------=_1200647085-7846-2"
+Cc: kazuko-lpc@s1.itd.nes.nec.co.jp
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:50162 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755393AbYARJhy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2008 04:37:54 -0500
-Content-Disposition: inline
+Received: from rcpt-expgw.biglobe.ne.jp ([133.205.19.68]:43139 "EHLO
+	rcpt-expgw.biglobe.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754622AbYARJlG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2008 04:41:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-mv643xx_eth has an platform modalias file in sysfs.
-But the module itself has no alias: line. Autoloading fails
-without the alias info in the module.
+This is a multi-part message in MIME format...
 
-Signed-off-by: Olaf Hering <olaf@aepfle.de>
+------------=_1200647085-7846-2
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 7bit
 
----
- drivers/net/mv643xx_eth.c |    1 +
- 1 file changed, 1 insertion(+)
+Hi,
+This patch fixes the module names in net/sched/Kconfig ;)
 
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -2099,6 +2099,7 @@ MODULE_LICENSE("GPL");
- MODULE_AUTHOR(	"Rabeeh Khoury, Assaf Hoffman, Matthew Dharm, Manish Lachwani"
- 		" and Dale Farnsworth");
- MODULE_DESCRIPTION("Ethernet driver for Marvell MV643XX");
-+MODULE_ALIAS("platform:mv643xx_eth");
- 
- /*
-  * The second part is the low level driver of the gigE ethernet ports.
+Signed-Off-By: Masato Miyagi <miyagi-masato@msg.biglobe.ne.jp>
+
+------------=_1200647085-7846-2
+Content-Type: text/plain; name="patch-net-sched-Kconfig.txt"
+Content-Transfer-Encoding: base64
+
+LS0tIGxpbnV4LTIuNi4yNC1yYzgtbW0xL25ldC9zY2hlZC9LY29uZmlnLm9y
+aWcJMjAwOC0wMS0xOCAxNjo1NTozMy4wMDAwMDAwMDAgKzA5MDAKKysrIGxp
+bnV4LTIuNi4yNC1yYzgtbW0xL25ldC9zY2hlZC9LY29uZmlnCTIwMDgtMDEt
+MTggMTc6MDQ6NTcuMDAwMDAwMDAwICswOTAwCkBAIC00MDQsNyArNDA0LDcg
+QEAgY29uZmlnIE5FVF9BQ1RfUE9MSUNFCiAJICBtb2R1bGUuCiAKIAkgIFRv
+IGNvbXBpbGUgdGhpcyBjb2RlIGFzIGEgbW9kdWxlLCBjaG9vc2UgTSBoZXJl
+OiB0aGUKLQkgIG1vZHVsZSB3aWxsIGJlIGNhbGxlZCBwb2xpY2UuCisJICBt
+b2R1bGUgd2lsbCBiZSBjYWxsZWQgYWN0X3BvbGljZS4KIAogY29uZmlnIE5F
+VF9BQ1RfR0FDVAogICAgICAgICB0cmlzdGF0ZSAiR2VuZXJpYyBhY3Rpb25z
+IgpAQCAtNDE0LDcgKzQxNCw3IEBAIGNvbmZpZyBORVRfQUNUX0dBQ1QKIAkg
+IGFjY2VwdGluZyBwYWNrZXRzLgogCiAJICBUbyBjb21waWxlIHRoaXMgY29k
+ZSBhcyBhIG1vZHVsZSwgY2hvb3NlIE0gaGVyZTogdGhlCi0JICBtb2R1bGUg
+d2lsbCBiZSBjYWxsZWQgZ2FjdC4KKwkgIG1vZHVsZSB3aWxsIGJlIGNhbGxl
+ZCBhY3RfZ2FjdC4KIAogY29uZmlnIEdBQ1RfUFJPQgogICAgICAgICBib29s
+ICJQcm9iYWJpbGl0eSBzdXBwb3J0IgpAQCAtNDMwLDcgKzQzMCw3IEBAIGNv
+bmZpZyBORVRfQUNUX01JUlJFRAogCSAgb3RoZXIgZGV2aWNlcy4KIAogCSAg
+VG8gY29tcGlsZSB0aGlzIGNvZGUgYXMgYSBtb2R1bGUsIGNob29zZSBNIGhl
+cmU6IHRoZQotCSAgbW9kdWxlIHdpbGwgYmUgY2FsbGVkIG1pcnJlZC4KKwkg
+IG1vZHVsZSB3aWxsIGJlIGNhbGxlZCBhY3RfbWlycmVkLgogCiBjb25maWcg
+TkVUX0FDVF9JUFQKICAgICAgICAgdHJpc3RhdGUgIklQdGFibGVzIHRhcmdl
+dHMiCkBAIC00NDAsNyArNDQwLDcgQEAgY29uZmlnIE5FVF9BQ1RfSVBUCiAJ
+ICBjbGFzc2lmaWNhdGlvbi4KIAogCSAgVG8gY29tcGlsZSB0aGlzIGNvZGUg
+YXMgYSBtb2R1bGUsIGNob29zZSBNIGhlcmU6IHRoZQotCSAgbW9kdWxlIHdp
+bGwgYmUgY2FsbGVkIGlwdC4KKwkgIG1vZHVsZSB3aWxsIGJlIGNhbGxlZCBh
+Y3RfaXB0LgogCiBjb25maWcgTkVUX0FDVF9OQVQKICAgICAgICAgdHJpc3Rh
+dGUgIlN0YXRlbGVzcyBOQVQiCkBAIC00NTAsNyArNDUwLDcgQEAgY29uZmln
+IE5FVF9BQ1RfTkFUCiAJICBuZXRmaWx0ZXIgZm9yIE5BVCB1bmxlc3MgeW91
+IGtub3cgd2hhdCB5b3UgYXJlIGRvaW5nLgogCiAJICBUbyBjb21waWxlIHRo
+aXMgY29kZSBhcyBhIG1vZHVsZSwgY2hvb3NlIE0gaGVyZTogdGhlCi0JICBt
+b2R1bGUgd2lsbCBiZSBjYWxsZWQgbmF0LgorCSAgbW9kdWxlIHdpbGwgYmUg
+Y2FsbGVkIGFjdF9uYXQuCiAKIGNvbmZpZyBORVRfQUNUX1BFRElUCiAgICAg
+ICAgIHRyaXN0YXRlICJQYWNrZXQgRWRpdGluZyIKQEAgLTQ1OSw3ICs0NTks
+NyBAQCBjb25maWcgTkVUX0FDVF9QRURJVAogCSAgU2F5IFkgaGVyZSBpZiB5
+b3Ugd2FudCB0byBtYW5nbGUgdGhlIGNvbnRlbnQgb2YgcGFja2V0cy4KIAog
+CSAgVG8gY29tcGlsZSB0aGlzIGNvZGUgYXMgYSBtb2R1bGUsIGNob29zZSBN
+IGhlcmU6IHRoZQotCSAgbW9kdWxlIHdpbGwgYmUgY2FsbGVkIHBlZGl0Lgor
+CSAgbW9kdWxlIHdpbGwgYmUgY2FsbGVkIGFjdF9wZWRpdC4KIAogY29uZmln
+IE5FVF9BQ1RfU0lNUAogICAgICAgICB0cmlzdGF0ZSAiU2ltcGxlIEV4YW1w
+bGUgKERlYnVnKSIKQEAgLTQ3Myw3ICs0NzMsNyBAQCBjb25maWcgTkVUX0FD
+VF9TSU1QCiAJICBJZiB1bnN1cmUsIHNheSBOLgogCiAJICBUbyBjb21waWxl
+IHRoaXMgY29kZSBhcyBhIG1vZHVsZSwgY2hvb3NlIE0gaGVyZTogdGhlCi0J
+ICBtb2R1bGUgd2lsbCBiZSBjYWxsZWQgc2ltcGxlLgorCSAgbW9kdWxlIHdp
+bGwgYmUgY2FsbGVkIGFjdF9zaW1wbGUuCiAKIGNvbmZpZyBORVRfQ0xTX1BP
+TElDRQogCWJvb2wgIlRyYWZmaWMgUG9saWNpbmcgKG9ic29sZXRlKSIK
+
+------------=_1200647085-7846-2--
