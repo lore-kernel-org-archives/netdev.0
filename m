@@ -1,48 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
-Date: Fri, 18 Jan 2008 05:37:12 -0800 (PST)
-Message-ID: <20080118.053712.195382841.davem@davemloft.net>
-References: <18318.14810.877279.41815@robur.slu.se>
-	<20080118.041144.81957249.davem@davemloft.net>
-	<18320.41737.651384.808195@robur.slu.se>
+Subject: Re: [PATCH net-2.6.25] [BRIDGE] Remove unused include of a header
+ file in ebtables.c
+Date: Fri, 18 Jan 2008 05:38:42 -0800 (PST)
+Message-ID: <20080118.053842.125066268.davem@davemloft.net>
+References: <eb3ff54b0801180508k7d24855ft2747224f0fb1725f@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: elendil@planet.nl, jesse.brandeburg@intel.com,
-	slavon@bigtelecom.ru, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Robert.Olsson@data.slu.se
+Cc: netdev@vger.kernel.org
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48170
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49582
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1761366AbYARNhL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2008 08:37:11 -0500
-In-Reply-To: <18320.41737.651384.808195@robur.slu.se>
+	by vger.kernel.org with ESMTP id S1754561AbYARNil (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2008 08:38:41 -0500
+In-Reply-To: <eb3ff54b0801180508k7d24855ft2747224f0fb1725f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Date: Fri, 18 Jan 2008 14:00:57 +0100
+From: "Rami Rosen" <ramirose@gmail.com>
+Date: Fri, 18 Jan 2008 15:08:02 +0200
 
->  I don't understand the idea with semaphore for enabling/disabling 
->  irq's either the overall logic must safer/better without it.  
+> In net/bridge/netfilter/ebtables.c,
+> - remove unused include of a header file (linux/tty.h) and remove the
+>   corresponding comment above it.
+> 	
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-They must have had code paths where they didn't know if IRQs were
-enabled or not already, so they tried to create something which
-approximates the:
-
-	local_irq_save(flags);
-	local_irq_restore(flags);
-
-constructs we have for CPU interrupts, so they could go:
-
-	e1000_irq_disable();
-	/* ... */
-	e1000_irq_enable();
-
-and this would work even if the caller was running
-with e1000 interrupts disabled already.
-
-Or, something like that... it is indeed confusing.
-
-Anyways, yes it's totally bogus and should be removed.
+Applied, thanks.
