@@ -1,44 +1,64 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] SGISEEQ: fix oops when doing ifconfig down; ifconfig
- up
-Date: Fri, 18 Jan 2008 15:01:49 -0500
-Message-ID: <479105AD.6060201@garzik.org>
-References: <20080112230847.1EB3EC2F35@solo.franken.de>
+Subject: Re: [PATCH][resend] add driver for enc28j60 ethernet chip
+Date: Fri, 18 Jan 2008 15:01:39 -0500
+Message-ID: <479105A3.3040508@garzik.org>
+References: <478B32BC.6070206@eptar.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
-	ralf@linux-mips.org, jgarzik@pobox.com
-To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <20080112230847.1EB3EC2F35@solo.franken.de>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: Claudio Lanconelli <lanconelli.claudio@eptar.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:59693 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762865AbYARUBn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jan 2008 15:01:43 -0500
+In-Reply-To: <478B32BC.6070206@eptar.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thomas Bogendoerfer wrote:
-> When doing init_ring checking whether a new skb needs to be allocated
-> was wrong.
+Claudio Lanconelli wrote:
+> This patch add support for Microchip enc28j60 10Mbps Ethernet chip used 
+> in embedded systems
+> due to its cheap SPI interface.
+> This 2nd version include changes from previous comments by Jeff and 
+> Stephen,
+> all but NAPI, see comments below at this regard.
 > 
-> Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-> ---
+> I resend the patch because I didn't receive any feedback.
 > 
-> This is a bug fix for the 2.6.25 driver.
+> Changes to 1st version:
+> - use mutex instead of semaphore
+> - add carrier detect handling
+> - add ethtool support
+> - set_multicast_list when the interface is up using a workqueue
+> - add restart_work to reset the chip in case of tx_timeout
+> - removed kmalloc() for spi_transfer_buf (array defined in the priv struct)
 > 
->  drivers/net/sgiseeq.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+> Jeff Garzik wrote:
+>>
+>> comments:
+>>
+>> * Why do interrupt work in a kernel thread?  Your comment says you 
+>> cannot, but does not explain.
+> The enc28j60 is a SPI to Ethernet adapter, so we cannot access register 
+> with simple in() out() instructions, but we need to use the SPI 
+> subsystem. The spi_sync() basic operation to read/write a register is a 
+> blocking operation, so can't be done in interrupt context.
+> Since every basic operation like read interrupt flag register call 
+> spi_sync() we need the work queue for almost everything.
 > 
-> diff --git a/drivers/net/sgiseeq.c b/drivers/net/sgiseeq.c
-> index c69bb8b..78994ed 100644
-> --- a/drivers/net/sgiseeq.c
-> +++ b/drivers/net/sgiseeq.c
-> @@ -193,7 +193,7 @@ static int seeq_init_ring(struct net_device *dev)
->  
->  	/* And now the rx ring. */
->  	for (i = 0; i < SEEQ_RX_BUFFERS; i++) {
-> -		if (!sp->rx_desc[i].rdma.pbuf) {
-> +		if (!sp->rx_desc[i].skb) {
->  			dma_addr_t dma_addr;
->  			struct sk_buff *skb = netdev_alloc_skb(dev, PKT_BUF_SZ);
+>>
+>> * should use NAPI
+>>
+> For the reason I just explained I don't think NAPI is a viable way for 
+> enc28j60.
+> Furthermore enc28j60 is a 10Mb only device and probably don't suffer to 
+> interrupt overload.
+> 
+> I'm waiting for any comments, please.
 
 applied
+
+
