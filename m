@@ -1,43 +1,69 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000e Kconfig: remove ref to nonexistant docs
-Date: Fri, 18 Jan 2008 14:40:25 -0500
-Message-ID: <479100A9.2070209@garzik.org>
-References: <20080117070317.GA7922@aurum.uhlenkott.net>
+Subject: Re: Please pull 'fixes-jgarzik' branch of wireless-2.6
+Date: Fri, 18 Jan 2008 14:40:59 -0500
+Message-ID: <479100CB.3090800@garzik.org>
+References: <20080116212752.GE3164@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Auke Kok <auke-jan.h.kok@intel.com>
-To: Jason Uhlenkott <jasonuhl@jasonuhl.org>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52229 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:52246 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756823AbYARTk2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jan 2008 14:40:28 -0500
-In-Reply-To: <20080117070317.GA7922@aurum.uhlenkott.net>
+	id S1758518AbYARTlB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jan 2008 14:41:01 -0500
+In-Reply-To: <20080116212752.GE3164@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jason Uhlenkott wrote:
-> There is no Documentation/networking/e1000e.txt.
+John W. Linville wrote:
+> Jeff,
 > 
-> Signed-off-by: Jason Uhlenkott <jasonuhl@jasonuhl.org>
-> Cc: Auke Kok <auke-jan.h.kok@intel.com>
+> A few more fixes for 2.6.24...note that this branch is based
+> on 2.6.24-rc8.
+> 
+> Thanks,
+> 
+> John
+> 
 > ---
 > 
-> Index: linux/drivers/net/Kconfig
-> ===================================================================
-> --- linux.orig/drivers/net/Kconfig	2008-01-16 17:48:03.041103083 -0800
-> +++ linux/drivers/net/Kconfig	2008-01-16 23:00:23.647430487 -0800
-> @@ -1976,9 +1976,6 @@
->  
->  	  <http://support.intel.com>
->  
-> -	  More specific information on configuring the driver is in
-> -	  <file:Documentation/networking/e1000e.txt>.
-> -
->  	  To compile this driver as a module, choose M here. The module
->  	  will be called e1000e.
+> Individual patches available here:
+> 
+> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/fixes-jgarzik/
+> 
+> ---
+> 
+> The following changes since commit cbd9c883696da72b2b1f03f909dbacc04bbf8b58:
+>   Linus Torvalds (1):
+>         Linux 2.6.24-rc8
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-jgarzik
+> 
+> Ivo van Doorn (1):
+>       rt2x00: Fix ieee80211 payload alignment
+> 
+> Marc Pignat (1):
+>       wireless/libertas support for 88w8385 sdio older revision
+> 
+> Randy Dunlap (1):
+>       hostap: section mismatch warning
+> 
+> Stefano Brivio (2):
+>       ipw2200: fix typo in kerneldoc
+>       b43: fix use-after-free rfkill bug
+> 
+>  drivers/net/wireless/b43/rfkill.c        |   11 ++++++-----
+>  drivers/net/wireless/hostap/hostap_plx.c |    6 +++---
+>  drivers/net/wireless/ipw2200.c           |    2 +-
+>  drivers/net/wireless/libertas/if_sdio.c  |    4 ++++
+>  drivers/net/wireless/rt2x00/rt2x00pci.c  |    2 +-
+>  drivers/net/wireless/rt2x00/rt2x00usb.c  |   11 +++++++++--
+>  6 files changed, 24 insertions(+), 12 deletions(-)
 
-applied
+pulled
 
 
