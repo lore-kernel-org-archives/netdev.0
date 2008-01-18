@@ -1,52 +1,73 @@
-From: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Subject: Re: Performance issue : GRE tunneling
-Date: Fri, 18 Jan 2008 18:08:03 +0300
-Message-ID: <4790C0D3.8050202@bigtelecom.ru>
-References: <1200664092.22132.3.camel@vglwks010.vgl2.office.vaioni.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: sctp use-uninitialized warning in net-2.6.25
+Date: Fri, 18 Jan 2008 11:03:20 -0500
+Message-ID: <4790CDC8.6060000@hp.com>
+References: <20080116135957.4eb54958.akpm@linux-foundation.org> <20080118.044911.64979691.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, matthew.hattersley@vaioni.com
-To: Jeba Anandhan <jeba.anandhan@vaioni.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bigtelecom.ru ([87.255.0.61]:49653 "EHLO
-	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754769AbYARPIM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2008 10:08:12 -0500
-In-Reply-To: <1200664092.22132.3.camel@vglwks010.vgl2.office.vaioni.com>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:11720 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757439AbYARQDW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2008 11:03:22 -0500
+In-Reply-To: <20080118.044911.64979691.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeba Anandhan =EF=E8=F8=E5=F2:
-> Hi All,
-> When i send the traffic outside of GRE tunnel, The speed is in 3-4Mbp=
-s.
-> When i use the tunnel for traffic, the speed get reduced huge. It is
-> around 100-300Kbps. What are the factors affects the performance when=
- we
-> use tunneling [ ex:GRE tunneling ]?
->  =20
-Hello. You may try get slow place. Get pc without CPU load (console mod=
-e=20
-and etc).
-Try compile gre support in kernel. Turn on OPROFILE support.
-Install oprofile utils.
-do
-opcontrol --vmlinux=3D/usr/src/linux/vmlinux
-opcontrol -s
-#do connect and try do traffic.
-opreport -l | vi -
-# you see that functions in kernel use cpu...
-opcontrol -h #to stop
+David Miller wrote:
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Wed, 16 Jan 2008 13:59:57 -0800
+> 
+>> net/sctp/sm_statefuns.c: In function 'sctp_sf_do_5_1C_ack':
+>> net/sctp/sm_statefuns.c:484: warning: 'error' may be used uninitialized in this function
+>>
+>> It is not obvious that this is a false positive.
+> 
+> I'll check in the following for now.
+> 
+> Vlad, please take a look.
+> 
+> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> index b126751..6e12757 100644
+> --- a/net/sctp/sm_statefuns.c
+> +++ b/net/sctp/sm_statefuns.c
+> @@ -481,7 +481,7 @@ sctp_disposition_t sctp_sf_do_5_1C_ack(const struct sctp_endpoint *ep,
+>  	sctp_init_chunk_t *initchunk;
+>  	struct sctp_chunk *err_chunk;
+>  	struct sctp_packet *packet;
+> -	sctp_error_t error;
+> +	sctp_error_t error = SCTP_ERROR_NO_ERROR;
+>  
+>  	if (!sctp_vtag_verify(chunk, asoc))
+>  		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
+> 
 
-Maybe its help for you. Thanks!
-> Thanks
-> Jeba
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->  =20
+Hi David
 
+We can do that, or move the declaration to the only block that uses it.
+Like this:
+
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index f02ce3d..193c0c2 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -442,7 +442,6 @@ sctp_disposition_t sctp_sf_do_5_1C_ack(const struct sctp_endpoint *ep,
+ 	sctp_init_chunk_t *initchunk;
+ 	struct sctp_chunk *err_chunk;
+ 	struct sctp_packet *packet;
+-	sctp_error_t error;
+ 
+ 	if (!sctp_vtag_verify(chunk, asoc))
+ 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
+@@ -466,6 +465,7 @@ sctp_disposition_t sctp_sf_do_5_1C_ack(const struct sctp_endpoint *ep,
+ 	if (!sctp_verify_init(asoc, chunk->chunk_hdr->type,
+ 			      (sctp_init_chunk_t *)chunk->chunk_hdr, chunk,
+ 			      &err_chunk)) {
++		sctp_error_t error;
+ 
+ 		SCTP_INC_STATS(SCTP_MIB_ABORTEDS);
+
+-vlad
