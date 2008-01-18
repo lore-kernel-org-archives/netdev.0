@@ -1,51 +1,29 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [patch for 2.6.24? 1/1] bonding: locking fix
-Date: Fri, 18 Jan 2008 09:32:44 -0800
-Message-ID: <10345.1200677564@death>
-References: <200801140904.m0E94vJd020425@imap1.linux-foundation.org> <Pine.LNX.4.64.0801142313350.26034@bizon.gios.gov.pl> <20080114144754.29a448ad.akpm@linux-foundation.org> <16796.1200351673@death> <20080117154243.9ee4265c.akpm@linux-foundation.org> <24607.1200616005@death> <Pine.LNX.4.64.0801180154570.4570@bizon.gios.gov.pl> <27063.1200620733@death> <Pine.LNX.4.64.0801180932440.4570@bizon.gios.gov.pl>
-Cc: Andrew Morton <akpm@linux-foundation.org>, davem@davemloft.net,
-	jeff@garzik.org, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
-To: Krzysztof Oledzki <olel@ans.pl>
+From: "Tom Burns" <tom.i.burns@gmail.com>
+Subject: sky2: call sky2_set_multicast from sky2_restart?
+Date: Fri, 18 Jan 2008 14:30:52 -0500
+Message-ID: <671c20540801181130w4ec704acu42a89a78e8b84cb3@mail.gmail.com>
+References: <671c20540801181120i55bd8ff0r8385636d1ce5b2e@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:37206 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761912AbYARRdf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jan 2008 12:33:35 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m0IHWlri014015
-	for <netdev@vger.kernel.org>; Fri, 18 Jan 2008 12:32:47 -0500
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0IHWlJ4079762
-	for <netdev@vger.kernel.org>; Fri, 18 Jan 2008 12:32:47 -0500
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0IHWk60017882
-	for <netdev@vger.kernel.org>; Fri, 18 Jan 2008 12:32:47 -0500
-In-reply-to: <Pine.LNX.4.64.0801180932440.4570@bizon.gios.gov.pl> 
+Received: from wr-out-0506.google.com ([64.233.184.230]:25924 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760575AbYARTaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2008 14:30:52 -0500
+Received: by wr-out-0506.google.com with SMTP id c49so507583wra.1
+        for <netdev@vger.kernel.org>; Fri, 18 Jan 2008 11:30:52 -0800 (PST)
+In-Reply-To: <671c20540801181120i55bd8ff0r8385636d1ce5b2e@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Oledzki <olel@ans.pl> wrote:
-[...]
->> 	which makes the warning go away, but Herbert Xu pointed out that
->> there is a potential problem with bond_enslave accessing the mc_lists
->> without sufficient locking.  It's not the only offender, either, and the
->> bond->mc_list references really need to be protected by the bond_lock,
->> and the whole thing probably ought to use dev_mc_sync/unsync instead of
->> what it does now.
->>
->> 	Since the bond_enslave, et al, business isn't a new problem, and
->> I've never heard of it being hit, I'm thinking now to just leave the
->> bond_enslave part for 2.6.25, and fix the lockdep warning for 2.6.24.
->
->It is a new problem, as it never happened with <=2.6.23.
+Hi List,
 
-	The lockdep warning is new, but I was referring to the lack of
-mutexing between bond_enslave, bond_release, etc and the
-set_multicast_list's use of the mc_lists.  There has never been mutexing
-of the mc_lists in bond_enslave & friends, so that is not a new problem.
+Throughout the sky2.c file any call to sky2_up(dev) is followed (soon
+enough) by a call to sky2_set_multicast(dev).  Should this not also be
+the case when it is called in sky2_restart()?
 
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Cheers,
+Tom Burns
