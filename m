@@ -1,45 +1,61 @@
-From: "Glenn Griffin" <ggriffin.kernel@gmail.com>
-Subject: ipv6 syn cookie questions
-Date: Thu, 17 Jan 2008 18:06:18 -0800
-Message-ID: <c9e534200801171806g23670a3eq37627bc875c2be59@mail.gmail.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPv4: Enable use of 240/4 address space
+Date: Fri, 18 Jan 2008 11:13:19 +0900 (JST)
+Message-ID: <20080118.111319.30002290.yoshfuji@linux-ipv6.org>
+References: <Pine.LNX.4.64.0801180023450.18447@fbirervta.pbzchgretzou.qr>
+	<20080118.102635.01689255.yoshfuji@linux-ipv6.org>
+	<Pine.LNX.4.64.0801180242270.14025@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ak@suse.de, vaf@cisco.com,
+	yoshfuji@linux-ipv6.org
+To: jengelh@computergmbh.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:38212 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757166AbYARCGU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 21:06:20 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so870763fga.17
-        for <netdev@vger.kernel.org>; Thu, 17 Jan 2008 18:06:18 -0800 (PST)
-Content-Disposition: inline
+Received: from yue.linux-ipv6.org ([203.178.140.15]:35500 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752960AbYARCNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2008 21:13:08 -0500
+In-Reply-To: <Pine.LNX.4.64.0801180242270.14025@fbirervta.pbzchgretzou.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In researching the linux implementation of syn cookies I stumbled on a few
-points that aren't initially clear to me.  I was hoping somehow could elaborate
-and shed some light onto what I'm missing.
+In article <Pine.LNX.4.64.0801180242270.14025@fbirervta.pbzchgretzou.qr> (at Fri, 18 Jan 2008 02:52:08 +0100 (CET)), Jan Engelhardt <jengelh@computergmbh.de> says:
 
-at net/ipv6/tcp_ipv6.c:1249 within tcp_v6_conn_request()
+> 
+> On Jan 18 2008 10:26, YOSHIFUJI Hideaki / 吉藤英明 wrote:
+> >> -#define	IN_EXPERIMENTAL(a)	((((long int) (a)) & 0xf0000000) == 0xf0000000)
+> >> -#define	IN_BADCLASS(a)		IN_EXPERIMENTAL((a))
+> >
+> >No, please keep these macros.
+> >
+> >> @@ -264,7 +261,7 @@ static inline bool ipv4_is_local_multicast(__be32 addr)
+> >>  
+> >>  static inline bool ipv4_is_badclass(__be32 addr)
+> >>  {
+> >> -	return (addr & htonl(0xf0000000)) == htonl(0xf0000000);
+> >> +	return addr == 0xFFFFFFFF;
+> >>  }
+> >>  
+> >
+> >To (un)align the IN_BADCLASS macro and ipv6_is_badclass() definition,
+> 
+> Unalign? IPv6? "Limited" broadcast?
 
-There is the following comment:
+Sorry, ipv4_is_badclass().
+Assuming IN_BADCLASS() is still there, we should not reuse the name
+of "ipv6_is_badclass" because the their meanings are different.
 
-        /*
-         *      There are no SYN attacks on IPv6, yet...
-         */
+> -static inline bool ipv4_is_badclass(__be32 addr)
+> +static inline bool ipv4_is_broadcast(__be32 addr)
+>  {
 
-Also above that in the same file within tcp_v6_hnd_req() it looks like pieces
-of an ipv6 syn cookie implementation were left but have been commented out.
+I'm just afraid that people might think ipv4_is_broadcast
+is for testing subnet broadcast address.
 
-I was not aware of ipv6 making any changes to how tcp behaved (ignoring obvious
-details such as pseudo-header changes in checksum calculations, etc.), so the
-comment above puzzles me.  How does ipv6 change the viability of syn attacks
-against tcp?
+255.255.255.255 is "limited broadcast address"
+(vs subnet broadcast address, which can be forwarded by routers).
 
-Also if anyone can provide any background that may exist on an ipv6
-implementation of syn cookies that would be appreciated.  I'm considering
-working on an implementation, but would like to know if anyone is already
-working on one or it's been submitted but deemed unnecessary for some reasons.
-
---Glenn
+--yoshfuji
