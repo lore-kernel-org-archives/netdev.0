@@ -1,126 +1,117 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
-Date: Fri, 18 Jan 2008 04:11:44 -0800 (PST)
-Message-ID: <20080118.041144.81957249.davem@davemloft.net>
-References: <200801160956.09053.elendil@planet.nl>
-	<20080116.022953.184520911.davem@davemloft.net>
-	<18318.14810.877279.41815@robur.slu.se>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: RE: [PATCH 0/3] UCC TDM driver for MPC83xx platforms
+Date: Fri, 18 Jan 2008 13:18:38 +0100
+Message-ID: <1200658718.16429.26.camel@gentoo-jocke.transmode.se>
+References: <FBA61160C48B8D438F3323FEFB4EF2C259F2F6@zin33exm24.fsl.freescale.net>
+	<FBA61160C48B8D438F3323FEFB4EF2C26E7653@zin33exm24.fsl.freescale.net>
+	<20080114120051.3207043b.kim.phillips@freescale.com>
+	<20080114131530.9d33f50a.akpm@linux-foundation.org>
+	<5927F7A4-D42A-40F6-AE9C-EDA34738A752@kernel.crashing.org>
+	<FBA61160C48B8D438F3323FEFB4EF2C279A908@zin33exm24.fsl.freescale.net>
+Reply-To: joakim.tjernlund@transmode.se
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: elendil@planet.nl, jesse.brandeburg@intel.com,
-	slavon@bigtelecom.ru, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Robert.Olsson@data.slu.se
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758586AbYARML4@vger.kernel.org>
-In-Reply-To: <18318.14810.877279.41815@robur.slu.se>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: sfr@canb.auug.org.au, Phillips Kim <Kim.Phillips@freescale.com>,
+	Barkowski Michael <Michael.Barkowski@freescale.com>,
+	netdev@vger.kernel.org, Suresh PV <pala@freescale.com>,
+	rubini@vision.unipv.it, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, Kalra Ashish <ashish.kalra@freescale.com>,
+	Cutler Richard <Rich.Cutler@freescale.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Aggrwal Poonam <Poonam.Aggrwal@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <FBA61160C48B8D438F3323FEFB4EF2C279A908@zin33exm24.fsl.freescale.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Date: Wed, 16 Jan 2008 18:07:38 +0100
 
+On Fri, 2008-01-18 at 17:28 +0530, Aggrwal Poonam wrote:
+> Hello All
 > 
-> eth0 e1000_irq_enable sem = 1    <- High netload
-> eth0 e1000_irq_enable sem = 1
-> eth0 e1000_irq_enable sem = 1
-> eth0 e1000_irq_enable sem = 1
-> eth0 e1000_irq_enable sem = 1
-> eth0 e1000_irq_enable sem = 1
-> eth0 e1000_irq_enable sem = 1    <- ifconfig eth0 down
-> eth0 e1000_irq_disable sem = 2
+> The TDM driver just now does not have a proper framework. Probably the
+> interface cannot be generalised as such. Hence we could not decide
+> whether it would be right to think of a TDM framework. Infact the
+> interface this TDM driver(for MPC8323ERDB) supplies may not be usable
+> for some other client as such. Please suggest on this.
 > 
-> **e1000_open                     <- ifconfig eth0 up
-> eth0 e1000_irq_disable sem = 3      Dead. irq's can't be enabled
-> e1000_irq_enable miss
-> eth0 e1000_irq_enable sem = 2
-> e1000_irq_enable miss
-> eth0 e1000_irq_enable sem = 1
-> ADDRCONF(NETDEV_UP): eth0: link is not ready
+> But you are right as far as Freescale PowerPC platforms are concerned
+> which have TDM devices. Like, 8315 also has a TDM driver which also
+> exposes similar interface as 8323 because the client it is talking to is
+> the same.
+> 
+> Following is the small description of the TDM driver along with
+> interface details:
+> 
+> The dts file keeps a track of the TDM devices present on the board.
+> Depending on them the TDM driver initializes those many driver instances
+> while coming up.
+> 
+> The driver on the upper level can plug to more than one tdm clients
+> depending on the availablity  of TDM devices. At every new request of
+> the TDM client to bind with a TDM device, a free driver  instance is
+> allocated to the client.
+> 
+> The interface can be described as follows.
+> 
+> tdm_register_client(struct tdm_client *)
+> 	This API returns a pointer to the structure tdm_client which is
+> of type
+> 	struct tdm_client {
+>                 u32 driver_handle;
+>                 u32 (*tdm_read)(u32 driver_handle, short chn_id, short
+> *pcm_buffer, short len);
+>                 u32 (*tdm_write)(u32 driver_handle, short chn_id, short
+> *pcm_buffer, short len);
+>                 wait_queue_head_t *wakeup_event;
+>         }
+> 
+>    It consists of:
+>    - driver_handle: It is basically to identify the particular TDM
+> device/driver instance.
+>    - tdm_read: It is a function pointer returned by the TDM driver to be
+> used to read TDM data  form a particular TDM channel.
+>    - tdm_write: It is a function pointer returned by the TDM driver to
+> be used to write TDM data  to a particular TDM channel.
+>    - wakeup_event: It is address of a wait_queue event on which the
+> client keeps on sleeping,  and the TDM driver wakes it up periodically.
+> The driver is configured to wake up the client  after every 10ms.
+> 
+> Once the TDM client gets registered to a TDM driver instance and a TDM
+> device, it interfaces  with the driver using tdm_read, tdm_write and
+> wakeup_event.
+> 
+> Note: The TDM driver can be used by only kernel level modules. The
+> driver does not expose any  file interface for User Applications. Can be
+> compared to the spi driver which interfaces with  the SPI clients
+> through some APIs.
+> 
+> 
+> I need your feedback on the interface details. Some changes were
+> suggested by Andrew for 32 bit tdm handle which I will modify.(Thanks
+> Andrew)
+> 
+> Please give your ideas about a TDM framework in the kernel and the
+> interface.
+> 
+> Waiting for your feedback.
+> 
+> Thanks and Regards
+> Poonam 
 
-Yes, this semaphore thing is highly problematic.  In the most crucial
-areas where network driver consistency matters the most for ease of
-understanding and debugging, the Intel drivers choose to be different
-:-(
+Hi Poonam
 
-The way the napi_disable() logic breaks out from high packet load in
-net_rx_action() is it simply returns even leaving interrupts disabled
-when a pending napi_disable() is pending.
+I may have to write a HDLC over QMC driver for 832x in the near future.
+Although I haven't looked at much at the UCCs programming i/f I noticed
+that QMC is supposed to run over TDM. Is your TDM driver suitable for
+hooking up such a driver on top?
 
-This is what trips up the semaphore logic.
-
-Robert, give this patch a try.
-
-In the long term this semaphore should be completely eliminated,
-there is no justification for it.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 0c9a6f7..76c0fa6 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -632,6 +632,7 @@ e1000_down(struct e1000_adapter *adapter)
- 
- #ifdef CONFIG_E1000_NAPI
- 	napi_disable(&adapter->napi);
-+	atomic_set(&adapter->irq_sem, 0);
- #endif
- 	e1000_irq_disable(adapter);
- 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 2ab3bfb..9cc5a6b 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -2183,6 +2183,7 @@ void e1000e_down(struct e1000_adapter *adapter)
- 	msleep(10);
- 
- 	napi_disable(&adapter->napi);
-+	atomic_set(&adapter->irq_sem, 0);
- 	e1000_irq_disable(adapter);
- 
- 	del_timer_sync(&adapter->watchdog_timer);
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index d2fb88d..4f63839 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -296,6 +296,11 @@ ixgb_down(struct ixgb_adapter *adapter, boolean_t kill_watchdog)
- {
- 	struct net_device *netdev = adapter->netdev;
- 
-+#ifdef CONFIG_IXGB_NAPI
-+	napi_disable(&adapter->napi);
-+	atomic_set(&adapter->irq_sem, 0);
-+#endif
-+
- 	ixgb_irq_disable(adapter);
- 	free_irq(adapter->pdev->irq, netdev);
- 
-@@ -304,9 +309,7 @@ ixgb_down(struct ixgb_adapter *adapter, boolean_t kill_watchdog)
- 
- 	if(kill_watchdog)
- 		del_timer_sync(&adapter->watchdog_timer);
--#ifdef CONFIG_IXGB_NAPI
--	napi_disable(&adapter->napi);
--#endif
-+
- 	adapter->link_speed = 0;
- 	adapter->link_duplex = 0;
- 	netif_carrier_off(netdev);
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index de3f45e..a4265bc 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1409,9 +1409,11 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 	IXGBE_WRITE_FLUSH(&adapter->hw);
- 	msleep(10);
- 
-+	napi_disable(&adapter->napi);
-+	atomic_set(&adapter->irq_sem, 0);
-+
- 	ixgbe_irq_disable(adapter);
- 
--	napi_disable(&adapter->napi);
- 	del_timer_sync(&adapter->watchdog_timer);
- 
- 	netif_carrier_off(netdev);
+  Jocke
