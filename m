@@ -1,64 +1,68 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH][resend] add driver for enc28j60 ethernet chip
-Date: Fri, 18 Jan 2008 15:01:39 -0500
-Message-ID: <479105A3.3040508@garzik.org>
-References: <478B32BC.6070206@eptar.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH net-2.6.25]  New driver "sfc" for Solarstorm SFC4000 controller
+ - 5th attempt
+Date: Fri, 18 Jan 2008 15:03:28 -0500
+Message-ID: <47910610.3050207@pobox.com>
+References: <4790D1CD.80500@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Claudio Lanconelli <lanconelli.claudio@eptar.com>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	spope@solarflare.com
+To: Robert Stonehouse <rstonehouse@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59693 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:39455 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762865AbYARUBn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jan 2008 15:01:43 -0500
-In-Reply-To: <478B32BC.6070206@eptar.com>
+	id S1754138AbYARUDg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jan 2008 15:03:36 -0500
+In-Reply-To: <4790D1CD.80500@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Claudio Lanconelli wrote:
-> This patch add support for Microchip enc28j60 10Mbps Ethernet chip used 
-> in embedded systems
-> due to its cheap SPI interface.
-> This 2nd version include changes from previous comments by Jeff and 
-> Stephen,
-> all but NAPI, see comments below at this regard.
+Robert Stonehouse wrote:
+> This is a resubmission of a new driver for Solarflare network controllers.
 > 
-> I resend the patch because I didn't receive any feedback.
+> The driver supports several types of PHY (10Gbase-T, XFP, CX4) on six
+> different 10G and 1G boards. There is a driver for the network controller
+> and an MTD driver that allows access to the flash/EEPROM.
 > 
-> Changes to 1st version:
-> - use mutex instead of semaphore
-> - add carrier detect handling
-> - add ethtool support
-> - set_multicast_list when the interface is up using a workqueue
-> - add restart_work to reset the chip in case of tx_timeout
-> - removed kmalloc() for spi_transfer_buf (array defined in the priv struct)
+> NICs based on this controller are now available from SMC as part numbers
+> SMC10GPCIe-XFP and SMC10GPCIe-10BT.
 > 
-> Jeff Garzik wrote:
->>
->> comments:
->>
->> * Why do interrupt work in a kernel thread?  Your comment says you 
->> cannot, but does not explain.
-> The enc28j60 is a SPI to Ethernet adapter, so we cannot access register 
-> with simple in() out() instructions, but we need to use the SPI 
-> subsystem. The spi_sync() basic operation to read/write a register is a 
-> blocking operation, so can't be done in interrupt context.
-> Since every basic operation like read interrupt flag register call 
-> spi_sync() we need the work queue for almost everything.
+> FYI the previous thread was:
+>   http://marc.info/?l=linux-netdev&m=119999015817920&w=2
 > 
->>
->> * should use NAPI
->>
-> For the reason I just explained I don't think NAPI is a viable way for 
-> enc28j60.
-> Furthermore enc28j60 is a 10Mb only device and probably don't suffer to 
-> interrupt overload.
+> In previous postings we were asked to have the MTD part of this patch
+> reviewed and we have responded to the comments received so far:
+>   http://lists.infradead.org/pipermail/linux-mtd/2008-January/020355.html
 > 
-> I'm waiting for any comments, please.
+> Things that have changed since the last patch:
+>  - Removed residual support for more than one port per controller.
+>  - Moved LED control from PHY operations to board operations.
+>  - Added support for controlling LRO through ethtool {get,set}_flags().
+>  - Removed obsolete workaround for reservation of MSI-X tables by PCI core.
+>  - Improved reliability of PHY loopback setting.
+>  - Improved reliability of I2C operations.
+>  - Fixed on-load self-test when using RSS.
+>  - Simplified MTD driver following review on linux-mtd list.
+>  - Removed some redundant information from struct efx_nic.
+>  - hardware monitoring (for PHY link polling) is now a workqueue item
+> rather than using a timer
+>  - mac_lock becomes a mutex to support the previous item.
+> 
+> We would welcome more review of this code and would like to know if there
+> are any objections to this being merged for 2.6.25.
+> 
+> 
+> The patch (against net-2.6.25) is at:
+>   https://support.solarflare.com/netdev/5/net-2.6.25-sfc-2.2.0045.patch
+> 
+> The new files may also be downloaded as a tarball:
+>   https://support.solarflare.com/netdev/5/net-2.6.25-sfc-2.2.0045.tgz
+> 
+> And for verification there is:
+>   https://support.solarflare.com/netdev/5/MD5SUMS
 
-applied
+Please email to me in patch format...
 
 
