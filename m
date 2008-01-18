@@ -1,32 +1,70 @@
-From: Dale Farnsworth <dale@farnsworth.org>
-Subject: Re: [PATCH] add modalias info to mv643xx_eth.ko
-Date: Fri, 18 Jan 2008 09:31:21 -0700
-Message-ID: <20080118163121.GA7720@farnsworth.org>
-References: <20080118093805.GA28004@aepfle.de>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH] [IPV6] ROUTE: Make sending algorithm more friendly with
+ RFC 4861.
+Date: Sat, 19 Jan 2008 02:00:30 +0900 (JST)
+Message-ID: <20080119.020030.44981470.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: Olaf Hering <olaf@aepfle.de>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <20080118093805.GA28004@aepfle.de>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, mitch@linux.vnet.ibm.com,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:37141 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757777AbYARRAT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2008 12:00:19 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 18, 2008 at 10:38:05AM +0100, Olaf Hering wrote:
-> mv643xx_eth has an platform modalias file in sysfs.
-> But the module itself has no alias: line. Autoloading fails
-> without the alias info in the module.
-> 
-> Signed-off-by: Olaf Hering <olaf@aepfle.de>
+We omit (or delay) sending NSes for known-to-unreachable routers
+(in NUD_FAILED state) according to RFC 4191 (Default Router Preferences
+and More-Specific Routes).
+But this is not fully compatible with RFC 4861 (Neighbor Discovery Protocol
+for IPv6), which does not remember unreachability of neighbors.
 
-Acked-by: Dale Farnsworth <dale@farnsworth.org>
+So, let's avoid mixing sending algorithm of RFC 4191 and that of RFC 4861,
+and make the algorithm more friendly with RFC 4861 if RFC 4191 is disabled.
+
+Issue was found by IPv6 Ready Logo Core Self_Test 1.5.0b2 (by TAHI Project),
+and has been tracked down by Mitsuru Chinen <mitch@linux.vnet.ibm.com>.
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+--
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 6ecb5e6..20083e0 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -329,7 +329,7 @@ static inline int rt6_check_dev(struct rt6_info *rt, int oif)
+ static inline int rt6_check_neigh(struct rt6_info *rt)
+ {
+ 	struct neighbour *neigh = rt->rt6i_nexthop;
+-	int m = 0;
++	int m;
+ 	if (rt->rt6i_flags & RTF_NONEXTHOP ||
+ 	    !(rt->rt6i_flags & RTF_GATEWAY))
+ 		m = 1;
+@@ -337,10 +337,15 @@ static inline int rt6_check_neigh(struct rt6_info *rt)
+ 		read_lock_bh(&neigh->lock);
+ 		if (neigh->nud_state & NUD_VALID)
+ 			m = 2;
+-		else if (!(neigh->nud_state & NUD_FAILED))
++#ifdef CONFIG_IPV6_ROUTER_PREF
++		else if (neigh->nud_state & NUD_FAILED)
++			m = 0;
++#endif
++		else
+ 			m = 1;
+ 		read_unlock_bh(&neigh->lock);
+-	}
++	} else
++		m = 0;
+ 	return m;
+ }
+ 
+
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
