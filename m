@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV4] FIB_HASH: Reduce memory needs and speedup lookups
-Date: Fri, 18 Jan 2008 03:33:52 -0800 (PST)
-Message-ID: <20080118.033352.93412715.davem@davemloft.net>
-References: <478DAB10.7030901@cosmosbay.com>
+Subject: Re: [PATCH 1/2] [IPV4] fib_hash: fix duplicated route issue
+Date: Fri, 18 Jan 2008 03:44:57 -0800 (PST)
+Message-ID: <20080118.034457.47103774.davem@davemloft.net>
+References: <12004820052610-git-send-email-joonwpark81@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: netdev@vger.kernel.org, stephen.hemminger@vyatta.com, green@msu.ru
+To: joonwpark81@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44964
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55403
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754200AbYARLdv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2008 06:33:51 -0500
-In-Reply-To: <478DAB10.7030901@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1752946AbYARLoz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2008 06:44:55 -0500
+In-Reply-To: <12004820052610-git-send-email-joonwpark81@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 16 Jan 2008 07:58:24 +0100
+From: Joonwoo Park <joonwpark81@gmail.com>
+Date: Wed, 16 Jan 2008 20:13:25 +0900
 
-> [IPV4] FIB_HASH: Reduce memory needs and speedup lookups
- ...
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> http://bugzilla.kernel.org/show_bug.cgi?id=9493
+> 
+> The fib allows making identical routes with 'ip route replace'.
+> This patch makes the fib return -EEXIST if replacement would cause duplication.
+> 
+> Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
 
-Applied to net-2.6.25, thanks Eric.
+Applied.
