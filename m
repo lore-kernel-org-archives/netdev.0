@@ -1,19 +1,34 @@
-From: <development@neksus.com>
-Subject: Your Friend and Lover
-Date: Fri, 18 Jan 2008 09:18:02 -0600
-Message-ID: <4790C32A.6010308@enertexmarketing.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPv4: Enable use of 240/4 address space
+Date: Sun, 20 Jan 2008 00:30:19 +0900 (JST)
+Message-ID: <20080120.003019.119068925.yoshfuji@linux-ipv6.org>
+References: <Pine.LNX.4.64.0801180242270.14025@fbirervta.pbzchgretzou.qr>
+	<20080118.111319.30002290.yoshfuji@linux-ipv6.org>
+	<Pine.LNX.4.64.0801191443410.27831@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dial-148-240-236-30.zone-1.dial.net.mx ([148.240.236.30]:4442
-	"HELO dial-148-240-236-30.zone-1.dial.net.mx"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1758822AbYASPRm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Jan 2008 10:17:42 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, ak@suse.de,
+	vaf@cisco.com, yoshfuji@linux-ipv6.org
+To: jengelh@computergmbh.de, davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932116AbYASPac@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0801191443410.27831@fbirervta.pbzchgretzou.qr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sending You My Love http://89.39.115.149/
+In article <Pine.LNX.4.64.0801191443410.27831@fbirervta.pbzchgretzou.qr> (at Sat, 19 Jan 2008 14:44:13 +0100 (CET)), Jan Engelhardt <jengelh@computergmbh.de> says:
 
+> From 84bccef295aa9754ee662191e32ba1d64edce2ba Mon Sep 17 00:00:00 2001
+> From: Jan Engelhardt <jengelh@computergmbh.de>
+> Date: Fri, 18 Jan 2008 02:10:44 +0100
+> Subject: [PATCH] IPv4: enable use of 240/4 address space
+> 
+> This short patch modifies the IPv4 networking to enable use of the
+> 240.0.0.0/4 (aka "class-E") address space as propsed in the internet
+> draft draft-fuller-240space-00.txt.
+> 
+> Signed-off-by: Jan Engelhardt <jengelh@computergmbh.de>
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+--yoshfuji
