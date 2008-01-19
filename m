@@ -1,54 +1,83 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH] mv643xx: fix byte order when checksum offload is enabled
-Date: Sat, 19 Jan 2008 20:09:01 +0000
-Message-ID: <20080119200900.GE27894@ZenIV.linux.org.uk>
+From: Dale Farnsworth <dale@farnsworth.org>
+Subject: [PATCH] mv643xx_eth: fix byte order when checksum offload is
+	enabled
+Date: Sat, 19 Jan 2008 13:23:01 -0700
+Message-ID: <20080119202301.GA26826@farnsworth.org>
 References: <1200770858-11456-1-git-send-email-byron.bbradley@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, hvr@gnu.org, akpm@linux-foundation.org,
-	Dale Farnsworth <dale@farnsworth.org>,
 	Manish Lachwani <mlachwani@mvista.com>,
-	Tzachi Perelstein <tzachi@marvell.com>
-To: Byron Bradley <byron.bbradley@gmail.com>
+	Tzachi Perelstein <tzachi@marvell.com>,
+	Byron Bradley <byron.bbradley@gmail.com>
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:44234 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751658AbYASUJF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2008 15:09:05 -0500
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:55216 "EHLO
+	xyzzy.farnsworth.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751270AbYASUXS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2008 15:23:18 -0500
 Content-Disposition: inline
 In-Reply-To: <1200770858-11456-1-git-send-email-byron.bbradley@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 19, 2008 at 07:27:38PM +0000, Byron Bradley wrote:
->  		case IPPROTO_UDP:
->  			cmd_sts |= ETH_UDP_FRAME;
-> -			desc->l4i_chk = udp_hdr(skb)->check;
-> +			desc->l4i_chk = htons(udp_hdr(skb)->check);
->  			break;
->  		case IPPROTO_TCP:
-> -			desc->l4i_chk = tcp_hdr(skb)->check;
-> +			desc->l4i_chk = htons(tcp_hdr(skb)->check);
->  			break;
+From: Byron Bradley <byron.bbradley@gmail.com>
 
-The first part was OK, but this one...  AFAICS, the sucker byteswaps
-64bit words in descriptors wholesale, right?  Then the right way to spell
-that would be ntohs((__force __be16)....->check).
+The Marvell Orion system on chips have an integrated mv643xx MAC.
+On these little endian ARM devices mv643xx will oops when checksum
+offload is enabled. Swapping the byte order of the protocol and
+checksum solves this problem.
 
-What's happening here is that we take a fixed-endian (checksum) and then
-correct for conversion done in hardware - i.e. we store it in something
-that expects a _host_-endian value and would convert that to fixed-endian.
-So we need to counter that correction and that's where the damn thing is
-coming from.
+Signed-off-by: Byron Bradley <byron.bbradley@gmail.com>
+Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
+Cc: Manish Lachwani <mlachwani@mvista.com>
+Cc: Tzachi Perelstein <tzachi@marvell.com>
 
-It's not particulary rare - drivers that do hardware byteswap tend to need
-it.  For now I'd suggest explicit form (with force-cast from __csum to
-__be16 and ntohs() on top of it); if anybody has good ideas for helper
-names, though...  csum_as_le() and csum_as_be(), perhaps?  Interpret
-__csum (fixed-endian) and another fixed-endian type, with proper checks;
-i.e. something along the lines of
-static inline __be16 csum_as_be(__csum sum)
-{
-	return (__force __be16)sum;
-}
-and this stuff becoming ntohs(csum_as_be(udp_hdr(skb)->check)), etc.
+---
+
+Byron Bradley wrote:
+> This patch has only been tested on two Marvell Orion based boards so it
+> should be considered only very lightly tested. It applies against
+> 2.6.24-rc8-mm1.
+
+Dale Farnsworth:
+Looks good to me and I successfully booted it on a big-endian prpmc2800 board.
+
+Jeff, please pick this up.  My mv643xx queue is otherwise empty.
+
+Thanks,
+-Dale
+
+ drivers/net/mv643xx_eth.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index 651c269..5d16a5d 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -1689,7 +1689,7 @@ static void eth_tx_submit_descs_for_skb(struct mv643xx_private *mp,
+ 	desc->buf_ptr = dma_map_single(NULL, skb->data, length, DMA_TO_DEVICE);
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		BUG_ON(skb->protocol != ETH_P_IP);
++		BUG_ON(skb->protocol != htons(ETH_P_IP));
+ 
+ 		cmd_sts |= ETH_GEN_TCP_UDP_CHECKSUM |
+ 			   ETH_GEN_IP_V_4_CHECKSUM  |
+@@ -1698,10 +1698,10 @@ static void eth_tx_submit_descs_for_skb(struct mv643xx_private *mp,
+ 		switch (ip_hdr(skb)->protocol) {
+ 		case IPPROTO_UDP:
+ 			cmd_sts |= ETH_UDP_FRAME;
+-			desc->l4i_chk = udp_hdr(skb)->check;
++			desc->l4i_chk = htons(udp_hdr(skb)->check);
+ 			break;
+ 		case IPPROTO_TCP:
+-			desc->l4i_chk = tcp_hdr(skb)->check;
++			desc->l4i_chk = htons(tcp_hdr(skb)->check);
+ 			break;
+ 		default:
+ 			BUG();
+-- 
+1.5.4.rc2.38.gd6da3
+
+
