@@ -1,34 +1,48 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv4: Enable use of 240/4 address space
-Date: Sun, 20 Jan 2008 00:30:19 +0900 (JST)
-Message-ID: <20080120.003019.119068925.yoshfuji@linux-ipv6.org>
-References: <Pine.LNX.4.64.0801180242270.14025@fbirervta.pbzchgretzou.qr>
-	<20080118.111319.30002290.yoshfuji@linux-ipv6.org>
-	<Pine.LNX.4.64.0801191443410.27831@fbirervta.pbzchgretzou.qr>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Bugme-new] [Bug 9773] New: pptp/ppp connection die at high
+  speed on Athlon X2 6000+
+Date: Sat, 19 Jan 2008 19:26:06 +0100
+Message-ID: <479240BE.5010105@gmail.com>
+References: <bug-9773-10286@http.bugzilla.kernel.org/> <20080117234809.fc3f6cca.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, ak@suse.de,
-	vaf@cisco.com, yoshfuji@linux-ipv6.org
-To: jengelh@computergmbh.de, davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932116AbYASPac@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0801191443410.27831@fbirervta.pbzchgretzou.qr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	Paul Mackerras <paulus@samba.org>, wizard580@gmail.com
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.184]:38638 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750978AbYASSWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2008 13:22:46 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so140120nfb.21
+        for <netdev@vger.kernel.org>; Sat, 19 Jan 2008 10:22:44 -0800 (PST)
+In-Reply-To: <20080117234809.fc3f6cca.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In article <Pine.LNX.4.64.0801191443410.27831@fbirervta.pbzchgretzou.qr> (at Sat, 19 Jan 2008 14:44:13 +0100 (CET)), Jan Engelhardt <jengelh@computergmbh.de> says:
+Andrew Morton wrote, On 01/18/2008 08:48 AM:
 
-> From 84bccef295aa9754ee662191e32ba1d64edce2ba Mon Sep 17 00:00:00 2001
-> From: Jan Engelhardt <jengelh@computergmbh.de>
-> Date: Fri, 18 Jan 2008 02:10:44 +0100
-> Subject: [PATCH] IPv4: enable use of 240/4 address space
+> On Thu, 17 Jan 2008 23:33:54 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
 > 
-> This short patch modifies the IPv4 networking to enable use of the
-> 240.0.0.0/4 (aka "class-E") address space as propsed in the internet
-> draft draft-fuller-240space-00.txt.
-> 
-> Signed-off-by: Jan Engelhardt <jengelh@computergmbh.de>
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>> http://bugzilla.kernel.org/show_bug.cgi?id=9773
+>>
+>>            Summary: pptp/ppp connection die at high speed on Athlon X2 6000+
+>>            Product: Networking
+>>            Version: 2.5
+>>      KernelVersion: 2.6.23.12
 
---yoshfuji
+
+...
+
+>> kernel 2.6.24rc8 makes it worst. As I see it just hangs my console with message
+>> something like "waiting for ppp0 finish" or so... I don't remember exactly
+>> message.
+
+Could you please:
+
+- check this after echo 1 > /proc/sys/kernel/sched_compat_yield
+- check this with 2.6.22
+
+Regards,
+Jarek P.
