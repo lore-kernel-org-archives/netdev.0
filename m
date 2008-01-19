@@ -1,86 +1,2511 @@
 From: samuel@sortiz.org
-Subject: [PATCH 2/4] [IrDA] Frame length validation
-Date: Sat, 19 Jan 2008 01:02:07 +0100
-Message-ID: <20080119000555.384367284@sortiz.org>
+Subject: [PATCH 4/4] [IrDA] Irport removal - part 2
+Date: Sat, 19 Jan 2008 01:02:09 +0100
+Message-ID: <20080119000555.818865281@sortiz.org>
 References: <20080119000205.827714764@sortiz.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
-	Robie Basak <rb-oss-1@justgohome.co.uk>
+	Adrian Bunk <bunk@kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp21.orange.fr ([80.12.242.48]:23493 "EHLO smtp21.orange.fr"
+Received: from smtp2b.orange.fr ([80.12.242.146]:31934 "EHLO smtp2b.orange.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760477AbYARQDw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jan 2008 11:03:52 -0500
+	id S1759432AbYARQDu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jan 2008 11:03:50 -0500
 Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf2113.orange.fr (SMTP Server) with ESMTP id 9ED911C0009F
-	for <netdev@vger.kernel.org>; Fri, 18 Jan 2008 14:51:54 +0100 (CET)
-Content-Disposition: inline; filename=irda_input_validation.patch
+	by mwinf2b24.orange.fr (SMTP Server) with ESMTP id 785F370000A0
+	for <netdev@vger.kernel.org>; Fri, 18 Jan 2008 17:03:47 +0100 (CET)
+Content-Disposition: inline; filename=irport_removal_2.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robie Basak <rb-oss-1@justgohome.co.uk>
+=46rom: Adrian Bunk <bunk@kernel.org>
 
-When using a stir4200-based USB adaptor to talk to a device that uses an
-mcp2150, the stir4200 sometimes drops an incoming frame causing the
-mcp2150 to try and retransmit the lost frame. In this combination, the
-next frame received from the mcp2150 is often invalid - either an empty
-i:rsp or an IrCOMM i:rsp with an invalid clen. These corner cases are
-now checked.
-
-Signed-off-by: Robie Basak <rb-oss-1@justgohome.co.uk>
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
 Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 ---
- net/irda/ircomm/ircomm_core.c |   12 ++++++++++++
- net/irda/irlap_event.c        |   13 +++++++++++++
- 2 files changed, 25 insertions(+)
+ drivers/net/irda/act200l.c    |  297 ---------------------------------=
+--
+ drivers/net/irda/actisys.c    |  288 ---------------------------------=
+-
+ drivers/net/irda/ep7211_ir.c  |  125 --------------
+ drivers/net/irda/esi.c        |  149 -----------------
+ drivers/net/irda/girbil.c     |  250 -----------------------------
+ drivers/net/irda/litelink.c   |  179 ---------------------
+ drivers/net/irda/ma600.c      |  354 ---------------------------------=
+---------
+ drivers/net/irda/mcp2120.c    |  240 ----------------------------
+ drivers/net/irda/old_belkin.c |  164 -------------------
+ drivers/net/irda/tekram.c     |  282 ---------------------------------
+ 10 files changed, 2328 deletions(-)
 
-Index: net-2.6.25/net/irda/ircomm/ircomm_core.c
-===================================================================
---- net-2.6.25.orig/net/irda/ircomm/ircomm_core.c	2008-01-14 19:27:06.000000000 +0100
-+++ net-2.6.25/net/irda/ircomm/ircomm_core.c	2008-01-17 06:33:07.000000000 +0100
-@@ -362,6 +362,18 @@
- 
- 	clen = skb->data[0];
- 
-+ 	/*
-+	 * Input validation check: a stir4200/mcp2150 combinations sometimes
-+ 	 * results in frames with clen > remaining packet size. These are
-+ 	 * illegal; if we throw away just this frame then it seems to carry on
-+ 	 * fine
-+	 */
-+ 	if (unlikely(skb->len < (clen + 1))) {
-+ 		IRDA_DEBUG(2, "%s() throwing away illegal frame\n",
-+			   __FUNCTION__ );
-+ 		return;
-+ 	}
-+
- 	/*
- 	 * If there are any data hiding in the control channel, we must
- 	 * deliver it first. The side effect is that the control channel
-Index: net-2.6.25/net/irda/irlap_event.c
-===================================================================
---- net-2.6.25.orig/net/irda/irlap_event.c	2008-01-17 06:33:05.000000000 +0100
-+++ net-2.6.25/net/irda/irlap_event.c	2008-01-17 06:33:07.000000000 +0100
-@@ -1199,6 +1199,19 @@
- 
- 	switch (event) {
- 	case RECV_I_RSP: /* Optimize for the common case */
-+		if (unlikely(skb->len <= LAP_ADDR_HEADER + LAP_CTRL_HEADER)) {
-+			/*
-+			 * Input validation check: a stir4200/mcp2150
-+ 			 * combination sometimes results in an empty i:rsp.
-+ 			 * This makes no sense; we can just ignore the frame
-+ 			 * and send an rr:cmd immediately. This happens before
-+ 			 * changing nr or ns so triggers a retransmit
-+			 */
-+ 			irlap_wait_min_turn_around(self, &self->qos_tx);
-+ 			irlap_send_rr_frame(self, CMD_FRAME);
-+ 			/* Keep state */
-+ 			break;
-+ 		}
- 		/* FIXME: must check for remote_busy below */
- #ifdef CONFIG_IRDA_FAST_RR
- 		/*
+Index: net-2.6.25/drivers/net/irda/act200l.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- net-2.6.25.orig/drivers/net/irda/act200l.c	2008-01-18 09:34:17.0000=
+00000 +0100
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,297 +0,0 @@
+-/*********************************************************************
+- *
+- * Filename:      act200l.c
+- * Version:       0.8
+- * Description:   Implementation for the ACTiSYS ACT-IR200L dongle
+- * Status:        Experimental.
+- * Author:        SHIMIZU Takuya <tshimizu@ga2.so-net.ne.jp>
+- * Created at:    Fri Aug  3 17:35:42 2001
+- * Modified at:   Fri Aug 17 10:22:40 2001
+- * Modified by:   SHIMIZU Takuya <tshimizu@ga2.so-net.ne.jp>
+- *
+- *     Copyright (c) 2001 SHIMIZU Takuya, All Rights Reserved.
+- *
+- *     This program is free software; you can redistribute it and/or
+- *     modify it under the terms of the GNU General Public License as
+- *     published by the Free Software Foundation; either version 2 of
+- *     the License, or (at your option) any later version.
+- *
+- ********************************************************************/
+-
+-#include <linux/module.h>
+-#include <linux/delay.h>
+-#include <linux/tty.h>
+-#include <linux/init.h>
+-
+-#include <net/irda/irda.h>
+-#include <net/irda/irda_device.h>
+-
+-static int  act200l_reset(struct irda_task *task);
+-static void act200l_open(dongle_t *self, struct qos_info *qos);
+-static void act200l_close(dongle_t *self);
+-static int  act200l_change_speed(struct irda_task *task);
+-
+-/* Regsiter 0: Control register #1 */
+-#define ACT200L_REG0    0x00
+-#define ACT200L_TXEN    0x01 /* Enable transmitter */
+-#define ACT200L_RXEN    0x02 /* Enable receiver */
+-
+-/* Register 1: Control register #2 */
+-#define ACT200L_REG1    0x10
+-#define ACT200L_LODB    0x01 /* Load new baud rate count value */
+-#define ACT200L_WIDE    0x04 /* Expand the maximum allowable pulse */
+-
+-/* Register 4: Output Power register */
+-#define ACT200L_REG4    0x40
+-#define ACT200L_OP0     0x01 /* Enable LED1C output */
+-#define ACT200L_OP1     0x02 /* Enable LED2C output */
+-#define ACT200L_BLKR    0x04
+-
+-/* Register 5: Receive Mode register */
+-#define ACT200L_REG5    0x50
+-#define ACT200L_RWIDL   0x01 /* fixed 1.6us pulse mode */
+-
+-/* Register 6: Receive Sensitivity register #1 */
+-#define ACT200L_REG6    0x60
+-#define ACT200L_RS0     0x01 /* receive threshold bit 0 */
+-#define ACT200L_RS1     0x02 /* receive threshold bit 1 */
+-
+-/* Register 7: Receive Sensitivity register #2 */
+-#define ACT200L_REG7    0x70
+-#define ACT200L_ENPOS   0x04 /* Ignore the falling edge */
+-
+-/* Register 8,9: Baud Rate Dvider register #1,#2 */
+-#define ACT200L_REG8    0x80
+-#define ACT200L_REG9    0x90
+-
+-#define ACT200L_2400    0x5f
+-#define ACT200L_9600    0x17
+-#define ACT200L_19200   0x0b
+-#define ACT200L_38400   0x05
+-#define ACT200L_57600   0x03
+-#define ACT200L_115200  0x01
+-
+-/* Register 13: Control register #3 */
+-#define ACT200L_REG13   0xd0
+-#define ACT200L_SHDW    0x01 /* Enable access to shadow registers */
+-
+-/* Register 15: Status register */
+-#define ACT200L_REG15   0xf0
+-
+-/* Register 21: Control register #4 */
+-#define ACT200L_REG21   0x50
+-#define ACT200L_EXCK    0x02 /* Disable clock output driver */
+-#define ACT200L_OSCL    0x04 /* oscillator in low power, medium accura=
+cy mode */
+-
+-static struct dongle_reg dongle =3D {
+-	.type =3D IRDA_ACT200L_DONGLE,
+-	.open =3D act200l_open,
+-	.close =3D act200l_close,
+-	.reset =3D act200l_reset,
+-	.change_speed =3D act200l_change_speed,
+-	.owner =3D THIS_MODULE,
+-};
+-
+-static int __init act200l_init(void)
+-{
+-	return irda_device_register_dongle(&dongle);
+-}
+-
+-static void __exit act200l_cleanup(void)
+-{
+-	irda_device_unregister_dongle(&dongle);
+-}
+-
+-static void act200l_open(dongle_t *self, struct qos_info *qos)
+-{
+-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
+-
+-	/* Power on the dongle */
+-	self->set_dtr_rts(self->dev, TRUE, TRUE);
+-
+-	/* Set the speeds we can accept */
+-	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_38400|IR_57600|IR_115200=
+;
+-	qos->min_turn_time.bits =3D 0x03;
+-}
+-
+-static void act200l_close(dongle_t *self)
+-{
+-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
+-
+-	/* Power off the dongle */
+-	self->set_dtr_rts(self->dev, FALSE, FALSE);
+-}
+-
+-/*
+- * Function act200l_change_speed (dev, speed)
+- *
+- *    Set the speed for the ACTiSYS ACT-IR200L type dongle.
+- *
+- */
+-static int act200l_change_speed(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-	__u32 speed =3D (__u32) task->param;
+-	__u8 control[3];
+-	int ret =3D 0;
+-
+-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
+-
+-	self->speed_task =3D task;
+-
+-	switch (task->state) {
+-	case IRDA_TASK_INIT:
+-		if (irda_task_execute(self, act200l_reset, NULL, task,
+-				(void *) speed))
+-		{
+-			/* Dongle need more time to reset */
+-			irda_task_next_state(task, IRDA_TASK_CHILD_WAIT);
+-
+-			/* Give reset 1 sec to finish */
+-			ret =3D msecs_to_jiffies(1000);
+-		}
+-		break;
+-	case IRDA_TASK_CHILD_WAIT:
+-		IRDA_WARNING("%s(), resetting dongle timed out!\n",
+-			     __FUNCTION__);
+-		ret =3D -1;
+-		break;
+-	case IRDA_TASK_CHILD_DONE:
+-		/* Clear DTR and set RTS to enter command mode */
+-		self->set_dtr_rts(self->dev, FALSE, TRUE);
+-
+-		switch (speed) {
+-		case 9600:
+-		default:
+-			control[0] =3D ACT200L_REG8 |  (ACT200L_9600       & 0x0f);
+-			control[1] =3D ACT200L_REG9 | ((ACT200L_9600 >> 4) & 0x0f);
+-			break;
+-		case 19200:
+-			control[0] =3D ACT200L_REG8 |  (ACT200L_19200       & 0x0f);
+-			control[1] =3D ACT200L_REG9 | ((ACT200L_19200 >> 4) & 0x0f);
+-			break;
+-		case 38400:
+-			control[0] =3D ACT200L_REG8 |  (ACT200L_38400       & 0x0f);
+-			control[1] =3D ACT200L_REG9 | ((ACT200L_38400 >> 4) & 0x0f);
+-			break;
+-		case 57600:
+-			control[0] =3D ACT200L_REG8 |  (ACT200L_57600       & 0x0f);
+-			control[1] =3D ACT200L_REG9 | ((ACT200L_57600 >> 4) & 0x0f);
+-			break;
+-		case 115200:
+-			control[0] =3D ACT200L_REG8 |  (ACT200L_115200       & 0x0f);
+-			control[1] =3D ACT200L_REG9 | ((ACT200L_115200 >> 4) & 0x0f);
+-			break;
+-		}
+-		control[2] =3D ACT200L_REG1 | ACT200L_LODB | ACT200L_WIDE;
+-
+-		/* Write control bytes */
+-		self->write(self->dev, control, 3);
+-		irda_task_next_state(task, IRDA_TASK_WAIT);
+-		ret =3D msecs_to_jiffies(5);
+-		break;
+-	case IRDA_TASK_WAIT:
+-		/* Go back to normal mode */
+-		self->set_dtr_rts(self->dev, TRUE, TRUE);
+-
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->speed_task =3D NULL;
+-		break;
+-	default:
+-		IRDA_ERROR("%s(), unknown state %d\n",
+-			   __FUNCTION__, task->state);
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->speed_task =3D NULL;
+-		ret =3D -1;
+-		break;
+-	}
+-	return ret;
+-}
+-
+-/*
+- * Function act200l_reset (driver)
+- *
+- *    Reset the ACTiSYS ACT-IR200L type dongle.
+- */
+-static int act200l_reset(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-	__u8 control[9] =3D {
+-		ACT200L_REG15,
+-		ACT200L_REG13 | ACT200L_SHDW,
+-		ACT200L_REG21 | ACT200L_EXCK | ACT200L_OSCL,
+-		ACT200L_REG13,
+-		ACT200L_REG7  | ACT200L_ENPOS,
+-		ACT200L_REG6  | ACT200L_RS0  | ACT200L_RS1,
+-		ACT200L_REG5  | ACT200L_RWIDL,
+-		ACT200L_REG4  | ACT200L_OP0  | ACT200L_OP1 | ACT200L_BLKR,
+-		ACT200L_REG0  | ACT200L_TXEN | ACT200L_RXEN
+-	};
+-	int ret =3D 0;
+-
+-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
+-
+-	self->reset_task =3D task;
+-
+-	switch (task->state) {
+-	case IRDA_TASK_INIT:
+-		/* Power on the dongle */
+-		self->set_dtr_rts(self->dev, TRUE, TRUE);
+-
+-		irda_task_next_state(task, IRDA_TASK_WAIT1);
+-		ret =3D msecs_to_jiffies(50);
+-		break;
+-	case IRDA_TASK_WAIT1:
+-		/* Reset the dongle : set RTS low for 25 ms */
+-		self->set_dtr_rts(self->dev, TRUE, FALSE);
+-
+-		irda_task_next_state(task, IRDA_TASK_WAIT2);
+-		ret =3D msecs_to_jiffies(50);
+-		break;
+-	case IRDA_TASK_WAIT2:
+-		/* Clear DTR and set RTS to enter command mode */
+-		self->set_dtr_rts(self->dev, FALSE, TRUE);
+-
+-		/* Write control bytes */
+-		self->write(self->dev, control, 9);
+-		irda_task_next_state(task, IRDA_TASK_WAIT3);
+-		ret =3D msecs_to_jiffies(15);
+-		break;
+-	case IRDA_TASK_WAIT3:
+-		/* Go back to normal mode */
+-		self->set_dtr_rts(self->dev, TRUE, TRUE);
+-
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->reset_task =3D NULL;
+-		break;
+-	default:
+-		IRDA_ERROR("%s(), unknown state %d\n",
+-			   __FUNCTION__, task->state);
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->reset_task =3D NULL;
+-		ret =3D -1;
+-		break;
+-	}
+-	return ret;
+-}
+-
+-MODULE_AUTHOR("SHIMIZU Takuya <tshimizu@ga2.so-net.ne.jp>");
+-MODULE_DESCRIPTION("ACTiSYS ACT-IR200L dongle driver");
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS("irda-dongle-10"); /* IRDA_ACT200L_DONGLE */
+-
+-/*
+- * Function init_module (void)
+- *
+- *    Initialize ACTiSYS ACT-IR200L module
+- *
+- */
+-module_init(act200l_init);
+-
+-/*
+- * Function cleanup_module (void)
+- *
+- *    Cleanup ACTiSYS ACT-IR200L module
+- *
+- */
+-module_exit(act200l_cleanup);
+Index: net-2.6.25/drivers/net/irda/actisys.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- net-2.6.25.orig/drivers/net/irda/actisys.c	2008-01-18 09:34:17.0000=
+00000 +0100
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,288 +0,0 @@
+-/*********************************************************************
+- *               =20
+- * Filename:      actisys.c
+- * Version:       1.0
+- * Description:   Implementation for the ACTiSYS IR-220L and IR-220L+=20
+- *                dongles
+- * Status:        Beta.
+- * Authors:       Dag Brattli <dagb@cs.uit.no> (initially)
+- *		  Jean Tourrilhes <jt@hpl.hp.com> (new version)
+- * Created at:    Wed Oct 21 20:02:35 1998
+- * Modified at:   Fri Dec 17 09:10:43 1999
+- * Modified by:   Dag Brattli <dagb@cs.uit.no>
+- *=20
+- *     Copyright (c) 1998-1999 Dag Brattli, All Rights Reserved.
+- *     Copyright (c) 1999 Jean Tourrilhes
+- *     =20
+- *     This program is free software; you can redistribute it and/or=20
+- *     modify it under the terms of the GNU General Public License as=20
+- *     published by the Free Software Foundation; either version 2 of=20
+- *     the License, or (at your option) any later version.
+- * =20
+- *     Neither Dag Brattli nor University of Troms=C3=B8 admit liabili=
+ty nor
+- *     provide warranty for any of this software. This material is=20
+- *     provided "AS-IS" and at no charge.
+- *    =20
+- ********************************************************************/
+-
+-/*
+- * Changelog
+- *
+- * 0.8 -> 0.9999 - Jean
+- *	o New initialisation procedure : much safer and correct
+- *	o New procedure the change speed : much faster and simpler
+- *	o Other cleanups & comments
+- *	Thanks to Lichen Wang @ Actisys for his excellent help...
+- */
+-
+-#include <linux/module.h>
+-#include <linux/delay.h>
+-#include <linux/tty.h>
+-#include <linux/init.h>
+-
+-#include <net/irda/irda.h>
+-#include <net/irda/irda_device.h>
+-
+-/*=20
+- * Define the timing of the pulses we send to the dongle (to reset it,=
+ and
+- * to toggle speeds). Basically, the limit here is the propagation spe=
+ed of
+- * the signals through the serial port, the dongle being much faster. =
+ Any
+- * serial port support 115 kb/s, so we are sure that pulses 8.5 us wid=
+e can
+- * go through cleanly . If you are on the wild side, you can try to lo=
+wer
+- * this value (Actisys recommended me 2 us, and 0 us work for me on a =
+P233!)
+- */
+-#define MIN_DELAY 10	/* 10 us to be on the conservative side */
+-
+-static int  actisys_change_speed(struct irda_task *task);
+-static int  actisys_reset(struct irda_task *task);
+-static void actisys_open(dongle_t *self, struct qos_info *qos);
+-static void actisys_close(dongle_t *self);
+-
+-/* These are the baudrates supported, in the order available */
+-/* Note : the 220L doesn't support 38400, but we will fix that below *=
+/
+-static __u32 baud_rates[] =3D { 9600, 19200, 57600, 115200, 38400 };
+-#define MAX_SPEEDS 5
+-
+-static struct dongle_reg dongle =3D {
+-	.type =3D IRDA_ACTISYS_DONGLE,
+-	.open =3D actisys_open,
+-	.close =3D actisys_close,
+-	.reset =3D actisys_reset,
+-	.change_speed =3D actisys_change_speed,
+-	.owner =3D THIS_MODULE,
+-};
+-
+-static struct dongle_reg dongle_plus =3D {
+-	.type =3D IRDA_ACTISYS_PLUS_DONGLE,
+-	.open =3D actisys_open,
+-	.close =3D actisys_close,
+-	.reset =3D actisys_reset,
+-	.change_speed =3D actisys_change_speed,
+-	.owner =3D THIS_MODULE,
+-};
+-
+-/*
+- * Function actisys_change_speed (task)
+- *
+- *	There is two model of Actisys dongle we are dealing with,
+- * the 220L and 220L+. At this point, only irattach knows with
+- * kind the user has requested (it was an argument on irattach
+- * command line).
+- *	So, we register a dongle of each sort and let irattach
+- * pick the right one...
+- */
+-static int __init actisys_init(void)
+-{
+-	int ret;
+-
+-	/* First, register an Actisys 220L dongle */
+-	ret =3D irda_device_register_dongle(&dongle);
+-	if (ret < 0)
+-		return ret;
+-	/* Now, register an Actisys 220L+ dongle */
+-	ret =3D irda_device_register_dongle(&dongle_plus);
+-	if (ret < 0) {
+-		irda_device_unregister_dongle(&dongle);
+-		return ret;
+-	}=09
+-	return 0;
+-}
+-
+-static void __exit actisys_cleanup(void)
+-{
+-	/* We have to remove both dongles */
+-	irda_device_unregister_dongle(&dongle);
+-	irda_device_unregister_dongle(&dongle_plus);
+-}
+-
+-static void actisys_open(dongle_t *self, struct qos_info *qos)
+-{
+-	/* Power on the dongle */
+-	self->set_dtr_rts(self->dev, TRUE, TRUE);
+-
+-	/* Set the speeds we can accept */
+-	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_38400|IR_57600|IR_115200=
+;
+-
+-	/* Remove support for 38400 if this is not a 220L+ dongle */
+-	if (self->issue->type =3D=3D IRDA_ACTISYS_DONGLE)
+-		qos->baud_rate.bits &=3D ~IR_38400;
+-=09
+-	qos->min_turn_time.bits =3D 0x7f; /* Needs 0.01 ms */
+-}
+-
+-static void actisys_close(dongle_t *self)
+-{
+-	/* Power off the dongle */
+-	self->set_dtr_rts(self->dev, FALSE, FALSE);
+-}
+-
+-/*
+- * Function actisys_change_speed (task)
+- *
+- *    Change speed of the ACTiSYS IR-220L and IR-220L+ type IrDA dongl=
+es.
+- *    To cycle through the available baud rates, pulse RTS low for a f=
+ew us.
+- *
+- *	First, we reset the dongle to always start from a known state.
+- *	Then, we cycle through the speeds by pulsing RTS low and then up.
+- *	The dongle allow us to pulse quite fast, se we can set speed in one=
+ go,
+- * which is must faster ( < 100 us) and less complex than what is foun=
+d
+- * in some other dongle drivers...
+- *	Note that even if the new speed is the same as the current speed,
+- * we reassert the speed. This make sure that things are all right,
+- * and it's fast anyway...
+- *	By the way, this function will work for both type of dongles,
+- * because the additional speed is at the end of the sequence...
+- */
+-static int actisys_change_speed(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-	__u32 speed =3D (__u32) task->param;	/* Target speed */
+-	int ret =3D 0;
+-	int i =3D 0;
+-
+-        IRDA_DEBUG(4, "%s(), speed=3D%d (was %d)\n", __FUNCTION__, spe=
+ed,=20
+-		   self->speed);
+-
+-	/* Go to a known state by reseting the dongle */
+-
+-	/* Reset the dongle : set DTR low for 10 us */
+-	self->set_dtr_rts(self->dev, FALSE, TRUE);
+-	udelay(MIN_DELAY);
+-
+-	/* Go back to normal mode (we are now at 9600 b/s) */
+-	self->set_dtr_rts(self->dev, TRUE, TRUE);
+-=20
+-	/*=20
+-	 * Now, we can set the speed requested. Send RTS pulses until we
+-         * reach the target speed=20
+-	 */
+-	for (i=3D0; i<MAX_SPEEDS; i++) {
+-		if (speed =3D=3D baud_rates[i]) {
+-			self->speed =3D baud_rates[i];
+-			break;
+-		}
+-		/* Make sure previous pulse is finished */
+-		udelay(MIN_DELAY);
+-
+-		/* Set RTS low for 10 us */
+-		self->set_dtr_rts(self->dev, TRUE, FALSE);
+-		udelay(MIN_DELAY);
+-
+-		/* Set RTS high for 10 us */
+-		self->set_dtr_rts(self->dev, TRUE, TRUE);
+-	}
+-
+-	/* Check if life is sweet... */
+-	if (i >=3D MAX_SPEEDS)
+-		ret =3D -1;  /* This should not happen */
+-
+-	/* Basta lavoro, on se casse d'ici... */
+-	irda_task_next_state(task, IRDA_TASK_DONE);
+-
+-	return ret;
+-}
+-
+-/*
+- * Function actisys_reset (task)
+- *
+- *      Reset the Actisys type dongle. Warning, this function must onl=
+y be
+- *      called with a process context!
+- *
+- * We need to do two things in this function :
+- *	o first make sure that the dongle is in a state where it can operat=
+e
+- *	o second put the dongle in a know state
+- *
+- *	The dongle is powered of the RTS and DTR lines. In the dongle, ther=
+e
+- * is a big capacitor to accommodate the current spikes. This capacito=
+r
+- * takes a least 50 ms to be charged. In theory, the Bios set those li=
+nes
+- * up, so by the time we arrive here we should be set. It doesn't hurt
+- * to be on the conservative side, so we will wait...
+- *	Then, we set the speed to 9600 b/s to get in a known state (see in
+- * change_speed for details). It is needed because the IrDA stack
+- * has tried to set the speed immediately after our first return,
+- * so before we can be sure the dongle is up and running.
+- */
+-static int actisys_reset(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-	int ret =3D 0;
+-
+-	IRDA_ASSERT(task !=3D NULL, return -1;);
+-
+-	self->reset_task =3D task;
+-
+-	switch (task->state) {
+-	case IRDA_TASK_INIT:
+-		/* Set both DTR & RTS to power up the dongle */
+-		/* In theory redundant with power up in actisys_open() */
+-		self->set_dtr_rts(self->dev, TRUE, TRUE);
+-	=09
+-		/* Sleep 50 ms to make sure capacitor is charged */
+-		ret =3D msecs_to_jiffies(50);
+-		irda_task_next_state(task, IRDA_TASK_WAIT);
+-		break;
+-	case IRDA_TASK_WAIT:		=09
+-		/* Reset the dongle : set DTR low for 10 us */
+-		self->set_dtr_rts(self->dev, FALSE, TRUE);
+-		udelay(MIN_DELAY);
+-
+-		/* Go back to normal mode */
+-		self->set_dtr_rts(self->dev, TRUE, TRUE);
+-=09
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->reset_task =3D NULL;
+-		self->speed =3D 9600;	/* That's the default */
+-		break;
+-	default:
+-		IRDA_ERROR("%s(), unknown state %d\n",
+-			   __FUNCTION__, task->state);
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->reset_task =3D NULL;
+-		ret =3D -1;
+-		break;
+-	}
+-	return ret;
+-}
+-
+-MODULE_AUTHOR("Dag Brattli <dagb@cs.uit.no> - Jean Tourrilhes <jt@hpl.=
+hp.com>");
+-MODULE_DESCRIPTION("ACTiSYS IR-220L and IR-220L+ dongle driver");=09
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS("irda-dongle-2"); /* IRDA_ACTISYS_DONGLE */
+-MODULE_ALIAS("irda-dongle-3"); /* IRDA_ACTISYS_PLUS_DONGLE */
+-
+-	=09
+-/*
+- * Function init_module (void)
+- *
+- *    Initialize Actisys module
+- *
+- */
+-module_init(actisys_init);
+-
+-/*
+- * Function cleanup_module (void)
+- *
+- *    Cleanup Actisys module
+- *
+- */
+-module_exit(actisys_cleanup);
+Index: net-2.6.25/drivers/net/irda/ep7211_ir.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- net-2.6.25.orig/drivers/net/irda/ep7211_ir.c	2008-01-18 09:34:17.00=
+0000000 +0100
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,125 +0,0 @@
+-/*
+- * IR port driver for the Cirrus Logic EP7211 processor.
+- *
+- * Copyright 2001, Blue Mug Inc.  All rights reserved.
+- */
+-
+-#include <linux/module.h>
+-#include <linux/delay.h>
+-#include <linux/tty.h>
+-#include <linux/init.h>
+-#include <linux/spinlock.h>
+-
+-#include <net/irda/irda.h>
+-#include <net/irda/irda_device.h>
+-
+-#include <asm/io.h>
+-#include <asm/hardware.h>
+-
+-#define MIN_DELAY 25      /* 15 us, but wait a little more to be sure =
+*/
+-#define MAX_DELAY 10000   /* 1 ms */
+-
+-static void ep7211_ir_open(dongle_t *self, struct qos_info *qos);
+-static void ep7211_ir_close(dongle_t *self);
+-static int  ep7211_ir_change_speed(struct irda_task *task);
+-static int  ep7211_ir_reset(struct irda_task *task);
+-
+-static DEFINE_SPINLOCK(ep7211_lock);
+-
+-static struct dongle_reg dongle =3D {
+-	.type =3D IRDA_EP7211_IR,
+-	.open =3D ep7211_ir_open,
+-	.close =3D ep7211_ir_close,
+-	.reset =3D ep7211_ir_reset,
+-	.change_speed =3D ep7211_ir_change_speed,
+-	.owner =3D THIS_MODULE,
+-};
+-
+-static void ep7211_ir_open(dongle_t *self, struct qos_info *qos)
+-{
+-	unsigned int syscon1, flags;
+-
+-	spin_lock_irqsave(&ep7211_lock, flags);
+-
+-	/* Turn on the SIR encoder. */
+-	syscon1 =3D clps_readl(SYSCON1);
+-	syscon1 |=3D SYSCON1_SIREN;
+-	clps_writel(syscon1, SYSCON1);
+-
+-	/* XXX: We should disable modem status interrupts on the first
+-		UART (interrupt #14). */
+-
+-	spin_unlock_irqrestore(&ep7211_lock, flags);
+-}
+-
+-static void ep7211_ir_close(dongle_t *self)
+-{
+-	unsigned int syscon1, flags;
+-
+-	spin_lock_irqsave(&ep7211_lock, flags);
+-
+-	/* Turn off the SIR encoder. */
+-	syscon1 =3D clps_readl(SYSCON1);
+-	syscon1 &=3D ~SYSCON1_SIREN;
+-	clps_writel(syscon1, SYSCON1);
+-
+-	/* XXX: If we've disabled the modem status interrupts, we should
+-		reset them back to their original state. */
+-
+-	spin_unlock_irqrestore(&ep7211_lock, flags);
+-}
+-
+-/*
+- * Function ep7211_ir_change_speed (task)
+- *
+- *    Change speed of the EP7211 I/R port. We don't really have to do =
+anything
+- *    for the EP7211 as long as the rate is being changed at the seria=
+l port
+- *    level.
+- */
+-static int ep7211_ir_change_speed(struct irda_task *task)
+-{
+-	irda_task_next_state(task, IRDA_TASK_DONE);
+-	return 0;
+-}
+-
+-/*
+- * Function ep7211_ir_reset (task)
+- *
+- *      Reset the EP7211 I/R. We don't really have to do anything.
+- *
+- */
+-static int ep7211_ir_reset(struct irda_task *task)
+-{
+-	irda_task_next_state(task, IRDA_TASK_DONE);
+-	return 0;
+-}
+-
+-/*
+- * Function ep7211_ir_init(void)
+- *
+- *    Initialize EP7211 I/R module
+- *
+- */
+-static int __init ep7211_ir_init(void)
+-{
+-	return irda_device_register_dongle(&dongle);
+-}
+-
+-/*
+- * Function ep7211_ir_cleanup(void)
+- *
+- *    Cleanup EP7211 I/R module
+- *
+- */
+-static void __exit ep7211_ir_cleanup(void)
+-{
+-	irda_device_unregister_dongle(&dongle);
+-}
+-
+-MODULE_AUTHOR("Jon McClintock <jonm@bluemug.com>");
+-MODULE_DESCRIPTION("EP7211 I/R driver");
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS("irda-dongle-8"); /* IRDA_EP7211_IR */
+-	=09
+-module_init(ep7211_ir_init);
+-module_exit(ep7211_ir_cleanup);
+Index: net-2.6.25/drivers/net/irda/esi.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- net-2.6.25.orig/drivers/net/irda/esi.c	2008-01-18 09:34:17.00000000=
+0 +0100
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,149 +0,0 @@
+-/*********************************************************************
+- *               =20
+- * Filename:      esi.c
+- * Version:       1.5
+- * Description:   Driver for the Extended Systems JetEye PC dongle
+- * Status:        Experimental.
+- * Author:        Dag Brattli <dagb@cs.uit.no>
+- * Created at:    Sat Feb 21 18:54:38 1998
+- * Modified at:   Fri Dec 17 09:14:04 1999
+- * Modified by:   Dag Brattli <dagb@cs.uit.no>
+- *=20
+- *     Copyright (c) 1999 Dag Brattli, <dagb@cs.uit.no>,
+- *     Copyright (c) 1998 Thomas Davis, <ratbert@radiks.net>,
+- *     All Rights Reserved.
+- *    =20
+- *     This program is free software; you can redistribute it and/or=20
+- *     modify it under the terms of the GNU General Public License as=20
+- *     published by the Free Software Foundation; either version 2 of=20
+- *     the License, or (at your option) any later version.
+- *=20
+- *     This program is distributed in the hope that it will be useful,
+- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+- *     GNU General Public License for more details.
+- *=20
+- *     You should have received a copy of the GNU General Public Licen=
+se=20
+- *     along with this program; if not, write to the Free Software=20
+- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,=20
+- *     MA 02111-1307 USA
+- *    =20
+- ********************************************************************/
+-
+-#include <linux/module.h>
+-#include <linux/delay.h>
+-#include <linux/tty.h>
+-#include <linux/init.h>
+-
+-#include <net/irda/irda.h>
+-#include <net/irda/irda_device.h>
+-
+-static void esi_open(dongle_t *self, struct qos_info *qos);
+-static void esi_close(dongle_t *self);
+-static int  esi_change_speed(struct irda_task *task);
+-static int  esi_reset(struct irda_task *task);
+-
+-static struct dongle_reg dongle =3D {
+-	.type =3D IRDA_ESI_DONGLE,
+-	.open =3D esi_open,
+-	.close =3D esi_close,
+-	.reset =3D esi_reset,
+-	.change_speed =3D esi_change_speed,
+-	.owner =3D THIS_MODULE,
+-};
+-
+-static int __init esi_init(void)
+-{
+-	return irda_device_register_dongle(&dongle);
+-}
+-
+-static void __exit esi_cleanup(void)
+-{
+-	irda_device_unregister_dongle(&dongle);
+-}
+-
+-static void esi_open(dongle_t *self, struct qos_info *qos)
+-{
+-	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_115200;
+-	qos->min_turn_time.bits =3D 0x01; /* Needs at least 10 ms */
+-}
+-
+-static void esi_close(dongle_t *dongle)
+-{	=09
+-	/* Power off dongle */
+-	dongle->set_dtr_rts(dongle->dev, FALSE, FALSE);
+-}
+-
+-/*
+- * Function esi_change_speed (task)
+- *
+- *    Set the speed for the Extended Systems JetEye PC ESI-9680 type d=
+ongle
+- *
+- */
+-static int esi_change_speed(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-	__u32 speed =3D (__u32) task->param;
+-	int dtr, rts;
+-=09
+-	switch (speed) {
+-	case 19200:
+-		dtr =3D TRUE;
+-		rts =3D FALSE;
+-		break;
+-	case 115200:
+-		dtr =3D rts =3D TRUE;
+-		break;
+-	case 9600:
+-	default:
+-		dtr =3D FALSE;
+-		rts =3D TRUE;
+-		break;
+-	}
+-
+-	/* Change speed of dongle */
+-	self->set_dtr_rts(self->dev, dtr, rts);
+-	self->speed =3D speed;
+-
+-	irda_task_next_state(task, IRDA_TASK_DONE);
+-
+-	return 0;
+-}
+-
+-/*
+- * Function esi_reset (task)
+- *
+- *    Reset dongle;
+- *
+- */
+-static int esi_reset(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-=09
+-	self->set_dtr_rts(self->dev, FALSE, FALSE);
+-	irda_task_next_state(task, IRDA_TASK_DONE);
+-
+-	return 0;
+-}
+-
+-MODULE_AUTHOR("Dag Brattli <dagb@cs.uit.no>");
+-MODULE_DESCRIPTION("Extended Systems JetEye PC dongle driver");
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS("irda-dongle-1"); /* IRDA_ESI_DONGLE */
+-
+-/*
+- * Function init_module (void)
+- *
+- *    Initialize ESI module
+- *
+- */
+-module_init(esi_init);
+-
+-/*
+- * Function cleanup_module (void)
+- *
+- *    Cleanup ESI module
+- *
+- */
+-module_exit(esi_cleanup);
+-
+Index: net-2.6.25/drivers/net/irda/girbil.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- net-2.6.25.orig/drivers/net/irda/girbil.c	2008-01-18 09:34:17.00000=
+0000 +0100
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,250 +0,0 @@
+-/*********************************************************************
+- *               =20
+- * Filename:      girbil.c
+- * Version:       1.2
+- * Description:   Implementation for the Greenwich GIrBIL dongle
+- * Status:        Experimental.
+- * Author:        Dag Brattli <dagb@cs.uit.no>
+- * Created at:    Sat Feb  6 21:02:33 1999
+- * Modified at:   Fri Dec 17 09:13:20 1999
+- * Modified by:   Dag Brattli <dagb@cs.uit.no>
+- *=20
+- *     Copyright (c) 1999 Dag Brattli, All Rights Reserved.
+- *     =20
+- *     This program is free software; you can redistribute it and/or=20
+- *     modify it under the terms of the GNU General Public License as=20
+- *     published by the Free Software Foundation; either version 2 of=20
+- *     the License, or (at your option) any later version.
+- * =20
+- *     Neither Dag Brattli nor University of Troms=C3=B8 admit liabili=
+ty nor
+- *     provide warranty for any of this software. This material is=20
+- *     provided "AS-IS" and at no charge.
+- *    =20
+- ********************************************************************/
+-
+-#include <linux/module.h>
+-#include <linux/delay.h>
+-#include <linux/tty.h>
+-#include <linux/init.h>
+-
+-#include <net/irda/irda.h>
+-#include <net/irda/irda_device.h>
+-
+-static int  girbil_reset(struct irda_task *task);
+-static void girbil_open(dongle_t *self, struct qos_info *qos);
+-static void girbil_close(dongle_t *self);
+-static int  girbil_change_speed(struct irda_task *task);
+-
+-/* Control register 1 */
+-#define GIRBIL_TXEN    0x01 /* Enable transmitter */
+-#define GIRBIL_RXEN    0x02 /* Enable receiver */
+-#define GIRBIL_ECAN    0x04 /* Cancel self emmited data */
+-#define GIRBIL_ECHO    0x08 /* Echo control characters */
+-
+-/* LED Current Register (0x2) */
+-#define GIRBIL_HIGH    0x20
+-#define GIRBIL_MEDIUM  0x21
+-#define GIRBIL_LOW     0x22
+-
+-/* Baud register (0x3) */
+-#define GIRBIL_2400    0x30
+-#define GIRBIL_4800    0x31=09
+-#define GIRBIL_9600    0x32
+-#define GIRBIL_19200   0x33
+-#define GIRBIL_38400   0x34=09
+-#define GIRBIL_57600   0x35=09
+-#define GIRBIL_115200  0x36
+-
+-/* Mode register (0x4) */
+-#define GIRBIL_IRDA    0x40
+-#define GIRBIL_ASK     0x41
+-
+-/* Control register 2 (0x5) */
+-#define GIRBIL_LOAD    0x51 /* Load the new baud rate value */
+-
+-static struct dongle_reg dongle =3D {
+-	.type =3D IRDA_GIRBIL_DONGLE,
+-	.open =3D girbil_open,
+-	.close =3D girbil_close,
+-	.reset =3D girbil_reset,
+-	.change_speed =3D girbil_change_speed,
+-	.owner =3D THIS_MODULE,
+-};
+-
+-static int __init girbil_init(void)
+-{
+-	return irda_device_register_dongle(&dongle);
+-}
+-
+-static void __exit girbil_cleanup(void)
+-{
+-	irda_device_unregister_dongle(&dongle);
+-}
+-
+-static void girbil_open(dongle_t *self, struct qos_info *qos)
+-{
+-	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_38400|IR_57600|IR_115200=
+;
+-	qos->min_turn_time.bits =3D 0x03;
+-}
+-
+-static void girbil_close(dongle_t *self)
+-{
+-	/* Power off dongle */
+-	self->set_dtr_rts(self->dev, FALSE, FALSE);
+-}
+-
+-/*
+- * Function girbil_change_speed (dev, speed)
+- *
+- *    Set the speed for the Girbil type dongle.
+- *
+- */
+-static int girbil_change_speed(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-	__u32 speed =3D (__u32) task->param;
+-	__u8 control[2];
+-	int ret =3D 0;
+-
+-	self->speed_task =3D task;
+-
+-	switch (task->state) {
+-	case IRDA_TASK_INIT:
+-		/* Need to reset the dongle and go to 9600 bps before
+-                   programming */
+-		if (irda_task_execute(self, girbil_reset, NULL, task,=20
+-				      (void *) speed))
+-		{
+-			/* Dongle need more time to reset */
+-			irda_task_next_state(task, IRDA_TASK_CHILD_WAIT);
+-
+-			/* Give reset 1 sec to finish */
+-			ret =3D msecs_to_jiffies(1000);
+-		}
+-		break;
+-	case IRDA_TASK_CHILD_WAIT:
+-		IRDA_WARNING("%s(), resetting dongle timed out!\n",
+-			     __FUNCTION__);
+-		ret =3D -1;
+-		break;
+-	case IRDA_TASK_CHILD_DONE:
+-		/* Set DTR and Clear RTS to enter command mode */
+-		self->set_dtr_rts(self->dev, FALSE, TRUE);
+-
+-		switch (speed) {
+-		case 9600:
+-		default:
+-			control[0] =3D GIRBIL_9600;
+-			break;
+-		case 19200:
+-			control[0] =3D GIRBIL_19200;
+-			break;
+-		case 34800:
+-			control[0] =3D GIRBIL_38400;
+-			break;
+-		case 57600:
+-			control[0] =3D GIRBIL_57600;
+-			break;
+-		case 115200:
+-			control[0] =3D GIRBIL_115200;
+-			break;
+-		}
+-		control[1] =3D GIRBIL_LOAD;
+-	=09
+-		/* Write control bytes */
+-		self->write(self->dev, control, 2);
+-		irda_task_next_state(task, IRDA_TASK_WAIT);
+-		ret =3D msecs_to_jiffies(100);
+-		break;
+-	case IRDA_TASK_WAIT:
+-		/* Go back to normal mode */
+-		self->set_dtr_rts(self->dev, TRUE, TRUE);
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->speed_task =3D NULL;
+-		break;
+-	default:
+-		IRDA_ERROR("%s(), unknown state %d\n",
+-			   __FUNCTION__, task->state);
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->speed_task =3D NULL;
+-		ret =3D -1;
+-		break;
+-	}
+-	return ret;
+-}
+-
+-/*
+- * Function girbil_reset (driver)
+- *
+- *      This function resets the girbil dongle.
+- *
+- *      Algorithm:
+- *    	  0. set RTS, and wait at least 5 ms=20
+- *        1. clear RTS=20
+- */
+-static int girbil_reset(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-	__u8 control =3D GIRBIL_TXEN | GIRBIL_RXEN;
+-	int ret =3D 0;
+-
+-	self->reset_task =3D task;
+-
+-	switch (task->state) {
+-	case IRDA_TASK_INIT:
+-		/* Reset dongle */
+-		self->set_dtr_rts(self->dev, TRUE, FALSE);
+-		irda_task_next_state(task, IRDA_TASK_WAIT1);
+-		/* Sleep at least 5 ms */
+-		ret =3D msecs_to_jiffies(20);
+-		break;
+-	case IRDA_TASK_WAIT1:
+-		/* Set DTR and clear RTS to enter command mode */
+-		self->set_dtr_rts(self->dev, FALSE, TRUE);
+-		irda_task_next_state(task, IRDA_TASK_WAIT2);
+-		ret =3D msecs_to_jiffies(20);
+-		break;
+-	case IRDA_TASK_WAIT2:
+-		/* Write control byte */
+-		self->write(self->dev, &control, 1);
+-		irda_task_next_state(task, IRDA_TASK_WAIT3);
+-		ret =3D msecs_to_jiffies(20);
+-		break;
+-	case IRDA_TASK_WAIT3:
+-		/* Go back to normal mode */
+-		self->set_dtr_rts(self->dev, TRUE, TRUE);
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->reset_task =3D NULL;
+-		break;
+-	default:
+-		IRDA_ERROR("%s(), unknown state %d\n",
+-			   __FUNCTION__, task->state);
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->reset_task =3D NULL;
+-		ret =3D -1;
+-		break;
+-	}
+-	return ret;
+-}
+-
+-MODULE_AUTHOR("Dag Brattli <dagb@cs.uit.no>");
+-MODULE_DESCRIPTION("Greenwich GIrBIL dongle driver");
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS("irda-dongle-4"); /* IRDA_GIRBIL_DONGLE */
+-=09
+-/*
+- * Function init_module (void)
+- *
+- *    Initialize Girbil module
+- *
+- */
+-module_init(girbil_init);
+-
+-/*
+- * Function cleanup_module (void)
+- *
+- *    Cleanup Girbil module
+- *
+- */
+-module_exit(girbil_cleanup);
+-
+Index: net-2.6.25/drivers/net/irda/litelink.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- net-2.6.25.orig/drivers/net/irda/litelink.c	2008-01-18 09:34:17.000=
+000000 +0100
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,179 +0,0 @@
+-/*********************************************************************
+- *               =20
+- * Filename:      litelink.c
+- * Version:       1.1
+- * Description:   Driver for the Parallax LiteLink dongle
+- * Status:        Stable
+- * Author:        Dag Brattli <dagb@cs.uit.no>
+- * Created at:    Fri May  7 12:50:33 1999
+- * Modified at:   Fri Dec 17 09:14:23 1999
+- * Modified by:   Dag Brattli <dagb@cs.uit.no>
+- *=20
+- *     Copyright (c) 1999 Dag Brattli, All Rights Reserved.
+- *    =20
+- *     This program is free software; you can redistribute it and/or=20
+- *     modify it under the terms of the GNU General Public License as=20
+- *     published by the Free Software Foundation; either version 2 of=20
+- *     the License, or (at your option) any later version.
+- *=20
+- *     This program is distributed in the hope that it will be useful,
+- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+- *     GNU General Public License for more details.
+- *=20
+- *     You should have received a copy of the GNU General Public Licen=
+se=20
+- *     along with this program; if not, write to the Free Software=20
+- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,=20
+- *     MA 02111-1307 USA
+- *    =20
+- ********************************************************************/
+-
+-#include <linux/module.h>
+-#include <linux/delay.h>
+-#include <linux/tty.h>
+-#include <linux/init.h>
+-
+-#include <net/irda/irda.h>
+-#include <net/irda/irda_device.h>
+-
+-#define MIN_DELAY 25      /* 15 us, but wait a little more to be sure =
+*/
+-#define MAX_DELAY 10000   /* 1 ms */
+-
+-static void litelink_open(dongle_t *self, struct qos_info *qos);
+-static void litelink_close(dongle_t *self);
+-static int  litelink_change_speed(struct irda_task *task);
+-static int  litelink_reset(struct irda_task *task);
+-
+-/* These are the baudrates supported */
+-static __u32 baud_rates[] =3D { 115200, 57600, 38400, 19200, 9600 };
+-
+-static struct dongle_reg dongle =3D {
+-	.type =3D IRDA_LITELINK_DONGLE,
+-	.open =3D litelink_open,
+-	.close =3D litelink_close,
+-	.reset =3D litelink_reset,
+-	.change_speed =3D litelink_change_speed,
+-	.owner =3D THIS_MODULE,
+-};
+-
+-static int __init litelink_init(void)
+-{
+-	return irda_device_register_dongle(&dongle);
+-}
+-
+-static void __exit litelink_cleanup(void)
+-{
+-	irda_device_unregister_dongle(&dongle);
+-}
+-
+-static void litelink_open(dongle_t *self, struct qos_info *qos)
+-{
+-	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_38400|IR_57600|IR_115200=
+;
+-	qos->min_turn_time.bits =3D 0x7f; /* Needs 0.01 ms */
+-}
+-
+-static void litelink_close(dongle_t *self)
+-{
+-	/* Power off dongle */
+-	self->set_dtr_rts(self->dev, FALSE, FALSE);
+-}
+-
+-/*
+- * Function litelink_change_speed (task)
+- *
+- *    Change speed of the Litelink dongle. To cycle through the availa=
+ble=20
+- *    baud rates, pulse RTS low for a few ms. =20
+- */
+-static int litelink_change_speed(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-	__u32 speed =3D (__u32) task->param;
+-        int i;
+-=09
+-	/* Clear RTS to reset dongle */
+-	self->set_dtr_rts(self->dev, TRUE, FALSE);
+-
+-	/* Sleep a minimum of 15 us */
+-	udelay(MIN_DELAY);
+-
+-	/* Go back to normal mode */
+-	self->set_dtr_rts(self->dev, TRUE, TRUE);
+-=09
+-	/* Sleep a minimum of 15 us */
+-	udelay(MIN_DELAY);
+-=09
+-	/* Cycle through avaiable baudrates until we reach the correct one */
+-	for (i=3D0; i<5 && baud_rates[i] !=3D speed; i++) {
+-		/* Set DTR, clear RTS */
+-		self->set_dtr_rts(self->dev, FALSE, TRUE);
+-	=09
+-		/* Sleep a minimum of 15 us */
+-		udelay(MIN_DELAY);
+-	=09
+-		/* Set DTR, Set RTS */
+-		self->set_dtr_rts(self->dev, TRUE, TRUE);
+-	=09
+-		/* Sleep a minimum of 15 us */
+-		udelay(MIN_DELAY);
+-        }
+-	irda_task_next_state(task, IRDA_TASK_DONE);
+-
+-	return 0;
+-}
+-
+-/*
+- * Function litelink_reset (task)
+- *
+- *      Reset the Litelink type dongle.
+- *
+- */
+-static int litelink_reset(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-
+-	/* Power on dongle */
+-	self->set_dtr_rts(self->dev, TRUE, TRUE);
+-
+-	/* Sleep a minimum of 15 us */
+-	udelay(MIN_DELAY);
+-
+-	/* Clear RTS to reset dongle */
+-	self->set_dtr_rts(self->dev, TRUE, FALSE);
+-
+-	/* Sleep a minimum of 15 us */
+-	udelay(MIN_DELAY);
+-
+-	/* Go back to normal mode */
+-	self->set_dtr_rts(self->dev, TRUE, TRUE);
+-=09
+-	/* Sleep a minimum of 15 us */
+-	udelay(MIN_DELAY);
+-
+-	/* This dongles speed defaults to 115200 bps */
+-	self->speed =3D 115200;
+-
+-	irda_task_next_state(task, IRDA_TASK_DONE);
+-
+-	return 0;
+-}
+-
+-MODULE_AUTHOR("Dag Brattli <dagb@cs.uit.no>");
+-MODULE_DESCRIPTION("Parallax Litelink dongle driver");=09
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS("irda-dongle-5"); /* IRDA_LITELINK_DONGLE */
+-	=09
+-/*
+- * Function init_module (void)
+- *
+- *    Initialize Litelink module
+- *
+- */
+-module_init(litelink_init);
+-
+-/*
+- * Function cleanup_module (void)
+- *
+- *    Cleanup Litelink module
+- *
+- */
+-module_exit(litelink_cleanup);
+Index: net-2.6.25/drivers/net/irda/ma600.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- net-2.6.25.orig/drivers/net/irda/ma600.c	2008-01-18 09:34:16.000000=
+000 +0100
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,354 +0,0 @@
+-/*********************************************************************
+- *               =20
+- * Filename:      ma600.c
+- * Version:       0.1
+- * Description:   Implementation of the MA600 dongle
+- * Status:        Experimental.
+- * Author:        Leung <95Etwl@alumni.ee.ust.hk> http://www.engsvr.us=
+t/~eetwl95
+- * Created at:    Sat Jun 10 20:02:35 2000
+- * Modified at:  =20
+- * Modified by:  =20
+- *
+- * Note: very thanks to Mr. Maru Wang <maru@mobileaction.com.tw> for p=
+roviding=20
+- *       information on the MA600 dongle
+- *=20
+- *     Copyright (c) 2000 Leung, All Rights Reserved.
+- *     =20
+- *     This program is free software; you can redistribute it and/or=20
+- *     modify it under the terms of the GNU General Public License as=20
+- *     published by the Free Software Foundation; either version 2 of=20
+- *     the License, or (at your option) any later version.
+- * =20
+- *     This program is distributed in the hope that it will be useful,
+- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+- *     GNU General Public License for more details.
+- *=20
+- *     You should have received a copy of the GNU General Public Licen=
+se=20
+- *     along with this program; if not, write to the Free Software=20
+- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,=20
+- *     MA 02111-1307 USA
+- *    =20
+- ********************************************************************/
+-
+-/* define this macro for release version */
+-//#define NDEBUG
+-
+-#include <linux/module.h>
+-#include <linux/delay.h>
+-#include <linux/tty.h>
+-#include <linux/init.h>
+-
+-#include <net/irda/irda.h>
+-#include <net/irda/irda_device.h>
+-
+-#ifndef NDEBUG
+-	#undef IRDA_DEBUG
+-	#define IRDA_DEBUG(n, args...) (printk(KERN_DEBUG args))
+-
+-	#undef ASSERT
+-	#define ASSERT(expr, func) \
+-	if(!(expr)) { \
+-	        printk( "Assertion failed! %s,%s,%s,line=3D%d\n",\
+-        	#expr,__FILE__,__FUNCTION__,__LINE__); \
+-	        func}
+-#endif
+-
+-/* convert hex value to ascii hex */
+-static const char hexTbl[] =3D "0123456789ABCDEF";
+-
+-
+-static void ma600_open(dongle_t *self, struct qos_info *qos);
+-static void ma600_close(dongle_t *self);
+-static int  ma600_change_speed(struct irda_task *task);
+-static int  ma600_reset(struct irda_task *task);
+-
+-/* control byte for MA600 */
+-#define MA600_9600	0x00
+-#define MA600_19200	0x01
+-#define MA600_38400	0x02
+-#define MA600_57600	0x03
+-#define MA600_115200	0x04
+-#define MA600_DEV_ID1	0x05
+-#define MA600_DEV_ID2	0x06
+-#define MA600_2400	0x08
+-
+-static struct dongle_reg dongle =3D {
+-	.type =3D IRDA_MA600_DONGLE,
+-	.open =3D ma600_open,
+-	.close =3D ma600_close,
+-	.reset =3D ma600_reset,
+-	.change_speed =3D ma600_change_speed,
+-	.owner =3D THIS_MODULE,
+-};
+-
+-static int __init ma600_init(void)
+-{
+-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+-	return irda_device_register_dongle(&dongle);
+-}
+-
+-static void __exit ma600_cleanup(void)
+-{
+-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+-	irda_device_unregister_dongle(&dongle);
+-}
+-
+-/*
+-	Power on:
+-		(0) Clear RTS and DTR for 1 second
+-		(1) Set RTS and DTR for 1 second
+-		(2) 9600 bps now
+-	Note: assume RTS, DTR are clear before
+-*/
+-static void ma600_open(dongle_t *self, struct qos_info *qos)
+-{
+-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+-
+-	qos->baud_rate.bits &=3D IR_2400|IR_9600|IR_19200|IR_38400
+-				|IR_57600|IR_115200;
+-	qos->min_turn_time.bits =3D 0x01;		/* Needs at least 1 ms */=09
+-	irda_qos_bits_to_value(qos);
+-
+-	//self->set_dtr_rts(self->dev, FALSE, FALSE);
+-	// should wait 1 second
+-
+-	self->set_dtr_rts(self->dev, TRUE, TRUE);
+-	// should wait 1 second
+-}
+-
+-static void ma600_close(dongle_t *self)
+-{
+-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+-
+-	/* Power off dongle */
+-	self->set_dtr_rts(self->dev, FALSE, FALSE);
+-}
+-
+-static __u8 get_control_byte(__u32 speed)
+-{
+-	__u8 byte;
+-
+-	switch (speed) {
+-	default:
+-	case 115200:
+-		byte =3D MA600_115200;
+-		break;
+-	case 57600:
+-		byte =3D MA600_57600;
+-		break;
+-	case 38400:
+-		byte =3D MA600_38400;
+-		break;
+-	case 19200:
+-		byte =3D MA600_19200;
+-		break;
+-	case 9600:
+-		byte =3D MA600_9600;
+-		break;
+-	case 2400:
+-		byte =3D MA600_2400;
+-		break;
+-	}
+-
+-	return byte;
+-}
+-
+-/*
+- * Function ma600_change_speed (dev, state, speed)
+- *
+- *    Set the speed for the MA600 type dongle. Warning, this=20
+- *    function must be called with a process context!
+- *
+- *    Algorithm
+- *    1. Reset
+- *    2. clear RTS, set DTR and wait for 1ms
+- *    3. send Control Byte to the MA600 through TXD to set new baud ra=
+te
+- *       wait until the stop bit of Control Byte is sent (for 9600 bau=
+d rate,=20
+- *       it takes about 10 msec)
+- *    4. set RTS, set DTR (return to NORMAL Operation)
+- *    5. wait at least 10 ms, new setting (baud rate, etc) takes effec=
+t here=20
+- *       after
+- */
+-static int ma600_change_speed(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-	__u32 speed =3D (__u32) task->param;
+-	static __u8 byte;
+-	__u8 byte_echo;
+-	int ret =3D 0;
+-=09
+-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+-
+-	ASSERT(task !=3D NULL, return -1;);
+-
+-	if (self->speed_task && self->speed_task !=3D task) {
+-		IRDA_DEBUG(0, "%s(), busy!\n", __FUNCTION__);
+-		return msecs_to_jiffies(10);
+-	} else {
+-		self->speed_task =3D task;
+-	}
+-
+-	switch (task->state) {
+-	case IRDA_TASK_INIT:
+-	case IRDA_TASK_CHILD_INIT:
+-		/*=20
+-		 * Need to reset the dongle and go to 9600 bps before
+-                 * programming=20
+-		 */
+-		if (irda_task_execute(self, ma600_reset, NULL, task,=20
+-				      (void *) speed)) {
+-			/* Dongle need more time to reset */
+-			irda_task_next_state(task, IRDA_TASK_CHILD_WAIT);
+-=09
+-			/* give 1 second to finish */
+-			ret =3D msecs_to_jiffies(1000);
+-		} else {
+-			irda_task_next_state(task, IRDA_TASK_CHILD_DONE);
+-		}
+-		break;
+-
+-	case IRDA_TASK_CHILD_WAIT:
+-		IRDA_WARNING("%s(), resetting dongle timed out!\n",
+-			     __FUNCTION__);
+-		ret =3D -1;
+-		break;
+-
+-	case IRDA_TASK_CHILD_DONE:
+-		/* Set DTR, Clear RTS */
+-		self->set_dtr_rts(self->dev, TRUE, FALSE);
+-=09
+-		ret =3D msecs_to_jiffies(1);		/* Sleep 1 ms */
+-		irda_task_next_state(task, IRDA_TASK_WAIT);
+-		break;
+-
+-	case IRDA_TASK_WAIT:
+-		speed =3D (__u32) task->param;
+-		byte =3D get_control_byte(speed);
+-
+-		/* Write control byte */
+-		self->write(self->dev, &byte, sizeof(byte));
+-	=09
+-		irda_task_next_state(task, IRDA_TASK_WAIT1);
+-
+-		/* Wait at least 10 ms */
+-		ret =3D msecs_to_jiffies(15);
+-		break;
+-
+-	case IRDA_TASK_WAIT1:
+-		/* Read control byte echo */
+-		self->read(self->dev, &byte_echo, sizeof(byte_echo));
+-
+-		if(byte !=3D byte_echo) {
+-			/* if control byte !=3D echo, I don't know what to do */
+-			printk(KERN_WARNING "%s() control byte written !=3D read!\n", __FUN=
+CTION__);
+-			printk(KERN_WARNING "control byte =3D 0x%c%c\n",=20
+-			       hexTbl[(byte>>4)&0x0f], hexTbl[byte&0x0f]);
+-			printk(KERN_WARNING "byte echo =3D 0x%c%c\n",=20
+-			       hexTbl[(byte_echo>>4) & 0x0f],=20
+-			       hexTbl[byte_echo & 0x0f]);
+-		#ifndef NDEBUG
+-		} else {
+-			IRDA_DEBUG(2, "%s() control byte write read OK\n", __FUNCTION__);
+-		#endif
+-		}
+-
+-		/* Set DTR, Set RTS */
+-		self->set_dtr_rts(self->dev, TRUE, TRUE);
+-
+-		irda_task_next_state(task, IRDA_TASK_WAIT2);
+-
+-		/* Wait at least 10 ms */
+-		ret =3D msecs_to_jiffies(10);
+-		break;
+-
+-	case IRDA_TASK_WAIT2:
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->speed_task =3D NULL;
+-		break;
+-
+-	default:
+-		IRDA_ERROR("%s(), unknown state %d\n",
+-			   __FUNCTION__, task->state);
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->speed_task =3D NULL;
+-		ret =3D -1;
+-		break;
+-	}
+-	return ret;
+-}
+-
+-/*
+- * Function ma600_reset (driver)
+- *
+- *      This function resets the ma600 dongle. Warning, this function=20
+- *      must be called with a process context!!=20
+- *
+- *      Algorithm:
+- *    	  0. DTR=3D0, RTS=3D1 and wait 10 ms
+- *    	  1. DTR=3D1, RTS=3D1 and wait 10 ms
+- *        2. 9600 bps now
+- */
+-int ma600_reset(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-	int ret =3D 0;
+-
+-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+-
+-	ASSERT(task !=3D NULL, return -1;);
+-
+-	if (self->reset_task && self->reset_task !=3D task) {
+-		IRDA_DEBUG(0, "%s(), busy!\n", __FUNCTION__);
+-		return msecs_to_jiffies(10);
+-	} else
+-		self->reset_task =3D task;
+-=09
+-	switch (task->state) {
+-	case IRDA_TASK_INIT:
+-		/* Clear DTR and Set RTS */
+-		self->set_dtr_rts(self->dev, FALSE, TRUE);
+-		irda_task_next_state(task, IRDA_TASK_WAIT1);
+-		ret =3D msecs_to_jiffies(10);		/* Sleep 10 ms */
+-		break;
+-	case IRDA_TASK_WAIT1:
+-		/* Set DTR and RTS */
+-		self->set_dtr_rts(self->dev, TRUE, TRUE);
+-		irda_task_next_state(task, IRDA_TASK_WAIT2);
+-		ret =3D msecs_to_jiffies(10);		/* Sleep 10 ms */
+-		break;
+-	case IRDA_TASK_WAIT2:
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->reset_task =3D NULL;
+-		break;
+-	default:
+-		IRDA_ERROR("%s(), unknown state %d\n",
+-			   __FUNCTION__, task->state);
+-		irda_task_next_state(task, IRDA_TASK_DONE);	=09
+-		self->reset_task =3D NULL;
+-		ret =3D -1;
+-	}
+-	return ret;
+-}
+-
+-MODULE_AUTHOR("Leung <95Etwl@alumni.ee.ust.hk> http://www.engsvr.ust/~=
+eetwl95");
+-MODULE_DESCRIPTION("MA600 dongle driver version 0.1");
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS("irda-dongle-11"); /* IRDA_MA600_DONGLE */
+-	=09
+-/*
+- * Function init_module (void)
+- *
+- *    Initialize MA600 module
+- *
+- */
+-module_init(ma600_init);
+-
+-/*
+- * Function cleanup_module (void)
+- *
+- *    Cleanup MA600 module
+- *
+- */
+-module_exit(ma600_cleanup);
+-
+Index: net-2.6.25/drivers/net/irda/mcp2120.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- net-2.6.25.orig/drivers/net/irda/mcp2120.c	2008-01-18 09:34:17.0000=
+00000 +0100
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,240 +0,0 @@
+-/*********************************************************************
+- *           =20
+- *   =20
+- * Filename:      mcp2120.c
+- * Version:       1.0
+- * Description:   Implementation for the MCP2120 (Microchip)
+- * Status:        Experimental.
+- * Author:        Felix Tang (tangf@eyetap.org)
+- * Created at:    Sun Mar 31 19:32:12 EST 2002
+- * Based on code by:   Dag Brattli <dagb@cs.uit.no>
+- *=20
+- *     Copyright (c) 2002 Felix Tang, All Rights Reserved.
+- *     =20
+- *     This program is free software; you can redistribute it and/or=20
+- *     modify it under the terms of the GNU General Public License as=20
+- *     published by the Free Software Foundation; either version 2 of=20
+- *     the License, or (at your option) any later version.
+- * =20
+- ********************************************************************/
+-
+-#include <linux/module.h>
+-#include <linux/delay.h>
+-#include <linux/tty.h>
+-#include <linux/init.h>
+-
+-#include <net/irda/irda.h>
+-#include <net/irda/irda_device.h>
+-
+-static int  mcp2120_reset(struct irda_task *task);
+-static void mcp2120_open(dongle_t *self, struct qos_info *qos);
+-static void mcp2120_close(dongle_t *self);
+-static int  mcp2120_change_speed(struct irda_task *task);
+-
+-#define MCP2120_9600    0x87
+-#define MCP2120_19200   0x8B
+-#define MCP2120_38400   0x85
+-#define MCP2120_57600   0x83
+-#define MCP2120_115200  0x81
+-
+-#define MCP2120_COMMIT  0x11
+-
+-static struct dongle_reg dongle =3D {
+-	.type =3D IRDA_MCP2120_DONGLE,
+-	.open =3D mcp2120_open,
+-	.close =3D mcp2120_close,
+-	.reset =3D mcp2120_reset,
+-	.change_speed =3D mcp2120_change_speed,
+-	.owner =3D THIS_MODULE,
+-};
+-
+-static int __init mcp2120_init(void)
+-{
+-	return irda_device_register_dongle(&dongle);
+-}
+-
+-static void __exit mcp2120_cleanup(void)
+-{
+-	irda_device_unregister_dongle(&dongle);
+-}
+-
+-static void mcp2120_open(dongle_t *self, struct qos_info *qos)
+-{
+-	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_38400|IR_57600|IR_115200=
+;
+-	qos->min_turn_time.bits =3D 0x01;
+-}
+-
+-static void mcp2120_close(dongle_t *self)
+-{
+-	/* Power off dongle */
+-        /* reset and inhibit mcp2120 */
+-	self->set_dtr_rts(self->dev, TRUE, TRUE);
+-	//self->set_dtr_rts(self->dev, FALSE, FALSE);
+-}
+-
+-/*
+- * Function mcp2120_change_speed (dev, speed)
+- *
+- *    Set the speed for the MCP2120.
+- *
+- */
+-static int mcp2120_change_speed(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-	__u32 speed =3D (__u32) task->param;
+-	__u8 control[2];
+-	int ret =3D 0;
+-
+-	self->speed_task =3D task;
+-
+-	switch (task->state) {
+-	case IRDA_TASK_INIT:
+-		/* Need to reset the dongle and go to 9600 bps before
+-                   programming */
+-                //printk("Dmcp2120_change_speed irda_task_init\n");
+-		if (irda_task_execute(self, mcp2120_reset, NULL, task,=20
+-				      (void *) speed))
+-		{
+-			/* Dongle need more time to reset */
+-			irda_task_next_state(task, IRDA_TASK_CHILD_WAIT);
+-
+-			/* Give reset 1 sec to finish */
+-			ret =3D msecs_to_jiffies(1000);
+-		}
+-		break;
+-	case IRDA_TASK_CHILD_WAIT:
+-		IRDA_WARNING("%s(), resetting dongle timed out!\n",
+-			     __FUNCTION__);
+-		ret =3D -1;
+-		break;
+-	case IRDA_TASK_CHILD_DONE:
+-		/* Set DTR to enter command mode */
+-		self->set_dtr_rts(self->dev, TRUE, FALSE);
+-                udelay(500);
+-
+-		switch (speed) {
+-		case 9600:
+-		default:
+-			control[0] =3D MCP2120_9600;
+-                        //printk("mcp2120 9600\n");
+-			break;
+-		case 19200:
+-			control[0] =3D MCP2120_19200;
+-                        //printk("mcp2120 19200\n");
+-			break;
+-		case 34800:
+-			control[0] =3D MCP2120_38400;
+-                        //printk("mcp2120 38400\n");
+-			break;
+-		case 57600:
+-			control[0] =3D MCP2120_57600;
+-                        //printk("mcp2120 57600\n");
+-			break;
+-		case 115200:
+-                        control[0] =3D MCP2120_115200;
+-                        //printk("mcp2120 115200\n");
+-			break;
+-		}
+-	        control[1] =3D MCP2120_COMMIT;
+-=09
+-		/* Write control bytes */
+-                self->write(self->dev, control, 2);
+-=20
+-                irda_task_next_state(task, IRDA_TASK_WAIT);
+-		ret =3D msecs_to_jiffies(100);
+-                //printk("mcp2120_change_speed irda_child_done\n");
+-		break;
+-	case IRDA_TASK_WAIT:
+-		/* Go back to normal mode */
+-		self->set_dtr_rts(self->dev, FALSE, FALSE);
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->speed_task =3D NULL;
+-                //printk("mcp2120_change_speed irda_task_wait\n");
+-		break;
+-	default:
+-		IRDA_ERROR("%s(), unknown state %d\n",
+-			   __FUNCTION__, task->state);
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->speed_task =3D NULL;
+-		ret =3D -1;
+-		break;
+-	}
+-	return ret;
+-}
+-
+-/*
+- * Function mcp2120_reset (driver)
+- *
+- *      This function resets the mcp2120 dongle.
+- *     =20
+- *      Info: -set RTS to reset mcp2120
+- *            -set DTR to set mcp2120 software command mode
+- *            -mcp2120 defaults to 9600 baud after reset
+- *
+- *      Algorithm:
+- *      0. Set RTS to reset mcp2120.
+- *      1. Clear RTS and wait for device reset timer of 30 ms (max).
+- *     =20
+- */
+-
+-
+-static int mcp2120_reset(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-	int ret =3D 0;
+-
+-	self->reset_task =3D task;
+-
+-	switch (task->state) {
+-	case IRDA_TASK_INIT:
+-                //printk("mcp2120_reset irda_task_init\n");
+-		/* Reset dongle by setting RTS*/
+-		self->set_dtr_rts(self->dev, TRUE, TRUE);
+-		irda_task_next_state(task, IRDA_TASK_WAIT1);
+-		ret =3D msecs_to_jiffies(50);
+-		break;
+-	case IRDA_TASK_WAIT1:
+-                //printk("mcp2120_reset irda_task_wait1\n");
+-                /* clear RTS and wait for at least 30 ms. */
+-		self->set_dtr_rts(self->dev, FALSE, FALSE);
+-		irda_task_next_state(task, IRDA_TASK_WAIT2);
+-		ret =3D msecs_to_jiffies(50);
+-		break;
+-	case IRDA_TASK_WAIT2:
+-                //printk("mcp2120_reset irda_task_wait2\n");
+-		/* Go back to normal mode */
+-		self->set_dtr_rts(self->dev, FALSE, FALSE);
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->reset_task =3D NULL;
+-		break;
+-	default:
+-		IRDA_ERROR("%s(), unknown state %d\n",
+-			   __FUNCTION__, task->state);
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->reset_task =3D NULL;
+-		ret =3D -1;
+-		break;
+-	}
+-	return ret;
+-}
+-
+-MODULE_AUTHOR("Felix Tang <tangf@eyetap.org>");
+-MODULE_DESCRIPTION("Microchip MCP2120");
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS("irda-dongle-9"); /* IRDA_MCP2120_DONGLE */
+-=09
+-/*
+- * Function init_module (void)
+- *
+- *    Initialize MCP2120 module
+- *
+- */
+-module_init(mcp2120_init);
+-
+-/*
+- * Function cleanup_module (void)
+- *
+- *    Cleanup MCP2120 module
+- *
+- */
+-module_exit(mcp2120_cleanup);
+Index: net-2.6.25/drivers/net/irda/old_belkin.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- net-2.6.25.orig/drivers/net/irda/old_belkin.c	2008-01-18 09:34:17.0=
+00000000 +0100
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,164 +0,0 @@
+-/*********************************************************************
+- *               =20
+- * Filename:      old_belkin.c
+- * Version:       1.1
+- * Description:   Driver for the Belkin (old) SmartBeam dongle
+- * Status:        Experimental...
+- * Author:        Jean Tourrilhes <jt@hpl.hp.com>
+- * Created at:    22/11/99
+- * Modified at:   Fri Dec 17 09:13:32 1999
+- * Modified by:   Dag Brattli <dagb@cs.uit.no>
+- *=20
+- *     Copyright (c) 1999 Jean Tourrilhes, All Rights Reserved.
+- *    =20
+- *     This program is free software; you can redistribute it and/or=20
+- *     modify it under the terms of the GNU General Public License as=20
+- *     published by the Free Software Foundation; either version 2 of=20
+- *     the License, or (at your option) any later version.
+- *=20
+- *     This program is distributed in the hope that it will be useful,
+- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+- *     GNU General Public License for more details.
+- *=20
+- *     You should have received a copy of the GNU General Public Licen=
+se=20
+- *     along with this program; if not, write to the Free Software=20
+- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,=20
+- *     MA 02111-1307 USA
+- *    =20
+- ********************************************************************/
+-
+-#include <linux/module.h>
+-#include <linux/delay.h>
+-#include <linux/tty.h>
+-#include <linux/init.h>
+-
+-#include <net/irda/irda.h>
+-#include <net/irda/irda_device.h>
+-
+-/*
+- * Belkin is selling a dongle called the SmartBeam.
+- * In fact, there is two hardware version of this dongle, of course wi=
+th
+- * the same name and looking the exactly same (grrr...).
+- * I guess that I've got the old one, because inside I don't have
+- * a jumper for IrDA/ASK...
+- *
+- * As far as I can make it from info on their web site, the old dongle=
+=20
+- * support only 9600 b/s, which make our life much simpler as far as
+- * the driver is concerned, but you might not like it very much ;-)
+- * The new SmartBeam does 115 kb/s, and I've not tested it...
+- *
+- * Belkin claim that the correct driver for the old dongle (in Windows=
+)
+- * is the generic Parallax 9500a driver, but the Linux LiteLink driver
+- * fails for me (probably because Linux-IrDA doesn't rate fallback),
+- * so I created this really dumb driver...
+- *
+- * In fact, this driver doesn't do much. The only thing it does is to
+- * prevent Linux-IrDA to use any other speed than 9600 b/s ;-) This
+- * driver is called "old_belkin" so that when the new SmartBeam is sup=
+ported
+- * its driver can be called "belkin" instead of "new_belkin".
+- *
+- * Note : this driver was written without any info/help from Belkin,
+- * so a lot of info here might be totally wrong. Blame me ;-)
+- */
+-
+-/* Let's guess */
+-#define MIN_DELAY 25      /* 15 us, but wait a little more to be sure =
+*/
+-
+-static void old_belkin_open(dongle_t *self, struct qos_info *qos);
+-static void old_belkin_close(dongle_t *self);
+-static int  old_belkin_change_speed(struct irda_task *task);
+-static int  old_belkin_reset(struct irda_task *task);
+-
+-/* These are the baudrates supported */
+-/* static __u32 baud_rates[] =3D { 9600 }; */
+-
+-static struct dongle_reg dongle =3D {
+-	.type =3D IRDA_OLD_BELKIN_DONGLE,
+-	.open =3D old_belkin_open,
+-	.close =3D old_belkin_close,
+-	.reset =3D old_belkin_reset,
+-	.change_speed =3D old_belkin_change_speed,
+-	.owner =3D THIS_MODULE,
+-};
+-
+-static int __init old_belkin_init(void)
+-{
+-	return irda_device_register_dongle(&dongle);
+-}
+-
+-static void __exit old_belkin_cleanup(void)
+-{
+-	irda_device_unregister_dongle(&dongle);
+-}
+-
+-static void old_belkin_open(dongle_t *self, struct qos_info *qos)
+-{
+-	/* Not too fast, please... */
+-	qos->baud_rate.bits &=3D IR_9600;
+-	/* Needs at least 10 ms (totally wild guess, can do probably better) =
+*/
+-	qos->min_turn_time.bits =3D 0x01;
+-}
+-
+-static void old_belkin_close(dongle_t *self)
+-{
+-	/* Power off dongle */
+-	self->set_dtr_rts(self->dev, FALSE, FALSE);
+-}
+-
+-/*
+- * Function old_belkin_change_speed (task)
+- *
+- *    With only one speed available, not much to do...
+- */
+-static int old_belkin_change_speed(struct irda_task *task)
+-{
+-	irda_task_next_state(task, IRDA_TASK_DONE);
+-
+-	return 0;
+-}
+-
+-/*
+- * Function old_belkin_reset (task)
+- *
+- *      Reset the Old-Belkin type dongle.
+- *
+- */
+-static int old_belkin_reset(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-
+-	/* Power on dongle */
+-	self->set_dtr_rts(self->dev, TRUE, TRUE);
+-
+-	/* Sleep a minimum of 15 us */
+-	udelay(MIN_DELAY);
+-
+-	/* This dongles speed "defaults" to 9600 bps ;-) */
+-	self->speed =3D 9600;
+-
+-	irda_task_next_state(task, IRDA_TASK_DONE);
+-
+-	return 0;
+-}
+-
+-MODULE_AUTHOR("Jean Tourrilhes <jt@hpl.hp.com>");
+-MODULE_DESCRIPTION("Belkin (old) SmartBeam dongle driver");=09
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS("irda-dongle-7"); /* IRDA_OLD_BELKIN_DONGLE */
+-
+-/*
+- * Function init_module (void)
+- *
+- *    Initialize Old-Belkin module
+- *
+- */
+-module_init(old_belkin_init);
+-
+-/*
+- * Function cleanup_module (void)
+- *
+- *    Cleanup Old-Belkin module
+- *
+- */
+-module_exit(old_belkin_cleanup);
+Index: net-2.6.25/drivers/net/irda/tekram.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- net-2.6.25.orig/drivers/net/irda/tekram.c	2008-01-18 09:34:16.00000=
+0000 +0100
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,282 +0,0 @@
+-/*********************************************************************
+- *               =20
+- * Filename:      tekram.c
+- * Version:       1.2
+- * Description:   Implementation of the Tekram IrMate IR-210B dongle
+- * Status:        Experimental.
+- * Author:        Dag Brattli <dagb@cs.uit.no>
+- * Created at:    Wed Oct 21 20:02:35 1998
+- * Modified at:   Fri Dec 17 09:13:09 1999
+- * Modified by:   Dag Brattli <dagb@cs.uit.no>
+- *=20
+- *     Copyright (c) 1998-1999 Dag Brattli, All Rights Reserved.
+- *     =20
+- *     This program is free software; you can redistribute it and/or=20
+- *     modify it under the terms of the GNU General Public License as=20
+- *     published by the Free Software Foundation; either version 2 of=20
+- *     the License, or (at your option) any later version.
+- * =20
+- *     Neither Dag Brattli nor University of Troms=C3=B8 admit liabili=
+ty nor
+- *     provide warranty for any of this software. This material is=20
+- *     provided "AS-IS" and at no charge.
+- *    =20
+- ********************************************************************/
+-
+-#include <linux/module.h>
+-#include <linux/delay.h>
+-#include <linux/tty.h>
+-#include <linux/init.h>
+-
+-#include <net/irda/irda.h>
+-#include <net/irda/irda_device.h>
+-
+-static void tekram_open(dongle_t *self, struct qos_info *qos);
+-static void tekram_close(dongle_t *self);
+-static int  tekram_change_speed(struct irda_task *task);
+-static int  tekram_reset(struct irda_task *task);
+-
+-#define TEKRAM_115200 0x00
+-#define TEKRAM_57600  0x01
+-#define TEKRAM_38400  0x02
+-#define TEKRAM_19200  0x03
+-#define TEKRAM_9600   0x04
+-
+-#define TEKRAM_PW     0x10 /* Pulse select bit */
+-
+-static struct dongle_reg dongle =3D {
+-	.type =3D IRDA_TEKRAM_DONGLE,
+-	.open  =3D tekram_open,
+-	.close =3D tekram_close,
+-	.reset =3D tekram_reset,
+-	.change_speed =3D tekram_change_speed,
+-	.owner =3D THIS_MODULE,
+-};
+-
+-static int __init tekram_init(void)
+-{
+-	return irda_device_register_dongle(&dongle);
+-}
+-
+-static void __exit tekram_cleanup(void)
+-{
+-	irda_device_unregister_dongle(&dongle);
+-}
+-
+-static void tekram_open(dongle_t *self, struct qos_info *qos)
+-{
+-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
+-
+-	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_38400|IR_57600|IR_115200=
+;
+-	qos->min_turn_time.bits =3D 0x01; /* Needs at least 10 ms */=09
+-	irda_qos_bits_to_value(qos);
+-}
+-
+-static void tekram_close(dongle_t *self)
+-{
+-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
+-
+-	/* Power off dongle */
+-	self->set_dtr_rts(self->dev, FALSE, FALSE);
+-
+-	if (self->reset_task)
+-		irda_task_delete(self->reset_task);
+-	if (self->speed_task)
+-		irda_task_delete(self->speed_task);
+-}
+-
+-/*
+- * Function tekram_change_speed (dev, state, speed)
+- *
+- *    Set the speed for the Tekram IRMate 210 type dongle. Warning, th=
+is=20
+- *    function must be called with a process context!
+- *
+- *    Algorithm
+- *    1. clear DTR=20
+- *    2. set RTS, and wait at least 7 us
+- *    3. send Control Byte to the IR-210 through TXD to set new baud r=
+ate
+- *       wait until the stop bit of Control Byte is sent (for 9600 bau=
+d rate,=20
+- *       it takes about 100 msec)
+- *    5. clear RTS (return to NORMAL Operation)
+- *    6. wait at least 50 us, new setting (baud rate, etc) takes effec=
+t here=20
+- *       after
+- */
+-static int tekram_change_speed(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-	__u32 speed =3D (__u32) task->param;
+-	__u8 byte;
+-	int ret =3D 0;
+-=09
+-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
+-
+-	IRDA_ASSERT(task !=3D NULL, return -1;);
+-
+-	if (self->speed_task && self->speed_task !=3D task) {
+-		IRDA_DEBUG(0, "%s(), busy!\n", __FUNCTION__ );
+-		return msecs_to_jiffies(10);
+-	} else
+-		self->speed_task =3D task;
+-
+-	switch (speed) {
+-	default:
+-	case 9600:
+-		byte =3D TEKRAM_PW|TEKRAM_9600;
+-		break;
+-	case 19200:
+-		byte =3D TEKRAM_PW|TEKRAM_19200;
+-		break;
+-	case 38400:
+-		byte =3D TEKRAM_PW|TEKRAM_38400;
+-		break;
+-	case 57600:
+-		byte =3D TEKRAM_PW|TEKRAM_57600;
+-		break;
+-	case 115200:
+-		byte =3D TEKRAM_115200;
+-		break;
+-	}
+-
+-	switch (task->state) {
+-	case IRDA_TASK_INIT:
+-	case IRDA_TASK_CHILD_INIT:	=09
+-		/*=20
+-		 * Need to reset the dongle and go to 9600 bps before
+-                 * programming=20
+-		 */
+-		if (irda_task_execute(self, tekram_reset, NULL, task,=20
+-				      (void *) speed))
+-		{
+-			/* Dongle need more time to reset */
+-			irda_task_next_state(task, IRDA_TASK_CHILD_WAIT);
+-
+-			/* Give reset 1 sec to finish */
+-			ret =3D msecs_to_jiffies(1000);
+-		} else
+-			irda_task_next_state(task, IRDA_TASK_CHILD_DONE);
+-		break;
+-	case IRDA_TASK_CHILD_WAIT:
+-		IRDA_WARNING("%s(), resetting dongle timed out!\n",
+-			     __FUNCTION__);
+-		ret =3D -1;
+-		break;
+-	case IRDA_TASK_CHILD_DONE:
+-		/* Set DTR, Clear RTS */
+-		self->set_dtr_rts(self->dev, TRUE, FALSE);
+-=09
+-		/* Wait at least 7us */
+-		udelay(14);
+-
+-		/* Write control byte */
+-		self->write(self->dev, &byte, 1);
+-	=09
+-		irda_task_next_state(task, IRDA_TASK_WAIT);
+-
+-		/* Wait at least 100 ms */
+-		ret =3D msecs_to_jiffies(150);
+-		break;
+-	case IRDA_TASK_WAIT:
+-		/* Set DTR, Set RTS */
+-		self->set_dtr_rts(self->dev, TRUE, TRUE);
+-
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->speed_task =3D NULL;
+-		break;
+-	default:
+-		IRDA_ERROR("%s(), unknown state %d\n",
+-			   __FUNCTION__, task->state);
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->speed_task =3D NULL;
+-		ret =3D -1;
+-		break;
+-	}
+-	return ret;
+-}
+-
+-/*
+- * Function tekram_reset (driver)
+- *
+- *      This function resets the tekram dongle. Warning, this function=
+=20
+- *      must be called with a process context!!=20
+- *
+- *      Algorithm:
+- *    	  0. Clear RTS and DTR, and wait 50 ms (power off the IR-210 )
+- *        1. clear RTS=20
+- *        2. set DTR, and wait at least 1 ms=20
+- *        3. clear DTR to SPACE state, wait at least 50 us for further=
+=20
+- *         operation
+- */
+-int tekram_reset(struct irda_task *task)
+-{
+-	dongle_t *self =3D (dongle_t *) task->instance;
+-	int ret =3D 0;
+-
+-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
+-
+-	IRDA_ASSERT(task !=3D NULL, return -1;);
+-
+-	if (self->reset_task && self->reset_task !=3D task) {
+-		IRDA_DEBUG(0, "%s(), busy!\n", __FUNCTION__ );
+-		return msecs_to_jiffies(10);
+-	} else
+-		self->reset_task =3D task;
+-=09
+-	/* Power off dongle */
+-	//self->set_dtr_rts(self->dev, FALSE, FALSE);
+-	self->set_dtr_rts(self->dev, TRUE, TRUE);
+-
+-	switch (task->state) {
+-	case IRDA_TASK_INIT:
+-		irda_task_next_state(task, IRDA_TASK_WAIT1);
+-
+-		/* Sleep 50 ms */
+-		ret =3D msecs_to_jiffies(50);
+-		break;
+-	case IRDA_TASK_WAIT1:
+-		/* Clear DTR, Set RTS */
+-		self->set_dtr_rts(self->dev, FALSE, TRUE);=20
+-
+-		irda_task_next_state(task, IRDA_TASK_WAIT2);
+-	=09
+-		/* Should sleep 1 ms */
+-		ret =3D msecs_to_jiffies(1);
+-		break;
+-	case IRDA_TASK_WAIT2:
+-		/* Set DTR, Set RTS */
+-		self->set_dtr_rts(self->dev, TRUE, TRUE);
+-=09
+-		/* Wait at least 50 us */
+-		udelay(75);
+-
+-		irda_task_next_state(task, IRDA_TASK_DONE);
+-		self->reset_task =3D NULL;
+-		break;
+-	default:
+-		IRDA_ERROR("%s(), unknown state %d\n",
+-			   __FUNCTION__, task->state);
+-		irda_task_next_state(task, IRDA_TASK_DONE);	=09
+-		self->reset_task =3D NULL;
+-		ret =3D -1;
+-	}
+-	return ret;
+-}
+-
+-MODULE_AUTHOR("Dag Brattli <dagb@cs.uit.no>");
+-MODULE_DESCRIPTION("Tekram IrMate IR-210B dongle driver");
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS("irda-dongle-0"); /* IRDA_TEKRAM_DONGLE */
+-	=09
+-/*
+- * Function init_module (void)
+- *
+- *    Initialize Tekram module
+- *
+- */
+-module_init(tekram_init);
+-
+-/*
+- * Function cleanup_module (void)
+- *
+- *    Cleanup Tekram module
+- *
+- */
+-module_exit(tekram_cleanup);
 
--- 
+--=20
 
