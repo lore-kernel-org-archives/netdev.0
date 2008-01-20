@@ -1,57 +1,52 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [VLAN 00/18]: Vlan update
-Date: Sun, 20 Jan 2008 18:11:17 +0100 (MET)
-Message-ID: <20080120171117.7980.67072.sendpatchset@localhost.localdomain>
+Subject: [VLAN 01/18]: Remove unnecessary structure declarations
+Date: Sun, 20 Jan 2008 18:11:18 +0100 (MET)
+Message-ID: <20080120171118.7980.50749.sendpatchset@localhost.localdomain>
+References: <20080120171117.7980.67072.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62336 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:62337 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754310AbYATRLV (ORCPT
+	with ESMTP id S1754321AbYATRLV (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 12:11:21 -0500
+In-Reply-To: <20080120171117.7980.67072.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+[VLAN]: Remove unnecessary structure declarations
 
-the following patches contain a VLAN update for 2.6.25, consisting mainly
-of minor cleanups removing duplicate code, avoiding forward declarations,
-makeing functions static etc. Next I'll look into the skb->cb issues
-with VLAN.
+- struct packet_type is not used
+- struct vlan_group is declared later in the file before the first use
+- struct net_device is not needed since netdevice.h is included
+- struct vlan_collection does not exist
+- struct vlan_dev_info is declared later in the file before the first use
 
-Please apply, thanks.
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
+---
+commit a8d2fc16ef0ffc7eb3502130f87994ba07129dae
+tree 15638920f44a6854f8a570ce87caae9f748ba77f
+parent ad50adbc891ee4e2fb0ea442303a5df16b9501ea
+author Patrick McHardy <kaber@trash.net> Sun, 20 Jan 2008 16:24:52 +0100
+committer Patrick McHardy <kaber@trash.net> Sun, 20 Jan 2008 16:24:52 +0100
 
- drivers/net/cxgb3/l2t.c      |    2 +-
- drivers/s390/net/qeth_main.c |    4 +-
- include/linux/if_ether.h     |    1 +
- include/linux/if_vlan.h      |   61 +++---
- net/8021q/vlan.c             |  437 ++++++++++----------------------------
- net/8021q/vlan.h             |   42 +----
- net/8021q/vlan_dev.c         |  484 ++++++++++++++++++++----------------------
- net/8021q/vlan_netlink.c     |   17 +-
- net/8021q/vlanproc.c         |  107 ++++------
- net/8021q/vlanproc.h         |   11 +-
- 10 files changed, 436 insertions(+), 730 deletions(-)
+ include/linux/if_vlan.h |    5 -----
+ 1 files changed, 0 insertions(+), 5 deletions(-)
 
-Patrick McHardy (17):
-      [VLAN]: Remove unnecessary structure declarations
-      [VLAN]: Clean up vlan_hdr/vlan_ethhdr structs
-      [VLAN]: Kill useless VLAN_NAME define
-      [VLAN]: Use dev->stats
-      [VLAN]: Move device setup to vlan_dev.c
-      [VLAN]: Kill useless check
-      [ETHER]: Bring back MAC_FMT
-      [VLAN]: Clean up debugging and printks
-      [VLAN]: Remove non-implemented ioctls
-      [VLAN]: Clean up initialization code
-      [VLAN]: Clean up unregister_vlan_dev
-      [VLAN]: Simplify vlan unregistration
-      [VLAN]: Turn VLAN_DEV_INFO into inline function
-      [VLAN]: Turn __constant_htons into htons where possible
-      [VLAN]: checkpatch cleanups
-      [VLAN]: Update list address
-      [VLAN]: Clean up vlan_skb_recv()
-
-Pavel Emelyanov (1):
-      [VLAN]: Move protocol determination to seperate function
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 4562105..a268051 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -16,11 +16,6 @@
+ #ifdef __KERNEL__
+ 
+ /* externally defined structs */
+-struct vlan_group;
+-struct net_device;
+-struct packet_type;
+-struct vlan_collection;
+-struct vlan_dev_info;
+ struct hlist_node;
+ 
+ #include <linux/netdevice.h>
