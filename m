@@ -1,94 +1,49 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: netconsole on bnx2 not working?
-Date: Sun, 20 Jan 2008 17:54:31 +0200
-Message-ID: <20080120154119.M46441@visp.net.lb>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [NET_SCHED 00/09]: sch_ingress cleanups
+Date: Sun, 20 Jan 2008 08:35:09 -0800
+Message-ID: <20080120083509.64b6b55f@deepthought>
+References: <20080120143130.27801.94188.sendpatchset@localhost.localdomain>
+	<1200843096.4433.145.camel@localhost>
+	<47936A25.9070306@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:49062 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753662AbYATPyv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 10:54:51 -0500
-Received: from visp.net.lb (localhost [127.0.0.1])
-	by usermail.globalproof.net (Postfix) with ESMTP id 23F82BC821
-	for <netdev@vger.kernel.org>; Sun, 20 Jan 2008 17:54:31 +0200 (EET)
+Received: from mail.vyatta.com ([216.93.170.194]:34095 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754220AbYATQiO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Jan 2008 11:38:14 -0500
+In-Reply-To: <47936A25.9070306@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+On Sun, 20 Jan 2008 16:35:01 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-I am trying to run netconsole on Dell PowerEdge 1950, equipped with two
-Broadcom NIC, without any success.
+> jamal wrote:
+> > On Sun, 2008-20-01 at 15:32 +0100, Patrick McHardy wrote:
+> >> These patches clean up sch_ingress by reformatting the code to match the
+> >> usual kernel style, removing lots of debugging statements that seem
+> >> unnecessary after years of stable operation, removing some "future use"
+> >> stuff that doesn't seem likely to ever get used and some minor additional
+> >> cleanups.
+> >>
+> > 
+> > Patrick - if you are in mopping-mode then you will find some of the same
+> > things in dsmark (LinuxWay(tm)).
+> 
+> 
+> Indeed, that one could use a bit of cleanup as well. I took care
+> of sch_ingress first since I had these patches queued for multiple
+> years now and always forgot to send them out, but I'll look into
+> sch_dsmark next time I'm in the area :)
+> 
+> > For all patches:
+> > Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
-Tried to load netconsole on eth1 and eth0 (interface was renamed by udev), and
-after that i am loading ppp_generic (which generate some data in kernel log).
-Watching by tcpdump on remote, and local host - nothing is shown there.
+I'll fix dsmark, I need it for some other stuff.
 
-The same time i am testing on RTL8139, same commands(just ip/mac different,
-and sure machine is different) work fine.
-
-Is any specific reason for that here? How i can debug this issue?
-Do i need to enable netpoll for that?
-
-I tried to create target over configfs, without any luck. Still no data is sent.
-
-visp-1 test # pwd
-/config/netconsole/test
-visp-1 test # ls
-dev_name  enabled  local_ip  local_mac  local_port  remote_ip  remote_mac 
-remote_port
-visp-1 test # grep "" *
-dev_name:eth0
-enabled:1
-local_ip:217.151.X.Y
-local_mac:00:13:72:f8:73:ac
-local_port:6665
-remote_ip:217.151.X.X
-remote_mac:00:30:48:90:09:06
-remote_port:514
-
-
-dmesg
-[537625.200501] Broadcom NetXtreme II Gigabit Ethernet Driver bnx2 v1.6.9
-(December 8, 2007)
-[537625.200888] ACPI: PCI Interrupt 0000:08:00.0[A] -> GSI 16 (level, low) ->
-IRQ 16
-[537625.531219] eth0: Broadcom NetXtreme II BCM5708 1000Base-T (B1) PCI-X
-64-bit 133MHz found at mem f4000000, IRQ 16, node addr 00:13:72:f8:73:ae
-[537625.531268] ACPI: PCI Interrupt 0000:04:00.0[A] -> GSI 16 (level, low) ->
-IRQ 16
-[537625.532352] udev: renamed network interface eth0 to eth1
-[537625.888397] eth0: Broadcom NetXtreme II BCM5708 1000Base-T (B1) PCI-X
-64-bit 133MHz found at mem f8000000, IRQ 16, node addr 00:13:72:f8:73:ac
-
-dmesg on loading netconsole on eth0 and eth1
-[538036.561776] netconsole: local port 111
-[538036.561785] netconsole: local IP 217.151.X.X
-[538036.561789] netconsole: interface eth1
-[538036.561793] netconsole: remote port 514
-[538036.561802] netconsole: remote IP 217.151.X.X
-[538036.561808] netconsole: remote ethernet address 00:30:48:90:09:06
-[538036.565989] console [netcon0] enabled
-[538036.565998] netconsole: network logging started
-
-[537899.157053] netconsole: couldn't parse config at 217.151.224.117!
-[537899.157064] netconsole: cleaning up
-[537942.772496] netconsole: local port 111
-[537942.772505] netconsole: local IP 217.151.X.X
-[537942.772510] netconsole: interface eth0
-[537942.772514] netconsole: remote port 514
-[537942.772518] netconsole: remote IP 217.151.X.X
-[537942.772549] netconsole: remote ethernet address 00:30:48:90:09:06
-[537942.780203] console [netcon0] enabled
-[537942.780213] netconsole: network logging started
-
-
-
-
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
-
+-- 
+Stephen Hemminger <stephen.hemminger@vyatta.com>
