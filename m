@@ -1,101 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [NET]: rtnl_link: fix use-after-free
-Date: Sun, 20 Jan 2008 18:21:27 +0100
-Message-ID: <47938317.1070906@trash.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] ipv6: addrconf sparse warnings
+Date: Sun, 20 Jan 2008 10:01:40 -0800
+Message-ID: <20080120100140.0f5e2fce@deepthought>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070001090206020903020903"
-Cc: Pavel Emelianov <xemul@openvz.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki / =?UTF-8?B?5ZCJ?=
+	 =?UTF-8?B?6Jek6Iux5piO?= <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62582 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754207AbYATRVa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 12:21:30 -0500
+Received: from mail.vyatta.com ([216.93.170.194]:35446 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755341AbYATSEq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Jan 2008 13:04:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------070001090206020903020903
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Get rid of a couple of sparse warnings in IPV6 addrconf code.
 
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---------------070001090206020903020903
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-commit 6e470bd53fb50632fe1878bb74bb8531a21b6731
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Sun Jan 20 18:19:15 2008 +0100
-
-    [NET]: rtnl_link: fix use-after-free
-    
-    When unregistering the rtnl_link_ops, all existing devices using
-    the ops are destroyed. With nested devices this may lead to a
-    use-after-free despite the use of for_each_netdev_safe() in case
-    the upper device is next in the device list and is destroyed
-    by the NETDEV_UNREGISTER notifier.
-    
-    The easy fix is to restart scanning the device list after removing
-    a device. Alternatively we could add new devices to the front of
-    the list to avoid having dependant devices follow the device they
-    depend on. A third option would be to only restart scanning if
-    dev->iflink of the next device matches dev->ifindex of the current
-    one. For now this seems like the safest solution.
-    
-    With this patch, the veth rtnl_link_ops unregistration can use
-    rtnl_link_unregister() directly since it now also handles destruction
-    of multiple devices at once.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 43af9e9..3f67a29 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -459,19 +459,7 @@ static __init int veth_init(void)
+--- a/net/ipv6/addrconf.c	2008-01-20 09:38:06.000000000 -0800
++++ b/net/ipv6/addrconf.c	2008-01-20 09:57:40.000000000 -0800
+@@ -1900,7 +1900,7 @@ int addrconf_set_dstaddr(void __user *ar
+ 		p.iph.ihl = 5;
+ 		p.iph.protocol = IPPROTO_IPV6;
+ 		p.iph.ttl = 64;
+-		ifr.ifr_ifru.ifru_data = (void __user *)&p;
++		ifr.ifr_ifru.ifru_data = (__force void __user *)&p;
  
- static __exit void veth_exit(void)
- {
--	struct veth_priv *priv, *next;
--
--	rtnl_lock();
--	/*
--	 * cannot trust __rtnl_link_unregister() to unregister all
--	 * devices, as each ->dellink call will remove two devices
--	 * from the list at once.
--	 */
--	list_for_each_entry_safe(priv, next, &veth_list, list)
--		veth_dellink(priv->dev);
--
--	__rtnl_link_unregister(&veth_link_ops);
--	rtnl_unlock();
-+	rtnl_link_unregister(&veth_link_ops);
+ 		oldfs = get_fs(); set_fs(KERNEL_DS);
+ 		err = dev->do_ioctl(dev, &ifr, SIOCADDTUNNEL);
+@@ -2799,6 +2799,7 @@ static struct inet6_ifaddr *if6_get_idx(
  }
  
- module_init(veth_init);
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index e1ba26f..fed95a3 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -308,9 +308,12 @@ void __rtnl_link_unregister(struct rtnl_link_ops *ops)
- 	struct net *net;
+ static void *if6_seq_start(struct seq_file *seq, loff_t *pos)
++	__acquires(addrconf_hash_lock)
+ {
+ 	read_lock_bh(&addrconf_hash_lock);
+ 	return if6_get_idx(seq, *pos);
+@@ -2814,6 +2815,7 @@ static void *if6_seq_next(struct seq_fil
+ }
  
- 	for_each_net(net) {
-+restart:
- 		for_each_netdev_safe(net, dev, n) {
--			if (dev->rtnl_link_ops == ops)
-+			if (dev->rtnl_link_ops == ops) {
- 				ops->dellink(dev);
-+				goto restart;
-+			}
- 		}
- 	}
- 	list_del(&ops->list);
-
---------------070001090206020903020903--
+ static void if6_seq_stop(struct seq_file *seq, void *v)
++	__releases(addrconf_hash_lock)
+ {
+ 	read_unlock_bh(&addrconf_hash_lock);
+ }
