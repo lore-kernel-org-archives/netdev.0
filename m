@@ -1,62 +1,57 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [VLAN 03/18]: Kill useless VLAN_NAME define
-Date: Sun, 20 Jan 2008 18:11:21 +0100 (MET)
-Message-ID: <20080120171121.7980.8986.sendpatchset@localhost.localdomain>
-References: <20080120171117.7980.67072.sendpatchset@localhost.localdomain>
+Subject: [VLAN 00/18]: Vlan update
+Date: Sun, 20 Jan 2008 18:11:17 +0100 (MET)
+Message-ID: <20080120171117.7980.67072.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62340 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:62336 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754399AbYATRLW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 12:11:22 -0500
-In-Reply-To: <20080120171117.7980.67072.sendpatchset@localhost.localdomain>
+	with ESMTP id S1754310AbYATRLV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 12:11:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[VLAN]: Kill useless VLAN_NAME define
+Hi Dave,
 
-The only user already includes __FUNCTION__ (vlan_proto_init) in the output,
-which is enough to identify what the message is about.
+the following patches contain a VLAN update for 2.6.25, consisting mainly
+of minor cleanups removing duplicate code, avoiding forward declarations,
+makeing functions static etc. Next I'll look into the skb->cb issues
+with VLAN.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Please apply, thanks.
 
----
-commit 6fcdd6b0d244f103898c3a37be2a3f4fec50fbd8
-tree 6554c7cab6fdf09ac27fa1c75c93f0c105e249bd
-parent f12d203e024ce5e0c98a9e88f6fdf8517a665ce4
-author Patrick McHardy <kaber@trash.net> Sun, 20 Jan 2008 16:24:54 +0100
-committer Patrick McHardy <kaber@trash.net> Sun, 20 Jan 2008 16:24:54 +0100
 
- include/linux/if_vlan.h |    2 --
- net/8021q/vlan.c        |    4 ++--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/cxgb3/l2t.c      |    2 +-
+ drivers/s390/net/qeth_main.c |    4 +-
+ include/linux/if_ether.h     |    1 +
+ include/linux/if_vlan.h      |   61 +++---
+ net/8021q/vlan.c             |  437 ++++++++++----------------------------
+ net/8021q/vlan.h             |   42 +----
+ net/8021q/vlan_dev.c         |  484 ++++++++++++++++++++----------------------
+ net/8021q/vlan_netlink.c     |   17 +-
+ net/8021q/vlanproc.c         |  107 ++++------
+ net/8021q/vlanproc.h         |   11 +-
+ 10 files changed, 436 insertions(+), 730 deletions(-)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index a1b0066..0325d6b 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -72,8 +72,6 @@ static inline struct vlan_ethhdr *vlan_eth_hdr(const struct sk_buff *skb)
- /* found in socket.c */
- extern void vlan_ioctl_set(int (*hook)(struct net *, void __user *));
- 
--#define VLAN_NAME "vlan"
--
- /* if this changes, algorithm will have to be reworked because this
-  * depends on completely exhausting the VLAN identifier space.  Thus
-  * it gives constant time look-up, but in many cases it wastes memory.
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 032bf44..af25255 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -89,8 +89,8 @@ static int __init vlan_proto_init(void)
- 	err = vlan_proc_init();
- 	if (err < 0) {
- 		printk(KERN_ERR
--		       "%s %s: can't create entry in proc filesystem!\n",
--		       __FUNCTION__, VLAN_NAME);
-+		       "%s: can't create entry in proc filesystem!\n",
-+		       __FUNCTION__);
- 		return err;
- 	}
- 
+Patrick McHardy (17):
+      [VLAN]: Remove unnecessary structure declarations
+      [VLAN]: Clean up vlan_hdr/vlan_ethhdr structs
+      [VLAN]: Kill useless VLAN_NAME define
+      [VLAN]: Use dev->stats
+      [VLAN]: Move device setup to vlan_dev.c
+      [VLAN]: Kill useless check
+      [ETHER]: Bring back MAC_FMT
+      [VLAN]: Clean up debugging and printks
+      [VLAN]: Remove non-implemented ioctls
+      [VLAN]: Clean up initialization code
+      [VLAN]: Clean up unregister_vlan_dev
+      [VLAN]: Simplify vlan unregistration
+      [VLAN]: Turn VLAN_DEV_INFO into inline function
+      [VLAN]: Turn __constant_htons into htons where possible
+      [VLAN]: checkpatch cleanups
+      [VLAN]: Update list address
+      [VLAN]: Clean up vlan_skb_recv()
+
+Pavel Emelyanov (1):
+      [VLAN]: Move protocol determination to seperate function
