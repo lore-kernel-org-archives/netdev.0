@@ -1,74 +1,51 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED 03/09]: sch_ingress: remove qdisc_priv() wrapper
-Date: Sun, 20 Jan 2008 15:32:33 +0100 (MET)
-Message-ID: <20080120143134.27801.64769.sendpatchset@localhost.localdomain>
+Subject: [NET_SCHED 09/09]: sch_ingress: remove useless printk
+Date: Sun, 20 Jan 2008 15:32:42 +0100 (MET)
+Message-ID: <20080120143143.27801.70711.sendpatchset@localhost.localdomain>
 References: <20080120143130.27801.94188.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	hadi@cyberus.ca
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59150 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:59182 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753600AbYATOce (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 09:32:34 -0500
+	with ESMTP id S1753748AbYATOcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 09:32:43 -0500
 In-Reply-To: <20080120143130.27801.94188.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit ec46354d4ba87fe98b8510f2d91fff4e106022ec
+commit f8d51e131177c26c1033dfc804f11d9cac7637f4
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Jan 16 12:22:07 2008 +0100
+Date:   Thu Jan 17 09:17:59 2008 +0100
 
-    [NET_SCHED]: sch_ingress: remove qdisc_priv() wrapper
+    [NET_SCHED]: sch_ingress: remove useless printk
+    
+    The printk about ingress qdisc registration error can't be triggered under
+    normal circumstances. Since register_qdisc only fails for two identical
+    registrations, the only way to trigger it is by loading the sch_ingress
+    modules multiple times under different names, in which case we already
+    return -EEXIST to userspace.
     
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
-index bdda28d..cb8ba8b 100644
+index 4c7f7e7..7252571 100644
 --- a/net/sched/sch_ingress.c
 +++ b/net/sched/sch_ingress.c
-@@ -19,8 +19,6 @@
- #include <net/pkt_sched.h>
+@@ -221,14 +221,7 @@ static struct Qdisc_ops ingress_qdisc_ops __read_mostly = {
  
- 
--#define PRIV(sch) qdisc_priv(sch)
+ static int __init ingress_module_init(void)
+ {
+-	int ret = 0;
 -
- /* Thanks to Doron Oz for this hack */
- #ifndef CONFIG_NET_CLS_ACT
- #ifdef CONFIG_NETFILTER
-@@ -74,7 +72,7 @@ static void ingress_walk(struct Qdisc *sch, struct qdisc_walker *walker)
- 
- static struct tcf_proto **ingress_find_tcf(struct Qdisc *sch, unsigned long cl)
- {
--	struct ingress_qdisc_data *p = PRIV(sch);
-+	struct ingress_qdisc_data *p = qdisc_priv(sch);
- 
- 	return &p->filter_list;
+-	if ((ret = register_qdisc(&ingress_qdisc_ops)) < 0) {
+-		printk("Unable to register Ingress qdisc\n");
+-		return ret;
+-	}
+-
+-	return ret;
++	return register_qdisc(&ingress_qdisc_ops);
  }
-@@ -83,7 +81,7 @@ static struct tcf_proto **ingress_find_tcf(struct Qdisc *sch, unsigned long cl)
  
- static int ingress_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- {
--	struct ingress_qdisc_data *p = PRIV(sch);
-+	struct ingress_qdisc_data *p = qdisc_priv(sch);
- 	struct tcf_result res;
- 	int result;
- 
-@@ -180,7 +178,7 @@ static struct nf_hook_ops ing_ops[] __read_mostly = {
- 
- static int ingress_init(struct Qdisc *sch, struct rtattr *opt)
- {
--	struct ingress_qdisc_data *p = PRIV(sch);
-+	struct ingress_qdisc_data *p = qdisc_priv(sch);
- 
- 	/* Make sure either netfilter or preferably CLS_ACT is
- 	 * compiled in */
-@@ -217,7 +215,7 @@ static void ingress_reset(struct Qdisc *sch)
- 
- static void ingress_destroy(struct Qdisc *sch)
- {
--	struct ingress_qdisc_data *p = PRIV(sch);
-+	struct ingress_qdisc_data *p = qdisc_priv(sch);
- 
- 	tcf_destroy_chain(p->filter_list);
- }
+ static void __exit ingress_module_exit(void)
