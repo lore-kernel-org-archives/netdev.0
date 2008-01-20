@@ -1,44 +1,58 @@
-From: "Jesper Juhl" <jesper.juhl@gmail.com>
-Subject: Re: [PATCH] [IrDA] af_irda memory leak fixes
-Date: Sun, 20 Jan 2008 01:23:22 +0100
-Message-ID: <9a8748490801191623y22af5b7fi78e33e5acbdcf33e@mail.gmail.com>
-References: <20080118075322.GB3063@sortiz.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 9778] New: unregister_netdevice: waiting for
+ [device] to become free
+Date: Sat, 19 Jan 2008 16:58:02 -0800
+Message-ID: <20080119165802.2846a28e.akpm@linux-foundation.org>
+References: <bug-9778-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	irda-users@lists.sourceforge.net, netdev@vger.kernel.org
-To: "Samuel Ortiz" <samuel@sortiz.org>
+Cc: "bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, nigel@suspend2.net,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.182]:19282 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758927AbYATAXZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2008 19:23:25 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so2676764wah.23
-        for <netdev@vger.kernel.org>; Sat, 19 Jan 2008 16:23:22 -0800 (PST)
-In-Reply-To: <20080118075322.GB3063@sortiz.org>
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:44363 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751674AbYATA5y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2008 19:57:54 -0500
+In-Reply-To: <bug-9778-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18/01/2008, Samuel Ortiz <samuel@sortiz.org> wrote:
-> Hi Dave,
->
-> Here goes an IrDA patch against your latest net-2.6 tree.
->
-> This patch fixes some af_irda memory leaks.
-> It also checks for irias_new_obect() return value.
->
-> Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
-> Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
-...
+On Sat, 19 Jan 2008 12:20:28 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
 
-Looks good Samuel.
-Thank you for improving on my original suggested patch.
+> http://bugzilla.kernel.org/show_bug.cgi?id=9778
+> 
+>            Summary: unregister_netdevice: waiting for [device] to become
+>                     free
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.24-rc8
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: blocking
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: nigel@suspend2.net
+> 
+> 
+> Latest working kernel version: 2.6.24-rc7
+> Earliest failing kernel version: 2.6.24-rc8
+> Distribution: Ubuntu Gutsy
+> Hardware Environment: AMD64, Atheros 5212 chipset
+> Software Environment: Fairly recent madwifi svn.
+> Problem Description: Patch "[PATCH][NEIGH] Fix race between neigh_parms_release
+> and neightbl_fill_parms" (9cd40029423701c376391da59d2c6469672b4bed) causes the
+> error described in the subject line to occur when seeking to unload a device.
+> Also seen by some of my TuxOnIce users with e1000 and ppp42.
+> 
+> Steps to reproduce: Run a kernel with the above patch, bring up a (nonloopback)
+> interface, seek to take it down.
+> 
 
-Now let's hope someone queues it up for mainline :)
-
--- 
-Jesper Juhl <jesper.juhl@gmail.com>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+ouch.
