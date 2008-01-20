@@ -1,65 +1,51 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
-Date: Sun, 20 Jan 2008 01:20:11 -0800
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52043A156F@orsmsx418.amr.corp.intel.com>
-References: <18318.14810.877279.41815@robur.slu.se><20080118.041144.81957249.davem@davemloft.net><18320.41737.651384.808195@robur.slu.se> <20080118.053712.195382841.davem@davemloft.net>
+From: Andrey Rahmatullin <wrar@altlinux.ru>
+Subject: Re: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
+Date: Sun, 20 Jan 2008 14:28:21 +0500
+Message-ID: <20080120092821.GA12333@wrars-comp.wrarsdomain>
+References: <20080118.053712.195382841.davem@davemloft.net> <36D9DB17C6DE9E40B059440DB8D95F52043A156F@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <elendil@planet.nl>, <slavon@bigtelecom.ru>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>, <Robert.Olsson@data.slu.se>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="r5Pyd7+fXNt84Ff3"
+Cc: David Miller <davem@davemloft.net>, Robert.Olsson@data.slu.se,
+	elendil@planet.nl, slavon@bigtelecom.ru, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:14478 "EHLO mga02.intel.com"
+Received: from k66.ru ([87.224.128.21]:62388 "EHLO k66.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751221AbYATJUZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 04:20:25 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20080118.053712.195382841.davem@davemloft.net>
+	id S1751469AbYATJcU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Jan 2008 04:32:20 -0500
+Content-Disposition: inline
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52043A156F@orsmsx418.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Robert Olsson <Robert.Olsson@data.slu.se>
-> Date: Fri, 18 Jan 2008 14:00:57 +0100
-> 
->>  I don't understand the idea with semaphore for enabling/disabling
->>  irq's either the overall logic must safer/better without it.
-> 
-> They must have had code paths where they didn't know if IRQs were
-> enabled or not already, so they tried to create something which
-> approximates the:
-> 
-> 	local_irq_save(flags);
-> 	local_irq_restore(flags);
-> 
-> constructs we have for CPU interrupts, so they could go:
-> 
-> 	e1000_irq_disable();
-> 	/* ... */
-> 	e1000_irq_enable();
-> 
-> and this would work even if the caller was running
-> with e1000 interrupts disabled already.
-> 
-> Or, something like that... it is indeed confusing.
-> 
-> Anyways, yes it's totally bogus and should be removed.
 
-I agree, bogus, and in fact I've already removed it from our development
-version of ixgbe.  Right now I wanted to report I can't remove e1000 at
-all on 2.6.24-rc8+git
+--r5Pyd7+fXNt84Ff3
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I continually get the
- kernel: unregister_netdevice: waiting for eth2 to become free. Usage
-count = 1
+On Sun, Jan 20, 2008 at 01:20:11AM -0800, Brandeburg, Jesse wrote:
+> I continually get the
+>  kernel: unregister_netdevice: waiting for eth2 to become free. Usage
+> count =3D 1
+http://bugzilla.kernel.org/show_bug.cgi?id=3D9778
 
-Where 2.6.24-rc5 e1000 is okay still.  Seems like maybe we are still
-missing a netif_rx_complete or a napi_disable somewhere.
+--=20
+WBR, wRAR (ALT Linux Team)
 
-I don't think this problem has anything to do with the irq_sem right
-now.  Something is still badly broken.  I am just using the interface
-regularly (no heavy load) and I can't unload the module.
+--r5Pyd7+fXNt84Ff3
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-Jesse
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.8 (GNU/Linux)
+
+iEYEARECAAYFAkeTFDUACgkQB4Vf7hFmt5UfJQCeKvcIM4gpRayR0sDbTtmxIkx6
+Gt0Ani91PQkWMegMERbojpkoLfetlDkr
+=PSLU
+-----END PGP SIGNATURE-----
+
+--r5Pyd7+fXNt84Ff3--
