@@ -1,62 +1,65 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: ESFQ (or SFQ updates) mainline status?
-Date: Sat, 19 Jan 2008 20:50:13 -0800
-Message-ID: <20080119205013.61294ad3@deepthought>
-References: <1199474475.3820.65.camel@sally>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
+Date: Sun, 20 Jan 2008 01:20:11 -0800
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52043A156F@orsmsx418.amr.corp.intel.com>
+References: <18318.14810.877279.41815@robur.slu.se><20080118.041144.81957249.davem@davemloft.net><18320.41737.651384.808195@robur.slu.se> <20080118.053712.195382841.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <elendil@planet.nl>, <slavon@bigtelecom.ru>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>, <Robert.Olsson@data.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:54337 "EHLO ciao.gmane.org"
+Received: from mga02.intel.com ([134.134.136.20]:14478 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753288AbYATExd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Jan 2008 23:53:33 -0500
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1JGSBQ-0005m0-GS
-	for netdev@vger.kernel.org; Sun, 20 Jan 2008 04:53:24 +0000
-Received: from 069-064-229-129.pdx.net ([69.64.229.129])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 20 Jan 2008 04:53:24 +0000
-Received: from shemminger by 069-064-229-129.pdx.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 20 Jan 2008 04:53:24 +0000
-In-Reply-To: <1199474475.3820.65.camel@sally>
+	id S1751221AbYATJUZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 04:20:25 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20080118.053712.195382841.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 04 Jan 2008 11:21:15 -0800
-Jeff Gustafson <ncjeffgus@zimage.com> wrote:
-
-> Hi all,
-> 	I have a question about the status of the spiffy updates to SFQ.  I
-> *really* like the ESFQ idea.  I appears to be exactly what I'm looking
-> for.  From what I can tell from this mailing list, SFQ is getting some
-> or all of the ESFQ features.  Although the ESFQ web site gives detailed
-> information about the status for inclusion in mainline, I am having
-> trouble finding out exactly what (if any) parts of ESFQ got into SFQ in
-> mainline.
-> 	Did any of the ESFQ-like enhancements for SFQ reach .23 or do I still
-> need to patch?  I am running a stripped-down Fedora 8 box and it would
-> be very convenient if the patches were already in .23 or added by the
-> Fedora team.
-> 	I tried to run the ESFQ command against SFQ, but the command was
-> rejected:
+David Miller wrote:
+> From: Robert Olsson <Robert.Olsson@data.slu.se>
+> Date: Fri, 18 Jan 2008 14:00:57 +0100
 > 
-> /sbin/tc qdisc add dev eth1 parent 1:12 handle 12: sfq perturb 10 hash
-> ctnatchg
+>>  I don't understand the idea with semaphore for enabling/disabling
+>>  irq's either the overall logic must safer/better without it.
 > 
-> 	It appears the even if the kernel does have the patches, the shipped
-> version tc does not.
+> They must have had code paths where they didn't know if IRQs were
+> enabled or not already, so they tried to create something which
+> approximates the:
 > 
-> 				..Jeff
+> 	local_irq_save(flags);
+> 	local_irq_restore(flags);
+> 
+> constructs we have for CPU interrupts, so they could go:
+> 
+> 	e1000_irq_disable();
+> 	/* ... */
+> 	e1000_irq_enable();
+> 
+> and this would work even if the caller was running
+> with e1000 interrupts disabled already.
+> 
+> Or, something like that... it is indeed confusing.
+> 
+> Anyways, yes it's totally bogus and should be removed.
 
-The mainline kernel doesn't have ESFQ, so the distribute version of iproute2
-does not. If your distro chooses to add ESFQ to their kernel, then they
-need to extend tc as well.
+I agree, bogus, and in fact I've already removed it from our development
+version of ixgbe.  Right now I wanted to report I can't remove e1000 at
+all on 2.6.24-rc8+git
 
+I continually get the
+ kernel: unregister_netdevice: waiting for eth2 to become free. Usage
+count = 1
 
--- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+Where 2.6.24-rc5 e1000 is okay still.  Seems like maybe we are still
+missing a netif_rx_complete or a napi_disable somewhere.
 
+I don't think this problem has anything to do with the irq_sem right
+now.  Something is still badly broken.  I am just using the interface
+regularly (no heavy load) and I can't unload the module.
+
+Jesse
