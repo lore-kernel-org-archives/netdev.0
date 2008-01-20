@@ -1,36 +1,80 @@
-From: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
-Subject: [PATCH 03/14] [rndis_host] Use 1KB buffer in rndis_unbind
-Date: Sun, 20 Jan 2008 02:13:59 +0200
-Message-ID: <20080120001359.25718.20460.stgit@fate.lan>
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Subject: [PATCH 04/14] [rndis_host] Halt device if rndis_bind fails.
+Date: Sun, 20 Jan 2008 02:14:04 +0200
+Message-ID: <20080120001404.25718.6901.stgit@fate.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: bjd-a1rhEgazXTw@public.gmane.org, dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: bjd@jooz.net, dbrownell@users.sourceforge.net,
+	netdev@vger.kernel.org
+To: linux-wireless@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pne-smtpout4-sn2.hy.skanova.net ([81.228.8.154]:49048 "EHLO
+	pne-smtpout4-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753867AbYATAOK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2008 19:14:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-rndis_command requires the caller to pass in a buffer of at least 1KB.
+When bind fails after device was initialized, shutdown device properly
+by sending RNDIS_MSG_HALT.
 
-Signed-off-by: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
-Signed-off-by: Bjorge Dijkstra <bjd-a1rhEgazXTw@public.gmane.org>
+Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Signed-off-by: Bjorge Dijkstra <bjd@jooz.net>
 ---
 
- drivers/net/usb/rndis_host.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/usb/rndis_host.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
-index 96ef6a9..42b161c 100644
+index 42b161c..c686025 100644
 --- a/drivers/net/usb/rndis_host.c
 +++ b/drivers/net/usb/rndis_host.c
-@@ -577,7 +577,7 @@ static void rndis_unbind(struct usbnet *dev, struct usb_interface *intf)
- 	struct rndis_halt	*halt;
+@@ -467,6 +467,7 @@ static int rndis_bind(struct usbnet *dev, struct usb_interface *intf)
+ 		struct rndis_query_c	*get_c;
+ 		struct rndis_set	*set;
+ 		struct rndis_set_c	*set_c;
++		struct rndis_halt	*halt;
+ 	} u;
+ 	u32			tmp;
+ 	int			reply_len;
+@@ -517,7 +518,7 @@ static int rndis_bind(struct usbnet *dev, struct usb_interface *intf)
+ 				"dev can't take %u byte packets (max %u)\n",
+ 				dev->hard_mtu, tmp);
+ 			retval = -EINVAL;
+-			goto fail_and_release;
++			goto halt_fail_and_release;
+ 		}
+ 		dev->hard_mtu = tmp;
+ 		net->mtu = dev->hard_mtu - net->hard_header_len;
+@@ -539,7 +540,7 @@ static int rndis_bind(struct usbnet *dev, struct usb_interface *intf)
+ 			48, (void **) &bp, &reply_len);
+ 	if (unlikely(retval< 0)) {
+ 		dev_err(&intf->dev, "rndis get ethaddr, %d\n", retval);
+-		goto fail_and_release;
++		goto halt_fail_and_release;
+ 	}
+ 	memcpy(net->dev_addr, bp, ETH_ALEN);
  
- 	/* try to clear any rndis state/activity (no i/o from stack!) */
--	halt = kzalloc(sizeof *halt, GFP_KERNEL);
-+	halt = kzalloc(CONTROL_BUFFER_SIZE, GFP_KERNEL);
- 	if (halt) {
- 		halt->msg_type = RNDIS_MSG_HALT;
- 		halt->msg_len = ccpu2(sizeof *halt);
+@@ -555,7 +556,7 @@ static int rndis_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	retval = rndis_command(dev, u.header);
+ 	if (unlikely(retval < 0)) {
+ 		dev_err(&intf->dev, "rndis set packet filter, %d\n", retval);
+-		goto fail_and_release;
++		goto halt_fail_and_release;
+ 	}
+ 
+ 	retval = 0;
+@@ -563,6 +564,11 @@ static int rndis_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	kfree(u.buf);
+ 	return retval;
+ 
++halt_fail_and_release:
++	memset(u.halt, 0, sizeof *u.halt);
++	u.halt->msg_type = RNDIS_MSG_HALT;
++	u.halt->msg_len = ccpu2(sizeof *u.halt);
++	(void) rndis_command(dev, (void *)u.halt);
+ fail_and_release:
+ 	usb_set_intfdata(info->data, NULL);
+ 	usb_driver_release_interface(driver_of(intf), info->data);
+
