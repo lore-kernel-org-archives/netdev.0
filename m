@@ -1,22 +1,60 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC NET_SCHED 05/05]: Consolidate class ops for pseudo classful qdisc
-Date: Sun, 20 Jan 2008 19:28:56 +0100 (MET)
-Message-ID: <20080120182855.10972.24622.sendpatchset@localhost.localdomain>
-References: <20080120182848.10972.46380.sendpatchset@localhost.localdomain>
-Cc: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC NET_SCHED 05/05]: Consolidate class ops for pseudo classful
+ qdisc
+Date: Sun, 20 Jan 2008 19:32:36 +0100
+Message-ID: <479393C4.4060909@trash.net>
+References: <20080120182848.10972.46380.sendpatchset@localhost.localdomain> <20080120182855.10972.24622.sendpatchset@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------040808030603090708060407"
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64052 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:64143 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754710AbYATS25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 13:28:57 -0500
-In-Reply-To: <20080120182848.10972.46380.sendpatchset@localhost.localdomain>
+	with ESMTP id S1754734AbYATScm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 13:32:42 -0500
+Received: from [192.168.0.100] (unknown [78.42.105.25])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by stinky.trash.net (Postfix) with ESMTP id 17090948F8
+	for <netdev@vger.kernel.org>; Sun, 20 Jan 2008 19:32:38 +0100 (MET)
+In-Reply-To: <20080120182855.10972.24622.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit e97ba18f7a8f9342fa06d0f5606a186b18e1d7f8
+This is a multi-part message in MIME format.
+--------------040808030603090708060407
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Patrick McHardy wrote:
+> commit e97ba18f7a8f9342fa06d0f5606a186b18e1d7f8
+> Author: Patrick McHardy <kaber@trash.net>
+> Date:   Wed Jan 16 12:22:06 2008 +0100
+> 
+>     [NET_SCHED]: Consolidate class ops for pseudo classful qdisc
+>     
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
+> 
+
+>  config NET_SCH_TEQL
+>  	tristate "True Link Equalizer (TEQL)"
+> +	select NET_SCH_PC
+
+
+Oops .. this should have been at the NET_SCH_RED entry.
+
+
+--------------040808030603090708060407
+Content-Type: text/x-patch;
+ name="05.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="05.diff"
+
+commit d89898d2e77b5c1753d21174870277d235994afa
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Jan 16 12:22:06 2008 +0100
+Date:   Sun Jan 20 19:31:05 2008 +0100
 
     [NET_SCHED]: Consolidate class ops for pseudo classful qdisc
     
@@ -38,7 +76,7 @@ index decc339..ca6e4de 100644
 +
  #endif
 diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index f5ab54b..63882c5 100644
+index f5ab54b..b6b4260 100644
 --- a/net/sched/Kconfig
 +++ b/net/sched/Kconfig
 @@ -43,6 +43,9 @@ if NET_SCHED
@@ -51,14 +89,14 @@ index f5ab54b..63882c5 100644
  config NET_SCH_CBQ
  	tristate "Class Based Queueing (CBQ)"
  	---help---
-@@ -141,6 +144,7 @@ config NET_SCH_SFQ
+@@ -119,6 +122,7 @@ config NET_SCH_RR
  
- config NET_SCH_TEQL
- 	tristate "True Link Equalizer (TEQL)"
+ config NET_SCH_RED
+ 	tristate "Random Early Detection (RED)"
 +	select NET_SCH_PC
  	---help---
- 	  Say Y here if you want to use the True Link Equalizer (TLE) packet
- 	  scheduling algorithm. This queueing discipline allows the combination
+ 	  Say Y here if you want to use the Random Early Detection (RED)
+ 	  packet scheduling algorithm.
 @@ -153,6 +157,7 @@ config NET_SCH_TEQL
  
  config NET_SCH_TBF
@@ -808,3 +846,5 @@ index 5fd4dff..6590ce3 100644
  	.id		=	"tbf",
  	.priv_size	=	sizeof(struct tbf_sched_data),
  	.enqueue	=	tbf_enqueue,
+
+--------------040808030603090708060407--
