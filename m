@@ -1,63 +1,37 @@
-From: Malte =?UTF-8?B?U2NocsO2ZGVy?= <maltesch@gmx.de>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: 2.6.24 regression: reference count leak in PPPoE
-Date: Sun, 20 Jan 2008 21:16:19 +0100
-Message-ID: <20080120211619.11535a95@highlander.home.lan>
-References: <200801202053.30386.ak@suse.de>
+Date: Sun, 20 Jan 2008 21:58:41 +0100
+Message-ID: <200801202158.42093.ak@suse.de>
+References: <200801202053.30386.ak@suse.de> <20080120200109.GA31876@elte.hu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="Sig_/g6_XeXJ.s1ma5V6oZSrcPja";
- protocol="application/pgp-signature"; micalg=PGP-SHA1
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andi Kleen <ak@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756296AbYATUQj@vger.kernel.org>
-In-Reply-To: <200801202053.30386.ak@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Sig_/g6_XeXJ.s1ma5V6oZSrcPja
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On Sun, 20 Jan 2008 20:53:30 +0100
-Andi Kleen <ak@suse.de> wrote:
-
->=20
-> My workstation running 2.6.24-rc8 just hung during shutdown with an endle=
-ss=20
-> (or rather I didn't wait more than a few minutes) loop of=20
->=20
-> unregister_netdev: waiting for ppp-device to become free. Usage count =3D=
- 1
->=20
-> ppp-device was an active PPPoE device.
->=20
-> No more information currently.
-
-Now that you mention it, this happened to me too this morning. My
-system stops the ppp interface (pppoe) and starts it again (my provider
-shuts down the link every 24 hours, I want that to happen during the
-night, so I do a ifdown ppp0).
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.suse.de ([195.135.220.15]:55474 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755568AbYATU6o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Jan 2008 15:58:44 -0500
+In-Reply-To: <20080120200109.GA31876@elte.hu>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+> It seems to have stopped when i stopped using ipsec and started using
+> vpnc.
 
+Kernel ipsec was active yes. However I normally don't see it although
+it is often active, that was the first time I think
 
---=20
----------------------------------------
-Malte Schr=C3=B6der
-MalteSch@gmx.de
-ICQ# 68121508
----------------------------------------
+(except long ago) 
 
+> (but no firm info - this was sporadic - happened every few months 
+> or so) Are you using ipsec and dynamic IPs by any chance?
 
---Sig_/g6_XeXJ.s1ma5V6oZSrcPja
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+and the ISP uses dynamic IPs.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFHk6wW4q3E2oMjYtURAibFAJ9nbk8VJfK626vw3LuH/J3SxiBqGACgqkDt
-XC9CmrOpuhZhSwRlobcfs+U=
-=Ngof
------END PGP SIGNATURE-----
-
---Sig_/g6_XeXJ.s1ma5V6oZSrcPja--
+-Andi
