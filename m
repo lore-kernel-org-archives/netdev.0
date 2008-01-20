@@ -1,53 +1,39 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: 2.6.24 regression: reference count leak in PPPoE
-Date: Sun, 20 Jan 2008 23:59:42 +0100
-Message-ID: <20080120225942.GA31612@elf.ucw.cz>
-References: <200801202053.30386.ak@suse.de>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] net: add sparse annotation to ptype_seq_start/stop
+Date: Sun, 20 Jan 2008 15:21:46 -0800
+Message-ID: <20080120152146.70bc0b12@deepthought>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andi Kleen <ak@suse.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:55107 "EHLO amd.ucw.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755827AbYATW73 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Jan 2008 17:59:29 -0500
-Content-Disposition: inline
-In-Reply-To: <200801202053.30386.ak@suse.de>
+Received: from mail.vyatta.com ([216.93.170.194]:40356 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755261AbYATXYz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Jan 2008 18:24:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+Get rid of some more sparse warnings.
 
-> My workstation running 2.6.24-rc8 just hung during shutdown with an endless 
-> (or rather I didn't wait more than a few minutes) loop of 
-> 
-> unregister_netdev: waiting for ppp-device to become free. Usage count = 1
-> 
-> ppp-device was an active PPPoE device.
-> 
-> No more information currently.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Actually, I'm getting something similar:
-
-usb 2-2: USB disconnect, address 23
-PM: Removing info for No Bus:usbdev2.23_ep83
-usb0: unregister 'cdc_ether' usb-0000:00:1d.0-2, CDC Ethernet Device
-PM: Removing info for No Bus:usb0
-unregister_netdevice: waiting for usb0 to become free. Usage count = 1
-unregister_netdevice: waiting for usb0 to become free. Usage count = 1
-unregister_netdevice: waiting for usb0 to become free. Usage count = 1
-unregister_netdevice: waiting for usb0 to become free. Usage count = 1
-unregister_netdevice: waiting for usb0 to become free. Usage count = 1
-unregister_netdevice: waiting for usb0 to become free. Usage count = 1
-PM: Removing info for usb:2-2:1.0
-PM: Removing info for No Bus:usbdev2.23_ep81
-PM: Removing info for No Bus:usbdev2.23_ep02
-
-The unregister_netdevice made it onto console, that means pretty
-severe log level. Happened while playing with openmoko connected with
-USB cable.
-									Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+--- a/net/core/dev.c	2008-01-20 14:25:00.000000000 -0800
++++ b/net/core/dev.c	2008-01-20 14:25:48.000000000 -0800
+@@ -2543,6 +2543,7 @@ static void *ptype_get_idx(loff_t pos)
+ }
+ 
+ static void *ptype_seq_start(struct seq_file *seq, loff_t *pos)
++	__acquires(rcu)
+ {
+ 	rcu_read_lock();
+ 	return *pos ? ptype_get_idx(*pos - 1) : SEQ_START_TOKEN;
+@@ -2578,6 +2579,7 @@ found:
+ }
+ 
+ static void ptype_seq_stop(struct seq_file *seq, void *v)
++	__releases(rcu)
+ {
+ 	rcu_read_unlock();
+ }
