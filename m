@@ -1,26 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net classifier: style cleanup's
-Date: Mon, 21 Jan 2008 02:26:53 -0800 (PST)
-Message-ID: <20080121.022653.229123345.davem@davemloft.net>
-References: <20080120140613.10a7d29b@deepthought>
+Subject: Re: [PATCH] net: add sparse annotation to ptype_seq_start/stop
+Date: Mon, 21 Jan 2008 02:28:21 -0800 (PST)
+Message-ID: <20080121.022821.56278182.davem@davemloft.net>
+References: <20080120152146.70bc0b12@deepthought>
+	<20080121050355.GD7541@linux.vnet.ibm.com>
+	<479449DC.4020105@freedesktop.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: paulmck@linux.vnet.ibm.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: josh@freedesktop.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34815
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40352
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1765788AbYAUK0t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 05:26:49 -0500
-In-Reply-To: <20080120140613.10a7d29b@deepthought>
+	by vger.kernel.org with ESMTP id S1758337AbYAUK2Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 05:28:16 -0500
+In-Reply-To: <479449DC.4020105@freedesktop.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Sun, 20 Jan 2008 14:06:13 -0800
+From: Josh Triplett <josh@freedesktop.org>
+Date: Sun, 20 Jan 2008 23:29:32 -0800
 
-> Classifier code cleanup. Get rid of printk wrapper, and fix whitespace
-> and other style stuff reported by checkpatch
+> At the moment, Sparse doesn't actually use the context expression.  In
+> the ideal case when it does, all references to the same lock should
+> use a context expression which resolves to that lock (whatever that
+> may mean; hence why Sparse doesn't handle it yet).  For mechanisms
+> like RCU without a lock variable, this will likely entail some sort of
+> fake lock expression, which again needs to match between all users of
+> the same mechanism.  Like any expression in C, case matters; thus,
+> please match the existing references to "RCU" rather than "rcu".
 
-Applied, thanks.
+Thus, I've checked in Stephen's patch with __acquires(RCU) and
+__releases(RCU).
+
+Thanks.
+
