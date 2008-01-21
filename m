@@ -1,211 +1,352 @@
 From: Alexey Dobriyan <adobriyan@sw.ru>
-Subject: [PATCH 4/5] netns netfilter: propagate netns from userspace
-Date: Mon, 21 Jan 2008 17:54:24 +0300
-Message-ID: <20080121145424.GI27615@localhost.sw.ru>
+Subject: [PATCH 5/5] netns netfilter: per-netns FILTER, MANGLE, RAW
+Date: Mon, 21 Jan 2008 17:55:09 +0300
+Message-ID: <20080121145509.GJ27615@localhost.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	devel@openvz.org
 To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:26318 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755261AbYAUOy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jan 2008 09:54:29 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-.. all the way down to table searching functions.
+Now, iptables show and configure different set of rules in different
+netnss'. Filtering decisions are still made by consulting only
+init_net's set.
+
+Changes are identical except naming so no splitting.
+
+P.S.: one need to remove init_net checks in nf_sockopt.c and inet_create()
+      to see the effect.
 
 Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
 ---
 
- net/ipv4/netfilter/ip_tables.c |   46 ++++++++++++++++++++---------------------
- 1 file changed, 23 insertions(+), 23 deletions(-)
+ include/net/netns/ipv4.h            |    5 ++++
+ net/ipv4/netfilter/iptable_filter.c |   41 ++++++++++++++++++++++++-----------
+ net/ipv4/netfilter/iptable_mangle.c |   41 ++++++++++++++++++++++++-----------
+ net/ipv4/netfilter/iptable_raw.c    |   41 ++++++++++++++++++++++++-----------
+ 4 files changed, 92 insertions(+), 36 deletions(-)
 
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -1092,7 +1092,7 @@ static int compat_table_info(const struct xt_table_info *info,
- }
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -22,5 +22,10 @@ struct netns_ipv4 {
  #endif
- 
--static int get_info(void __user *user, int *len, int compat)
-+static int get_info(struct net *net, void __user *user, int *len, int compat)
- {
- 	char name[IPT_TABLE_MAXNAMELEN];
- 	struct xt_table *t;
-@@ -1112,7 +1112,7 @@ static int get_info(void __user *user, int *len, int compat)
- 	if (compat)
- 		xt_compat_lock(AF_INET);
+ 	struct hlist_head	*fib_table_hash;
+ 	struct sock		*fibnl;
++#ifdef CONFIG_NETFILTER
++	struct xt_table		*iptable_filter;
++	struct xt_table		*iptable_mangle;
++	struct xt_table		*iptable_raw;
++#endif
+ };
  #endif
--	t = try_then_request_module(xt_find_table_lock(&init_net, AF_INET, name),
-+	t = try_then_request_module(xt_find_table_lock(net, AF_INET, name),
- 				    "iptable_%s", name);
- 	if (t && !IS_ERR(t)) {
- 		struct ipt_getinfo info;
-@@ -1152,7 +1152,7 @@ static int get_info(void __user *user, int *len, int compat)
+--- a/net/ipv4/netfilter/iptable_filter.c
++++ b/net/ipv4/netfilter/iptable_filter.c
+@@ -28,7 +28,7 @@ static struct
+ 	struct ipt_replace repl;
+ 	struct ipt_standard entries[3];
+ 	struct ipt_error term;
+-} initial_table __initdata = {
++} initial_table __net_initdata = {
+ 	.repl = {
+ 		.name = "filter",
+ 		.valid_hooks = FILTER_VALID_HOOKS,
+@@ -53,14 +53,13 @@ static struct
+ 	.term = IPT_ERROR_INIT,			/* ERROR */
+ };
+ 
+-static struct xt_table __packet_filter = {
++static struct xt_table packet_filter = {
+ 	.name		= "filter",
+ 	.valid_hooks	= FILTER_VALID_HOOKS,
+ 	.lock		= RW_LOCK_UNLOCKED,
+ 	.me		= THIS_MODULE,
+ 	.af		= AF_INET,
+ };
+-static struct xt_table *packet_filter;
+ 
+ /* The work comes in here from netfilter.c. */
+ static unsigned int
+@@ -70,7 +69,7 @@ ipt_hook(unsigned int hook,
+ 	 const struct net_device *out,
+ 	 int (*okfn)(struct sk_buff *))
+ {
+-	return ipt_do_table(skb, hook, in, out, packet_filter);
++	return ipt_do_table(skb, hook, in, out, init_net.ipv4.iptable_filter);
  }
  
- static int
--get_entries(struct ipt_get_entries __user *uptr, int *len)
-+get_entries(struct net *net, struct ipt_get_entries __user *uptr, int *len)
- {
- 	int ret;
- 	struct ipt_get_entries get;
-@@ -1170,7 +1170,7 @@ get_entries(struct ipt_get_entries __user *uptr, int *len)
- 		return -EINVAL;
+ static unsigned int
+@@ -89,7 +88,7 @@ ipt_local_out_hook(unsigned int hook,
+ 		return NF_ACCEPT;
  	}
  
--	t = xt_find_table_lock(&init_net, AF_INET, get.name);
-+	t = xt_find_table_lock(net, AF_INET, get.name);
- 	if (t && !IS_ERR(t)) {
- 		struct xt_table_info *private = t->private;
- 		duprintf("t->private->number = %u\n", private->number);
-@@ -1191,7 +1191,7 @@ get_entries(struct ipt_get_entries __user *uptr, int *len)
+-	return ipt_do_table(skb, hook, in, out, packet_filter);
++	return ipt_do_table(skb, hook, in, out, init_net.ipv4.iptable_filter);
  }
  
- static int
--__do_replace(const char *name, unsigned int valid_hooks,
-+__do_replace(struct net *net, const char *name, unsigned int valid_hooks,
- 	     struct xt_table_info *newinfo, unsigned int num_counters,
- 	     void __user *counters_ptr)
- {
-@@ -1208,7 +1208,7 @@ __do_replace(const char *name, unsigned int valid_hooks,
- 		goto out;
- 	}
+ static struct nf_hook_ops ipt_ops[] __read_mostly = {
+@@ -120,6 +119,26 @@ static struct nf_hook_ops ipt_ops[] __read_mostly = {
+ static int forward = NF_ACCEPT;
+ module_param(forward, bool, 0000);
  
--	t = try_then_request_module(xt_find_table_lock(&init_net, AF_INET, name),
-+	t = try_then_request_module(xt_find_table_lock(net, AF_INET, name),
- 				    "iptable_%s", name);
- 	if (!t || IS_ERR(t)) {
- 		ret = t ? PTR_ERR(t) : -ENOENT;
-@@ -1261,7 +1261,7 @@ __do_replace(const char *name, unsigned int valid_hooks,
- }
- 
- static int
--do_replace(void __user *user, unsigned int len)
-+do_replace(struct net *net, void __user *user, unsigned int len)
- {
- 	int ret;
- 	struct ipt_replace tmp;
-@@ -1295,7 +1295,7 @@ do_replace(void __user *user, unsigned int len)
- 
- 	duprintf("ip_tables: Translated table\n");
- 
--	ret = __do_replace(tmp.name, tmp.valid_hooks, newinfo,
-+	ret = __do_replace(net, tmp.name, tmp.valid_hooks, newinfo,
- 			   tmp.num_counters, tmp.counters);
- 	if (ret)
- 		goto free_newinfo_untrans;
-@@ -1331,7 +1331,7 @@ add_counter_to_entry(struct ipt_entry *e,
- }
- 
- static int
--do_add_counters(void __user *user, unsigned int len, int compat)
-+do_add_counters(struct net *net, void __user *user, unsigned int len, int compat)
- {
- 	unsigned int i;
- 	struct xt_counters_info tmp;
-@@ -1383,7 +1383,7 @@ do_add_counters(void __user *user, unsigned int len, int compat)
- 		goto free;
- 	}
- 
--	t = xt_find_table_lock(&init_net, AF_INET, name);
-+	t = xt_find_table_lock(net, AF_INET, name);
- 	if (!t || IS_ERR(t)) {
- 		ret = t ? PTR_ERR(t) : -ENOENT;
- 		goto free;
-@@ -1789,7 +1789,7 @@ out_unlock:
- }
- 
- static int
--compat_do_replace(void __user *user, unsigned int len)
-+compat_do_replace(struct net *net, void __user *user, unsigned int len)
++static int __net_init iptable_filter_net_init(struct net *net)
++{
++	/* Register table */
++	net->ipv4.iptable_filter =
++		ipt_register_table(net, &packet_filter, &initial_table.repl);
++	if (IS_ERR(net->ipv4.iptable_filter))
++		return PTR_ERR(net->ipv4.iptable_filter);
++	return 0;
++}
++
++static void __net_exit iptable_filter_net_exit(struct net *net)
++{
++	ipt_unregister_table(net->ipv4.iptable_filter);
++}
++
++static struct pernet_operations iptable_filter_net_ops = {
++	.init = iptable_filter_net_init,
++	.exit = iptable_filter_net_exit,
++};
++
+ static int __init iptable_filter_init(void)
  {
  	int ret;
- 	struct compat_ipt_replace tmp;
-@@ -1826,7 +1826,7 @@ compat_do_replace(void __user *user, unsigned int len)
+@@ -132,11 +151,9 @@ static int __init iptable_filter_init(void)
+ 	/* Entry 1 is the FORWARD hook */
+ 	initial_table.entries[1].target.verdict = -forward - 1;
  
- 	duprintf("compat_do_replace: Translated table\n");
+-	/* Register table */
+-	packet_filter = ipt_register_table(&init_net, &__packet_filter,
+-					   &initial_table.repl);
+-	if (IS_ERR(packet_filter))
+-		return PTR_ERR(packet_filter);
++	ret = register_pernet_subsys(&iptable_filter_net_ops);
++	if (ret < 0)
++		return ret;
  
--	ret = __do_replace(tmp.name, tmp.valid_hooks, newinfo,
-+	ret = __do_replace(net, tmp.name, tmp.valid_hooks, newinfo,
- 			   tmp.num_counters, compat_ptr(tmp.counters));
- 	if (ret)
- 		goto free_newinfo_untrans;
-@@ -1850,11 +1850,11 @@ compat_do_ipt_set_ctl(struct sock *sk,	int cmd, void __user *user,
+ 	/* Register hooks */
+ 	ret = nf_register_hooks(ipt_ops, ARRAY_SIZE(ipt_ops));
+@@ -146,14 +163,14 @@ static int __init iptable_filter_init(void)
+ 	return ret;
  
- 	switch (cmd) {
- 	case IPT_SO_SET_REPLACE:
--		ret = compat_do_replace(user, len);
-+		ret = compat_do_replace(sk->sk_net, user, len);
- 		break;
- 
- 	case IPT_SO_SET_ADD_COUNTERS:
--		ret = do_add_counters(user, len, 1);
-+		ret = do_add_counters(sk->sk_net, user, len, 1);
- 		break;
- 
- 	default:
-@@ -1903,7 +1903,8 @@ compat_copy_entries_to_user(unsigned int total_size, struct xt_table *table,
+  cleanup_table:
+-	ipt_unregister_table(packet_filter);
++	unregister_pernet_subsys(&iptable_filter_net_ops);
+ 	return ret;
  }
  
- static int
--compat_get_entries(struct compat_ipt_get_entries __user *uptr, int *len)
-+compat_get_entries(struct net *net, struct compat_ipt_get_entries __user *uptr,
-+		   int *len)
+ static void __exit iptable_filter_fini(void)
+ {
+ 	nf_unregister_hooks(ipt_ops, ARRAY_SIZE(ipt_ops));
+-	ipt_unregister_table(packet_filter);
++	unregister_pernet_subsys(&iptable_filter_net_ops);
+ }
+ 
+ module_init(iptable_filter_init);
+--- a/net/ipv4/netfilter/iptable_mangle.c
++++ b/net/ipv4/netfilter/iptable_mangle.c
+@@ -33,7 +33,7 @@ static struct
+ 	struct ipt_replace repl;
+ 	struct ipt_standard entries[5];
+ 	struct ipt_error term;
+-} initial_table __initdata = {
++} initial_table __net_initdata = {
+ 	.repl = {
+ 		.name = "mangle",
+ 		.valid_hooks = MANGLE_VALID_HOOKS,
+@@ -64,14 +64,13 @@ static struct
+ 	.term = IPT_ERROR_INIT,			/* ERROR */
+ };
+ 
+-static struct xt_table __packet_mangler = {
++static struct xt_table packet_mangler = {
+ 	.name		= "mangle",
+ 	.valid_hooks	= MANGLE_VALID_HOOKS,
+ 	.lock		= RW_LOCK_UNLOCKED,
+ 	.me		= THIS_MODULE,
+ 	.af		= AF_INET,
+ };
+-static struct xt_table *packet_mangler;
+ 
+ /* The work comes in here from netfilter.c. */
+ static unsigned int
+@@ -81,7 +80,7 @@ ipt_route_hook(unsigned int hook,
+ 	 const struct net_device *out,
+ 	 int (*okfn)(struct sk_buff *))
+ {
+-	return ipt_do_table(skb, hook, in, out, packet_mangler);
++	return ipt_do_table(skb, hook, in, out, init_net.ipv4.iptable_mangle);
+ }
+ 
+ static unsigned int
+@@ -113,7 +112,7 @@ ipt_local_hook(unsigned int hook,
+ 	daddr = iph->daddr;
+ 	tos = iph->tos;
+ 
+-	ret = ipt_do_table(skb, hook, in, out, packet_mangler);
++	ret = ipt_do_table(skb, hook, in, out, init_net.ipv4.iptable_mangle);
+ 	/* Reroute for ANY change. */
+ 	if (ret != NF_DROP && ret != NF_STOLEN && ret != NF_QUEUE) {
+ 		iph = ip_hdr(skb);
+@@ -167,15 +166,33 @@ static struct nf_hook_ops ipt_ops[] __read_mostly = {
+ 	},
+ };
+ 
++static int __net_init iptable_mangle_net_init(struct net *net)
++{
++	/* Register table */
++	net->ipv4.iptable_mangle =
++		ipt_register_table(net, &packet_mangler, &initial_table.repl);
++	if (IS_ERR(net->ipv4.iptable_mangle))
++		return PTR_ERR(net->ipv4.iptable_mangle);
++	return 0;
++}
++
++static void __net_exit iptable_mangle_net_exit(struct net *net)
++{
++	ipt_unregister_table(net->ipv4.iptable_mangle);
++}
++
++static struct pernet_operations iptable_mangle_net_ops = {
++	.init = iptable_mangle_net_init,
++	.exit = iptable_mangle_net_exit,
++};
++
+ static int __init iptable_mangle_init(void)
  {
  	int ret;
- 	struct compat_ipt_get_entries get;
-@@ -1924,7 +1925,7 @@ compat_get_entries(struct compat_ipt_get_entries __user *uptr, int *len)
+ 
+-	/* Register table */
+-	packet_mangler = ipt_register_table(&init_net, &__packet_mangler,
+-					    &initial_table.repl);
+-	if (IS_ERR(packet_mangler))
+-		return PTR_ERR(packet_mangler);
++	ret = register_pernet_subsys(&iptable_mangle_net_ops);
++	if (ret < 0)
++		return ret;
+ 
+ 	/* Register hooks */
+ 	ret = nf_register_hooks(ipt_ops, ARRAY_SIZE(ipt_ops));
+@@ -185,14 +202,14 @@ static int __init iptable_mangle_init(void)
+ 	return ret;
+ 
+  cleanup_table:
+-	ipt_unregister_table(packet_mangler);
++	unregister_pernet_subsys(&iptable_mangle_net_ops);
+ 	return ret;
+ }
+ 
+ static void __exit iptable_mangle_fini(void)
+ {
+ 	nf_unregister_hooks(ipt_ops, ARRAY_SIZE(ipt_ops));
+-	ipt_unregister_table(packet_mangler);
++	unregister_pernet_subsys(&iptable_mangle_net_ops);
+ }
+ 
+ module_init(iptable_mangle_init);
+--- a/net/ipv4/netfilter/iptable_raw.c
++++ b/net/ipv4/netfilter/iptable_raw.c
+@@ -14,7 +14,7 @@ static struct
+ 	struct ipt_replace repl;
+ 	struct ipt_standard entries[2];
+ 	struct ipt_error term;
+-} initial_table __initdata = {
++} initial_table __net_initdata = {
+ 	.repl = {
+ 		.name = "raw",
+ 		.valid_hooks = RAW_VALID_HOOKS,
+@@ -36,14 +36,13 @@ static struct
+ 	.term = IPT_ERROR_INIT,			/* ERROR */
+ };
+ 
+-static struct xt_table __packet_raw = {
++static struct xt_table packet_raw = {
+ 	.name = "raw",
+ 	.valid_hooks =  RAW_VALID_HOOKS,
+ 	.lock = RW_LOCK_UNLOCKED,
+ 	.me = THIS_MODULE,
+ 	.af = AF_INET,
+ };
+-static struct xt_table *packet_raw;
+ 
+ /* The work comes in here from netfilter.c. */
+ static unsigned int
+@@ -53,7 +52,7 @@ ipt_hook(unsigned int hook,
+ 	 const struct net_device *out,
+ 	 int (*okfn)(struct sk_buff *))
+ {
+-	return ipt_do_table(skb, hook, in, out, packet_raw);
++	return ipt_do_table(skb, hook, in, out, init_net.ipv4.iptable_raw);
+ }
+ 
+ static unsigned int
+@@ -71,7 +70,7 @@ ipt_local_hook(unsigned int hook,
+ 			       "packet.\n");
+ 		return NF_ACCEPT;
  	}
+-	return ipt_do_table(skb, hook, in, out, packet_raw);
++	return ipt_do_table(skb, hook, in, out, init_net.ipv4.iptable_raw);
+ }
  
- 	xt_compat_lock(AF_INET);
--	t = xt_find_table_lock(&init_net, AF_INET, get.name);
-+	t = xt_find_table_lock(net, AF_INET, get.name);
- 	if (t && !IS_ERR(t)) {
- 		struct xt_table_info *private = t->private;
- 		struct xt_table_info info;
-@@ -1960,10 +1961,10 @@ compat_do_ipt_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ /* 'raw' is the very first table. */
+@@ -92,15 +91,33 @@ static struct nf_hook_ops ipt_ops[] __read_mostly = {
+ 	},
+ };
  
- 	switch (cmd) {
- 	case IPT_SO_GET_INFO:
--		ret = get_info(user, len, 1);
-+		ret = get_info(sk->sk_net, user, len, 1);
- 		break;
- 	case IPT_SO_GET_ENTRIES:
--		ret = compat_get_entries(user, len);
-+		ret = compat_get_entries(sk->sk_net, user, len);
- 		break;
- 	default:
- 		ret = do_ipt_get_ctl(sk, cmd, user, len);
-@@ -1982,11 +1983,11 @@ do_ipt_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
++static int __net_init iptable_raw_net_init(struct net *net)
++{
++	/* Register table */
++	net->ipv4.iptable_raw =
++		ipt_register_table(net, &packet_raw, &initial_table.repl);
++	if (IS_ERR(net->ipv4.iptable_raw))
++		return PTR_ERR(net->ipv4.iptable_raw);
++	return 0;
++}
++
++static void __net_exit iptable_raw_net_exit(struct net *net)
++{
++	ipt_unregister_table(net->ipv4.iptable_raw);
++}
++
++static struct pernet_operations iptable_raw_net_ops = {
++	.init = iptable_raw_net_init,
++	.exit = iptable_raw_net_exit,
++};
++
+ static int __init iptable_raw_init(void)
+ {
+ 	int ret;
  
- 	switch (cmd) {
- 	case IPT_SO_SET_REPLACE:
--		ret = do_replace(user, len);
-+		ret = do_replace(sk->sk_net, user, len);
- 		break;
+-	/* Register table */
+-	packet_raw = ipt_register_table(&init_net, &__packet_raw,
+-					&initial_table.repl);
+-	if (IS_ERR(packet_raw))
+-		return PTR_ERR(packet_raw);
++	ret = register_pernet_subsys(&iptable_raw_net_ops);
++	if (ret < 0)
++		return ret;
  
- 	case IPT_SO_SET_ADD_COUNTERS:
--		ret = do_add_counters(user, len, 0);
-+		ret = do_add_counters(sk->sk_net, user, len, 0);
- 		break;
+ 	/* Register hooks */
+ 	ret = nf_register_hooks(ipt_ops, ARRAY_SIZE(ipt_ops));
+@@ -110,14 +127,14 @@ static int __init iptable_raw_init(void)
+ 	return ret;
  
- 	default:
-@@ -2007,11 +2008,11 @@ do_ipt_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+  cleanup_table:
+-	ipt_unregister_table(packet_raw);
++	unregister_pernet_subsys(&iptable_raw_net_ops);
+ 	return ret;
+ }
  
- 	switch (cmd) {
- 	case IPT_SO_GET_INFO:
--		ret = get_info(user, len, 0);
-+		ret = get_info(sk->sk_net, user, len, 0);
- 		break;
+ static void __exit iptable_raw_fini(void)
+ {
+ 	nf_unregister_hooks(ipt_ops, ARRAY_SIZE(ipt_ops));
+-	ipt_unregister_table(packet_raw);
++	unregister_pernet_subsys(&iptable_raw_net_ops);
+ }
  
- 	case IPT_SO_GET_ENTRIES:
--		ret = get_entries(user, len);
-+		ret = get_entries(sk->sk_net, user, len);
- 		break;
- 
- 	case IPT_SO_GET_REVISION_MATCH:
+ module_init(iptable_raw_init);
 
