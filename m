@@ -1,35 +1,38 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: questions on NAPI processing latency and dropped network packets
-Date: Mon, 21 Jan 2008 13:53:44 -0600
-Message-ID: <4794F848.9020402@nortel.com>
-References: <478654C3.60806@nortel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH] PHYLIB: Locking fixes for PHY I/O potentially sleeping
+Date: Mon, 21 Jan 2008 14:05:15 -0600
+Message-ID: <BA72E4CF-51D0-40D5-904C-B54C7C67C324@freescale.com>
+References: <1199403419.25262.62.camel@localhost.localdomain>
+Mime-Version: 1.0 (Apple Message framework v753)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Nate Case <ncase@xes-inc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zrtps0kp.nortel.com ([47.140.192.56]:44629 "EHLO
-	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752475AbYAUTxy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 14:53:54 -0500
-In-Reply-To: <478654C3.60806@nortel.com>
+Received: from az33egw01.freescale.net ([192.88.158.102]:50698 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751096AbYAUUFn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 15:05:43 -0500
+In-Reply-To: <1199403419.25262.62.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've done some further digging, and it appears that one of the problems 
-we may be facing is very high instantaneous traffic rates.
 
-Instrumentation showed up to 222K packets/sec for short periods (at 
-least 1.1 ms, possibly longer), although the long-term average is down 
-around 14-16K packets/sec.
+On Jan 3, 2008, at 17:36, Nate Case wrote:
 
-If I bump the rx ring size up to 4096, we can handle all the packets and 
-we still have 44% idle on cpu0 and 27% idle on cpu1.
+> PHY read/write functions can potentially sleep (e.g., a PHY accessed
+> via I2C).  The following changes were made to account for this:
+>
+>     * Change spin locks to mutex locks
+>     * Add a BUG_ON() to phy_read() phy_write() to warn against
+>       calling them from an interrupt context.
+>     * Use work queue for PHY state machine handling since
+>       it can potentially sleep
+>     * Change phydev lock from spinlock to mutex
+>
+> Signed-off-by: Nate Case <ncase@xes-inc.com>
 
-Is there anything else we can do to minimize the latency of network 
-packet processing and avoid having to crank the rx ring size up so high?
 
-Thanks,
+Ok, I've tested this on my system and it works.
 
-Chris
+Acked-by: Andy Fleming <afleming@freescale.com>
