@@ -1,39 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ICMP: ICMP_MIB_OUTMSGS increment duplicated
-Date: Mon, 21 Jan 2008 03:40:14 -0800 (PST)
-Message-ID: <20080121.034014.263253207.davem@davemloft.net>
-References: <47947EBB.2020507@cn.fujitsu.com>
-	<20080121.032554.96053463.davem@davemloft.net>
-	<47948360.9090709@cn.fujitsu.com>
+From: "Nicu Ioan Petru" <ionut.nicu@freescale.com>
+Subject: RE: [PATCH][v2] phylib: add module owner to the mii_bus structure
+Date: Mon, 21 Jan 2008 12:13:20 -0000
+Message-ID: <53E7C5BEAA4B474B8FB3E84A70C00E1B01E63486@zuk35exm20.fsl.freescale.net>
+References: <20071221153713.641f010e@deepthought> <78b2dab672856274c518f4c523f6f63f59f06dd1.1198861866.git.ionut.nicu@freescale.com> <CFE6E252-4CB9-4F91-ABE6-330798408E50@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: wangchen@cn.fujitsu.com
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <shemminger@linux-foundation.org>
+To: "Fleming Andy" <afleming@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45606
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759154AbYAULkJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 06:40:09 -0500
-In-Reply-To: <47948360.9090709@cn.fujitsu.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:56392 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753693AbYAUMNb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 07:13:31 -0500
+Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
+	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id m0LCDMVF004163
+	for <netdev@vger.kernel.org>; Mon, 21 Jan 2008 05:13:22 -0700 (MST)
+Received: from zuk35exm20.fsl.freescale.net (zuk35exm20.ea.freescale.net [10.210.1.54])
+	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id m0LCDLvX022672
+	for <netdev@vger.kernel.org>; Mon, 21 Jan 2008 06:13:22 -0600 (CST)
+Content-class: urn:content-classes:message
+In-Reply-To: <CFE6E252-4CB9-4F91-ABE6-330798408E50@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Date: Mon, 21 Jan 2008 19:34:56 +0800
 
-> David Miller said the following on 2008-1-21 19:25:
-> > I am confused, this changelog for this patch mentions changes made
-> > only in the net-2.6.25 tree.
-> > 
+
+> -----Original Message-----
+> From: Fleming Andy 
+> Sent: Monday, January 14, 2008 8:56 PM
+> To: Nicu Ioan Petru
+> Cc: netdev@vger.kernel.org; shemminger@linux-foundation.org
+> Subject: Re: [PATCH][v2] phylib: add module owner to the 
+> mii_bus structure
+>
+> Any reason you didn't update the other drivers?
 > 
-> Although I wrote that I find David.S's patch in net-2.6.25 was wrong,
-> the guilty patch also in net-2.6 tree. Here is the web link.
-> http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=96793b482540f3a26e2188eaf75cb56b7829d3e3 
+>  > git grep mdiobus_register drivers/net/          // duplicates and  
+> mdio_bus.c edited out
+> drivers/net/au1000_eth.c:       mdiobus_register(&aup->mii_bus);
+> drivers/net/bfin_mac.c: mdiobus_register(&lp->mii_bus);
+> drivers/net/cpmac.c:    res = mdiobus_register(&cpmac_mii);
+> drivers/net/fec_mpc52xx_phy.c:  err = mdiobus_register(bus);
+> drivers/net/fs_enet/mii-bitbang.c:      ret = 
+> mdiobus_register(new_bus);
+> drivers/net/fs_enet/mii-fec.c:  ret = mdiobus_register(new_bus);
+> drivers/net/gianfar_mii.c:      err = mdiobus_register(new_bus);
+> drivers/net/macb.c:     if (mdiobus_register(&bp->mii_bus))
+> drivers/net/sb1250-mac.c:       err = mdiobus_register(&sc->mii_bus);
+> drivers/net/ucc_geth_mii.c:     err = mdiobus_register(new_bus);
 > 
-> So, I think apply my patches to net-2.6 is ok.
+> I'm guessing this was only tested on the UEC, because unless 
+> I misunderstand the code, any other driver would now crash 
+> when you try to get the owner.
+> 
 
-Thank you for explaining this.
+That's not true. If you look closely at the implementation of
+try_module_get(), you'll see it returns 1 when module is NULL. So my
+change should make no difference for the other drivers.
 
-Patch applied to net-2.6
+If that's really a concern for you, I can update the other drivers as
+well. How do you propose to do this? Resubmit this patch or send a new
+one?
+
+Ionut.
+ 
