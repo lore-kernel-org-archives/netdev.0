@@ -1,56 +1,50 @@
-From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: Re: [WEXT 8/12]: Pull top-level ioctl dispatch logic into helper function.
-Date: Mon, 21 Jan 2008 20:16:19 +0900
-Message-ID: <20080121194758.6139.40F06B3A@sm.sony.co.jp>
-References: <20071221.205623.141035851.davem@davemloft.net>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH] ICMP: ICMP_MIB_OUTMSGS increment duplicated
+Date: Mon, 21 Jan 2008 19:15:07 +0800
+Message-ID: <47947EBB.2020507@cn.fujitsu.com>
+References: <478DD57B.6020503@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>,
+	David L Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MGW3.Sony.CO.JP ([137.153.0.15]:60014 "EHLO mgw3.sony.co.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754839AbYAULQV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jan 2008 06:16:21 -0500
-In-Reply-To: <20071221.205623.141035851.davem@davemloft.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:49343 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1757792AbYAULQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2008 06:16:28 -0500
+In-Reply-To: <478DD57B.6020503@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Hi Dave,
+Dave, how about this one.
+It's like that one of IPV6.
 
-On Fri, 21 Dec 2007 20:56:23 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
-
+Wang Chen said the following on 2008-1-16 17:59:
+> In tree net-2.6.25, commit "96793b482540f3a26e2188eaf75cb56b7829d3e3"
+> made a mistake.
 > 
-> [WEXT]: Pull top-level ioctl dispatch logic into helper function.
+> In that patch, David L added a icmp_out_count() in ip_push_pending_frames(),
+> remove icmp_out_count() from icmp_reply(). But he forgot to remove 
+> icmp_out_count() from icmp_send() too.
+> Since icmp_send and icmp_reply will call icmp_push_reply, which will call
+> ip_push_pending_frames, a duplicated increment happened in icmp_send.
 > 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-
-<snip>
-
-> +int wext_handle_ioctl(struct net *net, struct ifreq *ifr, unsigned int cmd,
-> +		      void __user *arg)
-> +{
-> +	int ret = wext_ioctl_dispatch(net, ifr, cmd,
-> +				      ioctl_standard_call,
-> +				      ioctl_private_call);
-> +
-> +	if (ret > 0 &&
-
-As the return value 0 is legal, should we allow copybacking in the case
-of 'ret == 0'?
-
-Same issue exists in compat_wext_handle_ioctl() of the #9 patch.
-
-> +	    IW_IS_GET(cmd) &&
-> +	    copy_to_user(arg, ifr, sizeof(struct iwreq)))
->  		return -EFAULT;
-> +
->  	return ret;
->  }
-
-
--- 
-Masakazu MOKUNO
+> This patch remove the icmp_out_count from icmp_send too.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> ---
+> diff -Nurp linux-2.6.24.rc8.org/net/ipv4/icmp.c linux-2.6.24.rc8/net/ipv4/icmp.c
+> --- linux-2.6.24.rc8.org/net/ipv4/icmp.c	2008-01-16 17:45:02.000000000 +0800
+> +++ linux-2.6.24.rc8/net/ipv4/icmp.c	2008-01-16 17:52:13.000000000 +0800
+> @@ -540,7 +540,6 @@ void icmp_send(struct sk_buff *skb_in, i
+>  	icmp_param.data.icmph.checksum	 = 0;
+>  	icmp_param.skb	  = skb_in;
+>  	icmp_param.offset = skb_network_offset(skb_in);
+> -	icmp_out_count(icmp_param.data.icmph.type);
+>  	inet_sk(icmp_socket->sk)->tos = tos;
+>  	ipc.addr = iph->saddr;
+>  	ipc.opt = &icmp_param.replyopts;
+> 
 
