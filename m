@@ -1,66 +1,55 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: questions on NAPI processing latency and dropped network packets
-Date: Mon, 21 Jan 2008 17:25:19 -0600
-Message-ID: <479529DF.5030707@nortel.com>
-References: <478654C3.60806@nortel.com> <4794F848.9020402@nortel.com> <47950F1D.4010508@cosmosbay.com>
+Date: Mon, 21 Jan 2008 15:32:39 -0800
+Message-ID: <47952B97.90900@candelatech.com>
+References: <478654C3.60806@nortel.com> <4794F848.9020402@nortel.com> <47950A71.5010304@candelatech.com> <47952783.8080505@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Chris Friesen <cfriesen@nortel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zcars04e.nortel.com ([47.129.242.56]:51304 "EHLO
-	zcars04e.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756842AbYAUXZx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 18:25:53 -0500
-In-Reply-To: <47950F1D.4010508@cosmosbay.com>
+Received: from ns2.lanforge.com ([66.165.47.211]:53875 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755387AbYAUXcr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2008 18:32:47 -0500
+In-Reply-To: <47952783.8080505@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Chris Friesen a =E9crit :
->=20
->> I've done some further digging, and it appears that one of the=20
->> problems we may be facing is very high instantaneous traffic rates.
+Chris Friesen wrote:
+> Ben Greear wrote:
+>> Chris Friesen wrote:
 >>
->> Instrumentation showed up to 222K packets/sec for short periods (at=20
->> least 1.1 ms, possibly longer), although the long-term average is do=
-wn=20
->> around 14-16K packets/sec.
->=20
->=20
-> Instrumentation done where exactly ?
+>>> Is there anything else we can do to minimize the latency of network 
+>>> packet processing and avoid having to crank the rx ring size up so high?
+>>
+>>
+>> Why is it such a big deal to crank up the rx queue length?  Seems like
+>> a perfectly normal way to handle bursts like this...
+> 
+> It means that the latency for handling those packets is higher than it 
+> could be.  Draining 4096 packets from the queue will take a while.
+> 
+> Ideally we'd like to bring the latency down as much as possible, and 
+> then bump up the rx queue length to handle the rest.
 
-I added some code to e1000_clean_rx_irq() to track rx_fifo drops, total=
-=20
-packets received, and an accurate timestamp.
+Unless having a bigger queue somehow makes the IRQ fire later,
+then it wouldn't seem to increase the time for packets that arrive
+early in the queue, though it would of course take longer to process
+the ones at the back.  Still, if the option is process them slightly
+later or drop them, the choice seems obvious...
 
-If rx_fifo errors changed, it would dump the information.
+Decreasing your latencies seems a mostly un-related optimization that
+should be tackled independently of queue size.
 
->> Is there anything else we can do to minimize the latency of network=20
->> packet processing and avoid having to crank the rx ring size up so h=
-igh?
+Do you perhaps have any network equipment that would queue up the pkts
+and burst them?  Maybe a firewall, router, or something?  That could
+potentially cause small bursts of pkts...
 
-> You have some tasks that disable softirqs too long. Sometimes, bumpin=
-g=20
-> RX ring size is OK (but you will still have delays), sometimes it is =
-not=20
-> an option, since 4096 is the limit on current hardware.
+Ben
 
-I added some instrumentation to take timestamps in __do_softirq() as=20
-well.  Based on these timestamps, I can see the following code sequence=
-:
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
-2374604616 usec, start processing softirqs in __do_softirq()
-2374610337 usec, log values in e1000_clean_rx_irq()
-2374611411 usec, log values in e1000_clean_rx_irq()
-
-In between the successive calls to e1000_clean_rx_irq() the rx_fifo=20
-counts went up.
-
-Does anyone have any patchsets to track down what softirqs are taking a=
-=20
-long time, and/or who's disabling softirqs?
-
-Chris
