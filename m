@@ -1,39 +1,101 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
-Date: Mon, 21 Jan 2008 05:29:44 -0800 (PST)
-Message-ID: <20080121.052944.82674046.davem@davemloft.net>
-References: <18318.14810.877279.41815@robur.slu.se>
-	<20080118.041144.81957249.davem@davemloft.net>
-	<18324.40369.984595.651675@robur.slu.se>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [Bugme-new] [Bug 9778] New: unregister_netdevice: waiting for [device] to become free
+Date: Mon, 21 Jan 2008 17:36:31 +0300
+Message-ID: <20080121143630.GA3498@2ka.mipt.ru>
+References: <bug-9778-10286@http.bugzilla.kernel.org/> <20080119165802.2846a28e.akpm@linux-foundation.org> <20080120.023027.85710827.davem@davemloft.net> <20080121121445.GA29459@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: elendil@planet.nl, jesse.brandeburg@intel.com,
-	slavon@bigtelecom.ru, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Robert.Olsson@data.slu.se
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, xemul@openvz.org,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	nigel@suspend2.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42391
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751850AbYAUN3i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 08:29:38 -0500
-In-Reply-To: <18324.40369.984595.651675@robur.slu.se>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:47888 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752954AbYAUOhD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2008 09:37:03 -0500
+Content-Disposition: inline
+In-Reply-To: <20080121121445.GA29459@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Date: Mon, 21 Jan 2008 14:27:13 +0100
-
->  Yes it works. e1000 tested for ~3 hours with high very high load and 
->  interface up/down every 5:th sec. Without the patch the irq's gets 
->  disabled within a couple of seconds
+On Mon, Jan 21, 2008 at 03:14:45PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> It looks like patch is still valid.
+> Here is a problem description as I undestood.
 > 
->  A resolute way of handling the semaphores. :)
->    
->  Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+> When new device (let's talk about ethernet, since that is what I tested)
+> is being turned on, it gets neigh_parms entry allocated for it via
+> inetdev_init(), which is called for NETDEV_REGISTER inetdev event.
+> This entry is stored in arp_tbl table and is in_dev->arp_parms.
+> 
+> When later new arp entry is created, device is provided into
+> arp_constructor(), which clones (increase reference counter) device's
+> in_dev->arp_parms and puts it into provided neighbour entry.
+> 
+> When later we remove device, its in_dev->arp_parms's reference counter
+> is high enough (it is equal to number of arp entries found on given
+> device plu one), so neigh_parms_destroy() is not called. Later all
+> neighbour entries are flushed by garbage collector and reference counter
+> for that parm hits zero and device can be removed.
+> 
+> I will think about how to fix the problem nicely or if this patch still
+> can be simplified/dropped, but so far it looks valid. Maybe this
+> analysis will help someone to fix problem first.
 
+Yes, patch is valid, and there is a (very noticeble) race between
+neighbour processing and parm release - parm still can be accessed after
+device was fully freed (as with old behaviour when dev_pu() was called
+from neigh_parms_release()), although no one access it, so the simplest
+solution is to move dev_put() under the table lock and allow to access
+parms->dev only under table lock and always check if it is non-null.
+So I propose a following patch as a simplest solution for the current
+time.
 
-Thanks for testing Robert.
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
-I sent off that fix to Linus an hour or so ago, hopefully
-he will pick it up some time today.
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index a4f2618..410b7e7 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -34,6 +34,11 @@ struct neighbour;
+ 
+ struct neigh_parms
+ {
++	/*
++	 * This device is only allowed to be accessed under table lock (bh turned off)
++	 * and while device is alive. After parm was released, it will be set to NULL
++	 * and has to be always checked before accessed.
++	 */
+ 	struct net_device *dev;
+ 	struct neigh_parms *next;
+ 	int	(*neigh_setup)(struct neighbour *);
+ 
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index cc8a2f1..5076acd 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1315,7 +1315,12 @@ void neigh_parms_release(struct neigh_table *tbl, struct neigh_parms *parms)
+ 		if (*p == parms) {
+ 			*p = parms->next;
+ 			parms->dead = 1;
++			if (parms->dev) {
++				dev_put(parms->dev);
++				parms->dev = NULL;
++			}
+ 			write_unlock_bh(&tbl->lock);
++
+ 			call_rcu(&parms->rcu_head, neigh_rcu_free_parms);
+ 			return;
+ 		}
+@@ -1326,8 +1331,6 @@ void neigh_parms_release(struct neigh_table *tbl, struct neigh_parms *parms)
+ 
+ void neigh_parms_destroy(struct neigh_parms *parms)
+ {
+-	if (parms->dev)
+-		dev_put(parms->dev);
+ 	kfree(parms);
+ }
+ 
+
+-- 
+	Evgeniy Polyakov
