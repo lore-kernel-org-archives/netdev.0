@@ -1,59 +1,38 @@
-From: nigel@crca.org.au
-Subject: Re: 2.6.24 regression: reference count leak in PPPoE
-Date: Mon, 21 Jan 2008 00:33:32 +0000
-Message-ID: <20080121003332.91yx02wc0sgk0sg4@mail.crca.org.au>
-References: <200801202053.30386.ak@suse.de>
-	<20080120200109.GA31876@elte.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3 net-2.6.25] call FIB rule->action in the correct
+ namespace
+Date: Sun, 20 Jan 2008 16:47:38 -0800 (PST)
+Message-ID: <20080120.164738.01409375.davem@davemloft.net>
+References: <478F2933.1000007@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Andi Kleen <ak@suse.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dlezcano@fr.ibm.com, netdev@vger.kernel.org,
+	containers@lists.osdl.org, devel@openvz.org
+To: den@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crca.org.au ([67.207.131.56]:58516 "EHLO crca.org.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754671AbYAUAof convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 19:44:35 -0500
-In-Reply-To: <20080120200109.GA31876@elte.hu>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59338
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755730AbYAUAri (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 19:47:38 -0500
+In-Reply-To: <478F2933.1000007@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+From: "Denis V. Lunev" <den@openvz.org>
+Date: Thu, 17 Jan 2008 13:08:51 +0300
 
-Quoting Ingo Molnar <mingo@elte.hu>:
+> FIB rule->action should operate in the same namespace as fib_lookup.
+> This is definitely missed right now.
+> 
+> There are two ways to implement this: pass struct net into another rules
+> API call (2 levels) or place netns into rule struct directly. The second
+> approach seems better as the code will grow less.
+> 
+> Additionally, the patchset cleanups struct net from
+> fib_rules_register/unregister to have network namespace context at the
+> time of default rules creation.
+> 
+> Signed-off-by: Denis V. Lunev <den@openvz.org>
 
->
-> * Andi Kleen <ak@suse.de> wrote:
->
->> My workstation running 2.6.24-rc8 just hung during shutdown with an
->> endless (or rather I didn't wait more than a few minutes) loop of
->>
->> unregister_netdev: waiting for ppp-device to become free. Usage count
->> = 1
->>
->> ppp-device was an active PPPoE device.
->>
->> No more information currently.
->
-> i've seen such problems (locked up box with endless loop of usage count
-> == 1) with pppoe in the past, and it seemed to be related to dynamic
-> IPs. (i saw that well before 2.6.24 - reported it once to davem)
->
-> It seems to have stopped when i stopped using ipsec and started using
-> vpnc. (but no firm info - this was sporadic - happened every few months
-> or so) Are you using ipsec and dynamic IPs by any chance?
-
-This isn't PPPoE specific. It has also been seen with e1000, madwifi  
-and an intel based card. It was introduced by a Jan 10 commit post rc7  
-(sorry, don't have the details right now - my laptop died yesterday).  
-A bugzilla has already been opened.
-
-Nigel
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
-
+All 3 patches applied, thanks.
