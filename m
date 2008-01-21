@@ -1,74 +1,60 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 4/6 net-2.6.25] [NETNS] Pass correct namespace in context fib_check_nh.
-Date: Mon, 21 Jan 2008 17:50:44 +0300
-Message-ID: <1200927046-11354-4-git-send-email-den@openvz.org>
+Subject: [PATCH 3/6 net-2.6.25] [NETNS] Pass correct namespace in fib_validate_source.
+Date: Mon, 21 Jan 2008 17:50:43 +0300
+Message-ID: <1200927046-11354-3-git-send-email-den@openvz.org>
 References: <4794B10E.7010703@sw.ru>
 Cc: netdev@vger.kernel.org, devel@openvz.org,
 	containers@lists.osdl.org, "Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:59353 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:53719 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754701AbYAUOuq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jan 2008 09:50:46 -0500
+	id S1754697AbYAUOup (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2008 09:50:45 -0500
 In-Reply-To: <4794B10E.7010703@sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Correct network namespace is already used in fib_check_nh. Re-work its usage
-for better readability and pass into fib_lookup & inetdev_by_index.
+Correct network namespace is available inside fib_validate_source. It can be
+obtained from the device passed in. The device is not NULL as in_device is
+obtained from it just above.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- net/ipv4/fib_semantics.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ net/ipv4/fib_frontend.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 8b47e11..c791286 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -519,7 +519,9 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
- 			struct fib_nh *nh)
- {
- 	int err;
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index dcd3a28..39b8b35 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -243,6 +243,7 @@ int fib_validate_source(__be32 src, __be32 dst, u8 tos, int oif,
+ 	struct fib_result res;
+ 	int no_addr, rpf;
+ 	int ret;
 +	struct net *net;
  
-+	net = cfg->fc_nlinfo.nl_net;
- 	if (nh->nh_gw) {
- 		struct fib_result res;
+ 	no_addr = rpf = 0;
+ 	rcu_read_lock();
+@@ -256,7 +257,8 @@ int fib_validate_source(__be32 src, __be32 dst, u8 tos, int oif,
+ 	if (in_dev == NULL)
+ 		goto e_inval;
  
-@@ -532,11 +534,9 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
+-	if (fib_lookup(&init_net, &fl, &res))
++	net = dev->nd_net;
++	if (fib_lookup(net, &fl, &res))
+ 		goto last_resort;
+ 	if (res.type != RTN_UNICAST)
+ 		goto e_inval_res;
+@@ -280,7 +282,7 @@ int fib_validate_source(__be32 src, __be32 dst, u8 tos, int oif,
+ 	fl.oif = dev->ifindex;
  
- 			if (cfg->fc_scope >= RT_SCOPE_LINK)
- 				return -EINVAL;
--			if (inet_addr_type(cfg->fc_nlinfo.nl_net,
--					   nh->nh_gw) != RTN_UNICAST)
-+			if (inet_addr_type(net, nh->nh_gw) != RTN_UNICAST)
- 				return -EINVAL;
--			if ((dev = __dev_get_by_index(cfg->fc_nlinfo.nl_net,
--						      nh->nh_oif)) == NULL)
-+			if ((dev = __dev_get_by_index(net, nh->nh_oif)) == NULL)
- 				return -ENODEV;
- 			if (!(dev->flags&IFF_UP))
- 				return -ENETDOWN;
-@@ -559,7 +559,7 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
- 			/* It is not necessary, but requires a bit of thinking */
- 			if (fl.fl4_scope < RT_SCOPE_LINK)
- 				fl.fl4_scope = RT_SCOPE_LINK;
--			if ((err = fib_lookup(&init_net, &fl, &res)) != 0)
-+			if ((err = fib_lookup(net, &fl, &res)) != 0)
- 				return err;
- 		}
- 		err = -EINVAL;
-@@ -583,7 +583,7 @@ out:
- 		if (nh->nh_flags&(RTNH_F_PERVASIVE|RTNH_F_ONLINK))
- 			return -EINVAL;
- 
--		in_dev = inetdev_by_index(&init_net, nh->nh_oif);
-+		in_dev = inetdev_by_index(net, nh->nh_oif);
- 		if (in_dev == NULL)
- 			return -ENODEV;
- 		if (!(in_dev->dev->flags&IFF_UP)) {
+ 	ret = 0;
+-	if (fib_lookup(&init_net, &fl, &res) == 0) {
++	if (fib_lookup(net, &fl, &res) == 0) {
+ 		if (res.type == RTN_UNICAST) {
+ 			*spec_dst = FIB_RES_PREFSRC(res);
+ 			ret = FIB_RES_NH(res).nh_scope >= RT_SCOPE_HOST;
 -- 
 1.5.3.rc5
 
