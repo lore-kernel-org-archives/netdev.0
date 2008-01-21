@@ -1,8 +1,8 @@
 From: Steve Wise <swise@opengridcomputing.com>
-Subject: [ofa-general] [PATCH 2/3] RDMA/cxgb3: fix page shift calculation in
-	build_phys_page_list()
-Date: Mon, 21 Jan 2008 14:39:36 -0600
-Message-ID: <20080121203935.3143.12791.stgit@dell3.ogc.int>
+Subject: [ofa-general] [PATCH 3/3] RDMA/cxgb3: Mark qp as privileged based on
+	user capabilities.
+Date: Mon, 21 Jan 2008 14:39:38 -0600
+Message-ID: <20080121203938.3143.44928.stgit@dell3.ogc.int>
 References: <20080121203829.3143.26181.stgit@dell3.ogc.int>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: quoted-printable
@@ -23,46 +23,43 @@ Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
 
-RDMA/cxgb3: fix page shift calculation in build_phys_page_list()
+RDMA/cxgb3: Mark qp as privileged based on user capabilities.
 
-The existing logic incorrectly maps this buffer list:
-
-0: addr 0x10001000, size 0x1000
-1: addr 0x10002000, size 0x1000
-
-To this bogus page list:
-
-0: 0x10000000
-1: 0x10002000
-
-The shift calculation must also take into account the address of the firs=
-t
-entry masked by the page_mask as well as the last address+size rounded
-up to the next page size.
+This is needed for zero-stag support.
 
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
 
- drivers/infiniband/hw/cxgb3/iwch_mem.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+ drivers/infiniband/hw/cxgb3/cxio_wr.h |    3 ++-
+ drivers/infiniband/hw/cxgb3/iwch_qp.c |    1 +
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_mem.c b/drivers/infiniband/=
-hw/cxgb3/iwch_mem.c
-index a6c2c4b..73bfd16 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_mem.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_mem.c
-@@ -122,6 +122,13 @@ int build_phys_page_list(struct ib_phys_buf *buffer_=
-list,
- 		*total_size +=3D buffer_list[i].size;
- 		if (i > 0)
- 			mask |=3D buffer_list[i].addr;
-+		else
-+			mask |=3D buffer_list[i].addr & PAGE_MASK;
-+		if (i !=3D num_phys_buf - 1)
-+			mask |=3D buffer_list[i].addr + buffer_list[i].size;
-+		else
-+			mask |=3D (buffer_list[i].addr + buffer_list[i].size +
-+				PAGE_SIZE - 1) & PAGE_MASK;
- 	}
+diff --git a/drivers/infiniband/hw/cxgb3/cxio_wr.h b/drivers/infiniband/h=
+w/cxgb3/cxio_wr.h
+index c84d4ac..d72b584 100644
+--- a/drivers/infiniband/hw/cxgb3/cxio_wr.h
++++ b/drivers/infiniband/hw/cxgb3/cxio_wr.h
+@@ -324,7 +324,8 @@ struct t3_genbit {
+ };
 =20
- 	if (*total_size > 0xFFFFFFFFULL)
+ enum rdma_init_wr_flags {
+-	RECVS_POSTED =3D 1,
++	RECVS_POSTED =3D (1<<0),
++	PRIV_QP =3D (1<<1),
+ };
+=20
+ union t3_wr {
+diff --git a/drivers/infiniband/hw/cxgb3/iwch_qp.c b/drivers/infiniband/h=
+w/cxgb3/iwch_qp.c
+index 7681fdc..ea2cdd7 100644
+--- a/drivers/infiniband/hw/cxgb3/iwch_qp.c
++++ b/drivers/infiniband/hw/cxgb3/iwch_qp.c
+@@ -717,6 +717,7 @@ static int rdma_init(struct iwch_dev *rhp, struct iwc=
+h_qp *qhp,
+ 	init_attr.qp_dma_addr =3D qhp->wq.dma_addr;
+ 	init_attr.qp_dma_size =3D (1UL << qhp->wq.size_log2);
+ 	init_attr.flags =3D rqes_posted(qhp) ? RECVS_POSTED : 0;
++	init_attr.flags |=3D capable(CAP_NET_BIND_SERVICE) ? PRIV_QP : 0;
+ 	init_attr.irs =3D qhp->ep->rcv_seq;
+ 	PDBG("%s init_attr.rq_addr 0x%x init_attr.rq_size =3D %d "
+ 	     "flags 0x%x qpcaps 0x%x\n", __FUNCTION__,
