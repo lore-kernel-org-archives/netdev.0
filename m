@@ -1,50 +1,48 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH] ICMP: ICMP_MIB_OUTMSGS increment duplicated
-Date: Mon, 21 Jan 2008 19:15:07 +0800
-Message-ID: <47947EBB.2020507@cn.fujitsu.com>
-References: <478DD57B.6020503@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] IPv4: Enable use of 240/4 address space
+Date: Mon, 21 Jan 2008 03:19:59 -0800 (PST)
+Message-ID: <20080121.031959.83378394.davem@davemloft.net>
+References: <20080118.111319.30002290.yoshfuji@linux-ipv6.org>
+	<Pine.LNX.4.64.0801191443410.27831@fbirervta.pbzchgretzou.qr>
+	<20080120.003019.119068925.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>,
-	David L Stevens <dlstevens@us.ibm.com>
+Cc: jengelh@computergmbh.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ak@suse.de, vaf@cisco.com
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:49343 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1757792AbYAULQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jan 2008 06:16:28 -0500
-In-Reply-To: <478DD57B.6020503@cn.fujitsu.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37266
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756361AbYAULTy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 06:19:54 -0500
+In-Reply-To: <20080120.003019.119068925.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave, how about this one.
-It's like that one of IPV6.
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Sun, 20 Jan 2008 00:30:19 +0900 (JST)
 
-Wang Chen said the following on 2008-1-16 17:59:
-> In tree net-2.6.25, commit "96793b482540f3a26e2188eaf75cb56b7829d3e3"
-> made a mistake.
+> In article <Pine.LNX.4.64.0801191443410.27831@fbirervta.pbzchgretzou.qr> (at Sat, 19 Jan 2008 14:44:13 +0100 (CET)), Jan Engelhardt <jengelh@computergmbh.de> says:
 > 
-> In that patch, David L added a icmp_out_count() in ip_push_pending_frames(),
-> remove icmp_out_count() from icmp_reply(). But he forgot to remove 
-> icmp_out_count() from icmp_send() too.
-> Since icmp_send and icmp_reply will call icmp_push_reply, which will call
-> ip_push_pending_frames, a duplicated increment happened in icmp_send.
-> 
-> This patch remove the icmp_out_count from icmp_send too.
-> 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-> ---
-> diff -Nurp linux-2.6.24.rc8.org/net/ipv4/icmp.c linux-2.6.24.rc8/net/ipv4/icmp.c
-> --- linux-2.6.24.rc8.org/net/ipv4/icmp.c	2008-01-16 17:45:02.000000000 +0800
-> +++ linux-2.6.24.rc8/net/ipv4/icmp.c	2008-01-16 17:52:13.000000000 +0800
-> @@ -540,7 +540,6 @@ void icmp_send(struct sk_buff *skb_in, i
->  	icmp_param.data.icmph.checksum	 = 0;
->  	icmp_param.skb	  = skb_in;
->  	icmp_param.offset = skb_network_offset(skb_in);
-> -	icmp_out_count(icmp_param.data.icmph.type);
->  	inet_sk(icmp_socket->sk)->tos = tos;
->  	ipc.addr = iph->saddr;
->  	ipc.opt = &icmp_param.replyopts;
-> 
+> > From 84bccef295aa9754ee662191e32ba1d64edce2ba Mon Sep 17 00:00:00 2001
+> > From: Jan Engelhardt <jengelh@computergmbh.de>
+> > Date: Fri, 18 Jan 2008 02:10:44 +0100
+> > Subject: [PATCH] IPv4: enable use of 240/4 address space
+> > 
+> > This short patch modifies the IPv4 networking to enable use of the
+> > 240.0.0.0/4 (aka "class-E") address space as propsed in the internet
+> > draft draft-fuller-240space-00.txt.
+> > 
+> > Signed-off-by: Jan Engelhardt <jengelh@computergmbh.de>
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
+I've applied this to net-2.6.25, thanks everyone.
+
+I know I said we should deploy this as fast as possible,
+but we are really coming down the wire as far as releasing
+2.6.24 is concerned and I don't want to put anything into
+my pushes to Linus that he might not like and thus cause
+the entire set of bug fixes to be rejected.
+
+Thanks again.
