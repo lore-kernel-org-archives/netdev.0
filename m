@@ -1,38 +1,35 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH 2/2] IPV6: RFC 2011 compatibility broken
-Date: Mon, 21 Jan 2008 11:17:33 -0800
-Message-ID: <OF59F912FF.880BB50C-ON882573D7.006992FD-882573D7.0069F925@us.ibm.com>
-References: <47946A04.3080702@cn.fujitsu.com>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: questions on NAPI processing latency and dropped network packets
+Date: Mon, 21 Jan 2008 13:53:44 -0600
+Message-ID: <4794F848.9020402@nortel.com>
+References: <478654C3.60806@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:45127 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751130AbYAUTRp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 14:17:45 -0500
-In-Reply-To: <47946A04.3080702@cn.fujitsu.com>
+Received: from zrtps0kp.nortel.com ([47.140.192.56]:44629 "EHLO
+	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752475AbYAUTxy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 14:53:54 -0500
+In-Reply-To: <478654C3.60806@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC 2011 doesn't apply to IPv6, and the internal names of /proc entries
-are not used by the SNMP protocol, but it is an unintentional 
-incompatibility with the
-previous Linux entry names, so I agree. :-)
+I've done some further digging, and it appears that one of the problems 
+we may be facing is very high instantaneous traffic rates.
 
-                                        +-DLS
+Instrumentation showed up to 222K packets/sec for short periods (at 
+least 1.1 ms, possibly longer), although the long-term average is down 
+around 14-16K packets/sec.
 
-Acked-by: David L Stevens <dlstevens@us.ibm.com>
+If I bump the rx ring size up to 4096, we can handle all the packets and 
+we still have 44% idle on cpu0 and 27% idle on cpu1.
 
-netdev-owner@vger.kernel.org wrote on 01/21/2008 01:46:44 AM:
+Is there anything else we can do to minimize the latency of network 
+packet processing and avoid having to crank the rx ring size up so high?
 
-> [IPV6]: RFC 2011 compatibility broken
-> 
-> The snmp6 entry name was changed, and it broke compatibility
-> to RFC 2011.
-> 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
->
+Thanks,
+
+Chris
