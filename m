@@ -1,85 +1,62 @@
-From: Dave Young <hidave.darkstar@gmail.com>
-Subject: Re: [PATCH] bluetooth : move children of connection device to NULL
-	before connection down
-Date: Mon, 21 Jan 2008 12:54:01 +0800
-Message-ID: <20080121045401.GB4162@darkstar.te-china.tietoenator.com>
-References: <20080121044913.GA4162@darkstar.te-china.tietoenator.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net: add sparse annotation to ptype_seq_start/stop
+Date: Sun, 20 Jan 2008 21:03:55 -0800
+Message-ID: <20080121050355.GD7541@linux.vnet.ibm.com>
+References: <20080120152146.70bc0b12@deepthought>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bluez-devel@lists.sourceforge.net,
-	cornelia.huck@de.ibm.com, gombasg@sztaki.hu, htejun@gmail.com,
-	viro@zeniv.linux.org.uk, kay.sievers@vrfy.org, greg@kroah.com
-To: marcel@holtmann.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	josh@freedesktop.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:53050 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756943AbYAUEwe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 23:52:34 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so1694503fga.17
-        for <netdev@vger.kernel.org>; Sun, 20 Jan 2008 20:52:33 -0800 (PST)
+Received: from e32.co.us.ibm.com ([32.97.110.150]:42578 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750710AbYAUFEC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 00:04:02 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m0L40pgW009552
+	for <netdev@vger.kernel.org>; Sun, 20 Jan 2008 23:00:51 -0500
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0L53vxY097796
+	for <netdev@vger.kernel.org>; Sun, 20 Jan 2008 22:03:57 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0L53vME017658
+	for <netdev@vger.kernel.org>; Sun, 20 Jan 2008 22:03:57 -0700
 Content-Disposition: inline
-In-Reply-To: <20080121044913.GA4162@darkstar.te-china.tietoenator.com>
+In-Reply-To: <20080120152146.70bc0b12@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 21, 2008 at 12:49:13PM +0800, Dave Young wrote:
-> The rfcomm tty device will possibly retain even when conn is down,
-> and sysfs doesn't support zombie device moving, so this patch
-> move the tty device before conn device is destroyed.
+On Sun, Jan 20, 2008 at 03:21:46PM -0800, Stephen Hemminger wrote:
+> Get rid of some more sparse warnings.
 > 
-> For the bug refered please see :
-> http://lkml.org/lkml/2007/12/28/87
-> 
-> Signed-off-by: Dave Young <hidave.darkstar@gmail.com> 
-> 
-> ---
->  net/bluetooth/hci_sysfs.c  |   17 +++++++++++++++++
->  net/bluetooth/rfcomm/tty.c |    3 ++-
->  2 files changed, 19 insertions(+), 1 deletion(-)
-> 
-> diff -upr linux/net/bluetooth/hci_sysfs.c linux.new/net/bluetooth/hci_sysfs.c
-> --- linux/net/bluetooth/hci_sysfs.c	2008-01-21 11:29:34.000000000 +0800
-> +++ linux.new/net/bluetooth/hci_sysfs.c	2008-01-21 11:33:46.000000000 +0800
-> @@ -316,9 +316,26 @@ void hci_conn_add_sysfs(struct hci_conn 
->  	schedule_work(&conn->work);
->  }
->  
-> +static int __match_tty(struct device *dev, void *data)
-> +{
-> +	/* The rfcomm tty device will possibly retain even when conn
-> +	 * is down, and sysfs doesn't support move zombie device,
-> +	 * so we should move the device before conn device is destroyed.
-> +	 * Due to the only child device of hci_conn dev is rfcomm
-> +	 * tty_dev, here just return 1
-> +	 */
-> +	return 1;
-> +}
-> +
->  static void del_conn(struct work_struct *work)
->  {
-> +	struct device *dev;
->  	struct hci_conn *conn = container_of(work, struct hci_conn, work);
-> +
-> +	while (dev = device_find_child(&conn->dev, NULL, __match_tty)) {
-> +		device_move(dev, NULL);
-> +		put_device(dev);
-> +	}
->  	device_del(&conn->dev);
->  	put_device(&conn->dev);
->  }
-> diff -upr linux/net/bluetooth/rfcomm/tty.c linux.new/net/bluetooth/rfcomm/tty.c
-> --- linux/net/bluetooth/rfcomm/tty.c	2008-01-21 11:30:44.000000000 +0800
-> +++ linux.new/net/bluetooth/rfcomm/tty.c	2008-01-21 11:32:23.000000000 +0800
-> @@ -696,7 +696,8 @@ static void rfcomm_tty_close(struct tty_
->  	BT_DBG("tty %p dev %p dlc %p opened %d", tty, dev, dev->dlc, dev->opened);
->  
->  	if (--dev->opened == 0) {
-> -		device_move(dev->tty_dev, NULL);
-> +		if (dev->tty_dev->parent)
-> +			device_move(dev->tty_dev, NULL);
->  
->  		/* Close DLC and dettach TTY */
->  		rfcomm_dlc_close(dev->dlc, 0);
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Add people missed in cc-list.
+Adding Josh to CC -- is __acquires() case-insensitive?  If not, this
+needs to be __acquires(RCU) and __releases(RCU).
+
+						Thanx, Paul
+
+> --- a/net/core/dev.c	2008-01-20 14:25:00.000000000 -0800
+> +++ b/net/core/dev.c	2008-01-20 14:25:48.000000000 -0800
+> @@ -2543,6 +2543,7 @@ static void *ptype_get_idx(loff_t pos)
+>  }
+> 
+>  static void *ptype_seq_start(struct seq_file *seq, loff_t *pos)
+> +	__acquires(rcu)
+>  {
+>  	rcu_read_lock();
+>  	return *pos ? ptype_get_idx(*pos - 1) : SEQ_START_TOKEN;
+> @@ -2578,6 +2579,7 @@ found:
+>  }
+> 
+>  static void ptype_seq_stop(struct seq_file *seq, void *v)
+> +	__releases(rcu)
+>  {
+>  	rcu_read_unlock();
+>  }
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
