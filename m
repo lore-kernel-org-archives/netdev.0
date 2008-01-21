@@ -1,63 +1,38 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [IPV4] ipmr sparse warnings
-Date: Mon, 21 Jan 2008 09:53:09 -0800
-Message-ID: <20080121095309.088b044e@deepthought>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH 2/2] IPV6: RFC 2011 compatibility broken
+Date: Mon, 21 Jan 2008 11:17:33 -0800
+Message-ID: <OF59F912FF.880BB50C-ON882573D7.006992FD-882573D7.0069F925@us.ibm.com>
+References: <47946A04.3080702@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:57330 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751569AbYAUR4S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jan 2008 12:56:18 -0500
+Received: from e31.co.us.ibm.com ([32.97.110.149]:45127 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751130AbYAUTRp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 14:17:45 -0500
+In-Reply-To: <47946A04.3080702@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Get rid of some of the sparse warnings.
+RFC 2011 doesn't apply to IPv6, and the internal names of /proc entries
+are not used by the SNMP protocol, but it is an unintentional 
+incompatibility with the
+previous Linux entry names, so I agree. :-)
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+                                        +-DLS
 
---- a/net/ipv4/ipmr.c	2008-01-21 09:37:02.000000000 -0800
-+++ b/net/ipv4/ipmr.c	2008-01-21 09:39:56.000000000 -0800
-@@ -141,7 +141,7 @@ struct net_device *ipmr_new_tunnel(struc
- 		p.iph.ihl = 5;
- 		p.iph.protocol = IPPROTO_IPIP;
- 		sprintf(p.name, "dvmrp%d", v->vifc_vifi);
--		ifr.ifr_ifru.ifru_data = (void*)&p;
-+		ifr.ifr_ifru.ifru_data = (__force void __user *)&p;
- 
- 		oldfs = get_fs(); set_fs(KERNEL_DS);
- 		err = dev->do_ioctl(dev, &ifr, SIOCADDTUNNEL);
-@@ -954,10 +954,12 @@ int ip_mroute_setsockopt(struct sock *sk
- #ifdef CONFIG_IP_PIMSM
- 	case MRT_PIM:
- 	{
--		int v, ret;
-+		int v;
-+
- 		if (get_user(v,(int __user *)optval))
- 			return -EFAULT;
--		v = (v)?1:0;
-+		v = (v) ? 1 : 0;
-+
- 		rtnl_lock();
- 		ret = 0;
- 		if (v != mroute_do_pim) {
-@@ -1659,6 +1661,7 @@ static struct vif_device *ipmr_vif_seq_i
- }
- 
- static void *ipmr_vif_seq_start(struct seq_file *seq, loff_t *pos)
-+	__acquires(mrt_lock)
- {
- 	read_lock(&mrt_lock);
- 	return *pos ? ipmr_vif_seq_idx(seq->private, *pos - 1)
-@@ -1682,6 +1685,7 @@ static void *ipmr_vif_seq_next(struct se
- }
- 
- static void ipmr_vif_seq_stop(struct seq_file *seq, void *v)
-+	__releases(mrt_lock)
- {
- 	read_unlock(&mrt_lock);
- }
+Acked-by: David L Stevens <dlstevens@us.ibm.com>
+
+netdev-owner@vger.kernel.org wrote on 01/21/2008 01:46:44 AM:
+
+> [IPV6]: RFC 2011 compatibility broken
+> 
+> The snmp6 entry name was changed, and it broke compatibility
+> to RFC 2011.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+>
