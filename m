@@ -1,55 +1,73 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: questions on NAPI processing latency and dropped network packets
-Date: Mon, 21 Jan 2008 22:31:09 +0100
-Message-ID: <47950F1D.4010508@cosmosbay.com>
-References: <478654C3.60806@nortel.com> <4794F848.9020402@nortel.com>
+From: Jim Paris <jim@jtan.com>
+Subject: [PATCH] ipv6: update MSS even if MTU is unchanged
+Date: Mon, 21 Jan 2008 17:02:48 -0500
+Message-ID: <20080121220248.GA25284@jim.sh>
+References: <20080121105227.GA8306@jim.sh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chris Friesen <cfriesen@nortel.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:44135 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751668AbYAUVbW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 16:31:22 -0500
-In-Reply-To: <4794F848.9020402@nortel.com>
+Received: from NEUROSIS.MIT.EDU ([18.95.3.133]:35796 "EHLO neurosis.jim.sh"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754475AbYAUWCu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2008 17:02:50 -0500
+Received: from neurosis.jim.sh (localhost [127.0.0.1])
+	by neurosis.jim.sh (8.14.1/8.14.1/Debian-9) with ESMTP id m0LM2nIa025420
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 21 Jan 2008 17:02:49 -0500
+Received: (from jim@localhost)
+	by neurosis.jim.sh (8.14.1/8.14.1/Submit) id m0LM2mFf025419
+	for netdev@vger.kernel.org; Mon, 21 Jan 2008 17:02:48 -0500
+Content-Disposition: inline
+In-Reply-To: <20080121105227.GA8306@jim.sh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Friesen a =E9crit :
-> I've done some further digging, and it appears that one of the proble=
-ms=20
-> we may be facing is very high instantaneous traffic rates.
->=20
-> Instrumentation showed up to 222K packets/sec for short periods (at=20
-> least 1.1 ms, possibly longer), although the long-term average is dow=
-n=20
-> around 14-16K packets/sec.
+This is needed because in ndisc.c, we have:
 
-Instrumentation done where exactly ?
+  static void ndisc_router_discovery(struct sk_buff *skb)
+  {
+  // ...
+  	if (ndopts.nd_opts_mtu) {
+  // ...
+  			if (rt)
+  				rt->u.dst.metrics[RTAX_MTU-1] = mtu;
 
-tcpdump on the host will lie, since timestamps are probably going to be=
- host=20
-timestamps, giving the time of RX dequeing, and not time of packets arr=
-ival=20
-given by NIC.
+  			rt6_mtu_change(skb->dev, mtu);
+  // ...
+  }
 
->=20
-> If I bump the rx ring size up to 4096, we can handle all the packets =
-and=20
-> we still have 44% idle on cpu0 and 27% idle on cpu1.
->=20
-> Is there anything else we can do to minimize the latency of network=20
-> packet processing and avoid having to crank the rx ring size up so hi=
-gh?
->=20
+Since the mtu is set directly here, rt6_mtu_change_route thinks that
+it is unchanged, and so it fails to update the MSS accordingly.  This
+patch lets rt6_mtu_change_route still update MSS if old_mtu == new_mtu.
 
+Signed-off-by: Jim Paris <jim@jtan.com>
+---
+This fixes the problem I reported earlier where IPv6 autoconfiguration
+ends up with mtu < advmss on the default route.
 
-You have some tasks that disable softirqs too long. Sometimes, bumping =
-RX ring=20
-size is OK (but you will still have delays), sometimes it is not an opt=
-ion,=20
-since 4096 is the limit on current hardware.
+I don't know if this is the best way to fix the problem, but it works
+for me.  Other options: set rt->u.dst.metrics[RTAX_ADVMSS-1] directly
+in ndisc_router_discovery (but ipv6_advmss function isn't available);
+don't set MTU at all in ndisc_router_discovery and let rt6_mtu_change
+handle it; etc.
+
+ net/ipv6/route.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 6ecb5e6..0965fb3 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1912,7 +1912,7 @@ static int rt6_mtu_change_route(struct rt6_info *rt, void *p_arg)
+ 	 */
+ 	if (rt->rt6i_dev == arg->dev &&
+ 	    !dst_metric_locked(&rt->u.dst, RTAX_MTU) &&
+-	    (dst_mtu(&rt->u.dst) > arg->mtu ||
++	    (dst_mtu(&rt->u.dst) >= arg->mtu ||
+ 	     (dst_mtu(&rt->u.dst) < arg->mtu &&
+ 	      dst_mtu(&rt->u.dst) == idev->cnf.mtu6))) {
+ 		rt->u.dst.metrics[RTAX_MTU-1] = arg->mtu;
+-- 
+1.5.3.8
 
