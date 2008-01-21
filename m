@@ -1,87 +1,81 @@
-From: Joonwoo Park <joonwpark81@gmail.com>
-Subject: [PATCH] [IPV4] route: fix locking in rt_run_flush()
-Date: Tue, 22 Jan 2008 00:08:57 +0900
-Message-ID: <12009281372201-git-send-email-joonwpark81@gmail.com>
-Cc: Joonwoo Park <joonwpark81@gmail.com>,
-	linux-netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Josh Triplett <josh@freedesktop.org>
+Subject: Re: [PATCH] net: add sparse annotation to ptype_seq_start/stop
+Date: Sun, 20 Jan 2008 23:29:32 -0800
+Message-ID: <479449DC.4020105@freedesktop.org>
+References: <20080120152146.70bc0b12@deepthought> <20080121050355.GD7541@linux.vnet.ibm.com> (sfid-20080120_230505_499288_FFFFFFFFEE31D810)
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigBC0B967D443129AEDBF04EB7"
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.191]:28709 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752206AbYAUHN7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 02:13:59 -0500
-Received: by rv-out-0910.google.com with SMTP id k20so1691254rvb.1
-        for <netdev@vger.kernel.org>; Sun, 20 Jan 2008 23:13:58 -0800 (PST)
+Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:44954 "EHLO
+	mail3.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752661AbYAUH3T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 02:29:19 -0500
+In-Reply-To: <20080121050355.GD7541@linux.vnet.ibm.com> (sfid-20080120_230505_499288_FFFFFFFFEE31D810)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The rt_run_flush() can be stucked if it was called while netdev is on the 
-high load.
-It's possible when pushing rtable to rt_hash is faster than pulling
-from it.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigBC0B967D443129AEDBF04EB7
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-The commands 'ifconfig up or ifconfig mtu' and netif_carrier_on() can
-introduce soft lockup like this:
+Paul E. McKenney wrote:
+> On Sun, Jan 20, 2008 at 03:21:46PM -0800, Stephen Hemminger wrote:
+>> Get rid of some more sparse warnings.
+>>
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>=20
+> Adding Josh to CC -- is __acquires() case-insensitive?  If not, this
+> needs to be __acquires(RCU) and __releases(RCU).
+[...]
+>> --- a/net/core/dev.c	2008-01-20 14:25:00.000000000 -0800
+>> +++ b/net/core/dev.c	2008-01-20 14:25:48.000000000 -0800
+>> @@ -2543,6 +2543,7 @@ static void *ptype_get_idx(loff_t pos)
+>>  }
+>>
+>>  static void *ptype_seq_start(struct seq_file *seq, loff_t *pos)
+>> +	__acquires(rcu)
+>>  {
+>>  	rcu_read_lock();
+>>  	return *pos ? ptype_get_idx(*pos - 1) : SEQ_START_TOKEN;
+>> @@ -2578,6 +2579,7 @@ found:
+>>  }
+>>
+>>  static void ptype_seq_stop(struct seq_file *seq, void *v)
+>> +	__releases(rcu)
+>>  {
+>>  	rcu_read_unlock();
+>>  }
 
-[  363.528001] BUG: soft lockup - CPU#0 stuck for 11s! [events/0:9]
-[  363.531492]
-[  363.535027] Pid: 9, comm: events/0 Not tainted (2.6.24-rc8 #14)
-[  363.538837] EIP: 0060:[<c4086a39>] EFLAGS: 00000286 CPU: 0
-[  363.542762] EIP is at kfree+0xa9/0xf0
-...
-[  363.660815]  [<c42fb0fd>] skb_release_data+0x5d/0x90
-[  363.666989]  [<c42fb7dc>] skb_release_all+0x5c/0xd0
-[  363.673207]  [<c42faf8b>] __kfree_skb+0xb/0x90
-[  363.679474]  [<c42fb029>] kfree_skb+0x19/0x40
-[  363.685811]  [<c4322d87>] ip_rcv+0x27/0x290
-[  363.692223]  [<c4300ae5>] netif_receive_skb+0x255/0x320
-[  363.698759]  [<f88465aa>] e1000_clean_rx_irq+0x14a/0x4f0 [e1000]
-[  363.705456]  [<f88437c2>] e1000_clean+0x62/0x270 [e1000]
-[  363.712217]  [<c43031ee>] net_rx_action+0x16e/0x220
-[  363.719065]  [<c40346d7>] __do_softirq+0x87/0x100
-[  363.726001]  [<c40347a7>] do_softirq+0x57/0x60
-[  363.732979]  [<c4034b4e>] local_bh_enable_ip+0xae/0x100
-[  363.740094]  [<c43e73f5>] _spin_unlock_bh+0x25/0x30
-[  363.747283]  [<c431ec88>] rt_run_flush+0xc8/0xe0
-[  363.754566]  [<c4320c76>] rt_cache_flush+0xd6/0xe0
-[  363.761917]  [<c4350269>] fib_netdev_event+0x89/0xa0
-[  363.769361]  [<c4047d67>] notifier_call_chain+0x37/0x80
-...
+At the moment, Sparse doesn't actually use the context expression.  In
+the ideal case when it does, all references to the same lock should
+use a context expression which resolves to that lock (whatever that
+may mean; hence why Sparse doesn't handle it yet).  For mechanisms
+like RCU without a lock variable, this will likely entail some sort of
+fake lock expression, which again needs to match between all users of
+the same mechanism.  Like any expression in C, case matters; thus,
+please match the existing references to "RCU" rather than "rcu".
 
-This patch makes rt_run_flush() to run with softirq is disabled.
+- Josh Triplett
 
-Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
----
- net/ipv4/route.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 28484f3..454e71c 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -620,18 +620,20 @@ static void rt_run_flush(unsigned long dummy)
- 
- 	get_random_bytes(&rt_hash_rnd, 4);
- 
-+	local_bh_disable();
- 	for (i = rt_hash_mask; i >= 0; i--) {
--		spin_lock_bh(rt_hash_lock_addr(i));
-+		spin_lock(rt_hash_lock_addr(i));
- 		rth = rt_hash_table[i].chain;
- 		if (rth)
- 			rt_hash_table[i].chain = NULL;
--		spin_unlock_bh(rt_hash_lock_addr(i));
-+		spin_unlock(rt_hash_lock_addr(i));
- 
- 		for (; rth; rth = next) {
- 			next = rth->u.dst.rt_next;
- 			rt_free(rth);
- 		}
- 	}
-+	local_bh_enable();
- }
- 
- static DEFINE_SPINLOCK(rt_flush_lock);
--- 
-1.5.3.rc5
+--------------enigBC0B967D443129AEDBF04EB7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFHlEncGJuZRtD+evsRApRxAJ9/1VMb+Iz8RF/kn9mmv7MQFoTNBwCgjESG
+MVKCl6RtJMS72wfv8MgwfQM=
+=zndJ
+-----END PGP SIGNATURE-----
+
+--------------enigBC0B967D443129AEDBF04EB7--
