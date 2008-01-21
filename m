@@ -1,41 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.24 regression: reference count leak in PPPoE
-Date: Sun, 20 Jan 2008 16:08:33 -0800 (PST)
-Message-ID: <20080120.160833.166998420.davem@davemloft.net>
-References: <200801202053.30386.ak@suse.de>
-	<20080120200109.GA31876@elte.hu>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/4] dsmark: get rid of trivial function
+Date: Mon, 21 Jan 2008 01:16:32 +0100
+Message-ID: <4793E460.5020804@trash.net>
+References: <20080120130542.16720b45@deepthought> <20080120132550.056370c0@deepthought>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	torvalds@linux-foundation.org
-To: mingo@elte.hu
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756940AbYAUAIm@vger.kernel.org>
-In-Reply-To: <20080120200109.GA31876@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:37504 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755027AbYAUAQk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 19:16:40 -0500
+In-Reply-To: <20080120132550.056370c0@deepthought>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Sun, 20 Jan 2008 21:01:09 +0100
-
+Stephen Hemminger wrote:
+> Replace loop in dsmark_valid_indices with equivalent bit math.
 > 
-> * Andi Kleen <ak@suse.de> wrote:
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> > My workstation running 2.6.24-rc8 just hung during shutdown with an 
-> > endless (or rather I didn't wait more than a few minutes) loop of
-> > 
-> > unregister_netdev: waiting for ppp-device to become free. Usage count 
-> > = 1
-> > 
-> > ppp-device was an active PPPoE device.
-> > 
-> > No more information currently.
-> 
-> i've seen such problems (locked up box with endless loop of usage count 
-> == 1) with pppoe in the past, and it seemed to be related to dynamic 
-> IPs. (i saw that well before 2.6.24 - reported it once to davem)
+> --- a/net/sched/sch_dsmark.c	2008-01-20 13:07:58.000000000 -0800
+> +++ b/net/sched/sch_dsmark.c	2008-01-20 13:22:54.000000000 -0800
+> @@ -45,13 +45,8 @@ struct dsmark_qdisc_data {
+>  
+>  static inline int dsmark_valid_indices(u16 indices)
+>  {
+> -	while (indices != 1) {
+> -		if (indices & 1)
+> -			return 0;
+> -		indices >>= 1;
+> -	}
+> -
+> -	return 1;
+> +	/* Must have only one bit set */
+> +	return (indices & (indices - 1)) == 0;
 
-No, this is a different bug Andi is seeing and it was
-recently introduced:
 
-	http://bugzilla.kernel.org/show_bug.cgi?id=9778
+hweight seems easier to understand, it took me a bit
+to realize that the comment matches the code :)
