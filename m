@@ -1,61 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: : Emit event stream compat iw_point objects correctly.
-Date: Mon, 21 Jan 2008 03:37:14 -0800 (PST)
-Message-ID: <20080121.033714.254598863.davem@davemloft.net>
-References: <20071227181439.6F59.40F06B3A@sm.sony.co.jp>
-	<20080110.011602.74511551.davem@davemloft.net>
-	<20080121194942.613C.40F06B3A@sm.sony.co.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ICMP: ICMP_MIB_OUTMSGS increment duplicated
+Date: Mon, 21 Jan 2008 03:40:14 -0800 (PST)
+Message-ID: <20080121.034014.263253207.davem@davemloft.net>
+References: <47947EBB.2020507@cn.fujitsu.com>
+	<20080121.032554.96053463.davem@davemloft.net>
+	<47948360.9090709@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080121194942.613C.40F06B3A-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: dlstevens@us.ibm.com, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: wangchen@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45606
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1759154AbYAULkJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 06:40:09 -0500
+In-Reply-To: <47948360.9090709@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
-Date: Mon, 21 Jan 2008 20:23:15 +0900
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Mon, 21 Jan 2008 19:34:56 +0800
 
-> Sorry for my intermittent posts.
-
-No problem.
-
-I am sorry for being to busy to get back to active work
-on this patch set.
-
-> > -prism54_translate_bss(struct net_device *ndev, char *current_ev,
-> > -		      char *end_buf, struct obj_bss *bss, char noise)
-> > +prism54_translate_bss(struct net_device *ndev, struct iw_request_info *info,
-> > +		      char *current_ev, char *end_buf, struct obj_bss *bss,
-> > +		      char noise)
-> >  {
-> >  	struct iw_event iwe;	/* Temporary buffer */
-> >  	short cap;
+> David Miller said the following on 2008-1-21 19:25:
+> > I am confused, this changelog for this patch mentions changes made
+> > only in the net-2.6.25 tree.
+> > 
 > 
-> <snip>
+> Although I wrote that I find David.S's patch in net-2.6.25 was wrong,
+> the guilty patch also in net-2.6 tree. Here is the web link.
+> http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=96793b482540f3a26e2188eaf75cb56b7829d3e3 
 > 
-> > @@ -2728,9 +2730,12 @@ prism2_ioctl_scan_req(struct net_device *ndev,
-> >  	rvalue |= mgt_get_request(priv, DOT11_OID_BSSLIST, 0, NULL, &r);
-> >  	bsslist = r.ptr;
-> >  
-> > +	info.cmd = PRISM54_HOSTAPD;
-> > +	info.flags = 0;
-> > +
-> >  	/* ok now, scan the list and translate its info */
-> >  	for (i = 0; i < min(IW_MAX_AP, (int) bsslist->nr); i++)
-> > -		current_ev = prism54_translate_bss(ndev, current_ev,
-> > +		current_ev = prism54_translate_bss(ndev, current_ev, &info,
-> 
-> The order of the arguments is wrong.
-> 
-> current_ev = prism54_translate_bss(ndev, &info, current_ev,
+> So, I think apply my patches to net-2.6 is ok.
 
-Indeed, I will fix this up in a future version.
+Thank you for explaining this.
 
-I will also investigate why this escaped my build testing.
-It is merely a PCI driver, so it should have been included
-in the "make allmodconfig" test builds I do on sparc64.
-
-Thank you.
+Patch applied to net-2.6
