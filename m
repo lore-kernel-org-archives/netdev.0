@@ -1,31 +1,36 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 1/3 v2][NET] gen_estimator: faster gen_kill_estimator
-Date: Mon, 21 Jan 2008 23:41:27 +0100
-Message-ID: <20080121224127.GA4386@ami.dom.local>
-References: <20080120234659.GA2691@ami.dom.local> <20080121223137.GB2758@ami.dom.local>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: questions on NAPI processing latency and dropped network packets
+Date: Mon, 21 Jan 2008 17:15:15 -0600
+Message-ID: <47952783.8080505@nortel.com>
+References: <478654C3.60806@nortel.com> <4794F848.9020402@nortel.com> <47950A71.5010304@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Badalian Vyacheslav <slavon@bigtelecom.ru>,
-	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:16904 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751775AbYAUWjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 17:39:01 -0500
-Received: by nf-out-0910.google.com with SMTP id g13so359129nfb.21
-        for <netdev@vger.kernel.org>; Mon, 21 Jan 2008 14:39:00 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080121223137.GB2758@ami.dom.local>
+Received: from zrtps0kp.nortel.com ([47.140.192.56]:62465 "EHLO
+	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756041AbYAUXP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 18:15:26 -0500
+In-Reply-To: <47950A71.5010304@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 21, 2008 at 11:31:37PM +0100, Jarek Poplawski wrote:
+Ben Greear wrote:
+> Chris Friesen wrote:
 > 
-> So, let's try something easy first: #ifdef __KERNEL__. (I know there
-...
+>> Is there anything else we can do to minimize the latency of network 
+>> packet processing and avoid having to crank the rx ring size up so high?
+> 
+> 
+> Why is it such a big deal to crank up the rx queue length?  Seems like
+> a perfectly normal way to handle bursts like this...
 
-SORRY!!! Of course this is still wrong, I withdraw this patch.
+It means that the latency for handling those packets is higher than it 
+could be.  Draining 4096 packets from the queue will take a while.
 
-Jarek P.
+Ideally we'd like to bring the latency down as much as possible, and 
+then bump up the rx queue length to handle the rest.
+
+Chris
