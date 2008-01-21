@@ -1,68 +1,93 @@
-From: "Nicu Ioan Petru" <ionut.nicu@freescale.com>
-Subject: RE: [PATCH][v2] phylib: add module owner to the mii_bus structure
-Date: Mon, 21 Jan 2008 12:13:20 -0000
-Message-ID: <53E7C5BEAA4B474B8FB3E84A70C00E1B01E63486@zuk35exm20.fsl.freescale.net>
-References: <20071221153713.641f010e@deepthought> <78b2dab672856274c518f4c523f6f63f59f06dd1.1198861866.git.ionut.nicu@freescale.com> <CFE6E252-4CB9-4F91-ABE6-330798408E50@freescale.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [Bugme-new] [Bug 9778] New: unregister_netdevice: waiting for [device] to become free
+Date: Mon, 21 Jan 2008 15:14:45 +0300
+Message-ID: <20080121121445.GA29459@2ka.mipt.ru>
+References: <bug-9778-10286@http.bugzilla.kernel.org/> <20080119165802.2846a28e.akpm@linux-foundation.org> <20080120.023027.85710827.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <shemminger@linux-foundation.org>
-To: "Fleming Andy" <afleming@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, xemul@openvz.org,
+	bugme-daemon@bugzilla.kernel.org, nigel@suspend2.net,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:56392 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753693AbYAUMNb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 07:13:31 -0500
-Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
-	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id m0LCDMVF004163
-	for <netdev@vger.kernel.org>; Mon, 21 Jan 2008 05:13:22 -0700 (MST)
-Received: from zuk35exm20.fsl.freescale.net (zuk35exm20.ea.freescale.net [10.210.1.54])
-	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id m0LCDLvX022672
-	for <netdev@vger.kernel.org>; Mon, 21 Jan 2008 06:13:22 -0600 (CST)
-Content-class: urn:content-classes:message
-In-Reply-To: <CFE6E252-4CB9-4F91-ABE6-330798408E50@freescale.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:44127 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754503AbYAUMP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2008 07:15:59 -0500
+Content-Disposition: inline
+In-Reply-To: <20080120.023027.85710827.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: Fleming Andy 
-> Sent: Monday, January 14, 2008 8:56 PM
-> To: Nicu Ioan Petru
-> Cc: netdev@vger.kernel.org; shemminger@linux-foundation.org
-> Subject: Re: [PATCH][v2] phylib: add module owner to the 
-> mii_bus structure
->
-> Any reason you didn't update the other drivers?
+On Sun, Jan 20, 2008 at 02:30:27AM -0800, David Miller (davem@davemloft.net) wrote:
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Sat, 19 Jan 2008 16:58:02 -0800
 > 
->  > git grep mdiobus_register drivers/net/          // duplicates and  
-> mdio_bus.c edited out
-> drivers/net/au1000_eth.c:       mdiobus_register(&aup->mii_bus);
-> drivers/net/bfin_mac.c: mdiobus_register(&lp->mii_bus);
-> drivers/net/cpmac.c:    res = mdiobus_register(&cpmac_mii);
-> drivers/net/fec_mpc52xx_phy.c:  err = mdiobus_register(bus);
-> drivers/net/fs_enet/mii-bitbang.c:      ret = 
-> mdiobus_register(new_bus);
-> drivers/net/fs_enet/mii-fec.c:  ret = mdiobus_register(new_bus);
-> drivers/net/gianfar_mii.c:      err = mdiobus_register(new_bus);
-> drivers/net/macb.c:     if (mdiobus_register(&bp->mii_bus))
-> drivers/net/sb1250-mac.c:       err = mdiobus_register(&sc->mii_bus);
-> drivers/net/ucc_geth_mii.c:     err = mdiobus_register(new_bus);
+> > ouch.
 > 
-> I'm guessing this was only tested on the UEC, because unless 
-> I misunderstand the code, any other driver would now crash 
-> when you try to get the owner.
+> Yep, several people are hitting this it seems.
 > 
+> If Pavel doesn't provide a fix or direction soon I'll just revert.
 
-That's not true. If you look closely at the implementation of
-try_module_get(), you'll see it returns 1 when module is NULL. So my
-change should make no difference for the other drivers.
+It looks like patch is still valid.
+Here is a problem description as I undestood.
 
-If that's really a concern for you, I can update the other drivers as
-well. How do you propose to do this? Resubmit this patch or send a new
-one?
+When new device (let's talk about ethernet, since that is what I tested)
+is being turned on, it gets neigh_parms entry allocated for it via
+inetdev_init(), which is called for NETDEV_REGISTER inetdev event.
+This entry is stored in arp_tbl table and is in_dev->arp_parms.
 
-Ionut.
- 
+When later new arp entry is created, device is provided into
+arp_constructor(), which clones (increase reference counter) device's
+in_dev->arp_parms and puts it into provided neighbour entry.
+
+When later we remove device, its in_dev->arp_parms's reference counter
+is high enough (it is equal to number of arp entries found on given
+device plu one), so neigh_parms_destroy() is not called. Later all
+neighbour entries are flushed by garbage collector and reference counter
+for that parm hits zero and device can be removed.
+
+I will think about how to fix the problem nicely or if this patch still
+can be simplified/dropped, but so far it looks valid. Maybe this
+analysis will help someone to fix problem first.
+
+Here is debug dmesg:
+[   21.835595] inetdev_init: allocating parms.
+[   21.839829] neigh_parms_alloc: parms: ffff81003d8e8df0, dev: eth0, refcnt: 1, dev_refcnt: 2.
+...
+[   30.251576] r8169: eth0: link up
+[   31.067079] NET: Registered protocol family 10
+[   31.072055] neigh_parms_alloc: parms: ffff81003efc72a8, dev: lo, refcnt: 1, dev_refcnt: 9.
+[   31.080891] neigh_alloc: parms: ffffffff8812afe8, dev: <NULL>, refcnt: 2.
+[   31.087816] neigh_parms_alloc: parms: ffff81003efc7210, dev: eth0, refcnt: 1, dev_refcnt: 9.
+[   31.097335] neigh_alloc: parms: ffffffff804deb88, dev: <NULL>, refcnt: 2.
+[   31.104172] arp_constructor: parms: ffff81003f8c3be8, dev: lo, refcnt: 2.
+[   31.500348] neigh_alloc: parms: ffffffff8812afe8, dev: <NULL>, refcnt: 2.
+[   32.499628] neigh_alloc: parms: ffffffff8812afe8, dev: <NULL>, refcnt: 2.
+[  102.827796] neigh_destroy: parms: ffff81003efc7210, dev: eth0, refcnt: 3, dev_refcnt: 13.
+[  106.828843] neigh_destroy: parms: ffff81003f8c3be8, dev: lo, refcnt: 2, dev_refcnt: 78.
+[  109.810987] neigh_alloc: parms: ffffffff804deb88, dev: <NULL>, refcnt: 2.
+
+First arp entry for eth0 device, bump the counter:
+[  109.817827] arp_constructor: parms: ffff81003d8e8df0, dev: eth0, refcnt: 2.
+
+[  109.831811] neigh_alloc: parms: ffffffff804deb88, dev: <NULL>, refcnt: 2.
+[  109.838661] arp_constructor: parms: ffff81003f8c3be8, dev: lo, refcnt: 2.
+[  110.837894] neigh_destroy: parms: ffff81003efc7210, dev: eth0, refcnt: 2, dev_refcnt: 15.
+
+Can not release that neigh parm:
+[  113.638228] neigh_parms_release: parms: ffff81003d8e8df0, dev: eth0, refcnt: 2, dev_refcnt: 5.
+
+Can release some other (for ipv6):
+[  113.649380] neigh_parms_release: parms: ffff81003efc7210, dev: eth0, refcnt: 1, dev_refcnt: 5.
+[  113.671806] neigh_parms_destroy: parms: ffff81003efc7210, dev: eth0, dev_refcnt: 3.
+
+[  123.916250] unregister_netdevice: waiting for eth0 to become free. Usage count = 1
+
+GC hits us:
+[  124.839572] neigh_destroy: parms: ffff81003d8e8df0, dev: eth0, refcnt: 1, dev_refcnt: 11.
+[  124.847813] neigh_parms_destroy: parms: ffff81003d8e8df0, dev: eth0, dev_refcnt: 1.
+[  124.952026] ACPI: PCI interrupt for device 0000:02:0d.0 disabled
+
+-- 
+	Evgeniy Polyakov
