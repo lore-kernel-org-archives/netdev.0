@@ -1,13 +1,16 @@
 From: Steve Wise <swise@opengridcomputing.com>
-Subject: [ofa-general] [PATCH RESEND 0/3] RDMA/cxgb3 fixes
-Date: Mon, 21 Jan 2008 14:41:30 -0600
-Message-ID: <20080121204130.3820.11053.stgit@dell3.ogc.int>
+Subject: [ofa-general] [PATCH RESEND 2/3] RDMA/cxgb3: fix page shift
+	calculation in build_phys_page_list()
+Date: Mon, 21 Jan 2008 14:42:11 -0600
+Message-ID: <20080121204211.3820.31337.stgit@dell3.ogc.int>
+References: <20080121204130.3820.11053.stgit@dell3.ogc.int>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: quoted-printable
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	general@lists.openfabrics.org
 To: rdreier@cisco.com
 Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20080121204130.3820.11053.stgit@dell3.ogc.int>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -19,16 +22,47 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Hey Roland,
 
-Please include these three iw_cxgb3 fixes for 2.6.25.  The first two fix
-bugs found doing Lustre testing, and the last patch correctly marks
-privileged qps.
+RDMA/cxgb3: fix page shift calculation in build_phys_page_list()
 
-Shortlog:
-      RDMA/cxgb3: Flush the RQ when closing.
-      RDMA/cxgb3: fix page shift calculation in build_phys_page_list()
-      RDMA/cxgb3: Mark qp as privileged based on user capabilities.
+The existing logic incorrectly maps this buffer list:
 
---=20
-Steve.
+0: addr 0x10001000, size 0x1000
+1: addr 0x10002000, size 0x1000
+
+To this bogus page list:
+
+0: 0x10000000
+1: 0x10002000
+
+The shift calculation must also take into account the address of the firs=
+t
+entry masked by the page_mask as well as the last address+size rounded
+up to the next page size.
+
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+---
+
+ drivers/infiniband/hw/cxgb3/iwch_mem.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/infiniband/hw/cxgb3/iwch_mem.c b/drivers/infiniband/=
+hw/cxgb3/iwch_mem.c
+index a6c2c4b..73bfd16 100644
+--- a/drivers/infiniband/hw/cxgb3/iwch_mem.c
++++ b/drivers/infiniband/hw/cxgb3/iwch_mem.c
+@@ -122,6 +122,13 @@ int build_phys_page_list(struct ib_phys_buf *buffer_=
+list,
+ 		*total_size +=3D buffer_list[i].size;
+ 		if (i > 0)
+ 			mask |=3D buffer_list[i].addr;
++		else
++			mask |=3D buffer_list[i].addr & PAGE_MASK;
++		if (i !=3D num_phys_buf - 1)
++			mask |=3D buffer_list[i].addr + buffer_list[i].size;
++		else
++			mask |=3D (buffer_list[i].addr + buffer_list[i].size +
++				PAGE_SIZE - 1) & PAGE_MASK;
+ 	}
+=20
+ 	if (*total_size > 0xFFFFFFFFULL)
