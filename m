@@ -1,34 +1,143 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 2/3][NET] gen_estimator: list_empty() check in
-	est_timer() fixed
-Date: Mon, 21 Jan 2008 07:42:40 +0100
-Message-ID: <20080121064240.GB981@ff.dom.local>
-References: <20080120234959.GB2691@ami.dom.local> <20080120155544.0a071675@deepthought> <20080121063455.GA981@ff.dom.local>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: [REGRESSION] 2.6.24-rc7: e1000: Detected Tx Unit Hang
+Date: Mon, 21 Jan 2008 09:54:43 +0300
+Message-ID: <479441B3.4080909@bigtelecom.ru>
+References: <200801150625.10823.elendil@planet.nl>	<20080114.215317.38045859.davem@davemloft.net>	<478DC824.4030600@bigtelecom.ru> <20080116.042817.143947133.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Badalian Vyacheslav <slavon@bigtelecom.ru>,
-	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: elendil@planet.nl, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:29534 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752233AbYAUGgG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 01:36:06 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so835046ugc.16
-        for <netdev@vger.kernel.org>; Sun, 20 Jan 2008 22:36:05 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080121063455.GA981@ff.dom.local>
+Received: from mail.bigtelecom.ru ([87.255.0.61]:36655 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751849AbYAUGyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 01:54:52 -0500
+In-Reply-To: <20080116.042817.143947133.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 21, 2008 at 07:34:55AM +0100, Jarek Poplawski wrote:
-...
-> BTW, I've forgotten to mention with patch 1/3 that this checking with
-> warning on gen_new_estimator() double call should be only temporary,
-> and after more testing gen_estimator structure could be probably
-> decreased after removing bstats and rate_est fields.
+Hello. Its work, thanks for resend it!
+Sorry, i understand that patch 53e52c729cc169db82a6105fac7a166e10c2ec36 
+("[NET]: Make ->poll() breakout consistent in Intel ethernet drivers.") 
+have regression and rollback it, i not see your patch.
+Sorry again.
 
-Hmm, let's forget about this again: it's too early in the morning...
+Thanks!
+> From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+> Date: Wed, 16 Jan 2008 12:02:28 +0300
+>
+>   
+>> Also have regression after apply patch.
+>>     
+>
+> BTW, if you are using the e1000e driver then this initial
+> patch will not work.
+>
+> My more recent patch posting for this problem, will.
+>
+> I include it again below for you:
+>
+> [NET]: Fix TX timeout regression in Intel drivers.
+>
+> This fixes a regression added by changeset
+> 53e52c729cc169db82a6105fac7a166e10c2ec36 ("[NET]: Make ->poll()
+> breakout consistent in Intel ethernet drivers.")
+>
+> As pointed out by Jesse Brandeburg, for three of the drivers edited
+> above there is breakout logic in the *_clean_tx_irq() code to prevent
+> running TX reclaim forever.  If this occurs, we have to elide NAPI
+> poll completion or else those TX events will never be serviced.
+>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+> index 13d57b0..0c9a6f7 100644
+> --- a/drivers/net/e1000/e1000_main.c
+> +++ b/drivers/net/e1000/e1000_main.c
+> @@ -3919,7 +3919,7 @@ e1000_clean(struct napi_struct *napi, int budget)
+>  {
+>  	struct e1000_adapter *adapter = container_of(napi, struct e1000_adapter, napi);
+>  	struct net_device *poll_dev = adapter->netdev;
+> -	int work_done = 0;
+> +	int tx_cleaned = 0, work_done = 0;
+>  
+>  	/* Must NOT use netdev_priv macro here. */
+>  	adapter = poll_dev->priv;
+> @@ -3929,14 +3929,17 @@ e1000_clean(struct napi_struct *napi, int budget)
+>  	 * simultaneously.  A failure obtaining the lock means
+>  	 * tx_ring[0] is currently being cleaned anyway. */
+>  	if (spin_trylock(&adapter->tx_queue_lock)) {
+> -		e1000_clean_tx_irq(adapter,
+> -				   &adapter->tx_ring[0]);
+> +		tx_cleaned = e1000_clean_tx_irq(adapter,
+> +						&adapter->tx_ring[0]);
+>  		spin_unlock(&adapter->tx_queue_lock);
+>  	}
+>  
+>  	adapter->clean_rx(adapter, &adapter->rx_ring[0],
+>  	                  &work_done, budget);
+>  
+> +	if (tx_cleaned)
+> +		work_done = budget;
+> +
+>  	/* If budget not fully consumed, exit the polling mode */
+>  	if (work_done < budget) {
+>  		if (likely(adapter->itr_setting & 3))
+> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+> index 4a6fc74..2ab3bfb 100644
+> --- a/drivers/net/e1000e/netdev.c
+> +++ b/drivers/net/e1000e/netdev.c
+> @@ -1384,7 +1384,7 @@ static int e1000_clean(struct napi_struct *napi, int budget)
+>  {
+>  	struct e1000_adapter *adapter = container_of(napi, struct e1000_adapter, napi);
+>  	struct net_device *poll_dev = adapter->netdev;
+> -	int work_done = 0;
+> +	int tx_cleaned = 0, work_done = 0;
+>  
+>  	/* Must NOT use netdev_priv macro here. */
+>  	adapter = poll_dev->priv;
+> @@ -1394,12 +1394,15 @@ static int e1000_clean(struct napi_struct *napi, int budget)
+>  	 * simultaneously.  A failure obtaining the lock means
+>  	 * tx_ring is currently being cleaned anyway. */
+>  	if (spin_trylock(&adapter->tx_queue_lock)) {
+> -		e1000_clean_tx_irq(adapter);
+> +		tx_cleaned = e1000_clean_tx_irq(adapter);
+>  		spin_unlock(&adapter->tx_queue_lock);
+>  	}
+>  
+>  	adapter->clean_rx(adapter, &work_done, budget);
+>  
+> +	if (tx_cleaned)
+> +		work_done = budget;
+> +
+>  	/* If budget not fully consumed, exit the polling mode */
+>  	if (work_done < budget) {
+>  		if (adapter->itr_setting & 3)
+> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+> index a564916..de3f45e 100644
+> --- a/drivers/net/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ixgbe/ixgbe_main.c
+> @@ -1468,13 +1468,16 @@ static int ixgbe_clean(struct napi_struct *napi, int budget)
+>  	struct ixgbe_adapter *adapter = container_of(napi,
+>  					struct ixgbe_adapter, napi);
+>  	struct net_device *netdev = adapter->netdev;
+> -	int work_done = 0;
+> +	int tx_cleaned = 0, work_done = 0;
+>  
+>  	/* In non-MSIX case, there is no multi-Tx/Rx queue */
+> -	ixgbe_clean_tx_irq(adapter, adapter->tx_ring);
+> +	tx_cleaned = ixgbe_clean_tx_irq(adapter, adapter->tx_ring);
+>  	ixgbe_clean_rx_irq(adapter, &adapter->rx_ring[0], &work_done,
+>  			   budget);
+>  
+> +	if (tx_cleaned)
+> +		work_done = budget;
+> +
+>  	/* If budget not fully consumed, exit the polling mode */
+>  	if (work_done < budget) {
+>  		netif_rx_complete(netdev, napi);
+>
+>   
 
-Jarek P.
