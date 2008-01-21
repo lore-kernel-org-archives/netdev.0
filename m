@@ -1,130 +1,87 @@
-From: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
-Subject: Re: [PATCH 3/4] bonding: Fix work rearming
-Date: Mon, 21 Jan 2008 13:04:06 +0900
-Message-ID: <479419B6.9000000@miraclelinux.com>
-References: <20080115090532.GB1696@ff.dom.local> <478D77D7.60703@miraclelinux.com> <20080116133646.GE2307@ff.dom.local> <478EE7FC.4040301@miraclelinux.com> <20080117111822.GB1710@ff.dom.local> <4790ACF2.1090207@miraclelinux.com> <479127C6.1080701@gmail.com> <47912B83.5010407@gmail.com>
+From: Dave Young <hidave.darkstar@gmail.com>
+Subject: [PATCH] bluetooth : move children of connection
+	device to NULL	before connection down
+Date: Mon, 21 Jan 2008 12:49:13 +0800
+Message-ID: <20080121044913.GA4162@darkstar.te-china.tietoenator.com>
+Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Makito SHIOKAWA <mshiokawa@miraclelinux.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.miraclelinux.com ([219.118.163.66]:48698 "EHLO
-	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756126AbYAUEDu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2008 23:03:50 -0500
-In-Reply-To: <47912B83.5010407@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bluez-devel@lists.sourceforge.net,
+	davem@davemloft.net, linux-kernel@vger.kernel.org
+To: marcel@holtmann.org
+Return-path: <bluez-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=bluez-devel>
+List-Post: <mailto:bluez-devel@lists.sourceforge.net>
+List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: bluez-devel-bounces@lists.sourceforge.net
+Errors-To: bluez-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
- > (But new_value = 0 seems needed - just like from module_param()?)
-Do you mean to initialize new_value before sscanf()? (There is a check 'if (sscanf(buf, "%d", &new_value) != 1)', so is it necesarry?)
+The rfcomm tty device will possibly retain even when conn is down,
+and sysfs doesn't support zombie device moving, so this patch
+move the tty device before conn device is destroyed.
 
- > - maybe to test if the value has changed at all,
-Tested.
+For the bug refered please see :
+http://lkml.org/lkml/2007/12/28/87
 
-For now, patch will be like below. Any slight comment for this will be helpful, regards.
+Signed-off-by: Dave Young <hidave.darkstar@gmail.com> 
 
-
-Signed-off-by: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
 ---
-  drivers/net/bonding/bond_main.c  |   11 ++++-------
-  drivers/net/bonding/bond_sysfs.c |   19 +++++++++++++++++--
-  2 files changed, 21 insertions(+), 9 deletions(-)
+ net/bluetooth/hci_sysfs.c  |   17 +++++++++++++++++
+ net/bluetooth/rfcomm/tty.c |    3 ++-
+ 2 files changed, 19 insertions(+), 1 deletion(-)
 
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2699,7 +2699,7 @@ void bond_loadbalance_arp_mon(struct wor
-
-  	read_lock(&bond->lock);
-
--	delta_in_ticks = (bond->params.arp_interval * HZ) / 1000;
-+	delta_in_ticks = ((bond->params.arp_interval * HZ) / 1000) ? : 1;
-
-  	if (bond->kill_timers) {
-  		goto out;
-@@ -2801,8 +2801,7 @@ void bond_loadbalance_arp_mon(struct wor
-  	}
-
-  re_arm:
--	if (bond->params.arp_interval)
--		queue_delayed_work(bond->wq, &bond->lb_arp_work, delta_in_ticks);
-+	queue_delayed_work(bond->wq, &bond->lb_arp_work, delta_in_ticks);
-  out:
-  	read_unlock(&bond->lock);
-  }
-@@ -2832,7 +2831,7 @@ void bond_activebackup_arp_mon(struct wo
-
-  	read_lock(&bond->lock);
-
--	delta_in_ticks = (bond->params.arp_interval * HZ) / 1000;
-+	delta_in_ticks = ((bond->params.arp_interval * HZ) / 1000) ? : 1;
-
-  	if (bond->kill_timers) {
-  		goto out;
-@@ -3058,9 +3057,7 @@ void bond_activebackup_arp_mon(struct wo
-  	}
-
-  re_arm:
--	if (bond->params.arp_interval) {
--		queue_delayed_work(bond->wq, &bond->ab_arp_work, delta_in_ticks);
--	}
-+	queue_delayed_work(bond->wq, &bond->ab_arp_work, delta_in_ticks);
-  out:
-  	read_unlock(&bond->lock);
-  }
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -644,6 +644,15 @@ static ssize_t bonding_store_arp_interva
-  	       ": %s: Setting ARP monitoring interval to %d.\n",
-  	       bond->dev->name, new_value);
-  	bond->params.arp_interval = new_value;
-+	if (bond->params.arp_interval == 0 && (bond->dev->flags & IFF_UP)) {
-+		printk(KERN_INFO DRV_NAME
-+		       ": %s: Disabling ARP monitoring.\n",
-+		       bond->dev->name);
-+		if (bond->params.mode == BOND_MODE_ACTIVEBACKUP)
-+			cancel_delayed_work_sync(&bond->ab_arp_work);
-+		else
-+			cancel_delayed_work_sync(&bond->lb_arp_work);
+diff -upr linux/net/bluetooth/hci_sysfs.c linux.new/net/bluetooth/hci_sysfs.c
+--- linux/net/bluetooth/hci_sysfs.c	2008-01-21 11:29:34.000000000 +0800
++++ linux.new/net/bluetooth/hci_sysfs.c	2008-01-21 11:33:46.000000000 +0800
+@@ -316,9 +316,26 @@ void hci_conn_add_sysfs(struct hci_conn 
+ 	schedule_work(&conn->work);
+ }
+ 
++static int __match_tty(struct device *dev, void *data)
++{
++	/* The rfcomm tty device will possibly retain even when conn
++	 * is down, and sysfs doesn't support move zombie device,
++	 * so we should move the device before conn device is destroyed.
++	 * Due to the only child device of hci_conn dev is rfcomm
++	 * tty_dev, here just return 1
++	 */
++	return 1;
++}
++
+ static void del_conn(struct work_struct *work)
+ {
++	struct device *dev;
+ 	struct hci_conn *conn = container_of(work, struct hci_conn, work);
++
++	while (dev = device_find_child(&conn->dev, NULL, __match_tty)) {
++		device_move(dev, NULL);
++		put_device(dev);
 +	}
-  	if (bond->params.miimon) {
-  		printk(KERN_INFO DRV_NAME
-  		       ": %s: ARP monitoring cannot be used with MII monitoring. "
-@@ -658,7 +667,7 @@ static ssize_t bonding_store_arp_interva
-  		       "but no ARP targets have been specified.\n",
-  		       bond->dev->name);
-  	}
--	if (bond->dev->flags & IFF_UP) {
-+	if (bond->params.arp_interval && (bond->dev->flags & IFF_UP)) {
-  		/* If the interface is up, we may need to fire off
-  		 * the ARP timer.  If the interface is down, the
-  		 * timer will get fired off when the open function
-@@ -997,6 +1006,12 @@ static ssize_t bonding_store_miimon(stru
-  		       ": %s: Setting MII monitoring interval to %d.\n",
-  		       bond->dev->name, new_value);
-  		bond->params.miimon = new_value;
-+		if (bond->params.miimon == 0 && (bond->dev->flags & IFF_UP)) {
-+			printk(KERN_INFO DRV_NAME
-+			       ": %s: Disabling MII monitoring...\n",
-+			       bond->dev->name);
-+			cancel_delayed_work_sync(&bond->mii_work);
-+		}
-  		if(bond->params.updelay)
-  			printk(KERN_INFO DRV_NAME
-  			      ": %s: Note: Updating updelay (to %d) "
-@@ -1026,7 +1041,7 @@ static ssize_t bonding_store_miimon(stru
-  				cancel_delayed_work_sync(&bond->lb_arp_work);
-  		}
+ 	device_del(&conn->dev);
+ 	put_device(&conn->dev);
+ }
+diff -upr linux/net/bluetooth/rfcomm/tty.c linux.new/net/bluetooth/rfcomm/tty.c
+--- linux/net/bluetooth/rfcomm/tty.c	2008-01-21 11:30:44.000000000 +0800
++++ linux.new/net/bluetooth/rfcomm/tty.c	2008-01-21 11:32:23.000000000 +0800
+@@ -696,7 +696,8 @@ static void rfcomm_tty_close(struct tty_
+ 	BT_DBG("tty %p dev %p dlc %p opened %d", tty, dev, dev->dlc, dev->opened);
+ 
+ 	if (--dev->opened == 0) {
+-		device_move(dev->tty_dev, NULL);
++		if (dev->tty_dev->parent)
++			device_move(dev->tty_dev, NULL);
+ 
+ 		/* Close DLC and dettach TTY */
+ 		rfcomm_dlc_close(dev->dlc, 0);
 
--		if (bond->dev->flags & IFF_UP) {
-+		if (bond->params.miimon && (bond->dev->flags & IFF_UP)) {
-  			/* If the interface is up, we may need to fire off
-  			 * the MII timer. If the interface is down, the
-  			 * timer will get fired off when the open function
-
-
--- 
-Makito SHIOKAWA
-MIRACLE LINUX CORPORATION
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
