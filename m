@@ -1,62 +1,36 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] bluetooth : move children of connection device to NULL
-	before connection down
-Date: Tue, 22 Jan 2008 07:18:16 +0100
-Message-ID: <1200982696.7978.148.camel@aeonflux>
-References: <20080121044913.GA4162@darkstar.te-china.tietoenator.com>
-	 <20080121045401.GB4162@darkstar.te-china.tietoenator.com>
-	 <20080121.031417.171098597.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Netperf TCP_RR(loopback) 10% regression in 2.6.24-rc6,
+ comparing with 2.6.22
+Date: Mon, 21 Jan 2008 22:22:14 -0800 (PST)
+Message-ID: <20080121.222214.184161381.davem@davemloft.net>
+References: <478B9FE0.3040801@hp.com>
+	<1200979482.3151.103.camel@ymzhang>
+	<1200982039.3151.120.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hidave.darkstar@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bluez-devel@lists.sourceforge.net,
-	cornelia.huck@de.ibm.com, gombasg@sztaki.hu, htejun@gmail.com,
-	viro@zeniv.linux.org.uk, kay.sievers@vrfy.org, greg@kroah.com
-To: David Miller <davem@davemloft.net>
+Cc: rick.jones2@hp.com, netdev@vger.kernel.org
+To: yanmin_zhang@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:48926 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751829AbYAVGTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 01:19:17 -0500
-In-Reply-To: <20080121.031417.171098597.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60200
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752217AbYAVGWI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 01:22:08 -0500
+In-Reply-To: <1200982039.3151.120.camel@ymzhang>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Date: Tue, 22 Jan 2008 14:07:19 +0800
 
-> > Add people missed in cc-list.
-> 
-> Thanks Dave for your continued efforts on Bluetooth bugs like this.
-> 
-> Marcel, are you going to review/ACK/integrate/push-upstream/whatever
-> any of these Bluetooth patches?
-> 
-> It hasn't been getting much love from you as of late, you are one of
-> the listed maintainers, and I don't want to lose any of Dave's
-> valuable bug fixing work.
+> I am wondering if UDP stack in kernel has a bug.
 
-I will be fully back in business next week. Just got stuck in a project
-that needed 200% of my time to get it going.
+If one server binds to INADDR_ANY with port N, then any other socket
+can be bound to a specific IP address with port N.  When packets
+come in destined for port N, the delivery will be prioritized
+to whichever socket has the more specific and matching binding.
 
-> Or should I just handle it all directly?
+So the kernel is fine.
 
-I followed the list only a little bit, but from what I have seen is that
-Dave is doing a great job in tracking all issues down to the real cause.
-
-I had a look at his last patch and after review, I agree that this is a
-possible solution. I only have two nitpicks about the coding style. So
-in del_conn the struct device declaration should be made after the
-struct hci_conn assignment from the container and I would put an extra
-empty line before the devel_del, put_device block. Nitpicks only.
-
-Right now I can't think of any side effects by this patch. Actually I
-only see an improvement with this patch. So please take it directly and
-starting with next week, I gonna make sure that they are handled again
-properly by me.
-
-Regards
-
-Marcel
-
-
+Netperf just needs to be more careful in order to handle this kind of
+case more cleanly.
