@@ -1,55 +1,58 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: questions on NAPI processing latency and dropped network packets
-Date: Mon, 21 Jan 2008 15:32:39 -0800
-Message-ID: <47952B97.90900@candelatech.com>
-References: <478654C3.60806@nortel.com> <4794F848.9020402@nortel.com> <47950A71.5010304@candelatech.com> <47952783.8080505@nortel.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2.6.25 1/4][BNX2]: Disable jumbo rx paging on 5709 Ax.
+Date: Mon, 21 Jan 2008 17:07:32 -0800
+Message-ID: <1200964052.10010.46.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Chris Friesen <cfriesen@nortel.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:53875 "EHLO ns2.lanforge.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1242 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755387AbYAUXcr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jan 2008 18:32:47 -0500
-In-Reply-To: <47952783.8080505@nortel.com>
+	id S1754241AbYAVAV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2008 19:21:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Friesen wrote:
-> Ben Greear wrote:
->> Chris Friesen wrote:
->>
->>> Is there anything else we can do to minimize the latency of network 
->>> packet processing and avoid having to crank the rx ring size up so high?
->>
->>
->> Why is it such a big deal to crank up the rx queue length?  Seems like
->> a perfectly normal way to handle bursts like this...
-> 
-> It means that the latency for handling those packets is higher than it 
-> could be.  Draining 4096 packets from the queue will take a while.
-> 
-> Ideally we'd like to bring the latency down as much as possible, and 
-> then bump up the rx queue length to handle the rest.
+[BNX2]: Disable jumbo rx paging on 5709 Ax.
 
-Unless having a bigger queue somehow makes the IRQ fire later,
-then it wouldn't seem to increase the time for packets that arrive
-early in the queue, though it would of course take longer to process
-the ones at the back.  Still, if the option is process them slightly
-later or drop them, the choice seems obvious...
+The chip has problem running in this mode and needs to be disabled.
 
-Decreasing your latencies seems a mostly un-related optimization that
-should be tackled independently of queue size.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Do you perhaps have any network equipment that would queue up the pkts
-and burst them?  Maybe a firewall, router, or something?  That could
-potentially cause small bursts of pkts...
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 94d1857..8348af2 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -4669,7 +4669,7 @@ bnx2_set_rx_ring_size(struct bnx2 *bp, u32 size)
+ 	bp->rx_pg_ring_size = 0;
+ 	bp->rx_max_pg_ring = 0;
+ 	bp->rx_max_pg_ring_idx = 0;
+-	if (rx_space > PAGE_SIZE) {
++	if ((rx_space > PAGE_SIZE) && !(bp->flags & JUMBO_BROKEN_FLAG)) {
+ 		int pages = PAGE_ALIGN(bp->dev->mtu - 40) >> PAGE_SHIFT;
+ 
+ 		jumbo_size = size * pages;
+@@ -7031,6 +7031,8 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 			goto err_out_unmap;
+ 		}
+ 		bp->flags |= PCIE_FLAG;
++		if (CHIP_REV(bp) == CHIP_REV_Ax)
++			bp->flags |= JUMBO_BROKEN_FLAG;
+ 	} else {
+ 		bp->pcix_cap = pci_find_capability(pdev, PCI_CAP_ID_PCIX);
+ 		if (bp->pcix_cap == 0) {
+diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
+index 09bd665..c1ab30b 100644
+--- a/drivers/net/bnx2.h
++++ b/drivers/net/bnx2.h
+@@ -6582,6 +6582,7 @@ struct bnx2 {
+ #define PCIE_FLAG			0x00000200
+ #define USING_MSIX_FLAG			0x00000400
+ #define USING_MSI_OR_MSIX_FLAG		(USING_MSI_FLAG | USING_MSIX_FLAG)
++#define JUMBO_BROKEN_FLAG		0x00000800
+ 
+ 	/* Put tx producer and consumer fields in separate cache lines. */
+ 
 
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
 
