@@ -1,56 +1,60 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] bluetooth : move children of connection device to NULL
-	before connection down
-Date: Tue, 22 Jan 2008 12:39:20 +0100
-Message-ID: <1201001960.7978.158.camel@aeonflux>
-References: <20080121044913.GA4162@darkstar.te-china.tietoenator.com>
-	 <20080121045401.GB4162@darkstar.te-china.tietoenator.com>
-	 <20080121.031417.171098597.davem@davemloft.net>
-	 <1200982696.7978.148.camel@aeonflux>
-	 <a8e1da0801220024u30e9c814va74e44252fc8b11e@mail.gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 1/3 v2][NET] gen_estimator: faster gen_kill_estimator
+Date: Tue, 22 Jan 2008 06:42:07 -0500
+Message-ID: <1201002127.4443.32.camel@localhost>
+References: <20080122072152.GA977@ff.dom.local>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bluez-devel@lists.sourceforge.net,
-	cornelia.huck@de.ibm.com, gombasg@sztaki.hu, htejun@gmail.com,
-	viro@zeniv.linux.org.uk, kay.sievers@vrfy.org, greg@kroah.com
-To: Dave Young <hidave.darkstar@gmail.com>
+	slavon@bigtelecom.ru, kaber@trash.net
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:44341 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751370AbYAVLk3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 06:40:29 -0500
-In-Reply-To: <a8e1da0801220024u30e9c814va74e44252fc8b11e@mail.gmail.com>
+Received: from py-out-1112.google.com ([64.233.166.178]:3003 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751407AbYAVLmM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 06:42:12 -0500
+Received: by py-out-1112.google.com with SMTP id u52so3545524pyb.10
+        for <netdev@vger.kernel.org>; Tue, 22 Jan 2008 03:42:11 -0800 (PST)
+In-Reply-To: <20080122072152.GA977@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
-
-> could you tell something more about your coding style?
-> I would like to submit patches about bluetooth according to your sytle
-> later If I have.
+On Tue, 2008-22-01 at 08:21 +0100, Jarek Poplawski wrote:
+> On 22-01-2008 01:29, David Miller wrote:
+> ...
+> > Fix this right, make a structure like:
+> > 
+> > struct kernel_gnet_stats_rate_est {
+> > 	struct gnet_stats_rate_est	est;
+> > 	void				*gen_estimator;
+> > }
+> > 
+> > And update all the code as needed.
 > 
-> Maybe you could put it on the bluez web site or anywhere.
+> Thanks!
+>  I'll try this...
 
-it follows closely the kernel coding style as layout within the kernel
-documentation. However there are some minor style things, that I am
-going to enforce from time to time. Like having the container_of or
-get_user_data calls at the top of the variable declaration. This has
-never formalized as far as I recall, but makes from my point of view the
-code clearer and easier to read.
+Jarek,
 
-Some other times I like an extra empty line to more visual separate
-different code blocks. For this some people might agree with me others
-might disagree. It is fully a personal more liking one way over the
-other.
+That looks different from the suggestion from Dave.
 
-When it comes to indentation and placement of braces etc. I is 100% the
-kernel coding style and nothing else. If not, then it needs fixing and
-is an oversight from the old days.
+May i throw in another bone? Theoretically i can see why it would be a
+really bad idea to walk 50K estimators every time you delete one - which
+is horrible if you are trying to destroy the say 50K of them and gets
+worse as the number of schedulers with 50K classes goes up.
 
-Regards
+But i am wondering why a simpler list couldnt be walked, meaning:
 
-Marcel
+In gen_kill_estimator(), instead of:
 
+for (idx=0; idx <= EST_MAX_INTERVAL; idx++) {
+
+Would deriving a better initial index be a big improvement?
+for (e = elist[est->interval].list; e; e = e->next) {
+
+
+cheers,
+jamal
 
