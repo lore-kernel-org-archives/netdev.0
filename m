@@ -1,27 +1,35 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 5/5] netns netfilter: per-netns FILTER, MANGLE, RAW
-Date: Tue, 22 Jan 2008 18:10:16 +0100
-Message-ID: <47962378.2060904@trash.net>
-References: <20080121145509.GJ27615@localhost.sw.ru>
+From: "Denis V. Lunev" <dlunev@gmail.com>
+Subject: Re: [PATCH 5/12 net-2.6.25] [NETNS]: Re-export init_net via EXPORT_SYMBOL.
+Date: Tue, 22 Jan 2008 20:19:11 +0300
+Message-ID: <4796258F.7050507@gmail.com>
+References: <479612BE.8030409@openvz.org> <1201017566-16985-5-git-send-email-den@openvz.org> <47962228.3000302@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	devel@openvz.org
-To: Alexey Dobriyan <adobriyan@sw.ru>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080121145509.GJ27615@localhost.sw.ru>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Denis V. Lunev" <den@openvz.org>, davem@davemloft.net,
+	netdev@vger.kernel.org, devel@openvz.org, containers@lists.osdl.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.155]:25606 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751101AbYAVRTO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 12:19:14 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so2001448fga.17
+        for <netdev@vger.kernel.org>; Tue, 22 Jan 2008 09:19:13 -0800 (PST)
+In-Reply-To: <47962228.3000302@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexey Dobriyan wrote:
-> Now, iptables show and configure different set of rules in different
-> netnss'. Filtering decisions are still made by consulting only
-> init_net's set.
+Patrick McHardy wrote:
+> Denis V. Lunev wrote:
+>> init_net is used added as a parameter to a lot of old API calls, f.e.
+>> ip_dev_find. These calls were exported as EXPORT_SYMBOL. So, export
+>> init_net
+>> as EXPORT_SYMBOL to keep networking API consistent.
 > 
-> Changes are identical except naming so no splitting.
 > 
-> P.S.: one need to remove init_net checks in nf_sockopt.c and inet_create()
->       to see the effect.
-
-Also applied, thanks.
+> I think this should go in 2.6.24 if still possible so people
+> don't have to find workarounds that will be obsolete one
+> version later.
+> 
+yep, sure :) should I send this one separate for 2.4?
