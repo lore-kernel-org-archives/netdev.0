@@ -1,84 +1,93 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 1/3 v2][NET] gen_estimator: faster gen_kill_estimator
-Date: Tue, 22 Jan 2008 20:22:14 +0100
-Message-ID: <20080122192214.GA2629@ami.dom.local>
-References: <20080122072152.GA977@ff.dom.local> <1201002127.4443.32.camel@localhost> <20080122122927.GE2079@ff.dom.local> <1201010068.4443.66.camel@localhost>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: forcedeth oops
+Date: Tue, 22 Jan 2008 14:28:32 -0500
+Message-ID: <479643E0.8070208@garzik.org>
+References: <op.t5bx1p0fqw3wu1@titan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	slavon@bigtelecom.ru, kaber@trash.net
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andrew Brooks <arb@sat.dundee.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:31706 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752518AbYAVTTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 14:19:12 -0500
-Received: by nf-out-0910.google.com with SMTP id g13so482912nfb.21
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2008 11:19:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1201010068.4443.66.camel@localhost>
+Received: from srv5.dvmed.net ([207.36.208.214]:53018 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750945AbYAVT2h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2008 14:28:37 -0500
+In-Reply-To: <op.t5bx1p0fqw3wu1@titan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 22, 2008 at 08:54:28AM -0500, jamal wrote:
-> On Tue, 2008-22-01 at 13:29 +0100, Jarek Poplawski wrote:
-> > On Tue, Jan 22, 2008 at 06:42:07AM -0500, jamal wrote:
-> > ...
-> > > Jarek,
-> > > 
-> > > That looks different from the suggestion from Dave.
-> > 
-> > Hmm..., I'm not sure you mean my or your suggestion here, but you
-> > are right anyway...
+Andrew Brooks wrote:
+> Hello
 > 
-> Your idea to grab a pointer to the estimator so you can quickly find it
-> upon destruction is a good one.
-
-Let's say it's quite common in the kernel type of idea...
-
-> The challenge was not to break the ABI to user space.
-> Dave suggested to use a different struct for the kernel side and
-> maintain the user one as is[1]. Your patch didnt do this, hence my
-> statement;->
-
-Sure! David's idea is very good, but before reading his message I
-decided to try something 'safer'. I simply don't know these structures
-like you or David, and after these mistakes at the beginning, I tried
-to avoid the next. But now I see it shouldn't be so hard, and I'll do
-this David's way, I hope!
-
-> > Maybe I miss something, but there still could be a lot of this walking
+> I'm getting an oops in forcedeth whenever I shutdown, details below.
 > 
-> Indeed, that is possible in the case of many estimators configured with
-> the same interval - because they will all fall in the same table bucket
-> and the idx is not that useful to begin with.
+> I've tried kernel 2.6.16.59 and the latest forcedeth.c from nvidia.com
+> which is package-1.23 version-0.62 date-2007/04/27.
 > 
-> I was wrong given the nature of interval - the majority of the users
-> will have an estimator interval of say 1 sec which will put everything
-> in one bucket still. 
-> We could introduce a proper index that will allow proper distribution
-> and have that stored by the class. I am not sure i made sense.
-> But you are coding - and your idea sounds better.
+> How can I download the latest forcedeth.c (including 2008-01-13 patches) ?
+> It's not in the latest snapshot linux-2.6.24-rc8.
+> 
+> Also, why is the version on nvidia.com not just older than the one in
+> the kernel, but it appears to have forked back in May 2006.  Has there
+> been independent development on each version?  They should be the same!
 
-As a matter of fact, I've considered yesterday some additional hash
-table too, but wasn't sure it's worth of the savings. It seems there
-should be considered optimization of these estimator structures yet.
+We don't run nvidia.com here :)
 
-But since there are now a few similar reports about misterious
-problems during deletion of large qdisc, it would be nice to remove
-main suspects around this at any price...
 
-Many thanks for your concern with this! (And, if miss something again,
-don't be afraid to make it straight & clear; I really prefer to know
-the truth about my mistakes, than polite silence.)
+> Here's the diff:
+> <  *    0.56: 22 Mar 2006: Additional ethtool and moduleparam support.
+> <  *    0.57: 14 May 2006: Moved mac address writes to nv_probe and nv_remove.
+> <  *    0.58: 20 May 2006: Optimized rx and tx data paths.
+> <  *    0.59: 31 May 2006: Added support for sideband management unit.
+> <  *    0.60: 31 May 2006: Added support for recoverable error.
+> <  *    0.61: 18 Jul 2006: Added support for suspend/resume.
+> <  *    0.62: 16 Jan 2007: Fixed statistics, mgmt communication, and low phy speed on S5.
+> ---
+>>  *    0.56: 22 Mar 2006: Additional ethtool config and moduleparam support.
+>>  *    0.57: 14 May 2006: Mac address set in probe/remove and order corrections.
+>>  *    0.58: 30 Oct 2006: Added support for sideband management unit.
+>>  *    0.59: 30 Oct 2006: Added support for recoverable error.
+>>  *    0.60: 20 Jan 2007: Code optimizations for rings, rx & tx data paths, and stats.
+> 
+> 
+> Here's the details of the oops:
+> md: md0 switched to read-only mode.
+> Unable to handle kernel NULL pointer dereference at virtual address 00000000
+> printing eip:
+> f8ccdd55
+> *pde = 36c6a001
+> Oops: 0000 [#1]
+> SMP
+> Modules linked in: nvidia ... forcedeth ... sata_nv
+> CPU: 1
+> EIP:
+> EFLAGS: 00010286 (2.6.16.59 #1)
+> EIP is at nv_suspend+0x85/0x350 [forcedeth]
+> eax:
+> esi:
+> ds:
+> Process reboot
+> Stack:
+> Call Trace:
+> show_stack_log
+> show_registers
+> die
+> do_page_fault
+> error_code
+> nv_reboot_handler
+> notifier_call_chain
+> kernel_restart_prepare
+> kernel_restart
+> sys_reboot
+> sysenter_past_esp
+> Code: 8b 8c 3a 98 01 00 00 01 c8 8b ...
+> INIT: no more processes left in this runlevel
 
-Regards,
-Jarek P.
+Please reproduce this problem on a modern kernel (2.6.24-rc) without any 
+closed source modules or drivers loaded.  Thanks.
 
-> [1] This is _not uncommon_ (note the usage of double negation here for
-> emphasis;->) technique actually; ones that go further for example can be
-> found all over the net/sched code (struct tcf_police vs tc_police) etc.
+	Jeff
 
-I think David's points were very clear and of course right!; it seems now
-that only my 'usual' way of friendly joking about this could be more
-challenge than any double-negation and turns friendly fire insted...
+
+
