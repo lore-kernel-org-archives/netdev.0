@@ -1,48 +1,26 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/3] virtio: Net header needs gso_hdr_len
-Date: Tue, 22 Jan 2008 21:36:30 +1100
-Message-ID: <20080122103630.GA24135@gondor.apana.org.au>
-References: <E1JEvnR-0006ax-00@gondolin.me.apana.org.au> <200801161519.03339.rusty@rustcorp.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] [IPV6,IPV4]: Fix several sparse warnings.
+Date: Tue, 22 Jan 2008 02:42:53 -0800 (PST)
+Message-ID: <20080122.024253.198834014.davem@davemloft.net>
+References: <20080122.185632.09970660.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:55689 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755052AbYAVKgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 05:36:36 -0500
-Content-Disposition: inline
-In-Reply-To: <200801161519.03339.rusty@rustcorp.com.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36554
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754785AbYAVKmq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 05:42:46 -0500
+In-Reply-To: <20080122.185632.09970660.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 16, 2008 at 03:19:03PM +1100, Rusty Russell wrote:
-> > > It's far easier to deal with GSO if we don't have to parse the packet
-> > > to figure out the header length.  Add the field to the virtio_net_hdr
-> > > struct (and fix the spaces that somehow crept in there).
->
-> > Why do we need this? When receiving GSO packets from an untrusted
-> > source the network stack will fill in the transport header offset
-> > after verifying that the headers are sane.
-> 
-> Thanks for clarifying; it simplifies things.
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Tue, 22 Jan 2008 18:56:32 +0900 (JST)
 
-Actually now that I've tried your test program I can see that this
-field exists not because of GSO, but because of SG.  It tells you
-how many bytes you want to put in the skb head as opposed to the
-frag array.
+> Dave, please consider pulling following changes on top of net-2.6.25 tree:
+> 	git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git net-2.6-dev-20080122
 
-So this field is fine with me as long as it is named as such to
-avoid confusion since it really has nothing to do with GSO as you
-also need it for SG with large MTUs.
-
-I think this is more flexible than the Xen approach where this is
-essentially hard-coded to 64 bytes.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Pulled, thank you.
