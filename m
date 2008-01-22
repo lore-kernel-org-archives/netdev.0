@@ -1,90 +1,58 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [DST]: shrinks sizeof(struct rtable) by 64 bytes on x86_64
-Date: Tue, 22 Jan 2008 11:50:06 +0100
-Message-ID: <20080122115006.82dbbff4.dada1@cosmosbay.com>
+From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+Subject: [Bug 9750] dev: avoid a race that triggers assertion failure
+Date: Tue, 22 Jan 2008 03:27:00 -0800 (PST)
+Message-ID: <265315.88937.qm@web52009.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: bugme-daemon@kernel-bugs.osdl.org
+To: netdev@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:34217 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755003AbYAVKuP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jan 2008 05:50:15 -0500
+Received: from web52009.mail.re2.yahoo.com ([206.190.48.58]:26729 "HELO
+	web52009.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750823AbYAVL1D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 06:27:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On x86_64, sizeof(struct rtable) is 0x148, which is rounded up to 0x180
-bytes by SLAB allocator.
+From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
 
-We can reduce this to exactly 0x140 bytes, without alignment overhead,
-and store 12 struct rtable per PAGE instead of 10.
+There is a race in Linux kernel file net/core/dev.c, function dev_close.
+The function calls function dev_deactivate, which calls function
+dev_watchdog_down that deletes the watchdog timer. However, after that, a
+driver can call netif_carrier_ok, which calls function
+__netdev_watchdog_up that can add the watchdog timer again. Function
+unregister_netdevice calls function dev_shutdown that traps the bug
+!timer_pending(&dev->watchdog_timer).
 
-rate_tokens is currently defined as an "unsigned long", while its content
-should not exceed 6*HZ. It can safely be converted to an unsigned int.
+Signed-off-by: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
 
-Moving tclassid right after rate_tokens to fill the 4 bytes hole permits
-to save 8 bytes on 'struct dst_entry', which finally permits to save 8
-bytes on 'struct rtable'
+---
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-diff --git a/include/net/dst.h b/include/net/dst.h
-index c45dcc3..e3ac7d0 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -56,7 +56,11 @@ struct dst_entry
- 	struct dst_entry	*path;
+--- linux-2.6.23.8/net/core/dev.c    2007-11-16 20:14:27.000000000 +0200
++++ linux-2.6.23.15/net/core/dev.c    2008-01-22 13:16:12.347125794 +0200
+@@ -1013,8 +1013,6 @@ int dev_close(struct net_device *dev)
+      */
+     raw_notifier_call_chain(&netdev_chain, NETDEV_GOING_DOWN, dev);
  
- 	unsigned long		rate_last;	/* rate limiting for ICMP */
--	unsigned long		rate_tokens;
-+	unsigned int		rate_tokens;
-+
-+#ifdef CONFIG_NET_CLS_ROUTE
-+	__u32			tclassid;
-+#endif
- 
- 	struct neighbour	*neighbour;
- 	struct hh_cache		*hh;
-@@ -65,10 +69,6 @@ struct dst_entry
- 	int			(*input)(struct sk_buff*);
- 	int			(*output)(struct sk_buff*);
- 
--#ifdef CONFIG_NET_CLS_ROUTE
--	__u32			tclassid;
--#endif
+-    dev_deactivate(dev);
 -
- 	struct  dst_ops	        *ops;
- 		
- 	unsigned long		lastuse;
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 7ed8c50..1dbe89c 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -275,18 +275,19 @@ static inline void icmp_xmit_unlock(void)
- #define XRLIM_BURST_FACTOR 6
- int xrlim_allow(struct dst_entry *dst, int timeout)
- {
--	unsigned long now;
-+	unsigned long now, token = dst->rate_tokens;
- 	int rc = 0;
+     clear_bit(__LINK_STATE_START, &dev->state);
  
- 	now = jiffies;
--	dst->rate_tokens += now - dst->rate_last;
-+	token += now - dst->rate_last;
- 	dst->rate_last = now;
--	if (dst->rate_tokens > XRLIM_BURST_FACTOR * timeout)
--		dst->rate_tokens = XRLIM_BURST_FACTOR * timeout;
--	if (dst->rate_tokens >= timeout) {
--		dst->rate_tokens -= timeout;
-+	if (token > XRLIM_BURST_FACTOR * timeout)
-+		token = XRLIM_BURST_FACTOR * timeout;
-+	if (token >= timeout) {
-+		token -= timeout;
- 		rc = 1;
- 	}
-+	dst->rate_tokens = token;
- 	return rc;
- }
+     /* Synchronize to scheduled poll. We cannot touch poll list,
+@@ -1029,6 +1027,8 @@ int dev_close(struct net_device *dev)
+         msleep(1);
+     }
  
++    dev_deactivate(dev);
++
+     /*
+      *    Call the device specific close. This cannot fail.
+      *    Only if device is UP
+
+
+
+
+
+      ____________________________________________________________________________________
+Looking for last minute shopping deals?  
+Find them fast with Yahoo! Search.  http://tools.search.yahoo.com/newsearch/category.php?category=shopping
