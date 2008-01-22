@@ -1,42 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Netperf TCP_RR(loopback) 10% regression in 2.6.24-rc6,
- comparing with 2.6.22
-Date: Mon, 21 Jan 2008 23:32:09 -0800 (PST)
-Message-ID: <20080121.233209.103306410.davem@davemloft.net>
-References: <1200982039.3151.120.camel@ymzhang>
-	<47958CC8.9060609@cosmosbay.com>
-	<1200984752.3151.261.camel@ymzhang>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [IPV4] ip_gre: should take care of CONFIG_IPV6_MODULE
+Date: Tue, 22 Jan 2008 08:51:50 +0100
+Message-ID: <4795A096.60904@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, rick.jones2@hp.com, netdev@vger.kernel.org
-To: yanmin_zhang@linux.intel.com
+Content-Type: multipart/mixed;
+ boundary="------------070608070408060401020504"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40968
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754300AbYAVHch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 02:32:37 -0500
-In-Reply-To: <1200984752.3151.261.camel@ymzhang>
+Received: from sp604003av.neufgp.fr ([84.96.92.124]:54862 "EHLO
+	neuf-infra-smtp-out-sp604003av.neufgp.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751953AbYAVHwA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 02:52:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Date: Tue, 22 Jan 2008 14:52:32 +0800
+This is a multi-part message in MIME format.
+--------------070608070408060401020504
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> I double-checked it and they are queued to socket A. If I define a
-> different local port for netperf, packets will be queued to socket
-> B.
+If IPV6 is configured as a module, GRE code misses some IPV6 parts.
 
-This does not prove the kernel is buggy.
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-If netperf is binding to devices, that could make the kernel consider
-the 0.0.0.0 bound socket equally preferable to the 127.0.0.1 bound
-one.  When preference is equal, the first socket in the list is
-choosen.
 
-The algorithm is in net/ipv4/udp.c:__udp4_lib_lookup(), you
-can look for yourself.  It uses a scoring system to decide
-which socket to match.  Binding to a specific device gives
-the score two points, so does binding to a specific local
-address.
+--------------070608070408060401020504
+Content-Type: text/plain;
+ name="gre.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="gre.patch"
 
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 4b93f32..beaf450 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -40,7 +40,7 @@
+ #include <net/inet_ecn.h>
+ #include <net/xfrm.h>
+ 
+-#ifdef CONFIG_IPV6
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ #include <net/ipv6.h>
+ #include <net/ip6_fib.h>
+ #include <net/ip6_route.h>
+@@ -705,7 +705,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			if ((dst = rt->rt_gateway) == 0)
+ 				goto tx_error_icmp;
+ 		}
+-#ifdef CONFIG_IPV6
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 		else if (skb->protocol == htons(ETH_P_IPV6)) {
+ 			struct in6_addr *addr6;
+ 			int addr_type;
+@@ -778,7 +778,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			goto tx_error;
+ 		}
+ 	}
+-#ifdef CONFIG_IPV6
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	else if (skb->protocol == htons(ETH_P_IPV6)) {
+ 		struct rt6_info *rt6 = (struct rt6_info*)skb->dst;
+ 
+@@ -851,7 +851,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if ((iph->ttl = tiph->ttl) == 0) {
+ 		if (skb->protocol == htons(ETH_P_IP))
+ 			iph->ttl = old_iph->ttl;
+-#ifdef CONFIG_IPV6
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 		else if (skb->protocol == htons(ETH_P_IPV6))
+ 			iph->ttl = ((struct ipv6hdr*)old_iph)->hop_limit;
+ #endif
+
+--------------070608070408060401020504--
