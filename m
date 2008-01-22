@@ -1,88 +1,119 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NETLINK 03/06]: Add nla_append()
-Date: Tue, 22 Jan 2008 15:56:12 +0100 (MET)
-Message-ID: <20080122145546.6862.81861.sendpatchset@localhost.localdomain>
+Subject: [NET_SCHED 02/06]: mark classifier ops __read_mostly
+Date: Tue, 22 Jan 2008 15:56:10 +0100 (MET)
+Message-ID: <20080122145544.6862.41766.sendpatchset@localhost.localdomain>
 References: <20080122145542.6862.23693.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50742 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:50738 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752051AbYAVO4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 09:56:13 -0500
+	with ESMTP id S1752764AbYAVO4M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 09:56:12 -0500
 In-Reply-To: <20080122145542.6862.23693.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[NETLINK]: Add nla_append()
+[NET_SCHED]: mark classifier ops __read_mostly
 
-Used to append data to a message without a header or padding.
+Additionally remove unnecessary NULL initilizations of the next pointer.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 8a6648ddc22e03bbdf6675780c917e8c8519f205
-tree 39c68f8b7aea4e94c227fe421031e0969dac92ef
-parent 4cf7dba2c890608fee47fe46487c79abf322dc82
+commit 4cf7dba2c890608fee47fe46487c79abf322dc82
+tree 4f29f07adbaf0dfe78f6148205644b6b2dbd1717
+parent 8b868a47c5bedb1daa8534ae60c2d89fcad26781
 author Patrick McHardy <kaber@trash.net> Tue, 22 Jan 2008 15:49:30 +0100
 committer Patrick McHardy <kaber@trash.net> Tue, 22 Jan 2008 15:49:30 +0100
 
- include/net/netlink.h |    3 +++
- net/netlink/attr.c    |   19 +++++++++++++++++++
- 2 files changed, 22 insertions(+), 0 deletions(-)
+ net/sched/cls_api.c     |    2 +-
+ net/sched/cls_basic.c   |    2 +-
+ net/sched/cls_fw.c      |    3 +--
+ net/sched/cls_route.c   |    3 +--
+ net/sched/cls_tcindex.c |    3 +--
+ net/sched/cls_u32.c     |    3 +--
+ 6 files changed, 6 insertions(+), 10 deletions(-)
 
-diff --git a/include/net/netlink.h b/include/net/netlink.h
-index a5e6d0e..a5506c4 100644
---- a/include/net/netlink.h
-+++ b/include/net/netlink.h
-@@ -91,6 +91,7 @@
-  *   nla_reserve_nohdr(skb, len)	reserve room for an attribute w/o hdr
-  *   nla_put(skb, type, len, data)	add attribute to skb
-  *   nla_put_nohdr(skb, len, data)	add attribute w/o hdr
-+ *   nla_append(skb, len, data)		append data to skb
-  *
-  * Attribute Construction for Basic Types:
-  *   nla_put_u8(skb, type, value)	add u8 attribute to skb
-@@ -254,6 +255,8 @@ extern int		nla_put(struct sk_buff *skb, int attrtype,
- 				int attrlen, const void *data);
- extern int		nla_put_nohdr(struct sk_buff *skb, int attrlen,
- 				      const void *data);
-+extern int		nla_append(struct sk_buff *skb, int attrlen,
-+				   const void *data);
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index e537736..9eeb3c6 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -31,7 +31,7 @@
  
- /**************************************************************************
-  * Netlink Messages
-diff --git a/net/netlink/attr.c b/net/netlink/attr.c
-index ec39d12..feb326f 100644
---- a/net/netlink/attr.c
-+++ b/net/netlink/attr.c
-@@ -430,6 +430,24 @@ int nla_put_nohdr(struct sk_buff *skb, int attrlen, const void *data)
- 	return 0;
+ /* The list of all installed classifier types */
+ 
+-static struct tcf_proto_ops *tcf_proto_base;
++static struct tcf_proto_ops *tcf_proto_base __read_mostly;
+ 
+ /* Protects list of registered TC modules. It is pure SMP lock. */
+ static DEFINE_RWLOCK(cls_mod_lock);
+diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
+index 8dbcf27..b31f9f9 100644
+--- a/net/sched/cls_basic.c
++++ b/net/sched/cls_basic.c
+@@ -271,7 +271,7 @@ rtattr_failure:
+ 	return -1;
  }
  
-+/**
-+ * nla_append - Add a netlink attribute without header or padding
-+ * @skb: socket buffer to add attribute to
-+ * @attrlen: length of attribute payload
-+ * @data: head of attribute payload
-+ *
-+ * Returns -1 if the tailroom of the skb is insufficient to store
-+ * the attribute payload.
-+ */
-+int nla_append(struct sk_buff *skb, int attrlen, const void *data)
-+{
-+	if (unlikely(skb_tailroom(skb) < NLA_ALIGN(attrlen)))
-+		return -1;
-+
-+	memcpy(skb_put(skb, attrlen), data, attrlen);
-+	return 0;
-+}
-+
- EXPORT_SYMBOL(nla_validate);
- EXPORT_SYMBOL(nla_parse);
- EXPORT_SYMBOL(nla_find);
-@@ -445,3 +463,4 @@ EXPORT_SYMBOL(nla_put_nohdr);
- EXPORT_SYMBOL(nla_memcpy);
- EXPORT_SYMBOL(nla_memcmp);
- EXPORT_SYMBOL(nla_strcmp);
-+EXPORT_SYMBOL(nla_append);
+-static struct tcf_proto_ops cls_basic_ops = {
++static struct tcf_proto_ops cls_basic_ops __read_mostly = {
+ 	.kind		=	"basic",
+ 	.classify	=	basic_classify,
+ 	.init		=	basic_init,
+diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+index 8adbd6a..b450387 100644
+--- a/net/sched/cls_fw.c
++++ b/net/sched/cls_fw.c
+@@ -370,8 +370,7 @@ rtattr_failure:
+ 	return -1;
+ }
+ 
+-static struct tcf_proto_ops cls_fw_ops = {
+-	.next		=	NULL,
++static struct tcf_proto_ops cls_fw_ops __read_mostly = {
+ 	.kind		=	"fw",
+ 	.classify	=	fw_classify,
+ 	.init		=	fw_init,
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+index 0a8409c..e70edd0 100644
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -590,8 +590,7 @@ rtattr_failure:
+ 	return -1;
+ }
+ 
+-static struct tcf_proto_ops cls_route4_ops = {
+-	.next		=	NULL,
++static struct tcf_proto_ops cls_route4_ops __read_mostly = {
+ 	.kind		=	"route",
+ 	.classify	=	route4_classify,
+ 	.init		=	route4_init,
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index 471909e..e36977b 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -485,8 +485,7 @@ rtattr_failure:
+ 	return -1;
+ }
+ 
+-static struct tcf_proto_ops cls_tcindex_ops = {
+-	.next		=	NULL,
++static struct tcf_proto_ops cls_tcindex_ops __read_mostly = {
+ 	.kind		=	"tcindex",
+ 	.classify	=	tcindex_classify,
+ 	.init		=	tcindex_init,
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index c390082..7bf3cd4 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -751,8 +751,7 @@ rtattr_failure:
+ 	return -1;
+ }
+ 
+-static struct tcf_proto_ops cls_u32_ops = {
+-	.next		=	NULL,
++static struct tcf_proto_ops cls_u32_ops __read_mostly = {
+ 	.kind		=	"u32",
+ 	.classify	=	u32_classify,
+ 	.init		=	u32_init,
