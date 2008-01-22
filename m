@@ -1,122 +1,85 @@
-From: Dzianis Kahanovich <mahatma@bspu.unibel.by>
-Subject: Re: [PATCH 2.6.23+] ingress classify to [nf]mark
-Date: Tue, 22 Jan 2008 22:14:37 -0200
-Message-ID: <479686ED.9020405@bspu.unibel.by>
-References: <47866C69.3080904@bspu.unibel.by>	 <1200001167.4443.38.camel@localhost>  <4787A663.4030204@bspu.unibel.by>	 <1200063541.4483.42.camel@localhost>  <4787D49E.6080906@bspu.unibel.by>	 <1200107027.4477.36.camel@localhost>  <4788FF45.702@bspu.unibel.by>	 <1200253484.4427.33.camel@localhost>  <478B8250.90602@bspu.unibel.by>	 <1200315372.4427.75.camel@localhost>  <478BE021.1070408@bspu.unibel.by> <1200487509.4457.33.camel@localhost>
-Reply-To: mahatma@eu.by
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: WARNING, tcp_fastretrans_alert, rc6-git11
+Date: Tue, 22 Jan 2008 23:20:41 +0200
+Message-ID: <20080122211652.M43631@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain;
+	charset=koi8-r
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bspu.unibel.by ([195.50.2.21]:57741 "EHLO
-	mail.bspu.unibel.by" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751775AbYAVUvW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 15:51:22 -0500
-In-Reply-To: <1200487509.4457.33.camel@localhost>
+Received: from usermail.globalproof.net ([194.146.153.18]:54773 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765AbYAVVVG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 16:21:06 -0500
+Received: from visp.net.lb (localhost [127.0.0.1])
+	by usermail.globalproof.net (Postfix) with ESMTP id 32E75BD036
+	for <netdev@vger.kernel.org>; Tue, 22 Jan 2008 23:20:41 +0200 (EET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Too many pixels to smoke. Sorry.
-
-May be so? ;)) (if undefined classid not overwrited by random value tc_classify)
-Even "tc" say to classid=0 - "????"
-
---- 1/net/sched/sch_ingress.c	2008-01-12 17:27:05.000000000 +0200
-+++ 2/net/sched/sch_ingress.c	2008-01-22 22:09:32.000000000 +0200
-@@ -136,6 +136,9 @@
-  	struct ingress_qdisc_data *p = PRIV(sch);
-  	struct tcf_result res;
-  	int result;
-+#ifdef CONFIG_NET_SCH_INGRESS_TC2MARK
-+	res.classid=0;
-+#endif
-
-  	D2PRINTK("ingress_enqueue(skb %p,sch %p,[qdisc %p])\n", skb, sch, p);
-  	result = tc_classify(skb, p->filter_list, &res);
-@@ -169,6 +172,11 @@
-  	sch->bstats.packets++;
-  	sch->bstats.bytes += skb->len;
-  #endif
-+#ifdef CONFIG_NET_SCH_INGRESS_TC2MARK
-+	if(res.classid)
-+	    skb->mark = 
-(skb->mark&(res.classid>>16))|(skb->tc_index=TC_H_MIN(res.classid));
-+//	    skb->mark=res.classid; /* or just so */
-+#endif
-
-  	return result;
-  }
+Just got on one of proxies, under high load.
+It is a bit old rc, so probably my report not interesting, but since it is 
+production machines, i cannot change too often.
+Kernel is 2.6.24-rc6-git11
+Some sysctl adjustments done. Please tell me if need more information.
 
 
+There is rules in iptables (if it is interesting)
+Chain PREROUTING (policy ACCEPT 209M packets, 19G bytes)
+ pkts bytes target     prot opt in     out     source               
+destination
+    0     0 DROP       tcp  --  eth+   *       0.0.0.0/0            0.0.0.0/
+0           tcp dpt:1
 
-jamal wrote:
-> On Mon, 2008-14-01 at 20:20 -0200, Dzianis Kahanovich wrote:
->> jamal wrote:
-> [..] 
-> 
->>> Did that make sense?
->> After current "#endif" - may be.
-> 
-> I am afraid that would be counter to expected behavior. 
-> Default is meant to apply when no value has been defined. Mark of 0 for
-> example doesnt mean "default". Let me demonstrate with the ifdefs again
-> with some arbitrary example:
-> 
-> -----------------
-> #ifdef CONFIG_NET_CLS_ACT
-> ..classify ...
->     .. action 1 sets mark to 0x11111
->     .. action 2 checks some state and conditionally let action 3 execute
->     .. action 3 sets mark to 0
-> 
-> if OK is returned set tc_index based on classid
-> 
-> #else // no actions compiled
-> ..classify
-> .... jamal suggests: set default mark and tc_index for ingress here
-> #endif
-> 
-> // mahatma wants to set default for mark and tcindex here 
-> // so it works for both actions and none-action code
-> ------------------------
-> 
-> Lets look at the case of actions compiled in:
-> I have defined my policies (in user space) so that the mark can be set
-> to either 0 or 0x1111 depending on some runtime state. 
-> Your default (kernel) code is now going to overide my policy - which is
-> bad. Even in the case of OK being returned, it is wrong to set tc_index;
-> unfortunately, we dont have an action that can set tc_index today; if we
-> did, we would need to remove that setting.
-> 
-> You other intent was to set the value of mark based on the value of
-> classid. You _can do that today already_ with no changes via a policy in
-> user space. You suggested to do an ifdef so you wont have to type in the
-> line which says how to mark, and i said that was a bad idea (we need
-> less ifdefs not more). 
-> 
-> For the case of no actions compiled in:
-> nothing can write into the values of either tcindex or mark after
-> classification (on ingress), so it is ok to override. If you did this
-> for egress as well, that would be wrong because it is expected that some
-> qdiscs may set or utilize these metadatum.
-> 
-> I am not sure if it made more sense this time?
-> 
->> What "result" are with:
->> 1) no filters?
->> 2) 1 filter only, with "action continue"?
-> 
-> Please refer to above verbosity and see if it all makes better sense.
-> 
-> cheers,
-> jamal
-> 
-> 
-> 
-	
+Chain POSTROUTING (policy ACCEPT 120M packets, 7408M bytes)
+ pkts bytes target     prot opt in     out     source               
+destination
 
--- 
-WBR,
-Denis Kaganovich,  mahatma@eu.by  http://mahatma.bspu.unibel.by
+Chain OUTPUT (policy ACCEPT 18240 packets, 22M bytes)
+ pkts bytes target     prot opt in     out     source               
+destination
+<< some local networks skipped, not important, similar ACCEPT as next >>
+ 200K  245M ACCEPT     all  --  *      *       0.0.0.0/0            
+172.16.0.0/16
+3930K  236M REDIRECT   tcp  --  *      eth0    0.0.0.0/0            0.0.0.0/
+0           tcp flags:0x17/0x02 TOS match 0x04 redir ports 2
+ 112M 6720M REDIRECT   tcp  --  *      eth0    0.0.0.0/0            0.0.0.0/
+0           tcp dpt:80 flags:0x17/0x02 redir ports 1
+ 116K 6953K REDIRECT   tcp  --  *      eth0    0.0.0.0/0            0.0.0.0/
+0           OWNER UID match 101 tcp flags:0x17/0x02 redir ports 1
+
+
+[9561199.893090] WARNING: at net/ipv4/tcp_input.c:2391 tcp_fastretrans_alert()
+[9561199.893161] Pid: 32283, comm: squid Not tainted 2.6.24-rc6-git11-build-
+0020 #9
+[9561199.893277]  [<c0294c0b>] tcp_ack+0xd32/0x18cc
+[9561199.893398]  [<f89a25d2>] ipt_do_table+0x416/0x474 [ip_tables]
+[9561199.893479]  [<c0297efd>] tcp_rcv_established+0xca/0x7ad
+[9561199.893566]  [<c029d690>] tcp_v4_do_rcv+0x2b/0x330
+[9561199.893636]  [<f89e5659>] nf_ct_deliver_cached_events+0x3e/0x90 
+[nf_conntrack]
+[9561199.893759]  [<c029f8d1>] tcp_v4_rcv+0x7c4/0x80f
+[9561199.893862]  [<c0286fa7>] ip_local_deliver_finish+0xd9/0x148
+[9561199.893932]  [<c0286eaf>] ip_rcv_finish+0x2bb/0x2da
+[9561199.894004]  [<c02872d1>] ip_rcv+0x1fc/0x237
+[9561199.894063]  [<c0286bf4>] ip_rcv_finish+0x0/0x2da
+[9561199.894122]  [<c02870d5>] ip_rcv+0x0/0x237
+[9561199.894183]  [<c026c90f>] netif_receive_skb+0x376/0x3e2
+[9561199.894273]  [<f89055ca>] e1000_clean_rx_irq+0x379/0x445 [e1000]
+[9561199.894388]  [<f8905251>] e1000_clean_rx_irq+0x0/0x445 [e1000]
+[9561199.894462]  [<f89041c2>] e1000_clean+0x67/0x1f8 [e1000]
+[9561199.894547]  [<c026e7e5>] net_rx_action+0x8d/0x17c
+[9561199.894632]  [<c012699e>] __do_softirq+0x5d/0xc1
+[9561199.894698]  [<c0126a34>] do_softirq+0x32/0x36
+[9561199.894755]  [<c0126c86>] irq_exit+0x38/0x6b
+[9561199.894813]  [<c01074d1>] do_IRQ+0x5c/0x73
+[9561199.894867]  [<c015be46>] sys_read+0x5f/0x67
+[9561199.894936]  [<c010575b>] common_interrupt+0x23/0x28
+[9561199.895040]  =======================
+                                                                                                                    
+
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
+
