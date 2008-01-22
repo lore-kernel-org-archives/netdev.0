@@ -1,53 +1,37 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 1/3 v2][NET] gen_estimator: faster gen_kill_estimator
-Date: Tue, 22 Jan 2008 13:29:27 +0100
-Message-ID: <20080122122927.GE2079@ff.dom.local>
-References: <20080122072152.GA977@ff.dom.local> <1201002127.4443.32.camel@localhost>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.25 0/10] Make fragments live in net namespaces
+Date: Tue, 22 Jan 2008 16:52:36 +0300
+Message-ID: <4795F524.8060204@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	slavon@bigtelecom.ru, kaber@trash.net
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.188]:24780 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751906AbYAVMWw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 07:22:52 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so1713310fkz.5
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2008 04:22:50 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1201002127.4443.32.camel@localhost>
+Received: from sacred.ru ([62.205.161.221]:41993 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751110AbYAVNwz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2008 08:52:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 22, 2008 at 06:42:07AM -0500, jamal wrote:
-...
-> Jarek,
-> 
-> That looks different from the suggestion from Dave.
+The overall design I propose is to keep the hash table
+global and tag inet_frag_queue with the net. Since the 
+fragments hash is going to be re-sizable, this is OK to 
+keep fragments from different namespace in one hash.
 
-Hmm..., I'm not sure you mean my or your suggestion here, but you
-are right anyway...
+To speedup the evicting process LRU list is made per
+namespace.
 
-> May i throw in another bone? Theoretically i can see why it would be a
-> really bad idea to walk 50K estimators every time you delete one - which
-> is horrible if you are trying to destroy the say 50K of them and gets
-> worse as the number of schedulers with 50K classes goes up.
-> 
-> But i am wondering why a simpler list couldnt be walked, meaning:
-> 
-> In gen_kill_estimator(), instead of:
-> 
-> for (idx=0; idx <= EST_MAX_INTERVAL; idx++) {
-> 
-> Would deriving a better initial index be a big improvement?
-> for (e = elist[est->interval].list; e; e = e->next) {
+As far as the CTL-tuned variables are concerned, the
+timeout and thresholds are made per namespace, since
+they have the per namespace sense, but the secret rebuild
+interval is read-only in sub-namespaces.
 
-Maybe I miss something, but there still could be a lot of this walking
-and IMHO any such longer waiting with BHs disabled is hard to accept
-with current memory sizes and low-latencies prices. And currently time
-seems to be even more precious here: RCU can't even free any
-gen_estimator memory during such large qdisc with classes deletion.
+Since fragment management code is consolidated for ipv4
+and ipv6 I make them all in one go. The conntrack_reasm
+netns-ization is not done - we have to make at least the 
+core netfilter per namespace first, but this reasm code 
+is patched to keep working in the initial namespace.
 
-Thanks,
-Jarek P.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
