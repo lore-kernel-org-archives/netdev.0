@@ -1,115 +1,106 @@
-From: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
-Subject: Re: [PATCH 3/4] bonding: Fix work rearming
-Date: Tue, 22 Jan 2008 12:35:23 +0900
-Message-ID: <4795647B.9090905@miraclelinux.com>
-References: <20080115090532.GB1696@ff.dom.local> <478D77D7.60703@miraclelinux.com> <20080116133646.GE2307@ff.dom.local> <478EE7FC.4040301@miraclelinux.com> <20080117111822.GB1710@ff.dom.local> <4790ACF2.1090207@miraclelinux.com> <479127C6.1080701@gmail.com> <47912B83.5010407@gmail.com> <479419B6.9000000@miraclelinux.com> <20080121133338.GH1789@ff.dom.local>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [PATCH 2/4] dsmark: get rid of trivial function
+Date: Mon, 21 Jan 2008 19:47:51 -0800
+Message-ID: <20080121194751.31fd42a0@speedy>
+References: <20080120130542.16720b45@deepthought>
+	<20080120132550.056370c0@deepthought>
+	<4793E460.5020804@trash.net>
+	<20080121.022223.85874858.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Makito SHIOKAWA <mshiokawa@miraclelinux.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.miraclelinux.com ([219.118.163.66]:2065 "EHLO
-	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752761AbYAVDdR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2008 22:33:17 -0500
-In-Reply-To: <20080121133338.GH1789@ff.dom.local>
+Received: from mail.vyatta.com ([216.93.170.194]:40191 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752764AbYAVDry (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2008 22:47:54 -0500
+In-Reply-To: <20080121.022223.85874858.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> No: you mentioned about treating new_value == 0 like new_value < 0
-> with 'if (new_value <= 0)', and I didn't understand this idea...
-I'm sorry to have misunderstood you. I wanted to say that there is a way just
-to fix 'if (new_value < 0)' to 'if (new_value <= 0)' and reject miimon == 0,
-instead of PATCH 3/4. (Of course, you won't be able to stop mii monitor only
-in that case.)
+On Mon, 21 Jan 2008 02:22:23 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-> Alas I don't understand the reason of this change in bond_main()...
-> Some comment?
-It was unnecessary any more..., thanks.
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Mon, 21 Jan 2008 01:16:32 +0100
+> 
+> > Stephen Hemminger wrote:
+> > > Replace loop in dsmark_valid_indices with equivalent bit math.
+> > > 
+> > > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> > > 
+> > > --- a/net/sched/sch_dsmark.c	2008-01-20 13:07:58.000000000 -0800
+> > > +++ b/net/sched/sch_dsmark.c	2008-01-20 13:22:54.000000000 -0800
+> > > @@ -45,13 +45,8 @@ struct dsmark_qdisc_data {
+> > >  
+> > >  static inline int dsmark_valid_indices(u16 indices)
+> > >  {
+> > > -	while (indices != 1) {
+> > > -		if (indices & 1)
+> > > -			return 0;
+> > > -		indices >>= 1;
+> > > -	}
+> > > -
+> > > -	return 1;
+> > > +	/* Must have only one bit set */
+> > > +	return (indices & (indices - 1)) == 0;
+> > 
+> > hweight seems easier to understand, it took me a bit
+> > to realize that the comment matches the code :)
+> 
+> Sounds good.  Here is what I ended up checking in.
+> 
+> [PKT_SCHED] dsmark: Use hweight32() instead of convoluted loop.
+> 
+> Based upon a patch by Stephen Hemminger and suggestions
+> from Patrick McHardy.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+> index a9732ae..d96eaf0 100644
+> --- a/net/sched/sch_dsmark.c
+> +++ b/net/sched/sch_dsmark.c
+> @@ -10,6 +10,7 @@
+>  #include <linux/errno.h>
+>  #include <linux/skbuff.h>
+>  #include <linux/rtnetlink.h>
+> +#include <linux/bitops.h>
+>  #include <net/pkt_sched.h>
+>  #include <net/dsfield.h>
+>  #include <net/inet_ecn.h>
+> @@ -43,17 +44,6 @@ struct dsmark_qdisc_data {
+>  	int			set_tc_index;
+>  };
+>  
+> -static inline int dsmark_valid_indices(u16 indices)
+> -{
+> -	while (indices != 1) {
+> -		if (indices & 1)
+> -			return 0;
+> -		indices >>= 1;
+> -	}
+> -
+> -	return 1;
+> -}
+> -
+>  static inline int dsmark_valid_index(struct dsmark_qdisc_data *p, u16 index)
+>  {
+>  	return (index <= p->indices && index > 0);
+> @@ -348,7 +338,8 @@ static int dsmark_init(struct Qdisc *sch, struct rtattr *opt)
+>  		goto errout;
+>  
+>  	indices = RTA_GET_U16(tb[TCA_DSMARK_INDICES-1]);
+> -	if (!indices || !dsmark_valid_indices(indices))
+> +
+> +	if (hweight32(indices) != 1)
+>  		goto errout;
 
+Come on Dave, that is a step backwards.
+So you took a two instruction thing that any programmer who ever had one of those
+technical trick interviews would surely understand, and made it call a function...
+Seems like the thing you would consul others against.
 
-Signed-off-by: Makito SHIOKAWA <mshiokawa@miraclelinux.com>
----
-  drivers/net/bonding/bond_main.c  |    7 ++-----
-  drivers/net/bonding/bond_sysfs.c |   19 +++++++++++++++++--
-  2 files changed, 19 insertions(+), 7 deletions(-)
-
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2801,8 +2801,7 @@ void bond_loadbalance_arp_mon(struct wor
-  	}
-
-  re_arm:
--	if (bond->params.arp_interval)
--		queue_delayed_work(bond->wq, &bond->lb_arp_work, delta_in_ticks);
-+	queue_delayed_work(bond->wq, &bond->lb_arp_work, delta_in_ticks);
-  out:
-  	read_unlock(&bond->lock);
-  }
-@@ -3058,9 +3057,7 @@ void bond_activebackup_arp_mon(struct wo
-  	}
-
-  re_arm:
--	if (bond->params.arp_interval) {
--		queue_delayed_work(bond->wq, &bond->ab_arp_work, delta_in_ticks);
--	}
-+	queue_delayed_work(bond->wq, &bond->ab_arp_work, delta_in_ticks);
-  out:
-  	read_unlock(&bond->lock);
-  }
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -644,6 +644,15 @@ static ssize_t bonding_store_arp_interva
-  	       ": %s: Setting ARP monitoring interval to %d.\n",
-  	       bond->dev->name, new_value);
-  	bond->params.arp_interval = new_value;
-+	if (bond->params.arp_interval == 0 && (bond->dev->flags & IFF_UP)) {
-+		printk(KERN_INFO DRV_NAME
-+		       ": %s: Disabling ARP monitoring.\n",
-+		       bond->dev->name);
-+		if (bond->params.mode == BOND_MODE_ACTIVEBACKUP)
-+			cancel_delayed_work_sync(&bond->ab_arp_work);
-+		else
-+			cancel_delayed_work_sync(&bond->lb_arp_work);
-+	}
-  	if (bond->params.miimon) {
-  		printk(KERN_INFO DRV_NAME
-  		       ": %s: ARP monitoring cannot be used with MII monitoring. "
-@@ -658,7 +667,7 @@ static ssize_t bonding_store_arp_interva
-  		       "but no ARP targets have been specified.\n",
-  		       bond->dev->name);
-  	}
--	if (bond->dev->flags & IFF_UP) {
-+	if (bond->params.arp_interval && (bond->dev->flags & IFF_UP)) {
-  		/* If the interface is up, we may need to fire off
-  		 * the ARP timer.  If the interface is down, the
-  		 * timer will get fired off when the open function
-@@ -997,6 +1006,12 @@ static ssize_t bonding_store_miimon(stru
-  		       ": %s: Setting MII monitoring interval to %d.\n",
-  		       bond->dev->name, new_value);
-  		bond->params.miimon = new_value;
-+		if (bond->params.miimon == 0 && (bond->dev->flags & IFF_UP)) {
-+			printk(KERN_INFO DRV_NAME
-+			       ": %s: Disabling MII monitoring...\n",
-+			       bond->dev->name);
-+			cancel_delayed_work_sync(&bond->mii_work);
-+		}
-  		if(bond->params.updelay)
-  			printk(KERN_INFO DRV_NAME
-  			      ": %s: Note: Updating updelay (to %d) "
-@@ -1026,7 +1041,7 @@ static ssize_t bonding_store_miimon(stru
-  				cancel_delayed_work_sync(&bond->lb_arp_work);
-  		}
-
--		if (bond->dev->flags & IFF_UP) {
-+		if (bond->params.miimon && (bond->dev->flags & IFF_UP)) {
-  			/* If the interface is up, we may need to fire off
-  			 * the MII timer. If the interface is down, the
-  			 * timer will get fired off when the open function
-
-
--- 
-Makito SHIOKAWA
-MIRACLE LINUX CORPORATION
+Please use !is_power_of_2(indices) instead.
