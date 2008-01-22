@@ -1,40 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [DST]: shrinks sizeof(struct rtable) by 64 bytes on x86_64
-Date: Tue, 22 Jan 2008 06:18:52 -0800 (PST)
-Message-ID: <20080122.061852.98841950.davem@davemloft.net>
-References: <20080122115006.82dbbff4.dada1@cosmosbay.com>
+Subject: Re: [git patches] net driver updates
+Date: Tue, 22 Jan 2008 06:20:37 -0800 (PST)
+Message-ID: <20080122.062037.182649524.davem@davemloft.net>
+References: <20080122110231.GA18441@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59800
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59807
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751072AbYAVOSp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 09:18:45 -0500
-In-Reply-To: <20080122115006.82dbbff4.dada1@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1751430AbYAVOUa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 09:20:30 -0500
+In-Reply-To: <20080122110231.GA18441@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 22 Jan 2008 11:50:06 +0100
+From: Jeff Garzik <jeff@garzik.org>
+Date: Tue, 22 Jan 2008 06:02:31 -0500
 
-> On x86_64, sizeof(struct rtable) is 0x148, which is rounded up to 0x180
-> bytes by SLAB allocator.
+> NOTE:  This is the igb as Auke submitted it.  It still needs a review
+> against ultra-recent Intel driver work.
 > 
-> We can reduce this to exactly 0x140 bytes, without alignment overhead,
-> and store 12 struct rtable per PAGE instead of 10.
-> 
-> rate_tokens is currently defined as an "unsigned long", while its content
-> should not exceed 6*HZ. It can safely be converted to an unsigned int.
-> 
-> Moving tclassid right after rate_tokens to fill the 4 bytes hole permits
-> to save 8 bytes on 'struct dst_entry', which finally permits to save 8
-> bytes on 'struct rtable'
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Please pull from 'upstream-davem' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-davem
 
-Thanks for doing this work Eric.
+Pulled and pushed out, I'll try to take a stare at IGB
+after getting some sleep.
 
-Patch applied.
+Thanks!
