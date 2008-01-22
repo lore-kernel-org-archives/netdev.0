@@ -1,49 +1,49 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 0/6] PS3: gelic: gelic updates for 2.6.25
-Date: Tue, 22 Jan 2008 16:12:39 -0500
-Message-ID: <20080122211239.GC3206@tuxdriver.com>
-References: <20071213181146.BF69.MOKUNO@sm.sony.co.jp>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/3] virtio: Net header needs gso_hdr_len
+Date: Wed, 23 Jan 2008 09:06:14 +1100
+Message-ID: <200801230906.14585.rusty@rustcorp.com.au>
+References: <E1JEvnR-0006ax-00@gondolin.me.apana.org.au> <200801161519.03339.rusty@rustcorp.com.au> <20080122103630.GA24135@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Linux/PPC Development <linuxppc-dev@ozlabs.org>
-To: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3411 "EHLO ra.tuxdriver.com"
+Received: from ozlabs.org ([203.10.76.45]:46912 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751834AbYAVVcT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jan 2008 16:32:19 -0500
+	id S1750906AbYAVWIm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2008 17:08:42 -0500
+In-Reply-To: <20080122103630.GA24135@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <20071213181146.BF69.MOKUNO@sm.sony.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 13, 2007 at 07:38:28PM +0900, Masakazu Mokuno wrote:
+On Tuesday 22 January 2008 21:36:30 Herbert Xu wrote:
+> On Wed, Jan 16, 2008 at 03:19:03PM +1100, Rusty Russell wrote:
+> > > > It's far easier to deal with GSO if we don't have to parse the packet
+> > > > to figure out the header length.  Add the field to the virtio_net_hdr
+> > > > struct (and fix the spaces that somehow crept in there).
+> > >
+> > > Why do we need this? When receiving GSO packets from an untrusted
+> > > source the network stack will fill in the transport header offset
+> > > after verifying that the headers are sane.
+> >
+> > Thanks for clarifying; it simplifies things.
+>
+> Actually now that I've tried your test program I can see that this
+> field exists not because of GSO, but because of SG.  It tells you
+> how many bytes you want to put in the skb head as opposed to the
+> frag array.
 
-> Here is a set of updates for PS3 gelic network driver.
-> This patch set requires other patches which were already submitted by
-> Geert (http://marc.info/?l=linux-kernel&m=119626095605487).
-> 
-> 	[1] PS3: gelic: Fix the wrong dev_id passed
-> 	[2] PS3: gelic: Add endianness macros
-> 	[3] PS3: gelic: Code cleanup
-> 	[4] PS3: gelic: Remove duplicated ethtool handers
-> 	[5] PS3: gelic: Add support for port link status
-> 	[6] PS3: gelic: Add support for dual network interface
-> 
-> This is also a set of prerequisite for new wireless driver for PS3, which
-> I'll submit later. 
+Yes, I took it out after your comments, then realized I needed it and put it 
+back.
 
-These seem to not have been applied, but I couldn't find any stated
-reason.  Did they just get lost?  Withdrawn?
+> So this field is fine with me as long as it is named as such to
+> avoid confusion since it really has nothing to do with GSO as you
+> also need it for SG with large MTUs.
 
-Will these be applied?  There is a wireless patch that depends on them.
-If not, will the wireless portion be refactored to not require these
-patches?
+Hmm, how about just "hdr_len" rather than "gso_hdr_len"?
 
 Thanks,
-
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+Rusty.
