@@ -1,8 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25 5/10][NETNS][FRAGS]: Duplicate sysctl tables for
- new namespaces.
-Date: Tue, 22 Jan 2008 17:01:02 +0300
-Message-ID: <4795F71E.40002@openvz.org>
+Subject: [PATCH net-2.6.25 6/10][NETNS][FRAGS]: Make the net.ipv4.ipfrag_timeout
+ work in namespaces.
+Date: Tue, 22 Jan 2008 17:02:17 +0300
+Message-ID: <4795F769.3010103@openvz.org>
 References: <4795F524.8060204@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,175 +10,184 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33515 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:33707 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752154AbYAVOAw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jan 2008 09:00:52 -0500
+	id S1751001AbYAVOCH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2008 09:02:07 -0500
 In-Reply-To: <4795F524.8060204@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Each namespace has to have own tables to tune their 
-different parameters, so duplicate the tables and 
-register them.
+Move it to the netns_frags, adjust the usage and
+make the appropriate ctl table writable.
 
-All the tables in sub-namespaces are temporarily made
-read-only.
+Now fragment, that live in different namespaces can
+live for different times.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- include/net/netns/ipv4.h |    1 +
- include/net/netns/ipv6.h |    1 +
- net/ipv4/ip_fragment.c   |   42 +++++++++++++++++++++++++++++++++++++++---
- net/ipv6/reassembly.c    |   41 ++++++++++++++++++++++++++++++++++++++---
- 4 files changed, 79 insertions(+), 6 deletions(-)
+ include/net/inet_frag.h                 |    4 +++-
+ net/ipv4/inet_fragment.c                |    2 +-
+ net/ipv4/ip_fragment.c                  |   20 ++++++++++----------
+ net/ipv6/netfilter/nf_conntrack_reasm.c |    4 ++--
+ net/ipv6/reassembly.c                   |    6 +++---
+ 5 files changed, 19 insertions(+), 17 deletions(-)
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 80680e0..15a0b05 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -16,6 +16,7 @@ struct sock;
- struct netns_ipv4 {
- #ifdef CONFIG_SYSCTL
- 	struct ctl_table_header	*forw_hdr;
-+	struct ctl_table_header	*frags_hdr;
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 6edce7b..f56e296 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -4,6 +4,9 @@
+ struct netns_frags {
+ 	int			nqueues;
+ 	atomic_t		mem;
++
++	/* sysctls */
++	int			timeout;
+ };
+ 
+ struct inet_frag_queue {
+@@ -29,7 +32,6 @@ struct inet_frag_queue {
+ struct inet_frags_ctl {
+ 	int high_thresh;
+ 	int low_thresh;
+-	int timeout;
+ 	int secret_interval;
+ };
+ 
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index ad79ae0..9da9679 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -206,7 +206,7 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+ 	}
  #endif
- 	struct ipv4_devconf	*devconf_all;
- 	struct ipv4_devconf	*devconf_dflt;
-diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
-index 057c8e4..87ab56a 100644
---- a/include/net/netns/ipv6.h
-+++ b/include/net/netns/ipv6.h
-@@ -12,6 +12,7 @@ struct ctl_table_header;
- struct netns_sysctl_ipv6 {
- #ifdef CONFIG_SYSCTL
- 	struct ctl_table_header *table;
-+	struct ctl_table_header *frags_hdr;
- #endif
- 	struct inet_frags_ctl frags;
- 	int bindv6only;
+ 	qp = qp_in;
+-	if (!mod_timer(&qp->timer, jiffies + f->ctl->timeout))
++	if (!mod_timer(&qp->timer, jiffies + nf->timeout))
+ 		atomic_inc(&qp->refcnt);
+ 
+ 	atomic_inc(&qp->refcnt);
 diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 4f01334..c51e1a1 100644
+index c51e1a1..70d241c 100644
 --- a/net/ipv4/ip_fragment.c
 +++ b/net/ipv4/ip_fragment.c
-@@ -661,17 +661,53 @@ static struct ctl_table ip4_frags_ctl_table[] = {
+@@ -83,13 +83,6 @@ static struct inet_frags_ctl ip4_frags_ctl __read_mostly = {
+ 	 */
+ 	.high_thresh	 = 256 * 1024,
+ 	.low_thresh	 = 192 * 1024,
+-
+-	/*
+-	 * Important NOTE! Fragment queue must be destroyed before MSL expires.
+-	 * RFC791 is wrong proposing to prolongate timer each fragment arrival
+-	 * by TTL.
+-	 */
+-	.timeout	 = IP_FRAG_TIME,
+ 	.secret_interval = 10 * 60 * HZ,
+ };
  
- static int ip4_frags_ctl_register(struct net *net)
+@@ -287,7 +280,7 @@ static int ip_frag_reinit(struct ipq *qp)
  {
-+	struct ctl_table *table;
- 	struct ctl_table_header *hdr;
+ 	struct sk_buff *fp;
  
--	hdr = register_net_sysctl_table(net, net_ipv4_ctl_path,
--			ip4_frags_ctl_table);
--	return hdr == NULL ? -ENOMEM : 0;
-+	table = ip4_frags_ctl_table;
-+	if (net != &init_net) {
-+		table = kmemdup(table, sizeof(ip4_frags_ctl_table), GFP_KERNEL);
-+		if (table == NULL)
-+			goto err_alloc;
-+
-+		table[0].mode &= ~0222;
-+		table[1].mode &= ~0222;
-+		table[2].mode &= ~0222;
-+		table[3].mode &= ~0222;
-+		table[4].mode &= ~0222;
-+	}
-+
-+	hdr = register_net_sysctl_table(net, net_ipv4_ctl_path, table);
-+	if (hdr == NULL)
-+		goto err_reg;
-+
-+	net->ipv4.frags_hdr = hdr;
-+	return 0;
-+
-+err_reg:
-+	if (net != &init_net)
-+		kfree(table);
-+err_alloc:
-+	return -ENOMEM;
-+}
-+
-+static void ip4_frags_ctl_unregister(struct net *net)
-+{
-+	struct ctl_table *table;
-+
-+	table = net->ipv4.frags_hdr->ctl_table_arg;
-+	unregister_net_sysctl_table(net->ipv4.frags_hdr);
-+	kfree(table);
- }
- #else
- static inline int ip4_frags_ctl_register(struct net *net)
- {
- 	return 0;
- }
-+
-+static inline void ip4_frags_ctl_unregister(struct net *net)
-+{
-+}
- #endif
+-	if (!mod_timer(&qp->q.timer, jiffies + ip4_frags_ctl.timeout)) {
++	if (!mod_timer(&qp->q.timer, jiffies + qp->q.net->timeout)) {
+ 		atomic_inc(&qp->q.refcnt);
+ 		return -ETIMEDOUT;
+ 	}
+@@ -633,7 +626,7 @@ static struct ctl_table ip4_frags_ctl_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV4_IPFRAG_TIME,
+ 		.procname	= "ipfrag_time",
+-		.data		= &ip4_frags_ctl.timeout,
++		.data		= &init_net.ipv4.frags.timeout,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec_jiffies,
+@@ -672,7 +665,7 @@ static int ip4_frags_ctl_register(struct net *net)
+ 
+ 		table[0].mode &= ~0222;
+ 		table[1].mode &= ~0222;
+-		table[2].mode &= ~0222;
++		table[2].data = &net->ipv4.frags.timeout;
+ 		table[3].mode &= ~0222;
+ 		table[4].mode &= ~0222;
+ 	}
+@@ -712,6 +705,13 @@ static inline void ip4_frags_ctl_unregister(struct net *net)
  
  static int ipv4_frags_init_net(struct net *net)
+ {
++	/*
++	 * Important NOTE! Fragment queue must be destroyed before MSL expires.
++	 * RFC791 is wrong proposing to prolongate timer each fragment arrival
++	 * by TTL.
++	 */
++	net->ipv4.frags.timeout = IP_FRAG_TIME;
++
+ 	inet_frags_init_net(&net->ipv4.frags);
+ 
+ 	return ip4_frags_ctl_register(net);
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index cb826be..92a311f 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -73,7 +73,6 @@ struct nf_ct_frag6_queue
+ static struct inet_frags_ctl nf_frags_ctl __read_mostly = {
+ 	.high_thresh	 = 256 * 1024,
+ 	.low_thresh	 = 192 * 1024,
+-	.timeout	 = IPV6_FRAG_TIMEOUT,
+ 	.secret_interval = 10 * 60 * HZ,
+ };
+ 
+@@ -84,7 +83,7 @@ static struct netns_frags nf_init_frags;
+ struct ctl_table nf_ct_ipv6_sysctl_table[] = {
+ 	{
+ 		.procname	= "nf_conntrack_frag6_timeout",
+-		.data		= &nf_frags_ctl.timeout,
++		.data		= &nf_init_frags.timeout,
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec_jiffies,
+@@ -712,6 +711,7 @@ int nf_ct_frag6_init(void)
+ 	nf_frags.qsize = sizeof(struct nf_ct_frag6_queue);
+ 	nf_frags.match = ip6_frag_match;
+ 	nf_frags.frag_expire = nf_ct_frag6_expire;
++	nf_init_frags.timeout = IPV6_FRAG_TIMEOUT;
+ 	inet_frags_init_net(&nf_init_frags);
+ 	inet_frags_init(&nf_frags);
+ 
 diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 241b2cc..0300dcb 100644
+index 0300dcb..9176136 100644
 --- a/net/ipv6/reassembly.c
 +++ b/net/ipv6/reassembly.c
-@@ -670,17 +670,52 @@ static struct ctl_table ip6_frags_ctl_table[] = {
+@@ -650,7 +650,7 @@ static struct ctl_table ip6_frags_ctl_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV6_IP6FRAG_TIME,
+ 		.procname	= "ip6frag_time",
+-		.data		= &init_net.ipv6.sysctl.frags.timeout,
++		.data		= &init_net.ipv6.frags.timeout,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec_jiffies,
+@@ -681,7 +681,7 @@ static int ip6_frags_sysctl_register(struct net *net)
  
- static int ip6_frags_sysctl_register(struct net *net)
- {
-+	struct ctl_table *table;
- 	struct ctl_table_header *hdr;
+ 		table[0].mode &= ~0222;
+ 		table[1].mode &= ~0222;
+-		table[2].mode &= ~0222;
++		table[2].data = &net->ipv6.frags.timeout;
+ 		table[3].mode &= ~0222;
+ 	}
  
--	hdr = register_net_sysctl_table(net, net_ipv6_ctl_path,
--			ip6_frags_ctl_table);
--	return hdr == NULL ? -ENOMEM : 0;
-+	table = ip6_frags_ctl_table;
-+	if (net != &init_net) {
-+		table = kmemdup(table, sizeof(ip6_frags_ctl_table), GFP_KERNEL);
-+		if (table == NULL)
-+			goto err_alloc;
-+
-+		table[0].mode &= ~0222;
-+		table[1].mode &= ~0222;
-+		table[2].mode &= ~0222;
-+		table[3].mode &= ~0222;
-+	}
-+
-+	hdr = register_net_sysctl_table(net, net_ipv6_ctl_path, table);
-+	if (hdr == NULL)
-+		goto err_reg;
-+
-+	net->ipv6.sysctl.frags_hdr = hdr;
-+	return 0;
-+
-+err_reg:
-+	if (net != &init_net)
-+		kfree(table);
-+err_alloc:
-+	return -ENOMEM;
-+}
-+
-+static void ip6_frags_sysctl_unregister(struct net *net)
-+{
-+	struct ctl_table *table;
-+
-+	table = net->ipv6.sysctl.frags_hdr->ctl_table_arg;
-+	unregister_net_sysctl_table(net->ipv6.sysctl.frags_hdr);
-+	kfree(table);
- }
- #else
- static inline int ip6_frags_sysctl_register(struct net *net)
- {
- 	return 0;
- }
-+
-+static inline void ip6_frags_sysctl_unregister(struct net *net)
-+{
-+}
- #endif
+@@ -724,7 +724,7 @@ static int ipv6_frags_init_net(struct net *net)
  
- static int ipv6_frags_init_net(struct net *net)
+ 	net->ipv6.sysctl.frags.high_thresh = 256 * 1024;
+ 	net->ipv6.sysctl.frags.low_thresh = 192 * 1024;
+-	net->ipv6.sysctl.frags.timeout = IPV6_FRAG_TIMEOUT;
++	net->ipv6.frags.timeout = IPV6_FRAG_TIMEOUT;
+ 	net->ipv6.sysctl.frags.secret_interval = 10 * 60 * HZ;
+ 
+ 	inet_frags_init_net(&net->ipv6.frags);
 -- 
 1.5.3.4
 
