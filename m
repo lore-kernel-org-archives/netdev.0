@@ -1,7 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25 1/10][NETNS][FRAGS]: Move ctl tables around.
-Date: Tue, 22 Jan 2008 16:55:23 +0300
-Message-ID: <4795F5CB.5080905@openvz.org>
+Subject: [PATCH net-2.6.25 2/10][NETNS][FRAGS]: Make the inet_frag_queue lookup
+ work in namespaces.
+Date: Tue, 22 Jan 2008 16:57:06 +0300
+Message-ID: <4795F632.6040903@openvz.org>
 References: <4795F524.8060204@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -9,512 +10,288 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:44791 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:45169 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753623AbYAVNzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jan 2008 08:55:16 -0500
+	id S1752996AbYAVN46 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2008 08:56:58 -0500
 In-Reply-To: <4795F524.8060204@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a preparation for sysctl netns-ization. 
-Move the ctl tables to the files, where the tuning
-variables reside. Plus make the helpers to register 
-the tables.
+Since fragment management code is consolidated, we
+cannot have the pointer from inet_frag_queue to
+struct net, since we must know what king of fragment
+this is.
 
-This will simplify the later patches and will keep
-similar things closer to each other.
+So, I introduce the netns_frags structure. This one
+is currently empty, but will be eventually filled with
+per-namespace attributes. Each inet_frag_queue is
+tagged with this one.
 
-ipv4, ipv6 and conntrack_reasm are patched differently,
-bu the result is all the tables are in appropriate files.
+The conntrack_reasm is not "netns-izated", so it has
+one statis netns_frags instance to keep working in
+init namespace.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- include/net/ip.h                               |    5 --
- include/net/ipv6.h                             |    1 -
- include/net/netfilter/ipv6/nf_conntrack_ipv6.h |    4 +-
- net/ipv4/ip_fragment.c                         |   74 +++++++++++++++++++++++-
- net/ipv4/sysctl_net_ipv4.c                     |   42 -------------
- net/ipv6/af_inet6.c                            |    5 --
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   29 ---------
- net/ipv6/netfilter/nf_conntrack_reasm.c        |   31 ++++++++++-
- net/ipv6/reassembly.c                          |   66 ++++++++++++++++++++-
- net/ipv6/sysctl_net_ipv6.c                     |   40 +------------
- 10 files changed, 169 insertions(+), 128 deletions(-)
+ include/net/inet_frag.h                 |    8 ++++++--
+ include/net/netns/ipv4.h                |    4 ++++
+ include/net/netns/ipv6.h                |    1 +
+ net/ipv4/inet_fragment.c                |   27 +++++++++++++++------------
+ net/ipv4/ip_fragment.c                  |    8 +++++---
+ net/ipv6/netfilter/nf_conntrack_reasm.c |    3 ++-
+ net/ipv6/reassembly.c                   |    8 +++++---
+ 7 files changed, 38 insertions(+), 21 deletions(-)
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 2ad4d2f..ff14fc8 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -179,11 +179,6 @@ extern int sysctl_ip_nonlocal_bind;
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 954def4..8ab6df6 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -1,8 +1,12 @@
+ #ifndef __NET_FRAG_H__
+ #define __NET_FRAG_H__
  
- extern struct ctl_path net_ipv4_ctl_path[];
- 
--/* From ip_fragment.c */
--struct inet_frags_ctl;
--extern struct inet_frags_ctl ip4_frags_ctl;
--extern int sysctl_ipfrag_max_dist;
--
- /* From inetpeer.c */
- extern int inet_peer_threshold;
- extern int inet_peer_minttl;
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 3712cae..87ca1bf 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -587,7 +587,6 @@ extern int ip6_mc_msfget(struct sock *sk, struct group_filter *gsf,
- 
- #ifdef CONFIG_PROC_FS
- extern struct ctl_table *ipv6_icmp_sysctl_init(struct net *net);
--extern void ipv6_frag_sysctl_init(struct net *net);
- extern struct ctl_table *ipv6_route_sysctl_init(struct net *net);
- 
- extern int  ac6_proc_init(void);
-diff --git a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
-index f703533..abc55ad 100644
---- a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
-+++ b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
-@@ -16,6 +16,8 @@ extern void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
- 			       int (*okfn)(struct sk_buff *));
- 
- struct inet_frags_ctl;
--extern struct inet_frags_ctl nf_frags_ctl;
++struct netns_frags {
++};
 +
-+#include <linux/sysctl.h>
-+extern struct ctl_table nf_ct_ipv6_sysctl_table[];
+ struct inet_frag_queue {
+ 	struct hlist_node	list;
++	struct netns_frags	*net;
+ 	struct list_head	lru_list;   /* lru list member */
+ 	spinlock_t		lock;
+ 	atomic_t		refcnt;
+@@ -55,8 +59,8 @@ void inet_frag_kill(struct inet_frag_queue *q, struct inet_frags *f);
+ void inet_frag_destroy(struct inet_frag_queue *q,
+ 				struct inet_frags *f, int *work);
+ int inet_frag_evictor(struct inet_frags *f);
+-struct inet_frag_queue *inet_frag_find(struct inet_frags *f, void *key,
+-		unsigned int hash);
++struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
++		struct inet_frags *f, void *key, unsigned int hash);
  
- #endif /* _NF_CONNTRACK_IPV6_H*/
+ static inline void inet_frag_put(struct inet_frag_queue *q, struct inet_frags *f)
+ {
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 3872aa7..80680e0 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -5,6 +5,8 @@
+ #ifndef __NETNS_IPV4_H__
+ #define __NETNS_IPV4_H__
+ 
++#include <net/inet_frag.h>
++
+ struct ctl_table_header;
+ struct ipv4_devconf;
+ struct fib_rules_ops;
+@@ -22,5 +24,7 @@ struct netns_ipv4 {
+ #endif
+ 	struct hlist_head	*fib_table_hash;
+ 	struct sock		*fibnl;
++
++	struct netns_frags	frags;
+ };
+ #endif
+diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+index 06b4dc0..057c8e4 100644
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -30,5 +30,6 @@ struct netns_ipv6 {
+ 	struct netns_sysctl_ipv6 sysctl;
+ 	struct ipv6_devconf	*devconf_all;
+ 	struct ipv6_devconf	*devconf_dflt;
++	struct netns_frags	frags;
+ };
+ #endif
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 7379107..158c5f6 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -174,8 +174,9 @@ int inet_frag_evictor(struct inet_frags *f)
+ }
+ EXPORT_SYMBOL(inet_frag_evictor);
+ 
+-static struct inet_frag_queue *inet_frag_intern(struct inet_frag_queue *qp_in,
+-		struct inet_frags *f, unsigned int hash, void *arg)
++static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
++		struct inet_frag_queue *qp_in, struct inet_frags *f,
++		unsigned int hash, void *arg)
+ {
+ 	struct inet_frag_queue *qp;
+ #ifdef CONFIG_SMP
+@@ -189,7 +190,7 @@ static struct inet_frag_queue *inet_frag_intern(struct inet_frag_queue *qp_in,
+ 	 * promoted read lock to write lock.
+ 	 */
+ 	hlist_for_each_entry(qp, n, &f->hash[hash], list) {
+-		if (f->match(qp, arg)) {
++		if (qp->net == nf && f->match(qp, arg)) {
+ 			atomic_inc(&qp->refcnt);
+ 			write_unlock(&f->lock);
+ 			qp_in->last_in |= COMPLETE;
+@@ -210,7 +211,8 @@ static struct inet_frag_queue *inet_frag_intern(struct inet_frag_queue *qp_in,
+ 	return qp;
+ }
+ 
+-static struct inet_frag_queue *inet_frag_alloc(struct inet_frags *f, void *arg)
++static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
++		struct inet_frags *f, void *arg)
+ {
+ 	struct inet_frag_queue *q;
+ 
+@@ -223,31 +225,32 @@ static struct inet_frag_queue *inet_frag_alloc(struct inet_frags *f, void *arg)
+ 	setup_timer(&q->timer, f->frag_expire, (unsigned long)q);
+ 	spin_lock_init(&q->lock);
+ 	atomic_set(&q->refcnt, 1);
++	q->net = nf;
+ 
+ 	return q;
+ }
+ 
+-static struct inet_frag_queue *inet_frag_create(struct inet_frags *f,
+-		void *arg, unsigned int hash)
++static struct inet_frag_queue *inet_frag_create(struct netns_frags *nf,
++		struct inet_frags *f, void *arg, unsigned int hash)
+ {
+ 	struct inet_frag_queue *q;
+ 
+-	q = inet_frag_alloc(f, arg);
++	q = inet_frag_alloc(nf, f, arg);
+ 	if (q == NULL)
+ 		return NULL;
+ 
+-	return inet_frag_intern(q, f, hash, arg);
++	return inet_frag_intern(nf, q, f, hash, arg);
+ }
+ 
+-struct inet_frag_queue *inet_frag_find(struct inet_frags *f, void *key,
+-		unsigned int hash)
++struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
++		struct inet_frags *f, void *key, unsigned int hash)
+ {
+ 	struct inet_frag_queue *q;
+ 	struct hlist_node *n;
+ 
+ 	read_lock(&f->lock);
+ 	hlist_for_each_entry(q, n, &f->hash[hash], list) {
+-		if (f->match(q, key)) {
++		if (q->net == nf && f->match(q, key)) {
+ 			atomic_inc(&q->refcnt);
+ 			read_unlock(&f->lock);
+ 			return q;
+@@ -255,6 +258,6 @@ struct inet_frag_queue *inet_frag_find(struct inet_frags *f, void *key,
+ 	}
+ 	read_unlock(&f->lock);
+ 
+-	return inet_frag_create(f, key, hash);
++	return inet_frag_create(nf, f, key, hash);
+ }
+ EXPORT_SYMBOL(inet_frag_find);
 diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 2143bf3..a53463e 100644
+index a53463e..56211ef 100644
 --- a/net/ipv4/ip_fragment.c
 +++ b/net/ipv4/ip_fragment.c
-@@ -50,7 +50,7 @@
-  * as well. Or notify me, at least. --ANK
+@@ -236,7 +236,7 @@ out:
+ /* Find the correct entry in the "incomplete datagrams" queue for
+  * this IP datagram, and create new one, if nothing is found.
   */
- 
--int sysctl_ipfrag_max_dist __read_mostly = 64;
-+static int sysctl_ipfrag_max_dist __read_mostly = 64;
- 
- struct ipfrag_skb_cb
+-static inline struct ipq *ip_find(struct iphdr *iph, u32 user)
++static inline struct ipq *ip_find(struct net *net, struct iphdr *iph, u32 user)
  {
-@@ -74,7 +74,7 @@ struct ipq {
- 	struct inet_peer *peer;
- };
+ 	struct inet_frag_queue *q;
+ 	struct ip4_create_arg arg;
+@@ -246,7 +246,7 @@ static inline struct ipq *ip_find(struct iphdr *iph, u32 user)
+ 	arg.user = user;
+ 	hash = ipqhashfn(iph->id, iph->saddr, iph->daddr, iph->protocol);
  
--struct inet_frags_ctl ip4_frags_ctl __read_mostly = {
-+static struct inet_frags_ctl ip4_frags_ctl __read_mostly = {
- 	/*
- 	 * Fragment cache limits. We will commit 256K at one time. Should we
- 	 * cross that limit we will prune down to 192K. This should cope with
-@@ -607,8 +607,78 @@ int ip_defrag(struct sk_buff *skb, u32 user)
- 	return -ENOMEM;
- }
+-	q = inet_frag_find(&ip4_frags, &arg, hash);
++	q = inet_frag_find(&net->ipv4.frags, &ip4_frags, &arg, hash);
+ 	if (q == NULL)
+ 		goto out_nomem;
  
-+#ifdef CONFIG_SYSCTL
-+static int zero;
-+
-+static struct ctl_table ip4_frags_ctl_table[] = {
-+	{
-+		.ctl_name	= NET_IPV4_IPFRAG_HIGH_THRESH,
-+		.procname	= "ipfrag_high_thresh",
-+		.data		= &ip4_frags_ctl.high_thresh,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec
-+	},
-+	{
-+		.ctl_name	= NET_IPV4_IPFRAG_LOW_THRESH,
-+		.procname	= "ipfrag_low_thresh",
-+		.data		= &ip4_frags_ctl.low_thresh,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec
-+	},
-+	{
-+		.ctl_name	= NET_IPV4_IPFRAG_TIME,
-+		.procname	= "ipfrag_time",
-+		.data		= &ip4_frags_ctl.timeout,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec_jiffies,
-+		.strategy	= &sysctl_jiffies
-+	},
-+	{
-+		.ctl_name	= NET_IPV4_IPFRAG_SECRET_INTERVAL,
-+		.procname	= "ipfrag_secret_interval",
-+		.data		= &ip4_frags_ctl.secret_interval,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec_jiffies,
-+		.strategy	= &sysctl_jiffies
-+	},
-+	{
-+		.procname	= "ipfrag_max_dist",
-+		.data		= &sysctl_ipfrag_max_dist,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec_minmax,
-+		.extra1		= &zero
-+	},
-+	{ }
-+};
-+
-+static int ip4_frags_ctl_register(struct net *net)
-+{
-+	struct ctl_table_header *hdr;
-+
-+	hdr = register_net_sysctl_table(net, net_ipv4_ctl_path,
-+			ip4_frags_ctl_table);
-+	return hdr == NULL ? -ENOMEM : 0;
-+}
-+#else
-+static inline int ip4_frags_ctl_register(struct net *net)
-+{
-+	return 0;
-+}
-+#endif
-+
-+static int ipv4_frags_init_net(struct net *net)
-+{
-+	return ip4_frags_ctl_register(net);
-+}
-+
- void __init ipfrag_init(void)
+@@ -582,15 +582,17 @@ out_fail:
+ int ip_defrag(struct sk_buff *skb, u32 user)
  {
-+	ipv4_frags_init_net(&init_net);
- 	ip4_frags.ctl = &ip4_frags_ctl;
- 	ip4_frags.hashfn = ip4_hashfn;
- 	ip4_frags.constructor = ip4_frag_init;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 45536a9..82cdf23 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -284,22 +284,6 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= &proc_dointvec
- 	},
- 	{
--		.ctl_name	= NET_IPV4_IPFRAG_HIGH_THRESH,
--		.procname	= "ipfrag_high_thresh",
--		.data		= &ip4_frags_ctl.high_thresh,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
--	},
--	{
--		.ctl_name	= NET_IPV4_IPFRAG_LOW_THRESH,
--		.procname	= "ipfrag_low_thresh",
--		.data		= &ip4_frags_ctl.low_thresh,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
--	},
--	{
- 		.ctl_name	= NET_IPV4_DYNADDR,
- 		.procname	= "ip_dynaddr",
- 		.data		= &sysctl_ip_dynaddr,
-@@ -308,15 +292,6 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= &proc_dointvec
- 	},
- 	{
--		.ctl_name	= NET_IPV4_IPFRAG_TIME,
--		.procname	= "ipfrag_time",
--		.data		= &ip4_frags_ctl.timeout,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec_jiffies,
--		.strategy	= &sysctl_jiffies
--	},
--	{
- 		.ctl_name	= NET_IPV4_TCP_KEEPALIVE_TIME,
- 		.procname	= "tcp_keepalive_time",
- 		.data		= &sysctl_tcp_keepalive_time,
-@@ -659,23 +634,6 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= &proc_dointvec
- 	},
- 	{
--		.ctl_name	= NET_IPV4_IPFRAG_SECRET_INTERVAL,
--		.procname	= "ipfrag_secret_interval",
--		.data		= &ip4_frags_ctl.secret_interval,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec_jiffies,
--		.strategy	= &sysctl_jiffies
--	},
--	{
--		.procname	= "ipfrag_max_dist",
--		.data		= &sysctl_ipfrag_max_dist,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec_minmax,
--		.extra1		= &zero
--	},
--	{
- 		.ctl_name	= NET_TCP_NO_METRICS_SAVE,
- 		.procname	= "tcp_no_metrics_save",
- 		.data		= &sysctl_tcp_nometrics_save,
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 6738a7b..bddac0e 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -721,10 +721,6 @@ static void cleanup_ipv6_mibs(void)
- static int inet6_net_init(struct net *net)
- {
- 	net->ipv6.sysctl.bindv6only = 0;
--	net->ipv6.sysctl.frags.high_thresh = 256 * 1024;
--	net->ipv6.sysctl.frags.low_thresh = 192 * 1024;
--	net->ipv6.sysctl.frags.timeout = IPV6_FRAG_TIMEOUT;
--	net->ipv6.sysctl.frags.secret_interval = 10 * 60 * HZ;
- 	net->ipv6.sysctl.flush_delay = 0;
- 	net->ipv6.sysctl.ip6_rt_max_size = 4096;
- 	net->ipv6.sysctl.ip6_rt_gc_min_interval = HZ / 2;
-@@ -734,7 +730,6 @@ static int inet6_net_init(struct net *net)
- 	net->ipv6.sysctl.ip6_rt_mtu_expires = 10*60*HZ;
- 	net->ipv6.sysctl.ip6_rt_min_advmss = IPV6_MIN_MTU - 20 - 40;
- 	net->ipv6.sysctl.icmpv6_time = 1*HZ;
--	ipv6_frag_sysctl_init(net);
+ 	struct ipq *qp;
++	struct net *net;
  
- 	return 0;
- }
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index cf42f5c..2d7b024 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -297,35 +297,6 @@ static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
- 	},
- };
+ 	IP_INC_STATS_BH(IPSTATS_MIB_REASMREQDS);
  
--#ifdef CONFIG_SYSCTL
--static ctl_table nf_ct_ipv6_sysctl_table[] = {
--	{
--		.procname	= "nf_conntrack_frag6_timeout",
--		.data		= &nf_frags_ctl.timeout,
--		.maxlen		= sizeof(unsigned int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec_jiffies,
--	},
--	{
--		.ctl_name	= NET_NF_CONNTRACK_FRAG6_LOW_THRESH,
--		.procname	= "nf_conntrack_frag6_low_thresh",
--		.data		= &nf_frags_ctl.low_thresh,
--		.maxlen		= sizeof(unsigned int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec,
--	},
--	{
--		.ctl_name	= NET_NF_CONNTRACK_FRAG6_HIGH_THRESH,
--		.procname	= "nf_conntrack_frag6_high_thresh",
--		.data		= &nf_frags_ctl.high_thresh,
--		.maxlen		= sizeof(unsigned int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec,
--	},
--	{ .ctl_name = 0 }
--};
--#endif
--
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
++	net = skb->dev->nd_net;
+ 	/* Start by cleaning up the memory. */
+ 	if (atomic_read(&ip4_frags.mem) > ip4_frags_ctl.high_thresh)
+ 		ip_evictor();
  
- #include <linux/netfilter/nfnetlink.h>
+ 	/* Lookup (or create) queue header */
+-	if ((qp = ip_find(ip_hdr(skb), user)) != NULL) {
++	if ((qp = ip_find(net, ip_hdr(skb), user)) != NULL) {
+ 		int ret;
+ 
+ 		spin_lock(&qp->q.lock);
 diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index e170c67..d631631 100644
+index d631631..18accd4 100644
 --- a/net/ipv6/netfilter/nf_conntrack_reasm.c
 +++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -70,7 +70,7 @@ struct nf_ct_frag6_queue
- 	__u16			nhoffset;
+@@ -78,6 +78,7 @@ static struct inet_frags_ctl nf_frags_ctl __read_mostly = {
  };
- 
--struct inet_frags_ctl nf_frags_ctl __read_mostly = {
-+static struct inet_frags_ctl nf_frags_ctl __read_mostly = {
- 	.high_thresh	 = 256 * 1024,
- 	.low_thresh	 = 192 * 1024,
- 	.timeout	 = IPV6_FRAG_TIMEOUT,
-@@ -79,6 +79,35 @@ struct inet_frags_ctl nf_frags_ctl __read_mostly = {
  
  static struct inet_frags nf_frags;
++static struct netns_frags nf_init_frags;
  
-+#ifdef CONFIG_SYSCTL
-+struct ctl_table nf_ct_ipv6_sysctl_table[] = {
-+	{
-+		.procname	= "nf_conntrack_frag6_timeout",
-+		.data		= &nf_frags_ctl.timeout,
-+		.maxlen		= sizeof(unsigned int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec_jiffies,
-+	},
-+	{
-+		.ctl_name	= NET_NF_CONNTRACK_FRAG6_LOW_THRESH,
-+		.procname	= "nf_conntrack_frag6_low_thresh",
-+		.data		= &nf_frags_ctl.low_thresh,
-+		.maxlen		= sizeof(unsigned int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec,
-+	},
-+	{
-+		.ctl_name	= NET_NF_CONNTRACK_FRAG6_HIGH_THRESH,
-+		.procname	= "nf_conntrack_frag6_high_thresh",
-+		.data		= &nf_frags_ctl.high_thresh,
-+		.maxlen		= sizeof(unsigned int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec,
-+	},
-+	{ .ctl_name = 0 }
-+};
-+#endif
-+
- static unsigned int ip6qhashfn(__be32 id, struct in6_addr *saddr,
- 			       struct in6_addr *daddr)
- {
+ #ifdef CONFIG_SYSCTL
+ struct ctl_table nf_ct_ipv6_sysctl_table[] = {
+@@ -212,7 +213,7 @@ fq_find(__be32 id, struct in6_addr *src, struct in6_addr *dst)
+ 	arg.dst = dst;
+ 	hash = ip6qhashfn(id, src, dst);
+ 
+-	q = inet_frag_find(&nf_frags, &arg, hash);
++	q = inet_frag_find(&nf_init_frags, &nf_frags, &arg, hash);
+ 	if (q == NULL)
+ 		goto oom;
+ 
 diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 4dfcddc..1815ff0 100644
+index 1815ff0..ab2d53b 100644
 --- a/net/ipv6/reassembly.c
 +++ b/net/ipv6/reassembly.c
-@@ -625,12 +625,70 @@ static struct inet6_protocol frag_protocol =
- 	.flags		=	INET6_PROTO_NOPOLICY,
- };
- 
--void ipv6_frag_sysctl_init(struct net *net)
-+#ifdef CONFIG_SYSCTL
-+static struct ctl_table ip6_frags_ctl_table[] = {
-+	{
-+		.ctl_name	= NET_IPV6_IP6FRAG_HIGH_THRESH,
-+		.procname	= "ip6frag_high_thresh",
-+		.data		= &init_net.ipv6.sysctl.frags.high_thresh,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec
-+	},
-+	{
-+		.ctl_name	= NET_IPV6_IP6FRAG_LOW_THRESH,
-+		.procname	= "ip6frag_low_thresh",
-+		.data		= &init_net.ipv6.sysctl.frags.low_thresh,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec
-+	},
-+	{
-+		.ctl_name	= NET_IPV6_IP6FRAG_TIME,
-+		.procname	= "ip6frag_time",
-+		.data		= &init_net.ipv6.sysctl.frags.timeout,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec_jiffies,
-+		.strategy	= &sysctl_jiffies,
-+	},
-+	{
-+		.ctl_name	= NET_IPV6_IP6FRAG_SECRET_INTERVAL,
-+		.procname	= "ip6frag_secret_interval",
-+		.data		= &init_net.ipv6.sysctl.frags.secret_interval,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec_jiffies,
-+		.strategy	= &sysctl_jiffies
-+	},
-+	{ }
-+};
-+
-+static int ip6_frags_sysctl_register(struct net *net)
-+{
-+	struct ctl_table_header *hdr;
-+
-+	hdr = register_net_sysctl_table(net, net_ipv6_ctl_path,
-+			ip6_frags_ctl_table);
-+	return hdr == NULL ? -ENOMEM : 0;
-+}
-+#else
-+static inline int ip6_frags_sysctl_register(struct net *net)
- {
--	if (net != &init_net)
--		return;
-+	return 0;
-+}
-+#endif
- 
-+static int ipv6_frags_init_net(struct net *net)
-+{
- 	ip6_frags.ctl = &net->ipv6.sysctl.frags;
-+
-+	net->ipv6.sysctl.frags.high_thresh = 256 * 1024;
-+	net->ipv6.sysctl.frags.low_thresh = 192 * 1024;
-+	net->ipv6.sysctl.frags.timeout = IPV6_FRAG_TIMEOUT;
-+	net->ipv6.sysctl.frags.secret_interval = 10 * 60 * HZ;
-+
-+	return ip6_frags_sysctl_register(net);
+@@ -234,7 +234,7 @@ out:
  }
  
- int __init ipv6_frag_init(void)
-@@ -641,6 +699,8 @@ int __init ipv6_frag_init(void)
- 	if (ret)
- 		goto out;
+ static __inline__ struct frag_queue *
+-fq_find(__be32 id, struct in6_addr *src, struct in6_addr *dst,
++fq_find(struct net *net, __be32 id, struct in6_addr *src, struct in6_addr *dst,
+ 	struct inet6_dev *idev)
+ {
+ 	struct inet_frag_queue *q;
+@@ -246,7 +246,7 @@ fq_find(__be32 id, struct in6_addr *src, struct in6_addr *dst,
+ 	arg.dst = dst;
+ 	hash = ip6qhashfn(id, src, dst);
  
-+	ipv6_frags_init_net(&init_net);
-+
- 	ip6_frags.hashfn = ip6_hashfn;
- 	ip6_frags.constructor = ip6_frag_init;
- 	ip6_frags.destructor = NULL;
-diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
-index 7197eb7..408691b 100644
---- a/net/ipv6/sysctl_net_ipv6.c
-+++ b/net/ipv6/sysctl_net_ipv6.c
-@@ -38,40 +38,6 @@ static ctl_table ipv6_table_template[] = {
- 		.proc_handler	= &proc_dointvec
- 	},
- 	{
--		.ctl_name	= NET_IPV6_IP6FRAG_HIGH_THRESH,
--		.procname	= "ip6frag_high_thresh",
--		.data		= &init_net.ipv6.sysctl.frags.high_thresh,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
--	},
--	{
--		.ctl_name	= NET_IPV6_IP6FRAG_LOW_THRESH,
--		.procname	= "ip6frag_low_thresh",
--		.data		= &init_net.ipv6.sysctl.frags.low_thresh,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
--	},
--	{
--		.ctl_name	= NET_IPV6_IP6FRAG_TIME,
--		.procname	= "ip6frag_time",
--		.data		= &init_net.ipv6.sysctl.frags.timeout,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec_jiffies,
--		.strategy	= &sysctl_jiffies,
--	},
--	{
--		.ctl_name	= NET_IPV6_IP6FRAG_SECRET_INTERVAL,
--		.procname	= "ip6frag_secret_interval",
--		.data		= &init_net.ipv6.sysctl.frags.secret_interval,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec_jiffies,
--		.strategy	= &sysctl_jiffies
--	},
--	{
- 		.ctl_name	= NET_IPV6_MLD_MAX_MSF,
- 		.procname	= "mld_max_msf",
- 		.data		= &sysctl_mld_max_msf,
-@@ -126,16 +92,12 @@ static int ipv6_sysctl_net_init(struct net *net)
- 	ipv6_table[1].child = ipv6_icmp_table;
+-	q = inet_frag_find(&ip6_frags, &arg, hash);
++	q = inet_frag_find(&net->ipv6.frags, &ip6_frags, &arg, hash);
+ 	if (q == NULL)
+ 		goto oom;
  
- 	ipv6_table[2].data = &net->ipv6.sysctl.bindv6only;
--	ipv6_table[3].data = &net->ipv6.sysctl.frags.high_thresh;
--	ipv6_table[4].data = &net->ipv6.sysctl.frags.low_thresh;
--	ipv6_table[5].data = &net->ipv6.sysctl.frags.timeout;
--	ipv6_table[6].data = &net->ipv6.sysctl.frags.secret_interval;
+@@ -568,6 +568,7 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
+ 	struct frag_hdr *fhdr;
+ 	struct frag_queue *fq;
+ 	struct ipv6hdr *hdr = ipv6_hdr(skb);
++	struct net *net;
  
- 	/* We don't want this value to be per namespace, it should be global
- 	   to all namespaces, so make it read-only when we are not in the
- 	   init network namespace */
- 	if (net != &init_net)
--		ipv6_table[7].mode = 0444;
-+		ipv6_table[3].mode = 0444;
+ 	IP6_INC_STATS_BH(ip6_dst_idev(skb->dst), IPSTATS_MIB_REASMREQDS);
  
- 	net->ipv6.sysctl.table = register_net_sysctl_table(net, net_ipv6_ctl_path,
- 							   ipv6_table);
+@@ -598,10 +599,11 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
+ 		return 1;
+ 	}
+ 
++	net = skb->dev->nd_net;
+ 	if (atomic_read(&ip6_frags.mem) > init_net.ipv6.sysctl.frags.high_thresh)
+ 		ip6_evictor(ip6_dst_idev(skb->dst));
+ 
+-	if ((fq = fq_find(fhdr->identification, &hdr->saddr, &hdr->daddr,
++	if ((fq = fq_find(net, fhdr->identification, &hdr->saddr, &hdr->daddr,
+ 			  ip6_dst_idev(skb->dst))) != NULL) {
+ 		int ret;
+ 
 -- 
 1.5.3.4
 
