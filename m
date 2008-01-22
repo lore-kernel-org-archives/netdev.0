@@ -1,100 +1,69 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [IPV4 3/9] fib_trie: compute size when needed
-Date: Tue, 22 Jan 2008 15:37:36 -0800
-Message-ID: <20080122233926.841440568@linux-foundation.org>
+Subject: [IPV4 1/9] fib_trie: put leaf nodes in a slab cache
+Date: Tue, 22 Jan 2008 15:37:34 -0800
+Message-ID: <20080122233926.690301735@linux-foundation.org>
 References: <20080122233733.404145234@linux-foundation.org>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:33092 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([216.93.170.194]:33082 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757059AbYAWAJw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756840AbYAWAJw (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 22 Jan 2008 19:09:52 -0500
-Content-Disposition: inline; filename=fib-trie-stats-x.patch
+Content-Disposition: inline; filename=leaf-kmem-cache.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Compute the number of prefixes when needed, rather than doing bookeeping.
+This improves locality for operations that touch all the leaves.
+Save space since these entries don't need to be hardware cache aligned.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
 
 
---- a/net/ipv4/fib_trie.c	2008-01-21 17:45:03.000000000 -0800
-+++ b/net/ipv4/fib_trie.c	2008-01-21 17:45:03.000000000 -0800
-@@ -143,12 +143,12 @@ struct trie_stat {
- 	unsigned int tnodes;
- 	unsigned int leaves;
- 	unsigned int nullpointers;
-+	unsigned int prefixes;
- 	unsigned int nodesizes[MAX_STAT_DEPTH];
- };
+--- a/net/ipv4/fib_trie.c	2008-01-21 10:16:10.000000000 -0800
++++ b/net/ipv4/fib_trie.c	2008-01-21 10:18:42.000000000 -0800
+@@ -162,6 +162,7 @@ static struct tnode *halve(struct trie *
+ static void tnode_free(struct tnode *tn);
  
- struct trie {
- 	struct node *trie;
--	unsigned int size;
- #ifdef CONFIG_IP_FIB_TRIE_STATS
- 	struct trie_use_stats stats;
- #endif
-@@ -1289,8 +1289,6 @@ static int fn_trie_insert(struct fib_tab
- 	list_add_tail_rcu(&new_fa->fa_list,
- 			  (fa ? &fa->fa_list : fa_head));
+ static struct kmem_cache *fn_alias_kmem __read_mostly;
++static struct kmem_cache *trie_leaf_kmem __read_mostly;
  
--	t->size++;
--
- 	rt_cache_flush(-1);
- 	rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, tb->tb_id,
- 		  &cfg->fc_nlinfo, 0);
-@@ -1576,9 +1574,6 @@ static int trie_leaf_remove(struct trie 
- 	 * Key found.
- 	 * Remove the leaf and rebalance the tree
- 	 */
--
--	t->size--;
--
- 	tp = node_parent(n);
- 	tnode_free((struct tnode *) n);
- 
-@@ -2111,10 +2106,17 @@ static void trie_collect_stats(struct tr
- 	for (n = fib_trie_get_first(&iter, t); n;
- 	     n = fib_trie_get_next(&iter)) {
- 		if (IS_LEAF(n)) {
-+			struct leaf *l = (struct leaf *)n;
-+			struct leaf_info *li;
-+			struct hlist_node *tmp;
-+
- 			s->leaves++;
- 			s->totdepth += iter.depth;
- 			if (iter.depth > s->maxdepth)
- 				s->maxdepth = iter.depth;
-+
-+			hlist_for_each_entry_rcu(li, tmp, &l->list, hlist)
-+				++s->prefixes;
- 		} else {
- 			const struct tnode *tn = (const struct tnode *) n;
- 			int i;
-@@ -2148,8 +2150,11 @@ static void trie_show_stats(struct seq_f
- 	seq_printf(seq, "\tMax depth:      %u\n", stat->maxdepth);
- 
- 	seq_printf(seq, "\tLeaves:         %u\n", stat->leaves);
--
- 	bytes = sizeof(struct leaf) * stat->leaves;
-+
-+	seq_printf(seq, "\tPrefixes:       %u\n", stat->prefixes);
-+	bytes += sizeof(struct leaf_info) * stat->prefixes;
-+
- 	seq_printf(seq, "\tInternal nodes: %u\n\t", stat->tnodes);
- 	bytes += sizeof(struct tnode) * stat->tnodes;
- 
-@@ -2193,8 +2198,8 @@ static void fib_trie_show(struct seq_fil
+ static inline struct tnode *node_parent(struct node *node)
  {
- 	struct trie_stat stat;
+@@ -325,7 +326,8 @@ static inline void alias_free_mem_rcu(st
  
--	seq_printf(seq, "%s: %d\n", name, trie->size);
- 	trie_collect_stats(trie, &stat);
-+	seq_printf(seq, "%s:\n", name);
- 	trie_show_stats(seq, &stat);
- #ifdef CONFIG_IP_FIB_TRIE_STATS
- 	trie_show_usage(seq, &trie->stats);
+ static void __leaf_free_rcu(struct rcu_head *head)
+ {
+-	kfree(container_of(head, struct leaf, rcu));
++	struct leaf *l = container_of(head, struct leaf, rcu);
++	kmem_cache_free(trie_leaf_kmem, l);
+ }
+ 
+ static void __leaf_info_free_rcu(struct rcu_head *head)
+@@ -375,7 +377,7 @@ static inline void tnode_free(struct tno
+ 
+ static struct leaf *leaf_new(void)
+ {
+-	struct leaf *l = kmalloc(sizeof(struct leaf),  GFP_KERNEL);
++	struct leaf *l = kmem_cache_alloc(trie_leaf_kmem, GFP_KERNEL);
+ 	if (l) {
+ 		l->parent = T_LEAF;
+ 		INIT_HLIST_HEAD(&l->list);
+@@ -1935,7 +1937,12 @@ out:
+ void __init fib_hash_init(void)
+ {
+ 	fn_alias_kmem = kmem_cache_create("ip_fib_alias", sizeof(struct fib_alias),
+-					  0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
++					  0, SLAB_PANIC, NULL);
++
++	trie_leaf_kmem = kmem_cache_create("ip_fib_trie",
++					   max(sizeof(struct leaf),
++					       sizeof(struct leaf_info)),
++					   0, SLAB_PANIC, NULL);
+ }
+ 
+ 
 
 -- 
 Stephen Hemminger <stephen.hemminger@vyatta.com>
