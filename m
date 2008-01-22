@@ -1,84 +1,42 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 1/3 v2][NET] gen_estimator: faster gen_kill_estimator
-Date: Tue, 22 Jan 2008 08:26:28 +0100
-Message-ID: <20080122072627.GB977@ff.dom.local>
-References: <20080121.162918.148129860.davem@davemloft.net> <20080122072152.GA977@ff.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Netperf TCP_RR(loopback) 10% regression in 2.6.24-rc6,
+ comparing with 2.6.22
+Date: Mon, 21 Jan 2008 23:32:09 -0800 (PST)
+Message-ID: <20080121.233209.103306410.davem@davemloft.net>
+References: <1200982039.3151.120.camel@ymzhang>
+	<47958CC8.9060609@cosmosbay.com>
+	<1200984752.3151.261.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, slavon@bigtelecom.ru, kaber@trash.net,
-	hadi@cyberus.ca
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dada1@cosmosbay.com, rick.jones2@hp.com, netdev@vger.kernel.org
+To: yanmin_zhang@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hu-out-0506.google.com ([72.14.214.226]:4942 "EHLO
-	hu-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750992AbYAVHTw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 02:19:52 -0500
-Received: by hu-out-0506.google.com with SMTP id 19so940987hue.21
-        for <netdev@vger.kernel.org>; Mon, 21 Jan 2008 23:19:50 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080122072152.GA977@ff.dom.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40968
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754300AbYAVHch (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 02:32:37 -0500
+In-Reply-To: <1200984752.3151.261.camel@ymzhang>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 22, 2008 at 08:21:52AM +0100, Jarek Poplawski wrote:
-...
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Date: Tue, 22 Jan 2008 14:52:32 +0800
 
-Part 2 of mini RFC:
+> I double-checked it and they are queued to socket A. If I define a
+> different local port for netperf, packets will be queued to socket
+> B.
 
-HTB changes to use new, faster gen_estimator functions._
+This does not prove the kernel is buggy.
 
-This is done against 2.6.24-rc8-mm1. 
+If netperf is binding to devices, that could make the kernel consider
+the 0.0.0.0 bound socket equally preferable to the 127.0.0.1 bound
+one.  When preference is equal, the first socket in the list is
+choosen.
 
-Thanks,
-Jarek P.
+The algorithm is in net/ipv4/udp.c:__udp4_lib_lookup(), you
+can look for yourself.  It uses a scoring system to decide
+which socket to match.  Binding to a specific device gives
+the score two points, so does binding to a specific local
+address.
 
----
-
-diff -Nurp 2.6.24-rc8-mm1-/net/sched/sch_htb.c 2.6.24-rc8-mm1+/net/sched/sch_htb.c
---- 2.6.24-rc8-mm1-/net/sched/sch_htb.c	2008-01-19 17:54:49.000000000 +0100
-+++ 2.6.24-rc8-mm1+/net/sched/sch_htb.c	2008-01-22 00:00:31.000000000 +0100
-@@ -127,6 +127,7 @@ struct htb_class {
- 	int prio;		/* For parent to leaf return possible here */
- 	int quantum;		/* we do backup. Finally full replacement  */
- 				/* of un.leaf originals should be done. */
-+	unsigned long	gen_estimator;	/* ngen_new_estimator() data */
- };
- 
- static inline long L2T(struct htb_class *cl, struct qdisc_rate_table *rate,
-@@ -1195,7 +1196,7 @@ static void htb_destroy_class(struct Qdi
- 		BUG_TRAP(cl->un.leaf.q);
- 		qdisc_destroy(cl->un.leaf.q);
- 	}
--	gen_kill_estimator(&cl->bstats, &cl->rate_est);
-+	ngen_kill_estimator(&cl->gen_estimator);
- 	qdisc_put_rtab(cl->rate);
- 	qdisc_put_rtab(cl->ceil);
- 
-@@ -1348,9 +1349,10 @@ static int htb_change_class(struct Qdisc
- 		if ((cl = kzalloc(sizeof(*cl), GFP_KERNEL)) == NULL)
- 			goto failure;
- 
--		gen_new_estimator(&cl->bstats, &cl->rate_est,
--				  &sch->dev->queue_lock,
--				  tca[TCA_RATE-1] ? : &est.rta);
-+		ngen_new_estimator(&cl->bstats, &cl->rate_est,
-+				   &sch->dev->queue_lock,
-+				   tca[TCA_RATE-1] ? : &est.rta,
-+				   &cl->gen_estimator);
- 		cl->refcnt = 1;
- 		INIT_LIST_HEAD(&cl->sibling);
- 		INIT_HLIST_NODE(&cl->hlist);
-@@ -1404,9 +1406,10 @@ static int htb_change_class(struct Qdisc
- 			      parent ? &parent->children : &q->root);
- 	} else {
- 		if (tca[TCA_RATE-1])
--			gen_replace_estimator(&cl->bstats, &cl->rate_est,
--					      &sch->dev->queue_lock,
--					      tca[TCA_RATE-1]);
-+			ngen_replace_estimator(&cl->bstats, &cl->rate_est,
-+					       &sch->dev->queue_lock,
-+					       tca[TCA_RATE-1],
-+					       &cl->gen_estimator);
- 		sch_tree_lock(sch);
- 	}
- 
