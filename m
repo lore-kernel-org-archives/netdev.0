@@ -1,58 +1,47 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 0/6] PS3: gelic: gelic updates for 2.6.25
-Date: Wed, 23 Jan 2008 11:40:34 +1100
-Message-ID: <1201048834.6807.55.camel@pasglop>
-References: <20071213181146.BF69.MOKUNO@sm.sony.co.jp>
-	<20080122211239.GC3206@tuxdriver.com>
-Reply-To: benh@kernel.crashing.org
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Subject: Re: Netperf TCP_RR(loopback) 10%
+	regression	in	2.6.24-rc6,	comparing with 2.6.22
+Date: Wed, 23 Jan 2008 08:42:24 +0800
+Message-ID: <1201048944.3151.263.camel@ymzhang>
+References: <1199871330.3298.132.camel@ymzhang>
+	 <1200043854.3265.24.camel@ymzhang>  <4787ADDA.7090602@hp.com>
+	 <1200280292.3151.24.camel@ymzhang>  <478B9FE0.3040801@hp.com>
+	 <1200979482.3151.103.camel@ymzhang> <1200982039.3151.120.camel@ymzhang>
+	 <479637B1.5000706@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "Geert.Uytterhoeven" <Geert.Uytterhoeven@sonycom.com>,
-	netdev@vger.kernel.org, Linux/PPC Development <linuxppc-dev@ozlabs.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20080122211239.GC3206@tuxdriver.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga10.intel.com ([192.55.52.92]:56782 "EHLO
+	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752392AbYAWAoA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2008 19:44:00 -0500
+In-Reply-To: <479637B1.5000706@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Tue, 2008-01-22 at 16:12 -0500, John W. Linville wrote:
-> On Thu, Dec 13, 2007 at 07:38:28PM +0900, Masakazu Mokuno wrote:
+On Tue, 2008-01-22 at 10:36 -0800, Rick Jones wrote:
+> When parsing the -P option in scan_socket_args() of src/nettest_bsd.c, 
+> netperf is using "break_args()" from src/netsh.c which indeed if the 
+> command line says "-P 12345" will set both the local and remote port 
+> numbers to 12345.  If instead you were to say "-P 12345,"  it will use 
+> 12345 only for the netperf side.  If you say "-P ,12345" it will use 
+> 12345 only for the netserver side.  To set both sides at once to 
+> different values it would be "-P 12345,54321"
 > 
-> > Here is a set of updates for PS3 gelic network driver.
-> > This patch set requires other patches which were already submitted by
-> > Geert (http://marc.info/?l=linux-kernel&m=119626095605487).
-> > 
-> > 	[1] PS3: gelic: Fix the wrong dev_id passed
-> > 	[2] PS3: gelic: Add endianness macros
-> > 	[3] PS3: gelic: Code cleanup
-> > 	[4] PS3: gelic: Remove duplicated ethtool handers
-> > 	[5] PS3: gelic: Add support for port link status
-> > 	[6] PS3: gelic: Add support for dual network interface
-> > 
-> > This is also a set of prerequisite for new wireless driver for PS3, which
-> > I'll submit later. 
-> 
-> These seem to not have been applied, but I couldn't find any stated
-> reason.  Did they just get lost?  Withdrawn?
-> 
-> Will these be applied?  There is a wireless patch that depends on them.
-> If not, will the wireless portion be refactored to not require these
-> patches?
+> In theory, send_udp_rr() in src/nettest_bsd.c (or I suppose 
+> scan_socket_args() could have more code added to it to check for a UDP 
+> test over loopback, but probably needs to be a check for any local IP, 
+> and unless this becomes something bigger than "Doctor! Doctor! It hurts 
+> when I do this!" :) I'm inclined to leave it as caveat benchmarker and 
+> perhaps some additional text in the manual.
+I will instrument kernel to see if kernel does work like it is expected.
 
-The list of 6 patches above are the patches that Masakazu Mukono is
-submitting, the pre-reqs are different patches (see the linked URL),
-though I can't see them in either (they should probably go through
-paulus for-2.6.25). Geert, what's up with these ?
+When an issue is found, we shouldn't escape by saying it's nothing to do
+with me.
 
-Cheers,
-Ben.
+-yanmin
+
+
