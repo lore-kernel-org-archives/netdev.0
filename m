@@ -1,76 +1,58 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Re: [PATCH 09/26] atl1: refactor tx processing
-Date: Tue, 22 Jan 2008 18:31:09 -0600
-Message-ID: <20080122183109.5ab80802@osprey.hogchain.net>
-References: <1199152804-3889-1-git-send-email-jacliburn@bellsouth.net>
-	<1199152804-3889-10-git-send-email-jacliburn@bellsouth.net>
-	<4795BE39.6000505@garzik.org>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 0/6] PS3: gelic: gelic updates for 2.6.25
+Date: Wed, 23 Jan 2008 11:40:34 +1100
+Message-ID: <1201048834.6807.55.camel@pasglop>
+References: <20071213181146.BF69.MOKUNO@sm.sony.co.jp>
+	<20080122211239.GC3206@tuxdriver.com>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: csnook@redhat.com, linux-kernel@vger.kernel.org,
-	atl1-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754261AbYAWAbY@vger.kernel.org>
-In-Reply-To: <4795BE39.6000505@garzik.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "Geert.Uytterhoeven" <Geert.Uytterhoeven@sonycom.com>,
+	netdev@vger.kernel.org, Linux/PPC Development <linuxppc-dev@ozlabs.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20080122211239.GC3206@tuxdriver.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Jan 2008 04:58:17 -0500
-Jeff Garzik <jeff@garzik.org> wrote:
 
-> jacliburn@bellsouth.net wrote:
-> > From: Jay Cliburn <jacliburn@bellsouth.net>
-> > 
-> > Refactor tx processing to use a less convoluted tx packet
-> > descriptor and to conform generally with the vendor's current
-> > version 1.2.40.2.
-> > 
-> > Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
-> > ---
-> >  drivers/net/atlx/atl1.c |  265
-> > +++++++++++++++++++++++++----------------------
-> > drivers/net/atlx/atl1.h |  201 +++++++++++++++++++-----------------
-> > 2 files changed, 246 insertions(+), 220 deletions(-)
+On Tue, 2008-01-22 at 16:12 -0500, John W. Linville wrote:
+> On Thu, Dec 13, 2007 at 07:38:28PM +0900, Masakazu Mokuno wrote:
 > 
-> for such a huge patch, this description is very tiny.  [describe]
-> what is refactored, and why.
+> > Here is a set of updates for PS3 gelic network driver.
+> > This patch set requires other patches which were already submitted by
+> > Geert (http://marc.info/?l=linux-kernel&m=119626095605487).
+> > 
+> > 	[1] PS3: gelic: Fix the wrong dev_id passed
+> > 	[2] PS3: gelic: Add endianness macros
+> > 	[3] PS3: gelic: Code cleanup
+> > 	[4] PS3: gelic: Remove duplicated ethtool handers
+> > 	[5] PS3: gelic: Add support for port link status
+> > 	[6] PS3: gelic: Add support for dual network interface
+> > 
+> > This is also a set of prerequisite for new wireless driver for PS3, which
+> > I'll submit later. 
+> 
+> These seem to not have been applied, but I couldn't find any stated
+> reason.  Did they just get lost?  Withdrawn?
+> 
+> Will these be applied?  There is a wireless patch that depends on them.
+> If not, will the wireless portion be refactored to not require these
+> patches?
 
-Okay, I'll go back and rework the offending descriptions for this and
-the other patches in this set.
+The list of 6 patches above are the patches that Masakazu Mukono is
+submitting, the pre-reqs are different patches (see the linked URL),
+though I can't see them in either (they should probably go through
+paulus for-2.6.25). Geert, what's up with these ?
 
-> what does "less convoluted" mean?
-
-I should have written "simpler," I suppose.
-
-Before:
-=======
-struct tso_param {
-	u32 tsopu;      /* tso_param upper word */
-	u32 tsopl;      /* tso_param lower word */
-};
-
-struct csum_param {
-	u32 csumpu;     /* csum_param upper word */
-	u32 csumpl;     /* csum_param lower word */
-};
-
-union tpd_descr {
-	u64 data;
-	struct csum_param csum;
-	struct tso_param tso;
-};
-
-struct tx_packet_desc {
-	__le64 buffer_addr;
-	union tpd_descr desc;
-};
-
-
-After:
-======
-struct tx_packet_desc {
-        __le64 buffer_addr;
-        __le32 word2;
-        __le32 word3;
-};
+Cheers,
+Ben.
