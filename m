@@ -1,38 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Assertions in latest kernels
-Date: Wed, 23 Jan 2008 02:57:32 -0800 (PST)
-Message-ID: <20080123.025732.200278761.davem@davemloft.net>
-References: <OF331AFFAC.CEF61228-ON652573D9.002CF47B-652573D9.002E0A84@in.ibm.com>
-	<Pine.LNX.4.64.0801231043220.31652@kivilampi-30.cs.helsinki.fi>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 2.6.25 1/1]S2io: Multiqueue network device support implementation
+Date: 23 Jan 2008 11:58:14 +0100
+Message-ID: <p73odbclsft.fsf@crumb.suse.de>
+References: <Pine.GSO.4.10.10801221942530.24414-100000@guinness>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: krkumar2@in.ibm.com, netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jeff@garzik.org, support@neterion.com
+To: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60307
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751397AbYAWK5Y convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jan 2008 05:57:24 -0500
-In-Reply-To: <Pine.LNX.4.64.0801231043220.31652@kivilampi-30.cs.helsinki.fi>
+Received: from cantor2.suse.de ([195.135.220.15]:35164 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753536AbYAWK6S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2008 05:58:18 -0500
+In-Reply-To: <Pine.GSO.4.10.10801221942530.24414-100000@guinness>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Wed, 23 Jan 2008 11:17:05 +0200 (EET)
+Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com> writes:
 
-> What a strange thing that it has been super quiet on this front
-> until now everybody is seeing it, could there be something unrelated
-> to TCP which has broken it all recently?
+> Multiqueue netwrok device support implementation.
+> - Added a loadable parameter "multiq" to enable/disable multiqueue support,
+>   by default it is disabled.
+> - skb->queue_mapping is not used for queue/fifo selection. FIFO iselection is
+>   based on IP-TOS value, 0x0-0xF TOS values are mapped to 8 FIFOs.
 
-I think it is simply "capture effect".
+Standard way to use that would be using skb->priority
 
-One person reports the problem, and then others see it and
-say "me too" because they were previously too busy to report
-their instance of the problem.
+But I'm surprised you bother with TOS for multi queues at all. TOS
+isn't a too important mechanism.
 
-Another thing is that a developer is sometimes working on something
-and they do not want to pollute the bug reporting if the code they are
-writing is what is causing the bug via some indirect corruptions or
-whatever :-)
+I would have thought the primary use case would be per CPU TX completion
+interrupts. With that the queue should be selected based on
+the the current CPU.
+
+-Andi
