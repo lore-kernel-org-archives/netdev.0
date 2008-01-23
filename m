@@ -1,61 +1,134 @@
-From: "Dave Young" <hidave.darkstar@gmail.com>
-Subject: Re: 2.6.24-rc8-mm1 : net tcp_input.c warnings
-Date: Wed, 23 Jan 2008 15:44:54 +0800
-Message-ID: <a8e1da0801222344l101c2b90s363821c26bc8cb55@mail.gmail.com>
-References: <a8e1da0801220109v6bf8931ev50f2210402c3ba41@mail.gmail.com>
-	 <Pine.LNX.4.64.0801221115150.31652@kivilampi-30.cs.helsinki.fi>
-	 <a8e1da0801221744m37021e88h5c188e5b31ea42bf@mail.gmail.com>
-	 <20080122.190137.206066966.davem@davemloft.net>
-	 <Pine.LNX.4.64.0801230937270.31652@kivilampi-30.cs.helsinki.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>
-To: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 11/12 net-2.6.25] [NETNS]: Routing cache virtualization.
+Date: Wed, 23 Jan 2008 10:46:26 +0300
+Message-ID: <1201074387-7366-2-git-send-email-den@openvz.org>
+References: <479612BE.8030409@openvz.org>
+Cc: netdev@vger.kernel.org, devel@openvz.org,
+	containers@lists.osdl.org, "Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ag-out-0708.google.com ([72.14.246.244]:19329 "EHLO
-	ag-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752956AbYAWHo5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 02:44:57 -0500
-Received: by ag-out-0708.google.com with SMTP id 23so2013730agd.10
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2008 23:44:54 -0800 (PST)
-In-Reply-To: <Pine.LNX.4.64.0801230937270.31652@kivilampi-30.cs.helsinki.fi>
-Content-Disposition: inline
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:60933 "EHLO iris.sw.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752417AbYAWHq2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2008 02:46:28 -0500
+In-Reply-To: <479612BE.8030409@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Jan 23, 2008 3:41 PM, Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi> wr=
-ote:
->
-> On Tue, 22 Jan 2008, David Miller wrote:
->
-> > From: "Dave Young" <hidave.darkstar@gmail.com>
-> > Date: Wed, 23 Jan 2008 09:44:30 +0800
-> >
-> > > On Jan 22, 2008 6:47 PM, Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.=
-fi> wrote:
-> > > > [PATCH] [TCP]: debug S+L
-> > >
-> > > Thanks, If there's new findings I will let you know.
-> >
-> > Thanks for helping with this bug Dave.
->
-> I noticed btw that there thing might (is likely to) spuriously trigge=
-r at
-> WARN_ON(sacked !=3D tp->sacked_out); because those won't be equal whe=
-n SACK
-> is not enabled. If that does happen too often, I send a fixed patch f=
-or
-> it, yet, the fact that I print print tp->rx_opt.sack_ok allows
-> identification of those cases already as it's zero when SACK is not
-> enabled.
->
-> Just ask if you need the updated debug patch.
+Basically, this piece looks relatively easy. Namespace is already available
+on the dst entry via device and the device is safe to dereferrence. Compare
+it with one of a searcher and skip entry if appropriate.
 
-Thanks,  please send, I would like to get it.
+The only exception is ip_rt_frag_needed. So, add namespace parameter to it.
 
->
-> --
->  i.
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ include/net/route.h |    2 +-
+ net/ipv4/icmp.c     |    2 +-
+ net/ipv4/route.c    |   21 ++++++++++++++++-----
+ 3 files changed, 18 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/route.h b/include/net/route.h
+index 1985d82..4eabf00 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -115,7 +115,7 @@ extern int		__ip_route_output_key(struct net *, struct rtable **, const struct f
+ extern int		ip_route_output_key(struct net *, struct rtable **, struct flowi *flp);
+ extern int		ip_route_output_flow(struct net *, struct rtable **rp, struct flowi *flp, struct sock *sk, int flags);
+ extern int		ip_route_input(struct sk_buff*, __be32 dst, __be32 src, u8 tos, struct net_device *devin);
+-extern unsigned short	ip_rt_frag_needed(struct iphdr *iph, unsigned short new_mtu);
++extern unsigned short	ip_rt_frag_needed(struct net *net, struct iphdr *iph, unsigned short new_mtu);
+ extern void		ip_rt_send_redirect(struct sk_buff *skb);
+ 
+ extern unsigned		inet_addr_type(struct net *net, __be32 addr);
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index c04aac5..052b278 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -696,7 +696,7 @@ static void icmp_unreach(struct sk_buff *skb)
+ 							 "and DF set.\n",
+ 					       NIPQUAD(iph->daddr));
+ 			} else {
+-				info = ip_rt_frag_needed(iph,
++				info = ip_rt_frag_needed(&init_net, iph,
+ 						     ntohs(icmph->un.frag.mtu));
+ 				if (!info)
+ 					goto out;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 87076c6..07dd295 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -648,6 +648,11 @@ static inline int compare_keys(struct flowi *fl1, struct flowi *fl2)
+ 		(fl1->iif ^ fl2->iif)) == 0;
+ }
+ 
++static inline int compare_netns(struct rtable *rt1, struct rtable *rt2)
++{
++	return rt1->u.dst.dev->nd_net == rt2->u.dst.dev->nd_net;
++}
++
+ /*
+  * Perform a full scan of hash table and free all entries.
+  * Can be called by a softirq or a process.
+@@ -961,7 +966,7 @@ restart:
+ 
+ 	spin_lock_bh(rt_hash_lock_addr(hash));
+ 	while ((rth = *rthp) != NULL) {
+-		if (compare_keys(&rth->fl, &rt->fl)) {
++		if (compare_keys(&rth->fl, &rt->fl) && compare_netns(rth, rt)) {
+ 			/* Put it first */
+ 			*rthp = rth->u.dst.rt_next;
+ 			/*
+@@ -1415,7 +1420,8 @@ static __inline__ unsigned short guess_mtu(unsigned short old_mtu)
+ 	return 68;
+ }
+ 
+-unsigned short ip_rt_frag_needed(struct iphdr *iph, unsigned short new_mtu)
++unsigned short ip_rt_frag_needed(struct net *net, struct iphdr *iph,
++				 unsigned short new_mtu)
+ {
+ 	int i;
+ 	unsigned short old_mtu = ntohs(iph->tot_len);
+@@ -1438,7 +1444,8 @@ unsigned short ip_rt_frag_needed(struct iphdr *iph, unsigned short new_mtu)
+ 			    rth->rt_dst  == daddr &&
+ 			    rth->rt_src  == iph->saddr &&
+ 			    rth->fl.iif == 0 &&
+-			    !(dst_metric_locked(&rth->u.dst, RTAX_MTU))) {
++			    !(dst_metric_locked(&rth->u.dst, RTAX_MTU)) &&
++			    rth->u.dst.dev->nd_net == net) {
+ 				unsigned short mtu = new_mtu;
+ 
+ 				if (new_mtu < 68 || new_mtu >= old_mtu) {
+@@ -2049,7 +2056,9 @@ int ip_route_input(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	struct rtable * rth;
+ 	unsigned	hash;
+ 	int iif = dev->ifindex;
++	struct net *net;
+ 
++	net = skb->dev->nd_net;
+ 	tos &= IPTOS_RT_MASK;
+ 	hash = rt_hash(daddr, saddr, iif);
+ 
+@@ -2061,7 +2070,8 @@ int ip_route_input(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 		    rth->fl.iif == iif &&
+ 		    rth->fl.oif == 0 &&
+ 		    rth->fl.mark == skb->mark &&
+-		    rth->fl.fl4_tos == tos) {
++		    rth->fl.fl4_tos == tos &&
++		    rth->u.dst.dev->nd_net == net) {
+ 			dst_use(&rth->u.dst, jiffies);
+ 			RT_CACHE_STAT_INC(in_hit);
+ 			rcu_read_unlock();
+@@ -2459,7 +2469,8 @@ int __ip_route_output_key(struct net *net, struct rtable **rp,
+ 		    rth->fl.oif == flp->oif &&
+ 		    rth->fl.mark == flp->mark &&
+ 		    !((rth->fl.fl4_tos ^ flp->fl4_tos) &
+-			    (IPTOS_RT_MASK | RTO_ONLINK))) {
++			    (IPTOS_RT_MASK | RTO_ONLINK)) &&
++		    rth->u.dst.dev->nd_net == net) {
+ 			dst_use(&rth->u.dst, jiffies);
+ 			RT_CACHE_STAT_INC(out_hit);
+ 			rcu_read_unlock_bh();
+-- 
+1.5.3.rc5
+
