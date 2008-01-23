@@ -1,46 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV4 0/9] TRIE performance patches
-Date: Tue, 22 Jan 2008 21:58:31 -0800 (PST)
-Message-ID: <20080122.215831.221891291.davem@davemloft.net>
-References: <20080122233733.404145234@linux-foundation.org>
+Subject: Re: [PATCH 5/12 net-2.6.25] [NETNS]: Re-export init_net via
+ EXPORT_SYMBOL.
+Date: Tue, 22 Jan 2008 22:08:37 -0800 (PST)
+Message-ID: <20080122.220837.15849277.davem@davemloft.net>
+References: <1201017566-16985-5-git-send-email-den@openvz.org>
+	<47962228.3000302@trash.net>
+	<4796258F.7050507@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: kaber@trash.net, den@openvz.org, netdev@vger.kernel.org,
+	devel@openvz.org, containers@lists.osdl.org
+To: dlunev@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44447
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36084
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753274AbYAWF6W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 00:58:22 -0500
-In-Reply-To: <20080122233733.404145234@linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1752386AbYAWGI3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 01:08:29 -0500
+In-Reply-To: <4796258F.7050507@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Tue, 22 Jan 2008 15:37:33 -0800
+From: "Denis V. Lunev" <dlunev@gmail.com>
+Date: Tue, 22 Jan 2008 20:19:11 +0300
 
-> 
-> Time to handle a full BGP load (163K of routes).
-> 
-> Before:		Load		Dump		Flush
-> hash		3.5		 0.5		0.7
-> 2.6.23.14	3.4		19.3		10.3
-> net-2.6.25	3.4		18.7		9.8
-> 
-> After:
-> kmem_cache	3.8		13.0		7.2
-> iter		3.9		12.3		6.9
-> unordered	3.1		11.9		4.9
-> find_node	3.1		 0.3		1.2
-> 
-> Load:	ip -batch iproute-table
-> Dump:	ip route >/dev/null
-> Flush:	ip route flush table main
+> Patrick McHardy wrote:
+> > Denis V. Lunev wrote:
+> >> init_net is used added as a parameter to a lot of old API calls, f.e.
+> >> ip_dev_find. These calls were exported as EXPORT_SYMBOL. So, export
+> >> init_net
+> >> as EXPORT_SYMBOL to keep networking API consistent.
+> > 
+> > 
+> > I think this should go in 2.6.24 if still possible so people
+> > don't have to find workarounds that will be obsolete one
+> > version later.
+> > 
+> yep, sure :) should I send this one separate for 2.4?
 
-Nice work Stephen, all 9 patches applied.
-
-We'll need to think about that new -EBUSY behavior, it
-might confuse routing daemons and similar, and therefore
-we might need to find a way to fudge continuing the dump
-instead of failing.
+I'll take care of this.
