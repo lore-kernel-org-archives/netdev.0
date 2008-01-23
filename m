@@ -1,58 +1,98 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED 11/15]: sch_api: introduce constant for rate table size
-Date: Wed, 23 Jan 2008 17:36:51 +0100 (MET)
-Message-ID: <20080123163610.6459.76735.sendpatchset@localhost.localdomain>
+Subject: [NET_SCHED 15/15]: Use nla_policy for attribute validation in ematches
+Date: Wed, 23 Jan 2008 17:36:57 +0100 (MET)
+Message-ID: <20080123163616.6459.97188.sendpatchset@localhost.localdomain>
 References: <20080123163555.6459.69501.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49733 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:49758 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754681AbYAWQgw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 11:36:52 -0500
+	with ESMTP id S1753135AbYAWQg6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 11:36:58 -0500
 In-Reply-To: <20080123163555.6459.69501.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[NET_SCHED]: sch_api: introduce constant for rate table size
+[NET_SCHED]: Use nla_policy for attribute validation in ematches
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit b21f31e516f993016f8a1ade331bcaf71576b4e2
-tree e59049e1fb3f2711d83c196d2f54b5021dc68330
-parent 3e73383f7c353af51e8cc475f1c217a6b81fcecf
-author Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:12:56 +0100
-committer Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:12:56 +0100
+commit 9420f06512465a8a90f3ff0df8b943989bc7e2e7
+tree 7556b31b93647c9d2c30eb567b50671d368f8ced
+parent 99302e1c1ed003305e9a0102aa772e2f2d61114c
+author Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:23:09 +0100
+committer Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:23:09 +0100
 
- include/linux/pkt_sched.h |    2 ++
- net/sched/sch_api.c       |    3 ++-
- 2 files changed, 4 insertions(+), 1 deletions(-)
+ net/sched/em_meta.c |    9 ++++++---
+ net/sched/ematch.c  |   11 ++++++-----
+ 2 files changed, 12 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 919af93..3276135 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -83,6 +83,8 @@ struct tc_ratespec
- 	__u32		rate;
- };
+diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
+index d9f487d..a1e5619 100644
+--- a/net/sched/em_meta.c
++++ b/net/sched/em_meta.c
+@@ -745,6 +745,10 @@ static inline int meta_is_supported(struct meta_value *val)
+ 	return (!meta_id(val) || meta_ops(val)->get);
+ }
  
-+#define TC_RTAB_SIZE	1024
++static const struct nla_policy meta_policy[TCA_EM_META_MAX + 1] = {
++	[TCA_EM_META_HDR]	= { .len = sizeof(struct tcf_meta_hdr) },
++};
 +
- /* FIFO section */
+ static int em_meta_change(struct tcf_proto *tp, void *data, int len,
+ 			  struct tcf_ematch *m)
+ {
+@@ -753,13 +757,12 @@ static int em_meta_change(struct tcf_proto *tp, void *data, int len,
+ 	struct tcf_meta_hdr *hdr;
+ 	struct meta_match *meta = NULL;
  
- struct tc_fifo_qopt
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 8db554d..7e3c048 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -244,7 +244,8 @@ struct qdisc_rate_table *qdisc_get_rtab(struct tc_ratespec *r, struct nlattr *ta
- 		}
+-	err = nla_parse(tb, TCA_EM_META_MAX, data, len, NULL);
++	err = nla_parse(tb, TCA_EM_META_MAX, data, len, meta_policy);
+ 	if (err < 0)
+ 		goto errout;
+ 
+ 	err = -EINVAL;
+-	if (tb[TCA_EM_META_HDR] == NULL ||
+-	    nla_len(tb[TCA_EM_META_HDR]) < sizeof(*hdr))
++	if (tb[TCA_EM_META_HDR] == NULL)
+ 		goto errout;
+ 	hdr = nla_data(tb[TCA_EM_META_HDR]);
+ 
+diff --git a/net/sched/ematch.c b/net/sched/ematch.c
+index daa9c4e..74ff918 100644
+--- a/net/sched/ematch.c
++++ b/net/sched/ematch.c
+@@ -282,6 +282,11 @@ errout:
+ 	return err;
+ }
+ 
++static const struct nla_policy em_policy[TCA_EMATCH_TREE_MAX + 1] = {
++	[TCA_EMATCH_TREE_HDR]	= { .len = sizeof(struct tcf_ematch_tree_hdr) },
++	[TCA_EMATCH_TREE_LIST]	= { .type = NLA_NESTED },
++};
++
+ /**
+  * tcf_em_tree_validate - validate ematch config TLV and build ematch tree
+  *
+@@ -312,7 +317,7 @@ int tcf_em_tree_validate(struct tcf_proto *tp, struct nlattr *nla,
+ 		return 0;
  	}
  
--	if (tab == NULL || r->rate == 0 || r->cell_log == 0 || nla_len(tab) != 1024)
-+	if (tab == NULL || r->rate == 0 || r->cell_log == 0 ||
-+	    nla_len(tab) != TC_RTAB_SIZE)
- 		return NULL;
+-	err = nla_parse_nested(tb, TCA_EMATCH_TREE_MAX, nla, NULL);
++	err = nla_parse_nested(tb, TCA_EMATCH_TREE_MAX, nla, em_policy);
+ 	if (err < 0)
+ 		goto errout;
  
- 	rtab = kmalloc(sizeof(*rtab), GFP_KERNEL);
+@@ -323,10 +328,6 @@ int tcf_em_tree_validate(struct tcf_proto *tp, struct nlattr *nla,
+ 	if (rt_hdr == NULL || rt_list == NULL)
+ 		goto errout;
+ 
+-	if (nla_len(rt_hdr) < sizeof(*tree_hdr) ||
+-	    nla_len(rt_list) < sizeof(*rt_match))
+-		goto errout;
+-
+ 	tree_hdr = nla_data(rt_hdr);
+ 	memcpy(&tree->hdr, tree_hdr, sizeof(*tree_hdr));
+ 
