@@ -1,142 +1,108 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [IPV4 3/5] fib_trie: dump doesnt use RCU
-Date: Wed, 23 Jan 2008 14:48:47 -0800
-Message-ID: <20080123224858.918669715@linux-foundation.org>
-References: <20080123224844.610730277@linux-foundation.org>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:57041 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752226AbYAWXAs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jan 2008 18:00:48 -0500
-Content-Disposition: inline; filename=fib-dump-rtnl.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] ppp: sparse warning fixes
+Date: Wed, 23 Jan 2008 15:40:19 -0800
+Message-ID: <20080123154019.7cd9c471@deepthought>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+To: Paul Mackerras <paulus@samba.org>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since fib dump (via netlink) holds the RTNL mutex, it is unnecessary
-to use RCU, and it is impossible to get truncated (-EBUSY) result.
+Fix a bunch of warnings in PPP and related drivers. Mostly because
+sparse doesn't like it when the the function is only marked private
+in the forward declaration.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
---- a/net/ipv4/fib_trie.c	2008-01-23 13:55:12.000000000 -0800
-+++ b/net/ipv4/fib_trie.c	2008-01-23 14:00:35.000000000 -0800
-@@ -1684,7 +1684,7 @@ static int trie_flush_leaf(struct trie *
-  * Scan for the next right leaf starting at node p->child[idx]
-  * Since we have back pointer, no recursion necessary.
+---
+ drivers/net/ppp_deflate.c |    4 ++--
+ drivers/net/ppp_generic.c |    2 +-
+ drivers/net/ppp_synctty.c |    2 +-
+ drivers/net/pppoe.c       |    2 ++
+ drivers/net/slhc.c        |    4 ++--
+ 5 files changed, 8 insertions(+), 6 deletions(-)
+
+--- a/drivers/net/ppp_deflate.c	2008-01-23 15:35:22.000000000 -0800
++++ b/drivers/net/ppp_deflate.c	2008-01-23 15:35:40.000000000 -0800
+@@ -206,7 +206,7 @@ static void z_comp_reset(void *arg)
+  *	Returns the length of the compressed packet, or 0 if the
+  *	packet is incompressible.
   */
--static struct leaf *leaf_walk_rcu(struct tnode *p, struct node *c)
-+static struct leaf *leaf_walk(struct tnode *p, struct node *c)
+-int z_compress(void *arg, unsigned char *rptr, unsigned char *obuf,
++static int z_compress(void *arg, unsigned char *rptr, unsigned char *obuf,
+ 	       int isize, int osize)
  {
- 	do {
- 		t_key idx;
-@@ -1695,7 +1695,7 @@ static struct leaf *leaf_walk_rcu(struct
- 			idx = 0;
- 
- 		while (idx < 1u << p->bits) {
--			c = tnode_get_child_rcu(p, idx++);
-+			c = tnode_get_child(p, idx++);
- 			if (!c)
- 				continue;
- 
-@@ -1711,14 +1711,14 @@ static struct leaf *leaf_walk_rcu(struct
- 
- 		/* Node empty, walk back up to parent */
- 		c = (struct node *) p;
--	} while ( (p = node_parent_rcu(c)) != NULL);
-+	} while ( (p = node_parent(c)) != NULL);
- 
- 	return NULL; /* Root of trie */
- }
- 
- static struct leaf *trie_firstleaf(struct trie *t)
+ 	struct ppp_deflate_state *state = (struct ppp_deflate_state *) arg;
+@@ -435,7 +435,7 @@ static void z_decomp_reset(void *arg)
+  * bug, so we return DECOMP_FATALERROR for them in order to turn off
+  * compression, even though they are detected by inspecting the input.
+  */
+-int z_decompress(void *arg, unsigned char *ibuf, int isize,
++static int z_decompress(void *arg, unsigned char *ibuf, int isize,
+ 		 unsigned char *obuf, int osize)
  {
--	struct tnode *n = (struct tnode *) rcu_dereference(t->trie);
-+	struct tnode *n = (struct tnode *) t->trie;
+ 	struct ppp_deflate_state *state = (struct ppp_deflate_state *) arg;
+--- a/drivers/net/ppp_generic.c	2008-01-23 15:34:40.000000000 -0800
++++ b/drivers/net/ppp_generic.c	2008-01-23 15:34:45.000000000 -0800
+@@ -1871,7 +1871,7 @@ ppp_mp_insert(struct ppp *ppp, struct sk
+  * complete packet, or we get to the sequence number for a fragment
+  * which hasn't arrived but might still do so.
+  */
+-struct sk_buff *
++static struct sk_buff *
+ ppp_mp_reconstruct(struct ppp *ppp)
+ {
+ 	u32 seq = ppp->nextseq;
+--- a/drivers/net/ppp_synctty.c	2008-01-23 15:35:04.000000000 -0800
++++ b/drivers/net/ppp_synctty.c	2008-01-23 15:35:08.000000000 -0800
+@@ -560,7 +560,7 @@ static void ppp_sync_process(unsigned lo
+  * Procedures for encapsulation and framing.
+  */
  
- 	if (!n)
- 		return NULL;
-@@ -1726,7 +1726,7 @@ static struct leaf *trie_firstleaf(struc
- 	if (IS_LEAF(n))          /* trie is just a leaf */
- 		return (struct leaf *) n;
- 
--	return leaf_walk_rcu(n, NULL);
-+	return leaf_walk(n, NULL);
+-struct sk_buff*
++static struct sk_buff*
+ ppp_sync_txmunge(struct syncppp *ap, struct sk_buff *skb)
+ {
+ 	int proto;
+--- a/drivers/net/pppoe.c	2008-01-23 15:35:52.000000000 -0800
++++ b/drivers/net/pppoe.c	2008-01-23 15:36:16.000000000 -0800
+@@ -989,6 +989,7 @@ out:
  }
  
- static struct leaf *trie_nextleaf(struct leaf *l)
-@@ -1737,7 +1737,7 @@ static struct leaf *trie_nextleaf(struct
- 	if (!p)
- 		return NULL;	/* trie with just one leaf */
+ static void *pppoe_seq_start(struct seq_file *seq, loff_t *pos)
++	__acquires(pppoe_hash_lock)
+ {
+ 	loff_t l = *pos;
  
--	return leaf_walk_rcu(p, c);
-+	return leaf_walk(p, c);
+@@ -1022,6 +1023,7 @@ out:
  }
  
- /*
-@@ -1848,9 +1848,7 @@ static int fn_trie_dump_fa(t_key key, in
- 	s_i = cb->args[4];
- 	i = 0;
- 
--	/* rcu_read_lock is hold by caller */
--
--	list_for_each_entry_rcu(fa, fah, fa_list) {
-+	list_for_each_entry(fa, fah, fa_list) {
- 		if (i < s_i) {
- 			i++;
- 			continue;
-@@ -1885,8 +1883,7 @@ static int fn_trie_dump_leaf(struct leaf
- 	s_i = cb->args[3];
- 	i = 0;
- 
--	/* rcu_read_lock is hold by caller */
--	hlist_for_each_entry_rcu(li, node, &l->list, hlist) {
-+	hlist_for_each_entry(li, node, &l->list, hlist) {
- 		if (i < s_i) {
- 			i++;
- 			continue;
-@@ -1916,35 +1913,25 @@ static int fn_trie_dump(struct fib_table
- 	struct trie *t = (struct trie *) tb->tb_data;
- 	t_key key = cb->args[2];
- 
--	rcu_read_lock();
-+	ASSERT_RTNL();
-+
- 	/* Dump starting at last key.
- 	 * Note: 0.0.0.0/0 (ie default) is first key.
- 	 */
- 	if (!key)
- 		l = trie_firstleaf(t);
--	else {
-+	else
- 		l = fib_find_node(t, key);
--		if (!l) {
--			/* The table changed during the dump, rather than
--			 * giving partial data, just make application retry.
--			 */
--			rcu_read_unlock();
--			return -EBUSY;
--		}
--	}
- 
- 	while (l) {
- 		cb->args[2] = l->key;
--		if (fn_trie_dump_leaf(l, tb, skb, cb) < 0) {
--			rcu_read_unlock();
-+		if (fn_trie_dump_leaf(l, tb, skb, cb) < 0)
- 			return -1;
--		}
- 
- 		l = trie_nextleaf(l);
- 		memset(&cb->args[3], 0,
- 		       sizeof(cb->args) - 3*sizeof(cb->args[0]));
- 	}
--	rcu_read_unlock();
- 
- 	return skb->len;
+ static void pppoe_seq_stop(struct seq_file *seq, void *v)
++	__releases(pppoe_hash_lock)
+ {
+ 	read_unlock_bh(&pppoe_hash_lock);
  }
-
--- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
-
+--- a/drivers/net/slhc.c	2008-01-23 15:36:45.000000000 -0800
++++ b/drivers/net/slhc.c	2008-01-23 15:37:22.000000000 -0800
+@@ -174,7 +174,7 @@ put16(unsigned char *cp, unsigned short 
+ 
+ 
+ /* Encode a number */
+-unsigned char *
++static unsigned char *
+ encode(unsigned char *cp, unsigned short n)
+ {
+ 	if(n >= 256 || n == 0){
+@@ -199,7 +199,7 @@ pull16(unsigned char **cpp)
+ }
+ 
+ /* Decode a number */
+-long
++static long
+ decode(unsigned char **cpp)
+ {
+ 	register int x;
