@@ -1,49 +1,63 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 'upstream' 2008-01-22
-Date: Wed, 23 Jan 2008 07:46:39 -0500
-Message-ID: <20080123124639.GB3157@tuxdriver.com>
-References: <20080123014521.GG3206@tuxdriver.com> <20080123121551.4586e706@morte> <200801231230.07734.mb@bu3sch.de>
+From: Dzianis Kahanovich <mahatma@bspu.unibel.by>
+Subject: Re: [PATCH 2.6.23+] ingress classify to [nf]mark
+Date: Wed, 23 Jan 2008 14:42:39 -0200
+Message-ID: <47976E7F.80407@bspu.unibel.by>
+References: <47866C69.3080904@bspu.unibel.by>	 <1200001167.4443.38.camel@localhost>  <4787A663.4030204@bspu.unibel.by>	 <1200063541.4483.42.camel@localhost>  <4787D49E.6080906@bspu.unibel.by>	 <1200107027.4477.36.camel@localhost>  <4788FF45.702@bspu.unibel.by>	 <1200253484.4427.33.camel@localhost>  <478B8250.90602@bspu.unibel.by>	 <1200315372.4427.75.camel@localhost>  <478BE021.1070408@bspu.unibel.by> <1200487509.4457.33.camel@localhost>
+Reply-To: mahatma@eu.by
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <200801231230.07734.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.bspu.unibel.by ([195.50.2.21]:50588 "EHLO
+	mail.bspu.unibel.by" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751175AbYAWNv1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 08:51:27 -0500
+Received: from [10.200.200.1] ([10.200.200.1])
+	by mail.bspu.unibel.by (8.14.1/8.14.0) with ESMTP id m0NCgfXA016075
+	for <netdev@vger.kernel.org>; Wed, 23 Jan 2008 14:42:45 +0200
+In-Reply-To: <1200487509.4457.33.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 23, 2008 at 12:30:07PM +0100, Michael Buesch wrote:
-> On Wednesday 23 January 2008 12:15:51 Stefano Brivio wrote:
-> > On Tue, 22 Jan 2008 20:45:21 -0500
-> > "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
-> > 
-> > >       b43legacy: Remove the PHY spinlock
-> > 
-> > I hope you tested this. I still haven't been able to (I received the
-> > needed hardware yesterday), and Michael said that the patch has been
-> > compile-tested only.
-> 
-> John, if we use subject lines such as:
-> 
-> [PATCH RFT] foobar: bizbaz
-> 
-> That means the patch is _not_ submitted for inclusion, yet.
-> The RFT means Request-For-Testing. Ususally, if I send out such
+Too many pixels to smoke. Sorry.
 
-Thanks, I'm well aware.
+May be so? ;)) (if undefined classid not overwrited by random value tc_classify)
+Even "tc" say to classid=0 - "????"
 
-Larry said he tested it, two weeks ago.  No one contradicted it.
-And time is short for new development for 2.6.25 -- but there is
-plenty of time for fixes. :-)
+--- 1/net/sched/sch_ingress.c	2008-01-12 17:27:05.000000000 +0200
++++ 2/net/sched/sch_ingress.c	2008-01-22 22:09:32.000000000 +0200
+@@ -136,6 +136,9 @@
+  	struct ingress_qdisc_data *p = PRIV(sch);
+  	struct tcf_result res;
+  	int result;
++#ifdef CONFIG_NET_SCH_INGRESS_TC2MARK
++	res.classid=0;
++#endif
 
-> For this particular patch, please leave it in now. I'm pretty
-> sure it is correct. So actual testing will be done upstream now. ;)
+  	D2PRINTK("ingress_enqueue(skb %p,sch %p,[qdisc %p])\n", skb, sch, p);
+  	result = tc_classify(skb, p->filter_list, &res);
+@@ -169,6 +172,11 @@
+  	sch->bstats.packets++;
+  	sch->bstats.bytes += skb->len;
+  #endif
++#ifdef CONFIG_NET_SCH_INGRESS_TC2MARK
++	if(res.classid)
++	    skb->mark =
+(skb->mark&(res.classid>>16))|(skb->tc_index=TC_H_MIN(res.classid));
++//	    skb->mark=res.classid; /* or just so */
++#endif
 
-Exactly.
+  	return result;
+  }
 
-John
+
+
+jamal wrote:
+
+[skipped]
+
 -- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+WBR,
+Denis Kaganovich,  mahatma@eu.by  http://mahatma.bspu.unibel.by
+
