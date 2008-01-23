@@ -1,324 +1,502 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED 10/15]: Use typeful attribute parsing helpers
-Date: Wed, 23 Jan 2008 17:36:50 +0100 (MET)
-Message-ID: <20080123163609.6459.65018.sendpatchset@localhost.localdomain>
+Subject: [NET_SCHED 12/15]: Use nla_policy for attribute validation in packet schedulers
+Date: Wed, 23 Jan 2008 17:36:52 +0100 (MET)
+Message-ID: <20080123163612.6459.61449.sendpatchset@localhost.localdomain>
 References: <20080123163555.6459.69501.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49730 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:49748 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753975AbYAWQgu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 11:36:50 -0500
+	with ESMTP id S1753925AbYAWQgy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 11:36:54 -0500
 In-Reply-To: <20080123163555.6459.69501.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[NET_SCHED]: Use typeful attribute parsing helpers
+[NET_SCHED]: Use nla_policy for attribute validation in packet schedulers
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 3e73383f7c353af51e8cc475f1c217a6b81fcecf
-tree 53d369ca2ffca26cf46c57d2a9043d53da7474f8
-parent 04d3c2781cba0b4ab75005de0defdb2a58178f21
-author Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:12:56 +0100
-committer Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:12:56 +0100
+commit 76c3c24283fa9f78d8dc30c8eb73e0f11934bf69
+tree bcc9baf4eae9086d377efff17fbd37a360ac64b7
+parent b21f31e516f993016f8a1ade331bcaf71576b4e2
+author Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:12:57 +0100
+committer Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:12:57 +0100
 
- net/sched/act_api.c     |    2 +-
- net/sched/act_ipt.c     |    4 ++--
- net/sched/act_police.c  |    5 ++---
- net/sched/cls_basic.c   |    2 +-
- net/sched/cls_fw.c      |    6 +++---
- net/sched/cls_route.c   |    8 ++++----
- net/sched/cls_rsvp.h    |    4 ++--
- net/sched/cls_tcindex.c |   11 +++++------
- net/sched/cls_u32.c     |    8 ++++----
- net/sched/em_meta.c     |    2 +-
- net/sched/sch_atm.c     |    4 ++--
- 11 files changed, 27 insertions(+), 29 deletions(-)
+ net/sched/sch_atm.c    |   12 ++++++++----
+ net/sched/sch_cbq.c    |   47 +++++++++++++----------------------------------
+ net/sched/sch_dsmark.c |   33 +++++++++++++++------------------
+ net/sched/sch_gred.c   |   16 ++++++++++------
+ net/sched/sch_hfsc.c   |   14 +++++++-------
+ net/sched/sch_htb.c    |   17 +++++++++++------
+ net/sched/sch_netem.c  |   19 ++++++++-----------
+ net/sched/sch_red.c    |   11 +++++++----
+ net/sched/sch_tbf.c    |   11 ++++++++---
+ 9 files changed, 87 insertions(+), 93 deletions(-)
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 41fbd49..0b8eb23 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -690,7 +690,7 @@ tcf_action_get_1(struct nlattr *nla, struct nlmsghdr *n, u32 pid)
- 	if (tb[TCA_ACT_INDEX] == NULL ||
- 	    nla_len(tb[TCA_ACT_INDEX]) < sizeof(index))
- 		goto err_out;
--	index = *(int *)nla_data(tb[TCA_ACT_INDEX]);
-+	index = nla_get_u32(tb[TCA_ACT_INDEX]);
- 
- 	err = -ENOMEM;
- 	a = kzalloc(sizeof(struct tc_action), GFP_KERNEL);
-diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index 5dd701a..7ab2419 100644
---- a/net/sched/act_ipt.c
-+++ b/net/sched/act_ipt.c
-@@ -123,7 +123,7 @@ static int tcf_ipt_init(struct nlattr *nla, struct nlattr *est,
- 
- 	if (tb[TCA_IPT_INDEX] != NULL &&
- 	    nla_len(tb[TCA_IPT_INDEX]) >= sizeof(u32))
--		index = *(u32 *)nla_data(tb[TCA_IPT_INDEX]);
-+		index = nla_get_u32(tb[TCA_IPT_INDEX]);
- 
- 	pc = tcf_hash_check(index, a, bind, &ipt_hash_info);
- 	if (!pc) {
-@@ -140,7 +140,7 @@ static int tcf_ipt_init(struct nlattr *nla, struct nlattr *est,
- 	}
- 	ipt = to_ipt(pc);
- 
--	hook = *(u32 *)nla_data(tb[TCA_IPT_HOOK]);
-+	hook = nla_get_u32(tb[TCA_IPT_HOOK]);
- 
- 	err = -ENOMEM;
- 	tname = kmalloc(IFNAMSIZ, GFP_KERNEL);
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index 79db6bb..62de806 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -203,7 +203,7 @@ override:
- 	}
- 
- 	if (tb[TCA_POLICE_RESULT])
--		police->tcfp_result = *(u32*)nla_data(tb[TCA_POLICE_RESULT]);
-+		police->tcfp_result = nla_get_u32(tb[TCA_POLICE_RESULT]);
- 	police->tcfp_toks = police->tcfp_burst = parm->burst;
- 	police->tcfp_mtu = parm->mtu;
- 	if (police->tcfp_mtu == 0) {
-@@ -216,8 +216,7 @@ override:
- 	police->tcf_action = parm->action;
- 
- 	if (tb[TCA_POLICE_AVRATE])
--		police->tcfp_ewma_rate =
--			*(u32*)nla_data(tb[TCA_POLICE_AVRATE]);
-+		police->tcfp_ewma_rate = nla_get_u32(tb[TCA_POLICE_AVRATE]);
- 	if (est)
- 		gen_replace_estimator(&police->tcf_bstats,
- 				      &police->tcf_rate_est,
-diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
-index 58444fe..0c872a7 100644
---- a/net/sched/cls_basic.c
-+++ b/net/sched/cls_basic.c
-@@ -150,7 +150,7 @@ static inline int basic_set_parms(struct tcf_proto *tp, struct basic_filter *f,
- 		goto errout;
- 
- 	if (tb[TCA_BASIC_CLASSID]) {
--		f->res.classid = *(u32*)nla_data(tb[TCA_BASIC_CLASSID]);
-+		f->res.classid = nla_get_u32(tb[TCA_BASIC_CLASSID]);
- 		tcf_bind_filter(tp, &f->res, base);
- 	}
- 
-diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-index 61ebe25..b75696d 100644
---- a/net/sched/cls_fw.c
-+++ b/net/sched/cls_fw.c
-@@ -203,7 +203,7 @@ fw_change_attrs(struct tcf_proto *tp, struct fw_filter *f,
- 	if (tb[TCA_FW_CLASSID]) {
- 		if (nla_len(tb[TCA_FW_CLASSID]) != sizeof(u32))
- 			goto errout;
--		f->res.classid = *(u32*)nla_data(tb[TCA_FW_CLASSID]);
-+		f->res.classid = nla_get_u32(tb[TCA_FW_CLASSID]);
- 		tcf_bind_filter(tp, &f->res, base);
- 	}
- 
-@@ -218,7 +218,7 @@ fw_change_attrs(struct tcf_proto *tp, struct fw_filter *f,
- 	if (tb[TCA_FW_MASK]) {
- 		if (nla_len(tb[TCA_FW_MASK]) != sizeof(u32))
- 			goto errout;
--		mask = *(u32*)nla_data(tb[TCA_FW_MASK]);
-+		mask = nla_get_u32(tb[TCA_FW_MASK]);
- 		if (mask != head->mask)
- 			goto errout;
- 	} else if (head->mask != 0xFFFFFFFF)
-@@ -264,7 +264,7 @@ static int fw_change(struct tcf_proto *tp, unsigned long base,
- 		if (tb[TCA_FW_MASK]) {
- 			if (nla_len(tb[TCA_FW_MASK]) != sizeof(u32))
- 				return -EINVAL;
--			mask = *(u32*)nla_data(tb[TCA_FW_MASK]);
-+			mask = nla_get_u32(tb[TCA_FW_MASK]);
- 		}
- 
- 		head = kzalloc(sizeof(struct fw_head), GFP_KERNEL);
-diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
-index 7752586..ae97238 100644
---- a/net/sched/cls_route.c
-+++ b/net/sched/cls_route.c
-@@ -348,7 +348,7 @@ static int route4_set_parms(struct tcf_proto *tp, unsigned long base,
- 			goto errout;
- 		if (nla_len(tb[TCA_ROUTE4_TO]) < sizeof(u32))
- 			goto errout;
--		to = *(u32*)nla_data(tb[TCA_ROUTE4_TO]);
-+		to = nla_get_u32(tb[TCA_ROUTE4_TO]);
- 		if (to > 0xFF)
- 			goto errout;
- 		nhandle = to;
-@@ -359,14 +359,14 @@ static int route4_set_parms(struct tcf_proto *tp, unsigned long base,
- 			goto errout;
- 		if (nla_len(tb[TCA_ROUTE4_FROM]) < sizeof(u32))
- 			goto errout;
--		id = *(u32*)nla_data(tb[TCA_ROUTE4_FROM]);
-+		id = nla_get_u32(tb[TCA_ROUTE4_FROM]);
- 		if (id > 0xFF)
- 			goto errout;
- 		nhandle |= id << 16;
- 	} else if (tb[TCA_ROUTE4_IIF]) {
- 		if (nla_len(tb[TCA_ROUTE4_IIF]) < sizeof(u32))
- 			goto errout;
--		id = *(u32*)nla_data(tb[TCA_ROUTE4_IIF]);
-+		id = nla_get_u32(tb[TCA_ROUTE4_IIF]);
- 		if (id > 0x7FFF)
- 			goto errout;
- 		nhandle |= (id | 0x8000) << 16;
-@@ -411,7 +411,7 @@ static int route4_set_parms(struct tcf_proto *tp, unsigned long base,
- 	tcf_tree_unlock(tp);
- 
- 	if (tb[TCA_ROUTE4_CLASSID]) {
--		f->res.classid = *(u32*)nla_data(tb[TCA_ROUTE4_CLASSID]);
-+		f->res.classid = nla_get_u32(tb[TCA_ROUTE4_CLASSID]);
- 		tcf_bind_filter(tp, &f->res, base);
- 	}
- 
-diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
-index 838a3ff..61286a0 100644
---- a/net/sched/cls_rsvp.h
-+++ b/net/sched/cls_rsvp.h
-@@ -430,7 +430,7 @@ static int rsvp_change(struct tcf_proto *tp, unsigned long base,
- 		if (f->handle != handle && handle)
- 			goto errout2;
- 		if (tb[TCA_RSVP_CLASSID-1]) {
--			f->res.classid = *(u32*)nla_data(tb[TCA_RSVP_CLASSID-1]);
-+			f->res.classid = nla_get_u32(tb[TCA_RSVP_CLASSID-1]);
- 			tcf_bind_filter(tp, &f->res, base);
- 		}
- 
-@@ -470,7 +470,7 @@ static int rsvp_change(struct tcf_proto *tp, unsigned long base,
- 		err = -EINVAL;
- 		if (nla_len(tb[TCA_RSVP_CLASSID-1]) != 4)
- 			goto errout;
--		f->res.classid = *(u32*)nla_data(tb[TCA_RSVP_CLASSID-1]);
-+		f->res.classid = nla_get_u32(tb[TCA_RSVP_CLASSID-1]);
- 	}
- 
- 	err = -EINVAL;
-diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-index 7d46df7..2809856 100644
---- a/net/sched/cls_tcindex.c
-+++ b/net/sched/cls_tcindex.c
-@@ -221,19 +221,19 @@ tcindex_set_parms(struct tcf_proto *tp, unsigned long base, u32 handle,
- 	if (tb[TCA_TCINDEX_HASH]) {
- 		if (nla_len(tb[TCA_TCINDEX_HASH]) < sizeof(u32))
- 			goto errout;
--		cp.hash = *(u32 *) nla_data(tb[TCA_TCINDEX_HASH]);
-+		cp.hash = nla_get_u32(tb[TCA_TCINDEX_HASH]);
- 	}
- 
- 	if (tb[TCA_TCINDEX_MASK]) {
- 		if (nla_len(tb[TCA_TCINDEX_MASK]) < sizeof(u16))
- 			goto errout;
--		cp.mask = *(u16 *) nla_data(tb[TCA_TCINDEX_MASK]);
-+		cp.mask = nla_get_u16(tb[TCA_TCINDEX_MASK]);
- 	}
- 
- 	if (tb[TCA_TCINDEX_SHIFT]) {
- 		if (nla_len(tb[TCA_TCINDEX_SHIFT]) < sizeof(int))
- 			goto errout;
--		cp.shift = *(int *) nla_data(tb[TCA_TCINDEX_SHIFT]);
-+		cp.shift = nla_get_u32(tb[TCA_TCINDEX_SHIFT]);
- 	}
- 
- 	err = -EBUSY;
-@@ -251,8 +251,7 @@ tcindex_set_parms(struct tcf_proto *tp, unsigned long base, u32 handle,
- 	if (tb[TCA_TCINDEX_FALL_THROUGH]) {
- 		if (nla_len(tb[TCA_TCINDEX_FALL_THROUGH]) < sizeof(u32))
- 			goto errout;
--		cp.fall_through =
--			*(u32 *) nla_data(tb[TCA_TCINDEX_FALL_THROUGH]);
-+		cp.fall_through = nla_get_u32(tb[TCA_TCINDEX_FALL_THROUGH]);
- 	}
- 
- 	if (!cp.hash) {
-@@ -305,7 +304,7 @@ tcindex_set_parms(struct tcf_proto *tp, unsigned long base, u32 handle,
- 	}
- 
- 	if (tb[TCA_TCINDEX_CLASSID]) {
--		cr.res.classid = *(u32 *) nla_data(tb[TCA_TCINDEX_CLASSID]);
-+		cr.res.classid = nla_get_u32(tb[TCA_TCINDEX_CLASSID]);
- 		tcf_bind_filter(tp, &cr.res, base);
- 	}
- 
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 326711e..a4e72e8 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -474,7 +474,7 @@ static int u32_set_parms(struct tcf_proto *tp, unsigned long base,
- 
- 	err = -EINVAL;
- 	if (tb[TCA_U32_LINK]) {
--		u32 handle = *(u32*)nla_data(tb[TCA_U32_LINK]);
-+		u32 handle = nla_get_u32(tb[TCA_U32_LINK]);
- 		struct tc_u_hnode *ht_down = NULL;
- 
- 		if (TC_U32_KEY(handle))
-@@ -496,7 +496,7 @@ static int u32_set_parms(struct tcf_proto *tp, unsigned long base,
- 			ht_down->refcnt--;
- 	}
- 	if (tb[TCA_U32_CLASSID]) {
--		n->res.classid = *(u32*)nla_data(tb[TCA_U32_CLASSID]);
-+		n->res.classid = nla_get_u32(tb[TCA_U32_CLASSID]);
- 		tcf_bind_filter(tp, &n->res, base);
- 	}
- 
-@@ -543,7 +543,7 @@ static int u32_change(struct tcf_proto *tp, unsigned long base, u32 handle,
- 	}
- 
- 	if (tb[TCA_U32_DIVISOR]) {
--		unsigned divisor = *(unsigned*)nla_data(tb[TCA_U32_DIVISOR]);
-+		unsigned divisor = nla_get_u32(tb[TCA_U32_DIVISOR]);
- 
- 		if (--divisor > 0x100)
- 			return -EINVAL;
-@@ -569,7 +569,7 @@ static int u32_change(struct tcf_proto *tp, unsigned long base, u32 handle,
- 	}
- 
- 	if (tb[TCA_U32_HASH]) {
--		htid = *(unsigned*)nla_data(tb[TCA_U32_HASH]);
-+		htid = nla_get_u32(tb[TCA_U32_HASH]);
- 		if (TC_U32_HTID(htid) == TC_U32_ROOT) {
- 			ht = tp->root;
- 			htid = ht->handle;
-diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
-index 63ae6a2..d9f487d 100644
---- a/net/sched/em_meta.c
-+++ b/net/sched/em_meta.c
-@@ -600,7 +600,7 @@ static int meta_int_change(struct meta_value *dst, struct nlattr *nla)
- 		dst->val = *(unsigned long *) nla_data(nla);
- 		dst->len = sizeof(unsigned long);
- 	} else if (nla_len(nla) == sizeof(u32)) {
--		dst->val = *(u32 *) nla_data(nla);
-+		dst->val = nla_get_u32(nla);
- 		dst->len = sizeof(u32);
- 	} else
- 		return -EINVAL;
 diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index 4d87659..0c71f2e 100644
+index 0c71f2e..3352734 100644
 --- a/net/sched/sch_atm.c
 +++ b/net/sched/sch_atm.c
-@@ -231,7 +231,7 @@ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
+@@ -195,6 +195,11 @@ static const u8 llc_oui_ip[] = {
+ 	0x08, 0x00
+ };				/* Ethertype IP (0800) */
  
- 	if (!tb[TCA_ATM_FD] || nla_len(tb[TCA_ATM_FD]) < sizeof(fd))
++static const struct nla_policy atm_policy[TCA_ATM_MAX + 1] = {
++	[TCA_ATM_FD]		= { .type = NLA_U32 },
++	[TCA_ATM_EXCESS]	= { .type = NLA_U32 },
++};
++
+ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
+ 			 struct nlattr **tca, unsigned long *arg)
+ {
+@@ -225,11 +230,12 @@ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
+ 		return -EBUSY;
+ 	if (opt == NULL)
  		return -EINVAL;
--	fd = *(int *)nla_data(tb[TCA_ATM_FD]);
-+	fd = nla_get_u32(tb[TCA_ATM_FD]);
+-	error = nla_parse_nested(tb, TCA_ATM_MAX, opt, NULL);
++
++	error = nla_parse_nested(tb, TCA_ATM_MAX, opt, atm_policy);
+ 	if (error < 0)
+ 		return error;
+ 
+-	if (!tb[TCA_ATM_FD] || nla_len(tb[TCA_ATM_FD]) < sizeof(fd))
++	if (!tb[TCA_ATM_FD])
+ 		return -EINVAL;
+ 	fd = nla_get_u32(tb[TCA_ATM_FD]);
  	pr_debug("atm_tc_change: fd %d\n", fd);
- 	if (tb[TCA_ATM_HDR]) {
- 		hdr_len = nla_len(tb[TCA_ATM_HDR]);
-@@ -246,7 +246,7 @@ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
- 		if (nla_len(tb[TCA_ATM_EXCESS]) != sizeof(u32))
- 			return -EINVAL;
+@@ -243,8 +249,6 @@ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
+ 	if (!tb[TCA_ATM_EXCESS])
+ 		excess = NULL;
+ 	else {
+-		if (nla_len(tb[TCA_ATM_EXCESS]) != sizeof(u32))
+-			return -EINVAL;
  		excess = (struct atm_flow_data *)
--			atm_tc_get(sch, *(u32 *)nla_data(tb[TCA_ATM_EXCESS]));
-+			atm_tc_get(sch, nla_get_u32(tb[TCA_ATM_EXCESS]));
+ 			atm_tc_get(sch, nla_get_u32(tb[TCA_ATM_EXCESS]));
  		if (!excess)
- 			return -ENOENT;
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index da0f6c0..09969c1 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -1377,6 +1377,16 @@ static int cbq_set_fopt(struct cbq_class *cl, struct tc_cbq_fopt *fopt)
+ 	return 0;
+ }
+ 
++static const struct nla_policy cbq_policy[TCA_CBQ_MAX + 1] = {
++	[TCA_CBQ_LSSOPT]	= { .len = sizeof(struct tc_cbq_lssopt) },
++	[TCA_CBQ_WRROPT]	= { .len = sizeof(struct tc_cbq_wrropt) },
++	[TCA_CBQ_FOPT]		= { .len = sizeof(struct tc_cbq_fopt) },
++	[TCA_CBQ_OVL_STRATEGY]	= { .len = sizeof(struct tc_cbq_ovl) },
++	[TCA_CBQ_RATE]		= { .len = sizeof(struct tc_ratespec) },
++	[TCA_CBQ_RTAB]		= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
++	[TCA_CBQ_POLICE]	= { .len = sizeof(struct tc_cbq_police) },
++};
++
+ static int cbq_init(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct cbq_sched_data *q = qdisc_priv(sch);
+@@ -1384,16 +1394,11 @@ static int cbq_init(struct Qdisc *sch, struct nlattr *opt)
+ 	struct tc_ratespec *r;
+ 	int err;
+ 
+-	err = nla_parse_nested(tb, TCA_CBQ_MAX, opt, NULL);
++	err = nla_parse_nested(tb, TCA_CBQ_MAX, opt, cbq_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+-	if (tb[TCA_CBQ_RTAB] == NULL || tb[TCA_CBQ_RATE] == NULL ||
+-	    nla_len(tb[TCA_CBQ_RATE]) < sizeof(struct tc_ratespec))
+-		return -EINVAL;
+-
+-	if (tb[TCA_CBQ_LSSOPT] &&
+-	    nla_len(tb[TCA_CBQ_LSSOPT]) < sizeof(struct tc_cbq_lssopt))
++	if (tb[TCA_CBQ_RTAB] == NULL || tb[TCA_CBQ_RATE] == NULL)
+ 		return -EINVAL;
+ 
+ 	r = nla_data(tb[TCA_CBQ_RATE]);
+@@ -1771,36 +1776,10 @@ cbq_change_class(struct Qdisc *sch, u32 classid, u32 parentid, struct nlattr **t
+ 	if (opt == NULL)
+ 		return -EINVAL;
+ 
+-	err = nla_parse_nested(tb, TCA_CBQ_MAX, opt, NULL);
++	err = nla_parse_nested(tb, TCA_CBQ_MAX, opt, cbq_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+-	if (tb[TCA_CBQ_OVL_STRATEGY] &&
+-	    nla_len(tb[TCA_CBQ_OVL_STRATEGY]) < sizeof(struct tc_cbq_ovl))
+-		return -EINVAL;
+-
+-	if (tb[TCA_CBQ_FOPT] &&
+-	    nla_len(tb[TCA_CBQ_FOPT]) < sizeof(struct tc_cbq_fopt))
+-		return -EINVAL;
+-
+-	if (tb[TCA_CBQ_RATE] &&
+-	    nla_len(tb[TCA_CBQ_RATE]) < sizeof(struct tc_ratespec))
+-			return -EINVAL;
+-
+-	if (tb[TCA_CBQ_LSSOPT] &&
+-	    nla_len(tb[TCA_CBQ_LSSOPT]) < sizeof(struct tc_cbq_lssopt))
+-			return -EINVAL;
+-
+-	if (tb[TCA_CBQ_WRROPT] &&
+-	    nla_len(tb[TCA_CBQ_WRROPT]) < sizeof(struct tc_cbq_wrropt))
+-			return -EINVAL;
+-
+-#ifdef CONFIG_NET_CLS_ACT
+-	if (tb[TCA_CBQ_POLICE] &&
+-	    nla_len(tb[TCA_CBQ_POLICE]) < sizeof(struct tc_cbq_police))
+-			return -EINVAL;
+-#endif
+-
+ 	if (cl) {
+ 		/* Check parent */
+ 		if (parentid) {
+diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+index f1d0a08..0df911f 100644
+--- a/net/sched/sch_dsmark.c
++++ b/net/sched/sch_dsmark.c
+@@ -99,6 +99,14 @@ static void dsmark_put(struct Qdisc *sch, unsigned long cl)
+ {
+ }
+ 
++static const struct nla_policy dsmark_policy[TCA_DSMARK_MAX + 1] = {
++	[TCA_DSMARK_INDICES]		= { .type = NLA_U16 },
++	[TCA_DSMARK_DEFAULT_INDEX]	= { .type = NLA_U16 },
++	[TCA_DSMARK_SET_TC_INDEX]	= { .type = NLA_FLAG },
++	[TCA_DSMARK_MASK]		= { .type = NLA_U8 },
++	[TCA_DSMARK_VALUE]		= { .type = NLA_U8 },
++};
++
+ static int dsmark_change(struct Qdisc *sch, u32 classid, u32 parent,
+ 			 struct nlattr **tca, unsigned long *arg)
+ {
+@@ -119,21 +127,15 @@ static int dsmark_change(struct Qdisc *sch, u32 classid, u32 parent,
+ 	if (!opt)
+ 		goto errout;
+ 
+-	err = nla_parse_nested(tb, TCA_DSMARK_MAX, opt, NULL);
++	err = nla_parse_nested(tb, TCA_DSMARK_MAX, opt, dsmark_policy);
+ 	if (err < 0)
+-		return err;
++		goto errout;
+ 
+-	err = -EINVAL;
+-	if (tb[TCA_DSMARK_MASK]) {
+-		if (nla_len(tb[TCA_DSMARK_MASK]) < sizeof(u8))
+-			goto errout;
++	if (tb[TCA_DSMARK_MASK])
+ 		mask = nla_get_u8(tb[TCA_DSMARK_MASK]);
+-	}
+-	if (tb[TCA_DSMARK_VALUE]) {
+-		if (nla_len(tb[TCA_DSMARK_VALUE]) < sizeof(u8))
+-			goto errout;
++
++	if (tb[TCA_DSMARK_VALUE])
+ 		p->value[*arg-1] = nla_get_u8(tb[TCA_DSMARK_VALUE]);
+-	}
+ 
+ 	if (tb[TCA_DSMARK_MASK])
+ 		p->mask[*arg-1] = mask;
+@@ -359,23 +361,18 @@ static int dsmark_init(struct Qdisc *sch, struct nlattr *opt)
+ 	if (!opt)
+ 		goto errout;
+ 
+-	err = nla_parse_nested(tb, TCA_DSMARK_MAX, opt, NULL);
++	err = nla_parse_nested(tb, TCA_DSMARK_MAX, opt, dsmark_policy);
+ 	if (err < 0)
+ 		goto errout;
+ 
+ 	err = -EINVAL;
+-	if (nla_len(tb[TCA_DSMARK_INDICES]) < sizeof(u16))
+-		goto errout;
+ 	indices = nla_get_u16(tb[TCA_DSMARK_INDICES]);
+ 
+ 	if (hweight32(indices) != 1)
+ 		goto errout;
+ 
+-	if (tb[TCA_DSMARK_DEFAULT_INDEX]) {
+-		if (nla_len(tb[TCA_DSMARK_DEFAULT_INDEX]) < sizeof(u16))
+-			goto errout;
++	if (tb[TCA_DSMARK_DEFAULT_INDEX])
+ 		default_index = nla_get_u16(tb[TCA_DSMARK_DEFAULT_INDEX]);
+-	}
+ 
+ 	mask = kmalloc(indices * 2, GFP_KERNEL);
+ 	if (mask == NULL) {
+diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
+index 365c7d8..3a9d226 100644
+--- a/net/sched/sch_gred.c
++++ b/net/sched/sch_gred.c
+@@ -356,7 +356,7 @@ static inline int gred_change_table_def(struct Qdisc *sch, struct nlattr *dps)
+ 	struct tc_gred_sopt *sopt;
+ 	int i;
+ 
+-	if (dps == NULL || nla_len(dps) < sizeof(*sopt))
++	if (dps == NULL)
+ 		return -EINVAL;
+ 
+ 	sopt = nla_data(dps);
+@@ -425,6 +425,12 @@ static inline int gred_change_vq(struct Qdisc *sch, int dp,
+ 	return 0;
+ }
+ 
++static const struct nla_policy gred_policy[TCA_GRED_MAX + 1] = {
++	[TCA_GRED_PARMS]	= { .len = sizeof(struct tc_gred_qopt) },
++	[TCA_GRED_STAB]		= { .len = 256 },
++	[TCA_GRED_DPS]		= { .len = sizeof(struct tc_gred_sopt) },
++};
++
+ static int gred_change(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct gred_sched *table = qdisc_priv(sch);
+@@ -436,7 +442,7 @@ static int gred_change(struct Qdisc *sch, struct nlattr *opt)
+ 	if (opt == NULL)
+ 		return -EINVAL;
+ 
+-	err = nla_parse_nested(tb, TCA_GRED_MAX, opt, NULL);
++	err = nla_parse_nested(tb, TCA_GRED_MAX, opt, gred_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -444,9 +450,7 @@ static int gred_change(struct Qdisc *sch, struct nlattr *opt)
+ 		return gred_change_table_def(sch, opt);
+ 
+ 	if (tb[TCA_GRED_PARMS] == NULL ||
+-	    nla_len(tb[TCA_GRED_PARMS]) < sizeof(*ctl) ||
+-	    tb[TCA_GRED_STAB] == NULL ||
+-	    nla_len(tb[TCA_GRED_STAB]) < 256)
++	    tb[TCA_GRED_STAB] == NULL)
+ 		return -EINVAL;
+ 
+ 	err = -EINVAL;
+@@ -499,7 +503,7 @@ static int gred_init(struct Qdisc *sch, struct nlattr *opt)
+ 	if (opt == NULL)
+ 		return -EINVAL;
+ 
+-	err = nla_parse_nested(tb, TCA_GRED_MAX, opt, NULL);
++	err = nla_parse_nested(tb, TCA_GRED_MAX, opt, gred_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 54c3e90..94bf186 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -986,6 +986,12 @@ hfsc_change_usc(struct hfsc_class *cl, struct tc_service_curve *usc,
+ 	cl->cl_flags |= HFSC_USC;
+ }
+ 
++static const struct nla_policy hfsc_policy[TCA_HFSC_MAX + 1] = {
++	[TCA_HFSC_RSC]	= { .len = sizeof(struct tc_service_curve) },
++	[TCA_HFSC_FSC]	= { .len = sizeof(struct tc_service_curve) },
++	[TCA_HFSC_USC]	= { .len = sizeof(struct tc_service_curve) },
++};
++
+ static int
+ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 		  struct nlattr **tca, unsigned long *arg)
+@@ -1002,29 +1008,23 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 	if (opt == NULL)
+ 		return -EINVAL;
+ 
+-	err = nla_parse_nested(tb, TCA_HFSC_MAX, opt, NULL);
++	err = nla_parse_nested(tb, TCA_HFSC_MAX, opt, hfsc_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+ 	if (tb[TCA_HFSC_RSC]) {
+-		if (nla_len(tb[TCA_HFSC_RSC]) < sizeof(*rsc))
+-			return -EINVAL;
+ 		rsc = nla_data(tb[TCA_HFSC_RSC]);
+ 		if (rsc->m1 == 0 && rsc->m2 == 0)
+ 			rsc = NULL;
  	}
+ 
+ 	if (tb[TCA_HFSC_FSC]) {
+-		if (nla_len(tb[TCA_HFSC_FSC]) < sizeof(*fsc))
+-			return -EINVAL;
+ 		fsc = nla_data(tb[TCA_HFSC_FSC]);
+ 		if (fsc->m1 == 0 && fsc->m2 == 0)
+ 			fsc = NULL;
+ 	}
+ 
+ 	if (tb[TCA_HFSC_USC]) {
+-		if (nla_len(tb[TCA_HFSC_USC]) < sizeof(*usc))
+-			return -EINVAL;
+ 		usc = nla_data(tb[TCA_HFSC_USC]);
+ 		if (usc->m1 == 0 && usc->m2 == 0)
+ 			usc = NULL;
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 69fac32..e1a579e 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -992,6 +992,13 @@ static void htb_reset(struct Qdisc *sch)
+ 		INIT_LIST_HEAD(q->drops + i);
+ }
+ 
++static const struct nla_policy htb_policy[TCA_HTB_MAX + 1] = {
++	[TCA_HTB_PARMS]	= { .len = sizeof(struct tc_htb_opt) },
++	[TCA_HTB_INIT]	= { .len = sizeof(struct tc_htb_glob) },
++	[TCA_HTB_CTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
++	[TCA_HTB_RTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
++};
++
+ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct htb_sched *q = qdisc_priv(sch);
+@@ -1003,12 +1010,11 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
+ 	if (!opt)
+ 		return -EINVAL;
+ 
+-	err = nla_parse_nested(tb, TCA_HTB_INIT, opt, NULL);
++	err = nla_parse_nested(tb, TCA_HTB_INIT, opt, htb_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+-	if (tb[TCA_HTB_INIT] == NULL ||
+-	    nla_len(tb[TCA_HTB_INIT]) < sizeof(*gopt)) {
++	if (tb[TCA_HTB_INIT] == NULL) {
+ 		printk(KERN_ERR "HTB: hey probably you have bad tc tool ?\n");
+ 		return -EINVAL;
+ 	}
+@@ -1319,13 +1325,12 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 	if (!opt)
+ 		goto failure;
+ 
+-	err = nla_parse_nested(tb, TCA_HTB_RTAB, opt, NULL);
++	err = nla_parse_nested(tb, TCA_HTB_RTAB, opt, htb_policy);
+ 	if (err < 0)
+ 		goto failure;
+ 
+ 	err = -EINVAL;
+-	if (tb[TCA_HTB_PARMS] == NULL ||
+-	    nla_len(tb[TCA_HTB_PARMS]) < sizeof(*hopt))
++	if (tb[TCA_HTB_PARMS] == NULL)
+ 		goto failure;
+ 
+ 	parent = parentid == TC_H_ROOT ? NULL : htb_find(parentid, sch);
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 1a75579..c9c649b 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -368,9 +368,6 @@ static int get_correlation(struct Qdisc *sch, const struct nlattr *attr)
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+ 	const struct tc_netem_corr *c = nla_data(attr);
+ 
+-	if (nla_len(attr) != sizeof(*c))
+-		return -EINVAL;
+-
+ 	init_crandom(&q->delay_cor, c->delay_corr);
+ 	init_crandom(&q->loss_cor, c->loss_corr);
+ 	init_crandom(&q->dup_cor, c->dup_corr);
+@@ -382,9 +379,6 @@ static int get_reorder(struct Qdisc *sch, const struct nlattr *attr)
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+ 	const struct tc_netem_reorder *r = nla_data(attr);
+ 
+-	if (nla_len(attr) != sizeof(*r))
+-		return -EINVAL;
+-
+ 	q->reorder = r->probability;
+ 	init_crandom(&q->reorder_cor, r->correlation);
+ 	return 0;
+@@ -395,14 +389,17 @@ static int get_corrupt(struct Qdisc *sch, const struct nlattr *attr)
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+ 	const struct tc_netem_corrupt *r = nla_data(attr);
+ 
+-	if (nla_len(attr) != sizeof(*r))
+-		return -EINVAL;
+-
+ 	q->corrupt = r->probability;
+ 	init_crandom(&q->corrupt_cor, r->correlation);
+ 	return 0;
+ }
+ 
++static const struct nla_policy netem_policy[TCA_NETEM_MAX + 1] = {
++	[TCA_NETEM_CORR]	= { .len = sizeof(struct tc_netem_corr) },
++	[TCA_NETEM_REORDER]	= { .len = sizeof(struct tc_netem_reorder) },
++	[TCA_NETEM_CORRUPT]	= { .len = sizeof(struct tc_netem_corrupt) },
++};
++
+ /* Parse netlink message to set options */
+ static int netem_change(struct Qdisc *sch, struct nlattr *opt)
+ {
+@@ -414,8 +411,8 @@ static int netem_change(struct Qdisc *sch, struct nlattr *opt)
+ 	if (opt == NULL)
+ 		return -EINVAL;
+ 
+-	ret = nla_parse_nested_compat(tb, TCA_NETEM_MAX, opt, NULL, qopt,
+-				      sizeof(*qopt));
++	ret = nla_parse_nested_compat(tb, TCA_NETEM_MAX, opt, netem_policy,
++				      qopt, sizeof(*qopt));
+ 	if (ret < 0)
+ 		return ret;
+ 
+diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
+index dcf6afc..3dcd493 100644
+--- a/net/sched/sch_red.c
++++ b/net/sched/sch_red.c
+@@ -201,6 +201,11 @@ static struct Qdisc *red_create_dflt(struct Qdisc *sch, u32 limit)
+ 	return NULL;
+ }
+ 
++static const struct nla_policy red_policy[TCA_RED_MAX + 1] = {
++	[TCA_RED_PARMS]	= { .len = sizeof(struct tc_red_qopt) },
++	[TCA_RED_STAB]	= { .len = RED_STAB_SIZE },
++};
++
+ static int red_change(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct red_sched_data *q = qdisc_priv(sch);
+@@ -212,14 +217,12 @@ static int red_change(struct Qdisc *sch, struct nlattr *opt)
+ 	if (opt == NULL)
+ 		return -EINVAL;
+ 
+-	err = nla_parse_nested(tb, TCA_RED_MAX, opt, NULL);
++	err = nla_parse_nested(tb, TCA_RED_MAX, opt, red_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+ 	if (tb[TCA_RED_PARMS] == NULL ||
+-	    nla_len(tb[TCA_RED_PARMS]) < sizeof(*ctl) ||
+-	    tb[TCA_RED_STAB] == NULL ||
+-	    nla_len(tb[TCA_RED_STAB]) < RED_STAB_SIZE)
++	    tb[TCA_RED_STAB] == NULL)
+ 		return -EINVAL;
+ 
+ 	ctl = nla_data(tb[TCA_RED_PARMS]);
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index b7a185d..0b7d78f 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -270,6 +270,12 @@ static struct Qdisc *tbf_create_dflt_qdisc(struct Qdisc *sch, u32 limit)
+ 	return NULL;
+ }
+ 
++static const struct nla_policy tbf_policy[TCA_TBF_MAX + 1] = {
++	[TCA_TBF_PARMS]	= { .len = sizeof(struct tc_tbf_qopt) },
++	[TCA_TBF_RTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
++	[TCA_TBF_PTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
++};
++
+ static int tbf_change(struct Qdisc* sch, struct nlattr *opt)
+ {
+ 	int err;
+@@ -281,13 +287,12 @@ static int tbf_change(struct Qdisc* sch, struct nlattr *opt)
+ 	struct Qdisc *child = NULL;
+ 	int max_size,n;
+ 
+-	err = nla_parse_nested(tb, TCA_TBF_PTAB, opt, NULL);
++	err = nla_parse_nested(tb, TCA_TBF_PTAB, opt, tbf_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+ 	err = -EINVAL;
+-	if (tb[TCA_TBF_PARMS] == NULL ||
+-	    nla_len(tb[TCA_TBF_PARMS]) < sizeof(*qopt))
++	if (tb[TCA_TBF_PARMS] == NULL)
+ 		goto done;
+ 
+ 	qopt = nla_data(tb[TCA_TBF_PARMS]);
