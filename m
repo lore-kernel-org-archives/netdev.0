@@ -1,38 +1,58 @@
-From: Steven Whitehouse <swhiteho@redhat.com>
-Subject: My 802.3ad is my bond
-Date: Wed, 23 Jan 2008 15:45:00 +0000
-Message-ID: <1201103100.22038.254.camel@quoit>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [IPV4 0/9] TRIE performance patches
+Date: Wed, 23 Jan 2008 08:31:05 -0800
+Message-ID: <47976BC9.3020801@linux-foundation.org>
+References: <20080122233733.404145234@linux-foundation.org> <18327.18935.137799.285515@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:53611 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754793AbYAWQBD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jan 2008 11:01:03 -0500
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:34243 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751780AbYAWQao (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 11:30:44 -0500
+In-Reply-To: <18327.18935.137799.285515@robur.slu.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-This commit: ece95f7fefe3afae19e641e1b3f5e64b00d5b948 seems to have
-caused a problem with parsing bond arguments as now only the numeric
-arguments seem to work (in modprobe.conf) and specifying 802.3ad fails.
-When I revert that patch in my local tree all seems ok.
-
-Also I notice that one of my two NICs now reports this:
-
-bonding: bond0: link status definitely down for interface eth0,
-disabling it
-bonding: bond0: Interface eth0 is already enslaved!
-bond0.5: no IPv6 routers present
-
-which I think is also new with this set of bonding updates, before it
-used to use both interfaces ok. I've not worked out which of the other
-patches causes this so far, but I can if its helpful,
-
-Steve.
-
+Robert Olsson wrote:
+> Stephen Hemminger writes:
+>
+>  > Time to handle a full BGP load (163K of routes).
+>  > 
+>  > Before:		Load		Dump		Flush
+>  >
+>  > kmem_cache	3.8		13.0		7.2
+>  > iter		3.9		12.3		6.9
+>  > unordered	3.1		11.9		4.9
+>  > find_node	3.1		 0.3		1.2
+>
+>  I certainly like the speed but what will we brake when
+>  we don't return in longest prefix order?
+>
+> labb:/# ip r
+> default via 10.10.10.1 dev eth0 
+> 5.0.0.0/8 via 192.168.2.2 dev eth3 
+> 10.10.10.0/24 dev eth0  proto kernel  scope link  src 10.10.10.2 
+> 10.10.11.0/24 dev eth1  proto kernel  scope link  src 10.10.11.1 
+> 11.0.0.0/8 via 10.10.11.2 dev eth1 
+> 192.168.1.0/24 dev eth2  proto kernel  scope link  src 192.168.1.2 
+> 192.168.2.0/24 dev eth3  proto kernel  scope link  src 192.168.2.1 
+>
+> labb:/# ip route list match 10.10.10.1
+> default via 10.10.10.1 dev eth0 
+> 10.10.10.0/24 dev eth0  proto kernel  scope link  src 10.10.10.2 
+> labb:/# 
+>
+> Maybe the unordered dump can be ordered cheaply...
+>
+> Cheers.
+> 				--ro
+>
+>   
+Hash returned the routes in prefix order (then random).  Returning the 
+routes in numerical order
+seems just as logical. I'm going to test on quagga.
 
