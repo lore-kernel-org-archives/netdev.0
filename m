@@ -1,48 +1,30 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: pull request: wireless-2.6 'upstream' 2008-01-22
-Date: Wed, 23 Jan 2008 12:30:07 +0100
-Message-ID: <200801231230.07734.mb@bu3sch.de>
-References: <20080123014521.GG3206@tuxdriver.com> <20080123121551.4586e706@morte>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: 2.6.24-rc8 ppp regression
+Date: Wed, 23 Jan 2008 14:33:31 +0300
+Message-ID: <20080123113331.GA8749@2ka.mipt.ru>
+References: <20080123093509.GA4718@stro.at>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: Stefano Brivio <stefano.brivio@polimi.it>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: maximilian attems <max@stro.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs166246.vserver.de ([62.75.166.246]:34310 "EHLO
-	vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750710AbYAWLbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 06:31:31 -0500
-In-Reply-To: <20080123121551.4586e706@morte>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:34844 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751155AbYAWLeA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2008 06:34:00 -0500
 Content-Disposition: inline
+In-Reply-To: <20080123093509.GA4718@stro.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 23 January 2008 12:15:51 Stefano Brivio wrote:
-> On Tue, 22 Jan 2008 20:45:21 -0500
-> "John W. Linville" <linville@tuxdriver.com> wrote:
+On Wed, Jan 23, 2008 at 10:35:09AM +0100, maximilian attems (max@stro.at) wrote:
+> Jan 22 23:23:13 dual kernel: unregister_netdevice: waiting for ppp0 to become free. Usage count = 1
+> Jan 22 23:23:44 dual last message repeated 3 times
+> Jan 22 23:23:54 dual kernel: unregister_netdevice: waiting for ppp0 to become free. Usage count = 1
 > 
-> >       b43legacy: Remove the PHY spinlock
-> 
-> I hope you tested this. I still haven't been able to (I received the
-> needed hardware yesterday), and Michael said that the patch has been
-> compile-tested only.
+> 2.6.24-rc7 works fine, not yet bisected, will do later in the evening.
 
-John, if we use subject lines such as:
-
-[PATCH RFT] foobar: bizbaz
-
-That means the patch is _not_ submitted for inclusion, yet.
-The RFT means Request-For-Testing. Ususally, if I send out such
-patches, they are completely untested. I usually compiletest them,
-but that's it.
-But in future I can also put a comment into the mailbody that
-explains why to not apply it, yet.
-
-For this particular patch, please leave it in now. I'm pretty
-sure it is correct. So actual testing will be done upstream now. ;)
+Fix (revert) is in Dave's tree already.
 
 -- 
-Greetings Michael.
+	Evgeniy Polyakov
