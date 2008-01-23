@@ -1,53 +1,38 @@
-From: "Rami Rosen" <ramirose@gmail.com>
-Subject: [PATCH net-2.6.25] [PKTGEN] Remove an unused definition in pktgen.c.
-Date: Wed, 23 Jan 2008 16:38:09 +0200
-Message-ID: <eb3ff54b0801230638j4e0ece76sf0a2592477050fee@mail.gmail.com>
+From: Steven Whitehouse <swhiteho@redhat.com>
+Subject: My 802.3ad is my bond
+Date: Wed, 23 Jan 2008 15:45:00 +0000
+Message-ID: <1201103100.22038.254.camel@quoit>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_6660_17493707.1201099089370"
-To: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.157]:25588 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754967AbYAWOiL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 09:38:11 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so2253145fga.17
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2008 06:38:09 -0800 (PST)
+Received: from mx1.redhat.com ([66.187.233.31]:53611 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754793AbYAWQBD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2008 11:01:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_6660_17493707.1201099089370
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
 Hi,
-- Remove an unused definition (LAT_BUCKETS_MAX) in net/core/pktgen.c.
-- Remove the corresponding comment.
-- The LAT_BUCKETS_MAX seems to have to do with a patch from a long
-time ago which was not applied (Ben Greear), which dealt with latency
-counters.
 
-See, for example : http://oss.sgi.com/archives/netdev/2002-09/msg00184.html
+This commit: ece95f7fefe3afae19e641e1b3f5e64b00d5b948 seems to have
+caused a problem with parsing bond arguments as now only the numeric
+arguments seem to work (in modprobe.conf) and specifying 802.3ad fails.
+When I revert that patch in my local tree all seems ok.
 
-Regards,
-Rami Rosen
+Also I notice that one of my two NICs now reports this:
+
+bonding: bond0: link status definitely down for interface eth0,
+disabling it
+bonding: bond0: Interface eth0 is already enslaved!
+bond0.5: no IPv6 routers present
+
+which I think is also new with this set of bonding updates, before it
+used to use both interfaces ok. I've not worked out which of the other
+patches causes this so far, but I can if its helpful,
+
+Steve.
 
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
-------=_Part_6660_17493707.1201099089370
-Content-Type: text/plain; name=patch.txt
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fbrz731j0
-Content-Disposition: attachment; filename=patch.txt
-
-ZGlmZiAtLWdpdCBhL25ldC9jb3JlL3BrdGdlbi5jIGIvbmV0L2NvcmUvcGt0Z2VuLmMKaW5kZXgg
-ZWViY2NkYi4uYjdmMmRlMSAxMDA2NDQKLS0tIGEvbmV0L2NvcmUvcGt0Z2VuLmMKKysrIGIvbmV0
-L2NvcmUvcGt0Z2VuLmMKQEAgLTE3MCw4ICsxNzAsNiBAQAogCiAjZGVmaW5lIFZFUlNJT04gICJw
-a3RnZW4gdjIuNjk6IFBhY2tldCBHZW5lcmF0b3IgZm9yIHBhY2tldCBwZXJmb3JtYW5jZSB0ZXN0
-aW5nLlxuIgogCi0vKiBUaGUgYnVja2V0cyBhcmUgZXhwb25lbnRpYWwgaW4gJ3dpZHRoJyAqLwot
-I2RlZmluZSBMQVRfQlVDS0VUU19NQVggMzIKICNkZWZpbmUgSVBfTkFNRV9TWiAzMgogI2RlZmlu
-ZSBNQVhfTVBMU19MQUJFTFMgMTYgLyogVGhpcyBpcyB0aGUgbWF4IGxhYmVsIHN0YWNrIGRlcHRo
-ICovCiAjZGVmaW5lIE1QTFNfU1RBQ0tfQk9UVE9NIGh0b25sKDB4MDAwMDAxMDApCg==
-------=_Part_6660_17493707.1201099089370--
