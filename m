@@ -1,83 +1,62 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH 1/3] pasemi_mac: Add support for changing mac address
-Date: Wed, 23 Jan 2008 13:56:19 -0600
-Message-ID: <20080123195619.GB32380@lixom.net>
-References: <20080123195537.GA32380@lixom.net>
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: arp queries and ipsec policy
+Date: Wed, 23 Jan 2008 21:37:22 +0100
+Message-ID: <BAY103-DAV10E05A9F06E3B3ED6C10A0B23F0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: jgarzik@pobox.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:46902 "EHLO mail.lixom.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751740AbYAWTx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jan 2008 14:53:29 -0500
-Content-Disposition: inline
-In-Reply-To: <20080123195537.GA32380@lixom.net>
+Received: from bay0-omc1-s7.bay0.hotmail.com ([65.54.246.79]:13633 "EHLO
+	bay0-omc1-s7.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751512AbYAWUbO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2008 15:31:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Straightforward. It used to be hardcoded and impossible to override
-with ifconfig.
+Hello everybody.
+I'm using openswan 2.4.x to drive the linux 2.4.23.14 ipsec
+native stack (netkey).
+Openswan by default insert a static route when an ipsec SA
+is established: this is needed by the klips stack as it is
+routing based. For example when a roadwarrior establish
+an ipsec SA with the linux box I see a static route like
+this:
 
-Signed-off-by: Olof Johansson <olof@lixom.net>
+# ip r s
+road_warrior_public_ip dev eth0  scope link
 
-diff --git a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
-index bb88a41..59dea3f 100644
---- a/drivers/net/pasemi_mac.c
-+++ b/drivers/net/pasemi_mac.c
-@@ -221,6 +221,33 @@ static int pasemi_get_mac_addr(struct pasemi_mac *mac)
- 	return 0;
- }
- 
-+static int pasemi_mac_set_mac_addr(struct net_device *dev, void *p)
-+{
-+	struct pasemi_mac *mac = netdev_priv(dev);
-+	struct sockaddr *addr = p;
-+	unsigned int adr0, adr1;
-+
-+	if (!is_valid_ether_addr(addr->sa_data))
-+		return -EINVAL;
-+
-+	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
-+
-+	adr0 = dev->dev_addr[2] << 24 |
-+	       dev->dev_addr[3] << 16 |
-+	       dev->dev_addr[4] << 8 |
-+	       dev->dev_addr[5];
-+	adr1 = read_mac_reg(mac, PAS_MAC_CFG_ADR1);
-+	adr1 &= ~0xffff;
-+	adr1 |= dev->dev_addr[0] << 8 | dev->dev_addr[1];
-+
-+	pasemi_mac_intf_disable(mac);
-+	write_mac_reg(mac, PAS_MAC_CFG_ADR0, adr0);
-+	write_mac_reg(mac, PAS_MAC_CFG_ADR1, adr1);
-+	pasemi_mac_intf_enable(mac);
-+
-+	return 0;
-+}
-+
- static int get_skb_hdr(struct sk_buff *skb, void **iphdr,
- 		       void **tcph, u64 *hdr_flags, void *data)
- {
-@@ -1475,6 +1502,7 @@ pasemi_mac_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	dev->stop = pasemi_mac_close;
- 	dev->hard_start_xmit = pasemi_mac_start_tx;
- 	dev->set_multicast_list = pasemi_mac_set_rx_mode;
-+	dev->set_mac_address = pasemi_mac_set_mac_addr;
- 
- 	if (err)
- 		goto out;
-diff --git a/drivers/net/pasemi_mac.h b/drivers/net/pasemi_mac.h
-index 8bee2a6..39d3259 100644
---- a/drivers/net/pasemi_mac.h
-+++ b/drivers/net/pasemi_mac.h
-@@ -96,6 +96,8 @@ struct pasemi_mac_buffer {
- /* MAC CFG register offsets */
- enum {
- 	PAS_MAC_CFG_PCFG = 0x80,
-+	PAS_MAC_CFG_ADR0 = 0x8c,
-+	PAS_MAC_CFG_ADR1 = 0x90,
- 	PAS_MAC_CFG_TXP = 0x98,
- 	PAS_MAC_IPC_CHNL = 0x208,
- };
+This static route is placed by the default updown script.
+When there is this route, I see linux doing arp queries for
+the road_warrior_public_ip:
+
+# tcpdump -pnvi eth0 arp
+tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 96 bytes
+17:25:11.608179 arp who-has road_warrior_public_ip tell linux_public_ip_address
+17:25:12.608171 arp who-has road_warrior_public_ip tell linux_public_ip_address
+17:25:13.608224 arp who-has road_warrior_public_ip tell linux_public_ip_address
+
+Is this behaviour expected?
+
+I have seen this behaviour today because the ISP router
+isn't configured with proxy_arp and linux is unable to
+send the ESP packets because the is no arp reply from nobody.
+However it is able to receive/decrypt them:
+
+# tcpdump -pnvi eth0 ip host road_warrior_public_ip
+tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 96 bytes
+
+17:24:55.107497 IP (tos 0x0, ttl 120, id 55048, offset 0, flags [none], proto:
+ESP (50), length: 112) road_warrior_public_ip > linux_public_ip_address:
+ESP(spi=0xe215d75f,seq=0x25), length 92
+
+17:24:55.109304 IP (tos 0x0, ttl 128, id 2262, offset 0, flags [none], proto:
+ICMP (1), length: 60) road_warrior_public_ip > 172.25.5.4: ICMP echo request,
+id 512, seq 50694, length 40
+
+I have resolved the problem modifying the updown script so
+it doesn't place the static route anymore.
+
+PS: default parameters for eth0 on /proc except proxy_arp,
+arp_announce and rp_filter
