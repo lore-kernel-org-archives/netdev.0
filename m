@@ -1,56 +1,56 @@
 From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] BUG_ON() bad input to request_irq
-Date: Wed, 23 Jan 2008 14:04:14 -0800
-Message-ID: <20080123140414.e1ff2263.akpm@linux-foundation.org>
-References: <200801171757.59026.rusty@rustcorp.com.au>
-	<200801171759.59029.rusty@rustcorp.com.au>
+Subject: Re: [PATCH] bluetooth : move children of connection device to NULL
+ before connection down
+Date: Wed, 23 Jan 2008 14:06:29 -0800
+Message-ID: <20080123140629.c24d4d68.akpm@linux-foundation.org>
+References: <20080121044913.GA4162@darkstar.te-china.tietoenator.com>
+	<20080121045401.GB4162@darkstar.te-china.tietoenator.com>
+	<20080121.031417.171098597.davem@davemloft.net>
+	<1200982696.7978.148.camel@aeonflux>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754471AbYAWWEs@vger.kernel.org>
-In-Reply-To: <200801171759.59029.rusty@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, hidave.darkstar@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bluez-devel@lists.sourceforge.net, cornelia.huck@de.ibm.com,
+	gombasg@sztaki.hu, htejun@gmail.com, viro@zeniv.linux.org.uk,
+	kay.sievers@vrfy.org, greg@kroah.com
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:43589 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753787AbYAWWHV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 17:07:21 -0500
+In-Reply-To: <1200982696.7978.148.camel@aeonflux>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Thu, 17 Jan 2008 17:59:58 +1100 Rusty Russell <rusty@rustcorp.com.au> wrote:
-> Is there any reason why these bugs should be treated gently?  The
-> caller might not want to check NR_IRQS and IRQ_NOREQUEST cases, but
-> a NULL handler or NULL dev_id w/ shared are coding bugs.
+> On Tue, 22 Jan 2008 07:18:16 +0100 Marcel Holtmann <marcel@holtmann.org> wrote:
+> Hi Dave,
 > 
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-> ---
->  kernel/irq/manage.c |    7 +++----
->  1 file changed, 3 insertions(+), 4 deletions(-)
+> > > Add people missed in cc-list.
+> > 
+> > Thanks Dave for your continued efforts on Bluetooth bugs like this.
+> > 
+> > Marcel, are you going to review/ACK/integrate/push-upstream/whatever
+> > any of these Bluetooth patches?
+> > 
+> > It hasn't been getting much love from you as of late, you are one of
+> > the listed maintainers, and I don't want to lose any of Dave's
+> > valuable bug fixing work.
 > 
-> diff -r c2eb8ef5a0be kernel/irq/manage.c
-> --- a/kernel/irq/manage.c	Thu Jan 17 15:48:03 2008 +1100
-> +++ b/kernel/irq/manage.c	Thu Jan 17 15:49:33 2008 +1100
-> @@ -532,13 +532,12 @@ int request_irq(unsigned int irq, irq_ha
->  	 * which interrupt is which (messes up the interrupt freeing
->  	 * logic etc).
->  	 */
-> -	if ((irqflags & IRQF_SHARED) && !dev_id)
-> -		return -EINVAL;
-> +	BUG_ON((irqflags & IRQF_SHARED) && !dev_id);
-> +	BUG_ON(!handler);
-> +
->  	if (irq >= NR_IRQS)
->  		return -EINVAL;
->  	if (irq_desc[irq].status & IRQ_NOREQUEST)
-> -		return -EINVAL;
-> -	if (!handler)
->  		return -EINVAL;
->  
->  	action = kmalloc(sizeof(struct irqaction), GFP_ATOMIC);
+> I will be fully back in business next week. Just got stuck in a project
+> that needed 200% of my time to get it going.
+>
 
-If no driver is passing in args which will trigger this BUG, we presumably
-don't need the patch.
+These patches in -mm:
 
-If some driver _is_ passing in ags which will trigger these BUGs then it is
-presumably working OK anyway.  Taking a working system and making it go BUG
-is likely to upset people.
+bluetooth-hidp_process_hid_control-remove-unnecessary-parameter-dealing.patch
+bluetooth-uninlining.patch
+drivers-bluetooth-bpa10xc-fix-memleak.patch
+drivers-bluetooth-btsdioc-fix-double-free.patch
+bluetooth-blacklist-another-broadcom-bcm2035-device.patch
+bluetooth-rfcomm-tty_close-before-destruct.patch
+hci_ldisc-fix-null-pointer-deref.patch
 
-IOW: WARN_ON, please.
+could benefit from some attention please.
