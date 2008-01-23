@@ -1,7 +1,8 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH 1/3] Cleanup and simplify virtnet header
-Date: Thu, 24 Jan 2008 01:07:38 +1100
-Message-ID: <200801240107.38929.rusty@rustcorp.com.au>
+Subject: [PATCH 3/3] Interface to query tun/tap features.
+Date: Thu, 24 Jan 2008 01:14:18 +1100
+Message-ID: <200801240114.18571.rusty@rustcorp.com.au>
+References: <200801240107.38929.rusty@rustcorp.com.au> <200801240110.45178.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="utf-8"
@@ -10,141 +11,118 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	virtualization@lists.linux-foundation.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:60214 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:60227 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752097AbYAWOXf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jan 2008 09:23:35 -0500
+	id S1752504AbYAWOXk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2008 09:23:40 -0500
+In-Reply-To: <200801240110.45178.rusty@rustcorp.com.au>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) Turn GSO on virtio net into an all-or-nothing (keep checksumming
-   separate).  Having multiple bits is a pain: if you can't support something
-   you should handle it in software, which is still a performance win.
+(No real change, just updated with new bits)
 
-2) Make VIRTIO_NET_HDR_GSO_ECN a flag in the header, so it can apply to
-   IPv6 or v4.
+The problem with introducing IFF_RECV_CSUM and IFF_RECV_GSO is that
+they need to set dev->features to enable GSO and/or checksumming,
+which is supposed to be done before register_netdevice(), ie. as part
+of TUNSETIFF.
 
-3) Rename VIRTIO_NET_F_NO_CSUM to VIRTIO_NET_F_CSUM (ie. means we do
-   checksumming).
+Unfortunately, TUNSETIFF has always just ignored flags it doesn't understand,
+so there's no good way of detecting whether the kernel supports IFF_GSO_HDR.
 
-4) Add csum and gso params to virtio_net to allow more testing.
+This patch implements a TUNGETFEATURES ioctl which returns all the valid IFF
+flags.  It could be extended later to include other features.
+
+Here's an example program which uses it:
+
+#include <linux/if_tun.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <err.h>
+#include <stdio.h>
+
+static struct {
+	unsigned int flag;
+	const char *name;
+} known_flags[] = {
+	{ IFF_TUN, "TUN" },
+	{ IFF_TAP, "TAP" },
+	{ IFF_NO_PI, "NO_PI" },
+	{ IFF_ONE_QUEUE, "ONE_QUEUE" },
+	{ IFF_VIRTIO_HDR, "VIRTIO_HDR" },
+	{ IFF_RECV_CSUM, "RECV_CSUM" },
+	{ IFF_RECV_GSO, "RECV_GSO" },
+};
+
+int main()
+{
+	unsigned int features, i;
+
+	int netfd = open("/dev/net/tun", O_RDWR);
+	if (netfd < 0)
+		err(1, "Opening /dev/net/tun");
+
+	if (ioctl(netfd, TUNGETFEATURES, &features) != 0) {
+		printf("Kernel does not support TUNGETFEATURES, guessing\n");
+		features = (IFF_TUN|IFF_TAP|IFF_NO_PI|IFF_ONE_QUEUE);
+	}
+	printf("Available features are: ");
+	for (i = 0; i < sizeof(known_flags)/sizeof(known_flags[0]); i++) {
+		if (features & known_flags[i].flag) {
+			features &= ~known_flags[i].flag;
+			printf("%s ", known_flags[i].name);
+		}
+	}
+	if (features)
+		printf("(UNKNOWN %#x)", features);
+	printf("\n");
+	return 0;
+}
 
 Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 ---
- drivers/net/virtio_net.c   |   32 ++++++++++++++++----------------
- include/linux/virtio_net.h |   12 ++++--------
- 2 files changed, 20 insertions(+), 24 deletions(-)
+ drivers/net/tun.c      |    9 +++++++++
+ include/linux/if_tun.h |    3 +++
+ 2 files changed, 12 insertions(+)
 
-diff -r 4fb788b18cf8 drivers/net/virtio_net.c
---- a/drivers/net/virtio_net.c	Wed Jan 23 13:07:59 2008 +1100
-+++ b/drivers/net/virtio_net.c	Wed Jan 23 18:46:05 2008 +1100
-@@ -26,6 +26,10 @@
- 
- static int napi_weight = 128;
- module_param(napi_weight, int, 0444);
-+
-+static int csum = 1, gso = 1;
-+module_param(csum, int, 0444);
-+module_param(gso, int, 0444);
- 
- MODULE_LICENSE("GPL");
- 
-@@ -95,12 +99,9 @@ static void receive_skb(struct net_devic
- 
- 	if (hdr->gso_type != VIRTIO_NET_HDR_GSO_NONE) {
- 		pr_debug("GSO!\n");
--		switch (hdr->gso_type) {
-+		switch (hdr->gso_type & ~VIRTIO_NET_HDR_GSO_ECN) {
- 		case VIRTIO_NET_HDR_GSO_TCPV4:
- 			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
--			break;
--		case VIRTIO_NET_HDR_GSO_TCPV4_ECN:
--			skb_shinfo(skb)->gso_type = SKB_GSO_TCP_ECN;
- 			break;
- 		case VIRTIO_NET_HDR_GSO_UDP:
- 			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
-@@ -114,6 +115,9 @@ static void receive_skb(struct net_devic
- 				       dev->name, hdr->gso_type);
- 			goto frame_err;
- 		}
-+
-+		if (hdr->gso_type & VIRTIO_NET_HDR_GSO_ECN)
-+			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
- 
- 		skb_shinfo(skb)->gso_size = hdr->gso_size;
- 		if (skb_shinfo(skb)->gso_size == 0) {
-@@ -249,9 +253,7 @@ static int start_xmit(struct sk_buff *sk
- 	if (skb_is_gso(skb)) {
- 		hdr->hdr_len = skb_transport_header(skb) - skb->data;
- 		hdr->gso_size = skb_shinfo(skb)->gso_size;
--		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCP_ECN)
--			hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4_ECN;
--		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
-+		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
- 			hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
- 		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
- 			hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
-@@ -259,6 +261,8 @@ static int start_xmit(struct sk_buff *sk
- 			hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
- 		else
- 			BUG();
-+		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCP_ECN)
-+			hdr->gso_type |= VIRTIO_NET_HDR_GSO_ECN;
- 	} else {
- 		hdr->gso_type = VIRTIO_NET_HDR_GSO_NONE;
- 		hdr->gso_size = hdr->hdr_len = 0;
-@@ -354,17 +358,13 @@ static int virtnet_probe(struct virtio_d
- 	SET_NETDEV_DEV(dev, &vdev->dev);
- 
- 	/* Do we support "hardware" checksums? */
--	if (vdev->config->feature(vdev, VIRTIO_NET_F_NO_CSUM)) {
-+	if (csum && vdev->config->feature(vdev, VIRTIO_NET_F_CSUM)) {
- 		/* This opens up the world of extra features. */
- 		dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
--		if (vdev->config->feature(vdev, VIRTIO_NET_F_TSO4))
--			dev->features |= NETIF_F_TSO;
--		if (vdev->config->feature(vdev, VIRTIO_NET_F_UFO))
--			dev->features |= NETIF_F_UFO;
--		if (vdev->config->feature(vdev, VIRTIO_NET_F_TSO4_ECN))
--			dev->features |= NETIF_F_TSO_ECN;
--		if (vdev->config->feature(vdev, VIRTIO_NET_F_TSO6))
--			dev->features |= NETIF_F_TSO6;
-+		if (gso && vdev->config->feature(vdev, VIRTIO_NET_F_GSO)) {
-+			dev->features |= NETIF_F_TSO | NETIF_F_UFO
-+				| NETIF_F_TSO_ECN | NETIF_F_TSO6;
-+		}
+diff -r c0e7a8b99325 drivers/net/tun.c
+--- a/drivers/net/tun.c	Wed Jan 23 20:12:51 2008 +1100
++++ b/drivers/net/tun.c	Wed Jan 23 20:17:28 2008 +1100
+@@ -790,6 +790,15 @@ static int tun_chr_ioctl(struct inode *i
+ 		return 0;
  	}
  
- 	/* Configuration may specify what MAC to use.  Otherwise random. */
-diff -r 4fb788b18cf8 include/linux/virtio_net.h
---- a/include/linux/virtio_net.h	Wed Jan 23 13:07:59 2008 +1100
-+++ b/include/linux/virtio_net.h	Wed Jan 23 18:46:05 2008 +1100
-@@ -6,12 +6,9 @@
- #define VIRTIO_ID_NET	1
++	if (cmd == TUNGETFEATURES) {
++		/* Currently this just means: "what IFF flags are valid?".
++		 * This is needed because we never checked for invalid flags on
++		 * TUNSETIFF.  This was introduced with IFF_GSO_HDR, so if a
++		 * kernel doesn't have this ioctl, it doesn't have GSO header
++		 * support. */
++		return put_user(IFF_ALL_FLAGS, (unsigned int __user*)argp);
++	}
++
+ 	if (!tun)
+ 		return -EBADFD;
  
- /* The feature bitmap for virtio net */
--#define VIRTIO_NET_F_NO_CSUM	0
--#define VIRTIO_NET_F_TSO4	1
--#define VIRTIO_NET_F_UFO	2
--#define VIRTIO_NET_F_TSO4_ECN	3
--#define VIRTIO_NET_F_TSO6	4
--#define VIRTIO_NET_F_MAC	5
-+#define VIRTIO_NET_F_CSUM	0	/* Can handle pkts w/ partial csum */
-+#define VIRTIO_NET_F_MAC	5	/* Host has given MAC address. */
-+#define VIRTIO_NET_F_GSO	6	/* Can handle pkts w/ any GSO type */
+diff -r c0e7a8b99325 include/linux/if_tun.h
+--- a/include/linux/if_tun.h	Wed Jan 23 20:12:51 2008 +1100
++++ b/include/linux/if_tun.h	Wed Jan 23 20:17:28 2008 +1100
+@@ -82,6 +82,7 @@ struct tun_struct {
+ #define TUNSETOWNER   _IOW('T', 204, int)
+ #define TUNSETLINK    _IOW('T', 205, int)
+ #define TUNSETGROUP   _IOW('T', 206, int)
++#define TUNGETFEATURES _IOR('T', 207, unsigned int)
  
- struct virtio_net_config
- {
-@@ -27,10 +24,9 @@ struct virtio_net_hdr
- 	__u8 flags;
- #define VIRTIO_NET_HDR_GSO_NONE		0	// Not a GSO frame
- #define VIRTIO_NET_HDR_GSO_TCPV4	1	// GSO frame, IPv4 TCP (TSO)
--/* FIXME: Do we need this?  If they said they can handle ECN, do they care? */
--#define VIRTIO_NET_HDR_GSO_TCPV4_ECN	2	// GSO frame, IPv4 TCP w/ ECN
- #define VIRTIO_NET_HDR_GSO_UDP		3	// GSO frame, IPv4 UDP (UFO)
- #define VIRTIO_NET_HDR_GSO_TCPV6	4	// GSO frame, IPv6 TCP
-+#define VIRTIO_NET_HDR_GSO_ECN		0x80	// TCP has ECN set
- 	__u8 gso_type;
- 	__u16 hdr_len;		/* Ethernet + IP + tcp/udp hdrs */
- 	__u16 gso_size;		/* Bytes to append to gso_hdr_len per frame */
+ /* TUNSETIFF ifr flags */
+ #define IFF_TUN		0x0001
+@@ -91,6 +92,8 @@ struct tun_struct {
+ #define IFF_VIRTIO_HDR	0x4000
+ #define IFF_RECV_CSUM	0x8000
+ #define IFF_RECV_GSO	0x0800
++#define IFF_ALL_FLAGS (IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE | \
++		       IFF_VIRTIO_HDR | IFF_RECV_CSUM | IFF_RECV_GSO)
+ 
+ struct tun_pi {
+ 	unsigned short flags;
