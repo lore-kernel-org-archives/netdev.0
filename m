@@ -1,39 +1,39 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 12/12 net-2.6.25] [NETNS]: Add namespace for ICMP
- replying code.
-Date: Wed, 23 Jan 2008 18:30:36 +0900 (JST)
-Message-ID: <20080123.183036.94528507.yoshfuji@linux-ipv6.org>
-References: <1201074387-7366-3-git-send-email-den@openvz.org>
-	<20080122.235130.84789113.davem@davemloft.net>
-	<1201079789.10778.26.camel@mistigri.inria.fr>
+From: maximilian attems <max@stro.at>
+Subject: 2.6.24-rc8 ppp regression
+Date: Wed, 23 Jan 2008 10:35:09 +0100
+Message-ID: <20080123093509.GA4718@stro.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, den@openvz.org, containers@lists.osdl.org,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: mathieu.lacage@sophia.inria.fr
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:38789 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751141AbYAWJaU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 04:30:20 -0500
-In-Reply-To: <1201079789.10778.26.camel@mistigri.inria.fr>
+Received: from baikonur.stro.at ([213.239.196.228]:44698 "EHLO
+	baikonur.stro.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751814AbYAWJfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 04:35:15 -0500
+Received: from dual (sputnik.itp.tuwien.ac.at [128.131.48.177])
+	by baikonur.stro.at (Postfix) with ESMTP id 9481E5C001
+	for <netdev@vger.kernel.org>; Wed, 23 Jan 2008 10:34:20 +0100 (CET)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <1201079789.10778.26.camel@mistigri.inria.fr> (at Wed, 23 Jan 2008 10:16:29 +0100), Mathieu Lacage <mathieu.lacage@sophia.inria.fr> says:
 
-> I have been following the netns patches on this ML for a while but I
-> still have not figured out in which tree the patches fed to David Miller
-> are applied. I have attempted to grep the public trees 'davem/net-2.6'
-> and 'davem/net-2.6.25' but without much success so far. Is there a
-> public git tree I can clone which contains all the netns patches which
-> David Miller state are 'Applied' ?
+when killing a wvdial usb modem session:
 
-I'm cloning from
-	git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.25.git
+Jan 22 23:23:03 dual pppd[7941]: Terminating on signal 15
+Jan 22 23:23:03 dual pppd[7941]: Connect time 92.2 minutes.
+Jan 22 23:23:03 dual pppd[7941]: Sent 1322316 bytes, received 8587156 bytes.
+Jan 22 23:23:03 dual pppd[7941]: Connection terminated.
+Jan 22 23:23:05 dual kernel: usb 3-2: USB disconnect, address 5
+Jan 22 23:23:05 dual kernel: option 3-2:1.0: device disconnected
+Jan 22 23:23:05 dual kernel: option1 ttyUSB1: GSM modem (1-port) converter now disconnected from ttyUSB1
+Jan 22 23:23:05 dual kernel: option 3-2:1.1: device disconnected
+Jan 22 23:23:13 dual kernel: unregister_netdevice: waiting for ppp0 to become free. Usage count = 1
+Jan 22 23:23:44 dual last message repeated 3 times
+Jan 22 23:23:54 dual kernel: unregister_netdevice: waiting for ppp0 to become free. Usage count = 1
 
-There may be some time-lag.
 
---yoshfuji
+2.6.24-rc7 works fine, not yet bisected, will do later in the evening.
+
+-- 
+maks
