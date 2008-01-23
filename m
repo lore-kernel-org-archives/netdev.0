@@ -1,502 +1,914 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED 12/15]: Use nla_policy for attribute validation in packet schedulers
-Date: Wed, 23 Jan 2008 17:36:52 +0100 (MET)
-Message-ID: <20080123163612.6459.61449.sendpatchset@localhost.localdomain>
+Subject: [NET_SCHED 07/15]: Use nla_nest_start/nla_nest_end
+Date: Wed, 23 Jan 2008 17:36:45 +0100 (MET)
+Message-ID: <20080123163604.6459.5104.sendpatchset@localhost.localdomain>
 References: <20080123163555.6459.69501.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49748 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:49733 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753925AbYAWQgy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 11:36:54 -0500
+	with ESMTP id S1754669AbYAWQgs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 11:36:48 -0500
 In-Reply-To: <20080123163555.6459.69501.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[NET_SCHED]: Use nla_policy for attribute validation in packet schedulers
+[NET_SCHED]: Use nla_nest_start/nla_nest_end
+
+Use nla_nest_start/nla_nest_end for dumping nested attributes.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 76c3c24283fa9f78d8dc30c8eb73e0f11934bf69
-tree bcc9baf4eae9086d377efff17fbd37a360ac64b7
-parent b21f31e516f993016f8a1ade331bcaf71576b4e2
-author Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:12:57 +0100
-committer Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:12:57 +0100
+commit bdd38a3b14cfa340da580f6e825d7f1142925926
+tree 36dc82b63837c96b0f5e1b5c508f789abe7414e8
+parent f9b5ab497909e836983bc31e5e7ad5065ccba6bc
+author Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:12:54 +0100
+committer Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:12:54 +0100
 
- net/sched/sch_atm.c    |   12 ++++++++----
- net/sched/sch_cbq.c    |   47 +++++++++++++----------------------------------
- net/sched/sch_dsmark.c |   33 +++++++++++++++------------------
- net/sched/sch_gred.c   |   16 ++++++++++------
- net/sched/sch_hfsc.c   |   14 +++++++-------
- net/sched/sch_htb.c    |   17 +++++++++++------
- net/sched/sch_netem.c  |   19 ++++++++-----------
- net/sched/sch_red.c    |   11 +++++++----
- net/sched/sch_tbf.c    |   11 ++++++++---
- 9 files changed, 87 insertions(+), 93 deletions(-)
+ net/sched/act_api.c     |   84 ++++++++++++++++++++++++++---------------------
+ net/sched/act_police.c  |   13 ++++---
+ net/sched/cls_api.c     |   14 +++++---
+ net/sched/cls_basic.c   |   12 +++----
+ net/sched/cls_fw.c      |    9 +++--
+ net/sched/cls_route.c   |    9 +++--
+ net/sched/cls_rsvp.h    |   10 +++---
+ net/sched/cls_tcindex.c |   13 ++++---
+ net/sched/cls_u32.c     |   13 ++++---
+ net/sched/ematch.c      |   16 ++++++---
+ net/sched/sch_atm.c     |   15 +++++---
+ net/sched/sch_cbq.c     |   24 +++++++------
+ net/sched/sch_hfsc.c    |   11 +++---
+ net/sched/sch_htb.c     |   32 +++++++++++-------
+ net/sched/sch_ingress.c |   12 +++----
+ net/sched/sch_tbf.c     |   12 +++----
+ 16 files changed, 166 insertions(+), 133 deletions(-)
 
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 87818d7..3602260 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -69,7 +69,7 @@ static int tcf_dump_walker(struct sk_buff *skb, struct netlink_callback *cb,
+ {
+ 	struct tcf_common *p;
+ 	int err = 0, index = -1,i = 0, s_i = 0, n_i = 0;
+-	struct nlattr *r ;
++	struct nlattr *nest;
+ 
+ 	read_lock_bh(hinfo->lock);
+ 
+@@ -84,15 +84,17 @@ static int tcf_dump_walker(struct sk_buff *skb, struct netlink_callback *cb,
+ 				continue;
+ 			a->priv = p;
+ 			a->order = n_i;
+-			r = (struct nlattr *)skb_tail_pointer(skb);
+-			NLA_PUT(skb, a->order, 0, NULL);
++
++			nest = nla_nest_start(skb, a->order);
++			if (nest == NULL)
++				goto nla_put_failure;
+ 			err = tcf_action_dump_1(skb, a, 0, 0);
+ 			if (err < 0) {
+ 				index--;
+-				nlmsg_trim(skb, r);
++				nlmsg_trim(skb, nest);
+ 				goto done;
+ 			}
+-			r->nla_len = skb_tail_pointer(skb) - (u8 *)r;
++			nla_nest_end(skb, nest);
+ 			n_i++;
+ 			if (n_i >= TCA_ACT_MAX_PRIO)
+ 				goto done;
+@@ -105,7 +107,7 @@ done:
+ 	return n_i;
+ 
+ nla_put_failure:
+-	nlmsg_trim(skb, r);
++	nla_nest_cancel(skb, nest);
+ 	goto done;
+ }
+ 
+@@ -113,11 +115,12 @@ static int tcf_del_walker(struct sk_buff *skb, struct tc_action *a,
+ 			  struct tcf_hashinfo *hinfo)
+ {
+ 	struct tcf_common *p, *s_p;
+-	struct nlattr *r ;
++	struct nlattr *nest;
+ 	int i= 0, n_i = 0;
+ 
+-	r = (struct nlattr *)skb_tail_pointer(skb);
+-	NLA_PUT(skb, a->order, 0, NULL);
++	nest = nla_nest_start(skb, a->order);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 	NLA_PUT(skb, TCA_KIND, IFNAMSIZ, a->ops->kind);
+ 	for (i = 0; i < (hinfo->hmask + 1); i++) {
+ 		p = hinfo->htab[tcf_hash(i, hinfo->hmask)];
+@@ -131,11 +134,11 @@ static int tcf_del_walker(struct sk_buff *skb, struct tc_action *a,
+ 		}
+ 	}
+ 	NLA_PUT(skb, TCA_FCNT, 4, &n_i);
+-	r->nla_len = skb_tail_pointer(skb) - (u8 *)r;
++	nla_nest_end(skb, nest);
+ 
+ 	return n_i;
+ nla_put_failure:
+-	nlmsg_trim(skb, r);
++	nla_nest_cancel(skb, nest);
+ 	return -EINVAL;
+ }
+ 
+@@ -415,7 +418,7 @@ tcf_action_dump_1(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
+ {
+ 	int err = -EINVAL;
+ 	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *r;
++	struct nlattr *nest;
+ 
+ 	if (a->ops == NULL || a->ops->dump == NULL)
+ 		return err;
+@@ -423,10 +426,11 @@ tcf_action_dump_1(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
+ 	NLA_PUT(skb, TCA_KIND, IFNAMSIZ, a->ops->kind);
+ 	if (tcf_action_copy_stats(skb, a, 0))
+ 		goto nla_put_failure;
+-	r = (struct nlattr *)skb_tail_pointer(skb);
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 	if ((err = tcf_action_dump_old(skb, a, bind, ref)) > 0) {
+-		r->nla_len = skb_tail_pointer(skb) - (u8 *)r;
++		nla_nest_end(skb, nest);
+ 		return err;
+ 	}
+ 
+@@ -441,17 +445,17 @@ tcf_action_dump(struct sk_buff *skb, struct tc_action *act, int bind, int ref)
+ {
+ 	struct tc_action *a;
+ 	int err = -EINVAL;
+-	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *r ;
++	struct nlattr *nest;
+ 
+ 	while ((a = act) != NULL) {
+-		r = (struct nlattr *)skb_tail_pointer(skb);
+ 		act = a->next;
+-		NLA_PUT(skb, a->order, 0, NULL);
++		nest = nla_nest_start(skb, a->order);
++		if (nest == NULL)
++			goto nla_put_failure;
+ 		err = tcf_action_dump_1(skb, a, bind, ref);
+ 		if (err < 0)
+ 			goto errout;
+-		r->nla_len = skb_tail_pointer(skb) - (u8 *)r;
++		nla_nest_end(skb, nest);
+ 	}
+ 
+ 	return 0;
+@@ -459,7 +463,7 @@ tcf_action_dump(struct sk_buff *skb, struct tc_action *act, int bind, int ref)
+ nla_put_failure:
+ 	err = -EINVAL;
+ errout:
+-	nlmsg_trim(skb, b);
++	nla_nest_cancel(skb, nest);
+ 	return err;
+ }
+ 
+@@ -627,7 +631,7 @@ tca_get_fill(struct sk_buff *skb, struct tc_action *a, u32 pid, u32 seq,
+ 	struct tcamsg *t;
+ 	struct nlmsghdr *nlh;
+ 	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *x;
++	struct nlattr *nest;
+ 
+ 	nlh = NLMSG_NEW(skb, pid, seq, event, sizeof(*t), flags);
+ 
+@@ -636,13 +640,14 @@ tca_get_fill(struct sk_buff *skb, struct tc_action *a, u32 pid, u32 seq,
+ 	t->tca__pad1 = 0;
+ 	t->tca__pad2 = 0;
+ 
+-	x = (struct nlattr *)skb_tail_pointer(skb);
+-	NLA_PUT(skb, TCA_ACT_TAB, 0, NULL);
++	nest = nla_nest_start(skb, TCA_ACT_TAB);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 
+ 	if (tcf_action_dump(skb, a, bind, ref) < 0)
+ 		goto nla_put_failure;
+ 
+-	x->nla_len = skb_tail_pointer(skb) - (u8 *)x;
++	nla_nest_end(skb, nest);
+ 
+ 	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
+ 	return skb->len;
+@@ -743,7 +748,7 @@ static int tca_action_flush(struct nlattr *nla, struct nlmsghdr *n, u32 pid)
+ 	struct nlmsghdr *nlh;
+ 	struct tcamsg *t;
+ 	struct netlink_callback dcb;
+-	struct nlattr *x;
++	struct nlattr *nest;
+ 	struct nlattr *tb[TCA_ACT_MAX+1];
+ 	struct nlattr *kind;
+ 	struct tc_action *a = create_a(0);
+@@ -779,14 +784,15 @@ static int tca_action_flush(struct nlattr *nla, struct nlmsghdr *n, u32 pid)
+ 	t->tca__pad1 = 0;
+ 	t->tca__pad2 = 0;
+ 
+-	x = (struct nlattr *)skb_tail_pointer(skb);
+-	NLA_PUT(skb, TCA_ACT_TAB, 0, NULL);
++	nest = nla_nest_start(skb, TCA_ACT_TAB);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 
+ 	err = a->ops->walk(skb, &dcb, RTM_DELACTION, a);
+ 	if (err < 0)
+ 		goto nla_put_failure;
+ 
+-	x->nla_len = skb_tail_pointer(skb) - (u8 *)x;
++	nla_nest_end(skb, nest);
+ 
+ 	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
+ 	nlh->nlmsg_flags |= NLM_F_ROOT;
+@@ -875,7 +881,7 @@ static int tcf_add_notify(struct tc_action *a, u32 pid, u32 seq, int event,
+ 	struct tcamsg *t;
+ 	struct nlmsghdr *nlh;
+ 	struct sk_buff *skb;
+-	struct nlattr *x;
++	struct nlattr *nest;
+ 	unsigned char *b;
+ 	int err = 0;
+ 
+@@ -891,13 +897,14 @@ static int tcf_add_notify(struct tc_action *a, u32 pid, u32 seq, int event,
+ 	t->tca__pad1 = 0;
+ 	t->tca__pad2 = 0;
+ 
+-	x = (struct nlattr *)skb_tail_pointer(skb);
+-	NLA_PUT(skb, TCA_ACT_TAB, 0, NULL);
++	nest = nla_nest_start(skb, TCA_ACT_TAB);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 
+ 	if (tcf_action_dump(skb, a, 0, 0) < 0)
+ 		goto nla_put_failure;
+ 
+-	x->nla_len = skb_tail_pointer(skb) - (u8 *)x;
++	nla_nest_end(skb, nest);
+ 
+ 	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
+ 	NETLINK_CB(skb).dst_group = RTNLGRP_TC;
+@@ -1025,7 +1032,7 @@ tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct net *net = skb->sk->sk_net;
+ 	struct nlmsghdr *nlh;
+ 	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *x;
++	struct nlattr *nest;
+ 	struct tc_action_ops *a_o;
+ 	struct tc_action a;
+ 	int ret = 0;
+@@ -1060,18 +1067,19 @@ tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
+ 	t->tca__pad1 = 0;
+ 	t->tca__pad2 = 0;
+ 
+-	x = (struct nlattr *)skb_tail_pointer(skb);
+-	NLA_PUT(skb, TCA_ACT_TAB, 0, NULL);
++	nest = nla_nest_start(skb, TCA_ACT_TAB);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 
+ 	ret = a_o->walk(skb, cb, RTM_GETACTION, &a);
+ 	if (ret < 0)
+ 		goto nla_put_failure;
+ 
+ 	if (ret > 0) {
+-		x->nla_len = skb_tail_pointer(skb) - (u8 *)x;
++		nla_nest_end(skb, nest);
+ 		ret = skb->len;
+ 	} else
+-		nlmsg_trim(skb, x);
++		nla_nest_cancel(skb, nest);
+ 
+ 	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
+ 	if (NETLINK_CB(cb->skb).pid && ret)
+diff --git a/net/sched/act_police.c b/net/sched/act_police.c
+index c0fce9b..ee2f1b6 100644
+--- a/net/sched/act_police.c
++++ b/net/sched/act_police.c
+@@ -54,7 +54,7 @@ static int tcf_act_police_walker(struct sk_buff *skb, struct netlink_callback *c
+ {
+ 	struct tcf_common *p;
+ 	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
+-	struct nlattr *r;
++	struct nlattr *nest;
+ 
+ 	read_lock_bh(&police_lock);
+ 
+@@ -69,18 +69,19 @@ static int tcf_act_police_walker(struct sk_buff *skb, struct netlink_callback *c
+ 				continue;
+ 			a->priv = p;
+ 			a->order = index;
+-			r = (struct nlattr *)skb_tail_pointer(skb);
+-			NLA_PUT(skb, a->order, 0, NULL);
++			nest = nla_nest_start(skb, a->order);
++			if (nest == NULL)
++				goto nla_put_failure;
+ 			if (type == RTM_DELACTION)
+ 				err = tcf_action_dump_1(skb, a, 0, 1);
+ 			else
+ 				err = tcf_action_dump_1(skb, a, 0, 0);
+ 			if (err < 0) {
+ 				index--;
+-				nlmsg_trim(skb, r);
++				nla_nest_cancel(skb, nest);
+ 				goto done;
+ 			}
+-			r->nla_len = skb_tail_pointer(skb) - (u8 *)r;
++			nla_nest_end(skb, nest);
+ 			n_i++;
+ 		}
+ 	}
+@@ -91,7 +92,7 @@ done:
+ 	return n_i;
+ 
+ nla_put_failure:
+-	nlmsg_trim(skb, r);
++	nla_nest_cancel(skb, nest);
+ 	goto done;
+ }
+ 
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 92fa155..5584e7c 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -544,18 +544,22 @@ int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts,
+ 		 * to work with both old and new modes of entering
+ 		 * tc data even if iproute2  was newer - jhs
+ 		 */
+-		struct nlattr *p_rta = (struct nlattr *)skb_tail_pointer(skb);
++		struct nlattr *nest;
+ 
+ 		if (exts->action->type != TCA_OLD_COMPAT) {
+-			NLA_PUT(skb, map->action, 0, NULL);
++			nest = nla_nest_start(skb, map->action);
++			if (nest == NULL)
++				goto nla_put_failure;
+ 			if (tcf_action_dump(skb, exts->action, 0, 0) < 0)
+ 				goto nla_put_failure;
+-			p_rta->nla_len = skb_tail_pointer(skb) - (u8 *)p_rta;
++			nla_nest_end(skb, nest);
+ 		} else if (map->police) {
+-			NLA_PUT(skb, map->police, 0, NULL);
++			nest = nla_nest_start(skb, map->police);
++			if (nest == NULL)
++				goto nla_put_failure;
+ 			if (tcf_action_dump_old(skb, exts->action, 0, 0) < 0)
+ 				goto nla_put_failure;
+-			p_rta->nla_len = skb_tail_pointer(skb) - (u8 *)p_rta;
++			nla_nest_end(skb, nest);
+ 		}
+ 	}
+ #endif
+diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
+index 524b788..6d08b42 100644
+--- a/net/sched/cls_basic.c
++++ b/net/sched/cls_basic.c
+@@ -246,16 +246,16 @@ static int basic_dump(struct tcf_proto *tp, unsigned long fh,
+ 		      struct sk_buff *skb, struct tcmsg *t)
+ {
+ 	struct basic_filter *f = (struct basic_filter *) fh;
+-	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *nla;
++	struct nlattr *nest;
+ 
+ 	if (f == NULL)
+ 		return skb->len;
+ 
+ 	t->tcm_handle = f->handle;
+ 
+-	nla = (struct nlattr *) b;
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 
+ 	if (f->res.classid)
+ 		NLA_PUT(skb, TCA_BASIC_CLASSID, sizeof(u32), &f->res.classid);
+@@ -264,11 +264,11 @@ static int basic_dump(struct tcf_proto *tp, unsigned long fh,
+ 	    tcf_em_tree_dump(skb, &f->ematches, TCA_BASIC_EMATCHES) < 0)
+ 		goto nla_put_failure;
+ 
+-	nla->nla_len = skb_tail_pointer(skb) - b;
++	nla_nest_end(skb, nest);
+ 	return skb->len;
+ 
+ nla_put_failure:
+-	nlmsg_trim(skb, b);
++	nla_nest_cancel(skb, nest);
+ 	return -1;
+ }
+ 
+diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+index a1a9f4d..e3dfbb3 100644
+--- a/net/sched/cls_fw.c
++++ b/net/sched/cls_fw.c
+@@ -334,7 +334,7 @@ static int fw_dump(struct tcf_proto *tp, unsigned long fh,
+ 	struct fw_head *head = (struct fw_head *)tp->root;
+ 	struct fw_filter *f = (struct fw_filter*)fh;
+ 	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *nla;
++	struct nlattr *nest;
+ 
+ 	if (f == NULL)
+ 		return skb->len;
+@@ -344,8 +344,9 @@ static int fw_dump(struct tcf_proto *tp, unsigned long fh,
+ 	if (!f->res.classid && !tcf_exts_is_available(&f->exts))
+ 		return skb->len;
+ 
+-	nla = (struct nlattr*)b;
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 
+ 	if (f->res.classid)
+ 		NLA_PUT(skb, TCA_FW_CLASSID, 4, &f->res.classid);
+@@ -359,7 +360,7 @@ static int fw_dump(struct tcf_proto *tp, unsigned long fh,
+ 	if (tcf_exts_dump(skb, &f->exts, &fw_ext_map) < 0)
+ 		goto nla_put_failure;
+ 
+-	nla->nla_len = skb_tail_pointer(skb) - b;
++	nla_nest_end(skb, nest);
+ 
+ 	if (tcf_exts_dump_stats(skb, &f->exts, &fw_ext_map) < 0)
+ 		goto nla_put_failure;
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+index 3aa8109..1ce1f36 100644
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -551,7 +551,7 @@ static int route4_dump(struct tcf_proto *tp, unsigned long fh,
+ {
+ 	struct route4_filter *f = (struct route4_filter*)fh;
+ 	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *nla;
++	struct nlattr *nest;
+ 	u32 id;
+ 
+ 	if (f == NULL)
+@@ -559,8 +559,9 @@ static int route4_dump(struct tcf_proto *tp, unsigned long fh,
+ 
+ 	t->tcm_handle = f->handle;
+ 
+-	nla = (struct nlattr*)b;
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 
+ 	if (!(f->handle&0x8000)) {
+ 		id = f->id&0xFF;
+@@ -579,7 +580,7 @@ static int route4_dump(struct tcf_proto *tp, unsigned long fh,
+ 	if (tcf_exts_dump(skb, &f->exts, &route_ext_map) < 0)
+ 		goto nla_put_failure;
+ 
+-	nla->nla_len = skb_tail_pointer(skb) - b;
++	nla_nest_end(skb, nest);
+ 
+ 	if (tcf_exts_dump_stats(skb, &f->exts, &route_ext_map) < 0)
+ 		goto nla_put_failure;
+diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
+index 5747408..77097e0 100644
+--- a/net/sched/cls_rsvp.h
++++ b/net/sched/cls_rsvp.h
+@@ -595,7 +595,7 @@ static int rsvp_dump(struct tcf_proto *tp, unsigned long fh,
+ 	struct rsvp_filter *f = (struct rsvp_filter*)fh;
+ 	struct rsvp_session *s;
+ 	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *nla;
++	struct nlattr *nest;
+ 	struct tc_rsvp_pinfo pinfo;
+ 
+ 	if (f == NULL)
+@@ -604,9 +604,9 @@ static int rsvp_dump(struct tcf_proto *tp, unsigned long fh,
+ 
+ 	t->tcm_handle = f->handle;
+ 
+-
+-	nla = (struct nlattr*)b;
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 
+ 	NLA_PUT(skb, TCA_RSVP_DST, sizeof(s->dst), &s->dst);
+ 	pinfo.dpi = s->dpi;
+@@ -624,7 +624,7 @@ static int rsvp_dump(struct tcf_proto *tp, unsigned long fh,
+ 	if (tcf_exts_dump(skb, &f->exts, &rsvp_ext_map) < 0)
+ 		goto nla_put_failure;
+ 
+-	nla->nla_len = skb_tail_pointer(skb) - b;
++	nla_nest_end(skb, nest);
+ 
+ 	if (tcf_exts_dump_stats(skb, &f->exts, &rsvp_ext_map) < 0)
+ 		goto nla_put_failure;
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index 6b84d27..cd350d3 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -437,13 +437,16 @@ static int tcindex_dump(struct tcf_proto *tp, unsigned long fh,
+ 	struct tcindex_data *p = PRIV(tp);
+ 	struct tcindex_filter_result *r = (struct tcindex_filter_result *) fh;
+ 	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *nla;
++	struct nlattr *nest;
+ 
+ 	pr_debug("tcindex_dump(tp %p,fh 0x%lx,skb %p,t %p),p %p,r %p,b %p\n",
+ 		 tp, fh, skb, t, p, r, b);
+ 	pr_debug("p->perfect %p p->h %p\n", p->perfect, p->h);
+-	nla = (struct nlattr *) b;
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
++
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
++
+ 	if (!fh) {
+ 		t->tcm_handle = ~0; /* whatever ... */
+ 		NLA_PUT(skb, TCA_TCINDEX_HASH, sizeof(p->hash), &p->hash);
+@@ -451,7 +454,7 @@ static int tcindex_dump(struct tcf_proto *tp, unsigned long fh,
+ 		NLA_PUT(skb, TCA_TCINDEX_SHIFT, sizeof(p->shift), &p->shift);
+ 		NLA_PUT(skb, TCA_TCINDEX_FALL_THROUGH, sizeof(p->fall_through),
+ 		    &p->fall_through);
+-		nla->nla_len = skb_tail_pointer(skb) - b;
++		nla_nest_end(skb, nest);
+ 	} else {
+ 		if (p->perfect) {
+ 			t->tcm_handle = r-p->perfect;
+@@ -474,7 +477,7 @@ static int tcindex_dump(struct tcf_proto *tp, unsigned long fh,
+ 
+ 		if (tcf_exts_dump(skb, &r->exts, &tcindex_ext_map) < 0)
+ 			goto nla_put_failure;
+-		nla->nla_len = skb_tail_pointer(skb) - b;
++		nla_nest_end(skb, nest);
+ 
+ 		if (tcf_exts_dump_stats(skb, &r->exts, &tcindex_ext_map) < 0)
+ 			goto nla_put_failure;
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 3228cc4..b51c2c3 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -694,16 +694,16 @@ static int u32_dump(struct tcf_proto *tp, unsigned long fh,
+ 		     struct sk_buff *skb, struct tcmsg *t)
+ {
+ 	struct tc_u_knode *n = (struct tc_u_knode*)fh;
+-	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *nla;
++	struct nlattr *nest;
+ 
+ 	if (n == NULL)
+ 		return skb->len;
+ 
+ 	t->tcm_handle = n->handle;
+ 
+-	nla = (struct nlattr*)b;
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 
+ 	if (TC_U32_KEY(n->handle) == 0) {
+ 		struct tc_u_hnode *ht = (struct tc_u_hnode*)fh;
+@@ -741,14 +741,15 @@ static int u32_dump(struct tcf_proto *tp, unsigned long fh,
+ #endif
+ 	}
+ 
+-	nla->nla_len = skb_tail_pointer(skb) - b;
++	nla_nest_end(skb, nest);
++
+ 	if (TC_U32_KEY(n->handle))
+ 		if (tcf_exts_dump_stats(skb, &n->exts, &u32_ext_map) < 0)
+ 			goto nla_put_failure;
+ 	return skb->len;
+ 
+ nla_put_failure:
+-	nlmsg_trim(skb, b);
++	nla_nest_cancel(skb, nest);
+ 	return -1;
+ }
+ 
+diff --git a/net/sched/ematch.c b/net/sched/ematch.c
+index d2b480f..daa9c4e 100644
+--- a/net/sched/ematch.c
++++ b/net/sched/ematch.c
+@@ -436,14 +436,18 @@ int tcf_em_tree_dump(struct sk_buff *skb, struct tcf_ematch_tree *tree, int tlv)
+ {
+ 	int i;
+ 	u8 *tail;
+-	struct nlattr *top_start = (struct nlattr *)skb_tail_pointer(skb);
++	struct nlattr *top_start;
+ 	struct nlattr *list_start;
+ 
+-	NLA_PUT(skb, tlv, 0, NULL);
++	top_start = nla_nest_start(skb, tlv);
++	if (top_start == NULL)
++		goto nla_put_failure;
++
+ 	NLA_PUT(skb, TCA_EMATCH_TREE_HDR, sizeof(tree->hdr), &tree->hdr);
+ 
+-	list_start = (struct nlattr *)skb_tail_pointer(skb);
+-	NLA_PUT(skb, TCA_EMATCH_TREE_LIST, 0, NULL);
++	list_start = nla_nest_start(skb, TCA_EMATCH_TREE_LIST);
++	if (list_start == NULL)
++		goto nla_put_failure;
+ 
+ 	tail = skb_tail_pointer(skb);
+ 	for (i = 0; i < tree->hdr.nmatches; i++) {
+@@ -470,8 +474,8 @@ int tcf_em_tree_dump(struct sk_buff *skb, struct tcf_ematch_tree *tree, int tlv)
+ 		match_start->nla_len = tail - (u8 *)match_start;
+ 	}
+ 
+-	list_start->nla_len = tail - (u8 *)list_start;
+-	top_start->nla_len = tail - (u8 *)top_start;
++	nla_nest_end(skb, list_start);
++	nla_nest_end(skb, top_start);
+ 
+ 	return 0;
+ 
 diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index 0c71f2e..3352734 100644
+index aaa32a2..19c0007 100644
 --- a/net/sched/sch_atm.c
 +++ b/net/sched/sch_atm.c
-@@ -195,6 +195,11 @@ static const u8 llc_oui_ip[] = {
- 	0x08, 0x00
- };				/* Ethertype IP (0800) */
- 
-+static const struct nla_policy atm_policy[TCA_ATM_MAX + 1] = {
-+	[TCA_ATM_FD]		= { .type = NLA_U32 },
-+	[TCA_ATM_EXCESS]	= { .type = NLA_U32 },
-+};
-+
- static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
- 			 struct nlattr **tca, unsigned long *arg)
+@@ -605,8 +605,7 @@ static int atm_tc_dump_class(struct Qdisc *sch, unsigned long cl,
  {
-@@ -225,11 +230,12 @@ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
- 		return -EBUSY;
- 	if (opt == NULL)
- 		return -EINVAL;
--	error = nla_parse_nested(tb, TCA_ATM_MAX, opt, NULL);
-+
-+	error = nla_parse_nested(tb, TCA_ATM_MAX, opt, atm_policy);
- 	if (error < 0)
- 		return error;
+ 	struct atm_qdisc_data *p = qdisc_priv(sch);
+ 	struct atm_flow_data *flow = (struct atm_flow_data *)cl;
+-	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *nla;
++	struct nlattr *nest;
  
--	if (!tb[TCA_ATM_FD] || nla_len(tb[TCA_ATM_FD]) < sizeof(fd))
-+	if (!tb[TCA_ATM_FD])
+ 	pr_debug("atm_tc_dump_class(sch %p,[qdisc %p],flow %p,skb %p,tcm %p)\n",
+ 		sch, p, flow, skb, tcm);
+@@ -614,8 +613,11 @@ static int atm_tc_dump_class(struct Qdisc *sch, unsigned long cl,
  		return -EINVAL;
- 	fd = nla_get_u32(tb[TCA_ATM_FD]);
- 	pr_debug("atm_tc_change: fd %d\n", fd);
-@@ -243,8 +249,6 @@ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
- 	if (!tb[TCA_ATM_EXCESS])
- 		excess = NULL;
- 	else {
--		if (nla_len(tb[TCA_ATM_EXCESS]) != sizeof(u32))
--			return -EINVAL;
- 		excess = (struct atm_flow_data *)
- 			atm_tc_get(sch, nla_get_u32(tb[TCA_ATM_EXCESS]));
- 		if (!excess)
+ 	tcm->tcm_handle = flow->classid;
+ 	tcm->tcm_info = flow->q->handle;
+-	nla = (struct nlattr *)b;
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
++
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
++
+ 	NLA_PUT(skb, TCA_ATM_HDR, flow->hdr_len, flow->hdr);
+ 	if (flow->vcc) {
+ 		struct sockaddr_atmpvc pvc;
+@@ -636,11 +638,12 @@ static int atm_tc_dump_class(struct Qdisc *sch, unsigned long cl,
+ 
+ 		NLA_PUT(skb, TCA_ATM_EXCESS, sizeof(zero), &zero);
+ 	}
+-	nla->nla_len = skb_tail_pointer(skb) - b;
++
++	nla_nest_end(skb, nest);
+ 	return skb->len;
+ 
+ nla_put_failure:
+-	nlmsg_trim(skb, b);
++	nla_nest_cancel(skb, nest);
+ 	return -1;
+ }
+ static int
 diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index da0f6c0..09969c1 100644
+index 585f8a6..da0f6c0 100644
 --- a/net/sched/sch_cbq.c
 +++ b/net/sched/sch_cbq.c
-@@ -1377,6 +1377,16 @@ static int cbq_set_fopt(struct cbq_class *cl, struct tc_cbq_fopt *fopt)
- 	return 0;
- }
- 
-+static const struct nla_policy cbq_policy[TCA_CBQ_MAX + 1] = {
-+	[TCA_CBQ_LSSOPT]	= { .len = sizeof(struct tc_cbq_lssopt) },
-+	[TCA_CBQ_WRROPT]	= { .len = sizeof(struct tc_cbq_wrropt) },
-+	[TCA_CBQ_FOPT]		= { .len = sizeof(struct tc_cbq_fopt) },
-+	[TCA_CBQ_OVL_STRATEGY]	= { .len = sizeof(struct tc_cbq_ovl) },
-+	[TCA_CBQ_RATE]		= { .len = sizeof(struct tc_ratespec) },
-+	[TCA_CBQ_RTAB]		= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
-+	[TCA_CBQ_POLICE]	= { .len = sizeof(struct tc_cbq_police) },
-+};
-+
- static int cbq_init(struct Qdisc *sch, struct nlattr *opt)
+@@ -1565,18 +1565,18 @@ static int cbq_dump_attr(struct sk_buff *skb, struct cbq_class *cl)
+ static int cbq_dump(struct Qdisc *sch, struct sk_buff *skb)
  {
  	struct cbq_sched_data *q = qdisc_priv(sch);
-@@ -1384,16 +1394,11 @@ static int cbq_init(struct Qdisc *sch, struct nlattr *opt)
- 	struct tc_ratespec *r;
- 	int err;
+-	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *nla;
++	struct nlattr *nest;
  
--	err = nla_parse_nested(tb, TCA_CBQ_MAX, opt, NULL);
-+	err = nla_parse_nested(tb, TCA_CBQ_MAX, opt, cbq_policy);
- 	if (err < 0)
- 		return err;
+-	nla = (struct nlattr*)b;
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 	if (cbq_dump_attr(skb, &q->link) < 0)
+ 		goto nla_put_failure;
+-	nla->nla_len = skb_tail_pointer(skb) - b;
++	nla_nest_end(skb, nest);
+ 	return skb->len;
  
--	if (tb[TCA_CBQ_RTAB] == NULL || tb[TCA_CBQ_RATE] == NULL ||
--	    nla_len(tb[TCA_CBQ_RATE]) < sizeof(struct tc_ratespec))
--		return -EINVAL;
--
--	if (tb[TCA_CBQ_LSSOPT] &&
--	    nla_len(tb[TCA_CBQ_LSSOPT]) < sizeof(struct tc_cbq_lssopt))
-+	if (tb[TCA_CBQ_RTAB] == NULL || tb[TCA_CBQ_RATE] == NULL)
- 		return -EINVAL;
- 
- 	r = nla_data(tb[TCA_CBQ_RATE]);
-@@ -1771,36 +1776,10 @@ cbq_change_class(struct Qdisc *sch, u32 classid, u32 parentid, struct nlattr **t
- 	if (opt == NULL)
- 		return -EINVAL;
- 
--	err = nla_parse_nested(tb, TCA_CBQ_MAX, opt, NULL);
-+	err = nla_parse_nested(tb, TCA_CBQ_MAX, opt, cbq_policy);
- 	if (err < 0)
- 		return err;
- 
--	if (tb[TCA_CBQ_OVL_STRATEGY] &&
--	    nla_len(tb[TCA_CBQ_OVL_STRATEGY]) < sizeof(struct tc_cbq_ovl))
--		return -EINVAL;
--
--	if (tb[TCA_CBQ_FOPT] &&
--	    nla_len(tb[TCA_CBQ_FOPT]) < sizeof(struct tc_cbq_fopt))
--		return -EINVAL;
--
--	if (tb[TCA_CBQ_RATE] &&
--	    nla_len(tb[TCA_CBQ_RATE]) < sizeof(struct tc_ratespec))
--			return -EINVAL;
--
--	if (tb[TCA_CBQ_LSSOPT] &&
--	    nla_len(tb[TCA_CBQ_LSSOPT]) < sizeof(struct tc_cbq_lssopt))
--			return -EINVAL;
--
--	if (tb[TCA_CBQ_WRROPT] &&
--	    nla_len(tb[TCA_CBQ_WRROPT]) < sizeof(struct tc_cbq_wrropt))
--			return -EINVAL;
--
--#ifdef CONFIG_NET_CLS_ACT
--	if (tb[TCA_CBQ_POLICE] &&
--	    nla_len(tb[TCA_CBQ_POLICE]) < sizeof(struct tc_cbq_police))
--			return -EINVAL;
--#endif
--
- 	if (cl) {
- 		/* Check parent */
- 		if (parentid) {
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index f1d0a08..0df911f 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -99,6 +99,14 @@ static void dsmark_put(struct Qdisc *sch, unsigned long cl)
- {
+ nla_put_failure:
+-	nlmsg_trim(skb, b);
++	nla_nest_cancel(skb, nest);
+ 	return -1;
  }
  
-+static const struct nla_policy dsmark_policy[TCA_DSMARK_MAX + 1] = {
-+	[TCA_DSMARK_INDICES]		= { .type = NLA_U16 },
-+	[TCA_DSMARK_DEFAULT_INDEX]	= { .type = NLA_U16 },
-+	[TCA_DSMARK_SET_TC_INDEX]	= { .type = NLA_FLAG },
-+	[TCA_DSMARK_MASK]		= { .type = NLA_U8 },
-+	[TCA_DSMARK_VALUE]		= { .type = NLA_U8 },
-+};
-+
- static int dsmark_change(struct Qdisc *sch, u32 classid, u32 parent,
- 			 struct nlattr **tca, unsigned long *arg)
+@@ -1594,8 +1594,7 @@ cbq_dump_class(struct Qdisc *sch, unsigned long arg,
+ 	       struct sk_buff *skb, struct tcmsg *tcm)
  {
-@@ -119,21 +127,15 @@ static int dsmark_change(struct Qdisc *sch, u32 classid, u32 parent,
- 	if (!opt)
- 		goto errout;
+ 	struct cbq_class *cl = (struct cbq_class*)arg;
+-	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *nla;
++	struct nlattr *nest;
  
--	err = nla_parse_nested(tb, TCA_DSMARK_MAX, opt, NULL);
-+	err = nla_parse_nested(tb, TCA_DSMARK_MAX, opt, dsmark_policy);
- 	if (err < 0)
--		return err;
-+		goto errout;
+ 	if (cl->tparent)
+ 		tcm->tcm_parent = cl->tparent->classid;
+@@ -1604,15 +1603,16 @@ cbq_dump_class(struct Qdisc *sch, unsigned long arg,
+ 	tcm->tcm_handle = cl->classid;
+ 	tcm->tcm_info = cl->q->handle;
  
--	err = -EINVAL;
--	if (tb[TCA_DSMARK_MASK]) {
--		if (nla_len(tb[TCA_DSMARK_MASK]) < sizeof(u8))
--			goto errout;
-+	if (tb[TCA_DSMARK_MASK])
- 		mask = nla_get_u8(tb[TCA_DSMARK_MASK]);
--	}
--	if (tb[TCA_DSMARK_VALUE]) {
--		if (nla_len(tb[TCA_DSMARK_VALUE]) < sizeof(u8))
--			goto errout;
-+
-+	if (tb[TCA_DSMARK_VALUE])
- 		p->value[*arg-1] = nla_get_u8(tb[TCA_DSMARK_VALUE]);
--	}
+-	nla = (struct nlattr*)b;
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 	if (cbq_dump_attr(skb, cl) < 0)
+ 		goto nla_put_failure;
+-	nla->nla_len = skb_tail_pointer(skb) - b;
++	nla_nest_end(skb, nest);
+ 	return skb->len;
  
- 	if (tb[TCA_DSMARK_MASK])
- 		p->mask[*arg-1] = mask;
-@@ -359,23 +361,18 @@ static int dsmark_init(struct Qdisc *sch, struct nlattr *opt)
- 	if (!opt)
- 		goto errout;
- 
--	err = nla_parse_nested(tb, TCA_DSMARK_MAX, opt, NULL);
-+	err = nla_parse_nested(tb, TCA_DSMARK_MAX, opt, dsmark_policy);
- 	if (err < 0)
- 		goto errout;
- 
- 	err = -EINVAL;
--	if (nla_len(tb[TCA_DSMARK_INDICES]) < sizeof(u16))
--		goto errout;
- 	indices = nla_get_u16(tb[TCA_DSMARK_INDICES]);
- 
- 	if (hweight32(indices) != 1)
- 		goto errout;
- 
--	if (tb[TCA_DSMARK_DEFAULT_INDEX]) {
--		if (nla_len(tb[TCA_DSMARK_DEFAULT_INDEX]) < sizeof(u16))
--			goto errout;
-+	if (tb[TCA_DSMARK_DEFAULT_INDEX])
- 		default_index = nla_get_u16(tb[TCA_DSMARK_DEFAULT_INDEX]);
--	}
- 
- 	mask = kmalloc(indices * 2, GFP_KERNEL);
- 	if (mask == NULL) {
-diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
-index 365c7d8..3a9d226 100644
---- a/net/sched/sch_gred.c
-+++ b/net/sched/sch_gred.c
-@@ -356,7 +356,7 @@ static inline int gred_change_table_def(struct Qdisc *sch, struct nlattr *dps)
- 	struct tc_gred_sopt *sopt;
- 	int i;
- 
--	if (dps == NULL || nla_len(dps) < sizeof(*sopt))
-+	if (dps == NULL)
- 		return -EINVAL;
- 
- 	sopt = nla_data(dps);
-@@ -425,6 +425,12 @@ static inline int gred_change_vq(struct Qdisc *sch, int dp,
- 	return 0;
+ nla_put_failure:
+-	nlmsg_trim(skb, b);
++	nla_nest_cancel(skb, nest);
+ 	return -1;
  }
- 
-+static const struct nla_policy gred_policy[TCA_GRED_MAX + 1] = {
-+	[TCA_GRED_PARMS]	= { .len = sizeof(struct tc_gred_qopt) },
-+	[TCA_GRED_STAB]		= { .len = 256 },
-+	[TCA_GRED_DPS]		= { .len = sizeof(struct tc_gred_sopt) },
-+};
-+
- static int gred_change(struct Qdisc *sch, struct nlattr *opt)
- {
- 	struct gred_sched *table = qdisc_priv(sch);
-@@ -436,7 +442,7 @@ static int gred_change(struct Qdisc *sch, struct nlattr *opt)
- 	if (opt == NULL)
- 		return -EINVAL;
- 
--	err = nla_parse_nested(tb, TCA_GRED_MAX, opt, NULL);
-+	err = nla_parse_nested(tb, TCA_GRED_MAX, opt, gred_policy);
- 	if (err < 0)
- 		return err;
- 
-@@ -444,9 +450,7 @@ static int gred_change(struct Qdisc *sch, struct nlattr *opt)
- 		return gred_change_table_def(sch, opt);
- 
- 	if (tb[TCA_GRED_PARMS] == NULL ||
--	    nla_len(tb[TCA_GRED_PARMS]) < sizeof(*ctl) ||
--	    tb[TCA_GRED_STAB] == NULL ||
--	    nla_len(tb[TCA_GRED_STAB]) < 256)
-+	    tb[TCA_GRED_STAB] == NULL)
- 		return -EINVAL;
- 
- 	err = -EINVAL;
-@@ -499,7 +503,7 @@ static int gred_init(struct Qdisc *sch, struct nlattr *opt)
- 	if (opt == NULL)
- 		return -EINVAL;
- 
--	err = nla_parse_nested(tb, TCA_GRED_MAX, opt, NULL);
-+	err = nla_parse_nested(tb, TCA_GRED_MAX, opt, gred_policy);
- 	if (err < 0)
- 		return err;
  
 diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 54c3e90..94bf186 100644
+index fcb4826..54c3e90 100644
 --- a/net/sched/sch_hfsc.c
 +++ b/net/sched/sch_hfsc.c
-@@ -986,6 +986,12 @@ hfsc_change_usc(struct hfsc_class *cl, struct tc_service_curve *usc,
- 	cl->cl_flags |= HFSC_USC;
+@@ -1343,22 +1343,23 @@ hfsc_dump_class(struct Qdisc *sch, unsigned long arg, struct sk_buff *skb,
+ 		struct tcmsg *tcm)
+ {
+ 	struct hfsc_class *cl = (struct hfsc_class *)arg;
+-	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *nla = (struct nlattr *)b;
++	struct nlattr *nest;
+ 
+ 	tcm->tcm_parent = cl->cl_parent ? cl->cl_parent->classid : TC_H_ROOT;
+ 	tcm->tcm_handle = cl->classid;
+ 	if (cl->level == 0)
+ 		tcm->tcm_info = cl->qdisc->handle;
+ 
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 	if (hfsc_dump_curves(skb, cl) < 0)
+ 		goto nla_put_failure;
+-	nla->nla_len = skb_tail_pointer(skb) - b;
++	nla_nest_end(skb, nest);
+ 	return skb->len;
+ 
+  nla_put_failure:
+-	nlmsg_trim(skb, b);
++ 	nla_nest_cancel(skb, nest);
+ 	return -1;
  }
  
-+static const struct nla_policy hfsc_policy[TCA_HFSC_MAX + 1] = {
-+	[TCA_HFSC_RSC]	= { .len = sizeof(struct tc_service_curve) },
-+	[TCA_HFSC_FSC]	= { .len = sizeof(struct tc_service_curve) },
-+	[TCA_HFSC_USC]	= { .len = sizeof(struct tc_service_curve) },
-+};
-+
- static int
- hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
- 		  struct nlattr **tca, unsigned long *arg)
-@@ -1002,29 +1008,23 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
- 	if (opt == NULL)
- 		return -EINVAL;
- 
--	err = nla_parse_nested(tb, TCA_HFSC_MAX, opt, NULL);
-+	err = nla_parse_nested(tb, TCA_HFSC_MAX, opt, hfsc_policy);
- 	if (err < 0)
- 		return err;
- 
- 	if (tb[TCA_HFSC_RSC]) {
--		if (nla_len(tb[TCA_HFSC_RSC]) < sizeof(*rsc))
--			return -EINVAL;
- 		rsc = nla_data(tb[TCA_HFSC_RSC]);
- 		if (rsc->m1 == 0 && rsc->m2 == 0)
- 			rsc = NULL;
- 	}
- 
- 	if (tb[TCA_HFSC_FSC]) {
--		if (nla_len(tb[TCA_HFSC_FSC]) < sizeof(*fsc))
--			return -EINVAL;
- 		fsc = nla_data(tb[TCA_HFSC_FSC]);
- 		if (fsc->m1 == 0 && fsc->m2 == 0)
- 			fsc = NULL;
- 	}
- 
- 	if (tb[TCA_HFSC_USC]) {
--		if (nla_len(tb[TCA_HFSC_USC]) < sizeof(*usc))
--			return -EINVAL;
- 		usc = nla_data(tb[TCA_HFSC_USC]);
- 		if (usc->m1 == 0 && usc->m2 == 0)
- 			usc = NULL;
 diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 69fac32..e1a579e 100644
+index 512df9a..69fac32 100644
 --- a/net/sched/sch_htb.c
 +++ b/net/sched/sch_htb.c
-@@ -992,6 +992,13 @@ static void htb_reset(struct Qdisc *sch)
- 		INIT_LIST_HEAD(q->drops + i);
- }
- 
-+static const struct nla_policy htb_policy[TCA_HTB_MAX + 1] = {
-+	[TCA_HTB_PARMS]	= { .len = sizeof(struct tc_htb_opt) },
-+	[TCA_HTB_INIT]	= { .len = sizeof(struct tc_htb_glob) },
-+	[TCA_HTB_CTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
-+	[TCA_HTB_RTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
-+};
-+
- static int htb_init(struct Qdisc *sch, struct nlattr *opt)
+@@ -1043,25 +1043,29 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
+ static int htb_dump(struct Qdisc *sch, struct sk_buff *skb)
  {
  	struct htb_sched *q = qdisc_priv(sch);
-@@ -1003,12 +1010,11 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
- 	if (!opt)
- 		return -EINVAL;
+-	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *nla;
++	struct nlattr *nest;
+ 	struct tc_htb_glob gopt;
++
+ 	spin_lock_bh(&sch->dev->queue_lock);
+-	gopt.direct_pkts = q->direct_pkts;
  
--	err = nla_parse_nested(tb, TCA_HTB_INIT, opt, NULL);
-+	err = nla_parse_nested(tb, TCA_HTB_INIT, opt, htb_policy);
- 	if (err < 0)
- 		return err;
- 
--	if (tb[TCA_HTB_INIT] == NULL ||
--	    nla_len(tb[TCA_HTB_INIT]) < sizeof(*gopt)) {
-+	if (tb[TCA_HTB_INIT] == NULL) {
- 		printk(KERN_ERR "HTB: hey probably you have bad tc tool ?\n");
- 		return -EINVAL;
- 	}
-@@ -1319,13 +1325,12 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 	if (!opt)
- 		goto failure;
- 
--	err = nla_parse_nested(tb, TCA_HTB_RTAB, opt, NULL);
-+	err = nla_parse_nested(tb, TCA_HTB_RTAB, opt, htb_policy);
- 	if (err < 0)
- 		goto failure;
- 
- 	err = -EINVAL;
--	if (tb[TCA_HTB_PARMS] == NULL ||
--	    nla_len(tb[TCA_HTB_PARMS]) < sizeof(*hopt))
-+	if (tb[TCA_HTB_PARMS] == NULL)
- 		goto failure;
- 
- 	parent = parentid == TC_H_ROOT ? NULL : htb_find(parentid, sch);
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 1a75579..c9c649b 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -368,9 +368,6 @@ static int get_correlation(struct Qdisc *sch, const struct nlattr *attr)
- 	struct netem_sched_data *q = qdisc_priv(sch);
- 	const struct tc_netem_corr *c = nla_data(attr);
- 
--	if (nla_len(attr) != sizeof(*c))
--		return -EINVAL;
--
- 	init_crandom(&q->delay_cor, c->delay_corr);
- 	init_crandom(&q->loss_cor, c->loss_corr);
- 	init_crandom(&q->dup_cor, c->dup_corr);
-@@ -382,9 +379,6 @@ static int get_reorder(struct Qdisc *sch, const struct nlattr *attr)
- 	struct netem_sched_data *q = qdisc_priv(sch);
- 	const struct tc_netem_reorder *r = nla_data(attr);
- 
--	if (nla_len(attr) != sizeof(*r))
--		return -EINVAL;
--
- 	q->reorder = r->probability;
- 	init_crandom(&q->reorder_cor, r->correlation);
- 	return 0;
-@@ -395,14 +389,17 @@ static int get_corrupt(struct Qdisc *sch, const struct nlattr *attr)
- 	struct netem_sched_data *q = qdisc_priv(sch);
- 	const struct tc_netem_corrupt *r = nla_data(attr);
- 
--	if (nla_len(attr) != sizeof(*r))
--		return -EINVAL;
--
- 	q->corrupt = r->probability;
- 	init_crandom(&q->corrupt_cor, r->correlation);
- 	return 0;
++	gopt.direct_pkts = q->direct_pkts;
+ 	gopt.version = HTB_VER;
+ 	gopt.rate2quantum = q->rate2quantum;
+ 	gopt.defcls = q->defcls;
+ 	gopt.debug = 0;
+-	nla = (struct nlattr *)b;
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
++
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 	NLA_PUT(skb, TCA_HTB_INIT, sizeof(gopt), &gopt);
+-	nla->nla_len = skb_tail_pointer(skb) - b;
++	nla_nest_end(skb, nest);
++
+ 	spin_unlock_bh(&sch->dev->queue_lock);
+ 	return skb->len;
++
+ nla_put_failure:
+ 	spin_unlock_bh(&sch->dev->queue_lock);
+-	nlmsg_trim(skb, skb_tail_pointer(skb));
++	nla_nest_cancel(skb, nest);
+ 	return -1;
  }
  
-+static const struct nla_policy netem_policy[TCA_NETEM_MAX + 1] = {
-+	[TCA_NETEM_CORR]	= { .len = sizeof(struct tc_netem_corr) },
-+	[TCA_NETEM_REORDER]	= { .len = sizeof(struct tc_netem_reorder) },
-+	[TCA_NETEM_CORRUPT]	= { .len = sizeof(struct tc_netem_corrupt) },
-+};
-+
- /* Parse netlink message to set options */
- static int netem_change(struct Qdisc *sch, struct nlattr *opt)
+@@ -1069,8 +1073,7 @@ static int htb_dump_class(struct Qdisc *sch, unsigned long arg,
+ 			  struct sk_buff *skb, struct tcmsg *tcm)
  {
-@@ -414,8 +411,8 @@ static int netem_change(struct Qdisc *sch, struct nlattr *opt)
- 	if (opt == NULL)
- 		return -EINVAL;
+ 	struct htb_class *cl = (struct htb_class *)arg;
+-	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *nla;
++	struct nlattr *nest;
+ 	struct tc_htb_opt opt;
  
--	ret = nla_parse_nested_compat(tb, TCA_NETEM_MAX, opt, NULL, qopt,
--				      sizeof(*qopt));
-+	ret = nla_parse_nested_compat(tb, TCA_NETEM_MAX, opt, netem_policy,
-+				      qopt, sizeof(*qopt));
- 	if (ret < 0)
- 		return ret;
+ 	spin_lock_bh(&sch->dev->queue_lock);
+@@ -1079,8 +1082,9 @@ static int htb_dump_class(struct Qdisc *sch, unsigned long arg,
+ 	if (!cl->level && cl->un.leaf.q)
+ 		tcm->tcm_info = cl->un.leaf.q->handle;
  
-diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
-index dcf6afc..3dcd493 100644
---- a/net/sched/sch_red.c
-+++ b/net/sched/sch_red.c
-@@ -201,6 +201,11 @@ static struct Qdisc *red_create_dflt(struct Qdisc *sch, u32 limit)
- 	return NULL;
+-	nla = (struct nlattr *)b;
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 
+ 	memset(&opt, 0, sizeof(opt));
+ 
+@@ -1092,12 +1096,14 @@ static int htb_dump_class(struct Qdisc *sch, unsigned long arg,
+ 	opt.prio = cl->un.leaf.prio;
+ 	opt.level = cl->level;
+ 	NLA_PUT(skb, TCA_HTB_PARMS, sizeof(opt), &opt);
+-	nla->nla_len = skb_tail_pointer(skb) - b;
++
++	nla_nest_end(skb, nest);
+ 	spin_unlock_bh(&sch->dev->queue_lock);
+ 	return skb->len;
++
+ nla_put_failure:
+ 	spin_unlock_bh(&sch->dev->queue_lock);
+-	nlmsg_trim(skb, b);
++	nla_nest_cancel(skb, nest);
+ 	return -1;
  }
  
-+static const struct nla_policy red_policy[TCA_RED_MAX + 1] = {
-+	[TCA_RED_PARMS]	= { .len = sizeof(struct tc_red_qopt) },
-+	[TCA_RED_STAB]	= { .len = RED_STAB_SIZE },
-+};
-+
- static int red_change(struct Qdisc *sch, struct nlattr *opt)
+diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
+index f6decbb..3f72d52 100644
+--- a/net/sched/sch_ingress.c
++++ b/net/sched/sch_ingress.c
+@@ -183,16 +183,16 @@ static void ingress_destroy(struct Qdisc *sch)
+ 
+ static int ingress_dump(struct Qdisc *sch, struct sk_buff *skb)
  {
- 	struct red_sched_data *q = qdisc_priv(sch);
-@@ -212,14 +217,12 @@ static int red_change(struct Qdisc *sch, struct nlattr *opt)
- 	if (opt == NULL)
- 		return -EINVAL;
+-	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *nla;
++	struct nlattr *nest;
  
--	err = nla_parse_nested(tb, TCA_RED_MAX, opt, NULL);
-+	err = nla_parse_nested(tb, TCA_RED_MAX, opt, red_policy);
- 	if (err < 0)
- 		return err;
+-	nla = (struct nlattr *)b;
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
+-	nla->nla_len = skb_tail_pointer(skb) - b;
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
++	nla_nest_end(skb, nest);
+ 	return skb->len;
  
- 	if (tb[TCA_RED_PARMS] == NULL ||
--	    nla_len(tb[TCA_RED_PARMS]) < sizeof(*ctl) ||
--	    tb[TCA_RED_STAB] == NULL ||
--	    nla_len(tb[TCA_RED_STAB]) < RED_STAB_SIZE)
-+	    tb[TCA_RED_STAB] == NULL)
- 		return -EINVAL;
+ nla_put_failure:
+-	nlmsg_trim(skb, b);
++	nla_nest_cancel(skb, nest);
+ 	return -1;
+ }
  
- 	ctl = nla_data(tb[TCA_RED_PARMS]);
 diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index b7a185d..0b7d78f 100644
+index f9b1543..b7a185d 100644
 --- a/net/sched/sch_tbf.c
 +++ b/net/sched/sch_tbf.c
-@@ -270,6 +270,12 @@ static struct Qdisc *tbf_create_dflt_qdisc(struct Qdisc *sch, u32 limit)
- 	return NULL;
+@@ -375,12 +375,12 @@ static void tbf_destroy(struct Qdisc *sch)
+ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
+ {
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+-	unsigned char *b = skb_tail_pointer(skb);
+-	struct nlattr *nla;
++	struct nlattr *nest;
+ 	struct tc_tbf_qopt opt;
+ 
+-	nla = (struct nlattr*)b;
+-	NLA_PUT(skb, TCA_OPTIONS, 0, NULL);
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
+ 
+ 	opt.limit = q->limit;
+ 	opt.rate = q->R_tab->rate;
+@@ -391,12 +391,12 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	opt.mtu = q->mtu;
+ 	opt.buffer = q->buffer;
+ 	NLA_PUT(skb, TCA_TBF_PARMS, sizeof(opt), &opt);
+-	nla->nla_len = skb_tail_pointer(skb) - b;
+ 
++	nla_nest_end(skb, nest);
+ 	return skb->len;
+ 
+ nla_put_failure:
+-	nlmsg_trim(skb, b);
++	nla_nest_cancel(skb, nest);
+ 	return -1;
  }
  
-+static const struct nla_policy tbf_policy[TCA_TBF_MAX + 1] = {
-+	[TCA_TBF_PARMS]	= { .len = sizeof(struct tc_tbf_qopt) },
-+	[TCA_TBF_RTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
-+	[TCA_TBF_PTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
-+};
-+
- static int tbf_change(struct Qdisc* sch, struct nlattr *opt)
- {
- 	int err;
-@@ -281,13 +287,12 @@ static int tbf_change(struct Qdisc* sch, struct nlattr *opt)
- 	struct Qdisc *child = NULL;
- 	int max_size,n;
- 
--	err = nla_parse_nested(tb, TCA_TBF_PTAB, opt, NULL);
-+	err = nla_parse_nested(tb, TCA_TBF_PTAB, opt, tbf_policy);
- 	if (err < 0)
- 		return err;
- 
- 	err = -EINVAL;
--	if (tb[TCA_TBF_PARMS] == NULL ||
--	    nla_len(tb[TCA_TBF_PARMS]) < sizeof(*qopt))
-+	if (tb[TCA_TBF_PARMS] == NULL)
- 		goto done;
- 
- 	qopt = nla_data(tb[TCA_TBF_PARMS]);
