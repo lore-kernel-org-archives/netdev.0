@@ -1,49 +1,73 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED 04/15]: act_api: use nlmsg_parse
-Date: Wed, 23 Jan 2008 17:36:41 +0100 (MET)
-Message-ID: <20080123163600.6459.57307.sendpatchset@localhost.localdomain>
-References: <20080123163555.6459.69501.sendpatchset@localhost.localdomain>
+Subject: [NET_SCHED 00/15]: Make use of new netlink API features
+Date: Wed, 23 Jan 2008 17:36:35 +0100 (MET)
+Message-ID: <20080123163555.6459.69501.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49722 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:49709 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752871AbYAWQgn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 11:36:43 -0500
-In-Reply-To: <20080123163555.6459.69501.sendpatchset@localhost.localdomain>
+	with ESMTP id S1754518AbYAWQgh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 11:36:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[NET_SCHED]: act_api: use nlmsg_parse
+Hi Dave,
 
-Convert open-coded nlmsg_parse to use the real function.
+these patches change the packet schedulers/classifers/actions to make use
+of the features of the new netlink API, like typeful attribute dumping and
+parsing, automatic basic attribute validation etc. The also fix a bug and
+a warning introduced by my last set of patches.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Please apply, thanks.
 
----
-commit f9f9cbaccb1a58ea02318250192effe1e2e1e715
-tree 7ea770493ca465a7aac1a7779b2aa4c593de3a97
-parent 512b2ab20730e1d24e36fb94eab4a2731e90e315
-author Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:10:31 +0100
-committer Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:10:31 +0100
 
- net/sched/act_api.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
+ include/linux/pkt_sched.h |    2 +
+ include/net/act_api.h     |    4 +-
+ net/sched/act_api.c       |  197 +++++++++++++++++++++++++--------------------
+ net/sched/act_gact.c      |   20 +++--
+ net/sched/act_ipt.c       |   33 +++++---
+ net/sched/act_mirred.c    |   15 +++-
+ net/sched/act_nat.c       |   15 +++-
+ net/sched/act_pedit.c     |   15 +++-
+ net/sched/act_police.c    |   43 +++++-----
+ net/sched/act_simple.c    |   15 +++-
+ net/sched/cls_api.c       |   30 ++++---
+ net/sched/cls_basic.c     |   33 ++++----
+ net/sched/cls_fw.c        |   41 +++++-----
+ net/sched/cls_route.c     |   47 +++++------
+ net/sched/cls_rsvp.h      |   45 +++++------
+ net/sched/cls_tcindex.c   |   70 ++++++++--------
+ net/sched/cls_u32.c       |   56 +++++++------
+ net/sched/em_meta.c       |   18 +++--
+ net/sched/ematch.c        |   31 +++++---
+ net/sched/sch_api.c       |    7 +-
+ net/sched/sch_atm.c       |   45 ++++++----
+ net/sched/sch_cbq.c       |   75 +++++++----------
+ net/sched/sch_dsmark.c    |   37 +++++----
+ net/sched/sch_gred.c      |   28 +++++--
+ net/sched/sch_hfsc.c      |   30 ++++---
+ net/sched/sch_htb.c       |   64 ++++++++++-----
+ net/sched/sch_ingress.c   |   12 ++--
+ net/sched/sch_netem.c     |   73 +++++++---------
+ net/sched/sch_prio.c      |    9 ++-
+ net/sched/sch_red.c       |   16 +++-
+ net/sched/sch_tbf.c       |   29 +++++---
+ 31 files changed, 650 insertions(+), 505 deletions(-)
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index ae077ed..2fe0345 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -984,11 +984,8 @@ find_dump_kind(struct nlmsghdr *n)
- 	struct nlattr *tb[TCA_ACT_MAX_PRIO + 1];
- 	struct nlattr *nla[TCAA_MAX + 1];
- 	struct nlattr *kind;
--	int min_len = NLMSG_LENGTH(sizeof(struct tcamsg));
--	int attrlen = n->nlmsg_len - NLMSG_ALIGN(min_len);
--	struct nlattr *attr = (void *) n + NLMSG_ALIGN(min_len);
- 
--	if (nla_parse(nla, TCAA_MAX, attr, attrlen, NULL) < 0)
-+	if (nlmsg_parse(n, sizeof(struct tcamsg), nla, TCAA_MAX, NULL) < 0)
- 		return NULL;
- 	tb1 = nla[TCA_ACT_TAB];
- 	if (tb1 == NULL)
+Patrick McHardy (15):
+      [NET_SCHED]: sch_atm: fix format string warning
+      [NET_SCHED]: sch_netem: use nla_parse_nested_compat
+      [NET_SCHED]: act_api: fix netlink API conversion bug
+      [NET_SCHED]: act_api: use nlmsg_parse
+      [NET_SCHED]: act_api: use PTR_ERR in tcf_action_init/tcf_action_get
+      [NET_SCHED]: Propagate nla_parse return value
+      [NET_SCHED]: Use nla_nest_start/nla_nest_end
+      [NET_SCHED]: Use NLA_PUT_STRING for string dumping
+      [NET_SCHED]: Use typeful attribute construction helpers
+      [NET_SCHED]: Use typeful attribute parsing helpers
+      [NET_SCHED]: sch_api: introduce constant for rate table size
+      [NET_SCHED]: Use nla_policy for attribute validation in packet schedulers
+      [NET_SCHED]: Use nla_policy for attribute validation in classifiers
+      [NET_SCHED]: Use nla_policy for attribute validation in actions
+      [NET_SCHED]: Use nla_policy for attribute validation in ematches
