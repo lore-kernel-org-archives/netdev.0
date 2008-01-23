@@ -1,80 +1,147 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: 2.6.24-rc8-mm1 : net tcp_input.c warnings
-Date: Wed, 23 Jan 2008 10:41:14 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0801231034300.31652@kivilampi-30.cs.helsinki.fi>
-References: <a8e1da0801220109v6bf8931ev50f2210402c3ba41@mail.gmail.com>
- <Pine.LNX.4.64.0801221115150.31652@kivilampi-30.cs.helsinki.fi>
- <a8e1da0801221744m37021e88h5c188e5b31ea42bf@mail.gmail.com>
- <20080122.190137.206066966.davem@davemloft.net>
- <Pine.LNX.4.64.0801230937270.31652@kivilampi-30.cs.helsinki.fi>
- <a8e1da0801222344l101c2b90s363821c26bc8cb55@mail.gmail.com>
+Subject: Re: Assertions in latest kernels
+Date: Wed, 23 Jan 2008 11:17:05 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0801231043220.31652@kivilampi-30.cs.helsinki.fi>
+References: <OF331AFFAC.CEF61228-ON652573D9.002CF47B-652573D9.002E0A84@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-2498209-1201077674=:31652"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Dave Young <hidave.darkstar@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:36973 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:47169 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751486AbYAWIlR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 03:41:17 -0500
-In-Reply-To: <a8e1da0801222344l101c2b90s363821c26bc8cb55@mail.gmail.com>
+	with ESMTP id S1751557AbYAWJRI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 04:17:08 -0500
+In-Reply-To: <OF331AFFAC.CEF61228-ON652573D9.002CF47B-652573D9.002E0A84@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Wed, 23 Jan 2008, Krishna Kumar2 wrote:
 
----696243703-2498209-1201077674=:31652
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Wed, 23 Jan 2008, Dave Young wrote:
-
-> On Jan 23, 2008 3:41 PM, Ilpo Järvinen <ilpo.jarvinen@helsinki.fi> wrote:
-> >
-> > On Tue, 22 Jan 2008, David Miller wrote:
-> >
-> > > From: "Dave Young" <hidave.darkstar@gmail.com>
-> > > Date: Wed, 23 Jan 2008 09:44:30 +0800
-> > >
-> > > > On Jan 22, 2008 6:47 PM, Ilpo Järvinen <ilpo.jarvinen@helsinki.fi> wrote:
-> > > > > [PATCH] [TCP]: debug S+L
-> > > >
-> > > > Thanks, If there's new findings I will let you know.
-> > >
-> > > Thanks for helping with this bug Dave.
-> >
-> > I noticed btw that there thing might (is likely to) spuriously trigger at
-> > WARN_ON(sacked != tp->sacked_out); because those won't be equal when SACK
-> > is not enabled. If that does happen too often, I send a fixed patch for
-> > it, yet, the fact that I print print tp->rx_opt.sack_ok allows
-> > identification of those cases already as it's zero when SACK is not
-> > enabled.
-> >
-> > Just ask if you need the updated debug patch.
+> David Miller <davem@davemloft.net> wrote on 01/23/2008 01:27:23 PM:
 > 
-> Thanks,  please send, I would like to get it.
+> > > iperf with multiple threads almost always gets these 4, *especially*
+> when I
+> > > do some batching :).
+> > >
+> > > static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int
+> flag)
+> > > {
+> > >       ...
+> > >       if (WARN_ON(!tp->sacked_out && tp->fackets_out))
+> > >             tp->fackets_out = 0;
+> > >       ...
+> > > }
+> >
+> > Does this assertion show up first or do you get the other TCP
+> > ones first?  It might be important, in that if you get the
+> > others ones first that corrupted state might be what leads to
+> > this one.
+> 
+> Hi Dave,
+> 
+> I looked at my *old* messages file and found this assert (2506) was first
+> to hit (atleast in
+> two messages file). It hit 5 times, then I got a different one that I had
+> not reported earlier:
+> 
+> "KERNEL: assertion (packets <= tp->packets_out) failed at
+> net/ipv4/tcp_input.c (2139)"
+> 
+> (though this was hidden in my report under the panic for tcp_input.c:2528.
+> 
+> Then another two thousand times of the 2506 asserts.
+> 
+> Today I installed the latest untouched kernel, rebooted system and got the
+> following errors
+> in sequence, but no 2506 errors (which I have always got when running
+> batching in the last
+> 2-3 weeks):
+> 
+> Jan 22 02:07:55 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:07:56 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:07:56 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:07:57 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:07:58 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:07:59 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:07:59 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:08:00 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:08:01 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:08:01 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2528
+> Jan 22 02:08:02 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2528
+> Jan 22 02:08:03 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2528
+> Jan 22 02:08:03 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2528
+> Jan 22 02:08:04 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2528
+> Jan 22 02:08:05 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2528
+> Jan 22 02:08:06 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2528
+> Jan 22 02:08:06 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2528
+> Jan 22 02:08:07 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:1767
+> Jan 22 02:08:07 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:08:08 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2528
+> Jan 22 02:08:09 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:08:10 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2528
+> Jan 22 02:08:10 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:08:11 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2528
+> Jan 22 02:08:12 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:08:12 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:08:13 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2528
+> Jan 22 02:08:14 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:08:15 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:08:15 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:1767
+> Jan 22 02:08:16 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:1767
+> Jan 22 02:08:16 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:1767
+> Jan 22 02:08:17 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:08:18 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2528
+> Jan 22 02:08:18 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> Jan 22 02:08:19 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2528
+> Jan 22 02:08:19 elm3b39 kernel: Badness at net/ipv4/tcp_input.c:2169
+> 
+> and so on for another 700 counts.
+>
+> The unique asserts are:
+>       1767: tcp_verify_left_out (from tcp_entry_frto)
+>       2169: tcp_verify_left_out (from tcp_mark_head_lost)
+>       2528: tcp_verify_left_out (from tcp_fastretrans_alert)
+>       3063: tcp_verify_left_out (from tcp_process_frto)
+> (where 2169 seems to preceed any other asserts)
 
-There you go. I fixed non-SACK case by adding tcp_is_sack checks there and 
-also added two verifys to tcp_ack to see if there's corruption outside of 
-TCP.
+Once you get one of these, you'll get a large number of them, maybe I 
+should just change it to WARN_ON_ONCE to stop confusing people with the 
+rest.
+
+> The other two asserts that I got only with batching are:
+>       2139: BUG_TRAP(packets <= tp->packets_out); (in tcp_mark_head_lost)
+>       2506: WARN_ON(!tp->sacked_out && tp->fackets_out) (in
+> tcp_fastretrans_alert)
+> (where 2506 always seems to preceed any other asserts).
+
+It's almost impossible to know which of these is the main cause and the 
+first occuring due to reasons I'll not copy here. What a strange thing
+that it has been super quiet on this front until now everybody is seeing 
+it, could there be something unrelated to TCP which has broken it all 
+recently?
+
+Good thing is that you seem to be able to reproduce it were nicely.
+Please try with this beauty below... Hopefully got it correctly matching 
+to mainline, in contrast to version I sent Dave Y., there's some added 
+candy which catches highest_sack corruption as well, at least it compiles 
+already :-).
 
 -- 
  i.
 
-[PATCH] [TCP]: debug S+L
+[PATCH] TCP: debug S+L (for mainline, not compatible with mm or net-2.6.25)
 
 ---
  include/net/tcp.h     |    8 +++-
- net/ipv4/tcp_input.c  |   10 +++++
- net/ipv4/tcp_ipv4.c   |  101 +++++++++++++++++++++++++++++++++++++++++++++++++
- net/ipv4/tcp_output.c |   21 +++++++---
- 4 files changed, 133 insertions(+), 7 deletions(-)
+ net/ipv4/tcp_input.c  |   10 ++++
+ net/ipv4/tcp_ipv4.c   |  123 +++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/tcp_output.c |   21 ++++++--
+ 4 files changed, 155 insertions(+), 7 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 7de4ea3..0685035 100644
+index cb5b033..9ea62f9 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
 @@ -272,6 +272,8 @@ DECLARE_SNMP_STAT(struct tcp_mib, tcp_statistics);
@@ -86,7 +153,7 @@ index 7de4ea3..0685035 100644
  extern void			tcp_v4_err(struct sk_buff *skb, u32);
  
  extern void			tcp_shutdown (struct sock *sk, int how);
-@@ -768,7 +770,11 @@ static inline __u32 tcp_current_ssthresh(const struct sock *sk)
+@@ -769,7 +771,11 @@ static inline __u32 tcp_current_ssthresh(const struct sock *sk)
  }
  
  /* Use define here intentionally to get WARN_ON location shown at the caller */
@@ -100,12 +167,12 @@ index 7de4ea3..0685035 100644
  extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
  extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index fa2c85c..cdacf70 100644
+index b39f0d8..1e4db05 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -2645,6 +2645,10 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
- 	if (do_lost || (tcp_is_fack(tp) && tcp_head_timedout(sk)))
- 		tcp_update_scoreboard(sk, fast_rexmit);
+@@ -2529,6 +2529,10 @@ tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
+ 	if (do_lost || tcp_head_timedout(sk))
+ 		tcp_update_scoreboard(sk);
  	tcp_cwnd_down(sk, flag);
 +
 +	WARN_ON(tcp_write_queue_head(sk) == NULL);
@@ -114,26 +181,26 @@ index fa2c85c..cdacf70 100644
  	tcp_xmit_retransmit_queue(sk);
  }
  
-@@ -2848,6 +2852,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets)
+@@ -2744,6 +2748,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, s32 *seq_rtt_p,
  		tcp_clear_all_retrans_hints(tp);
  	}
  
 +	tcp_verify_left_out(tp);
 +
- 	if (skb && (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED))
- 		flag |= FLAG_SACK_RENEGING;
- 
-@@ -3175,6 +3181,8 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
+ 	if (flag & FLAG_ACKED) {
+ 		u32 pkts_acked = prior_packets - tp->packets_out;
+ 		const struct tcp_congestion_ops *ca_ops
+@@ -3070,6 +3076,8 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
  	prior_fackets = tp->fackets_out;
  	prior_in_flight = tcp_packets_in_flight(tp);
  
 +	tcp_verify_left_out(tp);
 +
- 	if (!(flag & FLAG_SLOWPATH) && after(ack, prior_snd_una)) {
+ 	if (!(flag&FLAG_SLOWPATH) && after(ack, prior_snd_una)) {
  		/* Window is constant, pure forward advance.
  		 * No more checks are required.
-@@ -3237,6 +3245,8 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
- 	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag & FLAG_NOT_DUP))
+@@ -3131,6 +3139,8 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
+ 	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag&FLAG_NOT_DUP))
  		dst_confirm(sk->sk_dst_cache);
  
 +	tcp_verify_left_out(tp);
@@ -142,10 +209,10 @@ index fa2c85c..cdacf70 100644
  
  no_queue:
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 9aea88b..7e8ab40 100644
+index 652c323..9c56153 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -108,6 +108,107 @@ struct inet_hashinfo __cacheline_aligned tcp_hashinfo = {
+@@ -108,6 +108,129 @@ struct inet_hashinfo __cacheline_aligned tcp_hashinfo = {
  	.lhash_wait  = __WAIT_QUEUE_HEAD_INITIALIZER(tcp_hashinfo.lhash_wait),
  };
  
@@ -177,8 +244,13 @@ index 9aea88b..7e8ab40 100644
 +				s[idx] += 'a' - 'A';
 +
 +			if (i == 0) {
-+				if (TCP_SKB_CB(skb)->seq == tcp_highest_sack_seq(tp))
++				if ((TCP_SKB_CB(skb)->seq == tp->highest_sack) &&
++				    (tp->fastpath_skb_hint == skb))
++					h[idx] = 'x';
++				else if (TCP_SKB_CB(skb)->seq == tp->highest_sack)
 +					h[idx] = 'h';
++				else if (tp->fastpath_skb_hint == skb)
++					h[idx] = 'f';
 +				else
 +					h[idx] = '+';
 +			} else {
@@ -204,7 +276,7 @@ index 9aea88b..7e8ab40 100644
 +	}
 +	printk(KERN_ERR "l%u s%u f%u p%u seq: su%u hs%u sn%u\n",
 +		tp->lost_out, tp->sacked_out, tp->fackets_out, tp->packets_out,
-+		tp->snd_una, tcp_highest_sack_seq(tp), tp->snd_nxt);
++		tp->snd_una, tp->highest_sack, tp->snd_nxt);
 +}
 +
 +void tcp_verify_wq(struct sock *sk)
@@ -213,20 +285,30 @@ index 9aea88b..7e8ab40 100644
 +	u32 lost = 0;
 +	u32 sacked = 0;
 +	u32 packets = 0;
++	u32 fackets = 0;
++	int hint_failed_at = -1;
++	int highest_sack_corrupt = 0;
 +	struct sk_buff *skb;
 +
 +	tcp_for_write_queue(skb, sk) {
 +		if (skb == tcp_send_head(sk))
 +			break;
 +
++		if (WARN_ON((tp->fastpath_skb_hint == skb) &&
++			    packets != tp->fastpath_cnt_hint))
++			hint_failed_at = packets;
++
 +		if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) {
 +			sacked += tcp_skb_pcount(skb);
 +			if (TCP_SKB_CB(skb)->sacked & TCPCB_LOST)
-+			printk(KERN_ERR "Sacked bitmap S+L: %u %u-%u/%u\n",
-+				TCP_SKB_CB(skb)->sacked,
-+				TCP_SKB_CB(skb)->end_seq - tp->snd_una,
-+				TCP_SKB_CB(skb)->seq - tp->snd_una,
-+				tp->snd_una);
++				printk(KERN_ERR "Sacked bitmap S+L: %u %u-%u/%u\n",
++					TCP_SKB_CB(skb)->sacked,
++					TCP_SKB_CB(skb)->end_seq - tp->snd_una,
++					TCP_SKB_CB(skb)->seq - tp->snd_una,
++					tp->snd_una);
++			fackets = sacked;
++			if (WARN_ON(after(TCP_SKB_CB(skb)->seq, tp->highest_sack)))
++				highest_sack_corrupt = 1;
 +		}
 +		if (TCP_SKB_CB(skb)->sacked & TCPCB_LOST)
 +			lost += tcp_skb_pcount(skb);
@@ -237,15 +319,22 @@ index 9aea88b..7e8ab40 100644
 +	WARN_ON(lost != tp->lost_out);
 +	WARN_ON(tcp_is_sack(tp) && (sacked != tp->sacked_out));
 +	WARN_ON(packets != tp->packets_out);
++	WARN_ON(fackets != tp->fackets_out);
++
 +	if ((lost != tp->lost_out) ||
 +	    (tcp_is_sack(tp) && (sacked != tp->sacked_out)) ||
-+	    (packets != tp->packets_out)) {
-+		printk(KERN_ERR "P: %u L: %u vs %u S: %u vs %u w: %u-%u (%u)\n",
++	    (packets != tp->packets_out) ||
++	    (fackets != tp->fackets_out) ||
++	    (hint_failed_at != -1) ||
++	    highest_sack_corrupt) {
++		printk(KERN_ERR "P: %u L: %u vs %u S: %u vs %u F: %u vs %u H: %u vs %u w: %u-%u (%u, %u)\n",
 +			tp->packets_out,
 +			lost, tp->lost_out,
 +			sacked, tp->sacked_out,
++			fackets, tp->fackets_out,
++			hint_failed_at, tp->fastpath_cnt_hint,
 +			tp->snd_una, tp->snd_nxt,
-+		       	tp->rx_opt.sack_ok);
++			tp->rx_opt.sack_ok, highest_sack_corrupt);
 +		tcp_print_queue(sk);
 +	}
 +}
@@ -254,10 +343,10 @@ index 9aea88b..7e8ab40 100644
  {
  	return inet_csk_get_port(&tcp_hashinfo, sk, snum,
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 89f0188..648340f 100644
+index f4c1eef..cce7531 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -779,10 +779,9 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
+@@ -768,10 +768,9 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len, unsigned int mss
  			tp->lost_out -= diff;
  
  		/* Adjust Reno SACK estimate. */
@@ -267,10 +356,10 @@ index 89f0188..648340f 100644
 -			tcp_verify_left_out(tp);
 -		}
 +
- 		tcp_adjust_fackets_out(sk, skb, diff);
+ 		tcp_adjust_fackets_out(tp, skb, diff);
  	}
  
-@@ -790,6 +789,8 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
+@@ -779,6 +778,8 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len, unsigned int mss
  	skb_header_release(buff);
  	tcp_insert_write_queue_after(skb, buff, sk);
  
@@ -279,7 +368,7 @@ index 89f0188..648340f 100644
  	return 0;
  }
  
-@@ -1463,6 +1464,7 @@ static int tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle)
+@@ -1439,6 +1440,7 @@ static int tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle)
  	} else if (result > 0) {
  		sent_pkts = 1;
  	}
@@ -287,15 +376,15 @@ index 89f0188..648340f 100644
  
  	while ((skb = tcp_send_head(sk))) {
  		unsigned int limit;
-@@ -1764,6 +1766,7 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *skb,
- 	tcp_clear_retrans_hints_partial(tp);
+@@ -1760,6 +1762,7 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *skb, int m
  
- 	sk_wmem_free_skb(sk, next_skb);
+ 		sk_stream_free_skb(sk, next_skb);
+ 	}
 +	tcp_verify_left_out(tp);
  }
  
  /* Do a simple retransmit without using the backoff mechanisms in
-@@ -1795,13 +1798,13 @@ void tcp_simple_retransmit(struct sock *sk)
+@@ -1791,13 +1794,13 @@ void tcp_simple_retransmit(struct sock *sk)
  		}
  	}
  
@@ -311,7 +400,7 @@ index 89f0188..648340f 100644
  	/* Don't muck with the congestion window here.
  	 * Reason is that we do not increase amount of _data_
  	 * in network, but units changed and effective
-@@ -1970,8 +1973,10 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
+@@ -1966,8 +1969,10 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
  			 * packet to be MSS sized and all the
  			 * packet counting works out.
  			 */
@@ -322,8 +411,8 @@ index 89f0188..648340f 100644
 +			}
  
  			if (sacked & TCPCB_LOST) {
- 				if (!(sacked & (TCPCB_SACKED_ACKED|TCPCB_SACKED_RETRANS))) {
-@@ -1997,6 +2002,8 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
+ 				if (!(sacked&(TCPCB_SACKED_ACKED|TCPCB_SACKED_RETRANS))) {
+@@ -1993,6 +1998,8 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
  		}
  	}
  
@@ -332,7 +421,7 @@ index 89f0188..648340f 100644
  	/* OK, demanded retransmission is finished. */
  
  	/* Forward retransmissions are possible only during Recovery. */
-@@ -2054,6 +2061,8 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
+@@ -2050,6 +2057,8 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
  
  		NET_INC_STATS_BH(LINUX_MIB_TCPFORWARDRETRANS);
  	}
@@ -340,8 +429,7 @@ index 89f0188..648340f 100644
 +	tcp_verify_left_out(tp);
  }
  
- /* Send a fin.  The caller locks the socket for us.  This cannot be
+ 
 -- 
 1.5.2.2
 
----696243703-2498209-1201077674=:31652--
