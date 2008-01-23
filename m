@@ -1,58 +1,53 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [IPV4 0/9] TRIE performance patches
-Date: Wed, 23 Jan 2008 08:31:05 -0800
-Message-ID: <47976BC9.3020801@linux-foundation.org>
-References: <20080122233733.404145234@linux-foundation.org> <18327.18935.137799.285515@robur.slu.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Robert Olsson <Robert.Olsson@data.slu.se>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [NET_SCHED 03/15]: act_api: fix netlink API conversion bug
+Date: Wed, 23 Jan 2008 17:36:39 +0100 (MET)
+Message-ID: <20080123163559.6459.91294.sendpatchset@localhost.localdomain>
+References: <20080123163555.6459.69501.sendpatchset@localhost.localdomain>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:34243 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751780AbYAWQao (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 11:30:44 -0500
-In-Reply-To: <18327.18935.137799.285515@robur.slu.se>
+Received: from stinky.trash.net ([213.144.137.162]:49717 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752873AbYAWQgl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 11:36:41 -0500
+In-Reply-To: <20080123163555.6459.69501.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Olsson wrote:
-> Stephen Hemminger writes:
->
->  > Time to handle a full BGP load (163K of routes).
->  > 
->  > Before:		Load		Dump		Flush
->  >
->  > kmem_cache	3.8		13.0		7.2
->  > iter		3.9		12.3		6.9
->  > unordered	3.1		11.9		4.9
->  > find_node	3.1		 0.3		1.2
->
->  I certainly like the speed but what will we brake when
->  we don't return in longest prefix order?
->
-> labb:/# ip r
-> default via 10.10.10.1 dev eth0 
-> 5.0.0.0/8 via 192.168.2.2 dev eth3 
-> 10.10.10.0/24 dev eth0  proto kernel  scope link  src 10.10.10.2 
-> 10.10.11.0/24 dev eth1  proto kernel  scope link  src 10.10.11.1 
-> 11.0.0.0/8 via 10.10.11.2 dev eth1 
-> 192.168.1.0/24 dev eth2  proto kernel  scope link  src 192.168.1.2 
-> 192.168.2.0/24 dev eth3  proto kernel  scope link  src 192.168.2.1 
->
-> labb:/# ip route list match 10.10.10.1
-> default via 10.10.10.1 dev eth0 
-> 10.10.10.0/24 dev eth0  proto kernel  scope link  src 10.10.10.2 
-> labb:/# 
->
-> Maybe the unordered dump can be ordered cheaply...
->
-> Cheers.
-> 				--ro
->
->   
-Hash returned the routes in prefix order (then random).  Returning the 
-routes in numerical order
-seems just as logical. I'm going to test on quagga.
+[NET_SCHED]: act_api: fix netlink API conversion bug
 
+Fix two invalid attribute accesses, indices start at 1 with the new
+netlink API.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit 512b2ab20730e1d24e36fb94eab4a2731e90e315
+tree e3583125570ee0c7a57feac7aa6fcabe2541112a
+parent 1af28b79f4f0a67db344938ef6739ad2af1a72a7
+author Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:10:00 +0100
+committer Patrick McHardy <kaber@trash.net> Wed, 23 Jan 2008 17:10:00 +0100
+
+ net/sched/act_api.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index ebd21d2..ae077ed 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -997,11 +997,11 @@ find_dump_kind(struct nlmsghdr *n)
+ 	if (nla_parse(tb, TCA_ACT_MAX_PRIO, nla_data(tb1),
+ 		      NLMSG_ALIGN(nla_len(tb1)), NULL) < 0)
+ 		return NULL;
+-	if (tb[0] == NULL)
+-		return NULL;
+ 
+-	if (nla_parse(tb2, TCA_ACT_MAX, nla_data(tb[0]),
+-		      nla_len(tb[0]), NULL) < 0)
++	if (tb[1] == NULL)
++		return NULL;
++	if (nla_parse(tb2, TCA_ACT_MAX, nla_data(tb[1]),
++		      nla_len(tb[1]), NULL) < 0)
+ 		return NULL;
+ 	kind = tb2[TCA_ACT_KIND];
+ 
