@@ -1,114 +1,59 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] [IPV4] route: fix locking in rt_run_flush()
-Date: Wed, 23 Jan 2008 21:44:25 +0100
-Message-ID: <4797A729.4030006@cosmosbay.com>
-References: <12009281372201-git-send-email-joonwpark81@gmail.com> <20080121.024043.105024413.davem@davemloft.net> <20080123074320.GB9017@ehus.geninetworks.com>
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Subject: RE: [PATCH 2.6.25 1/1]S2io: Multiqueue network device support implementation
+Date: Wed, 23 Jan 2008 15:48:24 -0500
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7702E70E92@nekter>
+References: <p73odbclsft.fsf@crumb.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: joonwpark81@gmail.com
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <jeff@garzik.org>,
+	"support" <support@neterion.com>
+To: "Andi Kleen" <andi@firstfloor.org>,
+	"Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from neuf-infra-smtp-out-sp604007av.neufgp.fr ([84.96.92.120]:46618
-	"EHLO neuf-infra-smtp-out-sp604007av.neufgp.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751045AbYAWUoo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 15:44:44 -0500
-In-Reply-To: <20080123074320.GB9017@ehus.geninetworks.com>
+Received: from mx.neterion.com ([72.1.205.142]:2396 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751807AbYAWUtz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 15:49:55 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <p73odbclsft.fsf@crumb.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-joonwpark81@gmail.com a =E9crit :
-> On Mon, Jan 21, 2008 at 02:40:43AM -0800, David Miller wrote:
->> From: Joonwoo Park <joonwpark81@gmail.com>
->> Date: Tue, 22 Jan 2008 00:08:57 +0900
->>
->>> The rt_run_flush() can be stucked if it was called while netdev is =
-on the=20
->>> high load.
->>> It's possible when pushing rtable to rt_hash is faster than pulling
->>> from it.
->>>
->>> Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
->> I agree with the analysis of the problem, however not the solution.
->>
->> This will absolutely kill software interrupt latency.
->>
->> In fact, we have moved much of the flush work into a workqueue in
->> net-2.6.25 because of how important that is
->>
->> We need to find some other way to solve this.
->>
->=20
-> Dave, Eric,
-> Thanks so much for comments.
->=20
-> I did stress tests and I found that the real problem was not consumer=
- & supplier
-> issue.
-> It was the problem for me to innumerable enabling & disabling the sof=
-tirq.
-> But I'm still thinking need of considering issue 'faster caching than=
- flush'. :)=20
->=20
-> ifconfig up on heavy loaded interface.
-> Before patching:
->  time ifconfig eth1 up
->  BUG: soft lockup - CPU#0 stuck for 11s! [events/0:9]
->  ...
->=20
-> After patching:
->  time ifconfig eth1 up
-> real	0m0.007s
-> user	0m0.000s
-> sys	0m0.004s
->=20
-> Thanks!
-> Joonwoo
->=20
->=20
->>From 87c29506de967e811ad5b57cd2e1a002134e878f Mon Sep 17 00:00:00 200=
-1
-> From: Joonwoo Park <joonwpark81@gmail.com>
-> Date: Wed, 23 Jan 2008 15:16:54 +0900
-> Subject: [PATCH] [IPV4] route: reduce locking/unlocking in rt_run_flu=
-sh
->=20
-> The rt_run_flush does spin_lock_bh/spin_unlock_bh for rt_hash_mask + =
-1
-> times.
-> The rt_hash_mask takes from 32767 to 65535, so it's big overhead.
-> In addition, disable_bh/enable_bh for many times in the rt_run_flush
-> can cause stuck on a machine with heavily pended softirqs.
->=20
-> This patch reduces locking/unlocking as doing it with jumping the loc=
-k
-> slots.
->=20
-> ifconfig up on heavy loaded interface.
-> Before:
->  time ifconfig eth1 up
->  BUG: soft lockup - CPU#0 stuck for 11s! [events/0:9]
->  ...
->=20
-> After:
->  time ifconfig eth1 up
-> real	0m0.007s
-> user	0m0.000s
-> sys	0m0.004s
->=20
+> Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com> writes:
+> 
+> > Multiqueue netwrok device support implementation.
+> > - Added a loadable parameter "multiq" to enable/disable multiqueue
+> support,
+> >   by default it is disabled.
+> > - skb->queue_mapping is not used for queue/fifo selection. FIFO
+> iselection is
+> >   based on IP-TOS value, 0x0-0xF TOS values are mapped to 8 FIFOs.
+> 
+> Standard way to use that would be using skb->priority
+[Ram] Thanks. We can use this field to determine the priority. It should
+simplify the code.
 
-Unfortunatly, your patch doesnt work on CONFIG_SMP=3Dn (softirq will be=
- disabled=20
-for the whole scan of table)
+> 
+> But I'm surprised you bother with TOS for multi queues at all. TOS
+> isn't a too important mechanism.
+[Ram] Agreed TOS is not too important. The purpose of this patch was to
+add the multiqueue functionality with a feature that can use it. With
+multiple transmit fifos enabled, a whole new set of features that can be
+enabled.
 
-Also, some machines around there have 2^22 slots in hash table, and NR_=
-CPUS=3D4,=20
-so softirqs will be disabled for a too long time.
+> 
+> I would have thought the primary use case would be per CPU TX
+completion
+> interrupts. With that the queue should be selected based on
+> the the current CPU.
+> 
+[Ram] I am assuming that this is with regards to msi-x interrupts. We
+have done away with handling tx completion in the interrupt handler, and
+are instead handling them in the context of the transmit. The slow path,
+straggling transmit completions will be handled in the timer context.
+This patch (along with other new features) will be sent soon.
 
-Please try net-2.6.25 and submit patches on top of it if necessary, sin=
-ce=20
-rt_run_flush() has pending changes, not in net-2.6
-
-Note : The 'soft lockup' can be avoided by other means.
-
+Ram
+> -Andi
