@@ -1,34 +1,54 @@
-From: "Jike Song" <albcamus@gmail.com>
-Subject: Re: [PATCH] pci-skeleton: Misc fixes to build neatly
-Date: Wed, 23 Jan 2008 18:16:36 +0800
-Message-ID: <df9815e70801230216j713c5e2bpf57d691138a9aaca@mail.gmail.com>
-References: <df9815e70801212216v79ff8137kccc6a94ddb96c818@mail.gmail.com>
-	 <47970FF9.7010009@garzik.org>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: Assertions in latest kernels
+Date: Wed, 23 Jan 2008 16:08:05 +0530
+Message-ID: <OFBB992ED6.6AEB3511-ON652573D9.003AC1C3-652573D9.003A6B6F@in.ibm.com>
+References: <Pine.LNX.4.64.0801231140120.31652@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Jeff Garzik" <jeff@garzik.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.183]:52725 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750767AbYAWKQi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 05:16:38 -0500
-Received: by py-out-1112.google.com with SMTP id u52so4082382pyb.10
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2008 02:16:37 -0800 (PST)
-In-Reply-To: <47970FF9.7010009@garzik.org>
-Content-Disposition: inline
+Received: from e28smtp04.in.ibm.com ([59.145.155.4]:34768 "EHLO
+	e28esmtp04.in.ibm.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750767AbYAWKjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2008 05:39:43 -0500
+Received: from d28relay04.in.ibm.com (d28relay04.in.ibm.com [9.184.220.61])
+	by e28esmtp04.in.ibm.com (8.13.1/8.13.1) with ESMTP id m0NAdcEf001707
+	for <netdev@vger.kernel.org>; Wed, 23 Jan 2008 16:09:38 +0530
+Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
+	by d28relay04.in.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0NAdcZk770244
+	for <netdev@vger.kernel.org>; Wed, 23 Jan 2008 16:09:38 +0530
+Received: from d28av02.in.ibm.com (loopback [127.0.0.1])
+	by d28av02.in.ibm.com (8.13.1/8.13.3) with ESMTP id m0NAdcdU027303
+	for <netdev@vger.kernel.org>; Wed, 23 Jan 2008 10:39:38 GMT
+In-Reply-To: <Pine.LNX.4.64.0801231140120.31652@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/23/08, Jeff Garzik <jeff@garzik.org> wrote:
->
-> ACK but git-am (everybody's patch import tool) says the patch is corrupted
->
-Hi Jeff,
+ilpo.jarvinen@helsinki.fi wrote on 01/23/2008 03:23:24 PM:
 
-Thank you very much for your acknowledgement!  This is my first patch
-for Linux kernel, sorry for the corruption.  I'll resend it ASAP.
+> > There were couple of patch apply failures in .c files which I fixed by
+> > hand.
+> > But when compiling, I got these errors (I am using DM's 2.6.24-rc7
+kernel,
+> > net-2.6.25.git):
+>
+> Well, that's annoying, you didn't mention net-2.6.25 back then, it sure
+> is incompatible with it like already the patch title said... :-)
 
-Regards,
-Jike
+I did mention that in my first mail:
+
+"Bits are unmodified 2.6.24-rc7 bits downloaded today (Jan 23rd)".
+
+I tried it hoping it would not change a lot, but it didn't work
+obviously :)
+
+> ...This is either due to mismerge or due your modifications.
+
+Again, it was due to wrong patch bits (to reiterate, I am using
+unmodified bits without any modifications), but let's move ahead.
+Your patch in this mail applied cleanly for me, and I am compiling
+now.
+
+- KK
+
