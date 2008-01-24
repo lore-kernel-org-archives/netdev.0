@@ -1,408 +1,719 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: 2.6.24-rc8-mm1 : net tcp_input.c warnings
-Date: Thu, 24 Jan 2008 12:24:11 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0801241214080.31652@kivilampi-30.cs.helsinki.fi>
-References: <a8e1da0801220109v6bf8931ev50f2210402c3ba41@mail.gmail.com>
- <Pine.LNX.4.64.0801221115150.31652@kivilampi-30.cs.helsinki.fi>
- <a8e1da0801221744m37021e88h5c188e5b31ea42bf@mail.gmail.com>
- <20080122.190137.206066966.davem@davemloft.net>
- <Pine.LNX.4.64.0801230937270.31652@kivilampi-30.cs.helsinki.fi>
- <a8e1da0801222344l101c2b90s363821c26bc8cb55@mail.gmail.com>
- <Pine.LNX.4.64.0801231034300.31652@kivilampi-30.cs.helsinki.fi>
- <Pine.LNX.4.64.0801231256360.31652@kivilampi-30.cs.helsinki.fi>
- <a8e1da0801231842m128d8261oc14135716a0a2d85@mail.gmail.com>
- <Pine.LNX.4.64.0801241108400.31652@kivilampi-30.cs.helsinki.fi>
+From: Poonam_Aggrwal-b10812 <b10812@freescale.com>
+Subject: [PATCH UCC TDM 1/3 Updated] Platform changes for UCC TDM driver for
+ MPC8323eRDB. Also includes related QE changes and dts entries.
+Date: Thu, 24 Jan 2008 16:00:06 +0530 (IST)
+Message-ID: <Pine.LNX.4.64.0801241553270.4984@linux121>
 Mime-Version: 1.0
-Content-Type: MULTIPART/Mixed; boundary="-696243703-1594222684-1201168458=:31652"
-Cc: Dave Young <hidave.darkstar@gmail.com>,
-	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: michael.barkowski@freescale.com, kim.phillips@freescale.com,
+	ashish.kalra@freescale.com, timur@freescale.com,
+	rich.cutler@freescale.com, b10812@freescale.com
+To: kumar.gala@freescale.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rubini@vision.unipv.it, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:57027 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751700AbYAXKYN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2008 05:24:13 -0500
-In-Reply-To: <Pine.LNX.4.64.0801241108400.31652@kivilampi-30.cs.helsinki.fi>
-Content-ID: <Pine.LNX.4.64.0801241214081.31652@kivilampi-30.cs.helsinki.fi>
+Received: from de01egw01.freescale.net ([192.88.165.102]:54199 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753267AbYAXKaT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2008 05:30:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Thanks Stephen for your comments, incorporated them.
+From: Poonam Aggrwal <b10812@freescale.com>
 
----696243703-1594222684-1201168458=:31652
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0801241214082.31652@kivilampi-30.cs.helsinki.fi>
+This patch makes necessary changes in the QE and UCC framework to support 
+TDM. It also adds support to configure the BRG properly through device 
+tree entries. Includes the device tree changes for UCC TDM driver as well.
+It also includes device tree entries for UCC TDM driver.
 
-On Thu, 24 Jan 2008, Ilpo Järvinen wrote:
+Tested on MPC8323ERDB platform.
 
-> And anyway, there were some fackets_out related 
-> problems reported as well and this doesn't help for that but I think I've 
-> lost track of who was seeing it due to large number of reports :-), could 
-> somebody refresh my memory because I currently don't have time to dig it 
-> up from archives (at least on this week).
-
-Here's the updated debug patch for net-2.6.25/mm for tracking 
-fackets_out inconsistencies (it won't work for trees which don't
-include net-2.6.25, mm does of course :-)).
-
-I hope I got it into good shape this time to avoid spurious stacktraces 
-but still maintaining 100% accuracy, but it's not a simple oneliner so I 
-might have missed something... :-)
-
-I'd suggest that people trying with this first apply the newreno fix of 
-the previous mail to avoid already-fixed case from triggering.
-
--- 
- i.
-
---
-[PATCH] [TCP]: debug S+L (for net-2.5.26 / mm, incompatible with mainline)
-
+Signed-off-by: Poonam Aggrwal <b10812@freescale.com>
+Signed-off-by: Ashish Kalra <ashish.kalra@freescale.com>
+Signed-off-by: Kim Phillips <Kim.Phillips@freescale.com>
+Signed-off-by: Michael Barkowski <michael.barkowski@freescale.com>
 ---
- include/net/tcp.h     |    5 ++-
- net/ipv4/tcp_input.c  |   18 +++++++-
- net/ipv4/tcp_ipv4.c   |  127 +++++++++++++++++++++++++++++++++++++++++++++++++
- net/ipv4/tcp_output.c |   23 +++++++--
- 4 files changed, 165 insertions(+), 8 deletions(-)
+ arch/powerpc/boot/dts/mpc832x_rdb.dts |   58 +++++++
+ arch/powerpc/sysdev/qe_lib/qe.c       |  184 +++++++++++++++++++++--
+ arch/powerpc/sysdev/qe_lib/ucc.c      |  265 +++++++++++++++++++++++++++++++++
+ arch/powerpc/sysdev/qe_lib/ucc_fast.c |   37 +++++
+ include/asm-powerpc/qe.h              |    8 +
+ include/asm-powerpc/ucc.h             |    4 +
+ include/asm-powerpc/ucc_fast.h        |    4 +
+ 7 files changed, 548 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 7de4ea3..552aa71 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -272,6 +272,9 @@ DECLARE_SNMP_STAT(struct tcp_mib, tcp_statistics);
- #define TCP_ADD_STATS_BH(field, val)	SNMP_ADD_STATS_BH(tcp_statistics, field, val)
- #define TCP_ADD_STATS_USER(field, val)	SNMP_ADD_STATS_USER(tcp_statistics, field, val)
+diff --git a/arch/powerpc/boot/dts/mpc832x_rdb.dts b/arch/powerpc/boot/dts/mpc832x_rdb.dts
+index 388c8a7..c0e6283 100644
+--- a/arch/powerpc/boot/dts/mpc832x_rdb.dts
++++ b/arch/powerpc/boot/dts/mpc832x_rdb.dts
+@@ -105,6 +105,17 @@
+ 			device_type = "par_io";
+ 			num-ports = <7>;
  
-+extern void tcp_print_queue(struct sock *sk);
-+extern void			tcp_verify_wq(struct sock *sk);
++			ucc1pio:ucc_pin@01 {
++				pio-map = <
++			/* port  pin  dir  open_drain  assignment  has_irq */
++					0  e  2  0  1  0	/* CLK11 */
++					3 16  1  0  2  0	/* BRG9 */
++					3 1b  1  0  2  0	/* BRG3 */
++					0  0  3  0  2  0	/* TDMATxD0 */
++					0  4  3  0  2  0	/* TDMARxD0 */
++					3 1b  2  0  1  0>;	/* CLK1 */
++			};
 +
- extern void			tcp_v4_err(struct sk_buff *skb, u32);
+ 			ucc2pio:ucc_pin@02 {
+ 				pio-map = <
+ 			/* port  pin  dir  open_drain  assignment  has_irq */
+@@ -169,6 +180,36 @@
+ 			};
+ 		};
  
- extern void			tcp_shutdown (struct sock *sk, int how);
-@@ -768,7 +771,7 @@ static inline __u32 tcp_current_ssthresh(const struct sock *sk)
- }
++		clocks {
++			compatible = "fsl,cpm-clocks";
++			/* clock freqs in Hz(for CLK1~CLK24).
++			 * CLK11 is 1024KHz,
++			 * all other clocks unused
++			 * #clock-cells define number of cells
++			 * used by the clock-frequency.
++			 * right now only #clock cells=1 is
++			 * implemented. Provision is there to
++			 * handle frequencies >4Gig
++			 */
++			#clock-cells = <1>;
++			clock-frequency = <0 0 0 0 0 0
++					   0 0 0 0 d#1024000 0
++					   0 0 0 0 0 0
++					   0 0 0 0 0 0>;
++		};
++
++		brg@640 {
++			compatible = "fsl,cpm-brg";
++			/* input clock sources for all the 16 BRGs.
++			 * 1-24 for CLK1 to CLK24.
++			 * BRG9 uses CLK11,BRG1 and BRG2-8 use
++			 * the QE clock.
++			 */
++			fsl,brg-sources = <0 0 0 0 0 0 0 0
++					   b 0 0 0 0 0 0 0>;
++			reg = <640 7f>;
++		};
++
+ 		spi@4c0 {
+ 			device_type = "spi";
+ 			compatible = "fsl_spi";
+@@ -187,6 +228,23 @@
+ 			mode = "cpu";
+ 		};
  
- /* Use define here intentionally to get WARN_ON location shown at the caller */
--#define tcp_verify_left_out(tp)	WARN_ON(tcp_left_out(tp) > tp->packets_out)
-+#define tcp_verify_left_out(tp)		tcp_verify_wq((struct sock *)tp)
++		ucc@2000 {
++			device_type = "tdm";
++			compatible = "fsl,ucc-tdm";
++			model = "UCC";
++			device-id = <1>;
++			fsl,tdm-num = <1>;
++			fsl,si-num = <1>;
++			fsl,tdm-tx-clk = "CLK1";
++			fsl,tdm-rx-clk = "CLK1";
++			fsl,tdm-tx-sync = "BRG9";
++			fsl,tdm-rx-sync = "BRG9";
++			reg = <2000 200>;
++			interrupts = <20>;
++			interrupt-parent = <&qeic>;
++			pio-handle = <&ucc1pio>;
++		};
++
+ 		ucc@3000 {
+ 			device_type = "network";
+ 			compatible = "ucc_geth";
+diff --git a/arch/powerpc/sysdev/qe_lib/qe.c b/arch/powerpc/sysdev/qe_lib/qe.c
+index 1df3b4a..9b9971d 100644
+--- a/arch/powerpc/sysdev/qe_lib/qe.c
++++ b/arch/powerpc/sysdev/qe_lib/qe.c
+@@ -149,20 +149,170 @@ EXPORT_SYMBOL(qe_issue_cmd);
+  */
+ static unsigned int brg_clk = 0;
  
- extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
- extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 19c449f..c897c93 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1426,8 +1426,10 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb,
- 	int first_sack_index;
- 
- 	if (!tp->sacked_out) {
--		if (WARN_ON(tp->fackets_out))
-+		if (WARN_ON(tp->fackets_out)) {
-+			tcp_verify_left_out(tp);
- 			tp->fackets_out = 0;
-+		}
- 		tcp_highest_sack_reset(sk);
- 	}
- 
-@@ -2136,6 +2138,8 @@ static void tcp_mark_head_lost(struct sock *sk, int packets, int fast_rexmit)
- 	struct sk_buff *skb;
- 	int cnt;
- 
-+	tcp_verify_left_out(tp);
-+
- 	BUG_TRAP(packets <= tp->packets_out);
- 	if (tp->lost_skb_hint) {
- 		skb = tp->lost_skb_hint;
-@@ -2501,6 +2505,8 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
- 				    (tcp_fackets_out(tp) > tp->reordering));
- 	int fast_rexmit = 0;
- 
-+	tcp_verify_left_out(tp);
-+
- 	if (WARN_ON(!tp->packets_out && tp->sacked_out))
- 		tp->sacked_out = 0;
- 	if (WARN_ON(!tp->sacked_out && tp->fackets_out))
-@@ -2645,6 +2651,10 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
- 	if (do_lost || (tcp_is_fack(tp) && tcp_head_timedout(sk)))
- 		tcp_update_scoreboard(sk, fast_rexmit);
- 	tcp_cwnd_down(sk, flag);
-+
-+	WARN_ON(tcp_write_queue_head(sk) == NULL);
-+	WARN_ON(!tp->packets_out);
-+
- 	tcp_xmit_retransmit_queue(sk);
- }
- 
-@@ -2848,6 +2858,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets)
- 		tcp_clear_all_retrans_hints(tp);
- 	}
- 
-+	tcp_verify_left_out(tp);
-+
- 	if (skb && (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED))
- 		flag |= FLAG_SACK_RENEGING;
- 
-@@ -3175,6 +3187,8 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
- 	prior_fackets = tp->fackets_out;
- 	prior_in_flight = tcp_packets_in_flight(tp);
- 
-+	tcp_verify_left_out(tp);
-+
- 	if (!(flag & FLAG_SLOWPATH) && after(ack, prior_snd_una)) {
- 		/* Window is constant, pure forward advance.
- 		 * No more checks are required.
-@@ -3237,6 +3251,8 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
- 	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag & FLAG_NOT_DUP))
- 		dst_confirm(sk->sk_dst_cache);
- 
-+	tcp_verify_left_out(tp);
-+
- 	return 1;
- 
- no_queue:
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 9aea88b..e6e3ad5 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -108,6 +108,133 @@ struct inet_hashinfo __cacheline_aligned tcp_hashinfo = {
- 	.lhash_wait  = __WAIT_QUEUE_HEAD_INITIALIZER(tcp_hashinfo.lhash_wait),
- };
- 
-+void tcp_print_queue(struct sock *sk)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	struct sk_buff *skb;
-+	char s[50+1];
-+	char h[50+1];
-+	int idx = 0;
-+	int i;
-+
-+	i = 0;
-+	tcp_for_write_queue(skb, sk) {
-+		if (skb == tcp_send_head(sk))
-+			printk(KERN_ERR "head %u %p\n", i, skb);		
-+		else
-+			printk(KERN_ERR "skb %u %p\n", i, skb);
-+		i++;
-+	}
-+
-+	tcp_for_write_queue(skb, sk) {
-+		if (skb == tcp_send_head(sk))
-+			break;
-+
-+		for (i = 0; i < tcp_skb_pcount(skb); i++) {
-+			if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) {
-+				s[idx] = 'S';
-+				if (TCP_SKB_CB(skb)->sacked & TCPCB_LOST)
-+					s[idx] = 'B';
-+
-+			} else if (TCP_SKB_CB(skb)->sacked & TCPCB_LOST) {
-+				s[idx] = 'L';
-+			} else {
-+				s[idx] = ' ';
-+			}
-+			if (s[idx] != ' ' && skb->len < tp->mss_cache)
-+				s[idx] += 'a' - 'A';
-+
-+			if (i == 0) {
-+				if (skb == tcp_highest_sack(sk))
-+					h[idx] = 'h';
-+				else
-+					h[idx] = '+';
-+			} else {
-+				h[idx] = '-';
-+			}
-+
-+			if (++idx >= 50) {
-+				s[idx] = 0;
-+				h[idx] = 0;
-+				printk(KERN_ERR "TCP wq(s) %s\n", s);
-+				printk(KERN_ERR "TCP wq(h) %s\n", h);
-+				idx = 0;
-+			}
-+		}
-+	}
-+	if (idx) {
-+		s[idx] = '<';
-+		s[idx+1] = 0;
-+		h[idx] = '<';
-+		h[idx+1] = 0;
-+		printk(KERN_ERR "TCP wq(s) %s\n", s);
-+		printk(KERN_ERR "TCP wq(h) %s\n", h);
-+	}
-+	printk(KERN_ERR "l%u s%u f%u p%u seq: su%u hs%u sn%u\n",
-+		tp->lost_out, tp->sacked_out, tp->fackets_out, tp->packets_out,
-+		tp->snd_una, tcp_highest_sack_seq(tp), tp->snd_nxt);
-+}
-+
-+void tcp_verify_wq(struct sock *sk)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	u32 lost = 0;
-+	u32 sacked = 0;
-+	u32 packets = 0;
-+	u32 fackets = 0;
-+	int hs_valid = 0;
-+	struct sk_buff *skb;
-+
-+	tcp_for_write_queue(skb, sk) {
-+		if (skb == tcp_send_head(sk))
-+			break;
-+
-+		if ((fackets == packets) && (skb == tp->highest_sack))
-+			hs_valid = 1;
-+
-+		packets += tcp_skb_pcount(skb);
-+
-+		if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) {
-+			sacked += tcp_skb_pcount(skb);
-+			if (TCP_SKB_CB(skb)->sacked & TCPCB_LOST)
-+				printk(KERN_ERR "Sacked bitmap S+L: %u %u-%u/%u\n",
-+					TCP_SKB_CB(skb)->sacked,
-+					TCP_SKB_CB(skb)->end_seq - tp->snd_una,
-+					TCP_SKB_CB(skb)->seq - tp->snd_una,
-+					tp->snd_una);
-+			fackets = packets;
-+			hs_valid = 0;
-+		}
-+		if (TCP_SKB_CB(skb)->sacked & TCPCB_LOST)
-+			lost += tcp_skb_pcount(skb);
-+	}
-+
-+	if ((fackets == packets) && (tp->highest_sack == tcp_send_head(sk)))
-+		hs_valid = 1;
-+
-+	if ((lost != tp->lost_out) ||
-+	    (tcp_is_sack(tp) && (sacked != tp->sacked_out)) ||
-+	    ((sacked || (tcp_is_sack(tp) && tp->sacked_out)) && !hs_valid) ||
-+	    (packets != tp->packets_out) ||
-+	    (fackets != tp->fackets_out) ||
-+	    tcp_left_out(tp) > tp->packets_out) {
-+		printk(KERN_ERR "P: %u L: %u vs %u S: %u vs %u F: %u vs %u w: %u-%u (%u)\n",
-+			tp->packets_out,
-+			lost, tp->lost_out,
-+			sacked, tp->sacked_out,
-+			fackets, tp->fackets_out,
-+			tp->snd_una, tp->snd_nxt,
-+			tp->rx_opt.sack_ok);
-+		tcp_print_queue(sk);
-+	}
-+
-+	WARN_ON(lost != tp->lost_out);
-+	WARN_ON(tcp_is_sack(tp) && (sacked != tp->sacked_out));
-+	WARN_ON(packets != tp->packets_out);
-+	WARN_ON(fackets != tp->fackets_out);
-+	WARN_ON(tcp_left_out(tp) > tp->packets_out);
-+}
-+
- static int tcp_v4_get_port(struct sock *sk, unsigned short snum)
+-unsigned int get_brg_clk(void)
++u32 get_brg_clk(enum qe_clock brgclk, enum qe_clock *brg_source)
  {
- 	return inet_csk_get_port(&tcp_hashinfo, sk, snum,
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 89f0188..8fb6628 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -779,10 +779,9 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
- 			tp->lost_out -= diff;
+-	struct device_node *qe;
+-	if (brg_clk)
+-		return brg_clk;
++	struct device_node *qe, *brg, *clocks;
++	enum qe_clock brg_src;
++	u32 brg_input_freq = 0;
++	u32 brg_num;
++	int ret;
++	const unsigned int *prop;
  
- 		/* Adjust Reno SACK estimate. */
--		if (tcp_is_reno(tp) && diff > 0) {
-+		if (tcp_is_reno(tp) && diff > 0)
- 			tcp_dec_pcount_approx_int(&tp->sacked_out, diff);
--			tcp_verify_left_out(tp);
--		}
+-	qe = of_find_node_by_type(NULL, "qe");
+-	if (qe) {
++	*brg_source = 0;
 +
- 		tcp_adjust_fackets_out(sk, skb, diff);
- 	}
- 
-@@ -790,6 +789,8 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
- 	skb_header_release(buff);
- 	tcp_insert_write_queue_after(skb, buff, sk);
- 
-+	tcp_verify_left_out(tp);
++	brg_num = brgclk - QE_BRG1;
++	brg = of_find_compatible_node(NULL, NULL, "fsl,cpm-brg");
++	if (!brg) {
++		printk(KERN_ERR "%s: no brg node in device tree\n",
++			 __FUNCTION__);
++		return -EINVAL;
++	}
++	unsigned int size;
++	prop = of_get_property(brg, "fsl,brg-sources", &size);
++	of_node_put(brg);
 +
++	if (!prop) {
++		printk(KERN_ERR "%s: invalid fsl,brg-sources in device tree \n"
++							, __FUNCTION__);
++		return  -EINVAL;
++	}
++	brg_src = *(prop + brg_num);
++	if (brg_src == 0) {
++		*brg_source = 0;
++		if (brg_clk > 0)
++			return brg_clk;
++		qe = of_find_node_by_type(NULL, "qe");
++		if (!qe) {
++			printk(KERN_ERR "%s: no qe node in device tree \n"
++							, __FUNCTION__);
++			ret = EINVAL;
++			goto err;
++		}
+ 		unsigned int size;
+-		const u32 *prop = of_get_property(qe, "brg-frequency", &size);
+-		brg_clk = *prop;
++		prop = of_get_property(qe, "brg-frequency", &size);
++		if (!prop) {
++			printk(KERN_ERR "%s: QE brg-frequency"
++				"not present in device tree\n", __FUNCTION__);
++			ret = -EINVAL;
++			of_node_put(qe);
++			goto err;
++		}
++		if (*prop) {
++			of_node_put(qe);
++			brg_clk = *prop;
++			return *prop;
++		}
++		/*
++		 * Older versions of U-Boot do not initialize
++		 * the brg-frequency property, so in this case
++		 * we assume the BRG frequency is half the QE
++		 * bus frequency.
++		 */
++		prop = of_get_property(qe, "bus-frequency", NULL);
+ 		of_node_put(qe);
+-	};
+-	return brg_clk;
++		if (!prop) {
++			printk(KERN_ERR "%s:QE bus-frequency not"
++			" present in device tree\n", __FUNCTION__);
++			ret = -EINVAL;
++			goto err;
++		}
++		if (*prop) {
++			brg_clk = *prop / 2;
++			return brg_clk;
++		}
++		printk(KERN_ERR "%s: invalid QE bus-frequency in device tree\n",
++								 __FUNCTION__);
++		ret = -EINVAL;
++		goto err;
++	} else {
++		*brg_source = brg_src + QE_CLK1 - 1;
++		clocks = of_find_compatible_node(NULL, NULL, "fsl,cpm-clocks");
++		if (!clocks) {
++			printk(KERN_ERR "%s: no clocks node in device tree \n",
++								 __FUNCTION__);
++			ret = -EINVAL;
++			goto err;
++		}
++		prop = of_get_property(clocks, "#clock-cells", &size);
++		/*
++		 * clock-cells = 1 only supported right now.
++		 */
++		if (!prop || *prop != 1) {
++			printk(KERN_ERR "%s: invalid #clock-cells value"
++			"in device tree \n", __FUNCTION__);
++			of_node_put(clocks);
++			ret = -EINVAL;
++			goto err;
++		}
++
++		prop = of_get_property(clocks, "clock-frequency", &size);
++		if (!prop) {
++			printk(KERN_ERR "%s:no #clock-frequency prop in"
++			"device tree\n", __FUNCTION__);
++			of_node_put(clocks);
++			ret = -EINVAL;
++			goto err;
++		}
++		brg_input_freq = *(prop+(brg_src - 1));
++		of_node_put(clocks);
++		return brg_input_freq;
++	}
++err:
++ return ret;
++}
++
++u32 qe_brg_src(int brg_num, enum qe_clock brg_src)
++{
++	u32 clock_bits, shift;
++
++	clock_bits = 0;
++
++	switch (brg_num) {
++	case 1:
++	case 2:
++	case 5:
++	case 6:
++		switch (brg_src) {
++		case QE_CLK3:   clock_bits = 1; break;
++		case QE_CLK5:   clock_bits = 2; break;
++		default: break;
++		}
++		break;
++	case 3:
++	case 4:
++	case 7:
++	case 8:
++		switch (brg_src) {
++		case QE_CLK9:    clock_bits = 1; break;
++		case QE_CLK15:   clock_bits = 2; break;
++		default: break;
++		}
++		break;
++	case 9:
++	case 10:
++		switch (brg_src) {
++		case QE_CLK11:    clock_bits = 1; break;
++		default: break;
++		}
++		break;
++	case 11:
++	case 15:
++	case 16:
++		switch (brg_src) {
++		case QE_CLK13:    clock_bits = 1; break;
++		default: break;
++		}
++		break;
++	default: clock_bits = 0; break;
++	}
++	shift = 14;
++
++	if (!clock_bits)
++		return -ENOENT;
++
++	clock_bits <<= shift;
++
++	return clock_bits;
+ }
+ 
+ /* Program the BRG to the given sampling rate and multiplier
+@@ -177,11 +327,18 @@ int qe_setbrg(enum qe_clock brg, unsigned int rate, unsigned int multiplier)
+ {
+ 	u32 divisor, tempval;
+ 	u32 div16 = 0;
++	u32 brg_clock;
++	enum qe_clock brgsrc;
++	u32 src_bits = 0;
+ 
+ 	if ((brg < QE_BRG1) || (brg > QE_BRG16))
+ 		return -EINVAL;
+ 
+-	divisor = get_brg_clk() / (rate * multiplier);
++	brg_clock = get_brg_clk(brg, &brgsrc);
++	if (brg_clock < 0)
++		return -EINVAL;
++
++	divisor = brg_clock / (rate * multiplier);
+ 
+ 	if (divisor > QE_BRGC_DIVISOR_MAX + 1) {
+ 		div16 = QE_BRGC_DIV16;
+@@ -194,8 +351,11 @@ int qe_setbrg(enum qe_clock brg, unsigned int rate, unsigned int multiplier)
+ 	if (!div16 && (divisor & 1))
+ 		divisor++;
+ 
++	if (brgsrc > 0)
++		src_bits = qe_brg_src(brg - QE_BRG1 + 1, brgsrc);
++
+ 	tempval = ((divisor - 1) << QE_BRGC_DIVISOR_SHIFT) |
+-		QE_BRGC_ENABLE | div16;
++		QE_BRGC_ENABLE | div16 | src_bits;
+ 
+ 	out_be32(&qe_immr->brg.brgc[brg - QE_BRG1], tempval);
+ 
+diff --git a/arch/powerpc/sysdev/qe_lib/ucc.c b/arch/powerpc/sysdev/qe_lib/ucc.c
+index 0e348d9..f2de0ed 100644
+--- a/arch/powerpc/sysdev/qe_lib/ucc.c
++++ b/arch/powerpc/sysdev/qe_lib/ucc.c
+@@ -213,3 +213,268 @@ int ucc_set_qe_mux_rxtx(unsigned int ucc_num, enum qe_clock clock,
+ 
  	return 0;
  }
- 
-@@ -1463,6 +1464,7 @@ static int tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle)
- 	} else if (result > 0) {
- 		sent_pkts = 1;
- 	}
-+	tcp_verify_left_out(tp);
- 
- 	while ((skb = tcp_send_head(sk))) {
- 		unsigned int limit;
-@@ -1764,6 +1766,7 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *skb,
- 	tcp_clear_retrans_hints_partial(tp);
- 
- 	sk_wmem_free_skb(sk, next_skb);
-+	tcp_verify_left_out(tp);
- }
- 
- /* Do a simple retransmit without using the backoff mechanisms in
-@@ -1795,13 +1798,13 @@ void tcp_simple_retransmit(struct sock *sk)
- 		}
- 	}
- 
-+	tcp_verify_left_out(tp);
 +
- 	tcp_clear_all_retrans_hints(tp);
- 
- 	if (!lost)
- 		return;
- 
--	tcp_verify_left_out(tp);
--
- 	/* Don't muck with the congestion window here.
- 	 * Reason is that we do not increase amount of _data_
- 	 * in network, but units changed and effective
-@@ -1888,6 +1891,8 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 			tcp_init_nondata_skb(skb, TCP_SKB_CB(skb)->end_seq - 1,
- 					     TCP_SKB_CB(skb)->flags);
- 			skb->ip_summed = CHECKSUM_NONE;
++int ucc_set_tdm_rxtx_clk(int tdm_num, char *clk_src, enum comm_dir mode)
++{
++	enum qe_clock clock;
++	u32 clock_bits, shift;
++	struct qe_mux *qe_mux_reg = NULL;
 +
-+			tcp_verify_left_out(tp);
- 		}
- 	}
- 
-@@ -1970,8 +1975,10 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 			 * packet to be MSS sized and all the
- 			 * packet counting works out.
- 			 */
--			if (tcp_packets_in_flight(tp) >= tp->snd_cwnd)
-+			if (tcp_packets_in_flight(tp) >= tp->snd_cwnd) {
-+				tcp_verify_left_out(tp);
- 				return;
++	clock_bits = 0;
++	qe_mux_reg = &qe_immr->qmx;
++
++	if ((tdm_num > 3 || tdm_num < 0))
++		return -EINVAL;
++
++	/* The communications direction must be RX or TX */
++	if (!((mode == COMM_DIR_RX) || (mode == COMM_DIR_TX)))
++		return -EINVAL;
++
++	clock = qe_clock_source(clk_src);
++	switch (mode) {
++	case COMM_DIR_RX:
++		switch (tdm_num) {
++		case 0:
++			switch (clock) {
++			case QE_BRG3:   clock_bits = 1; break;
++			case QE_BRG4:   clock_bits = 2; break;
++			case QE_CLK1:   clock_bits = 4; break;
++			case QE_CLK2:   clock_bits = 5; break;
++			case QE_CLK3:   clock_bits = 6; break;
++			case QE_CLK8:   clock_bits = 7; break;
++			default: break;
 +			}
- 
- 			if (sacked & TCPCB_LOST) {
- 				if (!(sacked & (TCPCB_SACKED_ACKED|TCPCB_SACKED_RETRANS))) {
-@@ -1997,6 +2004,8 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
++			shift = 28;
++			break;
++		case 1:
++			switch (clock) {
++			case QE_BRG3:   clock_bits = 1; break;
++			case QE_BRG4:   clock_bits = 2; break;
++			case QE_CLK1:   clock_bits = 4; break;
++			case QE_CLK2:   clock_bits = 5; break;
++			case QE_CLK5:   clock_bits = 6; break;
++			case QE_CLK10:  clock_bits = 7; break;
++			default: break;
++			}
++			shift = 24;
++			break;
++		case 2:
++			switch (clock) {
++			case QE_BRG3:   clock_bits = 1; break;
++			case QE_BRG4:   clock_bits = 2; break;
++			case QE_CLK1:   clock_bits = 4; break;
++			case QE_CLK2:   clock_bits = 5; break;
++			case QE_CLK7:   clock_bits = 6; break;
++			case QE_CLK12:  clock_bits = 7; break;
++			default: break;
++			}
++			shift = 20;
++			break;
++		case 3:
++			switch (clock) {
++			case QE_BRG3:   clock_bits = 1; break;
++			case QE_BRG4:   clock_bits = 2; break;
++			case QE_CLK1:   clock_bits = 4; break;
++			case QE_CLK2:   clock_bits = 5; break;
++			case QE_CLK9:   clock_bits = 6; break;
++			case QE_CLK14:  clock_bits = 7; break;
++			default: break;
++			}
++			shift = 16;
++			break;
++		default:
++			break;
++		}
++		break;
++	case COMM_DIR_TX:
++		switch (tdm_num) {
++		case 0:
++			switch (clock) {
++			case QE_BRG3:   clock_bits = 1; break;
++			case QE_BRG4:   clock_bits = 2; break;
++			case QE_CLK1:   clock_bits = 4; break;
++			case QE_CLK2:   clock_bits = 5; break;
++			case QE_CLK4:   clock_bits = 6; break;
++			case QE_CLK9:   clock_bits = 7; break;
++			default: break;
++			}
++			shift = 12;
++			break;
++		case 1:
++			switch (clock) {
++			case QE_BRG3:   clock_bits = 1; break;
++			case QE_BRG4:   clock_bits = 2; break;
++			case QE_CLK1:   clock_bits = 4; break;
++			case QE_CLK2:   clock_bits = 5; break;
++			case QE_CLK6:   clock_bits = 6; break;
++			case QE_CLK11:  clock_bits = 7; break;
++			default: break;
++			}
++			shift = 8;
++			break;
++		case 2:
++			switch (clock) {
++			case QE_BRG3:   clock_bits = 1; break;
++			case QE_BRG4:   clock_bits = 2; break;
++			case QE_CLK1:   clock_bits = 4; break;
++			case QE_CLK2:   clock_bits = 5; break;
++			case QE_CLK8:   clock_bits = 6; break;
++			case QE_CLK13:  clock_bits = 7; break;
++			default: break;
++			}
++			shift = 4;
++			break;
++		case 3:
++			switch (clock) {
++			case QE_BRG3:   clock_bits = 1; break;
++			case QE_BRG4:   clock_bits = 2; break;
++			case QE_CLK1:   clock_bits = 4; break;
++			case QE_CLK2:   clock_bits = 5; break;
++			case QE_CLK10:  clock_bits = 6; break;
++			case QE_CLK15:  clock_bits = 7; break;
++			default: break;
++			}
++			shift = 0;
++			break;
++		default:
++			break;
++		}
++		break;
++	default:
++		break;
++	}
++
++	if (!clock_bits)
++		return -ENOENT;
++
++	clock_bits <<= shift;
++
++	qe_mux_reg->cmxsi1cr_l |= clock_bits;
++
++	return 0;
++}
++
++int ucc_set_tdm_rxtx_sync(int tdm_num, char *sync_src, enum comm_dir mode)
++{
++	enum qe_clock clock;
++	u32 shift, clock_bits;
++	struct qe_mux *qe_mux_reg = NULL;
++	int source;
++
++	source = -1;
++	qe_mux_reg = &qe_immr->qmx;
++
++	if ((tdm_num > 3 || tdm_num < 0))
++		return -EINVAL;
++
++	/* The communications direction must be RX or TX */
++	if (!((mode == COMM_DIR_RX) || (mode == COMM_DIR_TX)))
++		return -EINVAL;
++
++	switch (mode) {
++	case COMM_DIR_RX:
++		if (strcasecmp("RSYNC", sync_src) == 0) {
++			source = 0;
++			shift = 0;
++			break;
++		}
++		clock = qe_clock_source(sync_src);
++		switch (tdm_num) {
++		case 0:
++			switch (clock) {
++			case QE_BRG9:   source = 1; break;
++			case QE_BRG10:  source = 2; break;
++			default: source = -1; break;
++			}
++			shift = 30;
++			break;
++		case 1:
++			switch (clock) {
++			case QE_BRG9:   source = 1; break;
++			case QE_BRG10:  source = 2; break;
++			default: source = -1; break;
++			}
++			shift = 28;
++			break;
++		case 2:
++			switch (clock) {
++			case QE_BRG9:   source = 1; break;
++			case QE_BRG11:  source = 2; break;
++			default: source = -1; break;
++			}
++			shift = 26;
++			break;
++		case 3:
++			switch (clock) {
++			case QE_BRG9:   source = 1; break;
++			case QE_BRG11:  source = 2; break;
++			default: source = -1; break;
++			}
++			shift = 24;
++			break;
++		default:
++			source = -1;
++			break;
++		}
++		break;
++	case COMM_DIR_TX:
++		if (strcasecmp("TSYNC", sync_src) == 0) {
++			source = 0;
++			shift = 0;
++			break;
++		}
++		clock = qe_clock_source(sync_src);
++		switch (tdm_num) {
++		case 0:
++			switch (clock) {
++			case QE_BRG9:   source = 1; break;
++			case QE_BRG10:  source = 2; break;
++			default: source = -1; break;
++			}
++			shift = 14;
++			break;
++		case 1:
++			switch (clock) {
++			case QE_BRG9:   source = 1; break;
++			case QE_BRG10:  source = 2; break;
++			default: source = -1; break;
++			}
++			shift = 12;
++			break;
++		case 2:
++			switch (clock) {
++			case QE_BRG9:   source = 1; break;
++			case QE_BRG11:  source = 2; break;
++			default: source = -1; break;
++			}
++			shift = 10;
++			break;
++		case 3:
++			switch (clock) {
++			case QE_BRG9:   source = 1; break;
++			case QE_BRG11:  source = 2; break;
++			default: source = -1; break;
++			}
++			shift = 8;
++			break;
++		default:
++			source = -1;
++			break;
++		}
++		break;
++	default:
++		source = -1;
++		break;
++	}
++
++	if (source == -1)
++		return -ENOENT;
++
++	clock_bits = (u32) source;
++	clock_bits <<= shift;
++
++
++	qe_mux_reg->cmxsi1syr  |= clock_bits;
++
++	return 0;
++}
+diff --git a/arch/powerpc/sysdev/qe_lib/ucc_fast.c b/arch/powerpc/sysdev/qe_lib/ucc_fast.c
+index 3223acb..9c8559f 100644
+--- a/arch/powerpc/sysdev/qe_lib/ucc_fast.c
++++ b/arch/powerpc/sysdev/qe_lib/ucc_fast.c
+@@ -327,6 +327,43 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
+ 			ucc_fast_free(uccf);
+ 			return -EINVAL;
  		}
++	} else {
++		/* TDM Rx clock routing */
++		if ((uf_info->tdm_rx_clk != NULL) &&
++			ucc_set_tdm_rxtx_clk(uf_info->ucc_num,
++				uf_info->tdm_rx_clk, COMM_DIR_RX)) {
++			printk(KERN_ERR "%s: illegal value for TDM RX clock",
++				__FUNCTION__);
++			ucc_fast_free(uccf);
++			return -EINVAL;
++		}
++		/* TDM Tx clock routing */
++		if ((uf_info->tdm_tx_clk != NULL) &&
++			ucc_set_tdm_rxtx_clk(uf_info->ucc_num,
++				uf_info->tdm_tx_clk, COMM_DIR_TX)) {
++			printk(KERN_ERR "%s: illegal value for TDM TX clock",
++				__FUNCTION__);
++			ucc_fast_free(uccf);
++			return -EINVAL;
++		}
++		/* TDM Rx sync routing */
++		if ((uf_info->tdm_rx_sync != NULL) &&
++			ucc_set_tdm_rxtx_sync(uf_info->ucc_num,
++				uf_info->tdm_rx_sync, COMM_DIR_RX)) {
++			printk(KERN_ERR "%s: illegal value for TDM RX"
++				"Frame sync", __FUNCTION__);
++			ucc_fast_free(uccf);
++			return -EINVAL;
++		}
++		/* TDM Tx sync routing */
++		if ((uf_info->tdm_tx_sync != NULL) &&
++			ucc_set_tdm_rxtx_sync(uf_info->ucc_num,
++				uf_info->tdm_tx_sync, COMM_DIR_TX)) {
++			printk(KERN_ERR "%s: illegal value for TDM TX"
++					"Frame sync", __FUNCTION__);
++			ucc_fast_free(uccf);
++			return -EINVAL;
++		}
  	}
  
-+	tcp_verify_left_out(tp);
+ 	/* Set interrupt mask register at UCC level. */
+diff --git a/include/asm-powerpc/qe.h b/include/asm-powerpc/qe.h
+index bcf60be..51de236 100644
+--- a/include/asm-powerpc/qe.h
++++ b/include/asm-powerpc/qe.h
+@@ -497,6 +497,14 @@ struct ucc_slow_pram {
+ #define UCC_GETH_UCCE_RXF1      0x00000002
+ #define UCC_GETH_UCCE_RXF0      0x00000001
+ 
++/* Transparent UCC Event Register (UCCE) */
++#define UCC_TRANS_UCCE_GRA	0x0080
++#define UCC_TRANS_UCCE_TXE	0x0010
++#define UCC_TRANS_UCCE_RXF	0x0008
++#define UCC_TRANS_UCCE_BSY	0x0004
++#define UCC_TRANS_UCCE_TXB	0x0002
++#define UCC_TRANS_UCCE_RXB	0x0001
 +
- 	/* OK, demanded retransmission is finished. */
+ /* UPSMR, when used as a UART */
+ #define UCC_UART_UPSMR_FLC		0x8000
+ #define UCC_UART_UPSMR_SL		0x4000
+diff --git a/include/asm-powerpc/ucc.h b/include/asm-powerpc/ucc.h
+index 46b09ba..153db97 100644
+--- a/include/asm-powerpc/ucc.h
++++ b/include/asm-powerpc/ucc.h
+@@ -42,6 +42,10 @@ int ucc_set_qe_mux_mii_mng(unsigned int ucc_num);
+ int ucc_set_qe_mux_rxtx(unsigned int ucc_num, enum qe_clock clock,
+ 	enum comm_dir mode);
  
- 	/* Forward retransmissions are possible only during Recovery. */
-@@ -2054,6 +2063,8 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 
- 		NET_INC_STATS_BH(LINUX_MIB_TCPFORWARDRETRANS);
- 	}
++int ucc_set_tdm_rxtx_clk(int tdm_num, char *clk_src, enum comm_dir mode);
 +
-+	tcp_verify_left_out(tp);
- }
++int ucc_set_tdm_rxtx_sync(int tdm_num, char *clk_src, enum comm_dir mode);
++
+ int ucc_mux_set_grant_tsa_bkpt(unsigned int ucc_num, int set, u32 mask);
  
- /* Send a fin.  The caller locks the socket for us.  This cannot be
+ /* QE MUX clock routing for UCC
+diff --git a/include/asm-powerpc/ucc_fast.h b/include/asm-powerpc/ucc_fast.h
+index f529f70..cf35553 100644
+--- a/include/asm-powerpc/ucc_fast.h
++++ b/include/asm-powerpc/ucc_fast.h
+@@ -152,6 +152,10 @@ struct ucc_fast_info {
+ 	enum ucc_fast_rx_decoding_method renc;
+ 	enum ucc_fast_transparent_tcrc tcrc;
+ 	enum ucc_fast_sync_len synl;
++	const char *tdm_rx_clk;
++	const char *tdm_tx_clk;
++	const char *tdm_rx_sync;
++	const char *tdm_tx_sync;
+ };
+ 
+ struct ucc_fast_private {
 -- 
-1.5.2.2
+1.5.2.4
 
----696243703-1594222684-1201168458=:31652--
