@@ -1,266 +1,245 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: 2.6.24-rc8-mm1 : net tcp_input.c warnings
-Date: Thu, 24 Jan 2008 16:16:47 +0530
-Message-ID: <OF55F9E87C.A024C73F-ON652573DA.003BF324-652573DA.003B3739@in.ibm.com>
-References: <Pine.LNX.4.64.0801241108400.31652@kivilampi-30.cs.helsinki.fi>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [XFRM]: constify 'struct xfrm_type'
+Date: Thu, 24 Jan 2008 12:26:21 +0100
+Message-ID: <20080124122621.3248c651.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	Dave Young <hidave.darkstar@gmail.com>,
-	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, netdev-owner@vger.kernel.org
-To: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp01.in.ibm.com ([59.145.155.1]:36766 "EHLO
-	e28smtp01.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752774AbYAXKsz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2008 05:48:55 -0500
-In-Reply-To: <Pine.LNX.4.64.0801241108400.31652@kivilampi-30.cs.helsinki.fi>
+Received: from pfx2.jmh.fr ([194.153.89.55]:38178 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752237AbYAXL00 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jan 2008 06:26:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ilpo,
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-I have tried parallel iperfs with this patch and don't get any more
-warnings.
-I will run overnight to be sure.
+ include/net/xfrm.h      |    8 ++++----
+ net/ipv4/ah4.c          |    2 +-
+ net/ipv4/esp4.c         |    2 +-
+ net/ipv4/ipcomp.c       |    2 +-
+ net/ipv4/xfrm4_tunnel.c |    2 +-
+ net/ipv6/ah6.c          |    2 +-
+ net/ipv6/esp6.c         |    2 +-
+ net/ipv6/ipcomp6.c      |    2 +-
+ net/ipv6/mip6.c         |    4 ++--
+ net/ipv6/xfrm6_tunnel.c |    2 +-
+ net/xfrm/xfrm_state.c   |   16 ++++++++--------
+ 11 files changed, 22 insertions(+), 22 deletions(-)
 
-thanks,
-
-- KK
-
-netdev-owner@vger.kernel.org wrote on 01/24/2008 03:24:18 PM:
-
-> On Thu, 24 Jan 2008, Dave Young wrote:
->
-> Hi Dave (& others),
->
-> > Thanks.
->
-> Thanks a lot, I was first to ignore all these because they occurred
-> with newreno, but looked again... :-/
->
-> > New warning trigged with your debug patch:
->
-> This was probably with the earlier one I sent to you because there's
-still
-> this case remaining which itself is valid:
->
-> > P: 5 L: 0 vs 0 S: 0 vs 1 w: 2044790889-2044796616 (0)
->
-> ...snip... this is still ok state (S+L <=3D P):
->
-> > P: 5 L: 0 vs 0 S: 0 vs 3 w: 2044790889-2044796616 (0)
-> > TCP wq(s)      <
-> > TCP wq(h) +++h+<
-> > l0 s3 f0 p5 seq: su2044790889 hs2044795029 sn2044796616
-> > ------------[ cut here ]------------
-> > WARNING: at net/ipv4/tcp_input.c:2169 tcp_mark_head_lost+0x122/0x15=
-0()
-> > Modules linked in: snd_seq_dummy snd_seq_oss snd_seq_midi_event
-> > snd_seq snd_seq_device snd_pcm_oss snd_mixer_oss eeprom e100 psmous=
-e
-> > snd_hda_intel snd_pcm snd_timer btusb bluetooth serio_raw snd 3c59x=
- sg
-> > evdev thermal soundcore rtc_cmos snd_page_alloc rtc_core rtc_lib
-> > i2c_i801 processor button intel_agp dcdbas pcspkr agpgart
-> > Pid: 0, comm: swapper Not tainted 2.6.24-rc8-mm1 #8
-> >  [<c0132100>] ? have_callable_console+0x20/0x30
-> >  [<c0131844>] warn_on_slowpath+0x54/0x80
-> >  [<c03ffe54>] ? tcp_print_queue+0x1a4/0x230
-> >  [<c0132438>] ? vprintk+0x308/0x320
-> >  [<c0132438>] ? vprintk+0x308/0x320
-> >  [<c0132438>] ? vprintk+0x308/0x320
-> >  [<c03ffff6>] ? tcp_verify_wq+0x116/0x1c0
-> >  [<c03f6052>] tcp_mark_head_lost+0x122/0x150
-> >  [<c03f60ca>] tcp_update_scoreboard+0x4a/0x190
-> >  [<c03f6e7a>] tcp_fastretrans_alert+0x4da/0x700
-> >  [<c03f7e63>] tcp_ack+0x1b3/0x3a0
-> >  [<c03fa21b>] tcp_rcv_established+0x3eb/0x710
-> >  [<c0401c05>] tcp_v4_do_rcv+0xe5/0x100
-> >  [<c04021fb>] tcp_v4_rcv+0x5db/0x660
-> >  [<c0401fa7>] ? tcp_v4_rcv+0x387/0x660
-> >  [<c03e5eed>] ? ip_local_deliver_finish+0x2d/0x1d0
-> >  [<c03e5f44>] ip_local_deliver_finish+0x84/0x1d0
-> >  [<c03e5eed>] ? ip_local_deliver_finish+0x2d/0x1d0
-> >  [<c0156b97>] ? __lock_release+0x47/0x70
-> >  [<c03e6147>] ip_local_deliver+0xb7/0xc0
-> >  [<c03e6202>] ip_rcv_finish+0xb2/0x3c0
-> >  [<c03c01d8>] ? sock_def_readable+0x48/0xa0
-> >  [<c03be061>] ? sock_queue_rcv_skb+0xb1/0x1a0
-> >  [<c03be0a7>] ? sock_queue_rcv_skb+0xf7/0x1a0
-> >  [<c03e669f>] ip_rcv+0x18f/0x290
-> >  [<c042fb10>] ? packet_rcv_spkt+0xd0/0x130
-> >  [<c03c8da6>] netif_receive_skb+0x2b6/0x330
-> >  [<c03c8c17>] ? netif_receive_skb+0x127/0x330
-> >  [<c03c8ea3>] ? process_backlog+0x83/0x100
-> >  [<c03c8eae>] process_backlog+0x8e/0x100
-> >  [<c03c90bc>] net_rx_action+0x13c/0x230
-> >  [<c03c8fd9>] ? net_rx_action+0x59/0x230
-> >  [<c0136f63>] __do_softirq+0x93/0x120
-> >  [<c013706a>] do_softirq+0x7a/0x80
-> >  [<c0137135>] irq_exit+0x65/0x90
-> >  [<c01078b1>] do_IRQ+0x41/0x80
-> >  [<c0155659>] ? trace_hardirqs_on+0xb9/0x130
-> >  [<c01059ca>] common_interrupt+0x2e/0x34
-> >  [<c0103390>] ? mwait_idle_with_hints+0x40/0x50
-> >  [<c01033a0>] ? mwait_idle+0x0/0x20
-> >  [<c01033b2>] mwait_idle+0x12/0x20
-> >  [<c0103141>] cpu_idle+0x61/0x110
-> >  [<c04339fd>] rest_init+0x5d/0x60
-> >  [<c05a47fa>] start_kernel+0x1fa/0x260
-> >  [<c05a4190>] ? unknown_bootoption+0x0/0x130
-> >  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-> > ---[ end trace 14b601818e6903ac ]---
-> > ------------[ cut here ]------------
-> > WARNING: at net/ipv4/tcp_ipv4.c:197 tcp_verify_wq+0x1b6/0x1c0()
-> > Modules linked in: snd_seq_dummy snd_seq_oss snd_seq_midi_event
-> > snd_seq snd_seq_device snd_pcm_oss snd_mixer_oss eeprom e100 psmous=
-e
-> > snd_hda_intel snd_pcm snd_timer btusb bluetooth serio_raw snd 3c59x=
- sg
-> > evdev thermal soundcore rtc_cmos snd_page_alloc rtc_core rtc_lib
-> > i2c_i801 processor button intel_agp dcdbas pcspkr agpgart
-> > Pid: 0, comm: swapper Not tainted 2.6.24-rc8-mm1 #8
-> >  [<c0132100>] ? have_callable_console+0x20/0x30
-> >  [<c0131844>] warn_on_slowpath+0x54/0x80
-> >  [<c01317da>] ? print_oops_end_marker+0x2a/0x30
-> >  [<c0131849>] ? warn_on_slowpath+0x59/0x80
-> >  [<c03ffe54>] ? tcp_print_queue+0x1a4/0x230
-> >  [<c0132438>] ? vprintk+0x308/0x320
-> >  [<c0132438>] ? vprintk+0x308/0x320
-> >  [<c0400096>] tcp_verify_wq+0x1b6/0x1c0
-> >  [<c03ffff6>] ? tcp_verify_wq+0x116/0x1c0
-> >  [<c03f5ffc>] tcp_mark_head_lost+0xcc/0x150
-> >  [<c03f60ca>] tcp_update_scoreboard+0x4a/0x190
-> >  [<c03f6e7a>] tcp_fastretrans_alert+0x4da/0x700
-> >  [<c03f7e63>] tcp_ack+0x1b3/0x3a0
-> >  [<c03fa21b>] tcp_rcv_established+0x3eb/0x710
-> >  [<c0401c05>] tcp_v4_do_rcv+0xe5/0x100
-> >  [<c04021fb>] tcp_v4_rcv+0x5db/0x660
-> >  [<c0401fa7>] ? tcp_v4_rcv+0x387/0x660
-> >  [<c03e5eed>] ? ip_local_deliver_finish+0x2d/0x1d0
-> >  [<c03e5f44>] ip_local_deliver_finish+0x84/0x1d0
-> >  [<c03e5eed>] ? ip_local_deliver_finish+0x2d/0x1d0
-> >  [<c0156b97>] ? __lock_release+0x47/0x70
-> >  [<c03e6147>] ip_local_deliver+0xb7/0xc0
-> >  [<c03e6202>] ip_rcv_finish+0xb2/0x3c0
-> >  [<c03c01d8>] ? sock_def_readable+0x48/0xa0
-> >  [<c03be061>] ? sock_queue_rcv_skb+0xb1/0x1a0
-> >  [<c03be0a7>] ? sock_queue_rcv_skb+0xf7/0x1a0
-> >  [<c03e669f>] ip_rcv+0x18f/0x290
-> >  [<c042fb10>] ? packet_rcv_spkt+0xd0/0x130
-> >  [<c03c8da6>] netif_receive_skb+0x2b6/0x330
-> >  [<c03c8c17>] ? netif_receive_skb+0x127/0x330
-> >  [<c03c8ea3>] ? process_backlog+0x83/0x100
-> >  [<c03c8eae>] process_backlog+0x8e/0x100
-> >  [<c03c90bc>] net_rx_action+0x13c/0x230
-> >  [<c03c8fd9>] ? net_rx_action+0x59/0x230
-> >  [<c0136f63>] __do_softirq+0x93/0x120
-> >  [<c013706a>] do_softirq+0x7a/0x80
-> >  [<c0137135>] irq_exit+0x65/0x90
-> >  [<c01078b1>] do_IRQ+0x41/0x80
-> >  [<c0155659>] ? trace_hardirqs_on+0xb9/0x130
-> >  [<c01059ca>] common_interrupt+0x2e/0x34
-> >  [<c0103390>] ? mwait_idle_with_hints+0x40/0x50
-> >  [<c01033a0>] ? mwait_idle+0x0/0x20
-> >  [<c01033b2>] mwait_idle+0x12/0x20
-> >  [<c0103141>] cpu_idle+0x61/0x110
-> >  [<c04339fd>] rest_init+0x5d/0x60
-> >  [<c05a47fa>] start_kernel+0x1fa/0x260
-> >  [<c05a4190>] ? unknown_bootoption+0x0/0x130
-> >  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-> > ---[ end trace 14b601818e6903ac ]---
->
-> ...But this no longer is, and even more, L: 5 is not valid state at t=
-his
-> point all (should only happen if we went to RTO but it would reset S =
-to
-> zero with newreno):
->
-> > P: 5 L: 5 vs 5 S: 0 vs 3 w: 2044790889-2044796616 (0)
-> > TCP wq(s) LLLLl<
-> > TCP wq(h) +++h+<
-> > l5 s3 f0 p5 seq: su2044790889 hs2044795029 sn2044796616
->
-> Surprisingly, it was the first time the WARN_ON for left_out returned
-> correct location. This also explains why the patch I sent to Krishna
-> didn't print anything (it didn't end up into printing because I forgo=
-t
-> to add L+S>P check into to the state checking if).
->
-> ...so please, could you (others than Denys) try this patch, it should
-> solve the issue. And Denys, could you confirm (and if necessary doubl=
-e
-> check) that the kernel you saw this similar problem with is the pure
-> Linus' mainline, i.e., without any net-2.6.25 or mm bits please, if s=
-o,
-> that problem persists. And anyway, there were some fackets_out relate=
-d
-> problems reported as well and this doesn't help for that but I think =
-I've
-
-> lost track of who was seeing it due to large number of reports :-), c=
-ould
-
-> somebody refresh my memory because I currently don't have time to dig=
- it
-> up from archives (at least on this week).
->
->
-> --
->  i.
->
-> --
-> [PATCH] [TCP]: NewReno must count every skb while marking losses
->
-> NewReno should add cnt per skb (as with FACK) instead of depending
-> on SACKED_ACKED bits which won't be set with it at all.
-> Effectively, NewReno should always exists after the first
-> iteration anyway (or immediately if there's already head in
-> lost_out.
->
-> This was fixed earlier in net-2.6.25 but got reverted among other
-> stuff and I didn't notice that this is still necessary (actually
-> wasn't even considering this case while trying to figure out the
-> reports because I lived with different kind of code than it in
-> reality was).
->
-> This should solve the WARN_ONs in TCP code that as a result of
-> this triggered multiple times in every place we check for this
-> invariant.
->
-> Special thanks to Dave Young <hidave.darkstar@gmail.com> and
-> Krishna Kumar2 <krkumar2@in.ibm.com> for trying with my debug
-> patches.
->
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> ---
->  net/ipv4/tcp_input.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 295490e..aa409a5 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -2156,7 +2156,7 @@ static void tcp_mark_head_lost(struct sock *sk,=
- int
-
-> packets, int fast_rexmit)
->        tp->lost_skb_hint =3D skb;
->        tp->lost_cnt_hint =3D cnt;
->
-> -      if (tcp_is_fack(tp) ||
-> +      if (tcp_is_fack(tp) || tcp_is_reno(tp) ||
->            (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED))
->           cnt +=3D tcp_skb_pcount(skb);
->
-> --
-> 1.5.2.2
-
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 5ebb9ba..02d9b1e 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -201,7 +201,7 @@ struct xfrm_state
+ 
+ 	/* Reference to data common to all the instances of this
+ 	 * transformer. */
+-	struct xfrm_type	*type;
++	const struct xfrm_type	*type;
+ 	struct xfrm_mode	*inner_mode;
+ 	struct xfrm_mode	*outer_mode;
+ 
+@@ -278,7 +278,7 @@ struct xfrm_state_afinfo {
+ 	unsigned int		proto;
+ 	unsigned int		eth_proto;
+ 	struct module		*owner;
+-	struct xfrm_type	*type_map[IPPROTO_MAX];
++	const struct xfrm_type	*type_map[IPPROTO_MAX];
+ 	struct xfrm_mode	*mode_map[XFRM_MODE_MAX];
+ 	int			(*init_flags)(struct xfrm_state *x);
+ 	void			(*init_tempsel)(struct xfrm_state *x, struct flowi *fl,
+@@ -321,8 +321,8 @@ struct xfrm_type
+ 	u32			(*get_mtu)(struct xfrm_state *, int size);
+ };
+ 
+-extern int xfrm_register_type(struct xfrm_type *type, unsigned short family);
+-extern int xfrm_unregister_type(struct xfrm_type *type, unsigned short family);
++extern int xfrm_register_type(const struct xfrm_type *type, unsigned short family);
++extern int xfrm_unregister_type(const struct xfrm_type *type, unsigned short family);
+ 
+ struct xfrm_mode {
+ 	/*
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 3003503..4463eeb 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -216,10 +216,10 @@ static void xfrm_state_unlock_afinfo(struct xfrm_state_afinfo *afinfo)
+ 	write_unlock_bh(&xfrm_state_afinfo_lock);
+ }
+ 
+-int xfrm_register_type(struct xfrm_type *type, unsigned short family)
++int xfrm_register_type(const struct xfrm_type *type, unsigned short family)
+ {
+ 	struct xfrm_state_afinfo *afinfo = xfrm_state_lock_afinfo(family);
+-	struct xfrm_type **typemap;
++	const struct xfrm_type **typemap;
+ 	int err = 0;
+ 
+ 	if (unlikely(afinfo == NULL))
+@@ -235,10 +235,10 @@ int xfrm_register_type(struct xfrm_type *type, unsigned short family)
+ }
+ EXPORT_SYMBOL(xfrm_register_type);
+ 
+-int xfrm_unregister_type(struct xfrm_type *type, unsigned short family)
++int xfrm_unregister_type(const struct xfrm_type *type, unsigned short family)
+ {
+ 	struct xfrm_state_afinfo *afinfo = xfrm_state_lock_afinfo(family);
+-	struct xfrm_type **typemap;
++	const struct xfrm_type **typemap;
+ 	int err = 0;
+ 
+ 	if (unlikely(afinfo == NULL))
+@@ -254,11 +254,11 @@ int xfrm_unregister_type(struct xfrm_type *type, unsigned short family)
+ }
+ EXPORT_SYMBOL(xfrm_unregister_type);
+ 
+-static struct xfrm_type *xfrm_get_type(u8 proto, unsigned short family)
++static const struct xfrm_type *xfrm_get_type(u8 proto, unsigned short family)
+ {
+ 	struct xfrm_state_afinfo *afinfo;
+-	struct xfrm_type **typemap;
+-	struct xfrm_type *type;
++	const struct xfrm_type **typemap;
++	const struct xfrm_type *type;
+ 	int modload_attempted = 0;
+ 
+ retry:
+@@ -281,7 +281,7 @@ retry:
+ 	return type;
+ }
+ 
+-static void xfrm_put_type(struct xfrm_type *type)
++static void xfrm_put_type(const struct xfrm_type *type)
+ {
+ 	module_put(type->owner);
+ }
+diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+index d76803a..9d4555e 100644
+--- a/net/ipv4/ah4.c
++++ b/net/ipv4/ah4.c
+@@ -300,7 +300,7 @@ static void ah_destroy(struct xfrm_state *x)
+ }
+ 
+ 
+-static struct xfrm_type ah_type =
++static const struct xfrm_type ah_type =
+ {
+ 	.description	= "AH4",
+ 	.owner		= THIS_MODULE,
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 28ea5c7..602779d 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -448,7 +448,7 @@ error:
+ 	return -EINVAL;
+ }
+ 
+-static struct xfrm_type esp_type =
++static const struct xfrm_type esp_type =
+ {
+ 	.description	= "ESP4",
+ 	.owner		= THIS_MODULE,
+diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
+index f4af99a..b271f87 100644
+--- a/net/ipv4/ipcomp.c
++++ b/net/ipv4/ipcomp.c
+@@ -434,7 +434,7 @@ error:
+ 	goto out;
+ }
+ 
+-static struct xfrm_type ipcomp_type = {
++static const struct xfrm_type ipcomp_type = {
+ 	.description	= "IPCOMP4",
+ 	.owner		= THIS_MODULE,
+ 	.proto	     	= IPPROTO_COMP,
+diff --git a/net/ipv4/xfrm4_tunnel.c b/net/ipv4/xfrm4_tunnel.c
+index 3268451..87f77e4 100644
+--- a/net/ipv4/xfrm4_tunnel.c
++++ b/net/ipv4/xfrm4_tunnel.c
+@@ -38,7 +38,7 @@ static void ipip_destroy(struct xfrm_state *x)
+ {
+ }
+ 
+-static struct xfrm_type ipip_type = {
++static const struct xfrm_type ipip_type = {
+ 	.description	= "IPIP",
+ 	.owner		= THIS_MODULE,
+ 	.proto	     	= IPPROTO_IPIP,
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index fb0d07a..379c8e0 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -515,7 +515,7 @@ static void ah6_destroy(struct xfrm_state *x)
+ 	kfree(ahp);
+ }
+ 
+-static struct xfrm_type ah6_type =
++static const struct xfrm_type ah6_type =
+ {
+ 	.description	= "AH6",
+ 	.owner		= THIS_MODULE,
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 5bd5292..e3fd9fe 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -395,7 +395,7 @@ error:
+ 	return -EINVAL;
+ }
+ 
+-static struct xfrm_type esp6_type =
++static const struct xfrm_type esp6_type =
+ {
+ 	.description	= "ESP6",
+ 	.owner	     	= THIS_MODULE,
+diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
+index b276d04..c8f38e0 100644
+--- a/net/ipv6/ipcomp6.c
++++ b/net/ipv6/ipcomp6.c
+@@ -450,7 +450,7 @@ error:
+ 	goto out;
+ }
+ 
+-static struct xfrm_type ipcomp6_type =
++static const struct xfrm_type ipcomp6_type =
+ {
+ 	.description	= "IPCOMP6",
+ 	.owner		= THIS_MODULE,
+diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
+index 49d3966..cd8a5bd 100644
+--- a/net/ipv6/mip6.c
++++ b/net/ipv6/mip6.c
+@@ -330,7 +330,7 @@ static void mip6_destopt_destroy(struct xfrm_state *x)
+ {
+ }
+ 
+-static struct xfrm_type mip6_destopt_type =
++static const struct xfrm_type mip6_destopt_type =
+ {
+ 	.description	= "MIP6DESTOPT",
+ 	.owner		= THIS_MODULE,
+@@ -462,7 +462,7 @@ static void mip6_rthdr_destroy(struct xfrm_state *x)
+ {
+ }
+ 
+-static struct xfrm_type mip6_rthdr_type =
++static const struct xfrm_type mip6_rthdr_type =
+ {
+ 	.description	= "MIP6RT",
+ 	.owner		= THIS_MODULE,
+diff --git a/net/ipv6/xfrm6_tunnel.c b/net/ipv6/xfrm6_tunnel.c
+index fae90ff..639fe8a 100644
+--- a/net/ipv6/xfrm6_tunnel.c
++++ b/net/ipv6/xfrm6_tunnel.c
+@@ -319,7 +319,7 @@ static void xfrm6_tunnel_destroy(struct xfrm_state *x)
+ 	xfrm6_tunnel_free_spi((xfrm_address_t *)&x->props.saddr);
+ }
+ 
+-static struct xfrm_type xfrm6_tunnel_type = {
++static const struct xfrm_type xfrm6_tunnel_type = {
+ 	.description	= "IP6IP6",
+ 	.owner          = THIS_MODULE,
+ 	.proto		= IPPROTO_IPV6,
