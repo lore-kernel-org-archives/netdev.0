@@ -1,106 +1,42 @@
-From: Dave Young <hidave.darkstar@gmail.com>
-Subject: Re: [PATCH] bluetooth : move children of connection device to NULL
-	before connection down
-Date: Thu, 24 Jan 2008 09:26:01 +0800
-Message-ID: <20080124012601.GA2982@darkstar.te-china.tietoenator.com>
-References: <20080121044913.GA4162@darkstar.te-china.tietoenator.com> <20080121045401.GB4162@darkstar.te-china.tietoenator.com> <20080121.031417.171098597.davem@davemloft.net> <1200982696.7978.148.camel@aeonflux> <20080123140629.c24d4d68.akpm@linux-foundation.org> <20080124011926.GA2950@darkstar.te-china.tietoenator.com>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH] [POWERPC] Add fixed-phy support for fs_enet
+Date: Wed, 23 Jan 2008 19:51:25 -0600 (CST)
+Message-ID: <Pine.LNX.4.64.0801231951150.8658@blarg.am.freescale.net>
+References: <4767E677.7010200@scram.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcel Holtmann <marcel@holtmann.org>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bluez-devel@lists.sourceforge.net, cornelia.huck@de.ibm.com,
-	gombasg@sztaki.hu, htejun@gmail.com, viro@zeniv.linux.org.uk,
-	kay.sievers@vrfy.org, greg@kroah.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753487AbYAXBcI@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080124011926.GA2950@darkstar.te-china.tietoenator.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Kernel, Linux" <linux-kernel@vger.kernel.org>, linuxppc-dev@ozlabs.org,
+	Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org,
+	Scott Wood <scottwood@freescale.com>, "Garzik, Jeff" <jgarzik@pobox.com>
+To: Jochen Friedrich <jochen@scram.de>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <4767E677.7010200@scram.de>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 24, 2008 at 09:19:26AM +0800, Dave Young wrote:
-> On Wed, Jan 23, 2008 at 02:06:29PM -0800, Andrew Morton wrote:
-> > > On Tue, 22 Jan 2008 07:18:16 +0100 Marcel Holtmann <marcel@holtmann.org> wrote:
-> > > Hi Dave,
-> > > 
-> > > > > Add people missed in cc-list.
-> > > > 
-> > > > Thanks Dave for your continued efforts on Bluetooth bugs like this.
-> > > > 
-> > > > Marcel, are you going to review/ACK/integrate/push-upstream/whatever
-> > > > any of these Bluetooth patches?
-> > > > 
-> > > > It hasn't been getting much love from you as of late, you are one of
-> > > > the listed maintainers, and I don't want to lose any of Dave's
-> > > > valuable bug fixing work.
-> > > 
-> > > I will be fully back in business next week. Just got stuck in a project
-> > > that needed 200% of my time to get it going.
-> > >
-> > 
-> > These patches in -mm:
-> > 
-> > bluetooth-hidp_process_hid_control-remove-unnecessary-parameter-dealing.patch
-> > bluetooth-uninlining.patch
-> > drivers-bluetooth-bpa10xc-fix-memleak.patch
-> > drivers-bluetooth-btsdioc-fix-double-free.patch
-> > bluetooth-blacklist-another-broadcom-bcm2035-device.patch
-> > bluetooth-rfcomm-tty_close-before-destruct.patch
-> > hci_ldisc-fix-null-pointer-deref.patch
-> > 
-> > could benefit from some attention please.
-> 
-> Hi, andrew
-> 
-> For the patch bluetooth-rfcomm-tty_close-before-destruct.patch I have to rethinkabout it.
-> 
-> 1. The subject is not correct, should be rfcomm-tty-destroy-before-tty_close.
-> 2. Don't know what I was thinking that time, could you replace it with the following better one? Sorry for that.
-> 
+On Tue, 18 Dec 2007, Jochen Friedrich wrote:
+
+> This patch adds support to use the fixed-link property
+> of an ethernet node to fs_enet for the
+> CONFIG_PPC_CPM_NEW_BINDING case.
+>
+> Signed-off-by: Jochen Friedrich <jochen@scram.de>
+> Acked-by: Jeff Garzik <jeff@garzik.org>
+> Acked-by: Vitali Bordug <vitb@kernel.crashing.org>
 > ---
-> rfcomm dev could be deleted in tty_hangup, so we must not call rfcomm_dev_del again to prevent from destroying rfcomm dev before tty close.
-> 
-> Signed-off-by: Dave Young <hidave.darkstar@gmail.com> 
-> 
-> ---
->  net/bluetooth/rfcomm/tty.c |    2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff -upr a/net/bluetooth/rfcomm/tty.c b/net/bluetooth/rfcomm/tty.c
-> --- a/net/bluetooth/rfcomm/tty.c	2008-01-24 09:03:59.000000000 +0800
-> +++ b/net/bluetooth/rfcomm/tty.c	2008-01-24 09:03:59.000000000 +0800
-> @@ -429,6 +429,8 @@ static int rfcomm_release_dev(void __use
->  	if (dev->tty)
->  		tty_vhangup(dev->tty);
->  
-> +	if (!test_bit(RFCOMM_RELEASE_ONHUP, &dev->flags))
-> +		rfcomm_dev_del(dev);
->  	rfcomm_dev_del(dev);
-	~~~~~~~~~~~~~~~~~
->  	rfcomm_dev_put(dev);
->  	return 0;
+>  drivers/net/fs_enet/fs_enet-main.c |    9 ++++++++-
+>  1 files changed, 8 insertions(+), 1 deletions(-)
+>
 
-Please ignore the previous silly one, now resubmit :
-----------
+applied.
 
-rfcomm dev could be deleted in tty_hangup, so we must not call rfcomm_dev_del again to prevent from destroying rfcomm dev before tty close.
-
-Signed-off-by: Dave Young <hidave.darkstar@gmail.com> 
-
----
- net/bluetooth/rfcomm/tty.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff -upr a/net/bluetooth/rfcomm/tty.c b/net/bluetooth/rfcomm/tty.c
---- a/net/bluetooth/rfcomm/tty.c	2008-01-24 09:21:56.000000000 +0800
-+++ b/net/bluetooth/rfcomm/tty.c	2008-01-24 09:21:56.000000000 +0800
-@@ -429,7 +429,8 @@ static int rfcomm_release_dev(void __use
- 	if (dev->tty)
- 		tty_vhangup(dev->tty);
- 
--	rfcomm_dev_del(dev);
-+	if (!test_bit(RFCOMM_RELEASE_ONHUP, &dev->flags))
-+		rfcomm_dev_del(dev);
- 	rfcomm_dev_put(dev);
- 	return 0;
- }
+- k
