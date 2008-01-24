@@ -1,1379 +1,266 @@
-From: Poonam_Aggrwal-b10812 <b10812@freescale.com>
-Subject: [PATCH UCC TDM 2/3 ]Updated: UCC TDM driver for QE based MPC83xx
- platforms.
-Date: Thu, 24 Jan 2008 16:05:37 +0530 (IST)
-Message-ID: <Pine.LNX.4.64.0801241600110.4984@linux121>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: 2.6.24-rc8-mm1 : net tcp_input.c warnings
+Date: Thu, 24 Jan 2008 16:16:47 +0530
+Message-ID: <OF55F9E87C.A024C73F-ON652573DA.003BF324-652573DA.003B3739@in.ibm.com>
+References: <Pine.LNX.4.64.0801241108400.31652@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: michael.barkowski@freescale.com, kim.phillips@freescale.com,
-	ashish.kalra@freescale.com, timur@freescale.com,
-	rich.cutler@freescale.com, b10812@freescale.com
-To: kumar.gala@freescale.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rubini@vision.unipv.it, linuxppc-dev@ozlabs.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Denys Fedoryshchenko <denys@visp.net.lb>,
+	Dave Young <hidave.darkstar@gmail.com>,
+	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, netdev-owner@vger.kernel.org
+To: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:43615 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753323AbYAXKhv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2008 05:37:51 -0500
+Received: from e28smtp01.in.ibm.com ([59.145.155.1]:36766 "EHLO
+	e28smtp01.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752774AbYAXKsz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2008 05:48:55 -0500
+In-Reply-To: <Pine.LNX.4.64.0801241108400.31652@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Incorporated Stephen's comments.
+Hi Ilpo,
 
-From: Poonam Agarwal-b10812 <b10812@freescale.com>
+I have tried parallel iperfs with this patch and don't get any more
+warnings.
+I will run overnight to be sure.
 
-The UCC TDM driver basically multiplexes and demultiplexes data from
-different channels. It can interface with for example SLIC kind of devices
-to receive TDM data  demultiplex it and send to upper modules. At the
-transmit end it receives data for different channels multiplexes it and
-sends them on the TDM channel. It internally uses TSA( Time Slot Assigner)
-which does multiplexing and demultiplexing, UCC to perform SDMA between
-host buffers and the TSA, CMX to connect TSA to UCC.
+thanks,
 
-It can be used by a kernel module which can call tdm_register_client to
-get access to a TDM device.
+- KK
 
-The driver is right now a misc driver with no subsystem as such.
-There can be a platform independent TDM layer which is planned to be
-done after this. TDM bus sort of thing.
+netdev-owner@vger.kernel.org wrote on 01/24/2008 03:24:18 PM:
 
-The dts file keeps a track of the TDM devices present on the board.
-Depending on them the TDM driver initializes those many driver instances
-while coming up.
+> On Thu, 24 Jan 2008, Dave Young wrote:
+>
+> Hi Dave (& others),
+>
+> > Thanks.
+>
+> Thanks a lot, I was first to ignore all these because they occurred
+> with newreno, but looked again... :-/
+>
+> > New warning trigged with your debug patch:
+>
+> This was probably with the earlier one I sent to you because there's
+still
+> this case remaining which itself is valid:
+>
+> > P: 5 L: 0 vs 0 S: 0 vs 1 w: 2044790889-2044796616 (0)
+>
+> ...snip... this is still ok state (S+L <=3D P):
+>
+> > P: 5 L: 0 vs 0 S: 0 vs 3 w: 2044790889-2044796616 (0)
+> > TCP wq(s)      <
+> > TCP wq(h) +++h+<
+> > l0 s3 f0 p5 seq: su2044790889 hs2044795029 sn2044796616
+> > ------------[ cut here ]------------
+> > WARNING: at net/ipv4/tcp_input.c:2169 tcp_mark_head_lost+0x122/0x15=
+0()
+> > Modules linked in: snd_seq_dummy snd_seq_oss snd_seq_midi_event
+> > snd_seq snd_seq_device snd_pcm_oss snd_mixer_oss eeprom e100 psmous=
+e
+> > snd_hda_intel snd_pcm snd_timer btusb bluetooth serio_raw snd 3c59x=
+ sg
+> > evdev thermal soundcore rtc_cmos snd_page_alloc rtc_core rtc_lib
+> > i2c_i801 processor button intel_agp dcdbas pcspkr agpgart
+> > Pid: 0, comm: swapper Not tainted 2.6.24-rc8-mm1 #8
+> >  [<c0132100>] ? have_callable_console+0x20/0x30
+> >  [<c0131844>] warn_on_slowpath+0x54/0x80
+> >  [<c03ffe54>] ? tcp_print_queue+0x1a4/0x230
+> >  [<c0132438>] ? vprintk+0x308/0x320
+> >  [<c0132438>] ? vprintk+0x308/0x320
+> >  [<c0132438>] ? vprintk+0x308/0x320
+> >  [<c03ffff6>] ? tcp_verify_wq+0x116/0x1c0
+> >  [<c03f6052>] tcp_mark_head_lost+0x122/0x150
+> >  [<c03f60ca>] tcp_update_scoreboard+0x4a/0x190
+> >  [<c03f6e7a>] tcp_fastretrans_alert+0x4da/0x700
+> >  [<c03f7e63>] tcp_ack+0x1b3/0x3a0
+> >  [<c03fa21b>] tcp_rcv_established+0x3eb/0x710
+> >  [<c0401c05>] tcp_v4_do_rcv+0xe5/0x100
+> >  [<c04021fb>] tcp_v4_rcv+0x5db/0x660
+> >  [<c0401fa7>] ? tcp_v4_rcv+0x387/0x660
+> >  [<c03e5eed>] ? ip_local_deliver_finish+0x2d/0x1d0
+> >  [<c03e5f44>] ip_local_deliver_finish+0x84/0x1d0
+> >  [<c03e5eed>] ? ip_local_deliver_finish+0x2d/0x1d0
+> >  [<c0156b97>] ? __lock_release+0x47/0x70
+> >  [<c03e6147>] ip_local_deliver+0xb7/0xc0
+> >  [<c03e6202>] ip_rcv_finish+0xb2/0x3c0
+> >  [<c03c01d8>] ? sock_def_readable+0x48/0xa0
+> >  [<c03be061>] ? sock_queue_rcv_skb+0xb1/0x1a0
+> >  [<c03be0a7>] ? sock_queue_rcv_skb+0xf7/0x1a0
+> >  [<c03e669f>] ip_rcv+0x18f/0x290
+> >  [<c042fb10>] ? packet_rcv_spkt+0xd0/0x130
+> >  [<c03c8da6>] netif_receive_skb+0x2b6/0x330
+> >  [<c03c8c17>] ? netif_receive_skb+0x127/0x330
+> >  [<c03c8ea3>] ? process_backlog+0x83/0x100
+> >  [<c03c8eae>] process_backlog+0x8e/0x100
+> >  [<c03c90bc>] net_rx_action+0x13c/0x230
+> >  [<c03c8fd9>] ? net_rx_action+0x59/0x230
+> >  [<c0136f63>] __do_softirq+0x93/0x120
+> >  [<c013706a>] do_softirq+0x7a/0x80
+> >  [<c0137135>] irq_exit+0x65/0x90
+> >  [<c01078b1>] do_IRQ+0x41/0x80
+> >  [<c0155659>] ? trace_hardirqs_on+0xb9/0x130
+> >  [<c01059ca>] common_interrupt+0x2e/0x34
+> >  [<c0103390>] ? mwait_idle_with_hints+0x40/0x50
+> >  [<c01033a0>] ? mwait_idle+0x0/0x20
+> >  [<c01033b2>] mwait_idle+0x12/0x20
+> >  [<c0103141>] cpu_idle+0x61/0x110
+> >  [<c04339fd>] rest_init+0x5d/0x60
+> >  [<c05a47fa>] start_kernel+0x1fa/0x260
+> >  [<c05a4190>] ? unknown_bootoption+0x0/0x130
+> >  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+> > ---[ end trace 14b601818e6903ac ]---
+> > ------------[ cut here ]------------
+> > WARNING: at net/ipv4/tcp_ipv4.c:197 tcp_verify_wq+0x1b6/0x1c0()
+> > Modules linked in: snd_seq_dummy snd_seq_oss snd_seq_midi_event
+> > snd_seq snd_seq_device snd_pcm_oss snd_mixer_oss eeprom e100 psmous=
+e
+> > snd_hda_intel snd_pcm snd_timer btusb bluetooth serio_raw snd 3c59x=
+ sg
+> > evdev thermal soundcore rtc_cmos snd_page_alloc rtc_core rtc_lib
+> > i2c_i801 processor button intel_agp dcdbas pcspkr agpgart
+> > Pid: 0, comm: swapper Not tainted 2.6.24-rc8-mm1 #8
+> >  [<c0132100>] ? have_callable_console+0x20/0x30
+> >  [<c0131844>] warn_on_slowpath+0x54/0x80
+> >  [<c01317da>] ? print_oops_end_marker+0x2a/0x30
+> >  [<c0131849>] ? warn_on_slowpath+0x59/0x80
+> >  [<c03ffe54>] ? tcp_print_queue+0x1a4/0x230
+> >  [<c0132438>] ? vprintk+0x308/0x320
+> >  [<c0132438>] ? vprintk+0x308/0x320
+> >  [<c0400096>] tcp_verify_wq+0x1b6/0x1c0
+> >  [<c03ffff6>] ? tcp_verify_wq+0x116/0x1c0
+> >  [<c03f5ffc>] tcp_mark_head_lost+0xcc/0x150
+> >  [<c03f60ca>] tcp_update_scoreboard+0x4a/0x190
+> >  [<c03f6e7a>] tcp_fastretrans_alert+0x4da/0x700
+> >  [<c03f7e63>] tcp_ack+0x1b3/0x3a0
+> >  [<c03fa21b>] tcp_rcv_established+0x3eb/0x710
+> >  [<c0401c05>] tcp_v4_do_rcv+0xe5/0x100
+> >  [<c04021fb>] tcp_v4_rcv+0x5db/0x660
+> >  [<c0401fa7>] ? tcp_v4_rcv+0x387/0x660
+> >  [<c03e5eed>] ? ip_local_deliver_finish+0x2d/0x1d0
+> >  [<c03e5f44>] ip_local_deliver_finish+0x84/0x1d0
+> >  [<c03e5eed>] ? ip_local_deliver_finish+0x2d/0x1d0
+> >  [<c0156b97>] ? __lock_release+0x47/0x70
+> >  [<c03e6147>] ip_local_deliver+0xb7/0xc0
+> >  [<c03e6202>] ip_rcv_finish+0xb2/0x3c0
+> >  [<c03c01d8>] ? sock_def_readable+0x48/0xa0
+> >  [<c03be061>] ? sock_queue_rcv_skb+0xb1/0x1a0
+> >  [<c03be0a7>] ? sock_queue_rcv_skb+0xf7/0x1a0
+> >  [<c03e669f>] ip_rcv+0x18f/0x290
+> >  [<c042fb10>] ? packet_rcv_spkt+0xd0/0x130
+> >  [<c03c8da6>] netif_receive_skb+0x2b6/0x330
+> >  [<c03c8c17>] ? netif_receive_skb+0x127/0x330
+> >  [<c03c8ea3>] ? process_backlog+0x83/0x100
+> >  [<c03c8eae>] process_backlog+0x8e/0x100
+> >  [<c03c90bc>] net_rx_action+0x13c/0x230
+> >  [<c03c8fd9>] ? net_rx_action+0x59/0x230
+> >  [<c0136f63>] __do_softirq+0x93/0x120
+> >  [<c013706a>] do_softirq+0x7a/0x80
+> >  [<c0137135>] irq_exit+0x65/0x90
+> >  [<c01078b1>] do_IRQ+0x41/0x80
+> >  [<c0155659>] ? trace_hardirqs_on+0xb9/0x130
+> >  [<c01059ca>] common_interrupt+0x2e/0x34
+> >  [<c0103390>] ? mwait_idle_with_hints+0x40/0x50
+> >  [<c01033a0>] ? mwait_idle+0x0/0x20
+> >  [<c01033b2>] mwait_idle+0x12/0x20
+> >  [<c0103141>] cpu_idle+0x61/0x110
+> >  [<c04339fd>] rest_init+0x5d/0x60
+> >  [<c05a47fa>] start_kernel+0x1fa/0x260
+> >  [<c05a4190>] ? unknown_bootoption+0x0/0x130
+> >  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+> > ---[ end trace 14b601818e6903ac ]---
+>
+> ...But this no longer is, and even more, L: 5 is not valid state at t=
+his
+> point all (should only happen if we went to RTO but it would reset S =
+to
+> zero with newreno):
+>
+> > P: 5 L: 5 vs 5 S: 0 vs 3 w: 2044790889-2044796616 (0)
+> > TCP wq(s) LLLLl<
+> > TCP wq(h) +++h+<
+> > l5 s3 f0 p5 seq: su2044790889 hs2044795029 sn2044796616
+>
+> Surprisingly, it was the first time the WARN_ON for left_out returned
+> correct location. This also explains why the patch I sent to Krishna
+> didn't print anything (it didn't end up into printing because I forgo=
+t
+> to add L+S>P check into to the state checking if).
+>
+> ...so please, could you (others than Denys) try this patch, it should
+> solve the issue. And Denys, could you confirm (and if necessary doubl=
+e
+> check) that the kernel you saw this similar problem with is the pure
+> Linus' mainline, i.e., without any net-2.6.25 or mm bits please, if s=
+o,
+> that problem persists. And anyway, there were some fackets_out relate=
+d
+> problems reported as well and this doesn't help for that but I think =
+I've
 
-The driver on the upper level can plug to more than one tdm clients
-depending on the availablity of TDM devices. At every new request of a TDM
-client to bind with a TDM device, a free driver instance is allocated to
-the client.
+> lost track of who was seeing it due to large number of reports :-), c=
+ould
 
-The interface can be described as follows.
+> somebody refresh my memory because I currently don't have time to dig=
+ it
+> up from archives (at least on this week).
+>
+>
+> --
+>  i.
+>
+> --
+> [PATCH] [TCP]: NewReno must count every skb while marking losses
+>
+> NewReno should add cnt per skb (as with FACK) instead of depending
+> on SACKED_ACKED bits which won't be set with it at all.
+> Effectively, NewReno should always exists after the first
+> iteration anyway (or immediately if there's already head in
+> lost_out.
+>
+> This was fixed earlier in net-2.6.25 but got reverted among other
+> stuff and I didn't notice that this is still necessary (actually
+> wasn't even considering this case while trying to figure out the
+> reports because I lived with different kind of code than it in
+> reality was).
+>
+> This should solve the WARN_ONs in TCP code that as a result of
+> this triggered multiple times in every place we check for this
+> invariant.
+>
+> Special thanks to Dave Young <hidave.darkstar@gmail.com> and
+> Krishna Kumar2 <krkumar2@in.ibm.com> for trying with my debug
+> patches.
+>
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> ---
+>  net/ipv4/tcp_input.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 295490e..aa409a5 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -2156,7 +2156,7 @@ static void tcp_mark_head_lost(struct sock *sk,=
+ int
 
-tdm_register_client(struct tdm_client *)
-       This API returns a pointer to the structure tdm_client which is of
-type
-      struct tdm_client {
-               u32 client_id;
-               u32 (*tdm_read)(u32 client_id, short chn_id, short
-*pcm_buffer, short len);
-               u32 (*tdm_write)(u32 client_id, short chn_id, short
-*pcm_buffer, short len);
-               wait_queue_head_t *wakeup_event;
-       }
-
-It consists of:
-  - client_id: It is basically to identify the particular TDM
-device/driver instance.
-  - tdm_read: It is a function pointer returned by the TDM driver to be
-used to read TDM data from a particular TDM channel.
-  - tdm_write: It is a function pointer returned by the TDM driver to be
-used to write TDM data to a particular TDM channel.
-  - wakeup_event: It is address of a wait_queue event on which the client
-keeps on sleeping, and the TDM driver wakes it up periodically. The driver
-is configured to
-wake up the client after every 10ms.
-
-Once the TDM client gets registered to a TDM driver instance and a TDM
-device, it interfaces with the driver using tdm_read, tdm_write and
-wakeup_event.
-
-This driver will run on MPC8323E-RDB platforms.
-
-Signed-off-by: Poonam Aggrwal <b10812@freescale.com>
-Signed-off-by: Ashish Kalra <ashish.kalra@freescale.com>
-Signed-off-by: Kim Phillips <Kim.Phillips@freescale.com>
-Signed-off-by: Michael Barkowski <michael.barkowski@freescale.com>
----
- drivers/misc/Kconfig   |   14 +
- drivers/misc/Makefile  |    1 +
- drivers/misc/ucc_tdm.c | 1017 ++++++++++++++++++++++++++++++++++++++++++++++++
- drivers/misc/ucc_tdm.h |  221 +++++++++++
- 4 files changed, 1253 insertions(+), 0 deletions(-)
- create mode 100644 drivers/misc/ucc_tdm.c
- create mode 100644 drivers/misc/ucc_tdm.h
-
-diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
-index b5e67c0..628b14b 100644
---- a/drivers/misc/Kconfig
-+++ b/drivers/misc/Kconfig
-@@ -232,4 +232,18 @@ config ATMEL_SSC
- 
- 	  If unsure, say N.
- 
-+config UCC_TDM
-+	bool "Freescale UCC  TDM Driver"
-+	depends on QUICC_ENGINE && UCC_FAST
-+	default n
-+	---help---
-+	  The TDM driver is for UCC based TDM devices for example, TDM device on
-+	  MPC832x RDB. Select it to run PowerVoIP on MPC832x RDB board.
-+	  The TDM driver can interface with SLIC kind of devices to transmit
-+	  and receive TDM samples. The TDM driver receives Time Division
-+	  multiplexed samples(for different channels) from the SLIC device,
-+	  demutiplexes them and sends them to the upper layers. At the transmit
-+	  end the TDM drivers receives samples for different channels, it
-+	  multiplexes them and sends them to the SLIC device.
-+
- endif # MISC_DEVICES
-diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
-index 87f2685..6f0c49d 100644
---- a/drivers/misc/Makefile
-+++ b/drivers/misc/Makefile
-@@ -17,3 +17,4 @@ obj-$(CONFIG_SONY_LAPTOP)	+= sony-laptop.o
- obj-$(CONFIG_THINKPAD_ACPI)	+= thinkpad_acpi.o
- obj-$(CONFIG_FUJITSU_LAPTOP)	+= fujitsu-laptop.o
- obj-$(CONFIG_EEPROM_93CX6)	+= eeprom_93cx6.o
-+obj-$(CONFIG_UCC_TDM)		+= ucc_tdm.o
-diff --git a/drivers/misc/ucc_tdm.c b/drivers/misc/ucc_tdm.c
-new file mode 100644
-index 0000000..2181132
---- /dev/null
-+++ b/drivers/misc/ucc_tdm.c
-@@ -0,0 +1,1017 @@
-+/*
-+ * drivers/misc/ucc_tdm.c
-+ *
-+ * UCC Based Linux TDM Driver
-+ * This driver is designed to support UCC based TDM for PowerPC processors.
-+ * This driver can interface with SLIC device to run VOIP kind of
-+ * applications.
-+ *
-+ * Author: Ashish Kalra & Poonam Aggrwal
-+ *
-+ * Copyright (c) 2007 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ */
-+
-+#include <linux/autoconf.h>
-+#include <linux/module.h>
-+#include <linux/sched.h>
-+#include <linux/kernel.h>
-+#include <linux/slab.h>
-+#include <linux/errno.h>
-+#include <linux/types.h>
-+#include <linux/interrupt.h>
-+#include <linux/time.h>
-+#include <linux/skbuff.h>
-+#include <linux/proc_fs.h>
-+#include <linux/delay.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/string.h>
-+#include <linux/irq.h>
-+#include <linux/of_platform.h>
-+#include <linux/io.h>
-+#include <linux/wait.h>
-+#include <linux/timer.h>
-+
-+#include <asm/immap_qe.h>
-+#include <asm/qe.h>
-+#include <asm/ucc.h>
-+#include <asm/ucc_fast.h>
-+#include <asm/ucc_slow.h>
-+
-+#include "ucc_tdm.h"
-+#define DRV_DESC "Freescale QE UCC TDM Driver"
-+#define DRV_NAME "ucc_tdm"
-+
-+
-+/*
-+ * define the following #define if snooping or hardware-based cache coherency
-+ * is disabled on the UCC transparent controller.This flag enables
-+ * software-based cache-coherency support by explicitly flushing data cache
-+ * contents after setting up the TDM output buffer(s) and invalidating the
-+ * data cache contents before the TDM input buffer(s) are read.
-+ */
-+#undef UCC_CACHE_SNOOPING_DISABLED
-+
-+#define MAX_NUM_TDM_DEVICES 8
-+
-+static struct tdm_ctrl *tdm_ctrl[MAX_NUM_TDM_DEVICES];
-+
-+static int num_tdm_devices;
-+static int num_tdm_clients;
-+
-+static struct ucc_tdm_info utdm_primary_info = {
-+	.uf_info = {
-+		.tsa = 1,
-+		.cdp = 1,
-+		.cds = 1,
-+		.ctsp = 1,
-+		.ctss = 1,
-+		.revd = 1,
-+		.urfs = 0x128,
-+		.utfs = 0x128,
-+		.utfet = 0,
-+		.utftt = 0x128,
-+		.ufpt = 256,
-+		.ttx_trx = UCC_FAST_GUMR_TRANSPARENT_TTX_TRX_TRANSPARENT,
-+		.tenc = UCC_FAST_TX_ENCODING_NRZ,
-+		.renc = UCC_FAST_RX_ENCODING_NRZ,
-+		.tcrc = UCC_FAST_16_BIT_CRC,
-+		.synl = UCC_FAST_SYNC_LEN_NOT_USED,
-+	},
-+	.ucc_busy = 0,
-+};
-+
-+static struct ucc_tdm_info utdm_info[8];
-+
-+static void dump_siram(struct tdm_ctrl *tdm_c)
-+{
-+#ifdef DEBUG
-+	int i;
-+	u16 phy_num_ts;
-+
-+	phy_num_ts = tdm_c->physical_num_ts;
-+
-+	pr_debug("SI TxRAM dump\n");
-+	/* each slot entry in SI RAM is of 2 bytes */
-+	for (i = 0; i < phy_num_ts * 2; i++)
-+		pr_debug("%x ", in_8(&qe_immr->sir.tx[i]));
-+	pr_debug("\nSI RxRAM dump\n");
-+	for (i = 0; i < phy_num_ts * 2; i++)
-+		pr_debug("%x ", in_8(&qe_immr->sir.rx[i]));
-+	pr_debug("\n");
-+#endif
-+}
-+
-+static void dump_ucc(struct tdm_ctrl *tdm_c)
-+{
-+#ifdef DEBUG
-+	struct ucc_transparent_pram *ucc_pram;
-+
-+	ucc_pram = tdm_c->ucc_pram;
-+
-+	pr_debug("%s Dumping UCC Registers\n", __FUNCTION__);
-+	ucc_fast_dump_regs(tdm_c->uf_private);
-+	pr_debug("%s Dumping UCC Parameter RAM\n", __FUNCTION__);
-+	pr_debug("rbase = 0x%x\n", in_be32(&ucc_pram->rbase));
-+	pr_debug("rbptr = 0x%x\n", in_be32(&ucc_pram->rbptr));
-+	pr_debug("mrblr = 0x%x\n", in_be16(&ucc_pram->mrblr));
-+	pr_debug("rbdlen = 0x%x\n", in_be16(&ucc_pram->rbdlen));
-+	pr_debug("rbdstat = 0x%x\n", in_be16(&ucc_pram->rbdstat));
-+	pr_debug("rstate = 0x%x\n", in_be32(&ucc_pram->rstate));
-+	pr_debug("rdptr = 0x%x\n", in_be32(&ucc_pram->rdptr));
-+	pr_debug("tbase = 0x%x\n", in_be32(&ucc_pram->tbase));
-+	pr_debug("tbptr = 0x%x\n", in_be32(&ucc_pram->tbptr));
-+	pr_debug("tbdlen = 0x%x\n", in_be16(&ucc_pram->tbdlen));
-+	pr_debug("tbdstat = 0x%x\n", in_be16(&ucc_pram->tbdstat));
-+	pr_debug("tstate = 0x%x\n", in_be32(&ucc_pram->tstate));
-+	pr_debug("tdptr = 0x%x\n", in_be32(&ucc_pram->tdptr));
-+#endif
-+}
-+
-+/*
-+ * For use when a framing bit is not present
-+ * Program current-route SI ram
-+ * Set SIxRAM TDMx
-+ * Entries must be in units of 8.
-+ * SIR_UCC -> Channel Select
-+ * SIR_CNT -> Number of bits or bytes
-+ * SIR_BYTE -> Byte or Bit resolution
-+ * SIR_LAST -> Indicates last entry in SIxRAM
-+ * SIR_IDLE -> The Tx data pin is Tri-stated and the Rx data pin is
-+ * 		ignored
-+ */
-+static void set_siram(struct tdm_ctrl *tdm_c, enum comm_dir dir)
-+{
-+	const u16 *mask;
-+	u16 temp_mask = 1;
-+	u16 siram_code = 0;
-+	u32 i, j, k;
-+	u32 ucc;
-+	u32 phy_num_ts;
-+
-+	phy_num_ts = tdm_c->physical_num_ts;
-+	ucc = tdm_c->ut_info->uf_info.ucc_num;
-+
-+	if (dir == COMM_DIR_RX)
-+		mask = tdm_c->rx_mask;
-+	else
-+		mask = tdm_c->tx_mask;
-+	k = 0;
-+	j = 0;
-+	for (i = 0; i < phy_num_ts; i++) {
-+		if ((mask[k] & temp_mask) == temp_mask)
-+			siram_code = SIR_UCC(ucc) | SIR_CNT(0) | SIR_BYTE;
-+		else
-+			siram_code = SIR_IDLE | SIR_CNT(0) | SIR_BYTE;
-+		if (dir == COMM_DIR_RX)
-+			out_be16((u16 *)&qe_immr->sir.rx[i * 2], siram_code);
-+		else
-+			out_be16((u16 *)&qe_immr->sir.tx[i * 2], siram_code);
-+		temp_mask = temp_mask << 1;
-+		j++;
-+		if (j >= 16) {
-+			j = 0;
-+			temp_mask = 0x0001;
-+			k++;
-+		}
-+	}
-+	siram_code = siram_code | SIR_LAST;
-+
-+	if (dir == COMM_DIR_RX)
-+		out_be16((u16 *)&qe_immr->sir.rx[(phy_num_ts - 1) * 2],
-+								siram_code);
-+	else
-+		out_be16((u16 *)&qe_immr->sir.tx[(phy_num_ts - 1) * 2],
-+								siram_code);
-+}
-+
-+static void config_si(struct tdm_ctrl *tdm_c)
-+{
-+	u8 rxsyncdelay, txsyncdelay, tdm_port;
-+	u16 sixmr_val = 0;
-+	u32 tdma_mode_off;
-+	u16 *si1_tdm_mode_reg;
-+
-+	tdm_port = tdm_c->tdm_port;
-+
-+	set_siram(tdm_c, COMM_DIR_RX);
-+
-+	set_siram(tdm_c, COMM_DIR_TX);
-+
-+	rxsyncdelay = tdm_c->cfg_ctrl.rx_fr_sync_delay;
-+	txsyncdelay = tdm_c->cfg_ctrl.tx_fr_sync_delay;
-+	if (tdm_c->cfg_ctrl.com_pin)
-+		sixmr_val |= SIMODE_CRT;
-+	if (tdm_c->cfg_ctrl.fr_sync_level == 1)
-+		sixmr_val |= SIMODE_SL;
-+	if (tdm_c->cfg_ctrl.clk_edge == 1)
-+		sixmr_val |= SIMODE_CE;
-+	if (tdm_c->cfg_ctrl.fr_sync_edge == 1)
-+		sixmr_val |= SIMODE_FE;
-+	sixmr_val |= (SIMODE_TFSD(txsyncdelay) | SIMODE_RFSD(rxsyncdelay));
-+
-+	tdma_mode_off = SI_TDM_MODE_REGISTER_OFFSET * tdm_c->tdm_port;
-+
-+	si1_tdm_mode_reg = (u8 *)&qe_immr->si1 + tdma_mode_off;
-+	out_be16(si1_tdm_mode_reg, sixmr_val);
-+
-+	dump_siram(tdm_c);
-+}
-+
-+static int tdm_init(struct tdm_ctrl *tdm_c)
-+{
-+	u32 tdm_port, ucc, act_num_ts;
-+	int ret, i, err;
-+	u32 cecr_subblock;
-+	u32 pram_offset;
-+	u32 rxbdt_offset;
-+	u32 txbdt_offset;
-+	u32 rx_ucode_buf_offset, tx_ucode_buf_offset;
-+	u16 bd_status, bd_len;
-+	enum qe_clock clock;
-+	struct qe_bd __iomem *rx_bd, *tx_bd;
-+
-+	tdm_port = tdm_c->tdm_port;
-+	ucc = tdm_c->ut_info->uf_info.ucc_num;
-+	act_num_ts = tdm_c->cfg_ctrl.active_num_ts;
-+
-+	/*
-+	 * TDM Tx and Rx CLKs = 2048 KHz.
-+	 */
-+	if (strstr(tdm_c->ut_info->uf_info.tdm_tx_clk, "BRG")) {
-+		clock = qe_clock_source(tdm_c->ut_info->uf_info.tdm_tx_clk);
-+		err = qe_setbrg(clock, 2048000, 1);
-+		if (err < 0) {
-+			printk(KERN_ERR "%s: Failed to set %s\n", __FUNCTION__,
-+				tdm_c->ut_info->uf_info.tdm_tx_clk);
-+			return err;
-+		}
-+	}
-+	if (strstr(tdm_c->ut_info->uf_info.tdm_rx_clk, "BRG")) {
-+		clock = qe_clock_source(tdm_c->ut_info->uf_info.tdm_rx_clk);
-+		err = qe_setbrg(clock, 2048000, 1);
-+		if (err < 0) {
-+			printk(KERN_ERR "%s: Failed to set %s\n", __FUNCTION__,
-+				tdm_c->ut_info->uf_info.tdm_rx_clk);
-+			return err;
-+		}
-+	}
-+	/*
-+	 * TDM FSyncs = 4 KHz.
-+	 */
-+	if (strstr(tdm_c->ut_info->uf_info.tdm_tx_sync, "BRG")) {
-+		clock = qe_clock_source(tdm_c->ut_info->uf_info.tdm_tx_sync);
-+		err = qe_setbrg(clock, 4000, 1);
-+		if (err < 0) {
-+			printk(KERN_ERR "%s: Failed to set %s\n", __FUNCTION__,
-+				tdm_c->ut_info->uf_info.tdm_tx_sync);
-+			return err;
-+		}
-+	}
-+	if (strstr(tdm_c->ut_info->uf_info.tdm_rx_sync, "BRG")) {
-+		clock = qe_clock_source(tdm_c->ut_info->uf_info.tdm_rx_sync);
-+		err = qe_setbrg(clock, 4000, 1);
-+		if (err < 0) {
-+			printk(KERN_ERR "%s: Failed to set %s\n", __FUNCTION__,
-+				tdm_c->ut_info->uf_info.tdm_rx_sync);
-+			return err;
-+		}
-+	}
-+
-+	tdm_c->ut_info->uf_info.uccm_mask = (u32)
-+			((UCC_TRANS_UCCE_RXB | UCC_TRANS_UCCE_BSY) << 16);
-+
-+	if (ucc_fast_init(&(tdm_c->ut_info->uf_info), &tdm_c->uf_private)) {
-+		printk(KERN_ERR "%s: Failed to init uccf\n", __FUNCTION__);
-+		return -ENOMEM;
-+	}
-+
-+	ucc_fast_disable(tdm_c->uf_private, COMM_DIR_RX | COMM_DIR_TX);
-+
-+	/* Write to QE CECR, UCCx channel to Stop Transmission */
-+	cecr_subblock = ucc_fast_get_qe_cr_subblock(ucc);
-+	qe_issue_cmd(QE_STOP_TX, cecr_subblock,
-+		(u8) QE_CR_PROTOCOL_UNSPECIFIED, 0);
-+
-+	pram_offset = qe_muram_alloc(UCC_TRANSPARENT_PRAM_SIZE,
-+					ALIGNMENT_OF_UCC_SLOW_PRAM);
-+	if (IS_ERR_VALUE(pram_offset)) {
-+		printk(KERN_ERR "%s: Cannot allocate MURAM memory for"
-+			" transparent UCC\n", __FUNCTION__);
-+		ret = -ENOMEM;
-+		goto pram_alloc_error;
-+	}
-+
-+	cecr_subblock = ucc_fast_get_qe_cr_subblock(ucc);
-+	qe_issue_cmd(QE_ASSIGN_PAGE_TO_DEVICE, cecr_subblock,
-+			QE_CR_PROTOCOL_UNSPECIFIED, pram_offset);
-+
-+	tdm_c->ucc_pram = qe_muram_addr(pram_offset);
-+	tdm_c->ucc_pram_offset = pram_offset;
-+
-+	/*
-+	 * zero-out pram, this will also ensure RSTATE, TSTATE are cleared, also
-+	 * DISFC & CRCEC counters will be initialized.
-+	 */
-+	memset(tdm_c->ucc_pram, 0, sizeof(struct ucc_transparent_pram));
-+
-+	/* rbase, tbase alignment is 8. */
-+	rxbdt_offset = qe_muram_alloc(NR_BUFS * sizeof(struct qe_bd),
-+					QE_ALIGNMENT_OF_BD);
-+	if (IS_ERR_VALUE(rxbdt_offset)) {
-+		printk(KERN_ERR "%s: Cannot allocate MURAM memory for RxBDs\n",
-+				__FUNCTION__);
-+		ret = -ENOMEM;
-+		goto rxbd_alloc_error;
-+	}
-+	txbdt_offset = qe_muram_alloc(NR_BUFS * sizeof(struct qe_bd),
-+				QE_ALIGNMENT_OF_BD);
-+	if (IS_ERR_VALUE(txbdt_offset)) {
-+		printk(KERN_ERR "%s: Cannot allocate MURAM memory for TxBDs\n",
-+				__FUNCTION__);
-+		ret = -ENOMEM;
-+		goto txbd_alloc_error;
-+	}
-+	tdm_c->tx_bd = qe_muram_addr(txbdt_offset);
-+	tdm_c->rx_bd = qe_muram_addr(rxbdt_offset);
-+
-+	tdm_c->tx_bd_offset = txbdt_offset;
-+	tdm_c->rx_bd_offset = rxbdt_offset;
-+
-+	rx_bd = tdm_c->rx_bd;
-+	tx_bd = tdm_c->tx_bd;
-+
-+	out_be32(&tdm_c->ucc_pram->rbase, (u32) immrbar_virt_to_phys(rx_bd));
-+	out_be32(&tdm_c->ucc_pram->tbase, (u32) immrbar_virt_to_phys(tx_bd));
-+
-+	for (i = 0; i < NR_BUFS - 1; i++) {
-+		bd_status = (u16) ((R_E | R_CM | R_I) >> 16);
-+		bd_len = 0;
-+		out_be16(&rx_bd->length, bd_len);
-+		out_be16(&rx_bd->status, bd_status);
-+		out_be32(&rx_bd->buf,
-+			 tdm_c->dma_input_addr + i * SAMPLE_DEPTH * act_num_ts);
-+		rx_bd += 1;
-+
-+		bd_status = (u16) ((T_R | T_CM) >> 16);
-+		bd_len =  SAMPLE_DEPTH * act_num_ts;
-+		out_be16(&tx_bd->length, bd_len);
-+		out_be16(&tx_bd->status, bd_status);
-+		out_be32(&tx_bd->buf,
-+			tdm_c->dma_output_addr + i * SAMPLE_DEPTH * act_num_ts);
-+		tx_bd += 1;
-+	}
-+
-+	bd_status = (u16) ((R_E | R_CM | R_I | R_W) >> 16);
-+	bd_len = 0;
-+	out_be16(&rx_bd->length, bd_len);
-+	out_be16(&rx_bd->status, bd_status);
-+	out_be32(&rx_bd->buf,
-+		 tdm_c->dma_input_addr + i * SAMPLE_DEPTH * act_num_ts);
-+
-+	bd_status = (u16) ((T_R | T_CM | T_W) >> 16);
-+	bd_len =  SAMPLE_DEPTH * act_num_ts;
-+	out_be16(&tx_bd->length, bd_len);
-+	out_be16(&tx_bd->status, bd_status);
-+	out_be32(&tx_bd->buf,
-+		 tdm_c->dma_output_addr + i * SAMPLE_DEPTH * act_num_ts);
-+
-+	config_si(tdm_c);
-+
-+	setbits32(&qe_immr->ic.qimr, (0x80000000UL >> ucc));
-+
-+	rx_ucode_buf_offset = qe_muram_alloc(32, 32);
-+	if (IS_ERR_VALUE(rx_ucode_buf_offset)) {
-+		printk(KERN_ERR "%s: Cannot allocate MURAM mem for Rx"
-+			 " ucode buf\n", __FUNCTION__);
-+		ret = -ENOMEM;
-+		goto rxucode_buf_alloc_error;
-+	}
-+
-+	tx_ucode_buf_offset = qe_muram_alloc(32, 32);
-+	if (IS_ERR_VALUE(tx_ucode_buf_offset)) {
-+		printk(KERN_ERR "%s: Cannot allocate MURAM mem for Tx"
-+			 " ucode buf\n", __FUNCTION__);
-+		ret = -ENOMEM;
-+		goto txucode_buf_alloc_error;
-+	}
-+	out_be16(&tdm_c->ucc_pram->riptr, (u16) rx_ucode_buf_offset);
-+	out_be16(&tdm_c->ucc_pram->tiptr, (u16) tx_ucode_buf_offset);
-+
-+	tdm_c->rx_ucode_buf_offset = rx_ucode_buf_offset;
-+	tdm_c->tx_ucode_buf_offset = tx_ucode_buf_offset;
-+
-+	/*
-+	 * set the receive buffer descriptor maximum size to be
-+	 * SAMPLE_DEPTH * number of active RX channels
-+	 */
-+	out_be16(&tdm_c->ucc_pram->mrblr, (u16) SAMPLE_DEPTH * act_num_ts);
-+
-+	/*
-+	 * enable snooping and BE byte ordering on the UCC pram's
-+	 * tstate & rstate registers.
-+	 */
-+	out_be32(&tdm_c->ucc_pram->tstate, 0x30000000UL);
-+	out_be32(&tdm_c->ucc_pram->rstate, 0x30000000UL);
-+
-+	/*Put UCC transparent controller into serial interface mode.  */
-+	out_be32(&tdm_c->uf_regs->upsmr, 0);
-+
-+	/* Reset TX and RX for UCCx */
-+	cecr_subblock = ucc_fast_get_qe_cr_subblock(ucc);
-+	qe_issue_cmd(QE_INIT_TX_RX, cecr_subblock,
-+			(u8) QE_CR_PROTOCOL_UNSPECIFIED, 0);
-+
-+	return 0;
-+
-+txucode_buf_alloc_error:
-+	qe_muram_free(rx_ucode_buf_offset);
-+rxucode_buf_alloc_error:
-+	qe_muram_free(txbdt_offset);
-+txbd_alloc_error:
-+	qe_muram_free(rxbdt_offset);
-+rxbd_alloc_error:
-+	qe_muram_free(pram_offset);
-+pram_alloc_error:
-+	ucc_fast_free(tdm_c->uf_private);
-+	return ret;
-+}
-+
-+static void tdm_deinit(struct tdm_ctrl *tdm_c)
-+{
-+	qe_muram_free(tdm_c->rx_ucode_buf_offset);
-+	qe_muram_free(tdm_c->tx_ucode_buf_offset);
-+
-+	if (tdm_c->rx_bd_offset) {
-+		qe_muram_free(tdm_c->rx_bd_offset);
-+		tdm_c->rx_bd = NULL;
-+		tdm_c->rx_bd_offset = 0;
-+	}
-+	if (tdm_c->tx_bd_offset) {
-+		qe_muram_free(tdm_c->tx_bd_offset);
-+		tdm_c->tx_bd = NULL;
-+		tdm_c->tx_bd_offset = 0;
-+	}
-+	if (tdm_c->ucc_pram_offset) {
-+		qe_muram_free(tdm_c->ucc_pram_offset);
-+		tdm_c->ucc_pram = NULL;
-+		tdm_c->ucc_pram_offset = 0;
-+	}
-+}
-+
-+
-+static irqreturn_t tdm_isr(int irq, void *dev_id)
-+{
-+	u8 *input_tdm_buffer, *output_tdm_buffer;
-+	u32 txb, rxb;
-+	u32 ucc;
-+	register u32 ucce = 0;
-+	struct tdm_ctrl *tdm_c;
-+	tdm_c = (struct tdm_ctrl *)dev_id;
-+
-+	tdm_c->tdm_icnt++;
-+	ucc = tdm_c->ut_info->uf_info.ucc_num;
-+	input_tdm_buffer = tdm_c->tdm_input_data;
-+	output_tdm_buffer = tdm_c->tdm_output_data;
-+
-+	if (in_be32(tdm_c->uf_private->p_ucce) &
-+						(UCC_TRANS_UCCE_BSY << 16)) {
-+		out_be32(tdm_c->uf_private->p_ucce,
-+					(UCC_TRANS_UCCE_BSY << 16));
-+		pr_info("%s: From tdm isr busy interrupt\n",
-+			__FUNCTION__);
-+		dump_ucc(tdm_c);
-+
-+		return IRQ_HANDLED;
-+	}
-+
-+	if (tdm_c->tdm_flag == 1) {
-+		/* track phases for Rx/Tx */
-+		tdm_c->phase_rx += 1;
-+		if (tdm_c->phase_rx == MAX_PHASE)
-+			tdm_c->phase_rx = 0;
-+
-+		tdm_c->phase_tx += 1;
-+		if (tdm_c->phase_tx == MAX_PHASE)
-+			tdm_c->phase_tx = 0;
-+
-+#ifdef CONFIG_TDM_HW_LB_TSA_SLIC
-+		{
-+			u32 temp_rx, temp_tx, phase_tx, phase_rx;
-+			int i;
-+			phase_rx = tdm_c->phase_rx;
-+			phase_tx = tdm_c->phase_tx;
-+			if (phase_rx == 0)
-+				phase_rx = MAX_PHASE;
-+			else
-+				phase_rx -= 1;
-+			if (phase_tx == 0)
-+				phase_tx = MAX_PHASE;
-+			else
-+				phase_tx -= 1;
-+			temp_rx = phase_rx * SAMPLE_DEPTH * ACTIVE_CH;
-+			temp_tx = phase_tx * SAMPLE_DEPTH * ACTIVE_CH;
-+
-+			/*check if loopback received data on TS0 is correct. */
-+			pr_debug("%s: check if loopback received data on TS0"
-+				 " is correct\n", __FUNCTION__);
-+			pr_debug("%d,%d ", phase_rx, phase_tx);
-+			for (i = 0; i < 8; i++)
-+				pr_debug("%1d,%1d ",
-+					 input_tdm_buffer[temp_rx + i],
-+					 output_tdm_buffer[temp_tx + i]);
-+			pr_debug("\n");
-+		}
-+#endif
-+
-+		/* schedule BH */
-+		wake_up_interruptible(&tdm_c->wakeup_event);
-+	} else {
-+		if (tdm_c->tdm_icnt == STUTTER_INT_CNT) {
-+			txb = in_be32(&tdm_c->ucc_pram->tbptr) -
-+				in_be32(&tdm_c->ucc_pram->tbase);
-+			rxb = in_be32(&tdm_c->ucc_pram->rbptr) -
-+				in_be32(&tdm_c->ucc_pram->rbase);
-+			tdm_c->phase_tx = txb / sizeof(struct qe_bd);
-+			tdm_c->phase_rx = rxb / sizeof(struct qe_bd);
-+
-+#ifdef CONFIG_TDM_HW_LB_TSA_SLIC
-+			tdm_c->phase_tx = tdm_c->phase_rx;
-+#endif
-+
-+			/* signal "stuttering" period is over */
-+			tdm_c->tdm_flag = 1;
-+
-+			pr_debug("%s: stuttering period is over\n",
-+				 __FUNCTION__);
-+
-+			if (in_be32(tdm_c->uf_private->p_ucce) &
-+						 (UCC_TRANS_UCCE_TXE << 16)) {
-+				u32 cecr_subblock;
-+				out_be32(tdm_c->uf_private->p_ucce,
-+						(UCC_TRANS_UCCE_TXE << 16));
-+				pr_debug("%s: From tdm isr txe interrupt\n",
-+					 __FUNCTION__);
-+
-+				cecr_subblock =
-+					ucc_fast_get_qe_cr_subblock(ucc);
-+				qe_issue_cmd(QE_RESTART_TX, cecr_subblock,
-+					(u8) QE_CR_PROTOCOL_UNSPECIFIED,
-+					0);
-+			}
-+		}
-+	}
-+
-+	ucce = (in_be32(tdm_c->uf_private->p_ucce)
-+			& in_be32(tdm_c->uf_private->p_uccm));
-+
-+	out_be32(tdm_c->uf_private->p_ucce, ucce);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+static int tdm_start(struct tdm_ctrl *tdm_c)
-+{
-+	if (request_irq(tdm_c->ut_info->uf_info.irq, tdm_isr,
-+					0, "tdm", tdm_c)) {
-+		printk(KERN_ERR "%s: request_irq for tdm_isr failed\n",
-+			__FUNCTION__);
-+		return -ENODEV;
-+	}
-+
-+	ucc_fast_enable(tdm_c->uf_private, COMM_DIR_RX | COMM_DIR_TX);
-+
-+	pr_info("%s 16-bit linear pcm mode active with"
-+		" slots 0 & 2\n", __FUNCTION__);
-+
-+	dump_siram(tdm_c);
-+	dump_ucc(tdm_c);
-+
-+	setbits8(&(qe_immr->si1.siglmr1_h), (0x1 << tdm_c->tdm_port));
-+	pr_info("%s UCC based TDM enabled\n", __FUNCTION__);
-+
-+	return 0;
-+}
-+
-+static void tdm_stop(struct tdm_ctrl *tdm_c)
-+{
-+	u32 port, si;
-+	u32 ucc;
-+	u32 cecr_subblock;
-+
-+	port = tdm_c->tdm_port;
-+	si = tdm_c->si;
-+	ucc = tdm_c->ut_info->uf_info.ucc_num;
-+	cecr_subblock = ucc_fast_get_qe_cr_subblock(ucc);
-+
-+	qe_issue_cmd(QE_GRACEFUL_STOP_TX, cecr_subblock,
-+			(u8) QE_CR_PROTOCOL_UNSPECIFIED, 0);
-+	qe_issue_cmd(QE_CLOSE_RX_BD, cecr_subblock,
-+			(u8) QE_CR_PROTOCOL_UNSPECIFIED, 0);
-+
-+	clrbits8(&qe_immr->si1.siglmr1_h, (0x1 << port));
-+	ucc_fast_disable(tdm_c->uf_private, COMM_DIR_RX);
-+	ucc_fast_disable(tdm_c->uf_private, COMM_DIR_TX);
-+	free_irq(tdm_c->ut_info->uf_info.irq, tdm_c);
-+}
-+
-+
-+static void config_tdm(struct tdm_ctrl *tdm_c)
-+{
-+	u32 i, j, k;
-+
-+	j = 0;
-+	k = 0;
-+
-+	/* Set Mask Bits */
-+	for (i = 0; i < ACTIVE_CH; i++) {
-+		tdm_c->tx_mask[k] |= (1 << j);
-+		tdm_c->rx_mask[k] |= (1 << j);
-+		j++;
-+		if (j >= 16) {
-+			j = 0;
-+			k++;
-+		}
-+	}
-+	/* physical number of slots in a frame */
-+	tdm_c->physical_num_ts = NUM_TS;
-+
-+	/* common receive and transmit pins */
-+	tdm_c->cfg_ctrl.com_pin = 1;
-+
-+	/* L1R/TSYNC active logic "1" */
-+	tdm_c->cfg_ctrl.fr_sync_level = 0;
-+
-+	/*
-+	 * TX data on rising edge of clock
-+	 * RX data on falling edge
-+	 */
-+	tdm_c->cfg_ctrl.clk_edge = 0;
-+
-+	/* Frame sync sampled on falling edge */
-+	tdm_c->cfg_ctrl.fr_sync_edge = 0;
-+
-+	/* no bit delay */
-+	tdm_c->cfg_ctrl.rx_fr_sync_delay = 0;
-+
-+	/* no bit delay */
-+	tdm_c->cfg_ctrl.tx_fr_sync_delay = 0;
-+
-+#ifndef CONFIG_TDM_HW_LB_TSA_SLIC
-+	if (tdm_c->leg_slic) {
-+		/* Need 1 bit delay for Legrity SLIC */
-+		tdm_c->cfg_ctrl.rx_fr_sync_delay = 1;
-+		tdm_c->cfg_ctrl.tx_fr_sync_delay = 1;
-+		pr_info("%s Delay for Legerity!\n", __FUNCTION__);
-+	}
-+#endif
-+
-+	tdm_c->cfg_ctrl.active_num_ts = ACTIVE_CH;
-+}
-+
-+static void tdm_read(u32 client_id, short chn_id, short *pcm_buffer,
-+								short len)
-+{
-+	int i;
-+	u32 phase_rx;
-+	/* point to where to start for the current phase data processing */
-+	u32 temp_rx;
-+
-+	struct tdm_ctrl *tdm_c = tdm_ctrl[client_id];
-+
-+	u16 *input_tdm_buffer =
-+		(u16 *)tdm_c->tdm_input_data;
-+
-+	phase_rx = tdm_c->phase_rx;
-+	if (phase_rx == 0)
-+		phase_rx = MAX_PHASE;
-+	else
-+		phase_rx -= 1;
-+
-+	temp_rx = phase_rx * SAMPLE_DEPTH * EFF_ACTIVE_CH;
-+
-+#ifdef UCC_CACHE_SNOOPING_DISABLED
-+	flush_dcache_range((size_t) &input_tdm_buffer[temp_rx],
-+				(size_t) &input_tdm_buffer[temp_rx +
-+						SAMPLE_DEPTH * ACTIVE_CH]);
-+#endif
-+	for (i = 0; i < len; i++)
-+		pcm_buffer[i] =
-+			input_tdm_buffer[i * EFF_ACTIVE_CH + temp_rx + chn_id];
-+
-+}
-+
-+static void tdm_write(u32 client_id, short chn_id, short *pcm_buffer,
-+								short len)
-+{
-+	int i;
-+	int phase_tx;
-+	u32 txb;
-+	/* point to where to start for the current phase data processing */
-+	int temp_tx;
-+	struct tdm_ctrl *tdm_c = tdm_ctrl[client_id];
-+
-+	u16 *output_tdm_buffer;
-+	output_tdm_buffer = (u16 *)tdm_c->tdm_output_data;
-+	txb = in_be32(&tdm_c->ucc_pram->tbptr) -
-+			in_be32(&tdm_c->ucc_pram->tbase);
-+	phase_tx = txb / sizeof(struct qe_bd);
-+
-+	if (phase_tx == 0)
-+		phase_tx = MAX_PHASE;
-+	else
-+		phase_tx -= 1;
-+
-+	temp_tx = phase_tx * SAMPLE_DEPTH * EFF_ACTIVE_CH;
-+
-+	for (i = 0; i < len; i++)
-+		output_tdm_buffer[i * EFF_ACTIVE_CH + temp_tx + chn_id] =
-+			pcm_buffer[i];
-+
-+#ifdef UCC_CACHE_SNOOPING_DISABLED
-+	flush_dcache_range((size_t) &output_tdm_buffer[temp_tx],
-+		(size_t) &output_tdm_buffer[temp_tx + SAMPLE_DEPTH *
-+							ACTIVE_CH]);
-+#endif
-+}
-+
-+
-+static int tdm_register_client(struct tdm_client *tdm_client)
-+{
-+	u32 i;
-+	if (num_tdm_clients == num_tdm_devices) {
-+		printk(KERN_ERR "all TDM devices busy\n");
-+		return -EBUSY;
-+	}
-+
-+	for (i = 0; i < num_tdm_devices; i++) {
-+		if (!tdm_ctrl[i]->device_busy) {
-+			tdm_ctrl[i]->device_busy = 1;
-+			break;
-+		}
-+	}
-+	num_tdm_clients++;
-+	tdm_client->client_id = i;
-+	tdm_client->tdm_read = tdm_read;
-+	tdm_client->tdm_write = tdm_write;
-+	tdm_client->wakeup_event =
-+			&(tdm_ctrl[i]->wakeup_event);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(tdm_register_client);
-+
-+static int tdm_deregister_client(struct tdm_client *tdm_client)
-+{
-+	num_tdm_clients--;
-+	tdm_ctrl[tdm_client->client_id]->device_busy = 0;
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(tdm_deregister_client);
-+
-+static int ucc_tdm_probe(struct of_device *ofdev,
-+			 const struct of_device_id *match)
-+{
-+	struct device_node *np = ofdev->node;
-+	struct resource res;
-+	const unsigned int *prop;
-+	u32 ucc_num, device_num, err, ret = 0;
-+	struct device_node *np_tmp;
-+	dma_addr_t physaddr;
-+	void *tdm_buff;
-+	struct ucc_tdm_info *ut_info;
-+
-+	prop = of_get_property(np, "device-id", NULL);
-+	if (prop == NULL) {
-+		printk(KERN_ERR "ucc_tdm: device-id missing\n");
-+		return -ENODEV;
-+	}
-+
-+	ucc_num = *prop - 1;
-+	if ((ucc_num < 0) || (ucc_num > 7))
-+		return -ENODEV;
-+
-+	ut_info = &utdm_info[ucc_num];
-+	if (ut_info->ucc_busy) {
-+		printk(KERN_ERR "ucc_tdm: UCC in use by another TDM driver"
-+			"instance\n");
-+		return -EBUSY;
-+	}
-+	if (num_tdm_devices == MAX_NUM_TDM_DEVICES) {
-+		printk(KERN_ERR "ucc_tdm: All TDM devices already"
-+				" initialized\n");
-+		return -ENODEV;
-+	}
-+
-+	ut_info->ucc_busy = 1;
-+	tdm_ctrl[num_tdm_devices++] =
-+		kzalloc(sizeof(struct tdm_ctrl), GFP_KERNEL);
-+	if (!tdm_ctrl[num_tdm_devices - 1]) {
-+		printk(KERN_ERR "ucc_tdm: no memory to allocate for"
-+			" tdm control structure\n");
-+		num_tdm_devices--;
-+		return -ENOMEM;
-+	}
-+	device_num = num_tdm_devices - 1;
-+
-+	tdm_ctrl[device_num]->device = &ofdev->dev;
-+	tdm_ctrl[device_num]->ut_info = ut_info;
-+
-+	tdm_ctrl[device_num]->ut_info->uf_info.ucc_num = ucc_num;
-+
-+	prop = of_get_property(np, "fsl,tdm-num", NULL);
-+	if (prop == NULL) {
-+		ret = -EINVAL;
-+		goto get_property_error;
-+	}
-+
-+	tdm_ctrl[device_num]->tdm_port = *prop - 1;
-+
-+	if (tdm_ctrl[device_num]->tdm_port > 3) {
-+		ret = -EINVAL;
-+		goto get_property_error;
-+	}
-+
-+	prop = of_get_property(np, "fsl,si-num", NULL);
-+	if (prop == NULL) {
-+		ret = -EINVAL;
-+		goto get_property_error;
-+	}
-+
-+	tdm_ctrl[device_num]->si = *prop - 1;
-+
-+	tdm_ctrl[device_num]->ut_info->uf_info.tdm_tx_clk =
-+			of_get_property(np, "fsl,tdm-tx-clk", NULL);
-+	if (tdm_ctrl[device_num]->ut_info->uf_info.tdm_tx_clk == NULL) {
-+		ret = -EINVAL;
-+		goto get_property_error;
-+	}
-+
-+	tdm_ctrl[device_num]->ut_info->uf_info.tdm_rx_clk =
-+			of_get_property(np, "fsl,tdm-rx-clk", NULL);
-+	if (tdm_ctrl[device_num]->ut_info->uf_info.tdm_rx_clk == NULL) {
-+		ret = -EINVAL;
-+		goto get_property_error;
-+	}
-+
-+	tdm_ctrl[device_num]->ut_info->uf_info.tdm_tx_sync =
-+			of_get_property(np, "fsl,tdm-tx-sync", NULL);
-+	if (tdm_ctrl[device_num]->ut_info->uf_info.tdm_tx_sync == NULL) {
-+		ret = -EINVAL;
-+		goto get_property_error;
-+	}
-+
-+	tdm_ctrl[device_num]->ut_info->uf_info.tdm_rx_sync =
-+			of_get_property(np, "fsl,tdm-rx-sync", NULL);
-+	if (tdm_ctrl[device_num]->ut_info->uf_info.tdm_rx_sync == NULL) {
-+		ret = -EINVAL;
-+		goto get_property_error;
-+	}
-+
-+	tdm_ctrl[device_num]->ut_info->uf_info.irq =
-+					irq_of_parse_and_map(np, 0);
-+	err = of_address_to_resource(np, 0, &res);
-+	if (err) {
-+		ret = -EINVAL;
-+		goto get_property_error;
-+	}
-+	tdm_ctrl[device_num]->ut_info->uf_info.regs = res.start;
-+	tdm_ctrl[device_num]->uf_regs = of_iomap(np, 0);
-+
-+	np_tmp = NULL;
-+	np_tmp = of_find_compatible_node(np_tmp, "slic", "legerity-slic");
-+	if (np_tmp != NULL) {
-+		tdm_ctrl[device_num]->leg_slic = 1;
-+		of_node_put(np_tmp);
-+	} else
-+		tdm_ctrl[device_num]->leg_slic = 0;
-+
-+	config_tdm(tdm_ctrl[device_num]);
-+
-+	tdm_buff = dma_alloc_coherent(NULL, 2 * NR_BUFS * SAMPLE_DEPTH *
-+				tdm_ctrl[device_num]->cfg_ctrl.active_num_ts,
-+					&physaddr, GFP_KERNEL);
-+	if (!tdm_buff) {
-+		printk(KERN_ERR "ucc-tdm: could not allocate buffer"
-+					"descriptors\n");
-+		ret = -ENOMEM;
-+		goto alloc_error;
-+	}
-+
-+	tdm_ctrl[device_num]->tdm_input_data = tdm_buff;
-+	tdm_ctrl[device_num]->dma_input_addr = physaddr;
-+
-+	tdm_ctrl[device_num]->tdm_output_data = tdm_buff + NR_BUFS *
-+		SAMPLE_DEPTH * tdm_ctrl[device_num]->cfg_ctrl.active_num_ts;
-+	tdm_ctrl[device_num]->dma_output_addr = physaddr + NR_BUFS *
-+		SAMPLE_DEPTH * tdm_ctrl[device_num]->cfg_ctrl.active_num_ts;
-+
-+	init_waitqueue_head(&(tdm_ctrl[device_num]->wakeup_event));
-+
-+	ret = tdm_init(tdm_ctrl[device_num]);
-+	if (ret != 0)
-+		goto tdm_init_error;
-+
-+	ret = tdm_start(tdm_ctrl[device_num]);
-+	if (ret != 0)
-+		goto tdm_start_error;
-+
-+	dev_set_drvdata(&(ofdev->dev), tdm_ctrl[device_num]);
-+
-+	pr_info("%s UCC based tdm module installed\n", __FUNCTION__);
-+	return 0;
-+
-+tdm_start_error:
-+	tdm_deinit(tdm_ctrl[device_num]);
-+tdm_init_error:
-+	dma_free_coherent(NULL, 2 * NR_BUFS * SAMPLE_DEPTH *
-+				tdm_ctrl[device_num]->cfg_ctrl.active_num_ts,
-+				tdm_ctrl[device_num]->tdm_input_data,
-+				tdm_ctrl[device_num]->dma_input_addr);
-+
-+alloc_error:
-+	irq_dispose_mapping(tdm_ctrl[device_num]->ut_info->uf_info.irq);
-+	iounmap(tdm_ctrl[device_num]->uf_regs);
-+
-+get_property_error:
-+	num_tdm_devices--;
-+	kfree(tdm_ctrl[device_num]);
-+	ut_info->ucc_busy = 0;
-+	return ret;
-+}
-+
-+static int ucc_tdm_remove(struct of_device *ofdev)
-+{
-+	struct tdm_ctrl *tdm_c;
-+	struct ucc_tdm_info *ut_info;
-+	u32 ucc_num;
-+
-+	tdm_c = dev_get_drvdata(&(ofdev->dev));
-+	dev_set_drvdata(&(ofdev->dev), NULL);
-+	ucc_num = tdm_c->ut_info->uf_info.ucc_num;
-+	ut_info = &utdm_info[ucc_num];
-+	tdm_stop(tdm_c);
-+	tdm_deinit(tdm_c);
-+
-+	ucc_fast_free(tdm_c->uf_private);
-+
-+	dma_free_coherent(NULL, 2 * NR_BUFS * SAMPLE_DEPTH *
-+				tdm_c->cfg_ctrl.active_num_ts,
-+				tdm_c->tdm_input_data,
-+				tdm_c->dma_input_addr);
-+
-+	irq_dispose_mapping(tdm_c->ut_info->uf_info.irq);
-+	iounmap(tdm_c->uf_regs);
-+
-+	num_tdm_devices--;
-+	kfree(tdm_c);
-+
-+	ut_info->ucc_busy = 0;
-+
-+	pr_info("%s UCC based tdm module uninstalled\n", __FUNCTION__);
-+	return 0;
-+}
-+
-+const struct of_device_id ucc_tdm_match[] = {
-+	{ .type = "tdm", .compatible = "fsl,ucc-tdm", },
-+	{},
-+};
-+
-+MODULE_DEVICE_TABLE(of, ucc_tdm_match);
-+
-+static struct of_platform_driver ucc_tdm_driver = {
-+	.name = DRV_NAME,
-+	.match_table = ucc_tdm_match,
-+	.probe = ucc_tdm_probe,
-+	.remove = ucc_tdm_remove,
-+	.driver		= {
-+		.name	= DRV_NAME,
-+		.owner	= THIS_MODULE,
-+	},
-+};
-+
-+static int __init ucc_tdm_init(void)
-+{
-+	u32 i;
-+
-+	pr_info("ucc_tdm: " DRV_DESC "\n");
-+	for (i = 0; i < 8; i++)
-+		memcpy(&(utdm_info[i]), &utdm_primary_info,
-+			sizeof(utdm_primary_info));
-+
-+	return of_register_platform_driver(&ucc_tdm_driver);
-+}
-+
-+static void __exit ucc_tdm_exit(void)
-+{
-+	of_unregister_platform_driver(&ucc_tdm_driver);
-+}
-+
-+module_init(ucc_tdm_init);
-+module_exit(ucc_tdm_exit);
-+MODULE_AUTHOR("Freescale Semiconductor, Inc");
-+MODULE_DESCRIPTION(DRV_DESC);
-+MODULE_LICENSE("GPL");
-diff --git a/drivers/misc/ucc_tdm.h b/drivers/misc/ucc_tdm.h
-new file mode 100644
-index 0000000..eaf2848
---- /dev/null
-+++ b/drivers/misc/ucc_tdm.h
-@@ -0,0 +1,221 @@
-+/*
-+ * drivers/misc/ucc_tdm.h
-+ *
-+ * UCC Based Linux TDM Driver
-+ * This driver is designed to support UCC based TDM for PowerPC processors.
-+ * This driver can interface with SLIC device to run VOIP kind of
-+ * applications.
-+ *
-+ * Author: Ashish Kalra & Poonam Aggrwal
-+ *
-+ * Copyright (c) 2007 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ */
-+
-+#ifndef TDM_H
-+#define TDM_H
-+
-+#define NUM_TS 8
-+#define ACTIVE_CH 8
-+
-+/*  SAMPLE_DEPTH is the sample depth is the number of frames before
-+ * an interrupt.  Must be a multiple of 4
-+ */
-+#define SAMPLE_DEPTH 80
-+
-+/* define the number of Rx interrupts to go by for initial stuttering */
-+#define STUTTER_INT_CNT 1
-+
-+/* BMRx Field Descriptions to specify tstate and rstate in UCC parameter RAM*/
-+#define EN_BUS_SNOOPING 0x20
-+#define BE_BO		0x10
-+
-+/* UPSMR Register for Transparent UCC controller Bit definitions*/
-+#define NBO	0x00000000	/* Normal Mode 1 bit of data per clock */
-+
-+/* SI Mode register bit definitions */
-+#define NORMAL_OPERATION	0x0000
-+#define AUTO_ECHO		0x0400
-+#define INTERNAL_LB		0x0800
-+#define CONTROL_LB		0x0c00
-+#define SIMODE_CRT (0x8000 >> 9)
-+#define SIMODE_SL (0x8000 >> 10)
-+#define SIMODE_CE (0x8000 >> 11)
-+#define SIMODE_FE (0x8000 >> 12)
-+#define SIMODE_GM (0x8000 >> 13)
-+#define SIMODE_TFSD(val) (val)
-+#define SIMODE_RFSD(val) ((val) << 8)
-+
-+#define SI_TDM_MODE_REGISTER_OFFSET	0
-+
-+#define R_CM			0x02000000
-+#define T_CM			0x02000000
-+
-+#define SET_RX_SI_RAM(n, val)		\
-+		out_be16((u16 *)&qe_immr->sir.rx[(n)*2], (u16)(val))
-+
-+#define SET_TX_SI_RAM(n, val)		\
-+		out_be16((u16 *)&qe_immr->sir.tx[(n)*2], (u16)(val))
-+
-+/* SI RAM entries */
-+#define SIR_LAST 0x0001
-+#define SIR_CNT(n) ((n) << 2)
-+#define SIR_BYTE 0x0002
-+#define SIR_BIT  0x0000
-+#define SIR_IDLE  0
-+#define SIR_UCC(uccx)	(((uccx+9)) << 5)
-+
-+/* BRGC Register Bit definitions */
-+#define BRGC_RESET	(0x1<<17)
-+#define BRGC_EN		(0x1<<16)
-+#define BRGC_EXTC_QE	(0x00<<14)
-+#define BRGC_EXTC_CLK3	(0x01<<14)
-+#define BRGC_EXTC_CLK5	(0x01<<15)
-+#define BRGC_EXTC_CLK9	(0x01<<14)
-+#define BRGC_EXTC_CLK11	(0x01<<14)
-+#define BRGC_EXTC_CLK13	(0x01<<14)
-+#define BRGC_EXTC_CLK15	(0x01<<15)
-+#define BRGC_ATB	(0x1<<13)
-+#define BRGC_DIV16	(0x1)
-+
-+/* structure representing UCC transparent parameter RAM */
-+struct ucc_transparent_pram {
-+	__be16 riptr;
-+	__be16 tiptr;
-+	__be16 res0;
-+	__be16 mrblr;
-+	__be32 rstate;
-+	__be32 rbase;
-+	__be16 rbdstat;
-+	__be16 rbdlen;
-+	__be32 rdptr;
-+	__be32 tstate;
-+	__be32 tbase;
-+	__be16 tbdstat;
-+	__be16 tbdlen;
-+	__be32 tdptr;
-+	__be32 rbptr;
-+	__be32 tbptr;
-+	__be32 rcrc;
-+	__be32 res1;
-+	__be32 tcrc;
-+	__be32 res2;
-+	__be32 res3;
-+	__be32 c_mask;
-+	__be32 c_pres;
-+	__be16 disfc;
-+	__be16 crcec;
-+	__be32 res4[4];
-+	__be16 ts_tmp;
-+	__be16 tmp_mb;
-+};
-+
-+#define UCC_TRANSPARENT_PRAM_SIZE	0x100
-+
-+struct tdm_cfg {
-+	u8 com_pin;		/* Common receive and transmit pins
-+				 * 0 = separate pins
-+				 * 1 = common pins
-+				 */
-+
-+	u8 fr_sync_level;	/* SLx bit Frame Sync Polarity
-+				 * 0 = L1R/TSYNC active logic "1"
-+				 * 1 = L1R/TSYNC active logic "0"
-+				 */
-+
-+	u8 clk_edge;		/* CEx bit Tx Rx Clock Edge
-+				 * 0 = TX data on rising edge of clock
-+				 * RX data on falling edge
-+				 * 1 = TX data on falling edge of clock
-+				 * RX data on rising edge
-+				 */
-+
-+	u8 fr_sync_edge;	/* FEx bit Frame sync edge
-+				 * Determine when the sync pulses are sampled
-+				 * 0 = Falling edge
-+				 * 1 = Rising edge
-+				 */
-+
-+	u8 rx_fr_sync_delay;	/* TFSDx/RFSDx bits Frame Sync Delay
-+				 * 00 = no bit delay
-+				 * 01 = 1 bit delay
-+				 * 10 = 2 bit delay
-+				 * 11 = 3 bit delay
-+				 */
-+
-+	u8 tx_fr_sync_delay;	/* TFSDx/RFSDx bits Frame Sync Delay
-+				 * 00 = no bit delay
-+				 * 01 = 1 bit delay
-+				 * 10 = 2 bit delay
-+				 * 11 = 3 bit delay
-+				 */
-+
-+	u8 active_num_ts;	/* Number of active time slots in TDM
-+				 * assume same active Rx/Tx time slots
-+				 */
-+};
-+
-+struct ucc_tdm_info {
-+	struct ucc_fast_info uf_info;
-+	u32	ucc_busy;
-+};
-+
-+struct tdm_ctrl {
-+	u32	device_busy;
-+	struct device *device;
-+	struct ucc_fast_private *uf_private;
-+	struct ucc_tdm_info *ut_info;
-+	u32 tdm_port;		/* port for this tdm:TDMA,TDMB,TDMC,TDMD */
-+	u32 si;			/* serial interface: 0 or 1 */
-+	struct ucc_fast __iomem *uf_regs;	/* UCC Fast registers */
-+	u16 rx_mask[8];		/* Active Receive channels LSB is ch0 */
-+	u16 tx_mask[8];		/* Active Transmit channels LSB is ch0 */
-+	/* Only channels less than the number of FRAME_SIZE are implemented */
-+	struct tdm_cfg cfg_ctrl;	/* Signaling controls configuration */
-+	u8 *tdm_input_data;     /* buffer used for Rx by the tdm */
-+	u8 *tdm_output_data;    /* buffer used for Tx by the tdm */
-+
-+	dma_addr_t dma_input_addr; /* dma mapped buffer for TDM Rx */
-+	dma_addr_t dma_output_addr; /* dma mapped buffer for TDM Tx */
-+	u16 physical_num_ts;	/* physical number of timeslots in the tdm
-+				   frame */
-+	u32 phase_rx;		/* cycles through 0, 1, 2 */
-+	u32 phase_tx;		/* cycles through 0, 1, 2 */
-+	/*
-+	 * the following two variables are for dealing with "stutter" problem
-+	 * "stutter" period is about 20 frames or so, varies depending active
-+	 * channel num depending on the sample depth, the code should let a
-+	 * few Rx interrupts go by
-+	 */
-+	u32 tdm_icnt;
-+	u32 tdm_flag;
-+	struct ucc_transparent_pram __iomem *ucc_pram;
-+	struct qe_bd __iomem *tx_bd;
-+	struct qe_bd __iomem *rx_bd;
-+	u32 ucc_pram_offset;
-+	u32 tx_bd_offset;
-+	u32 rx_bd_offset;
-+	u32 rx_ucode_buf_offset;
-+	u32 tx_ucode_buf_offset;
-+	bool leg_slic;
-+	wait_queue_head_t wakeup_event;
-+};
-+
-+struct tdm_client {
-+		u32 client_id;
-+		void (*tdm_read)(u32 client_id, short chn_id,
-+					short *pcm_buffer, short len);
-+		void (*tdm_write)(u32 client_id, short chn_id,
-+					short *pcm_buffer, short len);
-+		wait_queue_head_t *wakeup_event;
-+	};
-+
-+#define MAX_PHASE 1
-+#define NR_BUFS	2
-+#define EFF_ACTIVE_CH ACTIVE_CH / 2
-+
-+#endif
--- 
-1.5.2.4
+> packets, int fast_rexmit)
+>        tp->lost_skb_hint =3D skb;
+>        tp->lost_cnt_hint =3D cnt;
+>
+> -      if (tcp_is_fack(tp) ||
+> +      if (tcp_is_fack(tp) || tcp_is_reno(tp) ||
+>            (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED))
+>           cnt +=3D tcp_skb_pcount(skb);
+>
+> --
+> 1.5.2.2
 
