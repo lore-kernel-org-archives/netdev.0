@@ -1,95 +1,48 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25][IPV6]: Introduce the INET6_TW_MATCH() macro.
-Date: Thu, 24 Jan 2008 18:54:49 +0300
-Message-ID: <4798B4C9.60608@openvz.org>
+From: Timur Tabi <timur@freescale.com>
+Subject: Re: [PATCH UCC TDM 1/3 Updated] Platform changes for UCC TDM driver
+ for MPC8323eRDB. Also includes related QE changes and dts entries.
+Date: Thu, 24 Jan 2008 09:55:31 -0600
+Message-ID: <4798B4F3.2010101@freescale.com>
+References: <Pine.LNX.4.64.0801241553270.4984@linux121> <20080124154804.GA22178@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Cc: Poonam_Aggrwal-b10812 <b10812@freescale.com>,
+	kumar.gala@freescale.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rubini@vision.unipv.it, linuxppc-dev@ozlabs.org,
+	michael.barkowski@freescale.com, rich.cutler@freescale.com,
+	ashish.kalra@freescale.com
+To: avorontsov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:36551 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752324AbYAXPym (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jan 2008 10:54:42 -0500
+Received: from de01egw02.freescale.net ([192.88.165.103]:36798 "EHLO
+	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752580AbYAXP4L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2008 10:56:11 -0500
+In-Reply-To: <20080124154804.GA22178@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have INET_MATCH, INET_TW_MATCH and INET6_MATCH to test
-sockets and twbuckets for matching, but ipv6 twbuckets are
-tested manually.
+Anton Vorontsov wrote:
 
-Here's the INET6_TW_MATCH to help with it.
+> Can we not introduce new pio-maps in the device trees? There
+> were debates regarding this, and if I understood everything
+> correctly, pio-maps considered as a bad taste. Better
+> do bunch of par_io_config_pin() in the board file. Better
+> yet fixup the firmware (u-boot) to set up dedicated pins
+> correctly.
 
-Since the commit b3652b2dc5ec6ccd946ae9136b30c6babb81305a
-    [IPV6]: Mischecked tw match in __inet6_check_established.
-is accepted this patch will not break the __inet6_check_est.
-logic.
+I'm on the fence with respect to pio-maps vs. par_io_config_pin() calls.  The 
+problem is that the configuration of these pins is board-specific, but pins are 
+used by devices.  A device driver can't call par_io_config_pin(), because the 
+calls are different depending on which SoC and which UCC you're using.  The 
+platform code can't call par_io_config_pin(), because that configuration depends 
+on which drivers are loaded.
 
-This will also help with per-namespace socket lookup patches
-in the nearest future.
+In other words, the pin configurations are dependent on the UCC configurations, 
+and the UCC configurations are stored in the device tree.  So it makes sense to 
+put the pin configurations in the device tree, too.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
-
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 5d35a4c..c347860 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -465,6 +465,14 @@ static inline struct raw6_sock *raw6_sk(const struct sock *sk)
- 	 ipv6_addr_equal(&inet6_sk(__sk)->rcv_saddr, (__daddr))	&& \
- 	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))))
- 
-+#define INET6_TW_MATCH(__sk, __hash, __saddr, __daddr, __ports, __dif) \
-+	(((__sk)->sk_hash == (__hash))					&& \
-+	 (*((__portpair *)&(inet_twsk(__sk)->tw_dport)) == (__ports))	&& \
-+	 ((__sk)->sk_family	       == PF_INET6)			&& \
-+	 (ipv6_addr_equal(&inet6_twsk(__sk)->tw_v6_daddr, (__saddr)))	&& \
-+	 (ipv6_addr_equal(&inet6_twsk(__sk)->tw_v6_rcv_saddr, (__daddr))) && \
-+	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))))
-+
- #endif /* __KERNEL__ */
- 
- #endif /* _IPV6_H */
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index d0b3447..06b01be 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -80,17 +80,8 @@ struct sock *__inet6_lookup_established(struct inet_hashinfo *hashinfo,
- 	}
- 	/* Must check for a TIME_WAIT'er before going to listener hash. */
- 	sk_for_each(sk, node, &head->twchain) {
--		const struct inet_timewait_sock *tw = inet_twsk(sk);
--
--		if(*((__portpair *)&(tw->tw_dport))	== ports	&&
--		   sk->sk_family		== PF_INET6) {
--			const struct inet6_timewait_sock *tw6 = inet6_twsk(sk);
--
--			if (ipv6_addr_equal(&tw6->tw_v6_daddr, saddr)	&&
--			    ipv6_addr_equal(&tw6->tw_v6_rcv_saddr, daddr)	&&
--			    (!sk->sk_bound_dev_if || sk->sk_bound_dev_if == dif))
--				goto hit;
--		}
-+		if (INET6_TW_MATCH(sk, hash, saddr, daddr, ports, dif))
-+			goto hit;
- 	}
- 	read_unlock(lock);
- 	return NULL;
-@@ -185,15 +176,9 @@ static int __inet6_check_established(struct inet_timewait_death_row *death_row,
- 
- 	/* Check TIME-WAIT sockets first. */
- 	sk_for_each(sk2, node, &head->twchain) {
--		const struct inet6_timewait_sock *tw6 = inet6_twsk(sk2);
--
- 		tw = inet_twsk(sk2);
- 
--		if(*((__portpair *)&(tw->tw_dport)) == ports		 &&
--		   sk2->sk_family	       == PF_INET6	 &&
--		   ipv6_addr_equal(&tw6->tw_v6_daddr, saddr)	 &&
--		   ipv6_addr_equal(&tw6->tw_v6_rcv_saddr, daddr) &&
--		   sk2->sk_bound_dev_if == sk->sk_bound_dev_if) {
-+		if (INET6_TW_MATCH(sk2, hash, saddr, daddr, ports, dif)) {
- 			if (twsk_unique(sk, sk2, twp))
- 				goto unique;
- 			else
+-- 
+Timur Tabi
+Linux kernel developer at Freescale
