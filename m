@@ -1,177 +1,152 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25][NETNS]: Fix race between put_net() and netlink_kernel_create().
-Date: Thu, 24 Jan 2008 16:15:13 +0300
-Message-ID: <47988F61.9070505@openvz.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 9808] New: system hung with htb QoS
+Date: Thu, 24 Jan 2008 06:11:57 -0800
+Message-ID: <20080124061157.3512a308.akpm@linux-foundation.org>
+References: <bug-9808-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Denis Lunev <den@openvz.org>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org,
-	Alexey Dobriyan <adobriyan@openvz.org>
-To: David Miller <davem@davemloft.net>
+Cc: bilias@edu.physics.uoc.gr, bugme-daemon@bugzilla.kernel.org,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:53505 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752785AbYAXNPJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jan 2008 08:15:09 -0500
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:53588 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751608AbYAXOMd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2008 09:12:33 -0500
+In-Reply-To: <bug-9808-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The comment about "race free view of the set of network 
-namespaces" was a bit hasty. Look (there even can be only 
-one CPU, as discovered by Alexey Dobriyan and Denis Lunev):
-
-put_net()
-  if (atomic_dec_and_test(&net->refcnt))
-    /* true */
-      __put_net(net);
-        queue_work(...);
-
-/*
- * note: the net now has refcnt 0, but still in
- * the global list of net namespaces
- */
-
-== re-schedule ==
-
-register_pernet_subsys(&some_ops);
-  register_pernet_operations(&some_ops);
-    (*some_ops)->init(net);
-      /*
-       * we call netlink_kernel_create() here
-       * in some places
-       */
-      netlink_kernel_create();
-         sk_alloc();
-            get_net(net); /* refcnt = 1 */
-         /*
-          * now we drop the net refcount not to
-          * block the net namespace exit in the
-          * future (or this can be done on the 
-          * error path)
-          */
-         put_net(sk->sk_net);
-             if (atomic_dec_and_test(&...))
-                   /*
-                    * true. BOOOM! The net is
-                    * scheduled for release twice
-                    */
-
-When thinking on this problem, I decided, that getting and
-putting the net in init callback is wrong. If some init
-callback needs to have a refcount-less reference on the struct
-net, _it_ has to be careful himself, rather than relying on
-the infrastructure to handle this correctly.
-
-In case of netlink_kernel_create(), the problem is that the
-sk_alloc() gets the given namespace, but passing the info
-that we don't want to get it inside this call is too heavy.
-
-Instead, I propose to crate the socket inside an init_net
-namespace and then re-attach it to the desired one right
-after the socket is created.
-
-After doing this, we also have to be careful on error paths
-not to drop the reference on the namespace, we didn't get
-the one on.
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-Acked-by: Denis Lunev <den@openvz.org>
-
----
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 6b178e1..ff9fb6b 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1344,6 +1344,22 @@ static void netlink_data_ready(struct sock *sk, int len)
-  *	queueing.
-  */
- 
-+static void __netlink_release(struct sock *sk)
-+{
-+	/*
-+	 * Last sock_put should drop referrence to sk->sk_net. It has already
-+	 * been dropped in netlink_kernel_create. Taking referrence to stopping
-+	 * namespace is not an option.
-+	 * Take referrence to a socket to remove it from netlink lookup table
-+	 * _alive_ and after that destroy it in the context of init_net.
-+	 */
-+
-+	sock_hold(sk);
-+	sock_release(sk->sk_socket);
-+	sk->sk_net = get_net(&init_net);
-+	sock_put(sk);
-+}
-+
- struct sock *
- netlink_kernel_create(struct net *net, int unit, unsigned int groups,
- 		      void (*input)(struct sk_buff *skb),
-@@ -1362,8 +1378,18 @@ netlink_kernel_create(struct net *net, int unit, unsigned int groups,
- 	if (sock_create_lite(PF_NETLINK, SOCK_DGRAM, unit, &sock))
- 		return NULL;
- 
--	if (__netlink_create(net, sock, cb_mutex, unit) < 0)
--		goto out_sock_release;
-+	/*
-+	 * We have to just have a reference on the net from sk, but don't
-+	 * get_net it. Besides, we cannot get and then put the net here.
-+	 * So we create one inside init_net and the move it to net.
-+	 */
-+
-+	if (__netlink_create(&init_net, sock, cb_mutex, unit) < 0)
-+		goto out_sock_release_nosk;
-+
-+	sk = sock->sk;
-+	put_net(sk->sk_net);
-+	sk->sk_net = net;
- 
- 	if (groups < 32)
- 		groups = 32;
-@@ -1372,7 +1398,6 @@ netlink_kernel_create(struct net *net, int unit, unsigned int groups,
- 	if (!listeners)
- 		goto out_sock_release;
- 
--	sk = sock->sk;
- 	sk->sk_data_ready = netlink_data_ready;
- 	if (input)
- 		nlk_sk(sk)->netlink_rcv = input;
-@@ -1395,14 +1420,14 @@ netlink_kernel_create(struct net *net, int unit, unsigned int groups,
- 		nl_table[unit].registered++;
- 	}
- 	netlink_table_ungrab();
--
--	/* Do not hold an extra referrence to a namespace as this socket is
--	 * internal to a namespace and does not prevent it to stop. */
--	put_net(net);
- 	return sk;
- 
- out_sock_release:
- 	kfree(listeners);
-+	__netlink_release(sk);
-+	return NULL;
-+
-+out_sock_release_nosk:
- 	sock_release(sock);
- 	return NULL;
- }
-@@ -1415,18 +1440,7 @@ netlink_kernel_release(struct sock *sk)
- 	if (sk == NULL || sk->sk_socket == NULL)
- 		return;
- 
--	/*
--	 * Last sock_put should drop referrence to sk->sk_net. It has already
--	 * been dropped in netlink_kernel_create. Taking referrence to stopping
--	 * namespace is not an option.
--	 * Take referrence to a socket to remove it from netlink lookup table
--	 * _alive_ and after that destroy it in the context of init_net.
--	 */
--	sock_hold(sk);
--	sock_release(sk->sk_socket);
--
--	sk->sk_net = get_net(&init_net);
--	sock_put(sk);
-+	__netlink_release(sk);
- }
- EXPORT_SYMBOL(netlink_kernel_release);
- 
+> On Thu, 24 Jan 2008 03:03:11 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+> http://bugzilla.kernel.org/show_bug.cgi?id=9808
+> 
+>            Summary: system hung with htb QoS
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.23.9
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Fedora
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Netfilter/Iptables
+>         AssignedTo: networking_netfilter-iptables@kernel-bugs.osdl.org
+>         ReportedBy: bilias@edu.physics.uoc.gr
+> 
+> 
+> Hi,
+> 
+> I've setup QoS on my ftp server to limit outgoing traffic. Apparently the
+> server
+> stops responding (no output no keyboard) in an unpredictable manner. Sometimes
+> it 
+> takes an hour, sometimes up to 4 days for the system to hung.
+> 
+> I have attached my QoS startup script, dmesg output,
+> lspci -vvv, iptables that interact with QoS.
+> 
+> I'm also receiving this quite often:
+> Jan 15 12:23:17 ftp kernel: e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit
+> Hang
+> Jan 15 12:23:17 ftp kernel:   Tx Queue             <0>
+> Jan 15 12:23:17 ftp kernel:   TDH                  <2a>
+> Jan 15 12:23:17 ftp kernel:   TDT                  <17>
+> Jan 15 12:23:17 ftp kernel:   next_to_use          <17>
+> Jan 15 12:23:17 ftp kernel:   next_to_clean        <2a>
+> Jan 15 12:23:17 ftp kernel: buffer_info[next_to_clean]
+> Jan 15 12:23:17 ftp kernel:   time_stamp           <5798144>
+> Jan 15 12:23:17 ftp kernel:   next_to_watch        <2d>
+> Jan 15 12:23:17 ftp kernel:   jiffies              <57988ef>
+> Jan 15 12:23:17 ftp kernel:   next_to_watch.status <0>
+> Jan 15 12:23:19 ftp kernel: e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit
+> Hang
+> 
+> Today for the first time (after applying options to e1000 driver in
+> modprobe.conf) I got a kernel panic:
+> 
+> BUG: unable to handle kernel paging request at virtual address a0379120
+> EIP: 0060: [<c05db2dc>] Not Tainted VLI
+> EIP is at ip_rcv+0x286/0x4ba
+> Kernel panic - not syncing: Fatal exception in interrupt
+> 
+> This is what I wrote on paper cause there wasn't logged anywhere.
+> Usually it hungs without a kernel panic.
+> 
+> System in Fedoca Core 8 up2date
+> 2.6.23.9-85.fc8PAE
+> 2x Intel(R) Xeon(TM) CPU 3.20GHz
+> 4G RAM
+> 
+> Without the QoS loaded system never hungs. It must be related to this. However
+> the e1000 error I'm receiving must have to do with the e1000 driver. I've seen
+> this bug in the past that's why I tried to apply the options in modprobe.conf
+> 
+> any help will be appreciated
+> thanx in advance 
+> 
+> Giannis
+> 
+> QoS startup script:
+> # default WAN limit
+> LIMIT="80mbit"
+> LOW_LIMIT="50mbit"
+> 
+> start() {
+>         echo -n "Starting QoS: (WAN limit set to ${LIMIT})"
+> tc qdisc del dev eth0 root    2> /dev/null > /dev/null
+> tc qdisc del dev eth0 ingress 2> /dev/null > /dev/null
+> ADD_CLASS="tc class add dev eth0 "
+> ###### uplink
+> # install root HTB, point default traffic to 1:25
+> tc qdisc add dev eth0 root handle 1: htb  default 25
+> 
+> tc class add dev eth0 parent 1: classid 1:1 htb rate 1000mbit
+> # class for outgoing SYN packets + Minimize-Delay TOS
+> ${ADD_CLASS} parent 1:1 classid 1:11 htb rate 2mbit ceil 5mbit prio 1
+> # class for internal LAN traffic
+> ${ADD_CLASS} parent 1:1 classid 1:12 htb rate 500mbit ceil 800mbit prio 2
+> # class for WAN traffic
+> ${ADD_CLASS} parent 1:1 classid 1:2 htb rate ${LIMIT} ceil ${LIMIT} prio 3
+> # class for WAN http traffic
+> ${ADD_CLASS} parent 1:2 classid 1:24 htb rate 30mbit ceil ${LIMIT} prio 4
+> # default class, rest WAN traffic
+> ${ADD_CLASS} parent 1:2 classid 1:25 htb rate 20mbit ceil ${LIMIT} prio 5
+> 
+> tc filter add dev eth0 protocol ip parent 1:0 prio 1 handle 1 fw flowid 1:11
+> tc filter add dev eth0 protocol ip parent 1:0 prio 2 handle 2 fw flowid 1:12
+> tc filter add dev eth0 protocol ip parent 1:0 prio 4 u32 \
+>         match ip sport 80 0xffff flowid 1:24
+> 
+> tc qdisc add dev eth0 parent 1:11 handle 11: sfq perturb 10
+> tc qdisc add dev eth0 parent 1:12 handle 12: sfq perturb 10
+> tc qdisc add dev eth0 parent 1:24 handle 24: sfq perturb 10
+> tc qdisc add dev eth0 parent 1:25 handle 25: sfq perturb 10
+> 
+>         echo
+> }
+> 
+> stop() {
+>         echo -n "Stopping QoS: "
+>         tc qdisc del dev eth0 root    2> /dev/null > /dev/null
+>         tc qdisc del dev eth0 ingress 2> /dev/null > /dev/null
+>         echo
+> }
+> 
+> -------------------
+> QoS startup script: http://www.edu.physics.uoc.gr/~bilias/ftp/QoS
+> dmesg: http://www.edu.physics.uoc.gr/~bilias/ftp/dmesg
+> lspci -vvv: http://www.edu.physics.uoc.gr/~bilias/ftp/lspci
+> iptables for QoS: http://www.edu.physics.uoc.gr/~bilias/ftp/iptables
+> 
+> modprobe.conf options for e1000: 
+> options e1000 XsumRX=0 Speed=1000 Duplex=2 InterruptThrottleRate=0
+> FlowControl=3 RxDescriptors=4096 TxDescriptors=4096 RxIntDelay=0 TxIntDelay=0
+> 
+> 
+> -- 
+> Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
+> ------- You are receiving this mail because: -------
+> You are on the CC list for the bug, or are watching someone who is.
