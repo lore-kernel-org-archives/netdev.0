@@ -1,86 +1,95 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: [PATCH UCC TDM 1/3 Updated] Platform changes for UCC TDM driver for MPC8323eRDB. Also includes related QE changes and dts entries.
-Date: Thu, 24 Jan 2008 18:48:04 +0300
-Message-ID: <20080124154804.GA22178@localhost.localdomain>
-References: <Pine.LNX.4.64.0801241553270.4984@linux121>
-Reply-To: avorontsov@ru.mvista.com
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.25][IPV6]: Introduce the INET6_TW_MATCH() macro.
+Date: Thu, 24 Jan 2008 18:54:49 +0300
+Message-ID: <4798B4C9.60608@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: kumar.gala@freescale.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rubini@vision.unipv.it, linuxppc-dev@ozlabs.org,
-	michael.barkowski@freescale.com, rich.cutler@freescale.com,
-	ashish.kalra@freescale.com, timur@freescale.com
-To: Poonam_Aggrwal-b10812 <b10812@freescale.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:4522 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752623AbYAXPsU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2008 10:48:20 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0801241553270.4984@linux121>
+Received: from sacred.ru ([62.205.161.221]:36551 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752324AbYAXPym (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jan 2008 10:54:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Poonam,
+We have INET_MATCH, INET_TW_MATCH and INET6_MATCH to test
+sockets and twbuckets for matching, but ipv6 twbuckets are
+tested manually.
 
-On Thu, Jan 24, 2008 at 04:00:06PM +0530, Poonam_Aggrwal-b10812 wrote:
-> Thanks Stephen for your comments, incorporated them.
-> From: Poonam Aggrwal <b10812@freescale.com>
-> 
-> This patch makes necessary changes in the QE and UCC framework to support 
-> TDM. It also adds support to configure the BRG properly through device 
-> tree entries. Includes the device tree changes for UCC TDM driver as well.
-> It also includes device tree entries for UCC TDM driver.
-> 
-> Tested on MPC8323ERDB platform.
-> 
-> Signed-off-by: Poonam Aggrwal <b10812@freescale.com>
-> Signed-off-by: Ashish Kalra <ashish.kalra@freescale.com>
-> Signed-off-by: Kim Phillips <Kim.Phillips@freescale.com>
-> Signed-off-by: Michael Barkowski <michael.barkowski@freescale.com>
-> ---
->  arch/powerpc/boot/dts/mpc832x_rdb.dts |   58 +++++++
->  arch/powerpc/sysdev/qe_lib/qe.c       |  184 +++++++++++++++++++++--
->  arch/powerpc/sysdev/qe_lib/ucc.c      |  265 +++++++++++++++++++++++++++++++++
->  arch/powerpc/sysdev/qe_lib/ucc_fast.c |   37 +++++
->  include/asm-powerpc/qe.h              |    8 +
->  include/asm-powerpc/ucc.h             |    4 +
->  include/asm-powerpc/ucc_fast.h        |    4 +
->  7 files changed, 548 insertions(+), 12 deletions(-)
-> 
-> diff --git a/arch/powerpc/boot/dts/mpc832x_rdb.dts b/arch/powerpc/boot/dts/mpc832x_rdb.dts
-> index 388c8a7..c0e6283 100644
-> --- a/arch/powerpc/boot/dts/mpc832x_rdb.dts
-> +++ b/arch/powerpc/boot/dts/mpc832x_rdb.dts
-> @@ -105,6 +105,17 @@
->  			device_type = "par_io";
->  			num-ports = <7>;
->  
-> +			ucc1pio:ucc_pin@01 {
-> +				pio-map = <
-> +			/* port  pin  dir  open_drain  assignment  has_irq */
-> +					0  e  2  0  1  0	/* CLK11 */
-> +					3 16  1  0  2  0	/* BRG9 */
-> +					3 1b  1  0  2  0	/* BRG3 */
-> +					0  0  3  0  2  0	/* TDMATxD0 */
-> +					0  4  3  0  2  0	/* TDMARxD0 */
-> +					3 1b  2  0  1  0>;	/* CLK1 */
-> +			};
-> +
+Here's the INET6_TW_MATCH to help with it.
 
-Can we not introduce new pio-maps in the device trees? There
-were debates regarding this, and if I understood everything
-correctly, pio-maps considered as a bad taste. Better
-do bunch of par_io_config_pin() in the board file. Better
-yet fixup the firmware (u-boot) to set up dedicated pins
-correctly.
+Since the commit b3652b2dc5ec6ccd946ae9136b30c6babb81305a
+    [IPV6]: Mischecked tw match in __inet6_check_established.
+is accepted this patch will not break the __inet6_check_est.
+logic.
 
+This will also help with per-namespace socket lookup patches
+in the nearest future.
 
-Thanks,
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
--- 
-Anton Vorontsov
-email: cbou@mail.ru
-backup email: ya-cbou@yandex.ru
-irc://irc.freenode.net/bd2
+---
+
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 5d35a4c..c347860 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -465,6 +465,14 @@ static inline struct raw6_sock *raw6_sk(const struct sock *sk)
+ 	 ipv6_addr_equal(&inet6_sk(__sk)->rcv_saddr, (__daddr))	&& \
+ 	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))))
+ 
++#define INET6_TW_MATCH(__sk, __hash, __saddr, __daddr, __ports, __dif) \
++	(((__sk)->sk_hash == (__hash))					&& \
++	 (*((__portpair *)&(inet_twsk(__sk)->tw_dport)) == (__ports))	&& \
++	 ((__sk)->sk_family	       == PF_INET6)			&& \
++	 (ipv6_addr_equal(&inet6_twsk(__sk)->tw_v6_daddr, (__saddr)))	&& \
++	 (ipv6_addr_equal(&inet6_twsk(__sk)->tw_v6_rcv_saddr, (__daddr))) && \
++	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))))
++
+ #endif /* __KERNEL__ */
+ 
+ #endif /* _IPV6_H */
+diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
+index d0b3447..06b01be 100644
+--- a/net/ipv6/inet6_hashtables.c
++++ b/net/ipv6/inet6_hashtables.c
+@@ -80,17 +80,8 @@ struct sock *__inet6_lookup_established(struct inet_hashinfo *hashinfo,
+ 	}
+ 	/* Must check for a TIME_WAIT'er before going to listener hash. */
+ 	sk_for_each(sk, node, &head->twchain) {
+-		const struct inet_timewait_sock *tw = inet_twsk(sk);
+-
+-		if(*((__portpair *)&(tw->tw_dport))	== ports	&&
+-		   sk->sk_family		== PF_INET6) {
+-			const struct inet6_timewait_sock *tw6 = inet6_twsk(sk);
+-
+-			if (ipv6_addr_equal(&tw6->tw_v6_daddr, saddr)	&&
+-			    ipv6_addr_equal(&tw6->tw_v6_rcv_saddr, daddr)	&&
+-			    (!sk->sk_bound_dev_if || sk->sk_bound_dev_if == dif))
+-				goto hit;
+-		}
++		if (INET6_TW_MATCH(sk, hash, saddr, daddr, ports, dif))
++			goto hit;
+ 	}
+ 	read_unlock(lock);
+ 	return NULL;
+@@ -185,15 +176,9 @@ static int __inet6_check_established(struct inet_timewait_death_row *death_row,
+ 
+ 	/* Check TIME-WAIT sockets first. */
+ 	sk_for_each(sk2, node, &head->twchain) {
+-		const struct inet6_timewait_sock *tw6 = inet6_twsk(sk2);
+-
+ 		tw = inet_twsk(sk2);
+ 
+-		if(*((__portpair *)&(tw->tw_dport)) == ports		 &&
+-		   sk2->sk_family	       == PF_INET6	 &&
+-		   ipv6_addr_equal(&tw6->tw_v6_daddr, saddr)	 &&
+-		   ipv6_addr_equal(&tw6->tw_v6_rcv_saddr, daddr) &&
+-		   sk2->sk_bound_dev_if == sk->sk_bound_dev_if) {
++		if (INET6_TW_MATCH(sk2, hash, saddr, daddr, ports, dif)) {
+ 			if (twsk_unique(sk, sk2, twp))
+ 				goto unique;
+ 			else
