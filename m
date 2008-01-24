@@ -1,39 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV4 3/5] fib_trie: dump doesnt use RCU
-Date: Wed, 23 Jan 2008 23:27:47 -0800 (PST)
-Message-ID: <20080123.232747.75654058.davem@davemloft.net>
-References: <20080123.205007.16809712.davem@davemloft.net>
-	<47983304.3030309@trash.net>
-	<479833EE.1090905@linux-foundation.org>
+Subject: Re: [PATCH 2.6.25 1/1]S2io: Multiqueue network device support
+ implementation
+Date: Wed, 23 Jan 2008 23:30:06 -0800 (PST)
+Message-ID: <20080123.233006.124819204.davem@davemloft.net>
+References: <p73odbclsft.fsf@crumb.suse.de>
+	<78C9135A3D2ECE4B8162EBDCE82CAD7702E70E92@nekter>
+	<20080124072549.GA6814@one.firstfloor.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: Ramkrishna.Vepa@neterion.com, Sreenivasa.Honnur@neterion.com,
+	netdev@vger.kernel.org, jeff@garzik.org, support@neterion.com
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60180
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60184
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750928AbYAXH1h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2008 02:27:37 -0500
-In-Reply-To: <479833EE.1090905@linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1752597AbYAXH35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2008 02:29:57 -0500
+In-Reply-To: <20080124072549.GA6814@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 23 Jan 2008 22:45:02 -0800
+From: Andi Kleen <andi@firstfloor.org>
+Date: Thu, 24 Jan 2008 08:25:49 +0100
 
-> Yes, I tested, no the assert didn't hit... Actually, the reason I went 
-> down this path was
-> because I couldn't trigger -EBUSY with concurrent updates.
+> > have done away with handling tx completion in the interrupt handler, and
+> > are instead handling them in the context of the transmit. The slow path,
+> > straggling transmit completions will be handled in the timer context.
 > 
-> P.s: I checked and Quagga handles -EAGAIN, so if you need an error code that
-> would be the one to use.
+> Ok -- hopefully you don't have bad corner cases from this when the pipe
+> is not fully filled and then causing longer latencies on completion. 
+> Old NAPI sometimes suffered from such problems. 
 
-Ok, but see my other email, the -EBUSY block can't be removed.
+BTW, such a TX completion timer will stall TCP sockets when the TX
+queue of the device is partially filled and then sending stops.
 
-Even though for any given ->dump() call RTNL is held, it
-is dropped before the next ->dump() call on the same
-piece of nlk->cb[] state.
+TX ring SKB liberation really must be done in a very small finite
+amount of time in order to avoid this problem properly.
 
-So the node for the nlk->cb->args[2] key can go away due
-to an intervening table change.
+Deferring it to HZ granular timers doesn't give a quick enough
+response, especially at high packet rates.
