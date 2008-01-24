@@ -1,245 +1,310 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [XFRM]: constify 'struct xfrm_type'
-Date: Thu, 24 Jan 2008 12:26:21 +0100
-Message-ID: <20080124122621.3248c651.dada1@cosmosbay.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH net-2.6.25] Add packet filtering based on process's security context.
+Date: Thu, 24 Jan 2008 20:47:55 +0900
+Message-ID: <200801242047.JEI35479.OJLFHMtOOFQFVS@I-love.SAKURA.ne.jp>
+References: <200801230016.EGG34399.QFtVHFSJFMOOLO@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-security-module@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:38178 "EHLO pfx2.jmh.fr"
+Received: from wine.ocn.ne.jp ([122.1.235.145]:50954 "EHLO smtp.wine.ocn.ne.jp"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752237AbYAXL00 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jan 2008 06:26:26 -0500
+	id S1753050AbYAXLr6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jan 2008 06:47:58 -0500
+In-Reply-To: <200801230016.EGG34399.QFtVHFSJFMOOLO@I-love.SAKURA.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Hello.
 
- include/net/xfrm.h      |    8 ++++----
- net/ipv4/ah4.c          |    2 +-
- net/ipv4/esp4.c         |    2 +-
- net/ipv4/ipcomp.c       |    2 +-
- net/ipv4/xfrm4_tunnel.c |    2 +-
- net/ipv6/ah6.c          |    2 +-
- net/ipv6/esp6.c         |    2 +-
- net/ipv6/ipcomp6.c      |    2 +-
- net/ipv6/mip6.c         |    4 ++--
- net/ipv6/xfrm6_tunnel.c |    2 +-
- net/xfrm/xfrm_state.c   |   16 ++++++++--------
- 11 files changed, 22 insertions(+), 22 deletions(-)
+Are there any remaining questions/problems about this patch?
+If none, I want this patch applied to net-2.6.25 tree.
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 5ebb9ba..02d9b1e 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -201,7 +201,7 @@ struct xfrm_state
+Regards.
+
+---------------
+This patch modifies security_socket_post_accept() and introduces
+security_socket_post_recv_datagram() LSM hooks.
+
+Currently, security_socket_post_accept() is called *after* fd_install()
+at sys_accept(). This means that userland process might access accept()ed
+but not yet properly labeled socket.
+I believe this security_socket_post_accept() should be called *before*
+fd_install() for the three reasons.
+
+ * The userland process will always access proper context labeled by
+   security_socket_post_accept() rather than default context labeled by
+   security_inode_alloc() (called from alloc_inode() from new_inode() from
+   sock_alloc() from sys_accept()). This gives a security module
+   a chance to perform access control based on proper context.
+
+ * If security_socket_post_accept() failed to assign proper context
+   (e.g. -ENOMEM), the accept()ed socket can't have proper context.
+   Use of void for security_socket_post_accept() deprives a security module
+   of a chance to abandon the accept()ed socket.
+
+ * A security module can perform connection filtering based on
+   process's security context.
+   If security_socket_post_accept() is called after fd_install(),
+   it is too late to do so because the accept()ed socket is already visible
+   to userland processes.
+
+
+Currently, there is no way to directly map security context from incoming
+packet to user process. This is because the creator or owner of a socket is
+not always the receiver of an incoming packet. The userland process who
+receives the incoming packet is not known until a process calls sys_recvmsg().
+So, I want to add a LSM hook to give a security module a chance to control
+after the recipient of the incoming packet is known.
+
+Signed-off-by: Kentaro Takeda <takedakn@nttdata.co.jp>
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+---
+ include/linux/security.h |   34 +++++++++++++++++++++++++++++-----
+ net/core/datagram.c      |   29 ++++++++++++++++++++++++++++-
+ net/socket.c             |    7 +++++--
+ security/dummy.c         |   13 ++++++++++---
+ security/security.c      |   10 ++++++++--
+ 5 files changed, 80 insertions(+), 13 deletions(-)
+
+--- net-2.6.25.orig/include/linux/security.h
++++ net-2.6.25/include/linux/security.h
+@@ -781,8 +781,12 @@ struct request_sock;
+  * @socket_post_accept:
+  *	This hook allows a security module to copy security
+  *	information into the newly created socket's inode.
++ *	This hook also allows a security module to filter connections
++ *	from unwanted peers based on the process accepting this connection.
++ *	The connection will be aborted if this hook returns nonzero.
+  *	@sock contains the listening socket structure.
+  *	@newsock contains the newly created server socket for connection.
++ *	Return 0 if permission is granted.
+  * @socket_sendmsg:
+  *	Check permission before transmitting a message to another socket.
+  *	@sock contains the socket structure.
+@@ -796,6 +800,15 @@ struct request_sock;
+  *	@size contains the size of message structure.
+  *	@flags contains the operational flags.
+  *	Return 0 if permission is granted.  
++ * @socket_post_recv_datagram:
++ *	Check permission after receiving a datagram.
++ *	This hook allows a security module to filter packets
++ *	from unwanted peers based on the process receiving this datagram.
++ *	The packet will be discarded if this hook returns nonzero.
++ *	@sk contains the socket.
++ *	@skb contains the socket buffer.
++ *	@flags contains the operational flags.
++ *	Return 0 if permission is granted.
+  * @socket_getsockname:
+  *	Check permission before the local address (name) of the socket object
+  *	@sock is retrieved.
+@@ -1387,12 +1400,13 @@ struct security_operations {
+ 			       struct sockaddr * address, int addrlen);
+ 	int (*socket_listen) (struct socket * sock, int backlog);
+ 	int (*socket_accept) (struct socket * sock, struct socket * newsock);
+-	void (*socket_post_accept) (struct socket * sock,
+-				    struct socket * newsock);
++	int (*socket_post_accept) (struct socket *sock, struct socket *newsock);
+ 	int (*socket_sendmsg) (struct socket * sock,
+ 			       struct msghdr * msg, int size);
+ 	int (*socket_recvmsg) (struct socket * sock,
+ 			       struct msghdr * msg, int size, int flags);
++	int (*socket_post_recv_datagram) (struct sock *sk, struct sk_buff *skb,
++					  unsigned int flags);
+ 	int (*socket_getsockname) (struct socket * sock);
+ 	int (*socket_getpeername) (struct socket * sock);
+ 	int (*socket_getsockopt) (struct socket * sock, int level, int optname);
+@@ -2297,10 +2311,12 @@ int security_socket_bind(struct socket *
+ int security_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen);
+ int security_socket_listen(struct socket *sock, int backlog);
+ int security_socket_accept(struct socket *sock, struct socket *newsock);
+-void security_socket_post_accept(struct socket *sock, struct socket *newsock);
++int security_socket_post_accept(struct socket *sock, struct socket *newsock);
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size);
+ int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
+ 			    int size, int flags);
++int security_socket_post_recv_datagram(struct sock *sk, struct sk_buff *skb,
++				       unsigned int flags);
+ int security_socket_getsockname(struct socket *sock);
+ int security_socket_getpeername(struct socket *sock);
+ int security_socket_getsockopt(struct socket *sock, int level, int optname);
+@@ -2376,9 +2392,10 @@ static inline int security_socket_accept
+ 	return 0;
+ }
  
- 	/* Reference to data common to all the instances of this
- 	 * transformer. */
--	struct xfrm_type	*type;
-+	const struct xfrm_type	*type;
- 	struct xfrm_mode	*inner_mode;
- 	struct xfrm_mode	*outer_mode;
+-static inline void security_socket_post_accept(struct socket * sock, 
+-					       struct socket * newsock)
++static inline int security_socket_post_accept(struct socket *sock,
++					      struct socket *newsock)
+ {
++	return 0;
+ }
  
-@@ -278,7 +278,7 @@ struct xfrm_state_afinfo {
- 	unsigned int		proto;
- 	unsigned int		eth_proto;
- 	struct module		*owner;
--	struct xfrm_type	*type_map[IPPROTO_MAX];
-+	const struct xfrm_type	*type_map[IPPROTO_MAX];
- 	struct xfrm_mode	*mode_map[XFRM_MODE_MAX];
- 	int			(*init_flags)(struct xfrm_state *x);
- 	void			(*init_tempsel)(struct xfrm_state *x, struct flowi *fl,
-@@ -321,8 +321,8 @@ struct xfrm_type
- 	u32			(*get_mtu)(struct xfrm_state *, int size);
- };
+ static inline int security_socket_sendmsg(struct socket * sock, 
+@@ -2394,6 +2411,13 @@ static inline int security_socket_recvms
+ 	return 0;
+ }
  
--extern int xfrm_register_type(struct xfrm_type *type, unsigned short family);
--extern int xfrm_unregister_type(struct xfrm_type *type, unsigned short family);
-+extern int xfrm_register_type(const struct xfrm_type *type, unsigned short family);
-+extern int xfrm_unregister_type(const struct xfrm_type *type, unsigned short family);
++static inline int security_socket_post_recv_datagram(struct sock *sk,
++						     struct sk_buff *skb,
++						     unsigned int flags)
++{
++	return 0;
++}
++
+ static inline int security_socket_getsockname(struct socket * sock)
+ {
+ 	return 0;
+--- net-2.6.25.orig/net/socket.c
++++ net-2.6.25/net/socket.c
+@@ -1454,13 +1454,16 @@ asmlinkage long sys_accept(int fd, struc
+ 			goto out_fd;
+ 	}
  
- struct xfrm_mode {
++	/* Filter connections from unwanted peers. */
++	err = security_socket_post_accept(sock, newsock);
++	if (err)
++		goto out_fd;
++
+ 	/* File flags are not inherited via accept() unlike another OSes. */
+ 
+ 	fd_install(newfd, newfile);
+ 	err = newfd;
+ 
+-	security_socket_post_accept(sock, newsock);
+-
+ out_put:
+ 	fput_light(sock->file, fput_needed);
+ out:
+--- net-2.6.25.orig/security/dummy.c
++++ net-2.6.25/security/dummy.c
+@@ -748,10 +748,10 @@ static int dummy_socket_accept (struct s
+ 	return 0;
+ }
+ 
+-static void dummy_socket_post_accept (struct socket *sock, 
+-				      struct socket *newsock)
++static int dummy_socket_post_accept(struct socket *sock,
++				    struct socket *newsock)
+ {
+-	return;
++	return 0;
+ }
+ 
+ static int dummy_socket_sendmsg (struct socket *sock, struct msghdr *msg,
+@@ -766,6 +766,12 @@ static int dummy_socket_recvmsg (struct 
+ 	return 0;
+ }
+ 
++static int dummy_socket_post_recv_datagram(struct sock *sk, struct sk_buff *skb,
++					   unsigned int flags)
++{
++	return 0;
++}
++
+ static int dummy_socket_getsockname (struct socket *sock)
+ {
+ 	return 0;
+@@ -1099,6 +1105,7 @@ void security_fixup_ops (struct security
+ 	set_to_dummy_if_null(ops, socket_post_accept);
+ 	set_to_dummy_if_null(ops, socket_sendmsg);
+ 	set_to_dummy_if_null(ops, socket_recvmsg);
++	set_to_dummy_if_null(ops, socket_post_recv_datagram);
+ 	set_to_dummy_if_null(ops, socket_getsockname);
+ 	set_to_dummy_if_null(ops, socket_getpeername);
+ 	set_to_dummy_if_null(ops, socket_setsockopt);
+--- net-2.6.25.orig/net/core/datagram.c
++++ net-2.6.25/net/core/datagram.c
+@@ -55,6 +55,7 @@
+ #include <net/checksum.h>
+ #include <net/sock.h>
+ #include <net/tcp_states.h>
++#include <linux/security.h>
+ 
+ /*
+  *	Is a socket 'connection oriented' ?
+@@ -148,6 +149,7 @@ struct sk_buff *__skb_recv_datagram(stru
+ {
+ 	struct sk_buff *skb;
+ 	long timeo;
++	unsigned long cpu_flags;
  	/*
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 3003503..4463eeb 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -216,10 +216,10 @@ static void xfrm_state_unlock_afinfo(struct xfrm_state_afinfo *afinfo)
- 	write_unlock_bh(&xfrm_state_afinfo_lock);
+ 	 * Caller is allowed not to check sk->sk_err before skb_recv_datagram()
+ 	 */
+@@ -165,7 +167,6 @@ struct sk_buff *__skb_recv_datagram(stru
+ 		 * Look at current nfs client by the way...
+ 		 * However, this function was corrent in any case. 8)
+ 		 */
+-		unsigned long cpu_flags;
+ 
+ 		spin_lock_irqsave(&sk->sk_receive_queue.lock, cpu_flags);
+ 		skb = skb_peek(&sk->sk_receive_queue);
+@@ -179,6 +180,14 @@ struct sk_buff *__skb_recv_datagram(stru
+ 		}
+ 		spin_unlock_irqrestore(&sk->sk_receive_queue.lock, cpu_flags);
+ 
++		/* Filter packets from unwanted peers. */
++		if (skb) {
++			error = security_socket_post_recv_datagram(sk, skb,
++								   flags);
++			if (error)
++				goto force_dequeue;
++		}
++
+ 		if (skb)
+ 			return skb;
+ 
+@@ -191,6 +200,24 @@ struct sk_buff *__skb_recv_datagram(stru
+ 
+ 	return NULL;
+ 
++force_dequeue:
++	/* Drop this packet because LSM says "Don't pass it to the caller". */
++	if (!(flags & MSG_PEEK))
++		goto no_peek;
++	/*
++	 * If this packet is MSG_PEEK'ed, dequeue it forcibly
++	 * so that this packet won't prevent the caller from picking up
++	 * next packet.
++	 */
++	spin_lock_irqsave(&sk->sk_receive_queue.lock, cpu_flags);
++	if (skb == skb_peek(&sk->sk_receive_queue)) {
++		__skb_unlink(skb, &sk->sk_receive_queue);
++		atomic_dec(&skb->users);
++		/* Do I have something to do with skb->peeked ? */
++	}
++	spin_unlock_irqrestore(&sk->sk_receive_queue.lock, cpu_flags);
++no_peek:
++	kfree_skb(skb);
+ no_packet:
+ 	*err = error;
+ 	return NULL;
+--- net-2.6.25.orig/security/security.c
++++ net-2.6.25/security/security.c
+@@ -869,9 +869,9 @@ int security_socket_accept(struct socket
+ 	return security_ops->socket_accept(sock, newsock);
  }
  
--int xfrm_register_type(struct xfrm_type *type, unsigned short family)
-+int xfrm_register_type(const struct xfrm_type *type, unsigned short family)
+-void security_socket_post_accept(struct socket *sock, struct socket *newsock)
++int security_socket_post_accept(struct socket *sock, struct socket *newsock)
  {
- 	struct xfrm_state_afinfo *afinfo = xfrm_state_lock_afinfo(family);
--	struct xfrm_type **typemap;
-+	const struct xfrm_type **typemap;
- 	int err = 0;
- 
- 	if (unlikely(afinfo == NULL))
-@@ -235,10 +235,10 @@ int xfrm_register_type(struct xfrm_type *type, unsigned short family)
+-	security_ops->socket_post_accept(sock, newsock);
++	return security_ops->socket_post_accept(sock, newsock);
  }
- EXPORT_SYMBOL(xfrm_register_type);
  
--int xfrm_unregister_type(struct xfrm_type *type, unsigned short family)
-+int xfrm_unregister_type(const struct xfrm_type *type, unsigned short family)
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
+@@ -885,6 +885,12 @@ int security_socket_recvmsg(struct socke
+ 	return security_ops->socket_recvmsg(sock, msg, size, flags);
+ }
+ 
++int security_socket_post_recv_datagram(struct sock *sk, struct sk_buff *skb,
++				       unsigned int flags)
++{
++	return security_ops->socket_post_recv_datagram(sk, skb, flags);
++}
++
+ int security_socket_getsockname(struct socket *sock)
  {
- 	struct xfrm_state_afinfo *afinfo = xfrm_state_lock_afinfo(family);
--	struct xfrm_type **typemap;
-+	const struct xfrm_type **typemap;
- 	int err = 0;
- 
- 	if (unlikely(afinfo == NULL))
-@@ -254,11 +254,11 @@ int xfrm_unregister_type(struct xfrm_type *type, unsigned short family)
- }
- EXPORT_SYMBOL(xfrm_unregister_type);
- 
--static struct xfrm_type *xfrm_get_type(u8 proto, unsigned short family)
-+static const struct xfrm_type *xfrm_get_type(u8 proto, unsigned short family)
- {
- 	struct xfrm_state_afinfo *afinfo;
--	struct xfrm_type **typemap;
--	struct xfrm_type *type;
-+	const struct xfrm_type **typemap;
-+	const struct xfrm_type *type;
- 	int modload_attempted = 0;
- 
- retry:
-@@ -281,7 +281,7 @@ retry:
- 	return type;
- }
- 
--static void xfrm_put_type(struct xfrm_type *type)
-+static void xfrm_put_type(const struct xfrm_type *type)
- {
- 	module_put(type->owner);
- }
-diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
-index d76803a..9d4555e 100644
---- a/net/ipv4/ah4.c
-+++ b/net/ipv4/ah4.c
-@@ -300,7 +300,7 @@ static void ah_destroy(struct xfrm_state *x)
- }
- 
- 
--static struct xfrm_type ah_type =
-+static const struct xfrm_type ah_type =
- {
- 	.description	= "AH4",
- 	.owner		= THIS_MODULE,
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 28ea5c7..602779d 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -448,7 +448,7 @@ error:
- 	return -EINVAL;
- }
- 
--static struct xfrm_type esp_type =
-+static const struct xfrm_type esp_type =
- {
- 	.description	= "ESP4",
- 	.owner		= THIS_MODULE,
-diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-index f4af99a..b271f87 100644
---- a/net/ipv4/ipcomp.c
-+++ b/net/ipv4/ipcomp.c
-@@ -434,7 +434,7 @@ error:
- 	goto out;
- }
- 
--static struct xfrm_type ipcomp_type = {
-+static const struct xfrm_type ipcomp_type = {
- 	.description	= "IPCOMP4",
- 	.owner		= THIS_MODULE,
- 	.proto	     	= IPPROTO_COMP,
-diff --git a/net/ipv4/xfrm4_tunnel.c b/net/ipv4/xfrm4_tunnel.c
-index 3268451..87f77e4 100644
---- a/net/ipv4/xfrm4_tunnel.c
-+++ b/net/ipv4/xfrm4_tunnel.c
-@@ -38,7 +38,7 @@ static void ipip_destroy(struct xfrm_state *x)
- {
- }
- 
--static struct xfrm_type ipip_type = {
-+static const struct xfrm_type ipip_type = {
- 	.description	= "IPIP",
- 	.owner		= THIS_MODULE,
- 	.proto	     	= IPPROTO_IPIP,
-diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-index fb0d07a..379c8e0 100644
---- a/net/ipv6/ah6.c
-+++ b/net/ipv6/ah6.c
-@@ -515,7 +515,7 @@ static void ah6_destroy(struct xfrm_state *x)
- 	kfree(ahp);
- }
- 
--static struct xfrm_type ah6_type =
-+static const struct xfrm_type ah6_type =
- {
- 	.description	= "AH6",
- 	.owner		= THIS_MODULE,
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 5bd5292..e3fd9fe 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -395,7 +395,7 @@ error:
- 	return -EINVAL;
- }
- 
--static struct xfrm_type esp6_type =
-+static const struct xfrm_type esp6_type =
- {
- 	.description	= "ESP6",
- 	.owner	     	= THIS_MODULE,
-diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
-index b276d04..c8f38e0 100644
---- a/net/ipv6/ipcomp6.c
-+++ b/net/ipv6/ipcomp6.c
-@@ -450,7 +450,7 @@ error:
- 	goto out;
- }
- 
--static struct xfrm_type ipcomp6_type =
-+static const struct xfrm_type ipcomp6_type =
- {
- 	.description	= "IPCOMP6",
- 	.owner		= THIS_MODULE,
-diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
-index 49d3966..cd8a5bd 100644
---- a/net/ipv6/mip6.c
-+++ b/net/ipv6/mip6.c
-@@ -330,7 +330,7 @@ static void mip6_destopt_destroy(struct xfrm_state *x)
- {
- }
- 
--static struct xfrm_type mip6_destopt_type =
-+static const struct xfrm_type mip6_destopt_type =
- {
- 	.description	= "MIP6DESTOPT",
- 	.owner		= THIS_MODULE,
-@@ -462,7 +462,7 @@ static void mip6_rthdr_destroy(struct xfrm_state *x)
- {
- }
- 
--static struct xfrm_type mip6_rthdr_type =
-+static const struct xfrm_type mip6_rthdr_type =
- {
- 	.description	= "MIP6RT",
- 	.owner		= THIS_MODULE,
-diff --git a/net/ipv6/xfrm6_tunnel.c b/net/ipv6/xfrm6_tunnel.c
-index fae90ff..639fe8a 100644
---- a/net/ipv6/xfrm6_tunnel.c
-+++ b/net/ipv6/xfrm6_tunnel.c
-@@ -319,7 +319,7 @@ static void xfrm6_tunnel_destroy(struct xfrm_state *x)
- 	xfrm6_tunnel_free_spi((xfrm_address_t *)&x->props.saddr);
- }
- 
--static struct xfrm_type xfrm6_tunnel_type = {
-+static const struct xfrm_type xfrm6_tunnel_type = {
- 	.description	= "IP6IP6",
- 	.owner          = THIS_MODULE,
- 	.proto		= IPPROTO_IPV6,
+ 	return security_ops->socket_getsockname(sock);
