@@ -1,75 +1,274 @@
-From: Ivan Dichev <idichev@obs.bg>
-Subject: Slow OOM  in netif_RX function
-Date: Thu, 24 Jan 2008 19:28:09 +0200
-Message-ID: <4798CAA9.1080005@obs.bg>
+From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+Subject: [Patch 2.6.24 1/1]S2io: Support for vlan_rx_kill_vid entry point
+Date: Thu, 24 Jan 2008 13:07:51 -0500 (EST)
+Message-ID: <Pine.GSO.4.10.10801241306030.3800-100000@guinness>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: support@neterion.com
+To: netdev@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from obs.bg ([213.91.169.3]:44226 "EHLO smtp.obs.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752444AbYAXRyO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jan 2008 12:54:14 -0500
-Received: from localhost (mail.obs.bg [127.0.0.1])
-	by smtp.obs.bg (Postfix) with ESMTP id 1B80F46E93
-	for <netdev@vger.kernel.org>; Thu, 24 Jan 2008 19:28:11 +0200 (EET)
-Received: from smtp.obs.bg ([127.0.0.1])
-	by localhost (mail.obs.bg [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id K-1+qQqY9udK for <netdev@vger.kernel.org>;
-	Thu, 24 Jan 2008 19:28:10 +0200 (EET)
-Received: from [192.168.14.11] (unknown [192.168.14.11])
-	by smtp.obs.bg (Postfix) with ESMTP id 0ED7E46E92
-	for <netdev@vger.kernel.org>; Thu, 24 Jan 2008 19:28:10 +0200 (EET)
+Received: from barracuda.s2io.com ([72.1.205.138]:33673 "EHLO
+	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752728AbYAXSHz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2008 13:07:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-I got problem with my linux router. It has slow persistent OOM
-problems from few months ago.
-Every working(I mean days when more traffic is generated) day my
-router is leaking with 15-20 MB memory and
-after 2 weeks the restart is a MUST.
->From /proc/slabinfo I saw that size-2048 and size-512 are growing
-rapidly every day when traffic occur.
+- Added s2io_vlan_rx_kill_vid entry point function for unregistering vlan.
+- Fix to aggregate vlan packets. IP offset is incremented by
+  4 bytes if the packet contains vlan header.
 
---------- /proc/slabinfo --------------------
-size-2048          20322  20349   2072    3    2 : tunables   24  
-12    0 : slabdata   6780   6783      0
-size-512           50984  51016    536    7    1 : tunables   32  
-16    0 : slabdata   7288   7288      0
-
-
-I was wondering who is allocating this mem pools and then I changed
-the kernel with 2.6.23-rc12 including  options
-CONFIG_DEBUG_SLAB=y
-CONFIG_DEBUG_SLAB_LEAK=y
-
-
-Unfortunately changing the kernel didn't solve the mem leak....
-Now /proc/slab_allocators is showing that 3c59x driver is allocating
-2048 and 512 bytes memory pools
-caused by RX function.
---------- from /proc/slab_allocators ------------------------------
-7612 size-2048: boomerang_rx+0x33b/0x437 [3c59x]
-16018 size-512: boomerang_rx+0x165/0x437 [3c59x]
-
-I was thinking that the 3com driver is bogus, .. but not!
-After few days I changed the cards with rtl8139 and now ....
---------- from /proc/slab_allocators ------------------------------
-size-2048: 20159 rtl8139_rx+0x155/0x2dc [8139too]
-size-1024: 2693 rtl8139_rx+0x155/0x2dc [8139too]
-size-512: 50515 rtl8139_rx+0x155/0x2dc [8139too]
-
-the memory leak appear again in the same function(RX).
-
-I did search over the mailing list and found as similar only this
-http://www.spinics.net/lists/kernel/old/2003-q4/msg03071.html
-
-
-For sure it does not depend on kernel version and network
-driver(except case if both drivers are bogus :)
-Any ideas ?
-
-Ivan
+Signed-off-by: Surjit Reang <surjit.reang@neterion.com>
+Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+---
+diff -Nurp 2-0-26-17/drivers/net/s2io.c 2-0-26-18-1/drivers/net/s2io.c
+--- 2-0-26-17/drivers/net/s2io.c	2008-01-24 04:22:30.000000000 +0530
++++ 2-0-26-18-1/drivers/net/s2io.c	2008-01-24 04:32:22.000000000 +0530
+@@ -380,6 +380,19 @@ static void s2io_vlan_rx_register(struct
+ /* A flag indicating whether 'RX_PA_CFG_STRIP_VLAN_TAG' bit is set or not */
+ static int vlan_strip_flag;
+ 
++/* Unregister the vlan */
++static void s2io_vlan_rx_kill_vid(struct net_device *dev, unsigned long vid)
++{
++	unsigned long flags;
++	struct s2io_nic *nic = dev->priv;
++
++	spin_lock_irqsave(&nic->tx_lock, flags);
++	if (nic->vlgrp)
++		vlan_group_set_device(nic->vlgrp, vid, NULL);
++
++	spin_unlock_irqrestore(&nic->tx_lock, flags);
++}
++
+ /*
+  * Constants to be programmed into the Xena's registers, to configure
+  * the XAUI.
+@@ -2905,7 +2918,7 @@ static void rx_intr_handler(struct ring_
+ 			struct lro *lro = &nic->lro0_n[i];
+ 			if (lro->in_use) {
+ 				update_L3L4_header(nic, lro);
+-				queue_rx_frame(lro->parent);
++				queue_rx_frame(lro->parent, lro->vlan_tag);
+ 				clear_lro_session(lro);
+ 			}
+ 		}
+@@ -7177,7 +7190,8 @@ static int rx_osm_handler(struct ring_in
+ 					{
+ 						lro_append_pkt(sp, lro,
+ 							skb, tcp_len);
+-						queue_rx_frame(lro->parent);
++						queue_rx_frame(lro->parent,
++							lro->vlan_tag);
+ 						clear_lro_session(lro);
+ 						sp->mac_control.stats_info->
+ 						    sw_stat.flush_max_pkts++;
+@@ -7188,7 +7202,8 @@ static int rx_osm_handler(struct ring_in
+ 							lro->frags_len;
+ 						sp->mac_control.stats_info->
+ 						     sw_stat.sending_both++;
+-						queue_rx_frame(lro->parent);
++						queue_rx_frame(lro->parent,
++							lro->vlan_tag);
+ 						clear_lro_session(lro);
+ 						goto send_up;
+ 					case 0: /* sessions exceeded */
+@@ -7214,31 +7229,12 @@ static int rx_osm_handler(struct ring_in
+ 			 */
+ 			skb->ip_summed = CHECKSUM_NONE;
+ 		}
+-	} else {
++	} else
+ 		skb->ip_summed = CHECKSUM_NONE;
+-	}
++
+ 	sp->mac_control.stats_info->sw_stat.mem_freed += skb->truesize;
+-	if (!sp->lro) {
+-		skb->protocol = eth_type_trans(skb, dev);
+-		if ((sp->vlgrp && RXD_GET_VLAN_TAG(rxdp->Control_2) &&
+-			vlan_strip_flag)) {
+-			/* Queueing the vlan frame to the upper layer */
+-			if (napi)
+-				vlan_hwaccel_receive_skb(skb, sp->vlgrp,
+-					RXD_GET_VLAN_TAG(rxdp->Control_2));
+-			else
+-				vlan_hwaccel_rx(skb, sp->vlgrp,
+-					RXD_GET_VLAN_TAG(rxdp->Control_2));
+-		} else {
+-			if (napi)
+-				netif_receive_skb(skb);
+-			else
+-				netif_rx(skb);
+-		}
+-	} else {
+ send_up:
+-		queue_rx_frame(skb);
+-	}
++	queue_rx_frame(skb, RXD_GET_VLAN_TAG(rxdp->Control_2));
+ 	dev->last_rx = jiffies;
+ aggregate:
+ 	atomic_dec(&sp->rx_bufs_left[ring_no]);
+@@ -7589,6 +7585,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+ 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+ 	dev->vlan_rx_register = s2io_vlan_rx_register;
++	dev->vlan_rx_kill_vid = (void *)s2io_vlan_rx_kill_vid;
+ 
+ 	/*
+ 	 * will use eth_mac_addr() for  dev->set_mac_address
+@@ -7845,7 +7842,8 @@ module_init(s2io_starter);
+ module_exit(s2io_closer);
+ 
+ static int check_L2_lro_capable(u8 *buffer, struct iphdr **ip,
+-		struct tcphdr **tcp, struct RxD_t *rxdp)
++		struct tcphdr **tcp, struct RxD_t *rxdp,
++		struct s2io_nic *sp)
+ {
+ 	int ip_off;
+ 	u8 l2_type = (u8)((rxdp->Control_1 >> 37) & 0x7), ip_len;
+@@ -7856,19 +7854,20 @@ static int check_L2_lro_capable(u8 *buff
+ 		return -1;
+ 	}
+ 
+-	/* TODO:
+-	 * By default the VLAN field in the MAC is stripped by the card, if this
+-	 * feature is turned off in rx_pa_cfg register, then the ip_off field
+-	 * has to be shifted by a further 2 bytes
+-	 */
+-	switch (l2_type) {
+-		case 0: /* DIX type */
+-		case 4: /* DIX type with VLAN */
+-			ip_off = HEADER_ETHERNET_II_802_3_SIZE;
+-			break;
++	/* Checking for DIX type or DIX type with VLAN */
++	if ((l2_type == 0)
++		|| (l2_type == 4)) {
++		ip_off = HEADER_ETHERNET_II_802_3_SIZE;
++		/*
++		 * If vlan stripping is disabled and the frame is VLAN tagged,
++		 * shift the offset by the VLAN header size bytes.
++		 */
++		if ((!vlan_strip_flag) &&
++			(rxdp->Control_1 & RXD_FRAME_VLAN_TAG))
++			ip_off += HEADER_VLAN_SIZE;
++	} else {
+ 		/* LLC, SNAP etc are considered non-mergeable */
+-		default:
+-			return -1;
++		return -1;
+ 	}
+ 
+ 	*ip = (struct iphdr *)((u8 *)buffer + ip_off);
+@@ -7895,7 +7894,7 @@ static inline int get_l4_pyld_length(str
+ }
+ 
+ static void initiate_new_session(struct lro *lro, u8 *l2h,
+-		     struct iphdr *ip, struct tcphdr *tcp, u32 tcp_pyld_len)
++	struct iphdr *ip, struct tcphdr *tcp, u32 tcp_pyld_len, u16 vlan_tag)
+ {
+ 	DBG_PRINT(INFO_DBG,"%s: Been here...\n", __FUNCTION__);
+ 	lro->l2h = l2h;
+@@ -7906,6 +7905,7 @@ static void initiate_new_session(struct 
+ 	lro->sg_num = 1;
+ 	lro->total_len = ntohs(ip->tot_len);
+ 	lro->frags_len = 0;
++	lro->vlan_tag = vlan_tag;
+ 	/*
+ 	 * check if we saw TCP timestamp. Other consistency checks have
+ 	 * already been done.
+@@ -8037,15 +8037,16 @@ s2io_club_tcp_session(u8 *buffer, u8 **t
+ 	struct iphdr *ip;
+ 	struct tcphdr *tcph;
+ 	int ret = 0, i;
++	u16 vlan_tag = 0;
+ 
+ 	if (!(ret = check_L2_lro_capable(buffer, &ip, (struct tcphdr **)tcp,
+-					 rxdp))) {
++					 rxdp, sp))) {
+ 		DBG_PRINT(INFO_DBG,"IP Saddr: %x Daddr: %x\n",
+ 			  ip->saddr, ip->daddr);
+-	} else {
++	} else
+ 		return ret;
+-	}
+ 
++	vlan_tag = RXD_GET_VLAN_TAG(rxdp->Control_2);
+ 	tcph = (struct tcphdr *)*tcp;
+ 	*tcp_len = get_l4_pyld_length(ip, tcph);
+ 	for (i=0; i<MAX_LRO_SESSIONS; i++) {
+@@ -8105,7 +8106,8 @@ s2io_club_tcp_session(u8 *buffer, u8 **t
+ 
+ 	switch (ret) {
+ 		case 3:
+-			initiate_new_session(*lro, buffer, ip, tcph, *tcp_len);
++			initiate_new_session(*lro, buffer, ip, tcph, *tcp_len,
++								vlan_tag);
+ 			break;
+ 		case 2:
+ 			update_L3L4_header(sp, *lro);
+@@ -8133,15 +8135,25 @@ static void clear_lro_session(struct lro
+ 	memset(lro, 0, lro_struct_size);
+ }
+ 
+-static void queue_rx_frame(struct sk_buff *skb)
++static void queue_rx_frame(struct sk_buff *skb, u16 vlan_tag)
+ {
+ 	struct net_device *dev = skb->dev;
++	struct s2io_nic *sp = dev->priv;
+ 
+ 	skb->protocol = eth_type_trans(skb, dev);
+-	if (napi)
+-		netif_receive_skb(skb);
+-	else
+-		netif_rx(skb);
++	if (sp->vlgrp && vlan_tag
++		&& (vlan_strip_flag)) {
++		/* Queueing the vlan frame to the upper layer */
++		if (sp->config.napi)
++			vlan_hwaccel_receive_skb(skb, sp->vlgrp, vlan_tag);
++		else
++			vlan_hwaccel_rx(skb, sp->vlgrp, vlan_tag);
++	} else {
++		if (sp->config.napi)
++			netif_receive_skb(skb);
++		else
++			netif_rx(skb);
++	}
+ }
+ 
+ static void lro_append_pkt(struct s2io_nic *sp, struct lro *lro,
+diff -Nurp 2-0-26-17/drivers/net/s2io.h 2-0-26-18-1/drivers/net/s2io.h
+--- 2-0-26-17/drivers/net/s2io.h	2008-01-24 04:22:30.000000000 +0530
++++ 2-0-26-18-1/drivers/net/s2io.h	2008-01-24 04:26:10.000000000 +0530
+@@ -528,6 +528,7 @@ struct RxD_t {
+ #define RXD_OWN_XENA            s2BIT(7)
+ #define RXD_T_CODE              (s2BIT(12)|s2BIT(13)|s2BIT(14)|s2BIT(15))
+ #define RXD_FRAME_PROTO         vBIT(0xFFFF,24,8)
++#define RXD_FRAME_VLAN_TAG      s2BIT(24)
+ #define RXD_FRAME_PROTO_IPV4    s2BIT(27)
+ #define RXD_FRAME_PROTO_IPV6    s2BIT(28)
+ #define RXD_FRAME_IP_FRAG	s2BIT(29)
+@@ -796,10 +797,12 @@ struct lro {
+ 	int		sg_num;
+ 	int		in_use;
+ 	__be16		window;
++	u16             vlan_tag;
+ 	u32		cur_tsval;
+ 	u32		cur_tsecr;
+ 	u8		saw_ts;
+-};
++} ____cacheline_aligned;
++
+ 
+ /* These flags represent the devices temporary state */
+ enum s2io_device_state_t
+@@ -1071,7 +1074,7 @@ static int
+ s2io_club_tcp_session(u8 *buffer, u8 **tcp, u32 *tcp_len, struct lro **lro,
+ 		      struct RxD_t *rxdp, struct s2io_nic *sp);
+ static void clear_lro_session(struct lro *lro);
+-static void queue_rx_frame(struct sk_buff *skb);
++static void queue_rx_frame(struct sk_buff *skb, u16 vlan_tag);
+ static void update_L3L4_header(struct s2io_nic *sp, struct lro *lro);
+ static void lro_append_pkt(struct s2io_nic *sp, struct lro *lro,
+ 			   struct sk_buff *skb, u32 tcp_len);
 
