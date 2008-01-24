@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@sw.ru>
-Subject: [PATCH 4/5] netns netfilter: per-netns arp_tables FILTER
-Date: Thu, 24 Jan 2008 15:29:30 +0300
-Message-ID: <20080124122930.GD27337@localhost.sw.ru>
+Subject: [PATCH 5/5] netns netfilter: put table module on netns stop
+Date: Thu, 24 Jan 2008 15:30:02 +0300
+Message-ID: <20080124123002.GE27337@localhost.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
@@ -12,113 +12,71 @@ Content-Disposition: inline
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+When number of entries exceeds number of initial entries, foo-tables code
+will pin table module. But during table unregister on netns stop,
+that additional pin was forgotten.
+
 Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
 ---
 
- include/net/netns/ipv4.h             |    1 
- net/ipv4/netfilter/arptable_filter.c |   38 +++++++++++++++++++++++++----------
- 2 files changed, 29 insertions(+), 10 deletions(-)
+ net/ipv4/netfilter/arp_tables.c |    3 +++
+ net/ipv4/netfilter/ip_tables.c  |    3 +++
+ net/ipv6/netfilter/ip6_tables.c |    3 +++
+ 3 files changed, 9 insertions(+)
 
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -32,6 +32,7 @@ struct netns_ipv4 {
- 	struct xt_table		*iptable_filter;
- 	struct xt_table		*iptable_mangle;
- 	struct xt_table		*iptable_raw;
-+	struct xt_table		*arptable_filter;
- #endif
- };
- #endif
---- a/net/ipv4/netfilter/arptable_filter.c
-+++ b/net/ipv4/netfilter/arptable_filter.c
-@@ -20,7 +20,7 @@ static struct
- 	struct arpt_replace repl;
- 	struct arpt_standard entries[3];
- 	struct arpt_error term;
--} initial_table __initdata = {
-+} initial_table __net_initdata = {
- 	.repl = {
- 		.name = "filter",
- 		.valid_hooks = FILTER_VALID_HOOKS,
-@@ -45,7 +45,7 @@ static struct
- 	.term = ARPT_ERROR_INIT,
- };
- 
--static struct arpt_table __packet_filter = {
-+static struct arpt_table packet_filter = {
- 	.name		= "filter",
- 	.valid_hooks	= FILTER_VALID_HOOKS,
- 	.lock		= RW_LOCK_UNLOCKED,
-@@ -53,7 +53,6 @@ static struct arpt_table __packet_filter = {
- 	.me		= THIS_MODULE,
- 	.af		= NF_ARP,
- };
--static struct arpt_table *packet_filter;
- 
- /* The work comes in here from netfilter.c */
- static unsigned int arpt_hook(unsigned int hook,
-@@ -62,7 +61,7 @@ static unsigned int arpt_hook(unsigned int hook,
- 			      const struct net_device *out,
- 			      int (*okfn)(struct sk_buff *))
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -1773,6 +1773,7 @@ void arpt_unregister_table(struct arpt_table *table)
  {
--	return arpt_do_table(skb, hook, in, out, packet_filter);
-+	return arpt_do_table(skb, hook, in, out, init_net.ipv4.arptable_filter);
+ 	struct xt_table_info *private;
+ 	void *loc_cpu_entry;
++	struct module *table_owner = table->me;
+ 
+ 	private = xt_unregister_table(table);
+ 
+@@ -1780,6 +1781,8 @@ void arpt_unregister_table(struct arpt_table *table)
+ 	loc_cpu_entry = private->entries[raw_smp_processor_id()];
+ 	ARPT_ENTRY_ITERATE(loc_cpu_entry, private->size,
+ 			   cleanup_entry, NULL);
++	if (private->number > private->initial_entries)
++		module_put(table_owner);
+ 	xt_free_table_info(private);
  }
  
- static struct nf_hook_ops arpt_ops[] __read_mostly = {
-@@ -86,14 +85,33 @@ static struct nf_hook_ops arpt_ops[] __read_mostly = {
- 	},
- };
- 
-+static int __net_init arptable_filter_net_init(struct net *net)
-+{
-+	/* Register table */
-+	net->ipv4.arptable_filter =
-+		arpt_register_table(net, &packet_filter, &initial_table.repl);
-+	if (IS_ERR(net->ipv4.arptable_filter))
-+		return PTR_ERR(net->ipv4.arptable_filter);
-+	return 0;
-+}
-+
-+static void __net_exit arptable_filter_net_exit(struct net *net)
-+{
-+	arpt_unregister_table(net->ipv4.arptable_filter);
-+}
-+
-+static struct pernet_operations arptable_filter_net_ops = {
-+	.init = arptable_filter_net_init,
-+	.exit = arptable_filter_net_exit,
-+};
-+
- static int __init arptable_filter_init(void)
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -2095,12 +2095,15 @@ void ipt_unregister_table(struct xt_table *table)
  {
- 	int ret;
+ 	struct xt_table_info *private;
+ 	void *loc_cpu_entry;
++	struct module *table_owner = table->me;
  
--	/* Register table */
--	packet_filter = arpt_register_table(&init_net, &__packet_filter, &initial_table.repl);
--	if (IS_ERR(packet_filter))
--		return PTR_ERR(packet_filter);
-+	ret = register_pernet_subsys(&arptable_filter_net_ops);
-+	if (ret < 0)
-+		return ret;
+ 	private = xt_unregister_table(table);
  
- 	ret = nf_register_hooks(arpt_ops, ARRAY_SIZE(arpt_ops));
- 	if (ret < 0)
-@@ -101,14 +119,14 @@ static int __init arptable_filter_init(void)
- 	return ret;
- 
- cleanup_table:
--	arpt_unregister_table(packet_filter);
-+	unregister_pernet_subsys(&arptable_filter_net_ops);
- 	return ret;
+ 	/* Decrease module usage counts and free resources */
+ 	loc_cpu_entry = private->entries[raw_smp_processor_id()];
+ 	IPT_ENTRY_ITERATE(loc_cpu_entry, private->size, cleanup_entry, NULL);
++	if (private->number > private->initial_entries)
++		module_put(table_owner);
+ 	xt_free_table_info(private);
  }
  
- static void __exit arptable_filter_fini(void)
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -2120,12 +2120,15 @@ void ip6t_unregister_table(struct xt_table *table)
  {
- 	nf_unregister_hooks(arpt_ops, ARRAY_SIZE(arpt_ops));
--	arpt_unregister_table(packet_filter);
-+	unregister_pernet_subsys(&arptable_filter_net_ops);
+ 	struct xt_table_info *private;
+ 	void *loc_cpu_entry;
++	struct module *table_owner = table->me;
+ 
+ 	private = xt_unregister_table(table);
+ 
+ 	/* Decrease module usage counts and free resources */
+ 	loc_cpu_entry = private->entries[raw_smp_processor_id()];
+ 	IP6T_ENTRY_ITERATE(loc_cpu_entry, private->size, cleanup_entry, NULL);
++	if (private->number > private->initial_entries)
++		module_put(table_owner);
+ 	xt_free_table_info(private);
  }
  
- module_init(arptable_filter_init);
 
