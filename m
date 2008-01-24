@@ -1,91 +1,172 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [ofa-general] [PATCH 2.6.25] RDMA/cxgb3: Fix the T3A workaround
-	checks.
-Date: Thu, 24 Jan 2008 16:30:16 -0600
-Message-ID: <20080124223016.772.18293.stgit@dell3.ogc.int>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: rdreier@cisco.com
-Return-path: <general-bounces@lists.openfabrics.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+From: Kevin Hilman <khilman@mvista.com>
+Subject: [PATCH] SMC91x: Use IRQ save and restore versions of spinlocks
+Date: Thu, 24 Jan 2008 15:29:07 -0800
+Message-ID: <1201217347-26488-1-git-send-email-khilman@mvista.com>
+Cc: Nicolas Pitre <nico@cam.org>, Kevin Hilman <khilman@mvista.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from deeprooted.net ([216.254.16.51]:53158 "EHLO paris.hilman.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755926AbYAXXhg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jan 2008 18:37:36 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Under certain circumstances (e.g. kgdb over ethernet), the TX code may
+be called with interrupts disabled.  The spin_unlock_irq() calls in
+the driver unconditionally re-enable interrupts, which may trigger the
+netdev softirq to run and cause spinlock recursion in the net stack.
 
-RDMA/cxgb3: Fix the T3A workaround checks.
+For example, here's an example path with interrupts disabled:
 
-Correctly work around T3A issues by checking "hwtype !=3D T3A" instead of
-"hwtype =3D=3D T3B".  Needed for new hw types.
+kgdb exception
+  eth_flush_buf
+    netpoll_send_udp
+      netpoll_send_skb  [ takes netdevice->xmit_lock via netif_tx_trylock() ]
+        smc_hard_start_xmit
+          smc_hardware_send_pkt
+            SMC_ENABLE_INT()
+              spin_unlock_irq(&lp->lock)
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+That spin_unlock_irq() will re-enable interrupts, even if they wer
+disabled, thus triggering the netdev softirq to run.  The
+dev_watchdog() will try to take the netdevice->xmit_lock which is
+currently locked by netpoll_send_skb() and then BUG!
+
+Also, use spin_trylock_irqsave() instead of a wrapped version of
+spin_trylock.
+
+Signed-off-by: Kevin Hilman <khilman@mvista.com>
+Acked-by: Nicolas Pitre <nico@cam.org>
+
 ---
+ drivers/net/smc91x.c |   42 ++++++++++++++++++------------------------
+ 1 files changed, 18 insertions(+), 24 deletions(-)
 
- drivers/infiniband/hw/cxgb3/cxio_hal.c      |    2 +-
- drivers/infiniband/hw/cxgb3/iwch_cm.c       |    4 ++--
- drivers/infiniband/hw/cxgb3/iwch_provider.c |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
+index 7da7589..475de0f 100644
+--- a/drivers/net/smc91x.c
++++ b/drivers/net/smc91x.c
+@@ -222,21 +222,21 @@ static void PRINT_PKT(u_char *buf, int length)
+ /* this enables an interrupt in the interrupt mask register */
+ #define SMC_ENABLE_INT(x) do {						\
+ 	unsigned char mask;						\
+-	spin_lock_irq(&lp->lock);					\
++	spin_lock_irqsave(&lp->lock, flags);				\
+ 	mask = SMC_GET_INT_MASK();					\
+ 	mask |= (x);							\
+ 	SMC_SET_INT_MASK(mask);						\
+-	spin_unlock_irq(&lp->lock);					\
++	spin_unlock_irqrestore(&lp->lock, flags);			\
+ } while (0)
+ 
+ /* this disables an interrupt from the interrupt mask register */
+ #define SMC_DISABLE_INT(x) do {						\
+ 	unsigned char mask;						\
+-	spin_lock_irq(&lp->lock);					\
++	spin_lock_irqsave(&lp->lock, flags);				\
+ 	mask = SMC_GET_INT_MASK();					\
+ 	mask &= ~(x);							\
+ 	SMC_SET_INT_MASK(mask);						\
+-	spin_unlock_irq(&lp->lock);					\
++	spin_unlock_irqrestore(&lp->lock, flags);			\
+ } while (0)
+ 
+ /*
+@@ -547,21 +547,13 @@ static inline void  smc_rcv(struct net_device *dev)
+  * any other concurrent access and C would always interrupt B. But life
+  * isn't that easy in a SMP world...
+  */
+-#define smc_special_trylock(lock)					\
+-({									\
+-	int __ret;							\
+-	local_irq_disable();						\
+-	__ret = spin_trylock(lock);					\
+-	if (!__ret)							\
+-		local_irq_enable();					\
+-	__ret;								\
+-})
+-#define smc_special_lock(lock)		spin_lock_irq(lock)
+-#define smc_special_unlock(lock)	spin_unlock_irq(lock)
++#define smc_special_trylock(lock, flags) spin_trylock_irqsave(lock, flags)
++#define smc_special_lock(lock, flags)	spin_lock_irqsave(lock, flags)
++#define smc_special_unlock(lock, flags)	spin_unlock_irqrestore(lock, flags)
+ #else
+-#define smc_special_trylock(lock)	(1)
+-#define smc_special_lock(lock)		do { } while (0)
+-#define smc_special_unlock(lock)	do { } while (0)
++#define smc_special_trylock(lock,flags)	(1)
++#define smc_special_lock(lock,flags)	do { } while (0)
++#define smc_special_unlock(lock,flags)	do { } while (0)
+ #endif
+ 
+ /*
+@@ -575,10 +567,11 @@ static void smc_hardware_send_pkt(unsigned long data)
+ 	struct sk_buff *skb;
+ 	unsigned int packet_no, len;
+ 	unsigned char *buf;
++	unsigned long flags;
+ 
+ 	DBG(3, "%s: %s\n", dev->name, __FUNCTION__);
+ 
+-	if (!smc_special_trylock(&lp->lock)) {
++	if (!smc_special_trylock(&lp->lock, flags)) {
+ 		netif_stop_queue(dev);
+ 		tasklet_schedule(&lp->tx_task);
+ 		return;
+@@ -586,7 +579,7 @@ static void smc_hardware_send_pkt(unsigned long data)
+ 
+ 	skb = lp->pending_tx_skb;
+ 	if (unlikely(!skb)) {
+-		smc_special_unlock(&lp->lock);
++		smc_special_unlock(&lp->lock, flags);
+ 		return;
+ 	}
+ 	lp->pending_tx_skb = NULL;
+@@ -596,7 +589,7 @@ static void smc_hardware_send_pkt(unsigned long data)
+ 		printk("%s: Memory allocation failed.\n", dev->name);
+ 		dev->stats.tx_errors++;
+ 		dev->stats.tx_fifo_errors++;
+-		smc_special_unlock(&lp->lock);
++		smc_special_unlock(&lp->lock, flags);
+ 		goto done;
+ 	}
+ 
+@@ -635,7 +628,7 @@ static void smc_hardware_send_pkt(unsigned long data)
+ 
+ 	/* queue the packet for TX */
+ 	SMC_SET_MMU_CMD(MC_ENQUEUE);
+-	smc_special_unlock(&lp->lock);
++	smc_special_unlock(&lp->lock, flags);
+ 
+ 	dev->trans_start = jiffies;
+ 	dev->stats.tx_packets++;
+@@ -660,6 +653,7 @@ static int smc_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct smc_local *lp = netdev_priv(dev);
+ 	void __iomem *ioaddr = lp->base;
+ 	unsigned int numPages, poll_count, status;
++	unsigned long flags;
+ 
+ 	DBG(3, "%s: %s\n", dev->name, __FUNCTION__);
+ 
+@@ -685,7 +679,7 @@ static int smc_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		return 0;
+ 	}
+ 
+-	smc_special_lock(&lp->lock);
++	smc_special_lock(&lp->lock, flags);
+ 
+ 	/* now, try to allocate the memory */
+ 	SMC_SET_MMU_CMD(MC_ALLOC | numPages);
+@@ -703,7 +697,7 @@ static int smc_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		}
+    	} while (--poll_count);
+ 
+-	smc_special_unlock(&lp->lock);
++	smc_special_unlock(&lp->lock, flags);
+ 
+ 	lp->pending_tx_skb = skb;
+    	if (!poll_count) {
+-- 
+1.5.3.7
 
-diff --git a/drivers/infiniband/hw/cxgb3/cxio_hal.c b/drivers/infiniband/=
-hw/cxgb3/cxio_hal.c
-index eec6a30..e220b44 100644
---- a/drivers/infiniband/hw/cxgb3/cxio_hal.c
-+++ b/drivers/infiniband/hw/cxgb3/cxio_hal.c
-@@ -179,7 +179,7 @@ int cxio_create_cq(struct cxio_rdev *rdev_p, struct t=
-3_cq *cq)
- 	setup.size =3D 1UL << cq->size_log2;
- 	setup.credits =3D 65535;
- 	setup.credit_thres =3D 1;
--	if (rdev_p->t3cdev_p->type =3D=3D T3B)
-+	if (rdev_p->t3cdev_p->type !=3D T3A)
- 		setup.ovfl_mode =3D 0;
- 	else
- 		setup.ovfl_mode =3D 1;
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/h=
-w/cxgb3/iwch_cm.c
-index 20ba372..f8cb0fe 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
-@@ -1118,7 +1118,7 @@ static int act_open_rpl(struct t3cdev *tdev, struct=
- sk_buff *skb, void *ctx)
- 	     status2errno(rpl->status));
- 	connect_reply_upcall(ep, status2errno(rpl->status));
- 	state_set(&ep->com, DEAD);
--	if (ep->com.tdev->type =3D=3D T3B && act_open_has_tid(rpl->status))
-+	if (ep->com.tdev->type !=3D T3A && act_open_has_tid(rpl->status))
- 		release_tid(ep->com.tdev, GET_TID(rpl), NULL);
- 	cxgb3_free_atid(ep->com.tdev, ep->atid);
- 	dst_release(ep->dst);
-@@ -1249,7 +1249,7 @@ static void reject_cr(struct t3cdev *tdev, u32 hwti=
-d, __be32 peer_ip,
- 	skb_trim(skb, sizeof(struct cpl_tid_release));
- 	skb_get(skb);
-=20
--	if (tdev->type =3D=3D T3B)
-+	if (tdev->type !=3D T3A)
- 		release_tid(tdev, hwtid, skb);
- 	else {
- 		struct cpl_pass_accept_rpl *rpl;
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_provider.c b/drivers/infini=
-band/hw/cxgb3/iwch_provider.c
-index 69b1204..df1838f 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_provider.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_provider.c
-@@ -646,7 +646,7 @@ static struct ib_mr *iwch_reg_user_mr(struct ib_pd *p=
-d, u64 start, u64 length,
- 	if (err)
- 		goto err;
-=20
--	if (udata && t3b_device(rhp)) {
-+	if (udata && !t3a_device(rhp)) {
- 		uresp.pbl_addr =3D (mhp->attr.pbl_addr -
- 	                         rhp->rdev.rnic_info.pbl_base) >> 3;
- 		PDBG("%s user resp pbl_addr 0x%x\n", __FUNCTION__,
