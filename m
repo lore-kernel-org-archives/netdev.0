@@ -1,12 +1,13 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH] UCC TDM driver for QE based MPC83xx platforms.
-Date: Thu, 24 Jan 2008 17:19:20 +1100
-Message-ID: <20080124171920.49d805cb.sfr@canb.auug.org.au>
-References: <Pine.LNX.4.64.0801241014240.27491@linux121>
+Subject: Re: [PATCH 2/3] Platform changes for UCC TDM driver for
+ MPC8323ERDB.Also includes related QE changes and dts entries.
+Date: Thu, 24 Jan 2008 17:34:23 +1100
+Message-ID: <20080124173423.6f71f016.sfr@canb.auug.org.au>
+References: <Pine.LNX.4.64.0801241016440.27491@linux121>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pgp-signature";
  micalg="PGP-SHA1";
- boundary="Signature=_Thu__24_Jan_2008_17_19_20_+1100_M8q4g+u4cutXlxEd"
+ boundary="Signature=_Thu__24_Jan_2008_17_34_23_+1100_uuyfMNofWS2a/6AR"
 Cc: kumar.gala@freescale.com, akpm@linux-foundation.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	rubini@vision.unipv.it, linuxppc-dev@ozlabs.org,
@@ -14,170 +15,154 @@ Cc: kumar.gala@freescale.com, akpm@linux-foundation.org,
 	timur@freescale.com, ashish.kalra@freescale.com
 To: Poonam_Aggrwal-b10812 <b10812@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:58712 "EHLO smtps.tip.net.au"
+Received: from chilli.pcug.org.au ([203.10.76.44]:45317 "EHLO smtps.tip.net.au"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752985AbYAXGT3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jan 2008 01:19:29 -0500
-In-Reply-To: <Pine.LNX.4.64.0801241014240.27491@linux121>
+	id S1751684AbYAXGee (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jan 2008 01:34:34 -0500
+In-Reply-To: <Pine.LNX.4.64.0801241016440.27491@linux121>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Thu__24_Jan_2008_17_19_20_+1100_M8q4g+u4cutXlxEd
+--Signature=_Thu__24_Jan_2008_17_34_23_+1100_uuyfMNofWS2a/6AR
 Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 24 Jan 2008 10:16:42 +0530 (IST) Poonam_Aggrwal-b10812 <b10812@free=
+This patch needs to come before the previous one ("UCC TDM driver for
+QE based MPC83xx platforms") as that uses some of the fields defined here.
+
+On Thu, 24 Jan 2008 10:19:44 +0530 (IST) Poonam_Aggrwal-b10812 <b10812@free=
 scale.com> wrote:
 >
-> +static int ucc_tdm_probe(struct of_device *ofdev,
-> +			 const struct of_device_id *match)
-> +{
-> +	struct device_node *np =3D ofdev->node;
-> +	struct resource res;
+> +u32 get_brg_clk(enum qe_clock brgclk, enum qe_clock *brg_source)
+>  {
+
+> -	struct device_node *qe;
+> -	if (brg_clk)
+> -		return brg_clk;
+> +	struct device_node *qe, *brg, *clocks;
+> +	enum qe_clock brg_src;
+> +	u32 brg_input_freq =3D 0;
+> +	u32 brg_num;
+> +	int ret;
 > +	const unsigned int *prop;
-> +	u32 ucc_num, device_num, err, ret =3D 0;
-> +	struct device_node *np_tmp =3D NULL;
-
-You don't need to initialise this.
-
-> +	dma_addr_t physaddr;
-> +	void *tdm_buff;
-> +	struct ucc_tdm_info *ut_info;
+> =20
+> -	qe =3D of_find_node_by_type(NULL, "qe");
+> -	if (qe) {
+> +	*brg_source =3D 0;
 > +
-> +	prop =3D of_get_property(np, "device-id", NULL);
+> +	brg_num =3D brgclk - QE_BRG1;
+> +	brg =3D of_find_compatible_node(NULL, NULL, "fsl,cpm-brg");
+> +	if (brg) {
 
-You should check for (prop =3D=3D NULL).
+If you did
+	if (!brg) {
+		.
+		.
+		goto err;
+	}
+Then you would save indenting all the rest of this function.
 
-> +	ucc_num =3D *prop - 1;
-> +	if ((ucc_num < 0) || (ucc_num > 7))
-> +		return -ENODEV;
+> +		prop =3D of_get_property(brg,
+> +					"fsl,brg-sources", &size);
+
+Join these lines.
+
+> +		of_node_put(brg);
 > +
-> +	ut_info =3D &utdm_info[ucc_num];
-> +	if (ut_info =3D=3D NULL) {
+> +		if (prop)
+> +			brg_src =3D *(prop + brg_num);
+> +		else {
+> +			printk(KERN_ERR "%s: invalid fsl,brg-sources in device "
+> +				"tree\n", __FUNCTION__);
+> +			ret =3D -EINVAL;
+> +			goto err;
+> +		}
+> +		if (brg_src =3D=3D 0) {
+> +			*brg_source =3D 0;
+> +			if (brg_clk > 0)
+> +				return brg_clk;
+> +			qe =3D of_find_node_by_type(NULL, "qe");
+> +			if (qe) {
 
-This cannot be NULL as you have just taken the address of an array
-element.
+Again testing (!qe) and jumping to err would save another level if
+indentation.
 
-> +	tdm_ctrl[device_num]->ut_info =3D ut_info;
-> +
-> +	tdm_ctrl[device_num]->ut_info->uf_info.ucc_num =3D ucc_num;
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-This is the same as "ut_info".
+> +				unsigned int size;
+> +				prop =3D of_get_property
+> +						(qe, "brg-frequency", &size);
 
-> +	tdm_ctrl[device_num]->ut_info->uf_info.tdm_tx_clk =3D
-> +			(char *) of_get_property(np, "fsl,tdm-tx-clk", NULL);
-                                ^
-We don't normall put spaces here.
+And you wouldn't have to split things like this.
 
-> +	tdm_ctrl[device_num]->ut_info->uf_info.tdm_rx_clk =3D
-> +			(char *) of_get_property(np, "fsl,tdm-rx-clk", NULL);
-                                ^
-Ditto. And later as well.
+> +				if (!prop) {
+> +					printk(KERN_ERR "%s: QE brg-frequency"
+> +						"not present in device tree\n",
+> +						 __FUNCTION__);
+> +					ret =3D -EINVAL;
+> +					of_node_put(qe);
+> +					goto err;
+> +				}
+> +				if (*prop) {
+> +					of_node_put(qe);
+> +					brg_clk =3D *prop;
+> +					return *prop;
+> +				} else {
 
-> +	tdm_ctrl[device_num]->ut_info->uf_info.irq =3D
-> +					irq_of_parse_and_map(np, 0);
-> +	err =3D of_address_to_resource(np, 0, &res);
-> +	if (err) {
-> +		ret =3D EINVAL;
+This else (and indentation) is unnecessary as you just returned above.
 
-This should be -EINVAL or err.
+> +		} else {
+> +			*brg_source =3D brg_src + QE_CLK1 - 1;
+> +			clocks =3D of_find_compatible_node(NULL, NULL,
+> +							"fsl,cpm-clocks");
+> +			if (!clocks) {
+> +				printk(KERN_ERR "%s: no clocks node in device"
+> +					" tree \n", __FUNCTION__);
+> +				ret =3D -EINVAL;
+> +				goto err;
+> +			} else {
 
-> +		goto get_property_error;
+Same here.
 
-You need to do something about unmapping the irq in the error path.
+> +	} else {
+> +		printk(KERN_ERR "%s: no brg node in device tree\n",
+> +			 __FUNCTION__);
+> +		ret =3D -EINVAL;
+> +		goto err;
 
-> +	tdm_ctrl[device_num]->uf_regs =3D of_iomap(np, 0);
-> +
-> +	np_tmp =3D of_find_compatible_node(np_tmp, "slic", "legerity-slic");
-> +	if (np_tmp !=3D NULL)
-> +		tdm_ctrl[device_num]->leg_slic =3D 1;
-> +	else
-> +		tdm_ctrl[device_num]->leg_slic =3D 0;
+This goto is redundant.
 
-	of_node_ut(np_tmp);
+> +	}
+> +err: return ret;
 
-> +	tdm_buff =3D dma_alloc_coherent(NULL, 2 * NR_BUFS * SAMPLE_DEPTH *
-> +				tdm_ctrl[device_num]->cfg_ctrl.active_num_ts,
-> +					&physaddr, GFP_KERNEL);
-> +	if (!tdm_buff) {
-> +		printk(KERN_ERR "ucc-tdm: could not allocate buffer"
-> +					"descriptors\n");
-> +		ret =3D -ENOMEM;
-> +		goto get_property_error;
+Put the label on a line by itself and indent it one space (that means that
+"diff -p will reference the funstion anem instead of the label).
 
-You need to unmap the uf_regs in the error path.
+> @@ -152,6 +152,10 @@ struct ucc_fast_info {
+>  	enum ucc_fast_rx_decoding_method renc;
+>  	enum ucc_fast_transparent_tcrc tcrc;
+>  	enum ucc_fast_sync_len synl;
+> +	char *tdm_rx_clk;
+> +	char *tdm_tx_clk;
+> +	char *tdm_rx_sync;
+> +	char *tdm_tx_sync;
 
-> +get_property_error:
-> +	kfree(tdm_ctrl[device_num]);
-
-Do you need to set "tdm_ctrl[device_num]" to NULL and decrement
-num_tdm_devices?
-
-> +	return ret;
-> +}
-> +
-> +static int ucc_tdm_remove(struct of_device *ofdev)
-> +{
-> +	struct tdm_ctrl *tdm_c;
-> +	struct ucc_tdm_info *ut_info;
-> +	u32 ucc_num;
-> +
-> +	tdm_c =3D dev_get_drvdata(&(ofdev->dev));
-
-	dev_set_drvdata(&of_dev->dev, NULL);
-
-> +	ucc_num =3D tdm_c->ut_info->uf_info.ucc_num;
-> +	ut_info =3D &utdm_info[ucc_num];
-> +	tdm_stop(tdm_c);
-> +	tdm_deinit(tdm_c);
-> +
-> +	ucc_fast_free(tdm_c->uf_private);
-> +
-> +	dma_free_coherent(NULL, 2 * NR_BUFS * SAMPLE_DEPTH *
-> +				tdm_c->cfg_ctrl.active_num_ts,
-> +				tdm_c->tdm_input_data,
-> +				tdm_c->dma_input_addr);
-> +
-
-You need to unmap the uf_reg and the irq.
-
-> +static struct of_device_id ucc_tdm_match[] =3D {
-
-const, please.
-
-> +	{
-> +	 .type =3D "tdm",
-> +	 .compatible =3D "fsl,ucc-tdm",
-> +	 }, {},
-
-We euld normall format this like:
-
-	{ .type =3D "tdm", .compatible =3D "fsl,ucc-tdm", },
-	{},
-
-> +static struct of_platform_driver ucc_tdm_driver =3D {
-
-	.driver =3D {
-
-> +	.name =3D DRV_NAME,
-
-	},
+If you make these "const char *" you won't have to cast the results of
+of_get_property() that you assign to them.
 
 --=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 http://www.canb.auug.org.au/~sfr/
 
---Signature=_Thu__24_Jan_2008_17_19_20_+1100_M8q4g+u4cutXlxEd
+--Signature=_Thu__24_Jan_2008_17_34_23_+1100_uuyfMNofWS2a/6AR
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.6 (GNU/Linux)
 
-iD8DBQFHmC3sTgG2atn1QN8RAgXGAJ4uMTjBoYK8ZY3LkcspcHfPKuvyEgCeOkVE
-mWEA3F5o5j/zT6OiVoK6aic=
-=y4E+
+iD8DBQFHmDF4TgG2atn1QN8RAq+YAJ4ty7SZ/kJsAmYwa+DogdyLXnFoAwCcDQ7A
+m3Z5SUtUtaOzammyQgqpeKQ=
+=gFCT
 -----END PGP SIGNATURE-----
 
---Signature=_Thu__24_Jan_2008_17_19_20_+1100_M8q4g+u4cutXlxEd--
+--Signature=_Thu__24_Jan_2008_17_34_23_+1100_uuyfMNofWS2a/6AR--
