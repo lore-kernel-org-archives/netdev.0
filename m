@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@sw.ru>
-Subject: [PATCH 1/5] netns netfilter: per-netns ip6tables
-Date: Thu, 24 Jan 2008 15:23:28 +0300
-Message-ID: <20080124122328.GA27337@localhost.sw.ru>
+Subject: [PATCH 2/5] netns netfilter: per-netns IPv6 FILTER, MANGLE, RAW
+Date: Thu, 24 Jan 2008 15:27:48 +0300
+Message-ID: <20080124122748.GB27337@localhost.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
@@ -12,265 +12,325 @@ Content-Disposition: inline
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Propagate netns from userspace down to xt_find_table_lock()
-* Register ip6 tables in netns (modules still use init_net)
+Now it's possible to list and manipulate per-netns ip6tables rules.
+Filtering decisions are based on init_net's table so far.
+
+P.S.: remove init_net check in inet6_create() to see the effect
 
 Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
 ---
 
- include/linux/netfilter_ipv6/ip6_tables.h |    3 +
- net/ipv6/netfilter/ip6_tables.c           |   50 +++++++++++++++---------------
- net/ipv6/netfilter/ip6table_filter.c      |    2 -
- net/ipv6/netfilter/ip6table_mangle.c      |    2 -
- net/ipv6/netfilter/ip6table_raw.c         |    2 -
- 5 files changed, 31 insertions(+), 28 deletions(-)
+ include/net/netns/ipv6.h             |    6 +++++
+ net/ipv6/netfilter/ip6table_filter.c |   40 +++++++++++++++++++++++++----------
+ net/ipv6/netfilter/ip6table_mangle.c |   40 +++++++++++++++++++++++++----------
+ net/ipv6/netfilter/ip6table_raw.c    |   38 ++++++++++++++++++++++++---------
+ 4 files changed, 92 insertions(+), 32 deletions(-)
 
---- a/include/linux/netfilter_ipv6/ip6_tables.h
-+++ b/include/linux/netfilter_ipv6/ip6_tables.h
-@@ -305,7 +305,8 @@ ip6t_get_target(struct ip6t_entry *e)
- #include <linux/init.h>
- extern void ip6t_init(void) __init;
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -31,5 +31,10 @@ struct netns_ipv6 {
+ 	struct ipv6_devconf	*devconf_all;
+ 	struct ipv6_devconf	*devconf_dflt;
+ 	struct netns_frags	frags;
++#ifdef CONFIG_NETFILTER
++	struct xt_table		*ip6table_filter;
++	struct xt_table		*ip6table_mangle;
++	struct xt_table		*ip6table_raw;
++#endif
+ };
+ #endif
+--- a/net/ipv6/netfilter/ip6table_filter.c
++++ b/net/ipv6/netfilter/ip6table_filter.c
+@@ -26,7 +26,7 @@ static struct
+ 	struct ip6t_replace repl;
+ 	struct ip6t_standard entries[3];
+ 	struct ip6t_error term;
+-} initial_table __initdata = {
++} initial_table __net_initdata = {
+ 	.repl = {
+ 		.name = "filter",
+ 		.valid_hooks = FILTER_VALID_HOOKS,
+@@ -51,14 +51,13 @@ static struct
+ 	.term = IP6T_ERROR_INIT,		/* ERROR */
+ };
  
--extern struct xt_table *ip6t_register_table(struct xt_table *table,
-+extern struct xt_table *ip6t_register_table(struct net *net,
-+					    struct xt_table *table,
- 					    const struct ip6t_replace *repl);
- extern void ip6t_unregister_table(struct xt_table *table);
- extern unsigned int ip6t_do_table(struct sk_buff *skb,
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -1118,7 +1118,7 @@ static int compat_table_info(const struct xt_table_info *info,
+-static struct xt_table __packet_filter = {
++static struct xt_table packet_filter = {
+ 	.name		= "filter",
+ 	.valid_hooks	= FILTER_VALID_HOOKS,
+ 	.lock		= RW_LOCK_UNLOCKED,
+ 	.me		= THIS_MODULE,
+ 	.af		= AF_INET6,
+ };
+-static struct xt_table *packet_filter;
+ 
+ /* The work comes in here from netfilter.c. */
+ static unsigned int
+@@ -68,7 +67,7 @@ ip6t_hook(unsigned int hook,
+ 	 const struct net_device *out,
+ 	 int (*okfn)(struct sk_buff *))
+ {
+-	return ip6t_do_table(skb, hook, in, out, packet_filter);
++	return ip6t_do_table(skb, hook, in, out, init_net.ipv6.ip6table_filter);
  }
+ 
+ static unsigned int
+@@ -88,7 +87,7 @@ ip6t_local_out_hook(unsigned int hook,
+ 	}
  #endif
  
--static int get_info(void __user *user, int *len, int compat)
-+static int get_info(struct net *net, void __user *user, int *len, int compat)
- {
- 	char name[IP6T_TABLE_MAXNAMELEN];
- 	struct xt_table *t;
-@@ -1138,7 +1138,7 @@ static int get_info(void __user *user, int *len, int compat)
- 	if (compat)
- 		xt_compat_lock(AF_INET6);
- #endif
--	t = try_then_request_module(xt_find_table_lock(&init_net, AF_INET6, name),
-+	t = try_then_request_module(xt_find_table_lock(net, AF_INET6, name),
- 				    "ip6table_%s", name);
- 	if (t && !IS_ERR(t)) {
- 		struct ip6t_getinfo info;
-@@ -1178,7 +1178,7 @@ static int get_info(void __user *user, int *len, int compat)
+-	return ip6t_do_table(skb, hook, in, out, packet_filter);
++	return ip6t_do_table(skb, hook, in, out, init_net.ipv6.ip6table_filter);
  }
  
- static int
--get_entries(struct ip6t_get_entries __user *uptr, int *len)
-+get_entries(struct net *net, struct ip6t_get_entries __user *uptr, int *len)
+ static struct nf_hook_ops ip6t_ops[] __read_mostly = {
+@@ -119,6 +118,26 @@ static struct nf_hook_ops ip6t_ops[] __read_mostly = {
+ static int forward = NF_ACCEPT;
+ module_param(forward, bool, 0000);
+ 
++static int __net_init ip6table_filter_net_init(struct net *net)
++{
++	/* Register table */
++	net->ipv6.ip6table_filter =
++		ip6t_register_table(net, &packet_filter, &initial_table.repl);
++	if (IS_ERR(net->ipv6.ip6table_filter))
++		return PTR_ERR(net->ipv6.ip6table_filter);
++	return 0;
++}
++
++static void __net_exit ip6table_filter_net_exit(struct net *net)
++{
++	ip6t_unregister_table(net->ipv6.ip6table_filter);
++}
++
++static struct pernet_operations ip6table_filter_net_ops = {
++	.init = ip6table_filter_net_init,
++	.exit = ip6table_filter_net_exit,
++};
++
+ static int __init ip6table_filter_init(void)
  {
  	int ret;
- 	struct ip6t_get_entries get;
-@@ -1196,7 +1196,7 @@ get_entries(struct ip6t_get_entries __user *uptr, int *len)
- 		return -EINVAL;
- 	}
+@@ -131,10 +150,9 @@ static int __init ip6table_filter_init(void)
+ 	/* Entry 1 is the FORWARD hook */
+ 	initial_table.entries[1].target.verdict = -forward - 1;
  
--	t = xt_find_table_lock(&init_net, AF_INET6, get.name);
-+	t = xt_find_table_lock(net, AF_INET6, get.name);
- 	if (t && !IS_ERR(t)) {
- 		struct xt_table_info *private = t->private;
- 		duprintf("t->private->number = %u\n", private->number);
-@@ -1217,7 +1217,7 @@ get_entries(struct ip6t_get_entries __user *uptr, int *len)
- }
+-	/* Register table */
+-	packet_filter = ip6t_register_table(&init_net, &__packet_filter, &initial_table.repl);
+-	if (IS_ERR(packet_filter))
+-		return PTR_ERR(packet_filter);
++	ret = register_pernet_subsys(&ip6table_filter_net_ops);
++	if (ret < 0)
++		return ret;
  
- static int
--__do_replace(const char *name, unsigned int valid_hooks,
-+__do_replace(struct net *net, const char *name, unsigned int valid_hooks,
- 	     struct xt_table_info *newinfo, unsigned int num_counters,
- 	     void __user *counters_ptr)
- {
-@@ -1235,7 +1235,7 @@ __do_replace(const char *name, unsigned int valid_hooks,
- 		goto out;
- 	}
+ 	/* Register hooks */
+ 	ret = nf_register_hooks(ip6t_ops, ARRAY_SIZE(ip6t_ops));
+@@ -144,14 +162,14 @@ static int __init ip6table_filter_init(void)
+ 	return ret;
  
--	t = try_then_request_module(xt_find_table_lock(&init_net, AF_INET6, name),
-+	t = try_then_request_module(xt_find_table_lock(net, AF_INET6, name),
- 				    "ip6table_%s", name);
- 	if (!t || IS_ERR(t)) {
- 		ret = t ? PTR_ERR(t) : -ENOENT;
-@@ -1288,7 +1288,7 @@ __do_replace(const char *name, unsigned int valid_hooks,
- }
- 
- static int
--do_replace(void __user *user, unsigned int len)
-+do_replace(struct net *net, void __user *user, unsigned int len)
- {
- 	int ret;
- 	struct ip6t_replace tmp;
-@@ -1322,7 +1322,7 @@ do_replace(void __user *user, unsigned int len)
- 
- 	duprintf("ip_tables: Translated table\n");
- 
--	ret = __do_replace(tmp.name, tmp.valid_hooks, newinfo,
-+	ret = __do_replace(net, tmp.name, tmp.valid_hooks, newinfo,
- 			   tmp.num_counters, tmp.counters);
- 	if (ret)
- 		goto free_newinfo_untrans;
-@@ -1358,7 +1358,7 @@ add_counter_to_entry(struct ip6t_entry *e,
- }
- 
- static int
--do_add_counters(void __user *user, unsigned int len, int compat)
-+do_add_counters(struct net *net, void __user *user, unsigned int len, int compat)
- {
- 	unsigned int i;
- 	struct xt_counters_info tmp;
-@@ -1410,7 +1410,7 @@ do_add_counters(void __user *user, unsigned int len, int compat)
- 		goto free;
- 	}
- 
--	t = xt_find_table_lock(&init_net, AF_INET6, name);
-+	t = xt_find_table_lock(net, AF_INET6, name);
- 	if (!t || IS_ERR(t)) {
- 		ret = t ? PTR_ERR(t) : -ENOENT;
- 		goto free;
-@@ -1815,7 +1815,7 @@ out_unlock:
- }
- 
- static int
--compat_do_replace(void __user *user, unsigned int len)
-+compat_do_replace(struct net *net, void __user *user, unsigned int len)
- {
- 	int ret;
- 	struct compat_ip6t_replace tmp;
-@@ -1852,7 +1852,7 @@ compat_do_replace(void __user *user, unsigned int len)
- 
- 	duprintf("compat_do_replace: Translated table\n");
- 
--	ret = __do_replace(tmp.name, tmp.valid_hooks, newinfo,
-+	ret = __do_replace(net, tmp.name, tmp.valid_hooks, newinfo,
- 			   tmp.num_counters, compat_ptr(tmp.counters));
- 	if (ret)
- 		goto free_newinfo_untrans;
-@@ -1876,11 +1876,11 @@ compat_do_ip6t_set_ctl(struct sock *sk, int cmd, void __user *user,
- 
- 	switch (cmd) {
- 	case IP6T_SO_SET_REPLACE:
--		ret = compat_do_replace(user, len);
-+		ret = compat_do_replace(sk->sk_net, user, len);
- 		break;
- 
- 	case IP6T_SO_SET_ADD_COUNTERS:
--		ret = do_add_counters(user, len, 1);
-+		ret = do_add_counters(sk->sk_net, user, len, 1);
- 		break;
- 
- 	default:
-@@ -1929,7 +1929,8 @@ compat_copy_entries_to_user(unsigned int total_size, struct xt_table *table,
- }
- 
- static int
--compat_get_entries(struct compat_ip6t_get_entries __user *uptr, int *len)
-+compat_get_entries(struct net *net, struct compat_ip6t_get_entries __user *uptr,
-+		   int *len)
- {
- 	int ret;
- 	struct compat_ip6t_get_entries get;
-@@ -1950,7 +1951,7 @@ compat_get_entries(struct compat_ip6t_get_entries __user *uptr, int *len)
- 	}
- 
- 	xt_compat_lock(AF_INET6);
--	t = xt_find_table_lock(&init_net, AF_INET6, get.name);
-+	t = xt_find_table_lock(net, AF_INET6, get.name);
- 	if (t && !IS_ERR(t)) {
- 		struct xt_table_info *private = t->private;
- 		struct xt_table_info info;
-@@ -1986,10 +1987,10 @@ compat_do_ip6t_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
- 
- 	switch (cmd) {
- 	case IP6T_SO_GET_INFO:
--		ret = get_info(user, len, 1);
-+		ret = get_info(sk->sk_net, user, len, 1);
- 		break;
- 	case IP6T_SO_GET_ENTRIES:
--		ret = compat_get_entries(user, len);
-+		ret = compat_get_entries(sk->sk_net, user, len);
- 		break;
- 	default:
- 		ret = do_ip6t_get_ctl(sk, cmd, user, len);
-@@ -2008,11 +2009,11 @@ do_ip6t_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
- 
- 	switch (cmd) {
- 	case IP6T_SO_SET_REPLACE:
--		ret = do_replace(user, len);
-+		ret = do_replace(sk->sk_net, user, len);
- 		break;
- 
- 	case IP6T_SO_SET_ADD_COUNTERS:
--		ret = do_add_counters(user, len, 0);
-+		ret = do_add_counters(sk->sk_net, user, len, 0);
- 		break;
- 
- 	default:
-@@ -2033,11 +2034,11 @@ do_ip6t_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
- 
- 	switch (cmd) {
- 	case IP6T_SO_GET_INFO:
--		ret = get_info(user, len, 0);
-+		ret = get_info(sk->sk_net, user, len, 0);
- 		break;
- 
- 	case IP6T_SO_GET_ENTRIES:
--		ret = get_entries(user, len);
-+		ret = get_entries(sk->sk_net, user, len);
- 		break;
- 
- 	case IP6T_SO_GET_REVISION_MATCH:
-@@ -2074,7 +2075,8 @@ do_ip6t_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+  cleanup_table:
+-	ip6t_unregister_table(packet_filter);
++	unregister_pernet_subsys(&ip6table_filter_net_ops);
  	return ret;
  }
  
--struct xt_table *ip6t_register_table(struct xt_table *table, const struct ip6t_replace *repl)
-+struct xt_table *ip6t_register_table(struct net *net, struct xt_table *table,
-+				     const struct ip6t_replace *repl)
+ static void __exit ip6table_filter_fini(void)
  {
- 	int ret;
- 	struct xt_table_info *newinfo;
-@@ -2101,7 +2103,7 @@ struct xt_table *ip6t_register_table(struct xt_table *table, const struct ip6t_r
- 	if (ret != 0)
- 		goto out_free;
+ 	nf_unregister_hooks(ip6t_ops, ARRAY_SIZE(ip6t_ops));
+-	ip6t_unregister_table(packet_filter);
++	unregister_pernet_subsys(&ip6table_filter_net_ops);
+ }
  
--	new_table = xt_register_table(&init_net, table, &bootstrap, newinfo);
-+	new_table = xt_register_table(net, table, &bootstrap, newinfo);
- 	if (IS_ERR(new_table)) {
- 		ret = PTR_ERR(new_table);
- 		goto out_free;
---- a/net/ipv6/netfilter/ip6table_filter.c
-+++ b/net/ipv6/netfilter/ip6table_filter.c
-@@ -132,7 +132,7 @@ static int __init ip6table_filter_init(void)
- 	initial_table.entries[1].target.verdict = -forward - 1;
- 
- 	/* Register table */
--	packet_filter = ip6t_register_table(&__packet_filter, &initial_table.repl);
-+	packet_filter = ip6t_register_table(&init_net, &__packet_filter, &initial_table.repl);
- 	if (IS_ERR(packet_filter))
- 		return PTR_ERR(packet_filter);
- 
+ module_init(ip6table_filter_init);
 --- a/net/ipv6/netfilter/ip6table_mangle.c
 +++ b/net/ipv6/netfilter/ip6table_mangle.c
-@@ -164,7 +164,7 @@ static int __init ip6table_mangle_init(void)
+@@ -26,7 +26,7 @@ static struct
+ 	struct ip6t_replace repl;
+ 	struct ip6t_standard entries[5];
+ 	struct ip6t_error term;
+-} initial_table __initdata = {
++} initial_table __net_initdata = {
+ 	.repl = {
+ 		.name = "mangle",
+ 		.valid_hooks = MANGLE_VALID_HOOKS,
+@@ -57,14 +57,13 @@ static struct
+ 	.term = IP6T_ERROR_INIT,		/* ERROR */
+ };
+ 
+-static struct xt_table __packet_mangler = {
++static struct xt_table packet_mangler = {
+ 	.name		= "mangle",
+ 	.valid_hooks	= MANGLE_VALID_HOOKS,
+ 	.lock		= RW_LOCK_UNLOCKED,
+ 	.me		= THIS_MODULE,
+ 	.af		= AF_INET6,
+ };
+-static struct xt_table *packet_mangler;
+ 
+ /* The work comes in here from netfilter.c. */
+ static unsigned int
+@@ -74,7 +73,7 @@ ip6t_route_hook(unsigned int hook,
+ 	 const struct net_device *out,
+ 	 int (*okfn)(struct sk_buff *))
+ {
+-	return ip6t_do_table(skb, hook, in, out, packet_mangler);
++	return ip6t_do_table(skb, hook, in, out, init_net.ipv6.ip6table_mangle);
+ }
+ 
+ static unsigned int
+@@ -109,7 +108,7 @@ ip6t_local_hook(unsigned int hook,
+ 	/* flowlabel and prio (includes version, which shouldn't change either */
+ 	flowlabel = *((u_int32_t *)ipv6_hdr(skb));
+ 
+-	ret = ip6t_do_table(skb, hook, in, out, packet_mangler);
++	ret = ip6t_do_table(skb, hook, in, out, init_net.ipv6.ip6table_mangle);
+ 
+ 	if (ret != NF_DROP && ret != NF_STOLEN
+ 		&& (memcmp(&ipv6_hdr(skb)->saddr, &saddr, sizeof(saddr))
+@@ -159,14 +158,33 @@ static struct nf_hook_ops ip6t_ops[] __read_mostly = {
+ 	},
+ };
+ 
++static int __net_init ip6table_mangle_net_init(struct net *net)
++{
++	/* Register table */
++	net->ipv6.ip6table_mangle =
++		ip6t_register_table(net, &packet_mangler, &initial_table.repl);
++	if (IS_ERR(net->ipv6.ip6table_mangle))
++		return PTR_ERR(net->ipv6.ip6table_mangle);
++	return 0;
++}
++
++static void __net_exit ip6table_mangle_net_exit(struct net *net)
++{
++	ip6t_unregister_table(net->ipv6.ip6table_mangle);
++}
++
++static struct pernet_operations ip6table_mangle_net_ops = {
++	.init = ip6table_mangle_net_init,
++	.exit = ip6table_mangle_net_exit,
++};
++
+ static int __init ip6table_mangle_init(void)
+ {
  	int ret;
  
- 	/* Register table */
--	packet_mangler = ip6t_register_table(&__packet_mangler, &initial_table.repl);
-+	packet_mangler = ip6t_register_table(&init_net, &__packet_mangler, &initial_table.repl);
- 	if (IS_ERR(packet_mangler))
- 		return PTR_ERR(packet_mangler);
+-	/* Register table */
+-	packet_mangler = ip6t_register_table(&init_net, &__packet_mangler, &initial_table.repl);
+-	if (IS_ERR(packet_mangler))
+-		return PTR_ERR(packet_mangler);
++	ret = register_pernet_subsys(&ip6table_mangle_net_ops);
++	if (ret < 0)
++		return ret;
  
+ 	/* Register hooks */
+ 	ret = nf_register_hooks(ip6t_ops, ARRAY_SIZE(ip6t_ops));
+@@ -176,14 +194,14 @@ static int __init ip6table_mangle_init(void)
+ 	return ret;
+ 
+  cleanup_table:
+-	ip6t_unregister_table(packet_mangler);
++	unregister_pernet_subsys(&ip6table_mangle_net_ops);
+ 	return ret;
+ }
+ 
+ static void __exit ip6table_mangle_fini(void)
+ {
+ 	nf_unregister_hooks(ip6t_ops, ARRAY_SIZE(ip6t_ops));
+-	ip6t_unregister_table(packet_mangler);
++	unregister_pernet_subsys(&ip6table_mangle_net_ops);
+ }
+ 
+ module_init(ip6table_mangle_init);
 --- a/net/ipv6/netfilter/ip6table_raw.c
 +++ b/net/ipv6/netfilter/ip6table_raw.c
-@@ -77,7 +77,7 @@ static int __init ip6table_raw_init(void)
+@@ -13,7 +13,7 @@ static struct
+ 	struct ip6t_replace repl;
+ 	struct ip6t_standard entries[2];
+ 	struct ip6t_error term;
+-} initial_table __initdata = {
++} initial_table __net_initdata = {
+ 	.repl = {
+ 		.name = "raw",
+ 		.valid_hooks = RAW_VALID_HOOKS,
+@@ -35,14 +35,13 @@ static struct
+ 	.term = IP6T_ERROR_INIT,		/* ERROR */
+ };
+ 
+-static struct xt_table __packet_raw = {
++static struct xt_table packet_raw = {
+ 	.name = "raw",
+ 	.valid_hooks = RAW_VALID_HOOKS,
+ 	.lock = RW_LOCK_UNLOCKED,
+ 	.me = THIS_MODULE,
+ 	.af = AF_INET6,
+ };
+-static struct xt_table *packet_raw;
+ 
+ /* The work comes in here from netfilter.c. */
+ static unsigned int
+@@ -52,7 +51,7 @@ ip6t_hook(unsigned int hook,
+ 	 const struct net_device *out,
+ 	 int (*okfn)(struct sk_buff *))
+ {
+-	return ip6t_do_table(skb, hook, in, out, packet_raw);
++	return ip6t_do_table(skb, hook, in, out, init_net.ipv6.ip6table_raw);
+ }
+ 
+ static struct nf_hook_ops ip6t_ops[] __read_mostly = {
+@@ -72,14 +71,33 @@ static struct nf_hook_ops ip6t_ops[] __read_mostly = {
+ 	},
+ };
+ 
++static int __net_init ip6table_raw_net_init(struct net *net)
++{
++	/* Register table */
++	net->ipv6.ip6table_raw =
++		ip6t_register_table(net, &packet_raw, &initial_table.repl);
++	if (IS_ERR(net->ipv6.ip6table_raw))
++		return PTR_ERR(net->ipv6.ip6table_raw);
++	return 0;
++}
++
++static void __net_exit ip6table_raw_net_exit(struct net *net)
++{
++	ip6t_unregister_table(net->ipv6.ip6table_raw);
++}
++
++static struct pernet_operations ip6table_raw_net_ops = {
++	.init = ip6table_raw_net_init,
++	.exit = ip6table_raw_net_exit,
++};
++
+ static int __init ip6table_raw_init(void)
+ {
  	int ret;
  
- 	/* Register table */
--	packet_raw = ip6t_register_table(&__packet_raw, &initial_table.repl);
-+	packet_raw = ip6t_register_table(&init_net, &__packet_raw, &initial_table.repl);
- 	if (IS_ERR(packet_raw))
- 		return PTR_ERR(packet_raw);
+-	/* Register table */
+-	packet_raw = ip6t_register_table(&init_net, &__packet_raw, &initial_table.repl);
+-	if (IS_ERR(packet_raw))
+-		return PTR_ERR(packet_raw);
++	ret = register_pernet_subsys(&ip6table_raw_net_ops);
++	if (ret < 0)
++		return ret;
  
+ 	/* Register hooks */
+ 	ret = nf_register_hooks(ip6t_ops, ARRAY_SIZE(ip6t_ops));
+@@ -89,14 +107,14 @@ static int __init ip6table_raw_init(void)
+ 	return ret;
+ 
+  cleanup_table:
+-	ip6t_unregister_table(packet_raw);
++	unregister_pernet_subsys(&ip6table_raw_net_ops);
+ 	return ret;
+ }
+ 
+ static void __exit ip6table_raw_fini(void)
+ {
+ 	nf_unregister_hooks(ip6t_ops, ARRAY_SIZE(ip6t_ops));
+-	ip6t_unregister_table(packet_raw);
++	unregister_pernet_subsys(&ip6table_raw_net_ops);
+ }
+ 
+ module_init(ip6table_raw_init);
 
