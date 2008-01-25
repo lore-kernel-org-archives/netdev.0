@@ -1,61 +1,70 @@
-From: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
-Subject: Re: [PATCH v2] PS3: gelic: Add wireless support for PS3
-Date: Fri, 25 Jan 2008 12:36:38 +0900
-Message-ID: <20080125122408.5CC6.40F06B3A@sm.sony.co.jp>
-References: <1201225785.15917.8.camel@localhost.localdomain> <20080125024725.GB3411@tuxdriver.com>
+From: "Aggrwal Poonam" <Poonam.Aggrwal@freescale.com>
+Subject: RE: [PATCH UCC TDM 3/3 ] Modified Documentation to explain dtsentries
+	for TDM driver
+Date: Fri, 25 Jan 2008 09:28:19 +0530
+Message-ID: <FBA61160C48B8D438F3323FEFB4EF2C279AFF5@zin33exm24.fsl.freescale.net>
+References: <Pine.LNX.4.64.0801241022070.27491@linux121>
+	<20080124201226.GA3926@loki.buserror.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org,
-	Geert Uytterhoeven <Geert.Uytterhoeven-osDt5Q4Chk1BDgjK7y7TUQ@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080125024725.GB3411-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Barkowski Michael <Michael.Barkowski@freescale.com>, netdev@vger.kernel.org,
+	Gala Kumar <kumar.gala@freescale.com>,
+	linux-kernel@vger.kernel.org, rubini@vision.unipv.it,
+	linuxppc-dev@ozlabs.org, Kalra Ashish <ashish.kalra@freescale.com>,
+	Cutler Richard <Rich.Cutler@freescale.com>,
+	akpm@linux-foundation.org, Tabi Timur <timur@freescale.com>
+To: "Wood Scott" <scottwood@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20080124201226.GA3926@loki.buserror.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
+Hi Scott
 
-On Thu, 24 Jan 2008 21:47:25 -0500
-"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
-
-> On Thu, Jan 24, 2008 at 08:49:45PM -0500, Dan Williams wrote:
-> > On Thu, 2008-01-24 at 14:51 +0900, Masakazu Mokuno wrote:
-> > > Hi
-> > > 
-> > > PS3: gelic: Add wireless support for PS3
-> > > 
-> > > This is the version 2 of the re-worked (rewritten) version of the
-> > > wireless support driver for PS3.  The version 1 of the new driver was
-> > > submitted on 13th Dec. 2007 (and the old one was submitted to net-dev ML
-> > > in June 2007).
-> > > 
-> > > Major differences with the old driver are:
-> > >   - The new driver has a separate ethX interface from ethernet.
-> > >     They share the same MAC address.
-> > >   - Thus we can use both ethernet and wireless simultaenously.
-> > >   - The new driver returns AP's cipher information by the common IE
-> > >     format in the scan information.
-> > >   - Cipher selection is done via the common wireless extension way
-> > 
-> > Looks like all my issues have been addressed.  Thanks!  Lets get this in
-> > 2.6.25 :)
-> > 
-> > Acked-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> 
-> ACK -- please merge it with the other patches through the powerpc tree.
-> 
-> Thanks,
-> 
-> John
-
-Thank you, John, Dan.
-
-I'll ask Paul to merge this if the wired part of dependent gelic patches
-gets acked from network people.
+The device tree already has a brg-frequency  property in qe node which
+is the value of BRGCLK. The function get_brg_clk uses this property to
+find the value of BRGCLK.
+In case this value is 0(some older u-boots populate bus-frequency
+property of qe and not the brg-frequency), get_brg_clk  uses
+bus-frequency/2 as BRGCLK.
 
 
--- 
-Masakazu MOKUNO
+With Regards
+Poonam 
+ 
+ 
+
+-----Original Message-----
+From: Wood Scott 
+Sent: Friday, January 25, 2008 1:42 AM
+To: Aggrwal Poonam
+Cc: Gala Kumar; akpm@linux-foundation.org; linux-kernel@vger.kernel.org;
+netdev@vger.kernel.org; rubini@vision.unipv.it; linuxppc-dev@ozlabs.org;
+Barkowski Michael; Cutler Richard; Tabi Timur; Kalra Ashish
+Subject: Re: [PATCH UCC TDM 3/3 ] Modified Documentation to explain
+dtsentries for TDM driver
+
+On Thu, Jan 24, 2008 at 10:24:13AM +0530, Poonam_Aggrwal-b10812 wrote:
+> +  ix) Baud Rate Generator (BRG)
+> +
+> +  Required properties:
+> +  - compatible : shpuld be "fsl,cpm-brg"
+> +  - fsl,brg-sources : define the input clock for all 16 BRGs. The
+input
+> +    clock source could be 1 to 24 for CLK1 to CLK24. Zero means that
+the
+> +    particular BRG will be driven by QE clock(BRGCLK).
+
+Should also have a clock-frequency property to specify what BRGCLK is.
+
+-Scott
