@@ -1,62 +1,42 @@
-From: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
-Subject: [PATCH 02/14] [cdc_ether] Hardwire CDC descriptors when missing
-Date: Sat, 26 Jan 2008 00:50:44 +0200
-Message-ID: <20080125225044.11716.75749.stgit@fate.lan>
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Subject: [PATCH 03/14] [rndis_host] Use 1KB buffer in rndis_unbind
+Date: Sat, 26 Jan 2008 00:50:49 +0200
+Message-ID: <20080125225049.11716.93868.stgit@fate.lan>
 References: <20080125225032.11716.77713.stgit@fate.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bjd-a1rhEgazXTw@public.gmane.org, david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080125225032.11716.77713.stgit-q/85JClnwdg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bjd@jooz.net, david-b@pacbell.net
+To: linux-wireless@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pne-smtpout4-sn1.fre.skanova.net ([81.228.11.168]:60270 "EHLO
+	pne-smtpout4-sn1.fre.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759374AbYAYWu5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 17:50:57 -0500
+In-Reply-To: <20080125225032.11716.77713.stgit@fate.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bjorge Dijkstra <bjd-a1rhEgazXTw@public.gmane.org>
+rndis_command requires the caller to pass in a buffer of at least 1KB.
 
-Just as ActiveSync devices, some regular RNDIS devices also lack
-the CDC descriptors (e.g. devices based on BCM4320 WLAN chip).
-This patch hardwires the CDC descriptors for all RNDIS style devices
-when they are missing.
-
-Signed-off-by: Bjorge Dijkstra <bjd-a1rhEgazXTw@public.gmane.org>
-Signed-off-by: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
+Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Signed-off-by: Bjorge Dijkstra <bjd@jooz.net>
 ---
 
- drivers/net/usb/cdc_ether.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/usb/rndis_host.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index a42acc3..97c17bb 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -228,15 +228,16 @@ next_desc:
- 		buf += buf [0];
- 	}
+diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+index 96ef6a9..42b161c 100644
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -577,7 +577,7 @@ static void rndis_unbind(struct usbnet *dev, struct usb_interface *intf)
+ 	struct rndis_halt	*halt;
  
--	/* Microsoft ActiveSync based RNDIS devices lack the CDC descriptors,
--	 * so we'll hard-wire the interfaces and not check for descriptors.
-+	/* Microsoft ActiveSync based and some regular RNDIS devices lack the
-+	 * CDC descriptors, so we'll hard-wire the interfaces and not check
-+	 * for descriptors.
- 	 */
--	if (is_activesync(&intf->cur_altsetting->desc) && !info->u) {
-+	if (rndis && !info->u) {
- 		info->control = usb_ifnum_to_if(dev->udev, 0);
- 		info->data = usb_ifnum_to_if(dev->udev, 1);
- 		if (!info->control || !info->data) {
- 			dev_dbg(&intf->dev,
--				"activesync: master #0/%p slave #1/%p\n",
-+				"rndis: master #0/%p slave #1/%p\n",
- 				info->control,
- 				info->data);
- 			goto bad_desc;
-@@ -316,7 +317,6 @@ void usbnet_cdc_unbind(struct usbnet *dev, struct usb_interface *intf)
- }
- EXPORT_SYMBOL_GPL(usbnet_cdc_unbind);
- 
--
- /*-------------------------------------------------------------------------
-  *
-  * Communications Device Class, Ethernet Control model
+ 	/* try to clear any rndis state/activity (no i/o from stack!) */
+-	halt = kzalloc(sizeof *halt, GFP_KERNEL);
++	halt = kzalloc(CONTROL_BUFFER_SIZE, GFP_KERNEL);
+ 	if (halt) {
+ 		halt->msg_type = RNDIS_MSG_HALT;
+ 		halt->msg_len = ccpu2(sizeof *halt);
+
