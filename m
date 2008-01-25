@@ -1,506 +1,247 @@
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 02/11][NETNS][IPV6] ip6_fib - make the tables per namespace
-Date: Fri, 25 Jan 2008 17:50:10 +0100
-Message-ID: <20080125170804.169034652@localhost.localdomain>
+Subject: [patch 06/11][NETNS][IPV6] ip6_fib - make the ip6 fib gc timer per network namespace
+Date: Fri, 25 Jan 2008 17:50:14 +0100
+Message-ID: <20080125170814.337876265@localhost.localdomain>
 References: <20080125165008.317745745@localhost.localdomain>
 Cc: benjamin.thery@bull.net, netdev@vger.kernel.org, den@openvz.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:14898 "EHLO
-	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756930AbYAYRL3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 12:11:29 -0500
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id m0PHBSYd113134
-	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:28 GMT
-Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0PHBRZA1232928
-	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 18:11:27 +0100
-Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0PHBQkG025164
-	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 18:11:27 +0100
-Content-Disposition: inline; filename=ip6-fib-per-network-namespace.patch
+Received: from mtagate7.uk.ibm.com ([195.212.29.140]:16863 "EHLO
+	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757470AbYAYRLm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 12:11:42 -0500
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate7.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m0PHBeti455348
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:40 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0PHBewg5103818
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:40 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0PHBadK031583
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:37 GMT
+Content-Disposition: inline; filename=ip6-fib-gc-timer-per-namespace.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The fib table for ipv6 are moved to the network namespace structure.
-All references to them are made relatively to the network namespace.
+Move the timer initialization at the network namespace creation
+and store the network namespace in the timer argument.
 
-All external calls to the ip6_fib functions taking the network namespace 
-parameter are made using the init_net variable, so the ip6_fib engine is
-ready for the namespaces but the callers not yet.
+That enables multiple timers (one per network namespace) to do garbage
+collecting.
 
 Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
 ---
- include/net/ip6_fib.h    |    9 +-
- include/net/netns/ipv6.h |    6 +
- net/ipv6/fib6_rules.c    |    8 +-
- net/ipv6/ip6_fib.c       |  161 +++++++++++++++++++++++++++--------------------
- net/ipv6/route.c         |   22 +++---
- 5 files changed, 120 insertions(+), 86 deletions(-)
+ include/net/ip6_route.h  |    2 -
+ include/net/netns/ipv6.h |    1 
+ net/ipv6/ip6_fib.c       |   56 +++++++++++++++++++++++------------------------
+ net/ipv6/route.c         |    5 +++-
+ 4 files changed, 34 insertions(+), 30 deletions(-)
 
-Index: net-2.6.25/include/net/ip6_fib.h
-===================================================================
---- net-2.6.25.orig/include/net/ip6_fib.h
-+++ net-2.6.25/include/net/ip6_fib.h
-@@ -194,10 +194,11 @@ typedef struct rt6_info *(*pol_lookup_t)
-  *	exported functions
-  */
- 
--extern struct fib6_table *	fib6_get_table(u32 id);
--extern struct fib6_table *	fib6_new_table(u32 id);
--extern struct dst_entry *	fib6_rule_lookup(struct flowi *fl, int flags,
--						 pol_lookup_t lookup);
-+extern struct fib6_table        *fib6_get_table(struct net *net, u32 id);
-+extern struct fib6_table        *fib6_new_table(struct net *net, u32 id);
-+extern struct dst_entry         *fib6_rule_lookup(struct net *net,
-+						  struct flowi *fl, int flags,
-+						  pol_lookup_t lookup);
- 
- extern struct fib6_node		*fib6_lookup(struct fib6_node *root,
- 					     struct in6_addr *daddr,
-Index: net-2.6.25/include/net/netns/ipv6.h
-===================================================================
---- net-2.6.25.orig/include/net/netns/ipv6.h
-+++ net-2.6.25/include/net/netns/ipv6.h
-@@ -31,5 +31,11 @@ struct netns_ipv6 {
- 	struct ipv6_devconf	*devconf_all;
- 	struct ipv6_devconf	*devconf_dflt;
- 	struct netns_frags	frags;
-+
-+	struct hlist_head       *fib_table_hash;
-+	struct fib6_table       *fib6_main_tbl;
-+#ifdef CONFIG_IPV6_MULTIPLE_TABLES
-+	struct fib6_table       *fib6_local_tbl;
-+#endif
- };
- #endif
-Index: net-2.6.25/net/ipv6/fib6_rules.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/fib6_rules.c
-+++ net-2.6.25/net/ipv6/fib6_rules.c
-@@ -31,8 +31,8 @@ struct fib6_rule
- 
- static struct fib_rules_ops fib6_rules_ops;
- 
--struct dst_entry *fib6_rule_lookup(struct flowi *fl, int flags,
--				   pol_lookup_t lookup)
-+struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi *fl,
-+				   int flags, pol_lookup_t lookup)
- {
- 	struct fib_lookup_arg arg = {
- 		.lookup_ptr = lookup,
-@@ -71,7 +71,7 @@ static int fib6_rule_action(struct fib_r
- 		goto discard_pkt;
- 	}
- 
--	table = fib6_get_table(rule->table);
-+	table = fib6_get_table(&init_net, rule->table);
- 	if (table)
- 		rt = lookup(table, flp, flags);
- 
-@@ -151,7 +151,7 @@ static int fib6_rule_configure(struct fi
- 		if (rule->table == RT6_TABLE_UNSPEC)
- 			goto errout;
- 
--		if (fib6_new_table(rule->table) == NULL) {
-+		if (fib6_new_table(&init_net, rule->table) == NULL) {
- 			err = -ENOBUFS;
- 			goto errout;
- 		}
 Index: net-2.6.25/net/ipv6/ip6_fib.c
 ===================================================================
 --- net-2.6.25.orig/net/ipv6/ip6_fib.c
 +++ net-2.6.25/net/ipv6/ip6_fib.c
-@@ -166,16 +166,13 @@ static __inline__ void rt6_release(struc
- 		dst_free(&rt->u.dst);
- }
+@@ -95,8 +95,6 @@ static __u32 rt_sernum;
  
--static struct fib6_table *fib6_main_tbl;
+ static void fib6_gc_timer_cb(unsigned long arg);
+ 
+-static struct timer_list *ip6_fib_timer;
 -
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
- #define FIB_TABLE_HASHSZ 256
- #else
- #define FIB_TABLE_HASHSZ 1
- #endif
--static struct hlist_head *fib_table_hash;
- 
--static void fib6_link_table(struct fib6_table *tb)
-+static void fib6_link_table(struct net *net, struct fib6_table *tb)
- {
- 	unsigned int h;
- 
-@@ -191,13 +188,11 @@ static void fib6_link_table(struct fib6_
- 	 * No protection necessary, this is the only list mutatation
- 	 * operation, tables never disappear once they exist.
- 	 */
--	hlist_add_head_rcu(&tb->tb6_hlist, &fib_table_hash[h]);
-+	hlist_add_head_rcu(&tb->tb6_hlist, &net->ipv6.fib_table_hash[h]);
+ static struct fib6_walker_t fib6_walker_list = {
+ 	.prev	= &fib6_walker_list,
+ 	.next	= &fib6_walker_list,
+@@ -663,19 +661,19 @@ static int fib6_add_rt2node(struct fib6_
+ 	return 0;
  }
  
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
- 
--static struct fib6_table *fib6_local_tbl;
--
- static struct fib6_table *fib6_alloc_table(u32 id)
+-static __inline__ void fib6_start_gc(struct rt6_info *rt)
++static __inline__ void fib6_start_gc(struct net *net, struct rt6_info *rt)
  {
- 	struct fib6_table *table;
-@@ -212,26 +207,27 @@ static struct fib6_table *fib6_alloc_tab
- 	return table;
+-	if (ip6_fib_timer->expires == 0 &&
++	if (net->ipv6.ip6_fib_timer->expires == 0 &&
+ 	    (rt->rt6i_flags & (RTF_EXPIRES|RTF_CACHE)))
+-		mod_timer(ip6_fib_timer, jiffies +
+-			  init_net.ipv6.sysctl.ip6_rt_gc_interval);
++		mod_timer(net->ipv6.ip6_fib_timer, jiffies +
++			  net->ipv6.sysctl.ip6_rt_gc_interval);
  }
  
--struct fib6_table *fib6_new_table(u32 id)
-+struct fib6_table *fib6_new_table(struct net *net, u32 id)
+-void fib6_force_start_gc(void)
++void fib6_force_start_gc(struct net *net)
  {
- 	struct fib6_table *tb;
- 
- 	if (id == 0)
- 		id = RT6_TABLE_MAIN;
--	tb = fib6_get_table(id);
-+	tb = fib6_get_table(net, id);
- 	if (tb)
- 		return tb;
- 
- 	tb = fib6_alloc_table(id);
- 	if (tb != NULL)
--		fib6_link_table(tb);
-+		fib6_link_table(net, tb);
- 
- 	return tb;
+-	if (ip6_fib_timer->expires == 0)
+-		mod_timer(ip6_fib_timer, jiffies +
+-			  init_net.ipv6.sysctl.ip6_rt_gc_interval);
++	if (net->ipv6.ip6_fib_timer->expires == 0)
++		mod_timer(net->ipv6.ip6_fib_timer, jiffies +
++			  net->ipv6.sysctl.ip6_rt_gc_interval);
  }
  
--struct fib6_table *fib6_get_table(u32 id)
-+struct fib6_table *fib6_get_table(struct net *net, u32 id)
- {
- 	struct fib6_table *tb;
-+	struct hlist_head *head;
- 	struct hlist_node *node;
- 	unsigned int h;
+ /*
+@@ -762,7 +760,7 @@ int fib6_add(struct fib6_node *root, str
+ 	err = fib6_add_rt2node(fn, rt, info);
  
-@@ -239,7 +235,8 @@ struct fib6_table *fib6_get_table(u32 id
- 		id = RT6_TABLE_MAIN;
- 	h = id & (FIB_TABLE_HASHSZ - 1);
- 	rcu_read_lock();
--	hlist_for_each_entry_rcu(tb, node, &fib_table_hash[h], tb6_hlist) {
-+	head = &net->ipv6.fib_table_hash[h];
-+	hlist_for_each_entry_rcu(tb, node, head, tb6_hlist) {
- 		if (tb->tb6_id == id) {
- 			rcu_read_unlock();
- 			return tb;
-@@ -250,33 +247,32 @@ struct fib6_table *fib6_get_table(u32 id
- 	return NULL;
- }
+ 	if (err == 0) {
+-		fib6_start_gc(rt);
++		fib6_start_gc(info->nl_net, rt);
+ 		if (!(rt->rt6i_flags&RTF_CACHE))
+ 			fib6_prune_clones(pn, rt);
+ 	}
+@@ -1443,7 +1441,7 @@ void fib6_run_gc(unsigned long expires, 
+ 	} else {
+ 		local_bh_disable();
+ 		if (!spin_trylock(&fib6_gc_lock)) {
+-			mod_timer(ip6_fib_timer, jiffies + HZ);
++			mod_timer(net->ipv6.ip6_fib_timer, jiffies + HZ);
+ 			local_bh_enable();
+ 			return;
+ 		}
+@@ -1456,11 +1454,11 @@ void fib6_run_gc(unsigned long expires, 
+ 	fib6_clean_all(net, fib6_age, 0, NULL);
  
--static void __init fib6_tables_init(void)
-+static void fib6_tables_init(struct net *net)
- {
--	fib6_link_table(fib6_main_tbl);
--	fib6_link_table(fib6_local_tbl);
-+	fib6_link_table(net, net->ipv6.fib6_main_tbl);
-+	fib6_link_table(net, net->ipv6.fib6_local_tbl);
- }
--
- #else
- 
--struct fib6_table *fib6_new_table(u32 id)
-+struct fib6_table *fib6_new_table(struct net *net, u32 id)
- {
--	return fib6_get_table(id);
-+	return fib6_get_table(net, id);
- }
- 
--struct fib6_table *fib6_get_table(u32 id)
-+struct fib6_table *fib6_get_table(struct net *net, u32 id)
- {
--	return fib6_main_tbl;
-+	  return net->ipv6.fib6_main_tbl;
- }
- 
--struct dst_entry *fib6_rule_lookup(struct flowi *fl, int flags,
--				   pol_lookup_t lookup)
-+struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi *fl,
-+				   int flags, pol_lookup_t lookup)
- {
--	return (struct dst_entry *) lookup(fib6_main_tbl, fl, flags);
-+	return (struct dst_entry *) lookup(net->ipv6.fib6_main_tbl, fl, flags);
- }
- 
--static void __init fib6_tables_init(void)
-+static void fib6_tables_init(struct net *net)
- {
--	fib6_link_table(fib6_main_tbl);
-+	fib6_link_table(net, net->ipv6.fib6_main_tbl);
- }
- 
- #endif
-@@ -357,11 +353,9 @@ static int inet6_dump_fib(struct sk_buff
- 	struct fib6_walker_t *w;
- 	struct fib6_table *tb;
- 	struct hlist_node *node;
-+	struct hlist_head *head;
- 	int res = 0;
- 
--	if (net != &init_net)
--		return 0;
--
- 	s_h = cb->args[0];
- 	s_e = cb->args[1];
- 
-@@ -390,7 +384,8 @@ static int inet6_dump_fib(struct sk_buff
- 
- 	for (h = s_h; h < FIB_TABLE_HASHSZ; h++, s_e = 0) {
- 		e = 0;
--		hlist_for_each_entry(tb, node, &fib_table_hash[h], tb6_hlist) {
-+		head = &net->ipv6.fib_table_hash[h];
-+		hlist_for_each_entry(tb, node, head, tb6_hlist) {
- 			if (e < s_e)
- 				goto next;
- 			res = fib6_dump_table(tb, skb, cb);
-@@ -1360,12 +1355,13 @@ void fib6_clean_all(int (*func)(struct r
- {
- 	struct fib6_table *table;
- 	struct hlist_node *node;
-+	struct hlist_head *head;
- 	unsigned int h;
- 
- 	rcu_read_lock();
- 	for (h = 0; h < FIB_TABLE_HASHSZ; h++) {
--		hlist_for_each_entry_rcu(table, node, &fib_table_hash[h],
--					 tb6_hlist) {
-+		head = &init_net.ipv6.fib_table_hash[h];
-+		hlist_for_each_entry_rcu(table, node, head, tb6_hlist) {
- 			write_lock_bh(&table->tb6_lock);
- 			fib6_clean_tree(&table->tb6_root, func, prune, arg);
- 			write_unlock_bh(&table->tb6_lock);
-@@ -1466,55 +1462,88 @@ void fib6_run_gc(unsigned long dummy)
+ 	if (gc_args.more)
+-		mod_timer(ip6_fib_timer, jiffies +
++		mod_timer(net->ipv6.ip6_fib_timer, jiffies +
+ 			  net->ipv6.sysctl.ip6_rt_gc_interval);
+ 	else {
+-		del_timer(ip6_fib_timer);
+-		ip6_fib_timer->expires = 0;
++		del_timer(net->ipv6.ip6_fib_timer);
++		net->ipv6.ip6_fib_timer->expires = 0;
+ 	}
  	spin_unlock_bh(&fib6_gc_lock);
  }
- 
--int __init fib6_init(void)
-+static int fib6_net_init(struct net *net)
+@@ -1473,13 +1471,21 @@ static void fib6_gc_timer_cb(unsigned lo
+ static int fib6_net_init(struct net *net)
  {
--	int ret = -ENOMEM;
--	fib6_node_kmem = kmem_cache_create("fib6_nodes",
--					   sizeof(struct fib6_node),
--					   0, SLAB_HWCACHE_ALIGN,
--					   NULL);
--	if (!fib6_node_kmem)
+ 	int ret;
++	struct timer_list *timer;
+ 
+ 	ret = -ENOMEM;
++	timer = kzalloc(sizeof(*timer), GFP_KERNEL);
++	if (!timer)
++		goto out;
++
++	setup_timer(timer, fib6_gc_timer_cb, (unsigned long)net);
++	net->ipv6.ip6_fib_timer = timer;
++
+ 	net->ipv6.fib_table_hash =
+ 		kzalloc(sizeof(*net->ipv6.fib_table_hash)*FIB_TABLE_HASHSZ,
+ 			GFP_KERNEL);
+ 	if (!net->ipv6.fib_table_hash)
 -		goto out;
-+	int ret;
++		goto out_timer;
  
--	fib_table_hash = kzalloc(sizeof(*fib_table_hash)*FIB_TABLE_HASHSZ,
--				 GFP_KERNEL);
--	if (!fib_table_hash)
--		goto out_kmem_cache_create;
-+	ret = -ENOMEM;
-+	net->ipv6.fib_table_hash =
-+		kzalloc(sizeof(*net->ipv6.fib_table_hash)*FIB_TABLE_HASHSZ,
-+			GFP_KERNEL);
-+	if (!net->ipv6.fib_table_hash)
-+		goto out;
- 
--	fib6_main_tbl = kzalloc(sizeof(*fib6_main_tbl), GFP_KERNEL);
--	if (!fib6_main_tbl)
-+	net->ipv6.fib6_main_tbl = kzalloc(sizeof(*net->ipv6.fib6_main_tbl),
-+					  GFP_KERNEL);
-+	if (!net->ipv6.fib6_main_tbl)
- 		goto out_fib_table_hash;
- 
--	fib6_main_tbl->tb6_id = RT6_TABLE_MAIN;
--	fib6_main_tbl->tb6_root.leaf = &ip6_null_entry;
--	fib6_main_tbl->tb6_root.fn_flags = RTN_ROOT | RTN_TL_ROOT | RTN_RTINFO;
-+	net->ipv6.fib6_main_tbl->tb6_id = RT6_TABLE_MAIN;
-+	net->ipv6.fib6_main_tbl->tb6_root.leaf = &ip6_null_entry;
-+	net->ipv6.fib6_main_tbl->tb6_root.fn_flags =
-+		RTN_ROOT | RTN_TL_ROOT | RTN_RTINFO;
- 
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
--	fib6_local_tbl = kzalloc(sizeof(*fib6_local_tbl), GFP_KERNEL);
--	if (!fib6_local_tbl)
-+	net->ipv6.fib6_local_tbl = kzalloc(sizeof(*net->ipv6.fib6_local_tbl),
-+					   GFP_KERNEL);
-+	if (!net->ipv6.fib6_local_tbl)
- 		goto out_fib6_main_tbl;
--
--	fib6_local_tbl->tb6_id = RT6_TABLE_LOCAL;
--	fib6_local_tbl->tb6_root.leaf = &ip6_null_entry;
--	fib6_local_tbl->tb6_root.fn_flags = RTN_ROOT | RTN_TL_ROOT | RTN_RTINFO;
-+	net->ipv6.fib6_local_tbl->tb6_id = RT6_TABLE_LOCAL;
-+	net->ipv6.fib6_local_tbl->tb6_root.leaf = &ip6_null_entry;
-+	net->ipv6.fib6_local_tbl->tb6_root.fn_flags =
-+		RTN_ROOT | RTN_TL_ROOT | RTN_RTINFO;
+ 	net->ipv6.fib6_main_tbl = kzalloc(sizeof(*net->ipv6.fib6_main_tbl),
+ 					  GFP_KERNEL);
+@@ -1513,11 +1519,15 @@ out_fib6_main_tbl:
  #endif
-+	fib6_tables_init(net);
- 
--	fib6_tables_init();
--
--	ret = __rtnl_register(PF_INET6, RTM_GETROUTE, NULL, inet6_dump_fib);
--	if (ret)
--		goto out_fib6_local_tbl;
-+	ret = 0;
- out:
- 	return ret;
- 
--out_fib6_local_tbl:
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
--	kfree(fib6_local_tbl);
- out_fib6_main_tbl:
-+	kfree(net->ipv6.fib6_main_tbl);
- #endif
--	kfree(fib6_main_tbl);
  out_fib_table_hash:
--	kfree(fib_table_hash);
-+	kfree(net->ipv6.fib_table_hash);
-+	goto out;
-+ }
+ 	kfree(net->ipv6.fib_table_hash);
++out_timer:
++	kfree(timer);
+ 	goto out;
+  }
+ 
+ static void fib6_net_exit(struct net *net)
+ {
++	del_timer(net->ipv6.ip6_fib_timer);
++	kfree(net->ipv6.ip6_fib_timer);
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ 	kfree(net->ipv6.fib6_local_tbl);
+ #endif
+@@ -1533,6 +1543,7 @@ static struct pernet_operations fib6_net
+ int __init fib6_init(void)
+ {
+ 	int ret = -ENOMEM;
 +
-+static void fib6_net_exit(struct net *net)
-+{
-+#ifdef CONFIG_IPV6_MULTIPLE_TABLES
-+	kfree(net->ipv6.fib6_local_tbl);
-+#endif
-+	kfree(net->ipv6.fib6_main_tbl);
-+	kfree(net->ipv6.fib_table_hash);
-+}
-+
-+static struct pernet_operations fib6_net_ops = {
-+	.init = fib6_net_init,
-+	.exit = fib6_net_exit,
-+};
-+
-+int __init fib6_init(void)
-+{
-+	int ret = -ENOMEM;
-+	fib6_node_kmem = kmem_cache_create("fib6_nodes",
-+					   sizeof(struct fib6_node),
-+					   0, SLAB_HWCACHE_ALIGN,
-+					   NULL);
-+	if (!fib6_node_kmem)
-+		goto out;
-+
-+	ret = register_pernet_subsys(&fib6_net_ops);
-+	if (ret)
+ 	fib6_node_kmem = kmem_cache_create("fib6_nodes",
+ 					   sizeof(struct fib6_node),
+ 					   0, SLAB_HWCACHE_ALIGN,
+@@ -1540,16 +1551,9 @@ int __init fib6_init(void)
+ 	if (!fib6_node_kmem)
+ 		goto out;
+ 
+-	ret = -ENOMEM;
+-	ip6_fib_timer = kzalloc(sizeof(*ip6_fib_timer), GFP_KERNEL);
+-	if (!ip6_fib_timer)
+-		goto out_kmem_cache_create;
+-
+-	setup_timer(ip6_fib_timer, fib6_gc_timer_cb, (unsigned long)&init_net);
+-
+ 	ret = register_pernet_subsys(&fib6_net_ops);
+ 	if (ret)
+-		goto out_timer;
 +		goto out_kmem_cache_create;
-+
-+	ret = __rtnl_register(PF_INET6, RTM_GETROUTE, NULL, inet6_dump_fib);
-+	if (ret)
-+		goto out_unregister_subsys;
-+out:
-+	return ret;
-+
-+out_unregister_subsys:
-+	unregister_pernet_subsys(&fib6_net_ops);
+ 
+ 	ret = __rtnl_register(PF_INET6, RTM_GETROUTE, NULL, inet6_dump_fib);
+ 	if (ret)
+@@ -1559,8 +1563,6 @@ out:
+ 
+ out_unregister_subsys:
+ 	unregister_pernet_subsys(&fib6_net_ops);
+-out_timer:
+-	kfree(ip6_fib_timer);
  out_kmem_cache_create:
  	kmem_cache_destroy(fib6_node_kmem);
  	goto out;
-@@ -1523,10 +1552,6 @@ out_kmem_cache_create:
+@@ -1568,8 +1570,6 @@ out_kmem_cache_create:
+ 
  void fib6_gc_cleanup(void)
  {
- 	del_timer(&ip6_fib_timer);
--#ifdef CONFIG_IPV6_MULTIPLE_TABLES
--	kfree(fib6_local_tbl);
--#endif
--	kfree(fib6_main_tbl);
--	kfree(fib_table_hash);
-+	unregister_pernet_subsys(&fib6_net_ops);
+-	del_timer(ip6_fib_timer);
+-	kfree(ip6_fib_timer);
+ 	unregister_pernet_subsys(&fib6_net_ops);
  	kmem_cache_destroy(fib6_node_kmem);
  }
+Index: net-2.6.25/include/net/netns/ipv6.h
+===================================================================
+--- net-2.6.25.orig/include/net/netns/ipv6.h
++++ net-2.6.25/include/net/netns/ipv6.h
+@@ -32,6 +32,7 @@ struct netns_ipv6 {
+ 	struct ipv6_devconf	*devconf_dflt;
+ 	struct netns_frags	frags;
+ 
++	struct timer_list       *ip6_fib_timer;
+ 	struct hlist_head       *fib_table_hash;
+ 	struct fib6_table       *fib6_main_tbl;
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+Index: net-2.6.25/include/net/ip6_route.h
+===================================================================
+--- net-2.6.25.orig/include/net/ip6_route.h
++++ net-2.6.25/include/net/ip6_route.h
+@@ -80,7 +80,7 @@ extern struct dst_entry *ndisc_dst_alloc
+ 					 struct in6_addr *addr,
+ 					 int (*output)(struct sk_buff *));
+ extern int ndisc_dst_gc(int *more);
+-extern void fib6_force_start_gc(void);
++extern void fib6_force_start_gc(struct net *net);
+ 
+ extern struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 					   const struct in6_addr *addr,
 Index: net-2.6.25/net/ipv6/route.c
 ===================================================================
 --- net-2.6.25.orig/net/ipv6/route.c
 +++ net-2.6.25/net/ipv6/route.c
-@@ -569,7 +569,7 @@ struct rt6_info *rt6_lookup(struct in6_a
- 		flags |= RT6_LOOKUP_F_HAS_SADDR;
- 	}
+@@ -951,7 +951,7 @@ struct dst_entry *ndisc_dst_alloc(struct
+ 	ndisc_dst_gc_list = &rt->u.dst;
+ 	spin_unlock_bh(&ndisc_lock);
  
--	dst = fib6_rule_lookup(&fl, flags, ip6_pol_route_lookup);
-+	dst = fib6_rule_lookup(&init_net, &fl, flags, ip6_pol_route_lookup);
- 	if (dst->error == 0)
- 		return (struct rt6_info *) dst;
+-	fib6_force_start_gc();
++	fib6_force_start_gc(dev->nd_net);
  
-@@ -756,7 +756,7 @@ void ip6_route_input(struct sk_buff *skb
- 	if (rt6_need_strict(&iph->daddr))
- 		flags |= RT6_LOOKUP_F_IFACE;
+ out:
+ 	return &rt->u.dst;
+@@ -1229,6 +1229,9 @@ install_route:
+ 	rt->u.dst.dev = dev;
+ 	rt->rt6i_idev = idev;
+ 	rt->rt6i_table = table;
++
++	cfg->fc_nlinfo.nl_net = dev->nd_net;
++
+ 	return __ip6_ins_rt(rt, &cfg->fc_nlinfo);
  
--	skb->dst = fib6_rule_lookup(&fl, flags, ip6_pol_route_input);
-+	skb->dst = fib6_rule_lookup(&init_net, &fl, flags, ip6_pol_route_input);
- }
- 
- static struct rt6_info *ip6_pol_route_output(struct fib6_table *table,
-@@ -775,7 +775,7 @@ struct dst_entry * ip6_route_output(stru
- 	if (!ipv6_addr_any(&fl->fl6_src))
- 		flags |= RT6_LOOKUP_F_HAS_SADDR;
- 
--	return fib6_rule_lookup(fl, flags, ip6_pol_route_output);
-+	return fib6_rule_lookup(&init_net, fl, flags, ip6_pol_route_output);
- }
- 
- EXPORT_SYMBOL(ip6_route_output);
-@@ -1068,7 +1068,7 @@ int ip6_route_add(struct fib6_config *cf
- 	if (cfg->fc_metric == 0)
- 		cfg->fc_metric = IP6_RT_PRIO_USER;
- 
--	table = fib6_new_table(cfg->fc_table);
-+	table = fib6_new_table(&init_net, cfg->fc_table);
- 	if (table == NULL) {
- 		err = -ENOBUFS;
- 		goto out;
-@@ -1274,7 +1274,7 @@ static int ip6_route_del(struct fib6_con
- 	struct rt6_info *rt;
- 	int err = -ESRCH;
- 
--	table = fib6_get_table(cfg->fc_table);
-+	table = fib6_get_table(&init_net, cfg->fc_table);
- 	if (table == NULL)
- 		return err;
- 
-@@ -1389,7 +1389,9 @@ static struct rt6_info *ip6_route_redire
- 	if (rt6_need_strict(dest))
- 		flags |= RT6_LOOKUP_F_IFACE;
- 
--	return (struct rt6_info *)fib6_rule_lookup((struct flowi *)&rdfl, flags, __ip6_route_redirect);
-+	return (struct rt6_info *)fib6_rule_lookup(&init_net,
-+						   (struct flowi *)&rdfl,
-+						   flags, __ip6_route_redirect);
- }
- 
- void rt6_redirect(struct in6_addr *dest, struct in6_addr *src,
-@@ -1588,7 +1590,7 @@ static struct rt6_info *rt6_get_route_in
- 	struct rt6_info *rt = NULL;
- 	struct fib6_table *table;
- 
--	table = fib6_get_table(RT6_TABLE_INFO);
-+	table = fib6_get_table(&init_net, RT6_TABLE_INFO);
- 	if (table == NULL)
- 		return NULL;
- 
-@@ -1643,7 +1645,7 @@ struct rt6_info *rt6_get_dflt_router(str
- 	struct rt6_info *rt;
- 	struct fib6_table *table;
- 
--	table = fib6_get_table(RT6_TABLE_DFLT);
-+	table = fib6_get_table(&init_net, RT6_TABLE_DFLT);
- 	if (table == NULL)
- 		return NULL;
- 
-@@ -1687,7 +1689,7 @@ void rt6_purge_dflt_routers(void)
- 	struct fib6_table *table;
- 
- 	/* NOTE: Keep consistent with rt6_get_dflt_router */
--	table = fib6_get_table(RT6_TABLE_DFLT);
-+	table = fib6_get_table(&init_net, RT6_TABLE_DFLT);
- 	if (table == NULL)
- 		return;
- 
-@@ -1848,7 +1850,7 @@ struct rt6_info *addrconf_dst_alloc(stru
- 
- 	ipv6_addr_copy(&rt->rt6i_dst.addr, addr);
- 	rt->rt6i_dst.plen = 128;
--	rt->rt6i_table = fib6_get_table(RT6_TABLE_LOCAL);
-+	rt->rt6i_table = fib6_get_table(&init_net, RT6_TABLE_LOCAL);
- 
- 	atomic_set(&rt->u.dst.__refcnt, 1);
- 
+ out:
 
 -- 
