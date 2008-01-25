@@ -1,65 +1,50 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 09/26] atl1: refactor tx processing
-Date: Thu, 24 Jan 2008 22:01:41 -0500
-Message-ID: <47995115.9090903@garzik.org>
-References: <1199152804-3889-1-git-send-email-jacliburn@bellsouth.net>	<1199152804-3889-10-git-send-email-jacliburn@bellsouth.net>	<4795BE39.6000505@garzik.org>	<20080122183109.5ab80802@osprey.hogchain.net> <20080124190024.1b81238e@osprey.hogchain.net>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH v2] PS3: gelic: Add wireless support for PS3
+Date: Thu, 24 Jan 2008 21:47:25 -0500
+Message-ID: <20080125024725.GB3411@tuxdriver.com>
+References: <20071213211626.BF8E.MOKUNO@sm.sony.co.jp> <20080124144253.6176.40F06B3A@sm.sony.co.jp> <1201225785.15917.8.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: csnook@redhat.com, linux-kernel@vger.kernel.org,
-	atl1-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jay Cliburn <jacliburn@bellsouth.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52940 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752549AbYAYDBs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jan 2008 22:01:48 -0500
-In-Reply-To: <20080124190024.1b81238e@osprey.hogchain.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org,
+	Geert Uytterhoeven <Geert.Uytterhoeven-osDt5Q4Chk1BDgjK7y7TUQ@public.gmane.org>
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1201225785.15917.8.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jay Cliburn wrote:
-> On Tue, 22 Jan 2008 18:31:09 -0600
-> Jay Cliburn <jacliburn@bellsouth.net> wrote:
+On Thu, Jan 24, 2008 at 08:49:45PM -0500, Dan Williams wrote:
+> On Thu, 2008-01-24 at 14:51 +0900, Masakazu Mokuno wrote:
+> > Hi
+> > 
+> > PS3: gelic: Add wireless support for PS3
+> > 
+> > This is the version 2 of the re-worked (rewritten) version of the
+> > wireless support driver for PS3.  The version 1 of the new driver was
+> > submitted on 13th Dec. 2007 (and the old one was submitted to net-dev ML
+> > in June 2007).
+> > 
+> > Major differences with the old driver are:
+> >   - The new driver has a separate ethX interface from ethernet.
+> >     They share the same MAC address.
+> >   - Thus we can use both ethernet and wireless simultaenously.
+> >   - The new driver returns AP's cipher information by the common IE
+> >     format in the scan information.
+> >   - Cipher selection is done via the common wireless extension way
 > 
->> On Tue, 22 Jan 2008 04:58:17 -0500
->> Jeff Garzik <jeff@garzik.org> wrote:
->>
-> [...]
->>> for such a huge patch, this description is very tiny.  [describe]
->>> what is refactored, and why.
+> Looks like all my issues have been addressed.  Thanks!  Lets get this in
+> 2.6.25 :)
 > 
-> Is this one any better?
-> 
-> 
-> 
->>From df475e2eea401f9dc18ca23dab538b99fb9e710c Mon Sep 17 00:00:00 2001
-> From: Jay Cliburn <jacliburn@bellsouth.net>
-> Date: Wed, 23 Jan 2008 21:36:36 -0600
-> Subject: [PATCH] atl1: simplify tx packet descriptor
-> 
-> The transmit packet descriptor consists of four 32-bit words, with word 3
-> upper bits overloaded depending upon the condition of its bits 3 and 4.
-> The driver currently duplicates all word 2 and some word 3 register bit
-> definitions unnecessarily and also uses a set of nested structures in its
-> definition of the TPD without good cause. This patch adds a lengthy
-> comment describing the TPD, eliminates duplicate TPD bit definitions,
-> and simplifies the TPD structure itself. It also expands the TSO check
-> to correctly handle custom checksum versus TSO processing using the revised
-> TPD definitions. Finally, shorten some variable names in the transmit
-> processing path to reduce line lengths, rename some variables to better
-> describe their purpose (e.g., nseg versus m), and add a comment or two
-> to better describe what the code is doing.
-> 
-> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
-> ---
->  drivers/net/atlx/atl1.c |  265 +++++++++++++++++++++++++----------------------
->  drivers/net/atlx/atl1.h |  201 +++++++++++++++++++-----------------
->  2 files changed, 246 insertions(+), 220 deletions(-)
+> Acked-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-Yep, better.
+ACK -- please merge it with the other patches through the powerpc tree.
 
-	Jeff
+Thanks,
 
-
-
+John
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
