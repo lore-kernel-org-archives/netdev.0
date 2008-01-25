@@ -1,132 +1,61 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH] [TIPC] Kill unused static inline (x5)
-Date: Sat, 26 Jan 2008 01:02:38 +0200
-Message-ID: <12013021583862-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: iproute2 (addr flush) infinite loop when unprivileged users
+Date: Fri, 25 Jan 2008 15:02:57 -0800
+Message-ID: <20080125150257.578a108f@deepthought>
+References: <9e0cf0bf0801251500u388b9a5dxda92d6d1e3d86233@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"=?ISO-8859-1?q?Ilpo=20J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-To: per.liden@ericsson.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Alon Bar-Lev" <alon.barlev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:60652 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757774AbYAYXCk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 18:02:40 -0500
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:55402 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760925AbYAYXDY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 18:03:24 -0500
+In-Reply-To: <9e0cf0bf0801251500u388b9a5dxda92d6d1e3d86233@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: =3D?ISO-8859-1?q?Ilpo=3D20J=3DE4rvinen?=3D <ilpo.jarvinen@helsi=
-nki.fi>
+On Sat, 26 Jan 2008 01:00:34 +0200
+"Alon Bar-Lev" <alon.barlev@gmail.com> wrote:
 
-All these static inlines are unused:
+> Hello,
+> 
+> When executing the following command using unprivileged users there is
+> an infinite loop...
+> /sbin/ip route flush dev eth1
+> 
+> Execution with -s produces:
+> *** Round 28153, deleting 2 entries ***
+> 
+> *** Round 28154, deleting 2 entries ***
+> 
+> *** Round 28155, deleting 2 entries ***
+> 
+> *** Round 28156, deleting 2 entries ***
+> 
+> *** Round 28157, deleting 2 entries ***
+> 
+> *** Round 28158, deleting 2 entries ***
+> 
+> *** Round 28159, deleting 2 entries ***
+> 
+> I do not fully understand the sequence, but it may be kernel fault, as
+> it should have returned EPERM for this request stopping the netlink
+> request.
+> 
+> Anyway... A simple solution is to store the filter.flushed and fail if
+> it keeps its value during loop iteration at
+> ip/ipaddress.c::ipaddr_list_or_flush(), but this is only a
+> workaround...
+> 
+> Please CC as I am not in netdev list.
+> Thanks!
+> Alon.
 
-in_own_zone     1 (net/tipc/addr.h)
-msg_dataoctet   1 (net/tipc/msg.h)
-msg_direct      1 (include/net/tipc/tipc_msg.h)
-msg_options     1 (include/net/tipc/tipc_msg.h)
-tipc_nmap_get   1 (net/tipc/bcast.h)
+Non privileged users can't delete routes, but command keeps trying.
+The correct way to handle it is to teach flush loop to look at error code.
 
-Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
----
- include/net/tipc/tipc_msg.h |   16 ----------------
- net/tipc/addr.h             |    5 -----
- net/tipc/bcast.h            |   13 -------------
- net/tipc/msg.h              |    5 -----
- 4 files changed, 0 insertions(+), 39 deletions(-)
-
-diff --git a/include/net/tipc/tipc_msg.h b/include/net/tipc/tipc_msg.h
-index fb42eb7..2e159a8 100644
---- a/include/net/tipc/tipc_msg.h
-+++ b/include/net/tipc/tipc_msg.h
-@@ -130,11 +130,6 @@ static inline u32 msg_type(struct tipc_msg *m)
- 	return msg_bits(m, 1, 29, 0x7);
- }
-=20
--static inline u32 msg_direct(struct tipc_msg *m)
--{
--	return (msg_type(m) =3D=3D TIPC_DIRECT_MSG);
--}
--
- static inline u32 msg_named(struct tipc_msg *m)
- {
- 	return (msg_type(m) =3D=3D TIPC_NAMED_MSG);
-@@ -207,17 +202,6 @@ static inline u32 msg_nameupper(struct tipc_msg *m=
-)
- 	return msg_word(m, 10);
- }
-=20
--static inline char *msg_options(struct tipc_msg *m, u32 *len)
--{
--	u32 pos =3D msg_bits(m, 1, 16, 0x7);
--
--	if (!pos)
--		return 0;
--	pos =3D (pos * 4) + 28;
--	*len =3D msg_hdr_sz(m) - pos;
--	return (char *)&m->hdr[pos/4];
--}
--
- #endif
-=20
- #endif
-diff --git a/net/tipc/addr.h b/net/tipc/addr.h
-index e4bd533..3ba67e6 100644
---- a/net/tipc/addr.h
-+++ b/net/tipc/addr.h
-@@ -57,11 +57,6 @@ static inline int in_own_cluster(u32 addr)
- 	return !((addr ^ tipc_own_addr) >> 12);
- }
-=20
--static inline int in_own_zone(u32 addr)
--{
--	return !((addr ^ tipc_own_addr) >> 24);
--}
--
- static inline int is_slave(u32 addr)
- {
- 	return addr & 0x800;
-diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
-index f910ed2..a2416fa 100644
---- a/net/tipc/bcast.h
-+++ b/net/tipc/bcast.h
-@@ -74,19 +74,6 @@ extern char tipc_bclink_name[];
-=20
-=20
- /**
-- * nmap_get - determine if node exists in a node map
-- */
--
--static inline int tipc_nmap_get(struct node_map *nm_ptr, u32 node)
--{
--	int n =3D tipc_node(node);
--	int w =3D n / WSIZE;
--	int b =3D n % WSIZE;
--
--	return nm_ptr->map[w] & (1 << b);
--}
--
--/**
-  * nmap_add - add a node to a node map
-  */
-=20
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index ce26598..e9ef6df 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -663,11 +663,6 @@ static inline void msg_set_remote_node(struct tipc=
-_msg *m, u32 a)
- 	msg_set_word(m, msg_hdr_sz(m)/4, a);
- }
-=20
--static inline int msg_dataoctet(struct tipc_msg *m, u32 pos)
--{
--	return(msg_data(m)[pos + 4] !=3D 0);
--}
--
- static inline void msg_set_dataoctet(struct tipc_msg *m, u32 pos)
- {
- 	msg_data(m)[pos + 4] =3D 1;
---=20
-1.5.2.2
-
+-- 
+Stephen Hemminger <stephen.hemminger@vyatta.com>
