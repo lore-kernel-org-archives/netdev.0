@@ -1,150 +1,123 @@
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 10/11][NETNS][IPV6] rt6_stats - dynamically allocate the rt6_stats
-Date: Fri, 25 Jan 2008 17:50:18 +0100
-Message-ID: <20080125170823.463848029@localhost.localdomain>
+Subject: [patch 08/11][NETNS][IPV6] fib6_rules - dynamically allocate the fib rules ops
+Date: Fri, 25 Jan 2008 17:50:16 +0100
+Message-ID: <20080125170818.796719655@localhost.localdomain>
 References: <20080125165008.317745745@localhost.localdomain>
 Cc: benjamin.thery@bull.net, netdev@vger.kernel.org, den@openvz.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.de.ibm.com ([195.212.29.155]:60045 "EHLO
-	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757500AbYAYRLm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 12:11:42 -0500
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate6.de.ibm.com (8.13.8/8.13.8) with ESMTP id m0PHBe9N372800
-	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:40 GMT
-Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0PHBevl1171576
-	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 18:11:40 +0100
-Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0PHBe59025415
-	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 18:11:40 +0100
-Content-Disposition: inline; filename=rt6-stats-dynamic-allocation.patch
+Received: from mtagate3.uk.ibm.com ([195.212.29.136]:10846 "EHLO
+	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757462AbYAYRLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 12:11:40 -0500
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate3.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m0PHBdYh100988
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:39 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0PHBd6S4874438
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:39 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0PHBZgZ015413
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:36 GMT
+Content-Disposition: inline; filename=fib6-rules-dynamic-allocation.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allocates the rt6_stats struct dynamically when
-the fib6 is initialized. That provides the ability to create
-several instances of this structure for the network namespaces.
+The fib6_rules_ops structure is dynamically allocated, so that allows
+to make several instances of it per network namespace.
+
+The global static fib6_rules_ops structure is renamed to 
+fib6_rules_ops_template in order to quickly memcopy it for the
+structure initialization.
 
 Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
 ---
- include/net/ipv6.h |    2 +-
- net/ipv6/ip6_fib.c |   22 +++++++++++++++-------
- net/ipv6/route.c   |    8 ++++----
- 3 files changed, 20 insertions(+), 12 deletions(-)
+ net/ipv6/fib6_rules.c |   26 +++++++++++++++++---------
+ 1 file changed, 17 insertions(+), 9 deletions(-)
 
-Index: net-2.6.25/include/net/ipv6.h
+Index: net-2.6.25/net/ipv6/fib6_rules.c
 ===================================================================
---- net-2.6.25.orig/include/net/ipv6.h
-+++ net-2.6.25/include/net/ipv6.h
-@@ -604,7 +604,7 @@ extern void ipv6_misc_proc_exit(void);
- extern int snmp6_register_dev(struct inet6_dev *idev);
- extern int snmp6_unregister_dev(struct inet6_dev *idev);
+--- net-2.6.25.orig/net/ipv6/fib6_rules.c
++++ net-2.6.25/net/ipv6/fib6_rules.c
+@@ -29,7 +29,7 @@ struct fib6_rule
+ 	u8			tclass;
+ };
  
--extern struct rt6_statistics rt6_stats;
-+extern struct rt6_statistics *rt6_stats;
- #else
- static inline int snmp6_register_dev(struct inet6_dev *idev)
+-static struct fib_rules_ops fib6_rules_ops;
++static struct fib_rules_ops *fib6_rules_ops;
+ 
+ struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi *fl,
+ 				   int flags, pol_lookup_t lookup)
+@@ -38,7 +38,7 @@ struct dst_entry *fib6_rule_lookup(struc
+ 		.lookup_ptr = lookup,
+ 	};
+ 
+-	fib_rules_lookup(&fib6_rules_ops, fl, flags, &arg);
++	fib_rules_lookup(fib6_rules_ops, fl, flags, &arg);
+ 	if (arg.rule)
+ 		fib_rule_put(arg.rule);
+ 
+@@ -234,7 +234,7 @@ static size_t fib6_rule_nlmsg_payload(st
+ 	       + nla_total_size(16); /* src */
+ }
+ 
+-static struct fib_rules_ops fib6_rules_ops = {
++static struct fib_rules_ops fib6_rules_ops_template = {
+ 	.family			= AF_INET6,
+ 	.rule_size		= sizeof(struct fib6_rule),
+ 	.addr_size		= sizeof(struct in6_addr),
+@@ -247,7 +247,6 @@ static struct fib_rules_ops fib6_rules_o
+ 	.nlmsg_payload		= fib6_rule_nlmsg_payload,
+ 	.nlgroup		= RTNLGRP_IPV6_RULE,
+ 	.policy			= fib6_rule_policy,
+-	.rules_list		= LIST_HEAD_INIT(fib6_rules_ops.rules_list),
+ 	.owner			= THIS_MODULE,
+ 	.fro_net		= &init_net,
+ };
+@@ -256,11 +255,18 @@ static int __init fib6_default_rules_ini
  {
-Index: net-2.6.25/net/ipv6/ip6_fib.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/ip6_fib.c
-+++ net-2.6.25/net/ipv6/ip6_fib.c
-@@ -48,7 +48,7 @@
- #define RT6_TRACE(x...) do { ; } while (0)
- #endif
+ 	int err;
  
--struct rt6_statistics	rt6_stats;
-+struct rt6_statistics *rt6_stats;
- 
- static struct kmem_cache * fib6_node_kmem __read_mostly;
- 
-@@ -653,10 +653,10 @@ static int fib6_add_rt2node(struct fib6_
- 	rt->rt6i_node = fn;
- 	atomic_inc(&rt->rt6i_ref);
- 	inet6_rt_notify(RTM_NEWROUTE, rt, info);
--	rt6_stats.fib_rt_entries++;
-+	rt6_stats->fib_rt_entries++;
- 
- 	if ((fn->fn_flags & RTN_RTINFO) == 0) {
--		rt6_stats.fib_route_nodes++;
-+		rt6_stats->fib_route_nodes++;
- 		fn->fn_flags |= RTN_RTINFO;
- 	}
- 
-@@ -1093,8 +1093,8 @@ static void fib6_del_route(struct fib6_n
- 	/* Unlink it */
- 	*rtp = rt->u.dst.rt6_next;
- 	rt->rt6i_node = NULL;
--	rt6_stats.fib_rt_entries--;
--	rt6_stats.fib_discarded_routes++;
-+	rt6_stats->fib_rt_entries--;
-+	rt6_stats->fib_discarded_routes++;
- 
- 	/* Reset round-robin state, if necessary */
- 	if (fn->rr_ptr == rt)
-@@ -1117,7 +1117,7 @@ static void fib6_del_route(struct fib6_n
- 	/* If it was last route, expunge its radix tree node */
- 	if (fn->leaf == NULL) {
- 		fn->fn_flags &= ~RTN_RTINFO;
--		rt6_stats.fib_route_nodes--;
-+		rt6_stats->fib_route_nodes--;
- 		fn = fib6_repair_tree(fn);
- 	}
- 
-@@ -1556,9 +1556,14 @@ int __init fib6_init(void)
- 	if (!fib6_node_kmem)
+-	err = fib_default_rule_add(&fib6_rules_ops, 0,
++	fib6_rules_ops = kmemdup(&fib6_rules_ops_template,
++				 sizeof(*fib6_rules_ops), GFP_KERNEL);
++	if (!fib6_rules_ops)
++		return -ENOMEM;
++
++	INIT_LIST_HEAD(&fib6_rules_ops->rules_list);
++
++	err = fib_default_rule_add(fib6_rules_ops, 0,
+ 				   RT6_TABLE_LOCAL, FIB_RULE_PERMANENT);
+ 	if (err < 0)
+ 		return err;
+-	err = fib_default_rule_add(&fib6_rules_ops, 0x7FFE, RT6_TABLE_MAIN, 0);
++	err = fib_default_rule_add(fib6_rules_ops, 0x7FFE, RT6_TABLE_MAIN, 0);
+ 	if (err < 0)
+ 		return err;
+ 	return 0;
+@@ -274,18 +280,20 @@ int __init fib6_rules_init(void)
+ 	if (ret)
  		goto out;
  
-+	ret = -ENOMEM;
-+	rt6_stats = kzalloc(sizeof(*rt6_stats), GFP_KERNEL);
-+	if (!rt6_stats)
-+		goto out_kmem_cache_create;
-+
- 	ret = register_pernet_subsys(&fib6_net_ops);
+-	ret = fib_rules_register(&fib6_rules_ops);
++	ret = fib_rules_register(fib6_rules_ops);
  	if (ret)
--		goto out_kmem_cache_create;
-+		goto out_rt6_stats;
+ 		goto out_default_rules_init;
+ out:
+ 	return ret;
  
- 	ret = __rtnl_register(PF_INET6, RTM_GETROUTE, NULL, inet6_dump_fib);
- 	if (ret)
-@@ -1568,6 +1573,8 @@ out:
- 
- out_unregister_subsys:
- 	unregister_pernet_subsys(&fib6_net_ops);
-+out_rt6_stats:
-+	kfree(rt6_stats);
- out_kmem_cache_create:
- 	kmem_cache_destroy(fib6_node_kmem);
+ out_default_rules_init:
+-	fib_rules_cleanup_ops(&fib6_rules_ops);
++	fib_rules_cleanup_ops(fib6_rules_ops);
++	kfree(fib6_rules_ops);
  	goto out;
-@@ -1576,5 +1583,6 @@ out_kmem_cache_create:
- void fib6_gc_cleanup(void)
- {
- 	unregister_pernet_subsys(&fib6_net_ops);
-+	kfree(rt6_stats);
- 	kmem_cache_destroy(fib6_node_kmem);
  }
-Index: net-2.6.25/net/ipv6/route.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/route.c
-+++ net-2.6.25/net/ipv6/route.c
-@@ -2349,11 +2349,11 @@ static const struct file_operations ipv6
- static int rt6_stats_seq_show(struct seq_file *seq, void *v)
- {
- 	seq_printf(seq, "%04x %04x %04x %04x %04x %04x %04x\n",
--		      rt6_stats.fib_nodes, rt6_stats.fib_route_nodes,
--		      rt6_stats.fib_rt_alloc, rt6_stats.fib_rt_entries,
--		      rt6_stats.fib_rt_cache,
-+		      rt6_stats->fib_nodes, rt6_stats->fib_route_nodes,
-+		      rt6_stats->fib_rt_alloc, rt6_stats->fib_rt_entries,
-+		      rt6_stats->fib_rt_cache,
- 		      atomic_read(&ip6_dst_ops.entries),
--		      rt6_stats.fib_discarded_routes);
-+		      rt6_stats->fib_discarded_routes);
  
- 	return 0;
+ void fib6_rules_cleanup(void)
+ {
+-	fib_rules_unregister(&fib6_rules_ops);
++	fib_rules_unregister(fib6_rules_ops);
++	kfree(fib6_rules_ops);
  }
 
 -- 
