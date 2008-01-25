@@ -1,50 +1,26 @@
-From: Jochen Friedrich <jochen@scram.de>
-Subject: Re: [PATCH] [NET]: Remove PowerPC code from fec.c
-Date: Fri, 25 Jan 2008 17:04:15 +0100
-Message-ID: <479A087F.5010305@scram.de>
-References: <4799F349.9090102@scram.de> <E1JIQpQ-0006Xj-RR@faramir.fjphome.nl>
+From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
+Subject: ipcomp regression in 2.6.24?
+Date: Fri, 25 Jan 2008 16:57:29 +0100
+Message-ID: <3C59DB883F7B0B4D8096010D45ACCD134F207F@exch.facton.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: galak@kernel.crashing.org, geert@linux-m68k.org, gerg@uclinux.org,
-	jgarzik@pobox.com, linux-kernel@vger.kernel.org,
-	linux-m68k@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, scottwood@freescale.com,
-	vitb@kernel.crashing.org
-To: Frans Pop <elendil@planet.nl>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail0.scram.de ([78.47.204.202]:54276 "EHLO mail0.scram.de"
+Received: from alpha.facton.com ([83.236.152.122]:58479 "EHLO alpha.facton.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754401AbYAYQFH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2008 11:05:07 -0500
-In-Reply-To: <E1JIQpQ-0006Xj-RR@faramir.fjphome.nl>
+	id S1755143AbYAYQFH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 11:05:07 -0500
+Received: from exch.facton.local (exch [192.168.200.5])
+	by alpha.facton.com (8.13.8/8.13.8/FACTON) with ESMTP id m0PFvT46005391
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 16:57:29 +0100
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Frans,
+With 2.6.24 IPSEC/ESP tunnels to older kernels establish fine, data
+flows in both directions, but no data comes out of the tunnel.
+Needed to disable ipcomp.
 
-> Jochen Friedrich wrote:
->> +++ b/drivers/net/fec.c
->> @@ -23,6 +23,9 @@
->>   *
->>   * Bug fixes and cleanup by Philippe De Muyter (phdm@macqel.be)
->>   * Copyright (c) 2004-2006 Macq Electronique SA.
->> + *
->> + * This driver is now only used on ColdFire processors. Remove conditional
->> + * Powerpc code. 
->>   */
-> 
-> This comment makes sense for a changelog, but IMO it makes no sense at all
-> to add it to the file.
-
-I just added it to clarify this code is now only used on m68knommu (Coldfire).
-The comments on top are mailny about MPC860T CPUs (PowerPC), however the driver is no
-longer used for these CPUs.
-
-Maybe the wording should be changed to:
-
-This driver is now only used on ColdFire (m68knommu) processors. Conditional
-PowerPC code has been removed.
-
-Thanks,
-Jochen
+Daniel
