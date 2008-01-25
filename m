@@ -1,33 +1,57 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [patch net-2.6.25][IPV6][SYSCTL] fix sysctl compilation error
-Date: Fri, 25 Jan 2008 22:40:25 +0900 (JST)
-Message-ID: <20080125.224025.79919427.yoshfuji@linux-ipv6.org>
-References: <4799E4E7.5020000@fr.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: dlezcano@fr.ibm.com, davem@davemloft.net
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 1/7 net-2.6.25] [IPV4]: Fix memory leak on error path during FIB initialization.
+Date: Fri, 25 Jan 2008 16:51:57 +0300
+Message-ID: <1201269123-20378-1-git-send-email-den@openvz.org>
+Cc: netdev@vger.kernel.org, devel@openvz.org,
+	containers@lists.osdl.org, "Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:39469 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754707AbYAYNkH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 08:40:07 -0500
-In-Reply-To: <4799E4E7.5020000@fr.ibm.com>
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:59029 "EHLO iris.sw.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755399AbYAYNv5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2008 08:51:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <4799E4E7.5020000@fr.ibm.com> (at Fri, 25 Jan 2008 14:32:23 +0100), Daniel Lezcano <dlezcano@fr.ibm.com> says:
+net->ipv4.fib_table_hash is not freed when fib4_rules_init failed. The problem
+has been introduced by the following commit.
+commit c8050bf6d84785a7edd2e81591e8f833231477e8
+Author: Denis V. Lunev <den@openvz.org>
+Date:   Thu Jan 10 03:28:24 2008 -0800
 
-> Move ipv6_icmp_sysctl_init and ipv6_route_sysctl_init into
-> the right ifdef section otherwise that does not compile when
-> CONFIG_SYSCTL=yes and CONFIG_PROC_FS=no
-> 
-> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ net/ipv4/fib_frontend.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
 
-My bad....
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index d282618..d0507f4 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -975,6 +975,7 @@ static struct notifier_block fib_netdev_notifier = {
+ 
+ static int __net_init ip_fib_net_init(struct net *net)
+ {
++	int err;
+ 	unsigned int i;
+ 
+ 	net->ipv4.fib_table_hash = kzalloc(
+@@ -985,7 +986,14 @@ static int __net_init ip_fib_net_init(struct net *net)
+ 	for (i = 0; i < FIB_TABLE_HASHSZ; i++)
+ 		INIT_HLIST_HEAD(&net->ipv4.fib_table_hash[i]);
+ 
+-	return fib4_rules_init(net);
++	err = fib4_rules_init(net);
++	if (err < 0)
++		goto fail;
++	return 0;
++
++fail:
++	kfree(net->ipv4.fib_table_hash);
++	return err;
+ }
+ 
+ static void __net_exit ip_fib_net_exit(struct net *net)
+-- 
+1.5.3.rc5
 
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
---yoshfuji
