@@ -1,70 +1,50 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH for-2.6.25] [POWERPC] Rename commproc to cpm1 and
- cpm2_common.c to cpm2.c
-Date: Fri, 25 Jan 2008 09:56:12 -0600 (CST)
-Message-ID: <Pine.LNX.4.64.0801250955580.16736@blarg.am.freescale.net>
-References: <4799F2CE.309@scram.de>
+From: Jochen Friedrich <jochen@scram.de>
+Subject: Re: [PATCH] [NET]: Remove PowerPC code from fec.c
+Date: Fri, 25 Jan 2008 17:04:15 +0100
+Message-ID: <479A087F.5010305@scram.de>
+References: <4799F349.9090102@scram.de> <E1JIQpQ-0006Xj-RR@faramir.fjphome.nl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Vitaly Bordug <vitb@kernel.crashing.org>,
-	"Garzik, Jeff" <jgarzik@pobox.com>,
-	Scott Wood <scottwood@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kernel, Linux" <linux-kernel@vger.kernel.org>,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>
-To: Jochen Friedrich <jochen@scram.de>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: galak@kernel.crashing.org, geert@linux-m68k.org, gerg@uclinux.org,
+	jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	linux-m68k@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, scottwood@freescale.com,
+	vitb@kernel.crashing.org
+To: Frans Pop <elendil@planet.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:34416 "EHLO gate.crashing.org"
+Received: from mail0.scram.de ([78.47.204.202]:54276 "EHLO mail0.scram.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754081AbYAYQBK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2008 11:01:10 -0500
-In-Reply-To: <4799F2CE.309@scram.de>
+	id S1754401AbYAYQFH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2008 11:05:07 -0500
+In-Reply-To: <E1JIQpQ-0006Xj-RR@faramir.fjphome.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 25 Jan 2008, Jochen Friedrich wrote:
+Hi Frans,
 
-> Rename commproc.[ch] to cpm1.[ch] to be more consistent with cpm2. Also
-> rename cpm2_common.c to cpm2.c as suggested by Scott Wood. Adjust the
-> includes accordingly.
->
-> Signed-off-by: Jochen Friedrich <jochen@scram.de>
-> ---
->  arch/powerpc/platforms/8xx/ep88xc.c           |    1 +
->  arch/powerpc/platforms/8xx/mpc86xads_setup.c  |    2 +-
->  arch/powerpc/platforms/8xx/mpc885ads_setup.c  |    2 +-
->  arch/powerpc/sysdev/Makefile                  |    4 ++--
->  arch/powerpc/sysdev/{commproc.c => cpm1.c}    |    4 ++--
->  arch/powerpc/sysdev/{cpm2_common.c => cpm2.c} |    3 +--
->  arch/powerpc/sysdev/micropatch.c              |    2 +-
->  arch/ppc/8260_io/enet.c                       |    2 +-
->  arch/ppc/8xx_io/commproc.c                    |    2 +-
->  arch/ppc/8xx_io/enet.c                        |    6 +++---
->  arch/ppc/8xx_io/fec.c                         |    2 +-
->  arch/ppc/8xx_io/micropatch.c                  |    2 +-
->  arch/ppc/boot/simple/iic.c                    |    2 +-
->  arch/ppc/boot/simple/m8xx_tty.c               |    2 +-
->  arch/ppc/kernel/ppc_ksyms.c                   |    2 +-
->  arch/ppc/platforms/mpc866ads_setup.c          |    2 +-
->  arch/ppc/platforms/mpc885ads_setup.c          |    2 +-
->  arch/ppc/syslib/mpc8xx_devices.c              |    2 +-
->  arch/ppc/xmon/start_8xx.c                     |    2 +-
->  drivers/net/fec_8xx/fec_8xx-netta.c           |    2 +-
->  drivers/net/fec_8xx/fec_main.c                |    2 +-
->  drivers/net/fec_8xx/fec_mii.c                 |    2 +-
->  drivers/net/fs_enet/fs_enet.h                 |    2 +-
->  drivers/net/fs_enet/mac-fec.c                 |    2 +-
->  drivers/net/fs_enet/mac-scc.c                 |    2 +-
->  drivers/serial/cpm_uart/cpm_uart_cpm1.h       |    2 +-
->  include/asm-powerpc/{commproc.h => cpm1.h}    |    8 ++++----
->  include/asm-ppc/{commproc.h => cpm1.h}        |    8 ++++----
->  28 files changed, 38 insertions(+), 38 deletions(-)
->  rename arch/powerpc/sysdev/{commproc.c => cpm1.c} (99%)
->  rename arch/powerpc/sysdev/{cpm2_common.c => cpm2.c} (99%)
->  rename include/asm-powerpc/{commproc.h => cpm1.h} (99%)
->  rename include/asm-ppc/{commproc.h => cpm1.h} (99%)
->
+> Jochen Friedrich wrote:
+>> +++ b/drivers/net/fec.c
+>> @@ -23,6 +23,9 @@
+>>   *
+>>   * Bug fixes and cleanup by Philippe De Muyter (phdm@macqel.be)
+>>   * Copyright (c) 2004-2006 Macq Electronique SA.
+>> + *
+>> + * This driver is now only used on ColdFire processors. Remove conditional
+>> + * Powerpc code. 
+>>   */
+> 
+> This comment makes sense for a changelog, but IMO it makes no sense at all
+> to add it to the file.
 
-applied.
+I just added it to clarify this code is now only used on m68knommu (Coldfire).
+The comments on top are mailny about MPC860T CPUs (PowerPC), however the driver is no
+longer used for these CPUs.
 
-- k
+Maybe the wording should be changed to:
+
+This driver is now only used on ColdFire (m68knommu) processors. Conditional
+PowerPC code has been removed.
+
+Thanks,
+Jochen
