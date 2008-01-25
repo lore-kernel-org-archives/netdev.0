@@ -1,59 +1,62 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9816] New: cannot replace route
-Date: Fri, 25 Jan 2008 14:26:03 -0800
-Message-ID: <20080125142603.a73fd7a2.akpm@linux-foundation.org>
-References: <bug-9816-10286@http.bugzilla.kernel.org/>
+From: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
+Subject: [PATCH 00/14][v3]: Driver for Wireless RNDIS USB devices.
+Date: Sat, 26 Jan 2008 00:50:32 +0200
+Message-ID: <20080125225032.11716.77713.stgit@fate.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, schwab@suse.de
-To: netdev@vger.kernel.org, Joonwoo Park <joonwpark81@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52269 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755160AbYAYW0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 17:26:33 -0500
-In-Reply-To: <bug-9816-10286@http.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bjd-a1rhEgazXTw@public.gmane.org, david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> On Fri, 25 Jan 2008 13:23:49 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
-> http://bugzilla.kernel.org/show_bug.cgi?id=9816
-> 
->            Summary: cannot replace route
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.24
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: schwab@suse.de
-> 
-> 
-> Latest working kernel version: 2.6.24-rc8
-> Earliest failing kernel version: 2.6.24
-> Distribution: SuSE 10.3
-> Hardware Environment: ppc32/ppc64
-> Software Environment:
-> Problem Description:
-> ip route replace always fails with EEXIST.  (del+add still works.)
-> 
-> Steps to reproduce:
-> # ip ro show 127.0.0.0/8
-> 127.0.0.0/8 dev lo  scope link 
-> # ip ro rep 127.0.0.0/8 dev lo
-> RTNETLINK answers: File exists
-> 
-> Broken by bd566e7525b5986864e8d6eb5b67640abcd284a9.
-> 
+Hello,
 
-There is a bit more discussion in the bugzilla writeup.
+Here is the third try on wireless RNDIS patchset.
 
-I'd agree with Andrea: replacing a route with itself a) used to work and b)
-should still work (surely)?
+Patches 1-9 are from second patchset (with name change rndis_wext -> rndis_wlan
+in comments where needed):
+ 1. Fix sparse warning: returning void valued expression
+ 2. [cdc_ether] Hardwire CDC descriptors when missing
+ 3. [rndis_host] Use 1KB buffer in rndis_unbind
+ 4. [rndis_host] Halt device if rndis_bind fails
+ 5. [rndis_host] Fix rndis packet filter flags
+ 6. [usbnet] Use wlan device name for RNDIS wireless devices
+ 7. [rndis_host] Split up rndis_host.c
+ 8. [rndis_host] export functions
+ 9. [usbnet] add driver_priv pointer to 'struct usbnet'
 
+Changed patches 10-14:
+10. [rndis_host] Add early_init function pointer to 'struct rndis_data'.
+11. [rndis_host] Add link_change function pointer to 'struct rndis_data'.
+12. [rndis_host] Add RNDIS physical medium checking into generic_rndis_bind()
+13. Move usbnet.h and rndis_host.h to include/linux/usb
+14. Add new driver 'rndis_wlan' for wireless RNDIS devices.
+
+Devices are now detected by RNDIS physical medium type instead of
+vendor/product ids. Driver has new infrastucture/authentication/encryption 
+setup code (from ndiswrapper) which fixes issued with WEP and AdHoc. 
+List of modes I've tested and work:
+ - WEP
+ - WPA2 PSK (with CCMP)
+ - unencrypted
+ - unencrypted ad-hoc
+ - hidden unencrypted
+ - ad-hoc WEP
+ - hidden WEP
+That do not work:
+ - WPA PSK (with TKIP), I couldn't get this work with Windows driver using
+   ndiswrapper and driver from previous patchset and no call were made
+   to driver with SIOCSIWENCODEEXT so I'm starting to think problem is with
+   the version of wpa_supplicant I have.
+ - Hidden WPA, didn't work with earlier driver and as far as I know ndiswrapper
+   has the same problem.
+Untested:
+ - WPA PSK with CCMP
+ - WPA2 PSK with TKIP
+ - WPA/WPA2 Enterprise
+
+Patches should be applied in order, series apply cleanly to 2.6.24-git1.
+
+ - Jussi Kivilinna
