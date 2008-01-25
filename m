@@ -1,57 +1,61 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [PATCH 2.6.25 1/1]S2io: Multiqueue network device support implementation
-Date: Thu, 24 Jan 2008 22:19:50 -0500
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7702E713B2@nekter>
-References: <20080123.233006.124819204.davem@davemloft.net>
+From: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
+Subject: Re: [PATCH v2] PS3: gelic: Add wireless support for PS3
+Date: Fri, 25 Jan 2008 12:36:38 +0900
+Message-ID: <20080125122408.5CC6.40F06B3A@sm.sony.co.jp>
+References: <1201225785.15917.8.camel@localhost.localdomain> <20080125024725.GB3411@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: "Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>,
-	<netdev@vger.kernel.org>, <jeff@garzik.org>,
-	"support" <support@neterion.com>
-To: "David Miller" <davem@davemloft.net>, <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:46844 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752002AbYAYDVW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2008 22:21:22 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20080123.233006.124819204.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org,
+	Geert Uytterhoeven <Geert.Uytterhoeven-osDt5Q4Chk1BDgjK7y7TUQ@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080125024725.GB3411-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> From: netdev-owner@vger.kernel.org
-[mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of David Miller
-> Sent: Wednesday, January 23, 2008 11:30 PM
-> 
-> From: Andi Kleen <andi@firstfloor.org>
-> Date: Thu, 24 Jan 2008 08:25:49 +0100
-> 
-> > > have done away with handling tx completion in the interrupt
-handler,
-> and
-> > > are instead handling them in the context of the transmit. The slow
-> path,
-> > > straggling transmit completions will be handled in the timer
-context.
-> >
-> > Ok -- hopefully you don't have bad corner cases from this when the
-pipe
-> > is not fully filled and then causing longer latencies on completion.
-> > Old NAPI sometimes suffered from such problems.
-> 
-> BTW, such a TX completion timer will stall TCP sockets when the TX
-> queue of the device is partially filled and then sending stops.
-> 
-> TX ring SKB liberation really must be done in a very small finite
-> amount of time in order to avoid this problem properly.
-> 
-> Deferring it to HZ granular timers doesn't give a quick enough
-> response, especially at high packet rates.
-[Ram] We could add a lower granular tx completion interrupt instead, to
-handle all the transmit fifos. But this will be a fall back in the event
-the completions do not happen in the context of the transmit.
 
-Ram
+On Thu, 24 Jan 2008 21:47:25 -0500
+"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+
+> On Thu, Jan 24, 2008 at 08:49:45PM -0500, Dan Williams wrote:
+> > On Thu, 2008-01-24 at 14:51 +0900, Masakazu Mokuno wrote:
+> > > Hi
+> > > 
+> > > PS3: gelic: Add wireless support for PS3
+> > > 
+> > > This is the version 2 of the re-worked (rewritten) version of the
+> > > wireless support driver for PS3.  The version 1 of the new driver was
+> > > submitted on 13th Dec. 2007 (and the old one was submitted to net-dev ML
+> > > in June 2007).
+> > > 
+> > > Major differences with the old driver are:
+> > >   - The new driver has a separate ethX interface from ethernet.
+> > >     They share the same MAC address.
+> > >   - Thus we can use both ethernet and wireless simultaenously.
+> > >   - The new driver returns AP's cipher information by the common IE
+> > >     format in the scan information.
+> > >   - Cipher selection is done via the common wireless extension way
+> > 
+> > Looks like all my issues have been addressed.  Thanks!  Lets get this in
+> > 2.6.25 :)
+> > 
+> > Acked-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> 
+> ACK -- please merge it with the other patches through the powerpc tree.
+> 
+> Thanks,
+> 
+> John
+
+Thank you, John, Dan.
+
+I'll ask Paul to merge this if the wired part of dependent gelic patches
+gets acked from network people.
+
+
+-- 
+Masakazu MOKUNO
