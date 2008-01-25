@@ -1,135 +1,196 @@
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 07/11][NETNS][IPV6] make fib6_clean_node to use the network namespace
-Date: Fri, 25 Jan 2008 17:50:15 +0100
-Message-ID: <20080125170816.624329346@localhost.localdomain>
+Subject: [patch 04/11][NETNS][IPV6] ip6_fib - pass the network namespace parameter to timer callback
+Date: Fri, 25 Jan 2008 17:50:12 +0100
+Message-ID: <20080125170809.700840990@localhost.localdomain>
 References: <20080125165008.317745745@localhost.localdomain>
 Cc: benjamin.thery@bull.net, netdev@vger.kernel.org, den@openvz.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([195.212.29.136]:10844 "EHLO
-	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753533AbYAYRLj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 12:11:39 -0500
+Received: from mtagate4.uk.ibm.com ([195.212.29.137]:56925 "EHLO
+	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757249AbYAYRLc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 12:11:32 -0500
 Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate3.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m0PHBbxH043622
-	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:37 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0PHBbL63739770
-	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:37 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0PHBYFi026652
-	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:34 GMT
-Content-Disposition: inline; filename=ip6-fib-clean-node-use-namespace.patch
+	by mtagate4.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m0PHBVeI125190
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:31 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0PHBUIQ4632698
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:30 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0PHBRB2015219
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:27 GMT
+Content-Disposition: inline; filename=ip6-fib-add-net-to-gc-timer-parameter.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The fib6_clean_node function should have the network namespace
-it is working on. The fib6_cleaner_t structure is extended with the
-network namespace field to be passed to the fib6_clean_node function.
+The fib tables are now relative to the network namespace. When the 
+garbage collector timer expires, we must have a network namespace 
+parameter in order to retrieve the tables. For now this is the 
+init_net, but we should be able to have a timer per namespace and 
+use the timer callback parameter to pass the network namespace from 
+the expired timer.
 
-The different functions calling the fib6_clean_node function are extended
-with the netns parameter when needed to propagate the netns pointer.
+The timer callback, fib6_run_gc, is actually used to be called 
+synchronously by some functions and asynchronously when the timer 
+expires.
+
+When the timer expires, the delay specified for fib6_run_gc parameter
+is always zero. So, I changed fib6_run_gc to not be a timer callback
+but a function called by the timer callback and I added a timer callback
+where its work is just to retrieve from the data arg of the timer the 
+network namespace and call fib6_run_gc with zero expiring time and
+the network namespace parameters. That makes the code cleaner for the
+fib6_run_gc callers.
 
 Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
 ---
- net/ipv6/ip6_fib.c |   25 +++++++++++++++----------
- 1 file changed, 15 insertions(+), 10 deletions(-)
+ include/net/ip6_fib.h |    3 ++-
+ net/ipv6/ip6_fib.c    |   24 ++++++++++++++++--------
+ net/ipv6/ndisc.c      |    5 +++--
+ net/ipv6/route.c      |    8 +++++---
+ 4 files changed, 26 insertions(+), 14 deletions(-)
 
 Index: net-2.6.25/net/ipv6/ip6_fib.c
 ===================================================================
 --- net-2.6.25.orig/net/ipv6/ip6_fib.c
 +++ net-2.6.25/net/ipv6/ip6_fib.c
-@@ -66,6 +66,7 @@ enum fib_walk_state_t
- struct fib6_cleaner_t
+@@ -93,7 +93,10 @@ static int fib6_walk_continue(struct fib
+ 
+ static __u32 rt_sernum;
+ 
+-static DEFINE_TIMER(ip6_fib_timer, fib6_run_gc, 0, 0);
++static void fib6_gc_timer_cb(unsigned long arg);
++
++static DEFINE_TIMER(ip6_fib_timer, fib6_gc_timer_cb, 0,
++		    (unsigned long)&init_net);
+ 
+ static struct fib6_walker_t fib6_walker_list = {
+ 	.prev	= &fib6_walker_list,
+@@ -1432,12 +1435,12 @@ static int fib6_age(struct rt6_info *rt,
+ 
+ static DEFINE_SPINLOCK(fib6_gc_lock);
+ 
+-void fib6_run_gc(unsigned long dummy)
++void fib6_run_gc(unsigned long expires, struct net *net)
  {
- 	struct fib6_walker_t w;
-+	struct net *net;
- 	int (*func)(struct rt6_info *, void *arg);
- 	void *arg;
- };
-@@ -78,7 +79,8 @@ static DEFINE_RWLOCK(fib6_walker_lock);
- #define FWS_INIT FWS_L
- #endif
- 
--static void fib6_prune_clones(struct fib6_node *fn, struct rt6_info *rt);
-+static void fib6_prune_clones(struct net *net, struct fib6_node *fn,
-+			      struct rt6_info *rt);
- static struct rt6_info * fib6_find_prefix(struct fib6_node *fn);
- static struct fib6_node * fib6_repair_tree(struct fib6_node *fn);
- static int fib6_walk(struct fib6_walker_t *w);
-@@ -762,7 +764,7 @@ int fib6_add(struct fib6_node *root, str
- 	if (err == 0) {
- 		fib6_start_gc(info->nl_net, rt);
- 		if (!(rt->rt6i_flags&RTF_CACHE))
--			fib6_prune_clones(pn, rt);
-+			fib6_prune_clones(info->nl_net, pn, rt);
- 	}
- 
- out:
-@@ -1168,7 +1170,7 @@ int fib6_del(struct rt6_info *rt, struct
- 			pn = pn->parent;
+-	if (dummy != ~0UL) {
++	if (expires != ~0UL) {
+ 		spin_lock_bh(&fib6_gc_lock);
+-		gc_args.timeout = dummy ? (int)dummy :
+-			init_net.ipv6.sysctl.ip6_rt_gc_interval;
++		gc_args.timeout = expires ? (int)expires :
++			net->ipv6.sysctl.ip6_rt_gc_interval;
+ 	} else {
+ 		local_bh_disable();
+ 		if (!spin_trylock(&fib6_gc_lock)) {
+@@ -1445,17 +1448,17 @@ void fib6_run_gc(unsigned long dummy)
+ 			local_bh_enable();
+ 			return;
  		}
- #endif
--		fib6_prune_clones(pn, rt);
-+		fib6_prune_clones(info->nl_net, pn, rt);
+-		gc_args.timeout = init_net.ipv6.sysctl.ip6_rt_gc_interval;
++		gc_args.timeout = net->ipv6.sysctl.ip6_rt_gc_interval;
  	}
+ 	gc_args.more = 0;
  
- 	/*
-@@ -1298,12 +1300,12 @@ static int fib6_walk(struct fib6_walker_
+ 	ndisc_dst_gc(&gc_args.more);
  
- static int fib6_clean_node(struct fib6_walker_t *w)
- {
--	struct nl_info info = {
--		.nl_net = &init_net,
--	};
- 	int res;
- 	struct rt6_info *rt;
- 	struct fib6_cleaner_t *c = container_of(w, struct fib6_cleaner_t, w);
-+	struct nl_info info = {
-+		.nl_net = c->net,
-+	};
+-	fib6_clean_all(&init_net, fib6_age, 0, NULL);
++	fib6_clean_all(net, fib6_age, 0, NULL);
  
- 	for (rt = w->leaf; rt; rt = rt->u.dst.rt6_next) {
- 		res = c->func(rt, c->arg);
-@@ -1335,7 +1337,7 @@ static int fib6_clean_node(struct fib6_w
-  *	ignoring pure split nodes) will be scanned.
-  */
- 
--static void fib6_clean_tree(struct fib6_node *root,
-+static void fib6_clean_tree(struct net *net, struct fib6_node *root,
- 			    int (*func)(struct rt6_info *, void *arg),
- 			    int prune, void *arg)
- {
-@@ -1346,6 +1348,7 @@ static void fib6_clean_tree(struct fib6_
- 	c.w.prune = prune;
- 	c.func = func;
- 	c.arg = arg;
-+	c.net = net;
- 
- 	fib6_walk(&c.w);
- }
-@@ -1363,7 +1366,8 @@ void fib6_clean_all(struct net *net, int
- 		head = &net->ipv6.fib_table_hash[h];
- 		hlist_for_each_entry_rcu(table, node, head, tb6_hlist) {
- 			write_lock_bh(&table->tb6_lock);
--			fib6_clean_tree(&table->tb6_root, func, prune, arg);
-+			fib6_clean_tree(net, &table->tb6_root,
-+					func, prune, arg);
- 			write_unlock_bh(&table->tb6_lock);
- 		}
- 	}
-@@ -1380,9 +1384,10 @@ static int fib6_prune_clone(struct rt6_i
- 	return 0;
+ 	if (gc_args.more)
+ 		mod_timer(&ip6_fib_timer, jiffies +
+-			  init_net.ipv6.sysctl.ip6_rt_gc_interval);
++			  net->ipv6.sysctl.ip6_rt_gc_interval);
+ 	else {
+ 		del_timer(&ip6_fib_timer);
+ 		ip6_fib_timer.expires = 0;
+@@ -1463,6 +1466,11 @@ void fib6_run_gc(unsigned long dummy)
+ 	spin_unlock_bh(&fib6_gc_lock);
  }
  
--static void fib6_prune_clones(struct fib6_node *fn, struct rt6_info *rt)
-+static void fib6_prune_clones(struct net *net, struct fib6_node *fn,
-+			      struct rt6_info *rt)
++static void fib6_gc_timer_cb(unsigned long arg)
++{
++	fib6_run_gc(0, (struct net *)arg);
++}
++
+ static int fib6_net_init(struct net *net)
  {
--	fib6_clean_tree(fn, fib6_prune_clone, 1, rt);
-+	fib6_clean_tree(net, fn, fib6_prune_clone, 1, rt);
- }
+ 	int ret;
+Index: net-2.6.25/include/net/ip6_fib.h
+===================================================================
+--- net-2.6.25.orig/include/net/ip6_fib.h
++++ net-2.6.25/include/net/ip6_fib.h
+@@ -222,7 +222,8 @@ extern int			fib6_del(struct rt6_info *r
+ extern void			inet6_rt_notify(int event, struct rt6_info *rt,
+ 						struct nl_info *info);
  
- /*
+-extern void			fib6_run_gc(unsigned long dummy);
++extern void			fib6_run_gc(unsigned long expires,
++					    struct net *net);
+ 
+ extern void			fib6_gc_cleanup(void);
+ 
+Index: net-2.6.25/net/ipv6/ndisc.c
+===================================================================
+--- net-2.6.25.orig/net/ipv6/ndisc.c
++++ net-2.6.25/net/ipv6/ndisc.c
+@@ -1613,6 +1613,7 @@ int ndisc_rcv(struct sk_buff *skb)
+ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
+ {
+ 	struct net_device *dev = ptr;
++	struct net *net = dev->nd_net;
+ 
+ 	if (dev->nd_net != &init_net)
+ 		return NOTIFY_DONE;
+@@ -1620,11 +1621,11 @@ static int ndisc_netdev_event(struct not
+ 	switch (event) {
+ 	case NETDEV_CHANGEADDR:
+ 		neigh_changeaddr(&nd_tbl, dev);
+-		fib6_run_gc(~0UL);
++		fib6_run_gc(~0UL, net);
+ 		break;
+ 	case NETDEV_DOWN:
+ 		neigh_ifdown(&nd_tbl, dev);
+-		fib6_run_gc(~0UL);
++		fib6_run_gc(~0UL, net);
+ 		break;
+ 	default:
+ 		break;
+Index: net-2.6.25/net/ipv6/route.c
+===================================================================
+--- net-2.6.25.orig/net/ipv6/route.c
++++ net-2.6.25/net/ipv6/route.c
+@@ -40,6 +40,7 @@
+ #include <linux/if_arp.h>
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
++#include <linux/nsproxy.h>
+ #include <net/net_namespace.h>
+ #include <net/snmp.h>
+ #include <net/ipv6.h>
+@@ -994,7 +995,7 @@ static int ip6_dst_gc(struct dst_ops *op
+ 		goto out;
+ 
+ 	expire++;
+-	fib6_run_gc(expire);
++	fib6_run_gc(expire, &init_net);
+ 	last_gc = now;
+ 	if (atomic_read(&ip6_dst_ops.entries) < ip6_dst_ops.gc_thresh)
+ 		expire = init_net.ipv6.sysctl.ip6_rt_gc_timeout>>1;
+@@ -2408,10 +2409,11 @@ static
+ int ipv6_sysctl_rtcache_flush(ctl_table *ctl, int write, struct file * filp,
+ 			      void __user *buffer, size_t *lenp, loff_t *ppos)
+ {
+-	int delay = init_net.ipv6.sysctl.flush_delay;
++	struct net *net = current->nsproxy->net_ns;
++	int delay = net->ipv6.sysctl.flush_delay;
+ 	if (write) {
+ 		proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
+-		fib6_run_gc(delay <= 0 ? ~0UL : (unsigned long)delay);
++		fib6_run_gc(delay <= 0 ? ~0UL : (unsigned long)delay, net);
+ 		return 0;
+ 	} else
+ 		return -EINVAL;
 
 -- 
