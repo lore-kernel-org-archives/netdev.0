@@ -1,45 +1,52 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] [NET]: Remove PowerPC code from fec.c
-Date: Fri, 25 Jan 2008 15:46:24 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0801251544480.13060@anakin>
-References: <4799F349.9090102@scram.de>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [PATCH 3/7 net-2.6.25] [IPV4]: Prohibit assignment of 0.0.0.0
+ as interface address.
+Date: Fri, 25 Jan 2008 15:48:05 +0100
+Message-ID: <4799F6A5.7040703@fr.ibm.com>
+References: <1201269123-20378-1-git-send-email-den@openvz.org> <1201269123-20378-3-git-send-email-den@openvz.org> <4799EBBE.6080706@fr.ibm.com> <4799EE8C.60407@sw.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Garzik, Jeff" <jgarzik@pobox.com>,
-	Vitaly Bordug <vitb@kernel.crashing.org>,
-	Scott Wood <scottwood@freescale.com>,
-	Kumar Gala <galak@kernel.crashing.org>,
-	"Kernel, Linux" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
-	linux-m68k@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>,
-	uClinux list <uclinux-dev@uclinux.org>
-To: Jochen Friedrich <jochen@scram.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758271AbYAYOqk@vger.kernel.org>
-In-Reply-To: <4799F349.9090102@scram.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Denis V. Lunev" <den@openvz.org>, davem@davemloft.net,
+	netdev@vger.kernel.org, devel@openvz.org, containers@lists.osdl.org
+To: "Denis V. Lunev" <den@sw.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:53424 "EHLO
+	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757227AbYAYOv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 09:51:26 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate3.de.ibm.com (8.13.8/8.13.8) with ESMTP id m0PEpP9N065416
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 14:51:25 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0PEpPYK1171504
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 15:51:25 +0100
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0PEpOsS011418
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 15:51:24 +0100
+In-Reply-To: <4799EE8C.60407@sw.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 25 Jan 2008, Jochen Friedrich wrote:
-> fec.c is only used on M68k Coldfire CPUs. Remove leftover
-> PowerPC code from this driver.
+Denis V. Lunev wrote:
+> Daniel Lezcano wrote:
+>> Denis V. Lunev wrote:
+>>> I could hardly imagine why sombady needs to assign 0.0.0.0 as an
+>>> interface
+>>> address or interface destination address. The kernel will behave in a
+>>> strage
+>>> way in several places if this is possible, as ifa_local != 0 is
+>>> considered
+>>> as initialized/non-initialized state of the ifa.
+>> AFAICS, we should be able to set at an interface address to 0.0.0.0, in
+>> order to remove an IP address from an interface and keep this one up.
+>> I see two trivial cases:
+>>  * remove the ipv4 on an interface but continue to use it through ipv6
+>>  * move ipv4 address from the interface to an attached bridge
+> 
+> For this case there is an IOCTL/netlink "remove IP address".
 
-As per MAINTAINERS, m68knommu is handled by:
-
-UCLINUX (AND M68KNOMMU)
-P:	Greg Ungerer
-M:	gerg@uclinux.org
-L:	uclinux-dev@uclinux.org  (subscribers-only)
-
-I already forwarded a copy of your email to Greg.
-
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+And I forgot to mention the general broadcast.
+This is need for the dhcp protocol. If you are not able to set your 
+interface to 0.0.0.0, you will be not able to send a 255.255.255.255 
+broadcast message to have your IP address.
