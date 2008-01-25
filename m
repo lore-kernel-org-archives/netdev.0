@@ -1,34 +1,30 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH UCC TDM 3/3 ] Modified Documentation to explain dtsentries
- for TDM driver
-Date: Fri, 25 Jan 2008 12:13:20 -0600
-Message-ID: <479A26C0.7010704@freescale.com>
-References: <FBA61160C48B8D438F3323FEFB4EF2C279AFF5@zin33exm24.fsl.freescale.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] fib_trie: rescan if key is lost during dump
+Date: Fri, 25 Jan 2008 20:01:35 +0100
+Message-ID: <20080125190135.GA2939@ami.dom.local>
+References: <20080124135112.32b5c1c7@deepthought> <20080125082300.GA2257@ff.dom.local> <20080125081315.467fad70@deepthought>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Gala Kumar <kumar.gala@freescale.com>, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rubini@vision.unipv.it, linuxppc-dev@ozlabs.org,
-	Barkowski Michael <Michael.Barkowski@freescale.com>,
-	Cutler Richard <Rich.Cutler@freescale.com>,
-	Tabi Timur <timur@freescale.com>,
-	Kalra Ashish <ashish.kalra@freescale.com>
-To: Aggrwal Poonam <Poonam.Aggrwal@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:49438 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752909AbYAYSNf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 13:13:35 -0500
-In-Reply-To: <FBA61160C48B8D438F3323FEFB4EF2C279AFF5@zin33exm24.fsl.freescale.net>
+Received: from ug-out-1314.google.com ([66.249.92.174]:39635 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756104AbYAYS7F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 13:59:05 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so555105ugc.16
+        for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 10:59:04 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080125081315.467fad70@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Aggrwal Poonam wrote:
-> The device tree already has a brg-frequency  property in qe node which
-> is the value of BRGCLK. 
+On Fri, Jan 25, 2008 at 08:13:15AM -0800, Stephen Hemminger wrote:
+...
+> 2. RCU is unnecessary here because of use of RTNL.  I am going to defer
+>    on this till after #1. That patch is much less important.
 
-Yes, I'm saying it belongs as brg/clock-frequency. :-)
-CPM1/2 already do this.
+Thanks! (I've started to suspect another advanced RCU trick already...)
 
--Scott
+Jarek P.
