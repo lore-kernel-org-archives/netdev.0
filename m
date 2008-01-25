@@ -1,73 +1,181 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [Lksctp-developers] [PATCH] SCTP: Fix kernel panic while	received
- AUTH chunk with BAD shared key identifier
-Date: Fri, 25 Jan 2008 11:46:39 -0500
-Message-ID: <479A126F.4010505@hp.com>
-References: <4795A960.7000700@cn.fujitsu.com> <20080124121608.GA20633@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <yjwei@cn.fujitsu.com>, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net
-To: Neil Horman <nhorman@tuxdriver.com>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: [patch 01/11][NETNS][IPV6] ip6_fib - dynamically allocate the tables
+Date: Fri, 25 Jan 2008 17:50:09 +0100
+Message-ID: <20080125170801.711861286@localhost.localdomain>
+References: <20080125165008.317745745@localhost.localdomain>
+Cc: benjamin.thery@bull.net, netdev@vger.kernel.org, den@openvz.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:18845 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752913AbYAYQql (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 11:46:41 -0500
-In-Reply-To: <20080124121608.GA20633@hmsreliant.think-freely.org>
+Received: from mtagate6.uk.ibm.com ([195.212.29.139]:19206 "EHLO
+	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756341AbYAYRLY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 12:11:24 -0500
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate6.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m0PHBMVY024712
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:22 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0PHBMdV4477136
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:22 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0PHBIWC031316
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:19 GMT
+Content-Disposition: inline; filename=ip6-fib-dynamic-allocation.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Neil Horman wrote:
-> On Tue, Jan 22, 2008 at 05:29:20PM +0900, Wei Yongjun wrote:
->>
->> This patch fix this problem.
->>
->> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
->>
->> --- a/net/sctp/auth.c	2008-01-21 00:03:25.000000000 -0500
->> +++ b/net/sctp/auth.c	2008-01-21 21:31:47.000000000 -0500
->> @@ -420,15 +420,15 @@ struct sctp_shared_key *sctp_auth_get_sh
->>  				const struct sctp_association *asoc,
->>  				__u16 key_id)
->>  {
->> -	struct sctp_shared_key *key = NULL;
->> +	struct sctp_shared_key *key;
->>  
->>  	/* First search associations set of endpoint pair shared keys */
->>  	key_for_each(key, &asoc->endpoint_shared_keys) {
->>  		if (key->key_id == key_id)
->> -			break;
->> +			return key;
->>  	}
->>  
->> -	return key;
->> +	return NULL;
->>  }
->>  
->>  /*
->>
-> 
-> FWIW, Ack from me.  The assignment of NULL to key can safely be removed, since
-> key_for_each (which is just list_for_each_entry under the covers does an initial
-> assignment to key anyway). 
-> 
-> If the endpoint_shared_keys list is empty, or if the key_id being requested does
-> not exist, the function as it currently stands returns the actuall list_head (in
-> this case endpoint_shared_keys.  Since that list_head isn't surrounded by an
-> actuall data structure, the last iteration through list_for_each_entry will do a
-> container_of on key, and we wind up returning a bogus pointer, instead of NULL,
-> as we should.  Wei's patch corrects that.
-> 
-> Regards
-> Neil
-> 
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
-> 
+This patch changes the fib6 tables to be dynamically allocated.
+That provides the ability to make several instances of them when
+a new network namespace is created.
 
-Yep, the patch is correct.
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+---
+ net/ipv6/ip6_fib.c |   71 +++++++++++++++++++++++++++++++++++------------------
+ 1 file changed, 48 insertions(+), 23 deletions(-)
 
-Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+Index: net-2.6.25/net/ipv6/ip6_fib.c
+===================================================================
+--- net-2.6.25.orig/net/ipv6/ip6_fib.c
++++ net-2.6.25/net/ipv6/ip6_fib.c
+@@ -166,20 +166,14 @@ static __inline__ void rt6_release(struc
+ 		dst_free(&rt->u.dst);
+ }
+ 
+-static struct fib6_table fib6_main_tbl = {
+-	.tb6_id		= RT6_TABLE_MAIN,
+-	.tb6_root	= {
+-		.leaf		= &ip6_null_entry,
+-		.fn_flags	= RTN_ROOT | RTN_TL_ROOT | RTN_RTINFO,
+-	},
+-};
++static struct fib6_table *fib6_main_tbl;
+ 
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ #define FIB_TABLE_HASHSZ 256
+ #else
+ #define FIB_TABLE_HASHSZ 1
+ #endif
+-static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
++static struct hlist_head *fib_table_hash;
+ 
+ static void fib6_link_table(struct fib6_table *tb)
+ {
+@@ -201,13 +195,8 @@ static void fib6_link_table(struct fib6_
+ }
+ 
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+-static struct fib6_table fib6_local_tbl = {
+-	.tb6_id		= RT6_TABLE_LOCAL,
+-	.tb6_root 	= {
+-		.leaf		= &ip6_null_entry,
+-		.fn_flags	= RTN_ROOT | RTN_TL_ROOT | RTN_RTINFO,
+-	},
+-};
++
++static struct fib6_table *fib6_local_tbl;
+ 
+ static struct fib6_table *fib6_alloc_table(u32 id)
+ {
+@@ -263,8 +252,8 @@ struct fib6_table *fib6_get_table(u32 id
+ 
+ static void __init fib6_tables_init(void)
+ {
+-	fib6_link_table(&fib6_main_tbl);
+-	fib6_link_table(&fib6_local_tbl);
++	fib6_link_table(fib6_main_tbl);
++	fib6_link_table(fib6_local_tbl);
+ }
+ 
+ #else
+@@ -276,18 +265,18 @@ struct fib6_table *fib6_new_table(u32 id
+ 
+ struct fib6_table *fib6_get_table(u32 id)
+ {
+-	return &fib6_main_tbl;
++	return fib6_main_tbl;
+ }
+ 
+ struct dst_entry *fib6_rule_lookup(struct flowi *fl, int flags,
+ 				   pol_lookup_t lookup)
+ {
+-	return (struct dst_entry *) lookup(&fib6_main_tbl, fl, flags);
++	return (struct dst_entry *) lookup(fib6_main_tbl, fl, flags);
+ }
+ 
+ static void __init fib6_tables_init(void)
+ {
+-	fib6_link_table(&fib6_main_tbl);
++	fib6_link_table(fib6_main_tbl);
+ }
+ 
+ #endif
+@@ -1479,22 +1468,53 @@ void fib6_run_gc(unsigned long dummy)
+ 
+ int __init fib6_init(void)
+ {
+-	int ret;
++	int ret = -ENOMEM;
+ 	fib6_node_kmem = kmem_cache_create("fib6_nodes",
+ 					   sizeof(struct fib6_node),
+ 					   0, SLAB_HWCACHE_ALIGN,
+ 					   NULL);
+ 	if (!fib6_node_kmem)
+-		return -ENOMEM;
++		goto out;
++
++	fib_table_hash = kzalloc(sizeof(*fib_table_hash)*FIB_TABLE_HASHSZ,
++				 GFP_KERNEL);
++	if (!fib_table_hash)
++		goto out_kmem_cache_create;
++
++	fib6_main_tbl = kzalloc(sizeof(*fib6_main_tbl), GFP_KERNEL);
++	if (!fib6_main_tbl)
++		goto out_fib_table_hash;
++
++	fib6_main_tbl->tb6_id = RT6_TABLE_MAIN;
++	fib6_main_tbl->tb6_root.leaf = &ip6_null_entry;
++	fib6_main_tbl->tb6_root.fn_flags = RTN_ROOT | RTN_TL_ROOT | RTN_RTINFO;
++
++#ifdef CONFIG_IPV6_MULTIPLE_TABLES
++	fib6_local_tbl = kzalloc(sizeof(*fib6_local_tbl), GFP_KERNEL);
++	if (!fib6_local_tbl)
++		goto out_fib6_main_tbl;
++
++	fib6_local_tbl->tb6_id = RT6_TABLE_LOCAL;
++	fib6_local_tbl->tb6_root.leaf = &ip6_null_entry;
++	fib6_local_tbl->tb6_root.fn_flags = RTN_ROOT | RTN_TL_ROOT | RTN_RTINFO;
++#endif
+ 
+ 	fib6_tables_init();
+ 
+ 	ret = __rtnl_register(PF_INET6, RTM_GETROUTE, NULL, inet6_dump_fib);
+ 	if (ret)
+-		goto out_kmem_cache_create;
++		goto out_fib6_local_tbl;
+ out:
+ 	return ret;
+ 
++out_fib6_local_tbl:
++#ifdef CONFIG_IPV6_MULTIPLE_TABLES
++	kfree(fib6_local_tbl);
++out_fib6_main_tbl:
++#endif
++	kfree(fib6_main_tbl);
++out_fib_table_hash:
++	kfree(fib_table_hash);
+ out_kmem_cache_create:
+ 	kmem_cache_destroy(fib6_node_kmem);
+ 	goto out;
+@@ -1503,5 +1523,10 @@ out_kmem_cache_create:
+ void fib6_gc_cleanup(void)
+ {
+ 	del_timer(&ip6_fib_timer);
++#ifdef CONFIG_IPV6_MULTIPLE_TABLES
++	kfree(fib6_local_tbl);
++#endif
++	kfree(fib6_main_tbl);
++	kfree(fib_table_hash);
+ 	kmem_cache_destroy(fib6_node_kmem);
+ }
 
--vlad
+-- 
