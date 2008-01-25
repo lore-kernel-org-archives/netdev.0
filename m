@@ -1,47 +1,44 @@
-From: Kevin Hilman <khilman@mvista.com>
-Subject: [PATCH] SMC91x: poll_controller(): check for interrupts before calling handler
-Date: Thu, 24 Jan 2008 21:38:23 -0800
-Message-ID: <1201239503-16407-1-git-send-email-khilman@mvista.com>
-Cc: Nicolas Pitre <nico@cam.org>, Kevin Hilman <khilman@mvista.com>
-To: netdev@vger.kernel.org
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] fib_trie: rescan if key is lost during dump
+Date: Fri, 25 Jan 2008 09:23:00 +0100
+Message-ID: <20080125082300.GA2257@ff.dom.local>
+References: <20080124135112.32b5c1c7@deepthought>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deeprooted.net ([216.254.16.51]:53156 "EHLO paris.hilman.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752400AbYAYFiY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2008 00:38:24 -0500
+Received: from fg-out-1718.google.com ([72.14.220.155]:12794 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755335AbYAYIQS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 03:16:18 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so566897fga.17
+        for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 00:16:16 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080124135112.32b5c1c7@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When using polling, smc_poll_controller() can call smc_interrupt()
-when there are likely to be no real interrups.  This will trigger the
-"spurious interrupt" printk whenever the driver is being polled.
+On 24-01-2008 22:51, Stephen Hemminger wrote:
+> Normally during a dump the key of the last dumped entry is used for
+> continuation, but since lock is dropped it might be lost. In that case
+> fallback to the old counter based N^2 behaviour.  This means the dump will end up
+> skipping some routes which matches what FIB_HASH does.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+...
+> @@ -1918,35 +1931,37 @@ static int fn_trie_dump(struct fib_table
+>  	struct leaf *l;
+>  	struct trie *t = (struct trie *) tb->tb_data;
+>  	t_key key = cb->args[2];
+> +	int count = cb->args[3];
+>  
+>  	rcu_read_lock();
 
-Instead, check for actual interrupts before calling smc_interrupt()
+Sorry, but I lost the point: is rtnl held or not held here at the moment?
+If held, how this rcu_read_lock can help? Maybe some additional comment
+in the code?
 
-Signed-off-by: Kevin Hilman <khilman@mvista.com>
-Signed-off-by: Nicolas Pitre <nico@cam.org>
----
- drivers/net/smc91x.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-index 7da7589..64ef6c1 100644
---- a/drivers/net/smc91x.c
-+++ b/drivers/net/smc91x.c
-@@ -1350,8 +1350,12 @@ static irqreturn_t smc_interrupt(int irq, void *dev_id)
-  */
- static void smc_poll_controller(struct net_device *dev)
- {
-+	struct smc_local *lp = netdev_priv(dev);
-+	void __iomem *ioaddr = lp->base;
-+
- 	disable_irq(dev->irq);
--	smc_interrupt(dev->irq, dev);
-+	if (SMC_GET_INT() & SMC_GET_INT_MASK())
-+		smc_interrupt(dev->irq, dev);
- 	enable_irq(dev->irq);
- }
- #endif
--- 
-1.5.3.7
-
+Thanks,
+Jarek P.
