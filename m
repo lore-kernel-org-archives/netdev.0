@@ -1,57 +1,91 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 1/7 net-2.6.25] [IPV4]: Fix memory leak on error path during FIB initialization.
-Date: Fri, 25 Jan 2008 16:51:57 +0300
-Message-ID: <1201269123-20378-1-git-send-email-den@openvz.org>
+Subject: [PATCH 7/7 net-2.6.25] [NETNS]: Lookup in FIB semantic hashes taking into account the namespace.
+Date: Fri, 25 Jan 2008 16:52:03 +0300
+Message-ID: <1201269123-20378-7-git-send-email-den@openvz.org>
+References: <1201269123-20378-1-git-send-email-den@openvz.org>
 Cc: netdev@vger.kernel.org, devel@openvz.org,
 	containers@lists.osdl.org, "Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:59029 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:59617 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755399AbYAYNv5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755118AbYAYNv5 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 25 Jan 2008 08:51:57 -0500
+In-Reply-To: <1201269123-20378-1-git-send-email-den@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net->ipv4.fib_table_hash is not freed when fib4_rules_init failed. The problem
-has been introduced by the following commit.
-commit c8050bf6d84785a7edd2e81591e8f833231477e8
-Author: Denis V. Lunev <den@openvz.org>
-Date:   Thu Jan 10 03:28:24 2008 -0800
+The namespace is not available in the fib_sync_down_addr, add it
+as a parameter.
+
+Looking up a device by the pointer to it is OK. Looking up using a result
+from fib_trie/fib_hash table lookup is also safe. No need to fix that at all.
+So, just fix lookup by address and insertion to the hash table path.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- net/ipv4/fib_frontend.c |   10 +++++++++-
- 1 files changed, 9 insertions(+), 1 deletions(-)
+ include/net/ip_fib.h     |    2 +-
+ net/ipv4/fib_frontend.c  |    2 +-
+ net/ipv4/fib_semantics.c |    6 +++++-
+ 3 files changed, 7 insertions(+), 3 deletions(-)
 
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index cb0df37..90d1175 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -220,7 +220,7 @@ extern void fib_select_default(struct net *net, const struct flowi *flp,
+ /* Exported by fib_semantics.c */
+ extern int ip_fib_check_default(__be32 gw, struct net_device *dev);
+ extern int fib_sync_down_dev(struct net_device *dev, int force);
+-extern int fib_sync_down_addr(__be32 local);
++extern int fib_sync_down_addr(struct net *net, __be32 local);
+ extern int fib_sync_up(struct net_device *dev);
+ extern __be32  __fib_res_prefsrc(struct fib_result *res);
+ extern void fib_select_multipath(const struct flowi *flp, struct fib_result *res);
 diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index d282618..d0507f4 100644
+index d69ffa2..86ff271 100644
 --- a/net/ipv4/fib_frontend.c
 +++ b/net/ipv4/fib_frontend.c
-@@ -975,6 +975,7 @@ static struct notifier_block fib_netdev_notifier = {
+@@ -808,7 +808,7 @@ static void fib_del_ifaddr(struct in_ifaddr *ifa)
+ 			   First of all, we scan fib_info list searching
+ 			   for stray nexthop entries, then ignite fib_flush.
+ 			*/
+-			if (fib_sync_down_addr(ifa->ifa_local))
++			if (fib_sync_down_addr(dev->nd_net, ifa->ifa_local))
+ 				fib_flush(dev->nd_net);
+ 		}
+ 	}
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 97cc494..a13c847 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -229,6 +229,8 @@ static struct fib_info *fib_find_info(const struct fib_info *nfi)
+ 	head = &fib_info_hash[hash];
  
- static int __net_init ip_fib_net_init(struct net *net)
+ 	hlist_for_each_entry(fi, node, head, fib_hash) {
++		if (fi->fib_net != nfi->fib_net)
++			continue;
+ 		if (fi->fib_nhs != nfi->fib_nhs)
+ 			continue;
+ 		if (nfi->fib_protocol == fi->fib_protocol &&
+@@ -1031,7 +1033,7 @@ nla_put_failure:
+      referring to it.
+    - device went down -> we must shutdown all nexthops going via it.
+  */
+-int fib_sync_down_addr(__be32 local)
++int fib_sync_down_addr(struct net *net, __be32 local)
  {
-+	int err;
- 	unsigned int i;
+ 	int ret = 0;
+ 	unsigned int hash = fib_laddr_hashfn(local);
+@@ -1043,6 +1045,8 @@ int fib_sync_down_addr(__be32 local)
+ 		return 0;
  
- 	net->ipv4.fib_table_hash = kzalloc(
-@@ -985,7 +986,14 @@ static int __net_init ip_fib_net_init(struct net *net)
- 	for (i = 0; i < FIB_TABLE_HASHSZ; i++)
- 		INIT_HLIST_HEAD(&net->ipv4.fib_table_hash[i]);
- 
--	return fib4_rules_init(net);
-+	err = fib4_rules_init(net);
-+	if (err < 0)
-+		goto fail;
-+	return 0;
-+
-+fail:
-+	kfree(net->ipv4.fib_table_hash);
-+	return err;
- }
- 
- static void __net_exit ip_fib_net_exit(struct net *net)
+ 	hlist_for_each_entry(fi, node, head, fib_lhash) {
++		if (fi->fib_net != net)
++			continue;
+ 		if (fi->fib_prefsrc == local) {
+ 			fi->fib_flags |= RTNH_F_DEAD;
+ 			ret++;
 -- 
 1.5.3.rc5
 
