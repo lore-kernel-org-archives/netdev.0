@@ -1,76 +1,78 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [PATCH 02/14] [cdc_ether] Hardwire CDC descriptors when missing
-Date: Thu, 24 Jan 2008 16:55:00 -0800
-Message-ID: <200801241655.00553.david-b@pacbell.net>
-References: <20080120001353.25718.38880.stgit@fate.lan>
+From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Subject: Re: [PATCH 10/14] [rndis_host] Add rndis_early_init function pointer to 'struct rndis_data'.
+Date: Thu, 24 Jan 2008 17:10:35 -0800
+Message-ID: <200801241710.35528.david-b@pacbell.net>
+References: <20080120001438.25718.96722.stgit@fate.lan>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, bjd@jooz.net,
-	netdev@vger.kernel.org
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp115.sbc.mail.sp1.yahoo.com ([69.147.64.88]:36359 "HELO
-	smtp115.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753974AbYAYBUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2008 20:20:19 -0500
-In-Reply-To: <20080120001353.25718.38880.stgit@fate.lan>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bjd-a1rhEgazXTw@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080120001438.25718.96722.stgit-q/85JClnwdg@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 On Saturday 19 January 2008, Jussi Kivilinna wrote:
-> From: Bjorge Dijkstra <bjd@jooz.net>
+> Function pointer is for rndis minidrivers that need to do work on device right
+> after RNDIS_INIT. For example setting device specific configuration parameters
+> with OID_GEN_RNDIS_CONFIG_PARAMETER.
 > 
-> Just as ActiveSync devices, some regular RNDIS devices also lack
-> the CDC descriptors (e.g. devices based on BCM4320 WLAN chip).
-> This patch hardwires the CDC descriptors for all RNDIS style devices
-> when they are missing.
-> 
-> Signed-off-by: Bjorge Dijkstra <bjd@jooz.net>
-> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+> Signed-off-by: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
 
-Acked-by: David Brownell <dbrownell@users.sourceforge.net>
+Could this -- and #11/14 -- instead be generalized a bit,
+so they're not RNDIS-specific?  At least in name; the
+only user for now would be the rndis_host code.
+
+The generalization would presumably be "early_init" and
+"link_change", paired with doc comments reflecting that
+they're usable by any driver stack built over the usbnet
+framework core.
+
+There's no point IMO to having generalizable hooks be
+restricted this way.
+
+- Dave
+
 
 > ---
 > 
->  drivers/net/usb/cdc_ether.c |   10 +++++-----
->  1 files changed, 5 insertions(+), 5 deletions(-)
+>  drivers/net/usb/rndis_host.c |    6 ++++++
+>  drivers/net/usb/usbnet.h     |    3 +++
+>  2 files changed, 9 insertions(+), 0 deletions(-)
 > 
-> diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-> index a42acc3..97c17bb 100644
-> --- a/drivers/net/usb/cdc_ether.c
-> +++ b/drivers/net/usb/cdc_ether.c
-> @@ -228,15 +228,16 @@ next_desc:
->  		buf += buf [0];
->  	}
+> diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+> index 1d6bf0a..22e5ca1 100644
+> --- a/drivers/net/usb/rndis_host.c
+> +++ b/drivers/net/usb/rndis_host.c
+> @@ -336,6 +336,12 @@ int generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf)
+>  		dev->hard_mtu, tmp, dev->rx_urb_size,
+>  		1 << le32_to_cpu(u.init_c->packet_alignment));
 >  
-> -	/* Microsoft ActiveSync based RNDIS devices lack the CDC descriptors,
-> -	 * so we'll hard-wire the interfaces and not check for descriptors.
-> +	/* Microsoft ActiveSync based and some regular RNDIS devices lack the
-> +	 * CDC descriptors, so we'll hard-wire the interfaces and not check
-> +	 * for descriptors.
->  	 */
-> -	if (is_activesync(&intf->cur_altsetting->desc) && !info->u) {
-> +	if (rndis && !info->u) {
->  		info->control = usb_ifnum_to_if(dev->udev, 0);
->  		info->data = usb_ifnum_to_if(dev->udev, 1);
->  		if (!info->control || !info->data) {
->  			dev_dbg(&intf->dev,
-> -				"activesync: master #0/%p slave #1/%p\n",
-> +				"rndis: master #0/%p slave #1/%p\n",
->  				info->control,
->  				info->data);
->  			goto bad_desc;
-> @@ -316,7 +317,6 @@ void usbnet_cdc_unbind(struct usbnet *dev, struct usb_interface *intf)
->  }
->  EXPORT_SYMBOL_GPL(usbnet_cdc_unbind);
+> +	/* module has some device initialization code needs to be done right
+> +	 * after RNDIS_INIT */
+> +	if (dev->driver_info->rndis_early_init &&
+> +			dev->driver_info->rndis_early_init(dev) != 0)
+> +		goto halt_fail_and_release;
+> +
+>  	/* Get designated host ethernet address */
+>  	reply_len = ETH_ALEN;
+>  	retval = rndis_query(dev, intf, u.buf, OID_802_3_PERMANENT_ADDRESS,
+> diff --git a/drivers/net/usb/usbnet.h b/drivers/net/usb/usbnet.h
+> index 0b4bf09..2bc5f76 100644
+> --- a/drivers/net/usb/usbnet.h
+> +++ b/drivers/net/usb/usbnet.h
+> @@ -116,6 +116,9 @@ struct driver_info {
+>  	struct sk_buff	*(*tx_fixup)(struct usbnet *dev,
+>  				struct sk_buff *skb, gfp_t flags);
 >  
-> -
->  /*-------------------------------------------------------------------------
->   *
->   * Communications Device Class, Ethernet Control model
+> +	/* rndis minidriver early initialization code, can sleep */
+> +	int	(*rndis_early_init)(struct usbnet *dev);
+> +
+>  	/* for new devices, use the descriptor-reading code instead */
+>  	int		in;		/* rx endpoint */
+>  	int		out;		/* tx endpoint */
 > 
-
-
