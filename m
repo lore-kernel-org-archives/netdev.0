@@ -1,57 +1,31 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 9812] New: Kernel does not deliver packets going
- through the INPUT chain even if the app is listening on IN_ADDR_ANY
-Date: Fri, 25 Jan 2008 14:17:48 +0100
-Message-ID: <4799E17C.6040803@trash.net>
-References: <bug-9812-10286@http.bugzilla.kernel.org/> <20080125051404.3bbefab3.akpm@linux-foundation.org>
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Subject: Re: [PATCH 00/14] RFC: Driver for Wireless RNDIS USB devices.
+Date: Fri, 25 Jan 2008 15:20:24 +0200
+Message-ID: <1201267224.7266.6.camel@localhost>
+References: <20080120001342.25718.83669.stgit@fate.lan>
+	 <200801241719.14941.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	pawel@rogocz.com
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-wireless@vger.kernel.org, bjd@jooz.net,
+	netdev@vger.kernel.org
+To: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38231 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753170AbYAYNSG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 08:18:06 -0500
-In-Reply-To: <20080125051404.3bbefab3.akpm@linux-foundation.org>
+Received: from pne-smtpout4-sn2.hy.skanova.net ([81.228.8.154]:39065 "EHLO
+	pne-smtpout4-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753471AbYAYNUc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 08:20:32 -0500
+In-Reply-To: <200801241719.14941.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
->> On Fri, 25 Jan 2008 03:59:27 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
->> http://bugzilla.kernel.org/show_bug.cgi?id=9812
->>
+On Thu, 2008-01-24 at 17:19 -0800, David Brownell wrote:
+> > 13. [rndis_host] blacklist known wireless RNDIS devices
+> 
+> That will be a headache over time though ... can't you just
+> let the probe succeed enough to recogize it's wireless (using
+> the media flag) and then bail, so the next driver can try?
 
->> Problem Description:
->>
->> I have a farm of web servers behind a load balancer in DSR mode.
->> I would like to be able to dump packets with any IP address on the web servers
->> through the load balancer and have web servers reply to these requests.
->> Currently for every IP web servers are supposed to reply to, I have to
->> configure the IP on all servers on their loopback interfaces. The web server
->> listens on IN_ADDR_ANY and I am forcing packets into the INPUT chain via
->> iptables/netfilter but the kernel never replies to any connection requests. I
->> only see the counter for OutNoRoutes increasing.
->>
->> Steps to reproduce:
->>
->> web server:
->>
->> #iptables -A PREROUTING -i eth0 -t mangle -p tcp --dport 80 -j MARK --set-mark
->> 1 
->> #ip route add to local default dev lo protocol kernel table 1
->> #ip rule add fwmark 1 table 1 priority 1
->>
->> client:
->>
->> #ip route add 1.1.1.1/32 via <web server IP> dev eth0
->>
->> while making requests to 1.1.1.1:80 from the client you can see increasing
->> OutNoRoutes counter but no connection ever takes place.
+Sure, that works too (but causes a little bit more message flood).
 
-
-I already commented in bugzilla, this is not a bug but an incorrect
-setup. DNAT or REDIRECT must be used to make this work properly.
 
