@@ -1,52 +1,73 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Slow OOM in netif_RX function
-Date: Fri, 25 Jan 2008 14:21:08 +0100
-Message-ID: <p73tzl282ij.fsf@bingen.suse.de>
-References: <4798CAA9.1080005@obs.bg> <4798E32E.6080003@cosmosbay.com>
-	<20080124211810.3E24A46E9A@smtp.obs.bg>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: [patch net-2.6.25][IPV4][FIB] fix fib_proc compilation error
+Date: Fri, 25 Jan 2008 14:30:49 +0100
+Message-ID: <4799E489.90008@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "Ivan H. Dichev" <idichev@obs.bg>
+Content-Type: multipart/mixed;
+ boundary="------------080201050701030808070901"
+To: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.suse.de ([195.135.220.2]:40706 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753237AbYAYNVM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2008 08:21:12 -0500
-In-Reply-To: <20080124211810.3E24A46E9A@smtp.obs.bg> (Ivan H. Dichev's message of "Thu\, 24 Jan 2008 23\:18\:10 +0200")
+Received: from mtagate1.uk.ibm.com ([195.212.29.134]:2936 "EHLO
+	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754300AbYAYNeJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 08:34:09 -0500
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate1.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m0PDY7QN217128
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 13:34:07 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0PDY7335087446
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 13:34:07 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0PDY4Wm031768
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 13:34:04 GMT
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Ivan H. Dichev" <idichev@obs.bg> writes:
->
-> What could happen if I put different Lan card in every slot?
-> In ex. to-private -> 3com
->       to-inet    -> VIA
->       to-dmz     -> rtl8139
-> And then to look which RX function is consuming the memory.
-> (boomerang_rx, rtl8139_rx, ... etc) 
+This is a multi-part message in MIME format.
+--------------080201050701030808070901
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-The problem is unlikely to be in the driver (these are both
-well tested ones) but more likely your complicated iptables setup somehow
-triggers a skb leak.
 
-There are unfortunately no shrink wrapped debug mechanisms in the kernel
-for leaks like this (ok you could enable CONFIG_NETFILTER_DEBUG 
-and see if it prints something interesting, but that's a long shot).
 
-If you wanted to write a custom debugging patch I would do something like this:
+--------------080201050701030808070901
+Content-Type: text/x-patch;
+ name="fix-fib-frontend-compilation-error.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="fix-fib-frontend-compilation-error.patch"
 
-- Add two new integer fields to struct sk_buff: a time stamp and a integer field
-- Fill the time stamp with jiffies in alloc_skb and clear the integer field
-- In __kfree_skb clear the time stamp
-- For all the ipt target modules in net/ipv4/netfilter/*.c you use change their 
-->target functions to put an unique value into the integer field you added.
-- Do the same for the pkt_to_tuple functions for all conntrack modules
+Subject: fix fib_proc compilation error
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
 
-Then when you observe the leak take a crash dump using kdump on the router 
-and then use crash to dump all the slab objects for the sk_head_cache.
-Then look for any that have an old time stamp and check what value they
-have in the integer field. Then the netfilter function who set that unique value 
-likely triggered the leak somehow.
+Fix fib_proc_[init|exit] definition when CONFIG_PROCFS=no
 
--Andi
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+---
+ include/net/ip_fib.h |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+Index: net-2.6.25-fix/include/net/ip_fib.h
+===================================================================
+--- net-2.6.25-fix.orig/include/net/ip_fib.h
++++ net-2.6.25-fix/include/net/ip_fib.h
+@@ -264,6 +264,16 @@ static inline void fib_res_put(struct fi
+ #ifdef CONFIG_PROC_FS
+ extern int __net_init  fib_proc_init(struct net *net);
+ extern void __net_exit fib_proc_exit(struct net *net);
++#else
++static inline int fib_proc_init(struct net *net)
++{
++	return 0;
++}
++
++static inline void fib_proc_exit(struct net *net)
++{
++	return ;
++}
+ #endif
+ 
+ #endif  /* _NET_FIB_H */
+
+--------------080201050701030808070901--
