@@ -1,65 +1,50 @@
-From: Alexey Dobriyan <adobriyan@sw.ru>
-Subject: Re: [PATCH 1/5] netns netfilter: per-netns ip6tables
-Date: Fri, 25 Jan 2008 19:39:40 +0300
-Message-ID: <20080125163940.GD6028@localhost.sw.ru>
-References: <20080124122328.GA27337@localhost.sw.ru> <4798CBF1.205@trash.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] SCTP: Fix kernel panic while received AUTH chunk while
+ enabled auth
+Date: Fri, 25 Jan 2008 11:41:17 -0500
+Message-ID: <479A112D.5020201@hp.com>
+References: <4794C51B.8040904@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	devel@openvz.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4798CBF1.205@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:17551 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752897AbYAYQlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 11:41:19 -0500
+In-Reply-To: <4794C51B.8040904@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 24, 2008 at 06:33:37PM +0100, Patrick McHardy wrote:
-> Alexey Dobriyan wrote:
-> >* Propagate netns from userspace down to xt_find_table_lock()
-> >* Register ip6 tables in netns (modules still use init_net)
-> >
-> >Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
-> >---
-> >
-> > include/linux/netfilter_ipv6/ip6_tables.h |    3 +
-> > net/ipv6/netfilter/ip6_tables.c           |   50 
-> > +++++++++++++++---------------
-> > net/ipv6/netfilter/ip6table_filter.c      |    2 -
-> > net/ipv6/netfilter/ip6table_mangle.c      |    2 -
-> > net/ipv6/netfilter/ip6table_raw.c         |    2 -
-> > 5 files changed, 31 insertions(+), 28 deletions(-)
-> 
-> This adds checkpatch warnings:
-> 
-> WARNING: line over 80 characters
-> #96: FILE: net/ipv6/netfilter/ip6_tables.c:1361:
-> +do_add_counters(struct net *net, void __user *user, unsigned int len, 
-> int compat)
-> 
-> WARNING: line over 80 characters
-> #229: FILE: net/ipv6/netfilter/ip6table_filter.c:135:
-> +       packet_filter = ip6t_register_table(&init_net, &__packet_filter, 
-> &initial_table.repl);
-> 
-> WARNING: line over 80 characters
-> #242: FILE: net/ipv6/netfilter/ip6table_mangle.c:167:
-> +       packet_mangler = ip6t_register_table(&init_net, 
-> &__packet_mangler, &initial_table.repl);
-> 
-> WARNING: line over 80 characters
-> #255: FILE: net/ipv6/netfilter/ip6table_raw.c:80:
-> +       packet_raw = ip6t_register_table(&init_net, &__packet_raw, 
-> &initial_table.repl);
-> 
-> ERROR: Missing Signed-off-by: line(s)
+Sorry for the delay.  Was on vacation without net access.
 
-Well, SOB line definitely was present.
-
-> total: 1 errors, 4 warnings, 214 lines checked
+Wei Yongjun wrote:
 > 
-> I'll fix them up, lets hope that it doesn't cause clashes
-> with the following patches.
+> 
+> This patch fix this probleam to treat AUTH chunk as unknow chunk if peer 
+> has initialized with no auth capable.
+> 
+> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-OK. It was quantum coding style violation. :-)
+Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+
+> 
+> --- a/net/sctp/sm_statefuns.c    2008-01-21 00:03:25.000000000 -0500
+> +++ b/net/sctp/sm_statefuns.c    2008-01-21 05:14:08.000000000 -0500
+> @@ -3785,6 +3785,10 @@ sctp_disposition_t sctp_sf_eat_auth(cons
+>     struct sctp_chunk *err_chunk;
+>     sctp_ierror_t error;
+> 
+> +    /* Make sure that the peer has AUTH capable */
+> +    if (!asoc->peer.auth_capable)
+> +        return sctp_sf_unk_chunk(ep, asoc, type, arg, commands);
+> +
+>     if (!sctp_vtag_verify(chunk, asoc)) {
+>         sctp_add_cmd_sf(commands, SCTP_CMD_REPORT_BAD_TAG,
+>                 SCTP_NULL());
+> 
+> 
+> 
 
