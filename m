@@ -1,195 +1,134 @@
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 09/11][NETNS][IPV6] fib6_rules: make per network namespace
-Date: Fri, 25 Jan 2008 17:50:17 +0100
-Message-ID: <20080125170821.073894759@localhost.localdomain>
+Subject: [patch 05/11][NETNS][IPV6] ip6_fib - dynamically allocate the gc_timer
+Date: Fri, 25 Jan 2008 17:50:13 +0100
+Message-ID: <20080125170811.983744160@localhost.localdomain>
 References: <20080125165008.317745745@localhost.localdomain>
 Cc: benjamin.thery@bull.net, netdev@vger.kernel.org, den@openvz.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.uk.ibm.com ([195.212.29.141]:28823 "EHLO
-	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755196AbYAYRLs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 12:11:48 -0500
+Received: from mtagate5.uk.ibm.com ([195.212.29.138]:37024 "EHLO
+	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755071AbYAYRLo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 12:11:44 -0500
 Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate8.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m0PHBlgn390344
-	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:47 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0PHBkJp4874456
-	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:46 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0PHBhEg026848
-	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:43 GMT
-Content-Disposition: inline; filename=fib6-rules-per-network-namespace.patch
+	by mtagate5.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m0PHBWxB480212
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:32 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0PHBXIC5103792
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:33 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0PHBSq2031482
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 17:11:29 GMT
+Content-Disposition: inline; filename=ip6-fib-dynamically-allocate-gc-timer.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The fib6_rules_ops is moved to the network namespace structure.
-All references are changed to have it relatively to it.
-
-Each time a network namespace is created a new fib6_rules_ops is
-allocated, initialized and stored into the network namespace
-structure.
-
-The common part of the fib rules is namespace aware, so it is
-quite easy to retrieve the network namespace from the rules and use
-it in the different callbacks.
+The ip6_fib_timer gc timer is dynamically allocated and initialized in
+the ip6 fib init function. There are no more references to a
+static global variable. That will allow to make multiple instance
+of the garbage collecting timer and make them per namespace.
 
 Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
 ---
- include/net/netns/ipv6.h |    1 
- net/ipv6/fib6_rules.c    |   82 ++++++++++++++++++++++++++---------------------
- 2 files changed, 47 insertions(+), 36 deletions(-)
+ net/ipv6/ip6_fib.c |   33 +++++++++++++++++++++------------
+ 1 file changed, 21 insertions(+), 12 deletions(-)
 
-Index: net-2.6.25/include/net/netns/ipv6.h
+Index: net-2.6.25/net/ipv6/ip6_fib.c
 ===================================================================
---- net-2.6.25.orig/include/net/netns/ipv6.h
-+++ net-2.6.25/include/net/netns/ipv6.h
-@@ -37,6 +37,7 @@ struct netns_ipv6 {
- 	struct fib6_table       *fib6_main_tbl;
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
- 	struct fib6_table       *fib6_local_tbl;
-+	struct fib_rules_ops    *fib6_rules_ops;
- #endif
- };
- #endif
-Index: net-2.6.25/net/ipv6/fib6_rules.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/fib6_rules.c
-+++ net-2.6.25/net/ipv6/fib6_rules.c
-@@ -29,8 +29,6 @@ struct fib6_rule
- 	u8			tclass;
- };
+--- net-2.6.25.orig/net/ipv6/ip6_fib.c
++++ net-2.6.25/net/ipv6/ip6_fib.c
+@@ -95,8 +95,7 @@ static __u32 rt_sernum;
  
--static struct fib_rules_ops *fib6_rules_ops;
--
- struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi *fl,
- 				   int flags, pol_lookup_t lookup)
+ static void fib6_gc_timer_cb(unsigned long arg);
+ 
+-static DEFINE_TIMER(ip6_fib_timer, fib6_gc_timer_cb, 0,
+-		    (unsigned long)&init_net);
++static struct timer_list *ip6_fib_timer;
+ 
+ static struct fib6_walker_t fib6_walker_list = {
+ 	.prev	= &fib6_walker_list,
+@@ -666,16 +665,16 @@ static int fib6_add_rt2node(struct fib6_
+ 
+ static __inline__ void fib6_start_gc(struct rt6_info *rt)
  {
-@@ -38,7 +36,7 @@ struct dst_entry *fib6_rule_lookup(struc
- 		.lookup_ptr = lookup,
- 	};
+-	if (ip6_fib_timer.expires == 0 &&
++	if (ip6_fib_timer->expires == 0 &&
+ 	    (rt->rt6i_flags & (RTF_EXPIRES|RTF_CACHE)))
+-		mod_timer(&ip6_fib_timer, jiffies +
++		mod_timer(ip6_fib_timer, jiffies +
+ 			  init_net.ipv6.sysctl.ip6_rt_gc_interval);
+ }
  
--	fib_rules_lookup(fib6_rules_ops, fl, flags, &arg);
-+	fib_rules_lookup(net->ipv6.fib6_rules_ops, fl, flags, &arg);
- 	if (arg.rule)
- 		fib_rule_put(arg.rule);
- 
-@@ -71,7 +69,7 @@ static int fib6_rule_action(struct fib_r
- 		goto discard_pkt;
- 	}
- 
--	table = fib6_get_table(&init_net, rule->table);
-+	table = fib6_get_table(rule->fr_net, rule->table);
- 	if (table)
- 		rt = lookup(table, flp, flags);
- 
-@@ -145,13 +143,14 @@ static int fib6_rule_configure(struct fi
- 			       struct nlattr **tb)
+ void fib6_force_start_gc(void)
  {
- 	int err = -EINVAL;
-+	struct net *net = skb->sk->sk_net;
- 	struct fib6_rule *rule6 = (struct fib6_rule *) rule;
+-	if (ip6_fib_timer.expires == 0)
+-		mod_timer(&ip6_fib_timer, jiffies +
++	if (ip6_fib_timer->expires == 0)
++		mod_timer(ip6_fib_timer, jiffies +
+ 			  init_net.ipv6.sysctl.ip6_rt_gc_interval);
+ }
  
- 	if (rule->action == FR_ACT_TO_TBL) {
- 		if (rule->table == RT6_TABLE_UNSPEC)
- 			goto errout;
- 
--		if (fib6_new_table(&init_net, rule->table) == NULL) {
-+		if (fib6_new_table(net, rule->table) == NULL) {
- 			err = -ENOBUFS;
- 			goto errout;
+@@ -1444,7 +1443,7 @@ void fib6_run_gc(unsigned long expires, 
+ 	} else {
+ 		local_bh_disable();
+ 		if (!spin_trylock(&fib6_gc_lock)) {
+-			mod_timer(&ip6_fib_timer, jiffies + HZ);
++			mod_timer(ip6_fib_timer, jiffies + HZ);
+ 			local_bh_enable();
+ 			return;
  		}
-@@ -251,49 +250,60 @@ static struct fib_rules_ops fib6_rules_o
- 	.fro_net		= &init_net,
- };
+@@ -1457,11 +1456,11 @@ void fib6_run_gc(unsigned long expires, 
+ 	fib6_clean_all(net, fib6_age, 0, NULL);
  
--static int __init fib6_default_rules_init(void)
-+static int fib6_rules_net_init(struct net *net)
- {
--	int err;
-+	int err = -ENOMEM;
- 
--	fib6_rules_ops = kmemdup(&fib6_rules_ops_template,
--				 sizeof(*fib6_rules_ops), GFP_KERNEL);
--	if (!fib6_rules_ops)
--		return -ENOMEM;
-+	net->ipv6.fib6_rules_ops = kmemdup(&fib6_rules_ops_template,
-+					   sizeof(*net->ipv6.fib6_rules_ops),
-+					   GFP_KERNEL);
-+	if (!net->ipv6.fib6_rules_ops)
-+		goto out;
- 
--	INIT_LIST_HEAD(&fib6_rules_ops->rules_list);
-+	net->ipv6.fib6_rules_ops->fro_net = net;
-+	INIT_LIST_HEAD(&net->ipv6.fib6_rules_ops->rules_list);
- 
--	err = fib_default_rule_add(fib6_rules_ops, 0,
-+	err = fib_default_rule_add(net->ipv6.fib6_rules_ops, 0,
- 				   RT6_TABLE_LOCAL, FIB_RULE_PERMANENT);
--	if (err < 0)
--		return err;
--	err = fib_default_rule_add(fib6_rules_ops, 0x7FFE, RT6_TABLE_MAIN, 0);
--	if (err < 0)
--		return err;
--	return 0;
-+	if (err)
-+		goto out_fib6_rules_ops;
-+
-+	err = fib_default_rule_add(net->ipv6.fib6_rules_ops,
-+				   0x7FFE, RT6_TABLE_MAIN, 0);
-+	if (err)
-+		goto out_fib6_default_rule_add;
-+
-+	err = fib_rules_register(net->ipv6.fib6_rules_ops);
-+	if (err)
-+		goto out_fib6_default_rule_add;
-+out:
-+	return err;
-+
-+out_fib6_default_rule_add:
-+	fib_rules_cleanup_ops(net->ipv6.fib6_rules_ops);
-+out_fib6_rules_ops:
-+	kfree(net->ipv6.fib6_rules_ops);
-+	goto out;
+ 	if (gc_args.more)
+-		mod_timer(&ip6_fib_timer, jiffies +
++		mod_timer(ip6_fib_timer, jiffies +
+ 			  net->ipv6.sysctl.ip6_rt_gc_interval);
+ 	else {
+-		del_timer(&ip6_fib_timer);
+-		ip6_fib_timer.expires = 0;
++		del_timer(ip6_fib_timer);
++		ip6_fib_timer->expires = 0;
+ 	}
+ 	spin_unlock_bh(&fib6_gc_lock);
  }
+@@ -1541,9 +1540,16 @@ int __init fib6_init(void)
+ 	if (!fib6_node_kmem)
+ 		goto out;
  
--int __init fib6_rules_init(void)
-+static void fib6_rules_net_exit(struct net *net)
- {
--	int ret;
--
--	ret = fib6_default_rules_init();
--	if (ret)
--		goto out;
-+	fib_rules_unregister(net->ipv6.fib6_rules_ops);
-+	kfree(net->ipv6.fib6_rules_ops);
-+}
- 
--	ret = fib_rules_register(fib6_rules_ops);
--	if (ret)
--		goto out_default_rules_init;
--out:
--	return ret;
-+static struct pernet_operations fib6_rules_net_ops = {
-+	.init = fib6_rules_net_init,
-+	.exit = fib6_rules_net_exit,
-+};
- 
--out_default_rules_init:
--	fib_rules_cleanup_ops(fib6_rules_ops);
--	kfree(fib6_rules_ops);
--	goto out;
-+int __init fib6_rules_init(void)
-+{
-+	return register_pernet_subsys(&fib6_rules_net_ops);
- }
- 
++	ret = -ENOMEM;
++	ip6_fib_timer = kzalloc(sizeof(*ip6_fib_timer), GFP_KERNEL);
++	if (!ip6_fib_timer)
++		goto out_kmem_cache_create;
 +
- void fib6_rules_cleanup(void)
++	setup_timer(ip6_fib_timer, fib6_gc_timer_cb, (unsigned long)&init_net);
++
+ 	ret = register_pernet_subsys(&fib6_net_ops);
+ 	if (ret)
+-		goto out_kmem_cache_create;
++		goto out_timer;
+ 
+ 	ret = __rtnl_register(PF_INET6, RTM_GETROUTE, NULL, inet6_dump_fib);
+ 	if (ret)
+@@ -1553,6 +1559,8 @@ out:
+ 
+ out_unregister_subsys:
+ 	unregister_pernet_subsys(&fib6_net_ops);
++out_timer:
++	kfree(ip6_fib_timer);
+ out_kmem_cache_create:
+ 	kmem_cache_destroy(fib6_node_kmem);
+ 	goto out;
+@@ -1560,7 +1568,8 @@ out_kmem_cache_create:
+ 
+ void fib6_gc_cleanup(void)
  {
--	fib_rules_unregister(fib6_rules_ops);
--	kfree(fib6_rules_ops);
-+	return unregister_pernet_subsys(&fib6_rules_net_ops);
+-	del_timer(&ip6_fib_timer);
++	del_timer(ip6_fib_timer);
++	kfree(ip6_fib_timer);
+ 	unregister_pernet_subsys(&fib6_net_ops);
+ 	kmem_cache_destroy(fib6_node_kmem);
  }
 
 -- 
