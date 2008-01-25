@@ -1,58 +1,51 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] fib_trie: rescan if key is lost during dump
-Date: Fri, 25 Jan 2008 08:13:15 -0800
-Message-ID: <20080125081315.467fad70@deepthought>
-References: <20080124135112.32b5c1c7@deepthought>
-	<20080125082300.GA2257@ff.dom.local>
+Subject: Re: [PATCH] TCP:Fix a bug in strategy_allowed_congestion_control
+Date: Fri, 25 Jan 2008 08:25:53 -0800
+Message-ID: <20080125082553.78e1d207@deepthought>
+References: <47998B55.1030305@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Sam Jansen <sjansen@google.com>
+To: shanwei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:35949 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:36596 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752439AbYAYQNk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 11:13:40 -0500
-In-Reply-To: <20080125082300.GA2257@ff.dom.local>
+	by vger.kernel.org with ESMTP id S1753311AbYAYQ0V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 11:26:21 -0500
+In-Reply-To: <47998B55.1030305@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 25 Jan 2008 09:23:00 +0100
-Jarek Poplawski <jarkao2@gmail.com> wrote:
+On Fri, 25 Jan 2008 15:10:13 +0800
+shanwei <shanwei@cn.fujitsu.com> wrote:
 
-> On 24-01-2008 22:51, Stephen Hemminger wrote:
-> > Normally during a dump the key of the last dumped entry is used for
-> > continuation, but since lock is dropped it might be lost. In that case
-> > fallback to the old counter based N^2 behaviour.  This means the dump will end up
-> > skipping some routes which matches what FIB_HASH does.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> ...
-> > @@ -1918,35 +1931,37 @@ static int fn_trie_dump(struct fib_table
-> >  	struct leaf *l;
-> >  	struct trie *t = (struct trie *) tb->tb_data;
-> >  	t_key key = cb->args[2];
-> > +	int count = cb->args[3];
-> >  
-> >  	rcu_read_lock();
+> hi all:
 > 
-> Sorry, but I lost the point: is rtnl held or not held here at the moment?
-> If held, how this rcu_read_lock can help? Maybe some additional comment
-> in the code?
+> In strategy_allowed_congestion_control of the 2.6.24 kernel, 
+> when sysctl_string return 1 on success,it should call 
+> tcp_set_allowed_congestion_control to set the allowed congestion
+> control.But, it don't.
+> the sysctl_string return 1 on success, otherwise return negative,
+> never return 0.The patch fix the problem.
 > 
-> Thanks,
-> Jarek P.
+> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+> 
+> diff -Nuarp linux-2.6.24/net/ipv4/sysctl_net_ipv4.c linux-2.6.24-new/net/ipv4/sysctl_net_ipv4.c
+> --- linux-2.6.24/net/ipv4/sysctl_net_ipv4.c	2008-01-25 06:58:37.000000000 +0800
+> +++ linux-2.6.24-new/net/ipv4/sysctl_net_ipv4.c	2008-01-25 12:23:20.000000000 +0800
+> @@ -248,7 +248,7 @@ static int strategy_allowed_congestion_c
+>  
+>  	tcp_get_available_congestion_control(tbl.data, tbl.maxlen);
+>  	ret = sysctl_string(&tbl, name, nlen, oldval, oldlenp, newval, newlen);
+> -	if (ret == 0 && newval && newlen)
+> +	if (ret == 1 && newval && newlen)
+>  		ret = tcp_set_allowed_congestion_control(tbl.data);
+>  	kfree(tbl.data);
+> 
+> 
 
-There are two different issues, (therefore two different patches).
-1. How to handle multipart resume when the key was deleted during the
-   period the lock was dropped.
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-   That is what this patch addresses.
-
-2. RCU is unnecessary here because of use of RTNL.  I am going to defer
-   on this till after #1. That patch is much less important.
-
--- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+This parallels previous fix by Sam Jansen.
