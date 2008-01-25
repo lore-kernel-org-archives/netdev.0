@@ -1,52 +1,52 @@
-From: "Alon Bar-Lev" <alon.barlev@gmail.com>
-Subject: iproute2 (addr flush) infinite loop when unprivileged users
-Date: Sat, 26 Jan 2008 01:00:34 +0200
-Message-ID: <9e0cf0bf0801251500u388b9a5dxda92d6d1e3d86233@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] tc: oops in em_meta
+Date: Fri, 25 Jan 2008 15:00:57 -0800
+Message-ID: <20080125150057.41776614@deepthought>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: shemminger@osdl.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:1034 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760941AbYAYXAg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 18:00:36 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so595797ugc.16
-        for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 15:00:34 -0800 (PST)
-Content-Disposition: inline
+Received: from mail.vyatta.com ([216.93.170.194]:50652 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760709AbYAYXBP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2008 18:01:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+If userspace passes a unknown match index into em_meta, then em_meta_change
+will return an error and the data for the match will not be set. This then
+causes an null pointer dereference when the cleanup is done in the error
+path via tcf_em_tree_destroy. Since the tree structure comes kzalloc,
+it is initialized to NULL.
 
-When executing the following command using unprivileged users there is
-an infinite loop...
-/sbin/ip route flush dev eth1
+Discovered when testing a new version of tc command against an accidental
+older kernel.
 
-Execution with -s produces:
-*** Round 28153, deleting 2 entries ***
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+---
 
-*** Round 28154, deleting 2 entries ***
+Patch against net-2.6.25 tree, should be backported to earlier
+stable kernels as well.
 
-*** Round 28155, deleting 2 entries ***
-
-*** Round 28156, deleting 2 entries ***
-
-*** Round 28157, deleting 2 entries ***
-
-*** Round 28158, deleting 2 entries ***
-
-*** Round 28159, deleting 2 entries ***
-
-I do not fully understand the sequence, but it may be kernel fault, as
-it should have returned EPERM for this request stopping the netlink
-request.
-
-Anyway... A simple solution is to store the filter.flushed and fail if
-it keeps its value during loop iteration at
-ip/ipaddress.c::ipaddr_list_or_flush(), but this is only a
-workaround...
-
-Please CC as I am not in netdev list.
-Thanks!
-Alon.
+--- a/net/sched/em_meta.c	2008-01-25 14:52:08.000000000 -0800
++++ b/net/sched/em_meta.c	2008-01-25 14:52:26.000000000 -0800
+@@ -735,11 +735,13 @@ static int em_meta_match(struct sk_buff 
+ 
+ static inline void meta_delete(struct meta_match *meta)
+ {
+-	struct meta_type_ops *ops = meta_type_ops(&meta->lvalue);
++	if (meta) {
++		struct meta_type_ops *ops = meta_type_ops(&meta->lvalue);
+ 
+-	if (ops && ops->destroy) {
+-		ops->destroy(&meta->lvalue);
+-		ops->destroy(&meta->rvalue);
++		if (ops && ops->destroy) {
++			ops->destroy(&meta->lvalue);
++			ops->destroy(&meta->rvalue);
++		}
+ 	}
+ 
+ 	kfree(meta);
