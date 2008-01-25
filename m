@@ -1,72 +1,32 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9812] New: Kernel does not deliver packets
- going through the INPUT chain even if the app is listening on IN_ADDR_ANY
-Date: Fri, 25 Jan 2008 05:14:04 -0800
-Message-ID: <20080125051404.3bbefab3.akpm@linux-foundation.org>
-References: <bug-9812-10286@http.bugzilla.kernel.org/>
+From: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
+Subject: Re: [PATCH 10/14] [rndis_host] Add rndis_early_init function
+	pointer to 'struct rndis_data'.
+Date: Fri, 25 Jan 2008 15:14:50 +0200
+Message-ID: <1201266890.7266.0.camel@localhost>
+References: <20080120001438.25718.96722.stgit@fate.lan>
+	 <200801241710.35528.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, pawel@rogocz.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:57184 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753539AbYAYNOL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 08:14:11 -0500
-In-Reply-To: <bug-9812-10286@http.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bjd-a1rhEgazXTw@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200801241710.35528.david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> On Fri, 25 Jan 2008 03:59:27 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
-> http://bugzilla.kernel.org/show_bug.cgi?id=9812
+On Thu, 2008-01-24 at 17:10 -0800, David Brownell wrote:
+> Could this -- and #11/14 -- instead be generalized a bit,
+> so they're not RNDIS-specific?  At least in name; the
+> only user for now would be the rndis_host code.
 > 
->            Summary: Kernel does not deliver packets going through the INPUT
->                     chain even if the app is listening on IN_ADDR_ANY
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.22-14
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Netfilter/Iptables
->         AssignedTo: networking_netfilter-iptables@kernel-bugs.osdl.org
->         ReportedBy: pawel@rogocz.com
+> The generalization would presumably be "early_init" and
+> "link_change", paired with doc comments reflecting that
+> they're usable by any driver stack built over the usbnet
+> framework core.
 > 
-> 
-> Latest working kernel version: never worked
-> Earliest failing kernel version:
-> Distribution: ubuntu 7.10
-> 
-> Problem Description:
-> 
-> I have a farm of web servers behind a load balancer in DSR mode.
-> I would like to be able to dump packets with any IP address on the web servers
-> through the load balancer and have web servers reply to these requests.
-> Currently for every IP web servers are supposed to reply to, I have to
-> configure the IP on all servers on their loopback interfaces. The web server
-> listens on IN_ADDR_ANY and I am forcing packets into the INPUT chain via
-> iptables/netfilter but the kernel never replies to any connection requests. I
-> only see the counter for OutNoRoutes increasing.
-> 
-> Steps to reproduce:
-> 
-> web server:
-> 
-> #iptables -A PREROUTING -i eth0 -t mangle -p tcp --dport 80 -j MARK --set-mark
-> 1 
-> #ip route add to local default dev lo protocol kernel table 1
-> #ip rule add fwmark 1 table 1 priority 1
-> 
-> client:
-> 
-> #ip route add 1.1.1.1/32 via <web server IP> dev eth0
-> 
-> while making requests to 1.1.1.1:80 from the client you can see increasing
-> OutNoRoutes counter but no connection ever takes place.
-> 
-> 
+> There's no point IMO to having generalizable hooks be
+> restricted this way.
 
+Sure.
