@@ -1,46 +1,79 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bugme-new] [Bug 9816] New: cannot replace route
-Date: Sat, 26 Jan 2008 00:11:57 +0100
-Message-ID: <479A6CBD.4010908@gmail.com>
-References: <bug-9816-10286@http.bugzilla.kernel.org/> <20080125142603.a73fd7a2.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Joonwoo Park <joonwpark81@gmail.com>,
-	bugme-daemon@bugzilla.kernel.org, schwab@suse.de
-To: Andrew Morton <akpm@linux-foundation.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH] [TIPC]: declare proto_ops structures as 'const'.
+Date: Sat, 26 Jan 2008 00:37:53 +0100
+Message-ID: <1201304273-21332-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+	Allan Stephens <allan.stephens@windriver.com>,
+	Jon Paul Maloy <jon.maloy@ericsson.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:13379 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761404AbYAYXJ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 18:09:27 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so596771ugc.16
-        for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 15:09:26 -0800 (PST)
-In-Reply-To: <20080125142603.a73fd7a2.akpm@linux-foundation.org>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:36787 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752266AbYAYXeb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 18:34:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote, On 01/25/2008 11:26 PM:
+CC: Allan Stephens <allan.stephens@windriver.com>
+CC: Jon Paul Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/tipc/socket.c |   14 +++++++-------
+ 1 files changed, 7 insertions(+), 7 deletions(-)
 
->> On Fri, 25 Jan 2008 13:23:49 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
->> http://bugzilla.kernel.org/show_bug.cgi?id=9816
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 24ddfd2..2290903 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -71,9 +71,9 @@ struct tipc_sock {
+ static u32 dispatch(struct tipc_port *tport, struct sk_buff *buf);
+ static void wakeupdispatch(struct tipc_port *tport);
+ 
+-static struct proto_ops packet_ops;
+-static struct proto_ops stream_ops;
+-static struct proto_ops msg_ops;
++static const struct proto_ops packet_ops;
++static const struct proto_ops stream_ops;
++static const struct proto_ops msg_ops;
+ 
+ static struct proto tipc_proto;
+ 
+@@ -1615,7 +1615,7 @@ static int getsockopt(struct socket *sock,
+  * Protocol switches for the various types of TIPC sockets
+  */
+ 
+-static struct proto_ops msg_ops = {
++static const struct proto_ops msg_ops = {
+ 	.owner 		= THIS_MODULE,
+ 	.family		= AF_TIPC,
+ 	.release	= release,
+@@ -1636,7 +1636,7 @@ static struct proto_ops msg_ops = {
+ 	.sendpage	= sock_no_sendpage
+ };
+ 
+-static struct proto_ops packet_ops = {
++static const struct proto_ops packet_ops = {
+ 	.owner 		= THIS_MODULE,
+ 	.family		= AF_TIPC,
+ 	.release	= release,
+@@ -1657,7 +1657,7 @@ static struct proto_ops packet_ops = {
+ 	.sendpage	= sock_no_sendpage
+ };
+ 
+-static struct proto_ops stream_ops = {
++static const struct proto_ops stream_ops = {
+ 	.owner 		= THIS_MODULE,
+ 	.family		= AF_TIPC,
+ 	.release	= release,
+@@ -1678,7 +1678,7 @@ static struct proto_ops stream_ops = {
+ 	.sendpage	= sock_no_sendpage
+ };
+ 
+-static struct net_proto_family tipc_family_ops = {
++static const struct net_proto_family tipc_family_ops = {
+ 	.owner 		= THIS_MODULE,
+ 	.family		= AF_TIPC,
+ 	.create		= tipc_create
+-- 
+1.5.3.7
 
-...
-
-> I'd agree with Andrea: replacing a route with itself a) used to work and b)
-> should still work (surely)?
-
-...on the other hand:
-
-$ touch file1
-$ cp file1 file1
-cp: `file1' and `file1' are the same file
-$ mv file1 file1
-mv: `file1' and `file1' are the same file
-
-and: 'everything' in 'linux' is file...
-
-ergo: route cannot replace with itself!
-
-Regards,
-Jarek P.
