@@ -1,155 +1,151 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [PATCH 08/14] [rndis_host] export functions
-Date: Thu, 24 Jan 2008 16:59:06 -0800
-Message-ID: <200801241659.06853.david-b@pacbell.net>
-References: <20080120001427.25718.45322.stgit@fate.lan>
+From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Subject: Re: [PATCH 13/14] [rndis_host] blacklist known wireless RNDIS devices
+Date: Thu, 24 Jan 2008 17:13:17 -0800
+Message-ID: <200801241713.18238.david-b@pacbell.net>
+References: <20080120001455.25718.75424.stgit@fate.lan>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, bjd@jooz.net,
-	netdev@vger.kernel.org
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp115.sbc.mail.sp1.yahoo.com ([69.147.64.88]:36420 "HELO
-	smtp115.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754438AbYAYBUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2008 20:20:25 -0500
-In-Reply-To: <20080120001427.25718.45322.stgit@fate.lan>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bjd-a1rhEgazXTw@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080120001455.25718.75424.stgit-q/85JClnwdg@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 On Saturday 19 January 2008, Jussi Kivilinna wrote:
-> Export rndis_host functions and also rename rndis_bind() to
-> generic_rndis_bind() for modules using rndis_host as base.
-> 
-> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+> Blacklist known wireless RNDIS devices that will be handled by
+> rndis_wext module.
 
-Acked-by: David Brownell <dbrownell@users.sourceforge.net>
+This seems destined to become a headache.  Wouldn't it be better
+to let the probe progress far enough to detect that it's actually
+a WLAN device, and then back out so the next driver can try?
 
+- Dave
+
+
+> Signed-off-by: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
 > ---
 > 
->  drivers/net/usb/rndis_host.c |   20 +++++++++++++-------
->  drivers/net/usb/rndis_host.h |    9 +++++++++
->  2 files changed, 22 insertions(+), 7 deletions(-)
+>  drivers/net/usb/rndis_host.c |  104 ++++++++++++++++++++++++++++++++++++++++++
+>  1 files changed, 104 insertions(+), 0 deletions(-)
 > 
 > diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
-> index 29d7e3b..1d6bf0a 100644
+> index 1ffbbb3..cd1f953 100644
 > --- a/drivers/net/usb/rndis_host.c
 > +++ b/drivers/net/usb/rndis_host.c
-> @@ -60,13 +60,14 @@
->   * RNDIS notifications from device: command completion; "reverse"
->   * keepalives; etc
->   */
-> -static void rndis_status(struct usbnet *dev, struct urb *urb)
-> +void rndis_status(struct usbnet *dev, struct urb *urb)
->  {
->  	devdbg(dev, "rndis status urb, len %d stat %d",
->  		urb->actual_length, urb->status);
->  	// FIXME for keepalives, respond immediately (asynchronously)
->  	// if not an RNDIS status, do like cdc_status(dev,urb) does
->  }
-> +EXPORT_SYMBOL_GPL(rndis_status);
+> @@ -530,6 +530,110 @@ static const struct driver_info	rndis_info = {
+>  /*-------------------------------------------------------------------------*/
 >  
->  /*
->   * RPC done RNDIS-style.  Caller guarantees:
-> @@ -78,7 +79,7 @@ static void rndis_status(struct usbnet *dev, struct urb *urb)
->   * Call context is likely probe(), before interface name is known,
->   * which is why we won't try to use it in the diagnostics.
->   */
-> -static int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf)
-> +int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf)
->  {
->  	struct cdc_state	*info = (void *) &dev->data;
->  	int			master_ifnum;
-> @@ -187,6 +188,7 @@ static int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf)
->  	dev_dbg(&info->control->dev, "rndis response timeout\n");
->  	return -ETIMEDOUT;
->  }
-> +EXPORT_SYMBOL_GPL(rndis_command);
->  
->  /*
->   * rndis_query:
-> @@ -253,7 +255,7 @@ response_error:
->  	return -EDOM;
->  }
->  
-> -static int rndis_bind(struct usbnet *dev, struct usb_interface *intf)
-> +int generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf)
->  {
->  	int			retval;
->  	struct net_device	*net = dev->net;
-> @@ -377,8 +379,9 @@ fail:
->  	kfree(u.buf);
->  	return retval;
->  }
-> +EXPORT_SYMBOL_GPL(generic_rndis_bind);
->  
-> -static void rndis_unbind(struct usbnet *dev, struct usb_interface *intf)
-> +void rndis_unbind(struct usbnet *dev, struct usb_interface *intf)
->  {
->  	struct rndis_halt	*halt;
->  
-> @@ -393,11 +396,12 @@ static void rndis_unbind(struct usbnet *dev, struct usb_interface *intf)
->  
->  	usbnet_cdc_unbind(dev, intf);
->  }
-> +EXPORT_SYMBOL_GPL(rndis_unbind);
->  
->  /*
->   * DATA -- host must not write zlps
->   */
-> -static int rndis_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
-> +int rndis_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
->  {
->  	/* peripheral may have batched packets to us... */
->  	while (likely(skb->len)) {
-> @@ -439,8 +443,9 @@ static int rndis_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
->  	/* caller will usbnet_skb_return the remaining packet */
->  	return 1;
->  }
-> +EXPORT_SYMBOL_GPL(rndis_rx_fixup);
->  
-> -static struct sk_buff *
-> +struct sk_buff *
->  rndis_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
->  {
->  	struct rndis_data_hdr	*hdr;
-> @@ -485,12 +490,13 @@ fill:
->  	/* FIXME make the last packet always be short ... */
->  	return skb;
->  }
-> +EXPORT_SYMBOL_GPL(rndis_tx_fixup);
->  
->  
->  static const struct driver_info	rndis_info = {
->  	.description =	"RNDIS device",
->  	.flags =	FLAG_ETHER | FLAG_FRAMING_RN | FLAG_NO_SETINT,
-> -	.bind =		rndis_bind,
-> +	.bind =		generic_rndis_bind,
->  	.unbind =	rndis_unbind,
->  	.status =	rndis_status,
->  	.rx_fixup =	rndis_rx_fixup,
-> diff --git a/drivers/net/usb/rndis_host.h b/drivers/net/usb/rndis_host.h
-> index 1386a17..61f1fd8 100644
-> --- a/drivers/net/usb/rndis_host.h
-> +++ b/drivers/net/usb/rndis_host.h
-> @@ -244,5 +244,14 @@ struct rndis_keepalive_c {	/* IN (optionally OUT) */
->  	RNDIS_PACKET_TYPE_ALL_MULTICAST | \
->  	RNDIS_PACKET_TYPE_PROMISCUOUS)
->  
+>  static const struct usb_device_id	products [] = {
+> +/*
+> + * BLACKLIST !!
+> + *
+> + * Blacklist RNDIS devices that are handled in separate RNDIS modules.
+> + */
 > +
-> +extern void rndis_status(struct usbnet *dev, struct urb *urb);
-> +extern int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf);
-> +extern int generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf);
-> +extern void rndis_unbind(struct usbnet *dev, struct usb_interface *intf);
-> +extern int rndis_rx_fixup(struct usbnet *dev, struct sk_buff *skb);
-> +extern struct sk_buff *
-> +rndis_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags);
+> +#define	RNDIS_MASTER_INTERFACE \
+> +	.bInterfaceClass	= USB_CLASS_COMM, \
+> +	.bInterfaceSubClass	= 2 /* ACM */, \
+> +	.bInterfaceProtocol	= 0x0ff
 > +
->  #endif	/* __RNDIS_HOST_H */
->  
+> +/* Wireless RNDIS devices, rndis_wext module */
+> +{
+> +	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+> +			  | USB_DEVICE_ID_MATCH_DEVICE,
+> +	.idVendor		= 0x0411,
+> +	.idProduct		= 0x00bc,	/* Buffalo WLI-U2-KG125S */
+> +	RNDIS_MASTER_INTERFACE,
+> +	.driver_info		= 0,
+> +}, {
+> +	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+> +			  | USB_DEVICE_ID_MATCH_DEVICE,
+> +	.idVendor		= 0x0baf,
+> +	.idProduct		= 0x011b,	/* U.S. Robotics USR5421 */
+> +	RNDIS_MASTER_INTERFACE,
+> +	.driver_info		= 0,
+> +}, {
+> +	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+> +			  | USB_DEVICE_ID_MATCH_DEVICE,
+> +	.idVendor		= 0x050d,
+> +	.idProduct		= 0x011b,	/* Belkin F5D7051 */
+> +	RNDIS_MASTER_INTERFACE,
+> +	.driver_info		= 0,
+> +}, {
+> +	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+> +			  | USB_DEVICE_ID_MATCH_DEVICE,
+> +	.idVendor		= 0x1799,	/* Belkin has two vendor ids */
+> +	.idProduct		= 0x011b,	/* Belkin F5D7051 */
+> +	RNDIS_MASTER_INTERFACE,
+> +	.driver_info		= 0,
+> +}, {
+> +	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+> +			  | USB_DEVICE_ID_MATCH_DEVICE,
+> +	.idVendor		= 0x13b1,
+> +	.idProduct		= 0x0014,	/* Linksys WUSB54GSv2 */
+> +	RNDIS_MASTER_INTERFACE,
+> +	.driver_info		= 0,
+> +}, {
+> +	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+> +			  | USB_DEVICE_ID_MATCH_DEVICE,
+> +	.idVendor		= 0x13b1,
+> +	.idProduct		= 0x0026,	/* Linksys WUSB54GSC */
+> +	RNDIS_MASTER_INTERFACE,
+> +	.driver_info		= 0,
+> +}, {
+> +	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+> +			  | USB_DEVICE_ID_MATCH_DEVICE,
+> +	.idVendor		= 0x0b05,
+> +	.idProduct		= 0x1717,	/* Asus WL169gE */
+> +	RNDIS_MASTER_INTERFACE,
+> +	.driver_info		= 0,
+> +}, {
+> +	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+> +			  | USB_DEVICE_ID_MATCH_DEVICE,
+> +	.idVendor		= 0x0a5c,
+> +	.idProduct		= 0xd11b,	/* Eminent EM4045 */
+> +	RNDIS_MASTER_INTERFACE,
+> +	.driver_info		= 0,
+> +}, {
+> +	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+> +			  | USB_DEVICE_ID_MATCH_DEVICE,
+> +	.idVendor		= 0x1690,
+> +	.idProduct		= 0x0715,	/* BT Voyager 1055 */
+> +	RNDIS_MASTER_INTERFACE,
+> +	.driver_info		= 0,
+> +}, {
+> +	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+> +			  | USB_DEVICE_ID_MATCH_DEVICE,
+> +	.idVendor		= 0x13b1,
+> +	.idProduct		= 0x000e,	/* Linksys WUSB54GSv1 */
+> +	RNDIS_MASTER_INTERFACE,
+> +	.driver_info		= 0,
+> +}, {
+> +	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+> +			  | USB_DEVICE_ID_MATCH_DEVICE,
+> +	.idVendor		= 0x0baf,
+> +	.idProduct		= 0x0111,	/* U.S. Robotics USR5420 */
+> +	RNDIS_MASTER_INTERFACE,
+> +	.driver_info		= 0,
+> +}, {
+> +	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+> +			  | USB_DEVICE_ID_MATCH_DEVICE,
+> +	.idVendor		= 0x0411,
+> +	.idProduct		= 0x004b,	/* BUFFALO WLI-USB-G54 */
+> +	RNDIS_MASTER_INTERFACE,
+> +	.driver_info		= 0,
+> +},
+> +
+> +/*
+> + * WHITELIST!!!
+> + *
+> + * All other RNDIS devices that do not need special OID handling in order
+> + * to work.
+> + */
+>  {
+>  	/* RNDIS is MSFT's un-official variant of CDC ACM */
+>  	USB_INTERFACE_INFO(USB_CLASS_COMM, 2 /* ACM */, 0x0ff),
 > 
-
-
