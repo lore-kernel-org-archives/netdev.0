@@ -1,52 +1,132 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] tc: oops in em_meta
-Date: Fri, 25 Jan 2008 15:00:57 -0800
-Message-ID: <20080125150057.41776614@deepthought>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] [TIPC] Kill unused static inline (x5)
+Date: Sat, 26 Jan 2008 01:02:38 +0200
+Message-ID: <12013021583862-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	"=?ISO-8859-1?q?Ilpo=20J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+To: per.liden@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:50652 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760709AbYAYXBP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2008 18:01:15 -0500
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:60652 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757774AbYAYXCk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 18:02:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If userspace passes a unknown match index into em_meta, then em_meta_change
-will return an error and the data for the match will not be set. This then
-causes an null pointer dereference when the cleanup is done in the error
-path via tcf_em_tree_destroy. Since the tree structure comes kzalloc,
-it is initialized to NULL.
+=46rom: =3D?ISO-8859-1?q?Ilpo=3D20J=3DE4rvinen?=3D <ilpo.jarvinen@helsi=
+nki.fi>
 
-Discovered when testing a new version of tc command against an accidental
-older kernel.
+All these static inlines are unused:
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+in_own_zone     1 (net/tipc/addr.h)
+msg_dataoctet   1 (net/tipc/msg.h)
+msg_direct      1 (include/net/tipc/tipc_msg.h)
+msg_options     1 (include/net/tipc/tipc_msg.h)
+tipc_nmap_get   1 (net/tipc/bcast.h)
+
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 ---
+ include/net/tipc/tipc_msg.h |   16 ----------------
+ net/tipc/addr.h             |    5 -----
+ net/tipc/bcast.h            |   13 -------------
+ net/tipc/msg.h              |    5 -----
+ 4 files changed, 0 insertions(+), 39 deletions(-)
 
-Patch against net-2.6.25 tree, should be backported to earlier
-stable kernels as well.
-
---- a/net/sched/em_meta.c	2008-01-25 14:52:08.000000000 -0800
-+++ b/net/sched/em_meta.c	2008-01-25 14:52:26.000000000 -0800
-@@ -735,11 +735,13 @@ static int em_meta_match(struct sk_buff 
- 
- static inline void meta_delete(struct meta_match *meta)
+diff --git a/include/net/tipc/tipc_msg.h b/include/net/tipc/tipc_msg.h
+index fb42eb7..2e159a8 100644
+--- a/include/net/tipc/tipc_msg.h
++++ b/include/net/tipc/tipc_msg.h
+@@ -130,11 +130,6 @@ static inline u32 msg_type(struct tipc_msg *m)
+ 	return msg_bits(m, 1, 29, 0x7);
+ }
+=20
+-static inline u32 msg_direct(struct tipc_msg *m)
+-{
+-	return (msg_type(m) =3D=3D TIPC_DIRECT_MSG);
+-}
+-
+ static inline u32 msg_named(struct tipc_msg *m)
  {
--	struct meta_type_ops *ops = meta_type_ops(&meta->lvalue);
-+	if (meta) {
-+		struct meta_type_ops *ops = meta_type_ops(&meta->lvalue);
- 
--	if (ops && ops->destroy) {
--		ops->destroy(&meta->lvalue);
--		ops->destroy(&meta->rvalue);
-+		if (ops && ops->destroy) {
-+			ops->destroy(&meta->lvalue);
-+			ops->destroy(&meta->rvalue);
-+		}
- 	}
- 
- 	kfree(meta);
+ 	return (msg_type(m) =3D=3D TIPC_NAMED_MSG);
+@@ -207,17 +202,6 @@ static inline u32 msg_nameupper(struct tipc_msg *m=
+)
+ 	return msg_word(m, 10);
+ }
+=20
+-static inline char *msg_options(struct tipc_msg *m, u32 *len)
+-{
+-	u32 pos =3D msg_bits(m, 1, 16, 0x7);
+-
+-	if (!pos)
+-		return 0;
+-	pos =3D (pos * 4) + 28;
+-	*len =3D msg_hdr_sz(m) - pos;
+-	return (char *)&m->hdr[pos/4];
+-}
+-
+ #endif
+=20
+ #endif
+diff --git a/net/tipc/addr.h b/net/tipc/addr.h
+index e4bd533..3ba67e6 100644
+--- a/net/tipc/addr.h
++++ b/net/tipc/addr.h
+@@ -57,11 +57,6 @@ static inline int in_own_cluster(u32 addr)
+ 	return !((addr ^ tipc_own_addr) >> 12);
+ }
+=20
+-static inline int in_own_zone(u32 addr)
+-{
+-	return !((addr ^ tipc_own_addr) >> 24);
+-}
+-
+ static inline int is_slave(u32 addr)
+ {
+ 	return addr & 0x800;
+diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
+index f910ed2..a2416fa 100644
+--- a/net/tipc/bcast.h
++++ b/net/tipc/bcast.h
+@@ -74,19 +74,6 @@ extern char tipc_bclink_name[];
+=20
+=20
+ /**
+- * nmap_get - determine if node exists in a node map
+- */
+-
+-static inline int tipc_nmap_get(struct node_map *nm_ptr, u32 node)
+-{
+-	int n =3D tipc_node(node);
+-	int w =3D n / WSIZE;
+-	int b =3D n % WSIZE;
+-
+-	return nm_ptr->map[w] & (1 << b);
+-}
+-
+-/**
+  * nmap_add - add a node to a node map
+  */
+=20
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index ce26598..e9ef6df 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -663,11 +663,6 @@ static inline void msg_set_remote_node(struct tipc=
+_msg *m, u32 a)
+ 	msg_set_word(m, msg_hdr_sz(m)/4, a);
+ }
+=20
+-static inline int msg_dataoctet(struct tipc_msg *m, u32 pos)
+-{
+-	return(msg_data(m)[pos + 4] !=3D 0);
+-}
+-
+ static inline void msg_set_dataoctet(struct tipc_msg *m, u32 pos)
+ {
+ 	msg_data(m)[pos + 4] =3D 1;
+--=20
+1.5.2.2
+
