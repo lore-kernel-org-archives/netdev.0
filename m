@@ -1,44 +1,45 @@
-From: "Alon Bar-Lev" <alon.barlev@gmail.com>
-Subject: Re: iproute2 (addr flush) infinite loop when unprivileged users
-Date: Sat, 26 Jan 2008 02:22:43 +0200
-Message-ID: <9e0cf0bf0801251622w203c515fn80cba5f233bd599d@mail.gmail.com>
-References: <9e0cf0bf0801251500u388b9a5dxda92d6d1e3d86233@mail.gmail.com>
-	 <20080125161259.0356c990@deepthought>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] hamradio: fix dmascc section mismatch
+Date: Fri, 25 Jan 2008 16:35:34 -0800
+Message-ID: <20080125163534.5f563a10.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Cc: davem@davemloft.net, klaus.kudielka@gmx.net,
+	akpm <akpm@linux-foundation.org>, samr <sam@ravnborg.org>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:59227 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754206AbYAZAWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 19:22:44 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so606813ugc.16
-        for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 16:22:43 -0800 (PST)
-In-Reply-To: <20080125161259.0356c990@deepthought>
-Content-Disposition: inline
+Received: from rgminet01.oracle.com ([148.87.113.118]:60304 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752487AbYAZAgh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 19:36:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/26/08, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> The issue is that iproute is just blindly sending the deletes and
-> not asking for acknowledgment status. Here is a trivial patch to iproute
-> to fix that, but the problem is that it means it will slow down bulk removal.
->
-> Maybe it should just check the first, or last delete to see if there are
-> errors?
->
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index 7a885b0..b2ae879 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-This should also be applied into ip/ipaddress.c, ip/ipneigh.c
-Or even make one common function?
+cc: Klaus Kudielka <klaus.kudielka@gmx.net>
 
-I don't quite understand how "fast" is good if not complete... But
-anyway... I will be happy to see this fix in next version... Maybe add
---fast argument? :)
+hw[] is used in both init and exit functions so it cannot be initdata
+(section mismatch is when CONFIG_MODULES=n and CONFIG_DMASCC=y).
 
-Alon.
+WARNING: vmlinux.o(.exit.text+0xba7): Section mismatch: reference to .init.data: (between 'dmascc_exit' and 'sixpack_exit_driver')
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/hamradio/dmascc.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- linux-2624-bld.orig/drivers/net/hamradio/dmascc.c
++++ linux-2624-bld/drivers/net/hamradio/dmascc.c
+@@ -262,8 +262,8 @@ static void tm_isr(struct scc_priv *priv
+ 
+ static int io[MAX_NUM_DEVS] __initdata = { 0, };
+ 
+-/* Beware! hw[] is also used in cleanup_module(). */
+-static struct scc_hardware hw[NUM_TYPES] __initdata_or_module = HARDWARE;
++/* Beware! hw[] is also used in dmascc_exit(). */
++static struct scc_hardware hw[NUM_TYPES] = HARDWARE;
+ 
+ 
+ /* Global variables */
