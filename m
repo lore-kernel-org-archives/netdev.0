@@ -1,108 +1,126 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH] [TIPC]: Supress minor sparse warnings.
-Date: Sat, 26 Jan 2008 03:07:13 +0100
-Message-ID: <1201313233-32733-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	Jon Paul Maloy <jon.maloy@ericsson.com>
-To: netdev@vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH 2.6.24] fib_trie: apply fixes from fib_hash
+Date: Sat, 26 Jan 2008 04:40:30 +0200 (EET)
+Message-ID: <Pine.LNX.4.58.0801260427400.12635@u.domain.uli>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Robert Olsson <robert.olsson@data.slu.se>, netdev@vger.kernel.org,
+	Joonwoo Park <joonwpark81@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:32963 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758563AbYAZCDx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 21:03:53 -0500
+Received: from ja.ssi.bg ([217.79.71.194]:34700 "EHLO u.domain.uli"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751216AbYAZCj5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2008 21:39:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-cluster.c:145:2: warning: Using plain integer as NULL pointer
-link.c:3254:36: warning: Using plain integer as NULL pointer
-ref.c:151:15: warning: Using plain integer as NULL pointer
-socket.c:91:13: warning: context imbalance in 'sock_lock' - wrong count at exit
-socket.c:99:13: warning: context imbalance in 'sock_unlock' - unexpected unlock
 
-CC: Allan Stephens <allan.stephens@windriver.com>
-CC: Jon Paul Maloy <jon.maloy@ericsson.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
+	Update fib_trie with some fib_hash fixes:
+- check for duplicate alternative routes for prefix+tos+priority when
+replacing route
+- properly insert by matching tos together with priority
+- fix alias walking to use list_for_each_entry_continue for insertion
+and deletion when fa_head is not NULL
+- copy state from fa to new_fa on replace (not a problem for now)
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
- net/tipc/cluster.c |    2 +-
- net/tipc/link.c    |    2 +-
- net/tipc/ref.c     |    2 +-
- net/tipc/socket.c  |    2 ++
- net/tipc/zone.c    |    2 +-
- 5 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/net/tipc/cluster.c b/net/tipc/cluster.c
-index 95b3739..4bb3404 100644
---- a/net/tipc/cluster.c
-+++ b/net/tipc/cluster.c
-@@ -142,7 +142,7 @@ void tipc_cltr_attach_node(struct cluster *c_ptr, struct node *n_ptr)
- 		max_n_num = tipc_highest_allowed_slave;
- 	assert(n_num > 0);
- 	assert(n_num <= max_n_num);
--	assert(c_ptr->nodes[n_num] == 0);
-+	assert(c_ptr->nodes[n_num] == NULL);
- 	c_ptr->nodes[n_num] = n_ptr;
- 	if (n_num > c_ptr->highest_node)
- 		c_ptr->highest_node = n_num;
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 1b17fec..cefa998 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -3251,7 +3251,7 @@ static void link_print(struct link *l_ptr, struct print_buf *buf,
- 		if ((mod(msg_seqno(buf_msg(l_ptr->last_out)) -
- 			 msg_seqno(buf_msg(l_ptr->first_out)))
- 		     != (l_ptr->out_queue_size - 1))
--		    || (l_ptr->last_out->next != 0)) {
-+		    || (l_ptr->last_out->next != NULL)) {
- 			tipc_printf(buf, "\nSend queue inconsistency\n");
- 			tipc_printf(buf, "first_out= %x ", l_ptr->first_out);
- 			tipc_printf(buf, "next_out= %x ", l_ptr->next_out);
-diff --git a/net/tipc/ref.c b/net/tipc/ref.c
-index 6704a58..c38744c 100644
---- a/net/tipc/ref.c
-+++ b/net/tipc/ref.c
-@@ -148,7 +148,7 @@ u32 tipc_ref_acquire(void *object, spinlock_t **lock)
- 		reference = (next_plus_upper & ~index_mask) + index;
- 		entry->data.reference = reference;
- 		entry->object = object;
--		if (lock != 0)
-+		if (lock != NULL)
- 			*lock = &entry->lock;
- 		spin_unlock_bh(&entry->lock);
+	Not tested, someone please check the findings
+
+--- linux-2.6.24/net/ipv4/fib_trie.c_orig	2008-01-25 10:45:06.000000000 +0200
++++ linux-2.6.24/net/ipv4/fib_trie.c	2008-01-26 03:54:33.000000000 +0200
+@@ -1203,20 +1203,42 @@ static int fn_trie_insert(struct fib_tab
+ 	 * and we need to allocate a new one of those as well.
+ 	 */
+ 
+-	if (fa && fa->fa_info->fib_priority == fi->fib_priority) {
+-		struct fib_alias *fa_orig;
++	if (fa && fa->fa_tos == tos &&
++	    fa->fa_info->fib_priority == fi->fib_priority) {
++		struct fib_alias *fa_first, *fa_match;
+ 
+ 		err = -EEXIST;
+ 		if (cfg->fc_nlflags & NLM_F_EXCL)
+ 			goto out;
+ 
++		/* We have 2 goals:
++		 * 1. Find exact match for type, scope, fib_info to avoid
++		 * duplicate routes
++		 * 2. Find next 'fa' (or head), NLM_F_APPEND inserts before it
++		 */
++		fa_match = NULL;
++		fa_first = fa;
++		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
++		list_for_each_entry_continue(fa, fa_head, fa_list) {
++			if (fa->fa_tos != tos)
++				break;
++			if (fa->fa_info->fib_priority != fi->fib_priority)
++				break;
++			if (fa->fa_type == cfg->fc_type &&
++			    fa->fa_scope == cfg->fc_scope &&
++			    fa->fa_info == fi) {
++				fa_match = fa;
++				break;
++			}
++		}
++
+ 		if (cfg->fc_nlflags & NLM_F_REPLACE) {
+ 			struct fib_info *fi_drop;
+ 			u8 state;
+ 
+-			if (fi->fib_treeref > 1)
++			fa = fa_first;
++			if (fa_match && fa != fa_match)
+ 				goto out;
+-
+ 			err = -ENOBUFS;
+ 			new_fa = kmem_cache_alloc(fn_alias_kmem, GFP_KERNEL);
+ 			if (new_fa == NULL)
+@@ -1228,7 +1250,7 @@ static int fn_trie_insert(struct fib_tab
+ 			new_fa->fa_type = cfg->fc_type;
+ 			new_fa->fa_scope = cfg->fc_scope;
+ 			state = fa->fa_state;
+-			new_fa->fa_state &= ~FA_S_ACCESSED;
++			new_fa->fa_state = state & ~FA_S_ACCESSED;
+ 
+ 			list_replace_rcu(&fa->fa_list, &new_fa->fa_list);
+ 			alias_free_mem_rcu(fa);
+@@ -1245,20 +1267,11 @@ static int fn_trie_insert(struct fib_tab
+ 		 * uses the same scope, type, and nexthop
+ 		 * information.
+ 		 */
+-		fa_orig = fa;
+-		list_for_each_entry(fa, fa_orig->fa_list.prev, fa_list) {
+-			if (fa->fa_tos != tos)
+-				break;
+-			if (fa->fa_info->fib_priority != fi->fib_priority)
+-				break;
+-			if (fa->fa_type == cfg->fc_type &&
+-			    fa->fa_scope == cfg->fc_scope &&
+-			    fa->fa_info == fi) {
+-				goto out;
+-			}
+-		}
++		if (fa_match)
++			goto out;
++
+ 		if (!(cfg->fc_nlflags & NLM_F_APPEND))
+-			fa = fa_orig;
++			fa = fa_first;
  	}
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 2290903..26ea0a6 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -89,6 +89,7 @@ static atomic_t tipc_queue_size = ATOMIC_INIT(0);
-  * See net.c for description of locking policy.
-  */
- static void sock_lock(struct tipc_sock* tsock)
-+__acquires(tsock->p->lock)
- {
- 	spin_lock_bh(tsock->p->lock);
- }
-@@ -97,6 +98,7 @@ static void sock_lock(struct tipc_sock* tsock)
-  * sock_unlock(): Unlock a port/socket pair
-  */
- static void sock_unlock(struct tipc_sock* tsock)
-+__releases(tsock->p->lock)
- {
- 	spin_unlock_bh(tsock->p->lock);
- }
-diff --git a/net/tipc/zone.c b/net/tipc/zone.c
-index 114e173..3506f85 100644
---- a/net/tipc/zone.c
-+++ b/net/tipc/zone.c
-@@ -82,7 +82,7 @@ void tipc_zone_attach_cluster(struct _zone *z_ptr, struct cluster *c_ptr)
+ 	err = -ENOENT;
+ 	if (!(cfg->fc_nlflags & NLM_F_CREATE))
+@@ -1614,9 +1627,8 @@ static int fn_trie_delete(struct fib_tab
+ 	pr_debug("Deleting %08x/%d tos=%d t=%p\n", key, plen, tos, t);
  
- 	assert(c_ptr->addr);
- 	assert(c_num <= tipc_max_clusters);
--	assert(z_ptr->clusters[c_num] == 0);
-+	assert(z_ptr->clusters[c_num] == NULL);
- 	z_ptr->clusters[c_num] = c_ptr;
- }
+ 	fa_to_delete = NULL;
+-	fa_head = fa->fa_list.prev;
+-
+-	list_for_each_entry(fa, fa_head, fa_list) {
++	fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
++	list_for_each_entry_continue(fa, fa_head, fa_list) {
+ 		struct fib_info *fi = fa->fa_info;
  
--- 
-1.5.3.7
-
+ 		if (fa->fa_tos != tos)
