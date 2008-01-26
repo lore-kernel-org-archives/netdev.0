@@ -1,126 +1,63 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH 2.6.24] fib_trie: apply fixes from fib_hash
-Date: Sat, 26 Jan 2008 04:40:30 +0200 (EET)
-Message-ID: <Pine.LNX.4.58.0801260427400.12635@u.domain.uli>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 9816] New: cannot replace route
+Date: Fri, 25 Jan 2008 19:20:26 -0800
+Message-ID: <20080125192026.e667f396.akpm@linux-foundation.org>
+References: <bug-9816-10286@http.bugzilla.kernel.org/>
+	<20080125142603.a73fd7a2.akpm@linux-foundation.org>
+	<479A6CBD.4010908@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Robert Olsson <robert.olsson@data.slu.se>, netdev@vger.kernel.org,
-	Joonwoo Park <joonwpark81@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, joonwpark81@gmail.com,
+	bugme-daemon@bugzilla.kernel.org, schwab@suse.de
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:34700 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751216AbYAZCj5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2008 21:39:57 -0500
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:59573 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754251AbYAZDUb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 22:20:31 -0500
+In-Reply-To: <479A6CBD.4010908@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> On Sat, 26 Jan 2008 00:11:57 +0100 Jarek Poplawski <jarkao2@gmail.com> wrote:
+> Andrew Morton wrote, On 01/25/2008 11:26 PM:
+> 
+> >> On Fri, 25 Jan 2008 13:23:49 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+> >> http://bugzilla.kernel.org/show_bug.cgi?id=9816
+> 
+> ...
+> 
+> > I'd agree with Andrea: replacing a route with itself a) used to work and b)
+> > should still work (surely)?
+> 
+> ...on the other hand:
+> 
+> $ touch file1
+> $ cp file1 file1
+> cp: `file1' and `file1' are the same file
+> $ mv file1 file1
+> mv: `file1' and `file1' are the same file
+> 
+> and: 'everything' in 'linux' is file...
+> 
+> ergo: route cannot replace with itself!
+> 
 
-	Update fib_trie with some fib_hash fixes:
-- check for duplicate alternative routes for prefix+tos+priority when
-replacing route
-- properly insert by matching tos together with priority
-- fix alias walking to use list_for_each_entry_continue for insertion
-and deletion when fa_head is not NULL
-- copy state from fa to new_fa on replace (not a problem for now)
+That's not a very good analogy - the source is a kernel object.  A better
+example would be:
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
+linux-2.6.24-rc8:
 
-	Not tested, someone please check the findings
+echo foo > /tmp/1
+echo bar > /tmp/2
+echo foo > /tmp/1
 
---- linux-2.6.24/net/ipv4/fib_trie.c_orig	2008-01-25 10:45:06.000000000 +0200
-+++ linux-2.6.24/net/ipv4/fib_trie.c	2008-01-26 03:54:33.000000000 +0200
-@@ -1203,20 +1203,42 @@ static int fn_trie_insert(struct fib_tab
- 	 * and we need to allocate a new one of those as well.
- 	 */
- 
--	if (fa && fa->fa_info->fib_priority == fi->fib_priority) {
--		struct fib_alias *fa_orig;
-+	if (fa && fa->fa_tos == tos &&
-+	    fa->fa_info->fib_priority == fi->fib_priority) {
-+		struct fib_alias *fa_first, *fa_match;
- 
- 		err = -EEXIST;
- 		if (cfg->fc_nlflags & NLM_F_EXCL)
- 			goto out;
- 
-+		/* We have 2 goals:
-+		 * 1. Find exact match for type, scope, fib_info to avoid
-+		 * duplicate routes
-+		 * 2. Find next 'fa' (or head), NLM_F_APPEND inserts before it
-+		 */
-+		fa_match = NULL;
-+		fa_first = fa;
-+		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
-+		list_for_each_entry_continue(fa, fa_head, fa_list) {
-+			if (fa->fa_tos != tos)
-+				break;
-+			if (fa->fa_info->fib_priority != fi->fib_priority)
-+				break;
-+			if (fa->fa_type == cfg->fc_type &&
-+			    fa->fa_scope == cfg->fc_scope &&
-+			    fa->fa_info == fi) {
-+				fa_match = fa;
-+				break;
-+			}
-+		}
-+
- 		if (cfg->fc_nlflags & NLM_F_REPLACE) {
- 			struct fib_info *fi_drop;
- 			u8 state;
- 
--			if (fi->fib_treeref > 1)
-+			fa = fa_first;
-+			if (fa_match && fa != fa_match)
- 				goto out;
--
- 			err = -ENOBUFS;
- 			new_fa = kmem_cache_alloc(fn_alias_kmem, GFP_KERNEL);
- 			if (new_fa == NULL)
-@@ -1228,7 +1250,7 @@ static int fn_trie_insert(struct fib_tab
- 			new_fa->fa_type = cfg->fc_type;
- 			new_fa->fa_scope = cfg->fc_scope;
- 			state = fa->fa_state;
--			new_fa->fa_state &= ~FA_S_ACCESSED;
-+			new_fa->fa_state = state & ~FA_S_ACCESSED;
- 
- 			list_replace_rcu(&fa->fa_list, &new_fa->fa_list);
- 			alias_free_mem_rcu(fa);
-@@ -1245,20 +1267,11 @@ static int fn_trie_insert(struct fib_tab
- 		 * uses the same scope, type, and nexthop
- 		 * information.
- 		 */
--		fa_orig = fa;
--		list_for_each_entry(fa, fa_orig->fa_list.prev, fa_list) {
--			if (fa->fa_tos != tos)
--				break;
--			if (fa->fa_info->fib_priority != fi->fib_priority)
--				break;
--			if (fa->fa_type == cfg->fc_type &&
--			    fa->fa_scope == cfg->fc_scope &&
--			    fa->fa_info == fi) {
--				goto out;
--			}
--		}
-+		if (fa_match)
-+			goto out;
-+
- 		if (!(cfg->fc_nlflags & NLM_F_APPEND))
--			fa = fa_orig;
-+			fa = fa_first;
- 	}
- 	err = -ENOENT;
- 	if (!(cfg->fc_nlflags & NLM_F_CREATE))
-@@ -1614,9 +1627,8 @@ static int fn_trie_delete(struct fib_tab
- 	pr_debug("Deleting %08x/%d tos=%d t=%p\n", key, plen, tos, t);
- 
- 	fa_to_delete = NULL;
--	fa_head = fa->fa_list.prev;
--
--	list_for_each_entry(fa, fa_head, fa_list) {
-+	fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
-+	list_for_each_entry_continue(fa, fa_head, fa_list) {
- 		struct fib_info *fi = fa->fa_info;
- 
- 		if (fa->fa_tos != tos)
+linux-2.6.24:
+
+echo foo > /tmp/1
+echo bar > /tmp/2
+echo foo > /tmp/1
+sh: cannot write /tmp/1: Inalid argument
+
+But whatever.   It used to work.  People's scripts will break.  Regression.
