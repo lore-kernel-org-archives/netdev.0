@@ -1,101 +1,96 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: iproute2 (addr flush) infinite loop when unprivileged users
-Date: Fri, 25 Jan 2008 16:12:59 -0800
-Message-ID: <20080125161259.0356c990@deepthought>
-References: <9e0cf0bf0801251500u388b9a5dxda92d6d1e3d86233@mail.gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH 2.6.24] fib: fix route replacement, fib_info is shared
+Date: Sat, 26 Jan 2008 02:11:26 +0200 (EET)
+Message-ID: <Pine.LNX.4.58.0801260205430.6309@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Alon Bar-Lev" <alon.barlev@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Joonwoo Park <joonwpark81@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:47919 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751699AbYAZANZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 19:13:25 -0500
-In-Reply-To: <9e0cf0bf0801251500u388b9a5dxda92d6d1e3d86233@mail.gmail.com>
+Received: from ja.ssi.bg ([217.79.71.194]:58206 "EHLO u.domain.uli"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752733AbYAZAVb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2008 19:21:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 26 Jan 2008 01:00:34 +0200
-"Alon Bar-Lev" <alon.barlev@gmail.com> wrote:
 
-> Hello,
-> 
-> When executing the following command using unprivileged users there is
-> an infinite loop...
-> /sbin/ip route flush dev eth1
-> 
-> Execution with -s produces:
-> *** Round 28153, deleting 2 entries ***
-> 
-> *** Round 28154, deleting 2 entries ***
-> 
-> *** Round 28155, deleting 2 entries ***
-> 
-> *** Round 28156, deleting 2 entries ***
-> 
-> *** Round 28157, deleting 2 entries ***
-> 
-> *** Round 28158, deleting 2 entries ***
-> 
-> *** Round 28159, deleting 2 entries ***
-> 
-> I do not fully understand the sequence, but it may be kernel fault, as
-> it should have returned EPERM for this request stopping the netlink
-> request.
-> 
-> Anyway... A simple solution is to store the filter.flushed and fail if
-> it keeps its value during loop iteration at
-> ip/ipaddress.c::ipaddr_list_or_flush(), but this is only a
-> workaround...
-> 
-> Please CC as I am not in netdev list.
-> Thanks!
-> Alon.
+	fib_info can be shared by many route prefixes but we don't
+want duplicate alternative routes for a prefix+tos+priority. Last
+change was not correct to check fib_treeref because it accounts usage
+from other prefixes.
 
-The issue is that iproute is just blindly sending the deletes and
-not asking for acknowledgment status. Here is a trivial patch to iproute
-to fix that, but the problem is that it means it will slow down bulk removal.
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
 
-Maybe it should just check the first, or last delete to see if there are
-errors?
-
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 7a885b0..b2ae879 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -112,11 +112,27 @@ static struct
+--- linux-2.6.24/net/ipv4/fib_hash.c_orig	2008-01-25 10:45:06.000000000 +0200
++++ linux-2.6.24/net/ipv4/fib_hash.c	2008-01-26 01:29:36.000000000 +0200
+@@ -434,19 +434,40 @@ static int fn_hash_insert(struct fib_tab
  
- static int flush_update(void)
- {
-+	unsigned long i;
-+	struct nlmsghdr *fn;
+ 	if (fa && fa->fa_tos == tos &&
+ 	    fa->fa_info->fib_priority == fi->fib_priority) {
+-		struct fib_alias *fa_orig;
++		struct fib_alias *fa_first, *fa_match;
+ 
+ 		err = -EEXIST;
+ 		if (cfg->fc_nlflags & NLM_F_EXCL)
+ 			goto out;
+ 
++		/* We have 2 goals:
++		 * 1. Find exact match for type, scope, fib_info to avoid
++		 * duplicate routes
++		 * 2. Find next 'fa' (or head), NLM_F_APPEND inserts before it
++		 */
++		fa_match = NULL;
++		fa_first = fa;
++		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
++		list_for_each_entry_continue(fa, &f->fn_alias, fa_list) {
++			if (fa->fa_tos != tos)
++				break;
++			if (fa->fa_info->fib_priority != fi->fib_priority)
++				break;
++			if (fa->fa_type == cfg->fc_type &&
++			    fa->fa_scope == cfg->fc_scope &&
++			    fa->fa_info == fi) {
++				fa_match = fa;
++				break;
++			}
++		}
 +
-+#ifdef nochecking
- 	if (rtnl_send(&rth, filter.flushb, filter.flushp) < 0) {
- 		perror("Failed to send flush request\n");
- 		return -1;
+ 		if (cfg->fc_nlflags & NLM_F_REPLACE) {
+ 			struct fib_info *fi_drop;
+ 			u8 state;
+ 
+-			if (fi->fib_treeref > 1)
++			fa = fa_first;
++			if (fa_match && fa != fa_match)
+ 				goto out;
+-
+ 			write_lock_bh(&fib_hash_lock);
+ 			fi_drop = fa->fa_info;
+ 			fa->fa_info = fi;
+@@ -469,20 +490,11 @@ static int fn_hash_insert(struct fib_tab
+ 		 * uses the same scope, type, and nexthop
+ 		 * information.
+ 		 */
+-		fa_orig = fa;
+-		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
+-		list_for_each_entry_continue(fa, &f->fn_alias, fa_list) {
+-			if (fa->fa_tos != tos)
+-				break;
+-			if (fa->fa_info->fib_priority != fi->fib_priority)
+-				break;
+-			if (fa->fa_type == cfg->fc_type &&
+-			    fa->fa_scope == cfg->fc_scope &&
+-			    fa->fa_info == fi)
+-				goto out;
+-		}
++		if (fa_match)
++			goto out;
++
+ 		if (!(cfg->fc_nlflags & NLM_F_APPEND))
+-			fa = fa_orig;
++			fa = fa_first;
  	}
-+#else
-+	for (i = 0; i < filter.flushp; ) {
-+		fn = (struct nlmsghdr *)(filter.flushb + NLMSG_ALIGN(i));
-+		fn->nlmsg_flags |= NLM_F_ACK;
-+		
-+		if (rtnl_talk(&rth, fn, 0, 0, NULL, NULL, NULL) < 0)
-+			return -1;
-+
-+		i = (((char*)fn) + fn->nlmsg_len) - filter.flushb;
-+	}
-+#endif
- 	filter.flushp = 0;
-+
- 	return 0;
- }
  
-
-
-
-
--- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+ 	err = -ENOENT;
