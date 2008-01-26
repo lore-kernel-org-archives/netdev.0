@@ -1,50 +1,44 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: Compex FreedomLine 32 PnP-PCI2 broken with de2104x
-Date: Sat, 26 Jan 2008 21:58:10 +0100
-Message-ID: <200801262158.12016.linux@rainbow-software.org>
+From: "Alon Bar-Lev" <alon.barlev@gmail.com>
+Subject: Re: iproute2 (addr flush) infinite loop when unprivileged users
+Date: Sat, 26 Jan 2008 23:48:03 +0200
+Message-ID: <9e0cf0bf0801261348r6857403eo344ce0679d4b469b@mail.gmail.com>
+References: <9e0cf0bf0801251500u388b9a5dxda92d6d1e3d86233@mail.gmail.com>
+	 <20080125161259.0356c990@deepthought>
+	 <9e0cf0bf0801251622w203c515fn80cba5f233bd599d@mail.gmail.com>
+	 <9e0cf0bf0801260058s797d2ea3r7af013d0957554d8@mail.gmail.com>
+	 <20080126111931.69e579c1@deepthought>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756546AbYAZU6n@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.174]:3446 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754490AbYAZVsH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jan 2008 16:48:07 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so724221ugc.16
+        for <netdev@vger.kernel.org>; Sat, 26 Jan 2008 13:48:03 -0800 (PST)
+In-Reply-To: <20080126111931.69e579c1@deepthought>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
-I was having problems with these FreedomLine cards with Linux before but 
-tested it thoroughly today. This card uses DEC 21041 chip and has TP and BNC 
-connectors:
+On 1/26/08, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+> > iptunnel.c:(.text+0x51c): undefined reference to `__constant_htons'
+> > iptunnel.o:iptunnel.c:(.text+0x535): more undefined references to
+> > `__constant_htons' follow
+> > collect2: ld returned 1 exit status
+> > make[1]: *** [ip] Error 1
+>
+> This is defined via:
+>   /usr/i!vinclude/linux/ip.h
+>   #include <asm/byteorder.h>
 
-00:12.0 Ethernet controller [0200]: Digital Equipment Corporation DECchip 
-21041 [Tulip Pass 3] [1011:0014] (rev 21)
+Trace down the problem to Gentoo patch.
+Sorry.
 
+All working now!
+Thanks!
 
-de2104x driver was loaded automatically by udev and card seemed to work. Until 
-I disconnected the TP cable and putting it back after a while. The driver 
-then switched to (non-existing) AUI port and remained there. I tried to set 
-media to TP using ethtool - and the whole kernel crashed because of 
-        BUG_ON(de_is_running(de));
-in de_set_media(). Seems that the driver is unable to stop the DMA in 
-de_stop_rxtx().
-
-I commented out AUI detection in the driver - this time it switched to BNC 
-after unplugging the cable and remained there. I also attempted to reset the 
-chip when de_stop_rxtx failed but failed to do it.
-
-Then I found that there's de4x5 driver which supports the same cards as 
-de2104x (and some other too) - and this one works fine! I can plug and unplug 
-the cable and even change between TP and BNC ports just by unplugging one and 
-plugging the other cable in. Unfortunately, this driver is blacklisted by 
-default - at least in Slackware and Debian.
-
-The question is: why does de2104x exist? Does it work better with some 
-hardware?
-
-BTW. Found that the problem exist at least since 2003:
-http://oss.sgi.com/archives/netdev/2003-08/msg00951.html
-
--- 
-Ondrej Zary
+Alon.
