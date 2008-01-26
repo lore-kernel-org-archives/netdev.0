@@ -1,23 +1,100 @@
-From: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
-Subject: Re: [PATCH 00/14][v3]: Driver for Wireless RNDIS USB devices.
-Date: Sat, 26 Jan 2008 14:21:32 +0200
-Message-ID: <1201350092.7261.3.camel@localhost>
-References: <20080125225032.11716.77713.stgit@fate.lan>
-	 <200801251509.24377.david-b@pacbell.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCHv2 2.6.24] fib: fix route replacement, fib_info is shared
+Date: Sat, 26 Jan 2008 14:41:32 +0200 (EET)
+Message-ID: <Pine.LNX.4.58.0801261439020.7864@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bjd-a1rhEgazXTw@public.gmane.org
-To: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200801251509.24377.david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Joonwoo Park <joonwpark81@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([217.79.71.194]:56239 "EHLO u.domain.uli"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752516AbYAZMlF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Jan 2008 07:41:05 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-01-25 at 15:09 -0800, David Brownell wrote:
-> If they're the same, my ack (as maintainer for that infrastructure
-> and, for now, rndis_host) still stands.  I won't look at them again.
-> 
 
-Ah, ok.
+	fib_info can be shared by many route prefixes but we don't
+want duplicate alternative routes for a prefix+tos+priority. Last
+change was not correct to check fib_treeref because it accounts usage
+from other prefixes. Additionally, avoid replacement without error
+if new route is same, as Joonwoo Park suggests.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+
+--- linux-2.6.24/net/ipv4/fib_hash.c_orig	2008-01-25 10:45:06.000000000 +0200
++++ linux-2.6.24/net/ipv4/fib_hash.c	2008-01-26 14:11:34.000000000 +0200
+@@ -434,19 +434,43 @@ static int fn_hash_insert(struct fib_tab
+ 
+ 	if (fa && fa->fa_tos == tos &&
+ 	    fa->fa_info->fib_priority == fi->fib_priority) {
+-		struct fib_alias *fa_orig;
++		struct fib_alias *fa_first, *fa_match;
+ 
+ 		err = -EEXIST;
+ 		if (cfg->fc_nlflags & NLM_F_EXCL)
+ 			goto out;
+ 
++		/* We have 2 goals:
++		 * 1. Find exact match for type, scope, fib_info to avoid
++		 * duplicate routes
++		 * 2. Find next 'fa' (or head), NLM_F_APPEND inserts before it
++		 */
++		fa_match = NULL;
++		fa_first = fa;
++		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
++		list_for_each_entry_continue(fa, &f->fn_alias, fa_list) {
++			if (fa->fa_tos != tos)
++				break;
++			if (fa->fa_info->fib_priority != fi->fib_priority)
++				break;
++			if (fa->fa_type == cfg->fc_type &&
++			    fa->fa_scope == cfg->fc_scope &&
++			    fa->fa_info == fi) {
++				fa_match = fa;
++				break;
++			}
++		}
++
+ 		if (cfg->fc_nlflags & NLM_F_REPLACE) {
+ 			struct fib_info *fi_drop;
+ 			u8 state;
+ 
+-			if (fi->fib_treeref > 1)
++			fa = fa_first;
++			if (fa_match) {
++				if (fa == fa_match)
++					err = 0;
+ 				goto out;
+-
++			}
+ 			write_lock_bh(&fib_hash_lock);
+ 			fi_drop = fa->fa_info;
+ 			fa->fa_info = fi;
+@@ -469,20 +493,11 @@ static int fn_hash_insert(struct fib_tab
+ 		 * uses the same scope, type, and nexthop
+ 		 * information.
+ 		 */
+-		fa_orig = fa;
+-		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
+-		list_for_each_entry_continue(fa, &f->fn_alias, fa_list) {
+-			if (fa->fa_tos != tos)
+-				break;
+-			if (fa->fa_info->fib_priority != fi->fib_priority)
+-				break;
+-			if (fa->fa_type == cfg->fc_type &&
+-			    fa->fa_scope == cfg->fc_scope &&
+-			    fa->fa_info == fi)
+-				goto out;
+-		}
++		if (fa_match)
++			goto out;
++
+ 		if (!(cfg->fc_nlflags & NLM_F_APPEND))
+-			fa = fa_orig;
++			fa = fa_first;
+ 	}
+ 
+ 	err = -ENOENT;
