@@ -1,76 +1,50 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: iproute2 (addr flush) infinite loop when unprivileged users
-Date: Sat, 26 Jan 2008 11:19:31 -0800
-Message-ID: <20080126111931.69e579c1@deepthought>
-References: <9e0cf0bf0801251500u388b9a5dxda92d6d1e3d86233@mail.gmail.com>
-	<20080125161259.0356c990@deepthought>
-	<9e0cf0bf0801251622w203c515fn80cba5f233bd599d@mail.gmail.com>
-	<9e0cf0bf0801260058s797d2ea3r7af013d0957554d8@mail.gmail.com>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: Compex FreedomLine 32 PnP-PCI2 broken with de2104x
+Date: Sat, 26 Jan 2008 21:58:10 +0100
+Message-ID: <200801262158.12016.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Alon Bar-Lev" <alon.barlev@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:60183 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752528AbYAZTTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jan 2008 14:19:43 -0500
-In-Reply-To: <9e0cf0bf0801260058s797d2ea3r7af013d0957554d8@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: jgarzik@pobox.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756546AbYAZU6n@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 26 Jan 2008 10:58:58 +0200
-"Alon Bar-Lev" <alon.barlev@gmail.com> wrote:
+Hello,
+I was having problems with these FreedomLine cards with Linux before but 
+tested it thoroughly today. This card uses DEC 21041 chip and has TP and BNC 
+connectors:
 
-> On 1/26/08, Alon Bar-Lev <alon.barlev@gmail.com> wrote:
-> > On 1/26/08, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> > > The issue is that iproute is just blindly sending the deletes and
-> > > not asking for acknowledgment status. Here is a trivial patch to iproute
-> > > to fix that, but the problem is that it means it will slow down bulk removal.
-> > >
-> > > Maybe it should just check the first, or last delete to see if there are
-> > > errors?
-> > >
-> > > diff --git a/ip/iproute.c b/ip/iproute.c
-> > > index 7a885b0..b2ae879 100644
-> > > --- a/ip/iproute.c
-> > > +++ b/ip/iproute.c
-> >
-> > This should also be applied into ip/ipaddress.c, ip/ipneigh.c
-> > Or even make one common function?
-> >
-> > I don't quite understand how "fast" is good if not complete... But
-> > anyway... I will be happy to see this fix in next version... Maybe add
-> > --fast argument? :)
-> >
-> > Alon.
-> >
-> 
-> Pulled your latest git head. See some updates but not this one...
-> Just thought to report the following [new] build error:
-> 
-> 
-> gcc -Wl,-export-dynamic  ip.o ipaddress.o iproute.o iprule.o rtm_map.o
-> iptunnel.o ip6tunnel.o tunnel.o ipneigh.o ipntable.o iplink.o
-> ipmaddr.o ipmonitor.o ipmroute.o ipprefix.o ipxfrm.o xfrm_state.o
-> xfrm_policy.o xfrm_monitor.o iplink_vlan.o link_veth.o
-> ../lib/libnetlink.a ../lib/libutil.a  -lresolv -L../lib -lnetlink
-> -lutil -ldl -o ip
-> iptunnel.o: In function `parse_args':
-> iptunnel.c:(.text+0x2f6): undefined reference to `__constant_htons'
-> iptunnel.c:(.text+0x434): undefined reference to `__constant_htons'
-> iptunnel.c:(.text+0x4c1): undefined reference to `__constant_htons'
-> iptunnel.c:(.text+0x4da): undefined reference to `__constant_htons'
-> iptunnel.c:(.text+0x51c): undefined reference to `__constant_htons'
-> iptunnel.o:iptunnel.c:(.text+0x535): more undefined references to
-> `__constant_htons' follow
-> collect2: ld returned 1 exit status
-> make[1]: *** [ip] Error 1
+00:12.0 Ethernet controller [0200]: Digital Equipment Corporation DECchip 
+21041 [Tulip Pass 3] [1011:0014] (rev 21)
 
-This is defined via:
-  /usr/include/linux/ip.h
-  #include <asm/byteorder.h>
+
+de2104x driver was loaded automatically by udev and card seemed to work. Until 
+I disconnected the TP cable and putting it back after a while. The driver 
+then switched to (non-existing) AUI port and remained there. I tried to set 
+media to TP using ethtool - and the whole kernel crashed because of 
+        BUG_ON(de_is_running(de));
+in de_set_media(). Seems that the driver is unable to stop the DMA in 
+de_stop_rxtx().
+
+I commented out AUI detection in the driver - this time it switched to BNC 
+after unplugging the cable and remained there. I also attempted to reset the 
+chip when de_stop_rxtx failed but failed to do it.
+
+Then I found that there's de4x5 driver which supports the same cards as 
+de2104x (and some other too) - and this one works fine! I can plug and unplug 
+the cable and even change between TP and BNC ports just by unplugging one and 
+plugging the other cable in. Unfortunately, this driver is blacklisted by 
+default - at least in Slackware and Debian.
+
+The question is: why does de2104x exist? Does it work better with some 
+hardware?
+
+BTW. Found that the problem exist at least since 2003:
+http://oss.sgi.com/archives/netdev/2003-08/msg00951.html
 
 -- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+Ondrej Zary
