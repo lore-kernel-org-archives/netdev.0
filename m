@@ -1,54 +1,76 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bugme-new] [Bug 9816] New: cannot replace route
-Date: Sat, 26 Jan 2008 13:10:26 +0100
-Message-ID: <20080126121026.GB2624@ami.dom.local>
-References: <bug-9816-10286@http.bugzilla.kernel.org/> <20080125142603.a73fd7a2.akpm@linux-foundation.org> <479A6CBD.4010908@gmail.com> <20080125192026.e667f396.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, joonwpark81@gmail.com,
-	bugme-daemon@bugzilla.kernel.org, schwab@suse.de
-To: Andrew Morton <akpm@linux-foundation.org>
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH net-2.6.25 4/7][ATM]: [br2864] routed support
+Date: Sat, 26 Jan 2008 07:20:19 -0500
+Message-ID: <200801261220.m0QCKJ15023510@cmf.nrl.navy.mil>
+References: <3f696b20801152016r52048016g7c293dbfdc6c9f29@mail.gmail.com>
+Reply-To: chas3@users.sourceforge.net
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: "Chung-Chi Lo" <linolo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:35443 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752139AbYAZMHT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jan 2008 07:07:19 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so984745fga.17
-        for <netdev@vger.kernel.org>; Sat, 26 Jan 2008 04:07:16 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080125192026.e667f396.akpm@linux-foundation.org>
+Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:35538 "EHLO
+	ginger.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752457AbYAZMUi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jan 2008 07:20:38 -0500
+In-reply-to: <3f696b20801152016r52048016g7c293dbfdc6c9f29@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 25, 2008 at 07:20:26PM -0800, Andrew Morton wrote:
-...
-> That's not a very good analogy - the source is a kernel object.  A better
-> example would be:
-> 
-> linux-2.6.24-rc8:
-> 
-> echo foo > /tmp/1
-> echo bar > /tmp/2
-> echo foo > /tmp/1
-> 
-> linux-2.6.24:
-> 
-> echo foo > /tmp/1
-> echo bar > /tmp/2
-> echo foo > /tmp/1
-> sh: cannot write /tmp/1: Inalid argument
+In message <3f696b20801152016r52048016g7c293dbfdc6c9f29@mail.gmail.com>,"Chung-
+Chi Lo" writes:
+>Question to decode the encaps=VCMUX and bridge mode:
+>
+>This line
+>skb_pull((skb, BR2684_PAD_LEN + ETH_HLEN);
+>should be replaced by
+>skb_pull((skb, BR2684_PAD_LEN);
 
-Probably you are right. When I have some time to build and boot 2.6.24
-at last, I hope I'll find what this example is about...
+you are correct.
 
-> But whatever.   It used to work.  People's scripts will break.  Regression.
+>By the way, this routed mode patch doesn't include encaps=VCMUX and
+>RFC2684 routed
+>protocol decapsulation?
 
-Do you mean people didn't have to change their scripts before, e.g.
-from linux 2.0.? Scripts are kind of programs, and both APIs and some
-'undocumented' features are achanging...
+yep.  eric believes the following should fix both problems:
 
-Regards,
-Jarek P.
+commit 43e4b025ffe130cd6a292fa9ff909e39a88f849c
+Author: Chas Williams - CONTRACTOR <chas@relax.cmf.nrl.navy.mil>
+Date:   Sat Jan 26 07:18:26 2008 -0500
 
-Regards,
-Jarek P.
+    [ATM]: [br2864] fix vcmux support
+    
+    From: Eric Kinzie <ekinzie@cmf.nrl.navy.mil>
+    Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+
+diff --git a/net/atm/br2684.c b/net/atm/br2684.c
+index 31347cb..97b422c 100644
+--- a/net/atm/br2684.c
++++ b/net/atm/br2684.c
+@@ -400,15 +400,20 @@ static void br2684_push(struct atm_vcc *atmvcc, struct sk_buff *skb)
+ 			return;
+ 		}
+ 
+-	} else {
+-		/* first 2 chars should be 0 */
+-		if (*((u16 *) (skb->data)) != 0) {
+-			brdev->stats.rx_errors++;
+-			dev_kfree_skb(skb);
+-			return;
++	} else { /* vc-mux */
++		if (brdev->payload == p_routed) {
++			skb_reset_network_header(skb);
++			skb->pkt_type = PACKET_HOST;
++		} else { /* p_bridged */
++			/* first 2 chars should be 0 */
++			if (*((u16 *) (skb->data)) != 0) {
++				brdev->stats.rx_errors++;
++				dev_kfree_skb(skb);
++				return;
++			}
++			skb_pull(skb, BR2684_PAD_LEN);
++			skb->protocol = eth_type_trans(skb, net_dev);
+ 		}
+-		skb_pull(skb, BR2684_PAD_LEN + ETH_HLEN);	/* pad, dstmac, srcmac, ethtype */
+-		skb->protocol = eth_type_trans(skb, net_dev);
+ 	}
+ 
+ #ifdef CONFIG_ATM_BR2684_IPFILTER
