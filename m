@@ -1,63 +1,39 @@
-From: Andrew Morton <akpm@linux-foundation.org>
+From: "Joonwoo Park" <joonwpark81@gmail.com>
 Subject: Re: [Bugme-new] [Bug 9816] New: cannot replace route
-Date: Fri, 25 Jan 2008 19:20:26 -0800
-Message-ID: <20080125192026.e667f396.akpm@linux-foundation.org>
+Date: Sat, 26 Jan 2008 14:16:01 +0900
+Message-ID: <b25c3fa70801252116h2b9f12c9j65a8a75dbd0d5662@mail.gmail.com>
 References: <bug-9816-10286@http.bugzilla.kernel.org/>
-	<20080125142603.a73fd7a2.akpm@linux-foundation.org>
-	<479A6CBD.4010908@gmail.com>
+	 <20080125142603.a73fd7a2.akpm@linux-foundation.org>
+	 <479A6CBD.4010908@gmail.com>
+	 <20080125192026.e667f396.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joonwpark81@gmail.com,
+Cc: "Jarek Poplawski" <jarkao2@gmail.com>, netdev@vger.kernel.org,
 	bugme-daemon@bugzilla.kernel.org, schwab@suse.de
-To: Jarek Poplawski <jarkao2@gmail.com>
+To: "Andrew Morton" <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:59573 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754251AbYAZDUb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 22:20:31 -0500
-In-Reply-To: <479A6CBD.4010908@gmail.com>
+Received: from rv-out-0910.google.com ([209.85.198.191]:42667 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750774AbYAZFQC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jan 2008 00:16:02 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so997587rvb.1
+        for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 21:16:01 -0800 (PST)
+In-Reply-To: <20080125192026.e667f396.akpm@linux-foundation.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On Sat, 26 Jan 2008 00:11:57 +0100 Jarek Poplawski <jarkao2@gmail.com> wrote:
-> Andrew Morton wrote, On 01/25/2008 11:26 PM:
-> 
-> >> On Fri, 25 Jan 2008 13:23:49 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
-> >> http://bugzilla.kernel.org/show_bug.cgi?id=9816
-> 
-> ...
-> 
-> > I'd agree with Andrea: replacing a route with itself a) used to work and b)
-> > should still work (surely)?
-> 
-> ...on the other hand:
-> 
-> $ touch file1
-> $ cp file1 file1
-> cp: `file1' and `file1' are the same file
-> $ mv file1 file1
-> mv: `file1' and `file1' are the same file
-> 
-> and: 'everything' in 'linux' is file...
-> 
-> ergo: route cannot replace with itself!
-> 
+2008/1/26, Andrew Morton <akpm@linux-foundation.org>:
+>
+> But whatever.   It used to work.  People's scripts will break.  Regression.
+>
 
-That's not a very good analogy - the source is a kernel object.  A better
-example would be:
+Also I thought that 'replace with itself' should be error as like Jarek.
+But it used to work and patch made a regression, it's my bad :(
 
-linux-2.6.24-rc8:
+I think Julian's recent patches on the list would work for this
+replacement issue and regression.
 
-echo foo > /tmp/1
-echo bar > /tmp/2
-echo foo > /tmp/1
-
-linux-2.6.24:
-
-echo foo > /tmp/1
-echo bar > /tmp/2
-echo foo > /tmp/1
-sh: cannot write /tmp/1: Inalid argument
-
-But whatever.   It used to work.  People's scripts will break.  Regression.
+Thanks,
+Joonwoo
