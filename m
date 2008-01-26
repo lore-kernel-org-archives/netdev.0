@@ -1,36 +1,44 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCHv2 2.6.24] fib: fix route replacement, fib_info is shared
-Date: Sat, 26 Jan 2008 14:41:32 +0200 (EET)
-Message-ID: <Pine.LNX.4.58.0801261439020.7864@u.domain.uli>
+Subject: [PATCHv2 2.6.24] fib_trie: apply fixes from fib_hash
+Date: Sat, 26 Jan 2008 14:44:36 +0200 (EET)
+Message-ID: <Pine.LNX.4.58.0801261441470.7864@u.domain.uli>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Joonwoo Park <joonwpark81@gmail.com>
+Cc: Robert Olsson <robert.olsson@data.slu.se>, netdev@vger.kernel.org,
+	Joonwoo Park <joonwpark81@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:56239 "EHLO u.domain.uli"
+Received: from ja.ssi.bg ([217.79.71.194]:52395 "EHLO u.domain.uli"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752516AbYAZMlF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Jan 2008 07:41:05 -0500
+	id S1752330AbYAZMn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Jan 2008 07:43:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-	fib_info can be shared by many route prefixes but we don't
-want duplicate alternative routes for a prefix+tos+priority. Last
-change was not correct to check fib_treeref because it accounts usage
-from other prefixes. Additionally, avoid replacement without error
-if new route is same, as Joonwoo Park suggests.
+	Update fib_trie with some fib_hash fixes:
+- check for duplicate alternative routes for prefix+tos+priority when
+replacing route
+- properly insert by matching tos together with priority
+- fix alias walking to use list_for_each_entry_continue for insertion
+and deletion when fa_head is not NULL
+- copy state from fa to new_fa on replace (not a problem for now)
+- additionally, avoid replacement without error if new route is same,
+as Joonwoo Park suggests.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
 
---- linux-2.6.24/net/ipv4/fib_hash.c_orig	2008-01-25 10:45:06.000000000 +0200
-+++ linux-2.6.24/net/ipv4/fib_hash.c	2008-01-26 14:11:34.000000000 +0200
-@@ -434,19 +434,43 @@ static int fn_hash_insert(struct fib_tab
+--- linux-2.6.24/net/ipv4/fib_trie.c_orig	2008-01-25 10:45:06.000000000 +0200
++++ linux-2.6.24/net/ipv4/fib_trie.c	2008-01-26 14:11:27.000000000 +0200
+@@ -1203,20 +1203,45 @@ static int fn_trie_insert(struct fib_tab
+ 	 * and we need to allocate a new one of those as well.
+ 	 */
  
- 	if (fa && fa->fa_tos == tos &&
- 	    fa->fa_info->fib_priority == fi->fib_priority) {
+-	if (fa && fa->fa_info->fib_priority == fi->fib_priority) {
 -		struct fib_alias *fa_orig;
++	if (fa && fa->fa_tos == tos &&
++	    fa->fa_info->fib_priority == fi->fib_priority) {
 +		struct fib_alias *fa_first, *fa_match;
  
  		err = -EEXIST;
@@ -45,7 +53,7 @@ Signed-off-by: Julian Anastasov <ja@ssi.bg>
 +		fa_match = NULL;
 +		fa_first = fa;
 +		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
-+		list_for_each_entry_continue(fa, &f->fn_alias, fa_list) {
++		list_for_each_entry_continue(fa, fa_head, fa_list) {
 +			if (fa->fa_tos != tos)
 +				break;
 +			if (fa->fa_info->fib_priority != fi->fib_priority)
@@ -70,24 +78,33 @@ Signed-off-by: Julian Anastasov <ja@ssi.bg>
  				goto out;
 -
 +			}
- 			write_lock_bh(&fib_hash_lock);
- 			fi_drop = fa->fa_info;
- 			fa->fa_info = fi;
-@@ -469,20 +493,11 @@ static int fn_hash_insert(struct fib_tab
+ 			err = -ENOBUFS;
+ 			new_fa = kmem_cache_alloc(fn_alias_kmem, GFP_KERNEL);
+ 			if (new_fa == NULL)
+@@ -1228,7 +1253,7 @@ static int fn_trie_insert(struct fib_tab
+ 			new_fa->fa_type = cfg->fc_type;
+ 			new_fa->fa_scope = cfg->fc_scope;
+ 			state = fa->fa_state;
+-			new_fa->fa_state &= ~FA_S_ACCESSED;
++			new_fa->fa_state = state & ~FA_S_ACCESSED;
+ 
+ 			list_replace_rcu(&fa->fa_list, &new_fa->fa_list);
+ 			alias_free_mem_rcu(fa);
+@@ -1245,20 +1270,11 @@ static int fn_trie_insert(struct fib_tab
  		 * uses the same scope, type, and nexthop
  		 * information.
  		 */
 -		fa_orig = fa;
--		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
--		list_for_each_entry_continue(fa, &f->fn_alias, fa_list) {
+-		list_for_each_entry(fa, fa_orig->fa_list.prev, fa_list) {
 -			if (fa->fa_tos != tos)
 -				break;
 -			if (fa->fa_info->fib_priority != fi->fib_priority)
 -				break;
 -			if (fa->fa_type == cfg->fc_type &&
 -			    fa->fa_scope == cfg->fc_scope &&
--			    fa->fa_info == fi)
+-			    fa->fa_info == fi) {
 -				goto out;
+-			}
 -		}
 +		if (fa_match)
 +			goto out;
@@ -96,5 +113,17 @@ Signed-off-by: Julian Anastasov <ja@ssi.bg>
 -			fa = fa_orig;
 +			fa = fa_first;
  	}
- 
  	err = -ENOENT;
+ 	if (!(cfg->fc_nlflags & NLM_F_CREATE))
+@@ -1614,9 +1630,8 @@ static int fn_trie_delete(struct fib_tab
+ 	pr_debug("Deleting %08x/%d tos=%d t=%p\n", key, plen, tos, t);
+ 
+ 	fa_to_delete = NULL;
+-	fa_head = fa->fa_list.prev;
+-
+-	list_for_each_entry(fa, fa_head, fa_list) {
++	fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
++	list_for_each_entry_continue(fa, fa_head, fa_list) {
+ 		struct fib_info *fi = fa->fa_info;
+ 
+ 		if (fa->fa_tos != tos)
