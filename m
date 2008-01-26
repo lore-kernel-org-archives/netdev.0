@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
 Subject: Re: iproute2 (addr flush) infinite loop when unprivileged users
-Date: Sat, 26 Jan 2008 11:11:06 -0800
-Message-ID: <20080126111106.094c9f4e@deepthought>
+Date: Sat, 26 Jan 2008 11:14:37 -0800
+Message-ID: <20080126111437.2669236e@deepthought>
 References: <9e0cf0bf0801251500u388b9a5dxda92d6d1e3d86233@mail.gmail.com>
 	<20080125161259.0356c990@deepthought>
 	<9e0cf0bf0801251622w203c515fn80cba5f233bd599d@mail.gmail.com>
@@ -12,10 +12,10 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: "Alon Bar-Lev" <alon.barlev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:41225 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:57694 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754519AbYAZTLU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jan 2008 14:11:20 -0500
+	by vger.kernel.org with ESMTP id S1750927AbYAZTOv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jan 2008 14:14:51 -0500
 In-Reply-To: <9e0cf0bf0801260058s797d2ea3r7af013d0957554d8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -46,12 +46,30 @@ On Sat, 26 Jan 2008 10:58:58 +0200
 > >
 > > Alon.
 > >
+> 
+> Pulled your latest git head. See some updates but not this one...
+> Just thought to report the following [new] build error:
+> 
+> 
+> gcc -Wl,-export-dynamic  ip.o ipaddress.o iproute.o iprule.o rtm_map.o
+> iptunnel.o ip6tunnel.o tunnel.o ipneigh.o ipntable.o iplink.o
+> ipmaddr.o ipmonitor.o ipmroute.o ipprefix.o ipxfrm.o xfrm_state.o
+> xfrm_policy.o xfrm_monitor.o iplink_vlan.o link_veth.o
+> ../lib/libnetlink.a ../lib/libutil.a  -lresolv -L../lib -lnetlink
+> -lutil -ldl -o ip
+> iptunnel.o: In function `parse_args':
+> iptunnel.c:(.text+0x2f6): undefined reference to `__constant_htons'
+> iptunnel.c:(.text+0x434): undefined reference to `__constant_htons'
+> iptunnel.c:(.text+0x4c1): undefined reference to `__constant_htons'
+> iptunnel.c:(.text+0x4da): undefined reference to `__constant_htons'
+> iptunnel.c:(.text+0x51c): undefined reference to `__constant_htons'
+> iptunnel.o:iptunnel.c:(.text+0x535): more undefined references to
+> `__constant_htons' follow
+> collect2: ld returned 1 exit status
+> make[1]: *** [ip] Error 1
 
-
-I found the correct solution. The kernel will send back an error after a bad
-netlink message, even without ACK. so the code now checks.  Should be checked in
-and pushed for next version.
-
+What system are you building on.
+This is defined in linux/byteorder.h
 
 -- 
 Stephen Hemminger <stephen.hemminger@vyatta.com>
