@@ -1,96 +1,44 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH 2.6.24] fib: fix route replacement, fib_info is shared
-Date: Sat, 26 Jan 2008 02:11:26 +0200 (EET)
-Message-ID: <Pine.LNX.4.58.0801260205430.6309@u.domain.uli>
+From: "Alon Bar-Lev" <alon.barlev@gmail.com>
+Subject: Re: iproute2 (addr flush) infinite loop when unprivileged users
+Date: Sat, 26 Jan 2008 02:22:43 +0200
+Message-ID: <9e0cf0bf0801251622w203c515fn80cba5f233bd599d@mail.gmail.com>
+References: <9e0cf0bf0801251500u388b9a5dxda92d6d1e3d86233@mail.gmail.com>
+	 <20080125161259.0356c990@deepthought>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Joonwoo Park <joonwpark81@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:58206 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752733AbYAZAVb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2008 19:21:31 -0500
+Received: from ug-out-1314.google.com ([66.249.92.170]:59227 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754206AbYAZAWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2008 19:22:44 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so606813ugc.16
+        for <netdev@vger.kernel.org>; Fri, 25 Jan 2008 16:22:43 -0800 (PST)
+In-Reply-To: <20080125161259.0356c990@deepthought>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 1/26/08, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+> The issue is that iproute is just blindly sending the deletes and
+> not asking for acknowledgment status. Here is a trivial patch to iproute
+> to fix that, but the problem is that it means it will slow down bulk removal.
+>
+> Maybe it should just check the first, or last delete to see if there are
+> errors?
+>
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index 7a885b0..b2ae879 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
 
-	fib_info can be shared by many route prefixes but we don't
-want duplicate alternative routes for a prefix+tos+priority. Last
-change was not correct to check fib_treeref because it accounts usage
-from other prefixes.
+This should also be applied into ip/ipaddress.c, ip/ipneigh.c
+Or even make one common function?
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
+I don't quite understand how "fast" is good if not complete... But
+anyway... I will be happy to see this fix in next version... Maybe add
+--fast argument? :)
 
---- linux-2.6.24/net/ipv4/fib_hash.c_orig	2008-01-25 10:45:06.000000000 +0200
-+++ linux-2.6.24/net/ipv4/fib_hash.c	2008-01-26 01:29:36.000000000 +0200
-@@ -434,19 +434,40 @@ static int fn_hash_insert(struct fib_tab
- 
- 	if (fa && fa->fa_tos == tos &&
- 	    fa->fa_info->fib_priority == fi->fib_priority) {
--		struct fib_alias *fa_orig;
-+		struct fib_alias *fa_first, *fa_match;
- 
- 		err = -EEXIST;
- 		if (cfg->fc_nlflags & NLM_F_EXCL)
- 			goto out;
- 
-+		/* We have 2 goals:
-+		 * 1. Find exact match for type, scope, fib_info to avoid
-+		 * duplicate routes
-+		 * 2. Find next 'fa' (or head), NLM_F_APPEND inserts before it
-+		 */
-+		fa_match = NULL;
-+		fa_first = fa;
-+		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
-+		list_for_each_entry_continue(fa, &f->fn_alias, fa_list) {
-+			if (fa->fa_tos != tos)
-+				break;
-+			if (fa->fa_info->fib_priority != fi->fib_priority)
-+				break;
-+			if (fa->fa_type == cfg->fc_type &&
-+			    fa->fa_scope == cfg->fc_scope &&
-+			    fa->fa_info == fi) {
-+				fa_match = fa;
-+				break;
-+			}
-+		}
-+
- 		if (cfg->fc_nlflags & NLM_F_REPLACE) {
- 			struct fib_info *fi_drop;
- 			u8 state;
- 
--			if (fi->fib_treeref > 1)
-+			fa = fa_first;
-+			if (fa_match && fa != fa_match)
- 				goto out;
--
- 			write_lock_bh(&fib_hash_lock);
- 			fi_drop = fa->fa_info;
- 			fa->fa_info = fi;
-@@ -469,20 +490,11 @@ static int fn_hash_insert(struct fib_tab
- 		 * uses the same scope, type, and nexthop
- 		 * information.
- 		 */
--		fa_orig = fa;
--		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
--		list_for_each_entry_continue(fa, &f->fn_alias, fa_list) {
--			if (fa->fa_tos != tos)
--				break;
--			if (fa->fa_info->fib_priority != fi->fib_priority)
--				break;
--			if (fa->fa_type == cfg->fc_type &&
--			    fa->fa_scope == cfg->fc_scope &&
--			    fa->fa_info == fi)
--				goto out;
--		}
-+		if (fa_match)
-+			goto out;
-+
- 		if (!(cfg->fc_nlflags & NLM_F_APPEND))
--			fa = fa_orig;
-+			fa = fa_first;
- 	}
- 
- 	err = -ENOENT;
+Alon.
