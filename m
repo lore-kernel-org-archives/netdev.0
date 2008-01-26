@@ -1,129 +1,51 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCHv2 2.6.24] fib_trie: apply fixes from fib_hash
-Date: Sat, 26 Jan 2008 14:44:36 +0200 (EET)
-Message-ID: <Pine.LNX.4.58.0801261441470.7864@u.domain.uli>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Bugme-new] [Bug 9816] New: cannot replace route
+Date: Sat, 26 Jan 2008 15:10:10 +0100
+Message-ID: <20080126141010.GC2624@ami.dom.local>
+References: <bug-9816-10286@http.bugzilla.kernel.org/> <20080125142603.a73fd7a2.akpm@linux-foundation.org> <479A6CBD.4010908@gmail.com> <20080125192026.e667f396.akpm@linux-foundation.org> <b25c3fa70801252116h2b9f12c9j65a8a75dbd0d5662@mail.gmail.com> <20080126114036.GA2624@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Robert Olsson <robert.olsson@data.slu.se>, netdev@vger.kernel.org,
-	Joonwoo Park <joonwpark81@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, schwab@suse.de
+To: Joonwoo Park <joonwpark81@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:52395 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752330AbYAZMn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Jan 2008 07:43:59 -0500
+Received: from ug-out-1314.google.com ([66.249.92.168]:31766 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753746AbYAZOGM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jan 2008 09:06:12 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so671340ugc.16
+        for <netdev@vger.kernel.org>; Sat, 26 Jan 2008 06:06:11 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080126114036.GA2624@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Jan 26, 2008 at 12:40:36PM +0100, Jarek Poplawski wrote:
+> On Sat, Jan 26, 2008 at 02:16:01PM +0900, Joonwoo Park wrote:
+> > 2008/1/26, Andrew Morton <akpm@linux-foundation.org>:
+> > >
+> > > But whatever.   It used to work.  People's scripts will break.  Regression.
+> > >
+> > 
+> > Also I thought that 'replace with itself' should be error as like Jarek.
+> > But it used to work and patch made a regression, it's my bad :(
+> 
+> Actually, I don't think 'replace with itself' should be an error. I've
+> only meant that lack of this possibility shouldn't be necessarily seen
+> as error - there could be arguments for both sides.
 
-	Update fib_trie with some fib_hash fixes:
-- check for duplicate alternative routes for prefix+tos+priority when
-replacing route
-- properly insert by matching tos together with priority
-- fix alias walking to use list_for_each_entry_continue for insertion
-and deletion when fa_head is not NULL
-- copy state from fa to new_fa on replace (not a problem for now)
-- additionally, avoid replacement without error if new route is same,
-as Joonwoo Park suggests.
+...On the other hand, after some re-thinking, I actually think 'replace
+with itself' should be considered a bug. I wondered about the possible
+reason of this behaviour in a file system, and it seems replace just
+means things like overwrite, so old thing is always supposed to be
+destroyed (of course it's a matter of implementation or conditions in
+which moment this destruction takes place).
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
+So, 'replace with itself' is simply ambiguous: we can always delete the
+object first, to prepare the place for replacement, and find there is
+nothing to do after this - and it's probably not what somebody wanted.
+And, after re-reading this bugzilla report, I'm pretty sure the thing
+should be done with 'ip route change' (but I didn't check if 2.6.24
+knows about this...).
 
---- linux-2.6.24/net/ipv4/fib_trie.c_orig	2008-01-25 10:45:06.000000000 +0200
-+++ linux-2.6.24/net/ipv4/fib_trie.c	2008-01-26 14:11:27.000000000 +0200
-@@ -1203,20 +1203,45 @@ static int fn_trie_insert(struct fib_tab
- 	 * and we need to allocate a new one of those as well.
- 	 */
- 
--	if (fa && fa->fa_info->fib_priority == fi->fib_priority) {
--		struct fib_alias *fa_orig;
-+	if (fa && fa->fa_tos == tos &&
-+	    fa->fa_info->fib_priority == fi->fib_priority) {
-+		struct fib_alias *fa_first, *fa_match;
- 
- 		err = -EEXIST;
- 		if (cfg->fc_nlflags & NLM_F_EXCL)
- 			goto out;
- 
-+		/* We have 2 goals:
-+		 * 1. Find exact match for type, scope, fib_info to avoid
-+		 * duplicate routes
-+		 * 2. Find next 'fa' (or head), NLM_F_APPEND inserts before it
-+		 */
-+		fa_match = NULL;
-+		fa_first = fa;
-+		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
-+		list_for_each_entry_continue(fa, fa_head, fa_list) {
-+			if (fa->fa_tos != tos)
-+				break;
-+			if (fa->fa_info->fib_priority != fi->fib_priority)
-+				break;
-+			if (fa->fa_type == cfg->fc_type &&
-+			    fa->fa_scope == cfg->fc_scope &&
-+			    fa->fa_info == fi) {
-+				fa_match = fa;
-+				break;
-+			}
-+		}
-+
- 		if (cfg->fc_nlflags & NLM_F_REPLACE) {
- 			struct fib_info *fi_drop;
- 			u8 state;
- 
--			if (fi->fib_treeref > 1)
-+			fa = fa_first;
-+			if (fa_match) {
-+				if (fa == fa_match)
-+					err = 0;
- 				goto out;
--
-+			}
- 			err = -ENOBUFS;
- 			new_fa = kmem_cache_alloc(fn_alias_kmem, GFP_KERNEL);
- 			if (new_fa == NULL)
-@@ -1228,7 +1253,7 @@ static int fn_trie_insert(struct fib_tab
- 			new_fa->fa_type = cfg->fc_type;
- 			new_fa->fa_scope = cfg->fc_scope;
- 			state = fa->fa_state;
--			new_fa->fa_state &= ~FA_S_ACCESSED;
-+			new_fa->fa_state = state & ~FA_S_ACCESSED;
- 
- 			list_replace_rcu(&fa->fa_list, &new_fa->fa_list);
- 			alias_free_mem_rcu(fa);
-@@ -1245,20 +1270,11 @@ static int fn_trie_insert(struct fib_tab
- 		 * uses the same scope, type, and nexthop
- 		 * information.
- 		 */
--		fa_orig = fa;
--		list_for_each_entry(fa, fa_orig->fa_list.prev, fa_list) {
--			if (fa->fa_tos != tos)
--				break;
--			if (fa->fa_info->fib_priority != fi->fib_priority)
--				break;
--			if (fa->fa_type == cfg->fc_type &&
--			    fa->fa_scope == cfg->fc_scope &&
--			    fa->fa_info == fi) {
--				goto out;
--			}
--		}
-+		if (fa_match)
-+			goto out;
-+
- 		if (!(cfg->fc_nlflags & NLM_F_APPEND))
--			fa = fa_orig;
-+			fa = fa_first;
- 	}
- 	err = -ENOENT;
- 	if (!(cfg->fc_nlflags & NLM_F_CREATE))
-@@ -1614,9 +1630,8 @@ static int fn_trie_delete(struct fib_tab
- 	pr_debug("Deleting %08x/%d tos=%d t=%p\n", key, plen, tos, t);
- 
- 	fa_to_delete = NULL;
--	fa_head = fa->fa_list.prev;
--
--	list_for_each_entry(fa, fa_head, fa_list) {
-+	fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
-+	list_for_each_entry_continue(fa, fa_head, fa_list) {
- 		struct fib_info *fi = fa->fa_info;
- 
- 		if (fa->fa_tos != tos)
+Jarek P.
