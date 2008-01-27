@@ -1,55 +1,79 @@
-From: Mark Brown <broonie@sirena.org.uk>
-Subject: [PATCH] natsemi: Update locking documentation
-Date: Sun, 27 Jan 2008 13:58:11 +0000
-Message-ID: <1201442291-13668-1-git-send-email-broonie@sirena.org.uk>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mark Brown <broonie@sirena.org.uk>
-To: Jeff Garzik <jeff@garzik.org>, Tim Hockin <thockin@hockin.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757571AbYA0N6u@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH 10/14] [rndis_host] Add early_init function pointer to 'struct rndis_data'.
+Date: Sun, 27 Jan 2008 08:14:43 -0800
+Message-ID: <200801270814.43760.david-b@pacbell.net>
+References: <20080125225032.11716.77713.stgit@fate.lan> <20080125225128.11716.59998.stgit@fate.lan>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	bjd@jooz.net
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp114.sbc.mail.mud.yahoo.com ([68.142.198.213]:37200 "HELO
+	smtp114.sbc.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752305AbYA0Q34 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2008 11:29:56 -0500
+In-Reply-To: <20080125225128.11716.59998.stgit@fate.lan>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The documentation regarding synchronisation at the head of the natsemi
-driver was badly bitrotted so replace it with a general statement about
-the techniques used which is less likely to bitrot.
+On Friday 25 January 2008, Jussi Kivilinna wrote:
+> Function pointer is for 'subminidrivers' that need to do work on device 
+> right after minidriver has initialized hardware.
+> 
+> For example, rndis_wlan setting device specific configuration parameters
+> with OID_GEN_RNDIS_CONFIG_PARAMETER right after rndis_host has 
+> initialized hardware with RNDIS_INIT.
+> 
+> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 
-Also remove the note saying these chips are uncommon - it makes little
-difference but they were used in a number of laptops and at least one mass
-market PCI ethernet card.
+Acked-by: David Brownell <dbrownell@users.sourceforge.net>
 
-Signed-off-by: Mark Brown <broonie@sirena.org.uk>
----
- drivers/net/natsemi.c |   18 ++----------------
- 1 files changed, 2 insertions(+), 16 deletions(-)
+... though I'm not sure I'd coin a term like "subminidriver".  ;)
 
-diff --git a/drivers/net/natsemi.c b/drivers/net/natsemi.c
-index c329a4f..0a3e604 100644
---- a/drivers/net/natsemi.c
-+++ b/drivers/net/natsemi.c
-@@ -203,22 +203,8 @@ skbuff at an offset of "+2", 16-byte aligning the IP header.
- IIId. Synchronization
- 
- Most operations are synchronized on the np->lock irq spinlock, except the
--performance critical codepaths:
--
--The rx process only runs in the interrupt handler. Access from outside
--the interrupt handler is only permitted after disable_irq().
--
--The rx process usually runs under the netif_tx_lock. If np->intr_tx_reap
--is set, then access is permitted under spin_lock_irq(&np->lock).
--
--Thus configuration functions that want to access everything must call
--	disable_irq(dev->irq);
--	netif_tx_lock_bh(dev);
--	spin_lock_irq(&np->lock);
--
--IV. Notes
--
--NatSemi PCI network controllers are very uncommon.
-+recieve and transmit paths which are synchronised using a combination of
-+hardware descriptor ownership, disabling interrupts and NAPI poll scheduling.
- 
- IVb. References
- 
--- 
-1.5.3.8
+
+> ---
+> 
+>  drivers/net/usb/rndis_host.c |    6 ++++++
+>  drivers/net/usb/usbnet.h     |    5 +++++
+>  2 files changed, 11 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+> index 1d6bf0a..0813903 100644
+> --- a/drivers/net/usb/rndis_host.c
+> +++ b/drivers/net/usb/rndis_host.c
+> @@ -336,6 +336,12 @@ int generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf)
+>  		dev->hard_mtu, tmp, dev->rx_urb_size,
+>  		1 << le32_to_cpu(u.init_c->packet_alignment));
+>  
+> +	/* module has some device initialization code needs to be done right
+> +	 * after RNDIS_INIT */
+> +	if (dev->driver_info->early_init &&
+> +			dev->driver_info->early_init(dev) != 0)
+> +		goto halt_fail_and_release;
+> +
+>  	/* Get designated host ethernet address */
+>  	reply_len = ETH_ALEN;
+>  	retval = rndis_query(dev, intf, u.buf, OID_802_3_PERMANENT_ADDRESS,
+> diff --git a/drivers/net/usb/usbnet.h b/drivers/net/usb/usbnet.h
+> index 0b4bf09..25b63d3 100644
+> --- a/drivers/net/usb/usbnet.h
+> +++ b/drivers/net/usb/usbnet.h
+> @@ -116,6 +116,11 @@ struct driver_info {
+>  	struct sk_buff	*(*tx_fixup)(struct usbnet *dev,
+>  				struct sk_buff *skb, gfp_t flags);
+>  
+> +	/* early initialization code, can sleep. This is for minidrivers
+> +	 * having 'subminidrivers' that need to do extra initialization
+> +	 * right after minidriver have initialized hardware. */
+> +	int	(*early_init)(struct usbnet *dev);
+> +
+>  	/* for new devices, use the descriptor-reading code instead */
+>  	int		in;		/* rx endpoint */
+>  	int		out;		/* tx endpoint */
+> 
+
+
