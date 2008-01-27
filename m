@@ -1,63 +1,107 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH] SCTP: Fix miss of report unrecognized HMAC Algorithm parameter
-Date: Mon, 28 Jan 2008 08:50:07 +0900
-Message-ID: <479D18AF.7000802@cn.fujitsu.com>
-References: <47968AA3.2060704@cn.fujitsu.com> <20080124130551.GA24331@hmsreliant.think-freely.org> <479A1422.3090304@hp.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH] Implement skb_partial_csum_set
+Date: Mon, 28 Jan 2008 09:58:04 +1100
+Message-ID: <200801280958.05130.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail6.fujitsu.co.jp ([192.51.44.36]:42785 "EHLO
-	fgwmail6.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751540AbYA0Xu4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2008 18:50:56 -0500
-In-Reply-To: <479A1422.3090304@hp.com>
+Received: from ozlabs.org ([203.10.76.45]:34653 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752652AbYA1BGa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Jan 2008 20:06:30 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fix miss of check for report unrecognized HMAC Algorithm 
-parameter.
-When AUTH is disabled, goto fall through path to report unrecognized 
-parameter, else, just break.
-> Wei
->
-> Neil Horman wrote:
->> On Wed, Jan 23, 2008 at 09:30:27AM +0900, Wei Yongjun wrote:
->>> This patch fix miss of check for report unrecognized HMAC Algorithm 
->>> parameter.
->>> When AUTH is disabled, goto fall through path to report unrecognized 
->>> parameter, else, just break.
->>>
->>>
->>
->> Acked-by: Neil Horman <nhorman@tuxdriver.com>
->>
->> Neil
->>
->
-> Can you please send this to netdev and CC Dave Miller..
->
-> Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
->
-> -vlad
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
-Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+Implement skb_partial_csum_set, for setting partial csums on untrusted packets.
 
+Use it in virtio_net (replacing buggy version there), it's also going
+to be used by TAP for partial csum support.
 
---- a/net/sctp/sm_make_chunk.c	2008-01-21 00:03:25.000000000 -0500
-+++ b/net/sctp/sm_make_chunk.c	2008-01-21 02:33:36.000000000 -0500
-@@ -2014,7 +2014,7 @@ static sctp_ierror_t sctp_verify_param(c
- 		break;
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Acked-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/virtio_net.c |   11 +----------
+ include/linux/skbuff.h   |    1 +
+ net/core/skbuff.c        |   29 +++++++++++++++++++++++++++++
+ 3 files changed, 31 insertions(+), 10 deletions(-)
+
+diff -r 72be3d596d31 include/linux/skbuff.h
+--- a/include/linux/skbuff.h	Wed Jan 09 15:57:40 2008 +1100
++++ b/include/linux/skbuff.h	Wed Jan 09 16:56:41 2008 +1100
+@@ -1804,5 +1804,6 @@ static inline void skb_forward_csum(stru
+ 		skb->ip_summed = CHECKSUM_NONE;
+ }
  
- 	case SCTP_PARAM_HMAC_ALGO:
--		if (!sctp_auth_enable)
-+		if (sctp_auth_enable)
- 			break;
- 		/* Fall Through */
- fallthrough:
-
-
++bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off);
+ #endif	/* __KERNEL__ */
+ #endif	/* _LINUX_SKBUFF_H */
+diff -r 72be3d596d31 net/core/skbuff.c
+--- a/net/core/skbuff.c	Wed Jan 09 15:57:40 2008 +1100
++++ b/net/core/skbuff.c	Wed Jan 09 16:56:41 2008 +1100
+@@ -2214,6 +2214,34 @@ int skb_cow_data(struct sk_buff *skb, in
+ 	return elt;
+ }
+ 
++/**
++ * skb_partial_csum_set - set up and verify partial csum values for packet
++ * @skb: the skb to set
++ * @start: the number of bytes after skb->data to start checksumming.
++ * @off: the offset from start to place the checksum.
++ *
++ * For untrusted partially-checksummed packets, we need to make sure the values
++ * for skb->csum_start and skb->csum_offset are valid so we don't oops.
++ *
++ * This function checks and sets those values and skb->ip_summed: if this
++ * returns false you should drop the packet.
++ */
++bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off)
++{
++	if (unlikely(start > skb->len - 2) || 
++	    unlikely((int)start + off > skb->len - 2)) {
++		if (net_ratelimit())
++			printk(KERN_WARNING
++			       "bad partial csum: csum=%u/%u len=%u\n",
++			       start, off, skb->len);
++		return false;
++	}
++	skb->ip_summed = CHECKSUM_PARTIAL;
++	skb->csum_start = skb_headroom(skb) + start;
++	skb->csum_offset = off;
++	return true;
++}
++
+ EXPORT_SYMBOL(___pskb_trim);
+ EXPORT_SYMBOL(__kfree_skb);
+ EXPORT_SYMBOL(kfree_skb);
+@@ -2250,3 +2278,4 @@ EXPORT_SYMBOL(skb_append_datato_frags);
+ 
+ EXPORT_SYMBOL_GPL(skb_to_sgvec);
+ EXPORT_SYMBOL_GPL(skb_cow_data);
++EXPORT_SYMBOL_GPL(skb_partial_csum_set);
+diff -r 72be3d596d31 drivers/net/virtio_net.c
+--- a/drivers/net/virtio_net.c	Wed Jan 09 15:57:40 2008 +1100
++++ b/drivers/net/virtio_net.c	Wed Jan 09 16:56:41 2008 +1100
+@@ -89,17 +89,8 @@ static void receive_skb(struct net_devic
+ 
+ 	if (hdr->flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+ 		pr_debug("Needs csum!\n");
+-		skb->ip_summed = CHECKSUM_PARTIAL;
+-		skb->csum_start = hdr->csum_start;
+-		skb->csum_offset = hdr->csum_offset;
+-		if (skb->csum_start > skb->len - 2
+-		    || skb->csum_offset > skb->len - 2) {
+-			if (net_ratelimit())
+-				printk(KERN_WARNING "%s: csum=%u/%u len=%u\n",
+-				       dev->name, skb->csum_start,
+-				       skb->csum_offset, skb->len);
++		if (!skb_partial_csum_set(skb,hdr->csum_start,hdr->csum_offset))
+ 			goto frame_err;
+-		}
+ 	}
+ 
+ 	if (hdr->gso_type != VIRTIO_NET_HDR_GSO_NONE) {
