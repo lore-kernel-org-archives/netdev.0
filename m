@@ -1,91 +1,84 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: Re: Udev coldplugging loads 8139too driver instead of 8139cp
-Date: Tue, 29 Jan 2008 17:53:16 +0100
-Message-ID: <200801291753.18578.linux@rainbow-software.org>
-References: <1201554992.13883.13.camel@Anastacia> <20080128170830.6f67fa5a@deepthought> <479F0369.3080309@msgid.tls.msk.ru>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH] forcedeth: mac address mcp77/79
+Date: Mon, 28 Jan 2008 10:24:40 -0500
+Message-ID: <479DF3B8.2000204@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Michael Tokarev <mjt@tls.msk.ru>
+Content-Type: multipart/mixed;
+ boundary="------------080207080604080604090505"
+To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
+	nedev <netdev@vger.kernel.org>, stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.gsystems.sk ([62.176.172.50]:36262 "EHLO www.gsystems.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754519AbYA2Qx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jan 2008 11:53:56 -0500
-In-Reply-To: <479F0369.3080309@msgid.tls.msk.ru>
-Content-Disposition: inline
+Received: from hqemgate03.nvidia.com ([216.228.112.145]:19038 "EHLO
+	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751495AbYA2RBU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 12:01:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 29 January 2008 11:43:53 Michael Tokarev wrote:
-> Stephen Hemminger wrote:
-> > On Tue, 29 Jan 2008 03:46:08 +0300
-> > Michael Tokarev <mjt@tls.msk.ru> wrote:
->
-> []
->
-> >> There are 2 drivers for 8139-based NICs.  For really different two kinds
-> >> of hardware, which both uses the same PCI identifiers.  Both drivers
-> >> "claims" to work with all NICs with those PCI ids, because "externally"
-> >> (by means of udev for example) it's impossible to distinguish the two
-> >> kinds of hardware, it becomes clean only when the driver (either of the
-> >> two) loads and actually checks which hardware we have here.
-> >
-> > Is there any chance of using subdevice or subversion to tell them apart?
-> > That worked for other vendors like DLINK who slapped same ID on different
-> > cards.
->
-> If it were that simple... ;)
->
-> No.  The difference is in PCI revision number (byte #8 in PCI config
-> space). If it's >= 0x40 - it's 8139too, < 0x40 - 8139cp.  Or 0x20 - I
-> forgot.
+This is a multi-part message in MIME format.
+--------------080207080604080604090505
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Perhaps a module could be created that will claim this device ID and then use 
-the correct driver.
+This patch is a critical fix for MCP77 and MCP79 devices. The feature 
+flags were missing the define for correct mac address 
+(DEV_HAS_CORRECT_MACADDR).
 
-> Here's a code snippet from a shell script I used ages ago to automatically
-> load modules (similar to what udev does nowadays):
->
->   # special hack for 8139{too,cp} stuff
->   case "$modalias" in
->   *v000010ECd00008139*)
->     rev="$(dd if="$1/config" bs=1 skip=8 count=1 2>/dev/null)"
->     if [ -n "$rev" ]; then
->       list=
->       for module in $modlist; do
->         case "$module" in
->         8139cp)
->           if [ ".$rev" \< ". " ]; then
->             $vecho1 "$TAG: not loading $module for this device"
->             continue
->           fi
->           ;;
->         8139too)
->           if [ ".$rev" \> ". " ]; then
->             $vecho1 "$TAG: not loading $module for this device"
->             continue
->           fi
->           ;;
->         esac
->         list="$list $module"
->       done
->       modlist="$list"
->     fi
->     ;;
->   esac
->
-> /mjt
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
+--------------080207080604080604090505
+Content-Type: text/plain;
+ name="patch-forcedeth-macaddr-mcp77-79"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-macaddr-mcp77-79"
 
--- 
-Ondrej Zary
+--- old/drivers/net/forcedeth.c	2008-01-28 10:15:28.000000000 -0500
++++ new/drivers/net/forcedeth.c	2008-01-28 10:17:38.000000000 -0500
+@@ -5603,35 +5603,35 @@
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_32),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_33),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_34),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_35),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_36),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_37),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_38),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_39),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{0,},
+ };
+
+--------------080207080604080604090505--
