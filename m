@@ -1,75 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH] New driver "sfc" for Solarstorm SFC4000 controller
-Date: Tue, 29 Jan 2008 16:22:02 +0000
-Message-ID: <20080129162201.GC28089@solarflare.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: [PATCH] pktgen: pktgen should not print info that it is spinning
+Date: Mon, 28 Jan 2008 13:16:35 -0800
+Message-ID: <20080128211635.5907.81831.stgit@jbrandeb-ich9b.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, linux-net-drivers@solarflare.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, auke-jan.h.kok@intel.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pythagoras.zen.co.uk ([212.23.3.140]:56197 "EHLO
-	pythagoras.zen.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932750AbYA2QWK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 11:22:10 -0500
-Content-Disposition: inline
+Received: from mga03.intel.com ([143.182.124.21]:57656 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752245AbYA2Qfk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2008 11:35:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a resubmission of a new driver for Solarflare network controllers.
+when using pktgen to send delay packets the module prints repeatedly to the
+kernel log:
+sleeping for X
+sleeping for X
+...
 
-The driver supports several types of PHY (10Gbase-T, XFP, CX4) on six
-different 10G and 1G boards.  It is accompanied by an MTD driver that
-allows access to the flash/EEPROM.
+This is probably just a debugging item left in and should not be enabled for
+regular use of the module.
 
-NICs based on this controller are now available from SMC as part numbers
-SMC10GPCIe-XFP and SMC10GPCIe-10BT.
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Robert Olsson <Robert.Olsson@data.slu.se>
+---
 
-FYI the previous thread was:
-  http://marc.info/?l=linux-netdev&m=120067352032298&w=4
+ net/core/pktgen.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-Things that have changed since the last patch:
 
- - Changed ethtool support to use the default ethtool implementations
-   where possible
- - Removed unused MDIO functions
- - Combined struct efx_nic and struct efx_nic_port, since the driver
-   now only supports 1-port configurations
- - Removed/combined redundant members of struct efx_nic
- - Moved some constant members of struct efx_nic into struct efx_nic_type
- - Moved the two steps of efx_nic::dma_mask initialisation together
- - Eliminated efx_nic::features and efx_nic_type::features; moved all
-   feature flag setting into efx_init_netdev()
- - Fixed page-based RX buffer alignment for architectures with strict
-   alignment
- - Replaced spinlocks with mutexes where possible
- - Merged efx_{init,fini}_debugfs_nic_symlink into
-   efx_{init,fini}_debugfs_netdev
- - Renamed efx_{init,fini}_netdev and corrected comments to
-   indicate that they only (un)register the net device
- - Added EFX_FTL - fatal in debug builds otherwise equivalent to EFX_ERR
- - Changed RX FIFO watermarks to more reasonable values
- - Fixed various corner cases in PHY reconfiguration
- - Changed NET_DEV_NAME() to use efx->name, making races with
-   (un)registration harmless
- - Fixed repetition of PCI or net device name in log messages
- - Renamed falcon_nic_params structure to falcon_nic_data
- - Fixed spelling, capitalisation, grammar, punctuation, spacing
-   in various comments and log messages
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 285ec3e..b1b1aba 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2138,7 +2138,6 @@ static void spin(struct pktgen_dev *pkt_dev, __u64 spin_until_us)
+ 	__u64 now;
+ 
+ 	start = now = getCurUs();
+-	printk(KERN_INFO "sleeping for %d\n", (int)(spin_until_us - now));
+ 	while (now < spin_until_us) {
+ 		/* TODO: optimize sleeping behavior */
+ 		if (spin_until_us - now > jiffies_to_usecs(1) + 1)
 
-We believe this is ready to be merged now and would like to know if
-there is anything remaining that we need to fix or improve.
-
-The patch (against netdev-2.6) is at:
-  https://support.solarflare.com/netdev/6/netdev-2.6-sfc-2.2.0056.patch
-
-The new files may also be downloaded as a tarball:
-  https://support.solarflare.com/netdev/6/netdev-2.6-sfc-2.2.0056.tgz
-
-And for verification there is:
-  https://support.solarflare.com/netdev/6/MD5SUMS
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
