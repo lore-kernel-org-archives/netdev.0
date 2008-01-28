@@ -1,41 +1,53 @@
-From: Tino Keitel <tino.keitel@gmx.de>
-Subject: 2.6.24 regression: Wake On Lan in sky2 broken on Mac mini
-Date: Mon, 28 Jan 2008 09:42:23 +0100
-Message-ID: <20080128084222.GA5558@dose.home.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/6] [DCCP]: Bug in initial acknowledgment number assignment
+Date: Mon, 28 Jan 2008 10:16:12 +0000
+Message-ID: <1201515376-8280-3-git-send-email-gerrit@erg.abdn.ac.uk>
+References: dccp_ccid3_dccp_probe__bug_fixes
+ <1201515376-8280-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1201515376-8280-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eazy.amigager.de ([213.239.192.238]:55638 "EHLO
-	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752792AbYA1JPi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 04:15:38 -0500
-Received: from dose.home.local (port-92-195-90-43.dynamic.qsc.de [92.195.90.43])
-	by eazy.amigager.de (Postfix) with ESMTP id 203C0C8C1F5
-	for <netdev@vger.kernel.org>; Mon, 28 Jan 2008 09:42:16 +0100 (CET)
-Received: from scorpion by dose.home.local with local (Exim 4.69)
-	(envelope-from <tino.keitel@gmx.de>)
-	id 1JJPZP-0001Ta-1x
-	for netdev@vger.kernel.org; Mon, 28 Jan 2008 09:42:23 +0100
-Content-Disposition: inline
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60470 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752571AbYA1KRM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jan 2008 05:17:12 -0500
+In-Reply-To: <1201515376-8280-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi folks,
+Step 8.5 in RFC 4340 says for the newly cloned socket
 
-with 2.6.24-rc8, Wake On LAN doesn't work anymore as it used to with
-2.6.23 on my Mac mini Core Duo. I saw that this was reported in
-http://bugzilla.kernel.org/show_bug.cgi?id=9721 and on netdev a patch
-for the sky2 driver was sent by Stephen Hemminger. This patch fixed WOL
-for me after applying it to 2.6.24-rc8.
+           Initialize S.GAR := S.ISS,
 
-However, it seems as the patch never made it into the kernel. Instead,
-the commit that was suspected to break WOL
-(84cd2dfb04d23a961c5f537baa243fa54d0987ac) was reverted
-(be63a21c9573fbf88106ff0f030da5974551257b).
+but what in fact the code (minisocks.c) does is
 
-Now I tried the 2.6.24 release and noticed that WOL is still broken.
-I'll be happy to test any patches that can make it into 2.6.24.1.
+           Initialize S.GAR := S.ISR,
 
-Regards,
-Tino
+which is wrong (typo?) -- fixed by the patch.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/minisocks.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
+
+--- a/net/dccp/minisocks.c
++++ b/net/dccp/minisocks.c
+@@ -122,13 +122,12 @@ struct sock *dccp_create_openreq_child(struct sock *sk,
+ 		 *    Initialize S.GAR := S.ISS
+ 		 *    Set S.ISR, S.GSR, S.SWL, S.SWH from packet or Init Cookies
+ 		 */
++		newdp->dccps_gar = newdp->dccps_iss = dreq->dreq_iss;
++		dccp_update_gss(newsk, dreq->dreq_iss);
+ 
+-		newdp->dccps_gar = newdp->dccps_isr = dreq->dreq_isr;
++		newdp->dccps_isr = dreq->dreq_isr;
+ 		dccp_update_gsr(newsk, dreq->dreq_isr);
+ 
+-		newdp->dccps_iss = dreq->dreq_iss;
+-		dccp_update_gss(newsk, dreq->dreq_iss);
+-
+ 		/*
+ 		 * SWL and AWL are initially adjusted so that they are not less than
+ 		 * the initial Sequence Numbers received and sent, respectively:
