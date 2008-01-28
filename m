@@ -1,100 +1,57 @@
-From: Jens Osterkamp <jens@de.ibm.com>
-Subject: Re: [Cbe-oss-dev] [PATCH 1/5] spidernet: add missing initialization
-Date: Mon, 28 Jan 2008 14:40:48 +0100
-Message-ID: <200801281440.48602.jens@de.ibm.com>
-References: <20080111.153859.-1300526764.kouish@swc.toshiba.co.jp> <200801231453.42736.jens@de.ibm.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: 2.6.24 regression: Wake On Lan in sky2 broken on Mac mini
+Date: Mon, 28 Jan 2008 07:59:35 -0800
+Message-ID: <20080128075935.6613286f@deepthought>
+References: <20080128002934.GA6354@dose.home.local>
+	<18333.37002.749771.524523@harpo.it.uu.se>
+	<20080128084855.GA5926@dose.home.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org,
-	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Tino Keitel <tino.keitel@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([195.212.29.137]:64891 "EHLO
-	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755288AbYA1Nky (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 08:40:54 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate4.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m0SDer6r168078
-	for <netdev@vger.kernel.org>; Mon, 28 Jan 2008 13:40:53 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0SDeqZC4980932
-	for <netdev@vger.kernel.org>; Mon, 28 Jan 2008 13:40:52 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0SDenCU008726
-	for <netdev@vger.kernel.org>; Mon, 28 Jan 2008 13:40:49 GMT
-In-Reply-To: <200801231453.42736.jens@de.ibm.com>
-Content-Disposition: inline
+Received: from mail.vyatta.com ([216.93.170.194]:53818 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752157AbYA1P7m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jan 2008 10:59:42 -0500
+In-Reply-To: <20080128084855.GA5926@dose.home.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 28 Jan 2008 09:48:55 +0100
+Tino Keitel <tino.keitel@gmx.de> wrote:
 
-Jeff,
+> On Mon, Jan 28, 2008 at 09:21:30 +0100, Mikael Pettersson wrote:
+> > Tino Keitel writes:
+> >  > Hi folks,
+> >  > 
+> >  > with 2.6.24-rc8, Wake On LAN doesn't work anymore as it used to with
+> >  > 2.6.23 on my Mac mini Core Duo. I saw that this was reported in
+> >  > http://bugzilla.kernel.org/show_bug.cgi?id=9721 and on netdev a patch
+> >  > for the sky2 driver was sent by Stephen Hemminger. This patch fixed WOL
+> >  > for me after applying it to 2.6.24-rc8.
+> >  > 
+> >  > However, it seems as the patch never made it into the kernel. Instead,
+> >  > the commit that was suspected to break WOL
+> >  > (84cd2dfb04d23a961c5f537baa243fa54d0987ac) was reverted
+> >  > (be63a21c9573fbf88106ff0f030da5974551257b).
+> >  > 
+> >  > Now I tried the 2.6.24 release and noticed that WOL is still broken.
+> >  > I'll be happy to test any patches that can make it into 2.6.24.1.
+> > 
+> > 1. Wrong mailing list; use netdev (@vger) instead.
+> 
+> Done.
+> 
+> > 2. The reverted commit had much much more serious consequences than
+> >    "wol doesn't work", it actually caused BIOS hangs and failed reboots.
+> 
+> Yes, but even with the reverted commit, WOL still doesn't work. I just
+> tried the patch from the netdev mailing list with the 2.6.24 release
+> version and now WOL works for me.
 
-this series of 5 patches by Ishizaki-san runs fine on the blade, I test=
-ed it
-for a few days. Besides it fixes a nasty bug in spidernet RX descriptor=
- handling.
+Patch went to Jeff, but never made it into 2.6.24.  The timing was just wrong.
 
-Can you please consider it for 2.6.25 ?
-
-Thanks !
-
-Jens
-
-On Wednesday 23 January 2008, Jens Osterkamp wrote:
-> On Friday 11 January 2008, Ishizaki Kou wrote:
-> > This patch fixes initialization of "aneg_count" and "medium" fields=
- in
-> > spider_net_card to make spidernet driver correctly sets "link statu=
-s".
-> >=20
-> > Signed-off-by: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
->=20
-> Acked-by: Jens Osterkamp <jens@de.ibm.com>
->=20
-> > ---
-> >=20
-> > Index: linux-powerpc-git/drivers/net/spider_net.c
-> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> > --- linux-powerpc-git.orig/drivers/net/spider_net.c
-> > +++ linux-powerpc-git/drivers/net/spider_net.c
-> > @@ -1399,6 +1399,8 @@ spider_net_link_reset(struct net_device=20
-> >  	spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0);
-> >=20
-> >  	/* reset phy and setup aneg */
-> > +	card->aneg_count =3D 0;
-> > +	card->medium =3D BCM54XX_COPPER;
-> >  	spider_net_setup_aneg(card);
-> >  	mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
-> >=20
-> > @@ -1982,6 +1984,8 @@ spider_net_open(struct net_device *netde
-> >  		goto init_firmware_failed;
-> >=20
-> >  	/* start probing with copper */
-> > +	card->aneg_count =3D 0;
-> > +	card->medium =3D BCM54XX_COPPER;
-> >  	spider_net_setup_aneg(card);
-> >  	if (card->phy.def->phy_id)
-> >  		mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
-> > _______________________________________________
-> > cbe-oss-dev mailing list
-> > cbe-oss-dev@ozlabs.org
-> > https://ozlabs.org/mailman/listinfo/cbe-oss-dev
-> >
-
-
-
---=20
-
-Gru=DF,
-
-Jens
-
-IBM Deutschland Entwicklung GmbH
-Vorsitzender des Aufsichtsrats: Martin Jetter
-Gesch=E4ftsf=FChrung: Herbert Kircher=20
-Sitz der Gesellschaft: B=F6blingen
-Registergericht: Amtsgericht Stuttgart, HRB 243294
+-- 
+Stephen Hemminger <stephen.hemminger@vyatta.com>
