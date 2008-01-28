@@ -1,60 +1,48 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9836] New: e1000 network driver doesn't
- recognize (and load on) its hardware
-Date: Mon, 28 Jan 2008 13:44:04 -0800
-Message-ID: <20080128134404.24c80ce7.akpm@linux-foundation.org>
-References: <bug-9836-10286@http.bugzilla.kernel.org/>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [2.6 patch] security/selinux/netlabel.c: fix double free
+Date: Tue, 29 Jan 2008 00:09:38 +0200
+Message-ID: <20080128220938.GH8767@does.not.exist>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	t.artem@mailcity.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:60209 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751836AbYA1Vo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 16:44:26 -0500
-In-Reply-To: <bug-9836-10286@http.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: paul.moore@hp.com, James Morris <jmorris@namei.org>,
+	sds@tycho.nsa.gov, eparis@parisplace.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758640AbYA1WJb@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 28 Jan 2008 05:32:00 -0800 (PST)
-bugme-daemon@bugzilla.kernel.org wrote:
+This patch fixes a double free (security_netlbl_sid_to_secattr() already 
+calls netlbl_secattr_destroy() when it returns !0) introduced by
+commit 45c950e0f839fded922ebc0bfd59b1081cc71b70 and spotted by the 
+Coverity checker.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=9836
-> 
->            Summary: e1000 network driver doesn't recognize (and load on) its
->                     hardware
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: 2.6.24
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: blocking
->           Priority: P1
->          Component: Network
->         AssignedTo: jgarzik@pobox.com
->         ReportedBy: t.artem@mailcity.com
-> 
-> 
-> Latest working kernel version: not known
-> Earliest failing kernel version: every
-> Distribution: Fedora Core 7
-> Hardware Environment: lspci output and dmesg information are attached
-> Software Environment: doesn't matter
-> Problem Description: recently e1000 network drivers stopped working when right
-> after switching on or rebooting our Intel server. While trying to 'modprobe
-> e1000; ifconfig eth0 IP_address' I've got a failure and e1000 says hardware is
-> not detected. After about a *hundred* attempts to modprobe and rmmod it, the
-> e1000 network driver finally loads and allows to set up networking.
-> 
-> Steps to reproduce: reboot or power on your server. Try to up the network which
-> is attached to your Intel PCI-X Pro 1000 NIC.
-> 
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-Odd.
+---
+--- linux-2.6/security/selinux/netlabel.c.old	2008-01-23 00:38:19.000000000 +0200
++++ linux-2.6/security/selinux/netlabel.c	2008-01-23 00:39:09.000000000 +0200
+@@ -58,22 +58,22 @@ static int selinux_netlbl_sock_setsid(st
+ 	rc = security_netlbl_sid_to_secattr(sid, &secattr);
+ 	if (rc != 0)
+ 		goto sock_setsid_return;
+ 	rc = netlbl_sock_setattr(sk, &secattr);
+ 	if (rc == 0) {
+ 		spin_lock_bh(&sksec->nlbl_lock);
+ 		sksec->nlbl_state = NLBL_LABELED;
+ 		spin_unlock_bh(&sksec->nlbl_lock);
+ 	}
+ 
+-sock_setsid_return:
+ 	netlbl_secattr_destroy(&secattr);
++sock_setsid_return:
+ 	return rc;
+ }
+ 
+ /**
+  * selinux_netlbl_cache_invalidate - Invalidate the NetLabel cache
+  *
+  * Description:
+  * Invalidate the NetLabel security attribute mapping cache.
+  *
+  */
