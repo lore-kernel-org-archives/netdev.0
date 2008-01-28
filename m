@@ -1,57 +1,56 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: 2.6.24 regression: Wake On Lan in sky2 broken on Mac mini
-Date: Mon, 28 Jan 2008 07:59:35 -0800
-Message-ID: <20080128075935.6613286f@deepthought>
-References: <20080128002934.GA6354@dose.home.local>
-	<18333.37002.749771.524523@harpo.it.uu.se>
-	<20080128084855.GA5926@dose.home.local>
+Subject: Re: appearing again: kernel: eth0: too many iterations (6) in
+ nv_nic_irq
+Date: Mon, 28 Jan 2008 08:06:56 -0800
+Message-ID: <20080128080656.1cc8a4e0@deepthought>
+References: <18333.55687.621653.838538@fisica.ufpr.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Tino Keitel <tino.keitel@gmx.de>
+To: carlos@fisica.ufpr.br (Carlos Carvalho)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:53818 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([216.93.170.194]:53983 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752157AbYA1P7m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jan 2008 10:59:42 -0500
-In-Reply-To: <20080128084855.GA5926@dose.home.local>
+	id S1752528AbYA1QHA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jan 2008 11:07:00 -0500
+In-Reply-To: <18333.55687.621653.838538@fisica.ufpr.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Jan 2008 09:48:55 +0100
-Tino Keitel <tino.keitel@gmx.de> wrote:
+On Mon, 28 Jan 2008 11:32:55 -0200
+carlos@fisica.ufpr.br (Carlos Carvalho) wrote:
 
-> On Mon, Jan 28, 2008 at 09:21:30 +0100, Mikael Pettersson wrote:
-> > Tino Keitel writes:
-> >  > Hi folks,
-> >  > 
-> >  > with 2.6.24-rc8, Wake On LAN doesn't work anymore as it used to with
-> >  > 2.6.23 on my Mac mini Core Duo. I saw that this was reported in
-> >  > http://bugzilla.kernel.org/show_bug.cgi?id=9721 and on netdev a patch
-> >  > for the sky2 driver was sent by Stephen Hemminger. This patch fixed WOL
-> >  > for me after applying it to 2.6.24-rc8.
-> >  > 
-> >  > However, it seems as the patch never made it into the kernel. Instead,
-> >  > the commit that was suspected to break WOL
-> >  > (84cd2dfb04d23a961c5f537baa243fa54d0987ac) was reverted
-> >  > (be63a21c9573fbf88106ff0f030da5974551257b).
-> >  > 
-> >  > Now I tried the 2.6.24 release and noticed that WOL is still broken.
-> >  > I'll be happy to test any patches that can make it into 2.6.24.1.
-> > 
-> > 1. Wrong mailing list; use netdev (@vger) instead.
+> It seems that this problem with NVidia's nic comes up more and more...
+> From time to time we get this in the log:
 > 
-> Done.
+> Jan 27 14:43:12 duvel kernel: eth0: too many iterations (6) in nv_nic_irq.
 > 
-> > 2. The reverted commit had much much more serious consequences than
-> >    "wol doesn't work", it actually caused BIOS hangs and failed reboots.
+> We algo get
 > 
-> Yes, but even with the reverted commit, WOL still doesn't work. I just
-> tried the patch from the netdev mailing list with the 2.6.24 release
-> version and now WOL works for me.
+> Jan 27 11:32:43 duvel kernel: KERNEL: assertion ((int)tcp_packets_in_flight(tp) >= 0) failed at net/ipv4/tcp_input.c (1274)
+> 
+> But at different moments, as shown above. Are they related? What's the
+> meaning of the "assertion failed" one?
+> 
+> The messages are more likely to appear when traffic is high
+> (>500Mb/s). This is with 2.6.22.16.
+> 
+> Any suggestions?
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-Patch went to Jeff, but never made it into 2.6.24.  The timing was just wrong.
+Use NAPI which is available as configuration option in this driver.
+
+Increase the max_interrupt_work from the ridiculously low value of 5
+to something more larger like 15, with module parameter in /etc/modprobe.d/options:
+
+options forcedeth max_interrupt_work=15
+
+Also, see if you motherboard supports MSI, if so add "msi=1" module parameter
 
 -- 
 Stephen Hemminger <stephen.hemminger@vyatta.com>
