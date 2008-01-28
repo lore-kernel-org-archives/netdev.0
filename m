@@ -1,66 +1,77 @@
-From: shanwei <shanwei@cn.fujitsu.com>
-Subject: Re: [PATCH] TCP:Fix a bug in strategy_allowed_congestion_control
-Date: Mon, 28 Jan 2008 10:05:35 +0800
-Message-ID: <479D386F.5030805@cn.fujitsu.com>
-References: <47998B55.1030305@cn.fujitsu.com> <20080125082553.78e1d207@deepthought>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: [PATCH][INET_DIAG]: Fix inet_diag_lock_handler error path
+Date: Mon, 28 Jan 2008 00:20:50 -0200
+Message-ID: <20080128022050.GQ27661@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Sam Jansen <sjansen@google.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, spike@ml.yaroslavl.ru,
+	netdev@vger.kernel.org, stable@kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:61785 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753950AbYA1CGP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Jan 2008 21:06:15 -0500
-In-Reply-To: <20080125082553.78e1d207@deepthought>
+Received: from mx1.redhat.com ([66.187.233.31]:53586 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752449AbYA1CVW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Jan 2008 21:21:22 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger =E5=86=99=E9=81=93:
-> On Fri, 25 Jan 2008 15:10:13 +0800
-> shanwei <shanwei@cn.fujitsu.com> wrote:
->=20
->> hi all:
->>
->> In strategy_allowed_congestion_control of the 2.6.24 kernel,=20
->> when sysctl_string return 1 on success,it should call=20
->> tcp_set_allowed_congestion_control to set the allowed congestion
->> control.But, it don't.
->> the sysctl_string return 1 on success, otherwise return negative,
->> never return 0.The patch fix the problem.
->>
->> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
->>
->> diff -Nuarp linux-2.6.24/net/ipv4/sysctl_net_ipv4.c linux-2.6.24-new=
-/net/ipv4/sysctl_net_ipv4.c
->> --- linux-2.6.24/net/ipv4/sysctl_net_ipv4.c	2008-01-25 06:58:37.0000=
-00000 +0800
->> +++ linux-2.6.24-new/net/ipv4/sysctl_net_ipv4.c	2008-01-25 12:23:20.=
-000000000 +0800
->> @@ -248,7 +248,7 @@ static int strategy_allowed_congestion_c
->> =20
->>  	tcp_get_available_congestion_control(tbl.data, tbl.maxlen);
->>  	ret =3D sysctl_string(&tbl, name, nlen, oldval, oldlenp, newval, n=
-ewlen);
->> -	if (ret =3D=3D 0 && newval && newlen)
->> +	if (ret =3D=3D 1 && newval && newlen)
->>  		ret =3D tcp_set_allowed_congestion_control(tbl.data);
->>  	kfree(tbl.data);
->>
->>
->=20
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
-> This parallels previous fix by Sam Jansen.
->=20
->=20
-=46rom the link:http://marc.info/?l=3Dlinux-netdev&m=3D119551836927062&=
-w=3D2,
-he only fix the sysctl_tcp_congestion_control function.
-In the latest kernel, the sysctl_string problem is present.
-Can this patch be applied?
+Fixes: http://bugzilla.kernel.org/show_bug.cgi?id=9825
 
-=20
+The inet_diag_lock_handler function uses ERR_PTR to encode errors but
+its callers were testing against NULL.
 
+This only happens when the only inet_diag modular user, DCCP, is not
+built into the kernel or available as a module.
+
+Also there was a problem with not dropping the mutex lock when a handler
+was not found, also fixed in this patch.
+
+This caused an OOPS and ss would then hang on subsequent calls, as
+&inet_diag_table_mutex was being left locked.
+
+Thanks to spike at ml.yaroslavl.ru for report it after trying 'ss -d'
+on a kernel that doesn't have DCCP available.
+
+This bug was introduced in cset
+d523a328fb0271e1a763e985a21f2488fd816e7e, after 2.6.24-rc3, so just
+2.6.24 seems to be affected.
+
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index e468e7a..6d2979c 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -259,8 +259,10 @@ static int inet_diag_get_exact(struct sk_buff *in_skb,
+ 	const struct inet_diag_handler *handler;
+ 
+ 	handler = inet_diag_lock_handler(nlh->nlmsg_type);
+-	if (!handler)
+-		return -ENOENT;
++	if (IS_ERR(handler)) {
++		err = PTR_ERR(handler);
++		goto unlock;
++	}
+ 
+ 	hashinfo = handler->idiag_hashinfo;
+ 	err = -EINVAL;
+@@ -708,8 +710,8 @@ static int inet_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct inet_hashinfo *hashinfo;
+ 
+ 	handler = inet_diag_lock_handler(cb->nlh->nlmsg_type);
+-	if (!handler)
+-		goto no_handler;
++	if (IS_ERR(handler))
++		goto unlock;
+ 
+ 	hashinfo = handler->idiag_hashinfo;
+ 
+@@ -838,7 +840,6 @@ done:
+ 	cb->args[2] = num;
+ unlock:
+ 	inet_diag_unlock_handler(handler);
+-no_handler:
+ 	return skb->len;
+ }
+ 
