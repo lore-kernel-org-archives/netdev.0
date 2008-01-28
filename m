@@ -1,76 +1,81 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [2.6 patch] security/selinux/netlabel.c: fix double free
-Date: Mon, 28 Jan 2008 17:23:46 -0500
-Message-ID: <200801281723.46273.paul.moore@hp.com>
-References: <20080128220938.GH8767@does.not.exist>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [Bugme-new] [Bug 9836] New: e1000 network driver doesn't recognize (and load on) its hardware
+Date: Mon, 28 Jan 2008 14:23:00 -0800
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5204481F7C@orsmsx418.amr.corp.intel.com>
+References: <bug-9836-10286@http.bugzilla.kernel.org/> <20080128134404.24c80ce7.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: James Morris <jmorris@namei.org>, sds@tycho.nsa.gov,
-	eparis@parisplace.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <bugme-daemon@bugzilla.kernel.org>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	<t.artem@mailcity.com>
+To: "Andrew Morton" <akpm@linux-foundation.org>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:19304 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754520AbYA1WXv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 17:23:51 -0500
-In-Reply-To: <20080128220938.GH8767@does.not.exist>
-Content-Disposition: inline
+Received: from mga02.intel.com ([134.134.136.20]:45132 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763493AbYA1WYK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 17:24:10 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20080128134404.24c80ce7.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 28 January 2008 5:09:38 pm Adrian Bunk wrote:
-> This patch fixes a double free (security_netlbl_sid_to_secattr()
-> already calls netlbl_secattr_destroy() when it returns !0) introduced
-> by commit 45c950e0f839fded922ebc0bfd59b1081cc71b70 and spotted by the
-> Coverity checker.
+Andrew Morton wrote:
+> On Mon, 28 Jan 2008 05:32:00 -0800 (PST)
+> bugme-daemon@bugzilla.kernel.org wrote:
+> 
+>> http://bugzilla.kernel.org/show_bug.cgi?id=9836
+>> Problem Description: recently e1000 network drivers stopped working
+>> when right after switching on or rebooting our Intel server. While
+>> trying to 'modprobe e1000; ifconfig eth0 IP_address' I've got a
+>> failure and e1000 says hardware is not detected. After about a
+>> *hundred* attempts to modprobe and rmmod it, the e1000 network
+>> driver finally loads and allows to set up networking. 
 
-Hi Adrian,
+I'm not sure how you figured out rmmod/insmoding the driver gets you
+working, but I don't see any failure messages in the dmesg log you sent,
+I just see:
 
-Thanks for finding this mistake, however, I'd rather see it fixed by 
-removing the netlbl_secattr_destroy() call in 
-security_netlbl_sid_to_secattr() as it really shouldn't be there 
-anymore.  We moved the matching _init() call into 
-selinux_netlbl_sock_setsid() and I'd like to see the _init() and 
-_destroy() calls done in the same function.  I can push a revised patch 
-for this if you would prefer, otherwise I'll be happy to ack an updated 
-version ...
+Intel(R) PRO/1000 Network Driver - version 7.3.20-k2-NAPI
+Copyright (c) 1999-2006 Intel Corporation.
+ACPI: PCI Interrupt 0000:07:04.0[A] -> GSI 16 (level, low) -> IRQ 16
+e1000: 0000:07:04.0: e1000_probe: (PCI:33MHz:32-bit) 00:04:23:cc:82:5e
+e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
+ACPI: PCI interrupt for device 0000:07:04.0 disabled
+Intel(R) PRO/1000 Network Driver - version 7.3.20-k2-NAPI
+Copyright (c) 1999-2006 Intel Corporation.
+ACPI: PCI Interrupt 0000:07:04.0[A] -> GSI 16 (level, low) -> IRQ 16
+e1000: 0000:07:04.0: e1000_probe: (PCI:33MHz:32-bit) 00:04:23:cc:82:5e
+e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
+ACPI: PCI interrupt for device 0000:07:04.0 disabled
+Intel(R) PRO/1000 Network Driver - version 7.3.20-k2-NAPI
+Copyright (c) 1999-2006 Intel Corporation.
+ACPI: PCI Interrupt 0000:07:04.0[A] -> GSI 16 (level, low) -> IRQ 16
+e1000: 0000:07:04.0: e1000_probe: (PCI:33MHz:32-bit) 00:04:23:cc:82:5e
+e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
+e1000: eth0: e1000_watchdog: NIC Link is Up 100 Mbps Full Duplex, Flow
+Control: RX/TX
 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
->
-> ---
-> --- linux-2.6/security/selinux/netlabel.c.old	2008-01-23
-> 00:38:19.000000000 +0200 +++
-> linux-2.6/security/selinux/netlabel.c	2008-01-23 00:39:09.000000000
-> +0200 @@ -58,22 +58,22 @@ static int selinux_netlbl_sock_setsid(st rc
-> = security_netlbl_sid_to_secattr(sid, &secattr);
->  	if (rc != 0)
->  		goto sock_setsid_return;
->  	rc = netlbl_sock_setattr(sk, &secattr);
->  	if (rc == 0) {
->  		spin_lock_bh(&sksec->nlbl_lock);
->  		sksec->nlbl_state = NLBL_LABELED;
->  		spin_unlock_bh(&sksec->nlbl_lock);
->  	}
->
-> -sock_setsid_return:
->  	netlbl_secattr_destroy(&secattr);
-> +sock_setsid_return:
->  	return rc;
->  }
->
->  /**
->   * selinux_netlbl_cache_invalidate - Invalidate the NetLabel cache
->   *
->   * Description:
->   * Invalidate the NetLabel security attribute mapping cache.
->   *
->   */
+I believe the PCI interrupt for device 7:4.0 disabled is you unloading
+the driver again each time, and I don't see any messages at all that
+indicate the driver knows anything is wrong.
 
+can you run 'ethtool -t eth0 offline' after rebooting, loading the
+module, ifconfig eth0 up, and waiting 4 seconds?
 
+what does ethtool eth0 say after loading the driver (before you ifconfig
+up it?)  are you sure you're not having some udev problem?  Can you send
+the console output or attach it to the bug?
 
--- 
-paul moore
-linux security @ hp
+>> Steps to reproduce: reboot or power on your server. Try to up the
+>> network which is attached to your Intel PCI-X Pro 1000 NIC.
+
+This is a PCI only adapter, FYI.
+
+>> 
+> 
+> Odd.
+
+agreed, something doesn't add up here, yet.
