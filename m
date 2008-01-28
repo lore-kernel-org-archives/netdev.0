@@ -1,37 +1,32 @@
-From: Roel Kluin <12o3l@tiscali.nl>
-Subject: [PATCH 1/1] replace logical- by bit-or in smctr_make_tx_status_code(),
- drivers/net/tokenring/smctr.c
-Date: Mon, 28 Jan 2008 11:54:07 +0100
-Message-ID: <479DB44F.1050506@tiscali.nl>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH][INET_DIAG]: Fix inet_diag_lock_handler error path
+Date: Mon, 28 Jan 2008 22:03:10 +1100
+Message-ID: <20080128110310.GA6305@gondor.apana.org.au>
+References: <20080128022050.GQ27661@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mikep@linuxtr.net
+Content-Type: text/plain; charset=us-ascii
+To: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, spike@ml.yaroslavl.ru,
+	netdev@vger.kernel.org, stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out1.tiscali.nl ([195.241.79.176]:46082 "EHLO
-	smtp-out1.tiscali.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750750AbYA1KyK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 05:54:10 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:36630 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751574AbYA1LD2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 06:03:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20080128022050.GQ27661@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-drivers/net/tokenring/smctr.h:50:#define      IBM_PASS_SOURCE_ADDR    0x01
---
-replace logical- by bit-or for IBM_PASS_SOURCE_ADDR
+On Mon, Jan 28, 2008 at 12:20:50AM -0200, Arnaldo Carvalho de Melo wrote:
+> Fixes: http://bugzilla.kernel.org/show_bug.cgi?id=9825
+> 
+> The inet_diag_lock_handler function uses ERR_PTR to encode errors but
+> its callers were testing against NULL.
 
-Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
----
-diff --git a/drivers/net/tokenring/smctr.c b/drivers/net/tokenring/smctr.c
-index 93da3a3..ec29766 100644
---- a/drivers/net/tokenring/smctr.c
-+++ b/drivers/net/tokenring/smctr.c
-@@ -3413,7 +3413,7 @@ static int smctr_make_tx_status_code(struct net_device *dev,
-         tsv->svi = TRANSMIT_STATUS_CODE;
-         tsv->svl = S_TRANSMIT_STATUS_CODE;
- 
--        tsv->svv[0] = ((tx_fstatus & 0x0100 >> 6) || IBM_PASS_SOURCE_ADDR);
-+        tsv->svv[0] = ((tx_fstatus & 0x0100 >> 6) | IBM_PASS_SOURCE_ADDR);
- 
-         /* Stripped frame status of Transmitted Frame */
-         tsv->svv[1] = tx_fstatus & 0xff;
+Thanks for catching this Arnaldo!
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
