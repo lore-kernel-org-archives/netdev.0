@@ -1,32 +1,42 @@
-From: carlos@fisica.ufpr.br (Carlos Carvalho)
-Subject: appearing again: kernel: eth0: too many iterations (6) in nv_nic_irq
-Date: Mon, 28 Jan 2008 11:32:55 -0200
-Message-ID: <18333.55687.621653.838538@fisica.ufpr.br>
+From: "Reinin Oyama" <lenin@hasiru.net>
+Subject: [PACTH 1/1] drivers/net/usb: AX88178 100Mbps problem
+Date: Mon, 28 Jan 2008 22:32:42 +0900
+Message-ID: <479DD97A.8020307@hasiru.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+ boundary="------------070101090804050304030205"
+Cc: "David Hollis" <dhollis@davehollis.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fisica.ufpr.br ([200.17.209.129]:60823 "EHLO fisica.ufpr.br"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752895AbYA1Nc6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jan 2008 08:32:58 -0500
+Received: from ml1.lenin.jp ([219.166.53.194]:61161 "HELO ml.hasiru.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755173AbYA1NkG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jan 2008 08:40:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It seems that this problem with NVidia's nic comes up more and more...
->From time to time we get this in the log:
+This is a multi-part message in MIME format.
+--------------070101090804050304030205
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Jan 27 14:43:12 duvel kernel: eth0: too many iterations (6) in nv_nic_irq.
+Asix 88178 does not work under 100Mbps connection.
+This patch correct the problem.
+kernel version: 2.6.24
 
-We algo get
+--------------070101090804050304030205
+Content-Type: application/gzip;
+ name="asix_driver_patch.gz"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="asix_driver_patch.gz"
 
-Jan 27 11:32:43 duvel kernel: KERNEL: assertion ((int)tcp_packets_in_flight(tp) >= 0) failed at net/ipv4/tcp_input.c (1274)
-
-But at different moments, as shown above. Are they related? What's the
-meaning of the "assertion failed" one?
-
-The messages are more likely to appear when traffic is high
-(>500Mb/s). This is with 2.6.22.16.
-
-Any suggestions?
+H4sICInDnUcAA2FzaXhfZHJpdmVyX3BhdGNoAIWQa2vCMBSGP9tfcT6JUlPTzktXpyizu7C5
+yVQYjFF6OdZgbzSpU/DHL50ThIkL+ZC8ec/znpOP6Wh++/AJLmdbKLgHIQtdjwlIUHyl+Rrc
+IM0E5qBTOvEyDlmeehHGyoyFCQYkXS6Jt7PgDVnCEnjdubELNxHKy3AloXmhSdJAIYRAxJJi
+SwytoxmtZpCzDea8KV+bMrdZNqD5FYNSk1CdGG2gXattWlddjR4XqPSaUkVV1QPrX4gJettq
+dayW+QcyHALR5VANXSrHgxS5cAXzgSUC3K1p6l3TkVlrJ0eOosZFXvii/CgFFKjEjDn+Cv21
+E2PA3Fo1wA0ZSLUButz13q8HxUqkaeSEJePEVEU/DqSLVOI0QOjD6P0QObHHj4uJM7bvRovn
+eU9RLxtgLx+Omv1y+9T7aY8toVYmaDxDDKDfh9nUtseOnJbWZegBuu+fFN9PzrDU885yOow4
+woWcuvScKZ7OjsXKN+xQUxmCAgAA
+--------------070101090804050304030205--
