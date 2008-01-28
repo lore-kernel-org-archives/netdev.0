@@ -1,28 +1,79 @@
-From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
-Subject: ipcomp regression in 2.6.24
-Date: Mon, 28 Jan 2008 20:00:09 +0100
-Message-ID: <3C59DB883F7B0B4D8096010D45ACCD134F2086@exch.facton.local>
+From: Tony Battersby <tonyb@cybernetics.com>
+Subject: sky2: tx hang on dual-port Yukon XL when rx csum disabled
+Date: Mon, 28 Jan 2008 13:43:19 -0500
+Message-ID: <479E2247.8080109@cybernetics.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alpha.facton.com ([83.236.152.122]:43912 "EHLO alpha.facton.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752459AbYA1TAN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 14:00:13 -0500
-Received: from exch.facton.local (exch [192.168.200.5])
-	by alpha.facton.com (8.13.8/8.13.8/FACTON) with ESMTP id m0SJ09Ij012361
-	for <netdev@vger.kernel.org>; Mon, 28 Jan 2008 20:00:09 +0100
-Content-class: urn:content-classes:message
+Received: from host64.cybernetics.com ([70.169.137.4]:3938 "EHLO
+	mail.cybernetics.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1756243AbYA1TGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 14:06:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Has someone an idea which patch could have damaged ipcomp?
+I am experiencing network tx hangs on a dual-port SK-9E22 with sky2 in
+2.6.24.  The problem is triggered by both ports transmitting at high
+speed simultaneously.  This problem is 100% quickly reproducible.  Here
+is the setup:
 
-Daniel
+PC #1 with Intel PRO/1000 NIC:
+e1000 IP address 192.168.1.1
+running iperf -s
 
-> With 2.6.24 IPSEC/ESP tunnels to older kernels establish fine, data
-> flows in both directions, but no data comes out of the tunnel.
-> Needed to disable ipcomp.
+PC #2 with Intel PRO/1000 NIC:
+e1000 IP address 192.168.2.1
+running iperf -s
+
+PC #3 with SysKonnect SK-9E22 (dual-port copper PCI-express)
+sky2 IP address 192.168.1.2
+sky2 IP address 192.168.2.2
+
+So basically, I have two PCs with Intel PRO/1000 NICs running "iperf
+-s".  Each of these Intel NICs is directly cabled to one of the two
+ports of the SysKonnect NIC.
+
+When I run:
+(PC #3 tty1) iperf -c 192.168.1.1 -t 30
+(wait for a second or two)
+(PC #3 tty2) iperf -c 192.168.2.1 -t 30
+
+"iperf -c 192.168.1.1" never finishes, but "iperf -c 192.168.2.1" does
+finish.  Press Ctrl-C to abort the hung iperf.  Ping 192.168.1.1 does
+not respond.  Ping 192.168.2.1 does respond, but each ping has almost
+exactly 1 second latency (the latency should be < 1 ms).
+
+When I switch the order of the tests, whichever iperf -c was started
+_first_ is the one that locks up with no ping afterward, and whichever
+was started _second_ is the one that finishes, but with a 1-second ping
+latency afterward.  So the problem follows the ordering of the tests
+rather than a specific port.
+
+Also, the trigger seems to be transmitting, not receiving.  If I run
+"iperf -s" on the SysKonnect PC and "iperf -c" on the two Intel PRO/1000
+PCs, then the tests pass.
+
+When I do "ethtool -K eth0 rx on; ethtool -K eth1 rx on" to turn on rx
+checksumming on both ports of the SysKonnect NIC, both tests pass
+successfully.  Commit 8b31cfbcd1b54362ef06c85beb40e65a349169a2 "sky2:
+disable rx checksum on Yukon XL" disabled rx checksumming by default on
+this NIC to get rid of some "hw csum failure" messages
+(http://marc.info/?l=linux-netdev&m=119497815523843&w=4).  However, this
+seems to have exposed a different (and arguably worse) bug.
+
+I also tried booting with "maxcpus=1 pci=nomsi", but that didn't affect
+the problem.
+
+As a temporary workaround, I will use ethtool to turn on rx checksumming
+and live with the "hw csum failure" messages, since they are better than
+network lockups.
+
+Let me know if I can be of any further assistance in tracking down this
+problem.
+
+Tony Battersby
+Cybernetics
+
