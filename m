@@ -1,51 +1,61 @@
-From: maximilian attems <max@stro.at>
-Subject: [PATCH] [AX25]: Kill ax25_bind() user triggable printk.
-Date: Mon, 28 Jan 2008 18:31:09 +0100
-Message-ID: <1201541470-25312-1-git-send-email-max@stro.at>
-Cc: netdev@vger.kernel.org, maximilian attems <max@stro.at>
-To: davem@davemloft.net
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Re: [PATCH 3/6] [DCCP]: Bug-Fix - AWL was never updated
+Date: Tue, 29 Jan 2008 06:59:18 +1300
+Message-ID: <5640c7e00801280959k456fd080l3f29953c0d74eb16@mail.gmail.com>
+References: <1201515376-8280-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	 <1201515376-8280-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	 <1201515376-8280-3-git-send-email-gerrit@erg.abdn.ac.uk>
+	 <1201515376-8280-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from baikonur.stro.at ([213.239.196.228]:53634 "EHLO
-	baikonur.stro.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760183AbYA1Rbs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 12:31:48 -0500
+Received: from wa-out-1112.google.com ([209.85.146.181]:7821 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752154AbYA1R7V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 12:59:21 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so3124057wah.23
+        for <netdev@vger.kernel.org>; Mon, 28 Jan 2008 09:59:19 -0800 (PST)
+In-Reply-To: <1201515376-8280-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-on the last run overlooked that sfuzz triggable message.
-move the message to the corresponding comment.
+On Jan 28, 2008 11:16 PM, Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
+> This patch was triggered by finding the  following message in the syslog:
+>  "kernel: dccp_check_seqno: DCCP: Step 6 failed for DATAACK packet, [...]
+>    P.ackno exists or LAWL(82947089) <= P.ackno(82948208)
+>                                     <= S.AWH(82948728), sending SYNC..."
+>
+> Note the difference between AWH and AWL: it is 1639 packets (while Sequence
+> Window was actually at 100). A closer look at the trace showed that
+> LAWL = AWL = 82947089 equalled the ISS on the Response.
+>
+> The cause of the bug was that AWL was only ever set on the first packet - the
+> DCCP-Request sent by dccp_v{4,6}_connect().
+>
+> The fix is to continually update AWL/AWH with each new packet (as GSS=AWH).
+>
+> In addition, AWL/AWH are now updated to enforce more stringent checks on the
+> initial sequence numbers when connecting:
+>  * AWL is initialised to ISS and remains at this value;
+>  * AWH is always set to GSS (via dccp_update_gss());
+>  * so on the first Request: AWL =      AWH = ISS,
+>    and on the n-th Request: AWL = ISS, AWH = ISS+n.
+>
+> As a consequence, only Response packets that refer to Requests sent by this
+> host will pass, all others are discarded. This is the intention and in effect
+> implements the initial adjustments for AWL as specified in RFC 4340, 7.5.1.
+>
+> Note: A problem that remains is that ISS can potentially be under-run even after
+>       the initial handshake; this is addressed a subsequent patch.
+>
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-Signed-off-by: maximilian attems <max@stro.at>
----
- net/ax25/af_ax25.c |   13 +++++--------
- 1 files changed, 5 insertions(+), 8 deletions(-)
+Yes I had seen this and had worked out that variables weren't being
+updated as they should be but hadn't got as far as a fix before I
+stopped my coding days so much :-(
 
-diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index b4725ff..a2cc7c1 100644
---- a/net/ax25/af_ax25.c
-+++ b/net/ax25/af_ax25.c
-@@ -1038,16 +1038,13 @@ static int ax25_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	int err = 0;
- 
- 	if (addr_len != sizeof(struct sockaddr_ax25) &&
--	    addr_len != sizeof(struct full_sockaddr_ax25)) {
--		/* support for old structure may go away some time */
-+	    addr_len != sizeof(struct full_sockaddr_ax25))
-+		/* support for old structure may go away some time
-+		 * ax25_bind(): uses old (6 digipeater) socket structure.
-+		 */
- 		if ((addr_len < sizeof(struct sockaddr_ax25) + sizeof(ax25_address) * 6) ||
--		    (addr_len > sizeof(struct full_sockaddr_ax25))) {
-+		    (addr_len > sizeof(struct full_sockaddr_ax25)))
- 			return -EINVAL;
--	}
--
--		printk(KERN_WARNING "ax25_bind(): %s uses old (6 digipeater) socket structure.\n",
--			current->comm);
--	}
- 
- 	if (addr->fsa_ax25.sax25_family != AF_AX25)
- 		return -EINVAL;
--- 
-1.5.4.rc4
-
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
