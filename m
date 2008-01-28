@@ -1,90 +1,133 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
+From: Tony Battersby <tonyb@cybernetics.com>
 Subject: Re: sky2: tx hang on dual-port Yukon XL when rx csum disabled
-Date: Mon, 28 Jan 2008 12:43:39 -0800
-Message-ID: <20080128124339.4d013d71@deepthought>
-References: <479E2247.8080109@cybernetics.com>
+Date: Mon, 28 Jan 2008 15:58:08 -0500
+Message-ID: <479E41E0.1030409@cybernetics.com>
+References: <479E2247.8080109@cybernetics.com> <20080128124339.4d013d71@deepthought>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Tony Battersby <tonyb@cybernetics.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:54809 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757782AbYA1Un4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 15:43:56 -0500
-In-Reply-To: <479E2247.8080109@cybernetics.com>
+Received: from host64.cybernetics.com ([70.169.137.4]:3401 "EHLO
+	mail.cybernetics.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1750995AbYA1U6J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 15:58:09 -0500
+In-Reply-To: <20080128124339.4d013d71@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Jan 2008 13:43:19 -0500
-Tony Battersby <tonyb@cybernetics.com> wrote:
 
-> I am experiencing network tx hangs on a dual-port SK-9E22 with sky2 in
-> 2.6.24.  The problem is triggered by both ports transmitting at high
-> speed simultaneously.  This problem is 100% quickly reproducible.  Here
-> is the setup:
-> 
-> PC #1 with Intel PRO/1000 NIC:
-> e1000 IP address 192.168.1.1
-> running iperf -s
-> 
-> PC #2 with Intel PRO/1000 NIC:
-> e1000 IP address 192.168.2.1
-> running iperf -s
-> 
-> PC #3 with SysKonnect SK-9E22 (dual-port copper PCI-express)
-> sky2 IP address 192.168.1.2
-> sky2 IP address 192.168.2.2
-> 
-> So basically, I have two PCs with Intel PRO/1000 NICs running "iperf
-> -s".  Each of these Intel NICs is directly cabled to one of the two
-> ports of the SysKonnect NIC.
-> 
-> When I run:
-> (PC #3 tty1) iperf -c 192.168.1.1 -t 30
-> (wait for a second or two)
-> (PC #3 tty2) iperf -c 192.168.2.1 -t 30
-> 
-> "iperf -c 192.168.1.1" never finishes, but "iperf -c 192.168.2.1" does
-> finish.  Press Ctrl-C to abort the hung iperf.  Ping 192.168.1.1 does
-> not respond.  Ping 192.168.2.1 does respond, but each ping has almost
-> exactly 1 second latency (the latency should be < 1 ms).
-> 
-> When I switch the order of the tests, whichever iperf -c was started
-> _first_ is the one that locks up with no ping afterward, and whichever
-> was started _second_ is the one that finishes, but with a 1-second ping
-> latency afterward.  So the problem follows the ordering of the tests
-> rather than a specific port.
-> 
-> Also, the trigger seems to be transmitting, not receiving.  If I run
-> "iperf -s" on the SysKonnect PC and "iperf -c" on the two Intel PRO/1000
-> PCs, then the tests pass.
-> 
-> When I do "ethtool -K eth0 rx on; ethtool -K eth1 rx on" to turn on rx
-> checksumming on both ports of the SysKonnect NIC, both tests pass
-> successfully.  Commit 8b31cfbcd1b54362ef06c85beb40e65a349169a2 "sky2:
-> disable rx checksum on Yukon XL" disabled rx checksumming by default on
-> this NIC to get rid of some "hw csum failure" messages
-> (http://marc.info/?l=linux-netdev&m=119497815523843&w=4).  However, this
-> seems to have exposed a different (and arguably worse) bug.
-> 
-> I also tried booting with "maxcpus=1 pci=nomsi", but that didn't affect
-> the problem.
-> 
-> As a temporary workaround, I will use ethtool to turn on rx checksumming
-> and live with the "hw csum failure" messages, since they are better than
-> network lockups.
-> 
-> Let me know if I can be of any further assistance in tracking down this
-> problem.
-> 
-> Tony Battersby
-> Cybernetics
+> What bus and chipset is in use on the systems with sky2?
+> I have seen problems when using PCI-X on AMD systems (documented in AMD errata)
+> due to multiple outstanding transactions.
 
-What bus and chipset is in use on the systems with sky2?
-I have seen problems when using PCI-X on AMD systems (documented in AMD errata)
-due to multiple outstanding transactions.
+Motherboard: SuperMicro PDSME
+Chipset: Intel E7230
+Processor: Intel Pentium D 3.4 GHz
+(note: tried both SMP and booting with maxcpus=1)
 
--- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+lspci:
+
+00:00.0 Host bridge: Intel Corporation E7230/3000/3010 Memory Controller Hub (rev 81)
+00:01.0 PCI bridge: Intel Corporation E7230/3000/3010 PCI Express Root Port (rev 81)
+00:1c.0 PCI bridge: Intel Corporation 82801G (ICH7 Family) PCI Express Port 1 (rev 01)
+00:1c.4 PCI bridge: Intel Corporation 82801GR/GH/GHM (ICH7 Family) PCI Express Port 5 (rev 01)
+00:1c.5 PCI bridge: Intel Corporation 82801GR/GH/GHM (ICH7 Family) PCI Express Port 6 (rev 01)
+00:1d.0 USB Controller: Intel Corporation 82801G (ICH7 Family) USB UHCI Controller #1 (rev 01)
+00:1d.1 USB Controller: Intel Corporation 82801G (ICH7 Family) USB UHCI Controller #2 (rev 01)
+00:1d.2 USB Controller: Intel Corporation 82801G (ICH7 Family) USB UHCI Controller #3 (rev 01)
+00:1d.3 USB Controller: Intel Corporation 82801G (ICH7 Family) USB UHCI Controller #4 (rev 01)
+00:1d.7 USB Controller: Intel Corporation 82801G (ICH7 Family) USB2 EHCI Controller (rev 01)
+00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev e1)
+00:1f.0 ISA bridge: Intel Corporation 82801GB/GR (ICH7 Family) LPC Interface Bridge (rev 01)
+00:1f.1 IDE interface: Intel Corporation 82801G (ICH7 Family) IDE Controller (rev 01)
+00:1f.3 SMBus: Intel Corporation 82801G (ICH7 Family) SMBus Controller (rev 01)
+01:00.0 PCI bridge: Intel Corporation 6700PXH PCI Express-to-PCI Bridge A (rev 09)
+01:00.1 PIC: Intel Corporation 6700/6702PXH I/OxAPIC Interrupt Controller A (rev 09)
+01:00.2 PCI bridge: Intel Corporation 6700PXH PCI Express-to-PCI Bridge B (rev 09)
+01:00.3 PIC: Intel Corporation 6700PXH I/OxAPIC Interrupt Controller B (rev 09)
+04:00.0 Ethernet controller: SysKonnect SK-9E21D 10/100/1000Base-T Adapter, Copper RJ-45 (rev 14)
+05:00.0 Ethernet controller: Intel Corporation 82573E Gigabit Ethernet Controller (Copper) (rev 03)
+06:00.0 Ethernet controller: Intel Corporation 82573E Gigabit Ethernet Controller (Copper) (rev 03)
+0a:04.0 VGA compatible controller: ATI Technologies Inc Rage XL (rev 27)
+
+cat /proc/cpuinfo:
+
+processor: 0
+vendor_id: GenuineIntel
+cpu family: 15
+model: 6
+model name: Intel(R) Pentium(R) D CPU 3.40GHz
+stepping: 4
+cpu MHz: 3391.734
+cache size: 2048 KB
+physical id: 0
+siblings: 2
+core id: 0
+cpu cores: 2
+fdiv_bug: no
+hlt_bug: no
+f00f_bug: no
+coma_bug: no
+fpu: yes
+fpu_exception: yes
+cpuid level: 6
+wp: yes
+flags: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe nx lm constant_tsc pebs bts sync_rdtsc pni monitor ds_cpl est cid cx16 xtpr lahf_lm
+bogomips: 6789.26
+clflush size: 64
+
+processor: 1
+vendor_id: GenuineIntel
+cpu family: 15
+model: 6
+model name: Intel(R) Pentium(R) D CPU 3.40GHz
+stepping: 4
+cpu MHz: 3391.734
+cache size: 2048 KB
+physical id: 0
+siblings: 2
+core id: 1
+cpu cores: 2
+fdiv_bug: no
+hlt_bug: no
+f00f_bug: no
+coma_bug: no
+fpu: yes
+fpu_exception: yes
+cpuid level: 6
+wp: yes
+flags: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe nx lm constant_tsc pebs bts sync_rdtsc pni monitor ds_cpl est cid cx16 xtpr lahf_lm
+bogomips: 6783.57
+clflush size: 64
+
+cat /proc/interrupts
+
+CPU0 CPU1
+0: 86 0 IO-APIC-edge timer
+1: 81 0 IO-APIC-edge i8042
+7: 0 0 IO-APIC-edge parport0
+8: 1 0 IO-APIC-edge rtc
+9: 0 0 IO-APIC-fasteoi acpi
+12: 5 0 IO-APIC-edge i8042
+14: 412 0 IO-APIC-edge ide0
+16: 0 0 IO-APIC-fasteoi uhci_hcd:usb5
+18: 0 0 IO-APIC-fasteoi uhci_hcd:usb4
+19: 31 0 IO-APIC-fasteoi ehci_hcd:usb1, uhci_hcd:usb2
+20: 0 0 IO-APIC-fasteoi uhci_hcd:usb3
+219: 1 0 PCI-MSI-edge eth0
+NMI: 0 0 Non-maskable interrupts
+LOC: 1924 514 Local timer interrupts
+RES: 16 20 Rescheduling interrupts
+CAL: 19 56 function call interrupts
+TLB: 21 41 TLB shootdowns
+TRM: 0 0 Thermal event interrupts
+SPU: 0 0 Spurious interrupts
+ERR: 0
+MIS: 0
+
+(note: tried booting with pci=nomsi also)
+
+Tony
+
