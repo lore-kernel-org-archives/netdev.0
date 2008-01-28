@@ -1,107 +1,66 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH] Implement skb_partial_csum_set
-Date: Mon, 28 Jan 2008 09:58:04 +1100
-Message-ID: <200801280958.05130.rusty@rustcorp.com.au>
+From: shanwei <shanwei@cn.fujitsu.com>
+Subject: Re: [PATCH] TCP:Fix a bug in strategy_allowed_congestion_control
+Date: Mon, 28 Jan 2008 10:05:35 +0800
+Message-ID: <479D386F.5030805@cn.fujitsu.com>
+References: <47998B55.1030305@cn.fujitsu.com> <20080125082553.78e1d207@deepthought>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Sam Jansen <sjansen@google.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:34653 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752652AbYA1BGa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Jan 2008 20:06:30 -0500
-Content-Disposition: inline
+Received: from cn.fujitsu.com ([222.73.24.84]:61785 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753950AbYA1CGP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Jan 2008 21:06:15 -0500
+In-Reply-To: <20080125082553.78e1d207@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement skb_partial_csum_set, for setting partial csums on untrusted packets.
+Stephen Hemminger =E5=86=99=E9=81=93:
+> On Fri, 25 Jan 2008 15:10:13 +0800
+> shanwei <shanwei@cn.fujitsu.com> wrote:
+>=20
+>> hi all:
+>>
+>> In strategy_allowed_congestion_control of the 2.6.24 kernel,=20
+>> when sysctl_string return 1 on success,it should call=20
+>> tcp_set_allowed_congestion_control to set the allowed congestion
+>> control.But, it don't.
+>> the sysctl_string return 1 on success, otherwise return negative,
+>> never return 0.The patch fix the problem.
+>>
+>> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+>>
+>> diff -Nuarp linux-2.6.24/net/ipv4/sysctl_net_ipv4.c linux-2.6.24-new=
+/net/ipv4/sysctl_net_ipv4.c
+>> --- linux-2.6.24/net/ipv4/sysctl_net_ipv4.c	2008-01-25 06:58:37.0000=
+00000 +0800
+>> +++ linux-2.6.24-new/net/ipv4/sysctl_net_ipv4.c	2008-01-25 12:23:20.=
+000000000 +0800
+>> @@ -248,7 +248,7 @@ static int strategy_allowed_congestion_c
+>> =20
+>>  	tcp_get_available_congestion_control(tbl.data, tbl.maxlen);
+>>  	ret =3D sysctl_string(&tbl, name, nlen, oldval, oldlenp, newval, n=
+ewlen);
+>> -	if (ret =3D=3D 0 && newval && newlen)
+>> +	if (ret =3D=3D 1 && newval && newlen)
+>>  		ret =3D tcp_set_allowed_congestion_control(tbl.data);
+>>  	kfree(tbl.data);
+>>
+>>
+>=20
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+>=20
+> This parallels previous fix by Sam Jansen.
+>=20
+>=20
+=46rom the link:http://marc.info/?l=3Dlinux-netdev&m=3D119551836927062&=
+w=3D2,
+he only fix the sysctl_tcp_congestion_control function.
+In the latest kernel, the sysctl_string problem is present.
+Can this patch be applied?
 
-Use it in virtio_net (replacing buggy version there), it's also going
-to be used by TAP for partial csum support.
+=20
 
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-Acked-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/virtio_net.c |   11 +----------
- include/linux/skbuff.h   |    1 +
- net/core/skbuff.c        |   29 +++++++++++++++++++++++++++++
- 3 files changed, 31 insertions(+), 10 deletions(-)
-
-diff -r 72be3d596d31 include/linux/skbuff.h
---- a/include/linux/skbuff.h	Wed Jan 09 15:57:40 2008 +1100
-+++ b/include/linux/skbuff.h	Wed Jan 09 16:56:41 2008 +1100
-@@ -1804,5 +1804,6 @@ static inline void skb_forward_csum(stru
- 		skb->ip_summed = CHECKSUM_NONE;
- }
- 
-+bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off);
- #endif	/* __KERNEL__ */
- #endif	/* _LINUX_SKBUFF_H */
-diff -r 72be3d596d31 net/core/skbuff.c
---- a/net/core/skbuff.c	Wed Jan 09 15:57:40 2008 +1100
-+++ b/net/core/skbuff.c	Wed Jan 09 16:56:41 2008 +1100
-@@ -2214,6 +2214,34 @@ int skb_cow_data(struct sk_buff *skb, in
- 	return elt;
- }
- 
-+/**
-+ * skb_partial_csum_set - set up and verify partial csum values for packet
-+ * @skb: the skb to set
-+ * @start: the number of bytes after skb->data to start checksumming.
-+ * @off: the offset from start to place the checksum.
-+ *
-+ * For untrusted partially-checksummed packets, we need to make sure the values
-+ * for skb->csum_start and skb->csum_offset are valid so we don't oops.
-+ *
-+ * This function checks and sets those values and skb->ip_summed: if this
-+ * returns false you should drop the packet.
-+ */
-+bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off)
-+{
-+	if (unlikely(start > skb->len - 2) || 
-+	    unlikely((int)start + off > skb->len - 2)) {
-+		if (net_ratelimit())
-+			printk(KERN_WARNING
-+			       "bad partial csum: csum=%u/%u len=%u\n",
-+			       start, off, skb->len);
-+		return false;
-+	}
-+	skb->ip_summed = CHECKSUM_PARTIAL;
-+	skb->csum_start = skb_headroom(skb) + start;
-+	skb->csum_offset = off;
-+	return true;
-+}
-+
- EXPORT_SYMBOL(___pskb_trim);
- EXPORT_SYMBOL(__kfree_skb);
- EXPORT_SYMBOL(kfree_skb);
-@@ -2250,3 +2278,4 @@ EXPORT_SYMBOL(skb_append_datato_frags);
- 
- EXPORT_SYMBOL_GPL(skb_to_sgvec);
- EXPORT_SYMBOL_GPL(skb_cow_data);
-+EXPORT_SYMBOL_GPL(skb_partial_csum_set);
-diff -r 72be3d596d31 drivers/net/virtio_net.c
---- a/drivers/net/virtio_net.c	Wed Jan 09 15:57:40 2008 +1100
-+++ b/drivers/net/virtio_net.c	Wed Jan 09 16:56:41 2008 +1100
-@@ -89,17 +89,8 @@ static void receive_skb(struct net_devic
- 
- 	if (hdr->flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
- 		pr_debug("Needs csum!\n");
--		skb->ip_summed = CHECKSUM_PARTIAL;
--		skb->csum_start = hdr->csum_start;
--		skb->csum_offset = hdr->csum_offset;
--		if (skb->csum_start > skb->len - 2
--		    || skb->csum_offset > skb->len - 2) {
--			if (net_ratelimit())
--				printk(KERN_WARNING "%s: csum=%u/%u len=%u\n",
--				       dev->name, skb->csum_start,
--				       skb->csum_offset, skb->len);
-+		if (!skb_partial_csum_set(skb,hdr->csum_start,hdr->csum_offset))
- 			goto frame_err;
--		}
- 	}
- 
- 	if (hdr->gso_type != VIRTIO_NET_HDR_GSO_NONE) {
