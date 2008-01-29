@@ -1,39 +1,47 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 1/1] sis190: silence section type conflict
-Date: Tue, 29 Jan 2008 23:36:09 +0100
-Message-ID: <20080129223609.GE15445@electric-eye.fr.zoreil.com>
+From: Andreas Mohr <andim2@users.sourceforge.net>
+Subject: Re: [RFC/PATCH] e100 driver didn't support any MII-less PHYs...
+Date: Wed, 30 Jan 2008 00:03:15 +0100
+Message-ID: <20080129230315.GA13389@rhlx01.hs-esslingen.de>
+References: <20071228235118.GA31059@rhlx01.hs-esslingen.de> <477732A5.5020501@intel.com> <20080101200908.GA14805@rhlx01.hs-esslingen.de>
+Reply-To: andi@lisas.de
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Maximilian Attems <max@stro.at>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: jgarzik@pobox.com
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bunk@kernel.org
+To: andi@lisas.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:44692 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752710AbYA2Wyc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 17:54:32 -0500
+Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:47575 "EHLO
+	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756859AbYA2XDR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 18:03:17 -0500
 Content-Disposition: inline
+In-Reply-To: <20080101200908.GA14805@rhlx01.hs-esslingen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  CC [M]  drivers/net/sis190.o
-  drivers/net/sis190.c:329: error: sis190_pci_tbl causes a section type conflict
-  make[5]: *** [drivers/net/sis190.o] Error 1
+Hi,
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Reported-by: Maximilian Attems <max@stro.at>
+On Tue, Jan 01, 2008 at 09:09:08PM +0100, Andreas Mohr wrote:
+> Thanks for your quick reply!
+> 
+> OK, here's part 1, the MII-less support stuff.
+> (preliminary posting, for review only)
+> 
+> Note that these diffs apply to 2.6.24-rc6-mm1 without much trouble,
+> thus might want to do -mm testing soon.
 
-diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-index b570402..2e9e88b 100644
---- a/drivers/net/sis190.c
-+++ b/drivers/net/sis190.c
-@@ -326,7 +326,7 @@ static const struct {
- 	{ "SiS 191 PCI Gigabit Ethernet adapter" },
- };
- 
--static struct pci_device_id sis190_pci_tbl[] __devinitdata = {
-+static struct pci_device_id sis190_pci_tbl[] = {
- 	{ PCI_DEVICE(PCI_VENDOR_ID_SI, 0x0190), 0, 0, 0 },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_SI, 0x0191), 0, 0, 1 },
- 	{ 0, },
+Any verdict on this one?
+
+I happen to be asking now since silly me just ""upgraded"" a mere mortal's
+sorta-production machine to 2.6.24 proper without remembering
+that the previous -rc6 had contained a minor but effective change
+to make those wires do their thing. Or, to tell it as it was,
+"Mom wasn't impressed ;)".
+
+Perhaps it's useful to file a bug/patch
+on http://sourceforge.net/projects/e1000/ ? Perhaps -mm testing?
+
+Thanks,
+
+Andreas Mohr
