@@ -1,44 +1,40 @@
-From: Haavard Skinnemoen <hskinnemoen@atmel.com>
-Subject: Re: [PATCH] PHYLIB: Locking fixes for PHY I/O potentially sleeping
-Date: Tue, 29 Jan 2008 21:12:00 +0100
-Message-ID: <20080129211200.4fa73063@siona>
-References: <1199403419.25262.62.camel@localhost.localdomain>
-	<6D762C47-9C9C-422E-A80E-CC418F624B05@freescale.com>
-	<479E76A2.8020304@garzik.org>
-	<1201622709.12444.118.camel@localhost.localdomain>
+From: Roel Kluin <12o3l@tiscali.nl>
+Subject: [PATCH 1/1 resend][arm/at91_ether.c]  logical/bitand typo in function
+ reset_phy() (inactive), drivers/net/arm/at91_ether.c
+Date: Tue, 29 Jan 2008 21:14:56 +0100
+Message-ID: <479F8940.7030301@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Andy Fleming <afleming@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Nate Case <ncase@xes-inc.com>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk
+To: andrew@sanpeople.com, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat-132.atmel.no ([80.232.32.132]:61363 "EHLO relay.atmel.no"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754889AbYA2UMh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jan 2008 15:12:37 -0500
-In-Reply-To: <1201622709.12444.118.camel@localhost.localdomain>
+Received: from smtp-out0.tiscali.nl ([195.241.79.175]:56605 "EHLO
+	smtp-out0.tiscali.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934401AbYA2UPQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 15:15:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 29 Jan 2008 10:05:09 -0600
-Nate Case <ncase@xes-inc.com> wrote:
+include/linux/mii.h:48:#define BMCR_RESET 0x8000
 
-> +/* PHY timer which schedules the state machine work */
-> +static void phy_timer(unsigned long data)
-> +{
-> +	struct phy_device *phydev = (struct phy_device *)data;
-> +
-> +	/*
-> +	 * PHY I/O operations can potentially sleep so we ensure that
-> +	 * it's done from a process context
-> +	 */
-> +	schedule_work(&phydev->state_queue);
-> +}
+The function reset_phy() is in "#if 0" inactivated code
+--
+Replace logical "&&" by bit "&" before BMCR_RESET
 
-If you use schedule_delayed_work() instead, you can get rid of the
-timer.
+Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
+---
+diff --git a/drivers/net/arm/at91_ether.c b/drivers/net/arm/at91_ether.c
+index 25b114a..0ae0d83 100644
+--- a/drivers/net/arm/at91_ether.c
++++ b/drivers/net/arm/at91_ether.c
+@@ -384,7 +384,7 @@ static void reset_phy(struct net_device *dev)
+ 	/* Wait until PHY reset is complete */
+ 	do {
+ 		read_phy(lp->phy_address, MII_BMCR, &bmcr);
+-	} while (!(bmcr && BMCR_RESET));
++	} while (!(bmcr & BMCR_RESET));
+ 
+ 	disable_mdi();
+ 	spin_unlock_irq(&lp->lock);
 
-Haavard
