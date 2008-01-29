@@ -1,148 +1,91 @@
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: status inquiry#2  (RE: [PATCH 01/03] ISATAP V2 (header file changes))
-Date: Tue, 29 Jan 2008 08:41:38 -0800
-Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDE1F@XCH-NW-7V2.nw.nos.boeing.com>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC29@XCH-NW-7V2.nw.nos.boeing.com><39C363776A4E8C4A94691D2BD9D1C9A1029EDC45@XCH-NW-7V2.nw.nos.boeing.com><20071129102940.GC22537@gondor.apana.org.au> <20071129.195459.55971471.yoshfuji@linux-ipv6.org> <39C363776A4E8C4A94691D2BD9D1C9A1029EDDAC@XCH-NW-7V2.nw.nos.boeing.com>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: Re: Udev coldplugging loads 8139too driver instead of 8139cp
+Date: Tue, 29 Jan 2008 17:53:16 +0100
+Message-ID: <200801291753.18578.linux@rainbow-software.org>
+References: <1201554992.13883.13.camel@Anastacia> <20080128170830.6f67fa5a@deepthought> <479F0369.3080309@msgid.tls.msk.ru>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="ISO-2022-JP"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
-To: <netdev@vger.kernel.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Michael Tokarev <mjt@tls.msk.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stl-smtpout-01.boeing.com ([130.76.96.56]:47547 "EHLO
-	stl-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755759AbYA2QmF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 11:42:05 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDDAC@XCH-NW-7V2.nw.nos.boeing.com>
+Received: from ns.gsystems.sk ([62.176.172.50]:36262 "EHLO www.gsystems.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754519AbYA2Qx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2008 11:53:56 -0500
+In-Reply-To: <479F0369.3080309@msgid.tls.msk.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Would appreciate a status update on this submission, posted 1/15/08.
+On Tuesday 29 January 2008 11:43:53 Michael Tokarev wrote:
+> Stephen Hemminger wrote:
+> > On Tue, 29 Jan 2008 03:46:08 +0300
+> > Michael Tokarev <mjt@tls.msk.ru> wrote:
+>
+> []
+>
+> >> There are 2 drivers for 8139-based NICs.  For really different two kinds
+> >> of hardware, which both uses the same PCI identifiers.  Both drivers
+> >> "claims" to work with all NICs with those PCI ids, because "externally"
+> >> (by means of udev for example) it's impossible to distinguish the two
+> >> kinds of hardware, it becomes clean only when the driver (either of the
+> >> two) loads and actually checks which hardware we have here.
+> >
+> > Is there any chance of using subdevice or subversion to tell them apart?
+> > That worked for other vendors like DLINK who slapped same ID on different
+> > cards.
+>
+> If it were that simple... ;)
+>
+> No.  The difference is in PCI revision number (byte #8 in PCI config
+> space). If it's >= 0x40 - it's 8139too, < 0x40 - 8139cp.  Or 0x20 - I
+> forgot.
 
-Thanks - Fred
-fred.l.templin@boeing.com 
+Perhaps a module could be created that will claim this device ID and then use 
+the correct driver.
 
-> -----Original Message-----
-> From: Templin, Fred L 
-> Sent: Tuesday, January 15, 2008 11:57 AM
-> To: netdev@vger.kernel.org
-> Cc: YOSHIFUJI Hideaki / 吉藤英明
-> Subject: [PATCH 01/03] ISATAP V2 (header file changes)
-> 
-> This patch updates the Linux the Intra-Site Automatic Tunnel 
-> Addressing
-> Protocol (ISATAP) implementation. It places the ISATAP 
-> potential router
-> list (PRL) in the kernel and adds three new private ioctls for PRL
-> management. The diffs are specific to the netdev net-2.6.25 
-> development
-> tree taken by "git pull" on 1/14/08.
-> 
-> Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
-> 
-> --- net-2.6.25/include/linux/skbuff.h.orig	2008-01-14 
-> 15:33:36.000000000 -0800
-> +++ net-2.6.25/include/linux/skbuff.h	2008-01-14 
-> 15:43:06.000000000 -0800
-> @@ -311,7 +311,8 @@ struct sk_buff {
->  	__u16			tc_verd;	/* traffic 
-> control verdict */
->  #endif
->  #endif
-> -	/* 2 byte hole */
-> +	__u8			rtr_type;
-> +	/* 1 byte hole */
->  
->  #ifdef CONFIG_NET_DMA
->  	dma_cookie_t		dma_cookie;
-> --- net-2.6.25/include/linux/if_tunnel.h.orig	2008-01-14 
-> 15:33:36.000000000 -0800
-> +++ net-2.6.25/include/linux/if_tunnel.h	2008-01-14 
-> 15:42:14.000000000 -0800
-> @@ -7,6 +7,9 @@
->  #define SIOCADDTUNNEL   (SIOCDEVPRIVATE + 1)
->  #define SIOCDELTUNNEL   (SIOCDEVPRIVATE + 2)
->  #define SIOCCHGTUNNEL   (SIOCDEVPRIVATE + 3)
-> +#define SIOCADDPRL      (SIOCDEVPRIVATE + 4)
-> +#define SIOCDELPRL      (SIOCDEVPRIVATE + 5)
-> +#define SIOCCHGPRL      (SIOCDEVPRIVATE + 6)
->  
->  #define GRE_CSUM	__constant_htons(0x8000)
->  #define GRE_ROUTING	__constant_htons(0x4000)
-> @@ -17,9 +20,6 @@
->  #define GRE_FLAGS	__constant_htons(0x00F8)
->  #define GRE_VERSION	__constant_htons(0x0007)
->  
-> -/* i_flags values for SIT mode */
-> -#define	SIT_ISATAP	0x0001
-> -
->  struct ip_tunnel_parm
->  {
->  	char			name[IFNAMSIZ];
-> @@ -30,5 +30,15 @@ struct ip_tunnel_parm
->  	__be32			o_key;
->  	struct iphdr		iph;
->  };
-> +/* SIT-mode i_flags */
-> +#define	SIT_ISATAP	0x0001
-> +
-> +struct ip_tunnel_prladdr {
-> +	__be32			addr;
-> +	__be16			flags;
-> +	__be16			rsvd;
-> +};
-> +/* PRL flags */
-> +#define	PRL_BORDER		0x0001
->  
->  #endif /* _IF_TUNNEL_H_ */
-> --- net-2.6.25/include/net/ipip.h.orig	2008-01-14 
-> 15:33:36.000000000 -0800
-> +++ net-2.6.25/include/net/ipip.h	2008-01-14 
-> 15:41:21.000000000 -0800
-> @@ -24,6 +24,13 @@ struct ip_tunnel
->  	int			mlink;
->  
->  	struct ip_tunnel_parm	parms;
-> +	struct ip_tunnel_prlent	*prl;		/* potential 
-> router list */
-> +};
-> +
-> +struct ip_tunnel_prlent
-> +{
-> +	struct ip_tunnel_prlent	*next;
-> +	struct ip_tunnel_prladdr ent;
->  };
->  
->  #define IPTUNNEL_XMIT() do {					
-> 	\
-> --- net-2.6.25/include/net/ndisc.h.orig	2008-01-14 
-> 15:40:28.000000000 -0800
-> +++ net-2.6.25/include/net/ndisc.h	2008-01-15 
-> 08:43:21.000000000 -0800
-> @@ -12,6 +12,16 @@
->  #define NDISC_REDIRECT			137
->  
->  /*
-> + * Router type: cross-layer information from link-layer to
-> + * IPv6 layer reported by certain link types (e.g., RFC4214).
-> + */
-> +
-> +#define RTRTYPE_UNSPEC			0 /* 
-> unspecified (default) */
-> +#define RTRTYPE_HOST			1 /* host or 
-> unauthorized router */
-> +#define RTRTYPE_INTERIOR		2 /* site-interior router */
-> +#define RTRTYPE_BORDER			3 /* site 
-> border router */
-> +
-> +/*
->   *	ndisc options
->   */
+> Here's a code snippet from a shell script I used ages ago to automatically
+> load modules (similar to what udev does nowadays):
+>
+>   # special hack for 8139{too,cp} stuff
+>   case "$modalias" in
+>   *v000010ECd00008139*)
+>     rev="$(dd if="$1/config" bs=1 skip=8 count=1 2>/dev/null)"
+>     if [ -n "$rev" ]; then
+>       list=
+>       for module in $modlist; do
+>         case "$module" in
+>         8139cp)
+>           if [ ".$rev" \< ". " ]; then
+>             $vecho1 "$TAG: not loading $module for this device"
+>             continue
+>           fi
+>           ;;
+>         8139too)
+>           if [ ".$rev" \> ". " ]; then
+>             $vecho1 "$TAG: not loading $module for this device"
+>             continue
+>           fi
+>           ;;
+>         esac
+>         list="$list $module"
+>       done
+>       modlist="$list"
+>     fi
+>     ;;
+>   esac
+>
+> /mjt
 > --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> Please read the FAQ at  http://www.tux.org/lkml/
+
+
+
+-- 
+Ondrej Zary
