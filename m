@@ -1,107 +1,51 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCHv2 2.6.24] fib: fix route replacement, fib_info is shared
-Date: Tue, 29 Jan 2008 09:49:15 +0100
-Message-ID: <20080129084915.GA1624@ff.dom.local>
-References: <20080127232018.GA2856@ami.dom.local> <Pine.LNX.4.58.0801290139450.3181@u.domain.uli>
+From: Marcin Juszkiewicz <openembedded-sbG99h22wavzs492ZWNkEA@public.gmane.org>
+Subject: [PATCH] Add another Prism2 card to hostap
+Date: Tue, 29 Jan 2008 09:42:53 +0100
+Message-ID: <200801290942.56258.openembedded@haerwu.biz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Joonwoo Park <joonwpark81@gmail.com>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:13459 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751727AbYA2Im0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 03:42:26 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so152470ugc.16
-        for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 00:42:24 -0800 (PST)
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jouni Malinen <j@w1.fi>, Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0801290139450.3181@u.domain.uli>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 29, 2008 at 02:30:47AM +0200, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Mon, 28 Jan 2008, Jarek Poplawski wrote:
-> 
-> > BTW, the way "add" works wasn't questioned now, but it seems could be,
-> > or man ip should call it e.g. "ip route add - add new destination",
-> > and append "ip route append" (unless I have old man).
-> 
-> 	"add" is similar to "prepend", only that checks NLM_F_EXCL
-> to avoid many alternative routes, only one route for tos+priority is
-> allowed for "add". As for the sorting by tos/priority and the
-> insertion position I remember for thread on this issue:
 
-Yes but I've meant this man (8) ip description could be confusing:
+=46rom: Marcin Juszkiewicz <openembedded-sbG99h22wavzs492ZWNkEA@public.gmane.org>
 
-"  ip route add - add new route
-   ip route change - change route
-   ip route replace - change or add new one"
+Card reported by =C5ngstr=F6m user:
+http://bugs.openembedded.net/show_bug.cgi?id=3D3236
 
-One can wonder why there is an error while adding two new routes with
-"add", but OK to do the same with "replace". But, it's "man" problem
-of course.
+Socket 1:
+   product info: "Wireless LAN", "11Mbps PC Card", "Version 01.02", ""
+   manfid: 0x0156, 0x0002
+   function: 6 (network)
 
-> 
-> http://marc.info/?t=109614290600002&r=1&w=2
-> 
-> > > +		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
-> > > +		list_for_each_entry_continue(fa, &f->fn_alias, fa_list) {
-> > > +			if (fa->fa_tos != tos)
-> > > +				break;
-> > > +			if (fa->fa_info->fib_priority != fi->fib_priority)
-> > > +				break;
-> > > +			if (fa->fa_type == cfg->fc_type &&
-> > > +			    fa->fa_scope == cfg->fc_scope &&
-> > > +			    fa->fa_info == fi) {
-> > > +				fa_match = fa;
-> > > +				break;
-> > 
-> > Why can't we try goto out from here? (less reading...)
-> 
-> 	The case with NLM_F_REPLACE needs to check more things, one
-> day one can combine NLM_F_APPEND+NLM_F_REPLACE to replace last
-> alternative route, not only the first one as currently implemented.
+Signed-off-by: Marcin Juszkiewicz <openembedded-sbG99h22wavzs492ZWNkEA@public.gmane.org>
 
-I'm not sure I can understand your point: do you mean there could be
-something to do for these options is fa_match exists? But, maybe it
-relates to my question below...
+diff --git a/drivers/net/wireless/hostap/hostap_cs.c b/drivers/net/wire=
+less/hostap/hostap_cs.c
+index 877d3bd..4f6707c 100644
+--- a/drivers/net/wireless/hostap/hostap_cs.c
++++ b/drivers/net/wireless/hostap/hostap_cs.c
+@@ -894,6 +894,9 @@ static struct pcmcia_device_id hostap_cs_ids[] =3D =
+{
+                "The Linksys Group, Inc.", "Wireless Network CF Card", =
+"ISL37300P",
+                "RevA",
+                0xa5f472c2, 0x9c05598d, 0xc9049a39, 0x57a66194),
++       PCMCIA_DEVICE_PROD_ID123(
++           "Wireless LAN" , "11Mbps PC Card", "Version 01.02",
++               0x4b8870ff, 0x70e946d1, 0x4b74baa0),
+        PCMCIA_DEVICE_NULL
+ };
+ MODULE_DEVICE_TABLE(pcmcia, hostap_cs_ids);
 
-> 
-> > > +			fa = fa_first;
-> > > +			if (fa_match) {
-> > > +				if (fa == fa_match)
-> > > +					err = 0;
-> > 
-> > Could you comment more why returning an error seems to depend on the
-> > order of aliases here? But, IMHO there is no reason to change the old
-> > behavior WRT this error, so probably this err = 0 should be always if
-> > NLM_F_REPLACE is set.
-> 
-> 	fa_match is some existing alias that matches all new parameters.
-> As NLM_F_REPLACE changes the first alternative route for 
-> tos+priority if fa_match == fa_first (we are replacing alias that
-> matches all parameters) we return 0, only that routing cache is not 
-> flushed - nothing is replaced/changed. So, "fa == fa_match" means
-> "replace will not change existing parameters", return 0 as this is
-> not an error.
+--=20
+JID: hrw-jabber.org
+OpenEmbedded developer/consultant
 
-Probably I miss something, but what parameters do we change if
-(fa_match) && (fa != fa_match)? Isn't this "goto out" in any case?
-
-> 
-> > PS: I think, this FIB info you sent earlier is just fine for
-> > Documentation/networking without any changes! (Maybe one more patch?)
-> 
-> 	This is so small part of the picture, such 15-minute listing
-> is not enough to explain everything. May be such and other information
-> can be added as part of some known documentation.
-
-This is small but condensed, and IMHO it fits very well what is now
-in this directory.
-
-Thanks,
-Jarek P.
+         Computers are not intelligent. They only think they are.
