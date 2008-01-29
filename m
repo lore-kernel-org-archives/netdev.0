@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: net-2.6.25 status...
-Date: Mon, 28 Jan 2008 16:20:43 -0800 (PST)
-Message-ID: <20080128.162043.168369073.davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.25] [IPV6] ADDRLABEL: Fix double free on label
+ deletion.
+Date: Mon, 28 Jan 2008 16:21:04 -0800 (PST)
+Message-ID: <20080128.162104.132600552.davem@davemloft.net>
+References: <20080128.210222.07062540.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: mitch@linux.vnet.ibm.com, netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44107
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44109
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752628AbYA2AU0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 19:20:26 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 638DDC8C199
-	for <netdev@vger.kernel.org>; Mon, 28 Jan 2008 16:20:43 -0800 (PST)
+	by vger.kernel.org with ESMTP id S1753444AbYA2AUr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 19:20:47 -0500
+In-Reply-To: <20080128.210222.07062540.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Mon, 28 Jan 2008 21:02:22 +0900 (JST)
 
-I've been busy here at LCA08 rebasing the net-2.6.25
-tree getting it ready for pushing to Linus.
+> If an entry is being deleted because it has only one reference, 
+> we immediately delete it and blindly register the rcu handler for it,
+> This results in oops by double freeing that object.
+> 
+> This patch fixes it by consolidating the code paths for the deletion;
+> let its rcu handler delete the object if it has no more reference.
+> 
+> Bug was found by Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+> 
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Most of the conflicts were to the usual places, such
-as the feature removal schedule text file, things
-like drivers/net/{Kconfig,Makefile} etc.
-
-I just send Linus a pull request so if he takes it
-then it will show up soon in his tree.
-
-I've powered-on my Niagara boxes back home so I can do
-lots of regression builds.
+Applied, thank you.
