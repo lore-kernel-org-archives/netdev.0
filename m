@@ -1,46 +1,69 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: appearing again: kernel: eth0: too many iterations (6) in nv_nic_irq
-Date: Mon, 28 Jan 2008 20:07:06 -0500
-Message-ID: <20080129010706.GC21912@gospo.usersys.redhat.com>
-References: <18333.55687.621653.838538@fisica.ufpr.br>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Udev coldplugging loads 8139too driver instead of 8139cp
+Date: Mon, 28 Jan 2008 17:08:30 -0800
+Message-ID: <20080128170830.6f67fa5a@deepthought>
+References: <1201554992.13883.13.camel@Anastacia>
+	<479E7750.9060304@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Carlos Carvalho <carlos@fisica.ufpr.br>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Michael Tokarev <mjt@tls.msk.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:50006 "EHLO mx1.redhat.com"
+Received: from mail.vyatta.com ([216.93.170.194]:37371 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751572AbYA2BHK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jan 2008 20:07:10 -0500
-Content-Disposition: inline
-In-Reply-To: <18333.55687.621653.838538@fisica.ufpr.br>
+	id S1751785AbYA2BIm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jan 2008 20:08:42 -0500
+In-Reply-To: <479E7750.9060304@msgid.tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 28, 2008 at 11:32:55AM -0200, Carlos Carvalho wrote:
-> It seems that this problem with NVidia's nic comes up more and more...
-> From time to time we get this in the log:
+On Tue, 29 Jan 2008 03:46:08 +0300
+Michael Tokarev <mjt@tls.msk.ru> wrote:
+
+> Frederik Himpe wrote:
+> > Linux 2.6.24 kernel gives the following messages when udev coldplugging
+> > loads the driver for my NIC:
+> > 
+> > 8139too 0000:00:0b.0: This (id 10ec:8139 rev 20) is an enhanced 8139C+ chip
+> > 8139too 0000:00:0b.0: Use the "8139cp" driver for improved performance and stability.
 > 
-> Jan 27 14:43:12 duvel kernel: eth0: too many iterations (6) in nv_nic_irq.
+> There are 2 drivers for 8139-based NICs.  For really different two kinds
+> of hardware, which both uses the same PCI identifiers.  Both drivers
+> "claims" to work with all NICs with those PCI ids, because "externally"
+> (by means of udev for example) it's impossible to distinguish the two
+> kinds of hardware, it becomes clean only when the driver (either of the
+> two) loads and actually checks which hardware we have here.
+
+Is there any chance of using subdevice or subversion to tell them apart?
+That worked for other vendors like DLINK who slapped same ID on different
+cards.
+
+> Udev in fact loads both - 8139cp and 8139too.  The difference is the ORDER
+> in which it loads them - if for "cp-handled" hardware it first loads "too",
+> too will complain as above and will NOT claim the device.  The same is
+> true for the opposite.
 > 
-> We algo get
+> So - in short - things has always been this way (thanks to realtec).
+> I've seen similar (but opposite) effects on my systems, which are all
+> should be serviced by 8139too driver but 8139cp loaded first - up
+> till i gave up and just disabled 8139cp...
 > 
-> Jan 27 11:32:43 duvel kernel: KERNEL: assertion ((int)tcp_packets_in_flight(tp) >= 0) failed at net/ipv4/tcp_input.c (1274)
+> I don't know what happened in 2.6.24, but my guess is that since 8139too-based
+> hw is now alot more common, the two drivers are listed in the opposite
+> order.
 > 
-> But at different moments, as shown above. Are they related? What's the
-> meaning of the "assertion failed" one?
+> In short: NotABug, or ComplainToRealtec (but that's waaaay too late and
+> will not help anyway) ;)
 > 
-> The messages are more likely to appear when traffic is high
-> (>500Mb/s). This is with 2.6.22.16.
+> /mjt
 > 
-> Any suggestions?
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
 
-I've noticed that when running the latest forcedeth on an older base
-kernel (2.6.18 in my case) that enable_irq and disable_irq don't quite
-behave the same way with using MSI as they do with INTx.  2.6.24 works
-great on the same hardware so something has changed between at leat
-2.6.18 and now to make life better.  I've been meaning to look at those
-calls and figure out if we can replace them with simple calls to disable
-the hardware IRQs only, but haven't had a chance yet.
-
+-- 
+Stephen Hemminger <stephen.hemminger@vyatta.com>
