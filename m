@@ -1,46 +1,71 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCHv2 2.6.24] fib: fix route replacement, fib_info is shared
-Date: Tue, 29 Jan 2008 10:52:45 +0100
-Message-ID: <20080129095245.GA2570@ff.dom.local>
-References: <20080127232018.GA2856@ami.dom.local> <Pine.LNX.4.58.0801290139450.3181@u.domain.uli> <20080129084915.GA1624@ff.dom.local> <20080129091030.GB1624@ff.dom.local>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: Udev coldplugging loads 8139too driver instead of 8139cp
+Date: Tue, 29 Jan 2008 13:43:53 +0300
+Message-ID: <479F0369.3080309@msgid.tls.msk.ru>
+References: <1201554992.13883.13.camel@Anastacia>	<479E7750.9060304@msgid.tls.msk.ru> <20080128170830.6f67fa5a@deepthought>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Joonwoo Park <joonwpark81@gmail.com>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.184]:18007 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751037AbYA2Jpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 04:45:55 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so1346351fkz.5
-        for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 01:45:53 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080129091030.GB1624@ff.dom.local>
+Received: from hobbit.corpit.ru ([81.13.94.6]:22991 "EHLO hobbit.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753835AbYA2Knz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2008 05:43:55 -0500
+In-Reply-To: <20080128170830.6f67fa5a@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 29, 2008 at 10:10:30AM +0100, Jarek Poplawski wrote:
-> On Tue, Jan 29, 2008 at 09:49:15AM +0100, Jarek Poplawski wrote:
-> > On Tue, Jan 29, 2008 at 02:30:47AM +0200, Julian Anastasov wrote:
-> ...
-> > > 	fa_match is some existing alias that matches all new parameters.
-> > > As NLM_F_REPLACE changes the first alternative route for 
-> > > tos+priority if fa_match == fa_first (we are replacing alias that
-> > > matches all parameters) we return 0, only that routing cache is not 
-> > > flushed - nothing is replaced/changed. So, "fa == fa_match" means
-> > > "replace will not change existing parameters", return 0 as this is
-> > > not an error.
-> > 
-> > Probably I miss something, but what parameters do we change if
-> > (fa_match) && (fa != fa_match)? Isn't this "goto out" in any case?
+Stephen Hemminger wrote:
+> On Tue, 29 Jan 2008 03:46:08 +0300
+> Michael Tokarev <mjt@tls.msk.ru> wrote:
+[]
+>> There are 2 drivers for 8139-based NICs.  For really different two kinds
+>> of hardware, which both uses the same PCI identifiers.  Both drivers
+>> "claims" to work with all NICs with those PCI ids, because "externally"
+>> (by means of udev for example) it's impossible to distinguish the two
+>> kinds of hardware, it becomes clean only when the driver (either of the
+>> two) loads and actually checks which hardware we have here.
 > 
-> OOPS! You mean change is needed, but we can't do this! (I'm so slow...)
+> Is there any chance of using subdevice or subversion to tell them apart?
+> That worked for other vendors like DLINK who slapped same ID on different
+> cards.
 
-...On the other hand, I wonder how bad would be switching these two
-to avoid this error? After all "replace" with this "add or change"
-meaning looks quite permissive, and after all it was used before with
-no such errors, so, even if correct, it could still break some
-scripts...
+If it were that simple... ;)
 
-Jarek P.
+No.  The difference is in PCI revision number (byte #8 in PCI config space).
+If it's >= 0x40 - it's 8139too, < 0x40 - 8139cp.  Or 0x20 - I forgot.
+
+Here's a code snippet from a shell script I used ages ago to automatically
+load modules (similar to what udev does nowadays):
+
+  # special hack for 8139{too,cp} stuff
+  case "$modalias" in
+  *v000010ECd00008139*)
+    rev="$(dd if="$1/config" bs=1 skip=8 count=1 2>/dev/null)"
+    if [ -n "$rev" ]; then
+      list=
+      for module in $modlist; do
+        case "$module" in
+        8139cp)
+          if [ ".$rev" \< ". " ]; then
+            $vecho1 "$TAG: not loading $module for this device"
+            continue
+          fi
+          ;;
+        8139too)
+          if [ ".$rev" \> ". " ]; then
+            $vecho1 "$TAG: not loading $module for this device"
+            continue
+          fi
+          ;;
+        esac
+        list="$list $module"
+      done
+      modlist="$list"
+    fi
+    ;;
+  esac
+
+/mjt
