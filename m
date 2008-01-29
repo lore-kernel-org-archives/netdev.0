@@ -1,35 +1,29 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 'rndis' 2008-01-29
-Date: Tue, 29 Jan 2008 16:28:13 -0500
-Message-ID: <20080129212813.GB3180@tuxdriver.com>
+Subject: pull request: wireless-2.6 'upstream' 2008-01-29
+Date: Tue, 29 Jan 2008 16:27:03 -0500
+Message-ID: <20080129212703.GA3180@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="PEIAKu/WMn1b1Hv9"
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3560 "EHLO ra.tuxdriver.com"
+Received: from ra.tuxdriver.com ([70.61.120.52]:3557 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753168AbYA2Vcj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jan 2008 16:32:39 -0500
+	id S1757262AbYA2Vc1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2008 16:32:27 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---PEIAKu/WMn1b1Hv9
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
 Dave,
 
-RNDIS is a de facto standard from Microsoft for USB networking devices.
-We already have support for ethernet devices, but wireless devices exist
-as well.  This series applies some fixes to the current ethernet RNDIS
-stuff to co-exist with wireless and adds a wireless RNDIS driver.  I
-would like to see it in 2.6.25.
+Here are some stragglers for 2.6.25.  Most of them are fixes for the
+new stuff anyway -- I don't think there is anything convroversial.
 
-Thanks!
+Please let me know if there are problems!
+
+Thanks,
 
 John
 
@@ -37,543 +31,2036 @@ John
 
 Individual patches are available here:
 
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/rndis
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/up=
+stream
 
 ---
 
-The following changes since commit 85040bcb4643cba578839e953f25e2d1965d83d0:
+The following changes since commit 85040bcb4643cba578839e953f25e2d1965d=
+83d0:
   YOSHIFUJI Hideaki (1):
         [IPV6] ADDRLABEL: Fix double free on label deletion.
 
 are available in the git repository at:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git rndis
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.g=
+it upstream
 
-Bjorge Dijkstra (2):
-      rndis_host: Fix sparse warning
-      cdc_ether: Hardwire CDC descriptors when missing
+Adrian Bassett (1):
+      rtl8180_dev.c: add support for 1799:700f
 
-Jussi Kivilinna (12):
-      rndis_host: Use 1KB buffer in rndis_unbind
-      rndis_host: Halt device if rndis_bind fails.
-      rndis_host: Fix rndis packet filter flags.
-      usbnet: Use wlan device name for RNDIS wireless devices
-      rndis_host: Split up rndis_host.c
-      rndis_host: export functions
-      usbnet: add driver_priv pointer to 'struct usbnet'
-      rndis_host: Add early_init function pointer to 'struct rndis_data'.
-      rndis_host: Add link_change function pointer to 'struct rndis_data'.
-      rndis_host: Add RNDIS physical medium checking into generic_rndis_bind()
-      Move usbnet.h and rndis_host.h to include/linux/usb
-      Add new driver 'rndis_wlan' for wireless RNDIS devices.
+Bruno Randolf (1):
+      ath5k: debug level improvements
 
- MAINTAINERS                                 |    6 +
- drivers/net/usb/asix.c                      |    3 +-
- drivers/net/usb/cdc_ether.c                 |   13 +-
- drivers/net/usb/cdc_subset.c                |    3 +-
- drivers/net/usb/dm9601.c                    |    3 +-
- drivers/net/usb/gl620a.c                    |    3 +-
- drivers/net/usb/mcs7830.c                   |    3 +-
- drivers/net/usb/net1080.c                   |    3 +-
- drivers/net/usb/plusb.c                     |    3 +-
- drivers/net/usb/rndis_host.c                |  303 +---
- drivers/net/usb/usbnet.c                    |    6 +-
- drivers/net/usb/zaurus.c                    |    3 +-
- drivers/net/wireless/Kconfig                |   28 +
- drivers/net/wireless/Makefile               |    2 +
- drivers/net/wireless/rndis_wlan.c           | 2757 +++++++++++++++++++++++++++
- include/linux/usb/rndis_host.h              |  274 +++
- {drivers/net => include/linux}/usb/usbnet.h |   12 +
- 17 files changed, 3180 insertions(+), 245 deletions(-)
- create mode 100644 drivers/net/wireless/rndis_wlan.c
- create mode 100644 include/linux/usb/rndis_host.h
- rename {drivers/net => include/linux}/usb/usbnet.h (93%)
+Cyrill Gorcunov (1):
+      wireless: iwlwifi3945/4965 - fix incorrect counting of memory
 
-Omnibus patch attached as rndis.patch.bz2
--- 
+Eric Sandeen (1):
+      iwlwifi: correct math in elapsed_jiffies
+
+Gregory Greenman (1):
+      iwlwifi: Fix uCode error on association
+
+Holger Schurig (1):
+      libertas: fix interrupt while removing driver
+
+Ihar Hrachyshka (1):
+      libertas: fix memory alignment problems on the blackfin
+
+I=F1aky P=E9rez-Gonz=E1lez (1):
+      rfkill: add the WiMAX radio type
+
+Johannes Berg (1):
+      mac80211: fix alignment warning
+
+John W. Linville (1):
+      rt61pci: fix-up merge damage
+
+Joonwoo Park (1):
+      iwlwifi: do not schedule tasklet when rcv unused irq
+
+Maarten Lankhorst (1):
+      iwlwifi: Fix an invalid bitmask test in iwl3945 and iwl4965
+
+Marcin Juszkiewicz (1):
+      Add another Prism2 card to hostap
+
+Michael Buesch (4):
+      b43: Fix rfkill allocation leakage in error paths
+      b43legacy: Fix rfkill allocation leakage in error paths
+      b43: Fix suspend/resume
+      b43: Drop packets that we are not able to encrypt
+
+Michal Piotrowski (1):
+      hostap_80211.h: remove duplicate prototype
+
+Reinette Chatre (3):
+      iwl4965: fix return code indicating one interface is supported
+      iwlwifi: initialize geo/channel information during probe
+      iwlwifi: cleanup usage of inline functions
+
+Ron Rindjunsky (1):
+      mac80211: fixing null qos data frames check for reordering buffer
+
+Stefano Brivio (1):
+      b43legacy: fix MAC control and microcode init
+
+ drivers/net/wireless/ath5k/base.c           |   10 +-
+ drivers/net/wireless/ath5k/debug.c          |  124 +++++++++++++++++++=
+++----
+ drivers/net/wireless/ath5k/debug.h          |   18 ++--
+ drivers/net/wireless/b43/dma.c              |   30 +++++-
+ drivers/net/wireless/b43/main.c             |   19 +++-
+ drivers/net/wireless/b43/xmit.c             |   23 +++--
+ drivers/net/wireless/b43/xmit.h             |   10 +-
+ drivers/net/wireless/b43legacy/b43legacy.h  |   31 +++----
+ drivers/net/wireless/b43legacy/main.c       |  133 ++++++++++++++++++-=
+--------
+ drivers/net/wireless/b43legacy/phy.c        |   14 ++--
+ drivers/net/wireless/b43legacy/pio.c        |    6 +-
+ drivers/net/wireless/b43legacy/radio.c      |   16 ++--
+ drivers/net/wireless/hostap/hostap_80211.h  |    5 -
+ drivers/net/wireless/hostap/hostap_cs.c     |    3 +
+ drivers/net/wireless/iwlwifi/iwl-3945-hw.h  |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-3945.c     |   14 ---
+ drivers/net/wireless/iwlwifi/iwl-3945.h     |    2 -
+ drivers/net/wireless/iwlwifi/iwl-4965-hw.h  |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-4965.c     |    7 --
+ drivers/net/wireless/iwlwifi/iwl-4965.h     |    1 -
+ drivers/net/wireless/iwlwifi/iwl-helpers.h  |    4 +-
+ drivers/net/wireless/iwlwifi/iwl3945-base.c |   86 +++++++++++++----
+ drivers/net/wireless/iwlwifi/iwl4965-base.c |   84 ++++++++++++-----
+ drivers/net/wireless/libertas/assoc.c       |    6 +-
+ drivers/net/wireless/libertas/dev.h         |    2 +-
+ drivers/net/wireless/libertas/if_cs.c       |    6 +-
+ drivers/net/wireless/rt2x00/rt61pci.c       |    3 +-
+ drivers/net/wireless/rtl8180_dev.c          |    1 +
+ include/linux/input.h                       |    2 +
+ include/linux/rfkill.h                      |    2 +
+ net/mac80211/rx.c                           |   48 +++++++---
+ net/rfkill/rfkill-input.c                   |    9 ++
+ net/rfkill/rfkill.c                         |    3 +
+ 33 files changed, 490 insertions(+), 236 deletions(-)
+
+diff --git a/drivers/net/wireless/ath5k/base.c b/drivers/net/wireless/a=
+th5k/base.c
+index 72bcf32..d6599d2 100644
+--- a/drivers/net/wireless/ath5k/base.c
++++ b/drivers/net/wireless/ath5k/base.c
+@@ -1980,7 +1980,7 @@ ath5k_beacon_send(struct ath5k_softc *sc)
+ 	struct ath5k_buf *bf =3D sc->bbuf;
+ 	struct ath5k_hw *ah =3D sc->ah;
+=20
+-	ATH5K_DBG(sc, ATH5K_DEBUG_BEACON_PROC, "in beacon_send\n");
++	ATH5K_DBG_UNLIMIT(sc, ATH5K_DEBUG_BEACON, "in beacon_send\n");
+=20
+ 	if (unlikely(bf->skb =3D=3D NULL || sc->opmode =3D=3D IEEE80211_IF_TY=
+PE_STA ||
+ 			sc->opmode =3D=3D IEEE80211_IF_TYPE_MNTR)) {
+@@ -1996,10 +1996,10 @@ ath5k_beacon_send(struct ath5k_softc *sc)
+ 	 */
+ 	if (unlikely(ath5k_hw_num_tx_pending(ah, sc->bhalq) !=3D 0)) {
+ 		sc->bmisscount++;
+-		ATH5K_DBG(sc, ATH5K_DEBUG_BEACON_PROC,
++		ATH5K_DBG(sc, ATH5K_DEBUG_BEACON,
+ 			"missed %u consecutive beacons\n", sc->bmisscount);
+ 		if (sc->bmisscount > 3) {		/* NB: 3 is a guess */
+-			ATH5K_DBG(sc, ATH5K_DEBUG_BEACON_PROC,
++			ATH5K_DBG(sc, ATH5K_DEBUG_BEACON,
+ 				"stuck beacon time (%u missed)\n",
+ 				sc->bmisscount);
+ 			tasklet_schedule(&sc->restq);
+@@ -2007,7 +2007,7 @@ ath5k_beacon_send(struct ath5k_softc *sc)
+ 		return;
+ 	}
+ 	if (unlikely(sc->bmisscount !=3D 0)) {
+-		ATH5K_DBG(sc, ATH5K_DEBUG_BEACON_PROC,
++		ATH5K_DBG(sc, ATH5K_DEBUG_BEACON,
+ 			"resume beacon xmit after %u misses\n",
+ 			sc->bmisscount);
+ 		sc->bmisscount =3D 0;
+@@ -2027,7 +2027,7 @@ ath5k_beacon_send(struct ath5k_softc *sc)
+=20
+ 	ath5k_hw_put_tx_buf(ah, sc->bhalq, bf->daddr);
+ 	ath5k_hw_tx_start(ah, sc->bhalq);
+-	ATH5K_DBG(sc, ATH5K_DEBUG_BEACON_PROC, "TXDP[%u] =3D %llx (%p)\n",
++	ATH5K_DBG(sc, ATH5K_DEBUG_BEACON, "TXDP[%u] =3D %llx (%p)\n",
+ 		sc->bhalq, (unsigned long long)bf->daddr, bf->desc);
+=20
+ 	sc->bsent++;
+diff --git a/drivers/net/wireless/ath5k/debug.c b/drivers/net/wireless/=
+ath5k/debug.c
+index 4ba649e..bb581ef 100644
+--- a/drivers/net/wireless/ath5k/debug.c
++++ b/drivers/net/wireless/ath5k/debug.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2007 Bruno Randolf <bruno@thinktube.com>
++ * Copyright (c) 2007-2008 Bruno Randolf <bruno@thinktube.com>
+  *
+  *  This file is free software: you may copy, redistribute and/or modi=
+fy it
+  *  under the terms of the GNU General Public License as published by =
+the
+@@ -200,7 +200,7 @@ static ssize_t read_file_tsf(struct file *file, cha=
+r __user *user_buf,
+ {
+ 	struct ath5k_softc *sc =3D file->private_data;
+ 	char buf[100];
+-	snprintf(buf, 100, "0x%016llx\n", ath5k_hw_get_tsf64(sc->ah));
++	snprintf(buf, sizeof(buf), "0x%016llx\n", ath5k_hw_get_tsf64(sc->ah))=
+;
+ 	return simple_read_from_buffer(user_buf, count, ppos, buf, 19);
+ }
+=20
+@@ -209,7 +209,12 @@ static ssize_t write_file_tsf(struct file *file,
+ 				 size_t count, loff_t *ppos)
+ {
+ 	struct ath5k_softc *sc =3D file->private_data;
+-	if (strncmp(userbuf, "reset", 5) =3D=3D 0) {
++	char buf[20];
++
++	if (copy_from_user(buf, userbuf, min(count, sizeof(buf))))
++		return -EFAULT;
++
++	if (strncmp(buf, "reset", 5) =3D=3D 0) {
+ 		ath5k_hw_reset_tsf(sc->ah);
+ 		printk(KERN_INFO "debugfs reset TSF\n");
+ 	}
+@@ -231,8 +236,8 @@ static ssize_t read_file_beacon(struct file *file, =
+char __user *user_buf,
+ {
+ 	struct ath5k_softc *sc =3D file->private_data;
+ 	struct ath5k_hw *ah =3D sc->ah;
+-	char buf[1000];
+-	int len =3D 0;
++	char buf[500];
++	unsigned int len =3D 0;
+ 	unsigned int v;
+ 	u64 tsf;
+=20
+@@ -277,11 +282,15 @@ static ssize_t write_file_beacon(struct file *fil=
+e,
+ {
+ 	struct ath5k_softc *sc =3D file->private_data;
+ 	struct ath5k_hw *ah =3D sc->ah;
++	char buf[20];
++
++	if (copy_from_user(buf, userbuf, min(count, sizeof(buf))))
++		return -EFAULT;
+=20
+-	if (strncmp(userbuf, "disable", 7) =3D=3D 0) {
++	if (strncmp(buf, "disable", 7) =3D=3D 0) {
+ 		AR5K_REG_DISABLE_BITS(ah, AR5K_BEACON, AR5K_BEACON_ENABLE);
+ 		printk(KERN_INFO "debugfs disable beacons\n");
+-	} else if (strncmp(userbuf, "enable", 6) =3D=3D 0) {
++	} else if (strncmp(buf, "enable", 6) =3D=3D 0) {
+ 		AR5K_REG_ENABLE_BITS(ah, AR5K_BEACON, AR5K_BEACON_ENABLE);
+ 		printk(KERN_INFO "debugfs enable beacons\n");
+ 	}
+@@ -314,6 +323,82 @@ static const struct file_operations fops_reset =3D=
+ {
+ };
+=20
+=20
++/* debugfs: debug level */
++
++static struct {
++	enum ath5k_debug_level level;
++	const char *name;
++	const char *desc;
++} dbg_info[] =3D {
++	{ ATH5K_DEBUG_RESET,	"reset",	"reset and initialization" },
++	{ ATH5K_DEBUG_INTR,	"intr",		"interrupt handling" },
++	{ ATH5K_DEBUG_MODE,	"mode",		"mode init/setup" },
++	{ ATH5K_DEBUG_XMIT,	"xmit",		"basic xmit operation" },
++	{ ATH5K_DEBUG_BEACON,	"beacon",	"beacon handling" },
++	{ ATH5K_DEBUG_CALIBRATE, "calib",	"periodic calibration" },
++	{ ATH5K_DEBUG_TXPOWER,	"txpower",	"transmit power setting" },
++	{ ATH5K_DEBUG_LED,	"led",		"LED mamagement" },
++	{ ATH5K_DEBUG_DUMP_RX,	"dumprx",	"print received skb content" },
++	{ ATH5K_DEBUG_DUMP_TX,	"dumptx",	"print transmit skb content" },
++	{ ATH5K_DEBUG_DUMPMODES, "dumpmodes",	"dump modes" },
++	{ ATH5K_DEBUG_TRACE,	"trace",	"trace function calls" },
++	{ ATH5K_DEBUG_ANY,	"all",		"show all debug levels" },
++};
++
++static ssize_t read_file_debug(struct file *file, char __user *user_bu=
+f,
++				   size_t count, loff_t *ppos)
++{
++	struct ath5k_softc *sc =3D file->private_data;
++	char buf[700];
++	unsigned int len =3D 0;
++	unsigned int i;
++
++	len +=3D snprintf(buf+len, sizeof(buf)-len,
++		"DEBUG LEVEL: 0x%08x\n\n", sc->debug.level);
++
++	for (i =3D 0; i < ARRAY_SIZE(dbg_info) - 1; i++) {
++		len +=3D snprintf(buf+len, sizeof(buf)-len,
++			"%10s %c 0x%08x - %s\n", dbg_info[i].name,
++			sc->debug.level & dbg_info[i].level ? '+' : ' ',
++			dbg_info[i].level, dbg_info[i].desc);
++	}
++	len +=3D snprintf(buf+len, sizeof(buf)-len,
++		"%10s %c 0x%08x - %s\n", dbg_info[i].name,
++		sc->debug.level =3D=3D dbg_info[i].level ? '+' : ' ',
++		dbg_info[i].level, dbg_info[i].desc);
++
++	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
++}
++
++static ssize_t write_file_debug(struct file *file,
++				 const char __user *userbuf,
++				 size_t count, loff_t *ppos)
++{
++	struct ath5k_softc *sc =3D file->private_data;
++	unsigned int i;
++	char buf[20];
++
++	if (copy_from_user(buf, userbuf, min(count, sizeof(buf))))
++		return -EFAULT;
++
++	for (i =3D 0; i < ARRAY_SIZE(dbg_info); i++) {
++		if (strncmp(buf, dbg_info[i].name,
++					strlen(dbg_info[i].name)) =3D=3D 0) {
++			sc->debug.level ^=3D dbg_info[i].level; /* toggle bit */
++			break;
++		}
++	}
++	return count;
++}
++
++static const struct file_operations fops_debug =3D {
++	.read =3D read_file_debug,
++	.write =3D write_file_debug,
++	.open =3D ath5k_debugfs_open,
++	.owner =3D THIS_MODULE,
++};
++
++
+ /* init */
+=20
+ void
+@@ -326,26 +411,24 @@ void
+ ath5k_debug_init_device(struct ath5k_softc *sc)
+ {
+ 	sc->debug.level =3D ath5k_debug;
++
+ 	sc->debug.debugfs_phydir =3D debugfs_create_dir(wiphy_name(sc->hw->wi=
+phy),
+-			ath5k_global_debugfs);
+-	sc->debug.debugfs_debug =3D debugfs_create_u32("debug",
+-			0666, sc->debug.debugfs_phydir, &sc->debug.level);
++				ath5k_global_debugfs);
++
++	sc->debug.debugfs_debug =3D debugfs_create_file("debug", 0666,
++				sc->debug.debugfs_phydir, sc, &fops_debug);
+=20
+ 	sc->debug.debugfs_registers =3D debugfs_create_file("registers", 0444=
+,
+-				sc->debug.debugfs_phydir,
+-				sc, &fops_registers);
++				sc->debug.debugfs_phydir, sc, &fops_registers);
+=20
+ 	sc->debug.debugfs_tsf =3D debugfs_create_file("tsf", 0666,
+-				sc->debug.debugfs_phydir,
+-				sc, &fops_tsf);
++				sc->debug.debugfs_phydir, sc, &fops_tsf);
+=20
+ 	sc->debug.debugfs_beacon =3D debugfs_create_file("beacon", 0666,
+-				sc->debug.debugfs_phydir,
+-				sc, &fops_beacon);
++				sc->debug.debugfs_phydir, sc, &fops_beacon);
+=20
+ 	sc->debug.debugfs_reset =3D debugfs_create_file("reset", 0222,
+-				sc->debug.debugfs_phydir,
+-				sc, &fops_reset);
++				sc->debug.debugfs_phydir, sc, &fops_reset);
+ }
+=20
+ void
+@@ -415,8 +498,7 @@ ath5k_debug_printrxbuffs(struct ath5k_softc *sc, st=
+ruct ath5k_hw *ah)
+ 	struct ath5k_buf *bf;
+ 	int status;
+=20
+-	if (likely(!(sc->debug.level &
+-	    (ATH5K_DEBUG_RESET | ATH5K_DEBUG_FATAL))))
++	if (likely(!(sc->debug.level & ATH5K_DEBUG_RESET)))
+ 		return;
+=20
+ 	printk(KERN_DEBUG "rx queue %x, link %p\n",
+@@ -426,7 +508,7 @@ ath5k_debug_printrxbuffs(struct ath5k_softc *sc, st=
+ruct ath5k_hw *ah)
+ 	list_for_each_entry(bf, &sc->rxbuf, list) {
+ 		ds =3D bf->desc;
+ 		status =3D ah->ah_proc_rx_desc(ah, ds);
+-		if (!status || (sc->debug.level & ATH5K_DEBUG_FATAL))
++		if (!status)
+ 			ath5k_debug_printrxbuf(bf, status =3D=3D 0);
+ 	}
+ 	spin_unlock_bh(&sc->rxbuflock);
+diff --git a/drivers/net/wireless/ath5k/debug.h b/drivers/net/wireless/=
+ath5k/debug.h
+index 2b491cb..c4fd8c4 100644
+--- a/drivers/net/wireless/ath5k/debug.h
++++ b/drivers/net/wireless/ath5k/debug.h
+@@ -91,7 +91,6 @@ struct ath5k_dbg_info {
+  * @ATH5K_DEBUG_MODE: mode init/setup
+  * @ATH5K_DEBUG_XMIT: basic xmit operation
+  * @ATH5K_DEBUG_BEACON: beacon handling
+- * @ATH5K_DEBUG_BEACON_PROC: beacon ISR proc
+  * @ATH5K_DEBUG_CALIBRATE: periodic calibration
+  * @ATH5K_DEBUG_TXPOWER: transmit power setting
+  * @ATH5K_DEBUG_LED: led management
+@@ -99,7 +98,6 @@ struct ath5k_dbg_info {
+  * @ATH5K_DEBUG_DUMP_TX: print transmit skb content
+  * @ATH5K_DEBUG_DUMPMODES: dump modes
+  * @ATH5K_DEBUG_TRACE: trace function calls
+- * @ATH5K_DEBUG_FATAL: fatal errors
+  * @ATH5K_DEBUG_ANY: show at any debug level
+  *
+  * The debug level is used to control the amount and type of debugging=
+ output
+@@ -115,15 +113,13 @@ enum ath5k_debug_level {
+ 	ATH5K_DEBUG_MODE	=3D 0x00000004,
+ 	ATH5K_DEBUG_XMIT	=3D 0x00000008,
+ 	ATH5K_DEBUG_BEACON	=3D 0x00000010,
+-	ATH5K_DEBUG_BEACON_PROC	=3D 0x00000020,
+-	ATH5K_DEBUG_CALIBRATE	=3D 0x00000100,
+-	ATH5K_DEBUG_TXPOWER	=3D 0x00000200,
+-	ATH5K_DEBUG_LED		=3D 0x00000400,
+-	ATH5K_DEBUG_DUMP_RX	=3D 0x00001000,
+-	ATH5K_DEBUG_DUMP_TX	=3D 0x00002000,
+-	ATH5K_DEBUG_DUMPMODES	=3D 0x00004000,
+-	ATH5K_DEBUG_TRACE	=3D 0x00010000,
+-	ATH5K_DEBUG_FATAL	=3D 0x80000000,
++	ATH5K_DEBUG_CALIBRATE	=3D 0x00000020,
++	ATH5K_DEBUG_TXPOWER	=3D 0x00000040,
++	ATH5K_DEBUG_LED		=3D 0x00000080,
++	ATH5K_DEBUG_DUMP_RX	=3D 0x00000100,
++	ATH5K_DEBUG_DUMP_TX	=3D 0x00000200,
++	ATH5K_DEBUG_DUMPMODES	=3D 0x00000400,
++	ATH5K_DEBUG_TRACE	=3D 0x00001000,
+ 	ATH5K_DEBUG_ANY		=3D 0xffffffff
+ };
+=20
+diff --git a/drivers/net/wireless/b43/dma.c b/drivers/net/wireless/b43/=
+dma.c
+index 3e73d2a..8a708b7 100644
+--- a/drivers/net/wireless/b43/dma.c
++++ b/drivers/net/wireless/b43/dma.c
+@@ -1114,7 +1114,7 @@ static int dma_tx_fragment(struct b43_dmaring *ri=
+ng,
+ {
+ 	const struct b43_dma_ops *ops =3D ring->ops;
+ 	u8 *header;
+-	int slot;
++	int slot, old_top_slot, old_used_slots;
+ 	int err;
+ 	struct b43_dmadesc_generic *desc;
+ 	struct b43_dmadesc_meta *meta;
+@@ -1126,6 +1126,9 @@ static int dma_tx_fragment(struct b43_dmaring *ri=
+ng,
+ #define SLOTS_PER_PACKET  2
+ 	B43_WARN_ON(skb_shinfo(skb)->nr_frags);
+=20
++	old_top_slot =3D ring->current_slot;
++	old_used_slots =3D ring->used_slots;
++
+ 	/* Get a slot for the header. */
+ 	slot =3D request_slot(ring);
+ 	desc =3D ops->idx2desc(ring, slot, &meta_hdr);
+@@ -1133,13 +1136,21 @@ static int dma_tx_fragment(struct b43_dmaring *=
+ring,
+=20
+ 	header =3D &(ring->txhdr_cache[slot * hdrsize]);
+ 	cookie =3D generate_cookie(ring, slot);
+-	b43_generate_txhdr(ring->dev, header,
+-			   skb->data, skb->len, ctl, cookie);
++	err =3D b43_generate_txhdr(ring->dev, header,
++				 skb->data, skb->len, ctl, cookie);
++	if (unlikely(err)) {
++		ring->current_slot =3D old_top_slot;
++		ring->used_slots =3D old_used_slots;
++		return err;
++	}
+=20
+ 	meta_hdr->dmaaddr =3D map_descbuffer(ring, (unsigned char *)header,
+ 					   hdrsize, 1);
+-	if (dma_mapping_error(meta_hdr->dmaaddr))
++	if (dma_mapping_error(meta_hdr->dmaaddr)) {
++		ring->current_slot =3D old_top_slot;
++		ring->used_slots =3D old_used_slots;
+ 		return -EIO;
++	}
+ 	ops->fill_descriptor(ring, desc, meta_hdr->dmaaddr,
+ 			     hdrsize, 1, 0, 0);
+=20
+@@ -1157,6 +1168,8 @@ static int dma_tx_fragment(struct b43_dmaring *ri=
+ng,
+ 	if (dma_mapping_error(meta->dmaaddr)) {
+ 		bounce_skb =3D __dev_alloc_skb(skb->len, GFP_ATOMIC | GFP_DMA);
+ 		if (!bounce_skb) {
++			ring->current_slot =3D old_top_slot;
++			ring->used_slots =3D old_used_slots;
+ 			err =3D -ENOMEM;
+ 			goto out_unmap_hdr;
+ 		}
+@@ -1167,6 +1180,8 @@ static int dma_tx_fragment(struct b43_dmaring *ri=
+ng,
+ 		meta->skb =3D skb;
+ 		meta->dmaaddr =3D map_descbuffer(ring, skb->data, skb->len, 1);
+ 		if (dma_mapping_error(meta->dmaaddr)) {
++			ring->current_slot =3D old_top_slot;
++			ring->used_slots =3D old_used_slots;
+ 			err =3D -EIO;
+ 			goto out_free_bounce;
+ 		}
+@@ -1252,6 +1267,13 @@ int b43_dma_tx(struct b43_wldev *dev,
+ 	B43_WARN_ON(ring->stopped);
+=20
+ 	err =3D dma_tx_fragment(ring, skb, ctl);
++	if (unlikely(err =3D=3D -ENOKEY)) {
++		/* Drop this packet, as we don't have the encryption key
++		 * anymore and must not transmit it unencrypted. */
++		dev_kfree_skb_any(skb);
++		err =3D 0;
++		goto out_unlock;
++	}
+ 	if (unlikely(err)) {
+ 		b43err(dev->wl, "DMA tx mapping failure\n");
+ 		goto out_unlock;
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43=
+/main.c
+index 88d2c15..64c154d 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -3532,8 +3532,6 @@ static int b43_wireless_core_init(struct b43_wlde=
+v *dev)
+ 	b43_bluetooth_coext_enable(dev);
+=20
+ 	ssb_bus_powerup(bus, 1);	/* Enable dynamic PCTL */
+-	memset(wl->bssid, 0, ETH_ALEN);
+-	memset(wl->mac_addr, 0, ETH_ALEN);
+ 	b43_upload_card_macaddress(dev);
+ 	b43_security_init(dev);
+ 	b43_rng_init(wl);
+@@ -3630,6 +3628,15 @@ static int b43_op_start(struct ieee80211_hw *hw)
+ 	struct b43_wldev *dev =3D wl->current_dev;
+ 	int did_init =3D 0;
+ 	int err =3D 0;
++	bool do_rfkill_exit =3D 0;
++
++	/* Kill all old instance specific information to make sure
++	 * the card won't use it in the short timeframe between start
++	 * and mac80211 reconfiguring it. */
++	memset(wl->bssid, 0, ETH_ALEN);
++	memset(wl->mac_addr, 0, ETH_ALEN);
++	wl->filter_flags =3D 0;
++	wl->radiotap_enabled =3D 0;
+=20
+ 	/* First register RFkill.
+ 	 * LEDs that are registered later depend on it. */
+@@ -3639,8 +3646,10 @@ static int b43_op_start(struct ieee80211_hw *hw)
+=20
+ 	if (b43_status(dev) < B43_STAT_INITIALIZED) {
+ 		err =3D b43_wireless_core_init(dev);
+-		if (err)
++		if (err) {
++			do_rfkill_exit =3D 1;
+ 			goto out_mutex_unlock;
++		}
+ 		did_init =3D 1;
+ 	}
+=20
+@@ -3649,6 +3658,7 @@ static int b43_op_start(struct ieee80211_hw *hw)
+ 		if (err) {
+ 			if (did_init)
+ 				b43_wireless_core_exit(dev);
++			do_rfkill_exit =3D 1;
+ 			goto out_mutex_unlock;
+ 		}
+ 	}
+@@ -3656,6 +3666,9 @@ static int b43_op_start(struct ieee80211_hw *hw)
+  out_mutex_unlock:
+ 	mutex_unlock(&wl->mutex);
+=20
++	if (do_rfkill_exit)
++		b43_rfkill_exit(dev);
++
+ 	return err;
+ }
+=20
+diff --git a/drivers/net/wireless/b43/xmit.c b/drivers/net/wireless/b43=
+/xmit.c
+index 3fc53e8..7caa26e 100644
+--- a/drivers/net/wireless/b43/xmit.c
++++ b/drivers/net/wireless/b43/xmit.c
+@@ -178,12 +178,12 @@ static u8 b43_calc_fallback_rate(u8 bitrate)
+ }
+=20
+ /* Generate a TX data header. */
+-void b43_generate_txhdr(struct b43_wldev *dev,
+-			u8 *_txhdr,
+-			const unsigned char *fragment_data,
+-			unsigned int fragment_len,
+-			const struct ieee80211_tx_control *txctl,
+-			u16 cookie)
++int b43_generate_txhdr(struct b43_wldev *dev,
++		       u8 *_txhdr,
++		       const unsigned char *fragment_data,
++		       unsigned int fragment_len,
++		       const struct ieee80211_tx_control *txctl,
++		       u16 cookie)
+ {
+ 	struct b43_txhdr *txhdr =3D (struct b43_txhdr *)_txhdr;
+ 	const struct b43_phy *phy =3D &dev->phy;
+@@ -237,7 +237,15 @@ void b43_generate_txhdr(struct b43_wldev *dev,
+=20
+ 		B43_WARN_ON(key_idx >=3D dev->max_nr_keys);
+ 		key =3D &(dev->key[key_idx]);
+-		B43_WARN_ON(!key->keyconf);
++
++		if (unlikely(!key->keyconf)) {
++			/* This key is invalid. This might only happen
++			 * in a short timeframe after machine resume before
++			 * we were able to reconfigure keys.
++			 * Drop this packet completely. Do not transmit it
++			 * unencrypted to avoid leaking information. */
++			return -ENOKEY;
++		}
+=20
+ 		/* Hardware appends ICV. */
+ 		plcp_fragment_len +=3D txctl->icv_len;
+@@ -408,6 +416,7 @@ void b43_generate_txhdr(struct b43_wldev *dev,
+ 	txhdr->phy_ctl =3D cpu_to_le16(phy_ctl);
+ 	txhdr->extra_ft =3D extra_ft;
+=20
++	return 0;
+ }
+=20
+ static s8 b43_rssi_postprocess(struct b43_wldev *dev,
+diff --git a/drivers/net/wireless/b43/xmit.h b/drivers/net/wireless/b43=
+/xmit.h
+index ca2a2ab..4176503 100644
+--- a/drivers/net/wireless/b43/xmit.h
++++ b/drivers/net/wireless/b43/xmit.h
+@@ -174,11 +174,11 @@ size_t b43_txhdr_size(struct b43_wldev *dev)
+ }
+=20
+=20
+-void b43_generate_txhdr(struct b43_wldev *dev,
+-			u8 * txhdr,
+-			const unsigned char *fragment_data,
+-			unsigned int fragment_len,
+-			const struct ieee80211_tx_control *txctl, u16 cookie);
++int b43_generate_txhdr(struct b43_wldev *dev,
++		       u8 * txhdr,
++		       const unsigned char *fragment_data,
++		       unsigned int fragment_len,
++		       const struct ieee80211_tx_control *txctl, u16 cookie);
+=20
+ /* Transmit Status */
+ struct b43_txstatus {
+diff --git a/drivers/net/wireless/b43legacy/b43legacy.h b/drivers/net/w=
+ireless/b43legacy/b43legacy.h
+index 93419ad..c80edd2 100644
+--- a/drivers/net/wireless/b43legacy/b43legacy.h
++++ b/drivers/net/wireless/b43legacy/b43legacy.h
+@@ -23,7 +23,7 @@
+ #include "phy.h"
+=20
+=20
+-#define B43legacy_IRQWAIT_MAX_RETRIES	100
++#define B43legacy_IRQWAIT_MAX_RETRIES	20
+=20
+ #define B43legacy_RX_MAX_SSI		60 /* best guess at max ssi */
+=20
+@@ -40,9 +40,8 @@
+ #define B43legacy_MMIO_DMA4_IRQ_MASK	0x44
+ #define B43legacy_MMIO_DMA5_REASON	0x48
+ #define B43legacy_MMIO_DMA5_IRQ_MASK	0x4C
+-#define B43legacy_MMIO_MACCTL		0x120
+-#define B43legacy_MMIO_STATUS_BITFIELD	0x120
+-#define B43legacy_MMIO_STATUS2_BITFIELD	0x124
++#define B43legacy_MMIO_MACCTL		0x120	/* MAC control */
++#define B43legacy_MMIO_MACCMD		0x124	/* MAC command */
+ #define B43legacy_MMIO_GEN_IRQ_REASON	0x128
+ #define B43legacy_MMIO_GEN_IRQ_MASK	0x12C
+ #define B43legacy_MMIO_RAM_CONTROL	0x130
+@@ -177,31 +176,25 @@
+ #define B43legacy_RADIOCTL_ID		0x01
+=20
+ /* MAC Control bitfield */
++#define B43legacy_MACCTL_ENABLED	0x00000001 /* MAC Enabled */
++#define B43legacy_MACCTL_PSM_RUN	0x00000002 /* Run Microcode */
++#define B43legacy_MACCTL_PSM_JMP0	0x00000004 /* Microcode jump to 0 */
++#define B43legacy_MACCTL_SHM_ENABLED	0x00000100 /* SHM Enabled */
+ #define B43legacy_MACCTL_IHR_ENABLED	0x00000400 /* IHR Region Enabled =
+*/
++#define B43legacy_MACCTL_BE		0x00010000 /* Big Endian mode */
+ #define B43legacy_MACCTL_INFRA		0x00020000 /* Infrastructure mode */
+ #define B43legacy_MACCTL_AP		0x00040000 /* AccessPoint mode */
++#define B43legacy_MACCTL_RADIOLOCK	0x00080000 /* Radio lock */
+ #define B43legacy_MACCTL_BEACPROMISC	0x00100000 /* Beacon Promiscuous =
+*/
+ #define B43legacy_MACCTL_KEEP_BADPLCP	0x00200000 /* Keep bad PLCP fram=
+es */
+ #define B43legacy_MACCTL_KEEP_CTL	0x00400000 /* Keep control frames */
+ #define B43legacy_MACCTL_KEEP_BAD	0x00800000 /* Keep bad frames (FCS) =
+*/
+ #define B43legacy_MACCTL_PROMISC	0x01000000 /* Promiscuous mode */
++#define B43legacy_MACCTL_HWPS		0x02000000 /* Hardware Power Saving */
++#define B43legacy_MACCTL_AWAKE		0x04000000 /* Device is awake */
++#define B43legacy_MACCTL_TBTTHOLD	0x10000000 /* TBTT Hold */
+ #define B43legacy_MACCTL_GMODE		0x80000000 /* G Mode */
+=20
+-/* StatusBitField */
+-#define B43legacy_SBF_MAC_ENABLED	0x00000001
+-#define B43legacy_SBF_CORE_READY	0x00000004
+-#define B43legacy_SBF_400		0x00000400 /*FIXME: fix name*/
+-#define B43legacy_SBF_XFER_REG_BYTESWAP	0x00010000
+-#define B43legacy_SBF_MODE_NOTADHOC	0x00020000
+-#define B43legacy_SBF_MODE_AP		0x00040000
+-#define B43legacy_SBF_RADIOREG_LOCK	0x00080000
+-#define B43legacy_SBF_MODE_MONITOR	0x00400000
+-#define B43legacy_SBF_MODE_PROMISC	0x01000000
+-#define B43legacy_SBF_PS1		0x02000000
+-#define B43legacy_SBF_PS2		0x04000000
+-#define B43legacy_SBF_NO_SSID_BCAST	0x08000000
+-#define B43legacy_SBF_TIME_UPDATE	0x10000000
+-
+ /* 802.11 core specific TM State Low flags */
+ #define B43legacy_TMSLOW_GMODE		0x20000000 /* G Mode Enable */
+ #define B43legacy_TMSLOW_PLLREFSEL	0x00200000 /* PLL Freq Ref Select *=
+/
+diff --git a/drivers/net/wireless/b43legacy/main.c b/drivers/net/wirele=
+ss/b43legacy/main.c
+index 4ed4243..aa20d5d 100644
+--- a/drivers/net/wireless/b43legacy/main.c
++++ b/drivers/net/wireless/b43legacy/main.c
+@@ -225,8 +225,8 @@ static void b43legacy_ram_write(struct b43legacy_wl=
+dev *dev, u16 offset,
+=20
+ 	B43legacy_WARN_ON(offset % 4 !=3D 0);
+=20
+-	status =3D b43legacy_read32(dev, B43legacy_MMIO_STATUS_BITFIELD);
+-	if (status & B43legacy_SBF_XFER_REG_BYTESWAP)
++	status =3D b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
++	if (status & B43legacy_MACCTL_BE)
+ 		val =3D swab32(val);
+=20
+ 	b43legacy_write32(dev, B43legacy_MMIO_RAM_CONTROL, offset);
+@@ -434,9 +434,9 @@ static void b43legacy_time_lock(struct b43legacy_wl=
+dev *dev)
+ {
+ 	u32 status;
+=20
+-	status =3D b43legacy_read32(dev, B43legacy_MMIO_STATUS_BITFIELD);
+-	status |=3D B43legacy_SBF_TIME_UPDATE;
+-	b43legacy_write32(dev, B43legacy_MMIO_STATUS_BITFIELD, status);
++	status =3D b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
++	status |=3D B43legacy_MACCTL_TBTTHOLD;
++	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, status);
+ 	mmiowb();
+ }
+=20
+@@ -444,9 +444,9 @@ static void b43legacy_time_unlock(struct b43legacy_=
+wldev *dev)
+ {
+ 	u32 status;
+=20
+-	status =3D b43legacy_read32(dev, B43legacy_MMIO_STATUS_BITFIELD);
+-	status &=3D ~B43legacy_SBF_TIME_UPDATE;
+-	b43legacy_write32(dev, B43legacy_MMIO_STATUS_BITFIELD, status);
++	status =3D b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
++	status &=3D ~B43legacy_MACCTL_TBTTHOLD;
++	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, status);
+ }
+=20
+ static void b43legacy_tsf_write_locked(struct b43legacy_wldev *dev, u6=
+4 tsf)
+@@ -647,7 +647,7 @@ void b43legacy_dummy_transmission(struct b43legacy_=
+wldev *dev)
+ 		b43legacy_ram_write(dev, i * 4, buffer[i]);
+=20
+ 	/* dummy read follows */
+-	b43legacy_read32(dev, B43legacy_MMIO_STATUS_BITFIELD);
++	b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
+=20
+ 	b43legacy_write16(dev, 0x0568, 0x0000);
+ 	b43legacy_write16(dev, 0x07C0, 0x0000);
+@@ -794,9 +794,9 @@ static void b43legacy_jssi_write(struct b43legacy_w=
+ldev *dev, u32 jssi)
+ static void b43legacy_generate_noise_sample(struct b43legacy_wldev *de=
+v)
+ {
+ 	b43legacy_jssi_write(dev, 0x7F7F7F7F);
+-	b43legacy_write32(dev, B43legacy_MMIO_STATUS2_BITFIELD,
++	b43legacy_write32(dev, B43legacy_MMIO_MACCMD,
+ 			  b43legacy_read32(dev,
+-			  B43legacy_MMIO_STATUS2_BITFIELD)
++			  B43legacy_MMIO_MACCMD)
+ 			  | (1 << 4));
+ 	B43legacy_WARN_ON(dev->noisecalc.channel_at_start !=3D
+ 			    dev->phy.channel);
+@@ -895,8 +895,8 @@ static void handle_irq_atim_end(struct b43legacy_wl=
+dev *dev)
+ {
+ 	if (!dev->reg124_set_0x4) /*FIXME rename this variable*/
+ 		return;
+-	b43legacy_write32(dev, B43legacy_MMIO_STATUS2_BITFIELD,
+-			  b43legacy_read32(dev, B43legacy_MMIO_STATUS2_BITFIELD)
++	b43legacy_write32(dev, B43legacy_MMIO_MACCMD,
++			  b43legacy_read32(dev, B43legacy_MMIO_MACCMD)
+ 			  | 0x4);
+ }
+=20
+@@ -1106,9 +1106,9 @@ static void b43legacy_update_templates(struct b43=
+legacy_wldev *dev)
+ 	b43legacy_write_probe_resp_template(dev, 0x268, 0x4A,
+ 					    B43legacy_CCK_RATE_11MB);
+=20
+-	status =3D b43legacy_read32(dev, B43legacy_MMIO_STATUS2_BITFIELD);
++	status =3D b43legacy_read32(dev, B43legacy_MMIO_MACCMD);
+ 	status |=3D 0x03;
+-	b43legacy_write32(dev, B43legacy_MMIO_STATUS2_BITFIELD, status);
++	b43legacy_write32(dev, B43legacy_MMIO_MACCMD, status);
+ }
+=20
+ static void b43legacy_refresh_templates(struct b43legacy_wldev *dev,
+@@ -1166,7 +1166,7 @@ static void handle_irq_beacon(struct b43legacy_wl=
+dev *dev)
+ 		return;
+=20
+ 	dev->irq_savedstate &=3D ~B43legacy_IRQ_BEACON;
+-	status =3D b43legacy_read32(dev, B43legacy_MMIO_STATUS2_BITFIELD);
++	status =3D b43legacy_read32(dev, B43legacy_MMIO_MACCMD);
+=20
+ 	if (!dev->cached_beacon || ((status & 0x1) && (status & 0x2))) {
+ 		/* ACK beacon IRQ. */
+@@ -1182,14 +1182,14 @@ static void handle_irq_beacon(struct b43legacy_=
+wldev *dev)
+ 		b43legacy_write_beacon_template(dev, 0x68, 0x18,
+ 						B43legacy_CCK_RATE_1MB);
+ 		status |=3D 0x1;
+-		b43legacy_write32(dev, B43legacy_MMIO_STATUS2_BITFIELD,
++		b43legacy_write32(dev, B43legacy_MMIO_MACCMD,
+ 				  status);
+ 	}
+ 	if (!(status & 0x2)) {
+ 		b43legacy_write_beacon_template(dev, 0x468, 0x1A,
+ 						B43legacy_CCK_RATE_1MB);
+ 		status |=3D 0x2;
+-		b43legacy_write32(dev, B43legacy_MMIO_STATUS2_BITFIELD,
++		b43legacy_write32(dev, B43legacy_MMIO_MACCMD,
+ 				  status);
+ 	}
+ }
+@@ -1548,9 +1548,20 @@ static int b43legacy_upload_microcode(struct b43=
+legacy_wldev *dev)
+ 	u16 fwpatch;
+ 	u16 fwdate;
+ 	u16 fwtime;
+-	u32 tmp;
++	u32 tmp, macctl;
+ 	int err =3D 0;
+=20
++	/* Jump the microcode PSM to offset 0 */
++	macctl =3D b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
++	B43legacy_WARN_ON(macctl & B43legacy_MACCTL_PSM_RUN);
++	macctl |=3D B43legacy_MACCTL_PSM_JMP0;
++	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, macctl);
++	/* Zero out all microcode PSM registers and shared memory. */
++	for (i =3D 0; i < 64; i++)
++		b43legacy_shm_write16(dev, B43legacy_SHM_WIRELESS, i, 0);
++	for (i =3D 0; i < 4096; i +=3D 2)
++		b43legacy_shm_write16(dev, B43legacy_SHM_SHARED, i, 0);
++
+ 	/* Upload Microcode. */
+ 	data =3D (__be32 *) (dev->fw.ucode->data + hdr_len);
+ 	len =3D (dev->fw.ucode->size - hdr_len) / sizeof(__be32);
+@@ -1581,7 +1592,12 @@ static int b43legacy_upload_microcode(struct b43=
+legacy_wldev *dev)
+=20
+ 	b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_REASON,
+ 			  B43legacy_IRQ_ALL);
+-	b43legacy_write32(dev, B43legacy_MMIO_STATUS_BITFIELD, 0x00020402);
++
++	/* Start the microcode PSM */
++	macctl =3D b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
++	macctl &=3D ~B43legacy_MACCTL_PSM_JMP0;
++	macctl |=3D B43legacy_MACCTL_PSM_RUN;
++	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, macctl);
+=20
+ 	/* Wait for the microcode to load and respond */
+ 	i =3D 0;
+@@ -1594,9 +1610,13 @@ static int b43legacy_upload_microcode(struct b43=
+legacy_wldev *dev)
+ 			b43legacyerr(dev->wl, "Microcode not responding\n");
+ 			b43legacy_print_fw_helptext(dev->wl);
+ 			err =3D -ENODEV;
+-			goto out;
++			goto error;
++		}
++		msleep_interruptible(50);
++		if (signal_pending(current)) {
++			err =3D -EINTR;
++			goto error;
+ 		}
+-		udelay(10);
+ 	}
+ 	/* dummy read follows */
+ 	b43legacy_read32(dev, B43legacy_MMIO_GEN_IRQ_REASON);
+@@ -1617,9 +1637,8 @@ static int b43legacy_upload_microcode(struct b43l=
+egacy_wldev *dev)
+ 			     " is supported. You must change your firmware"
+ 			     " files.\n");
+ 		b43legacy_print_fw_helptext(dev->wl);
+-		b43legacy_write32(dev, B43legacy_MMIO_STATUS_BITFIELD, 0);
+ 		err =3D -EOPNOTSUPP;
+-		goto out;
++		goto error;
+ 	}
+ 	b43legacydbg(dev->wl, "Loading firmware version 0x%X, patch level %u =
+"
+ 	       "(20%.2i-%.2i-%.2i %.2i:%.2i:%.2i)\n", fwrev, fwpatch,
+@@ -1629,7 +1648,14 @@ static int b43legacy_upload_microcode(struct b43=
+legacy_wldev *dev)
+ 	dev->fw.rev =3D fwrev;
+ 	dev->fw.patch =3D fwpatch;
+=20
+-out:
++	return 0;
++
++error:
++	macctl =3D b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
++	macctl &=3D ~B43legacy_MACCTL_PSM_RUN;
++	macctl |=3D B43legacy_MACCTL_PSM_JMP0;
++	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, macctl);
++
+ 	return err;
+ }
+=20
+@@ -1736,9 +1762,9 @@ static int b43legacy_gpio_init(struct b43legacy_w=
+ldev *dev)
+ 	u32 mask;
+ 	u32 set;
+=20
+-	b43legacy_write32(dev, B43legacy_MMIO_STATUS_BITFIELD,
++	b43legacy_write32(dev, B43legacy_MMIO_MACCTL,
+ 			  b43legacy_read32(dev,
+-			  B43legacy_MMIO_STATUS_BITFIELD)
++			  B43legacy_MMIO_MACCTL)
+ 			  & 0xFFFF3FFF);
+=20
+ 	b43legacy_write16(dev, B43legacy_MMIO_GPIO_MASK,
+@@ -1798,14 +1824,14 @@ void b43legacy_mac_enable(struct b43legacy_wlde=
+v *dev)
+ 	B43legacy_WARN_ON(dev->mac_suspended < 0);
+ 	B43legacy_WARN_ON(irqs_disabled());
+ 	if (dev->mac_suspended =3D=3D 0) {
+-		b43legacy_write32(dev, B43legacy_MMIO_STATUS_BITFIELD,
++		b43legacy_write32(dev, B43legacy_MMIO_MACCTL,
+ 				  b43legacy_read32(dev,
+-				  B43legacy_MMIO_STATUS_BITFIELD)
+-				  | B43legacy_SBF_MAC_ENABLED);
++				  B43legacy_MMIO_MACCTL)
++				  | B43legacy_MACCTL_ENABLED);
+ 		b43legacy_write32(dev, B43legacy_MMIO_GEN_IRQ_REASON,
+ 				  B43legacy_IRQ_MAC_SUSPENDED);
+ 		/* the next two are dummy reads */
+-		b43legacy_read32(dev, B43legacy_MMIO_STATUS_BITFIELD);
++		b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
+ 		b43legacy_read32(dev, B43legacy_MMIO_GEN_IRQ_REASON);
+ 		b43legacy_power_saving_ctl_bits(dev, -1, -1);
+=20
+@@ -1836,10 +1862,10 @@ void b43legacy_mac_suspend(struct b43legacy_wld=
+ev *dev)
+ 		dev->irq_savedstate =3D tmp;
+=20
+ 		b43legacy_power_saving_ctl_bits(dev, -1, 1);
+-		b43legacy_write32(dev, B43legacy_MMIO_STATUS_BITFIELD,
++		b43legacy_write32(dev, B43legacy_MMIO_MACCTL,
+ 				  b43legacy_read32(dev,
+-				  B43legacy_MMIO_STATUS_BITFIELD)
+-				  & ~B43legacy_SBF_MAC_ENABLED);
++				  B43legacy_MMIO_MACCTL)
++				  & ~B43legacy_MACCTL_ENABLED);
+ 		b43legacy_read32(dev, B43legacy_MMIO_GEN_IRQ_REASON);
+ 		for (i =3D 40; i; i--) {
+ 			tmp =3D b43legacy_read32(dev,
+@@ -2007,12 +2033,15 @@ static int b43legacy_chip_init(struct b43legacy=
+_wldev *dev)
+ 	struct b43legacy_phy *phy =3D &dev->phy;
+ 	int err;
+ 	int tmp;
+-	u32 value32;
++	u32 value32, macctl;
+ 	u16 value16;
+=20
+-	b43legacy_write32(dev, B43legacy_MMIO_STATUS_BITFIELD,
+-			  B43legacy_SBF_CORE_READY
+-			  | B43legacy_SBF_400);
++	/* Initialize the MAC control */
++	macctl =3D B43legacy_MACCTL_IHR_ENABLED | B43legacy_MACCTL_SHM_ENABLE=
+D;
++	if (dev->phy.gmode)
++		macctl |=3D B43legacy_MACCTL_GMODE;
++	macctl |=3D B43legacy_MACCTL_INFRA;
++	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, macctl);
+=20
+ 	err =3D b43legacy_request_firmware(dev);
+ 	if (err)
+@@ -2052,12 +2081,12 @@ static int b43legacy_chip_init(struct b43legacy=
+_wldev *dev)
+ 	if (dev->dev->id.revision < 5)
+ 		b43legacy_write32(dev, 0x010C, 0x01000000);
+=20
+-	value32 =3D b43legacy_read32(dev, B43legacy_MMIO_STATUS_BITFIELD);
+-	value32 &=3D ~B43legacy_SBF_MODE_NOTADHOC;
+-	b43legacy_write32(dev, B43legacy_MMIO_STATUS_BITFIELD, value32);
+-	value32 =3D b43legacy_read32(dev, B43legacy_MMIO_STATUS_BITFIELD);
+-	value32 |=3D B43legacy_SBF_MODE_NOTADHOC;
+-	b43legacy_write32(dev, B43legacy_MMIO_STATUS_BITFIELD, value32);
++	value32 =3D b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
++	value32 &=3D ~B43legacy_MACCTL_INFRA;
++	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, value32);
++	value32 =3D b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
++	value32 |=3D B43legacy_MACCTL_INFRA;
++	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, value32);
+=20
+ 	if (b43legacy_using_pio(dev)) {
+ 		b43legacy_write32(dev, 0x0210, 0x00000100);
+@@ -2951,12 +2980,19 @@ static void b43legacy_wireless_core_exit(struct=
+ b43legacy_wldev *dev)
+ {
+ 	struct b43legacy_wl *wl =3D dev->wl;
+ 	struct b43legacy_phy *phy =3D &dev->phy;
++	u32 macctl;
+=20
+ 	B43legacy_WARN_ON(b43legacy_status(dev) > B43legacy_STAT_INITIALIZED)=
+;
+ 	if (b43legacy_status(dev) !=3D B43legacy_STAT_INITIALIZED)
+ 		return;
+ 	b43legacy_set_status(dev, B43legacy_STAT_UNINIT);
+=20
++	/* Stop the microcode PSM. */
++	macctl =3D b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
++	macctl &=3D ~B43legacy_MACCTL_PSM_RUN;
++	macctl |=3D B43legacy_MACCTL_PSM_JMP0;
++	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, macctl);
++
+ 	mutex_unlock(&wl->mutex);
+ 	/* Must unlock as it would otherwise deadlock. No races here.
+ 	 * Cancel possibly pending workqueues. */
+@@ -3221,6 +3257,7 @@ static int b43legacy_op_start(struct ieee80211_hw=
+ *hw)
+ 	struct b43legacy_wldev *dev =3D wl->current_dev;
+ 	int did_init =3D 0;
+ 	int err =3D 0;
++	bool do_rfkill_exit =3D 0;
+=20
+ 	/* First register RFkill.
+ 	 * LEDs that are registered later depend on it. */
+@@ -3230,8 +3267,10 @@ static int b43legacy_op_start(struct ieee80211_h=
+w *hw)
+=20
+ 	if (b43legacy_status(dev) < B43legacy_STAT_INITIALIZED) {
+ 		err =3D b43legacy_wireless_core_init(dev);
+-		if (err)
++		if (err) {
++			do_rfkill_exit =3D 1;
+ 			goto out_mutex_unlock;
++		}
+ 		did_init =3D 1;
+ 	}
+=20
+@@ -3240,6 +3279,7 @@ static int b43legacy_op_start(struct ieee80211_hw=
+ *hw)
+ 		if (err) {
+ 			if (did_init)
+ 				b43legacy_wireless_core_exit(dev);
++			do_rfkill_exit =3D 1;
+ 			goto out_mutex_unlock;
+ 		}
+ 	}
+@@ -3247,6 +3287,9 @@ static int b43legacy_op_start(struct ieee80211_hw=
+ *hw)
+ out_mutex_unlock:
+ 	mutex_unlock(&wl->mutex);
+=20
++	if (do_rfkill_exit)
++		b43legacy_rfkill_exit(dev);
++
+ 	return err;
+ }
+=20
+diff --git a/drivers/net/wireless/b43legacy/phy.c b/drivers/net/wireles=
+s/b43legacy/phy.c
+index c16febb..8e5c09b 100644
+--- a/drivers/net/wireless/b43legacy/phy.c
++++ b/drivers/net/wireless/b43legacy/phy.c
+@@ -140,7 +140,7 @@ void b43legacy_phy_calibrate(struct b43legacy_wldev=
+ *dev)
+ {
+ 	struct b43legacy_phy *phy =3D &dev->phy;
+=20
+-	b43legacy_read32(dev, B43legacy_MMIO_STATUS_BITFIELD); /* Dummy read.=
+ */
++	b43legacy_read32(dev, B43legacy_MMIO_MACCTL); /* Dummy read. */
+ 	if (phy->calibrated)
+ 		return;
+ 	if (phy->type =3D=3D B43legacy_PHYTYPE_G && phy->rev =3D=3D 1) {
+@@ -2231,16 +2231,16 @@ bit26 =3D 1;
+ 		 *	or the latest PS-Poll packet sent was successful,
+ 		 *	set bit26  */
+ 	}
+-	status =3D b43legacy_read32(dev, B43legacy_MMIO_STATUS_BITFIELD);
++	status =3D b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
+ 	if (bit25)
+-		status |=3D B43legacy_SBF_PS1;
++		status |=3D B43legacy_MACCTL_HWPS;
+ 	else
+-		status &=3D ~B43legacy_SBF_PS1;
++		status &=3D ~B43legacy_MACCTL_HWPS;
+ 	if (bit26)
+-		status |=3D B43legacy_SBF_PS2;
++		status |=3D B43legacy_MACCTL_AWAKE;
+ 	else
+-		status &=3D ~B43legacy_SBF_PS2;
+-	b43legacy_write32(dev, B43legacy_MMIO_STATUS_BITFIELD, status);
++		status &=3D ~B43legacy_MACCTL_AWAKE;
++	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, status);
+ 	if (bit26 && dev->dev->id.revision >=3D 5) {
+ 		for (i =3D 0; i < 100; i++) {
+ 			if (b43legacy_shm_read32(dev, B43legacy_SHM_SHARED,
+diff --git a/drivers/net/wireless/b43legacy/pio.c b/drivers/net/wireles=
+s/b43legacy/pio.c
+index de843ac..e4f4c5c 100644
+--- a/drivers/net/wireless/b43legacy/pio.c
++++ b/drivers/net/wireless/b43legacy/pio.c
+@@ -334,9 +334,9 @@ struct b43legacy_pioqueue *b43legacy_setup_pioqueue=
+(struct b43legacy_wldev *dev,
+ 	tasklet_init(&queue->txtask, tx_tasklet,
+ 		     (unsigned long)queue);
+=20
+-	value =3D b43legacy_read32(dev, B43legacy_MMIO_STATUS_BITFIELD);
+-	value &=3D ~B43legacy_SBF_XFER_REG_BYTESWAP;
+-	b43legacy_write32(dev, B43legacy_MMIO_STATUS_BITFIELD, value);
++	value =3D b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
++	value &=3D ~B43legacy_MACCTL_BE;
++	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, value);
+=20
+ 	qsize =3D b43legacy_read16(dev, queue->mmio_base
+ 				 + B43legacy_PIO_TXQBUFSIZE);
+diff --git a/drivers/net/wireless/b43legacy/radio.c b/drivers/net/wirel=
+ess/b43legacy/radio.c
+index 318a270..955832e 100644
+--- a/drivers/net/wireless/b43legacy/radio.c
++++ b/drivers/net/wireless/b43legacy/radio.c
+@@ -91,10 +91,10 @@ void b43legacy_radio_lock(struct b43legacy_wldev *d=
+ev)
+ {
+ 	u32 status;
+=20
+-	status =3D b43legacy_read32(dev, B43legacy_MMIO_STATUS_BITFIELD);
+-	B43legacy_WARN_ON(status & B43legacy_SBF_RADIOREG_LOCK);
+-	status |=3D B43legacy_SBF_RADIOREG_LOCK;
+-	b43legacy_write32(dev, B43legacy_MMIO_STATUS_BITFIELD, status);
++	status =3D b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
++	B43legacy_WARN_ON(status & B43legacy_MACCTL_RADIOLOCK);
++	status |=3D B43legacy_MACCTL_RADIOLOCK;
++	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, status);
+ 	mmiowb();
+ 	udelay(10);
+ }
+@@ -104,10 +104,10 @@ void b43legacy_radio_unlock(struct b43legacy_wlde=
+v *dev)
+ 	u32 status;
+=20
+ 	b43legacy_read16(dev, B43legacy_MMIO_PHY_VER); /* dummy read */
+-	status =3D b43legacy_read32(dev, B43legacy_MMIO_STATUS_BITFIELD);
+-	B43legacy_WARN_ON(!(status & B43legacy_SBF_RADIOREG_LOCK));
+-	status &=3D ~B43legacy_SBF_RADIOREG_LOCK;
+-	b43legacy_write32(dev, B43legacy_MMIO_STATUS_BITFIELD, status);
++	status =3D b43legacy_read32(dev, B43legacy_MMIO_MACCTL);
++	B43legacy_WARN_ON(!(status & B43legacy_MACCTL_RADIOLOCK));
++	status &=3D ~B43legacy_MACCTL_RADIOLOCK;
++	b43legacy_write32(dev, B43legacy_MMIO_MACCTL, status);
+ 	mmiowb();
+ }
+=20
+diff --git a/drivers/net/wireless/hostap/hostap_80211.h b/drivers/net/w=
+ireless/hostap/hostap_80211.h
+index d6b9362..3694b1e 100644
+--- a/drivers/net/wireless/hostap/hostap_80211.h
++++ b/drivers/net/wireless/hostap/hostap_80211.h
+@@ -71,11 +71,6 @@ struct hostap_80211_rx_status {
+ 	u16 rate; /* in 100 kbps */
+ };
+=20
+-
+-void hostap_80211_rx(struct net_device *dev, struct sk_buff *skb,
+-		     struct hostap_80211_rx_status *rx_stats);
+-
+-
+ /* prism2_rx_80211 'type' argument */
+ enum {
+ 	PRISM2_RX_MONITOR, PRISM2_RX_MGMT, PRISM2_RX_NON_ASSOC,
+diff --git a/drivers/net/wireless/hostap/hostap_cs.c b/drivers/net/wire=
+less/hostap/hostap_cs.c
+index 0759380..437a9bc 100644
+--- a/drivers/net/wireless/hostap/hostap_cs.c
++++ b/drivers/net/wireless/hostap/hostap_cs.c
+@@ -891,6 +891,9 @@ static struct pcmcia_device_id hostap_cs_ids[] =3D =
+{
+ 	PCMCIA_DEVICE_PROD_ID123(
+ 		"The Linksys Group, Inc.", "Wireless Network CF Card", "ISL37300P",
+ 		0xa5f472c2, 0x9c05598d, 0xc9049a39),
++	PCMCIA_DEVICE_PROD_ID123(
++		"Wireless LAN" , "11Mbps PC Card", "Version 01.02",
++		0x4b8870ff, 0x70e946d1, 0x4b74baa0),
+ 	PCMCIA_DEVICE_NULL
+ };
+ MODULE_DEVICE_TABLE(pcmcia, hostap_cs_ids);
+diff --git a/drivers/net/wireless/iwlwifi/iwl-3945-hw.h b/drivers/net/w=
+ireless/iwlwifi/iwl-3945-hw.h
+index 6e01873..571815d 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-3945-hw.h
++++ b/drivers/net/wireless/iwlwifi/iwl-3945-hw.h
+@@ -373,7 +373,7 @@ struct iwl3945_eeprom {
+ #define CSR_INT_BIT_HW_ERR       (1 << 29) /* DMA hardware error FH_IN=
+T[31] */
+ #define CSR_INT_BIT_DNLD         (1 << 28) /* uCode Download */
+ #define CSR_INT_BIT_FH_TX        (1 << 27) /* Tx DMA FH_INT[1:0] */
+-#define CSR_INT_BIT_MAC_CLK_ACTV (1 << 26) /* NIC controller's clock t=
+oggled on/off */
++#define CSR_INT_BIT_SCD          (1 << 26) /* TXQ pointer advanced */
+ #define CSR_INT_BIT_SW_ERR       (1 << 25) /* uCode error */
+ #define CSR_INT_BIT_RF_KILL      (1 << 7)  /* HW RFKILL switch GP_CNTR=
+L[27] toggled */
+ #define CSR_INT_BIT_CT_KILL      (1 << 6)  /* Critical temp (chip too =
+hot) rfkill */
+diff --git a/drivers/net/wireless/iwlwifi/iwl-3945.c b/drivers/net/wire=
+less/iwlwifi/iwl-3945.c
+index 76c4ed1..4fdeb53 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-3945.c
++++ b/drivers/net/wireless/iwlwifi/iwl-3945.c
+@@ -2369,18 +2369,4 @@ struct pci_device_id iwl3945_hw_card_ids[] =3D {
+ 	{0}
+ };
+=20
+-/*
+- * Clear the OWNER_MSK, to establish driver (instead of uCode running =
+on
+- * embedded controller) as EEPROM reader; each read is a series of pul=
+ses
+- * to/from the EEPROM chip, not a single event, so even reads could co=
+nflict
+- * if they weren't arbitrated by some ownership mechanism.  Here, the =
+driver
+- * simply claims ownership, which should be safe when this function is=
+ called
+- * (i.e. before loading uCode!).
+- */
+-inline int iwl3945_eeprom_acquire_semaphore(struct iwl3945_priv *priv)
+-{
+-	_iwl3945_clear_bit(priv, CSR_EEPROM_GP, CSR_EEPROM_GP_IF_OWNER_MSK);
+-	return 0;
+-}
+-
+ MODULE_DEVICE_TABLE(pci, iwl3945_hw_card_ids);
+diff --git a/drivers/net/wireless/iwlwifi/iwl-3945.h b/drivers/net/wire=
+less/iwlwifi/iwl-3945.h
+index 20b925f..1da14f9 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-3945.h
++++ b/drivers/net/wireless/iwlwifi/iwl-3945.h
+@@ -671,7 +671,6 @@ extern int iwl3945_hw_channel_switch(struct iwl3945=
+_priv *priv, u16 channel);
+ /*
+  * Forward declare iwl-3945.c functions for iwl-base.c
+  */
+-extern int iwl3945_eeprom_acquire_semaphore(struct iwl3945_priv *priv)=
+;
+ extern __le32 iwl3945_get_antenna_flags(const struct iwl3945_priv *pri=
+v);
+ extern int iwl3945_init_hw_rate_table(struct iwl3945_priv *priv);
+ extern void iwl3945_reg_txpower_periodic(struct iwl3945_priv *priv);
+@@ -791,7 +790,6 @@ struct iwl3945_priv {
+ 	u16 active_rate_basic;
+=20
+ 	u8 call_post_assoc_from_beacon;
+-	u8 assoc_station_added;
+ 	/* Rate scaling data */
+ 	s8 data_retry_limit;
+ 	u8 retry_rate;
+diff --git a/drivers/net/wireless/iwlwifi/iwl-4965-hw.h b/drivers/net/w=
+ireless/iwlwifi/iwl-4965-hw.h
+index ff71c09..ffe1e9d 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-4965-hw.h
++++ b/drivers/net/wireless/iwlwifi/iwl-4965-hw.h
+@@ -465,7 +465,7 @@ struct iwl4965_eeprom {
+ #define CSR_INT_BIT_HW_ERR       (1 << 29) /* DMA hardware error FH_IN=
+T[31] */
+ #define CSR_INT_BIT_DNLD         (1 << 28) /* uCode Download */
+ #define CSR_INT_BIT_FH_TX        (1 << 27) /* Tx DMA FH_INT[1:0] */
+-#define CSR_INT_BIT_MAC_CLK_ACTV (1 << 26) /* NIC controller's clock t=
+oggled on/off */
++#define CSR_INT_BIT_SCD          (1 << 26) /* TXQ pointer advanced */
+ #define CSR_INT_BIT_SW_ERR       (1 << 25) /* uCode error */
+ #define CSR_INT_BIT_RF_KILL      (1 << 7)  /* HW RFKILL switch GP_CNTR=
+L[27] toggled */
+ #define CSR_INT_BIT_CT_KILL      (1 << 6)  /* Critical temp (chip too =
+hot) rfkill */
+diff --git a/drivers/net/wireless/iwlwifi/iwl-4965.c b/drivers/net/wire=
+less/iwlwifi/iwl-4965.c
+index 04db34b..569347f 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-4965.c
++++ b/drivers/net/wireless/iwlwifi/iwl-4965.c
+@@ -4961,11 +4961,4 @@ int iwl4965_eeprom_acquire_semaphore(struct iwl4=
+965_priv *priv)
+ 	return rc;
+ }
+=20
+-inline void iwl4965_eeprom_release_semaphore(struct iwl4965_priv *priv=
+)
+-{
+-	iwl4965_clear_bit(priv, CSR_HW_IF_CONFIG_REG,
+-		CSR_HW_IF_CONFIG_REG_BIT_EEPROM_OWN_SEM);
+-}
+-
+-
+ MODULE_DEVICE_TABLE(pci, iwl4965_hw_card_ids);
+diff --git a/drivers/net/wireless/iwlwifi/iwl-4965.h b/drivers/net/wire=
+less/iwlwifi/iwl-4965.h
+index 78bc148..9cb82be 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-4965.h
++++ b/drivers/net/wireless/iwlwifi/iwl-4965.h
+@@ -750,7 +750,6 @@ struct iwl4965_priv;
+  * Forward declare iwl-4965.c functions for iwl-base.c
+  */
+ extern int iwl4965_eeprom_acquire_semaphore(struct iwl4965_priv *priv)=
+;
+-extern void iwl4965_eeprom_release_semaphore(struct iwl4965_priv *priv=
+);
+=20
+ extern int iwl4965_tx_queue_update_wr_ptr(struct iwl4965_priv *priv,
+ 					  struct iwl4965_tx_queue *txq,
+diff --git a/drivers/net/wireless/iwlwifi/iwl-helpers.h b/drivers/net/w=
+ireless/iwlwifi/iwl-helpers.h
+index cd2eb18..cb009f4 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-helpers.h
++++ b/drivers/net/wireless/iwlwifi/iwl-helpers.h
+@@ -246,10 +246,10 @@ static inline int iwl_check_bits(unsigned long fi=
+eld, unsigned long mask)
+ static inline unsigned long elapsed_jiffies(unsigned long start,
+ 					    unsigned long end)
+ {
+-	if (end > start)
++	if (end >=3D start)
+ 		return end - start;
+=20
+-	return end + (MAX_JIFFY_OFFSET - start);
++	return end + (MAX_JIFFY_OFFSET - start) + 1;
+ }
+=20
+ static inline u8 iwl_get_dma_hi_address(dma_addr_t addr)
+diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/=
+wireless/iwlwifi/iwl3945-base.c
+index 748ac12..33239f1 100644
+--- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
++++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+@@ -1557,6 +1557,20 @@ static void get_eeprom_mac(struct iwl3945_priv *=
+priv, u8 *mac)
+ 	memcpy(mac, priv->eeprom.mac_address, 6);
+ }
+=20
++/*
++ * Clear the OWNER_MSK, to establish driver (instead of uCode running =
+on
++ * embedded controller) as EEPROM reader; each read is a series of pul=
+ses
++ * to/from the EEPROM chip, not a single event, so even reads could co=
+nflict
++ * if they weren't arbitrated by some ownership mechanism.  Here, the =
+driver
++ * simply claims ownership, which should be safe when this function is=
+ called
++ * (i.e. before loading uCode!).
++ */
++static inline int iwl3945_eeprom_acquire_semaphore(struct iwl3945_priv=
+ *priv)
++{
++	_iwl3945_clear_bit(priv, CSR_EEPROM_GP, CSR_EEPROM_GP_IF_OWNER_MSK);
++	return 0;
++}
++
+ /**
+  * iwl3945_eeprom_init - read EEPROM contents
+  *
+@@ -2792,7 +2806,7 @@ static int iwl3945_tx_skb(struct iwl3945_priv *pr=
+iv,
+ #endif
+=20
+ 	/* drop all data frame if we are not associated */
+-	if (!iwl3945_is_associated(priv) && !priv->assoc_id &&
++	if ((!iwl3945_is_associated(priv) || !priv->assoc_id) &&
+ 	    ((fc & IEEE80211_FCTL_FTYPE) =3D=3D IEEE80211_FTYPE_DATA)) {
+ 		IWL_DEBUG_DROP("Dropping - !iwl3945_is_associated\n");
+ 		goto drop_unlock;
+@@ -4745,8 +4759,9 @@ static void iwl3945_irq_tasklet(struct iwl3945_pr=
+iv *priv)
+ #ifdef CONFIG_IWL3945_DEBUG
+ 	if (iwl3945_debug_level & (IWL_DL_ISR)) {
+ 		/* NIC fires this, but we don't use it, redundant with WAKEUP */
+-		if (inta & CSR_INT_BIT_MAC_CLK_ACTV)
+-			IWL_DEBUG_ISR("Microcode started or stopped.\n");
++		if (inta & CSR_INT_BIT_SCD)
++			IWL_DEBUG_ISR("Scheduler finished to transmit "
++				      "the frame/frames.\n");
+=20
+ 		/* Alive notification via Rx interrupt will do the real work */
+ 		if (inta & CSR_INT_BIT_ALIVE)
+@@ -4754,7 +4769,7 @@ static void iwl3945_irq_tasklet(struct iwl3945_pr=
+iv *priv)
+ 	}
+ #endif
+ 	/* Safely ignore these bits for debug checks below */
+-	inta &=3D ~(CSR_INT_BIT_MAC_CLK_ACTV | CSR_INT_BIT_ALIVE);
++	inta &=3D ~(CSR_INT_BIT_SCD | CSR_INT_BIT_ALIVE);
+=20
+ 	/* HW RF KILL switch toggled (4965 only) */
+ 	if (inta & CSR_INT_BIT_RF_KILL) {
+@@ -4890,8 +4905,11 @@ static irqreturn_t iwl3945_isr(int irq, void *da=
+ta)
+ 	IWL_DEBUG_ISR("ISR inta 0x%08x, enabled 0x%08x, fh 0x%08x\n",
+ 		      inta, inta_mask, inta_fh);
+=20
++	inta &=3D ~CSR_INT_BIT_SCD;
++
+ 	/* iwl3945_irq_tasklet() will service interrupts and re-enable them *=
+/
+-	tasklet_schedule(&priv->irq_tasklet);
++	if (likely(inta || inta_fh))
++		tasklet_schedule(&priv->irq_tasklet);
+ unplugged:
+ 	spin_unlock(&priv->lock);
+=20
+@@ -5146,6 +5164,15 @@ static int iwl3945_init_channel_map(struct iwl39=
+45_priv *priv)
+ 	return 0;
+ }
+=20
++/*
++ * iwl3945_free_channel_map - undo allocations in iwl3945_init_channel=
+_map
++ */
++static void iwl3945_free_channel_map(struct iwl3945_priv *priv)
++{
++	kfree(priv->channel_info);
++	priv->channel_count =3D 0;
++}
++
+ /* For active scan, listen ACTIVE_DWELL_TIME (msec) on each channel af=
+ter
+  * sending probe req.  This should be set long enough to hear probe re=
+sponses
+  * from more than one AP.  */
+@@ -5471,6 +5498,17 @@ static int iwl3945_init_geos(struct iwl3945_priv=
+ *priv)
+ 	return 0;
+ }
+=20
++/*
++ * iwl3945_free_geos - undo allocations in iwl3945_init_geos
++ */
++static void iwl3945_free_geos(struct iwl3945_priv *priv)
++{
++	kfree(priv->modes);
++	kfree(priv->ieee_channels);
++	kfree(priv->ieee_rates);
++	clear_bit(STATUS_GEO_CONFIGURED, &priv->status);
++}
++
+ /*********************************************************************=
+*********
+  *
+  * uCode download functions
+@@ -6130,15 +6168,6 @@ static void iwl3945_alive_start(struct iwl3945_p=
+riv *priv)
+ 	/* Clear out the uCode error bit if it is set */
+ 	clear_bit(STATUS_FW_ERROR, &priv->status);
+=20
+-	rc =3D iwl3945_init_channel_map(priv);
+-	if (rc) {
+-		IWL_ERROR("initializing regulatory failed: %d\n", rc);
+-		return;
+-	}
+-
+-	iwl3945_init_geos(priv);
+-	iwl3945_reset_channel_flag(priv);
+-
+ 	if (iwl3945_is_rfkill(priv))
+ 		return;
+=20
+@@ -6599,7 +6628,7 @@ static void iwl3945_bg_request_scan(struct work_s=
+truct *data)
+ 	 * that based on the direct_mask added to each channel entry */
+ 	scan->tx_cmd.len =3D cpu_to_le16(
+ 		iwl3945_fill_probe_req(priv, (struct ieee80211_mgmt *)scan->data,
+-			IWL_MAX_SCAN_SIZE - sizeof(scan), 0));
++			IWL_MAX_SCAN_SIZE - sizeof(*scan), 0));
+ 	scan->tx_cmd.tx_flags =3D TX_CMD_FLG_SEQ_CTL_MSK;
+ 	scan->tx_cmd.sta_id =3D priv->hw_setting.bcast_sta_id;
+ 	scan->tx_cmd.stop_time.life_time =3D TX_CMD_LIFE_TIME_INFINITE;
+@@ -7120,7 +7149,7 @@ static void iwl3945_config_ap(struct iwl3945_priv=
+ *priv)
+ {
+ 	int rc =3D 0;
+=20
+-	if (priv->status & STATUS_EXIT_PENDING)
++	if (test_bit(STATUS_EXIT_PENDING, &priv->status))
+ 		return;
+=20
+ 	/* The following should be done only at AP bring up */
+@@ -8614,11 +8643,24 @@ static int iwl3945_pci_probe(struct pci_dev *pd=
+ev, const struct pci_device_id *e
+ 	IWL_DEBUG_INFO("MAC address: %s\n", print_mac(mac, priv->mac_addr));
+ 	SET_IEEE80211_PERM_ADDR(priv->hw, priv->mac_addr);
+=20
++	err =3D iwl3945_init_channel_map(priv);
++	if (err) {
++		IWL_ERROR("initializing regulatory failed: %d\n", err);
++		goto out_remove_sysfs;
++	}
++
++	err =3D iwl3945_init_geos(priv);
++	if (err) {
++		IWL_ERROR("initializing geos failed: %d\n", err);
++		goto out_free_channel_map;
++	}
++	iwl3945_reset_channel_flag(priv);
++
+ 	iwl3945_rate_control_register(priv->hw);
+ 	err =3D ieee80211_register_hw(priv->hw);
+ 	if (err) {
+ 		IWL_ERROR("Failed to register network device (error %d)\n", err);
+-		goto out_remove_sysfs;
++		goto out_free_geos;
+ 	}
+=20
+ 	priv->hw->conf.beacon_int =3D 100;
+@@ -8628,6 +8670,10 @@ static int iwl3945_pci_probe(struct pci_dev *pde=
+v, const struct pci_device_id *e
+=20
+ 	return 0;
+=20
++ out_free_geos:
++	iwl3945_free_geos(priv);
++ out_free_channel_map:
++	iwl3945_free_channel_map(priv);
+  out_remove_sysfs:
+ 	sysfs_remove_group(&pdev->dev.kobj, &iwl3945_attribute_group);
+=20
+@@ -8702,10 +8748,8 @@ static void iwl3945_pci_remove(struct pci_dev *p=
+dev)
+ 	pci_disable_device(pdev);
+ 	pci_set_drvdata(pdev, NULL);
+=20
+-	kfree(priv->channel_info);
+-
+-	kfree(priv->ieee_channels);
+-	kfree(priv->ieee_rates);
++	iwl3945_free_channel_map(priv);
++	iwl3945_free_geos(priv);
+=20
+ 	if (priv->ibss_beacon)
+ 		dev_kfree_skb(priv->ibss_beacon);
+diff --git a/drivers/net/wireless/iwlwifi/iwl4965-base.c b/drivers/net/=
+wireless/iwlwifi/iwl4965-base.c
+index c86da5c..bf3a60c 100644
+--- a/drivers/net/wireless/iwlwifi/iwl4965-base.c
++++ b/drivers/net/wireless/iwlwifi/iwl4965-base.c
+@@ -1639,6 +1639,12 @@ static void get_eeprom_mac(struct iwl4965_priv *=
+priv, u8 *mac)
+ 	memcpy(mac, priv->eeprom.mac_address, 6);
+ }
+=20
++static inline void iwl4965_eeprom_release_semaphore(struct iwl4965_pri=
+v *priv)
++{
++	iwl4965_clear_bit(priv, CSR_HW_IF_CONFIG_REG,
++		CSR_HW_IF_CONFIG_REG_BIT_EEPROM_OWN_SEM);
++}
++
+ /**
+  * iwl4965_eeprom_init - read EEPROM contents
+  *
+@@ -2927,8 +2933,10 @@ static int iwl4965_tx_skb(struct iwl4965_priv *p=
+riv,
+ #endif
+=20
+ 	/* drop all data frame if we are not associated */
+-	if (!iwl4965_is_associated(priv) && !priv->assoc_id &&
+-	    ((fc & IEEE80211_FCTL_FTYPE) =3D=3D IEEE80211_FTYPE_DATA)) {
++	if (((fc & IEEE80211_FCTL_FTYPE) =3D=3D IEEE80211_FTYPE_DATA) &&
++	   (!iwl4965_is_associated(priv) ||
++	    !priv->assoc_id ||
++	    !priv->assoc_station_added)) {
+ 		IWL_DEBUG_DROP("Dropping - !iwl4965_is_associated\n");
+ 		goto drop_unlock;
+ 	}
+@@ -5131,8 +5139,9 @@ static void iwl4965_irq_tasklet(struct iwl4965_pr=
+iv *priv)
+ #ifdef CONFIG_IWL4965_DEBUG
+ 	if (iwl4965_debug_level & (IWL_DL_ISR)) {
+ 		/* NIC fires this, but we don't use it, redundant with WAKEUP */
+-		if (inta & CSR_INT_BIT_MAC_CLK_ACTV)
+-			IWL_DEBUG_ISR("Microcode started or stopped.\n");
++		if (inta & CSR_INT_BIT_SCD)
++			IWL_DEBUG_ISR("Scheduler finished to transmit "
++				      "the frame/frames.\n");
+=20
+ 		/* Alive notification via Rx interrupt will do the real work */
+ 		if (inta & CSR_INT_BIT_ALIVE)
+@@ -5140,7 +5149,7 @@ static void iwl4965_irq_tasklet(struct iwl4965_pr=
+iv *priv)
+ 	}
+ #endif
+ 	/* Safely ignore these bits for debug checks below */
+-	inta &=3D ~(CSR_INT_BIT_MAC_CLK_ACTV | CSR_INT_BIT_ALIVE);
++	inta &=3D ~(CSR_INT_BIT_SCD | CSR_INT_BIT_ALIVE);
+=20
+ 	/* HW RF KILL switch toggled */
+ 	if (inta & CSR_INT_BIT_RF_KILL) {
+@@ -5269,8 +5278,11 @@ static irqreturn_t iwl4965_isr(int irq, void *da=
+ta)
+ 	IWL_DEBUG_ISR("ISR inta 0x%08x, enabled 0x%08x, fh 0x%08x\n",
+ 		      inta, inta_mask, inta_fh);
+=20
++	inta &=3D ~CSR_INT_BIT_SCD;
++
+ 	/* iwl4965_irq_tasklet() will service interrupts and re-enable them *=
+/
+-	tasklet_schedule(&priv->irq_tasklet);
++	if (likely(inta || inta_fh))
++		tasklet_schedule(&priv->irq_tasklet);
+=20
+  unplugged:
+ 	spin_unlock(&priv->lock);
+@@ -5576,6 +5588,15 @@ static int iwl4965_init_channel_map(struct iwl49=
+65_priv *priv)
+ 	return 0;
+ }
+=20
++/*
++ * iwl4965_free_channel_map - undo allocations in iwl4965_init_channel=
+_map
++ */
++static void iwl4965_free_channel_map(struct iwl4965_priv *priv)
++{
++	kfree(priv->channel_info);
++	priv->channel_count =3D 0;
++}
++
+ /* For active scan, listen ACTIVE_DWELL_TIME (msec) on each channel af=
+ter
+  * sending probe req.  This should be set long enough to hear probe re=
+sponses
+  * from more than one AP.  */
+@@ -5909,6 +5930,17 @@ static int iwl4965_init_geos(struct iwl4965_priv=
+ *priv)
+ 	return 0;
+ }
+=20
++/*
++ * iwl4965_free_geos - undo allocations in iwl4965_init_geos
++ */
++static void iwl4965_free_geos(struct iwl4965_priv *priv)
++{
++	kfree(priv->modes);
++	kfree(priv->ieee_channels);
++	kfree(priv->ieee_rates);
++	clear_bit(STATUS_GEO_CONFIGURED, &priv->status);
++}
++
+ /*********************************************************************=
+*********
+  *
+  * uCode download functions
+@@ -6560,15 +6592,6 @@ static void iwl4965_alive_start(struct iwl4965_p=
+riv *priv)
+ 	/* Clear out the uCode error bit if it is set */
+ 	clear_bit(STATUS_FW_ERROR, &priv->status);
+=20
+-	rc =3D iwl4965_init_channel_map(priv);
+-	if (rc) {
+-		IWL_ERROR("initializing regulatory failed: %d\n", rc);
+-		return;
+-	}
+-
+-	iwl4965_init_geos(priv);
+-	iwl4965_reset_channel_flag(priv);
+-
+ 	if (iwl4965_is_rfkill(priv))
+ 		return;
+=20
+@@ -7023,7 +7046,7 @@ static void iwl4965_bg_request_scan(struct work_s=
+truct *data)
+ 	 * that based on the direct_mask added to each channel entry */
+ 	scan->tx_cmd.len =3D cpu_to_le16(
+ 		iwl4965_fill_probe_req(priv, (struct ieee80211_mgmt *)scan->data,
+-			IWL_MAX_SCAN_SIZE - sizeof(scan), 0));
++			IWL_MAX_SCAN_SIZE - sizeof(*scan), 0));
+ 	scan->tx_cmd.tx_flags =3D TX_CMD_FLG_SEQ_CTL_MSK;
+ 	scan->tx_cmd.sta_id =3D priv->hw_setting.bcast_sta_id;
+ 	scan->tx_cmd.stop_time.life_time =3D TX_CMD_LIFE_TIME_INFINITE;
+@@ -7448,7 +7471,7 @@ static int iwl4965_mac_add_interface(struct ieee8=
+0211_hw *hw,
+=20
+ 	if (priv->vif) {
+ 		IWL_DEBUG_MAC80211("leave - vif !=3D NULL\n");
+-		return 0;
++		return -EOPNOTSUPP;
+ 	}
+=20
+ 	spin_lock_irqsave(&priv->lock, flags);
+@@ -7580,7 +7603,7 @@ static void iwl4965_config_ap(struct iwl4965_priv=
+ *priv)
+ {
+ 	int rc =3D 0;
+=20
+-	if (priv->status & STATUS_EXIT_PENDING)
++	if (test_bit(STATUS_EXIT_PENDING, &priv->status))
+ 		return;
+=20
+ 	/* The following should be done only at AP bring up */
+@@ -9198,11 +9221,24 @@ static int iwl4965_pci_probe(struct pci_dev *pd=
+ev, const struct pci_device_id *e
+ 	IWL_DEBUG_INFO("MAC address: %s\n", print_mac(mac, priv->mac_addr));
+ 	SET_IEEE80211_PERM_ADDR(priv->hw, priv->mac_addr);
+=20
++	err =3D iwl4965_init_channel_map(priv);
++	if (err) {
++		IWL_ERROR("initializing regulatory failed: %d\n", err);
++		goto out_remove_sysfs;
++	}
++
++	err =3D iwl4965_init_geos(priv);
++	if (err) {
++		IWL_ERROR("initializing geos failed: %d\n", err);
++		goto out_free_channel_map;
++	}
++	iwl4965_reset_channel_flag(priv);
++
+ 	iwl4965_rate_control_register(priv->hw);
+ 	err =3D ieee80211_register_hw(priv->hw);
+ 	if (err) {
+ 		IWL_ERROR("Failed to register network device (error %d)\n", err);
+-		goto out_remove_sysfs;
++		goto out_free_geos;
+ 	}
+=20
+ 	priv->hw->conf.beacon_int =3D 100;
+@@ -9212,6 +9248,10 @@ static int iwl4965_pci_probe(struct pci_dev *pde=
+v, const struct pci_device_id *e
+=20
+ 	return 0;
+=20
++ out_free_geos:
++	iwl4965_free_geos(priv);
++ out_free_channel_map:
++	iwl4965_free_channel_map(priv);
+  out_remove_sysfs:
+ 	sysfs_remove_group(&pdev->dev.kobj, &iwl4965_attribute_group);
+=20
+@@ -9286,10 +9326,8 @@ static void iwl4965_pci_remove(struct pci_dev *p=
+dev)
+ 	pci_disable_device(pdev);
+ 	pci_set_drvdata(pdev, NULL);
+=20
+-	kfree(priv->channel_info);
+-
+-	kfree(priv->ieee_channels);
+-	kfree(priv->ieee_rates);
++	iwl4965_free_channel_map(priv);
++	iwl4965_free_geos(priv);
+=20
+ 	if (priv->ibss_beacon)
+ 		dev_kfree_skb(priv->ibss_beacon);
+diff --git a/drivers/net/wireless/libertas/assoc.c b/drivers/net/wirele=
+ss/libertas/assoc.c
+index c622e9b..87e145f 100644
+--- a/drivers/net/wireless/libertas/assoc.c
++++ b/drivers/net/wireless/libertas/assoc.c
+@@ -12,8 +12,10 @@
+ #include "cmd.h"
+=20
+=20
+-static const u8 bssid_any[ETH_ALEN] =3D { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF=
+, 0xFF };
+-static const u8 bssid_off[ETH_ALEN] =3D { 0x00, 0x00, 0x00, 0x00, 0x00=
+, 0x00 };
++static const u8 bssid_any[ETH_ALEN]  __attribute__ ((aligned (2))) =3D
++	{ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
++static const u8 bssid_off[ETH_ALEN]  __attribute__ ((aligned (2))) =3D
++	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+=20
+=20
+ static int assoc_helper_essid(struct lbs_private *priv,
+diff --git a/drivers/net/wireless/libertas/dev.h b/drivers/net/wireless=
+/libertas/dev.h
+index 58d7ef6..5a69f2b 100644
+--- a/drivers/net/wireless/libertas/dev.h
++++ b/drivers/net/wireless/libertas/dev.h
+@@ -349,7 +349,7 @@ struct assoc_request {
+ 	u8 channel;
+ 	u8 band;
+ 	u8 mode;
+-	u8 bssid[ETH_ALEN];
++	u8 bssid[ETH_ALEN] __attribute__ ((aligned (2)));
+=20
+ 	/** WEP keys */
+ 	struct enc_key wep_keys[4];
+diff --git a/drivers/net/wireless/libertas/if_cs.c b/drivers/net/wirele=
+ss/libertas/if_cs.c
+index 4b5ab9a..5a9cadb 100644
+--- a/drivers/net/wireless/libertas/if_cs.c
++++ b/drivers/net/wireless/libertas/if_cs.c
+@@ -249,14 +249,14 @@ static irqreturn_t if_cs_interrupt(int irq, void =
+*data)
+ 	lbs_deb_enter(LBS_DEB_CS);
+=20
+ 	int_cause =3D if_cs_read16(card, IF_CS_C_INT_CAUSE);
+-	if(int_cause =3D=3D 0x0) {
++	if (int_cause =3D=3D 0x0) {
+ 		/* Not for us */
+ 		return IRQ_NONE;
+=20
+ 	} else if (int_cause =3D=3D 0xffff) {
+ 		/* Read in junk, the card has probably been removed */
+ 		card->priv->surpriseremoved =3D 1;
+-
++		return IRQ_HANDLED;
+ 	} else {
+ 		if (int_cause & IF_CS_H_IC_TX_OVER)
+ 			lbs_host_to_card_done(card->priv);
+@@ -717,8 +717,8 @@ static void if_cs_release(struct pcmcia_device *p_d=
+ev)
+=20
+ 	lbs_deb_enter(LBS_DEB_CS);
+=20
+-	pcmcia_disable_device(p_dev);
+ 	free_irq(p_dev->irq.AssignedIRQ, card);
++	pcmcia_disable_device(p_dev);
+ 	if (card->iobase)
+ 		ioport_unmap(card->iobase);
+=20
+diff --git a/drivers/net/wireless/rt2x00/rt61pci.c b/drivers/net/wirele=
+ss/rt2x00/rt61pci.c
+index ab52f22..b31f0c2 100644
+--- a/drivers/net/wireless/rt2x00/rt61pci.c
++++ b/drivers/net/wireless/rt2x00/rt61pci.c
+@@ -1736,7 +1736,8 @@ static void rt61pci_txdone(struct rt2x00_dev *rt2=
+x00dev)
+ 			WARNING(rt2x00dev,
+ 				"TX status report missed for entry %p\n",
+ 				entry_done);
+-			rt2x00lib_txdone(entry_done, TX_FAIL_OTHER, 0);
++			rt2x00pci_txdone(rt2x00dev, entry_done, TX_FAIL_OTHER,
++					 0);
+ 			entry_done =3D rt2x00_get_data_entry_done(ring);
+ 		}
+=20
+diff --git a/drivers/net/wireless/rtl8180_dev.c b/drivers/net/wireless/=
+rtl8180_dev.c
+index 07f37b0..27ebd68 100644
+--- a/drivers/net/wireless/rtl8180_dev.c
++++ b/drivers/net/wireless/rtl8180_dev.c
+@@ -36,6 +36,7 @@ MODULE_LICENSE("GPL");
+ static struct pci_device_id rtl8180_table[] __devinitdata =3D {
+ 	/* rtl8185 */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK, 0x8185) },
++	{ PCI_DEVICE(PCI_VENDOR_ID_BELKIN, 0x700f) },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_BELKIN, 0x701f) },
+=20
+ 	/* rtl8180 */
+diff --git a/include/linux/input.h b/include/linux/input.h
+index 2075d6d..056a17a 100644
+--- a/include/linux/input.h
++++ b/include/linux/input.h
+@@ -371,6 +371,8 @@ struct input_absinfo {
+ #define KEY_BRIGHTNESS_ZERO	244	/* brightness off, use ambient */
+ #define KEY_DISPLAY_OFF		245	/* display device to off state */
+=20
++#define KEY_WIMAX		246
++
+ #define BTN_MISC		0x100
+ #define BTN_0			0x100
+ #define BTN_1			0x101
+diff --git a/include/linux/rfkill.h b/include/linux/rfkill.h
+index 0ce5e0b..e3ab21d 100644
+--- a/include/linux/rfkill.h
++++ b/include/linux/rfkill.h
+@@ -33,11 +33,13 @@
+  * RFKILL_TYPE_WLAN: switch is on a 802.11 wireless network device.
+  * RFKILL_TYPE_BLUETOOTH: switch is on a bluetooth device.
+  * RFKILL_TYPE_UWB: switch is on a ultra wideband device.
++ * RFKILL_TYPE_WIMAX: switch is on a WiMAX device.
+  */
+ enum rfkill_type {
+ 	RFKILL_TYPE_WLAN ,
+ 	RFKILL_TYPE_BLUETOOTH,
+ 	RFKILL_TYPE_UWB,
++	RFKILL_TYPE_WIMAX,
+ 	RFKILL_TYPE_MAX,
+ };
+=20
+diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+index 89e1e30..d44c872 100644
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -340,9 +340,42 @@ static u32 ieee80211_rx_load_stats(struct ieee8021=
+1_local *local,
+ 	return load;
+ }
+=20
++static ieee80211_txrx_result
++ieee80211_rx_h_verify_ip_alignment(struct ieee80211_txrx_data *rx)
++{
++	int hdrlen;
++
++	/*
++	 * Drivers are required to align the payload data in a way that
++	 * guarantees that the contained IP header is aligned to a four-
++	 * byte boundary. In the case of regular frames, this simply means
++	 * aligning the payload to a four-byte boundary (because either
++	 * the IP header is directly contained, or IV/RFC1042 headers that
++	 * have a length divisible by four are in front of it.
++	 *
++	 * With A-MSDU frames, however, the payload data address must
++	 * yield two modulo four because there are 14-byte 802.3 headers
++	 * within the A-MSDU frames that push the IP header further back
++	 * to a multiple of four again. Thankfully, the specs were sane
++	 * enough this time around to require padding each A-MSDU subframe
++	 * to a length that is a multiple of four.
++	 *
++	 * Padding like atheros hardware adds which is inbetween the 802.11
++	 * header and the payload is not supported, the driver is required
++	 * to move the 802.11 header further back in that case.
++	 */
++	hdrlen =3D ieee80211_get_hdrlen(rx->fc);
++	if (rx->flags & IEEE80211_TXRXD_RX_AMSDU)
++		hdrlen +=3D ETH_HLEN;
++	WARN_ON_ONCE(((unsigned long)(rx->skb->data + hdrlen)) & 3);
++
++	return TXRX_CONTINUE;
++}
++
+ ieee80211_rx_handler ieee80211_rx_pre_handlers[] =3D
+ {
+ 	ieee80211_rx_h_parse_qos,
++	ieee80211_rx_h_verify_ip_alignment,
+ 	NULL
+ };
+=20
+@@ -1679,7 +1712,6 @@ static void __ieee80211_rx_handle_packet(struct i=
+eee80211_hw *hw,
+ 	struct ieee80211_sub_if_data *prev =3D NULL;
+ 	struct sk_buff *skb_new;
+ 	u8 *bssid;
+-	int hdrlen;
+=20
+ 	hdr =3D (struct ieee80211_hdr *) skb->data;
+ 	memset(&rx, 0, sizeof(rx));
+@@ -1691,18 +1723,6 @@ static void __ieee80211_rx_handle_packet(struct =
+ieee80211_hw *hw,
+ 	rx.fc =3D le16_to_cpu(hdr->frame_control);
+ 	type =3D rx.fc & IEEE80211_FCTL_FTYPE;
+=20
+-	/*
+-	 * Drivers are required to align the payload data to a four-byte
+-	 * boundary, so the last two bits of the address where it starts
+-	 * may not be set. The header is required to be directly before
+-	 * the payload data, padding like atheros hardware adds which is
+-	 * inbetween the 802.11 header and the payload is not supported,
+-	 * the driver is required to move the 802.11 header further back
+-	 * in that case.
+-	 */
+-	hdrlen =3D ieee80211_get_hdrlen(rx.fc);
+-	WARN_ON_ONCE(((unsigned long)(skb->data + hdrlen)) & 3);
+-
+ 	if (type =3D=3D IEEE80211_FTYPE_DATA || type =3D=3D IEEE80211_FTYPE_M=
+GMT)
+ 		local->dot11ReceivedFragmentCount++;
+=20
+@@ -1952,7 +1972,7 @@ static u8 ieee80211_rx_reorder_ampdu(struct ieee8=
+0211_local *local,
+ 		goto end_reorder;
+=20
+ 	/* null data frames are excluded */
+-	if (unlikely(fc & IEEE80211_STYPE_QOS_NULLFUNC))
++	if (unlikely(fc & IEEE80211_STYPE_NULLFUNC))
+ 		goto end_reorder;
+=20
+ 	/* new un-ordered ampdu frame - process it */
+diff --git a/net/rfkill/rfkill-input.c b/net/rfkill/rfkill-input.c
+index d1e9d68..e4b051d 100644
+--- a/net/rfkill/rfkill-input.c
++++ b/net/rfkill/rfkill-input.c
+@@ -84,6 +84,7 @@ static void rfkill_schedule_toggle(struct rfkill_task=
+ *task)
+ static DEFINE_RFKILL_TASK(rfkill_wlan, RFKILL_TYPE_WLAN);
+ static DEFINE_RFKILL_TASK(rfkill_bt, RFKILL_TYPE_BLUETOOTH);
+ static DEFINE_RFKILL_TASK(rfkill_uwb, RFKILL_TYPE_UWB);
++static DEFINE_RFKILL_TASK(rfkill_wimax, RFKILL_TYPE_WIMAX);
+=20
+ static void rfkill_event(struct input_handle *handle, unsigned int typ=
+e,
+ 			unsigned int code, int down)
+@@ -99,6 +100,9 @@ static void rfkill_event(struct input_handle *handle=
+, unsigned int type,
+ 		case KEY_UWB:
+ 			rfkill_schedule_toggle(&rfkill_uwb);
+ 			break;
++		case KEY_WIMAX:
++			rfkill_schedule_toggle(&rfkill_wimax);
++			break;
+ 		default:
+ 			break;
+ 		}
+@@ -159,6 +163,11 @@ static const struct input_device_id rfkill_ids[] =3D=
+ {
+ 		.evbit =3D { BIT_MASK(EV_KEY) },
+ 		.keybit =3D { [BIT_WORD(KEY_UWB)] =3D BIT_MASK(KEY_UWB) },
+ 	},
++	{
++		.flags =3D INPUT_DEVICE_ID_MATCH_EVBIT | INPUT_DEVICE_ID_MATCH_KEYBI=
+T,
++		.evbit =3D { BIT_MASK(EV_KEY) },
++		.keybit =3D { [BIT_WORD(KEY_WIMAX)] =3D BIT_MASK(KEY_WIMAX) },
++	},
+ 	{ }
+ };
+=20
+diff --git a/net/rfkill/rfkill.c b/net/rfkill/rfkill.c
+index d06d338..6562f86 100644
+--- a/net/rfkill/rfkill.c
++++ b/net/rfkill/rfkill.c
+@@ -126,6 +126,9 @@ static ssize_t rfkill_type_show(struct device *dev,
+ 	case RFKILL_TYPE_UWB:
+ 		type =3D "ultrawideband";
+ 		break;
++	case RFKILL_TYPE_WIMAX:
++		type =3D "wimax";
++		break;
+ 	default:
+ 		BUG();
+ 	}
+--=20
 John W. Linville
 linville@tuxdriver.com
-
---PEIAKu/WMn1b1Hv9
-Content-Type: application/x-bzip2
-Content-Disposition: attachment; filename="rndis.patch.bz2"
-Content-Transfer-Encoding: base64
-
-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
-
---PEIAKu/WMn1b1Hv9--
