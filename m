@@ -1,38 +1,30 @@
-From: Kalle Pokki <kalle.pokki@eke.com>
-Subject: [PATCH] bfin_mac: Make the MDIO polling faster
-Date: Tue, 29 Jan 2008 14:28:51 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0801291427300.7503@pc-213-140-179-32.aina.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/2] [NETFILTER] ipt_CLUSTERIP: kill clusterip_config_entry_get
+Date: Tue, 29 Jan 2008 14:40:57 +0100
+Message-ID: <479F2CE9.4070803@trash.net>
+References: <12013009403114-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org, Bryan Wu <bryan.wu@analog.com>
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.aina.net ([81.16.64.154]:33093 "EHLO smtp1.aina.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752383AbYA2MiX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jan 2008 07:38:23 -0500
+Received: from stinky.trash.net ([213.144.137.162]:55283 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932358AbYA2N44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 08:56:56 -0500
+In-Reply-To: <12013009403114-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The poll routine always got 10 ms penalty when called immediately
-after starting the transfer. The MDIO transfer takes 25.6 us at the
-nominal 2.5 MHz, so MAX_TIMEOUT_CNT being 500 is still big enough.
----
- drivers/net/bfin_mac.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Ilpo J=E4rvinen wrote:
+> From: =3D?ISO-8859-1?q?Ilpo=3D20J=3DE4rvinen?=3D <ilpo.jarvinen@helsi=
+nki.fi>
+>=20
+> It's unused static inline.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index c199633..d2e6813 100644
---- a/drivers/net/bfin_mac.c
-+++ b/drivers/net/bfin_mac.c
-@@ -296,7 +296,7 @@ static void mdio_poll(void)
- 
- 	/* poll the STABUSY bit */
- 	while ((bfin_read_EMAC_STAADD()) & STABUSY) {
--		mdelay(10);
-+		udelay(1);
- 		if (timeout_cnt-- < 0) {
- 			printk(KERN_ERR DRV_NAME
- 			": wait MDC/MDIO transaction to complete timeout\n");
--- 
-1.4.4.2
-
+Applied, thanks.
