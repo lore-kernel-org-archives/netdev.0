@@ -1,32 +1,41 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net-2.6.25] [MACVLAN] Setting macvlan_handle_frame_hook
- to NULL when rtnl_link_register() fails.
-Date: Tue, 29 Jan 2008 16:19:04 +0100
-Message-ID: <479F43E8.4010107@trash.net>
-References: <eb3ff54b0801290714ja7e7e67t3349028b7db8dc5e@mail.gmail.com>
+From: Tony Battersby <tonyb@cybernetics.com>
+Subject: Re: sky2: tx hang on dual-port Yukon XL when rx csum disabled
+Date: Tue, 29 Jan 2008 10:26:25 -0500
+Message-ID: <479F45A1.2030407@cybernetics.com>
+References: <479E2247.8080109@cybernetics.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Rami Rosen <ramirose@gmail.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57250 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754523AbYA2PTI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 10:19:08 -0500
-In-Reply-To: <eb3ff54b0801290714ja7e7e67t3349028b7db8dc5e@mail.gmail.com>
+Received: from host64.cybernetics.com ([70.169.137.4]:4969 "EHLO
+	mail.cybernetics.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1754907AbYA2P0Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 10:26:24 -0500
+In-Reply-To: <479E2247.8080109@cybernetics.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rami Rosen wrote:
-> Hi,
->   In drivers/net/macvlan.c, when rtnl_link_register() fails
-> in macvlan_init_module(), there is no point to set it (second time in this
-> method) to macvlan_handle_frame; macvlan_init_module() will return a negative
-> number, so instead this patch sets macvlan_handle_frame_hook to NULL.
+Tony Battersby wrote:
+> "iperf -c 192.168.1.1" never finishes, but "iperf -c 192.168.2.1" does
+> finish.  Press Ctrl-C to abort the hung iperf.  Ping 192.168.1.1 does
+> not respond.  Ping 192.168.2.1 does respond, but each ping has almost
+> exactly 1 second latency (the latency should be < 1 ms).
+>
+>   
 
+Update: after triggering the problem, the ping latency on the interface
+that still responds is the same as the ping interval.  The default ping
+interval is 1 second, so in my initial test I was seeing a 1 second ping
+latency.  If I do "ping -i 2 192.168.2.1", then each ping takes 2
+seconds to receive the response.  If I do "ping -i 5 192.168.2.1", then
+each ping takes 5 seconds to receive the response.  This implies that
+the network stack doesn't realize that it received the ping reply until
+it goes to send another ping.
 
-Indeed, that seems to be a stupid cut-and-paste error. Thanks for
-catching this.
+Hope that helps.
 
-Dave, please apply.
+Tony Battersby
+Cybernetics
+
