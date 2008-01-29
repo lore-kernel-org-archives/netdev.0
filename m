@@ -1,38 +1,27 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: [PATCH] SELinux: Fix double free in selinux_netlbl_sock_setsid()
-Date: Mon, 28 Jan 2008 21:20:26 -0500
-Message-ID: <20080129022026.7930.18782.stgit@flek.lan>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/3] [IPSEC]: Add async/aead support
+Date: Tue, 29 Jan 2008 14:10:47 +1100
+Message-ID: <20080129031047.GA13625@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, stable@kernel.org,
-	bunk@kernel.org, jmorris@namei.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762280AbYA2CV0@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:55841 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752263AbYA2DKu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2008 22:10:50 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As pointed out by Adrian Bunk, commit 45c950e0f839fded922ebc0bfd59b1081cc71b70
-caused a double-free when security_netlbl_sid_to_secattr() fails.  This patch
-fixes this by removing the netlbl_secattr_destroy() call from that function
-since we are already releasing the secattr memory in
-selinux_netlbl_sock_setsid().
+Hi Dave:
 
-Signed-off-by: Paul Moore <paul.moore@hp.com>
----
+I've rebased the IPsec AEAD/async patches for the current net-2.6.25
+tree.
 
- security/selinux/ss/services.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/security/selinux/ss/services.c b/security/selinux/ss/services.c
-index 4bf715d..3a16aba 100644
---- a/security/selinux/ss/services.c
-+++ b/security/selinux/ss/services.c
-@@ -2629,7 +2629,6 @@ int security_netlbl_sid_to_secattr(u32 sid, struct netlbl_lsm_secattr *secattr)
- 
- netlbl_sid_to_secattr_failure:
- 	POLICY_RDUNLOCK;
--	netlbl_secattr_destroy(secattr);
- 	return rc;
- }
- #endif /* CONFIG_NETLABEL */
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
