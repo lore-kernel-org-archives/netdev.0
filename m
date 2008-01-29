@@ -1,68 +1,102 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: PATCH[1/1]: Add ctr-aes support to ipsec
-Date: Tue, 29 Jan 2008 14:18:24 -0600
-Message-ID: <200801292018.m0TKIOLA011876@faith.austin.ibm.com>
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: netdev->priv and netdev_priv(dev)
+Date: Tue, 29 Jan 2008 12:42:59 -0800
+Message-ID: <20080129124259.7c502d13@deepthought>
+References: <m3tzkwv1ev.fsf@maximus.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:54909 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751257AbYA2UUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 15:20:35 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m0TJH5i4004742
-	for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 14:17:05 -0500
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0TKKTP2178348
-	for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 13:20:29 -0700
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0TKKTQI030615
-	for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 13:20:29 -0700
+Received: from main.gmane.org ([80.91.229.2]:40170 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761865AbYA2UnR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2008 15:43:17 -0500
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1JJxIV-0008Gd-Vl
+	for netdev@vger.kernel.org; Tue, 29 Jan 2008 20:43:11 +0000
+Received: from 75-175-37-108.ptld.qwest.net ([75.175.37.108])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 20:43:11 +0000
+Received: from shemminger by 75-175-37-108.ptld.qwest.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 20:43:11 +0000
+In-Reply-To: <m3tzkwv1ev.fsf@maximus.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The below patch allows IPsec to use CTR mode with
-AES encryption algorithm. Tested this using setkey
-in ipsec-tools.
+On Tue, 29 Jan 2008 21:10:00 +0100
+Krzysztof Halasa <khc@pm.waw.pl> wrote:
 
-regards,
-Joy
+> A commit few months ago introduced a change:
+> 
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+>  
+>  static inline void *netdev_priv(const struct net_device *dev)
+>  {
+> -       return (char *)dev + ((sizeof(struct net_device)
+> -                                       + NETDEV_ALIGN_CONST)
+> -                               & ~NETDEV_ALIGN_CONST);
+> +       return dev->priv;
+>  }
+>  
+> This change caused some problems for drivers which used
+> netdev_priv(dev) and dev->priv for different purposes.
+> 
 
-diff -urpN net-2.6.25/include/linux/pfkeyv2.h net-2.6.25.patch/include/linux/pfkeyv2.h
---- net-2.6.25/include/linux/pfkeyv2.h	2008-01-29 11:48:00.000000000 -0600
-+++ net-2.6.25.patch/include/linux/pfkeyv2.h	2008-01-29 13:43:59.000000000 -0600
-@@ -298,6 +298,7 @@ struct sadb_x_sec_ctx {
- #define SADB_X_EALG_BLOWFISHCBC		7
- #define SADB_EALG_NULL			11
- #define SADB_X_EALG_AESCBC		12
-+#define SADB_X_EALG_AESCTR		13
- #define SADB_X_EALG_CAMELLIACBC		22
- #define SADB_EALG_MAX                   253 /* last EALG */
- /* private allocations should use 249-255 (RFC2407) */
-diff -urpN net-2.6.25/net/xfrm/xfrm_algo.c net-2.6.25.patch/net/xfrm/xfrm_algo.c
---- net-2.6.25/net/xfrm/xfrm_algo.c	2008-01-29 11:48:03.000000000 -0600
-+++ net-2.6.25.patch/net/xfrm/xfrm_algo.c	2008-01-29 13:42:43.000000000 -0600
-@@ -300,6 +300,23 @@ static struct xfrm_algo_desc ealg_list[]
- 		.sadb_alg_maxbits = 256
- 	}
- },
-+{
-+	.name = "rfc3686(ctr(aes))",
-+
-+	.uinfo = {
-+		.encr = {
-+			.blockbits = 128,
-+			.defkeybits = 160, /* 128-bit key + 32-bit nonce */
-+		}
-+	},
-+
-+	.desc = {
-+		.sadb_alg_id = SADB_X_EALG_AESCTR,
-+		.sadb_alg_ivlen	= 8,
-+		.sadb_alg_minbits = 128,
-+		.sadb_alg_maxbits = 256
-+	}
-+},
- };
- 
- static struct xfrm_algo_desc calg_list[] = {
+Those drivers were making a incorrect assumption and should be fixed.
+The in-tree drivers were fixed when this was done. If you have an out
+of tree driver, then too bad for you.
+
+> 
+> The following patch restores previous behaviour.
+> 
+> Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+> 
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -584,7 +584,10 @@ struct net_device
+>  
+>  static inline void *netdev_priv(const struct net_device *dev)
+>  {
+> -	return dev->priv;
+> +	return (char *)dev + ((sizeof(struct net_device) +
+> +			       sizeof(struct net_device_subqueue) *
+> +			       (dev->egress_subqueue_count - 1) +
+> +			       NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
+>  }
+>  
+>  #define SET_MODULE_OWNER(dev) do { } while (0)
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -3693,13 +3693,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+>  		(((long)p + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
+>  	dev->padded = (char *)dev - (char *)p;
+>  
+> -	if (sizeof_priv) {
+> -		dev->priv = ((char *)dev +
+> -			     ((sizeof(struct net_device) +
+> -			       (sizeof(struct net_device_subqueue) *
+> -				(queue_count - 1)) + NETDEV_ALIGN_CONST)
+> -			      & ~NETDEV_ALIGN_CONST));
+> -	}
+> +	if (sizeof_priv)
+> +		dev->priv = netdev_priv(dev);
+>  
+>  	dev->egress_subqueue_count = queue_count;
+>  
+
+The additional overhead of the address calculation would slow down the
+well behaved drivers.  There was discussion of alternative layouts of
+the network device allocation or limiting the number of subqueue's so
+that netdev_priv could be a simple addition again, but nothing came of
+it.
+
+
+
+-- 
+Stephen Hemminger <stephen.hemminger@vyatta.com>
+
+
