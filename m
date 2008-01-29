@@ -1,40 +1,70 @@
-From: Roel Kluin <12o3l@tiscali.nl>
-Subject: [PATCH 1/1 resend][arm/at91_ether.c]  logical/bitand typo in function
- reset_phy() (inactive), drivers/net/arm/at91_ether.c
-Date: Tue, 29 Jan 2008 21:14:56 +0100
-Message-ID: <479F8940.7030301@tiscali.nl>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCH] netdev->priv and netdev_priv(dev)
+Date: Tue, 29 Jan 2008 21:19:02 +0100
+Message-ID: <m3odb4v0zt.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk
-To: andrew@sanpeople.com, Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out0.tiscali.nl ([195.241.79.175]:56605 "EHLO
-	smtp-out0.tiscali.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934401AbYA2UPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 15:15:16 -0500
+Received: from khc.piap.pl ([195.187.100.11]:60339 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751938AbYA2UTE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2008 15:19:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-include/linux/mii.h:48:#define BMCR_RESET 0x8000
+[This version shouldn't confuse git/patch]
 
-The function reset_phy() is in "#if 0" inactivated code
---
-Replace logical "&&" by bit "&" before BMCR_RESET
+A commit few months ago introduced a change:
 
-Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
----
-diff --git a/drivers/net/arm/at91_ether.c b/drivers/net/arm/at91_ether.c
-index 25b114a..0ae0d83 100644
---- a/drivers/net/arm/at91_ether.c
-+++ b/drivers/net/arm/at91_ether.c
-@@ -384,7 +384,7 @@ static void reset_phy(struct net_device *dev)
- 	/* Wait until PHY reset is complete */
- 	do {
- 		read_phy(lp->phy_address, MII_BMCR, &bmcr);
--	} while (!(bmcr && BMCR_RESET));
-+	} while (!(bmcr & BMCR_RESET));
+- a/include/linux/netdevice.h
++ b/include/linux/netdevice.h
  
- 	disable_mdi();
- 	spin_unlock_irq(&lp->lock);
+ static inline void *netdev_priv(const struct net_device *dev)
+ {
+-       return (char *)dev + ((sizeof(struct net_device)
+-                                       + NETDEV_ALIGN_CONST)
+-                               & ~NETDEV_ALIGN_CONST);
++       return dev->priv;
+ }
+ 
+This change caused some problems for drivers which used
+netdev_priv(dev) and dev->priv for different purposes.
 
+
+The following patch restores previous behaviour.
+
+Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -584,7 +584,10 @@ struct net_device
+ 
+ static inline void *netdev_priv(const struct net_device *dev)
+ {
+-	return dev->priv;
++	return (char *)dev + ((sizeof(struct net_device) +
++			       sizeof(struct net_device_subqueue) *
++			       (dev->egress_subqueue_count - 1) +
++			       NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
+ }
+ 
+ #define SET_MODULE_OWNER(dev) do { } while (0)
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3693,13 +3693,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 		(((long)p + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
+ 	dev->padded = (char *)dev - (char *)p;
+ 
+-	if (sizeof_priv) {
+-		dev->priv = ((char *)dev +
+-			     ((sizeof(struct net_device) +
+-			       (sizeof(struct net_device_subqueue) *
+-				(queue_count - 1)) + NETDEV_ALIGN_CONST)
+-			      & ~NETDEV_ALIGN_CONST));
+-	}
++	if (sizeof_priv)
++		dev->priv = netdev_priv(dev);
+ 
+ 	dev->egress_subqueue_count = queue_count;
+ 
