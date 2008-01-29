@@ -1,51 +1,42 @@
-From: Marcin Juszkiewicz <openembedded-sbG99h22wavzs492ZWNkEA@public.gmane.org>
-Subject: [PATCH] Add another Prism2 card to hostap
-Date: Tue, 29 Jan 2008 09:42:53 +0100
-Message-ID: <200801290942.56258.openembedded@haerwu.biz>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCHv2 2.6.24] fib: fix route replacement, fib_info is shared
+Date: Tue, 29 Jan 2008 10:10:30 +0100
+Message-ID: <20080129091030.GB1624@ff.dom.local>
+References: <20080127232018.GA2856@ami.dom.local> <Pine.LNX.4.58.0801290139450.3181@u.domain.uli> <20080129084915.GA1624@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jouni Malinen <j@w1.fi>, Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Joonwoo Park <joonwpark81@gmail.com>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fk-out-0910.google.com ([209.85.128.190]:51756 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751317AbYA2JDl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 04:03:41 -0500
+Received: by fk-out-0910.google.com with SMTP id z23so1336493fkz.5
+        for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 01:03:37 -0800 (PST)
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080129084915.GA1624@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jan 29, 2008 at 09:49:15AM +0100, Jarek Poplawski wrote:
+> On Tue, Jan 29, 2008 at 02:30:47AM +0200, Julian Anastasov wrote:
+...
+> > 	fa_match is some existing alias that matches all new parameters.
+> > As NLM_F_REPLACE changes the first alternative route for 
+> > tos+priority if fa_match == fa_first (we are replacing alias that
+> > matches all parameters) we return 0, only that routing cache is not 
+> > flushed - nothing is replaced/changed. So, "fa == fa_match" means
+> > "replace will not change existing parameters", return 0 as this is
+> > not an error.
+> 
+> Probably I miss something, but what parameters do we change if
+> (fa_match) && (fa != fa_match)? Isn't this "goto out" in any case?
 
-=46rom: Marcin Juszkiewicz <openembedded-sbG99h22wavzs492ZWNkEA@public.gmane.org>
+OOPS! You mean change is needed, but we can't do this! (I'm so slow...)
 
-Card reported by =C5ngstr=F6m user:
-http://bugs.openembedded.net/show_bug.cgi?id=3D3236
+All correct!
 
-Socket 1:
-   product info: "Wireless LAN", "11Mbps PC Card", "Version 01.02", ""
-   manfid: 0x0156, 0x0002
-   function: 6 (network)
-
-Signed-off-by: Marcin Juszkiewicz <openembedded-sbG99h22wavzs492ZWNkEA@public.gmane.org>
-
-diff --git a/drivers/net/wireless/hostap/hostap_cs.c b/drivers/net/wire=
-less/hostap/hostap_cs.c
-index 877d3bd..4f6707c 100644
---- a/drivers/net/wireless/hostap/hostap_cs.c
-+++ b/drivers/net/wireless/hostap/hostap_cs.c
-@@ -894,6 +894,9 @@ static struct pcmcia_device_id hostap_cs_ids[] =3D =
-{
-                "The Linksys Group, Inc.", "Wireless Network CF Card", =
-"ISL37300P",
-                "RevA",
-                0xa5f472c2, 0x9c05598d, 0xc9049a39, 0x57a66194),
-+       PCMCIA_DEVICE_PROD_ID123(
-+           "Wireless LAN" , "11Mbps PC Card", "Version 01.02",
-+               0x4b8870ff, 0x70e946d1, 0x4b74baa0),
-        PCMCIA_DEVICE_NULL
- };
- MODULE_DEVICE_TABLE(pcmcia, hostap_cs_ids);
-
---=20
-JID: hrw-jabber.org
-OpenEmbedded developer/consultant
-
-         Computers are not intelligent. They only think they are.
+Thanks again,
+Jarek P.
