@@ -1,68 +1,44 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: netdev->priv and netdev_priv(dev)
-Date: Tue, 29 Jan 2008 21:10:00 +0100
-Message-ID: <m3tzkwv1ev.fsf@maximus.localdomain>
+From: Haavard Skinnemoen <hskinnemoen@atmel.com>
+Subject: Re: [PATCH] PHYLIB: Locking fixes for PHY I/O potentially sleeping
+Date: Tue, 29 Jan 2008 21:12:00 +0100
+Message-ID: <20080129211200.4fa73063@siona>
+References: <1199403419.25262.62.camel@localhost.localdomain>
+	<6D762C47-9C9C-422E-A80E-CC418F624B05@freescale.com>
+	<479E76A2.8020304@garzik.org>
+	<1201622709.12444.118.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Andy Fleming <afleming@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Nate Case <ncase@xes-inc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:46709 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752888AbYA2UKD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jan 2008 15:10:03 -0500
+Received: from nat-132.atmel.no ([80.232.32.132]:61363 "EHLO relay.atmel.no"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754889AbYA2UMh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2008 15:12:37 -0500
+In-Reply-To: <1201622709.12444.118.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A commit few months ago introduced a change:
+On Tue, 29 Jan 2008 10:05:09 -0600
+Nate Case <ncase@xes-inc.com> wrote:
 
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
- 
- static inline void *netdev_priv(const struct net_device *dev)
- {
--       return (char *)dev + ((sizeof(struct net_device)
--                                       + NETDEV_ALIGN_CONST)
--                               & ~NETDEV_ALIGN_CONST);
-+       return dev->priv;
- }
- 
-This change caused some problems for drivers which used
-netdev_priv(dev) and dev->priv for different purposes.
+> +/* PHY timer which schedules the state machine work */
+> +static void phy_timer(unsigned long data)
+> +{
+> +	struct phy_device *phydev = (struct phy_device *)data;
+> +
+> +	/*
+> +	 * PHY I/O operations can potentially sleep so we ensure that
+> +	 * it's done from a process context
+> +	 */
+> +	schedule_work(&phydev->state_queue);
+> +}
 
+If you use schedule_delayed_work() instead, you can get rid of the
+timer.
 
-The following patch restores previous behaviour.
-
-Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
-
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -584,7 +584,10 @@ struct net_device
- 
- static inline void *netdev_priv(const struct net_device *dev)
- {
--	return dev->priv;
-+	return (char *)dev + ((sizeof(struct net_device) +
-+			       sizeof(struct net_device_subqueue) *
-+			       (dev->egress_subqueue_count - 1) +
-+			       NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
- }
- 
- #define SET_MODULE_OWNER(dev) do { } while (0)
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3693,13 +3693,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 		(((long)p + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
- 	dev->padded = (char *)dev - (char *)p;
- 
--	if (sizeof_priv) {
--		dev->priv = ((char *)dev +
--			     ((sizeof(struct net_device) +
--			       (sizeof(struct net_device_subqueue) *
--				(queue_count - 1)) + NETDEV_ALIGN_CONST)
--			      & ~NETDEV_ALIGN_CONST));
--	}
-+	if (sizeof_priv)
-+		dev->priv = netdev_priv(dev);
- 
- 	dev->egress_subqueue_count = queue_count;
- 
+Haavard
