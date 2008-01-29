@@ -1,52 +1,39 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH] SELinux: Fix double free in selinux_netlbl_sock_setsid()
-Date: Tue, 29 Jan 2008 12:13:53 -0500
-Message-ID: <200801291213.54310.paul.moore@hp.com>
-References: <20080129022026.7930.18782.stgit@flek.lan> <20080128.195124.188485009.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Still oopsing in nf_nat_move_storage()
+Date: Tue, 29 Jan 2008 18:18:20 +0100
+Message-ID: <479F5FDC.5040903@trash.net>
+References: <479F5E5A.8050108@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov, bunk@kernel.org, jmorris@namei.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932931AbYA2ROc@vger.kernel.org>
-In-Reply-To: <20080128.195124.188485009.davem@davemloft.net>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Chuck Ebbert <cebbert@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:59933 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753413AbYA2RSY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 12:18:24 -0500
+In-Reply-To: <479F5E5A.8050108@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 28 January 2008 10:51:24 pm David Miller wrote:
-> From: Paul Moore <paul.moore@hp.com>
-> Date: Mon, 28 Jan 2008 21:20:26 -0500
->
-> > As pointed out by Adrian Bunk, commit
-> > 45c950e0f839fded922ebc0bfd59b1081cc71b70 caused a double-free when
-> > security_netlbl_sid_to_secattr() fails.  This patch fixes this by
-> > removing the netlbl_secattr_destroy() call from that function since we
-> > are already releasing the secattr memory in
-> > selinux_netlbl_sock_setsid().
-> >
-> > Signed-off-by: Paul Moore <paul.moore@hp.com>
->
-> Applied, and I'll queue this up for -stable too.
+Chuck Ebbert wrote:
+> nf_nat_move_storage():
+> /usr/src/debug/kernel-2.6.23/linux-2.6.23.i686/net/ipv4/netfilter/nf_nat_core.c:612
+>       87:       f7 47 64 80 01 00 00    testl  $0x180,0x64(%edi)
+>       8e:       74 39                   je     c9 <nf_nat_move_storage+0x65>
+> 
+> line 612:
+>         if (!(ct->status & IPS_NAT_DONE_MASK))
+>                 return;
+> 
+> ct is NULL
 
-Thanks.  Sorry for not catching this in the first place.
+The current kernel (and 2.6.23-stable) have:
 
-> Please, when mentioning specific commits please also provide
-> the changelog headline along with the SHA1 hash.
->
-> The reason is that when this fix is moved over to another
-> tree where the SHA1 of the causing change is different people
-> studying your fix won't be able to find it without more stable
-> contextual information.
+         if (!ct || !(ct->status & IPS_NAT_DONE_MASK))
+                 return;
 
-Noted, I'll make sure to include the patch description in the future.  I 
-wasn't aware that the hash took into account anything other than the 
-individual commit it represented.  However, now that I think about it, since 
-order is so critical it only makes sense to have the hash take into account 
-at least the previous commit.
-
--- 
-paul moore
-linux security @ hp
+so it seems you're using an old version.
