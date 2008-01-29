@@ -1,60 +1,47 @@
-From: maximilian attems <max@stro.at>
-Subject: Re: sis190 build breakage
-Date: Wed, 30 Jan 2008 00:12:23 +0100
-Message-ID: <20080129231223.GT1446@baikonur.stro.at>
-References: <20080129215023.GA24152@stro.at> <20080129220310.GC15445@electric-eye.fr.zoreil.com> <20080129222719.GS1446@baikonur.stro.at> <20080129222748.GD15445@electric-eye.fr.zoreil.com>
+From: Jon Masters <jonathan@jonmasters.org>
+Subject: Re: Udev coldplugging loads 8139too driver instead of 8139cp
+Date: Tue, 29 Jan 2008 18:34:16 -0500
+Message-ID: <1201649657.2271.81.camel@perihelion>
+References: <1201554992.13883.13.camel@Anastacia>
+	 <479E7750.9060304@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Randy Dunlap <rdunlap@xenotime.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from baikonur.stro.at ([213.239.196.228]:38314 "EHLO
-	baikonur.stro.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750815AbYA2XNy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 18:13:54 -0500
-Content-Disposition: inline
-In-Reply-To: <20080129222748.GD15445@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Frederik Himpe <fhimpe@telenet.be>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Michael Tokarev <mjt@tls.msk.ru>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758392AbYA2XfV@vger.kernel.org>
+In-Reply-To: <479E7750.9060304@msgid.tls.msk.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 29, 2008 at 11:27:48PM +0100, Francois Romieu wrote:
-> maximilian attems <max@stro.at> :
-> [...]
-> > probably i should to get interesting info.
-> 
-> Don't bother.
-> 
-> $ less +/devinitdata Documentation/pci.txt
-> [...]
-> Tips on when/where to use the above attributes:
->         o The module_init()/module_exit() functions (and all
->           initialization functions called _only_ from these)
->           should be marked __init/__exit.
-> 
->         o Do not mark the struct pci_driver.
-> 
->         o The ID table array should be marked __devinitdata.
->
-> Could our documentation be wrong ?
 
-yep that was what i had in mind, so i was a bit baffled..
+On Tue, 2008-01-29 at 03:46 +0300, Michael Tokarev wrote:
 
-randy any insight?
- 
-> 
-> diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-> index b570402..2e9e88b 100644
-> --- a/drivers/net/sis190.c
-> +++ b/drivers/net/sis190.c
-> @@ -326,7 +326,7 @@ static const struct {
->  	{ "SiS 191 PCI Gigabit Ethernet adapter" },
->  };
->  
-> -static struct pci_device_id sis190_pci_tbl[] __devinitdata = {
-> +static struct pci_device_id sis190_pci_tbl[] = {
->  	{ PCI_DEVICE(PCI_VENDOR_ID_SI, 0x0190), 0, 0, 0 },
->  	{ PCI_DEVICE(PCI_VENDOR_ID_SI, 0x0191), 0, 0, 1 },
->  	{ 0, },
+> Udev in fact loads both - 8139cp and 8139too.  The difference is the ORDER
+> in which it loads them - if for "cp-handled" hardware it first loads "too",
+> too will complain as above and will NOT claim the device.  The same is
+> true for the opposite.
 
-thanks for quick fix.
+Actually, it's the order in which the probe functions run, which is
+typically related to the order in which they are loaded. You can
+blacklist one driver and get the other instead.
+
+> I don't know what happened in 2.6.24, but my guess is that since 8139too-based
+> hw is now alot more common, the two drivers are listed in the opposite
+> order.
+
+Nah. Random build ordering as it always has been - two different builds
+would end up with modules in a different order on disk, hence depmod
+would generate a different ordering. This will be fixed shortly with the
+Modules.order bits, but you will still need to blacklist one of the
+drivers (unless you're lucky and 8139too comes first), until there is
+proper support for dynamic rebinding and udev rules to do that.
+
+> In short: NotABug, or ComplainToRealtec (but that's waaaay too late and
+> will not help anyway) ;)
+
+Nah. It's a "bug" insomuch as we don't handle multiple matching aliases
+very well, and it's becoming more common, so we probably should :)
+
+Jon.
