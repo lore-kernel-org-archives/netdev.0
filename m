@@ -1,54 +1,63 @@
-From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: Re: [PATCH] Add another Prism2 card to hostap
-Date: Wed, 30 Jan 2008 16:15:34 -0500
-Message-ID: <1201727734.8103.18.camel@dv>
-References: <200801290942.56258.openembedded@haerwu.biz>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [2.6 patch] e1000e/ethtool.c: make a function
+	static
+Date: Wed, 30 Jan 2008 13:51:45 -0800
+Message-ID: <47A0F171.6030106@intel.com>
+References: <20080130200243.GY29368@does.not.exist>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jouni Malinen <j@w1.fi>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marcin Juszkiewicz <openembedded-sbG99h22wavzs492ZWNkEA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200801290942.56258.openembedded-sbG99h22wavzs492ZWNkEA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	linux-kernel@vger.kernel.org, john.ronciak@intel.com,
+	jeffrey.t.kirsher@intel.com, Joe Perches <joe@perches.com>
+To: Adrian Bunk <bunk@kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20080130200243.GY29368@does.not.exist>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+Adrian Bunk wrote:
+> This patch makes the needlessly global reg_pattern_test_array() static.
+> 
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-On Tue, 2008-01-29 at 09:42 +0100, Marcin Juszkiewicz wrote:
-> From: Marcin Juszkiewicz <openembedded-sbG99h22wavzs492ZWNkEA@public.gmane.org>
->=20
-> Card reported by =C5ngstr=F6m user:
-> http://bugs.openembedded.net/show_bug.cgi?id=3D3236
->=20
-> Socket 1:
->    product info: "Wireless LAN", "11Mbps PC Card", "Version 01.02", "=
-"
->    manfid: 0x0156, 0x0002
->    function: 6 (network)
->=20
-> Signed-off-by: Marcin Juszkiewicz <openembedded-sbG99h22wavzs492ZWNkEA@public.gmane.org>
+stephen hemminger already pointed this out to me... I'll certainly push this
+upstream, thanks Adrian!
 
-Acked-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Auke
 
-> diff --git a/drivers/net/wireless/hostap/hostap_cs.c b/drivers/net/wi=
-reless/hostap/hostap_cs.c
-> index 877d3bd..4f6707c 100644
-> --- a/drivers/net/wireless/hostap/hostap_cs.c
-> +++ b/drivers/net/wireless/hostap/hostap_cs.c
-> @@ -894,6 +894,9 @@ static struct pcmcia_device_id hostap_cs_ids[] =3D=
- {
->                 "The Linksys Group, Inc.", "Wireless Network CF Card"=
-, "ISL37300P",
->                 "RevA",
->                 0xa5f472c2, 0x9c05598d, 0xc9049a39, 0x57a66194),
-> +       PCMCIA_DEVICE_PROD_ID123(
-> +           "Wireless LAN" , "11Mbps PC Card", "Version 01.02",
-> +               0x4b8870ff, 0x70e946d1, 0x4b74baa0),
->         PCMCIA_DEVICE_NULL
->  };
->  MODULE_DEVICE_TABLE(pcmcia, hostap_cs_ids);
->=20
---=20
-Regards,
-Pavel Roskin
+
+> 
+> ---
+> ed72e457f06311390d9a9e51a00c904939466aff 
+> diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+> index 6d9c27f..a2034cf 100644
+> --- a/drivers/net/e1000e/ethtool.c
+> +++ b/drivers/net/e1000e/ethtool.c
+> @@ -690,8 +690,8 @@ err_setup:
+>  	return err;
+>  }
+>  
+> -bool reg_pattern_test_array(struct e1000_adapter *adapter, u64 *data,
+> -			    int reg, int offset, u32 mask, u32 write)
+> +static bool reg_pattern_test_array(struct e1000_adapter *adapter, u64 *data,
+> +				   int reg, int offset, u32 mask, u32 write)
+>  {
+>  	int i;
+>  	u32 read;
+> 
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
