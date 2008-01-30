@@ -1,24 +1,28 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 'upstream' 2008-01-29
-Date: Tue, 29 Jan 2008 21:21:25 -0800 (PST)
-Message-ID: <20080129.212125.126863948.davem@davemloft.net>
-References: <20080129212703.GA3180@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: net-2.6.25 is no more...
+Date: Tue, 29 Jan 2008 21:22:16 -0800 (PST)
+Message-ID: <20080129.212216.186173371.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080129212703.GA3180-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57109
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752906AbYA3FV6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 00:21:58 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id E44D1C8C19A
+	for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 21:22:16 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Tue, 29 Jan 2008 16:27:03 -0500
 
-> Here are some stragglers for 2.6.25.  Most of them are fixes for the
-> new stuff anyway -- I don't think there is anything convroversial.
-> 
-> Please let me know if there are problems!
+Now that the bulk has been merged over and we are
+actively working alongside Linus's tree I have moved
+all current patch applying to net-2.6 instead of net-2.6.25,
+so the current tree to use is:
 
-Pulled and pushed back out to net-2.6, thanks John.
+	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
+
+Thanks.
