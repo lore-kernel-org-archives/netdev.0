@@ -1,36 +1,40 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] unexport sysctl_tcp_tso_win_divisor
-Date: Wed, 30 Jan 2008 22:02:32 +0200
-Message-ID: <20080130200232.GU29368@does.not.exist>
+Subject: [2.6 patch] make e1000_dump_eeprom() static
+Date: Wed, 30 Jan 2008 22:02:45 +0200
+Message-ID: <20080130200245.GZ29368@does.not.exist>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Ilpo =?utf-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Auke Kok <auke-jan.h.kok@intel.com>, Jeff Garzik <jeff@garzik.org>,
+	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
+	john.ronciak@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:51745 "EHLO smtp4.pp.htv.fi"
+Received: from smtp5.pp.htv.fi ([213.243.153.39]:37600 "EHLO smtp5.pp.htv.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758381AbYA3UB5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 15:01:57 -0500
+	id S1759713AbYA3UCL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 15:02:11 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes the no longer used 
-EXPORT_SYMBOL(sysctl_tcp_tso_win_divisor).
+This patch makes the needlessly global e1000_dump_eeprom() static.
 
 Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
 ---
-4884e7997ba5f63f2efeaeead21ed2768fb3f4de 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 89f0188..ed750f9 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2564,5 +2564,4 @@ EXPORT_SYMBOL(tcp_connect);
- EXPORT_SYMBOL(tcp_make_synack);
- EXPORT_SYMBOL(tcp_simple_retransmit);
- EXPORT_SYMBOL(tcp_sync_mss);
--EXPORT_SYMBOL(sysctl_tcp_tso_win_divisor);
- EXPORT_SYMBOL(tcp_mtup_init);
+b5fd924a1388d4aaa94cf05e42e317c2b1fb5748 
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 7f5b2ae..8a6645b 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -820,7 +820,7 @@ e1000_reset(struct e1000_adapter *adapter)
+ /**
+  *  Dump the eeprom for users having checksum issues
+  **/
+-void e1000_dump_eeprom(struct e1000_adapter *adapter)
++static void e1000_dump_eeprom(struct e1000_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+ 	struct ethtool_eeprom eeprom;
 
