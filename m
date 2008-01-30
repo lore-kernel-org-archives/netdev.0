@@ -1,27 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [2.6 patch] rtnetlink.c: #if 0 no longer used functions
-Date: Wed, 30 Jan 2008 21:04:33 +0100
-Message-ID: <47A0D851.9050408@trash.net>
-References: <20080130200257.GD29368@does.not.exist>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [2.6 patch] net/sunbmac.c section fix
+Date: Wed, 30 Jan 2008 22:03:34 +0200
+Message-ID: <20080130200334.GM29368@does.not.exist>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeff Garzik <jgarzik@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60245 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754196AbYA3UFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 15:05:09 -0500
-In-Reply-To: <20080130200257.GD29368@does.not.exist>
+Received: from smtp5.pp.htv.fi ([213.243.153.39]:37656 "EHLO smtp5.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759152AbYA3UDA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 15:03:00 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adrian Bunk wrote:
-> This patch #if 0's the following no longer used functions:
-> - rtattr_parse()
-> - rtattr_strlcpy()
-> - __rtattr_parse_nested_compat()
->   
+This patch fixes the following section mismatch:
 
-Please remove them instead.
+<--  snip  -->
+
+...
+WARNING: drivers/net/sunbmac.o(.devinit.text+0x24): Section mismatch in reference from the function bigmac_sbus_probe() to the function .init.text:bigmac_ether_init()
+...
+
+<--  snip  -->
+
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
+
+---
+c4238b1ec3c23ec9dbe8b4da932cfd381ef0f376 
+diff --git a/drivers/net/sunbmac.c b/drivers/net/sunbmac.c
+index fe3ac6f..0e4a88d 100644
+--- a/drivers/net/sunbmac.c
++++ b/drivers/net/sunbmac.c
+@@ -1075,7 +1075,7 @@ static const struct ethtool_ops bigmac_ethtool_ops = {
+ 	.get_link		= bigmac_get_link,
+ };
+ 
+-static int __init bigmac_ether_init(struct sbus_dev *qec_sdev)
++static int __devinit bigmac_ether_init(struct sbus_dev *qec_sdev)
+ {
+ 	struct net_device *dev;
+ 	static int version_printed;
+
