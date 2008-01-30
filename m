@@ -1,51 +1,35 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: sis190 build breakage
-Date: Wed, 30 Jan 2008 03:22:51 -0500
-Message-ID: <47A033DB.3070608@garzik.org>
-References: <20080129215023.GA24152@stro.at> <20080129220310.GC15445@electric-eye.fr.zoreil.com> <20080130032838.GA17881@uranus.ravnborg.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] [2/2] Remove some unnecessary gotos in established_get_first()
+Date: Wed, 30 Jan 2008 09:27:41 +0100
+Message-ID: <p73zlun67lu.fsf@bingen.suse.de>
+References: <20080130901.138686634@suse.de>
+	<20080130080110.35B691B416F@basil.firstfloor.org>
+	<200801300925.12397.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	maximilian attems <max@stro.at>, netdev@vger.kernel.org
-To: Sam Ravnborg <sam@ravnborg.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45486 "EHLO mail.dvmed.net"
+Received: from ns2.suse.de ([195.135.220.15]:46828 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754233AbYA3IW6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 03:22:58 -0500
-In-Reply-To: <20080130032838.GA17881@uranus.ravnborg.org>
+	id S1752920AbYA3I1n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 03:27:43 -0500
+In-Reply-To: <200801300925.12397.oliver@neukum.org> (Oliver Neukum's message of "Wed\, 30 Jan 2008 09\:25\:12 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sam Ravnborg wrote:
-> On Tue, Jan 29, 2008 at 11:03:10PM +0100, Francois Romieu wrote:
->> maximilian attems <max@stro.at> :
->>>   CC [M]  drivers/net/sis190.o
->>>   drivers/net/sis190.c:329: error: sis190_pci_tbl causes a section type conflict
->>>   make[5]: *** [drivers/net/sis190.o] Error 1
->>>
->>> gcc --version
->>> gcc (GCC) 4.1.2 20061115 (prerelease) (Debian 4.1.1-21)
-> 
-> Looks like a bug where __initdata has been used
-> for const data.
-> Searching:
-> static int __devinit sis190_get_mac_addr_from_apc(struct pci_dev *pdev,
->                                                   struct net_device *dev)
-> {
->         static const u16 __devinitdata ids[] = { 0x0965, 0x0966, 0x0968 };
->         struct sis190_private *tp = netdev_priv(dev);
->         struct pci_dev *isa_bridge;
->         u8 reg, tmp8;
-> 
-> Try to change this is __initconst and it should be fixed.
+Oliver Neukum <oliver@neukum.org> writes:
 
-We have __initconst now?
+> Am Mittwoch, 30. Januar 2008 09:01:10 schrieb Andi Kleen:
+>> 
+>> gcc does not generate different code for return foo vs bar = foo; goto x;
+>> x: return bar; So convert it all to direct returns for better readability.
+>
+> Now suppose somebody needs to change locking. He'll have to convert
+> it back. 
 
-Three cheers, and a beer, to whomever did that...
+Please take a look at the overall /proc/net/tcp logic. Any locking 
+change will be a major change to the code flow of the whole family
+of funtions.
 
-	Jeff
-
-
-
+-Andi
