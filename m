@@ -1,54 +1,54 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [2.6 patch] unexport sysctl_tcp_tso_win_divisor
-Date: Wed, 30 Jan 2008 23:05:35 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0801302303300.5832@kivilampi-30.cs.helsinki.fi>
-References: <20080130200232.GU29368@does.not.exist>
+From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Subject: Re: [PATCH] Add another Prism2 card to hostap
+Date: Wed, 30 Jan 2008 16:15:34 -0500
+Message-ID: <1201727734.8103.18.camel@dv>
+References: <200801290942.56258.openembedded@haerwu.biz>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-238529698-1201727135=:5832"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:51232 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754018AbYA3VFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 16:05:47 -0500
-In-Reply-To: <20080130200232.GU29368@does.not.exist>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jouni Malinen <j@w1.fi>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marcin Juszkiewicz <openembedded-sbG99h22wavzs492ZWNkEA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200801290942.56258.openembedded-sbG99h22wavzs492ZWNkEA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----696243703-238529698-1201727135=:5832
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+On Tue, 2008-01-29 at 09:42 +0100, Marcin Juszkiewicz wrote:
+> From: Marcin Juszkiewicz <openembedded-sbG99h22wavzs492ZWNkEA@public.gmane.org>
+>=20
+> Card reported by =C5ngstr=F6m user:
+> http://bugs.openembedded.net/show_bug.cgi?id=3D3236
+>=20
+> Socket 1:
+>    product info: "Wireless LAN", "11Mbps PC Card", "Version 01.02", "=
+"
+>    manfid: 0x0156, 0x0002
+>    function: 6 (network)
+>=20
+> Signed-off-by: Marcin Juszkiewicz <openembedded-sbG99h22wavzs492ZWNkEA@public.gmane.org>
 
-On Wed, 30 Jan 2008, Adrian Bunk wrote:
+Acked-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
-> This patch removes the no longer used 
-> EXPORT_SYMBOL(sysctl_tcp_tso_win_divisor).
-> 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
->
-> ---
-> 4884e7997ba5f63f2efeaeead21ed2768fb3f4de 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 89f0188..ed750f9 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -2564,5 +2564,4 @@ EXPORT_SYMBOL(tcp_connect);
->  EXPORT_SYMBOL(tcp_make_synack);
->  EXPORT_SYMBOL(tcp_simple_retransmit);
->  EXPORT_SYMBOL(tcp_sync_mss);
-> -EXPORT_SYMBOL(sysctl_tcp_tso_win_divisor);
->  EXPORT_SYMBOL(tcp_mtup_init);
-
-...yes, results from the recent move of tcp_is_cwnd_limited() away from 
-tcp.h.
-
-Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-
--- 
- i.
----696243703-238529698-1201727135=:5832--
+> diff --git a/drivers/net/wireless/hostap/hostap_cs.c b/drivers/net/wi=
+reless/hostap/hostap_cs.c
+> index 877d3bd..4f6707c 100644
+> --- a/drivers/net/wireless/hostap/hostap_cs.c
+> +++ b/drivers/net/wireless/hostap/hostap_cs.c
+> @@ -894,6 +894,9 @@ static struct pcmcia_device_id hostap_cs_ids[] =3D=
+ {
+>                 "The Linksys Group, Inc.", "Wireless Network CF Card"=
+, "ISL37300P",
+>                 "RevA",
+>                 0xa5f472c2, 0x9c05598d, 0xc9049a39, 0x57a66194),
+> +       PCMCIA_DEVICE_PROD_ID123(
+> +           "Wireless LAN" , "11Mbps PC Card", "Version 01.02",
+> +               0x4b8870ff, 0x70e946d1, 0x4b74baa0),
+>         PCMCIA_DEVICE_NULL
+>  };
+>  MODULE_DEVICE_TABLE(pcmcia, hostap_cs_ids);
+>=20
+--=20
+Regards,
+Pavel Roskin
