@@ -1,55 +1,141 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 7/7] bonding: update MAINTAINERS
-Date: Tue, 29 Jan 2008 18:07:49 -0800
-Message-ID: <12016588743409-git-send-email-fubar@us.ibm.com>
-References: <12016588691476-git-send-email-fubar@us.ibm.com>
- <12016588701127-git-send-email-fubar@us.ibm.com>
- <12016588714065-git-send-email-fubar@us.ibm.com>
- <12016588712034-git-send-email-fubar@us.ibm.com>
- <1201658872418-git-send-email-fubar@us.ibm.com>
- <12016588733343-git-send-email-fubar@us.ibm.com>
- <12016588733235-git-send-email-fubar@us.ibm.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>, Jay Vosburgh <fubar@us.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:52782 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753408AbYA3CIA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 21:08:00 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e36.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m0U27ttA006055
-	for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 21:07:55 -0500
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0U27tHn096150
-	for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 19:07:55 -0700
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0U27sUt015929
-	for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 19:07:55 -0700
-In-Reply-To: <12016588733235-git-send-email-fubar@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dave Young <hidave.darkstar@gmail.com>
+Subject: [PATCH retry] bluetooth : add conn add/del workqueues
+	to avoid	connection fail
+Date: Wed, 30 Jan 2008 10:23:54 +0800
+Message-ID: <20080130022354.GA3132@darkstar.te-china.tietoenator.com>
+Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	bluez-devel@lists.sf.net, linux-kernel@vger.kernel.org
+To: marcel@holtmann.org
+Return-path: <bluez-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=bluez-devel>
+List-Post: <mailto:bluez-devel@lists.sourceforge.net>
+List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: bluez-devel-bounces@lists.sourceforge.net
+Errors-To: bluez-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-	Remove Chad Tindel; he hasn't been involved for a number
-of years.
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+The bluetooth hci_conn sysfs add/del executed in the default workqueue.
+If the del_conn is executed after the new add_conn with same target,
+add_conn will failed with warning of "same kobject name".
+
+Here add btaddconn & btdelconn workqueues,
+flush the btdelconn workqueue in the add_conn function to avoid the issue.
+
+Signed-off-by: Dave Young <hidave.darkstar@gmail.com> 
+
 ---
- MAINTAINERS |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 2340cfb..4b7fa32 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -930,8 +930,6 @@ M:	maxk@qualcomm.com
- S:	Maintained
+diff -upr a/net/bluetooth/hci_sysfs.c b/net/bluetooth/hci_sysfs.c
+--- a/net/bluetooth/hci_sysfs.c	2008-01-30 10:14:27.000000000 +0800
++++ b/net/bluetooth/hci_sysfs.c	2008-01-30 10:14:14.000000000 +0800
+@@ -12,6 +12,8 @@
+ #undef  BT_DBG
+ #define BT_DBG(D...)
+ #endif
++static struct workqueue_struct *btaddconn;
++static struct workqueue_struct *btdelconn;
  
- BONDING DRIVER
--P:	Chad Tindel
--M:	ctindel@users.sourceforge.net
- P:	Jay Vosburgh
- M:	fubar@us.ibm.com
- L:	bonding-devel@lists.sourceforge.net
--- 
-1.5.3.4.206.g58ba4-dirty
+ static inline char *typetostr(int type)
+ {
+@@ -279,6 +281,7 @@ static void add_conn(struct work_struct 
+ 	struct hci_conn *conn = container_of(work, struct hci_conn, work);
+ 	int i;
+ 
++	flush_workqueue(btdelconn);
+ 	if (device_add(&conn->dev) < 0) {
+ 		BT_ERR("Failed to register connection device");
+ 		return;
+@@ -313,6 +316,7 @@ void hci_conn_add_sysfs(struct hci_conn 
+ 
+ 	INIT_WORK(&conn->work, add_conn);
+ 
++	queue_work(btaddconn, &conn->work);
+ 	schedule_work(&conn->work);
+ }
+ 
+@@ -349,6 +353,7 @@ void hci_conn_del_sysfs(struct hci_conn 
+ 
+ 	INIT_WORK(&conn->work, del_conn);
+ 
++	queue_work(btdelconn, &conn->work);
+ 	schedule_work(&conn->work);
+ }
+ 
+@@ -398,31 +403,52 @@ int __init bt_sysfs_init(void)
+ {
+ 	int err;
+ 
++	btaddconn = create_singlethread_workqueue("btaddconn");
++	if (!btaddconn) {
++		err = -ENOMEM;
++		goto out;
++	}
++	btdelconn = create_singlethread_workqueue("btdelconn");
++	if (!btdelconn) {
++		err = -ENOMEM;
++		goto out_del;
++	}
++
+ 	bt_platform = platform_device_register_simple("bluetooth", -1, NULL, 0);
+-	if (IS_ERR(bt_platform))
+-		return PTR_ERR(bt_platform);
++	if (IS_ERR(bt_platform)) {
++		err = PTR_ERR(bt_platform);
++		goto out_platform;
++	}
+ 
+ 	err = bus_register(&bt_bus);
+-	if (err < 0) {
+-		platform_device_unregister(bt_platform);
+-		return err;
+-	}
++	if (err < 0)
++		goto out_bus;
+ 
+ 	bt_class = class_create(THIS_MODULE, "bluetooth");
+ 	if (IS_ERR(bt_class)) {
+-		bus_unregister(&bt_bus);
+-		platform_device_unregister(bt_platform);
+-		return PTR_ERR(bt_class);
++		err = PTR_ERR(bt_class);
++		goto out_class;
+ 	}
+ 
+ 	return 0;
++
++out_class:
++	bus_unregister(&bt_bus);
++out_bus:
++	platform_device_unregister(bt_platform);
++out_platform:
++	destroy_workqueue(btdelconn);
++out_del:
++	destroy_workqueue(btaddconn);
++out:
++	return err;
+ }
+ 
+ void bt_sysfs_cleanup(void)
+ {
++	destroy_workqueue(btaddconn);
++	destroy_workqueue(btdelconn);
+ 	class_destroy(bt_class);
+-
+ 	bus_unregister(&bt_bus);
+-
+ 	platform_device_unregister(bt_platform);
+ }
 
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
