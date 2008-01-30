@@ -1,78 +1,46 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] [NET] cpmac: convert to new Fixed PHY infrastructure
-Date: Wed, 30 Jan 2008 12:40:54 -0500
-Message-ID: <47A0B6A6.5080903@garzik.org>
-References: <416B8C5D-109C-4C03-807D-7EBB0AA9C366@kernel.crashing.org> <20080121204953.GA11384@localhost.localdomain> <47A0AF56.3060804@garzik.org> <02FAED2A-1154-4D8B-A245-4693BF283515@kernel.crashing.org>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: net-2.6.25 is no more...
+Date: Wed, 30 Jan 2008 18:38:53 +0100
+Message-ID: <47A0B62D.3080005@fr.ibm.com>
+References: <20080129.212216.186173371.davem@davemloft.net> <47A03D4D.5090301@fr.ibm.com> <20080130.054807.182676684.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: avorontsov@ru.mvista.com,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
-	netdev@vger.kernel.org, Eugene Konev <ejka@imfi.kspu.ru>
-To: Kumar Gala <galak@kernel.crashing.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42924 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756687AbYA3RlB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 12:41:01 -0500
-In-Reply-To: <02FAED2A-1154-4D8B-A245-4693BF283515@kernel.crashing.org>
+Received: from mtagate8.de.ibm.com ([195.212.29.157]:38360 "EHLO
+	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751991AbYA3RnX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 12:43:23 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate8.de.ibm.com (8.13.8/8.13.8) with ESMTP id m0UHhMYC492318
+	for <netdev@vger.kernel.org>; Wed, 30 Jan 2008 17:43:22 GMT
+Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0UHhMap2044104
+	for <netdev@vger.kernel.org>; Wed, 30 Jan 2008 18:43:22 +0100
+Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0UHhMGN031732
+	for <netdev@vger.kernel.org>; Wed, 30 Jan 2008 18:43:22 +0100
+In-Reply-To: <20080130.054807.182676684.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kumar Gala wrote:
+David Miller wrote:
+> From: Daniel Lezcano <dlezcano@fr.ibm.com>
+> Date: Wed, 30 Jan 2008 10:03:09 +0100
 > 
-> On Jan 30, 2008, at 11:09 AM, Jeff Garzik wrote:
+>> David Miller wrote:
+>>> Now that the bulk has been merged over and we are
+>>> actively working alongside Linus's tree I have moved
+>>> all current patch applying to net-2.6 instead of net-2.6.25,
+>>> so the current tree to use is:
+>>>
+>>> 	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
+>> This tree is for fixes only, right ? or shall we send enhancement 
+>> patches to net-2.6 until net-2.6.26 appears ?
 > 
->> Anton Vorontsov wrote:
->>> On Mon, Jan 21, 2008 at 01:19:41PM -0600, Kumar Gala wrote:
->>>> Anton,
->>>>
->>>> it looks like the "TI AR7 CPMAC Ethernet support" uses FIXED_PHY 
->>>> and  was selecting FIXED_MII_100_FDX which is gone.
->>>>
->>>> Can you look into this.  I get the following warning now:
->>>>
->>>> scripts/kconfig/conf -s arch/powerpc/Kconfig
->>>> drivers/net/Kconfig:1713:warning: 'select' used by config symbol  
->>>> 'CPMAC' refers to undefined symbol 'FIXED_MII_100_FDX'
->>> Wow. I thought there were no Fixed PHY users. :-)
->>> Jeff, as you've already Acked Fixed PHY rework to go through powerpc
->>> tree, would you please Ack this patch in addition? I hope cpmac
->>> maintainer will fix remaining issues as time goes by.
->>> Thanks!
->>> - - - -
->>> From: Anton Vorontsov <avorontsov@ru.mvista.com>
->>> Subject: [PATCH] [NET] cpmac: convert to new Fixed PHY infrastructure
->>> This patch converts cpmac to the new Fixed PHY infrastructure, though it
->>> doesn't fix all the problems with that driver. I didn't even bother to
->>> test this patch to compile, because cpmac driver is broken in several 
->>> ways:
->>> 1. This driver won't compile by itself because lack of its header 
->>> describing
->>>   platform data;
->>> 2. It assumes that fixed PHYs should be created by the ethernet driver.
->>>   It is wrong assumption: fixed PHYs creation is platform code 
->>> authority,
->>>   driver must blindly accept bus_id and phy_id platform data variables
->>>   instead.
->>> Also, it seem that that driver doesn't have actual in-tree users, so
->>> nothing to fix further.
->>> The main purpose of that patch is to get rid of the following Kconfig
->>> warning:
->>> scripts/kconfig/conf -s arch/powerpc/Kconfig
->>> drivers/net/Kconfig:1713:warning: 'select' used by config symbol
->>> 'CPMAC' refers to undefined symbol 'FIXED_MII_100_FDX'
->>> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
->>
->> ACK
-> 
-> Is this going through netdev or do you want me to pick it via the 
-> powerpc route?
+> The latter.
 
-Based on your comments I sorta assumed it was most convenient to lump in 
-with the rest of the powerpc changes...
-
-	Jeff
-
-
-
+What will happen to the patches sent to net-2.6.25 a few days ago during 
+the merge ? Should I resend them against net-2.6 ?
