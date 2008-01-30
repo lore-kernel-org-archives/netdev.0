@@ -1,44 +1,101 @@
-From: Andreas Mohr <andim2@users.sourceforge.net>
-Subject: Re: [RFC/PATCH] e100 driver didn't support any MII-less PHYs...
-Date: Wed, 30 Jan 2008 07:49:09 +0100
-Message-ID: <20080130064909.GA19793@rhlx01.hs-esslingen.de>
-References: <20071228235118.GA31059@rhlx01.hs-esslingen.de> <477732A5.5020501@intel.com> <20080101200908.GA14805@rhlx01.hs-esslingen.de> <20080129230315.GA13389@rhlx01.hs-esslingen.de> <479FB225.7090604@intel.com>
-Reply-To: andi@lisas.de
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andi@lisas.de, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bunk@kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [PATCH] Optimize cxgb3 xmit path (a bit)
+Date: Wed, 30 Jan 2008 12:30:16 +0530
+Message-ID: <20080130070016.29078.94125.sendpatchset@N20wks267652wss.in.ibm.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Krishna Kumar <krkumar2@in.ibm.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:33313 "EHLO
-	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751482AbYA3GtK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 01:49:10 -0500
-Content-Disposition: inline
-In-Reply-To: <479FB225.7090604@intel.com>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:51215 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753634AbYA3HBu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 02:01:50 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m0U71jvo009781
+	for <netdev@vger.kernel.org>; Wed, 30 Jan 2008 02:01:45 -0500
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0U71jwW244086
+	for <netdev@vger.kernel.org>; Wed, 30 Jan 2008 02:01:45 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0U71jlg028492
+	for <netdev@vger.kernel.org>; Wed, 30 Jan 2008 02:01:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Changes:
+	1. Add common code for stopping queue.
+	2. No need to call netif_stop_queue followed by netif_wake_queue (and
+	   infact a netif_start_queue could have been used instead), instead
+	   call stop_queue if required, and remove code under USE_GTS macro.
+	3. There is no need to check for netif_queue_stopped, as the network
+	   core guarantees that for us (I am sure every driver could remove
+	   that check, eg e1000 - I have tested that path a few billion times
+	   with about a few hundred thousand qstops but the condition never
+	   hit even once).
 
-On Tue, Jan 29, 2008 at 03:09:25PM -0800, Kok, Auke wrote:
-> Andreas Mohr wrote:
-> > Perhaps it's useful to file a bug/patch
-> > on http://sourceforge.net/projects/e1000/ ? Perhaps -mm testing?
-> 
-> I wanted to push this though our testing labs first which has not happened due to
-> time constraints - that should quickly at least confirm that the most common nics
-> work OK after the change with your patch. I'll try and see if we can get this
-> testing done soon.
+Thanks,
 
-Oh, full-scale regression testing even? Nice idea...
-Would optionally be even better if during hardware tests one could also
-dig out some i82503-based card (or additional MII-less cards?)
-since I didn't really make any effort yet to try to make them all
-recognized/supported by my patch already (would have been out of scope anyway
-since I have this single card only).
+- KK
 
-Thanks a lot,
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+---
+ sge.c |   35 +++++++++++++++--------------------
+ 1 files changed, 15 insertions(+), 20 deletions(-)
 
-Andreas Mohr
+diff -ruNp a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+--- a/drivers/net/cxgb3/sge.c	2008-01-30 11:42:39.000000000 +0530
++++ b/drivers/net/cxgb3/sge.c	2008-01-30 12:15:28.000000000 +0530
+@@ -1059,6 +1059,14 @@ static void write_tx_pkt_wr(struct adapt
+ 			 htonl(V_WR_TID(q->token)));
+ }
+ 
++static inline void t3_stop_queue(struct net_device *dev, struct sge_qset *qs,
++				 struct sge_txq *q)
++{
++	netif_stop_queue(dev);
++	set_bit(TXQ_ETH, &qs->txq_stopped);
++	q->stops++;
++}
++
+ /**
+  *	eth_xmit - add a packet to the Ethernet Tx queue
+  *	@skb: the packet
+@@ -1090,31 +1098,18 @@ int t3_eth_xmit(struct sk_buff *skb, str
+ 	ndesc = calc_tx_descs(skb);
+ 
+ 	if (unlikely(credits < ndesc)) {
+-		if (!netif_queue_stopped(dev)) {
+-			netif_stop_queue(dev);
+-			set_bit(TXQ_ETH, &qs->txq_stopped);
+-			q->stops++;
+-			dev_err(&adap->pdev->dev,
+-				"%s: Tx ring %u full while queue awake!\n",
+-				dev->name, q->cntxt_id & 7);
+-		}
++		t3_stop_queue(dev, qs, q);
++		dev_err(&adap->pdev->dev,
++			"%s: Tx ring %u full while queue awake!\n",
++			dev->name, q->cntxt_id & 7);
+ 		spin_unlock(&q->lock);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+ 	q->in_use += ndesc;
+-	if (unlikely(credits - ndesc < q->stop_thres)) {
+-		q->stops++;
+-		netif_stop_queue(dev);
+-		set_bit(TXQ_ETH, &qs->txq_stopped);
+-#if !USE_GTS
+-		if (should_restart_tx(q) &&
+-		    test_and_clear_bit(TXQ_ETH, &qs->txq_stopped)) {
+-			q->restarts++;
+-			netif_wake_queue(dev);
+-		}
+-#endif
+-	}
++	if (unlikely(credits - ndesc < q->stop_thres))
++		if (USE_GTS || !should_restart_tx(q))
++			t3_stop_queue(dev, qs, q);
+ 
+ 	gen = q->gen;
+ 	q->unacked += ndesc;
