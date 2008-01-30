@@ -1,61 +1,66 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [PATCH] [SIS190] Use _devinitconst for const data
-Date: Wed, 30 Jan 2008 13:21:43 +0100
-Message-ID: <20080130122143.GA21694@uranus.ravnborg.org>
-References: <20080130112559.GA21346@uranus.ravnborg.org> <1201694236-5007-1-git-send-email-jonas@southpole.se>
+From: Bruce Allen <ballen@gravity.phys.uwm.edu>
+Subject: e1000 full-duplex TCP performance well below wire speed
+Date: Wed, 30 Jan 2008 06:23:12 -0600 (CST)
+Message-ID: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com,
-	linux-kernel@vger.kernel.org
-To: Jonas Bonn <jonas@southpole.se>
+Content-Type: MULTIPART/MIXED; BOUNDARY="1501667129-339840207-1201695792=:6391"
+Cc: Carsten Aulbert <carsten.aulbert@aei.mpg.de>,
+	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
+	Bruce Allen <bruce.allen@aei.mpg.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:42491 "EHLO pasmtpA.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759586AbYA3MVz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 07:21:55 -0500
-Content-Disposition: inline
-In-Reply-To: <1201694236-5007-1-git-send-email-jonas@southpole.se>
+Received: from trinity.phys.uwm.edu ([129.89.57.159]:52931 "EHLO
+	trinity.phys.uwm.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758838AbYA3NUm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 08:20:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 30, 2008 at 12:57:16PM +0100, Jonas Bonn wrote:
-> This fixes build error as gcc complains about a "section type conflict"
-> due to the mixing of const and non-const data in same section.
-> ---
->  drivers/net/sis190.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-> index b570402..f84c02e 100644
-> --- a/drivers/net/sis190.c
-> +++ b/drivers/net/sis190.c
-> @@ -326,7 +326,7 @@ static const struct {
->  	{ "SiS 191 PCI Gigabit Ethernet adapter" },
->  };
->  
-> -static struct pci_device_id sis190_pci_tbl[] __devinitdata = {
-> +static struct pci_device_id sis190_pci_tbl[] __devinitconst = {
->  	{ PCI_DEVICE(PCI_VENDOR_ID_SI, 0x0190), 0, 0, 0 },
->  	{ PCI_DEVICE(PCI_VENDOR_ID_SI, 0x0191), 0, 0, 1 },
->  	{ 0, },
-sis190_pci_tbl is not const...
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+--1501667129-339840207-1201695792=:6391
+Content-Type: TEXT/PLAIN; charset=iso-8859-1; format=flowed
+Content-Transfer-Encoding: 8BIT
+
+(Pádraig Brady has suggested that I post this to Netdev.  It was 
+originally posted to LKML here: http://lkml.org/lkml/2008/1/30/141 )
 
 
-> @@ -1556,7 +1556,7 @@ static int __devinit sis190_get_mac_addr_from_eeprom(struct pci_dev *pdev,
->  static int __devinit sis190_get_mac_addr_from_apc(struct pci_dev *pdev,
->  						  struct net_device *dev)
->  {
-> -	static const u16 __devinitdata ids[] = { 0x0965, 0x0966, 0x0968 };
-> +	static u16 __devinitconst ids[] = { 0x0965, 0x0966, 0x0968 };
->  	struct sis190_private *tp = netdev_priv(dev);
->  	struct pci_dev *isa_bridge;
->  	u8 reg, tmp8;
-> -- 
-> 1.5.3.8
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Dear NetDev,
+
+We've connected a pair of modern high-performance boxes with integrated copper 
+Gb/s Intel NICS, with an ethernet crossover cable, and have run some netperf 
+full duplex TCP tests.  The transfer rates are well below wire speed.  We're 
+reporting this as a kernel bug, because we expect a vanilla kernel with default 
+settings to give wire speed (or close to wire speed) performance in this case. 
+We DO see wire speed in simplex transfers. The behavior has been verified on 
+multiple machines with identical hardware.
+
+Details:
+Kernel version: 2.6.23.12
+ethernet NIC: Intel 82573L
+ethernet driver: e1000 version 7.3.20-k2
+motherboard: Supermicro PDSML-LN2+ (one quad core Intel Xeon X3220, Intel 3000 
+chipset, 8GB memory)
+
+The test was done with various mtu sizes ranging from 1500 to 9000, with 
+ethernet flow control switched on and off, and using reno and cubic as a TCP 
+congestion control.
+
+The behavior depends on the setup. In one test we used cubic congestion 
+control, flow control off. The transfer rate in one direction was above 0.9Gb/s 
+while in the other direction it was 0.6 to 0.8 Gb/s. After 15-20s the rates 
+flipped. Perhaps the two steams are fighting for resources. (The performance of 
+a full duplex stream should be close to 1Gb/s in both directions.)  A graph of 
+the transfer speed as a function of time is here: 
+https://n0.aei.uni-hannover.de/networktest/node19-new20-noflow.jpg
+Red shows transmit and green shows receive (please ignore other plots):
+
+We're happy to do additional testing, if that would help, and very grateful for 
+any advice!
+
+Bruce Allen
+Carsten Aulbert
+Henning Fehrmann
+--1501667129-339840207-1201695792=:6391--
