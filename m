@@ -1,43 +1,30 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: net-2.6.25 is no more...
-Date: Wed, 30 Jan 2008 16:29:18 -0200
-Message-ID: <20080130182918.GC1819@ghostprotocols.net>
-References: <20080129.212216.186173371.davem@davemloft.net> <47A03D4D.5090301@fr.ibm.com> <20080130.054807.182676684.davem@davemloft.net> <47A0B62D.3080005@fr.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH] [NET] cpmac: convert to new Fixed PHY infrastructure
+Date: Wed, 30 Jan 2008 12:36:11 -0600
+Message-ID: <91B98C74-9D40-4390-8953-12395C4D1743@kernel.crashing.org>
+References: <416B8C5D-109C-4C03-807D-7EBB0AA9C366@kernel.crashing.org> <20080121204953.GA11384@localhost.localdomain> <47A0AF56.3060804@garzik.org> <02FAED2A-1154-4D8B-A245-4693BF283515@kernel.crashing.org> <47A0B6A6.5080903@garzik.org>
+Mime-Version: 1.0 (Apple Message framework v915)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: avorontsov@ru.mvista.com,
+	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
+	netdev@vger.kernel.org, Eugene Konev <ejka@imfi.kspu.ru>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:56822 "EHLO mx1.redhat.com"
+Received: from gate.crashing.org ([63.228.1.57]:41678 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750778AbYA3S3q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 13:29:46 -0500
-Content-Disposition: inline
-In-Reply-To: <47A0B62D.3080005@fr.ibm.com>
+	id S1752892AbYA3Sgl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 13:36:41 -0500
+In-Reply-To: <47A0B6A6.5080903@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Wed, Jan 30, 2008 at 06:38:53PM +0100, Daniel Lezcano escreveu:
-> David Miller wrote:
->> From: Daniel Lezcano <dlezcano@fr.ibm.com>
->> Date: Wed, 30 Jan 2008 10:03:09 +0100
->>
->>> David Miller wrote:
->>>> Now that the bulk has been merged over and we are
->>>> actively working alongside Linus's tree I have moved
->>>> all current patch applying to net-2.6 instead of net-2.6.25,
->>>> so the current tree to use is:
->>>>
->>>> 	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
->>> This tree is for fixes only, right ? or shall we send enhancement patches 
->>> to net-2.6 until net-2.6.26 appears ?
->>
->> The latter.
+>>> Is this going through netdev or do you want me to pick it via the  
+>>> powerpc route?
 >
-> What will happen to the patches sent to net-2.6.25 a few days ago during 
-> the merge ? Should I resend them against net-2.6 ?
+> Based on your comments I sorta assumed it was most convenient to  
+> lump in with the rest of the powerpc changes...
 
-They are probably in net-2.6 already, have you checked? I checked and a
-fix I sent that was not yet merged by Linus is there, in net-2.6.
+That's fine.  I'll push it via the powerpc trees.
 
-- Arnaldo
+- k
