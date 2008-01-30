@@ -1,46 +1,45 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] [1/1] Deprecate tcp_tw_{reuse,recycle}
-Date: Wed, 30 Jan 2008 11:22:29 -0800
-Message-ID: <47A0CE75.5080200@candelatech.com>
-References: <20080130938.523292915@suse.de>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [2.6 patch] via-rhine.c:rhine_hw_init() must be __devinit
+Date: Wed, 30 Jan 2008 22:02:05 +0200
+Message-ID: <20080130200205.GI29368@does.not.exist>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andi Kleen <ak@suse.de>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: rl@hellgate.ch, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:46843 "EHLO ns2.lanforge.com"
+Received: from smtp6.pp.htv.fi ([213.243.153.40]:40660 "EHLO smtp6.pp.htv.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754428AbYA3TWh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 14:22:37 -0500
-In-Reply-To: <20080130938.523292915@suse.de>
+	id S1751061AbYA3UBa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 15:01:30 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen wrote:
-> We've recently had a long discussion about the CVE-2005-0356 time stamp denial-of-service
-> attack. It turned out that Linux is only vunerable to this problem when tcp_tw_recycle
-> is enabled (which it is not by default).
-> 
-> In general these two options are not really usable in today's internet because they
-> make the (often false) assumption that a single IP address has a single TCP time stamp /
-> PAWS clock. This assumption breaks both NAT/masquerading and also opens Linux to denial
-> of service attacks (see the CVE description) 
-> 
-> Due to these numerous problems I propose to remove this code for 2.6.26
+Thie patch fixes the following section mismatch:
 
-We use these features to enable creating very high numbers of short-lived
-TCP connections, primarily used as a test tool for other network
-devices.
+<--  snip  -->
 
-Perhaps just document the adverse affects and/or have it print out a warning
-on the console whenever the feature is enabled?
+...
+WARNING: drivers/net/built-in.o(.text+0xdd840): Section mismatch in reference from the function rhine_hw_init() to the function .devinit.text:rhine_reload_eeprom()
+...
 
+<--  snip  -->
 
-Thanks,
-Ben
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+---
+a79db62b73dab2b71fa2f47398fd39364d7aae31 
+diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
+index 87c180b..7c851b1 100644
+--- a/drivers/net/via-rhine.c
++++ b/drivers/net/via-rhine.c
+@@ -606,7 +606,7 @@ static int rhine_napipoll(struct napi_struct *napi, int budget)
+ }
+ #endif
+ 
+-static void rhine_hw_init(struct net_device *dev, long pioaddr)
++static void __devinit rhine_hw_init(struct net_device *dev, long pioaddr)
+ {
+ 	struct rhine_private *rp = netdev_priv(dev);
+ 
 
