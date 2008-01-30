@@ -1,57 +1,47 @@
-From: Bruce Allen <ballen@gravity.phys.uwm.edu>
-Subject: Re: e1000 full-duplex TCP performance well below wire speed
-Date: Wed, 30 Jan 2008 17:23:08 -0600 (CST)
-Message-ID: <Pine.LNX.4.63.0801301721070.23200@trinity.phys.uwm.edu>
-References: <Pine.LNX.4.63.0801300324000.6391@trinity.phys.uwm.edu>
- <20080130.055333.192844925.davem@davemloft.net>
- <Pine.LNX.4.63.0801300758020.11487@trinity.phys.uwm.edu>
- <20080130082136.1017631d@deepthought> <Pine.LNX.4.63.0801301610240.19938@trinity.phys.uwm.edu>
- <20080130143335.7fc9ea21@deepthought>
+From: Nate Case <ncase@xes-inc.com>
+Subject: Re: [PATCH] PHYLIB: Add BCM5482 PHY support
+Date: Wed, 30 Jan 2008 17:45:50 -0600
+Message-ID: <1201736751.12444.176.camel@localhost.localdomain>
+References: <1201623540.12444.121.camel@localhost.localdomain>
+	 <Pine.LNX.4.64N.0801300936040.20317@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andy Fleming <afleming@freescale.com>,
+	netdev <netdev@vger.kernel.org>
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from trinity.phys.uwm.edu ([129.89.57.159]:60724 "EHLO
-	trinity.phys.uwm.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754195AbYA3XXO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 18:23:14 -0500
-In-Reply-To: <20080130143335.7fc9ea21@deepthought>
+Received: from xes-mad.com ([216.165.139.214]:41631 "EHLO xes-mad.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753492AbYA3XqG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 18:46:06 -0500
+In-Reply-To: <Pine.LNX.4.64N.0801300936040.20317@blysk.ds.pg.gda.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+On Wed, 2008-01-30 at 09:51 +0000, Maciej W. Rozycki wrote:
+> > +static struct phy_driver bcm5482_driver = {
+> > +    .phy_id		= 0x0143bcb0,
+> > +	.phy_id_mask	= 0xfffffff0,
+> 
+>  Please check formatting above and also I am a bit curious as to why the 
+> ID is so different from the other ones -- the number is meant to be based 
+> on the OUI assigned to the manufacturer.  Otherwise your addition is fine.
 
->>>> Indeed, we are not asking to see 1000 Mb/s.  We'd be happy to see 900
->>>> Mb/s.
->>>>
->>>> Netperf is trasmitting a large buffer in MTU-sized packets (min 1500
->>>> bytes).  Since the acks are only about 60 bytes in size, they should be
->>>> around 4% of the total traffic.  Hence we would not expect to see more
->>>> than 960 Mb/s.
->>
->>> Don't forget the network overhead: http://sd.wareonearth.com/~phil/net/overhead/
->>> Max TCP Payload data rates over ethernet:
->>>  (1500-40)/(38+1500) = 94.9285 %  IPv4, minimal headers
->>>  (1500-52)/(38+1500) = 94.1482 %  IPv4, TCP timestamps
->>
->> Yes.  If you look further down the page, you will see that with jumbo
->> frames (which we have also tried) on Gb/s ethernet the maximum throughput
->> is:
->>
->>    (9000-20-20-12)/(9000+14+4+7+1+12)*1000000000/1000000 = 990.042 Mbps
->>
->> We are very far from this number -- averaging perhaps 600 or 700 Mbps.
+I'll re-submit with the formatting fixed.
 
-> That is the upper bound of performance on a standard PCI bus (32 bit).
-> To go higher you need PCI-X or PCI-Express. Also make sure you are really
-> getting 64-bit PCI, because I have seen some e1000 PCI-X boards that
-> are only 32bit.
+I can't figure out why the ID is so different from the others, but I did
+double-check it and test it on real hardware.
 
-The motherboard NIC is in a PCI-e x1 slot.  This has a maximum speed of 
-250 MB/s (2 Gb/s) in each direction.  It should be a factor of 2 more 
-interface speed than is needed.
+For what it's worth, I've found a lot of inconsistency in these ID
+values. For example, the chips with ID1 == 0x0020 seem to use the wrong
+set of OUI bits (22:7 instead of 21:6), while others (BCM5221) with ID1
+== 0x0040 do it properly conforming to the IEEE standard.
 
-Cheers,
- 	Bruce
+I can't figure out how they got the ID values for the BCM5482.  If you
+extract the OUI from 0x0143bcb0, you get 0x0050ef (which the *BSD guys
+list as an alternate "mangled" Broadcom OUI).  The BCM5787 and BCM5755
+also seem to share this same ID formula with the BCM5482.
+
+- Nate Case <ncase@xes-inc.com>
+
