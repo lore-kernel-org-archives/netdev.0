@@ -1,37 +1,38 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] natsemi: Update locking documentation
-Date: Wed, 30 Jan 2008 03:48:55 -0500
-Message-ID: <47A039F7.7060204@garzik.org>
-References: <1201442291-13668-1-git-send-email-broonie@sirena.org.uk>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] phylib: Add Realtek 821x eth PHY support
+Date: Wed, 30 Jan 2008 03:49:13 -0500
+Message-ID: <47A03A09.1090605@pobox.com>
+References: <20080124202826.a50fa29c.kim.phillips@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Tim Hockin <thockin@hockin.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Mark Brown <broonie@sirena.org.uk>
+Cc: netdev@vger.kernel.org, Johnson Leung <r58129@freescale.com>,
+	Kevin Lam <r43770@freescale.com>,
+	Joe D'Abbraccio <ljd015@freescale.com>
+To: Kim Phillips <kim.phillips@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33473 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:33481 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752463AbYA3Is7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 03:48:59 -0500
-In-Reply-To: <1201442291-13668-1-git-send-email-broonie@sirena.org.uk>
+	id S1757601AbYA3ItP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 03:49:15 -0500
+In-Reply-To: <20080124202826.a50fa29c.kim.phillips@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mark Brown wrote:
-> The documentation regarding synchronisation at the head of the natsemi
-> driver was badly bitrotted so replace it with a general statement about
-> the techniques used which is less likely to bitrot.
+Kim Phillips wrote:
+> this PHY present on the MPC8315E and MPC837xE RDB boards.
 > 
-> Also remove the note saying these chips are uncommon - it makes little
-> difference but they were used in a number of laptops and at least one mass
-> market PCI ethernet card.
-> 
-> Signed-off-by: Mark Brown <broonie@sirena.org.uk>
+> Signed-off-by: Johnson Leung <r58129@freescale.com>
+> Signed-off-by: Kevin Lam <r43770@freescale.com>
+> Signed-off-by: Joe D'Abbraccio <ljd015@freescale.com>
+> Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
 > ---
->  drivers/net/natsemi.c |   18 ++----------------
->  1 files changed, 2 insertions(+), 16 deletions(-)
+>  drivers/net/phy/Kconfig   |    5 +++
+>  drivers/net/phy/Makefile  |    1 +
+>  drivers/net/phy/realtek.c |   80 +++++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 86 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/net/phy/realtek.c
 
-applied
+applied (though admittedly the filename seems a bit too generic)
 
 
