@@ -1,51 +1,37 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: sis190 build breakage
-Date: Wed, 30 Jan 2008 10:13:27 +0100
-Message-ID: <20080130091327.GA20178@uranus.ravnborg.org>
-References: <20080129215023.GA24152@stro.at> <20080129220310.GC15445@electric-eye.fr.zoreil.com> <20080130032838.GA17881@uranus.ravnborg.org> <47A033DB.3070608@garzik.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	maximilian attems <max@stro.at>, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>, Jan Beulich <jbeulich@novell.com>
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: Re: ipcomp regression in 2.6.24
+Date: Wed, 30 Jan 2008 10:14:46 +0100
+Message-ID: <BAY103-DAV204C57458B3E41DE1AA365B2360@phx.gbl>
+References: <E1JK3QD-0006hM-00@gondolin.me.apana.org.au>
+Cc: <Daniel.Beschorner@facton.com>, <netdev@vger.kernel.org>
+To: "Herbert Xu" <herbert@gondor.apana.org.au>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpb.tele.dk ([80.160.77.98]:36500 "EHLO pasmtpB.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751288AbYA3JNe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 04:13:34 -0500
-Content-Disposition: inline
-In-Reply-To: <47A033DB.3070608@garzik.org>
+Received: from bay0-omc3-s41.bay0.hotmail.com ([65.54.246.241]:24248 "EHLO
+	bay0-omc3-s41.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757417AbYA3JPQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 04:15:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 30, 2008 at 03:22:51AM -0500, Jeff Garzik wrote:
-> Sam Ravnborg wrote:
-> >On Tue, Jan 29, 2008 at 11:03:10PM +0100, Francois Romieu wrote:
-> >>maximilian attems <max@stro.at> :
-> >>>  CC [M]  drivers/net/sis190.o
-> >>>  drivers/net/sis190.c:329: error: sis190_pci_tbl causes a section type 
-> >>>  conflict
-> >>>  make[5]: *** [drivers/net/sis190.o] Error 1
-> >>>
-> >>>gcc --version
-> >>>gcc (GCC) 4.1.2 20061115 (prerelease) (Debian 4.1.1-21)
-> >
-> >Looks like a bug where __initdata has been used
-> >for const data.
-> >Searching:
-> >static int __devinit sis190_get_mac_addr_from_apc(struct pci_dev *pdev,
-> >                                                  struct net_device *dev)
-> >{
-> >        static const u16 __devinitdata ids[] = { 0x0965, 0x0966, 0x0968 };
-> >        struct sis190_private *tp = netdev_priv(dev);
-> >        struct pci_dev *isa_bridge;
-> >        u8 reg, tmp8;
-> >
-> >Try to change this is __initconst and it should be fixed.
-> 
-> We have __initconst now?
-> 
-> Three cheers, and a beer, to whomever did that...
-I will hand over the cheers to Jan Beulich and drink the beer myself ;-)
+Herbert Xu wrote:
 
-	Sam
+> Marco Berizzi <pupilla@hotmail.com> wrote:
+> >
+> >> > With 2.6.24 IPSEC/ESP tunnels to older kernels establish fine,
+data
+> >> > flows in both directions, but no data comes out of the tunnel.
+> >> > Needed to disable ipcomp.
+> >
+> > Same problem here: linux 2.6.24 driven by openswan 2.4.11
+> > on Slackware 11.0
+>
+> My bad.  This patch should fix it.
+
+Sorry for bother you again.
+I have applied to 2.6.24, but ipcomp doesn't work anyway.
+I have patched a clean 2.6.24 tree and I did a complete
+rebuild.
+With tcpdump I see both the esp packets going in/out but
+I don't see the clear packets on the interface.
+
+
