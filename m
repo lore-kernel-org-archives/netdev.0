@@ -1,39 +1,48 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH 6/7][BNX2]: Update firmware.
-Date: Tue, 29 Jan 2008 18:29:56 -0800
-Message-ID: <1201660196.19087.29.camel@dell>
-References: <1201652420.19087.15.camel@dell>
- <20080129234615.GB25253@stro.at>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev" <netdev@vger.kernel.org>
-To: "maximilian attems" <max@stro.at>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH 0/7] bonding: miscellaneous fixes
+Date: Tue, 29 Jan 2008 18:07:42 -0800
+Message-ID: <12016588691476-git-send-email-fubar@us.ibm.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4256 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752123AbYA3Btb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jan 2008 20:49:31 -0500
-In-Reply-To: <20080129234615.GB25253@stro.at>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:49463 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751695AbYA3CHv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2008 21:07:51 -0500
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m0U27psc018461
+	for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 21:07:51 -0500
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0U27pQT113540
+	for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 19:07:51 -0700
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0U27o8v015742
+	for <netdev@vger.kernel.org>; Tue, 29 Jan 2008 19:07:50 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-01-30 at 00:46 +0100, maximilian attems wrote:
+	Following are 7 bonding related patches:
 
-> happily omitted diffstat:
->  drivers/net/bnx2_fw.h  | 1499 +++++++++++++++++++--------------------
->  drivers/net/bnx2_fw2.h |  464 ++++++------
->  2 files changed, 982 insertions(+), 981 deletions(-)
-> 
-> 
-> when can bnx2 grow up to proper request_firmware() usage?
-> 
+	patch 1: Revamp parameter parsing again to handle all cases (missed
+an edge case last time).
 
-Didn't we beat this topic to death last time?
+	patch 2: fix set_multicast_list locking issues
 
-Once again, the driver is tightly coupled with the firmware.  We don't
-want things to break when users upgrade or downgrade the kernel.  Coding
-the driver to deal with different firmware versions will add a lot of
-complexity.
+	patch 3: Fix possible NULL pointer deref at module init time
 
+	patch 4: Fix race that causes invalid statistics
+
+	patch 5: Don't acquire rtnl in ARP monitor; it's not needed
+
+	patch 6: update version
+
+	patch 7: update MAINTAINERS
+
+	Patches are against the current netdev-2.6#upstream branch.
+
+	Please apply.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
