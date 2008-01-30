@@ -1,75 +1,48 @@
-From: Dzianis Kahanovich <mahatma@bspu.unibel.by>
-Subject: [PATCH] cls_u32 u32_classify() +
-Date: Wed, 30 Jan 2008 11:31:39 -0200
-Message-ID: <47A07C3B.7030203@bspu.unibel.by>
-Reply-To: mahatma@eu.by
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [git patches] net driver fixes
+Date: Wed, 30 Jan 2008 05:38:38 -0500
+Message-ID: <47A053AE.7050900@garzik.org>
+References: <20080130094440.GA4652@havoc.gtf.org> <20080130102116.GA20846@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070605080602010504040806"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Sam Ravnborg <sam@ravnborg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bspu.unibel.by ([195.50.2.21]:49857 "EHLO
-	mail.bspu.unibel.by" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760878AbYA3KWE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 05:22:04 -0500
-Received: from [10.200.200.1] ([10.200.200.1])
-	by mail.bspu.unibel.by (8.14.1/8.14.0) with ESMTP id m0U9VcaO027867
-	for <netdev@vger.kernel.org>; Wed, 30 Jan 2008 11:31:38 +0200
+Received: from srv5.dvmed.net ([207.36.208.214]:58671 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755052AbYA3Kil (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 05:38:41 -0500
+In-Reply-To: <20080130102116.GA20846@uranus.ravnborg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------070605080602010504040806
-Content-Type: text/plain; charset=KOI8-R; format=flowed
-Content-Transfer-Encoding: 7bit
+Sam Ravnborg wrote:
+>> Jeff Garzik (1):
+>>       [netdrvr] sis190: build fix
+> 
+> But you did it wrong...
+> sis190.c b/drivers/net/sis190.c
+>> index b570402..2e9e88b 100644
+>> --- a/drivers/net/sis190.c
+>> +++ b/drivers/net/sis190.c
+>> @@ -326,7 +326,7 @@ static const struct {
+>>  	{ "SiS 191 PCI Gigabit Ethernet adapter" },
+>>  };
+>>  
+>> -static struct pci_device_id sis190_pci_tbl[] __devinitdata = {
+>> +static struct pci_device_id sis190_pci_tbl[] = {
+>>  	{ PCI_DEVICE(PCI_VENDOR_ID_SI, 0x0190), 0, 0, 0 },
+>>  	{ PCI_DEVICE(PCI_VENDOR_ID_SI, 0x0191), 0, 0, 1 },
+>>  	{ 0, },
+> 
+> The __devinitdata is OK, it is the following _devinitdata that had to be _devinitconst.
 
-Currently fine u32 "hashkey ... at ..." not work with relative offsets.
-There are simpliest fix to use "eat".
-(sorry, v2)
+Cool.  Either way is fine with me.  I just wanted to get a build fix 
+upstream ASAP, one I was sure would work.
 
--- 
-WBR,
-Denis Kaganovich,  mahatma@eu.by  http://mahatma.bspu.unibel.by
-
-
-
---------------070605080602010504040806
-Content-Type: text/plain;
- name="cls_u32.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="cls_u32.diff"
-
-diff -pruN linux-2.6.orig/net/sched/cls_u32.c linux-2.6/net/sched/cls_u32.c
---- linux-2.6.orig/net/sched/cls_u32.c	2008-01-29 23:02:50.000000000 +0200
-+++ linux-2.6/net/sched/cls_u32.c	2008-01-30 11:28:00.000000000 +0200
-@@ -181,11 +181,13 @@ check_terminal:
- 
- 		ht = n->ht_down;
- 		sel = 0;
--		if (ht->divisor)
--			sel = ht->divisor&u32_hash_fold(*(u32*)(ptr+n->sel.hoff), &n->sel,n->fshift);
- 
--		if (!(n->sel.flags&(TC_U32_VAROFFSET|TC_U32_OFFSET|TC_U32_EAT)))
-+		if (!(n->sel.flags&(TC_U32_VAROFFSET|TC_U32_OFFSET|TC_U32_EAT))) {
-+			if (!ht->divisor)
-+				goto next_ht;
-+			sel = ht->divisor&u32_hash_fold(*(u32*)(ptr+n->sel.hoff), &n->sel,n->fshift);
- 			goto next_ht;
-+		}
- 
- 		if (n->sel.flags&(TC_U32_OFFSET|TC_U32_VAROFFSET)) {
- 			off2 = n->sel.off + 3;
-@@ -198,6 +200,9 @@ check_terminal:
- 			off2 = 0;
- 		}
- 
-+		if (ht->divisor && ptr+n->sel.hoff < skb_tail_pointer(skb))
-+			sel = ht->divisor&u32_hash_fold(*(u32*)(ptr+n->sel.hoff), &n->sel,n->fshift);
-+
- 		if (ptr < skb_tail_pointer(skb))
- 			goto next_ht;
- 	}
+	Jeff
 
 
---------------070605080602010504040806--
+
