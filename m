@@ -1,30 +1,37 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] forcedeth: mac address mcp77/79
-Date: Wed, 30 Jan 2008 03:48:33 -0500
-Message-ID: <47A039E1.6010901@pobox.com>
-References: <479DF3B8.2000204@nvidia.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] natsemi: Update locking documentation
+Date: Wed, 30 Jan 2008 03:48:55 -0500
+Message-ID: <47A039F7.7060204@garzik.org>
+References: <1201442291-13668-1-git-send-email-broonie@sirena.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>,
-	stable@kernel.org
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: Tim Hockin <thockin@hockin.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Mark Brown <broonie@sirena.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33461 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:33473 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754987AbYA3Ish (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 03:48:37 -0500
-In-Reply-To: <479DF3B8.2000204@nvidia.com>
+	id S1752463AbYA3Is7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 03:48:59 -0500
+In-Reply-To: <1201442291-13668-1-git-send-email-broonie@sirena.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ayaz Abdulla wrote:
-> This patch is a critical fix for MCP77 and MCP79 devices. The feature 
-> flags were missing the define for correct mac address 
-> (DEV_HAS_CORRECT_MACADDR).
+Mark Brown wrote:
+> The documentation regarding synchronisation at the head of the natsemi
+> driver was badly bitrotted so replace it with a general statement about
+> the techniques used which is less likely to bitrot.
 > 
-> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+> Also remove the note saying these chips are uncommon - it makes little
+> difference but they were used in a number of laptops and at least one mass
+> market PCI ethernet card.
+> 
+> Signed-off-by: Mark Brown <broonie@sirena.org.uk>
+> ---
+>  drivers/net/natsemi.c |   18 ++----------------
+>  1 files changed, 2 insertions(+), 16 deletions(-)
 
-applied (upstream)
+applied
 
 
