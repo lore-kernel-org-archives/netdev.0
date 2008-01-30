@@ -1,45 +1,81 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: 2.6.24-git6 net build failure when SYSFS=n, PROC_FS=n
-Date: Wed, 30 Jan 2008 09:05:48 +0100
-Message-ID: <47A02FDC.1050309@fr.ibm.com>
-References: <20080129160254.b7ff01bc.randy.dunlap@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Randy Dunlap <randy.dunlap@oracle.com>
+From: Andi Kleen <ak@suse.de>
+Subject: [PATCH] [2/2] Remove some unnecessary gotos in established_get_first()
+Date: Wed, 30 Jan 2008 09:01:10 +0100 (CET)
+Message-ID: <20080130080110.35B691B416F@basil.firstfloor.org>
+References: <20080130901.138686634@suse.de>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.de.ibm.com ([195.212.29.157]:7538 "EHLO
-	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751026AbYA3IKU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 03:10:20 -0500
-In-Reply-To: <20080129160254.b7ff01bc.randy.dunlap@oracle.com>
+Received: from smtp-out04.alice-dsl.net ([88.44.63.6]:51104 "EHLO
+	smtp-out04.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752920AbYA3IRc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 03:17:32 -0500
+In-Reply-To: <20080130901.138686634@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Randy Dunlap wrote:
-> linux-2.6.24-git6/net/ipv4/fib_frontend.c: In function 'fib_net_init':
-> linux-2.6.24-git6/net/ipv4/fib_frontend.c:1024: error: implicit declaration of function 'fib_proc_init'
-> linux-2.6.24-git6/net/ipv4/fib_frontend.c: In function 'fib_net_exit':
-> linux-2.6.24-git6/net/ipv4/fib_frontend.c:1039: error: implicit declaration of function 'fib_proc_exit'
-> 
-> linux-2.6.24-git6/net/ipv6/sysctl_net_ipv6.c: In function 'ipv6_sysctl_net_init':
-> linux-2.6.24-git6/net/ipv6/sysctl_net_ipv6.c:71: error: implicit declaration of function 'ipv6_route_sysctl_init'
-> linux-2.6.24-git6/net/ipv6/sysctl_net_ipv6.c:71: warning: assignment makes pointer from integer without a cast
-> linux-2.6.24-git6/net/ipv6/sysctl_net_ipv6.c:75: error: implicit declaration of function 'ipv6_icmp_sysctl_init'
-> linux-2.6.24-git6/net/ipv6/sysctl_net_ipv6.c:75: warning: assignment makes pointer from integer without a cast
-> 
-> 
-> config attached.
-> 
-> ---
-> ~Randy
 
-Hi,
+gcc does not generate different code for return foo vs bar = foo; goto x;
+x: return bar; So convert it all to direct returns for better readability.
 
-thanks for catching this. I sent a fix for these two compilation errors 
-a few days ago. I guess they will be merged very soon by Dave.
+Signed-off-by: Andi Kleen <ak@suse.de>
 
-   -- Daniel
+Index: linux/net/ipv4/tcp_ipv4.c
+===================================================================
+--- linux.orig/net/ipv4/tcp_ipv4.c
++++ linux/net/ipv4/tcp_ipv4.c
+@@ -2065,8 +2065,7 @@ static void *established_get_first(struc
+ 			if (sk->sk_family != st->family) {
+ 				continue;
+ 			}
+-			rc = sk;
+-			goto out;
++			return sk;
+ 		}
+ 		st->state = TCP_SEQ_STATE_TIME_WAIT;
+ 		inet_twsk_for_each(tw, node,
+@@ -2074,13 +2073,11 @@ static void *established_get_first(struc
+ 			if (tw->tw_family != st->family) {
+ 				continue;
+ 			}
+-			rc = tw;
+-			goto out;
++			return tw;
+ 		}
+ 		read_unlock_bh(lock);
+ 		st->state = TCP_SEQ_STATE_ESTABLISHED;
+ 	}
+-out:
+ 	return rc;
+ }
+ 
+@@ -2100,10 +2097,8 @@ get_tw:
+ 		while (tw && tw->tw_family != st->family) {
+ 			tw = tw_next(tw);
+ 		}
+-		if (tw) {
+-			cur = tw;
+-			goto out;
+-		}
++		if (tw)
++			return tw;
+ 		read_unlock_bh(inet_ehash_lockp(&tcp_hashinfo, st->bucket));
+ 		st->state = TCP_SEQ_STATE_ESTABLISHED;
+ 
+@@ -2121,16 +2116,12 @@ get_tw:
+ 
+ 	sk_for_each_from(sk, node) {
+ 		if (sk->sk_family == st->family)
+-			goto found;
++			return sk;
+ 	}
+ 
+ 	st->state = TCP_SEQ_STATE_TIME_WAIT;
+ 	tw = tw_head(&tcp_hashinfo.ehash[st->bucket].twchain);
+ 	goto get_tw;
+-found:
+-	cur = sk;
+-out:
+-	return cur;
+ }
+ 
+ static void *established_get_idx(struct seq_file *seq, loff_t pos)
