@@ -1,60 +1,60 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: e1000 full-duplex TCP performance well below wire speed
-Date: Wed, 30 Jan 2008 10:45:06 -0800
-Message-ID: <47A0C5B2.1000500@hp.com>
-References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu> <36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [drivers/net/bnx2.c] ADVERTISE_1000XPSE_ASYM
+Date: Wed, 30 Jan 2008 10:51:10 -0800
+Message-ID: <1201719070.7190.4.camel@dell>
+References: <47A084B0.1000301@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Bruce Allen <ballen@gravity.phys.uwm.edu>, netdev@vger.kernel.org,
-	Carsten Aulbert <carsten.aulbert@aei.mpg.de>,
-	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
-	Bruce Allen <bruce.allen@aei.mpg.de>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Cc: "lkml" <linux-kernel@vger.kernel.org>,
+	"netdev" <netdev@vger.kernel.org>
+To: "Roel Kluin" <12o3l@tiscali.nl>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:35505 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763913AbYA3SpK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 13:45:10 -0500
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:3280 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752744AbYA3Syx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 13:54:53 -0500
+In-Reply-To: <47A084B0.1000301@tiscali.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> As asked in LKML thread, please post the exact netperf command used to
-> start the client/server, whether or not you're using irqbalanced (aka
-> irqbalance) and what cat /proc/interrupts looks like (you ARE using MSI,
-> right?)
+On Wed, 2008-01-30 at 15:07 +0100, Roel Kluin wrote:
+> In drivers/net/bnx2.c:1285: it reads in function bnx2_setup_remote_phy():
+> 
+> if (pause_adv & (ADVERTISE_1000XPSE_ASYM | ADVERTISE_1000XPSE_ASYM))
+> 
+> Note that the two are the same and this is therefore equivalent to
+> 
+> if (pause_adv & ADVERTISE_1000XPSE_ASYM)
+> 
+> This appears to be incorrect, was maybe '| ADVERTISE_1000XPAUSE' intended?
+> 
 
-In particular, it would be good to know if you are doing two concurrent 
-streams, or if you are using the "burst mode" TCP_RR with large 
-request/response sizes method which then is only using one connection.
+Thanks for catching this.  The patch below will fix it.
 
-> I've recently discovered that particularly with the most recent kernels
-> if you specify any socket options (-- -SX -sY) to netperf it does worse
-> than if it just lets the kernel auto-tune.
+[BNX2]: Fix ASYM PAUSE advertisement for remote PHY.
 
-That is the bit where explicit setsockopts are capped by core [rw]mem 
-sysctls but the autotuning is not correct?
+We were checking for the ASYM_PAUSE bit for 1000Base-X twice instead
+checking for both the 1000Base-X bit and the 10/100/1000Base-T bit.
+The purpose of the logic is to tell the firmware that ASYM_PAUSE is
+set on either the Serdes or Copper interface.
 
-rick jones
-BTW, a bit of netperf news - the "omni" (two routines to measure it all) 
-tests seem to be more or less working now in top of trunk netperf.  It 
-of course still needs work/polish, but if folks would like to play with 
-them, I'd love the feedback.  Output is a bit different from classic 
-netperf, and includes an option to emit the results as csv 
-(test-specific -o presently) rather than "human readable" (test-specific 
--O).  You get the omni stuff via ./configure --enable-omni and use 
-"omni" as the test name.  No docs yet, for options and their effects, 
-you need to look at scan_omni_args in src/nettest_omni.c
+Problem was discovered by Roel Kluin <12o3l@tiscali.nl>
 
-One other addition in the omni tests is retreiving not just the initial 
-SO_*BUF sizes, but also the final SO_*BUF sizes so one can see where 
-autotuning took things just based on netperf output.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-If the general concensus is that the overhead of the omni stuff isn't 
-too dear, (there are more conditionals in the mainline than with classic 
-netperf) I will convert the classic netperf tests to use the omni code.
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index be7e8f8..77400ad 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -1429,7 +1429,7 @@ bnx2_setup_remote_phy(struct bnx2 *bp, u8 port)
+ 
+ 	if (pause_adv & (ADVERTISE_1000XPAUSE | ADVERTISE_PAUSE_CAP))
+ 		speed_arg |= BNX2_NETLINK_SET_LINK_FC_SYM_PAUSE;
+-	if (pause_adv & (ADVERTISE_1000XPSE_ASYM | ADVERTISE_1000XPSE_ASYM))
++	if (pause_adv & (ADVERTISE_1000XPSE_ASYM | ADVERTISE_PAUSE_ASYM))
+ 		speed_arg |= BNX2_NETLINK_SET_LINK_FC_ASYM_PAUSE;
+ 
+ 	if (port == PORT_TP)
 
-BTW, don't have a heart attack when you see the quantity of current csv 
-output - I do plan on being able to let the user specify what values 
-should be included :)
+
