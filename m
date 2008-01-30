@@ -1,59 +1,68 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: Re: Compex FreedomLine 32 PnP-PCI2 broken with de2104x
-Date: Wed, 30 Jan 2008 21:23:06 +0100
-Message-ID: <200801302123.07783.linux@rainbow-software.org>
-References: <200801262158.12016.linux@rainbow-software.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: jgarzik@pobox.com
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH net-2.6.25 4/7][ATM]: [br2864] routed support
+Date: Wed, 30 Jan 2008 15:49:26 -0500
+Message-ID: <200801302049.m0UKnQhr032004@cmf.nrl.navy.mil>
+References: <3f696b20801282342q43537963ueb8fb9cf3389ac03@mail.gmail.com>
+Reply-To: chas3@users.sourceforge.net
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: "Chung-Chi Lo" <linolo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.gsystems.sk ([62.176.172.50]:38275 "EHLO www.gsystems.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756990AbYA3UXM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 15:23:12 -0500
-In-Reply-To: <200801262158.12016.linux@rainbow-software.org>
-Content-Disposition: inline
+Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:42242 "EHLO
+	ginger.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751165AbYA3Uus (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 15:50:48 -0500
+In-reply-to: <3f696b20801282342q43537963ueb8fb9cf3389ac03@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 26 January 2008 21:58:10 Ondrej Zary wrote:
-> Hello,
-> I was having problems with these FreedomLine cards with Linux before but
-> tested it thoroughly today. This card uses DEC 21041 chip and has TP and
-> BNC connectors:
+In message <3f696b20801282342q43537963ueb8fb9cf3389ac03@mail.gmail.com>,"Chung-
+Chi Lo" writes:
+>> +       } else { /* vc-mux */
+>> +               if (brdev->payload == p_routed) {
 >
-> 00:12.0 Ethernet controller [0200]: Digital Equipment Corporation DECchip
-> 21041 [Tulip Pass 3] [1011:0014] (rev 21)
+>add line
 >
+>			skb->protocol = __constant_htons(ETH_P_IP);
 >
-> de2104x driver was loaded automatically by udev and card seemed to work.
-> Until I disconnected the TP cable and putting it back after a while. The
-> driver then switched to (non-existing) AUI port and remained there. I tried
-> to set media to TP using ethtool - and the whole kernel crashed because of
-> BUG_ON(de_is_running(de));
-> in de_set_media(). Seems that the driver is unable to stop the DMA in
-> de_stop_rxtx().
+>here just like LLC did?
 >
-> I commented out AUI detection in the driver - this time it switched to BNC
-> after unplugging the cable and remained there. I also attempted to reset
-> the chip when de_stop_rxtx failed but failed to do it.
->
-> Then I found that there's de4x5 driver which supports the same cards as
-> de2104x (and some other too) - and this one works fine! I can plug and
-> unplug the cable and even change between TP and BNC ports just by
-> unplugging one and plugging the other cable in. Unfortunately, this driver
-> is blacklisted by default - at least in Slackware and Debian.
->
-> The question is: why does de2104x exist? Does it work better with some
-> hardware?
->
-> BTW. Found that the problem exist at least since 2003:
-> http://oss.sgi.com/archives/netdev/2003-08/msg00951.html
+>> +                       skb_reset_network_header(skb);
+>> +                       skb->pkt_type = PACKET_HOST;
 
-Does the de2104x driver work correctly for anyone?
+yes, that is missing but it needs to be a little more complicated than
+that i think.  you need to examine the first byte to see if its an
+ipv4 or ipv6 datagram.  something like:
 
--- 
-Ondrej Zary
+			struct iphdr *iph = skb_network_header(skb);
+
+                        skb_reset_network_header(skb);
+			iph = skb_network_header(skb);
+			if (iph->version == 4)
+				skb->protocol = __constant_htons(ETH_P_IP);
+			else if (iph->version == 6)
+				skb->protocol = __constant_htons(ETH_P_IPV6);
+			else
+				/* drop the packet */
+                        skb->pkt_type = PACKET_HOST;
+
+how does that look?
+
+>+       } else {
+>+               skb_push(skb, 2);
+>+               if (brdev->payload == p_bridged)
+>+                       memset(skb->data, 0, 2);
+>+       }
+>
+>Here should be
+>
+>	} else {
+>		if (brdev->payload == p_bridged) {
+>			skb_push(skb, 2);
+>			memset(skb->data, 0, 2);
+>		}
+>	}
+>
+>Because VCMUX and routed mode doesn't need two bytes in header.
+
+yeah, another oversight.  your fix is correct. i bet you have guessed
+that we dont use vc multiplexing.
