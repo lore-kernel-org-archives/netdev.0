@@ -1,23 +1,39 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH] [1/2] Skip empty hash buckets faster in /proc/net/tcp
-Date: Wed, 30 Jan 2008 09:03:16 -0800
-Message-ID: <adasl0fb60b.fsf@cisco.com>
-References: <20080130901.138686634@suse.de>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [BUILD FAILURE] 2.6.24-git7 section type conflict at various drivers on powerpc
+Date: Wed, 30 Jan 2008 18:04:17 +0100
+Message-ID: <20080130170417.GA24386@uranus.ravnborg.org>
+References: <47A0A3AF.5050005@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: meissner@suse.de, netdev@vger.kernel.org, davem@davemloft.net
-To: Andi Kleen <ak@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-3-in.cisco.com ([171.71.176.72]:51695 "EHLO
-	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756766AbYA3RDT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 12:03:19 -0500
-In-Reply-To: <20080130901.138686634@suse.de> (Andi Kleen's message of "Wed, 30 Jan 2008 09:01:09 +0100 (CET)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, Andy Whitcroft <apw@shadowen.org>
+To: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762191AbYA3REi@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <47A0A3AF.5050005@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- > On a 2GB Core2 system here I see a time cat /proc/net/tcp > /dev/null
- > constently dropping from 0.44s to 0.4-0.8s system time with this change.
+On Wed, Jan 30, 2008 at 09:49:59PM +0530, Kamalesh Babulal wrote:
+> Hi,
+> 
+> Following are the different build failure with 2.6.24-git7 kernel on the powerpc
+> 
+> drivers/net/typhoon.c:181: error: typhoon_card_info causes a section type conflict
+> make[2]: *** [drivers/net/typhoon.o] Error 1
+> 
+> drivers/net/natsemi.c:259: error: natsemi_pci_info causes a section type conflict
+> make[2]: *** [drivers/net/natsemi.o] Error 1
+> 
+> drivers/net/bnx2.c:95: error: board_info causes a section type conflict
+> make[2]: *** [drivers/net/bnx2.o] Error 1
+> 
+> drivers/net/via-velocity.c:454: error: velocity_id_table causes a section type conflict
+> make[2]: *** [drivers/net/via-velocity.o] Error 1
 
-Seems like there must be a typo in either the before or after times
-you report here?
+A quick look told me that they are all caused by const data
+annotated with __devinitdata.
+Try replacing all annotations of const variables
+from __devinitdata to __devinitconst.
+
+	Sam
