@@ -1,74 +1,78 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: e1000 full-duplex TCP performance well below wire speed
-Date: Wed, 30 Jan 2008 09:36:53 -0800
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com>
-References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] [NET] cpmac: convert to new Fixed PHY infrastructure
+Date: Wed, 30 Jan 2008 12:40:54 -0500
+Message-ID: <47A0B6A6.5080903@garzik.org>
+References: <416B8C5D-109C-4C03-807D-7EBB0AA9C366@kernel.crashing.org> <20080121204953.GA11384@localhost.localdomain> <47A0AF56.3060804@garzik.org> <02FAED2A-1154-4D8B-A245-4693BF283515@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Carsten Aulbert" <carsten.aulbert@aei.mpg.de>,
-	"Henning Fehrmann" <henning.fehrmann@aei.mpg.de>,
-	"Bruce Allen" <bruce.allen@aei.mpg.de>
-To: "Bruce Allen" <ballen@gravity.phys.uwm.edu>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: avorontsov@ru.mvista.com,
+	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
+	netdev@vger.kernel.org, Eugene Konev <ejka@imfi.kspu.ru>
+To: Kumar Gala <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34591 "EHLO mga01.intel.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:42924 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763871AbYA3Rgz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 12:36:55 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu>
+	id S1756687AbYA3RlB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 12:41:01 -0500
+In-Reply-To: <02FAED2A-1154-4D8B-A245-4693BF283515@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bruce Allen wrote:
-> Details:
-> Kernel version: 2.6.23.12
-> ethernet NIC: Intel 82573L
-> ethernet driver: e1000 version 7.3.20-k2
-> motherboard: Supermicro PDSML-LN2+ (one quad core Intel Xeon X3220,
-> Intel 3000 chipset, 8GB memory)
+Kumar Gala wrote:
+> 
+> On Jan 30, 2008, at 11:09 AM, Jeff Garzik wrote:
+> 
+>> Anton Vorontsov wrote:
+>>> On Mon, Jan 21, 2008 at 01:19:41PM -0600, Kumar Gala wrote:
+>>>> Anton,
+>>>>
+>>>> it looks like the "TI AR7 CPMAC Ethernet support" uses FIXED_PHY 
+>>>> and  was selecting FIXED_MII_100_FDX which is gone.
+>>>>
+>>>> Can you look into this.  I get the following warning now:
+>>>>
+>>>> scripts/kconfig/conf -s arch/powerpc/Kconfig
+>>>> drivers/net/Kconfig:1713:warning: 'select' used by config symbol  
+>>>> 'CPMAC' refers to undefined symbol 'FIXED_MII_100_FDX'
+>>> Wow. I thought there were no Fixed PHY users. :-)
+>>> Jeff, as you've already Acked Fixed PHY rework to go through powerpc
+>>> tree, would you please Ack this patch in addition? I hope cpmac
+>>> maintainer will fix remaining issues as time goes by.
+>>> Thanks!
+>>> - - - -
+>>> From: Anton Vorontsov <avorontsov@ru.mvista.com>
+>>> Subject: [PATCH] [NET] cpmac: convert to new Fixed PHY infrastructure
+>>> This patch converts cpmac to the new Fixed PHY infrastructure, though it
+>>> doesn't fix all the problems with that driver. I didn't even bother to
+>>> test this patch to compile, because cpmac driver is broken in several 
+>>> ways:
+>>> 1. This driver won't compile by itself because lack of its header 
+>>> describing
+>>>   platform data;
+>>> 2. It assumes that fixed PHYs should be created by the ethernet driver.
+>>>   It is wrong assumption: fixed PHYs creation is platform code 
+>>> authority,
+>>>   driver must blindly accept bus_id and phy_id platform data variables
+>>>   instead.
+>>> Also, it seem that that driver doesn't have actual in-tree users, so
+>>> nothing to fix further.
+>>> The main purpose of that patch is to get rid of the following Kconfig
+>>> warning:
+>>> scripts/kconfig/conf -s arch/powerpc/Kconfig
+>>> drivers/net/Kconfig:1713:warning: 'select' used by config symbol
+>>> 'CPMAC' refers to undefined symbol 'FIXED_MII_100_FDX'
+>>> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+>>
+>> ACK
+> 
+> Is this going through netdev or do you want me to pick it via the 
+> powerpc route?
 
-Hi Bruce,
-The 82573L (a client NIC, regardless of the class of machine it is in)
-only has a x1 connection which does introduce some latency since the
-slot is only capable of about 2Gb/s data total, which includes overhead
-of descriptors and other transactions.  As you approach the maximum of
-the slot it gets more and more difficult to get wire speed in a
-bidirectional test.
- 
-> The test was done with various mtu sizes ranging from 1500 to 9000,
-> with ethernet flow control switched on and off, and using reno and
-> cubic as a TCP congestion control.
+Based on your comments I sorta assumed it was most convenient to lump in 
+with the rest of the powerpc changes...
 
-As asked in LKML thread, please post the exact netperf command used to
-start the client/server, whether or not you're using irqbalanced (aka
-irqbalance) and what cat /proc/interrupts looks like (you ARE using MSI,
-right?)
+	Jeff
 
-I've recently discovered that particularly with the most recent kernels
-if you specify any socket options (-- -SX -sY) to netperf it does worse
-than if it just lets the kernel auto-tune.
- 
-> The behavior depends on the setup. In one test we used cubic
-> congestion control, flow control off. The transfer rate in one
-> direction was above 0.9Gb/s while in the other direction it was 0.6
-> to 0.8 Gb/s. After 15-20s the rates flipped. Perhaps the two steams
-> are fighting for resources. (The performance of a full duplex stream
-> should be close to 1Gb/s in both directions.)  A graph of the
-> transfer speed as a function of time is here:
-> https://n0.aei.uni-hannover.de/networktest/node19-new20-noflow.jpg 
-> Red shows transmit and green shows receive (please ignore other
-> plots): 
 
-One other thing you can try with e1000 is disabling the dynamic
-interrupt moderation by loading the driver with
-InterruptThrottleRate=8000,8000,... (the number of commas depends on
-your number of ports) which might help in your particular benchmark.
 
-just for completeness can you post the dump of ethtool -e eth0 and lspci
--vvv?
-
-Thanks,
-  Jesse
