@@ -1,48 +1,44 @@
-From: Stefan Roese <sr@denx.de>
-Subject: Re: [PATCH] net: NEWEMAC: Remove "rgmii-interface" from rgmii  matching table
-Date: Wed, 30 Jan 2008 07:16:52 +0100
-Message-ID: <200801300716.52463.sr@denx.de>
-References: <1200476230-14026-1-git-send-email-sr@denx.de> <1200477239.6755.21.camel@pasglop> <20080116090110.1b7b2f00@zod.rchland.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Josh Boyer <jwboyer@linux.vnet.ibm.com>, netdev@vger.kernel.org
-To: linuxppc-dev@ozlabs.org, benh@kernel.crashing.org
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH] Debugfs compile fix.
+Date: Wed, 30 Jan 2008 09:40:00 +0300
+Message-ID: <1201675200-9310-1-git-send-email-den@openvz.org>
+Cc: randy.dunlap@oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
+To: greg@kroah.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.188]:62778 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752900AbYA3GRO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 01:17:14 -0500
-In-Reply-To: <20080116090110.1b7b2f00@zod.rchland.ibm.com>
-Content-Disposition: inline
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:54817 "EHLO iris.sw.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750825AbYA3GkH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 01:40:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 16 January 2008, Josh Boyer wrote:
-> On Wed, 16 Jan 2008 20:53:59 +1100
->
-> Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
-> > On Wed, 2008-01-16 at 10:37 +0100, Stefan Roese wrote:
-> > > With the removal the the "rgmii-interface" device_type property from
-> > > the dts files, the newemac driver needs an update to only rely on
-> > > compatible property.
-> > >
-> > > Signed-off-by: Stefan Roese <sr@denx.de>
-> >
-> > I need to test if it works on CAB, can't change the DT on those. I'll
-> > let you know tomorrow.
->
-> This should be fine on CAB.  The rgmii node has:
->
-> compatible = "ibm,rgmii-axon", "ibm,rgmii"
->
-> so the match should still catch on the latter.
+Debugfs is not compiled without CONFIG_SYSFS in net-2.6 tree. Move
+kobject_create_and_add under appropriate ifdef. The fix looks correct
+from a first glance, but may be the dependency should be added into
+the Kconfig.
 
-How about this patch? Ben, if you think this is ok then we should make sure 
-that it goes in in this merge-window, since the other dts patch relies on it.
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ fs/debugfs/inode.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Thanks.
+diff --git a/fs/debugfs/inode.c b/fs/debugfs/inode.c
+index d26e282..61cc937 100644
+--- a/fs/debugfs/inode.c
++++ b/fs/debugfs/inode.c
+@@ -432,9 +432,11 @@ static int __init debugfs_init(void)
+ {
+ 	int retval;
+ 
++#ifdef CONFIG_SYSFS
+ 	debug_kobj = kobject_create_and_add("debug", kernel_kobj);
+ 	if (!debug_kobj)
+ 		return -EINVAL;
++#endif
+ 
+ 	retval = register_filesystem(&debug_fs_type);
+ 	if (retval)
+-- 
+1.5.3.rc5
 
-Best regards,
-Stefan
