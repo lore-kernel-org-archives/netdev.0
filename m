@@ -1,68 +1,54 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH net-2.6.25 4/7][ATM]: [br2864] routed support
-Date: Wed, 30 Jan 2008 15:49:26 -0500
-Message-ID: <200801302049.m0UKnQhr032004@cmf.nrl.navy.mil>
-References: <3f696b20801282342q43537963ueb8fb9cf3389ac03@mail.gmail.com>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: "Chung-Chi Lo" <linolo@gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [2.6 patch] unexport sysctl_tcp_tso_win_divisor
+Date: Wed, 30 Jan 2008 23:05:35 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0801302303300.5832@kivilampi-30.cs.helsinki.fi>
+References: <20080130200232.GU29368@does.not.exist>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-238529698-1201727135=:5832"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:42242 "EHLO
-	ginger.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751165AbYA3Uus (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 15:50:48 -0500
-In-reply-to: <3f696b20801282342q43537963ueb8fb9cf3389ac03@mail.gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:51232 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754018AbYA3VFr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 16:05:47 -0500
+In-Reply-To: <20080130200232.GU29368@does.not.exist>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In message <3f696b20801282342q43537963ueb8fb9cf3389ac03@mail.gmail.com>,"Chung-
-Chi Lo" writes:
->> +       } else { /* vc-mux */
->> +               if (brdev->payload == p_routed) {
->
->add line
->
->			skb->protocol = __constant_htons(ETH_P_IP);
->
->here just like LLC did?
->
->> +                       skb_reset_network_header(skb);
->> +                       skb->pkt_type = PACKET_HOST;
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-yes, that is missing but it needs to be a little more complicated than
-that i think.  you need to examine the first byte to see if its an
-ipv4 or ipv6 datagram.  something like:
+---696243703-238529698-1201727135=:5832
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-			struct iphdr *iph = skb_network_header(skb);
+On Wed, 30 Jan 2008, Adrian Bunk wrote:
 
-                        skb_reset_network_header(skb);
-			iph = skb_network_header(skb);
-			if (iph->version == 4)
-				skb->protocol = __constant_htons(ETH_P_IP);
-			else if (iph->version == 6)
-				skb->protocol = __constant_htons(ETH_P_IPV6);
-			else
-				/* drop the packet */
-                        skb->pkt_type = PACKET_HOST;
-
-how does that look?
-
->+       } else {
->+               skb_push(skb, 2);
->+               if (brdev->payload == p_bridged)
->+                       memset(skb->data, 0, 2);
->+       }
+> This patch removes the no longer used 
+> EXPORT_SYMBOL(sysctl_tcp_tso_win_divisor).
+> 
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 >
->Here should be
->
->	} else {
->		if (brdev->payload == p_bridged) {
->			skb_push(skb, 2);
->			memset(skb->data, 0, 2);
->		}
->	}
->
->Because VCMUX and routed mode doesn't need two bytes in header.
+> ---
+> 4884e7997ba5f63f2efeaeead21ed2768fb3f4de 
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 89f0188..ed750f9 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2564,5 +2564,4 @@ EXPORT_SYMBOL(tcp_connect);
+>  EXPORT_SYMBOL(tcp_make_synack);
+>  EXPORT_SYMBOL(tcp_simple_retransmit);
+>  EXPORT_SYMBOL(tcp_sync_mss);
+> -EXPORT_SYMBOL(sysctl_tcp_tso_win_divisor);
+>  EXPORT_SYMBOL(tcp_mtup_init);
 
-yeah, another oversight.  your fix is correct. i bet you have guessed
-that we dont use vc multiplexing.
+...yes, results from the recent move of tcp_is_cwnd_limited() away from 
+tcp.h.
+
+Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+
+-- 
+ i.
+---696243703-238529698-1201727135=:5832--
