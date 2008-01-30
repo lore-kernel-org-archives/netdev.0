@@ -1,38 +1,56 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] IBMLANA no longer has to depend on MCA_LEGACY
-Date: Wed, 30 Jan 2008 22:02:35 +0200
-Message-ID: <20080130200235.GW29368@does.not.exist>
+Subject: [2.6 patch] make struct ipv4_devconf static
+Date: Wed, 30 Jan 2008 22:02:54 +0200
+Message-ID: <20080130200254.GC29368@does.not.exist>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeff Garzik <jgarzik@redhat.com>
+To: Pavel Emelyanov <xemul@openvz.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.pp.htv.fi ([213.243.153.39]:37584 "EHLO smtp5.pp.htv.fi"
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:51776 "EHLO smtp4.pp.htv.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758557AbYA3UCB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 15:02:01 -0500
+	id S1755784AbYA3UCU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 15:02:20 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes the no longer required dependency of IBMLANA
-on MCA_LEGACY.
+struct ipv4_devconf can now become static.
 
 Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
 ---
-d83989118e59f403200ea9c71d2293337b49df01 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index af40ff4..578ae2c 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1199,7 +1199,7 @@ config NE2_MCA
+
+ include/linux/inetdevice.h |    2 --
+ net/ipv4/devinet.c         |    2 +-
+ 2 files changed, 1 insertion(+), 3 deletions(-)
+
+20262a3317069b1bdbf2b37f4002fa5322445914 
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index 8d9eaae..fc4e3db 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -17,8 +17,6 @@ struct ipv4_devconf
+ 	DECLARE_BITMAP(state, __NET_IPV4_CONF_MAX - 1);
+ };
  
- config IBMLANA
- 	tristate "IBM LAN Adapter/A support"
--	depends on MCA && MCA_LEGACY
-+	depends on MCA
- 	---help---
- 	  This is a Micro Channel Ethernet adapter.  You need to set
- 	  CONFIG_MCA to use this driver.  It is both available as an in-kernel
+-extern struct ipv4_devconf ipv4_devconf;
+-
+ struct in_device
+ {
+ 	struct net_device	*dev;
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 21f71bf..5ab5acc 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -64,7 +64,7 @@
+ #include <net/rtnetlink.h>
+ #include <net/net_namespace.h>
+ 
+-struct ipv4_devconf ipv4_devconf = {
++static struct ipv4_devconf ipv4_devconf = {
+ 	.data = {
+ 		[NET_IPV4_CONF_ACCEPT_REDIRECTS - 1] = 1,
+ 		[NET_IPV4_CONF_SEND_REDIRECTS - 1] = 1,
 
