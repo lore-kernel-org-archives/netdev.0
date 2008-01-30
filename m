@@ -1,31 +1,35 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] pci-skeleton: Misc fixes to build neatly
-Date: Wed, 30 Jan 2008 03:49:22 -0500
-Message-ID: <47A03A12.60806@garzik.org>
-References: <1201157496-20665-1-git-send-email-albcamus@gmail.com> <1201157496-20665-2-git-send-email-albcamus@gmail.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/2] sky2: restore multicast addresses after recovery
+Date: Wed, 30 Jan 2008 03:51:10 -0500
+Message-ID: <47A03A7E.2070904@pobox.com>
+References: <20080123191151.1423a045@deepthought>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jike Song <albcamus@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33490 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:33519 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758009AbYA3ItZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 03:49:25 -0500
-In-Reply-To: <1201157496-20665-2-git-send-email-albcamus@gmail.com>
+	id S1754589AbYA3IvL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 03:51:11 -0500
+In-Reply-To: <20080123191151.1423a045@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jike Song wrote:
-> The pci-skeleton.c has several problems with compilation, such as missing args
-> when calling synchronize_irq(). Fix it.
+Stephen Hemminger wrote:
+> If the sky2 deadman timer forces a recovery, the multicast hash
+> list is lost. Move the call to sky2_set_multicast to the end
+> of sky2_up() so all paths that bring device up will restore multicast.
 > 
-> Signed-off-by: Jike Song <albcamus@gmail.com>
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> 
 > ---
->  drivers/net/pci-skeleton.c |   49 ++++++++++++++++++++++---------------------
->  1 files changed, 25 insertions(+), 24 deletions(-)
+> Please apply for 2.6.24
 
-applied
+applied 1-2
+
+You'll want to send this to stable@kernel.org, since by the time I read 
+your mail, 2.6.24 had been released, just around 24 hours thereafter.
 
 
