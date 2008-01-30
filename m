@@ -1,39 +1,38 @@
-From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: Re: [PATCH 0/6] PS3: gelic: gelic updates for 2.6.25
-Date: Wed, 30 Jan 2008 14:21:48 +0900
-Message-ID: <20080130133721.5D05.40F06B3A@sm.sony.co.jp>
-References: <20071213181146.BF69.MOKUNO@sm.sony.co.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-2.6 'rndis' 2008-01-29
+Date: Tue, 29 Jan 2008 21:26:00 -0800 (PST)
+Message-ID: <20080129.212600.83713911.davem@davemloft.net>
+References: <20080129212813.GB3180@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Linux/PPC Development" <linuxppc-dev@ozlabs.org>,
-	geoffrey.levand@am.sony.com,
-	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MGW2.Sony.CO.JP ([137.153.0.14]:57596 "EHLO mgw2.sony.co.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752820AbYA3FV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 00:21:57 -0500
-In-Reply-To: <20071213181146.BF69.MOKUNO@sm.sony.co.jp>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43761
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753425AbYA3FZl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 00:25:41 -0500
+In-Reply-To: <20080129212813.GB3180@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jeff,
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Tue, 29 Jan 2008 16:28:13 -0500
 
-The patch set I posted on Dec 13 2007 (except v2 of #6) have been
-reviewed on the ML and seems to have no more outstanding
-comments/requests.
-http://marc.info/?l=linux-netdev&m=119754603814092
+> Dave,
+> 
+> RNDIS is a de facto standard from Microsoft for USB networking devices.
+> We already have support for ethernet devices, but wireless devices exist
+> as well.  This series applies some fixes to the current ethernet RNDIS
+> stuff to co-exist with wireless and adds a wireless RNDIS driver.  I
+> would like to see it in 2.6.25.
 
+Pulled and pushed out to net-2.6, thanks John.
 
-Is it OK to apply for 2.6.25?  If OK, I'll ask Paul to merge this set
-into the powerpc tree with my wireless patch because the dependent patch
-set will go into the tree.
+I'm going to review these bits a little bit (as well as the
+other merge you just made) before pushing it all out to
+Linus.
 
-best regards
-
--- 
-Masakazu MOKUNO
-
+Thanks!
