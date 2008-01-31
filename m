@@ -1,36 +1,55 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] Disable TSO for non standard qdiscs
-Date: Thu, 31 Jan 2008 20:03:26 +0100
-Message-ID: <20080131190326.GF4671@one.firstfloor.org>
-References: <20080131124632.GA25299@basil.nowhere.org> <47A212CB.1060403@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Rick Jones <rick.jones2@hp.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: [PATCH 3/6] [DCCP]: Reorganize struct dccp_sock to save 8 bytes
+Date: Thu, 31 Jan 2008 16:31:41 -0200
+Message-ID: <1201804304-28777-4-git-send-email-acme@redhat.com>
+References: y
+ <1201804304-28777-1-git-send-email-acme@redhat.com>
+ <1201804304-28777-2-git-send-email-acme@redhat.com>
+ <1201804304-28777-3-git-send-email-acme@redhat.com>
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:60879 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763053AbYAaS27 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 13:28:59 -0500
-Content-Disposition: inline
-In-Reply-To: <47A212CB.1060403@hp.com>
+Received: from rn-out-0910.google.com ([64.233.170.189]:21121 "EHLO
+	rn-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753336AbYAaSb4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 13:31:56 -0500
+Received: by rn-out-0910.google.com with SMTP id i24so968608rng.19
+        for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 10:31:55 -0800 (PST)
+In-Reply-To: <1201804304-28777-3-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 31, 2008 at 10:26:19AM -0800, Rick Jones wrote:
-> Andi Kleen wrote:
-> >TSO interacts badly with many queueing disciplines because they rely on 
-> >reordering packets from different streams and the large TSO packets can 
-> >make this difficult. This patch disables TSO for sockets that send over 
-> >devices with non standard queueing disciplines. That's anything but noop 
-> >or pfifo_fast and pfifo right now.
-> 
-> Does this also imply that JumboFrames interacts badly with these qdiscs? 
->  Or IPoIB with its 65000ish byte MTU?
+/home/acme/git/net-2.6/net/dccp/ipv6.c:
+  struct dccp_sock  |   -8
+  struct dccp6_sock |   -8
+ 2 structs changed
 
-Correct. Of course it is always relative to the link speed. So if your
-link is 10x faster and your packets 10x bigger you can get similarly
-smooth shaping.
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ include/linux/dccp.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
--Andi
+diff --git a/include/linux/dccp.h b/include/linux/dccp.h
+index 484e45c..aa07370 100644
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -525,6 +525,7 @@ struct dccp_sock {
+ 	__u64				dccps_gsr;
+ 	__u64				dccps_gar;
+ 	__be32				dccps_service;
++	__u32				dccps_mss_cache;
+ 	struct dccp_service_list	*dccps_service_list;
+ 	__u32				dccps_timestamp_echo;
+ 	__u32				dccps_timestamp_time;
+@@ -533,7 +534,6 @@ struct dccp_sock {
+ 	__u16				dccps_pcslen;
+ 	__u16				dccps_pcrlen;
+ 	unsigned long			dccps_ndp_count;
+-	__u32				dccps_mss_cache;
+ 	unsigned long			dccps_rate_last;
+ 	struct dccp_minisock		dccps_minisock;
+ 	struct dccp_ackvec		*dccps_hc_rx_ackvec;
+-- 
+1.5.3.8
+
