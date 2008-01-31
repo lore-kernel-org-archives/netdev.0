@@ -1,32 +1,39 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 6/6][NETNS]: Udp sockets per-net lookup.
-Date: Fri, 01 Feb 2008 00:40:07 +1100 (EST)
-Message-ID: <20080201.004007.110177979.yoshfuji@linux-ipv6.org>
-References: <47A1C216.9000303@openvz.org>
-	<20080201.001138.95019632.yoshfuji@wide.ad.jp>
-	<20080131.052007.165146562.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: hard hang through qdisc
+Date: Thu, 31 Jan 2008 15:02:26 +0100
+Message-ID: <47A1D4F2.6080904@trash.net>
+References: <200801311321.01015.ak@suse.de> <1201782841.4732.11.camel@localhost> <200801311428.48175.ak@suse.de> <47A1CD4E.7050701@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org,
-	yoshfuji@linux-ipv6.org
-To: davem@davemloft.net
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org
+To: Andi Kleen <ak@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:39727 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752724AbYAaNjk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 08:39:40 -0500
-In-Reply-To: <20080131.052007.165146562.davem@davemloft.net>
+Received: from stinky.trash.net ([213.144.137.162]:49530 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764427AbYAaOCj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 09:02:39 -0500
+In-Reply-To: <47A1CD4E.7050701@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <20080131.052007.165146562.davem@davemloft.net> (at Thu, 31 Jan 2008 05:20:07 -0800 (PST)), David Miller <davem@davemloft.net> says:
+Patrick McHardy wrote:
+> Andi Kleen wrote:
+>>> ---------
+>>> lilsol:~# tc qdisc add dev eth0 root tbf rate 1000 burst 10 limit 100
+>>> lilsol:~# uname -a
+>>> Linux lilsol 2.6.24 #1 PREEMPT Sun Jan 27 09:22:00 EST 2008 i686
+>>
+>> Can you try it again with current git mainline?
+> 
+> 
+> I'll look into it.
 
-> The networking devices are even per-namespace already,
-> so you can even say that each namespace is even
-> physically different.
 
-Ah, okay, we are splitting "weak" domains...
+Works for me:
 
---yoshfuji
+qdisc tbf 8001: root rate 1000bit burst 10b/8 mpu 0b lat 720.0ms
+  Sent 0 bytes 0 pkt (dropped 9, overlimits 0 requeues 0)
+  rate 0bit 0pps backlog 0b 0p requeues 0
+
+Packets are dropped as expected.
