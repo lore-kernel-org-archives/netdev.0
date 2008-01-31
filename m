@@ -1,32 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: should explicitely initialize atomic_t field in struct
- dst_ops
-Date: Wed, 30 Jan 2008 20:08:12 -0800 (PST)
-Message-ID: <20080130.200812.193719610.davem@davemloft.net>
-References: <20080124161117.5727c45c.dada1@cosmosbay.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH] [NET] cpmac: convert to new Fixed PHY infrastructure (was: Re: fixed phy support (warning related to FIXED_MII_100_FDX))
+Date: Wed, 30 Jan 2008 22:30:38 -0600
+Message-ID: <B4093288-C5F4-472D-BA13-EA83C616A0D6@kernel.crashing.org>
+References: <416B8C5D-109C-4C03-807D-7EBB0AA9C366@kernel.crashing.org> <20080121204953.GA11384@localhost.localdomain>
+Mime-Version: 1.0 (Apple Message framework v915)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: linuxppc-dev list <linuxppc-dev@ozlabs.org>,
+	netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Eugene Konev <ejka@imfi.kspu.ru>
+To: avorontsov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34874
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754756AbYAaEHw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 23:07:52 -0500
-In-Reply-To: <20080124161117.5727c45c.dada1@cosmosbay.com>
+Received: from gate.crashing.org ([63.228.1.57]:48680 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754682AbYAaEbY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 23:31:24 -0500
+In-Reply-To: <20080121204953.GA11384@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Thu, 24 Jan 2008 16:11:17 +0100
+> From: Anton Vorontsov <avorontsov@ru.mvista.com>
+> Subject: [PATCH] [NET] cpmac: convert to new Fixed PHY infrastructure
+>
+> This patch converts cpmac to the new Fixed PHY infrastructure,  
+> though it
+> doesn't fix all the problems with that driver. I didn't even bother to
+> test this patch to compile, because cpmac driver is broken in  
+> several ways:
+>
+> 1. This driver won't compile by itself because lack of its header  
+> describing
+>   platform data;
+> 2. It assumes that fixed PHYs should be created by the ethernet  
+> driver.
+>   It is wrong assumption: fixed PHYs creation is platform code  
+> authority,
+>   driver must blindly accept bus_id and phy_id platform data variables
+>   instead.
+>
+> Also, it seem that that driver doesn't have actual in-tree users, so
+> nothing to fix further.
+>
+> The main purpose of that patch is to get rid of the following Kconfig
+> warning:
+>
+> scripts/kconfig/conf -s arch/powerpc/Kconfig
+> drivers/net/Kconfig:1713:warning: 'select' used by config symbol
+> 'CPMAC' refers to undefined symbol 'FIXED_MII_100_FDX'
+>
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+> ---
+> drivers/net/Kconfig |    4 +--
+> drivers/net/cpmac.c |   55 +++++++++++++++ 
+> +----------------------------------
+> 2 files changed, 19 insertions(+), 40 deletions(-)
 
-> All but one struct dst_ops static initializations miss explicit
-> initialization of entries field.
-> 
-> As this field is atomic_t, we should use ATOMIC_INIT(0), and not
-> rely on atomic_t implementation.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+applied.
 
-Applied, thanks Eric.
+- k
+
