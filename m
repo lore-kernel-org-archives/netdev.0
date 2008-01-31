@@ -1,145 +1,103 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [PATCH][XFRM]: Fix statistics.
-Date: Thu, 31 Jan 2008 16:49:52 +0900
-Message-ID: <12017657921885-git-send-email-nakam@linux-ipv6.org>
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	nakam@linux-ipv6.org
-To: davem@davemloft.net
+From: Bruce Allen <ballen@gravity.phys.uwm.edu>
+Subject: RE: e1000 full-duplex TCP performance well below wire speed
+Date: Thu, 31 Jan 2008 02:31:25 -0600 (CST)
+Message-ID: <Pine.LNX.4.63.0801310213010.3240@trinity.phys.uwm.edu>
+References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu>
+ <36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com>
+ <Pine.LNX.4.63.0801301635470.19938@trinity.phys.uwm.edu>
+ <36D9DB17C6DE9E40B059440DB8D95F52044F8BA3@orsmsx418.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>,
+	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
+	Bruce Allen <bruce.allen@aei.mpg.de>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi025.linux-ipv6.org ([203.178.140.25]:38572 "EHLO
-	triton.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1760321AbYAaHus (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 02:50:48 -0500
+Received: from trinity.phys.uwm.edu ([129.89.57.159]:58882 "EHLO
+	trinity.phys.uwm.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753033AbYAaIbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 03:31:39 -0500
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F52044F8BA3@orsmsx418.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hi Jesse,
 
-I found some XFRM statistics updates which should be applied.
-This patch change user-public header defines introduced at
-net-2.6.25 and I hope to make it to be applied to linux 2.6.25.
+>> It's good to be talking directly to one of the e1000 developers and
+>> maintainers.  Although at this point I am starting to think that the
+>> issue may be TCP stack related and nothing to do with the NIC.  Am I
+>> correct that these are quite distinct parts of the kernel?
+>
+> Yes, quite.
 
+OK.  I hope that there is also someone knowledgable about the TCP stack 
+who is following this thread. (Perhaps you also know this part of the 
+kernel, but I am assuming that your expertise is on the e1000/NIC bits.)
 
-[PATCH][XFRM]: Fix statistics.
+>> Important note: we ARE able to get full duplex wire speed (over 900
+>> Mb/s simulaneously in both directions) using UDP.  The problems occur
+>> only with TCP connections.
+>
+> That eliminates bus bandwidth issues, probably, but small packets take
+> up a lot of extra descriptors, bus bandwidth, CPU, and cache resources.
 
-o Outbound sequence number overflow error status
-  is counted as XfrmOutStateSeqError.
-o Additionaly, it changes inbound sequence number replay
-  error name from XfrmInSeqOutOfWindow to XfrmInStateSeqError
-  to apply name scheme above.
-o Inbound IPv4 UDP encapsuling type mismatch error is wrongly
-  mapped to XfrmInStateInvalid then this patch fiex the error
-  to XfrmInStateMismatch.
+I see.  Your concern is the extra ACK packets associated with TCP.  Even 
+those these represent a small volume of data (around 5% with MTU=1500, and 
+less at larger MTU) they double the number of packets that must be handled 
+by the system compared to UDP transmission at the same data rate. Is that 
+correct?
 
-Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+>> I have to wait until Carsten or Henning wake up tomorrow (now 23:38 in
+>> Germany).  So we'll provide this info in ~10 hours.
+>
+> I would suggest you try TCP_RR with a command line something like this:
+> netperf -t TCP_RR -H <hostname> -C -c -- -b 4 -r 64K
+>
+> I think you'll have to compile netperf with burst mode support enabled.
 
----
- Documentation/networking/xfrm_proc.txt |    8 ++++++--
- include/linux/snmp.h                   |    3 ++-
- net/xfrm/xfrm_input.c                  |    4 ++--
- net/xfrm/xfrm_output.c                 |    1 +
- net/xfrm/xfrm_proc.c                   |    3 ++-
- 5 files changed, 13 insertions(+), 6 deletions(-)
+I just saw Carsten a few minutes ago.  He has to take part in a 
+'Baubesprechung' meeting this morning, after which he will start answering 
+the technical questions and doing additional testing as suggested by you 
+and others.  If you are on the US west coast, he should have some answers 
+and results posted by Thursday morning Pacific time.
 
-diff --git a/Documentation/networking/xfrm_proc.txt b/Documentation/networking/xfrm_proc.txt
-index 53c1a58..d0d8baf 100644
---- a/Documentation/networking/xfrm_proc.txt
-+++ b/Documentation/networking/xfrm_proc.txt
-@@ -26,8 +26,9 @@ XfrmInStateProtoError:
- 	e.g. SA key is wrong
- XfrmInStateModeError:
- 	Transformation mode specific error
--XfrmInSeqOutOfWindow:
--	Sequence out of window
-+XfrmInStateSeqError:
-+	Sequence error
-+	i.e. Sequence number is out of window
- XfrmInStateExpired:
- 	State is expired
- XfrmInStateMismatch:
-@@ -60,6 +61,9 @@ XfrmOutStateProtoError:
- 	Transformation protocol specific error
- XfrmOutStateModeError:
- 	Transformation mode specific error
-+XfrmOutStateSeqError:
-+	Sequence error
-+	i.e. Sequence number overflow
- XfrmOutStateExpired:
- 	State is expired
- XfrmOutPolBlock:
-diff --git a/include/linux/snmp.h b/include/linux/snmp.h
-index 86d3eff..5df62ef 100644
---- a/include/linux/snmp.h
-+++ b/include/linux/snmp.h
-@@ -227,7 +227,7 @@ enum
- 	LINUX_MIB_XFRMINNOSTATES,		/* XfrmInNoStates */
- 	LINUX_MIB_XFRMINSTATEPROTOERROR,	/* XfrmInStateProtoError */
- 	LINUX_MIB_XFRMINSTATEMODEERROR,		/* XfrmInStateModeError */
--	LINUX_MIB_XFRMINSEQOUTOFWINDOW,		/* XfrmInSeqOutOfWindow */
-+	LINUX_MIB_XFRMINSTATESEQERROR,		/* XfrmInStateSeqError */
- 	LINUX_MIB_XFRMINSTATEEXPIRED,		/* XfrmInStateExpired */
- 	LINUX_MIB_XFRMINSTATEMISMATCH,		/* XfrmInStateMismatch */
- 	LINUX_MIB_XFRMINSTATEINVALID,		/* XfrmInStateInvalid */
-@@ -241,6 +241,7 @@ enum
- 	LINUX_MIB_XFRMOUTNOSTATES,		/* XfrmOutNoStates */
- 	LINUX_MIB_XFRMOUTSTATEPROTOERROR,	/* XfrmOutStateProtoError */
- 	LINUX_MIB_XFRMOUTSTATEMODEERROR,	/* XfrmOutStateModeError */
-+	LINUX_MIB_XFRMOUTSTATESEQERROR,		/* XfrmOutStateSeqError */
- 	LINUX_MIB_XFRMOUTSTATEEXPIRED,		/* XfrmOutStateExpired */
- 	LINUX_MIB_XFRMOUTPOLBLOCK,		/* XfrmOutPolBlock */
- 	LINUX_MIB_XFRMOUTPOLDEAD,		/* XfrmOutPolDead */
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 039e701..c32b50b 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -160,12 +160,12 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 		}
- 
- 		if ((x->encap ? x->encap->encap_type : 0) != encap_type) {
--			XFRM_INC_STATS(LINUX_MIB_XFRMINSTATEINVALID);
-+			XFRM_INC_STATS(LINUX_MIB_XFRMINSTATEMISMATCH);
- 			goto drop_unlock;
- 		}
- 
- 		if (x->props.replay_window && xfrm_replay_check(x, skb, seq)) {
--			XFRM_INC_STATS(LINUX_MIB_XFRMINSEQOUTOFWINDOW);
-+			XFRM_INC_STATS(LINUX_MIB_XFRMINSTATESEQERROR);
- 			goto drop_unlock;
- 		}
- 
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index f4a1047..fc69036 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -64,6 +64,7 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
- 		if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
- 			XFRM_SKB_CB(skb)->seq = ++x->replay.oseq;
- 			if (unlikely(x->replay.oseq == 0)) {
-+				XFRM_INC_STATS(LINUX_MIB_XFRMOUTSTATESEQERROR);
- 				x->replay.oseq--;
- 				xfrm_audit_state_replay_overflow(x, skb);
- 				err = -EOVERFLOW;
-diff --git a/net/xfrm/xfrm_proc.c b/net/xfrm/xfrm_proc.c
-index 31d0354..2b0db13 100644
---- a/net/xfrm/xfrm_proc.c
-+++ b/net/xfrm/xfrm_proc.c
-@@ -22,7 +22,7 @@ static struct snmp_mib xfrm_mib_list[] = {
- 	SNMP_MIB_ITEM("XfrmInNoStates", LINUX_MIB_XFRMINNOSTATES),
- 	SNMP_MIB_ITEM("XfrmInStateProtoError", LINUX_MIB_XFRMINSTATEPROTOERROR),
- 	SNMP_MIB_ITEM("XfrmInStateModeError", LINUX_MIB_XFRMINSTATEMODEERROR),
--	SNMP_MIB_ITEM("XfrmInSeqOutOfWindow", LINUX_MIB_XFRMINSEQOUTOFWINDOW),
-+	SNMP_MIB_ITEM("XfrmInStateSeqError", LINUX_MIB_XFRMINSTATESEQERROR),
- 	SNMP_MIB_ITEM("XfrmInStateExpired", LINUX_MIB_XFRMINSTATEEXPIRED),
- 	SNMP_MIB_ITEM("XfrmInStateMismatch", LINUX_MIB_XFRMINSTATEMISMATCH),
- 	SNMP_MIB_ITEM("XfrmInStateInvalid", LINUX_MIB_XFRMINSTATEINVALID),
-@@ -36,6 +36,7 @@ static struct snmp_mib xfrm_mib_list[] = {
- 	SNMP_MIB_ITEM("XfrmOutNoStates", LINUX_MIB_XFRMOUTNOSTATES),
- 	SNMP_MIB_ITEM("XfrmOutStateProtoError", LINUX_MIB_XFRMOUTSTATEPROTOERROR),
- 	SNMP_MIB_ITEM("XfrmOutStateModeError", LINUX_MIB_XFRMOUTSTATEMODEERROR),
-+	SNMP_MIB_ITEM("XfrmOutStateSeqError", LINUX_MIB_XFRMOUTSTATESEQERROR),
- 	SNMP_MIB_ITEM("XfrmOutStateExpired", LINUX_MIB_XFRMOUTSTATEEXPIRED),
- 	SNMP_MIB_ITEM("XfrmOutPolBlock", LINUX_MIB_XFRMOUTPOLBLOCK),
- 	SNMP_MIB_ITEM("XfrmOutPolDead", LINUX_MIB_XFRMOUTPOLDEAD),
--- 
-1.4.4.2
+>> I assume that the interrupt load is distributed among all four cores
+>> -- the default affinity is 0xff, and I also assume that there is some
+>> type of interrupt aggregation taking place in the driver.  If the
+>> CPUs were not able to service the interrupts fast enough, I assume
+>> that we would also see loss of performance with UDP testing.
+>>
+>>> One other thing you can try with e1000 is disabling the dynamic
+>>> interrupt moderation by loading the driver with
+>>> InterruptThrottleRate=8000,8000,... (the number of commas depends on
+>>> your number of ports) which might help in your particular benchmark.
+>>
+>> OK.  Is 'dynamic interrupt moderation' another name for 'interrupt
+>> aggregation'?  Meaning that if more than one interrupt is generated
+>> in a given time interval, then they are replaced by a single
+>> interrupt?
+>
+> Yes, InterruptThrottleRate=8000 means there will be no more than 8000
+> ints/second from that adapter, and if interrupts are generated faster
+> than that they are "aggregated."
+>
+> Interestingly since you are interested in ultra low latency, and may be
+> willing to give up some cpu for it during bulk transfers you should try
+> InterruptThrottleRate=1 (can generate up to 70000 ints/s)
 
+I'm not sure it's quite right to say that we are interested in ultra low 
+latency. Most of our network transfers involve bulk data movement (a few 
+MB or more).  We don't care so much about low latency (meaning how long it 
+takes the FIRST byte of data to travel from sender to receiver).  We care 
+about aggregate bandwidth: once the pipe is full, how fast can data be 
+moved through it. Sow we don't care so much if getting the pipe full takes 
+20 us or 50 us.  We just want the data to flow fast once the pipe IS full.
+
+> Welcome, its an interesting discussion.  Hope we can come to a good
+> conclusion.
+
+Thank you. Carsten will post more info and answers later today.
+
+Cheers,
+ 	Bruce
