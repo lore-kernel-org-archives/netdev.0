@@ -1,52 +1,32 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 2/6][INET]: Consolidate inet(6)_hash_connect.
-Date: Thu, 31 Jan 2008 11:39:55 -0200
-Message-ID: <20080131133954.GU1819@ghostprotocols.net>
-References: <47A1BFC9.2030603@openvz.org> <20080131130153.GP1819@ghostprotocols.net> <47A1CABB.8050805@openvz.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 6/6][NETNS]: Udp sockets per-net lookup.
+Date: Fri, 01 Feb 2008 00:40:07 +1100 (EST)
+Message-ID: <20080201.004007.110177979.yoshfuji@linux-ipv6.org>
+References: <47A1C216.9000303@openvz.org>
+	<20080201.001138.95019632.yoshfuji@wide.ad.jp>
+	<20080131.052007.165146562.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org,
+	yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:34126 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764649AbYAaNkA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2008 08:40:00 -0500
-Content-Disposition: inline
-In-Reply-To: <47A1CABB.8050805@openvz.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:39727 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752724AbYAaNjk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 08:39:40 -0500
+In-Reply-To: <20080131.052007.165146562.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Thu, Jan 31, 2008 at 04:18:51PM +0300, Pavel Emelyanov escreveu:
-> Arnaldo Carvalho de Melo wrote:
-> > Em Thu, Jan 31, 2008 at 03:32:09PM +0300, Pavel Emelyanov escreveu:
-> >> These two functions are the same except for what they call
-> >> to "check_established" and "hash" for a socket.
-> >>
-> >> This saves half-a-kilo for ipv4 and ipv6.
-> > 
-> > Good stuff!
-> > 
-> > Yesterday I was perusing tcp_hash and I think we could have the hashinfo
-> > pointer stored perhaps in sk->sk_prot.
-> > 
-> > That way we would be able to kill tcp_hash(), inet_put_port() could
-> > receive just sk, etc.
-> 
-> But each proto will still have its own hashfn, so proto's 
-> callbacks will be called to hash/unhash sockets, so this will 
-> give us just one extra dereference. No?
-> 
-> > What do you think?
-> 
-> Hmmm... Even raw_hash, etc may become simpler. On the other hand
-> maybe this is a good idea, but I'm not very common with this code
-> yet to foresee such things in advance... I think that we should
-> try to prepare a patch and look, but if you have smth ready, then
-> it's better to review your stuff first.
+In article <20080131.052007.165146562.davem@davemloft.net> (at Thu, 31 Jan 2008 05:20:07 -0800 (PST)), David Miller <davem@davemloft.net> says:
 
-gimme some minutes
+> The networking devices are even per-namespace already,
+> so you can even say that each namespace is even
+> physically different.
 
-- Arnaldo
+Ah, okay, we are splitting "weak" domains...
+
+--yoshfuji
