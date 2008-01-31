@@ -1,52 +1,39 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH 2/6][INET]: Consolidate inet(6)_hash_connect.
-Date: Thu, 31 Jan 2008 16:18:51 +0300
-Message-ID: <47A1CABB.8050805@openvz.org>
-References: <47A1BFC9.2030603@openvz.org> <20080131130153.GP1819@ghostprotocols.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 6/6][NETNS]: Udp sockets per-net lookup.
+Date: Thu, 31 Jan 2008 05:20:07 -0800 (PST)
+Message-ID: <20080131.052007.165146562.davem@davemloft.net>
+References: <47A1C216.9000303@openvz.org>
+	<20080201.001138.95019632.yoshfuji@wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Arnaldo Carvalho de Melo <acme@redhat.com>
+Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
+To: yoshfuji@wide.ad.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33549 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1766003AbYAaNTN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2008 08:19:13 -0500
-In-Reply-To: <20080131130153.GP1819@ghostprotocols.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35276
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S933705AbYAaNTr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 08:19:47 -0500
+In-Reply-To: <20080201.001138.95019632.yoshfuji@wide.ad.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arnaldo Carvalho de Melo wrote:
-> Em Thu, Jan 31, 2008 at 03:32:09PM +0300, Pavel Emelyanov escreveu:
->> These two functions are the same except for what they call
->> to "check_established" and "hash" for a socket.
->>
->> This saves half-a-kilo for ipv4 and ipv6.
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@wide.ad.jp>
+Date: Fri, 01 Feb 2008 00:11:38 +1100 (EST)
+
+> In article <47A1C216.9000303@openvz.org> (at Thu, 31 Jan 2008 15:41:58 +0300), Pavel Emelyanov <xemul@openvz.org> says:
 > 
-> Good stuff!
+> > Add the net parameter to udp_get_port family of calls and 
+> > udp_lookup one and use it to filter sockets.
 > 
-> Yesterday I was perusing tcp_hash and I think we could have the hashinfo
-> pointer stored perhaps in sk->sk_prot.
-> 
-> That way we would be able to kill tcp_hash(), inet_put_port() could
-> receive just sk, etc.
+> I may miss something, but I'm afraid that I have to disagree.
+> Port is identified only by family, address, protocol and port,
+> and should not be split by name space.
 
-But each proto will still have its own hashfn, so proto's 
-callbacks will be called to hash/unhash sockets, so this will 
-give us just one extra dereference. No?
+It is like being on a totally different system.
 
-> What do you think?
+Without sockets in namespaces, there is no point.
 
-Hmmm... Even raw_hash, etc may become simpler. On the other hand
-maybe this is a good idea, but I'm not very common with this code
-yet to foresee such things in advance... I think that we should
-try to prepare a patch and look, but if you have smth ready, then
-it's better to review your stuff first.
-
-> - Arnaldo
-> 
-
-Thanks,
-Pavel
+The networking devices are even per-namespace already,
+so you can even say that each namespace is even
+physically different.
