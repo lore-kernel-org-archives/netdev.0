@@ -1,56 +1,68 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: Mostly revert "e1000/e1000e: Move PCI-Express device IDs over       to e1000e"
-Date: Thu, 31 Jan 2008 02:26:01 +0100
-Message-ID: <E1JKOBl-0007ne-EE@faramir.fjphome.nl>
-References: <200801292359.m0TNxb75011826@hera.kernel.org> <20080129212314.91b9bb5b.randy.dunlap@oracle.com> <alpine.LFD.1.00.0801301631400.3426@www.l.google.com> <20080130235836.GV29368@does.not.exist>
-Cc: akpm@linux-foundation.org, auke-jan.h.kok@intel.com,
-	davem@davemloft.net, jeff@garzik.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, randy.dunlap@oracle.com,
-	torvalds@linux-foundation.org
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hpsmtp-eml17.kpnxchange.com ([213.75.38.117]:3282 "EHLO
-	hpsmtp-eml17.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758902AbYAaB0E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 20:26:04 -0500
-In-reply-To: <20080130235836.GV29368@does.not.exist>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Dave Young" <hidave.darkstar@gmail.com>
+Subject: Re: [PATCH retry] bluetooth : add conn add/del
+	workqueues to avoid connection fail
+Date: Thu, 31 Jan 2008 09:29:05 +0800
+Message-ID: <a8e1da0801301729j5b3084e0nffb29a740870a793@mail.gmail.com>
+References: <20080130022354.GA3132@darkstar.te-china.tietoenator.com>
+	<20080129.211446.254604070.davem@davemloft.net>
+	<1201688462.6218.47.camel@violet>
+Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	bluez-devel@lists.sf.net, linux-kernel@vger.kernel.org
+To: "Marcel Holtmann" <marcel@holtmann.org>
+Return-path: <bluez-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1201688462.6218.47.camel@violet>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=bluez-devel>
+List-Post: <mailto:bluez-devel@lists.sourceforge.net>
+List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: bluez-devel-bounces@lists.sourceforge.net
+Errors-To: bluez-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
->> Jeff, Auke, would something like this be acceptable? It makes it very
->> obvious in the driver table which entries are for the PCIE versions that
->> would be handled by the E1000E driver if it is enabled..
-> 
-> I don't like it:
-> We should aim at having exactly one driver for one card.
+On Jan 30, 2008 6:21 PM, Marcel Holtmann <marcel@holtmann.org> wrote:
+> Hi Dave,
+>
+> > > The bluetooth hci_conn sysfs add/del executed in the default workqueue.
+> > > If the del_conn is executed after the new add_conn with same target,
+> > > add_conn will failed with warning of "same kobject name".
+> > >
+> > > Here add btaddconn & btdelconn workqueues,
+> > > flush the btdelconn workqueue in the add_conn function to avoid the issue.
+> > >
+> > > Signed-off-by: Dave Young <hidave.darkstar@gmail.com>
+> >
+> > This looks good, applied, thanks Dave.
+> >
+> > I've queued this up for 2.6.25 merging, if you want me to
+> > schedule it for -stable, just let me know.
+>
+> don't include it. I first have to stress test it on one of my machines.
+> Besides that I have to do some coding style cleanups.
 
-There is one thing I don't understand, but that may well be just me...
+Sorry, I thought you forgot it.
+Thanks.
 
->From Linus' original patch:
-> +++ b/drivers/net/e1000/e1000_main.c
-> +     INTEL_E1000_ETHERNET_DEVICE(0x108C),
+BTW, for the bus_id bug, If there's no urgent need I think we could do
+the fix after driver core bus_id changes of kay which will be there
+soon.
 
-So, apparently support for 8086:108c was removed from the e1000 driver.
+>
+> Regards
+>
+> Marcel
+>
+>
+>
 
->From my lspci:
-$ lspci -nn | grep Ether
-01:00.0 Ethernet controller [0200]: Intel Corporation 82573E Gigabit Ethernet Controller (Copper) [8086:108c] (rev 03)
-
-But when I look at where that card is sitting:
-$ readlink pci/devices/0000\:01\:00.0/driver
-../../../../bus/pci/drivers/e1000
-
-So, it's on the PCI bus, not on the PCI-Express bus (which I also have, but
-which has no devices on it).
-
-Or does the e1000e driver also support cards on the PCI bus?
-
-If that's the case then the original changelog entry "Move PCI-Express
-device IDs over to e1000e" is misleading as it's not only PCI-Express
-devices...
-
-Hmmm. Or does which driver is loaded decide on which bus the device ends up?
-
-Confused,
-FJP
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
