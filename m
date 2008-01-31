@@ -1,41 +1,54 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] Disable TSO for non standard qdiscs
-Date: Thu, 31 Jan 2008 11:39:55 -0800
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32904700F27@orsmsx414.amr.corp.intel.com>
-References: <20080131124632.GA25299@basil.nowhere.org> <20080131092327.75b9c369@extreme> <20080131183322.GA4671@one.firstfloor.org> <47A20CDC.5090104@trash.net> <20080131183735.GC4671@one.firstfloor.org> <20080131100846.00934e25@extreme> <20080131185328.GD4671@one.firstfloor.org> <47A211A0.1040502@trash.net> <20080131190125.GE4671@one.firstfloor.org> <D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com> <20080131193406.GH4671@one.firstfloor.org>
+From: Bruce Allen <ballen@gravity.phys.uwm.edu>
+Subject: Re: e1000 full-duplex TCP performance well below wire speed
+Date: Thu, 31 Jan 2008 13:48:37 -0600 (CST)
+Message-ID: <Pine.LNX.4.63.0801311340270.14403@trinity.phys.uwm.edu>
+References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu>
+ <36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com>
+ <Pine.LNX.4.63.0801301635470.19938@trinity.phys.uwm.edu>
+ <36D9DB17C6DE9E40B059440DB8D95F52044F8BA3@orsmsx418.amr.corp.intel.com>
+ <Pine.LNX.4.63.0801310213010.3240@trinity.phys.uwm.edu> <47A20E9E.7070503@intel.com>
+ <Pine.LNX.4.63.0801311251040.14403@trinity.phys.uwm.edu> <47A22241.70600@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Patrick McHardy" <kaber@trash.net>,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>,
-	<netdev@vger.kernel.org>
-To: "Andi Kleen" <andi@firstfloor.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>,
+	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
+	Bruce Allen <bruce.allen@aei.mpg.de>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:10449 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753241AbYAaTj7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 14:39:59 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20080131193406.GH4671@one.firstfloor.org>
+Received: from trinity.phys.uwm.edu ([129.89.57.159]:45344 "EHLO
+	trinity.phys.uwm.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753126AbYAaTsv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 14:48:51 -0500
+In-Reply-To: <47A22241.70600@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> The philosophical problem I have with this suggestion is that 
-> I expect that the large majority of users will be more happy 
-> with disabled TSO if they use non standard qdiscs and 
-> defaults that do not fit the majority use case are bad.
-> 
-> Basically you're suggesting that nearly everyone using tc 
-> should learn about another obscure command.
+Hi Auke,
 
-If someone is using tc to load and configure a qdisc, I'd really hope
-knowing or learning ethtool wouldn't be a stretch for them...  And I'm
-not arguing the majority of people will want this or not, but taking
-away the ability to use TSO at the kernel level here without allowing a
-tuneable is making that decision for them, which is wrong IMO.
+>> Based on the discussion in this thread, I am inclined to believe that
+>> lack of PCI-e bus bandwidth is NOT the issue.  The theory is that the
+>> extra packet handling associated with TCP acknowledgements are pushing
+>> the PCI-e x1 bus past its limits.  However the evidence seems to show
+>> otherwise:
+>>
+>> (1) Bill Fink has reported the same problem on a NIC with a 133 MHz
+>> 64-bit PCI connection.  That connection can transfer data at 8Gb/s.
+>
+> That was even a PCI-X connection, which is known to have extremely good latency
+> numbers, IIRC better than PCI-e? (?) which could account for a lot of the
+> latency-induced lower performance...
+>
+> also, 82573's are _not_ a serverpart and were not designed for this 
+> usage. 82546's are and that really does make a difference.
+
+I'm confused.  It DOESN'T make a difference! Using 'server grade' 82546's 
+on a PCI-X bus, Bill Fink reports the SAME loss of throughput with TCP 
+full duplex that we see on a 'consumer grade' 82573 attached to a PCI-e x1 
+bus.
+
+Just like us, when Bill goes from TCP to UDP, he gets wire speed back.
 
 Cheers,
-
--PJ Waskiewicz
-<peter.p.waskiewicz.jr@intel.com>
+ 	Bruce
