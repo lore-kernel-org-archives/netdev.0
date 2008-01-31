@@ -1,40 +1,61 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [git patches] net driver fixes
-Date: Thu, 31 Jan 2008 06:05:00 +0100
-Message-ID: <20080131050500.GA30989@uranus.ravnborg.org>
-References: <20080130094440.GA4652@havoc.gtf.org> <20080130102116.GA20846@uranus.ravnborg.org> <20080130224711.GA24133@electric-eye.fr.zoreil.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: ipcomp regression in 2.6.24
+Date: Thu, 31 Jan 2008 16:32:21 +1100
+Message-ID: <20080131053221.GA4739@gondor.apana.org.au>
+References: <E1JK3QD-0006hM-00@gondolin.me.apana.org.au> <BAY103-DAV204C57458B3E41DE1AA365B2360@phx.gbl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: davem@davemloft.net, Daniel.Beschorner@facton.com,
+	netdev@vger.kernel.org
+To: Marco Berizzi <pupilla@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpb.tele.dk ([80.160.77.98]:46621 "EHLO pasmtpB.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751562AbYAaFFB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2008 00:05:01 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:32927 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751186AbYAaFc3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 00:32:29 -0500
 Content-Disposition: inline
-In-Reply-To: <20080130224711.GA24133@electric-eye.fr.zoreil.com>
+In-Reply-To: <BAY103-DAV204C57458B3E41DE1AA365B2360@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 30, 2008 at 11:47:11PM +0100, Francois Romieu wrote:
-> Sam Ravnborg <sam@ravnborg.org> :
-> [...]
-> > > -static struct pci_device_id sis190_pci_tbl[] __devinitdata = {
-> > > +static struct pci_device_id sis190_pci_tbl[] = {
-> > >  	{ PCI_DEVICE(PCI_VENDOR_ID_SI, 0x0190), 0, 0, 0 },
-> > >  	{ PCI_DEVICE(PCI_VENDOR_ID_SI, 0x0191), 0, 0, 1 },
-> > >  	{ 0, },
-> > 
-> > The __devinitdata is OK, it is the following _devinitdata that had
-> > to be _devinitconst.
-> 
-> Strangely enough, removing the devinitdata from the sis190_pci_tbl
-> silents the error message here. Do you have an explanation ?
-gcc compalins if you add const and non-const data to the same section
-which is the case in this driver.
+On Wed, Jan 30, 2008 at 10:14:46AM +0100, Marco Berizzi wrote:
+>
+> Sorry for bother you again.
+> I have applied to 2.6.24, but ipcomp doesn't work anyway.
+> I have patched a clean 2.6.24 tree and I did a complete
+> rebuild.
+> With tcpdump I see both the esp packets going in/out but
+> I don't see the clear packets on the interface.
 
-The bug are exposed now where __devinitdata are no longer an empty define.
+After testing it here it looks like there is this little typo
+which means that you can't actually use IPComp for anything
+that's not compressible :)
 
-	Sam
+[IPCOMP]: Fix reception of incompressible packets
+
+I made a silly typo by entering IPPROTO_IP (== 0) instead of
+IPPROTO_IPIP (== 4).  This broke the reception of incompressible
+packets.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv4/xfrm4_tunnel.c b/net/ipv4/xfrm4_tunnel.c
+index 3268451..152f83d 100644
+--- a/net/ipv4/xfrm4_tunnel.c
++++ b/net/ipv4/xfrm4_tunnel.c
+@@ -50,7 +50,7 @@ static struct xfrm_type ipip_type = {
+ 
+ static int xfrm_tunnel_rcv(struct sk_buff *skb)
+ {
+-	return xfrm4_rcv_spi(skb, IPPROTO_IP, ip_hdr(skb)->saddr);
++	return xfrm4_rcv_spi(skb, IPPROTO_IPIP, ip_hdr(skb)->saddr);
+ }
+ 
+ static int xfrm_tunnel_err(struct sk_buff *skb, u32 info)
