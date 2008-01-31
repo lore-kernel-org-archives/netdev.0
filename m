@@ -1,36 +1,70 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 6/6] [TCP]: Reorganize struct tcp_sock to save 16 bytes
-	on 64-bit arch
-Date: Thu, 31 Jan 2008 18:33:40 -0200
-Message-ID: <20080131203340.GG11940@ghostprotocols.net>
-References: <1201804304-28777-1-git-send-email-acme@redhat.com> <1201804304-28777-2-git-send-email-acme@redhat.com> <1201804304-28777-3-git-send-email-acme@redhat.com> <1201804304-28777-4-git-send-email-acme@redhat.com> <1201804304-28777-5-git-send-email-acme@redhat.com> <1201804304-28777-6-git-send-email-acme@redhat.com> <1201804304-28777-7-git-send-email-acme@redhat.com> <47A22841.6090508@cosmosbay.com> <20080131201720.GE11940@ghostprotocols.net>
+From: Chuck Ebbert <cebbert@redhat.com>
+Subject: Null pointer dereference in bonding driver, kernel 2.6.24
+Date: Thu, 31 Jan 2008 17:36:21 -0500
+Message-ID: <47A24D65.2000001@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Eric Dumazet <dada1@cosmosbay.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	dccp@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:49525 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:44773 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760490AbYAaUeL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2008 15:34:11 -0500
-Content-Disposition: inline
-In-Reply-To: <20080131201720.GE11940@ghostprotocols.net>
+	id S1762677AbYAaWpY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 17:45:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Thu, Jan 31, 2008 at 06:17:20PM -0200, Arnaldo Carvalho de Melo escreveu:
-> Em Thu, Jan 31, 2008 at 08:57:53PM +0100, Eric Dumazet escreveu:
-> > Hum... retrans_out should sit close to packets_out (or lost_out/sacked_out 
-> > ???), please.
-> >
-> > 'struct tcp_sock' is very large on 64 bits, so I would prefer to make sure 
-> > most paths dont need to touch all 24 cache lines (or 25 cache lines).
-> 
-> That is perfectly fine, I'll replace my patch with another, that states
-> this beyond doubt.
+In bond_main.c:
 
-David, I just removed this patch from my net-2.6 tree, if you are ok
-with the others, please pull.
+int bond_create(char *name, struct bond_params *params, struct bonding **newbond)
+{
+...
+        /* Check to see if the bond already exists. */
+        list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list)
+                if (strnicmp(bond->dev->name, name, IFNAMSIZ) == 0) {
+                        printk(KERN_ERR DRV_NAME
+                               ": cannot add bond %s; it already exists\n",
 
-- Arnaldo
+
+If 'name' is null we get a null dereference in strnicmp()
+
+The code was added in 2.6.24.
+
+Signed-off-by: Chuck Ebbert <cebbert@redhat.com>
+
+---
+(not even compile tested)
+
+ drivers/net/bonding/bond_main.c |   20 +++++++++++---------
+ 1 file changed, 11 insertions(+), 9 deletions(-)
+
+--- linux-2.6.24.noarch.orig/drivers/net/bonding/bond_main.c
++++ linux-2.6.24.noarch/drivers/net/bonding/bond_main.c
+@@ -4882,15 +4882,17 @@ int bond_create(char *name, struct bond_
+ 	rtnl_lock();
+ 	down_write(&bonding_rwsem);
+ 
+-	/* Check to see if the bond already exists. */
+-	list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list)
+-		if (strnicmp(bond->dev->name, name, IFNAMSIZ) == 0) {
+-			printk(KERN_ERR DRV_NAME
+-			       ": cannot add bond %s; it already exists\n",
+-			       name);
+-			res = -EPERM;
+-			goto out_rtnl;
+-		}
++	if (name) {
++		/* Check to see if the bond already exists. */
++		list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list)
++			if (strnicmp(bond->dev->name, name, IFNAMSIZ) == 0) {
++				printk(KERN_ERR DRV_NAME
++				       ": cannot add bond %s; it already exists\n",
++				       name);
++				res = -EPERM;
++				goto out_rtnl;
++			}
++	}
+ 
+ 	bond_dev = alloc_netdev(sizeof(struct bonding), name ? name : "",
+ 				ether_setup);
