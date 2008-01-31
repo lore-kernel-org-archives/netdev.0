@@ -1,18 +1,18 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
-Subject: [PATCH] Add addrlabel subsystem.
-Date: Fri, 01 Feb 2008 06:56:10 +1100 (EST)
-Message-ID: <20080201.065610.16428092.yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPROUTE2: Add addrlabel subsystem.
+Date: Fri, 01 Feb 2008 06:57:54 +1100 (EST)
+Message-ID: <20080201.065754.116071721.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
 To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:39734 "EHLO
+Received: from yue.linux-ipv6.org ([203.178.140.15]:39739 "EHLO
 	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751316AbYAaTzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 14:55:43 -0500
+	with ESMTP id S1753046AbYAaT5Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 14:57:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
