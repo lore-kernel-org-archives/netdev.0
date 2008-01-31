@@ -1,40 +1,36 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: hard hang through qdisc
-Date: Thu, 31 Jan 2008 19:55:16 +0100
-Message-ID: <20080131185516.GI25989@bingen.suse.de>
-References: <200801311321.01015.ak@suse.de> <47A1CD4E.7050701@trash.net> <47A1D4F2.6080904@trash.net> <200801311604.28110.ak@suse.de> <47A1E556.3050900@trash.net> <47A2176A.7080606@trash.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] Disable TSO for non standard qdiscs
+Date: Thu, 31 Jan 2008 20:34:06 +0100
+Message-ID: <20080131193406.GH4671@one.firstfloor.org>
+References: <20080131124632.GA25299@basil.nowhere.org> <20080131092327.75b9c369@extreme> <20080131183322.GA4671@one.firstfloor.org> <47A20CDC.5090104@trash.net> <20080131183735.GC4671@one.firstfloor.org> <20080131100846.00934e25@extreme> <20080131185328.GD4671@one.firstfloor.org> <47A211A0.1040502@trash.net> <20080131190125.GE4671@one.firstfloor.org> <D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@suse.de>, hadi@cyberus.ca, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:38126 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757021AbYAaSzU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2008 13:55:20 -0500
+Received: from one.firstfloor.org ([213.235.205.2]:40854 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752897AbYAaS7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 13:59:40 -0500
 Content-Disposition: inline
-In-Reply-To: <47A2176A.7080606@trash.net>
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 31, 2008 at 07:46:02PM +0100, Patrick McHardy wrote:
-> Patrick McHardy wrote:
->> Andi Kleen wrote:
->>
->>> Can you please try with the above config?
->> I'll give it a try later.
->
->
-> I took all options from that config that seemed possibly
-> related (qdiscs, no hrtimers, no nohz, slab, ...), but
-> still can't reproduce it.
+> TSO by nature is bursty.  But disabling TSO without the option of having
+> it on or off to me seems to aggressive.  If someone is using a qdisc
+> that TSO is interfering with the effectiveness of the traffic shaping,
+> then they should turn off TSO via ethtool on the target device.  Some
 
-Ok I'll do bisect then later (not today anymore likely) 
+The philosophical problem I have with this suggestion is that I expect
+that the large majority of users will be more happy with disabled TSO
+if they use non standard qdiscs and defaults that do not fit 
+the majority use case are bad.
 
-> Does it also crash if you use more reasonable parameters?
-
-I managed to make it crash with different parameters too,
-but with good parameters it did set a qdisc successfully
-and appeared to work.
+Basically you're suggesting that nearly everyone using tc should learn about
+another obscure command.
 
 -Andi
