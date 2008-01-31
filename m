@@ -1,44 +1,52 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: hard hang through qdisc
-Date: Thu, 31 Jan 2008 16:04:27 +0100
-Message-ID: <200801311604.28110.ak@suse.de>
-References: <200801311321.01015.ak@suse.de> <47A1CD4E.7050701@trash.net> <47A1D4F2.6080904@trash.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][NETFILTER]: Ipv6-related xt_hashlimit compilation fix.
+Date: Thu, 31 Jan 2008 18:11:37 +0300
+Message-ID: <47A1E529.2030500@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:52455 "EHLO mx1.suse.de"
+Received: from sacred.ru ([62.205.161.221]:53314 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757504AbYAaPFt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2008 10:05:49 -0500
-In-Reply-To: <47A1D4F2.6080904@trash.net>
-Content-Disposition: inline
+	id S1751786AbYAaPLb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 10:11:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The hashlimit_ipv6_mask() is called from under IP6_NF_IPTABLES
+config option, but is not under it by itself.
 
-> Works for me:
->
-> qdisc tbf 8001: root rate 1000bit burst 10b/8 mpu 0b lat 720.0ms
->   Sent 0 bytes 0 pkt (dropped 9, overlimits 0 requeues 0)
->   rate 0bit 0pps backlog 0b 0p requeues 0
->
-> Packets are dropped as expected.
+gcc warns us about it :) :
+net/netfilter/xt_hashlimit.c:473: warning: =91hashlimit_ipv6_mask=92 de=
+fined but not used
 
-I can still reproduce it on 64bit with http://halobates.de/config-qdisc
-(all qdiscs etc. compiled in for testing) 
-with latest git tip (8af03e782cae1e0a0f530ddd22301cdd12cf9dc0)
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-The command line above causes an instant hang. Also tried it with
-newer iproute2 (the original one was quite old), but it didn't make
-a difference.
+---
 
-Perhaps it's related to what qdiscs are enabled? Can you please
-try with the above config?
-
-If everything fails I can do a bisect later.
-
--Andi
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.=
+c
+index 54aaf5b..744c7f2 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -469,6 +469,7 @@ static inline __be32 maskl(__be32 a, unsigned int l=
+)
+ 	return htonl(ntohl(a) & ~(~(u_int32_t)0 >> l));
+ }
+=20
++#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_=
+MODULE)
+ static void hashlimit_ipv6_mask(__be32 *i, unsigned int p)
+ {
+ 	switch (p) {
+@@ -503,6 +504,7 @@ static void hashlimit_ipv6_mask(__be32 *i, unsigned=
+ int p)
+ 		break;
+ 	}
+ }
++#endif
+=20
+ static int
+ hashlimit_init_dst(const struct xt_hashlimit_htable *hinfo,
