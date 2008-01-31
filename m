@@ -1,49 +1,59 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Null pointer dereference in bonding driver, kernel 2.6.24
-Date: Thu, 31 Jan 2008 14:55:29 -0800
-Message-ID: <3489.1201820129@death>
-References: <47A24D65.2000001@redhat.com>
-Cc: Netdev <netdev@vger.kernel.org>
-To: Chuck Ebbert <cebbert@redhat.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH] e1000e: tweak irq allocation messages
+Date: Thu, 31 Jan 2008 17:56:39 -0500
+Message-ID: <20080131225639.GB856@gospo.usersys.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: auke-jan.h.kok@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:59029 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751762AbYAaWzp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 17:55:45 -0500
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m0VMteMv016995
-	for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 17:55:40 -0500
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0VMtdlC201614
-	for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 15:55:39 -0700
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0VMtd4C002786
-	for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 15:55:39 -0700
-In-reply-to: <47A24D65.2000001@redhat.com> 
+Received: from mx1.redhat.com ([66.187.233.31]:36065 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762341AbYAaW4l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 17:56:41 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chuck Ebbert <cebbert@redhat.com> wrote:
 
->In bond_main.c:
->
->int bond_create(char *name, struct bond_params *params, struct bonding **newbond)
->{
->...
->        /* Check to see if the bond already exists. */
->        list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list)
->                if (strnicmp(bond->dev->name, name, IFNAMSIZ) == 0) {
->                        printk(KERN_ERR DRV_NAME
->                               ": cannot add bond %s; it already exists\n",
->
->
->If 'name' is null we get a null dereference in strnicmp()
->
->The code was added in 2.6.24.
+There's too much noise on systems that don't support MSI.  Let's get rid
+of the unneeded message and make the real error message more specific.
 
-	This is already fixed in netdev-2.6#upstream.
-
-	-J
-
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+ netdev.c |   12 +++++-------
+ 1 files changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 0a2cb79..0c8cd1c 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -945,11 +945,7 @@ static int e1000_request_irq(struct e1000_adapter *adapter)
+ 	int irq_flags = IRQF_SHARED;
+ 	int err;
+ 
+-	err = pci_enable_msi(adapter->pdev);
+-	if (err) {
+-		ndev_warn(netdev,
+-		 "Unable to allocate MSI interrupt Error: %d\n", err);
+-	} else {
++	if (!pci_enable_msi(adapter->pdev)) {
+ 		adapter->flags |= FLAG_MSI_ENABLED;
+ 		handler = e1000_intr_msi;
+ 		irq_flags = 0;
+@@ -958,10 +954,12 @@ static int e1000_request_irq(struct e1000_adapter *adapter)
+ 	err = request_irq(adapter->pdev->irq, handler, irq_flags, netdev->name,
+ 			  netdev);
+ 	if (err) {
++		ndev_err(netdev,
++		       "Unable to allocate %s interrupt (return: %d)\n",
++			adapter->flags & FLAG_MSI_ENABLED ? "MSI":"INTx"
++			err);
+ 		if (adapter->flags & FLAG_MSI_ENABLED)
+ 			pci_disable_msi(adapter->pdev);
+-		ndev_err(netdev,
+-		       "Unable to allocate interrupt Error: %d\n", err);
+ 	}
+ 
+ 	return err;
