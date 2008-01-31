@@ -1,18 +1,35 @@
-From: <hamilton@carte.ca>
-Subject: When Love Comes Knocking
-Date: Thu, 31 Jan 2008 00:44:53 -0800
-Message-ID: <47A18A85.6050306@stnr.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: Re: ipcomp regression in 2.6.24
+Date: Thu, 31 Jan 2008 09:37:10 +0100
+Message-ID: <BAY103-DAV2CB7B0E5F92A3679E7621B2370@phx.gbl>
+References: <E1JK3QD-0006hM-00@gondolin.me.apana.org.au> <BAY103-DAV204C57458B3E41DE1AA365B2360@phx.gbl> <20080131053221.GA4739@gondor.apana.org.au>
+Cc: <davem@davemloft.net>, <Daniel.Beschorner@facton.com>,
+	<netdev@vger.kernel.org>
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from adsl-71-140-5-29.dsl.scrm01.pacbell.net ([71.140.5.29]:4176
-	"HELO adsl-71-140-5-29.dsl.scrm01.pacbell.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751718AbYAaIcV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 03:32:21 -0500
+Received: from bay0-omc1-s10.bay0.hotmail.com ([65.54.246.82]:54350 "EHLO
+	bay0-omc1-s10.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754624AbYAaIhl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 03:37:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Our Journey http://69.228.44.95/
+Herbert Xu wrote:
+
+> On Wed, Jan 30, 2008 at 10:14:46AM +0100, Marco Berizzi wrote:
+> >
+> > Sorry for bother you again.
+> > I have applied to 2.6.24, but ipcomp doesn't work anyway.
+> > I have patched a clean 2.6.24 tree and I did a complete
+> > rebuild.
+> > With tcpdump I see both the esp packets going in/out but
+> > I don't see the clear packets on the interface.
+>
+> After testing it here it looks like there is this little typo
+> which means that you can't actually use IPComp for anything
+> that's not compressible :)
+
+applied and tested to 2.6.24: ipcomp is working now.
+As always, thanks a lot Herbert for fixing this.
+
 
