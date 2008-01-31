@@ -1,44 +1,55 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: running aggregate netperf TCP_RR Re: e1000 full-duplex TCP performance
- well below wire speed
-Date: Thu, 31 Jan 2008 10:11:48 -0800
-Message-ID: <47A20F64.5030609@hp.com>
-References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu>	<36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com>	<Pine.LNX.4.63.0801301635470.19938@trinity.phys.uwm.edu>	<36D9DB17C6DE9E40B059440DB8D95F52044F8BA3@orsmsx418.amr.corp.intel.com>	<47A1E553.8010006@aei.mpg.de>	<36D9DB17C6DE9E40B059440DB8D95F52044F8EC9@orsmsx418.amr.corp.intel.com> <47A204E5.7060406@aei.mpg.de>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: e1000 full-duplex TCP performance well below wire speed
+Date: Thu, 31 Jan 2008 10:15:54 -0800
+Message-ID: <47A2105A.9010605@intel.com>
+References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu>	<36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com>	<Pine.LNX.4.63.0801301635470.19938@trinity.phys.uwm.edu> <p738x265p7p.fsf@bingen.suse.de> <47A1F2D5.5070709@aei.mpg.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+Cc: Andi Kleen <andi@firstfloor.org>,
 	Bruce Allen <ballen@gravity.phys.uwm.edu>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org,
 	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
 	Bruce Allen <bruce.allen@aei.mpg.de>
 To: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:28398 "EHLO
-	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761574AbYAaSLv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 13:11:51 -0500
-In-Reply-To: <47A204E5.7060406@aei.mpg.de>
+Received: from mga02.intel.com ([134.134.136.20]:24554 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753132AbYAaSRk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 13:17:40 -0500
+In-Reply-To: <47A1F2D5.5070709@aei.mpg.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> PS: Am I right that the TCP_RR tests should only be run on a single node 
-> at a time, not on both ends simultaneously?
+Carsten Aulbert wrote:
+> Hi Andi,
+> 
+> Andi Kleen wrote:
+>> Another issue with full duplex TCP not mentioned yet is that if TSO is
+>> used the output  will be somewhat bursty and might cause problems with
+>> the TCP ACK clock of the other direction because the ACKs would need
+>> to squeeze in between full TSO bursts.
+>>
+>> You could try disabling TSO with ethtool.
+> 
+> I just tried that:
+> 
+> https://n0.aei.uni-hannover.de/wiki/index.php/NetworkTestNetperf3
+> 
+> It seems that the numbers do get better (sweet-spot seems to be MTU6000
+> with 914 MBit/s and 927 MBit/s), however for other settings the results
+> vary a lot so I'm not sure how large the statistical fluctuations are.
+> 
+> Next test I'll try if it makes sense to enlarge the ring buffers.
 
-It depends on what you want to measure.  In this specific case since the 
-goal is to saturate the link in both directions it is unlikely you 
-should need a second instance running, and if you do, going to a 
-TCP_STREAM+TCP_MAERTS pair might be indicated.
+sometimes it may help if the system (cpu) is laggy or busy a lot so that the card
+has more buffers available (and thus can go longer without servicing)
 
-If one is measuring aggregate small transaction (perhaps packet) 
-performance, then there can be times when running multiple, concurrent, 
-aggregate TCP_RR tests is indicated.
+Usually (if your system responds quickly) it's better to use *smaller* ring sizes
+as this reduces cache. Hence the small default value.
 
-Also, from time to time you may want to experiment with the value you 
-use with -b - the value necessary to get to saturation may not always be 
-the same - particularly as you switch from link to link and from LAN to 
-WAN and all those familiar bandwidthXdelay considerations.
+so, unless the ethtool -S ethX output indicates that your system is too busy
+(rx_no_buffer_count increases) I would not recommend increasing the ring size.
 
-happy benchmarking,
-
-rick jones
+Auke
