@@ -1,40 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/6][INET]: Consolidate inet(6)_hash_connect.
-Date: Thu, 31 Jan 2008 05:15:07 -0800 (PST)
-Message-ID: <20080131.051507.126025471.davem@davemloft.net>
-References: <47A1BFC9.2030603@openvz.org>
-	<20080131130153.GP1819@ghostprotocols.net>
+From: =?ISO-8859-1?Q?Siim_P=F5der?= <siim@p6drad-teel.net>
+Subject: Re: Null pointer dereference when bringing up bonding device on kernel-2.6.24-2.fc9.i686
+Date: Thu, 31 Jan 2008 14:51:40 +0200
+Message-ID: <47A1C45C.5080906@p6drad-teel.net>
+References: <m3bq75en2y.fsf@ursa.amorsen.dk> <7908.1201551451@death>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
-To: acme@redhat.com
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34629
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933225AbYAaNOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 08:14:46 -0500
-In-Reply-To: <20080131130153.GP1819@ghostprotocols.net>
+Received: from mail.skype.net ([193.88.6.4]:39759 "EHLO mail.skype.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1764205AbYAaNS2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 08:18:28 -0500
+In-Reply-To: <7908.1201551451@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date: Thu, 31 Jan 2008 11:01:53 -0200
+Yo!
 
-> Em Thu, Jan 31, 2008 at 03:32:09PM +0300, Pavel Emelyanov escreveu:
-> > These two functions are the same except for what they call
-> > to "check_established" and "hash" for a socket.
-> > 
-> > This saves half-a-kilo for ipv4 and ipv6.
+Jay Vosburgh wrote:
+> Benny Amorsen <benny+usenet@amorsen.dk> wrote:
 > 
-> Good stuff!
+>> https://bugzilla.redhat.com/show_bug.cgi?id=430391
 > 
-> Yesterday I was perusing tcp_hash and I think we could have the hashinfo
-> pointer stored perhaps in sk->sk_prot.
-> 
-> That way we would be able to kill tcp_hash(), inet_put_port() could
-> receive just sk, etc.
-> 
-> What do you think?
+> 	I know what this is, I'll fix it.
 
-Sounds good to me.
+do you know when this happend, so we would know which kernel is ok to
+use (not to start trying blindly)?
+
+Siim
