@@ -1,25 +1,30 @@
-From: "Denis V. Lunev" <den@sw.ru>
-Subject: [PATCH 0/6] preparations to enable netdevice notifiers inside a namespace
- (resend)
-Date: Thu, 31 Jan 2008 14:59:49 +0300
-Message-ID: <47A1B835.7050600@sw.ru>
+From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
+Subject: Re: ipcomp regression in 2.6.24
+Date: Thu, 31 Jan 2008 13:00:22 +0100
+Message-ID: <3C59DB883F7B0B4D8096010D45ACCD134F209B@exch.facton.local>
+References: <E1JK3QD-0006hM-00@gondolin.me.apana.org.au> <BAY103-DAV204C57458B3E41DE1AA365B2360@phx.gbl> <20080131053221.GA4739@gondor.apana.org.au> <BAY103-DAV2CB7B0E5F92A3679E7621B2370@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, devel@openvz.org,
-	Linux Containers <containers@lists.osdl.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "Marco Berizzi" <pupilla@hotmail.com>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:52953 "EHLO iris.sw.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752527AbYAaL7t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2008 06:59:49 -0500
+Received: from alpha.facton.com ([83.236.152.122]:49140 "EHLO alpha.facton.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752527AbYAaMAi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 07:00:38 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <BAY103-DAV2CB7B0E5F92A3679E7621B2370@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here are some preparations and cleanups to enable network device/inet
-address notifiers inside a namespace.
+> applied and tested to 2.6.24: ipcomp is working now.
+> As always, thanks a lot Herbert for fixing this.
 
-This set of patches has been originally sent last Friday. One cleanup
-patch from the original series is dropped as wrong, thanks to Daniel
-Lezcano.
+Thank you too, I applied the 2 patches and it works.
+
+Daniel
+
+
