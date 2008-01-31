@@ -1,45 +1,41 @@
-From: Bruce Allen <ballen@gravity.phys.uwm.edu>
-Subject: Re: e1000 full-duplex TCP performance well below wire speed
-Date: Thu, 31 Jan 2008 13:37:32 -0600 (CST)
-Message-ID: <Pine.LNX.4.63.0801311328030.14403@trinity.phys.uwm.edu>
-References: <Pine.LNX.4.63.0801300324000.6391@trinity.phys.uwm.edu>
- <20080130.055333.192844925.davem@davemloft.net>
- <Pine.LNX.4.63.0801300758020.11487@trinity.phys.uwm.edu>
- <20080130082136.1017631d@deepthought> <Pine.LNX.4.63.0801301610240.19938@trinity.phys.uwm.edu>
- <649aecc70801301617m6331bcb8i8ce60366e182c739@mail.gmail.com>
- <20080131064533.ef0ae932.billfink@mindspring.com>
- <Pine.LNX.4.63.0801310951060.10967@trinity.phys.uwm.edu>
- <20080131123627.599be68f.billfink@mindspring.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH] Disable TSO for non standard qdiscs
+Date: Thu, 31 Jan 2008 11:39:55 -0800
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32904700F27@orsmsx414.amr.corp.intel.com>
+References: <20080131124632.GA25299@basil.nowhere.org> <20080131092327.75b9c369@extreme> <20080131183322.GA4671@one.firstfloor.org> <47A20CDC.5090104@trash.net> <20080131183735.GC4671@one.firstfloor.org> <20080131100846.00934e25@extreme> <20080131185328.GD4671@one.firstfloor.org> <47A211A0.1040502@trash.net> <20080131190125.GE4671@one.firstfloor.org> <D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com> <20080131193406.GH4671@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: SANGTAE HA <sangtae.ha@gmail.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Bill Fink <billfink@mindspring.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Patrick McHardy" <kaber@trash.net>,
+	"Stephen Hemminger" <shemminger@linux-foundation.org>,
+	<netdev@vger.kernel.org>
+To: "Andi Kleen" <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from trinity.phys.uwm.edu ([129.89.57.159]:37305 "EHLO
-	trinity.phys.uwm.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760038AbYAaThi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 14:37:38 -0500
-In-Reply-To: <20080131123627.599be68f.billfink@mindspring.com>
+Received: from mga02.intel.com ([134.134.136.20]:10449 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753241AbYAaTj7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 14:39:59 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20080131193406.GH4671@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Bill,
+> The philosophical problem I have with this suggestion is that 
+> I expect that the large majority of users will be more happy 
+> with disabled TSO if they use non standard qdiscs and 
+> defaults that do not fit the majority use case are bad.
+> 
+> Basically you're suggesting that nearly everyone using tc 
+> should learn about another obscure command.
 
->>> I see similar results on my test systems
->>
->> Thanks for this report and for confirming our observations.  Could you
->> please confirm that a single-port bidrectional UDP link runs at wire
->> speed?  This helps to localize the problem to the TCP stack or interaction
->> of the TCP stack with the e1000 driver and hardware.
->
-> Yes, a single-port bidirectional UDP test gets full GigE line rate
-> in both directions with no packet loss.
-
-Thanks for confirming this.  And thanks also for nuttcp!  I just 
-recognized you as the author.
+If someone is using tc to load and configure a qdisc, I'd really hope
+knowing or learning ethtool wouldn't be a stretch for them...  And I'm
+not arguing the majority of people will want this or not, but taking
+away the ability to use TSO at the kernel level here without allowing a
+tuneable is making that decision for them, which is wrong IMO.
 
 Cheers,
- 	Bruce
+
+-PJ Waskiewicz
+<peter.p.waskiewicz.jr@intel.com>
