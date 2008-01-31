@@ -1,55 +1,29 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: e1000 full-duplex TCP performance well below wire speed
-Date: Thu, 31 Jan 2008 10:15:54 -0800
-Message-ID: <47A2105A.9010605@intel.com>
-References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu>	<36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com>	<Pine.LNX.4.63.0801301635470.19938@trinity.phys.uwm.edu> <p738x265p7p.fsf@bingen.suse.de> <47A1F2D5.5070709@aei.mpg.de>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] Disable TSO for non standard qdiscs
+Date: Thu, 31 Jan 2008 19:53:28 +0100
+Message-ID: <20080131185328.GD4671@one.firstfloor.org>
+References: <20080131124632.GA25299@basil.nowhere.org> <20080131092327.75b9c369@extreme> <20080131183322.GA4671@one.firstfloor.org> <47A20CDC.5090104@trash.net> <20080131183735.GC4671@one.firstfloor.org> <20080131100846.00934e25@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Andi Kleen <andi@firstfloor.org>,
-	Bruce Allen <ballen@gravity.phys.uwm.edu>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org,
-	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
-	Bruce Allen <bruce.allen@aei.mpg.de>
-To: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:24554 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753132AbYAaSRk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2008 13:17:40 -0500
-In-Reply-To: <47A1F2D5.5070709@aei.mpg.de>
+Received: from one.firstfloor.org ([213.235.205.2]:49695 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934251AbYAaSTC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 13:19:02 -0500
+Content-Disposition: inline
+In-Reply-To: <20080131100846.00934e25@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Carsten Aulbert wrote:
-> Hi Andi,
-> 
-> Andi Kleen wrote:
->> Another issue with full duplex TCP not mentioned yet is that if TSO is
->> used the output  will be somewhat bursty and might cause problems with
->> the TCP ACK clock of the other direction because the ACKs would need
->> to squeeze in between full TSO bursts.
->>
->> You could try disabling TSO with ethtool.
-> 
-> I just tried that:
-> 
-> https://n0.aei.uni-hannover.de/wiki/index.php/NetworkTestNetperf3
-> 
-> It seems that the numbers do get better (sweet-spot seems to be MTU6000
-> with 914 MBit/s and 927 MBit/s), however for other settings the results
-> vary a lot so I'm not sure how large the statistical fluctuations are.
-> 
-> Next test I'll try if it makes sense to enlarge the ring buffers.
+> Then change TBF to use skb_gso_segment?  Be careful, the fact that
 
-sometimes it may help if the system (cpu) is laggy or busy a lot so that the card
-has more buffers available (and thus can go longer without servicing)
+That doesn't help because it wants to interleave packets
+from different streams to get everything fair and smooth. The only 
+good way to handle that is to split it up and the simplest way to do 
+this is to just tell TCP to not do GSO in the first place.
 
-Usually (if your system responds quickly) it's better to use *smaller* ring sizes
-as this reduces cache. Hence the small default value.
+-Andi
 
-so, unless the ethtool -S ethX output indicates that your system is too busy
-(rx_no_buffer_count increases) I would not recommend increasing the ring size.
-
-Auke
