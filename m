@@ -1,73 +1,62 @@
-From: Haavard Skinnemoen <hskinnemoen@atmel.com>
-Subject: [PATCH] macb: Fix section mismatch and shrink runtime footprint
-Date: Thu, 31 Jan 2008 13:10:22 +0100
-Message-ID: <1201781422-30181-1-git-send-email-hskinnemoen@atmel.com>
-Cc: netdev@vger.kernel.org, David Brownell <david-b@pacbell.net>,
-	Haavard Skinnemoen <hskinnemoen@atmel.com>
-To: Jeff Garzik <jeff@garzik.org>
+From: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+Subject: Re: e1000 full-duplex TCP performance well below wire speed
+Date: Thu, 31 Jan 2008 12:35:48 +0100
+Message-ID: <47A1B294.8080609@aei.mpg.de>
+References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu> <36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com> <47A0C5B2.1000500@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Bruce Allen <ballen@gravity.phys.uwm.edu>,
+	netdev@vger.kernel.org,
+	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
+	Bruce Allen <bruce.allen@aei.mpg.de>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat-132.atmel.no ([80.232.32.132]:65284 "EHLO relay.atmel.no"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932376AbYAaMKs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2008 07:10:48 -0500
+Received: from welcomes-you.com ([85.214.50.128]:53133 "EHLO welcomes-you.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1765563AbYAaMNA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 07:13:00 -0500
+In-Reply-To: <47A0C5B2.1000500@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-macb devices are only found integrated on SoCs, so they can't be
-hotplugged. Thus, the probe() and exit() functions can be __init and
-__exit, respectively. By using platform_driver_probe() instead of
-platform_driver_register(), there won't be any references to the
-discarded probe() function after the driver has loaded.
+Good morning (my TZ),
 
-This also fixes a section mismatch due to macb_probe(), defined as
-__devinit, calling macb_get_hwaddr, defined as __init.
+I'll try to answer all questions, hoewver if I miss something big, 
+please point my nose to it again.
 
-Signed-off-by: Haavard Skinnemoen <hskinnemoen@atmel.com>
----
- drivers/net/macb.c |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
+Rick Jones wrote:
+>> As asked in LKML thread, please post the exact netperf command used to
+>> start the client/server, whether or not you're using irqbalanced (aka
+>> irqbalance) and what cat /proc/interrupts looks like (you ARE using MSI,
+>> right?)
+> 
+netperf was used without any special tuning parameters. Usually we start 
+two processes on two hosts which start (almost) simultaneously, last for 
+20-60 seconds and simply use UDP_STREAM (works well) and TCP_STREAM, i.e.
 
-diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index e10528e..81bf005 100644
---- a/drivers/net/macb.c
-+++ b/drivers/net/macb.c
-@@ -1084,7 +1084,7 @@ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	return phy_mii_ioctl(phydev, if_mii(rq), cmd);
- }
- 
--static int __devinit macb_probe(struct platform_device *pdev)
-+static int __init macb_probe(struct platform_device *pdev)
- {
- 	struct eth_platform_data *pdata;
- 	struct resource *regs;
-@@ -1248,7 +1248,7 @@ err_out:
- 	return err;
- }
- 
--static int __devexit macb_remove(struct platform_device *pdev)
-+static int __exit macb_remove(struct platform_device *pdev)
- {
- 	struct net_device *dev;
- 	struct macb *bp;
-@@ -1276,8 +1276,7 @@ static int __devexit macb_remove(struct platform_device *pdev)
- }
- 
- static struct platform_driver macb_driver = {
--	.probe		= macb_probe,
--	.remove		= __devexit_p(macb_remove),
-+	.remove		= __exit_p(macb_remove),
- 	.driver		= {
- 		.name		= "macb",
- 	},
-@@ -1285,7 +1284,7 @@ static struct platform_driver macb_driver = {
- 
- static int __init macb_init(void)
- {
--	return platform_driver_register(&macb_driver);
-+	return platform_driver_probe(&macb_driver, macb_probe);
- }
- 
- static void __exit macb_exit(void)
--- 
-1.5.3.8
+on 192.168.0.202: netperf -H 192.168.2.203 -t TCP_STREAL -l 20
+on 192.168.0.203: netperf -H 192.168.2.202 -t TCP_STREAL -l 20
 
+192.168.0.20[23] here is on eth0 which cannot do jumbo frames, thus we 
+use the .2. part for eth1 for a range of mtus.
+
+The server is started on both nodes with the start-stop-daemon and no 
+special parameters I'm aware of.
+
+/proc/interrupts shows me PCI_MSI-edge thus, I think YES.
+
+> In particular, it would be good to know if you are doing two concurrent 
+> streams, or if you are using the "burst mode" TCP_RR with large 
+> request/response sizes method which then is only using one connection.
+> 
+
+As outlined above: Two concurrent streams right now. If you think TCP_RR 
+should be better I'm happy to rerun some tests.
+
+More in other emails.
+
+I'll wade through them slowly.
+
+Carsten
