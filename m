@@ -1,82 +1,93 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 2/3] [RAW]: Cleanup IPv4 raw_seq_show.
-Date: Thu, 31 Jan 2008 14:34:53 +0300
-Message-ID: <1201779294-21987-2-git-send-email-den@openvz.org>
+Subject: [PATCH 3/3] [RAW]: Wrong content of the /proc/net/raw6.
+Date: Thu, 31 Jan 2008 14:34:54 +0300
+Message-ID: <1201779294-21987-3-git-send-email-den@openvz.org>
 References: <47A1B1E4.2010804@sw.ru>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	devel@openvz.org, xemul@openvz.org, bunk@kernel.org,
 	"Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:59413 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:51975 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757659AbYAaLev (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756448AbYAaLev (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 31 Jan 2008 06:34:51 -0500
 In-Reply-To: <47A1B1E4.2010804@sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no need to use 128 bytes on the stack at all. Clean the code in
-the IPv6 style.
+The address of IPv6 raw sockets was shown in the wrong format, from IPv4 ones.
+The problem has been introduced by the
+commit 42a73808ed4f30b739eb52bcbb33a02fe62ceef5
+Author: Pavel Emelyanov <xemul@openvz.org>
+Date:   Mon Nov 19 22:38:33 2007 -0800
+
+Thanks to Adrian Bunk who originally noticed the problem.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- net/ipv4/raw.c |   24 +++++++-----------------
- 1 files changed, 7 insertions(+), 17 deletions(-)
+ include/net/raw.h |    3 ++-
+ net/ipv4/raw.c    |    8 ++++----
+ net/ipv6/raw.c    |    2 +-
+ 3 files changed, 7 insertions(+), 6 deletions(-)
 
+diff --git a/include/net/raw.h b/include/net/raw.h
+index c7ea7a2..1828f81 100644
+--- a/include/net/raw.h
++++ b/include/net/raw.h
+@@ -48,7 +48,8 @@ struct raw_iter_state {
+ void *raw_seq_start(struct seq_file *seq, loff_t *pos);
+ void *raw_seq_next(struct seq_file *seq, void *v, loff_t *pos);
+ void raw_seq_stop(struct seq_file *seq, void *v);
+-int raw_seq_open(struct inode *ino, struct file *file, struct raw_hashinfo *h);
++int raw_seq_open(struct inode *ino, struct file *file,
++		 struct raw_hashinfo *h, const struct seq_operations *ops);
+ 
+ #endif
+ 
 diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 507cbfe..830f19e 100644
+index 830f19e..a3002fe 100644
 --- a/net/ipv4/raw.c
 +++ b/net/ipv4/raw.c
-@@ -927,7 +927,7 @@ void raw_seq_stop(struct seq_file *seq, void *v)
- }
- EXPORT_SYMBOL_GPL(raw_seq_stop);
+@@ -962,13 +962,13 @@ static const struct seq_operations raw_seq_ops = {
+ 	.show  = raw_seq_show,
+ };
  
--static __inline__ char *get_raw_sock(struct sock *sp, char *tmpbuf, int i)
-+static void raw_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
+-int raw_seq_open(struct inode *ino, struct file *file, struct raw_hashinfo *h)
++int raw_seq_open(struct inode *ino, struct file *file,
++		 struct raw_hashinfo *h, const struct seq_operations *ops)
  {
- 	struct inet_sock *inet = inet_sk(sp);
- 	__be32 dest = inet->daddr,
-@@ -935,33 +935,23 @@ static __inline__ char *get_raw_sock(struct sock *sp, char *tmpbuf, int i)
- 	__u16 destp = 0,
- 	      srcp  = inet->num;
+ 	int err;
+ 	struct raw_iter_state *i;
  
--	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
-+	seq_printf(seq, "%4d: %08X:%04X %08X:%04X"
- 		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p %d",
- 		i, src, srcp, dest, destp, sp->sk_state,
- 		atomic_read(&sp->sk_wmem_alloc),
- 		atomic_read(&sp->sk_rmem_alloc),
- 		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
- 		atomic_read(&sp->sk_refcnt), sp, atomic_read(&sp->sk_drops));
--	return tmpbuf;
- }
+-	err = seq_open_net(ino, file, &raw_seq_ops,
+-			sizeof(struct raw_iter_state));
++	err = seq_open_net(ino, file, ops, sizeof(struct raw_iter_state));
+ 	if (err < 0)
+ 		return err;
  
--#define TMPSZ 128
--
- static int raw_seq_show(struct seq_file *seq, void *v)
+@@ -980,7 +980,7 @@ EXPORT_SYMBOL_GPL(raw_seq_open);
+ 
+ static int raw_v4_seq_open(struct inode *inode, struct file *file)
  {
--	char tmpbuf[TMPSZ+1];
--
- 	if (v == SEQ_START_TOKEN)
--		seq_printf(seq, "%-*s\n", TMPSZ-1,
--			       "  sl  local_address rem_address   st tx_queue "
--			       "rx_queue tr tm->when retrnsmt   uid  timeout "
--			       "inode  drops");
--	else {
--		struct raw_iter_state *state = raw_seq_private(seq);
--
--		seq_printf(seq, "%-*s\n", TMPSZ-1,
--			   get_raw_sock(v, tmpbuf, state->bucket));
--	}
-+		seq_printf(seq, "  sl  local_address rem_address   st tx_queue "
-+				"rx_queue tr tm->when retrnsmt   uid  timeout "
-+				"inode  drops\n");
-+	else
-+		raw_sock_seq_show(seq, v, raw_seq_private(seq)->bucket);
- 	return 0;
+-	return raw_seq_open(inode, file, &raw_v4_hashinfo);
++	return raw_seq_open(inode, file, &raw_v4_hashinfo, &raw_seq_ops);
  }
  
+ static const struct file_operations raw_seq_fops = {
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index a2cf499..8897ccf 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -1262,7 +1262,7 @@ static const struct seq_operations raw6_seq_ops = {
+ 
+ static int raw6_seq_open(struct inode *inode, struct file *file)
+ {
+-	return raw_seq_open(inode, file, &raw_v6_hashinfo);
++	return raw_seq_open(inode, file, &raw_v6_hashinfo, &raw6_seq_ops);
+ }
+ 
+ static const struct file_operations raw6_seq_fops = {
 -- 
 1.5.3.rc5
 
