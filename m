@@ -1,46 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6.25 is no more...
-Date: Wed, 30 Jan 2008 16:36:55 -0800 (PST)
-Message-ID: <20080130.163655.193708266.davem@davemloft.net>
-References: <47A03D4D.5090301@fr.ibm.com>
-	<20080130.054807.182676684.davem@davemloft.net>
-	<47A0B62D.3080005@fr.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dlezcano@fr.ibm.com
+From: Frans Pop <elendil@planet.nl>
+Subject: Re: Mostly revert "e1000/e1000e: Move PCI-Express device IDs over       to e1000e"
+Date: Thu, 31 Jan 2008 02:26:01 +0100
+Message-ID: <E1JKOBl-0007ne-EE@faramir.fjphome.nl>
+References: <200801292359.m0TNxb75011826@hera.kernel.org> <20080129212314.91b9bb5b.randy.dunlap@oracle.com> <alpine.LFD.1.00.0801301631400.3426@www.l.google.com> <20080130235836.GV29368@does.not.exist>
+Cc: akpm@linux-foundation.org, auke-jan.h.kok@intel.com,
+	davem@davemloft.net, jeff@garzik.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, randy.dunlap@oracle.com,
+	torvalds@linux-foundation.org
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33275
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756935AbYAaAgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 19:36:36 -0500
-In-Reply-To: <47A0B62D.3080005@fr.ibm.com>
+Received: from hpsmtp-eml17.kpnxchange.com ([213.75.38.117]:3282 "EHLO
+	hpsmtp-eml17.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758902AbYAaB0E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 20:26:04 -0500
+In-reply-To: <20080130235836.GV29368@does.not.exist>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Date: Wed, 30 Jan 2008 18:38:53 +0100
-
-> David Miller wrote:
-> > From: Daniel Lezcano <dlezcano@fr.ibm.com>
-> > Date: Wed, 30 Jan 2008 10:03:09 +0100
-> > 
-> >> David Miller wrote:
-> >>> Now that the bulk has been merged over and we are
-> >>> actively working alongside Linus's tree I have moved
-> >>> all current patch applying to net-2.6 instead of net-2.6.25,
-> >>> so the current tree to use is:
-> >>>
-> >>> 	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
-> >> This tree is for fixes only, right ? or shall we send enhancement 
-> >> patches to net-2.6 until net-2.6.26 appears ?
-> > 
-> > The latter.
+Adrian Bunk wrote:
+>> Jeff, Auke, would something like this be acceptable? It makes it very
+>> obvious in the driver table which entries are for the PCIE versions that
+>> would be handled by the E1000E driver if it is enabled..
 > 
-> What will happen to the patches sent to net-2.6.25 a few days ago during 
-> the merge ? Should I resend them against net-2.6 ?
+> I don't like it:
+> We should aim at having exactly one driver for one card.
 
-I have them in my backlog, so just be patient as even just doing
-a read-only pass on my email while being here at LCA08 is super
-painful.
+There is one thing I don't understand, but that may well be just me...
+
+>From Linus' original patch:
+> +++ b/drivers/net/e1000/e1000_main.c
+> +     INTEL_E1000_ETHERNET_DEVICE(0x108C),
+
+So, apparently support for 8086:108c was removed from the e1000 driver.
+
+>From my lspci:
+$ lspci -nn | grep Ether
+01:00.0 Ethernet controller [0200]: Intel Corporation 82573E Gigabit Ethernet Controller (Copper) [8086:108c] (rev 03)
+
+But when I look at where that card is sitting:
+$ readlink pci/devices/0000\:01\:00.0/driver
+../../../../bus/pci/drivers/e1000
+
+So, it's on the PCI bus, not on the PCI-Express bus (which I also have, but
+which has no devices on it).
+
+Or does the e1000e driver also support cards on the PCI bus?
+
+If that's the case then the original changelog entry "Move PCI-Express
+device IDs over to e1000e" is misleading as it's not only PCI-Express
+devices...
+
+Hmmm. Or does which driver is loaded decide on which bus the device ends up?
+
+Confused,
+FJP
