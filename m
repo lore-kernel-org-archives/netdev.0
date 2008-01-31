@@ -1,39 +1,70 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: net-2.6.25 is no more...
-Date: Wed, 30 Jan 2008 22:21:09 -0800 (PST)
-Message-ID: <20080130.222109.52073562.davem@davemloft.net>
-References: <47A03D4D.5090301@fr.ibm.com>
-	<20080130.054807.182676684.davem@davemloft.net>
-	<47A16611.3000602@garzik.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] [1/1] Deprecate tcp_tw_{reuse,recycle}
+Date: Wed, 30 Jan 2008 22:37:47 -0800
+Message-ID: <47A16CBB.3000409@candelatech.com>
+References: <20080130938.523292915@suse.de> <47A0CE75.5080200@candelatech.com> <200801310359.07362.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <47A16611.3000602-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Andi Kleen <ak@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.lanforge.com ([66.165.47.211]:44656 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751061AbYAaGhx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 01:37:53 -0500
+In-Reply-To: <200801310359.07362.ak@suse.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Date: Thu, 31 Jan 2008 01:09:21 -0500
+Andi Kleen wrote:
+> On Wednesday 30 January 2008 20:22, Ben Greear wrote:
+>
+>   
+>> We use these features to enable creating very high numbers of short-lived
+>> TCP connections, primarily used as a test tool for other network
+>> devices.
+>>     
+>
+> Hopefully these other network devices don't do any NAT then
+> or don't otherwise violate the IP-matches-PAWS assumption.
+> Most likely they do actually, so enabling TW recycle
+> for testing is probably not even safe for you.
+>
+> Modern systems have a lot of RAM so even without tw recycle
+> you should be able to get a very high number of connections.
+> An timewait socket is around 128 bytes on 64bit; this means
+> with a GB of memory you can already support > 8 Million TW sockets.
+> On 32bit it's even more.
+>   
+I believe the problem was that all of my ports were used up with
+TIME_WAIT sockets and so it couldn't create more.  My test
+case was similar to this:
 
-> David Miller wrote:
-> > The latter.
-> 
-> So...  what to do about changes which are not bug fixes?  Such changes 
-> should not go upstream immediately, because that's the standard rule for 
-> merge windows.
-> 
-> And queueing them on our side just re-creates the same old situation we 
-> just changed away from, after all.
+1 Have one machine B listen for connections on one interface (one IP).
+2 Have one machine A make a connection to B, and close connection 
+immediately or soon after
+  it was established.
+goto 2
 
-I'm saying that everything should go to the net-2.6 tree right now.
+The goal was to make a maximum number of TCP connections per second.  
+The data passed
+is just filler, and for the fastest settings, we don't pass data at all. 
+  Without setting
+tcp_tw_recycle to 1, the system could do only a few thousand connections 
+per second.  With
+it set to 1, I think I was getting around 10,000.  Either way, it was 
+significantly faster than
+w/out recycle enabled.
 
-When the merge window closes, net-2.6 will be for bug fixes only and
-I'll hold off on creating net-2.6.26 for about a week so that people
-concentrate on regression fixes.
+So, is there a better way to max out the connections per second without 
+having to use tcp_tw_recycle?
 
-Yes, things will pile up but I think it's appropriate to hold off on
-merging features into the 2.6.26 queue for just one week.
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
