@@ -1,36 +1,36 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] Disable TSO for non standard qdiscs
-Date: Thu, 31 Jan 2008 20:34:06 +0100
-Message-ID: <20080131193406.GH4671@one.firstfloor.org>
-References: <20080131124632.GA25299@basil.nowhere.org> <20080131092327.75b9c369@extreme> <20080131183322.GA4671@one.firstfloor.org> <47A20CDC.5090104@trash.net> <20080131183735.GC4671@one.firstfloor.org> <20080131100846.00934e25@extreme> <20080131185328.GD4671@one.firstfloor.org> <47A211A0.1040502@trash.net> <20080131190125.GE4671@one.firstfloor.org> <D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: e1000 full-duplex TCP performance well below wire speed
+Date: Thu, 31 Jan 2008 11:07:31 -0800
+Message-ID: <47A21C73.4070301@hp.com>
+References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu>	<36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com>	<Pine.LNX.4.63.0801301635470.19938@trinity.phys.uwm.edu>	<36D9DB17C6DE9E40B059440DB8D95F52044F8BA3@orsmsx418.amr.corp.intel.com>	<Pine.LNX.4.63.0801310213010.3240@trinity.phys.uwm.edu>	<47A20E9E.7070503@intel.com> <47A215A8.2090104@hp.com> <47A217CE.4000002@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Bruce Allen <ballen@gravity.phys.uwm.edu>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>,
+	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
+	Bruce Allen <bruce.allen@aei.mpg.de>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:40854 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752897AbYAaS7k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 13:59:40 -0500
-Content-Disposition: inline
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:42109 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754100AbYAaTHd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 14:07:33 -0500
+In-Reply-To: <47A217CE.4000002@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> TSO by nature is bursty.  But disabling TSO without the option of having
-> it on or off to me seems to aggressive.  If someone is using a qdisc
-> that TSO is interfering with the effectiveness of the traffic shaping,
-> then they should turn off TSO via ethtool on the target device.  Some
+>>Sounds like tools to show PCI* bus utilization would be helpful...
+> 
+> 
+> that would be a hardware profiling thing and highly dependent on the part sticking
+> out of the slot, vendor bus implementation etc... Perhaps Intel has some tools for
+> this already but I personally do not know of any :/
 
-The philosophical problem I have with this suggestion is that I expect
-that the large majority of users will be more happy with disabled TSO
-if they use non standard qdiscs and defaults that do not fit 
-the majority use case are bad.
+Small matter of getting specs for the various LBA's (is that the correct 
+term? - lower bus adaptors) and then abstracting them a la the CPU perf 
+counters as done by say perfmon and then used by papi :)
 
-Basically you're suggesting that nearly everyone using tc should learn about
-another obscure command.
-
--Andi
+rick jones
