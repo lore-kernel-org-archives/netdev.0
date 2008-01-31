@@ -1,47 +1,50 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCHES 0/6]: Move hashinfo to sk_prot and struct reorgs
-Date: Thu, 31 Jan 2008 16:31:38 -0200
-Message-ID: <1201804304-28777-1-git-send-email-acme@redhat.com>
-Cc: netdev@vger.kernel.org, dccp@vger.kernel.org
+Subject: [PATCH 4/6] [IPV6]: Reorganize strut ipv6_mc_socklist to save 8 bytes
+Date: Thu, 31 Jan 2008 16:31:42 -0200
+Message-ID: <1201804304-28777-5-git-send-email-acme@redhat.com>
+References: y
+ <1201804304-28777-1-git-send-email-acme@redhat.com>
+ <1201804304-28777-2-git-send-email-acme@redhat.com>
+ <1201804304-28777-3-git-send-email-acme@redhat.com>
+ <1201804304-28777-4-git-send-email-acme@redhat.com>
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from el-out-1112.google.com ([209.85.162.178]:55458 "EHLO
-	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763443AbYAaScV (ORCPT
+Received: from nf-out-0910.google.com ([64.233.182.184]:64553 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763457AbYAaScV (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 13:32:21 -0500
-Received: by el-out-1112.google.com with SMTP id v27so310815ele.23
+Received: by nf-out-0910.google.com with SMTP id g13so137989nfb.21
         for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 10:32:20 -0800 (PST)
-In-Reply-To: y
-References: y
+In-Reply-To: <1201804304-28777-4-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+/home/acme/git/net-2.6/net/dccp/ipv6.c:
+  struct ipv6_mc_socklist |   -8
+ 1 struct changed
 
-	Please consider pulling from:
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ include/net/if_inet6.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6
+diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+index b0b882e..b2509d4 100644
+--- a/include/net/if_inet6.h
++++ b/include/net/if_inet6.h
+@@ -82,9 +82,9 @@ struct ipv6_mc_socklist
+ {
+ 	struct in6_addr		addr;
+ 	int			ifindex;
++	unsigned int		sfmode;		/* MCAST_{INCLUDE,EXCLUDE} */
+ 	struct ipv6_mc_socklist *next;
+ 	rwlock_t		sflock;
+-	unsigned int		sfmode;		/* MCAST_{INCLUDE,EXCLUDE} */
+ 	struct ip6_sf_socklist	*sflist;
+ };
+ 
+-- 
+1.5.3.8
 
-Best Regards,
-
-- Arnaldo
-
- include/linux/dccp.h               |    2 -
- include/linux/tcp.h                |    6 ++-
- include/net/if_inet6.h             |    4 +-
- include/net/inet6_hashtables.h     |    2 -
- include/net/inet_connection_sock.h |    8 +----
- include/net/inet_hashtables.h      |   51 +++++---------------------------
- include/net/inet_timewait_sock.h   |    3 -
- include/net/sock.h                 |    3 +
- net/dccp/dccp.h                    |    2 -
- net/dccp/ipv4.c                    |   18 ++++-------
- net/dccp/ipv6.c                    |   20 +++++-------
- net/dccp/proto.c                   |   18 +----------
- net/ipv4/inet_connection_sock.c    |    8 +----
- net/ipv4/inet_hashtables.c         |   58 ++++++++++++++++++++++++++++++-------
- net/ipv4/tcp.c                     |    2 -
- net/ipv4/tcp_ipv4.c                |   31 +++++--------------
- net/ipv6/inet6_hashtables.c        |    4 +-
- net/ipv6/tcp_ipv6.c                |   19 +++++-------
- 18 files changed, 111 insertions(+), 148 deletions(-)
