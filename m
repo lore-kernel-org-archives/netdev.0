@@ -1,46 +1,43 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] [1/1] Deprecate tcp_tw_{reuse,recycle}
-Date: Thu, 31 Jan 2008 07:55:02 +0100
-Message-ID: <200801310755.02110.ak@suse.de>
-References: <20080130938.523292915@suse.de> <200801310359.07362.ak@suse.de> <47A16CBB.3000409@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+From: Benjamin Li <ben@wenli.org>
+Subject: [PATCH] [VLAN] vlan_dev: Initialize dev pointer only when it is being used
+Date: Wed, 30 Jan 2008 22:55:24 -0800
+Message-ID: <1201762524-28403-1-git-send-email-ben@wenli.org>
+Cc: Benjamin Li <ben@wenli.org>
+To: kaber@trash.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:43888 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752222AbYAaGzH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2008 01:55:07 -0500
-In-Reply-To: <47A16CBB.3000409@candelatech.com>
-Content-Disposition: inline
+Received: from ns1.vhostnix.com ([12.168.32.21]:42927 "HELO
+	server.vhostnix.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with SMTP id S1753209AbYAaHCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 02:02:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Signed-off-by: Benjamin Li <ben@wenli.org>
+---
+ net/8021q/vlan_dev.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-> I believe the problem was that all of my ports were used up with
-> TIME_WAIT sockets and so it couldn't create more.  My test
-> case was similar to this:
-
-Ah that's simple to solve then :- use more IP addresses and bind 
-to them in RR in your user program.
-
-Arguably the Linux TCP code should be able to do this by itself
-when enough IP addresses are available, but it's not very hard
-to do in user space using bind(2)
-
-BTW it's also an very unusual case -- in most cases there are more
-remote IP addresses
-
-> So, is there a better way to max out the connections per second without 
-> having to use tcp_tw_recycle?
-
-Well did you profile where the bottle necks were?
-
-Perhaps also just increase the memory allowed for TCP sockets.
-
--Andi
-
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 8059fa4..2fa5d68 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -49,7 +49,7 @@
+  */
+ static int vlan_dev_rebuild_header(struct sk_buff *skb)
+ {
+-	struct net_device *dev = skb->dev;
++	struct net_device *dev;
+ 	struct vlan_ethhdr *veth = (struct vlan_ethhdr *)(skb->data);
+ 
+ 	switch (veth->h_vlan_encapsulated_proto) {
+@@ -60,6 +60,7 @@ static int vlan_dev_rebuild_header(struct sk_buff *skb)
+ 		return arp_find(veth->h_dest, skb);
+ #endif
+ 	default:
++		dev = skb->dev;
+ 		pr_debug("%s: unable to resolve type %X addresses.\n",
+ 			 dev->name, ntohs(veth->h_vlan_encapsulated_proto));
+ 
+-- 
+1.5.3.8
 
