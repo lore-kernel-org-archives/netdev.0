@@ -1,36 +1,49 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: e1000 full-duplex TCP performance well below wire speed
-Date: Thu, 31 Jan 2008 11:07:31 -0800
-Message-ID: <47A21C73.4070301@hp.com>
-References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu>	<36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com>	<Pine.LNX.4.63.0801301635470.19938@trinity.phys.uwm.edu>	<36D9DB17C6DE9E40B059440DB8D95F52044F8BA3@orsmsx418.amr.corp.intel.com>	<Pine.LNX.4.63.0801310213010.3240@trinity.phys.uwm.edu>	<47A20E9E.7070503@intel.com> <47A215A8.2090104@hp.com> <47A217CE.4000002@intel.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: Null pointer dereference when bringing up bonding device on kernel-2.6.24-2.fc9.i686
+Date: Thu, 31 Jan 2008 11:09:20 -0800
+Message-ID: <14150.1201806560@death>
+References: <m3bq75en2y.fsf@ursa.amorsen.dk> <7908.1201551451@death> <47A1C45C.5080906@p6drad-teel.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Bruce Allen <ballen@gravity.phys.uwm.edu>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org,
-	Carsten Aulbert <carsten.aulbert@aei.mpg.de>,
-	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
-	Bruce Allen <bruce.allen@aei.mpg.de>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?us-ascii?Q?=3D=3FISO-8859-1=3FQ=3FSiim=5FP=3DF5der=3F=3D?=
+	<siim@p6drad-teel.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:42109 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754100AbYAaTHd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 14:07:33 -0500
-In-Reply-To: <47A217CE.4000002@intel.com>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:43677 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756558AbYAaTJY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 14:09:24 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m0VJ9MSY017993
+	for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 14:09:22 -0500
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0VJ9LOn239064
+	for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 14:09:21 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0VJ9Ltw006711
+	for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 14:09:21 -0500
+In-reply-to: <47A1C45C.5080906@p6drad-teel.net> 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>Sounds like tools to show PCI* bus utilization would be helpful...
-> 
-> 
-> that would be a hardware profiling thing and highly dependent on the part sticking
-> out of the slot, vendor bus implementation etc... Perhaps Intel has some tools for
-> this already but I personally do not know of any :/
+Siim P=C3=B5der <siim@p6drad-teel.net> wrote:
 
-Small matter of getting specs for the various LBA's (is that the correct 
-term? - lower bus adaptors) and then abstracting them a la the CPU perf 
-counters as done by say perfmon and then used by papi :)
+>Jay Vosburgh wrote:
+>> Benny Amorsen <benny+usenet@amorsen.dk> wrote:
+>>=20
+>>> https://bugzilla.redhat.com/show_bug.cgi?id=3D430391
+>>=20
+>> 	I know what this is, I'll fix it.
+>
+>do you know when this happend, so we would know which kernel is ok to
+>use (not to start trying blindly)?
 
-rick jones
+	It was something I changed up during the 2.6.24-rc development
+somewhere.  Also, I posted the fix for this a couple days ago, it's
+commit 5eb71eec3616b0a62e63197016576a74da240c6b in netdev-2.6#upstream.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
