@@ -1,91 +1,73 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 6/6] [NETNS]: Lookup in FIB semantic hashes taking into account the namespace.
-Date: Thu, 31 Jan 2008 15:00:50 +0300
-Message-ID: <1201780850-22216-6-git-send-email-den@openvz.org>
-References: <47A1B835.7050600@sw.ru>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devel@openvz.org, "Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: Haavard Skinnemoen <hskinnemoen@atmel.com>
+Subject: [PATCH] macb: Fix section mismatch and shrink runtime footprint
+Date: Thu, 31 Jan 2008 13:10:22 +0100
+Message-ID: <1201781422-30181-1-git-send-email-hskinnemoen@atmel.com>
+Cc: netdev@vger.kernel.org, David Brownell <david-b@pacbell.net>,
+	Haavard Skinnemoen <hskinnemoen@atmel.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:59330 "EHLO iris.sw.ru"
+Received: from nat-132.atmel.no ([80.232.32.132]:65284 "EHLO relay.atmel.no"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1764333AbYAaMAs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2008 07:00:48 -0500
-In-Reply-To: <47A1B835.7050600@sw.ru>
+	id S932376AbYAaMKs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 07:10:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The namespace is not available in the fib_sync_down_addr, add it
-as a parameter.
+macb devices are only found integrated on SoCs, so they can't be
+hotplugged. Thus, the probe() and exit() functions can be __init and
+__exit, respectively. By using platform_driver_probe() instead of
+platform_driver_register(), there won't be any references to the
+discarded probe() function after the driver has loaded.
 
-Looking up a device by the pointer to it is OK. Looking up using a result
-from fib_trie/fib_hash table lookup is also safe. No need to fix that at all.
-So, just fix lookup by address and insertion to the hash table path.
+This also fixes a section mismatch due to macb_probe(), defined as
+__devinit, calling macb_get_hwaddr, defined as __init.
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
+Signed-off-by: Haavard Skinnemoen <hskinnemoen@atmel.com>
 ---
- include/net/ip_fib.h     |    2 +-
- net/ipv4/fib_frontend.c  |    2 +-
- net/ipv4/fib_semantics.c |    6 +++++-
- 3 files changed, 7 insertions(+), 3 deletions(-)
+ drivers/net/macb.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index cb0df37..90d1175 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -220,7 +220,7 @@ extern void fib_select_default(struct net *net, const struct flowi *flp,
- /* Exported by fib_semantics.c */
- extern int ip_fib_check_default(__be32 gw, struct net_device *dev);
- extern int fib_sync_down_dev(struct net_device *dev, int force);
--extern int fib_sync_down_addr(__be32 local);
-+extern int fib_sync_down_addr(struct net *net, __be32 local);
- extern int fib_sync_up(struct net_device *dev);
- extern __be32  __fib_res_prefsrc(struct fib_result *res);
- extern void fib_select_multipath(const struct flowi *flp, struct fib_result *res);
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index d69ffa2..86ff271 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -808,7 +808,7 @@ static void fib_del_ifaddr(struct in_ifaddr *ifa)
- 			   First of all, we scan fib_info list searching
- 			   for stray nexthop entries, then ignite fib_flush.
- 			*/
--			if (fib_sync_down_addr(ifa->ifa_local))
-+			if (fib_sync_down_addr(dev->nd_net, ifa->ifa_local))
- 				fib_flush(dev->nd_net);
- 		}
- 	}
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 97cc494..a13c847 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -229,6 +229,8 @@ static struct fib_info *fib_find_info(const struct fib_info *nfi)
- 	head = &fib_info_hash[hash];
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index e10528e..81bf005 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -1084,7 +1084,7 @@ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	return phy_mii_ioctl(phydev, if_mii(rq), cmd);
+ }
  
- 	hlist_for_each_entry(fi, node, head, fib_hash) {
-+		if (fi->fib_net != nfi->fib_net)
-+			continue;
- 		if (fi->fib_nhs != nfi->fib_nhs)
- 			continue;
- 		if (nfi->fib_protocol == fi->fib_protocol &&
-@@ -1031,7 +1033,7 @@ nla_put_failure:
-      referring to it.
-    - device went down -> we must shutdown all nexthops going via it.
-  */
--int fib_sync_down_addr(__be32 local)
-+int fib_sync_down_addr(struct net *net, __be32 local)
+-static int __devinit macb_probe(struct platform_device *pdev)
++static int __init macb_probe(struct platform_device *pdev)
  {
- 	int ret = 0;
- 	unsigned int hash = fib_laddr_hashfn(local);
-@@ -1043,6 +1045,8 @@ int fib_sync_down_addr(__be32 local)
- 		return 0;
+ 	struct eth_platform_data *pdata;
+ 	struct resource *regs;
+@@ -1248,7 +1248,7 @@ err_out:
+ 	return err;
+ }
  
- 	hlist_for_each_entry(fi, node, head, fib_lhash) {
-+		if (fi->fib_net != net)
-+			continue;
- 		if (fi->fib_prefsrc == local) {
- 			fi->fib_flags |= RTNH_F_DEAD;
- 			ret++;
+-static int __devexit macb_remove(struct platform_device *pdev)
++static int __exit macb_remove(struct platform_device *pdev)
+ {
+ 	struct net_device *dev;
+ 	struct macb *bp;
+@@ -1276,8 +1276,7 @@ static int __devexit macb_remove(struct platform_device *pdev)
+ }
+ 
+ static struct platform_driver macb_driver = {
+-	.probe		= macb_probe,
+-	.remove		= __devexit_p(macb_remove),
++	.remove		= __exit_p(macb_remove),
+ 	.driver		= {
+ 		.name		= "macb",
+ 	},
+@@ -1285,7 +1284,7 @@ static struct platform_driver macb_driver = {
+ 
+ static int __init macb_init(void)
+ {
+-	return platform_driver_register(&macb_driver);
++	return platform_driver_probe(&macb_driver, macb_probe);
+ }
+ 
+ static void __exit macb_exit(void)
 -- 
-1.5.3.rc5
+1.5.3.8
 
