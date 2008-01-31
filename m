@@ -1,39 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 6/6][NETNS]: Udp sockets per-net lookup.
-Date: Thu, 31 Jan 2008 05:20:07 -0800 (PST)
-Message-ID: <20080131.052007.165146562.davem@davemloft.net>
-References: <47A1C216.9000303@openvz.org>
-	<20080201.001138.95019632.yoshfuji@wide.ad.jp>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: hard hang through qdisc
+Date: Thu, 31 Jan 2008 07:34:01 -0500
+Message-ID: <1201782841.4732.11.camel@localhost>
+References: <200801311321.01015.ak@suse.de>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
-To: yoshfuji@wide.ad.jp
+Cc: netdev@vger.kernel.org
+To: Andi Kleen <ak@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35276
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933705AbYAaNTr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 08:19:47 -0500
-In-Reply-To: <20080201.001138.95019632.yoshfuji@wide.ad.jp>
+Received: from py-out-1112.google.com ([64.233.166.183]:13005 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755006AbYAaN07 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 08:26:59 -0500
+Received: by py-out-1112.google.com with SMTP id u52so996192pyb.10
+        for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 05:26:57 -0800 (PST)
+In-Reply-To: <200801311321.01015.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@wide.ad.jp>
-Date: Fri, 01 Feb 2008 00:11:38 +1100 (EST)
-
-> In article <47A1C216.9000303@openvz.org> (at Thu, 31 Jan 2008 15:41:58 +0300), Pavel Emelyanov <xemul@openvz.org> says:
+On Thu, 2008-31-01 at 13:21 +0100, Andi Kleen wrote:
 > 
-> > Add the net parameter to udp_get_port family of calls and 
-> > udp_lookup one and use it to filter sockets.
+> I just managed to hang a 2.6.24 (+ some non network patches) kernel 
+> with the following (non sensical) command
 > 
-> I may miss something, but I'm afraid that I have to disagree.
-> Port is identified only by family, address, protocol and port,
-> and should not be split by name space.
+> tc qdisc add dev eth0 root tbf rate 1000 burst 10 limit 100
+> 
+> No oops or anything just hangs. While I understand root can
+> do bad things just hanging like this seems a little extreme.
+> 
 
-It is like being on a totally different system.
+---------
+lilsol:~# tc qdisc add dev eth0 root tbf rate 1000 burst 10 limit 100
+lilsol:~# uname -a
+Linux lilsol 2.6.24 #1 PREEMPT Sun Jan 27 09:22:00 EST 2008 i686
+GNU/Linux
+lilsol:~# tc qdisc ls dev eth0
+qdisc tbf 8001: root rate 1000bit burst 10b lat 737.3ms
+lilsol:~#
+-------
 
-Without sockets in namespaces, there is no point.
+What do your patches do?
 
-The networking devices are even per-namespace already,
-so you can even say that each namespace is even
-physically different.
+cheers,
+jamal
+
+
