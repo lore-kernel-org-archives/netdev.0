@@ -1,31 +1,75 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] Disable TSO for non standard qdiscs
-Date: Thu, 31 Jan 2008 15:42:54 -0800
-Message-ID: <D5C1322C3E673F459512FB59E0DDC3290133D2A0@orsmsx414.amr.corp.intel.com>
-References: <20080131183322.GA4671@one.firstfloor.org> <47A20CDC.5090104@trash.net> <20080131183735.GC4671@one.firstfloor.org> <20080131100846.00934e25@extreme> <20080131185328.GD4671@one.firstfloor.org> <47A211A0.1040502@trash.net> <20080131190125.GE4671@one.firstfloor.org> <D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com> <20080131193406.GH4671@one.firstfloor.org> <D5C1322C3E673F459512FB59E0DDC32904700F27@orsmsx414.amr.corp.intel.com> <20080131231045.GA5543@ghostprotocols.net>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] e1000e: tweak irq allocation messages
+Date: Thu, 31 Jan 2008 15:54:16 -0800
+Message-ID: <47A25FA8.7070505@intel.com>
+References: <20080131225639.GB856@gospo.usersys.redhat.com> <20080131230620.GC856@gospo.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Andi Kleen" <andi@firstfloor.org>,
-	"Patrick McHardy" <kaber@trash.net>,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>,
-	<netdev@vger.kernel.org>
-To: "Arnaldo Carvalho de Melo" <acme@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, auke-jan.h.kok@intel.com
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:47597 "EHLO mga03.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:14695 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756184AbYAaXrq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 18:47:46 -0500
-Content-class: urn:content-classes:message
+	id S933047AbYBAAAd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 19:00:33 -0500
+In-Reply-To: <20080131230620.GC856@gospo.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Well, it could be just that when using such qdiscs TSO would be
-> disabled, but the user could override this by using ethtool after
-> loading the qdiscs.
+Andy Gospodarek wrote:
+> (Reposted with the version I intended -- added ',' so it compiles!)
+> 
+> There's too much noise on systems that don't support MSI.  Let's get rid
+> of a few and make the real error message more specific.
+> 
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
-I still disagree with this.  The qdisc should not cause anything to happen to feature flags on the device. It's the scheduling layer and really shouldn't care about what features the device supports or not.  If someone has an issue with a feature hurting performance or causing odd behavior when using a qdisc, then they should disable the feature on the device using the appropriate tools provided.  If it's the qdisc causing issues, then either the qdisc needs to be fixed, or it should be documented what features are recommended to be on and off with the qdisc.  I don't agree that the scheduling layer should affect features on an underlying device.
+thanks Andy, I'll post this to Jeff,
 
-Cheers,
+Auke
 
--PJ Waskiewicz
+
+
+> ---
+> 
+>  netdev.c |   12 +++++-------
+>  1 files changed, 5 insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+> index 0a2cb79..0c8cd1c 100644
+> --- a/drivers/net/e1000e/netdev.c
+> +++ b/drivers/net/e1000e/netdev.c
+> @@ -945,11 +945,7 @@ static int e1000_request_irq(struct e1000_adapter *adapter)
+>  	int irq_flags = IRQF_SHARED;
+>  	int err;
+>  
+> -	err = pci_enable_msi(adapter->pdev);
+> -	if (err) {
+> -		ndev_warn(netdev,
+> -		 "Unable to allocate MSI interrupt Error: %d\n", err);
+> -	} else {
+> +	if (!pci_enable_msi(adapter->pdev)) {
+>  		adapter->flags |= FLAG_MSI_ENABLED;
+>  		handler = e1000_intr_msi;
+>  		irq_flags = 0;
+> @@ -958,10 +954,12 @@ static int e1000_request_irq(struct e1000_adapter *adapter)
+>  	err = request_irq(adapter->pdev->irq, handler, irq_flags, netdev->name,
+>  			  netdev);
+>  	if (err) {
+> +		ndev_err(netdev,
+> +		       "Unable to allocate %s interrupt (return: %d)\n",
+> +			adapter->flags & FLAG_MSI_ENABLED ? "MSI":"INTx",
+> +			err);
+>  		if (adapter->flags & FLAG_MSI_ENABLED)
+>  			pci_disable_msi(adapter->pdev);
+> -		ndev_err(netdev,
+> -		       "Unable to allocate interrupt Error: %d\n", err);
+>  	}
+>  
+>  	return err;
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
