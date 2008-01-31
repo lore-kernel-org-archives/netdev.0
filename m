@@ -1,33 +1,38 @@
-From: David Acker <dacker@roinet.com>
-Subject: Re: e1000 full-duplex TCP performance well below wire speed
-Date: Thu, 31 Jan 2008 09:50:14 -0500
-Message-ID: <47A1E026.2070805@roinet.com>
-References: <Pine.LNX.4.63.0801300324000.6391@trinity.phys.uwm.edu>	<20080130.055333.192844925.davem@davemloft.net>	<Pine.LNX.4.63.0801300758020.11487@trinity.phys.uwm.edu>	<20080130082136.1017631d@deepthought>	<Pine.LNX.4.63.0801301610240.19938@trinity.phys.uwm.edu>	<649aecc70801301617m6331bcb8i8ce60366e182c739@mail.gmail.com> <20080131064533.ef0ae932.billfink@mindspring.com>
+From: Jeff Garzik <jgarzik@redhat.com>
+Subject: Re: NET: AX88796 use dev_dbg() instead of printk()
+Date: Thu, 31 Jan 2008 09:58:41 -0500
+Message-ID: <20080131145840.GG15886@devserv.devel.redhat.com>
+References: <20080131112531.187305225@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: SANGTAE HA <sangtae.ha@gmail.com>,
-	Bruce Allen <ballen@gravity.phys.uwm.edu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Bill Fink <billfink@mindspring.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759136AbYAaOz6@vger.kernel.org>
-In-Reply-To: <20080131064533.ef0ae932.billfink@mindspring.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Ben Dooks <ben-linux@fluff.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:41099 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751939AbYAaO6p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 09:58:45 -0500
+Content-Disposition: inline
+In-Reply-To: <20080131112531.187305225@fluff.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bill Fink wrote:
-> If the receive direction uses a different GigE NIC that's part of the
-> same quad-GigE, all is fine:
+On Thu, Jan 31, 2008 at 11:25:31AM +0000, Ben Dooks wrote:
+> Change to using dev_dbg() and the other dev_xxx()
+> macros instead of printk, and update to use the
+> print_mac() helper.
 > 
-> [bill@chance4 ~]$ nuttcp -f-beta -Itx -w2m 192.168.6.79 & nuttcp -f-beta -Irx -r -w2m 192.168.5.79
-> tx:  1186.5051 MB /  10.05 sec =  990.2250 Mbps 12 %TX 13 %RX 0 retrans
-> rx:  1186.7656 MB /  10.05 sec =  990.5204 Mbps 15 %TX 14 %RX 0 retrans
-Could this be an issue with pause frames?  At a previous job I remember 
-having issues with a similar configuration using two broadcom sb1250 3 
-gigE port devices. If I ran bidirectional tests on a single pair of 
-ports connected via cross over, it was slower than when I gave each 
-direction its own pair of ports.  The problem turned out to be that 
-pause frame generation and handling was not configured correctly.
--Ack
+> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+
+Please send to jgarzik@pobox.com or jeff@garzik.org, the email addresses
+I've always used for communication.
+
+The redhat.com address is only for legal sign-offs, not actual
+communication.
+
+Thanks,
+
+	Jeff
+
+
+
