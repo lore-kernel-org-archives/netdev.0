@@ -1,39 +1,49 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: hard hang through qdisc
-Date: Thu, 31 Jan 2008 15:02:26 +0100
-Message-ID: <47A1D4F2.6080904@trash.net>
-References: <200801311321.01015.ak@suse.de> <1201782841.4732.11.camel@localhost> <200801311428.48175.ak@suse.de> <47A1CD4E.7050701@trash.net>
+Subject: Re: [PATCH] [VLAN] vlan_dev: Initialize dev pointer only when it
+ is being used
+Date: Thu, 31 Jan 2008 15:06:55 +0100
+Message-ID: <47A1D5FF.2020609@trash.net>
+References: <1201762524-28403-1-git-send-email-ben@wenli.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
-To: Andi Kleen <ak@suse.de>
+Cc: netdev@vger.kernel.org
+To: Benjamin Li <ben@wenli.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49530 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:49641 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764427AbYAaOCj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 09:02:39 -0500
-In-Reply-To: <47A1CD4E.7050701@trash.net>
+	with ESMTP id S1764613AbYAaOHA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 09:07:00 -0500
+In-Reply-To: <1201762524-28403-1-git-send-email-ben@wenli.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Andi Kleen wrote:
->>> ---------
->>> lilsol:~# tc qdisc add dev eth0 root tbf rate 1000 burst 10 limit 100
->>> lilsol:~# uname -a
->>> Linux lilsol 2.6.24 #1 PREEMPT Sun Jan 27 09:22:00 EST 2008 i686
->>
->> Can you try it again with current git mainline?
+Benjamin Li wrote:
+> Signed-off-by: Benjamin Li <ben@wenli.org>
+> ---
+>  net/8021q/vlan_dev.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
 > 
-> 
-> I'll look into it.
+> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+> index 8059fa4..2fa5d68 100644
+> --- a/net/8021q/vlan_dev.c
+> +++ b/net/8021q/vlan_dev.c
+> @@ -49,7 +49,7 @@
+>   */
+>  static int vlan_dev_rebuild_header(struct sk_buff *skb)
+>  {
+> -	struct net_device *dev = skb->dev;
+> +	struct net_device *dev;
+>  	struct vlan_ethhdr *veth = (struct vlan_ethhdr *)(skb->data);
+>  
+>  	switch (veth->h_vlan_encapsulated_proto) {
+> @@ -60,6 +60,7 @@ static int vlan_dev_rebuild_header(struct sk_buff *skb)
+>  		return arp_find(veth->h_dest, skb);
+>  #endif
+>  	default:
+> +		dev = skb->dev;
+>  		pr_debug("%s: unable to resolve type %X addresses.\n",
+>  			 dev->name, ntohs(veth->h_vlan_encapsulated_proto));
 
 
-Works for me:
-
-qdisc tbf 8001: root rate 1000bit burst 10b/8 mpu 0b lat 720.0ms
-  Sent 0 bytes 0 pkt (dropped 9, overlimits 0 requeues 0)
-  rate 0bit 0pps backlog 0b 0p requeues 0
-
-Packets are dropped as expected.
+This seems pretty pointless to me.
