@@ -1,46 +1,59 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Disable TSO for non standard qdiscs
-Date: Thu, 31 Jan 2008 19:11:07 +0100
-Message-ID: <47A20F3B.1060109@trash.net>
-References: <20080131124632.GA25299@basil.nowhere.org>	<20080131092327.75b9c369@extreme>	<20080131183322.GA4671@one.firstfloor.org>	<47A20CDC.5090104@trash.net>	<20080131183735.GC4671@one.firstfloor.org> <20080131100846.00934e25@extreme>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: e1000 full-duplex TCP performance well below wire speed
+Date: Thu, 31 Jan 2008 10:08:30 -0800
+Message-ID: <47A20E9E.7070503@intel.com>
+References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu> <36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com> <Pine.LNX.4.63.0801301635470.19938@trinity.phys.uwm.edu> <36D9DB17C6DE9E40B059440DB8D95F52044F8BA3@orsmsx418.amr.corp.intel.com> <Pine.LNX.4.63.0801310213010.3240@trinity.phys.uwm.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>,
+	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
+	Bruce Allen <bruce.allen@aei.mpg.de>
+To: Bruce Allen <ballen@gravity.phys.uwm.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55444 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752974AbYAaSLL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 13:11:11 -0500
-In-Reply-To: <20080131100846.00934e25@extreme>
+Received: from mga02.intel.com ([134.134.136.20]:26869 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1764597AbYAaSLa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 13:11:30 -0500
+In-Reply-To: <Pine.LNX.4.63.0801310213010.3240@trinity.phys.uwm.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Thu, 31 Jan 2008 19:37:35 +0100
-> Andi Kleen <andi@firstfloor.org> wrote:
+Bruce Allen wrote:
+> Hi Jesse,
 > 
->> On Thu, Jan 31, 2008 at 07:01:00PM +0100, Patrick McHardy wrote:
->>> Andi Kleen wrote:
->>>>> Fix the broken qdisc instead.
->>>> What do you mean? I don't think the qdiscs are broken.
->>>> I cannot think of any way how e.g. TBF can do anything useful
->>>> with large TSO packets.
->>>
->>> Someone posted a patch some time ago to calculate the amount
->>> of tokens needed in max_size portions and use that, but IMO
->>> people should just configure TBF with the proper MTU for TSO.
->> TBF with 64k atomic units will always be chunky and uneven. I don't
->> think that's a useful goal. 
+>>> It's good to be talking directly to one of the e1000 developers and
+>>> maintainers.  Although at this point I am starting to think that the
+>>> issue may be TCP stack related and nothing to do with the NIC.  Am I
+>>> correct that these are quite distinct parts of the kernel?
 >>
->> -Andi
+>> Yes, quite.
 > 
-> Then change TBF to use skb_gso_segment?  Be careful, the fact that
-> one skb ends up queueing multiple skb's would cause issues to parent
-> qdisc (ie work generating qdisc).
+> OK.  I hope that there is also someone knowledgable about the TCP stack
+> who is following this thread. (Perhaps you also know this part of the
+> kernel, but I am assuming that your expertise is on the e1000/NIC bits.)
+> 
+>>> Important note: we ARE able to get full duplex wire speed (over 900
+>>> Mb/s simulaneously in both directions) using UDP.  The problems occur
+>>> only with TCP connections.
+>>
+>> That eliminates bus bandwidth issues, probably, but small packets take
+>> up a lot of extra descriptors, bus bandwidth, CPU, and cache resources.
+> 
+> I see.  Your concern is the extra ACK packets associated with TCP.  Even
+> those these represent a small volume of data (around 5% with MTU=1500,
+> and less at larger MTU) they double the number of packets that must be
+> handled by the system compared to UDP transmission at the same data
+> rate. Is that correct?
 
 
-How about keeping the TSO-capable flag on qdiscs, propagating
-the non-capability up the tree and perform segmentation before
-queueing to the root?
+A lot of people tend to forget that the pci-express bus has enough bandwidth on
+first glance - 2.5gbit/sec for 1gbit of traffix, but apart from data going over it
+there is significant overhead going on: each packet requires transmit, cleanup and
+buffer transactions, and there are many irq register clears per second (slow
+ioread/writes). The transactions double for TCP ack processing, and this all
+accumulates and starts to introduce latency, higher cpu utilization etc...
+
+Auke
