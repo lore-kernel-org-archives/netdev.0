@@ -1,60 +1,46 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: rtl8150: use default MTU of 1500
-Date: Thu, 31 Jan 2008 17:05:01 +0100
-Message-ID: <20080131160501.GA24019@xi.wantstofly.org>
-References: <20080130193742.GA13631@xi.wantstofly.org> <alpine.DEB.1.00.0801311741400.4476@bender.nucleusys.com>
+From: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+Subject: Re: e1000 full-duplex TCP performance well below wire speed
+Date: Thu, 31 Jan 2008 17:09:57 +0100
+Message-ID: <47A1F2D5.5070709@aei.mpg.de>
+References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu>	<36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com>	<Pine.LNX.4.63.0801301635470.19938@trinity.phys.uwm.edu> <p738x265p7p.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com
-To: Petko Manolov <petkan@nucleusys.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Bruce Allen <ballen@gravity.phys.uwm.edu>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org,
+	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
+	Bruce Allen <bruce.allen@aei.mpg.de>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:57960 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764012AbYAaQFF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 11:05:05 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.1.00.0801311741400.4476@bender.nucleusys.com>
+Received: from welcomes-you.com ([85.214.50.128]:46673 "EHLO welcomes-you.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1764781AbYAaQKZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 11:10:25 -0500
+In-Reply-To: <p738x265p7p.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 31, 2008 at 05:42:34PM +0200, Petko Manolov wrote:
+Hi Andi,
 
-> > The RTL8150 driver uses an MTU of 1540 by default, which causes a
-> > bunch of problems -- it prevents booting from NFS root, for one.
+Andi Kleen wrote:
+> Another issue with full duplex TCP not mentioned yet is that if TSO is used 
+> the output  will be somewhat bursty and might cause problems with the 
+> TCP ACK clock of the other direction because the ACKs would need 
+> to squeeze in between full TSO bursts.
 > 
-> Agreed, although it is a bit strange how this particular bug has
-> sneaked up for so long...
+> You could try disabling TSO with ethtool.
 
-I posted this patch sometime in 2006, and you asked me a question
-about it then (why we don't just set RTL8150_MTU to 1500 -- the
-answer would be that RTL8150_MTU is used in a couple more places
-in the driver, including for allocing skbuffs), but I failed to
-follow up to that question at the time, which is why I assume it got
-dropped.
+I just tried that:
 
-I have been carrying the patch in my own tree since then, and only
-noticed recently that the patch never made it upstream.
+https://n0.aei.uni-hannover.de/wiki/index.php/NetworkTestNetperf3
 
+It seems that the numbers do get better (sweet-spot seems to be MTU6000 
+with 914 MBit/s and 927 MBit/s), however for other settings the results 
+vary a lot so I'm not sure how large the statistical fluctuations are.
 
-cheers,
-Lennert
+Next test I'll try if it makes sense to enlarge the ring buffers.
 
+Thanks
 
-> >Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
-> >Cc: Petko Manolov <petkan@nucleusys.com>
-> >
-> >--- linux-2.6.24-git7.orig/drivers/net/usb/rtl8150.c	2008-01-24 
-> >23:58:37.000000000 +0100
-> >+++ linux-2.6.24-git7/drivers/net/usb/rtl8150.c	2008-01-30 
-> >20:29:00.000000000 +0100
-> >@@ -925,9 +925,8 @@
-> >	netdev->hard_start_xmit = rtl8150_start_xmit;
-> >	netdev->set_multicast_list = rtl8150_set_multicast;
-> >	netdev->set_mac_address = rtl8150_set_mac_address;
-> >	netdev->get_stats = rtl8150_netdev_stats;
-> >-	netdev->mtu = RTL8150_MTU;
-> >	SET_ETHTOOL_OPS(netdev, &ops);
-> >	dev->intr_interval = 100;	/* 100ms */
-> >
-> >	if (!alloc_all_urbs(dev)) {
-> >
+Carsten
