@@ -1,79 +1,42 @@
-From: Nate Case <ncase@xes-inc.com>
-Subject: [PATCHv2] PHYLIB: Add BCM5482 PHY support
-Date: Wed, 30 Jan 2008 18:28:14 -0600
-Message-ID: <1201739294.12444.183.camel@localhost.localdomain>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH] Optimize cxgb3 xmit path (a bit)
+Date: Wed, 30 Jan 2008 16:04:35 -0800
+Message-ID: <47A11093.10301@chelsio.com>
+References: <20080130070016.29078.94125.sendpatchset@N20wks267652wss.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Fleming <afleming@freescale.com>,
-	netdev <netdev@vger.kernel.org>
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Cc: jeff@garzik.org, netdev@vger.kernel.org, davem@davemloft.net
+To: Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xes-mad.com ([216.165.139.214]:56762 "EHLO xes-mad.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751934AbYAaA2Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 19:28:24 -0500
+Received: from stargate.chelsio.com ([12.22.49.110]:19033 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753123AbYAaAfR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 19:35:17 -0500
+In-Reply-To: <20080130070016.29078.94125.sendpatchset@N20wks267652wss.in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This Broadcom PHY is similar to other bcm54xx devices.
+Krishna Kumar wrote:
+> Changes:
+> 	1. Add common code for stopping queue.
+> 	2. No need to call netif_stop_queue followed by netif_wake_queue (and
+> 	   infact a netif_start_queue could have been used instead), instead
+> 	   call stop_queue if required, and remove code under USE_GTS macro.
+> 	3. There is no need to check for netif_queue_stopped, as the network
+> 	   core guarantees that for us (I am sure every driver could remove
+> 	   that check, eg e1000 - I have tested that path a few billion times
+> 	   with about a few hundred thousand qstops but the condition never
+> 	   hit even once).
+>
+> Thanks,
+>   
 
-Signed-off-by: Nate Case <ncase@xes-inc.com>
----
-Note: This is a re-submission, correcting the bad indentation in the first patch
+Hi Krishna,
 
- drivers/net/phy/broadcom.c |   20 ++++++++++++++++++++
- 1 files changed, 20 insertions(+), 0 deletions(-)
+Thanks for the work.
+There is however a bit more cleaning to do regarding the USE_GTS macro.
+I'll post a patch soon that will take your points in account.
 
-diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-index 29666c8..5b80358 100644
---- a/drivers/net/phy/broadcom.c
-+++ b/drivers/net/phy/broadcom.c
-@@ -141,6 +141,20 @@ static struct phy_driver bcm5461_driver = {
- 	.driver 	= { .owner = THIS_MODULE },
- };
- 
-+static struct phy_driver bcm5482_driver = {
-+	.phy_id		= 0x0143bcb0,
-+	.phy_id_mask	= 0xfffffff0,
-+	.name		= "Broadcom BCM5482",
-+	.features	= PHY_GBIT_FEATURES,
-+	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.config_init	= bcm54xx_config_init,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.ack_interrupt	= bcm54xx_ack_interrupt,
-+	.config_intr	= bcm54xx_config_intr,
-+	.driver 	= { .owner = THIS_MODULE },
-+};
-+
- static int __init broadcom_init(void)
- {
- 	int ret;
-@@ -154,8 +168,13 @@ static int __init broadcom_init(void)
- 	ret = phy_driver_register(&bcm5461_driver);
- 	if (ret)
- 		goto out_5461;
-+	ret = phy_driver_register(&bcm5482_driver);
-+	if (ret)
-+		goto out_5482;
- 	return ret;
- 
-+out_5482:
-+	phy_driver_unregister(&bcm5461_driver);
- out_5461:
- 	phy_driver_unregister(&bcm5421_driver);
- out_5421:
-@@ -166,6 +185,7 @@ out_5411:
- 
- static void __exit broadcom_exit(void)
- {
-+	phy_driver_unregister(&bcm5482_driver);
- 	phy_driver_unregister(&bcm5461_driver);
- 	phy_driver_unregister(&bcm5421_driver);
- 	phy_driver_unregister(&bcm5411_driver);
--- 
-1.5.3.3
-
-
-
+Cheers,
+Divy
