@@ -1,70 +1,155 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: e1000 full-duplex TCP performance well below wire speed
-Date: Thu, 31 Jan 2008 09:55:45 -0800
-Message-ID: <47A20BA1.8070206@hp.com>
-References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu>	<36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com>	<47A0C5B2.1000500@hp.com> <47A1B294.8080609@aei.mpg.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Bruce Allen <ballen@gravity.phys.uwm.edu>,
-	netdev@vger.kernel.org,
-	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
-	Bruce Allen <bruce.allen@aei.mpg.de>
-To: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [NET_SCHED 01/04]: Constify struct tcf_ext_map
+Date: Thu, 31 Jan 2008 18:58:03 +0100 (MET)
+Message-ID: <20080131175759.25151.63480.sendpatchset@localhost.localdomain>
+References: <20080131175758.25151.20370.sendpatchset@localhost.localdomain>
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
+	Patrick McHardy <kaber@trash.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:43204 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752633AbYAaRzt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 12:55:49 -0500
-In-Reply-To: <47A1B294.8080609@aei.mpg.de>
+Received: from stinky.trash.net ([213.144.137.162]:55144 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757261AbYAaR6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 12:58:05 -0500
+In-Reply-To: <20080131175758.25151.20370.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> netperf was used without any special tuning parameters. Usually we start 
-> two processes on two hosts which start (almost) simultaneously, last for 
-> 20-60 seconds and simply use UDP_STREAM (works well) and TCP_STREAM, i.e.
-> 
-> on 192.168.0.202: netperf -H 192.168.2.203 -t TCP_STREAL -l 20
-> on 192.168.0.203: netperf -H 192.168.2.202 -t TCP_STREAL -l 20
-> 
-> 192.168.0.20[23] here is on eth0 which cannot do jumbo frames, thus we 
-> use the .2. part for eth1 for a range of mtus.
-> 
-> The server is started on both nodes with the start-stop-daemon and no 
-> special parameters I'm aware of.
+[NET_SCHED]: Constify struct tcf_ext_map
 
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-So long as you are relying on external (netperf relative) means to 
-report the throughput, those command lines would be fine.  I wouldn't be 
-comfortably relying on the sum of the netperf-reported throughtputs with 
-those comand lines though.  Netperf2 has no test synchronization, so two 
-separate commands, particularly those initiated on different systems, 
-are subject to skew errors.  99 times out of ten they might be epsilon, 
-but I get a _little_ paranoid there.
+---
+commit 12e33ddf57910b685501df10bd92223ea9b98fd6
+tree 1ce47c7b6b6b968940f3dc28f9d7839e78c85089
+parent 8af03e782cae1e0a0f530ddd22301cdd12cf9dc0
+author Patrick McHardy <kaber@trash.net> Wed, 30 Jan 2008 21:59:26 +0100
+committer Patrick McHardy <kaber@trash.net> Thu, 31 Jan 2008 18:52:55 +0100
 
-There are three alternatives:
+ include/net/pkt_cls.h   |    6 +++---
+ net/sched/cls_api.c     |    6 +++---
+ net/sched/cls_basic.c   |    2 +-
+ net/sched/cls_fw.c      |    2 +-
+ net/sched/cls_route.c   |    2 +-
+ net/sched/cls_tcindex.c |    2 +-
+ net/sched/cls_u32.c     |    2 +-
+ 7 files changed, 11 insertions(+), 11 deletions(-)
 
-1) use netperf4.  not as convenient for "quick" testing at present, but 
-it has explicit test synchronization, so  you "know" that the numbers 
-presented are from when all connections were actively transferring data
-
-2) use the aforementioned "burst" TCP_RR test.  This is then a single 
-netperf with data flowing both ways on a single connection so no issue 
-of skew, but perhaps an issue of being one connection and so one process 
-on each end.
-
-3) start both tests from the same system and follow the suggestions 
-contained in :
-
-<http://www.netperf.org/svn/netperf2/tags/netperf-2.4.4/doc/netperf.html>
-
-particluarly:
-
-<http://www.netperf.org/svn/netperf2/tags/netperf-2.4.4/doc/netperf.html#Using-Netperf-to-Measure-Aggregate-Performance>
-
-and use a combination of TCP_STREAM and TCP_MAERTS (STREAM backwards) tests.
-
-happy benchmarking,
-
-rick jones
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 8716eb7..d349c66 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -131,14 +131,14 @@ tcf_exts_exec(struct sk_buff *skb, struct tcf_exts *exts,
+ 
+ extern int tcf_exts_validate(struct tcf_proto *tp, struct nlattr **tb,
+ 	                     struct nlattr *rate_tlv, struct tcf_exts *exts,
+-	                     struct tcf_ext_map *map);
++	                     const struct tcf_ext_map *map);
+ extern void tcf_exts_destroy(struct tcf_proto *tp, struct tcf_exts *exts);
+ extern void tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
+ 	                     struct tcf_exts *src);
+ extern int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts,
+-	                 struct tcf_ext_map *map);
++	                 const struct tcf_ext_map *map);
+ extern int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts,
+-	                       struct tcf_ext_map *map);
++	                       const struct tcf_ext_map *map);
+ 
+ /**
+  * struct tcf_pkt_info - packet information
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 3377ca0..0fbedca 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -482,7 +482,7 @@ EXPORT_SYMBOL(tcf_exts_destroy);
+ 
+ int tcf_exts_validate(struct tcf_proto *tp, struct nlattr **tb,
+ 		  struct nlattr *rate_tlv, struct tcf_exts *exts,
+-		  struct tcf_ext_map *map)
++		  const struct tcf_ext_map *map)
+ {
+ 	memset(exts, 0, sizeof(*exts));
+ 
+@@ -535,7 +535,7 @@ void tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
+ EXPORT_SYMBOL(tcf_exts_change);
+ 
+ int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts,
+-	      struct tcf_ext_map *map)
++		  const struct tcf_ext_map *map)
+ {
+ #ifdef CONFIG_NET_CLS_ACT
+ 	if (map->action && exts->action) {
+@@ -571,7 +571,7 @@ EXPORT_SYMBOL(tcf_exts_dump);
+ 
+ 
+ int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts,
+-			struct tcf_ext_map *map)
++			const struct tcf_ext_map *map)
+ {
+ #ifdef CONFIG_NET_CLS_ACT
+ 	if (exts->action)
+diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
+index bfb4342..956915c 100644
+--- a/net/sched/cls_basic.c
++++ b/net/sched/cls_basic.c
+@@ -35,7 +35,7 @@ struct basic_filter
+ 	struct list_head	link;
+ };
+ 
+-static struct tcf_ext_map basic_ext_map = {
++static const struct tcf_ext_map basic_ext_map = {
+ 	.action = TCA_BASIC_ACT,
+ 	.police = TCA_BASIC_POLICE
+ };
+diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+index 436a6e7..b0f90e5 100644
+--- a/net/sched/cls_fw.c
++++ b/net/sched/cls_fw.c
+@@ -47,7 +47,7 @@ struct fw_filter
+ 	struct tcf_exts		exts;
+ };
+ 
+-static struct tcf_ext_map fw_ext_map = {
++static const struct tcf_ext_map fw_ext_map = {
+ 	.action = TCA_FW_ACT,
+ 	.police = TCA_FW_POLICE
+ };
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+index f7e7d39..784dcb8 100644
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -62,7 +62,7 @@ struct route4_filter
+ 
+ #define ROUTE4_FAILURE ((struct route4_filter*)(-1L))
+ 
+-static struct tcf_ext_map route_ext_map = {
++static const struct tcf_ext_map route_ext_map = {
+ 	.police = TCA_ROUTE4_POLICE,
+ 	.action = TCA_ROUTE4_ACT
+ };
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index ee60b2d..7a7bff5 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -55,7 +55,7 @@ struct tcindex_data {
+ 	int fall_through;	/* 0: only classify if explicit match */
+ };
+ 
+-static struct tcf_ext_map tcindex_ext_map = {
++static const struct tcf_ext_map tcindex_ext_map = {
+ 	.police = TCA_TCINDEX_POLICE,
+ 	.action = TCA_TCINDEX_ACT
+ };
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index e8a7756..b18fa95 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -82,7 +82,7 @@ struct tc_u_common
+ 	u32			hgenerator;
+ };
+ 
+-static struct tcf_ext_map u32_ext_map = {
++static const struct tcf_ext_map u32_ext_map = {
+ 	.action = TCA_U32_ACT,
+ 	.police = TCA_U32_POLICE
+ };
