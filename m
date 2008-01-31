@@ -1,57 +1,79 @@
-From: "SANGTAE HA" <sangtae.ha@gmail.com>
-Subject: Re: e1000 full-duplex TCP performance well below wire speed
-Date: Wed, 30 Jan 2008 19:17:20 -0500
-Message-ID: <649aecc70801301617m6331bcb8i8ce60366e182c739@mail.gmail.com>
-References: <Pine.LNX.4.63.0801300324000.6391@trinity.phys.uwm.edu>
-	 <20080130.055333.192844925.davem@davemloft.net>
-	 <Pine.LNX.4.63.0801300758020.11487@trinity.phys.uwm.edu>
-	 <20080130082136.1017631d@deepthought>
-	 <Pine.LNX.4.63.0801301610240.19938@trinity.phys.uwm.edu>
+From: Nate Case <ncase@xes-inc.com>
+Subject: [PATCHv2] PHYLIB: Add BCM5482 PHY support
+Date: Wed, 30 Jan 2008 18:28:14 -0600
+Message-ID: <1201739294.12444.183.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>
-To: "Bruce Allen" <ballen@gravity.phys.uwm.edu>
+Cc: Andy Fleming <afleming@freescale.com>,
+	netdev <netdev@vger.kernel.org>
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.224]:42687 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755338AbYAaARX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 19:17:23 -0500
-Received: by wr-out-0506.google.com with SMTP id c48so527034wra.23
-        for <netdev@vger.kernel.org>; Wed, 30 Jan 2008 16:17:22 -0800 (PST)
-In-Reply-To: <Pine.LNX.4.63.0801301610240.19938@trinity.phys.uwm.edu>
-Content-Disposition: inline
+Received: from xes-mad.com ([216.165.139.214]:56762 "EHLO xes-mad.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751934AbYAaA2Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 19:28:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Bruce,
+This Broadcom PHY is similar to other bcm54xx devices.
 
-On Jan 30, 2008 5:25 PM, Bruce Allen <ballen@gravity.phys.uwm.edu> wrote:
->
-> In our application (cluster computing) we use a very tightly coupled
-> high-speed low-latency network.  There is no 'wide area traffic'.  So it's
-> hard for me to understand why any networking components or software layers
-> should take more than milliseconds to ramp up or back off in speed.
-> Perhaps we should be asking for a TCP congestion avoidance algorithm which
-> is designed for a data center environment where there are very few hops
-> and typical packet delivery times are tens or hundreds of microseconds.
-> It's very different than delivering data thousands of km across a WAN.
->
+Signed-off-by: Nate Case <ncase@xes-inc.com>
+---
+Note: This is a re-submission, correcting the bad indentation in the first patch
 
-If your network latency is low, regardless of type of protocols should
-give you more than 900Mbps. I can guess the RTT of two machines is
-less than 4ms in your case and I remember the throughputs of all
-high-speed protocols (including tcp-reno) were more than 900Mbps with
-4ms RTT. So, my question which kernel version did you use with your
-broadcomm NIC and got more than 900Mbps?
+ drivers/net/phy/broadcom.c |   20 ++++++++++++++++++++
+ 1 files changed, 20 insertions(+), 0 deletions(-)
 
-I have two machines connected by a gig switch and I can see what
-happens in my environment. Could you post what parameters did you use
-for netperf testing?
-and also if you set any parameters for your testing, please post them
-here so that I can see that happens to me as well.
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index 29666c8..5b80358 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -141,6 +141,20 @@ static struct phy_driver bcm5461_driver = {
+ 	.driver 	= { .owner = THIS_MODULE },
+ };
+ 
++static struct phy_driver bcm5482_driver = {
++	.phy_id		= 0x0143bcb0,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Broadcom BCM5482",
++	.features	= PHY_GBIT_FEATURES,
++	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.config_init	= bcm54xx_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.ack_interrupt	= bcm54xx_ack_interrupt,
++	.config_intr	= bcm54xx_config_intr,
++	.driver 	= { .owner = THIS_MODULE },
++};
++
+ static int __init broadcom_init(void)
+ {
+ 	int ret;
+@@ -154,8 +168,13 @@ static int __init broadcom_init(void)
+ 	ret = phy_driver_register(&bcm5461_driver);
+ 	if (ret)
+ 		goto out_5461;
++	ret = phy_driver_register(&bcm5482_driver);
++	if (ret)
++		goto out_5482;
+ 	return ret;
+ 
++out_5482:
++	phy_driver_unregister(&bcm5461_driver);
+ out_5461:
+ 	phy_driver_unregister(&bcm5421_driver);
+ out_5421:
+@@ -166,6 +185,7 @@ out_5411:
+ 
+ static void __exit broadcom_exit(void)
+ {
++	phy_driver_unregister(&bcm5482_driver);
+ 	phy_driver_unregister(&bcm5461_driver);
+ 	phy_driver_unregister(&bcm5421_driver);
+ 	phy_driver_unregister(&bcm5411_driver);
+-- 
+1.5.3.3
 
-Regards,
-Sangtae
+
+
