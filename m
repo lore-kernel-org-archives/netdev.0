@@ -1,40 +1,44 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: [PATCH 0/6] preparations to enable netdevice notifiers inside
- a namespace (resend)
-Date: Thu, 31 Jan 2008 15:58:36 +0100
-Message-ID: <47A1E21C.40909@free.fr>
-References: <47A1B835.7050600@sw.ru>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: hard hang through qdisc
+Date: Thu, 31 Jan 2008 16:04:27 +0100
+Message-ID: <200801311604.28110.ak@suse.de>
+References: <200801311321.01015.ak@suse.de> <47A1CD4E.7050701@trash.net> <47A1D4F2.6080904@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev <netdev@vger.kernel.org>
-To: "Denis V. Lunev" <den@sw.ru>
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([195.212.29.139]:42775 "EHLO
-	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759560AbYAaPDg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 10:03:36 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate6.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m0VF3IBE268916
-	for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 15:03:18 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0VF3IbZ3907616
-	for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 15:03:18 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0VF3HWv025191
-	for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 15:03:18 GMT
-In-Reply-To: <47A1B835.7050600@sw.ru>
+Received: from mx1.suse.de ([195.135.220.2]:52455 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757504AbYAaPFt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 10:05:49 -0500
+In-Reply-To: <47A1D4F2.6080904@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denis V. Lunev wrote:
-> Here are some preparations and cleanups to enable network device/inet
-> address notifiers inside a namespace.
-> 
-> This set of patches has been originally sent last Friday. One cleanup
-> patch from the original series is dropped as wrong, thanks to Daniel
-> Lezcano.
 
-Can you explain please.
+> Works for me:
+>
+> qdisc tbf 8001: root rate 1000bit burst 10b/8 mpu 0b lat 720.0ms
+>   Sent 0 bytes 0 pkt (dropped 9, overlimits 0 requeues 0)
+>   rate 0bit 0pps backlog 0b 0p requeues 0
+>
+> Packets are dropped as expected.
+
+I can still reproduce it on 64bit with http://halobates.de/config-qdisc
+(all qdiscs etc. compiled in for testing) 
+with latest git tip (8af03e782cae1e0a0f530ddd22301cdd12cf9dc0)
+
+The command line above causes an instant hang. Also tried it with
+newer iproute2 (the original one was quite old), but it didn't make
+a difference.
+
+Perhaps it's related to what qdiscs are enabled? Can you please
+try with the above config?
+
+If everything fails I can do a bisect later.
+
+-Andi
