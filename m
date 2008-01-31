@@ -1,49 +1,848 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Null pointer dereference when bringing up bonding device on kernel-2.6.24-2.fc9.i686
-Date: Thu, 31 Jan 2008 11:09:20 -0800
-Message-ID: <14150.1201806560@death>
-References: <m3bq75en2y.fsf@ursa.amorsen.dk> <7908.1201551451@death> <47A1C45C.5080906@p6drad-teel.net>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: [PATCH] [RFC] 3c509: convert to isa_driver and pnp_driver
+Date: Thu, 31 Jan 2008 20:12:42 +0100
+Message-ID: <200801312012.43447.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?us-ascii?Q?=3D=3FISO-8859-1=3FQ=3FSiim=5FP=3DF5der=3F=3D?=
-	<siim@p6drad-teel.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:43677 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756558AbYAaTJY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 14:09:24 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m0VJ9MSY017993
-	for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 14:09:22 -0500
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0VJ9LOn239064
-	for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 14:09:21 -0500
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0VJ9Ltw006711
-	for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 14:09:21 -0500
-In-reply-to: <47A1C45C.5080906@p6drad-teel.net> 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1765400AbYAaTNA@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Siim P=C3=B5der <siim@p6drad-teel.net> wrote:
+Hello,
+this patch is an (incomplete and probably wrong) attempt to convert 3c509 
+driver to isa_driver and pnp_driver model. It works but is not finished. My 
+original goal was to make 3c509 resume correctly after hibernation - this 
+still does not work (in fact, now it hangs during hibernation - I need to do 
+some more debugging). Having udev to load the driver automatically when 3c509 
+PnP card is detected would be very nice too (assuming udev can do that for 
+PnP cards).
 
->Jay Vosburgh wrote:
->> Benny Amorsen <benny+usenet@amorsen.dk> wrote:
->>=20
->>> https://bugzilla.redhat.com/show_bug.cgi?id=3D430391
->>=20
->> 	I know what this is, I'll fix it.
->
->do you know when this happend, so we would know which kernel is ok to
->use (not to start trying blindly)?
+I think that the isa_driver part is mostly OK but don't know about the PnP 
+one.
 
-	It was something I changed up during the 2.6.24-rc development
-somewhere.  Also, I posted the fix for this a couple days ago, it's
-commit 5eb71eec3616b0a62e63197016576a74da240c6b in netdev-2.6#upstream.
+Should I use pnp_driver or pnp_card_driver? 3c509 cards have no subdevices. 
+I'm confused about usage of pnp_driver together with word "bios" in ALSA 
+drivers - I think that pnp_driver should work with all 3 PnP kinds (isapnp, 
+pnpbios, acpipnp).
 
-	-J
+Is it OK to introduce a limit of 8 3c509 cards? The driver had no explicit 
+limit before - but the irq[] module parameter had space for only 8 numbers 
+(and xcvr[] had 12?)
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+--- linux-2.6.24-orig/drivers/net/3c509.c	2008-01-27 19:48:19.000000000 +0100
++++ linux-2.6.24-pentium/drivers/net/3c509.c	2008-01-30 20:44:48.000000000 +0100
+@@ -69,10 +69,9 @@
+ static int max_interrupt_work = 10;
+ 
+ #include <linux/module.h>
+-#ifdef CONFIG_MCA
+ #include <linux/mca.h>
+-#endif
+-#include <linux/isapnp.h>
++#include <linux/isa.h>
++#include <linux/pnp.h>
+ #include <linux/string.h>
+ #include <linux/interrupt.h>
+ #include <linux/errno.h>
+@@ -97,20 +96,17 @@
+ 
+ static char version[] __initdata = DRV_NAME ".c:" DRV_VERSION " " DRV_RELDATE " becker@scyld.com\n";
+ 
+-#if defined(CONFIG_PM) && (defined(CONFIG_MCA) || defined(CONFIG_EISA))
+-#define EL3_SUSPEND
+-#endif
+-
+ #ifdef EL3_DEBUG
+ static int el3_debug = EL3_DEBUG;
+ #else
+-static int el3_debug = 2;
++static int el3_debug = 20;
+ #endif
+ 
+ /* Used to do a global count of all the cards in the system.  Must be
+  * a global variable so that the mca/eisa probe routines can increment
+  * it */
+ static int el3_cards = 0;
++#define EL3_MAX_CARDS 8
+ 
+ /* To minimize the size of the driver source I only define operating
+    constants if they are used several times.  You'll need the manual
+@@ -119,7 +115,7 @@
+ #define EL3_DATA 0x00
+ #define EL3_CMD 0x0e
+ #define EL3_STATUS 0x0e
+-#define	 EEPROM_READ 0x80
++#define	EEPROM_READ 0x80
+ 
+ #define EL3_IO_EXTENT	16
+ 
+@@ -170,7 +166,6 @@
+ 
+ struct el3_private {
+ 	struct net_device_stats stats;
+-	struct net_device *next_dev;
+ 	spinlock_t lock;
+ 	/* skb send-queue */
+ 	int head, size;
+@@ -179,12 +174,29 @@
+ 		EL3_MCA,
+ 		EL3_PNP,
+ 		EL3_EISA,
++		EL3_ISA,
+ 	} type;						/* type of device */
+ 	struct device *dev;
+ };
+ static int id_port __initdata = 0x110;	/* Start with 0x110 to avoid new sound cards.*/
+-static struct net_device *el3_root_dev;
++static struct net_device *el3_devs[EL3_MAX_CARDS];
++//static __be16 el3_phys_addr[EL3_MAX_CARDS][3];
++
++static int isa_registered;
++#ifdef CONFIG_PNP
++static int pnp_registered;
++static int nopnp;
++#endif
++#ifdef CONFIG_EISA
++static int eisa_registered;
++#endif
++#ifdef CONFIG_MCA
++static int mca_registered;
++#endif
++
+ 
++static int __init el3_common_init(struct net_device *dev);
++static void el3_common_remove (struct net_device *dev);
+ static ushort id_read_eeprom(int index);
+ static ushort read_eeprom(int ioaddr, int index);
+ static int el3_open(struct net_device *dev);
+@@ -199,23 +211,288 @@
+ static void el3_down(struct net_device *dev);
+ static void el3_up(struct net_device *dev);
+ static const struct ethtool_ops ethtool_ops;
+-#ifdef EL3_SUSPEND
++#ifdef CONFIG_PM
+ static int el3_suspend(struct device *, pm_message_t);
+ static int el3_resume(struct device *);
+-#else
+-#define el3_suspend NULL
+-#define el3_resume NULL
+ #endif
+ 
+ 
+ /* generic device remove for all device types */
+-#if defined(CONFIG_EISA) || defined(CONFIG_MCA)
++//#if defined(CONFIG_MCA) || defined(CONFIG_EISA)
+ static int el3_device_remove (struct device *device);
+-#endif
++//#endif
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void el3_poll_controller(struct net_device *dev);
+ #endif
+ 
++#ifdef CONFIG_ISA
++static int __devinit el3_isa_match(struct device *pdev,
++				   unsigned int ndev)
++{
++	struct net_device *dev;
++	struct el3_private *lp;
++	short lrs_state = 0xff, i;
++	int ioaddr, irq, if_port;
++	__be16 phys_addr[3];
++	static int current_tag;
++
++again:
++	/* Select an open I/O location at 0x1*0 to do contention select. */
++	for ( ; id_port < 0x200; id_port += 0x10) {
++		if (!request_region(id_port, 1, "3c509"))
++			continue;
++		outb(0x00, id_port);
++		outb(0xff, id_port);
++		if (inb(id_port) & 0x01){
++			release_region(id_port, 1);
++			break;
++		} else
++			release_region(id_port, 1);
++	}
++	if (id_port >= 0x200) {
++		/* Rare -- do we really need a warning? */
++		printk(" WARNING: No I/O port available for 3c509 activation.\n");
++		return 0;
++	}
++
++	/* Next check for all ISA bus boards by sending the ID sequence to the
++	   ID_PORT.  We find cards past the first by setting the 'current_tag'
++	   on cards as they are found.  Cards with their tag set will not
++	   respond to subsequent ID sequences. */
++
++	outb(0x00, id_port);
++	outb(0x00, id_port);
++	for(i = 0; i < 255; i++) {
++		outb(lrs_state, id_port);
++		lrs_state <<= 1;
++		lrs_state = lrs_state & 0x100 ? lrs_state ^ 0xcf : lrs_state;
++	}
++
++	/* For the first probe, clear all board's tag registers. */
++	if (current_tag == 0)
++		outb(0xd0, id_port);
++	else				/* Otherwise kill off already-found boards. */
++		outb(0xd8, id_port);
++
++	if (id_read_eeprom(7) != 0x6d50)
++		return 0;
++
++	/* Read in EEPROM data, which does contention-select.
++	   Only the lowest address board will stay "on-line".
++	   3Com got the byte order backwards. */
++	for (i = 0; i < 3; i++)
++		phys_addr[i] = htons(id_read_eeprom(i));
++
++#ifdef CONFIG_PNP
++	if (!nopnp) {
++		/* The ISA PnP 3c509 cards respond to the ID sequence.
++		   This check is needed in order not to register them twice. */
++		for (i = 0; i < el3_cards; i++) {
++			if (!memcmp(phys_addr, el3_devs[i]->dev_addr, ETH_ALEN))
++			{
++				if (el3_debug > 3)
++					printk("3c509 with address %02x %02x %02x %02x %02x %02x was found by ISAPnP\n",
++						phys_addr[0] & 0xff, phys_addr[0] >> 8,
++						phys_addr[1] & 0xff, phys_addr[1] >> 8,
++						phys_addr[2] & 0xff, phys_addr[2] >> 8);
++				/* Set the adaptor tag so that the next card can be found. */
++				outb(0xd0 + ++current_tag, id_port);
++				goto again;
++			}
++		}
++	}
++#endif /* CONFIG_PNP */
++
++	{
++		unsigned int iobase = id_read_eeprom(8);
++		if_port = iobase >> 14;
++		ioaddr = 0x200 + ((iobase & 0x1f) << 4);
++	}
++	irq = id_read_eeprom(9) >> 12;
++
++	dev = alloc_etherdev(sizeof (struct el3_private));
++	if (!dev)
++		return -ENOMEM;
++
++	netdev_boot_setup_check(dev);
++
++	/* Set passed-in IRQ or I/O Addr. */
++	if (dev->irq > 1 && dev->irq < 16)
++			irq = dev->irq;
++
++	if (dev->base_addr) {
++		if (dev->mem_end == 0x3c509 	/* Magic key */
++		    && dev->base_addr >= 0x200  &&  dev->base_addr <= 0x3e0)
++			ioaddr = dev->base_addr & 0x3f0;
++		else if (dev->base_addr != ioaddr) {
++			free_netdev(dev);
++			return 0;
++		}
++	}
++
++	if (!request_region(ioaddr, EL3_IO_EXTENT, "3c509")) {
++		free_netdev(dev);
++		return 0;
++	}
++
++	/* Set the adaptor tag so that the next card can be found. */
++	outb(0xd0 + ++current_tag, id_port);
++
++	/* Activate the adaptor at the EEPROM location. */
++	outb((ioaddr >> 4) | 0xe0, id_port);
++
++	EL3WINDOW(0);
++	if (inw(ioaddr) != 0x6d50) {
++		free_netdev(dev);
++		return 0;
++	}
++
++	/* Free the interrupt so that some other card can use it. */
++	outw(0x0f00, ioaddr + WN0_IRQ);
++
++
++	memcpy(dev->dev_addr, phys_addr, sizeof(phys_addr));
++	dev->base_addr = ioaddr;
++	dev->irq = irq;
++	dev->if_port = if_port;
++	lp = netdev_priv(dev);
++	lp->type = EL3_ISA;
++	lp->dev = pdev;
++	dev_set_drvdata(pdev, dev);
++	if (el3_common_init(dev)) {
++		free_netdev(dev);
++		return 0;
++	}
++
++	el3_devs[el3_cards] = dev;
++	el3_cards++;
++	return 1;
++}
++
++static int __devexit el3_isa_remove(struct device *pdev,
++				    unsigned int ndev)
++{
++	el3_device_remove(pdev);
++	dev_set_drvdata(pdev, NULL);
++	return 0;
++}
++
++#ifdef CONFIG_PM
++static int el3_isa_suspend(struct device *dev, unsigned int n,
++			   pm_message_t state)
++{
++	return el3_suspend(dev_get_drvdata(dev), state);
++}
++
++static int el3_isa_resume(struct device *dev, unsigned int n)
++{
++	return el3_resume(dev_get_drvdata(dev));
++}
++#endif
++
++static struct isa_driver el3_isa_driver = {
++	.match		= el3_isa_match,
++	.remove		= __devexit_p(el3_isa_remove),
++#ifdef CONFIG_PM
++	.suspend	= el3_isa_suspend,
++	.resume		= el3_isa_resume,
++#endif
++	.driver		= {
++		.name	= "3c509"
++	},
++};
++#endif
++
++#ifdef CONFIG_PNP
++static struct pnp_device_id el3_pnp_ids[] = {
++	{ .id = "TCM5090" }, /* 3Com Etherlink III (TP) */
++	{ .id = "TCM5091" }, /* 3Com Etherlink III */
++	{ .id = "TCM5094" }, /* 3Com Etherlink III (combo) */
++	{ .id = "TCM5095" }, /* 3Com Etherlink III (TPO) */
++	{ .id = "TCM5098" }, /* 3Com Etherlink III (TPC) */
++	{ .id = "PNP80f7" }, /* 3Com Etherlink III compatible */
++	{ .id = "PNP80f8" }, /* 3Com Etherlink III compatible */
++	{ .id = "" }
++};
++MODULE_DEVICE_TABLE(pnp, el3_pnp_ids);
++
++static int __devinit el3_pnp_probe(struct pnp_dev *pdev,
++				    const struct pnp_device_id *id)
++{
++	struct el3_private *lp;
++	short i;
++	int ioaddr, irq, if_port;
++	u16 phys_addr[3];
++	struct net_device *dev = NULL;
++	int err;
++
++	ioaddr = pnp_port_start(pdev, 0);
++	if (!request_region(ioaddr, EL3_IO_EXTENT, "3c509 PnP"))
++		return -EBUSY;
++	irq = pnp_irq(pdev, 0);
++	EL3WINDOW(0);
++	for (i = 0; i < 3; i++)
++		phys_addr[i] = htons(read_eeprom(ioaddr, i));
++	if_port = read_eeprom(ioaddr, 8) >> 14;
++	dev = alloc_etherdev(sizeof (struct el3_private));
++	if (!dev) {
++		release_region(ioaddr, EL3_IO_EXTENT);
++		return -ENOMEM;
++	}
++	SET_NETDEV_DEV(dev, &pdev->dev);
++	netdev_boot_setup_check(dev);
++
++	memcpy(dev->dev_addr, phys_addr, sizeof(phys_addr));
++	dev->base_addr = ioaddr;
++	dev->irq = irq;
++	dev->if_port = if_port;
++	lp = netdev_priv(dev);
++	lp->dev = &pdev->dev;
++	lp->type = EL3_PNP;
++	pnp_set_drvdata (pdev, dev);
++	err = el3_common_init(dev);
++
++	if (err) {
++		pnp_set_drvdata (pdev, NULL);
++		free_netdev(dev);
++		return err;
++	}
++
++	el3_devs[el3_cards] = dev;
++	el3_cards++;
++	return 0;
++}
++
++static void __devexit el3_pnp_remove(struct pnp_dev *pdev)
++{
++	el3_common_remove(pnp_get_drvdata(pdev));
++	pnp_set_drvdata(pdev, NULL);
++}
++
++#ifdef CONFIG_PM
++static int el3_pnp_suspend(struct pnp_dev *pdev, pm_message_t state)
++{
++	return el3_suspend(pnp_get_drvdata(pdev), state);
++}
++
++static int el3_pnp_resume(struct pnp_dev *pdev)
++{
++	return el3_resume(pnp_get_drvdata(pdev));
++}
++#endif
++
++static struct pnp_driver el3_pnp_driver = {
++	.name		= "3c509",
++	.id_table	= el3_pnp_ids,
++	.probe		= el3_pnp_probe,
++	.remove		= __devexit_p(el3_pnp_remove),
++#ifdef CONFIG_PM
++	.suspend	= el3_pnp_suspend,
++	.resume		= el3_pnp_resume,
++#endif
++};
++#endif /* CONFIG_PNP */
++
+ #ifdef CONFIG_EISA
+ static struct eisa_device_id el3_eisa_ids[] = {
+ 		{ "TCM5092" },
+@@ -273,43 +550,6 @@
+ };
+ #endif /* CONFIG_MCA */
+ 
+-#if defined(__ISAPNP__)
+-static struct isapnp_device_id el3_isapnp_adapters[] __initdata = {
+-	{	ISAPNP_ANY_ID, ISAPNP_ANY_ID,
+-		ISAPNP_VENDOR('T', 'C', 'M'), ISAPNP_FUNCTION(0x5090),
+-		(long) "3Com Etherlink III (TP)" },
+-	{	ISAPNP_ANY_ID, ISAPNP_ANY_ID,
+-		ISAPNP_VENDOR('T', 'C', 'M'), ISAPNP_FUNCTION(0x5091),
+-		(long) "3Com Etherlink III" },
+-	{	ISAPNP_ANY_ID, ISAPNP_ANY_ID,
+-		ISAPNP_VENDOR('T', 'C', 'M'), ISAPNP_FUNCTION(0x5094),
+-		(long) "3Com Etherlink III (combo)" },
+-	{	ISAPNP_ANY_ID, ISAPNP_ANY_ID,
+-		ISAPNP_VENDOR('T', 'C', 'M'), ISAPNP_FUNCTION(0x5095),
+-		(long) "3Com Etherlink III (TPO)" },
+-	{	ISAPNP_ANY_ID, ISAPNP_ANY_ID,
+-		ISAPNP_VENDOR('T', 'C', 'M'), ISAPNP_FUNCTION(0x5098),
+-		(long) "3Com Etherlink III (TPC)" },
+-	{	ISAPNP_ANY_ID, ISAPNP_ANY_ID,
+-		ISAPNP_VENDOR('P', 'N', 'P'), ISAPNP_FUNCTION(0x80f7),
+-		(long) "3Com Etherlink III compatible" },
+-	{	ISAPNP_ANY_ID, ISAPNP_ANY_ID,
+-		ISAPNP_VENDOR('P', 'N', 'P'), ISAPNP_FUNCTION(0x80f8),
+-		(long) "3Com Etherlink III compatible" },
+-	{ }	/* terminate list */
+-};
+-
+-static __be16 el3_isapnp_phys_addr[8][3];
+-static int nopnp;
+-#endif /* __ISAPNP__ */
+-
+-/* With the driver model introduction for EISA devices, both init
+- * and cleanup have been split :
+- * - EISA devices probe/remove starts in el3_eisa_probe/el3_device_remove
+- * - MCA/ISA still use el3_probe
+- *
+- * Both call el3_common_init/el3_common_remove. */
+-
+ static int __init el3_common_init(struct net_device *dev)
+ {
+ 	struct el3_private *lp = netdev_priv(dev);
+@@ -373,218 +613,6 @@
+ 	free_netdev (dev);
+ }
+ 
+-static int __init el3_probe(int card_idx)
+-{
+-	struct net_device *dev;
+-	struct el3_private *lp;
+-	short lrs_state = 0xff, i;
+-	int ioaddr, irq, if_port;
+-	__be16 phys_addr[3];
+-	static int current_tag;
+-	int err = -ENODEV;
+-#if defined(__ISAPNP__)
+-	static int pnp_cards;
+-	struct pnp_dev *idev = NULL;
+-	int pnp_found = 0;
+-
+-	if (nopnp == 1)
+-		goto no_pnp;
+-
+-	for (i=0; el3_isapnp_adapters[i].vendor != 0; i++) {
+-		int j;
+-		while ((idev = pnp_find_dev(NULL,
+-					    el3_isapnp_adapters[i].vendor,
+-					    el3_isapnp_adapters[i].function,
+-					    idev))) {
+-			if (pnp_device_attach(idev) < 0)
+-				continue;
+-			if (pnp_activate_dev(idev) < 0) {
+-__again:
+-				pnp_device_detach(idev);
+-				continue;
+-			}
+-			if (!pnp_port_valid(idev, 0) || !pnp_irq_valid(idev, 0))
+-				goto __again;
+-			ioaddr = pnp_port_start(idev, 0);
+-			if (!request_region(ioaddr, EL3_IO_EXTENT, "3c509 PnP")) {
+-				pnp_device_detach(idev);
+-				return -EBUSY;
+-			}
+-			irq = pnp_irq(idev, 0);
+-			if (el3_debug > 3)
+-				printk ("ISAPnP reports %s at i/o 0x%x, irq %d\n",
+-					(char*) el3_isapnp_adapters[i].driver_data, ioaddr, irq);
+-			EL3WINDOW(0);
+-			for (j = 0; j < 3; j++)
+-				el3_isapnp_phys_addr[pnp_cards][j] =
+-					phys_addr[j] =
+-						htons(read_eeprom(ioaddr, j));
+-			if_port = read_eeprom(ioaddr, 8) >> 14;
+-			dev = alloc_etherdev(sizeof (struct el3_private));
+-			if (!dev) {
+-					release_region(ioaddr, EL3_IO_EXTENT);
+-					pnp_device_detach(idev);
+-					return -ENOMEM;
+-			}
+-
+-			SET_NETDEV_DEV(dev, &idev->dev);
+-			pnp_cards++;
+-
+-			netdev_boot_setup_check(dev);
+-			pnp_found = 1;
+-			goto found;
+-		}
+-	}
+-no_pnp:
+-#endif /* __ISAPNP__ */
+-
+-	/* Select an open I/O location at 0x1*0 to do contention select. */
+-	for ( ; id_port < 0x200; id_port += 0x10) {
+-		if (!request_region(id_port, 1, "3c509"))
+-			continue;
+-		outb(0x00, id_port);
+-		outb(0xff, id_port);
+-		if (inb(id_port) & 0x01){
+-			release_region(id_port, 1);
+-			break;
+-		} else
+-			release_region(id_port, 1);
+-	}
+-	if (id_port >= 0x200) {
+-		/* Rare -- do we really need a warning? */
+-		printk(" WARNING: No I/O port available for 3c509 activation.\n");
+-		return -ENODEV;
+-	}
+-
+-	/* Next check for all ISA bus boards by sending the ID sequence to the
+-	   ID_PORT.  We find cards past the first by setting the 'current_tag'
+-	   on cards as they are found.  Cards with their tag set will not
+-	   respond to subsequent ID sequences. */
+-
+-	outb(0x00, id_port);
+-	outb(0x00, id_port);
+-	for(i = 0; i < 255; i++) {
+-		outb(lrs_state, id_port);
+-		lrs_state <<= 1;
+-		lrs_state = lrs_state & 0x100 ? lrs_state ^ 0xcf : lrs_state;
+-	}
+-
+-	/* For the first probe, clear all board's tag registers. */
+-	if (current_tag == 0)
+-		outb(0xd0, id_port);
+-	else				/* Otherwise kill off already-found boards. */
+-		outb(0xd8, id_port);
+-
+-	if (id_read_eeprom(7) != 0x6d50) {
+-		return -ENODEV;
+-	}
+-
+-	/* Read in EEPROM data, which does contention-select.
+-	   Only the lowest address board will stay "on-line".
+-	   3Com got the byte order backwards. */
+-	for (i = 0; i < 3; i++) {
+-		phys_addr[i] = htons(id_read_eeprom(i));
+-	}
+-
+-#if defined(__ISAPNP__)
+-	if (nopnp == 0) {
+-		/* The ISA PnP 3c509 cards respond to the ID sequence.
+-		   This check is needed in order not to register them twice. */
+-		for (i = 0; i < pnp_cards; i++) {
+-			if (phys_addr[0] == el3_isapnp_phys_addr[i][0] &&
+-			    phys_addr[1] == el3_isapnp_phys_addr[i][1] &&
+-			    phys_addr[2] == el3_isapnp_phys_addr[i][2])
+-			{
+-				if (el3_debug > 3)
+-					printk("3c509 with address %02x %02x %02x %02x %02x %02x was found by ISAPnP\n",
+-						phys_addr[0] & 0xff, phys_addr[0] >> 8,
+-						phys_addr[1] & 0xff, phys_addr[1] >> 8,
+-						phys_addr[2] & 0xff, phys_addr[2] >> 8);
+-				/* Set the adaptor tag so that the next card can be found. */
+-				outb(0xd0 + ++current_tag, id_port);
+-				goto no_pnp;
+-			}
+-		}
+-	}
+-#endif /* __ISAPNP__ */
+-
+-	{
+-		unsigned int iobase = id_read_eeprom(8);
+-		if_port = iobase >> 14;
+-		ioaddr = 0x200 + ((iobase & 0x1f) << 4);
+-	}
+-	irq = id_read_eeprom(9) >> 12;
+-
+-	dev = alloc_etherdev(sizeof (struct el3_private));
+-	if (!dev)
+-		return -ENOMEM;
+-
+-	netdev_boot_setup_check(dev);
+-
+-	/* Set passed-in IRQ or I/O Addr. */
+-	if (dev->irq > 1  &&  dev->irq < 16)
+-			irq = dev->irq;
+-
+-	if (dev->base_addr) {
+-		if (dev->mem_end == 0x3c509 	/* Magic key */
+-		    && dev->base_addr >= 0x200  &&  dev->base_addr <= 0x3e0)
+-			ioaddr = dev->base_addr & 0x3f0;
+-		else if (dev->base_addr != ioaddr)
+-			goto out;
+-	}
+-
+-	if (!request_region(ioaddr, EL3_IO_EXTENT, "3c509")) {
+-		err = -EBUSY;
+-		goto out;
+-	}
+-
+-	/* Set the adaptor tag so that the next card can be found. */
+-	outb(0xd0 + ++current_tag, id_port);
+-
+-	/* Activate the adaptor at the EEPROM location. */
+-	outb((ioaddr >> 4) | 0xe0, id_port);
+-
+-	EL3WINDOW(0);
+-	if (inw(ioaddr) != 0x6d50)
+-		goto out1;
+-
+-	/* Free the interrupt so that some other card can use it. */
+-	outw(0x0f00, ioaddr + WN0_IRQ);
+-
+-#if defined(__ISAPNP__)
+- found:							/* PNP jumps here... */
+-#endif /* __ISAPNP__ */
+-
+-	memcpy(dev->dev_addr, phys_addr, sizeof(phys_addr));
+-	dev->base_addr = ioaddr;
+-	dev->irq = irq;
+-	dev->if_port = if_port;
+-	lp = netdev_priv(dev);
+-#if defined(__ISAPNP__)
+-	lp->dev = &idev->dev;
+-	if (pnp_found)
+-		lp->type = EL3_PNP;
+-#endif
+-	err = el3_common_init(dev);
+-
+-	if (err)
+-		goto out1;
+-
+-	el3_cards++;
+-	lp->next_dev = el3_root_dev;
+-	el3_root_dev = dev;
+-	return 0;
+-
+-out1:
+-#if defined(__ISAPNP__)
+-	if (idev)
+-		pnp_device_detach(idev);
+-#endif
+-out:
+-	free_netdev(dev);
+-	return err;
+-}
+-
+ #ifdef CONFIG_MCA
+ static int __init el3_mca_probe(struct device *device)
+ {
+@@ -721,10 +749,10 @@
+ }
+ #endif
+ 
+-#if defined(CONFIG_EISA) || defined(CONFIG_MCA)
+ /* This remove works for all device types.
+  *
+  * The net dev must be stored in the driver_data field */
++//#if defined(CONFIG_MCA) || defined(CONFIG_EISA)
+ static int __devexit el3_device_remove (struct device *device)
+ {
+ 	struct net_device *dev;
+@@ -734,7 +762,7 @@
+ 	el3_common_remove (dev);
+ 	return 0;
+ }
+-#endif
++//#endif
+ 
+ /* Read a word from the EEPROM using the regular EEPROM access register.
+    Assume that we are in register window zero.
+@@ -1450,7 +1478,7 @@
+ }
+ 
+ /* Power Management support functions */
+-#ifdef EL3_SUSPEND
++#ifdef CONFIG_PM
+ 
+ static int
+ el3_suspend(struct device *pdev, pm_message_t state)
+@@ -1500,12 +1528,12 @@
+ 	return 0;
+ }
+ 
+-#endif /* EL3_SUSPEND */
++#endif /* CONFIG_PM */
+ 
+ /* Parameters that may be passed into the module. */
+ static int debug = -1;
+ static int irq[] = {-1, -1, -1, -1, -1, -1, -1, -1};
+-static int xcvr[] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
++static int xcvr[] = {-1, -1, -1, -1, -1, -1, -1, -1};
+ 
+ module_param(debug,int, 0);
+ module_param_array(irq, int, NULL, 0);
+@@ -1515,61 +1543,87 @@
+ MODULE_PARM_DESC(irq, "IRQ number(s) (assigned)");
+ MODULE_PARM_DESC(xcvr,"transceiver(s) (0=internal, 1=external)");
+ MODULE_PARM_DESC(max_interrupt_work, "maximum events handled per interrupt");
+-#if defined(__ISAPNP__)
++#ifdef CONFIG_PNP
+ module_param(nopnp, int, 0);
+ MODULE_PARM_DESC(nopnp, "disable ISA PnP support (0-1)");
+-MODULE_DEVICE_TABLE(isapnp, el3_isapnp_adapters);
+-#endif	/* __ISAPNP__ */
+-MODULE_DESCRIPTION("3Com Etherlink III (3c509, 3c509B) ISA/PnP ethernet driver");
++#endif	/* CONFIG_PNP */
++MODULE_DESCRIPTION("3Com Etherlink III (3c509, 3c509B) ethernet driver");
+ MODULE_LICENSE("GPL");
+ 
+ static int __init el3_init_module(void)
+ {
+ 	int ret = 0;
+-	el3_cards = 0;
+ 
+ 	if (debug >= 0)
+ 		el3_debug = debug;
+ 
+-	el3_root_dev = NULL;
+-	while (el3_probe(el3_cards) == 0) {
+-		if (irq[el3_cards] > 1)
+-			el3_root_dev->irq = irq[el3_cards];
+-		if (xcvr[el3_cards] >= 0)
+-			el3_root_dev->if_port = xcvr[el3_cards];
+-		el3_cards++;
++//	while (el3_probe(el3_cards) == 0) {
++//		if (irq[el3_cards] > 1)
++//			el3_root_dev->irq = irq[el3_cards];
++//		if (xcvr[el3_cards] >= 0)
++//			el3_root_dev->if_port = xcvr[el3_cards];
++//		el3_cards++;
++//	}
++
++#ifdef CONFIG_PNP
++	if (!nopnp) {
++		ret = pnp_register_driver(&el3_pnp_driver);
++		if (!ret)
++			pnp_registered = 1;
+ 	}
+-
++#endif
++	ret = isa_register_driver(&el3_isa_driver, EL3_MAX_CARDS);
++	if (!ret)
++		isa_registered = 1;
+ #ifdef CONFIG_EISA
+ 	ret = eisa_driver_register(&el3_eisa_driver);
++	if (!ret)
++		eisa_registeted = 1;
+ #endif
+ #ifdef CONFIG_MCA
+-	{
+-		int err = mca_register_driver(&el3_mca_driver);
+-		if (ret == 0)
+-			ret = err;
+-	}
++	ret = mca_register_driver(&el3_mca_driver);
++	if (!ret)
++		mca_registered = 1;
++#endif
++
++#ifdef CONFIG_PNP
++	if (pnp_registered)
++		ret = 0;
++#endif
++	if (isa_registered)
++		ret = 0;
++#ifdef CONFIG_EISA
++	if (eisa_registered)
++		ret = 0;
+ #endif
++#ifdef CONFIG_MCA
++	if (mca_registered)
++		ret = 0;
++#endif
++	printk("el3_cards=%d\n", el3_cards);
+ 	return ret;
+ }
+ 
+ static void __exit el3_cleanup_module(void)
+ {
+-	struct net_device *next_dev;
+-
+-	while (el3_root_dev) {
+-		struct el3_private *lp = netdev_priv(el3_root_dev);
+-
+-		next_dev = lp->next_dev;
+-		el3_common_remove (el3_root_dev);
+-		el3_root_dev = next_dev;
+-	}
+-
++	int i;
++	
++//	for (i = 0; i < el3_cards; i++)
++//		el3_common_remove(el3_devs[i]);
++
++#ifdef CONFIG_PNP
++	if (pnp_registered)
++		pnp_unregister_driver(&el3_pnp_driver);
++#endif
++	if (isa_registered)
++		isa_unregister_driver(&el3_isa_driver);
+ #ifdef CONFIG_EISA
+-	eisa_driver_unregister (&el3_eisa_driver);
++	if (eisa_registered)
++		eisa_driver_unregister (&el3_eisa_driver);
+ #endif
+ #ifdef CONFIG_MCA
+-	mca_unregister_driver(&el3_mca_driver);
++	if (mca_registered)
++		mca_unregister_driver(&el3_mca_driver);
+ #endif
+ }
+ 
+
+
+
+-- 
+Ondrej Zary
