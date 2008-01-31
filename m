@@ -1,34 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ipcomp regression in 2.6.24
-Date: Wed, 30 Jan 2008 21:48:48 -0800 (PST)
-Message-ID: <20080130.214848.193710194.davem@davemloft.net>
-References: <E1JK3QD-0006hM-00@gondolin.me.apana.org.au>
-	<BAY103-DAV204C57458B3E41DE1AA365B2360@phx.gbl>
-	<20080131053221.GA4739@gondor.apana.org.au>
+From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Subject: Re: net-2.6.25 is no more...
+Date: Thu, 31 Jan 2008 01:09:21 -0500
+Message-ID: <47A16611.3000602@garzik.org>
+References: <20080129.212216.186173371.davem@davemloft.net>	<47A03D4D.5090301@fr.ibm.com> <20080130.054807.182676684.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: pupilla@hotmail.com, Daniel.Beschorner@facton.com,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48848
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750783AbYAaFs2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 00:48:28 -0500
-In-Reply-To: <20080131053221.GA4739@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080130.054807.182676684.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 31 Jan 2008 16:32:21 +1100
-
-> [IPCOMP]: Fix reception of incompressible packets
+David Miller wrote:
+> From: Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
+> Date: Wed, 30 Jan 2008 10:03:09 +0100
 > 
-> I made a silly typo by entering IPPROTO_IP (== 0) instead of
-> IPPROTO_IPIP (== 4).  This broke the reception of incompressible
-> packets.
+>> David Miller wrote:
+>>> Now that the bulk has been merged over and we are
+>>> actively working alongside Linus's tree I have moved
+>>> all current patch applying to net-2.6 instead of net-2.6.25,
+>>> so the current tree to use is:
+>>>
+>>> 	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
+>> This tree is for fixes only, right ? or shall we send enhancement 
+>> patches to net-2.6 until net-2.6.26 appears ?
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> The latter.
 
-Applied, thanks!
+So...  what to do about changes which are not bug fixes?  Such changes 
+should not go upstream immediately, because that's the standard rule for 
+merge windows.
+
+And queueing them on our side just re-creates the same old situation we 
+just changed away from, after all.
+
+	Jeff
