@@ -1,46 +1,117 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: hard hang through qdisc II
-Date: Thu, 31 Jan 2008 13:43:13 +0100
-Message-ID: <200801311343.13669.ak@suse.de>
-References: <200801311321.01015.ak@suse.de>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH] Disable TSO for non standard qdiscs
+Date: Thu, 31 Jan 2008 13:46:32 +0100
+Message-ID: <20080131124632.GA25299@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:54944 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759285AbYAaMnR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2008 07:43:17 -0500
-Received: from Relay1.suse.de (relay-ext.suse.de [195.135.221.8])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mx1.suse.de (Postfix) with ESMTP id 855202784A
-	for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 13:43:16 +0100 (CET)
-In-Reply-To: <200801311321.01015.ak@suse.de>
+Received: from smtp-out04.alice-dsl.net ([88.44.63.6]:10116 "EHLO
+	smtp-out04.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764170AbYAaMqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 07:46:39 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 31 January 2008 13:21:00 Andi Kleen wrote:
-> 
-> I just managed to hang a 2.6.24 (+ some non network patches) kernel 
-> with the following (non sensical) command
 
-Correction: the kernel was actually a git linus kernel with David's 
-recent merge included.
+TSO interacts badly with many queueing disciplines because they rely on 
+reordering packets from different streams and the large TSO packets can 
+make this difficult. This patch disables TSO for sockets that send over 
+devices with non standard queueing disciplines. That's anything but noop 
+or pfifo_fast and pfifo right now.
 
-I found it's pretty easy to hang the kernel with various tbf parameters.
+Longer term other queueing disciplines could be checked if they
+are also ok with TSO. If yes they can set the TCQ_F_GSO_OK flag too.
 
--Andi
+It is still enabled for the standard pfifo_fast because that will never
+reorder packets with the same type-of-service. This means 99+% of all users
+will still be able to use TSO just fine.
 
-> tc qdisc add dev eth0 root tbf rate 1000 burst 10 limit 100
-> 
-> No oops or anything just hangs. While I understand root can
-> do bad things just hanging like this seems a little extreme.
-> 
-> -Andi
-> 
+The status is only set up at socket creation so a shifted route
+will not reenable TSO on a existing socket. I don't think that's a 
+problem though.
 
+Signed-off-by: Andi Kleen <ak@suse.de>
 
+---
+ include/net/sch_generic.h |    1 +
+ net/core/sock.c           |    3 +++
+ net/sched/sch_generic.c   |    5 +++--
+ 3 files changed, 7 insertions(+), 2 deletions(-)
+
+Index: linux/include/net/sch_generic.h
+===================================================================
+--- linux.orig/include/net/sch_generic.h
++++ linux/include/net/sch_generic.h
+@@ -31,6 +31,7 @@ struct Qdisc
+ #define TCQ_F_BUILTIN	1
+ #define TCQ_F_THROTTLED	2
+ #define TCQ_F_INGRESS	4
++#define TCQ_F_GSO_OK	8
+ 	int			padded;
+ 	struct Qdisc_ops	*ops;
+ 	u32			handle;
+Index: linux/net/sched/sch_generic.c
+===================================================================
+--- linux.orig/net/sched/sch_generic.c
++++ linux/net/sched/sch_generic.c
+@@ -307,7 +307,7 @@ struct Qdisc_ops noop_qdisc_ops __read_m
+ struct Qdisc noop_qdisc = {
+ 	.enqueue	=	noop_enqueue,
+ 	.dequeue	=	noop_dequeue,
+-	.flags		=	TCQ_F_BUILTIN,
++	.flags		=	TCQ_F_BUILTIN | TCQ_F_GSO_OK,
+ 	.ops		=	&noop_qdisc_ops,
+ 	.list		=	LIST_HEAD_INIT(noop_qdisc.list),
+ };
+@@ -325,7 +325,7 @@ static struct Qdisc_ops noqueue_qdisc_op
+ static struct Qdisc noqueue_qdisc = {
+ 	.enqueue	=	NULL,
+ 	.dequeue	=	noop_dequeue,
+-	.flags		=	TCQ_F_BUILTIN,
++	.flags		=	TCQ_F_BUILTIN | TCQ_F_GSO_OK,
+ 	.ops		=	&noqueue_qdisc_ops,
+ 	.list		=	LIST_HEAD_INIT(noqueue_qdisc.list),
+ };
+@@ -538,6 +538,7 @@ void dev_activate(struct net_device *dev
+ 				printk(KERN_INFO "%s: activation failed\n", dev->name);
+ 				return;
+ 			}
++			qdisc->flags |= TCQ_F_GSO_OK;
+ 			list_add_tail(&qdisc->list, &dev->qdisc_list);
+ 		} else {
+ 			qdisc =  &noqueue_qdisc;
+Index: linux/net/core/sock.c
+===================================================================
+--- linux.orig/net/core/sock.c
++++ linux/net/core/sock.c
+@@ -112,6 +112,7 @@
+ #include <linux/tcp.h>
+ #include <linux/init.h>
+ #include <linux/highmem.h>
++#include <net/sch_generic.h>
+ 
+ #include <asm/uaccess.h>
+ #include <asm/system.h>
+@@ -1062,6 +1063,8 @@ void sk_setup_caps(struct sock *sk, stru
+ {
+ 	__sk_dst_set(sk, dst);
+ 	sk->sk_route_caps = dst->dev->features;
++	if (!(dst->dev->qdisc->flags & TCQ_F_GSO_OK))
++		sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
+ 	if (sk->sk_route_caps & NETIF_F_GSO)
+ 		sk->sk_route_caps |= NETIF_F_GSO_SOFTWARE;
+ 	if (sk_can_gso(sk)) {
+Index: linux/net/sched/sch_fifo.c
+===================================================================
+--- linux.orig/net/sched/sch_fifo.c
++++ linux/net/sched/sch_fifo.c
+@@ -62,6 +62,7 @@ static int fifo_init(struct Qdisc *sch, 
+ 
+ 		q->limit = ctl->limit;
+ 	}
++	sch->flags |= TCQ_F_GSO_OK;
+ 
+ 	return 0;
+ }
