@@ -1,35 +1,47 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: ipcomp regression in 2.6.24
-Date: Thu, 31 Jan 2008 09:37:10 +0100
-Message-ID: <BAY103-DAV2CB7B0E5F92A3679E7621B2370@phx.gbl>
-References: <E1JK3QD-0006hM-00@gondolin.me.apana.org.au> <BAY103-DAV204C57458B3E41DE1AA365B2360@phx.gbl> <20080131053221.GA4739@gondor.apana.org.au>
-Cc: <davem@davemloft.net>, <Daniel.Beschorner@facton.com>,
-	<netdev@vger.kernel.org>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+From: "Andy Johnson" <johnsonzjo@gmail.com>
+Subject: xfrm_lookup() and XFRM_POLICY_ICMP
+Date: Thu, 31 Jan 2008 10:42:08 +0200
+Message-ID: <147a89290801310042y1c3f926flcf7433835d8d9961@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc1-s10.bay0.hotmail.com ([65.54.246.82]:54350 "EHLO
-	bay0-omc1-s10.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754624AbYAaIhl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 03:37:41 -0500
+Received: from fg-out-1718.google.com ([72.14.220.153]:30458 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752527AbYAaImL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 03:42:11 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so530622fga.17
+        for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 00:42:08 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
+Hello,
 
-> On Wed, Jan 30, 2008 at 10:14:46AM +0100, Marco Berizzi wrote:
-> >
-> > Sorry for bother you again.
-> > I have applied to 2.6.24, but ipcomp doesn't work anyway.
-> > I have patched a clean 2.6.24 tree and I did a complete
-> > rebuild.
-> > With tcpdump I see both the esp packets going in/out but
-> > I don't see the clear packets on the interface.
->
-> After testing it here it looks like there is this little typo
-> which means that you can't actually use IPComp for anything
-> that's not compressible :)
+A question about XFRM_POLICY_ICMP:
 
-applied and tested to 2.6.24: ipcomp is working now.
-As always, thanks a lot Herbert for fixing this.
+ I had tried to understand this check in __xfrm_lookup() method in
+  net/xfrm/xfrm_policy.c (the recent 2.6 git dave miller tree):
+...
+...
+		if ((flags & XFRM_LOOKUP_ICMP) && !(policy->flags & XFRM_POLICY_ICMP))
+		goto error;
+...
+...
 
+Why is the check for XFRM_POLICY_ICMP? I had grepped under the kernel tree,
+and the only place where XFRM_POLICY_ICMP appears is here (except its definition
+in xfrm.h).
 
+I also grepped under openswan tree, and could not find XFRM_POLICY_ICMP.
+(the struct xfrm_userpolicy_info  in openswan includes XFRM_POLICY_ALLOW and
+XFRM_POLICY_BLOCK and XFRM_POLICY_LOCALOK, but not XFRM_POLICY_ICMP).
+
+I also grepped under iproute2 tree (from git) and there is no XFRM_POLICY_ICMP.
+
+So is this there a way at all to set XFRM_POLICY_ICMP? and if not - maybe this
+check is not needed at all ?
+
+Regards,
+Andy
