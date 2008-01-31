@@ -1,59 +1,36 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] Disable TSO for non standard qdiscs
-Date: Thu, 31 Jan 2008 21:33:44 +0100
-Message-ID: <47A230A8.7080100@gmail.com>
-References: <20080131124632.GA25299@basil.nowhere.org> <20080131092327.75b9c369@extreme> <20080131183322.GA4671@one.firstfloor.org> <47A20CDC.5090104@trash.net> <20080131183735.GC4671@one.firstfloor.org> <20080131100846.00934e25@extreme> <20080131185328.GD4671@one.firstfloor.org> <47A211A0.1040502@trash.net> <20080131190125.GE4671@one.firstfloor.org> <D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com> <20080131193406.GH4671@one.firstfloor.org>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 6/6] [TCP]: Reorganize struct tcp_sock to save 16 bytes
+	on 64-bit arch
+Date: Thu, 31 Jan 2008 18:33:40 -0200
+Message-ID: <20080131203340.GG11940@ghostprotocols.net>
+References: <1201804304-28777-1-git-send-email-acme@redhat.com> <1201804304-28777-2-git-send-email-acme@redhat.com> <1201804304-28777-3-git-send-email-acme@redhat.com> <1201804304-28777-4-git-send-email-acme@redhat.com> <1201804304-28777-5-git-send-email-acme@redhat.com> <1201804304-28777-6-git-send-email-acme@redhat.com> <1201804304-28777-7-git-send-email-acme@redhat.com> <47A22841.6090508@cosmosbay.com> <20080131201720.GE11940@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=us-ascii
+To: Eric Dumazet <dada1@cosmosbay.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:26221 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753996AbYAaUaY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 15:30:24 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so624550ugc.16
-        for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 12:30:23 -0800 (PST)
-In-Reply-To: <20080131193406.GH4671@one.firstfloor.org>
+Received: from mx1.redhat.com ([66.187.233.31]:49525 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760490AbYAaUeL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 15:34:11 -0500
+Content-Disposition: inline
+In-Reply-To: <20080131201720.GE11940@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen wrote, On 01/31/2008 08:34 PM:
-
->> TSO by nature is bursty.  But disabling TSO without the option of having
->> it on or off to me seems to aggressive.  If someone is using a qdisc
->> that TSO is interfering with the effectiveness of the traffic shaping,
->> then they should turn off TSO via ethtool on the target device.  Some
+Em Thu, Jan 31, 2008 at 06:17:20PM -0200, Arnaldo Carvalho de Melo escreveu:
+> Em Thu, Jan 31, 2008 at 08:57:53PM +0100, Eric Dumazet escreveu:
+> > Hum... retrans_out should sit close to packets_out (or lost_out/sacked_out 
+> > ???), please.
+> >
+> > 'struct tcp_sock' is very large on 64 bits, so I would prefer to make sure 
+> > most paths dont need to touch all 24 cache lines (or 25 cache lines).
 > 
-> The philosophical problem I have with this suggestion is that I expect
-> that the large majority of users will be more happy with disabled TSO
-> if they use non standard qdiscs and defaults that do not fit 
-> the majority use case are bad.
+> That is perfectly fine, I'll replace my patch with another, that states
+> this beyond doubt.
 
+David, I just removed this patch from my net-2.6 tree, if you are ok
+with the others, please pull.
 
-If you mean the large majority of the large minority of users, who use
-non standard qdiscs - I agree - this is really the philosophical problem!
-
- 
-> Basically you're suggesting that nearly everyone using tc should learn about
-> another obscure command.
-
-...So, it sounds like tc is used by nearly everyone now...
-
-It seems my distro really isn't up to date:
-
-"Package: iproute
- ...
- Description: Professional tools to control the networking in Linux kernels
- This is `iproute', the professional set of tools to control the
- networking behavior in kernels 2.2.x and later."
-
-And ethtool doesn't have to be learnt at all: "most friendly distros"
-could use this in config or add some graphical wrapper.
-
-Regards,
-Jarek P.
+- Arnaldo
