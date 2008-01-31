@@ -1,61 +1,43 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH 5/6] [INET_TIMEWAIT_SOCK]: Reorganize struct inet_timewait_sock to save some bytes
-Date: Thu, 31 Jan 2008 16:31:43 -0200
-Message-ID: <1201804304-28777-6-git-send-email-acme@redhat.com>
-References: y
- <1201804304-28777-1-git-send-email-acme@redhat.com>
- <1201804304-28777-2-git-send-email-acme@redhat.com>
- <1201804304-28777-3-git-send-email-acme@redhat.com>
- <1201804304-28777-4-git-send-email-acme@redhat.com>
- <1201804304-28777-5-git-send-email-acme@redhat.com>
-Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
-	Arnaldo Carvalho de Melo <acme@redhat.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] Disable TSO for non standard qdiscs
+Date: Thu, 31 Jan 2008 10:35:42 -0800
+Message-ID: <47A214FE.3050200@hp.com>
+References: <20080131124632.GA25299@basil.nowhere.org>	<47A212CB.1060403@hp.com> <20080131190326.GF4671@one.firstfloor.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.230]:28022 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763897AbYAaScm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 13:32:42 -0500
-Received: by wr-out-0506.google.com with SMTP id c48so776441wra.23
-        for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 10:32:42 -0800 (PST)
-In-Reply-To: <1201804304-28777-5-git-send-email-acme@redhat.com>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:37132 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752514AbYAaSfo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 13:35:44 -0500
+In-Reply-To: <20080131190326.GF4671@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-/home/acme/git/net-2.6/net/ipv6/tcp_ipv6.c:
-  struct inet_timewait_sock |   -8
-  struct tcp_timewait_sock  |   -8
- 2 structs changed
-  tcp_v6_rcv                |   -6
- 1 function changed, 6 bytes removed, diff: -6
+Andi Kleen wrote:
+> On Thu, Jan 31, 2008 at 10:26:19AM -0800, Rick Jones wrote:
+> 
+>>Andi Kleen wrote:
+>>
+>>>TSO interacts badly with many queueing disciplines because they rely on 
+>>>reordering packets from different streams and the large TSO packets can 
+>>>make this difficult. This patch disables TSO for sockets that send over 
+>>>devices with non standard queueing disciplines. That's anything but noop 
+>>>or pfifo_fast and pfifo right now.
+>>
+>>Does this also imply that JumboFrames interacts badly with these qdiscs? 
+>> Or IPoIB with its 65000ish byte MTU?
+> 
+> 
+> Correct. Of course it is always relative to the link speed. So if your
+> link is 10x faster and your packets 10x bigger you can get similarly
+> smooth shaping.
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
----
- include/net/inet_timewait_sock.h |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+So, at what timescale do people using these qdiscs expect things to 
+appear "smooth?"  64KB of data at GbE speeds is something just north of 
+half a millisecond unless I've botched my units somewhere.
 
-diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
-index 67e9250..faead52 100644
---- a/include/net/inet_timewait_sock.h
-+++ b/include/net/inet_timewait_sock.h
-@@ -116,8 +116,8 @@ struct inet_timewait_sock {
- #define tw_hash			__tw_common.skc_hash
- #define tw_prot			__tw_common.skc_prot
- #define tw_net			__tw_common.skc_net
-+	int			tw_timeout;
- 	volatile unsigned char	tw_substate;
--	/* 3 bits hole, try to pack */
- 	unsigned char		tw_rcv_wscale;
- 	/* Socket demultiplex comparisons on incoming packets. */
- 	/* these five are in inet_sock */
-@@ -130,7 +130,6 @@ struct inet_timewait_sock {
- 	__u8			tw_ipv6only:1;
- 	/* 15 bits hole, try to pack */
- 	__u16			tw_ipv6_offset;
--	int			tw_timeout;
- 	unsigned long		tw_ttd;
- 	struct inet_bind_bucket	*tw_tb;
- 	struct hlist_node	tw_death_node;
--- 
-1.5.3.8
-
+rick jones
