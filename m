@@ -1,57 +1,26 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] [1/1] Deprecate tcp_tw_{reuse,recycle}
-Date: Thu, 31 Jan 2008 03:59:07 +0100
-Message-ID: <200801310359.07362.ak@suse.de>
-References: <20080130938.523292915@suse.de> <47A0CE75.5080200@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [AF_RXRPC]: constify function pointer tables
+Date: Wed, 30 Jan 2008 19:05:39 -0800 (PST)
+Message-ID: <20080130.190539.193705591.davem@davemloft.net>
+References: <54038cd4f87a03884e4f59f8f3697889dfb63c54.1201030614.git.jengelh@computergmbh.de>
+	<Pine.LNX.4.64.0801222047350.5722@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Cc: dhowells@redhat.com, netdev@vger.kernel.org
+To: jengelh@computergmbh.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:51176 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763635AbYAaDAc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2008 22:00:32 -0500
-In-Reply-To: <47A0CE75.5080200@candelatech.com>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54599
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1764899AbYAaDFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2008 22:05:20 -0500
+In-Reply-To: <Pine.LNX.4.64.0801222047350.5722@fbirervta.pbzchgretzou.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 30 January 2008 20:22, Ben Greear wrote:
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Date: Tue, 22 Jan 2008 20:47:51 +0100 (CET)
 
-> We use these features to enable creating very high numbers of short-lived
-> TCP connections, primarily used as a test tool for other network
-> devices.
+> Signed-off-by: Jan Engelhardt <jengelh@computergmbh.de>
 
-Hopefully these other network devices don't do any NAT then
-or don't otherwise violate the IP-matches-PAWS assumption.
-Most likely they do actually, so enabling TW recycle
-for testing is probably not even safe for you.
-
-Modern systems have a lot of RAM so even without tw recycle
-you should be able to get a very high number of connections.
-An timewait socket is around 128 bytes on 64bit; this means
-with a GB of memory you can already support > 8 Million TW sockets.
-On 32bit it's even more.
-
-The optimization was originally written at a time when 64MB systems
-were common.
-
-If you don't care about data integrity have you considered just 
-using some custom UDP based protocol or run one of the user space
-TCP stacks and disable all data integrity features? If you do care about
-data integrity then you should probably disable tw recycle anyways.
-
-The deprecation period will be some time (several months) so you'll have 
-enough time to migrate to another method
-
-> Perhaps just document the adverse affects and/or have it print out a
-> warning on the console whenever the feature is enabled?
-
-"This feature is insecure and does not work on the internet or with NAT" ? 
-
-Somehow this just does not seem right to me. 
-
--Andi
+Applied, thanks.
