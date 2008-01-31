@@ -1,48 +1,30 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: e1000 full-duplex TCP performance well below wire speed
-Date: Thu, 31 Jan 2008 12:36:27 -0500
-Message-ID: <20080131123627.599be68f.billfink@mindspring.com>
-References: <Pine.LNX.4.63.0801300324000.6391@trinity.phys.uwm.edu>
-	<20080130.055333.192844925.davem@davemloft.net>
-	<Pine.LNX.4.63.0801300758020.11487@trinity.phys.uwm.edu>
-	<20080130082136.1017631d@deepthought>
-	<Pine.LNX.4.63.0801301610240.19938@trinity.phys.uwm.edu>
-	<649aecc70801301617m6331bcb8i8ce60366e182c739@mail.gmail.com>
-	<20080131064533.ef0ae932.billfink@mindspring.com>
-	<Pine.LNX.4.63.0801310951060.10967@trinity.phys.uwm.edu>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: e1000 full-duplex TCP performance well below wire speed
+Date: Thu, 31 Jan 2008 09:33:20 -0800
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52044F8F22@orsmsx418.amr.corp.intel.com>
+References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu> <36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com> <Pine.LNX.4.63.0801301635470.19938@trinity.phys.uwm.edu> <36D9DB17C6DE9E40B059440DB8D95F52044F8BA3@orsmsx418.amr.corp.intel.com> <47A1E553.8010006@aei.mpg.de> <36D9DB17C6DE9E40B059440DB8D95F52044F8EC9@orsmsx418.amr.corp.intel.com> <47A204E5.7060406@aei.mpg.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: SANGTAE HA <sangtae.ha@gmail.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Bruce Allen <ballen@gravity.phys.uwm.edu>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Bruce Allen" <ballen@gravity.phys.uwm.edu>,
+	<netdev@vger.kernel.org>,
+	"Henning Fehrmann" <henning.fehrmann@aei.mpg.de>,
+	"Bruce Allen" <bruce.allen@aei.mpg.de>
+To: "Carsten Aulbert" <carsten.aulbert@aei.mpg.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:58981 "EHLO
-	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751592AbYAaRge (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 12:36:34 -0500
-In-Reply-To: <Pine.LNX.4.63.0801310951060.10967@trinity.phys.uwm.edu>
+Received: from mga03.intel.com ([143.182.124.21]:52390 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757914AbYAaRoV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 12:44:21 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <47A204E5.7060406@aei.mpg.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Bruce,
+Carsten Aulbert wrote:
+> PS: Am I right that the TCP_RR tests should only be run on a single
+> node at a time, not on both ends simultaneously?
 
-On Thu, 31 Jan 2008, Bruce Allen wrote:
-
-> > I see similar results on my test systems
-> 
-> Thanks for this report and for confirming our observations.  Could you 
-> please confirm that a single-port bidrectional UDP link runs at wire 
-> speed?  This helps to localize the problem to the TCP stack or interaction 
-> of the TCP stack with the e1000 driver and hardware.
-
-Yes, a single-port bidirectional UDP test gets full GigE line rate
-in both directions with no packet loss.
-
-[bill@chance4 ~]$ nuttcp -f-beta -Itx -u -Ru -w2m 192.168.6.79 & nuttcp -f-beta -Irx -r -u -Ru -w2m 192.168.6.79
-tx:  1187.0078 MB /  10.04 sec =  992.0550 Mbps 19 %TX 7 %RX 0 / 151937 drop/pkt 0.00 %loss
-rx:  1187.1016 MB /  10.03 sec =  992.3408 Mbps 19 %TX 7 %RX 0 / 151949 drop/pkt 0.00 %loss
-
-						-Bill
+yes, they are a request/response test, and so perform the bidirectional
+test with a single node starting the test.
