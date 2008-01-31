@@ -1,235 +1,142 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 2/6][INET]: Consolidate inet(6)_hash_connect.
-Date: Thu, 31 Jan 2008 15:32:09 +0300
-Message-ID: <47A1BFC9.2030603@openvz.org>
+Subject: [PATCH 3/6][NETNS]: Make bind buckets live in net namespaces.
+Date: Thu, 31 Jan 2008 15:35:39 +0300
+Message-ID: <47A1C09B.6090202@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:39090 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:39877 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759285AbYAaMcD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2008 07:32:03 -0500
+	id S933549AbYAaMfd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 07:35:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These two functions are the same except for what they call
-to "check_established" and "hash" for a socket.
+This tags the inet_bind_bucket struct with net pointer,
+initializes it during creation and makes a filtering
+during lookup.
 
-This saves half-a-kilo for ipv4 and ipv6.
-
- add/remove: 1/0 grow/shrink: 1/4 up/down: 582/-1128 (-546)
- function                                     old     new   delta
- __inet_hash_connect                            -     577    +577
- arp_ignore                                   108     113      +5
- static.hint                                    8       4      -4
- rt_worker_func                               376     372      -4
- inet6_hash_connect                           584      25    -559
- inet_hash_connect                            586      25    -561
+A better hashfn, that takes the net into account is to
+be done in the future, but currently all bind buckets
+with similar port will be in one hash chain.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- include/net/inet_hashtables.h |    5 ++
- net/ipv4/inet_hashtables.c    |   32 +++++++++-----
- net/ipv6/inet6_hashtables.c   |   93 +----------------------------------------
- 3 files changed, 28 insertions(+), 102 deletions(-)
+ include/net/inet_hashtables.h   |    2 ++
+ net/ipv4/inet_connection_sock.c |    8 +++++---
+ net/ipv4/inet_hashtables.c      |    8 ++++++--
+ 3 files changed, 13 insertions(+), 5 deletions(-)
 
 diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 761bdc0..a34a8f2 100644
+index a34a8f2..55532b9 100644
 --- a/include/net/inet_hashtables.h
 +++ b/include/net/inet_hashtables.h
-@@ -413,6 +413,11 @@ static inline struct sock *inet_lookup(struct inet_hashinfo *hashinfo,
- 	return sk;
- }
+@@ -74,6 +74,7 @@ struct inet_ehash_bucket {
+  * ports are created in O(1) time?  I thought so. ;-)	-DaveM
+  */
+ struct inet_bind_bucket {
++	struct net		*ib_net;
+ 	unsigned short		port;
+ 	signed short		fastreuse;
+ 	struct hlist_node	node;
+@@ -194,6 +195,7 @@ static inline void inet_ehash_locks_free(struct inet_hashinfo *hashinfo)
  
-+extern int __inet_hash_connect(struct inet_timewait_death_row *death_row,
-+		struct sock *sk,
-+		int (*check_established)(struct inet_timewait_death_row *,
-+			struct sock *, __u16, struct inet_timewait_sock **),
-+		void (*hash)(struct inet_hashinfo *, struct sock *));
- extern int inet_hash_connect(struct inet_timewait_death_row *death_row,
- 			     struct sock *sk);
- #endif /* _INET_HASHTABLES_H */
+ extern struct inet_bind_bucket *
+ 		    inet_bind_bucket_create(struct kmem_cache *cachep,
++					    struct net *net,
+ 					    struct inet_bind_hashbucket *head,
+ 					    const unsigned short snum);
+ extern void inet_bind_bucket_destroy(struct kmem_cache *cachep,
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 7801cce..de5a41d 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -87,6 +87,7 @@ int inet_csk_get_port(struct inet_hashinfo *hashinfo,
+ 	struct hlist_node *node;
+ 	struct inet_bind_bucket *tb;
+ 	int ret;
++	struct net *net = sk->sk_net;
+ 
+ 	local_bh_disable();
+ 	if (!snum) {
+@@ -100,7 +101,7 @@ int inet_csk_get_port(struct inet_hashinfo *hashinfo,
+ 			head = &hashinfo->bhash[inet_bhashfn(rover, hashinfo->bhash_size)];
+ 			spin_lock(&head->lock);
+ 			inet_bind_bucket_for_each(tb, node, &head->chain)
+-				if (tb->port == rover)
++				if (tb->ib_net == net && tb->port == rover)
+ 					goto next;
+ 			break;
+ 		next:
+@@ -127,7 +128,7 @@ int inet_csk_get_port(struct inet_hashinfo *hashinfo,
+ 		head = &hashinfo->bhash[inet_bhashfn(snum, hashinfo->bhash_size)];
+ 		spin_lock(&head->lock);
+ 		inet_bind_bucket_for_each(tb, node, &head->chain)
+-			if (tb->port == snum)
++			if (tb->ib_net == net && tb->port == snum)
+ 				goto tb_found;
+ 	}
+ 	tb = NULL;
+@@ -147,7 +148,8 @@ tb_found:
+ 	}
+ tb_not_found:
+ 	ret = 1;
+-	if (!tb && (tb = inet_bind_bucket_create(hashinfo->bind_bucket_cachep, head, snum)) == NULL)
++	if (!tb && (tb = inet_bind_bucket_create(hashinfo->bind_bucket_cachep,
++					net, head, snum)) == NULL)
+ 		goto fail_unlock;
+ 	if (hlist_empty(&tb->owners)) {
+ 		if (sk->sk_reuse && sk->sk_state != TCP_LISTEN)
 diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index 619c63c..b93d40f 100644
+index b93d40f..db1e53a 100644
 --- a/net/ipv4/inet_hashtables.c
 +++ b/net/ipv4/inet_hashtables.c
-@@ -348,11 +348,11 @@ void __inet_hash(struct inet_hashinfo *hashinfo, struct sock *sk)
- }
- EXPORT_SYMBOL_GPL(__inet_hash);
- 
--/*
-- * Bind a port for a connect operation and hash it.
-- */
--int inet_hash_connect(struct inet_timewait_death_row *death_row,
--		      struct sock *sk)
-+int __inet_hash_connect(struct inet_timewait_death_row *death_row,
-+		struct sock *sk,
-+		int (*check_established)(struct inet_timewait_death_row *,
-+			struct sock *, __u16, struct inet_timewait_sock **),
-+		void (*hash)(struct inet_hashinfo *, struct sock *))
+@@ -28,12 +28,14 @@
+  * The bindhash mutex for snum's hash chain must be held here.
+  */
+ struct inet_bind_bucket *inet_bind_bucket_create(struct kmem_cache *cachep,
++						 struct net *net,
+ 						 struct inet_bind_hashbucket *head,
+ 						 const unsigned short snum)
  {
- 	struct inet_hashinfo *hinfo = death_row->hashinfo;
- 	const unsigned short snum = inet_sk(sk)->num;
-@@ -385,9 +385,8 @@ int inet_hash_connect(struct inet_timewait_death_row *death_row,
+ 	struct inet_bind_bucket *tb = kmem_cache_alloc(cachep, GFP_ATOMIC);
+ 
+ 	if (tb != NULL) {
++		tb->ib_net       = net;
+ 		tb->port      = snum;
+ 		tb->fastreuse = 0;
+ 		INIT_HLIST_HEAD(&tb->owners);
+@@ -359,6 +361,7 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
+ 	struct inet_bind_hashbucket *head;
+ 	struct inet_bind_bucket *tb;
+ 	int ret;
++	struct net *net = sk->sk_net;
+ 
+ 	if (!snum) {
+ 		int i, remaining, low, high, port;
+@@ -381,7 +384,7 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
+ 			 * unique enough.
+ 			 */
+ 			inet_bind_bucket_for_each(tb, node, &head->chain) {
+-				if (tb->port == port) {
++				if (tb->ib_net == net && tb->port == port) {
  					BUG_TRAP(!hlist_empty(&tb->owners));
  					if (tb->fastreuse >= 0)
  						goto next_port;
--					if (!__inet_check_established(death_row,
--								      sk, port,
--								      &tw))
-+					if (!check_established(death_row, sk,
-+								port, &tw))
- 						goto ok;
- 					goto next_port;
+@@ -392,7 +395,8 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
  				}
-@@ -415,7 +414,7 @@ ok:
- 		inet_bind_hash(sk, tb, port);
- 		if (sk_unhashed(sk)) {
- 			inet_sk(sk)->sport = htons(port);
--			__inet_hash_nolisten(hinfo, sk);
-+			hash(hinfo, sk);
- 		}
- 		spin_unlock(&head->lock);
+ 			}
  
-@@ -432,17 +431,28 @@ ok:
- 	tb  = inet_csk(sk)->icsk_bind_hash;
- 	spin_lock_bh(&head->lock);
- 	if (sk_head(&tb->owners) == sk && !sk->sk_bind_node.next) {
--		__inet_hash_nolisten(hinfo, sk);
-+		hash(hinfo, sk);
- 		spin_unlock_bh(&head->lock);
- 		return 0;
- 	} else {
- 		spin_unlock(&head->lock);
- 		/* No definite answer... Walk to established hash table */
--		ret = __inet_check_established(death_row, sk, snum, NULL);
-+		ret = check_established(death_row, sk, snum, NULL);
- out:
- 		local_bh_enable();
- 		return ret;
- 	}
- }
-+EXPORT_SYMBOL_GPL(__inet_hash_connect);
-+
-+/*
-+ * Bind a port for a connect operation and hash it.
-+ */
-+int inet_hash_connect(struct inet_timewait_death_row *death_row,
-+		      struct sock *sk)
-+{
-+	return __inet_hash_connect(death_row, sk,
-+			__inet_check_established, __inet_hash_nolisten);
-+}
- 
- EXPORT_SYMBOL_GPL(inet_hash_connect);
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 06b01be..ece6d0e 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -233,97 +233,8 @@ static inline u32 inet6_sk_port_offset(const struct sock *sk)
- int inet6_hash_connect(struct inet_timewait_death_row *death_row,
- 		       struct sock *sk)
- {
--	struct inet_hashinfo *hinfo = death_row->hashinfo;
--	const unsigned short snum = inet_sk(sk)->num;
--	struct inet_bind_hashbucket *head;
--	struct inet_bind_bucket *tb;
--	int ret;
--
--	if (snum == 0) {
--		int i, port, low, high, remaining;
--		static u32 hint;
--		const u32 offset = hint + inet6_sk_port_offset(sk);
--		struct hlist_node *node;
--		struct inet_timewait_sock *tw = NULL;
--
--		inet_get_local_port_range(&low, &high);
--		remaining = (high - low) + 1;
--
--		local_bh_disable();
--		for (i = 1; i <= remaining; i++) {
--			port = low + (i + offset) % remaining;
--			head = &hinfo->bhash[inet_bhashfn(port, hinfo->bhash_size)];
--			spin_lock(&head->lock);
--
--			/* Does not bother with rcv_saddr checks,
--			 * because the established check is already
--			 * unique enough.
--			 */
--			inet_bind_bucket_for_each(tb, node, &head->chain) {
--				if (tb->port == port) {
--					BUG_TRAP(!hlist_empty(&tb->owners));
--					if (tb->fastreuse >= 0)
--						goto next_port;
--					if (!__inet6_check_established(death_row,
--								       sk, port,
--								       &tw))
--						goto ok;
--					goto next_port;
--				}
--			}
--
--			tb = inet_bind_bucket_create(hinfo->bind_bucket_cachep,
--						     head, port);
--			if (!tb) {
--				spin_unlock(&head->lock);
--				break;
--			}
--			tb->fastreuse = -1;
--			goto ok;
--
--		next_port:
--			spin_unlock(&head->lock);
--		}
--		local_bh_enable();
--
--		return -EADDRNOTAVAIL;
--
--ok:
--		hint += i;
--
--		/* Head lock still held and bh's disabled */
--		inet_bind_hash(sk, tb, port);
--		if (sk_unhashed(sk)) {
--			inet_sk(sk)->sport = htons(port);
--			__inet6_hash(hinfo, sk);
--		}
--		spin_unlock(&head->lock);
--
--		if (tw) {
--			inet_twsk_deschedule(tw, death_row);
--			inet_twsk_put(tw);
--		}
--
--		ret = 0;
--		goto out;
--	}
--
--	head = &hinfo->bhash[inet_bhashfn(snum, hinfo->bhash_size)];
--	tb   = inet_csk(sk)->icsk_bind_hash;
--	spin_lock_bh(&head->lock);
--
--	if (sk_head(&tb->owners) == sk && sk->sk_bind_node.next == NULL) {
--		__inet6_hash(hinfo, sk);
--		spin_unlock_bh(&head->lock);
--		return 0;
--	} else {
--		spin_unlock(&head->lock);
--		/* No definite answer... Walk to established hash table */
--		ret = __inet6_check_established(death_row, sk, snum, NULL);
--out:
--		local_bh_enable();
--		return ret;
--	}
-+	return __inet_hash_connect(death_row, sk,
-+			__inet6_check_established, __inet6_hash);
- }
- 
- EXPORT_SYMBOL_GPL(inet6_hash_connect);
+-			tb = inet_bind_bucket_create(hinfo->bind_bucket_cachep, head, port);
++			tb = inet_bind_bucket_create(hinfo->bind_bucket_cachep,
++					net, head, port);
+ 			if (!tb) {
+ 				spin_unlock(&head->lock);
+ 				break;
 -- 
 1.5.3.4
 
