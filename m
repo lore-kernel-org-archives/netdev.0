@@ -1,68 +1,57 @@
-From: "Dave Young" <hidave.darkstar@gmail.com>
-Subject: Re: [PATCH retry] bluetooth : add conn add/del
-	workqueues to avoid connection fail
-Date: Thu, 31 Jan 2008 09:29:05 +0800
-Message-ID: <a8e1da0801301729j5b3084e0nffb29a740870a793@mail.gmail.com>
-References: <20080130022354.GA3132@darkstar.te-china.tietoenator.com>
-	<20080129.211446.254604070.davem@davemloft.net>
-	<1201688462.6218.47.camel@violet>
-Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] [1/1] Deprecate tcp_tw_{reuse,recycle}
+Date: Thu, 31 Jan 2008 03:59:07 +0100
+Message-ID: <200801310359.07362.ak@suse.de>
+References: <20080130938.523292915@suse.de> <47A0CE75.5080200@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	bluez-devel@lists.sf.net, linux-kernel@vger.kernel.org
-To: "Marcel Holtmann" <marcel@holtmann.org>
-Return-path: <bluez-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1201688462.6218.47.camel@violet>
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.suse.de ([195.135.220.2]:51176 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763635AbYAaDAc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2008 22:00:32 -0500
+In-Reply-To: <47A0CE75.5080200@candelatech.com>
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=bluez-devel>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: bluez-devel-bounces@lists.sourceforge.net
-Errors-To: bluez-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Jan 30, 2008 6:21 PM, Marcel Holtmann <marcel@holtmann.org> wrote:
-> Hi Dave,
->
-> > > The bluetooth hci_conn sysfs add/del executed in the default workqueue.
-> > > If the del_conn is executed after the new add_conn with same target,
-> > > add_conn will failed with warning of "same kobject name".
-> > >
-> > > Here add btaddconn & btdelconn workqueues,
-> > > flush the btdelconn workqueue in the add_conn function to avoid the issue.
-> > >
-> > > Signed-off-by: Dave Young <hidave.darkstar@gmail.com>
-> >
-> > This looks good, applied, thanks Dave.
-> >
-> > I've queued this up for 2.6.25 merging, if you want me to
-> > schedule it for -stable, just let me know.
->
-> don't include it. I first have to stress test it on one of my machines.
-> Besides that I have to do some coding style cleanups.
+On Wednesday 30 January 2008 20:22, Ben Greear wrote:
 
-Sorry, I thought you forgot it.
-Thanks.
+> We use these features to enable creating very high numbers of short-lived
+> TCP connections, primarily used as a test tool for other network
+> devices.
 
-BTW, for the bus_id bug, If there's no urgent need I think we could do
-the fix after driver core bus_id changes of kay which will be there
-soon.
+Hopefully these other network devices don't do any NAT then
+or don't otherwise violate the IP-matches-PAWS assumption.
+Most likely they do actually, so enabling TW recycle
+for testing is probably not even safe for you.
 
->
-> Regards
->
-> Marcel
->
->
->
+Modern systems have a lot of RAM so even without tw recycle
+you should be able to get a very high number of connections.
+An timewait socket is around 128 bytes on 64bit; this means
+with a GB of memory you can already support > 8 Million TW sockets.
+On 32bit it's even more.
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2008.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+The optimization was originally written at a time when 64MB systems
+were common.
+
+If you don't care about data integrity have you considered just 
+using some custom UDP based protocol or run one of the user space
+TCP stacks and disable all data integrity features? If you do care about
+data integrity then you should probably disable tw recycle anyways.
+
+The deprecation period will be some time (several months) so you'll have 
+enough time to migrate to another method
+
+> Perhaps just document the adverse affects and/or have it print out a
+> warning on the console whenever the feature is enabled?
+
+"This feature is insecure and does not work on the internet or with NAT" ? 
+
+Somehow this just does not seem right to me. 
+
+-Andi
