@@ -1,38 +1,33 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [BUILD FAILURE]2.6.24-git10 section type conflict
-Date: Fri, 1 Feb 2008 19:34:25 +0100
-Message-ID: <20080201183425.GB14759@uranus.ravnborg.org>
-References: <20080201182627.GB14251@in.ibm.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/5] ehea: fix ehea.h checkpatch complaints
+Date: Fri, 01 Feb 2008 13:40:24 -0500
+Message-ID: <47A36798.8040208@garzik.org>
+References: <1201832451-23634-1-git-send-email-dwm@austin.ibm.com> <1201832451-23634-2-git-send-email-dwm@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	net-dev-mailing list <netdev@vger.kernel.org>
-To: Sudhir Kumar <skumar@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@garzik.org>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org,
+	Linux PowerPC List <linuxppc-dev@ozlabs.org>
+To: Doug Maxey <dwm@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:49156 "EHLO pasmtpA.tele.dk"
+Received: from srv5.dvmed.net ([207.36.208.214]:54882 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757433AbYBASeX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2008 13:34:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20080201182627.GB14251@in.ibm.com>
+	id S1753359AbYBASkl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2008 13:40:41 -0500
+In-Reply-To: <1201832451-23634-2-git-send-email-dwm@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 01, 2008 at 11:56:27PM +0530, Sudhir Kumar wrote:
-> Hi All,
-> I found the following kernel build failure for 2.6.24-git10
-> on my machine:
-> 
->   CC [M]  drivers/scsi/lpfc/lpfc_attr.o
-> drivers/net/sis190.c:329: error: sis190_pci_tbl causes a section type
-> conflict
-> make[2]: *** [drivers/net/sis190.o] Error 1
-> make[1]: *** [drivers/net] Error 2
-> make[1]: *** Waiting for unfinished jobs....
->   CC [M]  drivers/scsi/lpfc/lpfc_vport.o
+Doug Maxey wrote:
+> Cc: Jan-Bernd Themann <themann@de.ibm.com>
+> Signed-off-by: Doug Maxey <dwm@austin.ibm.com>
+> ---
+>  drivers/net/ehea/ehea.h    |    3 +++
+>  drivers/net/ehea/ehea_hw.h |    8 ++++----
+>  2 files changed, 7 insertions(+), 4 deletions(-)
 
-Known issue with fix already pushed upstream.
-A workaround is to delete __devinitdata from the
-corresponding .c (sis190.c) file.
+applied 1-5
 
-	Sam
+
