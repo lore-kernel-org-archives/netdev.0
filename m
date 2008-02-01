@@ -1,31 +1,38 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [Patch 2.6.24 1/3]S2io: Support for vlan_rx_kill_vid entry point
-Date: Fri, 01 Feb 2008 13:42:04 -0500
-Message-ID: <47A367FC.9020707@garzik.org>
-References: <Pine.GSO.4.10.10801241312010.3800-100000@guinness>
+Subject: Re: [PATCH 1/5] ehea: fix ehea.h checkpatch complaints
+Date: Fri, 01 Feb 2008 13:43:03 -0500
+Message-ID: <47A36837.7010605@garzik.org>
+References: <1201832451-23634-1-git-send-email-dwm@austin.ibm.com> <1201832451-23634-2-git-send-email-dwm@austin.ibm.com> <47A36798.8040208@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, support@neterion.com
-To: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+Cc: Doug Maxey <dwm@austin.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	Paul Mackerras <paulus@samba.org>,
+	Linux PowerPC List <linuxppc-dev@ozlabs.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:54979 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:55013 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755890AbYBASmJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2008 13:42:09 -0500
-In-Reply-To: <Pine.GSO.4.10.10801241312010.3800-100000@guinness>
+	id S1758307AbYBASnF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2008 13:43:05 -0500
+In-Reply-To: <47A36798.8040208@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sreenivasa Honnur wrote:
-> - Added s2io_vlan_rx_kill_vid entry point function for unregistering vlan.
-> - Fix to aggregate vlan packets. IP offset is incremented by
->   4 bytes if the packet contains vlan header.
+Jeff Garzik wrote:
+> Doug Maxey wrote:
+>> Cc: Jan-Bernd Themann <themann@de.ibm.com>
+>> Signed-off-by: Doug Maxey <dwm@austin.ibm.com>
+>> ---
+>>  drivers/net/ehea/ehea.h    |    3 +++
+>>  drivers/net/ehea/ehea_hw.h |    8 ++++----
+>>  2 files changed, 7 insertions(+), 4 deletions(-)
 > 
-> Signed-off-by: Surjit Reang <surjit.reang@neterion.com>
-> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
-
-applied 1-2, patch #3 failed to apply
+> applied 1-5
 
 
+BTW please do not reply to jgarzik@dunveganmedia.com.
+
+That was a Thunderbird fsck-up on my side.
 
