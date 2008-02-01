@@ -1,60 +1,85 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Disable TSO for non standard qdiscs
-Date: Fri, 01 Feb 2008 10:56:57 +0100
-Message-ID: <47A2ECE9.5000103@trash.net>
-References: <20080131183322.GA4671@one.firstfloor.org> <47A20CDC.5090104@trash.net> <20080131183735.GC4671@one.firstfloor.org> <20080131100846.00934e25@extreme> <20080131185328.GD4671@one.firstfloor.org> <47A211A0.1040502@trash.net> <20080131190125.GE4671@one.firstfloor.org> <D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com> <20080131193406.GH4671@one.firstfloor.org> <1201847738.17656.5.camel@roma.44ansell.gdt.id.au> <20080201074600.GA12644@one.firstfloor.org> <47A2C985.30409@trash.net> <D5C1322C3E673F459512FB59E0DDC32904737A42@orsmsx414.amr.corp.intel.com>
+From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
+Subject: oops with ipcomp
+Date: Fri, 1 Feb 2008 11:09:22 +0100
+Message-ID: <3C59DB883F7B0B4D8096010D45ACCD134F209E@exch.facton.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>, Glen Turner <gdt@gdt.id.au>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Herbert Xu" <herbert@gondor.apana.org.au>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42903 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761982AbYBAJ5E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 04:57:04 -0500
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32904737A42@orsmsx414.amr.corp.intel.com>
+Received: from alpha.facton.com ([83.236.152.122]:34176 "EHLO alpha.facton.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754399AbYBAKJa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 05:09:30 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Waskiewicz Jr, Peter P wrote:
->> Indeed. As an example of an unknowing user, this discussion 
->> made me check whether my cablemodem device (on which I'm 
->> using HFSC) uses TSO :)
-> 
-> The TSO defer logic is based on your congestion window and current
-> window size.  So the actual frame sizes hitting your NIC attached to
-> your DSL probably aren't anywhere near 64KB, but probably more in line
-> with whatever your window size is for DSL.
-> 
-> The bottom line is TSO saves CPU cycles.  If we want to make it go away
-> because of a traffic shaping qdisc interfering, then that's fine.  I
-> just don't think a TSO option should be added to the scheduler layer,
-> since it already exists in the ethtool layer.  Asking a user to type
-> 'ethtool -k <devicename> tso off' is probably going to be much easier
-> than setting an option on your qdisc through tc to turn TSO back on.
-> 
-> I think we're having more of a disagreement of what is considered the
-> "normal case" user.  If you are on a slow link, such as a DSL/cable
-> line, your TCP window/congestion window aren't going to be big enough to
-> generate large TSO's, so what is the issue?  But disabling TSO, say on a
-> 10 GbE link, can cut throughput by half (I have data on 8-core machines
-> with 10 GbE with/without TSO if you're interested).  Even on a
-> single-core machine with a 1GbE link can have bad performance hits.  So
-> this is why I'm so concerned about a proposal to turn off TSO outside of
-> the current established methods of using ethtool.  Rather than educating
-> the user about how to turn TSO back on using tc if they want it, educate
-> them why they may want to consider turning TSO off in certain
-> configurations.  And I don't consider any user effectively using a TBF
-> qdisc someone incapable of understanding how to use ethtool.
+One more issue with 2.6.24, some hours after I reactivated ipcomp with
+Herb's 2 patches.
+The httpd log shows a http request per esp tunnel at oops time.
+Don't know whether it is for network or compression guys, so I started
+posting here.
+Daniel
+
+Unable to handle kernel paging request at ffffc200000fb000 RIP: 
+ [<ffffffff8031b8f0>] deflate_slow+0x40/0x400
+PGD 7f845067 PUD 7f846067 PMD 7f847067 PTE 0
+Oops: 0000 [1] SMP 
+CPU 0 
+Modules linked in:
+Pid: 9136, comm: httpd Not tainted 2.6.24 #2
+RIP: 0010:[<ffffffff8031b8f0>]  [<ffffffff8031b8f0>]
+deflate_slow+0x40/0x400
+RSP: 0018:ffff81002ad35938  EFLAGS: 00010206
+RAX: 0000000000000000 RBX: ffffc200000b9000 RCX: 00000000000408d8
+RDX: ffffc200000ba728 RSI: 0000000000000000 RDI: 0000000000005f65
+RBP: 00000000000008d4 R08: 0000000000003dae R09: 0000000000001800
+R10: 0000000000000010 R11: ffffc200000b94bc R12: 00000000000001ad
+R13: 0000000000000005 R14: 0000000000000000 R15: ffffc20000097000
+FS:  00002b00bb68b190(0000) GS:ffffffff805a8000(0000)
+knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: ffffc200000fb000 CR3: 000000002ac82000 CR4: 00000000000006e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process httpd (pid: 9136, threadinfo ffff81002ad34000, task
+ffff81007d2d4080)
+Stack:  ffff810042f3f710 ffff81007dfb0700 0000000000000005
+ffffc200000b9000
+ ffff81007de89000 ffffffff8031c25d 0000000000000000 ffff81007dfb0700
+ ffff81007dfb06c0 ffff81007de890a8 000000000000010a ffffffff802ff351
+Call Trace:
+ [<ffffffff8031c25d>] zlib_deflate+0x10d/0x330
+ [<ffffffff802ff351>] deflate_compress+0x91/0xb0
+ [<ffffffff804771b8>] ipcomp_output+0x98/0x1e0
+ [<ffffffff80489ef6>] xfrm_output+0x116/0x1e0
+ [<ffffffff80482dc4>] xfrm4_output_finish2+0x44/0x1e0
+ [<ffffffff80483075>] xfrm4_output+0x55/0x60
+ [<ffffffff80445989>] ip_queue_xmit+0x209/0x450
+ [<ffffffff8049b0d0>] thread_return+0x3d/0x54d
+ [<ffffffff8023b094>] lock_timer_base+0x34/0x70
+ [<ffffffff80456dcf>] tcp_transmit_skb+0x40f/0x7c0
+ [<ffffffff80458aae>] __tcp_push_pending_frames+0x11e/0x940
+ [<ffffffff8044cb8e>] tcp_sendmsg+0x81e/0xc40
+ [<ffffffff80291e3f>] dput+0x1f/0x130
+ [<ffffffff80410b01>] sock_aio_write+0x111/0x120
+ [<ffffffff804109f0>] sock_aio_write+0x0/0x120
+ [<ffffffff8027f95b>] do_sync_readv_writev+0xcb/0x110
+ [<ffffffff80246850>] autoremove_wake_function+0x0/0x30
+ [<ffffffff8027fb99>] do_sync_read+0xd9/0x120
+ [<ffffffff80287941>] permission+0x61/0x100
+ [<ffffffff8027f7bd>] rw_copy_check_uvector+0x9d/0x130
+ [<ffffffff802800a2>] do_readv_writev+0xe2/0x210
+ [<ffffffff8027e1ba>] do_filp_open+0x3a/0x50
+ [<ffffffff802806e3>] sys_writev+0x53/0x90
+ [<ffffffff8020bb3e>] system_call+0x7e/0x83
 
 
-We don't want to disable TSO for cases where it makes sense, but
-who is using TBF on 10GbE? The point is that most users of qdiscs
-which are incapable of dealing with TSO without hacks or special
-configuration probably don't care, and 10GbE users know about
-ethtool *and* don't use TBF or HTB (which are probably the only
-qdiscs which actually have problems, maybe also CBQ).
-
+Code: 0f b6 14 0a 31 d0 23 43 74 48 8b 53 60 89 43 68 89 c0 0f b7 
+RIP  [<ffffffff8031b8f0>] deflate_slow+0x40/0x400
+ RSP <ffff81002ad35938>
+CR2: ffffc200000fb000
+---[ end trace cfeb10aa23b54939 ]---
