@@ -1,124 +1,68 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Slow OOM in netif_RX function
-Date: Fri, 01 Feb 2008 14:16:42 +0100
-Message-ID: <47A31BBA.8040307@cosmosbay.com>
-References: <4798CAA9.1080005@obs.bg> <4798E32E.6080003@cosmosbay.com> <20080124211810.3E24A46E9A@smtp.obs.bg> <p73tzl282ij.fsf@bingen.suse.de> <20080125141204.GA25510@ghostprotocols.net> <47A315DC.3070101@obs.bg>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH for 2.6.25 2/2] [NET] ucc_geth: add support for netpoll
+Date: Fri, 1 Feb 2008 16:22:54 +0300
+Message-ID: <20080201132254.GB1790@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org
-To: Ivan Dichev <idichev@obs.bg>
+Content-Type: text/plain; charset=utf8
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Li Yang <leoli@freescale.com>, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp25.orange.fr ([193.252.22.21]:44072 "EHLO smtp25.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754641AbYBANQ4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 08:16:56 -0500
-Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf2529.orange.fr (SMTP Server) with ESMTP id D94A01C2D330
-	for <netdev@vger.kernel.org>; Fri,  1 Feb 2008 14:16:49 +0100 (CET)
-In-Reply-To: <47A315DC.3070101@obs.bg>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:33428 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755828AbYBANWv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 08:22:51 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ivan Dichev a =E9crit :
-> Arnaldo Carvalho de Melo wrote:
->  =20
->> Em Fri, Jan 25, 2008 at 02:21:08PM +0100, Andi Kleen escreveu:
->>  =20
->>    =20
->>> "Ivan H. Dichev" <idichev@obs.bg> writes:
->>>    =20
->>>      =20
->>>> What could happen if I put different Lan card in every slot?
->>>> In ex. to-private -> 3com
->>>>       to-inet    -> VIA
->>>>       to-dmz     -> rtl8139
->>>> And then to look which RX function is consuming the memory.
->>>> (boomerang_rx, rtl8139_rx, ... etc)=20
->>>>      =20
->>>>        =20
->>> The problem is unlikely to be in the driver (these are both
->>> well tested ones) but more likely your complicated iptables setup s=
-omehow
->>> triggers a skb leak.
->>>
->>> There are unfortunately no shrink wrapped debug mechanisms in the k=
-ernel
->>> for leaks like this (ok you could enable CONFIG_NETFILTER_DEBUG=20
->>> and see if it prints something interesting, but that's a long shot)=
-=2E
->>>
->>> If you wanted to write a custom debugging patch I would do somethin=
-g like this:
->>>
->>> - Add two new integer fields to struct sk_buff: a time stamp and a =
-integer field
->>> - Fill the time stamp with jiffies in alloc_skb and clear the integ=
-er field
->>> - In __kfree_skb clear the time stamp
->>> - For all the ipt target modules in net/ipv4/netfilter/*.c you use =
-change their=20
->>> ->target functions to put an unique value into the integer field yo=
-u added.
->>> - Do the same for the pkt_to_tuple functions for all conntrack modu=
-les
->>>
->>> Then when you observe the leak take a crash dump using kdump on the=
- router=20
->>> and then use crash to dump all the slab objects for the sk_head_cac=
-he.
->>> Then look for any that have an old time stamp and check what value =
-they
->>> have in the integer field. Then the netfilter function who set that=
- unique value=20
->>> likely triggered the leak somehow.
->>>    =20
->>>      =20
->> I wrote some systemtap scripts that do parts of what you suggest, an=
-d at
->> least for the timestamp there was no need to add a new field to stru=
-ct
->> sk_buff, I just reuse skb->timestamp, as it is only used when we use=
- a
->> packet sniffer. Here it is for reference, but it needs some tapsets =
-I
->> wrote, so I'll publish this git repo in git.kernel.org, perhaps it c=
-an
->> be useful in this case as a starting point. Find another unused fiel=
-d
->> (hint: I know that at least 4 bytes on 64 bits is present as a hole)=
- and
->> you're done, no need to rebuild the kernel :)
->>
->> http://git.kernel.org/?p=3Dlinux/kernel/git/acme/nettaps.git
->>
->> - Arnaldo
->>  =20
->>    =20
-> Thanks to everyone for the given ideas.
-> I am not kernel guru so writing patch is difficult. This is a product=
-ion
-> server and it is quite difficult to debug (only at night)
-> I removed some iptables exotics -  recent , ulog, string , but no eff=
-ect.
-> Since we can reach OOM most of the memory is going to be filled with =
-the
-> leak, and we are thinking to try to dump and analyze it.
-> We have looked at the "crash" tool, and we will see what we can do wi=
-th
-> it. Meanwhile do you have any hint/ideas ?
-> Thanks a lot.
->
->  =20
-I understand you dont want to tell us exact firewall rules you have.
+This patch adds netpoll support for the QE UCC Gigabit Ethernet
+driver. Tested using netconsole and KGDBoE.
 
-Maybe you could post at least following infos :
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
 
-# cat /proc/slabinfo
-# lsmod
+Just resending this.
 
+ drivers/net/ucc_geth.c |   20 ++++++++++++++++++++
+ 1 files changed, 20 insertions(+), 0 deletions(-)
 
-
-
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index e41da46..fba0811 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3666,6 +3666,23 @@ static irqreturn_t ucc_geth_irq_handler(int irq, void *info)
+ 	return IRQ_HANDLED;
+ }
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++/*
++ * Polling 'interrupt' - used by things like netconsole to send skbs
++ * without having to re-enable interrupts. It's not called while
++ * the interrupt routine is executing.
++ */
++static void ucc_netpoll(struct net_device *dev)
++{
++	struct ucc_geth_private *ugeth = netdev_priv(dev);
++	int irq = ugeth->ug_info->uf_info.irq;
++
++	disable_irq(irq);
++	ucc_geth_irq_handler(irq, dev);
++	enable_irq(irq);
++}
++#endif /* CONFIG_NET_POLL_CONTROLLER */
++
+ /* Called when something needs to use the ethernet device */
+ /* Returns 0 for success. */
+ static int ucc_geth_open(struct net_device *dev)
+@@ -4008,6 +4025,9 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ #ifdef CONFIG_UGETH_NAPI
+ 	netif_napi_add(dev, &ugeth->napi, ucc_geth_poll, UCC_GETH_DEV_WEIGHT);
+ #endif				/* CONFIG_UGETH_NAPI */
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller = ucc_netpoll;
++#endif
+ 	dev->stop = ucc_geth_close;
+ //    dev->change_mtu = ucc_geth_change_mtu;
+ 	dev->mtu = 1500;
+-- 
+1.5.2.2
