@@ -1,7 +1,7 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 6/8] ixgbe: properly return CHECKSUM_NONE, cleanup csum code
-Date: Fri, 01 Feb 2008 15:59:09 -0800
-Message-ID: <20080201235909.31474.2938.stgit@localhost.localdomain>
+Subject: [PATCH 3/8] ixbge: Make ethtool code account for media types
+Date: Fri, 01 Feb 2008 15:58:54 -0800
+Message-ID: <20080201235854.31474.16988.stgit@localhost.localdomain>
 References: <20080201235841.31474.49421.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,77 +9,104 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:33904 "EHLO mga01.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:31020 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761290AbYBBAAs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2008 19:00:48 -0500
+	id S1758136AbYBBADW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2008 19:03:22 -0500
 In-Reply-To: <20080201235841.31474.49421.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ayyappan Veeraiyan <ayyappan.veeraiyan@intel.com>
 
-We were not returning CHECKSUM_NONE in a lot of cases which is
-wrong. Move common exit points in this function and error code
-up before the actual work in this function.
+The i82598 can support various media types but this ethtool
+code only was coded for fiber just yet.
 
 Signed-off-by: Ayyappan Veeraiyan <ayyappan.veeraiyan@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |   29 ++++++++++++++++++++++-------
- 1 files changed, 22 insertions(+), 7 deletions(-)
+ drivers/net/ixgbe/ixgbe_ethtool.c |   52 ++++++++++++++++++++++++++-----------
+ 1 files changed, 36 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index c814d9b..ee5ee10 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -304,25 +304,40 @@ static void ixgbe_receive_skb(struct ixgbe_adapter *adapter,
- 	}
- }
- 
-+/**
-+ * ixgbe_rx_checksum - indicate in skb if hw indicated a good cksum
-+ * @adapter: address of board private structure
-+ * @status_err: hardware indication of status of receive
-+ * @skb: skb currently being received and modified
-+ **/
- static inline void ixgbe_rx_checksum(struct ixgbe_adapter *adapter,
- 					 u32 status_err,
- 					 struct sk_buff *skb)
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index 9f3cdb8..b447dd7 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -103,21 +103,41 @@ static int ixgbe_get_settings(struct net_device *netdev,
+ 			      struct ethtool_cmd *ecmd)
  {
- 	skb->ip_summed = CHECKSUM_NONE;
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	struct ixgbe_hw *hw = &adapter->hw;
++	u32 link_speed = 0;
++	bool link_up;
  
--	/* Ignore Checksum bit is set */
-+	/* Ignore Checksum bit is set, or rx csum disabled */
- 	if ((status_err & IXGBE_RXD_STAT_IXSM) ||
--		     !(adapter->flags & IXGBE_FLAG_RX_CSUM_ENABLED))
-+	    !(adapter->flags & IXGBE_FLAG_RX_CSUM_ENABLED))
- 		return;
--	/* TCP/UDP checksum error bit is set */
--	if (status_err & (IXGBE_RXDADV_ERR_TCPE | IXGBE_RXDADV_ERR_IPE)) {
--		/* let the stack verify checksum errors */
+-	ecmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
+-	ecmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_FIBRE);
+-	ecmd->port = PORT_FIBRE;
++	ecmd->supported = SUPPORTED_10000baseT_Full;
++	ecmd->autoneg = AUTONEG_ENABLE;
+ 	ecmd->transceiver = XCVR_EXTERNAL;
++	if (hw->phy.media_type == ixgbe_media_type_copper) {
++		ecmd->supported |= (SUPPORTED_1000baseT_Full |
++				    SUPPORTED_TP | SUPPORTED_Autoneg);
 +
-+	/* if IP and error */
-+	if ((status_err & IXGBE_RXD_STAT_IPCS) &&
-+	    (status_err & IXGBE_RXDADV_ERR_IPE)) {
- 		adapter->hw_csum_rx_error++;
- 		return;
- 	}
++		ecmd->advertising = (ADVERTISED_TP | ADVERTISED_Autoneg);
++		if (hw->phy.autoneg_advertised & IXGBE_LINK_SPEED_10GB_FULL)
++			ecmd->advertising |= ADVERTISED_10000baseT_Full;
++		if (hw->phy.autoneg_advertised & IXGBE_LINK_SPEED_1GB_FULL)
++			ecmd->advertising |= ADVERTISED_1000baseT_Full;
 +
-+	if (!(status_err & IXGBE_RXD_STAT_L4CS))
-+		return;
-+
-+	if (status_err & IXGBE_RXDADV_ERR_TCPE) {
-+		adapter->hw_csum_rx_error++;
-+		return;
++		ecmd->port = PORT_TP;
++	} else {
++		ecmd->supported |= SUPPORTED_FIBRE;
++		ecmd->advertising = (ADVERTISED_10000baseT_Full |
++				     ADVERTISED_FIBRE);
++		ecmd->port = PORT_FIBRE;
 +	}
-+
- 	/* It must be a TCP or UDP packet with a valid checksum */
--	if (status_err & (IXGBE_RXD_STAT_L4CS | IXGBE_RXD_STAT_UDPCS))
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	adapter->hw_csum_rx_good++;
+ 
+-	if (netif_carrier_ok(adapter->netdev)) {
+-		ecmd->speed = SPEED_10000;
++	adapter->hw.mac.ops.check_link(hw, &(link_speed), &link_up);
++	if (link_up) {
++		ecmd->speed = (link_speed == IXGBE_LINK_SPEED_10GB_FULL) ?
++				SPEED_10000 : SPEED_1000;
+ 		ecmd->duplex = DUPLEX_FULL;
+ 	} else {
+ 		ecmd->speed = -1;
+ 		ecmd->duplex = -1;
+ 	}
+ 
+-	ecmd->autoneg = AUTONEG_DISABLE;
+ 	return 0;
  }
  
+@@ -125,17 +145,17 @@ static int ixgbe_set_settings(struct net_device *netdev,
+ 			      struct ethtool_cmd *ecmd)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	struct ixgbe_hw *hw = &adapter->hw;
+ 
+-	if (ecmd->autoneg == AUTONEG_ENABLE ||
+-	    ecmd->speed + ecmd->duplex != SPEED_10000 + DUPLEX_FULL)
+-		return -EINVAL;
+-
+-	if (netif_running(adapter->netdev)) {
+-		ixgbe_down(adapter);
+-		ixgbe_reset(adapter);
+-		ixgbe_up(adapter);
+-	} else {
+-		ixgbe_reset(adapter);
++	switch (hw->phy.media_type) {
++	case ixgbe_media_type_fiber:
++		if ((ecmd->autoneg == AUTONEG_ENABLE) ||
++		    (ecmd->speed + ecmd->duplex != SPEED_10000 + DUPLEX_FULL))
++			return -EINVAL;
++		/* in this case we currently only support 10Gb/FULL */
++		break;
++	default:
++		break;
+ 	}
+ 
+ 	return 0;
 
