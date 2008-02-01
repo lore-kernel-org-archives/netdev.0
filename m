@@ -1,75 +1,44 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] e1000e: tweak irq allocation messages
-Date: Thu, 31 Jan 2008 15:54:16 -0800
-Message-ID: <47A25FA8.7070505@intel.com>
-References: <20080131225639.GB856@gospo.usersys.redhat.com> <20080131230620.GC856@gospo.usersys.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: update MSS even if MTU is unchanged
+Date: Thu, 31 Jan 2008 16:37:36 -0800 (PST)
+Message-ID: <20080131.163736.46142971.davem@davemloft.net>
+References: <20080121105227.GA8306@jim.sh>
+	<20080121220248.GA25284@jim.sh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, auke-jan.h.kok@intel.com
-To: Andy Gospodarek <andy@greyhouse.net>
+Cc: netdev@vger.kernel.org
+To: jim@jtan.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:14695 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933047AbYBAAAd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2008 19:00:33 -0500
-In-Reply-To: <20080131230620.GC856@gospo.usersys.redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51894
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753706AbYBAAhP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 19:37:15 -0500
+In-Reply-To: <20080121220248.GA25284@jim.sh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Gospodarek wrote:
-> (Reposted with the version I intended -- added ',' so it compiles!)
+From: Jim Paris <jim@jtan.com>
+Date: Mon, 21 Jan 2008 17:02:48 -0500
+
+> This is needed because in ndisc.c, we have:
 > 
-> There's too much noise on systems that don't support MSI.  Let's get rid
-> of a few and make the real error message more specific.
+>   static void ndisc_router_discovery(struct sk_buff *skb)
+>   {
+>   // ...
+>   	if (ndopts.nd_opts_mtu) {
+>   // ...
+>   			if (rt)
+>   				rt->u.dst.metrics[RTAX_MTU-1] = mtu;
 > 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-
-thanks Andy, I'll post this to Jeff,
-
-Auke
-
-
-
-> ---
+>   			rt6_mtu_change(skb->dev, mtu);
+>   // ...
+>   }
 > 
->  netdev.c |   12 +++++-------
->  1 files changed, 5 insertions(+), 7 deletions(-)
+> Since the mtu is set directly here, rt6_mtu_change_route thinks that
+> it is unchanged, and so it fails to update the MSS accordingly.  This
+> patch lets rt6_mtu_change_route still update MSS if old_mtu == new_mtu.
 > 
-> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-> index 0a2cb79..0c8cd1c 100644
-> --- a/drivers/net/e1000e/netdev.c
-> +++ b/drivers/net/e1000e/netdev.c
-> @@ -945,11 +945,7 @@ static int e1000_request_irq(struct e1000_adapter *adapter)
->  	int irq_flags = IRQF_SHARED;
->  	int err;
->  
-> -	err = pci_enable_msi(adapter->pdev);
-> -	if (err) {
-> -		ndev_warn(netdev,
-> -		 "Unable to allocate MSI interrupt Error: %d\n", err);
-> -	} else {
-> +	if (!pci_enable_msi(adapter->pdev)) {
->  		adapter->flags |= FLAG_MSI_ENABLED;
->  		handler = e1000_intr_msi;
->  		irq_flags = 0;
-> @@ -958,10 +954,12 @@ static int e1000_request_irq(struct e1000_adapter *adapter)
->  	err = request_irq(adapter->pdev->irq, handler, irq_flags, netdev->name,
->  			  netdev);
->  	if (err) {
-> +		ndev_err(netdev,
-> +		       "Unable to allocate %s interrupt (return: %d)\n",
-> +			adapter->flags & FLAG_MSI_ENABLED ? "MSI":"INTx",
-> +			err);
->  		if (adapter->flags & FLAG_MSI_ENABLED)
->  			pci_disable_msi(adapter->pdev);
-> -		ndev_err(netdev,
-> -		       "Unable to allocate interrupt Error: %d\n", err);
->  	}
->  
->  	return err;
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Signed-off-by: Jim Paris <jim@jtan.com>
 
+This seems ok, patch applied, thanks.
