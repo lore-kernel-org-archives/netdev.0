@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET_SCHED 00/04]: External SFQ classifiers/flow classifier
-Date: Thu, 31 Jan 2008 18:37:55 -0800 (PST)
-Message-ID: <20080131.183755.226728080.davem@davemloft.net>
-References: <20080131175758.25151.20370.sendpatchset@localhost.localdomain>
+Subject: Re: [PATCHES 0/6]: Move hashinfo to sk_prot and struct reorgs
+Date: Thu, 31 Jan 2008 18:40:48 -0800 (PST)
+Message-ID: <20080131.184048.89507795.davem@davemloft.net>
+References: <1201804304-28777-1-git-send-email-acme@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44148
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54653
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756931AbYBAChd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 21:37:33 -0500
-In-Reply-To: <20080131175758.25151.20370.sendpatchset@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S932283AbYBACk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 21:40:27 -0500
+In-Reply-To: <1201804304-28777-1-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 31 Jan 2008 18:58:02 +0100 (MET)
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Thu, 31 Jan 2008 16:31:38 -0200
 
-> These patches add support for external classifiers to SFQ and add a
-> new "flow" classifier, which can do hashing based on user-specified
-> keys or deterministic mapping of keys to classes. Additionally there
-> is a patch to make the SFQ queues visisble as classes to verify that
-> the hash is indeed doing something useful and a patch to consifiy
-> struct tcf_ext_map, which I had queued in the same tree.
+> Hi David,
 > 
-> Please apply, thanks.
+> 	Please consider pulling from:
+> 
+> master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6
 
-Applied, thanks Patrick.
+I've had to rebase my tree a few times and there are
+conflicts in this merge as well.
+
+Sit tight for a day or so, I'd like to merge the current
+tree to Linus and then maybe look at a few more things.
