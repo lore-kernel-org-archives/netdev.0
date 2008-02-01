@@ -1,632 +1,129 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: [PATCH RESEND] [XFRM]: Speed up xfrm_policy and xfrm_state walking
-Date: Fri, 01 Feb 2008 16:58:04 +0200
-Message-ID: <47A3337C.1090004@iki.fi>
+From: Ivan Dichev <idichev@obs.bg>
+Subject: Re: Slow OOM in netif_RX function
+Date: Fri, 01 Feb 2008 17:38:42 +0200
+Message-ID: <47A33D02.8050503@obs.bg>
+References: <4798CAA9.1080005@obs.bg> <4798E32E.6080003@cosmosbay.com> <20080124211810.3E24A46E9A@smtp.obs.bg> <p73tzl282ij.fsf@bingen.suse.de> <20080125141204.GA25510@ghostprotocols.net> <47A315DC.3070101@obs.bg> <47A31BBA.8040307@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:33122 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753559AbYBAO51 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 09:57:27 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so756936ugc.16
-        for <netdev@vger.kernel.org>; Fri, 01 Feb 2008 06:57:25 -0800 (PST)
+Received: from obs.bg ([213.91.169.3]:33473 "EHLO smtp.obs.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753892AbYBAPio (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2008 10:38:44 -0500
+In-Reply-To: <47A31BBA.8040307@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change xfrm_policy and xfrm_state walking algorithm from O(n^2) to O(n).
-This is achieved adding the entries to one more list which is used
-solely for walking the entries.
 
-This also fixes some races where the dump can have duplicate or missing
-entries when the SPD/SADB is modified during an ongoing dump.
+> I understand you dont want to tell us exact firewall rules you have.
+>
+> Maybe you could post at least following infos :
+>
+> # cat /proc/slabinfo
+> # lsmod
+>
+I have changed slab with slub.
 
-Dumping SADB with 20000 entries using "time ip xfrm state" the sys
-time dropped from 1.012s to 0.080s.
+firewall #   cat /sys/slab/kmalloc-2048/alloc_calls
+      1 add_sect_attrs+0x57/0x120 age=20565254 pid=1115
+      1 __vmalloc_area_node+0x5d/0xf3 age=586962 pid=31548
+      6 journal_init_revoke+0xe0/0x241 age=20562046/20563010/20566655
+pid=1-1510
+      6 journal_init_revoke+0x1c7/0x241 age=20562046/20563010/20566655
+pid=1-1510
+      6 journal_init_inode+0x7d/0x123 age=20562046/20563010/20566655
+pid=1-1510
+      1 tty_write+0xe8/0x1bc age=685813 pid=21217
+      1 input_allocate_device+0x10/0x6c age=20566814 pid=38
+      2 reqsk_queue_alloc+0x58/0xa8 age=5679409/8932742/12186076
+pid=1135-2500
+      5 alloc_netdev_mq+0x3c/0x9a age=20555675/20561345/20565141
+pid=1233-3041
+      1 neigh_hash_alloc+0x14/0x2c age=20527064 pid=0
+     11 neigh_sysctl_register+0x24/0x1fd age=20555673/20560511/20567588
+pid=1-3041
+      6 qdisc_alloc+0x1b/0x70 age=585308/585373/585539 pid=31629-31818
+     26 qdisc_get_rtab+0x5e/0xa2 age=585498/585519/585535 pid=31630-31664
+     11 devinet_sysctl_register+0x21/0xd7 age=20555673/20560511/20567588
+pid=1-3041
+      1 netlink_proto_init+0x2a/0x123 age=20567604 pid=1
+   3106 boomerang_rx+0x30d/0x40d [3c59x] age=1/9966140/20553543 pid=0-22895
+      3 bm_init+0x28/0xa3 [ts_bm] age=586918/586918/586918 pid=31548
 
-Signed-off-by: Timo Teras <timo.teras@iki.fi>
----
-
- include/linux/xfrm.h   |    3 +-
- include/net/xfrm.h     |   52 ++++++++++++++++++++++++++++++-
- net/key/af_key.c       |   22 +++++++++++--
- net/xfrm/xfrm_policy.c |   79 ++++++++++++++++++++++++++++--------------------
- net/xfrm/xfrm_state.c  |   53 ++++++++++++++++++++++----------
- net/xfrm/xfrm_user.c   |   71 ++++++++++++++++++++++++++-----------------
- 6 files changed, 195 insertions(+), 85 deletions(-)
-
-diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index e31b8c8..0c82c80 100644
---- a/include/linux/xfrm.h
-+++ b/include/linux/xfrm.h
-@@ -113,7 +113,8 @@ enum
- {
- 	XFRM_POLICY_TYPE_MAIN	= 0,
- 	XFRM_POLICY_TYPE_SUB	= 1,
--	XFRM_POLICY_TYPE_MAX	= 2
-+	XFRM_POLICY_TYPE_MAX	= 2,
-+	XFRM_POLICY_TYPE_ANY	= 255
- };
- 
- enum
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index ac72116..7bd021b 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -121,6 +121,7 @@ extern struct mutex xfrm_cfg_mutex;
- struct xfrm_state
- {
- 	/* Note: bydst is re-used during gc */
-+	struct list_head	all;
- 	struct hlist_node	bydst;
- 	struct hlist_node	bysrc;
- 	struct hlist_node	byspi;
-@@ -424,6 +425,7 @@ struct xfrm_tmpl
- struct xfrm_policy
- {
- 	struct xfrm_policy	*next;
-+	struct list_head	bytype;
- 	struct hlist_node	bydst;
- 	struct hlist_node	byidx;
- 
-@@ -1157,6 +1159,18 @@ struct xfrm6_tunnel {
- 	int priority;
- };
- 
-+struct xfrm_state_walk {
-+	u8 proto;
-+	struct xfrm_state *state;
-+	int count;
-+};
-+
-+struct xfrm_policy_walk {
-+	u8 type, cur_type;
-+	struct xfrm_policy *policy;
-+	int count;
-+};
-+
- extern void xfrm_init(void);
- extern void xfrm4_init(void);
- extern void xfrm_state_init(void);
-@@ -1181,7 +1195,23 @@ static inline void xfrm6_fini(void)
- extern int xfrm_proc_init(void);
- #endif
- 
--extern int xfrm_state_walk(u8 proto, int (*func)(struct xfrm_state *, int, void*), void *);
-+static inline void xfrm_state_walk_init(struct xfrm_state_walk *walk, u8 proto)
-+{
-+	walk->proto = proto;
-+	walk->state = NULL;
-+	walk->count = 0;
-+}
-+
-+static inline void xfrm_state_walk_done(struct xfrm_state_walk *walk)
-+{
-+	if (walk->state != NULL) {
-+		xfrm_state_put(walk->state);
-+		walk->state = NULL;
-+	}
-+}
-+
-+extern int xfrm_state_walk(struct xfrm_state_walk *walk,
-+			   int (*func)(struct xfrm_state *, int, void*), void *);
- extern struct xfrm_state *xfrm_state_alloc(void);
- extern struct xfrm_state *xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr, 
- 					  struct flowi *fl, struct xfrm_tmpl *tmpl,
-@@ -1303,7 +1333,25 @@ static inline int xfrm4_udp_encap_rcv(struct sock *sk, struct sk_buff *skb)
- #endif
- 
- struct xfrm_policy *xfrm_policy_alloc(gfp_t gfp);
--extern int xfrm_policy_walk(u8 type, int (*func)(struct xfrm_policy *, int, int, void*), void *);
-+
-+static inline void xfrm_policy_walk_init(struct xfrm_policy_walk *walk, u8 type)
-+{
-+	walk->cur_type = XFRM_POLICY_TYPE_MAIN;
-+	walk->type = type;
-+	walk->policy = NULL;
-+	walk->count = 0;
-+}
-+
-+static inline void xfrm_policy_walk_done(struct xfrm_policy_walk *walk)
-+{
-+	if (walk->policy != NULL) {
-+		xfrm_pol_put(walk->policy);
-+		walk->policy = NULL;
-+	}
-+}
-+
-+extern int xfrm_policy_walk(struct xfrm_policy_walk *walk,
-+	int (*func)(struct xfrm_policy *, int, int, void*), void *);
- int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl);
- struct xfrm_policy *xfrm_policy_bysel_ctx(u8 type, int dir,
- 					  struct xfrm_selector *sel,
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 16b72b5..d24bb9c 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1742,12 +1742,18 @@ static int pfkey_dump(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr
- {
- 	u8 proto;
- 	struct pfkey_dump_data data = { .skb = skb, .hdr = hdr, .sk = sk };
-+	struct xfrm_state_walk walk;
-+	int rc;
- 
- 	proto = pfkey_satype2proto(hdr->sadb_msg_satype);
- 	if (proto == 0)
- 		return -EINVAL;
- 
--	return xfrm_state_walk(proto, dump_sa, &data);
-+	xfrm_state_walk_init(&walk, proto);
-+	rc = xfrm_state_walk(&walk, dump_sa, &data);
-+	xfrm_state_walk_done(&walk);
-+
-+	return rc;
- }
- 
- static int pfkey_promisc(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
-@@ -1780,6 +1786,7 @@ static int check_reqid(struct xfrm_policy *xp, int dir, int count, void *ptr)
- 
- static u32 gen_reqid(void)
- {
-+	struct xfrm_policy_walk walk;
- 	u32 start;
- 	static u32 reqid = IPSEC_MANUAL_REQID_MAX;
- 
-@@ -1788,9 +1795,10 @@ static u32 gen_reqid(void)
- 		++reqid;
- 		if (reqid == 0)
- 			reqid = IPSEC_MANUAL_REQID_MAX+1;
--		if (xfrm_policy_walk(XFRM_POLICY_TYPE_MAIN, check_reqid,
--				     (void*)&reqid) != -EEXIST)
-+		xfrm_policy_walk_init(&walk, XFRM_POLICY_TYPE_MAIN);
-+		if (xfrm_policy_walk(&walk, check_reqid, (void*)&reqid) != -EEXIST)
- 			return reqid;
-+		xfrm_policy_walk_done(&walk);
- 	} while (reqid != start);
- 	return 0;
- }
-@@ -2664,8 +2672,14 @@ static int dump_sp(struct xfrm_policy *xp, int dir, int count, void *ptr)
- static int pfkey_spddump(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
- {
- 	struct pfkey_dump_data data = { .skb = skb, .hdr = hdr, .sk = sk };
-+	struct xfrm_policy_walk walk;
-+	int rc;
-+
-+	xfrm_policy_walk_init(&walk, XFRM_POLICY_TYPE_MAIN);
-+	rc = xfrm_policy_walk(&walk, dump_sp, &data);
-+	xfrm_policy_walk_done(&walk);
- 
--	return xfrm_policy_walk(XFRM_POLICY_TYPE_MAIN, dump_sp, &data);
-+	return rc;
- }
- 
- static int key_notify_policy_flush(struct km_event *c)
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 47219f9..0966bd9 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -46,6 +46,7 @@ EXPORT_SYMBOL(xfrm_cfg_mutex);
- 
- static DEFINE_RWLOCK(xfrm_policy_lock);
- 
-+static struct list_head xfrm_policy_bytype[XFRM_POLICY_TYPE_MAX];
- unsigned int xfrm_policy_count[XFRM_POLICY_MAX*2];
- EXPORT_SYMBOL(xfrm_policy_count);
- 
-@@ -208,6 +209,7 @@ struct xfrm_policy *xfrm_policy_alloc(gfp_t gfp)
- 	policy = kzalloc(sizeof(struct xfrm_policy), gfp);
- 
- 	if (policy) {
-+		INIT_LIST_HEAD(&policy->bytype);
- 		INIT_HLIST_NODE(&policy->bydst);
- 		INIT_HLIST_NODE(&policy->byidx);
- 		rwlock_init(&policy->lock);
-@@ -230,6 +232,10 @@ void xfrm_policy_destroy(struct xfrm_policy *policy)
- 	if (del_timer(&policy->timer))
- 		BUG();
- 
-+	write_lock_bh(&xfrm_policy_lock);
-+	list_del(&policy->bytype);
-+	write_unlock_bh(&xfrm_policy_lock);
-+
- 	security_xfrm_policy_free(policy);
- 	kfree(policy);
- }
-@@ -568,6 +574,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
- 	policy->curlft.use_time = 0;
- 	if (!mod_timer(&policy->timer, jiffies + HZ))
- 		xfrm_pol_hold(policy);
-+	list_add_tail(&policy->bytype, &xfrm_policy_bytype[policy->type]);
- 	write_unlock_bh(&xfrm_policy_lock);
- 
- 	if (delpol)
-@@ -806,57 +813,60 @@ out:
- }
- EXPORT_SYMBOL(xfrm_policy_flush);
- 
--int xfrm_policy_walk(u8 type, int (*func)(struct xfrm_policy *, int, int, void*),
-+int xfrm_policy_walk(struct xfrm_policy_walk *walk,
-+		     int (*func)(struct xfrm_policy *, int, int, void*),
- 		     void *data)
- {
--	struct xfrm_policy *pol, *last = NULL;
--	struct hlist_node *entry;
--	int dir, last_dir = 0, count, error;
-+	struct xfrm_policy *old, *pol, *last = NULL;
-+	int error = 0;
-+
-+	if (walk->type >= XFRM_POLICY_TYPE_MAX &&
-+	    walk->type != XFRM_POLICY_TYPE_ANY)
-+		return -EINVAL;
- 
-+	if (walk->policy == NULL && walk->count != 0)
-+		return 0;
-+
-+	old = pol = walk->policy;
-+	walk->policy = NULL;
- 	read_lock_bh(&xfrm_policy_lock);
--	count = 0;
- 
--	for (dir = 0; dir < 2*XFRM_POLICY_MAX; dir++) {
--		struct hlist_head *table = xfrm_policy_bydst[dir].table;
--		int i;
-+	for (; walk->cur_type < XFRM_POLICY_TYPE_MAX; walk->cur_type++) {
-+		if (walk->type != walk->cur_type &&
-+		    walk->type != XFRM_POLICY_TYPE_ANY)
-+			continue;
- 
--		hlist_for_each_entry(pol, entry,
--				     &xfrm_policy_inexact[dir], bydst) {
--			if (pol->type != type)
-+		if (pol == NULL) {
-+			pol = list_first_entry(&xfrm_policy_bytype[walk->cur_type],
-+					       struct xfrm_policy, bytype);
-+		}
-+		list_for_each_entry_from(pol, &xfrm_policy_bytype[walk->cur_type], bytype) {
-+			if (pol->dead)
- 				continue;
- 			if (last) {
--				error = func(last, last_dir % XFRM_POLICY_MAX,
--					     count, data);
--				if (error)
-+				error = func(last, xfrm_policy_id2dir(last->index),
-+					     walk->count, data);
-+				if (error) {
-+					xfrm_pol_hold(last);
-+					walk->policy = last;
- 					goto out;
--			}
--			last = pol;
--			last_dir = dir;
--			count++;
--		}
--		for (i = xfrm_policy_bydst[dir].hmask; i >= 0; i--) {
--			hlist_for_each_entry(pol, entry, table + i, bydst) {
--				if (pol->type != type)
--					continue;
--				if (last) {
--					error = func(last, last_dir % XFRM_POLICY_MAX,
--						     count, data);
--					if (error)
--						goto out;
- 				}
--				last = pol;
--				last_dir = dir;
--				count++;
- 			}
-+			last = pol;
-+			walk->count++;
- 		}
-+		pol = NULL;
- 	}
--	if (count == 0) {
-+	if (walk->count == 0) {
- 		error = -ENOENT;
- 		goto out;
- 	}
--	error = func(last, last_dir % XFRM_POLICY_MAX, 0, data);
-+	if (last)
-+		error = func(last, xfrm_policy_id2dir(last->index), 0, data);
- out:
- 	read_unlock_bh(&xfrm_policy_lock);
-+	if (old != NULL)
-+		xfrm_pol_put(old);
- 	return error;
- }
- EXPORT_SYMBOL(xfrm_policy_walk);
-@@ -2349,6 +2359,9 @@ static void __init xfrm_policy_init(void)
- 			panic("XFRM: failed to allocate bydst hash\n");
- 	}
- 
-+	for (dir = 0; dir < XFRM_POLICY_TYPE_MAX; dir++)
-+		INIT_LIST_HEAD(&xfrm_policy_bytype[dir]);
-+
- 	INIT_WORK(&xfrm_policy_gc_work, xfrm_policy_gc_task);
- 	register_netdevice_notifier(&xfrm_dev_notifier);
- }
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 3ff76e8..14d00e7 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -50,6 +50,7 @@ static DEFINE_SPINLOCK(xfrm_state_lock);
-  * Main use is finding SA after policy selected tunnel or transport mode.
-  * Also, it can be used by ah/esp icmp error handler to find offending SA.
-  */
-+static LIST_HEAD(xfrm_state_all);
- static struct hlist_head *xfrm_state_bydst __read_mostly;
- static struct hlist_head *xfrm_state_bysrc __read_mostly;
- static struct hlist_head *xfrm_state_byspi __read_mostly;
-@@ -510,6 +511,7 @@ struct xfrm_state *xfrm_state_alloc(void)
- 	if (x) {
- 		atomic_set(&x->refcnt, 1);
- 		atomic_set(&x->tunnel_users, 0);
-+		INIT_LIST_HEAD(&x->all);
- 		INIT_HLIST_NODE(&x->bydst);
- 		INIT_HLIST_NODE(&x->bysrc);
- 		INIT_HLIST_NODE(&x->byspi);
-@@ -533,6 +535,10 @@ void __xfrm_state_destroy(struct xfrm_state *x)
- {
- 	BUG_TRAP(x->km.state == XFRM_STATE_DEAD);
- 
-+	spin_lock_bh(&xfrm_state_lock);
-+	list_del(&x->all);
-+	spin_unlock_bh(&xfrm_state_lock);
-+
- 	spin_lock_bh(&xfrm_state_gc_lock);
- 	hlist_add_head(&x->bydst, &xfrm_state_gc_list);
- 	spin_unlock_bh(&xfrm_state_gc_lock);
-@@ -909,6 +915,8 @@ static void __xfrm_state_insert(struct xfrm_state *x)
- 
- 	x->genid = ++xfrm_state_genid;
- 
-+	list_add_tail(&x->all, &xfrm_state_all);
-+
- 	h = xfrm_dst_hash(&x->id.daddr, &x->props.saddr,
- 			  x->props.reqid, x->props.family);
- 	hlist_add_head(&x->bydst, xfrm_state_bydst+h);
-@@ -1518,36 +1526,47 @@ unlock:
- }
- EXPORT_SYMBOL(xfrm_alloc_spi);
- 
--int xfrm_state_walk(u8 proto, int (*func)(struct xfrm_state *, int, void*),
-+int xfrm_state_walk(struct xfrm_state_walk *walk,
-+		    int (*func)(struct xfrm_state *, int, void*),
- 		    void *data)
- {
--	int i;
--	struct xfrm_state *x, *last = NULL;
--	struct hlist_node *entry;
--	int count = 0;
-+	struct xfrm_state *old, *x, *last = NULL;
- 	int err = 0;
- 
-+	if (walk->state == NULL && walk->count != 0)
-+		return 0;
-+
-+	old = x = walk->state;
-+	walk->state = NULL;
- 	spin_lock_bh(&xfrm_state_lock);
--	for (i = 0; i <= xfrm_state_hmask; i++) {
--		hlist_for_each_entry(x, entry, xfrm_state_bydst+i, bydst) {
--			if (!xfrm_id_proto_match(x->id.proto, proto))
--				continue;
--			if (last) {
--				err = func(last, count, data);
--				if (err)
--					goto out;
-+	if (x == NULL)
-+		x = list_first_entry(&xfrm_state_all, struct xfrm_state, all);
-+	list_for_each_entry_from(x, &xfrm_state_all, all) {
-+		if (x->km.state == XFRM_STATE_DEAD)
-+			continue;
-+		if (!xfrm_id_proto_match(x->id.proto, walk->proto))
-+			continue;
-+		if (last) {
-+			err = func(last, walk->count, data);
-+			if (err) {
-+				xfrm_state_hold(last);
-+				walk->state = last;
-+				goto out;
- 			}
--			last = x;
--			count++;
- 		}
-+		last = x;
-+		walk->count++;
- 	}
--	if (count == 0) {
-+	if (walk->count == 0) {
- 		err = -ENOENT;
- 		goto out;
- 	}
--	err = func(last, 0, data);
-+	if (last)
-+		err = func(last, 0, data);
- out:
- 	spin_unlock_bh(&xfrm_state_lock);
-+	if (old != NULL)
-+		xfrm_state_put(old);
- 	return err;
- }
- EXPORT_SYMBOL(xfrm_state_walk);
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 7833807..da2306a 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -532,8 +532,6 @@ struct xfrm_dump_info {
- 	struct sk_buff *out_skb;
- 	u32 nlmsg_seq;
- 	u16 nlmsg_flags;
--	int start_idx;
--	int this_idx;
- };
- 
- static int copy_sec_ctx(struct xfrm_sec_ctx *s, struct sk_buff *skb)
-@@ -600,9 +598,6 @@ static int dump_one_state(struct xfrm_state *x, int count, void *ptr)
- 	struct nlmsghdr *nlh;
- 	int err;
- 
--	if (sp->this_idx < sp->start_idx)
--		goto out;
--
- 	nlh = nlmsg_put(skb, NETLINK_CB(in_skb).pid, sp->nlmsg_seq,
- 			XFRM_MSG_NEWSA, sizeof(*p), sp->nlmsg_flags);
- 	if (nlh == NULL)
-@@ -615,8 +610,6 @@ static int dump_one_state(struct xfrm_state *x, int count, void *ptr)
- 		goto nla_put_failure;
- 
- 	nlmsg_end(skb, nlh);
--out:
--	sp->this_idx++;
- 	return 0;
- 
- nla_put_failure:
-@@ -624,18 +617,32 @@ nla_put_failure:
- 	return err;
- }
- 
-+static int xfrm_dump_sa_done(struct netlink_callback *cb)
-+{
-+	struct xfrm_state_walk *walk = (struct xfrm_state_walk *) &cb->args[1];
-+	xfrm_state_walk_done(walk);
-+	return 0;
-+}
-+
- static int xfrm_dump_sa(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct xfrm_state_walk *walk = (struct xfrm_state_walk *) &cb->args[1];
- 	struct xfrm_dump_info info;
- 
-+	BUILD_BUG_ON(sizeof(struct xfrm_state_walk) >
-+		     sizeof(cb->args) - sizeof(cb->args[0]));
-+
- 	info.in_skb = cb->skb;
- 	info.out_skb = skb;
- 	info.nlmsg_seq = cb->nlh->nlmsg_seq;
- 	info.nlmsg_flags = NLM_F_MULTI;
--	info.this_idx = 0;
--	info.start_idx = cb->args[0];
--	(void) xfrm_state_walk(0, dump_one_state, &info);
--	cb->args[0] = info.this_idx;
-+
-+	if (!cb->args[0]) {
-+		cb->args[0] = 1;
-+		xfrm_state_walk_init(walk, 0);
-+	}
-+
-+	(void) xfrm_state_walk(walk, dump_one_state, &info);
- 
- 	return skb->len;
- }
-@@ -654,7 +661,6 @@ static struct sk_buff *xfrm_state_netlink(struct sk_buff *in_skb,
- 	info.out_skb = skb;
- 	info.nlmsg_seq = seq;
- 	info.nlmsg_flags = 0;
--	info.this_idx = info.start_idx = 0;
- 
- 	if (dump_one_state(x, 0, &info)) {
- 		kfree_skb(skb);
-@@ -1231,9 +1237,6 @@ static int dump_one_policy(struct xfrm_policy *xp, int dir, int count, void *ptr
- 	struct sk_buff *skb = sp->out_skb;
- 	struct nlmsghdr *nlh;
- 
--	if (sp->this_idx < sp->start_idx)
--		goto out;
--
- 	nlh = nlmsg_put(skb, NETLINK_CB(in_skb).pid, sp->nlmsg_seq,
- 			XFRM_MSG_NEWPOLICY, sizeof(*p), sp->nlmsg_flags);
- 	if (nlh == NULL)
-@@ -1249,8 +1252,6 @@ static int dump_one_policy(struct xfrm_policy *xp, int dir, int count, void *ptr
- 		goto nlmsg_failure;
- 
- 	nlmsg_end(skb, nlh);
--out:
--	sp->this_idx++;
- 	return 0;
- 
- nlmsg_failure:
-@@ -1258,21 +1259,33 @@ nlmsg_failure:
- 	return -EMSGSIZE;
- }
- 
-+static int xfrm_dump_policy_done(struct netlink_callback *cb)
-+{
-+	struct xfrm_policy_walk *walk = (struct xfrm_policy_walk *) &cb->args[1];
-+
-+	xfrm_policy_walk_done(walk);
-+	return 0;
-+}
-+
- static int xfrm_dump_policy(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct xfrm_policy_walk *walk = (struct xfrm_policy_walk *) &cb->args[1];
- 	struct xfrm_dump_info info;
- 
-+	BUILD_BUG_ON(sizeof(struct xfrm_policy_walk) >
-+		     sizeof(cb->args) - sizeof(cb->args[0]));
-+
- 	info.in_skb = cb->skb;
- 	info.out_skb = skb;
- 	info.nlmsg_seq = cb->nlh->nlmsg_seq;
- 	info.nlmsg_flags = NLM_F_MULTI;
--	info.this_idx = 0;
--	info.start_idx = cb->args[0];
--	(void) xfrm_policy_walk(XFRM_POLICY_TYPE_MAIN, dump_one_policy, &info);
--#ifdef CONFIG_XFRM_SUB_POLICY
--	(void) xfrm_policy_walk(XFRM_POLICY_TYPE_SUB, dump_one_policy, &info);
--#endif
--	cb->args[0] = info.this_idx;
-+
-+	if (!cb->args[0]) {
-+		cb->args[0] = 1;
-+		xfrm_policy_walk_init(walk, XFRM_POLICY_TYPE_ANY);
-+	}
-+
-+	(void) xfrm_policy_walk(walk, dump_one_policy, &info);
- 
- 	return skb->len;
- }
-@@ -1292,7 +1305,6 @@ static struct sk_buff *xfrm_policy_netlink(struct sk_buff *in_skb,
- 	info.out_skb = skb;
- 	info.nlmsg_seq = seq;
- 	info.nlmsg_flags = 0;
--	info.this_idx = info.start_idx = 0;
- 
- 	if (dump_one_policy(xp, dir, 0, &info) < 0) {
- 		kfree_skb(skb);
-@@ -1890,15 +1902,18 @@ static const struct nla_policy xfrma_policy[XFRMA_MAX+1] = {
- static struct xfrm_link {
- 	int (*doit)(struct sk_buff *, struct nlmsghdr *, struct nlattr **);
- 	int (*dump)(struct sk_buff *, struct netlink_callback *);
-+	int (*done)(struct netlink_callback *);
- } xfrm_dispatch[XFRM_NR_MSGTYPES] = {
- 	[XFRM_MSG_NEWSA       - XFRM_MSG_BASE] = { .doit = xfrm_add_sa        },
- 	[XFRM_MSG_DELSA       - XFRM_MSG_BASE] = { .doit = xfrm_del_sa        },
- 	[XFRM_MSG_GETSA       - XFRM_MSG_BASE] = { .doit = xfrm_get_sa,
--						   .dump = xfrm_dump_sa       },
-+						   .dump = xfrm_dump_sa,
-+						   .done = xfrm_dump_sa_done  },
- 	[XFRM_MSG_NEWPOLICY   - XFRM_MSG_BASE] = { .doit = xfrm_add_policy    },
- 	[XFRM_MSG_DELPOLICY   - XFRM_MSG_BASE] = { .doit = xfrm_get_policy    },
- 	[XFRM_MSG_GETPOLICY   - XFRM_MSG_BASE] = { .doit = xfrm_get_policy,
--						   .dump = xfrm_dump_policy   },
-+						   .dump = xfrm_dump_policy,
-+						   .done = xfrm_dump_policy_done },
- 	[XFRM_MSG_ALLOCSPI    - XFRM_MSG_BASE] = { .doit = xfrm_alloc_userspi },
- 	[XFRM_MSG_ACQUIRE     - XFRM_MSG_BASE] = { .doit = xfrm_add_acquire   },
- 	[XFRM_MSG_EXPIRE      - XFRM_MSG_BASE] = { .doit = xfrm_add_sa_expire },
-@@ -1937,7 +1952,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		if (link->dump == NULL)
- 			return -EINVAL;
- 
--		return netlink_dump_start(xfrm_nl, skb, nlh, link->dump, NULL);
-+		return netlink_dump_start(xfrm_nl, skb, nlh, link->dump, link->done);
- 	}
- 
- 	err = nlmsg_parse(nlh, xfrm_msg_min[type], attrs, XFRMA_MAX,
--- 
-1.5.2.5
-
-
+firewall #  cat /sys/slab/kmalloc-2048/free_calls
+    109 <not-available> age=20515711 pid=0
+      1 rcu_do_batch+0x1a/0x71 age=608627 pid=31627
+     19 kobject_uevent_env+0x3c5/0x3da age=20578755/20585359/20590686
+pid=1-3041
+   3055 kfree_skbmem+0x8/0x68 age=3/9973654/20579063 pid=0-31818
+      1 pskb_expand_head+0xe3/0x13d age=15946314 pid=695
+      1 huft_build+0x498/0x4a2 age=20590653 pid=1
+      3 htb_destroy_class+0x5e/0x12e [sch_htb] age=608630/608630/608630
+pid=31625
+      6 htb_destroy_class+0x69/0x12e [sch_htb] age=608630/608630/608630
+pid=31625
+fire-sp # lsmod
+Module                  Size  Used by
+xt_string               2272  3
+ipt_ULOG                8004  5
+ipt_recent              9360  40
+softdog                 5792  0
+act_mirred              5060  4
+cls_u32                 7972  4
+sch_sfq                 5760  56
+cls_fw                  5408  54
+sch_htb                16192  6
+ifb                     5156  0
+aes                    28512  0
+des                    15456  0
+md5                     3936  0
+sha256                  9248  0
+ipsec                 312176  2
+nf_nat_tftp             1792  0
+nf_conntrack_tftp       5144  1 nf_nat_tftp
+nf_nat_pptp             3712  0
+nf_conntrack_pptp       6688  1 nf_nat_pptp
+nf_conntrack_proto_gre     4992  1 nf_conntrack_pptp
+nf_nat_proto_gre        2724  1 nf_nat_pptp
+nf_nat_ftp              3236  0
+nf_conntrack_ftp        8680  1 nf_nat_ftp
+ipt_tos                 1536  492
+xt_mark                 1760  12
+xt_DSCP                 2336  13
+ipt_NETMAP              1888  6
+xt_TCPMSS               4064  4
+xt_length               1856  3
+ts_bm                   2304  3
+xt_mac                  1792  28
+ipt_REJECT              4416  74
+xt_limit                2496  153
+xt_state                2368  2948
+iptable_nat             7172  1
+nf_nat                 18412  6
+nf_nat_tftp,nf_nat_pptp,nf_nat_proto_gre,nf_nat_ftp,ipt_NETMAP,iptable_nat
+nf_conntrack_ipv4      16744  2950 iptable_nat
+nf_conntrack           57412  11
+nf_nat_tftp,nf_conntrack_tftp,nf_nat_pptp,nf_conntrack_pptp,nf_conntrack_proto_gre,nf_nat_ftp,nf_conntrack_ftp,xt_state,iptable_nat,nf_nat,nf_conntrack_ipv4
+nfnetlink               5784  3 nf_nat,nf_conntrack_ipv4,nf_conntrack
+xt_MARK                 2176  28
+iptable_mangle          2720  1
+xt_multiport            3232  2325
+iptable_filter          2852  1
+ip_tables              12824  3 iptable_nat,iptable_mangle,iptable_filter
+binfmt_misc            10792  1
+dm_mirror              20608  0
+dm_mod                 53280  1 dm_mirror
+i2c_viapro              8252  0
+i2c_core               23376  1 i2c_viapro
+3c59x                  41132  0
+mii                     5280  1 3c59x
+floppy                 53892  0
+pata_via               11684  0
+libata                110188  1 pata_via
+scsi_mod              137996  1 libata
+raid1                  20448  7
+firewall#
