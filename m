@@ -1,64 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV4] route cache: Introduce rt_genid for smooth cache
- invalidation
-Date: Thu, 31 Jan 2008 17:05:36 -0800 (PST)
-Message-ID: <20080131.170536.111281174.davem@davemloft.net>
-References: <47A03098.7060100@cosmosbay.com>
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Subject: Re: [1/2] POHMELFS - network filesystem with local coherent cache.
+Date: Fri, 1 Feb 2008 02:04:39 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0802010159460.4864@fbirervta.pbzchgretzou.qr>
+References: <11972872493911@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Robert.Olsson@data.slu.se
-To: dada1@cosmosbay.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52661
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S935063AbYBABFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 20:05:16 -0500
-In-Reply-To: <47A03098.7060100@cosmosbay.com>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:48142 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752255AbYBABEk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 20:04:40 -0500
+In-Reply-To: <11972872493911@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 30 Jan 2008 09:08:56 +0100
 
-> Current ip route cache implementation is not suited to large caches.
-> 
-> We can consume a lot of CPU when cache must be invalidated, since we
-> currently need to evict all cache entries, and this eviction is
-> sometimes asynchronous. min_delay & max_delay can somewhat control this
-> asynchronism behavior, but whole thing is a kludge, regularly triggering
-> infamous soft lockup messages. When entries are still in use, this also
-> consumes a lot of ram, filling dst_garbage.list.
-> 
-> A better scheme is to use a generation identifier on each entry,
-> so that cache invalidation can be performed by changing the table
-> identifier, without having to scan all entries.
-> No more delayed flushing, no more stalling when secret_interval expires.
-> 
-> Invalidated entries will then be freed at GC time (controled by
-> ip_rt_gc_timeout or stress), or when an invalidated entry is found
-> in a chain when an insert is done.
-> Thus we keep a normal equilibrium.
-> 
-> This patch :
-> - renames rt_hash_rnd to rt_genid (and makes it an atomic_t)
-> - Adds a new rt_genid field to 'struct rtable' (filling a hole on 64bit)
-> - Checks entry->rt_genid at appropriate places :
-> --- Readers have to ignore invalidated entries.
-> --- Writers can delete invalidated entries.
-> - Removes rt_flush_timer timer
-> - Removes unused /proc/sys/net/ipv4/{min_delay,max_delay}
-> 
-> We even reduce size of route.o
-> 
-> # size net/ipv4/route.o
->     text    data     bss     dec     hex filename
->    20038    1331     160   21529    5419 net/ipv4/route.o.before
->    19991    1203     104   21298    5332 net/ipv4/route.o
-> 
-> Next step will be to audit all rt_cache_flush(0) (aka flushes) users, see
-> if they can be converted to "invalidate the cache" users.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+On Jan 31 2008 22:17, Evgeniy Polyakov wrote:
+>
+>POHMELFS stands for Parallel Optimized Host Message Exchange
+>Layered File System. It allows to mount remote servers to local
+>directory via network. This filesystem supports local caching
+>and writeback flushing.
+>POHMELFS is a brick in a future distributed filesystem.
 
-This looks really nice, applied, thanks Eric.
+A brick is usually something that is in the way -
+Or you also say "the user has bricked his machine"
+when it's quite unusable :)
+Hope you did not mean /that/.
+
+>This set includes two patches:
+> * network filesystem with write-through cache (slow, but works with
+> 	remote userspace server)
+> * hack to show how local cache works and how faster it is compared
+> 	to async NFS (see below). hack disables writeback flush and
+>	performs local allocation of the objects only.
+>
+>Now, some vaporware aka food for thoughts and your brains.
+>
+>A small benchmark of the local cached mode (above hack):
+>
+>$ time tar -xf /home/zbr/threading.tar
+>
+>	POHMELFS	NFS v3 (async)
+>real    0m0.043s	0m1.679s
+>
+>Which is damn 40 times!
+
+Needs a bigger data set to compare. But what is much more
+important: does it use a single port for networing, or some
+firewall-unfriendly-by-default multiple dynamic-port-allocation
+like NFS?
+
+>Next task is to think about how to generically solve the problem with
+>syncing local changes with remote server, when remote server maintains inodes with
+>completely different numbers.
+>This, among others, will allow offline work with automatic syncing after reconnect.
+
+What will happen when both nodes change an inode in disconnected state?
+Which inode wins out?
+
+>This is not intended for inclusion, CRFS by Zach Brown is a bit ahead of POHMELFS,
+>but it is not generic enough (because of above problem), works only with BTRFS,
+>and was closed by Oracle so far :)
+
+btrfs is all we need :p
+
+
+Where's the parallelism that is advertised by the "POH" in pohmelfs?
