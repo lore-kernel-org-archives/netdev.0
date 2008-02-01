@@ -1,36 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [drivers/net/bnx2.c] ADVERTISE_1000XPSE_ASYM
-Date: Thu, 31 Jan 2008 17:07:39 -0800 (PST)
-Message-ID: <20080131.170739.246050174.davem@davemloft.net>
-References: <47A084B0.1000301@tiscali.nl>
-	<1201719070.7190.4.camel@dell>
+From: Andy Furniss <lists@andyfurniss.entadsl.com>
+Subject: Re: [PATCH] Disable TSO for non standard qdiscs
+Date: Fri, 01 Feb 2008 01:04:27 +0000
+Message-ID: <47A2701B.4040104@andyfurniss.entadsl.com>
+References: <20080131124632.GA25299@basil.nowhere.org>	<47A212CB.1060403@hp.com>	<20080131190326.GF4671@one.firstfloor.org>	<47A214FE.3050200@hp.com> <20080131192521.GG4671@one.firstfloor.org> <47A21E1A.6000006@hp.com>
+Reply-To: lists@andyfurniss.entadsl.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: 12o3l@tiscali.nl, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52667
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751575AbYBABHS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 20:07:18 -0500
-In-Reply-To: <1201719070.7190.4.camel@dell>
+Received: from mx1.ukfsn.org ([77.75.108.10]:40421 "EHLO mail.ukfsn.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1765693AbYBABHn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2008 20:07:43 -0500
+In-Reply-To: <47A21E1A.6000006@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 30 Jan 2008 10:51:10 -0800
+Rick Jones wrote:
 
-> [BNX2]: Fix ASYM PAUSE advertisement for remote PHY.
-> 
-> We were checking for the ASYM_PAUSE bit for 1000Base-X twice instead
-> checking for both the 1000Base-X bit and the 10/100/1000Base-T bit.
-> The purpose of the logic is to tell the firmware that ASYM_PAUSE is
-> set on either the Serdes or Copper interface.
-> 
-> Problem was discovered by Roel Kluin <12o3l@tiscali.nl>
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> then the qdisc could/should place a cap on the size of a 'TSO' based on 
+> the bitrate (and perhaps input as to how much time any one "burst" of 
+> data should be allowed to consume on the network) and pass that up the 
+> stack?  right now you seem to be proposing what is effectively a cap of 
+> 1 MSS.
 
-Applied, thanks Michael.
+I don't have any gig nics to test, so this is not a rhetorical question.
+
+How does tcp congestion control behave when a tc qdisc drops a big 
+unsegmented TSO skb?
+
+Andy.
