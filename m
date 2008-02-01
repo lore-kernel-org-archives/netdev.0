@@ -1,22 +1,17 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: NET: AX88796 use dev_dbg() instead of printk()
-Date: Fri, 01 Feb 2008 13:41:01 -0500
-Message-ID: <47A367BD.1010906@garzik.org>
-References: <20080131112531.187305225@fluff.org.uk>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [2.6 patch] via-rhine.c:rhine_hw_init() must be __devinit
+Date: Fri, 01 Feb 2008 13:41:15 -0500
+Message-ID: <47A367CB.1080805@pobox.com>
+References: <20080130200205.GI29368@does.not.exist>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jgarzik@redhat.com
-To: Ben Dooks <ben-linux@fluff.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:54908 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757600AbYBASlE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2008 13:41:04 -0500
-In-Reply-To: <20080131112531.187305225@fluff.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rl@hellgate.ch, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755862AbYBASlg@vger.kernel.org>
+In-Reply-To: <20080130200205.GI29368@does.not.exist>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-applied
-
-
+applied the net driver portion of these patches...
