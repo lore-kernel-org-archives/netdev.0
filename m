@@ -1,110 +1,80 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] ieee80211: fix section mismatch warning
-Date: Fri, 01 Feb 2008 13:07:12 +0100
-Message-ID: <1201867632.4188.0.camel@johannes.berg>
-References: <20080201115206.GA12678@uranus.ravnborg.org>
-	 (sfid-20080201_125234_351197_7981BA3B)
+From: Ivan Dichev <idichev@obs.bg>
+Subject: Re: Slow OOM in netif_RX function
+Date: Fri, 01 Feb 2008 14:51:40 +0200
+Message-ID: <47A315DC.3070101@obs.bg>
+References: <4798CAA9.1080005@obs.bg> <4798E32E.6080003@cosmosbay.com> <20080124211810.3E24A46E9A@smtp.obs.bg> <p73tzl282ij.fsf@bingen.suse.de> <20080125141204.GA25510@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-UFIPivt3Qk2UG4SsN4wh"
-Cc: netdev <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Sam Ravnborg <sam@ravnborg.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:39122 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763248AbYBAMKH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 07:10:07 -0500
-In-Reply-To: <20080201115206.GA12678@uranus.ravnborg.org> (sfid-20080201_125234_351197_7981BA3B)
+Received: from obs.bg ([213.91.169.3]:36572 "EHLO smtp.obs.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755181AbYBAMv4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2008 07:51:56 -0500
+In-Reply-To: <20080125141204.GA25510@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Arnaldo Carvalho de Melo wrote:
+> Em Fri, Jan 25, 2008 at 02:21:08PM +0100, Andi Kleen escreveu:
+>   
+>> "Ivan H. Dichev" <idichev@obs.bg> writes:
+>>     
+>>> What could happen if I put different Lan card in every slot?
+>>> In ex. to-private -> 3com
+>>>       to-inet    -> VIA
+>>>       to-dmz     -> rtl8139
+>>> And then to look which RX function is consuming the memory.
+>>> (boomerang_rx, rtl8139_rx, ... etc) 
+>>>       
+>> The problem is unlikely to be in the driver (these are both
+>> well tested ones) but more likely your complicated iptables setup somehow
+>> triggers a skb leak.
+>>
+>> There are unfortunately no shrink wrapped debug mechanisms in the kernel
+>> for leaks like this (ok you could enable CONFIG_NETFILTER_DEBUG 
+>> and see if it prints something interesting, but that's a long shot).
+>>
+>> If you wanted to write a custom debugging patch I would do something like this:
+>>
+>> - Add two new integer fields to struct sk_buff: a time stamp and a integer field
+>> - Fill the time stamp with jiffies in alloc_skb and clear the integer field
+>> - In __kfree_skb clear the time stamp
+>> - For all the ipt target modules in net/ipv4/netfilter/*.c you use change their 
+>> ->target functions to put an unique value into the integer field you added.
+>> - Do the same for the pkt_to_tuple functions for all conntrack modules
+>>
+>> Then when you observe the leak take a crash dump using kdump on the router 
+>> and then use crash to dump all the slab objects for the sk_head_cache.
+>> Then look for any that have an old time stamp and check what value they
+>> have in the integer field. Then the netfilter function who set that unique value 
+>> likely triggered the leak somehow.
+>>     
+>
+> I wrote some systemtap scripts that do parts of what you suggest, and at
+> least for the timestamp there was no need to add a new field to struct
+> sk_buff, I just reuse skb->timestamp, as it is only used when we use a
+> packet sniffer. Here it is for reference, but it needs some tapsets I
+> wrote, so I'll publish this git repo in git.kernel.org, perhaps it can
+> be useful in this case as a starting point. Find another unused field
+> (hint: I know that at least 4 bytes on 64 bits is present as a hole) and
+> you're done, no need to rebuild the kernel :)
+>
+> http://git.kernel.org/?p=linux/kernel/git/acme/nettaps.git
+>
+> - Arnaldo
+>   
+Thanks to everyone for the given ideas.
+I am not kernel guru so writing patch is difficult. This is a production
+server and it is quite difficult to debug (only at night)
+I removed some iptables exotics -  recent , ulog, string , but no effect.
+Since we can reach OOM most of the memory is going to be filled with the
+leak, and we are thinking to try to dump and analyze it.
+We have looked at the "crash" tool, and we will see what we can do with
+it. Meanwhile do you have any hint/ideas ?
+Thanks a lot.
 
---=-UFIPivt3Qk2UG4SsN4wh
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-
-On Fri, 2008-02-01 at 12:52 +0100, Sam Ravnborg wrote:
-> Fix the following warnings:
-> WARNING: net/built-in.o(.init.text+0xd6c0): Section mismatch in reference=
- from the function ieee80211_init() to the function .exit.text:rc80211_simp=
-le_exit()
-> WARNING: net/built-in.o(.init.text+0xd6c5): Section mismatch in reference=
- from the function ieee80211_init() to the function .exit.text:rc80211_pid_=
-exit()
->=20
-> The fix was simple - I just did as modpost told me and removed the
-> wrong __exit annotation of rc80211_simple_exit and rc80211_pid_exit.
-
-Heh, I just sent the same patch.
-
-> Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
-
-Acked-by: Johannes Berg <johannes@sipsolutions.net>
-
-> Cc: Johannes Berg <johannes@sipsolutions.net>
-> Cc: John W. Linville <linville@tuxdriver.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> ---
->=20
-> With this patch my allyesconfig build on x86 (64 bit)
-> is section mismatch clean in net/
->=20
-> 	Sam
->=20
-> diff --git a/net/mac80211/rc80211_pid_algo.c b/net/mac80211/rc80211_pid_a=
-lgo.c
-> index 554c4ba..c339571 100644
-> --- a/net/mac80211/rc80211_pid_algo.c
-> +++ b/net/mac80211/rc80211_pid_algo.c
-> @@ -538,7 +538,7 @@ int __init rc80211_pid_init(void)
->  	return ieee80211_rate_control_register(&mac80211_rcpid);
->  }
-> =20
-> -void __exit rc80211_pid_exit(void)
-> +void rc80211_pid_exit(void)
->  {
->  	ieee80211_rate_control_unregister(&mac80211_rcpid);
->  }
-> diff --git a/net/mac80211/rc80211_simple.c b/net/mac80211/rc80211_simple.=
-c
-> index 934676d..9a78b11 100644
-> --- a/net/mac80211/rc80211_simple.c
-> +++ b/net/mac80211/rc80211_simple.c
-> @@ -389,7 +389,7 @@ int __init rc80211_simple_init(void)
->  	return ieee80211_rate_control_register(&mac80211_rcsimple);
->  }
-> =20
-> -void __exit rc80211_simple_exit(void)
-> +void rc80211_simple_exit(void)
->  {
->  	ieee80211_rate_control_unregister(&mac80211_rcsimple);
->  }
->=20
-
---=-UFIPivt3Qk2UG4SsN4wh
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUAR6MLb6Vg1VMiehFYAQJigA/9Hje7tdwJOMK5dTMg2Eltx77hQXTmJ69/
-1oo1fPYBV4TxXBapRfOrk2LGkavW2uxP3g4eDaS6OTT42wB0zO6W3f+XNPkc/amt
-LG796TUhUt34ty1lYApW038oYsesOGjk2mqB/AoDDnOuYgD4PtL8iXJEmD5Edz36
-otakvfGtTtWHP45T404gzWiKEATMM/anXhgMWaYbjdPIoASQwHqynnxQ2u/aANvL
-rLoKoRloBTbM6rNz2SqVPUDvmHi1g1ZYKM2YzZNZnRLaF5EKaO8mz+yxq0LR0s+R
-SK1RmChqjyYFegX5nJAiKtyzA5s0UfKeirCCFoIwklnc6fNGvg3EtyA+C4MCeTC1
-WEafawkMjMAiXUZFyMtZ0DNZgodMqXmeeGm+Z74BUoN/k2TmcBU5gpssdkGALW6a
-AmqDG6JWJp1ZnpGQvHd0+U5D9sirFErEaTKCLXk9Ba0q/1OU8857iYvYnKmUxbD1
-zfh8R23FB7Z31C7GMyOnegL6ObkL8FSsn/Z7vTWPZ0AtchxoPTdiYxHMmv4fdoyf
-sFIdOrSA4BIn2l+xL10eumljJxe5jeNppgNTRZ8hmrqkZoa45mEW44ubo/mXnMFg
-G5pBJkdEwUrMk3GsIaG4WcGzmZwYrBvdxtY4ii6PAhVYQspmMxICgWsawWFOerFm
-A3OtuQONnxI=
-=WBEc
------END PGP SIGNATURE-----
-
---=-UFIPivt3Qk2UG4SsN4wh--
+Ivan Dichev
 
