@@ -1,43 +1,40 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Re: Still oopsing in nf_nat_move_storage()
-Date: Fri, 01 Feb 2008 18:41:53 -0500
-Message-ID: <47A3AE41.6070104@redhat.com>
-References: <479F5E5A.8050108@redhat.com> <479F5FDC.5040903@trash.net> <47A20D57.5040907@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/1]: Add support for aes-ctr to ipsec
+Date: Sat, 2 Feb 2008 10:51:15 +1100
+Message-ID: <20080201235114.GA24156@gondor.apana.org.au>
+References: <200801311659.m0VGxSTN025939@faith.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, Netdev <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Chuck Ebbert <cebbert@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <47A20D57.5040907@redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Joy Latten <latten@austin.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:48044 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753121AbYBAXvW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 18:51:22 -0500
+Content-Disposition: inline
+In-Reply-To: <200801311659.m0VGxSTN025939@faith.austin.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/31/2008 01:03 PM, Chuck Ebbert wrote:
-> On 01/29/2008 12:18 PM, Patrick McHardy wrote:
->> Chuck Ebbert wrote:
->>> nf_nat_move_storage():
->>> /usr/src/debug/kernel-2.6.23/linux-2.6.23.i686/net/ipv4/netfilter/nf_nat_core.c:612
->>>
->>>       87:       f7 47 64 80 01 00 00    testl  $0x180,0x64(%edi)
->>>       8e:       74 39                   je     c9
->>> <nf_nat_move_storage+0x65>
->>>
->>> line 612:
->>>         if (!(ct->status & IPS_NAT_DONE_MASK))
->>>                 return;
->>>
->>> ct is NULL
->> The current kernel (and 2.6.23-stable) have:
->>
->>         if (!ct || !(ct->status & IPS_NAT_DONE_MASK))
->>                 return;
->>
->> so it seems you're using an old version.
+On Thu, Jan 31, 2008 at 10:59:28AM -0600, Joy Latten wrote:
+> Very sorry, re-posting as first patch was incomplete.
+> 
+> The below patch allows IPsec to use CTR mode with
+> AES encryption algorithm. Tested this using setkey
+> in ipsec-tools.
+> 
+> regards,
+> Joy
+> 
+> 
+> Signed-off-by: Joy Latten <latten@austin.ibm.com>
 
-So, it is now oopsing after the test for NULL and only x86_64 is
-catching the invalid address because it is non-canonical. Checking
-for NULL is obviously not enough...
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
