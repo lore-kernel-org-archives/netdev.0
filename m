@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25] [PKTGEN] Remove an unused definition in
- pktgen.c.
-Date: Thu, 31 Jan 2008 16:43:05 -0800 (PST)
-Message-ID: <20080131.164305.98153539.davem@davemloft.net>
-References: <eb3ff54b0801230638j4e0ece76sf0a2592477050fee@mail.gmail.com>
+Subject: Re: [PATCH] fib_trie: rescan if key is lost during dump
+Date: Thu, 31 Jan 2008 16:45:59 -0800 (PST)
+Message-ID: <20080131.164559.178846710.davem@davemloft.net>
+References: <479833EE.1090905@linux-foundation.org>
+	<20080123.232747.75654058.davem@davemloft.net>
+	<20080124135112.32b5c1c7@deepthought>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ramirose@gmail.com
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34902
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40850
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752201AbYBAAmn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 19:42:43 -0500
-In-Reply-To: <eb3ff54b0801230638j4e0ece76sf0a2592477050fee@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1759409AbYBAAph (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 19:45:37 -0500
+In-Reply-To: <20080124135112.32b5c1c7@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rami Rosen" <ramirose@gmail.com>
-Date: Wed, 23 Jan 2008 16:38:09 +0200
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Thu, 24 Jan 2008 13:51:12 -0800
 
-> Hi,
-> - Remove an unused definition (LAT_BUCKETS_MAX) in net/core/pktgen.c.
-> - Remove the corresponding comment.
-> - The LAT_BUCKETS_MAX seems to have to do with a patch from a long
-> time ago which was not applied (Ben Greear), which dealt with latency
-> counters.
+> Normally during a dump the key of the last dumped entry is used for
+> continuation, but since lock is dropped it might be lost. In that case
+> fallback to the old counter based N^2 behaviour.  This means the dump will end up
+> skipping some routes which matches what FIB_HASH does.
 > 
-> See, for example : http://oss.sgi.com/archives/netdev/2002-09/msg00184.html
-> 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 Applied, thanks.
