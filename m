@@ -1,32 +1,40 @@
-From: Nathan Lynch <ntl@pobox.com>
-Subject: Re: [PATCH 0/5] ehea checkpatch fixups
-Date: Thu, 31 Jan 2008 21:05:42 -0600
-Message-ID: <20080201030542.GX14201@localdomain>
-References: <1201832451-23634-1-git-send-email-dwm@austin.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: "no new features"...
+Date: Thu, 31 Jan 2008 19:46:44 -0800 (PST)
+Message-ID: <20080131.194644.03127203.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@garzik.org>,
-	Linux PowerPC List <linuxppc-dev@ozlabs.org>,
-	netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
-	Jan-Bernd Themann <themann@de.ibm.com>
-To: Doug Maxey <dwm@austin.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a-sasl-quonix.sasl.smtp.pobox.com ([208.72.237.25]:59306 "EHLO
-	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753240AbYBADGO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 22:06:14 -0500
-Content-Disposition: inline
-In-Reply-To: <1201832451-23634-1-git-send-email-dwm@austin.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43368
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753686AbYBADqX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2008 22:46:23 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id DE607C8C220
+	for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 19:46:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Doug Maxey wrote:
-> 
-> A small set of fixups for checkpatch.
-> 
-> Based on upstream pull from a few hours ago.
 
-Er, ehea doesn't even build right now[1], maybe that could get fixed
-first?  :-)
+I've just sent a pull request to Linus for net-2.6 and that should
+effectively be my final feature merge to him.
 
-[1] http://lkml.org/lkml/2008/1/28/337
+Outside of the 6-patch thing Arnaldo is respinning I am calling for no
+new stuff to go in at this time.  Only bug fixes.
+
+We've merged a lot of stuff already (on the order of 1800 patches in
+total).  So we should draw the line in the sand so that we can have
+some hope to fix the almost guarenteed bugs.
+
+Many folks, including Linus, are flying home this weekend.
+
+So my basic plan is to open up a net-2.6.26 tree about a week and a
+half from now.
+
+Please set your feature work aside for the moment and find a fun
+bug to fix instead. :-)
+
+Thanks!
+
