@@ -1,103 +1,70 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/2] POHMELFS - network filesystem with local coherent cache.
-Date: Fri, 1 Feb 2008 10:39:46 +0300
-Message-ID: <20080201073946.GA893@2ka.mipt.ru>
-References: <11972872493911@2ka.mipt.ru> <Pine.LNX.4.64.0802010159460.4864@fbirervta.pbzchgretzou.qr>
+From: Bruce Allen <ballen@gravity.phys.uwm.edu>
+Subject: Re: e1000 full-duplex TCP performance well below wire speed
+Date: Fri, 1 Feb 2008 01:54:24 -0600 (CST)
+Message-ID: <Pine.LNX.4.63.0802010140330.29449@trinity.phys.uwm.edu>
+References: <Pine.LNX.4.63.0801300621290.6391@trinity.phys.uwm.edu>
+ <36D9DB17C6DE9E40B059440DB8D95F52044F81DF@orsmsx418.amr.corp.intel.com>
+ <Pine.LNX.4.63.0801301635470.19938@trinity.phys.uwm.edu>
+ <36D9DB17C6DE9E40B059440DB8D95F52044F8BA3@orsmsx418.amr.corp.intel.com>
+ <Pine.LNX.4.63.0801310213010.3240@trinity.phys.uwm.edu> <47A20E9E.7070503@intel.com>
+ <Pine.LNX.4.63.0801311251040.14403@trinity.phys.uwm.edu> <47A22241.70600@intel.com>
+ <Pine.LNX.4.63.0801311340270.14403@trinity.phys.uwm.edu>
+ <20080201012732.232b7859.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Jan Engelhardt <jengelh@computergmbh.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>,
+	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
+	Bruce Allen <bruce.allen@aei.mpg.de>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:49707 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934804AbYBAHkJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2008 02:40:09 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0802010159460.4864@fbirervta.pbzchgretzou.qr>
+Received: from trinity.phys.uwm.edu ([129.89.57.159]:45509 "EHLO
+	trinity.phys.uwm.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752518AbYBAHyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 02:54:39 -0500
+In-Reply-To: <20080201012732.232b7859.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+Hi Bill,
 
-On Fri, Feb 01, 2008 at 02:04:39AM +0100, Jan Engelhardt (jengelh@computergmbh.de) wrote:
-> >POHMELFS stands for Parallel Optimized Host Message Exchange
-> >Layered File System. It allows to mount remote servers to local
-> >directory via network. This filesystem supports local caching
-> >and writeback flushing.
-> >POHMELFS is a brick in a future distributed filesystem.
-> 
-> A brick is usually something that is in the way -
-> Or you also say "the user has bricked his machine"
-> when it's quite unusable :)
-> Hope you did not mean /that/.
+> I started musing if once one side's transmitter got the upper hand, it 
+> might somehow defer the processing of received packets, causing the 
+> resultant ACKs to be delayed and thus further slowing down the other 
+> end's transmitter.  I began to wonder if the txqueuelen could have an 
+> affect on the TCP performance behavior.  I normally have the txqueuelen 
+> set to 10000 for 10-GigE testing, so decided to run a test with 
+> txqueuelen set to 200 (actually settled on this value through some 
+> experimentation).  Here is a typical result:
+>
+> [bill@chance4 ~]$ nuttcp -f-beta -Itx -w2m 192.168.6.79 & nuttcp -f-beta -Irx -r -w2m 192.168.6.79
+> tx:  1120.6345 MB /  10.07 sec =  933.4042 Mbps 12 %TX 9 %RX 0 retrans
+> rx:  1104.3081 MB /  10.09 sec =  917.7365 Mbps 12 %TX 11 %RX 0 retrans
+>
+> This is significantly better, but there was more variability in the
+> results.  The above was with TSO enabled.  I also then ran a test
+> with TSO disabled, with the following typical result:
+>
+> [bill@chance4 ~]$ nuttcp -f-beta -Itx -w2m 192.168.6.79 & nuttcp -f-beta -Irx -r -w2m 192.168.6.79
+> tx:  1119.4749 MB /  10.05 sec =  934.2922 Mbps 13 %TX 9 %RX 0 retrans
+> rx:  1131.7334 MB /  10.05 sec =  944.8437 Mbps 15 %TX 12 %RX 0 retrans
+>
+> This was a little better yet and getting closer to expected results.
 
-No, this brick as a building block :)
+We'll also try changing txqueuelen.  I have not looked, but I suppose that 
+this is set to the default value of 1000.  We'd be delighted to see 
+full-duplex performance that was consistent and greater than 900 Mb/s x 2.
 
-> >This set includes two patches:
-> > * network filesystem with write-through cache (slow, but works with
-> > 	remote userspace server)
-> > * hack to show how local cache works and how faster it is compared
-> > 	to async NFS (see below). hack disables writeback flush and
-> >	performs local allocation of the objects only.
-> >
-> >Now, some vaporware aka food for thoughts and your brains.
-> >
-> >A small benchmark of the local cached mode (above hack):
-> >
-> >$ time tar -xf /home/zbr/threading.tar
-> >
-> >	POHMELFS	NFS v3 (async)
-> >real    0m0.043s	0m1.679s
-> >
-> >Which is damn 40 times!
-> 
-> Needs a bigger data set to compare. But what is much more
-> important: does it use a single port for networing, or some
-> firewall-unfriendly-by-default multiple dynamic-port-allocation
-> like NFS?
+> I do have some other test systems at work that I might be able to try 
+> with newer kernels and/or drivers or maybe even with other vendor's GigE 
+> NICs, but I won't be back to work until early next week sometime.
 
-It uses single port, configurable at mount time.
-POHMELFS client can connect to different addresses (including ipv6) and
-via different protocols (like sctp). Metadata server will provide that
-information dynamically, so pohmelfs client will be able to connect to
-different nodes and perform operations in parallell.
+Bill, we'd be happy to give you root access to a couple of our systems 
+here if you want to do additional testing.  We can put the latest drivers 
+on them (and reboot if/as needed).  If you want to do this, please just 
+send an ssh public key to Carsten.
 
-> >Next task is to think about how to generically solve the problem with
-> >syncing local changes with remote server, when remote server maintains inodes with
-> >completely different numbers.
-> >This, among others, will allow offline work with automatic syncing after reconnect.
-> 
-> What will happen when both nodes change an inode in disconnected state?
-> Which inode wins out?
-
-Who will be online first. Second node will be told that there is a
-merge collision and it has to be resolved by hands.
-
-> >This is not intended for inclusion, CRFS by Zach Brown is a bit ahead of POHMELFS,
-> >but it is not generic enough (because of above problem), works only with BTRFS,
-> >and was closed by Oracle so far :)
-> 
-> btrfs is all we need :p
-
-Well, at least it has some very interesting ideas.
-Although there are things which are not that good imho, time will
-show, maybe there will be another state-of-the-art filesystem at the
-moment...
-
-This was for information.
- 
-> Where's the parallelism that is advertised by the "POH" in pohmelfs?
-
-First, clients work with local caches and sync them either in writeback
-or via cache coherency algorithm. This work is effectively parallel.
-Second, pohmelfs as in distributed filesystem is developed as a transport
-layer to eliminate mount operation for each different node, so that
-after client asks for data it would be just sent to different server.
-This allows to make parallel transactions. Essentially it looks like
-mounting different remote server to virtual directory working with it,
-except that connection setup should be done not at mount time, but at
-run time.
-
--- 
-	Evgeniy Polyakov
+Cheers,
+ 	Bruce
