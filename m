@@ -1,56 +1,54 @@
 From: acme@ghostprotocols.net
-Subject: [PATCH 3/5] [DCCP]: Reorganize struct dccp_sock to save 8 bytes
-Date: Fri,  1 Feb 2008 20:23:34 -0200
-Message-ID: <47a39bf1.0d87460a.50b8.fffffe14@mx.google.com>
-References: y
- <1201904616-4944-1-git-send-email-y>
- <1201904616-4944-2-git-send-email-y>
- <1201904616-4944-3-git-send-email-y>
-Cc: netdev@vger.kernel.org, Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: [PATCHES 0/5]: Add hashinfo member to struct proto and get net/ structs back on a diet
+Date: Fri,  1 Feb 2008 20:23:31 -0200
+Message-ID: <47a39bf3.1087460a.06ae.ffffd95f@mx.google.com>
+Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.231]:61839 "EHLO
+Received: from wx-out-0506.google.com ([66.249.82.230]:61339 "EHLO
 	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752419AbYBAWXt (ORCPT
+	with ESMTP id S1751718AbYBAWXt (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 17:23:49 -0500
-Received: by wx-out-0506.google.com with SMTP id h31so1986034wxd.4
+Received: by wx-out-0506.google.com with SMTP id h31so1986032wxd.4
         for <netdev@vger.kernel.org>; Fri, 01 Feb 2008 14:23:48 -0800 (PST)
-In-Reply-To: <1201904616-4944-3-git-send-email-y>
+In-Reply-To: y
+References: y
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Hi David,
 
-/home/acme/git/net-2.6/net/dccp/ipv6.c:
-  struct dccp_sock  |   -8
-  struct dccp6_sock |   -8
- 2 structs changed
+	Please consider pulling from:
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
----
- include/linux/dccp.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.25
 
-diff --git a/include/linux/dccp.h b/include/linux/dccp.h
-index 484e45c..aa07370 100644
---- a/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -525,6 +525,7 @@ struct dccp_sock {
- 	__u64				dccps_gsr;
- 	__u64				dccps_gar;
- 	__be32				dccps_service;
-+	__u32				dccps_mss_cache;
- 	struct dccp_service_list	*dccps_service_list;
- 	__u32				dccps_timestamp_echo;
- 	__u32				dccps_timestamp_time;
-@@ -533,7 +534,6 @@ struct dccp_sock {
- 	__u16				dccps_pcslen;
- 	__u16				dccps_pcrlen;
- 	unsigned long			dccps_ndp_count;
--	__u32				dccps_mss_cache;
- 	unsigned long			dccps_rate_last;
- 	struct dccp_minisock		dccps_minisock;
- 	struct dccp_ackvec		*dccps_hc_rx_ackvec;
--- 
-1.5.3.8
+	There are many more structs that have holes, they seem to crop up, even
+on DCCP! People should use some paholing 8-)
 
+	I'll prepare another round after carnival, and also will look at using
+sparse and/or Uli's libdisasm and/or DeHydra to find struct member accesses in
+functions to correlate that with struct layout when doing automatic struct
+member reorgs, so as not to step into Eric's fast path 8-P
+
+Best Regards,
+
+- Arnaldo
+
+ include/linux/dccp.h               |    2 -
+ include/net/if_inet6.h             |    6 +--
+ include/net/inet6_hashtables.h     |    2 -
+ include/net/inet_connection_sock.h |    8 +----
+ include/net/inet_hashtables.h      |   51 +++++---------------------------
+ include/net/inet_timewait_sock.h   |    2 -
+ include/net/sock.h                 |    3 +
+ net/dccp/dccp.h                    |    2 -
+ net/dccp/ipv4.c                    |   18 ++++-------
+ net/dccp/ipv6.c                    |   20 +++++-------
+ net/dccp/proto.c                   |   18 +----------
+ net/ipv4/inet_connection_sock.c    |    8 +----
+ net/ipv4/inet_hashtables.c         |   58 ++++++++++++++++++++++++++++++-------
+ net/ipv4/tcp.c                     |    2 -
+ net/ipv4/tcp_ipv4.c                |   31 +++++--------------
+ net/ipv6/inet6_hashtables.c        |    4 +-
+ net/ipv6/tcp_ipv6.c                |   19 +++++-------
+ 17 files changed, 108 insertions(+), 146 deletions(-)
