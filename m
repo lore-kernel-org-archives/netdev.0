@@ -1,47 +1,37 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH for 2.6.25 1/2] [NET] ucc_geth: fix module removal
-Date: Fri, 01 Feb 2008 13:40:34 -0500
-Message-ID: <47A367A2.10706@pobox.com>
-References: <20080201132248.GA1790@localhost.localdomain>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] macb: Fix section mismatch and shrink runtime footprint
+Date: Fri, 01 Feb 2008 13:40:55 -0500
+Message-ID: <47A367B7.1030305@garzik.org>
+References: <1201781422-30181-1-git-send-email-hskinnemoen@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Li Yang <leoli@freescale.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: Anton Vorontsov <avorontsov@ru.mvista.com>
+Cc: netdev@vger.kernel.org, David Brownell <david-b@pacbell.net>
+To: Haavard Skinnemoen <hskinnemoen@atmel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:54884 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:54898 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755026AbYBASko (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2008 13:40:44 -0500
-In-Reply-To: <20080201132248.GA1790@localhost.localdomain>
+	id S1757069AbYBASk5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2008 13:40:57 -0500
+In-Reply-To: <1201781422-30181-1-git-send-email-hskinnemoen@atmel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Anton Vorontsov wrote:
-> - uccf should be set to NULL to not double-free memory on
->   subsequent calls;
-> - ind_hash_q and group_hash_q lists should be initialized in the
->   probe() function, instead of struct_init() (called by open()),
->   otherwise there will be an oops if ucc_geth_driver removed
->   prior 'ifconfig ethX up';
-> - add unregister_netdev();
-> - reorder geth_remove() steps.
+Haavard Skinnemoen wrote:
+> macb devices are only found integrated on SoCs, so they can't be
+> hotplugged. Thus, the probe() and exit() functions can be __init and
+> __exit, respectively. By using platform_driver_probe() instead of
+> platform_driver_register(), there won't be any references to the
+> discarded probe() function after the driver has loaded.
 > 
-> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+> This also fixes a section mismatch due to macb_probe(), defined as
+> __devinit, calling macb_get_hwaddr, defined as __init.
+> 
+> Signed-off-by: Haavard Skinnemoen <hskinnemoen@atmel.com>
 > ---
-> 
-> Hi Li,
-> 
-> You kinda promised that these two patches would hit 2.6.25... ;-)
-> 
-> I've rebased the patches so they apply cleanly on the current tree.
-> 
-> Thanks,
-> 
->  drivers/net/ucc_geth.c |   17 ++++++++++-------
->  1 files changed, 10 insertions(+), 7 deletions(-)
+>  drivers/net/macb.c |    9 ++++-----
+>  1 files changed, 4 insertions(+), 5 deletions(-)
 
-applied 1-2
+applied
 
 
