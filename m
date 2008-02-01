@@ -1,308 +1,151 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [RFC PATCH]: TCP + SACK + skb processing latency
-Date: Fri, 1 Feb 2008 18:18:02 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0802011756140.31652@kivilampi-30.cs.helsinki.fi>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [2.6 patch] rtnetlink.c: remove no longer used functions
+Date: Fri, 1 Feb 2008 18:19:04 +0200
+Message-ID: <20080201161904.GA12176@cs181133002.pp.htv.fi>
+References: <20080130200257.GD29368@does.not.exist> <47A0D851.9050408@trash.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-367280119-1201882682=:31652"
-Cc: David Miller <davem@davemloft.net>
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:47405 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753986AbYBAQSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 11:18:10 -0500
+Received: from smtp5.pp.htv.fi ([213.243.153.39]:39606 "EHLO smtp5.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753516AbYBAQSY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2008 11:18:24 -0500
+Content-Disposition: inline
+In-Reply-To: <47A0D851.9050408@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Wed, Jan 30, 2008 at 09:04:33PM +0100, Patrick McHardy wrote:
+> Adrian Bunk wrote:
+>> This patch #if 0's the following no longer used functions:
+>> - rtattr_parse()
+>> - rtattr_strlcpy()
+>> - __rtattr_parse_nested_compat()
+>>   
+>
+> Please remove them instead.
 
----696243703-367280119-1201882682=:31652
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+Updated patch below.
 
-Hi all,
-
-Here's an attempt to reduce amount of skb cleanup work TCP with TSO has to 
-do after SACKs have arrived.
-
-I'm not on very familiar grounds with TSOed skbs so there likely is much I 
-just couldn't take into account. I probably should at least check some 
-flag somewhere? (=NETIF_F_SG?). Also the current the length handling and 
-potential presence of headers worries me a lot.
-
-I'd appreciate if somebody with more knowledge about skb internals could 
-take a look at the relevant parts (mainly skb_shift) and confirm that 
-doing all this I'm trying to do is allowed :-).
+cu
+Adrian
 
 
---
- i.
+<--  snip  -->
 
 
---
-[RFC PATCH] [TCP]: Try to restore large SKBs while SACK processing
+This patch removes the following no longer used functions:
+- rtattr_parse()
+- rtattr_strlcpy()
+- __rtattr_parse_nested_compat()
 
-During SACK processing, most of the benefits of TSO are eaten by
-the SACK blocks that one-by-one fragment SKBs to MSS sized chunks.
-Then we're in problems when cleanup work for them has to be done
-when a large cumulative ACK comes. Try to return to pre-split
-state while more and more SACK info gets discovered.
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
 ---
- include/net/tcp.h    |    5 +
- net/ipv4/tcp_input.c |  206 +++++++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 209 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 7de4ea3..cdf4468 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1170,6 +1170,11 @@ static inline struct sk_buff *tcp_write_queue_next(struct sock *sk, struct sk_bu
- 	return skb->next;
+ include/linux/rtnetlink.h |   12 ----------
+ net/core/rtnetlink.c      |   44 --------------------------------------
+ 2 files changed, 56 deletions(-)
+
+dcfe6b63a05c4944afcfc22fd4f2d2b495dc04c6 
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index b014f6b..b9e1740 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -602,24 +602,12 @@ struct tcamsg
+ 
+ #include <linux/mutex.h>
+ 
+-extern size_t rtattr_strlcpy(char *dest, const struct rtattr *rta, size_t size);
+ static __inline__ int rtattr_strcmp(const struct rtattr *rta, const char *str)
+ {
+ 	int len = strlen(str) + 1;
+ 	return len > rta->rta_len || memcmp(RTA_DATA(rta), str, len);
  }
  
-+static inline struct sk_buff *tcp_write_queue_prev(struct sock *sk, struct sk_buff *skb)
-+{
-+	return skb->prev;
-+}
-+
- #define tcp_for_write_queue(skb, sk)					\
- 		for (skb = (sk)->sk_write_queue.next;			\
- 		     (skb != (struct sk_buff *)&(sk)->sk_write_queue);	\
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 19c449f..2cb7e86 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1206,6 +1206,8 @@ static int tcp_check_dsack(struct tcp_sock *tp, struct sk_buff *ack_skb,
-  * aligned portion of it that matches. Therefore we might need to fragment
-  * which may fail and creates some hassle (caller must handle error case
-  * returns).
-+ *
-+ * FIXME: this could be merged to shift decision code
-  */
- static int tcp_match_skb_to_sack(struct sock *sk, struct sk_buff *skb,
- 				 u32 start_seq, u32 end_seq)
-@@ -1322,6 +1324,206 @@ static int tcp_sacktag_one(struct sk_buff *skb, struct sock *sk,
- 	return flag;
+-extern int rtattr_parse(struct rtattr *tb[], int maxattr, struct rtattr *rta, int len);
+-extern int __rtattr_parse_nested_compat(struct rtattr *tb[], int maxattr,
+-				        struct rtattr *rta, int len);
+-
+-#define rtattr_parse_nested(tb, max, rta) \
+-	rtattr_parse((tb), (max), RTA_DATA((rta)), RTA_PAYLOAD((rta)))
+-
+-#define rtattr_parse_nested_compat(tb, max, rta, data, len) \
+-({	data = RTA_PAYLOAD(rta) >= len ? RTA_DATA(rta) : NULL; \
+-	__rtattr_parse_nested_compat(tb, max, rta, len); })
+-
+ extern int rtnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, u32 group, int echo);
+ extern int rtnl_unicast(struct sk_buff *skb, struct net *net, u32 pid);
+ extern int rtnl_notify(struct sk_buff *skb, struct net *net, u32 pid, u32 group,
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index ddbdde8..61ac8d0 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -82,32 +82,6 @@ int rtnl_trylock(void)
+ 	return mutex_trylock(&rtnl_mutex);
  }
  
-+/* Attempts to shift up to shiftlen worth of bytes from prev to skb.
-+ * Returns number bytes shifted.
-+ *
-+ * TODO: in case the prev runs out of frag space, operation could be
-+ * made to return with a partial result (would allow tighter packing).
-+ */
-+static int skb_shift(struct sk_buff *prev, struct sk_buff *skb,
-+		     unsigned int shiftlen)
-+{
-+	int i, to, merge;
-+	unsigned int todo;
-+	struct skb_frag_struct *from, *fragto;
-+
-+	if (skb_cloned(skb) || skb_cloned(prev))
-+		return 0;
-+
-+	todo = shiftlen;
-+	i = 0;
-+	from = &skb_shinfo(skb)->frags[i];
-+	to = skb_shinfo(prev)->nr_frags;
-+
-+	merge = to - 1;
-+	if (!skb_can_coalesce(prev, merge + 1, from->page, from->page_offset))
-+		merge = -1;
-+	if (merge >= 0) {
-+		i++;
-+		if (from->size >= shiftlen)
-+			goto onlymerge;
-+		todo -= from->size;
-+	}
-+
-+	/* Skip full, not-fitting skb to avoid expensive operations */
-+	if ((shiftlen == skb->len) &&
-+	    (skb_shinfo(skb)->nr_frags - merge) < (MAX_SKB_FRAGS - to))
-+		return 0;
-+
-+	while (todo && (i < skb_shinfo(skb)->nr_frags)) {
-+		if (to == MAX_SKB_FRAGS)
-+			return 0;
-+
-+		from = &skb_shinfo(skb)->frags[i];
-+		fragto = &skb_shinfo(prev)->frags[to];
-+
-+		if (todo >= from->size) {
-+			*fragto = *from;
-+			todo -= from->size;
-+			i++;
-+			to++;
-+
-+		} else {
-+			fragto->page = from->page;
-+			get_page(fragto->page);
-+			fragto->page_offset = from->page_offset;
-+			fragto->size = todo;
-+			from->page_offset += todo;
-+			from->size -= todo;
-+
-+			to++;
-+			break;
-+		}
-+	}
-+	skb_shinfo(prev)->nr_frags = to;
-+
-+	/* Delayed, so that we don't have to undo it */
-+	if (merge >= 0) {
-+onlymerge:
-+		from = &skb_shinfo(skb)->frags[0];
-+		skb_shinfo(prev)->frags[merge].size += min(from->size, shiftlen);
-+		put_page(from->page);
-+	}
-+
-+	/* Reposition in the original skb */
-+	to = 0;
-+	while (i < skb_shinfo(skb)->nr_frags)
-+		skb_shinfo(skb)->frags[to++] = skb_shinfo(skb)->frags[i++];
-+	skb_shinfo(skb)->nr_frags = to;
-+
-+	/* Yak, is it really working this way? */
-+	/* FIXME: should probably handle headers gracefully? */
-+	skb->len -= shiftlen;
-+	skb->data_len -= shiftlen;
-+	skb->truesize -= shiftlen;
-+	prev->len += shiftlen;
-+	prev->data_len += shiftlen;
-+	prev->truesize += shiftlen;
-+
-+	return shiftlen;
-+}
-+
-+static int tcp_shifted_skb(struct sock *sk,
-+			   struct sk_buff *prev, struct sk_buff *skb,
-+		           unsigned int pcount, unsigned int shifted)
-+{
-+	TCP_SKB_CB(prev)->end_seq += shifted;
-+	TCP_SKB_CB(skb)->seq -= shifted;
-+
-+	skb_shinfo(prev)->gso_segs += pcount;
-+	skb_shinfo(skb)->gso_segs -= pcount;
-+
-+	/* FIXME: should adjust _out counters here too, uh-oh, needs to
-+	 * split sacktag one to do that then :-)
-+	 */
-+	/* FIXME: think what to do with timestamps */
-+
-+	/* FIXME: what about FIN? */
-+	if (shifted < skb->len)
-+		return 0;
-+
-+	/* Whole SKB was eaten :-) */
-+	tcp_unlink_write_queue(skb, sk);
-+	__kfree_skb(skb);
-+	return 1;
-+}
-+
-+/* Try collapsing SACK blocks spanning across multiple skbs to a single
-+ * skb.
-+ */
-+static int tcp_shift_skb_data(struct sock *sk, struct sk_buff *skb,
-+			      u32 start_seq, u32 end_seq)
-+{
-+	struct sk_buff *prev;
-+	unsigned int mss, len, pcount;
-+	int in_sack;
-+
-+	in_sack = !after(start_seq, TCP_SKB_CB(skb)->seq) &&
-+		  !before(end_seq, TCP_SKB_CB(skb)->end_seq);
-+	if (in_sack) {
-+		len = skb->len;
-+		pcount = tcp_skb_pcount(skb);
-+	} else {
-+		/* CHECKME: This is non-MSS split case only?, this will
-+		 * cause skipped skbs due to advancing loop btw, original
-+		 * has that feature too
-+		 */
-+		if (tcp_skb_pcount(skb) <= 1)
-+			return 0;
-+
-+		in_sack = !after(start_seq, TCP_SKB_CB(skb)->seq);
-+		if (!in_sack) {
-+			/* FIXME: merge to next could be attempted here
-+			   if (!after(TCP_SKB_CB(skb)->end_seq, end_seq)) */
-+
-+			/* THINKME: what to do here, should probably just
-+			 * fallback to what was done previously, we could try
-+			 * merging non-SACKed ones as well but it probably
-+			 * isn't going to buy off because later SACKs might
-+			 * again split them.
-+			 */
-+			goto fallback;
-+		}
-+
-+		len = end_seq - TCP_SKB_CB(skb)->seq;
-+
-+		/* MSS boundaries should be honoured or else pcount will
-+		 * severely break even though it makes things bit trickier,
-+		 * optimize 1 MSS common case to avoid divides
-+		*/
-+		mss = tcp_skb_mss(skb);
-+		if (len < mss) {
-+			return 0;
-+		} else if (len == mss) {
-+			pcount = 1;
-+		} else {
-+			pcount = len / mss;
-+			len = pcount * mss;
-+		}
-+	}
-+
-+	/* Can only happen with delayed DSACK + discard craziness */
-+	if (unlikely(skb == tcp_write_queue_head(sk)))
-+		goto fallback;
-+	prev = tcp_write_queue_prev(sk, skb);
-+	if ((TCP_SKB_CB(prev)->sacked & TCPCB_TAGBITS) != TCPCB_SACKED_ACKED)
-+		goto fallback;
-+
-+	if (!skb_shift(prev, skb, len))
-+		goto fallback;
-+	if (!tcp_shifted_skb(sk, prev, skb, pcount, len))
-+		return 0;
-+
-+	/* Hole filled allows collapsing with the next as well */
-+	if (prev == tcp_write_queue_tail(sk))
-+		return 0;
-+	skb = tcp_write_queue_next(sk, prev);
-+	if (skb == tcp_send_head(sk))
-+		return 0;
-+	if ((TCP_SKB_CB(skb)->sacked & TCPCB_TAGBITS) != TCPCB_SACKED_ACKED)
-+		return 0;
-+
-+	pcount = tcp_skb_pcount(skb);
-+	len = skb->len;
-+	if (skb_shift(prev, skb, len))
-+		tcp_shifted_skb(sk, prev, skb, pcount, len);
-+
-+	return 0;
-+
-+fallback:
-+	return tcp_match_skb_to_sack(sk, skb, start_seq, end_seq);
-+}
-+
- static struct sk_buff *tcp_sacktag_walk(struct sk_buff *skb, struct sock *sk,
- 					struct tcp_sack_block *next_dup,
- 					u32 start_seq, u32 end_seq,
-@@ -1349,8 +1551,8 @@ static struct sk_buff *tcp_sacktag_walk(struct sk_buff *skb, struct sock *sk,
- 		}
+-int rtattr_parse(struct rtattr *tb[], int maxattr, struct rtattr *rta, int len)
+-{
+-	memset(tb, 0, sizeof(struct rtattr*)*maxattr);
+-
+-	while (RTA_OK(rta, len)) {
+-		unsigned flavor = rta->rta_type;
+-		if (flavor && flavor <= maxattr)
+-			tb[flavor-1] = rta;
+-		rta = RTA_NEXT(rta, len);
+-	}
+-	return 0;
+-}
+-
+-int __rtattr_parse_nested_compat(struct rtattr *tb[], int maxattr,
+-				 struct rtattr *rta, int len)
+-{
+-	if (RTA_PAYLOAD(rta) < len)
+-		return -1;
+-	if (RTA_PAYLOAD(rta) >= RTA_ALIGN(len) + sizeof(struct rtattr)) {
+-		rta = RTA_DATA(rta) + RTA_ALIGN(len);
+-		return rtattr_parse_nested(tb, maxattr, rta);
+-	}
+-	memset(tb, 0, sizeof(struct rtattr *) * maxattr);
+-	return 0;
+-}
+-
+ static struct rtnl_link *rtnl_msg_handlers[NPROTO];
  
- 		if (in_sack <= 0)
--			in_sack = tcp_match_skb_to_sack(sk, skb, start_seq,
--							end_seq);
-+			in_sack = tcp_shift_skb_data(sk, skb, start_seq,
-+						     end_seq);
- 		if (unlikely(in_sack < 0))
- 			break;
+ static inline int rtm_msgindex(int msgtype)
+@@ -442,21 +416,6 @@ void __rta_fill(struct sk_buff *skb, int attrtype, int attrlen, const void *data
+ 	memset(RTA_DATA(rta) + attrlen, 0, RTA_ALIGN(size) - size);
+ }
  
--- 
-1.5.2.2
+-size_t rtattr_strlcpy(char *dest, const struct rtattr *rta, size_t size)
+-{
+-	size_t ret = RTA_PAYLOAD(rta);
+-	char *src = RTA_DATA(rta);
+-
+-	if (ret > 0 && src[ret - 1] == '\0')
+-		ret--;
+-	if (size > 0) {
+-		size_t len = (ret >= size) ? size - 1 : ret;
+-		memset(dest, 0, size);
+-		memcpy(dest, src, len);
+-	}
+-	return ret;
+-}
+-
+ int rtnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, unsigned group, int echo)
+ {
+ 	struct sock *rtnl = net->rtnl;
+@@ -1411,9 +1370,6 @@ void __init rtnetlink_init(void)
+ }
+ 
+ EXPORT_SYMBOL(__rta_fill);
+-EXPORT_SYMBOL(rtattr_strlcpy);
+-EXPORT_SYMBOL(rtattr_parse);
+-EXPORT_SYMBOL(__rtattr_parse_nested_compat);
+ EXPORT_SYMBOL(rtnetlink_put_metrics);
+ EXPORT_SYMBOL(rtnl_lock);
+ EXPORT_SYMBOL(rtnl_trylock);
 
----696243703-367280119-1201882682=:31652--
