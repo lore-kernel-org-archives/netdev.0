@@ -1,86 +1,77 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] [POWERPC][NET][SERIAL] UCCs: replace device-id with cell-index
-Date: Fri, 01 Feb 2008 12:52:38 -0500
-Message-ID: <47A35C66.80008@pobox.com>
-References: <20080201150126.GB26545@localhost.localdomain> <72B60725-FB4A-42FA-832D-8FD5434B9042@kernel.crashing.org> <20080201173331.GA8020@localhost.localdomain>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [IPV4 0/9] TRIE performance patches
+Date: Fri, 1 Feb 2008 19:00:55 +0100
+Message-ID: <18339.24151.771674.992957@robur.slu.se>
+References: <20080122233733.404145234@linux-foundation.org>
+	<18327.18935.137799.285515@robur.slu.se>
+	<20080123154933.233c4909@deepthought>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Kumar Gala <galak@kernel.crashing.org>,
-	Timur Tabi <timur@freescale.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Li Yang <leoli@freescale.com>, linuxppc-dev@ozlabs.org,
-	linux-serial@vger.kernel.org, netdev@vger.kernel.org
-To: avorontsov@ru.mvista.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40799 "EHLO mail.dvmed.net"
+Received: from mx1.slu.se ([130.238.96.70]:51633 "EHLO mx1.slu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752392AbYBARxG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2008 12:53:06 -0500
-In-Reply-To: <20080201173331.GA8020@localhost.localdomain>
+	id S1751227AbYBASBE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2008 13:01:04 -0500
+In-Reply-To: <20080123154933.233c4909@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Anton Vorontsov wrote:
-> On Fri, Feb 01, 2008 at 09:32:38AM -0600, Kumar Gala wrote:
->> On Feb 1, 2008, at 9:01 AM, Anton Vorontsov wrote:
->>
->>> It isn't used anywhere, so remove it. If we'll ever need something
->>> like this, we'll use compatible property instead.
->>>
->>> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
->>> ---
->>>
->>> Rebased on top of recent tree.
->>>
->>> Documentation/powerpc/booting-without-of.txt |    1 -
->>> arch/powerpc/boot/dts/mpc832x_mds.dts        |    3 ---
->>> arch/powerpc/boot/dts/mpc832x_rdb.dts        |    2 --
->>> arch/powerpc/boot/dts/mpc836x_mds.dts        |    2 --
->>> arch/powerpc/boot/dts/mpc8568mds.dts         |    2 --
->>> 5 files changed, 0 insertions(+), 10 deletions(-)
->>>
->>> diff --git a/Documentation/powerpc/booting-without-of.txt b/ 
->>> Documentation/powerpc/booting-without-of.txt
->>> index 410c847..dcf9758 100644
->>> --- a/Documentation/powerpc/booting-without-of.txt
->>> +++ b/Documentation/powerpc/booting-without-of.txt
->>> @@ -1675,7 +1675,6 @@ platforms are moved over to use the flattened- 
->>> device-tree model.
->>> 	ucc@2000 {
->>> 		device_type = "network";
->>> 		compatible = "ucc_geth";
->>> -		model = "UCC";
->>> 		device-id = <1>;
->> can we change device-id to cell-index?
-> 
-> Sure. But let's do this in the separate patch? Because this change
-> actually touches the code in the two subsystems: net and serial.
-> 
-> I hope everybody will agree to pass it through powerpc tree..?
-> 
-> - - - -
-> From: Anton Vorontsov <avorontsov@ru.mvista.com>
-> Subject: [POWERPC][NET][SERIAL] UCCs: replace device-id with cell-index
-> 
-> device-id is worse than cell-index. Probably cell-index isn't
-> good either, but device-id is worse anyway.
-> 
-> Drivers are modified for backward compatibility's sake.
-> 
-> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-> ---
->  Documentation/powerpc/booting-without-of.txt |    4 ++--
->  arch/powerpc/boot/dts/mpc832x_mds.dts        |    4 +---
->  arch/powerpc/boot/dts/mpc832x_rdb.dts        |    2 --
->  arch/powerpc/boot/dts/mpc836x_mds.dts        |    2 --
->  arch/powerpc/boot/dts/mpc836x_rdk.dts        |   12 ++++++------
->  arch/powerpc/boot/dts/mpc8568mds.dts         |    2 --
->  drivers/net/ucc_geth.c                       |    8 +++++++-
->  drivers/net/ucc_geth_mii.c                   |   11 ++++++++---
->  drivers/serial/ucc_uart.c                    |   16 ++++++++++++----
->  9 files changed, 36 insertions(+), 25 deletions(-)
 
-ACK drivers/net
+Hello, finally got some time to test...
+
+Table w. 214k routes with full rDoS on two intrefaces on 2 x AMD64 processors, 
+speed 2814.43 MHz. Profiled with CPU_CLK_UNHALTED and rtstat
+
+w/o latest patch fib_trie pathes. Tput ~233 kpps  
+
+samples  %        symbol name
+
+109925   14.4513  fn_trie_lookup
+109821   14.4376  ip_route_input
+87245    11.4696  rt_intern_hash
+31270     4.1109  kmem_cache_alloc
+24159     3.1761  dev_queue_xmit
+23200     3.0500  neigh_lookup
+22464     2.9532  free_block
+18412     2.4205  kmem_cache_free
+17830     2.3440  dst_destroy
+15740     2.0693  fib_get_table
+
+With latest patch fib_patches.(Stephens others) Same throughput 
+~233 kpps but we see a different profile. Why we don't get any 
+better better throughput is yet to be understand (the drops in 
+qdisc could be the cause) more analysis needed
+
+79242    14.3520  ip_route_input
+65188    11.8066  fn_trie_lookup
+64559    11.6927  rt_intern_hash
+22901     4.1477  kmem_cache_alloc
+21038     3.8103  check_leaf
+16197     2.9335  neigh_lookup
+14802     2.6809  free_block
+14596     2.6436  ip_rcv_finish
+12365     2.2395  fib_validate_source
+12048     2.1821  dst_destroy
+
+fib_hash thoughput ~177 kpps  
+Hard work for fib_hash here as we have many zones.
+it can be fast with less zines.
+
+200568   37.8013  fn_hash_lookup
+58352    10.9977  ip_route_input
+44495     8.3860  rt_intern_hash
+12873     2.4262  kmem_cache_alloc
+12115     2.2833  rt_may_expire
+11691     2.2034  rt_garbage_collect
+10821     2.0394  dev_queue_xmit
+9999      1.8845  fib_validate_source
+8762      1.6514  fib_get_table
+8558      1.6129  fib_semantic_match
 
 
+Cheers
+					--ro
