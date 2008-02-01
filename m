@@ -1,50 +1,43 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: R8101 driver link issue
-Date: Sat, 2 Feb 2008 00:01:41 +0100
-Message-ID: <20080201230141.GA6518@electric-eye.fr.zoreil.com>
-References: <47A37B04.3060909@switact.nl>
+From: Chuck Ebbert <cebbert@redhat.com>
+Subject: Re: Still oopsing in nf_nat_move_storage()
+Date: Fri, 01 Feb 2008 18:41:53 -0500
+Message-ID: <47A3AE41.6070104@redhat.com>
+References: <479F5E5A.8050108@redhat.com> <479F5FDC.5040903@trash.net> <47A20D57.5040907@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Switact - Thomas Roes <info@switact.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:33868 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753715AbYBAXTH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 18:19:07 -0500
-Content-Disposition: inline
-In-Reply-To: <47A37B04.3060909@switact.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, Netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Chuck Ebbert <cebbert@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <47A20D57.5040907@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Switact - Thomas Roes <info@switact.nl> :
-[...]
-> Recently I got problems with a new motherbord using the Realtek RTL8101E 
-> PCI Express Fast Ethernet controller.
->
-> This card is recognised by the r8169 driver but.... it always gives me 
-> "link down".
+On 01/31/2008 01:03 PM, Chuck Ebbert wrote:
+> On 01/29/2008 12:18 PM, Patrick McHardy wrote:
+>> Chuck Ebbert wrote:
+>>> nf_nat_move_storage():
+>>> /usr/src/debug/kernel-2.6.23/linux-2.6.23.i686/net/ipv4/netfilter/nf_nat_core.c:612
+>>>
+>>>       87:       f7 47 64 80 01 00 00    testl  $0x180,0x64(%edi)
+>>>       8e:       74 39                   je     c9
+>>> <nf_nat_move_storage+0x65>
+>>>
+>>> line 612:
+>>>         if (!(ct->status & IPS_NAT_DONE_MASK))
+>>>                 return;
+>>>
+>>> ct is NULL
+>> The current kernel (and 2.6.23-stable) have:
+>>
+>>         if (!ct || !(ct->status & IPS_NAT_DONE_MASK))
+>>                 return;
+>>
+>> so it seems you're using an old version.
 
-Can you send the output of 'lspci -vvxxx' and the dmesg of a recent kernel ?
+So, it is now oopsing after the test for NULL and only x86_64 is
+catching the invalid address because it is non-canonical. Checking
+for NULL is obviously not enough...
 
-It should include a line like this one:
-[...]
-eth0: RTL8168b/8111b at 0xf8920000, 00:13:8f:ea:b1:5d, XID 38000000 IRQ 221
-                                                       ^^^
-[...]
-> So i searched for drivers to compile and came across the 
-> r8101-1.006.tar.bz2 driver.
-
-Ok.
-
-[...]
-> -2 but unfortunately, also this new driver, although it get's loaded, it 
-> still reports (ethtool eth0)....
-> current message level : 0x0..033 (51)
-> Link detected : no
-
-Can you send the output of mii-diag and try so force a reset with this
-driver ?
-
--- 
-Ueimor
