@@ -1,35 +1,42 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [2.6 patch] remove obsolete tokenring maintainer information
-Date: Fri, 01 Feb 2008 13:53:19 -0500
-Message-ID: <47A36A9F.7020201@pobox.com>
-References: <20080201161907.GB12176@cs181133002.pp.htv.fi>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH] Disable TSO for non standard qdiscs
+Date: Fri, 1 Feb 2008 11:02:23 -0800
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32904737D65@orsmsx414.amr.corp.intel.com>
+References: <20080131183322.GA4671@one.firstfloor.org> <47A20CDC.5090104@trash.net> <20080131183735.GC4671@one.firstfloor.org> <20080131100846.00934e25@extreme> <20080131185328.GD4671@one.firstfloor.org> <47A211A0.1040502@trash.net> <20080131190125.GE4671@one.firstfloor.org> <D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com> <20080131193406.GH4671@one.firstfloor.org> <1201847738.17656.5.camel@roma.44ansell.gdt.id.au> <20080201074600.GA12644@one.firstfloor.org> <47A2C985.30409@trash.net> <D5C1322C3E673F459512FB59E0DDC32904737A42@orsmsx414.amr.corp.intel.com> <47A2ECE9.5000103@trash.net> <1201867609.4465.50.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mikep@linuxtr.net, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Andi Kleen" <andi@firstfloor.org>, "Glen Turner" <gdt@gdt.id.au>,
+	"Stephen Hemminger" <shemminger@linux-foundation.org>,
+	<netdev@vger.kernel.org>
+To: <hadi@cyberus.ca>, "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60475 "EHLO mail.dvmed.net"
+Received: from mga11.intel.com ([192.55.52.93]:61094 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751650AbYBASx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2008 13:53:29 -0500
-In-Reply-To: <20080201161907.GB12176@cs181133002.pp.htv.fi>
+	id S1753083AbYBATDr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 14:03:47 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <1201867609.4465.50.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adrian Bunk wrote:
-> - Peter's email address is bouncing
-> - the project webpage no longer exists
-> - neither Peter nor Mike had a single patch included in the kernel
->   since 2.6.12-rc2 (when the git history begins)
-> 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
-> 
-> ---
-> 
->  MAINTAINERS |   23 -----------------------
->  1 file changed, 23 deletions(-)
+> Right - Essentially it is a usability issue:
+> People who know how to use TSO (Peter for example) will be 
+> clueful enough to turn it on. Which means the default should 
+> be to protect the clueless and turn it off.
+> On Andis approach:
+> Turning TSO off at netdev registration time with a warning 
+> will be a cleaner IMO. Or alternatively introducing a 
+> kernel-config "I know what TSO is" option which is then used 
+> at netdev registration. From a usability perspective it would 
+> make more sense to just keep ethtool as the only way to 
+> configure TSO. 
 
-applied
+To me this sounds like the most reasonable approach.  I've put out my
+concerns, so I'll get out of the way now so we can move forward in some
+direction.  :-)
 
+Cheers,
 
+-PJ Waskiewicz
