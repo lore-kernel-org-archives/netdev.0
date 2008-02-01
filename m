@@ -1,54 +1,59 @@
 From: acme@ghostprotocols.net
-Subject: [PATCHES 0/5]: Add hashinfo member to struct proto and get net/ structs back on a diet
-Date: Fri,  1 Feb 2008 20:23:31 -0200
-Message-ID: <47a39bf3.1087460a.06ae.ffffd95f@mx.google.com>
-Cc: netdev@vger.kernel.org
+Subject: [PATCH 4/5] [INET_TIMEWAIT_SOCK]: Reorganize struct inet_timewait_sock to save some bytes
+Date: Fri,  1 Feb 2008 20:23:35 -0200
+Message-ID: <47a39bf9.2586460a.73d1.68c0@mx.google.com>
+References: y
+ <1201904616-4944-1-git-send-email-y>
+ <1201904616-4944-2-git-send-email-y>
+ <1201904616-4944-3-git-send-email-y>
+ <1201904616-4944-4-git-send-email-y>
+Cc: netdev@vger.kernel.org, Arnaldo Carvalho de Melo <acme@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from wx-out-0506.google.com ([66.249.82.230]:61339 "EHLO
 	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751718AbYBAWXt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 17:23:49 -0500
+	with ESMTP id S1754884AbYBAWX5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 17:23:57 -0500
 Received: by wx-out-0506.google.com with SMTP id h31so1986032wxd.4
-        for <netdev@vger.kernel.org>; Fri, 01 Feb 2008 14:23:48 -0800 (PST)
-In-Reply-To: y
-References: y
+        for <netdev@vger.kernel.org>; Fri, 01 Feb 2008 14:23:57 -0800 (PST)
+In-Reply-To: <1201904616-4944-4-git-send-email-y>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-	Please consider pulling from:
+/home/acme/git/net-2.6/net/ipv6/tcp_ipv6.c:
+  struct inet_timewait_sock |   -8
+  struct tcp_timewait_sock  |   -8
+ 2 structs changed
+  tcp_v6_rcv                |   -6
+ 1 function changed, 6 bytes removed, diff: -6
 
-master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.25
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ include/net/inet_timewait_sock.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-	There are many more structs that have holes, they seem to crop up, even
-on DCCP! People should use some paholing 8-)
+diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
+index 67e9250..296547b 100644
+--- a/include/net/inet_timewait_sock.h
++++ b/include/net/inet_timewait_sock.h
+@@ -116,6 +116,7 @@ struct inet_timewait_sock {
+ #define tw_hash			__tw_common.skc_hash
+ #define tw_prot			__tw_common.skc_prot
+ #define tw_net			__tw_common.skc_net
++	int			tw_timeout;
+ 	volatile unsigned char	tw_substate;
+ 	/* 3 bits hole, try to pack */
+ 	unsigned char		tw_rcv_wscale;
+@@ -130,7 +131,6 @@ struct inet_timewait_sock {
+ 	__u8			tw_ipv6only:1;
+ 	/* 15 bits hole, try to pack */
+ 	__u16			tw_ipv6_offset;
+-	int			tw_timeout;
+ 	unsigned long		tw_ttd;
+ 	struct inet_bind_bucket	*tw_tb;
+ 	struct hlist_node	tw_death_node;
+-- 
+1.5.3.8
 
-	I'll prepare another round after carnival, and also will look at using
-sparse and/or Uli's libdisasm and/or DeHydra to find struct member accesses in
-functions to correlate that with struct layout when doing automatic struct
-member reorgs, so as not to step into Eric's fast path 8-P
-
-Best Regards,
-
-- Arnaldo
-
- include/linux/dccp.h               |    2 -
- include/net/if_inet6.h             |    6 +--
- include/net/inet6_hashtables.h     |    2 -
- include/net/inet_connection_sock.h |    8 +----
- include/net/inet_hashtables.h      |   51 +++++---------------------------
- include/net/inet_timewait_sock.h   |    2 -
- include/net/sock.h                 |    3 +
- net/dccp/dccp.h                    |    2 -
- net/dccp/ipv4.c                    |   18 ++++-------
- net/dccp/ipv6.c                    |   20 +++++-------
- net/dccp/proto.c                   |   18 +----------
- net/ipv4/inet_connection_sock.c    |    8 +----
- net/ipv4/inet_hashtables.c         |   58 ++++++++++++++++++++++++++++++-------
- net/ipv4/tcp.c                     |    2 -
- net/ipv4/tcp_ipv4.c                |   31 +++++--------------
- net/ipv6/inet6_hashtables.c        |    4 +-
- net/ipv6/tcp_ipv6.c                |   19 +++++-------
- 17 files changed, 108 insertions(+), 146 deletions(-)
