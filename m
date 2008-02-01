@@ -1,42 +1,22 @@
-From: Sudhir Kumar <skumar@linux.vnet.ibm.com>
-Subject: [BUILD FAILURE]2.6.24-git10 section type conflict
-Date: Fri, 1 Feb 2008 23:56:27 +0530
-Message-ID: <20080201182627.GB14251@in.ibm.com>
-Reply-To: skumar@linux.vnet.ibm.com
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch 0/7] s390: ctc patches for 2.6.25
+Date: Fri, 01 Feb 2008 13:30:55 -0500
+Message-ID: <47A3655F.8050808@pobox.com>
+References: <20080201145128.462823000@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sam ravnborg <sam@ravnborg.org>,
-	net-dev-mailing list <netdev@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: Ursula Braun <braunu@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:51348 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753083AbYBASX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 13:23:27 -0500
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:37277 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754083AbYBASbB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2008 13:31:01 -0500
+In-Reply-To: <20080201145128.462823000@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
-I found the following kernel build failure for 2.6.24-git10
-on my machine:
-
-  CC [M]  drivers/scsi/lpfc/lpfc_attr.o
-drivers/net/sis190.c:329: error: sis190_pci_tbl causes a section type
-conflict
-make[2]: *** [drivers/net/sis190.o] Error 1
-make[1]: *** [drivers/net] Error 2
-make[1]: *** Waiting for unfinished jobs....
-  CC [M]  drivers/scsi/lpfc/lpfc_vport.o
+This patchset breaks git-bisect, by creating interim unbuildable states...
 
 
-machine info:
-[root@x330d ~]# uname -a
-Linux x330d.in.ibm.com 2.6.24-rc8 #1 SMP Thu Jan 31 16:46:34 NPT 2008
-i686 i686 i386 GNU/Linux
-
-Thanks
-
-Sudhir Kumar
-Linux Technology Centre
-Bangalore
