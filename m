@@ -1,22 +1,50 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [IPROUTE 02/02]: Add flow classifier support
-Date: Thu, 31 Jan 2008 22:28:57 -0800
-Message-ID: <20080131222857.26449fbe@extreme>
-References: <47A20C63.6030806@trash.net>
+From: Glen Turner <gdt@gdt.id.au>
+Subject: Re: [PATCH] Disable TSO for non standard qdiscs
+Date: Fri, 01 Feb 2008 17:05:38 +1030
+Message-ID: <1201847738.17656.5.camel@roma.44ansell.gdt.id.au>
+References: <20080131124632.GA25299@basil.nowhere.org>
+	 <20080131092327.75b9c369@extreme>
+	 <20080131183322.GA4671@one.firstfloor.org> <47A20CDC.5090104@trash.net>
+	 <20080131183735.GC4671@one.firstfloor.org>
+	 <20080131100846.00934e25@extreme>
+	 <20080131185328.GD4671@one.firstfloor.org> <47A211A0.1040502@trash.net>
+	 <20080131190125.GE4671@one.firstfloor.org>
+	 <D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com>
+	 <20080131193406.GH4671@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:34098 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754232AbYBAG3A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2008 01:29:00 -0500
-In-Reply-To: <47A20C63.6030806@trash.net>
+Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:42230 "EHLO
+	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750925AbYBAGgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 01:36:12 -0500
+In-Reply-To: <20080131193406.GH4671@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-applied both to git
--- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+
+On Thu, 2008-01-31 at 20:34 +0100, Andi Kleen wrote:
+
+> The philosophical problem I have with this suggestion is that I expect
+> that the large majority of users will be more happy with disabled TSO
+> if they use non standard qdiscs and defaults that do not fit 
+> the majority use case are bad.
+
+I wouldn't be so fast to assume that all users need an exact playout
+rate, as people seem to do fine with the 8Kbps playout steps in Cisco
+IOS.  A nerd-knob which expresses user's preference in the
+accuracy/performance trade-off would be nice.
+
+The problem with ethtool is that it's a non-obvious nerd knob.  At
+the least the ethtool documentation should be updated to indicate that 
+activating TSO effects tc accuracy.
+
+Best wishes, Glen
+[a network engineer]
+
