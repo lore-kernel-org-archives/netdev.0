@@ -1,70 +1,60 @@
-From: Badari Pulavarty <pbadari@us.ibm.com>
-Subject: Re: [PATCH] drivers/base: export (un)register_memory_notifier
-Date: Fri, 01 Feb 2008 09:18:37 -0800
-Message-ID: <1201886317.11808.32.camel@dyn9047017100.beaverton.ibm.com>
-References: <200802011716.32511.ossthema@de.ibm.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] Disable TSO for non standard qdiscs
+Date: Fri, 1 Feb 2008 09:24:39 -0800
+Message-ID: <20080201092439.7c588ef5@extreme>
+References: <20080131100846.00934e25@extreme>
+	<20080131185328.GD4671@one.firstfloor.org>
+	<47A211A0.1040502@trash.net>
+	<20080131190125.GE4671@one.firstfloor.org>
+	<D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com>
+	<20080131193406.GH4671@one.firstfloor.org>
+	<1201847738.17656.5.camel@roma.44ansell.gdt.id.au>
+	<20080201074600.GA12644@one.firstfloor.org>
+	<47A2C985.30409@trash.net>
+	<D5C1322C3E673F459512FB59E0DDC32904737A42@orsmsx414.amr.corp.intel.com>
+	<20080201143421.GB16630@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	Thomas Klein <osstklei@de.ibm.com>,
-	Christoph Raisch <RAISCH@de.ibm.com>,
-	Marcus Eder <meder@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Andi Kleen <andi@firstfloor.org>, Glen Turner <gdt@gdt.id.au>,
+	netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:48195 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755359AbYBARQB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 12:16:01 -0500
-In-Reply-To: <200802011716.32511.ossthema@de.ibm.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:47657 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755781AbYBARZX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 12:25:23 -0500
+In-Reply-To: <20080201143421.GB16630@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-02-01 at 17:16 +0100, Jan-Bernd Themann wrote:
-> Drivers like eHEA need memory notifiers in order to 
-> update their internal DMA memory map when memory is added
-> to or removed from the system.
-> 
-> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
-> 
-> ---
->  Comment: eHEA patches that exploit these functions will follow
-> 
-> 
->  drivers/base/memory.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/base/memory.c b/drivers/base/memory.c
-> index 7ae413f..1e1bd4c 100644
-> --- a/drivers/base/memory.c
-> +++ b/drivers/base/memory.c
-> @@ -52,11 +52,13 @@ int register_memory_notifier(struct notifier_block *nb)
->  {
->          return blocking_notifier_chain_register(&memory_chain, nb);
->  }
-> +EXPORT_SYMBOL(register_memory_notifier);
-> 
->  void unregister_memory_notifier(struct notifier_block *nb)
->  {
->          blocking_notifier_chain_unregister(&memory_chain, nb);
->  }
-> +EXPORT_SYMBOL(unregister_memory_notifier);
-> 
->  /*
->   * register_memory - Setup a sysfs device for a memory block
+On Fri, 1 Feb 2008 15:34:21 +0100
+Andi Kleen <andi@firstfloor.org> wrote:
 
-Is there a reason for not making them EXPORT_SYMBOL_GPL() ?
-Otherwise, looks good to me.
+> > The TSO defer logic is based on your congestion window and current
+> > window size.  So the actual frame sizes hitting your NIC attached to
+> > your DSL probably aren't anywhere near 64KB, but probably more in line
+> > with whatever your window size is for DSL.
+> 
+> DSL windows can be quite large because a lot of DSL lines have a quite
+> long latency due to error correction. And with ADSL2 we have upto 16Mbit
+> now.
+> 
+> > I think we're having more of a disagreement of what is considered the
+> > "normal case" user.  If you are on a slow link, such as a DSL/cable
+> > line, your TCP window/congestion window aren't going to be big enough to
+> > generate large TSO's, so what is the issue?  But disabling TSO, say on a
+> 
+> 64k TSOs are likely even with DSL. Anyways even with smaller TSOs the
+> change still makes sense because each increase makes packet scheduling
+> less smooth.
+> 
+> -Andi
 
-I have been planning to send this as part of my next update
-with ppc64 arch-specific remove support and generic __remove_pages()
-support. If this is blocking your work, lets get this in.
+I wish there was a per-device setting for the max-size of TSO burst.
 
-Acked-by: Badari Pulavarty <pbadari@us.ibm.com>
 
-Thanks,
-Badari
-
+-- 
+Stephen Hemminger <stephen.hemminger@vyatta.com>
