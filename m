@@ -1,35 +1,36 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: [PATCH] Disable TSO for non standard qdiscs
-Date: Fri, 01 Feb 2008 08:25:57 +0100
-Message-ID: <47A2C985.30409@trash.net>
-References: <20080131183322.GA4671@one.firstfloor.org> <47A20CDC.5090104@trash.net> <20080131183735.GC4671@one.firstfloor.org> <20080131100846.00934e25@extreme> <20080131185328.GD4671@one.firstfloor.org> <47A211A0.1040502@trash.net> <20080131190125.GE4671@one.firstfloor.org> <D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com> <20080131193406.GH4671@one.firstfloor.org> <1201847738.17656.5.camel@roma.44ansell.gdt.id.au> <20080201074600.GA12644@one.firstfloor.org>
+Date: Fri, 1 Feb 2008 08:42:39 +0100
+Message-ID: <20080201074239.GA2897@ff.dom.local>
+References: <47A2540D.8090003@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Glen Turner <gdt@gdt.id.au>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	Patrick McHardy <kaber@trash.net>,
 	Stephen Hemminger <shemminger@linux-foundation.org>,
 	netdev@vger.kernel.org
 To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39248 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754685AbYBAH0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 02:26:03 -0500
-In-Reply-To: <20080201074600.GA12644@one.firstfloor.org>
+Received: from ug-out-1314.google.com ([66.249.92.168]:48892 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933253AbYBAHfj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 02:35:39 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so709202ugc.16
+        for <netdev@vger.kernel.org>; Thu, 31 Jan 2008 23:35:37 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <47A2540D.8090003@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen wrote:
->> The problem with ethtool is that it's a non-obvious nerd knob.  At
->> the least the ethtool documentation should be updated to indicate that 
->> activating TSO effects tc accuracy.
-> 
-> TSO tends to be activated by default in the driver; very few people who use it
-> do even know that ethtool exist or what TSO is.
+On 01-02-2008 00:04, Jarek Poplawski wrote:
+...
+> ...On the other hand, with this DSL argument from the sub-thread you
+> could be quite right: if this "everyone" wants to use one NIC for
+> both high speed local network and such a DSL, then learning ethtool
+> could be not enough...
 
+...But, on the other hand, in this case the realization seems to be
+wrong: probably still all locally created packets will be treated
+the same - or I miss something?
 
-Indeed. As an example of an unknowing user, this discussion made me
-check whether my cablemodem device (on which I'm using HFSC) uses
-TSO :)
-
+Jarek P.
