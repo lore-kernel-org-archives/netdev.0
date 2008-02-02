@@ -1,52 +1,43 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] Unbreak sky2 on 88E8039 with current git
-Date: Sat, 2 Feb 2008 12:02:03 -0800
-Message-ID: <20080202120203.5387d1cb@extreme>
-References: <20080202105243.GA14581@vana.vc.cvut.cz>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] [RFC] 3c509: convert to isa_driver and pnp_driver v2
+Date: Sat, 02 Feb 2008 15:50:25 -0500
+Message-ID: <47A4D791.3050700@garzik.org>
+References: <200801312012.43447.linux@rainbow-software.org> <200802021925.36552.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=iso-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Petr Vandrovec <petr@vandrovec.name>
+Cc: netdev@vger.kernel.org,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Ondrej Zary <linux@rainbow-software.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:40228 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753870AbYBBUCU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2008 15:02:20 -0500
-In-Reply-To: <20080202105243.GA14581@vana.vc.cvut.cz>
+Received: from srv5.dvmed.net ([207.36.208.214]:60295 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761212AbYBBUu2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Feb 2008 15:50:28 -0500
+In-Reply-To: <200802021925.36552.linux@rainbow-software.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2 Feb 2008 11:52:43 +0100
-Petr Vandrovec <petr@vandrovec.name> wrote:
-
+Ondrej Zary wrote:
 > Hello,
->   since I synced my tree to Linus's one two days ago, sky2's packet receiption
-> dies almost instantly.  Device still transmits packets, but no receive.  
-> Fortunately fix is simple, unfortunately I do not know why fix works...
+> this is second version of the patch. Autoloading using udev works fine with 
+> PnP card. Hibernation now works both in PnP and ISA modes. The I/O address 
+> used for non-pnp ISA card detection is now not released as it's needed to 
+> wake up the card.
 > 
-> Commit f03b865491c2f30f2a4d77cdafc69c978ceb38a0 (sky2: align IP header on Rx
-> if possible) stopped aligning receive buffers on devices which do not need
-> HANG_CHECK.  Unfortunately there is at least one device (mine, Yukon FE, rev 3)
-> which is not happy if receive buffer is not aligned.  I have no idea which
-> other chips/revisions are affected as well.
+> Manual irq and transceiver settings aren't implemented yet. Operation with 
+> multiple cards is not tested - I'll try 3 cards in both PnP and ISA modes. 
+> There is some code that is the same in each of the 4 probe functions (isa, 
+> pnp, eisa and mca), which should be probably separated into a function.
 > 
-> Without patch 'ping -f -b 192.168.101.255' RX count stops incrementing in less
-> than 50 packets.  With patch in place it can run like before, for hours...
-> Box is an AMD rev F processor, with nVidia's MCP61 chipset.
-> 							Petr
+> I have no EISA or MCA machine so I hope that I didn't break them.
 
-I don't have a Yukon FE, but I believe that the Yukon FE does have a ram
-buffer, so you HANG_CHECK should be enabled for that device. You can check
-by running:
-	ethtool -d eth0 | grep 'Ram Buffer'
-With ram buffer (like XL, EC)
-	
-# ethtool -d eth0 | grep 'Ram Buffer'
-Ram Buffer                   0x18
+Looks pretty good at first glance...
 
-No ram buffer (like EC-U, FE+, ...)
-# ethtool -d eth0 | grep 'Ram Buffer'
-Ram Buffer                   0x00
--- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+I'll throw it in my queue.  Want to add a signed-off-by:  ?
+
+	Jeff
+
+
+
