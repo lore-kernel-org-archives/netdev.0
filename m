@@ -1,39 +1,49 @@
 From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: Re: linux-2.6.24 compile error in drivers/net/b44.c
-Date: Sat, 02 Feb 2008 12:51:40 +0800
-Message-ID: <47A3F6DC.1000903@cn.fujitsu.com>
-References: <47A3CC70.8090900@cn.fujitsu.com>
+Subject: [PATCH] sis190: fix compile error section type conflict
+Date: Sat, 02 Feb 2008 13:27:27 +0800
+Message-ID: <47A3FF3F.1040908@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	mboton@gmail.com, zambrano@broadcom.com, linville@tuxdriver.com
-To: LKML <linux-kernel@vger.kernel.org>
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	jgarzik@pobox.com
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:61485 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:54297 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754460AbYBBEwg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2008 23:52:36 -0500
-In-Reply-To: <47A3CC70.8090900@cn.fujitsu.com>
+	id S1759793AbYBBF2U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Feb 2008 00:28:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add CCs:
 
-CC: mboton@gmail.com
-CC: zambrano@broadcom.com
-CC: linville@tuxdriver.com
+Fix the following compile error:
 
-Li Zefan wrote:
-> drivers/net/b44.c: In function 'b44_remove_one':
-> drivers/net/b44.c:2231: error: implicit declaration of function 'ssb_pcihost_set_power_state'
-> make[2]: *** [drivers/net/b44.o] Error 1
-> make[1]: *** [drivers/net] Error 2
-> 
-> I think it is caused by:
-> 
-> CONFIG_SSB_PCIHOST=n
-> CONFIG_B44=y
-> 
+drivers/net/sis190.c:329: error: sis190_pci_tbl causes a section type conflict
+make[2]: *** [drivers/net/sis190.o] Error 1
+make[1]: *** [drivers/net] Error 2
+make: *** [drivers] Error 2
+
+Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
+
+---
+ drivers/net/sis190.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
+index b570402..e48e4ad 100644
+--- a/drivers/net/sis190.c
++++ b/drivers/net/sis190.c
+@@ -326,7 +326,7 @@ static const struct {
+ 	{ "SiS 191 PCI Gigabit Ethernet adapter" },
+ };
+ 
+-static struct pci_device_id sis190_pci_tbl[] __devinitdata = {
++static const struct pci_device_id sis190_pci_tbl[] __devinitdata = {
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_SI, 0x0190), 0, 0, 0 },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_SI, 0x0191), 0, 0, 1 },
+ 	{ 0, },
+-- 
+1.5.4.rc3
 
 
