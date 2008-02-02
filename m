@@ -1,47 +1,38 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] net/phy/fixed.c: fix a use-after-free
-Date: Sat, 2 Feb 2008 23:15:02 +0200
-Message-ID: <20080202211502.GC9375@cs181133002.pp.htv.fi>
+Subject: [2.6 patch] xfrm4_beet_input(): fix an if()
+Date: Sat, 2 Feb 2008 23:16:35 +0200
+Message-ID: <20080202211635.GF9375@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Cc: netdev@vger.kernel.org
-To: Anton Vorontsov <avorontsov@ru.mvista.com>,
-	Vitaly Bordug <vitb@kernel.crashing.org>,
-	Jeff Garzik <jeff@garzik.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6.pp.htv.fi ([213.243.153.40]:53754 "EHLO smtp6.pp.htv.fi"
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:55264 "EHLO smtp4.pp.htv.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934109AbYBBVOT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Feb 2008 16:14:19 -0500
+	id S1763962AbYBBVQW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Feb 2008 16:16:22 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a use-after-free introduced by
-commit a79d8e93d300adb84cccc38ac396cfb118c238ad and spotted by the 
-Coverity checker.
+A bug every C programmer makes at some point in time...
 
 Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
 ---
-20c51455b2faed63c3026fd4d7139e5a6a917d31 
-diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
-index 73b6d39..ca9b040 100644
---- a/drivers/net/phy/fixed.c
-+++ b/drivers/net/phy/fixed.c
-@@ -236,12 +236,12 @@ module_init(fixed_mdio_bus_init);
- static void __exit fixed_mdio_bus_exit(void)
- {
- 	struct fixed_mdio_bus *fmb = &platform_fmb;
--	struct fixed_phy *fp;
-+	struct fixed_phy *fp, *tmp;
+3125760a05c6e97097882a810dc1c5342296aae9 
+diff --git a/net/ipv4/xfrm4_mode_beet.c b/net/ipv4/xfrm4_mode_beet.c
+index e093a7b..b47030b 100644
+--- a/net/ipv4/xfrm4_mode_beet.c
++++ b/net/ipv4/xfrm4_mode_beet.c
+@@ -102,7 +102,7 @@ static int xfrm4_beet_input(struct xfrm_state *x, struct sk_buff *skb)
  
- 	mdiobus_unregister(&fmb->mii_bus);
- 	platform_device_unregister(pdev);
+ 		XFRM_MODE_SKB_CB(skb)->protocol = ph->nexthdr;
  
--	list_for_each_entry(fp, &fmb->phys, node) {
-+	list_for_each_entry_safe(fp, tmp, &fmb->phys, node) {
- 		list_del(&fp->node);
- 		kfree(fp);
+-		if (!pskb_may_pull(skb, phlen));
++		if (!pskb_may_pull(skb, phlen))
+ 			goto out;
+ 		__skb_pull(skb, phlen);
  	}
 
