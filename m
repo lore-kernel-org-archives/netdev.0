@@ -1,43 +1,42 @@
-From: Doug Maxey <dwm@enoyolf.org>
-Subject: Re: [PATCH 4/5] ehea: fix phyp checkpatch complaints
-Date: Fri, 01 Feb 2008 22:39:57 -0600
-Message-ID: <19294.1201927197@bebe.enoyolf.org>
-References: <1201832451-23634-1-git-send-email-dwm@austin.ibm.com> <1201832451-23634-5-git-send-email-dwm@austin.ibm.com>  <20080201192344.GA4541@loki.buserror.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: oops with ipcomp
+Date: Sat, 2 Feb 2008 15:42:54 +1100
+Message-ID: <20080202044254.GA27792@gondor.apana.org.au>
+References: <3C59DB883F7B0B4D8096010D45ACCD134F209E@exch.facton.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Doug Maxey <dwm@austin.ibm.com>,
-	Linux PowerPC List <linuxppc-dev@ozlabs.org>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	Jeff Garzik <jgarzik@garzik.org>,
-	Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org
-To: Scott Wood <scottwood@freescale.com>
+Cc: netdev@vger.kernel.org
+To: Beschorner Daniel <Daniel.Beschorner@facton.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bebe.enoyolf.org ([24.173.215.190]:60842 "EHLO bebe.enoyolf.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753415AbYBBElE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2008 23:41:04 -0500
-In-reply-to: <20080201192344.GA4541@loki.buserror.net> 
+Received: from rhun.apana.org.au ([64.62.148.172]:39769 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758384AbYBBEm5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 23:42:57 -0500
+Content-Disposition: inline
+In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD134F209E@exch.facton.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Fri, 01 Feb 2008 13:23:45 CST, Scott Wood wrote:
-> On Thu, Jan 31, 2008 at 08:20:50PM -0600, Doug Maxey wrote:
-> >  /* input param R5 */
-> > -#define H_ALL_RES_QP_EQPO         EHEA_BMASK_IBM(9, 11)
-...
-> > +#define H_ALL_RES_QP_EQPO	  EHEA_BMASK_IBM(9, 11)
-...
+On Fri, Feb 01, 2008 at 11:09:22AM +0100, Beschorner Daniel wrote:
+> One more issue with 2.6.24, some hours after I reactivated ipcomp with
+> Herb's 2 patches.
+> The httpd log shows a http request per esp tunnel at oops time.
+> Don't know whether it is for network or compression guys, so I started
+> posting here.
 > 
-> This was better the way it was (before, it was readable at any tab setting);
-> checkpatch is overeager to complain on tab/space issues (it's a bit hard to
-> distinguish indentation from alignment with a regex).
+> Unable to handle kernel paging request at ffffc200000fb000 RIP: 
+>  [<ffffffff8031b8f0>] deflate_slow+0x40/0x400
 
-In emacs, with no special offsets, the lines appear to still line up.
+I'm not able to get much information out of this crash dump.  Nor
+can I reproduce this bug on my 32-bit machines and I'm currently
+away from my 64-bit machines.
 
-What did happen was spaces were turned to tabs where applicable.
+How long have you been using IPComp in the past and what was the
+last kernel version which was stable with IPComp?
 
-What editor shows a bad alignment?
-
-++doug
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
