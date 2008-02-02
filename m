@@ -1,130 +1,56 @@
-From: Dzianis Kahanovich <mahatma@bspu.unibel.by>
-Subject: [PATCH] NOTRACK only untracked
-Date: Sat, 02 Feb 2008 14:58:10 -0200
-Message-ID: <47A4A122.5070701@bspu.unibel.by>
-Reply-To: mahatma@eu.by
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] sis190: fix compile error section type conflict
+Date: Sat, 2 Feb 2008 15:34:58 +0100
+Message-ID: <20080202143458.GA27978@electric-eye.fr.zoreil.com>
+References: <47A3FF3F.1040908@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090301080000010501000208"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bspu.unibel.by ([195.50.2.21]:35341 "EHLO
-	mail.bspu.unibel.by" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213AbYBBM6R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2008 07:58:17 -0500
-Received: from [10.200.200.1] ([10.200.200.1])
-	by mail.bspu.unibel.by (8.14.1/8.14.0) with ESMTP id m12CwDU7022888
-	for <netdev@vger.kernel.org>; Sat, 2 Feb 2008 14:58:13 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	jgarzik@pobox.com, Sam Ravnborg <sam@ravnborg.org>
+To: Li Zefan <lizf@cn.fujitsu.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763695AbYBBOxU@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <47A3FF3F.1040908@cn.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090301080000010501000208
-Content-Type: text/plain; charset=KOI8-R; format=flowed
-Content-Transfer-Encoding: 7bit
+Li Zefan <lizf@cn.fujitsu.com> :
+> Fix the following compile error:
 
-There are modification of NOTRACK netfilter target to avoid creating new 
-connection entries for packets, unrelated to any existing connection.
+I am not sure that it is the right fix. Please read the archive of
+this week on l-k.
 
-Best way to make new target (clone NOTRACK to NOTRACK-NEW and fix - to mix 
-both), but I have enough motivation to this work ;)
+I'll submit the patch below to Jeff once I have tested it with real
+hardware (sunday evening entertainment). Sam, is it ok to add your
+s-o-b to it ?
 
-PS There are not same patch with netfilter@vger.kernel.org. Verifyed and 
-fixed. (& net-2.6.25)
+Subject: [PATCH] sis190: fix section type conflict
 
-PPS Idea about u32 was bad. Sorry.
+The driver already contains __devinitdata which is not const.
 
+Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Michael D. Setzer II <mikes@kuentos.guam.net>
+Cc: Gabriel C <nix.or.die@googlemail.com>
+Cc: Jonas Bonn <jonas@southpole.se>
+Cc: Jan Engelhardt <jengelh@computergmbh.de>
+Cc: Li Zefan <lizf@cn.fujitsu.com>
+---
+ drivers/net/sis190.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
+index b570402..0a5e024 100644
+--- a/drivers/net/sis190.c
++++ b/drivers/net/sis190.c
+@@ -1556,7 +1556,7 @@ static int __devinit sis190_get_mac_addr_from_eeprom(struct pci_dev *pdev,
+ static int __devinit sis190_get_mac_addr_from_apc(struct pci_dev *pdev,
+ 						  struct net_device *dev)
+ {
+-	static const u16 __devinitdata ids[] = { 0x0965, 0x0966, 0x0968 };
++	static const u16 __devinitconst ids[] = { 0x0965, 0x0966, 0x0968 };
+ 	struct sis190_private *tp = netdev_priv(dev);
+ 	struct pci_dev *isa_bridge;
+ 	u8 reg, tmp8;
 -- 
-WBR,
-Denis Kaganovich,  mahatma@eu.by  http://mahatma.bspu.unibel.by
-
---------------090301080000010501000208
-Content-Type: text/plain;
- name="notrack-new.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="notrack-new.patch"
-
-diff -pruN net-2.6.orig/net/netfilter/Kconfig net-2.6.fixed/net/netfilter/Kconfig
---- net-2.6.orig/net/netfilter/Kconfig	2008-01-30 20:17:08.000000000 +0200
-+++ net-2.6.fixed/net/netfilter/Kconfig	2008-02-02 14:37:22.000000000 +0200
-@@ -375,6 +375,12 @@ config NETFILTER_XT_TARGET_NOTRACK
- 	  If you want to compile it as a module, say M here and read
- 	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
- 
-+config NETFILTER_XT_TARGET_NOTRACK_NEW
-+	bool "NOTRACK safe (only new)"
-+	depends on NETFILTER_XT_TARGET_NOTRACK
-+	help
-+	  Slow but safe way to NOTRACK only new/untracked connections.
-+
- config NETFILTER_XT_TARGET_RATEEST
- 	tristate '"RATEEST" target support'
- 	depends on NETFILTER_XTABLES
-diff -pruN net-2.6.orig/net/netfilter/nf_conntrack_core.c net-2.6.fixed/net/netfilter/nf_conntrack_core.c
---- net-2.6.orig/net/netfilter/nf_conntrack_core.c	2008-01-30 20:17:08.000000000 +0200
-+++ net-2.6.fixed/net/netfilter/nf_conntrack_core.c	2008-02-02 14:22:53.000000000 +0200
-@@ -587,6 +587,9 @@ resolve_normal_ct(struct sk_buff *skb,
- 	struct nf_conntrack_tuple tuple;
- 	struct nf_conntrack_tuple_hash *h;
- 	struct nf_conn *ct;
-+#ifdef CONFIG_NETFILTER_XT_TARGET_NOTRACK_NEW
-+	struct nf_conntrack_expect *exp;
-+#endif
- 
- 	if (!nf_ct_get_tuple(skb, skb_network_offset(skb),
- 			     dataoff, l3num, protonum, &tuple, l3proto,
-@@ -598,6 +601,17 @@ resolve_normal_ct(struct sk_buff *skb,
- 	/* look for tuple match */
- 	h = nf_conntrack_find_get(&tuple);
- 	if (!h) {
-+#ifdef CONFIG_NETFILTER_XT_TARGET_NOTRACK_NEW
-+		if(skb->nfctinfo == IP_CT_NEW) {
-+		    exp = nf_ct_expect_find_get(&tuple);
-+		    if(!exp){
-+			skb->nfct = &nf_conntrack_untracked.ct_general;
-+			nf_conntrack_get(skb->nfct);
-+			return NULL;
-+		    }
-+		    nf_ct_expect_put(exp);
-+		}
-+#endif
- 		h = init_conntrack(&tuple, l3proto, l4proto, skb, dataoff);
- 		if (!h)
- 			return NULL;
-@@ -675,6 +689,12 @@ nf_conntrack_in(int pf, unsigned int hoo
- 	ct = resolve_normal_ct(skb, dataoff, pf, protonum, l3proto, l4proto,
- 			       &set_reply, &ctinfo);
- 	if (!ct) {
-+#ifdef CONFIG_NETFILTER_XT_TARGET_NOTRACK_NEW
-+		if(skb->nfct == &nf_conntrack_untracked.ct_general){
-+		    NF_CT_STAT_INC_ATOMIC(ignore);
-+		    return NF_ACCEPT;
-+		}
-+#endif
- 		/* Not valid part of a connection */
- 		NF_CT_STAT_INC_ATOMIC(invalid);
- 		return NF_ACCEPT;
-diff -pruN net-2.6.orig/net/netfilter/xt_NOTRACK.c net-2.6.fixed/net/netfilter/xt_NOTRACK.c
---- net-2.6.orig/net/netfilter/xt_NOTRACK.c	2008-01-30 20:17:08.000000000 +0200
-+++ net-2.6.fixed/net/netfilter/xt_NOTRACK.c	2008-02-02 14:22:02.000000000 +0200
-@@ -21,6 +21,9 @@ notrack_tg(struct sk_buff *skb, const st
- 	if (skb->nfct != NULL)
- 		return XT_CONTINUE;
- 
-+#ifdef CONFIG_NETFILTER_XT_TARGET_NOTRACK_NEW
-+	skb->nfctinfo = IP_CT_NEW;
-+#else
- 	/* Attach fake conntrack entry.
- 	   If there is a real ct entry correspondig to this packet,
- 	   it'll hang aroun till timing out. We don't deal with it
-@@ -28,6 +31,7 @@ notrack_tg(struct sk_buff *skb, const st
- 	skb->nfct = &nf_conntrack_untracked.ct_general;
- 	skb->nfctinfo = IP_CT_NEW;
- 	nf_conntrack_get(skb->nfct);
-+#endif
- 
- 	return XT_CONTINUE;
- }
-
---------------090301080000010501000208--
+1.5.3.3
