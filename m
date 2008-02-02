@@ -1,56 +1,59 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] IPROUTE2: Add addrlabel subsystem.
-Date: Sat, 02 Feb 2008 10:43:46 +0100
-Message-ID: <47A43B52.8090203@gmail.com>
-References: <20080201.065754.116071721.yoshfuji@linux-ipv6.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Still oopsing in nf_nat_move_storage()
+Date: Sat, 02 Feb 2008 11:26:27 +0100
+Message-ID: <47A44553.2090703@trash.net>
+References: <479F5E5A.8050108@redhat.com> <479F5FDC.5040903@trash.net> <47A20D57.5040907@redhat.com> <47A3AE41.6070104@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:22307 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758955AbYBBJkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2008 04:40:47 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so876613ugc.16
-        for <netdev@vger.kernel.org>; Sat, 02 Feb 2008 01:40:46 -0800 (PST)
-In-Reply-To: <20080201.065754.116071721.yoshfuji@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Chuck Ebbert <cebbert@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <47A3AE41.6070104@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote, On 01/3=
-1/2008 08:57 PM:
+Chuck Ebbert wrote:
+> On 01/31/2008 01:03 PM, Chuck Ebbert wrote:
+>> On 01/29/2008 12:18 PM, Patrick McHardy wrote:
+>>> Chuck Ebbert wrote:
+>>>> nf_nat_move_storage():
+>>>> /usr/src/debug/kernel-2.6.23/linux-2.6.23.i686/net/ipv4/netfilter/nf_nat_core.c:612
+>>>>
+>>>>       87:       f7 47 64 80 01 00 00    testl  $0x180,0x64(%edi)
+>>>>       8e:       74 39                   je     c9
+>>>> <nf_nat_move_storage+0x65>
+>>>>
+>>>> line 612:
+>>>>         if (!(ct->status & IPS_NAT_DONE_MASK))
+>>>>                 return;
+>>>>
+>>>> ct is NULL
+>>> The current kernel (and 2.6.23-stable) have:
+>>>
+>>>         if (!ct || !(ct->status & IPS_NAT_DONE_MASK))
+>>>                 return;
+>>>
+>>> so it seems you're using an old version.
+> 
+> So, it is now oopsing after the test for NULL and only x86_64 is
+> catching the invalid address because it is non-canonical. Checking
+> for NULL is obviously not enough...
 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> ---
->  include/linux/if_addrlabel.h |   32 +++++
->  ip/Makefile                  |    2 +-
->  ip/ip.c                      |    5 +-
->  ip/ip_common.h               |    4 +
->  ip/ipaddrlabel.c             |  260 ++++++++++++++++++++++++++++++++=
-++++++++++
->  ip/ipmonitor.c               |    4 +
->  6 files changed, 304 insertions(+), 3 deletions(-)
->=20
-> diff --git a/include/linux/if_addrlabel.h b/include/linux/if_addrlabe=
-l.h
-> new file mode 100644
-> index 0000000..9fe79c9
-> --- /dev/null
-> +++ b/include/linux/if_addrlabel.h
-> @@ -0,0 +1,32 @@
-> +/*
-> + * if_addrlabel.h - netlink interface for address labels
-> + *
-> + * Copyright (C)2007 USAGI/WIDE Project,  All Rights Reserved.
-> + *
 
-Hi,
+The addresses passed to ->move seems to be bogus, we're doing:
 
-Is this statement GPL compatible? And, maybe you could add a few words
-about this to man ip too?
+           t->move(ct, ct->ext + ct->ext->offset[i]);
 
-Regards,
-Jarek P.
+without assigning the new ct->ext first, which is wrong for
+two reasons:
+
+- the new ext hasn't been assigned to the conntrack yet,
+   so its moving within the same extension
+
+- ct->ext + ct->ext->offset[i] should be (void *)ct->ext + ...
+
+I'll fix it and send a patch after some testing. Still wondering
+why this wasn't noticed before.
