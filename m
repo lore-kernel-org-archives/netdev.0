@@ -1,35 +1,39 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] Disable TSO for non standard qdiscs
-Date: Sat, 2 Feb 2008 06:20:08 +0100
-Message-ID: <20080202052008.GA26132@one.firstfloor.org>
-References: <47A211A0.1040502@trash.net> <20080131190125.GE4671@one.firstfloor.org> <D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com> <20080131193406.GH4671@one.firstfloor.org> <1201847738.17656.5.camel@roma.44ansell.gdt.id.au> <20080201074600.GA12644@one.firstfloor.org> <47A2C985.30409@trash.net> <D5C1322C3E673F459512FB59E0DDC32904737A42@orsmsx414.amr.corp.intel.com> <47A2ECE9.5000103@trash.net> <1201867609.4465.50.camel@localhost>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: Re: linux-2.6.24 compile error in drivers/net/b44.c
+Date: Sat, 02 Feb 2008 12:51:40 +0800
+Message-ID: <47A3F6DC.1000903@cn.fujitsu.com>
+References: <47A3CC70.8090900@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	Andi Kleen <andi@firstfloor.org>, Glen Turner <gdt@gdt.id.au>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	mboton@gmail.com, zambrano@broadcom.com, linville@tuxdriver.com
+To: LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:40225 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755665AbYBBEpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 23:45:35 -0500
-Content-Disposition: inline
-In-Reply-To: <1201867609.4465.50.camel@localhost>
+Received: from cn.fujitsu.com ([222.73.24.84]:61485 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754460AbYBBEwg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2008 23:52:36 -0500
+In-Reply-To: <47A3CC70.8090900@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Turning TSO off at netdev registration time with a warning will be a
-> cleaner IMO. Or alternatively introducing a kernel-config "I know what
+Add CCs:
 
-You mean the qdisc should force TSO off on the underlying device? 
+CC: mboton@gmail.com
+CC: zambrano@broadcom.com
+CC: linville@tuxdriver.com
 
-> TSO is" option which is then used at netdev registration. From a
-> usability perspective it would make more sense to just keep ethtool as
-> the only way to configure TSO. 
+Li Zefan wrote:
+> drivers/net/b44.c: In function 'b44_remove_one':
+> drivers/net/b44.c:2231: error: implicit declaration of function 'ssb_pcihost_set_power_state'
+> make[2]: *** [drivers/net/b44.o] Error 1
+> make[1]: *** [drivers/net] Error 2
+> 
+> I think it is caused by:
+> 
+> CONFIG_SSB_PCIHOST=n
+> CONFIG_B44=y
+> 
 
-Ok, reasonable point.
 
--Andi
