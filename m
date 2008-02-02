@@ -1,49 +1,52 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH] [XFRM] BEET: Remove extra semicolon after if
-Date: Sat, 2 Feb 2008 23:53:29 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0802022351510.2526@kivilampi-30.cs.helsinki.fi>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: kernel panic on 2.6.24 with esfq patch applied
+Date: Sat, 02 Feb 2008 23:19:52 +0100
+Message-ID: <47A4EC88.1010602@gmail.com>
+References: <20080201131509.M52958@visp.net.lb> <47A444A8.8020304@fatooh.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1682660206-1201989209=:2526"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=KOI8-R
+Content-Transfer-Encoding: 7bit
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org
+To: Corey Hickey <bugfood-ml@fatooh.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:40142 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752864AbYBBVxq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2008 16:53:46 -0500
+Received: from ug-out-1314.google.com ([66.249.92.174]:16904 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753106AbYBBWNm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2008 17:13:42 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so947163ugc.16
+        for <netdev@vger.kernel.org>; Sat, 02 Feb 2008 14:13:40 -0800 (PST)
+In-Reply-To: <47A444A8.8020304@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Corey Hickey wrote, On 02/02/2008 11:23 AM:
+ ...
 
----696243703-1682660206-1201989209=:2526
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+> I'd rather you were using my recent patches to SFQ instead of ESFQ. I
+> was able to crash a 2.6.24 user-mode Linux with ESFQ as well; I don't
+> know if that's what you encountered, but the SFQ patches should be
+> better anyway.
+> 
+> http://fatooh.org/esfq-2.6/sfq-2.6.24.tar.bz2
+> http://fatooh.org/esfq-2.6/
 
+Hi Corey!
 
-Once again, one of this kind tries to creep in.
+I've just had a look at your site, and see you're a bit disappointed about
+the reception of your patches here. I don't use nor know about your work
+(maybe some time...), and wish you better public here, but maybe you'll
+find this story interesting: a few years ago, when I didn't even think of
+reading netdev, I quite often visited pages of such projects as HTB (not
+in every distro yet), IMQ or Julian Anastasov's. They were quite popular
+subjects on admins lists, and I really admired people around these
+projects, while the main kernel was something big and anonymous (no idea
+e.g. about D. Miller). For the same reason I knew more about people from
+iptables project - only because there was a need to visit this for some
+non standard modules, and about A. Kuznetsov - only because of patching
+iproute for HTB!!! (Only later I found that Alexey did more than needed
+for several such HTBs.) So, it seems there could be good side of such
+unofficial status too - if you only have something really useful for
+others...
 
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/xfrm4_mode_beet.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/xfrm4_mode_beet.c b/net/ipv4/xfrm4_mode_beet.c
-index e093a7b..b47030b 100644
---- a/net/ipv4/xfrm4_mode_beet.c
-+++ b/net/ipv4/xfrm4_mode_beet.c
-@@ -102,7 +102,7 @@ static int xfrm4_beet_input(struct xfrm_state *x, struct sk_buff *skb)
- 
- 		XFRM_MODE_SKB_CB(skb)->protocol = ph->nexthdr;
- 
--		if (!pskb_may_pull(skb, phlen));
-+		if (!pskb_may_pull(skb, phlen))
- 			goto out;
- 		__skb_pull(skb, phlen);
- 	}
--- 
-1.5.2.2
-
----696243703-1682660206-1201989209=:2526--
+Cheers,
+Jarek P.
