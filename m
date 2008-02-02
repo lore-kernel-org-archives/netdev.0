@@ -1,35 +1,50 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: inet6_hash_connect() no longer uses secure_ipv6_port_ephemeral()
-Date: Sat, 2 Feb 2008 23:14:54 +0200
-Message-ID: <20080202211454.GB9375@cs181133002.pp.htv.fi>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: Re: [PATCH] [RFC] 3c509: convert to isa_driver and pnp_driver v2
+Date: Sat, 2 Feb 2008 22:28:57 +0100
+Message-ID: <200802022228.59527.linux@rainbow-software.org>
+References: <200801312012.43447.linux@rainbow-software.org> <200802021925.36552.linux@rainbow-software.org> <84144f020802021307ja672fdfl29e54483e9f900d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Pavel Emelyanov <xemul@openvz.org>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"Linux Kernel" <linux-kernel@vger.kernel.org>,
+	"Jeff Garzik" <jeff@garzik.org>
+To: "Pekka Enberg" <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:55246 "EHLO smtp4.pp.htv.fi"
+Received: from ns.gsystems.sk ([62.176.172.50]:56628 "EHLO www.gsystems.sk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753812AbYBBVQR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Feb 2008 16:16:17 -0500
+	id S1756476AbYBBV2x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Feb 2008 16:28:53 -0500
+In-Reply-To: <84144f020802021307ja672fdfl29e54483e9f900d@mail.gmail.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I do not claim to understand this code, but it doesn't seem to be 
-intentional that after commit 5ee31fc1ecdcbc234c8c56dcacef87c8e09909d8 
-inet6_hash_connect() now uses secure_ipv4_port_ephemeral() instead of 
-secure_ipv6_port_ephemeral() (inet6_sk_port_offset() is no longer 
-used and __inet_hash_connect() uses secure_ipv4_port_ephemeral()
-through inet_sk_port_offset())?
+On Saturday 02 February 2008 22:07:20 Pekka Enberg wrote:
+> Hi,
+>
+> On Feb 2, 2008 8:25 PM, Ondrej Zary <linux@rainbow-software.org> wrote:
+> > +//static __be16 el3_phys_addr[EL3_MAX_CARDS][3];
+>
+> [snip]
+>
+> > +//#if defined(CONFIG_MCA) || defined(CONFIG_EISA)
+>
+> [snip]
+>
+> > +//     while (el3_probe(el3_cards) == 0) {
+> > +//             if (irq[el3_cards] > 1)
+> > +//                     el3_root_dev->irq = irq[el3_cards];
+> > +//             if (xcvr[el3_cards] >= 0)
+> > +//                     el3_root_dev->if_port = xcvr[el3_cards];
+> > +//             el3_cards++;
+> > +//     }
+>
+> You might want to consider dropping these hunks...
 
-cu
-Adrian
+Yes, they're going away. The last one is there just as a reminder that the irq 
+and xcvr parameters should be used in the ISA code.
 
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+Ondrej Zary
