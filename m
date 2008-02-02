@@ -1,119 +1,130 @@
-From: Petr Vandrovec <petr@vandrovec.name>
-Subject: [PATCH] Unbreak sky2 on 88E8039 with current git
-Date: Sat, 2 Feb 2008 11:52:43 +0100
-Message-ID: <20080202105243.GA14581@vana.vc.cvut.cz>
+From: Dzianis Kahanovich <mahatma@bspu.unibel.by>
+Subject: [PATCH] NOTRACK only untracked
+Date: Sat, 02 Feb 2008 14:58:10 -0200
+Message-ID: <47A4A122.5070701@bspu.unibel.by>
+Reply-To: mahatma@eu.by
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: shemminger@linux-foundation.org
+Content-Type: multipart/mixed;
+ boundary="------------090301080000010501000208"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vana.vc.cvut.cz ([147.32.240.58]:37424 "EHLO vana.vc.cvut.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753950AbYBBLNH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Feb 2008 06:13:07 -0500
-Content-Disposition: inline
+Received: from mail.bspu.unibel.by ([195.50.2.21]:35341 "EHLO
+	mail.bspu.unibel.by" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbYBBM6R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2008 07:58:17 -0500
+Received: from [10.200.200.1] ([10.200.200.1])
+	by mail.bspu.unibel.by (8.14.1/8.14.0) with ESMTP id m12CwDU7022888
+	for <netdev@vger.kernel.org>; Sat, 2 Feb 2008 14:58:13 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-  since I synced my tree to Linus's one two days ago, sky2's packet receiption
-dies almost instantly.  Device still transmits packets, but no receive.  
-Fortunately fix is simple, unfortunately I do not know why fix works...
+This is a multi-part message in MIME format.
+--------------090301080000010501000208
+Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Commit f03b865491c2f30f2a4d77cdafc69c978ceb38a0 (sky2: align IP header on Rx
-if possible) stopped aligning receive buffers on devices which do not need
-HANG_CHECK.  Unfortunately there is at least one device (mine, Yukon FE, rev 3)
-which is not happy if receive buffer is not aligned.  I have no idea which
-other chips/revisions are affected as well.
+There are modification of NOTRACK netfilter target to avoid creating new 
+connection entries for packets, unrelated to any existing connection.
 
-Without patch 'ping -f -b 192.168.101.255' RX count stops incrementing in less
-than 50 packets.  With patch in place it can run like before, for hours...
-Box is an AMD rev F processor, with nVidia's MCP61 chipset.
-							Petr
+Best way to make new target (clone NOTRACK to NOTRACK-NEW and fix - to mix 
+both), but I have enough motivation to this work ;)
 
-gwy:/home/petr# lspci -vv -s 4:0.0  
-04:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8039 PCI-E Fast Ethernet Controller (rev 14)
-        Subsystem: Elitegroup Computer Systems Unknown device 8039
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
-        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-        Latency: 0, Cache Line Size: 64 bytes
-        Interrupt: pin A routed to IRQ 377
-        Region 0: Memory at fdcfc000 (64-bit, non-prefetchable) [size=16K]
-        Region 2: I/O ports at 8c00 [size=256]
-        Capabilities: [48] Power Management version 2
-                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-                Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-        Capabilities: [50] Vital Product Data <?>
-        Capabilities: [5c] Message Signalled Interrupts: Mask- 64bit+ Queue=0/1 Enable+
-                Address: 00000000fee0300c  Data: 41c9
-        Capabilities: [e0] Express (v1) Legacy Endpoint, MSI 00
-                DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s unlimited, L1 unlimited
-                        ExtTag- AttnBtn- AttnInd- PwrInd- RBE- FLReset-
-                DevCtl: Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
-                        RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
-                        MaxPayload 128 bytes, MaxReadReq 512 bytes
-                DevSta: CorrErr+ UncorrErr+ FatalErr- UnsuppReq+ AuxPwr+ TransPend-
-                LnkCap: Port #1, Speed 2.5GT/s, Width x1, ASPM L0s, Latency L0 <256ns, L1 unlimited
-                        ClockPM- Suprise- LLActRep- BwNot-
-                LnkCtl: ASPM Disabled; RCB 128 bytes Disabled- Retrain- CommClk+
-                        ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-                LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive- BWMgmt- ABWMgmt-
-        Capabilities: [100] Advanced Error Reporting <?>
-        Kernel driver in use: sky2
-        Kernel modules: sky2
+PS There are not same patch with netfilter@vger.kernel.org. Verifyed and 
+fixed. (& net-2.6.25)
 
+PPS Idea about u32 was bad. Sorry.
 
-Yukon FE, rev 3 needs receive buffers aligned, otherwise receiver hangs
-almost instantly.  They were aligned before, so let's start aligning
-them again - a bit suboptimal networking is much better than no networking
-at all.
+-- 
+WBR,
+Denis Kaganovich,  mahatma@eu.by  http://mahatma.bspu.unibel.by
 
-Signed-off-by: Petr Vandrovec <petr@vandrovec.name>
+--------------090301080000010501000208
+Content-Type: text/plain;
+ name="notrack-new.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="notrack-new.patch"
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -1192,7 +1192,7 @@ static struct sk_buff *sky2_rx_alloc(struct sky2_port *sky2)
- 	struct sk_buff *skb;
- 	int i;
+diff -pruN net-2.6.orig/net/netfilter/Kconfig net-2.6.fixed/net/netfilter/Kconfig
+--- net-2.6.orig/net/netfilter/Kconfig	2008-01-30 20:17:08.000000000 +0200
++++ net-2.6.fixed/net/netfilter/Kconfig	2008-02-02 14:37:22.000000000 +0200
+@@ -375,6 +375,12 @@ config NETFILTER_XT_TARGET_NOTRACK
+ 	  If you want to compile it as a module, say M here and read
+ 	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
  
--	if (sky2->hw->flags & SKY2_HW_FIFO_HANG_CHECK) {
-+	if (sky2->hw->flags & SKY2_HW_FIFO_RX_ALIGN) {
- 		unsigned char *start;
- 		/*
- 		 * Workaround for a bug in FIFO that cause hang
-@@ -2718,7 +2718,7 @@ static int __devinit sky2_init(struct sky2_hw *hw)
- 		hw->flags = SKY2_HW_GIGABIT
- 			| SKY2_HW_NEWER_PHY;
- 		if (hw->chip_rev < 3)
--			hw->flags |= SKY2_HW_FIFO_HANG_CHECK;
-+			hw->flags |= SKY2_HW_FIFO_HANG_CHECK | SKY2_HW_FIFO_RX_ALIGN;
++config NETFILTER_XT_TARGET_NOTRACK_NEW
++	bool "NOTRACK safe (only new)"
++	depends on NETFILTER_XT_TARGET_NOTRACK
++	help
++	  Slow but safe way to NOTRACK only new/untracked connections.
++
+ config NETFILTER_XT_TARGET_RATEEST
+ 	tristate '"RATEEST" target support'
+ 	depends on NETFILTER_XTABLES
+diff -pruN net-2.6.orig/net/netfilter/nf_conntrack_core.c net-2.6.fixed/net/netfilter/nf_conntrack_core.c
+--- net-2.6.orig/net/netfilter/nf_conntrack_core.c	2008-01-30 20:17:08.000000000 +0200
++++ net-2.6.fixed/net/netfilter/nf_conntrack_core.c	2008-02-02 14:22:53.000000000 +0200
+@@ -587,6 +587,9 @@ resolve_normal_ct(struct sk_buff *skb,
+ 	struct nf_conntrack_tuple tuple;
+ 	struct nf_conntrack_tuple_hash *h;
+ 	struct nf_conn *ct;
++#ifdef CONFIG_NETFILTER_XT_TARGET_NOTRACK_NEW
++	struct nf_conntrack_expect *exp;
++#endif
  
- 		break;
+ 	if (!nf_ct_get_tuple(skb, skb_network_offset(skb),
+ 			     dataoff, l3num, protonum, &tuple, l3proto,
+@@ -598,6 +601,17 @@ resolve_normal_ct(struct sk_buff *skb,
+ 	/* look for tuple match */
+ 	h = nf_conntrack_find_get(&tuple);
+ 	if (!h) {
++#ifdef CONFIG_NETFILTER_XT_TARGET_NOTRACK_NEW
++		if(skb->nfctinfo == IP_CT_NEW) {
++		    exp = nf_ct_expect_find_get(&tuple);
++		    if(!exp){
++			skb->nfct = &nf_conntrack_untracked.ct_general;
++			nf_conntrack_get(skb->nfct);
++			return NULL;
++		    }
++		    nf_ct_expect_put(exp);
++		}
++#endif
+ 		h = init_conntrack(&tuple, l3proto, l4proto, skb, dataoff);
+ 		if (!h)
+ 			return NULL;
+@@ -675,6 +689,12 @@ nf_conntrack_in(int pf, unsigned int hoo
+ 	ct = resolve_normal_ct(skb, dataoff, pf, protonum, l3proto, l4proto,
+ 			       &set_reply, &ctinfo);
+ 	if (!ct) {
++#ifdef CONFIG_NETFILTER_XT_TARGET_NOTRACK_NEW
++		if(skb->nfct == &nf_conntrack_untracked.ct_general){
++		    NF_CT_STAT_INC_ATOMIC(ignore);
++		    return NF_ACCEPT;
++		}
++#endif
+ 		/* Not valid part of a connection */
+ 		NF_CT_STAT_INC_ATOMIC(invalid);
+ 		return NF_ACCEPT;
+diff -pruN net-2.6.orig/net/netfilter/xt_NOTRACK.c net-2.6.fixed/net/netfilter/xt_NOTRACK.c
+--- net-2.6.orig/net/netfilter/xt_NOTRACK.c	2008-01-30 20:17:08.000000000 +0200
++++ net-2.6.fixed/net/netfilter/xt_NOTRACK.c	2008-02-02 14:22:02.000000000 +0200
+@@ -21,6 +21,9 @@ notrack_tg(struct sk_buff *skb, const st
+ 	if (skb->nfct != NULL)
+ 		return XT_CONTINUE;
  
-@@ -2745,10 +2745,12 @@ static int __devinit sky2_init(struct sky2_hw *hw)
- 			dev_err(&hw->pdev->dev, "unsupported revision Yukon-EC rev A1\n");
- 			return -EOPNOTSUPP;
- 		}
--		hw->flags = SKY2_HW_GIGABIT | SKY2_HW_FIFO_HANG_CHECK;
-+		hw->flags = SKY2_HW_GIGABIT | SKY2_HW_FIFO_HANG_CHECK | SKY2_HW_FIFO_RX_ALIGN;
- 		break;
++#ifdef CONFIG_NETFILTER_XT_TARGET_NOTRACK_NEW
++	skb->nfctinfo = IP_CT_NEW;
++#else
+ 	/* Attach fake conntrack entry.
+ 	   If there is a real ct entry correspondig to this packet,
+ 	   it'll hang aroun till timing out. We don't deal with it
+@@ -28,6 +31,7 @@ notrack_tg(struct sk_buff *skb, const st
+ 	skb->nfct = &nf_conntrack_untracked.ct_general;
+ 	skb->nfctinfo = IP_CT_NEW;
+ 	nf_conntrack_get(skb->nfct);
++#endif
  
- 	case CHIP_ID_YUKON_FE:
-+		if (hw->chip_rev == 3)
-+			hw->flags |= SKY2_HW_FIFO_RX_ALIGN;
- 		break;
- 
- 	case CHIP_ID_YUKON_FE_P:
-diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-index 2bced1a..b5c1457 100644
---- a/drivers/net/sky2.h
-+++ b/drivers/net/sky2.h
-@@ -2049,6 +2049,7 @@ struct sky2_hw {
- #define SKY2_HW_NEW_LE		0x00000020	/* new LSOv2 format */
- #define SKY2_HW_AUTO_TX_SUM	0x00000040	/* new IP decode for Tx */
- #define SKY2_HW_ADV_POWER_CTL	0x00000080	/* additional PHY power regs */
-+#define SKY2_HW_FIFO_RX_ALIGN	0x00000100
- 
- 	u8	     	     chip_id;
- 	u8		     chip_rev;
+ 	return XT_CONTINUE;
+ }
+
+--------------090301080000010501000208--
