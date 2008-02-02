@@ -1,35 +1,24 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [PATCH] sis190: fix compile error section type conflict
-Date: Sat, 2 Feb 2008 16:34:56 +0100
-Message-ID: <20080202153456.GA24031@uranus.ravnborg.org>
-References: <47A3FF3F.1040908@cn.fujitsu.com> <20080202143458.GA27978@electric-eye.fr.zoreil.com>
+From: fgnijuhhu guduggurehug <jsmiths1234@live.com>
+Subject: FW: r8169 auto-negotiation problem
+Date: Sat, 2 Feb 2008 17:46:17 +0000
+Message-ID: <BAY107-W4033FF1A4417D61C5177FD5310@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Li Zefan <lizf@cn.fujitsu.com>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, jgarzik@pobox.com
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763080AbYBBPfJ@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080202143458.GA27978@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bay0-omc1-s1.bay0.hotmail.com ([65.54.246.73]:31974 "EHLO
+	bay0-omc1-s1.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750979AbYBBRqS convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Feb 2008 12:46:18 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 02, 2008 at 03:34:58PM +0100, Francois Romieu wrote:
-> Li Zefan <lizf@cn.fujitsu.com> :
-> > Fix the following compile error:
-> 
-> I am not sure that it is the right fix. Please read the archive of
-> this week on l-k.
-> 
-> I'll submit the patch below to Jeff once I have tested it with real
-> hardware (sunday evening entertainment). Sam, is it ok to add your
-> s-o-b to it ?
-No - a s-o-b document the path of the patch. And it will not hit
-Jeff via me. Although I know I said ths was to way to do it.
-But you can add my:
-Acked-by: Sam Ravnborg <sam@ravnborg.org>
 
-If I posted the patch myself I do not remember - but then the s-o-b
-would be correct.
+Hello
 
-	Sam
+I already posted my problem and what I did to solve it on http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=461429 . In essence the 6.004.00-NAPI version from the Realtek site fixed it until now. My request is only that you try to get this version included in the kernel.
+_________________________________________________________________
+Express yourself instantly with MSN Messenger! Download today it's FREE!
+http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
