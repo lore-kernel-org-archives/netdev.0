@@ -1,42 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: oops with ipcomp
-Date: Sat, 2 Feb 2008 15:42:54 +1100
-Message-ID: <20080202044254.GA27792@gondor.apana.org.au>
-References: <3C59DB883F7B0B4D8096010D45ACCD134F209E@exch.facton.local>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] Disable TSO for non standard qdiscs
+Date: Sat, 2 Feb 2008 06:20:08 +0100
+Message-ID: <20080202052008.GA26132@one.firstfloor.org>
+References: <47A211A0.1040502@trash.net> <20080131190125.GE4671@one.firstfloor.org> <D5C1322C3E673F459512FB59E0DDC32904700E40@orsmsx414.amr.corp.intel.com> <20080131193406.GH4671@one.firstfloor.org> <1201847738.17656.5.camel@roma.44ansell.gdt.id.au> <20080201074600.GA12644@one.firstfloor.org> <47A2C985.30409@trash.net> <D5C1322C3E673F459512FB59E0DDC32904737A42@orsmsx414.amr.corp.intel.com> <47A2ECE9.5000103@trash.net> <1201867609.4465.50.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Beschorner Daniel <Daniel.Beschorner@facton.com>
+Cc: Patrick McHardy <kaber@trash.net>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	Andi Kleen <andi@firstfloor.org>, Glen Turner <gdt@gdt.id.au>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:39769 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758384AbYBBEm5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 23:42:57 -0500
+Received: from one.firstfloor.org ([213.235.205.2]:40225 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755665AbYBBEpf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 23:45:35 -0500
 Content-Disposition: inline
-In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD134F209E@exch.facton.local>
+In-Reply-To: <1201867609.4465.50.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 01, 2008 at 11:09:22AM +0100, Beschorner Daniel wrote:
-> One more issue with 2.6.24, some hours after I reactivated ipcomp with
-> Herb's 2 patches.
-> The httpd log shows a http request per esp tunnel at oops time.
-> Don't know whether it is for network or compression guys, so I started
-> posting here.
-> 
-> Unable to handle kernel paging request at ffffc200000fb000 RIP: 
->  [<ffffffff8031b8f0>] deflate_slow+0x40/0x400
+> Turning TSO off at netdev registration time with a warning will be a
+> cleaner IMO. Or alternatively introducing a kernel-config "I know what
 
-I'm not able to get much information out of this crash dump.  Nor
-can I reproduce this bug on my 32-bit machines and I'm currently
-away from my 64-bit machines.
+You mean the qdisc should force TSO off on the underlying device? 
 
-How long have you been using IPComp in the past and what was the
-last kernel version which was stable with IPComp?
+> TSO is" option which is then used at netdev registration. From a
+> usability perspective it would make more sense to just keep ethtool as
+> the only way to configure TSO. 
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ok, reasonable point.
+
+-Andi
