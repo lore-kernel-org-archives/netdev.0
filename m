@@ -1,52 +1,92 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] Disable TSO for non standard qdiscs
-Date: Fri, 1 Feb 2008 17:51:17 -0800
-Message-ID: <D5C1322C3E673F459512FB59E0DDC3290473814B@orsmsx414.amr.corp.intel.com>
-References: <1201867609.4465.50.camel@localhost> <20080201225627.GB3071@ami.dom.local>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: why does DCCP SO_REUSEADDR have to be SOL_DCCP?
+Date: Sat, 2 Feb 2008 00:52:59 -0200
+Message-ID: <20080202025259.GH17164@ghostprotocols.net>
+References: <47A3CA7F.8040300@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Patrick McHardy" <kaber@trash.net>,
-	"Andi Kleen" <andi@firstfloor.org>, "Glen Turner" <gdt@gdt.id.au>,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>,
-	<netdev@vger.kernel.org>
-To: "Jarek Poplawski" <jarkao2@gmail.com>, <hadi@cyberus.ca>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:17685 "EHLO mga03.intel.com"
+Received: from mx1.redhat.com ([66.187.233.31]:60213 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754929AbYBBBzb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2008 20:55:31 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20080201225627.GB3071@ami.dom.local>
+	id S1752700AbYBBCxH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2008 21:53:07 -0500
+Content-Disposition: inline
+In-Reply-To: <47A3CA7F.8040300@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I totally disagree with these POVs:
-> 
-> - 10G cards should be treated by default as 10G cards - not 
-> DSL modems,
->   and common users shouldn't have to read any warnings or configs to
->   see this.
-> - tc with TBF or HTB are professional tools; there should be 
-> added some
->   warnings to manuals. But trying to change the way they work because
->   we think we know better what users want, and changing BTW some other
->   things (making debugging this later a hell), is simply disrespectful
->   for target users of these tools. There are some wrappers or 
-> "creators"
->   invented for this. And, BTW, I think I've seen somewhere a system
->   which does this this other way - with creators for 
-> professionals. So,
->   you could be right with this too...
+Em Fri, Feb 01, 2008 at 05:42:23PM -0800, Rick Jones escreveu:
+> Hi -
+>
+> I'm tweaking the netperf omni tests to be able to run over DCCP.  I've run 
+> across a not-unorecedented problem with getaddrinfo() not groking either 
+> SOCK_DCCP or IPPROTO_DCCP in the hints, and that I can more or less live 
+> with - I had to do a kludge for getaddrinfo() for IPPROTO_SCTP under Linux 
+> at one point and I can see how the two are not necessarily going to be in 
+> sync.
 
-Ok, maybe I'm not done quite yet.  Jarek is echo'ing my original point,
-changing the behavior of the tool automatically (these qdiscs in
-question) is not good for a normal end user.  It might be fine for
-kernel developers, but not users of these tools, IMO.  A less disruptive
-approach, such as a warning message printed when loading the qdisc if
-TSO is enabled, and documenting recommended usage, I think is more
-prudent here.
+See the ttcp patch where we do a xgetaddrinfo crude hack to handle dccp:
 
-Cheers,
--PJ Waskiewicz
+http://vger.kernel.org/~acme/dccp/ttcp.c
+
+> And I've worked-around no user-level include files (ie without setting 
+> __KERNEL__) define the DCCP stuff, and that is OK too, albeit somewhat 
+> inconvenient.
+
+Humm, for what? Again, see the ttcp code above:
+
+> My question though is why on earth does an SO_REUSEADDR setsockopt() 
+> against a DCCP socket have to be SOL_DCCP?  SCTP and TCP are quite happy 
+> with SOL_SOCKET, and it might be foolish consistency, but since the option 
+> _does_ begin with SO_ I'd have expected it to work for SOL_SOCKET, but 
+> (again RHEL5.1, yes, I do plan on getting upstream but have to satisfy 
+> several masters) it doesn't seem to be the case - a subsequent listen() or 
+> connect() call after an SOL_SOCKET SO_REUSEADDR against a DCCP socket 
+> leaves one SOL as it were...
+
+Strange, lemme check...
+
+ 1. sys_socketcall ->
+ 2.  sys_setsockopt ->
+ 3.    if (level == SOL_SOCKET) {
+ 4.      sock_setsockopt:
+ 5.        case SO_REUSEADDR:
+ 6.          sk->sk_reuse = valbool;
+ 7.    } else
+ 8.      sock->ops->setsockopt = inet_dccp_ops->setsockopt =
+ 9.        inet_dccp_ops->setsockopt = sock_common_setsockopt ->
+10.          sk->sk_prot->setsockopt = dccp_v4_prot->setsockopt =
+11.	    dccp_setsockopt
+12.              if (level != SOL_DCCP)
+13.                return inet_csk(sk)->icsk_af_ops->setsockopt() =
+14.		  ip_setsockopt
+15.              return do_dccp_setsockopt()
+
+SO_REUSEADDR is handled in 4, if you pass SOL_SOCKET.
+
+If instead you pass SOL_DCCP we'll go down the rabbit hole till
+do_dccp_setsockopt() and SO_REUSEADDR, that is equal to 2, will be
+interpreted as DCCP_SOCKOPT_SERVICE, that is also equal to 2, so you'll
+be setting the service, not changing the SO_REUSEADDR setting.
+
+The problem here is that you need to use:
+
+setsockopt(fd, SOL_DCCP, DCCP_SOCKOPT_PACKET_SIZE, service,
+           sizeof(service));
+
+Again, take a look at the ttcp patch, the other patches for iperf,
+netcat, etc handles this.
+
+> Of course the setsockopt(SO_REUSEADDR) against the DCCP socket using 
+> SOL_SOCKET itself doesn't fail, only the later listen() or connect() 
+> call...
+>
+> happy benchmarking,
+
+Look forward for a happy DCCP netperf bencharking session!
+
+Thanks a lot,
+
+- Arnaldo
