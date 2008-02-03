@@ -1,74 +1,113 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] Unbreak sky2 on 88E8039 with current git
-Date: Sun, 3 Feb 2008 10:08:47 -0800
-Message-ID: <20080203100847.3022883e@extreme>
-References: <20080202105243.GA14581@vana.vc.cvut.cz>
-	<20080202120203.5387d1cb@extreme>
-	<47A51168.5040301@vandrovec.name>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH] [NET] phy/broadcom: add support for BCM5481 PHY
+Date: Sun, 3 Feb 2008 21:58:04 +0300
+Message-ID: <20080203185804.GA30342@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Petr Vandrovec <petr@vandrovec.name>
+Content-Type: text/plain; charset=utf8
+Cc: "Maciej W. Rozycki" <macro@linux-mips.org>,
+	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:33764 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751106AbYBCSJa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2008 13:09:30 -0500
-In-Reply-To: <47A51168.5040301@vandrovec.name>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:42432 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750813AbYBCS6Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2008 13:58:16 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 02 Feb 2008 16:57:12 -0800
-Petr Vandrovec <petr@vandrovec.name> wrote:
+This patch adds support for BCM5481 PHY. Unfortunately it's hard to
+get specifications for this PHY, so its special register 0x18 isn't
+annotated properly (but we know it's used to set up the delays).
 
-> Stephen Hemminger wrote:
-> > On Sat, 2 Feb 2008 11:52:43 +0100
-> > Petr Vandrovec <petr@vandrovec.name> wrote:
-> > 
-> >> Hello,
-> >>   since I synced my tree to Linus's one two days ago, sky2's packet receiption
-> >> dies almost instantly.  Device still transmits packets, but no receive.  
-> >> Fortunately fix is simple, unfortunately I do not know why fix works...
-> >>
-> >> Commit f03b865491c2f30f2a4d77cdafc69c978ceb38a0 (sky2: align IP header on Rx
-> >> if possible) stopped aligning receive buffers on devices which do not need
-> >> HANG_CHECK.  Unfortunately there is at least one device (mine, Yukon FE, rev 3)
-> >> which is not happy if receive buffer is not aligned.  I have no idea which
-> >> other chips/revisions are affected as well.
-> >>
-> >> Without patch 'ping -f -b 192.168.101.255' RX count stops incrementing in less
-> >> than 50 packets.  With patch in place it can run like before, for hours...
-> >> Box is an AMD rev F processor, with nVidia's MCP61 chipset.
-> >> 							Petr
-> > 
-> > I don't have a Yukon FE, but I believe that the Yukon FE does have a ram
-> > buffer, so you HANG_CHECK should be enabled for that device. You can check
-> > by running:
-> > 	ethtool -d eth0 | grep 'Ram Buffer'
-> > With ram buffer (like XL, EC)
-> > 	
-> > # ethtool -d eth0 | grep 'Ram Buffer'
-> > Ram Buffer                   0x18
-> > 
-> > No ram buffer (like EC-U, FE+, ...)
-> > # ethtool -d eth0 | grep 'Ram Buffer'
-> > Ram Buffer                   0x00
-> 
-> Some small one (if it is size):
-> 
-> gwy:~# ethtool -d eth0 | grep 'Ram'
-> Ram Buffer                   0x01
-> 
-> I've never observed hang on that device, and I have it for over year. I 
-> stress it sufficiently to kill EC rev 2 I have in the notebook when I 
-> copy some data between these two boxes, but this FE never hung.
-> 							Petr
-> 
+I've kept the magic numbers, so we'll not forget to fix it at the
+first opportunity, and will name that register and its bits correctly.
 
-Since the ram buffer is only 4K on this chip, 2K is used for rx.
-You probably could make it hang by making CPU busy and hitting it
-with 2 packets whose total length is was 1K each.
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
+ drivers/net/phy/broadcom.c |   54 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 54 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index 29666c8..d15280e 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -99,6 +99,41 @@ static int bcm54xx_config_intr(struct phy_device *phydev)
+ 	return err;
+ }
+ 
++static int bcm5481_config_aneg(struct phy_device *phydev)
++{
++	int ret;
++
++	/* Aneg firsly. */
++	ret = genphy_config_aneg(phydev);
++
++	/* Then we can set up the delay. */
++	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
++		u16 reg;
++
++		/*
++		 * There is no BCM5481 specification available, so down
++		 * here is everything we know about "register 0x18". This
++		 * at least helps BCM5481 to successfuly receive packets
++		 * on MPC8360E-RDK board. Peter Barada <peterb@logicpd.com>
++		 * says: "This sets delay between the RXD and RXC signals
++		 * instead of using trace lengths to achieve timing".
++		 */
++
++		/* Set RDX clk delay. */
++		reg = 0x7 | (0x7 << 12);
++		phy_write(phydev, 0x18, reg);
++
++		reg = phy_read(phydev, 0x18);
++		/* Set RDX-RXC skew. */
++		reg |= (1 << 8);
++		/* Write bits 14:0. */
++		reg |= (1 << 15);
++		phy_write(phydev, 0x18, reg);
++	}
++
++	return ret;
++}
++
+ static struct phy_driver bcm5411_driver = {
+ 	.phy_id		= 0x00206070,
+ 	.phy_id_mask	= 0xfffffff0,
+@@ -141,6 +176,20 @@ static struct phy_driver bcm5461_driver = {
+ 	.driver 	= { .owner = THIS_MODULE },
+ };
+ 
++static struct phy_driver bcm5481_driver = {
++	.phy_id		= 0x0143bca0,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Broadcom BCM5481",
++	.features	= PHY_GBIT_FEATURES,
++	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.config_init	= bcm54xx_config_init,
++	.config_aneg	= bcm5481_config_aneg,
++	.read_status	= genphy_read_status,
++	.ack_interrupt	= bcm54xx_ack_interrupt,
++	.config_intr	= bcm54xx_config_intr,
++	.driver 	= { .owner = THIS_MODULE },
++};
++
+ static int __init broadcom_init(void)
+ {
+ 	int ret;
+@@ -154,8 +203,13 @@ static int __init broadcom_init(void)
+ 	ret = phy_driver_register(&bcm5461_driver);
+ 	if (ret)
+ 		goto out_5461;
++	ret = phy_driver_register(&bcm5481_driver);
++	if (ret)
++		goto out_5481;
+ 	return ret;
+ 
++out_5481:
++	phy_driver_unregister(&bcm5461_driver);
+ out_5461:
+ 	phy_driver_unregister(&bcm5421_driver);
+ out_5421:
 -- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+1.5.2.2
