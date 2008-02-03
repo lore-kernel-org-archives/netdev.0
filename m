@@ -1,71 +1,114 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: [2.6 patch] net/phy/fixed.c: fix a use-after-free
-Date: Sun, 3 Feb 2008 17:21:23 +0300
-Message-ID: <20080203142123.GA6573@localhost.localdomain>
-References: <20080202211502.GC9375@cs181133002.pp.htv.fi>
-Reply-To: avorontsov@ru.mvista.com
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH][NET_SCHED] sch_tree_lock in cbq_put, hfsc_put_class and
+	htb_put
+Date: Sun, 3 Feb 2008 15:52:34 +0100
+Message-ID: <20080203145234.GA3170@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: Vitaly Bordug <vitb@kernel.crashing.org>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	jamal <hadi@cyberus.ca>, Patrick McHardy <kaber@trash.net>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:41700 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752782AbYBCOVe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2008 09:21:34 -0500
+Received: from hu-out-0506.google.com ([72.14.214.226]:43067 "EHLO
+	hu-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762803AbYBCOt4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2008 09:49:56 -0500
+Received: by hu-out-0506.google.com with SMTP id 19so1660476hue.21
+        for <netdev@vger.kernel.org>; Sun, 03 Feb 2008 06:49:53 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20080202211502.GC9375@cs181133002.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 02, 2008 at 11:15:02PM +0200, Adrian Bunk wrote:
-> This patch fixes a use-after-free introduced by
-> commit a79d8e93d300adb84cccc38ac396cfb118c238ad and spotted by the 
-> Coverity checker.
+[NET_SCHED] sch_tree_lock in cbq_put, hfsc_put_class and htb_put
 
-Nice catch.
+Qdisc_class_ops ->put() "methods" call xxx_destroy_class() functions
+without sch_tree_lock(), which is needed at least for qdisc_destroy()
+of a subqueue, but also for deactivating and list/rb_tree updates in
+case of HTB. (Since errors caused by such a bug could be very hard to
+reproduce the effectiveness of this patch wasn't confirmed by tests,
+but IMHO the need of this lock is quite obvious here.)
 
-We didn't encounter this bug because fixed.c is bool, so
-module_exit isn't used. Thus, technically, we can remove it
-completely.
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+ 
+---
 
-But I prefer your patch, because later, we might want to create
-library versions of the fixed_mdio_bus_{init,exit}. To use, for
-example, with PCI ethernet card that might have MDIO-less PHY,
-i.e. configuration is hardwired in the eeprom, but driver still
-want to use phylib framework.
+ net/sched/sch_cbq.c  |   14 ++++++++------
+ net/sched/sch_hfsc.c |    5 ++++-
+ net/sched/sch_htb.c  |    5 ++++-
+ 3 files changed, 16 insertions(+), 8 deletions(-)
 
-Thanks,
-
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
-> 
-> ---
-> 20c51455b2faed63c3026fd4d7139e5a6a917d31 
-> diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
-> index 73b6d39..ca9b040 100644
-> --- a/drivers/net/phy/fixed.c
-> +++ b/drivers/net/phy/fixed.c
-> @@ -236,12 +236,12 @@ module_init(fixed_mdio_bus_init);
->  static void __exit fixed_mdio_bus_exit(void)
->  {
->  	struct fixed_mdio_bus *fmb = &platform_fmb;
-> -	struct fixed_phy *fp;
-> +	struct fixed_phy *fp, *tmp;
->  
->  	mdiobus_unregister(&fmb->mii_bus);
->  	platform_device_unregister(pdev);
->  
-> -	list_for_each_entry(fp, &fmb->phys, node) {
-> +	list_for_each_entry_safe(fp, tmp, &fmb->phys, node) {
->  		list_del(&fp->node);
->  		kfree(fp);
->  	}
-> 
-> 
-
--- 
-Anton Vorontsov
-email: cbou@mail.ru
-backup email: ya-cbou@yandex.ru
-irc://irc.freenode.net/bd2
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index 09969c1..bbf47fe 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -1748,16 +1748,18 @@ static void cbq_put(struct Qdisc *sch, unsigned long arg)
+ 	struct cbq_class *cl = (struct cbq_class*)arg;
+ 
+ 	if (--cl->refcnt == 0) {
++		sch_tree_lock(sch);
+ #ifdef CONFIG_NET_CLS_ACT
+-		struct cbq_sched_data *q = qdisc_priv(sch);
++		{
++			struct cbq_sched_data *q = qdisc_priv(sch);
+ 
+-		spin_lock_bh(&sch->dev->queue_lock);
+-		if (q->rx_class == cl)
+-			q->rx_class = NULL;
+-		spin_unlock_bh(&sch->dev->queue_lock);
++			if (q->rx_class == cl)
++				q->rx_class = NULL;
++		}
+ #endif
+ 
+ 		cbq_destroy_class(sch, cl);
++		sch_tree_unlock(sch);
+ 	}
+ }
+ 
+@@ -1965,10 +1967,10 @@ static int cbq_delete(struct Qdisc *sch, unsigned long arg)
+ 	cbq_sync_defmap(cl);
+ 
+ 	cbq_rmprio(q, cl);
+-	sch_tree_unlock(sch);
+ 
+ 	if (--cl->refcnt == 0)
+ 		cbq_destroy_class(sch, cl);
++	sch_tree_unlock(sch);
+ 
+ 	return 0;
+ }
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 87293d0..494d042 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -1262,8 +1262,11 @@ hfsc_put_class(struct Qdisc *sch, unsigned long arg)
+ {
+ 	struct hfsc_class *cl = (struct hfsc_class *)arg;
+ 
+-	if (--cl->refcnt == 0)
++	if (--cl->refcnt == 0) {
++		sch_tree_lock(sch);
+ 		hfsc_destroy_class(sch, cl);
++		sch_tree_unlock(sch);
++	}
+ }
+ 
+ static unsigned long
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index e1a579e..268a2d1 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1305,8 +1305,11 @@ static void htb_put(struct Qdisc *sch, unsigned long arg)
+ {
+ 	struct htb_class *cl = (struct htb_class *)arg;
+ 
+-	if (--cl->refcnt == 0)
++	if (--cl->refcnt == 0) {
++		sch_tree_lock(sch);
+ 		htb_destroy_class(sch, cl);
++		sch_tree_unlock(sch);
++	}
+ }
+ 
+ static int htb_change_class(struct Qdisc *sch, u32 classid,
