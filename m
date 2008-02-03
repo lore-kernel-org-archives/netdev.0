@@ -1,51 +1,71 @@
-From: "John Heffner" <johnwheffner@gmail.com>
-Subject: Re: No pmtu probing on retransmits?
-Date: Sun, 3 Feb 2008 09:04:02 -0500
-Message-ID: <1e41a3230802030604s247029a7yc0ffaa59622fb866@mail.gmail.com>
-References: <20080203123719.GA3323@basil.nowhere.org>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [2.6 patch] net/phy/fixed.c: fix a use-after-free
+Date: Sun, 3 Feb 2008 17:21:23 +0300
+Message-ID: <20080203142123.GA6573@localhost.localdomain>
+References: <20080202211502.GC9375@cs181133002.pp.htv.fi>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Andi Kleen" <andi@firstfloor.org>
+Content-Type: text/plain; charset=utf8
+Cc: Vitaly Bordug <vitb@kernel.crashing.org>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.180]:15696 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753895AbYBCOED (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2008 09:04:03 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so2290415wah.23
-        for <netdev@vger.kernel.org>; Sun, 03 Feb 2008 06:04:03 -0800 (PST)
-In-Reply-To: <20080203123719.GA3323@basil.nowhere.org>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:41700 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752782AbYBCOVe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2008 09:21:34 -0500
 Content-Disposition: inline
+In-Reply-To: <20080202211502.GC9375@cs181133002.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen wrote:
-> Hallo,
->
-> While looking for something else in tcp_output.c I noticed that
-> MTU probing seems to be only done in tcp_write_xmit (when
-> packets come directly from process context), but not via the timer
-> driven timer retransmit path (tcp_retransmit_skb). Is that intentional?
-> It looks quite weird. I would normally assume PMTU blackholes get usually
-> detected on retransmit timeouts. Or do I miss something?
+On Sat, Feb 02, 2008 at 11:15:02PM +0200, Adrian Bunk wrote:
+> This patch fixes a use-after-free introduced by
+> commit a79d8e93d300adb84cccc38ac396cfb118c238ad and spotted by the 
+> Coverity checker.
 
-MTU probing occurs only when everything is going fine.  We are probing
-a larger size than currently in use.  In the case of a timeout, we
-want to retransmit with the safe smaller size.
+Nice catch.
 
+We didn't encounter this bug because fixed.c is bool, so
+module_exit isn't used. Thus, technically, we can remove it
+completely.
 
-> You seem to have assumed interrupt context at least
-> because tcp_mtu_probe() uses GFP_ATOMIC which is only needed for
-> interrupts. Currently it is only called in process context I think.
+But I prefer your patch, because later, we might want to create
+library versions of the fixed_mdio_bus_{init,exit}. To use, for
+example, with PCI ethernet card that might have MDIO-less PHY,
+i.e. configuration is hardwired in the eeprom, but driver still
+want to use phylib framework.
 
-I'm pretty sure it'll get called on ACK processing in softirq, f.e.:
-tcp_mtu_probe()
-tcp_write_xmit()
-__tcp_push_pending_frames()
-tcp_data_snd_check()
-tcp_rcv_established()
+Thanks,
 
-Am I missing something?
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> 
+> ---
+> 20c51455b2faed63c3026fd4d7139e5a6a917d31 
+> diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
+> index 73b6d39..ca9b040 100644
+> --- a/drivers/net/phy/fixed.c
+> +++ b/drivers/net/phy/fixed.c
+> @@ -236,12 +236,12 @@ module_init(fixed_mdio_bus_init);
+>  static void __exit fixed_mdio_bus_exit(void)
+>  {
+>  	struct fixed_mdio_bus *fmb = &platform_fmb;
+> -	struct fixed_phy *fp;
+> +	struct fixed_phy *fp, *tmp;
+>  
+>  	mdiobus_unregister(&fmb->mii_bus);
+>  	platform_device_unregister(pdev);
+>  
+> -	list_for_each_entry(fp, &fmb->phys, node) {
+> +	list_for_each_entry_safe(fp, tmp, &fmb->phys, node) {
+>  		list_del(&fp->node);
+>  		kfree(fp);
+>  	}
+> 
+> 
 
-  -John
+-- 
+Anton Vorontsov
+email: cbou@mail.ru
+backup email: ya-cbou@yandex.ru
+irc://irc.freenode.net/bd2
