@@ -1,32 +1,27 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: No pmtu probing on retransmits?
-Date: Sun, 3 Feb 2008 13:37:19 +0100
-Message-ID: <20080203123719.GA3323@basil.nowhere.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 'fixes' 2008-02-01
+Date: Sun, 03 Feb 2008 04:44:37 -0800 (PST)
+Message-ID: <20080203.044437.53188523.davem@davemloft.net>
+References: <20080201224100.GD3050@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: jheffner@psc.edu, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out04.alice-dsl.net ([88.44.63.6]:8079 "EHLO
-	smtp-out04.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935844AbYBCMhg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2008 07:37:36 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080201224100.GD3050-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Fri, 1 Feb 2008 17:41:00 -0500
 
-Hallo,
+> Dave,
+> 
+> Here are some more fixes suitable for 2.6.25.  Also there is a patch
+> that includes the mac80211 alignment warning as a configurable option,
+> which should stop it from annoying normal users.
+> 
+> Let me know if there are problems!
 
-While looking for something else in tcp_output.c I noticed that
-MTU probing seems to be only done in tcp_write_xmit (when
-packets come directly from process context), but not via the timer
-driven timer retransmit path (tcp_retransmit_skb). Is that intentional?
-It looks quite weird. I would normally assume PMTU blackholes get usually
-detected on retransmit timeouts. Or do I miss something? 
-
-You seem to have assumed interrupt context at least
-because tcp_mtu_probe() uses GFP_ATOMIC which is only needed for
-interrupts. Currently it is only called in process context I think.
-
--Andi
-
+Pulled and pushed back out, thanks John.
