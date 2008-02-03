@@ -1,84 +1,84 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: [PATCH 00/10] atl1: move to atlx and update for 2.6.25
-Date: Sat, 2 Feb 2008 19:52:20 -0600
-Message-ID: <20080202195220.1d699020@osprey.hogchain.net>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: Re: linux-2.6.24 compile error in drivers/net/b44.c
+Date: Sun, 03 Feb 2008 09:53:10 +0800
+Message-ID: <47A51E86.8080305@cn.fujitsu.com>
+References: <47A3CC70.8090900@cn.fujitsu.com> <47A3F6DC.1000903@cn.fujitsu.com> <47A4CB7C.3010507@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Chris Snook <csnook@redhat.com>
-To: jeff@garzik.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, zambrano@broadcom.com,
+	linville@tuxdriver.com
+To: =?UTF-8?B?TWlndWVsIEJvdMOzbg==?= <mboton@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost02.isp.att.net ([204.127.217.102]:41567 "EHLO
-	fmailhost02.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935836AbYBCBwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2008 20:52:23 -0500
+Received: from cn.fujitsu.com ([222.73.24.84]:56121 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S936352AbYBCByA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Feb 2008 20:54:00 -0500
+In-Reply-To: <47A4CB7C.3010507@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation for a future atl2 driver for the Atheros L2 10/100 chip,
-we propose to move the existing atl1 driver to a new directory
-(drivers/net/atlx), then split out functions and definitions that both
-atl1 and atl2 can share.  The final structure will look like this:
+Miguel Bot=C3=B3n =E5=86=99=E9=81=93:
+> Li Zefan wrote:
+>> Add CCs:
+>>
+>> CC: mboton@gmail.com
+>> CC: zambrano@broadcom.com
+>> CC: linville@tuxdriver.com
+>>
+>> Li Zefan wrote:
+>>> drivers/net/b44.c: In function 'b44_remove_one':
+>>> drivers/net/b44.c:2231: error: implicit declaration of function 'ss=
+b_pcihost_set_power_state'
+>>> make[2]: *** [drivers/net/b44.o] Error 1
+>>> make[1]: *** [drivers/net] Error 2
+>>>
+>>> I think it is caused by:
+>>>
+>>> CONFIG_SSB_PCIHOST=3Dn
+>>> CONFIG_B44=3Dy
+>>>
+>>
+>=20
+> This patch should fix b44 errors when 'SSB_PCIHOST' is not enabled.
+>=20
 
-drivers/net/atl1                deleted
-drivers/net/atlx                new
-drivers/net/atlx/atl1.c         atl1-specific functions
-drivers/net/atlx/atl1.h         atl1-specific definitions
-drivers/net/atlx/atlx.c         atl1-atl2 shared functions
-drivers/net/atlx/atlx.h         atl1-atl2 shared definitions
+I tried the patch, but it does't work, same compile error. :(
 
-The first two patches submitted in this patchset accomplish the
-relocation by moving the atl1 driver over to drivers/net/atlx, then
-splitting out shareable functions and definitions.  Some transitory
-hackery will be present until the atl2 merge.  Please overlook it for
-now.
+If .config is needed, tell me and I will attach it.
 
-The remaining 8 patches provide some cleanup and minor functionality
-changes, the most important of which is a fix to our long-broken TSO
-capability.
+> Signed-off-by: Miguel Bot=C3=B3n <mboton@gmail.com>
+>=20
+> diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+> index ea2a2b5..d081234 100644
+> --- a/drivers/net/b44.c
+> +++ b/drivers/net/b44.c
+> @@ -2228,7 +2228,9 @@ static void __devexit b44_remove_one(struct ssb=
+_device *sdev)
+>  	unregister_netdev(dev);
+>  	ssb_bus_may_powerdown(sdev->bus);
+>  	free_netdev(dev);
+> +#ifdef B44_PCI
+>  	ssb_pcihost_set_power_state(sdev, PCI_D3hot);
+> +#endif
+>  	ssb_set_drvdata(sdev, NULL);
+>  }
+> =20
+> @@ -2257,7 +2259,9 @@ static int b44_suspend(struct ssb_device *sdev,=
+ pm_message_t state)
+>  		b44_setup_wol(bp);
+>  	}
+> =20
+> +#ifdef B44_PCI
+>  	ssb_pcihost_set_power_state(sdev, PCI_D3hot);
+> +#endif
+>  	return 0;
+>  }
+> =20
+> --
+> 	Miguel Bot=C3=B3n
+>=20
+>=20
 
-The "conform to vendor driver" patches submitted on 31 December 2007
-have been dropped.
-
-Table of contents:
----
-0001-atl1-relocate-atl1-driver-to-drivers-net-atlx.patch
-0002-atl1-move-common-functions-to-atlx-files.patch
-0003-atl1-fix-broken-TSO.patch
-0004-atl1-add-ethtool-register-dump.patch
-0005-atl1-simplify-tx-packet-descriptor.patch
-0006-atl1-use-csum_start.patch
-0007-atl1-use-netif_msg.patch
-0008-atl1-print-debug-info-if-rrd-error.patch
-0009-atl1-make-functions-static.patch
-0010-atl1-reduce-forward-declarations.patch
-
-
-Summary diffstat:
----
- drivers/net/Makefile                          |    2 +-
- drivers/net/atl1/Makefile                     |    2 -
- drivers/net/atl1/atl1.h                       |  286 ----
- drivers/net/atl1/atl1_ethtool.c               |  505 ------
- drivers/net/atl1/atl1_hw.c                    |  720 ---------
- drivers/net/atl1/atl1_hw.h                    |  946 -----------
- drivers/net/atl1/atl1_param.c                 |  203 ---
- drivers/net/atlx/Makefile                     |    1 +
- drivers/net/{atl1/atl1_main.c => atlx/atl1.c} | 2118
-+++++++++++++++++++------ drivers/net/atlx/atl1.h
-|  796 ++++++++++ drivers/net/atlx/atlx.c                       |  433
-+++++ drivers/net/atlx/atlx.h                       |  506 ++++++
- 12 files changed, 3352 insertions(+), 3166 deletions(-)
- delete mode 100644 drivers/net/atl1/Makefile
- delete mode 100644 drivers/net/atl1/atl1.h
- delete mode 100644 drivers/net/atl1/atl1_ethtool.c
- delete mode 100644 drivers/net/atl1/atl1_hw.c
- delete mode 100644 drivers/net/atl1/atl1_hw.h
- delete mode 100644 drivers/net/atl1/atl1_param.c
- create mode 100644 drivers/net/atlx/Makefile
- rename drivers/net/{atl1/atl1_main.c => atlx/atl1.c} (57%)
- create mode 100644 drivers/net/atlx/atl1.h
- create mode 100644 drivers/net/atlx/atlx.c
- create mode 100644 drivers/net/atlx/atlx.h
 
