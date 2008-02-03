@@ -1,38 +1,30 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] Disable TSO for non standard qdiscs
-Date: Sun, 3 Feb 2008 10:35:30 +0100
-Message-ID: <20080203093530.GA20908@one.firstfloor.org>
-References: <20080131185328.GD4671@one.firstfloor.org> <E1JLRIM-0008FO-00@gondolin.me.apana.org.au>
+From: Kostya B <bkostya@hotmail.com>
+Subject: LRO ip_summed
+Date: Sun, 3 Feb 2008 09:48:17 +0000
+Message-ID: <BAY121-W366A043ECDC160494B1EFAB6320@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, shemminger@linux-foundation.org,
-	kaber@trash.net, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="windows-1255"
+Content-Transfer-Encoding: 8bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:46983 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936331AbYBCJAv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2008 04:00:51 -0500
-Content-Disposition: inline
-In-Reply-To: <E1JLRIM-0008FO-00@gondolin.me.apana.org.au>
+Received: from bay0-omc1-s31.bay0.hotmail.com ([65.54.246.103]:22710 "EHLO
+	bay0-omc1-s31.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760488AbYBCJsU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2008 04:48:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 03, 2008 at 09:57:10AM +1100, Herbert Xu wrote:
-> Andi Kleen <andi@firstfloor.org> wrote:
-> >> Then change TBF to use skb_gso_segment?  Be careful, the fact that
-> > 
-> > That doesn't help because it wants to interleave packets
-> > from different streams to get everything fair and smooth. The only 
-> > good way to handle that is to split it up and the simplest way to do 
-> > this is to just tell TCP to not do GSO in the first place.
-> 
-> Actually if we're going to do this I'd prefer you to call skb_gso_segment
-> instead because that lets us at least bypass netfilter which is one of
-> the key benefits of software GSO.
 
-Ok. The only problem I see right now is that skb_segment() seems to overuse
-GFP_ATOMIC which would make it unreliable, but that is something that can be 
-fixed.
+Hi,
 
--Andi
+The mail is related to the way LRO manipulates the ip_summed value. Could anybody (author) explain why to overwrite the original value of skb->ip_summed, when it's processing by __lro_proc_skb ?
+E.g. in out: label
+
+Why not to preserve the coherency of csum status of each incoming to LRO packet, the same way the IP defragmentation does? That means - all skb in descriptor have the same value of ip_summed.
+
+Tnx,
+- Kostya
+
+_________________________________________________________________
+Express yourself instantly with MSN Messenger! Download today it's FREE!
+http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
