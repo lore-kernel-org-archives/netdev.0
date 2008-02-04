@@ -1,80 +1,46 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [Wireless,
-	ath5k] 2.6.24-git13	9135f1901ee6449dfe338adf6e40e9c2025b8150
-Date: Mon, 04 Feb 2008 16:52:14 -0500
-Message-ID: <1202161934.24527.5.camel@localhost.localdomain>
-References: <6101e8c40802040600q804e40cs97d0031920e58d9d@mail.gmail.com>
-	<47A774AB.5060008@gmail.com>
-	<6101e8c40802041334o20b2b391la5b0a5f557ee67c5@mail.gmail.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] xircom_cb should return NETDEV_TX_BUSY when there are
+ no descriptors available
+Date: Mon, 04 Feb 2008 17:31:50 -0500
+Message-ID: <47A79256.2040805@pobox.com>
+References: <20080204175653.GC16952@gateway.home> <20080204212037.GB11417@gateway.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org, "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Bruno Randolf <bruno-L9ZBdB2wSWtl57MIdRCFDg@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Oliver Pinter <oliver.pntr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-In-Reply-To: <6101e8c40802041334o20b2b391la5b0a5f557ee67c5-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
-List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
-Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	jamal <hadi@cyberus.ca>
+To: Erik Mouw <mouw@nl.linux.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:53987 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752772AbYBDWbz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Feb 2008 17:31:55 -0500
+In-Reply-To: <20080204212037.GB11417@gateway.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCAyMDA4LTAyLTA0IGF0IDIyOjM0ICswMTAwLCBPbGl2ZXIgUGludGVyIHdyb3RlOgo+
-IE9uIDIvNC8wOCwgSmlyaSBTbGFieSA8amlyaXNsYWJ5QGdtYWlsLmNvbT4gd3JvdGU6Cj4gPiBP
-biAwMi8wNC8yMDA4IDAzOjAwIFBNLCBPbGl2ZXIgUGludGVyIChQaW50w6lyIE9saXbDqXIpIHdy
-b3RlOgo+ID4gPiBnaXQgdG9wOiA5MTM1ZjE5MDFlZTY0NDlkZmUzMzhhZGY2ZTQwZTljMjAyNWI4
-MTUwCj4gPiA+Cj4gPiA+IFsgIDM5OS41ODIxODVdIHdwYV9zdXBwbGljYW50WzQzODNdOiBzZWdm
-YXVsdCBhdCAzMCBpcCAwODA2OTdjYSBzcAo+ID4gPiBiZjg3YTY5MCBlcnJvciA0IGluIHdwYV9z
-dXBwbGljYW50WzgwNDgwMDArNGMwMDBdCj4gPiA+IFsgIDQwNi4yNzcxOTldIHdwYV9zdXBwbGlj
-YW50WzQzODRdOiBzZWdmYXVsdCBhdCAzMCBpcCAwODA2OTdjYSBzcAo+ID4gPiBiZmMxM2EzMCBl
-cnJvciA0IGluIHdwYV9zdXBwbGljYW50WzgwNDgwMDArNGMwMDBdCj4gPiA+IFsgIDQwNy41ODYz
-NzVdIHdwYV9zdXBwbGljYW50WzQzODVdOiBzZWdmYXVsdCBhdCAzMCBpcCAwODA2OTdjYSBzcAo+
-ID4gPiBiZjllZDAwMCBlcnJvciA0IGluIHdwYV9zdXBwbGljYW50WzgwNDgwMDArNGMwMDBdCj4g
-PiA+IFsgIDQxMS42NzEwMzddIHdwYV9zdXBwbGljYW50WzQzODZdOiBzZWdmYXVsdCBhdCAzMCBp
-cCAwODA2OTdjYSBzcAo+ID4gPiBiZjhmMzcxMCBlcnJvciA0IGluIHdwYV9zdXBwbGljYW50Wzgw
-NDgwMDArNGMwMDBdCj4gPiA+IFsgIDQxMi41Njk4NDNdIHdwYV9zdXBwbGljYW50WzQzODddOiBz
-ZWdmYXVsdCBhdCAzMCBpcCAwODA2OTdjYSBzcAo+ID4gPiBiZmMxOWEzMCBlcnJvciA0IGluIHdw
-YV9zdXBwbGljYW50WzgwNDgwMDArNGMwMDBdCj4gPiA+IFsgIDQxMy4xMTg4NzRdIHdwYV9zdXBw
-bGljYW50WzQzODhdOiBzZWdmYXVsdCBhdCAzMCBpcCAwODA2OTdjYSBzcAo+ID4gPiBiZmM5Y2Fi
-MCBlcnJvciA0IGluIHdwYV9zdXBwbGljYW50WzgwNDgwMDArNGMwMDBdCj4gPgo+ID4gU2VlbXMg
-bGlrZSB3cGFfc3VwcGxpY2FudCBpcyBicm9rZW4uIElzIHRoaXMgYSByZWdyZXNzaW9uPwo+IAo+
-IHllcywgYnV0IHdpdGggbWFkd2lmaSBpcyBhbGwgb2sKPiA+Cj4gPiA+IGhvbWU6fiMgd3BhX3N1
-cHBsaWNhbnQgLUR3ZXh0IC1pYXRoMCAtYwo+ID4gL2V0Yy93cGFfc3VwcGxpY2FudC93cGFfc3Vw
-cGxpY2FudC5jb25mCj4gPgo+ID4gYXRoMD8gdWRldiByZW5hbWVkIGl0Pwo+IAo+IHllcwo+ID4K
-PiA+ID4gaW9jdGxbU0lPQ1NJV0FVVEhdOiBPcGVyYXRpb24gbm90IHN1cHBvcnRlZAo+ID4gPiBX
-RVhUIGF1dGggcGFyYW0gNCB2YWx1ZSAweDAgLSBiaW5kKFBGX1VOSVgpOiBBZGRyZXNzIGFscmVh
-ZHkgaW4gdXNlCj4gPgo+ID4gNCAtIDB4MCBpcyBUS0lQLCBub3RoaW5nIHdlIHNob3VsZCB3b3Jy
-eSBhYm91dC4KPiA+Cj4gPiA+IGN0cmxfaWZhY2UgZXhpc3RzIGFuZCBzZWVtcyB0byBiZSBpbiB1
-c2UgLSBjYW5ub3Qgb3ZlcnJpZGUgaXQKPiA+ID4gRGVsZXRlICcvdmFyL3J1bi93cGFfc3VwcGxp
-Y2FudC9hdGgwJyBtYW51YWxseSBpZiBpdCBpcyBub3QgdXNlZCBhbnltb3JlCj4gPiA+IEZhaWxl
-ZCB0byBpbml0aWFsaXplIGNvbnRyb2wgaW50ZXJmYWNlICcvdmFyL3J1bi93cGFfc3VwcGxpY2Fu
-dCcuCj4gPiA+IFlvdSBtYXkgaGF2ZSBhbm90aGVyIHdwYV9zdXBwbGljYW50IHByb2Nlc3MgYWxy
-ZWFkeSBydW5uaW5nIG9yIHRoZSBmaWxlCj4gPiB3YXMKPiA+ID4gbGVmdCBieSBhbiB1bmNsZWFu
-IHRlcm1pbmF0aW9uIG9mIHdwYV9zdXBwbGljYW50IGluIHdoaWNoIGNhc2UgeW91IHdpbGwKPiA+
-IG5lZWQKPiA+ID4gdG8gbWFudWFsbHkgcmVtb3ZlIHRoaXMgZmlsZSBiZWZvcmUgc3RhcnRpbmcg
-d3BhX3N1cHBsaWNhbnQgYWdhaW4uCj4gPgo+ID4gSGF2ZSB5b3U/Cj4gCj4geWVzCj4gPgo+ID4g
-SSBndWVzcyBsdHJhY2Ugd291bGQgaGVscCBoZXJlLiBBbmQgbWF5YmUgc3RyYWNlLi4uCj4gPgo+
-IAo+IHN0cmFjZSBhdHRhY2hlZCBhbmQgd3BhX3N1cHBsaWNhbnQgbW9yZSB2ZXJib3NlIG91dHB1
-dAoKSXQgZG9lc24ndCBsb29rIGxpa2UgdGhlIGRyaXZlciBpcyByZXR1cm5pbmcgX2FueV8gc2Nh
-biByZXN1bHRzLiAgV2hhdApkb2VzICcvc2Jpbi9pd2xpc3Qgd2xhbjAgc2Nhbicgc2hvdyBmcm9t
-IHRoZSBjb21tYW5kIGxpbmUuICBJZiB0aGUKZHJpdmVyIGlzbid0IHJldHVybmluZyBzY2FuIHJl
-c3VsdHMgdG8gdGhlIHN1cHBsaWNhbnQsIHRoZXJlJ3Mgbm90IG11Y2gKdGhlIHN1cHBsaWNhbnQg
-Y2FuIGRvLiAgWW91IG1heSBuZWVkIHRvIGVuc3VyZSB0aGUgaW50ZXJmYWNlIGlzIHVwCmJlZm9y
-ZSBzY2FubmluZy4KCk5vdGUgdGhhdCB0aGUgc3BlY2lmaWMgYmVoYXZpb3Igb2YgdGhlIHByb2Nl
-c3MgcmVxdWVzdGluZyBzY2FuIHJlc3VsdHMKY2FuIHNvbWV0aW1lcyBpbnRlcmFjdCBiYWRseSB3
-aXRoIHRoZSBkcml2ZXIuICBUaGUgZHJpdmVyIG1vc3QgbGlrZWx5Cm5lZWRzIHRvIGNvcGUgd2l0
-aCB0aGlzIChieSBjYWNoaW5nIHRoZSBCU1MgbGlzdCBpbnRlcm5hbGx5IGZvciBleGFtcGxlKQph
-bmQgaGFuZGxlIHdoYXRldmVyIGJlaGF2aW9yIHVzZXJzcGFjZSBwcm9ncmFtcyB0aHJvdyBhdCBp
-dC4KCkRhbgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
-YXRoNWstZGV2ZWwgbWFpbGluZyBsaXN0CmF0aDVrLWRldmVsQGxpc3RzLmF0aDVrLm9yZwpodHRw
-czovL2xpc3RzLmF0aDVrLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2F0aDVrLWRldmVsCg==
+Erik Mouw wrote:
+> On Mon, Feb 04, 2008 at 06:56:54PM +0100, Erik Mouw wrote:
+>> Changes in other networking paths uncovered a bug in the xircom_cb
+>> driver which made the kernel spew lots of the following error messages:
+>>
+>>   BUG eth1 code -5 qlen 0
+>>
+>> It turned out that the driver returned -EIO when there was no
+>> descriptor available for sending packets. It should return
+>> NETDEV_TX_BUSY instead. This was discussed on the netdev list before,
+>> see http://thread.gmane.org/gmane.linux.network/84603 .
+>>
+>> Signed-off-by: Erik Mouw <mouw@nl.linux.org>
+> 
+> Forgot to tell: the patch is against 2.6.24 but should apply cleanly to
+> the latest git kernel. The xircom_cb driver appears to be orphaned so
+> I've send the patch to you.
+
+Yep, that's the right thing to do...
+
+	Jeff
+
+
+
