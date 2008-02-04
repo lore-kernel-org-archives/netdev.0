@@ -1,50 +1,56 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: radvd 1.1 released
-Date: Mon, 4 Feb 2008 08:55:12 +0200 (EET)
-Message-ID: <alpine.LRH.1.00.0802040849370.19987@netcore.fi>
+From: Johann Felix Soden <johfel@gmx.de>
+Subject: [NET]: Remove further references to net-modules.txt
+Date: Mon, 04 Feb 2008 08:31:40 +0100
+Message-ID: <1202110300.28722.4.camel@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: radvd-devel-l@litech.org
-To: netdev@vger.kernel.org, radvd-announce-l@litech.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, trivial@kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:49807 "EHLO netcore.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753154AbYBDHY6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Feb 2008 02:24:58 -0500
+Received: from mail.gmx.net ([213.165.64.20]:38154 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753341AbYBDHbo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Feb 2008 02:31:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Johann Felix Soden <johfel@users.sourceforge.net>
 
-A new version of radvd has been released.  There have been a couple of 
-new features.
+The Kconfig of igb and enc28j60 contains references to
+obsolet Documentation/networking/net-modules.txt.
 
-Interfaces must now be RUNNING, not just UP, to be considered by 
-default radvd configuration.  This is because nowadays kernels no 
-longer generate v6 link-local addresses if the interface is just UP, 
-in contrast to e.g., what earlier kernels did.
+Signed-off-by: Johann Felix Soden <johfel@users.sourceforge.net>
+---
+ drivers/net/Kconfig |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-I'd like issue special thanks to Jim Paris for all the patches he has 
-sent :-).
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 389980f..87f503b 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -919,8 +919,7 @@ config ENC28J60
+ 	---help---
+ 	  Support for the Microchip EN28J60 ethernet chip.
+ 
+-	  To compile this driver as a module, choose M here and read
+-	  <file:Documentation/networking/net-modules.txt>.  The module will be
++	  To compile this driver as a module, choose M here. The module will be
+ 	  called enc28j60.
+ 
+ config ENC28J60_WRITEVERIFY
+@@ -2040,8 +2039,7 @@ config IGB
+          More specific information on configuring the driver is in
+          <file:Documentation/networking/e1000.txt>.
+ 
+-         To compile this driver as a module, choose M here and read
+-         <file:Documentation/networking/net-modules.txt>.  The module
++         To compile this driver as a module, choose M here. The module
+          will be called igb.
+ 
+ source "drivers/net/ixp2000/Kconfig"
+-- 
+1.5.4
 
-Get it at: http://www.litech.org/radvd/
 
-Changes since 1.0:
-     *  Implement privilege separation on Linux: a master root process 
-(which is able to reconfigure interfaces) and the main process. There 
-is '-s' toggle to keep old behaviour.
-     * Fix Linux retrans_timer on old kernels (newer ones have 
-retrans_timer_ms)
-     * Fix stderr+syslog (default) logging on non-i386 platforms.
-     * Require that interface must be RUNNING instead of just UP. Note: 
-this could break deployments with very old kernels.
-     * Implement automatic interface address advertising with special 
-prefix ::/64.
-     * Relax interface naming (e.g. with VLANs) requirements.
-     * Fix ordering of route, prefix and RDNSS options (only matters 
-with RDNSS)
 
---
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
