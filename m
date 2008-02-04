@@ -1,38 +1,48 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: locking api self-test hanging
-Date: Sun, 3 Feb 2008 15:07:44 -0800
-Message-ID: <20080203150744.cf7d0415.akpm@linux-foundation.org>
-References: <20080203150246.50647fa4.akpm@linux-foundation.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] request_irq() always returns -EINVAL with a NULL handler.
+Date: Mon, 4 Feb 2008 16:55:36 +1100
+Message-ID: <200802041655.36772.rusty@rustcorp.com.au>
+References: <200801171757.59026.rusty@rustcorp.com.au> <20080202221502.76d48ead.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52381 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753323AbYBCXIO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2008 18:08:14 -0500
-In-Reply-To: <20080203150246.50647fa4.akpm@linux-foundation.org>
+Received: from ozlabs.org ([203.10.76.45]:49877 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751242AbYBDFz6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Feb 2008 00:55:58 -0500
+In-Reply-To: <20080202221502.76d48ead.akpm@linux-foundation.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 3 Feb 2008 15:02:46 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
+On Sunday 03 February 2008 17:15:02 Andrew Morton wrote:
+> On Thu, 17 Jan 2008 17:57:58 +1100 Rusty Russell <rusty@rustcorp.com.au> 
+wrote:
+> > I assume that these ancient network drivers were trying to find out if
+> > an irq is available.  eepro.c expecting +EBUSY was doubly wrong.
+> >
+> > I'm not sure that can_request_irq() is the right thing, but these drivers
+> > are definitely wrong.
+> >
+> > request_irq should BUG() on bad input, and these would have been found
+> > earlier.
+>
+> This breaks non-CONFIG_GENERIC_HARDIRQS architectures.
+>
+> alpha:
+>
+> drivers/net/3c503.c: In function 'el2_open':
+> drivers/net/3c503.c:382: error: implicit declaration of function
+> 'can_request_irq'
 
-> 
-> With current mainline I'm getting intermittent hangs here:
-> 
-> 	http://userweb.kernel.org/~akpm/p2033590.jpg
-> 
-> with this config:
-> 
-> 	http://userweb.kernel.org/~akpm/config-sony.txt
-> 
-> on the Vaio.  Sometimes it boots (then hits another different hang),
-> sometimes it gets stuck there.
-> 
+Since this code was non-functional before, should we just be removing 
+the "check if irq is free" check altogether?
 
-The second hang is in kobject_uevent_init().  All that function does is call
-netlink_kernel_create().
+This is Jeff's call, I think.
 
-These things make bisecting all the other bugs rather hard.
+Rusty.
