@@ -1,50 +1,71 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET_SCHED 00/04]: External SFQ classifiers/flow classifier
-Date: Mon, 04 Feb 2008 18:48:30 +0100
-Message-ID: <47A74FEE.6080103@trash.net>
-References: <20080131175758.25151.20370.sendpatchset@localhost.localdomain> <47A4FB81.80700@fatooh.org>
+From: Erik Mouw <mouw@nl.linux.org>
+Subject: [PATCH] xircom_cb should return NETDEV_TX_BUSY when there are no
+	descriptors available
+Date: Mon, 4 Feb 2008 18:56:54 +0100
+Message-ID: <20080204175653.GC16952@gateway.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Corey Hickey <bugfood-ml@fatooh.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="XMCwj5IQnwKtuyBG"
+Cc: netdev@vger.kernel.org,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	jamal <hadi@cyberus.ca>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34150 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754898AbYBDRsl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 12:48:41 -0500
-In-Reply-To: <47A4FB81.80700@fatooh.org>
+Received: from smtp-vbr8.xs4all.nl ([194.109.24.28]:2108 "EHLO
+	smtp-vbr8.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752741AbYBDR5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 12:57:39 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Corey Hickey wrote:
-> Patrick McHardy wrote:
->> These patches add support for external classifiers to SFQ and add a
->> new "flow" classifier, which can do hashing based on user-specified
->> keys or deterministic mapping of keys to classes. Additionally there
->> is a patch to make the SFQ queues visisble as classes to verify that
->> the hash is indeed doing something useful and a patch to consifiy
->> struct tcf_ext_map, which I had queued in the same tree.
-> 
-> Excellent! I'm glad this is applied. I'm having trouble figuring out how
-> it works, though. As a test, I'm trying to set up SFQ equivalent to
-> ESFQ's "hash dst". Here's what I do, and this is what I get:
-> 
-> ------------------------------------------------------------------------
-> # ./tc qdisc add dev eth0 root handle 1: sfq
-> # ./tc filter add dev eth0 parent 1: flow hash keys dst
-> RTNETLINK answers: Invalid argument
-> We have an error talking to the kernel
-> ------------------------------------------------------------------------
-> 
-> I've tried a few different keys with the same results. I don't know what
-> I'm doing wrong, or even where to start figuring it out. Can you point
-> me in the right direction?
+
+--XMCwj5IQnwKtuyBG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi,
+
+Changes in other networking paths uncovered a bug in the xircom_cb
+driver which made the kernel spew lots of the following error messages:
+
+  BUG eth1 code -5 qlen 0
+
+It turned out that the driver returned -EIO when there was no
+descriptor available for sending packets. It should return
+NETDEV_TX_BUSY instead. This was discussed on the netdev list before,
+see http://thread.gmane.org/gmane.linux.network/84603 .
+
+Signed-off-by: Erik Mouw <mouw@nl.linux.org>
+
+diff --git a/drivers/net/tulip/xircom_cb.c b/drivers/net/tulip/xircom_cb.c
+index 8fc7274..6b93d01 100644
+--- a/drivers/net/tulip/xircom_cb.c
++++ b/drivers/net/tulip/xircom_cb.c
+@@ -441,7 +441,7 @@ static int xircom_start_xmit(struct sk_buff *skb, struc=
+t net_device *dev)
+ 	spin_unlock_irqrestore(&card->lock,flags);
+ 	trigger_transmit(card);
+=20
+-	return -EIO;
++	return NETDEV_TX_BUSY;
+ }
+=20
+=20
 
 
-You're missing protocol, handle etc. Try something like this:
+--XMCwj5IQnwKtuyBG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-tc filter add dev eth0 protocol ip pref 1 parent 1: handle 1 \ 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
 
-         flow hash keys dst divisor 1024
+iD8DBQFHp1Hl/PlVHJtIto0RAoIIAKCEf4bOYCvCbkN0lNZbBD9POyFbDACfX78t
+2BIUj9eN4+rsmhh5csQDkq0=
+=3wd5
+-----END PGP SIGNATURE-----
 
+--XMCwj5IQnwKtuyBG--
