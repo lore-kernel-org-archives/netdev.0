@@ -1,71 +1,97 @@
-From: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Wireless,
-	ath5k] 2.6.24-git13 9135f1901ee6449dfe338adf6e40e9c2025b8150
-Date: Mon, 04 Feb 2008 21:25:15 +0100
-Message-ID: <47A774AB.5060008@gmail.com>
-References: <6101e8c40802040600q804e40cs97d0031920e58d9d@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 2.6.24-mm1] error compiling net driver NE2000/NE1000
+Date: Mon, 4 Feb 2008 13:10:38 -0800
+Message-ID: <20080204131038.699c28c1.akpm@linux-foundation.org>
+References: <20080204162921.94984e72.pierre.peiffer@bull.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-2"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Bruno Randolf <bruno-L9ZBdB2wSWtl57MIdRCFDg@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: =?ISO-8859-2?Q?=22Oliver_Pinter_=28Pint=E9r_Oliv=E9r=29=22?=
-	<oliver.pntr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-In-Reply-To: <6101e8c40802040600q804e40cs97d0031920e58d9d-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
-List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
-Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: Pierre Peiffer <pierre.peiffer@bull.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35532 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752772AbYBDVLv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 16:11:51 -0500
+In-Reply-To: <20080204162921.94984e72.pierre.peiffer@bull.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/04/2008 03:00 PM, Oliver Pinter (Pint=E9r Oliv=E9r) wrote:
-> git top: 9135f1901ee6449dfe338adf6e40e9c2025b8150
-> =
+On Mon, 4 Feb 2008 16:29:21 +0100
+Pierre Peiffer <pierre.peiffer@bull.net> wrote:
 
-> [  399.582185] wpa_supplicant[4383]: segfault at 30 ip 080697ca sp
-> bf87a690 error 4 in wpa_supplicant[8048000+4c000]
-> [  406.277199] wpa_supplicant[4384]: segfault at 30 ip 080697ca sp
-> bfc13a30 error 4 in wpa_supplicant[8048000+4c000]
-> [  407.586375] wpa_supplicant[4385]: segfault at 30 ip 080697ca sp
-> bf9ed000 error 4 in wpa_supplicant[8048000+4c000]
-> [  411.671037] wpa_supplicant[4386]: segfault at 30 ip 080697ca sp
-> bf8f3710 error 4 in wpa_supplicant[8048000+4c000]
-> [  412.569843] wpa_supplicant[4387]: segfault at 30 ip 080697ca sp
-> bfc19a30 error 4 in wpa_supplicant[8048000+4c000]
-> [  413.118874] wpa_supplicant[4388]: segfault at 30 ip 080697ca sp
-> bfc9cab0 error 4 in wpa_supplicant[8048000+4c000]
+> Hi,
+> 
+> 	When I compile the kernel 2.6.24-mm1 with:
+> CONFIG_NET_ISA=y
+> CONFIG_NE2000=y
+> 
+> I have the following compile error:
+> ...
+>   GEN     .version
+>   CHK     include/linux/compile.h
+>   UPD     include/linux/compile.h
+>   CC      init/version.o
+>   LD      init/built-in.o
+>   LD      .tmp_vmlinux1
+> drivers/built-in.o: In function `ne_block_output':
+> linux-2.6.24-mm1/drivers/net/ne.c:797: undefined reference to `NS8390_init'
+> drivers/built-in.o: In function `ne_drv_resume':
+> linux-2.6.24-mm1/drivers/net/ne.c:858: undefined reference to `NS8390_init'
+> drivers/built-in.o: In function `ne_probe1':
+> linux-2.6.24-mm1/drivers/net/ne.c:539: undefined reference to `NS8390_init'
+> make[1]: *** [.tmp_vmlinux1] Error 1
+> make: *** [sub-make] Error 2
 
-Seems like wpa_supplicant is broken. Is this a regression?
+Thanks for reporting this.
 
-> home:~# wpa_supplicant -Dwext -iath0 -c /etc/wpa_supplicant/wpa_supplican=
-t.conf
+> As I saw that the file 8390p.c is compiled for this driver, but not the file 
+> 8390.c which contains this function NS8390_init(), I fixed this error with
+> the following patch.
 
-ath0? udev renamed it?
+Alan's
+8390-split-8390-support-into-a-pausing-and-a-non-pausing-driver-core.patch
+would be a prime suspect.  I assume this bug isn't present ing mainline or
+in 2.6.24?
 
-> ioctl[SIOCSIWAUTH]: Operation not supported
-> WEXT auth param 4 value 0x0 - bind(PF_UNIX): Address already in use
+> As NS8390p_init() does the same thing than NS8390_init(), I suppose that this is the right fix ?
+> 
+> Signed-off-by: Pierre Peiffer <pierre.peiffer@bull.net>
+> ---
+>  drivers/net/ne.c |    6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> Index: b/drivers/net/ne.c
+> ===================================================================
+> --- a/drivers/net/ne.c
+> +++ b/drivers/net/ne.c
+> @@ -536,7 +536,7 @@ static int __init ne_probe1(struct net_d
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  	dev->poll_controller = eip_poll;
+>  #endif
+> -	NS8390_init(dev, 0);
+> +	NS8390p_init(dev, 0);
+>  
+>  	ret = register_netdev(dev);
+>  	if (ret)
+> @@ -794,7 +794,7 @@ retry:
+>  		if (time_after(jiffies, dma_start + 2*HZ/100)) {		/* 20ms */
+>  			printk(KERN_WARNING "%s: timeout waiting for Tx RDC.\n", dev->name);
+>  			ne_reset_8390(dev);
+> -			NS8390_init(dev,1);
+> +			NS8390p_init(dev,1);
+>  			break;
+>  		}
+>  
+> @@ -855,7 +855,7 @@ static int ne_drv_resume(struct platform
+>  
+>  	if (netif_running(dev)) {
+>  		ne_reset_8390(dev);
+> -		NS8390_init(dev, 1);
+> +		NS8390p_init(dev, 1);
+>  		netif_device_attach(dev);
+>  	}
+>  	return 0;
 
-4 - 0x0 is TKIP, nothing we should worry about.
 
-> ctrl_iface exists and seems to be in use - cannot override it
-> Delete '/var/run/wpa_supplicant/ath0' manually if it is not used anymore
-> Failed to initialize control interface '/var/run/wpa_supplicant'.
-> You may have another wpa_supplicant process already running or the file w=
-as
-> left by an unclean termination of wpa_supplicant in which case you will n=
-eed
-> to manually remove this file before starting wpa_supplicant again.
-
-Have you?
-
-I guess ltrace would help here. And maybe strace...
