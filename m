@@ -1,23 +1,23 @@
-From: "Oliver Pinter" <oliver.pntr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Subject: Re: [Wireless,
-	ath5k] 2.6.24-git13 9135f1901ee6449dfe338adf6e40e9c2025b8150
-Date: Mon, 4 Feb 2008 22:40:01 +0100
-Message-ID: <6101e8c40802041340g749b1e03k70fda7fdb21452d7@mail.gmail.com>
+	ath5k] 2.6.24-git13	9135f1901ee6449dfe338adf6e40e9c2025b8150
+Date: Mon, 04 Feb 2008 16:52:14 -0500
+Message-ID: <1202161934.24527.5.camel@localhost.localdomain>
 References: <6101e8c40802040600q804e40cs97d0031920e58d9d@mail.gmail.com>
 	<47A774AB.5060008@gmail.com>
 	<6101e8c40802041334o20b2b391la5b0a5f557ee67c5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org, "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
 	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	Bruno Randolf <bruno-L9ZBdB2wSWtl57MIdRCFDg@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: "Jiri Slaby" <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Oliver Pinter <oliver.pntr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
 In-Reply-To: <6101e8c40802041334o20b2b391la5b0a5f557ee67c5-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Disposition: inline
 List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
 	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
@@ -29,101 +29,52 @@ Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
 Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2/4/08, Oliver Pinter <oliver.pntr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On 2/4/08, Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > On 02/04/2008 03:00 PM, Oliver Pinter (Pint=E9r Oliv=E9r) wrote:
-> > > git top: 9135f1901ee6449dfe338adf6e40e9c2025b8150
-> > >
-> > > [  399.582185] wpa_supplicant[4383]: segfault at 30 ip 080697ca sp
-> > > bf87a690 error 4 in wpa_supplicant[8048000+4c000]
-> > > [  406.277199] wpa_supplicant[4384]: segfault at 30 ip 080697ca sp
-> > > bfc13a30 error 4 in wpa_supplicant[8048000+4c000]
-> > > [  407.586375] wpa_supplicant[4385]: segfault at 30 ip 080697ca sp
-> > > bf9ed000 error 4 in wpa_supplicant[8048000+4c000]
-> > > [  411.671037] wpa_supplicant[4386]: segfault at 30 ip 080697ca sp
-> > > bf8f3710 error 4 in wpa_supplicant[8048000+4c000]
-> > > [  412.569843] wpa_supplicant[4387]: segfault at 30 ip 080697ca sp
-> > > bfc19a30 error 4 in wpa_supplicant[8048000+4c000]
-> > > [  413.118874] wpa_supplicant[4388]: segfault at 30 ip 080697ca sp
-> > > bfc9cab0 error 4 in wpa_supplicant[8048000+4c000]
-> >
-> > Seems like wpa_supplicant is broken. Is this a regression?
->
-> yes, but with madwifi is all ok
-> >
-> > > home:~# wpa_supplicant -Dwext -iath0 -c
-> > /etc/wpa_supplicant/wpa_supplicant.conf
-> >
-> > ath0? udev renamed it?
->
-> yes
-> >
-> > > ioctl[SIOCSIWAUTH]: Operation not supported
-> > > WEXT auth param 4 value 0x0 - bind(PF_UNIX): Address already in use
-> >
-> > 4 - 0x0 is TKIP, nothing we should worry about.
-> >
-> > > ctrl_iface exists and seems to be in use - cannot override it
-> > > Delete '/var/run/wpa_supplicant/ath0' manually if it is not used
-> anymore
-> > > Failed to initialize control interface '/var/run/wpa_supplicant'.
-> > > You may have another wpa_supplicant process already running or the fi=
-le
-> > was
-> > > left by an unclean termination of wpa_supplicant in which case you wi=
-ll
-> > need
-> > > to manually remove this file before starting wpa_supplicant again.
-> >
-> > Have you?
->
-> yes
-> >
-> > I guess ltrace would help here. And maybe strace...
-> >
->
-> strace attached and wpa_supplicant more verbose output
-> --
-> Thanks,
-> Oliver
->
-02:01.0 Ethernet controller: Atheros Communications, Inc. AR5212
-802.11abg NIC (rev 01)
-        Subsystem: D-Link System Inc D-Link AirPlus DWL-G520 Wireless
-PCI Adapter(rev.B)
-        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
-ParErr- Stepping- SERR- FastB2B-
-        Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=3Dmedium
->TAbort- <TAbort- <MAbort- >SERR- <PERR-
-        Latency: 168 (2500ns min, 7000ns max), Cache Line Size: 32 bytes
-        Interrupt: pin A routed to IRQ 18
-        Region 0: Memory at e4000000 (32-bit, non-prefetchable) [size=3D64K]
-        Capabilities: [44] Power Management version 2
-                Flags: PMEClk- DSI- D1- D2- AuxCurrent=3D375mA
-PME(D0-,D1-,D2-,D3hot-,D3cold-)
-                Status: D0 PME-Enable- DSel=3D0 DScale=3D2 PME-
-
-02:01.0 Ethernet controller: Atheros Communications, Inc. AR5212
-802.11abg NIC (rev 01)
-00: 8c 16 13 00 06 00 90 02 01 00 00 02 08 a8 00 00
-10: 00 00 00 e4 00 00 00 00 00 00 00 00 00 00 00 00
-20: 00 00 00 00 00 00 00 00 01 50 00 00 86 11 13 3a
-30: 00 00 00 00 44 00 00 00 00 00 00 00 0b 01 0a 1c
-40: 00 00 00 00 01 00 c2 01 00 40 00 c6 00 00 00 00
-50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-
-
--- =
-
-Thanks,
-Oliver
+T24gTW9uLCAyMDA4LTAyLTA0IGF0IDIyOjM0ICswMTAwLCBPbGl2ZXIgUGludGVyIHdyb3RlOgo+
+IE9uIDIvNC8wOCwgSmlyaSBTbGFieSA8amlyaXNsYWJ5QGdtYWlsLmNvbT4gd3JvdGU6Cj4gPiBP
+biAwMi8wNC8yMDA4IDAzOjAwIFBNLCBPbGl2ZXIgUGludGVyIChQaW50w6lyIE9saXbDqXIpIHdy
+b3RlOgo+ID4gPiBnaXQgdG9wOiA5MTM1ZjE5MDFlZTY0NDlkZmUzMzhhZGY2ZTQwZTljMjAyNWI4
+MTUwCj4gPiA+Cj4gPiA+IFsgIDM5OS41ODIxODVdIHdwYV9zdXBwbGljYW50WzQzODNdOiBzZWdm
+YXVsdCBhdCAzMCBpcCAwODA2OTdjYSBzcAo+ID4gPiBiZjg3YTY5MCBlcnJvciA0IGluIHdwYV9z
+dXBwbGljYW50WzgwNDgwMDArNGMwMDBdCj4gPiA+IFsgIDQwNi4yNzcxOTldIHdwYV9zdXBwbGlj
+YW50WzQzODRdOiBzZWdmYXVsdCBhdCAzMCBpcCAwODA2OTdjYSBzcAo+ID4gPiBiZmMxM2EzMCBl
+cnJvciA0IGluIHdwYV9zdXBwbGljYW50WzgwNDgwMDArNGMwMDBdCj4gPiA+IFsgIDQwNy41ODYz
+NzVdIHdwYV9zdXBwbGljYW50WzQzODVdOiBzZWdmYXVsdCBhdCAzMCBpcCAwODA2OTdjYSBzcAo+
+ID4gPiBiZjllZDAwMCBlcnJvciA0IGluIHdwYV9zdXBwbGljYW50WzgwNDgwMDArNGMwMDBdCj4g
+PiA+IFsgIDQxMS42NzEwMzddIHdwYV9zdXBwbGljYW50WzQzODZdOiBzZWdmYXVsdCBhdCAzMCBp
+cCAwODA2OTdjYSBzcAo+ID4gPiBiZjhmMzcxMCBlcnJvciA0IGluIHdwYV9zdXBwbGljYW50Wzgw
+NDgwMDArNGMwMDBdCj4gPiA+IFsgIDQxMi41Njk4NDNdIHdwYV9zdXBwbGljYW50WzQzODddOiBz
+ZWdmYXVsdCBhdCAzMCBpcCAwODA2OTdjYSBzcAo+ID4gPiBiZmMxOWEzMCBlcnJvciA0IGluIHdw
+YV9zdXBwbGljYW50WzgwNDgwMDArNGMwMDBdCj4gPiA+IFsgIDQxMy4xMTg4NzRdIHdwYV9zdXBw
+bGljYW50WzQzODhdOiBzZWdmYXVsdCBhdCAzMCBpcCAwODA2OTdjYSBzcAo+ID4gPiBiZmM5Y2Fi
+MCBlcnJvciA0IGluIHdwYV9zdXBwbGljYW50WzgwNDgwMDArNGMwMDBdCj4gPgo+ID4gU2VlbXMg
+bGlrZSB3cGFfc3VwcGxpY2FudCBpcyBicm9rZW4uIElzIHRoaXMgYSByZWdyZXNzaW9uPwo+IAo+
+IHllcywgYnV0IHdpdGggbWFkd2lmaSBpcyBhbGwgb2sKPiA+Cj4gPiA+IGhvbWU6fiMgd3BhX3N1
+cHBsaWNhbnQgLUR3ZXh0IC1pYXRoMCAtYwo+ID4gL2V0Yy93cGFfc3VwcGxpY2FudC93cGFfc3Vw
+cGxpY2FudC5jb25mCj4gPgo+ID4gYXRoMD8gdWRldiByZW5hbWVkIGl0Pwo+IAo+IHllcwo+ID4K
+PiA+ID4gaW9jdGxbU0lPQ1NJV0FVVEhdOiBPcGVyYXRpb24gbm90IHN1cHBvcnRlZAo+ID4gPiBX
+RVhUIGF1dGggcGFyYW0gNCB2YWx1ZSAweDAgLSBiaW5kKFBGX1VOSVgpOiBBZGRyZXNzIGFscmVh
+ZHkgaW4gdXNlCj4gPgo+ID4gNCAtIDB4MCBpcyBUS0lQLCBub3RoaW5nIHdlIHNob3VsZCB3b3Jy
+eSBhYm91dC4KPiA+Cj4gPiA+IGN0cmxfaWZhY2UgZXhpc3RzIGFuZCBzZWVtcyB0byBiZSBpbiB1
+c2UgLSBjYW5ub3Qgb3ZlcnJpZGUgaXQKPiA+ID4gRGVsZXRlICcvdmFyL3J1bi93cGFfc3VwcGxp
+Y2FudC9hdGgwJyBtYW51YWxseSBpZiBpdCBpcyBub3QgdXNlZCBhbnltb3JlCj4gPiA+IEZhaWxl
+ZCB0byBpbml0aWFsaXplIGNvbnRyb2wgaW50ZXJmYWNlICcvdmFyL3J1bi93cGFfc3VwcGxpY2Fu
+dCcuCj4gPiA+IFlvdSBtYXkgaGF2ZSBhbm90aGVyIHdwYV9zdXBwbGljYW50IHByb2Nlc3MgYWxy
+ZWFkeSBydW5uaW5nIG9yIHRoZSBmaWxlCj4gPiB3YXMKPiA+ID4gbGVmdCBieSBhbiB1bmNsZWFu
+IHRlcm1pbmF0aW9uIG9mIHdwYV9zdXBwbGljYW50IGluIHdoaWNoIGNhc2UgeW91IHdpbGwKPiA+
+IG5lZWQKPiA+ID4gdG8gbWFudWFsbHkgcmVtb3ZlIHRoaXMgZmlsZSBiZWZvcmUgc3RhcnRpbmcg
+d3BhX3N1cHBsaWNhbnQgYWdhaW4uCj4gPgo+ID4gSGF2ZSB5b3U/Cj4gCj4geWVzCj4gPgo+ID4g
+SSBndWVzcyBsdHJhY2Ugd291bGQgaGVscCBoZXJlLiBBbmQgbWF5YmUgc3RyYWNlLi4uCj4gPgo+
+IAo+IHN0cmFjZSBhdHRhY2hlZCBhbmQgd3BhX3N1cHBsaWNhbnQgbW9yZSB2ZXJib3NlIG91dHB1
+dAoKSXQgZG9lc24ndCBsb29rIGxpa2UgdGhlIGRyaXZlciBpcyByZXR1cm5pbmcgX2FueV8gc2Nh
+biByZXN1bHRzLiAgV2hhdApkb2VzICcvc2Jpbi9pd2xpc3Qgd2xhbjAgc2Nhbicgc2hvdyBmcm9t
+IHRoZSBjb21tYW5kIGxpbmUuICBJZiB0aGUKZHJpdmVyIGlzbid0IHJldHVybmluZyBzY2FuIHJl
+c3VsdHMgdG8gdGhlIHN1cHBsaWNhbnQsIHRoZXJlJ3Mgbm90IG11Y2gKdGhlIHN1cHBsaWNhbnQg
+Y2FuIGRvLiAgWW91IG1heSBuZWVkIHRvIGVuc3VyZSB0aGUgaW50ZXJmYWNlIGlzIHVwCmJlZm9y
+ZSBzY2FubmluZy4KCk5vdGUgdGhhdCB0aGUgc3BlY2lmaWMgYmVoYXZpb3Igb2YgdGhlIHByb2Nl
+c3MgcmVxdWVzdGluZyBzY2FuIHJlc3VsdHMKY2FuIHNvbWV0aW1lcyBpbnRlcmFjdCBiYWRseSB3
+aXRoIHRoZSBkcml2ZXIuICBUaGUgZHJpdmVyIG1vc3QgbGlrZWx5Cm5lZWRzIHRvIGNvcGUgd2l0
+aCB0aGlzIChieSBjYWNoaW5nIHRoZSBCU1MgbGlzdCBpbnRlcm5hbGx5IGZvciBleGFtcGxlKQph
+bmQgaGFuZGxlIHdoYXRldmVyIGJlaGF2aW9yIHVzZXJzcGFjZSBwcm9ncmFtcyB0aHJvdyBhdCBp
+dC4KCkRhbgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+YXRoNWstZGV2ZWwgbWFpbGluZyBsaXN0CmF0aDVrLWRldmVsQGxpc3RzLmF0aDVrLm9yZwpodHRw
+czovL2xpc3RzLmF0aDVrLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2F0aDVrLWRldmVsCg==
