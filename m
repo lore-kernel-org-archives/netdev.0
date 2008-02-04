@@ -1,113 +1,71 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: why does DCCP SO_REUSEADDR have to be SOL_DCCP?
-Date: Mon, 04 Feb 2008 10:46:30 -0800
-Message-ID: <47A75D86.9050409@hp.com>
-References: <47A3CA7F.8040300@hp.com> <20080202025259.GH17164@ghostprotocols.net>
+From: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [Wireless,
+	ath5k] 2.6.24-git13 9135f1901ee6449dfe338adf6e40e9c2025b8150
+Date: Mon, 04 Feb 2008 21:25:15 +0100
+Message-ID: <47A774AB.5060008@gmail.com>
+References: <6101e8c40802040600q804e40cs97d0031920e58d9d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: Arnaldo Carvalho de Melo <acme@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:33104 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753948AbYBDSqc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 13:46:32 -0500
-In-Reply-To: <20080202025259.GH17164@ghostprotocols.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-2"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Bruno Randolf <bruno-L9ZBdB2wSWtl57MIdRCFDg@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: =?ISO-8859-2?Q?=22Oliver_Pinter_=28Pint=E9r_Oliv=E9r=29=22?=
+	<oliver.pntr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
+In-Reply-To: <6101e8c40802040600q804e40cs97d0031920e58d9d-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
+	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
+List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
+List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
+	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
+Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
+Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Arnaldo Carvalho de Melo wrote:
-> Em Fri, Feb 01, 2008 at 05:42:23PM -0800, Rick Jones escreveu:
-> 
->>Hi -
->>
->>I'm tweaking the netperf omni tests to be able to run over DCCP.  I've run 
->>across a not-unorecedented problem with getaddrinfo() not groking either 
->>SOCK_DCCP or IPPROTO_DCCP in the hints, and that I can more or less live 
->>with - I had to do a kludge for getaddrinfo() for IPPROTO_SCTP under Linux 
->>at one point and I can see how the two are not necessarily going to be in 
->>sync.
-> 
-> 
-> See the ttcp patch where we do a xgetaddrinfo crude hack to handle dccp:
-> 
-> http://vger.kernel.org/~acme/dccp/ttcp.c
+On 02/04/2008 03:00 PM, Oliver Pinter (Pint=E9r Oliv=E9r) wrote:
+> git top: 9135f1901ee6449dfe338adf6e40e9c2025b8150
+> =
 
-That is basically what netperf ends-up doing presently, although it is 
-much more vocal about it :)
+> [  399.582185] wpa_supplicant[4383]: segfault at 30 ip 080697ca sp
+> bf87a690 error 4 in wpa_supplicant[8048000+4c000]
+> [  406.277199] wpa_supplicant[4384]: segfault at 30 ip 080697ca sp
+> bfc13a30 error 4 in wpa_supplicant[8048000+4c000]
+> [  407.586375] wpa_supplicant[4385]: segfault at 30 ip 080697ca sp
+> bf9ed000 error 4 in wpa_supplicant[8048000+4c000]
+> [  411.671037] wpa_supplicant[4386]: segfault at 30 ip 080697ca sp
+> bf8f3710 error 4 in wpa_supplicant[8048000+4c000]
+> [  412.569843] wpa_supplicant[4387]: segfault at 30 ip 080697ca sp
+> bfc19a30 error 4 in wpa_supplicant[8048000+4c000]
+> [  413.118874] wpa_supplicant[4388]: segfault at 30 ip 080697ca sp
+> bfc9cab0 error 4 in wpa_supplicant[8048000+4c000]
 
->>And I've worked-around no user-level include files (ie without setting 
->>__KERNEL__) define the DCCP stuff, and that is OK too, albeit somewhat 
->>inconvenient.
-> 
-> 
-> Humm, for what? Again, see the ttcp code above:
+Seems like wpa_supplicant is broken. Is this a regression?
 
-I see that it too is making a guess for the DCCP defines.  I prefer to 
-get those from the "regular" include files because several of them can 
-be platform specific and netperf happens on many platforms.  If DCCP is 
-still "experimental" I suppose that living with defines not being in 
-user-level includes is to be expected.
+> home:~# wpa_supplicant -Dwext -iath0 -c /etc/wpa_supplicant/wpa_supplican=
+t.conf
 
->>My question though is why on earth does an SO_REUSEADDR setsockopt() 
->>against a DCCP socket have to be SOL_DCCP?  SCTP and TCP are quite happy 
->>with SOL_SOCKET, and it might be foolish consistency, but since the option 
->>_does_ begin with SO_ I'd have expected it to work for SOL_SOCKET, but 
->>(again RHEL5.1, yes, I do plan on getting upstream but have to satisfy 
->>several masters) it doesn't seem to be the case - a subsequent listen() or 
->>connect() call after an SOL_SOCKET SO_REUSEADDR against a DCCP socket 
->>leaves one SOL as it were...
-> 
-> 
-> Strange, lemme check...
-> 
->  1. sys_socketcall ->
->  2.  sys_setsockopt ->
->  3.    if (level == SOL_SOCKET) {
->  4.      sock_setsockopt:
->  5.        case SO_REUSEADDR:
->  6.          sk->sk_reuse = valbool;
->  7.    } else
->  8.      sock->ops->setsockopt = inet_dccp_ops->setsockopt =
->  9.        inet_dccp_ops->setsockopt = sock_common_setsockopt ->
-> 10.          sk->sk_prot->setsockopt = dccp_v4_prot->setsockopt =
-> 11.	    dccp_setsockopt
-> 12.              if (level != SOL_DCCP)
-> 13.                return inet_csk(sk)->icsk_af_ops->setsockopt() =
-> 14.		  ip_setsockopt
-> 15.              return do_dccp_setsockopt()
-> 
-> SO_REUSEADDR is handled in 4, if you pass SOL_SOCKET.
-> 
-> If instead you pass SOL_DCCP we'll go down the rabbit hole till
-> do_dccp_setsockopt() and SO_REUSEADDR, that is equal to 2, will be
-> interpreted as DCCP_SOCKOPT_SERVICE, that is also equal to 2, so you'll
-> be setting the service, not changing the SO_REUSEADDR setting.
+ath0? udev renamed it?
 
-That is completely unexpected.  Particularly based on the implications of:
+> ioctl[SIOCSIWAUTH]: Operation not supported
+> WEXT auth param 4 value 0x0 - bind(PF_UNIX): Address already in use
 
-http://www.linux-foundation.org/en/Net:DCCP
+4 - 0x0 is TKIP, nothing we should worry about.
 
-> 
-> The problem here is that you need to use:
-> 
-> setsockopt(fd, SOL_DCCP, DCCP_SOCKOPT_PACKET_SIZE, service,
->            sizeof(service));
+> ctrl_iface exists and seems to be in use - cannot override it
+> Delete '/var/run/wpa_supplicant/ath0' manually if it is not used anymore
+> Failed to initialize control interface '/var/run/wpa_supplicant'.
+> You may have another wpa_supplicant process already running or the file w=
+as
+> left by an unclean termination of wpa_supplicant in which case you will n=
+eed
+> to manually remove this file before starting wpa_supplicant again.
 
-I guess since I was going off the URL above and it doesn't mention 
-that... :)  I was just blythly ass-u-me-ing that DCCP was usable as a 
-"just swap the IPPROTO in your socket() call and go" sort of thing. And 
-wasn't expecting to have to make additional setsockopt() calls.
+Have you?
 
-> Look forward for a happy DCCP netperf bencharking session!
-
-Looks like some very basic stuff (whatever one gets passing SOL_DCCP to 
-the SO_REUSEADDR setting) is functioning in the top of trunk.  I now 
-have to think about what to do wrt DCCP service types.  If I should add 
-something to the parsing of -T dccp or if I should add yet another 
-command-line option :)
-
-happy benchmarking,
-
-rick jones
+I guess ltrace would help here. And maybe strace...
