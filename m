@@ -1,66 +1,29 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: locking api self-test hanging
-Date: Mon, 4 Feb 2008 05:18:45 -0800
-Message-ID: <20080204051845.5e04a65d.akpm@linux-foundation.org>
-References: <20080203150246.50647fa4.akpm@linux-foundation.org>
-	<20080203150744.cf7d0415.akpm@linux-foundation.org>
-	<20080204044304.d244e761.akpm@linux-foundation.org>
+From: Sergej Stepanov <Sergej.Stepanov@ids.de>
+Subject: patches "using mii-bitbang on different processor ports"
+Date: Mon, 04 Feb 2008 14:20:24 +0100
+Message-ID: <1202131224.3429.11.camel@p60365-ste>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
-	linux-kernel@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
+To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:56327 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752539AbYBDNSk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 08:18:40 -0500
-In-Reply-To: <20080204044304.d244e761.akpm@linux-foundation.org>
+Received: from ares.ids.de ([213.144.29.131]:44549 "EHLO ares.ids.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752679AbYBDNU0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Feb 2008 08:20:26 -0500
+Received: from ares.ids.de (ares.ids.de [127.0.0.1])
+	by ares.ids.de (PGP Universal) with ESMTP id 5F5A8F490BF
+	for <netdev@vger.kernel.org>; Mon,  4 Feb 2008 14:20:24 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 4 Feb 2008 04:43:04 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
+Hello!
 
-> On Sun, 3 Feb 2008 15:07:44 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
-> 
-> > On Sun, 3 Feb 2008 15:02:46 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
-> > 
-> > > 
-> > > With current mainline I'm getting intermittent hangs here:
-> > > 
-> > > 	http://userweb.kernel.org/~akpm/p2033590.jpg
-> > > 
-> > > with this config:
-> > > 
-> > > 	http://userweb.kernel.org/~akpm/config-sony.txt
-> > > 
-> > > on the Vaio.  Sometimes it boots (then hits another different hang),
-> > > sometimes it gets stuck there.
-> 
-> CONFIG_DEBUG_LOCKING_API_SELFTESTS=n fixed that up.
-> 
-> > 
-> > The second hang is in kobject_uevent_init().  All that function does is call
-> > netlink_kernel_create().
-> 
-> And I've fully bisected this hang twice and both times came up with
-> 
-> commit 33f807ba0d9259e7c75c7a2ce8bd2787e5b540c7
-> Author: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date:   Mon Nov 19 19:24:52 2007 -0800
-> 
->     [NETPOLL]: Kill NETPOLL_RX_DROP, set but never tested.
-> 
-> which is stupid because that patch doesn't do anything.
-> 
-> However I am using netconsole-over-e100 and the hang does go away when I
-> disable netconsole on the kernel boot command line.
-> 
-> I'd say it's some timing thing in netpoll/netconsole/napi/etc.
-> 
+I am about this two patches.
+http://www.spinics.net/lists/netdev/msg45778.html
+http://www.spinics.net/lists/netdev/msg47159.html
 
-I expect the locking API self-tests are innocent - the netconsole lockup
-happened to strike during the locking API tests and fooled me.  When I
-disabled those tests, the netconsole lockup struck later on.  
+They was not applied. Could they be picked?
+Thank you
+Sergej.
 
