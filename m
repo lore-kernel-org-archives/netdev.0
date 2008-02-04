@@ -1,48 +1,50 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] request_irq() always returns -EINVAL with a NULL handler.
-Date: Mon, 4 Feb 2008 16:55:36 +1100
-Message-ID: <200802041655.36772.rusty@rustcorp.com.au>
-References: <200801171757.59026.rusty@rustcorp.com.au> <20080202221502.76d48ead.akpm@linux-foundation.org>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: radvd 1.1 released
+Date: Mon, 4 Feb 2008 08:55:12 +0200 (EET)
+Message-ID: <alpine.LRH.1.00.0802040849370.19987@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: radvd-devel-l@litech.org
+To: netdev@vger.kernel.org, radvd-announce-l@litech.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:49877 "EHLO ozlabs.org"
+Received: from netcore.fi ([193.94.160.1]:49807 "EHLO netcore.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751242AbYBDFz6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Feb 2008 00:55:58 -0500
-In-Reply-To: <20080202221502.76d48ead.akpm@linux-foundation.org>
-Content-Disposition: inline
+	id S1753154AbYBDHY6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Feb 2008 02:24:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 03 February 2008 17:15:02 Andrew Morton wrote:
-> On Thu, 17 Jan 2008 17:57:58 +1100 Rusty Russell <rusty@rustcorp.com.au> 
-wrote:
-> > I assume that these ancient network drivers were trying to find out if
-> > an irq is available.  eepro.c expecting +EBUSY was doubly wrong.
-> >
-> > I'm not sure that can_request_irq() is the right thing, but these drivers
-> > are definitely wrong.
-> >
-> > request_irq should BUG() on bad input, and these would have been found
-> > earlier.
->
-> This breaks non-CONFIG_GENERIC_HARDIRQS architectures.
->
-> alpha:
->
-> drivers/net/3c503.c: In function 'el2_open':
-> drivers/net/3c503.c:382: error: implicit declaration of function
-> 'can_request_irq'
+Hi,
 
-Since this code was non-functional before, should we just be removing 
-the "check if irq is free" check altogether?
+A new version of radvd has been released.  There have been a couple of 
+new features.
 
-This is Jeff's call, I think.
+Interfaces must now be RUNNING, not just UP, to be considered by 
+default radvd configuration.  This is because nowadays kernels no 
+longer generate v6 link-local addresses if the interface is just UP, 
+in contrast to e.g., what earlier kernels did.
 
-Rusty.
+I'd like issue special thanks to Jim Paris for all the patches he has 
+sent :-).
+
+Get it at: http://www.litech.org/radvd/
+
+Changes since 1.0:
+     *  Implement privilege separation on Linux: a master root process 
+(which is able to reconfigure interfaces) and the main process. There 
+is '-s' toggle to keep old behaviour.
+     * Fix Linux retrans_timer on old kernels (newer ones have 
+retrans_timer_ms)
+     * Fix stderr+syslog (default) logging on non-i386 platforms.
+     * Require that interface must be RUNNING instead of just UP. Note: 
+this could break deployments with very old kernels.
+     * Implement automatic interface address advertising with special 
+prefix ::/64.
+     * Relax interface naming (e.g. with VLANs) requirements.
+     * Fix ordering of route, prefix and RDNSS options (only matters 
+with RDNSS)
+
+--
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
