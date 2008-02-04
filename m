@@ -1,85 +1,37 @@
-From: Pierre Peiffer <pierre.peiffer@bull.net>
-Subject: [PATCH 2.6.24-mm1] error compiling net driver NE2000/NE1000
-Date: Mon, 4 Feb 2008 16:29:21 +0100
-Message-ID: <20080204162921.94984e72.pierre.peiffer@bull.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: SCTP NAT module for netfilter
+Date: Mon, 04 Feb 2008 10:40:57 -0500
+Message-ID: <47A73209.5080604@hp.com>
+References: <1C6541574A2FC447B53A6B4522B678AFF057C8@moe.nextone.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org, netfilter-devel-owner@vger.kernel.org
+To: Sohan Shetty <sshetty@nextpointnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:35107 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751350AbYBDP3Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 10:29:16 -0500
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:36584 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751828AbYBDPlU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 10:41:20 -0500
+In-Reply-To: <1C6541574A2FC447B53A6B4522B678AFF057C8@moe.nextone.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Sohan Shetty wrote:
+> Is  anyone aware if there an  NAT module for netfilter being developed for SCTP protocol ?
 
-	When I compile the kernel 2.6.24-mm1 with:
-CONFIG_NET_ISA=y
-CONFIG_NE2000=y
+I don't believe there is one yet.  You are always welcome to write it.
 
-I have the following compile error:
-...
-  GEN     .version
-  CHK     include/linux/compile.h
-  UPD     include/linux/compile.h
-  CC      init/version.o
-  LD      init/built-in.o
-  LD      .tmp_vmlinux1
-drivers/built-in.o: In function `ne_block_output':
-linux-2.6.24-mm1/drivers/net/ne.c:797: undefined reference to `NS8390_init'
-drivers/built-in.o: In function `ne_drv_resume':
-linux-2.6.24-mm1/drivers/net/ne.c:858: undefined reference to `NS8390_init'
-drivers/built-in.o: In function `ne_probe1':
-linux-2.6.24-mm1/drivers/net/ne.c:539: undefined reference to `NS8390_init'
-make[1]: *** [.tmp_vmlinux1] Error 1
-make: *** [sub-make] Error 2
+> 
+> 
+> I have searched the netfilter development tree source code and also mailing list and so far I have not found the NAT module for SCTP . There is SCTP conntrack module and packet match module. 
+> 
+> If anyone is aware and can point me to  some one who is already working on this or has evaluated this it would be of great help.
+> 
+> 
+> SCTP is defined in [RFC 2960] Stewart, R., Xie, Q., Morneault, K., Sharp, C., Schwarzbauer, H., Taylor, T., Rytina, I., Kalla, M., Zhang, L. and V. Paxson, "Stream Control Transmission Protocol", RFC 2960, October 2000. 
+> 
 
-As I saw that the file 8390p.c is compiled for this driver, but not the file 
-8390.c which contains this function NS8390_init(), I fixed this error with
-the following patch.
+This has been updated.  See RFC 4960.
 
-As NS8390p_init() does the same thing than NS8390_init(), I suppose that this is the right fix ?
-
-Signed-off-by: Pierre Peiffer <pierre.peiffer@bull.net>
----
- drivers/net/ne.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-Index: b/drivers/net/ne.c
-===================================================================
---- a/drivers/net/ne.c
-+++ b/drivers/net/ne.c
-@@ -536,7 +536,7 @@ static int __init ne_probe1(struct net_d
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	dev->poll_controller = eip_poll;
- #endif
--	NS8390_init(dev, 0);
-+	NS8390p_init(dev, 0);
- 
- 	ret = register_netdev(dev);
- 	if (ret)
-@@ -794,7 +794,7 @@ retry:
- 		if (time_after(jiffies, dma_start + 2*HZ/100)) {		/* 20ms */
- 			printk(KERN_WARNING "%s: timeout waiting for Tx RDC.\n", dev->name);
- 			ne_reset_8390(dev);
--			NS8390_init(dev,1);
-+			NS8390p_init(dev,1);
- 			break;
- 		}
- 
-@@ -855,7 +855,7 @@ static int ne_drv_resume(struct platform
- 
- 	if (netif_running(dev)) {
- 		ne_reset_8390(dev);
--		NS8390_init(dev, 1);
-+		NS8390p_init(dev, 1);
- 		netif_device_attach(dev);
- 	}
- 	return 0;
-
--- 
-Pierre
+-vlad
