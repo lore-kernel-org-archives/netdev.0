@@ -1,97 +1,67 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 2.6.24-mm1] error compiling net driver NE2000/NE1000
-Date: Mon, 4 Feb 2008 13:10:38 -0800
-Message-ID: <20080204131038.699c28c1.akpm@linux-foundation.org>
-References: <20080204162921.94984e72.pierre.peiffer@bull.net>
+From: Erik Mouw <mouw@nl.linux.org>
+Subject: Re: [PATCH] xircom_cb should return NETDEV_TX_BUSY when there are
+	no descriptors available
+Date: Mon, 4 Feb 2008 22:20:37 +0100
+Message-ID: <20080204212037.GB11417@gateway.home>
+References: <20080204175653.GC16952@gateway.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Pierre Peiffer <pierre.peiffer@bull.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="St7VIuEGZ6dlpu13"
+Cc: netdev@vger.kernel.org,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	jamal <hadi@cyberus.ca>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:35532 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752772AbYBDVLv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 16:11:51 -0500
-In-Reply-To: <20080204162921.94984e72.pierre.peiffer@bull.net>
+Received: from smtp-vbr15.xs4all.nl ([194.109.24.35]:2049 "EHLO
+	smtp-vbr15.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753633AbYBDVV5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 16:21:57 -0500
+Content-Disposition: inline
+In-Reply-To: <20080204175653.GC16952@gateway.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 4 Feb 2008 16:29:21 +0100
-Pierre Peiffer <pierre.peiffer@bull.net> wrote:
 
-> Hi,
-> 
-> 	When I compile the kernel 2.6.24-mm1 with:
-> CONFIG_NET_ISA=y
-> CONFIG_NE2000=y
-> 
-> I have the following compile error:
-> ...
->   GEN     .version
->   CHK     include/linux/compile.h
->   UPD     include/linux/compile.h
->   CC      init/version.o
->   LD      init/built-in.o
->   LD      .tmp_vmlinux1
-> drivers/built-in.o: In function `ne_block_output':
-> linux-2.6.24-mm1/drivers/net/ne.c:797: undefined reference to `NS8390_init'
-> drivers/built-in.o: In function `ne_drv_resume':
-> linux-2.6.24-mm1/drivers/net/ne.c:858: undefined reference to `NS8390_init'
-> drivers/built-in.o: In function `ne_probe1':
-> linux-2.6.24-mm1/drivers/net/ne.c:539: undefined reference to `NS8390_init'
-> make[1]: *** [.tmp_vmlinux1] Error 1
-> make: *** [sub-make] Error 2
+--St7VIuEGZ6dlpu13
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thanks for reporting this.
+On Mon, Feb 04, 2008 at 06:56:54PM +0100, Erik Mouw wrote:
+> Changes in other networking paths uncovered a bug in the xircom_cb
+> driver which made the kernel spew lots of the following error messages:
+>=20
+>   BUG eth1 code -5 qlen 0
+>=20
+> It turned out that the driver returned -EIO when there was no
+> descriptor available for sending packets. It should return
+> NETDEV_TX_BUSY instead. This was discussed on the netdev list before,
+> see http://thread.gmane.org/gmane.linux.network/84603 .
+>=20
+> Signed-off-by: Erik Mouw <mouw@nl.linux.org>
 
-> As I saw that the file 8390p.c is compiled for this driver, but not the file 
-> 8390.c which contains this function NS8390_init(), I fixed this error with
-> the following patch.
-
-Alan's
-8390-split-8390-support-into-a-pausing-and-a-non-pausing-driver-core.patch
-would be a prime suspect.  I assume this bug isn't present ing mainline or
-in 2.6.24?
-
-> As NS8390p_init() does the same thing than NS8390_init(), I suppose that this is the right fix ?
-> 
-> Signed-off-by: Pierre Peiffer <pierre.peiffer@bull.net>
-> ---
->  drivers/net/ne.c |    6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> Index: b/drivers/net/ne.c
-> ===================================================================
-> --- a/drivers/net/ne.c
-> +++ b/drivers/net/ne.c
-> @@ -536,7 +536,7 @@ static int __init ne_probe1(struct net_d
->  #ifdef CONFIG_NET_POLL_CONTROLLER
->  	dev->poll_controller = eip_poll;
->  #endif
-> -	NS8390_init(dev, 0);
-> +	NS8390p_init(dev, 0);
->  
->  	ret = register_netdev(dev);
->  	if (ret)
-> @@ -794,7 +794,7 @@ retry:
->  		if (time_after(jiffies, dma_start + 2*HZ/100)) {		/* 20ms */
->  			printk(KERN_WARNING "%s: timeout waiting for Tx RDC.\n", dev->name);
->  			ne_reset_8390(dev);
-> -			NS8390_init(dev,1);
-> +			NS8390p_init(dev,1);
->  			break;
->  		}
->  
-> @@ -855,7 +855,7 @@ static int ne_drv_resume(struct platform
->  
->  	if (netif_running(dev)) {
->  		ne_reset_8390(dev);
-> -		NS8390_init(dev, 1);
-> +		NS8390p_init(dev, 1);
->  		netif_device_attach(dev);
->  	}
->  	return 0;
+Forgot to tell: the patch is against 2.6.24 but should apply cleanly to
+the latest git kernel. The xircom_cb driver appears to be orphaned so
+I've send the patch to you.
 
 
+Erik
+
+--=20
+They're all fools. Don't worry. Darwin may be slow, but he'll
+eventually get them. -- Matthew Lammers in alt.sysadmin.recovery
+
+--St7VIuEGZ6dlpu13
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFHp4Gl/PlVHJtIto0RAngFAJ9ZXFe1Q5diA4tkHsSOD3Y4+Es3mgCfRXay
+3UmgcIhXIHSH9LgWJB53LB4=
+=l4uS
+-----END PGP SIGNATURE-----
+
+--St7VIuEGZ6dlpu13--
