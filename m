@@ -1,90 +1,58 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][INET]: Fix accidentally broken inet(6)_hash_connect's port
- offset calculations.
-Date: Mon, 04 Feb 2008 11:10:37 +0300
-Message-ID: <47A6C87D.7060304@openvz.org>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: Re: LRO ip_summed
+Date: Mon, 4 Feb 2008 10:14:23 +0100
+Message-ID: <200802041014.23989.ossthema@de.ibm.com>
+References: <BAY121-W366A043ECDC160494B1EFAB6320@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="windows-1255"
 Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Kostya B <bkostya@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:46738 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752768AbYBDIKs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Feb 2008 03:10:48 -0500
+Received: from mtagate8.de.ibm.com ([195.212.29.157]:60186 "EHLO
+	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752388AbYBDJOa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 04:14:30 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate8.de.ibm.com (8.13.8/8.13.8) with ESMTP id m149ET2F508334
+	for <netdev@vger.kernel.org>; Mon, 4 Feb 2008 09:14:29 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m149ESms606444
+	for <netdev@vger.kernel.org>; Mon, 4 Feb 2008 10:14:28 +0100
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m149EP0B017826
+	for <netdev@vger.kernel.org>; Mon, 4 Feb 2008 10:14:27 +0100
+In-Reply-To: <BAY121-W366A043ECDC160494B1EFAB6320@phx.gbl>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The port offset calculations depend on the protocol family, but,
-as Adrian noticed, I broke this logic with the commit
+On Sunday 03 February 2008 10:48, Kostya B wrote:
+> 
+> Hi,
+> 
+> The mail is related to the way LRO manipulates the ip_summed value. Could anybody (author) explain why to overwrite the original value of skb->ip_summed, when it's processing by __lro_proc_skb ?
+> E.g. in out: label
+> 
+> Why not to preserve the coherency of csum status of each incoming to LRO packet, the same way the IP defragmentation does? That means - all skb in descriptor have the same value of ip_summed.
+> 
 
-	5ee31fc1ecdcbc234c8c56dcacef87c8e09909d8
-	[INET]: Consolidate inet(6)_hash_connect.
+Hi,
 
-Return this logic back, by passing the port offset directly into 
-the consolidated function.
+I'm not sure if I understand your proposal correctly.
+Currently the driver decides via the struct net_lro_mgr
+a) which ip_summed value will be used for all aggregated packets
+b) which one to use for those packets that can not be aggregated
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-Noticed-by: Adrian Bunk <bunk@kernel.org>
+to a) this one should always be the same. The driver knows whether its HW is
+      capable of performing ip checksum checking for this kind of traffic (TCP)
 
----
+There are two modes: aggregating SKBs or aggregating fragments. 
+When fragments are aggregated, there is no SKB with a filled ip_summed available.
 
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 48ac620..97dc35a 100644
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -389,7 +389,7 @@ static inline struct sock *inet_lookup(struct net *net,
- }
- 
- extern int __inet_hash_connect(struct inet_timewait_death_row *death_row,
--		struct sock *sk,
-+		struct sock *sk, u32 port_offset,
- 		int (*check_established)(struct inet_timewait_death_row *,
- 			struct sock *, __u16, struct inet_timewait_sock **),
- 			       void (*hash)(struct sock *sk));
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index 90f422c..9cac6c0 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -398,7 +398,7 @@ out:
- EXPORT_SYMBOL_GPL(inet_unhash);
- 
- int __inet_hash_connect(struct inet_timewait_death_row *death_row,
--		struct sock *sk,
-+		struct sock *sk, u32 port_offset,
- 		int (*check_established)(struct inet_timewait_death_row *,
- 			struct sock *, __u16, struct inet_timewait_sock **),
- 		void (*hash)(struct sock *sk))
-@@ -413,7 +413,7 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
- 	if (!snum) {
- 		int i, remaining, low, high, port;
- 		static u32 hint;
--		u32 offset = hint + inet_sk_port_offset(sk);
-+		u32 offset = hint + port_offset;
- 		struct hlist_node *node;
- 		struct inet_timewait_sock *tw = NULL;
- 
-@@ -502,7 +502,7 @@ EXPORT_SYMBOL_GPL(__inet_hash_connect);
- int inet_hash_connect(struct inet_timewait_death_row *death_row,
- 		      struct sock *sk)
- {
--	return __inet_hash_connect(death_row, sk,
-+	return __inet_hash_connect(death_row, sk, inet_sk_port_offset(sk),
- 			__inet_check_established, __inet_hash_nolisten);
- }
- 
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 43f3993..99fd25f 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -236,7 +236,7 @@ static inline u32 inet6_sk_port_offset(const struct sock *sk)
- int inet6_hash_connect(struct inet_timewait_death_row *death_row,
- 		       struct sock *sk)
- {
--	return __inet_hash_connect(death_row, sk,
-+	return __inet_hash_connect(death_row, sk, inet6_sk_port_offset(sk),
- 			__inet6_check_established, __inet6_hash);
- }
- 
+Please outline which parts of which mode you suggest to change.
+
+Regards,
+Jan-Bernd
+
