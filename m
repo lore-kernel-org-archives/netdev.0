@@ -1,39 +1,25 @@
-From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
-Subject: Re: oops with ipcomp
-Date: Mon, 4 Feb 2008 10:35:00 +0100
-Message-ID: <3C59DB883F7B0B4D8096010D45ACCD134F20A5@exch.facton.local>
-References: <3C59DB883F7B0B4D8096010D45ACCD134F209E@exch.facton.local> <20080202044254.GA27792@gondor.apana.org.au>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: include/linux/pcounter.h
+Date: Mon, 4 Feb 2008 01:44:02 -0800
+Message-ID: <20080204014402.1c55d3fe.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alpha.facton.com ([83.236.152.122]:33727 "EHLO alpha.facton.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750940AbYBDJfK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 04:35:10 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20080202044254.GA27792@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754645AbYBDJoj@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> Unable to handle kernel paging request at ffffc200000fb000 RIP: 
->>  [<ffffffff8031b8f0>] deflate_slow+0x40/0x400
 
-> I'm not able to get much information out of this crash dump.  Nor
-> can I reproduce this bug on my 32-bit machines and I'm currently
-> away from my 64-bit machines.
+e7d0362dd41e760f340c1b500646cc92522bd9d5 should have been folded into
+de4d1db369785c29d68915edfee0cb70e8199f4c prior to merging.  We now and for
+ever have a window of breakage which screws up git bisection.  Which I
+just hit.  Which is the only reason I discovered the file's existence.
 
-> How long have you been using IPComp in the past and what was the
-> last kernel version which was stable with IPComp?
 
-I've never seen this with kernels < 2.6.24 after many years of
-ipsec/ipcomp usage.
-I got it 18 hours after boot, since the oops it runs stable for further
-72 hours.
-But I cross the fingers that it was an unique issue, I'll report if it
-oopses again.
-
-Daniel
+Please do not merge pieces of generic kernel infrastructure while keeping
+it all secret on the netdev list.  Ever.  That code has a number of deficiencies
+which I and probably others would have noted had it been offered to us
+for review.
