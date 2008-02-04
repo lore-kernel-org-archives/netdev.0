@@ -1,58 +1,70 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] Add IPv6 support to TCP SYN cookies
-Date: Tue, 5 Feb 2008 21:02:11 +0100
-Message-ID: <20080205200211.GA26150@one.firstfloor.org>
-References: <47a79d64.16538c0a.5b6a.ffffb0fe@mx.google.com> <20080205155558.GA23145@one.firstfloor.org> <c9e534200802051029u5d08cf6dm54866f769e362262@mail.gmail.com>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: Re: [patch 2/4] forcedeth: fix MAC address detection on network card
+ (regression in 2.6.23)
+Date: Mon, 04 Feb 2008 12:57:10 -0500
+Message-ID: <47A751F6.3030007@nvidia.com>
+References: <200802050746.m157ktY9010399@imap1.linux-foundation.org>	<47A8A90B.6010602@garzik.org> <20080205105909.fd8c6dbe.akpm@linux-foundation.org> <47A74C7E.8080101@nvidia.com> <47A8B558.7060605@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Glenn Griffin <ggriffin.kernel@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	michael.pyne@kdemail.net, LKML <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:48067 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755637AbYBET1T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 14:27:19 -0500
-Content-Disposition: inline
-In-Reply-To: <c9e534200802051029u5d08cf6dm54866f769e362262@mail.gmail.com>
+Received: from hqemgate04.nvidia.com ([216.228.112.152]:4522 "EHLO
+	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755942AbYBETeE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 14:34:04 -0500
+In-Reply-To: <47A8B558.7060605@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 05, 2008 at 10:29:28AM -0800, Glenn Griffin wrote:
-> > Syncookies are discouraged these days. They disable too many
-> > valuable TCP features (window scaling, SACK) and even without them
-> > the kernel is usually strong enough to defend against syn floods
-> > and systems have much more memory than they used to be.
-> >
-> > So I don't think it makes much sense to add more code to it, sorry.
+
+
+Jeff Garzik wrote:
+> Ayaz Abdulla wrote:
 > 
-> As you say the kernel is usually strong enough to defend against syn flood
-> attacks, but what about the situations where it isn't?  As valuable as the TCP
-> features are I would give them up if it means I'm able to connect to my sshd
-> port when I otherwise would be unable to.  While increased synq sizes, better
-> dropping algorithms, and minisocks are a great way to mitigate the attacks and
-> in most cases are enough, there are situations where syncookies are nice.
-
-Have you seen such a case in practice with a modern kernel? 
-
-They also cause problems unfortunately; e.g. there is no real flow control for connections
-anymore in the non DOS case.
-
-> Regardless, I would say as long as ipv4 has syncookie support it will
-> accurately be viewed as a deficiency of ipv6 if it lacks support.  So perhaps
-> the discussion should be we whether all the other defenses are enough to
-> warrant the removal of syncookie support from ipv4.  That topic may bring in
-> more opinions.
-
-That is essentially what I and Alan were discussing.
+>> Andrew Morton wrote:
+>>
+>>> On Tue, 05 Feb 2008 13:20:59 -0500 Jeff Garzik <jeff@garzik.org> wrote:
+>>>
+>>>
+>>>>> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+>>>>
+>>>>
+>>>> NAK - this fixes one set of users, and breaks a working set of users.
+>>>>
+>>>> Need to add DMI check for the specific motherboard 
+>>>> (dmi_check_system), and flip flag according to success/failure of 
+>>>> that check.
+>>>
+>>>
+>>>
+>>> OK :)  I added the above to the changelog for next time.
+>>>
+>>> You guys can hide, but this patch isn't going away!
+>>
+>>
+>> I believe Michael determined that a newer BIOS fixes this issue.
 > 
-> > Besides you should really move it to the ipv6 module, right now the code
-> > would be always compiled in even for ipv4 only kernels.
 > 
-> That is correct.  I will gladly move it into it's own section within net/ipv6/.
-> Do you have any problem using the same CONFIG and sysctl variables as the ipv4
-> implementation?
+> 
+> That's a solution that makes vendors happy... but we still have to deal 
+> with it in Linux.  There are plenty of the old broken BIOS still out in 
+> the field...
+> 
+>     Jeff
+> 
+> 
 
-No.
+Michael, can you provide which BIOS version had this issue and which 
+version fixed the issue?
 
--Andi
+
+
+-----------------------------------------------------------------------------------
+This email message is for the sole use of the intended recipient(s) and may contain
+confidential information.  Any unauthorized review, use, disclosure or distribution
+is prohibited.  If you are not the intended recipient, please contact the sender by
+reply email and destroy all copies of the original message.
+-----------------------------------------------------------------------------------
