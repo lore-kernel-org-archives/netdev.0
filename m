@@ -1,68 +1,42 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 2/4] forcedeth: fix MAC address detection on network card
- (regression in 2.6.23)
-Date: Tue, 05 Feb 2008 13:20:59 -0500
-Message-ID: <47A8A90B.6010602@garzik.org>
-References: <200802050746.m157ktY9010399@imap1.linux-foundation.org>
+Subject: Re: [PATCH] [PPPOL2TP] Label unused warning when CONFIG_PROC_FS is
+ not set.
+Date: Tue, 05 Feb 2008 13:22:19 -0500
+Message-ID: <47A8A95B.4060905@garzik.org>
+References: <eb3ff54b0802050415h3c4672b1r7048143b599303dd@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, michael.pyne@kdemail.net,
-	AAbdulla@nvidia.com, LKML <linux-kernel@vger.kernel.org>
-To: akpm@linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759355AbYBESVV@vger.kernel.org>
-In-Reply-To: <200802050746.m157ktY9010399@imap1.linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Paul Mackerras <paulus@samba.org>,
+	David Miller <davem@davemloft.net>
+To: Rami Rosen <ramirose@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:41932 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751484AbYBESWW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2008 13:22:22 -0500
+In-Reply-To: <eb3ff54b0802050415h3c4672b1r7048143b599303dd@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-akpm@linux-foundation.org wrote:
-> From: Michael Pyne <michael.pyne@kdemail.net>
+Rami Rosen wrote:
+> Hi,
 > 
-> Partially revert a change to mac address detection introduced to the forcedeth
-> driver.  The change was intended to correct mac address detection for newer
-> nVidia chipsets where the mac address was stored in reverse order.  One of
-> those chipsets appears to still have the mac address in reverse order (or at
-> least, it does on my system).
+> When CONFIG_PROC_FS is not set and CONFIG_PPPOL2TP is set,
+> we have the following warning in build:
+>   drivers/net/pppol2tp.c: In function 'pppol2tp_init':
+>   drivers/net/pppol2tp.c:2472: warning: label
+> 'out_unregister_pppox_proto' defined but not used
 > 
-> The change that broke mac address detection for my card was commit
-> ef756b3e56c68a4d76d9d7b9a73fa8f4f739180f "forcedeth: mac address correct"
+> This patches fixes this warning by adding appropriate #ifdef.
 > 
-> My network card is an nVidia built-in Ethernet card, output from lspci as
-> follows (with text and numeric ids):
-> $ lspci | grep Ethernet
-> 00:07.0 Bridge: nVidia Corporation MCP61 Ethernet (rev a2)
-> $ lspci -n | grep 07.0
-> 00:07.0 0680: 10de:03ef (rev a2)
+> Regards,
+> Rami Rosen
 > 
-> The vendor id is, of course, nVidia.  The device id corresponds to the
-> NVIDIA_NVENET_19 entry.
 > 
-> The included patch fixes the MAC address detection on my system.
-> Interestingly, the MAC address appears to be in the range reserved for my
-> motherboard manufacturer (Gigabyte) and not nVidia.
-> 
-> Signed-off-by: Michael J. Pyne <michael.pyne@kdemail.net>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-> Cc: <stable@kernel.org>
-> 
-> On Wed, 21 Nov 2007 15:34:52 -0800
-> "Ayaz Abdulla" <AAbdulla@nvidia.com> wrote:
-> 
->> The solution is to get the OEM to update their BIOS (instead of
->> integrating this patch) since the MCP61 specs indicate that the MAC
->> Address should be in correct order from BIOS.
->>
->> By changing the feature DEV_HAS_CORRECT_MACADDR to all MCP61 boards, it
->> could cause it to break on other OEM systems who have implemented it
->> correctly.
->>
-> 
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-NAK - this fixes one set of users, and breaks a working set of users.
 
-Need to add DMI check for the specific motherboard (dmi_check_system), 
-and flip flag according to success/failure of that check.
+David or Paul, wanna pick this up?
 
-	Jeff
