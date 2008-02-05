@@ -1,22 +1,24 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [PATCH 16/24 for-2.6.25] DM9000: Remove unnecessary changelog in header comment
-Date: Tue, 05 Feb 2008 00:02:15 +0000
-Message-ID: <20080205000817.743787704@fluff.org.uk>
+Subject: [PATCH 17/24 for-2.6.25] DM9000: Use netif_msg to enable debugging options
+Date: Tue, 05 Feb 2008 00:02:16 +0000
+Message-ID: <20080205000817.948372112@fluff.org.uk>
 References: <20080205000159.432081941@fluff.org.uk>
 Cc: jeff@garzik.org, akpm@linux-foundation.org, daniel@caiaq.de,
 	laurentp@cse-semaphore.com, Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58713 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58738 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758826AbYBEAIY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:24 -0500
-Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-tidy-remove-changelog.patch
+	with ESMTP id S1758840AbYBEAIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:25 -0500
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-debug-msglevel.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have a perfectly good version control system, so we do not
-need to duplicate change comments in the header for this code.
+Use the netif_msg_*() macros to enable the debugging based
+on the board's msg_enable field. The output still goes via
+the dev_dbg() macros, so will be tagged and output as 
+appropriate.
 
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
@@ -24,64 +26,85 @@ Index: linux-2.6.24-quilt3/drivers/net/dm9000.c
 ===================================================================
 --- linux-2.6.24-quilt3.orig/drivers/net/dm9000.c
 +++ linux-2.6.24-quilt3/drivers/net/dm9000.c
-@@ -1,7 +1,5 @@
- /*
-- *   dm9000.c: Version 1.2 03/18/2003
-- *
-- *         A Davicom DM9000 ISA NIC fast Ethernet driver for Linux.
-+ *      Davicom DM9000 Fast Ethernet driver for Linux.
-  * 	Copyright (C) 1997  Sten Wang
-  *
-  * 	This program is free software; you can redistribute it and/or
-@@ -14,44 +12,11 @@
-  * 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  * 	GNU General Public License for more details.
-  *
-- *   (C)Copyright 1997-1998 DAVICOM Semiconductor,Inc. All Rights Reserved.
-- *
-- * V0.11	06/20/2001	REG_0A bit3=1, default enable BP with DA match
-- * 	06/22/2001 	Support DM9801 progrmming
-- * 	 	 	E3: R25 = ((R24 + NF) & 0x00ff) | 0xf000
-- * 		 	E4: R25 = ((R24 + NF) & 0x00ff) | 0xc200
-- * 		     		R17 = (R17 & 0xfff0) | NF + 3
-- * 		 	E5: R25 = ((R24 + NF - 3) & 0x00ff) | 0xc200
-- * 		     		R17 = (R17 & 0xfff0) | NF
-- *
-- * v1.00               	modify by simon 2001.9.5
-- *                         change for kernel 2.4.x
-- *
-- * v1.1   11/09/2001      	fix force mode bug
-- *
-- * v1.2   03/18/2003       Weilun Huang <weilun_huang@davicom.com.tw>:
-- * 			Fixed phy reset.
-- * 			Added tx/rx 32 bit mode.
-- * 			Cleaned up for kernel merge.
-- *
-- *        03/03/2004    Sascha Hauer <s.hauer@pengutronix.de>
-- *                      Port to 2.6 kernel
-- *
-- *	  24-Sep-2004   Ben Dooks <ben@simtec.co.uk>
-- *			Cleanup of code to remove ifdefs
-- *			Allowed platform device data to influence access width
-- *			Reformatting areas of code
-- *
-- *        17-Mar-2005   Sascha Hauer <s.hauer@pengutronix.de>
-- *                      * removed 2.4 style module parameters
-- *                      * removed removed unused stat counter and fixed
-- *                        net_device_stats
-- *                      * introduced tx_timeout function
-- *                      * reworked locking
-+ * (C) Copyright 1997-1998 DAVICOM Semiconductor,Inc. All Rights Reserved.
-  *
-- *	  01-Jul-2005   Ben Dooks <ben@simtec.co.uk>
-- *			* fixed spinlock call without pointer
-- *			* ensure spinlock is initialised
-+ * Additional updates, Copyright:
-+ *	Ben Dooks <ben@simtec.co.uk>
-+ *	Sascha Hauer <s.hauer@pengutronix.de>
-  */
+@@ -714,7 +714,8 @@ dm9000_open(struct net_device *dev)
+ 	board_info_t *db = (board_info_t *) dev->priv;
+ 	unsigned long irqflags = db->irq_res->flags & IRQF_TRIGGER_MASK;
  
- #include <linux/module.h>
+-	dev_dbg(db->dev, "entering %s\n", __func__);
++	if (netif_msg_ifup(db))
++		dev_dbg(db->dev, "enabling %s\n", dev->name);
+ 
+ 	/* If there is no IRQ type specified, default to something that
+ 	 * may work, and tell the user that this is a problem */
+@@ -858,7 +859,8 @@ dm9000_stop(struct net_device *ndev)
+ {
+ 	board_info_t *db = (board_info_t *) ndev->priv;
+ 
+-	dm9000_dbg(db, 1, "entering %s\n", __func__);
++	if (netif_msg_ifdown(db))
++		dev_dbg(db->dev, "shutting down %s\n", ndev->name);
+ 
+ 	netif_stop_queue(ndev);
+ 	netif_carrier_off(ndev);
+@@ -886,6 +888,9 @@ dm9000_tx_done(struct net_device *dev, b
+ 		db->tx_pkt_cnt--;
+ 		dev->stats.tx_packets++;
+ 
++		if (netif_msg_tx_done(db))
++			dev_dbg(db->dev, "tx done, NSR %02x\n", tx_status);
++
+ 		/* Queue packet check & send */
+ 		if (db->tx_pkt_cnt > 0) {
+ 			iow(db, DM9000_TXPLL, db->queue_pkt_len & 0xff);
+@@ -921,6 +926,9 @@ dm9000_interrupt(int irq, void *dev_id)
+ 	int_status = ior(db, DM9000_ISR);	/* Got ISR */
+ 	iow(db, DM9000_ISR, int_status);	/* Clear ISR status */
+ 
++	if (netif_msg_intr(db))
++		dev_dbg(db->dev, "interrupt status %02x\n", int_status);
++
+ 	/* Received the coming packet */
+ 	if (int_status & ISR_PRS)
+ 		dm9000_rx(dev);
+@@ -985,10 +993,15 @@ dm9000_rx(struct net_device *dev)
+ 
+ 		RxLen = le16_to_cpu(rxhdr.RxLen);
+ 
++		if (netif_msg_rx_status(db))
++			dev_dbg(db->dev, "RX: status %02x, length %04x\n",
++				rxhdr.RxStatus, RxLen);
++
+ 		/* Packet Status check */
+ 		if (RxLen < 0x40) {
+ 			GoodPacket = false;
+-			dev_dbg(db->dev, "Bad Packet received (runt)\n");
++			if (netif_msg_rx_err(db))
++				dev_dbg(db->dev, "RX: Bad Packet (runt)\n");
+ 		}
+ 
+ 		if (RxLen > DM9000_PKT_MAX) {
+@@ -998,15 +1011,18 @@ dm9000_rx(struct net_device *dev)
+ 		if (rxhdr.RxStatus & 0xbf) {
+ 			GoodPacket = false;
+ 			if (rxhdr.RxStatus & 0x01) {
+-				dev_dbg(db->dev, "fifo error\n");
++				if (netif_msg_rx_err(db))
++					dev_dbg(db->dev, "fifo error\n");
+ 				dev->stats.rx_fifo_errors++;
+ 			}
+ 			if (rxhdr.RxStatus & 0x02) {
+-				dev_dbg(db->dev, "crc error\n");
++				if (netif_msg_rx_err(db))
++					dev_dbg(db->dev, "crc error\n");
+ 				dev->stats.rx_crc_errors++;
+ 			}
+ 			if (rxhdr.RxStatus & 0x80) {
+-				dev_dbg(db->dev, "length error\n");
++				if (netif_msg_rx_err(db))
++					dev_dbg(db->dev, "length error\n");
+ 				dev->stats.rx_length_errors++;
+ 			}
+ 		}
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
