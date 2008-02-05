@@ -1,24 +1,23 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [PATCH 21/24 for-2.6.25] DM9000: Add platform flag for no attached EEPROM
-Date: Tue, 05 Feb 2008 00:02:20 +0000
-Message-ID: <20080205000818.726431243@fluff.org.uk>
+Subject: [PATCH 18/24 for-2.6.25] DM9000: Fix delays used by EEPROM read and write
+Date: Tue, 05 Feb 2008 00:02:17 +0000
+Message-ID: <20080205000818.136334068@fluff.org.uk>
 References: <20080205000159.432081941@fluff.org.uk>
 Cc: jeff@garzik.org, akpm@linux-foundation.org, daniel@caiaq.de,
 	laurentp@cse-semaphore.com, Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58730 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58736 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758842AbYBEAIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:25 -0500
-Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-no-eeprom-flag.patch
+	with ESMTP id S1758835AbYBEAIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:24 -0500
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-eeprom-rwfix.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow the platform data to specify to the DM9000 driver
-that there is no posibility of an attached EEPROM on the
-device, so default all reads to 0xff and ignore any
-write operations.
+The code was using a delay of 8ms, when it should have been
+using the EEPROM status flag from the device to indicate the
+EEPROM transaction had finished.
 
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
@@ -26,61 +25,81 @@ Index: linux-2.6.24-quilt3/drivers/net/dm9000.c
 ===================================================================
 --- linux-2.6.24-quilt3.orig/drivers/net/dm9000.c
 +++ linux-2.6.24-quilt3/drivers/net/dm9000.c
-@@ -405,6 +405,9 @@ static int dm9000_get_eeprom(struct net_
- 	if ((len & 1) != 0 || (offset & 1) != 0)
- 		return -EINVAL;
+@@ -1051,6 +1051,50 @@ dm9000_rx(struct net_device *dev)
+ 	} while (rxbyte == DM9000_PKT_RDY);
+ }
  
-+	if (dm->flags & DM9000_PLATF_NO_EEPROM)
-+		return -ENOENT;
++static unsigned int
++dm9000_read_locked(board_info_t *db, int reg)
++{
++	unsigned long flags;
++	unsigned int ret;
 +
- 	ee->magic = DM_EEPROM_MAGIC;
- 
- 	for (i = 0; i < len; i += 2)
-@@ -426,6 +429,9 @@ static int dm9000_set_eeprom(struct net_
- 	if ((len & 1) != 0 || (offset & 1) != 0)
- 		return -EINVAL;
- 
-+	if (dm->flags & DM9000_PLATF_NO_EEPROM)
-+		return -ENOENT;
++	spin_lock_irqsave(&db->lock, flags);
++	ret = ior(db, reg);
++	spin_unlock_irqrestore(&db->lock, flags);
 +
- 	if (ee->magic != DM_EEPROM_MAGIC)
- 		return -EINVAL;
- 
-@@ -1103,6 +1109,12 @@ dm9000_read_eeprom(board_info_t *db, int
- {
- 	unsigned long flags;
- 
-+	if (db->flags & DM9000_PLATF_NO_EEPROM) {
-+		to[0] = 0xff;
-+		to[1] = 0xff;
-+		return;
++	return ret;
++}
++
++static int dm9000_wait_eeprom(board_info_t *db)
++{
++	unsigned int status;
++	int timeout = 8;	/* wait max 8msec */
++
++	/* The DM9000 data sheets say we should be able to
++	 * poll the ERRE bit in EPCR to wait for the EEPROM
++	 * operation. From testing several chips, this bit
++	 * does not seem to work. 
++	 *
++	 * We attempt to use the bit, but fall back to the
++	 * timeout (which is why we do not return an error
++	 * on expiry) to say that the EEPROM operation has
++	 * completed.
++	 */
++
++	while (1) {
++		status = dm9000_read_locked(db, DM9000_EPCR);
++
++		if ((status & EPCR_ERRE) == 0)
++			break;
++
++		if (timeout-- < 0) {
++			dev_dbg(db->dev, "timeout waiting EEPROM\n");
++			break;
++		}
 +	}
 +
- 	mutex_lock(&db->addr_lock);
- 
- 	spin_lock_irqsave(&db->lock, flags);
-@@ -1137,6 +1149,9 @@ dm9000_write_eeprom(board_info_t *db, in
- {
- 	unsigned long flags;
- 
-+	if (db->flags & DM9000_PLATF_NO_EEPROM)
-+		return;
++	return 0;
++}
 +
- 	mutex_lock(&db->addr_lock);
+ /*
+  *  Read a word data from EEPROM
+  */
+@@ -1068,8 +1112,10 @@ dm9000_read_eeprom(board_info_t *db, int
+ 
+ 	spin_unlock_irqrestore(&db->lock, flags);
+ 
+-	mdelay(8);		/* according to the datasheet 200us should be enough,
+-				   but it doesn't work */
++	dm9000_wait_eeprom(db);
++
++	/* delay for at-least 150uS */
++	msleep(1);
  
  	spin_lock_irqsave(&db->lock, flags);
-Index: linux-2.6.24-quilt3/include/linux/dm9000.h
-===================================================================
---- linux-2.6.24-quilt3.orig/include/linux/dm9000.h
-+++ linux-2.6.24-quilt3/include/linux/dm9000.h
-@@ -20,6 +20,7 @@
- #define DM9000_PLATF_16BITONLY	(0x0002)
- #define DM9000_PLATF_32BITONLY	(0x0004)
- #define DM9000_PLATF_EXT_PHY	(0x0008)
-+#define DM9000_PLATF_NO_EEPROM	(0x0010)
  
- /* platfrom data for platfrom device structure's platfrom_data field */
+@@ -1100,7 +1146,9 @@ dm9000_write_eeprom(board_info_t *db, in
+ 	iow(db, DM9000_EPCR, EPCR_WEP | EPCR_ERPRW);
+ 	spin_unlock_irqrestore(&db->lock, flags);
  
+-	mdelay(8);		/* same shit */
++	dm9000_wait_eeprom(db);
++
++	mdelay(1);	/* wait at least 150uS to clear */
+ 
+ 	spin_lock_irqsave(&db->lock, flags);
+ 	iow(db, DM9000_EPCR, 0);
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
