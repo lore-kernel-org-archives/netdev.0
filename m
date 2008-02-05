@@ -1,44 +1,33 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH] [IPV4]: Formatting fix for /proc/net/fib_trie.
-Date: Tue,  5 Feb 2008 12:58:56 +0300
-Message-ID: <1202205536-9888-1-git-send-email-den@openvz.org>
-Cc: netdev@vger.kernel.org, devel@openvz.org,
-	"Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [2.6 patch] xfrm4_beet_input(): fix an if()
+Date: Tue, 05 Feb 2008 02:51:58 -0800 (PST)
+Message-ID: <20080205.025158.160772590.davem@davemloft.net>
+References: <20080202211635.GF9375@cs181133002.pp.htv.fi>
+	<20080202222226.GB31388@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bunk@kernel.org, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:50053 "EHLO iris.sw.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754259AbYBEJ6k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Feb 2008 04:58:40 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59150
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756219AbYBEKva (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 05:51:30 -0500
+In-Reply-To: <20080202222226.GB31388@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The line in the /proc/net/fib_trie for route with TOS specified
-- has extra \n at the end
-- does not have a space after route scope
-like below.
-           |-- 1.1.1.1
-              /32 universe UNICASTtos =1
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sun, 3 Feb 2008 09:22:26 +1100
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
- net/ipv4/fib_trie.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+> On Sat, Feb 02, 2008 at 11:16:35PM +0200, Adrian Bunk wrote:
+> > A bug every C programmer makes at some point in time...
+> > 
+> > Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> 
+> Good catch!
+> 
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 35851c9..f5fba3f 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -2431,8 +2431,7 @@ static int fib_trie_seq_show(struct seq_file *seq, void *v)
- 					   rtn_type(buf2, sizeof(buf2),
- 						    fa->fa_type));
- 				if (fa->fa_tos)
--					seq_printf(seq, "tos =%d\n",
--						   fa->fa_tos);
-+					seq_printf(seq, " tos=%d", fa->fa_tos);
- 				seq_putc(seq, '\n');
- 			}
- 		}
--- 
-1.5.3.rc5
-
+Applied.
