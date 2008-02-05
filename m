@@ -1,37 +1,39 @@
 From: akpm@linux-foundation.org
-Subject: [patch 3/7] drivers/bluetooth/bpa10x.c: fix memleak
-Date: Mon, 04 Feb 2008 23:48:16 -0800
-Message-ID: <200802050747.m157lv5j010452@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, bunk@kernel.org
+Subject: [patch 5/7] bluetooth: blacklist another Broadcom BCM2035 device
+Date: Mon, 04 Feb 2008 23:48:17 -0800
+Message-ID: <200802050747.m157lwwg010458@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	andy@smile.org.ua
 To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:36348 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:54010 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753788AbYBEHsO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 02:48:14 -0500
+	by vger.kernel.org with ESMTP id S1753848AbYBEHsR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 02:48:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Adrian Bunk <bunk@kernel.org>
+From: Andy Shevchenko <andy@smile.org.ua>
 
-This patch fixea a memleak spotted by the Coverity checker.
+This device is recognized as bluetooth, but still not works.
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Signed-off-by: Andy Shevchenko <andy@smile.org.ua>
+Cc: Marcel Holtmann <marcel@holtmann.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/bluetooth/bpa10x.c |    1 +
+ drivers/bluetooth/hci_usb.c |    1 +
  1 file changed, 1 insertion(+)
 
-diff -puN drivers/bluetooth/bpa10x.c~drivers-bluetooth-bpa10xc-fix-memleak drivers/bluetooth/bpa10x.c
---- a/drivers/bluetooth/bpa10x.c~drivers-bluetooth-bpa10xc-fix-memleak
-+++ a/drivers/bluetooth/bpa10x.c
-@@ -423,6 +423,7 @@ static int bpa10x_send_frame(struct sk_b
- 		break;
+diff -puN drivers/bluetooth/hci_usb.c~bluetooth-blacklist-another-broadcom-bcm2035-device drivers/bluetooth/hci_usb.c
+--- a/drivers/bluetooth/hci_usb.c~bluetooth-blacklist-another-broadcom-bcm2035-device
++++ a/drivers/bluetooth/hci_usb.c
+@@ -111,6 +111,7 @@ static struct usb_device_id blacklist_id
+ 	{ USB_DEVICE(0x0a5c, 0x2033), .driver_info = HCI_IGNORE },
  
- 	default:
-+		usb_free_urb(urb);
- 		return -EILSEQ;
- 	}
+ 	/* Broadcom BCM2035 */
++	{ USB_DEVICE(0x0a5c, 0x2035), .driver_info = HCI_RESET | HCI_WRONG_SCO_MTU },
+ 	{ USB_DEVICE(0x0a5c, 0x200a), .driver_info = HCI_RESET | HCI_WRONG_SCO_MTU },
+ 	{ USB_DEVICE(0x0a5c, 0x2009), .driver_info = HCI_BCM92035 },
  
 _
