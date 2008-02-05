@@ -1,55 +1,42 @@
-From: "Rami Rosen" <ramirose@gmail.com>
-Subject: [PATCH] [PPPOL2TP] Label unused warning when CONFIG_PROC_FS is not set.
-Date: Tue, 5 Feb 2008 14:15:34 +0200
-Message-ID: <eb3ff54b0802050415h3c4672b1r7048143b599303dd@mail.gmail.com>
+From: Bernhard Walle <bwalle@suse.de>
+Subject: Re: locking api self-test hanging
+Date: Tue, 5 Feb 2008 14:23:50 +0100
+Message-ID: <20080205132350.GB31523@suse.de>
+References: <20080203150246.50647fa4.akpm@linux-foundation.org> <20080203150744.cf7d0415.akpm@linux-foundation.org> <20080204044304.d244e761.akpm@linux-foundation.org> <20080204050421.0febc754.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_6456_4426760.1202213734294"
-To: netdev@vger.kernel.org, jeff@garzik.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
+	linux-kernel@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.156]:23353 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751799AbYBEMPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 07:15:35 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so2184281fga.17
-        for <netdev@vger.kernel.org>; Tue, 05 Feb 2008 04:15:34 -0800 (PST)
+Received: from mx2.suse.de ([195.135.220.15]:33141 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752778AbYBENXw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2008 08:23:52 -0500
+Content-Disposition: inline
+In-Reply-To: <20080204050421.0febc754.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_6456_4426760.1202213734294
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+* Andrew Morton <akpm@linux-foundation.org> [2008-02-04 14:04]:
+> 
+> but that code really needs help.
 
-Hi,
+Using spin_lock_irqsave() is what rtc_get_rtc_time() does which was
+used before I changed to get_rtc_time() does. So it should be ok. I
+missed that difference. However, I agree with you the whole RTC
+"emulation" per HPET is a bit unclean. However, I have too little
+experience in this code area to come up with a proper redesign. I just
+ported it from the old RTC to the new RTC module interface.
 
-When CONFIG_PROC_FS is not set and CONFIG_PPPOL2TP is set,
-we have the following warning in build:
-  drivers/net/pppol2tp.c: In function 'pppol2tp_init':
-  drivers/net/pppol2tp.c:2472: warning: label
-'out_unregister_pppox_proto' defined but not used
+> Bernhard, I believe the checklist items in Documentation/SubmitChecklist
+> would have prevented this at the source.
 
-This patches fixes this warning by adding appropriate #ifdef.
-
-Regards,
-Rami Rosen
+Yes. I must admit that I didn't know that document. I used
+checkpatch.pl, but that's of course only for coding style. I'll try to
+follow the points in SubmitChecklist in future.
 
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-------=_Part_6456_4426760.1202213734294
-Content-Type: text/plain; name=patch.txt
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fcaexqwq0
-Content-Disposition: attachment; filename=patch.txt
-
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3BwcG9sMnRwLmMgYi9kcml2ZXJzL25ldC9wcHBvbDJ0
-cC5jCmluZGV4IDFiNTFiYjYuLjVhYTBhODAgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3BwcG9s
-MnRwLmMKKysrIGIvZHJpdmVycy9uZXQvcHBwb2wydHAuYwpAQCAtMjQ2OCw5ICsyNDY4LDEwIEBA
-IHN0YXRpYyBpbnQgX19pbml0IHBwcG9sMnRwX2luaXQodm9pZCkKIAogb3V0OgogCXJldHVybiBl
-cnI7Ci0KKyNpZmRlZiBDT05GSUdfUFJPQ19GUwogb3V0X3VucmVnaXN0ZXJfcHBwb3hfcHJvdG86
-CiAJdW5yZWdpc3Rlcl9wcHBveF9wcm90byhQWF9QUk9UT19PTDJUUCk7CisjZW5kaWYKIG91dF91
-bnJlZ2lzdGVyX3BwcG9sMnRwX3Byb3RvOgogCXByb3RvX3VucmVnaXN0ZXIoJnBwcG9sMnRwX3Nr
-X3Byb3RvKTsKIAlnb3RvIG91dDsK
-------=_Part_6456_4426760.1202213734294--
+        Bernhard
