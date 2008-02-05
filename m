@@ -1,158 +1,168 @@
-From: "Kyle Moffett" <kyle@moffetthome.net>
-Subject: [NET/IPv6] Race condition with flow_cache_genid?
-Date: Wed, 6 Feb 2008 13:36:31 -0500
-Message-ID: <f73f7ab80802061036u64a56abnccafacf68f2ed717@mail.gmail.com>
-References: <f73f7ab80802022128k2226b2f7r3c69ea1595073619@mail.gmail.com>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH 2/5] resend forcedeth: tx collision fix
+Date: Tue, 05 Feb 2008 12:29:49 -0500
+Message-ID: <47A89D0D.7000700@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
+Content-Type: multipart/mixed;
+ boundary="------------020605070504090905010303"
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.181]:49996 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753626AbYBFSgd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 13:36:33 -0500
-Received: by py-out-1112.google.com with SMTP id u52so4507814pyb.10
-        for <netdev@vger.kernel.org>; Wed, 06 Feb 2008 10:36:32 -0800 (PST)
-In-Reply-To: <f73f7ab80802022128k2226b2f7r3c69ea1595073619@mail.gmail.com>
-Content-Disposition: inline
+Received: from hqemgate04.nvidia.com ([216.228.112.152]:17781 "EHLO
+	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755455AbYBFTFM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 14:05:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Whoops, I accidentally sent this to linux-net@vger instead of
-netdev@vger.  Original email below:
+This is a multi-part message in MIME format.
+--------------020605070504090905010303
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+This patch supports a new fix in hardware regarding tx collisions. In 
+the cases where we are in autoneg mode and the link partner is in forced 
+mode, we need to setup the tx deferral register differently in order to 
+reduce collisions on the wire.
+
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
-Hi, I was poking around trying to figure out how to install the Mobile
-IPv6 daemons this evening and noticed they required a kernel patch,
-although upon further inspection the kernel patch seemed to already be
-applied in 2.6.24.  Unfortunately the flow cache appears to be
-horribly racy.  Attached below are the only uses of the variable
-"flow_cache_genid" in 2.6.24.
+--------------020605070504090905010303
+Content-Type: text/plain;
+ name="patch-forcedeth-collision-fix"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-collision-fix"
 
-Now, I am no expert in this particular area of the code, but the
-"atomic_t flow_cache_genid" variable is ONLY ever used with
-atomic_inc() and atomic_read().  There are no memory barriers or other
-dec_and_test()-style functions, so that variable could just as easily
-be replaced with a plain old C int.
+--- old/drivers/net/forcedeth.c	2008-02-05 12:07:53.000000000 -0500
++++ new/drivers/net/forcedeth.c	2008-02-05 12:10:54.000000000 -0500
+@@ -181,6 +181,7 @@
+ #define DEV_HAS_TEST_EXTENDED   0x1000  /* device supports extended diagnostic test */
+ #define DEV_HAS_MGMT_UNIT       0x2000  /* device supports management unit */
+ #define DEV_HAS_CORRECT_MACADDR 0x4000  /* device supports correct mac address order */
++#define DEV_HAS_COLLISION_FIX   0x8000  /* device supports tx collision fix */
+ 
+ enum {
+ 	NvRegIrqStatus = 0x000,
+@@ -266,9 +267,12 @@
+ #define NVREG_RNDSEED_FORCE3	0x7400
+ 
+ 	NvRegTxDeferral = 0xA0,
+-#define NVREG_TX_DEFERRAL_DEFAULT	0x15050f
+-#define NVREG_TX_DEFERRAL_RGMII_10_100	0x16070f
+-#define NVREG_TX_DEFERRAL_RGMII_1000	0x14050f
++#define NVREG_TX_DEFERRAL_DEFAULT		0x15050f
++#define NVREG_TX_DEFERRAL_RGMII_10_100		0x16070f
++#define NVREG_TX_DEFERRAL_RGMII_1000		0x14050f
++#define NVREG_TX_DEFERRAL_RGMII_STRETCH_10	0x16190f
++#define NVREG_TX_DEFERRAL_RGMII_STRETCH_100	0x16300f
++#define NVREG_TX_DEFERRAL_MII_STRETCH		0x152000
+ 	NvRegRxDeferral = 0xA4,
+ #define NVREG_RX_DEFERRAL_DEFAULT	0x16
+ 	NvRegMacAddrA = 0xA8,
+@@ -2785,6 +2789,7 @@
+ 	int retval = 0;
+ 	u32 control_1000, status_1000, phyreg, pause_flags, txreg;
+ 	u32 txrxFlags = 0;
++	u32 phy_exp;
+ 
+ 	/* BMSR_LSTATUS is latched, read it twice:
+ 	 * we want the current value.
+@@ -2912,13 +2917,25 @@
+ 		phyreg |= PHY_1000;
+ 	writel(phyreg, base + NvRegPhyInterface);
+ 
++	phy_exp = mii_rw(dev, np->phyaddr, MII_EXPANSION, MII_READ) & EXPANSION_NWAY; /* autoneg capable */
+ 	if (phyreg & PHY_RGMII) {
+-		if ((np->linkspeed & NVREG_LINKSPEED_MASK) == NVREG_LINKSPEED_1000)
++		if ((np->linkspeed & NVREG_LINKSPEED_MASK) == NVREG_LINKSPEED_1000) {
+ 			txreg = NVREG_TX_DEFERRAL_RGMII_1000;
+-		else
+-			txreg = NVREG_TX_DEFERRAL_RGMII_10_100;
++		} else {
++			if (!phy_exp && !np->duplex && (np->driver_data & DEV_HAS_COLLISION_FIX)) {
++				if ((np->linkspeed & NVREG_LINKSPEED_MASK) == NVREG_LINKSPEED_10)
++					txreg = NVREG_TX_DEFERRAL_RGMII_STRETCH_10;
++				else
++					txreg = NVREG_TX_DEFERRAL_RGMII_STRETCH_100;
++			} else {
++				txreg = NVREG_TX_DEFERRAL_RGMII_10_100;
++			}
++		}
+ 	} else {
+-		txreg = NVREG_TX_DEFERRAL_DEFAULT;
++		if (!phy_exp && !np->duplex && (np->driver_data & DEV_HAS_COLLISION_FIX))
++			txreg = NVREG_TX_DEFERRAL_MII_STRETCH;
++		else
++			txreg = NVREG_TX_DEFERRAL_DEFAULT;
+ 	}
+ 	writel(txreg, base + NvRegTxDeferral);
+ 
+@@ -5615,51 +5632,51 @@
+ 	},
+ 	{	/* MCP73 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_28),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
+ 	},
+ 	{	/* MCP73 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_29),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
+ 	},
+ 	{	/* MCP73 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_30),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
+ 	},
+ 	{	/* MCP73 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_31),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_32),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_33),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_34),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_35),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_36),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_37),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_38),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_39),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
+ 	},
+ 	{0,},
+ };
 
-Basically either there is some missing locking here or it does not
-need to be "atomic_t".  Judging from the way it *appears* to be used
-to check if cache entries are up-to-date with the latest changes in
-policy, I would guess the former.
-
-In particular that whole "flow_cache_lookup()" thing looks racy as
-hell, since somebody could be in the middle of that looking at "if
-(fle->genid == atomic_read(&flow_cache_genid))".  It does the
-atomic_read(), which BTW is literally implemented as:
-  #define atomic_read(atomicvar) ((atomicvar)->value)
-on some platforms.  Immediately after the atomic read (or even before,
-since there's no cache-flush or read-modify-write), somebody calls
-into "selinux_xfrm_notify_policyload()" and increments the
-flow_cache_genid becase selinux just loaded a security policy.  Now
-we're accepting a cache entry which applies to PREVIOUS security
-policy.  I can only assume that's really bad.
-
-Even worse, there seems to be a race between SELinux loading a new
-policy and calling selinux_xfrm_notify_policyload(), since we could
-easily get packets and process them according to the old cache entry
-on one CPU before SELinux has had a chance to update the generation ID
-from the other.  Furthermore, there's no guarantee the CPU caches will
-get updated in reasonable time.  Clearly SELinux needs to have some
-way of atomically invalidating the flow cache of all CPUs
-*simultaneously* with loading a new policy, which probably means they
-both need to be under the same lock, or something.
-
-The same problem appears to occur with updating the XFRM policy and
-incrementing flow_cache_genid.  Probably the fastest solution is to
-put the flow cache under the xfrm_policy_lock (which already disables
-local bottom-halves), and either take that lock during SELinux policy
-load or if there are lock ordering problems then add a variable
-"flow_cache_ignore" and change the xfrm_notify hooks:
-
-void selinux_xfrm_notify_policyload_pre(void)
-{
-        write_lock_bh(&xfrm_policy_lock);
-        flow_cache_genid++;
-        flow_cache_ignore = 1;
-        write_unlock_bh(&xfrm_policy_lock);
-}
-
-void selinux_xfrm_notify_policyload_post(void)
-{
-        write_lock_bh(&xfrm_policy_lock);
-        flow_cache_ignore = 0;
-        write_unlock_bh(&xfrm_policy_lock);
-}
-
-Cheers,
-Kyle Moffett
-
-
-BEGIN QUOTED CODE INVOLVING flow_cache_genid:
-
-include/net/flow.h:94:
-extern atomic_t flow_cache_genid;
-
-net/core/flow.c:39:
-atomic_t flow_cache_genid = ATOMIC_INIT(0);
-
-net/core/flow.c:169:flow_cache_lookup():
-        if (flow_hash_rnd_recalc(cpu))
-                flow_new_hash_rnd(cpu);
-        hash = flow_hash_code(key, cpu);
-
-        head = &flow_table(cpu)[hash];
-        for (fle = *head; fle; fle = fle->next) {
-                if (fle->family == family &&
-                                fle->dir == dir &&
-                                flow_key_compare(key, &fle->key) == 0) {
-                        if (fle->genid == atomic_read(&flow_cache_genid)) {
-                                void *ret = fle->object;
-
-                                if (ret)
-                                        atomic_inc(fle->object_ref);
-                                local_bh_enable();
-
-                                return ret;
-                        }
-                        break;
-                }
-        }
-
-net/xfrm/xfrm_policy.c:1025:
-int xfrm_policy_delete(struct xfrm_policy *pol, int dir)
-{
-        write_lock_bh(&xfrm_policy_lock);
-        pol = __xfrm_policy_unlink(pol, dir);
-        write_unlock_bh(&xfrm_policy_lock);
-        if (pol) {
-                if (dir < XFRM_POLICY_MAX)
-                        atomic_inc(&flow_cache_genid);
-                xfrm_policy_kill(pol);
-                return 0;
-        }
-        return -ENOENT;
-}
-
-net/ipv6/inet6_connection_sock.c:142:
-static inline
-void __inet6_csk_dst_store(struct sock *sk, struct dst_entry *dst,
-                struct in6_addr *daddr, struct in6_addr *saddr)
-{
-        __ip6_dst_store(sk, dst, daddr, saddr);
-
-#ifdef CONFIG_XFRM
-        {
-                struct rt6_info *rt = (struct rt6_info  *)dst;
-                rt->rt6i_flow_cache_genid = atomic_read(&flow_cache_genid);
-        }
-#endif
-}
-
-security/selinux/include/xfrm.h:41:
-static inline void selinux_xfrm_notify_policyload(void)
-{
-        atomic_inc(&flow_cache_genid);
-}
+--------------020605070504090905010303--
