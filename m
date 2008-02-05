@@ -1,41 +1,57 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] net: NEWEMAC: Remove "rgmii-interface" from rgmii
-	matching table
-Date: Wed, 06 Feb 2008 08:18:06 +1100
-Message-ID: <1202246286.7079.74.camel@pasglop>
-References: <1200476230-14026-1-git-send-email-sr@denx.de>
-	<1200477239.6755.21.camel@pasglop>
-	<20080116090110.1b7b2f00@zod.rchland.ibm.com>
-	<200801300716.52463.sr@denx.de> <1201734898.8146.0.camel@pasglop>
-	<20080205151216.4ff3c32a@weaponx>
-Reply-To: benh@kernel.crashing.org
+From: Ross Vandegrift <ross@kallisti.us>
+Subject: Re: [PATCH] Add IPv6 support to TCP SYN cookies
+Date: Tue, 5 Feb 2008 16:23:35 -0500
+Message-ID: <20080205212335.GA11287@kallisti.us>
+References: <47a79d64.16538c0a.5b6a.ffffb0fe@mx.google.com> <20080205155558.GA23145@one.firstfloor.org> <c9e534200802051029u5d08cf6dm54866f769e362262@mail.gmail.com> <20080205192559.GA10573@kallisti.us> <20080205201106.GB26150@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, Stefan Roese <sr@denx.de>, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20080205151216.4ff3c32a@weaponx>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Glenn Griffin <ggriffin.kernel@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kallisti.us ([67.59.168.233]:51539 "EHLO kallisti.us"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755585AbYBEVXm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2008 16:23:42 -0500
+Content-Disposition: inline
+In-Reply-To: <20080205201106.GB26150@one.firstfloor.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-> Jeff, any chance this can get into .25 soon?  I have another patch
-> queued up behind this one that requires it, and I don't see it in any
-> of your trees or branches.
+On Tue, Feb 05, 2008 at 09:11:06PM +0100, Andi Kleen wrote:
+> > The problem is that any reasonably recent PC can generate enough
+> > forged SYN packets to overwhelm reasonable SYN queues on a much more
+> > powerful server.
 > 
-> Or, if you aren't opposed, I can take it through Paul's tree with your
-> Ack.
+> Have you actually seen this with a recent kernel in the wild or are
+> you just talking theoretically?
+> 
+> Linux uses some heuristics to manage the syn queue that should
+> still ensure reasonable service even without cookies under attack.
+> Also SYN-RECV sockets are stored in a special data structure optimized
+> to use minimal resources.
+> 
+> It is far from the classical head drop method that was so vunerable
+> to syn flooding.
 
-In case my "it's fine" wasn't enough, here's an:
+I work at a hosting company and we see these kinds of issues in the
+real world fairly frequently.  I would guess maybe a monthly basis.
+The servers where we have seen this are typically running RHEL 4 or 5
+kernels, so I can't really speak to how recent the kernel is in this
+specific term.
 
-Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+If I can find a box that we could temporary get a kernel.org kernel
+on, I'll see if I can get a real comparison together.  We have
+collected a few of the more effective attack tools that have been left
+on compromised systems, so it wouldn't be too difficult to get some
+numbers.
+
+-- 
+Ross Vandegrift
+ross@kallisti.us
+
+"The good Christian should beware of mathematicians, and all those who
+make empty prophecies. The danger already exists that the mathematicians
+have made a covenant with the devil to darken the spirit and to confine
+man in the bonds of Hell."
+	--St. Augustine, De Genesi ad Litteram, Book II, xviii, 37
