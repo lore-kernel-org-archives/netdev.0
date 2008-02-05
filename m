@@ -1,82 +1,91 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/4] forcedeth: power down phy when interface is down
-Date: Mon, 04 Feb 2008 23:47:13 -0800
-Message-ID: <200802050746.m157ksof010396@imap1.linux-foundation.org>
+Subject: [patch 4/4] drivers/net/tlan.c: compilation warning fix
+Date: Mon, 04 Feb 2008 23:47:16 -0800
+Message-ID: <200802050746.m157kvNk010407@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	eswierk@arastra.com, aabdulla@nvidia.com
+	lpotenza@inwind.it
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:56625 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:39999 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753515AbYBEHrJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 02:47:09 -0500
+	by vger.kernel.org with ESMTP id S1753560AbYBEHrV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 02:47:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ed Swierk" <eswierk@arastra.com>
+From: Leonardo Potenza <lpotenza@inwind.it>
 
-Bring the physical link down when the interface is down by placing the PHY
-in power-down state, unless WOL is enabled.  This mirrors the behavior of
-other drivers including e1000 and tg3.
+Add a check for the pci_register_driver() return value.  Removed unused
+variable pad_allocated.
 
-Without the patch, ifconfig down leaves the physical link up, which confuses
-datacenter users who expect the link lights both on the NIC and the switch to
-go out when they bring an interface down.
+The aim of this patch is to remove the following warning messages:
+drivers/net/tlan.c: In function 'tlan_probe':
+drivers/net/tlan.c:486: warning: ignoring return value of 'pci_register_driver', declared with attribute warn_unused_result
 
-Furthermore, even though the phy is powered on, autonegotiation stops working,
-so a normally gigabit link might suddenly become 100 Mbit half-duplex when the
-interface goes down, and become gigabit when it comes up again.
-
-Ayaz said:
-
-  I would not include this patch until further testing is performed.  NVIDIA
-  MCP chips use 3rd party PHY vendors.  By powering down the phy, it could
-  have adverse affects on certain phys.
-
-Signed-off-by: Ed Swierk <eswierk@arastra.com>
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+Signed-off-by: Leonardo Potenza <lpotenza@inwind.it>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/forcedeth.c |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/tlan.c |   25 ++++++++++++++++++-------
+ 1 file changed, 18 insertions(+), 7 deletions(-)
 
-diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
-+++ a/drivers/net/forcedeth.c
-@@ -1324,9 +1324,9 @@ static int phy_init(struct net_device *d
- 	/* some phys clear out pause advertisment on reset, set it back */
- 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
+diff -puN drivers/net/tlan.c~drivers-net-tlanc-compilation-warning-fix drivers/net/tlan.c
+--- a/drivers/net/tlan.c~drivers-net-tlanc-compilation-warning-fix
++++ a/drivers/net/tlan.c
+@@ -465,7 +465,7 @@ static struct pci_driver tlan_driver = {
  
--	/* restart auto negotiation */
-+	/* restart auto negotiation, power down phy */
- 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
--	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
-+	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
- 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
- 		return PHY_ERROR;
+ static int __init tlan_probe(void)
+ {
+-	static int	pad_allocated;
++	int rc = -ENODEV;
+ 
+ 	printk(KERN_INFO "%s", tlan_banner);
+ 
+@@ -473,17 +473,22 @@ static int __init tlan_probe(void)
+ 
+ 	if (TLanPadBuffer == NULL) {
+ 		printk(KERN_ERR "TLAN: Could not allocate memory for pad buffer.\n");
+-		return -ENOMEM;
++		rc = -ENOMEM;
++		goto err_out;
  	}
-@@ -4803,6 +4803,10 @@ static int nv_open(struct net_device *de
  
- 	dprintk(KERN_DEBUG "nv_open: begin\n");
+ 	memset(TLanPadBuffer, 0, TLAN_MIN_FRAME_SIZE);
+-	pad_allocated = 1;
  
-+	/* power up phy */
-+	mii_rw(dev, np->phyaddr, MII_BMCR,
-+	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
+ 	TLAN_DBG(TLAN_DEBUG_PROBE, "Starting PCI Probe....\n");
+ 
+ 	/* Use new style PCI probing. Now the kernel will
+ 	   do most of this for us */
+-	pci_register_driver(&tlan_driver);
++	rc = pci_register_driver(&tlan_driver);
 +
- 	/* erase previous misconfiguration */
- 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
- 		nv_mac_reset(dev);
-@@ -4985,6 +4989,10 @@ static int nv_close(struct net_device *d
- 	if (np->wolenabled) {
- 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
- 		nv_start_rx(dev);
-+	} else {
-+		/* power down phy */
-+		mii_rw(dev, np->phyaddr, MII_BMCR,
-+		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
- 	}
++	if (rc != 0) {
++		printk(KERN_ERR "TLAN: Could not register pci driver.\n");
++		goto err_out_pci_free;
++	}
  
- 	/* FIXME: power down nic */
+ 	TLAN_DBG(TLAN_DEBUG_PROBE, "Starting EISA Probe....\n");
+ 	TLan_EisaProbe();
+@@ -493,11 +498,17 @@ static int __init tlan_probe(void)
+ 		 tlan_have_pci, tlan_have_eisa);
+ 
+ 	if (TLanDevicesInstalled == 0) {
+-		pci_unregister_driver(&tlan_driver);
+-		pci_free_consistent(NULL, TLAN_MIN_FRAME_SIZE, TLanPadBuffer, TLanPadBufferDMA);
+-		return -ENODEV;
++		rc = -ENODEV;
++		goto  err_out_pci_unreg;
+ 	}
+ 	return 0;
++
++err_out_pci_unreg:
++	pci_unregister_driver(&tlan_driver);
++err_out_pci_free:
++	pci_free_consistent(NULL, TLAN_MIN_FRAME_SIZE, TLanPadBuffer, TLanPadBufferDMA);
++err_out:
++	return rc;
+ }
+ 
+ 
 _
