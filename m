@@ -1,80 +1,78 @@
-From: Ben Dooks <ben@fluff.org.uk>
-Subject: Re: [PATCH 01/24 for-2.6.25] DM9000: Fix endian-ness of data
-	accesses.
-Date: Tue, 5 Feb 2008 00:13:25 +0000
-Message-ID: <20080205001325.GB15407@fluff.org.uk>
-References: <20080205000159.432081941@fluff.org.uk> <20080205000814.539308209@fluff.org.uk>
+From: Ben Dooks <ben-linux@fluff.org>
+Subject: Re: [PATCH 02/24 for-2.6.25] DM9000: Add platform data to specify
+	external phy
+Date: Tue, 5 Feb 2008 00:14:09 +0000
+Message-ID: <20080205001409.GC15407@fluff.org.uk>
+References: <20080205000159.432081941@fluff.org.uk> <20080205000814.732404707@fluff.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, jeff@garzik.org, akpm@linux-foundation.org,
-	daniel@caiaq.de, laurentp@cse-semaphore.com
+	daniel@caiaq.de, laurentp@cse-semaphore.com,
+	Ben Dooks <ben-linuy@fluff.org>
 To: Ben Dooks <ben-linux@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58959 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58971 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756319AbYBEAN0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:13:26 -0500
+	with ESMTP id S1756753AbYBEAOL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:14:11 -0500
 Content-Disposition: inline
-In-Reply-To: <20080205000814.539308209@fluff.org.uk>
+In-Reply-To: <20080205000814.732404707@fluff.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 05, 2008 at 12:02:00AM +0000, Ben Dooks wrote:
-
 This should have been:
-Patch From: Laurent Pinchart <laurentp@cse-semaphore.com>
 
-This patch splits the receive status in 8bit wide fields and convert the
-packet length from little endian to CPU byte order.
+Patch from: Laurent Pinchart <laurentp@cse-semaphore.com>
+
+This patch adds a flag to the DM9000 platform data which, when set,
+configures the device to use an external PHY.
 
 Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
-Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+Signed-off-by: Ben Dooks <ben-linuy@fluff.org>
 
 > Index: linux-2.6.24-git5-dm9k/drivers/net/dm9000.c
 > ===================================================================
 > --- linux-2.6.24-git5-dm9k.orig/drivers/net/dm9000.c
 > +++ linux-2.6.24-git5-dm9k/drivers/net/dm9000.c
-> @@ -867,7 +867,8 @@ dm9000_timer(unsigned long data)
->  }
+> @@ -137,6 +137,7 @@ typedef struct board_info {
+>  	u16 dbug_cnt;
+>  	u8 io_mode;		/* 0:word, 2:byte */
+>  	u8 phy_addr;
+> +	unsigned int flags;
 >  
->  struct dm9000_rxhdr {
-> -	u16	RxStatus;
-> +	u8	RxPktReady;
-> +	u8	RxStatus;
->  	u16	RxLen;
->  } __attribute__((__packed__));
+>  	void (*inblk)(void __iomem *port, void *data, int length);
+>  	void (*outblk)(void __iomem *port, void *data, int length);
+> @@ -525,6 +526,8 @@ dm9000_probe(struct platform_device *pde
 >  
-> @@ -908,7 +909,7 @@ dm9000_rx(struct net_device *dev)
+>  		if (pdata->dumpblk != NULL)
+>  			db->dumpblk = pdata->dumpblk;
+> +
+> +		db->flags = pdata->flags;
+>  	}
 >  
->  		(db->inblk)(db->io_data, &rxhdr, sizeof(rxhdr));
+>  	dm9000_reset(db);
+> @@ -665,6 +668,9 @@ dm9000_init_dm9000(struct net_device *de
+>  	iow(db, DM9000_GPCR, GPCR_GEP_CNTL);	/* Let GPIO0 output */
+>  	iow(db, DM9000_GPR, 0);	/* Enable PHY */
 >  
-> -		RxLen = rxhdr.RxLen;
-> +		RxLen = le16_to_cpu(rxhdr.RxLen);
+> +	if (db->flags & DM9000_PLATF_EXT_PHY)
+> +		iow(db, DM9000_NCR, NCR_EXT_PHY);
+> +
+>  	/* Program operating register */
+>  	iow(db, DM9000_TCR, 0);	        /* TX Polling clear */
+>  	iow(db, DM9000_BPTR, 0x3f);	/* Less 3Kb, 200us */
+> Index: linux-2.6.24-git5-dm9k/include/linux/dm9000.h
+> ===================================================================
+> --- linux-2.6.24-git5-dm9k.orig/include/linux/dm9000.h
+> +++ linux-2.6.24-git5-dm9k/include/linux/dm9000.h
+> @@ -19,6 +19,7 @@
+>  #define DM9000_PLATF_8BITONLY	(0x0001)
+>  #define DM9000_PLATF_16BITONLY	(0x0002)
+>  #define DM9000_PLATF_32BITONLY	(0x0004)
+> +#define DM9000_PLATF_EXT_PHY	(0x0008)
 >  
->  		/* Packet Status check */
->  		if (RxLen < 0x40) {
-> @@ -920,17 +921,17 @@ dm9000_rx(struct net_device *dev)
->  			PRINTK1("RST: RX Len:%x\n", RxLen);
->  		}
+>  /* platfrom data for platfrom device structure's platfrom_data field */
 >  
-> -		if (rxhdr.RxStatus & 0xbf00) {
-> +		if (rxhdr.RxStatus & 0xbf) {
->  			GoodPacket = false;
-> -			if (rxhdr.RxStatus & 0x100) {
-> +			if (rxhdr.RxStatus & 0x01) {
->  				PRINTK1("fifo error\n");
->  				dev->stats.rx_fifo_errors++;
->  			}
-> -			if (rxhdr.RxStatus & 0x200) {
-> +			if (rxhdr.RxStatus & 0x02) {
->  				PRINTK1("crc error\n");
->  				dev->stats.rx_crc_errors++;
->  			}
-> -			if (rxhdr.RxStatus & 0x8000) {
-> +			if (rxhdr.RxStatus & 0x80) {
->  				PRINTK1("length error\n");
->  				dev->stats.rx_length_errors++;
->  			}
 > 
 > -- 
 > Ben (ben@fluff.org, http://www.fluff.org/)
