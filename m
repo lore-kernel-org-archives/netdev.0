@@ -1,55 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] xircom_cb should return NETDEV_TX_BUSY when there are
- no	descriptors available
-Date: Tue, 05 Feb 2008 13:33:07 -0500
-Message-ID: <47A8ABE3.1000807@pobox.com>
-References: <20080204175653.GC16952@gateway.home>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 8/8] ixgbe: add real-time traffic counters
+Date: Tue, 05 Feb 2008 13:33:19 -0500
+Message-ID: <47A8ABEF.3070909@garzik.org>
+References: <20080201235841.31474.49421.stgit@localhost.localdomain>
+	<20080201235919.31474.147.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	jamal <hadi@cyberus.ca>
-To: Erik Mouw <mouw@nl.linux.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42467 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750775AbYBESdM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Feb 2008 13:33:12 -0500
-In-Reply-To: <20080204175653.GC16952@gateway.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Auke Kok <auke-jan.h.kok@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20080201235919.31474.147.stgit@localhost.localdomain>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Erik Mouw wrote:
-> Hi,
+Auke Kok wrote:
+> From: Ayyappan Veeraiyan <ayyappan.veeraiyan@intel.com>
 > 
-> Changes in other networking paths uncovered a bug in the xircom_cb
-> driver which made the kernel spew lots of the following error messages:
+> Just like our other drivers before we can switch ixgbe to
+> provide real-time packet/byte counters to the stack easily.
 > 
->   BUG eth1 code -5 qlen 0
+> Signed-off-by: Ayyappan Veeraiyan <ayyappan.veeraiyan@intel.com>
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> ---
 > 
-> It turned out that the driver returned -EIO when there was no
-> descriptor available for sending packets. It should return
-> NETDEV_TX_BUSY instead. This was discussed on the netdev list before,
-> see http://thread.gmane.org/gmane.linux.network/84603 .
-> 
-> Signed-off-by: Erik Mouw <mouw@nl.linux.org>
-> 
-> diff --git a/drivers/net/tulip/xircom_cb.c b/drivers/net/tulip/xircom_cb.c
-> index 8fc7274..6b93d01 100644
-> --- a/drivers/net/tulip/xircom_cb.c
-> +++ b/drivers/net/tulip/xircom_cb.c
-> @@ -441,7 +441,7 @@ static int xircom_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	spin_unlock_irqrestore(&card->lock,flags);
->  	trigger_transmit(card);
->  
-> -	return -EIO;
-> +	return NETDEV_TX_BUSY;
->  }
->  
->  
+>  drivers/net/ixgbe/ixgbe_main.c |   15 +++++++++++----
+>  1 files changed, 11 insertions(+), 4 deletions(-)
+
+applied 1-8
 
 
-applied
 
-
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
