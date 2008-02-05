@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] xfrm4_beet_input(): fix an if()
-Date: Tue, 05 Feb 2008 02:51:58 -0800 (PST)
-Message-ID: <20080205.025158.160772590.davem@davemloft.net>
-References: <20080202211635.GF9375@cs181133002.pp.htv.fi>
-	<20080202222226.GB31388@gondor.apana.org.au>
+Subject: Re: [FIB] fix fib_proc compilation error
+Date: Tue, 05 Feb 2008 02:54:45 -0800 (PST)
+Message-ID: <20080205.025445.213093797.davem@davemloft.net>
+References: <47A8285A.7040205@fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bunk@kernel.org, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org
+To: dlezcano@fr.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59150
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59155
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756219AbYBEKva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 05:51:30 -0500
-In-Reply-To: <20080202222226.GB31388@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1756344AbYBEKyR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 05:54:17 -0500
+In-Reply-To: <47A8285A.7040205@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 3 Feb 2008 09:22:26 +1100
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Date: Tue, 05 Feb 2008 10:11:54 +0100
 
-> On Sat, Feb 02, 2008 at 11:16:35PM +0200, Adrian Bunk wrote:
-> > A bug every C programmer makes at some point in time...
-> > 
-> > Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> Subject: fix fib_proc compilation error
+> From: Daniel Lezcano <dlezcano@fr.ibm.com>
 > 
-> Good catch!
+> Fix fib_proc_[init|exit] definition when CONFIG_PROCFS=no
 > 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 
-Applied.
+Li Zefan already posted a fix for this which I've just
+applied.
