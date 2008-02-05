@@ -1,73 +1,60 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [FIB] fix fib_proc compilation error
-Date: Tue, 05 Feb 2008 10:11:54 +0100
-Message-ID: <47A8285A.7040205@fr.ibm.com>
+From: Ivan Mitev <imitev@obs.bg>
+Subject: Re: Slow OOM in netif_RX function
+Date: Tue, 05 Feb 2008 11:04:15 +0200
+Message-ID: <47A8268F.6020301@obs.bg>
+References: <4798CAA9.1080005@obs.bg> <4798E32E.6080003@cosmosbay.com> <20080124211810.3E24A46E9A@smtp.obs.bg> <p73tzl282ij.fsf@bingen.suse.de> <20080125141204.GA25510@ghostprotocols.net> <47A315DC.3070101@obs.bg> <47A31BBA.8040307@cosmosbay.com> <47A33D02.8050503@obs.bg> <47A72740.9030706@obs.bg> <20080204155526.GA7988@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030900060404030204020400"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ivan Dichev <idichev@obs.bg>, Eric Dumazet <dada1@cosmosbay.com>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([195.212.29.134]:18309 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750877AbYBEJRM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 04:17:12 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate1.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m159HB8x200072
-	for <netdev@vger.kernel.org>; Tue, 5 Feb 2008 09:17:11 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m159HBVM5095662
-	for <netdev@vger.kernel.org>; Tue, 5 Feb 2008 09:17:11 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m159H7V3010784
-	for <netdev@vger.kernel.org>; Tue, 5 Feb 2008 09:17:07 GMT
+Received: from obs.bg ([213.91.169.3]:37313 "EHLO smtp.obs.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752070AbYBEJcl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2008 04:32:41 -0500
+In-Reply-To: <20080204155526.GA7988@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------030900060404030204020400
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+
+[(the other) Ivan took a few days holidays, so I'm replacing him for 
+this issue.]
+
+Andi, you spotted it, it was really the start of an IP header, and it 
+shows up that these are ESP packets for a quite complicated VPN tunnel 
+we have (re-routing packets from an office to another, with some NAT on 
+top of that). So openswan/ipsec.ko seems to be the problem here, I will 
+file a bug report there. Meanwhile we'll try to set up manual keying and 
+decrypt the encrypted payload to gather more details on the packets.
+
+My apologies, the issue seems to be with an out-of-tree module, but we 
+really didn't think the problem was there (there's no correlation 
+between the leak increase and vpn/ike traffic). But it was interesting 
+to understand slabs, learn how to setup/use crash, and analyze memory 
+bits :)
+
+Thanks again to all the people who helped !
+
+Ivan Mitev
 
 
+Andi Kleen wrote:
+>> Nothing that looks like a struct net_device. All the dumped leaked slab
+>> look the same until "45 20 05 d8" (the ascii 'E' on the 3rd line).
+> 
+> 45 ... is often the start of an IP header (IPv4, 5*4=20 bytes length)
+> 
+> You could dump them to a file (e.g. using a sial script) and then
+> look at them with tcpdump or similar to get an idea what kinds 
+> of packets they are.
+> 
+> -Andi
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
---------------030900060404030204020400
-Content-Type: text/x-patch;
- name="fix-fib-frontend-compilation-error.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="fix-fib-frontend-compilation-error.patch"
-
-Subject: fix fib_proc compilation error
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-
-Fix fib_proc_[init|exit] definition when CONFIG_PROCFS=no
-
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
----
- include/net/ip_fib.h |   10 ++++++++++
- 1 file changed, 10 insertions(+)
-
-Index: net-2.6/include/net/ip_fib.h
-===================================================================
---- net-2.6.orig/include/net/ip_fib.h
-+++ net-2.6/include/net/ip_fib.h
-@@ -266,6 +266,16 @@ static inline void fib_res_put(struct fi
- #ifdef CONFIG_PROC_FS
- extern int __net_init  fib_proc_init(struct net *net);
- extern void __net_exit fib_proc_exit(struct net *net);
-+#else
-+static inline int fib_proc_init(struct net *net)
-+{
-+	return 0;
-+}
-+
-+static inline void fib_proc_exit(struct net *net)
-+{
-+	return ;
-+}
- #endif
- 
- #endif  /* _NET_FIB_H */
-
---------------030900060404030204020400--
