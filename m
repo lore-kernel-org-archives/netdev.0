@@ -1,47 +1,43 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] [POWERPC] iSeries: fix section mismatch in iseries_veth
-Date: Tue, 05 Feb 2008 13:32:33 -0500
-Message-ID: <47A8ABC1.9080008@pobox.com>
-References: <20080205141940.c6ddb479.sfr@canb.auug.org.au>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 3/4] mv643xx_eth: fix byte order when checksum offload
+ is enabled
+Date: Tue, 05 Feb 2008 13:32:58 -0500
+Message-ID: <47A8ABDA.4040202@garzik.org>
+References: <200802050746.m157kur6010404@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, ppc-dev <linuxppc-dev@ozlabs.org>,
-	netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: netdev@vger.kernel.org, byron.bbradley@gmail.com,
+	dale@farnsworth.org, mlachwani@mvista.com, viro@zeniv.linux.org.uk
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42443 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:42454 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751258AbYBEScu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Feb 2008 13:32:50 -0500
-In-Reply-To: <20080205141940.c6ddb479.sfr@canb.auug.org.au>
+	id S1752408AbYBESdD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2008 13:33:03 -0500
+In-Reply-To: <200802050746.m157kur6010404@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Rothwell wrote:
-> WARNING: vmlinux.o(.text+0x25dca0): Section mismatch in reference from the function .veth_probe() to the function .init.text:.veth_probe_one()
+akpm@linux-foundation.org wrote:
+> From: Byron Bradley <byron.bbradley@gmail.com>
 > 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> The Marvell Orion system on chips have an integrated mv643xx MAC.  On these
+> little endian ARM devices mv643xx will oops when checksum offload is
+> enabled.  Swapping the byte order of the protocol and checksum solves this
+> problem.
+> 
+> Signed-off-by: Byron Bradley <byron.bbradley@gmail.com>
+> Cc: Dale Farnsworth <dale@farnsworth.org>
+> Cc: Manish Lachwani <mlachwani@mvista.com>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Cc: Al Viro <viro@zeniv.linux.org.uk>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 > ---
->  drivers/net/iseries_veth.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> Jeff, can this go in through the powerpc tree?
-> 
-> diff --git a/drivers/net/iseries_veth.c b/drivers/net/iseries_veth.c
-> index 419861c..58d3bb6 100644
-> --- a/drivers/net/iseries_veth.c
-> +++ b/drivers/net/iseries_veth.c
-> @@ -1020,7 +1020,7 @@ static const struct ethtool_ops ops = {
->  	.get_link = veth_get_link,
->  };
->  
-> -static struct net_device * __init veth_probe_one(int vlan,
-> +static struct net_device *veth_probe_one(int vlan,
->  		struct vio_dev *vio_dev)
->  {
+>  drivers/net/mv643xx_eth.c |   11 ++++++++---
+>  1 file changed, 8 insertions(+), 3 deletions(-)
 
+applied 3-4
 
-it's trivial enough to not matter, and faster to just...  applied
-(if you'll pardon the bad grammar)
 
