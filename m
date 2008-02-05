@@ -1,44 +1,75 @@
-From: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Wireless,
-	ath5k] 2.6.24-git13 9135f1901ee6449dfe338adf6e40e9c2025b8150
-Date: Tue, 05 Feb 2008 09:54:27 +0100
-Message-ID: <47A82443.9000601@gmail.com>
-References: <6101e8c40802040600q804e40cs97d0031920e58d9d@mail.gmail.com>	
-	<47A774AB.5060008@gmail.com>	
-	<6101e8c40802041334o20b2b391la5b0a5f557ee67c5@mail.gmail.com>
-	<6101e8c40802041340g749b1e03k70fda7fdb21452d7@mail.gmail.com>
+From: Kostya B <bkostya@hotmail.com>
+Subject: RE: LRO ip_summed
+Date: Tue, 5 Feb 2008 08:56:17 +0000
+Message-ID: <BAY121-W3321045858D4A665892759B62C0@phx.gbl>
+References: <BAY121-W366A043ECDC160494B1EFAB6320@phx.gbl>
+ <200802041014.23989.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Bruno Randolf <bruno-L9ZBdB2wSWtl57MIdRCFDg@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Oliver Pinter <oliver.pntr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-In-Reply-To: <6101e8c40802041340g749b1e03k70fda7fdb21452d7-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
-List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
-Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1255"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@vger.kernel.org>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bay0-omc2-s41.bay0.hotmail.com ([65.54.246.177]:1758 "EHLO
+	bay0-omc2-s41.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755852AbYBEI4U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 03:56:20 -0500
+In-Reply-To: <200802041014.23989.ossthema@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/04/2008 10:40 PM, Oliver Pinter wrote:
-> On 2/4/08, Oliver Pinter <oliver.pntr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> On 2/4/08, Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->>> On 02/04/2008 03:00 PM, Oliver Pinter (Pint=E9r Oliv=E9r) wrote:
->>>> [  413.118874] wpa_supplicant[4388]: segfault at 30 ip 080697ca sp
->>>> bfc9cab0 error 4 in wpa_supplicant[8048000+4c000]
->>> Seems like wpa_supplicant is broken. Is this a regression?
->> yes, but with madwifi is all ok
 
-And this... madwifi goes through ported bsd net80211. So which latest git y=
-ou =
+1. Let's assume a driver which has a HW csum capability, however it has a privilege to assign any value for ip_summed.
+For example the driver assigns "unnecessary" for most of the packets, however it fails to verify the packets less than 96 bytes ("checksum_none").
+Now, the LRO will aggregate all of them and assign the value "used for all aggregated packets" - that is wrong, 
 
-tried worked for you when this is a regression, please?
+Of course, it is possible to avoid that situation in driver, however [proposal] from the point of view of the *generic* LRO it could be better to check each newly aggregated skb whether it has the same ip_summed as the first one (preserve coherency). Thus, there is no need to keep ip_summed field in the  struct net_lro_mgr.
+
+2. Now, when a skb could not be aggregated (modes: aggregating SKBs) I think where's no need to override its original ip_summed (see "out" label of __lro_proc_skb()) The comment says  "Original SKB has to be posted to stack". I would be wrong, but I don't get the reason to possible change of ip_summed.
+
+Regards,
+- Kostya
+
+----------------------------------------
+> From: ossthema@de.ibm.com
+> To: bkostya@hotmail.com
+> Subject: Re: LRO ip_summed
+> Date: Mon, 4 Feb 2008 10:14:23 +0100
+> CC: netdev@vger.kernel.org
+> 
+> On Sunday 03 February 2008 10:48, Kostya B wrote:
+>> 
+>> Hi,
+>> 
+>> The mail is related to the way LRO manipulates the ip_summed value. Could anybody (author) explain why to overwrite the original value of skb->ip_summed, when it's processing by __lro_proc_skb ?
+>> E.g. in out: label
+>> 
+>> Why not to preserve the coherency of csum status of each incoming to LRO packet, the same way the IP defragmentation does? That means - all skb in descriptor have the same value of ip_summed.
+>> 
+> 
+> Hi,
+> 
+> I'm not sure if I understand your proposal correctly.
+> Currently the driver decides via the struct net_lro_mgr
+> a) which ip_summed value will be used for all aggregated packets
+> b) which one to use for those packets that can not be aggregated
+> 
+> to a) this one should always be the same. The driver knows whether its HW is
+>       capable of performing ip checksum checking for this kind of traffic (TCP)
+> 
+> There are two modes: aggregating SKBs or aggregating fragments. 
+> When fragments are aggregated, there is no SKB with a filled ip_summed available.
+> 
+> Please outline which parts of which mode you suggest to change.
+> 
+> Regards,
+> Jan-Bernd
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+_________________________________________________________________
+Express yourself instantly with MSN Messenger! Download today it's FREE!
+http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
