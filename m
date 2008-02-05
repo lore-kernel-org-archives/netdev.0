@@ -1,33 +1,47 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sky2: fix for Yukon FE (regression in 2.6.25)
-Date: Tue, 05 Feb 2008 13:32:44 -0500
-Message-ID: <47A8ABCC.8060307@pobox.com>
-References: <20080202105243.GA14581@vana.vc.cvut.cz>	<20080202120203.5387d1cb@extreme>	<47A51168.5040301@vandrovec.name> <20080204194513.700f6387@extreme>
+Subject: Re: [PATCH] [POWERPC] iSeries: fix section mismatch in iseries_veth
+Date: Tue, 05 Feb 2008 13:32:33 -0500
+Message-ID: <47A8ABC1.9080008@pobox.com>
+References: <20080205141940.c6ddb479.sfr@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Petr Vandrovec <petr@vandrovec.name>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: paulus@samba.org, ppc-dev <linuxppc-dev@ozlabs.org>,
+	netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42439 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:42443 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751168AbYBEScu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751258AbYBEScu (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 5 Feb 2008 13:32:50 -0500
-In-Reply-To: <20080204194513.700f6387@extreme>
+In-Reply-To: <20080205141940.c6ddb479.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> The Yukon FE chip has a ram buffer therefore it needs the alignment
-> restriction and hang check workarounds. 
+Stephen Rothwell wrote:
+> WARNING: vmlinux.o(.text+0x25dca0): Section mismatch in reference from the function .veth_probe() to the function .init.text:.veth_probe_one()
 > 
-> Therefore:
->   * Autodetect the prescence/absence of ram buffer
->   * Rename the flag value to reflect this
->   * Use it consistently (ie don't reread register)
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> ---
+>  drivers/net/iseries_veth.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Jeff, can this go in through the powerpc tree?
+> 
+> diff --git a/drivers/net/iseries_veth.c b/drivers/net/iseries_veth.c
+> index 419861c..58d3bb6 100644
+> --- a/drivers/net/iseries_veth.c
+> +++ b/drivers/net/iseries_veth.c
+> @@ -1020,7 +1020,7 @@ static const struct ethtool_ops ops = {
+>  	.get_link = veth_get_link,
+>  };
+>  
+> -static struct net_device * __init veth_probe_one(int vlan,
+> +static struct net_device *veth_probe_one(int vlan,
+>  		struct vio_dev *vio_dev)
+>  {
 
-applied
 
+it's trivial enough to not matter, and faster to just...  applied
+(if you'll pardon the bad grammar)
 
