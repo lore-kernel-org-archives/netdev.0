@@ -1,139 +1,96 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [PATCH 07/24 for-2.6.25] DM9000: Add initial ethtool support
-Date: Tue, 05 Feb 2008 00:02:06 +0000
-Message-ID: <20080205000815.759244139@fluff.org.uk>
+Subject: [PATCH 10/24 for-2.6.25] DM9000: Remove barely used SROM array read.
+Date: Tue, 05 Feb 2008 00:02:09 +0000
+Message-ID: <20080205000816.514984494@fluff.org.uk>
 References: <20080205000159.432081941@fluff.org.uk>
 Cc: jeff@garzik.org, akpm@linux-foundation.org, daniel@caiaq.de,
 	laurentp@cse-semaphore.com, Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58749 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58759 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758825AbYBEAIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:25 -0500
-Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-ethtool.patch
+	with ESMTP id S1758847AbYBEAI2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:28 -0500
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-remove-srom-read.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for ethtool operations for the DM9000.
+The srom array in the board data is only being used in the device probe
+routines. The probe also only uses the first 6 bytes of an array
+we spend 512ms reading 128 bytes from. Change to reading the
+MAC area directly to the MAC address structure.
+
+As a side product, we rename the read_srom_word to dm9000_read_eeprom
+to bring it into line with the rest of the driver. No change is made
+to the delay in this function, which will be dealt with in a later
+patch.
 
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+
 
 Index: linux-2.6.24-quilt3/drivers/net/dm9000.c
 ===================================================================
 --- linux-2.6.24-quilt3.orig/drivers/net/dm9000.c
 +++ linux-2.6.24-quilt3/drivers/net/dm9000.c
-@@ -63,6 +63,7 @@
- #include <linux/spinlock.h>
- #include <linux/crc32.h>
- #include <linux/mii.h>
-+#include <linux/ethtool.h>
- #include <linux/dm9000.h>
- #include <linux/delay.h>
- #include <linux/platform_device.h>
-@@ -80,6 +81,7 @@
+@@ -132,7 +132,6 @@ typedef struct board_info {
+ 	struct resource *data_req;
+ 	struct resource *irq_res;
  
- #define CARDNAME "dm9000"
- #define PFX CARDNAME ": "
-+#define DRV_VERSION	"1.30"
+-	unsigned char srom[128];
+ 	spinlock_t lock;
  
- #ifdef CONFIG_BLACKFIN
- #define readsb	insb
-@@ -145,6 +147,11 @@ typedef struct board_info {
- 	}						\
- } while (0)
- 
-+static inline board_info_t *to_dm9000_board(struct net_device *dev)
-+{
-+	return dev->priv;
-+}
+ 	struct mii_if_info mii;
+@@ -166,7 +165,8 @@ static irqreturn_t dm9000_interrupt(int,
+ static int dm9000_phy_read(struct net_device *dev, int phyaddr_unsused, int reg);
+ static void dm9000_phy_write(struct net_device *dev, int phyaddr_unused, int reg,
+ 			   int value);
+-static u16 read_srom_word(board_info_t *, int);
 +
- /* function declaration ------------------------------------- */
- static int dm9000_probe(struct platform_device *);
- static int dm9000_open(struct net_device *);
-@@ -342,6 +349,64 @@ static void dm9000_poll_controller(struc
++static void dm9000_read_eeprom(board_info_t *, int addr, unsigned char *to);
+ static void dm9000_rx(struct net_device *);
+ static void dm9000_hash_table(struct net_device *);
+ 
+@@ -630,13 +630,9 @@ dm9000_probe(struct platform_device *pde
+ 	db->mii.mdio_read    = dm9000_phy_read;
+ 	db->mii.mdio_write   = dm9000_phy_write;
+ 
+-	/* Read SROM content */
+-	for (i = 0; i < 64; i++)
+-		((u16 *) db->srom)[i] = read_srom_word(db, i);
+-
+-	/* Set Node Address */
+-	for (i = 0; i < 6; i++)
+-		ndev->dev_addr[i] = db->srom[i];
++	/* try reading the node address from the attached EEPROM */
++	for (i = 0; i < 6; i += 2)
++		dm9000_read_eeprom(db, i / 2, ndev->dev_addr+i);
+ 
+ 	if (!is_valid_ether_addr(ndev->dev_addr)) {
+ 		/* try reading from mac */
+@@ -1001,17 +997,19 @@ dm9000_rx(struct net_device *dev)
  }
- #endif
  
-+/* ethtool ops */
-+
-+static void dm9000_get_drvinfo(struct net_device *dev,
-+			       struct ethtool_drvinfo *info)
-+{
-+	board_info_t *dm = to_dm9000_board(dev);
-+
-+	strcpy(info->driver, CARDNAME);
-+	strcpy(info->version, DRV_VERSION);
-+	strcpy(info->bus_info, to_platform_device(dm->dev)->name);
-+}
-+
-+static int dm9000_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	board_info_t *dm = to_dm9000_board(dev);
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&dm->lock, flags);
-+	mii_ethtool_gset(&dm->mii, cmd);
-+	spin_lock_irqsave(&dm->lock, flags);
-+
-+	return 0;
-+}
-+
-+static int dm9000_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	board_info_t *dm = to_dm9000_board(dev);
-+	unsigned long flags;
-+	int rc;
-+
-+	spin_lock_irqsave(&dm->lock, flags);
-+	rc = mii_ethtool_sset(&dm->mii, cmd);
-+	spin_lock_irqsave(&dm->lock, flags);
-+
-+	return rc;
-+}
-+
-+static int dm9000_nway_reset(struct net_device *dev)
-+{
-+	board_info_t *dm = to_dm9000_board(dev);
-+	return mii_nway_restart(&dm->mii);
-+}
-+
-+static u32 dm9000_get_link(struct net_device *dev)
-+{
-+	board_info_t *dm = to_dm9000_board(dev);
-+	return mii_link_ok(&dm->mii);
-+}
-+
-+static const struct ethtool_ops dm9000_ethtool_ops = {
-+	.get_drvinfo		= dm9000_get_drvinfo,
-+	.get_settings		= dm9000_get_settings,
-+	.set_settings		= dm9000_set_settings,
-+	.nway_reset		= dm9000_nway_reset,
-+	.get_link		= dm9000_get_link,
-+};
-+
-+
- /* dm9000_release_board
-  *
-  * release a board, and any mapped resources
-@@ -546,6 +611,8 @@ dm9000_probe(struct platform_device *pde
- 	ndev->watchdog_timeo = msecs_to_jiffies(watchdog);
- 	ndev->stop		 = &dm9000_stop;
- 	ndev->set_multicast_list = &dm9000_hash_table;
-+	ndev->ethtool_ops	 = &dm9000_ethtool_ops;
-+
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	ndev->poll_controller	 = &dm9000_poll_controller;
- #endif
-@@ -1170,7 +1237,7 @@ static struct platform_driver dm9000_dri
- static int __init
- dm9000_init(void)
+ /*
+- *  Read a word data from SROM
++ *  Read a word data from EEPROM
+  */
+-static u16
+-read_srom_word(board_info_t * db, int offset)
++static void
++dm9000_read_eeprom(board_info_t * db, int offset, unsigned char *to)
  {
--	printk(KERN_INFO "%s Ethernet Driver\n", CARDNAME);
-+	printk(KERN_INFO "%s Ethernet Driver, V%s\n", CARDNAME, DRV_VERSION);
- 
- 	return platform_driver_register(&dm9000_driver);	/* search board and register */
+ 	iow(db, DM9000_EPAR, offset);
+ 	iow(db, DM9000_EPCR, EPCR_ERPRR);
+ 	mdelay(8);		/* according to the datasheet 200us should be enough,
+ 				   but it doesn't work */
+ 	iow(db, DM9000_EPCR, 0x0);
+-	return (ior(db, DM9000_EPDRL) + (ior(db, DM9000_EPDRH) << 8));
++
++	to[0] = ior(db, DM9000_EPDRL);
++	to[1] = ior(db, DM9000_EPDRH);
  }
+ 
+ #ifdef DM9000_PROGRAM_EEPROM
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
