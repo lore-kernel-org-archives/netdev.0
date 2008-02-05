@@ -1,25 +1,47 @@
-From: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
-Subject: Re: [2.6.24-mm1] TCP/IPv6 connect() oopses at twothirdsMD4Transform()
-Date: Tue, 05 Feb 2008 12:02:24 +0900
-Message-ID: <200802050302.m1532OFk007019@www262.sakura.ne.jp>
-References: <200802050128.m151ShPX088549@www262.sakura.ne.jp> <20080204173652.0fbe8885.akpm@linux-foundation.org> <1202178600.17934.165.camel@cinder.waste.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: [PATCH] [POWERPC] iSeries: fix section mismatch in iseries_veth
+Date: Tue, 5 Feb 2008 14:19:40 +1100
+Message-ID: <20080205141940.c6ddb479.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tytso@mit.edu, akpm@linux-foundation.org
-To: Matt Mackall <mpm@selenic.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755309AbYBEDCx@vger.kernel.org>
-In-Reply-To: <1202178600.17934.165.camel@cinder.waste.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ppc-dev <linuxppc-dev@ozlabs.org>, Jeff Garzik <jgarzik@pobox.com>,
+	netdev@vger.kernel.org
+To: paulus@samba.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from chilli.pcug.org.au ([203.10.76.44]:44590 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751419AbYBEDTn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Feb 2008 22:19:43 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+WARNING: vmlinux.o(.text+0x25dca0): Section mismatch in reference from the function .veth_probe() to the function .init.text:.veth_probe_one()
 
-> random: revert braindamage that snuck into checkpatch cleanup
-> 
-> Signed-off-by: Matt Mackall <mpm@selenic.com>
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ drivers/net/iseries_veth.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Yes. It solved the oops.
+Jeff, can this go in through the powerpc tree?
 
-Thank you.
+diff --git a/drivers/net/iseries_veth.c b/drivers/net/iseries_veth.c
+index 419861c..58d3bb6 100644
+--- a/drivers/net/iseries_veth.c
++++ b/drivers/net/iseries_veth.c
+@@ -1020,7 +1020,7 @@ static const struct ethtool_ops ops = {
+ 	.get_link = veth_get_link,
+ };
+ 
+-static struct net_device * __init veth_probe_one(int vlan,
++static struct net_device *veth_probe_one(int vlan,
+ 		struct vio_dev *vio_dev)
+ {
+ 	struct net_device *dev;
+-- 
+1.5.4
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
