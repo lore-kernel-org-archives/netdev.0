@@ -1,22 +1,22 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [PATCH 13/24 for-2.6.25] DM9000: Add ethtool control of msg_enable value
-Date: Tue, 05 Feb 2008 00:02:12 +0000
-Message-ID: <20080205000817.119524873@fluff.org.uk>
+Subject: [PATCH 12/24 for-2.6.25] DM9000: Add ethtool support for reading and writing EEPROM
+Date: Tue, 05 Feb 2008 00:02:11 +0000
+Message-ID: <20080205000816.923057120@fluff.org.uk>
 References: <20080205000159.432081941@fluff.org.uk>
 Cc: jeff@garzik.org, akpm@linux-foundation.org, daniel@caiaq.de,
 	laurentp@cse-semaphore.com, Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58720 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58716 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758836AbYBEAIY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:24 -0500
-Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-ethtool-msglevel.patch
+	with ESMTP id S1758832AbYBEAIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:23 -0500
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-ethtool-eeprom.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow the msg_enable value to be read and written by
-the ethtool interface.
+Add ethtool support to access the configuration EEPROM
+connected to the DM9000.
 
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
@@ -24,36 +24,121 @@ Index: linux-2.6.24-quilt3/drivers/net/dm9000.c
 ===================================================================
 --- linux-2.6.24-quilt3.orig/drivers/net/dm9000.c
 +++ linux-2.6.24-quilt3/drivers/net/dm9000.c
-@@ -383,6 +383,20 @@ static void dm9000_get_drvinfo(struct ne
- 	strcpy(info->bus_info, to_platform_device(dm->dev)->name);
+@@ -186,7 +186,8 @@ static int dm9000_phy_read(struct net_de
+ static void dm9000_phy_write(struct net_device *dev, int phyaddr_unused, int reg,
+ 			   int value);
+ 
+-static void dm9000_read_eeprom(board_info_t *, int addr, unsigned char *to);
++static void dm9000_read_eeprom(board_info_t *, int addr, u8 *to);
++static void dm9000_write_eeprom(board_info_t *, int addr, u8 *dp);
+ static void dm9000_rx(struct net_device *);
+ static void dm9000_hash_table(struct net_device *);
+ 
+@@ -409,12 +410,65 @@ static u32 dm9000_get_link(struct net_de
+ 	return mii_link_ok(&dm->mii);
  }
  
-+static u32 dm9000_get_msglevel(struct net_device *dev)
-+{
-+	board_info_t *dm = to_dm9000_board(dev);
++#define DM_EEPROM_MAGIC		(0x444D394B)
 +
-+	return dm->msg_enable;
++static int dm9000_get_eeprom_len(struct net_device *dev)
++{
++	return 128;
 +}
 +
-+static void dm9000_set_msglevel(struct net_device *dev, u32 value)
++static int dm9000_get_eeprom(struct net_device *dev,
++			     struct ethtool_eeprom *ee, u8 *data)
 +{
 +	board_info_t *dm = to_dm9000_board(dev);
++	int offset = ee->offset;
++	int len = ee->len;
++	int i;
 +
-+	dm->msg_enable = value;
++	/* EEPROM access is aligned to two bytes */
++
++	if ((len & 1) != 0 || (offset & 1) != 0)
++		return -EINVAL;
++
++	ee->magic = DM_EEPROM_MAGIC;
++
++	for (i = 0; i < len; i += 2)
++		dm9000_read_eeprom(dm, (offset + i) / 2, data + i);
++
++	return 0;
 +}
 +
- static int dm9000_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	board_info_t *dm = to_dm9000_board(dev);
-@@ -464,6 +478,8 @@ static const struct ethtool_ops dm9000_e
++static int dm9000_set_eeprom(struct net_device *dev,
++			     struct ethtool_eeprom *ee, u8 *data)
++{
++	board_info_t *dm = to_dm9000_board(dev);
++	int offset = ee->offset;
++	int len = ee->len;
++	int i;
++
++	/* EEPROM access is aligned to two bytes */
++
++	if ((len & 1) != 0 || (offset & 1) != 0)
++		return -EINVAL;
++
++	if (ee->magic != DM_EEPROM_MAGIC)
++		return -EINVAL;
++
++	for (i = 0; i < len; i += 2)
++		dm9000_write_eeprom(dm, (offset + i) / 2, data + i);
++
++	return 0;
++}
++
+ static const struct ethtool_ops dm9000_ethtool_ops = {
  	.get_drvinfo		= dm9000_get_drvinfo,
  	.get_settings		= dm9000_get_settings,
  	.set_settings		= dm9000_set_settings,
-+	.get_msglevel		= dm9000_get_msglevel,
-+	.set_msglevel		= dm9000_set_msglevel,
  	.nway_reset		= dm9000_nway_reset,
  	.get_link		= dm9000_get_link,
-  	.get_eeprom_len		= dm9000_get_eeprom_len,
++ 	.get_eeprom_len		= dm9000_get_eeprom_len,
++ 	.get_eeprom		= dm9000_get_eeprom,
++ 	.set_eeprom		= dm9000_set_eeprom,
+ };
+ 
+ 
+@@ -1011,7 +1065,7 @@ dm9000_rx(struct net_device *dev)
+  *  Read a word data from EEPROM
+  */
+ static void
+-dm9000_read_eeprom(board_info_t *db, int offset, unsigned char *to)
++dm9000_read_eeprom(board_info_t *db, int offset, u8 *to)
+ {
+ 	mutex_lock(&db->addr_lock);
+ 
+@@ -1027,18 +1081,17 @@ dm9000_read_eeprom(board_info_t *db, int
+ 	mutex_unlock(&db->addr_lock);
+ }
+ 
+-#ifdef DM9000_PROGRAM_EEPROM
+ /*
+  * Write a word data to SROM
+  */
+ static void
+-write_srom_word(board_info_t * db, int offset, u16 val)
++dm9000_write_eeprom(board_info_t *db, int offset, u8 *data)
+ {
+ 	mutex_lock(&db->addr_lock);
+ 
+ 	iow(db, DM9000_EPAR, offset);
+-	iow(db, DM9000_EPDRH, ((val >> 8) & 0xff));
+-	iow(db, DM9000_EPDRL, (val & 0xff));
++	iow(db, DM9000_EPDRH, data[1]);
++	iow(db, DM9000_EPDRL, data[0]);
+ 	iow(db, DM9000_EPCR, EPCR_WEP | EPCR_ERPRW);
+ 	mdelay(8);		/* same shit */
+ 	iow(db, DM9000_EPCR, 0);
+@@ -1046,6 +1099,7 @@ write_srom_word(board_info_t * db, int o
+ 	mutex_unlock(&db->addr_lock);
+ }
+ 
++#ifdef DM9000_PROGRAM_EEPROM
+ /*
+  * Only for development:
+  * Here we write static data to the eeprom in case
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
