@@ -1,74 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [IPROUTE]: cls_flow: add vlan-tag support
-Date: Tue, 05 Feb 2008 15:31:53 +0100
-Message-ID: <47A87359.6060900@trash.net>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH] SCTP: Fix kernel panic while received ASCONF chunk with bad
+ serial number
+Date: Tue, 05 Feb 2008 23:35:04 +0900
+Message-ID: <47A87418.30206@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080803060809050709090803"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59290 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752033AbYBEOcb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 09:32:31 -0500
+Received: from cn.fujitsu.com ([222.73.24.84]:65416 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750874AbYBEOfR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2008 09:35:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080803060809050709090803
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+While recevied ASCONF chunk with serial number less then needed, kernel 
+will treat this chunk as a retransmitted ASCONF chunk and find cached 
+ASCONF-ACK chunk used sctp_assoc_lookup_asconf_ack(). But this function 
+will always return NO-NULL. So response with cached ASCONF-ACKs chunk 
+will cause kernel panic.
+In function sctp_assoc_lookup_asconf_ack(), if the cached ASCONF-ACKs 
+list asconf_ack_list is empty, or if the serial being requested does not 
+exists, the function as it currectly stands returns the actuall 
+list_head asoc->asconf_ack_list, this is not a cache ASCONF-ACK chunk 
+but a bogus pointer.
 
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
---------------080803060809050709090803
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-commit 94e9cba778cb97d77d9146dc3bd38ff195bc2c8a
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Sat Feb 2 18:22:16 2008 +0100
-
-    [IPROUTE]: cls_flow: add vlan-tag support
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
-index 16869c2..e3e9e25 100644
---- a/include/linux/pkt_cls.h
-+++ b/include/linux/pkt_cls.h
-@@ -348,6 +348,7 @@ enum
- 	FLOW_KEY_RTCLASSID,
- 	FLOW_KEY_SKUID,
- 	FLOW_KEY_SKGID,
-+	FLOW_KEY_VLAN_TAG,
- 	__FLOW_KEY_MAX,
- };
+--- a/net/sctp/associola.c	2008-01-28 20:31:39.000000000 -0500
++++ b/net/sctp/associola.c	2008-01-28 23:45:20.000000000 -0500
+@@ -1525,7 +1525,7 @@ struct sctp_chunk *sctp_assoc_lookup_asc
+ 					const struct sctp_association *asoc,
+ 					__be32 serial)
+ {
+-	struct sctp_chunk *ack = NULL;
++	struct sctp_chunk *ack;
  
-diff --git a/tc/f_flow.c b/tc/f_flow.c
-index eca05cd..1537ade 100644
---- a/tc/f_flow.c
-+++ b/tc/f_flow.c
-@@ -32,7 +32,8 @@ static void explain(void)
- "KEY-LIST := [ KEY-LIST , ] KEY\n"
- "KEY      := [ src | dst | proto | proto-src | proto-dst | iif | priority | \n"
- "              mark | nfct | nfct-src | nfct-dst | nfct-proto-src | \n"
--"              nfct-proto-dst | rt-classid | sk-uid | sk-gid ]\n"
-+"              nfct-proto-dst | rt-classid | sk-uid | sk-gid |\n"
-+"              vlan-tag ]\n"
- "OPS      := [ or NUM | and NUM | xor NUM | rshift NUM | addend NUM ]\n"
- "ID       := X:Y\n"
- 	);
-@@ -55,6 +56,7 @@ static const char *flow_keys[FLOW_KEY_MAX+1] = {
- 	[FLOW_KEY_RTCLASSID]		= "rt-classid",
- 	[FLOW_KEY_SKUID]		= "sk-uid",
- 	[FLOW_KEY_SKGID]		= "sk-gid",
-+	[FLOW_KEY_VLAN_TAG]		= "vlan-tag",
- };
+ 	/* Walk through the list of cached ASCONF-ACKs and find the
+ 	 * ack chunk whose serial number matches that of the request.
+@@ -1533,9 +1533,9 @@ struct sctp_chunk *sctp_assoc_lookup_asc
+ 	list_for_each_entry(ack, &asoc->asconf_ack_list, transmitted_list) {
+ 		if (ack->subh.addip_hdr->serial == serial) {
+ 			sctp_chunk_hold(ack);
+-			break;
++			return ack;
+ 		}
+ 	}
  
- static int flow_parse_keys(__u32 *keys, __u32 *nkeys, char *argv)
+-	return ack;
++	return NULL;
+ }
 
---------------080803060809050709090803--
+
