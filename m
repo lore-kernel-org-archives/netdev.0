@@ -1,63 +1,65 @@
-From: "Rami Rosen" <roszenrami@gmail.com>
-Subject: Re: 2.6.24-mm1 - Build failure at net/sched/cls_flow.c:598
-Date: Tue, 5 Feb 2008 09:24:38 +0200
-Message-ID: <b25312890802042324q272324ffo4157f873dd4f44a8@mail.gmail.com>
-References: <20080203171634.58ab668b.akpm@linux-foundation.org>
-	 <47A79291.5010204@imap.cc>
-	 <20080204152505.62b2b8b5.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Tilman Schmidt" <tilman@imap.cc>, linux-kernel@vger.kernel.org,
-	"Patrick McHardy" <kaber@trash.net>, netdev@vger.kernel.org
-To: "Andrew Morton" <akpm@linux-foundation.org>
+From: akpm@linux-foundation.org
+Subject: [patch 2/2] tun: impossible to deassert IFF_ONE_QUEUE or IFF_NO_PI
+Date: Mon, 04 Feb 2008 23:45:21 -0800
+Message-ID: <200802050745.m157j2vh010306@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	nwfilardo@gmail.com, jeff@garzik.org, maxk@qualcomm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hu-out-0506.google.com ([72.14.214.233]:10226 "EHLO
-	hu-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754924AbYBEHYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 02:24:40 -0500
-Received: by hu-out-0506.google.com with SMTP id 19so2805342hue.21
-        for <netdev@vger.kernel.org>; Mon, 04 Feb 2008 23:24:38 -0800 (PST)
-In-Reply-To: <20080204152505.62b2b8b5.akpm@linux-foundation.org>
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:36839 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751136AbYBEHpU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 02:45:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-  I had sent a patch recently (which is currently pending) which
-solves this problem.
+From: "Nathaniel Filardo" <nwfilardo@gmail.com>
 
-see:
-http://www.spinics.net/lists/netdev/msg54455.html
+Taken from http://bugzilla.kernel.org/show_bug.cgi?id=9806
 
+The TUN/TAP driver only permits one-way transitions of IFF_NO_PI or
+IFF_ONE_QUEUE during the lifetime of a tap/tun interface.  Note that
+tun_set_iff contains
 
-Regards,
-Rami Rosen
+ 541         if (ifr->ifr_flags & IFF_NO_PI)
+ 542                 tun->flags |= TUN_NO_PI;
+ 543 
+ 544         if (ifr->ifr_flags & IFF_ONE_QUEUE)
+ 545                 tun->flags |= TUN_ONE_QUEUE;
 
+This is easily fixed by adding else branches which clear these bits.
 
-On Feb 5, 2008 1:25 AM, Andrew Morton <akpm@linux-foundation.org> wrote:
-> On Mon, 04 Feb 2008 23:32:49 +0100
-> Tilman Schmidt <tilman@imap.cc> wrote:
->
-> > My attempt to build this failed with:
-> >
-> >    CC [M]  net/sched/cls_flow.o
-> > net/sched/cls_flow.c: In function ___flow_dump___:
-> > net/sched/cls_flow.c:598: error: ___struct tcf_ematch_tree___ has no member named ___hdr___
-> >
-> > Config attached.
->
-> Thanks.  hm.
->
->         #else /* CONFIG_NET_EMATCH */
->
->         struct tcf_ematch_tree
->         {
->         };
->
-> methinks Patrick has a CONFIG_NET_EMATCH=n problem?
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Steps to reproduce:
+
+This is easily reproduced by setting an interface persistant using tunctl then
+attempting to open it as IFF_TAP or IFF_TUN, without asserting the IFF_NO_PI
+flag.  The ioctl() will succeed and the ifr.flags word is not modified, but the
+interface remains in IFF_NO_PI mode (as it was set by tunctl).
+
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Jeff Garzik <jeff@garzik.org>
+Acked-by: Maxim Krasnyansky <maxk@qualcomm.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ drivers/net/tun.c |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff -puN drivers/net/tun.c~tun-dev-impossible-to-deassert-iff_one_queue-or-iff_no_pi drivers/net/tun.c
+--- a/drivers/net/tun.c~tun-dev-impossible-to-deassert-iff_one_queue-or-iff_no_pi
++++ a/drivers/net/tun.c
+@@ -529,9 +529,13 @@ static int tun_set_iff(struct file *file
+ 
+ 	if (ifr->ifr_flags & IFF_NO_PI)
+ 		tun->flags |= TUN_NO_PI;
++	else
++		tun->flags &= ~TUN_NO_PI;
+ 
+ 	if (ifr->ifr_flags & IFF_ONE_QUEUE)
+ 		tun->flags |= TUN_ONE_QUEUE;
++	else
++		tun->flags &= ~TUN_ONE_QUEUE;
+ 
+ 	file->private_data = tun;
+ 	tun->attached = 1;
+_
