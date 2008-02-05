@@ -1,36 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/2] hamradio: fix dmascc section mismatch
-Date: Tue, 05 Feb 2008 03:04:13 -0800 (PST)
-Message-ID: <20080205.030413.152742971.davem@davemloft.net>
-References: <200802050745.m157j1qJ010297@imap1.linux-foundation.org>
+Subject: Re: [patch 2/2] tun: impossible to deassert IFF_ONE_QUEUE or
+ IFF_NO_PI
+Date: Tue, 05 Feb 2008 03:05:47 -0800 (PST)
+Message-ID: <20080205.030547.156453415.davem@davemloft.net>
+References: <200802050745.m157j2vh010306@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, randy.dunlap@oracle.com,
-	klaus.kudielka@gmx.net, sam@ravnborg.org
+Cc: netdev@vger.kernel.org, nwfilardo@gmail.com, jeff@garzik.org,
+	maxk@qualcomm.com
 To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37391
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46082
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757680AbYBELDp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 06:03:45 -0500
-In-Reply-To: <200802050745.m157j1qJ010297@imap1.linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1756676AbYBELFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 06:05:20 -0500
+In-Reply-To: <200802050745.m157j2vh010306@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: akpm@linux-foundation.org
-Date: Mon, 04 Feb 2008 23:45:20 -0800
+Date: Mon, 04 Feb 2008 23:45:21 -0800
 
-> From: Randy Dunlap <randy.dunlap@oracle.com>
+> From: "Nathaniel Filardo" <nwfilardo@gmail.com>
 > 
-> hw[] is used in both init and exit functions so it cannot be initdata (section
-> mismatch is when CONFIG_MODULES=n and CONFIG_DMASCC=y).
+> Taken from http://bugzilla.kernel.org/show_bug.cgi?id=9806
 > 
-> WARNING: vmlinux.o(.exit.text+0xba7): Section mismatch: reference to .init.data: (between 'dmascc_exit' and 'sixpack_exit_driver')
+> The TUN/TAP driver only permits one-way transitions of IFF_NO_PI or
+> IFF_ONE_QUEUE during the lifetime of a tap/tun interface.  Note that
+> tun_set_iff contains
 > 
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-> Cc: Klaus Kudielka <klaus.kudielka@gmx.net>
-> Cc: Sam Ravnborg <sam@ravnborg.org>
+>  541         if (ifr->ifr_flags & IFF_NO_PI)
+>  542                 tun->flags |= TUN_NO_PI;
+>  543 
+>  544         if (ifr->ifr_flags & IFF_ONE_QUEUE)
+>  545                 tun->flags |= TUN_ONE_QUEUE;
+> 
+> This is easily fixed by adding else branches which clear these bits.
+> 
+> Steps to reproduce:
+> 
+> This is easily reproduced by setting an interface persistant using tunctl then
+> attempting to open it as IFF_TAP or IFF_TUN, without asserting the IFF_NO_PI
+> flag.  The ioctl() will succeed and the ifr.flags word is not modified, but the
+> interface remains in IFF_NO_PI mode (as it was set by tunctl).
+> 
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Acked-by: Maxim Krasnyansky <maxk@qualcomm.com>
 > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
 Applied.
