@@ -1,67 +1,89 @@
-From: Ben Dooks <ben-linux@fluff.org>
-Subject: [PATCH 24/24 for-2.6.25] DM9000: Show the MAC address source after printing MAC
-Date: Tue, 05 Feb 2008 00:02:23 +0000
-Message-ID: <20080205000819.315754327@fluff.org.uk>
-References: <20080205000159.432081941@fluff.org.uk>
-Cc: jeff@garzik.org, akpm@linux-foundation.org, daniel@caiaq.de,
-	laurentp@cse-semaphore.com, Ben Dooks <ben-linux@fluff.org>
-To: netdev@vger.kernel.org
+From: Ben Dooks <ben@fluff.org.uk>
+Subject: Re: [PATCH 01/24 for-2.6.25] DM9000: Fix endian-ness of data
+	accesses.
+Date: Tue, 5 Feb 2008 00:13:25 +0000
+Message-ID: <20080205001325.GB15407@fluff.org.uk>
+References: <20080205000159.432081941@fluff.org.uk> <20080205000814.539308209@fluff.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jeff@garzik.org, akpm@linux-foundation.org,
+	daniel@caiaq.de, laurentp@cse-semaphore.com
+To: Ben Dooks <ben-linux@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58742 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58959 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758853AbYBEAIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:25 -0500
-Content-Disposition: inline; filename=simtec/drivers-net-dm9000-showmacsource.patch
+	with ESMTP id S1756319AbYBEAN0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:13:26 -0500
+Content-Disposition: inline
+In-Reply-To: <20080205000814.539308209@fluff.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Show whether the MAC address was read from the EEPROM or
-the onboard PAR registers.
+On Tue, Feb 05, 2008 at 12:02:00AM +0000, Ben Dooks wrote:
 
+This should have been:
+Patch From: Laurent Pinchart <laurentp@cse-semaphore.com>
+
+This patch splits the receive status in 8bit wide fields and convert the
+packet length from little endian to CPU byte order.
+
+Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
-Index: linux-2.6.24-quilt3/drivers/net/dm9000.c
-===================================================================
---- linux-2.6.24-quilt3.orig/drivers/net/dm9000.c
-+++ linux-2.6.24-quilt3/drivers/net/dm9000.c
-@@ -509,6 +509,7 @@ dm9000_probe(struct platform_device *pde
- 	struct dm9000_plat_data *pdata = pdev->dev.platform_data;
- 	struct board_info *db;	/* Point a board information structure */
- 	struct net_device *ndev;
-+	const unsigned char *mac_src;
- 	unsigned long base;
- 	int ret = 0;
- 	int iosize;
-@@ -687,13 +688,16 @@ dm9000_probe(struct platform_device *pde
- 	db->mii.mdio_read    = dm9000_phy_read;
- 	db->mii.mdio_write   = dm9000_phy_write;
- 
-+	mac_src = "eeprom";
-+
- 	/* try reading the node address from the attached EEPROM */
- 	for (i = 0; i < 6; i += 2)
- 		dm9000_read_eeprom(db, i / 2, ndev->dev_addr+i);
- 
- 	if (!is_valid_ether_addr(ndev->dev_addr)) {
- 		/* try reading from mac */
--
-+		
-+		mac_src = "chip";
- 		for (i = 0; i < 6; i++)
- 			ndev->dev_addr[i] = ior(db, i+DM9000_PAR);
- 	}
-@@ -707,9 +711,9 @@ dm9000_probe(struct platform_device *pde
- 
- 	if (ret == 0) {
- 		DECLARE_MAC_BUF(mac);
--		printk("%s: dm9000 at %p,%p IRQ %d MAC: %s\n",
-+		printk("%s: dm9000 at %p,%p IRQ %d MAC: %s (%s)\n",
- 		       ndev->name,  db->io_addr, db->io_data, ndev->irq,
--		       print_mac(mac, ndev->dev_addr));
-+		       print_mac(mac, ndev->dev_addr), mac_src);
- 	}
- 	return 0;
- 
+> Index: linux-2.6.24-git5-dm9k/drivers/net/dm9000.c
+> ===================================================================
+> --- linux-2.6.24-git5-dm9k.orig/drivers/net/dm9000.c
+> +++ linux-2.6.24-git5-dm9k/drivers/net/dm9000.c
+> @@ -867,7 +867,8 @@ dm9000_timer(unsigned long data)
+>  }
+>  
+>  struct dm9000_rxhdr {
+> -	u16	RxStatus;
+> +	u8	RxPktReady;
+> +	u8	RxStatus;
+>  	u16	RxLen;
+>  } __attribute__((__packed__));
+>  
+> @@ -908,7 +909,7 @@ dm9000_rx(struct net_device *dev)
+>  
+>  		(db->inblk)(db->io_data, &rxhdr, sizeof(rxhdr));
+>  
+> -		RxLen = rxhdr.RxLen;
+> +		RxLen = le16_to_cpu(rxhdr.RxLen);
+>  
+>  		/* Packet Status check */
+>  		if (RxLen < 0x40) {
+> @@ -920,17 +921,17 @@ dm9000_rx(struct net_device *dev)
+>  			PRINTK1("RST: RX Len:%x\n", RxLen);
+>  		}
+>  
+> -		if (rxhdr.RxStatus & 0xbf00) {
+> +		if (rxhdr.RxStatus & 0xbf) {
+>  			GoodPacket = false;
+> -			if (rxhdr.RxStatus & 0x100) {
+> +			if (rxhdr.RxStatus & 0x01) {
+>  				PRINTK1("fifo error\n");
+>  				dev->stats.rx_fifo_errors++;
+>  			}
+> -			if (rxhdr.RxStatus & 0x200) {
+> +			if (rxhdr.RxStatus & 0x02) {
+>  				PRINTK1("crc error\n");
+>  				dev->stats.rx_crc_errors++;
+>  			}
+> -			if (rxhdr.RxStatus & 0x8000) {
+> +			if (rxhdr.RxStatus & 0x80) {
+>  				PRINTK1("length error\n");
+>  				dev->stats.rx_length_errors++;
+>  			}
+> 
+> -- 
+> Ben (ben@fluff.org, http://www.fluff.org/)
+> 
+>   'a smiley only costs 4 bytes'
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
