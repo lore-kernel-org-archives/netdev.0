@@ -1,65 +1,46 @@
 From: akpm@linux-foundation.org
-Subject: [patch 2/2] tun: impossible to deassert IFF_ONE_QUEUE or IFF_NO_PI
-Date: Mon, 04 Feb 2008 23:45:21 -0800
-Message-ID: <200802050745.m157j2vh010306@imap1.linux-foundation.org>
+Subject: [patch 1/2] hamradio: fix dmascc section mismatch
+Date: Mon, 04 Feb 2008 23:45:20 -0800
+Message-ID: <200802050745.m157j1qJ010297@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	nwfilardo@gmail.com, jeff@garzik.org, maxk@qualcomm.com
+	randy.dunlap@oracle.com, klaus.kudielka@gmx.net, sam@ravnborg.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:36839 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:34256 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751136AbYBEHpU (ORCPT
+	by vger.kernel.org with ESMTP id S1751097AbYBEHpU (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 02:45:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Nathaniel Filardo" <nwfilardo@gmail.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Taken from http://bugzilla.kernel.org/show_bug.cgi?id=9806
+hw[] is used in both init and exit functions so it cannot be initdata (section
+mismatch is when CONFIG_MODULES=n and CONFIG_DMASCC=y).
 
-The TUN/TAP driver only permits one-way transitions of IFF_NO_PI or
-IFF_ONE_QUEUE during the lifetime of a tap/tun interface.  Note that
-tun_set_iff contains
+WARNING: vmlinux.o(.exit.text+0xba7): Section mismatch: reference to .init.data: (between 'dmascc_exit' and 'sixpack_exit_driver')
 
- 541         if (ifr->ifr_flags & IFF_NO_PI)
- 542                 tun->flags |= TUN_NO_PI;
- 543 
- 544         if (ifr->ifr_flags & IFF_ONE_QUEUE)
- 545                 tun->flags |= TUN_ONE_QUEUE;
-
-This is easily fixed by adding else branches which clear these bits.
-
-Steps to reproduce:
-
-This is easily reproduced by setting an interface persistant using tunctl then
-attempting to open it as IFF_TAP or IFF_TUN, without asserting the IFF_NO_PI
-flag.  The ioctl() will succeed and the ifr.flags word is not modified, but the
-interface remains in IFF_NO_PI mode (as it was set by tunctl).
-
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Jeff Garzik <jeff@garzik.org>
-Acked-by: Maxim Krasnyansky <maxk@qualcomm.com>
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Cc: Klaus Kudielka <klaus.kudielka@gmx.net>
+Cc: Sam Ravnborg <sam@ravnborg.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/tun.c |    4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/hamradio/dmascc.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/tun.c~tun-dev-impossible-to-deassert-iff_one_queue-or-iff_no_pi drivers/net/tun.c
---- a/drivers/net/tun.c~tun-dev-impossible-to-deassert-iff_one_queue-or-iff_no_pi
-+++ a/drivers/net/tun.c
-@@ -529,9 +529,13 @@ static int tun_set_iff(struct file *file
+diff -puN drivers/net/hamradio/dmascc.c~hamradio-fix-dmascc-section-mismatch drivers/net/hamradio/dmascc.c
+--- a/drivers/net/hamradio/dmascc.c~hamradio-fix-dmascc-section-mismatch
++++ a/drivers/net/hamradio/dmascc.c
+@@ -262,8 +262,8 @@ static void tm_isr(struct scc_priv *priv
  
- 	if (ifr->ifr_flags & IFF_NO_PI)
- 		tun->flags |= TUN_NO_PI;
-+	else
-+		tun->flags &= ~TUN_NO_PI;
+ static int io[MAX_NUM_DEVS] __initdata = { 0, };
  
- 	if (ifr->ifr_flags & IFF_ONE_QUEUE)
- 		tun->flags |= TUN_ONE_QUEUE;
-+	else
-+		tun->flags &= ~TUN_ONE_QUEUE;
+-/* Beware! hw[] is also used in cleanup_module(). */
+-static struct scc_hardware hw[NUM_TYPES] __initdata_or_module = HARDWARE;
++/* Beware! hw[] is also used in dmascc_exit(). */
++static struct scc_hardware hw[NUM_TYPES] = HARDWARE;
  
- 	file->private_data = tun;
- 	tun->attached = 1;
+ 
+ /* Global variables */
 _
