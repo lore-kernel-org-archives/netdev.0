@@ -1,184 +1,171 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [PATCH 11/24 for-2.6.25] DM9000: Add mutex to protect access
-Date: Tue, 05 Feb 2008 00:02:10 +0000
-Message-ID: <20080205000816.720637154@fluff.org.uk>
+Subject: [PATCH 04/24 for-2.6.25] DM9000 update debugging macros to use debug level
+Date: Tue, 05 Feb 2008 00:02:03 +0000
+Message-ID: <20080205000815.168546071@fluff.org.uk>
 References: <20080205000159.432081941@fluff.org.uk>
 Cc: jeff@garzik.org, akpm@linux-foundation.org, daniel@caiaq.de,
 	laurentp@cse-semaphore.com, Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58753 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58724 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757636AbYBEAI1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:27 -0500
-Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-lock-eeprom.patch
+	with ESMTP id S1758841AbYBEAIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:25 -0500
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-debugupdate.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a mutex to serialise access to the chip functions from
-entries such as the ethtool and the MII code. This should
-reduce the amount of time the spinlock is held to protect
-the address register. 
+Change the debug macros to use the compiler to elide any
+unnecessary debug level, and to allow device configurable
+debug control.
 
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
-Index: linux-2.6.24-quilt3/drivers/net/dm9000.c
+Index: linux-2.6.24-git5-dm9k/drivers/net/Kconfig
 ===================================================================
---- linux-2.6.24-quilt3.orig/drivers/net/dm9000.c
-+++ linux-2.6.24-quilt3/drivers/net/dm9000.c
-@@ -102,6 +102,24 @@ static int watchdog = 5000;
- module_param(watchdog, int, 0400);
- MODULE_PARM_DESC(watchdog, "transmit timeout in milliseconds");
+--- linux-2.6.24-git5-dm9k.orig/drivers/net/Kconfig
++++ linux-2.6.24-git5-dm9k/drivers/net/Kconfig
+@@ -912,6 +912,14 @@ config DM9000
+ 	  To compile this driver as a module, choose M here.  The module
+ 	  will be called dm9000.
  
-+/* DM9000 register address locking.
-+ *
-+ * The DM9000 uses an address register to control where data written
-+ * to the data register goes. This means that the address register
-+ * must be preserved over interrupts or similar calls.
-+ *
-+ * During interrupt and other critical calls, a spinlock is used to
-+ * protect the system, but the calls themselves save the address
-+ * in the address register in case they are interrupting another
-+ * access to the device.
-+ *
-+ * For general accesses a lock is provided so that calls which are
-+ * allowed to sleep are serialised so that the address register does
-+ * not need to be saved. This lock also serves to serialise access
-+ * to the EEPROM and PHY access registers which are shared between
-+ * these two devices.
-+ */
++config DM9000_DEBUGLEVEL
++	int "DM9000 maximum debug level"
++	depends on DM9000
++	default 4
++	help
++	  The maximum level of debugging code compiled into the DM9000
++	  driver.
 +
- /* Structure/enum declaration ------------------------------- */
- typedef struct board_info {
+ config SMC911X
+ 	tristate "SMSC LAN911[5678] support"
+ 	select CRC32
+Index: linux-2.6.24-git5-dm9k/drivers/net/dm9000.c
+===================================================================
+--- linux-2.6.24-git5-dm9k.orig/drivers/net/dm9000.c
++++ linux-2.6.24-git5-dm9k/drivers/net/dm9000.c
+@@ -83,28 +83,6 @@
  
-@@ -132,6 +150,8 @@ typedef struct board_info {
- 	struct resource *data_req;
- 	struct resource *irq_res;
+ #define DM9000_TIMER_WUT  jiffies+(HZ*2)	/* timer wakeup time : 2 second */
  
-+	struct mutex	 addr_lock;	/* phy and eeprom access lock */
-+
- 	spinlock_t lock;
- 
- 	struct mii_if_info mii;
-@@ -365,26 +385,16 @@ static void dm9000_get_drvinfo(struct ne
- static int dm9000_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	board_info_t *dm = to_dm9000_board(dev);
--	unsigned long flags;
- 
--	spin_lock_irqsave(&dm->lock, flags);
- 	mii_ethtool_gset(&dm->mii, cmd);
--	spin_lock_irqsave(&dm->lock, flags);
+-#define DM9000_DEBUG 0
 -
- 	return 0;
- }
- 
- static int dm9000_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	board_info_t *dm = to_dm9000_board(dev);
--	unsigned long flags;
--	int rc;
+-#if DM9000_DEBUG > 2
+-#define PRINTK3(args...)  printk(CARDNAME ": " args)
+-#else
+-#define PRINTK3(args...)  do { } while(0)
+-#endif
 -
--	spin_lock_irqsave(&dm->lock, flags);
--	rc = mii_ethtool_sset(&dm->mii, cmd);
--	spin_lock_irqsave(&dm->lock, flags);
+-#if DM9000_DEBUG > 1
+-#define PRINTK2(args...)  printk(CARDNAME ": " args)
+-#else
+-#define PRINTK2(args...)  do { } while(0)
+-#endif
+-
+-#if DM9000_DEBUG > 0
+-#define PRINTK1(args...)  printk(CARDNAME ": " args)
+-#define PRINTK(args...)   printk(CARDNAME ": " args)
+-#else
+-#define PRINTK1(args...)  do { } while(0)
+-#define PRINTK(args...)   printk(KERN_DEBUG args)
+-#endif
+-
+ #ifdef CONFIG_BLACKFIN
+ #define readsb	insb
+ #define readsw	insw
+@@ -139,6 +117,8 @@ typedef struct board_info {
+ 	u8 phy_addr;
+ 	unsigned int flags;
  
--	return rc;
-+	return mii_ethtool_sset(&dm->mii, cmd);
- }
++	int debug_level;
++
+ 	void (*inblk)(void __iomem *port, void *data, int length);
+ 	void (*outblk)(void __iomem *port, void *data, int length);
+ 	void (*dumpblk)(void __iomem *port, int length);
+@@ -159,6 +139,15 @@ typedef struct board_info {
+ 	u32 msg_enable;
+ } board_info_t;
  
- static int dm9000_nway_reset(struct net_device *dev)
-@@ -475,6 +485,7 @@ dm9000_probe(struct platform_device *pde
- 	db->dev = &pdev->dev;
- 
- 	spin_lock_init(&db->lock);
-+	mutex_init(&db->addr_lock);
- 
- 	if (pdev->num_resources < 2) {
- 		ret = -ENODEV;
-@@ -1000,8 +1011,10 @@ dm9000_rx(struct net_device *dev)
-  *  Read a word data from EEPROM
-  */
- static void
--dm9000_read_eeprom(board_info_t * db, int offset, unsigned char *to)
-+dm9000_read_eeprom(board_info_t *db, int offset, unsigned char *to)
++/* debug code */
++
++#define dm9000_dbg(db, lev, msg...) do {		\
++	if ((lev) < CONFIG_DM9000_DEBUGLEVEL &&		\
++	    (lev) < db->debug_level) {			\
++		dev_dbg(db->dev, msg);			\
++	}						\
++} while (0)
++
+ /* function declaration ------------------------------------- */
+ static int dm9000_probe(struct platform_device *);
+ static int dm9000_open(struct net_device *);
+@@ -659,7 +648,7 @@ dm9000_init_dm9000(struct net_device *de
  {
-+	mutex_lock(&db->addr_lock);
-+
- 	iow(db, DM9000_EPAR, offset);
- 	iow(db, DM9000_EPCR, EPCR_ERPRR);
- 	mdelay(8);		/* according to the datasheet 200us should be enough,
-@@ -1010,6 +1023,8 @@ dm9000_read_eeprom(board_info_t * db, in
+ 	board_info_t *db = (board_info_t *) dev->priv;
  
- 	to[0] = ior(db, DM9000_EPDRL);
- 	to[1] = ior(db, DM9000_EPDRH);
-+
-+	mutex_unlock(&db->addr_lock);
- }
+-	PRINTK1("entering %s\n",__FUNCTION__);
++	dm9000_dbg(db, 1, "entering %s\n", __func__);
  
- #ifdef DM9000_PROGRAM_EEPROM
-@@ -1019,12 +1034,16 @@ dm9000_read_eeprom(board_info_t * db, in
- static void
- write_srom_word(board_info_t * db, int offset, u16 val)
- {
-+	mutex_lock(&db->addr_lock);
-+
- 	iow(db, DM9000_EPAR, offset);
- 	iow(db, DM9000_EPDRH, ((val >> 8) & 0xff));
- 	iow(db, DM9000_EPDRL, (val & 0xff));
- 	iow(db, DM9000_EPCR, EPCR_WEP | EPCR_ERPRW);
- 	mdelay(8);		/* same shit */
- 	iow(db, DM9000_EPCR, 0);
-+
-+	mutex_unlock(&db->addr_lock);
- }
- 
- /*
-@@ -1132,6 +1151,8 @@ dm9000_phy_read(struct net_device *dev, 
- 	unsigned int reg_save;
- 	int ret;
- 
-+	mutex_lock(&db->addr_lock);
-+
- 	spin_lock_irqsave(&db->lock,flags);
- 
- 	/* Save previous register address */
-@@ -1159,6 +1180,7 @@ dm9000_phy_read(struct net_device *dev, 
- 	writeb(reg_save, db->io_addr);
- 	spin_unlock_irqrestore(&db->lock,flags);
- 
-+	mutex_unlock(&db->addr_lock);
- 	return ret;
- }
- 
-@@ -1172,6 +1194,8 @@ dm9000_phy_write(struct net_device *dev,
+ 	/* I/O mode */
+ 	db->io_mode = ior(db, DM9000_ISR) >> 6;	/* ISR bit7:6 keeps I/O mode */
+@@ -705,7 +694,7 @@ dm9000_start_xmit(struct sk_buff *skb, s
  	unsigned long flags;
- 	unsigned long reg_save;
+ 	board_info_t *db = (board_info_t *) dev->priv;
  
-+	mutex_lock(&db->addr_lock);
+-	PRINTK3("dm9000_start_xmit\n");
++	dm9000_dbg(db, 3, "%s:\n", __func__);
+ 
+ 	if (db->tx_pkt_cnt > 1)
+ 		return 1;
+@@ -764,7 +753,7 @@ dm9000_stop(struct net_device *ndev)
+ {
+ 	board_info_t *db = (board_info_t *) ndev->priv;
+ 
+-	PRINTK1("entering %s\n",__FUNCTION__);
++	dm9000_dbg(db, 1, "entering %s\n", __func__);
+ 
+ 	/* deleted timer */
+ 	del_timer(&db->timer);
+@@ -810,19 +799,14 @@ static irqreturn_t
+ dm9000_interrupt(int irq, void *dev_id)
+ {
+ 	struct net_device *dev = dev_id;
+-	board_info_t *db;
++	board_info_t *db = (board_info_t *) dev->priv;
+ 	int int_status;
+ 	u8 reg_save;
+ 
+-	PRINTK3("entering %s\n",__FUNCTION__);
+-
+-	if (!dev) {
+-		PRINTK1("dm9000_interrupt() without DEVICE arg\n");
+-		return IRQ_HANDLED;
+-	}
++	dm9000_dbg(db, 3, "entering %s\n", __func__);
+ 
+ 	/* A real interrupt coming */
+-	db = (board_info_t *) dev->priv;
 +
- 	spin_lock_irqsave(&db->lock,flags);
+ 	spin_lock(&db->lock);
  
  	/* Save previous register address */
-@@ -1187,7 +1211,7 @@ dm9000_phy_write(struct net_device *dev,
- 	iow(db, DM9000_EPCR, 0xa);	/* Issue phyxcer write command */
+@@ -864,7 +848,7 @@ dm9000_timer(unsigned long data)
+ 	struct net_device *dev = (struct net_device *) data;
+ 	board_info_t *db = (board_info_t *) dev->priv;
  
- 	writeb(reg_save, db->io_addr);
--	spin_unlock_irqrestore(&db->lock,flags);
-+	spin_unlock_irqrestore(&db->lock, flags);
+-	PRINTK3("dm9000_timer()\n");
++	dm9000_dbg(db, 3, "entering %s\n", __func__);
  
- 	dm9000_msleep(db, 1);		/* Wait write complete */
+ 	mii_check_media(&db->mii, netif_msg_link(db), 0);
  
-@@ -1199,7 +1223,8 @@ dm9000_phy_write(struct net_device *dev,
- 	/* restore the previous address */
- 	writeb(reg_save, db->io_addr);
+@@ -1049,7 +1033,7 @@ dm9000_hash_table(struct net_device *dev
+ 	u16 i, oft, hash_table[4];
+ 	unsigned long flags;
  
--	spin_unlock_irqrestore(&db->lock,flags);
-+	spin_unlock_irqrestore(&db->lock, flags);
-+	mutex_unlock(&db->addr_lock);
- }
+-	PRINTK2("dm9000_hash_table()\n");
++	dm9000_dbg(db, 1, "entering %s\n", __func__);
  
- static int
+ 	spin_lock_irqsave(&db->lock,flags);
+ 
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
