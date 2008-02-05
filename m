@@ -1,70 +1,48 @@
-From: Yinghai Lu <Yinghai.Lu@Sun.COM>
-Subject: Re: [e1000][net-2.6 tree] Regression: driver doesn't
- detect card on my node.
-Date: Tue, 05 Feb 2008 09:43:00 -0800
-Message-ID: <200802050943.01652.yinghai.lu@sun.com>
-References: <47A89A77.1050608@openvz.org> <47A89BC1.6080702@intel.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH] [PPPOL2TP] Label unused warning when CONFIG_PROC_FS is
+ not set.
+Date: Tue, 05 Feb 2008 17:38:10 +0000
+Message-ID: <47A89F02.8010403@katalix.com>
+References: <eb3ff54b0802050415h3c4672b1r7048143b599303dd@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	Thomas Gleixner <tglx@linutronix.de>, jeffrey.t.kirsher@intel.com,
-	Denis Lunev <den@openvz.org>, Ingo Molnar <mingo@elte.hu>,
-	David Miller <davem@davemloft.net>,
-	Justin Piszcz <jpiszcz@lucidpixels.com>,
-	Pavel Emelyanov <xemul@openvz.org>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-reply-to: <47A89BC1.6080702@intel.com>
-Content-disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	linux-kernel@vger.kernel.org
+To: Rami Rosen <ramirose@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s36.avahost.net ([74.53.95.194]:58262 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751716AbYBERiP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2008 12:38:15 -0500
+In-Reply-To: <eb3ff54b0802050415h3c4672b1r7048143b599303dd@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 05 February 2008 09:24:17 am Kok, Auke wrote:
+Acked-by: James Chapman <jchapman@katalix.com>
+
+Rami Rosen wrote:
+> Hi,
 > 
-> [Added Ingo, Thomas, Justin who signed off on the patch/tested it]
+> When CONFIG_PROC_FS is not set and CONFIG_PPPOL2TP is set,
+> we have the following warning in build:
+>   drivers/net/pppol2tp.c: In function 'pppol2tp_init':
+>   drivers/net/pppol2tp.c:2472: warning: label
+> 'out_unregister_pppox_proto' defined but not used
 > 
-> Pavel Emelyanov wrote:
-> > The commit
-> > 
-> > 	093af8d7f0ba3c6be1485973508584ef081e9f93
-> > 	x86_32: trim memory by updating e820
-> > 
-> > broke my e1000 card: on loading driver says that
-> > 
-> > 	e1000: probe of 0000:04:03.0 failed with error -5
-> > 
-> > and the interface doesn't appear.
-> > 
-> > With this commit reset everything is OK.
-> > 
-> > lspci output:
-> > 04:03.0 Ethernet controller: Intel Corporation 82541GI Gigabit Ethernet Controller (rev 05)
-> > lspci -n output:
-> > 04:03.0 Class 0200: 8086:1076 (rev 05)
-> > 
-> > My colleague Denis Lunev has e1000 adapter too, but doesn't
-> > experience such problems.
-> > 
-> > What other info from me is required?
+> This patches fixes this warning by adding appropriate #ifdef.
+> 
+> Regards,
+> Rami Rosen
+> 
+> 
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> 
 
-boot log please. with the patch and reverting the patch.
 
-Thanks
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
-YH
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2008.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
