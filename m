@@ -1,96 +1,98 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [PATCH 10/24 for-2.6.25] DM9000: Remove barely used SROM array read.
-Date: Tue, 05 Feb 2008 00:02:09 +0000
-Message-ID: <20080205000816.514984494@fluff.org.uk>
+Subject: [PATCH 19/24 for-2.6.25] DM9000: Remove cal_CRC() and use ether_crc_le instead
+Date: Tue, 05 Feb 2008 00:02:18 +0000
+Message-ID: <20080205000818.333663910@fluff.org.uk>
 References: <20080205000159.432081941@fluff.org.uk>
 Cc: jeff@garzik.org, akpm@linux-foundation.org, daniel@caiaq.de,
 	laurentp@cse-semaphore.com, Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58759 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58731 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758847AbYBEAI2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:28 -0500
-Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-remove-srom-read.patch
+	with ESMTP id S1758843AbYBEAIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:25 -0500
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-cleanup-removecrc.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The srom array in the board data is only being used in the device probe
-routines. The probe also only uses the first 6 bytes of an array
-we spend 512ms reading 128 bytes from. Change to reading the
-MAC area directly to the MAC address structure.
-
-As a side product, we rename the read_srom_word to dm9000_read_eeprom
-to bring it into line with the rest of the driver. No change is made
-to the delay in this function, which will be dealt with in a later
-patch.
+Remove the cal_CRC as this is basically wrappering the
+ether_crc_le function, and is only being used by the
+multicast hash table functions.
 
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
-
 
 Index: linux-2.6.24-quilt3/drivers/net/dm9000.c
 ===================================================================
 --- linux-2.6.24-quilt3.orig/drivers/net/dm9000.c
 +++ linux-2.6.24-quilt3/drivers/net/dm9000.c
-@@ -132,7 +132,6 @@ typedef struct board_info {
- 	struct resource *data_req;
- 	struct resource *irq_res;
- 
--	unsigned char srom[128];
- 	spinlock_t lock;
- 
- 	struct mii_if_info mii;
-@@ -166,7 +165,8 @@ static irqreturn_t dm9000_interrupt(int,
- static int dm9000_phy_read(struct net_device *dev, int phyaddr_unsused, int reg);
- static void dm9000_phy_write(struct net_device *dev, int phyaddr_unused, int reg,
- 			   int value);
--static u16 read_srom_word(board_info_t *, int);
-+
-+static void dm9000_read_eeprom(board_info_t *, int addr, unsigned char *to);
- static void dm9000_rx(struct net_device *);
- static void dm9000_hash_table(struct net_device *);
- 
-@@ -630,13 +630,9 @@ dm9000_probe(struct platform_device *pde
- 	db->mii.mdio_read    = dm9000_phy_read;
- 	db->mii.mdio_write   = dm9000_phy_write;
- 
--	/* Read SROM content */
--	for (i = 0; i < 64; i++)
--		((u16 *) db->srom)[i] = read_srom_word(db, i);
--
--	/* Set Node Address */
--	for (i = 0; i < 6; i++)
--		ndev->dev_addr[i] = db->srom[i];
-+	/* try reading the node address from the attached EEPROM */
-+	for (i = 0; i < 6; i += 2)
-+		dm9000_read_eeprom(db, i / 2, ndev->dev_addr+i);
- 
- 	if (!is_valid_ether_addr(ndev->dev_addr)) {
- 		/* try reading from mac */
-@@ -1001,17 +997,19 @@ dm9000_rx(struct net_device *dev)
+@@ -1158,24 +1158,6 @@ dm9000_write_eeprom(board_info_t *db, in
  }
  
  /*
-- *  Read a word data from SROM
-+ *  Read a word data from EEPROM
+- *  Calculate the CRC valude of the Rx packet
+- *  flag = 1 : return the reverse CRC (for the received packet CRC)
+- *         0 : return the normal CRC (for Hash Table index)
+- */
+-
+-static unsigned long
+-cal_CRC(unsigned char *Data, unsigned int Len, u8 flag)
+-{
+-
+-       u32 crc = ether_crc_le(Len, Data);
+-
+-       if (flag)
+-               return ~crc;
+-
+-       return crc;
+-}
+-
+-/*
+  *  Set DM9000 multicast address
   */
--static u16
--read_srom_word(board_info_t * db, int offset)
-+static void
-+dm9000_read_eeprom(board_info_t * db, int offset, unsigned char *to)
- {
- 	iow(db, DM9000_EPAR, offset);
- 	iow(db, DM9000_EPCR, EPCR_ERPRR);
- 	mdelay(8);		/* according to the datasheet 200us should be enough,
- 				   but it doesn't work */
- 	iow(db, DM9000_EPCR, 0x0);
--	return (ior(db, DM9000_EPDRL) + (ior(db, DM9000_EPDRH) << 8));
-+
-+	to[0] = ior(db, DM9000_EPDRL);
-+	to[1] = ior(db, DM9000_EPDRH);
+ static void
+@@ -1184,15 +1166,16 @@ dm9000_hash_table(struct net_device *dev
+ 	board_info_t *db = (board_info_t *) dev->priv;
+ 	struct dev_mc_list *mcptr = dev->mc_list;
+ 	int mc_cnt = dev->mc_count;
++	int i, oft;
+ 	u32 hash_val;
+-	u16 i, oft, hash_table[4];
++	u16 hash_table[4];
+ 	unsigned long flags;
+ 
+ 	dm9000_dbg(db, 1, "entering %s\n", __func__);
+ 
+-	spin_lock_irqsave(&db->lock,flags);
++	spin_lock_irqsave(&db->lock, flags);
+ 
+-	for (i = 0, oft = 0x10; i < 6; i++, oft++)
++	for (i = 0, oft = DM9000_PAR; i < 6; i++, oft++)
+ 		iow(db, oft, dev->dev_addr[i]);
+ 
+ 	/* Clear Hash Table */
+@@ -1204,17 +1187,17 @@ dm9000_hash_table(struct net_device *dev
+ 
+ 	/* the multicast address in Hash Table : 64 bits */
+ 	for (i = 0; i < mc_cnt; i++, mcptr = mcptr->next) {
+-		hash_val = cal_CRC((char *) mcptr->dmi_addr, 6, 0) & 0x3f;
++		hash_val = ether_crc_le(6, mcptr->dmi_addr) & 0x3f;
+ 		hash_table[hash_val / 16] |= (u16) 1 << (hash_val % 16);
+ 	}
+ 
+ 	/* Write the hash table to MAC MD table */
+-	for (i = 0, oft = 0x16; i < 4; i++) {
+-		iow(db, oft++, hash_table[i] & 0xff);
+-		iow(db, oft++, (hash_table[i] >> 8) & 0xff);
++	for (i = 0, oft = DM9000_MAR; i < 4; i++) {
++		iow(db, oft++, hash_table[i]);
++		iow(db, oft++, hash_table[i] >> 8);
+ 	}
+ 
+-	spin_unlock_irqrestore(&db->lock,flags);
++	spin_unlock_irqrestore(&db->lock, flags);
  }
  
- #ifdef DM9000_PROGRAM_EEPROM
+ 
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
