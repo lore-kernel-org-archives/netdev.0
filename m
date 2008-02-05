@@ -1,43 +1,41 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [patch 6/7] hci_ldisc: fix null pointer deref
-Date: Tue, 05 Feb 2008 17:51:07 +0100
-Message-ID: <1202230268.15090.105.camel@violet>
-References: <200802050748.m157m0ne010461@imap1.linux-foundation.org>
-	 <20080205.031129.40584551.davem@davemloft.net>
+Subject: Re: [patch 5/7] bluetooth: blacklist another Broadcom BCM2035
+	device
+Date: Tue, 05 Feb 2008 17:51:44 +0100
+Message-ID: <1202230304.15090.107.camel@violet>
+References: <200802050747.m157lwwg010458@imap1.linux-foundation.org>
+	 <20080205.031025.171453745.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	david@davidnewall.com, alan@lxorguk.ukuu.org.uk,
-	arjan@linux.intel.com
+	andy@smile.org.ua
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:47750 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:33852 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750861AbYBEQuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 11:50:40 -0500
-In-Reply-To: <20080205.031129.40584551.davem@davemloft.net>
+	with ESMTP id S1751229AbYBEQvP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 11:51:15 -0500
+In-Reply-To: <20080205.031025.171453745.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi David,
 
-> > akpm:
+> > From: Andy Shevchenko <andy@smile.org.ua>
 > > 
-> >   No idea.  trollmerge.
+> > This device is recognized as bluetooth, but still not works.
 > > 
-> > Cc: Arjan van de Ven <arjan@linux.intel.com>
-> > Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
+> > Signed-off-by: Andy Shevchenko <andy@smile.org.ua>
 > > Cc: Marcel Holtmann <marcel@holtmann.org>
 > > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 > 
-> I'll let Marcel and/or Alan take a look at this one.
+> Applied.
+> 
+> But, what driver should drive this device?
 
-we might have to re-work the whole hci_uart driver at some point, but
-for now I think this fix is feasible.
-
-Alan, if you think it is wrong please step up. I am not an expert when
-it comes to TTY line disciplines.
+the hci_usb will driver this device, but since it is Broadcom based it
+needs some extra quirks to work accordingly.
 
 Regards
 
