@@ -1,71 +1,84 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [PATCH 01/24 for-2.6.25] DM9000: Fix endian-ness of data accesses. Patch from: Laurent Pinchart <laurentp@cse-semaphore.com>
-Date: Tue, 05 Feb 2008 00:02:00 +0000
-Message-ID: <20080205000814.539308209@fluff.org.uk>
+Subject: [PATCH 15/24 for-2.6.25] DM9000: Ensure spinlock held whilst accessing EEPROM registers
+Date: Tue, 05 Feb 2008 00:02:14 +0000
+Message-ID: <20080205000817.527008899@fluff.org.uk>
 References: <20080205000159.432081941@fluff.org.uk>
 Cc: jeff@garzik.org, akpm@linux-foundation.org, daniel@caiaq.de,
 	laurentp@cse-semaphore.com, Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58728 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58712 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758834AbYBEAIX (ORCPT
+	with ESMTP id S1758833AbYBEAIX (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:23 -0500
-Content-Disposition: inline; filename=thirdparty/dm9000-fix-8bit.patch
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-spinlock-eeprom.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch splits the receive status in 8bit wide fields and convert the
-packet length from little endian to CPU byte order.
+Ensure we hold the spinlock whilst the registers and being
+modified even though we hold the overall lock. This should
+protect against an interrupt happening whilst we are using
+the device.
 
-Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
-Index: linux-2.6.24-git5-dm9k/drivers/net/dm9000.c
+Index: linux-2.6.24-quilt3/drivers/net/dm9000.c
 ===================================================================
---- linux-2.6.24-git5-dm9k.orig/drivers/net/dm9000.c
-+++ linux-2.6.24-git5-dm9k/drivers/net/dm9000.c
-@@ -867,7 +867,8 @@ dm9000_timer(unsigned long data)
+--- linux-2.6.24-quilt3.orig/drivers/net/dm9000.c
++++ linux-2.6.24-quilt3/drivers/net/dm9000.c
+@@ -1076,17 +1076,29 @@ dm9000_rx(struct net_device *dev)
+ static void
+ dm9000_read_eeprom(board_info_t *db, int offset, u8 *to)
+ {
++	unsigned long flags;
++
+ 	mutex_lock(&db->addr_lock);
+ 
++	spin_lock_irqsave(&db->lock, flags);
++
+ 	iow(db, DM9000_EPAR, offset);
+ 	iow(db, DM9000_EPCR, EPCR_ERPRR);
++
++	spin_unlock_irqrestore(&db->lock, flags);
++
+ 	mdelay(8);		/* according to the datasheet 200us should be enough,
+ 				   but it doesn't work */
++
++	spin_lock_irqsave(&db->lock, flags);
++
+ 	iow(db, DM9000_EPCR, 0x0);
+ 
+ 	to[0] = ior(db, DM9000_EPDRL);
+ 	to[1] = ior(db, DM9000_EPDRH);
+ 
++	spin_unlock_irqrestore(&db->lock, flags);
++
+ 	mutex_unlock(&db->addr_lock);
  }
  
- struct dm9000_rxhdr {
--	u16	RxStatus;
-+	u8	RxPktReady;
-+	u8	RxStatus;
- 	u16	RxLen;
- } __attribute__((__packed__));
+@@ -1096,14 +1108,22 @@ dm9000_read_eeprom(board_info_t *db, int
+ static void
+ dm9000_write_eeprom(board_info_t *db, int offset, u8 *data)
+ {
++	unsigned long flags;
++
+ 	mutex_lock(&db->addr_lock);
  
-@@ -908,7 +909,7 @@ dm9000_rx(struct net_device *dev)
++	spin_lock_irqsave(&db->lock, flags);
+ 	iow(db, DM9000_EPAR, offset);
+ 	iow(db, DM9000_EPDRH, data[1]);
+ 	iow(db, DM9000_EPDRL, data[0]);
+ 	iow(db, DM9000_EPCR, EPCR_WEP | EPCR_ERPRW);
++	spin_unlock_irqrestore(&db->lock, flags);
++
+ 	mdelay(8);		/* same shit */
++
++	spin_lock_irqsave(&db->lock, flags);
+ 	iow(db, DM9000_EPCR, 0);
++	spin_unlock_irqrestore(&db->lock, flags);
  
- 		(db->inblk)(db->io_data, &rxhdr, sizeof(rxhdr));
- 
--		RxLen = rxhdr.RxLen;
-+		RxLen = le16_to_cpu(rxhdr.RxLen);
- 
- 		/* Packet Status check */
- 		if (RxLen < 0x40) {
-@@ -920,17 +921,17 @@ dm9000_rx(struct net_device *dev)
- 			PRINTK1("RST: RX Len:%x\n", RxLen);
- 		}
- 
--		if (rxhdr.RxStatus & 0xbf00) {
-+		if (rxhdr.RxStatus & 0xbf) {
- 			GoodPacket = false;
--			if (rxhdr.RxStatus & 0x100) {
-+			if (rxhdr.RxStatus & 0x01) {
- 				PRINTK1("fifo error\n");
- 				dev->stats.rx_fifo_errors++;
- 			}
--			if (rxhdr.RxStatus & 0x200) {
-+			if (rxhdr.RxStatus & 0x02) {
- 				PRINTK1("crc error\n");
- 				dev->stats.rx_crc_errors++;
- 			}
--			if (rxhdr.RxStatus & 0x8000) {
-+			if (rxhdr.RxStatus & 0x80) {
- 				PRINTK1("length error\n");
- 				dev->stats.rx_length_errors++;
- 			}
+ 	mutex_unlock(&db->addr_lock);
+ }
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
