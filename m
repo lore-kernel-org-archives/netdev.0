@@ -1,33 +1,37 @@
-From: "Denis V. Lunev" <den@sw.ru>
-Subject: Re: [PATCH] [IPV4]: Fix compiler error with CONFIG_PROC_FS=n
-Date: Tue, 05 Feb 2008 22:57:38 +0300
-Message-ID: <47A8BFB2.7070702@sw.ru>
-References: <1202237034.9289.8.camel@localhost>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH] Add IPv6 support to TCP SYN cookies
+Date: Tue, 5 Feb 2008 23:39:11 +0300
+Message-ID: <20080205203911.GA9891@2ka.mipt.ru>
+References: <47a79d64.16538c0a.5b6a.ffffb0fe@mx.google.com> <20080205155558.GA23145@one.firstfloor.org> <c9e534200802051029u5d08cf6dm54866f769e362262@mail.gmail.com> <20080205200211.GA26150@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Johann Felix Soden <johfel@gmx.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Glenn Griffin <ggriffin.kernel@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ppp91-76-183-162.pppoe.mtu-net.ru ([91.76.183.162]:39444 "EHLO
-	iris.sw.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758010AbYBEUcl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Feb 2008 15:32:41 -0500
-In-Reply-To: <1202237034.9289.8.camel@localhost>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:55758 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758234AbYBEUkA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2008 15:40:00 -0500
+Content-Disposition: inline
+In-Reply-To: <20080205200211.GA26150@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Johann Felix Soden wrote:
-> From: Johann Felix Soden <johfel@users.sourceforge.net>
-> 
-> Handle CONFIG_PROC_FS=n in net/ipv4/fib_frontend.c because:
-> 
-> net/ipv4/fib_frontend.c: In function 'fib_net_init':
-> net/ipv4/fib_frontend.c:1032: error: implicit declaration of function 'fib_proc_init'
-> net/ipv4/fib_frontend.c: In function 'fib_net_exit':
-> net/ipv4/fib_frontend.c:1047: error: implicit declaration of function 'fib_proc_exit'
-> 
-> Signed-off-by: Johann Felix Soden <johfel@users.sourceforge.net>
+On Tue, Feb 05, 2008 at 09:02:11PM +0100, Andi Kleen (andi@firstfloor.org) wrote:
+> On Tue, Feb 05, 2008 at 10:29:28AM -0800, Glenn Griffin wrote:
+> > > Syncookies are discouraged these days. They disable too many
+> > > valuable TCP features (window scaling, SACK) and even without them
+> > > the kernel is usually strong enough to defend against syn floods
+> > > and systems have much more memory than they used to be.
+> > >
+> > > So I don't think it makes much sense to add more code to it, sorry.
 
-Fix from Li Zefan is already commited.
-(cc8274f50f2ad9a97a837451f63a0a3e65f7f490)
+How does syncookies prevent windows from growing?
+Most (if not all) distributions have them enabled and window growing
+works just fine. Actually I do not see any reason why connection
+establishment handshake should prevent any run-time operations at all,
+even if it was setup during handshake.
+
+-- 
+	Evgeniy Polyakov
