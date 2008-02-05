@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][INET]: Fix accidentally broken inet(6)_hash_connect's
- port offset calculations.
-Date: Tue, 05 Feb 2008 03:14:52 -0800 (PST)
-Message-ID: <20080205.031452.140690606.davem@davemloft.net>
-References: <47A6C87D.7060304@openvz.org>
+Subject: Re: [2.6 patch] rtnetlink.c: remove no longer used functions
+Date: Tue, 05 Feb 2008 03:17:33 -0800 (PST)
+Message-ID: <20080205.031733.37065544.davem@davemloft.net>
+References: <20080130200257.GD29368@does.not.exist>
+	<47A0D851.9050408@trash.net>
+	<20080201161904.GA12176@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bunk@kernel.org, netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: bunk@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35649
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33656
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750719AbYBELOY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 06:14:24 -0500
-In-Reply-To: <47A6C87D.7060304@openvz.org>
+	by vger.kernel.org with ESMTP id S1750933AbYBELRG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 06:17:06 -0500
+In-Reply-To: <20080201161904.GA12176@cs181133002.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Mon, 04 Feb 2008 11:10:37 +0300
+From: Adrian Bunk <bunk@kernel.org>
+Date: Fri, 1 Feb 2008 18:19:04 +0200
 
-> The port offset calculations depend on the protocol family, but,
-> as Adrian noticed, I broke this logic with the commit
+> On Wed, Jan 30, 2008 at 09:04:33PM +0100, Patrick McHardy wrote:
+> > Adrian Bunk wrote:
+> >> This patch #if 0's the following no longer used functions:
+> >> - rtattr_parse()
+> >> - rtattr_strlcpy()
+> >> - __rtattr_parse_nested_compat()
+> >>   
+> >
+> > Please remove them instead.
 > 
-> 	5ee31fc1ecdcbc234c8c56dcacef87c8e09909d8
-> 	[INET]: Consolidate inet(6)_hash_connect.
-> 
-> Return this logic back, by passing the port offset directly into 
-> the consolidated function.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> Noticed-by: Adrian Bunk <bunk@kernel.org>
+> Updated patch below.
 
-Applied, thanks.
+Applied, thanks Adrian.
