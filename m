@@ -1,70 +1,33 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: Re: [patch 2/4] forcedeth: fix MAC address detection on network card
- (regression in 2.6.23)
-Date: Mon, 04 Feb 2008 12:57:10 -0500
-Message-ID: <47A751F6.3030007@nvidia.com>
-References: <200802050746.m157ktY9010399@imap1.linux-foundation.org>	<47A8A90B.6010602@garzik.org> <20080205105909.fd8c6dbe.akpm@linux-foundation.org> <47A74C7E.8080101@nvidia.com> <47A8B558.7060605@garzik.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] Add IPv6 support to TCP SYN cookies
+Date: Tue, 5 Feb 2008 21:11:06 +0100
+Message-ID: <20080205201106.GB26150@one.firstfloor.org>
+References: <47a79d64.16538c0a.5b6a.ffffb0fe@mx.google.com> <20080205155558.GA23145@one.firstfloor.org> <c9e534200802051029u5d08cf6dm54866f769e362262@mail.gmail.com> <20080205192559.GA10573@kallisti.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	michael.pyne@kdemail.net, LKML <linux-kernel@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate04.nvidia.com ([216.228.112.152]:4522 "EHLO
-	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755942AbYBETeE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 14:34:04 -0500
-In-Reply-To: <47A8B558.7060605@garzik.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Glenn Griffin <ggriffin.kernel@gmail.com>,
+	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ross Vandegrift <ross@kallisti.us>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760387AbYBETg0@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080205192559.GA10573@kallisti.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+> The problem is that any reasonably recent PC can generate enough
+> forged SYN packets to overwhelm reasonable SYN queues on a much more
+> powerful server.
 
+Have you actually seen this with a recent kernel in the wild or are
+you just talking theoretically?
 
-Jeff Garzik wrote:
-> Ayaz Abdulla wrote:
-> 
->> Andrew Morton wrote:
->>
->>> On Tue, 05 Feb 2008 13:20:59 -0500 Jeff Garzik <jeff@garzik.org> wrote:
->>>
->>>
->>>>> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
->>>>
->>>>
->>>> NAK - this fixes one set of users, and breaks a working set of users.
->>>>
->>>> Need to add DMI check for the specific motherboard 
->>>> (dmi_check_system), and flip flag according to success/failure of 
->>>> that check.
->>>
->>>
->>>
->>> OK :)  I added the above to the changelog for next time.
->>>
->>> You guys can hide, but this patch isn't going away!
->>
->>
->> I believe Michael determined that a newer BIOS fixes this issue.
-> 
-> 
-> 
-> That's a solution that makes vendors happy... but we still have to deal 
-> with it in Linux.  There are plenty of the old broken BIOS still out in 
-> the field...
-> 
->     Jeff
-> 
-> 
+Linux uses some heuristics to manage the syn queue that should
+still ensure reasonable service even without cookies under attack.
+Also SYN-RECV sockets are stored in a special data structure optimized
+to use minimal resources.
 
-Michael, can you provide which BIOS version had this issue and which 
-version fixed the issue?
+It is far from the classical head drop method that was so vunerable
+to syn flooding.
 
-
-
------------------------------------------------------------------------------------
-This email message is for the sole use of the intended recipient(s) and may contain
-confidential information.  Any unauthorized review, use, disclosure or distribution
-is prohibited.  If you are not the intended recipient, please contact the sender by
-reply email and destroy all copies of the original message.
------------------------------------------------------------------------------------
+-Andi
