@@ -1,72 +1,134 @@
 From: akpm@linux-foundation.org
-Subject: [patch 3/4] mv643xx_eth: fix byte order when checksum offload is enabled
-Date: Mon, 04 Feb 2008 23:47:15 -0800
-Message-ID: <200802050746.m157kur6010404@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	byron.bbradley@gmail.com, dale@farnsworth.org,
-	mlachwani@mvista.com, viro@zeniv.linux.org.uk
-To: jeff@garzik.org
+Subject: [patch 2/7] bluetooth: uninlining
+Date: Mon, 04 Feb 2008 23:48:15 -0800
+Message-ID: <200802050747.m157lueQ010449@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
+To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:41427 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:44805 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753644AbYBEHrk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 02:47:40 -0500
+	by vger.kernel.org with ESMTP id S1753542AbYBEHsD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 02:48:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Byron Bradley <byron.bbradley@gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
 
-The Marvell Orion system on chips have an integrated mv643xx MAC.  On these
-little endian ARM devices mv643xx will oops when checksum offload is
-enabled.  Swapping the byte order of the protocol and checksum solves this
-problem.
+Remove all those inlines which were either a) unneeded or b) increased code
+size.
 
-Signed-off-by: Byron Bradley <byron.bbradley@gmail.com>
-Cc: Dale Farnsworth <dale@farnsworth.org>
-Cc: Manish Lachwani <mlachwani@mvista.com>
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Al Viro <viro@zeniv.linux.org.uk>
+          text    data     bss     dec     hex filename
+before:   6997      74       8    7079    1ba7 net/bluetooth/hidp/core.o
+after:    6492      74       8    6574    19ae net/bluetooth/hidp/core.o
+
+Cc: Marcel Holtmann <marcel@holtmann.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/mv643xx_eth.c |   11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
+ net/bluetooth/hidp/core.c |   30 +++++++++++++++++++-----------
+ 1 file changed, 19 insertions(+), 11 deletions(-)
 
-diff -puN drivers/net/mv643xx_eth.c~mv643xx_eth-fix-byte-order-when-checksum-offload-is-enabled drivers/net/mv643xx_eth.c
---- a/drivers/net/mv643xx_eth.c~mv643xx_eth-fix-byte-order-when-checksum-offload-is-enabled
-+++ a/drivers/net/mv643xx_eth.c
-@@ -1652,6 +1652,11 @@ static void eth_tx_fill_frag_descs(struc
+diff -puN net/bluetooth/hidp/core.c~bluetooth-uninlining net/bluetooth/hidp/core.c
+--- a/net/bluetooth/hidp/core.c~bluetooth-uninlining
++++ a/net/bluetooth/hidp/core.c
+@@ -135,8 +135,8 @@ static void __hidp_copy_session(struct h
  	}
  }
  
-+static inline __be16 sum16_as_be(__sum16 sum)
-+{
-+	return (__force __be16)sum;
-+}
-+
- /**
-  * eth_tx_submit_descs_for_skb - submit data from an skb to the tx hw
-  *
-@@ -1689,7 +1694,7 @@ static void eth_tx_submit_descs_for_skb(
- 	desc->buf_ptr = dma_map_single(NULL, skb->data, length, DMA_TO_DEVICE);
+-static inline int hidp_queue_event(struct hidp_session *session, struct input_dev *dev,
+-					unsigned int type, unsigned int code, int value)
++static int hidp_queue_event(struct hidp_session *session, struct input_dev *dev,
++				unsigned int type, unsigned int code, int value)
+ {
+ 	unsigned char newleds;
+ 	struct sk_buff *skb;
+@@ -243,7 +243,8 @@ static void hidp_input_report(struct hid
+ 	input_sync(dev);
+ }
  
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		BUG_ON(skb->protocol != ETH_P_IP);
-+		BUG_ON(skb->protocol != htons(ETH_P_IP));
+-static inline int hidp_queue_report(struct hidp_session *session, unsigned char *data, int size)
++static int hidp_queue_report(struct hidp_session *session,
++				unsigned char *data, int size)
+ {
+ 	struct sk_buff *skb;
  
- 		cmd_sts |= ETH_GEN_TCP_UDP_CHECKSUM |
- 			   ETH_GEN_IP_V_4_CHECKSUM  |
-@@ -1698,10 +1703,10 @@ static void eth_tx_submit_descs_for_skb(
- 		switch (ip_hdr(skb)->protocol) {
- 		case IPPROTO_UDP:
- 			cmd_sts |= ETH_UDP_FRAME;
--			desc->l4i_chk = udp_hdr(skb)->check;
-+			desc->l4i_chk = ntohs(sum16_as_be(udp_hdr(skb)->check));
- 			break;
- 		case IPPROTO_TCP:
--			desc->l4i_chk = tcp_hdr(skb)->check;
-+			desc->l4i_chk = ntohs(sum16_as_be(tcp_hdr(skb)->check));
- 			break;
- 		default:
- 			BUG();
+@@ -287,7 +288,7 @@ static void hidp_idle_timeout(unsigned l
+ 	hidp_schedule(session);
+ }
+ 
+-static inline void hidp_set_timer(struct hidp_session *session)
++static void hidp_set_timer(struct hidp_session *session)
+ {
+ 	if (session->idle_to > 0)
+ 		mod_timer(&session->timer, jiffies + HZ * session->idle_to);
+@@ -332,7 +333,8 @@ static inline int hidp_send_ctrl_message
+ 	return err;
+ }
+ 
+-static inline void hidp_process_handshake(struct hidp_session *session, unsigned char param)
++static void hidp_process_handshake(struct hidp_session *session,
++					unsigned char param)
+ {
+ 	BT_DBG("session %p param 0x%02x", session, param);
+ 
+@@ -365,7 +367,8 @@ static inline void hidp_process_handshak
+ 	}
+ }
+ 
+-static inline void hidp_process_hid_control(struct hidp_session *session, unsigned char param)
++static void hidp_process_hid_control(struct hidp_session *session,
++					unsigned char param)
+ {
+ 	BT_DBG("session %p param 0x%02x", session, param);
+ 
+@@ -379,7 +382,8 @@ static inline void hidp_process_hid_cont
+ 	}
+ }
+ 
+-static inline void hidp_process_data(struct hidp_session *session, struct sk_buff *skb, unsigned char param)
++static void hidp_process_data(struct hidp_session *session, struct sk_buff *skb,
++				unsigned char param)
+ {
+ 	BT_DBG("session %p skb %p len %d param 0x%02x", session, skb, skb->len, param);
+ 
+@@ -406,7 +410,8 @@ static inline void hidp_process_data(str
+ 	}
+ }
+ 
+-static inline void hidp_recv_ctrl_frame(struct hidp_session *session, struct sk_buff *skb)
++static void hidp_recv_ctrl_frame(struct hidp_session *session,
++					struct sk_buff *skb)
+ {
+ 	unsigned char hdr, type, param;
+ 
+@@ -440,7 +445,8 @@ static inline void hidp_recv_ctrl_frame(
+ 	kfree_skb(skb);
+ }
+ 
+-static inline void hidp_recv_intr_frame(struct hidp_session *session, struct sk_buff *skb)
++static void hidp_recv_intr_frame(struct hidp_session *session,
++				struct sk_buff *skb)
+ {
+ 	unsigned char hdr;
+ 
+@@ -608,7 +614,8 @@ static struct device *hidp_get_device(st
+ 	return conn ? &conn->dev : NULL;
+ }
+ 
+-static inline int hidp_setup_input(struct hidp_session *session, struct hidp_connadd_req *req)
++static int hidp_setup_input(struct hidp_session *session,
++				struct hidp_connadd_req *req)
+ {
+ 	struct input_dev *input = session->input;
+ 	int i;
+@@ -685,7 +692,8 @@ static void hidp_setup_quirks(struct hid
+ 			hid->quirks = hidp_blacklist[n].quirks;
+ }
+ 
+-static inline void hidp_setup_hid(struct hidp_session *session, struct hidp_connadd_req *req)
++static void hidp_setup_hid(struct hidp_session *session,
++				struct hidp_connadd_req *req)
+ {
+ 	struct hid_device *hid = session->hid;
+ 	struct hid_report *report;
 _
