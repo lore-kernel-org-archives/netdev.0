@@ -1,77 +1,72 @@
 From: akpm@linux-foundation.org
-Subject: [patch 2/4] forcedeth: fix MAC address detection on network card (regression in 2.6.23)
-Date: Mon, 04 Feb 2008 23:47:14 -0800
-Message-ID: <200802050746.m157ktY9010399@imap1.linux-foundation.org>
+Subject: [patch 3/4] mv643xx_eth: fix byte order when checksum offload is enabled
+Date: Mon, 04 Feb 2008 23:47:15 -0800
+Message-ID: <200802050746.m157kur6010404@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	michael.pyne@kdemail.net, AAbdulla@nvidia.com, aabdulla@nvidia.com,
-	stable@kernel.org
+	byron.bbradley@gmail.com, dale@farnsworth.org,
+	mlachwani@mvista.com, viro@zeniv.linux.org.uk
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:45558 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:41427 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753588AbYBEHrb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 02:47:31 -0500
+	by vger.kernel.org with ESMTP id S1753644AbYBEHrk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 02:47:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Pyne <michael.pyne@kdemail.net>
+From: Byron Bradley <byron.bbradley@gmail.com>
 
-Partially revert a change to mac address detection introduced to the forcedeth
-driver.  The change was intended to correct mac address detection for newer
-nVidia chipsets where the mac address was stored in reverse order.  One of
-those chipsets appears to still have the mac address in reverse order (or at
-least, it does on my system).
+The Marvell Orion system on chips have an integrated mv643xx MAC.  On these
+little endian ARM devices mv643xx will oops when checksum offload is
+enabled.  Swapping the byte order of the protocol and checksum solves this
+problem.
 
-The change that broke mac address detection for my card was commit
-ef756b3e56c68a4d76d9d7b9a73fa8f4f739180f "forcedeth: mac address correct"
-
-My network card is an nVidia built-in Ethernet card, output from lspci as
-follows (with text and numeric ids):
-$ lspci | grep Ethernet
-00:07.0 Bridge: nVidia Corporation MCP61 Ethernet (rev a2)
-$ lspci -n | grep 07.0
-00:07.0 0680: 10de:03ef (rev a2)
-
-The vendor id is, of course, nVidia.  The device id corresponds to the
-NVIDIA_NVENET_19 entry.
-
-The included patch fixes the MAC address detection on my system.
-Interestingly, the MAC address appears to be in the range reserved for my
-motherboard manufacturer (Gigabyte) and not nVidia.
-
-Signed-off-by: Michael J. Pyne <michael.pyne@kdemail.net>
+Signed-off-by: Byron Bradley <byron.bbradley@gmail.com>
+Cc: Dale Farnsworth <dale@farnsworth.org>
+Cc: Manish Lachwani <mlachwani@mvista.com>
 Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-Cc: <stable@kernel.org>
-
-On Wed, 21 Nov 2007 15:34:52 -0800
-"Ayaz Abdulla" <AAbdulla@nvidia.com> wrote:
-
-> The solution is to get the OEM to update their BIOS (instead of
-> integrating this patch) since the MCP61 specs indicate that the MAC
-> Address should be in correct order from BIOS.
-> 
-> By changing the feature DEV_HAS_CORRECT_MACADDR to all MCP61 boards, it
-> could cause it to break on other OEM systems who have implemented it
-> correctly.
-> 
-
+Cc: Al Viro <viro@zeniv.linux.org.uk>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/forcedeth.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/mv643xx_eth.c |   11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-diff -puN drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623 drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623
-+++ a/drivers/net/forcedeth.c
-@@ -5554,7 +5554,7 @@ static struct pci_device_id pci_tbl[] = 
- 	},
- 	{	/* MCP61 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_19),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_20),
+diff -puN drivers/net/mv643xx_eth.c~mv643xx_eth-fix-byte-order-when-checksum-offload-is-enabled drivers/net/mv643xx_eth.c
+--- a/drivers/net/mv643xx_eth.c~mv643xx_eth-fix-byte-order-when-checksum-offload-is-enabled
++++ a/drivers/net/mv643xx_eth.c
+@@ -1652,6 +1652,11 @@ static void eth_tx_fill_frag_descs(struc
+ 	}
+ }
+ 
++static inline __be16 sum16_as_be(__sum16 sum)
++{
++	return (__force __be16)sum;
++}
++
+ /**
+  * eth_tx_submit_descs_for_skb - submit data from an skb to the tx hw
+  *
+@@ -1689,7 +1694,7 @@ static void eth_tx_submit_descs_for_skb(
+ 	desc->buf_ptr = dma_map_single(NULL, skb->data, length, DMA_TO_DEVICE);
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		BUG_ON(skb->protocol != ETH_P_IP);
++		BUG_ON(skb->protocol != htons(ETH_P_IP));
+ 
+ 		cmd_sts |= ETH_GEN_TCP_UDP_CHECKSUM |
+ 			   ETH_GEN_IP_V_4_CHECKSUM  |
+@@ -1698,10 +1703,10 @@ static void eth_tx_submit_descs_for_skb(
+ 		switch (ip_hdr(skb)->protocol) {
+ 		case IPPROTO_UDP:
+ 			cmd_sts |= ETH_UDP_FRAME;
+-			desc->l4i_chk = udp_hdr(skb)->check;
++			desc->l4i_chk = ntohs(sum16_as_be(udp_hdr(skb)->check));
+ 			break;
+ 		case IPPROTO_TCP:
+-			desc->l4i_chk = tcp_hdr(skb)->check;
++			desc->l4i_chk = ntohs(sum16_as_be(tcp_hdr(skb)->check));
+ 			break;
+ 		default:
+ 			BUG();
 _
