@@ -1,52 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [NET_SCHED] Add #ifdef CONFIG_NET_EMATCH in
- net/sched/cls_flow.c (latest git broken build)
-Date: Tue, 05 Feb 2008 02:57:15 -0800 (PST)
-Message-ID: <20080205.025715.84832892.davem@davemloft.net>
-References: <eb3ff54b0802030051x604c991fwe11184e25d0a7550@mail.gmail.com>
+Subject: Re: [IPV6] fix sysctl compilation error
+Date: Tue, 05 Feb 2008 02:58:08 -0800 (PST)
+Message-ID: <20080205.025808.127966085.davem@davemloft.net>
+References: <47A827ED.6000908@fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, lizf@cn.fujitsu.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: ramirose@gmail.com
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: dlezcano@fr.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39990
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39994
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754544AbYBEK4r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 05:56:47 -0500
-In-Reply-To: <eb3ff54b0802030051x604c991fwe11184e25d0a7550@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1756210AbYBEK5k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 05:57:40 -0500
+In-Reply-To: <47A827ED.6000908@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rami Rosen" <ramirose@gmail.com>
-Date: Sun, 3 Feb 2008 10:51:42 +0200
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Date: Tue, 05 Feb 2008 10:10:05 +0100
 
-> The 2.6 latest git build was broken when using the following
-> configuration options:
-> CONFIG_NET_EMATCH=n
-> CONFIG_NET_CLS_FLOW=y
+> Subject: fix sysctl compilation error
+> From: Daniel Lezcano <dlezcano@fr.ibm.com>
 > 
-> with the following error:
-> net/sched/cls_flow.c: In function 'flow_dump':
-> net/sched/cls_flow.c:598: error: 'struct tcf_ematch_tree' has no
-> member named 'hdr'
-> make[2]: *** [net/sched/cls_flow.o] Error 1
-> make[1]: *** [net/sched] Error 2
-> make: *** [net] Error 2
+> Move ipv6_icmp_sysctl_init and ipv6_route_sysctl_init into
+> the right ifdef section otherwise that does not compile when
+> CONFIG_SYSCTL=yes and CONFIG_PROC_FS=no
 > 
-> 
-> see the recent post by Li Zefan:
->   http://www.spinics.net/lists/netdev/msg54434.html
-> 
-> The reason for this crash is that struct tcf_ematch_tree (net/pkt_cls.h) is
-> empty when CONFIG_NET_EMATCH is not defined.
-> 
-> When CONFIG_NET_EMATCH is defined, the tcf_ematch_tree structure indeed holds
-> a struct tcf_ematch_tree_hdr (hdr) as flow_dump() expects.
-> 
-> This patch adds #ifdef CONFIG_NET_EMATCH in flow_dump to avoid this.
->
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
 Applied, thanks.
