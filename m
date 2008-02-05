@@ -1,60 +1,53 @@
-From: Ivan Mitev <imitev@obs.bg>
-Subject: Re: Slow OOM in netif_RX function
-Date: Tue, 05 Feb 2008 11:04:15 +0200
-Message-ID: <47A8268F.6020301@obs.bg>
-References: <4798CAA9.1080005@obs.bg> <4798E32E.6080003@cosmosbay.com> <20080124211810.3E24A46E9A@smtp.obs.bg> <p73tzl282ij.fsf@bingen.suse.de> <20080125141204.GA25510@ghostprotocols.net> <47A315DC.3070101@obs.bg> <47A31BBA.8040307@cosmosbay.com> <47A33D02.8050503@obs.bg> <47A72740.9030706@obs.bg> <20080204155526.GA7988@one.firstfloor.org>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: Re: LRO ip_summed
+Date: Tue, 5 Feb 2008 10:45:56 +0100
+Message-ID: <200802051045.56654.ossthema@de.ibm.com>
+References: <BAY121-W366A043ECDC160494B1EFAB6320@phx.gbl> <200802041014.23989.ossthema@de.ibm.com> <BAY121-W3321045858D4A665892759B62C0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="windows-1255"
 Content-Transfer-Encoding: 7bit
-Cc: Ivan Dichev <idichev@obs.bg>, Eric Dumazet <dada1@cosmosbay.com>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Cc: netdev@vger.kernel.org
+To: Kostya B <bkostya@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from obs.bg ([213.91.169.3]:37313 "EHLO smtp.obs.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752070AbYBEJcl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Feb 2008 04:32:41 -0500
-In-Reply-To: <20080204155526.GA7988@one.firstfloor.org>
+Received: from mtagate2.uk.ibm.com ([195.212.29.135]:53850 "EHLO
+	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753840AbYBEJqB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 04:46:01 -0500
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate2.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m159k0O2188116
+	for <netdev@vger.kernel.org>; Tue, 5 Feb 2008 09:46:00 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m159k0Pn4833504
+	for <netdev@vger.kernel.org>; Tue, 5 Feb 2008 09:46:00 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m159jvme022517
+	for <netdev@vger.kernel.org>; Tue, 5 Feb 2008 09:45:57 GMT
+In-Reply-To: <BAY121-W3321045858D4A665892759B62C0@phx.gbl>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-[(the other) Ivan took a few days holidays, so I'm replacing him for 
-this issue.]
-
-Andi, you spotted it, it was really the start of an IP header, and it 
-shows up that these are ESP packets for a quite complicated VPN tunnel 
-we have (re-routing packets from an office to another, with some NAT on 
-top of that). So openswan/ipsec.ko seems to be the problem here, I will 
-file a bug report there. Meanwhile we'll try to set up manual keying and 
-decrypt the encrypted payload to gather more details on the packets.
-
-My apologies, the issue seems to be with an out-of-tree module, but we 
-really didn't think the problem was there (there's no correlation 
-between the leak increase and vpn/ike traffic). But it was interesting 
-to understand slabs, learn how to setup/use crash, and analyze memory 
-bits :)
-
-Thanks again to all the people who helped !
-
-Ivan Mitev
-
-
-Andi Kleen wrote:
->> Nothing that looks like a struct net_device. All the dumped leaked slab
->> look the same until "45 20 05 d8" (the ascii 'E' on the 3rd line).
+On Tuesday 05 February 2008 09:56, Kostya B wrote:
 > 
-> 45 ... is often the start of an IP header (IPv4, 5*4=20 bytes length)
+> 1. Let's assume a driver which has a HW csum capability, however it has a privilege to assign any value for ip_summed.
+> For example the driver assigns "unnecessary" for most of the packets, however it fails to verify the packets less than 96 bytes ("checksum_none").
+> Now, the LRO will aggregate all of them and assign the value "used for all aggregated packets" - that is wrong, 
 > 
-> You could dump them to a file (e.g. using a sial script) and then
-> look at them with tcpdump or similar to get an idea what kinds 
-> of packets they are.
-> 
-> -Andi
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Of course, it is possible to avoid that situation in driver, however [proposal] from the point of view of the *generic* LRO it could be better to check each newly aggregated skb whether it has the same ip_summed as the first one (preserve coherency). Thus, there is no need to keep ip_summed field in the  struct net_lro_mgr.
 
+Yes, checking if ip_summed is equal for all aggregated packets would work
+for the "aggregating SKB" mode. For the other mode this information is currently 
+not passed to LRO but could of course be provided as parameter by the driver.
+The question is if there is any HW which would benefit from this (meaning multiple
+ip_summed values for TCP packets of different sizes) so that this additional
+check is really useful. The less required checks the better.
+
+> 
+> 2. Now, when a skb could not be aggregated (modes: aggregating SKBs) I think where's no need to override its original ip_summed (see "out" label of __lro_proc_skb()) The comment says  "Original SKB has to be posted to stack". I would be wrong, but I don't get the reason to possible change of ip_summed.
+> 
+
+Good point. This assignment seems to be unnecessary.
+
+Regards,
+Jan-Bernd
