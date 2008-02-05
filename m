@@ -1,122 +1,44 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH] SCTP: Fix kernel panic while received AUTH chunk with
- BAD shared key identifier
-Date: Tue, 05 Feb 2008 17:26:37 +0900
-Message-ID: <47A81DBD.6000802@cn.fujitsu.com>
-References: <4795A960.7000700@cn.fujitsu.com> <20080124121608.GA20633@hmsreliant.think-freely.org> <479A126F.4010505@hp.com>
+From: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [Wireless,
+	ath5k] 2.6.24-git13 9135f1901ee6449dfe338adf6e40e9c2025b8150
+Date: Tue, 05 Feb 2008 09:54:27 +0100
+Message-ID: <47A82443.9000601@gmail.com>
+References: <6101e8c40802040600q804e40cs97d0031920e58d9d@mail.gmail.com>	
+	<47A774AB.5060008@gmail.com>	
+	<6101e8c40802041334o20b2b391la5b0a5f557ee67c5@mail.gmail.com>
+	<6101e8c40802041340g749b1e03k70fda7fdb21452d7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:58931 "EHLO
-	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756790AbYBEI3S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 03:29:18 -0500
-In-Reply-To: <479A126F.4010505@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Bruno Randolf <bruno-L9ZBdB2wSWtl57MIdRCFDg@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Oliver Pinter <oliver.pntr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
+In-Reply-To: <6101e8c40802041340g749b1e03k70fda7fdb21452d7-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
+	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
+List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
+List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
+	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
+Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
+Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-If SCTP-AUTH is enabled, received AUTH chunk with BAD shared key 
-identifier will cause kernel panic.
+On 02/04/2008 10:40 PM, Oliver Pinter wrote:
+> On 2/4/08, Oliver Pinter <oliver.pntr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> On 2/4/08, Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>> On 02/04/2008 03:00 PM, Oliver Pinter (Pint=E9r Oliv=E9r) wrote:
+>>>> [  413.118874] wpa_supplicant[4388]: segfault at 30 ip 080697ca sp
+>>>> bfc9cab0 error 4 in wpa_supplicant[8048000+4c000]
+>>> Seems like wpa_supplicant is broken. Is this a regression?
+>> yes, but with madwifi is all ok
 
-Test as following:
-step1: enabled /proc/sys/net/sctp/auth_enable
-step 2:  connect  to SCTP server with auth capable. Association is 
-established between endpoints. Then send a AUTH chunk with a bad 
-shareid, SCTP server will kernel panic after received that AUTH chunk.
+And this... madwifi goes through ported bsd net80211. So which latest git y=
+ou =
 
-SCTP client                   SCTP server
-  INIT         ---------->  
-    (with auth capable)
-               <----------    INIT-ACK
-                              (with auth capable)
-  COOKIE-ECHO  ---------->
-               <----------    COOKIE-ACK
-  AUTH         ---------->
-
-
-AUTH chunk is like this:
-  AUTH chunk
-    Chunk type: AUTH (15)
-    Chunk flags: 0x00
-    Chunk length: 28
-    Shared key identifier: 10
-    HMAC identifier: SHA-1 (1)
-    HMAC: 0000000000000000000000000000000000000000
-
-The assignment of NULL to key can safely be removed, since key_for_each 
-(which is just list_for_each_entry under the covers does an initial 
-assignment to key anyway).
-
-If the endpoint_shared_keys list is empty, or if the key_id being 
-requested does not exist, the function as it currently stands returns 
-the actuall list_head (in this case endpoint_shared_keys.  Since that 
-list_head isn't surrounded by an actuall data structure, the last 
-iteration through list_for_each_entry will do a container_of on key, and 
-we wind up returning a bogus pointer, instead of NULL, as we should.
-
-> Neil Horman wrote:
->> On Tue, Jan 22, 2008 at 05:29:20PM +0900, Wei Yongjun wrote:
->>
->> FWIW, Ack from me.  The assignment of NULL to key can safely be 
->> removed, since
->> key_for_each (which is just list_for_each_entry under the covers does 
->> an initial
->> assignment to key anyway).
->> If the endpoint_shared_keys list is empty, or if the key_id being 
->> requested does
->> not exist, the function as it currently stands returns the actuall 
->> list_head (in
->> this case endpoint_shared_keys.  Since that list_head isn't 
->> surrounded by an
->> actuall data structure, the last iteration through 
->> list_for_each_entry will do a
->> container_of on key, and we wind up returning a bogus pointer, 
->> instead of NULL,
->> as we should.  Wei's patch corrects that.
->>
->> Regards
->> Neil
->>
->> Acked-by: Neil Horman <nhorman@tuxdriver.com>
->>
->
-> Yep, the patch is correct.
->
-> Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
->
-> -vlad
->
-
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
-Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-
---- a/net/sctp/auth.c	2008-01-21 00:03:25.000000000 -0500
-+++ b/net/sctp/auth.c	2008-01-21 21:31:47.000000000 -0500
-@@ -420,15 +420,15 @@ struct sctp_shared_key *sctp_auth_get_sh
- 				const struct sctp_association *asoc,
- 				__u16 key_id)
- {
--	struct sctp_shared_key *key = NULL;
-+	struct sctp_shared_key *key;
- 
- 	/* First search associations set of endpoint pair shared keys */
- 	key_for_each(key, &asoc->endpoint_shared_keys) {
- 		if (key->key_id == key_id)
--			break;
-+			return key;
- 	}
- 
--	return key;
-+	return NULL;
- }
- 
- /*
-
-
-
+tried worked for you when this is a regression, please?
