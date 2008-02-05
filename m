@@ -1,171 +1,87 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [PATCH 04/24 for-2.6.25] DM9000 update debugging macros to use debug level
-Date: Tue, 05 Feb 2008 00:02:03 +0000
-Message-ID: <20080205000815.168546071@fluff.org.uk>
+Subject: [PATCH 16/24 for-2.6.25] DM9000: Remove unnecessary changelog in header comment
+Date: Tue, 05 Feb 2008 00:02:15 +0000
+Message-ID: <20080205000817.743787704@fluff.org.uk>
 References: <20080205000159.432081941@fluff.org.uk>
 Cc: jeff@garzik.org, akpm@linux-foundation.org, daniel@caiaq.de,
 	laurentp@cse-semaphore.com, Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58724 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:58713 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758841AbYBEAIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:25 -0500
-Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-debugupdate.patch
+	with ESMTP id S1758826AbYBEAIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2008 19:08:24 -0500
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-tidy-remove-changelog.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change the debug macros to use the compiler to elide any
-unnecessary debug level, and to allow device configurable
-debug control.
+We have a perfectly good version control system, so we do not
+need to duplicate change comments in the header for this code.
 
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
-Index: linux-2.6.24-git5-dm9k/drivers/net/Kconfig
+Index: linux-2.6.24-quilt3/drivers/net/dm9000.c
 ===================================================================
---- linux-2.6.24-git5-dm9k.orig/drivers/net/Kconfig
-+++ linux-2.6.24-git5-dm9k/drivers/net/Kconfig
-@@ -912,6 +912,14 @@ config DM9000
- 	  To compile this driver as a module, choose M here.  The module
- 	  will be called dm9000.
+--- linux-2.6.24-quilt3.orig/drivers/net/dm9000.c
++++ linux-2.6.24-quilt3/drivers/net/dm9000.c
+@@ -1,7 +1,5 @@
+ /*
+- *   dm9000.c: Version 1.2 03/18/2003
+- *
+- *         A Davicom DM9000 ISA NIC fast Ethernet driver for Linux.
++ *      Davicom DM9000 Fast Ethernet driver for Linux.
+  * 	Copyright (C) 1997  Sten Wang
+  *
+  * 	This program is free software; you can redistribute it and/or
+@@ -14,44 +12,11 @@
+  * 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * 	GNU General Public License for more details.
+  *
+- *   (C)Copyright 1997-1998 DAVICOM Semiconductor,Inc. All Rights Reserved.
+- *
+- * V0.11	06/20/2001	REG_0A bit3=1, default enable BP with DA match
+- * 	06/22/2001 	Support DM9801 progrmming
+- * 	 	 	E3: R25 = ((R24 + NF) & 0x00ff) | 0xf000
+- * 		 	E4: R25 = ((R24 + NF) & 0x00ff) | 0xc200
+- * 		     		R17 = (R17 & 0xfff0) | NF + 3
+- * 		 	E5: R25 = ((R24 + NF - 3) & 0x00ff) | 0xc200
+- * 		     		R17 = (R17 & 0xfff0) | NF
+- *
+- * v1.00               	modify by simon 2001.9.5
+- *                         change for kernel 2.4.x
+- *
+- * v1.1   11/09/2001      	fix force mode bug
+- *
+- * v1.2   03/18/2003       Weilun Huang <weilun_huang@davicom.com.tw>:
+- * 			Fixed phy reset.
+- * 			Added tx/rx 32 bit mode.
+- * 			Cleaned up for kernel merge.
+- *
+- *        03/03/2004    Sascha Hauer <s.hauer@pengutronix.de>
+- *                      Port to 2.6 kernel
+- *
+- *	  24-Sep-2004   Ben Dooks <ben@simtec.co.uk>
+- *			Cleanup of code to remove ifdefs
+- *			Allowed platform device data to influence access width
+- *			Reformatting areas of code
+- *
+- *        17-Mar-2005   Sascha Hauer <s.hauer@pengutronix.de>
+- *                      * removed 2.4 style module parameters
+- *                      * removed removed unused stat counter and fixed
+- *                        net_device_stats
+- *                      * introduced tx_timeout function
+- *                      * reworked locking
++ * (C) Copyright 1997-1998 DAVICOM Semiconductor,Inc. All Rights Reserved.
+  *
+- *	  01-Jul-2005   Ben Dooks <ben@simtec.co.uk>
+- *			* fixed spinlock call without pointer
+- *			* ensure spinlock is initialised
++ * Additional updates, Copyright:
++ *	Ben Dooks <ben@simtec.co.uk>
++ *	Sascha Hauer <s.hauer@pengutronix.de>
+  */
  
-+config DM9000_DEBUGLEVEL
-+	int "DM9000 maximum debug level"
-+	depends on DM9000
-+	default 4
-+	help
-+	  The maximum level of debugging code compiled into the DM9000
-+	  driver.
-+
- config SMC911X
- 	tristate "SMSC LAN911[5678] support"
- 	select CRC32
-Index: linux-2.6.24-git5-dm9k/drivers/net/dm9000.c
-===================================================================
---- linux-2.6.24-git5-dm9k.orig/drivers/net/dm9000.c
-+++ linux-2.6.24-git5-dm9k/drivers/net/dm9000.c
-@@ -83,28 +83,6 @@
- 
- #define DM9000_TIMER_WUT  jiffies+(HZ*2)	/* timer wakeup time : 2 second */
- 
--#define DM9000_DEBUG 0
--
--#if DM9000_DEBUG > 2
--#define PRINTK3(args...)  printk(CARDNAME ": " args)
--#else
--#define PRINTK3(args...)  do { } while(0)
--#endif
--
--#if DM9000_DEBUG > 1
--#define PRINTK2(args...)  printk(CARDNAME ": " args)
--#else
--#define PRINTK2(args...)  do { } while(0)
--#endif
--
--#if DM9000_DEBUG > 0
--#define PRINTK1(args...)  printk(CARDNAME ": " args)
--#define PRINTK(args...)   printk(CARDNAME ": " args)
--#else
--#define PRINTK1(args...)  do { } while(0)
--#define PRINTK(args...)   printk(KERN_DEBUG args)
--#endif
--
- #ifdef CONFIG_BLACKFIN
- #define readsb	insb
- #define readsw	insw
-@@ -139,6 +117,8 @@ typedef struct board_info {
- 	u8 phy_addr;
- 	unsigned int flags;
- 
-+	int debug_level;
-+
- 	void (*inblk)(void __iomem *port, void *data, int length);
- 	void (*outblk)(void __iomem *port, void *data, int length);
- 	void (*dumpblk)(void __iomem *port, int length);
-@@ -159,6 +139,15 @@ typedef struct board_info {
- 	u32 msg_enable;
- } board_info_t;
- 
-+/* debug code */
-+
-+#define dm9000_dbg(db, lev, msg...) do {		\
-+	if ((lev) < CONFIG_DM9000_DEBUGLEVEL &&		\
-+	    (lev) < db->debug_level) {			\
-+		dev_dbg(db->dev, msg);			\
-+	}						\
-+} while (0)
-+
- /* function declaration ------------------------------------- */
- static int dm9000_probe(struct platform_device *);
- static int dm9000_open(struct net_device *);
-@@ -659,7 +648,7 @@ dm9000_init_dm9000(struct net_device *de
- {
- 	board_info_t *db = (board_info_t *) dev->priv;
- 
--	PRINTK1("entering %s\n",__FUNCTION__);
-+	dm9000_dbg(db, 1, "entering %s\n", __func__);
- 
- 	/* I/O mode */
- 	db->io_mode = ior(db, DM9000_ISR) >> 6;	/* ISR bit7:6 keeps I/O mode */
-@@ -705,7 +694,7 @@ dm9000_start_xmit(struct sk_buff *skb, s
- 	unsigned long flags;
- 	board_info_t *db = (board_info_t *) dev->priv;
- 
--	PRINTK3("dm9000_start_xmit\n");
-+	dm9000_dbg(db, 3, "%s:\n", __func__);
- 
- 	if (db->tx_pkt_cnt > 1)
- 		return 1;
-@@ -764,7 +753,7 @@ dm9000_stop(struct net_device *ndev)
- {
- 	board_info_t *db = (board_info_t *) ndev->priv;
- 
--	PRINTK1("entering %s\n",__FUNCTION__);
-+	dm9000_dbg(db, 1, "entering %s\n", __func__);
- 
- 	/* deleted timer */
- 	del_timer(&db->timer);
-@@ -810,19 +799,14 @@ static irqreturn_t
- dm9000_interrupt(int irq, void *dev_id)
- {
- 	struct net_device *dev = dev_id;
--	board_info_t *db;
-+	board_info_t *db = (board_info_t *) dev->priv;
- 	int int_status;
- 	u8 reg_save;
- 
--	PRINTK3("entering %s\n",__FUNCTION__);
--
--	if (!dev) {
--		PRINTK1("dm9000_interrupt() without DEVICE arg\n");
--		return IRQ_HANDLED;
--	}
-+	dm9000_dbg(db, 3, "entering %s\n", __func__);
- 
- 	/* A real interrupt coming */
--	db = (board_info_t *) dev->priv;
-+
- 	spin_lock(&db->lock);
- 
- 	/* Save previous register address */
-@@ -864,7 +848,7 @@ dm9000_timer(unsigned long data)
- 	struct net_device *dev = (struct net_device *) data;
- 	board_info_t *db = (board_info_t *) dev->priv;
- 
--	PRINTK3("dm9000_timer()\n");
-+	dm9000_dbg(db, 3, "entering %s\n", __func__);
- 
- 	mii_check_media(&db->mii, netif_msg_link(db), 0);
- 
-@@ -1049,7 +1033,7 @@ dm9000_hash_table(struct net_device *dev
- 	u16 i, oft, hash_table[4];
- 	unsigned long flags;
- 
--	PRINTK2("dm9000_hash_table()\n");
-+	dm9000_dbg(db, 1, "entering %s\n", __func__);
- 
- 	spin_lock_irqsave(&db->lock,flags);
- 
+ #include <linux/module.h>
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
