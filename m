@@ -1,82 +1,45 @@
-From: Michael Pyne <mpyne@purinchu.net>
-Subject: Re: [patch 2/4] forcedeth: fix MAC address detection on network card (regression in 2.6.23)
- =?iso-8859-1?q?=00?=
-Date: Tue, 5 Feb 2008 21:06:27 -0500
-Message-ID: <200802052106.36012.mpyne@purinchu.net>
-References: <200802050746.m157ktY9010399@imap1.linux-foundation.org> <47A8B558.7060605@garzik.org> <47A751F6.3030007@nvidia.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] ipvs: Make wrr "no available servers" error message
+	rate-limited
+Date: Wed, 6 Feb 2008 11:19:09 +0900
+Message-ID: <20080206021909.GA32678@verge.net.au>
+References: <1202243421-2774-1-git-send-email-sven.wegener@stealer.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1476200.t4yC2puYNs";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, michael.pyne@kdemail.net,
-	LKML <linux-kernel@vger.kernel.org>
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sven Wegener <sven.wegener@stealer.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hapkido.dreamhost.com ([66.33.216.122]:52178 "EHLO
-	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758939AbYBFCJE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 21:09:04 -0500
-In-Reply-To: <47A751F6.3030007@nvidia.com>
+Received: from koto.vergenet.net ([210.128.90.7]:58547 "EHLO koto.vergenet.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758528AbYBFCTN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2008 21:19:13 -0500
+Content-Disposition: inline
+In-Reply-To: <1202243421-2774-1-git-send-email-sven.wegener@stealer.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart1476200.t4yC2puYNs
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Tue, Feb 05, 2008 at 09:30:21PM +0100, Sven Wegener wrote:
+> No available servers is more an error message than something informational. It
+> should also be rate-limited, else we're going to flood our logs on a busy
+> director, if all real servers are out of order with a weight of zero.
+> 
+> Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
 
-On Monday 04 February 2008, Ayaz Abdulla wrote:
-> Jeff Garzik wrote:
-> > Ayaz Abdulla wrote:
-> >> I believe Michael determined that a newer BIOS fixes this issue.
-> >
-> > That's a solution that makes vendors happy... but we still have to deal
-> > with it in Linux.  There are plenty of the old broken BIOS still out in
-> > the field...
-> >
-> >     Jeff
->
-> Michael, can you provide which BIOS version had this issue and which
-> version fixed the issue?
+Hi Sven,
 
-Ayaz,
+this looks good to me.
 
-One of my earlier messages to the list was from BIOS revision F3 from what =
-I=20
-can tell (which matches pretty well with what I remember having).  I am=20
-currently on F8.
+Acked-by: Simon Horman <horms@verge.net.au>
 
-I may go back to F3 if I can get booting from USB to work just to verify=20
-because I could have sworn it was still broken after going to F8.  But sinc=
-e=20
-unpatched Linux 2.6.23.12 apparently works fine and I'm not sure when exact=
-ly=20
-that happened (I use Ketchup to maintain the sources and somewhere it=20
-unpatched my forcedeth.c :) I want to double-check that a simple BIOS upgra=
-de=20
-will solve it.
+> ---
+> 
+> Actually, do we need this message at all? The wrr scheduler is the only one
+> printing an error message in such a case.
 
-But I also don't have a lot of time before I go underway for a few months. =
-:-/
+I was wondering about that too. Though I'd err on the side of adding
+it to the other schedulers as neccessary rather than removing it here.
+But if you'd rather just get rid of it, I have no strong objections.
 
-Regards,
- - Michael Pyne
+-- 
+Horms
 
---nextPart1476200.t4yC2puYNs
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.7 (GNU/Linux)
-
-iD8DBQBHqRYrqjQYp5Omm0oRAvAiAKC9insSAx1QZ3gSdrzWqXHdLQdIQQCfZyf9
-1mURTWfRPFp5Sel66amOXUc=
-=nZrB
------END PGP SIGNATURE-----
-
---nextPart1476200.t4yC2puYNs--
