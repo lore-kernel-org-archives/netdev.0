@@ -1,90 +1,44 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 15/17] [NETNS]: Enable all routing manipulation via netlink inside namespace.
-Date: Wed,  6 Feb 2008 13:53:35 +0300
-Message-ID: <1202295217-22769-15-git-send-email-den@openvz.org>
-References: <47A99196.2030105@sw.ru>
-Cc: netdev@vger.kernel.org, devel@openvz.org,
-	containers@lists.osdl.org, "Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 14/14] replace __inline__ by inline in include/linux
+ (net related)
+Date: Wed, 06 Feb 2008 03:25:43 -0800 (PST)
+Message-ID: <20080206.032543.30859566.davem@davemloft.net>
+References: <20080206091405.581849582@mai.toulouse-stg.fr.ibm.com>
+	<20080206092300.701741592@mai.toulouse-stg.fr.ibm.com>
+	<20080206.213100.60768610.yoshfuji@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: dlezcano@fr.ibm.com, netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:64636 "EHLO iris.sw.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758797AbYBFKxQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2008 05:53:16 -0500
-In-Reply-To: <47A99196.2030105@sw.ru>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33360
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753487AbYBFLZO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 06:25:14 -0500
+In-Reply-To: <20080206.213100.60768610.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
- net/ipv4/route.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Wed, 06 Feb 2008 21:31:00 +1100 (EST)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 8a31e33..92ff622 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2672,9 +2672,6 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
- 	int err;
- 	struct sk_buff *skb;
- 
--	if (net != &init_net)
--		return -EINVAL;
--
- 	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_ipv4_policy);
- 	if (err < 0)
- 		goto errout;
-@@ -2704,7 +2701,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
- 	if (iif) {
- 		struct net_device *dev;
- 
--		dev = __dev_get_by_index(&init_net, iif);
-+		dev = __dev_get_by_index(net, iif);
- 		if (dev == NULL) {
- 			err = -ENODEV;
- 			goto errout_free;
-@@ -2730,7 +2727,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
- 			},
- 			.oif = tb[RTA_OIF] ? nla_get_u32(tb[RTA_OIF]) : 0,
- 		};
--		err = ip_route_output_key(&init_net, &rt, &fl);
-+		err = ip_route_output_key(net, &rt, &fl);
- 	}
- 
- 	if (err)
-@@ -2741,11 +2738,11 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
- 		rt->rt_flags |= RTCF_NOTIFY;
- 
- 	err = rt_fill_info(skb, NETLINK_CB(in_skb).pid, nlh->nlmsg_seq,
--				RTM_NEWROUTE, 0, 0);
-+			   RTM_NEWROUTE, 0, 0);
- 	if (err <= 0)
- 		goto errout_free;
- 
--	err = rtnl_unicast(skb, &init_net, NETLINK_CB(in_skb).pid);
-+	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).pid);
- errout:
- 	return err;
- 
-@@ -2759,6 +2756,9 @@ int ip_rt_dump(struct sk_buff *skb,  struct netlink_callback *cb)
- 	struct rtable *rt;
- 	int h, s_h;
- 	int idx, s_idx;
-+	struct net *net;
-+
-+	net = skb->sk->sk_net;
- 
- 	s_h = cb->args[0];
- 	if (s_h < 0)
-@@ -2768,7 +2768,7 @@ int ip_rt_dump(struct sk_buff *skb,  struct netlink_callback *cb)
- 		rcu_read_lock_bh();
- 		for (rt = rcu_dereference(rt_hash_table[h].chain), idx = 0; rt;
- 		     rt = rcu_dereference(rt->u.dst.rt_next), idx++) {
--			if (idx < s_idx)
-+			if (rt->u.dst.dev->nd_net != net || idx < s_idx)
- 				continue;
- 			if (rt->rt_genid != atomic_read(&rt_genid))
- 				continue;
--- 
-1.5.3.rc5
+> In article <20080206092300.701741592@mai.toulouse-stg.fr.ibm.com> (at Wed, 06 Feb 2008 10:14:19 +0100), Daniel Lezcano <dlezcano@fr.ibm.com> says:
+> 
+> > replace __inline__ by inline in include/linux (net related)
+> > 
+> > Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+> > ---
+> >  include/linux/atm.h        |    4 ++--
+> >  include/linux/atmsap.h     |    2 +-
+> >  include/linux/hdlc.h       |   13 +++++++------
+> >  include/linux/inetdevice.h |   14 ++++++--------
+> >  include/linux/netlink.h    |    5 +++--
+> >  include/linux/rtnetlink.h  |    2 +-
+> >  6 files changed, 20 insertions(+), 20 deletions(-)
+> 
+> Please do this change within the #ifdef __KERNEL__ .. #endif only.
 
+What is the harm in fixing the user exposable portions?
+
+There is exactly zero risk as far as I can see.
