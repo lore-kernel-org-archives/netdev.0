@@ -1,57 +1,41 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] net: NEWEMAC: Remove "rgmii-interface" from rgmii matching
- table
-Date: Wed, 06 Feb 2008 07:12:51 -0500
-Message-ID: <47A9A443.2020109@pobox.com>
-References: <1200476230-14026-1-git-send-email-sr@denx.de> <1200477239.6755.21.camel@pasglop> <20080116090110.1b7b2f00@zod.rchland.ibm.com> <200801300716.52463.sr@denx.de> <1201734898.8146.0.camel@pasglop> <20080205151216.4ff3c32a@weaponx>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] e1000: Fix for 32 bits platforms with 64 bits resources
+Date: Wed, 06 Feb 2008 07:13:54 -0500
+Message-ID: <47A9A482.1060405@garzik.org>
+References: <20071116073821.548CCDDDF4@ozlabs.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: benh@kernel.crashing.org, Stefan Roese <sr@denx.de>,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+Cc: auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, jgarzik@pobox.com
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46661 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:40334 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762038AbYBFMNI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2008 07:13:08 -0500
-In-Reply-To: <20080205151216.4ff3c32a@weaponx>
+	id S1761745AbYBFMN5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2008 07:13:57 -0500
+In-Reply-To: <20071116073821.548CCDDDF4@ozlabs.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Josh Boyer wrote:
-> On Thu, 31 Jan 2008 10:14:58 +1100
-> Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
+Benjamin Herrenschmidt wrote:
+> The e1000 driver stores the content of the PCI resources into
+> unsigned long's before ioremapping. This breaks on 32 bits
+> platforms that support 64 bits MMIO resources such as ppc 44x.
 > 
->> On Wed, 2008-01-30 at 07:16 +0100, Stefan Roese wrote:
->>> On Wednesday 16 January 2008, Josh Boyer wrote:
->>>> On Wed, 16 Jan 2008 20:53:59 +1100
->>>>
->>>> Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
->>>>> On Wed, 2008-01-16 at 10:37 +0100, Stefan Roese wrote:
->>>>>> With the removal the the "rgmii-interface" device_type property from
->>>>>> the dts files, the newemac driver needs an update to only rely on
->>>>>> compatible property.
->>>>>>
->>>>>> Signed-off-by: Stefan Roese <sr@denx.de>
->>>>> I need to test if it works on CAB, can't change the DT on those. I'll
->>>>> let you know tomorrow.
->>>> This should be fine on CAB.  The rgmii node has:
->>>>
->>>> compatible = "ibm,rgmii-axon", "ibm,rgmii"
->>>>
->>>> so the match should still catch on the latter.
->>> How about this patch? Ben, if you think this is ok then we should make sure 
->>> that it goes in in this merge-window, since the other dts patch relies on it.
->> It's fine.
+> This fixes it by removing those temporary variables and passing
+> directly the result of pci_resource_start/len to ioremap.
 > 
-> Jeff, any chance this can get into .25 soon?  I have another patch
-> queued up behind this one that requires it, and I don't see it in any
-> of your trees or branches.
+> The side effect is that I removed the assignments to the netdev
+> fields mem_start, mem_end and base_addr, which are totally useless
+> for PCI devices.
 > 
-> Or, if you aren't opposed, I can take it through Paul's tree with your
-> Ack.
+> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> --
+> 
+>  drivers/net/e1000/e1000_main.c |   18 +++++-------------
+>  1 file changed, 5 insertions(+), 13 deletions(-)
 
-can you resend?  I don't see it in the pile
+applied
 
 
