@@ -1,71 +1,124 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 11/17] [IPV4]: rt_cache_get_next should take rt_genid into account.
-Date: Wed,  6 Feb 2008 13:53:31 +0300
-Message-ID: <1202295217-22769-11-git-send-email-den@openvz.org>
+Subject: [PATCH 14/17] [NETNS]: Process devinet ioctl in the correct namespace.
+Date: Wed,  6 Feb 2008 13:53:34 +0300
+Message-ID: <1202295217-22769-14-git-send-email-den@openvz.org>
 References: <47A99196.2030105@sw.ru>
 Cc: netdev@vger.kernel.org, devel@openvz.org,
 	containers@lists.osdl.org, "Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:55430 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:58134 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758509AbYBFKxP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2008 05:53:15 -0500
+	id S1758653AbYBFKxQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2008 05:53:16 -0500
 In-Reply-To: <47A99196.2030105@sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the other case /proc/net/rt_cache will look inconsistent in respect to
-genid.
+Add namespace parameter to devinet_ioctl and locate device inside it for
+a state changes.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
-Acked-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 ---
- net/ipv4/route.c |   18 +++++++++++++-----
- 1 files changed, 13 insertions(+), 5 deletions(-)
+ include/linux/inetdevice.h |    2 +-
+ net/ipv4/af_inet.c         |    7 ++++---
+ net/ipv4/devinet.c         |    6 +++---
+ net/ipv4/ipconfig.c        |    2 +-
+ 4 files changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 92ff622..b03de57 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -294,7 +294,8 @@ static struct rtable *rt_cache_get_first(struct rt_cache_iter_state *st)
- 	return r;
- }
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index fc4e3db..da05ab4 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -129,7 +129,7 @@ extern int unregister_inetaddr_notifier(struct notifier_block *nb);
  
--static struct rtable *rt_cache_get_next(struct rt_cache_iter_state *st, struct rtable *r)
-+static struct rtable *__rt_cache_get_next(struct rt_cache_iter_state *st,
-+					  struct rtable *r)
+ extern struct net_device *ip_dev_find(struct net *net, __be32 addr);
+ extern int		inet_addr_onlink(struct in_device *in_dev, __be32 a, __be32 b);
+-extern int		devinet_ioctl(unsigned int cmd, void __user *);
++extern int		devinet_ioctl(struct net *net, unsigned int cmd, void __user *);
+ extern void		devinet_init(void);
+ extern struct in_device	*inetdev_by_index(struct net *, int);
+ extern __be32		inet_select_addr(const struct net_device *dev, __be32 dst, int scope);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 09ca529..c270080 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -784,6 +784,7 @@ int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
  {
- 	r = r->u.dst.rt_next;
- 	while (!r) {
-@@ -307,16 +308,23 @@ static struct rtable *rt_cache_get_next(struct rt_cache_iter_state *st, struct r
- 	return rcu_dereference(r);
+ 	struct sock *sk = sock->sk;
+ 	int err = 0;
++	struct net *net = sk->sk_net;
+ 
+ 	switch (cmd) {
+ 		case SIOCGSTAMP:
+@@ -795,12 +796,12 @@ int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 		case SIOCADDRT:
+ 		case SIOCDELRT:
+ 		case SIOCRTMSG:
+-			err = ip_rt_ioctl(sk->sk_net, cmd, (void __user *)arg);
++			err = ip_rt_ioctl(net, cmd, (void __user *)arg);
+ 			break;
+ 		case SIOCDARP:
+ 		case SIOCGARP:
+ 		case SIOCSARP:
+-			err = arp_ioctl(sk->sk_net, cmd, (void __user *)arg);
++			err = arp_ioctl(net, cmd, (void __user *)arg);
+ 			break;
+ 		case SIOCGIFADDR:
+ 		case SIOCSIFADDR:
+@@ -813,7 +814,7 @@ int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 		case SIOCSIFPFLAGS:
+ 		case SIOCGIFPFLAGS:
+ 		case SIOCSIFFLAGS:
+-			err = devinet_ioctl(cmd, (void __user *)arg);
++			err = devinet_ioctl(net, cmd, (void __user *)arg);
+ 			break;
+ 		default:
+ 			if (sk->sk_prot->ioctl)
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index f282b26..a06fcae 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -595,7 +595,7 @@ static __inline__ int inet_abc_len(__be32 addr)
  }
  
-+static struct rtable *rt_cache_get_next(struct rt_cache_iter_state *st,
-+					struct rtable *r)
-+{
-+	while ((r = __rt_cache_get_next(st, r)) != NULL) {
-+		if (r->rt_genid == st->genid)
-+			break;
-+	}
-+	return r;
-+}
-+
- static struct rtable *rt_cache_get_idx(struct rt_cache_iter_state *st, loff_t pos)
+ 
+-int devinet_ioctl(unsigned int cmd, void __user *arg)
++int devinet_ioctl(struct net *net, unsigned int cmd, void __user *arg)
  {
- 	struct rtable *r = rt_cache_get_first(st);
+ 	struct ifreq ifr;
+ 	struct sockaddr_in sin_orig;
+@@ -624,7 +624,7 @@ int devinet_ioctl(unsigned int cmd, void __user *arg)
+ 		*colon = 0;
  
- 	if (r)
--		while (pos && (r = rt_cache_get_next(st, r))) {
--			if (r->rt_genid != st->genid)
--				continue;
-+		while (pos && (r = rt_cache_get_next(st, r)))
- 			--pos;
--		}
- 	return pos ? NULL : r;
+ #ifdef CONFIG_KMOD
+-	dev_load(&init_net, ifr.ifr_name);
++	dev_load(net, ifr.ifr_name);
+ #endif
+ 
+ 	switch (cmd) {
+@@ -665,7 +665,7 @@ int devinet_ioctl(unsigned int cmd, void __user *arg)
+ 	rtnl_lock();
+ 
+ 	ret = -ENODEV;
+-	if ((dev = __dev_get_by_name(&init_net, ifr.ifr_name)) == NULL)
++	if ((dev = __dev_get_by_name(net, ifr.ifr_name)) == NULL)
+ 		goto done;
+ 
+ 	if (colon)
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index a52b585..009d78f 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -291,7 +291,7 @@ static int __init ic_dev_ioctl(unsigned int cmd, struct ifreq *arg)
+ 
+ 	mm_segment_t oldfs = get_fs();
+ 	set_fs(get_ds());
+-	res = devinet_ioctl(cmd, (struct ifreq __user *) arg);
++	res = devinet_ioctl(&init_net, cmd, (struct ifreq __user *) arg);
+ 	set_fs(oldfs);
+ 	return res;
  }
- 
 -- 
 1.5.3.rc5
 
