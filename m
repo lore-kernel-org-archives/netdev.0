@@ -1,63 +1,35 @@
-From: Ben Dooks <ben@fluff.org>
-Subject: Re: [PATCH 07/24 for-2.6.25] DM9000: Add initial ethtool support
-Date: Wed, 6 Feb 2008 22:03:34 +0000
-Message-ID: <20080206220334.GE15407@fluff.org.uk>
-References: <20080205000159.432081941@fluff.org.uk> <20080205000815.759244139@fluff.org.uk> <20080205225045.GA12258@electric-eye.fr.zoreil.com>
+From: David Rientjes <rientjes@google.com>
+Subject: Re: [PATCH] ipvs: Make the synchronization interval controllable
+Date: Wed, 6 Feb 2008 14:09:55 -0800 (PST)
+Message-ID: <alpine.DEB.1.00.0802061409130.7879@chino.kir.corp.google.com>
+References: <1202333990-19359-1-git-send-email-sven.wegener@stealer.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sven Wegener <sven.wegener@stealer.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:55293 "EHLO
-	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752306AbYBFWD6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 17:03:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20080205225045.GA12258@electric-eye.fr.zoreil.com>
+Received: from smtp-out.google.com ([216.239.45.13]:34381 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754834AbYBFWKG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 17:10:06 -0500
+In-Reply-To: <1202333990-19359-1-git-send-email-sven.wegener@stealer.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 05, 2008 at 11:50:45PM +0100, Francois Romieu wrote:
-> Ben Dooks <ben-linux@fluff.org> :
-> > Add support for ethtool operations for the DM9000.
-> > 
-> > Signed-off-by: Ben Dooks <ben-linux@fluff.org>
-> > 
-> > Index: linux-2.6.24-quilt3/drivers/net/dm9000.c
-> > ===================================================================
-> > --- linux-2.6.24-quilt3.orig/drivers/net/dm9000.c
-> > +++ linux-2.6.24-quilt3/drivers/net/dm9000.c
-> [...]
-> > +static int dm9000_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-> > +{
-> > +	board_info_t *dm = to_dm9000_board(dev);
-> > +	unsigned long flags;
-> > +
-> > +	spin_lock_irqsave(&dm->lock, flags);
-> > +	mii_ethtool_gset(&dm->mii, cmd);
-> 
-> drivers/net/mii.c::mii_ethtool_gset
-> [...]
->         advert = mii->mdio_read(dev, mii->phy_id, MII_ADVERTISE);
-> 
-> drivers/net/dm9000.c::dm9000_probe
-> [...]
->         db->mii.mdio_read    = dm9000_phy_read;
-> 
-> drivers/net/dm9000.c::dm9000_phy_read
-> [...]
->         board_info_t *db = (board_info_t *) dev->priv;
->         unsigned long flags;
->         unsigned int reg_save;
->         int ret;
-> 
->         spin_lock_irqsave(&db->lock,flags);
-> 
-> -> deadlock
+On Wed, 6 Feb 2008, Sven Wegener wrote:
 
-The next patch in the series changes the locking.
+> diff --git a/net/ipv4/ipvs/ip_vs_sync.c b/net/ipv4/ipvs/ip_vs_sync.c
+> index 948378d..9b57ad3 100644
+> --- a/net/ipv4/ipvs/ip_vs_sync.c
+> +++ b/net/ipv4/ipvs/ip_vs_sync.c
+> @@ -143,6 +143,8 @@ char ip_vs_backup_mcast_ifn[IP_VS_IFNAME_MAXLEN];
+>  /* multicast addr */
+>  static struct sockaddr_in mcast_addr;
+>  
+> +/* milliseconds between synchronization runs */
+> +int sysctl_ip_vs_sync_interval = 1000;
+>  
+>  static inline void sb_queue_tail(struct ip_vs_sync_buff *sb)
+>  {
 
--- 
-Ben (ben@fluff.org, http://www.fluff.org/)
-
-  'a smiley only costs 4 bytes'
+How useful is a negative ip_vs_sync_interval?
