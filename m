@@ -1,125 +1,101 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: [PATCH] ipvs: Make the synchronization interval controllable
-Date: Thu,  7 Feb 2008 00:57:43 +0100
-Message-ID: <1202342263-25176-1-git-send-email-sven.wegener@stealer.net>
-References: <Pine.LNX.4.64.0802062329150.15729@titan.stealer.net>
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 70/73] forcedeth: mac address mcp77/79
+Date: Wed, 6 Feb 2008 15:54:35 -0800
+Message-ID: <20080206235435.GS13121@suse.de>
+References: <20080206234302.769849277@mini.kroah.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>,
+	Michael Krufky <mkrufky@linuxtv.org>,
+	Chuck Ebbert <cebbert@redhat.com>,
+	Domenico Andreoli <cavokz@gmail.com>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	alan@lxorguk.ukuu.org.uk, Ayaz Abdulla <aabdulla@nvidia.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
+	nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.stealer.net ([88.198.224.204]:34614 "EHLO
-	smtp1.stealer.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764474AbYBFX5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 18:57:47 -0500
-In-Reply-To: <Pine.LNX.4.64.0802062329150.15729@titan.stealer.net>
+Received: from ns.suse.de ([195.135.220.2]:46730 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1764194AbYBGAAT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2008 19:00:19 -0500
+Content-Disposition: inline; filename="forcedeth-mac-address-mcp77-79.patch"
+In-Reply-To: <20080206235015.GA13121@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The default synchronization interval of 1000 milliseconds is too high for a
-heavily loaded director. Collecting the connection information from one second
-and then sending it out in a burst will overflow the socket buffer and lead to
-synchronization information being dropped. Make the interval controllable by a
-sysctl variable so that users can tune it. We enforce a lower limit of 0 and an
-upper limit of 2000 ms on the interval. A too large interval can make the
-synchronization buffer consume too much memory and will also delay the exit of
-the kernel threads.
+2.6.23-stable review patch.  If anyone has any objections, please let us know.
+------------------
+From: Ayaz Abdulla <aabdulla@nvidia.com>
 
-Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
+patch 2b91213064bd882c3adf35f028c6d12fab3269ec in mainline.
+
+This patch is a critical fix for MCP77 and MCP79 devices. The feature
+flags were missing the define for correct mac address
+(DEV_HAS_CORRECT_MACADDR).
+
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
 ---
+ drivers/net/forcedeth.c |   16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-Changes from the last version include the addition of the range enforcement.
-Also place the definitions of the variables where all other ipvs sysctl
-variables are.
-
-Documentation/networking/ipvs-sysctl.txt |   10 ++++++++++
- include/net/ip_vs.h                      |    1 +
- net/ipv4/ipvs/ip_vs_ctl.c                |   12 ++++++++++++
- net/ipv4/ipvs/ip_vs_sync.c               |    4 ++--
- 4 files changed, 25 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/networking/ipvs-sysctl.txt b/Documentation/networking/ipvs-sysctl.txt
-index 4ccdbca..bb4eb9a 100644
---- a/Documentation/networking/ipvs-sysctl.txt
-+++ b/Documentation/networking/ipvs-sysctl.txt
-@@ -141,3 +141,13 @@ sync_threshold - INTEGER
-         synchronized, every time the number of its incoming packets
-         modulus 50 equals the threshold. The range of the threshold is
-         from 0 to 49.
-+
-+sync_interval - INTEGER
-+	default 1000
-+
-+	The information from synchronization is buffered and sent out at a
-+	regular interval by a kernel thread. The interval (in ms) is
-+	controlled by this value. The default is too high for a heavily loaded
-+	director. If you get a lot of "ip_vs_send_async error" messages from
-+	your kernel, then you should lower this value. The value of the
-+	interval can be chosen from the range from 0 to 2000.
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 56f3c94..9c4498b 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -854,6 +854,7 @@ extern int sysctl_ip_vs_cache_bypass;
- extern int sysctl_ip_vs_expire_nodest_conn;
- extern int sysctl_ip_vs_expire_quiescent_template;
- extern int sysctl_ip_vs_sync_threshold[2];
-+extern int sysctl_ip_vs_sync_interval;
- extern int sysctl_ip_vs_nat_icmp_send;
- extern struct ip_vs_stats ip_vs_stats;
- extern struct ctl_path net_vs_ctl_path[];
-diff --git a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
-index 94c5767..c6322f7 100644
---- a/net/ipv4/ipvs/ip_vs_ctl.c
-+++ b/net/ipv4/ipvs/ip_vs_ctl.c
-@@ -80,8 +80,11 @@ int sysctl_ip_vs_cache_bypass = 0;
- int sysctl_ip_vs_expire_nodest_conn = 0;
- int sysctl_ip_vs_expire_quiescent_template = 0;
- int sysctl_ip_vs_sync_threshold[2] = { 3, 50 };
-+int sysctl_ip_vs_sync_interval = 1000;
- int sysctl_ip_vs_nat_icmp_send = 0;
- 
-+static int ip_vs_sync_interval_min = 0;
-+static int ip_vs_sync_interval_max = 2000;
- 
- #ifdef CONFIG_IP_VS_DEBUG
- static int sysctl_ip_vs_debug_level = 0;
-@@ -1582,6 +1585,15 @@ static struct ctl_table vs_vars[] = {
- 		.proc_handler	= &proc_do_sync_threshold,
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -5564,35 +5564,35 @@ static struct pci_device_id pci_tbl[] = 
  	},
- 	{
-+		.procname	= "sync_interval",
-+		.data		= &sysctl_ip_vs_sync_interval,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec_minmax,
-+		.extra1		= &ip_vs_sync_interval_min,
-+		.extra2		= &ip_vs_sync_interval_max,
-+	},
-+	{
- 		.procname	= "nat_icmp_send",
- 		.data		= &sysctl_ip_vs_nat_icmp_send,
- 		.maxlen		= sizeof(int),
-diff --git a/net/ipv4/ipvs/ip_vs_sync.c b/net/ipv4/ipvs/ip_vs_sync.c
-index 948378d..10ab1b7 100644
---- a/net/ipv4/ipvs/ip_vs_sync.c
-+++ b/net/ipv4/ipvs/ip_vs_sync.c
-@@ -701,7 +701,7 @@ static void sync_master_loop(void)
- 		if (stop_master_sync)
- 			break;
- 
--		msleep_interruptible(1000);
-+		msleep_interruptible(sysctl_ip_vs_sync_interval);
- 	}
- 
- 	/* clean up the sync_buff queue */
-@@ -758,7 +758,7 @@ static void sync_backup_loop(void)
- 		if (stop_backup_sync)
- 			break;
- 
--		msleep_interruptible(1000);
-+		msleep_interruptible(sysctl_ip_vs_sync_interval);
- 	}
- 
- 	/* release the sending multicast socket */
--- 
-1.5.4
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_32),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_33),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_34),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_35),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_36),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_37),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_38),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_39),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{0,},
+ };
 
+-- 
