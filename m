@@ -1,35 +1,30 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [PATCH] ipvs: Make the synchronization interval controllable
-Date: Wed, 6 Feb 2008 14:09:55 -0800 (PST)
-Message-ID: <alpine.DEB.1.00.0802061409130.7879@chino.kir.corp.google.com>
-References: <1202333990-19359-1-git-send-email-sven.wegener@stealer.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 07/24 for-2.6.25] DM9000: Add initial ethtool support
+Date: Wed, 6 Feb 2008 22:52:54 +0100
+Message-ID: <20080206215254.GA3212@electric-eye.fr.zoreil.com>
+References: <20080205000159.432081941@fluff.org.uk> <20080205000815.759244139@fluff.org.uk> <20080205225045.GA12258@electric-eye.fr.zoreil.com> <20080206220334.GE15407@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sven Wegener <sven.wegener@stealer.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Ben Dooks <ben@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:34381 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754834AbYBFWKG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 17:10:06 -0500
-In-Reply-To: <1202333990-19359-1-git-send-email-sven.wegener@stealer.net>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:36995 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756867AbYBFWLN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 17:11:13 -0500
+Content-Disposition: inline
+In-Reply-To: <20080206220334.GE15407@fluff.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 6 Feb 2008, Sven Wegener wrote:
+Ben Dooks <ben@fluff.org> :
+[...]
+> The next patch in the series changes the locking.
 
-> diff --git a/net/ipv4/ipvs/ip_vs_sync.c b/net/ipv4/ipvs/ip_vs_sync.c
-> index 948378d..9b57ad3 100644
-> --- a/net/ipv4/ipvs/ip_vs_sync.c
-> +++ b/net/ipv4/ipvs/ip_vs_sync.c
-> @@ -143,6 +143,8 @@ char ip_vs_backup_mcast_ifn[IP_VS_IFNAME_MAXLEN];
->  /* multicast addr */
->  static struct sockaddr_in mcast_addr;
->  
-> +/* milliseconds between synchronization runs */
-> +int sysctl_ip_vs_sync_interval = 1000;
->  
->  static inline void sb_queue_tail(struct ip_vs_sync_buff *sb)
->  {
+Do you mean patch #08 ?
 
-How useful is a negative ip_vs_sync_interval?
+If so it does not fix this bug: the very first line in
+dm9000_phy_read includes a spinlock statement.
+
+-- 
+Ueimor
