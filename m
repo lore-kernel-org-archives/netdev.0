@@ -1,108 +1,63 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: sk98lin driver removal for 2.6.25
-Date: Wed, 6 Feb 2008 13:52:33 -0800
-Message-ID: <20080206135233.58c1ba9d@extreme>
+From: Ben Dooks <ben@fluff.org>
+Subject: Re: [PATCH 07/24 for-2.6.25] DM9000: Add initial ethtool support
+Date: Wed, 6 Feb 2008 22:03:34 +0000
+Message-ID: <20080206220334.GE15407@fluff.org.uk>
+References: <20080205000159.432081941@fluff.org.uk> <20080205000815.759244139@fluff.org.uk> <20080205225045.GA12258@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:55845 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757969AbYBFV6v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 16:58:51 -0500
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:55293 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752306AbYBFWD6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 17:03:58 -0500
+Content-Disposition: inline
+In-Reply-To: <20080205225045.GA12258@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch is too large for mailing list so please pull from:
+On Tue, Feb 05, 2008 at 11:50:45PM +0100, Francois Romieu wrote:
+> Ben Dooks <ben-linux@fluff.org> :
+> > Add support for ethtool operations for the DM9000.
+> > 
+> > Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+> > 
+> > Index: linux-2.6.24-quilt3/drivers/net/dm9000.c
+> > ===================================================================
+> > --- linux-2.6.24-quilt3.orig/drivers/net/dm9000.c
+> > +++ linux-2.6.24-quilt3/drivers/net/dm9000.c
+> [...]
+> > +static int dm9000_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+> > +{
+> > +	board_info_t *dm = to_dm9000_board(dev);
+> > +	unsigned long flags;
+> > +
+> > +	spin_lock_irqsave(&dm->lock, flags);
+> > +	mii_ethtool_gset(&dm->mii, cmd);
+> 
+> drivers/net/mii.c::mii_ethtool_gset
+> [...]
+>         advert = mii->mdio_read(dev, mii->phy_id, MII_ADVERTISE);
+> 
+> drivers/net/dm9000.c::dm9000_probe
+> [...]
+>         db->mii.mdio_read    = dm9000_phy_read;
+> 
+> drivers/net/dm9000.c::dm9000_phy_read
+> [...]
+>         board_info_t *db = (board_info_t *) dev->priv;
+>         unsigned long flags;
+>         unsigned int reg_save;
+>         int ret;
+> 
+>         spin_lock_irqsave(&db->lock,flags);
+> 
+> -> deadlock
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/sk98lin master
+The next patch in the series changes the locking.
 
-Stephen Hemminger (1):
-      sk98lin: remove obsolete driver
+-- 
+Ben (ben@fluff.org, http://www.fluff.org/)
 
- Documentation/feature-removal-schedule.txt |   10 -
- drivers/net/Kconfig                        |   87 -
- drivers/net/Makefile                       |    1 -
- drivers/net/sk98lin/Makefile               |   87 -
- drivers/net/sk98lin/h/lm80.h               |  179 -
- drivers/net/sk98lin/h/skaddr.h             |  285 -
- drivers/net/sk98lin/h/skcsum.h             |  213 -
- drivers/net/sk98lin/h/skdebug.h            |   74 -
- drivers/net/sk98lin/h/skdrv1st.h           |  188 -
- drivers/net/sk98lin/h/skdrv2nd.h           |  447 --
- drivers/net/sk98lin/h/skerror.h            |   55 -
- drivers/net/sk98lin/h/skgedrv.h            |   51 -
- drivers/net/sk98lin/h/skgehw.h             | 2126 -------
- drivers/net/sk98lin/h/skgehwt.h            |   48 -
- drivers/net/sk98lin/h/skgei2c.h            |  210 -
- drivers/net/sk98lin/h/skgeinit.h           |  797 ---
- drivers/net/sk98lin/h/skgepnm2.h           |  334 --
- drivers/net/sk98lin/h/skgepnmi.h           |  962 ----
- drivers/net/sk98lin/h/skgesirq.h           |  110 -
- drivers/net/sk98lin/h/ski2c.h              |  174 -
- drivers/net/sk98lin/h/skqueue.h            |   94 -
- drivers/net/sk98lin/h/skrlmt.h             |  438 --
- drivers/net/sk98lin/h/sktimer.h            |   63 -
- drivers/net/sk98lin/h/sktypes.h            |   69 -
- drivers/net/sk98lin/h/skversion.h          |   38 -
- drivers/net/sk98lin/h/skvpd.h              |  248 -
- drivers/net/sk98lin/h/xmac_ii.h            | 1579 ------
- drivers/net/sk98lin/skaddr.c               | 1788 ------
- drivers/net/sk98lin/skdim.c                |  742 ---
- drivers/net/sk98lin/skethtool.c            |  627 ---
- drivers/net/sk98lin/skge.c                 | 5218 ------------------
- drivers/net/sk98lin/skgehwt.c              |  171 -
- drivers/net/sk98lin/skgeinit.c             | 2005 -------
- drivers/net/sk98lin/skgemib.c              | 1075 ----
- drivers/net/sk98lin/skgepnmi.c             | 8198 ----------------------------
- drivers/net/sk98lin/skgesirq.c             | 2229 --------
- drivers/net/sk98lin/ski2c.c                | 1296 -----
- drivers/net/sk98lin/sklm80.c               |  141 -
- drivers/net/sk98lin/skqueue.c              |  179 -
- drivers/net/sk98lin/skrlmt.c               | 3257 -----------
- drivers/net/sk98lin/sktimer.c              |  250 -
- drivers/net/sk98lin/skvpd.c                | 1091 ----
- drivers/net/sk98lin/skxmac2.c              | 4160 --------------
- 43 files changed, 0 insertions(+), 41394 deletions(-)
- delete mode 100644 drivers/net/sk98lin/Makefile
- delete mode 100644 drivers/net/sk98lin/h/lm80.h
- delete mode 100644 drivers/net/sk98lin/h/skaddr.h
- delete mode 100644 drivers/net/sk98lin/h/skcsum.h
- delete mode 100644 drivers/net/sk98lin/h/skdebug.h
- delete mode 100644 drivers/net/sk98lin/h/skdrv1st.h
- delete mode 100644 drivers/net/sk98lin/h/skdrv2nd.h
- delete mode 100644 drivers/net/sk98lin/h/skerror.h
- delete mode 100644 drivers/net/sk98lin/h/skgedrv.h
- delete mode 100644 drivers/net/sk98lin/h/skgehw.h
- delete mode 100644 drivers/net/sk98lin/h/skgehwt.h
- delete mode 100644 drivers/net/sk98lin/h/skgei2c.h
- delete mode 100644 drivers/net/sk98lin/h/skgeinit.h
- delete mode 100644 drivers/net/sk98lin/h/skgepnm2.h
- delete mode 100644 drivers/net/sk98lin/h/skgepnmi.h
- delete mode 100644 drivers/net/sk98lin/h/skgesirq.h
- delete mode 100644 drivers/net/sk98lin/h/ski2c.h
- delete mode 100644 drivers/net/sk98lin/h/skqueue.h
- delete mode 100644 drivers/net/sk98lin/h/skrlmt.h
- delete mode 100644 drivers/net/sk98lin/h/sktimer.h
- delete mode 100644 drivers/net/sk98lin/h/sktypes.h
- delete mode 100644 drivers/net/sk98lin/h/skversion.h
- delete mode 100644 drivers/net/sk98lin/h/skvpd.h
- delete mode 100644 drivers/net/sk98lin/h/xmac_ii.h
- delete mode 100644 drivers/net/sk98lin/skaddr.c
- delete mode 100644 drivers/net/sk98lin/skdim.c
- delete mode 100644 drivers/net/sk98lin/skethtool.c
- delete mode 100644 drivers/net/sk98lin/skge.c
- delete mode 100644 drivers/net/sk98lin/skgehwt.c
- delete mode 100644 drivers/net/sk98lin/skgeinit.c
- delete mode 100644 drivers/net/sk98lin/skgemib.c
- delete mode 100644 drivers/net/sk98lin/skgepnmi.c
- delete mode 100644 drivers/net/sk98lin/skgesirq.c
- delete mode 100644 drivers/net/sk98lin/ski2c.c
- delete mode 100644 drivers/net/sk98lin/sklm80.c
- delete mode 100644 drivers/net/sk98lin/skqueue.c
- delete mode 100644 drivers/net/sk98lin/skrlmt.c
- delete mode 100644 drivers/net/sk98lin/sktimer.c
- delete mode 100644 drivers/net/sk98lin/skvpd.c
- delete mode 100644 drivers/net/sk98lin/skxmac2.c
+  'a smiley only costs 4 bytes'
