@@ -1,75 +1,47 @@
-From: urs.thuermann@gmx.de
-Subject: [patch 1/3] CAN: Clean up module auto loading
-Date: Wed,  6 Feb 2008 23:07:50 +0100
-Message-ID: <20080206220825.20500.1@janus.isnogud.escape.de>
-References: <20080206220749.20500.0@janus.isnogud.escape.de>
-Cc: Urs Thuermann <urs.thuermann@volkswagen.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Oliver Hartkopp <oliver@hartkopp.net>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Sven Wegener <sven.wegener@stealer.net>
+Subject: Re: [PATCH] ipvs: Make the synchronization interval controllable
+Date: Thu, 7 Feb 2008 00:12:58 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0802062329150.15729@titan.stealer.net>
+References: <1202333990-19359-1-git-send-email-sven.wegener@stealer.net>
+ <alpine.DEB.1.00.0802061409130.7879@chino.kir.corp.google.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Rientjes <rientjes@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:54363 "EHLO oker.escape.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762882AbYBFXHV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2008 18:07:21 -0500
-Content-Disposition: inline; filename=module-load
+Received: from smtp1.stealer.net ([88.198.224.204]:43026 "EHLO
+	smtp1.stealer.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764277AbYBFXNK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 18:13:10 -0500
+In-Reply-To: <alpine.DEB.1.00.0802061409130.7879@chino.kir.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove local char array to construct module name.
-Don't call request_module() when CONFIG_KMOD is not set.
+On Wed, 6 Feb 2008, David Rientjes wrote:
 
-Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
-Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+> On Wed, 6 Feb 2008, Sven Wegener wrote:
+>
+>> diff --git a/net/ipv4/ipvs/ip_vs_sync.c b/net/ipv4/ipvs/ip_vs_sync.c
+>> index 948378d..9b57ad3 100644
+>> --- a/net/ipv4/ipvs/ip_vs_sync.c
+>> +++ b/net/ipv4/ipvs/ip_vs_sync.c
+>> @@ -143,6 +143,8 @@ char ip_vs_backup_mcast_ifn[IP_VS_IFNAME_MAXLEN];
+>>  /* multicast addr */
+>>  static struct sockaddr_in mcast_addr;
+>>
+>> +/* milliseconds between synchronization runs */
+>> +int sysctl_ip_vs_sync_interval = 1000;
+>>
+>>  static inline void sb_queue_tail(struct ip_vs_sync_buff *sb)
+>>  {
+>
+> How useful is a negative ip_vs_sync_interval?
 
----
- net/can/af_can.c |   18 ++++++------------
- 1 file changed, 6 insertions(+), 12 deletions(-)
+Negative values will be converted to MAX_JIFFY_OFFSET by msecs_to_jiffies 
+and result in a very long interval. A too long interval will be a good way 
+to get your system OOM. We could use an unsigned int or even restrict the 
+value with proc_dointvec_minmax. I'd prefer the latter, that's what I 
+already had in my mind and it also protects from unintentionally choosing 
+a too long interval.
 
-Index: net-2.6/net/can/af_can.c
-===================================================================
---- net-2.6.orig/net/can/af_can.c	2008-02-06 22:17:58.000000000 +0100
-+++ net-2.6/net/can/af_can.c	2008-02-06 22:20:46.000000000 +0100
-@@ -118,7 +118,6 @@
- {
- 	struct sock *sk;
- 	struct can_proto *cp;
--	char module_name[sizeof("can-proto-000")];
- 	int err = 0;
- 
- 	sock->state = SS_UNCONNECTED;
-@@ -129,26 +128,21 @@
- 	if (net != &init_net)
- 		return -EAFNOSUPPORT;
- 
-+#ifdef CONFIG_KMOD
- 	/* try to load protocol module, when CONFIG_KMOD is defined */
- 	if (!proto_tab[protocol]) {
--		sprintf(module_name, "can-proto-%d", protocol);
--		err = request_module(module_name);
-+		err = request_module("can-proto-%d", protocol);
- 
- 		/*
- 		 * In case of error we only print a message but don't
- 		 * return the error code immediately.  Below we will
- 		 * return -EPROTONOSUPPORT
- 		 */
--		if (err == -ENOSYS) {
--			if (printk_ratelimit())
--				printk(KERN_INFO "can: request_module(%s)"
--				       " not implemented.\n", module_name);
--		} else if (err) {
--			if (printk_ratelimit())
--				printk(KERN_ERR "can: request_module(%s)"
--				       " failed.\n", module_name);
--		}
-+		if (err && printk_ratelimit())
-+			printk(KERN_ERR "can: request_module "
-+			       "(can-proto-%d) failed.\n", protocol);
- 	}
-+#endif
- 
- 	spin_lock(&proto_tab_lock);
- 	cp = proto_tab[protocol];
-
---
+Sven
