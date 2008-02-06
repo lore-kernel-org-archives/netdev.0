@@ -1,39 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipvs: Make wrr "no available servers" error message
- rate-limited
-Date: Tue, 05 Feb 2008 20:00:22 -0800 (PST)
-Message-ID: <20080205.200022.79543549.davem@davemloft.net>
-References: <1202243421-2774-1-git-send-email-sven.wegener@stealer.net>
-	<20080206021909.GA32678@verge.net.au>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio_net: Fix open <-> interrupt race
+Date: Wed, 6 Feb 2008 15:00:03 +1100
+Message-ID: <200802061500.04138.rusty@rustcorp.com.au>
+References: <200802051436.10841.borntraeger@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: sven.wegener@stealer.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: horms@verge.net.au
+Cc: netdev@vger.kernel.org, dor.laor@qumranet.com,
+	Anthony Liguori <aliguori@us.ibm.com>,
+	virtualization@lists.linux-foundation.org
+To: Christian Borntraeger <borntraeger@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55335
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757157AbYBFD7x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 22:59:53 -0500
-In-Reply-To: <20080206021909.GA32678@verge.net.au>
+Received: from ozlabs.org ([203.10.76.45]:44341 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759140AbYBFEAL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2008 23:00:11 -0500
+In-Reply-To: <200802051436.10841.borntraeger@de.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Wed, 6 Feb 2008 11:19:09 +0900
+On Wednesday 06 February 2008 00:36:10 Christian Borntraeger wrote:
+> I got the following oops during interface ifup. Unfortunately its not
+> easily reproducable so I cant say for sure that my fix fixes this
+> problem, but I am confident and I think its correct anyway:
 
-> On Tue, Feb 05, 2008 at 09:30:21PM +0100, Sven Wegener wrote:
-> > No available servers is more an error message than something informational. It
-> > should also be rate-limited, else we're going to flood our logs on a busy
-> > director, if all real servers are out of order with a weight of zero.
-> > 
-> > Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
-> 
-> Hi Sven,
-> 
-> this looks good to me.
-> 
-> Acked-by: Simon Horman <horms@verge.net.au>
+Looks fine, and certainly shouldn't hurt.  Please push this out.
 
-Applied, thanks.
+Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+
+Thanks,
+Rusty.
