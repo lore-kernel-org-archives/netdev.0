@@ -1,29 +1,69 @@
-From: Glenn Griffin <ggriffin.kernel@gmail.com>
-Subject: Re: [PATCH] Add IPv6 support to TCP SYN cookies
-Date: Wed,  6 Feb 2008 09:36:11 -0800
-Message-ID: <47a9ee5e.15538c0a.7043.05ba@mx.google.com>
-References: <20080206075030.GA454@one.firstfloor.org>
-Cc: Glenn Griffin <ggriffin.kernel@gmail.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [patch 2.6.24-git] net/enc28j60: oops fix
+Date: Wed, 06 Feb 2008 09:33:42 -0800
+Message-ID: <20080206173342.21CDF8E152@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
+References: <20080205190124.E72F48E45F@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
+ <47A9EA42.3080800@eptar.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, lanconelli.claudio@eptar.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.185]:38419 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753986AbYBFR3G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 12:29:06 -0500
-Received: by rv-out-0910.google.com with SMTP id k20so1980681rvb.1
-        for <netdev@vger.kernel.org>; Wed, 06 Feb 2008 09:29:03 -0800 (PST)
-In-Reply-To: <20080206075030.GA454@one.firstfloor.org>
+Received: from smtp117.sbc.mail.sp1.yahoo.com ([69.147.64.90]:44907 "HELO
+	smtp117.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754328AbYBFRdn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 12:33:43 -0500
+In-Reply-To: <47A9EA42.3080800@eptar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I didn't think a module could have multiple module_inits. Are you
-> sure that works?
+> > Prevent unaligned packet oops on enc28j60 packet RX.
+>
+> How can I reproduce the unaligned packet oops?
 
-Indeed.  That will fail whenever ipv6 is compiled as a module.  It's
-been removed.  It snuck in from the v4 implementation, where I'm still
-having trouble understanding why it's needed there.
+Use any architecture that doesn't support unaligned accesses
+in kernel space.  I used AVR32 for this (it's got a pretty
+solid SPI master controller driver). ARM isn't immune either,
+and there are others.  That's why NET_IP_ALIGN exists.
 
---Glenn
+
+> Did you use any utilities to force this condition?
+
+"ping" ... the first RX packet oopsed.
+
+
+> Can you split the patch in 2 parts, unaligned rx and power save?
+
+Below is: unaligned access.
+
+- Dave
+
+
+=========== CUT HERE
+Prevent oops on enc28j60 packet RX:  make sure buffers are aligned.
+Not all architectures support unaligned accesses in kernel space.
+
+Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+---
+ drivers/net/enc28j60.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletion(-)
+
+--- a/drivers/net/enc28j60.c	2008-02-06 09:29:00.000000000 -0800
++++ b/drivers/net/enc28j60.c	2008-02-06 09:30:03.000000000 -0800
+@@ -900,7 +900,7 @@ static void enc28j60_hw_rx(struct net_de
+ 		if (RSV_GETBIT(rxstat, RSV_LENCHECKERR))
+ 			ndev->stats.rx_frame_errors++;
+ 	} else {
+-		skb = dev_alloc_skb(len);
++		skb = dev_alloc_skb(len + NET_IP_ALIGN);
+ 		if (!skb) {
+ 			if (netif_msg_rx_err(priv))
+ 				dev_err(&ndev->dev,
+@@ -908,6 +908,7 @@ static void enc28j60_hw_rx(struct net_de
+ 			ndev->stats.rx_dropped++;
+ 		} else {
+ 			skb->dev = ndev;
++			skb_reserve(skb, NET_IP_ALIGN);
+ 			/* copy the packet from the receive buffer */
+ 			enc28j60_mem_read(priv, priv->next_pk_ptr + sizeof(rsv),
+ 					len, skb_put(skb, len));
