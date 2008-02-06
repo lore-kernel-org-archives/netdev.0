@@ -1,40 +1,33 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: [ofa-general] Re: [PATCH 2.6.25] cxgb3: Handle ARP completions that
- mark neighbors stale.
-Date: Wed, 06 Feb 2008 10:27:34 -0800
-Message-ID: <47A9FC16.3070803@chelsio.com>
-References: <20080206180519.4680.34741.stgit@dell3.ogc.int>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, general@lists.openfabrics.org,
-	linux-kernel@vger.kernel.org, jeff@garzik.org
-To: Steve Wise <swise@opengridcomputing.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20080206180519.4680.34741.stgit@dell3.ogc.int>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+From: Ursula Braun <braunu@de.ibm.com>
+Subject: [patch 0/4] s390: ctc patches for 2.6.25 (3rd try)
+Date: Wed, 06 Feb 2008 19:27:23 +0100
+Message-ID: <20080206182723.103842000@linux.vnet.ibm.com>
+To: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate7.de.ibm.com ([195.212.29.156]:10555 "EHLO
+	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751220AbYBFSaZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 13:30:25 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Steve Wise wrote:
-> cxgb3: Handle ARP completions that mark neighbors stale.
->
-> When ARP completes due to a request rather than a reply the neighbor is
-> marked NUD_STALE instead of reachable (see arp_process()).  The handler
-> for the resulting netevent needs to check also for NUD_STALE.
->
-> Failure to use the arp entry can cause RDMA connection failures.
->
-> Signed-off-by: Steve Wise <swise@opengridcomputing.com>
->   
+-- 
+Jeff,
 
-Acked-by: Divy Le Ray <divy@chelsio.com>
+hmmm, another send is necessary, sorry again.
+Description for patch 3/4 needs to be changed.
 
-Divy
+The following patches are intended for 2.6.25. Besides clean-ups
+they replace the old ctc driver by a reworked ctcm driver.
+This ctcm driver supports the channel-to-channel connections of the
+old ctc driver plus an additional MPC protocol to provide SNA
+connectivity.
+
+Patch 1/4: clean-ups in ctc and netiucv
+Patch 2/4: clean-ups in Kconfig
+Patch 3/4: reworked ctc driver
+Patch 4/4: removal of old ctc driver
+
+Regards,    Ursula Braun
+
