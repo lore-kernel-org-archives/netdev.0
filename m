@@ -1,73 +1,39 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [BUG][AX25] Fwd: SMP with AX.25
-Date: Wed, 6 Feb 2008 09:30:50 +0000
-Message-ID: <20080206093050.GF4496@ff.dom.local>
-References: <20080206074529.GC4496@ff.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ralf Baechle <ralf@linux-mips.org>, netdev@vger.kernel.org
-To: Jann Traschewski <jann@gmx.de>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: [patch 00/14] replace __inline__ by inline in net code
+Date: Wed, 06 Feb 2008 10:14:05 +0100
+Message-ID: <20080206091405.581849582@mai.toulouse-stg.fr.ibm.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:16188 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759706AbYBFJXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 04:23:46 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so365708ugc.16
-        for <netdev@vger.kernel.org>; Wed, 06 Feb 2008 01:23:44 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080206074529.GC4496@ff.dom.local>
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:19754 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760314AbYBFJ0U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 04:26:20 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id m169QJ5K079974
+	for <netdev@vger.kernel.org>; Wed, 6 Feb 2008 09:26:19 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m169QIlW2162876
+	for <netdev@vger.kernel.org>; Wed, 6 Feb 2008 10:26:18 +0100
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m169QICL032683
+	for <netdev@vger.kernel.org>; Wed, 6 Feb 2008 10:26:18 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 06, 2008 at 07:45:29AM +0000, Jarek Poplawski wrote:
-...
-> From: Jann Traschewski <jann@gmx.de>
-> Subject: SMP with AX.25
-> To: jarkao2@gmail.com
+The following patchset replaces all occurences of __inline__
+by inline and make some minor coding style fixes.
 
-According to one of OOPSes reported by Jann softirq can break
-while skb is prepared for netif_rx. The report isn't complete,
-so the real reason of the later bug could be different, but
-IMHO this locking in ax_bump is wrong.
+It touches:
+  . net/* files
+  . include/net/* files
+  . include/linux/* files (only the ones related to the network)
 
-I attach this patch for testing purpose only.
+The patchset touches a lot of files and that can probably increase
+the patch conflict probability, but I have this patchset since a 
+few days, I didn't noticed any problem when updating net-2.6 and I
+hope that will be still the case.
+IMHO, it is the right moment to send this patch out, since net-2.6.25
+is closed and net-2.6.26 is not yet opened.
 
-Jarek P.
-
----
-
- drivers/net/hamradio/mkiss.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.c
-index cfcd15a..30c9b3b 100644
---- a/drivers/net/hamradio/mkiss.c
-+++ b/drivers/net/hamradio/mkiss.c
-@@ -289,7 +289,6 @@ static void ax_bump(struct mkiss *ax)
- 			*ax->rbuff &= ~0x20;
- 		}
-  	}
--	spin_unlock_bh(&ax->buflock);
- 
- 	count = ax->rcount;
- 
-@@ -297,17 +296,17 @@ static void ax_bump(struct mkiss *ax)
- 		printk(KERN_ERR "mkiss: %s: memory squeeze, dropping packet.\n",
- 		       ax->dev->name);
- 		ax->stats.rx_dropped++;
-+		spin_unlock_bh(&ax->buflock);
- 		return;
- 	}
- 
--	spin_lock_bh(&ax->buflock);
- 	memcpy(skb_put(skb,count), ax->rbuff, count);
--	spin_unlock_bh(&ax->buflock);
- 	skb->protocol = ax25_type_trans(skb, ax->dev);
- 	netif_rx(skb);
- 	ax->dev->last_rx = jiffies;
- 	ax->stats.rx_packets++;
- 	ax->stats.rx_bytes += count;
-+	spin_unlock_bh(&ax->buflock);
- }
- 
- static void kiss_unesc(struct mkiss *ax, unsigned char s)
+-- 
