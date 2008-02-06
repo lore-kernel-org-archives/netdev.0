@@ -1,67 +1,123 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: locking api self-test hanging
-Date: Wed, 6 Feb 2008 00:34:12 -0800
-Message-ID: <20080206003412.dca555d4.akpm@linux-foundation.org>
-References: <20080203150246.50647fa4.akpm@linux-foundation.org>
-	<20080203150744.cf7d0415.akpm@linux-foundation.org>
-	<20080204044304.d244e761.akpm@linux-foundation.org>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [e1000][net-2.6 tree] Regression: driver doesn't
+ detect card on my node.
+Date: Wed, 06 Feb 2008 11:41:15 +0300
+Message-ID: <47A972AB.5060107@openvz.org>
+References: <47A89A77.1050608@openvz.org>
+	<200802050943.01652.yinghai.lu@sun.com>
+	<47A95D60.5090203@openvz.org>
+	<200802060020.25492.yinghai.lu@sun.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
-	linux-kernel@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:60923 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759042AbYBFIeK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 03:34:10 -0500
-In-Reply-To: <20080204044304.d244e761.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	Thomas Gleixner <tglx@linutronix.de>, jeffrey.t.kirsher@intel.com,
+	Denis Lunev <den@openvz.org>, Ingo Molnar <mingo@elte.hu>,
+	David Miller <davem@davemloft.net>,
+	Justin Piszcz <jpiszcz@lucidpixels.com>
+To: Yinghai Lu <Yinghai.Lu@Sun.COM>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <200802060020.25492.yinghai.lu@sun.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Mon, 4 Feb 2008 04:43:04 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
+Yinghai Lu wrote:
+> On Tuesday 05 February 2008 11:10:24 pm Pavel Emelyanov wrote:
+>> [snip]
+>>
+>>>>> What other info from me is required?
+>>> boot log please. with the patch and reverting the patch.
+>> Here they are (attached).
+>> BTW, I found, that the sky2 adapter is broken by this patch as well.
+>> To simplify the analysis, here's their diff:
+>>
+>> --- bad-log	2008-02-06 10:06:40.000000000 +0300
+>> +++ good-log	2008-02-06 10:06:40.000000000 +0300
+>> @@ -1,4 +1,4 @@
+>> -Linux version 2.6.24 (pavel@xemulnb) (gcc version 4.1.3 20070724 (prerelease) (SUSE Linux)) #22 SMP Tue Feb 5 20:09:11 MSK 2008
+>> +Linux version 2.6.24 (pavel@xemulnb) (gcc version 4.1.3 20070724 (prerelease) (SUSE Linux)) #23 SMP Wed Feb 6 10:03:53 MSK 2008
+>>  BIOS-provided physical RAM map:
+>>   BIOS-e820: 0000000000000000 - 000000000009f800 (usable)
+>>   BIOS-e820: 000000000009f800 - 00000000000a0000 (reserved)
+>> @@ -19,29 +19,6 @@ Scan SMP from c0000000 for 1024 bytes.
+>>  Scan SMP from c009fc00 for 1024 bytes.
+>>  Scan SMP from c00f0000 for 65536 bytes.
+>>  found SMP MP-table at [c00ff780] 000ff780
+>> -***************
+>> -**** WARNING: likely BIOS bug
+>> -**** MTRRs don't cover all of memory, trimmed 786432 pages
+>> -***************
+>> -update e820 for mtrr
+>> -modified physical RAM map:
+>> - modified: 0000000000000000 - 000000000009f800 (usable)
+>> - modified: 000000000009f800 - 00000000000a0000 (reserved)
+>> - modified: 00000000000e0000 - 0000000000100000 (reserved)
+>> - modified: 0000000000100000 - 0000000040000000 (usable)
+>> - modified: 0000000040000000 - 00000000bfff0000 (reserved)
+>> - modified: 00000000bfff0000 - 00000000bffff000 (ACPI data)
+>> - modified: 00000000bffff000 - 00000000c0000000 (ACPI NVS)
+>> - modified: 00000000c0000000 - 0000000100000000 (reserved)
+>> - modified: 0000000100000000 - 0000000140000000 (usable)
+> 
+> the root cause could be your mtrr last entry for RAM has strange type
+> 
+> please apply the following line to print the mtrr before trimming to current linus tree.
 
-> On Sun, 3 Feb 2008 15:07:44 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
+OK, here's the dmesg diff:
+--- bad-log     2008-02-06 10:01:21.000000000 +0300
++++ bad-log-info        2008-02-06 11:37:51.000000000 +0300
+@@ -19,6 +19,14 @@ Scan SMP from c0000000 for 1024 bytes.
+ Scan SMP from c009fc00 for 1024 bytes.
+ Scan SMP from c00f0000 for 65536 bytes.
+ found SMP MP-table at [c00ff780] 000ff780
++i=0 c0000 - 100000 0
++i=1 0 - 100000 6
++i=2 100000 - 140000 6
++i=3 0 - 0 0
++i=4 0 - 0 0
++i=5 0 - 0 0
++i=6 0 - 0 0
++i=7 0 - 0 0
+ ***************
+ **** WARNING: likely BIOS bug
+ **** MTRRs don't cover all of memory, trimmed 786432 pages
+
+
+> Thanks
 > 
-> > On Sun, 3 Feb 2008 15:02:46 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
-> > 
-> > > 
-> > > With current mainline I'm getting intermittent hangs here:
-> > > 
-> > > 	http://userweb.kernel.org/~akpm/p2033590.jpg
-> > > 
-> > > with this config:
-> > > 
-> > > 	http://userweb.kernel.org/~akpm/config-sony.txt
-> > > 
-> > > on the Vaio.  Sometimes it boots (then hits another different hang),
-> > > sometimes it gets stuck there.
+> YH
 > 
-> CONFIG_DEBUG_LOCKING_API_SELFTESTS=n fixed that up.
-> 
-> > 
-> > The second hang is in kobject_uevent_init().  All that function does is call
-> > netlink_kernel_create().
-> 
-> And I've fully bisected this hang twice and both times came up with
-> 
-> commit 33f807ba0d9259e7c75c7a2ce8bd2787e5b540c7
-> Author: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date:   Mon Nov 19 19:24:52 2007 -0800
-> 
->     [NETPOLL]: Kill NETPOLL_RX_DROP, set but never tested.
-> 
-> which is stupid because that patch doesn't do anything.
-> 
-> However I am using netconsole-over-e100 and the hang does go away when I
-> disable netconsole on the kernel boot command line.
-> 
-> I'd say it's some timing thing in netpoll/netconsole/napi/etc.
+> diff --git a/arch/x86/kernel/cpu/mtrr/main.c b/arch/x86/kernel/cpu/mtrr/main.c
+> index 1e27b69..c0c44e0 100644
+> --- a/arch/x86/kernel/cpu/mtrr/main.c
+> +++ b/arch/x86/kernel/cpu/mtrr/main.c
+> @@ -680,6 +680,7 @@ int __init mtrr_trim_uncached_memory(unsigned long end_pfn)
+>  	/* Find highest cached pfn */
+>  	for (i = 0; i < num_var_ranges; i++) {
+>  		mtrr_if->get(i, &base, &size, &type);
+> +		printk(KERN_INFO "i=%d %lx - %lx %d\n", i, base, base + size, type);
+>  		if (type != MTRR_TYPE_WRBACK)
+>  			continue;
+>  		base <<= PAGE_SHIFT;
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
 
-I'm seeing this netconsole hang on a second machine now.  Current
-mainline.  It also has e100.  This one is SMP ancient PIII.
 
-Config: http://userweb.kernel.org/~akpm/config-vmm.txt
-
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
