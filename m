@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] [PPPOL2TP] Label unused warning when CONFIG_PROC_FS is
  not set.
-Date: Tue, 05 Feb 2008 16:31:17 -0800 (PST)
-Message-ID: <20080205.163117.154019025.davem@davemloft.net>
+Date: Tue, 05 Feb 2008 16:32:06 -0800 (PST)
+Message-ID: <20080205.163206.115103755.davem@davemloft.net>
 References: <eb3ff54b0802050415h3c4672b1r7048143b599303dd@mail.gmail.com>
-	<47A89F02.8010403@katalix.com>
+	<47A8A95B.4060905@garzik.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ramirose@gmail.com, netdev@vger.kernel.org, jeff@garzik.org,
-	linux-kernel@vger.kernel.org
-To: jchapman@katalix.com
+Cc: ramirose@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, paulus@samba.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33340
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33345
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759981AbYBFAat (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 19:30:49 -0500
-In-Reply-To: <47A89F02.8010403@katalix.com>
+	by vger.kernel.org with ESMTP id S1759114AbYBFAbi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 19:31:38 -0500
+In-Reply-To: <47A8A95B.4060905@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Chapman <jchapman@katalix.com>
-Date: Tue, 05 Feb 2008 17:38:10 +0000
+From: Jeff Garzik <jeff@garzik.org>
+Date: Tue, 05 Feb 2008 13:22:19 -0500
 
-> Acked-by: James Chapman <jchapman@katalix.com>
+> David or Paul, wanna pick this up?
 
-Applied, thanks everyone.
+I took it, no worries.
