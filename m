@@ -1,123 +1,105 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [e1000][net-2.6 tree] Regression: driver doesn't
- detect card on my node.
-Date: Wed, 06 Feb 2008 11:41:15 +0300
-Message-ID: <47A972AB.5060107@openvz.org>
-References: <47A89A77.1050608@openvz.org>
-	<200802050943.01652.yinghai.lu@sun.com>
-	<47A95D60.5090203@openvz.org>
-	<200802060020.25492.yinghai.lu@sun.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH][AX25] ax25_ds_timer: use mod_timer instead of add_timer
+Date: Wed, 6 Feb 2008 09:14:13 +0000
+Message-ID: <20080206091413.GE4496@ff.dom.local>
+References: <20080206074529.GC4496@ff.dom.local> <20080206081509.GD4496@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	Thomas Gleixner <tglx@linutronix.de>, jeffrey.t.kirsher@intel.com,
-	Denis Lunev <den@openvz.org>, Ingo Molnar <mingo@elte.hu>,
-	David Miller <davem@davemloft.net>,
-	Justin Piszcz <jpiszcz@lucidpixels.com>
-To: Yinghai Lu <Yinghai.Lu@Sun.COM>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <200802060020.25492.yinghai.lu@sun.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ralf Baechle <ralf@linux-mips.org>, Jann Traschewski <jann@gmx.de>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.191]:23811 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760748AbYBFJHK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 04:07:10 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so672713nfb.21
+        for <netdev@vger.kernel.org>; Wed, 06 Feb 2008 01:07:07 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080206081509.GD4496@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Yinghai Lu wrote:
-> On Tuesday 05 February 2008 11:10:24 pm Pavel Emelyanov wrote:
->> [snip]
->>
->>>>> What other info from me is required?
->>> boot log please. with the patch and reverting the patch.
->> Here they are (attached).
->> BTW, I found, that the sky2 adapter is broken by this patch as well.
->> To simplify the analysis, here's their diff:
->>
->> --- bad-log	2008-02-06 10:06:40.000000000 +0300
->> +++ good-log	2008-02-06 10:06:40.000000000 +0300
->> @@ -1,4 +1,4 @@
->> -Linux version 2.6.24 (pavel@xemulnb) (gcc version 4.1.3 20070724 (prerelease) (SUSE Linux)) #22 SMP Tue Feb 5 20:09:11 MSK 2008
->> +Linux version 2.6.24 (pavel@xemulnb) (gcc version 4.1.3 20070724 (prerelease) (SUSE Linux)) #23 SMP Wed Feb 6 10:03:53 MSK 2008
->>  BIOS-provided physical RAM map:
->>   BIOS-e820: 0000000000000000 - 000000000009f800 (usable)
->>   BIOS-e820: 000000000009f800 - 00000000000a0000 (reserved)
->> @@ -19,29 +19,6 @@ Scan SMP from c0000000 for 1024 bytes.
->>  Scan SMP from c009fc00 for 1024 bytes.
->>  Scan SMP from c00f0000 for 65536 bytes.
->>  found SMP MP-table at [c00ff780] 000ff780
->> -***************
->> -**** WARNING: likely BIOS bug
->> -**** MTRRs don't cover all of memory, trimmed 786432 pages
->> -***************
->> -update e820 for mtrr
->> -modified physical RAM map:
->> - modified: 0000000000000000 - 000000000009f800 (usable)
->> - modified: 000000000009f800 - 00000000000a0000 (reserved)
->> - modified: 00000000000e0000 - 0000000000100000 (reserved)
->> - modified: 0000000000100000 - 0000000040000000 (usable)
->> - modified: 0000000040000000 - 00000000bfff0000 (reserved)
->> - modified: 00000000bfff0000 - 00000000bffff000 (ACPI data)
->> - modified: 00000000bffff000 - 00000000c0000000 (ACPI NVS)
->> - modified: 00000000c0000000 - 0000000100000000 (reserved)
->> - modified: 0000000100000000 - 0000000140000000 (usable)
-> 
-> the root cause could be your mtrr last entry for RAM has strange type
-> 
-> please apply the following line to print the mtrr before trimming to current linus tree.
-
-OK, here's the dmesg diff:
---- bad-log     2008-02-06 10:01:21.000000000 +0300
-+++ bad-log-info        2008-02-06 11:37:51.000000000 +0300
-@@ -19,6 +19,14 @@ Scan SMP from c0000000 for 1024 bytes.
- Scan SMP from c009fc00 for 1024 bytes.
- Scan SMP from c00f0000 for 65536 bytes.
- found SMP MP-table at [c00ff780] 000ff780
-+i=0 c0000 - 100000 0
-+i=1 0 - 100000 6
-+i=2 100000 - 140000 6
-+i=3 0 - 0 0
-+i=4 0 - 0 0
-+i=5 0 - 0 0
-+i=6 0 - 0 0
-+i=7 0 - 0 0
- ***************
- **** WARNING: likely BIOS bug
- **** MTRRs don't cover all of memory, trimmed 786432 pages
+On Wed, Feb 06, 2008 at 08:15:09AM +0000, Jarek Poplawski wrote:
+> On Wed, Feb 06, 2008 at 07:45:29AM +0000, Jarek Poplawski wrote:
+> ...
+> > From: Jann Traschewski <jann@gmx.de>
+> > Subject: SMP with AX.25
+...
 
 
-> Thanks
-> 
-> YH
-> 
-> diff --git a/arch/x86/kernel/cpu/mtrr/main.c b/arch/x86/kernel/cpu/mtrr/main.c
-> index 1e27b69..c0c44e0 100644
-> --- a/arch/x86/kernel/cpu/mtrr/main.c
-> +++ b/arch/x86/kernel/cpu/mtrr/main.c
-> @@ -680,6 +680,7 @@ int __init mtrr_trim_uncached_memory(unsigned long end_pfn)
->  	/* Find highest cached pfn */
->  	for (i = 0; i < num_var_ranges; i++) {
->  		mtrr_if->get(i, &base, &size, &type);
-> +		printk(KERN_INFO "i=%d %lx - %lx %d\n", i, base, base + size, type);
->  		if (type != MTRR_TYPE_WRBACK)
->  			continue;
->  		base <<= PAGE_SHIFT;
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+[AX25] ax25_ds_timer: use mod_timer instead of add_timer
+
+This patch changes current use of: init_timer(), add_timer()
+and del_timer() to setup_timer() with mod_timer(), which
+should be safer anyway.
 
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2008.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+Reported-by: Jann Traschewski <jann@gmx.de>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
+---
+
+ include/net/ax25.h       |    1 +
+ net/ax25/ax25_dev.c      |    2 +-
+ net/ax25/ax25_ds_timer.c |   12 ++++--------
+ 3 files changed, 6 insertions(+), 9 deletions(-)
+
+diff --git a/include/net/ax25.h b/include/net/ax25.h
+index 3f0236f..717e219 100644
+--- a/include/net/ax25.h
++++ b/include/net/ax25.h
+@@ -324,6 +324,7 @@ extern void ax25_dama_on(ax25_cb *);
+ extern void ax25_dama_off(ax25_cb *);
+ 
+ /* ax25_ds_timer.c */
++extern void ax25_ds_setup_timer(ax25_dev *);
+ extern void ax25_ds_set_timer(ax25_dev *);
+ extern void ax25_ds_del_timer(ax25_dev *);
+ extern void ax25_ds_timer(ax25_cb *);
+diff --git a/net/ax25/ax25_dev.c b/net/ax25/ax25_dev.c
+index 528c874..a7a0e0c 100644
+--- a/net/ax25/ax25_dev.c
++++ b/net/ax25/ax25_dev.c
+@@ -82,7 +82,7 @@ void ax25_dev_device_up(struct net_device *dev)
+ 	ax25_dev->values[AX25_VALUES_DS_TIMEOUT]= AX25_DEF_DS_TIMEOUT;
+ 
+ #if defined(CONFIG_AX25_DAMA_SLAVE) || defined(CONFIG_AX25_DAMA_MASTER)
+-	init_timer(&ax25_dev->dama.slave_timer);
++	ax25_ds_setup_timer(ax25_dev);
+ #endif
+ 
+ 	spin_lock_bh(&ax25_dev_lock);
+diff --git a/net/ax25/ax25_ds_timer.c b/net/ax25/ax25_ds_timer.c
+index c4e3b02..2ce79df 100644
+--- a/net/ax25/ax25_ds_timer.c
++++ b/net/ax25/ax25_ds_timer.c
+@@ -40,13 +40,10 @@ static void ax25_ds_timeout(unsigned long);
+  *	1/10th of a second.
+  */
+ 
+-static void ax25_ds_add_timer(ax25_dev *ax25_dev)
++void ax25_ds_setup_timer(ax25_dev *ax25_dev)
+ {
+-	struct timer_list *t = &ax25_dev->dama.slave_timer;
+-	t->data		= (unsigned long) ax25_dev;
+-	t->function	= &ax25_ds_timeout;
+-	t->expires	= jiffies + HZ;
+-	add_timer(t);
++	setup_timer(&ax25_dev->dama.slave_timer, ax25_ds_timeout,
++		    (unsigned long)ax25_dev);
+ }
+ 
+ void ax25_ds_del_timer(ax25_dev *ax25_dev)
+@@ -60,10 +57,9 @@ void ax25_ds_set_timer(ax25_dev *ax25_dev)
+ 	if (ax25_dev == NULL)		/* paranoia */
+ 		return;
+ 
+-	del_timer(&ax25_dev->dama.slave_timer);
+ 	ax25_dev->dama.slave_timeout =
+ 		msecs_to_jiffies(ax25_dev->values[AX25_VALUES_DS_TIMEOUT]) / 10;
+-	ax25_ds_add_timer(ax25_dev);
++	mod_timer(&ax25_dev->dama.slave_timer, jiffies + HZ);
+ }
+ 
+ /*
