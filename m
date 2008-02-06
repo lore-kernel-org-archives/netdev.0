@@ -1,77 +1,73 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: locking api self-test hanging
-Date: Wed, 6 Feb 2008 01:16:43 -0800
-Message-ID: <20080206011643.d9021649.akpm@linux-foundation.org>
-References: <20080203150246.50647fa4.akpm@linux-foundation.org>
-	<20080203150744.cf7d0415.akpm@linux-foundation.org>
-	<20080204044304.d244e761.akpm@linux-foundation.org>
-	<20080206003412.dca555d4.akpm@linux-foundation.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [BUG][AX25] Fwd: SMP with AX.25
+Date: Wed, 6 Feb 2008 09:30:50 +0000
+Message-ID: <20080206093050.GF4496@ff.dom.local>
+References: <20080206074529.GC4496@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
-	linux-kernel@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ralf Baechle <ralf@linux-mips.org>, netdev@vger.kernel.org
+To: Jann Traschewski <jann@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:47446 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761739AbYBFJQn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 04:16:43 -0500
-In-Reply-To: <20080206003412.dca555d4.akpm@linux-foundation.org>
+Received: from ug-out-1314.google.com ([66.249.92.171]:16188 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759706AbYBFJXq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 04:23:46 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so365708ugc.16
+        for <netdev@vger.kernel.org>; Wed, 06 Feb 2008 01:23:44 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080206074529.GC4496@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 6 Feb 2008 00:34:12 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
+On Wed, Feb 06, 2008 at 07:45:29AM +0000, Jarek Poplawski wrote:
+...
+> From: Jann Traschewski <jann@gmx.de>
+> Subject: SMP with AX.25
+> To: jarkao2@gmail.com
 
-> On Mon, 4 Feb 2008 04:43:04 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
-> 
-> > On Sun, 3 Feb 2008 15:07:44 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
-> > 
-> > > On Sun, 3 Feb 2008 15:02:46 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
-> > > 
-> > > > 
-> > > > With current mainline I'm getting intermittent hangs here:
-> > > > 
-> > > > 	http://userweb.kernel.org/~akpm/p2033590.jpg
-> > > > 
-> > > > with this config:
-> > > > 
-> > > > 	http://userweb.kernel.org/~akpm/config-sony.txt
-> > > > 
-> > > > on the Vaio.  Sometimes it boots (then hits another different hang),
-> > > > sometimes it gets stuck there.
-> > 
-> > CONFIG_DEBUG_LOCKING_API_SELFTESTS=n fixed that up.
-> > 
-> > > 
-> > > The second hang is in kobject_uevent_init().  All that function does is call
-> > > netlink_kernel_create().
-> > 
-> > And I've fully bisected this hang twice and both times came up with
-> > 
-> > commit 33f807ba0d9259e7c75c7a2ce8bd2787e5b540c7
-> > Author: Stephen Hemminger <shemminger@linux-foundation.org>
-> > Date:   Mon Nov 19 19:24:52 2007 -0800
-> > 
-> >     [NETPOLL]: Kill NETPOLL_RX_DROP, set but never tested.
-> > 
-> > which is stupid because that patch doesn't do anything.
-> > 
-> > However I am using netconsole-over-e100 and the hang does go away when I
-> > disable netconsole on the kernel boot command line.
-> > 
-> > I'd say it's some timing thing in netpoll/netconsole/napi/etc.
-> > 
-> 
-> I'm seeing this netconsole hang on a second machine now.  Current
-> mainline.  It also has e100.  This one is SMP ancient PIII.
-> 
-> Config: http://userweb.kernel.org/~akpm/config-vmm.txt
-> 
+According to one of OOPSes reported by Jann softirq can break
+while skb is prepared for netif_rx. The report isn't complete,
+so the real reason of the later bug could be different, but
+IMHO this locking in ax_bump is wrong.
 
-I can reproduce this on a third machine: the t61p laptop: dual x86_64 with
-e1000.
+I attach this patch for testing purpose only.
 
-It seems to need quite a lot of printk activity to make it happen.  Turning
-on initcall_debug is a suitable way of triggering it.
+Jarek P.
 
+---
+
+ drivers/net/hamradio/mkiss.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.c
+index cfcd15a..30c9b3b 100644
+--- a/drivers/net/hamradio/mkiss.c
++++ b/drivers/net/hamradio/mkiss.c
+@@ -289,7 +289,6 @@ static void ax_bump(struct mkiss *ax)
+ 			*ax->rbuff &= ~0x20;
+ 		}
+  	}
+-	spin_unlock_bh(&ax->buflock);
+ 
+ 	count = ax->rcount;
+ 
+@@ -297,17 +296,17 @@ static void ax_bump(struct mkiss *ax)
+ 		printk(KERN_ERR "mkiss: %s: memory squeeze, dropping packet.\n",
+ 		       ax->dev->name);
+ 		ax->stats.rx_dropped++;
++		spin_unlock_bh(&ax->buflock);
+ 		return;
+ 	}
+ 
+-	spin_lock_bh(&ax->buflock);
+ 	memcpy(skb_put(skb,count), ax->rbuff, count);
+-	spin_unlock_bh(&ax->buflock);
+ 	skb->protocol = ax25_type_trans(skb, ax->dev);
+ 	netif_rx(skb);
+ 	ax->dev->last_rx = jiffies;
+ 	ax->stats.rx_packets++;
+ 	ax->stats.rx_bytes += count;
++	spin_unlock_bh(&ax->buflock);
+ }
+ 
+ static void kiss_unesc(struct mkiss *ax, unsigned char s)
