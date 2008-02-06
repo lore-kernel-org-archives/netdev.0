@@ -1,69 +1,50 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [patch 2.6.24-git] net/enc28j60: oops fix
-Date: Wed, 06 Feb 2008 09:33:42 -0800
-Message-ID: <20080206173342.21CDF8E152@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
-References: <20080205190124.E72F48E45F@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
- <47A9EA42.3080800@eptar.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, lanconelli.claudio@eptar.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp117.sbc.mail.sp1.yahoo.com ([69.147.64.90]:44907 "HELO
-	smtp117.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754328AbYBFRdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 12:33:43 -0500
-In-Reply-To: <47A9EA42.3080800@eptar.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-> > Prevent unaligned packet oops on enc28j60 packet RX.
->
-> How can I reproduce the unaligned packet oops?
-
-Use any architecture that doesn't support unaligned accesses
-in kernel space.  I used AVR32 for this (it's got a pretty
-solid SPI master controller driver). ARM isn't immune either,
-and there are others.  That's why NET_IP_ALIGN exists.
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [ofa-general] [PATCH 2.6.25] cxgb3: Handle ARP completions that mark
+	neighbors stale.
+Date: Wed, 06 Feb 2008 12:05:19 -0600
+Message-ID: <20080206180519.4680.34741.stgit@dell3.ogc.int>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: jeff@garzik.org,divy@chelsio.com
+Return-path: <general-bounces@lists.openfabrics.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
 
-> Did you use any utilities to force this condition?
+cxgb3: Handle ARP completions that mark neighbors stale.
 
-"ping" ... the first RX packet oopsed.
+When ARP completes due to a request rather than a reply the neighbor is
+marked NUD_STALE instead of reachable (see arp_process()).  The handler
+for the resulting netevent needs to check also for NUD_STALE.
 
+Failure to use the arp entry can cause RDMA connection failures.
 
-> Can you split the patch in 2 parts, unaligned rx and power save?
-
-Below is: unaligned access.
-
-- Dave
-
-
-=========== CUT HERE
-Prevent oops on enc28j60 packet RX:  make sure buffers are aligned.
-Not all architectures support unaligned accesses in kernel space.
-
-Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/net/enc28j60.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletion(-)
 
---- a/drivers/net/enc28j60.c	2008-02-06 09:29:00.000000000 -0800
-+++ b/drivers/net/enc28j60.c	2008-02-06 09:30:03.000000000 -0800
-@@ -900,7 +900,7 @@ static void enc28j60_hw_rx(struct net_de
- 		if (RSV_GETBIT(rxstat, RSV_LENCHECKERR))
- 			ndev->stats.rx_frame_errors++;
- 	} else {
--		skb = dev_alloc_skb(len);
-+		skb = dev_alloc_skb(len + NET_IP_ALIGN);
- 		if (!skb) {
- 			if (netif_msg_rx_err(priv))
- 				dev_err(&ndev->dev,
-@@ -908,6 +908,7 @@ static void enc28j60_hw_rx(struct net_de
- 			ndev->stats.rx_dropped++;
+ drivers/net/cxgb3/l2t.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/cxgb3/l2t.c b/drivers/net/cxgb3/l2t.c
+index d660af7..d80bbdb 100644
+--- a/drivers/net/cxgb3/l2t.c
++++ b/drivers/net/cxgb3/l2t.c
+@@ -404,7 +404,7 @@ found:
+ 			if (neigh->nud_state & NUD_FAILED) {
+ 				arpq =3D e->arpq_head;
+ 				e->arpq_head =3D e->arpq_tail =3D NULL;
+-			} else if (neigh_is_connected(neigh))
++			} else if (neigh->nud_state & (NUD_CONNECTED|NUD_STALE))
+ 				setup_l2e_send_pending(dev, NULL, e);
  		} else {
- 			skb->dev = ndev;
-+			skb_reserve(skb, NET_IP_ALIGN);
- 			/* copy the packet from the receive buffer */
- 			enc28j60_mem_read(priv, priv->next_pk_ptr + sizeof(rsv),
- 					len, skb_put(skb, len));
+ 			e->state =3D neigh_is_connected(neigh) ?
