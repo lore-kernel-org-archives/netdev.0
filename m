@@ -1,56 +1,31 @@
-From: Chris Caputo <ccaputo@alt.net>
-Subject: Re: [PATCH] iputils/ping_common.c: avoid gethostbyaddr during ping
-	flood
-Date: Wed, 6 Feb 2008 14:02:14 +0000 (UTC)
-Message-ID: <Pine.LNX.4.64.0802061401370.31285@nacho.alt.net>
+From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
+Subject: Re: oops with ipcomp
+Date: Wed, 6 Feb 2008 15:43:25 +0100
+Message-ID: <3C59DB883F7B0B4D8096010D45ACCD134F20BB@exch.facton.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Herbert Xu" <herbert@gondor.apana.org.au>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nacho.alt.net ([207.14.113.18]:38926 "HELO nacho.alt.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750713AbYBFOIz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2008 09:08:55 -0500
+Received: from alpha.facton.com ([83.236.152.122]:44794 "EHLO alpha.facton.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751390AbYBFOnh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 09:43:37 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Resend with whitespace preserved.]
+> Unable to handle kernel paging request at ffffc200000fb000 RIP: 
+>  [<ffffffff8031b8f0>] deflate_slow+0x40/0x400
 
-Unless a destination is specified by IP address, a ping flood results in a 
-gethostbyaddr() for every echo reply.  Thus a DNS flood can accompany a 
-ping flood.
- 
-This patch makes it so a gethostbyaddr() is not performed with each echo 
-reply during a ping flood.
+Here is some more information about the scenario in which I can easily
+reproduce the oops now:
 
-Signed-off-by: Chris Caputo <ccaputo@alt.net>
----
- ping_common.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Net_A - GW_A --- GW_B - Net_B
 
-===================================================================
-diff -ur iputils-s20071127/ping_common.c iputils/ping_common.c
---- iputils-s20071127/ping_common.c	2007-11-27 00:57:27.000000000 +0000
-+++ iputils/ping_common.c	2008-02-06 12:38:01.000000000 +0000
-@@ -114,10 +114,6 @@
- 	case 'd':
- 		options |= F_SO_DEBUG;
- 		break;
--	case 'f':
--		options |= F_FLOOD;
--		setbuf(stdout, (char *)NULL);
--		break;
- 	case 'i':		/* wait between sending packets */
- 	{
- 		if (strchr(optarg, '.')) {
-@@ -168,6 +164,10 @@
- 			exit(2);
- 		}
- 		break;
-+	case 'f':
-+		options |= F_FLOOD;
-+		setbuf(stdout, (char *)NULL);
-+		/* fallthrough to numeric - avoid gethostbyaddr during flood */
- 	case 'n':
- 		options |= F_NUMERIC;
- 		break;
+The Net_A - Net_B ESP/AES/IPComp tunnel works fine, the tunnel between
+Net_B and the external IP address of GW_A triggers the oops in GW_A.
+
+Daniel
