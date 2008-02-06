@@ -1,112 +1,113 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] virtio_net: Fix open <-> interrupt race
-Date: Wed, 06 Feb 2008 06:44:23 -0500
-Message-ID: <47A99D97.4030904@garzik.org>
-References: <200802051436.10841.borntraeger@de.ibm.com> <200802061500.04138.rusty@rustcorp.com.au> <200802060850.11923.borntraeger@de.ibm.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] [NET] phy/broadcom: add support for BCM5481 PHY
+Date: Wed, 06 Feb 2008 06:44:32 -0500
+Message-ID: <47A99DA0.3040505@pobox.com>
+References: <20080203185804.GA30342@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Christian Borntraeger <borntraeger@de.ibm.com>
+Cc: "Maciej W. Rozycki" <macro@linux-mips.org>,
+	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org
+To: Anton Vorontsov <avorontsov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40842 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:40848 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758074AbYBFLof (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2008 06:44:35 -0500
-In-Reply-To: <200802060850.11923.borntraeger@de.ibm.com>
+	id S1761473AbYBFLol (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2008 06:44:41 -0500
+In-Reply-To: <20080203185804.GA30342@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christian Borntraeger wrote:
-> Jeff,
+Anton Vorontsov wrote:
+> This patch adds support for BCM5481 PHY. Unfortunately it's hard to
+> get specifications for this PHY, so its special register 0x18 isn't
+> annotated properly (but we know it's used to set up the delays).
 > 
-> Rusty is (supposed to be) on vacation. Can you send this fix against
-> virtio_net with your next network driver fixes for 2.6.25? 
+> I've kept the magic numbers, so we'll not forget to fix it at the
+> first opportunity, and will name that register and its bits correctly.
 > 
-> Thank you
-> 
-> -
-> 
-> I got the following oops during interface ifup. Unfortunately its not 
-> easily reproducable so I cant say for sure that my fix fixes this
-> problem, but I am confident and I think its correct anyway:
-> 
->    <2>kernel BUG at /space/kvm/drivers/virtio/virtio_ring.c:234!
->     <4>illegal operation: 0001 [#1] PREEMPT SMP
->     <4>Modules linked in:
->     <4>CPU: 0 Not tainted 2.6.24zlive-guest-07293-gf1ca151-dirty #91
->     <4>Process swapper (pid: 0, task: 0000000000800938, ksp: 000000000084ddb8)
->     <4>Krnl PSW : 0404300180000000 0000000000466374 (vring_disable_cb+0x30/0x34)
->     <4>           R:0 T:1 IO:0 EX:0 Key:0 M:1 W:0 P:0 AS:0 CC:3 PM:0 EA:3
->     <4>Krnl GPRS: 0000000000000001 0000000000000001 0000000010003800 0000000000466344
->     <4>           000000000e980900 00000000008848b0 000000000084e748 0000000000000000
->     <4>           000000000087b300 0000000000001237 0000000000001237 000000000f85bdd8
->     <4>           000000000e980920 00000000001137c0 0000000000464754 000000000f85bdd8
->     <4>Krnl Code: 0000000000466368: e3b0b0700004        lg      %r11,112(%r11)
->     <4>           000000000046636e: 07fe                bcr     15,%r14
->     <4>           0000000000466370: a7f40001            brc     15,466372
->     <4>          >0000000000466374: a7f4fff6            brc     15,466360
->     <4>           0000000000466378: eb7ff0500024        stmg    %r7,%r15,80(%r15)
->     <4>           000000000046637e: a7f13e00            tmll    %r15,15872
->     <4>           0000000000466382: b90400ef            lgr     %r14,%r15
->     <4>           0000000000466386: a7840001            brc     8,466388
->     <4>Call Trace:
->     <4>([<000201500f85c000>] 0x201500f85c000)
->     <4> [<0000000000466556>] vring_interrupt+0x72/0x88
->     <4> [<00000000004801a0>] kvm_extint_handler+0x34/0x44
->     <4> [<000000000010d22c>] do_extint+0xbc/0xf8
->     <4> [<0000000000113f98>] ext_no_vtime+0x16/0x1a
->     <4> [<000000000010a182>] cpu_idle+0x216/0x238
->     <4>([<000000000010a162>] cpu_idle+0x1f6/0x238)
->     <4> [<0000000000568656>] rest_init+0xaa/0xb8
->     <4> [<000000000084ee2c>] start_kernel+0x3fc/0x490
->     <4> [<0000000000100020>] _stext+0x20/0x80
->     <4>
->     <4> <0>Kernel panic - not syncing: Fatal exception in interrupt
->     <4>
-> 
-> After looking at the code and the dump I think the following scenario
-> happened: Ifup was running on cpu2 and the interrupt arrived on cpu0.
-> Now virtnet_open on cpu 2 managed to execute napi_enable and disable_cb
-> but did not execute rx_schedule. Meanwhile on cpu 0 skb_recv_done was
-> called by vring_interrupt, executed netif_rx_schedule_prep, which
-> succeeded and therefore called disable_cb. This triggered the BUG_ON,
-> as interrupts were already disabled by cpu 2.
-> 
-> I think the proper solution is to make the call to disable_cb depend on
-> the atomic update of NAPI_STATE_SCHED by using netif_rx_schedule_prep
-> in the same way as skb_recv_done. 
-> 
-> 
-> Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
-> Acked-by: Rusty Russell <rusty@rustcorp.com.au>
-> 
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 > ---
->  drivers/net/virtio_net.c |   10 ++++++----
->  1 file changed, 6 insertions(+), 4 deletions(-)
+>  drivers/net/phy/broadcom.c |   54 ++++++++++++++++++++++++++++++++++++++++++++
+>  1 files changed, 54 insertions(+), 0 deletions(-)
 > 
-> Index: kvm/drivers/net/virtio_net.c
-> ===================================================================
-> --- kvm.orig/drivers/net/virtio_net.c
-> +++ kvm/drivers/net/virtio_net.c
-> @@ -321,10 +321,12 @@ static int virtnet_open(struct net_devic
->  
->  	/* If all buffers were filled by other side before we napi_enabled, we
->  	 * won't get another interrupt, so process any outstanding packets
-> -	 * now.  virtnet_poll wants re-enable the queue, so we disable here. */
-> -	vi->rvq->vq_ops->disable_cb(vi->rvq);
-> -	netif_rx_schedule(vi->dev, &vi->napi);
-> -
-> +	 * now.  virtnet_poll wants re-enable the queue, so we disable here.
-> +	 * We synchronize against interrupts via NAPI_STATE_SCHED */
-> +	if (netif_rx_schedule_prep(dev, &vi->napi)) {
-> +		vi->rvq->vq_ops->disable_cb(vi->rvq);
-> +		__netif_rx_schedule(dev, &vi->napi);
-> +	}
->  	return 0;
+> diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+> index 29666c8..d15280e 100644
+> --- a/drivers/net/phy/broadcom.c
+> +++ b/drivers/net/phy/broadcom.c
+> @@ -99,6 +99,41 @@ static int bcm54xx_config_intr(struct phy_device *phydev)
+>  	return err;
 >  }
+>  
+> +static int bcm5481_config_aneg(struct phy_device *phydev)
+> +{
+> +	int ret;
+> +
+> +	/* Aneg firsly. */
+> +	ret = genphy_config_aneg(phydev);
+> +
+> +	/* Then we can set up the delay. */
+> +	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
+> +		u16 reg;
+> +
+> +		/*
+> +		 * There is no BCM5481 specification available, so down
+> +		 * here is everything we know about "register 0x18". This
+> +		 * at least helps BCM5481 to successfuly receive packets
+> +		 * on MPC8360E-RDK board. Peter Barada <peterb@logicpd.com>
+> +		 * says: "This sets delay between the RXD and RXC signals
+> +		 * instead of using trace lengths to achieve timing".
+> +		 */
+> +
+> +		/* Set RDX clk delay. */
+> +		reg = 0x7 | (0x7 << 12);
+> +		phy_write(phydev, 0x18, reg);
+> +
+> +		reg = phy_read(phydev, 0x18);
+> +		/* Set RDX-RXC skew. */
+> +		reg |= (1 << 8);
+> +		/* Write bits 14:0. */
+> +		reg |= (1 << 15);
+> +		phy_write(phydev, 0x18, reg);
+> +	}
+> +
+> +	return ret;
+> +}
+> +
+>  static struct phy_driver bcm5411_driver = {
+>  	.phy_id		= 0x00206070,
+>  	.phy_id_mask	= 0xfffffff0,
+> @@ -141,6 +176,20 @@ static struct phy_driver bcm5461_driver = {
+>  	.driver 	= { .owner = THIS_MODULE },
+>  };
+>  
+> +static struct phy_driver bcm5481_driver = {
+> +	.phy_id		= 0x0143bca0,
+> +	.phy_id_mask	= 0xfffffff0,
+> +	.name		= "Broadcom BCM5481",
+> +	.features	= PHY_GBIT_FEATURES,
+> +	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+> +	.config_init	= bcm54xx_config_init,
+> +	.config_aneg	= bcm5481_config_aneg,
+> +	.read_status	= genphy_read_status,
+> +	.ack_interrupt	= bcm54xx_ack_interrupt,
+> +	.config_intr	= bcm54xx_config_intr,
+> +	.driver 	= { .owner = THIS_MODULE },
+> +};
+> +
+>  static int __init broadcom_init(void)
+>  {
+>  	int ret;
+> @@ -154,8 +203,13 @@ static int __init broadcom_init(void)
+>  	ret = phy_driver_register(&bcm5461_driver);
+>  	if (ret)
+>  		goto out_5461;
+> +	ret = phy_driver_register(&bcm5481_driver);
+> +	if (ret)
+> +		goto out_5481;
+>  	return ret;
 
 applied
+
 
 
