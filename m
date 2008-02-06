@@ -1,15 +1,15 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 16/17] [NETNS]: Enable IPv4 address manipulations inside namespace.
-Date: Wed,  6 Feb 2008 13:53:36 +0300
-Message-ID: <1202295217-22769-16-git-send-email-den@openvz.org>
+Subject: [PATCH 15/17] [NETNS]: Enable all routing manipulation via netlink inside namespace.
+Date: Wed,  6 Feb 2008 13:53:35 +0300
+Message-ID: <1202295217-22769-15-git-send-email-den@openvz.org>
 References: <47A99196.2030105@sw.ru>
 Cc: netdev@vger.kernel.org, devel@openvz.org,
 	containers@lists.osdl.org, "Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:50446 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:64636 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758811AbYBFKxQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1758797AbYBFKxQ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 6 Feb 2008 05:53:16 -0500
 In-Reply-To: <47A99196.2030105@sw.ru>
 Sender: netdev-owner@vger.kernel.org
@@ -17,43 +17,74 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- net/ipv4/devinet.c |    9 ---------
- 1 files changed, 0 insertions(+), 9 deletions(-)
+ net/ipv4/route.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index f7e78b7..aa23d10 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -446,9 +446,6 @@ static int inet_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg
- 
- 	ASSERT_RTNL();
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 8a31e33..92ff622 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2672,9 +2672,6 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
+ 	int err;
+ 	struct sk_buff *skb;
  
 -	if (net != &init_net)
 -		return -EINVAL;
 -
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv4_policy);
+ 	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_ipv4_policy);
  	if (err < 0)
  		goto errout;
-@@ -560,9 +557,6 @@ static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg
+@@ -2704,7 +2701,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
+ 	if (iif) {
+ 		struct net_device *dev;
  
- 	ASSERT_RTNL();
+-		dev = __dev_get_by_index(&init_net, iif);
++		dev = __dev_get_by_index(net, iif);
+ 		if (dev == NULL) {
+ 			err = -ENODEV;
+ 			goto errout_free;
+@@ -2730,7 +2727,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
+ 			},
+ 			.oif = tb[RTA_OIF] ? nla_get_u32(tb[RTA_OIF]) : 0,
+ 		};
+-		err = ip_route_output_key(&init_net, &rt, &fl);
++		err = ip_route_output_key(net, &rt, &fl);
+ 	}
  
--	if (net != &init_net)
--		return -EINVAL;
--
- 	ifa = rtm_to_ifaddr(net, nlh);
- 	if (IS_ERR(ifa))
- 		return PTR_ERR(ifa);
-@@ -1169,9 +1163,6 @@ static int inet_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct in_ifaddr *ifa;
- 	int s_ip_idx, s_idx = cb->args[0];
+ 	if (err)
+@@ -2741,11 +2738,11 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
+ 		rt->rt_flags |= RTCF_NOTIFY;
  
--	if (net != &init_net)
--		return 0;
--
- 	s_ip_idx = ip_idx = cb->args[1];
- 	idx = 0;
- 	for_each_netdev(net, dev) {
+ 	err = rt_fill_info(skb, NETLINK_CB(in_skb).pid, nlh->nlmsg_seq,
+-				RTM_NEWROUTE, 0, 0);
++			   RTM_NEWROUTE, 0, 0);
+ 	if (err <= 0)
+ 		goto errout_free;
+ 
+-	err = rtnl_unicast(skb, &init_net, NETLINK_CB(in_skb).pid);
++	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).pid);
+ errout:
+ 	return err;
+ 
+@@ -2759,6 +2756,9 @@ int ip_rt_dump(struct sk_buff *skb,  struct netlink_callback *cb)
+ 	struct rtable *rt;
+ 	int h, s_h;
+ 	int idx, s_idx;
++	struct net *net;
++
++	net = skb->sk->sk_net;
+ 
+ 	s_h = cb->args[0];
+ 	if (s_h < 0)
+@@ -2768,7 +2768,7 @@ int ip_rt_dump(struct sk_buff *skb,  struct netlink_callback *cb)
+ 		rcu_read_lock_bh();
+ 		for (rt = rcu_dereference(rt_hash_table[h].chain), idx = 0; rt;
+ 		     rt = rcu_dereference(rt->u.dst.rt_next), idx++) {
+-			if (idx < s_idx)
++			if (rt->u.dst.dev->nd_net != net || idx < s_idx)
+ 				continue;
+ 			if (rt->rt_genid != atomic_read(&rt_genid))
+ 				continue;
 -- 
 1.5.3.rc5
 
