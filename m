@@ -1,35 +1,33 @@
-From: Johan Andersson <johan.andersson@transmode.se>
-Subject: e1000e: Hardware CRC stripping doesn't work with 82566DM-2
-Date: Wed, 06 Feb 2008 21:42:28 +0100
-Message-ID: <47AA1BB4.8010802@transmode.se>
+From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
+Subject: Re: oops with ipcomp
+Date: Wed, 6 Feb 2008 21:55:03 +0100
+Message-ID: <3C59DB883F7B0B4D8096010D45ACCD134F20C0@exch.facton.local>
+References: <3C59DB883F7B0B4D8096010D45ACCD134F20BB@exch.facton.local> <20080206170717.GA20308@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:45228 "EHLO
-	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756199AbYBFUrn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 15:47:43 -0500
+Received: from alpha.facton.com ([83.236.152.122]:48755 "EHLO alpha.facton.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757502AbYBFUzK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 15:55:10 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20080206170717.GA20308@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+>> Net_A - GW_A --- GW_B - Net_B
+>> The Net_A - Net_B ESP/AES/IPComp tunnel works fine, the tunnel
+between
+>> Net_B and the external IP address of GW_A triggers the oops in GW_A.
 
-In commit 140a74802894e9db57e5cd77ccff77e590ece5f3 a workaround for crc 
-stripping was removed.
-However, the hardware supported crc stripping now in use doesn't seem to 
-work with the following chip:
-Intel Corporation 82566DM-2 Gigabit Network Connection (rev 02) (8086:10bd)
+> That's interesting.  So which one out of A and B is running 2.6.24?
 
-I discovered this while trying to make this nic member of a bridge. 
-Since some frames get too large for the bridge they are dropped, making 
-it impossible to use this nic in a bridge.
+A is the oopsing 2.6.24, B is 2.6.23.
+I didn't change anything in the scenario recently, till 2.6.23 all
+worked fine.
 
-Reverting this commit makes the nic and brigde work again.
-
-Are there any more chips in this family suffering from this?
-
-/Johan Andersson
-
-
+Daniel
