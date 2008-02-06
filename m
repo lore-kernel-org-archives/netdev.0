@@ -1,52 +1,34 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [PATCH] net: NEWEMAC: Remove "rgmii-interface" from rgmii
-	matching table
-Date: Wed, 6 Feb 2008 10:35:54 -0600
-Message-ID: <20080206163554.GA18575@lixom.net>
-References: <1202300519-7294-1-git-send-email-sr@denx.de> <20080206160157.GA18228@lixom.net> <20080206102340.1cdf7f8d@zod.rchland.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: oops with ipcomp
+Date: Thu, 7 Feb 2008 04:07:17 +1100
+Message-ID: <20080206170717.GA20308@gondor.apana.org.au>
+References: <3C59DB883F7B0B4D8096010D45ACCD134F20BB@exch.facton.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stefan Roese <sr@denx.de>, linuxppc-dev@ozlabs.org,
-	jeff@garzik.org, netdev@vger.kernel.org
-To: Josh Boyer <jwboyer@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Beschorner Daniel <Daniel.Beschorner@facton.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:39722 "EHLO mail.lixom.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752369AbYBFQeo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2008 11:34:44 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:35174 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756004AbYBFRHT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 12:07:19 -0500
 Content-Disposition: inline
-In-Reply-To: <20080206102340.1cdf7f8d@zod.rchland.ibm.com>
+In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD134F20BB@exch.facton.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 06, 2008 at 10:23:40AM -0600, Josh Boyer wrote:
-> On Wed, 6 Feb 2008 10:01:57 -0600
-> Olof Johansson <olof@lixom.net> wrote:
+On Wed, Feb 06, 2008 at 03:43:25PM +0100, Beschorner Daniel wrote:
 > 
-> > On Wed, Feb 06, 2008 at 01:21:59PM +0100, Stefan Roese wrote:
-> > > With the removal the the "rgmii-interface" device_type property from the
-> > > dts files, the newemac driver needs an update to only rely on compatible
-> > > property.
-> > 
-> > What about systems using an older dts, such as one kexec:ing from an
-> > older kernel?
+> Net_A - GW_A --- GW_B - Net_B
 > 
-> Like what?  Kexec doesn't work on 4xx yet.
+> The Net_A - Net_B ESP/AES/IPComp tunnel works fine, the tunnel between
+> Net_B and the external IP address of GW_A triggers the oops in GW_A.
 
-Sure, but similar restrictions would apply for customers who have a
-flashed device tree that want to boot a newer kernel. Deprecating old
-device tree support is something that should be done very carefully.
+That's interesting.  So which one out of A and B is running 2.6.24?
 
-> > Just because the device tree source is distributed in the kernel tree
-> > doesn't mean it can give up backwards compatibility.
-> 
-> We checked Axon, which is the only non-DTS machine that uses EMAC and
-> it will work fine with this change.
-
-Ah, ok. I remember discussions about this patch before then, sounds like
-it's safe. I just triggered on the dts-centric patch description.
-
-Objections withdrawn. :)
-
-
--Olof
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
