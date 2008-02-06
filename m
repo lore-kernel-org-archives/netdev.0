@@ -1,36 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [bug] networking broke, ssh: connect to port 22: Protocol error
-Date: Wed, 06 Feb 2008 04:32:46 -0800 (PST)
-Message-ID: <20080206.043246.63923682.davem@davemloft.net>
-References: <20080206113829.GA14793@elte.hu>
-	<20080206.034243.243568099.davem@davemloft.net>
-	<20080206122248.GA5233@elte.hu>
+From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net: NEWEMAC: Remove "rgmii-interface" from rgmii
+ matching table
+Date: Wed, 6 Feb 2008 06:49:47 -0600
+Message-ID: <20080206064947.7e91d833@zod.rchland.ibm.com>
+References: <1202300519-7294-1-git-send-email-sr@denx.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: mingo@elte.hu
+Cc: jeff@garzik.org, netdev@vger.kernel.org, benh@kernel.crashing.org,
+	linuxppc-dev@ozlabs.org
+To: Stefan Roese <sr@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50293
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1762151AbYBFMcR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 07:32:17 -0500
-In-Reply-To: <20080206122248.GA5233@elte.hu>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:51746 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759806AbYBFMuE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2008 07:50:04 -0500
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m16Co2Se010199
+	for <netdev@vger.kernel.org>; Wed, 6 Feb 2008 07:50:02 -0500
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m16Co2aF205240
+	for <netdev@vger.kernel.org>; Wed, 6 Feb 2008 05:50:02 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m16Co1hk015828
+	for <netdev@vger.kernel.org>; Wed, 6 Feb 2008 05:50:02 -0700
+In-Reply-To: <1202300519-7294-1-git-send-email-sr@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Wed, 6 Feb 2008 13:22:48 +0100
+On Wed,  6 Feb 2008 13:21:59 +0100
+Stefan Roese <sr@denx.de> wrote:
 
-> So no, it does not fix the problem. The config i sent is a rather 
-> generic one, it should boot on most whitebox PCs. TCP connections will 
-> fail immediately, all the time.
+> With the removal the the "rgmii-interface" device_type property from the
+> dts files, the newemac driver needs an update to only rely on compatible
+> property.
+> 
+> Signed-off-by: Stefan Roese <sr@denx.de>
+> Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
-I suspect this got added recently with how often and how thoroughly
-you test things :-)
+Acked-by: Josh Boyer <jwboyer@linux.vnet.ibm.com>
 
-If you can only give us the last GIT head that worked on that machine
-it might help us narrow things down a lot.
-
-If you have time for a bisect, even better but not absolutely
-required.
+josh
