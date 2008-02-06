@@ -1,51 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] Remove unnecessary locks from rtnetlink
-Date: Tue, 05 Feb 2008 17:53:37 -0800 (PST)
-Message-ID: <20080205.175337.266368079.davem@davemloft.net>
-References: <12018820194128-git-send-email-panther@balabit.hu>
-	<12018820542721-git-send-email-panther@balabit.hu>
+From: Michael Pyne <mpyne@purinchu.net>
+Subject: Re: [patch 2/4] forcedeth: fix MAC address detection on network card (regression in 2.6.23)
+ =?iso-8859-1?q?=00?=
+Date: Tue, 5 Feb 2008 21:06:27 -0500
+Message-ID: <200802052106.36012.mpyne@purinchu.net>
+References: <200802050746.m157ktY9010399@imap1.linux-foundation.org> <47A8B558.7060605@garzik.org> <47A751F6.3030007@nvidia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart1476200.t4yC2puYNs";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: panther@balabit.hu
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, michael.pyne@kdemail.net,
+	LKML <linux-kernel@vger.kernel.org>
+To: Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33163
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759362AbYBFBxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 20:53:08 -0500
-In-Reply-To: <12018820542721-git-send-email-panther@balabit.hu>
+Received: from hapkido.dreamhost.com ([66.33.216.122]:52178 "EHLO
+	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758939AbYBFCJE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2008 21:09:04 -0500
+In-Reply-To: <47A751F6.3030007@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Laszlo Attila Toth <panther@balabit.hu>
-Date: Fri,  1 Feb 2008 17:07:33 +0100
+--nextPart1476200.t4yC2puYNs
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> The do_setlink() function is protected by rtnl, additional locks are unnecessary.
-> and the set_operstate() function is called from protected parts. Locks removed
-> from both functions.
-> 
-> The set_operstate() is also called from rtnl_create_link() and from no other places.
-> In rtnl_create_link() none of the changes is protected by set_lock_bh() except
-> inside set_operstate(), different locking scheme is not necessary
-> for the operstate.
-> 
-> Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
+On Monday 04 February 2008, Ayaz Abdulla wrote:
+> Jeff Garzik wrote:
+> > Ayaz Abdulla wrote:
+> >> I believe Michael determined that a newer BIOS fixes this issue.
+> >
+> > That's a solution that makes vendors happy... but we still have to deal
+> > with it in Linux.  There are plenty of the old broken BIOS still out in
+> > the field...
+> >
+> >     Jeff
+>
+> Michael, can you provide which BIOS version had this issue and which
+> version fixed the issue?
 
-The protection using dev_base_lock() is needed.
+Ayaz,
 
-When analyzing cases like this you need to also look at other code
-paths outside of rtnetlink that access ->operstate and ->link_mode,
-you obviously didn't do this.
+One of my earlier messages to the list was from BIOS revision F3 from what =
+I=20
+can tell (which matches pretty well with what I remember having).  I am=20
+currently on F8.
 
-For example, net/core/net-sysfs.c takes a read lock on dev_base_lock
-in order to fetch a stable copy of both netif_running() and
-dev->operstate at the same time.
+I may go back to F3 if I can get booting from USB to work just to verify=20
+because I could have sworn it was still broken after going to F8.  But sinc=
+e=20
+unpatched Linux 2.6.23.12 apparently works fine and I'm not sure when exact=
+ly=20
+that happened (I use Ketchup to maintain the sources and somewhere it=20
+unpatched my forcedeth.c :) I want to double-check that a simple BIOS upgra=
+de=20
+will solve it.
 
-Similar write locking to protect dev->operstate is made by
-net/core/link_watch.c:rfc2863_policy(), for the same reason rtnetlink
-has to make this locking.
+But I also don't have a lot of time before I go underway for a few months. =
+:-/
 
-You therefore cannot remove it.
+Regards,
+ - Michael Pyne
 
-This invalidates your second patch so I'm dropping that as well.
+--nextPart1476200.t4yC2puYNs
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.7 (GNU/Linux)
+
+iD8DBQBHqRYrqjQYp5Omm0oRAvAiAKC9insSAx1QZ3gSdrzWqXHdLQdIQQCfZyf9
+1mURTWfRPFp5Sel66amOXUc=
+=nZrB
+-----END PGP SIGNATURE-----
+
+--nextPart1476200.t4yC2puYNs--
