@@ -1,83 +1,106 @@
-From: Michael Monnerie <michael.monnerie@it-management.at>
-Subject: Re: [Netatalk-admins] netatalk slow after system upgrade (possibly kernel problem?)
-Date: Thu, 7 Feb 2008 01:49:44 +0100
-Message-ID: <200802070149.45873@zmi.at>
-References: <200801251255.48105@zmi.at> <200802051626.25030@zmi.at> <73F08C2B-C3F9-4846-962E-A3D2692804E0@supported.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart29334422.M4tpLIQOGx";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netatalk-admins@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Ralph =?iso-8859-15?q?B=F6hme?= <lists@supported.de>
+From: <gregkh@suse.de>
+Subject: patch forcedeth-mac-address-mcp77-79.patch queued to -stable tree
+Date: Wed, 06 Feb 2008 16:53:29 -0800
+Message-ID: <20080207005513.BA5C51454459@imap.suse.de>
+References: <479DF3B8.2000204@nvidia.com>
+Cc: <stable@kernel.org>, <stable-commits@vger.kernel.org>
+To: aabdulla@nvidia.com, akpm@osdl.org, davem@davemloft.net,
+	gregkh@suse.de, jeff@garzik.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailsrv1.zmi.at ([212.69.162.198]:40101 "EHLO mailsrv1.zmi.at"
+Received: from cantor2.suse.de ([195.135.220.15]:40032 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763919AbYBGAtv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2008 19:49:51 -0500
-In-Reply-To: <73F08C2B-C3F9-4846-962E-A3D2692804E0@supported.de>
+	id S1764678AbYBGAzR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2008 19:55:17 -0500
+In-Reply-To: <479DF3B8.2000204@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart29334422.M4tpLIQOGx
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
 
-I received this e-mail, which could be the resolution to this problem. I=20
-will test it with the customer tomorrow.
+This is a note to let you know that we have just queued up the patch titled
 
-Is there a workaround possible from the Linux server, instead of=20
-modifying all clients? As it runs with kernel 2.6.13, but not with=20
-2.6.23, maybe some behaviour change via sysctl could help here.
+     Subject: forcedeth: mac address mcp77/79
 
-On Mittwoch, 6. Februar 2008 Ralph B=F6hme wrote:
-> Am 05.02.2008 um 16:26 schrieb Michael Monnerie:
-> > Still, it runs quick within the VM
-> > with kernel 2.6.13-15.15-smp from SUSE 10.0, but slow with more
-> > recent kernels (I couldn't test every combination of course).
->
-> Use the sniffer, Luke!
->
-> If you find an ongoing sequence of ~5 packets sent by the server,
-> ~200ms pause, client ACK, next turn, then you might me experiencing
-> this:
->
-> http://www.helios.de/support/ti.phtml?110
->
-> Proposed solution:
-> sysctl -w net.inet.tcp.delayed_ack=3D2 to be set on the client side.
-> Note: the issue should be resolved with OS X 10.5.
->
-> It seems as if /some/ server side TCP stacks don't like OS X 10.4
-> delayed ACKs implementation.
->
-> HTH,
-> -Ralph
+to the 2.6.24-stable tree.  Its filename is
+
+     forcedeth-mac-address-mcp77-79.patch
+
+A git repo of this tree can be found at 
+    http://www.kernel.org/git/?p=linux/kernel/git/stable/stable-queue.git;a=summary
 
 
+>From stable-bounces@linux.kernel.org Tue Jan 29 09:03:00 2008
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Date: Mon, 28 Jan 2008 10:24:40 -0500
+Subject: forcedeth: mac address mcp77/79
+To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>, stable@kernel.org
+Message-ID: <479DF3B8.2000204@nvidia.com>
 
-=2D-=20
-// Michael Monnerie, Ing.BSc    -----      http://it-management.at
-// Tel: 0676/846 914 666                      .network.your.ideas.
-// PGP Key:         "curl -s http://zmi.at/zmi.asc | gpg --import"
-// Fingerprint: AC19 F9D5 36ED CD8A EF38  500E CE14 91F7 1C12 09B4
-// Keyserver: www.keyserver.net                   Key-ID: 1C1209B4
+From: Ayaz Abdulla <aabdulla@nvidia.com>
 
---nextPart29334422.M4tpLIQOGx
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+patch 2b91213064bd882c3adf35f028c6d12fab3269ec in mainline.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.4-svn0 (GNU/Linux)
+This patch is a critical fix for MCP77 and MCP79 devices. The feature
+flags were missing the define for correct mac address
+(DEV_HAS_CORRECT_MACADDR).
 
-iD8DBQBHqlWpzhSR9xwSCbQRAs9iAKDeaNOGTOsyOM1G6jhJ3qEu65jIhwCdGMDK
-lrxfkC7o/pz2FxqG6HFQfSU=
-=sG9U
------END PGP SIGNATURE-----
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
---nextPart29334422.M4tpLIQOGx--
+---
+ drivers/net/forcedeth.c |   16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -5593,35 +5593,35 @@ static struct pci_device_id pci_tbl[] = 
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_32),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_33),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_34),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_35),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_36),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_37),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_38),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_39),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{0,},
+ };
+
+
+Patches currently in stable-queue which might be from aabdulla@nvidia.com are
+
+queue-2.6.24/forcedeth-mac-address-mcp77-79.patch
