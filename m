@@ -1,56 +1,64 @@
-From: "Rami Rosen" <ramirose@gmail.com>
-Subject: [PATCH] [IPV6] Minor cleanup: remove unused definitions in net/ip6_fib.h
-Date: Thu, 7 Feb 2008 18:23:58 +0200
-Message-ID: <eb3ff54b0802070823y7038fcedga27cba4a9bb35731@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Bug? Kernels 2.6.2x drops TCP packets over wireless (independent
+ of card used)
+Date: Thu, 07 Feb 2008 17:30:22 +0100
+Message-ID: <47AB321E.5080908@cosmosbay.com>
+References: <56de948.2f1b076b.47aac980.bfd66@o2.pl> <6101e8c40802070623t55115dc3h4cf508e432b9296f@mail.gmail.com> <776aaa6c.68622465.47ab2df0.78e4b@o2.pl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_12950_13255778.1202401438335"
-Cc: linux-kernel@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Pinter <oliver.pntr@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Marcin Koziej <marcinkoziej@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.188]:39672 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754834AbYBGQYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 11:24:00 -0500
-Received: by nf-out-0910.google.com with SMTP id g13so938062nfb.21
-        for <netdev@vger.kernel.org>; Thu, 07 Feb 2008 08:23:59 -0800 (PST)
+Received: from smtp23.orange.fr ([193.252.22.126]:4446 "EHLO smtp23.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752643AbYBGQau convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 11:30:50 -0500
+Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf2327.orange.fr (SMTP Server) with ESMTP id 400557048887
+	for <netdev@vger.kernel.org>; Thu,  7 Feb 2008 17:30:48 +0100 (CET)
+In-Reply-To: <776aaa6c.68622465.47ab2df0.78e4b@o2.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_12950_13255778.1202401438335
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Marcin Koziej a =C3=A9crit :
+>> hmm, i think, the site is broken (193.219.28.140), and not the card =
+or
+>> the driver is wrong. when it does, then other sites are auch
+>> reproductable ..
+>>
+>> /* is use auch madwifi-0.9.3.3, but it think, it is not driver probl=
+em */
+>>    =20
+>
+> Unfortunately, this is not the case :(  This happens to all TCP conne=
+ctions, inside and outside LAN,
+> also with the telnet session with the router. I also tried to manipul=
+ate MTU, but without any positive effect.
+> I also tried to change things like net.ipv4.tcp_congestion_control --=
+ which i figured out might affect TCP traffic, but also didn't get any =
+results.
+> I'm afraid this can have something to do with IRQ, because the PCMCIA=
+ cards (my Atheros wireless card is such) are visible only with irqpoll=
+ kernel option.
+>
+> Of course, as I mentioned, everything works fine with kernel 2.6.19; =
+with the same servers etc.
+>
+>  =20
+Very strange, as the tcpdump you gave shows that the remote peer only=20
+sent "220-\r\n"
 
-Hi,
+This was ACKed, and then nothing but timeout. We can conclude remote=20
+peer is *very* slow or a firewall is blocking trafic after 6 bytes sent=
+ :)
 
-This patch removes some unused definitions and one method typedef
-declaration (f_pnode)
-in include/net/ip6_fib.h, as they are not used in the kernel.
-
-Regards,
-Rami Rosen
+Could you give a tcpdump for the same destination, on 2.6.19 this time =
+?
 
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-------=_Part_12950_13255778.1202401438335
-Content-Type: text/plain; name=patch.txt
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fcdipq160
-Content-Disposition: attachment; filename=patch.txt
 
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2lwNl9maWIuaCBiL2luY2x1ZGUvbmV0L2lwNl9maWIu
-aAppbmRleCBkOGQ4NWIxLi45NTNkNjA0IDEwMDY0NAotLS0gYS9pbmNsdWRlL25ldC9pcDZfZmli
-LmgKKysrIGIvaW5jbHVkZS9uZXQvaXA2X2ZpYi5oCkBAIC0xNTAsMTkgKzE1MCw2IEBAIHN0cnVj
-dCBydDZfc3RhdGlzdGljcyB7CiAgKgogICovCiAKLSNkZWZpbmUgUlRQUklfRklSRVdBTEwJOAkJ
-LyogRmlyZXdhbGwgY29udHJvbCBpbmZvcm1hdGlvbgkqLwotI2RlZmluZSBSVFBSSV9GTE9XCTE2
-CQkvKiBGbG93IGJhc2VkIGZvcndhcmRpbmcgcnVsZXMJKi8KLSNkZWZpbmUgUlRQUklfS0VSTl9D
-VEwJMzIJCS8qIEtlcm5lbCBjb250cm9sIHJvdXRlcwkqLwotCi0jZGVmaW5lIFJUUFJJX1VTRVJf
-TUlOCTI1NgkJLyogTWltaW11bSB1c2VyIHByaW9yaXR5CSovCi0jZGVmaW5lIFJUUFJJX1VTRVJf
-TUFYCTEwMjQJCS8qIE1heGltdW0gdXNlciBwcmlvcml0eQkqLwotCi0jZGVmaW5lIFJUUFJJX0tF
-Uk5fREZMVAk0MDk2CQkvKiBLZXJuZWwgZGVmYXVsdCByb3V0ZXMJKi8KLQotI2RlZmluZQlNQVhf
-RkxPV19CQUNLVFJBQ0UJMzIKLQotCi10eXBlZGVmIHZvaWQJCQkoKmZfcG5vZGUpKHN0cnVjdCBm
-aWI2X25vZGUgKmZuLCB2b2lkICopOwogCiBzdHJ1Y3QgZmliNl90YWJsZSB7CiAJc3RydWN0IGhs
-aXN0X25vZGUJdGI2X2hsaXN0Owo=
-------=_Part_12950_13255778.1202401438335--
+
