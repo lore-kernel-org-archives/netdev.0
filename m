@@ -1,55 +1,55 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Problem receiving multicast/promiscuous-mode with kernel.2.6.24
-Date: Thu, 7 Feb 2008 08:09:03 -0800
-Message-ID: <OF1A029B6E.330C7FB9-ON882573E8.0057AE9D-882573E8.0058B74B@us.ibm.com>
-References: <BA41E8A07B73A041948C2E3A4EF6239D062F0B@av-digital-exch.avdigital.at>
+From: Robert Brockway <robert@timetraveller.org>
+Subject: [PATCH] New device for DM9601 usb net driver
+Date: Thu, 7 Feb 2008 11:00:33 -0500 (EST)
+Message-ID: <Pine.LNX.4.64.0802071046540.24824@castor.opentrend.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463807880-606225049-1202399624=:24824"
 Cc: netdev@vger.kernel.org
-To: "Reither Robert" <Robert.Reither@av-digital.at>
+To: jacmet@sunsite.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:33830 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754240AbYBGQJ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 11:09:27 -0500
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m17F5b8v023761
-	for <netdev@vger.kernel.org>; Thu, 7 Feb 2008 10:05:37 -0500
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m17G9AgW181096
-	for <netdev@vger.kernel.org>; Thu, 7 Feb 2008 09:09:14 -0700
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m17G96rO010332
-	for <netdev@vger.kernel.org>; Thu, 7 Feb 2008 09:09:07 -0700
-In-Reply-To: <BA41E8A07B73A041948C2E3A4EF6239D062F0B@av-digital-exch.avdigital.at>
+Received: from ns.istop.com ([209.195.118.109]:53921 "EHLO ns.istop.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754891AbYBGQWu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2008 11:22:50 -0500
+Content-ID: <Pine.LNX.4.64.0802071054290.24824@castor.opentrend.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You need to join the multicast group on the interface you want
-to receive it. If you're setting both imr_address and imr_index
-to 0, you haven't specified an interface.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Instead of setting imr_ifindex to 0, try setting it like this:
+---1463807880-606225049-1202399624=:24824
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; FORMAT=flowed
+Content-ID: <Pine.LNX.4.64.0802071054291.24824@castor.opentrend.net>
 
-imr.imr_ifindex = if_nametoindex("eth0");
+Hi Peter.  I've verified that the Hirose USB-100 (0x0a47, 0x9601) is a 
+clone of the DAVICOM DM9601.  I patched dm9601.c to identify this device 
+and now have these in production.  Unified diff against 2.6.24 attached.
 
- (or whatever interface you need).
+Cheers,
 
-You can verify that you've joined the group on the correct
-interface with "netstat -g", also. Make sure that the interface
-field is correct for the group you want.
+Rob
 
-And because I can't resist mentioning it, "inet_aton" is deprecated--
-suggest inet_pton() with appropriate arguments and return value
-checking instead.
+-- 
+"With sufficient thrust, pigs fly just fine..."
+ 	-- RFC 1925 "The Twelve Networking Truths"
+---1463807880-606225049-1202399624=:24824
+Content-Type: TEXT/X-DIFF; CHARSET=US-ASCII; NAME=dm9601.c.diff
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.64.0802071053440.24824@castor.opentrend.net>
+Content-Description: 
+Content-Disposition: ATTACHMENT; FILENAME=dm9601.c.diff
 
-There was a bug fix where the sense of promiscuous mode was
-backwards for multicasting, which is probably why it was accidently
-(and incorrectly) working in earlier kernels.
+LS0tIGRyaXZlcnMvbmV0L3VzYi9kbTk2MDEuYy5vbGQJMjAwOC0wMS0yNyAw
+MDo1MTo1MC4wMDAwMDAwMDAgLTA1MDANCisrKyBkcml2ZXJzL25ldC91c2Iv
+ZG05NjAxLmMJMjAwOC0wMi0wNyAxMDoyNzo0MC4wMDAwMDAwMDAgLTA1MDAN
+CkBAIC01OTAsNiArNTkwLDEwIEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3QgdXNi
+X2RldmljZV9pZCBwcm9kdWMNCiAJIFVTQl9ERVZJQ0UoMHgwYTQ2LCAweDg1
+MTUpLAkvKiBBRE10ZWsgQURNODUxNSBVU0IgTklDICovDQogCSAuZHJpdmVy
+X2luZm8gPSAodW5zaWduZWQgbG9uZykmZG05NjAxX2luZm8sDQogCSB9LA0K
+Kwl7DQorCVVTQl9ERVZJQ0UoMHgwYTQ3LCAweDk2MDEpLCAgICAvKiBIaXJv
+c2UgVVNCLTEwMCAqLw0KKwkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9u
+ZykmZG05NjAxX2luZm8sDQorCX0sDQogCXt9LAkJCS8vIEVORA0KIH07DQog
+DQo=
 
-If that doesn't do it for you, let me know; better if you can post the
-full code (or even better, the smallest subset that demonstrates the
-problem).
-
-                                                +-DLS
-
+---1463807880-606225049-1202399624=:24824--
