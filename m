@@ -1,37 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: oops with ipcomp
-Date: Fri, 8 Feb 2008 02:44:37 +1100
-Message-ID: <20080207154437.GA7237@gondor.apana.org.au>
-References: <3C59DB883F7B0B4D8096010D45ACCD134F20BB@exch.facton.local> <20080206170717.GA20308@gondor.apana.org.au> <3C59DB883F7B0B4D8096010D45ACCD134F20C0@exch.facton.local>
+From: "Rami Rosen" <ramirose@gmail.com>
+Subject: [PATCH] [IPV6] Minor clenup: remove two unused definitions in net/ip6_route.h
+Date: Thu, 7 Feb 2008 17:58:07 +0200
+Message-ID: <eb3ff54b0802070758j21299257m19e04fffdedd914@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Beschorner Daniel <Daniel.Beschorner@facton.com>
+Content-Type: multipart/mixed;
+	boundary="----=_Part_12902_26217834.1202399887642"
+Cc: linux-kernel@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:38812 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755070AbYBGPom (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 10:44:42 -0500
-Content-Disposition: inline
-In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD134F20C0@exch.facton.local>
+Received: from fg-out-1718.google.com ([72.14.220.153]:41303 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751386AbYBGP6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 10:58:13 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so2653616fga.17
+        for <netdev@vger.kernel.org>; Thu, 07 Feb 2008 07:58:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 06, 2008 at 09:55:03PM +0100, Beschorner Daniel wrote:
->
-> A is the oopsing 2.6.24, B is 2.6.23.
-> I didn't change anything in the scenario recently, till 2.6.23 all
-> worked fine.
+------=_Part_12902_26217834.1202399887642
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-OK, so are you now able to reproduce this crash without waiting
-for hours? That would be really helpful in tracking it down.
+Hi,
+Remove IP6_RT_PRIO_FW and IP6_RT_FLOW_MASK definitions in
+include/net/ip6_route.h, as they are not used in the kernel.
 
-Could you show me the exact policies/SAs of the tunnel involved
-in the crash?
+Regards,
+Rami Rosen
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+------=_Part_12902_26217834.1202399887642
+Content-Type: text/plain; name=patch.txt
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fcdhrl4l0
+Content-Disposition: attachment; filename=patch.txt
+
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2lwNl9yb3V0ZS5oIGIvaW5jbHVkZS9uZXQvaXA2X3Jv
+dXRlLmgKaW5kZXggZmFhYzBlZS4uZjk5ZTRmMCAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvaXA2
+X3JvdXRlLmgKKysrIGIvaW5jbHVkZS9uZXQvaXA2X3JvdXRlLmgKQEAgLTEsMTEgKzEsOSBAQAog
+I2lmbmRlZiBfTkVUX0lQNl9ST1VURV9ICiAjZGVmaW5lIF9ORVRfSVA2X1JPVVRFX0gKIAotI2Rl
+ZmluZSBJUDZfUlRfUFJJT19GVwkJMTYKICNkZWZpbmUgSVA2X1JUX1BSSU9fVVNFUgkxMDI0CiAj
+ZGVmaW5lIElQNl9SVF9QUklPX0FERFJDT05GCTI1NgogI2RlZmluZSBJUDZfUlRfUFJJT19LRVJO
+CTUxMgotI2RlZmluZSBJUDZfUlRfRkxPV19NQVNLCTB4MDBmZgogCiBzdHJ1Y3Qgcm91dGVfaW5m
+byB7CiAJX191OAkJCXR5cGU7Cg==
+------=_Part_12902_26217834.1202399887642--
