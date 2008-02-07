@@ -1,290 +1,128 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCHv2] net: sh_eth: Add support for Renesas SuperH Ethernet
-Date: Thu, 7 Feb 2008 01:05:29 -0800
-Message-ID: <20080207010529.868e931b.akpm@linux-foundation.org>
-References: <47AAC3BB.9090107@renesas.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] Add IPv6 support to TCP SYN cookies
+Date: Thu, 07 Feb 2008 10:40:19 +0100
+Message-ID: <47AAD203.4030706@cosmosbay.com>
+References: <20080206091353.GA12927@2ka.mipt.ru> <47a9fb13.01538c0a.3b80.ffff9328@mx.google.com> <20080207072415.GA13782@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	David Brownell <david-b@pacbell.net>
-To: Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com>
+Content-Type: multipart/mixed;
+ boundary="------------090303070208040600000509"
+Cc: Glenn Griffin <ggriffin.kernel@gmail.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:45957 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755261AbYBGJFg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 04:05:36 -0500
-In-Reply-To: <47AAC3BB.9090107@renesas.com>
+Received: from smtp28.orange.fr ([80.12.242.99]:13877 "EHLO smtp28.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753130AbYBGJki (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2008 04:40:38 -0500
+Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf2802.orange.fr (SMTP Server) with ESMTP id DE52D800181C
+	for <netdev@vger.kernel.org>; Thu,  7 Feb 2008 10:40:35 +0100 (CET)
+In-Reply-To: <20080207072415.GA13782@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 07 Feb 2008 17:39:23 +0900 Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com> wrote:
+This is a multi-part message in MIME format.
+--------------090303070208040600000509
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-> Add support for Renesas SuperH Ethernet controller.
-> This driver supported SH7710 and SH7712.
-> 
-
-Nice looking driver.
-
-Quick comments:
-
-> ...
+Evgeniy Polyakov a =E9crit :
+> On Wed, Feb 06, 2008 at 10:30:24AM -0800, Glenn Griffin (ggriffin.kerne=
+l@gmail.com) wrote:
+>  =20
+>>>> +static u32 cookie_hash(struct in6_addr *saddr, struct in6_addr *dad=
+dr,
+>>>> +		       __be16 sport, __be16 dport, u32 count, int c)
+>>>> +{
+>>>> +	__u32 tmp[16 + 5 + SHA_WORKSPACE_WORDS];
+>>>>        =20
+>>> This huge buffer should not be allocated on stack.
+>>>      =20
+>> I can replace it will a kmalloc, but for my benefit what's the practic=
+al
+>> size we try and limit the stack to?  It seemed at first glance to me
+>> that 404 bytes plus the arguments, etc. was not such a large buffer fo=
+r
+>> a non-recursive function.  Plus the alternative with a kmalloc require=
+s
+>>    =20
 >
-> +/*
-> + * Program the hardware MAC address from dev->dev_addr.
-> + */
-> +static void __init update_mac_address(struct net_device *ndev)
-> +{
-> +	u32 ioaddr = ndev->base_addr;
-> +
-> +	ctrl_outl((ndev->dev_addr[0] << 24) | (ndev->dev_addr[1] << 16) |
-> +		  (ndev->dev_addr[2] << 8) | (ndev->dev_addr[3]),
-> +		  ioaddr + MAHR);
-> +	ctrl_outl((ndev->dev_addr[4] << 8) | (ndev->dev_addr[5]),
-> +		  ioaddr + MALR);
-> +}
-> +
-> +/*
-> + * Get MAC address from SuperH MAC address register
-> + *
-> + * SuperH's Ethernet device doesn't have 'ROM' to MAC address.
-> + * This driver get MAC address that use by bootloader(U-boot or sh-ipl+g).
-> + * When you want use this device, you must set MAC address in bootloader.
-> + *
-> + */
-> +static void __init read_mac_address(struct net_device *ndev)
-> +{
-> +	u32 ioaddr = ndev->base_addr;
-> +
-> +	ndev->dev_addr[0] = (ctrl_inl(ioaddr + MAHR) >> 24);
-> +	ndev->dev_addr[1] = (ctrl_inl(ioaddr + MAHR) >> 16) & 0xFF;
-> +	ndev->dev_addr[2] = (ctrl_inl(ioaddr + MAHR) >> 8) & 0xFF;
-> +	ndev->dev_addr[3] = (ctrl_inl(ioaddr + MAHR) & 0xFF);
-> +	ndev->dev_addr[4] = (ctrl_inl(ioaddr + MALR) >> 8) & 0xFF;
-> +	ndev->dev_addr[5] = (ctrl_inl(ioaddr + MALR) & 0xFF);
-> +}
+> Well, maybe for connection establishment path it is not, but it is
+> absolutely the case in the sending and sometimes receiving pathes for 4=
+k
+> stacks. The main problem is that bugs which happen because of stack
+> overflow are so much obscure, that it is virtually impossible to detect=
 
-Both the above functions are called from non-__init code and hence cannot
-be __init.  sh_eth_tsu_init() is wrong too.  Please check all section
-annotations in the driver.
+> where overflow happend. 'Debug stack overflow' somehow does not help to=
 
-> +struct bb_info {
-> +	struct mdiobb_ctrl ctrl;
-> +	u32 addr;
-> +	u32 mmd_msk;/* MMD */
-> +	u32 mdo_msk;
-> +	u32 mdi_msk;
-> +	u32 mdc_msk;
-> +};
-
-Please cc David Brownell on updates to this driver - perhaps he will find
-time to review the bit-banging interface usage.
-
-> +/* PHY bit set */
-> +static void bb_set(u32 addr, u32 msk)
-> +{
-> +	ctrl_outl(ctrl_inl(addr) | msk, addr);
-> +}
-> +
-> +/* PHY bit clear */
-> +static void bb_clr(u32 addr, u32 msk)
-> +{
-> +	ctrl_outl((ctrl_inl(addr) & ~msk), addr);
-> +}
-> +
-> +/* PHY bit read */
-> +static int bb_read(u32 addr, u32 msk)
-> +{
-> +	return (ctrl_inl(addr) & msk) != 0;
-> +}
-> +
-> +/* Data I/O pin control */
-> +static inline void sh__mmd_ctrl(struct mdiobb_ctrl *ctrl, int bit)
-> +{
-> +	struct bb_info *bitbang = container_of(ctrl, struct bb_info, ctrl);
-> +	if (bit)
-> +		bb_set(bitbang->addr, bitbang->mmd_msk);
-> +	else
-> +		bb_clr(bitbang->addr, bitbang->mmd_msk);
-> +}
-> +
-> +/* Set bit data*/
-> +static inline void sh__set_mdio(struct mdiobb_ctrl *ctrl, int bit)
-> +{
-> +	struct bb_info *bitbang = container_of(ctrl, struct bb_info, ctrl);
-> +
-> +	if (bit)
-> +		bb_set(bitbang->addr, bitbang->mdo_msk);
-> +	else
-> +		bb_clr(bitbang->addr, bitbang->mdo_msk);
-> +}
-> +
-> +/* Get bit data*/
-> +static inline int sh__get_mdio(struct mdiobb_ctrl *ctrl)
-> +{
-> +	struct bb_info *bitbang = container_of(ctrl, struct bb_info, ctrl);
-> +	return bb_read(bitbang->addr, bitbang->mdi_msk);
-> +}
-
-There seems to be a fairly random mixture of inline and non-inline here. 
-I'd suggest that you just remove all the `inline's.  The compiler does a
-pretty good job of working doing this for you.
-
-> +/* MDC pin control */
-> +static inline void sh__mdc_ctrl(struct mdiobb_ctrl *ctrl, int bit)
-> +{
-> +	struct bb_info *bitbang = container_of(ctrl, struct bb_info, ctrl);
-> +
-> +	if (bit)
-> +		bb_set(bitbang->addr, bitbang->mdc_msk);
-> +	else
-> +		bb_clr(bitbang->addr, bitbang->mdc_msk);
-> +}
-> +
-> +/* mdio bus control struct */
-> +static struct mdiobb_ops bb_ops = {
-> +	.owner = THIS_MODULE,
-> +	.set_mdc = sh__mdc_ctrl,
-> +	.set_mdio_dir = sh__mmd_ctrl,
-> +	.set_mdio_data = sh__set_mdio,
-> +	.get_mdio_data = sh__get_mdio,
-> +};
-
-It's particularly inappropriate that sh__mdc_ctrl() was inlined - it is
-only ever called via a function pointer and hence will never be inlined!
-
-> ...
+> detect it.
 >
-> +static void sh_eth_timer(unsigned long data)
-> +{
-> +	struct net_device *ndev = (struct net_device *)data;
-> +	struct sh_eth_private *mdp = netdev_priv(ndev);
-> +	int next_tick = 10 * HZ;
-> +
-> +	/* We could do something here... nah. */
-> +	mdp->timer.expires = jiffies + next_tick;
-> +	add_timer(&mdp->timer);
+> Usually there is about 1-1.5 kb of free stack for each process, so this=
 
-mod_timer() would be neater here.
+> change will cut one third of the free stack, getting into account that
+> something can store ipv6 addresses on stack too, this can end up badly.=
 
-> +}
 >
-> ...
+>  =20
+>> propogating the possible error status back up to tcp_ipv6.c in the eve=
+nt
+>> we are unable to allocate enough memory, so it can simply drop the
+>> connection.  Not an impossible task by any means but it does
+>> significantly complicate things and I would like to know it's worth th=
+e
+>> effort.  Also would it be worth it to provide a supplemental patch for=
+
+>> the ipv4 implementation as it allocates the same buffer?
+>>    =20
 >
-> +
-> +/* network device open function */
-> +static int sh_eth_open(struct net_device *ndev)
-> +{
-> +	int ret = 0;
-> +	struct sh_eth_private *mdp = netdev_priv(ndev);
-> +
-> +	ret = request_irq(ndev->irq, &sh_eth_interrupt, 0, ndev->name, ndev);
-> +	if (ret) {
-> +		printk(KERN_ERR "Can not assign IRQ number to %s\n", CARDNAME);
-> +		return ret;
-> +	}
-> +
-> +	/* Descriptor set */
-> +	ret = sh_eth_ring_init(ndev);
-> +	if (ret)
-> +		goto out_free_irq;
-> +
-> +	/* device init */
-> +	ret = sh_eth_dev_init(ndev);
-> +	if (ret)
-> +		goto out_free_irq;
-> +
-> +	/* PHY control start*/
-> +	ret = sh_eth_phy_start(ndev);
-> +	if (ret)
-> +		goto out_free_irq;
-> +
-> +	/* Set the timer to check for link beat. */
-> +	init_timer(&mdp->timer);
-> +	mdp->timer.expires = (jiffies + (24 * HZ)) / 10;/* 2.4 sec. */
-> +	mdp->timer.data = (u32) ndev;
-> +	mdp->timer.function = sh_eth_timer;	/* timer handler */
-
-setup_timer()
-
-> +	add_timer(&mdp->timer);
-> +
-> +	return ret;
-> +
-> +out_free_irq:
-> +	free_irq(ndev->irq, ndev);
-> +	return ret;
-> +}
-> +
-> +/* Timeout function */
-> +static void sh_eth_tx_timeout(struct net_device *ndev)
-> +{
-> +	struct sh_eth_private *mdp = netdev_priv(ndev);
-> +	u32 ioaddr = ndev->base_addr;
-> +	struct sh_eth_rxdesc *rxdesc;
-> +	int i;
-> +
-> +	netif_stop_queue(ndev);
-> +
-> +	/* worning message out. */
-> +	printk(KERN_WARNING "%s: transmit timed out, status %8.8x,"
-> +	       " resetting...\n", ndev->name, (int)ctrl_inl(ioaddr + EESR));
-> +
-> +	/* tx_errors count up */
-> +	mdp->stats.tx_errors++;
-> +
-> +	/* timer off */
-> +	del_timer_sync(&mdp->timer);
-> +
-> +	/* Free all the skbuffs in the Rx queue. */
-> +	for (i = 0; i < RX_RING_SIZE; i++) {
-> +		rxdesc = &mdp->rx_ring[i];
-> +		rxdesc->status = 0;
-> +		rxdesc->addr = 0xBADF00D0;
-> +		if (mdp->rx_skbuff[i])
-> +			dev_kfree_skb(mdp->rx_skbuff[i]);
-> +		mdp->rx_skbuff[i] = NULL;
-> +	}
-> +	for (i = 0; i < TX_RING_SIZE; i++) {
-> +		if (mdp->tx_skbuff[i])
-> +			dev_kfree_skb(mdp->tx_skbuff[i]);
-> +		mdp->tx_skbuff[i] = NULL;
-> +	}
-> +
-> +	/* device init */
-> +	sh_eth_dev_init(ndev);
-> +
-> +	/* timer on */
-> +	mdp->timer.expires = (jiffies + (24 * HZ)) / 10;/* 2.4 sec. */
-> +	add_timer(&mdp->timer);
-
-mod_timer()
-
-> +}
-> +
+> One can reorganize syncookie support to work with request hash tables
+> too, so that we could allocate per hash-bucket space and use it as a
+> scratchpad for cookies.
 >
-> +#ifdef __LITTLE_ENDIAN__
-> +static inline void swaps(char *src, int len)
-> +{
-> +	u32 *p = (u32 *)src;
-> +	u32 *maxp;
-> +	maxp = p + ((len + sizeof(u32) - 1) / sizeof(u32));
-> +
-> +	for (; p < maxp; p++)
-> +		*p = swab32(*p);
-> +}
-> +#else
-> +#define swaps(x, y)
-> +#endif
-> +
+>  =20
+Or maybe use percpu storage for that...
 
-I'd say that the big-endian version of swaps() should be a C function
-rather than a macro.  It's nicer to look at, consistent, provides typechecking,
-can help avoid unused-variable warnings (an inline function provides a
-reference to the arguments whereas a macro does not).
+I am not sure if cookie_hash() is always called with preemption disabled.=
 
-The little-endian version of this function is too large to be inlined.
+(If not, we have to use get_cpu_var()/put_cpu_var())
 
-This function looks fairly generic.  Are we sure there isn't some library
-function which does this?
+[NET] IPV4: lower stack usage in cookie_hash() function
+
+400 bytes allocated on stack might be a litle bit too much. Using a=20
+per_cpu var is more friendly.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+
+
+--------------090303070208040600000509
+Content-Type: text/plain;
+ name="cookie_scratch.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="cookie_scratch.patch"
+
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index f470fe4..177da14 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -35,10 +35,12 @@ module_init(init_syncookies);
+ #define COOKIEBITS 24	/* Upper bits store count */
+ #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+ 
++static DEFINE_PER_CPU(__u32, cookie_scratch)[16 + 5 + SHA_WORKSPACE_WORDS];
++
+ static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
+ 		       u32 count, int c)
+ {
+-	__u32 tmp[16 + 5 + SHA_WORKSPACE_WORDS];
++	__u32 *tmp = __get_cpu_var(cookie_scratch);
+ 
+ 	memcpy(tmp + 3, syncookie_secret[c], sizeof(syncookie_secret[c]));
+ 	tmp[0] = (__force u32)saddr;
+
+--------------090303070208040600000509--
+
 
