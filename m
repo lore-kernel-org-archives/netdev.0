@@ -1,248 +1,98 @@
 From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: [PATCH 2/7] PS3: gelic: Add endianness macros
-Date: Thu, 07 Feb 2008 19:57:54 +0900
-Message-ID: <20080207195742.AD43.40F06B3A@sm.sony.co.jp>
+Subject: [PATCH 4/7] PS3: gelic: remove duplicated ethtool handlers
+Date: Thu, 07 Feb 2008 19:58:20 +0900
+Message-ID: <20080207195809.AD49.40F06B3A@sm.sony.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, geoffrey.levand@am.sony.com,
-	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+Cc: netdev@vger.kernel.org,
+	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>,
+	geoffrey.levand@am.sony.com
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MGW3.Sony.CO.JP ([137.153.0.15]:60522 "EHLO mgw3.sony.co.jp"
+Received: from MGW3.Sony.CO.JP ([137.153.0.15]:61040 "EHLO mgw3.sony.co.jp"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755341AbYBGK6D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Feb 2008 05:58:03 -0500
+	id S1757180AbYBGK62 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2008 05:58:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PS3: gelic: Add endianness macros
+PS3: gelic: remove duplicated ethtool handlers
 
-Mark the members of the structure for DMA descriptors with proper endian
-annotations and use the appropriate accessor macros.
-As the gelic driver works only on PS3, all these macros will be
-expanded to null.
+Remove some ethtool handlers, which duplicate functionality that was already
+provided by the common ethtool handlers.
 
 Signed-off-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
 ---
- drivers/net/ps3_gelic_net.c |   70 ++++++++++++++++++++++++--------------------
- drivers/net/ps3_gelic_net.h |   16 +++++-----
- 2 files changed, 47 insertions(+), 39 deletions(-)
+ drivers/net/ps3_gelic_net.c |   43 +++----------------------------------------
+ 1 file changed, 3 insertions(+), 40 deletions(-)
 
 --- a/drivers/net/ps3_gelic_net.c
 +++ b/drivers/net/ps3_gelic_net.c
-@@ -98,7 +98,7 @@ gelic_net_get_descr_status(struct gelic_
- {
- 	u32 cmd_status;
- 
--	cmd_status = descr->dmac_cmd_status;
-+	cmd_status = be32_to_cpu(descr->dmac_cmd_status);
- 	cmd_status >>= GELIC_NET_DESCR_IND_PROC_SHIFT;
- 	return cmd_status;
+@@ -1196,28 +1196,6 @@ static int gelic_ether_get_settings(stru
+ 	return 0;
  }
-@@ -117,13 +117,13 @@ static void gelic_net_set_descr_status(s
- 	u32 cmd_status;
  
- 	/* read the status */
--	cmd_status = descr->dmac_cmd_status;
-+	cmd_status = be32_to_cpu(descr->dmac_cmd_status);
- 	/* clean the upper 4 bits */
- 	cmd_status &= GELIC_NET_DESCR_IND_PROC_MASKO;
- 	/* add the status to it */
- 	cmd_status |= ((u32)status) << GELIC_NET_DESCR_IND_PROC_SHIFT;
- 	/* and write it back */
--	descr->dmac_cmd_status = cmd_status;
-+	descr->dmac_cmd_status = cpu_to_be32(cmd_status);
- 	/*
- 	 * dma_cmd_status field is used to indicate whether the descriptor
- 	 * is valid or not.
-@@ -193,7 +193,7 @@ static int gelic_net_init_chain(struct g
- 	/* chain bus addr of hw descriptor */
- 	descr = start_descr;
- 	for (i = 0; i < no; i++, descr++) {
--		descr->next_descr_addr = descr->next->bus_addr;
-+		descr->next_descr_addr = cpu_to_be32(descr->next->bus_addr);
- 	}
- 
- 	chain->head = start_descr;
-@@ -245,7 +245,7 @@ static int gelic_net_prepare_rx_descr(st
- 			 "%s:allocate skb failed !!\n", __func__);
- 		return -ENOMEM;
- 	}
--	descr->buf_size = bufsize;
-+	descr->buf_size = cpu_to_be32(bufsize);
- 	descr->dmac_cmd_status = 0;
- 	descr->result_size = 0;
- 	descr->valid_size = 0;
-@@ -256,9 +256,10 @@ static int gelic_net_prepare_rx_descr(st
- 	if (offset)
- 		skb_reserve(descr->skb, GELIC_NET_RXBUF_ALIGN - offset);
- 	/* io-mmu-map the skb */
--	descr->buf_addr = dma_map_single(ctodev(card), descr->skb->data,
--					 GELIC_NET_MAX_MTU,
--					 DMA_FROM_DEVICE);
-+	descr->buf_addr = cpu_to_be32(dma_map_single(ctodev(card),
-+						     descr->skb->data,
-+						     GELIC_NET_MAX_MTU,
-+						     DMA_FROM_DEVICE));
- 	if (!descr->buf_addr) {
- 		dev_kfree_skb_any(descr->skb);
- 		descr->skb = NULL;
-@@ -284,7 +285,7 @@ static void gelic_net_release_rx_chain(s
- 	do {
- 		if (descr->skb) {
- 			dma_unmap_single(ctodev(card),
--					 descr->buf_addr,
-+					 be32_to_cpu(descr->buf_addr),
- 					 descr->skb->len,
- 					 DMA_FROM_DEVICE);
- 			descr->buf_addr = 0;
-@@ -353,10 +354,11 @@ static void gelic_net_release_tx_descr(s
+-static u32 gelic_ether_get_link(struct net_device *netdev)
+-{
+-	struct gelic_card *card = netdev_priv(netdev);
+-	int status;
+-	u64 v1, v2;
+-	int link;
+-
+-	status = lv1_net_control(bus_id(card), dev_id(card),
+-				 GELIC_LV1_GET_ETH_PORT_STATUS,
+-				 GELIC_LV1_VLAN_TX_ETHERNET, 0, 0,
+-				 &v1, &v2);
+-	if (status)
+-		return 0; /* link down */
+-
+-	if (v1 & GELIC_LV1_ETHER_LINK_UP)
+-		link = 1;
+-	else
+-		link = 0;
+-
+-	return link;
+-}
+-
+ static int gelic_net_nway_reset(struct net_device *netdev)
  {
- 	struct sk_buff *skb = descr->skb;
- 
--	BUG_ON(!(descr->data_status & (1 << GELIC_NET_TXDESC_TAIL)));
-+	BUG_ON(!(be32_to_cpu(descr->data_status) &
-+		 (1 << GELIC_NET_TXDESC_TAIL)));
- 
--	dma_unmap_single(ctodev(card), descr->buf_addr, skb->len,
--			 DMA_TO_DEVICE);
-+	dma_unmap_single(ctodev(card),
-+			 be32_to_cpu(descr->buf_addr), skb->len, DMA_TO_DEVICE);
- 	dev_kfree_skb_any(skb);
- 
- 	descr->buf_addr = 0;
-@@ -610,28 +612,29 @@ static void gelic_net_set_txdescr_cmdsta
- 					  struct sk_buff *skb)
- {
- 	if (skb->ip_summed != CHECKSUM_PARTIAL)
--		descr->dmac_cmd_status = GELIC_NET_DMAC_CMDSTAT_NOCS |
--			GELIC_NET_DMAC_CMDSTAT_END_FRAME;
-+		descr->dmac_cmd_status =
-+			cpu_to_be32(GELIC_NET_DMAC_CMDSTAT_NOCS |
-+				    GELIC_NET_DMAC_CMDSTAT_END_FRAME);
- 	else {
- 		/* is packet ip?
- 		 * if yes: tcp? udp? */
- 		if (skb->protocol == htons(ETH_P_IP)) {
- 			if (ip_hdr(skb)->protocol == IPPROTO_TCP)
- 				descr->dmac_cmd_status =
--					GELIC_NET_DMAC_CMDSTAT_TCPCS |
--					GELIC_NET_DMAC_CMDSTAT_END_FRAME;
-+				cpu_to_be32(GELIC_NET_DMAC_CMDSTAT_TCPCS |
-+					    GELIC_NET_DMAC_CMDSTAT_END_FRAME);
- 
- 			else if (ip_hdr(skb)->protocol == IPPROTO_UDP)
- 				descr->dmac_cmd_status =
--					GELIC_NET_DMAC_CMDSTAT_UDPCS |
--					GELIC_NET_DMAC_CMDSTAT_END_FRAME;
-+				cpu_to_be32(GELIC_NET_DMAC_CMDSTAT_UDPCS |
-+					    GELIC_NET_DMAC_CMDSTAT_END_FRAME);
- 			else	/*
- 				 * the stack should checksum non-tcp and non-udp
- 				 * packets on his own: NETIF_F_IP_CSUM
- 				 */
- 				descr->dmac_cmd_status =
--					GELIC_NET_DMAC_CMDSTAT_NOCS |
--					GELIC_NET_DMAC_CMDSTAT_END_FRAME;
-+				cpu_to_be32(GELIC_NET_DMAC_CMDSTAT_NOCS |
-+					    GELIC_NET_DMAC_CMDSTAT_END_FRAME);
- 		}
- 	}
+ 	if (netif_running(netdev)) {
+@@ -1227,21 +1205,6 @@ static int gelic_net_nway_reset(struct n
+ 	return 0;
  }
-@@ -694,8 +697,8 @@ static int gelic_net_prepare_tx_descr_v(
- 		return -ENOMEM;
- 	}
  
--	descr->buf_addr = buf;
--	descr->buf_size = skb->len;
-+	descr->buf_addr = cpu_to_be32(buf);
-+	descr->buf_size = cpu_to_be32(skb->len);
- 	descr->skb = skb;
- 	descr->data_status = 0;
- 	descr->next_descr_addr = 0; /* terminate hw descr */
-@@ -774,7 +777,7 @@ static int gelic_net_xmit(struct sk_buff
- 	 * link this prepared descriptor to previous one
- 	 * to achieve high performance
- 	 */
--	descr->prev->next_descr_addr = descr->bus_addr;
-+	descr->prev->next_descr_addr = cpu_to_be32(descr->bus_addr);
- 	/*
- 	 * as hardware descriptor is modified in the above lines,
- 	 * ensure that the hardware sees it
-@@ -814,19 +817,23 @@ static void gelic_net_pass_skb_up(struct
- 	struct net_device *netdev;
- 	u32 data_status, data_error;
- 
--	data_status = descr->data_status;
--	data_error = descr->data_error;
-+	data_status = be32_to_cpu(descr->data_status);
-+	data_error = be32_to_cpu(descr->data_error);
- 	netdev = card->netdev;
- 	/* unmap skb buffer */
- 	skb = descr->skb;
--	dma_unmap_single(ctodev(card), descr->buf_addr, GELIC_NET_MAX_MTU,
-+	dma_unmap_single(ctodev(card),
-+			 be32_to_cpu(descr->buf_addr), GELIC_NET_MAX_MTU,
- 			 DMA_FROM_DEVICE);
- 
--	skb_put(skb, descr->valid_size? descr->valid_size : descr->result_size);
-+	skb_put(skb, descr->valid_size ?
-+		be32_to_cpu(descr->valid_size) :
-+		be32_to_cpu(descr->result_size));
- 	if (!descr->valid_size)
- 		dev_info(ctodev(card), "buffer full %x %x %x\n",
--			 descr->result_size, descr->buf_size,
--			 descr->dmac_cmd_status);
-+			 be32_to_cpu(descr->result_size),
-+			 be32_to_cpu(descr->buf_size),
-+			 be32_to_cpu(descr->dmac_cmd_status));
- 
- 	descr->skb = NULL;
- 	/*
-@@ -873,7 +880,8 @@ static int gelic_net_decode_one_descr(st
- 	status = gelic_net_get_descr_status(descr);
- 	/* is this descriptor terminated with next_descr == NULL? */
- 	dmac_chain_ended =
--		descr->dmac_cmd_status & GELIC_NET_DMAC_CMDSTAT_RXDCEIS;
-+		be32_to_cpu(descr->dmac_cmd_status) &
-+		GELIC_NET_DMAC_CMDSTAT_RXDCEIS;
- 
- 	if (status == GELIC_NET_DESCR_CARDOWNED)
- 		return 0;
-@@ -940,7 +948,7 @@ refill:
- 	/*
- 	 * Set this descriptor the end of the chain.
- 	 */
--	descr->prev->next_descr_addr = descr->bus_addr;
-+	descr->prev->next_descr_addr = cpu_to_be32(descr->bus_addr);
- 
- 	/*
- 	 * If dmac chain was met, DMAC stopped.
---- a/drivers/net/ps3_gelic_net.h
-+++ b/drivers/net/ps3_gelic_net.h
-@@ -169,14 +169,14 @@ enum gelic_net_descr_status {
- #define GELIC_NET_DESCR_SIZE	(32)
- struct gelic_net_descr {
- 	/* as defined by the hardware */
--	u32 buf_addr;
--	u32 buf_size;
--	u32 next_descr_addr;
--	u32 dmac_cmd_status;
--	u32 result_size;
--	u32 valid_size;	/* all zeroes for tx */
--	u32 data_status;
--	u32 data_error;	/* all zeroes for tx */
-+	__be32 buf_addr;
-+	__be32 buf_size;
-+	__be32 next_descr_addr;
-+	__be32 dmac_cmd_status;
-+	__be32 result_size;
-+	__be32 valid_size;	/* all zeroes for tx */
-+	__be32 data_status;
-+	__be32 data_error;	/* all zeroes for tx */
- 
- 	/* used in the driver */
- 	struct sk_buff *skb;
+-static u32 gelic_net_get_tx_csum(struct net_device *netdev)
+-{
+-	return (netdev->features & NETIF_F_IP_CSUM) != 0;
+-}
+-
+-static int gelic_net_set_tx_csum(struct net_device *netdev, u32 data)
+-{
+-	if (data)
+-		netdev->features |= NETIF_F_IP_CSUM;
+-	else
+-		netdev->features &= ~NETIF_F_IP_CSUM;
+-
+-	return 0;
+-}
+-
+ static u32 gelic_net_get_rx_csum(struct net_device *netdev)
+ {
+ 	struct gelic_card *card = netdev_priv(netdev);
+@@ -1260,10 +1223,10 @@ static int gelic_net_set_rx_csum(struct 
+ static struct ethtool_ops gelic_net_ethtool_ops = {
+ 	.get_drvinfo	= gelic_net_get_drvinfo,
+ 	.get_settings	= gelic_ether_get_settings,
+-	.get_link	= gelic_ether_get_link,
++	.get_link	= ethtool_op_get_link,
+ 	.nway_reset	= gelic_net_nway_reset,
+-	.get_tx_csum	= gelic_net_get_tx_csum,
+-	.set_tx_csum	= gelic_net_set_tx_csum,
++	.get_tx_csum	= ethtool_op_get_tx_csum,
++	.set_tx_csum	= ethtool_op_set_tx_csum,
+ 	.get_rx_csum	= gelic_net_get_rx_csum,
+ 	.set_rx_csum	= gelic_net_set_rx_csum,
+ };
 
 
