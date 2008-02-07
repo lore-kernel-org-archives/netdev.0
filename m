@@ -1,107 +1,80 @@
-From: Ross Vandegrift <ross@kallisti.us>
-Subject: Re: [PATCH] Add IPv6 support to TCP SYN cookies
-Date: Thu, 7 Feb 2008 14:44:46 -0500
-Message-ID: <20080207194446.GA25463@kallisti.us>
-References: <47a79d64.16538c0a.5b6a.ffffb0fe@mx.google.com> <20080205155558.GA23145@one.firstfloor.org> <c9e534200802051029u5d08cf6dm54866f769e362262@mail.gmail.com> <20080205192559.GA10573@kallisti.us> <20080205201106.GB26150@one.firstfloor.org> <20080205212335.GA11287@kallisti.us> <20080206085357.GA1402@one.firstfloor.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: + smack-unlabeled-outgoing-ambient-packets.patch added to -mm
+ tree
+Date: Thu, 7 Feb 2008 12:04:59 -0800
+Message-ID: <20080207120459.d4994f44.akpm@linux-foundation.org>
+References: <200802071901.m17J1lAY016751@imap1.linux-foundation.org>
+	<200802071450.41529.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Glenn Griffin <ggriffin.kernel@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: casey@schaufler-ca.com, davem@davemloft.net, jmorris@namei.org,
+	mingo@elte.hu, sds@tycho.nsa.gov, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kallisti.us ([67.59.168.233]:34932 "EHLO kallisti.us"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751247AbYBGTqE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Feb 2008 14:46:04 -0500
-Content-Disposition: inline
-In-Reply-To: <20080206085357.GA1402@one.firstfloor.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:32794 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1762035AbYBGUFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 15:05:41 -0500
+In-Reply-To: <200802071450.41529.paul.moore@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 06, 2008 at 09:53:57AM +0100, Andi Kleen wrote:
-> That would be useful yes -- for different bandwidths.
+On Thu, 7 Feb 2008 14:50:41 -0500
+Paul Moore <paul.moore@hp.com> wrote:
 
-My initial test is end-to-end 1000Mbps, but I've got a few different
-packet rates.
+> On Thursday 07 February 2008 2:02:06 pm akpm@linux-foundation.org wrote:
+> > The patch titled
+> >      Smack: unlabeled outgoing ambient packets
+> > has been added to the -mm tree.  Its filename is
+> >      smack-unlabeled-outgoing-ambient-packets.patch
+> >
+> > Before you just go and hit "reply", please:
+> >    a) Consider who else should be cc'ed
+> >    b) Prefer to cc a suitable mailing list as well
+> >    c) Ideally: find the original patch on the mailing list and do a
+> >       reply-to-all to that, adding suitable additional cc's
+> 
+> I didn't see this patch hit any of the relevant mailing lists (am I missing 
+> one somewhere?) so I'm just CC'ing everyone on the To/CC line, minus 
+> mm-commits.
 
-> If the young/old heuristics do not work well enough anymore most
-> likely we should try readding RED to the syn queue again. That used
-> to be pretty effective in the early days. I don't quite remember why
-> Linux didn't end up using it in fact.
+It was on linux-kernel and netdev.  I've restored those cc's.
 
-I'm running juno-z with 2, 4, & 8 threads of syn flood to port 80.
-wireshark measures 2 threads at 350pps, 4 threads at 750pps, and 8
-threads at 1200pps.  Under no SYN flood, the server handles 750 HTTP
-requests per second, measured via httping in flood mode.
+> > ------------------------------------------------------
+> > Subject: Smack: unlabeled outgoing ambient packets
+> > From: Casey Schaufler <casey@schaufler-ca.com>
+> >
+> > Smack uses CIPSO labeling, but allows for unlabeled packets by specifying
+> > an "ambient" label that is applied to incoming unlabeled packets.  Because
+> > the other end of the connection may dislike IP options, and ssh is one know
+> > application that behaves thus, it is prudent to respond in kind.  This
+> > patch changes the network labeling behavior such that an outgoing packet
+> > that would be given a CIPSO label that matches the ambient label is left
+> > unlabeled.
+> 
+> I suppose you are entitled to use NetLabel however you want, so long as it 
+> works and doesn't cause problems for other users, but I think you are 
+> starting down a rather ugly road with this patch.  In my mind a cleaner 
+> solution would be to make of use of the built-in NetLabel/LSM domain mapping 
+> functionality to accomplish the same thing.  In other words, there is already 
+> a mechanism to do what you want, it's probably a good idea to make use of it 
+> instead of recreating it.
+> 
+> I would suggest that when you set the NetLabel security attributes for a 
+> socket you set the domain field to the smack label (see the SELinux code for 
+> an example, if you are unsure see selinux_netlbl_sock_setsid() and 
+> security_netlbl_sid_to_secattr()).  Once you do that you should continue to 
+> set the default NetLabel domain mapping to send CIPSO tagged packets but also 
+> create a new NetLabel domain mapping so that the ambient smack label causes 
+> packets to be sent "unlabeled".  The only other change you would have to make 
+> is to ensure that the NetLabel domain mappings are kept in sync with any 
+> ambient label changes (should be easy enough and a rather infrequent 
+> operation in practice).
+> 
+> This also should have the advantage of making your life easier if/when more 
+> advanced labeled network controls are added to Smack (see the SELinux changes 
+> made in 2.6.25 and our previous discussions).
+> 
 
-With a default tcp_max_syn_backlog of 1024, I can trivially prevent
-any inbound client connections with 2 threads of syn flood.
-Enabling tcp_syncookies brings the connection handling back up to 725
-fetches per second.
-
-If I raise the backlog to 16384, 4 threads gives me about 650 legit
-requests per sec.  Going to 8 threads makes connections very unreliable - a
-handful will get through every 15 to 20 seconds.  Again,
-tcp_syncookies returns performance almost totally back to normal.
-
-Cranking juno-z to the max generates me about 16kpps.  Any syn backlog
-is easily overwhelmed and nothing gets through.  tcp_syncookies gets
-me back to 650 requests per second.
-
-At these levels the CPU impact of tcp_syncookies is nothing.  I can't
-measure a difference.  In the real world, a 16kpps syn flood is small.
-People with a distributed botnet can easily get to the hundreds of
-thousands, and I have seen over million packets per second of SYN flood.
-
-
-BTW, I can trigger a soft lockup BUG when I restart apache to change the
-backlog during the 16kpps test-case:
-
-BUG: soft lockup detected on CPU#1!
- [<c044d1ec>] softlockup_tick+0x96/0xa4
- [<c042ddb0>] update_process_times+0x39/0x5c
- [<c04196f7>] smp_apic_timer_interrupt+0x5b/0x6c
- [<c04059bf>] apic_timer_interrupt+0x1f/0x24
- [<c045007b>] taskstats_exit_send+0x152/0x371
- [<c05c007b>] netlink_kernel_create+0x5/0x11c
- [<c05a7415>] reqsk_queue_alloc+0x32/0x81
- [<c05a5aca>] lock_sock+0x8e/0x96
- [<c05ce8c4>] inet_csk_listen_start+0x17/0x106
- [<c05e720f>] inet_listen+0x3c/0x5f
- [<c05a3e55>] sys_listen+0x4a/0x66
- [<c05a4f4d>] sys_socketcall+0x98/0x19e
- [<c0407ef7>] do_syscall_trace+0xab/0xb1
- [<c0404eff>] syscall_call+0x7/0xb
- =======================
-BUG: soft lockup detected on CPU#3!
- [<c044d1ec>] softlockup_tick+0x96/0xa4
- [<c042ddb0>] update_process_times+0x39/0x5c
- [<c04196f7>] smp_apic_timer_interrupt+0x5b/0x6c
- [<c04059bf>] apic_timer_interrupt+0x1f/0x24
- [<c045007b>] taskstats_exit_send+0x152/0x371
- [<c05c007b>] netlink_kernel_create+0x5/0x11c
- [<c05a7415>] reqsk_queue_alloc+0x32/0x81
- [<c05a5aca>] lock_sock+0x8e/0x96
- [<c05ce8c4>] inet_csk_listen_start+0x17/0x106
- [<c05e720f>] inet_listen+0x3c/0x5f
- [<c05a3e55>] sys_listen+0x4a/0x66
- [<c05a4f4d>] sys_socketcall+0x98/0x19e
- [<c0407ef7>] do_syscall_trace+0xab/0xb1
- [<c0404eff>] syscall_call+0x7/0xb
- =======================
-
-
-
-
-
-
-
--- 
-Ross Vandegrift
-ross@kallisti.us
-
-"The good Christian should beware of mathematicians, and all those who
-make empty prophecies. The danger already exists that the mathematicians
-have made a covenant with the devil to darken the spirit and to confine
-man in the bonds of Hell."
-	--St. Augustine, De Genesi ad Litteram, Book II, xviii, 37
