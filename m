@@ -1,49 +1,55 @@
-From: "Rami Rosen" <ramirose@gmail.com>
-Subject: [PATCH] [IPV6] Minor clenup: remove two unused definitions in net/ip6_route.h
-Date: Thu, 7 Feb 2008 17:58:07 +0200
-Message-ID: <eb3ff54b0802070758j21299257m19e04fffdedd914@mail.gmail.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: Problem receiving multicast/promiscuous-mode with kernel.2.6.24
+Date: Thu, 7 Feb 2008 08:09:03 -0800
+Message-ID: <OF1A029B6E.330C7FB9-ON882573E8.0057AE9D-882573E8.0058B74B@us.ibm.com>
+References: <BA41E8A07B73A041948C2E3A4EF6239D062F0B@av-digital-exch.avdigital.at>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_12902_26217834.1202399887642"
-Cc: linux-kernel@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org
+To: "Reither Robert" <Robert.Reither@av-digital.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:41303 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751386AbYBGP6N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 10:58:13 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so2653616fga.17
-        for <netdev@vger.kernel.org>; Thu, 07 Feb 2008 07:58:12 -0800 (PST)
+Received: from e32.co.us.ibm.com ([32.97.110.150]:33830 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754240AbYBGQJ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 11:09:27 -0500
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m17F5b8v023761
+	for <netdev@vger.kernel.org>; Thu, 7 Feb 2008 10:05:37 -0500
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m17G9AgW181096
+	for <netdev@vger.kernel.org>; Thu, 7 Feb 2008 09:09:14 -0700
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m17G96rO010332
+	for <netdev@vger.kernel.org>; Thu, 7 Feb 2008 09:09:07 -0700
+In-Reply-To: <BA41E8A07B73A041948C2E3A4EF6239D062F0B@av-digital-exch.avdigital.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_12902_26217834.1202399887642
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+You need to join the multicast group on the interface you want
+to receive it. If you're setting both imr_address and imr_index
+to 0, you haven't specified an interface.
 
-Hi,
-Remove IP6_RT_PRIO_FW and IP6_RT_FLOW_MASK definitions in
-include/net/ip6_route.h, as they are not used in the kernel.
+Instead of setting imr_ifindex to 0, try setting it like this:
 
-Regards,
-Rami Rosen
+imr.imr_ifindex = if_nametoindex("eth0");
 
+ (or whatever interface you need).
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
+You can verify that you've joined the group on the correct
+interface with "netstat -g", also. Make sure that the interface
+field is correct for the group you want.
 
-------=_Part_12902_26217834.1202399887642
-Content-Type: text/plain; name=patch.txt
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fcdhrl4l0
-Content-Disposition: attachment; filename=patch.txt
+And because I can't resist mentioning it, "inet_aton" is deprecated--
+suggest inet_pton() with appropriate arguments and return value
+checking instead.
 
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2lwNl9yb3V0ZS5oIGIvaW5jbHVkZS9uZXQvaXA2X3Jv
-dXRlLmgKaW5kZXggZmFhYzBlZS4uZjk5ZTRmMCAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvaXA2
-X3JvdXRlLmgKKysrIGIvaW5jbHVkZS9uZXQvaXA2X3JvdXRlLmgKQEAgLTEsMTEgKzEsOSBAQAog
-I2lmbmRlZiBfTkVUX0lQNl9ST1VURV9ICiAjZGVmaW5lIF9ORVRfSVA2X1JPVVRFX0gKIAotI2Rl
-ZmluZSBJUDZfUlRfUFJJT19GVwkJMTYKICNkZWZpbmUgSVA2X1JUX1BSSU9fVVNFUgkxMDI0CiAj
-ZGVmaW5lIElQNl9SVF9QUklPX0FERFJDT05GCTI1NgogI2RlZmluZSBJUDZfUlRfUFJJT19LRVJO
-CTUxMgotI2RlZmluZSBJUDZfUlRfRkxPV19NQVNLCTB4MDBmZgogCiBzdHJ1Y3Qgcm91dGVfaW5m
-byB7CiAJX191OAkJCXR5cGU7Cg==
-------=_Part_12902_26217834.1202399887642--
+There was a bug fix where the sense of promiscuous mode was
+backwards for multicasting, which is probably why it was accidently
+(and incorrectly) working in earlier kernels.
+
+If that doesn't do it for you, let me know; better if you can post the
+full code (or even better, the smallest subset that demonstrates the
+problem).
+
+                                                +-DLS
+
