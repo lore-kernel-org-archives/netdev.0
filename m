@@ -1,64 +1,48 @@
-From: Laurent Pinchart <laurentp@cse-semaphore.com>
-Subject: Re: [PATCH 01/24 for-2.6.25] DM9000: Fix endian-ness of data accesses. Patch from: Laurent Pinchart <laurentp@cse-semaphore.com>
-Date: Thu, 7 Feb 2008 14:28:38 +0100
-Message-ID: <200802071428.38849.laurentp@cse-semaphore.com>
-References: <20080205000159.432081941@fluff.org.uk> <20080205000814.539308209@fluff.org.uk> <47A99E1A.3050808@garzik.org>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 01/24 for-2.6.25] DM9000: Fix endian-ness of data
+	accesses. Patch from: Laurent Pinchart <laurentp@cse-semaphore.com>
+Date: Thu, 7 Feb 2008 08:30:33 -0500
+Message-ID: <20080207133033.GA31059@infradead.org>
+References: <20080205000159.432081941@fluff.org.uk> <20080205000814.539308209@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1414390.0q1aJvsAsz";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Ben Dooks <ben-linux@fluff.org>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, daniel@caiaq.de
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jeff@garzik.org, akpm@linux-foundation.org,
+	daniel@caiaq.de, laurentp@cse-semaphore.com
+To: Ben Dooks <ben-linux@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay005.isp.belgacom.be ([195.238.6.171]:29417 "EHLO
-	mailrelay005.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753956AbYBGN2B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 08:28:01 -0500
-In-Reply-To: <47A99E1A.3050808@garzik.org>
+Received: from bombadil.infradead.org ([18.85.46.34]:33355 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754186AbYBGNaf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 08:30:35 -0500
+Content-Disposition: inline
+In-Reply-To: <20080205000814.539308209@fluff.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart1414390.0q1aJvsAsz
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Tue, Feb 05, 2008 at 12:02:00AM +0000, Ben Dooks wrote:
+> This patch splits the receive status in 8bit wide fields and convert the
+> packet length from little endian to CPU byte order.
+> 
+> Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
+> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+> 
+> Index: linux-2.6.24-git5-dm9k/drivers/net/dm9000.c
+> ===================================================================
+> --- linux-2.6.24-git5-dm9k.orig/drivers/net/dm9000.c
+> +++ linux-2.6.24-git5-dm9k/drivers/net/dm9000.c
+> @@ -867,7 +867,8 @@ dm9000_timer(unsigned long data)
+>  }
+>  
+>  struct dm9000_rxhdr {
+> -	u16	RxStatus;
+> +	u8	RxPktReady;
+> +	u8	RxStatus;
+>  	u16	RxLen;
 
-On Wednesday 06 February 2008 12:46, Jeff Garzik wrote:
-> two comments:
->
-> 1) you should be using __le16 type
->
-> 2) seems like you should do the same for RxStatus, rather than splitting =
-it
+thgis should be __le16.  Also please install sparse and do a
 
-The DM9000 datasheet (or rather the application notes) describes two distin=
-ct=20
-fields, even though they both contain some kind of status information.
+	make C=2 CHECKFLAGS="-D__CHECK_ENDIAN__"
 
-=2D-=20
-Laurent Pinchart
-CSE Semaphore Belgium
+run over the driver to make sure all hw structures are properly
+annotated and you do byteswaps consistantly.
 
-Chauss=E9e de Bruxelles, 732A
-B-1410 Waterloo
-Belgium
-
-T +32 (2) 387 42 59
-=46 +32 (2) 387 42 75
-
---nextPart1414390.0q1aJvsAsz
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-
-iD8DBQBHqweG8y9gWxC9vpcRAkqjAJ9BbTd1649Vv5O55vrXNMEnzbZnMACgjbWX
-KR8u39NQJAhu66LKZp7Q8V0=
-=stJW
------END PGP SIGNATURE-----
-
---nextPart1414390.0q1aJvsAsz--
