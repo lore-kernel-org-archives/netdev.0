@@ -1,106 +1,52 @@
-From: <gregkh@suse.de>
-Subject: patch forcedeth-mac-address-mcp77-79.patch queued to -stable tree
-Date: Wed, 06 Feb 2008 16:53:29 -0800
-Message-ID: <20080207005513.BA5C51454459@imap.suse.de>
-References: <479DF3B8.2000204@nvidia.com>
-Cc: <stable@kernel.org>, <stable-commits@vger.kernel.org>
-To: aabdulla@nvidia.com, akpm@osdl.org, davem@davemloft.net,
-	gregkh@suse.de, jeff@garzik.org, jgarzik@pobox.com,
-	netdev@vger.kernel.org
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] net: NEWEMAC: Remove "rgmii-interface" from rgmii
+	matching table
+Date: Thu, 07 Feb 2008 13:47:28 +1100
+Message-ID: <1202352448.7079.112.camel@pasglop>
+References: <1202300519-7294-1-git-send-email-sr@denx.de>
+	 <20080206160157.GA18228@lixom.net>
+	 <20080206102340.1cdf7f8d@zod.rchland.ibm.com>
+	 <20080206163554.GA18575@lixom.net>
+Reply-To: benh@kernel.crashing.org
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Josh Boyer <jwboyer@gmail.com>, Stefan Roese <sr@denx.de>,
+	linuxppc-dev@ozlabs.org, jeff@garzik.org, netdev@vger.kernel.org
+To: Olof Johansson <olof@lixom.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:40032 "EHLO mx2.suse.de"
+Received: from gate.crashing.org ([63.228.1.57]:45261 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764678AbYBGAzR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2008 19:55:17 -0500
-In-Reply-To: <479DF3B8.2000204@nvidia.com>
+	id S1758830AbYBGCsM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2008 21:48:12 -0500
+In-Reply-To: <20080206163554.GA18575@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-This is a note to let you know that we have just queued up the patch titled
+On Wed, 2008-02-06 at 10:35 -0600, Olof Johansson wrote:
+> On Wed, Feb 06, 2008 at 10:23:40AM -0600, Josh Boyer wrote:
+> > On Wed, 6 Feb 2008 10:01:57 -0600
+> > Olof Johansson <olof@lixom.net> wrote:
+> > 
+> > > On Wed, Feb 06, 2008 at 01:21:59PM +0100, Stefan Roese wrote:
+> > > > With the removal the the "rgmii-interface" device_type property from the
+> > > > dts files, the newemac driver needs an update to only rely on compatible
+> > > > property.
+> > > 
+> > > What about systems using an older dts, such as one kexec:ing from an
+> > > older kernel?
+> > 
+> > Like what?  Kexec doesn't work on 4xx yet.
+> 
+> Sure, but similar restrictions would apply for customers who have a
+> flashed device tree that want to boot a newer kernel. Deprecating old
+> device tree support is something that should be done very carefully.
 
-     Subject: forcedeth: mac address mcp77/79
+In that case, we -know- there was no such thing as the proper support
+for 4xx in powerpc isn't really there before 2.6.25 anyway. The only
+other is Cell/Axon which we verified still works.
 
-to the 2.6.24-stable tree.  Its filename is
-
-     forcedeth-mac-address-mcp77-79.patch
-
-A git repo of this tree can be found at 
-    http://www.kernel.org/git/?p=linux/kernel/git/stable/stable-queue.git;a=summary
-
-
->From stable-bounces@linux.kernel.org Tue Jan 29 09:03:00 2008
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Date: Mon, 28 Jan 2008 10:24:40 -0500
-Subject: forcedeth: mac address mcp77/79
-To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>, stable@kernel.org
-Message-ID: <479DF3B8.2000204@nvidia.com>
-
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-
-patch 2b91213064bd882c3adf35f028c6d12fab3269ec in mainline.
-
-This patch is a critical fix for MCP77 and MCP79 devices. The feature
-flags were missing the define for correct mac address
-(DEV_HAS_CORRECT_MACADDR).
-
-Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
-Signed-off-by: Jeff Garzik <jeff@garzik.org>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- drivers/net/forcedeth.c |   16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
-
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -5593,35 +5593,35 @@ static struct pci_device_id pci_tbl[] = 
- 	},
- 	{	/* MCP77 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_32),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
- 	},
- 	{	/* MCP77 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_33),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
- 	},
- 	{	/* MCP77 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_34),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
- 	},
- 	{	/* MCP77 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_35),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
- 	},
- 	{	/* MCP79 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_36),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
- 	},
- 	{	/* MCP79 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_37),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
- 	},
- 	{	/* MCP79 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_38),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
- 	},
- 	{	/* MCP79 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_39),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
- 	},
- 	{0,},
- };
+Ben.
 
 
-Patches currently in stable-queue which might be from aabdulla@nvidia.com are
-
-queue-2.6.24/forcedeth-mac-address-mcp77-79.patch
