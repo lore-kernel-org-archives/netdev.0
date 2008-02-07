@@ -1,48 +1,66 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 01/24 for-2.6.25] DM9000: Fix endian-ness of data
-	accesses. Patch from: Laurent Pinchart <laurentp@cse-semaphore.com>
-Date: Thu, 7 Feb 2008 08:30:33 -0500
-Message-ID: <20080207133033.GA31059@infradead.org>
-References: <20080205000159.432081941@fluff.org.uk> <20080205000814.539308209@fluff.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jeff@garzik.org, akpm@linux-foundation.org,
-	daniel@caiaq.de, laurentp@cse-semaphore.com
-To: Ben Dooks <ben-linux@fluff.org>
+From: Ursula Braun <braunu@de.ibm.com>
+Subject: [patch 2/3] af_iucv: broken send_skb_q results in endless loop
+Date: Thu, 07 Feb 2008 15:28:44 +0100
+Message-ID: <20080207143534.085581000@linux.vnet.ibm.com>
+References: <20080207142842.852003000@linux.vnet.ibm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:33355 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754186AbYBGNaf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 08:30:35 -0500
-Content-Disposition: inline
-In-Reply-To: <20080205000814.539308209@fluff.org.uk>
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:3439 "EHLO
+	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759984AbYBGOfi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 09:35:38 -0500
+Content-Disposition: inline; filename=713-afiucv.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 05, 2008 at 12:02:00AM +0000, Ben Dooks wrote:
-> This patch splits the receive status in 8bit wide fields and convert the
-> packet length from little endian to CPU byte order.
-> 
-> Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
-> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
-> 
-> Index: linux-2.6.24-git5-dm9k/drivers/net/dm9000.c
-> ===================================================================
-> --- linux-2.6.24-git5-dm9k.orig/drivers/net/dm9000.c
-> +++ linux-2.6.24-git5-dm9k/drivers/net/dm9000.c
-> @@ -867,7 +867,8 @@ dm9000_timer(unsigned long data)
->  }
->  
->  struct dm9000_rxhdr {
-> -	u16	RxStatus;
-> +	u8	RxPktReady;
-> +	u8	RxStatus;
->  	u16	RxLen;
+From: Ursula Braun <braunu@de.ibm.com>
 
-thgis should be __le16.  Also please install sparse and do a
+A race has been detected in iucv_callback_txdone().
+skb_unlink has to be done inside the locked area.
 
-	make C=2 CHECKFLAGS="-D__CHECK_ENDIAN__"
+In addition checkings for successful allocations are inserted.
 
-run over the driver to make sure all hw structures are properly
-annotated and you do byteswaps consistantly.
+Signed-off-by: Ursula Braun <braunu@de.ibm.com>
+---
 
+ net/iucv/af_iucv.c |    8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff -urpN linux-2.6/net/iucv/af_iucv.c linux-2.6-patched/net/iucv/af_iucv.c
+--- linux-2.6/net/iucv/af_iucv.c	2008-02-07 13:24:12.000000000 +0100
++++ linux-2.6-patched/net/iucv/af_iucv.c	2008-02-07 13:24:38.000000000 +0100
+@@ -482,6 +482,10 @@ static int iucv_sock_connect(struct sock
+ 	/* Create path. */
+ 	iucv->path = iucv_path_alloc(IUCV_QUEUELEN_DEFAULT,
+ 				     IPRMDATA, GFP_KERNEL);
++	if (!iucv->path) {
++		err = -ENOMEM;
++		goto done;
++	}
+ 	err = iucv_path_connect(iucv->path, &af_iucv_handler,
+ 				sa->siucv_user_id, NULL, user_data, sk);
+ 	if (err) {
+@@ -1094,6 +1098,8 @@ static void iucv_callback_rx(struct iucv
+ 
+ save_message:
+ 	save_msg = kzalloc(sizeof(struct sock_msg_q), GFP_ATOMIC | GFP_DMA);
++	if (!save_msg)
++		return;
+ 	save_msg->path = path;
+ 	save_msg->msg = *msg;
+ 
+@@ -1118,10 +1124,10 @@ static void iucv_callback_txdone(struct 
+ 			this = list_skb;
+ 			list_skb = list_skb->next;
+ 		} while (memcmp(&msg->tag, this->cb, 4) && list_skb);
++		__skb_unlink(this, list);
+ 
+ 		spin_unlock_irqrestore(&list->lock, flags);
+ 
+-		skb_unlink(this, &iucv_sk(sk)->send_skb_q);
+ 		kfree_skb(this);
+ 	}
+ 
+
+-- 
