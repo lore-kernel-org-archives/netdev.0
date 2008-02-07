@@ -1,46 +1,41 @@
-From: Claudio Lanconelli <lanconelli.claudio@eptar.com>
-Subject: Re: [patch 2.6.24-git] net/enc28j60: oops fix, low power mode
-Date: Thu, 07 Feb 2008 11:53:30 +0100
-Message-ID: <47AAE32A.7070105@eptar.com>
-References: <20080205190124.E72F48E45F@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <47A9EA42.3080800@eptar.com> <200802062156.41862.david-b@pacbell.net>
+From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+Subject: [PATCH 0/7] PS3: gelic: gelic updates and wireless support
+Date: Thu, 07 Feb 2008 19:57:20 +0900
+Message-ID: <20080207195151.AD3D.40F06B3A@sm.sony.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: David Brownell <david-b@pacbell.net>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, geoffrey.levand@am.sony.com,
+	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fe-relay03.albacom.net ([217.220.57.137]:33763 "EHLO
-	fe-relay03.albacom.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754535AbYBGKwg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 05:52:36 -0500
-In-Reply-To: <200802062156.41862.david-b@pacbell.net>
+Received: from MGW2.Sony.CO.JP ([137.153.0.14]:49302 "EHLO mgw2.sony.co.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752353AbYBGK53 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2008 05:57:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Brownell wrote:
-> How long did that take?  I did about four dozen
->
-> 	ifconfig eth1 up
-> 	sleep 3
-> 	ifconfig eth1 down
->
-> cycles ... it worked fine.  The "sleep" was to let the link
-> negotiation complete.
->
->   
-After a couple of :
+Hi,
 
-ifconfig eth0 down
-(wait just 1 second)
-ifconfig eth0 up
+This set is a collection of patches I submitted before in this ML on
+last December and a patch that adds the wireless support to PS3.
 
-the network is frozen.
+The wireless bit (#7) is already ACKed by John <linville@tuxdriver.com>
+and Dan <dcbw@redhat.com>.  The ethernet bits have been reviewed and
+have no obvious outstanding comments.
 
-If I do another
-ifconfig eth0 down
-(wait just 1 second)
-ifconfig eth0 up
+Please apply for 2.6.25.
 
-restarts.
-It's random, no rule.
+	[1] PS3: gelic: Fix the wrong dev_id passed
+	[2] PS3: gelic: Add endianness macros
+	[3] PS3: gelic: Code cleanup
+	[4] PS3: gelic: Remove duplicated ethtool handlers
+	[5] PS3: gelic: Add support for port link status
+	[6] PS3: gelic: Add support for dual network interface
+	[7] PS3: gelic: Add wireless support for PS3
+
+
+-- 
+Masakazu MOKUNO
 
