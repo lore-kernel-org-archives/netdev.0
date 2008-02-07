@@ -1,65 +1,63 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [BUG][AX25] Fwd: SMP with AX.25
-Date: Thu, 7 Feb 2008 12:07:27 +0000
-Message-ID: <20080207120727.GA2628@ff.dom.local>
-References: <20080206074529.GC4496@ff.dom.local>
+From: Laszlo Attila Toth <panther@balabit.hu>
+Subject: Re: [PATCH 1/2] Remove unnecessary locks from rtnetlink
+Date: Thu, 07 Feb 2008 13:00:40 +0100
+Message-ID: <47AAF2E8.30802@balabit.hu>
+References: <12018820194128-git-send-email-panther@balabit.hu>	<12018820542721-git-send-email-panther@balabit.hu> <20080205.175337.266368079.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ralf Baechle <ralf@linux-mips.org>, netdev@vger.kernel.org
-To: Jann Traschewski <jann@gmx.de>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.181]:43068 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754240AbYBGMAV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 07:00:21 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so1063710wah.23
-        for <netdev@vger.kernel.org>; Thu, 07 Feb 2008 04:00:21 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080206074529.GC4496@ff.dom.local>
+Received: from www.balabit.hu ([212.92.18.33]:41272 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754916AbYBGMAn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2008 07:00:43 -0500
+Received: from balabit.hu (unknown [10.80.0.254])
+	by lists.balabit.hu (Postfix) with ESMTP id 39CA6C1537
+	for <netdev@vger.kernel.org>; Thu,  7 Feb 2008 13:00:42 +0100 (CET)
+In-Reply-To: <20080205.175337.266368079.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 06, 2008 at 07:45:29AM +0000, Jarek Poplawski wrote:
-...
-> From: Jann Traschewski <jann@gmx.de>
-> Subject: SMP with AX.25
+David Miller =EDrta:
+> From: Laszlo Attila Toth <panther@balabit.hu>
+> Date: Fri,  1 Feb 2008 17:07:33 +0100
+>=20
+>> The do_setlink() function is protected by rtnl, additional locks are=
+ unnecessary.
+>> and the set_operstate() function is called from protected parts. Loc=
+ks removed
+>> from both functions.
+>>
+>> The set_operstate() is also called from rtnl_create_link() and from =
+no other places.
+>> In rtnl_create_link() none of the changes is protected by set_lock_b=
+h() except
+>> inside set_operstate(), different locking scheme is not necessary
+>> for the operstate.
+>>
+>> Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
+>=20
+> The protection using dev_base_lock() is needed.
+>=20
+> When analyzing cases like this you need to also look at other code
+> paths outside of rtnetlink that access ->operstate and ->link_mode,
+> you obviously didn't do this.
+>=20
+> For example, net/core/net-sysfs.c takes a read lock on dev_base_lock
+> in order to fetch a stable copy of both netif_running() and
+> dev->operstate at the same time.
+>=20
+> Similar write locking to protect dev->operstate is made by
+> net/core/link_watch.c:rfc2863_policy(), for the same reason rtnetlink
+> has to make this locking.
+>=20
+> You therefore cannot remove it.
 
-(testing patch #2)
+Thanks for your answer, yes, unfortunatelly I checked only inside=20
+rtnetlink.c
 
-According to some OOPSes reported by Jann it seems ax25_kick
-tries to clone NULL skbs sometimes. Probably there is needed
-a sock lock, but until it's checked more this patch should
-help to avoid this. There are probably also cases where ax25
-->paclen == 0 can happen: let's check for this.
-
-I attach this patch for testing purpose only.
-
-Jarek P.
-
----
-
-diff -Nurp 2.6.24-/net/ax25/ax25_out.c 2.6.24+/net/ax25/ax25_out.c
---- 2.6.24-/net/ax25/ax25_out.c	2008-01-24 22:58:37.000000000 +0000
-+++ 2.6.24+/net/ax25/ax25_out.c	2008-02-07 11:48:39.000000000 +0000
-@@ -117,6 +117,12 @@ void ax25_output(ax25_cb *ax25, int pacl
- 	unsigned char *p;
- 	int frontlen, len, fragno, ka9qfrag, first = 1;
- 
-+	if (paclen < 16) {
-+		WARN_ON_ONCE(1);
-+		kfree_skb(skb);
-+		return;
-+	}
-+
- 	if ((skb->len - 1) > paclen) {
- 		if (*skb->data == AX25_P_TEXT) {
- 			skb_pull(skb, 1); /* skip PID */
-@@ -263,6 +269,8 @@ void ax25_kick(ax25_cb *ax25)
- 	 * Dequeue the frame and copy it.
- 	 */
- 	skb  = skb_dequeue(&ax25->write_queue);
-+	if (!skb)
-+		return;
- 
- 	do {
- 		if ((skbn = skb_clone(skb, GFP_ATOMIC)) == NULL) {
+--
+Attila
