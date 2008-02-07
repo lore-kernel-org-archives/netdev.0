@@ -1,67 +1,107 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: converting fore200e driver to use request_firmware()
-Date: Thu, 7 Feb 2008 11:43:17 -0800
-Message-ID: <20080207114317.0b9f6db1@extreme>
-References: <20080206.160542.07994571.davem@davemloft.net>
-	<200802071920.m17JKJMb029314@cmf.nrl.navy.mil>
+From: Ross Vandegrift <ross@kallisti.us>
+Subject: Re: [PATCH] Add IPv6 support to TCP SYN cookies
+Date: Thu, 7 Feb 2008 14:44:46 -0500
+Message-ID: <20080207194446.GA25463@kallisti.us>
+References: <47a79d64.16538c0a.5b6a.ffffb0fe@mx.google.com> <20080205155558.GA23145@one.firstfloor.org> <c9e534200802051029u5d08cf6dm54866f769e362262@mail.gmail.com> <20080205192559.GA10573@kallisti.us> <20080205201106.GB26150@one.firstfloor.org> <20080205212335.GA11287@kallisti.us> <20080206085357.GA1402@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Content-Type: text/plain; charset=us-ascii
+Cc: Glenn Griffin <ggriffin.kernel@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:53093 "EHLO mail.vyatta.com"
+Received: from kallisti.us ([67.59.168.233]:34932 "EHLO kallisti.us"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752427AbYBGTnX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Feb 2008 14:43:23 -0500
-In-Reply-To: <200802071920.m17JKJMb029314@cmf.nrl.navy.mil>
+	id S1751247AbYBGTqE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2008 14:46:04 -0500
+Content-Disposition: inline
+In-Reply-To: <20080206085357.GA1402@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 07 Feb 2008 14:20:19 -0500
-"chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil> wrote:
+On Wed, Feb 06, 2008 at 09:53:57AM +0100, Andi Kleen wrote:
+> That would be useful yes -- for different bandwidths.
 
-> In message <20080206.160542.07994571.davem@davemloft.net>,David Miller writes:
-> >> however, i ran into a little problem with the sbus interface.  what should
-> >> i pass for 'struct device *' for an sbus device?
-> >
-> >"&sdev->ofdev.dev" should work
-> 
-> thanks!  that is what i needed.  so what i have works on pci and is
-> quite a bit cleaner than the current mess for the firmware.  the only
-> iffy part is the conversion of the struct fore_200e to a struct device
-> which is depends your bus.  perhaps it should be a seperate routine.
-> 
-> any comments on the following?
-> 
-> diff --git a/drivers/atm/Kconfig b/drivers/atm/Kconfig
-> index 1c7ae30..a5303ee 100644
-> --- a/drivers/atm/Kconfig
-> +++ b/drivers/atm/Kconfig
-> @@ -325,81 +325,21 @@ config ATM_IA_DEBUG
->  	  speed of the driver, and the size of your syslog files! When
->  	  inactive, they will have only a modest impact on performance.
->  
-> -config ATM_FORE200E_MAYBE
-> +config ATM_FORE200E
->  	tristate "FORE Systems 200E-series"
-> -	depends on PCI || SBUS
-> +	depends on (PCI || SBUS)
->  	---help---
->  	  This is a driver for the FORE Systems 200E-series ATM adapter
->  	  cards. It simultaneously supports PCA-200E and SBA-200E models
->  	  on PCI and SBUS hosts. Say Y (or M to compile as a module
->  	  named fore_200e) here if you have one of these ATM adapters.
->  
-> -	  Note that the driver will actually be compiled only if you
-> -	  additionally enable the support for PCA-200E and/or SBA-200E
-> -	  cards.
-> -
->  	  See the file <file:Documentation/networking/fore200e.txt> for
->  	  further details.
->  
+My initial test is end-to-end 1000Mbps, but I've got a few different
+packet rates.
 
-Think you  now need to select FW_LOADER?
+> If the young/old heuristics do not work well enough anymore most
+> likely we should try readding RED to the syn queue again. That used
+> to be pretty effective in the early days. I don't quite remember why
+> Linux didn't end up using it in fact.
+
+I'm running juno-z with 2, 4, & 8 threads of syn flood to port 80.
+wireshark measures 2 threads at 350pps, 4 threads at 750pps, and 8
+threads at 1200pps.  Under no SYN flood, the server handles 750 HTTP
+requests per second, measured via httping in flood mode.
+
+With a default tcp_max_syn_backlog of 1024, I can trivially prevent
+any inbound client connections with 2 threads of syn flood.
+Enabling tcp_syncookies brings the connection handling back up to 725
+fetches per second.
+
+If I raise the backlog to 16384, 4 threads gives me about 650 legit
+requests per sec.  Going to 8 threads makes connections very unreliable - a
+handful will get through every 15 to 20 seconds.  Again,
+tcp_syncookies returns performance almost totally back to normal.
+
+Cranking juno-z to the max generates me about 16kpps.  Any syn backlog
+is easily overwhelmed and nothing gets through.  tcp_syncookies gets
+me back to 650 requests per second.
+
+At these levels the CPU impact of tcp_syncookies is nothing.  I can't
+measure a difference.  In the real world, a 16kpps syn flood is small.
+People with a distributed botnet can easily get to the hundreds of
+thousands, and I have seen over million packets per second of SYN flood.
+
+
+BTW, I can trigger a soft lockup BUG when I restart apache to change the
+backlog during the 16kpps test-case:
+
+BUG: soft lockup detected on CPU#1!
+ [<c044d1ec>] softlockup_tick+0x96/0xa4
+ [<c042ddb0>] update_process_times+0x39/0x5c
+ [<c04196f7>] smp_apic_timer_interrupt+0x5b/0x6c
+ [<c04059bf>] apic_timer_interrupt+0x1f/0x24
+ [<c045007b>] taskstats_exit_send+0x152/0x371
+ [<c05c007b>] netlink_kernel_create+0x5/0x11c
+ [<c05a7415>] reqsk_queue_alloc+0x32/0x81
+ [<c05a5aca>] lock_sock+0x8e/0x96
+ [<c05ce8c4>] inet_csk_listen_start+0x17/0x106
+ [<c05e720f>] inet_listen+0x3c/0x5f
+ [<c05a3e55>] sys_listen+0x4a/0x66
+ [<c05a4f4d>] sys_socketcall+0x98/0x19e
+ [<c0407ef7>] do_syscall_trace+0xab/0xb1
+ [<c0404eff>] syscall_call+0x7/0xb
+ =======================
+BUG: soft lockup detected on CPU#3!
+ [<c044d1ec>] softlockup_tick+0x96/0xa4
+ [<c042ddb0>] update_process_times+0x39/0x5c
+ [<c04196f7>] smp_apic_timer_interrupt+0x5b/0x6c
+ [<c04059bf>] apic_timer_interrupt+0x1f/0x24
+ [<c045007b>] taskstats_exit_send+0x152/0x371
+ [<c05c007b>] netlink_kernel_create+0x5/0x11c
+ [<c05a7415>] reqsk_queue_alloc+0x32/0x81
+ [<c05a5aca>] lock_sock+0x8e/0x96
+ [<c05ce8c4>] inet_csk_listen_start+0x17/0x106
+ [<c05e720f>] inet_listen+0x3c/0x5f
+ [<c05a3e55>] sys_listen+0x4a/0x66
+ [<c05a4f4d>] sys_socketcall+0x98/0x19e
+ [<c0407ef7>] do_syscall_trace+0xab/0xb1
+ [<c0404eff>] syscall_call+0x7/0xb
+ =======================
+
+
+
+
+
+
 
 -- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+Ross Vandegrift
+ross@kallisti.us
+
+"The good Christian should beware of mathematicians, and all those who
+make empty prophecies. The danger already exists that the mathematicians
+have made a covenant with the devil to darken the spirit and to confine
+man in the bonds of Hell."
+	--St. Augustine, De Genesi ad Litteram, Book II, xviii, 37
