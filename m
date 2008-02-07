@@ -1,50 +1,53 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: + smack-unlabeled-outgoing-ambient-packets.patch added to -mm tree
-Date: Thu, 7 Feb 2008 15:14:34 -0500
-Message-ID: <200802071514.34770.paul.moore@hp.com>
-References: <200802071901.m17J1lAY016751@imap1.linux-foundation.org> <200802071450.41529.paul.moore@hp.com> <20080207120459.d4994f44.akpm@linux-foundation.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG][AX25] Fwd: SMP with AX.25
+Date: Thu, 7 Feb 2008 21:34:29 +0100
+Message-ID: <20080207203428.GC8149@ami.dom.local>
+References: <20080206074529.GC4496@ff.dom.local> <20080207193511.GB8149@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: casey@schaufler-ca.com, davem@davemloft.net, jmorris@namei.org,
-	mingo@elte.hu, sds@tycho.nsa.gov, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ralf Baechle <ralf@linux-mips.org>, Jann Traschewski <jann@gmx.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:49090 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933075AbYBGUOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 15:14:45 -0500
-In-Reply-To: <20080207120459.d4994f44.akpm@linux-foundation.org>
+Received: from ug-out-1314.google.com ([66.249.92.175]:22952 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752839AbYBGUaX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 15:30:23 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so763715ugc.16
+        for <netdev@vger.kernel.org>; Thu, 07 Feb 2008 12:30:21 -0800 (PST)
 Content-Disposition: inline
+In-Reply-To: <20080207193511.GB8149@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 07 February 2008 3:04:59 pm Andrew Morton wrote:
-> On Thu, 7 Feb 2008 14:50:41 -0500
->
-> Paul Moore <paul.moore@hp.com> wrote:
-> > On Thursday 07 February 2008 2:02:06 pm akpm@linux-foundation.org wrote:
-> > > The patch titled
-> > >      Smack: unlabeled outgoing ambient packets
-> > > has been added to the -mm tree.  Its filename is
-> > >      smack-unlabeled-outgoing-ambient-packets.patch
-> > >
-> > > Before you just go and hit "reply", please:
-> > >    a) Consider who else should be cc'ed
-> > >    b) Prefer to cc a suitable mailing list as well
-> > >    c) Ideally: find the original patch on the mailing list and do a
-> > >       reply-to-all to that, adding suitable additional cc's
-> >
-> > I didn't see this patch hit any of the relevant mailing lists (am I
-> > missing one somewhere?) so I'm just CC'ing everyone on the To/CC line,
-> > minus mm-commits.
->
-> It was on linux-kernel and netdev.  I've restored those cc's.
+On Thu, Feb 07, 2008 at 08:35:11PM +0100, Jarek Poplawski wrote:
+> Here I resend another OOPS I got from Jann:
+> 
+> On Thu, Feb 07, 2008 at 05:42:42PM +0100, Jann Traschewski wrote:
+> ...
+> > BUG: unable to handle kernel NULL pointer dereference at virtual address
+> > 00000065
+> > printing eip: c02266c7 *pde = 00000000
+> > Oops: 0000 [#1] SMP
+> > Modules linked in: netconsole ppp_deflate zlib_deflate zlib_inflate bsd_comp
+> > ppp_async ppp_generic slhc tun bitrev crc32 mkiss ax25 crc16 iptable_nat
+> > nf_nat nf_conntrack_ipv4 xt_state nf_conntrack ipt_REJECT iptable_filter
+> > iptable_mangle xt_MARK ipv6 ipip tunnel4 ide_cd cdrom aic7xxx
+> > scsi_transport_spi parport_serial parport_pc parport i2c_piix4 genrtc
+> > 
+> > Pid: 3035, comm: linuxnet Not tainted (2.6.24-dg8ngn #1)
+> > EIP: 0060:[<c02266c7>] EFLAGS: 00010202 CPU: 0
+> > EIP is at skb_clone+0x3/0x4d
+> > EAX: 00000000 EBX: 00000000 ECX: 00000001 EDX: 00000020
+> > ESI: 00000008 EDI: 00000000 EBP: f700a4ac ESP: f720b9ac
+> >  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
+> > Process linuxnet (pid: 3035, ti=f720a000 task=f7c63570 task.ti=f720a000)
+> > Stack: f700a400 f8a0a8f9 c01254db 00000000 00000000 f700a400 f700a4cc
+> > f700a400 __wake_up_common+0x32/0x5c
+> > __wake_up+0x32/0x42
 
-My apologies, those mailing list postings there haven't hit my inbox yet.
+Jann, this report is a bit damaged here, so I could be wrong, but it
+looks similar to your first reports, and I guess this skb_clone is
+called from ax25_kick too. Then my today testing patch #2 should help
+for this, I hope.
 
--- 
-paul moore
-linux security @ hp
+Jarek P.
