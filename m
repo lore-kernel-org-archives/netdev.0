@@ -1,55 +1,56 @@
-From: Robert Brockway <robert@timetraveller.org>
-Subject: [PATCH] New device for DM9601 usb net driver
-Date: Thu, 7 Feb 2008 11:00:33 -0500 (EST)
-Message-ID: <Pine.LNX.4.64.0802071046540.24824@castor.opentrend.net>
+From: "Rami Rosen" <ramirose@gmail.com>
+Subject: [PATCH] [IPV6] Minor cleanup: remove unused definitions in net/ip6_fib.h
+Date: Thu, 7 Feb 2008 18:23:58 +0200
+Message-ID: <eb3ff54b0802070823y7038fcedga27cba4a9bb35731@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463807880-606225049-1202399624=:24824"
-Cc: netdev@vger.kernel.org
-To: jacmet@sunsite.dk
+Content-Type: multipart/mixed;
+	boundary="----=_Part_12950_13255778.1202401438335"
+Cc: linux-kernel@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.istop.com ([209.195.118.109]:53921 "EHLO ns.istop.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754891AbYBGQWu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Feb 2008 11:22:50 -0500
-Content-ID: <Pine.LNX.4.64.0802071054290.24824@castor.opentrend.net>
+Received: from nf-out-0910.google.com ([64.233.182.188]:39672 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754834AbYBGQYA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 11:24:00 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so938062nfb.21
+        for <netdev@vger.kernel.org>; Thu, 07 Feb 2008 08:23:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+------=_Part_12950_13255778.1202401438335
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
----1463807880-606225049-1202399624=:24824
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; FORMAT=flowed
-Content-ID: <Pine.LNX.4.64.0802071054291.24824@castor.opentrend.net>
+Hi,
 
-Hi Peter.  I've verified that the Hirose USB-100 (0x0a47, 0x9601) is a 
-clone of the DAVICOM DM9601.  I patched dm9601.c to identify this device 
-and now have these in production.  Unified diff against 2.6.24 attached.
+This patch removes some unused definitions and one method typedef
+declaration (f_pnode)
+in include/net/ip6_fib.h, as they are not used in the kernel.
 
-Cheers,
+Regards,
+Rami Rosen
 
-Rob
 
--- 
-"With sufficient thrust, pigs fly just fine..."
- 	-- RFC 1925 "The Twelve Networking Truths"
----1463807880-606225049-1202399624=:24824
-Content-Type: TEXT/X-DIFF; CHARSET=US-ASCII; NAME=dm9601.c.diff
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.64.0802071053440.24824@castor.opentrend.net>
-Content-Description: 
-Content-Disposition: ATTACHMENT; FILENAME=dm9601.c.diff
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-LS0tIGRyaXZlcnMvbmV0L3VzYi9kbTk2MDEuYy5vbGQJMjAwOC0wMS0yNyAw
-MDo1MTo1MC4wMDAwMDAwMDAgLTA1MDANCisrKyBkcml2ZXJzL25ldC91c2Iv
-ZG05NjAxLmMJMjAwOC0wMi0wNyAxMDoyNzo0MC4wMDAwMDAwMDAgLTA1MDAN
-CkBAIC01OTAsNiArNTkwLDEwIEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3QgdXNi
-X2RldmljZV9pZCBwcm9kdWMNCiAJIFVTQl9ERVZJQ0UoMHgwYTQ2LCAweDg1
-MTUpLAkvKiBBRE10ZWsgQURNODUxNSBVU0IgTklDICovDQogCSAuZHJpdmVy
-X2luZm8gPSAodW5zaWduZWQgbG9uZykmZG05NjAxX2luZm8sDQogCSB9LA0K
-Kwl7DQorCVVTQl9ERVZJQ0UoMHgwYTQ3LCAweDk2MDEpLCAgICAvKiBIaXJv
-c2UgVVNCLTEwMCAqLw0KKwkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9u
-ZykmZG05NjAxX2luZm8sDQorCX0sDQogCXt9LAkJCS8vIEVORA0KIH07DQog
-DQo=
+------=_Part_12950_13255778.1202401438335
+Content-Type: text/plain; name=patch.txt
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fcdipq160
+Content-Disposition: attachment; filename=patch.txt
 
----1463807880-606225049-1202399624=:24824--
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2lwNl9maWIuaCBiL2luY2x1ZGUvbmV0L2lwNl9maWIu
+aAppbmRleCBkOGQ4NWIxLi45NTNkNjA0IDEwMDY0NAotLS0gYS9pbmNsdWRlL25ldC9pcDZfZmli
+LmgKKysrIGIvaW5jbHVkZS9uZXQvaXA2X2ZpYi5oCkBAIC0xNTAsMTkgKzE1MCw2IEBAIHN0cnVj
+dCBydDZfc3RhdGlzdGljcyB7CiAgKgogICovCiAKLSNkZWZpbmUgUlRQUklfRklSRVdBTEwJOAkJ
+LyogRmlyZXdhbGwgY29udHJvbCBpbmZvcm1hdGlvbgkqLwotI2RlZmluZSBSVFBSSV9GTE9XCTE2
+CQkvKiBGbG93IGJhc2VkIGZvcndhcmRpbmcgcnVsZXMJKi8KLSNkZWZpbmUgUlRQUklfS0VSTl9D
+VEwJMzIJCS8qIEtlcm5lbCBjb250cm9sIHJvdXRlcwkqLwotCi0jZGVmaW5lIFJUUFJJX1VTRVJf
+TUlOCTI1NgkJLyogTWltaW11bSB1c2VyIHByaW9yaXR5CSovCi0jZGVmaW5lIFJUUFJJX1VTRVJf
+TUFYCTEwMjQJCS8qIE1heGltdW0gdXNlciBwcmlvcml0eQkqLwotCi0jZGVmaW5lIFJUUFJJX0tF
+Uk5fREZMVAk0MDk2CQkvKiBLZXJuZWwgZGVmYXVsdCByb3V0ZXMJKi8KLQotI2RlZmluZQlNQVhf
+RkxPV19CQUNLVFJBQ0UJMzIKLQotCi10eXBlZGVmIHZvaWQJCQkoKmZfcG5vZGUpKHN0cnVjdCBm
+aWI2X25vZGUgKmZuLCB2b2lkICopOwogCiBzdHJ1Y3QgZmliNl90YWJsZSB7CiAJc3RydWN0IGhs
+aXN0X25vZGUJdGI2X2hsaXN0Owo=
+------=_Part_12950_13255778.1202401438335--
