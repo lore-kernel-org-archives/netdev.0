@@ -1,65 +1,54 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: [PATCH] (02/06/08 Linus git) Smack unlabeled outgoing ambient packets
-Date: Thu, 07 Feb 2008 09:07:55 -0800
-Message-ID: <47AB3AEB.5010308@schaufler-ca.com>
-Reply-To: casey@schaufler-ca.com
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 1/3][NETLABEL]: Compilation for CONFIG_AUDIT=n case.
+Date: Thu, 07 Feb 2008 20:20:30 +0300
+Message-ID: <47AB3DDE.8050109@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	mingo@elte.hu
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp129.plus.mail.sp1.yahoo.com ([69.147.95.92]:44956 "HELO
-	smtp129.plus.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756075AbYBGROj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 12:14:39 -0500
+Received: from sacred.ru ([62.205.161.221]:52721 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757655AbYBGRU1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2008 12:20:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Casey Schaufler <casey@schaufler-ca.com>
+The audit_log_start() will expand into an empty do { } while (0)
+construction and the audit_ctx becomes unused.
 
-Smack uses CIPSO labeling, but allows for unlabeled packets
-by specifying an "ambient" label that is applied to incoming
-unlabeled packets. Because the other end of the connection
-may dislike IP options, and ssh is one know application that
-behaves thus, it is prudent to respond in kind. This patch
-changes the network labeling behavior such that an outgoing
-packet that would be given a CIPSO label that matches the
-ambient label is left unlabeled.
+The solution: push current->audit_context into audit_log_start()
+directly, since it is not required in any other place in the 
+calling function.
 
-Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
+ net/netlabel/netlabel_user.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
- security/smack/smack_lsm.c |    9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff -uprN -X linux-2.6.25-g0206-base//Documentation/dontdiff linux-2.6.25-g0206-base/security/smack/smack_lsm.c linux-2.6.25-g0206/security/smack/smack_lsm.c
---- linux-2.6.25-g0206-base/security/smack/smack_lsm.c	2008-02-06 16:01:43.000000000 -0800
-+++ linux-2.6.25-g0206/security/smack/smack_lsm.c	2008-02-06 18:39:55.000000000 -0800
-@@ -1276,6 +1276,12 @@ static void smack_to_secattr(char *smack
-  * Convert the outbound smack value (smk_out) to a
-  * secattr and attach it to the socket.
-  *
-+ * If the label is the ambient label do not set the secattr.
-+ * Thus, all ambient packets are unlabeled and all unlabeled
-+ * packets are ambient. This permits unlabeled responces to
-+ * unlabeled requests without knowing on a per-packet basis
-+ * if the packet was labeled ambient or was unlabeled.
-+ *
-  * Returns 0 on success or an error code
-  */
- static int smack_netlabel(struct sock *sk)
-@@ -1284,6 +1290,9 @@ static int smack_netlabel(struct sock *s
- 	struct netlbl_lsm_secattr secattr;
- 	int rc = 0;
+diff --git a/net/netlabel/netlabel_user.c b/net/netlabel/netlabel_user.c
+index 85a96a3..023fc8f 100644
+--- a/net/netlabel/netlabel_user.c
++++ b/net/netlabel/netlabel_user.c
+@@ -96,7 +96,6 @@ int netlbl_netlink_init(void)
+ struct audit_buffer *netlbl_audit_start_common(int type,
+ 					       struct netlbl_audit *audit_info)
+ {
+-	struct audit_context *audit_ctx = current->audit_context;
+ 	struct audit_buffer *audit_buf;
+ 	char *secctx;
+ 	u32 secctx_len;
+@@ -104,7 +103,7 @@ struct audit_buffer *netlbl_audit_start_common(int type,
+ 	if (audit_enabled == 0)
+ 		return NULL;
  
-+	if (strncmp(ssp->smk_out, smack_net_ambient, SMK_MAXLEN) == 0)
-+		return 0;
-+
- 	netlbl_secattr_init(&secattr);
- 	smack_to_secattr(ssp->smk_out, &secattr);
- 	if (secattr.flags != NETLBL_SECATTR_NONE)
+-	audit_buf = audit_log_start(audit_ctx, GFP_ATOMIC, type);
++	audit_buf = audit_log_start(current->audit_context, GFP_ATOMIC, type);
+ 	if (audit_buf == NULL)
+ 		return NULL;
+ 
+-- 
+1.5.3.4
 
