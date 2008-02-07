@@ -1,64 +1,65 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Bug? Kernels 2.6.2x drops TCP packets over wireless (independent
- of card used)
-Date: Thu, 07 Feb 2008 17:30:22 +0100
-Message-ID: <47AB321E.5080908@cosmosbay.com>
-References: <56de948.2f1b076b.47aac980.bfd66@o2.pl> <6101e8c40802070623t55115dc3h4cf508e432b9296f@mail.gmail.com> <776aaa6c.68622465.47ab2df0.78e4b@o2.pl>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: [PATCH] (02/06/08 Linus git) Smack unlabeled outgoing ambient packets
+Date: Thu, 07 Feb 2008 09:07:55 -0800
+Message-ID: <47AB3AEB.5010308@schaufler-ca.com>
+Reply-To: casey@schaufler-ca.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Pinter <oliver.pntr@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Marcin Koziej <marcinkoziej@o2.pl>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp23.orange.fr ([193.252.22.126]:4446 "EHLO smtp23.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752643AbYBGQau convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 11:30:50 -0500
-Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf2327.orange.fr (SMTP Server) with ESMTP id 400557048887
-	for <netdev@vger.kernel.org>; Thu,  7 Feb 2008 17:30:48 +0100 (CET)
-In-Reply-To: <776aaa6c.68622465.47ab2df0.78e4b@o2.pl>
+Received: from smtp129.plus.mail.sp1.yahoo.com ([69.147.95.92]:44956 "HELO
+	smtp129.plus.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756075AbYBGROj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 12:14:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marcin Koziej a =C3=A9crit :
->> hmm, i think, the site is broken (193.219.28.140), and not the card =
-or
->> the driver is wrong. when it does, then other sites are auch
->> reproductable ..
->>
->> /* is use auch madwifi-0.9.3.3, but it think, it is not driver probl=
-em */
->>    =20
->
-> Unfortunately, this is not the case :(  This happens to all TCP conne=
-ctions, inside and outside LAN,
-> also with the telnet session with the router. I also tried to manipul=
-ate MTU, but without any positive effect.
-> I also tried to change things like net.ipv4.tcp_congestion_control --=
- which i figured out might affect TCP traffic, but also didn't get any =
-results.
-> I'm afraid this can have something to do with IRQ, because the PCMCIA=
- cards (my Atheros wireless card is such) are visible only with irqpoll=
- kernel option.
->
-> Of course, as I mentioned, everything works fine with kernel 2.6.19; =
-with the same servers etc.
->
->  =20
-Very strange, as the tcpdump you gave shows that the remote peer only=20
-sent "220-\r\n"
+From: Casey Schaufler <casey@schaufler-ca.com>
 
-This was ACKed, and then nothing but timeout. We can conclude remote=20
-peer is *very* slow or a firewall is blocking trafic after 6 bytes sent=
- :)
+Smack uses CIPSO labeling, but allows for unlabeled packets
+by specifying an "ambient" label that is applied to incoming
+unlabeled packets. Because the other end of the connection
+may dislike IP options, and ssh is one know application that
+behaves thus, it is prudent to respond in kind. This patch
+changes the network labeling behavior such that an outgoing
+packet that would be given a CIPSO label that matches the
+ambient label is left unlabeled.
 
-Could you give a tcpdump for the same destination, on 2.6.19 this time =
-?
+Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
 
+---
 
+ security/smack/smack_lsm.c |    9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-
+diff -uprN -X linux-2.6.25-g0206-base//Documentation/dontdiff linux-2.6.25-g0206-base/security/smack/smack_lsm.c linux-2.6.25-g0206/security/smack/smack_lsm.c
+--- linux-2.6.25-g0206-base/security/smack/smack_lsm.c	2008-02-06 16:01:43.000000000 -0800
++++ linux-2.6.25-g0206/security/smack/smack_lsm.c	2008-02-06 18:39:55.000000000 -0800
+@@ -1276,6 +1276,12 @@ static void smack_to_secattr(char *smack
+  * Convert the outbound smack value (smk_out) to a
+  * secattr and attach it to the socket.
+  *
++ * If the label is the ambient label do not set the secattr.
++ * Thus, all ambient packets are unlabeled and all unlabeled
++ * packets are ambient. This permits unlabeled responces to
++ * unlabeled requests without knowing on a per-packet basis
++ * if the packet was labeled ambient or was unlabeled.
++ *
+  * Returns 0 on success or an error code
+  */
+ static int smack_netlabel(struct sock *sk)
+@@ -1284,6 +1290,9 @@ static int smack_netlabel(struct sock *s
+ 	struct netlbl_lsm_secattr secattr;
+ 	int rc = 0;
+ 
++	if (strncmp(ssp->smk_out, smack_net_ambient, SMK_MAXLEN) == 0)
++		return 0;
++
+ 	netlbl_secattr_init(&secattr);
+ 	smack_to_secattr(ssp->smk_out, &secattr);
+ 	if (secattr.flags != NETLBL_SECATTR_NONE)
 
