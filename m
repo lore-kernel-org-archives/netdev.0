@@ -1,51 +1,40 @@
-From: Rick Troth <rmt@casita.net>
-Subject: Re: [patch 3/4] ctcm: infrastructure for replaced ctc driver
-Date: Thu, 7 Feb 2008 06:52:06 -0500 (EST)
-Message-ID: <Pine.LNX.4.58.0802070648020.547@force5.casita.net>
-References: <20080206182723.103842000@linux.vnet.ibm.com>
- <20080206183023.042552000@linux.vnet.ibm.com> <20080207063534.GB27498@infradead.org>
+From: Marc Zyngier <maz@misterjones.org>
+Subject: Re: [PATCH] [resend] 3c509: convert to isa_driver and pnp_driver v3
+Date: Thu, 07 Feb 2008 12:51:11 +0100
+Message-ID: <wrphcglx9w0.fsf@hina.wild-wind.fr.eu.org>
+References: <200801312012.43447.linux@rainbow-software.org>
+	<200802021925.36552.linux@rainbow-software.org>
+	<47A4D791.3050700@garzik.org>
+	<200802061909.37452.linux@rainbow-software.org>
+Reply-To: maz@misterjones.org
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ursula Braun <braunu@de.ibm.com>, jgarzik@pobox.com,
-	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Peter Tiedemann <ptiedem@de.ibm.com>
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from planb.casita.net ([69.55.228.155]:2028 "EHLO planb.casita.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754884AbYBGMEU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Feb 2008 07:04:20 -0500
-In-Reply-To: <20080207063534.GB27498@infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Ondrej Zary <linux@rainbow-software.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757188AbYBGMHU@vger.kernel.org>
+In-Reply-To: <200802061909.37452.linux@rainbow-software.org> (Ondrej Zary's
+	message of "Wed, 6 Feb 2008 19:09:35 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Feb 2008, Christoph Hellwig wrote:
- ...
-> > +/*
-> > + *	drivers/s390/net/ctcm_dbug.c
-> > + *
-> > + *	Copyright IBM Corp. 2001, 2007
-> > + *	Authors:	Peter Tiedemann (ptiedem@de.ibm.com)
-> > + *
-> > + */
->
-> Please don't mention filenames in the top of file comments.
-> On the other hand a little description of what this file
-> does would be quite useful.  (This comment applies to all
-> files in this patch)
+>>>>> "Ondrej" == Ondrej Zary <linux@rainbow-software.org> writes:
 
-Better descriptions, yes.  Of course.
-But are you saying to NOT name the file in its comments?
-I am surprised.  If I am reading correctly, then I disagree.
+Ondrej> Tested using 3 ISA cards in various combinations of PnP and non-PnP modes.
 
-Is the exclusion of the name of the source file from its comments
-a stylistic decision the other kernel developers have agreed to?
-Or is it tied to automation?  Or have I (hopefully) misunderstood?
+Ondrej>  #ifdef CONFIG_EISA
+Ondrej>  	ret = eisa_driver_register(&el3_eisa_driver);
+Ondrej> +	if (!ret)
+Ondrej> +		eisa_registeted = 1;
+Ondrej>  #endif
+                        ^^^^^^^^^^^^^^^
 
--- R;   <><
+You probably should at least test-compile this driver with CONFIG_EISA
+enabled...
 
-()  ascii ribbon campaign - against html e-mail
-/\  www.asciiribbon.org   - against proprietary attachments
+Regards,
 
-
-
+	M.
+-- 
+And if you don't know where you're going, any road will take you there...
