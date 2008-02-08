@@ -1,42 +1,59 @@
-From: Don Fry <pcnet32@verizon.net>
-Subject: [PATCH 2.6.24] pcnet32:  Use print_mac
-Date: Fri, 08 Feb 2008 07:29:38 -0800
-Message-ID: <1202484576.10535.4.camel@new-host.home>
+From: Joakim Koskela <joakim.koskela@hiit.fi>
+Subject: [PATCH] [XFRM] Beet: Fix output for ipv6
+Date: Fri, 8 Feb 2008 18:12:18 +0200
+Message-ID: <200802081812.18985.joakim.koskela@hiit.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jgarzik@pobox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms173001pub.verizon.net ([206.46.173.1]:32855 "EHLO
-	vms173001pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756724AbYBHQIm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 11:08:42 -0500
-Received: from [192.168.1.3] ([96.225.193.28]) by vms173001.mailsrvcs.net
- (Sun Java System Messaging Server 6.2-6.01 (built Apr  3 2006))
- with ESMTPA id <0JVX00MUKG7TVMK4@vms173001.mailsrvcs.net> for
- netdev@vger.kernel.org; Fri, 08 Feb 2008 09:55:06 -0600 (CST)
+Received: from creon.otaverkko.fi ([212.68.0.5]:48793 "EHLO creon.otaverkko.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760540AbYBHQe1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Feb 2008 11:34:27 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by creon.otaverkko.fi (Postfix) with ESMTP id 90CFF21AFA5
+	for <netdev@vger.kernel.org>; Fri,  8 Feb 2008 18:12:29 +0200 (EET)
+Received: from argo.otaverkko.fi (argo.otaverkko.fi [212.68.0.2])
+	by creon.otaverkko.fi (Postfix) with ESMTP id 9F84021AF4C
+	for <netdev@vger.kernel.org>; Fri,  8 Feb 2008 18:12:23 +0200 (EET)
+Received: from [10.0.0.48] (dsl-hkibrasgw1-ff1ac100-249.dhcp.inet.fi [88.193.26.249])
+	by argo.otaverkko.fi (Postfix) with ESMTP id 96E8025ED06
+	for <netdev@vger.kernel.org>; Fri,  8 Feb 2008 18:12:23 +0200 (EET)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Joe Perches <joe@perches.com>
-Acked-by:  Don Fry <pcnet32@verizon.net>
+Hi,
+
+This patch fixes the ipv6 mode of ipsec beet. It has been using logic
+similar to tunnel mode, making it crash during esp packaging.
+
+Signed-off-by: Joakim Koskela <jookos@gmail.com>
 ---
-Originally sent by Joe Dec 14, 2007
-Tested by Don on amd_64
+ net/ipv6/xfrm6_mode_beet.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
---- linux-2.6.24-git13/drivers/net/orig.pcnet32.c	2008-02-04 10:05:48.000000000 -0800
-+++ linux-2.6.24-git18/drivers/net/pcnet32.c	2008-02-04 10:59:08.000000000 -0800
-@@ -1774,8 +1774,8 @@ pcnet32_probe1(unsigned long ioaddr, int
- 		memset(dev->dev_addr, 0, sizeof(dev->dev_addr));
+diff --git a/net/ipv6/xfrm6_mode_beet.c b/net/ipv6/xfrm6_mode_beet.c
+index 0527d11..0395800 100644
+--- a/net/ipv6/xfrm6_mode_beet.c
++++ b/net/ipv6/xfrm6_mode_beet.c
+@@ -40,11 +40,14 @@ static void xfrm6_beet_make_header(struct sk_buff *skb)
+ static int xfrm6_beet_output(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	struct ipv6hdr *top_iph;
++	u8 *prevhdr;
++	int hdr_len;
  
- 	if (pcnet32_debug & NETIF_MSG_PROBE) {
--		for (i = 0; i < 6; i++)
--			printk(" %2.2x", dev->dev_addr[i]);
-+		DECLARE_MAC_BUF(mac);
-+		printk(" %s", print_mac(mac, dev->dev_addr));
++	hdr_len = x->type->hdr_offset(x, skb, &prevhdr);
++	skb_set_mac_header(skb, (prevhdr - x->props.header_len) - skb->data);
+ 	skb_set_network_header(skb, -x->props.header_len);
+-	skb->mac_header = skb->network_header +
+-			  offsetof(struct ipv6hdr, nexthdr);
+-	skb->transport_header = skb->network_header + sizeof(*top_iph);
++	skb->transport_header = skb->network_header + hdr_len;
++	__skb_pull(skb, hdr_len);
  
- 		/* Version 0x2623 and 0x2624 */
- 		if (((chip_version + 1) & 0xfffe) == 0x2624) {
-
-
+ 	xfrm6_beet_make_header(skb);
+ 
