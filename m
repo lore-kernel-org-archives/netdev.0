@@ -1,68 +1,74 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: [PATCH] isdn: fix section mismatch warning for ISACVer
-Date: Fri,  8 Feb 2008 21:00:02 +0100
-Message-ID: <1202500804-32020-2-git-send-email-sam@ravnborg.org>
-References: <1202500804-32020-1-git-send-email-sam@ravnborg.org>
-Cc: Sam Ravnborg <sam@ravnborg.org>, Jeff Garzik <jgarzik@pobox.com>,
-	David Miller <davem@davemloft.net>
-To: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jeff Garzik <jeff@garzik.org>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [GIT-PULL Request]: SCTP fixes
+Date: Fri,  8 Feb 2008 15:27:21 -0500
+Message-ID: <1202502441-16789-1-git-send-email-vladislav.yasevich@hp.com>
+Cc: lksctp-developers@lists.sourceforge.net, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:49584 "EHLO pasmtpA.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759694AbYBHT76 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Feb 2008 14:59:58 -0500
-In-Reply-To: <1202500804-32020-1-git-send-email-sam@ravnborg.org>
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:43795 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760976AbYBHU1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 15:27:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix following warnings:
-WARNING: drivers/isdn/hisax/built-in.o(.text+0x19723): Section mismatch in reference from the function ISACVersion() to the variable .devinit.data:ISACVer
-WARNING: drivers/isdn/hisax/built-in.o(.text+0x2005b): Section mismatch in reference from the function setup_avm_a1_pcmcia() to the function .devinit.text:setup_isac()
+Hi David
 
-ISACVer were only used from function annotated __devinit
-so add same annotation to ISACVer.
-One af the fererencing functions missed __devinit so add it
-and kill an additional warning.
+The following changes since commit 3113e88c3cb3c0a22920b621f8e4d1f2ccc07f1e:
+  Stephen Hemminger (1):
+        [PKT_SCHED]: vlan tag match
 
-Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
-Acked-by: Karsten Keil <kkeil@suse.de>
-Cc: Jeff Garzik <jgarzik@pobox.com>
-Cc: David Miller <davem@davemloft.net>
----
- drivers/isdn/hisax/avm_a1p.c |    3 +--
- drivers/isdn/hisax/isac.c    |    3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+are available in the git repository at:
 
-diff --git a/drivers/isdn/hisax/avm_a1p.c b/drivers/isdn/hisax/avm_a1p.c
-index c87fa3f..3039c6d 100644
---- a/drivers/isdn/hisax/avm_a1p.c
-+++ b/drivers/isdn/hisax/avm_a1p.c
-@@ -213,8 +213,7 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
- 	return 0;
- }
- 
--int
--setup_avm_a1_pcmcia(struct IsdnCard *card)
-+int __devinit setup_avm_a1_pcmcia(struct IsdnCard *card)
- {
- 	u_char model, vers;
- 	struct IsdnCardState *cs = card->cs;
-diff --git a/drivers/isdn/hisax/isac.c b/drivers/isdn/hisax/isac.c
-index 4e9f238..6ae9dde 100644
---- a/drivers/isdn/hisax/isac.c
-+++ b/drivers/isdn/hisax/isac.c
-@@ -27,8 +27,7 @@ static char *ISACVer[] __devinitdata =
- {"2086/2186 V1.1", "2085 B1", "2085 B2",
-  "2085 V2.3"};
- 
--void
--ISACVersion(struct IsdnCardState *cs, char *s)
-+void __devinit ISACVersion(struct IsdnCardState *cs, char *s)
- {
- 	int val;
- 
--- 
-1.5.4.rc3.14.g44397
+  vxy@master.kernel.org:/pub/scm/linux/kernel/git/vxy/lksctp-dev.git pending
 
+Vlad Yasevich (6):
+      [SCTP]: Stop claiming that this is a "reference implementation"
+      [SCTP]: Do not increase rwnd when reading partial notification.
+      [SCTP]: Kill silly inlines in ulpqueue.c
+      [SCTP]: Correctly reap SSNs when processing FORWARD_TSN chunk
+      [SCTP]: Set ports in every address returned by sctp_getladdrs()
+      [SCTP]: Make sure the chunk is off the transmitted list prior to freeing.
+
+Wei Yongjun (1):
+      [SCTP]: Fix kernel panic while received ASCONF chunk with bad serial number
+
+ include/linux/sctp.h         |    4 +-
+ include/net/sctp/auth.h      |    8 +++---
+ include/net/sctp/command.h   |    8 +++---
+ include/net/sctp/constants.h |    8 +++---
+ include/net/sctp/sctp.h      |    8 +++---
+ include/net/sctp/sm.h        |    8 +++---
+ include/net/sctp/structs.h   |    8 +++---
+ include/net/sctp/tsnmap.h    |    8 +++---
+ include/net/sctp/ulpevent.h  |    8 +++---
+ include/net/sctp/ulpqueue.h  |    6 ++--
+ include/net/sctp/user.h      |    8 +++---
+ net/sctp/associola.c         |   14 ++++++------
+ net/sctp/auth.c              |    8 +++---
+ net/sctp/bind_addr.c         |    8 +++---
+ net/sctp/chunk.c             |    8 +++---
+ net/sctp/command.c           |    8 +++---
+ net/sctp/debug.c             |   12 +++-------
+ net/sctp/endpointola.c       |   12 +++-------
+ net/sctp/input.c             |    8 +++---
+ net/sctp/inqueue.c           |    8 +++---
+ net/sctp/ipv6.c              |    8 +++---
+ net/sctp/objcnt.c            |    8 +++---
+ net/sctp/output.c            |    8 +++---
+ net/sctp/outqueue.c          |   12 ++++++----
+ net/sctp/primitive.c         |    8 +++---
+ net/sctp/proc.c              |    8 +++---
+ net/sctp/protocol.c          |    8 +++---
+ net/sctp/sm_make_chunk.c     |    9 ++++---
+ net/sctp/sm_sideeffect.c     |    8 +++---
+ net/sctp/sm_statefuns.c      |   10 +++-----
+ net/sctp/sm_statetable.c     |    8 +++---
+ net/sctp/socket.c            |   17 +++++++++++----
+ net/sctp/ssnmap.c            |    8 +++---
+ net/sctp/sysctl.c            |    8 +++---
+ net/sctp/transport.c         |    8 +++---
+ net/sctp/tsnmap.c            |    8 +++---
+ net/sctp/ulpevent.c          |    7 +++--
+ net/sctp/ulpqueue.c          |   43 +++++++++++++++++++++++++++++------------
+ 38 files changed, 190 insertions(+), 172 deletions(-)
