@@ -1,44 +1,39 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: openswan broken between 2.6.24rc8 and final
-Date: Fri, 8 Feb 2008 14:53:25 +0100
-Message-ID: <20080208135325.GA14434@basil.nowhere.org>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [patch 1/7] typhoon section fix
+Date: Fri, 08 Feb 2008 08:59:10 -0500
+Message-ID: <1202479150.4349.0.camel@obelisk.thedillows.org>
+References: <200802081120.m18BK6cL021623@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jeff@garzik.org, netdev@vger.kernel.org,
+	sam@ravnborg.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out03.alice-dsl.net ([88.44.63.5]:61138 "EHLO
-	smtp-out03.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755225AbYBHNx1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 08:53:27 -0500
-Content-Disposition: inline
+Received: from smtp.knology.net ([24.214.63.101]:47432 "EHLO smtp.knology.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754962AbYBHN7N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Feb 2008 08:59:13 -0500
+In-Reply-To: <200802081120.m18BK6cL021623@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Hi,
+On Fri, 2008-02-08 at 03:11 -0800, akpm@linux-foundation.org wrote:
+> From: Andrew Morton <akpm@linux-foundation.org>
+> 
+> gcc-3.4.4 on powerpc:
+> 
+> drivers/net/typhoon.c:137: error: version causes a section type conflict
+> 
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Cc: Sam Ravnborg <sam@ravnborg.org>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-Since I updated a system here from 2.6.24rc8 (+ some unrelated patches)
-to 2.6.24 openswan in tunnel mode is rather unhappy now. It works 
-initially for a few minutes, but then when it comes to renew a key (I think) 
-the connection always hangs.  This means on 2.6.24-final the kernel
-can now finally reboot again with active ipsec (previously
-there were always leaked reference counts), but it cannot 
-hold them up for a longer time.
+> -static const char version[] __devinitdata =
+> +static char version[] __devinitdata =
+>      "typhoon.c: version " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
 
-I first thought it was caused by
-
-commit d4782c323d10d3698b71b6a6b3c7bdad33824658
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Sun Jan 20 17:24:29 2008 -0800
-
-    [AF_KEY]: Fix skb leak on pfkey_send_migrate() error
-
-but when I just revert just this patch it still doesn't work
-(and obviously the reboot problem is back) 
-
-Before I do a full bisect; is there already a fix for this? 
-
-Thanks,
-
--Andi 
+Wouldn't going to __devinitconst be better? I'll try to whip up a patch
+and test-compile it.
 
