@@ -1,46 +1,145 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: + smack-unlabeled-outgoing-ambient-packets.patch added to -mm tree
-Date: Thu, 7 Feb 2008 21:21:05 -0500
-Message-ID: <200802072121.05831.paul.moore@hp.com>
-References: <200802071514.34770.paul.moore@hp.com> <200802072054.57284.paul.moore@hp.com> <20080207.181519.209912794.davem@davemloft.net>
+From: Max Krasnyansky <maxk@qualcomm.com>
+Subject: Re: [PATCH 3/3] Interface to query tun/tap features.
+Date: Thu, 07 Feb 2008 21:07:02 -0800
+Message-ID: <47ABE376.2090508@qualcomm.com>
+References: <200801240107.38929.rusty@rustcorp.com.au> <200801240110.45178.rusty@rustcorp.com.au> <200801240114.18571.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, casey@schaufler-ca.com,
-	jmorris@namei.org, mingo@elte.hu, sds@tycho.nsa.gov,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:33474 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753981AbYBHCVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 21:21:14 -0500
-In-Reply-To: <20080207.181519.209912794.davem@davemloft.net>
-Content-Disposition: inline
+Received: from ithilien.qualcomm.com ([129.46.51.59]:55081 "EHLO
+	ithilien.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750819AbYBHFIU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 00:08:20 -0500
+In-Reply-To: <200801240114.18571.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 07 February 2008 9:15:19 pm David Miller wrote:
-> From: Paul Moore <paul.moore@hp.com>
-> Date: Thu, 7 Feb 2008 20:54:56 -0500
->
-> > I have no idea what was causing the mail problem, probably somebody
-> > in our IT department playing around with some new knobs, oh well.  I
-> > resubscribed this afternoon with both fingers crossed.
->
-> In the future please contact postmaster@vger.kernel.org when you
-> notice you have been unsubscribed so we can work on fixing the
-> issue.
->
-> Blind resubscriptions are severely frowned upon, we remove you for
-> good reason and if the problem isn't solved you'll just soil up my
-> inbox further with bounces....
+Hi Rusty,
 
-Both points noted for future reference.  While the end result is the same, I 
-can promise you my actions are not maliciously stupid, just ignorantly 
-stupid ;)
+Sorry for delay in reply. I totally missed this one. Need to fix my mail filters. 
+See below.
 
--- 
-paul moore
-linux security @ hp
+Rusty Russell wrote:
+> (No real change, just updated with new bits)
+> 
+> The problem with introducing IFF_RECV_CSUM and IFF_RECV_GSO is that
+> they need to set dev->features to enable GSO and/or checksumming,
+> which is supposed to be done before register_netdevice(), ie. as part
+> of TUNSETIFF.
+> 
+> Unfortunately, TUNSETIFF has always just ignored flags it doesn't understand,
+> so there's no good way of detecting whether the kernel supports IFF_GSO_HDR.
+> 
+> This patch implements a TUNGETFEATURES ioctl which returns all the valid IFF
+> flags.  It could be extended later to include other features.
+> 
+> Here's an example program which uses it:
+> 
+> #include <linux/if_tun.h>
+> #include <sys/types.h>
+> #include <sys/ioctl.h>
+> #include <sys/stat.h>
+> #include <fcntl.h>
+> #include <err.h>
+> #include <stdio.h>
+> 
+> static struct {
+> 	unsigned int flag;
+> 	const char *name;
+> } known_flags[] = {
+> 	{ IFF_TUN, "TUN" },
+> 	{ IFF_TAP, "TAP" },
+> 	{ IFF_NO_PI, "NO_PI" },
+> 	{ IFF_ONE_QUEUE, "ONE_QUEUE" },
+> 	{ IFF_VIRTIO_HDR, "VIRTIO_HDR" },
+> 	{ IFF_RECV_CSUM, "RECV_CSUM" },
+> 	{ IFF_RECV_GSO, "RECV_GSO" },
+> };
+> 
+> int main()
+> {
+> 	unsigned int features, i;
+> 
+> 	int netfd = open("/dev/net/tun", O_RDWR);
+> 	if (netfd < 0)
+> 		err(1, "Opening /dev/net/tun");
+> 
+> 	if (ioctl(netfd, TUNGETFEATURES, &features) != 0) {
+> 		printf("Kernel does not support TUNGETFEATURES, guessing\n");
+> 		features = (IFF_TUN|IFF_TAP|IFF_NO_PI|IFF_ONE_QUEUE);
+> 	}
+> 	printf("Available features are: ");
+> 	for (i = 0; i < sizeof(known_flags)/sizeof(known_flags[0]); i++) {
+> 		if (features & known_flags[i].flag) {
+> 			features &= ~known_flags[i].flag;
+> 			printf("%s ", known_flags[i].name);
+> 		}
+> 	}
+> 	if (features)
+> 		printf("(UNKNOWN %#x)", features);
+> 	printf("\n");
+> 	return 0;
+> }
+> 
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> ---
+>  drivers/net/tun.c      |    9 +++++++++
+>  include/linux/if_tun.h |    3 +++
+>  2 files changed, 12 insertions(+)
+> 
+> diff -r c0e7a8b99325 drivers/net/tun.c
+> --- a/drivers/net/tun.c	Wed Jan 23 20:12:51 2008 +1100
+> +++ b/drivers/net/tun.c	Wed Jan 23 20:17:28 2008 +1100
+> @@ -790,6 +790,15 @@ static int tun_chr_ioctl(struct inode *i
+>  		return 0;
+>  	}
+>  
+> +	if (cmd == TUNGETFEATURES) {
+> +		/* Currently this just means: "what IFF flags are valid?".
+> +		 * This is needed because we never checked for invalid flags on
+> +		 * TUNSETIFF.  This was introduced with IFF_GSO_HDR, so if a
+> +		 * kernel doesn't have this ioctl, it doesn't have GSO header
+> +		 * support. */
+> +		return put_user(IFF_ALL_FLAGS, (unsigned int __user*)argp);
+> +	}
+> +
+>  	if (!tun)
+>  		return -EBADFD;
+>  
+> diff -r c0e7a8b99325 include/linux/if_tun.h
+> --- a/include/linux/if_tun.h	Wed Jan 23 20:12:51 2008 +1100
+> +++ b/include/linux/if_tun.h	Wed Jan 23 20:17:28 2008 +1100
+> @@ -82,6 +82,7 @@ struct tun_struct {
+>  #define TUNSETOWNER   _IOW('T', 204, int)
+>  #define TUNSETLINK    _IOW('T', 205, int)
+>  #define TUNSETGROUP   _IOW('T', 206, int)
+> +#define TUNGETFEATURES _IOR('T', 207, unsigned int)
+>  
+>  /* TUNSETIFF ifr flags */
+>  #define IFF_TUN		0x0001
+> @@ -91,6 +92,8 @@ struct tun_struct {
+>  #define IFF_VIRTIO_HDR	0x4000
+>  #define IFF_RECV_CSUM	0x8000
+>  #define IFF_RECV_GSO	0x0800
+> +#define IFF_ALL_FLAGS (IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE | \
+> +		       IFF_VIRTIO_HDR | IFF_RECV_CSUM | IFF_RECV_GSO)
+>  
+>  struct tun_pi {
+>  	unsigned short flags;
+
+Definitely Ack this one. Query interface makes perfect sense.
+I'll reply to the GSO itself shortly.
+
+I was going to create git tree for tun changes for awhile now. Looks like the time has come.
+I'll do that asap.
+
+Thanx
+Max
+
+ 
+
+
