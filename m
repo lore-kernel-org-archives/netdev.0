@@ -1,41 +1,40 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: ipv6_chk_acast_addr remove unused loop
-Date: Fri, 08 Feb 2008 18:48:04 +0100
-Message-ID: <47AC95D4.4090506@fr.ibm.com>
-References: <OF1B77A186.F07F897A-ON882573E9.0060B0C5-882573E9.00614E3C@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	=?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Q=?=
-	 =?UTF-8?B?6Iux5piO?= <yoshfuji@linux-ipv6.org>
-To: David Stevens <dlstevens@us.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [NET/IPv6] Race condition with flow_cache_genid?
+Date: Sat, 09 Feb 2008 05:16:14 +1100
+Message-ID: <E1JNXlm-0004pM-00@gondolin.me.apana.org.au>
+References: <f73f7ab80802061036u64a56abnccafacf68f2ed717@mail.gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net
+To: kyle@moffetthome.net (Kyle Moffett)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([195.212.29.139]:44449 "EHLO
-	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754849AbYBHRyM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 12:54:12 -0500
-In-Reply-To: <OF1B77A186.F07F897A-ON882573E9.0060B0C5-882573E9.00614E3C@us.ibm.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:53351 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758463AbYBHSQT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 13:16:19 -0500
+In-Reply-To: <f73f7ab80802061036u64a56abnccafacf68f2ed717@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Stevens wrote:
-> NACK.
-> 
-> Daniel,
->         This code is part of the in-kernel API for anycast, which is 
-> intended
-> to be the same as for multicast. By removing support for NULL there, 
-> you're
-> making a special case for the anycast code that isn't there in the 
-> multicast
-> code (can't support a NULL dev), and you really aren't buying all that 
-> much for it.
+Kyle Moffett <kyle@moffetthome.net> wrote:
+>
+> Basically either there is some missing locking here or it does not
+> need to be "atomic_t".  Judging from the way it *appears* to be used
+> to check if cache entries are up-to-date with the latest changes in
+> policy, I would guess the former.
 
-I was hesitating to send this patch exactly for the reason you are 
-explaining. Apparently I did the bad choice :)
+You're right that it doesn't really have to be an atomic since
+all the writers are from xfrm currently.  However, the fact that
+it is atomic is used by the current code since sometimes they
+increment the value without holding the xfrm policy lock.
 
-Thanks.
-	-- Daniel
+Yes it is racy but that is fine for the purpose that this variable
+serves.  All it does is to make sure that extant flow objects get
+killed at some point after the increment.  There is absolutely no
+requirement that the killing be immediate or synchronised.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
