@@ -1,66 +1,35 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH] [IGMP]: Optimize kfree_skb in igmp_rcv.
-Date: Fri,  8 Feb 2008 17:14:17 +0300
-Message-ID: <1202480057-23367-1-git-send-email-den@openvz.org>
-Cc: netdev@vger.kernel.org, devel@openvz.org,
-	"Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: Frank.Blaschka@de.ibm.com
+Subject: [patch 0/2] s390: new qeth driver for 2.6.25
+Date: Fri, 08 Feb 2008 15:09:59 +0100
+Message-ID: <20080208140959.259912000@de.ibm.com>
+Cc: netdev@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:61992 "EHLO iris.sw.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751782AbYBHONu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Feb 2008 09:13:50 -0500
+Received: from mtagate7.de.ibm.com ([195.212.29.156]:38119 "EHLO
+	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755978AbYBHOPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 09:15:36 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate7.de.ibm.com (8.13.8/8.13.8) with ESMTP id m18EFZ0M382012
+	for <netdev@vger.kernel.org>; Fri, 8 Feb 2008 14:15:35 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m18EFZWo2293860
+	for <netdev@vger.kernel.org>; Fri, 8 Feb 2008 15:15:35 +0100
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m18EFZCN029793
+	for <netdev@vger.kernel.org>; Fri, 8 Feb 2008 15:15:35 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Merge error paths inside igmp_rcv.
+--
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
- net/ipv4/igmp.c |   13 ++++++-------
- 1 files changed, 6 insertions(+), 7 deletions(-)
+Jeff,
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index fe2e6cd..d3f34a7 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -922,13 +922,11 @@ int igmp_rcv(struct sk_buff *skb)
- 	struct in_device *in_dev = in_dev_get(skb->dev);
- 	int len = skb->len;
- 
--	if (in_dev==NULL) {
--		kfree_skb(skb);
--		return 0;
--	}
-+	if (in_dev == NULL)
-+		goto drop;
- 
- 	if (!pskb_may_pull(skb, sizeof(struct igmphdr)))
--		goto drop;
-+		goto drop_ref;
- 
- 	switch (skb->ip_summed) {
- 	case CHECKSUM_COMPLETE:
-@@ -938,7 +936,7 @@ int igmp_rcv(struct sk_buff *skb)
- 	case CHECKSUM_NONE:
- 		skb->csum = 0;
- 		if (__skb_checksum_complete(skb))
--			goto drop;
-+			goto drop_ref;
- 	}
- 
- 	ih = igmp_hdr(skb);
-@@ -972,8 +970,9 @@ int igmp_rcv(struct sk_buff *skb)
- 		break;
- 	}
- 
--drop:
-+drop_ref:
- 	in_dev_put(in_dev);
-+drop:
- 	kfree_skb(skb);
- 	return 0;
- }
+the following patch set is intended for 2.6.25. It contains a new
+qeth device driver implementation separating the layer 2 from the
+layer 3 functions. There are also some new functions and bug
+fixes. Kconfig and Makefile apply on top of the latest patch Ursula
+Braun send for ctc.
+
+Regards, Frank Blaschka
 -- 
-1.5.3.rc5
-
