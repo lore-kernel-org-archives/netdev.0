@@ -1,100 +1,59 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [patch 1/7] typhoon section fix
-Date: Fri, 8 Feb 2008 20:03:40 +0100
-Message-ID: <20080208190340.GA31072@uranus.ravnborg.org>
-References: <200802081120.m18BK6cL021623@imap1.linux-foundation.org> <1202479150.4349.0.camel@obelisk.thedillows.org> <20080208095233.722d7c47.akpm@linux-foundation.org> <1202494917.5298.3.camel@lap75545.ornl.gov>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Broadcom 5708 taking a few seconds to get link-up
+Date: Fri, 08 Feb 2008 14:29:37 -0500
+Message-ID: <47ACADA1.1090809@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, davem@davemloft.net,
-	jeff@garzik.org, netdev@vger.kernel.org
-To: David Dillow <dave@thedillows.org>,
-	Jan Beulich <jbeulich@novell.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:48777 "EHLO pasmtpA.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935217AbYBHTDf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Feb 2008 14:03:35 -0500
-Content-Disposition: inline
-In-Reply-To: <1202494917.5298.3.camel@lap75545.ornl.gov>
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:31402 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757547AbYBHT3l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 14:29:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 08, 2008 at 01:21:57PM -0500, David Dillow wrote:
-> 
-> On Fri, 2008-02-08 at 09:52 -0800, Andrew Morton wrote:
-> > On Fri, 08 Feb 2008 08:59:10 -0500 David Dillow <dave@thedillows.org> wrote:
-> > > On Fri, 2008-02-08 at 03:11 -0800, akpm@linux-foundation.org wrote:
-> > > > From: Andrew Morton <akpm@linux-foundation.org>
-> > > > 
-> > > > gcc-3.4.4 on powerpc:
-> > > > 
-> > > > drivers/net/typhoon.c:137: error: version causes a section type conflict
-> > > > 
-> > > > Cc: Jeff Garzik <jeff@garzik.org>
-> > > > Cc: Sam Ravnborg <sam@ravnborg.org>
-> > > > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> > > 
-> > > > -static const char version[] __devinitdata =
-> > > > +static char version[] __devinitdata =
-> > > >      "typhoon.c: version " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
-> > > 
-> > > Wouldn't going to __devinitconst be better? I'll try to whip up a patch
-> > > and test-compile it.
-> > 
-> > Sam told me that doesn't work right, that this approach is the one to use
-> > and, iirc, that __devinitcont and friends will be removed.
-> > 
-> > I'm not sure why, actually.  I think I missed that dicussion.
+Hi Michael,
 
-After introducing dedicated sections for __devinit, __devinitdata & friends
-and introducing __devinitconst for const data we started to see
-section type conflict _errors_ emitted from gcc for certain architectures.
-64bit powerpc and ia64 being two of them.
+I'm working on a system that has two on-board 5708's.  We've noticed 
+that it takes about 3 seconds for the link to come up - is this 
+considered normal?  I've tried this with the latest davem tree with 
+similar results to older kernels/drivers.
 
-That was rooted down by Al to the following:
-===================================================================
-; cat >a.c <<'EOF'
-const char foo[] __attribute__ ((__section__(".blah"))) = "";
-const char * const bar __attribute__((__section__(".blah"))) = "";
-EOF
-; gcc -m32 -S a.c
-; gcc -m64 -S a.c
-a.c:2: error: bar causes a section type conflict
-;
-===================================================================
+# uname -r
+2.6.24
 
-Which tells us that the same data in some cases are put in a readonly
-section and in other cases not.
-And when we force data for tow different variables where gcc thinks one is
-const and the other is not const to the same section gcc errros
-out with the "section type conflict" error.
+# ethtool -i eth3
+driver: bnx2
+version: 1.7.3
+firmware-version: 1.9.3
+bus-info: 0000:42:00.0
 
-And this is becoming increasingly visible when people start to constify
-the data all around and do test build on x86 64bit that does not exhibit
-this behaviour.
+# lspci -v
+42:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 
+Gigabit Ethernet (rev 11)
+         Subsystem: Hewlett-Packard Company Unknown device 7038
+         Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 34
+         Memory at fa000000 (64-bit, non-prefetchable) [size=32M]
+         Capabilities: [40] PCI-X non-bridge device
+         Capabilities: [48] Power Management version 2
+         Capabilities: [50] Vital Product Data
+         Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ 
+Queue=0/0 Enable-
 
-The rationale behind the increased constification of data is to get
-improved use of the DEBUG_RODATA thing.
-Another good reason s that this is a good way to let gcc catch accidental
-writes to data that otherwise should have been read-only.
+# ip link set eth3 up; mii-tool eth3; sleep 1; mii-tool eth3; sleep 1; 
+mii-tool eth3; sleep 1; mii-tool eth3
+eth3: no link
+eth3: no link
+eth3: no link
+eth3: negotiated 100baseTx-FD, link ok
 
-But if we advocate for constification of data than we should have
-a reliable way to detect the section type conflict errors on x86
-(at least 64 bit) which we do not have. Missing that will casue us to see
-an increasing flood of error reports from our power pc and ia64 builders.
+Other drivers I've tried - e1000 and tg3, get up in < 1 second.  I'm 
+asking becuase any packet I try to transmit out this interface before 
+link-up never gets out.
 
-The rationale behind __devinitconst was to create a dedicated section
-for data marked read-only by gcc and thus avoiding the
-section type conflict.
+Thanks for any info,
 
-But as shown by the above code snippet this is not easy.
-For x86 (32 + 64bit) both variables end up in READ-ONLY section.
-For Powerpc 64 bit the variable bar end up in a read-write section.
-And I see no way to check this for a x86 build so we warn early and
-with the most widely used tool-chain.
-
-So do we have other options that to drop the constification and thus
-dropping the __devinitconst and the other __*const annotations - I think not :-(
-
-
-	Sam
+-Brian
