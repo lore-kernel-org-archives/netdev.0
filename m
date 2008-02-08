@@ -1,183 +1,84 @@
-From: "durgam@it.iitb.ac.in phani" <durgam.iit@gmail.com>
-Subject: [PATCH] Reg Review of changes flush all routing table entries in side kernel
-Date: Fri, 8 Feb 2008 20:03:01 +0530
-Message-ID: <f46324890802080633p35737670g6d712c252a08a2e9@mail.gmail.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH 1/2][SCTP]: Use snmp_fold_field instead of a homebrew
+ analogue.
+Date: Fri, 08 Feb 2008 09:59:54 -0500
+Message-ID: <47AC6E6A.4000101@hp.com>
+References: <47AC3757.6020405@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: durgam.iit@gmail.com
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	lksctp-developers@lists.sourceforge.net,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.183]:53195 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756964AbYBHOdH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 09:33:07 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so474282wah.23
-        for <netdev@vger.kernel.org>; Fri, 08 Feb 2008 06:33:03 -0800 (PST)
-Content-Disposition: inline
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:6787 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757670AbYBHO75 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 09:59:57 -0500
+In-Reply-To: <47AC3757.6020405@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Problem :   Need to clean up routing table entries in side the Linux
-kernel. But  kernel is not providing  single command to clear all
-routing table entries at once.
+Pavel Emelyanov wrote:
+> SCPT already depends in INET, so this doesn't create additional
+> dependencies.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Modified the kernel to take of the changes    Defined new  net link
-message under  NETLINK_ROUTE   family  RTM_FLUSHROUTE.   At the
-receiving end in side kernel,  removed all routing table entries
-related with each device.
+Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-      Changed the code so that only the corresponding device reference
-will be incremented and perform the flush of entries related to that
-device and reduce the reference count.   In side fib_sync_flush(This
-function is same as fib_sync_down, except  that checking for protocol)
-,  checking whether the route entry is installed by protocol,  and
-marking them only as dead.
+> 
+> ---
+>  net/sctp/proc.c |   23 ++---------------------
+>  1 files changed, 2 insertions(+), 21 deletions(-)
+> 
+> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+> index 2499732..974350b 100644
+> --- a/net/sctp/proc.c
+> +++ b/net/sctp/proc.c
+> @@ -38,6 +38,7 @@
+>  #include <linux/seq_file.h>
+>  #include <linux/init.h>
+>  #include <net/sctp/sctp.h>
+> +#include <net/ip.h> /* for snmp_fold_field */
+>  
+>  static struct snmp_mib sctp_snmp_list[] = {
+>  	SNMP_MIB_ITEM("SctpCurrEstab", SCTP_MIB_CURRESTAB),
+> @@ -75,26 +76,6 @@ static struct snmp_mib sctp_snmp_list[] = {
+>  	SNMP_MIB_SENTINEL
+>  };
+>  
+> -/* Return the current value of a particular entry in the mib by adding its
+> - * per cpu counters.
+> - */
+> -static unsigned long
+> -fold_field(void *mib[], int nr)
+> -{
+> -	unsigned long res = 0;
+> -	int i;
+> -
+> -	for_each_possible_cpu(i) {
+> -		res +=
+> -		    *((unsigned long *) (((void *) per_cpu_ptr(mib[0], i)) +
+> -					 sizeof (unsigned long) * nr));
+> -		res +=
+> -		    *((unsigned long *) (((void *) per_cpu_ptr(mib[1], i)) +
+> -					 sizeof (unsigned long) * nr));
+> -	}
+> -	return res;
+> -}
+> -
+>  /* Display sctp snmp mib statistics(/proc/net/sctp/snmp). */
+>  static int sctp_snmp_seq_show(struct seq_file *seq, void *v)
+>  {
+> @@ -102,7 +83,7 @@ static int sctp_snmp_seq_show(struct seq_file *seq, void *v)
+>  
+>  	for (i = 0; sctp_snmp_list[i].name != NULL; i++)
+>  		seq_printf(seq, "%-32s\t%ld\n", sctp_snmp_list[i].name,
+> -			   fold_field((void **)sctp_statistics,
+> +			   snmp_fold_field((void **)sctp_statistics,
+>  				      sctp_snmp_list[i].entry));
+>  
+>  	return 0;
 
-
-These are the changes . (2.6-18 linux kernel)
-
---- linux26/include/net/ip_fib.h 2008-01-04 04:41:45.326857000 -0800
-+++ linux26/include/net/modified_ip_fib.h   2008-01-21 04:46:55.000000000 -0800
-@@ -233,6 +233,9 @@ extern void     ip_fib_init(void);
-
-+extern int inet_rtm_flushroute(struct sk_buff *skb, struct nlmsghdr*
-nlh, void *arg);
-
-+extern int fib_sync_flush(u32 local, struct net_device *dev, int
-force, int protocol);
-
-
-
---- linux26/include/linux/rtnetlink.h   2008-01-04 02:57:57.487754000 -0800
-+++ linux26/include/linux/modified_rtnetlink.h  2008-01-21
-04:46:56.000000000 -0800
-@@ -35,7 +35,11 @@ enum {
- #define RTM_DELROUTE   RTM_DELROUTE
-    RTM_GETROUTE,
- #define RTM_GETROUTE   RTM_GETROUTE
--
-+    RTM_FLUSHROUTE,
-+#define RTM_FLUSHROUTE RTM_FLUSHROUTE
-+
-    RTM_NEWNEIGH    = 28,
- #define RTM_NEWNEIGH   RTM_NEWNEIGH
-    RTM_DELNEIGH,
-@@ -199,7 +203,9 @@ enum
-~
-
-
---- linux26/net/ipv4/fib_frontend.c 2008-01-04 03:07:17.964607000 -0800
-+++ linux26/net/ipv4/modified_fib_frontend.c    2008-01-21
-04:46:53.000000000 -0800
-+/*
-+ * Added For flushing all the routes when clear ip route is issued
-from user space
-+ */
-+int inet_rtm_flushroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
-+{
-+    struct net_device *dev;
-+    struct in_device *in_dev;
-+    struct rtattr **rta = arg;
-+    struct rtmsg *r = NLMSG_DATA(nlh);
-+
-+    if (inet_check_attr(r, rta))
-+          return -EINVAL;
-+
-+    for (dev = dev_base; dev; dev = dev->next) {
-+        in_dev = in_dev_get(dev);
-+        if (!in_dev)
-+            continue;
-+        if(fib_sync_flush(0, dev, 0, r->rtm_protocol)) {
-+            fib_flush();
-+            rt_cache_flush(0);
-+        }
-+        in_dev_put(in_dev);
-+    }
-+
-+    return 0;
-+}
-
-This fib_sync_flush is same as fib_sync_down, except  for each entry
-it compares the protocol type of the routing entry  to be  removed.
-
---- linux26/net/ipv4/fib_semantics.c    2008-01-09 02:22:49.819492000 -0800
-+++ linux26/net/ipv4/modified_fib_semantics.c1  2008-01-21
-04:46:52.000000000 -0800
-+/*
-+ * FLUSH all  the routing table entries related to a
-+ * device
-+ */
-+
-+int fib_sync_flush(u32 local, struct net_device *dev, int force, int protocol)
-+{
-+    int ret = 0;
-+    int scope = RT_SCOPE_NOWHERE;
-+
-+    if (force)
-+        scope = -1;
-+
-+    if (local && fib_info_laddrhash) {
-+        unsigned int hash = fib_laddr_hashfn(local);
-+        struct hlist_head *head = &fib_info_laddrhash[hash];
-+        struct hlist_node *node;
-+        struct fib_info *fi;
-+        hlist_for_each_entry(fi, node, head, fib_lhash) {
-+        if (fi->fib_prefsrc == local) {
-+            fi->fib_flags |= RTNH_F_DEAD;
-+            ret++;
-+            }
-+        }
-+    }
-+
-+    if (dev) {
-+        struct fib_info *prev_fi = NULL;
-+        unsigned int hash = fib_devindex_hashfn(dev->ifindex);
-+        struct hlist_head *head = &fib_info_devhash[hash];
-+        struct hlist_node *node;
-+        struct fib_nh *nh;
-+        hlist_for_each_entry(nh, node, head, nh_hash) {
-+            struct fib_info *fi = nh->nh_parent;
-+            if(fi->fib_protocol == protocol) {
-+                int dead;
-+                BUG_ON(!fi->fib_nhs);
-+                if (nh->nh_dev != dev || fi == prev_fi)
-+                    continue;
-+                prev_fi = fi;
-+                dead = 0;
-+                change_nexthops(fi) {
-+                    if (nh->nh_flags&RTNH_F_DEAD)
-+                        dead++;
-+                    else if (nh->nh_dev == dev &&
-+                                nh->nh_scope != scope) {
-+                        nh->nh_flags |= RTNH_F_DEAD;
-+#ifdef CONFIG_IP_ROUTE_MULTIPATH
-+                        spin_lock_bh(&fib_multipath_lock);
-+                        fi->fib_power -= nh->nh_power;
-+                        nh->nh_power = 0;
-+                        spin_unlock_bh(&fib_multipath_lock);
-+#endif
-+                        dead++;
-+                    }
-+#ifdef CONFIG_IP_ROUTE_MULTIPATH
-+                    if (force > 1 && nh->nh_dev == dev) {
-+                        dead = fi->fib_nhs;
-+                        break;
-+                    }
-+#endif
-+                } endfor_nexthops(fi)
-+                if (dead == fi->fib_nhs) {
-+                       fi->fib_flags |= RTNH_F_DEAD;
-+                        ret++;
-+                }
-+            }
-+        }
-+    }
-+    return ret;
-+}
-
-
-Please give your comments on this solution.
-
-Thanks
-Phani.
