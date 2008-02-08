@@ -1,70 +1,53 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: Broadcom 5708 taking a few seconds to get link-up
-Date: Fri, 08 Feb 2008 11:42:50 -0800
-Message-ID: <1202499770.17235.16.camel@dell>
-References: <47ACADA1.1090809@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: "Brian Haley" <brian.haley@hp.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: [PATCH] isdn: fix section mismatch warning in hfc_sx.c
+Date: Fri,  8 Feb 2008 21:00:04 +0100
+Message-ID: <1202500804-32020-4-git-send-email-sam@ravnborg.org>
+References: <1202500804-32020-1-git-send-email-sam@ravnborg.org>
+Cc: Sam Ravnborg <sam@ravnborg.org>, Jeff Garzik <jgarzik@pobox.com>,
+	David Miller <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3733 "EHLO MMS3.broadcom.com"
+Received: from pasmtpb.tele.dk ([80.160.77.98]:43412 "EHLO pasmtpB.tele.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761002AbYBHTlj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Feb 2008 14:41:39 -0500
-In-Reply-To: <47ACADA1.1090809@hp.com>
+	id S1751847AbYBHT76 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Feb 2008 14:59:58 -0500
+In-Reply-To: <1202500804-32020-1-git-send-email-sam@ravnborg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-02-08 at 14:29 -0500, Brian Haley wrote:
-> Hi Michael,
-> 
-> I'm working on a system that has two on-board 5708's.  We've noticed 
-> that it takes about 3 seconds for the link to come up - is this 
-> considered normal?  I've tried this with the latest davem tree with 
-> similar results to older kernels/drivers.
+Fix the following warning:
+WARNING: drivers/isdn/hisax/built-in.o(.text+0x35818): Section mismatch in reference from the function hfcsx_card_msg() to the function .devinit.text:inithfcsx()
 
-Yes, 2 - 3 seconds are normal for autoneg to link up on
-10/100/1000baseT.  Sometimes it can take even longer, but generally less
-than 5 seconds.  SerDes is much faster.
+hfcsx_card_msg() may be called outside __devinit context.
+Following the program logic is looks like the CARD_INIT branch
+will only be taken under __devinit context but to be consistent
+remove the __devinit annotation of inithfcsx() so we
+do not mix non-__devinit and __devinit code.
 
-> 
-> # uname -r
-> 2.6.24
-> 
-> # ethtool -i eth3
-> driver: bnx2
-> version: 1.7.3
-> firmware-version: 1.9.3
-> bus-info: 0000:42:00.0
-> 
-> # lspci -v
-> 42:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 
-> Gigabit Ethernet (rev 11)
->          Subsystem: Hewlett-Packard Company Unknown device 7038
->          Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 34
->          Memory at fa000000 (64-bit, non-prefetchable) [size=32M]
->          Capabilities: [40] PCI-X non-bridge device
->          Capabilities: [48] Power Management version 2
->          Capabilities: [50] Vital Product Data
->          Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ 
-> Queue=0/0 Enable-
-> 
-> # ip link set eth3 up; mii-tool eth3; sleep 1; mii-tool eth3; sleep 1; 
-> mii-tool eth3; sleep 1; mii-tool eth3
-> eth3: no link
-> eth3: no link
-> eth3: no link
-> eth3: negotiated 100baseTx-FD, link ok
-> 
-> Other drivers I've tried - e1000 and tg3, get up in < 1 second.  I'm 
-> asking becuase any packet I try to transmit out this interface before 
-> link-up never gets out.
-> 
+Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
+Acked-by: Karsten Keil <kkeil@suse.de>
+Cc: Jeff Garzik <jgarzik@pobox.com>
+Cc: David Miller <davem@davemloft.net>
+---
+ drivers/isdn/hisax/hfc_sx.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-In BNX2 and TG3, we always reset the PHY when we bring up the device,
-causing the link to drop and to renegotiate.  The link-up time for TG3
-should be about the same (2 - 3 seconds).  Other drivers may not reset
-the PHY and so the link may be able to come up instantly.
+diff --git a/drivers/isdn/hisax/hfc_sx.c b/drivers/isdn/hisax/hfc_sx.c
+index 4fd09d2..05482d2 100644
+--- a/drivers/isdn/hisax/hfc_sx.c
++++ b/drivers/isdn/hisax/hfc_sx.c
+@@ -1330,8 +1330,7 @@ hfcsx_bh(struct work_struct *work)
+ /********************************/
+ /* called for card init message */
+ /********************************/
+-static void __devinit
+-inithfcsx(struct IsdnCardState *cs)
++static void inithfcsx(struct IsdnCardState *cs)
+ {
+ 	cs->setstack_d = setstack_hfcsx;
+ 	cs->BC_Send_Data = &hfcsx_send_data;
+-- 
+1.5.4.rc3.14.g44397
 
