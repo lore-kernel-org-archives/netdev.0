@@ -1,51 +1,52 @@
-From: akpm@linux-foundation.org
-Subject: [patch 3/7] bnx2x section fix
-Date: Fri, 08 Feb 2008 03:11:15 -0800
-Message-ID: <200802081120.m18BK73F021629@imap1.linux-foundation.org>
-Cc: jeff@garzik.org, netdev@vger.kernel.org, akpm@linux-foundation.org,
-	sam@ravnborg.org
-To: davem@davemloft.net
+From: "Rami Rosen" <ramirose@gmail.com>
+Subject: [PATCH] [NETNS] Remove unused member (dst_net) of dst_ops.
+Date: Fri, 8 Feb 2008 13:24:30 +0200
+Message-ID: <eb3ff54b0802080324i4c7df923y3476faa34392279a@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_Part_14270_22946956.1202469870864"
+To: "David Miller" <davem@davemloft.net>, den@openvz.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:35843 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S964897AbYBHLVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 06:21:32 -0500
+Received: from fg-out-1718.google.com ([72.14.220.153]:51875 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758825AbYBHLYc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 06:24:32 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so2880464fga.17
+        for <netdev@vger.kernel.org>; Fri, 08 Feb 2008 03:24:30 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
+------=_Part_14270_22946956.1202469870864
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-gcc-3.4.4 on powerpc:
+Hi,
+  This patches removes dst_net member (a pointer to struct net)
+  of dst_ops (/include/net/dst.h).
+	
+  Current network namespace implementation does not use it at all.
 
-drivers/net/bnx2x.c:73: error: version causes a section type conflict
+Denis - any comments ?
+	
 
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Sam Ravnborg <sam@ravnborg.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
+Regards,
+Rami Rosen
 
- drivers/net/bnx2x.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/bnx2x.c~bnx2x-section-fix drivers/net/bnx2x.c
---- a/drivers/net/bnx2x.c~bnx2x-section-fix
-+++ a/drivers/net/bnx2x.c
-@@ -70,7 +70,7 @@
- /* Time in jiffies before concluding the transmitter is hung. */
- #define TX_TIMEOUT      	(5*HZ)
- 
--static const char version[] __devinitdata =
-+static char version[] __devinitdata =
- 	"Broadcom NetXtreme II 577xx 10Gigabit Ethernet Driver "
- 	DRV_MODULE_NAME " " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
- 
-@@ -107,7 +107,7 @@ enum bnx2x_board_type {
- };
- 
- /* indexed by board_t, above */
--static const struct {
-+static struct {
- 	char *name;
- } board_info[] __devinitdata = {
- 	{ "Broadcom NetXtreme II BCM57710 XGb" }
-_
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+------=_Part_14270_22946956.1202469870864
+Content-Type: text/plain; name=patch.txt
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fcen3p6k0
+Content-Disposition: attachment; filename=patch.txt
+
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2RzdC5oIGIvaW5jbHVkZS9uZXQvZHN0LmgKaW5kZXgg
+ZTNhYzdkMC4uYWQwNjYyMiAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvZHN0LmgKKysrIGIvaW5j
+bHVkZS9uZXQvZHN0LmgKQEAgLTEwMiw3ICsxMDIsNiBAQCBzdHJ1Y3QgZHN0X29wcwogCiAJYXRv
+bWljX3QJCWVudHJpZXM7CiAJc3RydWN0IGttZW1fY2FjaGUgCQkqa21lbV9jYWNoZXA7Ci0Jc3Ry
+dWN0IG5ldCAgICAgICAgICAgICAgKmRzdF9uZXQ7CiB9OwogCiAjaWZkZWYgX19LRVJORUxfXwo=
+
+------=_Part_14270_22946956.1202469870864--
