@@ -1,119 +1,79 @@
-From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
-Subject: Re: oops with ipcomp
-Date: Fri, 8 Feb 2008 11:45:33 +0100
-Message-ID: <3C59DB883F7B0B4D8096010D45ACCD134F20D4@exch.facton.local>
-References: <3C59DB883F7B0B4D8096010D45ACCD134F20BB@exch.facton.local> <20080206170717.GA20308@gondor.apana.org.au> <3C59DB883F7B0B4D8096010D45ACCD134F20C0@exch.facton.local> <20080207154437.GA7237@gondor.apana.org.au> <3C59DB883F7B0B4D8096010D45ACCD134F20CE@exch.facton.local> <20080208085836.GC14650@gondor.apana.org.au>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 1/2][SCTP]: Use snmp_fold_field instead of a homebrew analogue.
+Date: Fri, 08 Feb 2008 14:04:55 +0300
+Message-ID: <47AC3757.6020405@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	lksctp-developers@lists.sourceforge.net,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alpha.facton.com ([83.236.152.122]:40881 "EHLO alpha.facton.com"
+Received: from sacred.ru ([62.205.161.221]:40775 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755808AbYBHKpk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 05:45:40 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20080208085836.GC14650@gondor.apana.org.au>
+	id S1751827AbYBHLFj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Feb 2008 06:05:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> No I meant the exact output of ip x p and ip x s.
+SCPT already depends in INET, so this doesn't create additional
+dependencies.
 
-I know, but as I end up every time with a tainted kernel on our
-production server I didn't turn ipcomp on, but now I got it.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-src Net_B dst A
-	dir in priority 2088 
-	tmpl src B dst A
-		proto comp reqid 16394 mode tunnel
-		level use 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 16393 mode transport
-src Net_B dst Net_A
-	dir in priority 2344 
-	tmpl src B dst A
-		proto comp reqid 16390 mode tunnel
-		level use 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 16389 mode transport
-src A dst Net_B 
-	dir out priority 2088 
-	tmpl src A dst B
-		proto comp reqid 16394 mode tunnel
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 16393 mode transport
-src Net_A dst Net_B
-	dir out priority 2344 
-	tmpl src A dst B
-		proto comp reqid 16390 mode tunnel
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 16389 mode transport
-src Net_B dst A
-	dir fwd priority 2088 
-	tmpl src B dst A
-		proto comp reqid 16394 mode tunnel
-		level use 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 16393 mode transport
-src Net_B dst Net_A
-	dir fwd priority 2344 
-	tmpl src B dst A
-		proto comp reqid 16390 mode tunnel
-		level use 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 16389 mode transport
+---
+ net/sctp/proc.c |   23 ++---------------------
+ 1 files changed, 2 insertions(+), 21 deletions(-)
 
-src A dst B
-	proto comp spi 0x0000427e reqid 16390 mode tunnel
-	replay-window 0 
-	comp deflate 0x
-	sel src 0.0.0.0/0 dst 0.0.0.0/0 
-src B dst A
-	proto comp spi 0x0000ecf0 reqid 16390 mode tunnel
-	replay-window 0 
-	comp deflate 0x
-	sel src 0.0.0.0/0 dst 0.0.0.0/0 
-src A dst B
-	proto esp spi 0x53f15e96 reqid 16389 mode transport
-	replay-window 32 
-	auth hmac(sha1) 0x...
-	enc cbc(aes) 0x...
-	sel src 0.0.0.0/0 dst 0.0.0.0/0 
-src B dst A
-	proto esp spi 0x7b329066 reqid 16389 mode transport
-	replay-window 32 
-	auth hmac(sha1) 0...
-	enc cbc(aes) 0x...
-	sel src 0.0.0.0/0 dst 0.0.0.0/0 
-src A dst B
-	proto (null) spi 0x53ec987a reqid 0 mode tunnel
-	replay-window 0 
-	sel src 0.0.0.0/0 dst 0.0.0.0/0 
-src B dst A
-	proto (null) spi 0xc19ef67c reqid 0 mode tunnel
-	replay-window 0 
-	sel src 0.0.0.0/0 dst 0.0.0.0/0 
-src A dst B
-	proto comp spi 0x00001314 reqid 16394 mode tunnel
-	replay-window 0 
-	comp deflate 0x
-	sel src 0.0.0.0/0 dst 0.0.0.0/0 
-src B dst A
-	proto comp spi 0x000032ff reqid 16394 mode tunnel
-	replay-window 0 
-	comp deflate 0x
-	sel src 0.0.0.0/0 dst 0.0.0.0/0 
-src A dst B
-	proto esp spi 0xec7d12de reqid 16393 mode transport
-	replay-window 32 
-	auth hmac(sha1) 0x...
-	enc cbc(aes) 0x...
-	sel src 0.0.0.0/0 dst 0.0.0.0/0 
-src B dst A
-	proto esp spi 0x75016d2d reqid 16393 mode transport
-	replay-window 32 
-	auth hmac(sha1) 0x...
-	enc cbc(aes) 0x...
-	sel src 0.0.0.0/0 dst 0.0.0.0/0 
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index 2499732..974350b 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -38,6 +38,7 @@
+ #include <linux/seq_file.h>
+ #include <linux/init.h>
+ #include <net/sctp/sctp.h>
++#include <net/ip.h> /* for snmp_fold_field */
+ 
+ static struct snmp_mib sctp_snmp_list[] = {
+ 	SNMP_MIB_ITEM("SctpCurrEstab", SCTP_MIB_CURRESTAB),
+@@ -75,26 +76,6 @@ static struct snmp_mib sctp_snmp_list[] = {
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+-/* Return the current value of a particular entry in the mib by adding its
+- * per cpu counters.
+- */
+-static unsigned long
+-fold_field(void *mib[], int nr)
+-{
+-	unsigned long res = 0;
+-	int i;
+-
+-	for_each_possible_cpu(i) {
+-		res +=
+-		    *((unsigned long *) (((void *) per_cpu_ptr(mib[0], i)) +
+-					 sizeof (unsigned long) * nr));
+-		res +=
+-		    *((unsigned long *) (((void *) per_cpu_ptr(mib[1], i)) +
+-					 sizeof (unsigned long) * nr));
+-	}
+-	return res;
+-}
+-
+ /* Display sctp snmp mib statistics(/proc/net/sctp/snmp). */
+ static int sctp_snmp_seq_show(struct seq_file *seq, void *v)
+ {
+@@ -102,7 +83,7 @@ static int sctp_snmp_seq_show(struct seq_file *seq, void *v)
+ 
+ 	for (i = 0; sctp_snmp_list[i].name != NULL; i++)
+ 		seq_printf(seq, "%-32s\t%ld\n", sctp_snmp_list[i].name,
+-			   fold_field((void **)sctp_statistics,
++			   snmp_fold_field((void **)sctp_statistics,
+ 				      sctp_snmp_list[i].entry));
+ 
+ 	return 0;
+-- 
+1.5.3.4
+
