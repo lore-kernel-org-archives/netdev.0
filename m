@@ -1,46 +1,97 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: Re: [PATCH] [NETNS] Remove unused member (dst_net) of dst_ops.
-Date: Fri, 08 Feb 2008 14:36:14 +0300
-Message-ID: <1202470574.31674.24.camel@iris.sw.ru>
-References: <eb3ff54b0802080324i4c7df923y3476faa34392279a@mail.gmail.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 1/2][KEY]: Clean up proc files creation a bit.
+Date: Fri, 08 Feb 2008 15:11:32 +0300
+Message-ID: <47AC46F4.60405@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	dlezcano@fr.ibm.com
-To: Rami Rosen <ramirose@gmail.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:33281 "EHLO relay.sw.ru"
+Received: from sacred.ru ([62.205.161.221]:43085 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762799AbYBHLg1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Feb 2008 06:36:27 -0500
-In-Reply-To: <eb3ff54b0802080324i4c7df923y3476faa34392279a@mail.gmail.com>
+	id S1753288AbYBHMLn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Feb 2008 07:11:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This has been added by the Daniel Lezcano <dlezcano@fr.ibm.com> in the
-commit d4fa26ff44e31c2636a985e3092e2cd55d8045de. It looks to me a
-preparatory staff for IPv6 namespacing.
+Mainly this removes ifdef-s from inside the ipsec_pfkey_init.
 
-I think this is not needed in 2.6.25  but will be required in 2.6.26
-very soon.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Regards,
-	Den
+---
+ net/key/af_key.c |   35 +++++++++++++++++++++++++++--------
+ 1 files changed, 27 insertions(+), 8 deletions(-)
 
-On Fri, 2008-02-08 at 13:24 +0200, Rami Rosen wrote:
-> Hi,
->   This patches removes dst_net member (a pointer to struct net)
->   of dst_ops (/include/net/dst.h).
-> 	
->   Current network namespace implementation does not use it at all.
-> 
-> Denis - any comments ?
-> 	
-> 
-> Regards,
-> Rami Rosen
-> 
-> 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 45c3c27..162fcea 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -3782,6 +3782,29 @@ done:
+ 
+ 	return len;
+ }
++
++static int pfkey_init_proc(void)
++{
++	if (create_proc_read_entry("pfkey", 0, init_net.proc_net,
++				pfkey_read_proc, NULL) == NULL)
++		return -ENOMEM;
++	else
++		return 0;
++}
++
++static void pfkey_exit_proc(void)
++{
++	remove_proc_entry("net/pfkey", NULL);
++}
++#else
++static inline int pfkey_init_proc(void)
++{
++	return 0;
++}
++
++static inline void pfkey_exit_proc(void)
++{
++}
+ #endif
+ 
+ static struct xfrm_mgr pfkeyv2_mgr =
+@@ -3798,7 +3821,7 @@ static struct xfrm_mgr pfkeyv2_mgr =
+ static void __exit ipsec_pfkey_exit(void)
+ {
+ 	xfrm_unregister_km(&pfkeyv2_mgr);
+-	remove_proc_entry("pfkey", init_net.proc_net);
++	pfkey_exit_proc();
+ 	sock_unregister(PF_KEY);
+ 	proto_unregister(&key_proto);
+ }
+@@ -3813,21 +3836,17 @@ static int __init ipsec_pfkey_init(void)
+ 	err = sock_register(&pfkey_family_ops);
+ 	if (err != 0)
+ 		goto out_unregister_key_proto;
+-#ifdef CONFIG_PROC_FS
+-	err = -ENOMEM;
+-	if (create_proc_read_entry("pfkey", 0, init_net.proc_net, pfkey_read_proc, NULL) == NULL)
++	err = pfkey_init_proc();
++	if (err != 0)
+ 		goto out_sock_unregister;
+-#endif
+ 	err = xfrm_register_km(&pfkeyv2_mgr);
+ 	if (err != 0)
+ 		goto out_remove_proc_entry;
+ out:
+ 	return err;
+ out_remove_proc_entry:
+-#ifdef CONFIG_PROC_FS
+-	remove_proc_entry("net/pfkey", NULL);
++	pfkey_exit_proc();
+ out_sock_unregister:
+-#endif
+ 	sock_unregister(PF_KEY);
+ out_unregister_key_proto:
+ 	proto_unregister(&key_proto);
+-- 
+1.5.3.4
 
