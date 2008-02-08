@@ -1,32 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [IPV6] Minor cleanup: remove unused definitions in
- net/ip6_fib.h
-Date: Thu, 07 Feb 2008 18:11:59 -0800 (PST)
-Message-ID: <20080207.181159.160811975.davem@davemloft.net>
-References: <eb3ff54b0802070823y7038fcedga27cba4a9bb35731@mail.gmail.com>
+Subject: Re: + smack-unlabeled-outgoing-ambient-packets.patch added to -mm
+ tree
+Date: Thu, 07 Feb 2008 18:15:19 -0800 (PST)
+Message-ID: <20080207.181519.209912794.davem@davemloft.net>
+References: <200802071514.34770.paul.moore@hp.com>
+	<20080207.173402.163351740.davem@davemloft.net>
+	<200802072054.57284.paul.moore@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: ramirose@gmail.com
+Cc: akpm@linux-foundation.org, casey@schaufler-ca.com,
+	jmorris@namei.org, mingo@elte.hu, sds@tycho.nsa.gov,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45465
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46694
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751863AbYBHCL2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 21:11:28 -0500
-In-Reply-To: <eb3ff54b0802070823y7038fcedga27cba4a9bb35731@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1753487AbYBHCOs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 21:14:48 -0500
+In-Reply-To: <200802072054.57284.paul.moore@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rami Rosen" <ramirose@gmail.com>
-Date: Thu, 7 Feb 2008 18:23:58 +0200
+From: Paul Moore <paul.moore@hp.com>
+Date: Thu, 7 Feb 2008 20:54:56 -0500
 
-> Hi,
-> 
-> This patch removes some unused definitions and one method typedef
-> declaration (f_pnode)
-> in include/net/ip6_fib.h, as they are not used in the kernel.
-> 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> I have no idea what was causing the mail problem, probably somebody
+> in our IT department playing around with some new knobs, oh well.  I
+> resubscribed this afternoon with both fingers crossed.
 
-Applied, thanks.
+In the future please contact postmaster@vger.kernel.org when you
+notice you have been unsubscribed so we can work on fixing the
+issue.
+
+Blind resubscriptions are severely frowned upon, we remove you for
+good reason and if the problem isn't solved you'll just soil up my
+inbox further with bounces....
