@@ -1,33 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ipcomp regression in 2.6.24
-Date: Fri, 08 Feb 2008 01:51:35 -0800 (PST)
-Message-ID: <20080208.015135.02880247.davem@davemloft.net>
-References: <E1JK3QD-0006hM-00@gondolin.me.apana.org.au>
-	<20080129.211227.160323820.davem@davemloft.net>
-	<BAY103-DAV366423029E541B55E047CB22F0@phx.gbl>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pupilla@hotmail.com
+From: Magnus Damm <magnus.damm@gmail.com>
+Subject: [PATCH] smc91x: Add MigoR board support
+Date: Fri, 08 Feb 2008 18:49:27 +0900
+Message-ID: <20080208094927.2020.3230.sendpatchset@clockwork.opensource.se>
+Cc: Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55822
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759566AbYBHJvF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 04:51:05 -0500
-In-Reply-To: <BAY103-DAV366423029E541B55E047CB22F0@phx.gbl>
+Received: from wa-out-1112.google.com ([209.85.146.179]:26110 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932611AbYBHJyI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 04:54:08 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so340222wah.23
+        for <netdev@vger.kernel.org>; Fri, 08 Feb 2008 01:54:06 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Date: Fri, 8 Feb 2008 10:12:25 +0100
+This patch adds MigoR board support to the smc91x driver.
 
-> I haven't seen this patch in Greg 2.6.24-stable
-> review message.
+Signed-off-by: Magnus Damm <damm@igel.co.jp>
+---
 
-Due to having just returned from LCA08 I haven't
-made any -stable submissions in a while, and I
-notified Greg of this tonight.
+ drivers/net/smc91x.h |   14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-The networking fixes will make it into the next
-2.6.24.x release.
+--- 0001/drivers/net/smc91x.h
++++ work/drivers/net/smc91x.h	2008-02-06 23:13:55.000000000 +0900
+@@ -306,6 +306,20 @@ SMC_outw(u16 val, void __iomem *ioaddr, 
+ #define SMC_insw(a, r, p, l)   insw((a) + (r), p, l)
+ #define SMC_outsw(a, r, p, l)  outsw((a) + (r), p, l)
+ 
++#elif defined(CONFIG_SH_MIGOR)
++
++#define SMC_IRQ_FLAGS		(-1)
++#define SMC_CAN_USE_8BIT	0
++#define SMC_CAN_USE_16BIT	1
++#define SMC_CAN_USE_32BIT	0
++#define SMC_IO_SHIFT		0
++#define SMC_NOWAIT		1
++
++#define SMC_inw(a, r)		inw((a) + (r))
++#define SMC_outw(v, a, r)	outw(v, (a) + (r))
++#define SMC_insw(a, r, p, l)	insw((a) + (r), p, l)
++#define SMC_outsw(a, r, p, l)	outsw((a) + (r), p, l)
++
+ #else /* BOARDS */
+ 
+ #define SMC_CAN_USE_8BIT       1
