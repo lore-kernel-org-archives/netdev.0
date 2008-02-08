@@ -1,7 +1,7 @@
 From: "Alexandre Bounine" <Alexandre.Bounine@tundra.com>
-Subject: [PATCH 0/5] Tsi108_eth: set of driver fix-ups
-Date: Fri, 8 Feb 2008 14:16:49 -0500
-Message-ID: <1B5F013528140F45B5C671039279CA5702A9609E@NANUK.pc.tundra.com>
+Subject: [PATCH 3/5] Tsi108_eth: remove not needed code
+Date: Fri, 8 Feb 2008 14:17:19 -0500
+Message-ID: <1B5F013528140F45B5C671039279CA5702A960A1@NANUK.pc.tundra.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
@@ -11,16 +11,50 @@ Cc: <linuxppc-dev@ozlabs.org>,
 	"Zang Roy-r61911" <tie-fei.zang@freescale.com>
 To: <jgarzik@pobox.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.tundra.com ([142.46.200.162]:48736 "EHLO mx2.tundra.com"
+Received: from mail2.tundra.com ([142.46.200.162]:48729 "EHLO mx2.tundra.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1763239AbYBHT3s convert rfc822-to-8bit (ORCPT
+	id S1761906AbYBHT3s convert rfc822-to-8bit (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 14:29:48 -0500
 Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is set of small fixes for Tsi108 Ethernet driver.
-Based on kernel version 2.6.24 
+Code clean-up for tsi108_eth network driver.
+This patch removes not needed dummy read and the corresponding comment.
+The PHY logic requires two reads from the status register to get 
+current link status. This is done correctly inside mii_check_media().  
+   
+Signed-off-by: Alexandre Bounine <alexandreb@tundra.com>
+---
+
+diff -pNur linux-2.6.24/drivers/net/tsi108_eth.c
+linux-2.6.24-fix/drivers/net/tsi108_eth.c
+--- linux-2.6.24/drivers/net/tsi108_eth.c	2008-02-06
+15:47:35.000000000 -0500
++++ linux-2.6.24-fix/drivers/net/tsi108_eth.c	2008-02-06
+15:54:14.000000000 -0500
+@@ -297,18 +297,11 @@ static void tsi108_check_phy(struct net_
+ 	u32 speed;
+ 	unsigned long flags;
+ 
+-	/* Do a dummy read, as for some reason the first read
+-	 * after a link becomes up returns link down, even if
+-	 * it's been a while since the link came up.
+-	 */
+-
+ 	spin_lock_irqsave(&phy_lock, flags);
+ 
+ 	if (!data->phy_ok)
+ 		goto out;
+ 
+-	tsi108_read_mii(data, MII_BMSR);
+-
+ 	duplex = mii_check_media(&data->mii_if, netif_msg_link(data),
+data->init_media);
+ 	data->init_media = 0;
+ 
+
+
 
 ---
 
