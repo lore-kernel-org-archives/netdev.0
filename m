@@ -1,38 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [NET/IPv6] Race condition with flow_cache_genid?
-Date: Sat, 09 Feb 2008 05:16:14 +1100
-Message-ID: <E1JNXlm-0004pM-00@gondolin.me.apana.org.au>
-References: <f73f7ab80802061036u64a56abnccafacf68f2ed717@mail.gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
-To: kyle@moffetthome.net (Kyle Moffett)
+Subject: Re: oops with ipcomp
+Date: Sat, 9 Feb 2008 05:31:57 +1100
+Message-ID: <20080208183157.GA18795@gondor.apana.org.au>
+References: <3C59DB883F7B0B4D8096010D45ACCD134F20BB@exch.facton.local> <20080206170717.GA20308@gondor.apana.org.au> <3C59DB883F7B0B4D8096010D45ACCD134F20C0@exch.facton.local> <20080207154437.GA7237@gondor.apana.org.au> <3C59DB883F7B0B4D8096010D45ACCD134F20CE@exch.facton.local> <20080208085836.GC14650@gondor.apana.org.au> <3C59DB883F7B0B4D8096010D45ACCD134F20D4@exch.facton.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Beschorner Daniel <Daniel.Beschorner@facton.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:53351 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:45003 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758463AbYBHSQT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 13:16:19 -0500
-In-Reply-To: <f73f7ab80802061036u64a56abnccafacf68f2ed717@mail.gmail.com>
+	with ESMTP id S1754953AbYBHScA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 13:32:00 -0500
+Content-Disposition: inline
+In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD134F20D4@exch.facton.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kyle Moffett <kyle@moffetthome.net> wrote:
->
-> Basically either there is some missing locking here or it does not
-> need to be "atomic_t".  Judging from the way it *appears* to be used
-> to check if cache entries are up-to-date with the latest changes in
-> policy, I would guess the former.
+On Fri, Feb 08, 2008 at 11:45:33AM +0100, Beschorner Daniel wrote:
+> > No I meant the exact output of ip x p and ip x s.
+> 
+> I know, but as I end up every time with a tainted kernel on our
+> production server I didn't turn ipcomp on, but now I got it.
 
-You're right that it doesn't really have to be an atomic since
-all the writers are from xfrm currently.  However, the fact that
-it is atomic is used by the current code since sometimes they
-increment the value without holding the xfrm policy lock.
+Hmm, that's pretty much what I've got (but I'm on 32-bit still).
 
-Yes it is racy but that is fine for the purpose that this variable
-serves.  All it does is to make sure that extant flow objects get
-killed at some point after the increment.  There is absolutely no
-requirement that the killing be immediate or synchronised.
+Does every packet from A trigger the crash?
 
-Cheers,
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
