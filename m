@@ -1,51 +1,70 @@
-From: "Alexandre Bounine" <Alexandre.Bounine@tundra.com>
-Subject: [PATCH 1/5] Tsi108_eth: add missing linking to driver data
-Date: Fri, 8 Feb 2008 14:16:55 -0500
-Message-ID: <1B5F013528140F45B5C671039279CA5702A9609F@NANUK.pc.tundra.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: Broadcom 5708 taking a few seconds to get link-up
+Date: Fri, 08 Feb 2008 11:42:50 -0800
+Message-ID: <1202499770.17235.16.camel@dell>
+References: <47ACADA1.1090809@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <linuxppc-dev@ozlabs.org>,
-	"Josh Boyer" <jwboyer@linux.vnet.ibm.com>,
-	"Zang Roy-r61911" <tie-fei.zang@freescale.com>
-To: <jgarzik@pobox.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: "Brian Haley" <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.tundra.com ([142.46.200.162]:48732 "EHLO mx2.tundra.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1763244AbYBHT3s convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 14:29:48 -0500
-Content-class: urn:content-classes:message
+Received: from mms3.broadcom.com ([216.31.210.19]:3733 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761002AbYBHTlj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Feb 2008 14:41:39 -0500
+In-Reply-To: <47ACADA1.1090809@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bug fix for tsi108_eth network driver.
-This patch adds missing linking to driver data. 
-   
-Signed-off-by: Alexandre Bounine <alexandreb@tundra.com>
----
+On Fri, 2008-02-08 at 14:29 -0500, Brian Haley wrote:
+> Hi Michael,
+> 
+> I'm working on a system that has two on-board 5708's.  We've noticed 
+> that it takes about 3 seconds for the link to come up - is this 
+> considered normal?  I've tried this with the latest davem tree with 
+> similar results to older kernels/drivers.
 
-diff -pNur linux-2.6.24/drivers/net/tsi108_eth.c
-linux-2.6.24-fix/drivers/net/tsi108_eth.c
---- linux-2.6.24/drivers/net/tsi108_eth.c	2008-01-24
-17:58:37.000000000 -0500
-+++ linux-2.6.24-fix/drivers/net/tsi108_eth.c	2008-02-06
-14:30:04.000000000 -0500
-@@ -1629,6 +1629,7 @@ tsi108_init_one(struct platform_device *
- 		goto register_fail;
- 	}
- 
-+	platform_set_drvdata(pdev, dev);
- 	printk(KERN_INFO "%s: Tsi108 Gigabit Ethernet, MAC: %s\n",
- 	       dev->name, print_mac(mac, dev->dev_addr));
- #ifdef DEBUG
+Yes, 2 - 3 seconds are normal for autoneg to link up on
+10/100/1000baseT.  Sometimes it can take even longer, but generally less
+than 5 seconds.  SerDes is much faster.
 
+> 
+> # uname -r
+> 2.6.24
+> 
+> # ethtool -i eth3
+> driver: bnx2
+> version: 1.7.3
+> firmware-version: 1.9.3
+> bus-info: 0000:42:00.0
+> 
+> # lspci -v
+> 42:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 
+> Gigabit Ethernet (rev 11)
+>          Subsystem: Hewlett-Packard Company Unknown device 7038
+>          Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 34
+>          Memory at fa000000 (64-bit, non-prefetchable) [size=32M]
+>          Capabilities: [40] PCI-X non-bridge device
+>          Capabilities: [48] Power Management version 2
+>          Capabilities: [50] Vital Product Data
+>          Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ 
+> Queue=0/0 Enable-
+> 
+> # ip link set eth3 up; mii-tool eth3; sleep 1; mii-tool eth3; sleep 1; 
+> mii-tool eth3; sleep 1; mii-tool eth3
+> eth3: no link
+> eth3: no link
+> eth3: no link
+> eth3: negotiated 100baseTx-FD, link ok
+> 
+> Other drivers I've tried - e1000 and tg3, get up in < 1 second.  I'm 
+> asking becuase any packet I try to transmit out this interface before 
+> link-up never gets out.
+> 
 
-
----
-
-
-
-Important Notice: This message is intended for the use of the individual to whom it is addressed and may contain information which is privileged, confidential and/or exempt from disclosure under applicable law. If the reader of this message is not the intended recipient, or is not the employee or agent responsible for delivering the message to the intended recipient, you are hereby notified that any dissemination, distribution, or copying of this communication is strictly prohibited. If you have received this communication in error, please notify the sender immediately by telephone or return e-mail and delete the original message from your systems. Thank you. 
-
+In BNX2 and TG3, we always reset the PHY when we bring up the device,
+causing the link to drop and to renegotiate.  The link-up time for TG3
+should be about the same (2 - 3 seconds).  Other drivers may not reset
+the PHY and so the link may be able to come up instantly.
 
