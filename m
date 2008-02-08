@@ -1,92 +1,66 @@
 From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Re: [Bugme-new] [Bug 9888] New: tun device without protocol info
- header fails under IPv6
-Date: Thu, 07 Feb 2008 20:58:04 -0800
-Message-ID: <47ABE15C.3090606@qualcomm.com>
-References: <bug-9888-10286@http.bugzilla.kernel.org/> <20080204145304.f4921bf4.akpm@linux-foundation.org>
+Subject: Re: [PATCH 2/3] partial checksum and GSO support for tun/tap.
+Date: Thu, 07 Feb 2008 21:39:03 -0800
+Message-ID: <47ABEAF7.8020508@qualcomm.com>
+References: <200801240107.38929.rusty@rustcorp.com.au> <200801240110.45178.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: steve.zabele@baesystems.com, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from warlock.qualcomm.com ([129.46.50.49]:37090 "EHLO
-	warlock.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933012AbYBHFd2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 00:33:28 -0500
-Received: from ithilien.qualcomm.com (ithilien.qualcomm.com [129.46.51.59])
-	by warlock.qualcomm.com (8.14.2/8.13.6/1.0) with ESMTP id m185BY06006673
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Thu, 7 Feb 2008 21:11:34 -0800 (PST)
-In-Reply-To: <20080204145304.f4921bf4.akpm@linux-foundation.org>
+Received: from numenor.qualcomm.com ([129.46.51.58]:54818 "EHLO
+	numenor.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752072AbYBHFkw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 00:40:52 -0500
+In-Reply-To: <200801240110.45178.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
-> On Mon,  4 Feb 2008 13:46:13 -0800 (PST)
-> bugme-daemon@bugzilla.kernel.org wrote:
->>
->> Open a tun device as type TUN, set the TUN_NO_PI flag, and try sending an IPv6
->> packet. The packet appears at the interface under tcpdumps, but propagates no
->> further. This is because the default protocol info used for tun devices where
->> the TUN_NO_PI flag is set assumes IPv4 as can be seen by the initialization at
->> the top of the tun_get_user function in drivers/net/tun.c file given by
->>
->>         struct tun_pi pi = { 0, __constant_htons(ETH_P_IP) };
->>
->> This can easily be fixed by adding a quick check at the top of tun_get_user.
->> Basically the code that used to read
->>
->>         if (!(tun->flags & TUN_NO_PI)) {
->>                 if ((len -= sizeof(pi)) > count)
->>                         return -EINVAL;
->>
->>                 if(memcpy_fromiovec((void *)&pi, iv, sizeof(pi)))
->>                         return -EFAULT;
->>         }
->>
->> when changed to read
->>
->>         if (!(tun->flags & TUN_NO_PI)) {
->>                 if ((len -= sizeof(pi)) > count)
->>                         return -EINVAL;
->>
->>                 if(memcpy_fromiovec((void *)&pi, iv, sizeof(pi)))
->>                         return -EFAULT;
->>         }
->>         else {
->>           /* Fixup default pi if IPv6 rather than IPv4 */
->>           if (((tun->flags & TUN_TYPE_MASK) == TUN_TUN_DEV) &&
->>               (*(char *)(iv->iov_base)      == 0x60)) {
->>             pi.proto = __constant_htons(ETH_P_IPV6);
->>           }
->>         }
->>
->> fixes the problem. 
->>
->> How do we get this in as part of the maintained codebase??
->>
+Rusty Russell wrote:
+> (Changes since last time: we how have explicit IFF_RECV_CSUM and 
+> IFF_RECV_GSO bits, and some renaming of virtio_net hdr)
 > 
-> Please email a tested patch prepared as described in
+> We use the virtio_net_hdr: it is an ABI already and designed to
+> encapsulate such metadata as GSO and partial checksums.
 > 
-> 	Documentation/SubmittingPatches
-> 	Documentation/SubmitChecklist
-> 	http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt
+> IFF_VIRTIO_HDR means you will write and read a 'struct virtio_net_hdr'
+> at the start of each packet.  You can always write packets with
+> partial checksum and gso to the tap device using this header.
 > 
-> to
-> 
-> 	Maxim Krasnyansky <maxk@qualcomm.com>
-> 	"David S. Miller" <davem@davemloft.net>
-> 	Andrew Morton <akpm@linux-foundation.org>
-> 	netdev@vger.kernel.org
+> IFF_RECV_CSUM means you can handle reading packets with partial
+> checksums.  If IFF_RECV_GSO is also set, it means you can handle
+> reading (all types of) GSO packets.
+>
+> Note that there is no easy way to detect if these flags are supported:
+> see next patch.
 
-btw I'd be ok with this fix. But I guess the questions is why not use 
-struct tun_pi in the apps instead ?
+Again sorry for delay in replying. Here are my thoughts on this.
+
+I like the approach in general. Certainly the part that creates skbs out of the user-space
+pages looks good. And it's fits nicely into existing TUN driver model.
+However I actually wanted to change the model :). In particular I'm talking about 
+	"syscall per packet" 
+After messing around with things like libe1000.sf.net I'd like to make TUN/TAP driver look 
+more like modern nic's to the user-space. In other words I'm thinking about introducing RX and
+TX rings that the user-space can then mmap() and write/read packets descriptors to/from.
+That will saves the number of system calls that the user-space app needs to do. That by 
+itself saves a lot of overhead, combined with the GSO it's be lightning fast.
+
+I'm going to send you a version that I cooked up awhile ago in a private email. Do not want
+to spam netdev :). It's not quite the RX/TX ring model but I'll give you an idea.
+I did some profiling and PPS (packets per second) numbers that user-space can handle literally 
+sky rocketed.
+
+btw We had a long discussion with Eugeniy Polakov on mapping user-pages vs mmap()ing large
+kernel buffer and doing normal memcpy() (ie instead of copy_to/fromuser()) in the kernel.
+On small packets overhead of get_user_pages() eats up all the benefits. So we should think
+of some scheme that nicely combines the two. Kind of like "copy break" that latest net 
+drivers do these days.
+
+Also btw why call it VIRTIO ? For example I'm actually interested in speeding up tunning
+and general network apps. We have wireless basestation apps here that need to handle packets
+in user-space. Those kind things have nothing to with virtualization.
 
 Max
-
-
-
-
-
