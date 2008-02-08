@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: + smack-unlabeled-outgoing-ambient-packets.patch added to -mm
- tree
-Date: Thu, 07 Feb 2008 18:15:19 -0800 (PST)
-Message-ID: <20080207.181519.209912794.davem@davemloft.net>
-References: <200802071514.34770.paul.moore@hp.com>
-	<20080207.173402.163351740.davem@davemloft.net>
-	<200802072054.57284.paul.moore@hp.com>
+Subject: Re: [PATCH] [TIPC] Kill unused static inline (x5)
+Date: Thu, 07 Feb 2008 18:17:24 -0800 (PST)
+Message-ID: <20080207.181724.253521208.davem@davemloft.net>
+References: <12013021583862-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, casey@schaufler-ca.com,
-	jmorris@namei.org, mingo@elte.hu, sds@tycho.nsa.gov,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: paul.moore@hp.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: per.liden@ericsson.com, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46694
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46697
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753487AbYBHCOs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2008 21:14:48 -0500
-In-Reply-To: <200802072054.57284.paul.moore@hp.com>
+	by vger.kernel.org with ESMTP id S1753183AbYBHCQx convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2008 21:16:53 -0500
+In-Reply-To: <12013021583862-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Thu, 7 Feb 2008 20:54:56 -0500
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Sat, 26 Jan 2008 01:02:38 +0200
 
-> I have no idea what was causing the mail problem, probably somebody
-> in our IT department playing around with some new knobs, oh well.  I
-> resubscribed this afternoon with both fingers crossed.
+> All these static inlines are unused:
+>=20
+> in_own_zone     1 (net/tipc/addr.h)
+> msg_dataoctet   1 (net/tipc/msg.h)
+> msg_direct      1 (include/net/tipc/tipc_msg.h)
+> msg_options     1 (include/net/tipc/tipc_msg.h)
+> tipc_nmap_get   1 (net/tipc/bcast.h)
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-In the future please contact postmaster@vger.kernel.org when you
-notice you have been unsubscribed so we can work on fixing the
-issue.
-
-Blind resubscriptions are severely frowned upon, we remove you for
-good reason and if the problem isn't solved you'll just soil up my
-inbox further with bounces....
+Applied.
