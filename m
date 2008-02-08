@@ -1,34 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: oops with ipcomp
-Date: Fri, 8 Feb 2008 19:58:36 +1100
-Message-ID: <20080208085836.GC14650@gondor.apana.org.au>
-References: <3C59DB883F7B0B4D8096010D45ACCD134F20BB@exch.facton.local> <20080206170717.GA20308@gondor.apana.org.au> <3C59DB883F7B0B4D8096010D45ACCD134F20C0@exch.facton.local> <20080207154437.GA7237@gondor.apana.org.au> <3C59DB883F7B0B4D8096010D45ACCD134F20CE@exch.facton.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Beschorner Daniel <Daniel.Beschorner@facton.com>
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: Re: ipcomp regression in 2.6.24
+Date: Fri, 8 Feb 2008 10:12:25 +0100
+Message-ID: <BAY103-DAV366423029E541B55E047CB22F0@phx.gbl>
+References: <BAY103-DAV76D55A34FB3E0924FF49AB2350@phx.gbl><E1JK3QD-0006hM-00@gondolin.me.apana.org.au> <20080129.211227.160323820.davem@davemloft.net>
+Cc: <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:40066 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753328AbYBHI6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 03:58:40 -0500
-Content-Disposition: inline
-In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD134F20CE@exch.facton.local>
+Received: from bay0-omc2-s25.bay0.hotmail.com ([65.54.246.161]:58246 "EHLO
+	bay0-omc2-s25.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761017AbYBHJNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 04:13:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 07, 2008 at 07:01:32PM +0100, Beschorner Daniel wrote:
+David Miller wrote:
+
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Wed, 30 Jan 2008 14:15:33 +1100
 >
-> > Could you show me the exact policies/SAs of the tunnel involved
-> > in the crash?
-> 
-> esp/cbc(aes128)/hmac(sha1)
+> > Marco Berizzi <pupilla@hotmail.com> wrote:
+> > >
+> > >> > With 2.6.24 IPSEC/ESP tunnels to older kernels establish fine,
+data
+> > >> > flows in both directions, but no data comes out of the tunnel.
+> > >> > Needed to disable ipcomp.
+> > >
+> > > Same problem here: linux 2.6.24 driven by openswan 2.4.11
+> > > on Slackware 11.0
+> >
+> > My bad.  This patch should fix it.
+> >
+> > [IPCOMP]: Fetch nexthdr before ipch is destroyed
+> >
+> > When I moved the nexthdr setting out of IPComp I accidently moved
+> > the reading of ipch->nexthdr after the decompression.  Unfortunately
+> > this means that we'd be reading from a stale ipch pointer which
+> > doesn't work very well.
+> >
+> > This patch moves the reading up so that we get the correct nexthdr
+> > value.
+> >
+> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>
+> Applied, and queued for -stable, thanks!
 
-No I meant the exact output of ip x p and ip x s.
+Hi David,
+I haven't seen this patch in Greg 2.6.24-stable
+review message.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
