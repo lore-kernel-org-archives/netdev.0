@@ -1,74 +1,59 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [GIT-PULL Request]: SCTP fixes
-Date: Fri,  8 Feb 2008 15:27:21 -0500
-Message-ID: <1202502441-16789-1-git-send-email-vladislav.yasevich@hp.com>
-Cc: lksctp-developers@lists.sourceforge.net, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [PATCH] libertas: Don't mark exported symbols as static
+Date: Fri, 08 Feb 2008 16:07:26 -0800
+Message-ID: <adatzkj0z7l.fsf@cisco.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Dan Williams <dcbw@redhat.com>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:43795 "EHLO
-	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760976AbYBHU1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 15:27:23 -0500
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:49613 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753519AbYBIAQ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2008 19:16:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David
+Marking exported symbols as static causes the following build error on
+ia64 with gcc 4.2.3:
 
-The following changes since commit 3113e88c3cb3c0a22920b621f8e4d1f2ccc07f1e:
-  Stephen Hemminger (1):
-        [PKT_SCHED]: vlan tag match
+drivers/net/wireless/libertas/main.c:1375: error: __ksymtab_lbs_remove_mesh causes a section type conflict
+drivers/net/wireless/libertas/main.c:1354: error: __ksymtab_lbs_add_mesh causes a section type conflict
 
-are available in the git repository at:
+Therefore, remove the static marking on lbs_remove_mesh and lbs_add_mesh.
 
-  vxy@master.kernel.org:/pub/scm/linux/kernel/git/vxy/lksctp-dev.git pending
-
-Vlad Yasevich (6):
-      [SCTP]: Stop claiming that this is a "reference implementation"
-      [SCTP]: Do not increase rwnd when reading partial notification.
-      [SCTP]: Kill silly inlines in ulpqueue.c
-      [SCTP]: Correctly reap SSNs when processing FORWARD_TSN chunk
-      [SCTP]: Set ports in every address returned by sctp_getladdrs()
-      [SCTP]: Make sure the chunk is off the transmitted list prior to freeing.
-
-Wei Yongjun (1):
-      [SCTP]: Fix kernel panic while received ASCONF chunk with bad serial number
-
- include/linux/sctp.h         |    4 +-
- include/net/sctp/auth.h      |    8 +++---
- include/net/sctp/command.h   |    8 +++---
- include/net/sctp/constants.h |    8 +++---
- include/net/sctp/sctp.h      |    8 +++---
- include/net/sctp/sm.h        |    8 +++---
- include/net/sctp/structs.h   |    8 +++---
- include/net/sctp/tsnmap.h    |    8 +++---
- include/net/sctp/ulpevent.h  |    8 +++---
- include/net/sctp/ulpqueue.h  |    6 ++--
- include/net/sctp/user.h      |    8 +++---
- net/sctp/associola.c         |   14 ++++++------
- net/sctp/auth.c              |    8 +++---
- net/sctp/bind_addr.c         |    8 +++---
- net/sctp/chunk.c             |    8 +++---
- net/sctp/command.c           |    8 +++---
- net/sctp/debug.c             |   12 +++-------
- net/sctp/endpointola.c       |   12 +++-------
- net/sctp/input.c             |    8 +++---
- net/sctp/inqueue.c           |    8 +++---
- net/sctp/ipv6.c              |    8 +++---
- net/sctp/objcnt.c            |    8 +++---
- net/sctp/output.c            |    8 +++---
- net/sctp/outqueue.c          |   12 ++++++----
- net/sctp/primitive.c         |    8 +++---
- net/sctp/proc.c              |    8 +++---
- net/sctp/protocol.c          |    8 +++---
- net/sctp/sm_make_chunk.c     |    9 ++++---
- net/sctp/sm_sideeffect.c     |    8 +++---
- net/sctp/sm_statefuns.c      |   10 +++-----
- net/sctp/sm_statetable.c     |    8 +++---
- net/sctp/socket.c            |   17 +++++++++++----
- net/sctp/ssnmap.c            |    8 +++---
- net/sctp/sysctl.c            |    8 +++---
- net/sctp/transport.c         |    8 +++---
- net/sctp/tsnmap.c            |    8 +++---
- net/sctp/ulpevent.c          |    7 +++--
- net/sctp/ulpqueue.c          |   43 +++++++++++++++++++++++++++++------------
- 38 files changed, 190 insertions(+), 172 deletions(-)
+Signed-off-by: Roland Dreier <rolandd@cisco.com>
+---
+diff --git a/drivers/net/wireless/libertas/main.c b/drivers/net/wireless/libertas/main.c
+index 84fb49c..a688ce8 100644
+--- a/drivers/net/wireless/libertas/main.c
++++ b/drivers/net/wireless/libertas/main.c
+@@ -253,8 +253,8 @@ static ssize_t lbs_anycast_set(struct device *dev,
+ 
+ static int lbs_add_rtap(struct lbs_private *priv);
+ static void lbs_remove_rtap(struct lbs_private *priv);
+-static int lbs_add_mesh(struct lbs_private *priv);
+-static void lbs_remove_mesh(struct lbs_private *priv);
++int lbs_add_mesh(struct lbs_private *priv);
++void lbs_remove_mesh(struct lbs_private *priv);
+ 
+ 
+ /**
+@@ -1296,7 +1296,7 @@ EXPORT_SYMBOL_GPL(lbs_stop_card);
+  *  @param priv    A pointer to the struct lbs_private structure
+  *  @return 	   0 if successful, -X otherwise
+  */
+-static int lbs_add_mesh(struct lbs_private *priv)
++int lbs_add_mesh(struct lbs_private *priv)
+ {
+ 	struct net_device *mesh_dev = NULL;
+ 	int ret = 0;
+@@ -1354,7 +1354,7 @@ done:
+ EXPORT_SYMBOL_GPL(lbs_add_mesh);
+ 
+ 
+-static void lbs_remove_mesh(struct lbs_private *priv)
++void lbs_remove_mesh(struct lbs_private *priv)
+ {
+ 	struct net_device *mesh_dev;
+ 
