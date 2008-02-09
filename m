@@ -1,37 +1,53 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] libertas: Don't mark exported symbols as static
-Date: Sat, 09 Feb 2008 08:52:35 -0500
-Message-ID: <1202565155.15334.0.camel@localhost.localdomain>
-References: <adatzkj0z7l.fsf@cisco.com> <20080208162824.461451e1@extreme>
-	 <adaejbm28ip.fsf@cisco.com>  <20080209044858.GA1428@infradead.org>
+From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+Subject: [patch] Documentation: fix tcp.txt
+Date: Sat, 9 Feb 2008 06:25:18 -0800 (PST)
+Message-ID: <366589.16312.qm@web52010.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Christoph Hellwig <hch@infradead.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:56592 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754772AbYBINzY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Feb 2008 08:55:24 -0500
-In-Reply-To: <20080209044858.GA1428@infradead.org>
+Received: from web52010.mail.re2.yahoo.com ([206.190.48.26]:47368 "HELO
+	web52010.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752415AbYBIOZU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2008 09:25:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-02-08 at 23:48 -0500, Christoph Hellwig wrote:
-> On Fri, Feb 08, 2008 at 06:01:02PM -0800, Roland Dreier wrote:
-> >  > Why not pull the exports? they aren't used anywhere in the existing kernel.
-> > 
-> > I'm guessing there's some not-(yet-)merged mesh networking stuff that
-> > uses the symbols, but it doesn't matter much to me...
-> 
-> The general rule is to not keep symbols for out of tree stuff, so
-> removing the exports makes more sense.
+From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
 
-If they aren't used in the in-kernel driver, just kill the export
-statements.
+Replace BIC with CUBIC as default congestion control. Fix grammar.
 
-Dan
+Signed-off-by: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+
+---
+
+--- a/Documentation/networking/tcp.txt 2008-02-09 16:07:39.547357400 +0200
++++ b/Documentation/networking/tcp.txt 2008-02-09 16:12:49.497245900 +0200
+@@ -1,7 +1,7 @@
+ TCP protocol
+ ============
+ 
+-Last updated: 21 June 2005
++Last updated: 9 February 2008
+ 
+ Contents
+ ========
+@@ -52,9 +52,9 @@
+ The method that is used to determine which congestion control mechanism is
+ determined by the setting of the sysctl net.ipv4.tcp_congestion_control.
+ The default congestion control will be the last one registered (LIFO);
+-so if you built everything as modules. the default will be reno. If you
+-build with the default's from Kconfig, then BIC will be builtin (not a module)
+-and it will end up the default.
++so if you built everything as modules, the default will be reno. If you
++build with the defaults from Kconfig, then CUBIC will be builtin (not a
++module) and it will end up the default.
+ 
+ If you really want a particular default value then you will need
+ to set it with the sysctl.  If you use a sysctl, the module will be autoloaded
+
+
+      ____________________________________________________________________________________
+Be a better friend, newshound, and 
+know-it-all with Yahoo! Mobile.  Try it now.  http://mobile.yahoo.com/;_ylt=Ahu06i62sR8HDtDypao8Wcj9tAcJ 
 
