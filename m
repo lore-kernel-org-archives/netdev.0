@@ -1,53 +1,96 @@
-From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
-Subject: [patch] Documentation: fix tcp.txt
-Date: Sat, 9 Feb 2008 06:25:18 -0800 (PST)
-Message-ID: <366589.16312.qm@web52010.mail.re2.yahoo.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 9923] New: Unable conect to internet over ISDN
+ AVM USB BlueFritz
+Date: Sat, 9 Feb 2008 10:13:47 -0800
+Message-ID: <20080209101347.04da24dc.akpm@linux-foundation.org>
+References: <bug-9923-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, vasko@arcor.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web52010.mail.re2.yahoo.com ([206.190.48.26]:47368 "HELO
-	web52010.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752415AbYBIOZU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2008 09:25:20 -0500
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:51559 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752668AbYBISQF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2008 13:16:05 -0500
+In-Reply-To: <bug-9923-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+On Sat,  9 Feb 2008 03:36:26 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
 
-Replace BIC with CUBIC as default congestion control. Fix grammar.
+> http://bugzilla.kernel.org/show_bug.cgi?id=9923
+> 
+>            Summary: Unable conect to internet over ISDN AVM USB BlueFritz
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.24
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: vasko@arcor.de
+> 
+> 
+> Latest working kernel version:2.6.22
+> Earliest failing kernel version:2.24
 
-Signed-off-by: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+A regression.
 
----
-
---- a/Documentation/networking/tcp.txt 2008-02-09 16:07:39.547357400 +0200
-+++ b/Documentation/networking/tcp.txt 2008-02-09 16:12:49.497245900 +0200
-@@ -1,7 +1,7 @@
- TCP protocol
- ============
- 
--Last updated: 21 June 2005
-+Last updated: 9 February 2008
- 
- Contents
- ========
-@@ -52,9 +52,9 @@
- The method that is used to determine which congestion control mechanism is
- determined by the setting of the sysctl net.ipv4.tcp_congestion_control.
- The default congestion control will be the last one registered (LIFO);
--so if you built everything as modules. the default will be reno. If you
--build with the default's from Kconfig, then BIC will be builtin (not a module)
--and it will end up the default.
-+so if you built everything as modules, the default will be reno. If you
-+build with the defaults from Kconfig, then CUBIC will be builtin (not a
-+module) and it will end up the default.
- 
- If you really want a particular default value then you will need
- to set it with the sysctl.  If you use a sysctl, the module will be autoloaded
-
-
-      ____________________________________________________________________________________
-Be a better friend, newshound, and 
-know-it-all with Yahoo! Mobile.  Try it now.  http://mobile.yahoo.com/;_ylt=Ahu06i62sR8HDtDypao8Wcj9tAcJ 
+> Distribution:opensuse 10.3
+> Hardware Environment:AVM BlueFritz USB ISDN
+> Software Environment:
+> Problem Description:
+> ifup ippp0
+>     ippp0
+> SIOCSIFFLAGS: Invalid argument
+> Cannot enable interface ippp0
+> 
+> Steps to reproduce:
+> Feb  9 11:20:54 linux-zhr0 klogd: ippp0: dialing 1 019193383... 
+> Feb  9 11:20:56 linux-zhr0 klogd: isdn_net: ippp0 connected
+> Feb  9 11:20:56 linux-zhr0 klogd: capidrv-1: chan 0 up with ncci 0x10101
+> Feb  9 11:20:56 linux-zhr0 ipppd[5624]: Local number: 906138, Remote number:
+> 019193383, Type: outgoing
+> Feb  9 11:20:56 linux-zhr0 ipppd[5624]: PHASE_WAIT -> PHASE_ESTABLISHED,
+> ifunit: 0, linkunit: 0, fd: 7
+> Feb  9 11:20:56 linux-zhr0 ipppd[5624]: ioctl(SIOCSIFMTU): Invalid argument, 6
+> ippp0 1524.
+> Feb  9 11:20:56 linux-zhr0 ipppd[5624]: MPPP negotiation, He: Yes We: Yes
+> Feb  9 11:20:56 linux-zhr0 ipppd[5624]: CCP enabled! Trying CCP.
+> Feb  9 11:20:56 linux-zhr0 ipppd[5624]: CCP: got ccp-unit 0 for link 0
+> (Compression Control Protocol)
+> Feb  9 11:20:56 linux-zhr0 ipppd[5624]: ccp_resetci!
+> Feb  9 11:20:56 linux-zhr0 ipppd[5624]: ccp_resetci!
+> Feb  9 11:20:58 linux-zhr0 klogd: Received CCP frame from peer slot(0)
+> Feb  9 11:20:58 linux-zhr0 klogd: [0/0].ccp-rcv[0]: 01 01 00 09 11 05 00 01 04 
+> Feb  9 11:20:58 linux-zhr0 klogd: Received CCP frame from daemon:
+> Feb  9 11:20:58 linux-zhr0 klogd: [0/0].ccp-xmit[0]: ff 03 80 fd 01 01 00 04 
+> Feb  9 11:20:58 linux-zhr0 klogd: Received CCP frame from daemon:
+> Feb  9 11:20:58 linux-zhr0 klogd: [0/0].ccp-xmit[0]: ff 03 80 fd 04 01 00 09 11
+> 05 00 01 04 
+> Feb  9 11:20:58 linux-zhr0 klogd: Received CCP frame from peer slot(0)
+> Feb  9 11:20:58 linux-zhr0 klogd: [0/0].ccp-rcv[0]: 04 01 00 04 
+> Feb  9 11:20:58 linux-zhr0 ipppd[5624]: ccp_resetci!
+> Feb  9 11:20:58 linux-zhr0 klogd: Received CCP frame from peer slot(0)
+> Feb  9 11:20:58 linux-zhr0 klogd: [0/0].ccp-rcv[0]: 01 02 00 0a 11 06 00 01 01
+> 03 
+> Feb  9 11:20:58 linux-zhr0 klogd: Received CCP frame from daemon:
+> Feb  9 11:20:58 linux-zhr0 klogd: [0/0].ccp-xmit[0]: ff 03 80 fd 01 02 00 04 
+> Feb  9 11:20:58 linux-zhr0 klogd: Received CCP frame from daemon:
+> Feb  9 11:20:58 linux-zhr0 klogd: [0/0].ccp-xmit[0]: ff 03 80 fd 04 02 00 0a 11
+> 06 00 01 01 03 
+> Feb  9 11:20:58 linux-zhr0 klogd: Received CCP frame from peer slot(0)
+> Feb  9 11:20:58 linux-zhr0 klogd: [0/0].ccp-rcv[0]: 04 02 00 04 
+> Feb  9 11:20:59 linux-zhr0 ipppd[5624]: local  IP address 149.225.68.4
+> Feb  9 11:20:59 linux-zhr0 ipppd[5624]: remote IP address 139.4.250.4
+> Feb  9 11:20:59 linux-zhr0 ipppd[5624]: Ifup: ioctl(SIOCSIFFLAGS): Invalid
+> argument
+> Feb  9 11:20:59 linux-zhr0 ip-down: SIOCSIFFLAGS: Invalid argument
+> 
 
