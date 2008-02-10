@@ -1,50 +1,60 @@
-From: =?UTF-8?Q?Marcin_Koziej?= <marcinkoziej@o2.pl>
-Subject: =?UTF-8?Q?[solved]_Re:_Bug=3F_Kernels_2.6.2x_drops_TCP_packets_over?=
-	=?UTF-8?Q?_wireless_(independentofcard_used)?=
-Date: Sun, 10 Feb 2008 02:00:14 +0100
-Message-ID: <19f9d171.497edb0.47ae4c9e.87c28@o2.pl>
-References: <56de948.2f1b076b.47aac980.bfd66@o2.pl> <47AB321E.5080908@cosmosbay.com> <5d83a64e.4ddf1deb.47ab4ef3.49eb3@o2.pl> <47AB5AD6.3010100@cosmosbay.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [RFC] ipvs: Cleanup sync daemon code
+Date: Sun, 10 Feb 2008 10:27:12 +0900
+Message-ID: <20080210012710.GC3589@verge.net.au>
+References: <Pine.LNX.4.64.0802100029150.15729@titan.stealer.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?Q?Eric_Dumazet?= <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sven Wegener <sven.wegener@stealer.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tur.go2.pl ([193.17.41.50]:45261 "EHLO tur.go2.pl"
+Received: from koto.vergenet.net ([210.128.90.7]:39883 "EHLO koto.vergenet.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752821AbYBJBCR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2008 20:02:17 -0500
-Received: from rekin26.go2.pl (rekin26.go2.pl [193.17.41.76])
-	by tur.go2.pl (o2.pl Mailer 2.0.1) with ESMTP id E9B3F2300E7
-	for <netdev@vger.kernel.org>; Sun, 10 Feb 2008 02:02:15 +0100 (CET)
-In-Reply-To: <47AB5AD6.3010100@cosmosbay.com>
+	id S1751000AbYBJB1P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Feb 2008 20:27:15 -0500
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0802100029150.15729@titan.stealer.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dnia 7 lutego 2008 20:24 Eric Dumazet <dada1@cosmosbay.com> napisa=C5=82=
-(a):
-> Typical window scaling problem here... (well, for previous traces, wi=
-th=20
-> wscaling of 5, since with wscale 2 it seems to work), you probably ha=
-ve a=20
-> buggy router or something...
->=20
-> http://lwn.net/Articles/92727/
->=20
-> Try :
->=20
-> # echo 0 >/proc/sys/net/ipv4/tcp_window_scaling
->=20
-> And retry to connect to this ftp server
->=20
-> You could alternativly play with /proc/sys/net/ipv4/tcp_rmem
->=20
-> # echo "4096 8192 50000" >/proc/sys/net/ipv4/tcp_rmem
+On Sun, Feb 10, 2008 at 12:38:11AM +0100, Sven Wegener wrote:
+> Hi all,
+>
+> I'd like to get your feedback on this:
+>
+> - Use kthread_run instead of doing a double-fork via kernel_thread()
+>
+> - Return proper error codes to user-space on failures
+>
+> Currently ipvsadm --start-daemon with an invalid --mcast-interface will  
+> silently suceed. With these changes we get an appropriate "No such 
+> device" error.
+>
+> - Use wait queues for both master and backup thread
+>
+> Instead of doing an endless loop with sleeping for one second, we now use 
+> wait queues. The master sync daemon has its own wait queue and gets woken 
+> up when we have enough data to sent and also at a regular interval. The  
+> backup sync daemon sits on the wait queue of the mcast socket and gets  
+> woken up as soon as we have data to process.
 
-Thanks! That solves the problem! Now I read about TCP window scaling an=
-d I understand the issue, but I wouldn't figure/google that out myself!=
-=20
-Thank You for Your time!
+Hi Sven,
 
-m.
+This looks good to me, assuming that its tested and works.
+
+A few minor things:
+
+In sb_queue_tail() master loop is woken up if
+the ip_vs_sync_count reaches 10, which seems a bit arbitary.
+
+Perhaps its just my mail reader, but the patch seemed a bit screwy when
+I saved it to a file. I this fixed the problem I was seeing using s/^  / /
+
+Unfortuantely/Fortunately I am about to leave for a few days skiing,
+so if I am quiet you will know why.
+
+Acked-by: Simon Horman <horms@verge.net.au>
+
+-- 
+Horms
 
