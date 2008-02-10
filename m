@@ -1,55 +1,37 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH] New device for DM9601 usb net driver
-Date: Sun, 10 Feb 2008 20:36:24 +0100
-Message-ID: <874pcgy56v.fsf@macbook.be.48ers.dk>
-References: <Pine.LNX.4.64.0802071046540.24824@castor.opentrend.net>
+From: Sergio Luis <sergio@uece.br>
+Subject: [PATCH] drivers/net/sis190: fix section mismatch warning in sis190_get_mac_addr
+Date: Sun, 10 Feb 2008 17:56:25 -0300
+Message-ID: <47AF64F9.1000203@uece.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Robert Brockway <robert@timetraveller.org>, jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.187]:61836 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752515AbYBJTgf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2008 14:36:35 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so4198914fkz.5
-        for <netdev@vger.kernel.org>; Sun, 10 Feb 2008 11:36:32 -0800 (PST)
-In-Reply-To: <Pine.LNX.4.64.0802071046540.24824@castor.opentrend.net> (Robert Brockway's message of "Thu\, 7 Feb 2008 11\:00\:33 -0500 \(EST\)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755864AbYBJUzs@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>>>> "Robert" == Robert Brockway <robert@timetraveller.org> writes:
+Fix following warnings:
+WARNING: drivers/net/sis190.o(.text+0x103): Section mismatch in reference from the function sis190_get_mac_addr() to the function .devinit.text:sis190_get_mac_addr_from_apc()
+WARNING: drivers/net/sis190.o(.text+0x10e): Section mismatch in reference from the function sis190_get_mac_addr() to the function .devinit.text:sis190_get_mac_addr_from_eeprom()
 
- Robert> Hi Peter.  I've verified that the Hirose USB-100 (0x0a47,
- Robert> 0x9601) is a clone of the DAVICOM DM9601.  I patched dm9601.c
- Robert> to identify this device and now have these in production.
- Robert> Unified diff against 2.6.24 attached.
+Annotate sis190_get_mac_addr() with __devinit.
 
-Thanks!
+Signed-off-by: Sergio Luis <sergio@uece.br>
 
-Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
+ sis190.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
- Robert> Cheers,
-
- Robert> Rob
-
- Robert> -- 
- Robert> "With sufficient thrust, pigs fly just fine..."
- Robert> 	-- RFC 1925 "The Twelve Networking Truths"
-
- Robert> --- drivers/net/usb/dm9601.c.old	2008-01-27 00:51:50.000000000 -0500
- Robert> +++ drivers/net/usb/dm9601.c	2008-02-07 10:27:40.000000000 -0500
- Robert> @@ -590,6 +590,10 @@ static const struct usb_device_id produc
- Robert>  	 USB_DEVICE(0x0a46, 0x8515),	/* ADMtek ADM8515 USB NIC */
- Robert>  	 .driver_info = (unsigned long)&dm9601_info,
- Robert>  	 },
- Robert> +	{
- Robert> +	USB_DEVICE(0x0a47, 0x9601),    /* Hirose USB-100 */
- Robert> +	.driver_info = (unsigned long)&dm9601_info,
- Robert> +	},
- Robert>  	{},			// END
- Robert>  };
+diff -urN linux-2.6.24-git22.orig/drivers/net/sis190.c linux-2.6.24-git22/drivers/net/sis190.c
+--- linux-2.6.24-git22.orig/drivers/net/sis190.c	2008-02-10 16:56:37.000000000 -0300
++++ linux-2.6.24-git22/drivers/net/sis190.c	2008-02-10 17:38:36.000000000 -0300
+@@ -1630,7 +1630,8 @@
+ 	SIS_PCI_COMMIT();
+ }
  
-
--- 
-Bye, Peter Korsgaard
+-static int sis190_get_mac_addr(struct pci_dev *pdev, struct net_device *dev)
++static int __devinit sis190_get_mac_addr(struct pci_dev *pdev, 
++					 struct net_device *dev)
+ {
+ 	u8 from;
+ 
