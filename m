@@ -1,87 +1,169 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH][AX25] af_ax25: remove sock lock in ax25_info_show()
-Date: Sun, 10 Feb 2008 00:50:29 +0100
-Message-ID: <20080209235029.GC2754@ami.dom.local>
-References: <47664A0C.4060903@free.fr> <20071218135202.GA2023@ff.dom.local> <47ADF4A2.6070705@free.fr>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: Re: [PATCH] [resend] 3c509: convert to isa_driver and pnp_driver v4
+Date: Sun, 10 Feb 2008 01:10:07 +0100
+Message-ID: <200802100110.09301.linux@rainbow-software.org>
+References: <200801312012.43447.linux@rainbow-software.org> <200802092233.10239.linux@rainbow-software.org> <20080209134805.29cbc8ae@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bernard Pidoux F6BVP <f6bvp@free.fr>,
-	Ralf Baechle DL5RB <ralf@linux-mips.org>,
-	Jann Traschewski <jann@gmx.de>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:35503 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755969AbYBIXp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2008 18:45:28 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so101963ugc.16
-        for <netdev@vger.kernel.org>; Sat, 09 Feb 2008 15:45:26 -0800 (PST)
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757588AbYBJAKl@vger.kernel.org>
+In-Reply-To: <20080209134805.29cbc8ae@extreme>
 Content-Disposition: inline
-In-Reply-To: <47ADF4A2.6070705@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 09, 2008 at 07:44:50PM +0100, Bernard Pidoux F6BVP wrote:
-> Hi,
+On Saturday 09 February 2008 22:48:05 Stephen Hemminger wrote:
+> On Sat, 9 Feb 2008 22:33:07 +0100
 >
-> With AX25 patches applied I still get this possible circular locking  
-> message.
+> Ondrej Zary <linux@rainbow-software.org> wrote:
+> > Hello,
+> > this patch converts 3c509 driver to isa_driver and pnp_driver. The result
+> > is that autoloading using udev and hibernation works with ISA PnP cards.
+> > It also adds hibernation support for non-PnP ISA cards.
+> >
+> > xcvr module parameter was removed as its value was not used.
+> >
+> > Tested using 3 ISA cards in various combinations of PnP and non-PnP
+> > modes. EISA and MCA only compile-tested.
+> >
+> > Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+> >
+> > --- linux-2.6.24-orig/drivers/net/3c509.c	2008-01-27 19:48:19.000000000
+> > +0100 +++ linux-2.6.24-pentium/drivers/net/3c509.c	2008-02-07
+> > 17:58:45.000000000 +0100 @@ -54,25 +54,24 @@
+> >  		v1.19a 28Oct2002 Davud Ruggiero <jdr@farfalle.com>
+> >  			- Increase *read_eeprom udelay to workaround oops with 2 cards.
+> >  		v1.19b 08Nov2002 Marc Zyngier <maz@wild-wind.fr.eu.org>
+> > -		    - Introduce driver model for EISA cards.
+> > +			- Introduce driver model for EISA cards.
+> > +		v1.20  04Feb2008 Ondrej Zary <linux@rainbow-software.org>
+> > +			- convert to isa_driver and pnp_driver and some cleanups
+> >  */
+>
+> Don't bother with comment, kernel uses git change log to figure out
+> who to blame.
+>
+> >  #define DRV_NAME	"3c509"
+> > -#define DRV_VERSION	"1.19b"
+> > -#define DRV_RELDATE	"08Nov2002"
+> > +#define DRV_VERSION	"1.20"
+> > +#define DRV_RELDATE	"04Feb2008"
+> >
+> >  /* A few values that may be tweaked. */
+> >
+> >  /* Time in jiffies before concluding the transmitter is hung. */
+> >  #define TX_TIMEOUT  (400*HZ/1000)
+> > -/* Maximum events (Rx packets, etc.) to handle at each interrupt. */
+> > -static int max_interrupt_work = 10;
+> >
+> >  #include <linux/module.h>
+> > -#ifdef CONFIG_MCA
+> >  #include <linux/mca.h>
+> > -#endif
+> > -#include <linux/isapnp.h>
+> > +#include <linux/isa.h>
+> > +#include <linux/pnp.h>
+> >  #include <linux/string.h>
+> >  #include <linux/interrupt.h>
+> >  #include <linux/errno.h>
+> > @@ -97,10 +96,6 @@
+> >
+> >  static char version[] __initdata = DRV_NAME ".c:" DRV_VERSION " "
+> > DRV_RELDATE " becker@scyld.com\n";
+> >
+> > -#if defined(CONFIG_PM) && (defined(CONFIG_MCA) || defined(CONFIG_EISA))
+> > -#define EL3_SUSPEND
+> > -#endif
+> > -
+> >  #ifdef EL3_DEBUG
+> >  static int el3_debug = EL3_DEBUG;
+> >  #else
+> > @@ -111,6 +106,7 @@
+> >   * a global variable so that the mca/eisa probe routines can increment
+> >   * it */
+> >  static int el3_cards = 0;
+> > +#define EL3_MAX_CARDS 8
+> >
+> >  /* To minimize the size of the driver source I only define operating
+> >     constants if they are used several times.  You'll need the manual
+> > @@ -119,7 +115,7 @@
+> >  #define EL3_DATA 0x00
+> >  #define EL3_CMD 0x0e
+> >  #define EL3_STATUS 0x0e
+> > -#define	 EEPROM_READ 0x80
+> > +#define	EEPROM_READ 0x80
+> >
+> >  #define EL3_IO_EXTENT	16
+> >
+> > @@ -168,23 +164,31 @@
+> >   */
+> >  #define SKB_QUEUE_SIZE	64
+> >
+> > +typedef enum { EL3_ISA, EL3_PNP, EL3_MCA, EL3_EISA } el3_cardtype;
+> > +
+>
+> No typedef please (see checkpatch)
 
-IMHO this warning could happen earlier too...
+Is there any standard way to solve this without a typedef? I added 
+el3_dev_fill() function which fills that card type value according to a 
+parameter passed to it. "int" could be used instead and "#define EL3_ISA 
+0", "#define EL3_PNP 1" - but I think that's ugly.
 
-Thanks,
-Jarek P.
+>
+> >  struct el3_private {
+> >  	struct net_device_stats stats;
+>
+> Use network device stats in net_device now
 
--------------->
+OK, looks like the driver will need some more patches.
 
-Subject: [AX25] af_ax25: remove sock lock in ax25_info_show()
- 
-This lockdep warning:
+> > -	struct net_device *next_dev;
+> >  	spinlock_t lock;
+> >  	/* skb send-queue */
+> >  	int head, size;
+> >  	struct sk_buff *queue[SKB_QUEUE_SIZE];
+>
+> What about sk_buff_head (linked list instead)?
 
-> =======================================================
-> [ INFO: possible circular locking dependency detected ]
-> 2.6.24 #3
-> -------------------------------------------------------
-> swapper/0 is trying to acquire lock:
->  (ax25_list_lock){-+..}, at: [<f91dd3b1>] ax25_destroy_socket+0x171/0x1f0 [ax25]
-> 
-> but task is already holding lock:
->  (slock-AF_AX25){-+..}, at: [<f91dbabc>] ax25_std_heartbeat_expiry+0x1c/0xe0 [ax25]
-> 
-> which lock already depends on the new lock.
-...
+I don't know anything about this, maybe in next patch.
 
-shows that ax25_list_lock and slock-AF_AX25 are taken in different
-order: ax25_info_show() takes slock (bh_lock_sock(ax25->sk)) while
-ax25_list_lock is held, so reversely to other functions. To fix this
-the sock lock should be moved to ax25_info_start(), but since it's
-only for reading proc info it seems this is not necessary (e.g.
-ax25_send_to_raw() does similar reading without this lock too). So,
-this patch removes this lock to avoid deadlock possibility.
+>
+> > -	enum {
+> > -		EL3_MCA,
+> > -		EL3_PNP,
+> > -		EL3_EISA,
+> > -	} type;						/* type of device */
+> > -	struct device *dev;
+> > +	el3_cardtype type;
+> >  };
+> > -static int id_port __initdata = 0x110;	/* Start with 0x110 to avoid new
+> > sound cards.*/ -static struct net_device *el3_root_dev;
+> > +static int id_port;
+> > +static int current_tag;
+> > +static struct net_device *el3_devs[EL3_MAX_CARDS];
+>
+> I know is only ISA, but having a limit seems silly, can't the device just
+> use allocated space like other drivers.
 
+EL3_MAX_CARDS is also used as a parameter to isa_register_driver(). The irq[] 
+array (see below) is limited to 8 devices too. And finally, the card itself 
+can use one of 8 different IRQs (3,5,7,2/9,10,11,12,15). So I think that it's 
+not worth adding more code to support more cards.
+The original driver will do bad things with more than 8 cards too - read 
+beyond the end of irq[] array.
 
-Reported-by: Bernard Pidoux F6BVP <f6bvp@free.fr>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> > +
+> > +/* Parameters that may be passed into the module. */
+> > +static int debug = -1;
+> > +static int irq[] = {-1, -1, -1, -1, -1, -1, -1, -1};
+> > +/* Maximum events (Rx packets, etc.) to handle at each interrupt. */
+> > +static int max_interrupt_work = 10;
+> > +#ifdef CONFIG_PNP
+> > +static int nopnp;
+> > +#endif
 
----
-
- net/ax25/af_ax25.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
-
-diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index 94b2b1b..68b5171 100644
---- a/net/ax25/af_ax25.c
-+++ b/net/ax25/af_ax25.c
-@@ -1924,12 +1924,10 @@ static int ax25_info_show(struct seq_file *seq, void *v)
- 		   ax25->paclen);
- 
- 	if (ax25->sk != NULL) {
--		bh_lock_sock(ax25->sk);
- 		seq_printf(seq," %d %d %ld\n",
- 			   atomic_read(&ax25->sk->sk_wmem_alloc),
- 			   atomic_read(&ax25->sk->sk_rmem_alloc),
- 			   ax25->sk->sk_socket != NULL ? SOCK_INODE(ax25->sk->sk_socket)->i_ino : 0L);
--		bh_unlock_sock(ax25->sk);
- 	} else {
- 		seq_puts(seq, " * * *\n");
- 	}
+-- 
+Ondrej Zary
