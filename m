@@ -1,30 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PKT_SCHED] ematch: tcf_em_destroy robustness
-Date: Sat, 09 Feb 2008 23:27:02 -0800 (PST)
-Message-ID: <20080209.232702.197214366.davem@davemloft.net>
-References: <20080208104832.690e140e@extreme>
+Subject: Re: [PATCH] isdn: fix section mismatch warning in hfc_sx.c
+Date: Sat, 09 Feb 2008 23:27:50 -0800 (PST)
+Message-ID: <20080209.232750.94719107.davem@davemloft.net>
+References: <1202500804-32020-1-git-send-email-sam@ravnborg.org>
+	<1202500804-32020-4-git-send-email-sam@ravnborg.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, jeff@garzik.org, jgarzik@pobox.com
+To: sam@ravnborg.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33586
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33589
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758745AbYBJH0a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2008 02:26:30 -0500
-In-Reply-To: <20080208104832.690e140e@extreme>
+	by vger.kernel.org with ESMTP id S1759935AbYBJH1T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2008 02:27:19 -0500
+In-Reply-To: <1202500804-32020-4-git-send-email-sam@ravnborg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 8 Feb 2008 10:48:32 -0800
+From: Sam Ravnborg <sam@ravnborg.org>
+Date: Fri,  8 Feb 2008 21:00:04 +0100
 
-> Make the code in tcf_em_tree_destroy more robust and cleaner:
->  * Don't need to cast pointer to kfree() or avoid passing NULL.
->  * After freeing the tree, clear the pointer to avoid possible problems
-> from repeated free.
+> Fix the following warning:
+> WARNING: drivers/isdn/hisax/built-in.o(.text+0x35818): Section mismatch in reference from the function hfcsx_card_msg() to the function .devinit.text:inithfcsx()
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> hfcsx_card_msg() may be called outside __devinit context.
+> Following the program logic is looks like the CARD_INIT branch
+> will only be taken under __devinit context but to be consistent
+> remove the __devinit annotation of inithfcsx() so we
+> do not mix non-__devinit and __devinit code.
+> 
+> Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
+> Acked-by: Karsten Keil <kkeil@suse.de>
+> Cc: Jeff Garzik <jgarzik@pobox.com>
+> Cc: David Miller <davem@davemloft.net>
 
-Applied, thanks.
+Applied.
