@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/7] natsemi section fix
-Date: Sat, 09 Feb 2008 23:41:15 -0800 (PST)
-Message-ID: <20080209.234115.05705959.davem@davemloft.net>
-References: <200802081120.m18BK7Fh021626@imap1.linux-foundation.org>
+Subject: Re: [patch 5/7] via-velocity section fix
+Date: Sat, 09 Feb 2008 23:41:48 -0800 (PST)
+Message-ID: <20080209.234148.106382464.davem@davemloft.net>
+References: <200802081120.m18BK8ac021635@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: jeff@garzik.org, netdev@vger.kernel.org, sam@ravnborg.org
 To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50031
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50036
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756130AbYBJHkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2008 02:40:43 -0500
-In-Reply-To: <200802081120.m18BK7Fh021626@imap1.linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1756626AbYBJHlQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2008 02:41:16 -0500
+In-Reply-To: <200802081120.m18BK8ac021635@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: akpm@linux-foundation.org
-Date: Fri, 08 Feb 2008 03:11:15 -0800
+Date: Fri, 08 Feb 2008 03:11:16 -0800
 
 > From: Andrew Morton <akpm@linux-foundation.org>
 > 
 > gcc-3.4.4 on powerpc:
 > 
-> drivers/net/natsemi.c:245: error: natsemi_pci_info causes a section type conflict
+> drivers/net/via-velocity.c:443: error: chip_info_table causes a section type conflict
+> 
+> on this one I had to remove the __devinitdata too.  Don't know why.
 > 
 > Cc: Jeff Garzik <jeff@garzik.org>
 > Cc: Sam Ravnborg <sam@ravnborg.org>
