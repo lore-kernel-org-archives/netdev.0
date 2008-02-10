@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [IGMP]: Optimize kfree_skb in igmp_rcv.
-Date: Sat, 09 Feb 2008 23:22:57 -0800 (PST)
-Message-ID: <20080209.232257.190420523.davem@davemloft.net>
-References: <1202480057-23367-1-git-send-email-den@openvz.org>
+Subject: Re: [PATCH 1/2][SCTP]: Use snmp_fold_field instead of a homebrew
+ analogue.
+Date: Sat, 09 Feb 2008 23:24:01 -0800 (PST)
+Message-ID: <20080209.232401.06134281.davem@davemloft.net>
+References: <47AC3757.6020405@openvz.org>
+	<47AC6E6A.4000101@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: den@openvz.org
+Cc: xemul@openvz.org, lksctp-developers@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56385
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33572
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758699AbYBJHW0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2008 02:22:26 -0500
-In-Reply-To: <1202480057-23367-1-git-send-email-den@openvz.org>
+	by vger.kernel.org with ESMTP id S1759195AbYBJHX3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2008 02:23:29 -0500
+In-Reply-To: <47AC6E6A.4000101@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Fri,  8 Feb 2008 17:14:17 +0300
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Fri, 08 Feb 2008 09:59:54 -0500
 
-> Merge error paths inside igmp_rcv.
+> Pavel Emelyanov wrote:
+> > SCPT already depends in INET, so this doesn't create additional
+> > dependencies.
+> > 
+> > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 > 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
+> Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-Applied, but this kind of cleanup is borderline during this
-time period.  Please queue such things up for when I open up
-net-2.6.26, thanks.
-
-Find some bugs to fix instead :-)
+Applied.
