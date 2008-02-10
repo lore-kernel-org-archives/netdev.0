@@ -1,68 +1,72 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [patch 2.6.24-git] net/enc28j60: low power mode
-Date: Sun, 10 Feb 2008 09:45:34 -0800
-Message-ID: <200802100945.34287.david-b@pacbell.net>
-References: <20080205190124.E72F48E45F@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <200802062208.17435.david-b@pacbell.net> <47AAE99D.1000908@eptar.com>
+From: Bernard Pidoux F6BVP <f6bvp@free.fr>
+Subject: Re: [PATCH][AX25] ax25_ds_timer: use mod_timer instead of add_timer
+Date: Sun, 10 Feb 2008 19:07:58 +0100
+Message-ID: <47AF3D7E.9050102@free.fr>
+References: <47664A0C.4060903@free.fr> <20071218135202.GA2023@ff.dom.local> <47ADF4A2.6070705@free.fr> <20080209193905.GA2754@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Claudio Lanconelli <lanconelli.claudio@eptar.com>
+Cc: Ralf Baechle DL5RB <ralf@linux-mips.org>,
+	Jann Traschewski <jann@gmx.de>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp123.sbc.mail.sp1.yahoo.com ([69.147.64.96]:39166 "HELO
-	smtp123.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751963AbYBJRyU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2008 12:54:20 -0500
-In-Reply-To: <47AAE99D.1000908@eptar.com>
-Content-Disposition: inline
+Received: from smtp5-g19.free.fr ([212.27.42.35]:44284 "EHLO smtp5-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751554AbYBJSIS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Feb 2008 13:08:18 -0500
+In-Reply-To: <20080209193905.GA2754@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 07 February 2008, Claudio Lanconelli wrote:
-> Sorry,
-> let me repeat what I said in previous mail.
-> I propose you to add set_lowpower(true) in the enc28j60_probe() 
+Hi Jarek,
 
-As the current patch does...
+Sorry, I should have been more explicit about the patches I applied.
+
+My CPU is an Intel Core 2 duo and I compiled 2.6.24 with SMP option.
+
+I applied 3 patches you have submitted for ax25 before I observed the 
+possible locking.
+
+That is :
+
+mkiss patch
+diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.c
+index cfcd15a..30c9b3b 100644
+
+[AX25] ax25_timer: use mod_timer instead of add_timer
+
+[AX25] ax25_ds_timer: use mod_timer instead of add_timer
+
+I also applied 4 patches for rose.ko I sent to the list a while ago.
+But for this report I did not installed any ROSE driver nor application.
+
+I will try your new patch version 2 and report any possible change.
 
 
-> and in  the enc28j60_net_close() after enc28j60_hw_disable().
-> Probably we don't need to set_lowpower(false) in enc28j60_net_open() since
-> it performs a soft reset with enc28j60_hw_init() (not sure).
-
-The current patch sets the device in low power mode in hw_disable(),
-and takes it out of that mode in hw_enable().  I can move them; and
-the only "soft" thing about this chip's reset is when it starts from
-a protocol command not the reset command.
+Regards,
 
 
-> Furthermore, as you suggested, we also need to remove hw_init() from the 
-> setlink()
-> because hw_init() is called when we bring link up.
+Bernard Pidoux,
+F6BVP
+
+
+Jarek Poplawski wrote:
+> On Sat, Feb 09, 2008 at 07:44:50PM +0100, Bernard Pidoux F6BVP wrote:
+>> Hi,
+>>
+>> With AX25 patches applied I still get this possible circular locking  
+>> message.
 > 
-> --- enc28j60.c 20 Dec 2007 10:47:01 -0000 1.22
-> +++ enc28j60.c 7 Feb 2008 11:07:20 -0000
-> @@ -740,12 +740,6 @@
-> if (!priv->hw_enable) {
-> if (autoneg == AUTONEG_DISABLE && speed == SPEED_10) {
-> priv->full_duplex = (duplex == DUPLEX_FULL);
-> - if (!enc28j60_hw_init(priv)) {
-> - if (netif_msg_drv(priv))
-> - dev_err(&ndev->dev,
-> - "hw_reset() failed\n");
-> - ret = -EINVAL;
-> - }
-
-Right.  Without the patch mangling presumably done by your mailer.  ;)
-
-
-> } else {
-> if (netif_msg_link(priv))
-> dev_warn(&ndev->dev,
+> Hi Bernard,
 > 
-> Can you update your low power patch with these modifications?
+> Could you confirm which exactly patches did you try? Is this vanilla
+> 2.6.24 plus these two: ax25_timer and ax25_ds_timer or something more?
+> And I'm not sure what do you mean by "still": the warning came back
+> just after these last patches? At least these timer patches don't seem
+> to change anything around locking?
 > 
-
-Done -- see my next patch.
-
+> Thanks for testing this,
+> Jarek P.
+> 
+> 
