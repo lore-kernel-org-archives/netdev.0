@@ -1,59 +1,324 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 5/8] drivers/net/mv643xx_eth.c: Use FIELD_SIZEOF
-Date: Sun, 10 Feb 2008 21:13:11 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0802102112330.23906@ask.diku.dk>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: HTB(?) softlockup, vanilla 2.6.24
+Date: Sun, 10 Feb 2008 23:29:13 +0200
+Message-ID: <20080210212227.M43153@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dale@farnsworth.org, mlachwani@mvista.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757438AbYBJVRc@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset=koi8-r
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usermail.globalproof.net ([194.146.153.18]:44117 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750775AbYBJV3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2008 16:29:33 -0500
+Received: from visp.net.lb (localhost [127.0.0.1])
+	by usermail.globalproof.net (Postfix) with ESMTP id 8C46FBC20D
+	for <netdev@vger.kernel.org>; Sun, 10 Feb 2008 23:29:13 +0200 (EET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+It is very difficult to reproduce, happened after running about 1month. No 
+changes done in classes at that time
 
-Robert P.J. Day proposed to use the macro FIELD_SIZEOF in replace of code
-that matches its definition.
+Feb 10 15:53:22 SHAPER [ 8271.778915] BUG: NMI Watchdog detected LOCKUP
+Feb 10 15:53:22 SHAPER on CPU1, eip c01f0e5d, registers:
+Feb 10 15:53:22 SHAPER [ 8271.778952] Modules linked in:
+Feb 10 15:53:22 SHAPER netconsole
+Feb 10 15:53:22 SHAPER configfs
+Feb 10 15:53:22 SHAPER softdog
+Feb 10 15:53:22 SHAPER nf_nat_pptp
+Feb 10 15:53:22 SHAPER nf_conntrack_pptp
+Feb 10 15:53:22 SHAPER nf_conntrack_proto_gre
+Feb 10 15:53:22 SHAPER nf_nat_proto_gre
+Feb 10 15:53:22 SHAPER xt_tcpudp
+Feb 10 15:53:22 SHAPER ipt_TTL
+Feb 10 15:53:22 SHAPER ipt_ttl
+Feb 10 15:53:22 SHAPER xt_NOTRACK
+Feb 10 15:53:22 SHAPER iptable_raw
+Feb 10 15:53:22 SHAPER iptable_mangle
+Feb 10 15:53:22 SHAPER ifb
+Feb 10 15:53:22 SHAPER e1000e
+Feb 10 15:53:22 SHAPER em_nbyte
+Feb 10 15:53:22 SHAPER cls_tcindex
+Feb 10 15:53:22 SHAPER act_gact
+Feb 10 15:53:22 SHAPER cls_rsvp
+Feb 10 15:53:22 SHAPER sch_htb
+Feb 10 15:53:22 SHAPER cls_fw
+Feb 10 15:53:22 SHAPER act_mirred
+Feb 10 15:53:22 SHAPER em_u32
+Feb 10 15:53:22 SHAPER sch_red
+Feb 10 15:53:22 SHAPER sch_sfq
+Feb 10 15:53:22 SHAPER sch_tbf
+Feb 10 15:53:22 SHAPER sch_teql
+Feb 10 15:53:22 SHAPER cls_basic
+Feb 10 15:53:22 SHAPER act_police
+Feb 10 15:53:22 SHAPER sch_gred
+Feb 10 15:53:22 SHAPER act_pedit
+Feb 10 15:53:22 SHAPER sch_hfsc
+Feb 10 15:53:22 SHAPER cls_rsvp6
+Feb 10 15:53:22 SHAPER sch_ingress
+Feb 10 15:53:22 SHAPER em_meta
+Feb 10 15:53:22 SHAPER em_text
+Feb 10 15:53:22 SHAPER act_ipt
+Feb 10 15:53:22 SHAPER sch_dsmark
+Feb 10 15:53:22 SHAPER sch_prio
+Feb 10 15:53:22 SHAPER sch_netem
+Feb 10 15:53:22 SHAPER act_simple
+Feb 10 15:53:22 SHAPER cls_u32
+Feb 10 15:53:22 SHAPER em_cmp
+Feb 10 15:53:22 SHAPER sch_cbq
+Feb 10 15:53:22 SHAPER cls_route
+Feb 10 15:53:22 SHAPER xt_TCPMSS
+Feb 10 15:53:22 SHAPER iptable_nat
+Feb 10 15:53:22 SHAPER nf_conntrack_ipv4
+Feb 10 15:53:22 SHAPER ipt_LOG
+Feb 10 15:53:22 SHAPER ipt_MASQUERADE
+Feb 10 15:53:22 SHAPER ipt_REDIRECT
+Feb 10 15:53:22 SHAPER nf_nat
+Feb 10 15:53:22 SHAPER nf_conntrack
+Feb 10 15:53:22 SHAPER nfnetlink
+Feb 10 15:53:22 SHAPER iptable_filter
+Feb 10 15:53:22 SHAPER ip_tables
+Feb 10 15:53:22 SHAPER x_tables
+Feb 10 15:53:22 SHAPER 8021q
+Feb 10 15:53:22 SHAPER tun
+Feb 10 15:53:22 SHAPER tulip
+Feb 10 15:53:22 SHAPER r8169
+Feb 10 15:53:22 SHAPER sky2
+Feb 10 15:53:22 SHAPER via_velocity
+Feb 10 15:53:22 SHAPER via_rhine
+Feb 10 15:53:22 SHAPER sis900
+Feb 10 15:53:22 SHAPER ne2k_pci
+Feb 10 15:53:22 SHAPER 8390
+Feb 10 15:53:22 SHAPER skge
+Feb 10 15:53:22 SHAPER tg3
+Feb 10 15:53:22 SHAPER 8139too
+Feb 10 15:53:22 SHAPER e1000
+Feb 10 15:53:22 SHAPER e100
+Feb 10 15:53:22 SHAPER usb_storage
+Feb 10 15:53:22 SHAPER mtdblock
+Feb 10 15:53:22 SHAPER mtd_blkdevs
+Feb 10 15:53:22 SHAPER usbhid
+Feb 10 15:53:22 SHAPER uhci_hcd
+Feb 10 15:53:22 SHAPER ehci_hcd
+Feb 10 15:53:22 SHAPER ohci_hcd
+Feb 10 15:53:22 SHAPER usbcore
+Feb 10 15:53:22 SHAPER
+Feb 10 15:53:22 SHAPER [ 8271.779291]
+Feb 10 15:53:22 SHAPER [ 8271.779307] Pid: 0, comm: swapper Not tainted 
+(2.6.24-build-0021 #26)
+Feb 10 15:53:22 SHAPER [ 8271.779327] EIP: 0060:[<c01f0e5d>] EFLAGS: 00000082 
+CPU: 1
+Feb 10 15:53:22 SHAPER [ 8271.779349] EIP is at __rb_rotate_right+0x5/0x50
+Feb 10 15:53:22 SHAPER [ 8271.779366] EAX: f76494a4 EBX: f76494a4 ECX: 
+f76494a4 EDX: c1ff5f80
+Feb 10 15:53:22 SHAPER [ 8271.779386] ESI: f76494a4 EDI: c1ff5f80 EBP: 
+00000000 ESP: f7c29c70
+Feb 10 15:53:22 SHAPER [ 8271.779406]  DS: 007b ES: 007b FS: 00d8 GS: 0000 
+SS: 0068
+Feb 10 15:53:22 SHAPER [ 8271.779425] Process swapper (pid: 0, ti=f7c28000 
+task=f7c20a60 task.ti=f7c28000)
+Feb 10 15:53:22 SHAPER
+Feb 10 15:53:22 SHAPER [ 8271.779446] Stack:
+Feb 10 15:53:22 SHAPER f76494a4
+Feb 10 15:53:22 SHAPER f76494a4
+Feb 10 15:53:22 SHAPER f76494a4
+Feb 10 15:53:22 SHAPER c01f0ef4
+Feb 10 15:53:22 SHAPER c1ff5f80
+Feb 10 15:53:22 SHAPER f76494a4
+Feb 10 15:53:22 SHAPER f76494a8
+Feb 10 15:53:22 SHAPER c1ff5f78
+Feb 10 15:53:22 SHAPER
+Feb 10 15:53:22 SHAPER [ 8271.779493]
+Feb 10 15:53:22 SHAPER [ 8271.779307] Pid: 0, comm: swapper Not tainted 
+(2.6.24-build-0021 #26)
+Feb 10 15:53:22 SHAPER [ 8271.779327] EIP: 0060:[<c01f0e5d>] EFLAGS: 00000082 
+CPU: 1
+Feb 10 15:53:22 SHAPER [ 8271.779349] EIP is at __rb_rotate_right+0x5/0x50
+Feb 10 15:53:22 SHAPER [ 8271.779366] EAX: f76494a4 EBX: f76494a4 ECX: 
+f76494a4 EDX: c1ff5f80
+Feb 10 15:53:22 SHAPER [ 8271.779386] ESI: f76494a4 EDI: c1ff5f80 EBP: 
+00000000 ESP: f7c29c70
+Feb 10 15:53:22 SHAPER [ 8271.779406]  DS: 007b ES: 007b FS: 00d8 GS: 0000 
+SS: 0068
+Feb 10 15:53:22 SHAPER [ 8271.779425] Process swapper (pid: 0, ti=f7c28000 
+task=f7c20a60 task.ti=f7c28000)
+Feb 10 15:53:22 SHAPER
+Feb 10 15:53:22 SHAPER [ 8271.779446] Stack:
+Feb 10 15:53:22 SHAPER f76494a4
+Feb 10 15:53:22 SHAPER f76494a4
+Feb 10 15:53:22 SHAPER f76494a4
+Feb 10 15:53:22 SHAPER c01f0ef4
+Feb 10 15:53:22 SHAPER c1ff5f80
+Feb 10 15:53:22 SHAPER f76494a4
+Feb 10 15:53:22 SHAPER f76494a8
+Feb 10 15:53:22 SHAPER c1ff5f78
+Feb 10 15:53:22 SHAPER
+Feb 10 15:53:22 SHAPER [ 8271.779493]
+Feb 10 15:53:22 SHAPER 00000000
+Feb 10 15:53:22 SHAPER c0134741
+Feb 10 15:53:22 SHAPER 00000001
+Feb 10 15:53:22 SHAPER f76494a4
+Feb 10 15:53:22 SHAPER f76494a4
+Feb 10 15:53:22 SHAPER d2607800
+Feb 10 15:53:22 SHAPER 00000778
+Feb 10 15:53:22 SHAPER c1ff5f78
+Feb 10 15:53:22 SHAPER
+Feb 10 15:53:22 SHAPER [ 8271.779541]
+Feb 10 15:53:22 SHAPER c0134d64
+Feb 10 15:53:22 SHAPER 00fac3e0
+Feb 10 15:53:22 SHAPER c1ff5f78
+Feb 10 15:53:22 SHAPER 00000000
+Feb 10 15:53:22 SHAPER 00000286
+Feb 10 15:53:22 SHAPER f7649000
+Feb 10 15:53:22 SHAPER f75f6800
+Feb 10 15:53:22 SHAPER 00000000
+Feb 10 15:53:22 SHAPER
+Feb 10 15:53:22 SHAPER [ 8271.779589] Call Trace:
+Feb 10 15:53:22 SHAPER [ 8271.779620]  [<c01f0ef4>]
+Feb 10 15:53:22 SHAPER rb_insert_color+0x4c/0xad
+Feb 10 15:53:22 SHAPER [ 8271.779641]  [<c0134741>]
+Feb 10 15:53:22 SHAPER enqueue_hrtimer+0xd7/0xe2
+Feb 10 15:53:22 SHAPER [ 8271.779661]  [<c0134d64>]
+Feb 10 15:53:22 SHAPER hrtimer_start+0xda/0xf4
+Feb 10 15:53:22 SHAPER [ 8271.779682]  [<c027ec43>]
+Feb 10 15:53:22 SHAPER qdisc_watchdog_schedule+0x1e/0x21
+Feb 10 15:53:22 SHAPER [ 8271.779704]  [<f89f8fe6>]
+Feb 10 15:53:22 SHAPER htb_dequeue+0x6ef/0x6fb [sch_htb]
+Feb 10 15:53:22 SHAPER [ 8271.779726]  [<f89e33e0>]
+Feb 10 15:53:22 SHAPER sfq_drop+0x5e/0x221 [sch_sfq]
+Feb 10 15:53:22 SHAPER [ 8271.779749]  [<c027dfdf>]
+Feb 10 15:53:22 SHAPER [ 8271.779749]  [<c027dfdf>]
+Feb 10 15:53:22 SHAPER tc_classify+0x17/0x7c
+Feb 10 15:53:22 SHAPER [ 8271.779771]  [<f89f76e1>]
+Feb 10 15:53:22 SHAPER htb_classify+0xf0/0x157 [sch_htb]
+Feb 10 15:53:22 SHAPER [ 8271.779794]  [<c027da0e>]
+Feb 10 15:53:22 SHAPER __qdisc_run+0x2a/0x163
+Feb 10 15:53:22 SHAPER [ 8271.779814]  [<c02728cc>]
+Feb 10 15:53:22 SHAPER dev_queue_xmit+0x18b/0x2ab
+Feb 10 15:53:22 SHAPER [ 8271.779835]  [<f89eb189>]
+Feb 10 15:53:22 SHAPER tcf_mirred+0x14b/0x168 [act_mirred]
+Feb 10 15:53:22 SHAPER [ 8271.779857]  [<f89eb03e>]
+Feb 10 15:53:22 SHAPER tcf_mirred+0x0/0x168 [act_mirred]
+Feb 10 15:53:22 SHAPER [ 8271.779878]  [<c0280019>]
+Feb 10 15:53:22 SHAPER tcf_action_exec+0x3d/0x6f
+Feb 10 15:53:22 SHAPER [ 8271.779898]  [<f89b55a2>]
+Feb 10 15:53:22 SHAPER u32_classify+0x114/0x23e [cls_u32]
+Feb 10 15:53:22 SHAPER [ 8271.779922]  [<f897915e>]
+Feb 10 15:53:22 SHAPER ipv4_confirm+0x34/0x39 [nf_conntrack_ipv4]
+Feb 10 15:53:22 SHAPER [ 8271.779945]  [<f897912a>]
+Feb 10 15:53:22 SHAPER ipv4_confirm+0x0/0x39 [nf_conntrack_ipv4]
+Feb 10 15:53:22 SHAPER [ 8271.779967]  [<c027da81>]
+Feb 10 15:53:22 SHAPER __qdisc_run+0x9d/0x163
+Feb 10 15:53:22 SHAPER [ 8271.779989]  [<c027ddf8>]
+Feb 10 15:53:22 SHAPER tc_classify_compat+0x28/0x56
+Feb 10 15:53:22 SHAPER [ 8271.780009]  [<c027dfdf>]
+Feb 10 15:53:22 SHAPER tc_classify+0x17/0x7c
+Feb 10 15:53:22 SHAPER [ 8271.780028]  [<c027010d>]
+Feb 10 15:53:22 SHAPER netif_receive_skb+0x250/0x3e2
+Feb 10 15:53:22 SHAPER [ 8271.780049]  [<f89c70e3>]
+Feb 10 15:53:22 SHAPER ingress_enqueue+0x16/0x4f [sch_ingress]
+Feb 10 15:53:22 SHAPER [ 8271.780071]  [<c02700f3>]
+Feb 10 15:53:22 SHAPER netif_receive_skb+0x236/0x3e2
+Feb 10 15:53:22 SHAPER [ 8271.780090]  [<c028ac4d>]
+Feb 10 15:53:22 SHAPER ip_rcv+0x1fc/0x237
+Feb 10 15:53:22 SHAPER [ 8271.780109]  [<c02835e6>]
+Feb 10 15:53:22 SHAPER netlink_seq_next+0x1f/0xa8
+Feb 10 15:53:22 SHAPER [ 8271.780131]  [<f88d39a1>]
+Feb 10 15:53:22 SHAPER e100_poll+0x157/0x26a [e100]
+Feb 10 15:53:22 SHAPER [ 8271.780157]  [<c0272110>]
+Feb 10 15:53:22 SHAPER net_rx_action+0x8d/0x1ad
+Feb 10 15:53:22 SHAPER [ 8271.780176]  [<c02722d8>]
+Feb 10 15:53:22 SHAPER net_tx_action+0xa8/0xcc
+Feb 10 15:53:22 SHAPER [ 8271.780197]  [<c0126a82>]
+Feb 10 15:53:22 SHAPER __do_softirq+0x5d/0xc1
+Feb 10 15:53:22 SHAPER [ 8271.780217]  [<c0126b18>]
+Feb 10 15:53:22 SHAPER do_softirq+0x32/0x36
+Feb 10 15:53:22 SHAPER [ 8271.780236]  [<c0126d6a>]
+Feb 10 15:53:22 SHAPER irq_exit+0x38/0x6b
+Feb 10 15:53:22 SHAPER [ 8271.780254]  [<c01074f5>]
+Feb 10 15:53:22 SHAPER do_IRQ+0x5c/0x73
+Feb 10 15:53:22 SHAPER [ 8271.780275]  [<c0106cc2>]
+Feb 10 15:53:22 SHAPER do_nmi+0x97/0x24d
+Feb 10 15:53:22 SHAPER [ 8271.780295]  [<c010577b>]
+Feb 10 15:53:22 SHAPER common_interrupt+0x23/0x28
+Feb 10 15:53:22 SHAPER [ 8271.780317]  [<c0103243>]
+Feb 10 15:53:22 SHAPER mwait_idle_with_hints+0x3c/0x40
+Feb 10 15:53:22 SHAPER [ 8271.780338]  [<c0103247>]
+Feb 10 15:53:22 SHAPER mwait_idle+0x0/0xa
+Feb 10 15:53:22 SHAPER [ 8271.780356]  [<c010357e>]
+Feb 10 15:53:22 SHAPER cpu_idle+0x98/0xb9
+Feb 10 15:53:22 SHAPER [ 8271.780380]  =======================
+Feb 10 15:53:22 SHAPER [ 8271.780396] Code:
+Feb 10 15:53:22 SHAPER 09
+Feb 10 15:53:22 SHAPER f0
+Feb 10 15:53:22 SHAPER 85
+Feb 10 15:53:22 SHAPER f6
+Feb 10 15:53:22 SHAPER 89
+Feb 10 15:53:22 SHAPER 02
+Feb 10 15:53:22 SHAPER 74
+Feb 10 15:53:22 SHAPER 0f
+Feb 10 15:53:22 SHAPER 3b
+Feb 10 15:53:22 SHAPER 5e
+Feb 10 15:53:22 SHAPER 08
+Feb 10 15:53:22 SHAPER 75
+Feb 10 15:53:22 SHAPER 05
+Feb 10 15:53:22 SHAPER 89
+Feb 10 15:53:22 SHAPER 56
+Feb 10 15:53:22 SHAPER 08
+Feb 10 15:53:22 SHAPER eb
+Feb 10 15:53:22 SHAPER 07
+Feb 10 15:53:22 SHAPER 89
+Feb 10 15:53:22 SHAPER 56
+Feb 10 15:53:22 SHAPER 04
+Feb 10 15:53:22 SHAPER eb
+Feb 10 15:53:22 SHAPER 02
+Feb 10 15:53:22 SHAPER 89
+Feb 10 15:53:22 SHAPER 17
+Feb 10 15:53:22 SHAPER 8b
+Feb 10 15:53:22 SHAPER 03
+Feb 10 15:53:22 SHAPER 83
+Feb 10 15:53:22 SHAPER e0
+Feb 10 15:53:22 SHAPER 03
+Feb 10 15:53:22 SHAPER 09
+Feb 10 15:53:22 SHAPER d0
+Feb 10 15:53:22 SHAPER 89
+Feb 10 15:53:22 SHAPER 03
+Feb 10 15:53:22 SHAPER 5b
+Feb 10 15:53:22 SHAPER 5e
+Feb 10 15:53:22 SHAPER 5f
+Feb 10 15:53:22 SHAPER c3
+Feb 10 15:53:22 SHAPER 57
+Feb 10 15:53:22 SHAPER 89
+Feb 10 15:53:22 SHAPER d7
+Feb 10 15:53:22 SHAPER 56
+Feb 10 15:53:22 SHAPER 53
+Feb 10 15:53:22 SHAPER
+Feb 10 15:53:22 SHAPER c3
+Feb 10 15:53:22 SHAPER 8b
+Feb 10 15:53:22 SHAPER 50
+Feb 10 15:53:22 SHAPER 08
+Feb 10 15:53:22 SHAPER 8b
+Feb 10 15:53:22 SHAPER 30
+Feb 10 15:53:22 SHAPER 8b
+Feb 10 15:53:22 SHAPER 4a
+Feb 10 15:53:22 SHAPER 04
+Feb 10 15:53:22 SHAPER 83
+Feb 10 15:53:22 SHAPER e6
+Feb 10 15:53:22 SHAPER fc
+Feb 10 15:53:22 SHAPER 85
+Feb 10 15:53:22 SHAPER c9
+Feb 10 15:53:22 SHAPER 89
+Feb 10 15:53:22 SHAPER 48
+Feb 10 15:53:22 SHAPER 08
+Feb 10 15:53:22 SHAPER 74
+Feb 10 15:53:22 SHAPER 09
+Feb 10 15:53:22 SHAPER 8b
+Feb 10 15:53:22 SHAPER
 
-The modification was made using the following semantic patch
-(http://www.emn.fr/x-info/coccinelle/)
 
-// <smpl>
-@haskernel@
-@@
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
-#include <linux/kernel.h>
-
-@depends on haskernel@
-type t;
-identifier f;
-@@
-
-- (sizeof(((t*)0)->f))
-+ FIELD_SIZEOF(t, f)
-
-@depends on haskernel@
-type t;
-identifier f;
-@@
-
-- sizeof(((t*)0)->f)
-+ FIELD_SIZEOF(t, f)
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
-
-diff -u -p a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
---- a/drivers/net/mv643xx_eth.c 2008-02-08 08:58:12.000000000 +0100
-+++ b/drivers/net/mv643xx_eth.c 2008-02-10 18:00:09.000000000 +0100
-@@ -3155,7 +3155,7 @@ struct mv643xx_stats {
- 	int stat_offset;
- };
- 
--#define MV643XX_STAT(m) sizeof(((struct mv643xx_private *)0)->m), \
-+#define MV643XX_STAT(m) FIELD_SIZEOF(struct mv643xx_private, m), \
- 					offsetof(struct mv643xx_private, m)
- 
- static const struct mv643xx_stats mv643xx_gstrings_stats[] = {
