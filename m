@@ -1,63 +1,62 @@
 From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [RFC] ipvs: Cleanup sync daemon code
-Date: Sat, 9 Feb 2008 23:59:52 -0500
-Message-ID: <20080210045952.GA8255@infradead.org>
-References: <Pine.LNX.4.64.0802100029150.15729@titan.stealer.net>
+Subject: Re: [PATCH] [resend] 3c509: convert to isa_driver and pnp_driver v4
+Date: Sun, 10 Feb 2008 00:18:55 -0500
+Message-ID: <20080210051855.GA22064@infradead.org>
+References: <200801312012.43447.linux@rainbow-software.org> <200802092233.10239.linux@rainbow-software.org> <20080209134805.29cbc8ae@extreme> <200802100110.09301.linux@rainbow-software.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sven Wegener <sven.wegener@stealer.net>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Ondrej Zary <linux@rainbow-software.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:46584 "EHLO
+Received: from bombadil.infradead.org ([18.85.46.34]:60080 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752914AbYBJE7x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2008 23:59:53 -0500
+	with ESMTP id S1750767AbYBJFTB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2008 00:19:01 -0500
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0802100029150.15729@titan.stealer.net>
+In-Reply-To: <200802100110.09301.linux@rainbow-software.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 10, 2008 at 12:38:11AM +0100, Sven Wegener wrote:
->  struct ip_vs_sync_thread_data {
-> -	struct completion *startup;
-> +	struct completion *startup; /* set to NULL once completed */
+On Sun, Feb 10, 2008 at 01:10:07AM +0100, Ondrej Zary wrote:
+> > > +typedef enum { EL3_ISA, EL3_PNP, EL3_MCA, EL3_EISA } el3_cardtype;
+> > > +
+> >
+> > No typedef please (see checkpatch)
+> 
+> Is there any standard way to solve this without a typedef? I added 
+> el3_dev_fill() function which fills that card type value according to a 
+> parameter passed to it. "int" could be used instead and "#define EL3_ISA 
+> 0", "#define EL3_PNP 1" - but I think that's ugly.
 
-This is not needed anmore.  kthread_run guarantees that the newly
-creates thread is run before returning to the caller.
+enum el3_cardtype {
+	EL3_ISA,
+	EL3_PNP,
+	EL3_MCA,
+	EL3_EISA,
+};
 
-> +/* wait queue for master sync daemon */
-> +static DECLARE_WAIT_QUEUE_HEAD(sync_master_wait);
+> > >  struct el3_private {
+> > >  	struct net_device_stats stats;
+> >
+> > Use network device stats in net_device now
+> 
+> OK, looks like the driver will need some more patches.
 
-I don't think you need this one either.  You can use wake_up_process
-on the task_struct pointer instead.
+While I agree with Stephens comment that this driver should be using
+the stats in net_device that's totally out of scope for this patch.
+As you're the defacto maintainer of this driver now it would be nice
+if you could submit another one for it.
 
->  	spin_lock(&ip_vs_sync_lock);
->  	list_add_tail(&sb->list, &ip_vs_sync_queue);
-> +	if (++ip_vs_sync_count == 10)
-> +		wake_up_interruptible(&sync_master_wait);
->  	spin_unlock(&ip_vs_sync_lock);
->  }
+> > > -	struct net_device *next_dev;
+> > >  	spinlock_t lock;
+> > >  	/* skb send-queue */
+> > >  	int head, size;
+> > >  	struct sk_buff *queue[SKB_QUEUE_SIZE];
+> >
+> > What about sk_buff_head (linked list instead)?
+> 
+> I don't know anything about this, maybe in next patch.
 
-> -static int sync_thread(void *startup)
-> +static int sync_thread(void *data)
-
-Btw, it might make sense to remove sync_thread and just call the
-master and backup threads directly.
-> +void __init ip_vs_sync_init(void)
-> +{
-> +	/* set up multicast address */
-> +	mcast_addr.sin_family = AF_INET;
-> +	mcast_addr.sin_port = htons(IP_VS_SYNC_PORT);
-> +	mcast_addr.sin_addr.s_addr = htonl(IP_VS_SYNC_GROUP);
->  }
-
-Why can't this be initialized at compile time by:
-
-static struct sockaddr_in mcast_addr = {
-	.sin_family		= AF_INET,
-	.sin_port		= htons(IP_VS_SYNC_PORT),
-	.sin_addr.s_addr	= htonl(IP_VS_SYNC_GROUP),
-}
-
-(the hton* might need __constant_hton* also I'm not sure without trying)
+Yes, separate patch please.
 
