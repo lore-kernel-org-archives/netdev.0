@@ -1,7 +1,7 @@
 From: "Alexandre Bounine" <Alexandre.Bounine@tundra.com>
-Subject: [PATCH 3/5 v2] Tsi108_eth: remove not needed code
-Date: Mon, 11 Feb 2008 11:32:11 -0500
-Message-ID: <1B5F013528140F45B5C671039279CA5702A9638D@NANUK.pc.tundra.com>
+Subject: [PATCH 4/5 v2] Tsi108_eth: fix link recovery after disconnect
+Date: Mon, 11 Feb 2008 11:32:35 -0500
+Message-ID: <1B5F013528140F45B5C671039279CA5702A96391@NANUK.pc.tundra.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
@@ -11,18 +11,16 @@ Cc: <linuxppc-dev@ozlabs.org>,
 	"Zang Roy-r61911" <tie-fei.zang@freescale.com>
 To: <jgarzik@pobox.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.tundra.com ([142.46.200.162]:54449 "EHLO mx2.tundra.com"
+Received: from mail2.tundra.com ([142.46.200.162]:54484 "EHLO mx2.tundra.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756222AbYBKQcN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 11:32:13 -0500
+	id S1758311AbYBKQci convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 11:32:38 -0500
 Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Code clean-up for tsi108_eth network driver.
-This patch removes not needed dummy read and the corresponding comment.
-The PHY logic requires two reads from the status register to get 
-current link status. This is done correctly inside mii_check_media().  
+Bug fix for tsi108_eth network driver.
+This patch fixes a problem with link recovery after connection was lost.
    
 Signed-off-by: Alexandre Bounine <alexandreb@tundra.com>
 ---
@@ -30,28 +28,62 @@ Signed-off-by: Alexandre Bounine <alexandreb@tundra.com>
 diff -pNur linux-2.6.24/drivers/net/tsi108_eth.c
 linux-2.6.24-fix/drivers/net/tsi108_eth.c
 --- linux-2.6.24/drivers/net/tsi108_eth.c	2008-02-06
-15:47:35.000000000 -0500
+16:16:00.000000000 -0500
 +++ linux-2.6.24-fix/drivers/net/tsi108_eth.c	2008-02-06
-15:54:14.000000000 -0500
-@@ -297,18 +297,11 @@ static void tsi108_check_phy(struct net_
- 	u32 speed;
- 	unsigned long flags;
+16:57:41.000000000 -0500
+@@ -338,22 +338,21 @@ static void tsi108_check_phy(struct net_
  
--	/* Do a dummy read, as for some reason the first read
--	 * after a link becomes up returns link down, even if
--	 * it's been a while since the link came up.
--	 */
+ 			TSI_WRITE(TSI108_MAC_CFG2, mac_cfg2_reg);
+ 			TSI_WRITE(TSI108_EC_PORTCTRL, portctrl_reg);
++		}
+ 
+-			if (data->link_up == 0) {
+-				/* The manual says it can take 3-4 usecs
+for the speed change
+-				 * to take effect.
+-				 */
+-				udelay(5);
 -
- 	spin_lock_irqsave(&phy_lock, flags);
+-				spin_lock(&data->txlock);
+-				if (is_valid_ether_addr(dev->dev_addr)
+&& data->txfree)
+-					netif_wake_queue(dev);
++		if (data->link_up == 0) {
++			/* The manual says it can take 3-4 usecs for the
+speed change
++			 * to take effect.
++			 */
++			udelay(5);
  
- 	if (!data->phy_ok)
- 		goto out;
+-				data->link_up = 1;
+-				spin_unlock(&data->txlock);
+-			}
+-		}
++			spin_lock(&data->txlock);
++			if (is_valid_ether_addr(dev->dev_addr) &&
+data->txfree)
++				netif_wake_queue(dev);
  
--	tsi108_read_mii(data, MII_BMSR);
--
- 	duplex = mii_check_media(&data->mii_if, netif_msg_link(data),
-data->init_media);
- 	data->init_media = 0;
++			data->link_up = 1;
++			spin_unlock(&data->txlock);
++		}
+ 	} else {
+ 		if (data->link_up == 1) {
+ 			netif_stop_queue(dev);
+@@ -1267,12 +1266,11 @@ static void tsi108_init_phy(struct net_d
+ 	 * PHY_STAT register before the link up status bit is set.
+ 	 */
+ 
+-	data->link_up = 1;
++	data->link_up = 0;
+ 
+ 	while (!((phyval = tsi108_read_mii(data, MII_BMSR)) &
+ 		 BMSR_LSTATUS)) {
+ 		if (i++ > (MII_READ_DELAY / 10)) {
+-			data->link_up = 0;
+ 			break;
+ 		}
+ 		spin_unlock_irqrestore(&phy_lock, flags);
 
 
 ---
