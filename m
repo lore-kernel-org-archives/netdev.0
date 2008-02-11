@@ -1,7 +1,8 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 6/6] ixgbe: remove accidentally added #ifdef
-Date: Mon, 11 Feb 2008 09:26:06 -0800
-Message-ID: <20080211172606.29090.59008.stgit@localhost.localdomain>
+Subject: [PATCH 5/6] ixgbe: Disallow device reset during
+	ethtool test
+Date: Mon, 11 Feb 2008 09:26:01 -0800
+Message-ID: <20080211172601.29090.83992.stgit@localhost.localdomain>
 References: <20080211172539.29090.99369.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,37 +22,27 @@ Sender: e1000-devel-bounces@lists.sourceforge.net
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Let's not add these #ifdef NETIF_F_TSO's back.
-
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |    5 -----
- 1 files changed, 0 insertions(+), 5 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index a4aeaec..540b647 100644
+index 576fb51..a4aeaec 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -220,7 +220,6 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_adapter *adapter,
- 			tx_ring->stats.bytes += tx_buffer_info->length;
- 			if (cleaned) {
- 				struct sk_buff *skb = tx_buffer_info->skb;
--#ifdef NETIF_F_TSO
- 				unsigned int segs, bytecount;
- 				segs = skb_shinfo(skb)->gso_segs ?: 1;
- 				/* multiply data chunks by size of headers */
-@@ -228,10 +227,6 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_adapter *adapter,
- 					    skb->len;
- 				total_tx_packets += segs;
- 				total_tx_bytes += bytecount;
--#else
--				total_tx_packets++;
--				total_tx_bytes += skb->len;
--#endif
- 			}
- 			ixgbe_unmap_and_free_tx_resource(adapter,
- 							 tx_buffer_info);
+@@ -1942,6 +1942,10 @@ static int ixgbe_open(struct net_device *netdev)
+ 	int err;
+ 	u32 num_rx_queues = adapter->num_rx_queues;
+ 
++	/* disallow open during test */
++	if (test_bit(__IXGBE_TESTING, &adapter->state))
++		return -EBUSY;
++
+ try_intr_reinit:
+ 	/* allocate transmit descriptors */
+ 	err = ixgbe_setup_all_tx_resources(adapter);
 
 
 -------------------------------------------------------------------------
