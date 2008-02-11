@@ -1,7 +1,7 @@
 From: "Alexandre Bounine" <Alexandre.Bounine@tundra.com>
-Subject: [PATCH 1/5 v2] Tsi108_eth: add missing linking to driver data
-Date: Mon, 11 Feb 2008 11:31:37 -0500
-Message-ID: <1B5F013528140F45B5C671039279CA5702A9638A@NANUK.pc.tundra.com>
+Subject: [PATCH 2/5 v2] Tsi108_eth: fix detection of 1000Mb mode
+Date: Mon, 11 Feb 2008 11:31:51 -0500
+Message-ID: <1B5F013528140F45B5C671039279CA5702A9638C@NANUK.pc.tundra.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
@@ -11,34 +11,45 @@ Cc: <linuxppc-dev@ozlabs.org>,
 	"Zang Roy-r61911" <tie-fei.zang@freescale.com>
 To: <jgarzik@pobox.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.tundra.com ([142.46.200.162]:54411 "EHLO mx2.tundra.com"
+Received: from mail2.tundra.com ([142.46.200.162]:54427 "EHLO mx2.tundra.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753420AbYBKQbo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 11:31:44 -0500
+	id S1754417AbYBKQby convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 11:31:54 -0500
 Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Bug fix for tsi108_eth network driver.
-This patch adds missing linking to driver data. 
+This patch fixes a problem with detection of 1000Mb speed. 
    
 Signed-off-by: Alexandre Bounine <alexandreb@tundra.com>
 ---
 
 diff -pNur linux-2.6.24/drivers/net/tsi108_eth.c
 linux-2.6.24-fix/drivers/net/tsi108_eth.c
---- linux-2.6.24/drivers/net/tsi108_eth.c	2008-01-24
-17:58:37.000000000 -0500
+--- linux-2.6.24/drivers/net/tsi108_eth.c	2008-02-06
+15:09:19.000000000 -0500
 +++ linux-2.6.24-fix/drivers/net/tsi108_eth.c	2008-02-06
-14:30:04.000000000 -0500
-@@ -1629,6 +1629,7 @@ tsi108_init_one(struct platform_device *
- 		goto register_fail;
+15:34:12.000000000 -0500
+@@ -1287,6 +1287,7 @@ static void tsi108_init_phy(struct net_d
+ 		spin_lock_irqsave(&phy_lock, flags);
  	}
  
-+	platform_set_drvdata(pdev, dev);
- 	printk(KERN_INFO "%s: Tsi108 Gigabit Ethernet, MAC: %s\n",
- 	       dev->name, print_mac(mac, dev->dev_addr));
- #ifdef DEBUG
++	data->mii_if.supports_gmii =
+mii_check_gmii_support(&data->mii_if);
+ 	printk(KERN_DEBUG "PHY_STAT reg contains %08x\n", phyval);
+ 	data->phy_ok = 1;
+ 	data->init_media = 1;
+@@ -1584,7 +1585,6 @@ tsi108_init_one(struct platform_device *
+ 	data->mii_if.phy_id = einfo->phy;
+ 	data->mii_if.phy_id_mask = 0x1f;
+ 	data->mii_if.reg_num_mask = 0x1f;
+-	data->mii_if.supports_gmii =
+mii_check_gmii_support(&data->mii_if);
+ 
+ 	data->phy = einfo->phy;
+ 	data->phy_type = einfo->phy_type;
+
 
 ---
 
