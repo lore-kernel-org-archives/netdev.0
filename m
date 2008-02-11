@@ -1,28 +1,54 @@
-From: Jeba Anandhan <jeba.anandhan@vaioni.com>
-Subject: Engress path / congestion detection and avoidance
-Date: Mon, 11 Feb 2008 10:38:39 +0000
-Message-ID: <1202726319.24188.7.camel@vglwks010.vgl2.office.vaioni.com>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: Re: [PATCH][RESEND] drivers/base: export (un)register_memory_notifier
+Date: Mon, 11 Feb 2008 11:47:50 +0100
+Message-ID: <200802111147.51225.ossthema@de.ibm.com>
+References: <200802111049.05478.ossthema@de.ibm.com> <1202724743.8276.2.camel@nimitz.home.sr71.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: matthew.hattersley@vaioni.com
-To: netdev@vger.kernel.org
+Cc: Greg KH <greg@kroah.com>, Jan-Bernd Themann <themann@de.ibm.com>,
+	Thomas Klein <osstklei@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Christoph Raisch <raisch@de.ibm.com>
+To: Dave Hansen <haveblue@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vglsrv002.office.vaioni.com ([84.19.35.12]:37237 "EHLO
-	vglsrv02.vgl2.office.vaioni.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752924AbYBKKkd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 05:40:33 -0500
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:28535 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752295AbYBKKrz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 05:47:55 -0500
+In-Reply-To: <1202724743.8276.2.camel@nimitz.home.sr71.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
-i have few doubts related to congestion and engress path.
+On Monday 11 February 2008 11:12, Dave Hansen wrote:
+> On Mon, 2008-02-11 at 10:49 +0100, Jan-Bernd Themann wrote:
+> > are you the right person to address this patch to?
+> 
+> You might want to check the top of the file. ;)
+> 
+> > --- a/drivers/base/memory.c
+> > +++ b/drivers/base/memory.c
+> > @@ -52,11 +52,13 @@ int register_memory_notifier(struct notifier_block *nb)
+> >  {
+> >          return blocking_notifier_chain_register(&memory_chain, nb);
+> >  }
+> > +EXPORT_SYMBOL(register_memory_notifier);
+> >  
+> >  void unregister_memory_notifier(struct notifier_block *nb)
+> >  {
+> >          blocking_notifier_chain_unregister(&memory_chain, nb);
+> >  }
+> > +EXPORT_SYMBOL(unregister_memory_notifier);
+> 
+> Is there a particular reason these can't be GPL?
+> 
 
-1) What happens when congestion hits and how it affects engress path?.
-2) How the engress traffic slow down when the congestion hits?
-3) what are the variables updated when the congestion hits?
-4) is it good to invoke netif_stop_queue when congestion hits?
+I don't object to make them GPL. Greg, what do you think?
 
-thanks
-Jeba
+Regards,
+Jan-Bernd
 
