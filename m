@@ -1,94 +1,37 @@
-From: "Alex Bounine" <alex.bou9@gmail.com>
-Subject: [PATCH 5/5 v3] Tsi108_eth: Add ethtool support
-Date: Mon, 11 Feb 2008 14:36:37 -0500
-Message-ID: <d5f62df20802111136u5b08459bj45a577f43ff88cd4@mail.gmail.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [BUG] bad address in twothirdsMD4Transform
+Date: Mon, 11 Feb 2008 13:42:40 -0600
+Message-ID: <1202758960.12383.2.camel@cinder.waste.org>
+References: <47B0A220.8040400@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, tie-fei.zang@freescale.com,
-	jwboyer@linux.vnet.ibm.com
-To: jgarzik@pobox.com, netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Jiri Slaby <jirislaby@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.227]:32913 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757304AbYBKTgj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 14:36:39 -0500
-Received: by wx-out-0506.google.com with SMTP id h31so4882181wxd.4
-        for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 11:36:38 -0800 (PST)
-Content-Disposition: inline
+Received: from waste.org ([66.93.16.53]:48318 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755594AbYBKTnj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Feb 2008 14:43:39 -0500
+In-Reply-To: <47B0A220.8040400@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add ethtool support to tsi108_eth network driver.
+On Mon, 2008-02-11 at 20:29 +0100, Jiri Slaby wrote:
+> Hi,
+> 
+> I get this with 32 bit Firefox 3b2 and java 1.6.0_03 on 64 bit:
+> 
+> BUG: unable to handle kernel paging request at ffff8102366213f8
+> IP: [<ffffffff803558f4>] twothirdsMD4Transform+0xc4/0x3b0
 
-Signed-off-by: Alexandre Bounine <alexandreb@tundra.com>
----
+You should mention what kernel you're using. This bug is only in -mm
+(you didn't cc: Andrew), and it's fixed here:
 
-diff -pNur linux-2.6.24/drivers/net/tsi108_eth.c
-linux-2.6.24-fix/drivers/net/tsi108_eth.c
---- linux-2.6.24/drivers/net/tsi108_eth.c	2008-02-06 17:10:53.000000000 -0500
-+++ linux-2.6.24-fix/drivers/net/tsi108_eth.c	2008-02-06
-18:09:43.000000000 -0500
-@@ -36,6 +36,7 @@
- #include <linux/net.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
-+#include <linux/ethtool.h>
- #include <linux/skbuff.h>
- #include <linux/slab.h>
- #include <linux/spinlock.h>
-@@ -1519,12 +1520,46 @@ static void tsi108_init_mac(struct net_d
- 	TSI_WRITE(TSI108_EC_INTMASK, ~0);
- }
+http://www.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.24/2.6.24-mm1/hot-fixes/random-clean-up-checkpatch-complaints-fix.patch
 
-+static int tsi108_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	struct tsi108_prv_data *data = netdev_priv(dev);
-+	unsigned long flags;
-+	int rc;
-+	
-+	spin_lock_irqsave(&data->txlock, flags);
-+	rc = mii_ethtool_gset(&data->mii_if, cmd);
-+	spin_unlock_irqrestore(&data->txlock, flags);
-+
-+	return rc;
-+}
-+
-+static int tsi108_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	struct tsi108_prv_data *data = netdev_priv(dev);
-+	unsigned long flags;
-+	int rc;
-+
-+	spin_lock_irqsave(&data->txlock, flags);
-+	rc = mii_ethtool_sset(&data->mii_if, cmd);
-+	spin_unlock_irqrestore(&data->txlock, flags);
-+	
-+	return rc;
-+}
-+
- static int tsi108_do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
- 	struct tsi108_prv_data *data = netdev_priv(dev);
-+	if (!netif_running(dev))
-+		return -EINVAL;
- 	return generic_mii_ioctl(&data->mii_if, if_mii(rq), cmd, NULL);
- }
+-- 
+Mathematics is the supreme nostalgia of our time.
 
-+static const struct ethtool_ops tsi108_ethtool_ops = {
-+	.get_link 	= ethtool_op_get_link,
-+	.get_settings	= tsi108_get_settings,
-+	.set_settings	= tsi108_set_settings,
-+};
-+
- static int
- tsi108_init_one(struct platform_device *pdev)
- {
-@@ -1589,6 +1624,7 @@ tsi108_init_one(struct platform_device *
- 	dev->get_stats = tsi108_get_stats;
- 	netif_napi_add(dev, &data->napi, tsi108_poll, 64);
- 	dev->do_ioctl = tsi108_do_ioctl;
-+	dev->ethtool_ops = &tsi108_ethtool_ops;
-
- 	/* Apparently, the Linux networking code won't use scatter-gather
- 	 * if the hardware doesn't do checksums.  However, it's faster
