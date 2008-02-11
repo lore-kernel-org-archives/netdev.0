@@ -1,37 +1,46 @@
-From: Kyle McMartin <kyle@mcmartin.ca>
-Subject: [PATCH] mlx4: needs vmalloc.h for vmap()
-Date: Mon, 11 Feb 2008 17:11:15 -0500
-Message-ID: <20080211221115.GH4516@phobos.i.cabal.ca>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: WARN_ON() hit in fsl bitbanged phy driver
+Date: Mon, 11 Feb 2008 16:26:01 -0600
+Message-ID: <47B0CB79.7090400@freescale.com>
+References: <DCEAAC0833DD314AB0B58112AD99B93B03F931E6@ismail.innsys.innovsys.com> <47B0C30A.1030801@freescale.com> <DCEAAC0833DD314AB0B58112AD99B93B03F9325F@ismail.innsys.innovsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roland Dreier <rolandd@cisco.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: Rune Torgersen <runet@innovsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 206-248-169-182.dsl.ncf.ca ([206.248.169.182]:28514 "EHLO
-	phobos.cabal.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752691AbYBKWWE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 17:22:04 -0500
-Content-Disposition: inline
+Received: from az33egw02.freescale.net ([192.88.158.103]:44798 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756936AbYBKW0K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 17:26:10 -0500
+In-Reply-To: <DCEAAC0833DD314AB0B58112AD99B93B03F9325F@ismail.innsys.innovsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 313abe55a87bc10e55d00f337d609e17ad5f8c9a added a vmap usage to
-mlx4. Unfortunately on some platforms (ppc64) <linux/vmalloc.h> is not
-implicitly included. Fix that.
+Rune Torgersen wrote:
+> Scott Wood wrote:
+>> Rune Torgersen wrote:
+>>> I hit the following WARN_ON when using mii-tools agains a ethernet
+>>> interface using a bit-banged mii interface
+>> It looks like the kernel thinks it's in an interrupt, even though it
+>> clearly isn't from the backtrace.  Presumably, something
+>> slept from an
+>> interrupt handler; try turning on sleep-in-spinlock debugging.
+> 
+> I turned on sleep-in-spinlock and it did not reveal anything. I'm trying
+> some other debug options.
+> 
+>> The root cause was probably something other than the phy code.
+> I'm not so sure, because it only happens when I run mii-tool agains the
+> interface useing the bit-banged driver, and then only the first time.
 
-Signed-off-by: Kyle McMartin <kmcmartin@redhat.com>
+OK, it seems I should have checked 2.6.24 instead of head-of-tree; 
+softirq.c:139 is a different assertion than I thought.  It's not 
+in_irq(), but irqs_disabled().  fs_ioctl() is disabling interrupts, and 
+spin_unlock_bh() doesn't like that.  The current use of mutexes likes it 
+even less.  The locking should be moved inside the phy bus 
+implementation, if it's needed at all.
 
----
-diff --git a/drivers/net/mlx4/alloc.c b/drivers/net/mlx4/alloc.c
-index 521dc03..75ef9d0 100644
---- a/drivers/net/mlx4/alloc.c
-+++ b/drivers/net/mlx4/alloc.c
-@@ -34,6 +34,7 @@
- #include <linux/slab.h>
- #include <linux/bitmap.h>
- #include <linux/dma-mapping.h>
-+#include <linux/vmalloc.h>
- 
- #include "mlx4.h"
- 
+It only happens once because it's a WARN_ON_ONCE(). :-)
+
+-Scott
