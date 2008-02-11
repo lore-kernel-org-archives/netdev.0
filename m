@@ -1,37 +1,42 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
-Date: Mon, 11 Feb 2008 19:57:20 +0100
-Message-ID: <47B09A90.7040508@gmail.com>
-References: <200802110922.m1B9MKQ4003674@quickie.katalix.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: AW: Problem receiving multicast/promiscuous-mode with kernel.2.6.24
+Date: Mon, 11 Feb 2008 11:18:05 -0800
+Message-ID: <OF1D96C632.7939DCD3-ON882573EC.0068DFE8-882573EC.006A04EB@us.ibm.com>
+References: <BA41E8A07B73A041948C2E3A4EF6239D062F0C@av-digital-exch.avdigital.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="US-ASCII"
 Cc: netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+To: "Reither Robert" <Robert.Reither@av-digital.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:5551 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750919AbYBKSyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 13:54:08 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so347091ugc.16
-        for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 10:54:05 -0800 (PST)
-In-Reply-To: <200802110922.m1B9MKQ4003674@quickie.katalix.com>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:55644 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752836AbYBKTSb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 14:18:31 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m1BIEXKR015418
+	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 13:14:33 -0500
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m1BJI9DB145150
+	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 12:18:10 -0700
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m1BJI8sQ006728
+	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 12:18:08 -0700
+In-Reply-To: <BA41E8A07B73A041948C2E3A4EF6239D062F0C@av-digital-exch.avdigital.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-James Chapman wrote, On 02/11/2008 10:22 AM:
+Another relevant piece of information is what the socket is
+bound to; "netstat -au" will tell you if you're bound to an address
+that will match the incoming multicast packets.
 
-> Fix locking issues in the pppol2tp driver which can cause a kernel
-> crash on SMP boxes when hundreds of L2TP sessions are created/deleted
-> simultaneously (ISP environment). The driver was violating read_lock()
-> and write_lock() scheduling rules so we now consistently use the _irq
-> variants of the lock functions.
-... 
+If you suspect that the VLAN device is the problem, then it'd be
+a good idea to try it on ordinary ethernet.
 
-Hi,
+Re: imr_ifindex; using a "0" ifindex  and INADDR_ANY interface is valid,
+but it usually doesn't make sense. What it means is "I don't care what
+interface I join the group on". But you'll only receive multicasts
+delivered to the group on the interface the kernel picks for you, which
+often won't be the one you really want.
 
-Could you explain what exactly scheduling rules do you mean here,
-and why disabling interrupts is the best solution for this?
+                                                +-DLS
 
-Thanks,
-Jarek P.
