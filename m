@@ -1,63 +1,43 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH][RESEND] drivers/base: export (un)register_memory_notifier
-Date: Mon, 11 Feb 2008 07:22:54 -0800
-Message-ID: <20080211152254.GC25505@kroah.com>
-References: <200802111049.05478.ossthema@de.ibm.com>
-	<1202724743.8276.2.camel@nimitz.home.sr71.net>
-	<200802111147.51225.ossthema@de.ibm.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch] pegasus.c
+Date: Mon, 11 Feb 2008 10:38:28 -0500
+Message-ID: <47B06BF4.7010009@garzik.org>
+References: <alpine.DEB.1.00.0801091222560.3171@bender.nucleusys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jan-Bernd Themann <themann@de.ibm.com>, netdev <netdev@vger.kernel.org>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Thomas Klein <osstklei@de.ibm.com>, linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <200802111147.51225.ossthema@de.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Petko Manolov <petkan@nucleusys.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:39843 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753592AbYBKPib (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Feb 2008 10:38:31 -0500
+In-Reply-To: <alpine.DEB.1.00.0801091222560.3171@bender.nucleusys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 11, 2008 at 11:47:50AM +0100, Jan-Bernd Themann wrote:
-> On Monday 11 February 2008 11:12, Dave Hansen wrote:
-> > On Mon, 2008-02-11 at 10:49 +0100, Jan-Bernd Themann wrote:
-> > > are you the right person to address this patch to?
-> > 
-> > You might want to check the top of the file. ;)
-> > 
-> > > --- a/drivers/base/memory.c
-> > > +++ b/drivers/base/memory.c
-> > > @@ -52,11 +52,13 @@ int register_memory_notifier(struct notifier_block *nb)
-> > >  {
-> > >          return blocking_notifier_chain_register(&memory_chain, nb);
-> > >  }
-> > > +EXPORT_SYMBOL(register_memory_notifier);
-> > >  
-> > >  void unregister_memory_notifier(struct notifier_block *nb)
-> > >  {
-> > >          blocking_notifier_chain_unregister(&memory_chain, nb);
-> > >  }
-> > > +EXPORT_SYMBOL(unregister_memory_notifier);
-> > 
-> > Is there a particular reason these can't be GPL?
-> > 
+Petko Manolov wrote:
+>     Hi Jeff,
 > 
-> I don't object to make them GPL. Greg, what do you think?
+> Attached you'll find a patch that is fixing a driver bug triggered when 
+> malformed string is passed to the 'devid' module parameter.  The 
+> expected format is:
+> 
+>     "device_name:vendor_id:device_id:flags"
+> 
+> but it turned out people often type:
+> 
+>     "somename::0"
+> 
+> instead of:
+> 
+>     "somename:::0"
 
-They should be _GPL to match the rest of the driver core.
+ACK but two process problems preventing application:
 
-Care to resend this?
+* patch is base64-encoded
 
-thanks,
+* no signed-off-by included
 
-greg k-h
+
