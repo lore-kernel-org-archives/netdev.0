@@ -1,40 +1,38 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2/2] tulip: hardware mitigation simplify
-Date: Mon, 11 Feb 2008 10:43:06 -0500
-Message-ID: <47B06D0A.9040007@pobox.com>
-References: <20071213093554.5c4909ed@freepuppy.rosehill> <47B06AE3.4020809@DunveganMedia.com>
+From: "Reither Robert" <Robert.Reither@av-digital.at>
+Subject: AW: Problem receiving multicast/promiscuous-mode with kernel.2.6.24
+Date: Mon, 11 Feb 2008 16:46:13 +0100
+Message-ID: <BA41E8A07B73A041948C2E3A4EF6239D062F0D@av-digital-exch.avdigital.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kristjan <kristjan.ugrin@gmail.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>
+To: "David Stevens" <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39974 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752256AbYBKPnN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Feb 2008 10:43:13 -0500
-In-Reply-To: <47B06AE3.4020809@DunveganMedia.com>
+Received: from mail.av-digital.at ([88.116.237.238]:29569 "EHLO
+	av-digital-exch.avdigital.at" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753438AbYBKPqx convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Feb 2008 10:46:53 -0500
+Content-Class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik wrote:
-> Stephen Hemminger wrote:
->> The hardware mitigation in tulip can be simpified.
->> 1. The budget with new NAPI will always be less than RX_RING_SIZE
->>    because RX_RING_SIZE is 128 and weight is 16.
->> 2. The received counter is redundunt, just use the work_done value.
->> 3. Only one value is used from the mit_table[]
->>
->> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-
-grrr.  Mozilla Thunderbird is annoying.
-
-Please help me out, and --don't-- reply to jgarzik@dunveganmedia.com. 
-T-bird's multi-profile stuff is fouling me up.
-
-Sorry :(
-
-	Jeff
+Visit AVD on prolight+sound in Frankfurt from 12.-15. March 2008 - Hall 8.0, Stand G16
+________________________________________________________________________
 
 
+
+
+OK, after some more testing, things become clearer ...
+
+joining eth0.3 gives this strange unreliable behaviour...
+
+Joining eth0 , and i can see the packets always floating in with tcpdump -p -i eth0.3 (or -i eth0)
+
+But my application won't get the packets !!!
+
+Maybe this is because i'm using pselect() to wait for incoming packets ?????
+
+Question: Should it possible to join on a VLAN device ? Or is this something bad ???
+
+Robert
