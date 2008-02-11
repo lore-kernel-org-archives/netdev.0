@@ -1,62 +1,43 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 3/5 v3] Tsi108_eth: remove not needed code
-Date: Mon, 11 Feb 2008 14:50:26 -0500
-Message-ID: <47B0A702.70601@pobox.com>
-References: <d5f62df20802111135q36e47070w611291b2cea2253e@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/6] [NET] replace code with FIELD_SIZEOF
+Date: Mon, 11 Feb 2008 14:51:54 -0500
+Message-ID: <47B0A75A.5040009@garzik.org>
+References: <20080211172539.29090.99369.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Alex Bounine <alex.bou9@gmail.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <d5f62df20802111135q36e47070w611291b2cea2253e@mail.gmail.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Auke Kok <auke-jan.h.kok@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20080211172539.29090.99369.stgit@localhost.localdomain>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Alex Bounine wrote:
-> Code clean-up for tsi108_eth network driver.
-> This patch removes not needed dummy read and the corresponding comment.
-> The PHY logic requires two reads from the status register to get
-> current link status. This is done correctly inside mii_check_media().
+Auke Kok wrote:
+> From: Julia Lawall <julia@diku.dk>
 > 
-> Signed-off-by: Alexandre Bounine <alexandreb@tundra.com>
+> Signed-off-by: Julia Lawall <julia@diku.dk>
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 > ---
 > 
-> diff -pNur linux-2.6.24/drivers/net/tsi108_eth.c
-> linux-2.6.24-fix/drivers/net/tsi108_eth.c
-> --- linux-2.6.24/drivers/net/tsi108_eth.c	2008-02-06 15:47:35.000000000 -0500
-> +++ linux-2.6.24-fix/drivers/net/tsi108_eth.c	2008-02-06
-> 15:54:14.000000000 -0500
-> @@ -297,18 +297,11 @@ static void tsi108_check_phy(struct net_
->  	u32 speed;
->  	unsigned long flags;
-> 
-> -	/* Do a dummy read, as for some reason the first read
-> -	 * after a link becomes up returns link down, even if
-> -	 * it's been a while since the link came up.
-> -	 */
-> -
->  	spin_lock_irqsave(&phy_lock, flags);
-> 
->  	if (!data->phy_ok)
->  		goto out;
-> 
-> -	tsi108_read_mii(data, MII_BMSR);
-> -
->  	duplex = mii_check_media(&data->mii_if, netif_msg_link(data),
-> data->init_media);
+>  drivers/net/e1000/e1000_ethtool.c |    2 +-
+>  drivers/net/igb/igb_ethtool.c     |    2 +-
+>  drivers/net/ixgb/ixgb_ethtool.c   |    2 +-
+>  3 files changed, 3 insertions(+), 3 deletions(-)
 
-applied all five, but each one was still corrupted according to git-am. 
-  I was able to apply four via patch(1), which is more forgiving, but 
-there are still email problems.
+applied 1-6 to #upstream-fixes
 
-As as you can see from the above quoted (last) line, your email client 
-is still word-wrapping patches.
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
