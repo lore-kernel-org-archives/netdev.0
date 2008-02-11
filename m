@@ -1,143 +1,269 @@
-From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Subject: Re: [PATCH][RFC] race in generic address resolution
-Date: Mon, 11 Feb 2008 10:01:20 +0100
-Message-ID: <47B00EE0.4040109@linux.vnet.ibm.com>
-References: <20080204142717.GA11020@tuxmaker.boeblingen.de.ibm.com> <20080205.205154.153345843.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Joonwoo Park <joonwpark81@gmail.com>
+Subject: [PATCH] [RESENDING] netconsole: register cmdline netconsole configs to configfs
+Date: Mon, 11 Feb 2008 18:08:32 +0900
+Message-ID: <12027209202884-git-send-email-joonwpark81@gmail.com>
+References: <12027209122955-git-send-email-joonwpark81@gmail.com>
+ <12027209163465-git-send-email-joonwpark81@gmail.com>
+Cc: Joonwoo Park <joonwpark81@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, satyam@infradead.org, mpm@selenic.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([195.212.29.137]:25856 "EHLO
-	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750874AbYBKJA6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 04:00:58 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate4.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m1B90vWc096510
-	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 09:00:57 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m1B90vr8803010
-	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 09:00:57 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m1B90sCD021983
-	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 09:00:54 GMT
-In-Reply-To: <20080205.205154.153345843.davem@davemloft.net>
+Received: from wx-out-0506.google.com ([66.249.82.237]:11370 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751140AbYBKJIl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 04:08:41 -0500
+Received: by wx-out-0506.google.com with SMTP id h31so4696006wxd.4
+        for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 01:08:41 -0800 (PST)
+In-Reply-To: <12027209163465-git-send-email-joonwpark81@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller schrieb:
-> From: Blaschka <frank.blaschka@de.ibm.com>
-> Date: Mon, 4 Feb 2008 15:27:17 +0100
-> 
->> I'm running a SMP maschine (2 CPUs) configured as a router. During heavy
->> traffic kernel dies with following message: 
->>
->>     <2>kernel BUG at /home/autobuild/BUILD/linux-2.6.23-20080125/net/core/skbuff.c:648!
->  ...
->> Following patch fixes the problem but I do not know if it is a good sollution.
->>
->> From: Frank Blaschka <frank.blaschka@de.ibm.com>
->>
->> neigh_update sends skb from neigh->arp_queue while
->> neigh_timer_handler has increased skbs refcount and calls
->> solicit with the skb. Do not send neighbour skbs
->> marked for solicit (skb_shared).
->>
->> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
-> 
-> Thanks for finding this bug.
-> 
-> I'm fine with your approach as a temporary fix, but there is a slight
-> problem with your patch.  If the skb is shared we have to free it if
-> we don't pass it on to ->output(), otherwise this creates a leak.
-> 
-> In the longer term, this is an unfortunate limitation.  The
-> ->solicit() code just wants to look at a few header fields to
-> determine how to construct the solicitation request.
-> 
-> What's funny is that we added these skb_get() calls for
-> the solications exactly to deal with this race condition.
-> 
-> I considered various ways to fix this.  The simplest is probably just
-> to skb_copy() in the ->solicit() case.  Solicitation is a rare event
-> so it's not big deal to copy the packet until the neighbour is
-> resolved.
-> 
-> The other option is holding the write lock on neigh->lock during the
-> ->solicit() call.  I looked at all of the ndisc_ops implementations
-> and this seems workable.  The only case that needs special care is the
-> IPV4 ARP implementation of arp_solicit().  It wants to take
-> neigh->lock as a reader to protect the header entry in neigh->ha
-> during the emission of the soliciation.  We can simply remove the read
-> lock calls to take care of that since holding the lock as a writer at
-> the caller providers a superset of the protection afforded by the
-> existing read locking.
-> 
-> The rest of the ->solicit() implementations don't care whether
-> the neigh is locked or not.
-> 
-> Can you see if this version of the patch fixes your problem?
-> 
-> Thanks!
-> 
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index a16cf1e..7bb6a9a 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -834,18 +834,12 @@ static void neigh_timer_handler(unsigned long arg)
->  	}
->  	if (neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) {
->  		struct sk_buff *skb = skb_peek(&neigh->arp_queue);
-> -		/* keep skb alive even if arp_queue overflows */
-> -		if (skb)
-> -			skb_get(skb);
-> -		write_unlock(&neigh->lock);
-> +
->  		neigh->ops->solicit(neigh, skb);
->  		atomic_inc(&neigh->probes);
-> -		if (skb)
-> -			kfree_skb(skb);
-> -	} else {
-> -out:
-> -		write_unlock(&neigh->lock);
->  	}
-> +out:
-> +	write_unlock(&neigh->lock);
-> 
->  	if (notify)
->  		neigh_update_notify(neigh);
-> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-> index 8e17f65..c663fa5 100644
-> --- a/net/ipv4/arp.c
-> +++ b/net/ipv4/arp.c
-> @@ -368,7 +368,6 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
->  		if (!(neigh->nud_state&NUD_VALID))
->  			printk(KERN_DEBUG "trying to ucast probe in NUD_INVALID\n");
->  		dst_ha = neigh->ha;
-> -		read_lock_bh(&neigh->lock);
->  	} else if ((probes -= neigh->parms->app_probes) < 0) {
->  #ifdef CONFIG_ARPD
->  		neigh_app_ns(neigh);
-> @@ -378,8 +377,6 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
-> 
->  	arp_send(ARPOP_REQUEST, ETH_P_ARP, target, dev, saddr,
->  		 dst_ha, dev->dev_addr, NULL);
-> -	if (dst_ha)
-> -		read_unlock_bh(&neigh->lock);
->  }
-> 
->  static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+This patch intorduces cmdline netconsole configs to register to configfs
+with dynamic netconsole. Satyam Sharma who designed shiny dynamic
+reconfiguration for netconsole, mentioned about this issue already.
+(http://lkml.org/lkml/2007/7/29/360)
+But I think, without separately managing of two kind of netconsole target
+objects, it's possible by using config_group instead of
+config_item in the netconsole_target and default_groups feature of configfs.
 
-Hi Dave,
+Patch was tested with configuration creation/destruction by kernel and
+module.
+And it makes possible to enable/disable, modify and review netconsole
+target configs from cmdline.
 
-we run your patch during the weekend on single CPU and SMP machines. We do not
-see any problems. Thanks for providing the fix.
+Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+---
+ drivers/net/netconsole.c |   91 ++++++++++++++++++++++++++++++++++++----------
+ 1 files changed, 72 insertions(+), 19 deletions(-)
 
-Best regards,
-		Frank 
+diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+index 31e047d..63aabbb 100644
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@ -93,7 +93,7 @@ static DEFINE_SPINLOCK(target_list_lock);
+ struct netconsole_target {
+ 	struct list_head	list;
+ #ifdef	CONFIG_NETCONSOLE_DYNAMIC
+-	struct config_item	item;
++	struct config_group	group;
+ #endif
+ 	int			enabled;
+ 	struct netpoll		np;
+@@ -103,16 +103,49 @@ struct netconsole_target {
+ 
+ static struct configfs_subsystem netconsole_subsys;
+ 
+-static int __init dynamic_netconsole_init(void)
++static void netconsole_target_put(struct netconsole_target *nt);
++static struct config_item_type netconsole_target_type;
++
++static int __init dynamic_netconsole_init(int defaults)
+ {
++	int err;
++	unsigned long flags;
+ 	config_group_init(&netconsole_subsys.su_group);
++
++	if (defaults > 0) {
++		struct list_head *pos;
++		struct config_group **groups;
++		int i = 0;
++
++		groups = kcalloc(defaults, sizeof(struct config_group *),
++				GFP_KERNEL);
++		if (!groups)
++			return -ENOMEM;
++
++		spin_lock_irqsave(&target_list_lock, flags);
++		list_for_each(pos, &target_list) {
++			struct netconsole_target *nt;
++			nt = list_entry(pos, struct netconsole_target, list);
++			groups[i] = &nt->group;
++			i++;
++		}
++		spin_unlock_irqrestore(&target_list_lock, flags);
++		netconsole_subsys.su_group.default_groups = groups;
++	}
++
+ 	mutex_init(&netconsole_subsys.su_mutex);
+-	return configfs_register_subsystem(&netconsole_subsys);
++
++	err = configfs_register_subsystem(&netconsole_subsys);
++	if (err)
++		kfree(netconsole_subsys.su_group.default_groups);
++
++	return err;
+ }
+ 
+ static void __exit dynamic_netconsole_exit(void)
+ {
+ 	configfs_unregister_subsystem(&netconsole_subsys);
++	kfree(netconsole_subsys.su_group.default_groups);
+ }
+ 
+ /*
+@@ -122,14 +155,23 @@ static void __exit dynamic_netconsole_exit(void)
+  */
+ static void netconsole_target_get(struct netconsole_target *nt)
+ {
+-	if (config_item_name(&nt->item))
+-		config_item_get(&nt->item);
++	if (config_item_name(&nt->group.cg_item))
++		config_item_get(&nt->group.cg_item);
+ }
+ 
+ static void netconsole_target_put(struct netconsole_target *nt)
+ {
+-	if (config_item_name(&nt->item))
+-		config_item_put(&nt->item);
++	if (config_item_name(&nt->group.cg_item))
++		config_item_put(&nt->group.cg_item);
++}
++
++static void dynamic_netconsole_init_type_name(struct netconsole_target *nt,
++						int index)
++{
++	char name[16];
++	snprintf(name, sizeof(name), "netcon%d", index);
++	config_item_init_type_name(&nt->group.cg_item, name,
++				&netconsole_target_type);
+ }
+ 
+ #else	/* !CONFIG_NETCONSOLE_DYNAMIC */
+@@ -155,6 +197,11 @@ static void netconsole_target_put(struct netconsole_target *nt)
+ {
+ }
+ 
++static void dynamic_netconsole_init_type_name(struct netconsole_target *nt,
++						int index)
++{
++}
++
+ #endif	/* CONFIG_NETCONSOLE_DYNAMIC */
+ 
+ /* Allocate new target (from boot/module param) and setup netpoll for it */
+@@ -236,8 +283,8 @@ struct netconsole_target_attr {
+ static struct netconsole_target *to_target(struct config_item *item)
+ {
+ 	return item ?
+-		container_of(item, struct netconsole_target, item) :
+-		NULL;
++		container_of(to_config_group(item), struct netconsole_target,
++			group) : NULL;
+ }
+ 
+ /*
+@@ -370,7 +417,7 @@ static ssize_t store_dev_name(struct netconsole_target *nt,
+ 	if (nt->enabled) {
+ 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
+ 				"disable to update parameters\n",
+-				config_item_name(&nt->item));
++				config_item_name(&nt->group.cg_item));
+ 		return -EINVAL;
+ 	}
+ 
+@@ -394,7 +441,7 @@ static ssize_t store_local_port(struct netconsole_target *nt,
+ 	if (nt->enabled) {
+ 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
+ 				"disable to update parameters\n",
+-				config_item_name(&nt->item));
++				config_item_name(&nt->group.cg_item));
+ 		return -EINVAL;
+ 	}
+ 
+@@ -417,7 +464,7 @@ static ssize_t store_remote_port(struct netconsole_target *nt,
+ 	if (nt->enabled) {
+ 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
+ 				"disable to update parameters\n",
+-				config_item_name(&nt->item));
++				config_item_name(&nt->group.cg_item));
+ 		return -EINVAL;
+ 	}
+ 
+@@ -437,7 +484,7 @@ static ssize_t store_local_ip(struct netconsole_target *nt,
+ 	if (nt->enabled) {
+ 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
+ 				"disable to update parameters\n",
+-				config_item_name(&nt->item));
++				config_item_name(&nt->group.cg_item));
+ 		return -EINVAL;
+ 	}
+ 
+@@ -453,7 +500,7 @@ static ssize_t store_remote_ip(struct netconsole_target *nt,
+ 	if (nt->enabled) {
+ 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
+ 				"disable to update parameters\n",
+-				config_item_name(&nt->item));
++				config_item_name(&nt->group.cg_item));
+ 		return -EINVAL;
+ 	}
+ 
+@@ -473,7 +520,7 @@ static ssize_t store_remote_mac(struct netconsole_target *nt,
+ 	if (nt->enabled) {
+ 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
+ 				"disable to update parameters\n",
+-				config_item_name(&nt->item));
++				config_item_name(&nt->group.cg_item));
+ 		return -EINVAL;
+ 	}
+ 
+@@ -608,14 +655,15 @@ static struct config_item *make_netconsole_target(struct config_group *group,
+ 	memset(nt->np.remote_mac, 0xff, ETH_ALEN);
+ 
+ 	/* Initialize the config_item member */
+-	config_item_init_type_name(&nt->item, name, &netconsole_target_type);
++	config_item_init_type_name(&nt->group.cg_item, name,
++				&netconsole_target_type);
+ 
+ 	/* Adding, but it is disabled */
+ 	spin_lock_irqsave(&target_list_lock, flags);
+ 	list_add(&nt->list, &target_list);
+ 	spin_unlock_irqrestore(&target_list_lock, flags);
+ 
+-	return &nt->item;
++	return &nt->group.cg_item;
+ }
+ 
+ static void drop_netconsole_target(struct config_group *group,
+@@ -635,7 +683,7 @@ static void drop_netconsole_target(struct config_group *group,
+ 	if (nt->enabled)
+ 		netpoll_cleanup(&nt->np);
+ 
+-	config_item_put(&nt->item);
++	config_item_put(&nt->group.cg_item);
+ }
+ 
+ static struct configfs_group_operations netconsole_subsys_group_ops = {
+@@ -741,6 +789,7 @@ static int __init init_netconsole(void)
+ 	unsigned long flags;
+ 	char *target_config;
+ 	char *input = config;
++	int i = 0;
+ 
+ 	if (strnlen(input, MAX_PARAM_LENGTH)) {
+ 		while ((target_config = strsep(&input, ";"))) {
+@@ -749,9 +798,13 @@ static int __init init_netconsole(void)
+ 				err = PTR_ERR(nt);
+ 				goto fail;
+ 			}
++
++			dynamic_netconsole_init_type_name(nt, i);
++
+ 			spin_lock_irqsave(&target_list_lock, flags);
+ 			list_add(&nt->list, &target_list);
+ 			spin_unlock_irqrestore(&target_list_lock, flags);
++			i++;
+ 		}
+ 	}
+ 
+@@ -759,7 +812,7 @@ static int __init init_netconsole(void)
+ 	if (err)
+ 		goto fail;
+ 
+-	err = dynamic_netconsole_init();
++	err = dynamic_netconsole_init(i);
+ 	if (err)
+ 		goto undonotifier;
+ 
+-- 
+1.5.3.rc5
 
