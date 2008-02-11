@@ -1,56 +1,37 @@
-From: Mike Phillips <mikep@linuxtr.net>
-Subject: Re: [2.6 patch] olympic_open() must be __devinit
-Date: Mon, 11 Feb 2008 14:03:35 -0500
-Message-ID: <20080211190335.GA4304@linuxtr.net>
-References: <20080130200207.GJ29368@does.not.exist>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
+Date: Mon, 11 Feb 2008 19:57:20 +0100
+Message-ID: <47B09A90.7040508@gmail.com>
+References: <200802110922.m1B9MKQ4003674@quickie.katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: p2@ace.ulyssis.student.kuleuven.ac.be, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from phl-30-a-50.phl.dsl.cerfnet.com ([63.242.148.50]:4261 "EHLO
-	ns1.linuxtr.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752268AbYBKSqr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 13:46:47 -0500
-Content-Disposition: inline
-In-Reply-To: <20080130200207.GJ29368@does.not.exist>
+Received: from ug-out-1314.google.com ([66.249.92.169]:5551 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750919AbYBKSyI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 13:54:08 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so347091ugc.16
+        for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 10:54:05 -0800 (PST)
+In-Reply-To: <200802110922.m1B9MKQ4003674@quickie.katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 30, 2008 at 10:02:07PM +0200, Adrian Bunk wrote:
-> This patch fixes the following section mismatch:
-> 
-> <--  snip  -->
-> 
-> ...
-> WARNING: drivers/net/built-in.o(.text+0x155573): Section mismatch in reference from the function olympic_open() to the function .devinit.text:olympic_init()
-> ...
-> 
-> <--  snip  -->
-> 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
-> 
-> ---
-> fd1e6e0bb5b17dc85cd24d6263e8751e816f59e6 
-> diff --git a/drivers/net/tokenring/olympic.c b/drivers/net/tokenring/olympic.c
-> index e7b4adc..433c994 100644
-> --- a/drivers/net/tokenring/olympic.c
-> +++ b/drivers/net/tokenring/olympic.c
-> @@ -434,7 +434,7 @@ static int __devinit olympic_init(struct net_device *dev)
->  
->  }
->  
-> -static int olympic_open(struct net_device *dev) 
-> +static int __devinit olympic_open(struct net_device *dev) 
->  {
->  	struct olympic_private *olympic_priv=netdev_priv(dev);
->  	u8 __iomem *olympic_mmio=olympic_priv->olympic_mmio,*init_srb;
-> 
-> 
+James Chapman wrote, On 02/11/2008 10:22 AM:
 
-If __devinit marked code is still discarded after initial setup then NACK. open can be called at any time the 
-interface is ifup'ed. Its most definitely not adapter init code (that's all done in probe).  
+> Fix locking issues in the pppol2tp driver which can cause a kernel
+> crash on SMP boxes when hundreds of L2TP sessions are created/deleted
+> simultaneously (ISP environment). The driver was violating read_lock()
+> and write_lock() scheduling rules so we now consistently use the _irq
+> variants of the lock functions.
+... 
 
-Mike
+Hi,
 
+Could you explain what exactly scheduling rules do you mean here,
+and why disabling interrupts is the best solution for this?
+
+Thanks,
+Jarek P.
