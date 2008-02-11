@@ -1,126 +1,143 @@
-From: "Jann Traschewski" <jann@gmx.de>
-Subject: [BUG][AX25] mkiss and ax25_route lockdep warning
-Date: Mon, 11 Feb 2008 09:56:27 +0100
-Message-ID: <000d01c86c8b$fd9e67d0$453c822c@dg8ngn>
+From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Subject: Re: [PATCH][RFC] race in generic address resolution
+Date: Mon, 11 Feb 2008 10:01:20 +0100
+Message-ID: <47B00EE0.4040109@linux.vnet.ibm.com>
+References: <20080204142717.GA11020@tuxmaker.boeblingen.de.ibm.com> <20080205.205154.153345843.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:52655 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752966AbYBKI4b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Feb 2008 03:56:31 -0500
+Received: from mtagate4.uk.ibm.com ([195.212.29.137]:25856 "EHLO
+	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750874AbYBKJA6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 04:00:58 -0500
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate4.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m1B90vWc096510
+	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 09:00:57 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m1B90vr8803010
+	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 09:00:57 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m1B90sCD021983
+	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 09:00:54 GMT
+In-Reply-To: <20080205.205154.153345843.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+David Miller schrieb:
+> From: Blaschka <frank.blaschka@de.ibm.com>
+> Date: Mon, 4 Feb 2008 15:27:17 +0100
+> 
+>> I'm running a SMP maschine (2 CPUs) configured as a router. During heavy
+>> traffic kernel dies with following message: 
+>>
+>>     <2>kernel BUG at /home/autobuild/BUILD/linux-2.6.23-20080125/net/core/skbuff.c:648!
+>  ...
+>> Following patch fixes the problem but I do not know if it is a good sollution.
+>>
+>> From: Frank Blaschka <frank.blaschka@de.ibm.com>
+>>
+>> neigh_update sends skb from neigh->arp_queue while
+>> neigh_timer_handler has increased skbs refcount and calls
+>> solicit with the skb. Do not send neighbour skbs
+>> marked for solicit (skb_shared).
+>>
+>> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+> 
+> Thanks for finding this bug.
+> 
+> I'm fine with your approach as a temporary fix, but there is a slight
+> problem with your patch.  If the skb is shared we have to free it if
+> we don't pass it on to ->output(), otherwise this creates a leak.
+> 
+> In the longer term, this is an unfortunate limitation.  The
+> ->solicit() code just wants to look at a few header fields to
+> determine how to construct the solicitation request.
+> 
+> What's funny is that we added these skb_get() calls for
+> the solications exactly to deal with this race condition.
+> 
+> I considered various ways to fix this.  The simplest is probably just
+> to skb_copy() in the ->solicit() case.  Solicitation is a rare event
+> so it's not big deal to copy the packet until the neighbour is
+> resolved.
+> 
+> The other option is holding the write lock on neigh->lock during the
+> ->solicit() call.  I looked at all of the ndisc_ops implementations
+> and this seems workable.  The only case that needs special care is the
+> IPV4 ARP implementation of arp_solicit().  It wants to take
+> neigh->lock as a reader to protect the header entry in neigh->ha
+> during the emission of the soliciation.  We can simply remove the read
+> lock calls to take care of that since holding the lock as a writer at
+> the caller providers a superset of the protection afforded by the
+> existing read locking.
+> 
+> The rest of the ->solicit() implementations don't care whether
+> the neigh is locked or not.
+> 
+> Can you see if this version of the patch fixes your problem?
+> 
+> Thanks!
+> 
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index a16cf1e..7bb6a9a 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -834,18 +834,12 @@ static void neigh_timer_handler(unsigned long arg)
+>  	}
+>  	if (neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) {
+>  		struct sk_buff *skb = skb_peek(&neigh->arp_queue);
+> -		/* keep skb alive even if arp_queue overflows */
+> -		if (skb)
+> -			skb_get(skb);
+> -		write_unlock(&neigh->lock);
+> +
+>  		neigh->ops->solicit(neigh, skb);
+>  		atomic_inc(&neigh->probes);
+> -		if (skb)
+> -			kfree_skb(skb);
+> -	} else {
+> -out:
+> -		write_unlock(&neigh->lock);
+>  	}
+> +out:
+> +	write_unlock(&neigh->lock);
+> 
+>  	if (notify)
+>  		neigh_update_notify(neigh);
+> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+> index 8e17f65..c663fa5 100644
+> --- a/net/ipv4/arp.c
+> +++ b/net/ipv4/arp.c
+> @@ -368,7 +368,6 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+>  		if (!(neigh->nud_state&NUD_VALID))
+>  			printk(KERN_DEBUG "trying to ucast probe in NUD_INVALID\n");
+>  		dst_ha = neigh->ha;
+> -		read_lock_bh(&neigh->lock);
+>  	} else if ((probes -= neigh->parms->app_probes) < 0) {
+>  #ifdef CONFIG_ARPD
+>  		neigh_app_ns(neigh);
+> @@ -378,8 +377,6 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+> 
+>  	arp_send(ARPOP_REQUEST, ETH_P_ARP, target, dev, saddr,
+>  		 dst_ha, dev->dev_addr, NULL);
+> -	if (dst_ha)
+> -		read_unlock_bh(&neigh->lock);
+>  }
+> 
+>  static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-After using "Lock debugging: prove locking correctness" with the Kernel I
-got this warning:
+Hi Dave,
 
-=================================
-[ INFO: inconsistent lock state ]
-2.6.24-dg8ngn-p02 #1
----------------------------------
-inconsistent {softirq-on-W} -> {in-softirq-R} usage.
-linuxnet/3046 [HC0[0]:SC1[2]:HE1:SE0] takes:
- (ax25_route_lock){--.+}, at: [<f8a0cfb7>] ax25_get_route+0x18/0xb7 [ax25]
-{softirq-on-W} state was registered at:
-  [<c013a340>] __lock_acquire+0x464/0xb7b
-  [<c01398d8>] mark_held_locks+0x39/0x53
-  [<c0124d35>] local_bh_enable_ip+0xcd/0xd5
-  [<c0139aaf>] trace_hardirqs_on+0x11a/0x13d
-  [<c013ae58>] lock_acquire+0x5f/0x77
-  [<f8a0d381>] ax25_rt_ioctl+0x66/0x325 [ax25]
-  [<c0299ce7>] _write_lock+0x29/0x34
-  [<f8a0d381>] ax25_rt_ioctl+0x66/0x325 [ax25]
-  [<f8a0d381>] ax25_rt_ioctl+0x66/0x325 [ax25]
-  [<f8a0f699>] ax25_ioctl+0x1b6/0x5b8 [ax25]
-  [<c0161280>] fd_install+0x1e/0x46
-  [<c0299c7a>] _spin_lock+0x29/0x34
-  [<c022e75d>] sock_ioctl+0x1bb/0x1e0
-  [<c022e5a2>] sock_ioctl+0x0/0x1e0
-  [<c016c76f>] do_ioctl+0x1f/0x62
-  [<c016c9d2>] vfs_ioctl+0x220/0x232
-  [<c0139aaf>] trace_hardirqs_on+0x11a/0x13d
-  [<c016ca17>] sys_ioctl+0x33/0x4c
-  [<c0103ea2>] syscall_call+0x7/0xb
-  [<ffffffff>] 0xffffffff
-irq event stamp: 120000
-hardirqs last  enabled at (120000): [<c0124d35>]
-local_bh_enable_ip+0xcd/0xd5
-hardirqs last disabled at (119999): [<c0124cc3>]
-local_bh_enable_ip+0x5b/0xd5
-softirqs last  enabled at (119892): [<f89fd53d>]
-mkiss_receive_buf+0x2a5/0x394 [mkiss]
-softirqs last disabled at (119893): [<c01249f0>] do_softirq+0x37/0x4d
+we run your patch during the weekend on single CPU and SMP machines. We do not
+see any problems. Thanks for providing the fix.
 
-other info that might help us debug this:
-5 locks held by linuxnet/3046:
- #0:  (&tty->atomic_write_lock){--..}, at: [<c01ded5e>]
-tty_write_lock+0x11/0x37
- #1:  (rcu_read_lock){..--}, at: [<c023a8d2>] net_rx_action+0x4e/0x1c4
- #2:  (rcu_read_lock){..--}, at: [<c0238579>] netif_receive_skb+0xe6/0x3d6
- #3:  (rcu_read_lock){..--}, at: [<c025549d>]
-ip_local_deliver_finish+0x2d/0x1f7
- #4:  (slock-AF_INET){-+..}, at: [<c0274e43>] icmp_send+0x10e/0x37a
-
-stack backtrace:
-Pid: 3046, comm: linuxnet Not tainted 2.6.24-dg8ngn-p02 #1
- [<c0138e13>] print_usage_bug+0x138/0x142
- [<c013961f>] mark_lock+0x1ca/0x44a
- [<c013a2d9>] __lock_acquire+0x3fd/0xb7b
- [<c01398d8>] mark_held_locks+0x39/0x53
- [<c0124d35>] local_bh_enable_ip+0xcd/0xd5
- [<c013ae58>] lock_acquire+0x5f/0x77
- [<f8a0cfb7>] ax25_get_route+0x18/0xb7 [ax25]
- [<c0299dc7>] _read_lock+0x29/0x34
- [<f8a0cfb7>] ax25_get_route+0x18/0xb7 [ax25]
- [<f8a0cfb7>] ax25_get_route+0x18/0xb7 [ax25]
- [<f89fda29>] ax_header+0x0/0x1a [mkiss]
- [<f8a0c3f6>] ax25_rebuild_header+0x30/0x202 [ax25]
- [<f89fda29>] ax_header+0x0/0x1a [mkiss]
- [<c023f90c>] neigh_compat_output+0x7b/0x97
- [<c0258bd6>] ip_finish_output+0x1da/0x204
- [<c0259a26>] ip_output+0x74/0x89
- [<c0257831>] ip_push_pending_frames+0x2d8/0x33a
- [<c025742c>] dst_output+0x0/0x7
- [<c0275039>] icmp_send+0x304/0x37a
- [<c013a353>] __lock_acquire+0x477/0xb7b
- [<c0270c05>] __udp4_lib_lookup+0xec/0xf6
- [<c0271a48>] __udp4_lib_rcv+0x586/0x771
- [<c02555ae>] ip_local_deliver_finish+0x13e/0x1f7
- [<c025549d>] ip_local_deliver_finish+0x2d/0x1f7
- [<c0255451>] ip_rcv_finish+0x2c1/0x2e0
- [<c025591c>] ip_rcv+0x1f0/0x22b
- [<c0255190>] ip_rcv_finish+0x0/0x2e0
- [<c0238808>] netif_receive_skb+0x375/0x3d6
- [<c0238579>] netif_receive_skb+0xe6/0x3d6
- [<c023adc4>] process_backlog+0x6c/0xcd
- [<c023a940>] net_rx_action+0xbc/0x1c4
- [<c023a8d2>] net_rx_action+0x4e/0x1c4
- [<c0124944>] __do_softirq+0x69/0xde
- [<f89fd53d>] mkiss_receive_buf+0x2a5/0x394 [mkiss]
- [<c01249f0>] do_softirq+0x37/0x4d
- [<c0124d15>] local_bh_enable_ip+0xad/0xd5
- [<f89fd53d>] mkiss_receive_buf+0x2a5/0x394 [mkiss]
- [<c029a042>] _spin_unlock_irqrestore+0x34/0x39
- [<c01e3233>] pty_write+0x2f/0x39
- [<c01e1233>] write_chan+0x22d/0x2a1
- [<c01191e7>] default_wake_function+0x0/0x8
- [<c01def37>] tty_write+0x14d/0x1c2
- [<c01e1006>] write_chan+0x0/0x2a1
- [<c01dedea>] tty_write+0x0/0x1c2
- [<c0162f28>] vfs_write+0x8a/0x10c
- [<c01634a4>] sys_write+0x41/0x67
- [<c0103ea2>] syscall_call+0x7/0xb
- =======================
-
-
---
-Jann Traschewski, Drosselstr.1, D-90513 Zirndorf, Germany
-Tel.: +49-911-696971, Mobile: +49-170-1045937, EMail: jann@gmx.de
-Ham: DG8NGN / DB0VOX, http://www.qsl.net/db0fhn, ICQ UIN: 4130182 
+Best regards,
+		Frank 
 
