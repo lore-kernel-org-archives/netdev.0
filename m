@@ -1,48 +1,28 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Subject: Re: [PATCH][RESEND] drivers/base: export
-	(un)register_memory_notifier
-Date: Mon, 11 Feb 2008 02:12:23 -0800
-Message-ID: <1202724743.8276.2.camel@nimitz.home.sr71.net>
-References: <200802111049.05478.ossthema@de.ibm.com>
+From: Jeba Anandhan <jeba.anandhan@vaioni.com>
+Subject: Engress path / congestion detection and avoidance
+Date: Mon, 11 Feb 2008 10:38:39 +0000
+Message-ID: <1202726319.24188.7.camel@vglwks010.vgl2.office.vaioni.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, Jan-Bernd Themann <themann@de.ibm.com>,
-	Thomas Klein <osstklei@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Cc: matthew.hattersley@vaioni.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:46696 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752074AbYBKKMY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Feb 2008 05:12:24 -0500
-In-Reply-To: <200802111049.05478.ossthema@de.ibm.com>
+Received: from vglsrv002.office.vaioni.com ([84.19.35.12]:37237 "EHLO
+	vglsrv02.vgl2.office.vaioni.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752924AbYBKKkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 05:40:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-02-11 at 10:49 +0100, Jan-Bernd Themann wrote:
-> are you the right person to address this patch to?
+Hi All,
+i have few doubts related to congestion and engress path.
 
-You might want to check the top of the file. ;)
+1) What happens when congestion hits and how it affects engress path?.
+2) How the engress traffic slow down when the congestion hits?
+3) what are the variables updated when the congestion hits?
+4) is it good to invoke netif_stop_queue when congestion hits?
 
-> --- a/drivers/base/memory.c
-> +++ b/drivers/base/memory.c
-> @@ -52,11 +52,13 @@ int register_memory_notifier(struct notifier_block *nb)
->  {
->          return blocking_notifier_chain_register(&memory_chain, nb);
->  }
-> +EXPORT_SYMBOL(register_memory_notifier);
->  
->  void unregister_memory_notifier(struct notifier_block *nb)
->  {
->          blocking_notifier_chain_unregister(&memory_chain, nb);
->  }
-> +EXPORT_SYMBOL(unregister_memory_notifier);
-
-Is there a particular reason these can't be GPL?
-
--- Dave
+thanks
+Jeba
 
