@@ -1,51 +1,52 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 5/6] ixgbe: Disallow device reset during
-	ethtool test
-Date: Mon, 11 Feb 2008 09:26:01 -0800
-Message-ID: <20080211172601.29090.83992.stgit@localhost.localdomain>
+Subject: [PATCH 2/6] e1000: warn if this driver is used for e1000e devices
+Date: Mon, 11 Feb 2008 09:25:46 -0800
+Message-ID: <20080211172546.29090.29806.stgit@localhost.localdomain>
 References: <20080211172539.29090.99369.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
 To: jeff@garzik.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:6433 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759464AbYBKR2A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Feb 2008 12:28:00 -0500
 In-Reply-To: <20080211172539.29090.99369.stgit@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+We're already starting to see reports from users still
+using e1000 where they should be using e1000e now that this is
+actually possible. Just to prevent some of this thrash, add
+a big warning on load on these devices that people should
+switch to e1000e.
 
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/net/e1000/e1000_main.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 576fb51..a4aeaec 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1942,6 +1942,10 @@ static int ixgbe_open(struct net_device *netdev)
- 	int err;
- 	u32 num_rx_queues = adapter->num_rx_queues;
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 7c5b05a..81db7fd 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -1203,6 +1203,14 @@ e1000_probe(struct pci_dev *pdev,
  
-+	/* disallow open during test */
-+	if (test_bit(__IXGBE_TESTING, &adapter->state))
-+		return -EBUSY;
+ 	printk("%s\n", print_mac(mac, netdev->dev_addr));
+ 
++	if (adapter->hw.bus_type == e1000_bus_type_pci_express) {
++		DPRINTK(PROBE, WARNING, "This device (id %04x:%04x) will no "
++			"longer be supported by this driver in the future.\n",
++			pdev->vendor, pdev->device);
++		DPRINTK(PROBE, WARNING, "please use the \"e1000e\" "
++			"driver instead.\n");
++	}
 +
- try_intr_reinit:
- 	/* allocate transmit descriptors */
- 	err = ixgbe_setup_all_tx_resources(adapter);
+ 	/* reset the hardware with the new settings */
+ 	e1000_reset(adapter);
+ 
 
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2008.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
