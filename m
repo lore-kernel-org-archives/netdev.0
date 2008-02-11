@@ -1,108 +1,47 @@
-From: "Alexandre Bounine" <Alexandre.Bounine@tundra.com>
-Subject: [PATCH 5/5 v2] Tsi108_eth: Add ethtool support
-Date: Mon, 11 Feb 2008 11:32:49 -0500
-Message-ID: <1B5F013528140F45B5C671039279CA5702A96393@NANUK.pc.tundra.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/5 v2] Tsi108_eth: add missing linking to driver data
+Date: Mon, 11 Feb 2008 11:40:17 -0500
+Message-ID: <47B07A71.3060405@pobox.com>
+References: <1B5F013528140F45B5C671039279CA5702A9638A@NANUK.pc.tundra.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <linuxppc-dev@ozlabs.org>,
-	"Josh Boyer" <jwboyer@linux.vnet.ibm.com>,
-	"Zang Roy-r61911" <tie-fei.zang@freescale.com>
-To: <jgarzik@pobox.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Josh Boyer <jwboyer@linux.vnet.ibm.com>,
+	Zang Roy-r61911 <tie-fei.zang@freescale.com>
+To: Alexandre Bounine <Alexandre.Bounine@tundra.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.tundra.com ([142.46.200.162]:54501 "EHLO mx2.tundra.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757541AbYBKQcv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 11:32:51 -0500
-Content-class: urn:content-classes:message
+Received: from srv5.dvmed.net ([207.36.208.214]:48733 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758660AbYBKQkW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Feb 2008 11:40:22 -0500
+In-Reply-To: <1B5F013528140F45B5C671039279CA5702A9638A@NANUK.pc.tundra.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add ethtool support to tsi108_eth network driver.
-   
-Signed-off-by: Alexandre Bounine <alexandreb@tundra.com>
----
+Alexandre Bounine wrote:
+> Bug fix for tsi108_eth network driver.
+> This patch adds missing linking to driver data. 
+>    
+> Signed-off-by: Alexandre Bounine <alexandreb@tundra.com>
+> ---
+> 
+> diff -pNur linux-2.6.24/drivers/net/tsi108_eth.c
+> linux-2.6.24-fix/drivers/net/tsi108_eth.c
+> --- linux-2.6.24/drivers/net/tsi108_eth.c	2008-01-24
+> 17:58:37.000000000 -0500
+> +++ linux-2.6.24-fix/drivers/net/tsi108_eth.c	2008-02-06
+> 14:30:04.000000000 -0500
+> @@ -1629,6 +1629,7 @@ tsi108_init_one(struct platform_device *
+>  		goto register_fail;
+>  	}
+>  
+> +	platform_set_drvdata(pdev, dev);
+>  	printk(KERN_INFO "%s: Tsi108 Gigabit Ethernet, MAC: %s\n",
+>  	       dev->name, print_mac(mac, dev->dev_addr));
+>  #ifdef DEBUG
 
-diff -pNur linux-2.6.24/drivers/net/tsi108_eth.c
-linux-2.6.24-fix/drivers/net/tsi108_eth.c
---- linux-2.6.24/drivers/net/tsi108_eth.c	2008-02-06
-17:10:53.000000000 -0500
-+++ linux-2.6.24-fix/drivers/net/tsi108_eth.c	2008-02-06
-18:09:43.000000000 -0500
-@@ -36,6 +36,7 @@
- #include <linux/net.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
-+#include <linux/ethtool.h>
- #include <linux/skbuff.h>
- #include <linux/slab.h>
- #include <linux/spinlock.h>
-@@ -1519,12 +1520,46 @@ static void tsi108_init_mac(struct net_d
- 	TSI_WRITE(TSI108_EC_INTMASK, ~0);
- }
- 
-+static int tsi108_get_settings(struct net_device *dev, struct
-ethtool_cmd *cmd)
-+{
-+	struct tsi108_prv_data *data = netdev_priv(dev);
-+	unsigned long flags;
-+	int rc;
-+	
-+	spin_lock_irqsave(&data->txlock, flags);
-+	rc = mii_ethtool_gset(&data->mii_if, cmd);
-+	spin_unlock_irqrestore(&data->txlock, flags);
-+
-+	return rc;
-+}
-+
-+static int tsi108_set_settings(struct net_device *dev, struct
-ethtool_cmd *cmd)
-+{
-+	struct tsi108_prv_data *data = netdev_priv(dev);
-+	unsigned long flags;
-+	int rc;
-+
-+	spin_lock_irqsave(&data->txlock, flags);
-+	rc = mii_ethtool_sset(&data->mii_if, cmd);
-+	spin_unlock_irqrestore(&data->txlock, flags);
-+	
-+	return rc;
-+}
-+
- static int tsi108_do_ioctl(struct net_device *dev, struct ifreq *rq,
-int cmd)
- {
- 	struct tsi108_prv_data *data = netdev_priv(dev);
-+	if (!netif_running(dev))
-+		return -EINVAL;
- 	return generic_mii_ioctl(&data->mii_if, if_mii(rq), cmd, NULL);
- }
- 
-+static const struct ethtool_ops tsi108_ethtool_ops = {
-+	.get_link 	= ethtool_op_get_link,
-+	.get_settings	= tsi108_get_settings,
-+	.set_settings	= tsi108_set_settings,
-+};
-+
- static int
- tsi108_init_one(struct platform_device *pdev)
- {
-@@ -1589,6 +1624,7 @@ tsi108_init_one(struct platform_device *
- 	dev->get_stats = tsi108_get_stats;
- 	netif_napi_add(dev, &data->napi, tsi108_poll, 64);
- 	dev->do_ioctl = tsi108_do_ioctl;
-+	dev->ethtool_ops = &tsi108_ethtool_ops;
- 
- 	/* Apparently, the Linux networking code won't use
-scatter-gather
- 	 * if the hardware doesn't do checksums.  However, it's faster
-
-
----
-
-
-
-Important Notice: This message is intended for the use of the individual to whom it is addressed and may contain information which is privileged, confidential and/or exempt from disclosure under applicable law. If the reader of this message is not the intended recipient, or is not the employee or agent responsible for delivering the message to the intended recipient, you are hereby notified that any dissemination, distribution, or copying of this communication is strictly prohibited. If you have received this communication in error, please notify the sender immediately by telephone or return e-mail and delete the original message from your systems. Thank you. 
+still getting word-wrapped... even the patch header is mangled across 
+multiple lines
 
 
