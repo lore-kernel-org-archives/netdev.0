@@ -1,29 +1,34 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Subject: Re: [PATCH] drivers/base: export gpl (un)register_memory_notifier
-Date: Mon, 11 Feb 2008 08:04:43 -0800
-Message-ID: <1202745883.8276.5.camel@nimitz.home.sr71.net>
-References: <200802111657.07534.ossthema@de.ibm.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] Add IPv6 support to TCP SYN cookies
+Date: Tue, 12 Feb 2008 03:07:41 +1100 (EST)
+Message-ID: <20080212.030741.132208013.yoshfuji@linux-ipv6.org>
+References: <47abe7b1.20588c0a.7013.75b7@mx.google.com>
+	<47abeba8.20588c0a.7013.ffff80d3@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Thomas Klein <osstklei@de.ibm.com>,
-	"Themann, Jan-Bernd" <themann@de.ibm.com>,
-	Greg KH <greg@kroah.com>, Christoph Raisch <RAISCH@de.ibm.com>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758235AbYBKQE5@vger.kernel.org>
-In-Reply-To: <200802111657.07534.ossthema@de.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dada1@cosmosbay.com, johnpol@2ka.mipt.ru, alan@lxorguk.ukuu.org.uk,
+	andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: ggriffin.kernel@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:45090 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755055AbYBKQHD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 11:07:03 -0500
+In-Reply-To: <47abeba8.20588c0a.7013.ffff80d3@mx.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-02-11 at 16:57 +0100, Jan-Bernd Themann wrote:
-> Drivers like eHEA need memory notifiers in order to 
-> update their internal DMA memory map when memory is added
-> to or removed from the system.
+In article <47abeba8.20588c0a.7013.ffff80d3@mx.google.com> (at Thu,  7 Feb 2008 21:49:26 -0800), Glenn Griffin <ggriffin.kernel@gmail.com> says:
 
-Could you post this with the new users as well so we can make sure
-they're not abusing this in some way?
+> Updated to incorporate Eric's suggestion of using a per cpu buffer
+> rather than allocating on the stack.  Just a two line change, but will
+> resend in it's entirety.
+> 
+> Signed-off-by: Glenn Griffin <ggriffin.kernel@gmail.com>
 
--- Dave
+Applied in my linux-2.6-dev tree.  Thanks.
+
+--yoshfuji
