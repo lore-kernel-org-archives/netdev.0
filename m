@@ -1,64 +1,42 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: [PATCH] drivers/base: export gpl (un)register_memory_notifier
-Date: Mon, 11 Feb 2008 17:24:11 +0100
-Message-ID: <200802111724.12416.ossthema@de.ibm.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH] [RESENDING] netconsole: register cmdline netconsole
+	configs to configfs
+Date: Mon, 11 Feb 2008 10:30:13 -0600
+Message-ID: <1202747413.28085.1.camel@cinder.waste.org>
+References: <12027209122955-git-send-email-joonwpark81@gmail.com>
+	 <12027209163465-git-send-email-joonwpark81@gmail.com>
+	 <12027209202884-git-send-email-joonwpark81@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-ppc" <linuxppc-dev@ozlabs.org>,
-	Thomas Klein <osstklei@de.ibm.com>,
-	"Themann, Jan-Bernd" <themann@de.ibm.com>,
-	Greg KH <greg@kroah.com>, Christoph Raisch <RAISCH@de.ibm.com>
-To: Dave Hansen <haveblue@us.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758838AbYBKQYs@vger.kernel.org>
-Content-Disposition: inline
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, satyam@infradead.org
+To: Joonwoo Park <joonwpark81@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758384AbYBKQbQ@vger.kernel.org>
+In-Reply-To: <12027209202884-git-send-email-joonwpark81@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Drivers like eHEA need memory notifiers in order to 
-update their internal DMA memory map when memory is added
-to or removed from the system.
 
-Patch for eHEA memory hotplug support that uses these functions:
-http://www.spinics.net/lists/netdev/msg54484.html
+On Mon, 2008-02-11 at 18:08 +0900, Joonwoo Park wrote:
+> This patch intorduces cmdline netconsole configs to register to
+> configfs
+> with dynamic netconsole. Satyam Sharma who designed shiny dynamic
+> reconfiguration for netconsole, mentioned about this issue already.
+> (http://lkml.org/lkml/2007/7/29/360)
+> But I think, without separately managing of two kind of netconsole
+> target
+> objects, it's possible by using config_group instead of
+> config_item in the netconsole_target and default_groups feature of
+> configfs.
+> 
+> Patch was tested with configuration creation/destruction by kernel and
+> module.
+> And it makes possible to enable/disable, modify and review netconsole
+> target configs from cmdline.
 
-Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
+I'm afraid I'm going to have to leave review of this to someone who is
+clueful about configfs. But it seems reasonable.
 
-
----
- Hi,
-
- the eHEA patch belongs to a patchset that is usually
- added by Jeff Garzik once this dependency (EXPORTS)
- is resolved.
-
- Regards,
- Jan-Bernd
-
-
- drivers/base/memory.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/base/memory.c b/drivers/base/memory.c
-index 7ae413f..f5a0bf1 100644
---- a/drivers/base/memory.c
-+++ b/drivers/base/memory.c
-@@ -52,11 +52,13 @@ int register_memory_notifier(struct notifier_block *nb)
- {
-         return blocking_notifier_chain_register(&memory_chain, nb);
- }
-+EXPORT_SYMBOL_GPL(register_memory_notifier);
- 
- void unregister_memory_notifier(struct notifier_block *nb)
- {
-         blocking_notifier_chain_unregister(&memory_chain, nb);
- }
-+EXPORT_SYMBOL_GPL(unregister_memory_notifier);
- 
- /*
-  * register_memory - Setup a sysfs device for a memory block
 -- 
-1.5.2
+Mathematics is the supreme nostalgia of our time.
