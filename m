@@ -1,32 +1,40 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
-Date: Mon, 11 Feb 2008 23:55:33 +0100
-Message-ID: <20080211225533.GB2863@ami.dom.local>
-References: <200802110922.m1B9MKQ4003674@quickie.katalix.com> <47B09A90.7040508@gmail.com> <47B0C9F7.5040200@katalix.com> <20080211224924.GA2863@ami.dom.local>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] Execute tasklets in the same order they were queued
+Date: Mon, 11 Feb 2008 14:49:27 -0800
+Message-ID: <20080211144927.55920e56.akpm@linux-foundation.org>
+References: <20080211222813.GA14316@lixom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Olof Johansson <olof@lixom.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:3166 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756351AbYBKWuc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 17:50:32 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so402787ugc.16
-        for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 14:50:30 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080211224924.GA2863@ami.dom.local>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:40033 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753330AbYBKWu1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 17:50:27 -0500
+In-Reply-To: <20080211222813.GA14316@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 11, 2008 at 11:49:24PM +0100, Jarek Poplawski wrote:
-> On Mon, Feb 11, 2008 at 10:19:35PM +0000, James Chapman wrote:
-> ...
-> > Below is example output from lockdep. The oops is reproducible when  
-> > creating/deleting lots of sessions while passing data. The lock is being  
-> > acquired for read and write in softirq contexts.
+On Mon, 11 Feb 2008 16:28:13 -0600
+Olof Johansson <olof@lixom.net> wrote:
 
-...Hmmm... And according to this, changing read_locks should be
-necessary too.
+> I noticed this when looking at an openswan issue. Openswan (ab?)uses
+> the tasklet API to defer processing of packets in some situations,
+> with one packet per tasklet_action(). I started noticing sequences of
+> reverse-ordered sequence numbers coming over the wire, since new tasklets
+> are always queued at the head of the list but processed sequentially.
+> 
+> Convert it to instead append new entries to the tail of the list. As an
+> extra bonus, the splicing code in takeover_tasklets() no longer has to
+> iterate over the list.
+> 
 
-Jarek P.
+hm, I'd have thought that this would already have caused problems in
+networking.  And perhaps this change might have effects on networking too?
+
+Probably it won't have _much_ effect on networking because networking
+probably isn't queueing one tasklet per packet(!) but perhaps with bonded
+channels or something like that?
+
