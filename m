@@ -1,44 +1,46 @@
-From: "Jan Beulich" <jbeulich@novell.com>
-Subject: Re: [patch 1/7] typhoon section fix
-Date: Mon, 11 Feb 2008 08:22:32 +0000
-Message-ID: <47B013D8.76E4.0078.0@novell.com>
-References: <200802081120.m18BK6cL021623@imap1.linux-foundation.org>
- <1202479150.4349.0.camel@obelisk.thedillows.org>
- <20080208095233.722d7c47.akpm@linux-foundation.org>
- <1202494917.5298.3.camel@lap75545.ornl.gov>
- <20080208190340.GA31072@uranus.ravnborg.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <jeff@garzik.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"David Dillow" <dave@thedillows.org>, <netdev@vger.kernel.org>
-To: "Sam Ravnborg" <sam@ravnborg.org>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH] [IPV4]: Remove warning in node_set_parent.
+Date: Mon, 11 Feb 2008 11:47:17 +0300
+Message-ID: <1202719637-4925-1-git-send-email-den@openvz.org>
+Cc: netdev@vger.kernel.org, devel@openvz.org,
+	shemminger@linux-foundation.org, "Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from public.id2-vpn.continvity.gns.novell.com ([195.33.99.129]:53235
-	"EHLO public.id2-vpn.continvity.gns.novell.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752387AbYBKImM convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Feb 2008 03:42:12 -0500
-In-Reply-To: <20080208190340.GA31072@uranus.ravnborg.org>
-Content-Disposition: inline
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:61454 "EHLO iris.sw.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750893AbYBKIrU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Feb 2008 03:47:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->So do we have other options that to drop the constification and thus
->dropping the __devinitconst and the other __*const annotations - I think not :-(
+net/ipv4/fib_trie.c: In function 'node_set_parent':
+net/ipv4/fib_trie.c:184: warning: assignment makes integer from pointer
+without a cast
 
-As I had said already in another reply - I think the most reasonable thing
-to do is to fold section name attribute *and* const into __*initconst
-(while defining __*initconst to __*initdata on those targets not allowing
-relocations in read-only sections, which should be done by a promptless
-config option to avoid enumerating all the targets each time such a
-conditional is needed somewhere). While that doesn't allow the 'const'
-compile time checking on those problem targets, it is consistent for all
-targets and provides the intended DEBUG_RODATA benefit where
-possible. Additionally, the const compile time checking will then be more
-tight on the presumable more frequently tested x86 targets, so the
-chances of bad constructs slipping in should be reduced.
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ net/ipv4/fib_trie.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-Jan
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index f5fba3f..1753cd4 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -177,10 +177,11 @@ static inline struct tnode *node_parent_rcu(struct node *node)
+ 	return rcu_dereference(ret);
+ }
+ 
+-static inline void node_set_parent(struct node *node, struct tnode *ptr)
++static inline void node_set_parent(struct node *node, struct tnode *__ptr)
+ {
+-	rcu_assign_pointer(node->parent,
+-			   (unsigned long)ptr | NODE_TYPE(node));
++	struct node *ptr;
++	ptr = (struct node *)((unsigned long)__ptr | NODE_TYPE(node));
++	rcu_assign_pointer(node->parent, ptr);
+ }
+ 
+ static inline struct node *tnode_get_child(struct tnode *tn, unsigned int i)
+-- 
+1.5.3.rc5
 
