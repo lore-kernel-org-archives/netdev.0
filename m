@@ -1,34 +1,44 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Netfilter fixes to 2.6.24-git
-Date: Mon, 11 Feb 2008 08:17:26 +0000
-Message-ID: <20080211081726.GA3597@ff.dom.local>
-References: <47AFF28A.9090808@trash.net>
+From: "Jan Beulich" <jbeulich@novell.com>
+Subject: Re: [patch 1/7] typhoon section fix
+Date: Mon, 11 Feb 2008 08:22:32 +0000
+Message-ID: <47B013D8.76E4.0078.0@novell.com>
+References: <200802081120.m18BK6cL021623@imap1.linux-foundation.org>
+ <1202479150.4349.0.camel@obelisk.thedillows.org>
+ <20080208095233.722d7c47.akpm@linux-foundation.org>
+ <1202494917.5298.3.camel@lap75545.ornl.gov>
+ <20080208190340.GA31072@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <jeff@garzik.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"David Dillow" <dave@thedillows.org>, <netdev@vger.kernel.org>
+To: "Sam Ravnborg" <sam@ravnborg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.178]:64900 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751040AbYBKIKO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 03:10:14 -0500
-Received: by py-out-1112.google.com with SMTP id u52so6685047pyb.10
-        for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 00:10:13 -0800 (PST)
+Received: from public.id2-vpn.continvity.gns.novell.com ([195.33.99.129]:53235
+	"EHLO public.id2-vpn.continvity.gns.novell.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752387AbYBKImM convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Feb 2008 03:42:12 -0500
+In-Reply-To: <20080208190340.GA31072@uranus.ravnborg.org>
 Content-Disposition: inline
-In-Reply-To: <47AFF28A.9090808@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11-02-2008 08:00, Patrick McHardy wrote:
-...
-> Indeed, I'm currently ill and not really up for much working,
-> but this will hopefully get better soon.
+>So do we have other options that to drop the constification and thus
+>dropping the __devinitconst and the other __*const annotations - I think not :-(
 
-Wish you well, Patrick!
+As I had said already in another reply - I think the most reasonable thing
+to do is to fold section name attribute *and* const into __*initconst
+(while defining __*initconst to __*initdata on those targets not allowing
+relocations in read-only sections, which should be done by a promptless
+config option to avoid enumerating all the targets each time such a
+conditional is needed somewhere). While that doesn't allow the 'const'
+compile time checking on those problem targets, it is consistent for all
+targets and provides the intended DEBUG_RODATA benefit where
+possible. Additionally, the const compile time checking will then be more
+tight on the presumable more frequently tested x86 targets, so the
+chances of bad constructs slipping in should be reduced.
 
-I hope it's about some WARN_ON not BUG_ON?
+Jan
 
-Anyway, drop these last patches and get back to stable!
-
-Regards,
-Jarek P.
