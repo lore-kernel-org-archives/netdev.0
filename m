@@ -1,174 +1,99 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH][AX25] ax25_route: make ax25_route_lock BH safe
-Date: Mon, 11 Feb 2008 12:42:51 +0000
-Message-ID: <20080211124251.GB3597@ff.dom.local>
-References: <000d01c86c8b$fd9e67d0$453c822c@dg8ngn>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: [PATCH] virtio_net: Fix oops on early interrupts - introduced by virtio reset code
+Date: Mon, 11 Feb 2008 14:11:15 +0100
+Message-ID: <200802111411.15745.borntraeger@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jann Traschewski <jann@gmx.de>,
-	Bernard Pidoux F6BVP <f6bvp@free.fr>,
-	Ralf Baechle DL5RB <ralf@linux-mips.org>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dor.laor@qumranet.com, Anthony Liguori <aliguori@us.ibm.com>,
+	"kvm-devel" <kvm-devel@lists.sourceforge.net>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Avi Kivity <avi@qumranet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.187]:43969 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752200AbYBKMfq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 07:35:46 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so4483531fkz.5
-        for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 04:35:41 -0800 (PST)
+Received: from mtagate1.uk.ibm.com ([195.212.29.134]:37553 "EHLO
+	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754044AbYBKNL0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 08:11:26 -0500
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate1.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m1BDBP4h102414
+	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 13:11:25 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m1BDBPxd1196140
+	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 13:11:25 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m1BDBIrg002189
+	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 13:11:20 GMT
 Content-Disposition: inline
-In-Reply-To: <000d01c86c8b$fd9e67d0$453c822c@dg8ngn>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Avi,
+this fixes a problem that was introduced by the virtio_reset patches. 
+Can you apply that fix to kvm.git as a bugfix,  as the virtio_reset
+infrastructure is not on Linus upstream yet?
 
-Subject: [AX25] ax25_route: make ax25_route_lock BH safe
+Anthony, Dor,
+are you ok with that change?
 
-> =================================
-> [ INFO: inconsistent lock state ]
-> 2.6.24-dg8ngn-p02 #1
-> ---------------------------------
-> inconsistent {softirq-on-W} -> {in-softirq-R} usage.
-> linuxnet/3046 [HC0[0]:SC1[2]:HE1:SE0] takes:
->  (ax25_route_lock){--.+}, at: [<f8a0cfb7>] ax25_get_route+0x18/0xb7 [ax25]
-> {softirq-on-W} state was registered at:
-...
+--
 
-This lockdep report shows that ax25_route_lock is taken for reading in
-softirq context, and for writing in process context with BHs enabled.
-So, to make this safe, all write_locks in ax25_route.c are changed to
-_bh versions.
+With the latest virtio_reset patches I got the following oops:
+
+Unable to handle kernel pointer dereference at virtual kernel address 0000000000000000
+Oops: 0004 [#1] PREEMPT SMP
+Modules linked in:
+CPU: 1 Not tainted 2.6.24zlive-guest-10577-g63f5307-dirty #168
+Process swapper (pid: 0, task: 000000000f866040, ksp: 000000000f86fd78)
+Krnl PSW : 0404100180000000 000000000047598a (skb_recv_done+0x52/0x98)
+           R:0 T:1 IO:0 EX:0 Key:0 M:1 W:0 P:0 AS:0 CC:1 PM:0 EA:3
+Krnl GPRS: 0000000000000001 0000000000000000 000000000efd0e60 0000000000000001
+           0000000000000000 000000000f866040 0000000000000000 0000000000000000
+           00000000008de4c8 0000000000001237 0000000000001237 000000000f977dd8
+           0000000000000020 00000000001132bc 000000000f977e08 000000000f977dd8
+Krnl Code: 000000000047597c: e31040300004       lg      %r1,48(%r4)
+           0000000000475982: b9040001           lgr     %r0,%r1
+           0000000000475986: b9810003           ogr     %r0,%r3
+          >000000000047598a: eb1040300030       csg     %r1,%r0,48(%r4)
+           0000000000475990: a744fff9           brc     4,475982
+           0000000000475994: a7110001           tmll    %r1,1
+           0000000000475998: a7840009           brc     8,4759aa
+           000000000047599c: e340b0b80004       lg      %r4,184(%r11)
+Call Trace:
+([<000001500f978000>] 0x1500f978000)
+ [<00000000004779a6>] vring_interrupt+0x72/0x88
+ [<0000000000491d9c>] kvm_extint_handler+0x34/0x44
+ [<000000000010d2d4>] do_extint+0xc0/0xfc
+ [<0000000000113b5a>] ext_no_vtime+0x1c/0x20
+ [<000000000010a0b6>] cpu_idle+0x21a/0x230
 
 
-Reported-by: Jann Traschewski <jann@gmx.de>,
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+We must initialize vdev->priv before we use the notify hypercall as 
+vdev->priv is used in skb_recv_done. So lets move the assignment of 
+vdev->priv before we call try_fill_recv.
 
+Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
 ---
+ drivers/net/virtio_net.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -Nurp 2.6.24-mm1-/net/ax25/ax25_route.c 2.6.24-mm1+/net/ax25/ax25_route.c
---- 2.6.24-mm1-/net/ax25/ax25_route.c	2008-02-05 07:45:38.000000000 +0000
-+++ 2.6.24-mm1+/net/ax25/ax25_route.c	2008-02-11 11:58:47.000000000 +0000
-@@ -45,7 +45,7 @@ void ax25_rt_device_down(struct net_devi
- {
- 	ax25_route *s, *t, *ax25_rt;
+Index: kvm/drivers/net/virtio_net.c
+===================================================================
+--- kvm.orig/drivers/net/virtio_net.c
++++ kvm/drivers/net/virtio_net.c
+@@ -361,6 +361,7 @@ static int virtnet_probe(struct virtio_d
+ 	netif_napi_add(dev, &vi->napi, virtnet_poll, napi_weight);
+ 	vi->dev = dev;
+ 	vi->vdev = vdev;
++	vdev->priv = vi;
  
--	write_lock(&ax25_route_lock);
-+	write_lock_bh(&ax25_route_lock);
- 	ax25_rt = ax25_route_list;
- 	while (ax25_rt != NULL) {
- 		s       = ax25_rt;
-@@ -68,7 +68,7 @@ void ax25_rt_device_down(struct net_devi
- 			}
- 		}
- 	}
--	write_unlock(&ax25_route_lock);
-+	write_unlock_bh(&ax25_route_lock);
- }
- 
- static int __must_check ax25_rt_add(struct ax25_routes_struct *route)
-@@ -82,7 +82,7 @@ static int __must_check ax25_rt_add(stru
- 	if (route->digi_count > AX25_MAX_DIGIS)
- 		return -EINVAL;
- 
--	write_lock(&ax25_route_lock);
-+	write_lock_bh(&ax25_route_lock);
- 
- 	ax25_rt = ax25_route_list;
- 	while (ax25_rt != NULL) {
-@@ -92,7 +92,7 @@ static int __must_check ax25_rt_add(stru
- 			ax25_rt->digipeat = NULL;
- 			if (route->digi_count != 0) {
- 				if ((ax25_rt->digipeat = kmalloc(sizeof(ax25_digi), GFP_ATOMIC)) == NULL) {
--					write_unlock(&ax25_route_lock);
-+					write_unlock_bh(&ax25_route_lock);
- 					return -ENOMEM;
- 				}
- 				ax25_rt->digipeat->lastrepeat = -1;
-@@ -102,14 +102,14 @@ static int __must_check ax25_rt_add(stru
- 					ax25_rt->digipeat->calls[i]    = route->digi_addr[i];
- 				}
- 			}
--			write_unlock(&ax25_route_lock);
-+			write_unlock_bh(&ax25_route_lock);
- 			return 0;
- 		}
- 		ax25_rt = ax25_rt->next;
+ 	/* We expect two virtqueues, receive then send. */
+ 	vi->rvq = vdev->config->find_vq(vdev, 0, skb_recv_done);
+@@ -395,7 +396,6 @@ static int virtnet_probe(struct virtio_d
  	}
  
- 	if ((ax25_rt = kmalloc(sizeof(ax25_route), GFP_ATOMIC)) == NULL) {
--		write_unlock(&ax25_route_lock);
-+		write_unlock_bh(&ax25_route_lock);
- 		return -ENOMEM;
- 	}
- 
-@@ -120,7 +120,7 @@ static int __must_check ax25_rt_add(stru
- 	ax25_rt->ip_mode      = ' ';
- 	if (route->digi_count != 0) {
- 		if ((ax25_rt->digipeat = kmalloc(sizeof(ax25_digi), GFP_ATOMIC)) == NULL) {
--			write_unlock(&ax25_route_lock);
-+			write_unlock_bh(&ax25_route_lock);
- 			kfree(ax25_rt);
- 			return -ENOMEM;
- 		}
-@@ -133,7 +133,7 @@ static int __must_check ax25_rt_add(stru
- 	}
- 	ax25_rt->next   = ax25_route_list;
- 	ax25_route_list = ax25_rt;
--	write_unlock(&ax25_route_lock);
-+	write_unlock_bh(&ax25_route_lock);
- 
+ 	pr_debug("virtnet: registered device %s\n", dev->name);
+-	vdev->priv = vi;
  	return 0;
- }
-@@ -152,7 +152,7 @@ static int ax25_rt_del(struct ax25_route
- 	if ((ax25_dev = ax25_addr_ax25dev(&route->port_addr)) == NULL)
- 		return -EINVAL;
  
--	write_lock(&ax25_route_lock);
-+	write_lock_bh(&ax25_route_lock);
- 
- 	ax25_rt = ax25_route_list;
- 	while (ax25_rt != NULL) {
-@@ -174,7 +174,7 @@ static int ax25_rt_del(struct ax25_route
- 			}
- 		}
- 	}
--	write_unlock(&ax25_route_lock);
-+	write_unlock_bh(&ax25_route_lock);
- 
- 	return 0;
- }
-@@ -188,7 +188,7 @@ static int ax25_rt_opt(struct ax25_route
- 	if ((ax25_dev = ax25_addr_ax25dev(&rt_option->port_addr)) == NULL)
- 		return -EINVAL;
- 
--	write_lock(&ax25_route_lock);
-+	write_lock_bh(&ax25_route_lock);
- 
- 	ax25_rt = ax25_route_list;
- 	while (ax25_rt != NULL) {
-@@ -216,7 +216,7 @@ static int ax25_rt_opt(struct ax25_route
- 	}
- 
- out:
--	write_unlock(&ax25_route_lock);
-+	write_unlock_bh(&ax25_route_lock);
- 	return err;
- }
- 
-@@ -492,7 +492,7 @@ void __exit ax25_rt_free(void)
- {
- 	ax25_route *s, *ax25_rt = ax25_route_list;
- 
--	write_lock(&ax25_route_lock);
-+	write_lock_bh(&ax25_route_lock);
- 	while (ax25_rt != NULL) {
- 		s       = ax25_rt;
- 		ax25_rt = ax25_rt->next;
-@@ -500,5 +500,5 @@ void __exit ax25_rt_free(void)
- 		kfree(s->digipeat);
- 		kfree(s);
- 	}
--	write_unlock(&ax25_route_lock);
-+	write_unlock_bh(&ax25_route_lock);
- }
+ unregister:
