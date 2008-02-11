@@ -1,38 +1,29 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] net: NEWEMAC: Remove "rgmii-interface" from rgmii matching
- table
-Date: Mon, 11 Feb 2008 11:08:17 -0500
-Message-ID: <47B072F1.4040605@garzik.org>
-References: <1202300519-7294-1-git-send-email-sr@denx.de> <20080206064947.7e91d833@zod.rchland.ibm.com>
+Subject: Re: [PATCH 2.6.25] cxgb3: Handle ARP completions that mark neighbors
+ stale.
+Date: Mon, 11 Feb 2008 11:09:25 -0500
+Message-ID: <47B07335.5090709@garzik.org>
+References: <20080206180519.4680.34741.stgit@dell3.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stefan Roese <sr@denx.de>, netdev@vger.kernel.org,
-	benh@kernel.crashing.org, linuxppc-dev@ozlabs.org
-To: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51961 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755055AbYBKQIX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Feb 2008 11:08:23 -0500
-In-Reply-To: <20080206064947.7e91d833@zod.rchland.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: divy@chelsio.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, general@lists.openfabrics.org
+To: Steve Wise <swise@opengridcomputing.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758579AbYBKQJo@vger.kernel.org>
+In-Reply-To: <20080206180519.4680.34741.stgit@dell3.ogc.int>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Josh Boyer wrote:
-> On Wed,  6 Feb 2008 13:21:59 +0100
-> Stefan Roese <sr@denx.de> wrote:
+Steve Wise wrote:
+> cxgb3: Handle ARP completions that mark neighbors stale.
 > 
->> With the removal the the "rgmii-interface" device_type property from the
->> dts files, the newemac driver needs an update to only rely on compatible
->> property.
->>
->> Signed-off-by: Stefan Roese <sr@denx.de>
->> Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> When ARP completes due to a request rather than a reply the neighbor is
+> marked NUD_STALE instead of reachable (see arp_process()).  The handler
+> for the resulting netevent needs to check also for NUD_STALE.
 > 
-> Acked-by: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+> Failure to use the arp entry can cause RDMA connection failures.
+> 
+> Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 
-upon further reflection, ACK, take this via ppc tree
-
-
-
+applied
