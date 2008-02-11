@@ -1,62 +1,48 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: [PATCH][RESEND] drivers/base: export (un)register_memory_notifier
-Date: Mon, 11 Feb 2008 10:49:04 +0100
-Message-ID: <200802111049.05478.ossthema@de.ibm.com>
+From: Dave Hansen <haveblue@us.ibm.com>
+Subject: Re: [PATCH][RESEND] drivers/base: export
+	(un)register_memory_notifier
+Date: Mon, 11 Feb 2008 02:12:23 -0800
+Message-ID: <1202724743.8276.2.camel@nimitz.home.sr71.net>
+References: <200802111049.05478.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Jan-Bernd Themann" <themann@de.ibm.com>,
+Cc: Greg KH <greg@kroah.com>, Jan-Bernd Themann <themann@de.ibm.com>,
 	Thomas Klein <osstklei@de.ibm.com>,
 	netdev <netdev@vger.kernel.org>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"linux-ppc" <linuxppc-dev@ozlabs.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
 	Christoph Raisch <raisch@de.ibm.com>
-To: Greg KH <greg@kroah.com>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.de.ibm.com ([195.212.29.155]:24404 "EHLO
-	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752087AbYBKJtJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 04:49:09 -0500
-Content-Disposition: inline
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:46696 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752074AbYBKKMY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Feb 2008 05:12:24 -0500
+In-Reply-To: <200802111049.05478.ossthema@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Drivers like eHEA need memory notifiers in order to 
-update their internal DMA memory map when memory is added
-to or removed from the system.
+On Mon, 2008-02-11 at 10:49 +0100, Jan-Bernd Themann wrote:
+> are you the right person to address this patch to?
 
-Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
+You might want to check the top of the file. ;)
 
----
-Hi Greg,
+> --- a/drivers/base/memory.c
+> +++ b/drivers/base/memory.c
+> @@ -52,11 +52,13 @@ int register_memory_notifier(struct notifier_block *nb)
+>  {
+>          return blocking_notifier_chain_register(&memory_chain, nb);
+>  }
+> +EXPORT_SYMBOL(register_memory_notifier);
+>  
+>  void unregister_memory_notifier(struct notifier_block *nb)
+>  {
+>          blocking_notifier_chain_unregister(&memory_chain, nb);
+>  }
+> +EXPORT_SYMBOL(unregister_memory_notifier);
 
-are you the right person to address this patch to?
+Is there a particular reason these can't be GPL?
 
-Regards,
-Jan-Bernd
-
- drivers/base/memory.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/base/memory.c b/drivers/base/memory.c
-index 7ae413f..1e1bd4c 100644
---- a/drivers/base/memory.c
-+++ b/drivers/base/memory.c
-@@ -52,11 +52,13 @@ int register_memory_notifier(struct notifier_block *nb)
- {
-         return blocking_notifier_chain_register(&memory_chain, nb);
- }
-+EXPORT_SYMBOL(register_memory_notifier);
- 
- void unregister_memory_notifier(struct notifier_block *nb)
- {
-         blocking_notifier_chain_unregister(&memory_chain, nb);
- }
-+EXPORT_SYMBOL(unregister_memory_notifier);
- 
- /*
-  * register_memory - Setup a sysfs device for a memory block
--- 
-1.5.2
+-- Dave
 
