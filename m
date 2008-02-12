@@ -1,58 +1,41 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9940] New: e1000e driver with 82566DM-2
- controller doesn't strip crc from frames
-Date: Tue, 12 Feb 2008 02:12:34 -0800
-Message-ID: <20080212021234.a3ad5d93.akpm@linux-foundation.org>
-References: <bug-9940-10286@http.bugzilla.kernel.org/>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	johan.andersson@transmode.se
-To: Auke Kok <auke-jan.h.kok@intel.com>
+From: maximilian attems <max@stro.at>
+Subject: [PATCH] [IRDA] irda_init() nuke useless debug printk
+Date: Tue, 12 Feb 2008 11:30:47 +0100
+Message-ID: <1202812247-6878-1-git-send-email-max@stro.at>
+Cc: netdev@vger.kernel.org, maximilian attems <max@stro.at>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:50192 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762045AbYBLKNy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 05:13:54 -0500
-In-Reply-To: <bug-9940-10286@http.bugzilla.kernel.org/>
+Received: from baikonur.stro.at ([213.239.196.228]:46364 "EHLO
+	baikonur.stro.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758846AbYBLKax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 05:30:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 Feb 2008 01:50:49 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+irda_init()
+dmesg line is not really informative, thus remove it.
+There are better ways to know that a module is loaded.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=9940
-> 
->            Summary: e1000e driver with 82566DM-2 controller doesn't strip
->                     crc from frames
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: 2.6.24
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: jgarzik@pobox.com
->         ReportedBy: johan.andersson@transmode.se
-> 
-> 
-> Latest working kernel version: n/a
-> Earliest failing kernel version: 2.6.24
-> Distribution: Gentoo 2007.0
-> Hardware Environment: HP Compaq dc7800p
-> Software Environment: n/a
-> Problem Description:
-> The e1000e driver doesn't strip the ethernet frame crc is used with the
-> 82566DM-2 chip.
-> This will result, among other things, that bridging doesn't work together with
-> this chip.
-> Reverting commit 140a74802894e9db57e5cd77ccff77e590ece5f3 fixes this issue but
-> has performance implications.
-> 
-> Steps to reproduce:
-> Send a ping and monitor the responce with tcpdump.
-> 
+Seen on a debian config with IRDA_DEBUG enabled.
+
+Signed-off-by: maximilian attems <max@stro.at>
+---
+ net/irda/irmod.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/net/irda/irmod.c b/net/irda/irmod.c
+index 01554b9..73db875 100644
+--- a/net/irda/irmod.c
++++ b/net/irda/irmod.c
+@@ -90,8 +90,6 @@ static int __init irda_init(void)
+ {
+ 	int ret = 0;
+ 
+-	IRDA_DEBUG(0, "%s()\n", __FUNCTION__);
+-
+ 	/* Lower layer of the stack */
+ 	irlmp_init();
+ 	irlap_init();
+-- 
+1.5.4
 
