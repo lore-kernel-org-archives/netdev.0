@@ -1,116 +1,267 @@
 From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH 2/4] docbook: sunrpc filenames and notation fixes
-Date: Mon, 11 Feb 2008 17:28:07 -0800
-Message-ID: <20080211172807.d234ee97.randy.dunlap@oracle.com>
+Subject: [PATCH 4/4] docbook: make a networking book and fix a few errors
+Date: Mon, 11 Feb 2008 17:28:34 -0800
+Message-ID: <20080211172834.3e42b9e5.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
+Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net,
 	akpm <akpm@linux-foundation.org>
 To: lkml <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:62597 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754043AbYBLBbh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 20:31:37 -0500
+Received: from rgminet01.oracle.com ([148.87.113.118]:20471 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756090AbYBLBc7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 20:32:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Use updated file list for docbook files and
-fix kernel-doc warnings in sunrpc:
-Warning(linux-2.6.24-git12//net/sunrpc/rpc_pipe.c:689): No description found for parameter 'rpc_client'
-Warning(linux-2.6.24-git12//net/sunrpc/rpc_pipe.c:765): No description found for parameter 'flags'
-Warning(linux-2.6.24-git12//net/sunrpc/clnt.c:584): No description found for parameter 'tk_ops'
-Warning(linux-2.6.24-git12//net/sunrpc/clnt.c:618): No description found for parameter 'bufsize'
+Move networking (core and drivers) docbook to its own networking book.
+Fix a few kernel-doc errors in header and source files.
 
 Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 ---
- Documentation/DocBook/kernel-api.tmpl |    8 +++++++-
- net/sunrpc/clnt.c                     |   10 +++++-----
- net/sunrpc/rpc_pipe.c                 |    3 ++-
- net/sunrpc/xprt.c                     |    2 +-
- 4 files changed, 15 insertions(+), 8 deletions(-)
+ Documentation/DocBook/Makefile        |    2 
+ Documentation/DocBook/kernel-api.tmpl |   65 --------------------
+ Documentation/DocBook/networking.tmpl |  106 ++++++++++++++++++++++++++++++++++
+ include/linux/etherdevice.h           |    3 
+ net/core/dev.c                        |    3 
+ net/core/skbuff.c                     |    4 -
+ 6 files changed, 111 insertions(+), 72 deletions(-)
 
---- linux-2.6.25-rc1.orig/Documentation/DocBook/kernel-api.tmpl
-+++ linux-2.6.25-rc1/Documentation/DocBook/kernel-api.tmpl
-@@ -231,8 +231,14 @@ X!Ilib/string.c
- !Dnet/sunrpc/sunrpc_syms.c
- -->
- !Enet/sunrpc/xdr.c
--!Enet/sunrpc/svcsock.c
+--- linux-2.6.25-rc1.orig/include/linux/etherdevice.h
++++ linux-2.6.25-rc1/include/linux/etherdevice.h
+@@ -70,8 +70,7 @@ static inline int is_multicast_ether_add
+ }
+ 
+ /**
+- * is_local_ether_addr - Determine if the Ethernet address is locally-assigned
+- * one (IEEE 802).
++ * is_local_ether_addr - Determine if the Ethernet address is locally-assigned one (IEEE 802).
+  * @addr: Pointer to a six-byte array containing the Ethernet address
+  *
+  * Return true if the address is a local address.
+--- linux-2.6.25-rc1.orig/net/core/dev.c
++++ linux-2.6.25-rc1/net/core/dev.c
+@@ -3038,8 +3038,7 @@ int dev_unicast_sync(struct net_device *
+ EXPORT_SYMBOL(dev_unicast_sync);
+ 
+ /**
+- *	dev_unicast_unsync - Remove synchronized addresses from the destination
+- *			     device
++ *	dev_unicast_unsync - Remove synchronized addresses from the destination device
+  *	@to: destination device
+  *	@from: source device
+  *
+--- linux-2.6.25-rc1.orig/net/core/skbuff.c
++++ linux-2.6.25-rc1/net/core/skbuff.c
+@@ -1907,11 +1907,11 @@ void skb_prepare_seq_read(struct sk_buff
+  * of bytes already consumed and the next call to
+  * skb_seq_read() will return the remaining part of the block.
+  *
+- * Note: The size of each block of data returned can be arbitary,
++ * Note 1: The size of each block of data returned can be arbitary,
+  *       this limitation is the cost for zerocopy seqeuental
+  *       reads of potentially non linear data.
+  *
+- * Note: Fragment lists within fragments are not implemented
++ * Note 2: Fragment lists within fragments are not implemented
+  *       at the moment, state->root_skb could be replaced with
+  *       a stack for this purpose.
+  */
+--- linux-2.6.25-rc1.orig/Documentation/DocBook/Makefile
++++ linux-2.6.25-rc1/Documentation/DocBook/Makefile
+@@ -8,7 +8,7 @@
+ 
+ DOCBOOKS := wanbook.xml z8530book.xml mcabook.xml videobook.xml \
+ 	    kernel-hacking.xml kernel-locking.xml deviceiobook.xml \
+-	    procfs-guide.xml writing_usb_driver.xml \
++	    procfs-guide.xml writing_usb_driver.xml networking.xml \
+ 	    kernel-api.xml filesystems.xml lsm.xml usb.xml \
+ 	    gadget.xml libata.xml mtdnand.xml librs.xml rapidio.xml \
+ 	    genericirq.xml s390-drivers.xml uio-howto.xml scsi.xml
+--- /dev/null
++++ linux-2.6.25-rc1/Documentation/DocBook/networking.tmpl
+@@ -0,0 +1,106 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
++	"http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd" []>
++
++<book id="LinuxNetworking">
++ <bookinfo>
++  <title>Linux Networking and Network Devices APIs</title>
++
++  <legalnotice>
++   <para>
++     This documentation is free software; you can redistribute
++     it and/or modify it under the terms of the GNU General Public
++     License as published by the Free Software Foundation; either
++     version 2 of the License, or (at your option) any later
++     version.
++   </para>
++
++   <para>
++     This program is distributed in the hope that it will be
++     useful, but WITHOUT ANY WARRANTY; without even the implied
++     warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++     See the GNU General Public License for more details.
++   </para>
++
++   <para>
++     You should have received a copy of the GNU General Public
++     License along with this program; if not, write to the Free
++     Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++     MA 02111-1307 USA
++   </para>
++
++   <para>
++     For more details see the file COPYING in the source
++     distribution of Linux.
++   </para>
++  </legalnotice>
++ </bookinfo>
++
++<toc></toc>
++
++  <chapter id="netcore">
++     <title>Linux Networking</title>
++     <sect1><title>Networking Base Types</title>
++!Iinclude/linux/net.h
++     </sect1>
++     <sect1><title>Socket Buffer Functions</title>
++!Iinclude/linux/skbuff.h
++!Iinclude/net/sock.h
++!Enet/socket.c
++!Enet/core/skbuff.c
++!Enet/core/sock.c
++!Enet/core/datagram.c
++!Enet/core/stream.c
++     </sect1>
++     <sect1><title>Socket Filter</title>
++!Enet/core/filter.c
++     </sect1>
++     <sect1><title>Generic Network Statistics</title>
++!Iinclude/linux/gen_stats.h
++!Enet/core/gen_stats.c
++!Enet/core/gen_estimator.c
++     </sect1>
++     <sect1><title>SUN RPC subsystem</title>
++<!-- The !D functionality is not perfect, garbage has to be protected by comments
++!Dnet/sunrpc/sunrpc_syms.c
++-->
++!Enet/sunrpc/xdr.c
 +!Enet/sunrpc/svc_xprt.c
 +!Enet/sunrpc/xprt.c
- !Enet/sunrpc/sched.c
++!Enet/sunrpc/sched.c
 +!Enet/sunrpc/socklib.c
 +!Enet/sunrpc/stats.c
 +!Enet/sunrpc/rpc_pipe.c
 +!Enet/sunrpc/rpcb_clnt.c
 +!Enet/sunrpc/clnt.c
++     </sect1>
++  </chapter>
++
++  <chapter id="netdev">
++     <title>Network device support</title>
++     <sect1><title>Driver Support</title>
++!Enet/core/dev.c
++!Enet/ethernet/eth.c
++!Enet/sched/sch_generic.c
++!Iinclude/linux/etherdevice.h
++!Iinclude/linux/netdevice.h
++     </sect1>
++     <sect1><title>PHY Support</title>
++!Edrivers/net/phy/phy.c
++!Idrivers/net/phy/phy.c
++!Edrivers/net/phy/phy_device.c
++!Idrivers/net/phy/phy_device.c
++!Edrivers/net/phy/mdio_bus.c
++!Idrivers/net/phy/mdio_bus.c
++     </sect1>
++<!-- FIXME: Removed for now since no structured comments in source
++     <sect1><title>Wireless</title>
++X!Enet/core/wireless.c
++     </sect1>
++-->
++     <sect1><title>Synchronous PPP</title>
++!Edrivers/net/wan/syncppp.c
++     </sect1>
++  </chapter>
++
++</book>
+--- linux-2.6.25-rc1.orig/Documentation/DocBook/kernel-api.tmpl
++++ linux-2.6.25-rc1/Documentation/DocBook/kernel-api.tmpl
+@@ -204,71 +204,6 @@ X!Ilib/string.c
       </sect1>
    </chapter>
  
---- linux-2.6.25-rc1.orig/net/sunrpc/clnt.c
-+++ linux-2.6.25-rc1/net/sunrpc/clnt.c
-@@ -464,9 +464,9 @@ rpc_release_client(struct rpc_clnt *clnt
- 
- /**
-  * rpc_bind_new_program - bind a new RPC program to an existing client
-- * @old - old rpc_client
-- * @program - rpc program to set
-- * @vers - rpc program version
-+ * @old: old rpc_client
-+ * @program: rpc program to set
-+ * @vers: rpc program version
-  *
-  * Clones the rpc client and sets up a new RPC program. This is mainly
-  * of use for enabling different RPC programs to share the same transport.
-@@ -575,7 +575,7 @@ EXPORT_SYMBOL_GPL(rpc_call_sync);
-  * @clnt: pointer to RPC client
-  * @msg: RPC call parameters
-  * @flags: RPC call flags
-- * @ops: RPC call ops
-+ * @tk_ops: RPC call ops
-  * @data: user call data
-  */
- int
-@@ -610,7 +610,7 @@ EXPORT_SYMBOL_GPL(rpc_call_start);
-  * rpc_peeraddr - extract remote peer address from clnt's xprt
-  * @clnt: RPC client structure
-  * @buf: target buffer
-- * @size: length of target buffer
-+ * @bufsize: length of target buffer
-  *
-  * Returns the number of bytes that are actually in the stored address.
-  */
---- linux-2.6.25-rc1.orig/net/sunrpc/xprt.c
-+++ linux-2.6.25-rc1/net/sunrpc/xprt.c
-@@ -124,7 +124,7 @@ EXPORT_SYMBOL_GPL(xprt_register_transpor
- 
- /**
-  * xprt_unregister_transport - unregister a transport implementation
-- * transport: transport to unregister
-+ * @transport: transport to unregister
-  *
-  * Returns:
-  * 0:		transport successfully unregistered
---- linux-2.6.25-rc1.orig/net/sunrpc/rpc_pipe.c
-+++ linux-2.6.25-rc1/net/sunrpc/rpc_pipe.c
-@@ -677,7 +677,7 @@ rpc_lookup_negative(char *path, struct n
- /**
-  * rpc_mkdir - Create a new directory in rpc_pipefs
-  * @path: path from the rpc_pipefs root to the new directory
-- * @rpc_clnt: rpc client to associate with this directory
-+ * @rpc_client: rpc client to associate with this directory
-  *
-  * This creates a directory at the given @path associated with
-  * @rpc_clnt, which will contain a file named "info" with some basic
-@@ -748,6 +748,7 @@ rpc_rmdir(struct dentry *dentry)
-  * @private: private data to associate with the pipe, for the caller's use
-  * @ops: operations defining the behavior of the pipe: upcall, downcall,
-  *	release_pipe, and destroy_msg.
-+ * @flags: rpc_inode flags
-  *
-  * Data is made available for userspace to read by calls to
-  * rpc_queue_upcall().  The actual reads will result in calls to
+-  <chapter id="netcore">
+-     <title>Linux Networking</title>
+-     <sect1><title>Networking Base Types</title>
+-!Iinclude/linux/net.h
+-     </sect1>
+-     <sect1><title>Socket Buffer Functions</title>
+-!Iinclude/linux/skbuff.h
+-!Iinclude/net/sock.h
+-!Enet/socket.c
+-!Enet/core/skbuff.c
+-!Enet/core/sock.c
+-!Enet/core/datagram.c
+-!Enet/core/stream.c
+-     </sect1>
+-     <sect1><title>Socket Filter</title>
+-!Enet/core/filter.c
+-     </sect1>
+-     <sect1><title>Generic Network Statistics</title>
+-!Iinclude/linux/gen_stats.h
+-!Enet/core/gen_stats.c
+-!Enet/core/gen_estimator.c
+-     </sect1>
+-     <sect1><title>SUN RPC subsystem</title>
+-<!-- The !D functionality is not perfect, garbage has to be protected by comments
+-!Dnet/sunrpc/sunrpc_syms.c
+--->
+-!Enet/sunrpc/xdr.c
+-!Enet/sunrpc/svc_xprt.c
+-!Enet/sunrpc/xprt.c
+-!Enet/sunrpc/sched.c
+-!Enet/sunrpc/socklib.c
+-!Enet/sunrpc/stats.c
+-!Enet/sunrpc/rpc_pipe.c
+-!Enet/sunrpc/rpcb_clnt.c
+-!Enet/sunrpc/clnt.c
+-     </sect1>
+-  </chapter>
+-
+-  <chapter id="netdev">
+-     <title>Network device support</title>
+-     <sect1><title>Driver Support</title>
+-!Enet/core/dev.c
+-!Enet/ethernet/eth.c
+-!Enet/sched/sch_generic.c
+-!Iinclude/linux/etherdevice.h
+-!Iinclude/linux/netdevice.h
+-     </sect1>
+-     <sect1><title>PHY Support</title>
+-!Edrivers/net/phy/phy.c
+-!Idrivers/net/phy/phy.c
+-!Edrivers/net/phy/phy_device.c
+-!Idrivers/net/phy/phy_device.c
+-!Edrivers/net/phy/mdio_bus.c
+-!Idrivers/net/phy/mdio_bus.c
+-     </sect1>
+-<!-- FIXME: Removed for now since no structured comments in source
+-     <sect1><title>Wireless</title>
+-X!Enet/core/wireless.c
+-     </sect1>
+--->
+-     <sect1><title>Synchronous PPP</title>
+-!Edrivers/net/wan/syncppp.c
+-     </sect1>
+-  </chapter>
+-
+   <chapter id="modload">
+      <title>Module Support</title>
+      <sect1><title>Module Loading</title>
