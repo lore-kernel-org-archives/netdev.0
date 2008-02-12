@@ -1,59 +1,52 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][GENETLINK]: Relax dances with genl_lock.
-Date: Tue, 12 Feb 2008 20:16:13 +0300
-Message-ID: <47B1D45D.3020409@openvz.org>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: e1000e hardware CRC stripping breaks bridging
+Date: Tue, 12 Feb 2008 12:23:33 -0500
+Message-ID: <20080212172333.GE856@gospo.usersys.redhat.com>
+References: <47B19EDE.5020802@gentoo.org> <1202824670.26114.20.camel@gentoo-johan.transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Drake <dsd@gentoo.org>, Auke Kok <auke-jan.h.kok@intel.com>,
+	netdev@vger.kernel.org
+To: Johan Andersson <johan.andersson@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:39409 "EHLO sacred.ru"
+Received: from mx1.redhat.com ([66.187.233.31]:60234 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758939AbYBLRQL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Feb 2008 12:16:11 -0500
+	id S1759846AbYBLRXp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Feb 2008 12:23:45 -0500
+Content-Disposition: inline
+In-Reply-To: <1202824670.26114.20.camel@gentoo-johan.transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The genl_unregister_family() calls the genl_unregister_mc_groups(), 
-which takes and releases the genl_lock and then locks and releases
-this lock itself.
+On Tue, Feb 12, 2008 at 02:57:50PM +0100, Johan Andersson wrote:
+> Here is the bug report:
+> http://bugzilla.kernel.org/show_bug.cgi?id=9940
+> 
+> /Johan
+> 
+> On Tue, 2008-02-12 at 13:27 +0000, Daniel Drake wrote:
+> > Hi,
+> > 
+> > Johan Andersson reported on the Gentoo bugzilla that the hardware CRC 
+> > stripping enabled by e1000e breaks bridging because sometimes the CRC is 
+> > not stripped:
+> > https://bugs.gentoo.org/show_bug.cgi?id=209235
+> > 
+> > Apparently "upstream" are aware but I couldn't find any mails or bug 
+> > reports on this topic.
+> > 
+> > What's the current status of this issue? Perhaps we should disable 
+> > hardware CRC stripping for 2.6.24.x/2.6.25 until this gets fixed?
+> > 
+> > Thanks,
+> > Daniel
 
-Relax this behavior, all the more so the genl_unregister_mc_groups() 
-is called from genl_unregister_family() only.
 
-I'm not sure, whether this is 2.6.25 material, but the patch looks
-pretty simple. Should I hold it till 2.6.26?
+This patch, just needs to get reverted:
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+commit 140a74802894e9db57e5cd77ccff77e590ece5f3
+Author: Auke Kok <auke-jan.h.kok@intel.com>
+Date:   Thu Oct 25 13:57:58 2007 -0700
 
----
+    e1000e: Re-enable SECRC - crc stripping
 
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 150579a..d16929c 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -230,10 +230,8 @@ static void genl_unregister_mc_groups(struct genl_family *family)
- {
- 	struct genl_multicast_group *grp, *tmp;
- 
--	genl_lock();
- 	list_for_each_entry_safe(grp, tmp, &family->mcast_groups, list)
- 		__genl_unregister_mc_group(family, grp);
--	genl_unlock();
- }
- 
- /**
-@@ -396,10 +394,10 @@ int genl_unregister_family(struct genl_family *family)
- {
- 	struct genl_family *rc;
- 
--	genl_unregister_mc_groups(family);
--
- 	genl_lock();
- 
-+	genl_unregister_mc_groups(family);
-+
- 	list_for_each_entry(rc, genl_family_chain(family->id), family_list) {
- 		if (family->id != rc->id || strcmp(rc->name, family->name))
- 			continue;
