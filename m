@@ -1,68 +1,84 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH 2.6.25] ixgbe/igb: correctly obtain protocol information on transmit
-Date: Mon, 11 Feb 2008 20:35:40 -0500
-Message-ID: <20080212013540.GD856@gospo.usersys.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH]: Remove IP_TOS privilege checks
+Date: Mon, 11 Feb 2008 18:03:15 -0800 (PST)
+Message-ID: <20080211.180315.71005060.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:33310 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755325AbYBLBfo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Feb 2008 20:35:44 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36666
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756823AbYBLCCn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 21:02:43 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 81FD0C8C1F2
+	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 18:03:15 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-I noticed a strange panic on a box with an ixgbe-based interface when
-using bridging.  Protocol information ought to come from the frame
-itself rather than anywhere else.
+I've committing the following upstream, for the reasons outlined in
+the commit message.
 
-The igb driver has a similar coding error that would cause incorrect
-flags to be set, so it would not panic.  It should still get fixed
-though.
+These DSCP value meanings are advisory and the kernel is not the
+entity to enforce what values mean.  This change makes us behave
+consistently with BSD and with our own IPV6 implementation, yet
+without breaking existing setups.
 
-Checking the frame's payload on both drivers seems like a better
-option.
+[IPV4]: Remove IP_TOS setting privilege checks.
 
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
----
+Various RFCs have all sorts of things to say about the CS field of the
+DSCP value.  In particular they try to make the distinction between
+values that should be used by "user applications" and things like
+routing daemons.
 
- igb/igb_main.c     |    3 ++-
- ixgbe/ixgbe_main.c |    3 ++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+This seems to have influenced the CAP_NET_ADMIN check which exists for
+IP_TOS socket option settings, but in fact it has an off-by-one error
+so it wasn't allowing CS5 which is meant for "user applications" as
+well.
 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index f3c144d..5572923 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -2514,9 +2514,10 @@ static inline bool igb_tx_csum_adv(struct igb_adapter *adapter,
- 		tu_cmd |= (E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT);
- 
- 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+			struct iphdr *iph = ip_hdr(skb);
- 			if (skb->protocol == htons(ETH_P_IP))
- 				tu_cmd |= E1000_ADVTXD_TUCMD_IPV4;
--			if (skb->sk && (skb->sk->sk_protocol == IPPROTO_TCP))
-+			if (iph->protocol == IPPROTO_TCP)
- 				tu_cmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
+Further adding to the inconsistency and brokenness here, IPV6 does not
+validate the DSCP values specified for the IPV6_TCLASS socket option.
+
+The real actual uses of these TOS values are system specific in the
+final analysis, and these RFC recommendations are just that, "a
+recommendation".  In fact the standards very purposefully use
+"SHOULD" and "SHOULD NOT" when describing how these values can be
+used.
+
+In the final analysis the only clean way to provide consistency here
+is to remove the CAP_NET_ADMIN check.  The alternatives just don't
+work out:
+
+1) If we add the CAP_NET_ADMIN check to ipv6, this can break existing
+   setups.
+
+2) If we just fix the off-by-one error in the class comparison in
+   IPV4, certain DSCP values can be used in IPV6 but not IPV4 by
+   default.  So people will just ask for a sysctl asking to
+   override that.
+
+I checked several other freely available kernel trees and they
+do not make any privilege checks in this area like we do.  For
+the BSD stacks, this goes back all the way to Stevens Volume 2
+and beyond.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 754b0a5..de0572c 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -514,11 +514,6 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 			val &= ~3;
+ 			val |= inet->tos & 3;
  		}
- 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 3732dd6..4542870 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2202,10 +2202,11 @@ static bool ixgbe_tx_csum(struct ixgbe_adapter *adapter,
- 				    IXGBE_ADVTXD_DTYP_CTXT);
- 
- 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+			struct iphdr *iph = ip_hdr(skb);
- 			if (skb->protocol == htons(ETH_P_IP))
- 				type_tucmd_mlhl |= IXGBE_ADVTXD_TUCMD_IPV4;
- 
--			if (skb->sk->sk_protocol == IPPROTO_TCP)
-+			if (iph->protocol == IPPROTO_TCP)
- 				type_tucmd_mlhl |= IXGBE_ADVTXD_TUCMD_L4T_TCP;
- 		}
- 
+-		if (IPTOS_PREC(val) >= IPTOS_PREC_CRITIC_ECP &&
+-		    !capable(CAP_NET_ADMIN)) {
+-			err = -EPERM;
+-			break;
+-		}
+ 		if (inet->tos != val) {
+ 			inet->tos = val;
+ 			sk->sk_priority = rt_tos2priority(val);
