@@ -1,35 +1,59 @@
-From: fgnijuhhu guduggurehug <jsmiths1234@live.com>
-Subject: RE: r8169 auto-negotiation problem
-Date: Tue, 12 Feb 2008 16:44:18 +0000
-Message-ID: <BAY107-W2892B3D06485CBB5AEDCC2D52B0@phx.gbl>
-References: <BAY107-W4033FF1A4417D61C5177FD5310@phx.gbl>
- <20080203184525.GA12607@electric-eye.fr.zoreil.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][GENETLINK]: Relax dances with genl_lock.
+Date: Tue, 12 Feb 2008 20:16:13 +0300
+Message-ID: <47B1D45D.3020409@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc3-s36.bay0.hotmail.com ([65.54.246.236]:24009 "EHLO
-	bay0-omc3-s36.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1763599AbYBLQoS convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Feb 2008 11:44:18 -0500
-In-Reply-To: <20080203184525.GA12607@electric-eye.fr.zoreil.com>
+Received: from sacred.ru ([62.205.161.221]:39409 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758939AbYBLRQL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Feb 2008 12:16:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The genl_unregister_family() calls the genl_unregister_mc_groups(), 
+which takes and releases the genl_lock and then locks and releases
+this lock itself.
 
-> fgnijuhhu guduggurehug  :
-> [...]
->> I already posted my problem and what I did to solve it on
->> http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=461429.
->
-> Have you tried anything more recent than a 2.6.18 based kernel ?
+Relax this behavior, all the more so the genl_unregister_mc_groups() 
+is called from genl_unregister_family() only.
 
-No, but if changes were made to the iniatialization of the chipset in the current driver (mine was 2.2LK), this might do the trick. The problem is that the error is rather erratic and unreproducible.
+I'm not sure, whether this is 2.6.25 material, but the patch looks
+pretty simple. Should I hold it till 2.6.26?
 
-Anyway, how to best upgrade the kernel in debian (without problems, of course)? The problem right now is that every apt-get upgrade reverts the r8169 driver to the old one...
-_________________________________________________________________
-Express yourself instantly with MSN Messenger! Download today it's FREE!
-http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 150579a..d16929c 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -230,10 +230,8 @@ static void genl_unregister_mc_groups(struct genl_family *family)
+ {
+ 	struct genl_multicast_group *grp, *tmp;
+ 
+-	genl_lock();
+ 	list_for_each_entry_safe(grp, tmp, &family->mcast_groups, list)
+ 		__genl_unregister_mc_group(family, grp);
+-	genl_unlock();
+ }
+ 
+ /**
+@@ -396,10 +394,10 @@ int genl_unregister_family(struct genl_family *family)
+ {
+ 	struct genl_family *rc;
+ 
+-	genl_unregister_mc_groups(family);
+-
+ 	genl_lock();
+ 
++	genl_unregister_mc_groups(family);
++
+ 	list_for_each_entry(rc, genl_family_chain(family->id), family_list) {
+ 		if (family->id != rc->id || strcmp(rc->name, family->name))
+ 			continue;
