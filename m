@@ -1,98 +1,55 @@
-From: Ross Vandegrift <ross@kallisti.us>
-Subject: Re: [PATCH] Add IPv6 support to TCP SYN cookies
-Date: Tue, 12 Feb 2008 15:38:57 -0500
-Message-ID: <20080212203857.GA32506@kallisti.us>
-References: <47a79d64.16538c0a.5b6a.ffffb0fe@mx.google.com> <20080205155558.GA23145@one.firstfloor.org> <c9e534200802051029u5d08cf6dm54866f769e362262@mail.gmail.com> <20080205192559.GA10573@kallisti.us> <20080205201106.GB26150@one.firstfloor.org> <20080205212335.GA11287@kallisti.us> <20080206085357.GA1402@one.firstfloor.org> <20080207194446.GA25463@kallisti.us> <20080208120746.GE4745@one.firstfloor.org>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: E1000 (PCI-E) doesn't work on nforce430, MSI issue.
+Date: Tue, 12 Feb 2008 22:25:53 +0100
+Message-ID: <m37ih9ooim.fsf@maximus.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Glenn Griffin <ggriffin.kernel@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764479AbYBLUkb@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080208120746.GE4745@one.firstfloor.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:40162 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752790AbYBLVZz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Feb 2008 16:25:55 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 08, 2008 at 01:07:46PM +0100, Andi Kleen wrote:
-> On Thu, Feb 07, 2008 at 02:44:46PM -0500, Ross Vandegrift wrote:
-> > On Wed, Feb 06, 2008 at 09:53:57AM +0100, Andi Kleen wrote:
-> > My initial test is end-to-end 1000Mbps, but I've got a few different
-> > packet rates.
-> > 
-> > > If the young/old heuristics do not work well enough anymore most
-> > > likely we should try readding RED to the syn queue again. That used
-> > > to be pretty effective in the early days. I don't quite remember why
-> > > Linux didn't end up using it in fact.
-> > 
-> > I'm running juno-z with 2, 4, & 8 threads of syn flood to port 80.
-> > wireshark measures 2 threads at 350pps, 4 threads at 750pps, and 8
-> 
-> What's the total bandwidth of the attack?
+Hi,
 
-Sorry for the delay in getting back to you on this Andi.
+Is it a known problem?
+Linux 2.6.24.2, ASUS M2NPV-MX mobo, nforce 430 based, two PCI-E x1
+E1000 cards, 32-bit kernel, default e1000 driver (PCI IDs disabled in
+e1000e).
 
-Here's a breakdown for each attack of the pps and bandwidth:
+Don't work by default. "pci=nomsi" fixes the problem.
 
-packets/s	Mb/s
+82572EI Gigabit Ethernet Controller (Copper) (rev 06)
+Subsystem: PRO/1000 PT Desktop Adapter
 
-380		0.182 
-715		0.343
-1193		0.572
-16460		7.896
+(8086:10b9 subsystem 8086:1083)
 
-The first three tests were done with some fixed delay inbetween syn
-floods.  The last is done with all delays as small as possible.
+grep eth0 /proc/interrupts 
+ 20:       1945          1   IO-APIC-fasteoi   eth0
 
+(without "pci=nomsi":
+221:          0          0   PCI-MSI-edge      eth0)
 
-> > threads at 1200pps.  Under no SYN flood, the server handles 750 HTTP
-> > requests per second, measured via httping in flood mode.
-> 
-> Thanks for the tests. Could you please do an additional experiment? 
-> Use sch_em or similar to add a jittering longer latency in the connection
-> (as would be realistic in a real distributed DOS). Does it make a
-> difference? 
+other devices of possible interest:
+00:00.0 RAM memory: nVidia Corporation C51 Host Bridge (rev a2)
+00:00.1 RAM memory: nVidia Corporation C51 Memory Controller 0 (rev a2)
+00:00.2 RAM memory: nVidia Corporation C51 Memory Controller 1 (rev a2)
+00:00.3 RAM memory: nVidia Corporation C51 Memory Controller 5 (rev a2)
+00:00.4 RAM memory: nVidia Corporation C51 Memory Controller 4 (rev a2)
+00:00.5 RAM memory: nVidia Corporation C51 Host Bridge (rev a2)
+00:00.6 RAM memory: nVidia Corporation C51 Memory Controller 3 (rev a2)
+00:00.7 RAM memory: nVidia Corporation C51 Memory Controller 2 (rev a2)
+00:03.0 PCI bridge: nVidia Corporation C51 PCI Express Bridge (rev a1)
+00:04.0 PCI bridge: nVidia Corporation C51 PCI Express Bridge (rev a1)
+00:09.0 RAM memory: nVidia Corporation MCP51 Host Bridge (rev a2)
+00:0a.0 ISA bridge: nVidia Corporation MCP51 LPC Bridge (rev a3)
+00:0a.1 SMBus: nVidia Corporation MCP51 SMBus (rev a3)
+00:0a.2 RAM memory: nVidia Corporation MCP51 Memory Controller 0 (rev a3)
+00:10.0 PCI bridge: nVidia Corporation MCP51 PCI Bridge (rev a2)
 
-Jitter on both ends makes it worse.  Jitter only on the syn flooder
-end behaves approximately the same.
-
-If I add jitter to both the flooder and the target with:
-	tc qdisc add dev eth0 root netem delay 50ms 100ms distribution normal
-I can kill off the host with even a single thread of syn flooding,
-even with a backlog queue size of 32768.
-
-
-> > With a default tcp_max_syn_backlog of 1024, I can trivially prevent
-> > any inbound client connections with 2 threads of syn flood.
-> > Enabling tcp_syncookies brings the connection handling back up to 725
-> > fetches per second.
-> 
-> Yes the defaults are probably too low. That's something that should
-> be fixed.
-
-Yea, with a longer queue, the server is somewhat more resiliant.  But
-it's still pretty easy to overwhelm it.  syncookies is a night and day
-difference.
-
-
-> > At these levels the CPU impact of tcp_syncookies is nothing.  I can't
-> 
-> CPU impact of syncookies was never a concern. The problems are rather
-> missing flow control and disabling of valuable TCP features.
-
-Oh definitely - Willy raised the CPU issue in another mail, I was just
-including my findings with a bigger CPU.
-
-In general I agree with you for the TCP features, but in the cases where
-we're enabling syncookies, it's the difference between bad connectivity and
-no connectivity.
-
+Additional details on request.
 -- 
-Ross Vandegrift
-ross@kallisti.us
-
-"The good Christian should beware of mathematicians, and all those who
-make empty prophecies. The danger already exists that the mathematicians
-have made a covenant with the devil to darken the spirit and to confine
-man in the bonds of Hell."
-	--St. Augustine, De Genesi ad Litteram, Book II, xviii, 37
+Krzysztof Halasa
