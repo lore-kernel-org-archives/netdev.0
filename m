@@ -1,84 +1,241 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: Remove IP_TOS privilege checks
-Date: Mon, 11 Feb 2008 18:03:15 -0800 (PST)
-Message-ID: <20080211.180315.71005060.davem@davemloft.net>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: [PATCH] [RFC] Smack: unlabeled outgoing ambient packets - v2
+Date: Mon, 11 Feb 2008 16:00:33 -0800
+Message-ID: <47B0E1A1.7090902@schaufler-ca.com>
+Reply-To: casey@schaufler-ca.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36666
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756823AbYBLCCn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 21:02:43 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 81FD0C8C1F2
-	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 18:03:15 -0800 (PST)
+Received: from n9a.bullet.ukl.yahoo.com ([217.146.183.157]:23436 "HELO
+	n9a.bullet.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1755298AbYBLCvw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 21:51:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Casey Schaufler <casey@schaufler-ca.com>
 
-I've committing the following upstream, for the reasons outlined in
-the commit message.
+Smack uses CIPSO labeling, but allows for unlabeled packets
+by specifying an "ambient" label that is applied to incoming
+unlabeled packets. Because the other end of the connection
+may dislike IP options, and ssh is one know application that
+behaves thus, it is prudent to respond in kind. This patch
+changes the network labeling behavior such that an outgoing
+packet that would be given a CIPSO label that matches the
+ambient label is left unlabeled. An "unlbl" domain is added
+and the netlabel defaulting mechanism invoked rather than
+assuming that everything is CIPSO. Locking has been added
+around changes to the ambient label as the mechanisms used
+to do so are more involved.
 
-These DSCP value meanings are advisory and the kernel is not the
-entity to enforce what values mean.  This change makes us behave
-consistently with BSD and with our own IPV6 implementation, yet
-without breaking existing setups.
+Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
 
-[IPV4]: Remove IP_TOS setting privilege checks.
+---
 
-Various RFCs have all sorts of things to say about the CS field of the
-DSCP value.  In particular they try to make the distinction between
-values that should be used by "user applications" and things like
-routing daemons.
+This patch differs significantly from the previous version.
+I think that I am using the netlbl interfaces more appropriately,
+Paul, please let me know if there's a better approach.
 
-This seems to have influenced the CAP_NET_ADMIN check which exists for
-IP_TOS socket option settings, but in fact it has an off-by-one error
-so it wasn't allowing CS5 which is meant for "user applications" as
-well.
+It's inconvenient that netlbl_sock_setattr frees the domain passed.
+I see that it makes sense for SELinux with the way SELinux treats
+secctx's, but Smack is more careful about memory usage and I have
+to do what I consider a gratuitous kalloc because of this behavior.
+Would you be open to a patch to change this if it included the SELinux
+changes?
 
-Further adding to the inconsistency and brokenness here, IPV6 does not
-validate the DSCP values specified for the IPV6_TCLASS socket option.
+Thank you.
 
-The real actual uses of these TOS values are system specific in the
-final analysis, and these RFC recommendations are just that, "a
-recommendation".  In fact the standards very purposefully use
-"SHOULD" and "SHOULD NOT" when describing how these values can be
-used.
+ security/smack/smack_lsm.c |   20 ++++++------
+ security/smack/smackfs.c   |   54 +++++++++++++++++++++++++----------
+ 2 files changed, 49 insertions(+), 25 deletions(-)
 
-In the final analysis the only clean way to provide consistency here
-is to remove the CAP_NET_ADMIN check.  The alternatives just don't
-work out:
+diff -uprN -X linux-2.6.25-g0210-base//Documentation/dontdiff linux-2.6.25-g0210-base/security/smack/smackfs.c linux-2.6.25-g0210/security/smack/smackfs.c
+--- linux-2.6.25-g0210-base/security/smack/smackfs.c	2008-02-10 19:30:47.000000000 -0800
++++ linux-2.6.25-g0210/security/smack/smackfs.c	2008-02-11 07:14:54.000000000 -0800
+@@ -45,6 +45,7 @@ enum smk_inos {
+  */
+ static DEFINE_MUTEX(smack_list_lock);
+ static DEFINE_MUTEX(smack_cipso_lock);
++static DEFINE_MUTEX(smack_ambient_lock);
+ 
+ /*
+  * This is the "ambient" label for network traffic.
+@@ -363,6 +364,27 @@ void smk_cipso_doi(void)
+ 		       __func__, __LINE__, rc);
+ }
+ 
++/**
++ * smk_unlbl_ambient - initialize the unlabeled domain
++ */
++void smk_unlbl_ambient(char *oldambient)
++{
++	int rc;
++	struct netlbl_audit audit_info;
++
++	if (oldambient != NULL) {
++		rc = netlbl_cfg_map_del(oldambient, &audit_info);
++		if (rc != 0)
++			printk(KERN_WARNING "%s:%d remove rc = %d\n",
++			       __func__, __LINE__, rc);
++	}
++
++	rc = netlbl_cfg_unlbl_add_map(smack_net_ambient, &audit_info);
++	if (rc != 0)
++		printk(KERN_WARNING "%s:%d add rc = %d\n",
++		       __func__, __LINE__, rc);
++}
++
+ /*
+  * Seq_file read operations for /smack/cipso
+  */
+@@ -709,7 +731,6 @@ static ssize_t smk_read_ambient(struct f
+ 				size_t cn, loff_t *ppos)
+ {
+ 	ssize_t rc;
+-	char out[SMK_LABELLEN];
+ 	int asize;
+ 
+ 	if (*ppos != 0)
+@@ -717,23 +738,18 @@ static ssize_t smk_read_ambient(struct f
+ 	/*
+ 	 * Being careful to avoid a problem in the case where
+ 	 * smack_net_ambient gets changed in midstream.
+-	 * Since smack_net_ambient is always set with a value
+-	 * from the label list, including initially, and those
+-	 * never get freed, the worst case is that the pointer
+-	 * gets changed just after this strncpy, in which case
+-	 * the value passed up is incorrect. Locking around
+-	 * smack_net_ambient wouldn't be any better than this
+-	 * copy scheme as by the time the caller got to look
+-	 * at the ambient value it would have cleared the lock
+-	 * and been changed.
+ 	 */
+-	strncpy(out, smack_net_ambient, SMK_LABELLEN);
+-	asize = strlen(out) + 1;
++	mutex_lock(&smack_ambient_lock);
+ 
+-	if (cn < asize)
+-		return -EINVAL;
++	asize = strlen(smack_net_ambient) + 1;
+ 
+-	rc = simple_read_from_buffer(buf, cn, ppos, out, asize);
++	if (cn >= asize)
++		rc = simple_read_from_buffer(buf, cn, ppos,
++					     smack_net_ambient, asize);
++	else
++		rc = -EINVAL;
++
++	mutex_unlock(&smack_ambient_lock);
+ 
+ 	return rc;
+ }
+@@ -751,6 +767,7 @@ static ssize_t smk_write_ambient(struct 
+ 				 size_t count, loff_t *ppos)
+ {
+ 	char in[SMK_LABELLEN];
++	char *oldambient;
+ 	char *smack;
+ 
+ 	if (!capable(CAP_MAC_ADMIN))
+@@ -766,7 +783,13 @@ static ssize_t smk_write_ambient(struct 
+ 	if (smack == NULL)
+ 		return -EINVAL;
+ 
++	mutex_lock(&smack_ambient_lock);
++
++	oldambient = smack_net_ambient;
+ 	smack_net_ambient = smack;
++	smk_unlbl_ambient(oldambient);
++
++	mutex_unlock(&smack_ambient_lock);
+ 
+ 	return count;
+ }
+@@ -974,6 +997,7 @@ static int __init init_smk_fs(void)
+ 
+ 	sema_init(&smack_write_sem, 1);
+ 	smk_cipso_doi();
++	smk_unlbl_ambient(NULL);
+ 
+ 	return err;
+ }
+diff -uprN -X linux-2.6.25-g0210-base//Documentation/dontdiff linux-2.6.25-g0210-base/security/smack/smack_lsm.c linux-2.6.25-g0210/security/smack/smack_lsm.c
+--- linux-2.6.25-g0210-base/security/smack/smack_lsm.c	2008-02-10 19:30:47.000000000 -0800
++++ linux-2.6.25-g0210/security/smack/smack_lsm.c	2008-02-10 20:10:47.000000000 -0800
+@@ -1251,7 +1251,7 @@ static void smack_to_secattr(char *smack
+ 
+ 	switch (smack_net_nltype) {
+ 	case NETLBL_NLTYPE_CIPSOV4:
+-		nlsp->domain = NULL;
++		nlsp->domain = kstrdup(smack, GFP_ATOMIC);
+ 		nlsp->flags = NETLBL_SECATTR_DOMAIN;
+ 		nlsp->flags |= NETLBL_SECATTR_MLS_LVL;
+ 
+@@ -1276,21 +1276,21 @@ static void smack_to_secattr(char *smack
+  * Convert the outbound smack value (smk_out) to a
+  * secattr and attach it to the socket.
+  *
+- * Returns 0 on success or an error code
++ * The return from netlbl_sock_setattr is ignored because
++ * the defaulting label behavior provided by netlbl takes
++ * care of the error cases.
+  */
+-static int smack_netlabel(struct sock *sk)
++static void smack_netlabel(struct sock *sk)
+ {
+ 	struct socket_smack *ssp = sk->sk_security;
+ 	struct netlbl_lsm_secattr secattr;
+-	int rc = 0;
++	int rc;
+ 
+ 	netlbl_secattr_init(&secattr);
+ 	smack_to_secattr(ssp->smk_out, &secattr);
+ 	if (secattr.flags != NETLBL_SECATTR_NONE)
+ 		rc = netlbl_sock_setattr(sk, &secattr);
+-
+ 	netlbl_secattr_destroy(&secattr);
+-	return rc;
+ }
+ 
+ /**
+@@ -1340,7 +1340,7 @@ static int smack_inode_setsecurity(struc
+ 		ssp->smk_in = sp;
+ 	else if (strcmp(name, XATTR_SMACK_IPOUT) == 0) {
+ 		ssp->smk_out = sp;
+-		return smack_netlabel(sock->sk);
++		smack_netlabel(sock->sk);
+ 	} else
+ 		return -EOPNOTSUPP;
+ 
+@@ -1367,7 +1367,8 @@ static int smack_socket_post_create(stru
+ 	/*
+ 	 * Set the outbound netlbl.
+ 	 */
+-	return smack_netlabel(sock->sk);
++	smack_netlabel(sock->sk);
++	return 0;
+ }
+ 
+ /**
+@@ -2199,7 +2200,6 @@ static int smack_socket_getpeersec_dgram
+ static void smack_sock_graft(struct sock *sk, struct socket *parent)
+ {
+ 	struct socket_smack *ssp;
+-	int rc;
+ 
+ 	if (sk == NULL)
+ 		return;
+@@ -2212,7 +2212,7 @@ static void smack_sock_graft(struct sock
+ 	ssp->smk_out = current->security;
+ 	ssp->smk_packet[0] = '\0';
+ 
+-	rc = smack_netlabel(sk);
++	smack_netlabel(sk);
+ }
+ 
+ /**
 
-1) If we add the CAP_NET_ADMIN check to ipv6, this can break existing
-   setups.
 
-2) If we just fix the off-by-one error in the class comparison in
-   IPV4, certain DSCP values can be used in IPV6 but not IPV4 by
-   default.  So people will just ask for a sysctl asking to
-   override that.
-
-I checked several other freely available kernel trees and they
-do not make any privilege checks in this area like we do.  For
-the BSD stacks, this goes back all the way to Stevens Volume 2
-and beyond.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 754b0a5..de0572c 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -514,11 +514,6 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 			val &= ~3;
- 			val |= inet->tos & 3;
- 		}
--		if (IPTOS_PREC(val) >= IPTOS_PREC_CRITIC_ECP &&
--		    !capable(CAP_NET_ADMIN)) {
--			err = -EPERM;
--			break;
--		}
- 		if (inet->tos != val) {
- 			inet->tos = val;
- 			sk->sk_priority = rt_tos2priority(val);
