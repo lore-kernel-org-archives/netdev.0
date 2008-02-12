@@ -1,60 +1,35 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH][NETLABEL]: Fix lookup logic of netlbl_domhsh_search_def.
-Date: Tue, 12 Feb 2008 11:34:09 -0500
-Message-ID: <200802121134.09965.paul.moore@hp.com>
-References: <47B1C8E4.6010908@openvz.org>
+From: fgnijuhhu guduggurehug <jsmiths1234@live.com>
+Subject: RE: r8169 auto-negotiation problem
+Date: Tue, 12 Feb 2008 16:44:18 +0000
+Message-ID: <BAY107-W2892B3D06485CBB5AEDCC2D52B0@phx.gbl>
+References: <BAY107-W4033FF1A4417D61C5177FD5310@phx.gbl>
+ <20080203184525.GA12607@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:2132 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757908AbYBLQeX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 11:34:23 -0500
-In-Reply-To: <47B1C8E4.6010908@openvz.org>
-Content-Disposition: inline
+Received: from bay0-omc3-s36.bay0.hotmail.com ([65.54.246.236]:24009 "EHLO
+	bay0-omc3-s36.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1763599AbYBLQoS convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Feb 2008 11:44:18 -0500
+In-Reply-To: <20080203184525.GA12607@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 12 February 2008 11:27:16 am Pavel Emelyanov wrote:
-> Currently, if the call to netlbl_domhsh_search succeeds the
-> return result will still be NULL.
->
-> Fix that, by returning the found entry (if any).
->
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Good catch, thanks.
-
-Acked-by: Paul Moore <paul.moore@hp.com>
-
-> ---
+> fgnijuhhu guduggurehug  :
+> [...]
+>> I already posted my problem and what I did to solve it on
+>> http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=461429.
 >
-> diff --git a/net/netlabel/netlabel_domainhash.c
-> b/net/netlabel/netlabel_domainhash.c index 9a8ea01..fd46231 100644
-> --- a/net/netlabel/netlabel_domainhash.c
-> +++ b/net/netlabel/netlabel_domainhash.c
-> @@ -150,11 +150,11 @@ static struct netlbl_dom_map
-> *netlbl_domhsh_search_def(const char *domain) entry =
-> netlbl_domhsh_search(domain);
->  	if (entry == NULL) {
->  		entry = rcu_dereference(netlbl_domhsh_def);
-> -		if (entry != NULL && entry->valid)
-> -			return entry;
-> +		if (entry != NULL && !entry->valid)
-> +			entry = NULL;
->  	}
->
-> -	return NULL;
-> +	return entry;
->  }
->
->  /*
+> Have you tried anything more recent than a 2.6.18 based kernel ?
 
--- 
-paul moore
-linux security @ hp
+No, but if changes were made to the iniatialization of the chipset in the current driver (mine was 2.2LK), this might do the trick. The problem is that the error is rather erratic and unreproducible.
+
+Anyway, how to best upgrade the kernel in debian (without problems, of course)? The problem right now is that every apt-get upgrade reverts the r8169 driver to the old one...
+_________________________________________________________________
+Express yourself instantly with MSN Messenger! Download today it's FREE!
+http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
