@@ -1,44 +1,43 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: E1000 (PCI-E) doesn't work on nforce430, MSI issue.
-Date: Tue, 12 Feb 2008 14:24:21 -0800
-Message-ID: <47B21C95.4050705@intel.com>
-References: <m37ih9ooim.fsf@maximus.localdomain> <200802122234.47164.prakash@punnoor.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 auto-negotiation problem
+Date: Tue, 12 Feb 2008 23:20:15 +0100
+Message-ID: <20080212222015.GA21495@electric-eye.fr.zoreil.com>
+References: <BAY107-W4033FF1A4417D61C5177FD5310@phx.gbl> <20080203184525.GA12607@electric-eye.fr.zoreil.com> <BAY107-W2892B3D06485CBB5AEDCC2D52B0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Krzysztof Halasa <khc@pm.waw.pl>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Prakash Punnoor <prakash@punnoor.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: fgnijuhhu guduggurehug <jsmiths1234@live.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:3724 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751788AbYBLWZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Feb 2008 17:25:08 -0500
-In-Reply-To: <200802122234.47164.prakash@punnoor.de>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:37999 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751871AbYBLWib (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 17:38:31 -0500
+Content-Disposition: inline
+In-Reply-To: <BAY107-W2892B3D06485CBB5AEDCC2D52B0@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prakash Punnoor wrote:
-> On the day of Tuesday 12 February 2008 Krzysztof Halasa hast written:
->> Hi,
->>
->> Is it a known problem?
->> Linux 2.6.24.2, ASUS M2NPV-MX mobo, nforce 430 based, two PCI-E x1
->> E1000 cards, 32-bit kernel, default e1000 driver (PCI IDs disabled in
->> e1000e).
+fgnijuhhu guduggurehug <jsmiths1234@live.com> :
+> > fgnijuhhu guduggurehug  :
+> > [...]
+> >> I already posted my problem and what I did to solve it on
+> >> http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=461429.
+> >
+> > Have you tried anything more recent than a 2.6.18 based kernel ?
+> 
+> No, but if changes were made to the iniatialization of the chipset
+> in the current driver (mine was 2.2LK), this might do the trick.
 
-your card will work with e1000e from 2.6.25 onwards.
+Please try a recent kernel. Your r8169 driver is badly outdated.
 
->> Don't work by default. "pci=nomsi" fixes the problem.
+[...]
+> Anyway, how to best upgrade the kernel in debian (without problems,
+> of course) ? The problem right now is that every apt-get upgrade
+> reverts the r8169 driver to the old one...
 
-actually does not fix anything - it just works around it by falling back to legacy
-interrupts.
+I do not use debian but you can read:
 
-> Probably the patch to enable msi bit on the host bridge(?) is still missing in 
-> mainline. I needed that patch to make msi work on my MCP51 system.
+http://www.google.com/search?q=debian+kernel+upgrade
 
-and there have been many more reports. unfortunately e1000 cards are one of the
-few things that actually uses MSI. It works great except for a few problematic
-motherboards, and the ones mentioned in this thread fall amongst them.
-
-Auke
+-- 
+Ueimor
