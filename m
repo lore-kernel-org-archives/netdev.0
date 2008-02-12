@@ -1,57 +1,55 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 2/4] fib_trie: improve output format for
- /proc/net/fib_trie
-Date: Tue, 12 Feb 2008 18:28:23 -0800
-Message-ID: <20080212182823.6f8a3a12.akpm@linux-foundation.org>
-References: <20080213005042.150212716@vyatta.com>
-	<20080213005122.727447010@vyatta.com>
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+Subject: [PATCH] [TC U32] Fix input parsing to support more than 9 flow id's
+	correctly
+Date: Tue, 12 Feb 2008 11:37:25 -0800
+Message-ID: <20080212193725.4137.62287.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: stephen.hemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:36451 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753552AbYBMC3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 21:29:46 -0500
-In-Reply-To: <20080213005122.727447010@vyatta.com>
+Received: from mga02.intel.com ([134.134.136.20]:42045 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752745AbYBMCcp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Feb 2008 21:32:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 Feb 2008 16:50:44 -0800 Stephen Hemminger <shemminger@vyatta.com> wrote:
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-> Make output format prettier (more tree like).
-> 
->    <local>:
->    --- 0.0.0.0/0
->      |--- 10.111.111.0/24
->      |  +-- 10.111.111.0/32 link broadcast
->      |  |--- 10.111.111.254/31
->      |  |  +-- 10.111.111.254/32 host local
->      |  |  +-- 10.111.111.255/32 link broadcast
->      |--- 127.0.0.0/8
->      |  |--- 127.0.0.0/31
->      |  |  +-- 127.0.0.0/32 link broadcast
->      |  |  +-- 127.0.0.0/8 host local
->      |  |  +-- 127.0.0.1/32 host local
->      |  +-- 127.255.255.255/32 link broadcast
->      |--- 192.168.1.0/24
->      |  |--- 192.168.1.0/28
->      |  |  +-- 192.168.1.0/32 link broadcast
->      |  |  +-- 192.168.1.9/32 host local
->      |  +-- 192.168.1.255/32 link broadcast
->    <main>:
->    --- 0.0.0.0/0
->      |--- 0.0.0.0/4
->      |  +-- 0.0.0.0/0 universe unicast
->      |  +-- 10.111.111.0/24 link unicast
->      +-- 169.254.0.0/16 link unicast
->      +-- 192.168.1.0/24 link unicast
+Using strtoul with a base of 16 converts flowid 10 into 0x10, which makes
+it flowid 16.  This is interpreted by the kernel incorrectly, and causes
+traffic flows above 9 to be classified into band 0 on multiband qdiscs.
+This changes the base to 10, which will correctly parse input into the
+proper hexidecimal value.
 
-isn't that a non-back-compatible kernel ABI change?  It might
-break pre-existing parsers?
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+---
 
-aside: how lame are we to put pretty-printers in the kernel?
-English-only ones, at that?  Root cause: kernel developers still
-don't have a sufficiently easy way of shipping userspace tools.
+ tc/tc_util.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tc/tc_util.c b/tc/tc_util.c
+index cdbae42..a277eac 100644
+--- a/tc/tc_util.c
++++ b/tc/tc_util.c
+@@ -65,7 +65,7 @@ int get_tc_classid(__u32 *h, const char *str)
+ 	maj = TC_H_UNSPEC;
+ 	if (strcmp(str, "none") == 0)
+ 		goto ok;
+-	maj = strtoul(str, &p, 16);
++	maj = strtoul(str, &p, 10);
+ 	if (p == str) {
+ 		maj = 0;
+ 		if (*p != ':')
+@@ -76,7 +76,7 @@ int get_tc_classid(__u32 *h, const char *str)
+ 			return -1;
+ 		maj <<= 16;
+ 		str = p+1;
+-		min = strtoul(str, &p, 16);
++		min = strtoul(str, &p, 10);
+ 		if (*p != 0)
+ 			return -1;
+ 		if (min >= (1<<16))
+
