@@ -1,46 +1,64 @@
-From: Johan Andersson <johan.andersson@transmode.se>
-Subject: Re: e1000e hardware CRC stripping breaks bridging
-Date: Tue, 12 Feb 2008 14:57:50 +0100
-Message-ID: <1202824670.26114.20.camel@gentoo-johan.transmode.se>
-References: <47B19EDE.5020802@gentoo.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [Bug 9750] [patch 2.6.25] dev: avoid a race that triggers assertion
+ failure
+Date: Tue, 12 Feb 2008 10:58:12 -0500
+Message-ID: <47B1C214.2060600@pobox.com>
+References: <190693.34289.qm@web52005.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org
-To: Daniel Drake <dsd@gentoo.org>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:38370 "EHLO
-	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758010AbYBLN5x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 08:57:53 -0500
-In-Reply-To: <47B19EDE.5020802@gentoo.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:48627 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751919AbYBLP6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Feb 2008 10:58:16 -0500
+In-Reply-To: <190693.34289.qm@web52005.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here is the bug report:
-http://bugzilla.kernel.org/show_bug.cgi?id=9940
+Matti Linnanvuori wrote:
+> From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+> 
+> There is a race in Linux kernel file net/core/dev.c, function dev_close.
+> The function calls function dev_deactivate, which calls function
+> dev_watchdog_down that deletes the watchdog timer. However, after that, a
+> driver can call netif_carrier_ok, which calls function
+> __netdev_watchdog_up that can add the watchdog timer again. Function
+> unregister_netdevice calls function dev_shutdown that traps the bug
+> !timer_pending(&dev->watchdog_timer). Moving dev_deactivate after
+> netif_running() has been cleared prevents function netif_carrier_on
+> from calling __netdev_watchdog_up and adding the watchdog timer again.
+> 
+> Signed-off-by: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+> 
+> ---
+> 
+> --- linux-2.6.25/net/core/dev.c    2008-02-12 12:37:51.206833000 +0200
+> +++ b/net/core/dev.c    2008-02-12 12:38:48.727611400 +0200
+> @@ -1071,8 +1071,6 @@ int dev_close(struct net_device *dev)
+>       */
+>      call_netdevice_notifiers(NETDEV_GOING_DOWN, dev);
+>  
+> -    dev_deactivate(dev);
+> -
+>      clear_bit(__LINK_STATE_START, &dev->state);
+>  
+>      /* Synchronize to scheduled poll. We cannot touch poll list,
+> @@ -1083,6 +1081,7 @@ int dev_close(struct net_device *dev)
+>       */
+>      smp_mb__after_clear_bit(); /* Commit netif_running(). */
+>  
+> +    dev_deactivate(dev);
+>      /*
+>       *    Call the device specific close. This cannot fail.
+>       *    Only if device is UP
 
-/Johan
+This is more for davem (he does net/* stuff)
 
-On Tue, 2008-02-12 at 13:27 +0000, Daniel Drake wrote:
-> Hi,
-> 
-> Johan Andersson reported on the Gentoo bugzilla that the hardware CRC 
-> stripping enabled by e1000e breaks bridging because sometimes the CRC is 
-> not stripped:
-> https://bugs.gentoo.org/show_bug.cgi?id=209235
-> 
-> Apparently "upstream" are aware but I couldn't find any mails or bug 
-> reports on this topic.
-> 
-> What's the current status of this issue? Perhaps we should disable 
-> hardware CRC stripping for 2.6.24.x/2.6.25 until this gets fixed?
-> 
-> Thanks,
-> Daniel
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+	Jeff
+
+
+
 
