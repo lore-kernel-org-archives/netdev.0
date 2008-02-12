@@ -1,29 +1,108 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] [TC U32] Fix input parsing to support more than 9 flow id'scorrectly
-Date: Tue, 12 Feb 2008 20:25:14 -0800
-Message-ID: <D5C1322C3E673F459512FB59E0DDC3290482CDD9@orsmsx414.amr.corp.intel.com>
-References: <20080212193725.4137.62287.stgit@localhost.localdomain> <D5C1322C3E673F459512FB59E0DDC3290482CDB1@orsmsx414.amr.corp.intel.com> <47B2637C.4070608@vyatta.com>
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+Subject: [PATCH] [IPROUTE2] Update various classifiers' help output for
+	expected CLASSID syntax
+Date: Tue, 12 Feb 2008 13:51:25 -0800
+Message-ID: <20080212215125.8241.97112.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Stephen Hemminger" <stephen.hemminger@vyatta.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: stephen.hemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:6491 "EHLO mga11.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:52200 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755273AbYBME1K convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 23:27:10 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <47B2637C.4070608@vyatta.com>
+	id S1754968AbYBMEtS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Feb 2008 23:49:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  
-> Sorry, can't change the api, update the documentation instead.
+This updates the help output to specify that CLASSID should be hexidecimal.
+This makes sure that a user entering "flowid 1:10" gets his flow put into
+band 15 (0x10) and knows why.
 
-Yes, this is much more reasonable.  I'll send a patch shortly to do
-that.
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+---
 
-Thanks
--PJ Waskiewicz
+ doc/actions/actions-general |    3 +++
+ tc/f_basic.c                |    1 +
+ tc/f_fw.c                   |    1 +
+ tc/f_route.c                |    1 +
+ tc/f_rsvp.c                 |    1 +
+ tc/f_u32.c                  |    1 +
+ 6 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/doc/actions/actions-general b/doc/actions/actions-general
+index 6561eda..70f7cd6 100644
+--- a/doc/actions/actions-general
++++ b/doc/actions/actions-general
+@@ -88,6 +88,9 @@ tc filter add dev lo parent ffff: protocol ip prio 8 u32 \
+ match ip dst 127.0.0.8/32 flowid 1:12 \
+ action ipt -j mark --set-mark 2
+ 
++NOTE: flowid 1:12 is parsed flowid 0x1:0x12.  Make sure if you want flowid
++decimal 12, then use flowid 1:c.
++
+ 3) A feature i call pipe
+ The motivation is derived from Unix pipe mechanism but applied to packets.
+ Essentially take a matching packet and pass it through 
+diff --git a/tc/f_basic.c b/tc/f_basic.c
+index 19a7edf..d6d7767 100644
+--- a/tc/f_basic.c
++++ b/tc/f_basic.c
+@@ -32,6 +32,7 @@ static void explain(void)
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "Where: SELECTOR := SAMPLE SAMPLE ...\n");
+ 	fprintf(stderr, "       FILTERID := X:Y:Z\n");
++	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexidecimal input.\n");
+ }
+ 
+ static int basic_parse_opt(struct filter_util *qu, char *handle,
+diff --git a/tc/f_fw.c b/tc/f_fw.c
+index 6d1490b..9f4ef6e 100644
+--- a/tc/f_fw.c
++++ b/tc/f_fw.c
+@@ -28,6 +28,7 @@ static void explain(void)
+ 	fprintf(stderr, "Usage: ... fw [ classid CLASSID ] [ police POLICE_SPEC ]\n");
+ 	fprintf(stderr, "       POLICE_SPEC := ... look at TBF\n");
+ 	fprintf(stderr, "       CLASSID := X:Y\n");
++	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexidecimal input.\n");
+ }
+ 
+ #define usage() return(-1)
+diff --git a/tc/f_route.c b/tc/f_route.c
+index a41b9d5..3bb963c 100644
+--- a/tc/f_route.c
++++ b/tc/f_route.c
+@@ -31,6 +31,7 @@ static void explain(void)
+ 	fprintf(stderr, "                [ flowid CLASSID ] [ police POLICE_SPEC ]\n");
+ 	fprintf(stderr, "       POLICE_SPEC := ... look at TBF\n");
+ 	fprintf(stderr, "       CLASSID := X:Y\n");
++	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexidecimal input.\n");
+ }
+ 
+ #define usage() return(-1)
+diff --git a/tc/f_rsvp.c b/tc/f_rsvp.c
+index 13fcf97..9019ee2 100644
+--- a/tc/f_rsvp.c
++++ b/tc/f_rsvp.c
+@@ -34,6 +34,7 @@ static void explain(void)
+ 	fprintf(stderr, "                u{8|16|32} NUMBER mask MASK at OFFSET}\n");
+ 	fprintf(stderr, "       POLICE_SPEC := ... look at TBF\n");
+ 	fprintf(stderr, "       FILTERID := X:Y\n");
++	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexidecimal input.\n");
+ }
+ 
+ #define usage() return(-1)
+diff --git a/tc/f_u32.c b/tc/f_u32.c
+index 91f2838..d38c536 100644
+--- a/tc/f_u32.c
++++ b/tc/f_u32.c
+@@ -36,6 +36,7 @@ static void explain(void)
+ 	fprintf(stderr, "Where: SELECTOR := SAMPLE SAMPLE ...\n");
+ 	fprintf(stderr, "       SAMPLE := { ip | ip6 | udp | tcp | icmp | u{32|16|8} | mark } SAMPLE_ARGS [divisor DIVISOR]\n");
+ 	fprintf(stderr, "       FILTERID := X:Y:Z\n");
++	fprintf(stderr, "\nNOTE: CLASSID is parsed at hexidecimal input.\n");
+ }
+ 
+ #define usage() return(-1)
+
