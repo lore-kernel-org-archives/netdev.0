@@ -1,46 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][AX25] ax25_route: make ax25_route_lock BH safe
-Date: Mon, 11 Feb 2008 21:26:59 -0800 (PST)
-Message-ID: <20080211.212659.228544422.davem@davemloft.net>
-References: <000d01c86c8b$fd9e67d0$453c822c@dg8ngn>
-	<20080211124251.GB3597@ff.dom.local>
+Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
+Date: Mon, 11 Feb 2008 21:30:48 -0800 (PST)
+Message-ID: <20080211.213048.192442721.davem@davemloft.net>
+References: <47B0C9F7.5040200@katalix.com>
+	<20080211224924.GA2863@ami.dom.local>
+	<47B0DD1E.5000608@katalix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jann@gmx.de, f6bvp@free.fr, ralf@linux-mips.org,
-	netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org
+To: jchapman@katalix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44843
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41282
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752299AbYBLF01 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 00:26:27 -0500
-In-Reply-To: <20080211124251.GB3597@ff.dom.local>
+	by vger.kernel.org with ESMTP id S1751184AbYBLFaR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 00:30:17 -0500
+In-Reply-To: <47B0DD1E.5000608@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Mon, 11 Feb 2008 12:42:51 +0000
+From: James Chapman <jchapman@katalix.com>
+Date: Mon, 11 Feb 2008 23:41:18 +0000
 
-> [AX25] ax25_route: make ax25_route_lock BH safe
+> Jarek Poplawski wrote:
+> > On Mon, Feb 11, 2008 at 10:19:35PM +0000, James Chapman wrote:
+> > ...
+> >> Below is example output from lockdep. The oops is reproducible when  
+> >> creating/deleting lots of sessions while passing data. The lock is being  
+> >> acquired for read and write in softirq contexts.
+> >>
+> >> Is there a better way to fix this?
+> >>
+> >> =================================
+> >> [ INFO: inconsistent lock state ]
+> >> 2.6.24-core2 #1
+> >> ---------------------------------
+> >> inconsistent {in-softirq-R} -> {softirq-on-W} usage.
+> >> openl2tpd/3215 [HC0[0]:SC0[0]:HE1:SE1] takes:
+> >>   (&tunnel->hlist_lock){---?}, at: [<f8eea157>]
+> >> pppol2tp_connect+0x517/0x6d0 [pppol2tp]
+> >> {in-softirq-R} state was registered at:
+> > 
+> > IMHO, according to this, disabling bh should be enough. And if it's
+> > like in this report: only read_lock is taken from softirqs, then this
+> > should be necessary to change only all write_locks to write_lock_bh
+> > (of course unless somewhere bhs are disabled already). Unless I miss
+> > something?!
 > 
-> > =================================
-> > [ INFO: inconsistent lock state ]
-> > 2.6.24-dg8ngn-p02 #1
-> > ---------------------------------
-> > inconsistent {softirq-on-W} -> {in-softirq-R} usage.
-> > linuxnet/3046 [HC0[0]:SC1[2]:HE1:SE0] takes:
-> >  (ax25_route_lock){--.+}, at: [<f8a0cfb7>] ax25_get_route+0x18/0xb7 [ax25]
-> > {softirq-on-W} state was registered at:
-> ...
-> 
-> This lockdep report shows that ax25_route_lock is taken for reading in
-> softirq context, and for writing in process context with BHs enabled.
-> So, to make this safe, all write_locks in ax25_route.c are changed to
-> _bh versions.
-> 
-> 
-> Reported-by: Jann Traschewski <jann@gmx.de>,
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> I thought so too. I tried _bh locks first and the problem still 
+> occurred. Maybe I'll try it again in case I messed something up.
 
-Applied, thanks a lot Jarek.
+I agree with Jarek here, I look at all the code paths that take
+->hlist_lock and all of them are in user context or software
+interrupts.
+
+Please get a lockdep trace with the change to _bh intead of
+hw interrupt protection so we can find out what that doesn't
+work.
+
+Thanks!
