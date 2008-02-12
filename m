@@ -1,241 +1,116 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: [PATCH] [RFC] Smack: unlabeled outgoing ambient packets - v2
-Date: Mon, 11 Feb 2008 10:29:19 -0800
-Message-ID: <47B093FF.3030202@schaufler-ca.com>
-Reply-To: casey@schaufler-ca.com
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH 2/4] docbook: sunrpc filenames and notation fixes
+Date: Mon, 11 Feb 2008 17:28:07 -0800
+Message-ID: <20080211172807.d234ee97.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: paul.moore@hp.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	akpm <akpm@linux-foundation.org>
+To: lkml <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from n1.bullet.mail.re3.yahoo.com ([68.142.237.108]:22214 "HELO
-	n1.bullet.mail.re3.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752481AbYBLB3d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 20:29:33 -0500
+Received: from agminet01.oracle.com ([141.146.126.228]:62597 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754043AbYBLBbh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 20:31:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Casey Schaufler <casey@schaufler-ca.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Smack uses CIPSO labeling, but allows for unlabeled packets
-by specifying an "ambient" label that is applied to incoming
-unlabeled packets. Because the other end of the connection
-may dislike IP options, and ssh is one know application that
-behaves thus, it is prudent to respond in kind. This patch
-changes the network labeling behavior such that an outgoing
-packet that would be given a CIPSO label that matches the
-ambient label is left unlabeled. An "unlbl" domain is added
-and the netlabel defaulting mechanism invoked rather than
-assuming that everything is CIPSO. Locking has been added
-around changes to the ambient label as the mechanisms used
-to do so are more involved.
+Use updated file list for docbook files and
+fix kernel-doc warnings in sunrpc:
+Warning(linux-2.6.24-git12//net/sunrpc/rpc_pipe.c:689): No description found for parameter 'rpc_client'
+Warning(linux-2.6.24-git12//net/sunrpc/rpc_pipe.c:765): No description found for parameter 'flags'
+Warning(linux-2.6.24-git12//net/sunrpc/clnt.c:584): No description found for parameter 'tk_ops'
+Warning(linux-2.6.24-git12//net/sunrpc/clnt.c:618): No description found for parameter 'bufsize'
 
-Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
-
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 ---
+ Documentation/DocBook/kernel-api.tmpl |    8 +++++++-
+ net/sunrpc/clnt.c                     |   10 +++++-----
+ net/sunrpc/rpc_pipe.c                 |    3 ++-
+ net/sunrpc/xprt.c                     |    2 +-
+ 4 files changed, 15 insertions(+), 8 deletions(-)
 
-This patch differs significantly from the previous version.
-I think that I am using the netlbl interfaces more appropriately,
-Paul, please let me know if there's a better approach.
-
-It's inconvenient that netlbl_sock_setattr frees the domain passed.
-I see that it makes sense for SELinux with the way SELinux treats
-secctx's, but Smack is more careful about memory usage and I have
-to do what I consider a gratuitous kalloc because of this behavior.
-Would you be open to a patch to change this if it included the SELinux
-changes?
-
-Thank you.
-
- security/smack/smack_lsm.c |   20 ++++++------
- security/smack/smackfs.c   |   54 +++++++++++++++++++++++++----------
- 2 files changed, 49 insertions(+), 25 deletions(-)
-
-diff -uprN -X linux-2.6.25-g0210-base//Documentation/dontdiff linux-2.6.25-g0210-base/security/smack/smackfs.c linux-2.6.25-g0210/security/smack/smackfs.c
---- linux-2.6.25-g0210-base/security/smack/smackfs.c	2008-02-10 19:30:47.000000000 -0800
-+++ linux-2.6.25-g0210/security/smack/smackfs.c	2008-02-11 07:14:54.000000000 -0800
-@@ -45,6 +45,7 @@ enum smk_inos {
-  */
- static DEFINE_MUTEX(smack_list_lock);
- static DEFINE_MUTEX(smack_cipso_lock);
-+static DEFINE_MUTEX(smack_ambient_lock);
+--- linux-2.6.25-rc1.orig/Documentation/DocBook/kernel-api.tmpl
++++ linux-2.6.25-rc1/Documentation/DocBook/kernel-api.tmpl
+@@ -231,8 +231,14 @@ X!Ilib/string.c
+ !Dnet/sunrpc/sunrpc_syms.c
+ -->
+ !Enet/sunrpc/xdr.c
+-!Enet/sunrpc/svcsock.c
++!Enet/sunrpc/svc_xprt.c
++!Enet/sunrpc/xprt.c
+ !Enet/sunrpc/sched.c
++!Enet/sunrpc/socklib.c
++!Enet/sunrpc/stats.c
++!Enet/sunrpc/rpc_pipe.c
++!Enet/sunrpc/rpcb_clnt.c
++!Enet/sunrpc/clnt.c
+      </sect1>
+   </chapter>
  
- /*
-  * This is the "ambient" label for network traffic.
-@@ -363,6 +364,27 @@ void smk_cipso_doi(void)
- 		       __func__, __LINE__, rc);
- }
+--- linux-2.6.25-rc1.orig/net/sunrpc/clnt.c
++++ linux-2.6.25-rc1/net/sunrpc/clnt.c
+@@ -464,9 +464,9 @@ rpc_release_client(struct rpc_clnt *clnt
  
-+/**
-+ * smk_unlbl_ambient - initialize the unlabeled domain
-+ */
-+void smk_unlbl_ambient(char *oldambient)
-+{
-+	int rc;
-+	struct netlbl_audit audit_info;
-+
-+	if (oldambient != NULL) {
-+		rc = netlbl_cfg_map_del(oldambient, &audit_info);
-+		if (rc != 0)
-+			printk(KERN_WARNING "%s:%d remove rc = %d\n",
-+			       __func__, __LINE__, rc);
-+	}
-+
-+	rc = netlbl_cfg_unlbl_add_map(smack_net_ambient, &audit_info);
-+	if (rc != 0)
-+		printk(KERN_WARNING "%s:%d add rc = %d\n",
-+		       __func__, __LINE__, rc);
-+}
-+
- /*
-  * Seq_file read operations for /smack/cipso
-  */
-@@ -709,7 +731,6 @@ static ssize_t smk_read_ambient(struct f
- 				size_t cn, loff_t *ppos)
- {
- 	ssize_t rc;
--	char out[SMK_LABELLEN];
- 	int asize;
- 
- 	if (*ppos != 0)
-@@ -717,23 +738,18 @@ static ssize_t smk_read_ambient(struct f
- 	/*
- 	 * Being careful to avoid a problem in the case where
- 	 * smack_net_ambient gets changed in midstream.
--	 * Since smack_net_ambient is always set with a value
--	 * from the label list, including initially, and those
--	 * never get freed, the worst case is that the pointer
--	 * gets changed just after this strncpy, in which case
--	 * the value passed up is incorrect. Locking around
--	 * smack_net_ambient wouldn't be any better than this
--	 * copy scheme as by the time the caller got to look
--	 * at the ambient value it would have cleared the lock
--	 * and been changed.
- 	 */
--	strncpy(out, smack_net_ambient, SMK_LABELLEN);
--	asize = strlen(out) + 1;
-+	mutex_lock(&smack_ambient_lock);
- 
--	if (cn < asize)
--		return -EINVAL;
-+	asize = strlen(smack_net_ambient) + 1;
- 
--	rc = simple_read_from_buffer(buf, cn, ppos, out, asize);
-+	if (cn >= asize)
-+		rc = simple_read_from_buffer(buf, cn, ppos,
-+					     smack_net_ambient, asize);
-+	else
-+		rc = -EINVAL;
-+
-+	mutex_unlock(&smack_ambient_lock);
- 
- 	return rc;
- }
-@@ -751,6 +767,7 @@ static ssize_t smk_write_ambient(struct 
- 				 size_t count, loff_t *ppos)
- {
- 	char in[SMK_LABELLEN];
-+	char *oldambient;
- 	char *smack;
- 
- 	if (!capable(CAP_MAC_ADMIN))
-@@ -766,7 +783,13 @@ static ssize_t smk_write_ambient(struct 
- 	if (smack == NULL)
- 		return -EINVAL;
- 
-+	mutex_lock(&smack_ambient_lock);
-+
-+	oldambient = smack_net_ambient;
- 	smack_net_ambient = smack;
-+	smk_unlbl_ambient(oldambient);
-+
-+	mutex_unlock(&smack_ambient_lock);
- 
- 	return count;
- }
-@@ -974,6 +997,7 @@ static int __init init_smk_fs(void)
- 
- 	sema_init(&smack_write_sem, 1);
- 	smk_cipso_doi();
-+	smk_unlbl_ambient(NULL);
- 
- 	return err;
- }
-diff -uprN -X linux-2.6.25-g0210-base//Documentation/dontdiff linux-2.6.25-g0210-base/security/smack/smack_lsm.c linux-2.6.25-g0210/security/smack/smack_lsm.c
---- linux-2.6.25-g0210-base/security/smack/smack_lsm.c	2008-02-10 19:30:47.000000000 -0800
-+++ linux-2.6.25-g0210/security/smack/smack_lsm.c	2008-02-10 20:10:47.000000000 -0800
-@@ -1251,7 +1251,7 @@ static void smack_to_secattr(char *smack
- 
- 	switch (smack_net_nltype) {
- 	case NETLBL_NLTYPE_CIPSOV4:
--		nlsp->domain = NULL;
-+		nlsp->domain = kstrdup(smack, GFP_ATOMIC);
- 		nlsp->flags = NETLBL_SECATTR_DOMAIN;
- 		nlsp->flags |= NETLBL_SECATTR_MLS_LVL;
- 
-@@ -1276,21 +1276,21 @@ static void smack_to_secattr(char *smack
-  * Convert the outbound smack value (smk_out) to a
-  * secattr and attach it to the socket.
+ /**
+  * rpc_bind_new_program - bind a new RPC program to an existing client
+- * @old - old rpc_client
+- * @program - rpc program to set
+- * @vers - rpc program version
++ * @old: old rpc_client
++ * @program: rpc program to set
++ * @vers: rpc program version
   *
-- * Returns 0 on success or an error code
-+ * The return from netlbl_sock_setattr is ignored because
-+ * the defaulting label behavior provided by netlbl takes
-+ * care of the error cases.
+  * Clones the rpc client and sets up a new RPC program. This is mainly
+  * of use for enabling different RPC programs to share the same transport.
+@@ -575,7 +575,7 @@ EXPORT_SYMBOL_GPL(rpc_call_sync);
+  * @clnt: pointer to RPC client
+  * @msg: RPC call parameters
+  * @flags: RPC call flags
+- * @ops: RPC call ops
++ * @tk_ops: RPC call ops
+  * @data: user call data
   */
--static int smack_netlabel(struct sock *sk)
-+static void smack_netlabel(struct sock *sk)
- {
- 	struct socket_smack *ssp = sk->sk_security;
- 	struct netlbl_lsm_secattr secattr;
--	int rc = 0;
-+	int rc;
- 
- 	netlbl_secattr_init(&secattr);
- 	smack_to_secattr(ssp->smk_out, &secattr);
- 	if (secattr.flags != NETLBL_SECATTR_NONE)
- 		rc = netlbl_sock_setattr(sk, &secattr);
--
- 	netlbl_secattr_destroy(&secattr);
--	return rc;
- }
+ int
+@@ -610,7 +610,7 @@ EXPORT_SYMBOL_GPL(rpc_call_start);
+  * rpc_peeraddr - extract remote peer address from clnt's xprt
+  * @clnt: RPC client structure
+  * @buf: target buffer
+- * @size: length of target buffer
++ * @bufsize: length of target buffer
+  *
+  * Returns the number of bytes that are actually in the stored address.
+  */
+--- linux-2.6.25-rc1.orig/net/sunrpc/xprt.c
++++ linux-2.6.25-rc1/net/sunrpc/xprt.c
+@@ -124,7 +124,7 @@ EXPORT_SYMBOL_GPL(xprt_register_transpor
  
  /**
-@@ -1340,7 +1340,7 @@ static int smack_inode_setsecurity(struc
- 		ssp->smk_in = sp;
- 	else if (strcmp(name, XATTR_SMACK_IPOUT) == 0) {
- 		ssp->smk_out = sp;
--		return smack_netlabel(sock->sk);
-+		smack_netlabel(sock->sk);
- 	} else
- 		return -EOPNOTSUPP;
- 
-@@ -1367,7 +1367,8 @@ static int smack_socket_post_create(stru
- 	/*
- 	 * Set the outbound netlbl.
- 	 */
--	return smack_netlabel(sock->sk);
-+	smack_netlabel(sock->sk);
-+	return 0;
- }
- 
+  * xprt_unregister_transport - unregister a transport implementation
+- * transport: transport to unregister
++ * @transport: transport to unregister
+  *
+  * Returns:
+  * 0:		transport successfully unregistered
+--- linux-2.6.25-rc1.orig/net/sunrpc/rpc_pipe.c
++++ linux-2.6.25-rc1/net/sunrpc/rpc_pipe.c
+@@ -677,7 +677,7 @@ rpc_lookup_negative(char *path, struct n
  /**
-@@ -2199,7 +2200,6 @@ static int smack_socket_getpeersec_dgram
- static void smack_sock_graft(struct sock *sk, struct socket *parent)
- {
- 	struct socket_smack *ssp;
--	int rc;
- 
- 	if (sk == NULL)
- 		return;
-@@ -2212,7 +2212,7 @@ static void smack_sock_graft(struct sock
- 	ssp->smk_out = current->security;
- 	ssp->smk_packet[0] = '\0';
- 
--	rc = smack_netlabel(sk);
-+	smack_netlabel(sk);
- }
- 
- /**
-
-
+  * rpc_mkdir - Create a new directory in rpc_pipefs
+  * @path: path from the rpc_pipefs root to the new directory
+- * @rpc_clnt: rpc client to associate with this directory
++ * @rpc_client: rpc client to associate with this directory
+  *
+  * This creates a directory at the given @path associated with
+  * @rpc_clnt, which will contain a file named "info" with some basic
+@@ -748,6 +748,7 @@ rpc_rmdir(struct dentry *dentry)
+  * @private: private data to associate with the pipe, for the caller's use
+  * @ops: operations defining the behavior of the pipe: upcall, downcall,
+  *	release_pipe, and destroy_msg.
++ * @flags: rpc_inode flags
+  *
+  * Data is made available for userspace to read by calls to
+  * rpc_queue_upcall().  The actual reads will result in calls to
