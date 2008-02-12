@@ -1,63 +1,92 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Subject: Re: [PATCH] drivers/base: export gpl (un)register_memory_notifier
-Date: Tue, 12 Feb 2008 10:04:09 -0800
-Message-ID: <1202839449.11188.35.camel@nimitz.home.sr71.net>
-References: <200802111724.12416.ossthema@de.ibm.com>
+From: "Natalie Protasevich" <protasnb@gmail.com>
+Subject: Re: Open bugs
+Date: Tue, 12 Feb 2008 10:55:35 -0800
+Message-ID: <32209efe0802121055g4fd4911ap285d7f91e96af43f@mail.gmail.com>
+References: <32209efe0802120018r17c38835ud931085e44aafefb@mail.gmail.com>
+	 <1202839022.3137.63.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Themann, Jan-Bernd" <themann@de.ibm.com>, netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Thomas Klein <osstklei@de.ibm.com>, linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <RAISCH@de.ibm.com>, Greg KH <greg@kroah.com>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <200802111724.12416.ossthema@de.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, alsa-devel@alsa-project.org,
+	linux-ide@vger.kernel.org, bugme-daemon@kernel-bugs.osdl.org,
+	linux-scsi <linux-scsi@vger.kernel.org>
+To: "James Bottomley" <James.Bottomley@hansenpartnership.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1202839022.3137.63.camel@localhost.localdomain>
+Content-Disposition: inline
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2008-02-11 at 17:24 +0100, Jan-Bernd Themann wrote:
-> Drivers like eHEA need memory notifiers in order to 
-> update their internal DMA memory map when memory is added
-> to or removed from the system.
-> 
-> Patch for eHEA memory hotplug support that uses these functions:
-> http://www.spinics.net/lists/netdev/msg54484.html
+On Feb 12, 2008 9:57 AM, James Bottomley
+<James.Bottomley@hansenpartnership.com> wrote:
+> Added linux-scsi for the SCSI ones
+>
+> On Tue, 2008-02-12 at 00:18 -0800, Natalie Protasevich wrote:
+> > Hello,
+> >
+> > The bugs listed are over a month old, and haven't been addressed yet.
+> > It would be appreciated if corresponding maintainers identify whether
+> > the bugs have been fixed, or need to be worked on, and take
+> > appropriate action.
+> >
+> > In most cases, reporters are standing by and ready to provide
+> > information and necessary testing.
+> > Thanks!
+> >
+> > SCSI======================================================
+> >
+> > Problems on booting
+> > http://bugzilla.kernel.org/show_bug.cgi?id=9621
+> > Date: 12/22/2007
+> > Regression
+> > Summary: The boot stops / hangs on hardware detection of SCSI.  I have
+> > an InitioINI-9X00U/UW
+> > When I have an usb key sticked in /dev/sba, and run lilo then, then it
+> > dont boot but give L99 99 99 99 ... error
+>
+> I think this was fixed by commit
+> e2d435ea4084022ab88efa74214accb45b1f9e92
+>
+> Apparently bugzilla email is on the fritz again because this bug report
+> didn't come across linux-scsi.
 
-This driver is broken pretty horribly.  It won't even compile for a
-plain ppc64 kernel:
+I just fixed that, thanks. It was incorrect "assign-to" party.
 
-http://sr71.net/~dave/linux/ehea-is-broken.config
+>
+> > Resetting RAID attached to a FC Switch causes kernel panic and crash
+> > http://bugzilla.kernel.org/show_bug.cgi?id=9598
+> > 12/18/2007
+> > Hardware Environment:SunFire X4200 - 2 x dual core AMD Opteron CPUs,
+> > 8GB Ram, Qlogic FC adapter.
+> > Summary: Resetting the RAID box causes the X4200 to crash.
+>
+> This one looks like the usual problem of remove re-add with the SCSI
+> device model.
+>
+> > 3ware 9650SE -8LPML not recognized by 3w-9xxx driver
+> > http://bugzilla.kernel.org/show_bug.cgi?id=8908
+> > 08/19/2007
+> > Problem Description: The 3w-9xxx kernel driver for 3ware 9xxx SATA
+> > RAID Controller series did not recognize the 3ware 9650SE-8LPML SATA
+> > RAID Controller.
+>
+> Since this one never apparently worked it's not a regression but an
+> enhancement request, isn't it?
 
-I know it's used for very specific hardware, but this is the symptom of
-it not using the proper abstracted interfaces to the VM.
+No this is not a regression. The bug list that I post is just any bugs
+(mostly unattended or stalled). Sometimes those are regressions off of
+the Raphael's list, when they don't get resolved for a while, or just
+random regressions that haven't showed up on the "hot list" by
+Raphael.
 
-In file included from /home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_main.c:42:
-/home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_qmr.h:44:14: warning: "SECTION_SIZE_BITS" is not defined
-/home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_qmr.h:45:2: error: #error eHEA module cannot work if kernel sectionsize < ehea sectionsize
-  CC      drivers/net/mii.o
-make[4]: *** [drivers/net/ehea/ehea_main.o] Error 1
-make[4]: *** Waiting for unfinished jobs....
-  CC      drivers/net/ixgb/ixgb_param.o
-In file included from /home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_qmr.c:32:
-/home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_qmr.h:44:14: warning: "SECTION_SIZE_BITS" is not defined
-/home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_qmr.h:45:2: error: #error eHEA module cannot work if kernel sectionsize < ehea sectionsize
-/home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_qmr.c: In function 'ehea_create_busmap':
-/home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_qmr.c:574: error: 'NR_MEM_SECTIONS' undeclared (first use in this function)
-/home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_qmr.c:574: error: (Each undeclared identifier is reported only once
-/home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_qmr.c:574: error: for each function it appears in.)
-/home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_qmr.c:575: error: implicit declaration of function 'valid_section_nr'
-/home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_qmr.c: In function 'ehea_map_vaddr':
-/home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_qmr.c:606: error: 'SECTION_SIZE_BITS' undeclared (first use in this function)
-/home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_qmr.c: In function 'ehea_reg_kernel_mr':
-/home/dave/work/linux/2.6/23/linux-2.6.git/drivers/net/ehea/ehea_qmr.c:655: error: 'SECTION_SIZE_BITS' undeclared (first use in this function)
+>
+> However, adding this PCI ID to the driver should be fairly
+> straightforward.  Does anyone know what the actual PCI IDs are?
 
--- Dave
+I just asked the reporter to provide this information, thanks.
+
+>
+> James
+>
+>
