@@ -1,36 +1,56 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][AX25] ax25_route: make ax25_route_lock BH safe
-Date: Tue, 12 Feb 2008 09:44:55 +0000
-Message-ID: <20080212094455.GC2582@ff.dom.local>
-References: <000d01c86c8b$fd9e67d0$453c822c@dg8ngn> <20080211124251.GB3597@ff.dom.local> <000201c86d53$569297e0$453c822c@dg8ngn>
+From: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+Subject: [PATCH] 2.6.25-rc1 ml4x network driver build failure
+Date: Tue, 12 Feb 2008 15:12:07 +0530
+Message-ID: <20080212094207.GA19427@linux.vnet.ibm.com>
+Reply-To: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'David Miller' <davem@davemloft.net>,
-	'Bernard Pidoux F6BVP' <f6bvp@free.fr>,
-	'Ralf Baechle DL5RB' <ralf@linux-mips.org>,
-	netdev@vger.kernel.org
-To: Jann Traschewski <jann@gmx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.188]:61374 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755750AbYBLJhn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 04:37:43 -0500
-Received: by nf-out-0910.google.com with SMTP id g13so1364933nfb.21
-        for <netdev@vger.kernel.org>; Tue, 12 Feb 2008 01:37:42 -0800 (PST)
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761863AbYBLJmZ@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <000201c86d53$569297e0$453c822c@dg8ngn>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 12, 2008 at 09:43:26AM +0100, Jann Traschewski wrote:
-> Applied on 2.6.24.2 and up without any problems/warnings since 12 hours.
-> Thanks,
-> Jann
+The 2.6.25-rc1 kernel build fails on the powerpc with the error
 
-Thanks Jann, too!
+drivers/net/mlx4/alloc.c: In function =E2=80=98mlx4_buf_alloc=E2=80=99:
+drivers/net/mlx4/alloc.c:162: error: implicit declaration of function =E2=
+=80=98vmap=E2=80=99
+drivers/net/mlx4/alloc.c:162: error: =E2=80=98VM_MAP=E2=80=99 undeclare=
+d (first use in this function)
+drivers/net/mlx4/alloc.c:162: error: (Each undeclared identifier is rep=
+orted only once
+drivers/net/mlx4/alloc.c:162: error: for each function it appears in.)
+drivers/net/mlx4/alloc.c:162: warning: assignment makes pointer from in=
+teger without a cast
+drivers/net/mlx4/alloc.c: In function =E2=80=98mlx4_buf_free=E2=80=99:
+drivers/net/mlx4/alloc.c:187: error: implicit declaration of function =E2=
+=80=98vunmap=E2=80=99
+make[3]: *** [drivers/net/mlx4/alloc.o] Error 1
+make[2]: *** [drivers/net/mlx4] Error 2
+make[1]: *** [drivers/net] Error 2
+make: *** [drivers] Error 2
 
-BTW, I hope maybe until tomorrow I'll figure out something about those
-earlier two AX25 testing patches.
+I have tested the patch for the build failure.
 
-Regards,
-Jarek P.
+Signed-off-by: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+--
+--- linux-2.6.25-rc1/drivers/net/mlx4/alloc.c	2008-02-11 03:48:14.00000=
+0000 +0530
++++ linux-2.6.25-rc1/drivers/net/mlx4/~alloc.c	2008-02-12 14:43:46.0000=
+00000 +0530
+@@ -34,6 +34,7 @@
+ #include <linux/slab.h>
+ #include <linux/bitmap.h>
+ #include <linux/dma-mapping.h>
++#include <linux/vmalloc.h>
+=20
+ #include "mlx4.h"
+=20
+--=20
+Thanks & Regards,
+Kamalesh Babulal,
+Linux Technology Center,
+IBM, ISTL.
