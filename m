@@ -1,64 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fib_trie: rcu_assign_pointer warning fix
-Date: Mon, 11 Feb 2008 17:16:45 -0800 (PST)
-Message-ID: <20080211.171645.74019568.davem@davemloft.net>
-References: <20080211165954.2f1b3a9b@extreme>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: paulmck@us.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: shemminger@vyatta.com
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [Bugme-new] [Bug 9937] New: Bug in bonding driver - Kernel oops whenever driver is loaded with max_bonds parameter
+Date: Mon, 11 Feb 2008 17:21:19 -0800
+Message-ID: <23745.1202779279@death>
+References: <bug-9937-10286@http.bugzilla.kernel.org/> <20080211155608.b60858d7.akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	kantica@gmail.com, stable@kernel.vger.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36544
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752843AbYBLBQO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 20:16:14 -0500
-In-Reply-To: <20080211165954.2f1b3a9b@extreme>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:48507 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754697AbYBLBV1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2008 20:21:27 -0500
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m1C1LRuo026338
+	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 20:21:27 -0500
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m1C1LQ5e215344
+	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 18:21:26 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m1C1LPQZ029324
+	for <netdev@vger.kernel.org>; Mon, 11 Feb 2008 18:21:26 -0700
+In-reply-to: <20080211155608.b60858d7.akpm@linux-foundation.org> 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 11 Feb 2008 16:59:54 -0800
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-linux-kernel added to CC:, any change to generic kernel infrastructure
-should be posted there
+>> Problem Description: Kernel oops whenever bonding driver with max_bonds=2 (or >
+>> 2) is loaded ...
 
-> Eliminate warnings when rcu_assign_pointer is used with unsigned long.
-> It is reasonable to use RCU with non-pointer values so allow it for general
-> use.  Add a comment to explain the if test.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> ---
->  include/linux/rcupdate.h |   13 +++++++------
->  1 files changed, 7 insertions(+), 6 deletions(-)
-> 
-> diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
-> index 37a642c..c44ac87 100644
-> --- a/include/linux/rcupdate.h
-> +++ b/include/linux/rcupdate.h
-> @@ -172,14 +172,15 @@ struct rcu_head {
->   * structure after the pointer assignment.  More importantly, this
->   * call documents which pointers will be dereferenced by RCU read-side
->   * code.
-> + *
-> + * If value is the NULL (constant 0), then no barrier is needed.
->   */
->  
-> -#define rcu_assign_pointer(p, v) \
-> -	({ \
-> -		if (!__builtin_constant_p(v) || \
-> -		    ((v) != NULL)) \
-> -			smp_wmb(); \
-> -		(p) = (v); \
-> +#define rcu_assign_pointer(p, v)			\
-> +	({						\
-> +		if (!(__builtin_constant_p(v) && v))	\
-> +			smp_wmb();			\
-> +		(p) = (v);				\
->  	})
->  
->  /**
-> -- 
-> 1.5.3.8
-> 
+	I believe this is fixed by the following (from linux-2.6):
+
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Tue, 29 Jan 2008 18:07:45 -0800
+Subject: [PATCH] bonding: fix NULL pointer deref in startup processing
+
+	Fix the "are we creating a duplicate" check to not compare
+the name if the name is NULL (meaning that the system should select
+a name).  Bug reported by Benny Amorsen <benny+usenet@amorsen.dk>.
+
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/bonding/bond_main.c |   16 +++++++++-------
+ 1 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 65c7eba..81b4574 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4896,14 +4896,16 @@ int bond_create(char *name, struct bond_params *params, struct bonding **newbond
+ 	down_write(&bonding_rwsem);
+ 
+ 	/* Check to see if the bond already exists. */
+-	list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list)
+-		if (strnicmp(bond->dev->name, name, IFNAMSIZ) == 0) {
+-			printk(KERN_ERR DRV_NAME
++	if (name) {
++		list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list)
++			if (strnicmp(bond->dev->name, name, IFNAMSIZ) == 0) {
++				printk(KERN_ERR DRV_NAME
+ 			       ": cannot add bond %s; it already exists\n",
+-			       name);
+-			res = -EPERM;
+-			goto out_rtnl;
+-		}
++				       name);
++				res = -EPERM;
++				goto out_rtnl;
++			}
++	}
+ 
+ 	bond_dev = alloc_netdev(sizeof(struct bonding), name ? name : "",
+ 				ether_setup);
+-- 
+1.5.2.4
+
