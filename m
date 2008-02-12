@@ -1,117 +1,74 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [PATCH] libertas: Remove unused exports
-Date: Tue, 12 Feb 2008 15:08:52 -0800
-Message-ID: <adaprv1vkl7.fsf@cisco.com>
-References: <adatzkj0z7l.fsf@cisco.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] ixgbe: Correctly obtain protocol information on transmit
+Date: Tue, 12 Feb 2008 15:20:33 -0800
+Message-ID: <20080212232033.13861.17859.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Dan Williams <dcbw@redhat.com>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andy@greyhouse.net,
+	e1000-devel@lists.sourceforge.net
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:25894 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760149AbYBLXJF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 18:09:05 -0500
-In-Reply-To: <adatzkj0z7l.fsf@cisco.com> (Roland Dreier's message of "Fri, 08 Feb 2008 16:07:26 -0800")
+Received: from mga09.intel.com ([134.134.136.24]:12754 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752124AbYBLXWd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Feb 2008 18:22:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The libertas driver exports a number of symbols with no in-tree
-users; remove these unused exports.  lbs_reset_device() is completely
-unused, with no callers at all, so remove the function completely.
+In reply to "RE: [Fwd: [PATCH 2.6.25] ixgbe/igb: correctly obtain protocol
+information on transmit]" from Andy Gospodarek:
 
-A couple of these unused exported symbols are static, which causes the
-following build error on ia64 with gcc 4.2.3:
+The driver was incorrectly looking at socket headers for
+protocol information, needed for checksumming offload. Fix
+this by not looking at the socket but frame headers instead.
 
-    drivers/net/wireless/libertas/main.c:1375: error: __ksymtab_lbs_remove_mesh causes a section type conflict
-    drivers/net/wireless/libertas/main.c:1354: error: __ksymtab_lbs_add_mesh causes a section type conflict
+This disregards extension headers but it's unclear that linux
+generates those anyway.
 
-This patch fixes this problem.  I don't have hardware, so this is not
-run-tested, but I tested the build with
+Tested by Andy Gospodarek.
 
-    CONFIG_LIBERTAS=y
-    CONFIG_LIBERTAS_USB=m
-    CONFIG_LIBERTAS_CS=m
-    CONFIG_LIBERTAS_SDIO=m
-
-and there were no problems with undefined symbols.
-
-Signed-off-by: Roland Dreier <rolandd@cisco.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
-Here's the patch that removes the unused exports (and a few more that
-I found).
 
-diff --git a/drivers/net/wireless/libertas/cmd.c b/drivers/net/wireless/libertas/cmd.c
-index eab0203..b3c1acb 100644
---- a/drivers/net/wireless/libertas/cmd.c
-+++ b/drivers/net/wireless/libertas/cmd.c
-@@ -1040,7 +1040,6 @@ int lbs_mesh_access(struct lbs_private *priv, uint16_t cmd_action,
- 	lbs_deb_leave(LBS_DEB_CMD);
- 	return ret;
- }
--EXPORT_SYMBOL_GPL(lbs_mesh_access);
+ drivers/net/ixgbe/ixgbe_main.c |   24 +++++++++++++++++++++---
+ 1 files changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 540b647..23d0a4a 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2277,11 +2277,29 @@ static bool ixgbe_tx_csum(struct ixgbe_adapter *adapter,
+ 				    IXGBE_ADVTXD_DTYP_CTXT);
  
- int lbs_mesh_config(struct lbs_private *priv, uint16_t enable, uint16_t chan)
- {
-@@ -1576,7 +1575,6 @@ done:
- 	lbs_deb_leave_args(LBS_DEB_HOST, "ret %d", ret);
- 	return ret;
- }
--EXPORT_SYMBOL_GPL(lbs_prepare_and_send_command);
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-			if (skb->protocol == htons(ETH_P_IP))
++			switch (skb->protocol) {
++			case __constant_htons(ETH_P_IP):
+ 				type_tucmd_mlhl |= IXGBE_ADVTXD_TUCMD_IPV4;
++				if (ip_hdr(skb)->protocol == IPPROTO_TCP)
++					type_tucmd_mlhl |=
++						IXGBE_ADVTXD_TUCMD_L4T_TCP;
++				break;
++
++			case __constant_htons(ETH_P_IPV6):
++				/* XXX what about other V6 headers?? */
++				if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
++					type_tucmd_mlhl |=
++						IXGBE_ADVTXD_TUCMD_L4T_TCP;
++				break;
  
- /**
-  *  @brief This function allocates the command buffer and link
-diff --git a/drivers/net/wireless/libertas/decl.h b/drivers/net/wireless/libertas/decl.h
-index aaacd9b..4e22341 100644
---- a/drivers/net/wireless/libertas/decl.h
-+++ b/drivers/net/wireless/libertas/decl.h
-@@ -69,7 +69,6 @@ struct lbs_private *lbs_add_card(void *card, struct device *dmdev);
- int lbs_remove_card(struct lbs_private *priv);
- int lbs_start_card(struct lbs_private *priv);
- int lbs_stop_card(struct lbs_private *priv);
--int lbs_reset_device(struct lbs_private *priv);
- void lbs_host_to_card_done(struct lbs_private *priv);
+-			if (skb->sk->sk_protocol == IPPROTO_TCP)
+-				type_tucmd_mlhl |= IXGBE_ADVTXD_TUCMD_L4T_TCP;
++			default:
++				if (unlikely(net_ratelimit())) {
++					DPRINTK(PROBE, WARNING,
++					 "partial checksum but proto=%x!\n",
++					 skb->protocol);
++				}
++				break;
++			}
+ 		}
  
- int lbs_update_channel(struct lbs_private *priv);
-diff --git a/drivers/net/wireless/libertas/main.c b/drivers/net/wireless/libertas/main.c
-index 84fb49c..1eaf6af 100644
---- a/drivers/net/wireless/libertas/main.c
-+++ b/drivers/net/wireless/libertas/main.c
-@@ -1351,8 +1350,6 @@ done:
- 	lbs_deb_leave_args(LBS_DEB_MESH, "ret %d", ret);
- 	return ret;
- }
--EXPORT_SYMBOL_GPL(lbs_add_mesh);
--
- 
- static void lbs_remove_mesh(struct lbs_private *priv)
- {
-@@ -1372,7 +1369,6 @@ static void lbs_remove_mesh(struct lbs_private *priv)
- 	free_netdev(mesh_dev);
- 	lbs_deb_leave(LBS_DEB_MESH);
- }
--EXPORT_SYMBOL_GPL(lbs_remove_mesh);
- 
- /**
-  *  @brief This function finds the CFP in
-@@ -1458,20 +1454,6 @@ void lbs_interrupt(struct lbs_private *priv)
- }
- EXPORT_SYMBOL_GPL(lbs_interrupt);
- 
--int lbs_reset_device(struct lbs_private *priv)
--{
--	int ret;
--
--	lbs_deb_enter(LBS_DEB_MAIN);
--	ret = lbs_prepare_and_send_command(priv, CMD_802_11_RESET,
--				    CMD_ACT_HALT, 0, 0, NULL);
--	msleep_interruptible(10);
--
--	lbs_deb_leave_args(LBS_DEB_MAIN, "ret %d", ret);
--	return ret;
--}
--EXPORT_SYMBOL_GPL(lbs_reset_device);
--
- static int __init lbs_init_module(void)
- {
- 	lbs_deb_enter(LBS_DEB_MAIN);
+ 		context_desc->type_tucmd_mlhl = cpu_to_le32(type_tucmd_mlhl);
+
