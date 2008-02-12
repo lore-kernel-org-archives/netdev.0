@@ -1,73 +1,36 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] fib_trie: rcu_assign_pointer warning fix
-Date: Tue, 12 Feb 2008 08:57:14 +0000
-Message-ID: <20080212085714.GB2582@ff.dom.local>
-References: <20080211.171645.74019568.davem@davemloft.net>
+Subject: Re: [PATCH][AX25] ax25_route: make ax25_route_lock BH safe
+Date: Tue, 12 Feb 2008 09:44:55 +0000
+Message-ID: <20080212094455.GC2582@ff.dom.local>
+References: <000d01c86c8b$fd9e67d0$453c822c@dg8ngn> <20080211124251.GB3597@ff.dom.local> <000201c86d53$569297e0$453c822c@dg8ngn>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, paulmck@us.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: 'David Miller' <davem@davemloft.net>,
+	'Bernard Pidoux F6BVP' <f6bvp@free.fr>,
+	'Ralf Baechle DL5RB' <ralf@linux-mips.org>,
+	netdev@vger.kernel.org
+To: Jann Traschewski <jann@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:49831 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755504AbYBLIuC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 03:50:02 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so446070ugc.16
-        for <netdev@vger.kernel.org>; Tue, 12 Feb 2008 00:50:00 -0800 (PST)
+Received: from nf-out-0910.google.com ([64.233.182.188]:61374 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755750AbYBLJhn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 04:37:43 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so1364933nfb.21
+        for <netdev@vger.kernel.org>; Tue, 12 Feb 2008 01:37:42 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20080211.171645.74019568.davem@davemloft.net>
+In-Reply-To: <000201c86d53$569297e0$453c822c@dg8ngn>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12-02-2008 02:16, David Miller wrote:
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Mon, 11 Feb 2008 16:59:54 -0800
-> 
-> linux-kernel added to CC:, any change to generic kernel infrastructure
-> should be posted there
-> 
->> Eliminate warnings when rcu_assign_pointer is used with unsigned long.
->> It is reasonable to use RCU with non-pointer values so allow it for general
->> use.  Add a comment to explain the if test.
->>
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->> ---
->>  include/linux/rcupdate.h |   13 +++++++------
->>  1 files changed, 7 insertions(+), 6 deletions(-)
->>
->> diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
->> index 37a642c..c44ac87 100644
->> --- a/include/linux/rcupdate.h
->> +++ b/include/linux/rcupdate.h
->> @@ -172,14 +172,15 @@ struct rcu_head {
->>   * structure after the pointer assignment.  More importantly, this
->>   * call documents which pointers will be dereferenced by RCU read-side
->>   * code.
->> + *
->> + * If value is the NULL (constant 0), then no barrier is needed.
->>   */
->>  
->> -#define rcu_assign_pointer(p, v) \
->> -	({ \
->> -		if (!__builtin_constant_p(v) || \
->> -		    ((v) != NULL)) \
->> -			smp_wmb(); \
->> -		(p) = (v); \
->> +#define rcu_assign_pointer(p, v)			\
->> +	({						\
->> +		if (!(__builtin_constant_p(v) && v))	\
+On Tue, Feb 12, 2008 at 09:43:26AM +0100, Jann Traschewski wrote:
+> Applied on 2.6.24.2 and up without any problems/warnings since 12 hours.
+> Thanks,
+> Jann
 
-...But, "If value is the NULL (constant 0)" we have:
+Thanks Jann, too!
 
-if (!(1 && NULL != 0)) ==> if (!(0)) and the barrier is used?!
-
->> +			smp_wmb();			\
->> +		(p) = (v);				\
->>  	})
->>  
->>  /**
-
+BTW, I hope maybe until tomorrow I'll figure out something about those
+earlier two AX25 testing patches.
 
 Regards,
 Jarek P.
