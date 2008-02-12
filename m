@@ -1,70 +1,44 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [ofa-general] [PATCH 2.6.25] RDMA/cxgb3: Fail loopback connections.
-Date: Tue, 12 Feb 2008 16:09:29 -0600
-Message-ID: <20080212220929.24442.76874.stgit@dell3.ogc.int>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: rdreier@cisco.com
-Return-path: <general-bounces@lists.openfabrics.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: E1000 (PCI-E) doesn't work on nforce430, MSI issue.
+Date: Tue, 12 Feb 2008 14:24:21 -0800
+Message-ID: <47B21C95.4050705@intel.com>
+References: <m37ih9ooim.fsf@maximus.localdomain> <200802122234.47164.prakash@punnoor.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Krzysztof Halasa <khc@pm.waw.pl>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Prakash Punnoor <prakash@punnoor.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:3724 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751788AbYBLWZI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Feb 2008 17:25:08 -0500
+In-Reply-To: <200802122234.47164.prakash@punnoor.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Prakash Punnoor wrote:
+> On the day of Tuesday 12 February 2008 Krzysztof Halasa hast written:
+>> Hi,
+>>
+>> Is it a known problem?
+>> Linux 2.6.24.2, ASUS M2NPV-MX mobo, nforce 430 based, two PCI-E x1
+>> E1000 cards, 32-bit kernel, default e1000 driver (PCI IDs disabled in
+>> e1000e).
 
-RDMA/cxgb3: Fail loopback connections.
+your card will work with e1000e from 2.6.25 onwards.
 
-The cxgb3 HW and driver don't support loopback RDMA connections.  So fail
-any connection attempt where the destination address is local.
+>> Don't work by default. "pci=nomsi" fixes the problem.
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
----
+actually does not fix anything - it just works around it by falling back to legacy
+interrupts.
 
- drivers/infiniband/hw/cxgb3/iwch_cm.c |   16 ++++++++++++++++
- 1 files changed, 16 insertions(+), 0 deletions(-)
+> Probably the patch to enable msi bit on the host bridge(?) is still missing in 
+> mainline. I needed that patch to make msi work on my MCP51 system.
 
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/h=
-w/cxgb3/iwch_cm.c
-index e9a08fa..5d82723 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
-@@ -1784,6 +1784,17 @@ err:
- 	return err;
- }
-=20
-+static void is_loopback_dst(struct iw_cm_id *cm_id)
-+{
-+	struct net_device *dev;
-+=09
-+	dev =3D ip_dev_find(&init_net, cm_id->remote_addr.sin_addr.s_addr);
-+	if (!dev)
-+		return 0;
-+	dev_put(dev);
-+	return 1;
-+}
-+
- int iwch_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_p=
-aram)
- {
- 	int err =3D 0;
-@@ -1791,6 +1802,11 @@ int iwch_connect(struct iw_cm_id *cm_id, struct iw=
-_cm_conn_param *conn_param)
- 	struct iwch_ep *ep;
- 	struct rtable *rt;
-=20
-+	if (is_loopback_dst(cm_id)) {
-+		err =3D -ENOSYS;
-+		goto out;
-+	}
-+
- 	ep =3D alloc_ep(sizeof(*ep), GFP_KERNEL);
- 	if (!ep) {
- 		printk(KERN_ERR MOD "%s - cannot alloc ep.\n", __FUNCTION__);
+and there have been many more reports. unfortunately e1000 cards are one of the
+few things that actually uses MSI. It works great except for a few problematic
+motherboards, and the ones mentioned in this thread fall amongst them.
+
+Auke
