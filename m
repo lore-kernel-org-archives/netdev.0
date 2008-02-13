@@ -1,51 +1,50 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [ofa-general] [PATCH 2.6.25] RDMA/cxgb3: Fail loopbackconnections.
-Date: Wed, 13 Feb 2008 10:03:16 -0600
-Message-ID: <47B314C4.2080905@opengridcomputing.com>
-References: <20080212220929.24442.76874.stgit@dell3.ogc.int>	<adafxvxvgz3.fsf@cisco.com>
-	<015c01c86e21$75317210$05c8a8c0@DIEGO>	<adaskzwuaeu.fsf@cisco.com>
-	<adaodakua9v.fsf@cisco.com>
-	<47B3120B.3040409@opengridcomputing.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH] ixgbe: Correctly obtain protocol
+	information on transmit
+Date: Wed, 13 Feb 2008 11:13:37 -0500
+Message-ID: <20080213161337.GH856@gospo.usersys.redhat.com>
+References: <20080212232033.13861.17859.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <47B3120B.3040409@opengridcomputing.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	andy@greyhouse.net, jeff@garzik.org
+To: Auke Kok <auke-jan.h.kok@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <20080212232033.13861.17859.stgit@localhost.localdomain>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Steve Wise wrote:
-> Roland Dreier wrote:
->> Steve, I had to update the patch adding an include and fixing the
->> function declaration (as below)... but how much testing have you done
->> with this??
->>
+On Tue, Feb 12, 2008 at 03:20:33PM -0800, Auke Kok wrote:
+> In reply to "RE: [Fwd: [PATCH 2.6.25] ixgbe/igb: correctly obtain protocol
+> information on transmit]" from Andy Gospodarek:
 > 
-> Now I understand.  I thought I'd fixed these!  I fixed them locally in 
-> the test tree on my victim and then tested, but forgot to update my git 
-> tree.
+> The driver was incorrectly looking at socket headers for
+> protocol information, needed for checksumming offload. Fix
+> this by not looking at the socket but frame headers instead.
 > 
-> Sorry for this.
+> This disregards extension headers but it's unclear that linux
+> generates those anyway.
 > 
-> You want me to resubmit?
+> Tested by Andy Gospodarek.
 > 
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 
-BTW: Testing:  I cloned my git tree, resolved the two compile issues 
-(void + include), then built and installed the kernel (2.6.25-rc1 + the 
-fixed patch).  I then ensured that a connection to the local address 
-caused the ENOSYS error.
+This works well for me too.
 
-I just forgot to pull the updated file back into my stg managed git tree.
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
-:(
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
