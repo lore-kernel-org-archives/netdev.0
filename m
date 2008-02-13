@@ -1,118 +1,68 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 2/2][NETLABEL]: Move some initialization code into __init
- section.
-Date: Wed, 13 Feb 2008 14:12:06 +0300
-Message-ID: <47B2D086.8040008@openvz.org>
+From: Haavard Skinnemoen <hskinnemoen@atmel.com>
+Subject: Re: BUG: 2.6.25-rc1: iptables postrouting setup causes oops
+Date: Wed, 13 Feb 2008 12:29:47 +0100
+Message-ID: <20080213122947.7345c7b7@dhcp-252-066.norway.atmel.com>
+References: <1202816761.3299.19.camel@moss.renham>
+	<20080213004829.fd8afdc7.akpm@linux-foundation.org>
+	<20080213101024.39347322@dhcp-252-066.norway.atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Paul Moore <paul.moore@hp.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Ben Nizette <bn@niasdigital.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:50636 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754980AbYBMLMh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Feb 2008 06:12:37 -0500
+Received: from nat-132.atmel.no ([80.232.32.132]:52605 "EHLO relay.atmel.no"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755176AbYBMLaE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Feb 2008 06:30:04 -0500
+In-Reply-To: <20080213101024.39347322@dhcp-252-066.norway.atmel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Everything that is called from netlbl_init() can be marked with
-__init. This moves 620 bytes from .text section to .text.init one.
+On Wed, 13 Feb 2008 10:10:24 +0100
+Haavard Skinnemoen <hskinnemoen@atmel.com> wrote:
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> > > ip_tables: (C) 2000-2006 Netfilter Core Team
+> > > nf_conntrack version 0.5.0 (1024 buckets, 4096 max)
+> > > Unable to handle kernel paging request at virtual address d76a7138
+> > > ptbr = 91d3b000 pgd = 0000e5f3 pte = 00014370  
+> 
+> Hmm. It actually found something in the pte? Looks like a swap
+> entry...but that doesn't make sense at that virtual address. Userspace
+> is below 0x80000000.
 
----
- net/netlabel/netlabel_cipso_v4.c   |    2 +-
- net/netlabel/netlabel_domainhash.c |    2 +-
- net/netlabel/netlabel_mgmt.c       |    2 +-
- net/netlabel/netlabel_unlabeled.c  |    6 +++---
- net/netlabel/netlabel_user.c       |    2 +-
- 5 files changed, 7 insertions(+), 7 deletions(-)
+(...)
 
-diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
-index 283ff4a..fdc14a0 100644
---- a/net/netlabel/netlabel_cipso_v4.c
-+++ b/net/netlabel/netlabel_cipso_v4.c
-@@ -761,7 +761,7 @@ static struct genl_ops netlbl_cipsov4_ops[] = {
-  * mechanism.  Returns zero on success, negative values on failure.
-  *
-  */
--int netlbl_cipsov4_genl_init(void)
-+int __init netlbl_cipsov4_genl_init(void)
- {
- 	int ret_val, i;
- 
-diff --git a/net/netlabel/netlabel_domainhash.c b/net/netlabel/netlabel_domainhash.c
-index fd46231..02c2f7c 100644
---- a/net/netlabel/netlabel_domainhash.c
-+++ b/net/netlabel/netlabel_domainhash.c
-@@ -171,7 +171,7 @@ static struct netlbl_dom_map *netlbl_domhsh_search_def(const char *domain)
-  * values on error.
-  *
-  */
--int netlbl_domhsh_init(u32 size)
-+int __init netlbl_domhsh_init(u32 size)
- {
- 	u32 iter;
- 	struct netlbl_domhsh_tbl *hsh_tbl;
-diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
-index 05d9886..22c1912 100644
---- a/net/netlabel/netlabel_mgmt.c
-+++ b/net/netlabel/netlabel_mgmt.c
-@@ -588,7 +588,7 @@ static struct genl_ops netlbl_mgmt_genl_ops[] = {
-  * mechanism.  Returns zero on success, negative values on failure.
-  *
-  */
--int netlbl_mgmt_genl_init(void)
-+int __init netlbl_mgmt_genl_init(void)
- {
- 	int ret_val, i;
- 
-diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
-index f0f1322..4478f2f 100644
---- a/net/netlabel/netlabel_unlabeled.c
-+++ b/net/netlabel/netlabel_unlabeled.c
-@@ -1624,7 +1624,7 @@ static struct genl_ops netlbl_unlabel_genl_ops[] = {
-  * mechanism.  Returns zero on success, negative values on failure.
-  *
-  */
--int netlbl_unlabel_genl_init(void)
-+int __init netlbl_unlabel_genl_init(void)
- {
- 	int ret_val, i;
- 
-@@ -1661,7 +1661,7 @@ static struct notifier_block netlbl_unlhsh_netdev_notifier = {
-  * non-zero values on error.
-  *
-  */
--int netlbl_unlabel_init(u32 size)
-+int __init netlbl_unlabel_init(u32 size)
- {
- 	u32 iter;
- 	struct netlbl_unlhsh_tbl *hsh_tbl;
-@@ -1765,7 +1765,7 @@ unlabel_getattr_nolabel:
-  * and to send unlabeled network traffic by default.
-  *
-  */
--int netlbl_unlabel_defconf(void)
-+int __init netlbl_unlabel_defconf(void)
- {
- 	int ret_val;
- 	struct netlbl_dom_map *entry;
-diff --git a/net/netlabel/netlabel_user.c b/net/netlabel/netlabel_user.c
-index 023fc8f..b17d420 100644
---- a/net/netlabel/netlabel_user.c
-+++ b/net/netlabel/netlabel_user.c
-@@ -59,7 +59,7 @@
-  * non-zero on failure.
-  *
-  */
--int netlbl_netlink_init(void)
-+int __init netlbl_netlink_init(void)
- {
- 	int ret_val;
- 
--- 
-1.5.3.4
+> > If so, the bug could be almost anywhere - in slab, or in some random piece
+> > of code which scribbles on slab's data structures.  
+> 
+> Yes, it looks like memory corruption, especially since the page table
+> appears to be corrupted as well. But I'll have a look and see if the
+> code that dumps the pte is doing something bogus...
 
+Yes, that code is indeed buggy. The below patch should fix it, although
+the page tables probably won't contain anything interesting, and it
+could still be a memory corruption issue. And it definitely won't fix
+the real issue.
+
+I have a couple of patches that will eliminate the need for this fixup
+(and probably improve performance as well), but they are probably 2.6.26
+material.
+
+Haavard
+
+diff --git a/arch/avr32/mm/fault.c b/arch/avr32/mm/fault.c
+index 6560cb1..ce4e429 100644
+--- a/arch/avr32/mm/fault.c
++++ b/arch/avr32/mm/fault.c
+@@ -189,6 +189,8 @@ no_context:
+ 
+ 	page = sysreg_read(PTBR);
+ 	printk(KERN_ALERT "ptbr = %08lx", page);
++	if (address >= TASK_SIZE)
++		page = (unsigned long)swapper_pg_dir;
+ 	if (page) {
+ 		page = ((unsigned long *)page)[address >> 22];
+ 		printk(" pgd = %08lx", page);
