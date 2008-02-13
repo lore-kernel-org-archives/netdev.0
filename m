@@ -1,68 +1,88 @@
-From: Haavard Skinnemoen <hskinnemoen@atmel.com>
-Subject: Re: BUG: 2.6.25-rc1: iptables postrouting setup causes oops
-Date: Wed, 13 Feb 2008 12:29:47 +0100
-Message-ID: <20080213122947.7345c7b7@dhcp-252-066.norway.atmel.com>
-References: <1202816761.3299.19.camel@moss.renham>
-	<20080213004829.fd8afdc7.akpm@linux-foundation.org>
-	<20080213101024.39347322@dhcp-252-066.norway.atmel.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH][AX25] ax25_out: check skb for NULL in ax25_kick()
+Date: Wed, 13 Feb 2008 11:56:07 +0000
+Message-ID: <20080213115607.GB2867@ff.dom.local>
+References: <20080206074529.GC4496@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Ben Nizette <bn@niasdigital.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jann Traschewski <jann@gmx.de>,
+	Bernard Pidoux F6BVP <f6bvp@free.fr>,
+	Ralf Baechle <ralf@linux-mips.org>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat-132.atmel.no ([80.232.32.132]:52605 "EHLO relay.atmel.no"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755176AbYBMLaE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Feb 2008 06:30:04 -0500
-In-Reply-To: <20080213101024.39347322@dhcp-252-066.norway.atmel.com>
+Received: from fk-out-0910.google.com ([209.85.128.189]:61589 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755134AbYBMLtA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 06:49:00 -0500
+Received: by fk-out-0910.google.com with SMTP id z23so5292794fkz.5
+        for <netdev@vger.kernel.org>; Wed, 13 Feb 2008 03:48:55 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080206074529.GC4496@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Feb 2008 10:10:24 +0100
-Haavard Skinnemoen <hskinnemoen@atmel.com> wrote:
+Hi,
 
-> > > ip_tables: (C) 2000-2006 Netfilter Core Team
-> > > nf_conntrack version 0.5.0 (1024 buckets, 4096 max)
-> > > Unable to handle kernel paging request at virtual address d76a7138
-> > > ptbr = 91d3b000 pgd = 0000e5f3 pte = 00014370  
-> 
-> Hmm. It actually found something in the pte? Looks like a swap
-> entry...but that doesn't make sense at that virtual address. Userspace
-> is below 0x80000000.
+Here is an "official" version of "testing patch #2" from this thread.
+The only difference: ax25->vs is changed only after checking skb is
+not NULL (plus a comment). IMHO it could be applied.
 
-(...)
+Thanks,
+Jarek P.
 
-> > If so, the bug could be almost anywhere - in slab, or in some random piece
-> > of code which scribbles on slab's data structures.  
-> 
-> Yes, it looks like memory corruption, especially since the page table
-> appears to be corrupted as well. But I'll have a look and see if the
-> code that dumps the pte is doing something bogus...
+---------------->
 
-Yes, that code is indeed buggy. The below patch should fix it, although
-the page tables probably won't contain anything interesting, and it
-could still be a memory corruption issue. And it definitely won't fix
-the real issue.
+Subject: [AX25] ax25_out: check skb for NULL in ax25_kick()
 
-I have a couple of patches that will eliminate the need for this fixup
-(and probably improve performance as well), but they are probably 2.6.26
-material.
+According to some OOPS reports ax25_kick tries to clone NULL skbs
+sometimes. It looks like a race with ax25_clear_queues(). Probably
+there is no need to add more than a simple check for this yet.
+Another report suggested there are probably also cases where ax25
+->paclen == 0 can happen in ax25_output(); this wasn't confirmed
+during testing but let's leave this debugging check for some time.
 
-Haavard
 
-diff --git a/arch/avr32/mm/fault.c b/arch/avr32/mm/fault.c
-index 6560cb1..ce4e429 100644
---- a/arch/avr32/mm/fault.c
-+++ b/arch/avr32/mm/fault.c
-@@ -189,6 +189,8 @@ no_context:
+Reported-and-tested-by: Jann Traschewski <jann@gmx.de>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
+---
+
+diff -Nurp 2.6.24-mm1-/net/ax25/ax25_out.c 2.6.24-mm1+/net/ax25/ax25_out.c
+--- 2.6.24-mm1-/net/ax25/ax25_out.c	2008-01-24 22:58:37.000000000 +0000
++++ 2.6.24-mm1+/net/ax25/ax25_out.c	2008-02-13 10:43:50.000000000 +0000
+@@ -117,6 +117,12 @@ void ax25_output(ax25_cb *ax25, int pacl
+ 	unsigned char *p;
+ 	int frontlen, len, fragno, ka9qfrag, first = 1;
  
- 	page = sysreg_read(PTBR);
- 	printk(KERN_ALERT "ptbr = %08lx", page);
-+	if (address >= TASK_SIZE)
-+		page = (unsigned long)swapper_pg_dir;
- 	if (page) {
- 		page = ((unsigned long *)page)[address >> 22];
- 		printk(" pgd = %08lx", page);
++	if (paclen < 16) {
++		WARN_ON_ONCE(1);
++		kfree_skb(skb);
++		return;
++	}
++
+ 	if ((skb->len - 1) > paclen) {
+ 		if (*skb->data == AX25_P_TEXT) {
+ 			skb_pull(skb, 1); /* skip PID */
+@@ -251,8 +257,6 @@ void ax25_kick(ax25_cb *ax25)
+ 	if (start == end)
+ 		return;
+ 
+-	ax25->vs = start;
+-
+ 	/*
+ 	 * Transmit data until either we're out of data to send or
+ 	 * the window is full. Send a poll on the final I frame if
+@@ -261,8 +265,13 @@ void ax25_kick(ax25_cb *ax25)
+ 
+ 	/*
+ 	 * Dequeue the frame and copy it.
++	 * Check for race with ax25_clear_queues().
+ 	 */
+ 	skb  = skb_dequeue(&ax25->write_queue);
++	if (!skb)
++		return;
++
++	ax25->vs = start;
+ 
+ 	do {
+ 		if ((skbn = skb_clone(skb, GFP_ATOMIC)) == NULL) {
