@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC, PATCH]: Pass link level header from/to PPP interface
-Date: Tue, 12 Feb 2008 22:06:03 -0800 (PST)
-Message-ID: <20080212.220603.111665989.davem@davemloft.net>
-References: <ygfprv55egs.fsf@janus.isnogud.escape.de>
+Subject: Re: [PATCH] [IPV6] Minor cleanup: remove unused method declaration
+ (net/ndisc.h).
+Date: Tue, 12 Feb 2008 22:07:30 -0800 (PST)
+Message-ID: <20080212.220730.14984171.davem@davemloft.net>
+References: <eb3ff54b0802100840g52a5eb68y8140d3e2e2d94c26@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: urs@isnogud.escape.de
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56768
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35073
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752380AbYBMGFb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 01:05:31 -0500
-In-Reply-To: <ygfprv55egs.fsf@janus.isnogud.escape.de>
+	by vger.kernel.org with ESMTP id S1751720AbYBMGHD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 01:07:03 -0500
+In-Reply-To: <eb3ff54b0802100840g52a5eb68y8140d3e2e2d94c26@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Urs Thuermann <urs@isnogud.escape.de>
-Date: 10 Feb 2008 10:48:51 +0100
+From: "Rami Rosen" <ramirose@gmail.com>
+Date: Sun, 10 Feb 2008 18:40:13 +0200
 
-> So what is your opinion about this change?
+> This patch removes unused declaration of dflt_rt_lookup() method in
+> include/net/ndisc.h
+> 
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-No general objections from me.
-
-But if libpcap and tcpdump can already identify PPP packets
-then, besides "consistency", what does this buy us other
-than potential breakage?
+Applied, thanks.
