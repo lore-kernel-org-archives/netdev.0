@@ -1,32 +1,43 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: E1000 (PCI-E) doesn't work on nforce430, MSI issue.
-Date: Wed, 13 Feb 2008 01:05:49 +0100
-Message-ID: <m3d4r1bu02.fsf@maximus.localdomain>
-References: <m37ih9ooim.fsf@maximus.localdomain>
-	<200802122234.47164.prakash@punnoor.de> <47B21C95.4050705@intel.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general] [PATCH 2.6.25] RDMA/cxgb3: Fail loopback
+	connections.
+Date: Tue, 12 Feb 2008 16:26:56 -0800
+Message-ID: <adafxvxvgz3.fsf@cisco.com>
+References: <20080212220929.24442.76874.stgit@dell3.ogc.int>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Prakash Punnoor <prakash@punnoor.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Kok\, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:47537 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751187AbYBMAFu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Feb 2008 19:05:50 -0500
-In-Reply-To: <47B21C95.4050705@intel.com> (Auke Kok's message of "Tue\, 12 Feb 2008 14\:24\:21 -0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: Steve Wise <swise@opengridcomputing.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20080212220929.24442.76874.stgit@dell3.ogc.int> (Steve Wise's
+	message of "Tue, 12 Feb 2008 16:09:29 -0600")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-"Kok, Auke" <auke-jan.h.kok@intel.com> writes:
+applied, although:
 
->>> Don't work by default. "pci=nomsi" fixes the problem.
->
-> actually does not fix anything - it just works around it by falling
-> back to legacy interrupts.
+ > +static void is_loopback_dst(struct iw_cm_id *cm_id)
+ > +{
+ > +	struct net_device *dev;
+ > +	
+ > +	dev = ip_dev_find(&init_net, cm_id->remote_addr.sin_addr.s_addr);
+ > +	if (!dev)
+ > +		return 0;
+ > +	dev_put(dev);
+ > +	return 1;
+ > +}
 
-Actually it does, fixes the problem by working around a bug :-)
+is there any way this could trigger when it should, like if I'm trying
+to make a connection from one local device to a different local device
+(which should work fine)?
 
-Thanks for info.
--- 
-Krzysztof Halasa
+ - R.
