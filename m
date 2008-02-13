@@ -1,88 +1,422 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH][AX25] ax25_out: check skb for NULL in ax25_kick()
-Date: Wed, 13 Feb 2008 11:56:07 +0000
-Message-ID: <20080213115607.GB2867@ff.dom.local>
-References: <20080206074529.GC4496@ff.dom.local>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 1/2][NETLABEL]: Shrink the genl-ops registration code.
+Date: Wed, 13 Feb 2008 08:33:08 -0500
+Message-ID: <200802130833.09096.paul.moore@hp.com>
+References: <47B2CFF8.50803@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jann Traschewski <jann@gmx.de>,
-	Bernard Pidoux F6BVP <f6bvp@free.fr>,
-	Ralf Baechle <ralf@linux-mips.org>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.189]:61589 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755134AbYBMLtA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 06:49:00 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so5292794fkz.5
-        for <netdev@vger.kernel.org>; Wed, 13 Feb 2008 03:48:55 -0800 (PST)
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:45986 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751696AbYBMNdW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 08:33:22 -0500
+In-Reply-To: <47B2CFF8.50803@openvz.org>
 Content-Disposition: inline
-In-Reply-To: <20080206074529.GC4496@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wednesday 13 February 2008 6:09:44 am Pavel Emelyanov wrote:
+> Turning them to array and registration in a loop saves
+> 80 lines of code and ~300 bytes from text section.
+>
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Here is an "official" version of "testing patch #2" from this thread.
-The only difference: ax25->vs is changed only after checking skb is
-not NULL (plus a comment). IMHO it could be applied.
+Definitely an improvement, thank you.
 
-Thanks,
-Jarek P.
+Acked-by: Paul Moore <paul.moore@hp.com>
 
----------------->
+> ---
+>  net/netlabel/netlabel_cipso_v4.c  |   43 +++++++------------
+>  net/netlabel/netlabel_mgmt.c      |   79 ++++++++++-----------------------
+>  net/netlabel/netlabel_unlabeled.c |   86
+> ++++++++++-------------------------- 3 files changed, 64 insertions(+), 144
+> deletions(-)
+>
+> diff --git a/net/netlabel/netlabel_cipso_v4.c
+> b/net/netlabel/netlabel_cipso_v4.c index c7ad64d..283ff4a 100644
+> --- a/net/netlabel/netlabel_cipso_v4.c
+> +++ b/net/netlabel/netlabel_cipso_v4.c
+> @@ -718,36 +718,35 @@ static int netlbl_cipsov4_remove(struct sk_buff *skb,
+> struct genl_info *info) * NetLabel Generic NETLINK Command Definitions
+>   */
+>
+> -static struct genl_ops netlbl_cipsov4_genl_c_add = {
+> +static struct genl_ops netlbl_cipsov4_ops[] = {
+> +	{
+>  	.cmd = NLBL_CIPSOV4_C_ADD,
+>  	.flags = GENL_ADMIN_PERM,
+>  	.policy = netlbl_cipsov4_genl_policy,
+>  	.doit = netlbl_cipsov4_add,
+>  	.dumpit = NULL,
+> -};
+> -
+> -static struct genl_ops netlbl_cipsov4_genl_c_remove = {
+> +	},
+> +	{
+>  	.cmd = NLBL_CIPSOV4_C_REMOVE,
+>  	.flags = GENL_ADMIN_PERM,
+>  	.policy = netlbl_cipsov4_genl_policy,
+>  	.doit = netlbl_cipsov4_remove,
+>  	.dumpit = NULL,
+> -};
+> -
+> -static struct genl_ops netlbl_cipsov4_genl_c_list = {
+> +	},
+> +	{
+>  	.cmd = NLBL_CIPSOV4_C_LIST,
+>  	.flags = 0,
+>  	.policy = netlbl_cipsov4_genl_policy,
+>  	.doit = netlbl_cipsov4_list,
+>  	.dumpit = NULL,
+> -};
+> -
+> -static struct genl_ops netlbl_cipsov4_genl_c_listall = {
+> +	},
+> +	{
+>  	.cmd = NLBL_CIPSOV4_C_LISTALL,
+>  	.flags = 0,
+>  	.policy = netlbl_cipsov4_genl_policy,
+>  	.doit = NULL,
+>  	.dumpit = netlbl_cipsov4_listall,
+> +	},
+>  };
+>
+>  /*
+> @@ -764,28 +763,18 @@ static struct genl_ops netlbl_cipsov4_genl_c_listall
+> = { */
+>  int netlbl_cipsov4_genl_init(void)
+>  {
+> -	int ret_val;
+> +	int ret_val, i;
+>
+>  	ret_val = genl_register_family(&netlbl_cipsov4_gnl_family);
+>  	if (ret_val != 0)
+>  		return ret_val;
+>
+> -	ret_val = genl_register_ops(&netlbl_cipsov4_gnl_family,
+> -				    &netlbl_cipsov4_genl_c_add);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -	ret_val = genl_register_ops(&netlbl_cipsov4_gnl_family,
+> -				    &netlbl_cipsov4_genl_c_remove);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -	ret_val = genl_register_ops(&netlbl_cipsov4_gnl_family,
+> -				    &netlbl_cipsov4_genl_c_list);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -	ret_val = genl_register_ops(&netlbl_cipsov4_gnl_family,
+> -				    &netlbl_cipsov4_genl_c_listall);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> +	for (i = 0; i < ARRAY_SIZE(netlbl_cipsov4_ops); i++) {
+> +		ret_val = genl_register_ops(&netlbl_cipsov4_gnl_family,
+> +				&netlbl_cipsov4_ops[i]);
+> +		if (ret_val != 0)
+> +			return ret_val;
+> +	}
+>
+>  	return 0;
+>  }
+> diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
+> index e2258dc..05d9886 100644
+> --- a/net/netlabel/netlabel_mgmt.c
+> +++ b/net/netlabel/netlabel_mgmt.c
+> @@ -517,68 +517,63 @@ version_failure:
+>   * NetLabel Generic NETLINK Command Definitions
+>   */
+>
+> -static struct genl_ops netlbl_mgmt_genl_c_add = {
+> +static struct genl_ops netlbl_mgmt_genl_ops[] = {
+> +	{
+>  	.cmd = NLBL_MGMT_C_ADD,
+>  	.flags = GENL_ADMIN_PERM,
+>  	.policy = netlbl_mgmt_genl_policy,
+>  	.doit = netlbl_mgmt_add,
+>  	.dumpit = NULL,
+> -};
+> -
+> -static struct genl_ops netlbl_mgmt_genl_c_remove = {
+> +	},
+> +	{
+>  	.cmd = NLBL_MGMT_C_REMOVE,
+>  	.flags = GENL_ADMIN_PERM,
+>  	.policy = netlbl_mgmt_genl_policy,
+>  	.doit = netlbl_mgmt_remove,
+>  	.dumpit = NULL,
+> -};
+> -
+> -static struct genl_ops netlbl_mgmt_genl_c_listall = {
+> +	},
+> +	{
+>  	.cmd = NLBL_MGMT_C_LISTALL,
+>  	.flags = 0,
+>  	.policy = netlbl_mgmt_genl_policy,
+>  	.doit = NULL,
+>  	.dumpit = netlbl_mgmt_listall,
+> -};
+> -
+> -static struct genl_ops netlbl_mgmt_genl_c_adddef = {
+> +	},
+> +	{
+>  	.cmd = NLBL_MGMT_C_ADDDEF,
+>  	.flags = GENL_ADMIN_PERM,
+>  	.policy = netlbl_mgmt_genl_policy,
+>  	.doit = netlbl_mgmt_adddef,
+>  	.dumpit = NULL,
+> -};
+> -
+> -static struct genl_ops netlbl_mgmt_genl_c_removedef = {
+> +	},
+> +	{
+>  	.cmd = NLBL_MGMT_C_REMOVEDEF,
+>  	.flags = GENL_ADMIN_PERM,
+>  	.policy = netlbl_mgmt_genl_policy,
+>  	.doit = netlbl_mgmt_removedef,
+>  	.dumpit = NULL,
+> -};
+> -
+> -static struct genl_ops netlbl_mgmt_genl_c_listdef = {
+> +	},
+> +	{
+>  	.cmd = NLBL_MGMT_C_LISTDEF,
+>  	.flags = 0,
+>  	.policy = netlbl_mgmt_genl_policy,
+>  	.doit = netlbl_mgmt_listdef,
+>  	.dumpit = NULL,
+> -};
+> -
+> -static struct genl_ops netlbl_mgmt_genl_c_protocols = {
+> +	},
+> +	{
+>  	.cmd = NLBL_MGMT_C_PROTOCOLS,
+>  	.flags = 0,
+>  	.policy = netlbl_mgmt_genl_policy,
+>  	.doit = NULL,
+>  	.dumpit = netlbl_mgmt_protocols,
+> -};
+> -
+> -static struct genl_ops netlbl_mgmt_genl_c_version = {
+> +	},
+> +	{
+>  	.cmd = NLBL_MGMT_C_VERSION,
+>  	.flags = 0,
+>  	.policy = netlbl_mgmt_genl_policy,
+>  	.doit = netlbl_mgmt_version,
+>  	.dumpit = NULL,
+> +	},
+>  };
+>
+>  /*
+> @@ -595,44 +590,18 @@ static struct genl_ops netlbl_mgmt_genl_c_version = {
+>   */
+>  int netlbl_mgmt_genl_init(void)
+>  {
+> -	int ret_val;
+> +	int ret_val, i;
+>
+>  	ret_val = genl_register_family(&netlbl_mgmt_gnl_family);
+>  	if (ret_val != 0)
+>  		return ret_val;
+>
+> -	ret_val = genl_register_ops(&netlbl_mgmt_gnl_family,
+> -				    &netlbl_mgmt_genl_c_add);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -	ret_val = genl_register_ops(&netlbl_mgmt_gnl_family,
+> -				    &netlbl_mgmt_genl_c_remove);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -	ret_val = genl_register_ops(&netlbl_mgmt_gnl_family,
+> -				    &netlbl_mgmt_genl_c_listall);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -	ret_val = genl_register_ops(&netlbl_mgmt_gnl_family,
+> -				    &netlbl_mgmt_genl_c_adddef);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -	ret_val = genl_register_ops(&netlbl_mgmt_gnl_family,
+> -				    &netlbl_mgmt_genl_c_removedef);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -	ret_val = genl_register_ops(&netlbl_mgmt_gnl_family,
+> -				    &netlbl_mgmt_genl_c_listdef);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -	ret_val = genl_register_ops(&netlbl_mgmt_gnl_family,
+> -				    &netlbl_mgmt_genl_c_protocols);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -	ret_val = genl_register_ops(&netlbl_mgmt_gnl_family,
+> -				    &netlbl_mgmt_genl_c_version);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> +	for (i = 0; i < ARRAY_SIZE(netlbl_mgmt_genl_ops); i++) {
+> +		ret_val = genl_register_ops(&netlbl_mgmt_gnl_family,
+> +				&netlbl_mgmt_genl_ops[i]);
+> +		if (ret_val != 0)
+> +			return ret_val;
+> +	}
+>
+>  	return 0;
+>  }
+> diff --git a/net/netlabel/netlabel_unlabeled.c
+> b/net/netlabel/netlabel_unlabeled.c index 3e745b7..f0f1322 100644
+> --- a/net/netlabel/netlabel_unlabeled.c
+> +++ b/net/netlabel/netlabel_unlabeled.c
+> @@ -1553,68 +1553,63 @@ unlabel_staticlistdef_return:
+>   * NetLabel Generic NETLINK Command Definitions
+>   */
+>
+> -static struct genl_ops netlbl_unlabel_genl_c_staticadd = {
+> +static struct genl_ops netlbl_unlabel_genl_ops[] = {
+> +	{
+>  	.cmd = NLBL_UNLABEL_C_STATICADD,
+>  	.flags = GENL_ADMIN_PERM,
+>  	.policy = netlbl_unlabel_genl_policy,
+>  	.doit = netlbl_unlabel_staticadd,
+>  	.dumpit = NULL,
+> -};
+> -
+> -static struct genl_ops netlbl_unlabel_genl_c_staticremove = {
+> +	},
+> +	{
+>  	.cmd = NLBL_UNLABEL_C_STATICREMOVE,
+>  	.flags = GENL_ADMIN_PERM,
+>  	.policy = netlbl_unlabel_genl_policy,
+>  	.doit = netlbl_unlabel_staticremove,
+>  	.dumpit = NULL,
+> -};
+> -
+> -static struct genl_ops netlbl_unlabel_genl_c_staticlist = {
+> +	},
+> +	{
+>  	.cmd = NLBL_UNLABEL_C_STATICLIST,
+>  	.flags = 0,
+>  	.policy = netlbl_unlabel_genl_policy,
+>  	.doit = NULL,
+>  	.dumpit = netlbl_unlabel_staticlist,
+> -};
+> -
+> -static struct genl_ops netlbl_unlabel_genl_c_staticadddef = {
+> +	},
+> +	{
+>  	.cmd = NLBL_UNLABEL_C_STATICADDDEF,
+>  	.flags = GENL_ADMIN_PERM,
+>  	.policy = netlbl_unlabel_genl_policy,
+>  	.doit = netlbl_unlabel_staticadddef,
+>  	.dumpit = NULL,
+> -};
+> -
+> -static struct genl_ops netlbl_unlabel_genl_c_staticremovedef = {
+> +	},
+> +	{
+>  	.cmd = NLBL_UNLABEL_C_STATICREMOVEDEF,
+>  	.flags = GENL_ADMIN_PERM,
+>  	.policy = netlbl_unlabel_genl_policy,
+>  	.doit = netlbl_unlabel_staticremovedef,
+>  	.dumpit = NULL,
+> -};
+> -
+> -static struct genl_ops netlbl_unlabel_genl_c_staticlistdef = {
+> +	},
+> +	{
+>  	.cmd = NLBL_UNLABEL_C_STATICLISTDEF,
+>  	.flags = 0,
+>  	.policy = netlbl_unlabel_genl_policy,
+>  	.doit = NULL,
+>  	.dumpit = netlbl_unlabel_staticlistdef,
+> -};
+> -
+> -static struct genl_ops netlbl_unlabel_genl_c_accept = {
+> +	},
+> +	{
+>  	.cmd = NLBL_UNLABEL_C_ACCEPT,
+>  	.flags = GENL_ADMIN_PERM,
+>  	.policy = netlbl_unlabel_genl_policy,
+>  	.doit = netlbl_unlabel_accept,
+>  	.dumpit = NULL,
+> -};
+> -
+> -static struct genl_ops netlbl_unlabel_genl_c_list = {
+> +	},
+> +	{
+>  	.cmd = NLBL_UNLABEL_C_LIST,
+>  	.flags = 0,
+>  	.policy = netlbl_unlabel_genl_policy,
+>  	.doit = netlbl_unlabel_list,
+>  	.dumpit = NULL,
+> +	},
+>  };
+>
+>  /*
+> @@ -1631,51 +1626,18 @@ static struct genl_ops netlbl_unlabel_genl_c_list =
+> { */
+>  int netlbl_unlabel_genl_init(void)
+>  {
+> -	int ret_val;
+> +	int ret_val, i;
+>
+>  	ret_val = genl_register_family(&netlbl_unlabel_gnl_family);
+>  	if (ret_val != 0)
+>  		return ret_val;
+>
+> -	ret_val = genl_register_ops(&netlbl_unlabel_gnl_family,
+> -				    &netlbl_unlabel_genl_c_staticadd);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -
+> -	ret_val = genl_register_ops(&netlbl_unlabel_gnl_family,
+> -				    &netlbl_unlabel_genl_c_staticremove);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -
+> -	ret_val = genl_register_ops(&netlbl_unlabel_gnl_family,
+> -				    &netlbl_unlabel_genl_c_staticlist);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -
+> -	ret_val = genl_register_ops(&netlbl_unlabel_gnl_family,
+> -				    &netlbl_unlabel_genl_c_staticadddef);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -
+> -	ret_val = genl_register_ops(&netlbl_unlabel_gnl_family,
+> -				    &netlbl_unlabel_genl_c_staticremovedef);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -
+> -	ret_val = genl_register_ops(&netlbl_unlabel_gnl_family,
+> -				    &netlbl_unlabel_genl_c_staticlistdef);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -
+> -	ret_val = genl_register_ops(&netlbl_unlabel_gnl_family,
+> -				    &netlbl_unlabel_genl_c_accept);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> -
+> -	ret_val = genl_register_ops(&netlbl_unlabel_gnl_family,
+> -				    &netlbl_unlabel_genl_c_list);
+> -	if (ret_val != 0)
+> -		return ret_val;
+> +	for (i = 0; i < ARRAY_SIZE(netlbl_unlabel_genl_ops); i++) {
+> +		ret_val = genl_register_ops(&netlbl_unlabel_gnl_family,
+> +				&netlbl_unlabel_genl_ops[i]);
+> +		if (ret_val != 0)
+> +			return ret_val;
+> +	}
+>
+>  	return 0;
+>  }
 
-Subject: [AX25] ax25_out: check skb for NULL in ax25_kick()
-
-According to some OOPS reports ax25_kick tries to clone NULL skbs
-sometimes. It looks like a race with ax25_clear_queues(). Probably
-there is no need to add more than a simple check for this yet.
-Another report suggested there are probably also cases where ax25
-->paclen == 0 can happen in ax25_output(); this wasn't confirmed
-during testing but let's leave this debugging check for some time.
 
 
-Reported-and-tested-by: Jann Traschewski <jann@gmx.de>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-
----
-
-diff -Nurp 2.6.24-mm1-/net/ax25/ax25_out.c 2.6.24-mm1+/net/ax25/ax25_out.c
---- 2.6.24-mm1-/net/ax25/ax25_out.c	2008-01-24 22:58:37.000000000 +0000
-+++ 2.6.24-mm1+/net/ax25/ax25_out.c	2008-02-13 10:43:50.000000000 +0000
-@@ -117,6 +117,12 @@ void ax25_output(ax25_cb *ax25, int pacl
- 	unsigned char *p;
- 	int frontlen, len, fragno, ka9qfrag, first = 1;
- 
-+	if (paclen < 16) {
-+		WARN_ON_ONCE(1);
-+		kfree_skb(skb);
-+		return;
-+	}
-+
- 	if ((skb->len - 1) > paclen) {
- 		if (*skb->data == AX25_P_TEXT) {
- 			skb_pull(skb, 1); /* skip PID */
-@@ -251,8 +257,6 @@ void ax25_kick(ax25_cb *ax25)
- 	if (start == end)
- 		return;
- 
--	ax25->vs = start;
--
- 	/*
- 	 * Transmit data until either we're out of data to send or
- 	 * the window is full. Send a poll on the final I frame if
-@@ -261,8 +265,13 @@ void ax25_kick(ax25_cb *ax25)
- 
- 	/*
- 	 * Dequeue the frame and copy it.
-+	 * Check for race with ax25_clear_queues().
- 	 */
- 	skb  = skb_dequeue(&ax25->write_queue);
-+	if (!skb)
-+		return;
-+
-+	ax25->vs = start;
- 
- 	do {
- 		if ((skbn = skb_clone(skb, GFP_ATOMIC)) == NULL) {
+-- 
+paul moore
+linux security @ hp
