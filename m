@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][NETLABEL]: Fix lookup logic of
- netlbl_domhsh_search_def.
-Date: Tue, 12 Feb 2008 22:15:41 -0800 (PST)
-Message-ID: <20080212.221541.57781950.davem@davemloft.net>
-References: <47B1C8E4.6010908@openvz.org>
-	<200802121134.09965.paul.moore@hp.com>
+Subject: Re: [PATCH][GENETLINK]: Relax dances with genl_lock.
+Date: Tue, 12 Feb 2008 22:16:44 -0800 (PST)
+Message-ID: <20080212.221644.107209578.davem@davemloft.net>
+References: <47B1D45D.3020409@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org
-To: paul.moore@hp.com
+Cc: netdev@vger.kernel.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43848
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43852
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750981AbYBMGPJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 01:15:09 -0500
-In-Reply-To: <200802121134.09965.paul.moore@hp.com>
+	by vger.kernel.org with ESMTP id S1751739AbYBMGQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 01:16:13 -0500
+In-Reply-To: <47B1D45D.3020409@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Tue, 12 Feb 2008 11:34:09 -0500
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Tue, 12 Feb 2008 20:16:13 +0300
 
-> On Tuesday 12 February 2008 11:27:16 am Pavel Emelyanov wrote:
-> > Currently, if the call to netlbl_domhsh_search succeeds the
-> > return result will still be NULL.
-> >
-> > Fix that, by returning the found entry (if any).
-> >
-> > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> The genl_unregister_family() calls the genl_unregister_mc_groups(), 
+> which takes and releases the genl_lock and then locks and releases
+> this lock itself.
 > 
-> Good catch, thanks.
+> Relax this behavior, all the more so the genl_unregister_mc_groups() 
+> is called from genl_unregister_family() only.
 > 
-> Acked-by: Paul Moore <paul.moore@hp.com>
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Applied, thanks everyone.
+Ok, applied, thanks.
