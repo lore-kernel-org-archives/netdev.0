@@ -1,32 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: xfrm_input() and ->seq oddities
-Date: Tue, 12 Feb 2008 22:54:43 -0800 (PST)
-Message-ID: <20080212.225443.86986730.davem@davemloft.net>
-References: <20080203030516.GA5685@gondor.apana.org.au>
-	<20080203110444.GR27894@ZenIV.linux.org.uk>
-	<20080203220027.GA11641@gondor.apana.org.au>
+Subject: Re: [PATCH RESEND] [XFRM]: Speed up xfrm_policy and xfrm_state
+ walking
+Date: Tue, 12 Feb 2008 22:59:08 -0800 (PST)
+Message-ID: <20080212.225908.92858029.davem@davemloft.net>
+References: <47A3337C.1090004@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: viro@ZenIV.linux.org.uk, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56745
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41844
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751759AbYBMGyL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 01:54:11 -0500
-In-Reply-To: <20080203220027.GA11641@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1752268AbYBMG6g convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Feb 2008 01:58:36 -0500
+In-Reply-To: <47A3337C.1090004@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 4 Feb 2008 09:00:27 +1100
+=46rom: Timo_Ter=E4s <timo.teras@iki.fi>
+Date: Fri, 01 Feb 2008 16:58:04 +0200
 
-> On Sun, Feb 03, 2008 at 11:04:44AM +0000, Al Viro wrote:
-> > IMO that at least deserves a comment near xfrm_input()...
-> 
-> Sure.  There is already a comment about encap_type < 0 in there, but
-> I think you'll probably be able to explain it much better than I can
-> looking in from the outside so if you have a patch... :)
+> @@ -1780,6 +1786,7 @@ static int check_reqid(struct xfrm_policy *xp, =
+int dir, int count, void *ptr)
+> =20
+>  static u32 gen_reqid(void)
+>  {
+> +	struct xfrm_policy_walk walk;
+>  	u32 start;
+>  	static u32 reqid =3D IPSEC_MANUAL_REQID_MAX;
+> =20
+> @@ -1788,9 +1795,10 @@ static u32 gen_reqid(void)
+>  		++reqid;
+>  		if (reqid =3D=3D 0)
+>  			reqid =3D IPSEC_MANUAL_REQID_MAX+1;
+> -		if (xfrm_policy_walk(XFRM_POLICY_TYPE_MAIN, check_reqid,
+> -				     (void*)&reqid) !=3D -EEXIST)
+> +		xfrm_policy_walk_init(&walk, XFRM_POLICY_TYPE_MAIN);
+> +		if (xfrm_policy_walk(&walk, check_reqid, (void*)&reqid) !=3D -EEXI=
+ST)
+>  			return reqid;
+> +		xfrm_policy_walk_done(&walk);
+>  	} while (reqid !=3D start);
+>  	return 0;
+>  }
 
-Agreed on all counts ;-)
+This will potentially leak walk->policy in the !=3D -EEXIST case.
+
+I think what needs to happen is we invoke xfrm_policy_walk_done()
+unconditionally, then we'll potentially return reqid.
