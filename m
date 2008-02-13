@@ -1,27 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC, PATCH]: Pass link level header from/to PPP interface
-Date: Wed, 13 Feb 2008 14:53:55 -0800 (PST)
-Message-ID: <20080213.145355.57741113.davem@davemloft.net>
-References: <ygfprv55egs.fsf@janus.isnogud.escape.de>
-	<20080212.220603.111665989.davem@davemloft.net>
-	<ygflk5opzhb.fsf@janus.isnogud.escape.de>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] fib_trie: rcu_assign_pointer warning fix
+Date: Wed, 13 Feb 2008 14:55:55 -0800
+Message-ID: <20080213225555.GN12393@linux.vnet.ibm.com>
+References: <20080211.171645.74019568.davem@davemloft.net> <20080212085714.GB2582@ff.dom.local> <20080212160729.GA9157@linux.vnet.ibm.com> <20080212193218.GA2803@ami.dom.local> <20080212194630.GB2803@ami.dom.local>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: urs@isnogud.escape.de
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38285
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751357AbYBMWxX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 17:53:23 -0500
-In-Reply-To: <ygflk5opzhb.fsf@janus.isnogud.escape.de>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:47022 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753001AbYBMWz4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 17:55:56 -0500
+Content-Disposition: inline
+In-Reply-To: <20080212194630.GB2803@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Urs Thuermann <urs@isnogud.escape.de>
-Date: 13 Feb 2008 17:56:00 +0100
+On Tue, Feb 12, 2008 at 08:46:30PM +0100, Jarek Poplawski wrote:
+> On Tue, Feb 12, 2008 at 08:32:18PM +0100, Jarek Poplawski wrote:
+> ...
+> > It seems the above version of this macro uses the barrier for 0, but
+> > if I miss something, or for these other: documenting reasons,
+> 
+> ...or __builtin_constants could be used for indexing (?!),
 
-> Do you consider this strong enough to justify this change?
+Yep.  For example:
 
-Can tcpdump and libpcap already handle PPP properly?
+	elem[0].next = 1;
+	rcu_assign_index(global_index, 0);
+
+							Thanx, Paul
+
+> > then of
+> > course you are right.
+> 
+> Jarek P.
