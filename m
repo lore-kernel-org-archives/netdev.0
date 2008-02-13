@@ -1,136 +1,96 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] [IPROUTE2] Update various classifiers' help output for
- expected CLASSID syntax
-Date: Wed, 13 Feb 2008 12:37:47 -0800
-Message-ID: <20080213123747.7c7041c4@extreme>
-References: <20080213114909.13171.97451.stgit@localhost.localdomain>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Patch to latest iproute to get it to compile on FC5
+Date: Wed, 13 Feb 2008 12:52:48 -0800
+Message-ID: <47B358A0.7040504@candelatech.com>
+References: <47B345D0.1020707@candelatech.com> <20080213123402.43cdbd45@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------010409060200030303080704"
+Cc: NetDev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:37262 "EHLO ciao.gmane.org"
+Received: from ns2.lanforge.com ([66.165.47.211]:55151 "EHLO ns2.lanforge.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751864AbYBMUpG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Feb 2008 15:45:06 -0500
-Received: from root by ciao.gmane.org with local (Exim 4.43)
-	id 1JPOTW-0002Fq-HC
-	for netdev@vger.kernel.org; Wed, 13 Feb 2008 20:45:02 +0000
-Received: from 75-175-36-245.ptld.qwest.net ([75.175.36.245])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 13 Feb 2008 20:45:02 +0000
-Received: from shemminger by 75-175-36-245.ptld.qwest.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 13 Feb 2008 20:45:02 +0000
-In-Reply-To: <20080213114909.13171.97451.stgit@localhost.localdomain>
+	id S1751653AbYBMUxX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Feb 2008 15:53:23 -0500
+In-Reply-To: <20080213123402.43cdbd45@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Feb 2008 03:49:09 -0800
-PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com> wrote:
+This is a multi-part message in MIME format.
+--------------010409060200030303080704
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> update: Fix the spelling of "hexidecimal"
+Stephen Hemminger wrote:
+> On Wed, 13 Feb 2008 11:32:32 -0800
+> Ben Greear <greearb@candelatech.com> wrote:
 > 
-> This updates the help output to specify that CLASSID should be hexidecimal.
-> This makes sure that a user entering "flowid 1:10" gets his flow put into
-> band 15 (0x10) and knows why.
+>> I notice that the latest snapshot and git repository for iproute
+>> will not compile on FC5 due to not finding __constant_hton* symbols
+>> and a lack of the hdlc/ioctl.h file on FC5.
+>>
+>> I am attaching a patch that appears to fix the problems for me.
+>>
+>> Please consider applying this or something similar.
+>>
+>> Signed-off-by:  Ben Greear <greearb@candelatech.com>
+>>
+>>
+>> Thanks,
+>> Ben
+>>
 > 
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> ---
-> 
->  doc/actions/actions-general |    3 +++
->  tc/f_basic.c                |    1 +
->  tc/f_fw.c                   |    1 +
->  tc/f_route.c                |    1 +
->  tc/f_rsvp.c                 |    1 +
->  tc/f_u32.c                  |    1 +
->  6 files changed, 8 insertions(+), 0 deletions(-)
-> 
-> diff --git a/doc/actions/actions-general b/doc/actions/actions-general
-> index 6561eda..70f7cd6 100644
-> --- a/doc/actions/actions-general
-> +++ b/doc/actions/actions-general
-> @@ -88,6 +88,9 @@ tc filter add dev lo parent ffff: protocol ip prio 8 u32 \
->  match ip dst 127.0.0.8/32 flowid 1:12 \
->  action ipt -j mark --set-mark 2
->  
-> +NOTE: flowid 1:12 is parsed flowid 0x1:0x12.  Make sure if you want flowid
-> +decimal 12, then use flowid 1:c.
-> +
->  3) A feature i call pipe
->  The motivation is derived from Unix pipe mechanism but applied to packets.
->  Essentially take a matching packet and pass it through 
-> diff --git a/tc/f_basic.c b/tc/f_basic.c
-> index 19a7edf..aab946b 100644
-> --- a/tc/f_basic.c
-> +++ b/tc/f_basic.c
-> @@ -32,6 +32,7 @@ static void explain(void)
->  	fprintf(stderr, "\n");
->  	fprintf(stderr, "Where: SELECTOR := SAMPLE SAMPLE ...\n");
->  	fprintf(stderr, "       FILTERID := X:Y:Z\n");
-> +	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
->  }
->  
->  static int basic_parse_opt(struct filter_util *qu, char *handle,
-> diff --git a/tc/f_fw.c b/tc/f_fw.c
-> index 6d1490b..b511735 100644
-> --- a/tc/f_fw.c
-> +++ b/tc/f_fw.c
-> @@ -28,6 +28,7 @@ static void explain(void)
->  	fprintf(stderr, "Usage: ... fw [ classid CLASSID ] [ police POLICE_SPEC ]\n");
->  	fprintf(stderr, "       POLICE_SPEC := ... look at TBF\n");
->  	fprintf(stderr, "       CLASSID := X:Y\n");
-> +	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
->  }
->  
->  #define usage() return(-1)
-> diff --git a/tc/f_route.c b/tc/f_route.c
-> index a41b9d5..67dd49c 100644
-> --- a/tc/f_route.c
-> +++ b/tc/f_route.c
-> @@ -31,6 +31,7 @@ static void explain(void)
->  	fprintf(stderr, "                [ flowid CLASSID ] [ police POLICE_SPEC ]\n");
->  	fprintf(stderr, "       POLICE_SPEC := ... look at TBF\n");
->  	fprintf(stderr, "       CLASSID := X:Y\n");
-> +	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
->  }
->  
->  #define usage() return(-1)
-> diff --git a/tc/f_rsvp.c b/tc/f_rsvp.c
-> index 13fcf97..7e1e6d9 100644
-> --- a/tc/f_rsvp.c
-> +++ b/tc/f_rsvp.c
-> @@ -34,6 +34,7 @@ static void explain(void)
->  	fprintf(stderr, "                u{8|16|32} NUMBER mask MASK at OFFSET}\n");
->  	fprintf(stderr, "       POLICE_SPEC := ... look at TBF\n");
->  	fprintf(stderr, "       FILTERID := X:Y\n");
-> +	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
->  }
->  
->  #define usage() return(-1)
-> diff --git a/tc/f_u32.c b/tc/f_u32.c
-> index 91f2838..d75e76c 100644
-> --- a/tc/f_u32.c
-> +++ b/tc/f_u32.c
-> @@ -36,6 +36,7 @@ static void explain(void)
->  	fprintf(stderr, "Where: SELECTOR := SAMPLE SAMPLE ...\n");
->  	fprintf(stderr, "       SAMPLE := { ip | ip6 | udp | tcp | icmp | u{32|16|8} | mark } SAMPLE_ARGS [divisor DIVISOR]\n");
->  	fprintf(stderr, "       FILTERID := X:Y:Z\n");
-> +	fprintf(stderr, "\nNOTE: CLASSID is parsed at hexadecimal input.\n");
->  }
->  
->  #define usage() return(-1)
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> I added include/linux/hdlc/ioctl.h to the santized headers in the
+> current git.
 > 
 
-applied
+That seems to fix the hdlc issue, but it still will not link due to missing
+symbols:
+
+gcc -Wl,-export-dynamic  ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o rtm_map.o iptunnel.o ip6tunnel.o tunnel.o ipneigh.o ipntable.o iplink.o ipmaddr.o ipmonitor.o ipmroute.o ipprefix.o ipxfrm.o xfrm_state.o xfrm_policy.o xfrm_monitor.o iplink_vlan.o link_veth.o ../lib/libnetlink.a ../lib/libutil.a  -lresolv -L../lib -lnetlink -lutil -ldl -o ip
+iptunnel.o: In function `parse_args':
+iptunnel.c:(.text+0x2c6): undefined reference to `__constant_htons'
+iptunnel.c:(.text+0x404): undefined reference to `__constant_htons'
+iptunnel.c:(.text+0x48d): undefined reference to `__constant_htons'
+iptunnel.c:(.text+0x4a6): undefined reference to `__constant_htons'
+iptunnel.c:(.text+0x4e2): undefined reference to `__constant_htons'
+iptunnel.o:iptunnel.c:(.text+0x4fb): more undefined references to `__constant_htons' follow
+collect2: ld returned 1 exit status
+make[1]: *** [ip] Error 1
+make[1]: Leaving directory `/root/iproute2/ip'
+make: *** [all] Error 2
+
+
+The attached patch fixes this.
+
+Thanks,
+Ben
+
 
 -- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
 
+--------------010409060200030303080704
+Content-Type: text/x-patch;
+ name="iproute.fc5.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="iproute.fc5.patch"
+
+diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
+index 228eb4e..0eb5b04 100644
+--- a/include/linux/if_tunnel.h
++++ b/include/linux/if_tunnel.h
+@@ -2,6 +2,7 @@
+ #define _IF_TUNNEL_H_
+ 
+ #include <linux/types.h>
++#include <asm/byteorder.h>
+ 
+ #define SIOCGETTUNNEL   (SIOCDEVPRIVATE + 0)
+ #define SIOCADDTUNNEL   (SIOCDEVPRIVATE + 1)
+
+--------------010409060200030303080704--
