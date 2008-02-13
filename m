@@ -1,37 +1,38 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] Add IPv6 support to TCP SYN cookies
-Date: Wed, 13 Feb 2008 18:31:02 +1100 (EST)
-Message-ID: <20080213.183102.71846649.yoshfuji@linux-ipv6.org>
-References: <47a9fb13.01538c0a.3b80.ffff9328@mx.google.com>
-	<20080207072415.GA13782@2ka.mipt.ru>
-	<47AAD203.4030706@cosmosbay.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 1/4] rcu_assign_pointer: null check fix
+Date: Wed, 13 Feb 2008 08:07:41 +0000
+Message-ID: <20080213080741.GB2542@ff.dom.local>
+References: <20080213005122.653836965@vyatta.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, ggriffin.kernel@gmail.com,
-	alan@lxorguk.ukuu.org.uk, andi@firstfloor.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, yoshfuji@linux-ipv6.org
-To: dada1@cosmosbay.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernle.org,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:46089 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756926AbYBMHaX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 02:30:23 -0500
-In-Reply-To: <47AAD203.4030706@cosmosbay.com>
+Received: from nf-out-0910.google.com ([64.233.182.186]:20397 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753645AbYBMIAc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 03:00:32 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so1589844nfb.21
+        for <netdev@vger.kernel.org>; Wed, 13 Feb 2008 00:00:30 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080213005122.653836965@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <47AAD203.4030706@cosmosbay.com> (at Thu, 07 Feb 2008 10:40:19 +0100), Eric Dumazet <dada1@cosmosbay.com> says:
+On 13-02-2008 01:50, Stephen Hemminger wrote:
+...
+> --- a/include/linux/rcupdate.h	2008-02-12 14:46:49.000000000 -0800
+> +++ b/include/linux/rcupdate.h	2008-02-12 14:56:17.000000000 -0800
+> @@ -178,7 +178,7 @@ struct rcu_head {
+>  
+>  #define rcu_assign_pointer(p, v)			\
+>  	({						\
+> -		if (!(__builtin_constant_p(v) && v))	\
+> +		if (!__builtin_constant_p(v) || v)	\
 
-> [NET] IPV4: lower stack usage in cookie_hash() function
-> 
-> 400 bytes allocated on stack might be a litle bit too much. Using a 
-> per_cpu var is more friendly.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Isn't it a bit safer with this Paul's version yet?:
 
-Applied to my inet6-2.6.26 tree.  Thanks.
+ +		if (!__builtin_constant_p(v) || (v))	\
 
---yoshfuji
+Jarek P.
