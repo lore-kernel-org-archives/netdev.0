@@ -1,80 +1,45 @@
-From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
-Subject: [Bug 9750] [patch 2.6.25 v2] dev: avoid a race that triggers assertion failure
-Date: Tue, 12 Feb 2008 23:06:41 -0800 (PST)
-Message-ID: <127401.85852.qm@web52006.mail.re2.yahoo.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Reorder ACK/RST checking in LISTEN state
+Date: Tue, 12 Feb 2008 23:08:24 -0800 (PST)
+Message-ID: <20080212.230824.263037704.davem@davemloft.net>
+References: <47B29055.8060409@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="0-1239753522-1202886401=:85852"
-To: bugme-daemon@bugzilla.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: katterjohn@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web52006.mail.re2.yahoo.com ([206.190.49.253]:44200 "HELO
-	web52006.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751824AbYBMHGm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 02:06:42 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60834
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1764806AbYBMHHw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 02:07:52 -0500
+In-Reply-To: <47B29055.8060409@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---0-1239753522-1202886401=:85852
-Content-Type: text/plain; charset=us-ascii
+From: Kris Katterjohn <katterjohn@gmail.com>
+Date: Wed, 13 Feb 2008 00:38:13 -0600
 
-From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+> I've attached a patch that changes the order of the ACK and RST checking 
+> in the LISTEN state in tcp_rcv_state_process() in tcp_input.c
+> 
+> Before:  If an ACK/RST packet is received, then tcp_rcv_state_process() 
+> would return 1 because of the ACK.  Then (following the function calls 
+> in tcp_ipv4.c and tcp_minisocks.c), tcp_v4_send_reset() is called--but 
+> since there is a RST in the packet it just returns.  After this, the 
+> kfree_skb() is called.  The same goes in tcp_ipv6.c as well.
+> 
+> But if the order of the ACK and RST checking is reversed, __kfree_skb() 
+> is called in tcp_rcv_state_process() because of the RST and the function 
+> returns 0, which skips that other useless stuff.
+> 
+> This is the order specified on page 65 of RFC 793 anyway.
+> 
+> Signed-off-by: Kris Katterjohn <katterjohn@gmail.com>
 
-There is a race in Linux kernel file net/core/dev.c, function dev_close.
-The function calls function dev_deactivate, which calls function
-dev_watchdog_down that deletes the watchdog timer. However, after that, a
-driver can call netif_carrier_ok, which calls function
-__netdev_watchdog_up that can add the watchdog timer again. Function
-unregister_netdevice calls function dev_shutdown that traps the bug
-!timer_pending(&dev->watchdog_timer). Moving dev_deactivate after
-netif_running() has been cleared prevents function netif_carrier_on
-from calling __netdev_watchdog_up and adding the watchdog timer again.
+This code has been like this for I don't know how many years,
+the end result is the same both before and after your patch,
+and the added expense of the existing code is frankly trivial.
 
-Signed-off-by: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
-
----
-
-
-
-
-
-      ____________________________________________________________________________________
-Never miss a thing.  Make Yahoo your home page. 
-http://www.yahoo.com/r/hs
---0-1239753522-1202886401=:85852
-Content-Type: application/octet-stream; name="=?utf-8?q?patch?="
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="=?utf-8?q?patch?="
-
-RnJvbTogTWF0dGkgTGlubmFudnVvcmkgPG1hdHRpbGlubmFudnVvcmlAeWFo
-b28uY29tPgoKVGhlcmUgaXMgYSByYWNlIGluIExpbnV4IGtlcm5lbCBmaWxl
-IG5ldC9jb3JlL2Rldi5jLCBmdW5jdGlvbiBkZXZfY2xvc2UuClRoZSBmdW5j
-dGlvbiBjYWxscyBmdW5jdGlvbiBkZXZfZGVhY3RpdmF0ZSwgd2hpY2ggY2Fs
-bHMgZnVuY3Rpb24KZGV2X3dhdGNoZG9nX2Rvd24gdGhhdCBkZWxldGVzIHRo
-ZSB3YXRjaGRvZyB0aW1lci4gSG93ZXZlciwgYWZ0ZXIgdGhhdCwgYQpkcml2
-ZXIgY2FuIGNhbGwgbmV0aWZfY2Fycmllcl9vaywgd2hpY2ggY2FsbHMgZnVu
-Y3Rpb24KX19uZXRkZXZfd2F0Y2hkb2dfdXAgdGhhdCBjYW4gYWRkIHRoZSB3
-YXRjaGRvZyB0aW1lciBhZ2Fpbi4gRnVuY3Rpb24KdW5yZWdpc3Rlcl9uZXRk
-ZXZpY2UgY2FsbHMgZnVuY3Rpb24gZGV2X3NodXRkb3duIHRoYXQgdHJhcHMg
-dGhlIGJ1ZwohdGltZXJfcGVuZGluZygmZGV2LT53YXRjaGRvZ190aW1lciku
-IE1vdmluZyBkZXZfZGVhY3RpdmF0ZSBhZnRlcgpuZXRpZl9ydW5uaW5nKCkg
-aGFzIGJlZW4gY2xlYXJlZCBwcmV2ZW50cyBmdW5jdGlvbiBuZXRpZl9jYXJy
-aWVyX29uCmZyb20gY2FsbGluZyBfX25ldGRldl93YXRjaGRvZ191cCBhbmQg
-YWRkaW5nIHRoZSB3YXRjaGRvZyB0aW1lciBhZ2Fpbi4KClNpZ25lZC1vZmYt
-Ynk6IE1hdHRpIExpbm5hbnZ1b3JpIDxtYXR0aWxpbm5hbnZ1b3JpQHlhaG9v
-LmNvbT4KCi0tLQoKLS0tIGxpbnV4LTIuNi4yNS9uZXQvY29yZS9kZXYuYwky
-MDA4LTAyLTEyIDEyOjM3OjUxLjIwNjgzMzAwMCArMDIwMAorKysgYi9uZXQv
-Y29yZS9kZXYuYwkyMDA4LTAyLTEzIDA5OjAxOjI1LjY5NzU5MjkwMCArMDIw
-MApAQCAtMTA3MSw4ICsxMDcxLDYgQEAgaW50IGRldl9jbG9zZShzdHJ1Y3Qg
-bmV0X2RldmljZSAqZGV2KQogCSAqLwogCWNhbGxfbmV0ZGV2aWNlX25vdGlm
-aWVycyhORVRERVZfR09JTkdfRE9XTiwgZGV2KTsKIAotCWRldl9kZWFjdGl2
-YXRlKGRldik7Ci0KIAljbGVhcl9iaXQoX19MSU5LX1NUQVRFX1NUQVJULCAm
-ZGV2LT5zdGF0ZSk7CiAKIAkvKiBTeW5jaHJvbml6ZSB0byBzY2hlZHVsZWQg
-cG9sbC4gV2UgY2Fubm90IHRvdWNoIHBvbGwgbGlzdCwKQEAgLTEwODMsNiAr
-MTA4MSw4IEBAIGludCBkZXZfY2xvc2Uoc3RydWN0IG5ldF9kZXZpY2UgKmRl
-dikKIAkgKi8KIAlzbXBfbWJfX2FmdGVyX2NsZWFyX2JpdCgpOyAvKiBDb21t
-aXQgbmV0aWZfcnVubmluZygpLiAqLwogCisJZGV2X2RlYWN0aXZhdGUoZGV2
-KTsKKwogCS8qCiAJICoJQ2FsbCB0aGUgZGV2aWNlIHNwZWNpZmljIGNsb3Nl
-LiBUaGlzIGNhbm5vdCBmYWlsLgogCSAqCU9ubHkgaWYgZGV2aWNlIGlzIFVQ
-Cg==
-
---0-1239753522-1202886401=:85852--
+I really don't want to apply this, it doesn't buy us anything,
+sorry.
