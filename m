@@ -1,57 +1,43 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [ofa-general] [PATCH 2.6.25] RDMA/cxgb3: Fail loopback
-	connections.
-Date: Tue, 12 Feb 2008 19:41:53 -0600
-Message-ID: <47B24AE1.7040709@opengridcomputing.com>
-References: <20080212220929.24442.76874.stgit@dell3.ogc.int>
-	<adafxvxvgz3.fsf@cisco.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [IPV6]: Fix IPsec datagram fragmentation
+Date: Tue, 12 Feb 2008 18:08:28 -0800 (PST)
+Message-ID: <20080212.180828.262893392.davem@davemloft.net>
+References: <20080213000437.GA19976@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <adafxvxvgz3.fsf@cisco.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	dlstevens@us.ibm.com, kazunori@miyazawa.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38798
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753066AbYBMCH4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 21:07:56 -0500
+In-Reply-To: <20080213000437.GA19976@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Roland Dreier wrote:
-> applied, although:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 13 Feb 2008 11:04:37 +1100
+
+> [IPV6]: Fix IPsec datagram fragmentation
 > 
->  > +static void is_loopback_dst(struct iw_cm_id *cm_id)
->  > +{
->  > +	struct net_device *dev;
->  > +	
->  > +	dev = ip_dev_find(&init_net, cm_id->remote_addr.sin_addr.s_addr);
->  > +	if (!dev)
->  > +		return 0;
->  > +	dev_put(dev);
->  > +	return 1;
->  > +}
+> This is a long-standing bug in the IPsec IPv6 code that breaks
+> when we emit a IPsec tunnel-mode datagram packet.  The problem
+> is that the code the emits the packet assumes the IPv6 stack
+> will fragment it later, but the IPv6 stack assumes that whoever
+> is emitting the packet is going to pre-fragment the packet.
 > 
-> is there any way this could trigger when it should, like if I'm trying
-> to make a connection from one local device to a different local device
-> (which should work fine)?
+> In the long term we need to fix both sides, e.g., to get the
+> datagram code to pre-fragment as well as to get the IPv6 stack
+> to fragment locally generated tunnel-mode packet.
 > 
+> For now this patch does the second part which should make it
+> work for the IPsec host case.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-As far as I can tell, if the app does a rdma_resolve_addr() on the dst 
-addr (which is a local address), then the routing lookup will find the 
-local interface with that dst addr, and that device will be used for the 
-connect.  IE src and dst devices are the same.
+Applied, and I'll queue this up to -stable as well.
 
-Maybe if the app does an explicit bind to the addr on one device, then 
-connects to the addr on the other device.  But that's not gonna work 
-either, I think.  I still think it will resolve to one device and that 
-device cannot do loopback...
-
-
-Steve.
+Thanks!
