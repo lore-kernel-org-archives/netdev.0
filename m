@@ -1,67 +1,37 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
-Date: Wed, 13 Feb 2008 07:29:08 +0000
-Message-ID: <20080213072908.GA2542@ff.dom.local>
-References: <47B0DD1E.5000608@katalix.com> <20080211.213048.192442721.davem@davemloft.net> <47B17BCD.2070903@katalix.com> <20080212.220003.108906105.davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] Add IPv6 support to TCP SYN cookies
+Date: Wed, 13 Feb 2008 18:31:02 +1100 (EST)
+Message-ID: <20080213.183102.71846649.yoshfuji@linux-ipv6.org>
+References: <47a9fb13.01538c0a.3b80.ffff9328@mx.google.com>
+	<20080207072415.GA13782@2ka.mipt.ru>
+	<47AAD203.4030706@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jchapman@katalix.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johnpol@2ka.mipt.ru, ggriffin.kernel@gmail.com,
+	alan@lxorguk.ukuu.org.uk, andi@firstfloor.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, yoshfuji@linux-ipv6.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:61275 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757129AbYBMHV4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 02:21:56 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so4310488fga.17
-        for <netdev@vger.kernel.org>; Tue, 12 Feb 2008 23:21:55 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080212.220003.108906105.davem@davemloft.net>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:46089 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756926AbYBMHaX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 02:30:23 -0500
+In-Reply-To: <47AAD203.4030706@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 12, 2008 at 10:00:03PM -0800, David Miller wrote:
-> From: James Chapman <jchapman@katalix.com>
-> Date: Tue, 12 Feb 2008 10:58:21 +0000
+In article <47AAD203.4030706@cosmosbay.com> (at Thu, 07 Feb 2008 10:40:19 +0100), Eric Dumazet <dada1@cosmosbay.com> says:
+
+> [NET] IPV4: lower stack usage in cookie_hash() function
 > 
-> > Here is a trace from when we had _bh locks.
+> 400 bytes allocated on stack might be a litle bit too much. Using a 
+> per_cpu var is more friendly.
 > 
-> The problem is that the pppol2tp code calls sk_dst_get() in software
-> interrupt context and that is not allowed.
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Actually, this lockdep report probably warns of something else:
-sk_dst_lock which is seen in process context with softirqs enabled
-implicitly endangers some other (ppp_generic) locks, which depend
-on ppp_generic pch->upl read_lock, which is taken in softirq context.
+Applied to my inet6-2.6.26 tree.  Thanks.
 
-I can't see on this report any hardirqs dependancies, so it seems even
-blocking hard interrupts, just like in this patch, shouldn't solve
-this problem: if BHs were really disabled in exactly the same places,
-then it seems this warning should trigger in both variants.
-
-I studied long ago some similar problem with pppoe, and it looked like
-ppp_generic needed some fix, but now I've to recall or re-learn almost
-all and it needs more time... Anyway, there is a possibility, this
-warning isn't so dangerous.
-
-> sk_dst_get() grabs sk->sk_dst_lock without any BH enabling or
-> disabling.
-> 
-> It can do that because the usage is to make all the lock
-> taking calls in user context, and in the packet processing
-> paths use __sk_dst_get().
-
-BTW, does it mean that ip4_datagram_connect() can be used only in user
-context?
-
-> Probably what the pppol2tp code should do is use __sk_dst_check()
-> instead of sk_dst_get().  You then have to be able to handle
-> NULL returns, just like UDP sendmsg() does, which means you'll
-> need to cook up a routing lookup if __sk_dst_check() gives you
-> NULL because the route became obsolete.
-
-I think that without changing ppp_generic or changing ip_queue_xmit()
-to something else in pppol2tp this would be really hard to avoid such
-a warning (and maybe not very necessary).
-
-Regards,
-Jarek P.
+--yoshfuji
