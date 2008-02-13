@@ -1,41 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
-Date: Tue, 12 Feb 2008 22:00:03 -0800 (PST)
-Message-ID: <20080212.220003.108906105.davem@davemloft.net>
-References: <47B0DD1E.5000608@katalix.com>
-	<20080211.213048.192442721.davem@davemloft.net>
-	<47B17BCD.2070903@katalix.com>
+From: "Natalie Protasevich" <protasnb@gmail.com>
+Subject: Re: An ioctl to delete an ipv6 tunnel leads to a kernel panic
+Date: Tue, 12 Feb 2008 22:00:36 -0800
+Message-ID: <32209efe0802122200w21403331k953be3da80ede52b@mail.gmail.com>
+References: <32209efe0802111249x16a6bbe0l4c152b3cf3aa0470@mail.gmail.com>
+	 <20080212.214946.168597748.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org
-To: jchapman@katalix.com
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55221
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751772AbYBMF7b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 00:59:31 -0500
-In-Reply-To: <47B17BCD.2070903@katalix.com>
+Received: from fg-out-1718.google.com ([72.14.220.153]:8365 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751532AbYBMGAi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 01:00:38 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so4297086fga.17
+        for <netdev@vger.kernel.org>; Tue, 12 Feb 2008 22:00:36 -0800 (PST)
+In-Reply-To: <20080212.214946.168597748.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Chapman <jchapman@katalix.com>
-Date: Tue, 12 Feb 2008 10:58:21 +0000
+On Feb 12, 2008 9:49 PM, David Miller <davem@davemloft.net> wrote:
+> From: "Natalie Protasevich" <protasnb@gmail.com>
+> Date: Mon, 11 Feb 2008 12:49:12 -0800
+>
+> > Possible reason for this failure was identified and tested by the
+> > submitter and several other reporters that ran into the same problem.
+> > Can the patch be reviewed and pushed upstream if accepted (if the
+> > problem hasn't been addressed already)?
+>
+> There are a lot of bogus patches in there, using funny
+> long variable names, and mainly they were meant for testing
+> and verification of the problem.
+>
+> I see no real serious patch submissions in that bug and furthermore
+> the patch, if ready, should be submitted formally here to netdev not
+> rot in bugzilla.
+>
+> Finally, what appears to be the proposal cannot be correct.  If the
+> fib6_add_rt2node() finds that the new route is a duplicate, we should
+> disconnect it from the fn->leaf and do a dst_release().  The bug
+> appears to be rather that we leave the route attached to the fn, not
+> that we drop the refrence to it.
+>
+> Thank you.
 
-> Here is a trace from when we had _bh locks.
+Thanks David for looking in this. I will give this thought to the
+diligent reporters, unless someone on the net team can produce a patch
+for them to test.
+Sometimes reporters come up with patches and I always try to make sure
+the patches end up on appropriate mailing list, and I will continue
+doing so :)
 
-The problem is that the pppol2tp code calls sk_dst_get() in software
-interrupt context and that is not allowed.
-
-sk_dst_get() grabs sk->sk_dst_lock without any BH enabling or
-disabling.
-
-It can do that because the usage is to make all the lock
-taking calls in user context, and in the packet processing
-paths use __sk_dst_get().
-
-Probably what the pppol2tp code should do is use __sk_dst_check()
-instead of sk_dst_get().  You then have to be able to handle
-NULL returns, just like UDP sendmsg() does, which means you'll
-need to cook up a routing lookup if __sk_dst_check() gives you
-NULL because the route became obsolete.
+Regards,
+--Natalie
+>
