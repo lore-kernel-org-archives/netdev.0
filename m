@@ -1,43 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV6]: Fix IPsec datagram fragmentation
-Date: Tue, 12 Feb 2008 18:08:28 -0800 (PST)
-Message-ID: <20080212.180828.262893392.davem@davemloft.net>
-References: <20080213000437.GA19976@gondor.apana.org.au>
+Subject: Re: [Bug 9750] [patch 2.6.25] dev: avoid a race that triggers
+ assertion failure
+Date: Tue, 12 Feb 2008 18:16:16 -0800 (PST)
+Message-ID: <20080212.181616.181583250.davem@davemloft.net>
+References: <190693.34289.qm@web52005.mail.re2.yahoo.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	dlstevens@us.ibm.com, kazunori@miyazawa.org
-To: herbert@gondor.apana.org.au
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	bugme-daemon@kernel-bugs.osdl.org
+To: mattilinnanvuori@yahoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38798
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59711
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753066AbYBMCH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 21:07:56 -0500
-In-Reply-To: <20080213000437.GA19976@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1753735AbYBMCPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2008 21:15:44 -0500
+In-Reply-To: <190693.34289.qm@web52005.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 13 Feb 2008 11:04:37 +1100
+From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+Date: Tue, 12 Feb 2008 02:45:22 -0800 (PST)
 
-> [IPV6]: Fix IPsec datagram fragmentation
+> From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
 > 
-> This is a long-standing bug in the IPsec IPv6 code that breaks
-> when we emit a IPsec tunnel-mode datagram packet.  The problem
-> is that the code the emits the packet assumes the IPv6 stack
-> will fragment it later, but the IPv6 stack assumes that whoever
-> is emitting the packet is going to pre-fragment the packet.
+> There is a race in Linux kernel file net/core/dev.c, function dev_close.
+> The function calls function dev_deactivate, which calls function
+> dev_watchdog_down that deletes the watchdog timer. However, after that, a
+> driver can call netif_carrier_ok, which calls function
+> __netdev_watchdog_up that can add the watchdog timer again. Function
+> unregister_netdevice calls function dev_shutdown that traps the bug
+> !timer_pending(&dev->watchdog_timer). Moving dev_deactivate after
+> netif_running() has been cleared prevents function netif_carrier_on
+> from calling __netdev_watchdog_up and adding the watchdog timer again.
 > 
-> In the long term we need to fix both sides, e.g., to get the
-> datagram code to pre-fragment as well as to get the IPv6 stack
-> to fragment locally generated tunnel-mode packet.
-> 
-> For now this patch does the second part which should make it
-> work for the IPsec host case.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
 
-Applied, and I'll queue this up to -stable as well.
+Your patch won't apply because it has been whitespace damanged
+by your email client.
 
-Thanks!
+This is what I let you know last time you posted this patch.
+
+Please fix this up so that your patch can be applied.
+
+Thanks.
