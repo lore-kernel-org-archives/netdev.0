@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][GENETLINK]: Relax dances with genl_lock.
-Date: Tue, 12 Feb 2008 22:16:44 -0800 (PST)
-Message-ID: <20080212.221644.107209578.davem@davemloft.net>
-References: <47B1D45D.3020409@openvz.org>
+Subject: Re: [PATCH 1/3][NETLABEL]: Compilation for CONFIG_AUDIT=n case.
+Date: Tue, 12 Feb 2008 22:35:44 -0800 (PST)
+Message-ID: <20080212.223544.21007139.davem@davemloft.net>
+References: <47AB3DDE.8050109@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43852
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53361
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751739AbYBMGQN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 01:16:13 -0500
-In-Reply-To: <47B1D45D.3020409@openvz.org>
+	by vger.kernel.org with ESMTP id S1752886AbYBMGfM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 01:35:12 -0500
+In-Reply-To: <47AB3DDE.8050109@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Emelyanov <xemul@openvz.org>
-Date: Tue, 12 Feb 2008 20:16:13 +0300
+Date: Thu, 07 Feb 2008 20:20:30 +0300
 
-> The genl_unregister_family() calls the genl_unregister_mc_groups(), 
-> which takes and releases the genl_lock and then locks and releases
-> this lock itself.
+> The audit_log_start() will expand into an empty do { } while (0)
+> construction and the audit_ctx becomes unused.
 > 
-> Relax this behavior, all the more so the genl_unregister_mc_groups() 
-> is called from genl_unregister_family() only.
+> The solution: push current->audit_context into audit_log_start()
+> directly, since it is not required in any other place in the 
+> calling function.
 > 
 > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Ok, applied, thanks.
+Applied.
