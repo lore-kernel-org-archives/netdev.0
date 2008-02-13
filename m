@@ -1,54 +1,42 @@
-From: "Diego Guella" <diego.guella@sircomtech.com>
-Subject: Re: [ofa-general] [PATCH 2.6.25] RDMA/cxgb3: Fail loopbackconnections.
-Date: Wed, 13 Feb 2008 10:18:53 +0100
-Message-ID: <015c01c86e21$75317210$05c8a8c0@DIEGO>
-References: <20080212220929.24442.76874.stgit@dell3.ogc.int>
-	<adafxvxvgz3.fsf@cisco.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: BUG: 2.6.25-rc1: iptables postrouting setup causes oops
+Date: Wed, 13 Feb 2008 01:22:31 -0800
+Message-ID: <20080213012231.46865608.akpm@linux-foundation.org>
+References: <1202816761.3299.19.camel@moss.renham>
+	<20080213004829.fd8afdc7.akpm@linux-foundation.org>
+	<20080213101024.39347322@dhcp-252-066.norway.atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset="iso-8859-1";
-	reply-type=original
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: "Steve Wise" <swise@opengridcomputing.com>,
-	"Roland Dreier" <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: Ben Nizette <bn@niasdigital.com>, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Andrew Morgan <morgan@kernel.org>
+To: Haavard Skinnemoen <hskinnemoen@atmel.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080213101024.39347322@dhcp-252-066.norway.atmel.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-One question below
+On Wed, 13 Feb 2008 10:10:24 +0100 Haavard Skinnemoen <hskinnemoen@atmel.com> wrote:
 
-
------ Original Message ----- 
-From: "Roland Dreier" <rdreier@cisco.com>
-To: "Steve Wise" <swise@opengridcomputing.com>
-Cc: <netdev@vger.kernel.org>; <linux-kernel@vger.kernel.org>; <general@lists.openfabrics.org>
-Sent: Wednesday, February 13, 2008 1:26 AM
-Subject: Re: [ofa-general] [PATCH 2.6.25] RDMA/cxgb3: Fail loopbackconnections.
-
-
-> applied, although:
+> On Wed, 13 Feb 2008 00:48:29 -0800
+> Andrew Morton <akpm@linux-foundation.org> wrote:
 > 
-> > +static void is_loopback_dst(struct iw_cm_id *cm_id)
-> > +{
-> > + struct net_device *dev;
-> > + 
-> > + dev = ip_dev_find(&init_net, cm_id->remote_addr.sin_addr.s_addr);
-> > + if (!dev)
-> > + return 0;
+> > On Tue, 12 Feb 2008 22:46:01 +1100 Ben Nizette <bn@niasdigital.com> wrote:
+> > 
+> > > 
+> > > On an AVR32, root over NFS, config attached, running (from a startup
+> > > script):
+> > > 
+> > > iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+> > > 
+> > > Results in (dmesg extract including a bit of context for good measure):
+> > > -------------8<----------------
+> > > VFS: Mounted root (nfs filesystem).
+> > > Freeing init memory: 72K (90000000 - 90012000)
+> > > eth0: no IPv6 routers present
+> > > warning: `dnsmasq' uses 32-bit capabilities (legacy support in use)
+> 
+> Hmm. What does that mean? What size do capabilities normally have?
 
-how can a static void function return 0?
-%)
-
-> > + dev_put(dev);
-> > + return 1;
-
-same here
+My near-namesake put than in, but I immediately forgot what it means?
