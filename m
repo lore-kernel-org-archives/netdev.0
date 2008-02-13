@@ -1,83 +1,107 @@
-From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: Re: [RFC, PATCH]: Pass link level header from/to PPP interface
-Date: 13 Feb 2008 17:56:00 +0100
-Message-ID: <ygflk5opzhb.fsf@janus.isnogud.escape.de>
-References: <ygfprv55egs.fsf@janus.isnogud.escape.de>
-	<20080212.220603.111665989.davem@davemloft.net>
+From: Dave Hansen <haveblue@us.ibm.com>
+Subject: Re: [PATCH] drivers/base: export gpl (un)register_memory_notifier
+Date: Wed, 13 Feb 2008 09:05:00 -0800
+Message-ID: <1202922300.25500.37.camel@nimitz.home.sr71.net>
+References: <200802111724.12416.ossthema@de.ibm.com>
+	 <1202748429.8276.21.camel@nimitz.home.sr71.net>
+	 <200802131617.58646.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, Thomas Klein <tklein@de.ibm.com>,
+	"Themann, Jan-Bernd" <themann@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>, apw <apw@uk.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Thomas Klein <osstklei@de.ibm.com>,
+	Christoph Raisch <RAISCH@de.ibm.com>,
+	Badari Pulavarty <pbadari@us.ibm.com>, Greg KH <greg@kroah.com>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:35850 "EHLO oker.escape.de"
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:57031 "EHLO e3.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762511AbYBMRAI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Feb 2008 12:00:08 -0500
-In-Reply-To: <20080212.220603.111665989.davem@davemloft.net>; from David Miller on Tue, 12 Feb 2008 22:06:03 -0800 (PST)
+	id S933346AbYBMRFF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Feb 2008 12:05:05 -0500
+In-Reply-To: <200802131617.58646.ossthema@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Dave,
+On Wed, 2008-02-13 at 16:17 +0100, Jan-Bernd Themann wrote:
+> Constraints imposed by HW / FW:
+> - eHEA has own MMU
+> - eHEA  Memory Regions (MRs) are used by the eHEA MMU  to translate virtual
+>   addresses to absolute addresses (like DMA mapped memory on a PCI bus)
+> - The number of MRs is limited (not enough to have one MR per packet)
 
-> But if libpcap and tcpdump can already identify PPP packets
-> then, besides "consistency", what does this buy us other
-> than potential breakage?
+Are there enough to have one per 16MB section?
 
-My reason for the patch is mostly cleanliness and to make the kernel
-match what is described in packet(7).
+> Our current understanding about the current Memory Hotplug System are
+> (please correct me if I'm wrong):
+> 
+> - depends on sparse mem
 
-If you open a PF_PACKET/SOCK_RAW socket and bind it to an interface
-you get a fixed type of frame/packet depending on the type of
-interface, including the LL header.  Also if you bind to all
-interfaces you can look at the interface type to know what type of
-packet you get.  But not for PPP interfaces.
+You're wrong ;).  In mainline, this is true.  There was a version of the
+SUSE kernel that did otherwise.  But you can not and should not depend
+on this never changing.  But, someone is perfectly free to go out an
+implement something better than sparsemem for memory hotplug.  If they
+go and do this, your driver may get left behind. 
 
-I've written a small packet dump util with a packet parser (somewhat
-comparable to tcpdump but much smaller), which looks like this
+> - only whole memory sections are added / removed
+> - for each section a memory resource is registered
 
-        struct sockaddr_ll addr;
-        ...
-        s = open(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-        ...
-        recvfrom(s, buffer, sizeof(buffer), 0, &addr, &size);
-        switch (addr.sll_hatype) {
-        case ARPHRD_ETHER:
-        case ARPHRD_IEEE80211:
-        case ARPHRD_LOOPBACK:
-                parse_ether(buffer);
-                break;
-        case ARPHRD_TUNNEL:
-                parse_ip(buffer);
-                break;
-        case ARPHRD_SIT:
-                parse_ipv6(buffer);
-                break;
+True, and true. (There might be exceptions to the whole sections one,
+but that's blatant abuse and should be fixed. :)
 
-and so on.  Only for PPP I need to switch on the addr.sll_protocol
-since with PPP I don't get the PPP header:
+> From the driver side we need:
+> - some kind of memory notification mechanism.
+>   For memory add we can live without any external memory notification
+>   event. For memory remove we do need an external trigger (see explanation
+>   above).
 
-        case ARPHRD_PPP:
-                switch (ntohs(addr.sll_protocol))
-		case ETH_P_IP:
-		    parse_ip(buffer);
-		    break;
-		case ETH_P_IPV6:
-		    parse_ipv6(buffer);
-		    break;
-                ...
-		}
-		break;
+You can export and use (un)register_memory_notifier.  You just need to
+do it in a reasonable way that compiles for randconfig on your
+architecture.  Believe me, we don't want to start teaching drivers about
+sparsemem.  
 
-With my patch you would write
+> - a way to iterate over all kernel pages and a way to detect holes in the
+>   kernel memory layout in order to build up our own ehea_bmap.
 
-        case ARPHRD_PPP:
-                parse_ppp(buffer);
-                break;
+Look at kernel/resource.c
 
-and the parse function can show the complete PPP frame with protocol
-field.  Without the patch there is no way to see the 2-byte PPP header
-and, in contrast to packet(7), SOCK_DGRAM and SOCK_RAW are the same.
+But, I'm really not convinced that you can actually keep this map
+yourselves.  It's not as simple as you think.  What happens if you get
+on an LPAR with two sections, one 256MB@0x0 and another
+16MB@0x1000000000000000.  That's quite possible.  I think your vmalloc'd
+array will eat all of memory.  
 
-Do you consider this strong enough to justify this change?
+That's why we have SPARSEMEM_EXTREME and SPARSEMEM_VMEMMAP implemented
+in the core, so that we can deal with these kinds of problems, once and
+*NOT* in every single little driver out there.  
 
-urs
+> Functions to use while building ehea_bmap + MRs:
+> - Use either the functions that are used by the memory hotplug system as
+>   well, that means using the section defines + functions (section_nr_to_pfn,
+>   pfn_valid)
+
+Basically, you can't use anything related to sections outside of the
+core code.  You can use things like pfn_valid(), or you can create new
+interfaces that are properly abstracted.  
+
+> - Use currently other not exported functions in kernel/resource.c, like
+>   walk_memory_resource (where we would still need the maximum possible number
+>   of pages NR_MEM_SECTIONS)
+
+It isn't the act of exporting that's the problem.  It's making sure that
+the exports won't be prone to abuse and that people are using them
+properly.  You should assume that you can export and use
+walk_memory_resource().
+
+Do you know what other operating systems do with this hardware?
+
+In the future, please make an effort to get review from knowledgeable
+people about these kinds of things before using them in your driver.
+Your company has many, many resources available, and all you need to do
+is ask.  All that you have to do is look to the tops of the files of the
+functions you are calling.
+
+-- Dave
+
