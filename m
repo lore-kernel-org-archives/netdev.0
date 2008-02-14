@@ -1,53 +1,109 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 3/5] [DCCP]: Empty the write queue when disconnecting
-Date: Thu, 14 Feb 2008 13:48:24 +0000
-Message-ID: <1202996906-29652-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/5] [CCID2]: Stop polling
+Date: Thu, 14 Feb 2008 13:48:25 +0000
+Message-ID: <1202996906-29652-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: extend_ccid_interface_to_stop_ccid2_from_polling_constantly
  <1202996906-29652-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1202996906-29652-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1202996906-29652-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1202996906-29652-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:45128 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751246AbYBNNt2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2008 08:49:28 -0500
-In-Reply-To: <1202996906-29652-3-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1751484AbYBNNtv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Feb 2008 08:49:51 -0500
+In-Reply-To: <1202996906-29652-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dccp_disconnect() can be called due to several reasons:
-
- 1. when the connection setup failed (inet_stream_connect());
- 2. when shutting down (inet_shutdown(), inet_csk_listen_stop());
- 3. when aborting the connection (dccp_close() with 0 linger time).
-
-In case (1) the write queue is empty. This patch empties the write queue,
-if in case (2) or (3) it was not yet empty.
-
-This avoids triggering the write-queue BUG_TRAP in sk_stream_kill_queues()
-later on.
-
-It also seems natural to do: when breaking an association, to delete all
-packets that were originally intended for the soon-disconnected end (compare
-with call to tcp_write_queue_purge in tcp_disconnect()).
+This updates CCID2 to use the CCID dequeuing mechanism, converting from
+previous constant-polling to a now event-driven mechanism.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/proto.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ net/dccp/ccids/ccid2.c |   21 +++++++++++++--------
+ net/dccp/ccids/ccid2.h |    5 +++++
+ 2 files changed, 18 insertions(+), 8 deletions(-)
 
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -277,7 +277,9 @@ int dccp_disconnect(struct sock *sk, int flags)
- 		sk->sk_err = ECONNRESET;
+--- a/net/dccp/ccids/ccid2.h
++++ b/net/dccp/ccids/ccid2.h
+@@ -70,6 +70,11 @@ struct ccid2_hc_tx_sock {
+ 	struct list_head	ccid2hctx_parsed_ackvecs;
+ };
  
- 	dccp_clear_xmit_timers(sk);
++static inline bool ccid2_cwnd_network_limited(struct ccid2_hc_tx_sock *hctx)
++{
++	return (hctx->ccid2hctx_pipe >= hctx->ccid2hctx_cwnd);
++}
 +
- 	__skb_queue_purge(&sk->sk_receive_queue);
-+	__skb_queue_purge(&sk->sk_write_queue);
- 	if (sk->sk_send_head != NULL) {
- 		__kfree_skb(sk->sk_send_head);
- 		sk->sk_send_head = NULL;
+ struct ccid2_hc_rx_sock {
+ 	int	ccid2hcrx_data;
+ };
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -124,12 +124,9 @@ static int ccid2_hc_tx_alloc_seq(struct ccid2_hc_tx_sock *hctx)
+ 
+ static int ccid2_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct ccid2_hc_tx_sock *hctx = ccid2_hc_tx_sk(sk);
+-
+-	if (hctx->ccid2hctx_pipe < hctx->ccid2hctx_cwnd)
+-		return 0;
+-
+-	return 1; /* XXX CCID should dequeue when ready instead of polling */
++	if (ccid2_cwnd_network_limited(ccid2_hc_tx_sk(sk)))
++		return CCID_PACKET_WILL_DEQUEUE_LATER;
++	return CCID_PACKET_SEND_AT_ONCE;
+ }
+ 
+ static void ccid2_change_l_ack_ratio(struct sock *sk, u32 val)
+@@ -169,6 +166,7 @@ static void ccid2_hc_tx_rto_expire(unsigned long data)
+ {
+ 	struct sock *sk = (struct sock *)data;
+ 	struct ccid2_hc_tx_sock *hctx = ccid2_hc_tx_sk(sk);
++	const bool sender_was_blocked = ccid2_cwnd_network_limited(hctx);
+ 	long s;
+ 
+ 	bh_lock_sock(sk);
+@@ -189,8 +187,6 @@ static void ccid2_hc_tx_rto_expire(unsigned long data)
+ 	if (s > 60)
+ 		hctx->ccid2hctx_rto = 60 * HZ;
+ 
+-	ccid2_start_rto_timer(sk);
+-
+ 	/* adjust pipe, cwnd etc */
+ 	hctx->ccid2hctx_ssthresh = hctx->ccid2hctx_cwnd / 2;
+ 	if (hctx->ccid2hctx_ssthresh < 2)
+@@ -207,6 +203,11 @@ static void ccid2_hc_tx_rto_expire(unsigned long data)
+ 	hctx->ccid2hctx_rpdupack = -1;
+ 	ccid2_change_l_ack_ratio(sk, 1);
+ 	ccid2_hc_tx_check_sanity(hctx);
++
++	/* if we were blocked before, we may now send cwnd=1 packet */
++	if (sender_was_blocked)
++		tasklet_schedule(&dccp_sk(sk)->dccps_xmitlet);
++	ccid2_start_rto_timer(sk);
+ out:
+ 	bh_unlock_sock(sk);
+ 	sock_put(sk);
+@@ -461,6 +462,7 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct dccp_sock *dp = dccp_sk(sk);
+ 	struct ccid2_hc_tx_sock *hctx = ccid2_hc_tx_sk(sk);
++	const bool sender_was_blocked = ccid2_cwnd_network_limited(hctx);
+ 	struct dccp_ackvec_parsed *avp;
+ 	u64 ackno, seqno;
+ 	struct ccid2_seq *seqp;
+@@ -646,6 +648,9 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	ccid2_hc_tx_check_sanity(hctx);
+ done:
++	/* check if incoming Acks allow pending packets to be sent */
++	if (sender_was_blocked && !ccid2_cwnd_network_limited(hctx))
++		tasklet_schedule(&dccp_sk(sk)->dccps_xmitlet);
+ 	dccp_ackvec_parsed_cleanup(&hctx->ccid2hctx_parsed_ackvecs);
+ }
+ 
