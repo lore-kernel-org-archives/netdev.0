@@ -1,112 +1,125 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 1/2] igb: PCIe devices do not need to unset
-	MANC_ARP_ENA
-Date: Thu, 14 Feb 2008 10:17:12 -0800
-Message-ID: <20080214181712.11070.48342.stgit@localhost.localdomain>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 9990] New: tg3: eth0: The system may be
+ re-ordering memory-mapped I/O cycles
+Date: Thu, 14 Feb 2008 10:24:25 -0800
+Message-ID: <20080214102425.0fc8e3c1.akpm@linux-foundation.org>
+References: <bug-9990-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: jeff@garzik.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	ralf.hildebrandt@charite.de
+To: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:44634 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754019AbYBNSZE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2008 13:25:04 -0500
+In-Reply-To: <bug-9990-10286@http.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Graham <david.graham@intel.com>
+On Thu, 14 Feb 2008 01:59:12 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
 
-Users reported that ARP's were lost with igb. The problem
-is fixed by not enabling this manageability configuration
-bit.
-
-None of the release_manageability code is actually needed as the
-normal device reset during a shutdown returns everthing to
-the right condition automatically.
-
-Signed-off-by: David Graham <david.graham@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
-
- drivers/net/igb/igb_main.c |   28 ----------------------------
- 1 files changed, 0 insertions(+), 28 deletions(-)
-
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index d4eb8e2..bff280e 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -606,9 +606,6 @@ static void igb_init_manageability(struct igb_adapter *adapter)
- 		u32 manc2h = rd32(E1000_MANC2H);
- 		u32 manc = rd32(E1000_MANC);
- 
--		/* disable hardware interception of ARP */
--		manc &= ~(E1000_MANC_ARP_EN);
--
- 		/* enable receiving management packets to the host */
- 		/* this will probably generate destination unreachable messages
- 		 * from the host OS, but the packets will be handled on SMBUS */
-@@ -623,25 +620,6 @@ static void igb_init_manageability(struct igb_adapter *adapter)
- 	}
- }
- 
--static void igb_release_manageability(struct igb_adapter *adapter)
--{
--	struct e1000_hw *hw = &adapter->hw;
--
--	if (adapter->en_mng_pt) {
--		u32 manc = rd32(E1000_MANC);
--
--		/* re-enable hardware interception of ARP */
--		manc |= E1000_MANC_ARP_EN;
--		manc &= ~E1000_MANC_EN_MNG2HOST;
--
--		/* don't explicitly have to mess with MANC2H since
--		 * MANC has an enable disable that gates MANC2H */
--
--		/* XXX stop the hardware watchdog ? */
--		wr32(E1000_MANC, manc);
--	}
--}
--
- /**
-  * igb_configure - configure the hardware for RX and TX
-  * @adapter: private board structure
-@@ -844,7 +822,6 @@ void igb_reset(struct igb_adapter *adapter)
- 
- 	igb_reset_adaptive(&adapter->hw);
- 	adapter->hw.phy.ops.get_phy_info(&adapter->hw);
--	igb_release_manageability(adapter);
- }
- 
- /**
-@@ -1178,9 +1155,6 @@ static void __devexit igb_remove(struct pci_dev *pdev)
- 
- 	flush_scheduled_work();
- 
--
--	igb_release_manageability(adapter);
--
- 	/* Release control of h/w to f/w.  If f/w is AMT enabled, this
- 	 * would have already happened in close and is redundant. */
- 	igb_release_hw_control(adapter);
-@@ -3955,8 +3929,6 @@ static int igb_suspend(struct pci_dev *pdev, pm_message_t state)
- 		pci_enable_wake(pdev, PCI_D3cold, 0);
- 	}
- 
--	igb_release_manageability(adapter);
--
- 	/* make sure adapter isn't asleep if manageability is enabled */
- 	if (adapter->en_mng_pt) {
- 		pci_enable_wake(pdev, PCI_D3hot, 1);
-
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2008.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> http://bugzilla.kernel.org/show_bug.cgi?id=9990
+> 
+>            Summary: tg3: eth0: The system may be re-ordering memory-mapped
+>                     I/O cycles
+>            Product: Drivers
+>            Version: 2.5
+>      KernelVersion: 2.6.24-git18
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: jgarzik@pobox.com
+>         ReportedBy: ralf.hildebrandt@charite.de
+> 
+> 
+> Latest working kernel version: 2.6.24
+> Earliest failing kernel version: 2.6.24-git18
+> Distribution: Debian/testing
+> Hardware Environment:
+> Software Environment:
+> Problem Description:
+> 
+> Feb 11 13:11:52 www kernel: [   12.015569] tg3: eth0: Link is up at 100 Mbps,
+> full duplex.
+> Feb 11 13:11:52 www kernel: [   12.015633] tg3: eth0: Flow control is on for TX
+> and on for RX.
+> Feb 11 13:33:44 www kernel: [ 1328.538204] tg3: eth0: The system may be
+> re-ordering memory-mapped I/O cycles to the network
+> device, attempting to recover. Please report the problem to the driver
+> maintainer and include system chipset information.
+> Feb 11 13:33:44 www kernel: [ 1328.667255] tg3: eth0: Link is down.
+> Feb 11 13:33:46 www kernel: [ 1330.560734] tg3: eth0: Link is up at 100 Mbps,
+> full duplex.
+> Feb 11 13:33:46 www kernel: [ 1330.560734] tg3: eth0: Flow control is on for TX
+> and on for RX.
+> 
+> After that, the machine rebooted (panic?)
+> 
+> Feb 11 13:35:14 www kernel: klogd 1.5.0#1.1, log source = /proc/kmsg started.
+> 
+> lspci -vvv info:
+> 02:02.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5704 Gigabit
+> Ethernet (rev 10)
+>         Subsystem: Compaq Computer Corporation NC7782 Gigabit Server Adapter
+> (PCI-X, 10,100,1000-T)
+>         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+
+> Stepping- SERR+ FastB2B- DisINTx-
+>         Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 64 (16000ns min), Cache Line Size: 64 bytes
+>         Interrupt: pin A routed to IRQ 19
+>         Region 0: Memory at fdf70000 (64-bit, non-prefetchable) [size=64K]
+>         [virtual] Expansion ROM at 88140000 [disabled] [size=64K]
+>         Capabilities: [40] PCI-X non-bridge device
+>                 Command: DPERE- ERO- RBC=2048 OST=1
+>                 Status: Dev=02:02.0 64bit+ 133MHz+ SCD- USC- DC=simple
+> DMMRBC=2048 DMOST=1 DMCRS=16 RSCEM- 266MHz- 533MHz-
+>         Capabilities: [48] Power Management version 2
+>                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
+> PME(D0-,D1-,D2-,D3hot+,D3cold+)
+>                 Status: D0 PME-Enable+ DSel=0 DScale=1 PME-
+>         Capabilities: [50] Vital Product Data <?>
+>         Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ Queue=0/3
+> Enable-
+>                 Address: fd7ffd6fdf7deeb8  Data: bdfd
+>         Kernel driver in use: tg3
+>         Kernel modules: tg3
+> 
+> 02:02.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5704 Gigabit
+> Ethernet (rev 10)
+>         Subsystem: Compaq Computer Corporation NC7782 Gigabit Server Adapter
+> (PCI-X, 10,100,1000-T)
+>         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+
+> Stepping- SERR+ FastB2B- DisINTx-
+>         Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 64 (16000ns min), Cache Line Size: 64 bytes
+>         Interrupt: pin B routed to IRQ 20
+>         Region 0: Memory at fdf60000 (64-bit, non-prefetchable) [size=64K]
+>         Capabilities: [40] PCI-X non-bridge device
+>                 Command: DPERE- ERO+ RBC=512 OST=1
+>                 Status: Dev=02:02.1 64bit+ 133MHz+ SCD- USC- DC=simple
+> DMMRBC=2048 DMOST=1 DMCRS=16 RSCEM- 266MHz- 533MHz-
+>         Capabilities: [48] Power Management version 2
+>                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
+> PME(D0-,D1-,D2-,D3hot+,D3cold+)
+>                 Status: D0 PME-Enable- DSel=0 DScale=1 PME-
+>         Capabilities: [50] Vital Product Data <?>
+>         Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ Queue=0/3
+> Enable-
+>                 Address: f73feeefffffe7f8  Data: 9bcd
+>         Kernel driver in use: tg3
+>         Kernel modules: tg3
+> 
+> 
+> Steps to reproduce:
+> 
+> 
