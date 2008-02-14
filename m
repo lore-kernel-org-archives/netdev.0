@@ -1,53 +1,74 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH][KEY] fix bug in spdadd
-Date: Fri, 15 Feb 2008 01:54:05 +1100 (EST)
-Message-ID: <20080215.015405.121725938.yoshfuji@linux-ipv6.org>
-References: <47B42C3C.5090104@miyazawa.org>
+From: =?utf-8?q?S=2E=C3=87a=C4=9Flar=20Onur?= <caglar@pardus.org.tr>
+Subject: [PATCH 06/14] drivers/net/arcnet/arcnet.c: Use time_* macros
+Date: Thu, 14 Feb 2008 17:36:44 +0200
+Message-ID: <1203003412-11594-7-git-send-email-caglar@pardus.org.tr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kazunori@miyazawa.org, davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	=?utf-8?q?S=2E=C3=87a=C4=9Flar=20Onur?= <caglar@pardus.org.tr>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:46164 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752004AbYBNOxX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2008 09:53:23 -0500
-In-Reply-To: <47B42C3C.5090104@miyazawa.org>
+Received: from ns2.uludag.org.tr ([193.140.100.220]:49922 "EHLO uludag.org.tr"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753003AbYBNPjN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Feb 2008 10:39:13 -0500
+In-Reply-To: y
+References: y
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <47B42C3C.5090104@miyazawa.org> (at Thu, 14 Feb 2008 20:55:40 +0900), Kazunori MIYAZAWA <kazunori@miyazawa.org> says:
+The functions time_before, time_before_eq, time_after, and time_after_e=
+q are more robust for comparing jiffies against other values.
 
-> This patch fix a BUG when adding spds which have
-> same selector.
-> 
-> Signed-off-by: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+So following patch implements usage of the time_after() macro, defined =
+at linux/jiffies.h, which deals with wrapping correctly
 
-I think we need to fix xfrm_user side as well.
-
+Cc: netdev@vger.kernel.org
+Signed-off-by: S.=C3=87a=C4=9Flar Onur <caglar@pardus.org.tr>
 ---
-[PATCH] [XFRM]: Avoid bogus BUG() when throwing new policy away.
+ drivers/net/arcnet/arcnet.c |    4 ++--
+ include/linux/arcdevice.h   |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-When we destory a new policy entry, we need to tell
-xfrm_policy_destroy() explicitly that the entry is not
-alive yet.
+diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
+index c59c806..c298615 100644
+--- a/drivers/net/arcnet/arcnet.c
++++ b/drivers/net/arcnet/arcnet.c
+@@ -940,7 +940,7 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
+=20
+ 			/* is the RECON info empty or old? */
+ 			if (!lp->first_recon || !lp->last_recon ||
+-			    jiffies - lp->last_recon > HZ * 10) {
++			    time_after(jiffies, lp->last_recon + HZ * 10)) {
+ 				if (lp->network_down)
+ 					BUGMSG(D_NORMAL, "reconfiguration detected: cabling restored?\n")=
+;
+ 				lp->first_recon =3D lp->last_recon =3D jiffies;
+@@ -974,7 +974,7 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
+ 					lp->num_recons =3D 1;
+ 				}
+ 			}
+-		} else if (lp->network_down && jiffies - lp->last_recon > HZ * 10) {
++		} else if (lp->network_down && time_after(jiffies, lp->last_recon + =
+HZ * 10)) {
+ 			if (lp->network_down)
+ 				BUGMSG(D_NORMAL, "cabling restored?\n");
+ 			lp->first_recon =3D lp->last_recon =3D 0;
+diff --git a/include/linux/arcdevice.h b/include/linux/arcdevice.h
+index fde6758..537d661 100644
+--- a/include/linux/arcdevice.h
++++ b/include/linux/arcdevice.h
+@@ -283,7 +284,7 @@ struct arcnet_local {
+ 	int next_buf, first_free_buf;
+=20
+ 	/* network "reconfiguration" handling */
+-	time_t first_recon,	/* time of "first" RECON message to count */
++	unsigned long first_recon,	/* time of "first" RECON message to count =
+*/
+ 		last_recon;	/* time of most recent RECON */
+ 	int num_recons;		/* number of RECONs between first and last. */
+ 	bool network_down;	/* do we think the network is down? */
+--=20
+1.5.3.7
 
---- 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 7833807..f971ca5 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1105,6 +1105,7 @@ static struct xfrm_policy *xfrm_policy_construct(struct xfrm_userpolicy_info *p,
- 	return xp;
-  error:
- 	*errp = err;
-+	xp->dead = 1;
- 	xfrm_policy_destroy(xp);
- 	return NULL;
- }
-
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
