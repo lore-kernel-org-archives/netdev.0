@@ -1,47 +1,102 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Subject: Re: [PATCH] drivers/base: export gpl (un)register_memory_notifier
-Date: Thu, 14 Feb 2008 09:38:45 -0800
-Message-ID: <1203010725.19205.44.camel@nimitz.home.sr71.net>
-References: <200802111724.12416.ossthema@de.ibm.com>
-	 <1202748429.8276.21.camel@nimitz.home.sr71.net>
-	 <200802131617.58646.ossthema@de.ibm.com>
-	 <OF64B9886B.CE795DED-ONC12573EF.002FFA8B-C12573EF.00301683@de.ibm.com>
-	 <1203009163.19205.42.camel@nimitz.home.sr71.net>
-	 <1203010575.12312.6.camel@dyn9047017100.beaverton.ibm.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH 2/2] e1000e: PCIe devices do not need to unset MANC_ARP_ENA
+Date: Thu, 14 Feb 2008 10:17:20 -0800
+Message-ID: <20080214181720.11070.43867.stgit@localhost.localdomain>
+References: <20080214181712.11070.48342.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Raisch <RAISCH@de.ibm.com>, ossthema@linux.vnet.ibm.com,
-	apw <apw@uk.ibm.com>, Greg KH <greg@kroah.com>,
-	Jan-Bernd Themann <THEMANN@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linuxppc-dev@ozlabs.org, netdev <netdev@vger.kernel.org>,
-	Thomas Q Klein <TKLEIN@de.ibm.com>, tklein@linux.ibm.com
-To: Badari Pulavarty <pbadari@us.ibm.com>
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:44920 "EHLO e4.ny.us.ibm.com"
+Received: from mga02.intel.com ([134.134.136.20]:26310 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755033AbYBNRio (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2008 12:38:44 -0500
-In-Reply-To: <1203010575.12312.6.camel@dyn9047017100.beaverton.ibm.com>
+	id S1760842AbYBNSR1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Feb 2008 13:17:27 -0500
+In-Reply-To: <20080214181712.11070.48342.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: David Graham <david.graham@intel.com>
 
-On Thu, 2008-02-14 at 09:36 -0800, Badari Pulavarty wrote:
-> 
-> I am not sure what you are trying to do with walk_memory_resource().
-> The
-> behavior is different on ppc64. Hotplug memory usage assumes that all
-> the memory resources (all system memory, not just IOMEM) are
-> represented
-> in /proc/iomem. Its the case with i386 and ia64. But on ppc64 is
-> contains ONLY iomem related. Paulus didn't want to export all the
-> system
-> memory into /proc/iomem on ppc64. So I had to workaround by providing
-> arch-specific walk_memory_resource() function for ppc64.
+Users reported that ARP's were lost with e1000e. The problem
+is fixed by not enabling this manageability configuration
+bit.
 
-OK, let's use that one.
+None of the release_manageability code is actually needed as the
+normal device reset during a shutdown returns everthing to
+the right condition automatically.
 
--- Dave
+Signed-off-by: David Graham <david.graham@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
+
+ drivers/net/e1000e/netdev.c |   26 --------------------------
+ 1 files changed, 0 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index ea4ecc3..3031d6d 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -1055,23 +1055,6 @@ static void e1000_release_hw_control(struct e1000_adapter *adapter)
+ 	}
+ }
+ 
+-static void e1000_release_manageability(struct e1000_adapter *adapter)
+-{
+-	if (adapter->flags & FLAG_MNG_PT_ENABLED) {
+-		struct e1000_hw *hw = &adapter->hw;
+-
+-		u32 manc = er32(MANC);
+-
+-		/* re-enable hardware interception of ARP */
+-		manc |= E1000_MANC_ARP_EN;
+-		manc &= ~E1000_MANC_EN_MNG2HOST;
+-
+-		/* don't explicitly have to mess with MANC2H since
+-		 * MANC has an enable disable that gates MANC2H */
+-		ew32(MANC, manc);
+-	}
+-}
+-
+ /**
+  * @e1000_alloc_ring - allocate memory for a ring structure
+  **/
+@@ -1561,9 +1544,6 @@ static void e1000_init_manageability(struct e1000_adapter *adapter)
+ 
+ 	manc = er32(MANC);
+ 
+-	/* disable hardware interception of ARP */
+-	manc &= ~(E1000_MANC_ARP_EN);
+-
+ 	/* enable receiving management packets to the host. this will probably
+ 	 * generate destination unreachable messages from the host OS, but
+ 	 * the packets will be handled on SMBUS */
+@@ -2140,8 +2120,6 @@ void e1000e_reset(struct e1000_adapter *adapter)
+ 		phy_data &= ~IGP02E1000_PM_SPD;
+ 		e1e_wphy(hw, IGP02E1000_PHY_POWER_MGMT, phy_data);
+ 	}
+-
+-	e1000_release_manageability(adapter);
+ }
+ 
+ int e1000e_up(struct e1000_adapter *adapter)
+@@ -3487,8 +3465,6 @@ static int e1000_suspend(struct pci_dev *pdev, pm_message_t state)
+ 		pci_enable_wake(pdev, PCI_D3cold, 0);
+ 	}
+ 
+-	e1000_release_manageability(adapter);
+-
+ 	/* make sure adapter isn't asleep if manageability is enabled */
+ 	if (adapter->flags & FLAG_MNG_PT_ENABLED) {
+ 		pci_enable_wake(pdev, PCI_D3hot, 1);
+@@ -4054,8 +4030,6 @@ static void __devexit e1000_remove(struct pci_dev *pdev)
+ 
+ 	flush_scheduled_work();
+ 
+-	e1000_release_manageability(adapter);
+-
+ 	/* Release control of h/w to f/w.  If f/w is AMT enabled, this
+ 	 * would have already happened in close and is redundant. */
+ 	e1000_release_hw_control(adapter);
 
