@@ -1,50 +1,81 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH 2.6.25] igb: fix legacy mode irq issue
-Date: Wed, 13 Feb 2008 22:19:20 -0500
-Message-ID: <20080214031920.GI856@gospo.usersys.redhat.com>
+From: Gautham R Shenoy <ego@in.ibm.com>
+Subject: Re: [PATCH 2/2] add rcu_assign_index() if ever needed
+Date: Thu, 14 Feb 2008 09:02:09 +0530
+Message-ID: <20080214033209.GA7266@in.ibm.com>
+References: <20080213220024.GA30729@linux.vnet.ibm.com> <20080213220515.GA10642@linux.vnet.ibm.com>
+Reply-To: ego@in.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Auke Kok <auke-jan.h.kok@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jeff@garzik.org>
-To: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, shemminger@vyatta.com,
+	davem@davemloft.net, netdev@vger.kernel.org, dipankar@in.ibm.com,
+	herbert@gondor.apana.org.au, akpm@linux-foundation.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:53833 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752390AbYBNDTj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Feb 2008 22:19:39 -0500
+Received: from E23SMTP02.au.ibm.com ([202.81.18.163]:48805 "EHLO
+	e23smtp02.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752236AbYBNDcT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 22:32:19 -0500
 Content-Disposition: inline
+In-Reply-To: <20080213220515.GA10642@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Feb 13, 2008 at 02:05:15PM -0800, Paul E. McKenney wrote:
+> Hello again!
+> 
+> This is a speculative patch that as far as I can tell is not yet required.
+> If anyone applies RCU to a data structure allocated out of an array, using
+> array indexes in place of pointers to link the array elements together,
+> then the rcu_assign_index() function in this patch will be needed to
+> assign a given element's array index to the RCU-traversed index.  The
+> implementation is exactly that of the old rcu_assign_pointer(), so is
+> extremely well tested.
+> 
+> The existing rcu_assign_pointer() will emit a compiler warning in cases
+> where rcu_assign_index() is required.
+> 
+> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> ---
+> 
+>  rcupdate.h |   18 ++++++++++++++++++
+>  1 file changed, 18 insertions(+)
+> 
+> diff -urpNa -X dontdiff linux-2.6.24-rap/include/linux/rcupdate.h linux-2.6.24-rai/include/linux/rcupdate.h
+> --- linux-2.6.24-rap/include/linux/rcupdate.h	2008-02-13 13:36:47.000000000 -0800
+> +++ linux-2.6.24-rai/include/linux/rcupdate.h	2008-02-13 10:55:40.000000000 -0800
+> @@ -286,6 +286,24 @@ extern struct lockdep_map rcu_lock_map;
+>  	})
+> 
+>  /**
+> + * rcu_assign_index - assign (publicize) a index of a newly
+> + * initialized array elementg that will be dereferenced by RCU
+			^^^^^^^^ 
 
-I booted an igb kernel with the option pci=nomsi and instantly noticed
-that interrupts no longer worked on my igb device.  I took a look at the
-interrupt initialization and quickly discovered a comment stating:
+I hope Andrew got that one while porting against the latest -mm :)
 
-"DO NOT USE EIAME or IAME in legacy mode"
+Looks good otherwise.
 
-It seemed a bit odd that bits to enable IAM were being set in legacy
-interrupt mode, so I dropped out the following parts and interrupts
-began working fine again.
 
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
----
+> + * read-side critical sections.  Returns the value assigned.
+> + *
+> + * Inserts memory barriers on architectures that require them
+> + * (pretty much all of them other than x86), and also prevents
+> + * the compiler from reordering the code that initializes the
+> + * structure after the index assignment.  More importantly, this
+> + * call documents which indexes will be dereferenced by RCU read-side
+> + * code.
+> + */
+> +
+> +#define rcu_assign_index(p, v)	({ \
+> +					smp_wmb(); \
+> +					(p) = (v); \
+> +				})
+> +
+> +/**
+>   * synchronize_sched - block until all CPUs have exited any non-preemptive
+>   * kernel code sequences.
+>   *
 
- igb_main.c |    3 ---
- 1 files changed, 3 deletions(-)
-
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index f3c144d..be5da09 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -472,9 +471,6 @@ static int igb_request_irq(struct igb_adapter *adapter)
- 		goto request_done;
- 	}
- 
--	/* enable IAM, auto-mask */
--	wr32(E1000_IAM, IMS_ENABLE_MASK);
--
- request_done:
- 	return err;
- }
+-- 
+Thanks and Regards
+gautham
