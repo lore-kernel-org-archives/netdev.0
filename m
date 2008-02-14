@@ -1,57 +1,52 @@
-From: Claudio Lanconelli <lanconelli.claudio@eptar.com>
-Subject: Re: [patch 2.6.24-git] net/enc28j60: oops fix, low power mode
-Date: Thu, 14 Feb 2008 11:28:29 +0100
-Message-ID: <47B417CD.6040805@eptar.com>
-References: <20080205190124.E72F48E45F@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <200802100954.18225.david-b@pacbell.net> <47B03A9A.2060605@eptar.com> <200802111223.49823.david-b@pacbell.net>
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Subject: [PATCH][KEY] fix bug in spdadd
+Date: Thu, 14 Feb 2008 20:55:40 +0900
+Message-ID: <47B42C3C.5090104@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Brownell <david-b@pacbell.net>
+Content-Type: multipart/mixed; boundary="=_catalunya.miyazawa.org-24026-1202989923-0001-2"
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fe-relay01.albacom.net ([217.220.57.138]:1384 "EHLO
-	fe-relay01.albacom.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752675AbYBNK1P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2008 05:27:15 -0500
-In-Reply-To: <200802111223.49823.david-b@pacbell.net>
+Received: from usagi004.linux-ipv6.org ([203.178.140.4]:56156 "EHLO
+	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1758551AbYBNMA5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Feb 2008 07:00:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Brownell wrote:
-> On Monday 11 February 2008, Claudio Lanconelli wrote:
->   
->> I have tried your latest patch. Only after the following change it
->> works fine (no more rx errors during ifconfig up).
->>     
->
-> Hmm, what chip rev do you have?  Different errata and all.
-> ISTR mine is rev4; so, not the most current, but not the
-> oldest version either.
->   
-I use the same revision.
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
 
->> I added enc28j60_lowpower(false) just before enc28j60_hw_init()
->>     
->
-> Hmm, I'd have expected it would go best *before* that, but
-> what you include below shows it going *after* ...
->
-> If there's some problem where reset doesn't work correctly
-> in low power mode, who knows what else would need manual
-> resetting.
->
->   
-I don't know why it needs low power resume before reset.
-I read in the errata tath clkready bit after reset doesn't work reliably.
-May be something related to this, but undocumented.
+--=_catalunya.miyazawa.org-24026-1202989923-0001-2
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
 
-> Better yet, since I can't reproduce the problem, why don't
-> you just update my latest patch with the relevant version
-> of this tweak, and then forward it as "From: " me and with
-> both our signoffs.  That's the usual way to cope with this
-> type of tweaking.  (Not all updates to your driver should
-> need your signoff, but then most patches shouldn't need
-> very many iterations either.)
->   
-Done
+This patch fix a BUG when adding spds which have
+same selector.
 
+Signed-off-by: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+
+--
+Kazunori Miyazawa
+
+
+
+--=_catalunya.miyazawa.org-24026-1202989923-0001-2
+Content-Type: text/x-patch; name="af_key.diff"; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="af_key.diff"
+
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index b3ac85e..1c85392 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -2291,6 +2291,7 @@ static int pfkey_spdadd(struct sock *sk, struct sk_buff *skb, struct sadb_msg *h
+ 	return 0;
+ 
+ out:
++	xp->dead = 1;
+ 	xfrm_policy_destroy(xp);
+ 	return err;
+ }
+
+--=_catalunya.miyazawa.org-24026-1202989923-0001-2--
