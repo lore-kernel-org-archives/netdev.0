@@ -1,32 +1,44 @@
-From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: Re: [RFC, PATCH]: Pass link level header from/to PPP interface
-Date: 14 Feb 2008 20:02:47 +0100
-Message-ID: <ygfzlu3744o.fsf@janus.isnogud.escape.de>
-References: <ygfprv55egs.fsf@janus.isnogud.escape.de>
-	<20080212.220603.111665989.davem@davemloft.net>
-	<ygflk5opzhb.fsf@janus.isnogud.escape.de>
-	<20080213.145355.57741113.davem@davemloft.net>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH] plusb.c patched to support Belkin F5U258 USB host-to-host cable
+Date: Thu, 14 Feb 2008 13:20:28 -0800
+Message-ID: <200802141320.28488.david-b@pacbell.net>
+References: <200802141557_MC3-1-FBB3-3DA7@compuserve.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: NETDEV mailing list <netdev@vger.kernel.org>,
+	Linux USB mailing list <majordomo@vger.kernel.org>
+To: tony_gibbs <Tony_Gibbs@compuserve.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:52207 "EHLO oker.escape.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758692AbYBNTFI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2008 14:05:08 -0500
-In-Reply-To: <20080213.145355.57741113.davem@davemloft.net>; from David Miller on Wed, 13 Feb 2008 14:53:55 -0800 (PST)
+Received: from smtp109.sbc.mail.mud.yahoo.com ([68.142.198.208]:35603 "HELO
+	smtp109.sbc.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932569AbYBNVUb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2008 16:20:31 -0500
+In-Reply-To: <200802141557_MC3-1-FBB3-3DA7@compuserve.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+On Thursday 14 February 2008, tony_gibbs wrote:
+> I have tried to make the changes I have been working on and testing with
+> your help into a patch as attached.
+> 
+> Please let me know what you think of it.
 
-> Can tcpdump and libpcap already handle PPP properly?
+It arrived line wrapped, and turned on debug options that
+should stay off by default ... it couldn't merge, on those
+bases alone.  Also, "PL-25A1hack" isn't a product name.  ;)
 
-Yes, with the (admittedly non-serious) limitation, that both, tcpdump
-and tcpdump -e don't show the PPP header.  I don't remember how
-tcpdump behaved on BSD in this respect (so many years ago), but I
-think libpcap will use the DLT_PPP link type on BSD, which has the PPP
-header.
+Did you get this to pass data back and forth yet?  The last
+report I had from you was that it wouldn't pass data.  The
+Prolific hardware tends to enter that mode after a while.
+(Maybe there's documentation unseen by any Linux developer,
+saying how to make those chips actually work...)  But you
+reported that they didn't seem to work even when freshly
+plugged in.
 
-urs
+- Dave
+
+
+
