@@ -1,63 +1,107 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 2.6.25] igb: fix legacy mode irq issue
-Date: Thu, 14 Feb 2008 09:24:06 -0800
-Message-ID: <47B47936.505@intel.com>
-References: <20080214031920.GI856@gospo.usersys.redhat.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH 2/2] add rcu_assign_index() if ever needed
+Date: Thu, 14 Feb 2008 09:24:27 -0800
+Message-ID: <20080214092427.960d1f67.randy.dunlap@oracle.com>
+References: <20080213220024.GA30729@linux.vnet.ibm.com>
+	<20080213220515.GA10642@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Auke Kok <auke-jan.h.kok@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jeff@garzik.org>
-To: Andy Gospodarek <andy@greyhouse.net>
+Cc: linux-kernel@vger.kernel.org, shemminger@vyatta.com,
+	davem@davemloft.net, netdev@vger.kernel.org, dipankar@in.ibm.com,
+	ego@in.ibm.com, herbert@gondor.apana.org.au,
+	akpm@linux-foundation.org
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15456 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752180AbYBNRZM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2008 12:25:12 -0500
-In-Reply-To: <20080214031920.GI856@gospo.usersys.redhat.com>
+Received: from agminet01.oracle.com ([141.146.126.228]:35583 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754276AbYBNR03 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2008 12:26:29 -0500
+In-Reply-To: <20080213220515.GA10642@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Gospodarek wrote:
-> I booted an igb kernel with the option pci=nomsi and instantly noticed
-> that interrupts no longer worked on my igb device.  I took a look at the
-> interrupt initialization and quickly discovered a comment stating:
+On Wed, 13 Feb 2008 14:05:15 -0800 Paul E. McKenney wrote:
+
+> Hello again!
 > 
-> "DO NOT USE EIAME or IAME in legacy mode"
+> This is a speculative patch that as far as I can tell is not yet required.
+> If anyone applies RCU to a data structure allocated out of an array, using
+> array indexes in place of pointers to link the array elements together,
+> then the rcu_assign_index() function in this patch will be needed to
+> assign a given element's array index to the RCU-traversed index.  The
+> implementation is exactly that of the old rcu_assign_pointer(), so is
+> extremely well tested.
 > 
-> It seemed a bit odd that bits to enable IAM were being set in legacy
-> interrupt mode, so I dropped out the following parts and interrupts
-> began working fine again.
+> The existing rcu_assign_pointer() will emit a compiler warning in cases
+> where rcu_assign_index() is required.
 > 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-
-looks valid, I'll test and see, thanks Andy
-
-Auke
-
-
+> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 > ---
 > 
->  igb_main.c |    3 ---
->  1 files changed, 3 deletions(-)
+>  rcupdate.h |   18 ++++++++++++++++++
+>  1 file changed, 18 insertions(+)
 > 
-> diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-> index f3c144d..be5da09 100644
-> --- a/drivers/net/igb/igb_main.c
-> +++ b/drivers/net/igb/igb_main.c
-> @@ -472,9 +471,6 @@ static int igb_request_irq(struct igb_adapter *adapter)
->  		goto request_done;
->  	}
+> diff -urpNa -X dontdiff linux-2.6.24-rap/include/linux/rcupdate.h linux-2.6.24-rai/include/linux/rcupdate.h
+> --- linux-2.6.24-rap/include/linux/rcupdate.h	2008-02-13 13:36:47.000000000 -0800
+> +++ linux-2.6.24-rai/include/linux/rcupdate.h	2008-02-13 10:55:40.000000000 -0800
+> @@ -286,6 +286,24 @@ extern struct lockdep_map rcu_lock_map;
+>  	})
 >  
-> -	/* enable IAM, auto-mask */
-> -	wr32(E1000_IAM, IMS_ENABLE_MASK);
-> -
->  request_done:
->  	return err;
->  }
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  /**
+> + * rcu_assign_index - assign (publicize) a index of a newly
+> + * initialized array elementg that will be dereferenced by RCU
+> + * read-side critical sections.  Returns the value assigned.
+> + *
+> + * Inserts memory barriers on architectures that require them
+> + * (pretty much all of them other than x86), and also prevents
+> + * the compiler from reordering the code that initializes the
+> + * structure after the index assignment.  More importantly, this
+> + * call documents which indexes will be dereferenced by RCU read-side
+> + * code.
+> + */
 
+s/a index/index/
+
+Along with Gautham's typo fix, you could also make this be passable
+kernel-doc notation.  :)
+
+
+See Documentation/kernel-doc-nano-HOWTO.txt for details.
+
+Summary:
+The function (or macro) name and short description must be on one line.
+This is followed by the parameters, then a "blank" (actually " *") line,
+then any (longer) description, notes, etc.  So basically:
+
+/**
+ * rcu_assign_index - assign (publicize) index of a newly initialized array element
+ * @p: description of @p
+ * @v: description of @v
+ *
+ * This function assigns (publicizes) the index of a newly
+ * initialized array element that will be dereferenced by RCU
+ * read-side critical sections.  Returns the value assigned.
+ *
+ * Inserts memory barriers on architectures that require them
+ * (pretty much all of them other than x86), and also prevents
+ * the compiler from reordering the code that initializes the
+ * structure after the index assignment.  More importantly, this
+ * call documents which indexes will be dereferenced by RCU read-side
+ * code.
+ */
+
+
+> +
+> +#define rcu_assign_index(p, v)	({ \
+> +					smp_wmb(); \
+> +					(p) = (v); \
+> +				})
+> +
+> +/**
+>   * synchronize_sched - block until all CPUs have exited any non-preemptive
+>   * kernel code sequences.
+>   *
+
+---
+~Randy
