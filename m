@@ -1,37 +1,50 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [RFC] sky2: don't request unused i/o region
-Date: Wed, 13 Feb 2008 19:02:37 -0800
-Message-ID: <20080213190237.7cd49d60@extreme>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH 2.6.25] igb: fix legacy mode irq issue
+Date: Wed, 13 Feb 2008 22:19:20 -0500
+Message-ID: <20080214031920.GI856@gospo.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Auke Kok <auke-jan.h.kok@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jeff@garzik.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:46922 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753849AbYBNDC6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 22:02:58 -0500
+Received: from mx1.redhat.com ([66.187.233.31]:53833 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752390AbYBNDTj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Feb 2008 22:19:39 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sky2 driver only uses the PCI memory region (0) not the 
-available I/O region.  Some users want to use lots of boards, and the
-I/O space gets exhausted.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+I booted an igb kernel with the option pci=nomsi and instantly noticed
+that interrupts no longer worked on my igb device.  I took a look at the
+interrupt initialization and quickly discovered a comment stating:
 
---- a/drivers/net/sky2.c	2008-02-13 18:58:21.000000000 -0800
-+++ b/drivers/net/sky2.c	2008-02-13 18:58:55.000000000 -0800
-@@ -4135,9 +4135,9 @@ static int __devinit sky2_probe(struct p
- 		goto err_out;
+"DO NOT USE EIAME or IAME in legacy mode"
+
+It seemed a bit odd that bits to enable IAM were being set in legacy
+interrupt mode, so I dropped out the following parts and interrupts
+began working fine again.
+
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+---
+
+ igb_main.c |    3 ---
+ 1 files changed, 3 deletions(-)
+
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index f3c144d..be5da09 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -472,9 +471,6 @@ static int igb_request_irq(struct igb_adapter *adapter)
+ 		goto request_done;
  	}
  
--	err = pci_request_regions(pdev, DRV_NAME);
-+	err = pci_request_region(pdev, 0, DRV_NAME);
- 	if (err) {
--		dev_err(&pdev->dev, "cannot obtain PCI resources\n");
-+		dev_err(&pdev->dev, "cannot obtain PCI resource\n");
- 		goto err_out_disable;
- 	}
- 
+-	/* enable IAM, auto-mask */
+-	wr32(E1000_IAM, IMS_ENABLE_MASK);
+-
+ request_done:
+ 	return err;
+ }
