@@ -1,58 +1,68 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [Bugme-new] [Bug 9990] New: tg3: eth0: The system may be re-ordering memory-mapped I/O cycles
-Date: Thu, 14 Feb 2008 18:21:03 -0500
-Message-ID: <20080214232103.GM856@gospo.usersys.redhat.com>
-References: <bug-9990-10286@http.bugzilla.kernel.org/> <20080214102425.0fc8e3c1.akpm@linux-foundation.org> <20080214185627.GK856@gospo.usersys.redhat.com> <1203024327.13495.21.camel@dell> <20080214221234.GL856@gospo.usersys.redhat.com> <1203029289.13495.38.camel@dell>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	bugme-daemon@bugzilla.kernel.org, netdev <netdev@vger.kernel.org>,
-	ralf.hildebrandt@charite.de
-To: Michael Chan <mchan@broadcom.com>
+From: Martin Devera <devik@cdi.cz>
+Subject: [PATCH 2.6.24 1/1] sch_htb: fix "too many events" situation
+Date: Fri, 15 Feb 2008 00:02:56 +0100
+Message-ID: <E1JPn6W-0002J2-5x@luxik.cdi.cz>
+Cc: linux-kernel@vger.kernel.org, kaber@trash.net,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47126 "EHLO mx1.redhat.com"
+Received: from gate.cdi.cz ([80.95.109.117]:47923 "EHLO luxik.cdi.cz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757372AbYBNXVp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2008 18:21:45 -0500
-Content-Disposition: inline
-In-Reply-To: <1203029289.13495.38.camel@dell>
+	id S1758127AbYBNXaR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Feb 2008 18:30:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 14, 2008 at 02:48:09PM -0800, Michael Chan wrote:
-> On Thu, 2008-02-14 at 17:12 -0500, Andy Gospodarek wrote:
-> > On Thu, Feb 14, 2008 at 01:25:27PM -0800, Michael Chan wrote:
-> > > On Thu, 2008-02-14 at 13:56 -0500, Andy Gospodarek wrote:
-> > > > That should be a simple matter of adding the right pci-ids to
-> > > > tg3_get_invariants -- hopefully Ralf will respond and we can get that
-> > > > knocked out quickly.
-> > > > 
-> > > > 
-> > > 
-> > > It doesn't look like it was re-ordered IO.  If it was, it should have
-> > > self-recovered without hitting the BUG().
-> > > 
-> > 
-> > Good catch, Michael!  I missed that it paniced since I expect to see
-> > some sort of backtrace when that happens.  We should try and get that
-> > bridge added to the list though, to avoid repeated complaints that there
-> > is a tg3 bug.
-> > 
-> > 
-> 
-> Andy, I think you still missed my point.  I don't believe this problem
-> was caused by the bridge or the chipset at all.  Some corruption caused
-> us to not find the SKB in the TX ring where it was expected.  So the
-> driver assumed it was the bridge re-ordering I/O and printed that
-> warning message and took recovery action.  The recovery action had no
-> effect in this case since apparently it was caused by something else and
-> the corruption happened again later.  This 2nd time, we hit the BUG_ON()
-> seeing that the recovery action did not work.
-> 
-> 
+From: Martin Devera <devik@cdi.cz>
 
-Ah, I see.  Due to at leat a 2 second delay between the message and the
-panic, I figured it would be good data to gather....
+HTB is event driven algorithm and part of its work is to apply
+scheduled events at proper times. It tried to defend itself from
+livelock by processing only limited number of events per dequeue.
+Because of faster computers some users already hit this hardcoded
+limit.
+This patch uses loops_per_jiffy variable to limit event processing
+up to single jiffy interval and then delay remainder to other
+jiffy.
 
+Signed-off-by: Martin Devera <devik@cdi.cz>
+---
+BTW, from my measurement is seems that value 500 was good one
+for my first 600MHz machine :-)
+Maybe I can make something self-converging (using tasklets probably)
+but I'm not sure if it is worth of the complexity.
 
+--- a/net/sched/sch_htb.c	2008-02-14 22:56:48.000000000 +0100
++++ b/net/sched/sch_htb.c	2008-02-14 23:37:02.000000000 +0100
+@@ -704,13 +704,17 @@ static void htb_charge_class(struct htb_
+  *
+  * Scans event queue for pending events and applies them. Returns time of
+  * next pending event (0 for no event in pq).
++ * One event costs about 1300 cycles on x86_64, let's be conservative
++ * and round it to 4096. We will allow only loops_per_jiffy/4096 events
++ * in one call to prevent us from livelock.
+  * Note: Applied are events whose have cl->pq_key <= q->now.
+  */
++#define HTB_EVENT_COST_SHIFTS 12
+ static psched_time_t htb_do_events(struct htb_sched *q, int level)
+ {
+-	int i;
+-
+-	for (i = 0; i < 500; i++) {
++	int i, max_events = loops_per_jiffy >> HTB_EVENT_COST_SHIFTS;
++	/* <= below is just for case where max_events==0 (unlikely) */
++	for (i = 0; i <= max_events; i++) {
+ 		struct htb_class *cl;
+ 		long diff;
+ 		struct rb_node *p = rb_first(&q->wait_pq[level]);
+@@ -728,9 +732,8 @@ static psched_time_t htb_do_events(struc
+ 		if (cl->cmode != HTB_CAN_SEND)
+ 			htb_add_to_wait_tree(q, cl, diff);
+ 	}
+-	if (net_ratelimit())
+-		printk(KERN_WARNING "htb: too many events !\n");
+-	return q->now + PSCHED_TICKS_PER_SEC / 10;
++	/* too much load - let's continue on next tick */
++	return q->now + PSCHED_TICKS_PER_SEC / HZ;
+ }
+ 
+ /* Returns class->node+prio from id-tree where classe's id is >= id. NULL
