@@ -1,145 +1,159 @@
-From: =?utf-8?q?S=2E=C3=87a=C4=9Flar=20Onur?= <caglar@pardus.org.tr>
-Subject: [PATCH 10/14] drivers/net/tokenring/3c359.c: Use time_* macros
-Date: Thu, 14 Feb 2008 17:36:48 +0200
-Message-ID: <1203003412-11594-11-git-send-email-caglar@pardus.org.tr>
+From: "Benjamin Thery" <ben.thery@gmail.com>
+Subject: Re: [PATCH][RFC] race in generic address resolution
+Date: Thu, 14 Feb 2008 17:56:53 +0100
+Message-ID: <939d53060802140856v5168a4a2md8c8ed3fad6798e4@mail.gmail.com>
+References: <20080204142717.GA11020@tuxmaker.boeblingen.de.ibm.com>
+	 <20080205.205154.153345843.davem@davemloft.net>
+	 <47B00EE0.4040109@linux.vnet.ibm.com>
+	 <20080211.214711.134366517.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	=?utf-8?q?S=2E=C3=87a=C4=9Flar=20Onur?= <caglar@pardus.org.tr>
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: blaschka@linux.vnet.ibm.com, netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.uludag.org.tr ([193.140.100.220]:49926 "EHLO uludag.org.tr"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753255AbYBNPjO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2008 10:39:14 -0500
-In-Reply-To: y
-References: y
+Received: from rv-out-0910.google.com ([209.85.198.185]:43873 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753105AbYBNQ4y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2008 11:56:54 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so266879rvb.1
+        for <netdev@vger.kernel.org>; Thu, 14 Feb 2008 08:56:53 -0800 (PST)
+In-Reply-To: <20080211.214711.134366517.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The functions time_before, time_before_eq, time_after, and time_after_e=
-q are more robust for comparing jiffies against other values.
+Hi,
 
-So following patch implements usage of the time_after() macro, defined =
-at linux/jiffies.h, which deals with wrapping correctly
+It seems this patch hangs my  machine very quickly when there are some
+ICMPv6 traffic.
 
-Cc: netdev@vger.kernel.org
-Signed-off-by: S.=C3=87a=C4=9Flar Onur <caglar@pardus.org.tr>
----
- drivers/net/tokenring/3c359.c |   21 +++++++++++----------
- 1 files changed, 11 insertions(+), 10 deletions(-)
+I'm using net-2.6, pulled today (14th Feb).
 
-diff --git a/drivers/net/tokenring/3c359.c b/drivers/net/tokenring/3c35=
-9.c
-index 44a06f8..88fe955 100644
---- a/drivers/net/tokenring/3c359.c
-+++ b/drivers/net/tokenring/3c359.c
-@@ -42,6 +42,7 @@
-=20
- #define XL_DEBUG 0
-=20
-+#include <linux/jiffies.h>
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/errno.h>
-@@ -408,7 +409,7 @@ static int xl_hw_reset(struct net_device *dev)
- 	t=3Djiffies;
- 	while (readw(xl_mmio + MMIO_INTSTATUS) & INTSTAT_CMD_IN_PROGRESS) {=20
- 		schedule();	=09
--		if(jiffies-t > 40*HZ) {
-+		if(time_after(jiffies, t + 40 * HZ)) {
- 			printk(KERN_ERR "%s: 3COM 3C359 Velocity XL  card not responding to=
- global reset.\n", dev->name);
- 			return -ENODEV;
- 		}
-@@ -519,7 +520,7 @@ static int xl_hw_reset(struct net_device *dev)
- 	t=3Djiffies;
- 	while ( !(readw(xl_mmio + MMIO_INTSTATUS_AUTO) & INTSTAT_SRB) ) {=20
- 		schedule();	=09
--		if(jiffies-t > 15*HZ) {
-+		if(time_after(jiffies, t + 15 * HZ)) {
- 			printk(KERN_ERR "3COM 3C359 Velocity XL  card not responding.\n");
- 			return -ENODEV;=20
- 		}
-@@ -790,7 +791,7 @@ static int xl_open_hw(struct net_device *dev)
- 	t=3Djiffies;
- 	while (! (readw(xl_mmio + MMIO_INTSTATUS) & INTSTAT_SRB)) {=20
- 		schedule();	=09
--		if(jiffies-t > 40*HZ) {
-+		if(time_after(jiffies, t + 40 * HZ)) {
- 			printk(KERN_ERR "3COM 3C359 Velocity XL  card not responding.\n");
- 			break ;=20
- 		}
-@@ -1003,7 +1004,7 @@ static void xl_reset(struct net_device *dev)
-=20
- 	t=3Djiffies;
- 	while (readw(xl_mmio + MMIO_INTSTATUS) & INTSTAT_CMD_IN_PROGRESS) {=20
--		if(jiffies-t > 40*HZ) {
-+		if(time_after(jiffies, t + 40 * HZ)) {
- 			printk(KERN_ERR "3COM 3C359 Velocity XL  card not responding.\n");
- 			break ;=20
- 		}
-@@ -1270,7 +1271,7 @@ static int xl_close(struct net_device *dev)
- 	t=3Djiffies;
- 	while (readw(xl_mmio + MMIO_INTSTATUS) & INTSTAT_CMD_IN_PROGRESS) {=20
- 		schedule();	=09
--		if(jiffies-t > 10*HZ) {
-+		if(time_after(jiffies, t + 10 * HZ)) {
- 			printk(KERN_ERR "%s: 3COM 3C359 Velocity XL-DNSTALL not responding.=
-\n", dev->name);
- 			break ;=20
- 		}
-@@ -1279,7 +1280,7 @@ static int xl_close(struct net_device *dev)
- 	t=3Djiffies;
- 	while (readw(xl_mmio + MMIO_INTSTATUS) & INTSTAT_CMD_IN_PROGRESS) {=20
- 		schedule();	=09
--		if(jiffies-t > 10*HZ) {
-+		if(time_after(jiffies, t + 10 * HZ)) {
- 			printk(KERN_ERR "%s: 3COM 3C359 Velocity XL-DNDISABLE not respondin=
-g.\n", dev->name);
- 			break ;
- 		}
-@@ -1288,7 +1289,7 @@ static int xl_close(struct net_device *dev)
- 	t=3Djiffies;
- 	while (readw(xl_mmio + MMIO_INTSTATUS) & INTSTAT_CMD_IN_PROGRESS) {=20
- 		schedule();	=09
--		if(jiffies-t > 10*HZ) {
-+		if(time_after(jiffies, t + 10 * HZ)) {
- 			printk(KERN_ERR "%s: 3COM 3C359 Velocity XL-UPSTALL not responding.=
-\n", dev->name);
- 			break ;=20
- 		}
-@@ -1305,7 +1306,7 @@ static int xl_close(struct net_device *dev)
- 	t=3Djiffies;
- 	while (!(readw(xl_mmio + MMIO_INTSTATUS) & INTSTAT_SRB)) {=20
- 		schedule();	=09
--		if(jiffies-t > 10*HZ) {
-+		if(time_after(jiffies, t + 10 * HZ)) {
- 			printk(KERN_ERR "%s: 3COM 3C359 Velocity XL-CLOSENIC not responding=
-=2E\n", dev->name);
- 			break ;=20
- 		}
-@@ -1334,7 +1335,7 @@ static int xl_close(struct net_device *dev)
- 	t=3Djiffies;
- 	while (readw(xl_mmio + MMIO_INTSTATUS) & INTSTAT_CMD_IN_PROGRESS) {=20
- 		schedule();	=09
--		if(jiffies-t > 10*HZ) {
-+		if(time_after(jiffies, t + 10 * HZ)) {
- 			printk(KERN_ERR "%s: 3COM 3C359 Velocity XL-UPRESET not responding.=
-\n", dev->name);
- 			break ;=20
- 		}
-@@ -1343,7 +1344,7 @@ static int xl_close(struct net_device *dev)
- 	t=3Djiffies;
- 	while (readw(xl_mmio + MMIO_INTSTATUS) & INTSTAT_CMD_IN_PROGRESS) {=20
- 		schedule();	=09
--		if(jiffies-t > 10*HZ) {
-+		if(time_after(jiffies, t + 10 * HZ)) {
- 			printk(KERN_ERR "%s: 3COM 3C359 Velocity XL-DNRESET not responding.=
-\n", dev->name);
- 			break ;=20
- 		}
---=20
-1.5.3.7
+I had some unexpected hangs on my SMP test machines and I bisected the
+problem to  69cc64d8d92bf852f933e90c888dfff083bd4fc9
+"[NDISC]: Fix race in generic address resolution".
 
+Looks like a deadlock:
+"BUG: soft lockup - CPU#1 stuck for 61s! [swapper:0]"
+
+Here are some traces printed on the console:
+
+Pid: 0, comm: swapper Not tainted (2.6.25-rc1-netns-00113-g69cc64d-dirty #34)
+EIP: 0060:[<c02eb5f6>] EFLAGS: 00000287 CPU: 0
+EIP is at __write_lock_failed+0xa/0x20
+EAX: c7b3fab4 EBX: c7b3fab4 ECX: 00000000 EDX: c0377986
+ESI: c7b3fa90 EDI: c7b6f290 EBP: c03cbd24 ESP: c03cbd24
+ DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+CR0: 8005003b CR2: b7f9b404 CR3: 07ac8000 CR4: 00000690
+DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
+DR6: 00000000 DR7: 00000000
+ [<c020e43f>] _raw_write_lock+0x57/0x6c
+ [<c02eba95>] _write_lock_bh+0x25/0x2d
+ [<c026b107>] ? neigh_resolve_output+0x93/0x238
+ [<c026b107>] neigh_resolve_output+0x93/0x238
+ [<c02a5635>] ip6_output2+0x241/0x289
+ [<c02a61cd>] ip6_output+0xa92/0xaad
+ [<c025ff11>] ? __alloc_skb+0x4f/0xfb
+ [<c02b2596>] ? __ndisc_send+0x1fb/0x3f5
+ [<c02b26a0>] __ndisc_send+0x305/0x3f5
+ [<c02b2fb5>] ndisc_send_ns+0x63/0x6e
+ [<c02b3f3e>] ndisc_solicit+0x183/0x18d
+ [<c0121071>] ? __mod_timer+0x96/0xa1
+ [<c026b81e>] neigh_timer_handler+0x214/0x252
+ [<c0120c90>] run_timer_softirq+0xfe/0x159
+ [<c026b60a>] ? neigh_timer_handler+0x0/0x252
+ [<c011dbfa>] __do_softirq+0x6f/0xe9
+ [<c011dcae>] do_softirq+0x3a/0x52
+ [<c011dfc3>] irq_exit+0x44/0x46
+ [<c0105273>] do_IRQ+0x5a/0x73
+ [<c0103666>] common_interrupt+0x2e/0x34
+ [<c0101954>] ? default_idle+0x4a/0x77
+ [<c010190a>] ? default_idle+0x0/0x77
+ [<c0101855>] cpu_idle+0x89/0x9d
+ [<c02e6135>] rest_init+0x49/0x4b
+ =======================
+BUG: soft lockup - CPU#1 stuck for 61s! [swapper:0]
+
+Pid: 0, comm: swapper Not tainted (2.6.25-rc1-netns-00113-g69cc64d-dirty #34)
+EIP: 0060:[<c02eb5f6>] EFLAGS: 00000287 CPU: 1
+EIP is at __write_lock_failed+0xa/0x20
+EAX: c7b3fab4 EBX: c7b3fab4 ECX: 00000000 EDX: 00000000
+ESI: c03bb9c0 EDI: c7b3fab4 EBP: c7841eb0 ESP: c7841eb0
+ DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+CR0: 8005003b CR2: 08560008 CR3: 07b04000 CR4: 00000690
+DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
+DR6: 00000000 DR7: 00000000
+ [<c020e43f>] _raw_write_lock+0x57/0x6c
+ [<c02eba68>] _write_lock+0x20/0x28
+ [<c026982c>] ? neigh_periodic_timer+0x99/0x142
+ [<c026982c>] neigh_periodic_timer+0x99/0x142
+ [<c0120c90>] run_timer_softirq+0xfe/0x159
+ [<c0269793>] ? neigh_periodic_timer+0x0/0x142
+ [<c011dbfa>] __do_softirq+0x6f/0xe9
+ [<c011dcae>] do_softirq+0x3a/0x52
+ [<c011dfc3>] irq_exit+0x44/0x46
+ [<c010d680>] smp_apic_timer_interrupt+0x71/0x81
+ [<c0103747>] apic_timer_interrupt+0x33/0x38
+ [<c0101954>] ? default_idle+0x4a/0x77
+ [<c010190a>] ? default_idle+0x0/0x77
+ [<c0101855>] cpu_idle+0x89/0x9d
+ =======================
+BUG: soft lockup - CPU#0 stuck for 61s! [swapper:0]
+
+Pid: 0, comm: swapper Not tainted (2.6.25-rc1-netns-00113-g69cc64d-dirty #34)
+EIP: 0060:[<c02eb5f6>] EFLAGS: 00000287 CPU: 0
+EIP is at __write_lock_failed+0xa/0x20
+EAX: c7b3fab4 EBX: c7b3fab4 ECX: 00000000 EDX: c0377986
+ESI: c7b3fa90 EDI: c7b6f290 EBP: c03cbd24 ESP: c03cbd24
+ DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+CR0: 8005003b CR2: b7f9b404 CR3: 07ac8000 CR4: 00000690
+DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
+DR6: 00000000 DR7: 00000000
+ [<c020e43f>] _raw_write_lock+0x57/0x6c
+ [<c02eba95>] _write_lock_bh+0x25/0x2d
+ [<c026b107>] ? neigh_resolve_output+0x93/0x238
+ [<c026b107>] neigh_resolve_output+0x93/0x238
+ [<c02a5635>] ip6_output2+0x241/0x289
+ [<c02a61cd>] ip6_output+0xa92/0xaad
+ [<c025ff11>] ? __alloc_skb+0x4f/0xfb
+ [<c02b2596>] ? __ndisc_send+0x1fb/0x3f5
+ [<c02b26a0>] __ndisc_send+0x305/0x3f5
+ [<c02b2fb5>] ndisc_send_ns+0x63/0x6e
+ [<c02b3f3e>] ndisc_solicit+0x183/0x18d
+ [<c0121071>] ? __mod_timer+0x96/0xa1
+ [<c026b81e>] neigh_timer_handler+0x214/0x252
+ [<c0120c90>] run_timer_softirq+0xfe/0x159
+ [<c026b60a>] ? neigh_timer_handler+0x0/0x252
+ [<c011dbfa>] __do_softirq+0x6f/0xe9
+ [<c011dcae>] do_softirq+0x3a/0x52
+ [<c011dfc3>] irq_exit+0x44/0x46
+ [<c0105273>] do_IRQ+0x5a/0x73
+ [<c0103666>] common_interrupt+0x2e/0x34
+ [<c0101954>] ? default_idle+0x4a/0x77
+ [<c010190a>] ? default_idle+0x0/0x77
+ [<c0101855>] cpu_idle+0x89/0x9d
+ [<c02e6135>] rest_init+0x49/0x4b
+ =======================
+BUG: soft lockup - CPU#1 stuck for 61s! [swapper:0]
+ ...
+
+
+Benjamin
+
+On Tue, Feb 12, 2008 at 6:47 AM, David Miller <davem@davemloft.net> wrote:
+> From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+>  Date: Mon, 11 Feb 2008 10:01:20 +0100
+>
+>
+>  > we run your patch during the weekend on single CPU and SMP
+>  > machines. We do not see any problems. Thanks for providing the fix.
+>
+>  Thanks for testing Frank, I can now push this fix upstream.
+>
+>
+> --
+>  To unsubscribe from this list: send the line "unsubscribe netdev" in
+>  the body of a message to majordomo@vger.kernel.org
+>  More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
