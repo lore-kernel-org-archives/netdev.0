@@ -1,44 +1,63 @@
-From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: [PATCH] Make sure sockets implement splice_read
-Date: Thu, 14 Feb 2008 18:53:34 +0200
-Message-ID: <200802141853.35016.rdenis@simphalempin.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 2.6.25] igb: fix legacy mode irq issue
+Date: Thu, 14 Feb 2008 09:24:06 -0800
+Message-ID: <47B47936.505@intel.com>
+References: <20080214031920.GI856@gospo.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Auke Kok <auke-jan.h.kok@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jeff@garzik.org>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:51247 "EHLO yop.chewa.net"
+Received: from mga02.intel.com ([134.134.136.20]:15456 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752400AbYBNROO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2008 12:14:14 -0500
-Content-Disposition: inline
+	id S1752180AbYBNRZM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Feb 2008 12:25:12 -0500
+In-Reply-To: <20080214031920.GI856@gospo.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ixes a segmentation fault when trying to splice from a non-TCP socke=
-t.
+Andy Gospodarek wrote:
+> I booted an igb kernel with the option pci=nomsi and instantly noticed
+> that interrupts no longer worked on my igb device.  I took a look at the
+> interrupt initialization and quickly discovered a comment stating:
+> 
+> "DO NOT USE EIAME or IAME in legacy mode"
+> 
+> It seemed a bit odd that bits to enable IAM were being set in legacy
+> interrupt mode, so I dropped out the following parts and interrupts
+> began working fine again.
+> 
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
-Signed-off-by: R=E9mi Denis-Courmont <rdenis@simphalempin.com>
----
- net/socket.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+looks valid, I'll test and see, thanks Andy
 
-diff --git a/net/socket.c b/net/socket.c
-index 7651de0..b6d35cd 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -701,6 +701,9 @@ static ssize_t sock_splice_read(struct file *file, =
-loff_t *ppos,
- {
- 	struct socket *sock =3D file->private_data;
-=20
-+	if (unlikely(!sock->ops->splice_read))
-+		return -EINVAL;
-+
- 	return sock->ops->splice_read(sock, ppos, pipe, len, flags);
- }
-=20
---=20
-1.5.4.1
+Auke
+
+
+> ---
+> 
+>  igb_main.c |    3 ---
+>  1 files changed, 3 deletions(-)
+> 
+> diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+> index f3c144d..be5da09 100644
+> --- a/drivers/net/igb/igb_main.c
+> +++ b/drivers/net/igb/igb_main.c
+> @@ -472,9 +471,6 @@ static int igb_request_irq(struct igb_adapter *adapter)
+>  		goto request_done;
+>  	}
+>  
+> -	/* enable IAM, auto-mask */
+> -	wr32(E1000_IAM, IMS_ENABLE_MASK);
+> -
+>  request_done:
+>  	return err;
+>  }
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
