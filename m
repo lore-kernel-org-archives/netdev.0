@@ -1,90 +1,55 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 1/2] remove rcu_assign_pointer(NULL) penalty with type/macro safety
-Date: Wed, 13 Feb 2008 16:42:53 -0800
-Message-ID: <20080214004253.GR12393@linux.vnet.ibm.com>
-References: <20080213220024.GA30729@linux.vnet.ibm.com> <20080213143537.1b806790@extreme> <20080213224134.GK12393@linux.vnet.ibm.com> <20080213144233.05e860cb@extreme> <20080213233744.GO12393@linux.vnet.ibm.com> <20080213155158.1b621359@extreme> <20080214001404.GQ12393@linux.vnet.ibm.com> <20080213162700.0a32000d@extreme>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Chuck Ebbert <cebbert@redhat.com>
+Subject: [patch] Fix station address detection in smc
+Date: Wed, 13 Feb 2008 19:47:11 -0500
+Message-ID: <47B38F8F.6060408@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger
-	<"stephen.hemminger@vyatta.com"@mail.vyatta.com>,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, dipankar@in.ibm.com, ego@in.ibm.com,
-	herbert@gondor.apana.org.au, akpm@linux-foundation.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-pcmcia@lists.infradead.org, Netdev <netdev@vger.kernel.org>,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Dominik Brodowski <linux@dominikbrodowski.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:53092 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756440AbYBNAm4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2008 19:42:56 -0500
-Content-Disposition: inline
-In-Reply-To: <20080213162700.0a32000d@extreme>
+Received: from mx1.redhat.com ([66.187.233.31]:39873 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756004AbYBNAro (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Feb 2008 19:47:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 13, 2008 at 04:27:00PM -0800, Stephen Hemminger wrote:
-> On Wed, 13 Feb 2008 16:14:04 -0800
-> "Paul E. McKenney" <paulmck@linux.vnet.ibm.com> wrote:
-> > On Wed, Feb 13, 2008 at 03:51:58PM -0800, Stephen Hemminger wrote:
+Megahertz EM1144 PCMCIA ethernet adapter needs special handling
+because it has two VERS_1 tuples and the station address is in
+the second one. Conversion to generic handling of these fields
+broke it. Reverting that fixes the device.
 
-[ . . . ]
+  https://bugzilla.redhat.com/show_bug.cgi?id=233255
 
-> > > Maybe cast both sides to void * in this case:
-> > >=20
-> > > static inline void node_set_parent(struct node *node, struct tnod=
-e *ptr)
-> > > {
-> > >  	rcu_assign_pointer((void *) node->parent, (void *)((unsigned lo=
-ng)ptr | NODE_TYPE(node)));
-> > > }
-> >=20
-> > That gets me the following:
-> >=20
-> > 	net/ipv4/fib_trie.c: In function =E2=80=98node_set_parent=E2=80=99=
-:
-> > 	net/ipv4/fib_trie.c:182: error: invalid lvalue in assignment
-> >=20
-> > However, as with much in computing, an extra level of indirection f=
-ixes
-> > things.  Your call as to whether or not the cure is preferable to t=
-he
-> > disease.  ;-)
-> >=20
-> > Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> > ---
-> >=20
-> >  fib_trie.c |    4 ++--
-> >  1 file changed, 2 insertions(+), 2 deletions(-)
-> >=20
-> > diff -urpNa -X dontdiff linux-2.6.25-rc1/net/ipv4/fib_trie.c linux-=
-2.6.25-rc1-fib_trie-warn.compile/net/ipv4/fib_trie.c
-> > --- linux-2.6.25-rc1/net/ipv4/fib_trie.c	2008-02-13 14:38:12.000000=
-000 -0800
-> > +++ linux-2.6.25-rc1-fib_trie-warn.compile/net/ipv4/fib_trie.c	2008=
--02-13 16:10:07.000000000 -0800
-> > @@ -179,8 +179,8 @@ static inline struct tnode *node_parent_
-> > =20
-> >  static inline void node_set_parent(struct node *node, struct tnode=
- *ptr)
-> >  {
-> > -	rcu_assign_pointer(node->parent,
-> > -			   (unsigned long)ptr | NODE_TYPE(node));
-> > +	rcu_assign_pointer((*(void **)&node->parent),
-> > +			   (void *)((unsigned long)ptr | NODE_TYPE(node)));
-> >  }
->=20
-> That is heading towards ugly...  Maybe not using the macro at all (fo=
-r this case) would be best:
->=20
-> static inline void node_set_parent(struct node *node, struct tnode *p=
-tr)
-> {
-> 	smp_wmb();
-> 	node->parent =3D (unsigned long)ptr | NODE_TYPE(node);
-> }
+Thanks go to Jon Stanley for not giving up on this one until the
+problem was found.
 
-Or, alternatively, the rcu_assign_index() patch sent earlier to avoid
-the bare memory barrier?
+Signed-off-by: Chuck Ebbert <cebbert@redhat.com>
 
-							Thanx, Paul
+---
+
+This was broken for over a year before the problem was found...
+
+--- b/drivers/net/pcmcia/smc91c92_cs.c	Tue Dec 05 06:09:21 2006 +0500
++++ a/drivers/net/pcmcia/smc91c92_cs.c	Tue Dec 05 06:09:20 2006 +0500
+@@ -560,8 +560,16 @@
+
+     /* Read the station address from the CIS.  It is stored as the last
+        (fourth) string in the Version 1 Version/ID tuple. */
++    tuple->DesiredTuple = CISTPL_VERS_1;
++    if (first_tuple(link, tuple, parse) != CS_SUCCESS) {
++	rc = -1;
++	goto free_cfg_mem;
++    }
++    /* Ugh -- the EM1144 card has two VERS_1 tuples!?! */
++    if (next_tuple(link, tuple, parse) != CS_SUCCESS)
++	first_tuple(link, tuple, parse);
++    if (parse->version_1.ns > 3) {
++	station_addr = parse->version_1.str + parse->version_1.ofs[3];
+-    if (link->prod_id[3]) {
+-	station_addr = link->prod_id[3];
+ 	if (cvt_ascii_address(dev, station_addr) == 0) {
+ 		rc = 0;
+ 		goto free_cfg_mem;
