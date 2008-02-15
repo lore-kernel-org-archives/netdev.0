@@ -1,60 +1,51 @@
-From: Bernd Schubert <bernd-schubert@gmx.de>
-Subject: e1000: Detected Tx Unit Hang
-Date: Fri, 15 Feb 2008 23:52:36 +0100
-Message-ID: <fp553k$9r8$1@ger.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tbench regression in 2.6.25-rc1
+Date: Fri, 15 Feb 2008 15:22:00 -0800 (PST)
+Message-ID: <20080215.152200.145584182.davem@davemloft.net>
+References: <47B52B95.3070607@cosmosbay.com>
+	<1203057044.3027.134.camel@ymzhang>
+	<47B59FFC.4030603@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7Bit
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yanmin_zhang@linux.intel.com, herbert@gondor.apana.org.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:50203 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934649AbYBOWwp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Feb 2008 17:52:45 -0500
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1JQ9QA-0004jS-Qb
-	for netdev@vger.kernel.org; Fri, 15 Feb 2008 22:52:42 +0000
-Received: from p5b2f7a0e.dip.t-dialin.net ([91.47.122.14])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 15 Feb 2008 22:52:42 +0000
-Received: from bernd-schubert by p5b2f7a0e.dip.t-dialin.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 15 Feb 2008 22:52:42 +0000
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59391
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752725AbYBOXV1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 18:21:27 -0500
+In-Reply-To: <47B59FFC.4030603@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Fri, 15 Feb 2008 15:21:48 +0100
 
-I can't login to one of our servers and just got this in an ipmi sol
-session:
+> On linux-2.6.25-rc1 x86_64 :
+> 
+> offsetof(struct dst_entry, lastuse)=0xb0
+> offsetof(struct dst_entry, __refcnt)=0xb8
+> offsetof(struct dst_entry, __use)=0xbc
+> offsetof(struct dst_entry, next)=0xc0
+> 
+> So it should be optimal... I dont know why tbench prefers __refcnt being 
+> on 0xc0, since in this case lastuse will be on a different cache line...
+> 
+> Each incoming IP packet will need to change lastuse, __refcnt and __use, 
+> so keeping them in the same cache line is a win.
+> 
+> I suspect then that even this patch could help tbench, since it avoids 
+> writing lastuse...
 
-[18169.209181] e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
-[18169.209183]   Tx Queue             <0>
-[18169.209184]   TDH                  <e3>
-[18169.209185]   TDT                  <e3>
-[18169.209186]   next_to_use          <e3>
-[18169.209187]   next_to_clean        <bd>
-[18169.209188] buffer_info[next_to_clean]
-[18169.209189]   time_stamp           <10043e4d2>
-[18169.209190]   next_to_watch        <be>
-[18169.209191]   jiffies              <10043e6f6>
-[18169.209192]   next_to_watch.status <1>
-[18169.256978] e1000: eth2: e1000_clean_tx_irq: Detected Tx Unit Hang
-[18169.256979]   Tx Queue             <0>
-[18169.256980]   TDH                  <de>
-[18169.256982]   TDT                  <de>
-[18169.256983]   next_to_use          <de>
-[18169.256984]   next_to_clean        <bc>
-[18169.256985] buffer_info[next_to_clean]
-[18169.256986]   time_stamp           <10043e511>
-[18169.256987]   next_to_watch        <bd>
-[18169.256988]   jiffies              <10043e701>
-[18169.256989]   next_to_watch.status <1>
+I think your suspicions are right, and even moreso
+it helps to keep __refcnt out of the same cache line
+as input/output/ops which are read-almost-entirely :-)
 
-This is with 2.6.22.18. Is there any chance to recover the system? For some
-reasons I would prefer not to reboot now.
+I haven't done an exhaustive analysis, but it seems that
+the write traffic to lastuse and __refcnt are about the
+same.  However if we find that __refcnt gets hit more
+than lastuse in this workload, it explains the regression.
 
-Thanks,
-Bernd
 
