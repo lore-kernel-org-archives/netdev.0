@@ -1,182 +1,360 @@
 From: Glenn Griffin <ggriffin.kernel@gmail.com>
-Subject: [PATCH 2/3] Enable the use of TCP options with syncookies
-Date: Fri, 15 Feb 2008 09:47:09 -0800
-Message-ID: <1203097630-13237-2-git-send-email-ggriffin.kernel@gmail.com>
+Subject: [PATCH 3/3] Add IPv6 Support to TCP SYN cookies
+Date: Fri, 15 Feb 2008 09:47:10 -0800
+Message-ID: <1203097630-13237-3-git-send-email-ggriffin.kernel@gmail.com>
 References: <1203097630-13237-1-git-send-email-ggriffin.kernel@gmail.com>
+ <1203097630-13237-2-git-send-email-ggriffin.kernel@gmail.com>
 Cc: Glenn Griffin <ggriffin.kernel@gmail.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.230]:11164 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755526AbYBORj0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 12:39:26 -0500
-Received: by wx-out-0506.google.com with SMTP id h31so727692wxd.4
-        for <netdev@vger.kernel.org>; Fri, 15 Feb 2008 09:39:25 -0800 (PST)
-In-Reply-To: <1203097630-13237-1-git-send-email-ggriffin.kernel@gmail.com>
+Received: from rv-out-0910.google.com ([209.85.198.189]:25821 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755915AbYBORj2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 12:39:28 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so552158rvb.1
+        for <netdev@vger.kernel.org>; Fri, 15 Feb 2008 09:39:27 -0800 (PST)
+In-Reply-To: <1203097630-13237-2-git-send-email-ggriffin.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow the use of extended tcp options when syncookies are in use and the
-client supports tcp timestamps.
-
-The general concept is to encode the tcp options as the initial timestamp
-that we send to the requestor in our synack.  We can then decode the
-timestamp echo reply value on the returning ack.
-
-This implementation encodes the following options in the timestamp,
-snd_wscale, rcv_wscale, sack_ok, and also the necessary bits to calculate
-the rtt, and ts_off accurately.  Note that there are still 5 unused bits
-that could be used for future options.
+Support IPv6 syncookies
 
 Signed-off-by: Glenn Griffin <ggriffin.kernel@gmail.com>
 ---
- include/linux/tcp.h   |    3 ++
- include/net/tcp.h     |    4 ++
- net/ipv4/syncookies.c |   90 ++++++++++++++++++++++++++++++++++++++++++++++--
- net/ipv4/tcp_ipv4.c   |    5 +--
- net/ipv4/tcp_output.c |   10 +++++-
- 5 files changed, 104 insertions(+), 8 deletions(-)
+ include/net/tcp.h        |   10 ++
+ net/ipv4/syncookies.c    |    9 +-
+ net/ipv4/tcp_input.c     |    1 +
+ net/ipv4/tcp_minisocks.c |    2 +
+ net/ipv4/tcp_output.c    |    1 +
+ net/ipv6/Makefile        |    1 +
+ net/ipv6/syncookies.c    |  284 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/tcp_ipv6.c      |   78 +++++++++----
+ 8 files changed, 359 insertions(+), 27 deletions(-)
+ create mode 100644 net/ipv6/syncookies.c
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 68387dc..f5a23e1 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -233,6 +233,9 @@ struct tcp_request_sock {
- 	u32			 	rcv_isn;
- 	u32			 	snt_isn;
- 	u32				ts_off;
-+#ifdef CONFIG_SYN_COOKIES
-+	u8				want_cookie_ts;
-+#endif
- };
- 
- static inline struct tcp_request_sock *tcp_rsk(const struct request_sock *req)
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index c935de7..42b36f5 100644
+index 42b36f5..18bc5f2 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -438,6 +438,7 @@ extern struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+@@ -29,6 +29,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/dmaengine.h>
+ #include <linux/crypto.h>
++#include <linux/cryptohash.h>
+ 
+ #include <net/inet_connection_sock.h>
+ #include <net/inet_timewait_sock.h>
+@@ -434,11 +435,19 @@ extern int			tcp_disconnect(struct sock *sk, int flags);
+ extern void			tcp_unhash(struct sock *sk);
+ 
+ /* From syncookies.c */
++extern __u32 syncookie_secret[2][16-3+SHA_DIGEST_WORDS];
+ extern struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb, 
  				    struct ip_options *opt);
  extern __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, 
  				     __u16 *mss);
-+extern __u32 cookie_init_timestamp(struct request_sock *req);
+ extern __u32 cookie_init_timestamp(struct request_sock *req);
++extern __u32 cookie_check_timestamp(__u32 ts,
++				    struct tcp_options_received *tcp_opt);
++
++/* From net/ipv6/syncookies.c */
++extern struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb);
++extern __u32 cookie_v6_init_sequence(struct sock *sk, struct sk_buff *skb,
++				     __u16 *mss);
  
  /* tcp_output.c */
  
-@@ -958,6 +959,9 @@ static inline void tcp_openreq_init(struct request_sock *req,
- 	ireq->acked = 0;
- 	ireq->ecn_ok = 0;
- 	ireq->rmt_port = tcp_hdr(skb)->source;
-+#ifdef CONFIG_SYN_COOKIES
-+	tcp_rsk(req)->want_cookie_ts = 0;
-+#endif
- }
+@@ -1336,6 +1345,7 @@ extern int tcp_proc_register(struct tcp_seq_afinfo *afinfo);
+ extern void tcp_proc_unregister(struct tcp_seq_afinfo *afinfo);
  
- extern void tcp_enter_memory_pressure(void);
+ extern struct request_sock_ops tcp_request_sock_ops;
++extern struct request_sock_ops tcp6_request_sock_ops;
+ 
+ extern int tcp_v4_destroy_sock(struct sock *sk);
+ 
 diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index f470fe4..eb5d804 100644
+index eb5d804..4915d8d 100644
 --- a/net/ipv4/syncookies.c
 +++ b/net/ipv4/syncookies.c
-@@ -35,6 +35,9 @@ module_init(init_syncookies);
- #define COOKIEBITS 24	/* Upper bits store count */
- #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+@@ -10,8 +10,6 @@
+  *      2 of the License, or (at your option) any later version.
+  *
+  *  $Id: syncookies.c,v 1.18 2002/02/01 22:01:04 davem Exp $
+- *
+- *  Missing: IPv6 support.
+  */
  
-+#define TSBITS 18
-+#define TSMASK (((__u32)1 << TSBITS) - 1)
-+
- static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
- 		       u32 count, int c)
+ #include <linux/tcp.h>
+@@ -23,7 +21,8 @@
+ 
+ extern int sysctl_tcp_syncookies;
+ 
+-static __u32 syncookie_secret[2][16-3+SHA_DIGEST_WORDS];
++__u32 syncookie_secret[2][16-3+SHA_DIGEST_WORDS];
++EXPORT_SYMBOL(syncookie_secret);
+ 
+ static __init int init_syncookies(void)
  {
-@@ -144,6 +147,23 @@ __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
- 				     jiffies / (HZ * 60), mssind);
- }
+@@ -216,8 +215,7 @@ static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+  * The next 4 lsb are for rcv_wscale
+  * The next 1 lsb are for sack_ok
+  */
+-static __u32 cookie_check_timestamp(__u32 ts,
+-				    struct tcp_options_received *tcp_opt)
++__u32 cookie_check_timestamp(__u32 ts, struct tcp_options_received *tcp_opt)
+ {
+ 	__u32 init_ts = ts & TSMASK;
  
-+__u32 cookie_init_timestamp(struct request_sock *req)
-+{
-+	struct inet_request_sock *ireq = inet_rsk(req);
-+	__u32 init_ts = 0;
-+
-+	if (ireq->wscale_ok) {
-+		init_ts |= ireq->snd_wscale << TSBITS;
-+		init_ts |= ireq->rcv_wscale << (4 + TSBITS);
-+	}
-+	init_ts |= ireq->sack_ok << (8 + TSBITS);
-+
-+	init_ts |= tcp_time_stamp & TSMASK;
-+
-+	return init_ts;
-+}
-+
-+
- /*
-  * This (misnamed) value is the age of syncookie which is permitted.
-  * Its ideal value should be dependent on TCP_TIMEOUT_INIT and
-@@ -184,6 +204,52 @@ static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
- 	return child;
- }
+@@ -249,6 +247,7 @@ static __u32 cookie_check_timestamp(__u32 ts,
  
-+/* when syncookies are in effect and tcp timestamps are enabled we will store
-+ * additional tcp options encoded in the timestamp value.
-+ *
-+ * The 18 lsb of tcp timestamp is stored in the 18 lsb of the tcp timestamp sent
-+ *
-+ * 18 bits should be enough to contain a very conservative 2*MSL on a 1000 HZ
-+ * system
-+ *
-+ * The next 4 lsb are for snd_wscale
-+ * The next 4 lsb are for rcv_wscale
-+ * The next 1 lsb are for sack_ok
-+ */
-+static __u32 cookie_check_timestamp(__u32 ts,
-+				    struct tcp_options_received *tcp_opt)
-+{
-+	__u32 init_ts = ts & TSMASK;
-+
-+	 /*
-+	  * check if tcp_time_stamp overflowed 18bits
-+	  * while waiting for response
-+	  */
-+	if ((tcp_time_stamp & TSMASK) >= init_ts)
-+		/* likely no overflow occurred */
-+		init_ts |= tcp_time_stamp & (~TSMASK);
-+	else
-+		/*
-+		 * overflow occurred, but we can be sure it's only one bit
-+		 * since the cookie_check verifies the cookie was generated
-+		 * within the last 4 minutes
-+		 */
-+		init_ts |= ((tcp_time_stamp >> TSBITS) - 1) << TSBITS;
-+
-+	tcp_opt->tstamp_ok = 1;
-+	tcp_opt->snd_wscale = (ts >> TSBITS) & 0xf;
-+	tcp_opt->rcv_wscale = (ts >> (TSBITS + 4)) & 0xf;
-+	tcp_opt->sack_ok = (ts >> (TSBITS + 8)) & 0x1;
-+
-+	if (tcp_opt->sack_ok)
-+		tcp_sack_reset(tcp_opt);
-+
-+	if (tcp_opt->snd_wscale || tcp_opt->rcv_wscale)
-+		tcp_opt->wscale_ok = 1;
-+
-+	return init_ts;
-+}
-+
+ 	return init_ts;
+ }
++EXPORT_SYMBOL(cookie_check_timestamp);
+ 
  struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
  			     struct ip_options *opt)
- {
-@@ -197,6 +263,8 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 	int mss;
- 	struct rtable *rt;
- 	__u8 rcv_wscale;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 95fa8dc..018ffc3 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5326,6 +5326,7 @@ discard:
+ 
+ EXPORT_SYMBOL(sysctl_tcp_ecn);
+ EXPORT_SYMBOL(sysctl_tcp_reordering);
++EXPORT_SYMBOL(sysctl_tcp_adv_win_scale);
+ EXPORT_SYMBOL(tcp_parse_options);
+ EXPORT_SYMBOL(tcp_rcv_established);
+ EXPORT_SYMBOL(tcp_rcv_state_process);
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 648f84e..b4d4fb8 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -35,6 +35,8 @@
+ #endif
+ 
+ int sysctl_tcp_syncookies __read_mostly = SYNC_INIT;
++EXPORT_SYMBOL(sysctl_tcp_syncookies);
++
+ int sysctl_tcp_abort_on_overflow __read_mostly;
+ 
+ struct inet_timewait_death_row tcp_death_row = {
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 0c900e0..e07c32f 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2570,6 +2570,7 @@ void tcp_send_probe0(struct sock *sk)
+ 	}
+ }
+ 
++EXPORT_SYMBOL(tcp_select_initial_window);
+ EXPORT_SYMBOL(tcp_connect);
+ EXPORT_SYMBOL(tcp_make_synack);
+ EXPORT_SYMBOL(tcp_simple_retransmit);
+diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
+index 24f3aa0..ae14617 100644
+--- a/net/ipv6/Makefile
++++ b/net/ipv6/Makefile
+@@ -16,6 +16,7 @@ ipv6-$(CONFIG_XFRM) += xfrm6_policy.o xfrm6_state.o xfrm6_input.o \
+ ipv6-$(CONFIG_NETFILTER) += netfilter.o
+ ipv6-$(CONFIG_IPV6_MULTIPLE_TABLES) += fib6_rules.o
+ ipv6-$(CONFIG_PROC_FS) += proc.o
++ipv6-$(CONFIG_SYN_COOKIES) += syncookies.o
+ 
+ ipv6-objs += $(ipv6-y)
+ 
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+new file mode 100644
+index 0000000..9f64d9a
+--- /dev/null
++++ b/net/ipv6/syncookies.c
+@@ -0,0 +1,284 @@
++/*
++ *  IPv6 Syncookies implementation for the Linux kernel
++ *
++ *  Authors:
++ *  Glenn Griffin	<ggriffin.kernel@gmail.com>
++ *
++ *  Based on IPv4 implementation by Andi Kleen
++ *  linux/net/ipv4/syncookies.c
++ *
++ *	This program is free software; you can redistribute it and/or
++ *      modify it under the terms of the GNU General Public License
++ *      as published by the Free Software Foundation; either version
++ *      2 of the License, or (at your option) any later version.
++ *
++ */
++
++#include <linux/tcp.h>
++#include <linux/random.h>
++#include <linux/cryptohash.h>
++#include <linux/kernel.h>
++#include <net/ipv6.h>
++#include <net/tcp.h>
++
++extern int sysctl_tcp_syncookies;
++extern __u32 syncookie_secret[2][16-3+SHA_DIGEST_WORDS];
++
++#define COOKIEBITS 24	/* Upper bits store count */
++#define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
++
++/*
++ * This table has to be sorted and terminated with (__u16)-1.
++ * XXX generate a better table.
++ * Unresolved Issues: HIPPI with a 64k MSS is not well supported.
++ *
++ * Taken directly from ipv4 implementation.
++ * Should this list be modified for ipv6 use or is it close enough?
++ * rfc 2460 8.3 suggests mss values 20 bytes less than ipv4 counterpart
++ */
++static __u16 const msstab[] = {
++	64 - 1,
++	256 - 1,
++	512 - 1,
++	536 - 1,
++	1024 - 1,
++	1440 - 1,
++	1460 - 1,
++	4312 - 1,
++	(__u16)-1
++};
++/* The number doesn't include the -1 terminator */
++#define NUM_MSS (ARRAY_SIZE(msstab) - 1)
++
++/*
++ * This (misnamed) value is the age of syncookie which is permitted.
++ * Its ideal value should be dependent on TCP_TIMEOUT_INIT and
++ * sysctl_tcp_retries1. It's a rather complicated formula (exponential
++ * backoff) to compute at runtime so it's currently hardcoded here.
++ */
++#define COUNTER_TRIES 4
++
++static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
++					   struct request_sock *req,
++					   struct dst_entry *dst)
++{
++	struct inet_connection_sock *icsk = inet_csk(sk);
++	struct sock *child;
++
++	child = icsk->icsk_af_ops->syn_recv_sock(sk, skb, req, dst);
++	if (child)
++		inet_csk_reqsk_queue_add(sk, req, child);
++	else
++		reqsk_free(req);
++
++	return child;
++}
++
++static DEFINE_PER_CPU(__u32, cookie_scratch)[16 + 5 + SHA_WORKSPACE_WORDS];
++
++static u32 cookie_hash(struct in6_addr *saddr, struct in6_addr *daddr,
++		       __be16 sport, __be16 dport, u32 count, int c)
++{
++	__u32 *tmp = __get_cpu_var(cookie_scratch);
++
++	/*
++	 * we have 320 bits of information to hash, copy in the remaining
++	 * 192 bits required for sha_transform, from the syncookie_secret
++	 * and overwrite the digest with the secret
++	 */
++	memcpy(tmp + 10, syncookie_secret[c], 44);
++	memcpy(tmp, saddr, 16);
++	memcpy(tmp + 4, daddr, 16);
++	tmp[8] = ((__force u32)sport << 16) + (__force u32)dport;
++	tmp[9] = count;
++	sha_transform(tmp + 16, (__u8 *)tmp, tmp + 16 + 5);
++
++	return tmp[17];
++}
++
++static __u32 secure_tcp_syn_cookie(struct in6_addr *saddr,
++				   struct in6_addr *daddr,
++				   __be16 sport, __be16 dport, __u32 sseq,
++				   __u32 count, __u32 data)
++{
++	return (cookie_hash(saddr, daddr, sport, dport, 0, 0) +
++		sseq + (count << COOKIEBITS) +
++		((cookie_hash(saddr, daddr, sport, dport, count, 1) + data)
++		& COOKIEMASK));
++}
++
++static __u32 check_tcp_syn_cookie(__u32 cookie, struct in6_addr *saddr,
++				  struct in6_addr *daddr, __be16 sport,
++				  __be16 dport, __u32 sseq, __u32 count,
++				  __u32 maxdiff)
++{
++	__u32 diff;
++
++	cookie -= cookie_hash(saddr, daddr, sport, dport, 0, 0) + sseq;
++
++	diff = (count - (cookie >> COOKIEBITS)) & ((__u32) -1 >> COOKIEBITS);
++	if (diff >= maxdiff)
++		return (__u32)-1;
++
++	return (cookie -
++		cookie_hash(saddr, daddr, sport, dport, count - diff, 1))
++		& COOKIEMASK;
++}
++
++__u32 cookie_v6_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
++{
++	struct ipv6hdr *iph = ipv6_hdr(skb);
++	const struct tcphdr *th = tcp_hdr(skb);
++	int mssind;
++	const __u16 mss = *mssp;
++
++	tcp_sk(sk)->last_synq_overflow = jiffies;
++
++	for (mssind = 0; mss > msstab[mssind + 1]; mssind++)
++		;
++	*mssp = msstab[mssind] + 1;
++
++	NET_INC_STATS_BH(LINUX_MIB_SYNCOOKIESSENT);
++
++	return secure_tcp_syn_cookie(&iph->saddr, &iph->daddr, th->source,
++				     th->dest, ntohl(th->seq),
++				     jiffies / (HZ * 60), mssind);
++}
++
++static inline int cookie_check(struct sk_buff *skb, __u32 cookie)
++{
++	struct ipv6hdr *iph = ipv6_hdr(skb);
++	const struct tcphdr *th = tcp_hdr(skb);
++	__u32 seq = ntohl(th->seq) - 1;
++	__u32 mssind = check_tcp_syn_cookie(cookie, &iph->saddr, &iph->daddr,
++					    th->source, th->dest, seq,
++					    jiffies / (HZ * 60), COUNTER_TRIES);
++
++	return mssind < NUM_MSS ? msstab[mssind] + 1 : 0;
++}
++
++struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
++{
++	struct inet_request_sock *ireq;
++	struct inet6_request_sock *ireq6;
++	struct tcp_request_sock *treq;
++	struct ipv6_pinfo *np = inet6_sk(sk);
++	struct tcp_sock *tp = tcp_sk(sk);
++	const struct tcphdr *th = tcp_hdr(skb);
++	__u32 cookie = ntohl(th->ack_seq) - 1;
++	struct sock *ret = sk;
++	struct request_sock *req;
++	int mss;
++	struct dst_entry *dst;
++	__u8 rcv_wscale;
 +	struct tcp_options_received tcp_opt;
 +	__u32 xmit_ts = 0;
- 
- 	if (!sysctl_tcp_syncookies || !th->ack)
- 		goto out;
-@@ -209,6 +277,13 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 
- 	NET_INC_STATS_BH(LINUX_MIB_SYNCOOKIESRECV);
- 
++
++	if (!sysctl_tcp_syncookies || !th->ack)
++		goto out;
++
++	if (time_after(jiffies, tp->last_synq_overflow + TCP_TIMEOUT_INIT) ||
++		(mss = cookie_check(skb, cookie)) == 0) {
++		NET_INC_STATS_BH(LINUX_MIB_SYNCOOKIESFAILED);
++		goto out;
++	}
++
++	NET_INC_STATS_BH(LINUX_MIB_SYNCOOKIESRECV);
++
 +	/* check for timestamp cookie support */
 +	memset(&tcp_opt, 0, sizeof(tcp_opt));
 +	tcp_parse_options(skb, &tcp_opt, 0, 0);
@@ -184,97 +362,240 @@ index f470fe4..eb5d804 100644
 +	if (tcp_opt.saw_tstamp)
 +		xmit_ts = cookie_check_timestamp(tcp_opt.rcv_tsecr, &tcp_opt);
 +
- 	ret = NULL;
- 	req = reqsk_alloc(&tcp_request_sock_ops); /* for safety */
- 	if (!req)
-@@ -222,11 +297,18 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 	treq = tcp_rsk(req);
- 	treq->rcv_isn		= ntohl(th->seq) - 1;
- 	treq->snt_isn		= cookie;
-+	treq->ts_off		= xmit_ts ? tcp_opt.rcv_tsecr - xmit_ts : 0;
- 	req->mss		= mss;
- 	ireq->rmt_port		= th->source;
- 	ireq->loc_addr		= ip_hdr(skb)->daddr;
- 	ireq->rmt_addr		= ip_hdr(skb)->saddr;
- 	ireq->opt		= NULL;
-+	ireq->snd_wscale	= tcp_opt.snd_wscale;
-+	ireq->rcv_wscale	= tcp_opt.rcv_wscale;
-+	ireq->sack_ok		= tcp_opt.sack_ok;
-+	ireq->wscale_ok		= tcp_opt.wscale_ok;
-+	ireq->tstamp_ok		= tcp_opt.tstamp_ok;
-+	req->ts_recent		= tcp_opt.saw_tstamp ? tcp_opt.rcv_tsval : 0;
- 
- 	/* We throwed the options of the initial SYN away, so we hope
- 	 * the ACK carries the same options again (see RFC1122 4.2.3.8)
-@@ -241,8 +323,6 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 		}
- 	}
- 
--	ireq->snd_wscale = ireq->rcv_wscale = ireq->tstamp_ok = 0;
--	ireq->wscale_ok	 = ireq->sack_ok = 0;
- 	req->expires	= 0UL;
- 	req->retrans	= 0;
- 
-@@ -271,10 +351,12 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 	}
- 
- 	/* Try to redo what tcp_v4_send_synack did. */
--	req->window_clamp = dst_metric(&rt->u.dst, RTAX_WINDOW);
-+	req->window_clamp = tcp_sk(sk)->window_clamp ?
-+			    : dst_metric(&rt->u.dst, RTAX_WINDOW);
++	ret = NULL;
++	req = inet6_reqsk_alloc(&tcp6_request_sock_ops);
++	if (!req)
++		goto out;
 +
- 	tcp_select_initial_window(tcp_full_space(sk), req->mss,
- 				  &req->rcv_wnd, &req->window_clamp,
--				  0, &rcv_wscale);
++	ireq = inet_rsk(req);
++	ireq6 = inet6_rsk(req);
++	treq = tcp_rsk(req);
++	ireq6->pktopts = NULL;
++
++	if (security_inet_conn_request(sk, skb, req)) {
++		reqsk_free(req);
++		goto out;
++	}
++
++	req->mss = mss;
++	ireq->rmt_port = th->source;
++	ipv6_addr_copy(&ireq6->rmt_addr, &ipv6_hdr(skb)->saddr);
++	ipv6_addr_copy(&ireq6->loc_addr, &ipv6_hdr(skb)->daddr);
++	if (ipv6_opt_accepted(sk, skb) ||
++	    np->rxopt.bits.rxinfo || np->rxopt.bits.rxoinfo ||
++	    np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim) {
++		atomic_inc(&skb->users);
++		ireq6->pktopts = skb;
++	}
++
++	ireq6->iif = sk->sk_bound_dev_if;
++	/* So that link locals have meaning */
++	if (!sk->sk_bound_dev_if &&
++	    ipv6_addr_type(&ireq6->rmt_addr) & IPV6_ADDR_LINKLOCAL)
++		ireq6->iif = inet6_iif(skb);
++
++	req->expires		= 0UL;
++	req->retrans		= 0;
++	ireq->snd_wscale        = tcp_opt.snd_wscale;
++	ireq->rcv_wscale        = tcp_opt.rcv_wscale;
++	ireq->sack_ok           = tcp_opt.sack_ok;
++	ireq->wscale_ok         = tcp_opt.wscale_ok;
++	ireq->tstamp_ok         = tcp_opt.tstamp_ok;
++	req->ts_recent          = tcp_opt.saw_tstamp ? tcp_opt.rcv_tsval : 0;
++	treq->rcv_isn		= ntohl(th->seq) - 1;
++	treq->snt_isn		= cookie;
++	treq->ts_off		= xmit_ts ? tcp_opt.rcv_tsecr - xmit_ts : 0;
++
++	/*
++	 * We need to lookup the dst_entry to get the correct window size.
++	 * This is taken from tcp_v6_syn_recv_sock.  Somebody please enlighten
++	 * me if there is a preferred way.
++	 */
++	{
++		struct in6_addr *final_p = NULL, final;
++		struct flowi fl;
++		memset(&fl, 0, sizeof(fl));
++		fl.proto = IPPROTO_TCP;
++		ipv6_addr_copy(&fl.fl6_dst, &ireq6->rmt_addr);
++		if (np->opt && np->opt->srcrt) {
++			struct rt0_hdr *rt0 = (struct rt0_hdr *) np->opt->srcrt;
++			ipv6_addr_copy(&final, &fl.fl6_dst);
++			ipv6_addr_copy(&fl.fl6_dst, rt0->addr);
++			final_p = &final;
++		}
++		ipv6_addr_copy(&fl.fl6_src, &ireq6->loc_addr);
++		fl.oif = sk->sk_bound_dev_if;
++		fl.fl_ip_dport = inet_rsk(req)->rmt_port;
++		fl.fl_ip_sport = inet_sk(sk)->sport;
++		security_req_classify_flow(req, &fl);
++		if (ip6_dst_lookup(sk, &dst, &fl)) {
++			reqsk_free(req);
++			goto out;
++		}
++		if (final_p)
++			ipv6_addr_copy(&fl.fl6_dst, final_p);
++		if ((xfrm_lookup(&dst, &fl, sk, 0)) < 0)
++			goto out;
++	}
++
++	req->window_clamp = tcp_sk(sk)->window_clamp ?
++			    : dst_metric(dst, RTAX_WINDOW);
++
++	tcp_select_initial_window(tcp_full_space(sk), req->mss,
++				  &req->rcv_wnd, &req->window_clamp,
 +				  ireq->wscale_ok, &rcv_wscale);
- 	/* BTW win scale with syncookies is 0 by definition */
- 	ireq->rcv_wscale  = rcv_wscale;
++
++	ireq->rcv_wscale = rcv_wscale;
++
++	ret = get_cookie_sock(sk, skb, req, dst);
++
++out:	return ret;
++}
++
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 896ebd0..7a48263 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -514,6 +514,20 @@ done:
+ 	return err;
+ }
  
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 267eda9..e20f78e 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1297,10 +1297,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
++static inline void syn_flood_warning(struct sk_buff *skb)
++{
++#ifdef CONFIG_SYN_COOKIES
++	if (sysctl_tcp_syncookies)
++		printk(KERN_INFO
++		       "TCPv6: Possible SYN flooding on port %d. "
++		       "Sending cookies.\n", ntohs(tcp_hdr(skb)->dest));
++	else
++#endif
++		printk(KERN_INFO
++		       "TCPv6: Possible SYN flooding on port %d. "
++		       "Dropping request.\n", ntohs(tcp_hdr(skb)->dest));
++}
++
+ static void tcp_v6_reqsk_destructor(struct request_sock *req)
+ {
+ 	if (inet6_rsk(req)->pktopts)
+@@ -917,7 +931,7 @@ done_opts:
+ }
+ #endif
+ 
+-static struct request_sock_ops tcp6_request_sock_ops __read_mostly = {
++struct request_sock_ops tcp6_request_sock_ops __read_mostly = {
+ 	.family		=	AF_INET6,
+ 	.obj_size	=	sizeof(struct tcp6_request_sock),
+ 	.rtx_syn_ack	=	tcp_v6_send_synack,
+@@ -1215,9 +1229,9 @@ static struct sock *tcp_v6_hnd_req(struct sock *sk,struct sk_buff *skb)
+ 		return NULL;
+ 	}
+ 
+-#if 0 /*def CONFIG_SYN_COOKIES*/
++#ifdef CONFIG_SYN_COOKIES
+ 	if (!th->rst && !th->syn && th->ack)
+-		sk = cookie_v6_check(sk, skb, &(IPCB(skb)->opt));
++		sk = cookie_v6_check(sk, skb);
+ #endif
+ 	return sk;
+ }
+@@ -1233,6 +1247,11 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct request_sock *req = NULL;
+ 	__u32 isn = TCP_SKB_CB(skb)->when;
++#ifdef CONFIG_SYN_COOKIES
++	int want_cookie = 0;
++#else
++#define want_cookie 0
++#endif
+ 
+ 	if (skb->protocol == htons(ETH_P_IP))
+ 		return tcp_v4_conn_request(sk, skb);
+@@ -1240,12 +1259,14 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (!ipv6_unicast_destination(skb))
+ 		goto drop;
+ 
+-	/*
+-	 *	There are no SYN attacks on IPv6, yet...
+-	 */
+ 	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
+ 		if (net_ratelimit())
+-			printk(KERN_INFO "TCPv6: dropping request, synflood is possible\n");
++			syn_flood_warning(skb);
++#ifdef CONFIG_SYN_COOKIES
++		if (sysctl_tcp_syncookies)
++			want_cookie = 1;
++		else
++#endif
+ 		goto drop;
+ 	}
+ 
+@@ -1266,29 +1287,40 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
  
  	tcp_parse_options(skb, &tmp_opt, 0, 0);
  
--	if (want_cookie) {
 +	if (want_cookie && !tmp_opt.saw_tstamp)
- 		tcp_clear_options(&tmp_opt);
--		tmp_opt.saw_tstamp = 0;
++		tcp_clear_options(&tmp_opt);
++
+ 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
+ 	tcp_openreq_init(req, &tmp_opt, skb);
+ 
+ 	treq = inet6_rsk(req);
+ 	ipv6_addr_copy(&treq->rmt_addr, &ipv6_hdr(skb)->saddr);
+ 	ipv6_addr_copy(&treq->loc_addr, &ipv6_hdr(skb)->daddr);
+-	TCP_ECN_create_request(req, tcp_hdr(skb));
+ 	treq->pktopts = NULL;
+-	if (ipv6_opt_accepted(sk, skb) ||
+-	    np->rxopt.bits.rxinfo || np->rxopt.bits.rxoinfo ||
+-	    np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim) {
+-		atomic_inc(&skb->users);
+-		treq->pktopts = skb;
 -	}
- 
- 	if (tmp_opt.saw_tstamp && !tmp_opt.rcv_tsval) {
- 		/* Some OSes (unknown ones, but I see them on web server, which
-@@ -1328,6 +1326,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	if (want_cookie) {
- #ifdef CONFIG_SYN_COOKIES
- 		syn_flood_warning(skb);
-+		tcp_rsk(req)->want_cookie_ts = tmp_opt.saw_tstamp;
- #endif
- 		isn = cookie_v4_init_sequence(sk, skb, &req->mss);
- 	} else if (!isn) {
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 81f1383..0c900e0 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2227,7 +2227,15 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
- 	th->window = htons(min(req->rcv_wnd, 65535U));
- 
- 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
--	tcp_rsk(req)->ts_off = 1000 - TCP_SKB_CB(skb)->when;
+-	treq->iif = sk->sk_bound_dev_if;
++	if (!want_cookie)
++		TCP_ECN_create_request(req, tcp_hdr(skb));
 +
++	if (want_cookie) {
 +#ifdef CONFIG_SYN_COOKIES
-+	if (tcp_rsk(req)->want_cookie_ts)
-+		tcp_rsk(req)->ts_off = cookie_init_timestamp(req) -
-+				       TCP_SKB_CB(skb)->when;
-+	else
++		tcp_rsk(req)->want_cookie_ts = tmp_opt.saw_tstamp;
 +#endif
-+		tcp_rsk(req)->ts_off = 1000 - TCP_SKB_CB(skb)->when;
-+
- 	tcp_syn_build_options((__be32 *)(th + 1), dst_metric(dst, RTAX_ADVMSS), ireq->tstamp_ok,
- 			      ireq->sack_ok, ireq->wscale_ok, ireq->rcv_wscale,
- 			      TCP_SKB_CB(skb)->when + tcp_rsk(req)->ts_off,
++		isn = cookie_v6_init_sequence(sk, skb, &req->mss);
++	} else if (!isn) {
++		if (ipv6_opt_accepted(sk, skb) ||
++		    np->rxopt.bits.rxinfo || np->rxopt.bits.rxoinfo ||
++		    np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim) {
++			atomic_inc(&skb->users);
++			treq->pktopts = skb;
++		}
++		treq->iif = sk->sk_bound_dev_if;
+ 
+-	/* So that link locals have meaning */
+-	if (!sk->sk_bound_dev_if &&
+-	    ipv6_addr_type(&treq->rmt_addr) & IPV6_ADDR_LINKLOCAL)
+-		treq->iif = inet6_iif(skb);
++		/* So that link locals have meaning */
++		if (!sk->sk_bound_dev_if &&
++		    ipv6_addr_type(&treq->rmt_addr) & IPV6_ADDR_LINKLOCAL)
++			treq->iif = inet6_iif(skb);
+ 
+-	if (isn == 0)
+ 		isn = tcp_v6_init_sequence(skb);
++	}
+ 
+ 	tcp_rsk(req)->snt_isn = isn;
+ 
+@@ -1297,8 +1329,10 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (tcp_v6_send_synack(sk, req, NULL))
+ 		goto drop;
+ 
+-	inet6_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
+-	return 0;
++	if (!want_cookie) {
++		inet6_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
++		return 0;
++	}
+ 
+ drop:
+ 	if (req)
 -- 
 1.5.4
 
