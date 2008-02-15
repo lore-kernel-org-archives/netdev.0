@@ -1,29 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Make sure sockets implement splice_read
-Date: Fri, 15 Feb 2008 02:36:01 -0800 (PST)
-Message-ID: <20080215.023601.219994317.davem@davemloft.net>
-References: <200802141853.35016.rdenis@simphalempin.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [IPV6]: Fix IPsec datagram fragmentation
+Date: Fri, 15 Feb 2008 18:38:07 +0800
+Message-ID: <20080215103807.GA12915@gondor.apana.org.au>
+References: <20080215062215.GA10735@gondor.apana.org.au> <OF3737A582.CBFC60B5-ON882573F0.002BE602-882573F0.002C7307@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: rdenis@simphalempin.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Bill Fink <billfink@mindspring.com>,
+	David Miller <davem@davemloft.net>, kazunori@miyazawa.org,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53969
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752924AbYBOKf2 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Feb 2008 05:35:28 -0500
-In-Reply-To: <200802141853.35016.rdenis@simphalempin.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:51780 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758072AbYBOKiU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 05:38:20 -0500
+Content-Disposition: inline
+In-Reply-To: <OF3737A582.CBFC60B5-ON882573F0.002BE602-882573F0.002C7307@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: R=E9mi_Denis-Courmont <rdenis@simphalempin.com>
-Date: Thu, 14 Feb 2008 18:53:34 +0200
+On Fri, Feb 15, 2008 at 12:05:32AM -0800, David Stevens wrote:
+>
+> For the future, maybe we should rename that, or reverse
+> the sense of it (in v4 as well). :-)
 
-> Fixes a segmentation fault when trying to splice from a non-TCP socke=
-t.
->=20
-> Signed-off-by: R=E9mi Denis-Courmont <rdenis@simphalempin.com>
+Yeah it really should be called local_mayfrag.
 
-Applied, thank you.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
