@@ -1,107 +1,49 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [PATCH] (02/14/08 Linus git) Smack unlabeled outgoing ambient packets - v3
-Date: Fri, 15 Feb 2008 13:00:26 -0800 (PST)
-Message-ID: <291070.74513.qm@web36606.mail.mud.yahoo.com>
-References: <200802151359.35049.paul.moore@hp.com>
-Reply-To: casey@schaufler-ca.com
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: BUG/ spinlock lockup, 2.6.24
+Date: Fri, 15 Feb 2008 22:03:26 +0100
+Message-ID: <47B5FE1E.5080804@gmail.com>
+References: <20080215150044.M24489@visp.net.lb> <e2e108260802150724k4e5e6089mcb603b524157a9bc@mail.gmail.com> <20080215193854.M55147@visp.net.lb> <47B5F462.40603@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>, casey@schaufler-ca.com
+Content-Type: text/plain; charset=KOI8-R
+Content-Transfer-Encoding: 7bit
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>,
+	Bart Van Assche <bart.vanassche@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web36606.mail.mud.yahoo.com ([209.191.85.23]:23497 "HELO
-	web36606.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1765796AbYBOVAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 16:00:32 -0500
-In-Reply-To: <200802151359.35049.paul.moore@hp.com>
+Received: from ug-out-1314.google.com ([66.249.92.168]:42977 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1765682AbYBOU7t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 15:59:49 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so1340155ugc.16
+        for <netdev@vger.kernel.org>; Fri, 15 Feb 2008 12:59:47 -0800 (PST)
+In-Reply-To: <47B5F462.40603@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Jarek Poplawski wrote, On 02/15/2008 09:21 PM:
 
---- Paul Moore <paul.moore@hp.com> wrote:
+> Denys Fedoryshchenko wrote, On 02/15/2008 08:42 PM:
+> ...
+> 
+>> I have similar crashes on completely different hardware with same job (QOS), 
+>> so i think it is actually some nasty bug in networking.
+> 
+> Maybe you could try with some other debugging options? E.g. since lockdep
+> doesn't help - turn this off. Instead try some others, like these:
 
-> On Friday 15 February 2008 12:38:49 am Casey Schaufler wrote:
-> > From: Casey Schaufler <casey@schaufler-ca.com>
-> >
-> > Smack uses CIPSO labeling, but allows for unlabeled packets
-> > by specifying an "ambient" label that is applied to incoming
-> > unlabeled packets. Because the other end of the connection
-> > may dislike IP options, and ssh is one know application that
-> > behaves thus, it is prudent to respond in kind. This patch
-> > changes the network labeling behavior such that an outgoing
-> > packet that would be given a CIPSO label that matches the
-> > ambient label is left unlabeled. An "unlbl" domain is added
-> > and the netlabel defaulting mechanism invoked rather than
-> > assuming that everything is CIPSO. Locking has been added
-> > around changes to the ambient label as the mechanisms used
-> > to do so are more involved.
-> >
-> > Cleaned up some issues noted in review.
-> > Make smk_cipso_doi() static.
-> > Create a hook for the new security_secctx_to_secid()
-> > using existing underlying code.
-> > Fill in audit data for netlbl domain calls.
-> > Collapse unnecessary multiple assignments.
-> >
-> > Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
-> 
-> Hi Casey,
-> 
-> Thanks for the update, it's much improved.  I'd ack it except for one 
-> last thing which popped up in this revision ... (and don't worry, it's 
-> kinda my fault - not yours) ...
-> 
-> > @@ -1282,15 +1281,21 @@ static int smack_netlabel(struct sock *s
-> >  {
-> >  	struct socket_smack *ssp;
-> >  	struct netlbl_lsm_secattr secattr;
-> > -	int rc = 0;
-> > +	int rc;
-> >
-> >  	ssp = sk->sk_security;
-> >  	netlbl_secattr_init(&secattr);
-> >  	smack_to_secattr(ssp->smk_out, &secattr);
-> > -	if (secattr.flags != NETLBL_SECATTR_NONE)
-> > -		rc = netlbl_sock_setattr(sk, &secattr);
-> > -
-> > +	rc = netlbl_sock_setattr(sk, &secattr);
-> >  	netlbl_secattr_destroy(&secattr);
-> > +
-> > +	/*
-> > +	 * A return of -ENOENT from netlbl_sock_setattr
-> > +	 * indicates that the "domain" was not found, but that's
-> > +	 * not an issue because of the defaulting behavior.
-> > +	 */
-> > +	if (rc == -ENOENT)
-> > +		rc = 0;
-> >  	return rc;
-> >  }
-> 
-> ... you shouldn't fix-up the return value from netlbl_sock_setattr().  
-> It only returns an error when there really is an error, if there are no 
-> matching domain mappings and the default catches the "domain" then the 
-> function will return 0 (assuming no other failures).
-> 
-> The fact that you ran into this problem isn't your fault, it's mine, but 
-> thankfully for both of us Pavel Emelyanov found this bug and fixed 
-> it[1].  It hasn't hit Linus' tree yet but it's in the net-2.6 tree.  If 
-> you can't wait for it to hit Linus' tree you can always apply the fix 
-> by hand, it's pretty minor.
-> 
-> Sorry about that.
-> 
->
-[1]http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=4c3a0a254e5d706d3fe01bf42261534858d05586
+...On the other hand this:
 
-Yerk. I can put that fix into my tree, but my patch without
-the "correction" makes sockets behave very badly. I can't have
-people using it without Pavel's fix. Any notion on the plans to
-get that in?
+> Feb 15 15:50:17 217.151.X.X [1521315.068984] BUG: spinlock lockup on CPU#1, 
+> ksoftirqd/1/7, f0551180
 
-Thank you.
+seems to point just at spinlock lockup, so it's more about the full report.
+I wonder if this patch to prink could help here:
 
+author	Ingo Molnar <mingo at elte.hu>
+	Fri, 25 Jan 2008 20:07:58 +0000 (21:07 +0100)
+printk: make printk more robust by not allowing recursion
 
-Casey Schaufler
-casey@schaufler-ca.com
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=32a76006683f7b28ae3cc491da37716e002f198e
+
+Jarek P.
