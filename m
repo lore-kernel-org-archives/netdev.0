@@ -1,45 +1,107 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: BUG/ spinlock lockup, 2.6.24
-Date: Fri, 15 Feb 2008 21:21:54 +0100
-Message-ID: <47B5F462.40603@gmail.com>
-References: <20080215150044.M24489@visp.net.lb> <e2e108260802150724k4e5e6089mcb603b524157a9bc@mail.gmail.com> <20080215193854.M55147@visp.net.lb>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [PATCH] (02/14/08 Linus git) Smack unlabeled outgoing ambient packets - v3
+Date: Fri, 15 Feb 2008 13:00:26 -0800 (PST)
+Message-ID: <291070.74513.qm@web36606.mail.mud.yahoo.com>
+References: <200802151359.35049.paul.moore@hp.com>
+Reply-To: casey@schaufler-ca.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
-Content-Transfer-Encoding: 7bit
-Cc: Bart Van Assche <bart.vanassche@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>, casey@schaufler-ca.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.184]:39565 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755705AbYBOUSh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 15:18:37 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so862196fkz.5
-        for <netdev@vger.kernel.org>; Fri, 15 Feb 2008 12:18:35 -0800 (PST)
-In-Reply-To: <20080215193854.M55147@visp.net.lb>
+Received: from web36606.mail.mud.yahoo.com ([209.191.85.23]:23497 "HELO
+	web36606.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1765796AbYBOVAc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 16:00:32 -0500
+In-Reply-To: <200802151359.35049.paul.moore@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryshchenko wrote, On 02/15/2008 08:42 PM:
-...
 
-> I have similar crashes on completely different hardware with same job (QOS), 
-> so i think it is actually some nasty bug in networking.
+--- Paul Moore <paul.moore@hp.com> wrote:
 
-Maybe you could try with some other debugging options? E.g. since lockdep
-doesn't help - turn this off. Instead try some others, like these:
+> On Friday 15 February 2008 12:38:49 am Casey Schaufler wrote:
+> > From: Casey Schaufler <casey@schaufler-ca.com>
+> >
+> > Smack uses CIPSO labeling, but allows for unlabeled packets
+> > by specifying an "ambient" label that is applied to incoming
+> > unlabeled packets. Because the other end of the connection
+> > may dislike IP options, and ssh is one know application that
+> > behaves thus, it is prudent to respond in kind. This patch
+> > changes the network labeling behavior such that an outgoing
+> > packet that would be given a CIPSO label that matches the
+> > ambient label is left unlabeled. An "unlbl" domain is added
+> > and the netlabel defaulting mechanism invoked rather than
+> > assuming that everything is CIPSO. Locking has been added
+> > around changes to the ambient label as the mechanisms used
+> > to do so are more involved.
+> >
+> > Cleaned up some issues noted in review.
+> > Make smk_cipso_doi() static.
+> > Create a hook for the new security_secctx_to_secid()
+> > using existing underlying code.
+> > Fill in audit data for netlbl domain calls.
+> > Collapse unnecessary multiple assignments.
+> >
+> > Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
+> 
+> Hi Casey,
+> 
+> Thanks for the update, it's much improved.  I'd ack it except for one 
+> last thing which popped up in this revision ... (and don't worry, it's 
+> kinda my fault - not yours) ...
+> 
+> > @@ -1282,15 +1281,21 @@ static int smack_netlabel(struct sock *s
+> >  {
+> >  	struct socket_smack *ssp;
+> >  	struct netlbl_lsm_secattr secattr;
+> > -	int rc = 0;
+> > +	int rc;
+> >
+> >  	ssp = sk->sk_security;
+> >  	netlbl_secattr_init(&secattr);
+> >  	smack_to_secattr(ssp->smk_out, &secattr);
+> > -	if (secattr.flags != NETLBL_SECATTR_NONE)
+> > -		rc = netlbl_sock_setattr(sk, &secattr);
+> > -
+> > +	rc = netlbl_sock_setattr(sk, &secattr);
+> >  	netlbl_secattr_destroy(&secattr);
+> > +
+> > +	/*
+> > +	 * A return of -ENOENT from netlbl_sock_setattr
+> > +	 * indicates that the "domain" was not found, but that's
+> > +	 * not an issue because of the defaulting behavior.
+> > +	 */
+> > +	if (rc == -ENOENT)
+> > +		rc = 0;
+> >  	return rc;
+> >  }
+> 
+> ... you shouldn't fix-up the return value from netlbl_sock_setattr().  
+> It only returns an error when there really is an error, if there are no 
+> matching domain mappings and the default catches the "domain" then the 
+> function will return 0 (assuming no other failures).
+> 
+> The fact that you ran into this problem isn't your fault, it's mine, but 
+> thankfully for both of us Pavel Emelyanov found this bug and fixed 
+> it[1].  It hasn't hit Linus' tree yet but it's in the net-2.6 tree.  If 
+> you can't wait for it to hit Linus' tree you can always apply the fix 
+> by hand, it's pretty minor.
+> 
+> Sorry about that.
+> 
+>
+[1]http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=4c3a0a254e5d706d3fe01bf42261534858d05586
 
-> # CONFIG_DEBUG_SPINLOCK_SLEEP is not set
-> # CONFIG_DEBUG_LOCKING_API_SELFTESTS is not set
-> # CONFIG_DEBUG_KOBJECT is not set
-> # CONFIG_DEBUG_HIGHMEM is not set
-> # CONFIG_DEBUG_VM is not set
-> # CONFIG_DEBUG_LIST is not set
-> # CONFIG_DEBUG_SG is not set
-> # CONFIG_BOOT_PRINTK_DELAY is not set
-> # CONFIG_DEBUG_STACKOVERFLOW is not set
-> # CONFIG_DEBUG_STACK_USAGE is not set
-> # CONFIG_DEBUG_RODATA is not set
+Yerk. I can put that fix into my tree, but my patch without
+the "correction" makes sockets behave very badly. I can't have
+people using it without Pavel's fix. Any notion on the plans to
+get that in?
 
-Regards,
-Jarek P.
+Thank you.
+
+
+Casey Schaufler
+casey@schaufler-ca.com
