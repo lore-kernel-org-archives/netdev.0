@@ -1,51 +1,52 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/2] e1000e: PCIe devices do not need to
-	unset MANC_ARP_ENA
-Date: Fri, 15 Feb 2008 10:53:58 -0500
-Message-ID: <47B5B596.6080301@garzik.org>
-References: <20080214181712.11070.48342.stgit@localhost.localdomain>
-	<20080214181720.11070.43867.stgit@localhost.localdomain>
+Subject: Re: [PATCH 2.6.25] igb: fix legacy mode irq issue
+Date: Fri, 15 Feb 2008 10:54:34 -0500
+Message-ID: <47B5B5BA.9020807@garzik.org>
+References: <20080214031920.GI856@gospo.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Auke Kok <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20080214181720.11070.43867.stgit@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Auke Kok <auke-jan.h.kok@intel.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andy Gospodarek <andy@greyhouse.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:52975 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752178AbYBOPyg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Feb 2008 10:54:36 -0500
+In-Reply-To: <20080214031920.GI856@gospo.usersys.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Auke Kok wrote:
-> From: David Graham <david.graham@intel.com>
+Andy Gospodarek wrote:
+> I booted an igb kernel with the option pci=nomsi and instantly noticed
+> that interrupts no longer worked on my igb device.  I took a look at the
+> interrupt initialization and quickly discovered a comment stating:
 > 
-> Users reported that ARP's were lost with e1000e. The problem
-> is fixed by not enabling this manageability configuration
-> bit.
+> "DO NOT USE EIAME or IAME in legacy mode"
 > 
-> None of the release_manageability code is actually needed as the
-> normal device reset during a shutdown returns everthing to
-> the right condition automatically.
+> It seemed a bit odd that bits to enable IAM were being set in legacy
+> interrupt mode, so I dropped out the following parts and interrupts
+> began working fine again.
 > 
-> Signed-off-by: David Graham <david.graham@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 > ---
 > 
->  drivers/net/e1000e/netdev.c |   26 --------------------------
->  1 files changed, 0 insertions(+), 26 deletions(-)
+>  igb_main.c |    3 ---
+>  1 files changed, 3 deletions(-)
+> 
+> diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+> index f3c144d..be5da09 100644
+> --- a/drivers/net/igb/igb_main.c
+> +++ b/drivers/net/igb/igb_main.c
+> @@ -472,9 +471,6 @@ static int igb_request_irq(struct igb_adapter *adapter)
+>  		goto request_done;
+>  	}
+>  
+> -	/* enable IAM, auto-mask */
+> -	wr32(E1000_IAM, IMS_ENABLE_MASK);
+> -
 
-applied 1-2
+ACK from Auke?  (apologies if I missed it...)
 
 
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2008.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
