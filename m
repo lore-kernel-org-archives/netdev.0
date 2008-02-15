@@ -1,190 +1,174 @@
-From: Christoph Raisch <RAISCH@de.ibm.com>
-Subject: Re: [PATCH] drivers/base: export gpl (un)register_memory_notifier
-Date: Fri, 15 Feb 2008 14:22:55 +0100
-Message-ID: <OF58A8E0B3.B5CC265E-ONC12573F0.00496E2B-C12573F0.0049850F@de.ibm.com>
-References: <200802111724.12416.ossthema@de.ibm.com>	 <1202748429.8276.21.camel@nimitz.home.sr71.net>
-	 <200802131617.58646.ossthema@de.ibm.com>	 <OF64B9886B.CE795DED-ONC12573EF.002FFA8B-C12573EF.00301683@de.ibm.com> <1203009163.19205.42.camel@nimitz.home.sr71.net>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: BUG/ spinlock lockup, 2.6.24
+Date: Fri, 15 Feb 2008 17:19:10 +0200
+Message-ID: <20080215150044.M24489@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: apw <apw@uk.ibm.com>, Greg KH <greg@kroah.com>,
-	Jan-Bernd Themann <THEMANN@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linuxppc-dev@ozlabs.org, netdev <netdev@vger.kernel.org>,
-	ossthema@linux.vnet.ibm.com, Badari Pulavarty <pbadari@us.ibm.com>,
-	Thomas Q Klein <TKLEIN@de.ibm.com>, tklein@linux.ibm.com
-To: Dave Hansen <haveblue@us.ibm.com>
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.de.ibm.com ([195.212.29.156]:34401 "EHLO
-	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751406AbYBOPTI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 10:19:08 -0500
-In-Reply-To: <1203009163.19205.42.camel@nimitz.home.sr71.net>
+Received: from usermail.globalproof.net ([194.146.153.18]:50771 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754964AbYBOPT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 10:19:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Server crashed(not responding over network), last line over netconsole was 
 
-Dave Hansen <haveblue@us.ibm.com> wrote on 14.02.2008 18:12:43:
+Feb 15 15:50:17 217.151.X.X [1521315.068984] BUG: spinlock lockup on CPU#1, 
+ksoftirqd/1/7, f0551180
 
-> On Thu, 2008-02-14 at 09:46 +0100, Christoph Raisch wrote:
-> > Dave Hansen <haveblue@us.ibm.com> wrote on 13.02.2008 18:05:00:
-> > > On Wed, 2008-02-13 at 16:17 +0100, Jan-Bernd Themann wrote:
-> > > > Constraints imposed by HW / FW:
-> > > > - eHEA has own MMU
-> > > > - eHEA  Memory Regions (MRs) are used by the eHEA MMU  to translate
-> > virtual
-> > > >   addresses to absolute addresses (like DMA mapped memory on a PCI
-bus)
-> > > > - The number of MRs is limited (not enough to have one MR per
-packet)
-> > >
-> > > Are there enough to have one per 16MB section?
-> >
-> > Unfortunately this won't work. This was one of our first ideas we
-tossed
-> > out,
-> > but the number of MRs will not be sufficient.
->
-> Can you give a ballpark of how many there are to work with? 10? 100?
-> 1000?
->
-It depends on HMC configuration, but in worst case the upper limit is in
-the 2 digits range.
+I have random crashes, at least once per week. It is very difficult to catch 
+error message, and only recently i setup netconsole. Now i got crash, but 
+there is no traceback and only single line came over netconsole, mentioned 
+before.
 
-> > > But, I'm really not convinced that you can actually keep this map
-> > > yourselves.  It's not as simple as you think.  What happens if you
-get
-> > > on an LPAR with two sections, one 256MB@0x0 and another
-> > > 16MB@0x1000000000000000.  That's quite possible.  I think your
-vmalloc'd
-> > > array will eat all of memory.
-> > I'm glad you mention this part. There are many algorithms out there to
-> > handle this problem,
-> > hashes/trees/... all of these trade speed for smaller memory footprint.
-> > We based the table decission on the existing implementations of the
-> > architecture.
-> > Do you see such a case coming along for the next generation POWER
-systems?
->
-> Dude.  It exists *TODAY*.  Go take a machine, add tens of gigabytes of
-> memory to it.  Then, remove all of the sections of memory in the middle.
-> You'll be left with a very sparse memory configuration that we *DO*
-> handle today in the core VM.  We handle it quite well, actually.
->
-> The hypervisor does not shrink memory from the top down.  It pulls
-> things out of the middle and shuffles things around.  In fact, a NUMA
-> node's memory isn't even contiguous.
->
-> Your code will OOM the machine in this case.  I consider the ehea driver
-> buggy in this regard.
+.config file 
+http://www.nuclearcat.com/files/config_qos
 
-Your comment indicates that the upper limit for memory to be set on HMC
-does not influence
-the upper limit of the partition physical address space.
-So our base assumption we discussed internally is wrong here.
-(conclusion see below)
->
-> > I would guess these drastic changes would also require changes in base
-> > kernel.
->
-> No, we actually solved those a couple years ago.
->
-> > Will you provide a generic mapping system with a contiguous virtual
-address
-> > space
-> > like the ehea_bmap we can query? This would need to be a "stable" part
-of
-> > the implementation,
-> > including translation functions from kernel to
-nextgen_ehea_generic_bmap
-> > like virt_to_abs.
->
-> Yes, that's a real possibility, especially if some other users for it
-> come forward.  We could definitely add something like that to the
-> generic code.  But, you'll have to be convincing that what we have now
-> is insufficient.
->
-> Does this requirement:
-> "- MRs cover a contiguous virtual memory block (no holes)"
-> come from the hardware?
->
-yes
-> Is that *EACH* MR?  OR all MRs?
->
-each
-> Where does EHEA_BUSMAP_START come from?  Is that defined in the
-> hardware?  Have you checked to ensure that no other users might want a
-> chunk of memory in that area?
->
-EHEA_BUSMAP_START is a value which has to match between the wqe
-virtual addresses and the MR used in them.
-Fortunately there's a simple answer on that one. Each MR has a own address
-space,
-so there's no need to check.
-A HEA MR actually has exactly the same attributes as a Infiniband MR with
-this hardware.
-send/receive processing is pretty much comparable to a Infiniband UD queue.
+Kernel is 2.6.24 with epoll patch(it is from mainline) applied.
+cat /proc/version
+Linux version 2.6.24-devel (root@visp-1) (gcc version 4.1.1 (Gentoo 4.1.1-
+r3)) #1 SMP Sat Jan 26 17:26:54 EET 2008
 
-> Can you query the existing MRs?
-no
-> Not change them in place, but can you
-> query their contents?
-no
->
-> > > That's why we have SPARSEMEM_EXTREME and SPARSEMEM_VMEMMAP
-implemented
-> > > in the core, so that we can deal with these kinds of problems, once
-and
-> > > *NOT* in every single little driver out there.
-> > >
-> > > > Functions to use while building ehea_bmap + MRs:
-> > > > - Use either the functions that are used by the memory hotplug
-system
-> > as
-> > > >   well, that means using the section defines + functions
-> > (section_nr_to_pfn,
-> > > >   pfn_valid)
-> > >
-> > > Basically, you can't use anything related to sections outside of the
-> > > core code.  You can use things like pfn_valid(), or you can create
-new
-> > > interfaces that are properly abstracted.
-> >
-> > We picked sections instead of PFNs because this keeps the ehea_bmap in
-a
-> > reasonable range
-> > on the existing systems.
-> > But if you provide a abstract method handling exactly the problem we
-> > mention
-> > we'll be happy to use that and dump our private implementation.
->
-> One thing you can guarantee today is that things are contiguous up to
-> MAX_ORDER_NR_PAGES.  That's a symbol that is unlikely to change and is
-> much more appropriate than using sparsemem.  We could also give you a
-> nice new #define like MINIMUM_CONTIGUOUS_PAGES or something.  I think
-> that's what you really want.
+visp-1 ~ # cat /proc/interrupts
+           CPU0       CPU1       CPU2       CPU3
+  0:      18361      17785      17471      17748   IO-APIC-edge      timer
+  1:          2          0          0          0   IO-APIC-edge      i8042
+  8:          5          4          3          4   IO-APIC-edge      rtc
+  9:          0          0          0          0   IO-APIC-fasteoi   acpi
+ 12:          1          0          1          2   IO-APIC-edge      i8042
+ 14:         14         17         17         15   IO-APIC-edge      libata
+ 15:          0          0          0          0   IO-APIC-edge      libata
+ 17:        269        259        256        259   IO-APIC-fasteoi   ioc0
+ 18:          5          5          6          7   IO-APIC-fasteoi   
+ehci_hcd:usb1, uhci_hcd:usb2, uhci_hcd:usb4
+ 19:          0          0          0          0   IO-APIC-fasteoi   
+uhci_hcd:usb3
+ 66:          1          0          0          0      none-<NULL>
+212:         27         32         35         32   PCI-MSI-edge      eth1
+213:      36818      36995      37307      37029   PCI-MSI-edge      eth0
+214:          0          1          1          1   PCI-MSI-edge
+NMI:      71107      70983      70962      70962   Non-maskable interrupts
+LOC:      53005      53178      53490      53214   Local timer interrupts
+RES:        414        434        363        378   Rescheduling interrupts
+CAL:         52         46         56         47   function call interrupts
+TLB:        398        288        403        264   TLB shootdowns
+TRM:          0          0          0          0   Thermal event interrupts
+SPU:          0          0          0          0   Spurious interrupts
+ERR:          0
+MIS:          0
 
-That's definitely the right direction.
+visp-1 ~ # cat /proc/cpuinfo
+processor       : 0
+vendor_id       : GenuineIntel
+cpu family      : 15
+model           : 6
+model name      : Intel(R) Xeon(TM) CPU 3.20GHz
+stepping        : 4
+cpu MHz         : 3192.163
+cache size      : 2048 KB
+physical id     : 0
+siblings        : 4
+core id         : 0
+cpu cores       : 2
+fdiv_bug        : no
+hlt_bug         : no
+f00f_bug        : no
+coma_bug        : no
+fpu             : yes
+fpu_exception   : yes
+cpuid level     : 6
+wp              : yes
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca 
+cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe nx lm 
+constant_tsc pebs bts sync_rdtsc pni monitor ds_cpl vmx cid cx16 xtpr lahf_lm
+bogomips        : 6390.17
+clflush size    : 64
 
->From this mail thread I would conclude....
-memory space can have holes, and drivers shouldn't make any assumption when
-where and how.
+processor       : 1
+vendor_id       : GenuineIntel
+cpu family      : 15
+model           : 6
+model name      : Intel(R) Xeon(TM) CPU 3.20GHz
+stepping        : 4
+cpu MHz         : 3192.163
+cache size      : 2048 KB
+physical id     : 0
+siblings        : 4
+core id         : 0
+cpu cores       : 2
+fdiv_bug        : no
+hlt_bug         : no
+f00f_bug        : no
+coma_bug        : no
+fpu             : yes
+fpu_exception   : yes
+cpuid level     : 6
+wp              : yes
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca 
+cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe nx lm 
+constant_tsc pebs bts sync_rdtsc pni monitor ds_cpl vmx cid cx16 xtpr lahf_lm
+bogomips        : 6383.72
+clflush size    : 64
 
-A translation from kernel to ehea_bmap space should be fast and predictable
-(ruling out hashes).
-If a driver doesn't know anything else about the mapping structure,
-the normal solution in kernel for this type of problem is a multi level
-look up table
-like pgd->pud->pmd->pte
-This doesn't sound right to be implemented in a device driver.
+processor       : 2
+vendor_id       : GenuineIntel
+cpu family      : 15
+model           : 6
+model name      : Intel(R) Xeon(TM) CPU 3.20GHz
+stepping        : 4
+cpu MHz         : 3192.163
+cache size      : 2048 KB
+physical id     : 0
+siblings        : 4
+core id         : 1
+cpu cores       : 2
+fdiv_bug        : no
+hlt_bug         : no
+f00f_bug        : no
+coma_bug        : no
+fpu             : yes
+fpu_exception   : yes
+cpuid level     : 6
+wp              : yes
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca 
+cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe nx lm 
+constant_tsc pebs bts sync_rdtsc pni monitor ds_cpl vmx cid cx16 xtpr lahf_lm
+bogomips        : 6383.75
+clflush size    : 64
 
-We didn't see from the existing code that such a mapping to a contiguous
-space already exists.
-Maybe we've missed it.
-
-If the mapping is less random, the translation gets much simpler.
-MAX_ORDER_NR_PAGES helps here, is there more like that?
+processor       : 3
+vendor_id       : GenuineIntel
+cpu family      : 15
+model           : 6
+model name      : Intel(R) Xeon(TM) CPU 3.20GHz
+stepping        : 4
+cpu MHz         : 3192.163
+cache size      : 2048 KB
+physical id     : 0
+siblings        : 4
+core id         : 1
+cpu cores       : 2
+fdiv_bug        : no
+hlt_bug         : no
+f00f_bug        : no
+coma_bug        : no
+fpu             : yes
+fpu_exception   : yes
+cpuid level     : 6
+wp              : yes
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca 
+cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe nx lm 
+constant_tsc pebs bts sync_rdtsc pni monitor ds_cpl vmx cid cx16 xtpr lahf_lm
+bogomips        : 6383.76
+clflush size    : 64
 
 
-Gruss / Regards
-Christoph Raisch + Jan-Bernd Themann
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
