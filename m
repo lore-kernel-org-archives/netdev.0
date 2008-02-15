@@ -1,51 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: tbench regression in 2.6.25-rc1
-Date: Fri, 15 Feb 2008 15:22:00 -0800 (PST)
-Message-ID: <20080215.152200.145584182.davem@davemloft.net>
-References: <47B52B95.3070607@cosmosbay.com>
-	<1203057044.3027.134.camel@ymzhang>
-	<47B59FFC.4030603@cosmosbay.com>
+Subject: Re: [PATCH] [XFRM] Add CONFIG_INET dependency to
+ CONFIG_XFRM_STATISTICS
+Date: Fri, 15 Feb 2008 15:24:00 -0800 (PST)
+Message-ID: <20080215.152400.65001698.davem@davemloft.net>
+References: <1203088123.29269.1.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yanmin_zhang@linux.intel.com, herbert@gondor.apana.org.au,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: netdev@vger.kernel.org
+To: johfel@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59391
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58766
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752725AbYBOXV1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 18:21:27 -0500
-In-Reply-To: <47B59FFC.4030603@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1753856AbYBOXXb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 18:23:31 -0500
+In-Reply-To: <1203088123.29269.1.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 15 Feb 2008 15:21:48 +0100
+From: Johann Felix Soden <johfel@gmx.de>
+Date: Fri, 15 Feb 2008 16:08:43 +0100
 
-> On linux-2.6.25-rc1 x86_64 :
+> From: Johann Felix Soden <johfel@users.sourceforge.net>
 > 
-> offsetof(struct dst_entry, lastuse)=0xb0
-> offsetof(struct dst_entry, __refcnt)=0xb8
-> offsetof(struct dst_entry, __use)=0xbc
-> offsetof(struct dst_entry, next)=0xc0
+> With INET=n and XFRM_STATISTICS=y I get the following build failure:
 > 
-> So it should be optimal... I dont know why tbench prefers __refcnt being 
-> on 0xc0, since in this case lastuse will be on a different cache line...
+> net/built-in.o: In function `xfrm_init':
+> (.init.text+0xcd7): undefined reference to `snmp_mib_init'
 > 
-> Each incoming IP packet will need to change lastuse, __refcnt and __use, 
-> so keeping them in the same cache line is a win.
-> 
-> I suspect then that even this patch could help tbench, since it avoids 
-> writing lastuse...
+> Signed-off-by: Johann Felix Soden <johfel@users.sourceforge.net>
+> CC: Masahide NAKAMURA <nakam@linux-ipv6.org>
 
-I think your suspicions are right, and even moreso
-it helps to keep __refcnt out of the same cache line
-as input/output/ops which are read-almost-entirely :-)
-
-I haven't done an exhaustive analysis, but it seems that
-the write traffic to lastuse and __refcnt are about the
-same.  However if we find that __refcnt gets hit more
-than lastuse in this workload, it explains the regression.
-
-
+A fix for this has been in my net-2.6 tree for a few days,
+and Linus pulled it in this morning.
