@@ -1,35 +1,39 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000e: Fix CRC stripping in hardware context bug
-Date: Fri, 15 Feb 2008 10:53:41 -0500
-Message-ID: <47B5B585.4070107@garzik.org>
-References: <20080212232024.13842.10804.stgit@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch] Fix station address detection in smc
+Date: Fri, 15 Feb 2008 10:53:11 -0500
+Message-ID: <47B5B567.9060501@pobox.com>
+References: <47B38F8F.6060408@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, johan.andersson@transmode.se,
-	andy@greyhouse.net, e1000-devel@lists.sourceforge.net
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: Dominik Brodowski <linux@dominikbrodowski.net>,
+	linux-pcmcia@lists.infradead.org, Netdev <netdev@vger.kernel.org>
+To: Chuck Ebbert <cebbert@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52917 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:52914 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752526AbYBOPxp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Feb 2008 10:53:45 -0500
-In-Reply-To: <20080212232024.13842.10804.stgit@localhost.localdomain>
+	id S1753425AbYBOPxj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Feb 2008 10:53:39 -0500
+In-Reply-To: <47B38F8F.6060408@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Auke Kok wrote:
-> CRC stripping was only correctly enabled for packet split recieves
-> which is used when receiving jumbo frames. Correctly enable SECRC
-> also for normal buffer packet receives.
+Chuck Ebbert wrote:
+> Megahertz EM1144 PCMCIA ethernet adapter needs special handling
+> because it has two VERS_1 tuples and the station address is in
+> the second one. Conversion to generic handling of these fields
+> broke it. Reverting that fixes the device.
 > 
-> Tested by Andy Gospodarek and Johan Andersson, see bugzilla #9940.
+>   https://bugzilla.redhat.com/show_bug.cgi?id=233255
 > 
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> Thanks go to Jon Stanley for not giving up on this one until the
+> problem was found.
+> 
+> Signed-off-by: Chuck Ebbert <cebbert@redhat.com>
+> 
 > ---
 > 
->  drivers/net/e1000e/netdev.c |    6 +++---
->  1 files changed, 3 insertions(+), 3 deletions(-)
+> This was broken for over a year before the problem was found...
 
 applied
 
