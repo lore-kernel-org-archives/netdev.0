@@ -1,61 +1,69 @@
-From: "Rune Torgersen" <runet@innovsys.com>
-Subject: RE: [PATCH] fs_enet: Don't call phy_mii_ioctl() in atomic context.
-Date: Fri, 15 Feb 2008 15:47:32 -0600
-Message-ID: <DCEAAC0833DD314AB0B58112AD99B93B04006942@ismail.innsys.innovsys.com>
-References: <20080215210804.GA14468@loki.buserror.net>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] igb: fix legacy mode irq issue
+Date: Fri, 15 Feb 2008 14:05:25 -0800
+Message-ID: <20080215220525.28483.30217.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
-To: "Scott Wood" <scottwood@freescale.com>, <jgarzik@pobox.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	andy@greyhouse.net
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.innovsys.com ([66.115.232.196]:36051 "EHLO
-	mail.innovsys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753065AbYBOVrf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 16:47:35 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20080215210804.GA14468@loki.buserror.net>
+Received: from mga02.intel.com ([134.134.136.20]:59105 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753462AbYBOWHW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Feb 2008 17:07:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Scott Wood wrote:
-> The lock acquisition in fs_ioctl() does not appear to actually be
-> necessary, and thus is simply removed.
-> 
-> Signed-off-by: Scott Wood <scottwood@freescale.com> ---
-> This fixes the following bug:
-> http://ozlabs.org/pipermail/linuxppc-dev/2008-February/051564.html
-> 
->  drivers/net/fs_enet/fs_enet-main.c |    7 +------
->  1 files changed, 1 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/fs_enet/fs_enet-main.c
-> b/drivers/net/fs_enet/fs_enet-main.c
-> index 42d94ed..af869cf 100644
-> --- a/drivers/net/fs_enet/fs_enet-main.c
-> +++ b/drivers/net/fs_enet/fs_enet-main.c
-> @@ -946,16 +946,11 @@ static int fs_ioctl(struct net_device
-> *dev, struct ifreq *rq, int cmd)
->  {
->  	struct fs_enet_private *fep = netdev_priv(dev);
->  	struct mii_ioctl_data *mii = (struct mii_ioctl_data
-*)&rq->ifr_data;
-> -	unsigned long flags;
-> -	int rc;
-> 
->  	if (!netif_running(dev))
->  		return -EINVAL;
-> 
-> -	spin_lock_irqsave(&fep->lock, flags);
-> -	rc = phy_mii_ioctl(fep->phydev, mii, cmd);
-> -	spin_unlock_irqrestore(&fep->lock, flags);
-> -	return rc;
-> +	return phy_mii_ioctl(fep->phydev, mii, cmd);
->  }
-> 
->  extern int fs_mii_connect(struct net_device *dev);
+From: Andy Gospodarek <andy@greyhouse.net>
 
-Acked-by: Rune Torgersen <runet@innovsys.com>
+I booted an igb kernel with the option pci=nomsi and instantly noticed
+that interrupts no longer worked on my igb device.  I took a look at the
+interrupt initialization and quickly discovered a comment stating:
 
-Tested it and it does indeed take care of the bug.
+"DO NOT USE EIAME or IAME in legacy mode"
+
+It seemed a bit odd that bits to enable IAM were being set in legacy
+interrupt mode, so I dropped out the following parts and interrupts
+began working fine again.
+
+[Updated code flow and a nitpick spelling error --Auke]
+
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
+
+ drivers/net/igb/igb_main.c |    9 ++-------
+ 1 files changed, 2 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index bff280e..3480cc7 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -439,7 +439,7 @@ static int igb_request_irq(struct igb_adapter *adapter)
+ 		err = igb_request_msix(adapter);
+ 		if (!err) {
+ 			/* enable IAM, auto-mask,
+-			 * DO NOT USE EIAME or IAME in legacy mode */
++			 * DO NOT USE EIAM or IAM in legacy mode */
+ 			wr32(E1000_IAM, IMS_ENABLE_MASK);
+ 			goto request_done;
+ 		}
+@@ -465,14 +465,9 @@ static int igb_request_irq(struct igb_adapter *adapter)
+ 	err = request_irq(adapter->pdev->irq, &igb_intr, IRQF_SHARED,
+ 			  netdev->name, netdev);
+ 
+-	if (err) {
++	if (err)
+ 		dev_err(&adapter->pdev->dev, "Error %d getting interrupt\n",
+ 			err);
+-		goto request_done;
+-	}
+-
+-	/* enable IAM, auto-mask */
+-	wr32(E1000_IAM, IMS_ENABLE_MASK);
+ 
+ request_done:
+ 	return err;
+
