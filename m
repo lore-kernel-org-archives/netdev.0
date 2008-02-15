@@ -1,73 +1,66 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@wide.ad.jp>
-Subject: [RFC PATCH] [XFRM]: Fix ordering issue in xfrm_dst_hash_transfer().
-Date: Fri, 15 Feb 2008 13:24:24 +1100 (EST)
-Message-ID: <20080215.132424.85799616.yoshfuji@wide.ad.jp>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: tbench regression in 2.6.25-rc1
+Date: Fri, 15 Feb 2008 07:05:09 +0100
+Message-ID: <47B52B95.3070607@cosmosbay.com>
+References: <1203040321.3027.131.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, sdecugis@hongo.wide.ad.jp,
-	kazunori@miyazawa.org, yoshfuji@linux-ipv6.org,
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, LKML <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:46196 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755735AbYBOCXm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2008 21:23:42 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764421AbYBOGFc@vger.kernel.org>
+In-Reply-To: <1203040321.3027.131.camel@ymzhang>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Keep ordering of policy entries with same selector in xfrm_dst_hash_transfer().
+Zhang, Yanmin a =C3=A9crit :
+> Comparing with kernel 2.6.24, tbench result has regression with
+> 2.6.25-rc1.
+>=20
+> 1) On 2 quad-core processor stoakley: 4%.
+> 2) On 4 quad-core processor tigerton: more than 30%.
+>=20
+> bisect located below patch.
+>=20
+> b4ce92775c2e7ff9cf79cca4e0a19c8c5fd6287b is first bad commit
+> commit b4ce92775c2e7ff9cf79cca4e0a19c8c5fd6287b
+> Author: Herbert Xu <herbert@gondor.apana.org.au>
+> Date:   Tue Nov 13 21:33:32 2007 -0800
+>=20
+>     [IPV6]: Move nfheader_len into rt6_info
+>    =20
+>     The dst member nfheader_len is only used by IPv6.  It's also curr=
+ently
+>     creating a rather ugly alignment hole in struct dst.  Therefore t=
+his patch
+>     moves it from there into struct rt6_info.
+>=20
+>=20
+> As tbench uses ipv4, so the patch's real impact on ipv4 is it deletes
+> nfheader_len in dst_entry. It might change cache line alignment.
+>=20
+> To verify my finding, I just added nfheader_len back to dst_entry in =
+2.6.25-rc1
+> and reran tbench on the 2 machines. Performance could be recovered co=
+mpletely.
+>=20
+> I started cpu_number*2 tbench processes. On my 16-core tigerton:
+> #./tbench_srv &
+> #./tbench 32 127.0.0.1
+>=20
+> -yanmin
 
-Issue should not appear in usual cases because multiple policy entries with
-same selector are basically not allowed so far.
-Bug was pointed out by Sebastien Decugis <sdecugis@hongo.wide.ad.jp>.
+Yup. struct dst is sensitive to alignements, especially for benches.
 
-We could convert bydst from hlist to list and use list_add_tail() instead.
+In the real world, we need to make sure that next pointer start at a ca=
+che=20
+line bondary (or a litle bit after), so that RT cache lookups use one c=
+ache=20
+line per entry instead of two. This permits better behavior in DDOS att=
+acks.
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+(check commit 1e19e02ca0c5e33ea73a25127dbe6c3b8fcaac4b for reference)
 
-----
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 47219f9..9fc4c31 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -331,15 +331,31 @@ static void xfrm_dst_hash_transfer(struct hlist_head *list,
- 				   struct hlist_head *ndsttable,
- 				   unsigned int nhashmask)
- {
--	struct hlist_node *entry, *tmp;
-+	struct hlist_node *entry, *tmp, *entry0 = NULL;
- 	struct xfrm_policy *pol;
-+	unsigned int h0 = 0;
- 
-+redo:
- 	hlist_for_each_entry_safe(pol, entry, tmp, list, bydst) {
- 		unsigned int h;
- 
- 		h = __addr_hash(&pol->selector.daddr, &pol->selector.saddr,
- 				pol->family, nhashmask);
--		hlist_add_head(&pol->bydst, ndsttable+h);
-+		if (!entry0) {
-+			hlist_del(entry);
-+			hlist_add_head(&pol->bydst, ndsttable+h);
-+			h0 = h;
-+		} else {
-+			if (h != h0)
-+				continue;
-+			hlist_del(entry);
-+			hlist_add_after(entry0, &pol->bydst);
-+		}
-+		entry0 = entry;
-+	}
-+	if (!hlist_empty(list)) {
-+		entry0 = NULL;
-+		goto redo;
- 	}
- }
- 
-
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Are you using a 64 or a 32 bit kernel ?
