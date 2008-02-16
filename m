@@ -1,39 +1,72 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: RESEND, HTB(?) softlockup, vanilla 2.6.24
-Date: Sat, 16 Feb 2008 21:45:19 +0100
-Message-ID: <20080216204519.GA2739@ami.dom.local>
-References: <20080213081318.M90354@visp.net.lb> <47B69824.4030405@gmail.com> <20080216102502.M41110@visp.net.lb>
+From: Andrey Borzenkov <arvidjaar@mail.ru>
+Subject: [PATCH][2.6.25-rc2] Fix double lock in do_setlink introduced by 45b503548210fe6f23e92b856421c2a3f05fd034
+Date: Sun, 17 Feb 2008 02:57:25 +0300
+Message-ID: <200802170257.26406.arvidjaar@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:59918 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756411AbYBPUmX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2008 15:42:23 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so81481ugc.16
-        for <netdev@vger.kernel.org>; Sat, 16 Feb 2008 12:42:22 -0800 (PST)
+Content-Type: multipart/signed;
+  boundary="nextPart1672911.79msO7FFKx";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Laszlo Attila Toth <panther@balabit.hu>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754838AbYBPX6c@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--nextPart1672911.79msO7FFKx
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
-In-Reply-To: <20080216102502.M41110@visp.net.lb>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 16, 2008 at 12:25:31PM +0200, Denys Fedoryshchenko wrote:
-> Thanks, i will try it.
-> You think lockdep can be buggy?
+[   58.097923] =============================================
+[   58.098883] [ INFO: possible recursive locking detected ]
+[   58.099603] 2.6.25-rc2-1avb #1
+[   58.100013] ---------------------------------------------
+[   58.100672] wpa_supplicant/2682 is trying to acquire lock:
+[   58.100672]  (dev_base_lock){-.--}, at: [<c0278697>] do_setlink+0x327/0x3
+[   58.100672]
+[   58.100672] but task is already holding lock:
+[   58.100672]  (dev_base_lock){-.--}, at: [<c0278680>] do_setlink+0x310/0x3
 
-Just like every code... But the main reason is it has quite meaningful
-overhead, so could be right "in production" only after lockups happen.
-But if it doesn't report anything anyway...
+with final effect
 
-Your report shows there are quite long paths of calls during softirqs
-with some actions (ipt + mirred here?) and qdiscs, so if I'm not wrong
-with this stack problem, this would need some optimization. And, of
-course, there could be some additional bugs involved around too:
-otherwise it seems this should happen more often. But I don't expect
-you would try to debug this on your servers, so I hope, it simply will
-be found BTW some day... 
+[   58.537509] Kernel panic - not syncing: Aiee, killing interrupt handler!
 
-Regards,
-Jarek P.
+Signed-off-by: Andrey Borzenkov <arvidjaar@mail.ru>
+
+---
+
+ net/core/rtnetlink.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index ecb02af..dd9e4da 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -853,7 +853,7 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 		if (dev->link_mode != nla_get_u8(tb[IFLA_LINKMODE])) {
+ 			write_lock_bh(&dev_base_lock);
+ 			dev->link_mode = nla_get_u8(tb[IFLA_LINKMODE]);
+-			write_lock_bh(&dev_base_lock);
++			write_unlock_bh(&dev_base_lock);
+ 			modified = 1;
+ 		}
+ 	}
+
+--nextPart1672911.79msO7FFKx
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.8 (GNU/Linux)
+
+iEYEABECAAYFAke3eGYACgkQR6LMutpd94xnDACgqPoLl9TgypB1pWoItETNPbw4
+2+8AnRtL15Dne3hkBHz7J3ap9po+IfYb
+=BHQL
+-----END PGP SIGNATURE-----
+
+--nextPart1672911.79msO7FFKx--
