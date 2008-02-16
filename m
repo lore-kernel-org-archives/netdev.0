@@ -1,51 +1,58 @@
-From: "Kyle Moffett" <kyle@moffetthome.net>
-Subject: [RFC] Best method to control a "transmit-only" mode on fiber NICs (specifically sky2)
-Date: Fri, 15 Feb 2008 22:41:46 -0500
-Message-ID: <f73f7ab80802151941x5daf34e3scd0f42a05291db51@mail.gmail.com>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [PATCH] (02/15/08 Linus git) Smack unlabeled outgoing ambient packets - v4
+Date: Fri, 15 Feb 2008 20:36:10 -0800 (PST)
+Message-ID: <998774.580.qm@web36608.mail.mud.yahoo.com>
+References: <200802152213.11661.paul.moore@hp.com>
+Reply-To: casey@schaufler-ca.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: "Linux NetDev" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"Stephen Hemminger" <stephen.hemminger@vyatta.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>, casey@schaufler-ca.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.183]:14944 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755552AbYBPDls (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 22:41:48 -0500
-Received: by py-out-1112.google.com with SMTP id u52so1133868pyb.10
-        for <netdev@vger.kernel.org>; Fri, 15 Feb 2008 19:41:47 -0800 (PST)
-Content-Disposition: inline
+Received: from web36608.mail.mud.yahoo.com ([209.191.85.25]:20004 "HELO
+	web36608.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752950AbYBPEgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2008 23:36:11 -0500
+In-Reply-To: <200802152213.11661.paul.moore@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-The company I'm working for has an unusual fiber NIC configuration
-that we use for one of our network appliances.  We connect only a
-single fiber from the TX port on one NIC to the RX port on another
-NIC, providing a physically-one-way path for enhanced security.
-Unfortunately this doesn't work with most NIC drivers, as even with
-auto-negotiation off they look for link probe pulses before they
-consider the link "up" and are willing to send packets.  We have been
-able to use Myricom 10GigE NICs with a custom firmware image.  More
-recently we have patched the sky2 driver to turn on the FIB_FORCE_LNK
-flag in the PHY control register; this seems to work on the
-Marvell-chipset boards we have here.
+--- Paul Moore <paul.moore@hp.com> wrote:
 
-What would be the preferred way to control this "force link" flag?
-Right now we are accessing it using ethtool; we have added an
-additional "duplex" mode: "DUPLEX_TXONLY", with a value of 2.  When
-you specify a speed and turn off autonegotiation ("./patched-ethtool
--s eth2 speed 1000 autoneg off duplex txonly"), it will turn on the
-specified bit in the PHY control register and the link will
-automatically come up.  We also have one related bug-fix^Wdirty hack
-for sky2 to reset the PHY a second time during netif-up after enabling
-interrupts; otherwise the immediate "link up" interrupt gets lost.
-Once I get approval from the company I will patch the post itself for
-review.
+> On Friday 15 February 2008 6:24:25 pm Casey Schaufler wrote:
+> > From: Casey Schaufler <casey@schaufler-ca.com>
+> >
+> > Smack uses CIPSO labeling, but allows for unlabeled packets
+> > by specifying an "ambient" label that is applied to incoming
+> > unlabeled packets. Because the other end of the connection
+> > may dislike IP options, and ssh is one know application that
+> > behaves thus, it is prudent to respond in kind. This patch
+> > changes the network labeling behavior such that an outgoing
+> > packet that would be given a CIPSO label that matches the
+> > ambient label is left unlabeled. An "unlbl" domain is added
+> > and the netlabel defaulting mechanism invoked rather than
+> > assuming that everything is CIPSO. Locking has been added
+> > around changes to the ambient label as the mechanisms used
+> > to do so are more involved.
+> >
+> > Cleaned up some issues noted in review.
+> > Make smk_cipso_doi() static.
+> > Create a hook for the new security_secctx_to_secid()
+> > using existing underlying code.
+> > Fill in audit data for netlbl domain calls.
+> > Collapse unnecessary multiple assignments.
+> >
+> > Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
+> 
+> Looks good to me, thanks for making those changes.
+> 
+> Acked-by: Paul Moore <paul.moore@hp.com>
 
-I look forward to your comments and suggestions
+Thank you for the insights.
 
-Cheers,
-Kyle Moffett
+
+Casey Schaufler
+casey@schaufler-ca.com
