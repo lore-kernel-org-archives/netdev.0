@@ -1,31 +1,31 @@
 From: "Subbu Seetharaman" <subbus@serverengines.com>
-Subject: [PATHCH 2/16]  ServerEngines 10Gb NIC driver
-Date: Sat, 16 Feb 2008 18:30:58 -0800
-Message-ID: <20080217023058.2f0f231f@mailhost.serverengines.com>
+Subject: [PATHCH 4/16]  ServerEngines 10Gb NIC driver
+Date: Sat, 16 Feb 2008 18:31:24 -0800
+Message-ID: <20080217023124.b9de3b8d@mailhost.serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail192.messagelabs.com ([216.82.242.147]:47538 "EHLO
+Received: from mail192.messagelabs.com ([216.82.242.147]:48118 "EHLO
 	mail192.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754823AbYBQCbB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2008 21:31:01 -0500
+	with ESMTP id S1752363AbYBQCba convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2008 21:31:30 -0500
 Received: from 59.93.89.51 ([59.93.89.51])
 	by mailhost.serverengines.com
 	for netdev@vger.kernel.org;
-	Sat, 16 Feb 2008 18:30:58 -0800
+	Sat, 16 Feb 2008 18:31:25 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NIC driver transmit and interrupt / completion processing functions.
+beclib header files.
 
-----------------
-diff -uprN orig/linux-2.6.24.2/drivers/net/benet/be_int.c benet/linux-2.6.24.2/drivers/net/benet/be_int.c
---- orig/linux-2.6.24.2/drivers/net/benet/be_int.c	1970-01-01 05:30:00.000000000 +0530
-+++ benet/linux-2.6.24.2/drivers/net/benet/be_int.c	2008-02-14 15:30:42.802036160 +0530
-@@ -0,0 +1,1254 @@
+-----------------------
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/pch.h benet/linux-2.6.24.2/drivers/message/beclib/pch.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/pch.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/pch.h	2008-02-14 15:23:07.797207408 +0530
+@@ -0,0 +1,58 @@
 +/*
 + * Copyright (C) 2005 - 2008 ServerEngines
 + * All rights reserved.
@@ -57,1212 +57,1367 @@ diff -uprN orig/linux-2.6.24.2/drivers/net/benet/be_int.c benet/linux-2.6.24.2/d
 + * Sunnyvale, CA 94085
 + *
 + */
++/*!
++@file
++   pch.h
 +
-+#include <linux/pci.h>
-+#include <linux/if_vlan.h>
++@brief
 +
-+#ifdef RX_PKT_COALESCE
-+#include <net/tcp.h>
-+#endif
-+
-+#include "be.h"
-+
-+/* number of bytes of RX frame that are copied to skb->data */ #define 
-+BE_HDR_LEN 64
-+
-+#ifdef CONFIG_BENET_NAPI
-+#define VLAN_ACCEL_RX(skb, pnob, vt) \
-+		vlan_hwaccel_receive_skb(skb, OSM_NOB(pnob)->vlan_grp, vt); #else 
-+#define VLAN_ACCEL_RX(skb, pnob, vt) \
-+		vlan_hwaccel_rx(skb, OSM_NOB(pnob)->vlan_grp, vt); #endif
-+
-+#ifdef CONFIG_BENET_NAPI
-+#define NETIF_RX(skb) netif_receive_skb(skb); #else #define 
-+NETIF_RX(skb) netif_rx(skb); #endif
++    Each .c file in beclib includes this "precompiled header" file.
++    It should ONLY be included by beclib files.
++    Clients of beclib should include "beclib.h" instead.
++*/
++#ifndef __pch_h__
++#define __pch_h__
 +
 +/*
-+ * adds additional receive frags indicated by BE starting from given
-+ * frag index (fi) to specified skb's frag list  */ static inline void 
-+add_skb_frags(PBNI_NET_OBJECT pnob, struct sk_buff *skb,
-+		int nresid, u32 fi)
-+{
-+	PBE_ADAPTER adapter = OSM_NOB(pnob)->adapter;
-+	u32 sk_frag_idx, n;
-+	BE_RX_PAGE_INFO *rx_page_info;
-+	u32 frag_sz = pnob->rx_buf_size;
-+
-+	sk_frag_idx = skb_shinfo(skb)->nr_frags;
-+	while (nresid) {
-+		fi = (fi + 1) % pnob->rx_q_len; /* frag index */
-+
-+		rx_page_info = (BE_RX_PAGE_INFO *) pnob->rx_ctxt[fi];
-+		pnob->rx_ctxt[fi] = (void *)NULL;
-+		if ((rx_page_info->page_offset) ||
-+				(OSM_NOB(pnob)->rx_pg_shared == FALSE)) {
-+			pci_unmap_page(adapter->pdev,
-+				       pci_unmap_addr(rx_page_info, bus),
-+				       frag_sz, PCI_DMA_FROMDEVICE);
-+		}
-+
-+		n = MIN(nresid, frag_sz);
-+		skb_shinfo(skb)->frags[sk_frag_idx].page
-+		    = rx_page_info->page;
-+		skb_shinfo(skb)->frags[sk_frag_idx].page_offset
-+		    = rx_page_info->page_offset;
-+		skb_shinfo(skb)->frags[sk_frag_idx].size = n;
-+
-+		sk_frag_idx++;
-+		skb->len += n;
-+		skb->data_len += n;
-+		skb_shinfo(skb)->nr_frags++;
-+		nresid -= n;
-+
-+		memset(rx_page_info, 0, sizeof(BE_RX_PAGE_INFO));
-+		sa_atomic_decrement(&pnob->rx_q_posted);
-+	}
-+}
-+
-+/*
-+ * This function processes incoming nic packets over various Rx queues.
-+ * This function takes the adapter, the current Rx status descriptor
-+ * entry and the Rx completion queue ID as argument.
++ * -----------------------------------------------------------------------
++ *    Our custom includes
++ * 
++-----------------------------------------------------------------------
 + */
-+static inline int process_nic_rx_completion(PBNI_NET_OBJECT pnob,
-+					    PETH_RX_COMPL rxcp)
-+{
-+	PBE_ADAPTER adapter = OSM_NOB(pnob)->adapter;
-+	struct sk_buff *skb;
-+	int udpcksm, tcpcksm;
-+	int n, fi;
-+	int nresid;
-+	unsigned int frag_sz = pnob->rx_buf_size;
-+	u8 *va;
-+	BE_RX_PAGE_INFO *rx_page_info;
 +
-+	fi = rxcp->fragndx;
-+	SA_ASSERT(fi < (int)pnob->rx_q_len);
-+	SA_ASSERT(fi >= 0);
++#define _SA_MODULE_NAME "beclib_lk"
++#define BECLIB_BUILD
 +
-+	rx_page_info = (BE_RX_PAGE_INFO *) pnob->rx_ctxt[fi];
-+	SA_ASSERT(rx_page_info->page);
-+	pnob->rx_ctxt[fi] = (void *)NULL;
++#include "beclib_ll.h"
++#include "beclib_private_ll.h"
++#include "bestatus.h"
 +
-+	/*
-+	 * If one page is used per fragment or if this is the second half of
-+	 *  of the page, unmap the page here
-+	 */
-+	if ((rx_page_info->page_offset) ||
-+				(OSM_NOB(pnob)->rx_pg_shared == FALSE)) {
-+		pci_unmap_page(adapter->pdev,
-+			       pci_unmap_addr(rx_page_info, bus), frag_sz,
-+			       PCI_DMA_FROMDEVICE);
-+	}
-+
-+	sa_atomic_decrement(&pnob->rx_q_posted);
-+	udpcksm = rxcp->udpcksm;
-+	tcpcksm = rxcp->tcpcksm;
-+	/*
-+	 * get rid of RX flush completions first.
-+	 */
-+	if ((tcpcksm) && (udpcksm) && (rxcp->pktsize == 32)) {
-+		put_page(rx_page_info->page);
-+		memset(rx_page_info, 0, sizeof(BE_RX_PAGE_INFO));
-+		return SUCCESS;
-+	}
-+	skb = alloc_skb(BE_HDR_LEN + 16, GFP_ATOMIC);
-+	if (skb == NULL) {
-+		printk(KERN_WARNING "alloc_skb() failed\n");
-+		put_page(rx_page_info->page);
-+		memset(rx_page_info, 0, sizeof(BE_RX_PAGE_INFO));
-+		goto free_frags;
-+	}
-+	skb_reserve(skb, NET_IP_ALIGN);
-+
-+	skb->dev = OSM_NOB(pnob)->os_handle;
-+
-+	SA_ASSERT(rxcp->numfrags > 0);
-+	SA_ASSERT(rxcp->numfrags ==
-+		  ((rxcp->pktsize + frag_sz - 1) / frag_sz));
-+
-+	/* Only one of udpcksum and tcpcksum can be set */
-+	SA_ASSERT(!(udpcksm && tcpcksm));
-+
-+	TRACE(DL_RECV, "First fragment");
-+	n = MIN(rxcp->pktsize, frag_sz);
-+
-+	va = page_address(rx_page_info->page) + rx_page_info->page_offset;
-+	prefetch(va);
-+
-+	skb->len = skb->data_len = n;
-+	if (n <= BE_HDR_LEN) {
-+		memcpy(skb->data, va, n);
-+		put_page(rx_page_info->page);
-+		skb->data_len -= n;
-+		skb->tail += n;
-+	} else {
-+
-+		/* Setup the SKB with page buffer information */
-+		skb_shinfo(skb)->frags[0].page = rx_page_info->page;
-+		skb_shinfo(skb)->nr_frags++;
-+
-+		/* Copy the header into the skb_data */
-+		memcpy(skb->data, va, BE_HDR_LEN);
-+		skb_shinfo(skb)->frags[0].page_offset =
-+		    rx_page_info->page_offset + BE_HDR_LEN;
-+		skb_shinfo(skb)->frags[0].size = n - BE_HDR_LEN;
-+		skb->data_len -= BE_HDR_LEN;
-+		skb->tail += BE_HDR_LEN;
-+	}
-+	memset(rx_page_info, 0, sizeof(BE_RX_PAGE_INFO));
-+	nresid = rxcp->pktsize - n;
-+
-+	skb->protocol = eth_type_trans(skb, OSM_NOB(pnob)->os_handle);
-+
-+	if ((tcpcksm || udpcksm) && adapter->rx_csum) {
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	} else {
-+		skb->ip_summed = CHECKSUM_NONE;
-+	}
-+
-+	/*
-+	 * if we have more bytes left, the frame has been
-+	 * given to us in multiple fragments.  This happens
-+	 * with Jumbo frames. Add the remaining fragments to
-+	 * skb->frags[] array.
-+	 */
-+	if (nresid)
-+		add_skb_frags(pnob, skb, nresid, fi);
-+
-+	/* update the the true size of the skb. */
-+	skb->truesize = skb->len + sizeof(struct sk_buff);
-+
-+	/*
-+	 * If a 802.3 frame or 802.2 LLC frame
-+	 * (i.e) contains length field in MAC Hdr
-+	 * and frame len is greater than 64 bytes
-+	 */
-+	if (((skb->protocol == ntohs(ETH_P_802_2)) ||
-+	     (skb->protocol == ntohs(ETH_P_802_3)))
-+	    && (rxcp->pktsize > BE_HDR_LEN)) {
-+		/*
-+		 * If the length given in Mac Hdr is less than frame size
-+		 * Erraneous frame, Drop it
-+		 */
-+		if ((ntohs(*(u16 *) (va + 12)) + ETH_HLEN) < rxcp->pktsize) {
-+			/* Increment Non Ether type II frames dropped */
-+			adapter->be_stat.bes_802_3_dropped_frames++;
-+
-+			kfree_skb(skb);
-+			return SUCCESS;
-+		}
-+		/*
-+		 * else if the length given in Mac Hdr is greater than
-+		 * frame size, should not be seeing this sort of frames
-+		 * dump the pkt and pass to stack
-+		 */
-+		else if ((ntohs(*(u16 *) (va + 12)) + ETH_HLEN) >
-+			 rxcp->pktsize) {
-+			/* Increment Non Ether type II frames malformed */
-+			adapter->be_stat.bes_802_3_malformed_frames++;
-+		}
-+	}
-+
-+	if (rxcp->vtp && rxcp->vtm) {
-+		/* Vlan tag present in pkt and BE found
-+		 * that the tag matched an entry in VLAN table
-+		 */
-+		if (!(OSM_NOB(pnob)->vlan_grp) ||
-+				OSM_NOB(pnob)->num_vlans == 0) {
-+			/* But we have no VLANs configured.
-+			 * This should never happen.  Drop the packet.
-+			 */
-+			printk(KERN_ERR
-+				"BladeEngine: Unexpected vlan tagged packet\n");
-+			kfree_skb(skb);
-+			return SUCCESS;
-+		}
-+		/* pass the VLAN packet to stack */
-+		VLAN_ACCEL_RX(skb, pnob, be16_to_cpu(rxcp->vlan_tag));
-+
-+	} else {
-+		NETIF_RX(skb);
-+	}
-+
-+	return SUCCESS;
-+free_frags:
-+	/* free all frags associated with the current rxcp */
-+	while (rxcp->numfrags-- > 1) {
-+		fi = (fi + 1) % pnob->rx_q_len;
-+
-+		rx_page_info = (BE_RX_PAGE_INFO *)
-+		    pnob->rx_ctxt[fi];
-+		pnob->rx_ctxt[fi] = (void *)NULL;
-+		if ((rx_page_info->page_offset) ||
-+				(OSM_NOB(pnob)->rx_pg_shared == FALSE)) {
-+			pci_unmap_page(adapter->pdev,
-+				       pci_unmap_addr(rx_page_info, bus),
-+				       frag_sz, PCI_DMA_FROMDEVICE);
-+		}
-+
-+		put_page(rx_page_info->page);
-+		memset(rx_page_info, 0, sizeof(BE_RX_PAGE_INFO));
-+		sa_atomic_decrement(&pnob->rx_q_posted);
-+	}
-+	return -ENOMEM;
-+}
-+
-+#ifdef RX_PKT_COALESCE
++#endif /* __pch_h__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/beclib_common.h benet/linux-2.6.24.2/drivers/message/beclib/beclib_common.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/beclib_common.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/beclib_common.h	2008-02-14 15:23:07.797207408 +0530
+@@ -0,0 +1,111 @@
 +/*
-+ * This function updates ip header checksum and tcp timestamps in the
-+ * skb associtated with the given coalesce objcet and passes the
-+ * skb to the stack.
-+ */
-+static inline void
-+prep_skb_final(PBNI_NET_OBJECT pnob, struct be_coalesce_object *obj) {
-+	struct sk_buff *skb;
-+	struct iphdr *iph;
-+	struct tcphdr *th;
-+	u32 *ts_ptr;
-+	PBE_ADAPTER adapter = OSM_NOB(pnob)->adapter;
-+
-+	skb = obj->skb;
-+	if (obj->frag_cnt > 2) {
-+		/*update the ip header */
-+		iph = (struct iphdr *)skb->data;
-+		iph->tot_len = ntohs(skb->len);
-+		iph->check = 0;
-+		iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
-+
-+		/*update the tcp header */
-+		th = (struct tcphdr *)((char *)skb->data + sizeof(*iph));
-+		th->ack_seq = obj->next_ack_seq;
-+		th->window = obj->last_seen_window;
-+
-+		/*Update the tcp timestamp. */
-+		if (obj->tcp_timestamp) {
-+			ts_ptr = (u32 *) (th + 1);
-+			ts_ptr[1] = htonl(obj->tcp_tsval);
-+			ts_ptr[2] = obj->tcp_tsecr;
-+		}
-+#ifdef NETIF_F_TSO
-+		skb_shinfo(skb)->gso_size = obj->mss; #endif
-+		skb->truesize = skb->len + sizeof(struct sk_buff);
-+	}
-+	adapter->be_stat.bes_rx_coal += obj->frag_cnt;
-+	adapter->be_stat.bes_rx_flush++;
-+	if (obj->vlant) {
-+		/* Vlan tag present in pkt and BE found
-+		 * that the tag matched an entry in VLAN table
-+		 */
-+		if (!(OSM_NOB(pnob)->vlan_grp) ||
-+				OSM_NOB(pnob)->num_vlans == 0) {
-+			/* But we have no VLANs configured.
-+			 * This should never happen.  Drop the packet.
-+			 */
-+			printk(KERN_ERR
-+				"BladeEngine: Unexpected vlan tagged packet\n");
-+			kfree_skb(obj->skb);
-+			return;
-+		}
-+
-+		/* pass the VLAN packet to stack */
-+		VLAN_ACCEL_RX(skb, pnob, obj->vlant);
-+	} else {
-+		NETIF_RX(obj->skb);
-+	}
-+}
-+
-+/*
-+ * This function does the following:
-+ * 1) Checks if the fragment pointed to by rxcp is a candidate for coalescing.
-+ * 2) Determines the connection to which the received fragment belongs 
-+to
-+ * 3) Checks if a coalesce object has already allocated for this 
-+connection
-+ * 4) Allocates a new coalesce object if a matching object is not found.
-+ * 5) Adds the fragment to the coalescce object if it is in-order with
-+ *    rest of the frgmnets in the coalesce object.
-+ * 6) If the fragmentg is not in-order, passes the fragments in the
-+ *    existing coalesce object to stack and adds the current fragment to
-+ *    a new coalesce object.
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
 + *
 + */
-+static inline int
-+fill_rx_skb(PETH_RX_COMPL rxcp, BE_RX_PAGE_INFO *rx_page_info,
-+	    PBNI_NET_OBJECT pnob)
++#ifndef __beclib_common_h__
++#define __beclib_common_h__
++
++#include "sa.h"
++
++
++/* Enable each srcgen struct to be an array of dwords */ #define 
++SG_BMAP_UNION
++
++/* Pack srcgen structs */
++#ifndef SG_ATTRIBUTE_PACK
++#define SG_ATTRIBUTE_PACK
++#endif
++
++
++/* Define the static inline srcgen qualifier for inline functions. */
++#define SG_STATIC_INLINE    STATIC INLINE
++
++#if !defined(BE_CONFIG)
++#define BE_CONFIG 0
++#define CONFIG0
++#endif
++
++#define BE_GEN_STATIC_INLINE STATIC INLINE #define BE_GEN_ASSERT ASSERT 
++/*Id ranges and RID conversions based on config */ #include 
++"be_gen_id_ranges.h"
++
++/* Srcgen includes */
++
++#include "regmap.h"		/* srcgen array map output */
++#include "host_struct.h"	/* srcgen array map output */
++#include "ioctl_top.h"		/* srcgen array map output */
++
++#include "regmap_bmap.h"	/* srcgen bitmap output */
++#include "host_struct_bmap.h"	/* srcgen bitmap output */
++#include "ioctl_top_bmap.h"	/* srcgen bitmap output */
++
++#include "bestatus.h"
++
++/* Debug trace categories. */
++typedef enum _BE_DEBUG_LEVELS {
++	DL_HW = 0x00000100,
++	DL_IOCTL = 0x00000200,
++
++	BE_DL_MIN_VALUE = 0x100,	/* this is the min value used */
++	BE_DL_MAX_VALUE = 0x800	/* this is the higheset value used */
++} BE_DEBUG_LEVELS, *PBE_DEBUG_LEVELS;
++
++SA_GLOBAL_C_ASSERT(beclib_debug_level_range,
++		   ((u32) BE_DL_MIN_VALUE > (u32) SA_DL_MAX_VALUE));
++
++#include "beregister.h"	/* Macros for register access using srcgen structs */
++#include "beclib_stats.h"
++
++/*  BECLIB status data type maps to the SA_STATUS */ typedef SA_STATUS 
++BESTATUS, *PBESTATUS;
++
++/* BECLIB calling convention.  Use default currently. */ #define BECALL
++
++/* Forward declarations. */
++struct _BE_FUNCTION_OBJECT;
++struct _BE_EQ_OBJECT;
++struct _BE_CQ_OBJECT;
++
++/* Callback types.  Deprecate most of these. */ typedef void (BECALL 
++*MCC_WRB_CQE_CALLBACK) (PVOID context,
++					      BESTATUS status,
++					      MCC_WRB *optional_wrb);
++typedef void (BECALL *MCC_ASYNC_EVENT_CALLBACK) (PVOID context,
++						  u32 event_code,
++						  PVOID event);
++
++typedef BESTATUS(*EQ_CALLBACK) (struct _BE_FUNCTION_OBJECT *,
++				struct _BE_EQ_OBJECT *, PVOID context); typedef 
++BESTATUS(*CQ_CALLBACK) (struct _BE_FUNCTION_OBJECT *,
++				struct _BE_CQ_OBJECT *, PVOID context);
++
++#endif /* __beclib_common_h__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/beclib_ll.h benet/linux-2.6.24.2/drivers/message/beclib/beclib_ll.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/beclib_ll.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/beclib_ll.h	2008-02-14 15:23:07.798207256 +0530
+@@ -0,0 +1,682 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ *
++ */
++#ifndef __beclib_lower_h__
++#define __beclib_lower_h__
++
++#include "beclib_common.h"	/* High and low level API commonalities */
++
++SA_CPP_HEADER
++/*!
++@brief
++    Internal memory descriptor for memory shared by both the host driver and
++    the controller
++*/
++    typedef struct _BE_SHARED_MEM_DESCRIPTOR {
++	PVOID va;		/*! virtual address */
++	PSA_SGL sgl;		/*! memory descriptor list */
++	u32 tag;		/*! memory tracking tag */
++} BE_SHARED_MEM_DESCRIPTOR, *PBE_SHARED_MEM_DESCRIPTOR;
++
++/*!
++@brief
++    Locking structure for beklib.
++*/
++typedef struct _BE_LOCK {
++	SA_SPINLOCK lock;
++	SA_IRQ irql;
++} BE_LOCK, *PBE_LOCK;
++
++typedef SA_FAST_MUTEX BE_BLOCKING_LOCK, *PBE_BLOCKING_LOCK;
++
++/*!
++@brief
++    Represents a Blade Engine chip. This is used to manage
++    global chip resources.  Only the ARM uses this from the low
++    level API.
++*/
++typedef struct _BE_CHIP_OBJECT {
++	u32 magic;
++	u32 ref_count;
++	BE_LOCK lock;
++	SA_LIST_ENTRY function_list_head;
++
++} BE_CHIP_OBJECT, *PBE_CHIP_OBJECT;
++
++typedef struct _BE_MCC_WRB_RESPONSE_COPY {
++
++	u16 length;		/* bytes in response */
++	u16 ioctl_offset;	/* offset within the wrb of the response */
++	PVOID va;		/* user's va to copy response into */
++
++} BE_MCC_WRB_RESPONSE_COPY, *PBE_MCC_WRB_RESPONSE_COPY;
++
++typedef struct _BE_MCC_WRB_CONTEXT {
++
++	MCC_WRB_CQE_CALLBACK internal_callback;	/* Function to call on
++						completion */
++	PVOID internal_callback_context;	/* Parameter to pass
++						   to completion function */
++
++	MCC_WRB_CQE_CALLBACK callback;	/* Function to call on completion */
++	PVOID callback_context;	/* Parameter to pass to completion function */
++
++	volatile BESTATUS *users_final_status;	/* pointer to a local
++						   variable for synchronous
++						   commands */
++	MCC_WRB *wrb;		/* pointer to original wrb for embedded
++				   commands only */
++	SA_LIST_ENTRY next;	/* links context structs together in
++				   free list */
++
++	BE_MCC_WRB_RESPONSE_COPY copy;	/* Optional parameters to copy
++					   embedded response to user's va */
++
++#if defined(SA_DEBUG)
++	u16 subsystem, opcode;	/* Track this IOCTL for debug builds. */
++	MCC_WRB *ring_wrb;
++	u32 consumed_count;
++#endif
++} BE_MCC_WRB_CONTEXT, *PBE_MCC_WRB_CONTEXT;
++
++/*!
++@brief
++    Represents a function object for network or storage.  This
++    is used to manage per-function resources like MCC CQs, etc.
++*/
++typedef struct _BE_FUNCTION_OBJECT {
++
++	u32 magic;		/*!< magic for detecting memory corruption. */
++	PBE_CHIP_OBJECT parent_chip;
++
++	/*
++	 *! Generic system abstraction (SA) device object for accessing
++	 * registers, physical memory, etc.
++	 */
++	SA_DEV *sa_dev;
++
++	u32 emulate;		/* if set, MPU is not available.
++				  Emulate everything.     */
++	u32 pend_queue_driving;	/* if set, drive the queued WRBs
++				   after releasing the WRB lock */
++
++	SA_SPINLOCK post_lock;	/* lock for verifying one thread posting wrbs */
++	SA_SPINLOCK cq_lock;	/* lock for verifying one thread
++				   processing cq */
++	SA_SPINLOCK mcc_context_lock;	/* lock for protecting mcc
++					   context free list */
++	SA_IRQ post_irq;
++	SA_IRQ cq_irq;
++
++	u32 ref_count;		/*!< number obejcts referencing this funcobj */
++	BE_LOCK lock;		/*!< synchronization lock         */
++	u32 type;
++	u32 pci_function_number;
++
++	SA_LIST_ENTRY function_list;	/*!< for linking these objects
++					  together */
++
++	struct {
++		SA_LIST_ENTRY pd_list_head;	/* protection domain list */
++		SA_LIST_ENTRY cq_list_head;	/* completion queue list */
++		SA_LIST_ENTRY eq_list_head;	/* event queue list     */
++		SA_LIST_ENTRY cxn_list_head;	/* list of active
++						   connections */
++		SA_LIST_ENTRY eth_sq_list_head;	/* list of ethernet
++						   send rings */
++		SA_LIST_ENTRY eth_rq_list_head;	/* list of ether RX rings */
++		SA_LIST_ENTRY rdma_qp_list_head;	/* queue pair list */
++
++		struct _BE_MCC_OBJECT *mcc;	/* mcc rings. */
++		struct _BE_PD_OBJECT *pd_object; /* perceived PD 0 */
++
++		union {
++			struct {
++				SA_LIST_ENTRY wrbq_list_head;
++				SA_LIST_ENTRY defq_list_head;
++			} iscsi;
++
++			struct {
++				SA_LIST_ENTRY dq_list_head;
++				SA_LIST_ENTRY sq_list_head;
++				SA_LIST_ENTRY rq_list_head;
++			} networking;
++		};
++	} links;
++
++	struct {
++		PMCC_MAILBOX va;	/* VA to the mailbox */
++		SA_PHYSICAL_ADDRESS pa;	/* PA to the mailbox */
++		u32 length;	/* byte length of mailbox */
++
++		/* One default context struct used for posting at
++		 * least one MCC_WRB
++		 */
++		BE_MCC_WRB_CONTEXT default_context;
++		boolean default_context_allocated;
++	} mailbox;
++
++	struct {
++		/* Page table     */
++		u32 num_page_table;
++		u32 num_sgl;
++
++		/* Wake on lans configured. */
++		u32 wol_bitmask;	/* bits 0,1,2,3 are set if
++					   corresponding index is enabled */
++		u32 num_jell;
++		u32 num_vlan;
++		u32 num_template;
++		u32 num_multicast;
++		u32 rss_type;
++		u32 num_zero;
++		u32 num_ooo;
++	} config;
++
++	u32 own_semaphore;
++	SA_IRQ current_irql;
++
++	BE_FIRMWARE_CONFIG fw_config;
++	BECLIB_FUNCTION_STATS stats;
++
++} BE_FUNCTION_OBJECT, *PBE_FUNCTION_OBJECT;
++
++/*!
++@brief
++    Represents a protection domain
++*/
++typedef struct _BE_PD_OBJECT {
++	u32 magic;
++	u32 ref_count;
++
++	PBE_FUNCTION_OBJECT parent_function;
++	SA_LIST_ENTRY pd_list;
++
++	u32 pd_id;
++	u8 *pd_page_va;
++	u64 pd_page_pa;
++
++} BE_PD_OBJECT, *PBE_PD_OBJECT;
++
++/*!
++  @brief
++      Represents an Event Queue
++*/
++typedef struct _BE_EQ_OBJECT {
++	u32 magic;
++	u32 ref_count;
++	BE_LOCK lock;
++
++	PBE_FUNCTION_OBJECT parent_function;
++
++	SA_LIST_ENTRY eq_list;
++	SA_LIST_ENTRY cq_list_head;
++
++	u32 eq_id;
++	EQ_CALLBACK callback;
++	PVOID callback_context;
++
++} BE_EQ_OBJECT, *PBE_EQ_OBJECT;
++
++/*!
++@brief
++    Manages a completion queue
++*/
++typedef struct _BE_CQ_OBJECT {
++	u32 magic;
++	u32 ref_count;
++
++	PBE_FUNCTION_OBJECT parent_function;
++	PBE_EQ_OBJECT eq_object;
++
++	SA_LIST_ENTRY cq_list;
++	SA_LIST_ENTRY cqlist_for_eq;
++
++	PVOID va;
++	u32 num_entries;
++
++	CQ_CALLBACK callback;
++	PVOID callback_context;
++
++	u32 cq_id;
++
++} BE_CQ_OBJECT, *PBE_CQ_OBJECT;
++
++/*!
++@brief
++    Manages an ethernet send queue
++*/
++typedef struct _BE_ETHSQ_OBJECT {
++	u32 magic;
++
++	SA_LIST_ENTRY list;
++
++	PBE_FUNCTION_OBJECT parent_function;
++	PBE_CQ_OBJECT cq_object;
++	u32 bid;
++
++} BE_ETHSQ_OBJECT, *PBE_ETHSQ_OBJECT;
++
++/*!
++@brief
++    Manages an ethernet receive queue
++*/
++typedef struct _BE_ETHRQ_OBJECT {
++	u32 magic;
++	SA_LIST_ENTRY list;
++	PBE_FUNCTION_OBJECT parent_function;
++	u32 rid;
++	PBE_CQ_OBJECT cq_object;
++	PBE_CQ_OBJECT rss_cq_object[4];
++
++} BE_ETHRQ_OBJECT, *PBE_ETHRQ_OBJECT;
++
++/*!
++@brief
++    Manages an MCC
++*/
++typedef struct _BE_MCC_OBJECT {
++	u32 magic;
++
++	PBE_FUNCTION_OBJECT parent_function;
++	SA_LIST_ENTRY mcc_list;
++
++	PBE_CQ_OBJECT cq_object;
++
++	/* Async event callback for MCC CQ. */
++	MCC_ASYNC_EVENT_CALLBACK async_callback;
++	PVOID async_context;
++
++	struct {
++		struct _BE_MCC_WRB_CONTEXT *base;
++		u32 num;
++		SA_LIST_ENTRY list_head;
++	} wrb_context;
++
++	struct {
++		PSA_SGL sgl;
++		BE_SHARED_MEM_DESCRIPTOR sm_descriptor;
++		SA_RING ring;
++	} sq;
++
++	struct {
++		BE_SHARED_MEM_DESCRIPTOR sm_descriptor;
++		SA_RING ring;
++	} cq;
++
++	u32 processing;		/* flag indicating that one thread
++				   is processing CQ */
++	u32 rearm;		/* doorbell rearm setting to make
++				   sure the active processing thread */
++	/* rearms the CQ if any of the threads requested it. */
++
++	SA_LIST_ENTRY backlog;
++	u32 backlog_length;
++	u32 driving_backlog;
++	u32 consumed_index;
++
++} BE_MCC_OBJECT, *PBE_MCC_OBJECT;
++
++/*!
++@brief
++   Manages an iSCSI default PDU
++*/
++typedef struct _BE_DEFAULT_PDU_QUEUE_OBJECT {
++	u32 magic;
++
++	PBE_FUNCTION_OBJECT parent_function;
++	SA_LIST_ENTRY func_list;
++	PBE_CQ_OBJECT cq_object;
++	PSA_SGL sgl;
++	u32 rid;
++} BE_DEFAULT_PDU_QUEUE_OBJECT, *PBE_DEFAULT_PDU_QUEUE_OBJECT;
++
++typedef struct _BE_ISCSI_WRB_QUEUE_OBJECT {
++
++	u32 magic;
++
++	PBE_FUNCTION_OBJECT parent_function;
++
++	SA_LIST_ENTRY wrbq_list;
++
++	/*u32 cra, length; */
++	u32 cid;
++	PSA_SGL sgl;
++	u32 length;
++
++} BE_ISCSI_WRB_QUEUE_OBJECT, *PBE_ISCSI_WRB_QUEUE_OBJECT;
++
++/*!
++@brief
++   Manages iSCSI connection resources like CID, WRB ring, etc.
++*/
++typedef struct _BE_ISCSI_CONNECTION_OBJECT {
++	u32 magic;
++	PBE_FUNCTION_OBJECT parent_function;
++
++	PBE_CQ_OBJECT cq;
++	PBE_ISCSI_WRB_QUEUE_OBJECT wrbq;
++	PBE_DEFAULT_PDU_QUEUE_OBJECT defq;
++
++	SA_LIST_ENTRY connection_list;
++} BE_ISCSI_CONNECTION_OBJECT, *PBE_ISCSI_CONNECTION_OBJECT;
++
++/* Queue context header -- the required software information for
++ * queueing a WRB.
++ */
++typedef struct _BE_QUEUE_DRIVER_CONTEXT {
++	MCC_WRB_CQE_CALLBACK internal_callback;	/* Function to call on
++						   completion */
++	PVOID internal_callback_context;	/* Parameter to pass
++						   to completion function */
++
++	MCC_WRB_CQE_CALLBACK callback;	/* Function to call on completion */
++	PVOID callback_context;	/* Parameter to pass to completion function */
++
++	BE_MCC_WRB_RESPONSE_COPY copy;	/* Optional parameters to copy
++					   embedded response to user's va */
++
++	PVOID optional_ioctl_va;
++
++	SA_LIST_ENTRY list;
++
++	u32 bytes;
++
++} BE_QUEUE_DRIVER_CONTEXT, *PBE_QUEUE_DRIVER_CONTEXT;
++
++/*
++ *lint -e413
++ *lint -e831
++ *lint -e30
++ *lint -e84
++ * Common MCC WRB header that all commands require.
++ */
++typedef struct _BE_MCC_WRB_HEADER {
++	u8 rsvd[SA_FIELD_OFFSET(MCC_WRB, payload)]; } BE_MCC_WRB_HEADER, 
++*PBE_MCC_WRB_HEADER; SA_GLOBAL_C_ASSERT(queue_header,
++		   sizeof(BE_MCC_WRB_HEADER) == SA_FIELD_OFFSET(MCC_WRB,
++								payload));
++
++/*
++ * All non embedded commands supported by beclib functions only allow
++ * 1 SGE.  This queue context handles them all.
++ */
++typedef struct _BE_NONEMBEDDED_QUEUE_CONTEXT {
++	BE_QUEUE_DRIVER_CONTEXT context;
++	BE_MCC_WRB_HEADER wrb_header;
++	MCC_SGE sge[1];
++} BE_NONEMBEDDED_QUEUE_CONTEXT, *PBE_NONEMBEDDED_QUEUE_CONTEXT;
++
++/*
++ * 
++-----------------------------------------------------------------------
++-
++ *  This section contains the specific queue struct for each command.
++ *  The user could always provide a BE_GENERIC_QUEUE_CONTEXT but this 
++is a
++ *  rather large struct.  By using the specific struct, memory 
++consumption
++ *  can be reduced.
++ * 
++-----------------------------------------------------------------------
++-
++ */
++typedef BE_NONEMBEDDED_QUEUE_CONTEXT BE_ETH_STATS_QUEUE_CONTEXT,
++    *PBE_ETH_STATS_QUEUE_CONTEXT;
++
++typedef struct _BE_LINK_STATUS_QUEUE_CONTEXT {
++	BE_QUEUE_DRIVER_CONTEXT context;
++	BE_MCC_WRB_HEADER wrb_header;
++	IOCTL_COMMON_NTWK_LINK_STATUS_QUERY ioctl; } 
++BE_LINK_STATUS_QUEUE_CONTEXT, *PBE_LINK_STATUS_QUEUE_CONTEXT;
++
++typedef struct _BE_MULTICAST_QUEUE_CONTEXT {
++	BE_QUEUE_DRIVER_CONTEXT context;
++	BE_MCC_WRB_HEADER wrb_header;
++	IOCTL_COMMON_NTWK_MULTICAST_SET ioctl; } BE_MULTICAST_QUEUE_CONTEXT, 
++*PBE_MULTICAST_QUEUE_CONTEXT;
++
++typedef struct _BE_WAKE_ON_LAN_QUEUE_CONTEXT {
++	BE_QUEUE_DRIVER_CONTEXT context;
++	BE_MCC_WRB_HEADER wrb_header;
++	IOCTL_ETH_ACPI_CONFIG ioctl;
++} BE_WAKE_ON_LAN_QUEUE_CONTEXT, *PBE_WAKE_ON_LAN_QUEUE_CONTEXT;
++
++typedef struct _BE_VLAN_QUEUE_CONTEXT {
++	BE_QUEUE_DRIVER_CONTEXT context;
++	BE_MCC_WRB_HEADER wrb_header;
++	IOCTL_COMMON_NTWK_VLAN_CONFIG ioctl;
++} BE_VLAN_QUEUE_CONTEXT, *PBE_VLAN_QUEUE_CONTEXT;
++
++typedef struct _BE_PROMISCUOUS_QUEUE_CONTEXT {
++	BE_QUEUE_DRIVER_CONTEXT context;
++	BE_MCC_WRB_HEADER wrb_header;
++	IOCTL_ETH_PROMISCUOUS ioctl;
++} BE_PROMISCUOUS_QUEUE_CONTEXT, *PBE_PROMISCUOUS_QUEUE_CONTEXT;
++
++typedef struct _BE_FORCE_FAILOVER_QUEUE_CONTEXT {
++	BE_QUEUE_DRIVER_CONTEXT context;
++	BE_MCC_WRB_HEADER wrb_header;
++	IOCTL_COMMON_FORCE_FAILOVER ioctl;
++} BE_FORCE_FAILOVER_QUEUE_CONTEXT, *PBE_FORCE_FAILOVER_QUEUE_CONTEXT;
++
++typedef struct _BE_RSS_QUEUE_CONTEXT {
++	BE_QUEUE_DRIVER_CONTEXT context;
++	BE_MCC_WRB_HEADER wrb_header;
++	IOCTL_ETH_RSS_CONFIG ioctl;
++} BE_RSS_QUEUE_CONTEXT, *PBE_RSS_QUEUE_CONTEXT;
++
++typedef struct _BE_NOP_QUEUE_CONTEXT {
++	BE_QUEUE_DRIVER_CONTEXT context;
++	BE_MCC_WRB_HEADER wrb_header;
++	IOCTL_COMMON_NOP ioctl;
++} BE_NOP_QUEUE_CONTEXT, *PBE_NOP_QUEUE_CONTEXT;
++
++typedef struct _BE_RXF_FILTER_QUEUE_CONTEXT {
++	BE_QUEUE_DRIVER_CONTEXT context;
++	BE_MCC_WRB_HEADER wrb_header;
++	IOCTL_COMMON_NTWK_RX_FILTER ioctl;
++} BE_RXF_FILTER_QUEUE_CONTEXT, *PBE_RXF_FILTER_QUEUE_CONTEXT;
++
++typedef struct _BE_EQ_MODIFY_DELAY_QUEUE_CONTEXT {
++	BE_QUEUE_DRIVER_CONTEXT context;
++	BE_MCC_WRB_HEADER wrb_header;
++	IOCTL_COMMON_MODIFY_EQ_DELAY ioctl;
++} BE_EQ_MODIFY_DELAY_QUEUE_CONTEXT, *PBE_EQ_MODIFY_DELAY_QUEUE_CONTEXT;
++
++/*
++ * The generic context is the largest size that would be required.
++ * It is the software context plus an entire WRB.
++ */
++typedef struct _BE_GENERIC_QUEUE_CONTEXT {
++	BE_QUEUE_DRIVER_CONTEXT context;
++	BE_MCC_WRB_HEADER wrb_header;
++	MCC_WRB_PAYLOAD payload;
++} BE_GENERIC_QUEUE_CONTEXT, *PBE_GENERIC_QUEUE_CONTEXT;
++
++SA_GLOBAL_C_ASSERT(generic_queue_context,
++		   sizeof(BE_GENERIC_QUEUE_CONTEXT) >=
++		   sizeof(BE_QUEUE_DRIVER_CONTEXT) + sizeof(MCC_WRB));
++
++typedef BE_GENERIC_QUEUE_CONTEXT BE_CONFIG_RED_QUEUE_CONTEXT,
++    *PBE_CONFIG_RED_QUEUE_CONTEXT;
++typedef BE_GENERIC_QUEUE_CONTEXT BE_CONFIG_PORT_EQUALIXATION_QUEUE_CONTEXT,
++    *PBE_CONFIG_PORT_EQUALIXATION_QUEUE_CONTEXT;
++
++/*
++ * Types for the BE_QUEUE_CONTEXT object.
++ */
++#define BE_QUEUE_INVALID	(0)
++#define BE_QUEUE_LINK_STATUS	(0xA006)
++#define BE_QUEUE_ETH_STATS	(0xA007)
++#define BE_QUEUE_TPM_STATS	(0xA008)
++#define BE_QUEUE_TCP_STATS	(0xA009)
++#define BE_QUEUE_MULTICAST	(0xA00A)
++#define BE_QUEUE_VLAN		(0xA00B)
++#define BE_QUEUE_RSS		(0xA00C)
++#define BE_QUEUE_FORCE_FAILOVER	(0xA00D)
++#define BE_QUEUE_PROMISCUOUS	(0xA00E)
++#define BE_QUEUE_WAKE_ON_LAN	(0xA00F)
++#define BE_QUEUE_NOP		(0xA010)
++
++/*
++ * These define constant 32-bit values that are stored as the magic
++ * number in each data type.  The magic number is a debugging tool.
++ * In debug mode we use asserts to constantly check the integrity
++ * of the magic value, which spots double frees and some memory corruption.
++ * In release mode, the magic value can be used for post-mortem
++ * debugging without symbols to locate data types in memory -- this is
++ * easier using 4 character strings.
++ */
++#define BE_CHIP_MAGIC			SA_TAG("beco")
++#define BE_FUNCTION_MAGIC		SA_TAG("befo")
++#define BE_PD_MAGIC			SA_TAG("bepd")
++#define BE_CQ_MAGIC			SA_TAG("becq")
++#define BE_EQ_MAGIC			SA_TAG("beeq")
++#define BE_ETHSQ_MAGIC			SA_TAG("bees")
++#define BE_ETHRQ_MAGIC			SA_TAG("beer")
++#define BE_MCC_MAGIC			SA_TAG("bemc")
++#define BE_DEFAULT_PDU_QUEUE_MAGIC	SA_TAG("bedp")
++#define BE_ISCSI_CONNECTION_MAGIC	SA_TAG("beic")
++#define BE_TPM_CONNECTION_MAGIC		SA_TAG("betc")
++#define BE_TPM_SQ_MAGIC			SA_TAG("besq")
++#define BE_TPM_RQ_MAGIC			SA_TAG("berq")
++#define BE_TPM_DQ_MAGIC			SA_TAG("bedq")
++#define BE_ISCSI_WRB_QUEUE_MAGIC	SA_TAG("beiq")
++#define BE_RDMA_QP_MAGIC		SA_TAG("beqp")
++#define BE_RDMA_CXN_MAGIC		SA_TAG("brcx")
++
++/*
++ * Macro to declare an inline function that asserts on both a pointer 
++and
++ * the magic value.  Inline function nicely forces type safety at compile time.
++ */
++#define MAGIC_ASSERT_DECLARE(_short_type_) \ STATIC INLINE void 
++_short_type_##_ASSERT(BE_##_short_type_##_OBJECT *p) { \
++		ASSERT(p);					\
++		ASSERT(p->magic == BE_##_short_type_##_MAGIC);	\
++	}		\
++
++/*
++ * Declare inline functions, e.g. CHIP_ASSERT, that check the
++ * pointer for non-NULL and verify the magic constant.  Since they
++ * are functions, they also verify the type of the pointer at compile time.
++ */
++MAGIC_ASSERT_DECLARE(CHIP)
++MAGIC_ASSERT_DECLARE(FUNCTION)
++MAGIC_ASSERT_DECLARE(PD)
++MAGIC_ASSERT_DECLARE(CQ)
++MAGIC_ASSERT_DECLARE(EQ)
++MAGIC_ASSERT_DECLARE(ETHSQ)
++MAGIC_ASSERT_DECLARE(ETHRQ)
++MAGIC_ASSERT_DECLARE(MCC)
++MAGIC_ASSERT_DECLARE(DEFAULT_PDU_QUEUE)
++MAGIC_ASSERT_DECLARE(ISCSI_CONNECTION)
++MAGIC_ASSERT_DECLARE(ISCSI_WRB_QUEUE)
++/* Shorter names */
++#define ISCSI_CXN_ASSERT  ISCSI_CONNECTION_ASSERT #define 
++ISCSI_WRBQ_ASSERT ISCSI_WRB_QUEUE_ASSERT #define ISCSI_DEFQ_ASSERT 
++DEFAULT_PDU_QUEUE_ASSERT
++/* Include the srcgen API. */
++#include "beclib_ll_enum_nic.h"
++#include "beclib_ll_bmap_nic.h"
++/*
++ * ----------------------------------------------------------------------
++ *   API MACROS
++ * 
++----------------------------------------------------------------------
++ */
++#define BE_IOCTL_NAME(_short_name_)     IOCTL_##_short_name_
++#define BE_OPCODE_NAME(_short_name_)    OPCODE_##_short_name_
++#define BE_SUBSYSTEM_NAME(_short_name_) SUBSYSTEM_##_short_name_
++
++#define BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(_function_object_, _wrb_, \
++		_short_name_)  \
++	(BE_IOCTL_NAME(_short_name_)*)					\
++	be_function_prepare_embedded_ioctl (				\
++		_function_object_,					\
++		_wrb_,							\
++		sizeof (BE_IOCTL_NAME(_short_name_)),			\
++		SA_SIZEOF_FIELD(BE_IOCTL_NAME(_short_name_), params.request), \
++		SA_SIZEOF_FIELD(BE_IOCTL_NAME(_short_name_), params.response), \
++		BE_OPCODE_NAME(_short_name_),				\
++		BE_SUBSYSTEM_NAME(_short_name_));
++
++#define BE_FUNCTION_PREPARE_NONEMBEDDED_IOCTL(_function_object_, _wrb_, \
++				_ioctl_va_, _ioctl_pa_, _short_name_)	\
++	(BE_IOCTL_NAME(_short_name_)*)					\
++	be_function_prepare_nonembedded_ioctl (				\
++		(_function_object_),					\
++		(_wrb_),						\
++		(_ioctl_va_),						\
++		(_ioctl_pa_),						\
++		sizeof (BE_IOCTL_NAME(_short_name_)),			\
++		SA_SIZEOF_FIELD(BE_IOCTL_NAME(_short_name_), params.request), \
++		SA_SIZEOF_FIELD(BE_IOCTL_NAME(_short_name_), params.response), \
++		BE_OPCODE_NAME(_short_name_),				\
++		BE_SUBSYSTEM_NAME(_short_name_));
++
++/*
++ * ----------------------------------------------------------------------
++ *   API Inline Functions
++ * 
++----------------------------------------------------------------------
++ * Returns TRUE for the ISCSI function
++ */
++STATIC INLINE
++    boolean be_function_is_iscsi(PBE_FUNCTION_OBJECT function_object) {
++	FUNCTION_ASSERT(function_object);
++	return (function_object->type == BE_FUNCTION_TYPE_ISCSI); }
++
++/* Returns TRUE for the networking function */ STATIC INLINE
++    boolean be_function_is_networking(PBE_FUNCTION_OBJECT 
++function_object) {
++	FUNCTION_ASSERT(function_object);
++	return (function_object->type == BE_FUNCTION_TYPE_NETWORK); }
++
++STATIC INLINE void
++be_function_copy_stats(IN PBE_FUNCTION_OBJECT function_object,
++		       OUT PBECLIB_FUNCTION_STATS stats) {
++	FUNCTION_ASSERT(function_object);
++	ASSERT(stats);
++	sa_memcpy(stats, &function_object->stats,
++		  sizeof(function_object->stats));
++
++}
++
++/* Returns a pointer to the parent chip object for this function. */ 
++STATIC INLINE
++    PBE_CHIP_OBJECT be_function_get_chip_object(PBE_FUNCTION_OBJECT
++						function_object)
 +{
-+	PBE_ADAPTER adapter = OSM_NOB(pnob)->adapter;
-+	u8 *va;
-+	struct sk_buff *skb;
-+	struct ethhdr *eh;
-+	struct iphdr *iph;
-+	struct tcphdr *th = NULL;
-+	unsigned int hdr_len;
-+	int idx = 0, tcp_opt_bytes = 0;
-+	u32 *ts_ptr = NULL;
-+	unsigned int iplen, tcpdata_len = 0;
-+	__u32 tcp_seq = 0;
-+	u32 num_frags, pkt_size, nresid, fi;
-+	unsigned int frag_sz = pnob->rx_buf_size;
-+	int n = 0;
-+	int trim = 0;
-+	struct be_coalesce_object *obj = NULL, *tmp_obj;
-+	u32 i, first_free_rxc_obj = MAX_COALESCE_OBJECTS;
-+	int vlanf = 0, vtm = 0;
-+	u16 vlant;
-+	BOOLEAN not_cc = 0; /* not a coalesce candidate */
++	FUNCTION_ASSERT(function_object);
++	return (function_object->parent_chip); }
 +
-+	num_frags = rxcp->numfrags;
-+	pkt_size = rxcp->pktsize;
-+	fi = rxcp->fragndx;
-+	vlant = be16_to_cpu(rxcp->vlan_tag);
-+	vlanf = rxcp->vtp;
-+	vtm = rxcp->vtm;
-+	SA_ASSERT(num_frags > 0);
-+
-+	/* jumbo frames could come in multiple fragments */
-+	SA_ASSERT(num_frags == ((pkt_size + (frag_sz - 1)) / frag_sz));
-+	n = MIN(pkt_size, frag_sz);
-+	nresid = pkt_size - n;	/* will be useful for jumbo pkts */
-+
-+	va = page_address(rx_page_info->page) + rx_page_info->page_offset;
-+	prefetch(va);
-+
-+	eh = (struct ethhdr *)(va);
-+	iph = (struct iphdr *)(eh + 1);
-+	th = (struct tcphdr *)(iph + 1);
-+
-+	/* confirm that there are no IP options */
-+	if ((iph->ihl << 2) != sizeof(*iph)) {
-+		not_cc = 1;
-+		goto first_frag;
-+	}
-+
-+	/* .. and that the packet does not have the fragmentation bet set */
-+	if (iph->frag_off & htons(IP_MF | IP_OFFSET)) {
-+		not_cc = 1;
-+		goto first_frag;
-+	}
-+
-+	/*
-+	 * No coalescing if any TCP flag(s) other than ack
-+	 * or psh is encountered in the TCP header
-+	 */
-+	if (th->fin || th->syn || th->rst || th->urg || th->ece
-+				    || th->cwr || !th->ack) {
-+		not_cc = 1;
-+		goto first_frag;
-+	}
-+	/* Check for aligned timestamps */
-+	tcp_opt_bytes = (th->doff << 2) - sizeof(*th);
-+	if (tcp_opt_bytes != 0) {
-+		ts_ptr = (u32 *) (th + 1);
-+		if (unlikely(tcp_opt_bytes != TCPOLEN_TSTAMP_ALIGNED) ||
-+		    (*ts_ptr != ntohl((TCPOPT_NOP << 24) | (TCPOPT_NOP << 16)
-+			     | (TCPOPT_TIMESTAMP << 8) | TCPOLEN_TIMESTAMP))) {
-+			not_cc = 1;
-+			goto first_frag;
-+		}
-+	}
-+
-+	iplen = ntohs(iph->tot_len);
-+	trim = pkt_size - (iplen + sizeof(*eh));
-+	if (unlikely(trim)) {
-+		not_cc = 1;
-+		goto first_frag;
-+	}
-+
-+	tcpdata_len = iplen - (th->doff << 2) - sizeof(*iph);
-+	if (!tcpdata_len) {
-+		/* If this is a pure ack, give it away. */
-+		not_cc = 1;
-+		goto first_frag;
-+	}
-+
-+	tcp_seq = ntohl(th->seq);
-+	hdr_len = iplen + sizeof(*eh) - tcpdata_len;
-+
-+	/*
-+	 * If the number of connections is zero, coalesce using the first
-+	 * coalesce object in array
-+	 */
-+	if (OSM_NOB(pnob)->num_coalesce_objects == 0) {
-+		obj = &OSM_NOB(pnob)->rxc_obj[0];
-+		goto first_frag;
-+	}
-+	/* Get the coalesce object to which this pkt belongs to */
-+	for (i = 0; i < MAX_COALESCE_OBJECTS; ++i) {
-+		tmp_obj = &OSM_NOB(pnob)->rxc_obj[i];
-+		/* Check if this coalesce object is active */
-+		if (tmp_obj->skb) {
-+			/*
-+			 * Check if this is a packet for same or
-+			 * different connection
-+			 * */
-+			if ((tmp_obj->sport == th->source) &&
-+			    (tmp_obj->saddr == iph->saddr) &&
-+			    (tmp_obj->dport == th->dest) &&
-+			    (tmp_obj->daddr == iph->daddr)) {
-+				obj = tmp_obj;
-+				break;
-+			}
-+		} else {
-+			if (first_free_rxc_obj > i) {
-+				first_free_rxc_obj = i;
-+			}
-+		}
-+	}			/* end for */
-+
-+	if (obj == NULL) {
-+		/*
-+		 * current pkt doesn't fit into any of the
-+		 * active coalesce objects.
-+		 */
-+		if (OSM_NOB(pnob)->num_coalesce_objects
-+			    == MAX_COALESCE_OBJECTS) {
-+			/*
-+			 * All the coalesce objects are active
-+			 * So let the pkt go in the normal path
-+			 */
-+			not_cc = 1;
-+			goto first_frag;
-+		} else {
-+			/*
-+			 * Not all the coalesce objects are active.
-+			 * Use the first vacant coalesce object for this pkt
-+			 */
-+			obj = &OSM_NOB(pnob)->rxc_obj[first_free_rxc_obj];
-+			goto first_frag;
-+		}
-+	}
-+	/* pkt fits into one of the active coalesce objects  */
-+	prefetch(ts_ptr);
-+	skb = obj->skb;
-+
-+	if ((obj->next_pkt_seq != tcp_seq)) {
-+		/*
-+		 * This is an out of order segment.
-+		 * flush the existing bucket and start fresh.
-+		 */
-+		goto first_frag;
-+	}
-+	/* Check the time stamp  */
-+	if (obj->tcp_timestamp) {
-+		__u32 tsval = ntohl(*(ts_ptr + 1));
-+		/* timestamp values should be increasing */
-+		if (unlikely(obj->tcp_tsval > tsval || *(ts_ptr + 2) == 0)) {
-+			not_cc = 1;
-+			goto first_frag;
-+		}
-+		obj->tcp_tsval = tsval;
-+		obj->tcp_tsecr = *(ts_ptr + 2);
-+	}
-+
-+	obj->next_pkt_seq += tcpdata_len;
-+	obj->last_seen_window = th->window;
-+	obj->next_ack_seq = th->ack_seq;
-+	if (tcpdata_len > obj->mss) {
-+		obj->mss = tcpdata_len;
-+	}
-+
-+	/*
-+	 * Now let us fill the skb frag with page buffer info.
-+	 */
-+	if ((pkt_size - hdr_len) <= 0) {
-+		/*
-+		 * This is probably just an ack pkt, or pkt
-+		 * without any data in it. free the page.
-+		 */
-+		put_page(rx_page_info->page);
-+	} else {
-+		idx = skb_shinfo(skb)->nr_frags;
-+		skb_shinfo(skb)->nr_frags++;
-+		obj->frag_cnt++;
-+		skb_shinfo(skb)->frags[idx].page = rx_page_info->page;
-+		skb_shinfo(skb)->frags[idx].page_offset =
-+		    (rx_page_info->page_offset + hdr_len);
-+		skb_shinfo(skb)->frags[idx].size = (n - hdr_len);
-+	}
-+	skb->data_len += (n - hdr_len);
-+	skb->len += (n - hdr_len);
-+
-+	memset(rx_page_info, 0, sizeof(BE_RX_PAGE_INFO));
-+	/*
-+	 * if we have more bytes left, the frame has been
-+	 * given to us in multiple fragments.  This happens
-+	 * with Jumbo frames. Add the remaining fragments to
-+	 * skb->frags[] array.
-+	 */
-+	if (nresid)
-+		add_skb_frags(pnob, skb, nresid, fi);
-+
-+	/* We have accumulated enough. give skb to stack */
-+	if ((skb_shinfo(skb)->nr_frags >= adapter->max_rx_coal) ||
-+	    (skb->len > MAX_COALESCE_SIZE)) {
-+		prep_skb_final(pnob, obj);
-+		memset(obj, 0, sizeof(struct be_coalesce_object));
-+		--OSM_NOB(pnob)->num_coalesce_objects;
-+	}
-+
-+	return 0;
-+
-+first_frag:
-+	/*
-+	 * We come here if this packet is not a candidate for coalescing,
-+	 * or this packet is the first packet in a coalesce object
-+	 * or it is an out-of-order packet.
-+	 */
-+	if ((obj) && (obj->skb)) {
-+		/* out-of-order packet. pass already accumulated fragments
-+		 * to stack
-+		 */
-+		prep_skb_final(pnob, obj);
-+		memset(obj, 0, sizeof(struct be_coalesce_object));
-+		--OSM_NOB(pnob)->num_coalesce_objects;
-+	}
-+	skb = alloc_skb(BE_HDR_LEN + 16, GFP_ATOMIC);
-+	if (skb == NULL) {
-+		printk(KERN_WARNING "alloc_skb() failed\n");
-+		put_page(rx_page_info->page);
-+		memset(rx_page_info, 0, sizeof(BE_RX_PAGE_INFO));
-+		goto free_frags;	/* if there are more frags, free them */
-+	}
-+	skb_reserve(skb, NET_IP_ALIGN);
-+	prefetch(va);
-+	skb->dev = OSM_NOB(pnob)->os_handle;
-+
-+	hdr_len = BE_HDR_LEN > n ? n : BE_HDR_LEN;
-+	/* Copy the header into the skb_data */
-+	memcpy(skb->data, va, hdr_len);
-+
-+	if ((n - hdr_len) <= 0) {
-+		/* Complete packet has now been moved to data */
-+		put_page(rx_page_info->page);
-+	} else {
-+		/* Setup the SKB with page buffer information */
-+		skb_shinfo(skb)->frags[0].page = rx_page_info->page;
-+		skb_shinfo(skb)->frags[0].page_offset =
-+		    (rx_page_info->page_offset + hdr_len);
-+		skb_shinfo(skb)->nr_frags++;
-+		skb_shinfo(skb)->frags[0].size = (n - hdr_len);
-+		skb->data_len = (n - hdr_len);
-+	}
-+
-+	skb->len = n;
-+	skb->tail += hdr_len;
-+
-+	memset(rx_page_info, 0, sizeof(BE_RX_PAGE_INFO));
-+	skb->protocol = eth_type_trans(skb, OSM_NOB(pnob)->os_handle);
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	/*
-+	 * if we have more bytes left, the frame has been
-+	 * given to us in multiple fragments.  This happens
-+	 * with Jumbo frames. Add the remaining fragments to
-+	 * skb->frags[] array.
-+	 */
-+	if (nresid)
-+		add_skb_frags(pnob, skb, nresid, fi);
-+	skb->truesize = skb->len + sizeof(struct sk_buff);
-+	/*
-+	 * The skb is ready for passing to stack.  If it is not a candidate
-+	 * for coalescing or if the skb already has more frags than the
-+	 * max coalesce limit, pass it to stack.
-+	 */
-+	if (not_cc || ((skb_shinfo(skb)->nr_frags + num_frags) >=
-+			adapter->max_rx_coal)
-+			|| ((skb->len + pkt_size) >= MAX_COALESCE_SIZE)) {
-+		if (vlanf && vtm) {
-+			/* Vlan tag present in pkt and BE found
-+			 * that the tag matched an entry in VLAN table
-+			 */
-+			if (!(OSM_NOB(pnob)->vlan_grp)
-+					|| OSM_NOB(pnob)->num_vlans == 0) {
-+				/* But we have no VLANs configured.
-+				 * This should never happen.  Drop the packet.
-+				 */
-+				printk(KERN_ERR "BladeEngine: Unexpected vlan"
-+						" tagged packet\n");
-+				kfree_skb(obj->skb);
-+			}
-+
-+			/* pass the VLAN packet to stack */
-+			VLAN_ACCEL_RX(skb, pnob, vlant);
-+
-+		} else {
-+			NETIF_RX(skb);
-+		}
-+	} else {
-+		/* This is the first packet for coalescing into the
-+		 * new object pointed to by obj.
-+		 */
-+		++OSM_NOB(pnob)->num_coalesce_objects;
-+		if (vlanf && vtm) {
-+			obj->vlant = vlant;
-+		}
-+		obj->skb = skb;
-+		obj->saddr = iph->saddr;
-+		obj->sport = th->source;
-+		obj->dport = th->dest;
-+		obj->daddr = iph->daddr;
-+		obj->mss = tcpdata_len;
-+		obj->last_seen_window = th->window;
-+		obj->next_ack_seq = th->ack_seq;
-+		obj->next_pkt_seq = tcp_seq + tcpdata_len;
-+		/* Update the timestamp info here.... */
-+		if (tcp_opt_bytes) {
-+			obj->tcp_timestamp = 1;
-+			obj->tcp_tsval = ntohl(*(ts_ptr + 1));
-+			obj->tcp_tsecr = *(ts_ptr + 2);
-+		}
-+		/*
-+		 *If it is a pkt with frag_sz is exactly 64 bytes
-+		 *then it has already been memcpy to skb->data.
-+		 */
-+		obj->frag_cnt = skb_shinfo(skb)->nr_frags + 1;
-+	}
-+
-+	return 0;
-+
-+free_frags:
-+	/* free all frags associated with the current rxcp */
-+	while (num_frags-- > 1) {
-+		fi = (fi + 1) % pnob->rx_q_len;
-+
-+		rx_page_info = (BE_RX_PAGE_INFO *) pnob->rx_ctxt[fi];
-+		pnob->rx_ctxt[fi] = (void *)NULL;
-+		if ((rx_page_info->page_offset) ||
-+				(OSM_NOB(pnob)->rx_pg_shared == FALSE)) {
-+			pci_unmap_page(adapter->pdev,
-+				       pci_unmap_addr(rx_page_info, bus),
-+				       frag_sz, PCI_DMA_FROMDEVICE);
-+		}
-+
-+		put_page(rx_page_info->page);
-+		memset(rx_page_info, 0, sizeof(BE_RX_PAGE_INFO));
-+		sa_atomic_decrement(&pnob->rx_q_posted);
-+	}
-+	return -ENOMEM;
-+}
-+#endif
-+
++SA_CPP_TRAILER
++#endif /* __beclib_lower__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/beclib_private_ll.h benet/linux-2.6.24.2/drivers/message/beclib/beclib_private_ll.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/beclib_private_ll.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/beclib_private_ll.h	2008-02-14 15:23:07.799207104 +0530
+@@ -0,0 +1,451 @@
 +/*
-+ * Process unicast completions
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ *
 + */
-+void process_ucast_rx_completion(PBNI_NET_OBJECT pnob) {
-+	PBE_ADAPTER adapter = OSM_NOB(pnob)->adapter;
-+	PETH_RX_COMPL rxcp;
-+	u32 nc = 0;
-+#ifdef RX_PKT_COALESCE
-+	unsigned int udpcksm, tcpcksm;
-+	unsigned int i, fi;
-+	BE_RX_PAGE_INFO *rx_page_info;
-+	unsigned int frag_sz = pnob->rx_buf_size;
-+	struct be_coalesce_object *obj;
-+	BOOLEAN rx_coal = (adapter->max_rx_coal <= 1) ? 0 : 1; #endif
-+	int rearm = 1;
-+
-+#ifdef CONFIG_BENET_NAPI
-+	if (OSM_NOB(pnob)->work_quota == 0)
-+		/*
-+		 * We were called from process_events without quota
-+		 * because the device is not open yet.  Give ourselves
-+		 * a large quota.
-+		 */
-+		OSM_NOB(pnob)->work_quota = 128;
-+	while ((OSM_NOB(pnob)->work_quota) &&
-+	       (rxcp = bni_get_ucrx_cmpl(pnob))) #else
-+	while ((rxcp = bni_get_ucrx_cmpl(pnob))) #endif
-+	{
-+		prefetch(rxcp);
-+		TRACE(DL_RECV, "%s: valid ucast completion: len %d, index %d",
-+		      __FUNCTION__, rxcp->pktsize, rxcp->fragndx); #ifdef 
-+RX_PKT_COALESCE
-+		if ((!rxcp->tcpf) || (rxcp->ipsec) || rxcp->err || !rx_coal) {
-+			/*
-+			 * We won't coalesce Rx pkts
-+			 * if they are udp or ipsec or have the err bit set.
-+			 * take the path of normal completion processing
-+			 */
-+			process_nic_rx_completion(pnob, rxcp);
-+			goto next_compl;
-+		}
-+
-+		fi = rxcp->fragndx;
-+		SA_ASSERT(fi < (int)pnob->rx_q_len);
-+		SA_ASSERT(fi >= 0);
-+		rx_page_info = (BE_RX_PAGE_INFO *)
-+		    pnob->rx_ctxt[fi];
-+		SA_ASSERT(rx_page_info);
-+		SA_ASSERT(rx_page_info->page);
-+		pnob->rx_ctxt[fi] = (void *)NULL;
-+		/*
-+		 * If one page is used per fragment or if this is the
-+		 * second half of the page, unmap the page here
-+		 */
-+		if ((rx_page_info->page_offset) ||
-+				(OSM_NOB(pnob)->rx_pg_shared == FALSE)) {
-+			pci_unmap_page(adapter->pdev,
-+				       pci_unmap_addr(rx_page_info, bus),
-+				       frag_sz, PCI_DMA_FROMDEVICE);
-+		}
-+
-+		udpcksm = rxcp->udpcksm;
-+		tcpcksm = rxcp->tcpcksm;
-+
-+		sa_atomic_decrement(&pnob->rx_q_posted);
-+
-+		if ((tcpcksm) && (udpcksm) && (rxcp->pktsize == 32)) {
-+			put_page(rx_page_info->page);
-+			memset(rx_page_info, 0, sizeof(BE_RX_PAGE_INFO));
-+			goto next_compl;
-+		}
-+		/* Only one of udpcksum and tcpcksum can be set */
-+		SA_ASSERT(!(udpcksm && tcpcksm));
-+
-+		fill_rx_skb(rxcp, rx_page_info, pnob);
-+
-+next_compl:
-+#else
-+		process_nic_rx_completion(pnob, rxcp); #endif
-+		adapter->eth_rx_bytes += rxcp->pktsize;
-+		/*
-+		 * RX rate calculation.
-+		 */
-+		UPDATE_RATE(adapter, eth_rx_jiffies, eth_rx_bytes,
-+			    bes_eth_rx_rate);
-+		nc++;	/* number of cq entries that we have processed */
-+		adapter->be_stat.bes_ucrx_compl++;
-+#ifdef CONFIG_BENET_NAPI
-+		OSM_NOB(pnob)->work_quota--;
-+#endif
-+	}
-+#ifdef RX_PKT_COALESCE
-+	for (i = 0; i < MAX_COALESCE_OBJECTS; ++i) {
-+		obj = &OSM_NOB(pnob)->rxc_obj[i];
-+		if (obj && (obj->skb)) {
-+			prep_skb_final(pnob, obj);
-+			memset(obj, 0, sizeof(struct be_coalesce_object));
-+			--OSM_NOB(pnob)->num_coalesce_objects;
-+		}
-+	}
-+#endif
-+#ifdef CONFIG_BENET_NAPI
-+	if (OSM_NOB(pnob)->work_quota == 0) {
-+		/* we ran out of work budget */
-+		rearm = 0;
-+	} else {
-+		/* we finished all work.  We are  in interrupt mode */
-+		rearm = 1;
-+	}
-+#endif
-+	/*
-+	 * we call notfiy completions even when nc is zero, since
-+	 * rearm value needs to take effect
-+	 */
-+	bni_notify_cmpl(pnob, nc, pnob->ucrx_cq_id, rearm); }
++#ifndef __beclib_private_h__
++#define __beclib_private_h__
 +
 +/*
-+ * Process broadcast and multicat completions  */ void 
-+process_bcast_rx_completion(PBNI_NET_OBJECT pnob) {
-+	PBE_ADAPTER adapter = OSM_NOB(pnob)->adapter;
-+	PETH_RX_COMPL rxcp;
-+
-+	u32 nc = 0;
-+
-+	adapter->be_stat.bes_bcrx_events++;
-+
-+	nc = 0;
-+	while ((rxcp = (bni_get_bcrx_cmpl(pnob)))) {
-+
-+		TRACE(DL_RECV, "Got valid bcast completion: len %d, index %d",
-+		      rxcp->pktsize, rxcp->fragndx);
-+
-+		process_nic_rx_completion(pnob, rxcp);
-+
-+		nc++;
-+		adapter->be_stat.bes_bcrx_compl++;
-+	}
-+	bni_notify_cmpl(pnob, nc, pnob->bcrx_cq_id, 1);
-+
-+}
-+
-+/* Process NIC TX COMPLETIONS */
-+void process_nic_tx_completions(PBNI_NET_OBJECT pnob) {
-+	PBE_ADAPTER adapter = OSM_NOB(pnob)->adapter;
-+	PETH_TX_COMPL txcp;	/* Eth Tx completion entry  */
-+	struct net_device *netdev = (struct net_device *)
-+	    OSM_NOB(pnob)->os_handle;
-+	int num_processed = 0, cur_index, tx_wrbs_completed = 0, exp_index;
-+	struct sk_buff *skb;
-+	PHYSICAL_ADDRESS busaddr;
-+	u64 pa;
-+	PETH_WRB curr_wrb;
-+
-+	adapter->be_stat.bes_tx_events++;
-+	/*
-+	 * there is no need to take an SMP lock here since currently
-+	 * we have only one instance of the tasklet that does completion
-+	 * processing.
-+	 */
-+
-+	/* process each valid completion entry */
-+	while ((txcp = bni_get_tx_cmpl(pnob))) {
-+		/* Get the expected completion index */
-+		exp_index = (pnob->tx_q_tl +
-+			     ((int)pnob->tx_ctxt[pnob->tx_q_tl] - 1))
-+				    % pnob->tx_q_len;
-+		pnob->tx_ctxt[pnob->tx_q_tl] = NULL;
-+		if (exp_index != txcp->wrb_index) {
-+			printk ("Expected Wrb Index (=%d) doesn't match with"
-+			     " Completion Wrb Index (=%d)\n", exp_index,
-+				     txcp->wrb_index);
-+		}
-+		/*
-+		 * All reqs in the TX ring from the current tail index upto
-+		 * the one indicated in this completion entry's wrb_index
-+		 * are now completed.
-+		 */
-+		do {
-+			cur_index = pnob->tx_q_tl;
-+
-+			curr_wrb = &pnob->tx_q[cur_index];
-+			busaddr.pa_hi = curr_wrb->frag_pa_hi;
-+			busaddr.pa_lo = curr_wrb->frag_pa_lo;
-+			if (busaddr.pa != 0) {
-+				pa = le64_to_cpu(busaddr.pa);
-+
-+				pci_unmap_single(adapter->pdev, pa,
-+					 curr_wrb->frag_len,
-+					 PCI_DMA_TODEVICE);
-+			}
-+			/*
-+			 * this Tx request is complete.  The OSM context
-+			 * we stored is the skb address. free  this skb.
-+			 */
-+			skb = (struct sk_buff *) pnob->tx_ctxt[cur_index];
-+			if (skb) {
-+				unsigned int j;
-+
-+				for (j = 0; j < skb_shinfo(skb)->nr_frags;
-+				     j++) {
-+					struct skb_frag_struct *frag;
-+					frag = &skb_shinfo(skb)->frags[j];
-+					pci_unmap_page(adapter->pdev,
-+						       (ulong) frag->page,
-+						       frag->size,
-+						       PCI_DMA_TODEVICE);
-+				}
-+				kfree_skb(skb);
-+				pnob->tx_ctxt[cur_index] = NULL;
-+			}
-+
-+			tx_wrbs_completed++;
-+			bni_adv_txq_tl(pnob);
-+		} while (cur_index != txcp->wrb_index);
-+
-+		num_processed++;
-+		adapter->be_stat.bes_tx_compl++;
-+	}
-+	sa_atomic_sub(tx_wrbs_completed, &pnob->tx_q_used);
-+	bni_notify_cmpl(pnob, num_processed, pnob->tx_cq_id, 1);
-+	/*
-+	 * We got Tx completions and have usable WRBs.
-+	 * If the netdev's queue has been stopped
-+	 * because we had run out of WRBs, wake it now.
-+	 */
-+	spin_lock(&adapter->txq_lock);
-+	if (netif_queue_stopped(netdev)
-+	    && (pnob->tx_q_used < pnob->tx_q_len / 2)) {
-+		netif_wake_queue(netdev);
-+	}
-+	spin_unlock(&adapter->txq_lock);
-+}
-+
-+/*
-+ * posts receive buffers to the Eth receive queue.
++ * ------------------------------------------------------
++ * Chip Object
++ * ------------------------------------------------------
 + */
-+void post_eth_rx_buffs(PBNI_NET_OBJECT pnob) {
-+	PBE_ADAPTER adapter = OSM_NOB(pnob)->adapter;
-+	u32 num_bufs, r;
-+	PHYSICAL_ADDRESS busaddr, tmp_pa;
-+	u32 max_bufs;
-+	u32 frag_size;
-+	PBNI_RECV_BUFFER rxbp;
-+	SA_LIST_ENTRY rxbl;
-+	BE_RX_PAGE_INFO *rx_page_info;
-+	struct page *page = NULL;
-+	u32 page_order = 0;
-+	u32 alloc_flags = GFP_ATOMIC;
 +
-+	SA_ASSERT(adapter);
++void be_chip_lock(IN PBE_CHIP_OBJECT chip_object); void 
++be_chip_unlock(IN PBE_CHIP_OBJECT chip_object);
 +
-+	max_bufs = (u32) 64;	/* should be even # <= 255. */
-+	SA_ASSERT(max_bufs < 255 && (max_bufs & 1) == 0);
++/*
++ * ------------------------------------------------------
++ *  Function Object
++ * ------------------------------------------------------
++ */
 +
-+	frag_size = pnob->rx_buf_size;
++/* Init function object. */
++BESTATUS be_function_create(SA_DEV *sa_dev,	/* previously created device */
++			u32 function_type,	/* e.g FUNCTION_TYPE_ISCSI */
++			PSA_SGL mailbox_sgl,
++			PBE_FUNCTION_OBJECT function_object);
 +
-+	if (frag_size == 8192) {
-+		page_order = 1;
-+		alloc_flags |= __GFP_COMP;
-+	}
++/* Creates one chip object. */
++BESTATUS be_chip_create(OUT PBE_CHIP_OBJECT chip);
 +
-+	/*
-+	 * Form a linked list of RECV_BUFFFER structure to be be posted.
-+	 * We will post even number of buffer so that pages can be
-+	 * shared.
-+	 */
-+	sa_initialize_list_head(&rxbl);
++/*
++ * Inserts the function object into the chip object.  Both must be 
++previously
++ * created.  This function will initialize the chip during emulation.
++ */
++BESTATUS
++be_chip_insert_function_object(IN PBE_CHIP_OBJECT chip_object,
++			       IN PBE_FUNCTION_OBJECT function_object);
 +
-+	for (num_bufs = 0; num_bufs < max_bufs; ++num_bufs) {
++/*
++ * Cleans up the chip object.
++ * This function is called as part of be_function_cleanup.
++ */
++void be_chip_destroy(PBE_CHIP_OBJECT chip);
 +
-+		rxbp = &(OSM_NOB(pnob)->eth_rx_bufs[num_bufs]);
-+		rx_page_info =
-+		    &(OSM_NOB(pnob)->
-+		      rx_page_info[OSM_NOB(pnob)->rx_pg_info_hd]);
++/*
++ * Destroys the function object.  This assumes that all resources for
++ * this function have already been destroy, and it asserts if that
++ * is not true.
++ * This function is called as part of be_function_cleanup.
++ */
++BESTATUS be_function_destroy(PBE_FUNCTION_OBJECT function_object);
 +
-+		if (!page) {
-+			/*
-+			 * before we allocate a page make sure that we
-+			 * have space in the RX queue to post the buffer.
-+			 * We check for two vacant slots since with
-+			 * 2K frags, we will need two slots.
-+			 */
-+			if ((pnob->
-+			     rx_ctxt[(pnob->rx_q_hd +
-+				      num_bufs) % pnob->rx_q_len] != NULL)
-+			    || (pnob->
-+				rx_ctxt[(pnob->rx_q_hd + num_bufs +
-+					 1) % pnob->rx_q_len] != NULL)) {
-+				break;
-+			}
-+			page = alloc_pages(alloc_flags, page_order);
-+			if (unlikely(page == NULL)) {
-+				adapter->be_stat.bes_ethrx_post_fail++;
-+				OSM_NOB(pnob)->rxbuf_post_fail++;
-+				break;
-+			}
-+			OSM_NOB(pnob)->rxbuf_post_fail = 0;
-+			busaddr.pa = pci_map_page(adapter->pdev, page, 0,
-+						  frag_size,
-+						  PCI_DMA_FROMDEVICE);
-+			rx_page_info->page_offset = 0;
-+			rx_page_info->page = page;
-+			/*
-+			 * If we are sharing a page among two skbs,
-+			 * alloc a new one on the next iteration
-+			 */
-+			if (OSM_NOB(pnob)->rx_pg_shared == FALSE)
-+				page = NULL;
-+		} else {
-+			get_page(page);
-+			rx_page_info->page_offset += frag_size;
-+			rx_page_info->page = page;
-+			/*
-+			 * We are finished with the alloced page,
-+			 * Alloc a new one on the next iteration
-+			 */
-+			page = NULL;
-+		}
-+		rxbp->rxb_ctxt = (void *)rx_page_info;
-+		OSM_NOB(pnob)->rx_pg_info_hd =
-+		    (OSM_NOB(pnob)->rx_pg_info_hd + 1) % pnob->rx_q_len;
++/*
++ * Removes the function object from the chip.
++ * This function is called as part of be_function_cleanup.
++ */
++void
++be_chip_remove_function_object(IN PBE_CHIP_OBJECT chip_object,
++			       IN PBE_FUNCTION_OBJECT function_object);
 +
-+		pci_unmap_addr_set(rx_page_info, bus, busaddr.pa);
-+		tmp_pa.pa = busaddr.pa + rx_page_info->page_offset;
-+		rxbp->rxb_pa_lo = tmp_pa.pa_lo;
-+		rxbp->rxb_pa_hi = tmp_pa.pa_hi;
-+		rxbp->rxb_len = frag_size;
-+		InsertTailList(&rxbl, &rxbp->rxb_list);
-+	}			/* End of for */
++void _be_function_lock(PBE_FUNCTION_OBJECT fo); void 
++_be_function_unlock(PBE_FUNCTION_OBJECT fo);
 +
-+	r = bni_post_rx_buffs(pnob, &rxbl);
-+	SA_ASSERT(r == num_bufs);
-+	return;
++void _be_function_add_eq(PBE_FUNCTION_OBJECT fo, PBE_EQ_OBJECT 
++eq_object); void _be_function_remove_eq(PBE_FUNCTION_OBJECT fo,
++			    PBE_EQ_OBJECT eq_object);
++
++void _be_function_add_cq(PBE_FUNCTION_OBJECT fo, PBE_CQ_OBJECT 
++cq_object); void _be_function_remove_cq(PBE_FUNCTION_OBJECT fo,
++			    PBE_CQ_OBJECT cq_object);
++
++void _be_function_add_eth_sq(PBE_FUNCTION_OBJECT fo,
++			     PBE_ETHSQ_OBJECT eth_sq);
++void _be_function_remove_eth_sq(PBE_FUNCTION_OBJECT fo,
++				PBE_ETHSQ_OBJECT eth_sq);
++
++void _be_function_add_eth_rq(PBE_FUNCTION_OBJECT fo,
++			     PBE_ETHRQ_OBJECT eth_rq);
++void _be_function_remove_eth_rq(PBE_FUNCTION_OBJECT fo,
++				PBE_ETHRQ_OBJECT eth_rq);
++
++void _be_function_add_mcc(PBE_FUNCTION_OBJECT fo, PBE_MCC_OBJECT mcc); 
++void _be_function_remove_mcc(PBE_FUNCTION_OBJECT fo, PBE_MCC_OBJECT 
++mcc);
++
++void _be_function_add_iscsi_connection(PBE_FUNCTION_OBJECT fo,
++				       PBE_ISCSI_CONNECTION_OBJECT
++				       connection_object);
++void _be_function_remove_iscsi_connection(PBE_FUNCTION_OBJECT fo,
++					  PBE_ISCSI_CONNECTION_OBJECT
++					  connection_object);
++PBE_ISCSI_CONNECTION_OBJECT
++_be_function_find_iscsi_connection(PBE_FUNCTION_OBJECT fo, u32 cid);
++
++void _be_function_add_wrbq(PBE_FUNCTION_OBJECT funcobj,
++			   PBE_ISCSI_WRB_QUEUE_OBJECT wrbq); void 
++_be_function_remove_wrbq(PBE_FUNCTION_OBJECT funcobj,
++			      PBE_ISCSI_WRB_QUEUE_OBJECT wrbq);
++
++void _be_function_add_default_pdu_queue(PBE_FUNCTION_OBJECT func_obj,
++					PBE_DEFAULT_PDU_QUEUE_OBJECT defq); void 
++_be_function_remove_default_pdu_queue(PBE_FUNCTION_OBJECT func_obj,
++					   PBE_DEFAULT_PDU_QUEUE_OBJECT
++					   defq);
++
++u32 _be_function_reference(PBE_FUNCTION_OBJECT fo);
++u32 _be_function_dereference(PBE_FUNCTION_OBJECT fo);
++
++BESTATUS
++be_function_ring_destroy(PBE_FUNCTION_OBJECT function_object,
++			 u32 id, u32 ring_type);
++
++BESTATUS
++be_function_ring_destroy_async(PBE_FUNCTION_OBJECT function_object,
++			       u32 id,
++			       u32 ring_type,
++			       MCC_WRB_CQE_CALLBACK callback,
++			       PVOID callback_context,
++			       MCC_WRB_CQE_CALLBACK internal_callback,
++			       PVOID internal_callback_context);
++
++#define BE_CREATE_MCC_RESPONSE_COPY(_ioctl_type_, _field_, _va_)           \
++	be_create_mcc_response_copy(SA_FIELD_OFFSET(_ioctl_type_, _field_),  \
++		SA_SIZEOF_FIELD(_ioctl_type_, _field_),  \
++			(_va_))                                   \
++
++STATIC INLINE
++    BE_MCC_WRB_RESPONSE_COPY
++be_create_mcc_response_copy(u16 offset, u16 length, PVOID va) {
++	BE_MCC_WRB_RESPONSE_COPY rc;
++	rc.length = length;
++	rc.ioctl_offset = offset;
++	rc.va = va;
++	return rc;
++}
++
++BESTATUS
++be_function_post_mcc_wrb_with_queue_context(IN PBE_FUNCTION_OBJECT
++					    function_object,
++					    IN PMCC_WRB wrb,
++					    IN PBE_GENERIC_QUEUE_CONTEXT
++					    queue_context,
++					    IN MCC_WRB_CQE_CALLBACK
++					    callback,
++					    IN PVOID callback_context,
++					    IN PVOID optional_ioctl_va);
++
++BESTATUS
++be_function_post_mcc_wrb_with_copy(IN PBE_FUNCTION_OBJECT function_object,
++				   IN PMCC_WRB wrb,
++				   IN PBE_GENERIC_QUEUE_CONTEXT
++				   queue_context,
++				   IN MCC_WRB_CQE_CALLBACK callback,
++				   IN PVOID callback_context,
++				   IN PVOID optional_ioctl_va,
++				   IN BE_MCC_WRB_RESPONSE_COPY
++				   response_copy);
++
++BESTATUS
++be_function_post_mcc_wrb_with_internal_callback(IN PBE_FUNCTION_OBJECT
++						function_object,
++						IN PMCC_WRB wrb,
++						IN
++						PBE_GENERIC_QUEUE_CONTEXT
++						queue_context,
++						IN MCC_WRB_CQE_CALLBACK
++						callback,
++						IN PVOID callback_context,
++						IN MCC_WRB_CQE_CALLBACK
++						internal_callback,
++						IN PVOID
++						internal_callback_context,
++						IN PVOID
++						optional_ioctl_va);
++
++BESTATUS
++be_function_post_mcc_wrb_complete(IN PBE_FUNCTION_OBJECT function_object,
++				  IN PMCC_WRB wrb,
++				  IN PBE_GENERIC_QUEUE_CONTEXT
++				  queue_context,
++				  IN MCC_WRB_CQE_CALLBACK callback,
++				  IN PVOID callback_context,
++				  IN MCC_WRB_CQE_CALLBACK
++				  internal_callback,
++				  IN PVOID internal_callback_context,
++				  IN PVOID optional_ioctl_va,
++				  IN BE_MCC_WRB_RESPONSE_COPY
++				  response_copy);
++
++/* Returns the protection domain number. 0 is host. */
++u32 be_function_get_pd_number(PBE_FUNCTION_OBJECT function_object);
++
++boolean be_function_is_vm(PBE_FUNCTION_OBJECT function_object);
++
++BESTATUS
++be_function_queue_mcc_wrb(PBE_FUNCTION_OBJECT function_object,
++			  PBE_GENERIC_QUEUE_CONTEXT queue_context);
++
++BESTATUS
++be_function_internal_query_firmware_config(IN PBE_FUNCTION_OBJECT
++					   function_object,
++					   OUT BE_FIRMWARE_CONFIG *
++					   config);
++
++/*
++ * ------------------------------------------------------
++ *  Event Queue
++ * ------------------------------------------------------
++ */
++
++void _be_eq_add_cq(PBE_EQ_OBJECT eq_object, PBE_CQ_OBJECT cq_object); 
++void _be_eq_remove_cq(PBE_EQ_OBJECT eq_object, PBE_CQ_OBJECT 
++cq_object);
++
++u32 be_eq_reference(PBE_EQ_OBJECT cq_object);
++u32 be_eq_dereference(PBE_EQ_OBJECT cq_object);
++
++/* Deprecate.... */
++EQ_CALLBACK
++be_eq_set_callback(IN PBE_EQ_OBJECT eq_object,
++		   IN EQ_CALLBACK callback, IN PVOID context);
++
++/* Deprecate... */
++void
++be_eq_delegate_processing(IN PBE_FUNCTION_OBJECT function_object,
++			  IN u32 eq_id);
++
++/*
++ * ------------------------------------------------------
++ *  Completion Queue Object
++ * ------------------------------------------------------
++ */
++
++u32 be_cq_object_reference(PBE_CQ_OBJECT cq_object);
++
++u32 be_cq_object_dereference(PBE_CQ_OBJECT cq_object);
++
++/* Deprecate.... */
++CQ_CALLBACK
++be_cq_object_set_callback(IN PBE_CQ_OBJECT cq_object,
++			  IN CQ_CALLBACK callback, IN PVOID context);
++
++/* Deprecate.... */
++void
++be_cq_object_delegate_processing(PBE_FUNCTION_OBJECT function_object,
++				 u32 cq_id);
++
++/*
++ * ------------------------------------------------------
++ *  MCC QUEUE
++ * ------------------------------------------------------
++ */
++
++BESTATUS
++be_mpu_init_mailbox(IN PBE_FUNCTION_OBJECT function_object,
++		    IN PSA_SGL mailbox);
++
++BESTATUS be_mpu_uninit_mailbox(IN PBE_FUNCTION_OBJECT function_object);
++
++PMCC_WRB
++_be_mpu_peek_ring_wrb(IN PBE_MCC_OBJECT mcc, IN boolean driving_queue);
++
++PBE_MCC_WRB_CONTEXT
++_be_mcc_allocate_wrb_context(PBE_FUNCTION_OBJECT function_object);
++
++void
++_be_mcc_free_wrb_context(PBE_FUNCTION_OBJECT function_object,
++			 PBE_MCC_WRB_CONTEXT context);
++
++BESTATUS
++_be_mpu_post_wrb_mailbox(IN PBE_FUNCTION_OBJECT function_object,
++			 IN PMCC_WRB wrb,
++			 IN PBE_MCC_WRB_CONTEXT wrb_context);
++
++BESTATUS
++_be_mpu_post_wrb_ring(IN PBE_MCC_OBJECT mcc,
++		      IN PMCC_WRB wrb, IN PBE_MCC_WRB_CONTEXT wrb_context);
++
++void
++be_mcc_process_cqe(IN PBE_FUNCTION_OBJECT function_object,
++		   IN PMCC_CQ_ENTRY cqe);
++
++u32 be_mcc_get_id(PBE_MCC_OBJECT mcc);
++
++void be_drive_mcc_wrb_queue(IN PBE_MCC_OBJECT mcc);
++
++/*
++ * ------------------------------------------------------
++ *  iSCSI connection
++ * ------------------------------------------------------
++ */
++
++BESTATUS
++be_iscsi_cxn_create(PBE_FUNCTION_OBJECT function_object,
++		    IN PBE_ISCSI_WRB_QUEUE_OBJECT wrbq,
++		    IN PBE_DEFAULT_PDU_QUEUE_OBJECT defq,
++		    IN PBE_CQ_OBJECT cq,
++		    OUT PBE_ISCSI_CONNECTION_OBJECT cxn);
++
++void be_iscsi_cxn_destroy(PBE_ISCSI_CONNECTION_OBJECT cxn);
++
++/*
++ * ------------------------------------------------------
++ *  Ring Sizes
++ * ------------------------------------------------------
++ */
++STATIC INLINE u32 be_ring_encoding_to_length(u32 encoding, u32 
++object_size) {
++
++	ASSERT(encoding != 1);	/* 1 is rsvd */
++	ASSERT(encoding < 16);
++	ASSERT(object_size > 0);
++
++	if (encoding == 0)	/* 32k deep */
++		encoding = 16;
++
++	return (1 << (encoding - 1)) * object_size; }
++
++STATIC INLINE
++    u32 be_ring_length_to_encoding(u32 length_in_bytes, u32 
++object_size) {
++
++	u32 count, encoding;
++
++	ASSERT(object_size > 0);
++	ASSERT(length_in_bytes % object_size == 0);
++
++	count = length_in_bytes / object_size;
++
++	ASSERT(count > 1);
++	ASSERT(count <= 32 * 1024);
++	ASSERT(length_in_bytes <= 8 * SA_PAGE_SIZE); /* max ring size in UT */
++
++	encoding = sa_log2(count) + 1;
++
++	if (encoding == 16)
++		encoding = 0;	/* 32k deep */
++
++	return encoding;
 +}
 +
 +/*
-+ * Interrupt service for network function.  We just schedule the
-+ * tasklet which does all completion processing.
++ * ------------------------------------------------------
++ *  Locking
++ * ------------------------------------------------------
 + */
-+irqreturn_t be_int(int irq, PVOID dev, struct pt_regs *regs) {
-+	struct net_device *netdev = dev;
-+	PBNI_NET_OBJECT pnob = (PBNI_NET_OBJECT) (netdev->priv);
-+	PBE_ADAPTER adapter = (PBE_ADAPTER) OSM_NOB(pnob)->adapter;
-+	u32 isr;
 +
-+	/*
-+	 * If not our interrupt, just return.
-+	 */
-+	isr = bni_get_isr(pnob);
-+	if (unlikely(!isr)) {
-+		return 0;
-+	}
-+
-+	spin_lock(&adapter->int_lock);
-+	adapter->isr |= isr;
-+	spin_unlock(&adapter->int_lock);
-+
-+	adapter->be_stat.bes_ints++;
-+
-+	tasklet_schedule(&adapter->sts_handler);
-+	return 1;
++/* Init, acquire, or release a lock at any IRQL */ STATIC INLINE void 
++be_lock_init(BE_LOCK *lock) {
++	sa_init_spinlock(&lock->lock);
 +}
 +
-+#ifdef CONFIG_BENET_NAPI
-+/*
-+ * Poll function called by NAPI with a work budget.
-+ * We process as many UC. BC and MC receive completions
-+ * as the budget allows and return the actual number of
-+ * RX ststutses processed.
-+ */
-+int be_poll(struct napi_struct *napi, int budget) {
-+	struct net_device *netdev = napi->dev;
-+	PBNI_NET_OBJECT pnob = (PBNI_NET_OBJECT) netdev->priv;
-+	PBE_ADAPTER adapter = (PBE_ADAPTER) OSM_NOB(pnob)->adapter;
-+	u32 work_done;
++STATIC INLINE void be_lock_acquire(IN BE_LOCK *lock) {
++	sa_acquire_spinlock(&lock->lock, &lock->irql); }
 +
-+	adapter->be_stat.bes_polls++;
-+	OSM_NOB(pnob)->work_quota = budget;
-+	process_ucast_rx_completion(pnob);
-+	process_bcast_rx_completion(pnob);
-+	if (pnob->rx_q_posted < 900)
-+		post_eth_rx_buffs(pnob);
-+
-+	work_done = (budget - OSM_NOB(pnob)->work_quota);
-+
-+	if (OSM_NOB(pnob)->work_quota == 0) {
-+		return budget;
-+	}
-+	netif_rx_complete(netdev, napi);
-+
-+	/* If another rx was attempted while we were in poll, schedule again */
-+	spin_lock_bh(&OSM_NOB(pnob)->rx_lock);
-+	if (OSM_NOB(pnob)->rx_sched) {
-+		OSM_NOB(pnob)->rx_sched = FALSE;
-+		if (netif_rx_schedule_prep(netdev, napi))
-+			__netif_rx_schedule(netdev, napi);
-+	}
-+	spin_unlock_bh(&OSM_NOB(pnob)->rx_lock);
-+	return (budget - OSM_NOB(pnob)->work_quota); }
-+
-+#define SCHEDULE_NAPI_RX(no, nd) 				\
-+		{						\
-+			spin_lock_bh(&OSM_NOB(no)->rx_lock);	\
-+			if (netif_rx_schedule_prep(nd, 		\
-+					&OSM_NOB(no)->napi)) {	\
-+				__netif_rx_schedule(nd, 	\
-+					&OSM_NOB(no)->napi);	\
-+				OSM_NOB(no)->rx_sched = FALSE; 	\
-+			}					\
-+			else {					\
-+				OSM_NOB(no)->rx_sched = TRUE;	\
-+			}					\
-+			spin_unlock_bh(&OSM_NOB(no)->rx_lock);	\
-+		}
-+#endif
++STATIC INLINE void be_lock_release(IN BE_LOCK *lock) {
++	sa_release_spinlock(&lock->lock, &lock->irql); }
 +
 +/*
-+ * Processes all valid events in the event ring associated with given
-+ * NetObject.  Also, notifies BE the number of events processed.
++ * Init, acquire, or release a blocking lock at IRQL<DISPATH_LEVEL.
++ * TODO - These may need to be implemented with spinlocks on some 
++platforms,
++ * hence this extra layer of abstraction.
 + */
-+inline u32 process_events(PBNI_NET_OBJECT pnob) {
-+	PBE_ADAPTER adapter = OSM_NOB(pnob)->adapter;
-+	PEQ_ENTRY eqp;
-+	u32 rid, num_events = 0;
-+
-+#ifdef CONFIG_BENET_NAPI
-+	struct net_device *netdev = OSM_NOB(pnob)->os_handle; #endif
-+
-+	while ((eqp = bni_get_event(pnob)) != NULL) {
-+		adapter->be_stat.bes_events++;
-+		rid = eqp->ResourceID;
-+
-+		if (rid == pnob->ucrx_cq_id) {
-+			adapter->be_stat.bes_ucrx_events++;
-+#ifdef CONFIG_BENET_NAPI
-+			if (BE_DEV_STATE_OPEN(adapter))
-+				SCHEDULE_NAPI_RX(pnob, netdev)
-+			else
-+#endif
-+				process_ucast_rx_completion(pnob);
-+		} else if (rid == pnob->bcrx_cq_id) {
-+			adapter->be_stat.bes_bcrx_events++;
-+#ifdef CONFIG_BENET_NAPI
-+			if (BE_DEV_STATE_OPEN(adapter))
-+				SCHEDULE_NAPI_RX(pnob, netdev)
-+			else
-+#endif
-+				process_bcast_rx_completion(pnob);
-+		} else if (rid == pnob->tx_cq_id) {
-+			process_nic_tx_completions(pnob);
-+		} else if (rid == pnob->mcc_cq_id) {
-+			bni_process_mcc_cmpl(&pnob->mcc_q_obj);
-+		} else {
-+			printk(KERN_WARNING "Invalid EQ ResourceID %d\n", rid);
-+		}
-+		eqp->Valid = 0;
-+		num_events++;
-+	}
-+	return (num_events);
++STATIC INLINE void be_blocking_lock_init(IN BE_BLOCKING_LOCK *lock) {
++	sa_initialize_fast_mutex(lock);
 +}
 +
-+/*
-+ * Called from the tasklet scheduled by ISR.  All real interrupt 
-+processing
-+ * is done here.
-+ */
-+void osm_process_sts(unsigned long context) {
-+	PBE_ADAPTER adapter = (PBE_ADAPTER) context;
-+	PBNI_NET_OBJECT pnob;
-+	u32 isr, n;
-+	ulong flags = 0;
-+
-+	SA_ASSERT(adapter);
-+
-+	isr = adapter->isr;
-+
-+	/*
-+	 * we create only one NIC event queue in Linux. Event is
-+	 * expected only in the first event queue
-+	 */
-+	SA_ASSERT((isr & 0xfffffffe) == 0)
-+	if ((isr & 1) == 0)
-+		return;		/* not our interrupt */
-+	pnob = adapter->net_obj;
-+	n = process_events(pnob);
-+	/*
-+	 * Clear the event bit. adapter->isr is  set by
-+	 * hard interrupt.  Prevent race with lock.
-+	 */
-+	spin_lock_irqsave(&adapter->int_lock, flags);
-+	adapter->isr &= ~1;
-+	spin_unlock_irqrestore(&adapter->int_lock, flags);
-+	bni_notify_event(pnob, n, 1);
-+
-+#ifdef CONFIG_BENET_NAPI
-+	/*
-+	 * In NAPI, posting of rx bufs is normally done
-+	 * in poll. However, if the device is not open
-+	 * or if previous allocation attempts had failed and
-+	 * BE has used up all posted buffers, we need to
-+	 * post here, since be_poll may never be called.
-+	 */
-+	if ((!BE_DEV_STATE_OPEN(adapter) && pnob->rx_q_posted < 900) ||
-+	    ((OSM_NOB(pnob)->rxbuf_post_fail) && (pnob->rx_q_posted == 0))) {
-+		post_eth_rx_buffs(pnob);
-+	}
-+#else
-+	if (pnob->rx_q_posted < 900) {
-+		post_eth_rx_buffs(pnob);
-+	}
-+#endif
-+	UPDATE_IPS(adapter, pnob);
-+	return;
++STATIC INLINE void be_blocking_lock_acquire(IN BE_BLOCKING_LOCK *lock) 
++{
++	SA_NOT_USED(lock);
 +}
-diff -uprN orig/linux-2.6.24.2/drivers/net/benet/be_tx.c benet/linux-2.6.24.2/drivers/net/benet/be_tx.c
---- orig/linux-2.6.24.2/drivers/net/benet/be_tx.c	1970-01-01 05:30:00.000000000 +0530
-+++ benet/linux-2.6.24.2/drivers/net/benet/be_tx.c	2008-02-14 15:23:07.793208016 +0530
-@@ -0,0 +1,191 @@
++
++STATIC INLINE void be_blocking_lock_release(IN BE_BLOCKING_LOCK *lock) 
++{
++	SA_NOT_USED(lock);
++	/*sa_release_fast_mutex(lock); */
++}
++
++STATIC INLINE void be_lock_wrb_post(PBE_FUNCTION_OBJECT 
++function_object) {
++	FUNCTION_ASSERT(function_object);
++	sa_acquire_spinlock(&function_object->post_lock,
++			    &function_object->post_irq);
++}
++
++STATIC INLINE void be_unlock_wrb_post(PBE_FUNCTION_OBJECT 
++function_object) {
++	FUNCTION_ASSERT(function_object);
++	sa_release_spinlock(&function_object->post_lock,
++			    &function_object->post_irq);
++
++	if (function_object->pend_queue_driving
++	    && function_object->links.mcc) {
++		function_object->pend_queue_driving = 0;
++		function_object->stats.pended_queue_driving++;
++		be_drive_mcc_wrb_queue(function_object->links.mcc);
++	}
++}
++
++STATIC INLINE void be_lock_cq_process(PBE_FUNCTION_OBJECT 
++function_object) {
++	FUNCTION_ASSERT(function_object);
++	sa_acquire_spinlock(&function_object->cq_lock,
++			    &function_object->cq_irq);
++}
++
++STATIC INLINE void be_unlock_cq_process(PBE_FUNCTION_OBJECT
++					function_object)
++{
++	FUNCTION_ASSERT(function_object);
++	sa_release_spinlock(&function_object->cq_lock,
++			    &function_object->cq_irq);
++}
++
++void be_sgl_to_pa_list(PSA_SGL sgl, PHYS_ADDR *pa_list, u32 max_num);
++
++#endif /* __beclib_private_h__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/beclib_stats.h benet/linux-2.6.24.2/drivers/message/beclib/beclib_stats.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/beclib_stats.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/beclib_stats.h	2008-02-14 15:23:07.799207104 +0530
+@@ -0,0 +1,73 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ *
++ */
++#ifndef __beclib_stats_h__
++#define __beclib_stats_h__
++
++typedef struct _BECLIB_FUNCTION_STATS {
++
++	union {
++
++		u32 dw[32];	/* Reserve space for a fixed number of stats. */
++
++		struct {
++			u32 mailbox_wrbs;
++			u32 emulated_wrbs;
++
++			/* Pertain to WRBs posted to ring only */
++			u32 synchronous_wrbs;
++			u32 posted_wrbs;
++			u32 consumed_wrbs;
++			u32 completed_wrbs;
++
++			/* SW queueing */
++			u32 queued_wrbs;
++			u32 queue_length;
++			u32 max_queue_length;
++			u32 pended_queue_driving;
++
++			/* MCC CQ */
++			u32 processed_cq;
++			u32 cq_entries;
++			u32 async_events;
++			u32 ignored_async_events;
++
++			/* Locks */
++			u32 post_lock_acquires;
++			u32 cq_lock_acquires;
++			u64 post_lock_ticks;
++			u64 cq_lock_ticks;
++		};
++	};
++
++} BECLIB_FUNCTION_STATS, *PBECLIB_FUNCTION_STATS;
++
++#endif /* __beclib_stats_h__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/beclib_ll_enum_nic.h benet/linux-2.6.24.2/drivers/message/beclib/beclib_ll_enum_nic.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/beclib_ll_enum_nic.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/beclib_ll_enum_nic.h	2008-02-14 15:23:07.799207104 +0530
+@@ -0,0 +1,68 @@
 +/*
 + * Copyright (C) 2005 - 2008 ServerEngines
 + * All rights reserved.
@@ -1295,165 +1450,38 @@ diff -uprN orig/linux-2.6.24.2/drivers/net/benet/be_tx.c benet/linux-2.6.24.2/dr
 + *
 + */
 +/*
-+ * This file contains the transmit functions.
-+ *
-+ */
++ * Autogenerated by srcgen version: 0127  */ #ifndef 
++__beclib_ll_enum_h__ #define __beclib_ll_enum_h__ #include "setypes.h"
 +
-+#include <linux/pci.h>
-+#include <linux/if_vlan.h>
-+#include <linux/in.h>
-+#include "be.h"
++#ifndef SG_STATIC_INLINE
++#define SG_STATIC_INLINE static inline
++#endif
 +
-+/* Transmit Function */
-+int betx_ether_frame(PBE_ADAPTER adapter, PBNI_NET_OBJECT pnob,
-+		     struct sk_buff *skb, u8 proto, u8 forward,
-+		     u16 lso_mss)
-+{
-+	unsigned int nfrags = 0, j, frame_size = 0;
-+	BNI_TX_FRAG_LIST TxFragList[BE_MAX_TX_FRAG_COUNT];
-+	unsigned int uiSendFlags;
-+	void *ctxtp;
-+	unsigned short vlanTag = 0;
-+	unsigned short TxMss = 0;
-+	PHYSICAL_ADDRESS busaddr;
-+	int iStatus;
++/* --- BE_FUNCTION_ENUM --- */
++#define BE_FUNCTION_TYPE_ISCSI          (0)
++#define BE_FUNCTION_TYPE_NETWORK        (1)
++#define BE_FUNCTION_TYPE_ARM            (2)
 +
-+	TRACE(DL_SEND, "betx_ether_frame() -  Entry");
++typedef enum {
++	ENUM_BE_FUNCTION_TYPE_ISCSI = 0x0UL,
++	ENUM_BE_FUNCTION_TYPE_NETWORK = 0x1UL,
++	ENUM_BE_FUNCTION_TYPE_ARM = 0x2UL
++} BE_FUNCTION_ENUM;
 +
-+	uiSendFlags = ETHCOMPLETE;
++/* --- BE_ETH_TX_RING_TYPE_ENUM --- */
++#define BE_ETH_TX_RING_TYPE_FORWARDING  (1) 	/* Ether ring for forwarding */
++#define BE_ETH_TX_RING_TYPE_STANDARD    (2)	/* Ether ring for sending */
++						/* network packets. */
++#define BE_ETH_TX_RING_TYPE_BOUND       (3)	/* Ethernet ring for sending */
++						/* network packets, bound */
++						/* to a physical port. */
 +
-+	if (OSM_NOB(pnob)->vlan_grp && vlan_tx_tag_present(skb)) {
-+		uiSendFlags |= ETHVLAN;
-+		vlanTag = vlan_tx_tag_get(skb);
-+	}
-+	ctxtp = (void *)skb;
++typedef enum {
++	ENUM_BE_ETH_TX_RING_TYPE_FORWARDING = 0x1UL,
++	ENUM_BE_ETH_TX_RING_TYPE_STANDARD = 0x2UL,
++	ENUM_BE_ETH_TX_RING_TYPE_BOUND = 0x3UL } BE_ETH_TX_RING_TYPE_ENUM;
 +
-+	if (proto == IPPROTO_TCP) {
-+		uiSendFlags |= TCPCS;
-+	}
-+
-+	if (proto == IPPROTO_UDP) {
-+		uiSendFlags |= UDPCS;
-+	}
-+
-+	if (forward) {
-+		uiSendFlags |= FORWARD;
-+		adapter->be_stat.bes_fwd_reqs++;
-+	}
-+
-+	if (lso_mss) {
-+		uiSendFlags |= LSO;
-+		TxMss = lso_mss;
-+	}
-+
-+	TRACE(DL_SEND, "NIC TX: ");
-+	adapter->be_stat.bes_tx_reqs++;
-+	/* populate the fragment (SG) list for this request */
-+	while (skb) {
-+		/*
-+		 * Check whether Fragment count goes above
-+		 * BE_MAX_TX_FRAG_COUNT
-+		 */
-+		if ((nfrags + 1) > BE_MAX_TX_FRAG_COUNT)
-+			goto max_tx_frag_error;
-+
-+		/*
-+		 * Get required info from main fragment of skb
-+		 * First get Quad Address
-+		 */
-+		busaddr.pa = pci_map_single(adapter->pdev, skb->data,
-+					    (skb->len - skb->data_len),
-+					    PCI_DMA_TODEVICE);
-+		busaddr.pa = cpu_to_le64(busaddr.pa);
-+		TxFragList[nfrags].txb_pa_lo = busaddr.pa_lo;
-+		TxFragList[nfrags].txb_pa_hi = busaddr.pa_hi;
-+		/* Next get Length */
-+		TxFragList[nfrags].txb_len = skb->len - skb->data_len;
-+		frame_size += TxFragList[nfrags].txb_len;
-+		TRACE(DL_SEND, "(0x%x) %d", TxFragList[nfrags].txb_pa_lo,
-+		      TxFragList[nfrags].txb_len);
-+		nfrags++;
-+
-+		/* For all the data fragments in this skb */
-+		for (j = 0; j < skb_shinfo(skb)->nr_frags; j++) {
-+			struct skb_frag_struct *frag;
-+
-+			/*
-+			 * Check whether Fragment count goes
-+			 * above BE_MAX_TX_FRAG_COUNT
-+			 */
-+			if ((nfrags + 1) > BE_MAX_TX_FRAG_COUNT)
-+				goto max_tx_frag_error;
-+
-+			/* For each fragment get required info */
-+			frag = &skb_shinfo(skb)->frags[j];
-+			/* First get Quad Address */
-+			busaddr.pa = pci_map_page(adapter->pdev,
-+						  frag->page,
-+						  frag->page_offset,
-+						  frag->size,
-+						  PCI_DMA_TODEVICE);
-+			busaddr.pa = cpu_to_le64(busaddr.pa);
-+			TxFragList[nfrags].txb_pa_lo = busaddr.pa_lo;
-+			TxFragList[nfrags].txb_pa_hi = busaddr.pa_hi;
-+			/* Next get Length */
-+			TxFragList[nfrags].txb_len = frag->size;
-+			frame_size += TxFragList[nfrags].txb_len;
-+			TRACE(DL_SEND, ", (0x%x) %d",
-+			      TxFragList[nfrags].txb_pa_lo,
-+			      TxFragList[nfrags].txb_len);
-+			nfrags++;
-+		}		/* End For Loop */
-+
-+		/*
-+		 * If the skb shared info points to another
-+		 * sk_buff then traverse this pointed
-+		 * skbuff in the same way till the end of the list
-+		 */
-+		skb = skb_shinfo(skb)->frag_list;
-+	}			/* End While Loop */
-+
-+	spin_lock_bh(&adapter->txq_lock);
-+	TRACE(DL_SEND, "\n");
-+
-+	/* Transmit the packet */
-+	iStatus = bni_tx_pkt(pnob, TxFragList,
-+			     uiSendFlags, vlanTag, TxMss, ctxtp, nfrags);
-+	if (iStatus != BE_SUCCESS) {
-+		/*Tell the stack that Tx failed. */
-+		netif_stop_queue((struct net_device *)
-+				 OSM_NOB(pnob)->os_handle);
-+		adapter->be_stat.bes_tx_fails++;
-+		spin_unlock_bh(&adapter->txq_lock);
-+		return BE_ETH_TX_ERROR;
-+	}
-+	adapter->eth_tx_bytes += frame_size;	/* for rate calculation */
-+	/*
-+	 * TX rate calculation.  If one second has passed since
-+	 * last calculation update the rate now.
-+	 */
-+	UPDATE_RATE(adapter, eth_tx_jiffies, eth_tx_bytes,
-+		    bes_eth_tx_rate);
-+	if (nfrags & 1)
-+		nfrags++;
-+
-+	adapter->be_stat.bes_tx_wrbs += nfrags;
-+
-+	/* Ring the send doorbell */
-+	bni_start_tx(pnob, nfrags);
-+	spin_unlock_bh(&adapter->txq_lock);
-+
-+	TRACE(DL_SEND, "betx_ether_frame() -  Exit");
-+	return BE_SUCCESS;
-+
-+      max_tx_frag_error:
-+	/*
-+	 * This skb cannot be transmitted since it exceeds max tx frag count
-+	 * Return with appropriate error
-+	 */
-+	printk(KERN_WARNING "%s: Exceeds Max Tx Frags\n", __FUNCTION__);
-+	return BE_ETH_TX_ERROR;	/*//Set the proper error code */
-+}
++#endif /* __beclib_ll_enum_h__ */
 
 ___________________________________________________________________________________
 This message, together with any attachment(s), contains confidential and proprietary information of
