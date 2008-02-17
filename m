@@ -1,32 +1,31 @@
 From: "Subbu Seetharaman" <subbus@serverengines.com>
-Subject: [PATHCH 6/16]  ServerEngines 10Gb NIC driver
-Date: Sat, 16 Feb 2008 18:33:00 -0800
-Message-ID: <20080217023300.1118ec0a@mailhost.serverengines.com>
+Subject: [PATHCH 7/16]  ServerEngines 10Gb NIC driver
+Date: Sat, 16 Feb 2008 18:43:12 -0800
+Message-ID: <20080217024312.8976972f@mailhost.serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail192.messagelabs.com ([216.82.242.147]:54042 "EHLO
+Received: from mail192.messagelabs.com ([216.82.242.147]:32030 "EHLO
 	mail192.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753120AbYBQCdG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2008 21:33:06 -0500
+	with ESMTP id S1752508AbYBQCnR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2008 21:43:17 -0500
 Received: from 59.93.89.51 ([59.93.89.51])
 	by mailhost.serverengines.com
 	for netdev@vger.kernel.org;
-	Sat, 16 Feb 2008 18:33:01 -0800
+	Sat, 16 Feb 2008 18:43:12 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-beclib functions that implement function object.
+Ether ring creation function in beclib.
 
----------------------------------------------
-
-diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/funcobj_ll.c benet/linux-2.6.24.2/drivers/message/beclib/funcobj_ll.c
---- orig/linux-2.6.24.2/drivers/message/beclib/funcobj_ll.c	1970-01-01 05:30:00.000000000 +0530
-+++ benet/linux-2.6.24.2/drivers/message/beclib/funcobj_ll.c	2008-02-14 15:23:07.806206040 +0530
-@@ -0,0 +1,2339 @@
+---------------------------------------
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/ethtx_ll.c benet/linux-2.6.24.2/drivers/message/beclib/ethtx_ll.c
+--- orig/linux-2.6.24.2/drivers/message/beclib/ethtx_ll.c 1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/ethtx_ll.c 2008-02-14 15:23:07.806206040 +0530
+@@ -0,0 +1,561 @@
 +/*
 + * Copyright (C) 2005 - 2008 ServerEngines
 + * All rights reserved.
@@ -60,2311 +59,1979 @@ diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/funcobj_ll.c benet/linux-2
 + */
 +#include "pch.h"
 +
-+#ifdef FUNCTION_ISCSI
 +/*
-+ *============================================================================
-+ *                            F I L E   S C O P E
-+ *============================================================================
++ *---------------------------------------------------------
++ * Function: be_eth_sq_create_ex
++ * Creates an ethernet send ring - extended version with
++ * additional parameters.
++ * function_object -
++ * sgl - no virtual address required
++ * length_in_bytes -
++ * type - The type of ring to create.
++ * ulp - The requested ULP number for the ring.
++ * This should be zero based, i.e. 0,1,2. This must
++ * be valid NIC ULP based on the firmware config.
++ * All doorbells for this ring must be sent to
++ * this ULP. The first network ring allocated for
++ * each ULP are higher performance than subsequent rings.
++ * cq_object - cq object for completions
++ * ex_parameters - Additional parameters (that may increase in
++ * future revisions). These parameters are only used
++ * for certain ring types -- see
++ * BE_ETH_SQ_PARAMETERS for details.
++ * eth_sq -
++ * return status - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------
 + */
-+
-+/*!
-+@brief
-+    This routine allocates iscsi ooo buffers & then registers them
-+    with the controller.
-+@param function_object - the iscsi function object to create these for
-+@param page_count      - number of pages to allocate for i_sc_si ooo buffers
-+@return
-+    BE_SUCCESS if successfull, otherwise a useful BESTATUS is returned.
-+*/
 +BESTATUS
-+be_function_iscsi_ooo_buffers_post(PBE_FUNCTION_OBJECT function_object,
-+				   u32 page_count, PSA_SGL sgl)
++be_eth_sq_create_ex(IN PBE_FUNCTION_OBJECT function_object,
++ IN PSA_SGL sgl,
++ IN u32 length,
++ IN u32 type,
++ IN u32 ulp,
++ IN PBE_CQ_OBJECT cq_object,
++ IN BE_ETH_SQ_PARAMETERS *ex_parameters,
++ OUT PBE_ETHSQ_OBJECT eth_sq)
 +{
-+	BESTATUS status = BE_SUCCESS;
-+	IOCTL_COMMON_ISCSI_CFG_POST_OOO_BUFFERS *ioctl = NULL;
-+	MCC_WRB *wrb = NULL;
-+	u32 num_pages = 0;
-+	u32 page_offset = 0;
-+	u32 i;
++ IOCTL_COMMON_ETH_TX_CREATE *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = 0;
 +
-+	be_lock_wrb_post(function_object);
++ ASSERT(sgl);
++ ASSERT(eth_sq);
++ ASSERT(ex_parameters);
 +
-+	ASSERT(sa_sgl_get_offset(sgl) == 0);	/* need page aligned buffers */
-+	ASSERT(page_count <= sa_sgl_get_page_count(sgl));
++ FUNCTION_ASSERT(function_object);
++ be_lock_wrb_post(function_object);
 +
-+	/* sw tracking */
-+	function_object->config.num_ooo += page_count;
++ sa_zero_mem(eth_sq, sizeof(*eth_sq));
 +
-+	TRACE(DL_INFO, "post ooo buffers. num:%d", page_count);
++ eth_sq->magic = BE_ETHSQ_MAGIC;
++ eth_sq->parent_function = function_object;
++ eth_sq->bid = 0xFFFFFFFF;
++ eth_sq->cq_object = cq_object;
 +
-+	/*
-+	 * Post numerous ioctls to keep each one small enuf to be embedded in
-+	 * the WRB.
-+	 */
-+	do {
-+		wrb = be_function_peek_mcc_wrb(function_object);
-+		if (!wrb) {
-+			TRACE(DL_ERR, "MCC wrb peek failed.");
-+			status = BE_STATUS_NO_MCC_WRB;
-+			goto error;
-+		}
-+		/*
-+		 * Prepares an embedded ioctl, including
-+		 * request/response sizes.
-+		 */
-+		ioctl = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object,
-+			       wrb, COMMON_ISCSI_CFG_POST_OOO_BUFFERS);
++ /* Translate beclib interface to arm interface. */
++ switch (type) {
++ case BE_ETH_TX_RING_TYPE_FORWARDING:
++ type = ETH_TX_RING_TYPE_FORWARDING;
++ break;
++ case BE_ETH_TX_RING_TYPE_STANDARD:
++ type = ETH_TX_RING_TYPE_STANDARD;
++ break;
++ case BE_ETH_TX_RING_TYPE_BOUND:
++ ASSERT(ex_parameters->port < 2);
++ type = ETH_TX_RING_TYPE_BOUND;
++ break;
++ default:
++ TRACE(DL_ERR, "Invalid eth tx ring type:%d", type);
++ return BE_NOT_OK;
++ break;
++ }
 +
-+		num_pages = MIN(page_count, SA_NUMBER_OF_FIELD(
-+				IOCTL_COMMON_ISCSI_CFG_POST_OOO_BUFFERS,
-+							params.request.pages));
-+		ioctl->params.request.num_pages = num_pages;
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ ASSERT(wrb);
++ TRACE(DL_ERR, "No free MCC WRBs in create EQ.");
++ status = BE_STATUS_NO_MCC_WRB;
++ goto Error;
++ }
++ /* NIC must be supported by the current config. */
++ ASSERT(function_object->fw_config.nic_ulp_mask);
 +
-+		/* Create a page list for the IOCTL. */
-+		for (i = 0; i < ioctl->params.request.num_pages; i++) {
-+			u64 pa = sa_sgl_get_page(sgl, page_offset + i);
-+			ioctl->params.request.pages[i].lo = sa_lo(pa);
-+			ioctl->params.request.pages[i].hi = sa_hi(pa);
-+		}
++ /*
++ * The ulp parameter must select a valid NIC ULP
++ * for the current config.
++ */
++ ASSERT((1 << ulp) & function_object->fw_config.nic_ulp_mask);
 +
-+		page_offset += num_pages;
-+		page_count -= num_pages;
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl =
++ BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ COMMON_ETH_TX_CREATE);
 +
-+		ioctl->params.request.final = (page_count == 0 ? 1 : 0);
++ /* Only used for ETH_TX_RING_TYPE_BOUND */
++ ioctl->header.request.port_number = ex_parameters->port;
++ ioctl->params.request.context.pd_id =
++ be_function_get_pd_number(function_object);
++ ioctl->params.request.context.tx_ring_size =
++ be_ring_length_to_encoding(length, sizeof(ETH_WRB));
++ ioctl->params.request.context.cq_id_send = cq_object->cq_id;
++ ioctl->params.request.context.func =
++ be_function_get_function_number(function_object);
++ ioctl->params.request.type = type;
++ ioctl->params.request.ulp_num = (1 << ulp);
 +
-+		status =
-+		    be_function_post_mcc_wrb(function_object, wrb, NULL,
-+					     NULL, ioctl);
-+		if (status != BE_SUCCESS) {
-+			TRACE(DL_ERR,
-+			      "MCC to add iscsi ooo buffers failed.");
-+			goto error;
-+		}
++ ioctl->params.request.num_pages = sa_ceiling(length, SA_PAGE_SIZE);
++ ASSERT(sa_sgl_get_page_count(sgl) >=
++ ioctl->params.request.num_pages);
 +
-+	} while (page_count > 0);
++ /* Create a page list for the IOCTL. */
++ be_sgl_to_pa_list(sgl,
++ ioctl->params.request.pages,
++ SA_NUMBER_OF(ioctl->params.request.pages));
 +
-+error:
-+	be_unlock_wrb_post(function_object);
-+	return status;
++ status =
++ be_function_post_mcc_wrb(function_object, wrb, NULL, NULL,
++ ioctl);
++ if (status != BE_SUCCESS) {
++ TRACE(DL_ERR, "MCC to create etx queue failed.");
++ goto Error;
++ }
++ /* save the butler ID */
++ eth_sq->bid = ioctl->params.response.cid;
++
++ /* add a reference to the corresponding CQ */
++ be_cq_object_reference(cq_object);
++
++ /* add this object to the function object */
++ _be_function_add_eth_sq(function_object, eth_sq);
++
++ TRACE(DL_INFO,
++ "eth sq created. function:%d pd:%d bid:%d bytes:%d cq_id:%d",
++ be_function_get_function_number(function_object),
++ be_function_get_pd_number(function_object), eth_sq->bid,
++ length, be_cq_get_id(cq_object));
++Error:
++ be_unlock_wrb_post(function_object);
++ return status;
++
 +}
 +
 +/*!
-+@brief
-+    This routine allocates iSCSI ooo buffers & then registers them
-+    with the controller.
-+@param
-+    FunctionObject      - The iSCSI function object to create these for
-+@param
-+    PageCount           - Number of pages to allocate for iSCSI ooo buffers
-+@return
-+    BE_SUCCESS if successfull, otherwise a useful BESTATUS is returned.
-+*/
-+BESTATUS
-+be_function_iscsi_ooo_buffers_remove(PBE_FUNCTION_OBJECT function_object)
-+{
-+	BESTATUS status = BE_SUCCESS;
-+	IOCTL_COMMON_ISCSI_CFG_REMOVE_OOO_BUFFERS *ioctl = NULL;
-+	MCC_WRB *wrb = NULL;
-+
-+	be_lock_wrb_post(function_object);
-+
-+	/* sw tracking */
-+	function_object->config.num_ooo = 0;
-+	TRACE(DL_INFO, "remove ooo buffers.");
-+
-+	wrb = be_function_peek_mcc_wrb(function_object);
-+	if (!wrb) {
-+		TRACE(DL_ERR, "MCC wrb peek failed.");
-+		status = BE_STATUS_NO_MCC_WRB;
-+		goto error;
-+	}
-+	/* Prepares an embedded ioctl, including request/response sizes. */
-+	ioctl =
-+	    BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
-+				       COMMON_ISCSI_CFG_REMOVE_OOO_BUFFERS);
-+
-+	status =
-+	    be_function_post_mcc_wrb(function_object, wrb, NULL, NULL,
-+				     ioctl);
-+	if (status != BE_SUCCESS) {
-+		TRACE(DL_ERR, "MCC to remove iscsi ooo buffers failed.");
-+		goto error;
-+	}
-+
-+error:
-+
-+	be_unlock_wrb_post(function_object);
-+	return status;
-+}
-+#endif
-+
-+/*!
 +
 +@brief
-+    This allocates an initializes a function object based on the information
-+    provided by upper layer drivers.
++ this routine creates an ethernet send queue
 +
 +@param
-+     BarLocations     - Location & information on PCI BARs contained
-+			by this PCI function
++ function_object - handle to a function object
 +@param
-+    Upcall            - Dispatch table of calls into the upper layer drivers
++ send_queue_va - base VA for a the ethernet send ring
 +@param
-+    ppFunctionObject  - New function object
++ ring_size_power_of_two - number of entries in the
++ ring (power of two). 32K = 0, 1 = rsvd,
++ 2 = 1, 3 = 4 ....
++@param
++ cq_object - internal CQ handle returned.
++@param
++ pp_eth_sq - internal eth sq handle returned.
 +
 +@return
-+    Returns BE_SUCCESS on success and an appropriate BESTATUS on failure.
++ BE_SUCCESS if successfull, , otherwise a useful error code is returned.
 +
 +@note
-+    IRQL < DISPATCH_LEVEL
-+
-+    A function object represents a single BladeEngine (logical) PCI function.
-+    That is a function object either represents
-+    the networking side of BladeEngine or the iSCSI side of BladeEngine. Each
-+    function object has a chip object that is shared by up to 1 other function
-+    object.
-+
-+    This routine will also detect and create an appropriate PD object for the
-+    PCI function as needed.
++ IRQL: < DISPATCH_LEVEL
++ this function allocates an eth_sq object
 +
 +*/
-+BESTATUS
-+be_function_create(IN SA_DEV *sa_dev,
-+		   IN u32 function_type,
-+		   IN PSA_SGL mailbox,
-+		   OUT PBE_FUNCTION_OBJECT function_object)
++BESTATUS be_eth_sq_create(IN PBE_FUNCTION_OBJECT function_object,
++ IN PSA_SGL sgl, IN u32 length, IN u32 type,
++ IN u32 ulp, /* 0,1,2 ulp id for the request ring */
++ IN PBE_CQ_OBJECT cq_object,
++ OUT PBE_ETHSQ_OBJECT eth_sq)
 +{
-+	BESTATUS status;
++ BE_ETH_SQ_PARAMETERS ex_parameters = { 0 };
 +
-+	SA_TRACE_ENTRY();
-+
-+	ASSERT(sa_dev);
-+	ASSERT(function_object);	/* not a magic assert */
-+	ASSERT(function_type <= 2);
-+
-+	TRACE(DL_INFO,
-+	      "Create function object. type:%s sa_dev:0x%p object:0x%p",
-+	      (function_type == BE_FUNCTION_TYPE_ISCSI ? "iSCSI" :
-+	       (function_type == BE_FUNCTION_TYPE_NETWORK ? "Network" :
-+		"Arm")), sa_dev, function_object);
-+
-+	sa_zero_mem(function_object, sizeof(*function_object));
-+
-+	function_object->magic = BE_FUNCTION_MAGIC;
-+	function_object->ref_count = 0;
-+	function_object->type = function_type;
-+	function_object->sa_dev = sa_dev;
-+
-+	be_lock_init(&function_object->lock);
-+
-+	sa_init_spinlock(&function_object->cq_lock);
-+	sa_init_spinlock(&function_object->post_lock);
-+	sa_init_spinlock(&function_object->mcc_context_lock);
-+
-+	sa_initialize_list_head(&function_object->links.pd_list_head);
-+	sa_initialize_list_head(&function_object->links.cq_list_head);
-+	sa_initialize_list_head(&function_object->links.eq_list_head);
-+	sa_initialize_list_head(&function_object->links.cxn_list_head);
-+	sa_initialize_list_head(&function_object->links.eth_sq_list_head);
-+	sa_initialize_list_head(&function_object->links.eth_rq_list_head);
-+
-+	if (be_function_is_iscsi(function_object)) {
-+		sa_initialize_list_head(&function_object->links.iscsi.
-+					wrbq_list_head);
-+		sa_initialize_list_head(&function_object->links.iscsi.
-+					defq_list_head);
-+
-+		function_object->pci_function_number = 0;
-+	} else {
-+
-+		sa_initialize_list_head(&function_object->links.networking.
-+					dq_list_head);
-+		sa_initialize_list_head(&function_object->links.networking.
-+					sq_list_head);
-+		sa_initialize_list_head(&function_object->links.networking.
-+					rq_list_head);
-+
-+		function_object->pci_function_number = 1;
-+	}
-+
-+	function_object->config.rss_type = RSS_ENABLE_NONE;
-+
-+	function_object->emulate = FALSE;
-+	TRACE(DL_NOTE, "Non-emulation mode");
-+	status = be_drive_POST(function_object);
-+	if (status != BE_SUCCESS) {
-+		TRACE(DL_ERR, "BladeEngine POST failed.");
-+		goto error;
-+	}
-+
-+	/* Initialize the mailbox */
-+	status = be_mpu_init_mailbox(function_object, mailbox);
-+	if (status != BE_SUCCESS) {
-+		TRACE(DL_ERR, "Failed to initialize mailbox.");
-+		goto error;
-+	}
-+	/*
-+	 * Cache the firmware config for ASSERTs in beclib and later
-+	 * driver queries.
-+	 */
-+	status = be_function_internal_query_firmware_config(function_object,
-+					       &function_object->fw_config);
-+	if (status != BE_SUCCESS) {
-+		TRACE(DL_ERR, "Failed to query firmware config.");
-+		goto error;
-+	}
-+
-+error:
-+
-+	if (status != BE_SUCCESS) {
-+		/* No cleanup necessary */
-+		TRACE(DL_ERR, "Failed to create function.");
-+		SA_ZERO_MEM(function_object);
-+	}
-+
-+	return status;
++ return be_eth_sq_create_ex(function_object,
++ sgl,
++ length,
++ type,
++ ulp, cq_object, &ex_parameters, eth_sq);
 +}
 +
 +/*!
++
 +@brief
-+    This routine drops the reference count on a given function object. Once
-+    the reference count falls to zero, the function object is destroyed and all
-+    resources held are freed.
++ This routine returns the RID for an Etx SQ
 +
 +@param
-+    FunctionObject      - The function object to drop the reference to.
++ EthSq - EthSq Handle returned from EthSqCreate
++
++@return
++ The RID for an Etx SQ
++
++@note
++
 +*/
-+BESTATUS be_function_destroy(IN PBE_FUNCTION_OBJECT function_object)
++u32 be_eth_sq_get_id(IN PBE_ETHSQ_OBJECT eth_sq)
 +{
-+	FUNCTION_ASSERT(function_object);
-+
-+	TRACE(DL_INFO, "Destroy function_object. Object:0x%p",
-+	      function_object);
-+
-+	if (be_function_is_iscsi(function_object)) {
-+		ASSERT(sa_is_list_empty
-+		       (&function_object->links.cxn_list_head));
-+		ASSERT(sa_is_list_empty
-+		       (&function_object->links.iscsi.wrbq_list_head));
-+		ASSERT(sa_is_list_empty
-+		       (&function_object->links.iscsi.defq_list_head));
-+		ASSERT(function_object->config.num_ooo == 0);
-+		ASSERT(function_object->config.num_sgl == 0);
-+	} else {
-+		ASSERT(be_function_is_networking(function_object));
-+		ASSERT(sa_is_list_empty
-+		       (&function_object->links.cxn_list_head));
-+		ASSERT(sa_is_list_empty
-+		       (&function_object->links.networking.sq_list_head));
-+		ASSERT(sa_is_list_empty
-+		       (&function_object->links.networking.rq_list_head));
-+		ASSERT(sa_is_list_empty
-+		       (&function_object->links.networking.dq_list_head));
-+		ASSERT(function_object->config.num_multicast == 0);
-+		ASSERT(function_object->config.rss_type ==
-+		       RSS_ENABLE_NONE);
-+	}
-+
-+	ASSERT(function_object->config.num_template == 0);
-+	ASSERT(function_object->config.num_jell == 0);
-+	ASSERT(function_object->config.num_zero == 0);
-+	ASSERT(sa_is_list_empty(&function_object->links.eth_sq_list_head));
-+	ASSERT(sa_is_list_empty(&function_object->links.eth_rq_list_head));
-+	ASSERT(function_object->config.num_vlan == 0);
-+	ASSERT(function_object->links.mcc == NULL);
-+	ASSERT(sa_is_list_empty(&function_object->links.cq_list_head));
-+	ASSERT(sa_is_list_empty(&function_object->links.eq_list_head));
-+	ASSERT(function_object->config.num_page_table == 0);
-+
-+	/* Superfluous additional ref count.     */
-+	ASSERT(function_object->ref_count == 0);
-+
-+	return BE_SUCCESS;
++ ETHSQ_ASSERT(eth_sq);
++ return eth_sq->bid;
 +}
 +
-+/* Create chip object.  */
-+BESTATUS be_chip_object_create(PBE_CHIP_OBJECT chip)
++/*!
++
++@brief
++ This routine destroys an ethernet send queue
++
++@param
++ EthSq - EthSq Handle returned from EthSqCreate
++
++@return
++ This function always return BE_SUCCESS.
++
++@note
++ This function frees memory allocated by EthSqCreate for the EthSq Object.
++
++*/
++BESTATUS be_eth_sq_destroy(IN PBE_ETHSQ_OBJECT eth_sq)
 +{
-+	BESTATUS status = 0;
-+	boolean chip_created = FALSE;
++ BESTATUS status = 0;
 +
-+	status = be_chip_create(chip);
-+	if (status != BE_SUCCESS) {
-+		goto Error;
-+	}
++ ETHSQ_ASSERT(eth_sq);
 +
-+	chip_created = TRUE;
++ /* Send ioctl to destroy the queue. */
++ status =
++ be_function_ring_destroy(eth_sq->parent_function, eth_sq->bid,
++ IOCTL_RING_TYPE_ETH_TX);
++ ASSERT(status == 0);
 +
-+Error:
++ /* Derefence any associated CQs. */
++ be_cq_object_dereference(eth_sq->cq_object);
 +
-+	if (status != BE_SUCCESS) {
++ /* Remove from function */
++ _be_function_remove_eth_sq(eth_sq->parent_function, eth_sq);
 +
-+		/* Cleanup everything in case of failure. */
++ /* Clear tracking object */
++ sa_zero_mem(eth_sq, sizeof(*eth_sq));
 +
-+		if (chip_created) {
-+			be_chip_destroy(chip);
-+		}
-+
-+	}
-+
-+	return status;
-+
++ return status;
 +}
 +
-+/* Create function object.  */
-+BESTATUS be_function_object_create(
-+		SA_DEV *sa_dev,/* previously created device */
-+		u32 function_type,	/* e.g FUNCTION_TYPE_ISCSI */
-+		PSA_SGL mailbox_sgl, PBE_FUNCTION_OBJECT function_object,
-+		PBE_CHIP_OBJECT chip)	/* object to initialize */
++/*!
++
++@brief
++ This routine attempts to set the transmit flow control parameters.
++
++@param
++ FunctionObject - Handle to a function object
++
++@param
++ txfc_enable - transmit flow control enable - true for
++ enable, false for disable
++
++@param
++ rxfc_enable - receive flow control enable - true for
++ enable, false for disable
++
++@return
++ BE_SUCCESS if successfull, otherwise a useful BESTATUS error
++ code is returned.
++
++@note
++ IRQL: < DISPATCH_LEVEL
++
++ This function always fails in non-privileged machine context.
++*/
++BESTATUS
++be_eth_set_flow_control(IN PBE_FUNCTION_OBJECT function_object,
++ IN boolean txfc_enable, IN boolean rxfc_enable)
 +{
-+	BESTATUS status = 0;
-+	boolean function_created = FALSE;
++ IOCTL_COMMON_SET_FLOW_CONTROL *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = 0;
 +
-+	status = be_function_create(sa_dev, function_type, mailbox_sgl,
-+				    function_object);
-+	if (status != BE_SUCCESS) {
-+		goto Error;
-+	}
++ be_lock_wrb_post(function_object);
 +
-+	function_created = TRUE;
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ TRACE(DL_ERR, "MCC wrb peek failed.");
++ status = BE_STATUS_NO_MCC_WRB;
++ goto error;
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl =
++ BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ COMMON_SET_FLOW_CONTROL);
 +
-+	status = be_chip_insert_function_object(chip, function_object);
++ ioctl->params.request.rx_flow_control = rxfc_enable;
++ ioctl->params.request.tx_flow_control = txfc_enable;
 +
-+Error:
++ /* Post the Ioctl */
++ status = be_function_post_mcc_wrb(function_object, wrb, NULL,
++ NULL, ioctl);
 +
-+	if (status != BE_SUCCESS) {
++ if (status != 0) {
++ TRACE(DL_ERR, "set flow control ioctl failed.");
++ goto error;
++ }
 +
-+		/* Cleanup everything in case of failure. */
++error:
++ be_unlock_wrb_post(function_object);
 +
-+		if (function_created) {
-+			be_function_destroy(function_object);
-+		}
-+	}
++ return status;
++}
 +
-+	return status;
++/*!
 +
++@brief
++ This routine attempts to get the transmit flow control parameters.
++
++@param
++ FunctionObject - Handle to a function object
++
++@param
++ txfc_enable - transmit flow control enable - true for
++ enable, false for disable
++
++@param
++ rxfc_enable - receive flow control enable - true for enable,
++ false for disable
++
++@return
++ BE_SUCCESS if successfull, otherwise a useful BESTATUS error code
++ is returned.
++
++@note
++ IRQL: < DISPATCH_LEVEL
++
++ This function always fails in non-privileged machine context.
++*/
++BESTATUS
++be_eth_get_flow_control(IN PBE_FUNCTION_OBJECT function_object,
++ IN boolean *txfc_enable, IN boolean *rxfc_enable)
++{
++ IOCTL_COMMON_GET_FLOW_CONTROL *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = 0;
++
++ be_lock_wrb_post(function_object);
++
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ TRACE(DL_ERR, "MCC wrb peek failed.");
++ status = BE_STATUS_NO_MCC_WRB;
++ goto error;
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl =
++ BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ COMMON_GET_FLOW_CONTROL);
++
++ /* Post the Ioctl */
++ status = be_function_post_mcc_wrb(function_object, wrb, NULL,
++ NULL, ioctl);
++
++ if (status != 0) {
++ TRACE(DL_ERR, "get flow control ioctl failed.");
++ goto error;
++ }
++
++ *txfc_enable = ioctl->params.response.tx_flow_control;
++ *rxfc_enable = ioctl->params.response.rx_flow_control;
++
++error:
++ be_unlock_wrb_post(function_object);
++
++ return status;
 +}
 +
 +/*
-+ * Create both function and chip object with one call.  The lower level
-+ * API will rarely use more than one function object.
++ *---------------------------------------------------------
++ * Function: be_eth_set_qos
++ * This function sets the ethernet transmit Quality of Service (QoS)
++ * characteristics of BladeEngine for the domain. All ethernet
++ * transmit rings of the domain will evenly share the bandwidth.
++ * The exeception to sharing is the host primary (super) ethernet
++ * transmit ring as well as the host ethernet forwarding ring
++ * for missed offload data.
++ * function_object -
++ * max_bps - the maximum bits per second in units of
++ * 10 Mbps (valid 0-100)
++ * max_pps - the maximum packets per second in units
++ * of 1 Kpps (0 indicates no limit)
++ * return status - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------
 + */
-+BESTATUS be_function_and_chip_create(
-+		SA_DEV *sa_dev,	/* previously created device */
-+		u32 function_type,	/* e.g FUNCTION_TYPE_ISCSI */
-+		PSA_SGL mailbox_sgl, PSA_SGL emulation_sgl,
-+		PBE_FUNCTION_OBJECT function_object, PBE_CHIP_OBJECT chip)
++BESTATUS
++be_eth_set_qos(IN PBE_FUNCTION_OBJECT function_object,
++ IN u32 max_bps, IN u32 max_pps)
 +{
-+	BESTATUS status = 0;
-+	boolean function_created = FALSE, chip_created = FALSE;
++ IOCTL_COMMON_SET_QOS *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = 0;
 +
-+	status =
-+	    be_function_create(sa_dev, function_type, mailbox_sgl,
-+			       function_object);
-+	if (status != BE_SUCCESS) {
-+		goto Error;
-+	}
++ be_lock_wrb_post(function_object);
 +
-+	function_created = TRUE;
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ TRACE(DL_ERR, "MCC wrb peek failed.");
++ status = BE_STATUS_NO_MCC_WRB;
++ goto error;
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl =
++ BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ COMMON_SET_QOS);
 +
-+	status = be_chip_create(chip);
-+	if (status != BE_SUCCESS) {
-+		goto Error;
-+	}
++ /* Set fields in ioctl */
++ ioctl->params.request.max_bits_per_second_NIC = max_bps;
++ ioctl->params.request.max_packets_per_second_NIC = max_pps;
++ ioctl->params.request.valid_flags = QOS_BITS_NIC | QOS_PKTS_NIC;
 +
-+	chip_created = TRUE;
++ /* Post the Ioctl */
++ status = be_function_post_mcc_wrb(function_object, wrb, NULL,
++ NULL, ioctl);
 +
-+	status = be_chip_insert_function_object(chip, function_object);
++ if (status != 0) {
++ TRACE(DL_ERR, "network set qos ioctl failed.");
++ }
++
++error:
++ be_unlock_wrb_post(function_object);
++
++ return status;
++}
++
++/*
++ *---------------------------------------------------------
++ * Function: be_eth_get_qos
++ * This function retrieves the ethernet transmit Quality of Service (QoS)
++ * characteristics for the domain.
++ * function_object -
++ * max_bps - the maximum bits per second in units of
++ * 10 Mbps (valid 0-100)
++ * max_pps - the maximum packets per second in units of
++ * 1 Kpps (0 indicates no limit)
++ * return status - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------
++ */
++BESTATUS
++be_eth_get_qos(IN PBE_FUNCTION_OBJECT function_object,
++ IN u32 *max_bps, IN u32 *max_pps)
++{
++ IOCTL_COMMON_GET_QOS *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = 0;
++
++ be_lock_wrb_post(function_object);
++
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ TRACE(DL_ERR, "MCC wrb peek failed.");
++ status = BE_STATUS_NO_MCC_WRB;
++ goto error;
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl =
++ BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ COMMON_GET_QOS);
++
++ /* Post the Ioctl */
++ status = be_function_post_mcc_wrb(function_object, wrb, NULL,
++ NULL, ioctl);
++
++ if (status != 0) {
++ TRACE(DL_ERR, "network get qos ioctl failed.");
++ goto error;
++ }
++
++ *max_bps = ioctl->params.response.max_bits_per_second_NIC;
++ *max_pps = ioctl->params.response.max_packets_per_second_NIC;
++
++error:
++ be_unlock_wrb_post(function_object);
++
++ return status;
++}
++
++/*
++ *---------------------------------------------------------
++ * Function: be_eth_set_frame_size
++ * This function sets the ethernet maximum frame size. The previous
++ * values are returned.
++ * function_object -
++ * tx_frame_size - maximum transmit frame size in bytes
++ * rx_frame_size - maximum receive frame size in bytes
++ * return status - BE_SUCCESS (0) on success. Negative error code on failure.
++ *---------------------------------------------------------
++ */
++BESTATUS
++be_eth_set_frame_size(IN PBE_FUNCTION_OBJECT function_object,
++ IN OUT u32 *tx_frame_size,
++ IN OUT u32 *rx_frame_size)
++{
++ IOCTL_COMMON_SET_FRAME_SIZE *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = 0;
++
++ be_lock_wrb_post(function_object);
++
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ TRACE(DL_ERR, "MCC wrb peek failed.");
++ status = BE_STATUS_NO_MCC_WRB;
++ goto error;
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl =
++ BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ COMMON_SET_FRAME_SIZE);
++ ioctl->params.request.max_tx_frame_size = *tx_frame_size;
++ ioctl->params.request.max_rx_frame_size = *rx_frame_size;
++
++ /* Post the Ioctl */
++ status = be_function_post_mcc_wrb(function_object, wrb, NULL,
++ NULL, ioctl);
++
++ if (status != 0) {
++ TRACE(DL_ERR, "network set frame size ioctl failed.");
++ goto error;
++ }
++
++ *tx_frame_size = ioctl->params.response.chip_max_tx_frame_size;
++ *rx_frame_size = ioctl->params.response.chip_max_rx_frame_size;
++
++error:
++ be_unlock_wrb_post(function_object);
++
++ return status;
++}
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/ethrx_ll.c benet/linux-2.6.24.2/drivers/message/beclib/ethrx_ll.c
+--- orig/linux-2.6.24.2/drivers/message/beclib/ethrx_ll.c 1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/ethrx_ll.c 2008-02-14 15:23:07.807205888 +0530
+@@ -0,0 +1,430 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ *
++ */
++#include "pch.h"
++
++/*!
++
++@brief
++ This routine creates a Ethernet receive ring.
++
++@param
++ function_object - handle to a function object
++@param
++ rq_base_va - base VA for the default receive ring. this must be
++ exactly 8K in length and continguous physical memory.
++@param
++ cq_object - handle to a previously created CQ to be associated
++ with the RQ.
++@param
++ pp_eth_rq - pointer to an opqaue handle where an eth
++ receive object is returned.
++@return
++ BE_SUCCESS if successfull, , otherwise a useful
++ BESTATUS error code is returned.
++@note
++ IRQL: < DISPATCH_LEVEL
++ this function allocates a PBE_ETHRQ_OBJECT object.
++ there must be no more than 1 of these per function object, unless the
++ function object supports RSS (is networking and on the host).
++ the rq_base_va must point to a buffer of exactly 8K.
++ the erx::host_cqid (or host_stor_cqid) register and erx::ring_page registers
++ will be updated as appropriate on return
++*/
++BESTATUS
++be_eth_rq_create(PBE_FUNCTION_OBJECT function_object,
++ PSA_SGL sgl,
++ PBE_CQ_OBJECT cq_object,
++ PBE_CQ_OBJECT bcmc_cq_object, PBE_ETHRQ_OBJECT eth_rq)
++{
++ BESTATUS status = 0;
++ MCC_WRB *wrb = NULL;
++ IOCTL_COMMON_ETH_RX_CREATE *ioctl = NULL;
++
++ /* MPU will set the */
++ ASSERT(sgl);
++ ASSERT(eth_rq);
++
++ FUNCTION_ASSERT(function_object);
++ CQ_ASSERT(cq_object);
++
++ be_lock_wrb_post(function_object);
++
++ eth_rq->magic = BE_ETHRQ_MAGIC;
++ eth_rq->parent_function = function_object;
++ eth_rq->cq_object = cq_object;
++
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ TRACE(DL_ERR, "MCC wrb peek failed.");
++ status = BE_STATUS_NO_MCC_WRB;
++ goto Error;
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl =
++ BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ COMMON_ETH_RX_CREATE);
++
++ ioctl->params.request.num_pages = 2; /* required length */
++ ioctl->params.request.cq_id = be_cq_get_id(cq_object);
++
++ if (bcmc_cq_object) {
++ /* Only pd 0 host & storage can receive broadcast/multicast. */
++ if (be_function_get_pd_number(function_object) != 0) {
++ TRACE(DL_WARN,
++ "bcmc_cq_object ignored for pd_number:%d",
++ be_function_get_pd_number(function_object));
++ }
++ ioctl->params.request.bcmc_cq_id =
++ be_cq_get_id(bcmc_cq_object);
++ } else {
++ ioctl->params.request.bcmc_cq_id = 0xFFFF;
++ }
++
++ /* Create a page list for the IOCTL. */
++ be_sgl_to_pa_list(sgl,
++ ioctl->params.request.pages,
++ SA_NUMBER_OF(ioctl->params.request.pages));
++
++ /* Post the Ioctl */
++ status =
++ be_function_post_mcc_wrb(function_object, wrb, NULL, NULL,
++ ioctl);
++ if (status != BE_SUCCESS) {
++ TRACE(DL_ERR, "ioctl to map eth rxq frags failed.");
++ goto Error;
++ }
++ /* Save the ring ID for cleanup. */
++ eth_rq->rid = ioctl->params.response.id;
++
++ be_cq_object_reference(cq_object);
++
++ _be_function_add_eth_rq(function_object, eth_rq);
++
++ TRACE(DL_INFO,
++ "eth rq created. function:%d pd:%d bytes:%d bcmc_id:%d cq_id:%d",
++ be_function_get_function_number(function_object),
++ be_function_get_pd_number(function_object),
++ sa_sgl_get_page_count(sgl) * SA_PAGE_SIZE,
++ (bcmc_cq_object ? be_cq_get_id(bcmc_cq_object) : -1),
++ be_cq_get_id(cq_object));
 +
 +Error:
 +
-+	if (status != BE_SUCCESS) {
++ be_unlock_wrb_post(function_object);
++ return status;
++}
 +
-+		/* Cleanup everything in case of failure. */
++/*!
 +
-+		if (chip_created) {
-+			be_chip_destroy(chip);
-+		}
++@brief
++ This routine returns the RID for an Ethernet receive queue
 +
-+		if (function_created) {
-+			be_function_destroy(function_object);
-+		}
-+	}
++@param
++ EthRq - Ethernet receive queue handle returned from EthRqCreate
 +
-+	return status;
++@return
++ Returns BE_SUCCESS on success and an appropriate BESTATUS on failure.
 +
++@note
++ IRQL: <= DISPATCH_LEVEL
++*/
++u32 be_eth_rq_get_id(IN PBE_ETHRQ_OBJECT rq)
++{
++ ETHRQ_ASSERT(rq);
++ return rq->rid;
++}
++
++/*!
++
++@brief
++ This routine destroys an Ethernet receive queue
++
++@param
++ eth_rq - ethernet receive queue handle returned from eth_rq_create
++
++@return
++ Returns BE_SUCCESS on success and an appropriate BESTATUS on failure.
++
++@note
++ This function frees resourcs allocated by EthRqCreate.
++ The erx::host_cqid (or host_stor_cqid) register and erx::ring_page registers
++ will be updated as appropriate on return
++ IRQL: < DISPATCH_LEVEL
++*/
++
++void be_eth_rq_destroy_internal_callback(PVOID context, BESTATUS status,
++ MCC_WRB *wrb)
++{
++ PBE_ETHRQ_OBJECT eth_rq = (PBE_ETHRQ_OBJECT) context;
++ ETHRQ_ASSERT(eth_rq);
++
++ if (status != BE_SUCCESS) {
++ TRACE(DL_ERR,
++ "Destroy eth rq failed in internal callback.\n");
++ } else {
++ /* Dereference any CQs associated with this queue. */
++ be_cq_object_dereference(eth_rq->cq_object);
++
++ /* Remove from the function object. */
++ _be_function_remove_eth_rq(eth_rq->parent_function,
++ eth_rq);
++ }
++
++ return;
 +}
 +
 +BESTATUS
-+be_function_and_chip_destroy(PBE_FUNCTION_OBJECT function_object,
-+			     PBE_CHIP_OBJECT chip)
++be_eth_rq_destroy_async(IN PBE_ETHRQ_OBJECT eth_rq,
++ IN MCC_WRB_CQE_CALLBACK callback,
++ IN PVOID callback_context)
 +{
-+	TRACE(DL_INFO, "Destroy function & chip.");
++ BESTATUS status = BE_SUCCESS;
++ ETHRQ_ASSERT(eth_rq);
 +
-+	be_chip_remove_function_object(chip, function_object);
++ /* Send ioctl to destroy the RQ. */
++ status = be_function_ring_destroy_async(eth_rq->parent_function,
++ eth_rq->rid,
++ IOCTL_RING_TYPE_ETH_RX,
++ callback,
++ callback_context,
++ be_eth_rq_destroy_internal_callback,
++ eth_rq);
 +
-+	be_chip_destroy(chip);
-+
-+	be_function_destroy(function_object);
-+
-+	return BE_SUCCESS;
++ return status;
 +}
 +
-+BESTATUS
-+be_function_object_destroy(PBE_FUNCTION_OBJECT function_object,
-+			   PBE_CHIP_OBJECT chip)
++BESTATUS be_eth_rq_destroy(IN PBE_ETHRQ_OBJECT eth_rq)
 +{
-+	TRACE(DL_INFO, "Destroy function & chip.");
-+
-+	(void)be_mpu_uninit_mailbox(function_object);
-+
-+	be_chip_remove_function_object(chip, function_object);
-+
-+	be_function_destroy(function_object);
-+
-+	return BE_SUCCESS;
-+}
-+
-+BESTATUS be_chip_object_destroy(PBE_CHIP_OBJECT chip)
-+{
-+	TRACE(DL_INFO, "Destroy function & chip.");
-+
-+	be_chip_destroy(chip);
-+
-+	return BE_SUCCESS;
-+}
-+
-+BESTATUS be_function_cleanup(PBE_FUNCTION_OBJECT function_object)
-+{
-+	PSA_LIST_ENTRY list_entry;
-+	BESTATUS status = 0;
-+	BE_CQ_OBJECT *cq = NULL;
-+	BE_EQ_OBJECT *eq = NULL;
-+#ifdef FUNCTION_NIC
-+	BE_ETHSQ_OBJECT *eth_sq = NULL;
-+	BE_ETHRQ_OBJECT *eth_rq = NULL;
-+#endif
-+	u32 isr;
-+	PCICFG_HOST_TIMER_INT_CTRL_CSR ctrl;
-+
-+	FUNCTION_ASSERT(function_object);
-+
-+	TRACE(DL_INFO, "function cleanup. function:%d",
-+	      be_function_get_function_number(function_object));
-+
-+#ifdef FUNCTION_ISCSI
-+
-+	if (be_function_is_iscsi(function_object)) {
-+		/*BE_ISCSI_CONNECTION_OBJECT *iscsi_cxn = NULL; */
-+		BE_ISCSI_WRB_QUEUE_OBJECT *iscsi_wrbq = NULL;
-+		BE_DEFAULT_PDU_QUEUE_OBJECT *iscsi_defq = NULL;
-+
-+		/* Assert that all connections are terminated. */
-+		ASSERT(sa_is_list_empty
-+		       (&function_object->links.cxn_list_head));
-+
-+		/* Destroy all WRB queues. */
-+		while (!sa_is_list_empty
-+		       (&function_object->links.iscsi.wrbq_list_head)) {
-+			list_entry =
-+			    sa_list_head(&function_object->links.iscsi.
-+					 wrbq_list_head);
-+			iscsi_wrbq =
-+			    SA_CONTAINING_RECORD(list_entry,
-+						 BE_ISCSI_WRB_QUEUE_OBJECT,
-+						 wrbq_list);
-+
-+			status = be_iscsi_wrb_queue_destroy(iscsi_wrbq);
-+			ASSERT(status == BE_SUCCESS);
-+		}
-+
-+		/* Destroy the default PDU queues */
-+		while (!sa_is_list_empty
-+		       (&function_object->links.iscsi.defq_list_head)) {
-+			list_entry =
-+			    sa_list_head(&function_object->links.iscsi.
-+					 defq_list_head);
-+			iscsi_defq =
-+			    SA_CONTAINING_RECORD(list_entry,
-+						 BE_DEFAULT_PDU_QUEUE_OBJECT,
-+						 func_list);
-+
-+			status = be_iscsi_defq_destroy(iscsi_defq);
-+			ASSERT(status == BE_SUCCESS);
-+		}
-+
-+		/* Out-of-order buffers */
-+		if (function_object->config.num_ooo > 0) {
-+			status =
-+			    be_function_iscsi_ooo_buffers_remove
-+			    (function_object);
-+			ASSERT(status == BE_SUCCESS);
-+		}
-+		/* SGLs */
-+		if (function_object->config.num_sgl > 0) {
-+			status =
-+			    be_iscsi_remove_sgl_pages(function_object);
-+			ASSERT(status == BE_SUCCESS);
-+		}
-+	}
-+#endif
-+
-+#ifdef FUNCTION_NIC
-+
-+	if (!be_function_is_iscsi(function_object)) {
-+
-+		/* Multicast */
-+		if (function_object->config.num_multicast > 0) {
-+			status =
-+			    be_rxf_multicast_config(function_object, FALSE,
-+						    0, NULL, NULL, NULL,
-+						    NULL);
-+			ASSERT(status == BE_SUCCESS);
-+		}
-+		/* RSS Disable */
-+		if (function_object->config.rss_type != RSS_ENABLE_NONE) {
-+			status =
-+			    be_rxf_rss_config(function_object,
-+					      RSS_ENABLE_NONE, 0, NULL, 0,
-+					      0, NULL, 0, NULL, NULL, NULL,
-+					      NULL);
-+			ASSERT(status == BE_SUCCESS);
-+		}
-+	}
-+#endif
-+
-+#ifdef FUNCTION_NIC
-+	/* ETX */
-+	while (!sa_is_list_empty(&function_object->links.eth_sq_list_head)) {
-+		list_entry =
-+		    sa_list_head(&function_object->links.eth_sq_list_head);
-+		eth_sq =
-+		    SA_CONTAINING_RECORD(list_entry, BE_ETHSQ_OBJECT,
-+					 list);
-+
-+		status = be_eth_sq_destroy(eth_sq);
-+		ASSERT(status == BE_SUCCESS);
-+	}
-+
-+	/* ERX */
-+	while (!sa_is_list_empty(&function_object->links.eth_rq_list_head)) {
-+
-+		list_entry =
-+		    sa_list_head(&function_object->links.eth_rq_list_head);
-+		eth_rq =
-+		    SA_CONTAINING_RECORD(list_entry, BE_ETHRQ_OBJECT,
-+					 list);
-+
-+		status = be_eth_rq_destroy(eth_rq);
-+		ASSERT(status == BE_SUCCESS);
-+	}
-+
-+	/* VLAN */
-+	if (function_object->config.num_vlan > 0) {
-+		status =
-+		    be_rxf_vlan_config(function_object, FALSE, 0, NULL,
-+				       NULL, NULL, NULL);
-+		ASSERT(status == BE_SUCCESS);
-+	}
-+#endif
-+
-+	/*
-+	 * MCC Queue -- Switches to mailbox mode.  May want to destroy
-+	 * all but the MCC CQ before this call if polling CQ is much better
-+	 * performance than polling mailbox register.
-+	 */
-+	if (function_object->links.mcc) {
-+		status = be_mcc_ring_destroy(function_object->links.mcc);
-+	}
-+	/* CQs */
-+	while (!sa_is_list_empty(&function_object->links.cq_list_head)) {
-+		list_entry =
-+		    sa_list_head(&function_object->links.cq_list_head);
-+		cq = SA_CONTAINING_RECORD(list_entry, BE_CQ_OBJECT,
-+					  cq_list);
-+
-+		status = be_cq_destroy(cq);
-+		ASSERT(status == BE_SUCCESS);
-+	}
-+
-+	/* EQs */
-+	while (!sa_is_list_empty(&function_object->links.eq_list_head)) {
-+		list_entry =
-+		    sa_list_head(&function_object->links.eq_list_head);
-+		eq = SA_CONTAINING_RECORD(list_entry, BE_EQ_OBJECT,
-+					  eq_list);
-+
-+		status = be_eq_destroy(eq);
-+		ASSERT(status == BE_SUCCESS);
-+	}
-+
-+	/*
-+	 * If interrupts are disabled, clear any CEV interrupt assertions that
-+	 * fired after we stopped processing EQs.
-+	 */
-+	ctrl.dw = PCICFG1_READ(function_object, host_timer_int_ctrl);
-+	if (!ctrl.hostintr) {
-+		if (be_function_is_networking(function_object)) {
-+			isr = CSR_READ(function_object, cev.isr1);
-+		} else {
-+			isr = CSR_READ(function_object, cev.isr0);
-+		}
-+	} else {
-+		/* This should never happen... */
-+		TRACE(DL_ERR,
-+		      "Calling function_cleanup with interrupts enabled.");
-+	}
-+
-+	/* Function object destroy */
-+	status =
-+	    be_function_object_destroy(function_object,
-+				       function_object->parent_chip);
-+	ASSERT(status == BE_SUCCESS);
-+
-+	return status;
-+}
-+
-+/*!
-+
-+@brief
-+    This routine adds a event queue object to a function object to allow
-+    for correct tracking and reference counting.
-+
-+@param
-+    function_object         - Function object to add the object to.
-+
-+@param
-+    EqObject        - Event queue object to add.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_add_eq(IN PBE_FUNCTION_OBJECT function_object,
-+		    IN PBE_EQ_OBJECT eq_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	EQ_ASSERT(eq_object);
-+
-+	_be_function_lock(function_object);
-+
-+	sa_atomic_increment(&function_object->ref_count);
-+	sa_insert_tail_list(&function_object->links.eq_list_head,
-+			    &eq_object->eq_list);
-+
-+	_be_function_unlock(function_object);
-+}
-+
-+/*!
-+
-+@brief
-+    This routine removes a event queue object from a function object and
-+    drops the reference count for the given function object.
-+
-+@param
-+    function_object         - Function object to remove the object from.
-+
-+@param
-+    EqObject        - Event queue object to remove.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_remove_eq(IN PBE_FUNCTION_OBJECT function_object,
-+		       IN PBE_EQ_OBJECT eq_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	EQ_ASSERT(eq_object);
-+
-+	_be_function_lock(function_object);
-+
-+	sa_remove_entry_list(&eq_object->eq_list);
-+	sa_atomic_decrement(&function_object->ref_count);
-+
-+	_be_function_unlock(function_object);
-+
-+}
-+
-+/*!
-+
-+@brief
-+    This routine adds a completion queue object to a function object to allow
-+    for correct tracking and reference counting.
-+
-+@param
-+    function_object         - Function object to add the object to.
-+
-+@param
-+    CqObject        - Completion queue object to add.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_add_cq(IN PBE_FUNCTION_OBJECT function_object,
-+		    IN PBE_CQ_OBJECT cq_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	CQ_ASSERT(cq_object);
-+
-+	_be_function_lock(function_object);
-+
-+	sa_atomic_increment(&function_object->ref_count);
-+	sa_insert_tail_list(&function_object->links.cq_list_head,
-+			    &cq_object->cq_list);
-+
-+	_be_function_unlock(function_object);
-+}
-+
-+/*!
-+
-+@brief
-+    This routine removes a completion queue object from a function object and
-+    drops the reference count for the given function object.
-+
-+@param
-+    function_object         - Function object to remove the object from.
-+
-+@param
-+    CqObject        - Completion queue object to remove.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_remove_cq(IN PBE_FUNCTION_OBJECT function_object,
-+		       IN PBE_CQ_OBJECT cq_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	CQ_ASSERT(cq_object);
-+
-+	_be_function_lock(function_object);
-+
-+	sa_remove_entry_list(&cq_object->cq_list);
-+	sa_atomic_decrement(&function_object->ref_count);
-+
-+	_be_function_unlock(function_object);
-+}
-+
-+/*!
-+
-+@brief
-+    This routine adds an Ethernet Send queue object to a function
-+    object to allow for correct tracking and reference counting.
-+
-+@param
-+    func_obj      - function object to add the object to.
-+
-+@param
-+    eth_sq        - ethernet send queue object to add.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_add_eth_sq(IN PBE_FUNCTION_OBJECT function_object,
-+			IN PBE_ETHSQ_OBJECT eth_sq)
-+{
-+	_be_function_lock(function_object);
-+
-+	sa_atomic_increment(&function_object->ref_count);
-+	sa_insert_tail_list(&function_object->links.eth_sq_list_head,
-+			    &eth_sq->list);
-+
-+	_be_function_unlock(function_object);
-+
-+}
-+
-+/*!
-+
-+@brief
-+    This routine removes an Ethernet Send Queue object from a function object
-+    and drops the reference count for the given function object.
-+
-+@param
-+    function_object         - Function object to remove the object from.
-+
-+@param
-+    EthSq        - Ethernet Send Queue object to remove.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_remove_eth_sq(IN PBE_FUNCTION_OBJECT function_object,
-+			   IN PBE_ETHSQ_OBJECT eth_sq)
-+{
-+	_be_function_lock(function_object);
-+
-+	sa_remove_entry_list(&eth_sq->list);
-+	sa_atomic_decrement(&function_object->ref_count);
-+
-+	_be_function_unlock(function_object);
-+}
-+
-+/*!
-+
-+@brief
-+    This routine adds an ethernet receive queue object to a
-+    function object to allow for correct tracking and reference counting.
-+
-+@param
-+    function_object     - Function object to add the object to.
-+
-+@param
-+    EthRq       - Ethernet Receive Queue object to add.
-+
-+@param
-+    RssIndex    - Rss Index that this RQ will map to. Unless this RQ is for
-+		a priviledged execution environment, the RssIndex must be
-+		set to RSS_ID_INDEX_DQ.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_add_eth_rq(IN PBE_FUNCTION_OBJECT function_object,
-+			IN PBE_ETHRQ_OBJECT eth_rq)
-+{
-+	_be_function_lock(function_object);
-+
-+	sa_atomic_increment(&function_object->ref_count);
-+	sa_insert_tail_list(&function_object->links.eth_rq_list_head,
-+			    &eth_rq->list);
-+
-+	_be_function_unlock(function_object);
-+}
-+
-+/*!
-+
-+@brief
-+    This routine removes an Ethernet receive queue object from a function object
-+    and drops the reference count for the given function object.
-+
-+@param
-+    function_object     - Function object to remove the object from.
-+
-+@param
-+    EthRq       - Ethernet receive queue object to remove.
-+
-+@param
-+    RssIndex    - Rss Index for the EthRq to remove.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_remove_eth_rq(IN PBE_FUNCTION_OBJECT function_object,
-+			   IN PBE_ETHRQ_OBJECT eth_rq)
-+{
-+	_be_function_lock(function_object);
-+
-+	sa_remove_entry_list(&eth_rq->list);
-+	sa_atomic_decrement(&function_object->ref_count);
-+
-+	_be_function_unlock(function_object);
-+
-+}
-+
-+/*!
-+
-+@brief
-+    This routine adds a Mcc Send queue object to a function object to allow
-+    for correct tracking and reference counting.
-+
-+@param
-+    function_object         - Function object to add the object to.
-+
-+@param
-+    MccSq           - Mcc Send Queue object to add.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_add_mcc(IN PBE_FUNCTION_OBJECT function_object,
-+		     IN PBE_MCC_OBJECT mcc)
-+{
-+	FUNCTION_ASSERT(function_object);
-+
-+	ASSERT(function_object->links.mcc == NULL);
-+	MCC_ASSERT(mcc);
-+
-+	_be_function_lock(function_object);
-+
-+	sa_atomic_increment(&function_object->ref_count);
-+	function_object->links.mcc = mcc;
-+
-+	_be_function_unlock(function_object);
-+}
-+
-+/*!
-+
-+@brief
-+    This routine removes an MCC Send Queue object from a function object and
-+    drops the reference count for the given function object.
-+
-+@param
-+    function_object     - Function object to remove the object from.
-+
-+@param
-+    MccSq      - Mcc Send Queue object to remove.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_remove_mcc(IN PBE_FUNCTION_OBJECT function_object,
-+			IN PBE_MCC_OBJECT mcc)
-+{
-+	FUNCTION_ASSERT(function_object);
-+
-+	MCC_ASSERT(function_object->links.mcc);
-+
-+	MCC_ASSERT(mcc);
-+
-+	SA_NOT_USED(mcc);
-+
-+	_be_function_lock(function_object);
-+
-+	function_object->links.mcc = NULL;
-+	sa_atomic_decrement(&function_object->ref_count);
-+
-+	_be_function_unlock(function_object);
-+}
-+
-+/*!
-+
-+@brief
-+    This routine adds an iSCSI default PDU queue object to a function object to
-+    allow for correct tracking and reference counting.
-+
-+@param
-+    function_object             - Function object to add the object to.
-+
-+@param
-+    DefaultPduObject    - Default PDU object to add.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_add_default_pdu_queue(IN PBE_FUNCTION_OBJECT function_object,
-+				   IN PBE_DEFAULT_PDU_QUEUE_OBJECT
-+				   default_pdu_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	ASSERT(be_function_is_iscsi(function_object));
-+
-+	_be_function_lock(function_object);
-+
-+	sa_atomic_increment(&function_object->ref_count);
-+	sa_insert_tail_list(&function_object->links.iscsi.defq_list_head,
-+			    &default_pdu_object->func_list);
-+
-+	_be_function_unlock(function_object);
-+}
-+
-+/*!
-+
-+@brief
-+    This routine removes an iSCSI default PDU Queue object from a function
-+    object and drops the reference count for the given function object.
-+
-+@param
-+    function_object         - Function object to remove the object from.
-+
-+@param
-+    DefaultPduObject- iSCSI Default PDU Queue object to remove.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_remove_default_pdu_queue(IN PBE_FUNCTION_OBJECT
-+				      function_object,
-+				      IN PBE_DEFAULT_PDU_QUEUE_OBJECT
-+				      default_pdu_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	ASSERT(be_function_is_iscsi(function_object));
-+
-+	_be_function_lock(function_object);
-+
-+	sa_remove_entry_list(&default_pdu_object->func_list);
-+	sa_atomic_decrement(&function_object->ref_count);
-+
-+	_be_function_unlock(function_object);
-+}
-+
-+
-+/*!
-+
-+@brief
-+    This routine adds a event queue object to a function object to allow
-+    for correct tracking and reference counting.
-+
-+@param
-+    function_object         - Function object to add the object to.
-+
-+@param
-+    EqObject        - Event queue object to add.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_add_wrbq(IN PBE_FUNCTION_OBJECT function_object,
-+		      IN PBE_ISCSI_WRB_QUEUE_OBJECT wrbq)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	ISCSI_WRBQ_ASSERT(wrbq);
-+
-+	_be_function_lock(function_object);
-+
-+	sa_atomic_increment(&function_object->ref_count);
-+	sa_insert_tail_list(&function_object->links.iscsi.wrbq_list_head,
-+			    &wrbq->wrbq_list);
-+
-+	_be_function_unlock(function_object);
-+}
-+
-+/*!
-+
-+@brief
-+    This routine removes a event queue object from a function object and
-+    drops the reference count for the given function object.
-+
-+@param
-+    function_object         - Function object to remove the object from.
-+
-+@param
-+    EqObject        - Event queue object to remove.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_remove_wrbq(IN PBE_FUNCTION_OBJECT function_object,
-+			 IN PBE_ISCSI_WRB_QUEUE_OBJECT wrbq)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	ISCSI_WRBQ_ASSERT(wrbq);
-+
-+	_be_function_lock(function_object);
-+
-+	sa_remove_entry_list(&wrbq->wrbq_list);
-+	sa_atomic_decrement(&function_object->ref_count);
-+
-+	_be_function_unlock(function_object);
-+
-+}
-+
-+PVOID
-+be_function_prepare_embedded_ioctl(IN PBE_FUNCTION_OBJECT function_object,
-+				   IN PMCC_WRB wrb,
-+				   IN u32 payload_length,
-+				   IN u32 request_length,
-+				   IN u32 response_length,
-+				   IN u32 opcode, IN u32 subsystem)
-+{
-+	PIOCTL_REQUEST_HEADER header = NULL;
-+
-+	ASSERT(wrb);
-+	FUNCTION_ASSERT(function_object);
-+
-+	ASSERT(payload_length <= SA_SIZEOF_FIELD(MCC_WRB, payload));
-+
-+	wrb->embedded = 1;
-+	wrb->payload_length =
-+	    MIN(payload_length, SA_SIZEOF_FIELD(MCC_WRB, payload));
-+
-+	header = (PIOCTL_REQUEST_HEADER) &wrb->payload;
-+
-+	header->timeout = 0;
-+	header->domain = be_function_get_pd_number(function_object);
-+	header->request_length = MAX(request_length, response_length);
-+	header->opcode = opcode;
-+	header->subsystem = subsystem;
-+
-+	return header;
-+}
-+
-+PVOID
-+be_function_prepare_nonembedded_ioctl(IN PBE_FUNCTION_OBJECT
-+				      function_object, IN PMCC_WRB wrb,
-+				      IN PVOID ioctl_va, IN u64 ioctl_pa,
-+				      IN u32 payload_length,
-+				      IN u32 request_length,
-+				      IN u32 response_length,
-+				      IN u32 opcode, IN u32 subsystem)
-+{
-+	PIOCTL_REQUEST_HEADER header = NULL;
-+
-+	ASSERT(wrb);
-+	ASSERT(ioctl_va);
-+	FUNCTION_ASSERT(function_object);
-+
-+	header = (PIOCTL_REQUEST_HEADER) ioctl_va;
-+
-+	wrb->embedded = 0;
-+	wrb->payload_length = payload_length;
-+
-+	/*
-+	 * Assume one fragment. The caller may override the SGL by
-+	 * rewriting the 0th length and adding more entries.  They
-+	 * will also need to update the sge_count.
-+	 */
-+	wrb->sge_count = 1;
-+	wrb->payload.sgl[0].length = payload_length;
-+	wrb->payload.sgl[0].pa_lo = sa_lo(ioctl_pa);
-+	wrb->payload.sgl[0].pa_hi = sa_hi(ioctl_pa);
-+
-+	header->timeout = 0;
-+	header->domain = be_function_get_pd_number(function_object);
-+	header->request_length = MAX(request_length, response_length);
-+	header->opcode = opcode;
-+	header->subsystem = subsystem;
-+
-+	return header;
-+}
-+
-+PMCC_WRB be_function_peek_mcc_wrb(IN PBE_FUNCTION_OBJECT function_object)
-+{
-+	PMCC_WRB wrb = NULL;
-+	FUNCTION_ASSERT(function_object);
-+
-+	if (function_object->links.mcc) {
-+
-+		wrb = _be_mpu_peek_ring_wrb(function_object->links.mcc, FALSE);
-+
-+	} else {
-+		wrb = (PMCC_WRB) &function_object->mailbox.va->wrb;
-+	}
-+
-+	if (wrb) {
-+		sa_memset(wrb, 0, sizeof(MCC_WRB));
-+	}
-+
-+	return wrb;
-+}
-+
-+/*!
-+@brief
-+    This routine posts an MCC WRB command to a function object's MCC send
-+    queue (if avaiable) or posts the WRB to the MCC WRB mail box if a send
-+    queue is not setup.
-+@param
-+    function_object     - function object to add the object to.
-+@param
-+    wrb                 - wrb to post.  This may be a va from the
-+			  be_function_peek_mcc_wrb function, so the
-+			  driver need not declare additional memory.
-+@param
-+    callback  - address of a callback routine to invoke once the WRB
-+			is completed.
-+@param
-+    callback_context - opaque context to be passed during the call to
-+			the callback.
-+@return
-+    BE_SUCCESS if successfull, otherwise a useful error code is returned.
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+*/
-+BESTATUS
-+be_function_post_mcc_wrb(IN PBE_FUNCTION_OBJECT function_object,
-+			 IN PMCC_WRB wrb,
-+			 IN MCC_WRB_CQE_CALLBACK callback,
-+			 IN PVOID callback_context,
-+			 IN PVOID optional_ioctl_va)
-+{
-+	BE_MCC_WRB_RESPONSE_COPY response_copy = { 0 };
-+	return be_function_post_mcc_wrb_complete(function_object, wrb, NULL,
-+				 callback, callback_context, NULL, NULL,
-+					 optional_ioctl_va, response_copy);
-+}
-+
-+BESTATUS
-+be_function_post_mcc_wrb_with_queue_context(IN PBE_FUNCTION_OBJECT
-+					    function_object,
-+					    IN PMCC_WRB wrb,
-+					    IN PBE_GENERIC_QUEUE_CONTEXT
-+					    queue_context,
-+					    IN MCC_WRB_CQE_CALLBACK
-+					    callback,
-+					    IN PVOID callback_context,
-+					    IN PVOID optional_ioctl_va)
-+{
-+	BE_MCC_WRB_RESPONSE_COPY response_copy = { 0 };
-+	return be_function_post_mcc_wrb_complete(function_object,
-+			wrb, queue_context, callback, callback_context, NULL,
-+			 NULL, optional_ioctl_va, response_copy);
-+}
-+
-+BESTATUS
-+be_function_post_mcc_wrb_with_copy(IN PBE_FUNCTION_OBJECT function_object,
-+				   IN PMCC_WRB wrb,
-+				   IN PBE_GENERIC_QUEUE_CONTEXT
-+				   queue_context,
-+				   IN MCC_WRB_CQE_CALLBACK callback,
-+				   IN PVOID callback_context,
-+				   IN PVOID optional_ioctl_va,
-+				   IN BE_MCC_WRB_RESPONSE_COPY
-+				   response_copy)
-+{
-+	return be_function_post_mcc_wrb_complete(function_object,
-+			wrb, queue_context, callback, callback_context, NULL,
-+				 NULL, optional_ioctl_va, response_copy);
-+}
-+
-+BESTATUS
-+be_function_post_mcc_wrb_with_internal_callback(
-+		IN PBE_FUNCTION_OBJECT function_object,
-+		IN PMCC_WRB wrb,
-+		IN PBE_GENERIC_QUEUE_CONTEXT queue_context,
-+		IN MCC_WRB_CQE_CALLBACK callback,
-+		IN PVOID callback_context,
-+		IN MCC_WRB_CQE_CALLBACK internal_callback,
-+		IN PVOID internal_callback_context,
-+		IN PVOID optional_ioctl_va)
-+{
-+	BE_MCC_WRB_RESPONSE_COPY response_copy = { 0 };
-+	return be_function_post_mcc_wrb_complete(function_object, wrb,
-+			queue_context, callback, callback_context,
-+			internal_callback, internal_callback_context,
-+			optional_ioctl_va, response_copy);
-+}
-+
-+#if defined(SA_DEBUG)
-+void be_function_debug_print_wrb(PBE_FUNCTION_OBJECT function_object,
-+				 PMCC_WRB wrb,
-+				 PVOID optional_ioctl_va,
-+				 PBE_MCC_WRB_CONTEXT wrb_context)
-+{
-+
-+	PIOCTL_REQUEST_HEADER header = NULL;
-+	if (wrb->embedded) {
-+		header = (PIOCTL_REQUEST_HEADER) &wrb->payload;
-+	} else {
-+		header = (PIOCTL_REQUEST_HEADER) optional_ioctl_va;
-+	}
-+
-+	/* Save the completed count before posting for a debug assert. */
-+	wrb_context->consumed_count = function_object->stats.consumed_wrbs;
-+
-+	if (header) {
-+		wrb_context->opcode = header->opcode;
-+		wrb_context->subsystem = header->subsystem;
-+
-+	} else {
-+		wrb_context->opcode = 0;
-+		wrb_context->subsystem = 0;
-+		TRACE(DL_IOCTL,
-+			"Post IOCTL. emul:0 embed:0 Unknown sub/op. ctx:%p",
-+				wrb_context);
-+	}
-+}
-+#else
-+#define be_function_debug_print_wrb(a_, b_, c_, d_)
-+#endif
-+
-+BESTATUS
-+be_function_post_mcc_wrb_complete(IN PBE_FUNCTION_OBJECT function_object,
-+				  IN PMCC_WRB wrb,
-+				  IN PBE_GENERIC_QUEUE_CONTEXT
-+				  queue_context,
-+				  IN MCC_WRB_CQE_CALLBACK callback,
-+				  IN PVOID callback_context,
-+				  IN MCC_WRB_CQE_CALLBACK
-+				  internal_callback,
-+				  IN PVOID internal_callback_context,
-+				  IN PVOID optional_ioctl_va,
-+				  IN BE_MCC_WRB_RESPONSE_COPY
-+				  response_copy)
-+{
-+	BESTATUS status;
-+	PBE_MCC_WRB_CONTEXT wrb_context = NULL;
-+	FUNCTION_ASSERT(function_object);
-+
-+	if (queue_context) {
-+
-+		/* Initialize context.         */
-+		queue_context->context.internal_callback =
-+		    internal_callback;
-+		queue_context->context.internal_callback_context =
-+		    internal_callback_context;
-+		queue_context->context.callback = callback;
-+		queue_context->context.callback_context = callback_context;
-+		queue_context->context.copy = response_copy;
-+		queue_context->context.optional_ioctl_va =
-+		    optional_ioctl_va;
-+
-+		/* Queue this request */
-+		status =
-+		    be_function_queue_mcc_wrb(function_object,
-+					      queue_context);
-+
-+		goto Error;
-+	}
-+	/*
-+	 * Allocate a WRB context struct to hold the callback pointers,
-+	 * status, etc.  This is required if commands complete out of order.
-+	 */
-+	wrb_context = _be_mcc_allocate_wrb_context(function_object);
-+	if (!wrb_context) {
-+		TRACE(DL_WARN, "Failed to allocate MCC WRB context.");
-+		status = BE_STATUS_SYSTEM_RESOURCES;
-+		goto Error;
-+	}
-+	/* Initialize context. */
-+	SA_ZERO_MEM(wrb_context);
-+	wrb_context->internal_callback = internal_callback;
-+	wrb_context->internal_callback_context = internal_callback_context;
-+	wrb_context->callback = callback;
-+	wrb_context->callback_context = callback_context;
-+	wrb_context->copy = response_copy;
-+	wrb_context->wrb = wrb;
-+
-+	/*
-+	 * Copy the context pointer into the WRB opaque tag field.
-+	 * Verify assumption of 64-bit tag with a compile time assert.
-+	 */
-+	SA_C_ASSERT(sizeof(wrb->tag) >= sizeof(u64));
-+	*((u64 *) wrb->tag) = SA_PTR_TO_U64(wrb_context);
-+
-+	/* Print info about this IOCTL for debug builds. */
-+	be_function_debug_print_wrb(function_object, wrb,
-+				    optional_ioctl_va, wrb_context);
-+
-+	/*
-+	 * issue the WRB to the MPU as appropriate
-+	 */
-+	if (function_object->links.mcc) {
-+		/*
-+		 * we're in WRB mode, pass to the mcc layer
-+		 */
-+		status =
-+		    _be_mpu_post_wrb_ring(function_object->links.
-+					  mcc, wrb, wrb_context);
-+	} else {
-+		/*
-+		 * we're in mailbox mode
-+		 */
-+		status = _be_mpu_post_wrb_mailbox(function_object, wrb,
-+					     wrb_context);
-+
-+		/* mailbox mode always completes synchronously */
-+		ASSERT(status != BE_STATUS_PENDING);
-+	}
-+
-+Error:
-+
-+	return status;
-+}
-+
-+void _be_function_lock(PBE_FUNCTION_OBJECT fo)
-+{
-+	be_lock_acquire(&fo->lock);
-+}
-+
-+void _be_function_unlock(PBE_FUNCTION_OBJECT fo)
-+{
-+	be_lock_release(&fo->lock);
-+}
-+
-+u32 be_function_get_function_number(PBE_FUNCTION_OBJECT function_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	return function_object->pci_function_number;
-+}
-+
-+u32 be_function_get_function_type(PBE_FUNCTION_OBJECT function_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	return function_object->type;
-+}
-+
-+u32 be_function_get_pd_number(PBE_FUNCTION_OBJECT function_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+
-+	/* only PD0 supported in Linux drivers */
-+	return 0;
-+}
-+
-+boolean be_function_is_vm(PBE_FUNCTION_OBJECT function_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	return be_function_get_pd_number(function_object) > 0;
-+}
-+
-+/*!
-+
-+@brief
-+    References the given object. The object is guaranteed to remain active
-+    until the reference count drops to zero.
-+
-+@param
-+    cq_object            - CQ handle returned from cq_object_create.
-+
-+@return
-+    returns the current reference count on the object
-+
-+@note
-+    IRQL: any
-+
-+*/
-+u32 _be_function_reference(PBE_FUNCTION_OBJECT function_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	return sa_atomic_increment(&function_object->ref_count);
-+}
-+
-+/*!
-+@brief
-+    Dereferences the given object. The object is guaranteed to remain
-+    active until the reference count drops to zero.
-+@param
-+@return
-+    returns the current reference count on the object
-+@note
-+    IRQL: any
-+*/
-+u32 _be_function_dereference(PBE_FUNCTION_OBJECT function_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	return sa_atomic_decrement(&function_object->ref_count);
-+}
-+
-+BESTATUS
-+be_function_ring_destroy_async(PBE_FUNCTION_OBJECT function_object,
-+			       u32 id,
-+			       u32 ring_type,
-+			       MCC_WRB_CQE_CALLBACK callback,
-+			       PVOID callback_context,
-+			       MCC_WRB_CQE_CALLBACK internal_callback,
-+			       PVOID internal_callback_context)
-+{
-+
-+	IOCTL_COMMON_RING_DESTROY *ioctl = NULL;
-+	MCC_WRB *wrb = NULL;
-+	BESTATUS status = 0;
-+
-+	FUNCTION_ASSERT(function_object);
-+
-+	be_lock_wrb_post(function_object);
-+
-+	TRACE(DL_INFO, "Destroy ring id:%d type:%d", id, ring_type);
-+
-+	wrb = be_function_peek_mcc_wrb(function_object);
-+	if (!wrb) {
-+		ASSERT(wrb);
-+		TRACE(DL_ERR, "No free MCC WRBs in destroy ring.");
-+		status = BE_STATUS_NO_MCC_WRB;
-+		goto Error;
-+	}
-+	/* Prepares an embedded ioctl, including request/response sizes. */
-+	ioctl = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
-+					       COMMON_RING_DESTROY);
-+
-+	ioctl->params.request.id = id;
-+	ioctl->params.request.ring_type = ring_type;
-+
-+	/* Post the Ioctl */
-+	status =
-+	    be_function_post_mcc_wrb_with_internal_callback
-+	    (function_object, wrb, NULL, callback, callback_context,
-+	     internal_callback, internal_callback_context, ioctl);
-+	if (status != BE_SUCCESS && status != BE_PENDING) {
-+		TRACE(DL_ERR,
-+		      "Ring destroy ioctl failed. id:%d ring_type:%d", id,
-+		      ring_type);
-+		goto Error;
-+	}
-+
-+Error:
-+	be_unlock_wrb_post(function_object);
-+	return status;
-+}
-+
-+BESTATUS
-+be_function_ring_destroy(PBE_FUNCTION_OBJECT function_object, u32 id,
-+			 u32 ring_type)
-+{
-+	return be_function_ring_destroy_async(function_object, id,
-+					      ring_type, NULL, NULL, NULL,
-+					      NULL);
-+}
-+
-+void be_sgl_to_pa_list(PSA_SGL sgl, PHYS_ADDR *pa_list, u32 max_num)
-+{
-+	u32 offset = sa_sgl_get_offset(sgl);
-+	u32 num_pages = sa_sgl_get_page_count(sgl);
-+	u32 i = 0;
-+	u64 pa;
-+
-+	ASSERT(pa_list);
-+	/* MUST BE page aligned if >1 page in ring */
-+	ASSERT((offset == 0) || (num_pages == 1));
-+
-+	for (i = 0; i < MIN(num_pages, max_num); i++) {
-+		pa = sa_sgl_get_page(sgl, i) + offset;
-+		offset = 0;	/* offset applies to first page only */
-+
-+		ASSERT(pa);
-+
-+		pa_list[i].lo = sa_lo(pa);
-+		pa_list[i].hi = sa_hi(pa);
-+	}
-+}
-+
-+/*!
-+
-+@brief
-+    This routine adds an iSCSI connectoin object to a function object to allow
-+    for correct tracking and reference counting.
-+
-+@param
-+    function_object             - Function object to add the object to.
-+
-+@param
-+    ConnectionObject    - iSCSI Connection object to add.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_add_iscsi_connection(IN PBE_FUNCTION_OBJECT function_object,
-+				  IN PBE_ISCSI_CONNECTION_OBJECT
-+				  connection_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+
-+	ASSERT(be_function_is_iscsi(function_object) == TRUE);
-+
-+	ISCSI_CXN_ASSERT(connection_object);
-+
-+	_be_function_lock(function_object);
-+
-+	sa_atomic_increment(&function_object->ref_count);
-+	sa_insert_tail_list(&function_object->links.cxn_list_head,
-+			    &connection_object->connection_list);
-+
-+	_be_function_unlock(function_object);
-+}
-+
-+/*!
-+
-+@brief
-+    This routine removes an iSCSI Connection object from a function object and
-+    drops the reference count for the given function object.
-+
-+@param
-+    function_object         - Function object to remove the object from.
-+
-+@param
-+    ConnectionObject - iSCSI connection object to remove.
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+void
-+_be_function_remove_iscsi_connection(IN PBE_FUNCTION_OBJECT
-+				     function_object,
-+				     IN PBE_ISCSI_CONNECTION_OBJECT
-+				     connection_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+
-+	ASSERT(be_function_is_iscsi(function_object) == TRUE);
-+
-+	ISCSI_CXN_ASSERT(connection_object);
-+
-+	_be_function_lock(function_object);
-+
-+	sa_remove_entry_list(&connection_object->connection_list);
-+	sa_atomic_decrement(&function_object->ref_count);
-+
-+	_be_function_unlock(function_object);
-+
-+}
-+
-+void be_function_lock_mcc(IN PBE_FUNCTION_OBJECT function_object)
-+{
-+	be_lock_wrb_post(function_object);
-+}
-+
-+void be_function_unlock_mcc(IN PBE_FUNCTION_OBJECT function_object)
-+{
-+	be_unlock_wrb_post(function_object);
++ return be_eth_rq_destroy_async(eth_rq, NULL, NULL);
 +}
 +
 +/*
 + *---------------------------------------------------------------------------
-+ * Function: be_function_enable_interrupts
-+ *   Enables interrupts for the given PCI function.
-+ * function_object    -
-+ * return return_type - void
++ * Function: be_eth_rq_destroy_options
++ * Destroys an ethernet receive ring with finer granularity options
++ * than the standard be_eth_rq_destroy() API function.
++ * eth_rq -
++ * flush - Set to 1 to flush the ring, set to 0 to bypass the flush
++ * callback - Callback function on completion
++ * callback_context - Callback context
++ * return status - BE_SUCCESS (0) on success. Negative error code on failure.
 + *----------------------------------------------------------------------------
 + */
-+void be_function_enable_interrupts(IN PBE_FUNCTION_OBJECT function_object)
++BESTATUS
++be_eth_rq_destroy_options(IN PBE_ETHRQ_OBJECT eth_rq,
++ IN boolean flush,
++ IN MCC_WRB_CQE_CALLBACK callback,
++ IN PVOID callback_context)
 +{
-+	BE_EQ_OBJECT *eq = NULL;
-+	CQ_DB cq_db;
-+	PCICFG_HOST_TIMER_INT_CTRL_CSR ctrl;
-+	u32 isr;
++ IOCTL_COMMON_RING_DESTROY *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = BE_SUCCESS;
++ PBE_FUNCTION_OBJECT function_object = NULL;
 +
-+	FUNCTION_ASSERT(function_object);
++ ETHRQ_ASSERT(eth_rq);
 +
-+	ctrl.dw = PCICFG1_READ(function_object, host_timer_int_ctrl);
-+	if (!ctrl.hostintr) {
++ function_object = eth_rq->parent_function;
++ FUNCTION_ASSERT(function_object);
 +
-+		/*
-+		 * Read-clear the ISR to make sure that any EQs that
-+		 * fired after the host interrupt was masked are no longer
-+		 * asserted.  If the EQs still have a producer-consumer
-+		 * mismatch, they will re-assert after they are armed.  This
-+		 * handles the situation where software polls CQs and EQs
-+		 * with interrupts disabled.
-+		 */
-+		if (be_function_is_networking(function_object)) {
-+			isr = CSR_READ(function_object, cev.isr1);
-+		} else {
-+			isr = CSR_READ(function_object, cev.isr0);
-+		}
++ be_lock_wrb_post(function_object);
 +
-+		/*
-+		 * Read-Modify-Write the control register
-+		 *
-+		 */
-+		ctrl.hostintr = 1;
-+		PCICFG1_WRITE_CONST(function_object, host_timer_int_ctrl,
-+				    ctrl.dw);
-+	}
++ TRACE(DL_INFO, "Destroy eth_rq ring id:%d, flush:%d", eth_rq->rid,
++ flush);
 +
-+	cq_db.dw = 0;		/* clear entire doorbell */
-+	cq_db.event = 1;
-+	cq_db.rearm = 1;
-+	cq_db.num_popped = 0;
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ ASSERT(wrb);
++ TRACE(DL_ERR, "No free MCC WRBs in destroy eth_rq ring.");
++ status = BE_STATUS_NO_MCC_WRB;
++ goto Error;
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl =
++ BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ COMMON_RING_DESTROY);
 +
-+	/* Lock the function object while walking the EQ list. */
-+	_be_function_lock(function_object);
++ ioctl->params.request.id = eth_rq->rid;
++ ioctl->params.request.ring_type = IOCTL_RING_TYPE_ETH_RX;
++ ioctl->params.request.bypass_flush = ((0 == flush) ? 1 : 0);
 +
-+	/* Rearm each EQ. */
-+	SA_FOR_EACH_LIST_ENTRY(eq, function_object->links.eq_list_head,
-+			       BE_EQ_OBJECT, eq_list) {
++ /* Post the Ioctl */
++ status =
++ be_function_post_mcc_wrb_with_internal_callback
++ (function_object, wrb, NULL, callback, callback_context,
++ be_eth_rq_destroy_internal_callback, eth_rq, ioctl);
 +
-+		EQ_ASSERT(eq);
++ if (status != BE_SUCCESS && status != BE_PENDING) {
++ TRACE(DL_ERR,
++ "eth_rq ring destroy ioctl failed. id:%d, flush:%d",
++ eth_rq->rid, flush);
++ goto Error;
++ }
 +
-+		cq_db.qid = eq->eq_id;
++Error:
++ be_unlock_wrb_post(function_object);
++ return status;
++}
 +
-+		PD_WRITE(function_object, cq_db, cq_db);
-+	}
++/*!
 +
-+	_be_function_unlock(function_object);
++@brief
++ This routine queries the frag size for erx.
++
++@param
++ function_object - handle to a function object
++
++@param
++ frag_size_bytes - erx frag size in bytes that is/was set.
++
++@return
++ BE_SUCCESS if successfull, otherwise a useful BESTATUS error
++ code is returned.
++
++@note
++ IRQL: < DISPATCH_LEVEL
++
++*/
++BESTATUS
++be_eth_rq_get_frag_size(IN PBE_FUNCTION_OBJECT function_object,
++ OUT u32 *frag_size_bytes)
++{
++ IOCTL_ETH_GET_RX_FRAG_SIZE *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = 0;
++
++ ASSERT(frag_size_bytes);
++
++ be_lock_wrb_post(function_object);
++
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ TRACE(DL_ERR, "MCC wrb peek failed.");
++ return BE_STATUS_NO_MCC_WRB;
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl =
++ BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ ETH_GET_RX_FRAG_SIZE);
++
++ /* Post the Ioctl */
++ status = be_function_post_mcc_wrb(function_object, wrb, NULL,
++ NULL, /* context */
++ ioctl);
++
++ if (status != 0) {
++ TRACE(DL_ERR, "get frag size ioctl failed.");
++ goto error;
++ }
++
++ *frag_size_bytes =
++ 1 << ioctl->params.response.actual_fragsize_log2;
++
++error:
++ be_unlock_wrb_post(function_object);
++
++ return status;
++}
++
++/*!
++
++@brief
++ This routine attempts to set the frag size for erx. If the frag size is
++ already set, the attempt fails and the current frag size is returned.
++
++@param
++ FunctionObject - Handle to a function object
++
++@param
++ FragSizeEncoded - Encoded erx frag size to attempt to set to.
++
++@param
++ FragSizeBytes - Erx frag size in bytes that is/was set.
++
++@return
++ BE_SUCCESS if successfull, otherwise a useful BESTATUS error
++ code is returned.
++
++@note
++ IRQL: < DISPATCH_LEVEL
++
++ This function always fails in non-privileged machine context.
++*/
++BESTATUS
++be_eth_rq_set_frag_size(IN PBE_FUNCTION_OBJECT function_object,
++ IN u32 new_frag_size_bytes,
++ OUT u32 *current_frag_size_bytes)
++{
++ IOCTL_ETH_SET_RX_FRAG_SIZE *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = 0;
++
++ ASSERT(current_frag_size_bytes);
++
++ be_lock_wrb_post(function_object);
++
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ TRACE(DL_ERR, "MCC wrb peek failed.");
++ status = BE_STATUS_NO_MCC_WRB;
++ goto error;
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl =
++ BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ ETH_SET_RX_FRAG_SIZE);
++
++ ASSERT(new_frag_size_bytes >= 128 &&
++ new_frag_size_bytes <= 16 * 1024);
++
++ /* This is the log2 of the fragsize. This is not the exact
++ * ERX encoding. */
++ ioctl->params.request.new_fragsize_log2 =
++ sa_log2(new_frag_size_bytes);
++
++ /* Post the Ioctl */
++ status = be_function_post_mcc_wrb(function_object, wrb, NULL,
++ NULL, /* context */
++ ioctl);
++
++ if (status != 0) {
++ TRACE(DL_ERR, "set frag size ioctl failed.");
++ goto error;
++ }
++
++ *current_frag_size_bytes =
++ 1 << ioctl->params.response.actual_fragsize_log2;
++
++error:
++ be_unlock_wrb_post(function_object);
++
++ return status;
++}
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/rxf_ll.c benet/linux-2.6.24.2/drivers/message/beclib/rxf_ll.c
+--- orig/linux-2.6.24.2/drivers/message/beclib/rxf_ll.c 1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/rxf_ll.c 2008-02-14 15:32:13.489249608 +0530
+@@ -0,0 +1,1008 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ *
++ */
++#include "pch.h"
++
++/*!
++
++@brief
++ This routine adds, removes, or reads a WoL magic packet.
++
++@param
++ FunctionObject - Function object handle.
++
++@param
++ Mac1 - Set to TRUE if this function will operate on
++ the MAC 1 Magic Packet.
++
++@param
++ Operation - Operation to perform.
++
++@param
++ Pattern - Pattern to set, or the pattern returned.
++
++@param
++ PatternMask - Pattern mask to set, or the pattern mask returned.
++
++@return
++ BE_SUCCESS if successfull, otherwise a useful BESTATUS is returned.
++
++@note
++ IRQL: < DISPATCH_LEVEL
++
++*/
++BESTATUS be_rxf_wake_on_lan_config(IN PBE_FUNCTION_OBJECT function_object,
++ IN boolean enable_port0, IN boolean enable_port1,
++ IN boolean magic_packet_enable, IN u32 index,
++ IN PVOID pattern, IN PVOID pattern_mask,
++ IN MCC_WRB_CQE_CALLBACK callback,
++ IN PVOID callback_context,
++ IN PBE_WAKE_ON_LAN_QUEUE_CONTEXT queue_context
++ )
++{
++ IOCTL_ETH_ACPI_CONFIG *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = BE_SUCCESS;
++ PBE_GENERIC_QUEUE_CONTEXT generic_context = NULL;
++
++ FUNCTION_ASSERT(function_object);
++
++ /* Valid range for index is 0-3. */
++ ASSERT(index < 4);
++
++ be_lock_wrb_post(function_object);
++
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ if (queue_context && callback) {
++ wrb = (MCC_WRB *) &queue_context->wrb_header;
++ generic_context = (PBE_GENERIC_QUEUE_CONTEXT)
++ queue_context; /* Indicate to queue */
++ generic_context->context.bytes =
++ sizeof(*queue_context);
++ } else {
++ status = BE_STATUS_NO_MCC_WRB;
++ goto Error;
++ }
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ ETH_ACPI_CONFIG);
++
++ ioctl->params.request.index = index;
++ ioctl->params.request.port0 = enable_port0;
++ ioctl->params.request.port1 = enable_port1;
++ ioctl->params.request.magic_packet = magic_packet_enable;
++
++ if (enable_port0 || enable_port1) {
++
++ if (pattern) {
++ sa_memcpy(ioctl->params.request.byte_pattern,
++ pattern,
++ sizeof(ioctl->params.request.
++ byte_pattern));
++ }
++ if (pattern_mask) {
++ sa_memcpy(ioctl->params.request.bit_mask,
++ pattern_mask,
++ sizeof(ioctl->params.request.bit_mask));
++ }
++ /* Track which indicies are enabled/disabled */
++ function_object->config.wol_bitmask |= (1 << index);
++ } else {
++
++ /* Track which indicies are enabled/disabled */
++ function_object->config.wol_bitmask &= ~(1 << index);
++ }
++
++ /* Post the Ioctl */
++ status = be_function_post_mcc_wrb_with_queue_context(function_object,
++ wrb,
++ generic_context,
++ callback,
++ callback_context,
++ ioctl);
++
++ if (status < 0) {
++ TRACE(DL_ERR, "wake-on-lan ioctl failed.");
++ goto Error;
++ }
++
++ Error:
++ be_unlock_wrb_post(function_object);
++ return status;
++}
++
++/*!
++@brief
++ This routine gets or sets a mac address for a domain
++ given the port and mac.
++@param
++ FunctionObject - Function object handle.
++@param
++ Port1 - Set to TRUE if this function will set/get the Port 1
++ address. Only the host may set this to TRUE.
++@param
++ Mac1 - Set to TRUE if this function will set/get the
++ MAC 1 address. Only the host may set this to TRUE.
++@param
++ Write - Set to TRUE if this function should write the mac address.
++@param
++ MacAddress - Buffer of the mac address to read or write.
++@return
++ BE_SUCCESS if successfull, otherwise a useful BESTATUS is returned.
++@note
++ IRQL: < DISPATCH_LEVEL
++*/
++BESTATUS be_rxf_mac_address_read_write(IN PBE_FUNCTION_OBJECT function_object,
++ IN boolean port1, /* VM must always set to false */
++ IN boolean mac1, /* VM must always set to false */
++ IN boolean mgmt, IN boolean write,
++ IN boolean permanent, IN OUT PSA_MAC_ADDRESS mac_address,
++ IN MCC_WRB_CQE_CALLBACK callback, /* optional */
++ IN PVOID callback_context) /* optional */
++{
++ BESTATUS status = BE_SUCCESS;
++ union {
++ IOCTL_COMMON_NTWK_MAC_QUERY *query;
++ IOCTL_COMMON_NTWK_MAC_SET *set;
++ } ioctl = {
++ 0};
++ MCC_WRB *wrb = NULL;
++ u32 type = 0;
++
++ FUNCTION_ASSERT(function_object);
++
++ be_lock_wrb_post(function_object);
++
++ ASSERT(mac_address);
++
++ ASSERT(port1 == FALSE
++ || be_function_is_vm(function_object) == FALSE);
++ ASSERT(mac1 == FALSE
++ || be_function_is_vm(function_object) == FALSE);
++
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ TRACE(DL_ERR, "MCC wrb peek failed.");
++ status = BE_STATUS_NO_MCC_WRB;
++ goto Error;
++ }
++
++ if (mgmt) {
++ type = MAC_ADDRESS_TYPE_MANAGEMENT;
++ } else if (be_function_is_vm(function_object) &&
++ be_function_is_networking(function_object)) {
++ type = MAC_ADDRESS_TYPE_PD;
++ } else {
++ if (be_function_is_networking(function_object)) {
++ type = MAC_ADDRESS_TYPE_NETWORK;
++ } else {
++ type = MAC_ADDRESS_TYPE_STORAGE;
++ }
++ }
++
++ if (write) {
++ /* Prepares an embedded ioctl, including
++ * request/response sizes.
++ */
++ ioctl.set = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object,
++ wrb, COMMON_NTWK_MAC_SET);
++
++ ioctl.set->params.request.invalidate = 0;
++ ioctl.set->params.request.mac1 = (mac1 ? 1 : 0);
++ ioctl.set->params.request.port = (port1 ? 1 : 0);
++ ioctl.set->params.request.type = type;
++
++ /* Copy the mac address to set. */
++ ioctl.set->params.request.mac.SizeOfStructure =
++ sizeof(ioctl.set->params.request.mac);
++ sa_memcpy(ioctl.set->params.request.mac.MACAddress,
++ mac_address, sizeof(*mac_address));
++
++ /* Post the Ioctl */
++ status = be_function_post_mcc_wrb(function_object,
++ wrb,
++ callback,
++ callback_context,
++ ioctl.set);
++
++ } else {
++
++ /*
++ * Prepares an embedded ioctl, including
++ * request/response sizes.
++ */
++ ioctl.query =
++ BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object,
++ wrb, COMMON_NTWK_MAC_QUERY);
++
++ ioctl.query->params.request.mac1 = (mac1 ? 1 : 0);
++ ioctl.query->params.request.port = (port1 ? 1 : 0);
++ ioctl.query->params.request.type = type;
++ ioctl.query->params.request.permanent = permanent;
++
++ /* Post the Ioctl (with a copy for the response) */
++ status = be_function_post_mcc_wrb_with_copy(function_object,
++ wrb, NULL, /* queue context */
++ callback,
++ callback_context,
++ ioctl.query,
++ BE_CREATE_MCC_RESPONSE_COPY
++ (IOCTL_COMMON_NTWK_MAC_QUERY,
++ params.
++ response.mac.
++ MACAddress,
++ mac_address));
++ }
++
++ if (status < 0) {
++ TRACE(DL_ERR, "mac set/query failed.");
++ goto Error;
++ }
++
++Error:
++ be_unlock_wrb_post(function_object);
++ return status;
++}
++
++/*!
++@brief
++ This routine writes data to context memory.
++@param
++ FunctionObject - Function object handle.
++@param
++ McHashTable - Set to the 128-bit multicast address hash table.
++@return
++ BE_SUCCESS if successfull, otherwise a useful BESTATUS is returned.
++@note
++ IRQL: < DISPATCH_LEVEL
++*/
++
++BESTATUS be_rxf_multicast_config(IN PBE_FUNCTION_OBJECT function_object,
++ IN boolean promiscuous, IN u32 num,
++ IN SA_MAC_ADDRESS *mac_table,
++ IN MCC_WRB_CQE_CALLBACK callback, /* optional */
++ IN PVOID callback_context,
++ IN PBE_MULTICAST_QUEUE_CONTEXT queue_context)
++{
++ BESTATUS status = BE_SUCCESS;
++ IOCTL_COMMON_NTWK_MULTICAST_SET *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ PBE_GENERIC_QUEUE_CONTEXT generic_context = NULL;
++
++ FUNCTION_ASSERT(function_object);
++ ASSERT(num <=
++ SA_NUMBER_OF_FIELD(IOCTL_COMMON_NTWK_MULTICAST_SET,
++ params.request.mac));
++
++ if (num > SA_NUMBER_OF_FIELD(
++ IOCTL_COMMON_NTWK_MULTICAST_SET, params.request.mac)) {
++ TRACE(DL_ERR, "Too many multicast addresses. BE supports %d.",
++ SA_NUMBER_OF_FIELD(IOCTL_COMMON_NTWK_MULTICAST_SET,
++ params.request.mac));
++ return BE_NOT_OK;
++ }
++
++ be_lock_wrb_post(function_object);
++
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ if (queue_context && callback) {
++ wrb = (MCC_WRB *) &queue_context->wrb_header;
++ generic_context =
++ (PBE_GENERIC_QUEUE_CONTEXT) queue_context;
++ generic_context->context.bytes =
++ sizeof(*queue_context);
++ } else {
++ status = BE_STATUS_NO_MCC_WRB;
++ goto Error;
++ }
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ COMMON_NTWK_MULTICAST_SET);
++
++ TRACE(DL_INFO,
++ "multicast config. function:%d promiscuous:%d num:%d",
++ be_function_get_function_number(function_object),
++ promiscuous, num);
++
++ ioctl->params.request.promiscuous = promiscuous;
++ if (!promiscuous) {
++
++ ioctl->params.request.num_mac = num;
++
++ if (num > 0) {
++ u32 i = 0;
++
++ ASSERT(mac_table);
++ sa_memcpy(ioctl->params.request.mac, mac_table,
++ 6 * num);
++ for (i = 0; i < num; i++) {
++ TRACE(DL_VERBOSE,
++ " multicast address[%d]: "
++ SA_MAC_FORMAT, i,
++ SA_MAC_ARGS(mac_table[i]));
++ }
++ }
++ /* track number of addresses */
++ function_object->config.num_multicast = num;
++ } else {
++ /* track number of addresses */
++ function_object->config.num_multicast = 0xFF; /* infinite */
++ }
++
++ /* Post the Ioctl */
++ status =
++ be_function_post_mcc_wrb_with_queue_context(function_object,
++ wrb,
++ generic_context,
++ callback,
++ callback_context,
++ ioctl);
++ if (status < 0) {
++ TRACE(DL_ERR, "multicast ioctl failed.");
++ goto Error;
++ }
++
++Error:
++ be_unlock_wrb_post(function_object);
++ return status;
++}
++
++/*!
++@brief
++ This routine adds or removes a vlan tag from the rxf table.
++@param
++ FunctionObject - Function object handle.
++@param
++ VLanTag - VLan tag to add or remove.
++@param
++ Add - Set to TRUE if this will add a vlan tag
++@return
++ BE_SUCCESS if successfull, otherwise a useful BESTATUS is returned.
++@note
++ IRQL: < DISPATCH_LEVEL
++*/
++BESTATUS be_rxf_vlan_config(IN PBE_FUNCTION_OBJECT function_object,
++ IN boolean promiscuous, IN u32 num,
++ IN u16 *vlan_tag_array,
++ IN MCC_WRB_CQE_CALLBACK callback, /* optional */
++ IN PVOID callback_context,
++ IN PBE_VLAN_QUEUE_CONTEXT queue_context) /* optional */
++{
++ BESTATUS status = BE_SUCCESS;
++ IOCTL_COMMON_NTWK_VLAN_CONFIG *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ PBE_GENERIC_QUEUE_CONTEXT generic_context = NULL;
++
++ FUNCTION_ASSERT(function_object);
++
++ ASSERT(num <=
++ SA_NUMBER_OF_FIELD(IOCTL_COMMON_NTWK_VLAN_CONFIG,
++ params.request.vlan_tag));
++ if (num >
++ SA_NUMBER_OF_FIELD(IOCTL_COMMON_NTWK_VLAN_CONFIG,
++ params.request.vlan_tag)) {
++ TRACE(DL_ERR, "Too many VLAN tags.");
++ return BE_NOT_OK;
++ }
++
++ be_lock_wrb_post(function_object);
++
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ if (queue_context && callback) {
++ wrb = (MCC_WRB *) &queue_context->wrb_header;
++ generic_context = (PBE_GENERIC_QUEUE_CONTEXT)
++ queue_context; /* Indicate to queue */
++ generic_context->context.bytes =
++ sizeof(*queue_context);
++ } else {
++ status = BE_STATUS_NO_MCC_WRB;
++ goto Error;
++ }
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ COMMON_NTWK_VLAN_CONFIG);
++
++ TRACE(DL_INFO, "vlan config. function:%d promiscuous:%d num:%d",
++ be_function_get_function_number(function_object),
++ promiscuous, num);
++
++ ioctl->params.request.promiscuous = promiscuous;
++ if (!promiscuous) {
++
++ ioctl->params.request.num_vlan = num;
++
++ if (num > 0) {
++ ASSERT(vlan_tag_array);
++ sa_memcpy(ioctl->params.request.vlan_tag,
++ vlan_tag_array,
++ num * sizeof(vlan_tag_array[0]));
++ }
++ /* Track number of tags */
++ function_object->config.num_vlan = num;
++
++ } else {
++ /* promiscuous mode, tracking number is set inifinite */
++ function_object->config.num_vlan = 0xFF;
++ }
++
++ /* Post the Ioctl */
++ status =
++ be_function_post_mcc_wrb_with_queue_context(function_object,
++ wrb,
++ generic_context,
++ callback,
++ callback_context,
++ ioctl);
++ if (status < 0) {
++ TRACE(DL_ERR, "vlan ioctl failed.");
++ goto Error;
++ }
++
++Error:
++ be_unlock_wrb_post(function_object);
++ return status;
++}
++
++/*!
++@brief
++ This routine assigns a CPU number to an RSS table.
++@param
++ FunctionObject - Function object handle.
++@param
++ RssEntry - The RSS entry (bucket) to assign this CPU to.
++@param
++ Cpu - The CPU number that incomming packets that hash to
++ the RssEntry bucket index will be directed to.
++@return
++ BE_SUCCESS if successfull, otherwise a useful BESTATUS is returned.
++
++@note
++ IRQL: < DISPATCH_LEVEL
++*/
++BESTATUS be_rxf_rss_config(IN PBE_FUNCTION_OBJECT function_object,
++ IN u32 rss_type, /* use enumeration ENABLE_RSS_ENUM */
++ IN u32 num_cq, /* 2, 3, or 4 */
++ IN u32 *cq_id_array, /* Array of num_cq id values */
++ IN u32 default_cq_id, /* non-RSS default CQ ID */
++ IN u32 flush_mask, /* mask of CQs to flush */
++ IN PVOID hash, /* 16 bytes */
++ IN u32 cpu_table_length, /* bytes (power of 2 from 2 to 128) */
++ IN u8 *cpu_table, /* 2 to 128 bytes */
++ IN MCC_WRB_CQE_CALLBACK callback, /* optional */
++ IN PVOID callback_context,
++ IN PBE_RSS_QUEUE_CONTEXT queue_context) /* optional */
++{
++ BESTATUS status = BE_SUCCESS;
++ IOCTL_ETH_RSS_CONFIG *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ PBE_GENERIC_QUEUE_CONTEXT generic_context = NULL;
++
++ FUNCTION_ASSERT(function_object);
++
++ be_lock_wrb_post(function_object);
++
++ ASSERT(!be_function_is_vm(function_object));
++
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ if (queue_context && callback) {
++ wrb = (MCC_WRB *) &queue_context->wrb_header;
++ generic_context = (PBE_GENERIC_QUEUE_CONTEXT)
++ queue_context; /* Indicate to queue */
++ generic_context->context.bytes =
++ sizeof(*queue_context);
++ } else {
++ status = BE_STATUS_NO_MCC_WRB;
++ goto Error;
++ }
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl =
++ BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ ETH_RSS_CONFIG);
++
++ ioctl->params.request.enable_rss = rss_type;
++ ioctl->params.request.cq_flush_mask = flush_mask;
++
++ if (cq_id_array) {
++ ioctl->params.request.cqid0 = cq_id_array[0];
++ ioctl->params.request.cqid1 = cq_id_array[1];
++ ioctl->params.request.cqid2 = cq_id_array[2];
++ ioctl->params.request.cqid3 = cq_id_array[3];
++ }
++
++ if (rss_type != RSS_ENABLE_NONE) {
++ ASSERT(num_cq >= 1 && num_cq <= 4);
++ ASSERT(cq_id_array);
++ ASSERT(hash);
++ }
++
++ if (hash) {
++ sa_memcpy(ioctl->params.request.hash, hash,
++ sizeof(ioctl->params.request.hash));
++ }
++ /*
++ * Double check the table. Each entry should be 0 to
++ * num_cq-1 corresponding to the index in the cq_id_array to use.
++ */
++ if (cpu_table_length > 0) {
++
++ ASSERT(cpu_table);
++ ASSERT(cpu_table_length <=
++ sizeof(ioctl->params.request.cpu_table));
++
++ ioctl->params.request.cpu_table_size_log2 =
++ sa_log2(cpu_table_length);
++ ASSERT(ioctl->params.request.cpu_table_size_log2 > 0
++ && ioctl->params.request.cpu_table_size_log2 <= 7);
++
++ sa_memcpy(ioctl->params.request.cpu_table, cpu_table,
++ cpu_table_length);
++ }
++
++ TRACE(DL_INFO, "RSS hash. 0x%08x 0x%08x 0x%08x 0x%08x",
++ ioctl->params.request.hash[0],
++ ioctl->params.request.hash[1],
++ ioctl->params.request.hash[2],
++ ioctl->params.request.hash[3]);
++
++ TRACE(DL_INFO,
++ "RSS table. log2(len):%d 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x"
++ " 0x%02x 0x%02x 0x%02x",
++ ioctl->params.request.cpu_table_size_log2,
++ ioctl->params.request.cpu_table[0],
++ ioctl->params.request.cpu_table[1],
++ ioctl->params.request.cpu_table[2],
++ ioctl->params.request.cpu_table[3],
++ ioctl->params.request.cpu_table[4],
++ ioctl->params.request.cpu_table[5],
++ ioctl->params.request.cpu_table[6],
++ ioctl->params.request.cpu_table[7]);
++
++ /* software tracking */
++ function_object->config.rss_type = rss_type;
++
++ /* Post the Ioctl */
++ status = be_function_post_mcc_wrb_with_queue_context(function_object,
++ wrb, generic_context, callback,
++ callback_context, ioctl);
++ if (status < 0) {
++ TRACE(DL_ERR, "rss ioctl failed.");
++ goto Error;
++ }
++
++Error:
++ be_unlock_wrb_post(function_object);
++ return status;
++}
++
++BESTATUS be_rxf_link_status(IN PBE_FUNCTION_OBJECT function_object,
++ OUT BE_LINK_STATUS *link_status,
++ IN MCC_WRB_CQE_CALLBACK callback,
++ IN PVOID callback_context,
++ IN PBE_LINK_STATUS_QUEUE_CONTEXT queue_context) /* optional */
++{
++ IOCTL_COMMON_NTWK_LINK_STATUS_QUERY *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = 0;
++ PBE_GENERIC_QUEUE_CONTEXT generic_context = NULL;
++
++ ASSERT(link_status);
++
++ be_lock_wrb_post(function_object);
++
++ wrb = be_function_peek_mcc_wrb(function_object);
++
++ if (!wrb) {
++ if (queue_context && callback) {
++ wrb = (MCC_WRB *) &queue_context->wrb_header;
++ generic_context = (PBE_GENERIC_QUEUE_CONTEXT)
++ queue_context; /* Indicate to queue */
++ generic_context->context.bytes =
++ sizeof(*queue_context);
++ } else {
++ status = BE_STATUS_NO_MCC_WRB;
++ goto Error;
++ }
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ COMMON_NTWK_LINK_STATUS_QUERY);
++
++ /* Post or queue the Ioctl */
++ status = be_function_post_mcc_wrb_with_copy(function_object, wrb,
++ generic_context, /* Queue context */
++ callback,
++ callback_context,
++ ioctl,
++ BE_CREATE_MCC_RESPONSE_COPY
++ (IOCTL_COMMON_NTWK_LINK_STATUS_QUERY,
++ params.response,
++ link_status));
++
++ if (status < 0) {
++ TRACE(DL_ERR, "link status ioctl failed.");
++ goto Error;
++ }
++
++Error:
++ be_unlock_wrb_post(function_object);
++ return status;
++}
++
++BESTATUS
++be_rxf_query_eth_statistics(IN PBE_FUNCTION_OBJECT function_object,
++ IN IOCTL_ETH_GET_STATISTICS *va_for_ioctl,
++ IN u64 pa_for_ioctl,
++ IN MCC_WRB_CQE_CALLBACK callback,
++ IN PVOID callback_context,
++ IN PBE_ETH_STATS_QUEUE_CONTEXT queue_context)
++{
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = 0;
++ PBE_GENERIC_QUEUE_CONTEXT generic_context = NULL;
++
++ ASSERT(va_for_ioctl);
++ ASSERT(pa_for_ioctl);
++
++ be_lock_wrb_post(function_object);
++
++ wrb = be_function_peek_mcc_wrb(function_object);
++
++ if (!wrb) {
++ if (queue_context && callback) {
++ wrb = (MCC_WRB *) &queue_context->wrb_header;
++ generic_context = (PBE_GENERIC_QUEUE_CONTEXT)
++ queue_context; /* Indicate to queue */
++ generic_context->context.bytes =
++ sizeof(*queue_context);
++ } else {
++ status = BE_STATUS_NO_MCC_WRB;
++ goto Error;
++ }
++ }
++
++ TRACE(DL_INFO,
++ "Query eth stats. ioctl va:%p pa:0x%08x_%08x",
++ va_for_ioctl, sa_hi(pa_for_ioctl), sa_lo(pa_for_ioctl));
++
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ va_for_ioctl =
++ BE_FUNCTION_PREPARE_NONEMBEDDED_IOCTL(function_object, wrb,
++ va_for_ioctl, pa_for_ioctl, ETH_GET_STATISTICS);
++
++ /* Post the Ioctl */
++ status = be_function_post_mcc_wrb_with_queue_context(function_object,
++ wrb, generic_context, callback, callback_context,
++ va_for_ioctl);
++
++ if (status < 0) {
++ TRACE(DL_ERR, "eth stats ioctl failed.");
++ goto Error;
++ }
++
++Error:
++ be_unlock_wrb_post(function_object);
++ return status;
++}
++
++BESTATUS
++be_rxf_promiscuous(IN PBE_FUNCTION_OBJECT function_object,
++ IN boolean enable_port0,
++ IN boolean enable_port1,
++ IN MCC_WRB_CQE_CALLBACK callback,
++ IN PVOID callback_context,
++ IN PBE_PROMISCUOUS_QUEUE_CONTEXT queue_context)
++{
++ IOCTL_ETH_PROMISCUOUS *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = 0;
++ PBE_GENERIC_QUEUE_CONTEXT generic_context = NULL;
++
++ be_lock_wrb_post(function_object);
++
++ wrb = be_function_peek_mcc_wrb(function_object);
++
++ if (!wrb) {
++ if (queue_context && callback) {
++ wrb = (MCC_WRB *) &queue_context->wrb_header;
++ generic_context = (PBE_GENERIC_QUEUE_CONTEXT)
++ queue_context; /* Indicate to queue */
++ generic_context->context.bytes =
++ sizeof(*queue_context);
++ } else {
++ status = BE_STATUS_NO_MCC_WRB;
++ goto Error;
++ }
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ ETH_PROMISCUOUS);
++
++ ioctl->params.request.port0_promiscuous = enable_port0;
++ ioctl->params.request.port1_promiscuous = enable_port1;
++
++ /* Post the Ioctl */
++ status = be_function_post_mcc_wrb_with_queue_context(function_object,
++ wrb, generic_context, callback, callback_context,
++ ioctl);
++
++ if (status < 0) {
++ TRACE(DL_ERR, "promiscuous ioctl failed.");
++ goto Error;
++ }
++
++Error:
++ be_unlock_wrb_post(function_object);
++ return status;
 +}
 +
 +/*
-+ *----------------------------------------------------------------------------
-+ * Function: be_function_disable_interrupts
-+ *   Disables interrupts for the given PCI function.
-+ * function_object    -
-+ * return return_type - void
-+ *----------------------------------------------------------------------------
++ *------------------------------------------------------------------
++ * Function: be_rxf_force_failover
++ * Forces failure of all traffic to the specified MAC port.
++ * Use the be_rxf_link_status to query to active port. Automatic
++ * failover feature of BladeEngine is implicitly disabled with this call.
++ * function_object -
++ * port - Port to use, 0 or 1.
++ * callback - optional
++ * callback_context - optional
++ * queue_context - Optional. Pointer to a previously allocated
++ * BE_QUEUE_CONTEXT struct. If the MCC WRB ring is
++ * full, this structure is used to queue the operation.
++ * It will be posted to the MCC ring when space
++ * becomes available. All queued commands will be
++ * posted to the ring in the order they are received.
++ * return pend_status - BE_SUCCESS (0) on success.
++ * BE_PENDING (postive value) if the IOCTL
++ * completion is pending. Negative error code on failure.
++ *--------------------------------------------------------------------
 + */
-+void be_function_disable_interrupts(IN PBE_FUNCTION_OBJECT function_object)
++BESTATUS
++be_rxf_force_failover(IN PBE_FUNCTION_OBJECT function_object,
++ IN u32 port,
++ IN MCC_WRB_CQE_CALLBACK callback,
++ IN PVOID callback_context,
++ IN PBE_FORCE_FAILOVER_QUEUE_CONTEXT queue_context)
 +{
-+	PCICFG_HOST_TIMER_INT_CTRL_CSR ctrl;
++ IOCTL_COMMON_FORCE_FAILOVER *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = 0;
++ PBE_GENERIC_QUEUE_CONTEXT generic_context = NULL;
 +
-+	FUNCTION_ASSERT(function_object);
++ be_lock_wrb_post(function_object);
 +
-+	/*
-+	 * Read-Modify-Write of the control register in PCI config space.
-+	 */
-+	ctrl.dw = PCICFG1_READ(function_object, host_timer_int_ctrl);
-+	if (ctrl.hostintr) {
-+		ctrl.hostintr = 0;
-+		PCICFG1_WRITE_CONST(function_object, host_timer_int_ctrl,
-+				    ctrl.dw);
-+	}
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ if (queue_context && callback) {
++ wrb = (MCC_WRB *) &queue_context->wrb_header;
++ generic_context = (PBE_GENERIC_QUEUE_CONTEXT)
++ queue_context; /* Indicate to queue */
++ generic_context->context.bytes =
++ sizeof(*queue_context);
++ } else {
++ status = BE_STATUS_NO_MCC_WRB;
++ goto Error;
++ }
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ COMMON_FORCE_FAILOVER);
++
++ ASSERT(port == 0 || port == 1);
++ ioctl->params.request.move_to_port = port;
++ ioctl->params.request.failover_config = FAILOVER_CONFIG_OFF;
++
++ /* Post the Ioctl */
++ status = be_function_post_mcc_wrb_with_queue_context(function_object,
++ wrb,
++ generic_context,
++ callback,
++ callback_context,
++ ioctl);
++
++ if (status < 0) {
++ TRACE(DL_ERR, "force failover ioctl failed.");
++ goto Error;
++ }
++
++Error:
++ be_unlock_wrb_post(function_object);
++ return status;
 +}
 +
 +/*
-+ *----------------------------------------------------------------------------
-+ * Function: be_function_nop
-+ *   Issues a NOP command to the MCC ring. The command is completed with
-+ *   a successful status. This can be used to pend operations until a
-+ *   short time in the future, since the callback function will be
-+ *   invoked upon command completion. The returned status
-+ *   will be BE_PENDING if the command was issued successfully.
-+ * function_object    -
-+ * callback           - Callback function invoked when the NOP completes.
-+ * callback_context   - Passed to the callback function.
-+ * return pend_status - BE_SUCCESS (0) on success. BE_PENDING
-+ *			(postive value) if the IOCTL completion is
-+ *			pending. Negative error code on failure.
++ *--------------------------------------------------------------------------
++ * Function: be_rxf_manage_autofailover
++ * Enables or disables BladeEngine automatic port failover.
++ * function_object -
++ * enable - Set to 1 to enable the feature. Set to 0 to disable
++ * the feature.
++ * callback - Optional callback function. When the command
++ * completes the callback function will be called
++ * with the callback context.
++ * callback_context - Optional callback context.
++ * queue_context - Optional. Pointer to a previously allocated
++ * BE_QUEUE_CONTEXT struct. If the MCC WRB ring is full,
++ * this structure is used to queue the operation. It
++ * will be posted to the MCC ring when space
++ * becomes available. All queued commands will
++ * be posted to the ring in the order they are received.
++ * return pend_status - BE_SUCCESS (0) on success.
++ * BE_PENDING (postive value) if the IOCTL
++ * completion is pending. Negative error code on failure.
 + *-----------------------------------------------------------------------
 + */
 +BESTATUS
-+be_function_nop(IN PBE_FUNCTION_OBJECT function_object,
-+		IN MCC_WRB_CQE_CALLBACK callback,
-+		IN PVOID callback_context,
-+		IN PBE_NOP_QUEUE_CONTEXT queue_context)
++be_rxf_manage_autofailover(IN PBE_FUNCTION_OBJECT function_object,
++ IN boolean enable,
++ IN MCC_WRB_CQE_CALLBACK callback,
++ IN PVOID callback_context,
++ IN PBE_FORCE_FAILOVER_QUEUE_CONTEXT
++ queue_context)
 +{
-+	BESTATUS status = BE_SUCCESS;
-+	MCC_WRB *wrb = NULL;
-+	IOCTL_COMMON_NOP *ioctl = NULL;
-+	PBE_GENERIC_QUEUE_CONTEXT generic_context = NULL;
++ IOCTL_COMMON_FORCE_FAILOVER *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = 0;
++ PBE_GENERIC_QUEUE_CONTEXT generic_context = NULL;
 +
-+	FUNCTION_ASSERT(function_object);
++ be_lock_wrb_post(function_object);
 +
-+	be_lock_wrb_post(function_object);
++ wrb = be_function_peek_mcc_wrb(function_object);
++ if (!wrb) {
++ if (queue_context && callback) {
++ wrb = (MCC_WRB *) &queue_context->wrb_header;
++ generic_context = (PBE_GENERIC_QUEUE_CONTEXT)
++ queue_context; /* Indicate to queue */
++ generic_context->context.bytes =
++ sizeof(*queue_context);
++ } else {
++ status = BE_STATUS_NO_MCC_WRB;
++ goto Error;
++ }
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ COMMON_FORCE_FAILOVER);
 +
-+	wrb = be_function_peek_mcc_wrb(function_object);
-+	if (!wrb) {
-+		if (queue_context && callback) {
-+			wrb = (MCC_WRB *) &queue_context->wrb_header;
-+			generic_context = (PBE_GENERIC_QUEUE_CONTEXT)
-+					queue_context;	/* Indicate to queue */
-+			generic_context->context.bytes =
-+			    sizeof(*queue_context);
-+		} else {
-+			status = BE_STATUS_NO_MCC_WRB;
-+			goto Error;
-+		}
-+	}
-+	/* Prepares an embedded ioctl, including request/response sizes. */
-+	ioctl = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
-+					       COMMON_NOP);
++ if (enable) {
++ ioctl->params.request.failover_config = FAILOVER_CONFIG_ON;
++ } else {
++ ioctl->params.request.failover_config =
++ FAILOVER_CONFIG_OFF;
++ }
++ ioctl->params.request.move_to_port = FAILOVER_PORT_NONE;
 +
-+	/* Post the Ioctl */
-+	status = be_function_post_mcc_wrb_with_queue_context(function_object,
-+							wrb,
-+							generic_context,
-+							callback,
-+							callback_context,
-+							ioctl);
++ /* Post the Ioctl */
++ status =
++ be_function_post_mcc_wrb_with_queue_context(function_object,
++ wrb,
++ generic_context,
++ callback,
++ callback_context,
++ ioctl);
++
++ if (status < 0) {
++ TRACE(DL_ERR, "manage autofailover ioctl failed.");
++ goto Error;
++ }
 +
 +Error:
-+	be_unlock_wrb_post(function_object);
-+
-+	return status;
-+}
-+
-+/*-----------------------------------------------------------------------------
-+ * Function: be_function_get_fw_version
-+ *   Retrieves the firmware version on the adpater. If the callback is
-+ *   NULL this call executes synchronously. If the callback is not NULL,
-+ *   the returned status will be BE_PENDING if the command was issued
-+ *   successfully.
-+ * function_object    -
-+ * fw_version         - Pointer to response buffer if callback is NULL.
-+ * callback           - Callback function invoked when the IOCTL completes.
-+ * callback_context   - Passed to the callback function.
-+ * return pend_status - BE_SUCCESS (0) on success.
-+ * 			BE_PENDING (postive value) if the IOCTL
-+ *                      completion is pending. Negative error code on failure.
-+ *---------------------------------------------------------------------------
-+ */
-+BESTATUS
-+be_function_get_fw_version(IN PBE_FUNCTION_OBJECT function_object,
-+			   OUT IOCTL_COMMON_GET_FW_VERSION_RESPONSE_PAYLOAD
-+			   * fw_version, IN MCC_WRB_CQE_CALLBACK callback,
-+			   IN PVOID callback_context)
-+{
-+	BESTATUS status = BE_SUCCESS;
-+	MCC_WRB *wrb = NULL;
-+	IOCTL_COMMON_GET_FW_VERSION *ioctl = NULL;
-+
-+	FUNCTION_ASSERT(function_object);
-+
-+	be_lock_wrb_post(function_object);
-+
-+	wrb = be_function_peek_mcc_wrb(function_object);
-+	if (!wrb) {
-+		TRACE(DL_ERR, "MCC wrb peek failed.");
-+		status = BE_STATUS_NO_MCC_WRB;
-+		goto Error;
-+	}
-+
-+	if (!callback && !fw_version) {
-+		TRACE(DL_ERR, "callback and response buffer NULL!");
-+		status = BE_NOT_OK;
-+		goto Error;
-+	}
-+	/* Prepares an embedded ioctl, including request/response sizes. */
-+	ioctl =
-+	    BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
-+					       COMMON_GET_FW_VERSION);
-+
-+	/* Post the Ioctl */
-+	status = be_function_post_mcc_wrb_with_copy(function_object, wrb, NULL,
-+			callback, callback_context,
-+			ioctl,
-+			BE_CREATE_MCC_RESPONSE_COPY(IOCTL_COMMON_GET_FW_VERSION,
-+					     params.response, fw_version));
-+
-+Error:
-+	be_unlock_wrb_post(function_object);
-+
-+	return status;
-+}
-+
-+BESTATUS
-+be_function_queue_mcc_wrb(PBE_FUNCTION_OBJECT function_object,
-+			  PBE_GENERIC_QUEUE_CONTEXT queue_context)
-+{
-+	BESTATUS status;
-+
-+	FUNCTION_ASSERT(function_object);
-+	ASSERT(queue_context);
-+
-+	/*
-+	 * issue the WRB to the MPU as appropriate
-+	 */
-+	if (function_object->links.mcc) {
-+
-+		/* We're in ring mode.  Queue this item. */
-+		function_object->links.mcc->backlog_length++;
-+		sa_insert_tail_list(&function_object->links.mcc->backlog,
-+				    &queue_context->context.list);
-+
-+		function_object->stats.queued_wrbs++;
-+		function_object->stats.queue_length =
-+		    function_object->links.mcc->backlog_length;
-+		function_object->stats.max_queue_length =
-+		    MAX(function_object->stats.queue_length,
-+			function_object->stats.max_queue_length);
-+
-+		status = BE_PENDING;
-+
-+	} else {
-+
-+		status = BE_NOT_OK;
-+
-+	}
-+
-+	return status;
++ be_unlock_wrb_post(function_object);
++ return status;
 +}
 +
 +/*
 + *-------------------------------------------------------------------------
-+ * Function: be_function_manage_FAT_log
-+ *   This routine can be used to manage the BladeEngine Fault Analysis
-+ *   Tool (FAT) log.  This includes querying the FAT log size, retrieving
-+ *   the FAT log, and clearing the FAT log. The log data can be anaylzed
-+ *   by BladeEngine support tools to diagnose faults.
-+ *   Only host domains (domain 0) may issue this request.
-+ * function_object   -
-+ * sgl               - The SGL representing the FAT log buffer landing space.
-+ * 			The SGL should be page aligned. It does not require
-+ * 			a virtual address.
-+ * num_pages         - The number of pages in the SGL. A value of zero (0)
-+ * 			implies no FAT log data transfer will take place.
-+ * 			The num_pages is limited to 27 pages.
-+ * page_offset       - The page_offset specifies the starting page offset
-+ * 		       when retrieving the FAT log. For example, a value
-+ * 		       of 0 requests data starting at byte offset 0 of the
-+ * 		       FAT log. Likewise, a value of 5 requests data
-+ * 		       starting at byte offset 20480 of the FAT log.
-+ * 		       A caller may choose to issue multiple queries
-+ * 		       when the FAT log buffer size is larger
-+ *                     than the number of pages specified.
-+ * clear_log         - Set to clear the log.
-+ * log_size          - The size of the BladeEngine FAT log in bytes.
-+ * bytes_transferred - The number of FAT log data bytes transferred.
-+ * return status     - BE_SUCCESS (0) on success. Negative error code on failure
-+ *----------------------------------------------------------------------------
-+ */
-+BESTATUS
-+be_function_manage_FAT_log(IN PBE_FUNCTION_OBJECT function_object,
-+			   IN PSA_SGL sgl,
-+			   IN u32 num_pages,
-+			   IN u32 page_offset,
-+			   IN boolean clear_log,
-+			   OUT u32 *log_size, OUT u32 *bytes_transferred)
-+{
-+	IOCTL_COMMON_GET_FAT *ioctl = NULL;
-+	MCC_WRB *wrb = NULL;
-+	BESTATUS status = 0;
-+
-+	be_lock_wrb_post(function_object);
-+
-+	wrb = be_function_peek_mcc_wrb(function_object);
-+	if (!wrb) {
-+		TRACE(DL_ERR, "MCC wrb peek failed.");
-+		status = BE_STATUS_NO_MCC_WRB;
-+		goto error;
-+	}
-+	/* Prepares an embedded ioctl, including request/response sizes. */
-+	ioctl =
-+	    BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
-+					       COMMON_GET_FAT);
-+
-+	/* Set parameters */
-+	ioctl->params.request.clear_log = clear_log;
-+	ioctl->params.request.page_offset = page_offset;
-+	ioctl->params.request.num_pages = num_pages;
-+
-+	/* Create a page list for the IOCTL. */
-+	ASSERT(sa_sgl_get_page_count(sgl) >=
-+	       ioctl->params.request.num_pages);
-+	be_sgl_to_pa_list(sgl, ioctl->params.request.buffer_addr,
-+			  SA_NUMBER_OF(ioctl->params.request.buffer_addr));
-+	/* Post the Ioctl */
-+	status = be_function_post_mcc_wrb(function_object, wrb, NULL,
-+					  NULL, ioctl);
-+
-+	if (status != 0) {
-+		TRACE(DL_ERR, "manage FAT log ioctl failed.");
-+		goto error;
-+	}
-+
-+	if (NULL != log_size) {
-+		*log_size = ioctl->params.response.log_size;
-+	}
-+
-+	if (NULL != bytes_transferred) {
-+		*bytes_transferred =
-+		    ioctl->params.response.bytes_transferred;
-+	}
-+
-+      error:
-+	be_unlock_wrb_post(function_object);
-+
-+	return status;
-+}
-+
-+/*
-+ *----------------------------------------------------------------------------
-+ * Function: be_function_query_firmware_config
-+ *   Queries the firmware configuration currently loaded. This
-+ *   configuration includes information regarding the EP processor
-+ *   configuration for various Upper Layer Protocols.
++ * Function: be_rxf_filter_config
++ * Configures BladeEngine ethernet receive filter settings.
 + * function_object -
-+ * config          - The configuration parameters currently loaded by firmware.
-+ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
-+ *--------------------------------------------------------------------------
-+ */
-+BESTATUS
-+be_function_query_firmware_config(IN PBE_FUNCTION_OBJECT function_object,
-+				  OUT BE_FIRMWARE_CONFIG *config)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	ASSERT(config);
-+
-+	/* Copy the cached version. */
-+	sa_memcpy(config, &function_object->fw_config, sizeof(*config));
-+
-+	return BE_SUCCESS;
-+}
-+
-+BESTATUS
-+be_function_internal_query_firmware_config(IN PBE_FUNCTION_OBJECT
-+					   function_object,
-+					   OUT BE_FIRMWARE_CONFIG *config)
-+{
-+	IOCTL_COMMON_FIRMWARE_CONFIG *ioctl = NULL;
-+	MCC_WRB *wrb = NULL;
-+	BESTATUS status = 0;
-+
-+	be_lock_wrb_post(function_object);
-+
-+	wrb = be_function_peek_mcc_wrb(function_object);
-+	if (!wrb) {
-+		TRACE(DL_ERR, "MCC wrb peek failed.");
-+		status = BE_STATUS_NO_MCC_WRB;
-+		goto error;
-+	}
-+	/* Prepares an embedded ioctl, including request/response sizes. */
-+	ioctl =
-+	    BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
-+					       COMMON_FIRMWARE_CONFIG);
-+
-+	/* Post the Ioctl */
-+	status = be_function_post_mcc_wrb_with_copy(function_object, wrb,
-+			NULL, NULL, NULL, ioctl,
-+			BE_CREATE_MCC_RESPONSE_COPY(
-+				IOCTL_COMMON_FIRMWARE_CONFIG,
-+				     params.response, config));
-+
-+error:
-+	be_unlock_wrb_post(function_object);
-+
-+	return status;
-+}
-+
-+/*
-+ *---------------------------------------------------------------------------
-+ * Function: be_function_config_red
-+ *   This function configures global and/or ULP specific Random Early Drop (RED
-+ *   functionality.
-+ * function_object    -
-+ * parameters         - The RED parameters. Only parameters for the
-+ * 		        chutes owned by the current PCI function are applied.
-+ * callback           - Optional callback function.
-+ * callback_context   - Optional context for callback function.
-+ * queue_context      - Optional context for queueing the IOCTL.
++ * settings - Pointer to the requested filter settings.
++ * The response from BladeEngine will be placed back
++ * in this structure.
++ * callback - optional
++ * callback_context - optional
++ * queue_context - Optional. Pointer to a previously allocated struct.
++ * If the MCC WRB ring is full, this structure is
++ * used to queue the operation. It will be posted
++ * to the MCC ring when space becomes available. All
++ * queued commands will be posted to the ring in
++ * the order they are received. It is always valid
++ * to pass a pointer to a generic
++ * BE_GENERIC_QUEUE_CONTEXT. However, the specific
++ * context structs are generally smaller than
++ * the generic struct.
 + * return pend_status - BE_SUCCESS (0) on success.
-+ * 			BE_PENDING (postive value) if the IOCTL
-+ *                      completion is pending. Negative error code on failure.
++ * BE_PENDING (postive value) if the IOCTL
++ * completion is pending. Negative error code on failure.
 + *---------------------------------------------------------------------------
 + */
 +BESTATUS
-+be_function_config_red(IN PBE_FUNCTION_OBJECT function_object,
-+		       IN PBE_RED_PARAMETERS parameters,
-+		       IN MCC_WRB_CQE_CALLBACK callback,
-+		       IN PVOID callback_context,
-+		       IN PBE_CONFIG_RED_QUEUE_CONTEXT queue_context)
++be_rxf_filter_config(IN PBE_FUNCTION_OBJECT function_object,
++ IN OUT NTWK_RX_FILTER_SETTINGS *settings,
++ IN MCC_WRB_CQE_CALLBACK callback,
++ IN PVOID callback_context,
++ IN PBE_RXF_FILTER_QUEUE_CONTEXT queue_context)
 +{
-+	MCC_WRB *wrb = NULL;
-+	BESTATUS status = 0;
-+	PBE_GENERIC_QUEUE_CONTEXT generic_context = NULL;
-+	IOCTL_COMMON_RED_CONFIG *ioctl = NULL;
-+	u32 i;
++ IOCTL_COMMON_NTWK_RX_FILTER *ioctl = NULL;
++ MCC_WRB *wrb = NULL;
++ BESTATUS status = 0;
++ PBE_GENERIC_QUEUE_CONTEXT generic_context = NULL;
 +
-+	be_lock_wrb_post(function_object);
++ ASSERT(settings);
 +
-+	wrb = be_function_peek_mcc_wrb(function_object);
-+	if (!wrb) {
-+		if (queue_context && callback) {
-+			wrb = (MCC_WRB *) &queue_context->wrb_header;
-+			generic_context = (PBE_GENERIC_QUEUE_CONTEXT)
-+							queue_context;
-+			generic_context->context.bytes = sizeof(*queue_context);
-+		} else {
-+			status = BE_STATUS_NO_MCC_WRB;
-+			goto error;
-+		}
-+	}
-+	/* Prepares an embedded ioctl, including request/response sizes. */
-+	ioctl = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
-+					       COMMON_RED_CONFIG);
++ be_lock_wrb_post(function_object);
 +
-+	for (i = 0; i < SA_NUMBER_OF(parameters->chute); i++) {
-+		sa_memcpy(&ioctl->params.request.chute[i],
-+			  &parameters->chute[i],
-+			  sizeof(parameters->chute[0]));
-+	}
++ wrb = be_function_peek_mcc_wrb(function_object);
 +
-+	/* Post the Ioctl */
-+	status =
-+	    be_function_post_mcc_wrb_with_queue_context(function_object,
-+							wrb,
-+							generic_context,
-+							callback,
-+							callback_context,
-+							ioctl);
++ if (!wrb) {
++ if (queue_context && callback) {
++ wrb = (MCC_WRB *) &queue_context->wrb_header;
++ generic_context = (PBE_GENERIC_QUEUE_CONTEXT)
++ queue_context; /* Indicate to queue */
++ generic_context->context.bytes =
++ sizeof(*queue_context);
++ } else {
++ status = BE_STATUS_NO_MCC_WRB;
++ goto Error;
++ }
++ }
++ /* Prepares an embedded ioctl, including request/response sizes. */
++ ioctl = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
++ COMMON_NTWK_RX_FILTER);
++ sa_memcpy(&ioctl->params.request, settings, sizeof(*settings));
 +
-+      error:
-+	be_unlock_wrb_post(function_object);
++ /* Post or queue the Ioctl */
++ status = be_function_post_mcc_wrb_with_copy(function_object,
++ wrb, generic_context, /* Queue context */
++ callback,
++ callback_context,
++ ioctl,
++ BE_CREATE_MCC_RESPONSE_COPY
++ (IOCTL_COMMON_NTWK_RX_FILTER,
++ params.response,
++ settings));
 +
-+	return status;
-+}
++ if (status < 0) {
++ TRACE(DL_ERR, "RXF/ERX filter config ioctl failed.");
++ goto Error;
++ }
 +
-+/*
-+ *----------------------------------------------------------------------------
-+ * Function: be_function_config_port_equalization
-+ *   This function configures or returns the XAUI port equalization
-+ *   parameters of BladeEngine.
-+ * function_object    -
-+ * parameters         - XAUI port equalization parameters.
-+ * write              - Set (1) to write the parameters, otherwise
-+ * 			clear (0) to read the parameters.
-+ * callback           - Optional callback function.
-+ * callback_context   - Optional context for callback function.
-+ * queue_context      - Optional context for queueing the IOCTL.
-+ * return pend_status - BE_SUCCESS (0) on success.
-+ * 			BE_PENDING (postive value) if the IOCTL
-+ *                      completion is pending. Negative error code on failure.
-+ *---------------------------------------------------------------------------
-+ */
-+BESTATUS
-+be_function_config_port_equalization(IN PBE_FUNCTION_OBJECT
-+				     function_object,
-+				     IN OUT
-+				     PIOCTL_COMMON_PORT_EQUALIZATION_PARAMS
-+				     parameters, IN boolean write,
-+				     IN MCC_WRB_CQE_CALLBACK callback,
-+				     IN PVOID callback_context,
-+				     IN
-+				     PBE_CONFIG_PORT_EQUALIXATION_QUEUE_CONTEXT
-+				     queue_context)
-+{
-+	MCC_WRB *wrb = NULL;
-+	BESTATUS status = 0;
-+	PBE_GENERIC_QUEUE_CONTEXT generic_context = NULL;
-+
-+	be_lock_wrb_post(function_object);
-+
-+	wrb = be_function_peek_mcc_wrb(function_object);
-+	if (!wrb) {
-+		if (queue_context && callback) {
-+			wrb = (MCC_WRB *) &queue_context->wrb_header;
-+			generic_context = (PBE_GENERIC_QUEUE_CONTEXT)
-+					queue_context;
-+			generic_context->context.bytes =
-+			    sizeof(*queue_context);
-+		} else {
-+			status = BE_STATUS_NO_MCC_WRB;
-+			goto error;
-+		}
-+	}
-+
-+	if (write) {
-+		IOCTL_COMMON_SET_PORT_EQUALIZATION *ioctl;
-+
-+		/*
-+		 * Prepare an embedded ioctl, including request/response
-+		 * sizes.
-+		 */
-+		ioctl = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
-+				       COMMON_SET_PORT_EQUALIZATION);
-+
-+		sa_memcpy(&ioctl->params.request,
-+			  parameters, sizeof(*parameters));
-+
-+		/* Post the Ioctl */
-+		status = be_function_post_mcc_wrb_with_queue_context(
-+				function_object,
-+				wrb, generic_context, callback,
-+				callback_context, ioctl);
-+	} else {
-+		IOCTL_COMMON_GET_PORT_EQUALIZATION *ioctl;
-+
-+		/*
-+		 * Prepare an embedded ioctl, including
-+		 * request/response sizes.
-+		 */
-+		ioctl = BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object,
-+				       wrb, COMMON_GET_PORT_EQUALIZATION);
-+
-+		/* This IOCTL response is copied into the parameters pointer */
-+		status = be_function_post_mcc_wrb_with_copy(function_object,
-+				wrb, generic_context, callback,
-+				callback_context, ioctl,
-+				BE_CREATE_MCC_RESPONSE_COPY(
-+					IOCTL_COMMON_GET_PORT_EQUALIZATION,
-+						params.
-+						response,
-+						parameters));
-+	}
-+
-+error:
-+	be_unlock_wrb_post(function_object);
-+
-+	return status;
-+}
-+
-+/*
-+ *------------------------------------------------------------------------
-+ * Function: be_function_passthru_ioctl
-+ *   This routine issues an embedded IOCTL in pass-through mode.
-+ * function_object  -
-+ * payload          - The embedded payload for the MCC_WRB structure.
-+ * 		      The input buffer is overwritten with response data.
-+ * callback         - Callback function invoked when the IOCTL completes.
-+ * callback_context - Callback context passed to the callback function.
-+ * return status    - BE_SUCCESS (0) on success. Negative error code on failure.
-+ *----------------------------------------------------------------------------
-+ */
-+BESTATUS
-+be_function_passthru_ioctl(IN PBE_FUNCTION_OBJECT function_object,
-+			   IN OUT MCC_WRB_PAYLOAD *payload,
-+			   IN MCC_WRB_CQE_CALLBACK callback,
-+			   IN PVOID callback_context)
-+{
-+	MCC_WRB *wrb = NULL;
-+	BESTATUS status = 0;
-+	PVOID ioctl = NULL;
-+	PIOCTL_REQUEST_HEADER ioctl_header =
-+	    (PIOCTL_REQUEST_HEADER) payload;
-+
-+	be_lock_wrb_post(function_object);
-+
-+	wrb = be_function_peek_mcc_wrb(function_object);
-+	if (!wrb) {
-+		TRACE(DL_ERR, "MCC wrb peek failed.");
-+		status = BE_STATUS_NO_MCC_WRB;
-+		goto error;
-+	}
-+	/* Prepares an embedded ioctl */
-+	ioctl = be_function_prepare_embedded_ioctl(function_object,
-+						   wrb,
-+						   sizeof(MCC_WRB_PAYLOAD),
-+						   ioctl_header->
-+						   request_length,
-+						   ioctl_header->
-+						   request_length,
-+						   ioctl_header->opcode,
-+						   ioctl_header->
-+						   subsystem);
-+
-+	/* Copy in the user's IOCTL payload */
-+	sa_memcpy((void *)&wrb->payload,
-+		  (void *)payload, sizeof(MCC_WRB_PAYLOAD));
-+
-+	/* Post the Ioctl */
-+	status = be_function_post_mcc_wrb_with_copy(function_object,
-+			wrb, NULL, callback, callback_context,
-+			ioctl, be_create_mcc_response_copy(0,
-+					sizeof (MCC_WRB_PAYLOAD), payload));
-+
-+error:
-+	be_unlock_wrb_post(function_object);
-+
-+	return status;
++Error:
++ be_unlock_wrb_post(function_object);
++ return status;
 +}
 
 ___________________________________________________________________________________
