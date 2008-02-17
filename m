@@ -1,60 +1,103 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [PATHCH 0/16]  ServerEngines 10Gb NIC driver
-Date: Sun, 17 Feb 2008 14:35:49 +0100
-Message-ID: <20080217133549.GB11132@uranus.ravnborg.org>
-References: <20080217035113.d5342ffc@mailhost.serverengines.com> <20080217132536.GA11132@uranus.ravnborg.org>
+From: Kristof Provost <Kristof@provost-engineering.be>
+Subject: [BUG] IPv6 recursive locking
+Date: Sun, 17 Feb 2008 14:12:29 +0000
+Message-ID: <20080217141229.GB1677@nereid>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Subbu Seetharaman <subbus@serverengines.com>
+Content-Type: text/plain; charset=us-ascii; x-action=pgp-signed
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:52120 "EHLO pasmtpA.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753231AbYBQNfk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Feb 2008 08:35:40 -0500
+Received: from rhineheart.priorweb.be ([213.193.229.215]:38384 "HELO
+	rhineheart.priorweb.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1755675AbYBQOTN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2008 09:19:13 -0500
+Received: from triton.sigsegv.be (d54C44110.access.telenet.be [84.196.65.16])
+	by rhineheart.priorweb.be (Postfix) with ESMTP
+	for <netdev@vger.kernel.org>; Sun, 17 Feb 2008 15:12:29 +0100 (CET)
+Received: from nereid (nereid.rfc1149.be [172.16.0.8])
+	by triton.sigsegv.be (Postfix) with SMTP id 1D1E71D9FC
+	for <netdev@vger.kernel.org>; Sun, 17 Feb 2008 14:12:29 +0000 (UTC)
 Content-Disposition: inline
-In-Reply-To: <20080217132536.GA11132@uranus.ravnborg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 17, 2008 at 02:25:36PM +0100, Sam Ravnborg wrote:
-> On Sat, Feb 16, 2008 at 07:51:13PM -0800, Subbu Seetharaman wrote:
-> > Patch 0/16 and 15/16 of this series are getting dropped by the
-> > spam filter.  I am trying to get them across with changes
-> > that will please the spam filter.  Sorry about the inconvenience.
-> > Below is the 0/16 of the series.
-> > 
-> > --------------------------
-> > Hi,
-> > 
-> > 
-> > I am sending a patch for network driver for ServerEngines 10Gb Network adapter for review.  This patch includes the network driver and the OS neutral code that implements the interactions between the host drivers and the adapter. The adapter is a dual function device with network and storage functions.  The network driver is a regular NIC driver.  
-> > 
-> > The low level library that manages the interaction with the adapter is common to both storage and network drivers and hence is organized under the directory drivers/message/beclib. The storage driver is not part of this patch and will be submitted after this review.
-> > 
-> > This patch is made against 2.6.24.2 version of the kernel source.
-> 
-> Hi Subbu.
-> 
-> A few points about your submission (not your code as I have not looked at it).
-> - Use descriptive subjects - and not the same subject for all patches
-> - Include in each patch a diffstat - below the '^---' marker so
->   it is easy to spot what files are touched but so that the diffstat
->   does not get included in the changelog when applied.
-> - Do not break the build. Adding Makefile/Kconfig bits as the last patch
->   usually does the trick here.
-> - If you have generic funtionality add that first and then add what depnds on it
->   later.
-> 
-> 	Sam
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-I just tried scripts/checkpatch.pl - it said:
+Hi,
 
-total: 250 errors, 837 warnings, 31889 lines checked
+I'm running the current git (1309d4e68497184d2fd87e892ddf14076c2bda98) 
+without problems. While I was toying with IPv6 on my local network I managed 
+to completely hang my machine whenever it receives or sends a neighbour
+sollictation. At least, I think that's the cause. It started as soon as I 
+installed radvd on the router. The included trace seems to point in the same
+direction.
 
-That was for the full patch-set.
+The machine is a Dell Latitude D505 (so x86). Network interfaces are e100 and
+ipw2200 (firmware not loaded). I'm currently using the e100.
 
-I suggest you look into these. The goal is not to get down on 0/0
-but close with some common sense applied.
+I'll try to bisect it but here's the trace already. Let me know if
+there's anything else you'd like to know.
 
-	Sam
+[  124.439831] =============================================
+[  124.443689] [ INFO: possible recursive locking detected ]
+[  124.443689] 2.6.25-rc2 #33
+[  124.443689] ---------------------------------------------
+[  124.443689] swapper/0 is trying to acquire lock:
+[  124.443689]  (&n->lock){-+-+}, at: [<c0468d39>] neigh_resolve_output+0x139/0x290
+[  124.443689]
+[  124.443689] but task is already holding lock:
+[  124.443689]  (&n->lock){-+-+}, at: [<c0468ea4>] neigh_timer_handler+0x14/0x280
+[  124.443689]
+[  124.443689] other info that might help us debug this:
+[  124.443689] 1 lock held by swapper/0:
+[  124.443689]  #0:  (&n->lock){-+-+}, at: [<c0468ea4>] neigh_timer_handler+0x14/0x280
+[  124.443689]
+[  124.443689] stack backtrace:
+[  124.443689] Pid: 0, comm: swapper Not tainted 2.6.25-rc2 #33
+[  124.443689]  [<c014863a>] __lock_acquire+0xd3a/0xf40
+[  124.443689]  [<c0137ec8>] __kernel_text_address+0x18/0x30
+[  124.443689]  [<c01488a0>] lock_acquire+0x60/0x80
+[  124.443689]  [<c0468d39>] neigh_resolve_output+0x139/0x290
+[  124.443689]  [<c059287e>] _write_lock_bh+0x2e/0x40
+[  124.443689]  [<c0468d39>] neigh_resolve_output+0x139/0x290
+[  124.443689]  [<c0468d39>] neigh_resolve_output+0x139/0x290
+[  124.443689]  [<c0148805>] __lock_acquire+0xf05/0xf40
+[  124.443689]  [<c04e1650>] ndisc_dst_alloc+0xe0/0x170
+[  124.443689]  [<c04d39f4>] ip6_output_finish+0xa4/0x110
+[  124.443689]  [<c0147a1d>] __lock_acquire+0x11d/0xf40
+[  124.443689]  [<c04d4759>] ip6_output+0x5b9/0xba0
+[  124.443689]  [<c0456eb6>] sock_alloc_send_skb+0x176/0x1d0
+[  124.443689]  [<c04e4eab>] __ndisc_send+0x33b/0x540
+[  124.443690]  [<c04e4d6e>] __ndisc_send+0x1fe/0x540
+[  124.443690]  [<c04e5b69>] ndisc_send_ns+0x69/0xa0
+[  124.443690]  [<c04e6c8e>] ndisc_solicit+0xee/0x1b0
+[  124.443690]  [<c01472b5>] mark_held_locks+0x35/0x80
+[  124.443690]  [<c0592c65>] _spin_unlock_irqrestore+0x45/0x60
+[  124.443690]  [<c01473f9>] trace_hardirqs_on+0x79/0x130
+[  124.443690]  [<c012f99f>] __mod_timer+0x9f/0xb0
+[  124.443690]  [<c0468fd3>] neigh_timer_handler+0x143/0x280
+[  124.443690]  [<c012f2ca>] run_timer_softirq+0x14a/0x1c0
+[  124.443690]  [<c0468e90>] neigh_timer_handler+0x0/0x280
+[  124.443690]  [<c0468e90>] neigh_timer_handler+0x0/0x280
+[  124.443690]  [<c012b4c4>] __do_softirq+0x84/0x100
+[  124.443690]  [<c012b595>] do_softirq+0x55/0x60
+[  124.443690]  [<c012b9e5>] irq_exit+0x65/0x80
+[  124.443690]  [<c01073b0>] do_IRQ+0x40/0x70
+[  124.443690]  [<c010585e>] common_interrupt+0x2e/0x34
+[  124.443690]  [<c032007b>] acpi_power_on+0x3b/0x104
+[  124.443690]  [<c0322af6>] acpi_idle_enter_simple+0x194/0x1fe
+[  124.443690]  [<c0322727>] acpi_idle_enter_bm+0xc1/0x2fc
+[  124.443690]  [<c03fff43>] cpuidle_idle_call+0x63/0xb0
+[  124.443690]  [<c03ffee0>] cpuidle_idle_call+0x0/0xb0
+[  124.443690]  [<c010380d>] cpu_idle+0x5d/0xf0
+[  124.443690]  =======================
+
+Kristof
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFHuEDNUEZ9DhGwDugRAgHaAJ9L6i924sEqim1Ti+rZH2qmGESx6wCfWYIY
+PI1kcoY3SWN/O9TOLgGQC20=
+=cvKu
+-----END PGP SIGNATURE-----
