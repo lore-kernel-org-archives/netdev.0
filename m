@@ -1,103 +1,31 @@
 From: "Subbu Seetharaman" <subbus@serverengines.com>
-Subject: [PATHCH 9/16]  ServerEngines 10Gb NIC driver
-Date: Sat, 16 Feb 2008 18:43:57 -0800
-Message-ID: <20080217024357.da474378@mailhost.serverengines.com>
+Subject: [PATHCH 10/16]  ServerEngines 10Gb NIC driver
+Date: Sat, 16 Feb 2008 18:44:35 -0800
+Message-ID: <20080217024435.c6c63b4b@mailhost.serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail192.messagelabs.com ([216.82.242.147]:32982 "EHLO
+Received: from mail192.messagelabs.com ([216.82.242.147]:15860 "EHLO
 	mail192.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753300AbYBQCoC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2008 21:44:02 -0500
+	with ESMTP id S1753528AbYBQCok convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2008 21:44:40 -0500
 Received: from 59.93.89.51 ([59.93.89.51])
 	by mailhost.serverengines.com
 	for netdev@vger.kernel.org;
-	Sat, 16 Feb 2008 18:43:58 -0800
+	Sat, 16 Feb 2008 18:44:36 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-System abstraction function for Linux.  beclib uses these helper routines / macros to do OS dependent functions.
+F/W header files.
 
---------------------
-diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/sa/setypes.h benet/linux-2.6.24.2/drivers/message/beclib/sa/setypes.h
---- orig/linux-2.6.24.2/drivers/message/beclib/sa/setypes.h	1970-01-01 05:30:00.000000000 +0530
-+++ benet/linux-2.6.24.2/drivers/message/beclib/sa/setypes.h	2008-02-14 15:23:07.812205128 +0530
-@@ -0,0 +1,70 @@
-+
-+/*
-+ * These are the data types used in management apps that we are 
-+maintaining for
-+ * legacy/personal preference reasons.
-+ */
-+
-+#ifndef __setypes_h__
-+#define __setypes_h__
-+/*
-+ *----- data types used in SA ----
-+ * Signed integers.
-+ */
-+typedef signed char i8;
-+typedef signed short i16;
-+typedef signed int i32;
-+typedef signed long long i64;
-+
-+/* Narrow and wide characters. */
-+typedef char c8;
-+typedef u16 c16;
-+
-+/* Native size_t for interfacing to libraries. */ typedef size_t 
-+SA_SIZE_T, *PSA_SIZE_T;
-+
-+typedef int boolean;
-+
-+/* Common pointer to a void notation. */ typedef void *PVOID;
-+
-+/*
-+ * Explicitly sized booleans -- useful for packing a struct while still
-+ * indicating that the value is treated as TRUE or FALSE.
-+ */
-+typedef u8 bool8;
-+typedef u16 bool16;
-+typedef u32 bool32;
-+
-+/* Define boolean types if necessary. */ #ifndef TRUE #define TRUE (1) 
-+#endif
-+
-+#ifndef FALSE
-+#define FALSE (0)
-+#endif
-+
-+#if !defined(NULL)
-+#define NULL            ((void *) 0)
-+#endif
-+
-+/* Physical address definition */
-+typedef u64 SA_PHYSICAL_ADDRESS, *PSA_PHYSICAL_ADDRESS;
-+
-+#define SA_EXTERN_C extern "C"
-+#define INLINE      inline
-+#define STATIC      static
-+#define SA_STDCALL
-+#define STDCALL
-+#define SA_CDECL
-+#define SA_FASTCALL
-+
-+#ifndef FASTCALL
-+#define FASTCALL
-+#endif
-+
-+#define IN
-+#define OUT
-+#define INOUT
-+
-+#endif
-diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/sa/sa.c benet/linux-2.6.24.2/drivers/message/beclib/sa/sa.c
---- orig/linux-2.6.24.2/drivers/message/beclib/sa/sa.c	1970-01-01 05:30:00.000000000 +0530
-+++ benet/linux-2.6.24.2/drivers/message/beclib/sa/sa.c	2008-02-14 15:23:07.812205128 +0530
-@@ -0,0 +1,278 @@
+---------------------
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_opcodes.h benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_opcodes.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_opcodes.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_opcodes.h	2008-02-14 15:23:07.815204672 +0530
+@@ -0,0 +1,812 @@
 +/*
 + * Copyright (C) 2005 - 2008 ServerEngines
 + * All rights reserved.
@@ -129,1164 +57,2323 @@ diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/sa/sa.c benet/linux-2.6.24
 + * Sunnyvale, CA 94085
 + */
 +/*
-+ * system abstraction functions / macros for Linux  */ #include "sa.h"
-+#include <asm/io.h>
-+#include <linux/delay.h>
-+
-+/* Table lookup for number of bits set in each byte. */
-+u8 sa_bits_in_byte_table[256] = {
-+	0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
-+	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-+	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-+	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-+	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-+	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-+	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-+	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-+	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-+	4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8 };
-+
-+unsigned int trace_level;
-+
-+
-+SA_STATUS sa_dev_create(SA_DEV_BAR_LOCATIONS *bars, u32 num_bars,
-+		SA_DEV_OS_HANDLE os_handle, SA_DEV *dev) {
-+	SA_NOT_USED(os_handle); /* Not used in Linux */
-+	ASSERT(dev);
-+	ASSERT(bars);
-+
-+	/* Zero the struct */
-+	SA_ZERO_MEM(dev);
-+
-+	/* Copy the bar info */
-+	dev->magic = SA_DEV_MAGIC;
-+	dev->num_bars = num_bars;
-+	sa_memcpy(dev->bars, bars,
-+		  sizeof(SA_DEV_BAR_LOCATIONS) * num_bars);
-+
-+	/* Figure out the csr/pd/pci bar numbers. */
-+	_sa_cache_bar_nums(dev);
-+
-+	return SA_SUCCESS;
-+}
-+
-+void sa_dev_destroy(SA_DEV *dev)
-+{
-+	SA_DEV_ASSERT(dev);
-+	SA_ZERO_MEM(dev);
-+}
-+
-+u8 sa_dev_read_u8(SA_DEV *dev, u32 bar, u32 offset) {
-+	u8 *real_offset = 0;
-+	u8 value = 0;
-+
-+	SA_DEV_ASSERT(dev);
-+	ASSERT(bar < dev->num_bars);
-+	ASSERT(offset < dev->bars[bar].length);
-+
-+	real_offset = (u8 *) dev->bars[bar].base_va + offset;
-+	value = readb((void *)real_offset);
-+	return value;
-+}
-+
-+u16 sa_dev_read_u16(SA_DEV *dev, u32 bar, u32 offset) {
-+	u8 *real_offset = 0;
-+	u16 value = 0;
-+
-+	SA_DEV_ASSERT(dev);
-+	ASSERT(bar < dev->num_bars);
-+	ASSERT(offset < dev->bars[bar].length);
-+
-+	real_offset = (u8 *) dev->bars[bar].base_va + offset;
-+	value = readw((void *)real_offset);
-+	return value;
-+}
-+
-+u32 sa_dev_read_u32(SA_DEV *dev, u32 bar, u32 offset) {
-+	u8 *real_offset = 0;
-+	u32 value = 0;
-+
-+	SA_DEV_ASSERT(dev);
-+	ASSERT(bar < dev->num_bars);
-+	ASSERT(offset < dev->bars[bar].length);
-+
-+	real_offset = (u8 *) dev->bars[bar].base_va + offset;
-+	value = readl((void *)real_offset);
-+	return value;
-+}
-+
-+void sa_dev_write_u8(SA_DEV *dev, u32 bar, u32 offset, u8 value) {
-+	u8 *real_offset = 0;
-+
-+	SA_DEV_ASSERT(dev);
-+	ASSERT(bar < dev->num_bars);
-+	ASSERT(offset < dev->bars[bar].length);
-+
-+	real_offset = (u8 *) dev->bars[bar].base_va + offset;
-+	writeb(value, (void *)real_offset);
-+}
-+
-+void sa_dev_write_u16(SA_DEV *dev, u32 bar, u32 offset, u16 value) {
-+	u8 *real_offset = 0;
-+
-+	SA_DEV_ASSERT(dev);
-+	ASSERT(bar < dev->num_bars);
-+	ASSERT(offset < dev->bars[bar].length);
-+
-+	real_offset = (u8 *) dev->bars[bar].base_va + offset;
-+	writew(value, (void *)real_offset);
-+}
-+
-+void sa_dev_write_u32(SA_DEV *dev, u32 bar, u32 offset, u32 value) {
-+	u8 *real_offset = 0;
-+
-+	SA_DEV_ASSERT(dev);
-+	ASSERT(bar < dev->num_bars);
-+	ASSERT(offset < dev->bars[bar].length);
-+
-+	real_offset = (u8 *) dev->bars[bar].base_va + offset;
-+	writel(value, (void *)real_offset);
-+}
-+
-+SA_STATUS
-+sa_dev_read_buffer_u8(SA_DEV *dev,
-+		      u32 bar, u32 offset, u8 *buffer, u32 count) {
-+	u8 *real_offset = 0;
-+
-+	SA_DEV_ASSERT(dev);
-+	ASSERT(bar < dev->num_bars);
-+	ASSERT(offset + count < dev->bars[bar].length);
-+	ASSERT(count > 0);
-+	ASSERT(buffer);
-+
-+	real_offset = (u8 *) dev->bars[bar].base_va + offset;
-+	memcpy_fromio(buffer, (void *)real_offset, count);
-+
-+	return SA_SUCCESS;
-+}
-+
-+SA_STATUS
-+sa_dev_read_buffer_u16(SA_DEV *dev,
-+		       u32 bar, u32 offset, u16 *buffer, u32 count) {
-+	u8 *real_offset = 0;
-+
-+	SA_DEV_ASSERT(dev);
-+	ASSERT(bar < dev->num_bars);
-+	ASSERT(offset + count * sizeof(u16) < dev->bars[bar].length);
-+	ASSERT(count > 0);
-+	ASSERT(buffer);
-+
-+	real_offset = (u8 *) dev->bars[bar].base_va + offset;
-+	memcpy_fromio(buffer, (void *)real_offset, count * sizeof(u16));
-+
-+	return SA_SUCCESS;
-+}
-+
-+SA_STATUS
-+dev_read_buffer_u32(SA_DEV *dev,
-+		    u32 bar, u32 offset, u32 *buffer, u32 count) {
-+	u8 *real_offset = 0;
-+
-+	SA_DEV_ASSERT(dev);
-+	ASSERT(bar < dev->num_bars);
-+	ASSERT(offset + count * sizeof(u32) < dev->bars[bar].length);
-+	ASSERT(count > 0);
-+	ASSERT(buffer);
-+
-+	real_offset = (u8 *) dev->bars[bar].base_va + offset;
-+	memcpy_fromio(buffer, (void *)real_offset, count * sizeof(u32));
-+
-+	return SA_SUCCESS;
-+}
-+
-+SA_STATUS
-+sa_dev_write_buffer_u8(SA_DEV *dev,
-+		       u32 bar, u32 offset, u8 *buffer, u32 count) {
-+	u8 *real_offset = 0;
-+
-+	SA_DEV_ASSERT(dev);
-+	ASSERT(bar < dev->num_bars);
-+	ASSERT(offset + count < dev->bars[bar].length);
-+	ASSERT(count > 0);
-+	ASSERT(buffer);
-+
-+	real_offset = (u8 *) dev->bars[bar].base_va + offset;
-+	memcpy_toio((void *)real_offset, buffer, count);
-+
-+	return SA_SUCCESS;
-+}
-+
-+SA_STATUS
-+sa_dev_write_buffer_u16(SA_DEV *dev,
-+			u32 bar, u32 offset, u16 *buffer, u32 count) {
-+	u8 *real_offset = 0;
-+
-+	SA_DEV_ASSERT(dev);
-+	ASSERT(bar < dev->num_bars);
-+	ASSERT(offset + count * sizeof(u16) < dev->bars[bar].length);
-+	ASSERT(count > 0);
-+	ASSERT(buffer);
-+
-+	real_offset = (u8 *) dev->bars[bar].base_va + offset;
-+	memcpy_toio((void *)real_offset, buffer, count * sizeof(u16));
-+
-+	return SA_SUCCESS;
-+}
-+
-+SA_STATUS
-+sa_dev_write_buffer_u32(SA_DEV *dev,
-+			u32 bar, u32 offset, u32 *buffer, u32 count) {
-+	u8 *real_offset = 0;
-+
-+	SA_DEV_ASSERT(dev);
-+	ASSERT(bar < dev->num_bars);
-+	ASSERT(offset + count * sizeof(u32) < dev->bars[bar].length);
-+	ASSERT(count > 0);
-+	ASSERT(buffer);
-+
-+	real_offset = (u8 *) dev->bars[bar].base_va + offset;
-+	memcpy_toio((void *)real_offset, buffer, count * sizeof(u32));
-+
-+	return SA_SUCCESS;
-+}
-+
-+void sa_dev_stall(SA_DEV *dev, u32 us_to_stall) {
-+	udelay(us_to_stall);
-+}
-diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/sa/sa.h benet/linux-2.6.24.2/drivers/message/beclib/sa/sa.h
---- orig/linux-2.6.24.2/drivers/message/beclib/sa/sa.h	1970-01-01 05:30:00.000000000 +0530
-+++ benet/linux-2.6.24.2/drivers/message/beclib/sa/sa.h	2008-02-14 15:23:07.813204976 +0530
-@@ -0,0 +1,1004 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
++ * Autogenerated by srcgen version: 0127
 + */
-+/*
-+ * system abstraction functions / macros for Linux  */ #ifndef __sa_h__ 
-+#define __sa_h__
-+
-+#include <asm/io.h>
-+#include <linux/list.h>
-+#include <linux/kernel.h>
-+#include <linux/spinlock.h>
-+#include <linux/errno.h>
-+#include <linux/string.h>
-+#include <asm/semaphore.h>
-+
-+/*-----  Platform specific defines for Linux -------*/ #define SA_OS 
-+"linux"
-+#define SA_LINUX
-+
-+#define SA_KERNEL
-+#define SA_LINUX_KERNEL
-+#define SA_LINUXK
-+
-+#define  SA_CPP_HEADER
-+#define  SA_CPP_TRAILER
-+
-+/*
-+ *---------   Assert related --------
-+ * a way to force  compilation error
-+ */
-+#define SA_C_ASSERT(_expression_)       { \
-+	typedef u8 __COMPILE_TIME_ASSERT_NAME__[(_expression_) ? 1 : -1];  \ }
-+
-+#ifdef SA_DEBUG
-+
-+#define ASSERT(c)       if (!(c)) \
-+				BUG();
-+
-+#define SA_DBG_CSTR(_str_)        (_str_)
-+#define SA_DBG_ONLY(_anything_)   _anything_
-+
-+#else
-+
-+#define ASSERT(c)
-+#define BREAKPOINT()
-+#define SA_BREAKPOINT_MSG(_str_)
-+#define SA_DBG_CSTR(_str_)        ""
-+#define SA_DBG_ONLY(_anything_)
-+
-+#endif
-+
-+#define SA_ASSERT	ASSERT
-+
-+#define SA_COMPILETIME_NAMED_TYPEDEF_ASSERT(_name_, _expression_)    \
-+	typedef u8 _name_##__COMPILE_TIME_ASSERT__[(_expression_)?1: -1]  \
-+
-+#define SA_GLOBAL_C_ASSERT          SA_COMPILETIME_NAMED_TYPEDEF_ASSERT
-+
-+/*---------   Trace log related --------*/
-+
-+/* debug levels */
-+typedef enum _SA_DEBUG_LEVELS {
-+	DL_ALWAYS = 0,		/* cannot be masked */
-+
-+	DL_ERR = 0x1,		/* errors that should never happen */
-+	DL_WARN = 0x2,		/* something is questionable.
-+				   recoverable errors */
-+	DL_NOTE = 0x4,		/* infrequent, important debug info */
-+	DL_INFO = 0x8,		/* debug information */
-+
-+	DL_VERBOSE = 0x10,	/* detailed information, such as
-+				   buffer traces */
-+	DL_ENTRY = 0x20,	/* function entry */
-+	DL_EXIT = 0x40,		/* function exit */
-+	DL_RSVD1 = 0x80,
-+
-+	SA_DL_MIN_VALUE = 0x1,	/* this is the min value used */
-+	SA_DL_MAX_VALUE = 0x80	/* this is the higheset value used */
-+} SA_DEBUG_LEVELS, *PSA_DEBUG_LEVELS;
-+
-+/* Bit mask describing events of interest to be traced */ extern 
-+unsigned int trace_level;
-+
-+#define SA_TRACE(lm, fmt, args...)  {					\
-+		if (trace_level & lm) {				\
-+			printk(KERN_NOTICE "BE: %s:%d \n" fmt,	\
-+			__FILE__ , __LINE__ , ## args);	\
-+		}						\
-+	}
-+
-+#define TRACE			SA_TRACE
-+#define SA_TRACE_ENTRY()	SA_TRACE(DL_ENTRY, "Entry - \n")
-+#define SA_TRACE_EXIT()		SA_TRACE(DL_EXIT , "Exit  - \n")
-+
-+static inline unsigned int sa_trace_set_level(unsigned int l) {
-+	unsigned int old_level = trace_level;
-+	trace_level = l;
-+	return (old_level);
-+}
-+
-+#define sa_trace_get_level() 	trace_level
-+#define sa_trace_set_debug_level_string(lm, s)	/* nothing */
-+
++#ifndef __ioctl_opcodes_amap_h__
++#define __ioctl_opcodes_amap_h__
 +#include "setypes.h"
 +
-+/*----- power of 2  functions -----*/
-+static inline u32 sa_required_bits(u32 x) {
-+	u32 hi = 31, lo = 0;
-+	u32 guess = 16;
++#undef SG_PACK
++#if defined(SG_PRAGMA_PACK)
++#pragma pack(push, 1)
++#define SG_PACK
++#elif defined(SG_ATTRIBUTE_PACK)
++#define SG_PACK __attribute__ ((packed))
++#else
++#define SG_PACK
++#endif
 +
-+	if (x == 0)
-+		return 0;
-+	if (x & 0x80000000)
-+		return 32;
-+
-+	/* Binary search */
-+	while (hi > lo) {
-+		if ((x >> guess) > 0) {
-+			/* x is more than i bits in length */
-+			lo = guess;
-+			guess = (hi + guess + 1) >> 1;
-+		} else {
-+			hi = guess - 1;
-+			guess = (lo + guess) >> 1;
-+		}
-+	}
-+
-+	return hi + 1;
-+}
++#ifndef SG_STATIC_INLINE
++#define SG_STATIC_INLINE static inline
++#endif
 +
 +/*
-+ * Returns the log base 2 for a number, always rounding down.
-+ * sa_log2 example input->output
-+ * 0->4294967295, 1->0, 2->1, 3->1, 4->2, 5->2, 6->2, 7->2, 8->3, 9->3  
-+*/ static inline u32 sa_log2(u32 x) {
-+	return sa_required_bits(x) - 1;
-+}
-+
-+/*
-+ * "greater than power of 2"
-+ * Returns the next higher power of 2 -- even if input is a power of 2.
-+ * input->output
-+ * 0->1, 1->2, 2->4, 3->4, 4->8, 5->8, 6->8, 7->8, 8->16, 9->16  */ 
-+static inline u32 sa_gt_power2(u32 x) {
-+	x = sa_required_bits(x);
-+
-+	if (x >= 32)
-+		/* error -- cannot represent this number in 32 bits */
-+		return (u32) 0xFFFFFFFF;
-+
-+	return (1 << x);
-+}
-+
-+/*
-+ *----- status codes returned by SA functions -----
-+ * Status code datatype
++ * --- IOCTL_SUBSYSTEMS ---
++ * The IOCTLs are grouped into the following subsystems. The subsystem
++ * code along with the opcode uniquely identify a particular IOCTL.
 + */
-+typedef i32 SA_STATUS, *PSA_STATUS;
++#define IOCTL_SUBSYSTEM_RSVD  (0)	/* This subsystem is reserved. It is */
++						  /* never used. */
++#define IOCTL_SUBSYSTEM_COMMON (1)	/* IOCTLs in this group are common to */
++					/*
++					* all subsystems. See
++					* COMMON_SUBSYSTEM_OPCODES for opcodes
++					* and Common Host Configuration IOCTLs
++					* for the IOCTL descriptions.
++					*/
++#define IOCTL_SUBSYSTEM_COMMON_ISCSI    (2) /* IOCTLs in this group are */
++					/*
++					* common to Initiator and Target. See
++					* COMMON_ISCSI_SUBSYSTEM_OPCODES and
++					* Common iSCSI Initiator and Target
++					* IOCTLs for the IOCTL descriptions.
++					*/
++#define IOCTL_SUBSYSTEM_ETH             (3)	/* This subsystem is used to
++						execute  Ethernet commands.  */
 +
-+/* Error codes */
-+#define SA_STATUS_SUCCESS             (0x00000000L)
-+#define SA_SUCCESS                    SA_STATUS_SUCCESS	/* abbreviation */
++#define IOCTL_SUBSYSTEM_TPM             (4)	/* This subsystem is used
++						 to execute TPM  commands.  */
++#define IOCTL_SUBSYSTEM_PXE_UNDI        (5)	/* This subsystem is used
++						* to execute PXE
++						* and UNDI specific commands.
++						*/
 +
-+#define SA_STATUS_PENDING             (0x20070001L)
-+#define SA_STATUS_NOT_OK              (0xE0070002L)
-+#define SA_NOT_OK                     SA_STATUS_NOT_OK	/* abbreviation */
-+#define SA_STATUS_NO_SYSTEM_RESOURCES (0xE0070003L)
-+#define SA_STATUS_NO_CHIP_RESOURCES   (0xE0070004L)
-+#define SA_STATUS_BUSY                (0xE0070006L)
-+
-+#define SA_STATUS_INVALID_PARAMETER   (0xE0000007L)
-+#define SA_STATUS_INVALID_ADDRESS     (0xE000000CL)
-+#define SA_STATUS_NOT_SUPPORTED       (0xE000000DL)
-+
-+#define SA_STATUS_ACCESS_DENIED       (0xE000000EL)
-+
-+#define SA_STATUS_TIMEOUT             (0xE000100FL)
-+#define SA_STATUS_ALERTED             (0xE0001010L)
-+
-+/*-------- Basic defines -------*/
-+#define SA_PAGE_SHIFT  12
-+#define SA_PAGE_SIZE   4096	/* BUG */
-+
-+/* Standard MIN and MAX macros */
-+#define MIN(_a_, _b_) (((_a_) < (_b_)) ? (_a_) : (_b_)) #define 
-+MAX(_a_, _b_) (((_a_) > (_b_)) ? (_a_) : (_b_))
++#define IOCTL_SUBSYSTEM_ISCSI_INI       (6)	/* This subsystem is used to
++						execute ISCSI Initiator
++						specific commands.
++						*/
++#define IOCTL_SUBSYSTEM_ISCSI_TGT       (7)	/* This subsystem is used
++						to execute iSCSI Target
++						specific commands.between
++						PTL and ARM firmware.
++						*/
++#define IOCTL_SUBSYSTEM_MILI_PTL        (8)	/* This subsystem is used to
++						execute iSCSI Target specific
++						commands.between MILI
++						and PTL.  */
++#define IOCTL_SUBSYSTEM_MILI_TMD        (9)	/* This subsystem is used to
++						execute iSCSI Target specific
++						commands between MILI
++						and TMD.  */
++#define IOCTL_SUBSYSTEM_PROXY           (11)	/* This subsystem is used
++						to execute proxied commands
++						within the host at the
++						explicit request of a
++						non priviledged domain.
++						This 'subsystem' is entirely
++						virtual from the controller
++						and firmware perspective as
++						it is implemented in host
++						drivers.
++						*/
 +
 +/*
-+ * Returns number of pages spanned by the size of data
-+ * starting at the given address.
++ * --- COMMON_SUBSYSTEM_OPCODES ---
++ * These opcodes are common to both networking and storage PCI
++ * functions. They are used to reserve resources and configure
++ * BladeEngine. These opcodes all use the IOCTL_SUBSYSTEM_COMMON
++ * subsystem code.
 + */
-+#define SA_PAGES_SPANNED(_address, _size) \
-+   ((u32)(((SA_PTR_TO_INT(_address) & (SA_PAGE_SIZE - 1)) + \
-+		(_size) + (SA_PAGE_SIZE - 1)) >> SA_PAGE_SHIFT))
++#define OPCODE_COMMON_NTWK_MAC_QUERY    (1)
++#define SUBSYSTEM_COMMON_NTWK_MAC_QUERY (1)
++#define SUBSYSTEM_COMMON_NTWK_MAC_SET   (1)
++#define SUBSYSTEM_COMMON_NTWK_MULTICAST_SET (1)
++#define SUBSYSTEM_COMMON_NTWK_VLAN_CONFIG (1)
++#define SUBSYSTEM_COMMON_NTWK_LINK_STATUS_QUERY (1)
++#define SUBSYSTEM_COMMON_READ_FLASHROM  (1)
++#define SUBSYSTEM_COMMON_WRITE_FLASHROM (1)
++#define SUBSYSTEM_COMMON_QUERY_MAX_IOCTL_BUFFER_SIZE (1)
++#define SUBSYSTEM_COMMON_ADD_PAGE_TABLES (1)
++#define SUBSYSTEM_COMMON_REMOVE_PAGE_TABLES (1)
++#define SUBSYSTEM_COMMON_RING_DESTROY   (1)
++#define SUBSYSTEM_COMMON_CQ_CREATE      (1)
++#define SUBSYSTEM_COMMON_EQ_CREATE      (1)
++#define SUBSYSTEM_COMMON_ETH_RX_CREATE  (1)
++#define SUBSYSTEM_COMMON_ETH_TX_CREATE  (1)
++#define SUBSYSTEM_COMMON_ISCSI_DEFQ_CREATE (1)
++#define SUBSYSTEM_COMMON_ISCSI_WRBQ_CREATE (1)
++#define SUBSYSTEM_COMMON_MCC_CREATE     (1)
++#define SUBSYSTEM_COMMON_JELL_CONFIG    (1)
++#define SUBSYSTEM_COMMON_FORCE_FAILOVER (1)
++#define SUBSYSTEM_COMMON_ADD_TEMPLATE_HEADER_BUFFERS (1)
++#define SUBSYSTEM_COMMON_REMOVE_TEMPLATE_HEADER_BUFFERS (1)
++#define SUBSYSTEM_COMMON_POST_ZERO_BUFFER (1)
++#define SUBSYSTEM_COMMON_GET_QOS        (1)
++#define SUBSYSTEM_COMMON_SET_QOS        (1)
++#define SUBSYSTEM_COMMON_TCP_GET_STATISTICS (1)
++#define SUBSYSTEM_COMMON_SEEPROM_READ   (1)
++#define SUBSYSTEM_COMMON_TCP_STATE_QUERY (1)
++#define SUBSYSTEM_COMMON_GET_CNTL_ATTRIBUTES (1)
++#define SUBSYSTEM_COMMON_NOP            (1)
++#define SUBSYSTEM_COMMON_NTWK_RX_FILTER (1)
++#define SUBSYSTEM_COMMON_GET_FW_VERSION (1)
++#define SUBSYSTEM_COMMON_SET_FLOW_CONTROL (1)
++#define SUBSYSTEM_COMMON_GET_FLOW_CONTROL (1)
++#define SUBSYSTEM_COMMON_SET_TCP_PARAMETERS (1)
++#define SUBSYSTEM_COMMON_SET_FRAME_SIZE (1)
++#define SUBSYSTEM_COMMON_GET_FAT        (1)
++#define SUBSYSTEM_COMMON_MODIFY_EQ_DELAY (1)
++#define SUBSYSTEM_COMMON_FIRMWARE_CONFIG (1)
++#define SUBSYSTEM_COMMON_ENABLE_DISABLE_DOMAINS (1)
++#define SUBSYSTEM_COMMON_GET_DOMAIN_CONFIG (1)
++#define SUBSYSTEM_COMMON_SET_VLD_CONFIG (1)
++#define SUBSYSTEM_COMMON_GET_VLD_CONFIG (1)
++#define SUBSYSTEM_COMMON_GET_PORT_EQUALIZATION (1)
++#define SUBSYSTEM_COMMON_SET_PORT_EQUALIZATION (1)
++#define SUBSYSTEM_COMMON_RED_CONFIG     (1)
++#define OPCODE_COMMON_NTWK_MAC_SET      (2)
++#define OPCODE_COMMON_NTWK_MULTICAST_SET (3)
++#define OPCODE_COMMON_NTWK_VLAN_CONFIG  (4)
++#define OPCODE_COMMON_NTWK_LINK_STATUS_QUERY (5)
++#define OPCODE_COMMON_READ_FLASHROM     (6)
++#define OPCODE_COMMON_WRITE_FLASHROM    (7)
++#define OPCODE_COMMON_QUERY_MAX_IOCTL_BUFFER_SIZE (8)
++#define OPCODE_COMMON_ADD_PAGE_TABLES   (9)
++#define OPCODE_COMMON_REMOVE_PAGE_TABLES (10)
++#define OPCODE_COMMON_RING_DESTROY      (11)
++#define OPCODE_COMMON_CQ_CREATE         (12)
++#define OPCODE_COMMON_EQ_CREATE         (13)
++#define OPCODE_COMMON_ETH_RX_CREATE     (14)
++#define OPCODE_COMMON_ETH_TX_CREATE     (15)
++#define OPCODE_COMMON_NET_RESERVED0     (16)	/* Reserved */
++#define OPCODE_COMMON_NET_RESERVED1     (17)	/* Reserved */
++#define OPCODE_COMMON_NET_RESERVED2     (18)	/* Reserved */
++#define OPCODE_COMMON_ISCSI_DEFQ_CREATE (19)
++#define OPCODE_COMMON_ISCSI_WRBQ_CREATE (20)
++#define OPCODE_COMMON_MCC_CREATE        (21)
++#define OPCODE_COMMON_JELL_CONFIG       (22)
++#define OPCODE_COMMON_FORCE_FAILOVER    (23)
++#define OPCODE_COMMON_ADD_TEMPLATE_HEADER_BUFFERS (24)
++#define OPCODE_COMMON_REMOVE_TEMPLATE_HEADER_BUFFERS (25)
++#define OPCODE_COMMON_POST_ZERO_BUFFER  (26)
++#define OPCODE_COMMON_GET_QOS           (27)
++#define OPCODE_COMMON_SET_QOS           (28)
++#define OPCODE_COMMON_TCP_GET_STATISTICS (29)
++#define OPCODE_COMMON_SEEPROM_READ      (30)
++#define OPCODE_COMMON_TCP_STATE_QUERY   (31)
++#define OPCODE_COMMON_GET_CNTL_ATTRIBUTES (32)
++#define OPCODE_COMMON_NOP               (33)
++#define OPCODE_COMMON_NTWK_RX_FILTER    (34)
++#define OPCODE_COMMON_GET_FW_VERSION    (35)
++#define OPCODE_COMMON_SET_FLOW_CONTROL  (36)
++#define OPCODE_COMMON_GET_FLOW_CONTROL  (37)
++#define OPCODE_COMMON_SET_TCP_PARAMETERS (38)
++#define OPCODE_COMMON_SET_FRAME_SIZE    (39)
++#define OPCODE_COMMON_GET_FAT           (40)
++#define OPCODE_COMMON_MODIFY_EQ_DELAY   (41)
++#define OPCODE_COMMON_FIRMWARE_CONFIG   (42)
++#define OPCODE_COMMON_ENABLE_DISABLE_DOMAINS (43)
++#define OPCODE_COMMON_GET_DOMAIN_CONFIG (44)
++#define OPCODE_COMMON_SET_VLD_CONFIG    (45)
++#define OPCODE_COMMON_GET_VLD_CONFIG    (46)
++#define OPCODE_COMMON_GET_PORT_EQUALIZATION (47)
++#define OPCODE_COMMON_SET_PORT_EQUALIZATION (48)
++#define OPCODE_COMMON_RED_CONFIG        (49)
 +
 +/*
-+ * number of elements in an array
-+ *  e.g.  u32 array[128];
-+ *  SA_NUMBER_OF(array) == 128
++ * --- COMMON_ISCSI_SUBSYSTEM_OPCODES ---
++ * IOCTLs used to configure discovery and networking parameters in
++ * iSCSI Initiator and Target modes. These opcodes all use the
++ * IOCTL_SUBSYSTEM_COMMON_ISCSI subsystem code.
 + */
-+#define SA_NUMBER_OF(_x_) 	(sizeof(_x_)/sizeof((_x_)[0]))
++#define OPCODE_COMMON_ISCSI_ERROR_RECOVERY_INVALIDATE_COMMANDS (1)
++#define SUBSYSTEM_COMMON_ISCSI_ERROR_RECOVERY_INVALIDATE_COMMANDS (2)
++#define OPCODE_COMMON_ISCSI_CFG_POST_SGL_PAGES (2)
++#define SUBSYSTEM_COMMON_ISCSI_CFG_POST_SGL_PAGES (2)
++#define SUBSYSTEM_COMMON_ISCSI_CFG_REMOVE_SGL_PAGES (2)
++#define SUBSYSTEM_COMMON_ISCSI_CFG_POST_OOO_BUFFERS (2)
++#define SUBSYSTEM_COMMON_ISCSI_CFG_REMOVE_OOO_BUFFERS (2)
++#define SUBSYSTEM_COMMON_ISCSI_NTWK_PING (2)
++#define SUBSYSTEM_COMMON_ISCSI_NTWK_GET_NIC_CONFIG (2)
++#define SUBSYSTEM_COMMON_ISCSI_NTWK_GET_ARP_TABLE (2)
++#define SUBSYSTEM_COMMON_ISCSI_NTWK_SET_ARP_TABLE (2)
++#define SUBSYSTEM_COMMON_ISCSI_NTWK_GET_ROUTE_TABLE (2)
++#define SUBSYSTEM_COMMON_ISCSI_NTWK_SET_ROUTE_TABLE (2)
++#define SUBSYSTEM_COMMON_ISCSI_DISCOVERY_GET_PARAMETERS (2)
++#define SUBSYSTEM_COMMON_ISCSI_DISCOVERY_SET_PARAMETERS (2)
++#define SUBSYSTEM_COMMON_ISCSI_STATS_GET_NODE_ATTRIBUTES (2)
++#define SUBSYSTEM_COMMON_ISCSI_STATS_GET_NIC_STATISTICS (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_DOWNLOAD_XML (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_DELETE_XML (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_RX_STATS (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_TX_STATS (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_ADD_CERTIFICATE (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_DEL_CERTIFICATE (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_ADD_PRIVATE_KEY (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_DEL_PRIVATE_KEY (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_ADD_PASSPHRASE (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_DEL_PASSPHRASE (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_ENABLE_DISABLE_FLASH_ENCRYPTION (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_GROUP_NAMES (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_SINGLE_GROUP_NAME (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_ADD_GROUP (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_DELETE_GROUP (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_QMSTATS (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_MMSTATS (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_STATE (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_CLEAR_PSK_CACHE (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_PSK (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_SET_GUID (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_SET_PSK (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_SET_TUNNEL_MODE_OUTER_ADDRESS (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_GET_SECURITY_CAPABILITIES (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_SET_GROUP_PSK (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_ADD_ROOT_CERTIFICATE (2)
++#define SUBSYSTEM_COMMON_ISCSI_IPSEC_ENABLE_DISABLE (2)
++#define SUBSYSTEM_COMMON_ISCSI_CLEANUP  (2)
++#define SUBSYSTEM_COMMON_ISCSI_ADD_8BYTE_LUN (2)
++#define SUBSYSTEM_COMMON_ISCSI_SET_FRAGNUM_BITS_FOR_SGL_CRA (2)
++#define SUBSYSTEM_COMMON_ISCSI_CFG_CLEAR_EVENT_LOG (2)
++#define SUBSYSTEM_COMMON_ISCSI_CFG_READ_EVENT_LOG (2)
++#define OPCODE_COMMON_ISCSI_CFG_REMOVE_SGL_PAGES (3)
++#define OPCODE_COMMON_ISCSI_CFG_POST_OOO_BUFFERS (4)
++#define OPCODE_COMMON_ISCSI_CFG_REMOVE_OOO_BUFFERS (5)
++#define OPCODE_COMMON_ISCSI_NTWK_PING   (6)
++#define OPCODE_COMMON_ISCSI_NTWK_GET_NIC_CONFIG (7)
++#define OPCODE_COMMON_ISCSI_NTWK_GET_ARP_TABLE (8)
++#define OPCODE_COMMON_ISCSI_NTWK_SET_ARP_TABLE (9)
++#define OPCODE_COMMON_ISCSI_NTWK_GET_ROUTE_TABLE (10)
++#define OPCODE_COMMON_ISCSI_NTWK_SET_ROUTE_TABLE (11)
++#define OPCODE_COMMON_ISCSI_DISCOVERY_GET_PARAMETERS (12)
++#define OPCODE_COMMON_ISCSI_DISCOVERY_SET_PARAMETERS (13)
++#define OPCODE_COMMON_ISCSI_STATS_GET_NODE_ATTRIBUTES (14)
++#define OPCODE_COMMON_ISCSI_STATS_GET_NIC_STATISTICS (15)
++#define OPCODE_COMMON_ISCSI_IPSEC_DOWNLOAD_XML (16)
++#define OPCODE_COMMON_ISCSI_IPSEC_DELETE_XML (17)
++#define OPCODE_COMMON_ISCSI_IPSEC_GET_RX_STATS (18)
++#define OPCODE_COMMON_ISCSI_IPSEC_GET_TX_STATS (19)
++#define OPCODE_COMMON_ISCSI_IPSEC_ADD_CERTIFICATE (20)
++#define OPCODE_COMMON_ISCSI_IPSEC_DEL_CERTIFICATE (21)
++#define OPCODE_COMMON_ISCSI_IPSEC_ADD_PRIVATE_KEY (22)
++#define OPCODE_COMMON_ISCSI_IPSEC_DEL_PRIVATE_KEY (23)
++#define OPCODE_COMMON_ISCSI_IPSEC_ADD_PASSPHRASE (24)
++#define OPCODE_COMMON_ISCSI_IPSEC_DEL_PASSPHRASE (25)
++#define OPCODE_COMMON_ISCSI_IPSEC_ENABLE_DISABLE_FLASH_ENCRYPTION (26)
++#define OPCODE_COMMON_ISCSI_IPSEC_GET_GROUP_NAMES (27)
++#define OPCODE_COMMON_ISCSI_IPSEC_GET_SINGLE_GROUP_NAME (28)
++#define OPCODE_COMMON_ISCSI_IPSEC_ADD_GROUP (29)
++#define OPCODE_COMMON_ISCSI_IPSEC_DELETE_GROUP (30)
++#define OPCODE_COMMON_ISCSI_IPSEC_GET_QMSTATS (31)
++#define OPCODE_COMMON_ISCSI_IPSEC_GET_MMSTATS (32)
++#define OPCODE_COMMON_ISCSI_IPSEC_GET_STATE (33)
++#define OPCODE_COMMON_ISCSI_IPSEC_CLEAR_PSK_CACHE (34)
++#define OPCODE_COMMON_ISCSI_IPSEC_GET_PSK (35)
++#define OPCODE_COMMON_ISCSI_IPSEC_SET_GUID (36)
++#define OPCODE_COMMON_ISCSI_IPSEC_SET_PSK (37)
++#define OPCODE_COMMON_ISCSI_IPSEC_SET_TUNNEL_MODE_OUTER_ADDRESS (38)
++#define OPCODE_COMMON_ISCSI_IPSEC_GET_SECURITY_CAPABILITIES (39)
++#define OPCODE_COMMON_ISCSI_IPSEC_SET_GROUP_PSK (40)
++#define OPCODE_COMMON_ISCSI_IPSEC_ADD_ROOT_CERTIFICATE (41)
++#define OPCODE_COMMON_ISCSI_IPSEC_ENABLE_DISABLE (42)
++#define OPCODE_COMMON_ISCSI_CLEANUP     (43)
++#define OPCODE_COMMON_ISCSI_ADD_8BYTE_LUN (44)
++#define OPCODE_COMMON_ISCSI_SET_FRAGNUM_BITS_FOR_SGL_CRA (45)
++#define OPCODE_COMMON_ISCSI_CFG_CLEAR_EVENT_LOG (46)
++#define OPCODE_COMMON_ISCSI_CFG_READ_EVENT_LOG (47)
 +
 +/*
-+ * Appropriate casts to avoid compiler warnings about casting between
-+ * integers and pointers.
++ * --- ISCSI_INI_SUBSYSTEM_OPCODES ---
++ * Opcodes applicable to the IOCTL_SUBSYSTEM_ISCSI_INI subsystem.
 + */
-+#define SA_PTR_TO_INT(_p_) ((SA_SIZE_T)(_p_)) #define 
-+SA_PTR_TO_U32(_p_) ((u32)SA_PTR_TO_INT(_p_)) #define SA_PTR_TO_U64(_p_) 
-+((u64)SA_PTR_TO_INT(_p_))
++#define OPCODE_ISCSI_INI_NTWK_GET_TCPIP_CONFIG (1)
++#define OPCODE_ISCSI_INI_NTWK_SET_TCPIP_CONFIG (2)
++#define OPCODE_ISCSI_INI_NTWK_GET_DHCP_STATUS (3)
++#define OPCODE_ISCSI_INI_CFG_GET_CNTL_ATTRIBUTES (4)
++#define OPCODE_ISCSI_INI_CFG_GET_HBA_COUNT (5)
++#define SUBSYSTEM_ISCSI_INI_NTWK_GET_TCPIP_CONFIG (6)
++#define SUBSYSTEM_ISCSI_INI_NTWK_SET_TCPIP_CONFIG (6)
++#define SUBSYSTEM_ISCSI_INI_NTWK_GET_DHCP_STATUS (6)
++#define SUBSYSTEM_ISCSI_INI_CFG_GET_CNTL_ATTRIBUTES (6)
++#define SUBSYSTEM_ISCSI_INI_CFG_GET_HBA_COUNT (6)
++#define OPCODE_ISCSI_INI_CFG_GET_HBA_NAME (6)
++#define SUBSYSTEM_ISCSI_INI_CFG_GET_HBA_NAME (6)
++#define SUBSYSTEM_ISCSI_INI_CFG_SET_HBA_NAME (6)
++#define SUBSYSTEM_ISCSI_INI_CFG_SET_HBA_TIME (6)
++#define SUBSYSTEM_ISCSI_INI_CFG_GET_CHAP_SECRET (6)
++#define SUBSYSTEM_ISCSI_INI_CFG_SET_CHAP_SECRET (6)
++#define SUBSYSTEM_ISCSI_INI_CFG_GET_HBA_STATUS (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_GET_ALL_SESSIONS (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_GET_SESSION_LIST (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_GET_A_SESSION (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_GET_ALL_CONNECTIONS (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_GET_CONFIGURATION (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_SET_CONFIGURATION (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_GET_CONFIGURATION_LIST (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_MODIFY_SESSION_LOGINKEYS (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_MODIFY_CONNECTION_LOGINKEYS (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_ADD_CONNECTION_TO_SESSION (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_CLOSE_CONNECTION (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_LOGIN_TARGET (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_LOGOUT_TARGET (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_GET_ALL_PLOGIN_TGTNAME_PORTAL (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_QUERY_A_PERSISTENT_LOGIN (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_QUERY_PERSISTENT_LOGINS (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_ADD_PERSISTENT_LOGIN (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_DELETE_PERSISTENT_LOGIN (6)
++#define SUBSYSTEM_ISCSI_INI_SESSION_GET_ALL_SESSION_ID (6)
++#define SUBSYSTEM_ISCSI_INI_DISCOVERY_GET_ALL_DISCOVERED_TARGET_ID (6)
++#define SUBSYSTEM_ISCSI_INI_DISCOVERY_REPORT_ALL_TARGETS (6)
++#define SUBSYSTEM_ISCSI_INI_DISCOVERY_REPORT_A_TARGET (6)
++#define SUBSYSTEM_ISCSI_INI_DISCOVERY_SEND_TARGETS (6)
++#define SUBSYSTEM_ISCSI_INI_RETRIEVE_PARSED_TARGET_INFO (6)
++#define SUBSYSTEM_ISCSI_INI_DRIVER_REOPEN_A_SESSION (6)
++#define SUBSYSTEM_ISCSI_INI_DRIVER_REOPEN_ALL_SESSIONS (6)
++#define SUBSYSTEM_ISCSI_INI_DRIVER_REOPEN_A_CONN (6)
++#define SUBSYSTEM_ISCSI_INI_DRIVER_DEL_ALL_NONPERSISTENT_SESSIONS (6)
++#define SUBSYSTEM_ISCSI_INI_DRIVER_STORE_NONPERSISTENT_SESSIONS (6)
++#define SUBSYSTEM_ISCSI_INI_DRIVER_LOGIN_ALL_SESSIONS (6)
++#define SUBSYSTEM_ISCSI_INI_DRIVER_OFFLOAD_SESSION (6)
++#define SUBSYSTEM_ISCSI_INI_DRIVER_INVALIDATE_CONNECTION (6)
++#define SUBSYSTEM_ISCSI_INI_DRIVER_OFFLOAD_CONN (6)
++#define SUBSYSTEM_ISCSI_INI_BTL_MAPPING_QUERY_OS_BT_INUSE (6)
++#define SUBSYSTEM_ISCSI_INI_BTL_MAPPING_MAX_OS_SUPPORTED_BTL (6)
++#define SUBSYSTEM_ISCSI_INI_STATS_GET_INSTANCE_STATISTICS (6)
++#define SUBSYSTEM_ISCSI_INI_STATS_GET_LOGIN_STATISTICS (6)
++#define SUBSYSTEM_ISCSI_INI_STATS_GET_SESSION_ATTRIBUTES (6)
++#define SUBSYSTEM_ISCSI_INI_STATS_GET_A_SESSION_STATISTICS (6)
++#define SUBSYSTEM_ISCSI_INI_STATS_GET_CONN_STATISTICS_PER_SESSION (6)
++#define SUBSYSTEM_ISCSI_INI_STATS_GET_IPSEC_STATISTICS (6)
++#define SUBSYSTEM_ISCSI_INI_BOOT_GET_BOOT_TARGET (6)
++#define SUBSYSTEM_ISCSI_INI_BOOT_SET_BOOT_TARGET (6)
++#define SUBSYSTEM_ISCSI_INI_BOOT_GET_BOOT_LUN (6)
++#define SUBSYSTEM_ISCSI_INI_BOOT_SET_BOOT_LUN (6)
++#define SUBSYSTEM_ISCSI_INI_BOOT_READ_WRITE (6)
++#define SUBSYSTEM_ISCSI_INI_BOOT_GET_BIOS_CONFIGURATION (6)
++#define SUBSYSTEM_ISCSI_INI_BOOT_SET_BIOS_CONFIGURATION (6)
++#define SUBSYSTEM_ISCSI_INI_SCSI_PASS_THRU (6)
++#define OPCODE_ISCSI_INI_CFG_SET_HBA_NAME (7)
++#define OPCODE_ISCSI_INI_CFG_SET_HBA_TIME (8)
++#define OPCODE_ISCSI_INI_CFG_GET_CHAP_SECRET (9)
++#define OPCODE_ISCSI_INI_CFG_SET_CHAP_SECRET (10)
++#define OPCODE_ISCSI_INI_CFG_GET_HBA_STATUS (11)
++#define OPCODE_ISCSI_INI_SESSION_GET_ALL_SESSIONS (12)
++#define OPCODE_ISCSI_INI_SESSION_GET_SESSION_LIST (13)
++#define OPCODE_ISCSI_INI_SESSION_GET_A_SESSION (14)
++#define OPCODE_ISCSI_INI_SESSION_GET_ALL_CONNECTIONS (15)
++#define OPCODE_ISCSI_INI_SESSION_GET_CONFIGURATION (16)
++#define OPCODE_ISCSI_INI_SESSION_SET_CONFIGURATION (17)
++#define OPCODE_ISCSI_INI_SESSION_GET_CONFIGURATION_LIST (18)
++#define OPCODE_ISCSI_INI_SESSION_MODIFY_SESSION_LOGINKEYS (19)
++#define OPCODE_ISCSI_INI_SESSION_MODIFY_CONNECTION_LOGINKEYS (20)
++#define OPCODE_ISCSI_INI_SESSION_ADD_CONNECTION_TO_SESSION (21)
++#define OPCODE_ISCSI_INI_SESSION_CLOSE_CONNECTION (22)
++#define OPCODE_ISCSI_INI_SESSION_LOGIN_TARGET (23)
++#define OPCODE_ISCSI_INI_SESSION_LOGOUT_TARGET (24)
++#define OPCODE_ISCSI_INI_SESSION_GET_ALL_PLOGIN_TGTNAME_PORTAL (25)
++#define OPCODE_ISCSI_INI_SESSION_QUERY_A_PERSISTENT_LOGIN (26)
++#define OPCODE_ISCSI_INI_SESSION_QUERY_PERSISTENT_LOGINS (27)
++#define OPCODE_ISCSI_INI_SESSION_ADD_PERSISTENT_LOGIN (28)
++#define OPCODE_ISCSI_INI_SESSION_DELETE_PERSISTENT_LOGIN (29)
++#define OPCODE_ISCSI_INI_SESSION_GET_ALL_SESSION_ID (30)
++#define OPCODE_ISCSI_INI_DISCOVERY_GET_ALL_DISCOVERED_TARGET_ID (31)
++#define OPCODE_ISCSI_INI_DISCOVERY_REPORT_ALL_TARGETS (32)
++#define OPCODE_ISCSI_INI_DISCOVERY_REPORT_A_TARGET (33)
++#define OPCODE_ISCSI_INI_DISCOVERY_SEND_TARGETS (34)
++#define OPCODE_ISCSI_INI_RETRIEVE_PARSED_TARGET_INFO (35)
++#define OPCODE_ISCSI_INI_DRIVER_REOPEN_A_SESSION (36)
++#define OPCODE_ISCSI_INI_DRIVER_REOPEN_ALL_SESSIONS (37)
++#define OPCODE_ISCSI_INI_DRIVER_REOPEN_A_CONN (38)
++#define OPCODE_ISCSI_INI_DRIVER_DEL_ALL_NONPERSISTENT_SESSIONS (39)
++#define OPCODE_ISCSI_INI_DRIVER_STORE_NONPERSISTENT_SESSIONS (40)
++#define OPCODE_ISCSI_INI_DRIVER_LOGIN_ALL_SESSIONS (41)
++#define OPCODE_ISCSI_INI_DRIVER_OFFLOAD_SESSION (42)
++#define OPCODE_ISCSI_INI_DRIVER_INVALIDATE_CONNECTION (43)
++#define OPCODE_ISCSI_INI_DRIVER_OFFLOAD_CONN (44)
++#define OPCODE_ISCSI_INI_BTL_MAPPING_QUERY_OS_BT_INUSE (45)
++#define OPCODE_ISCSI_INI_BTL_MAPPING_MAX_OS_SUPPORTED_BTL (46)
++#define OPCODE_ISCSI_INI_STATS_GET_INSTANCE_STATISTICS (47)
++#define OPCODE_ISCSI_INI_STATS_GET_LOGIN_STATISTICS (48)
++#define OPCODE_ISCSI_INI_STATS_GET_SESSION_ATTRIBUTES (49)
++#define OPCODE_ISCSI_INI_STATS_GET_A_SESSION_STATISTICS (50)
++#define OPCODE_ISCSI_INI_STATS_GET_CONN_STATISTICS_PER_SESSION (51)
++#define OPCODE_ISCSI_INI_STATS_GET_IPSEC_STATISTICS (52)
++#define OPCODE_ISCSI_INI_BOOT_GET_BOOT_TARGET (53)
++#define OPCODE_ISCSI_INI_BOOT_SET_BOOT_TARGET (54)
++#define OPCODE_ISCSI_INI_BOOT_GET_BOOT_LUN (55)
++#define OPCODE_ISCSI_INI_BOOT_SET_BOOT_LUN (56)
++#define OPCODE_ISCSI_INI_BOOT_READ_WRITE (57)
++#define OPCODE_ISCSI_INI_BOOT_GET_BIOS_CONFIGURATION (58)
++#define OPCODE_ISCSI_INI_BOOT_SET_BIOS_CONFIGURATION (59)
++#define OPCODE_ISCSI_INI_SCSI_PASS_THRU (60)
 +
-+#define SA_PTR_TO_INT(_p_) ((SA_SIZE_T)(_p_)) #define 
-+SA_U64_TO_PTR(_u_) ((PVOID)(SA_SIZE_T)(_u_)) #define SA_U32_TO_PTR(_u_) 
-+((PVOID)(SA_SIZE_T)(_u_)) #define SA_PAGE_OFFSET(_addr_) 
-+(SA_PTR_TO_INT(_addr_) & (SA_PAGE_SIZE-1))
 +
-+/* Returns the next higher page aligned address. */ static inline PVOID 
-+SA_PAGE_ALIGN(PVOID _addr_) {
-+	u32 addr = SA_PTR_TO_U32(_addr_);
-+	if (addr & (SA_PAGE_SIZE - 1)) {
-+		addr = (addr & ~(SA_PAGE_SIZE - 1)) + SA_PAGE_SIZE;
-+		return SA_U32_TO_PTR(addr);
-+	}
-+	return _addr_;
-+}
++/*
++ * --- ISCSI_TGT_SUBSYSTEM_OPCODES ---
++ * Opcodes in the IOCTL_SUBSYSTEM_ISCSI_TGT subsystem.
++ */
++#define OPCODE_ISCSI_TGT_START_LISTEN_SERVER (1)
++#define OPCODE_ISCSI_TGT_STOP_LISTEN_SERVER (2)
++#define OPCODE_ISCSI_TGT_GET_CONNECTION_INFO (3)
++#define OPCODE_ISCSI_TGT_CONNECTION_REJECT (4)
++#define OPCODE_ISCSI_TGT_OFFLOAD_CONNECTION (5)
++#define OPCODE_ISCSI_TGT_ISNS_SEND_PACKET (6)
++#define SUBSYSTEM_ISCSI_TGT_START_LISTEN_SERVER (7)
++#define SUBSYSTEM_ISCSI_TGT_STOP_LISTEN_SERVER (7)
++#define SUBSYSTEM_ISCSI_TGT_GET_CONNECTION_INFO (7)
++#define SUBSYSTEM_ISCSI_TGT_CONNECTION_REJECT (7)
++#define SUBSYSTEM_ISCSI_TGT_OFFLOAD_CONNECTION (7)
++#define SUBSYSTEM_ISCSI_TGT_ISNS_SEND_PACKET (7)
++#define OPCODE_ISCSI_TGT_INVALIDATE_CONNECTION (7)
++#define SUBSYSTEM_ISCSI_TGT_INVALIDATE_CONNECTION (7)
++#define SUBSYSTEM_ISCSI_TGT_ADD_IP_ADDR (7)
++#define SUBSYSTEM_ISCSI_TGT_DELETE_IP_ADDR (7)
++#define SUBSYSTEM_ISCSI_TGT_LIST_IP_ADDR (7)
++#define SUBSYSTEM_ISCSI_TGT_START_ESI_LISTEN (7)
++#define SUBSYSTEM_ISCSI_TGT_STOP_ESI_LISTEN (7)
++#define SUBSYSTEM_ISCSI_TGT_SLP_REGISTER (7)
++#define SUBSYSTEM_ISCSI_TGT_SLP_DEREGISTER (7)
++#define OPCODE_ISCSI_TGT_ADD_IP_ADDR    (8)
++#define OPCODE_ISCSI_TGT_DELETE_IP_ADDR (9)
++#define OPCODE_ISCSI_TGT_LIST_IP_ADDR   (10)
++#define OPCODE_ISCSI_TGT_START_ESI_LISTEN (11)
++#define OPCODE_ISCSI_TGT_STOP_ESI_LISTEN (12)
++#define OPCODE_ISCSI_TGT_SLP_REGISTER   (13)
++#define OPCODE_ISCSI_TGT_SLP_DEREGISTER (14)
 +
-+/* Conversion from 64 bit values to hi and lo 32-bit values. */ static 
-+inline u32 sa_hi(u64 quad) {
-+	return (u32) (quad >> 32);
-+}
-+static inline u32 sa_lo(u64 quad)
++
++/*
++ * --- MILI_PTL_SUBSYSTEM_OPCODES ---
++ * Opcodes in the IOCTL_SUBSYSTEM_MILI_PTL subsystem.
++ */
++#define OPCODE_MILI_PTL_CREATE_PORTAL   (1)
++#define OPCODE_MILI_PTL_DELETE_PORTAL   (2)
++#define OPCODE_MILI_PTL_CREATE_PORTAL_GROUP (3)
++#define OPCODE_MILI_PTL_DELETE_PORTAL_GROUP (4)
++#define OPCODE_MILI_PTL_ADD_PORTAL_TO_PORTAL_GROUP (5)
++#define OPCODE_MILI_PTL_DELETE_PORTAL_FROM_PORTAL_GROUP (6)
++#define OPCODE_MILI_PTL_ADD_TARGET      (7)
++#define SUBSYSTEM_MILI_PTL_CREATE_PORTAL (8)
++#define SUBSYSTEM_MILI_PTL_DELETE_PORTAL (8)
++#define SUBSYSTEM_MILI_PTL_CREATE_PORTAL_GROUP (8)
++#define SUBSYSTEM_MILI_PTL_DELETE_PORTAL_GROUP (8)
++#define SUBSYSTEM_MILI_PTL_ADD_PORTAL_TO_PORTAL_GROUP (8)
++#define SUBSYSTEM_MILI_PTL_DELETE_PORTAL_FROM_PORTAL_GROUP (8)
++#define SUBSYSTEM_MILI_PTL_ADD_TARGET   (8)
++#define OPCODE_MILI_PTL_DELETE_TARGET   (8)
++#define SUBSYSTEM_MILI_PTL_DELETE_TARGET (8)
++#define SUBSYSTEM_MILI_PTL_ADD_PORTAL_GROUP_TO_TARGET (8)
++#define SUBSYSTEM_MILI_PTL_DELETE_PORTAL_GROUP_FROM_TARGET (8)
++#define SUBSYSTEM_MILI_PTL_SET_TARGET_LOGIN_PARAMS (8)
++#define SUBSYSTEM_MILI_PTL_START_LISTEN_SERVER (8)
++#define SUBSYSTEM_MILI_PTL_STOP_LISTEN_SERVER (8)
++#define SUBSYSTEM_MILI_PTL_MIB_GET_ISCSI_INSTANCE_ATTRIBUTES (8)
++#define SUBSYSTEM_MILI_PTL_MIB_GET_ISCSI_INSTANCE_SSN_ERROR_STATS (8)
++#define SUBSYSTEM_MILI_PTL_MIB_GET_ISCSI_TARGET_ATTRIBUTES (8)
++#define SUBSYSTEM_MILI_PTL_MIB_GET_ISCSI_TARGET_LOGIN_LOGOUT_STATS (8)
++#define SUBSYSTEM_MILI_PTL_MIB_GET_ISCSI_SESSION_ATTRIBUTES_AND_STATS (8)
++#define SUBSYSTEM_MILI_PTL_MIB_GET_ISCSI_CONNECTION_ATTRIBUTES_AND_STATS (8)
++#define SUBSYSTEM_MILI_PTL_GET_ISCSI_SESSION_LIST (8)
++#define SUBSYSTEM_MILI_PTL_KILL_SESSION (8)
++#define OPCODE_MILI_PTL_ADD_PORTAL_GROUP_TO_TARGET (9)
++#define OPCODE_MILI_PTL_DELETE_PORTAL_GROUP_FROM_TARGET (10)
++#define OPCODE_MILI_PTL_SET_TARGET_LOGIN_PARAMS (11)
++#define OPCODE_MILI_PTL_START_LISTEN_SERVER (12)
++#define OPCODE_MILI_PTL_STOP_LISTEN_SERVER (13)
++#define OPCODE_MILI_PTL_MIB_GET_ISCSI_INSTANCE_ATTRIBUTES (14)
++#define OPCODE_MILI_PTL_MIB_GET_ISCSI_INSTANCE_SSN_ERROR_STATS (15)
++#define OPCODE_MILI_PTL_MIB_GET_ISCSI_TARGET_ATTRIBUTES (16)
++#define OPCODE_MILI_PTL_MIB_GET_ISCSI_TARGET_LOGIN_LOGOUT_STATS (17)
++#define OPCODE_MILI_PTL_MIB_GET_ISCSI_SESSION_ATTRIBUTES_AND_STATS (18)
++#define OPCODE_MILI_PTL_MIB_GET_ISCSI_CONNECTION_ATTRIBUTES_AND_STATS (19)
++#define OPCODE_MILI_PTL_GET_ISCSI_SESSION_LIST (20)
++#define OPCODE_MILI_PTL_KILL_SESSION    (21)
++
++/*
++ * --- MILI_TMD_SUBSYSTEM_OPCODES ---
++ * Opcodes in the IOCTL_SUBSYSTEM_MILI_TMD subsystem.
++ */
++#define OPCODE_MILI_TMD_ADD_TARGET      (1)
++#define OPCODE_MILI_TMD_DELETE_TARGET   (2)
++#define OPCODE_MILI_TMD_UPDATE_TARGET_AUTH_PARAMS (3)
++#define OPCODE_MILI_TMD_ADD_INITIATOR   (4)
++#define OPCODE_MILI_TMD_DELETE_INITIATOR (5)
++#define OPCODE_MILI_TMD_UPDATE_INITIATOR_AUTH_PARAMS (6)
++#define OPCODE_MILI_TMD_BIND_INITIATOR_TO_TARGET (7)
++#define OPCODE_MILI_TMD_DELETE_IT_BINDING (8)
++#define SUBSYSTEM_MILI_TMD_ADD_TARGET   (9)
++#define SUBSYSTEM_MILI_TMD_DELETE_TARGET (9)
++#define SUBSYSTEM_MILI_TMD_UPDATE_TARGET_AUTH_PARAMS (9)
++#define SUBSYSTEM_MILI_TMD_ADD_INITIATOR (9)
++#define SUBSYSTEM_MILI_TMD_DELETE_INITIATOR (9)
++#define SUBSYSTEM_MILI_TMD_UPDATE_INITIATOR_AUTH_PARAMS (9)
++#define SUBSYSTEM_MILI_TMD_BIND_INITIATOR_TO_TARGET (9)
++#define SUBSYSTEM_MILI_TMD_DELETE_IT_BINDING (9)
++#define OPCODE_MILI_TMD_ACTIVATE_TARGET (9)
++#define SUBSYSTEM_MILI_TMD_ACTIVATE_TARGET (9)
++#define SUBSYSTEM_MILI_TMD_DEACTIVATE_TARGET (9)
++#define SUBSYSTEM_MILI_TMD_SET_INITIATOR_QOS (9)
++#define OPCODE_MILI_TMD_DEACTIVATE_TARGET (10)
++#define OPCODE_MILI_TMD_SET_INITIATOR_QOS (11)
++
++
++/*
++ * --- ETH_SUBSYSTEM_OPCODES ---
++ * These opcodes are used for configuring the Ethernet interfaces. These
++ * opcodes all use the IOCTL_SUBSYSTEM_ETH subsystem code.
++ */
++#define OPCODE_ETH_RSS_CONFIG           (1)
++#define OPCODE_ETH_ACPI_CONFIG          (2)
++#define SUBSYSTEM_ETH_RSS_CONFIG        (3)
++#define SUBSYSTEM_ETH_ACPI_CONFIG       (3)
++#define OPCODE_ETH_PROMISCUOUS          (3)
++#define SUBSYSTEM_ETH_PROMISCUOUS       (3)
++#define SUBSYSTEM_ETH_GET_STATISTICS    (3)
++#define SUBSYSTEM_ETH_GET_RX_FRAG_SIZE  (3)
++#define SUBSYSTEM_ETH_SET_RX_FRAG_SIZE  (3)
++#define OPCODE_ETH_GET_STATISTICS       (4)
++#define OPCODE_ETH_GET_RX_FRAG_SIZE     (5)
++#define OPCODE_ETH_SET_RX_FRAG_SIZE     (6)
++
++
++/*
++ * --- TPM_SUBSYSTEM_OPCODES ---
++ * These opcodes are used for configuring TCP protocol Module functionality.
++ * These opcodes all use the IOCTL_SUBSYSTEM_COMMON_ISCSI subsystem code.
++ */
++#define OPCODE_TPM_CONNECTION_OFFLOAD   (1)
++#define OPCODE_TPM_CONNECTION_UPLOAD    (2)
++#define OPCODE_TPM_CONNECTION_UPDATE    (3)
++#define SUBSYSTEM_TPM_CONNECTION_OFFLOAD (4)
++#define SUBSYSTEM_TPM_CONNECTION_UPLOAD (4)
++#define SUBSYSTEM_TPM_CONNECTION_UPDATE (4)
++#define OPCODE_TPM_GET_STATISTICS       (4)
++#define SUBSYSTEM_TPM_GET_STATISTICS    (4)
++#define SUBSYSTEM_TPM_CONNECTION_QUERY  (4)
++#define OPCODE_TPM_CONNECTION_QUERY     (5)
++
++/*
++ * --- PXE_UNDI_SUBSYSTEM_OPCODES ---
++ * These opcodes are used for configuring PXE and UNDI functionality.
++ * These opcodes use the IOCTL_SUBSYSTEM_PXE_UNDI subsystem code.
++ */
++#define OPCODE_PXE_UNDI_CONTROL         (1)
++#define OPCODE_PXE_UNDI_TRANSMIT        (2)
++#define OPCODE_PXE_UNDI_RECEIVE         (3)
++#define OPCODE_PXE_UNDI_GET_STATISTICS  (4)
++#define SUBSYSTEM_PXE_UNDI_CONTROL      (5)
++#define SUBSYSTEM_PXE_UNDI_TRANSMIT     (5)
++#define SUBSYSTEM_PXE_UNDI_RECEIVE      (5)
++#define SUBSYSTEM_PXE_UNDI_GET_STATISTICS (5)
++
++
++/*
++ * --- MCC_STATUS_CODE ---
++ * These are the global status codes used by all subsystems
++ */
++#define MCC_STATUS_SUCCESS              (0)	/* Indicates a successful
++						completion of  the command */
++#define MCC_STATUS_INSUFFICIENT_PRIVILEGES (1)	/* The client does not have
++						sufficient privileges to
++						execute the command */
++#define MCC_STATUS_INVALID_PARAMETER    (2)	/* A parameter in the command
++						was invalid. The extended
++						status contains the index
++						of the parameter */
++#define MCC_STATUS_INSUFFICIENT_RESOURCES (3)	/* There are insufficient
++						chip resources to execute
++						the command */
++#define MCC_STATUS_QUEUE_FLUSHING       (4)	/* The command is completing
++						because the queue was
++						getting flushed */
++#define MCC_STATUS_DMA_FAILED           (5)	/* The command is completing
++						with a DMA error */
++
++/*
++ * --- MGMT_ERROR_CODES ---
++ * Error Codes returned in the status field of the IOCTL response header
++ */
++#define MGMT_STATUS_SUCCESS             (0)	/* The IOCTL completed
++						without errors */
++#define MGMT_STATUS_FAILED              (1)	/* Error status in the Status
++						field of  the
++						IOCTL_RESPONSE_HEADER  */
++#define MGMT_STATUS_ILLEGAL_REQUEST     (2)	/* Invalid IOCTL opcode */
++#define MGMT_STATUS_ILLEGAL_FIELD       (3)	/* Invalid parameter in
++						the IOCTL  payload */
++/* The buffer provided by MILI is insufficient for Firmware/OSM to
++ * return IOCTL output. Firmware/OSM sets the buffer size requirement in
++ * the required_data_length field. Note: required_data_length must
++ * be larger than expected_data_length.
++ */
++#define MGMT_STATUS_INSUFFICIENT_BUFFER (4)
++/* This domain is not permitted to execute such request Applicable to
++ * BE-VM only
++ * */
++#define MGMT_STATUS_UNAUTHORIZED_REQUEST (5)	/* This domain is not
++						permitted to */
++#define MGMT_STATUS_INVALID_ISNS_ADDRESS (10)
++#define MGMT_STATUS_INVALID_IPADDR      (11)
++#define MGMT_STATUS_INVALID_GATEWAY     (12)
++#define MGMT_STATUS_INVALID_SUBNETMASK  (13)
++#define MGMT_STATUS_INVALID_PREFERRED_DNS (14)
++#define MGMT_STATUS_INVALID_ALTERNATE_DNS (15)
++#define MGMT_STATUS_INVALID_TARGET_IPADDR (16)
++#define MGMT_STATUS_UNRESOLVED_DNS_NAME (17)
++#define MGMT_STATUS_INVALID_ISCSI_INI_NAME (18)
++#define MGMT_STATUS_INVALID_ISCSI_INI_ALIAS (19)
++#define MGMT_STATUS_TGTTBL_FULL         (20)
++#define MGMT_STATUS_LUNTBL_FULL         (21)
++#define MGMT_STATUS_IPSEC_NOT_SUPPORTED (22)
++#define MGMT_STATUS_FLASHROM_SAVE_FAILED (23)
++#define MGMT_STATUS_FLASHROM_RESTORE_FAILED (24)
++#define MGMT_STATUS_INVALID_TCPPORT     (25)
++#define MGMT_STATUS_ICCBINDEX_ALLOC_FAILED (26)
++#define MGMT_STATUS_IOCTLHANDLE_ALLOC_FAILED (27)
++#define MGMT_STATUS_INVALID_PHY_ADDR_FROM_OSM (28)	/* Invalid physical
++							address from OSM */
++#define MGMT_STATUS_INVALID_PHY_ADDR_LEN_FROM_OSM (29)
++#define MGMT_STATUS_ASSERT_FAILED       (30)
++#define MGMT_STATUS_INVALID_SESSION     (31)	/* Invalid SESSION id */
++#define MGMT_STATUS_INVALID_CONNECTION  (32)	/* Invalid connection id */
++#define MGMT_STATUS_BTL_PATH_EXCEEDS_OSM_LIMIT (33)
++#define MGMT_STATUS_BTL_TGTID_EXCEEDS_OSM_LIMIT (34)
++#define MGMT_STATUS_BTL_PATH_TGTID_OCCUPIED (35)	/* In the OSM target
++							table the slot of the
++							specified Path and
++							TargetID is already
++							occupied by another
++							target.  */
++#define MGMT_STATUS_BTL_NO_FREE_SLOT_PATH (36)	/* OSM can't locate a free
++						   slot in it's target table
++						   for the specified path ID
++						  */
++#define MGMT_STATUS_BTL_NO_FREE_SLOT_TGTID (37)	/* OSM can't locate a free
++						   slot in it's target table
++						   for the specified target ID
++						   */
++#define MGMT_STATUS_OSM_DEVSLOT_NOT_FOUND (38)	/* OSM can't locate the entry
++						   in it's target table for
++						   the specified iSCSI
++						   SESSION/target
++						   */
++#define MGMT_STATUS_FLASHROM_READ_FAILED (39)
++#define MGMT_STATUS_POLL_IOCTL_TIMEOUT  (40)	/* Polling IOCTL is timeout */
++#define MGMT_STATUS_ERROR_ACITISCSI     (41)	/* Error returned from
++						   ACIT-ISCSI module */
++#define MGMT_STATUS_ERROR_ACITMAIN      (42)	/* Error returned from
++						   ACIT-Main module */
++/*
++ * This error indicates that ioctl buffer size is too big for either the
++ * OSM or OS to handle. In Windows, after MILI allocates the
++ * buffer, OS will forward the IOCTL request to the driver
++ * IF the IOCTL buffer size is less than / equal to the
++ * maximum IO size. When the OSM detects this situation,
++ * OSM set this status in the IOCTL header.
++ */
++#define MGMT_STATUS_BUFFER_SIZE_EXCEED_OSM_OR_OS_LIMIT (43)
++#define MGMT_STATUS_REBOOT_REQUIRED     (44)
++#define MGMT_STATUS_INSUFFICIENT_TIMEOUT (45)
++#define MGMT_STATUS_IPADDR_NOT_SET      (46)
++#define MGMT_STATUS_IPADDR_DUP_DETECTED (47)
++#define MGMT_STATUS_CANT_REMOVE_LAST_CONNECTION (48)
++#define MGMT_STATUS_TARGET_NOT_FOUND    (48)
++#define MGMT_STATUS_TARGET_BUSY         (49)
++#define MGMT_STATUS_TGT_ERR_LISTEN_SOCKET (50)
++#define MGMT_STATUS_TGT_ERR_BIND_SOCKET (51)
++#define MGMT_STATUS_TGT_ERR_NO_SOCKET   (52)
++#define MGMT_STATUS_TGT_ERR_PORTAL_NOT_FOUND (53)
++#define MGMT_STATUS_TGT_ERR_IP_ADDR_MAX_REACHED (54)
++#define MGMT_STATUS_TGT_ERR_ISNS_COMM_FAILED (55)
++#define MGMT_STATUS_CANNOT_DELETE_BOOT_TARGET (56)
++#define MGMT_STATUS_TGT_PORTAL_MODE_IN_LISTEN (57)
++
++
++/*
++ * --- MGMT_ADDL_STATUS ---
++ * Values for the Additional Status field of IOCTL_RESPONSE_BUFFER. This field
++ */
++#define MGMT_ADDI_STATUS_NO_STATUS      (0)
++#define MGMT_ADDI_STATUS_INVALID_IPTYPE (1)
++#define MGMT_ADDI_STATUS_IPV6_UNSUPPORTED (2)
++#define MGMT_ADDI_STATUS_DNSTEXT_TOO_LONG (3)
++#define MGMT_ADDI_STATUS_INVALID_INTR_ININAME (4)
++#define MGMT_ADDI_STATUS_INVALID_TGT_ININAME (5)
++#define MGMT_ADDI_STATUS_INVALID_ISNS_ININAME (6)
++#define MGMT_ADDI_STATUS_INVALID_INTR_ALIAS (7)
++#define MGMT_ADDI_STATUS_INVALID_TGT_ALIAS (8)
++#define MGMT_ADDI_STATUS_TARGET_HANDLE_NOT_FOUND (9)
++#define MGMT_ADDI_STATUS_SESSION_HANDLE_NOT_FOUND (10)
++#define MGMT_ADDI_STATUS_CONNECTION_HANDLE_NOT_FOUND (11)
++#define MGMT_ADDI_STATUS_PORTALGROUP_HANDLE_NOT_FOUND (12)
++#define MGMT_ADDI_STATUS_PORTAL_HANDLE_NOT_FOUND (13)
++#define MGMT_ADDI_STATUS_INVALID_INTR_PORT (14)
++#define MGMT_ADDI_STATUS_INVALID_TGT_PORT (15)
++#define MGMT_ADDI_STATUS_ACTIVE_SESSIONS_PRESENT (16)
++#define MGMT_ADDI_STATUS_SESSION_ALREADY_OPENED (17)
++#define MGMT_ADDI_STATUS_SESSION_ALREADY_CLOSED (18)
++#define MGMT_ADDI_STATUS_DEST_HOST_UNREACHABLE (19)
++#define MGMT_ADDI_STATUS_LOGIN_IN_PROGRESS (20)
++#define MGMT_ADDI_STATUS_TCP_CONNECT_FAILED (21)
++#define MGMT_ADDI_STATUS_INSUFFICIENT_RESOURCES (22)
++#define MGMT_ADDI_STATUS_LINK_DOWN      (23)
++#define MGMT_ADDI_STATUS_DHCP_ERROR     (24)
++#define MGMT_ADDI_STATUS_CONNECTION_OFFLOADED (25)
++#define MGMT_ADDI_STATUS_CONNECTION_NOT_OFFLOADED (26)
++#define MGMT_ADDI_STATUS_CONNECTION_UPLOAD_IN_PROGRESS (27)
++#define MGMT_ADDI_STATUS_REQUEST_REJECTED (28)	/* Used to communicate
++						  a flush or upload/close
++						   request on a connection
++						   was rejected by protocol
++						   firmware.
++						   */
++#define MGMT_ADDI_STATUS_INVALID_SUBSYSTEM (29)
++#define MGMT_ADDI_STATUS_INVALID_OPCODE (30)
++#define MGMT_ADDI_STATUS_INVALID_MAXCONNECTION_PARAM (31)
++#define MGMT_ADDI_STATUS_INVALID_KEY    (32)
++#define MGMT_ADDI_STATUS_PORTAL_GROUP_BOUND_TO_TARGET (33)
++#define MGMT_ADDI_STATUS_PORTALS_BOUND_TO_PORTAL_GROUP (34) /* Unbind Portals
++							from Portal  Group
++							before deleting  */
++/* The domain number in the IOCTL header
++* is invalid or out-of-range. The domain number passed-in to the IOCTL
++* must be <= to the number of domains enabled by the manufacturer.Check the
++* response data from IOCTL_COMMON_GET_CNTL_ATTRIBUTES to
++* determine the actual number of domains supported
++*/
++#define MGMT_ADDI_STATUS_INVALID_DOMAIN (35)
++#define MGMT_ADDL_STATUS_TGT_CONN_RST   (36)
++#define MGMT_ADDL_STATUS_TGT_INVALID_CONN_HANDLE (37)
++#define MGMT_ADDL_STATUS_TGT_INVALID_CID (38)
++#define MGMT_ADDL_STATUS_TGT_INVALID_CQID (39)
++#define MGMT_ADDL_STATUS_TGT_INVALID_CHUTE (40)
++#define MGMT_ADDL_STATUS_CONN_RST       (41)
++#define MGMT_ADDL_STATUS_DUPLICATE_KEY  (42)
++#define MGMT_ADDI_STATUS_LOGIN_INITIATOR_ERROR (43)
++#define MGMT_ADDI_STATUS_LOGIN_AUTHENTICATION_ERROR (44)
++#define MGMT_ADDI_STATUS_LOGIN_AUTHORIZATION_ERROR (45)
++#define MGMT_ADDI_STATUS_LOGIN_NOT_FOUND (46)
++#define MGMT_ADDI_STATUS_LOGIN_TARGET_REMOVED (47)
++#define MGMT_ADDI_STATUS_LOGIN_UNSUPPORTED_VERSION (48)
++#define MGMT_ADDI_STATUS_LOGIN_TOO_MANY_CONNECTIONS (49)
++#define MGMT_ADDI_STATUS_LOGIN_MISSING_PARAMETER (50)
++#define MGMT_ADDI_STATUS_LOGIN_NO_SESSION_SPANNING (51)
++#define MGMT_ADDI_STATUS_LOGIN_SESSION_TYPE_NOT_SUPPORTED (52)
++#define MGMT_ADDI_STATUS_LOGIN_SESSION_DOES_NOT_EXIST (53)
++#define MGMT_ADDI_STATUS_LOGIN_INVALID_DURING_LOGIN (54)
++#define MGMT_ADDI_STATUS_LOGIN_TARGET_ERROR (55)
++#define MGMT_ADDI_STATUS_LOGIN_SERVICE_UNAVAILABLE (56)
++#define MGMT_ADDI_STATUS_LOGIN_OUT_OF_RESOURCES (57)
++#define MGMT_ADDI_STATUS_SAME_CHAP_SECRET (58)
++#define MGMT_ADDI_STATUS_INVALID_SECRET_LENGTH (59)
++#define MGMT_ADDI_STATUS_DUPLICATE_ENTRY (60)	/* an entry with same
++						attribtues already  exists
++						with a different key  */
++#define MGMT_ADDI_STATUS_INITIATOR_HANDLE_NOT_FOUND (61)
++#define MGMT_ADDI_STATUS_ITBINDING_HANDLE_NOT_FOUND (62)
++#define MGMT_ADDI_STATUS_SETTINGS_MODIFIED_REBOOT_REQD (63)
++
++
++#ifdef SG_PRAGMA_PACK
++#pragma pack(pop)
++#endif
++
++#endif /* __ioctl_opcodes_amap_h__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_defs.h benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_defs.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_defs.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_defs.h	2008-02-14 15:23:07.816204520 +0530
+@@ -0,0 +1,115 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __ioctl_defs_amap_h__
++#define __ioctl_defs_amap_h__
++#include "setypes.h"
++
++#undef SG_PACK
++#if defined(SG_PRAGMA_PACK)
++#pragma pack(push, 1)
++#define SG_PACK
++#elif defined(SG_ATTRIBUTE_PACK)
++#define SG_PACK __attribute__ ((packed))
++#else
++#define SG_PACK
++#endif
++
++#ifndef SG_STATIC_INLINE
++#define SG_STATIC_INLINE static inline
++#endif
++/* --- IOCTLDEF_DEFINED_ENUMS --- */
++#define MGMT_MAX_CONNECTIONS_PER_SESSION (1)
++#define MGMT_MAX_INITIATOR_PORTALS      (1)
++#define MGMT_MAX_NIC_PORTS              (2)
++#define MGMT_MAX_ISCSI_PORTS            (2)
++#define MGMT_MAX_PORTALS_PER_PG         (4)
++#define MGMT_IPV4_ADDRESS_LEN           (4)
++#define MGMT_IPV4_SUBNET_MASK_LEN       (4)
++#define MGMT_MAX_DNS_SERVER             (5)
++#define MGMT_MAX_MULTICAST_TIMEOUT_ENTRIES (5)
++#define MGMT_ISID_LENGTH                (6)
++#define MGMT_MAX_SCSI_CHANNELS          (8)
++#define MGMT_MAX_BOOTABLE_LUN           (8)
++#define MGMT_LUN_SIZE                   (8)
++#define MGMT_IOCTL_MIN_SRB_TIMEOUT_VALUE (10)
++#define MGMT_DIGEST_KEY_LEN             (12)
++#define MGMT_CHAP_SECRET_MIN_LEN        (12)
++#define MGMT_MAX_ROUTE_ENTRIES          (16)
++#define MGMT_CHAP_SECRET_LEN            (16)
++#define MGMT_IPV6_ADDRESS_LEN           (16)
++#define MGMT_IPV6_SUBNET_MASK_LEN       (16)
++#define MGMT_MAX_CDB_LEN                (16)
++#define MGMT_SENSE_BUFFER_LEN           (18)
++#define MGMT_MAX_SG_COUNT               (19)
++#define MGMT_SECURITY_KEY_LEN           (30)
++#define MGMT_ISCSI_ALIAS_LEN            (32)
++#define MGMT_MAX_MANUFACTURER_STRING    (32)
++#define MGMT_MAX_MODEL_NUMBER_STRING    (32)
++#define MGMT_MAX_CTLR_SERIALNO_STRING   (32)
++#define MGMT_MAX_FLASHROM_VERSION_STRING (32)
++#define MGMT_MAX_FW_VERSION_STRING      (32)
++#define MGMT_MAX_IP_VERSION_STRING      (32)
++#define MGMT_MAX_ISCSI_VERSION_STRING   (32)
++#define MGMT_MAX_BIOS_VERSION_STRING    (32)
++#define MGMT_MAX_REDBOOT_VERSION_STRING (32)
++#define MGMT_MAX_DRV_VERSION_STRING     (32)
++#define MGMT_MAX_INITIATOR_ALLOWED      (32)
++#define MGMT_MAX_TGT_IP_SUPPORTED       (32)
++#define MGMT_MAX_TARGETS_ALLOWED_USING_DISCOVERY (64)
++#define MGMT_MAX_ARP_ENTRIES            (64)
++#define MGMT_DNS_NAME_LEN               (64)
++#define MGMT_MAX_CTLR_DESCRIPTION_STRING (64)
++#define MGMT_MAX_PORTAL_GROUPS          (128)
++#define MGMT_ISCSI_NAME_LEN             (224)
++#define MGMT_ISNS_PORTAL_SYM_NAME_LEN   (256)
++#define MGMT_CHAP_NAME_LEN              (256)
++#define MGMT_SEND_TARGET_TEXTKEY        (256)
++#define MGMT_MAX_SCOPE_LIST_LENGTH      (256)
++#define MGMT_MAX_QUERY_LIST_LENGTH      (256)
++#define MGMT_PRESHARED_KEYSIZE          (256)
++#define MGMT_IPSEC_ID_SIZE              (256)
++#define MGMT_MAX_TARGETS_ALLOWED        (512)
++#define MGMT_MAX_LUNS                   (512)
++#define MGMT_MAX_HOST_TABLE             (512)
++#define MGMT_MAX_ISCSI_SESSIONS_ALLOWED (512)
++#define MGMT_MAX_CONNECTIONS            (512)
++#define MGMT_MAX_PORTALS                (1024)
++#define MAX_SEEPROM_SIZE                (1024)
++#define MGMT_MAX_IOCTL_PAYLOAD_SIZE     (73728)
++
++#ifdef SG_PRAGMA_PACK
++#pragma pack(pop)
++#endif
++
++#endif /* __ioctl_defs_amap_h__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/host_struct.h benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/host_struct.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/host_struct.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/host_struct.h	2008-02-14 15:23:07.816204520 +0530
+@@ -0,0 +1,115 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __host_struct_amap_h__
++#define __host_struct_amap_h__
++#include "setypes.h"
++#include "headers.h"
++#include "be_cm.h"
++#include "be_common.h"
++#include "descriptors.h"
++
++#undef SG_PACK
++#if defined(SG_PRAGMA_PACK)
++#pragma pack(push, 1)
++#define SG_PACK
++#elif defined(SG_ATTRIBUTE_PACK)
++#define SG_PACK __attribute__ ((packed))
++#else
++#define SG_PACK
++#endif
++
++#ifndef SG_STATIC_INLINE
++#define SG_STATIC_INLINE static inline
++#endif
++/* --- EQ_COMPLETION_MAJOR_CODE_ENUM --- */
++#define EQ_MAJOR_CODE_COMPLETION        (0)	/* Completion event on a */
++						/* completion queue. */
++#define EQ_MAJOR_CODE_ETH               (1)	/* Affiliated Ethernet Event. */
++#define EQ_MAJOR_CODE_RESERVED          (2)	/* Reserved */
++#define EQ_MAJOR_CODE_RDMA              (3)	/* Affiliated RDMA Event. */
++#define EQ_MAJOR_CODE_ISCSI             (4)	/* Affiliated ISCSI Event */
++#define EQ_MAJOR_CODE_UNAFFILIATED      (5)	/* Unaffiliated Event */
++
++/* --- EQ_COMPLETION_MINOR_CODE_ENUM --- */
++#define EQ_MINOR_CODE_COMPLETION        (0)	/* Completion event on a */
++						/* completion queue. */
++#define EQ_MINOR_CODE_OTHER             (1)	/* Other Event (TBD). */
++
++/*
++ * --- ETH_EVENT_CODE ---
++ * These codes are returned by the MPU when one of these events has
++ * occurred, and the event is configured to report to an Event
++ * Queue when an event is detected.
++ */
++#define ETH_EQ_LINK_STATUS   (0)	/* Link status change event was */
++						  /* detected. */
++#define ETH_EQ_WATERMARK     (1)	/* A watermark event was detected. */
++#define ETH_EQ_MAGIC_PKT     (2)	/* A magic packet event was detected. */
++#define ETH_EQ_ACPI_PKT0     (3)	/* An ACPI interesting packet was */
++						  /* detected. */
++#define ETH_EQ_ACPI_PKT1     (3)	/* An ACPI interesting packet was */
++						  /* detected. */
++#define ETH_EQ_ACPI_PKT2     (3)	/* An ACPI interesting packet was */
++						  /* detected. */
++#define ETH_EQ_ACPI_PKT3     (3)	/* An ACPI interesting packet was */
++						  /* detected. */
++
++/*
++ * --- ETH_TX_COMPL_STATUS_ENUM ---
++ * Status codes contained in Ethernet TX completion descriptors.
++ */
++#define ETH_COMP_VALID                  (0)
++#define ETH_COMP_ERROR                  (1)
++#define ETH_COMP_INVALID                (15)
++
++/*
++ * --- ETH_TX_COMPL_PORT_ENUM ---
++ * Port indicator contained in Ethernet TX completion descriptors.
++ */
++#define ETH_COMP_PORT0                  (0)
++#define ETH_COMP_PORT1                  (1)
++#define ETH_COMP_MGMT                   (2)
++
++/*
++ * --- ETH_TX_COMPL_CT_ENUM ---
++ * Completion type indicator contained in Ethernet TX completion descriptors.
++ */
++#define ETH_COMP_ETH                    (0)
++
++
++#ifdef SG_PRAGMA_PACK
++#pragma pack(pop)
++#endif
++
++#endif /* __host_struct_amap_h__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/be_common.h benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/be_common.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/be_common.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/be_common.h	2008-02-14 15:23:07.817204368 +0530
+@@ -0,0 +1,86 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __be_common_amap_h__
++#define __be_common_amap_h__
++#include "setypes.h"
++
++#undef SG_PACK
++#if defined(SG_PRAGMA_PACK)
++#pragma pack(push, 1)
++#define SG_PACK
++#elif defined(SG_ATTRIBUTE_PACK)
++#define SG_PACK __attribute__ ((packed))
++#else
++#define SG_PACK
++#endif
++
++#ifndef SG_STATIC_INLINE
++#define SG_STATIC_INLINE static inline
++#endif
++
++/* Physical Address. */
++typedef struct {
++	BE_BIT lo[32];		/* DWORD 0 */
++	BE_BIT hi[32];		/* DWORD 1 */
++} SG_PACK BE_PHYS_ADDR_AMAP;
++typedef struct {
++	u32 dw[2];
++} PHYS_ADDR_AMAP, *PPHYS_ADDR_AMAP;
++
++/* Virtual Address. */
++typedef struct {
++	BE_BIT lo[32];		/* DWORD 0 */
++	BE_BIT hi[32];		/* DWORD 1 */
++} SG_PACK BE_VIRT_ADDR_AMAP;
++typedef struct {
++	u32 dw[2];
++} VIRT_ADDR_AMAP, *PVIRT_ADDR_AMAP;
++
++/* Scatter gather element. */
++typedef struct {
++	BE_BIT addr_hi[32];	/* DWORD 0 */
++	BE_BIT addr_lo[32];	/* DWORD 1 */
++	BE_BIT rsvd0[32];	/* DWORD 2 */
++	BE_BIT len[16];		/* DWORD 3 */
++	BE_BIT rsvd1[16];	/* DWORD 3 */
++} SG_PACK BE_SGE_AMAP;
++typedef struct {
++	u32 dw[4];
++} SGE_AMAP, *PSGE_AMAP;
++
++#ifdef SG_PRAGMA_PACK
++#pragma pack(pop)
++#endif
++
++#endif /* __be_common_amap_h__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/ep.h benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/ep.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/ep.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/ep.h	2008-02-14 15:23:07.817204368 +0530
+@@ -0,0 +1,99 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __ep_amap_h__
++#define __ep_amap_h__
++#include "setypes.h"
++
++#undef SG_PACK
++#if defined(SG_PRAGMA_PACK)
++#pragma pack(push, 1)
++#define SG_PACK
++#elif defined(SG_ATTRIBUTE_PACK)
++#define SG_PACK __attribute__ ((packed))
++#else
++#define SG_PACK
++#endif
++
++#ifndef SG_STATIC_INLINE
++#define SG_STATIC_INLINE static inline
++#endif
++
++/* General Control and Status Register. */
++typedef struct {
++	BE_BIT m0_RxPbuf;	/* DWORD 0 */
++	BE_BIT m1_RxPbuf;	/* DWORD 0 */
++	BE_BIT m2_RxPbuf;	/* DWORD 0 */
++	BE_BIT ff_en;		/* DWORD 0 */
++	BE_BIT rsvd0[27];	/* DWORD 0 */
++	BE_BIT CPU_reset;	/* DWORD 0 */
++} SG_PACK BE_EP_CONTROL_CSR_AMAP;
++typedef struct {
++	u32 dw[1];
++} EP_CONTROL_CSR_AMAP, *PEP_CONTROL_CSR_AMAP;
++
++/* Semaphore Register. */
++typedef struct {
++	BE_BIT value[32];	/* DWORD 0 */
++} SG_PACK BE_EP_SEMAPHORE_CSR_AMAP;
++typedef struct {
++	u32 dw[1];
++} EP_SEMAPHORE_CSR_AMAP, *PEP_SEMAPHORE_CSR_AMAP;
++
++/* Embedded Processor Specific Registers. */
++typedef struct {
++	BE_EP_CONTROL_CSR_AMAP ep_control;
++	BE_BIT rsvd0[32];	/* DWORD 1 */
++	BE_BIT rsvd1[32];	/* DWORD 2 */
++	BE_BIT rsvd2[32];	/* DWORD 3 */
++	BE_BIT rsvd3[32];	/* DWORD 4 */
++	BE_BIT rsvd4[32];	/* DWORD 5 */
++	BE_BIT rsvd5[8][128];	/* DWORD 6 */
++	BE_BIT rsvd6[32];	/* DWORD 38 */
++	BE_BIT rsvd7[32];	/* DWORD 39 */
++	BE_BIT rsvd8[32];	/* DWORD 40 */
++	BE_BIT rsvd9[32];	/* DWORD 41 */
++	BE_BIT rsvd10[32];	/* DWORD 42 */
++	BE_EP_SEMAPHORE_CSR_AMAP ep_semaphore;
++	BE_BIT rsvd11[32];	/* DWORD 44 */
++	BE_BIT rsvd12[19][32];	/* DWORD 45 */
++} SG_PACK BE_EP_CSRMAP_AMAP;
++typedef struct {
++	u32 dw[64];
++} EP_CSRMAP_AMAP, *PEP_CSRMAP_AMAP;
++
++#ifdef SG_PRAGMA_PACK
++#pragma pack(pop)
++#endif
++
++#endif /* __ep_amap_h__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/descriptors.h benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/descriptors.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/descriptors.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/descriptors.h	2008-02-14 15:23:07.818204216 +0530
+@@ -0,0 +1,105 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __descriptors_amap_h__
++#define __descriptors_amap_h__
++#include "setypes.h"
++#include "headers.h"
++
++#undef SG_PACK
++#if defined(SG_PRAGMA_PACK)
++#pragma pack(push, 1)
++#define SG_PACK
++#elif defined(SG_ATTRIBUTE_PACK)
++#define SG_PACK __attribute__ ((packed))
++#else
++#define SG_PACK
++#endif
++
++#ifndef SG_STATIC_INLINE
++#define SG_STATIC_INLINE static inline
++#endif
++/*
++ * --- IPC_NODE_ID_ENUM ---
++ * IPC processor id values
++ */
++#define TPOST_NODE_ID                   (0)	/* TPOST ID */
++#define TPRE_NODE_ID                    (1)	/* TPRE ID */
++#define TXULP0_NODE_ID                  (2)	/* TXULP0 ID */
++#define TXULP1_NODE_ID                  (3)	/* TXULP1 ID */
++#define TXULP2_NODE_ID                  (4)	/* TXULP2 ID */
++#define RXULP0_NODE_ID                  (5)	/* RXULP0 ID */
++#define RXULP1_NODE_ID                  (6)	/* RXULP1 ID */
++#define RXULP2_NODE_ID                  (7)	/* RXULP2 ID */
++#define MPU_NODE_ID                     (15)	/* MPU ID */
++
++/*
++ * --- MAC_ID_ENUM ---
++ * Meaning of the mac_id field in rxpp_eth_d
++ */
++#define PORT0_HOST_MAC0    (0)  /* PD 0, Port 0, host networking, MAC 0. */
++#define PORT0_HOST_MAC1    (1)	/* PD 0, Port 0, host networking, MAC 1. */
++#define PORT0_STORAGE_MAC0 (2)	/* PD 0, Port 0, host storage, MAC 0. */
++#define PORT0_STORAGE_MAC1 (3)	/* PD 0, Port 0, host storage, MAC 1. */
++#define PORT1_HOST_MAC0    (4)	/* PD 0, Port 1 host networking, MAC 0. */
++#define PORT1_HOST_MAC1    (5)	/* PD 0, Port 1 host networking, MAC 1. */
++#define PORT1_STORAGE_MAC0 (6)	/* PD 0, Port 1 host storage, MAC 0. */
++#define PORT1_STORAGE_MAC1 (7)	/* PD 0, Port 1 host storage, MAC 1. */
++#define FIRST_VM_MAC       (8)	/* PD 1 MAC. Protection domains have IDs */
++				/* from 0x8-0x26, one per PD. */
++#define LAST_VM_MAC        (38)	/* PD 31 MAC. */
++#define MGMT_MAC           (39)	/* Management port MAC. */
++#define MARBLE_MAC0        (59)	/* Used for flushing function 0 receive */
++				  /*
++				   * queues before re-using a torn-down
++				   * receive ring. the DA =
++				   * 00-00-00-00-00-00, and the MSB of the
++				   * SA = 00
++				   */
++#define MARBLE_MAC1        (60)	/* Used for flushing function 1 receive */
++				  /*
++				   * queues before re-using a torn-down
++				   * receive ring. the DA =
++				   * 00-00-00-00-00-00, and the MSB of the
++				   * SA != 00
++				   */
++#define NULL_MAC           (61)	/* Promiscuous mode, indicates no match */
++#define MCAST_MAC          (62)	/* Multicast match. */
++#define BCAST_MATCH        (63)	/* Broadcast match. */
++
++
++#ifdef SG_PRAGMA_PACK
++#pragma pack(pop)
++#endif
++
++#endif /* __descriptors_amap_h__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/be_cm.h benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/be_cm.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/be_cm.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/be_cm.h	2008-02-14 15:23:07.818204216 +0530
+@@ -0,0 +1,110 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __be_cm_amap_h__
++#define __be_cm_amap_h__
++#include "setypes.h"
++#include "headers.h"
++#include "be_common.h"
++#include "common_context.h"
++#include "etx_context.h"
++#include "mpu_context.h"
++
++#undef SG_PACK
++#if defined(SG_PRAGMA_PACK)
++#pragma pack(push, 1)
++#define SG_PACK
++#elif defined(SG_ATTRIBUTE_PACK)
++#define SG_PACK __attribute__ ((packed))
++#else
++#define SG_PACK
++#endif
++
++#ifndef SG_STATIC_INLINE
++#define SG_STATIC_INLINE static inline
++#endif
++/*
++ * --- CEV_WATERMARK_ENUM ---
++ * CQ/EQ Watermark Encodings. Encoded as number of free entries in
++ * Queue when Watermark is reached.
++ */
++#define CEV_WMARK_0        (0)	/* Watermark when Queue full */
++#define CEV_WMARK_16       (1)	/* Watermark at 16 free entries */
++#define CEV_WMARK_32       (2)	/* Watermark at 32 free entries */
++#define CEV_WMARK_48       (3)	/* Watermark at 48 free entries */
++#define CEV_WMARK_64       (4)	/* Watermark at 64 free entries */
++#define CEV_WMARK_80       (5)	/* Watermark at 80 free entries */
++#define CEV_WMARK_96       (6)	/* Watermark at 96 free entries */
++#define CEV_WMARK_112      (7)	/* Watermark at 112 free entries */
++#define CEV_WMARK_128      (8)	/* Watermark at 128 free entries */
++#define CEV_WMARK_144      (9)	/* Watermark at 144 free entries */
++#define CEV_WMARK_160      (10)	/* Watermark at 160 free entries */
++#define CEV_WMARK_176      (11)	/* Watermark at 176 free entries */
++#define CEV_WMARK_192      (12)	/* Watermark at 192 free entries */
++#define CEV_WMARK_208      (13)	/* Watermark at 208 free entries */
++#define CEV_WMARK_224      (14)	/* Watermark at 224 free entries */
++#define CEV_WMARK_240      (15)	/* Watermark at 240 free entries */
++
++/*
++ * --- CQ_CNT_ENUM ---
++ * Completion Queue Count Encodings.
++ */
++#define CEV_CQ_CNT_256                  (0)	/* CQ has 256 entries */
++#define CEV_CQ_CNT_512                  (1)	/* CQ has 512 entries */
++#define CEV_CQ_CNT_1024                 (2)	/* CQ has 1024 entries */
++
++/*
++ * --- EQ_CNT_ENUM ---
++ * Event Queue Count Encodings.
++ */
++#define CEV_EQ_CNT_256     (0)	/* EQ has 256 entries (16-byte EQEs only) */
++#define CEV_EQ_CNT_512     (1)	/* EQ has 512 entries (16-byte EQEs only) */
++#define CEV_EQ_CNT_1024    (2)	/* EQ has 1024 entries (4-byte or */
++				/* 16-byte EQEs only) */
++#define CEV_EQ_CNT_2048    (3)	/* EQ has 2048 entries (4-byte or */
++				/* 16-byte EQEs only) */
++#define CEV_EQ_CNT_4096    (4)	/* EQ has 4096 entries (4-byte EQEs only) */
++
++/*
++ * --- EQ_SIZE_ENUM ---
++ * Event Queue Entry Size Encoding.
++ */
++#define CEV_EQ_SIZE_4                   (0)	/* EQE is 4 bytes */
++#define CEV_EQ_SIZE_16                  (1)	/* EQE is 16 bytes */
++
++
++#ifdef SG_PRAGMA_PACK
++#pragma pack(pop)
++#endif
++
++#endif /* __be_cm_amap_h__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/headers.h benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/headers.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/headers.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/headers.h	2008-02-14 15:23:07.819204064 +0530
+@@ -0,0 +1,84 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __headers_amap_h__
++#define __headers_amap_h__
++#include "setypes.h"
++
++#undef SG_PACK
++#if defined(SG_PRAGMA_PACK)
++#pragma pack(push, 1)
++#define SG_PACK
++#elif defined(SG_ATTRIBUTE_PACK)
++#define SG_PACK __attribute__ ((packed))
++#else
++#define SG_PACK
++#endif
++
++#ifndef SG_STATIC_INLINE
++#define SG_STATIC_INLINE static inline
++#endif
++/*
++ * --- ISCSI_OPCODE ---
++ * ISCSI Message Opcode Definitions Vendor Specific Initiator
++ * 0x1c-0x1e Vendor Specific Target 0x3c-0x3e
++ */
++#define ISCSI_OPCODE_NOP_OUT            (0)
++#define ISCSI_OPCODE_SCSI_CMD           (1)
++#define ISCSI_OPCODE_SCSI_TASK_MGMT     (2)
++#define ISCSI_OPCODE_LOGIN              (3)
++#define ISCSI_OPCODE_TEXT               (4)
++#define ISCSI_OPCODE_SCSI_DATA_OUT      (5)
++#define ISCSI_OPCODE_LOGOUT             (6)
++#define ISCSI_OPCODE_SNACK              (16)
++#define ISCSI_OPCODE_NOP_IN             (32)
++#define ISCSI_OPCODE_NOPIN              (32)
++#define ISCSI_OPCODE_SCSI_RESPONSE      (33)
++#define ISCSI_OPCODE_RESPONSE           (33)
++#define ISCSI_OPCODE_SCSI_TASK_MGMT_RESPONSE (34)
++#define ISCSI_OPCODE_LOGIN_RESPONSE     (35)
++#define ISCSI_OPCODE_TEXT_RESPONSE      (36)
++#define ISCSI_OPCODE_SCSI_DATA_IN       (37)
++#define ISCSI_OPCODE_DATAIN             (37)
++#define ISCSI_OPCODE_LOGOUT_RESPONSE    (38)
++#define ISCSI_OPCODE_R2T                (49)
++#define ISCSI_OPCODE_RTT                (49)
++#define ISCSI_OPCODE_ASYNC_MSG          (50)
++#define ISCSI_OPCODE_REJECT             (63)
++
++
++#ifdef SG_PRAGMA_PACK
++#pragma pack(pop)
++#endif
++
++#endif /* __headers_amap_h__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_top.h benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_top.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_top.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_top.h	2008-02-14 15:23:07.819204064 +0530
+@@ -0,0 +1,63 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __ioctl_top_amap_h__
++#define __ioctl_top_amap_h__
++#include "setypes.h"
++#include "asyncmesg.h"
++#include "ioctl_opcodes.h"
++#include "ioctl_defs.h"
++#include "ioctl_types.h"
++#include "ioctl_mcc.h"
++#include "ioctl_common.h"
++#include "ioctl_eth.h"
++
++#undef SG_PACK
++#if defined(SG_PRAGMA_PACK)
++#pragma pack(push, 1)
++#define SG_PACK
++#elif defined(SG_ATTRIBUTE_PACK)
++#define SG_PACK __attribute__ ((packed))
++#else
++#define SG_PACK
++#endif
++
++#ifndef SG_STATIC_INLINE
++#define SG_STATIC_INLINE static inline
++#endif
++
++#ifdef SG_PRAGMA_PACK
++#pragma pack(pop)
++#endif
++
++#endif /* __ioctl_top_amap_h__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_types.h benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_types.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_types.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_types.h	2008-02-14 15:23:07.820203912 +0530
+@@ -0,0 +1,459 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __ioctl_types_amap_h__
++#define __ioctl_types_amap_h__
++#include "setypes.h"
++#include "ioctl_defs.h"
++#include "host_struct.h"
++#include "post_codes.h"
++
++#undef SG_PACK
++#if defined(SG_PRAGMA_PACK)
++#pragma pack(push, 1)
++#define SG_PACK
++#elif defined(SG_ATTRIBUTE_PACK)
++#define SG_PACK __attribute__ ((packed))
++#else
++#define SG_PACK
++#endif
++
++#ifndef SG_STATIC_INLINE
++#define SG_STATIC_INLINE static inline
++#endif
++/*
++ * --- IPVERSIONS ---
++ * Defintion for IPVersion in IP_ADDRESS_SUBNET_FORMAT and IP_ADDRESS_FORMAT
++ */
++#define IPVERSION_V4                    (0)
++#define IPVERSION_V6                    (1)
++
++
++/* --- MGMT_TGT_TMF_METHODS --- */
++#define MGMT_TMF_METHOD_LU_RESET        (5)
++#define MGMT_TMF_METHOD_TGT_WARM_RESET  (6)
++#define MGMT_TMF_METHOD_TGT_COLD_RESET  (7)
++
++/*
++ * --- MGMT_TMF_METHODS ---
++ * Other TMF methods specified in RFC3720, not currently supported
++ */
++#define MGMT_TMF_METHOD_ABORT_TASK      (1)
++#define MGMT_TMF_METHOD_ABORT_TASK_SET  (2)
++#define MGMT_TMF_METHOD_CLEAR_ACA       (3)
++#define MGMT_TMF_METHOD_CLEAR_TASK_SET  (4)
++#define MGMT_TMF_METHOD_TASK_REASSIGN   (8)
++
++/*
++ * --- LOGIN_TARGET_PARAMS_FLAGS ---
++ * Bit definition of login_flags in LOGIN_TARGET_PARAMS_IN
++ */
++#define MGMT_LOGIN_FLAG_NO_IPSEC        (0)
++#define MGMT_LOGIN_FLAG_REQUIRE_IPSEC   (1)
++#define MGMT_LOGIN_FLAG_MULTIPATH_ENABLED (2)
++
++/* --- MGMT_SESSION_STATUS --- */
++#define MGMT_SESSION_STATUS_OPENED      (1)	/* Session login success */
++#define MGMT_SESSION_STATUS_OPENNING    (2)	/* Should be ignored by
++							application */
++#define MGMT_SESSION_STATUS_LUN_REPORTING (4)	/* Should be ignored by
++							application */
++#define MGMT_SESSION_STATUS_LUN_REPORTED (8)	/* Should be ignored by
++							application */
++#define MGMT_SESSION_STATUS_CLOSING     (16)	/* Should be ignored by
++							application */
++#define MGMT_SESSION_STATUS_CLOSED      (32)	/* Session logged out success */
++#define MGMT_SESSION_STATUS_CLOSED_IN_RECOVERY (64)	/* Should be ignored
++							by application */
++#define MGMT_SESSION_STATUS_IN_DEVICE_RESET (128)	/* Should be ignored
++							by application */
++#define MGMT_SESSION_STATUS_OPEN_FAILED (256)	/* Login failed */
++#define MGMT_SESSION_STATUS_SENDTARGET_FAILED (512)	/* SendTarget command
++							failed */
++#define MGMT_SESSION_STATUS_REPORTLUN_FAILED (1024)	/* REPORT_LUN command
++							failed */
++#define MGMT_SESSION_STATUS_CLOSE_FAILED (2048)	/* Logout failed */
++#define MGMT_SESSION_STATUS_IN_RETRY    (4096)	/* This session is in
++							retry queue */
++#define MGMT_SESSION_STATUS_DELETED     (8192)	/* This session marked as
++						deleted */
++
++/* --- MGMT_SESSION_FLAGS --- */
++#define MGMT_SESSION_FLAG_NON_PERSISTENT (1)
++#define MGMT_SESSION_FLAG_PERSISTENT    (2)
++/* Either MGMT_SESSION_FLAG_BOOTABLE_PRIMARY or
++ * MGMT_SESSION_FLAG_BOOTABLE_SECONDARY should be set
++ */
++#define MGMT_SESSION_FLAG_BOOTABLE_PRIMARY (4)
++#define MGMT_SESSION_FLAG_BOOTABLE_SECONDARY (8)
++#define MGMT_SESSION_FLAG_RESERVED      (16)
++#define MGMT_SESSION_FLAG_DISCOVERY     (16)
++#define MGMT_SESSION_FLAG_INFORMATIONAL (32)
++#define MGMT_SESSION_FLAG_DATA_SESSION  (64)
++#define MGMT_SESSION_FLAG_LIST_SESSION  (128)	/* if set to 1, all targets
++						are returned else only logged
++						in targets are returned
++						*/
++
++/*
++ * --- SESSION_TYPE ---
++ * Session Type
++ */
++#define MGMT_SESSION_TYPE_DISCOVERY_SESSION (16)	/* Discovery session
++							LUNs are NOT exposed
++							to the host OS  */
++#define MGMT_SESSION_TYPE_INFORMATIONAL_SESSION (32)	/* Informational
++							session LUNs are NOT
++							exposed to the host
++							OS  */
++#define MGMT_SESSION_TYPE_DATA_SESSION  (64)	/* Data session. LUNs are
++						exposed to the  host OS
++						*/
++#define MGMT_SESSION_TYPE_BOOT_SESSION  (128)	/* Boot session */
++#define MGMT_SESSION_TYPE_MASK_SESSION_TYPE (240)
++
++/*
++ * --- MGMT_SESSION_OWNER ---
++ * Application should ignore these bits. These bits are used by
++ * the host driver.
++ */
++#define MGMT_SESSION_FLAG_DRIVER_OWNED  (4096)	/* This indicates session
++						owned by the driver
++						*/
++#define MGMT_SESSION_FLAG_FIRMWARE_OWNED (8192)	/* This indicates session
++						owned by the firmware  */
++
++/*
++ * --- MGMT_CONN_STATUS ---
++ * Bit definition in connection_status in MGMT_CONN_INFO
++ */
++#define MGMT_CONN_STATUS_OPENED     (1)	/* TCP connection is opened. All */
++					  /*
++					   * MGMT_CONN_STATUS_ISCSI_LOGIN_STATE
++					   * valid ONLY if
++					   * MGMT_CONN_STATUS_OPENED is 1
++					   */
++#define MGMT_CONN_STATUS_OPENNING       (2)	/* Should be ignored by
++							application */
++#define MGMT_CONN_STATUS_REDIRECTED     (4)	/* The iSCSI login is
++							redirected. */
++#define MGMT_CONN_STATUS_REDIRECTED_PERM (8)	/* Valid only if */
++						/*
++						* MGMT_CONN_STATUS_REDIRECTED
++						* bit is 1 When this bit is set,
++						* the iSCSI login is redirected
++						* permanently else the iSCSI
++						* login is redirected
++						* temporarily
++						*/
++#define MGMT_CONN_STATUS_ISCSI_LOGIN_STATE_INI (16)	/* 1: Initial login
++							state as defined
++							in iSCSI spec  */
++#define MGMT_CONN_STATUS_ISCSI_LOGIN_STATE_SEC (32)	/* 1: Security login
++							state as defined in
++							iSCSI spec  */
++#define MGMT_CONN_STATUS_ISCSI_LOGIN_STATE_OPR (64)	/* 1: Operational
++							login state as defined
++							in iSCSI spec  */
++#define MGMT_CONN_STATUS_ISCSI_LOGIN_STATE_FULL (128)	/* 1: Full login state
++							as defined in  iSCSI
++							spec  */
++#define MGMT_CONN_STATUS_CLOSING        (256)	/* Should be ignored by
++							application */
++#define MGMT_CONN_STATUS_CLOSED         (512)	/* Connection logged out
++							success */
++#define MGMT_CONN_STATUS_CLOSED_IN_RECOVERY (1024)	/* TCP connection is
++							closed for recovery
++							purpose  */
++#define MGMT_CONN_STATUS_OPEN_FAILED    (2048)	/* Login failed */
++#define MGMT_CONN_STATUS_CLOSE_FAILED   (4096)	/* Logout failed */
++
++/*
++ * --- MGMT_CONNECTION_OWNER ---
++ * Application should ignore these bits. These bits are used
++ * by the host driver.
++ */
++#define MGMT_CONN_FLAG_DRIVER_OWNED     (4096)	/* This indicates connection
++						owned by the driver  */
++#define MGMT_CONN_FLAG_FIRMWARE_OWNED   (8192)	/* This indicates connection
++						owned by  the firmware  */
++
++/*
++ * --- MGMT_CONN_LOGIN_OPTIONS_FLAG ---
++ * Bitmap definitions for "flags" in MGMT_CONN_LOGIN_OPTIONS
++ */
++#define MGMT_CONN_LOGIN_OPTIONS_FLAG_IPSEC_ENABLED (1)
++#define MGMT_CONN_LOGIN_OPTIONS_FLAG_DIGEST_CRC32 (2)
++#define MGMT_CONN_LOGIN_OPTIONS_FLAG_LEADING (4)
++
++/*
++ * --- MGMT_SESSION_LOGIN_OPTIONS_FLAGS ---
++ * Bitmap defintions for flags in MGMT_SESSION_LOGIN_OPTIONS
++ */
++#define MGMT_SESSION_LOGIN_OPTIONS_FLAG_INIT_R2T (1)	/* Initial R2T -
++							0: disabled
++							1: enabled  */
++#define MGMT_SESSION_LOGIN_OPTIONS_FLAG_IMMEDIATE_DATA (2) /* ImmediateData -
++								0: disabled
++								1: enabled  */
++#define MGMT_SESSION_LOGIN_OPTIONS_FLAG_DPDU_INORDER (4)  /* Data PDU In order -
++								0:  disabled
++								1: enabled  */
++#define MGMT_SESSION_LOGIN_OPTIONS_FLAG_DSEQ_INORDER (8) /* Data Sequence
++							In order -
++							0:  disabled
++							1: enabled  */
++
++/* --- DEFAULT_MAX_BURST_LENGTH_DEFINE --- */
++#define DEFAULT_MAX_BURST_LENGTH        (262144)
++
++/* --- DEFAULT_MAX_OUTSTANDING_R2T_DEFINE --- */
++#define DEFAULT_MAX_OUTSTANDING_R2T     (1)
++
++
++/*
++ * --- MGMT_DEV_ADDR_MODE ---
++ * Definition of device addressing mode
++ */
++#define MGMT_DEV_ADDR_MODE_PERIPHERAL   (0)
++#define MGMT_DEV_ADDR_MODE_FLAT_SPACE   (1)
++#define MGMT_DEV_ADDR_MODE_LOGICAL_UNIT (2)
++#define MGMT_DEV_ADDR_MODE_EXTENDED_LOGICAL_UNIT (3)
++#define MGMT_DEV_ADDR_MODE_CUSTOM       (4)
++
++/* --- MGMT_UNASSIGNED_OS_BTL_VALUE_ENUM --- */
++#define MGMT_UNASSIGNED_OS_BTL_VALUE    (65535)	/* No OS BTL value is
++							assigned */
++/*
++ * --- MGMT_SLP_PARAMS_FLAG ---
++ * Bitmap definition for flags in MGMT_SLP_PARAMS
++ */
++#define MGMT_SLP_PARAMS_FLAG_DISABLE    (0)	/* SLP Discovery disabled */
++#define MGMT_SLP_PARAMS_FLAG_MULTICAST  (0)	/* Multicast */
++#define MGMT_SLP_PARAMS_FLAG_NOSECURITY (0)	/* Security disabled */
++#define MGMT_SLP_PARAMS_FLAG_ENABLE     (1)	/* SLP Discovery enabled */
++#define MGMT_SLP_PARAMS_FLAG_BROADCAST  (2)	/* Broadcast */
++#define MGMT_SLP_PARAMS_FLAG_SECURITY   (4)	/* Security enabled */
++
++/*
++ * --- MGMT_ISNS_FLAG_CONFIG ---
++ * Definition of flags in MGMT_ISNS_PARAMS
++ */
++#define MGMT_ISNS_FLAG_CONFIG_DISABLE   (0)	/* iSNS Discovery disabled */
++#define MGMT_ISNS_FLAG_CONFIG_ENABLE    (1)	/* iSNS Discovery enabled */
++/* The iSNS server settings are configured manually. If this bit is
++* set, the following must not be set - MGMT_ISNS_FLAG_CONFIG_VIA_HEARTBEAT -
++* MGMT_ISNS_FLAG_CONFIG_VIA_DHCP - MGMT_ISNS_FLAG_CONFIG_VIA_SLP
++*/
++#define MGMT_ISNS_FLAG_CONFIG_MANUAL    (16)
++/* The iSNS server settings are configured via heartbeat mechanism.
++* If this bit is set, the following must not be set -
++* MGMT_ISNS_FLAG_CONFIG_MANUAL - MGMT_ISNS_FLAG_CONFIG_VIA_DHCP -
++* MGMT_ISNS_FLAG_CONFIG_VIA_SLP
++*/
++#define MGMT_ISNS_FLAG_CONFIG_VIA_HEARTBEAT (32)
++/* The iSNS server settings are configured via DHCP If this bit is
++* set, the following must not be set - MGMT_ISNS_FLAG_CONFIG_MANUAL -
++* MGMT_ISNS_FLAG_CONFIG_VIA_HEARTBEAT - MGMT_ISNS_FLAG_CONFIG_VIA_SLP
++*/
++#define MGMT_ISNS_FLAG_CONFIG_VIA_DHCP  (64)
++#define MGMT_ISNS_FLAG_CONFIG_VIA_SLP   (128)
++
++/* --- IOCTL_TYPES_DEFINED_ENUMS --- */
++#define MGMT_ISNS_MAX_SERVER_COUNT      (4)
++#define MGMT_ISNS_WELL_KNOWN_TCP_PORT   (3205)
++#define MGMT_ISNS_WELL_KNOWN_UDP_PORT   (3205)
++
++/* --- ISNS_SERVER_DISCOVERY_MODES --- */
++#define ISNS_SERVER_DISCOVERY_MODE_DHCP (1)	/* Use DHCP to locate iSNS
++							servers */
++#define ISNS_SERVER_DISCOVERY_MODE_SLP  (2)	/* Use SLP to discover iSNS
++							Servers */
++
++
++/*
++ * --- MGMT_DHCP_FLAGS ---
++ * Bit field definition of dhcp_flags in MGMT_TCPIP_CONFIGURATION
++ */
++#define MGMT_DHCP_FLAG_DISABLE_DHCP     (0)
++#define MGMT_DHCP_FLAG_FORCED_RELEASED  (1)
++#define MGMT_DHCP_FLAG_FORCED_RENEW     (2)
++#define MGMT_DHCP_FLAG_ENABLE_DHCP      (4)	/* enable DHCP */
++
++/*
++ * --- MGMT_SUPPORTED_IPVERSIONS ---
++ * Bit definition of support_ipversions
++ */
++#define MGMT_SUPPORTED_IPVERSION_BIT_V4 (1)	/* 0=IPV4 is not supported,
++						1=IPV4 is  supported  */
++#define MGMT_SUPPORTED_IPVERSION_BIT_V6 (2)	/* 0=IPV6 is not supported,
++						1=IPV6 is supported  */
++
++/*
++ * --- MGMT_TCPIPCONFIG_RSVD_FLAG ---
++ * Bit definition of reserved_flags in MGMT_TCPIP_CONFIGURATION
++ */
++/* When set to 0, after the firmware change the HBA IP address, the
++* firmware does NOT need to reconnect all the sessions
++* that is currently closed due to session recovery.
++*/
++#define MGMT_TCPIPCONFIG_RSVD_FLAG_DONOT_RECONNECT_CLOSED_SESSIONS (0)
++/* Only applicable in IOCTL_SET_TCPIP_CONFIG operation. It is not
++  * applicable in IOCTL_GET_TCPIP_CONFIG . When set, after the
++  * firmware change the HBA IP address, the firmware needs to
++  * reconnect all the sessions that is currently closed due
++  * to session recovery. * This only applicable to sessions that has
++  * the status with MGMT_SESSION_STATUS_CL * OSED_IN_RECOVERY = 1.
++  */
++#define MGMT_TCPIPCONFIG_RSVD_FLAG_RECONNECT_CLOSED_SESSIONS (1)
++
++/*
++ * --- MGMT_PORT_SPEED ---
++ * Definition of speed and max_speed in MGMT_NIC_PORT_INFO
++ */
++#define MGMT_PORT_SPEED_NOT_AVAILABLE   (0)
++#define MGMT_PORT_SPEED_TEN_BASE_T      (1)
++#define MGMT_PORT_SPEED_HUNDRED_BASE_T  (2)
++#define MGMT_PORT_SPEED_GIGABIT         (3)
++#define MGMT_PORT_SPEED_TEN_GIGABIT     (4)
++
++/*
++ * --- MGMT_LINK_STATE ---
++ * Definition of link_state in MGMT_NIC_PORT_INFO
++ */
++#define MGMT_LINK_STATE_DOWN            (0)
++#define MGMT_LINK_STATE_UP              (1)
++
++/*
++ * --- MGMT_HBA_SUPPORT ---
++ * Bit map definition for functionalities_supported in MGMT_HBA_ATTRIBUTES
++ */
++#define MGMT_HBA_SUPPORT_PRESHARED_KEY_CACHE (1)
++#define MGMT_HBA_SUPPORT_ISCSI_AUTHENTICATION_CACHE (2)
++#define MGMT_HBA_SUPPORT_IPSEC_TUNNEL_MODE (4)
++#define MGMT_HBA_SUPPORT_CHAP_VIA_RADIUS (8)
++#define MGMT_HBA_SUPPORT_ISNS_DISCOVERY (16)
++#define MGMT_HBA_SUPPORT_SLP_DISCOVERY  (32)
++#define MGMT_HBA_SUPPORT_BIDISCSICMDS   (64)
++#define MGMT_HBA_SUPPORT_DNS            (128)
++
++/*
++ * --- MGMT_HBA_STATUS ---
++ * Definitions for hba_status in MGMT_HBA_ATTRIBUTES
++ */
++#define MGMT_HBA_STATUS_WORKING         (0) /* The ARM is currently running
++						the primary firmware image  */
++#define MGMT_HBA_STATUS_DEGRADED        (1)	/* The ARM is currently
++						running the secondary firmware
++						image.  */
++#define MGMT_HBA_STATUS_CRITICAL        (2)
++#define MGMT_HBA_STATUS_FAILED          (3)
++
++/* --- VLD_STATUS_ENUM --- */
++#define VLD_DISABLED                    (0)
++#define VLD_ENABLED                     (1)
++
++/* --- ASIC_REV_ENUM --- */
++#define ASIC_REV_A0                     (0)
++#define ASIC_REV_A1                     (1)
++
++
++/*
++ * --- MGMT_HBA_IF_TYPES ---
++ * Controller Attributes
++ */
++#define MGMT_HBA_IF_TYPE_INITIATOR      (1)
++#define MGMT_HBA_IF_TYPE_TARGET         (2)
++
++
++/*
++ * --- FLASHROM_OFFSET ---
++ * Offsets for all components on Flash.
++ */
++#define FLASH_LPCISM_REGISTERS          (0)
++#define FLASH_REDBOOT_START             (32768)
++#define FLASH_REDBOOT_SPARE             (262144)
++#define FLASH_FAT_START                 (524288)
++#define FLASH_UFI_COPYRIGHT_DIR         (786432)
++#define FLASH_DEBUG_PRINT_START         (917504)
++#define FLASH_PRIMARY_IMAGE_START       (1048576)
++#define FLASH_BACKUP_IMAGE_START        (3670016)
++#define FLASH_CFG_INI_START             (6291456)
++#define FLASH_CFG_IPSEC_XML_START       (7077888)
++#define FLASH_CFG_IPSEC_CERT_START      (7208960)
++#define FLASH_BIOS_START                (7340032)
++#define FLASH_BIOS_CTRL_S_START         (7372800)
++#define FLASH_PXE_BIOS_START            (7602176)
++#define FLASH_EVENTLOG_START            (7864320)
++#define FLASH_REDBOOT_CONFIG            (8126464)
++#define FLASH_REDBOOT_DIRECTORY         (8257536)
++
++/* --- FLASHROM_FIRMWARE_DEFINES --- */
++#define FLASH_IMAGE_ENTRY        (262144) /* Entry point of firmware image */
++#define FLASH_CFG_INI_CONFIG_SIZE (786432)  /* Initiator Config Size is
++						1M - 256K */
++#define FLASH_IMAGE_MAX_SIZE      (3145728) /* Maximum firmware image size */
++
++/* --- FLASHROM_FIS_DEFINES --- */
++#define FIS_PRIMARY_IMAGE_INDEX         (3)
++#define FIS_BACKUP_IMAGE_INDEX          (4)
++#define FIS_DIR_ENTRY_SIZE              (256)
++#define FIS_DIR_SIZE                    (1280)
++#define FIS_CONFIG_SIZE                 (4096)
++
++/* --- FLASHROM_EVENTLOG_DEFINES --- */
++#define FLASH_EVENTLOG_SECTOR_CNT       (2)
++
++/* --- FLASHROM_FAT_DEFINES --- */
++#define FLASH_FAT_SIZE                  (262144)
++
++
++/* --- FLASHROM_UFI_DEFINES --- */
++#define FLASH_UFI_SIGNATURE_SIZE        (32)
++#define FLASH_UFI_HEADER_SIZE           (96)
++#define FLASH_UFI_BIN_SIZE              (8388608)
++/* --- IMAGE_ENTRY_TYPE --- */
++#define IMAGE_OPTION_ROM                (32)	/* contains iscsi+pxe bios */
++#define IMAGE_MGMT_FIRMWARE             (160)
++#define IMAGE_FIRMWARE_COMP             (161)
++#define IMAGE_FIRMWARE_BACKUP           (176)
++#define IMAGE_FIRMWARE_BACKUP_COMP      (177)	/* contains backup firmware
++						compressed */
++#define IMAGE_BOOT_CODE                 (224)
++
++
++#ifdef SG_PRAGMA_PACK
++#pragma pack(pop)
++#endif
++
++#endif /* __ioctl_types_amap_h__ */
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_common.h benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_common.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_common.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/fw/amap/ioctl_common.h	2008-02-14 15:23:07.821203760 +0530
+@@ -0,0 +1,260 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __ioctl_common_amap_h__
++#define __ioctl_common_amap_h__
++#include "setypes.h"
++#include "ioctl_types.h"
++#include "ioctl_hdr.h"
++#include "ioctl_defs.h"
++#include "host_struct.h"
++
++#undef SG_PACK
++#if defined(SG_PRAGMA_PACK)
++#pragma pack(push, 1)
++#define SG_PACK
++#elif defined(SG_ATTRIBUTE_PACK)
++#define SG_PACK __attribute__ ((packed))
++#else
++#define SG_PACK
++#endif
++
++#ifndef SG_STATIC_INLINE
++#define SG_STATIC_INLINE static inline
++#endif
++/* --- PHY_LINK_DUPLEX_ENUM --- */
++#define PHY_LINK_DUPLEX_NONE     (0)
++#define PHY_LINK_DUPLEX_HALF     (1)
++#define PHY_LINK_DUPLEX_FULL     (2)
++
++/* --- PHY_LINK_SPEED_ENUM --- */
++#define PHY_LINK_SPEED_ZERO      (0)	/* No link. */
++#define PHY_LINK_SPEED_10MBPS    (1)	/* 10 Mbps */
++#define PHY_LINK_SPEED_100MBPS   (2)	/* 100 Mbps */
++#define PHY_LINK_SPEED_1GBPS     (3)	/* 1 Gbps */
++#define PHY_LINK_SPEED_10GBPS    (4)	/* 10 Gbps */
++
++/* --- PHY_LINK_FAULT_ENUM --- */
++#define PHY_LINK_FAULT_NONE      (0)	/* No fault status available
++					   or detected */
++#define PHY_LINK_FAULT_LOCAL     (1)	/* Local fault detected */
++#define PHY_LINK_FAULT_REMOTE    (2)	/* Remote fault detected */
++
++/* --- BE_ULP_MASK --- */
++#define BE_ULP0_MASK             (1)
++#define BE_ULP1_MASK             (2)
++#define BE_ULP2_MASK             (4)
++
++/* --- NTWK_ACTIVE_PORT --- */
++#define NTWK_PORT_A              (0)	/* Port A is currently active */
++#define NTWK_PORT_B              (1)	/* Port B is currently active */
++#define NTWK_NO_ACTIVE_PORT      (15)	/* Both ports have lost link */
++
++/* --- NTWK_LINK_TYPE --- */
++#define NTWK_LINK_TYPE_PHYSICAL  (0)	/* The associated link up/down event
++					 * applies to the BladeEngine's
++					 * Physical Ports
++					 */
++#define NTWK_LINK_TYPE_VIRTUAL   (1)	/* A Virtual link up/down event is
++					 * being reported by the BladeExchange.
++					 * This applies only when the VLD is
++					 * feature enabled
++					 */
++
++/*
++ * --- IOCTL_MAC_TYPE_ENUM ---
++ * This enum defines the types of MAC addresses in the RXF MAC Address Table.
++ */
++#define MAC_ADDRESS_TYPE_STORAGE        (0)	/* Storage MAC Address */
++#define MAC_ADDRESS_TYPE_NETWORK        (1)	/* Network MAC Address */
++#define MAC_ADDRESS_TYPE_PD             (2)	/* Protection Domain
++						   MAC Address */
++#define MAC_ADDRESS_TYPE_MANAGEMENT     (3)	/* Managment MAC Address */
++
++SG_STATIC_INLINE const char *ioctl_mac_type_enum_get_name(u32 enum_value)
 +{
-+	return (u32) (quad);
-+}
-+
-+static inline u64 sa_make_u64(u32 hi, u32 lo) {
-+	return (((u64) hi) << 32) | lo;
-+}
-+
-+static inline u32 sa_pvoid_hi(PVOID p)
-+{
-+	return sa_hi(SA_PTR_TO_U64(p));
-+}
-+
-+static inline u32 sa_pvoid_lo(PVOID p)
-+{
-+	return sa_lo(SA_PTR_TO_U64(p));
-+}
-+
-+static inline PVOID sa_make_pvoid(u32 hi, u32 lo) {
-+	return SA_U64_TO_PTR(sa_make_u64(hi, lo)); }
-+
-+/* Returns byte offset of field within given struct type. */
-+#define SA_FIELD_OFFSET(_type_, _field_)              \
-+	(SA_PTR_TO_U32((u8 *)&(((_type_ *)0)->_field_)))
-+
-+/* Returns byte size of given field with a structure. */ #define 
-+SA_SIZEOF_FIELD(_type_, _field_)  \
-+	sizeof(((_type_ *)0)->_field_)
-+
-+/* Returns the number of items in the field array. */
-+#define SA_NUMBER_OF_FIELD(_type_, _field_)                                \
-+	(SA_SIZEOF_FIELD(_type_, _field_)/sizeof((((_type_ *)0)->_field_[0])))
-+
-+/* Explicitly acknowledges that an input parameter is ignored. */ 
-+#define SA_UNREFERENCED_PARAMETER(_p_)  ((_p_) = (_p_))
-+#define SA_NOT_USED SA_UNREFERENCED_PARAMETER	/* abbreviation */
-+
-+/* Returns x/y plus 1 if there is a remainder. */ static inline u32 
-+sa_ceiling(u32 x, u32 y) {
-+	ASSERT(y > 0);
-+	return (x + y - 1) / y;
-+}
-+
-+/*
-+ * Round Up Increment
-+ * Returns number to add to x to round up to next multiple
-+ * of y.  If x is multiple of y it returns 0.
-+ */
-+static inline u32 sa_round_up_inc(u32 x, u32 y) {
-+	u32 z;
-+	ASSERT(y > 0);
-+	z = x % y;
-+	return (z > 0 ? y - z : 0);
-+}
-+
-+/*
-+ * Returns x rounded to next multiple of y.  If x is a multiple
-+ * of y, it returns x.
-+ */
-+static inline u32 sa_round_up(u32 x, u32 y) {
-+	return x + sa_round_up_inc(x, y);
-+}
-+
-+/*
-+ * circular subtract.
-+ * Returns a - b assuming a circular number system, where a and b are
-+ * in range (0, maxValue-1). If a==b, zero is returned so the
-+ * highest value possible with this subtraction is maxValue-1.
-+ */
-+static inline u32 sa_subc(u32 a, u32 b, u32 max) {
-+	ASSERT(a <= max && b <= max);
-+	ASSERT(max > 0);
-+	return (a >= b ? (a - b) : (max - b + a)); }
-+
-+static inline u32 sa_addc(u32 a, u32 b, u32 max) {
-+	ASSERT(a < max);
-+	ASSERT(max > 0);
-+	return ((max - a > b) ? (a + b) : (b + a - max)); }
-+
-+#define C_LT(a, b)   ((i32)((a)-(b)) < 0)
-+#define C_LE(a, b)   ((i32)((a)-(b)) <= 0)
-+#define C_GT(a, b)   ((i32)((a)-(b)) > 0)
-+#define C_GE(a, b)   ((i32)((a)-(b)) >= 0)
-+
-+/*------ List manipulation functions and macros ----*/
-+
-+/*
-+ * Calculate the address of the base of the structure given its type, 
-+and an
-+ * address of a field within the structure.
-+ */
-+#define SA_CONTAINING_RECORD(_address_, _type_, _field_) \
-+	((_type_ *)((u8 *)(_address_) - (u8 *)(&((_type_ *)0)->_field_)))
-+
-+typedef struct list_head SA_LIST_ENTRY; typedef struct list_head 
-+*PSA_LIST_ENTRY;
-+
-+#define SA_FOR_EACH_LIST_ENTRY(_LE, _LH, _TYPE, _LF)                   \
-+	for ((_LE) =  SA_CONTAINING_RECORD((_LH).next, _TYPE, _LF.next); \
-+		&(_LE)->_LF != &(_LH);                          \
-+		(_LE) = SA_CONTAINING_RECORD((_LE)->_LF.next,   \
-+		_TYPE, _LF.next))
-+
-+
-+
-+#define	sa_initialize_list_head		INIT_LIST_HEAD
-+#define sa_is_list_empty 		list_empty
-+#define IsListEmpty 			list_empty
-+#define sa_remove_entry_list 		list_del
-+#define sa_insert_tail_list(H, E)	list_add_tail(E, H)
-+#define InsertTailList(H, E)		list_add_tail(E, H)
-+#define	sa_insert_head_list(H, E)	list_add(E, H)
-+#define RemoveHeadList		sa_remove_head_list
-+
-+static
-+inline PSA_LIST_ENTRY sa_list_head(IN PSA_LIST_ENTRY head) {
-+	if (head->next == head)
-+		return ((PSA_LIST_ENTRY) 0);
-+	else
-+		return (head->next);
-+}
-+
-+static
-+inline PSA_LIST_ENTRY sa_remove_head_list(IN PSA_LIST_ENTRY head) {
-+	PSA_LIST_ENTRY entry = head->next;
-+
-+	list_del((struct list_head *)entry);
-+	return (entry);
-+}
-+
-+static
-+inline PSA_LIST_ENTRY sa_remove_tail_list(IN PSA_LIST_ENTRY head) {
-+	PSA_LIST_ENTRY entry = head->prev;
-+
-+	list_del((struct list_head *)entry);
-+	return (entry);
-+}
-+
-+/*------- Memory Allocation / copy related ------*/
-+
-+typedef struct _SA_SGL {
-+	u32 length;
-+	PVOID va;
-+	u64 pa;
-+} SA_SGL, *PSA_SGL;
-+
-+/*
-+ * simple compile time assert to verify the length of the input string.
-+ * The gcc compiler optimizes the entire thing to a constant with -02.
-+ */
-+#define SA_TAG(__four_char_string__) ({			\
-+	SA_GLOBAL_C_ASSERT(tag_must_be_4_char,		\
-+		sizeof(__four_char_string__) == 5);	\
-+	(((u32)(__four_char_string__[3])<<24) |		\
-+	((u32)(__four_char_string__[2])<<16) |		\
-+	((u32)(__four_char_string__[1])<<8)  |		\
-+	((u32)(__four_char_string__[0])));		\
-+})
-+#define SA_ZERO_MEM(_ptr_) 	sa_zero_mem((_ptr_), sizeof(*(_ptr_)))
-+
-+static inline u32 sa_sgl_get_byte_count(IN PSA_SGL sgl) {
-+	ASSERT(sgl);
-+	return sgl->length;
-+}
-+
-+static inline u32 sa_sgl_get_page_count(PSA_SGL sgl) {
-+	ASSERT(sgl);
-+	return SA_PAGES_SPANNED(sgl->va, sgl->length); }
-+
-+static inline PVOID sa_sgl_get_base_va(IN PSA_SGL sgl) {
-+	ASSERT(sgl);
-+	return sgl->va;
-+}
-+
-+static inline u32 sa_sgl_get_offset(PSA_SGL sgl) {
-+	ASSERT(sgl);
-+	return SA_PAGE_OFFSET(sgl->va);
-+}
-+
-+static inline SA_PHYSICAL_ADDRESS
-+sa_sgl_get_page(IN PSA_SGL sgl, IN u32 page_index) {
-+	SA_PHYSICAL_ADDRESS pa;
-+
-+	ASSERT(sgl);
-+	ASSERT(page_index < sa_sgl_get_page_count(sgl));
-+
-+	if (page_index == 0) {
-+		pa = virt_to_phys(sgl->va);
-+		pa &= ~(SA_PAGE_SIZE - 1);	/* next lower pa */
-+	} else {
-+		u64 va = SA_PTR_TO_U64(sgl->va) & ~(SA_PAGE_SIZE - 1);
-+		va += page_index * SA_PAGE_SIZE; /* offset to correct page  */
-+		pa = virt_to_phys(SA_U64_TO_PTR(va));
++	switch (enum_value) {
++	case MAC_ADDRESS_TYPE_STORAGE:
++		return "MAC_ADDRESS_TYPE_STORAGE";
++	case MAC_ADDRESS_TYPE_NETWORK:
++		return "MAC_ADDRESS_TYPE_NETWORK";
++	case MAC_ADDRESS_TYPE_PD:
++		return "MAC_ADDRESS_TYPE_PD";
++	case MAC_ADDRESS_TYPE_MANAGEMENT:
++		return "MAC_ADDRESS_TYPE_MANAGEMENT";
++	default:
++		break;
 +	}
++	return "";		/* undefined enum value */
++};
 +
-+	ASSERT(pa);
++/* --- IOCTL_RING_TYPE_ENUM --- */
++#define IOCTL_RING_TYPE_ETH_RX   (1)	/* Ring created with */
++					   /* IOCTL_COMMON_ETH_RX_CREATE. */
++#define IOCTL_RING_TYPE_ETH_TX   (2)	/* Ring created with */
++					  /* IOCTL_COMMON_ETH_TX_CREATE. */
++#define IOCTL_RING_TYPE_ISCSI_WRBQ (3)	/* Ring created with */
++					/* IOCTL_COMMON_ISCSI_WRBQ_CREATE. */
++#define IOCTL_RING_TYPE_ISCSI_DEFQ (4)	/* Ring created with */
++					 /* IOCTL_COMMON_ISCSI_DEFQ_CREATE. */
++#define IOCTL_RING_TYPE_TPM_WRBQ   (5)	/* Ring created with */
++					 /* IOCTL_COMMON_TPM_WRBQ_CREATE. */
++#define IOCTL_RING_TYPE_TPM_DEFQ   (6)	/* Ring created with */
++					  /* IOCTL_COMMONTPM_TDEFQ_CREATE. */
++#define IOCTL_RING_TYPE_TPM_RQ     (7)	/* Ring created with */
++					/* IOCTL_COMMON_TPM_RQ_CREATE. */
++#define IOCTL_RING_TYPE_MCC        (8)	/* Ring created with */
++					 /* IOCTL_COMMON_MCC_CREATE. */
++#define IOCTL_RING_TYPE_CQ         (9)	/* Ring created with */
++					  /* IOCTL_COMMON_CQ_CREATE. */
++#define IOCTL_RING_TYPE_EQ         (10)	/* Ring created with */
++					/* IOCTL_COMMON_EQ_CREATE. */
++#define IOCTL_RING_TYPE_QP         (11)	/* Ring created with */
++					/* IOCTL_RDMA_QP_CREATE. */
 +
-+	/* must return page aligned address. */
-+	ASSERT(SA_PAGE_ALIGN(SA_U64_TO_PTR(pa)) == SA_U64_TO_PTR(pa));
-+	return cpu_to_le64(pa);
-+}
++/* --- ETH_TX_RING_TYPE_ENUM --- */
++#define ETH_TX_RING_TYPE_FORWARDING     (1) /* Eth ring for forwarding
++					       packets */
++#define ETH_TX_RING_TYPE_STANDARD       (2) /* Eth ring for sending network */
++#define ETH_TX_RING_TYPE_BOUND          (3) /* Eth ring bound to the port */
++					    /* packets. */
++					/*
++					* specified in the IOCTL
++					* header.port_number field. Rings of
++					* this type are NOT subject to the
++					* failover logic implemented in the
++					* BladeEngine.
++					*/
++
++/* --- IOCTL_COMMON_QOS_TYPE_ENUM --- */
++#define QOS_BITS_NIC     (1) /* The max_bits_per_second_NIC field is valid.  */
++#define QOS_PKTS_NIC     (2) /* The max_packets_per_second_NIC field valid.  */
++#define QOS_IOPS_ISCSI   (4) /* The max_ios_per_second_iSCSI field is valid.  */
++#define QOS_VLAN_TAG     (8) /* The domain_VLAN_tag field is valid. */
++#define QOS_FABRIC_ID    (16) /* The fabric_domain_ID field is valid. */
++#define QOS_OEM_PARAMS   (32) /* The qos_params_oem field is valid. */
++#define QOS_TPUT_ISCSI   (64) /* The max_bytes_per_second_iSCSI field valid.  */
++/*
++ * --- FAILOVER_CONFIG_ENUM ---
++ * Failover configuration setting used in IOCTL_COMMON_FORCE_FAILOVER
++ */
++#define FAILOVER_CONFIG_NO_CHANGE (0) /* No change to automatic port failover */
++				      /* setting. */
++#define FAILOVER_CONFIG_ON        (1) /* Automatic port failover on link down */
++				      /* is enabled. */
++#define FAILOVER_CONFIG_OFF       (2) /* Automatic port failover on link down */
++				      /* is disabled. */
 +
 +/*
-+ * Optimized as the kernel version for the given platform.
-+ *static inline void*
++ * --- FAILOVER_PORT_ENUM ---
++ * Failover port setting used in IOCTL_COMMON_FORCE_FAILOVER
 + */
-+static inline void *sa_zero_mem(void *ptr, u32 bytes) {
-+	return memset(ptr, 0, (SA_SIZE_T) bytes); }
-+
-+static inline void *sa_memset(PVOID ptr, u32 value, u32 bytes) {
-+	return memset(ptr, value, (SA_SIZE_T) bytes); }
-+
-+static inline void *sa_memcpy(PVOID dest, const void *src, u32 bytes) {
-+	return memcpy(dest, src, (SA_SIZE_T) bytes); }
-+
-+/* Returns value of dest. */
-+static inline void *sa_memmove(PVOID dest, const void *src, u32 bytes) 
-+{
-+	return (void *)memmove(dest, src, (SA_SIZE_T) bytes); }
-+
-+static inline i32 sa_memcmp(const void *a, const void *b, u32 bytes) {
-+	return memcmp(a, b, (SA_SIZE_T) bytes); }
-+
-+/*----- Device I/O related ---------*/
-+
-+typedef enum {
-+	SA_BAR_TYPE_INVALID = 0,
-+
-+	SA_BAR_TYPE_BOOT,
-+	SA_BAR_TYPE_CSR,
-+	SA_BAR_TYPE_PD,
-+	SA_BAR_TYPE_PCI,
-+
-+	SA_BAR_TYPE_MAX
-+} SA_DEV_BAR_TYPE;
++#define FAILOVER_PORT_A                 (0)	/* Selects port A. */
++#define FAILOVER_PORT_B                 (1)	/* Selects port B. */
++#define FAILOVER_PORT_NONE              (15)	/* No port change requested. */
 +
 +/*
-+ * MemOrIOMapped has the following two values
-+ * for reference purpose
++ * --- MGMT_FLASHROM_OPCODE ---
++ * Flash ROM operation code
 + */
-+typedef enum {
-+	SA_IO_MAPPED = 0x01,
-+	SA_MEM_MAPPED = 0x02
-+} SA_DEV_MAPPED_TYPE;
-+
-+typedef struct _SA_DEV_BAR_LOCATIONS {
-+	void *base_va;		/* Virtual Address */
-+	u64 base_pa;		/* Physical Address */
-+	u32 length;		/* Length of register space */
-+
-+	SA_DEV_MAPPED_TYPE mem_or_io_mapped;	/* io or memory mapped */
-+	SA_DEV_BAR_TYPE type;	/* What is this BAR used for. */
-+
-+} SA_DEV_BAR_LOCATIONS, *PSA_DEV_BAR_LOCATIONS;
-+
-+typedef u64 SA_DEV_BUS_ADDRESS, *PSA_DEV_BUS_ADDRESS;
++#define MGMT_FLASHROM_OPCODE_FLASH      (1) /* Commit downloaded data to
++						Flash ROM */
++#define MGMT_FLASHROM_OPCODE_SAVE       (2) /* Save downloaded data to
++						ARM's DDR - do not flash */
++#define MGMT_FLASHROM_OPCODE_CLEAR      (3) /* Erase specified component
++						from Flash ROM */
++#define MGMT_FLASHROM_OPCODE_REPORT     (4) /* Read specified component
++						from Flash ROM */
++#define MGMT_FLASHROM_OPCODE_IMAGE_INFO (5) /* Returns size of a component */
 +
 +/*
-+ * The device object uses a "magic" field to help catch memory
-+ * corruption bugs.  It is initialized to the magic number defined here
-+ * and ASSERTS verify this number in all other functions.
++ * --- MGMT_FLASHROM_OPTYPE ---
++ * Flash ROM operation type
 + */
-+#define SA_DEV_MAGIC (0x12345678)
-+#define SA_DEV_ASSERT(_pdev_) ASSERT ((_pdev_)->magic == SA_DEV_MAGIC) 
-+#define SA_DEV_MAX_BARS (8)
-+/*
-+ * Context structure passed to create the device object.  This is the
-+ * device extension for the storage miniport.
-+ */
-+typedef PVOID SA_DEV_OS_HANDLE, *PSA_DEV_OS_HANDLE;
-+/*
-+ * Device Object
-+ */
-+typedef struct _SA_DEV {
-+	u32 magic;
-+	u32 num_bars;
-+	SA_DEV_BAR_LOCATIONS bars[SA_DEV_MAX_BARS];
-+	u32 csr_bar_num, pd_bar_num, pci_bar_num; } SA_DEV, *PSA_DEV;
++#define MGMT_FLASHROM_OPTYPE_CODE_FIRMWARE (0) /* Includes ARM firmware,
++						IPSec (optional) and
++						EP firmware  */
++#define MGMT_FLASHROM_OPTYPE_CODE_REDBOOT (1)
++#define MGMT_FLASHROM_OPTYPE_CODE_BIOS  (2)
++#define MGMT_FLASHROM_OPTYPE_CODE_PXE_BIOS (3)
++#define MGMT_FLASHROM_OPTYPE_CODE_CTRLS (4)
++#define MGMT_FLASHROM_OPTYPE_CFG_IPSEC  (5)
++#define MGMT_FLASHROM_OPTYPE_CFG_INI    (6)
++#define MGMT_FLASHROM_OPTYPE_ROM_OFFSET_SPECIFIED (7)	/* TBD */
++
 +
 +/*
-+ * This assumes that each type defines the members "bars" and "num_bars"
-+ * Returns the bar number, or ~0 if the given type doesn't exist.
++ * --- FLASHROM_TYPE ---
++ * Flash ROM manufacturers supported in the f/w
 + */
-+static inline u32 sa_get_bar_num(SA_DEV *dev, SA_DEV_BAR_TYPE type) {
-+	u32 i;
-+	for (i = 0; i < dev->num_bars; i++) {
-+		if (type == dev->bars[i].type) {
-+			return i;
-+		}
-+	}
-+
-+	return ~(u32) 0;
-+}
-+
-+/* Internal function. */
-+static inline void _sa_cache_bar_nums(SA_DEV *dev) {
-+	dev->csr_bar_num = sa_get_bar_num(dev, SA_BAR_TYPE_CSR);
-+	dev->pd_bar_num = sa_get_bar_num(dev, SA_BAR_TYPE_PD);
-+	dev->pci_bar_num = sa_get_bar_num(dev, SA_BAR_TYPE_PCI); }
-+
-+/* Assume these values are cached in the sa_dev. */ static inline u32 
-+sa_get_csr_bar(SA_DEV *dev) {
-+	return dev->csr_bar_num;
-+}
-+
-+static inline u32 sa_get_pd_bar(SA_DEV *dev) {
-+	return dev->pd_bar_num;
-+}
-+
-+static inline u32 sa_get_pci_bar(SA_DEV *dev) {
-+	return dev->pci_bar_num;
-+}
-+
-+SA_STATUS
-+sa_dev_create(SA_DEV_BAR_LOCATIONS *, u32, SA_DEV_OS_HANDLE, SA_DEV *); 
-+void sa_dev_destroy(SA_DEV *);
-+
-+u32 sa_dev_read_u32(SA_DEV *dev, u32 bar, u32 offset); void 
-+sa_dev_write_u32(SA_DEV *dev, u32 bar, u32 offset, u32 value); void 
-+sa_dev_stall(SA_DEV *dev, u32 us_to_stall);
-+
-+/*
-+ *------- ring manipulation related ------
-+ * This structure stores information about a ring shared between 
-+hardware
-+ * and software.  Each ring is allocated by the driver in the uncached
-+ * extension and mapped into BladeEngine's unified table.  BEKLIB 
-+manages
-+ * creation and destruction of the rings in hardware.  It returns the
-+ * corresponding HANDLE to the ring.
-+ */
-+typedef struct _SA_RING {
-+	u32 pages;		/* queue size in pages */
-+	u32 id;			/* queue id assigned by beklib */
-+	u32 num;		/* number of elements in queue */
-+	u32 cidx;		/* consumer index */
-+	u32 pidx;		/* producer index -- not used by most rings */
-+	u32 itemSize;		/* size in bytes of one object */
-+
-+	PVOID va;		/* The virtual address of the ring.
-+				   This should be last to allow 32 & 64
-+				   bit debugger extensions to work. */
-+
-+} SA_RING, *PSA_RING;
-+
-+#define SA_RING_FOREACH_ITEM(_pRing_, _pItem_, _type_,_code_) \
-+{							\
-+	u32 ring_num_pending = sa_ring_num_pending((_pRing_)); \
-+	u32 ring_index; \
-+	for (ring_index = 0; ring_index < ring_num_pending; ring_index++) { \
-+		_pItem_ = (_type_)((u8 *)(_pRing_)->va + \
-+		(_pRing_)->itemSize * \
-+		(((_pRing_)->cidx + ring_index) % (_pRing_)->num));  \
-+		ASSERT(sizeof (*(_pItem_)) == (_pRing_)->itemSize); \
-+		_code_  \
-+	}  \
-+}  \
-+
-+static
-+inline void sa_ring_create(PSA_RING ring,
-+			       u32 num, u32 itemSize, PVOID va) {
-+	ASSERT(ring);
-+	sa_zero_mem(ring, sizeof(SA_RING));
-+	ring->num = num;
-+	ring->pages = sa_ceiling(num * itemSize, SA_PAGE_SIZE);
-+	ring->itemSize = itemSize;
-+	ring->va = va;
-+}
-+
-+static inline void sa_ring_set_id(PSA_RING ring, u32 id) {
-+	ASSERT(ring);
-+	ring->id = id;
-+}
-+
-+static inline u32 sa_ring_num(PSA_RING ring) {
-+	ASSERT(ring);
-+	return ring->num;
-+}
-+
-+static inline PVOID sa_ring_va(PSA_RING ring) {
-+	ASSERT(ring);
-+	return ring->va;
-+}
-+
-+static inline void sa_ring_clear(PSA_RING ring) {
-+	ASSERT(ring);
-+	ring->pidx = ring->cidx = 0;
-+}
-+
-+/*
-+ * 
-+-----------------------------------------------------------------------
-+ * Interface for 2 index rings. i.e. consumer/producer rings
-+ * 
-+-----------------------------------------------------------------------
-+---
-+ */
-+
-+/* Returns TRUE if ring is empty */
-+static inline boolean sa_ring_is_empty(PSA_RING ring) {
-+	ASSERT(ring);
-+	return (ring->pidx == ring->cidx);
-+}
-+
-+/* Define the power2 version equivalent */ #define 
-+sa_ring_power2_is_empty sa_ring_is_empty
-+
-+/* Returns number items pending on ring. */ static inline u32 
-+sa_ring_num_pending(PSA_RING ring) {
-+	ASSERT(ring);
-+	if (ring->num == 0) {
-+		return 0;
-+	}
-+	return sa_subc(ring->pidx, ring->cidx, ring->num); }
-+
-+/* Returns number items free on ring. */ static inline u32 
-+sa_ring_num_empty(PSA_RING ring) {
-+	ASSERT(ring);
-+	return ring->num - 1 - sa_ring_num_pending(ring); }
-+
-+/* Returns TRUE if ring is full */
-+static inline boolean sa_ring_is_full(PSA_RING ring) {
-+	ASSERT(ring);
-+	return sa_ring_num_pending(ring) == (ring->num - 1); }
-+
-+/* Consume 1 item */
-+static inline void sa_ring_consume(PSA_RING ring) {
-+	ASSERT(ring);
-+	ASSERT(!sa_ring_is_empty(ring));
-+	ring->cidx = sa_addc(ring->cidx, 1, ring->num); }
-+
-+/* Produce 1 item */
-+static inline void sa_ring_produce(PSA_RING ring) {
-+	ASSERT(ring);
-+	ASSERT(!sa_ring_is_full(ring));
-+	ring->pidx = sa_addc(ring->pidx, 1, ring->num); }
-+
-+/* Consume count items */
-+static inline void sa_ring_consume_multiple(PSA_RING ring, u32 count) {
-+	ASSERT(ring);
-+	ASSERT(sa_ring_num_pending(ring) >= count);
-+	ring->cidx = sa_addc(ring->cidx, count, ring->num); }
-+
-+static inline PVOID sa_ring_item(PSA_RING ring, u32 index) {
-+	ASSERT(ring);
-+	ASSERT(index < ring->num);
-+	ASSERT(ring->itemSize > 0);
-+	return (u8 *) ring->va + index * ring->itemSize; }
-+
-+#define sa_ring_power2_item sa_ring_item
-+
-+/* Ptr to produce item */
-+static inline PVOID sa_ring_producer_ptr(PSA_RING ring) {
-+	ASSERT(ring);
-+	ASSERT(!sa_ring_is_full(ring));
-+	return sa_ring_item(ring, ring->pidx); }
-+
-+#define sa_ring_power2_producer_ptr sa_ring_producer_ptr
-+
-+/*
-+ * Returns a pointer to the current location in the ring.
-+ * This is used for rings with 1 index.
-+ */
-+static inline PVOID sa_ring_current(PSA_RING ring) {
-+	ASSERT(ring);
-+	ASSERT(ring->pidx == 0);	/* not used */
-+
-+	return sa_ring_item(ring, ring->cidx); }
-+
-+/* Ptr to consume item */
-+static inline PVOID sa_ring_consumer_ptr(PSA_RING ring) {
-+	ASSERT(ring);
-+	ASSERT(!sa_ring_is_empty(ring));
-+	return sa_ring_item(ring, ring->cidx); }
-+
-+#define sa_ring_power2_current sa_ring_current
-+
-+/*
-+ * Increment index for rings with only 1 index.
-+ * This is used for rings with 1 index.
-+ */
-+static inline PVOID sa_ring_next(PSA_RING ring) {
-+	ASSERT(ring);
-+	ASSERT(ring->num > 0);
-+	ASSERT(ring->pidx == 0);	/* not used */
-+
-+	ring->cidx = sa_addc(ring->cidx, 1, ring->num);
-+	return sa_ring_current(ring);
-+}
-+
-+/*
-+ * Each bit is 1 byte in array maps.
-+ */
-+typedef u8 AMAP_BIT;
-+typedef AMAP_BIT BE_BIT;
-+
-+/* Returns 0-31 representing bit offset within a DWORD of a bitfield. */
-+#define AMAP_BIT_OFFSET(_struct_, _register_)                   \
-+	(((SA_SIZE_T)&(((BE_ ## _struct_ ## _AMAP *)0)->_register_))%32)
-+
-+
-+/* Returns 0-n representing byte offset of bitfield with the structure. */
-+#define AMAP_BYTE_OFFSET(_struct_, _register_)                  \
-+	(((SA_SIZE_T)&(((BE_ ## _struct_ ## _AMAP *)0)->_register_))/8)
-+
-+/* Returns 0-n representing DWORD offset of bitfield within the 
-+structure. */ #define AMAP_WORD_OFFSET(_struct_, _register_)  \
-+  (AMAP_BYTE_OFFSET(_struct_, _register_)/4)
-+
-+/*-------- spinlock / mutex related -------*/
-+
-+typedef spinlock_t SA_REAL_SPINLOCK, *PSA_REAL_SPINLOCK; typedef 
-+spinlock_t SA_SPINLOCK, *PSA_SPINLOCK; typedef struct semaphore 
-+SA_FAST_MUTEX, *PSA_FAST_MUTEX; typedef struct semaphore SA_EVENT, 
-+*PSA_EVENT; typedef u64 SA_IRQ, *PSA_IRQ;
-+
-+#define sa_init_spinlock           sa_init_spinlock_real
-+#define sa_acquire_spinlock        sa_acquire_spinlock_real
-+#define sa_release_spinlock        sa_release_spinlock_real
-+#define sa_acquire_spinlock_noirq  sa_acquire_spinlock_noirq_real 
-+#define sa_release_spinlock_noirq  sa_release_spinlock_noirq_real
-+#define sa_is_spin_lock_held       sa_is_spin_lock_held_real
-+#define sa_is_spinlock_not_held    sa_is_spinlock_not_held_real
-+
-+void sa_init_spinlock_real(IN PSA_REAL_SPINLOCK); void 
-+sa_acquire_spinlock_real(IN PSA_REAL_SPINLOCK, OUT PSA_IRQ); void 
-+sa_release_spinlock_real(IN PSA_REAL_SPINLOCK, IN PSA_IRQ); void 
-+sa_initialize_fast_mutex(IN PSA_FAST_MUTEX);
-+
-+static inline u32 sa_atomic_decrement(u32 *value) {
-+	atomic_dec((atomic_t *) value);
-+	return *value;
-+}
-+
-+/* Returns resulting value. */
-+static inline u32 sa_atomic_increment(u32 *value) {
-+	atomic_inc((atomic_t *) value);
-+	return *value;
-+}
-+
-+/* Atomically does this: *v += i; */
-+#define sa_atomic_add(i, v)	atomic_add (i, (atomic_t *)v)
-+
-+/* Atomically does this: *v -= i; */
-+#define sa_atomic_sub(i, v)	atomic_sub(i, (atomic_t *)v)
-+
-+#define sa_init_spinlock_real(s)		spin_lock_init(s)
-+#define sa_acquire_spinlock_real(s, i)		spin_lock_irqsave(s, *i)
-+#define sa_acquire_spinlock_noirq_real(s) 	spin_lock (s)
-+#define sa_release_spinlock_real(s, i)		spin_unlock_irqrestore(s, *i);
-+#define sa_release_spinlock_noirq_real(s) 	spin_unlock(spinlock)
-+#define sa_is_spin_lock_held_real(s) 		spin_is_locked (s);
-+#define sa_is_spinlock_not_held_real(s) 	(!(spin_is_locked (lock))
-+
-+/* Returns size of bitfield in bits. */ #define AMAP_BIT_SIZE(_struct_, 
-+_register_) \
-+		sizeof(((BE_ ## _struct_ ## _AMAP *)0)->_register_)
-+
-+/*
-+ * Masks the bits (before shifting!) and then shifts to correct offset.
-+ * contextMemory.dw[1] = AMAP_SET_BITS (struct, field1, 123) |
-+ *                       AMAP_SET_BITS (struct, field2, 456):
-+ * Remember this does not clear bits!
-+ */
-+static inline u32 amap_set_bits(u32 mask, u32 offset, u32 new_value) {
-+	return (mask & new_value) << offset;
-+}
-+
-+/*
-+ * Returns the a bit mask for the register that is NOT shifted into location.
-+ * That means return values always look like: 0x1, 0xFF, 0x7FF, etc...
-+ */
-+static inline u32 amap_mask(u32 bit_size) {
-+	return (bit_size == 32 ? 0xFFFFFFFF : (1 << bit_size) - 1); }
-+
-+#define AMAP_SET_BITS(_struct_, _register_, _new_value_)  \
-+	amap_set_bits(AMAP_BIT_MASK(_struct_, _register_),    \
-+	AMAP_BIT_OFFSET(_struct_, _register_), _new_value_)
-+
-+#define AMAP_BIT_MASK(_struct_, _register_)       \
-+	amap_mask (AMAP_BIT_SIZE (_struct_, _register_))
-+
-+#define BE_BIT_OFFSET   AMAP_BIT_OFFSET
-+#define BE_WORD_OFFSET  AMAP_WORD_OFFSET
-+#define BE_BIT_SIZE     AMAP_BIT_SIZE
-+#define BE_BYTE_OFFSET  AMAP_BYTE_OFFSET
-+#define BE_SET_BITS     AMAP_SET_BITS
-+
-+/*------- MAC address related -------*/
-+
-+#define SA_MAC_FORMAT "%02x:%02x:%02x:%02x:%02x:%02x"
-+
-+#define SA_MAC_ADDRESS_SIZE (6)
-+typedef struct _SA_MAC_ADDRESS {
-+	u8 bytes[SA_MAC_ADDRESS_SIZE];
-+} __attribute__ ((packed)) SA_MAC_ADDRESS, *PSA_MAC_ADDRESS;
-+
-+#define SA_MAC_ARGS(_mac_address_)  \
-+	(u32)((_mac_address_).bytes[0]),     \
-+	(u32)((_mac_address_).bytes[1]),     \
-+	(u32)((_mac_address_).bytes[2]),     \
-+	(u32)((_mac_address_).bytes[3]),     \
-+	(u32)((_mac_address_).bytes[4]),     \
-+	(u32)((_mac_address_).bytes[5])
-+
-+/*
-+ * Creates a SGL for a physically contiguous chunk of memory.
-+ * The sgl struct must be previously allocated.
-+ */
-+static inline SA_STATUS
-+sa_sgl_create_contiguous(PVOID va, SA_PHYSICAL_ADDRESS pa,
-+			 u32 length, PSA_SGL sgl)
-+{
-+
-+	sgl->va = va;
-+	sgl->pa = pa;
-+	sgl->length = length;
-+	return (SA_SUCCESS);
-+}
-+
-+#define sa_sgl_destroy_contiguous(sgl) SA_ZERO_MEM (sgl)
-+
-+/*
-+ *------ bit manipulation macros / functions -----
-+ * Checks for truncation of the value when assigning to a bitfield that
-+ * may have fewer bits.  e.g.
-+ * struct { u32 hi : 1; } me;
-+ * SA_SET_BITFIELD(me.hi, 2);
-+ */
-+#define SA_SET_BITFIELD(_bitfield_, _value_)  \
-+	do {\
-+		(_bitfield_) = (_value_);                 \
-+		ASSERT((_bitfield_) == (_value_))        \
-+	} while (0) \
-+
-+static
-+inline u32 sa_bit_range(u32 value, u32 bit_offset, u32 num_bits) {
-+	ASSERT(bit_offset <= sizeof(value) * 8);
-+	ASSERT(num_bits <= sizeof(value) * 8);
-+	return (value >> bit_offset) & ((1UL << num_bits) - 1); }
-+
-+static
-+inline u64 sa_bit_range64(u64 value, u32 bit_offset, u32 num_bits) {
-+	ASSERT(bit_offset <= sizeof(value) * 8);
-+	ASSERT(num_bits <= sizeof(value) * 8);
-+	return (value >> bit_offset) & ((1ULL << num_bits) - 1); }
-+
-+static inline u32 sa_upper_bits(u32 value, u32 num_bits) {
-+	ASSERT(num_bits <= sizeof(value) * 8);
-+	return sa_bit_range(value, sizeof(value) * 8 - num_bits, num_bits); }
-+
-+static inline u64 sa_upper_bits64(u64 value, u32 num_bits) {
-+	ASSERT(num_bits <= sizeof(value) * 8);
-+	return sa_bit_range64(value, sizeof(value) * 8 - num_bits,
-+			      num_bits);
-+}
-+
-+/* The bit vector structure. */
-+typedef struct _SA_BIT_VECTOR {
-+	u32 magic;
-+	u32 numBits;
-+	u32 numDwords;
-+	u32 numSet;
-+	u32 *bits;
-+} SA_BIT_VECTOR, *PSA_BIT_VECTOR;
-+
-+#endif /* __sa_h__ */
++#define INTEL                           (0)
++#define SPANSION                        (1)
++#define MICRON                          (2)
++
++/* --- DDR_CAS_TYPE --- */
++#define CAS_3                           (0)
++#define CAS_4                           (1)
++#define CAS_5                           (2)
++
++/* --- DDR_SIZE_TYPE --- */
++#define SIZE_256MB                      (0)
++#define SIZE_512MB                      (1)
++
++/* --- DDR_MODE_TYPE --- */
++#define DDR_NO_ECC                      (0)
++#define DDR_ECC                         (1)
++
++/* --- INTERFACE_10GB_TYPE --- */
++#define CX4_TYPE                        (0)
++#define XFP_TYPE                        (1)
++
++/* --- BE_CHIP_MAX_MTU --- */
++#define CHIP_MAX_MTU                    (9000)
++
++/* --- XAUI_STATE_ENUM --- */
++#define XAUI_STATE_ENABLE   (0)	/* This MUST be the default value for */
++				/*
++				* all requests which set/change
++				* equalization parameter.
++				*/
++#define XAUI_STATE_DISABLE  (255) /* The XAUI for both ports may be */
++				  /*
++				   * disabled for EMI tests. There is no
++				   * provision for turning off individual
++				   * ports.
++				   */
++
++#ifdef SG_PRAGMA_PACK
++#pragma pack(pop)
++#endif
++#endif /* __ioctl_common_amap_h__ */
 
 ___________________________________________________________________________________
 This message, together with any attachment(s), contains confidential and proprietary information of
