@@ -1,2794 +1,1292 @@
 From: "Subbu Seetharaman" <subbus@serverengines.com>
-Subject: [PATHCH 8/16]  ServerEngines 10Gb NIC driver
-Date: Sat, 16 Feb 2008 18:43:27 -0800
-Message-ID: <20080217024327.d5a49cac@mailhost.serverengines.com>
+Subject: [PATHCH 9/16]  ServerEngines 10Gb NIC driver
+Date: Sat, 16 Feb 2008 18:43:57 -0800
+Message-ID: <20080217024357.da474378@mailhost.serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail192.messagelabs.com ([216.82.242.147]:14752 "EHLO
+Received: from mail192.messagelabs.com ([216.82.242.147]:32982 "EHLO
 	mail192.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752581AbYBQCnc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2008 21:43:32 -0500
+	with ESMTP id S1753300AbYBQCoC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2008 21:44:02 -0500
 Received: from 59.93.89.51 ([59.93.89.51])
 	by mailhost.serverengines.com
 	for netdev@vger.kernel.org;
-	Sat, 16 Feb 2008 18:43:28 -0800
+	Sat, 16 Feb 2008 18:43:58 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Event queue, completion queue and management
-processor ring creation functions in
-beclib.
+System abstraction function for Linux.  beclib uses these helper routines / macros to do OS dependent functions.
 
---------------------------------
-diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/eq_ll.c benet/linux-2.6.24.2/drivers/message/beclib/eq_ll.c
---- orig/linux-2.6.24.2/drivers/message/beclib/eq_ll.c	1970-01-01 05:30:00.000000000 +0530
-+++ benet/linux-2.6.24.2/drivers/message/beclib/eq_ll.c	2008-02-14 15:23:07.809205584 +0530
-@@ -0,0 +1,751 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ *
-+ */
-+#include "pch.h"
+--------------------
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/sa/setypes.h benet/linux-2.6.24.2/drivers/message/beclib/sa/setypes.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/sa/setypes.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/sa/setypes.h	2008-02-14 15:23:07.812205128 +0530
+@@ -0,0 +1,70 @@
 +
 +/*
-+ *============================================================================
-+ *                            F I L E   S C O P E
-+ *============================================================================
++ * These are the data types used in management apps that we are 
++maintaining for
++ * legacy/personal preference reasons.
 + */
 +
-+/*!
++#ifndef __setypes_h__
++#define __setypes_h__
++/*
++ *----- data types used in SA ----
++ * Signed integers.
++ */
++typedef signed char i8;
++typedef signed short i16;
++typedef signed int i32;
++typedef signed long long i64;
 +
-+@brief
-+    This routine serializes access to resources maintained through an EQ object.
++/* Narrow and wide characters. */
++typedef char c8;
++typedef u16 c16;
 +
-+@param
-+    eq_object      - The event queue object to acquire the lock for.
++/* Native size_t for interfacing to libraries. */ typedef size_t 
++SA_SIZE_T, *PSA_SIZE_T;
 +
-+@return
++typedef int boolean;
 +
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+
-+STATIC void _be_eq_lock(IN PBE_EQ_OBJECT eq_object)
-+{
-+	SA_NOT_USED(eq_object);
-+	/*
-+	 * BUG - Work around storport driver dispatch issues.
-+	 *SA_ASSERT_BLOCKING ();
-+	 *be_lock_acquire (&eq_object->lock);
-+	 */
-+}
-+
-+/*!
-+
-+@brief
-+    This routine removes serialization done by EqObjectLock.
-+@param
-+    eq_object      - the event queue object to drop the lock for.
-+@return
-+@note
-+    IRQL < DISPATCH_LEVEL
-+*/
-+STATIC void _be_eq_unlock(IN PBE_EQ_OBJECT eq_object)
-+{
-+	SA_NOT_USED(eq_object);
-+	/*be_lock_release (&eq_object->lock); */
-+}
-+
-+STATIC
-+    INLINE
-+    PBE_EQ_OBJECT
-+_be_eq_id_to_object(IN PBE_FUNCTION_OBJECT function_object, IN u32 eq_id)
-+{
-+	PBE_EQ_OBJECT eq_cur;
-+	PBE_EQ_OBJECT eq_ret = NULL;
-+
-+	_be_function_lock(function_object);
-+
-+	SA_FOR_EACH_LIST_ENTRY(eq_cur, function_object->links.eq_list_head,
-+			       BE_EQ_OBJECT, eq_list) {
-+		if (be_eq_get_id(eq_cur) == eq_id) {
-+
-+			eq_ret = eq_cur;
-+			break;
-+		}
-+	}
-+
-+	_be_function_unlock(function_object);
-+
-+	return eq_ret;
-+}
++/* Common pointer to a void notation. */ typedef void *PVOID;
 +
 +/*
-+ *============================================================================
-+ *                  P U B L I C  R O U T I N E S
-+ *============================================================================
++ * Explicitly sized booleans -- useful for packing a struct while still
++ * indicating that the value is treated as TRUE or FALSE.
 + */
-+
-+/*!
-+
-+@brief
-+    This routine creates an event queue based on the client completion
-+    queue configuration information.
-+
-+@param
-+    FunctionObject      - Handle to a function object
-+@param
-+    EqBaseVa            - Base VA for a the EQ ring
-+@param
-+    SizeEncoding        - The encoded size for the EQ entries. This value is
-+			either CEV_EQ_SIZE_4 or CEV_EQ_SIZE_16
-+@param
-+    NumEntries          - CEV_CQ_CNT_* values.
-+@param
-+    Watermark           - Enables watermark based coalescing.  This parameter
-+			must be of the type CEV_WMARK_* if watermarks
-+			are enabled.  If watermarks to to be disabled
-+			this value should be-1.
-+@param
-+    TimerDelay          - If a timer delay is enabled this value should be the
-+			time of the delay in 8 microsecond units.  If
-+			delays are not used this parameter should be
-+			set to -1.
-+@param
-+    ppEqObject          - Internal EQ Handle returned.
-+
-+@return
-+    BE_SUCCESS if successfull,, otherwise a useful error code is returned.
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+     If the FunctionObject represents an ISCSI function, then the EQID
-+     returned will be between 0-31.
-+*/
-+BESTATUS be_eq_create_internal(PBE_FUNCTION_OBJECT function_object,
-+		PSA_SGL sgl, u32 eqe_size, u32 num_entries,
-+		u32 watermark,	/* CEV_WMARK_* or -1 */
-+		u32 timer_delay,	/* in 8us units, or -1 */
-+		boolean fake_eq, PBE_EQ_OBJECT eq_object)
-+{
-+	BESTATUS status = BE_SUCCESS;
-+	u32 num_entries_encoding, eqe_size_encoding, length;
-+	IOCTL_COMMON_EQ_CREATE *ioctl = NULL;
-+	MCC_WRB *wrb = NULL;
-+
-+	ASSERT(sgl);
-+	ASSERT(eq_object);
-+
-+	FUNCTION_ASSERT(function_object);
-+
-+	/*
-+	 * To avoid assuming the enumeration values are constant,
-+	 * I'm using a switch statement instead of calculating this
-+	 * with sa_log2.
-+	 */
-+	switch (num_entries) {
-+	case 256:
-+		num_entries_encoding = CEV_EQ_CNT_256;
-+		break;
-+	case 512:
-+		num_entries_encoding = CEV_EQ_CNT_512;
-+		break;
-+	case 1024:
-+		num_entries_encoding = CEV_EQ_CNT_1024;
-+		break;
-+	case 2048:
-+		num_entries_encoding = CEV_EQ_CNT_2048;
-+		break;
-+	case 4096:
-+		num_entries_encoding = CEV_EQ_CNT_4096;
-+		break;
-+	default:
-+		ASSERT(0);
-+		return BE_STATUS_INVALID_PARAMETER;
-+	}
-+
-+	/*
-+	 * To avoid assuming the enumeration values are constant,
-+	 * I'm using a switch statement instead of calculating
-+	 * this with sa_log2.
-+	 */
-+	switch (eqe_size) {
-+	case 4:
-+		eqe_size_encoding = CEV_EQ_SIZE_4;
-+		break;
-+	case 16:
-+		eqe_size_encoding = CEV_EQ_SIZE_16;
-+		break;
-+	default:
-+		ASSERT(0);
-+		return BE_STATUS_INVALID_PARAMETER;
-+	}
-+
-+	if ((eqe_size == 4 && num_entries < 1024) ||
-+	    (eqe_size == 16 && num_entries == 4096)) {
-+		TRACE(DL_ERR, "Bad EQ size. eqe_size:%d num_entries:%d",
-+		      eqe_size, num_entries);
-+		ASSERT(0);
-+		return BE_STATUS_INVALID_PARAMETER;
-+	}
-+
-+	sa_zero_mem(eq_object, sizeof(*eq_object));
-+
-+	eq_object->magic = BE_EQ_MAGIC;
-+	eq_object->ref_count = 0;
-+	eq_object->parent_function = function_object;
-+	eq_object->eq_id = 0xFFFFFFFF;
-+
-+	be_lock_init(&eq_object->lock);
-+
-+	sa_initialize_list_head(&eq_object->cq_list_head);
-+
-+	length = num_entries * eqe_size;
-+
-+	be_lock_wrb_post(function_object);
-+
-+	wrb = be_function_peek_mcc_wrb(function_object);
-+	if (!wrb) {
-+		ASSERT(wrb);
-+		TRACE(DL_ERR, "No free MCC WRBs in create EQ.");
-+		status = BE_STATUS_NO_MCC_WRB;
-+		goto Error;
-+	}
-+	/* Prepares an embedded ioctl, including request/response sizes. */
-+	ioctl =
-+	    BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
-+					       COMMON_EQ_CREATE);
-+
-+	ioctl->params.request.num_pages =
-+	    SA_PAGES_SPANNED(sa_sgl_get_offset(sgl), length);
-+
-+	/* init the context */
-+	ioctl->params.request.context.Func =
-+	    be_function_get_function_number(function_object);
-+	ioctl->params.request.context.valid = TRUE;
-+	ioctl->params.request.context.Size = eqe_size_encoding;
-+	ioctl->params.request.context.PD =
-+	    be_function_get_pd_number(function_object);
-+	ioctl->params.request.context.Count = num_entries_encoding;
-+	/* Let the caller ARM the EQ with the doorbell. */
-+	ioctl->params.request.context.Armed = FALSE;
-+	ioctl->params.request.context.EventVect =
-+	    be_function_get_function_number(function_object) * 32;
-+
-+	if (fake_eq) {
-+		ioctl->params.request.context.Cidx = 0;
-+		ioctl->params.request.context.Pidx = 2;
-+		ioctl->params.request.context.EPIdx = 2;
-+	}
-+
-+	if (watermark != -1) {
-+		ioctl->params.request.context.WME = TRUE;
-+		ioctl->params.request.context.Watermark = watermark;
-+		ASSERT(watermark <= CEV_WMARK_240);
-+	} else {
-+		ioctl->params.request.context.WME = FALSE;
-+	}
-+
-+	if (timer_delay != -1) {
-+		ioctl->params.request.context.TMR = TRUE;
-+
-+		ASSERT(timer_delay <= 250);	/* max value according to EAS */
-+		timer_delay = MIN(timer_delay, 250);
-+
-+		ioctl->params.request.context.Delay = timer_delay;
-+
-+	} else {
-+		ioctl->params.request.context.TMR = FALSE;
-+	}
-+
-+	/* Create a page list for the IOCTL. */
-+	be_sgl_to_pa_list(sgl,
-+			  ioctl->params.request.pages,
-+			  SA_NUMBER_OF(ioctl->params.request.pages));
-+
-+	status =
-+	    be_function_post_mcc_wrb(function_object, wrb, NULL, NULL,
-+				     ioctl);
-+	if (status != BE_SUCCESS) {
-+		TRACE(DL_ERR, "MCC to create EQ failed.");
-+		goto Error;
-+	}
-+	/* Get the EQ id.  The MPU allocates the IDs. */
-+	eq_object->eq_id = ioctl->params.response.eq_id;
-+
-+	/* insert tracking object */
-+	_be_function_add_eq(function_object, eq_object);
-+
-+	TRACE(DL_INFO,
-+	      "eq created. function:%d pd:%d eqid:%d bytes:%d eqeBytes:%d"
-+	      " wm:%d td:%d",
-+	      be_function_get_function_number(function_object),
-+	      be_function_get_pd_number(function_object), eq_object->eq_id,
-+	      num_entries * eqe_size, eqe_size, watermark, timer_delay);
-+
-+Error:
-+	be_unlock_wrb_post(function_object);
-+	return status;
-+}
-+
-+BESTATUS be_eq_create(PBE_FUNCTION_OBJECT function_object, PSA_SGL
-+		sgl, u32 eqe_size, u32 num_entries,
-+		u32 watermark,	/* CEV_WMARK_* or -1 */
-+		u32 timer_delay,	/* in 8us units, or -1 */
-+		PBE_EQ_OBJECT eq_object)
-+{
-+	return be_eq_create_internal(function_object,
-+				     sgl,
-+				     eqe_size,
-+				     num_entries,
-+				     watermark,
-+				     timer_delay, FALSE, eq_object);
-+}
-+
-+BESTATUS be_eq_fake_create(PBE_FUNCTION_OBJECT function_object,
-+		u32 timer_delay,	/* in 8us units, or -1 */
-+		PBE_EQ_OBJECT eq_object)
-+{
-+	SA_SGL sgl;
-+
-+	sa_sgl_create_contiguous((PVOID) 0xbad0000,
-+				 (SA_PHYSICAL_ADDRESS) 0xbad00000,
-+				 SA_PAGE_SIZE, &sgl);
-+
-+	return be_eq_create_internal(function_object,
-+				     &sgl,
-+				     sizeof(EQ_ENTRY),
-+				     4096 / sizeof(EQ_ENTRY),
-+				     0xFFFFFFFF,
-+				     timer_delay, TRUE, eq_object);
-+}
-+
-+/*!
-+
-+@brief
-+    Returns the EQ ID for EQ. This is the ID the chip references the queue as.
-+
-+@param
-+    EqObject            - EQ Handle returned from EqObjectCreate.
-+
-+@return
-+    EQ ID
-+@note
-+    IRQL: any
-+
-+*/
-+u32 be_eq_get_id(IN PBE_EQ_OBJECT eq_object)
-+{
-+	EQ_ASSERT(eq_object);
-+	return eq_object->eq_id;
-+}
-+
-+/*!
-+
-+@brief
-+    Sets the current callback to be invoked when a EQ entry is made available.
-+    This need only be set if the owner of this EQ does not recieve the EQ
-+    completions directly. i.e. it does not service interrupts.
-+
-+@param
-+    eq_object            - EQ handle returned from eq_object_create.
-+
-+@param
-+    callback            - function to invoke when the EQ needs processing.
-+
-+@param
-+    context             - opaque context to pass to callback.
-+
-+@return
-+    ptr to the previous callback.
-+
-+@note
-+    IRQL: any
-+
-+    this routine is currently not synchronized w/ the DPC that may run the EQ.
-+    therefore it is the callers responcibility to ensure the EQ will not
-+    interrupt while this routine is executing.
-+*/
-+EQ_CALLBACK
-+be_eq_set_callback(IN PBE_EQ_OBJECT eq_object,
-+		   IN EQ_CALLBACK callback, IN PVOID context)
-+{
-+	EQ_CALLBACK old_callback;
-+
-+	EQ_ASSERT(eq_object);
-+
-+	old_callback = eq_object->callback;
-+
-+	eq_object->callback = callback;
-+	eq_object->callback_context = context;
-+
-+	return old_callback;
-+}
-+
-+/*!
-+
-+@brief
-+    This routine handles EQ processing on EQs that were 'unrecognized' by upper
-+    level drivers.  The only EQs that should be processed by this routine are
-+	* iWARP EQ
-+    The iWARP EQ will be delegated further for handling by the
-+    iWARP device driver
-+
-+@param
-+    FunctionObject      - Handle to a function object
-+@param
-+    EqId                - The Eq that has just completed processing
-+
-+@return
-+
-+@note
-+    IRQL: DISPATCH_LEVEL only
-+
-+    This routine should be called immediately when a EQ from a ULD is not
-+    recognized.
-+*/
-+void
-+be_eq_delegate_processing(IN PBE_FUNCTION_OBJECT function_object,
-+			  IN u32 eq_id)
-+{
-+	PBE_EQ_OBJECT eq_object;
-+
-+	FUNCTION_ASSERT(function_object);
-+
-+	eq_object = _be_eq_id_to_object(function_object, eq_id);
-+
-+	if (eq_object) {
-+
-+		eq_object->callback(function_object, eq_object,
-+				    eq_object->callback_context);
-+
-+	} else {
-+
-+		TRACE(DL_WARN, "eq_id %d not found for delegation", eq_id);
-+	}
-+
-+}
-+
-+/*!
-+
-+@brief
-+    This routine adds a CQ as a dependent object on the given EQ. This will
-+    cause the reference count to be incrmented and the CQ to be placed on
-+    the EQ's list of active CQ objects.
-+
-+@param
-+    eq_object            - EQ handle returned from eq_object_create.
-+@param
-+    cq_object            - CQ handle that is dependent on this EQ
-+
-+@return
-+    EQ ID
-+@note
-+    IRQL: < DISPATCH_LEVEL
-+
-+*/
-+void _be_eq_add_cq(IN PBE_EQ_OBJECT eq_object, IN PBE_CQ_OBJECT cq_object)
-+{
-+	EQ_ASSERT(eq_object);
-+
-+	CQ_ASSERT(cq_object);
-+
-+	_be_eq_lock(eq_object);
-+
-+	be_eq_reference(eq_object);
-+
-+	sa_insert_tail_list(&eq_object->cq_list_head,
-+			    &cq_object->cqlist_for_eq);
-+
-+	_be_eq_unlock(eq_object);
-+}
-+
-+/*!
-+
-+@brief
-+    References the given object. The object is guaranteed to remain active until
-+    the reference count drops to zero.
-+
-+@param
-+    eq_object            - CQ handle returned from cq_object_create.
-+
-+@return
-+    returns the current reference count on the object
-+
-+@note
-+    IRQL: any
-+
-+*/
-+u32 be_eq_reference(PBE_EQ_OBJECT eq_object)
-+{
-+	EQ_ASSERT(eq_object);
-+	return sa_atomic_increment(&eq_object->ref_count);
-+}
-+
-+/*!
-+
-+@brief
-+    Dereferences the given object. The object is guaranteed to remain
-+    active until the reference count drops to zero.
-+
-+@param
-+    eq_object            - CQ handle returned from cq_object_create.
-+
-+@return
-+    returns the current reference count on the object
-+
-+@note
-+    IRQL: any
-+
-+*/
-+u32 be_eq_dereference(PBE_EQ_OBJECT eq_object)
-+{
-+	EQ_ASSERT(eq_object);
-+	return sa_atomic_decrement(&eq_object->ref_count);
-+}
-+
-+/*!
-+@brief
-+    This routine removes a CQ as a dependent object on the given EQ. This will
-+    cause the reference count to be decrmented and the CQ to be removed from
-+    the EQ's list of active CQ objects.
-+@param
-+    eq_object            - EQ handle returned from eq_object_create.
-+@param
-+    cq_object            - CQ handle that was dependent on this EQ
-+@return
-+    EQ ID
-+@note
-+    IRQL: < DISPATCH_LEVEL
-+*/
-+void
-+_be_eq_remove_cq(IN PBE_EQ_OBJECT eq_object, IN PBE_CQ_OBJECT cq_object)
-+{
-+	EQ_ASSERT(eq_object);
-+	CQ_ASSERT(cq_object);
-+
-+	be_eq_dereference(eq_object);
-+
-+	_be_eq_lock(eq_object);
-+	sa_remove_entry_list(&cq_object->cqlist_for_eq);
-+	_be_eq_unlock(eq_object);
-+}
-+
-+/*!
-+@brief
-+    Deferences the given object. Once the object's reference count drops to
-+    zero, the object is destroyed and all resources that are held by this
-+    object are released.  The on-chip context is also destroyed along with
-+    the queue ID, and any mappings made into the UT.
-+@param
-+    eq_object            - EQ handle returned from eq_object_create.
-+@return
-+    BE_SUCCESS if successfull, , otherwise a useful error code is returned.
-+@note
-+    IRQL: IRQL < DISPATCH_LEVEL
-+*/
-+BESTATUS be_eq_destroy(PBE_EQ_OBJECT eq_object)
-+{
-+	BESTATUS status = 0;
-+
-+	EQ_ASSERT(eq_object);
-+
-+	ASSERT(eq_object->ref_count == 0);
-+	/* no CQs should reference this EQ now */
-+	ASSERT(sa_is_list_empty(&eq_object->cq_list_head));
-+
-+	/* Send ioctl to destroy the EQ. */
-+	status =
-+	    be_function_ring_destroy(eq_object->parent_function,
-+				     eq_object->eq_id, IOCTL_RING_TYPE_EQ);
-+	ASSERT(status == 0);
-+
-+	/* remove from the function */
-+	_be_function_remove_eq(eq_object->parent_function, eq_object);
-+
-+	/* zero tracking object */
-+	sa_zero_mem(eq_object, sizeof(BE_EQ_OBJECT));
-+
-+	return BE_SUCCESS;
-+}
-+
-+/*
-+ *---------------------------------------------------------------------------
-+ * Function: be_eq_modify_delay
-+ *   Changes the EQ delay for a group of EQs.
-+ * num_eq             - The number of EQs in the eq_array to adjust.
-+ * 			This also is the number of delay values in
-+ * 			the eq_delay_array.
-+ * eq_array           - Array of BE_EQ_OBJECT pointers to adjust.
-+ * eq_delay_array     - Array of "num_eq" timer delays in units
-+ * 			of microseconds. The be_eq_query_delay_range
-+ * 			ioctl returns the resolution and range of
-+ *                      legal EQ delays.
-+ * callback           -
-+ * callback_context   -
-+ * queue_context      - Optional. Pointer to a previously allocated
-+ * 			struct. If the MCC WRB ring is full, this
-+ * 			structure is used to queue the operation. It
-+ *                      will be posted to the MCC ring when space
-+ *                      becomes available. All queued commands will
-+ *                      be posted to the ring in the order they are
-+ *                      received. It is always valid to pass a pointer to
-+ *                      a generic BE_GENERIC_QUEUE_CONTEXT. However,
-+ *                      the specific context structs
-+ *                      are generally smaller than the generic struct.
-+ * return pend_status - BE_SUCCESS (0) on success.
-+ * 			BE_PENDING (postive value) if the IOCTL
-+ *                      completion is pending. Negative error code on failure.
-+ *-------------------------------------------------------------------------
-+ */
-+BESTATUS
-+be_eq_modify_delay(IN PBE_FUNCTION_OBJECT function_object,
-+		   IN u32 num_eq,
-+		   IN BE_EQ_OBJECT **eq_array,
-+		   IN u32 *eq_delay_array,
-+		   IN MCC_WRB_CQE_CALLBACK callback,
-+		   IN PVOID callback_context,
-+		   IN PBE_EQ_MODIFY_DELAY_QUEUE_CONTEXT queue_context)
-+{
-+	IOCTL_COMMON_MODIFY_EQ_DELAY *ioctl = NULL;
-+	MCC_WRB *wrb = NULL;
-+	BESTATUS status = 0;
-+	PBE_GENERIC_QUEUE_CONTEXT generic_context = NULL;
-+	u32 i;
-+
-+	be_lock_wrb_post(function_object);
-+
-+	wrb = be_function_peek_mcc_wrb(function_object);
-+	if (!wrb) {
-+		if (queue_context && callback) {
-+			wrb = (MCC_WRB *) &queue_context->wrb_header;
-+			generic_context = (PBE_GENERIC_QUEUE_CONTEXT)
-+				queue_context;
-+			generic_context->context.bytes =
-+			    sizeof(*queue_context);
-+		} else {
-+			status = BE_STATUS_NO_MCC_WRB;
-+			goto Error;
-+		}
-+	}
-+	/* Prepares an embedded ioctl, including request/response sizes. */
-+	ioctl =
-+	    BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
-+					       COMMON_MODIFY_EQ_DELAY);
-+
-+	ASSERT(num_eq > 0);
-+	ASSERT(num_eq <= SA_NUMBER_OF(ioctl->params.request.delay));
-+	ioctl->params.request.num_eq = num_eq;
-+	for (i = 0; i < num_eq; i++) {
-+		ioctl->params.request.delay[i].eq_id =
-+		    be_eq_get_id(eq_array[i]);
-+		ioctl->params.request.delay[i].delay_in_microseconds =
-+		    eq_delay_array[i];
-+	}
-+
-+	/* Post the Ioctl */
-+	status =
-+	    be_function_post_mcc_wrb_with_queue_context(function_object,
-+							wrb,
-+							generic_context,
-+							callback,
-+							callback_context,
-+							ioctl);
-+
-+Error:
-+	be_unlock_wrb_post(function_object);
-+
-+	return status;
-+
-+}
-+
-+/*
-+ *--------------------------------------------------------------------------
-+ * Function: be_eq_query_delay_range
-+ *   Queries the resolution and range allowed for EQ delay.
-+ *   This is a constant set by the firmware, so it may be queried
-+ *   one time at system boot. It is the same for all EQs.
-+ *   This is a synchronous IOCTL.
-+ * function_object     - Previously created function object
-+ * eq_delay_resolution - Resolution of EQ delay in microseconds.
-+ * eq_delay_max        - Max value of EQ delay in microseconds.
-+ * return status       - BE_SUCCESS (0) on success. Negative
-+ * 			error code on failure.
-+ *--------------------------------------------------------------------------
-+ */
-+BESTATUS
-+be_eq_query_delay_range(IN PBE_FUNCTION_OBJECT function_object,
-+			OUT u32 *eq_delay_resolution,
-+			OUT u32 *eq_delay_max)
-+{
-+	IOCTL_COMMON_MODIFY_EQ_DELAY *ioctl = NULL;
-+	MCC_WRB *wrb = NULL;
-+	BESTATUS status = 0;
-+
-+	FUNCTION_ASSERT(function_object);
-+
-+	ASSERT(eq_delay_resolution);
-+	ASSERT(eq_delay_max);
-+
-+	be_lock_wrb_post(function_object);
-+
-+	wrb = be_function_peek_mcc_wrb(function_object);
-+	if (!wrb) {
-+		ASSERT(wrb);
-+		TRACE(DL_ERR, "No free MCC WRBs.");
-+		status = BE_STATUS_NO_MCC_WRB;
-+		goto Error;
-+	}
-+	/* Prepares an embedded ioctl, including request/response sizes. */
-+	ioctl =
-+	    BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
-+					       COMMON_MODIFY_EQ_DELAY);
-+
-+	/* init the context */
-+	ioctl->params.request.num_eq = 0;
-+
-+	status =
-+	    be_function_post_mcc_wrb(function_object, wrb, NULL, NULL,
-+				     ioctl);
-+	if (status != BE_SUCCESS) {
-+		TRACE(DL_ERR, "Query EQ delay range failed.");
-+		goto Error;
-+	}
-+
-+	*eq_delay_resolution =
-+	    ioctl->params.response.delay_resolution_in_microseconds;
-+	*eq_delay_max = ioctl->params.response.delay_max_in_microseconds;
-+
-+	TRACE(DL_INFO, "eq delay. function:%d pd:%d resolution:%d max:%d",
-+	      be_function_get_function_number(function_object),
-+	      be_function_get_pd_number(function_object),
-+	      *eq_delay_resolution, *eq_delay_max);
-+
-+Error:
-+	be_unlock_wrb_post(function_object);
-+	return status;
-+
-+}
-diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/cq_ll.c benet/linux-2.6.24.2/drivers/message/beclib/cq_ll.c
---- orig/linux-2.6.24.2/drivers/message/beclib/cq_ll.c	1970-01-01 05:30:00.000000000 +0530
-+++ benet/linux-2.6.24.2/drivers/message/beclib/cq_ll.c	2008-02-14 15:23:07.810205432 +0530
-@@ -0,0 +1,443 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ *
-+ */
-+#include "pch.h"
-+
-+/*
-+ * Completion Queue Objects
-+ */
-+
-+/*!
-+@brief
-+    This routines searches for a CqId that is bound to a
-+    specified function object.
-+@param
-+    function_object  - function object the CQ should be bound to.
-+@param
-+    cq_id            - cq_id to find
-+@return
-+    A pointer to the CQ_OBJECT that represents this CqId. NULL if not found
-+@note
-+    IRQL: <= DISPATCH_LEVEL
-+*/
-+STATIC
-+    INLINE
-+    PBE_CQ_OBJECT
-+be_cq_id_to_object(PBE_FUNCTION_OBJECT function_object, u32 cq_id)
-+{
-+	PBE_CQ_OBJECT cq_cur;
-+	PBE_CQ_OBJECT cq_ret = NULL;
-+
-+	_be_function_lock(function_object);
-+
-+	SA_FOR_EACH_LIST_ENTRY(cq_cur, function_object->links.cq_list_head,
-+			       BE_CQ_OBJECT, cq_list) {
-+		if (be_cq_get_id(cq_cur) == cq_id) {
-+
-+			cq_ret = cq_cur;
-+			break;
-+		}
-+	}
-+
-+	_be_function_unlock(function_object);
-+
-+	if (!cq_ret) {
-+		TRACE(DL_ERR, "Failed to locate cq_id:%d for processing.",
-+		      cq_id);
-+	}
-+
-+	return cq_ret;
-+}
-+
-+/*
-+ *============================================================================
-+ *                  P U B L I C  R O U T I N E S
-+ *============================================================================
-+ */
-+
-+/*!
-+
-+@brief
-+    This routine creates a completion queue based on the client completion
-+    queue configuration information.
-+
-+
-+@param
-+    FunctionObject      - Handle to a function object
-+@param
-+    CqBaseVa            - Base VA for a the CQ ring
-+@param
-+    NumEntries          - CEV_CQ_CNT_* values
-+@param
-+    solEventEnable      - 0 = All CQEs can generate Events if CQ is eventable
-+			1 = only CQEs with solicited bit set are eventable
-+@param
-+    eventable           - Eventable CQ, generates interrupts.
-+@param
-+    nodelay             - 1 = Force interrupt, relevent if CQ eventable.
-+			Interrupt is asserted immediately after EQE
-+			write is confirmed, regardless of EQ Timer
-+			or watermark settings.
-+@param
-+    wme                 - Enable watermark based coalescing
-+@param
-+    wmThresh            - High watermark(CQ fullness at which event
-+			or interrupt should be asserted).  These are the
-+			CEV_WATERMARK encoded values.
-+@param
-+    EqObject            - EQ Handle to assign to this CQ
-+@param
-+    ppCqObject          - Internal CQ Handle returned.
-+
-+@return
-+    BE_SUCCESS if successfull, otherwise a useful error code is returned.
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+BESTATUS be_cq_create(PBE_FUNCTION_OBJECT function_object,
-+	PSA_SGL sgl, u32 length, boolean solicited_eventable,
-+	boolean no_delay, u32 wm_thresh,
-+	PBE_EQ_OBJECT eq_object, OUT PBE_CQ_OBJECT cq_object)
-+{
-+	BESTATUS status = BE_SUCCESS;
-+	u32 num_entries_encoding;
-+	u32 num_entries = length / sizeof(ISCSI_CQ_ENTRY);
-+	IOCTL_COMMON_CQ_CREATE *ioctl = NULL;
-+	MCC_WRB *wrb = NULL;
-+
-+	ASSERT(sgl);
-+	ASSERT(cq_object);
-+	ASSERT(length % sizeof(ISCSI_CQ_ENTRY) == 0);
-+
-+	FUNCTION_ASSERT(function_object);
-+
-+	switch (num_entries) {
-+	case 256:
-+		num_entries_encoding = CEV_CQ_CNT_256;
-+		break;
-+	case 512:
-+		num_entries_encoding = CEV_CQ_CNT_512;
-+		break;
-+	case 1024:
-+		num_entries_encoding = CEV_CQ_CNT_1024;
-+		break;
-+	default:
-+		ASSERT(0);
-+		return BE_STATUS_INVALID_PARAMETER;
-+	}
-+
-+	/*
-+	 * All cq entries all the same size.  Use iSCSI version
-+	 * as a test for the proper sgl length.
-+	 */
-+	sa_zero_mem(cq_object, sizeof(*cq_object));
-+
-+	cq_object->magic = BE_CQ_MAGIC;
-+	cq_object->ref_count = 0;
-+	cq_object->parent_function = function_object;
-+	cq_object->eq_object = eq_object;
-+	cq_object->num_entries = num_entries;
-+	/* save for MCC cq processing */
-+	cq_object->va = sa_sgl_get_base_va(sgl);
-+
-+	/* map into UT. */
-+	length = num_entries * sizeof(ISCSI_CQ_ENTRY);
-+
-+	be_lock_wrb_post(function_object);
-+
-+	wrb = be_function_peek_mcc_wrb(function_object);
-+	if (!wrb) {
-+		ASSERT(wrb);
-+		TRACE(DL_ERR, "No free MCC WRBs in create EQ.");
-+		status = BE_STATUS_NO_MCC_WRB;
-+		goto Error;
-+	}
-+	/* Prepares an embedded ioctl, including request/response sizes. */
-+	ioctl =
-+	    BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
-+					       COMMON_CQ_CREATE);
-+
-+	ioctl->params.request.num_pages =
-+	    SA_PAGES_SPANNED(sa_sgl_get_offset(sgl), length);
-+
-+	/* context */
-+	ioctl->params.request.context.valid = TRUE;
-+	ioctl->params.request.context.Func =
-+	    be_function_get_function_number(function_object);
-+	ioctl->params.request.context.Eventable = (eq_object != NULL);
-+	ioctl->params.request.context.Armed = TRUE;
-+	ioctl->params.request.context.EQID =
-+	    eq_object ? eq_object->eq_id : 0;
-+	ioctl->params.request.context.Count = num_entries_encoding;
-+	ioctl->params.request.context.PD =
-+	    be_function_get_pd_number(function_object);
-+	ioctl->params.request.context.NoDelay = no_delay;
-+	ioctl->params.request.context.SolEvent = solicited_eventable;
-+	ioctl->params.request.context.WME = (wm_thresh != 0xFFFFFFFF);
-+	ioctl->params.request.context.Watermark =
-+	    (ioctl->params.request.context.WME ? wm_thresh : 0);
-+
-+	/* Create a page list for the IOCTL. */
-+	be_sgl_to_pa_list(sgl,
-+			  ioctl->params.request.pages,
-+			  SA_NUMBER_OF(ioctl->params.request.pages));
-+
-+	/* Post the Ioctl */
-+	status =
-+	    be_function_post_mcc_wrb(function_object, wrb, NULL, NULL,
-+				     ioctl);
-+	if (status != BE_SUCCESS) {
-+		TRACE(DL_ERR, "MCC to create CQ failed.");
-+		goto Error;
-+	}
-+	/* Remember the CQ id. */
-+	cq_object->cq_id = ioctl->params.response.cq_id;
-+
-+	/* insert this cq into eq_object reference */
-+	if (eq_object) {
-+		_be_eq_add_cq(eq_object, cq_object);
-+	}
-+	/* insert this cq into function_object */
-+	_be_function_add_cq(function_object, cq_object);
-+
-+	TRACE(DL_INFO,
-+	      "cq created. function:%d pd:%d cqid:%d bytes:%d eqid:%d"
-+	      " se:%d nd:%d wm:%d",
-+	      be_function_get_function_number(function_object),
-+	      be_function_get_pd_number(function_object), cq_object->cq_id,
-+	      num_entries * sizeof(ISCSI_CQ_ENTRY),
-+	      eq_object ? be_eq_get_id(eq_object) : -1,
-+	      (u32) solicited_eventable, (u32) no_delay, wm_thresh);
-+
-+Error:
-+	be_unlock_wrb_post(function_object);
-+	return status;
-+}
-+
-+/*!
-+
-+@brief
-+    Returns the CQ ID for CQ. This is the ID the chip references the queue as.
-+
-+@param
-+    cq_object            - CQ handle returned from cq_object_create.
-+
-+@return
-+    CQ ID
-+@note
-+    IRQL: any
-+
-+*/
-+u32 be_cq_get_id(PBE_CQ_OBJECT cq_object)
-+{
-+	CQ_ASSERT(cq_object);
-+	return cq_object->cq_id;
-+}
-+
-+/*!
-+
-+@brief
-+    Sets the current callback to be invoked when a CQ entry is made available.
-+    This need only be set if the owner of this CQ does not recieve the CQ
-+    completions directly. i.e. it does not service interrupts.
-+
-+@param
-+    cq_object            - CQ handle returned from cq_object_create.
-+
-+@param
-+    callback            - function to invoke when the CQ needs processing.
-+
-+@param
-+    context             - opaque context to pass to callback.
-+
-+@return
-+    ptr to the previous callback.
-+
-+@note
-+    IRQL: any
-+
-+    this routine is currently not synchronized w/ the DPC that may run the CQ.
-+    therefore it is the callers responsibility to ensure the CQ will not
-+    interrupt while this routine is executing.
-+*/
-+CQ_CALLBACK
-+be_cq_object_set_callback(PBE_CQ_OBJECT cq_object,
-+			  CQ_CALLBACK callback, PVOID context)
-+{
-+	CQ_CALLBACK old_callback;
-+
-+	CQ_ASSERT(cq_object);
-+
-+	old_callback = cq_object->callback;
-+
-+	cq_object->callback = callback;
-+	cq_object->callback_context = context;
-+
-+	return old_callback;
-+}
-+
-+/*!
-+
-+@brief
-+    This routine handles CQ processing on CQs that were 'unrecognized' by upper
-+    level drivers.  The only CQs that should be processed by this routine are
-+    MCC CQ and iWARP CQ and of these, only the MCC CQ will be processed
-+    in this routine. The iWARP CQ will be delegated further for handling
-+    by the iWARP device driver
-+
-+@param
-+    function_object      - handle to a function object
-+@param
-+    cq_id                - the cq that has just completed processing
-+
-+@return
-+
-+
-+@note
-+    IRQL: DISPATCH_LEVEL only
-+
-+    this routine should be called immediately when a CQ from a ULD is not
-+    recognized.
-+*/
-+void
-+be_cq_object_delegate_processing(PBE_FUNCTION_OBJECT function_object,
-+				 u32 cq_id)
-+{
-+	PBE_CQ_OBJECT cq_object;
-+
-+	FUNCTION_ASSERT(function_object);
-+
-+	cq_object = be_cq_id_to_object(function_object, cq_id);
-+
-+	if (cq_object) {
-+
-+		ASSERT(cq_object->callback);
-+		cq_object->callback(function_object, cq_object,
-+				    cq_object->callback_context);
-+
-+	} else {
-+
-+		TRACE(DL_WARN, "cq_id %d not found for delegation", cq_id);
-+	}
-+
-+}
-+
-+/*!
-+
-+@brief
-+    References the given object. The object is guaranteed to remain active until
-+    the reference count drops to zero.
-+
-+@param
-+    cq_object            - CQ handle returned from cq_object_create.
-+
-+@return
-+    returns the current reference count on the object
-+
-+@note
-+    IRQL: any
-+
-+*/
-+u32 be_cq_object_reference(PBE_CQ_OBJECT cq_object)
-+{
-+	CQ_ASSERT(cq_object);
-+	return sa_atomic_increment(&cq_object->ref_count);
-+}
-+
-+/*!
-+
-+@brief
-+    Dereferences the given object. The object is guaranteed to
-+    remain active until the reference count drops to zero.
-+
-+@param
-+    cq_object            - CQ handle returned from cq_object_create.
-+
-+@return
-+    returns the current reference count on the object
-+
-+@note
-+    IRQL: any
-+
-+*/
-+u32 be_cq_object_dereference(PBE_CQ_OBJECT cq_object)
-+{
-+	CQ_ASSERT(cq_object);
-+	return sa_atomic_decrement(&cq_object->ref_count);
-+}
-+
-+/*!
-+
-+@brief
-+    Deferences the given object. Once the object's reference count drops to
-+    zero, the object is destroyed and all resources that are held by this object
-+    are released.  The on-chip context is also destroyed along with the queue
-+    ID, and any mappings made into the UT.
-+
-+@param
-+    cq_object            - CQ handle returned from cq_object_create.
-+
-+@return
-+    returns the current reference count on the object
-+
-+@note
-+    IRQL: IRQL < DISPATCH_LEVEL
-+*/
-+BESTATUS be_cq_destroy(PBE_CQ_OBJECT cq_object)
-+{
-+	BESTATUS status = 0;
-+
-+	CQ_ASSERT(cq_object);
-+	FUNCTION_ASSERT(cq_object->parent_function);
-+
-+	/* Nothing should reference this CQ at this point. */
-+	ASSERT(cq_object->ref_count == 0);
-+
-+	/* Send ioctl to destroy the CQ. */
-+	status =
-+	    be_function_ring_destroy(cq_object->parent_function,
-+				     cq_object->cq_id, IOCTL_RING_TYPE_CQ);
-+	ASSERT(status == 0);
-+
-+	/* Remove reference if this is an eventable CQ. */
-+	if (cq_object->eq_object)
-+		_be_eq_remove_cq(cq_object->eq_object, cq_object);
-+
-+	/* Remove from the function object. */
-+	_be_function_remove_cq(cq_object->parent_function, cq_object);
-+
-+	/* Zero the software tracking object. */
-+	sa_zero_mem(cq_object, sizeof(*cq_object));
-+
-+	return BE_SUCCESS;
-+}
-diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/mpu_ll.c benet/linux-2.6.24.2/drivers/message/beclib/mpu_ll.c
---- orig/linux-2.6.24.2/drivers/message/beclib/mpu_ll.c	1970-01-01 05:30:00.000000000 +0530
-+++ benet/linux-2.6.24.2/drivers/message/beclib/mpu_ll.c	2008-02-14 15:32:53.337191800 +0530
-@@ -0,0 +1,1559 @@
-+/*
-+ * Copyright (C) 2005 - 2008 ServerEngines
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or at your option any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, 5th Floor
-+ * Boston, MA 02110-1301 USA
-+ *
-+ *
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called GPL.
-+ *
-+ * Contact Information:
-+ * linux-drivers@serverengines.com
-+ *
-+ * ServerEngines
-+ * 209 N. Fair Oaks Ave
-+ * Sunnyvale, CA 94085
-+ *
-+ */
-+#include "pch.h"
-+
-+/*
-+ *============================================================================
-+ *                            F I L E   S C O P E
-+ *============================================================================
-+ */
-+
-+void
-+_be_mcc_free_wrb_buffers(PBE_MCC_OBJECT mcc,
-+			 PBE_MCC_WRB_CONTEXT wrb_context);
-+
-+/*!
-+
-+@brief
-+    This routine converts from a BladeEngine Mcc wrb completion status to
-+    a standard NT status;
-+
-+@param
-+    MccStatus   - BE Mcc WRB completion status to convert
-+
-+@return
-+    An NT status
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+STATIC BESTATUS be_mcc_wrb_status_to_bestatus(IN u32 mcc_status)
-+{
-+	/* TODO -- Fix this if we want better status codes. */
-+	switch (mcc_status) {
-+	case MGMT_STATUS_SUCCESS:
-+		return SA_SUCCESS;
-+	default:
-+		return BE_NOT_OK;
-+	}
-+}
-+
-+/*!
-+@brief
-+    This routine waits for a previously posted mailbox WRB to be completed.
-+    Specifically it waits for the mailbox to say that it's ready to accept
-+    more data by setting the LSB of the mailbox pd register to 1.
-+
-+@param
-+    pcontroller      - The function object to post this data to
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+*/
-+STATIC void be_mcc_mailbox_wait(IN PBE_FUNCTION_OBJECT function_object)
-+{
-+	MPU_MAILBOX_DB mailbox_db;
-+	u32 i = 0;
-+	u32 tl;
-+
-+	FUNCTION_ASSERT(function_object);
-+
-+	if (function_object->emulate) {
-+		/* No waiting for mailbox in emulated mode. */
-+		return;
-+	}
-+
-+	mailbox_db.dw = PD_READ(function_object, mcc_bootstrap_db);
-+
-+	tl = sa_trace_set_level(sa_trace_get_level() & ~DL_HW);
-+	while (mailbox_db.ready == FALSE) {
-+		if ((++i & 0x3FFFF) == 0) {
-+			TRACE(DL_WARN,
-+			      "Waiting for mailbox ready for %dk polls.",
-+			      i / 1000);
-+		}
-+
-+		sa_dev_stall(function_object->sa_dev, 1);
-+
-+		mailbox_db.dw = PD_READ(function_object, mcc_bootstrap_db);
-+	}
-+	sa_trace_set_level(tl);
-+
-+}
-+
-+/*!
-+
-+@brief
-+    This routine tells the MCC mailbox that there is data to processed
-+    in the mailbox. It does this by setting the physical address for the
-+    mailbox location and clearing the LSB.  This routine returns immediately
-+    and does not wait for the WRB to be processed.
-+
-+
-+@param
-+    pcontroller      - The function object to post this data to
-+
-+@return
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+STATIC void be_mcc_mailbox_notify(IN PBE_FUNCTION_OBJECT function_object)
-+{
-+	MPU_MAILBOX_DB mailbox_db;
-+
-+	FUNCTION_ASSERT(function_object);
-+	ASSERT(function_object->mailbox.pa);
-+	ASSERT(function_object->mailbox.va);
-+
-+	/* If emulated, do not ring the mailbox */
-+	if (function_object->emulate) {
-+		TRACE(DL_WARN, "MPU disabled. Skipping mailbox notify.");
-+		return;
-+	}
-+
-+	function_object->stats.mailbox_wrbs++;
-+
-+	/* form the higher bits in the address */
-+	mailbox_db.dw = 0;	/* init */
-+	mailbox_db.hi = 1;
-+	mailbox_db.ready = 0;
-+	SA_C_ASSERT(BE_BIT_SIZE(MPU_MAILBOX_DB, address) == 30);
-+	mailbox_db.address =
-+	    (u32) sa_upper_bits64(function_object->mailbox.pa, 30);
-+
-+	/* Wait for the MPU to be ready */
-+	be_mcc_mailbox_wait(function_object);
-+
-+	/* Ring doorbell 1st time */
-+	PD_WRITE(function_object, mcc_bootstrap_db, mailbox_db);
-+
-+	/* Wait for 1st write to be acknowledged. */
-+	be_mcc_mailbox_wait(function_object);
-+
-+	/* form the lower bits in the address */
-+	mailbox_db.hi = 0;
-+	mailbox_db.ready = 0;
-+	mailbox_db.address =
-+	    (u32) sa_bit_range64(function_object->mailbox.pa, 4, 30);
-+
-+	/* Ring doorbell 2nd time */
-+	PD_WRITE(function_object, mcc_bootstrap_db, mailbox_db);
-+}
-+
-+/*!
-+@brief
-+    This routine tells the MCC mailbox that there is data to processed
-+    in the mailbox. It does this by setting the physical address for the
-+    mailbox location and clearing the LSB.  This routine spins until the
-+    MPU writes a 1 into the LSB indicating that the data has been received
-+    and is ready to be processed.
-+
-+@param
-+    pcontroller      - The function object to post this data to
-+@return
-+@note
-+    IRQL < DISPATCH_LEVEL
-+*/
-+STATIC
-+    void
-+be_mcc_mailbox_notify_and_wait(IN PBE_FUNCTION_OBJECT function_object)
-+{
-+	/*
-+	 * Notify it
-+	 */
-+	be_mcc_mailbox_notify(function_object);
-+
-+	/*
-+	 * Now wait for completion of WRB
-+	 */
-+	be_mcc_mailbox_wait(function_object);
-+}
-+
-+void
-+be_mcc_process_cqe(PBE_FUNCTION_OBJECT function_object, PMCC_CQ_ENTRY cqe)
-+{
-+
-+	PBE_MCC_WRB_CONTEXT wrb_context = NULL;
-+
-+	FUNCTION_ASSERT(function_object);
-+	ASSERT(cqe);
-+
-+	/*
-+	 * A command completed.  Commands complete out-of-order.
-+	 * Determine which command completed from the TAG.
-+	 */
-+	SA_C_ASSERT(sizeof(cqe->mcc_tag) >= sizeof(u64));
-+	wrb_context =
-+	    (PBE_MCC_WRB_CONTEXT) SA_U64_TO_PTR(*((u64 *) cqe->mcc_tag));
-+
-+	ASSERT(wrb_context);
-+
-+#ifdef SA_DEBUG
-+	/*
-+	 * Assert that at least one WRB was consumed since we posted this one.
-+	 * If this assert fires, it indicates that a WRB was completed
-+	 * before it was consumed.
-+	 */
-+	if (wrb_context->ring_wrb) {
-+		ASSERT(C_GT
-+		       (function_object->stats.consumed_wrbs,
-+			wrb_context->consumed_count));
-+	}
++typedef u8 bool8;
++typedef u16 bool16;
++typedef u32 bool32;
++
++/* Define boolean types if necessary. */ #ifndef TRUE #define TRUE (1) 
 +#endif
 +
-+	/*
-+	 * Perform a response copy if requested.
-+	 * Only copy data if the IOCTL is successful.
-+	 */
-+	if (cqe->completion_status == MGMT_STATUS_SUCCESS &&
-+	    wrb_context->copy.length > 0) {
-+		ASSERT(wrb_context->wrb);
-+		ASSERT(wrb_context->wrb->embedded);
-+		ASSERT(wrb_context->copy.va);
-+		ASSERT(wrb_context->copy.ioctl_offset +
-+		       wrb_context->copy.length <= SA_SIZEOF_FIELD(MCC_WRB,
-+								   payload));
-+		sa_memcpy(wrb_context->copy.va,
-+			  (u8 *) &wrb_context->wrb->payload +
-+			  wrb_context->copy.ioctl_offset,
-+			  wrb_context->copy.length);
-+	}
++#ifndef FALSE
++#define FALSE (0)
++#endif
 +
-+	/* internal callback */
-+	if (wrb_context->internal_callback) {
-+		wrb_context->internal_callback(wrb_context->
-+					       internal_callback_context,
-+					       be_mcc_wrb_status_to_bestatus
-+					       (cqe->completion_status),
-+					       wrb_context->wrb);
-+	}
++#if !defined(NULL)
++#define NULL            ((void *) 0)
++#endif
 +
-+	/* callback */
-+	if (wrb_context->callback) {
-+		wrb_context->callback(wrb_context->callback_context,
-+		      be_mcc_wrb_status_to_bestatus(cqe->completion_status),
-+				      wrb_context->wrb);
-+	}
-+	/* Free the context structure */
-+	_be_mcc_free_wrb_context(function_object, wrb_context);
++/* Physical address definition */
++typedef u64 SA_PHYSICAL_ADDRESS, *PSA_PHYSICAL_ADDRESS;
++
++#define SA_EXTERN_C extern "C"
++#define INLINE      inline
++#define STATIC      static
++#define SA_STDCALL
++#define STDCALL
++#define SA_CDECL
++#define SA_FASTCALL
++
++#ifndef FASTCALL
++#define FASTCALL
++#endif
++
++#define IN
++#define OUT
++#define INOUT
++
++#endif
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/sa/sa.c benet/linux-2.6.24.2/drivers/message/beclib/sa/sa.c
+--- orig/linux-2.6.24.2/drivers/message/beclib/sa/sa.c	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/sa/sa.c	2008-02-14 15:23:07.812205128 +0530
+@@ -0,0 +1,278 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * system abstraction functions / macros for Linux  */ #include "sa.h"
++#include <asm/io.h>
++#include <linux/delay.h>
++
++/* Table lookup for number of bits set in each byte. */
++u8 sa_bits_in_byte_table[256] = {
++	0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
++	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
++	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
++	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
++	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
++	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
++	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
++	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
++	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
++	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
++	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
++	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
++	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
++	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
++	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
++	4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8 };
++
++unsigned int trace_level;
++
++
++SA_STATUS sa_dev_create(SA_DEV_BAR_LOCATIONS *bars, u32 num_bars,
++		SA_DEV_OS_HANDLE os_handle, SA_DEV *dev) {
++	SA_NOT_USED(os_handle); /* Not used in Linux */
++	ASSERT(dev);
++	ASSERT(bars);
++
++	/* Zero the struct */
++	SA_ZERO_MEM(dev);
++
++	/* Copy the bar info */
++	dev->magic = SA_DEV_MAGIC;
++	dev->num_bars = num_bars;
++	sa_memcpy(dev->bars, bars,
++		  sizeof(SA_DEV_BAR_LOCATIONS) * num_bars);
++
++	/* Figure out the csr/pd/pci bar numbers. */
++	_sa_cache_bar_nums(dev);
++
++	return SA_SUCCESS;
 +}
 +
-+void be_drive_mcc_wrb_queue(IN PBE_MCC_OBJECT mcc)
++void sa_dev_destroy(SA_DEV *dev)
 +{
-+	PBE_FUNCTION_OBJECT function_object = NULL;
-+	BESTATUS status = BE_PENDING;
-+	PBE_GENERIC_QUEUE_CONTEXT queue_context;
-+	PSA_LIST_ENTRY entry;
-+	MCC_WRB *wrb;
-+	MCC_WRB *queue_wrb;
++	SA_DEV_ASSERT(dev);
++	SA_ZERO_MEM(dev);
++}
++
++u8 sa_dev_read_u8(SA_DEV *dev, u32 bar, u32 offset) {
++	u8 *real_offset = 0;
++	u8 value = 0;
++
++	SA_DEV_ASSERT(dev);
++	ASSERT(bar < dev->num_bars);
++	ASSERT(offset < dev->bars[bar].length);
++
++	real_offset = (u8 *) dev->bars[bar].base_va + offset;
++	value = readb((void *)real_offset);
++	return value;
++}
++
++u16 sa_dev_read_u16(SA_DEV *dev, u32 bar, u32 offset) {
++	u8 *real_offset = 0;
++	u16 value = 0;
++
++	SA_DEV_ASSERT(dev);
++	ASSERT(bar < dev->num_bars);
++	ASSERT(offset < dev->bars[bar].length);
++
++	real_offset = (u8 *) dev->bars[bar].base_va + offset;
++	value = readw((void *)real_offset);
++	return value;
++}
++
++u32 sa_dev_read_u32(SA_DEV *dev, u32 bar, u32 offset) {
++	u8 *real_offset = 0;
++	u32 value = 0;
++
++	SA_DEV_ASSERT(dev);
++	ASSERT(bar < dev->num_bars);
++	ASSERT(offset < dev->bars[bar].length);
++
++	real_offset = (u8 *) dev->bars[bar].base_va + offset;
++	value = readl((void *)real_offset);
++	return value;
++}
++
++void sa_dev_write_u8(SA_DEV *dev, u32 bar, u32 offset, u8 value) {
++	u8 *real_offset = 0;
++
++	SA_DEV_ASSERT(dev);
++	ASSERT(bar < dev->num_bars);
++	ASSERT(offset < dev->bars[bar].length);
++
++	real_offset = (u8 *) dev->bars[bar].base_va + offset;
++	writeb(value, (void *)real_offset);
++}
++
++void sa_dev_write_u16(SA_DEV *dev, u32 bar, u32 offset, u16 value) {
++	u8 *real_offset = 0;
++
++	SA_DEV_ASSERT(dev);
++	ASSERT(bar < dev->num_bars);
++	ASSERT(offset < dev->bars[bar].length);
++
++	real_offset = (u8 *) dev->bars[bar].base_va + offset;
++	writew(value, (void *)real_offset);
++}
++
++void sa_dev_write_u32(SA_DEV *dev, u32 bar, u32 offset, u32 value) {
++	u8 *real_offset = 0;
++
++	SA_DEV_ASSERT(dev);
++	ASSERT(bar < dev->num_bars);
++	ASSERT(offset < dev->bars[bar].length);
++
++	real_offset = (u8 *) dev->bars[bar].base_va + offset;
++	writel(value, (void *)real_offset);
++}
++
++SA_STATUS
++sa_dev_read_buffer_u8(SA_DEV *dev,
++		      u32 bar, u32 offset, u8 *buffer, u32 count) {
++	u8 *real_offset = 0;
++
++	SA_DEV_ASSERT(dev);
++	ASSERT(bar < dev->num_bars);
++	ASSERT(offset + count < dev->bars[bar].length);
++	ASSERT(count > 0);
++	ASSERT(buffer);
++
++	real_offset = (u8 *) dev->bars[bar].base_va + offset;
++	memcpy_fromio(buffer, (void *)real_offset, count);
++
++	return SA_SUCCESS;
++}
++
++SA_STATUS
++sa_dev_read_buffer_u16(SA_DEV *dev,
++		       u32 bar, u32 offset, u16 *buffer, u32 count) {
++	u8 *real_offset = 0;
++
++	SA_DEV_ASSERT(dev);
++	ASSERT(bar < dev->num_bars);
++	ASSERT(offset + count * sizeof(u16) < dev->bars[bar].length);
++	ASSERT(count > 0);
++	ASSERT(buffer);
++
++	real_offset = (u8 *) dev->bars[bar].base_va + offset;
++	memcpy_fromio(buffer, (void *)real_offset, count * sizeof(u16));
++
++	return SA_SUCCESS;
++}
++
++SA_STATUS
++dev_read_buffer_u32(SA_DEV *dev,
++		    u32 bar, u32 offset, u32 *buffer, u32 count) {
++	u8 *real_offset = 0;
++
++	SA_DEV_ASSERT(dev);
++	ASSERT(bar < dev->num_bars);
++	ASSERT(offset + count * sizeof(u32) < dev->bars[bar].length);
++	ASSERT(count > 0);
++	ASSERT(buffer);
++
++	real_offset = (u8 *) dev->bars[bar].base_va + offset;
++	memcpy_fromio(buffer, (void *)real_offset, count * sizeof(u32));
++
++	return SA_SUCCESS;
++}
++
++SA_STATUS
++sa_dev_write_buffer_u8(SA_DEV *dev,
++		       u32 bar, u32 offset, u8 *buffer, u32 count) {
++	u8 *real_offset = 0;
++
++	SA_DEV_ASSERT(dev);
++	ASSERT(bar < dev->num_bars);
++	ASSERT(offset + count < dev->bars[bar].length);
++	ASSERT(count > 0);
++	ASSERT(buffer);
++
++	real_offset = (u8 *) dev->bars[bar].base_va + offset;
++	memcpy_toio((void *)real_offset, buffer, count);
++
++	return SA_SUCCESS;
++}
++
++SA_STATUS
++sa_dev_write_buffer_u16(SA_DEV *dev,
++			u32 bar, u32 offset, u16 *buffer, u32 count) {
++	u8 *real_offset = 0;
++
++	SA_DEV_ASSERT(dev);
++	ASSERT(bar < dev->num_bars);
++	ASSERT(offset + count * sizeof(u16) < dev->bars[bar].length);
++	ASSERT(count > 0);
++	ASSERT(buffer);
++
++	real_offset = (u8 *) dev->bars[bar].base_va + offset;
++	memcpy_toio((void *)real_offset, buffer, count * sizeof(u16));
++
++	return SA_SUCCESS;
++}
++
++SA_STATUS
++sa_dev_write_buffer_u32(SA_DEV *dev,
++			u32 bar, u32 offset, u32 *buffer, u32 count) {
++	u8 *real_offset = 0;
++
++	SA_DEV_ASSERT(dev);
++	ASSERT(bar < dev->num_bars);
++	ASSERT(offset + count * sizeof(u32) < dev->bars[bar].length);
++	ASSERT(count > 0);
++	ASSERT(buffer);
++
++	real_offset = (u8 *) dev->bars[bar].base_va + offset;
++	memcpy_toio((void *)real_offset, buffer, count * sizeof(u32));
++
++	return SA_SUCCESS;
++}
++
++void sa_dev_stall(SA_DEV *dev, u32 us_to_stall) {
++	udelay(us_to_stall);
++}
+diff -uprN orig/linux-2.6.24.2/drivers/message/beclib/sa/sa.h benet/linux-2.6.24.2/drivers/message/beclib/sa/sa.h
+--- orig/linux-2.6.24.2/drivers/message/beclib/sa/sa.h	1970-01-01 05:30:00.000000000 +0530
++++ benet/linux-2.6.24.2/drivers/message/beclib/sa/sa.h	2008-02-14 15:23:07.813204976 +0530
+@@ -0,0 +1,1004 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or at your option any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, 5th Floor
++ * Boston, MA 02110-1301 USA
++ *
++ *
++ * The full GNU General Public License is included in this distribution
++ * in the file called GPL.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * system abstraction functions / macros for Linux  */ #ifndef __sa_h__ 
++#define __sa_h__
++
++#include <asm/io.h>
++#include <linux/list.h>
++#include <linux/kernel.h>
++#include <linux/spinlock.h>
++#include <linux/errno.h>
++#include <linux/string.h>
++#include <asm/semaphore.h>
++
++/*-----  Platform specific defines for Linux -------*/ #define SA_OS 
++"linux"
++#define SA_LINUX
++
++#define SA_KERNEL
++#define SA_LINUX_KERNEL
++#define SA_LINUXK
++
++#define  SA_CPP_HEADER
++#define  SA_CPP_TRAILER
++
++/*
++ *---------   Assert related --------
++ * a way to force  compilation error
++ */
++#define SA_C_ASSERT(_expression_)       { \
++	typedef u8 __COMPILE_TIME_ASSERT_NAME__[(_expression_) ? 1 : -1];  \ }
++
++#ifdef SA_DEBUG
++
++#define ASSERT(c)       if (!(c)) \
++				BUG();
++
++#define SA_DBG_CSTR(_str_)        (_str_)
++#define SA_DBG_ONLY(_anything_)   _anything_
++
++#else
++
++#define ASSERT(c)
++#define BREAKPOINT()
++#define SA_BREAKPOINT_MSG(_str_)
++#define SA_DBG_CSTR(_str_)        ""
++#define SA_DBG_ONLY(_anything_)
++
++#endif
++
++#define SA_ASSERT	ASSERT
++
++#define SA_COMPILETIME_NAMED_TYPEDEF_ASSERT(_name_, _expression_)    \
++	typedef u8 _name_##__COMPILE_TIME_ASSERT__[(_expression_)?1: -1]  \
++
++#define SA_GLOBAL_C_ASSERT          SA_COMPILETIME_NAMED_TYPEDEF_ASSERT
++
++/*---------   Trace log related --------*/
++
++/* debug levels */
++typedef enum _SA_DEBUG_LEVELS {
++	DL_ALWAYS = 0,		/* cannot be masked */
++
++	DL_ERR = 0x1,		/* errors that should never happen */
++	DL_WARN = 0x2,		/* something is questionable.
++				   recoverable errors */
++	DL_NOTE = 0x4,		/* infrequent, important debug info */
++	DL_INFO = 0x8,		/* debug information */
++
++	DL_VERBOSE = 0x10,	/* detailed information, such as
++				   buffer traces */
++	DL_ENTRY = 0x20,	/* function entry */
++	DL_EXIT = 0x40,		/* function exit */
++	DL_RSVD1 = 0x80,
++
++	SA_DL_MIN_VALUE = 0x1,	/* this is the min value used */
++	SA_DL_MAX_VALUE = 0x80	/* this is the higheset value used */
++} SA_DEBUG_LEVELS, *PSA_DEBUG_LEVELS;
++
++/* Bit mask describing events of interest to be traced */ extern 
++unsigned int trace_level;
++
++#define SA_TRACE(lm, fmt, args...)  {					\
++		if (trace_level & lm) {				\
++			printk(KERN_NOTICE "BE: %s:%d \n" fmt,	\
++			__FILE__ , __LINE__ , ## args);	\
++		}						\
++	}
++
++#define TRACE			SA_TRACE
++#define SA_TRACE_ENTRY()	SA_TRACE(DL_ENTRY, "Entry - \n")
++#define SA_TRACE_EXIT()		SA_TRACE(DL_EXIT , "Exit  - \n")
++
++static inline unsigned int sa_trace_set_level(unsigned int l) {
++	unsigned int old_level = trace_level;
++	trace_level = l;
++	return (old_level);
++}
++
++#define sa_trace_get_level() 	trace_level
++#define sa_trace_set_debug_level_string(lm, s)	/* nothing */
++
++#include "setypes.h"
++
++/*----- power of 2  functions -----*/
++static inline u32 sa_required_bits(u32 x) {
++	u32 hi = 31, lo = 0;
++	u32 guess = 16;
++
++	if (x == 0)
++		return 0;
++	if (x & 0x80000000)
++		return 32;
++
++	/* Binary search */
++	while (hi > lo) {
++		if ((x >> guess) > 0) {
++			/* x is more than i bits in length */
++			lo = guess;
++			guess = (hi + guess + 1) >> 1;
++		} else {
++			hi = guess - 1;
++			guess = (lo + guess) >> 1;
++		}
++	}
++
++	return hi + 1;
++}
++
++/*
++ * Returns the log base 2 for a number, always rounding down.
++ * sa_log2 example input->output
++ * 0->4294967295, 1->0, 2->1, 3->1, 4->2, 5->2, 6->2, 7->2, 8->3, 9->3  
++*/ static inline u32 sa_log2(u32 x) {
++	return sa_required_bits(x) - 1;
++}
++
++/*
++ * "greater than power of 2"
++ * Returns the next higher power of 2 -- even if input is a power of 2.
++ * input->output
++ * 0->1, 1->2, 2->4, 3->4, 4->8, 5->8, 6->8, 7->8, 8->16, 9->16  */ 
++static inline u32 sa_gt_power2(u32 x) {
++	x = sa_required_bits(x);
++
++	if (x >= 32)
++		/* error -- cannot represent this number in 32 bits */
++		return (u32) 0xFFFFFFFF;
++
++	return (1 << x);
++}
++
++/*
++ *----- status codes returned by SA functions -----
++ * Status code datatype
++ */
++typedef i32 SA_STATUS, *PSA_STATUS;
++
++/* Error codes */
++#define SA_STATUS_SUCCESS             (0x00000000L)
++#define SA_SUCCESS                    SA_STATUS_SUCCESS	/* abbreviation */
++
++#define SA_STATUS_PENDING             (0x20070001L)
++#define SA_STATUS_NOT_OK              (0xE0070002L)
++#define SA_NOT_OK                     SA_STATUS_NOT_OK	/* abbreviation */
++#define SA_STATUS_NO_SYSTEM_RESOURCES (0xE0070003L)
++#define SA_STATUS_NO_CHIP_RESOURCES   (0xE0070004L)
++#define SA_STATUS_BUSY                (0xE0070006L)
++
++#define SA_STATUS_INVALID_PARAMETER   (0xE0000007L)
++#define SA_STATUS_INVALID_ADDRESS     (0xE000000CL)
++#define SA_STATUS_NOT_SUPPORTED       (0xE000000DL)
++
++#define SA_STATUS_ACCESS_DENIED       (0xE000000EL)
++
++#define SA_STATUS_TIMEOUT             (0xE000100FL)
++#define SA_STATUS_ALERTED             (0xE0001010L)
++
++/*-------- Basic defines -------*/
++#define SA_PAGE_SHIFT  12
++#define SA_PAGE_SIZE   4096	/* BUG */
++
++/* Standard MIN and MAX macros */
++#define MIN(_a_, _b_) (((_a_) < (_b_)) ? (_a_) : (_b_)) #define 
++MAX(_a_, _b_) (((_a_) > (_b_)) ? (_a_) : (_b_))
++
++/*
++ * Returns number of pages spanned by the size of data
++ * starting at the given address.
++ */
++#define SA_PAGES_SPANNED(_address, _size) \
++   ((u32)(((SA_PTR_TO_INT(_address) & (SA_PAGE_SIZE - 1)) + \
++		(_size) + (SA_PAGE_SIZE - 1)) >> SA_PAGE_SHIFT))
++
++/*
++ * number of elements in an array
++ *  e.g.  u32 array[128];
++ *  SA_NUMBER_OF(array) == 128
++ */
++#define SA_NUMBER_OF(_x_) 	(sizeof(_x_)/sizeof((_x_)[0]))
++
++/*
++ * Appropriate casts to avoid compiler warnings about casting between
++ * integers and pointers.
++ */
++#define SA_PTR_TO_INT(_p_) ((SA_SIZE_T)(_p_)) #define 
++SA_PTR_TO_U32(_p_) ((u32)SA_PTR_TO_INT(_p_)) #define SA_PTR_TO_U64(_p_) 
++((u64)SA_PTR_TO_INT(_p_))
++
++#define SA_PTR_TO_INT(_p_) ((SA_SIZE_T)(_p_)) #define 
++SA_U64_TO_PTR(_u_) ((PVOID)(SA_SIZE_T)(_u_)) #define SA_U32_TO_PTR(_u_) 
++((PVOID)(SA_SIZE_T)(_u_)) #define SA_PAGE_OFFSET(_addr_) 
++(SA_PTR_TO_INT(_addr_) & (SA_PAGE_SIZE-1))
++
++/* Returns the next higher page aligned address. */ static inline PVOID 
++SA_PAGE_ALIGN(PVOID _addr_) {
++	u32 addr = SA_PTR_TO_U32(_addr_);
++	if (addr & (SA_PAGE_SIZE - 1)) {
++		addr = (addr & ~(SA_PAGE_SIZE - 1)) + SA_PAGE_SIZE;
++		return SA_U32_TO_PTR(addr);
++	}
++	return _addr_;
++}
++
++/* Conversion from 64 bit values to hi and lo 32-bit values. */ static 
++inline u32 sa_hi(u64 quad) {
++	return (u32) (quad >> 32);
++}
++static inline u32 sa_lo(u64 quad)
++{
++	return (u32) (quad);
++}
++
++static inline u64 sa_make_u64(u32 hi, u32 lo) {
++	return (((u64) hi) << 32) | lo;
++}
++
++static inline u32 sa_pvoid_hi(PVOID p)
++{
++	return sa_hi(SA_PTR_TO_U64(p));
++}
++
++static inline u32 sa_pvoid_lo(PVOID p)
++{
++	return sa_lo(SA_PTR_TO_U64(p));
++}
++
++static inline PVOID sa_make_pvoid(u32 hi, u32 lo) {
++	return SA_U64_TO_PTR(sa_make_u64(hi, lo)); }
++
++/* Returns byte offset of field within given struct type. */
++#define SA_FIELD_OFFSET(_type_, _field_)              \
++	(SA_PTR_TO_U32((u8 *)&(((_type_ *)0)->_field_)))
++
++/* Returns byte size of given field with a structure. */ #define 
++SA_SIZEOF_FIELD(_type_, _field_)  \
++	sizeof(((_type_ *)0)->_field_)
++
++/* Returns the number of items in the field array. */
++#define SA_NUMBER_OF_FIELD(_type_, _field_)                                \
++	(SA_SIZEOF_FIELD(_type_, _field_)/sizeof((((_type_ *)0)->_field_[0])))
++
++/* Explicitly acknowledges that an input parameter is ignored. */ 
++#define SA_UNREFERENCED_PARAMETER(_p_)  ((_p_) = (_p_))
++#define SA_NOT_USED SA_UNREFERENCED_PARAMETER	/* abbreviation */
++
++/* Returns x/y plus 1 if there is a remainder. */ static inline u32 
++sa_ceiling(u32 x, u32 y) {
++	ASSERT(y > 0);
++	return (x + y - 1) / y;
++}
++
++/*
++ * Round Up Increment
++ * Returns number to add to x to round up to next multiple
++ * of y.  If x is multiple of y it returns 0.
++ */
++static inline u32 sa_round_up_inc(u32 x, u32 y) {
++	u32 z;
++	ASSERT(y > 0);
++	z = x % y;
++	return (z > 0 ? y - z : 0);
++}
++
++/*
++ * Returns x rounded to next multiple of y.  If x is a multiple
++ * of y, it returns x.
++ */
++static inline u32 sa_round_up(u32 x, u32 y) {
++	return x + sa_round_up_inc(x, y);
++}
++
++/*
++ * circular subtract.
++ * Returns a - b assuming a circular number system, where a and b are
++ * in range (0, maxValue-1). If a==b, zero is returned so the
++ * highest value possible with this subtraction is maxValue-1.
++ */
++static inline u32 sa_subc(u32 a, u32 b, u32 max) {
++	ASSERT(a <= max && b <= max);
++	ASSERT(max > 0);
++	return (a >= b ? (a - b) : (max - b + a)); }
++
++static inline u32 sa_addc(u32 a, u32 b, u32 max) {
++	ASSERT(a < max);
++	ASSERT(max > 0);
++	return ((max - a > b) ? (a + b) : (b + a - max)); }
++
++#define C_LT(a, b)   ((i32)((a)-(b)) < 0)
++#define C_LE(a, b)   ((i32)((a)-(b)) <= 0)
++#define C_GT(a, b)   ((i32)((a)-(b)) > 0)
++#define C_GE(a, b)   ((i32)((a)-(b)) >= 0)
++
++/*------ List manipulation functions and macros ----*/
++
++/*
++ * Calculate the address of the base of the structure given its type, 
++and an
++ * address of a field within the structure.
++ */
++#define SA_CONTAINING_RECORD(_address_, _type_, _field_) \
++	((_type_ *)((u8 *)(_address_) - (u8 *)(&((_type_ *)0)->_field_)))
++
++typedef struct list_head SA_LIST_ENTRY; typedef struct list_head 
++*PSA_LIST_ENTRY;
++
++#define SA_FOR_EACH_LIST_ENTRY(_LE, _LH, _TYPE, _LF)                   \
++	for ((_LE) =  SA_CONTAINING_RECORD((_LH).next, _TYPE, _LF.next); \
++		&(_LE)->_LF != &(_LH);                          \
++		(_LE) = SA_CONTAINING_RECORD((_LE)->_LF.next,   \
++		_TYPE, _LF.next))
++
++
++
++#define	sa_initialize_list_head		INIT_LIST_HEAD
++#define sa_is_list_empty 		list_empty
++#define IsListEmpty 			list_empty
++#define sa_remove_entry_list 		list_del
++#define sa_insert_tail_list(H, E)	list_add_tail(E, H)
++#define InsertTailList(H, E)		list_add_tail(E, H)
++#define	sa_insert_head_list(H, E)	list_add(E, H)
++#define RemoveHeadList		sa_remove_head_list
++
++static
++inline PSA_LIST_ENTRY sa_list_head(IN PSA_LIST_ENTRY head) {
++	if (head->next == head)
++		return ((PSA_LIST_ENTRY) 0);
++	else
++		return (head->next);
++}
++
++static
++inline PSA_LIST_ENTRY sa_remove_head_list(IN PSA_LIST_ENTRY head) {
++	PSA_LIST_ENTRY entry = head->next;
++
++	list_del((struct list_head *)entry);
++	return (entry);
++}
++
++static
++inline PSA_LIST_ENTRY sa_remove_tail_list(IN PSA_LIST_ENTRY head) {
++	PSA_LIST_ENTRY entry = head->prev;
++
++	list_del((struct list_head *)entry);
++	return (entry);
++}
++
++/*------- Memory Allocation / copy related ------*/
++
++typedef struct _SA_SGL {
 +	u32 length;
++	PVOID va;
++	u64 pa;
++} SA_SGL, *PSA_SGL;
 +
-+	MCC_ASSERT(mcc);
++/*
++ * simple compile time assert to verify the length of the input string.
++ * The gcc compiler optimizes the entire thing to a constant with -02.
++ */
++#define SA_TAG(__four_char_string__) ({			\
++	SA_GLOBAL_C_ASSERT(tag_must_be_4_char,		\
++		sizeof(__four_char_string__) == 5);	\
++	(((u32)(__four_char_string__[3])<<24) |		\
++	((u32)(__four_char_string__[2])<<16) |		\
++	((u32)(__four_char_string__[1])<<8)  |		\
++	((u32)(__four_char_string__[0])));		\
++})
++#define SA_ZERO_MEM(_ptr_) 	sa_zero_mem((_ptr_), sizeof(*(_ptr_)))
 +
-+	function_object = mcc->parent_function;
-+
-+	be_lock_wrb_post(function_object);
-+
-+	if (mcc->driving_backlog) {
-+		be_unlock_wrb_post(function_object);
-+		return;
-+	}
-+	/* Acquire the flag to limit 1 thread to redrive posts. */
-+	mcc->driving_backlog = 1;
-+
-+	while (!sa_is_list_empty(&mcc->backlog)) {
-+
-+		wrb = _be_mpu_peek_ring_wrb(mcc, TRUE);	/* Driving the queue */
-+		if (!wrb) {
-+			break;	/* No space in the ring yet. */
-+		}
-+		/* Get the next queued entry to process. */
-+		entry = sa_remove_head_list(&mcc->backlog);
-+		ASSERT(entry);
-+		queue_context =
-+		    SA_CONTAINING_RECORD(entry, BE_GENERIC_QUEUE_CONTEXT,
-+					 context.list);
-+		function_object->links.mcc->backlog_length--;
-+
-+		/*
-+		 * Compute the required length of the WRB.
-+		 * Since the queue element may be smaller than
-+		 * the complete WRB, copy only the required number of bytes.
-+		 */
-+		queue_wrb = (MCC_WRB *) &queue_context->wrb_header;
-+		if (queue_wrb->embedded) {
-+			length =
-+			    sizeof(BE_MCC_WRB_HEADER) +
-+			    queue_wrb->payload_length;
-+		} else {
-+			ASSERT(queue_wrb->sge_count == 1); /* only 1 frag. */
-+			length = sizeof(BE_MCC_WRB_HEADER) +
-+			    queue_wrb->sge_count * sizeof(MCC_SGE);
-+		}
-+
-+		/*
-+		 * Truncate the length based on the size of the
-+		 * queue element.  Some elements that have output parameters
-+		 * can be smaller than the payload_length field would
-+		 * indicate.  We really only need to copy the request
-+		 * parameters, not the response.
-+		 */
-+		ASSERT(queue_context->context.bytes >=
-+		       SA_FIELD_OFFSET(BE_GENERIC_QUEUE_CONTEXT,
-+				       wrb_header));
-+		length =
-+		    MIN(length,
-+			queue_context->context.bytes -
-+			SA_FIELD_OFFSET(BE_GENERIC_QUEUE_CONTEXT,
-+					wrb_header));
-+
-+		/* Copy the queue element WRB into the ring. */
-+		sa_memcpy(wrb, &queue_context->wrb_header, length);
-+
-+		/* Post the wrb.  This should not fail assuming we have
-+		 * enough context structs. */
-+		status = be_function_post_mcc_wrb_complete(function_object,
-+				wrb, NULL,	/* Do not queue */
-+			   queue_context->context.
-+			   callback,
-+			   queue_context->context.
-+			   callback_context,
-+			   queue_context->context.
-+			   internal_callback,
-+			   queue_context->context.
-+			   internal_callback_context,
-+			   queue_context->context.
-+			   optional_ioctl_va,
-+			   queue_context->context.copy);
-+
-+		if (status == BE_SUCCESS) {
-+
-+			/*
-+			 * Synchronous completion. Since it was queued,
-+			 * we will invoke the callback.
-+			 * To the user, this is an asynchronous request.
-+			 */
-+			be_unlock_wrb_post(function_object);
-+
-+			ASSERT(queue_context->context.callback);
-+
-+			queue_context->context.callback(queue_context->context.
-+						callback_context,
-+						BE_SUCCESS, NULL);
-+
-+			be_lock_wrb_post(function_object);
-+
-+		} else if (status != BE_PENDING) {
-+			/*
-+			 * Another resource failed.  Should never happen
-+			 * if we have sufficient MCC_WRB_CONTEXT structs.
-+			 * Return to head of the queue.
-+			 */
-+			TRACE(DL_WARN,
-+			      "beclib : failed to post a queued WRB. 0x%x",
-+			      status);
-+			sa_insert_head_list(&mcc->backlog,
-+					    &queue_context->context.list);
-+			function_object->links.mcc->backlog_length++;
-+			break;
-+		}
-+	}
-+
-+	function_object->stats.queue_length =
-+	    function_object->links.mcc->backlog_length;
-+
-+	/* Free the flag to limit 1 thread to redrive posts. */
-+	mcc->driving_backlog = 0;
-+
-+	be_unlock_wrb_post(function_object);
++static inline u32 sa_sgl_get_byte_count(IN PSA_SGL sgl) {
++	ASSERT(sgl);
++	return sgl->length;
 +}
 +
-+/* This function asserts that the WRB was consumed in order. */
-+#ifdef SA_DEBUG
-+u32 be_mcc_wrb_consumed_in_order(PBE_MCC_OBJECT mcc, PMCC_CQ_ENTRY cqe)
-+{
-+	PBE_FUNCTION_OBJECT function_object = mcc->parent_function;
-+	PBE_MCC_WRB_CONTEXT wrb_context = NULL;
-+	u32 wrb_index;
-+	u32 wrb_consumed_in_order;
++static inline u32 sa_sgl_get_page_count(PSA_SGL sgl) {
++	ASSERT(sgl);
++	return SA_PAGES_SPANNED(sgl->va, sgl->length); }
 +
-+	FUNCTION_ASSERT(function_object);
-+	ASSERT(cqe);
-+
-+	/*
-+	 * A command completed.  Commands complete out-of-order.
-+	 * Determine which command completed from the TAG.
-+	 */
-+	SA_C_ASSERT(sizeof(cqe->mcc_tag) >= sizeof(u64));
-+	wrb_context =
-+	    (PBE_MCC_WRB_CONTEXT) SA_U64_TO_PTR(*((u64 *) cqe->mcc_tag));
-+
-+	ASSERT(wrb_context);
-+
-+	wrb_index =
-+	    (u32) (((SA_PTR_TO_U64(wrb_context->ring_wrb) -
-+		     SA_PTR_TO_U64(mcc->sq.ring.va))) / sizeof(MCC_WRB));
-+	ASSERT(wrb_index < sa_ring_num(&mcc->sq.ring));
-+
-+	wrb_consumed_in_order = (u32) (wrb_index == mcc->consumed_index);
-+	mcc->consumed_index =
-+	    sa_addc(mcc->consumed_index, 1, sa_ring_num(&mcc->sq.ring));
-+
-+	return wrb_consumed_in_order;
++static inline PVOID sa_sgl_get_base_va(IN PSA_SGL sgl) {
++	ASSERT(sgl);
++	return sgl->va;
 +}
-+#endif
 +
-+BESTATUS be_mcc_process_cq(IN PBE_MCC_OBJECT mcc, IN boolean rearm)
-+{
-+	PBE_FUNCTION_OBJECT function_object = NULL;
-+	PMCC_CQ_ENTRY cqe;
-+	CQ_DB db;
-+	PSA_RING cq_ring = &mcc->cq.ring;
-+	PSA_RING mcc_ring = &mcc->sq.ring;
-+	u32 num_processed = 0;
-+	u32 consumed = 0;
++static inline u32 sa_sgl_get_offset(PSA_SGL sgl) {
++	ASSERT(sgl);
++	return SA_PAGE_OFFSET(sgl->va);
++}
 +
-+	function_object = mcc->parent_function;
-+	FUNCTION_ASSERT(function_object);
++static inline SA_PHYSICAL_ADDRESS
++sa_sgl_get_page(IN PSA_SGL sgl, IN u32 page_index) {
++	SA_PHYSICAL_ADDRESS pa;
 +
-+	be_lock_cq_process(function_object);
++	ASSERT(sgl);
++	ASSERT(page_index < sa_sgl_get_page_count(sgl));
 +
-+	function_object->stats.processed_cq++;
-+
-+	/*
-+	 * Verify that only one thread is processing the CQ at once.
-+	 * We cannot hold the lock while processing the CQ due to
-+	 * the callbacks into the OS.  Therefore, this flag is used
-+	 * to control it.  If any of the threads want to
-+	 * rearm the CQ, we need to honor that.
-+	 */
-+	if (mcc->processing != 0) {
-+		mcc->rearm = mcc->rearm || rearm;
-+		goto Error;
++	if (page_index == 0) {
++		pa = virt_to_phys(sgl->va);
++		pa &= ~(SA_PAGE_SIZE - 1);	/* next lower pa */
 +	} else {
-+		mcc->processing = 1;	/* lock processing for this thread. */
-+		mcc->rearm = rearm;	/* set our rearm setting */
++		u64 va = SA_PTR_TO_U64(sgl->va) & ~(SA_PAGE_SIZE - 1);
++		va += page_index * SA_PAGE_SIZE; /* offset to correct page  */
++		pa = virt_to_phys(SA_U64_TO_PTR(va));
 +	}
 +
-+	be_unlock_cq_process(function_object);
++	ASSERT(pa);
 +
-+	cqe = sa_ring_current(cq_ring);
-+	while (cqe->valid) {
-+
-+		function_object->stats.cq_entries++;
-+
-+		if (num_processed >= 8) {
-+			/* coalesce doorbells, but free space in cq
-+			 * ring while processing. */
-+			db.dw = 0;	/* clear */
-+			db.qid = cq_ring->id;
-+			db.rearm = FALSE;	/* Rearm at the end! */
-+			db.event = FALSE;
-+			db.num_popped = num_processed;
-+			num_processed = 0;
-+
-+			PD_WRITE(function_object, cq_db, db);
-+		}
-+
-+		if (cqe->async_event) {
-+			/* This is an asynchronous event. */
-+			ASYNC_EVENT_TRAILER *async_trailer =
-+			    (ASYNC_EVENT_TRAILER *)
-+			    ((u8 *) cqe + sizeof(MCC_CQ_ENTRY) -
-+			     sizeof(ASYNC_EVENT_TRAILER));
-+
-+			/* The async_event bit must be in the same
-+			 * location in both structs. */
-+			SA_C_ASSERT(BE_WORD_OFFSET
-+				    (MCC_CQ_ENTRY,
-+				     async_event) * 32 +
-+				    BE_BIT_OFFSET(MCC_CQ_ENTRY,
-+						  async_event) ==
-+				    BE_BIT_OFFSET(ASYNC_EVENT_TRAILER,
-+						  async_event) +
-+				    8 * (sizeof(MCC_CQ_ENTRY) -
-+					 sizeof(ASYNC_EVENT_TRAILER)));
-+
-+			ASSERT(async_trailer->async_event == 1);
-+			ASSERT(async_trailer->valid == 1);
-+
-+			function_object->stats.async_events++;
-+
-+			/* Call the async event handler if it is installed. */
-+			if (mcc->async_callback) {
-+				TRACE(DL_INFO,
-+				      "Async event. Type:0x%x Code:0x%x",
-+				      async_trailer->event_type,
-+				      async_trailer->event_code);
-+				mcc->async_callback(mcc->async_context,
-+						    (u32) async_trailer->
-+						    event_code,
-+						    (PVOID) cqe);
-+			} else {
-+				TRACE(DL_WARN,
-+				      "No async callback for event."
-+				      " Type:0x%x Code:0x%x",
-+				      async_trailer->event_type,
-+				      async_trailer->event_code);
-+				function_object->stats.
-+				    ignored_async_events++;
-+			}
-+
-+		} else {
-+			/* This is a completion entry. */
-+
-+			/* No vm forwarding in this driver. */
-+			ASSERT(cqe->hpi_buffer_completion == 0);
-+
-+			if (cqe->consumed) {
-+				/*
-+				 * A command on the MCC ring was consumed.
-+				 * Update the consumer index.
-+				 * These occur in order.
-+				 */
-+				ASSERT(be_mcc_wrb_consumed_in_order
-+				       (mcc, cqe));
-+				consumed++;
-+				function_object->stats.consumed_wrbs++;
-+			}
-+
-+			if (cqe->completed) {
-+				/* A command completed.  Use tag to
-+				 * determine which command.  */
-+				be_mcc_process_cqe(function_object, cqe);
-+				function_object->stats.completed_wrbs++;
-+			}
-+		}
-+
-+		/* Reset the CQE */
-+		cqe->valid = FALSE;
-+		num_processed++;
-+
-+		TRACE(DL_IOCTL, " update the cidx now cidx=%x",
-+		      cq_ring->cidx);
-+		/* Update our tracking for the CQ ring. */
-+		cqe = sa_ring_next(cq_ring);
-+	}
-+
-+	TRACE(DL_INFO, "num_processed:0x%x, and consumed:0x%x",
-+	      num_processed, consumed);
-+	/*
-+	 * Grab the CQ lock to synchronize the "rearm" setting for
-+	 * the doorbell, and for clearing the "processing" flag.
-+	 */
-+	be_lock_cq_process(function_object);
-+
-+	/*
-+	 * Rearm the cq.  This is done based on the global mcc->rearm
-+	 * flag which combines the rearm parameter from the current
-+	 * call to process_cq and any other threads
-+	 * that tried to process the CQ while this one was active.
-+	 * This handles the situation where a sync. ioctl was processing
-+	 * the CQ while the interrupt/dpc tries to process it.
-+	 * The sync process gets to continue -- but it is now
-+	 * responsible for the rearming.
-+	 */
-+	if (num_processed > 0 || mcc->rearm == TRUE) {
-+		db.dw = 0;	/* clear */
-+		db.qid = cq_ring->id;
-+		db.rearm = mcc->rearm;
-+		db.event = FALSE;
-+		db.num_popped = num_processed;
-+
-+		PD_WRITE(function_object, cq_db, db);
-+	}
-+	/*
-+	 * Update the consumer index after ringing the CQ doorbell.
-+	 * We don't want another thread to post more WRBs before we
-+	 * have CQ space available.
-+	 */
-+	sa_ring_consume_multiple(mcc_ring, consumed);
-+
-+	/* Clear the processing flag. */
-+	mcc->processing = 0;
-+
-+Error:
-+
-+	be_unlock_cq_process(function_object);
-+
-+	/*
-+	 * Use the local variable to detect if the current thread
-+	 * holds the WRB post lock.  If rearm is FALSE, this is
-+	 * either a synchronous command, or the upper layer driver is polling
-+	 * from a thread.  We do not drive the queue from that
-+	 * context since the driver may hold the
-+	 * wrb post lock already.
-+	 */
-+	if (rearm) {
-+		be_drive_mcc_wrb_queue(mcc);
-+	} else {
-+		function_object->pend_queue_driving = 1;
-+	}
-+
-+	return BE_SUCCESS;
++	/* must return page aligned address. */
++	ASSERT(SA_PAGE_ALIGN(SA_U64_TO_PTR(pa)) == SA_U64_TO_PTR(pa));
++	return cpu_to_le64(pa);
 +}
 +
 +/*
-+ *============================================================================
-+ *                  P U B L I C  R O U T I N E S
-+ *============================================================================
++ * Optimized as the kernel version for the given platform.
++ *static inline void*
 + */
++static inline void *sa_zero_mem(void *ptr, u32 bytes) {
++	return memset(ptr, 0, (SA_SIZE_T) bytes); }
 +
-+/*!
++static inline void *sa_memset(PVOID ptr, u32 value, u32 bytes) {
++	return memset(ptr, value, (SA_SIZE_T) bytes); }
 +
-+@brief
-+    This routine creates an MCC object.  This object contains an MCC send queue
-+    and a CQ private to the MCC.
++static inline void *sa_memcpy(PVOID dest, const void *src, u32 bytes) {
++	return memcpy(dest, src, (SA_SIZE_T) bytes); }
 +
-+@param
-+    pcontroller      - Handle to a function object
-+
-+@param
-+    EqObject            - EQ object that will be used to dispatch this MCC
-+
-+@param
-+    ppMccObject         - Pointer to an internal Mcc Object returned.
-+
-+@return
-+    BE_SUCCESS if successfull,, otherwise a useful error code is returned.
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+BESTATUS
-+be_mcc_ring_create(IN PBE_FUNCTION_OBJECT function_object,
-+		   IN PSA_SGL sgl,
-+		   IN u32 length,
-+		   IN PBE_MCC_WRB_CONTEXT context_array,
-+		   IN u32 num_context_entries,
-+		   IN PBE_CQ_OBJECT cq, IN PBE_MCC_OBJECT mcc)
++/* Returns value of dest. */
++static inline void *sa_memmove(PVOID dest, const void *src, u32 bytes) 
 +{
-+	BESTATUS status = 0;
++	return (void *)memmove(dest, src, (SA_SIZE_T) bytes); }
 +
-+	IOCTL_COMMON_MCC_CREATE *ioctl = NULL;
-+	MCC_WRB *wrb = NULL;
-+	u32 num_entries_encoded;
-+	PVOID va = NULL;
++static inline i32 sa_memcmp(const void *a, const void *b, u32 bytes) {
++	return memcmp(a, b, (SA_SIZE_T) bytes); }
++
++/*----- Device I/O related ---------*/
++
++typedef enum {
++	SA_BAR_TYPE_INVALID = 0,
++
++	SA_BAR_TYPE_BOOT,
++	SA_BAR_TYPE_CSR,
++	SA_BAR_TYPE_PD,
++	SA_BAR_TYPE_PCI,
++
++	SA_BAR_TYPE_MAX
++} SA_DEV_BAR_TYPE;
++
++/*
++ * MemOrIOMapped has the following two values
++ * for reference purpose
++ */
++typedef enum {
++	SA_IO_MAPPED = 0x01,
++	SA_MEM_MAPPED = 0x02
++} SA_DEV_MAPPED_TYPE;
++
++typedef struct _SA_DEV_BAR_LOCATIONS {
++	void *base_va;		/* Virtual Address */
++	u64 base_pa;		/* Physical Address */
++	u32 length;		/* Length of register space */
++
++	SA_DEV_MAPPED_TYPE mem_or_io_mapped;	/* io or memory mapped */
++	SA_DEV_BAR_TYPE type;	/* What is this BAR used for. */
++
++} SA_DEV_BAR_LOCATIONS, *PSA_DEV_BAR_LOCATIONS;
++
++typedef u64 SA_DEV_BUS_ADDRESS, *PSA_DEV_BUS_ADDRESS;
++
++/*
++ * The device object uses a "magic" field to help catch memory
++ * corruption bugs.  It is initialized to the magic number defined here
++ * and ASSERTS verify this number in all other functions.
++ */
++#define SA_DEV_MAGIC (0x12345678)
++#define SA_DEV_ASSERT(_pdev_) ASSERT ((_pdev_)->magic == SA_DEV_MAGIC) 
++#define SA_DEV_MAX_BARS (8)
++/*
++ * Context structure passed to create the device object.  This is the
++ * device extension for the storage miniport.
++ */
++typedef PVOID SA_DEV_OS_HANDLE, *PSA_DEV_OS_HANDLE;
++/*
++ * Device Object
++ */
++typedef struct _SA_DEV {
++	u32 magic;
++	u32 num_bars;
++	SA_DEV_BAR_LOCATIONS bars[SA_DEV_MAX_BARS];
++	u32 csr_bar_num, pd_bar_num, pci_bar_num; } SA_DEV, *PSA_DEV;
++
++/*
++ * This assumes that each type defines the members "bars" and "num_bars"
++ * Returns the bar number, or ~0 if the given type doesn't exist.
++ */
++static inline u32 sa_get_bar_num(SA_DEV *dev, SA_DEV_BAR_TYPE type) {
 +	u32 i;
-+
-+	if (length < sizeof(MCC_WRB) * 2) {
-+		TRACE(DL_ERR, "Invalid MCC ring length:%d", length);
-+		return BE_NOT_OK;
-+	}
-+	/*
-+	 * Reduce the actual ring size to be less than the number
-+	 * of context entries.  This ensures that we run out of
-+	 * ring WRBs first so the queuing works correctly.  We never
-+	 * queue based on context structs.
-+	 */
-+	if (num_context_entries + 1 < length / sizeof(MCC_WRB) - 1) {
-+
-+		u32 max_length =
-+		    (num_context_entries + 2) * sizeof(MCC_WRB);
-+
-+		length = sa_gt_power2(max_length) / 2;
-+		ASSERT(length <= max_length);
-+
-+		TRACE(DL_WARN,
-+		      "MCC ring length reduced based on context entries."
-+		      " length:%d wrbs:%d context_entries:%d",
-+		      length,
-+		      length / sizeof(MCC_WRB), num_context_entries);
-+	}
-+
-+	be_lock_wrb_post(function_object);
-+
-+	num_entries_encoded =
-+	    be_ring_length_to_encoding(length, sizeof(MCC_WRB));
-+
-+	/* Init MCC object. */
-+	SA_ZERO_MEM(mcc);
-+	mcc->magic = BE_MCC_MAGIC;
-+	mcc->parent_function = function_object;
-+	mcc->cq_object = cq;
-+
-+	sa_initialize_list_head(&mcc->backlog);
-+
-+	wrb = be_function_peek_mcc_wrb(function_object);
-+	if (!wrb) {
-+		ASSERT(wrb);
-+		TRACE(DL_ERR, "No free MCC WRBs in create EQ.");
-+		status = BE_STATUS_NO_MCC_WRB;
-+		goto error;
-+	}
-+	/* Prepares an embedded ioctl, including request/response sizes. */
-+	ioctl =
-+	    BE_FUNCTION_PREPARE_EMBEDDED_IOCTL(function_object, wrb,
-+					       COMMON_MCC_CREATE);
-+
-+	ioctl->params.request.num_pages = sa_ceiling(length, SA_PAGE_SIZE);
-+	ASSERT(ioctl->params.request.num_pages <=
-+	       sa_sgl_get_page_count(sgl));
-+
-+	/*
-+	 * Program MCC ring context
-+	 */
-+	ioctl->params.request.context.pdid =
-+	    be_function_get_pd_number(function_object);
-+	ioctl->params.request.context.invalid = FALSE;
-+	ioctl->params.request.context.ring_size = num_entries_encoded;
-+	ioctl->params.request.context.cq_id = be_cq_get_id(cq);
-+
-+	/* Create a page list for the IOCTL. */
-+	be_sgl_to_pa_list(sgl, ioctl->params.request.pages,
-+			  SA_NUMBER_OF(ioctl->params.request.pages));
-+
-+	/* Post the Ioctl */
-+	status =
-+	    be_function_post_mcc_wrb(function_object, wrb, NULL, NULL,
-+				     ioctl);
-+	if (status != BE_SUCCESS) {
-+		TRACE(DL_ERR, "MCC to create CQ failed.");
-+		goto error;
-+	}
-+	/*
-+	 * Create a linked list of context structures
-+	 */
-+	mcc->wrb_context.base = context_array;
-+	mcc->wrb_context.num = num_context_entries;
-+	sa_initialize_list_head(&mcc->wrb_context.list_head);
-+	sa_zero_mem(context_array,
-+		    sizeof(BE_MCC_WRB_CONTEXT) * num_context_entries);
-+	for (i = 0; i < mcc->wrb_context.num; i++) {
-+		sa_insert_tail_list(&mcc->wrb_context.list_head,
-+				    &context_array[i].next);
-+	}
-+
-+	/*
-+	 *
-+	 * Create an SA_RING for tracking WRB hw ring
-+	 */
-+	va = sa_sgl_get_base_va(sgl);
-+	ASSERT(va);
-+	sa_ring_create(&mcc->sq.ring,
-+		       length / sizeof(MCC_WRB), sizeof(MCC_WRB), va);
-+	mcc->sq.ring.id = ioctl->params.response.id; /* save the butler id! */
-+
-+	/*
-+	 * Init a SA_RING for tracking the MCC CQ.
-+	 */
-+	ASSERT(cq->va);
-+	sa_ring_create(&mcc->cq.ring, cq->num_entries,
-+		       sizeof(ISCSI_CQ_ENTRY), cq->va);
-+	mcc->cq.ring.id = be_cq_get_id(cq);
-+
-+	/* Force zeroing of CQ. */
-+	sa_zero_mem(cq->va, cq->num_entries * sizeof(ISCSI_CQ_ENTRY));
-+
-+	/* Initialize debug index. */
-+	mcc->consumed_index = 0;
-+
-+	be_cq_object_reference(cq);
-+	_be_function_add_mcc(function_object, mcc);
-+
-+	TRACE(DL_INFO,
-+	      "MCC ring created. id:%d bytes:%d cq_id:%d cq_entries:%d"
-+	      " num_context:%d",
-+	      ioctl->params.response.id,
-+	      length,
-+	      be_cq_get_id(cq), cq->num_entries, num_context_entries);
-+
-+error:
-+	be_unlock_wrb_post(function_object);
-+	return status;
-+}
-+
-+u32 be_mcc_get_id(PBE_MCC_OBJECT mcc)
-+{
-+	MCC_ASSERT(mcc);
-+	return mcc->sq.ring.id;
-+}
-+
-+/*!
-+
-+@brief
-+    This routine destroys an MCC send queue
-+
-+@param
-+    MccObject         - Internal Mcc Object to be destroyed.
-+
-+@return
-+    BE_SUCCESS if successfull,, otherwise a useful error code is returned.
-+
-+@note
-+    IRQL < DISPATCH_LEVEL
-+
-+    The caller of this routine must ensure that no other WRB may be posted
-+    until this routine returns.
-+
-+*/
-+BESTATUS be_mcc_ring_destroy(IN PBE_MCC_OBJECT mcc)
-+{
-+	BESTATUS status = 0;
-+
-+	MCC_ASSERT(mcc);
-+
-+	ASSERT(mcc->processing == 0);
-+
-+	/*
-+	 * Remove the ring from the function object.
-+	 * This transitions back to mailbox mode.
-+	 */
-+	_be_function_remove_mcc(mcc->parent_function, mcc);
-+
-+	/* Send ioctl to destroy the queue.  (Using the mailbox.) */
-+	status =
-+	    be_function_ring_destroy(mcc->parent_function, mcc->sq.ring.id,
-+				     IOCTL_RING_TYPE_MCC);
-+	ASSERT(status == 0);
-+
-+	/* Release the SQ reference to the CQ */
-+	be_cq_object_dereference(mcc->cq_object);
-+
-+	return status;
-+}
-+
-+STATIC void
-+mcc_wrb_sync_callback(IN PVOID context,
-+		      IN BESTATUS completion_status, IN PMCC_WRB wrb)
-+{
-+	PBE_MCC_WRB_CONTEXT wrb_context = (PBE_MCC_WRB_CONTEXT) context;
-+
-+	SA_NOT_USED(wrb);
-+
-+	ASSERT(wrb_context);
-+
-+	*wrb_context->users_final_status = completion_status;
-+}
-+
-+/*!
-+
-+@brief
-+    This routine posts a command to the MCC send queue
-+
-+@param
-+    MccObject       - Internal Mcc Object to be destroyed.
-+
-+@param
-+    wrb             - wrb to post.
-+
-+
-+@param
-+    CompletionCallback  - Address of a callback routine to invoke once the WRB
-+			is completed.
-+
-+@param
-+    CompletionCallbackContext - Opaque context to be passed during the call to
-+				the CompletionCallback.
-+
-+@return
-+    BE_SUCCESS if successfull,, otherwise a useful error code is returned.
-+
-+@note
-+    IRQL < DISPATCH_LEVEL if CompletionCallback is not NULL
-+    IRQL <=DISPATCH_LEVEL if CompletionCallback is  NULL
-+
-+    If this routine is called with CompletionCallback != NULL the
-+    call is considered to be asynchronous and will return as soon
-+    as the WRB is posted to the MCC with BE_PENDING.
-+
-+    If CompletionCallback is NULL, then this routine will not return until
-+    a completion for this MCC command has been processed.
-+    If called at DISPATCH_LEVEL the CompletionCallback must be NULL.
-+
-+    This routine should only be called if the MPU has been boostraped past
-+    mailbox mode.
-+
-+
-+*/
-+BESTATUS
-+_be_mpu_post_wrb_ring(IN PBE_MCC_OBJECT mcc,
-+		      IN PMCC_WRB wrb, IN PBE_MCC_WRB_CONTEXT wrb_context)
-+{
-+
-+	PMCC_WRB ring_wrb = NULL;
-+	BESTATUS status = BE_PENDING;
-+	volatile BESTATUS final_status = BE_PENDING;
-+	MCC_WRB_CQE_CALLBACK callback = NULL;
-+	MCC_DB mcc_db;
-+
-+	MCC_ASSERT(mcc);
-+	ASSERT(sa_ring_num_empty(&mcc->sq.ring) > 0);
-+
-+	/*
-+	 * Input wrb is most likely the next wrb in the ring, since the client
-+	 * can peek at the address.
-+	 */
-+	ring_wrb = sa_ring_producer_ptr(&mcc->sq.ring);
-+	if (wrb != ring_wrb) {
-+		/* If not equal, copy it into the ring. */
-+		sa_memcpy(ring_wrb, wrb, sizeof(MCC_WRB));
-+	}
-+	/* Minimal verification of posted WRB. */
-+	ASSERT(wrb->embedded || wrb->sge_count > 0);
-+
-+	SA_DBG_ONLY(wrb_context->ring_wrb = ring_wrb;)
-+
-+	    if (ring_wrb->embedded) {
-+		/* embedded commands will have the response within the WRB. */
-+		wrb_context->wrb = ring_wrb;
-+	} else {
-+		/*
-+		 * non-embedded commands will not have the response
-+		 * within the WRB, and they may complete out-of-order.
-+		 * The WRB will not be valid to inspect
-+		 * during the completion.
-+		 */
-+		wrb_context->wrb = NULL;
-+	}
-+
-+	callback = wrb_context->callback;
-+
-+	if (callback == NULL) {
-+		/* Assign our internal callback if this is a
-+		 * synchronous call. */
-+		wrb_context->callback = mcc_wrb_sync_callback;
-+		wrb_context->callback_context = wrb_context;
-+		wrb_context->users_final_status = &final_status;
-+
-+		mcc->parent_function->stats.synchronous_wrbs++;
-+	}
-+	/* Increment producer index */
-+	sa_ring_produce(&mcc->sq.ring);
-+
-+	mcc_db.dw = 0;		/* initialize */
-+	mcc_db.rid = mcc->sq.ring.id;
-+	mcc_db.numPosted = 1;
-+
-+	mcc->parent_function->stats.posted_wrbs++;
-+
-+	PD_WRITE(mcc->parent_function, mpu_mcc_db, mcc_db); /* Ring doorbell */
-+	TRACE(DL_INFO, "pidx: %x and cidx: %x.", mcc->sq.ring.pidx,
-+	      mcc->sq.ring.cidx);
-+
-+	if (callback == NULL) {
-+
-+		i32 polls = 0;	/* At >= 1 us per poll   */
-+
-+		/* Wait until this command completes, polling the CQ. */
-+		do {
-+
-+			TRACE(DL_INFO,
-+			      "IOCTL submitted in the poll mode.");
-+			/* Do not rearm CQ in this context. */
-+			be_mcc_process_cq(mcc, FALSE);
-+
-+			if (final_status == BE_PENDING) {
-+				if ((++polls & 0x7FFFF) == 0) {
-+					TRACE(DL_WARN,
-+					      "Warning : polling MCC CQ for %d"
-+					      "ms.", polls / 1000);
-+				}
-+
-+				sa_dev_stall(mcc->parent_function->sa_dev, 1);
-+			}
-+
-+		} while (final_status == BE_PENDING);
-+
-+		status = final_status;
-+	}
-+
-+	return status;
-+}
-+
-+PMCC_WRB
-+_be_mpu_peek_ring_wrb(IN PBE_MCC_OBJECT mcc, boolean driving_queue)
-+{
-+	MCC_ASSERT(mcc);
-+
-+	/* If we have queued items, do not allow a post to bypass the queue. */
-+	if (!driving_queue && !sa_is_list_empty(&mcc->backlog)) {
-+		return NULL;
-+	}
-+
-+	if (sa_ring_num_empty(&mcc->sq.ring) <= 0) {
-+		return NULL;
-+	}
-+
-+	return (PMCC_WRB) sa_ring_producer_ptr(&mcc->sq.ring);
-+}
-+
-+BESTATUS
-+be_mpu_init_mailbox(IN PBE_FUNCTION_OBJECT function_object,
-+		    IN PSA_SGL mailbox)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	ASSERT(mailbox);
-+
-+	function_object->mailbox.va = sa_sgl_get_base_va(mailbox);
-+	function_object->mailbox.pa =
-+	    sa_sgl_get_page(mailbox, 0) + sa_sgl_get_offset(mailbox);
-+	function_object->mailbox.length =
-+	    MIN(SA_PAGE_SIZE - sa_sgl_get_offset(mailbox),
-+		sa_sgl_get_byte_count(mailbox));
-+
-+	ASSERT((SA_PTR_TO_U32(function_object->mailbox.va) & 0xf) == 0);
-+	ASSERT((SA_PTR_TO_U32(function_object->mailbox.pa) & 0xf) == 0);
-+	/*
-+	 * Issue the WRB to set MPU endianness
-+	 */
-+	{
-+		u8 *endian_check = (u8 *) &function_object->mailbox.va->wrb;
-+		*endian_check++ = 0xFF;	/* byte 0 */
-+		*endian_check++ = 0x12;	/* byte 1 */
-+		*endian_check++ = 0x34;	/* byte 2 */
-+		*endian_check++ = 0xFF;	/* byte 3 */
-+		*endian_check++ = 0xFF;	/* byte 4 */
-+		*endian_check++ = 0x56;	/* byte 5 */
-+		*endian_check++ = 0x78;	/* byte 6 */
-+		*endian_check++ = 0xFF;	/* byte 7 */
-+	}
-+
-+	be_mcc_mailbox_notify_and_wait(function_object);
-+
-+	return BE_SUCCESS;
-+}
-+
-+BESTATUS be_mpu_uninit_mailbox(IN PBE_FUNCTION_OBJECT function_object)
-+{
-+	FUNCTION_ASSERT(function_object);
-+	ASSERT(function_object->mailbox.va);
-+	ASSERT((SA_PTR_TO_U32(function_object->mailbox.va) & 0xf) == 0);
-+	ASSERT((SA_PTR_TO_U32(function_object->mailbox.pa) & 0xf) == 0);
-+	/*
-+	 * Issue the WRB to indicate mailbox teardown
-+	 */
-+	{
-+		u8 *mbox_unint = (u8 *) &function_object->mailbox.va->wrb;
-+		*mbox_unint++ = 0xFF;	/* byte 0 */
-+		*mbox_unint++ = 0xAA;	/* byte 1 */
-+		*mbox_unint++ = 0xBB;	/* byte 2 */
-+		*mbox_unint++ = 0xFF;	/* byte 3 */
-+		*mbox_unint++ = 0xFF;	/* byte 4 */
-+		*mbox_unint++ = 0xCC;	/* byte 5 */
-+		*mbox_unint++ = 0xDD;	/* byte 6 */
-+		*mbox_unint++ = 0xFF;	/* byte 7 */
-+	}
-+
-+	be_mcc_mailbox_notify_and_wait(function_object);
-+
-+	return BE_SUCCESS;
-+}
-+
-+void be_mpu_cleanup_mailbox(PBE_FUNCTION_OBJECT function_object)
-+{
-+
-+	FUNCTION_ASSERT(function_object);
-+	/*function_object->mailbox.sgl = NULL; */
-+	function_object->mailbox.va = NULL;
-+	function_object->mailbox.pa = 0ULL;
-+	function_object->mailbox.length = 0UL;
-+}
-+
-+/*!
-+@brief
-+    This routine posts a command to the MCC mailbox.
-+@param
-+    FuncObj         - Function Object to post the WRB on behalf of.
-+@param
-+    wrb             - wrb to post.
-+@param
-+    CompletionCallback  - Address of a callback routine to invoke once the WRB
-+				is completed.
-+@param
-+    CompletionCallbackContext - Opaque context to be passed during the call to
-+				the CompletionCallback.
-+@return
-+    BE_SUCCESS if successfull,, otherwise a useful error code is returned.
-+@note
-+    IRQL <=DISPATCH_LEVEL if CompletionCallback is  NULL
-+
-+    This routine will block until a completion for this MCC command has been
-+     processed. If called at DISPATCH_LEVEL the CompletionCallback must be NULL.
-+
-+    This routine should only be called if the MPU has not been boostraped past
-+    mailbox mode.
-+*/
-+BESTATUS
-+_be_mpu_post_wrb_mailbox(IN PBE_FUNCTION_OBJECT function_object,
-+			 IN PMCC_WRB wrb,
-+			 IN PBE_MCC_WRB_CONTEXT wrb_context)
-+{
-+	PMCC_MAILBOX mailbox = NULL;
-+
-+	FUNCTION_ASSERT(function_object);
-+	ASSERT(function_object->links.mcc == NULL);
-+
-+	mailbox = function_object->mailbox.va;
-+	ASSERT(mailbox);
-+
-+	if ((PMCC_WRB) &mailbox->wrb != wrb) {
-+		SA_ZERO_MEM(mailbox);
-+		sa_memcpy(&mailbox->wrb, wrb, sizeof(MCC_WRB));
-+	}
-+	/* The callback can inspect the final WRB to get output parameters. */
-+	wrb_context->wrb = &mailbox->wrb;
-+
-+	be_mcc_mailbox_notify_and_wait(function_object);
-+
-+	/* A command completed.  Use tag to determine which command. */
-+	be_mcc_process_cqe(function_object, &mailbox->cq);
-+
-+	return be_mcc_wrb_status_to_bestatus(mailbox->cq.
-+					     completion_status);
-+}
-+
-+PBE_MCC_WRB_CONTEXT
-+_be_mcc_allocate_wrb_context(PBE_FUNCTION_OBJECT function_object)
-+{
-+	PBE_MCC_WRB_CONTEXT context = NULL;
-+	SA_IRQ irq;
-+
-+	FUNCTION_ASSERT(function_object);
-+
-+	sa_acquire_spinlock(&function_object->mcc_context_lock, &irq);
-+
-+	if (!function_object->mailbox.default_context_allocated) {
-+		/* Use the single default context that we
-+		 * always have allocated. */
-+		function_object->mailbox.default_context_allocated = TRUE;
-+		context = &function_object->mailbox.default_context;
-+	} else if (function_object->links.mcc) {
-+		/* Get a context from the free list. If any are available. */
-+		if (!sa_is_list_empty
-+		    (&function_object->links.mcc->wrb_context.list_head)) {
-+			PSA_LIST_ENTRY list_entry =
-+			    sa_remove_head_list(&function_object->links.
-+						mcc->wrb_context.
-+						list_head);
-+			context =
-+			    SA_CONTAINING_RECORD(list_entry,
-+						 BE_MCC_WRB_CONTEXT, next);
++	for (i = 0; i < dev->num_bars; i++) {
++		if (type == dev->bars[i].type) {
++			return i;
 +		}
 +	}
 +
-+	sa_release_spinlock(&function_object->mcc_context_lock, &irq);
-+
-+	return context;
++	return ~(u32) 0;
 +}
 +
-+void
-+_be_mcc_free_wrb_context(PBE_FUNCTION_OBJECT function_object,
-+			 PBE_MCC_WRB_CONTEXT context)
-+{
-+	SA_IRQ irq;
++/* Internal function. */
++static inline void _sa_cache_bar_nums(SA_DEV *dev) {
++	dev->csr_bar_num = sa_get_bar_num(dev, SA_BAR_TYPE_CSR);
++	dev->pd_bar_num = sa_get_bar_num(dev, SA_BAR_TYPE_PD);
++	dev->pci_bar_num = sa_get_bar_num(dev, SA_BAR_TYPE_PCI); }
 +
-+	FUNCTION_ASSERT(function_object);
-+	ASSERT(context);
-+
-+	/*
-+	 * Zero during free to try and catch any bugs where the context
-+	 * is accessed after a free.
-+	 */
-+	sa_zero_mem(context, sizeof(context));
-+
-+	sa_acquire_spinlock(&function_object->mcc_context_lock, &irq);
-+
-+	if (context == &function_object->mailbox.default_context) {
-+		/* Free the default context. */
-+		ASSERT(function_object->mailbox.default_context_allocated);
-+		function_object->mailbox.default_context_allocated = FALSE;
-+	} else {
-+		/* Add to free list. */
-+		ASSERT(function_object->links.mcc);
-+		sa_insert_tail_list(&function_object->links.mcc->
-+				    wrb_context.list_head, &context->next);
-+	}
-+
-+	sa_release_spinlock(&function_object->mcc_context_lock, &irq);
++/* Assume these values are cached in the sa_dev. */ static inline u32 
++sa_get_csr_bar(SA_DEV *dev) {
++	return dev->csr_bar_num;
 +}
 +
-+BESTATUS
-+be_mcc_add_async_event_callback(IN BE_MCC_OBJECT *mcc_object,
-+				IN MCC_ASYNC_EVENT_CALLBACK callback,
-+				IN PVOID callback_context)
-+{
-+	MCC_ASSERT(mcc_object);
-+
-+	/* Lock against anyone trying to change the callback/context pointers
-+	 * while being used. */
-+	be_lock_cq_process(mcc_object->parent_function);
-+
-+	/* Assign the async callback. */
-+	mcc_object->async_context = callback_context;
-+	mcc_object->async_callback = callback;
-+
-+	be_unlock_cq_process(mcc_object->parent_function);
-+
-+	return BE_SUCCESS;
++static inline u32 sa_get_pd_bar(SA_DEV *dev) {
++	return dev->pd_bar_num;
 +}
 +
-+#define MPU_EP_CONTROL 0
-+#define MPU_EP_SEMAPHORE 0xac
++static inline u32 sa_get_pci_bar(SA_DEV *dev) {
++	return dev->pci_bar_num;
++}
++
++SA_STATUS
++sa_dev_create(SA_DEV_BAR_LOCATIONS *, u32, SA_DEV_OS_HANDLE, SA_DEV *); 
++void sa_dev_destroy(SA_DEV *);
++
++u32 sa_dev_read_u32(SA_DEV *dev, u32 bar, u32 offset); void 
++sa_dev_write_u32(SA_DEV *dev, u32 bar, u32 offset, u32 value); void 
++sa_dev_stall(SA_DEV *dev, u32 us_to_stall);
 +
 +/*
-+ *-------------------------------------------------------------------
-+ * Function: be_wait_for_POST_complete
-+ *   Waits until the BladeEngine POST completes (either in error or success).
-+ * function_object -
-+ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
-+ *-------------------------------------------------------------------
++ *------- ring manipulation related ------
++ * This structure stores information about a ring shared between 
++hardware
++ * and software.  Each ring is allocated by the driver in the uncached
++ * extension and mapped into BladeEngine's unified table.  BEKLIB 
++manages
++ * creation and destruction of the rings in hardware.  It returns the
++ * corresponding HANDLE to the ring.
 + */
-+BESTATUS be_wait_for_POST_complete(IN PBE_FUNCTION_OBJECT function_object)
-+{
-+	MGMT_HBA_POST_STATUS_STRUCT postStatus;
-+	BESTATUS status;
++typedef struct _SA_RING {
++	u32 pages;		/* queue size in pages */
++	u32 id;			/* queue id assigned by beklib */
++	u32 num;		/* number of elements in queue */
++	u32 cidx;		/* consumer index */
++	u32 pidx;		/* producer index -- not used by most rings */
++	u32 itemSize;		/* size in bytes of one object */
 +
-+	const u32 us_per_loop = 1000;	/* 1000us */
-+	const u32 print_frequency_loops = 1000000 / us_per_loop;
-+	const u32 max_loops = 60 * print_frequency_loops;
-+	u32 loops = 0;
++	PVOID va;		/* The virtual address of the ring.
++				   This should be last to allow 32 & 64
++				   bit debugger extensions to work. */
 +
-+	/*
-+	 * Wait for arm fw indicating it is done or a fatal error happened.
-+	 * Note: POST can take some time to complete depending on configuration
-+	 * settings (consider ARM attempts to acquire an IP address
-+	 * over DHCP!!!).
-+	 *
-+	 */
-+	do {
-+		postStatus.dw =
-+		    BeCsrRead(function_object->sa_dev, MPU_EP_SEMAPHORE, NULL);
-+		if (0 == (loops % print_frequency_loops)) {
-+			/* Print current status */
-+			TRACE(DL_INFO, "POST status = 0x%x (stage = 0x%x)",
-+			      postStatus.dw, postStatus.stage);
-+		}
-+		sa_dev_stall(function_object->sa_dev, us_per_loop);
-+	} while ((postStatus.error != 1) &&
-+		 (postStatus.stage != POST_STAGE_ARMFW_READY) &&
-+		 (++loops < max_loops));
++} SA_RING, *PSA_RING;
 +
-+	if (postStatus.error == 1) {
-+		TRACE(DL_ERR, "POST error! Status = 0x%x (stage = 0x%x)",
-+		      postStatus.dw, postStatus.stage);
-+		status = BE_NOT_OK;
-+	} else if (postStatus.stage != POST_STAGE_ARMFW_READY) {
-+		TRACE(DL_ERR,
-+		      "POST time-out! Status = 0x%x (stage = 0x%x)",
-+		      postStatus.dw, postStatus.stage);
-+		status = BE_NOT_OK;
-+	} else {
-+		status = BE_SUCCESS;
-+	}
++#define SA_RING_FOREACH_ITEM(_pRing_, _pItem_, _type_,_code_) \
++{							\
++	u32 ring_num_pending = sa_ring_num_pending((_pRing_)); \
++	u32 ring_index; \
++	for (ring_index = 0; ring_index < ring_num_pending; ring_index++) { \
++		_pItem_ = (_type_)((u8 *)(_pRing_)->va + \
++		(_pRing_)->itemSize * \
++		(((_pRing_)->cidx + ring_index) % (_pRing_)->num));  \
++		ASSERT(sizeof (*(_pItem_)) == (_pRing_)->itemSize); \
++		_code_  \
++	}  \
++}  \
 +
-+	return status;
++static
++inline void sa_ring_create(PSA_RING ring,
++			       u32 num, u32 itemSize, PVOID va) {
++	ASSERT(ring);
++	sa_zero_mem(ring, sizeof(SA_RING));
++	ring->num = num;
++	ring->pages = sa_ceiling(num * itemSize, SA_PAGE_SIZE);
++	ring->itemSize = itemSize;
++	ring->va = va;
++}
++
++static inline void sa_ring_set_id(PSA_RING ring, u32 id) {
++	ASSERT(ring);
++	ring->id = id;
++}
++
++static inline u32 sa_ring_num(PSA_RING ring) {
++	ASSERT(ring);
++	return ring->num;
++}
++
++static inline PVOID sa_ring_va(PSA_RING ring) {
++	ASSERT(ring);
++	return ring->va;
++}
++
++static inline void sa_ring_clear(PSA_RING ring) {
++	ASSERT(ring);
++	ring->pidx = ring->cidx = 0;
 +}
 +
 +/*
-+ *-------------------------------------------------------------------
-+ * Function: be_kickoff_and_wait_for_POST
-+ *   Interacts with the BladeEngine management processor to initiate POST, and
-+ *   subsequently waits until POST completes (either in error or success).
-+ *   The caller must acquire the reset semaphore before initiating POST
-+ *   to prevent multiple drivers interacting with the management processor.
-+ *   Once POST is complete the caller must release the reset semaphore.
-+ *   Callers who only want to wait for POST complete may call
-+ *   be_wait_for_POST_complete.
-+ * function_object -
-+ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
-+ *-------------------------------------------------------------------
++ * 
++-----------------------------------------------------------------------
++ * Interface for 2 index rings. i.e. consumer/producer rings
++ * 
++-----------------------------------------------------------------------
++---
 + */
-+BESTATUS
-+be_kickoff_and_wait_for_POST(IN PBE_FUNCTION_OBJECT function_object)
-+{
-+	MGMT_HBA_POST_STATUS_STRUCT postStatus;
-+	BESTATUS status;
 +
-+	const u32 us_per_loop = 1000;	/* 1000us */
-+	const u32 print_frequency_loops = 1000000 / us_per_loop;
-+	const u32 max_loops = 5 * print_frequency_loops;
-+	u32 loops = 0;
++/* Returns TRUE if ring is empty */
++static inline boolean sa_ring_is_empty(PSA_RING ring) {
++	ASSERT(ring);
++	return (ring->pidx == ring->cidx);
++}
 +
-+	/* Wait for arm fw awaiting host ready or a fatal error happened. */
-+	TRACE(DL_INFO, "Wait for BladeEngine ready to POST");
-+	do {
-+		postStatus.dw =
-+		    BeCsrRead(function_object->sa_dev, MPU_EP_SEMAPHORE, NULL);
-+		if (0 == (loops % print_frequency_loops)) {
-+			/* Print current status */
-+			TRACE(DL_INFO, "POST status = 0x%x (stage = 0x%x)",
-+			      postStatus.dw, postStatus.stage);
-+		}
-+		sa_dev_stall(function_object->sa_dev, us_per_loop);
-+	} while ((postStatus.error != 1) &&
-+		 (postStatus.stage < POST_STAGE_AWAITING_HOST_RDY) &&
-+		 (++loops < max_loops));
++/* Define the power2 version equivalent */ #define 
++sa_ring_power2_is_empty sa_ring_is_empty
 +
-+	if (postStatus.error == 1) {
-+		TRACE(DL_ERR,
-+		      "Pre-POST error! Status = 0x%x (stage = 0x%x)",
-+		      postStatus.dw, postStatus.stage);
-+		status = BE_NOT_OK;
-+	} else if (postStatus.stage == POST_STAGE_AWAITING_HOST_RDY) {
-+		BeCsrWrite(function_object->sa_dev, MPU_EP_SEMAPHORE,
-+			   POST_STAGE_HOST_RDY, NULL);
-+
-+		/* Wait for POST to complete */
-+		status = be_wait_for_POST_complete(function_object);
-+	} else {
-+		/*
-+		 * Either a timeout waiting for host ready signal or POST has
-+		 * moved ahead without requiring a host ready signal.
-+		 * Might as well give POST a chance to complete
-+		 * (or timeout again).
-+		 */
-+		status = be_wait_for_POST_complete(function_object);
++/* Returns number items pending on ring. */ static inline u32 
++sa_ring_num_pending(PSA_RING ring) {
++	ASSERT(ring);
++	if (ring->num == 0) {
++		return 0;
 +	}
++	return sa_subc(ring->pidx, ring->cidx, ring->num); }
 +
-+	return status;
++/* Returns number items free on ring. */ static inline u32 
++sa_ring_num_empty(PSA_RING ring) {
++	ASSERT(ring);
++	return ring->num - 1 - sa_ring_num_pending(ring); }
++
++/* Returns TRUE if ring is full */
++static inline boolean sa_ring_is_full(PSA_RING ring) {
++	ASSERT(ring);
++	return sa_ring_num_pending(ring) == (ring->num - 1); }
++
++/* Consume 1 item */
++static inline void sa_ring_consume(PSA_RING ring) {
++	ASSERT(ring);
++	ASSERT(!sa_ring_is_empty(ring));
++	ring->cidx = sa_addc(ring->cidx, 1, ring->num); }
++
++/* Produce 1 item */
++static inline void sa_ring_produce(PSA_RING ring) {
++	ASSERT(ring);
++	ASSERT(!sa_ring_is_full(ring));
++	ring->pidx = sa_addc(ring->pidx, 1, ring->num); }
++
++/* Consume count items */
++static inline void sa_ring_consume_multiple(PSA_RING ring, u32 count) {
++	ASSERT(ring);
++	ASSERT(sa_ring_num_pending(ring) >= count);
++	ring->cidx = sa_addc(ring->cidx, count, ring->num); }
++
++static inline PVOID sa_ring_item(PSA_RING ring, u32 index) {
++	ASSERT(ring);
++	ASSERT(index < ring->num);
++	ASSERT(ring->itemSize > 0);
++	return (u8 *) ring->va + index * ring->itemSize; }
++
++#define sa_ring_power2_item sa_ring_item
++
++/* Ptr to produce item */
++static inline PVOID sa_ring_producer_ptr(PSA_RING ring) {
++	ASSERT(ring);
++	ASSERT(!sa_ring_is_full(ring));
++	return sa_ring_item(ring, ring->pidx); }
++
++#define sa_ring_power2_producer_ptr sa_ring_producer_ptr
++
++/*
++ * Returns a pointer to the current location in the ring.
++ * This is used for rings with 1 index.
++ */
++static inline PVOID sa_ring_current(PSA_RING ring) {
++	ASSERT(ring);
++	ASSERT(ring->pidx == 0);	/* not used */
++
++	return sa_ring_item(ring, ring->cidx); }
++
++/* Ptr to consume item */
++static inline PVOID sa_ring_consumer_ptr(PSA_RING ring) {
++	ASSERT(ring);
++	ASSERT(!sa_ring_is_empty(ring));
++	return sa_ring_item(ring, ring->cidx); }
++
++#define sa_ring_power2_current sa_ring_current
++
++/*
++ * Increment index for rings with only 1 index.
++ * This is used for rings with 1 index.
++ */
++static inline PVOID sa_ring_next(PSA_RING ring) {
++	ASSERT(ring);
++	ASSERT(ring->num > 0);
++	ASSERT(ring->pidx == 0);	/* not used */
++
++	ring->cidx = sa_addc(ring->cidx, 1, ring->num);
++	return sa_ring_current(ring);
 +}
 +
 +/*
-+ *-------------------------------------------------------------------
-+ * Function: be_pci_soft_reset
-+ *   This function is called to issue a BladeEngine soft reset.
-+ *   Callers should acquire the soft reset semaphore before calling this
-+ *   function. Additionaly, callers should ensure they cannot be pre-empted
-+ *   while the routine executes. Upon completion of this routine, callers
-+ *   should release the reset semaphore. This routine implicitly waits
-+ *   for BladeEngine POST to complete.
-+ * function_object -
-+ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
-+ *-------------------------------------------------------------------
++ * Each bit is 1 byte in array maps.
 + */
-+BESTATUS be_pci_soft_reset(PBE_FUNCTION_OBJECT function_object)
-+{
-+	PCICFG_SOFT_RESET_CSR pciSoftReset;
-+	PCICFG_ONLINE0_CSR pciOnline0;
-+	PCICFG_ONLINE1_CSR pciOnline1;
-+	EP_CONTROL_CSR epControlCsr;
-+	BESTATUS status = BE_SUCCESS;
-+	u32 i;
++typedef u8 AMAP_BIT;
++typedef AMAP_BIT BE_BIT;
 +
-+	TRACE(DL_NOTE, "PCI reset...");
++/* Returns 0-31 representing bit offset within a DWORD of a bitfield. */
++#define AMAP_BIT_OFFSET(_struct_, _register_)                   \
++	(((SA_SIZE_T)&(((BE_ ## _struct_ ## _AMAP *)0)->_register_))%32)
 +
-+	/* Issue soft reset #1 to get BladeEngine into a known state. */
-+	pciSoftReset.dw = PCICFG0_READ(function_object, soft_reset);
-+	pciSoftReset.softreset = 1;
-+	PCICFG0_WRITE(function_object, soft_reset, pciSoftReset);
 +
-+	/*
-+	 * wait til soft reset is deasserted - hardware
-+	 * deasserts after some time.
-+	 */
-+	i = 0;
-+	while (pciSoftReset.softreset && (i++ < 1024)) {
-+		sa_dev_stall(function_object->sa_dev, 50);
-+		pciSoftReset.dw =
-+		    PCICFG0_READ(function_object, soft_reset);
-+	};
-+	if (pciSoftReset.softreset != 0) {
-+		TRACE(DL_ERR,
-+		      "Soft-reset #1 did not deassert as expected.");
-+		status = BE_NOT_OK;
-+		goto Error_label;
-+	}
-+	/* Mask everything  */
-+	PCICFG0_WRITE_CONST(function_object, ue_status_low_mask,
-+			    0xFFFFFFFF);
-+	PCICFG0_WRITE_CONST(function_object, ue_status_hi_mask,
-+			    0xFFFFFFFF);
++/* Returns 0-n representing byte offset of bitfield with the structure. */
++#define AMAP_BYTE_OFFSET(_struct_, _register_)                  \
++	(((SA_SIZE_T)&(((BE_ ## _struct_ ## _AMAP *)0)->_register_))/8)
 +
-+	/*
-+	 * Set everything offline except MPU IRAM (it is offline with
-+	 * the soft-reset, but soft-reset does not reset the PCICFG registers!)
-+	 */
-+	pciOnline0.dw = 0;
-+	pciOnline1.dw = 0;
-+	pciOnline1.mpu_iram_online = 1;
-+	PCICFG0_WRITE(function_object, online0, pciOnline0);
-+	PCICFG0_WRITE(function_object, online1, pciOnline1);
++/* Returns 0-n representing DWORD offset of bitfield within the 
++structure. */ #define AMAP_WORD_OFFSET(_struct_, _register_)  \
++  (AMAP_BYTE_OFFSET(_struct_, _register_)/4)
 +
-+	sa_dev_stall(function_object->sa_dev, 50000);	/* delay 5ms */
++/*-------- spinlock / mutex related -------*/
 +
-+	/* Issue soft reset #2. */
-+	pciSoftReset.softreset = 1;
-+	PCICFG0_WRITE(function_object, soft_reset, pciSoftReset);
++typedef spinlock_t SA_REAL_SPINLOCK, *PSA_REAL_SPINLOCK; typedef 
++spinlock_t SA_SPINLOCK, *PSA_SPINLOCK; typedef struct semaphore 
++SA_FAST_MUTEX, *PSA_FAST_MUTEX; typedef struct semaphore SA_EVENT, 
++*PSA_EVENT; typedef u64 SA_IRQ, *PSA_IRQ;
 +
-+	/*
-+	 * wait til soft reset is deasserted - hardware
-+	 * deasserts after some time.
-+	 */
-+	i = 0;
-+	while (pciSoftReset.softreset && (i++ < 1024)) {
-+		sa_dev_stall(function_object->sa_dev, 50);
-+		pciSoftReset.dw =
-+		    PCICFG0_READ(function_object, soft_reset);
-+	};
-+	if (pciSoftReset.softreset != 0) {
-+		TRACE(DL_ERR,
-+		      "Soft-reset #2 did not deassert as expected.");
-+		status = BE_NOT_OK;
-+		goto Error_label;
-+	}
++#define sa_init_spinlock           sa_init_spinlock_real
++#define sa_acquire_spinlock        sa_acquire_spinlock_real
++#define sa_release_spinlock        sa_release_spinlock_real
++#define sa_acquire_spinlock_noirq  sa_acquire_spinlock_noirq_real 
++#define sa_release_spinlock_noirq  sa_release_spinlock_noirq_real
++#define sa_is_spin_lock_held       sa_is_spin_lock_held_real
++#define sa_is_spinlock_not_held    sa_is_spinlock_not_held_real
 +
-+	sa_dev_stall(function_object->sa_dev, 50000);	/* delay 5ms */
++void sa_init_spinlock_real(IN PSA_REAL_SPINLOCK); void 
++sa_acquire_spinlock_real(IN PSA_REAL_SPINLOCK, OUT PSA_IRQ); void 
++sa_release_spinlock_real(IN PSA_REAL_SPINLOCK, IN PSA_IRQ); void 
++sa_initialize_fast_mutex(IN PSA_FAST_MUTEX);
 +
-+	/* Take MPU out of reset. */
++static inline u32 sa_atomic_decrement(u32 *value) {
++	atomic_dec((atomic_t *) value);
++	return *value;
++}
 +
-+	/*epControlCsr.dw = CSR_READ(function_object, mpu.ep.ep_control); */
-+	epControlCsr.dw =
-+	    BeCsrRead(function_object->sa_dev, MPU_EP_CONTROL, NULL);
-+	epControlCsr.CPU_reset = 0;
-+	/*CSR_WRITE(function_object, mpu.ep.ep_control, epControlCsr); */
-+	BeCsrWrite(function_object->sa_dev, MPU_EP_CONTROL,
-+		   epControlCsr.dw, NULL);
++/* Returns resulting value. */
++static inline u32 sa_atomic_increment(u32 *value) {
++	atomic_inc((atomic_t *) value);
++	return *value;
++}
 +
-+	/* Kickoff BE POST and wait for completion */
-+	status = be_kickoff_and_wait_for_POST(function_object);
++/* Atomically does this: *v += i; */
++#define sa_atomic_add(i, v)	atomic_add (i, (atomic_t *)v)
 +
-+Error_label:
-+	return status;
++/* Atomically does this: *v -= i; */
++#define sa_atomic_sub(i, v)	atomic_sub(i, (atomic_t *)v)
++
++#define sa_init_spinlock_real(s)		spin_lock_init(s)
++#define sa_acquire_spinlock_real(s, i)		spin_lock_irqsave(s, *i)
++#define sa_acquire_spinlock_noirq_real(s) 	spin_lock (s)
++#define sa_release_spinlock_real(s, i)		spin_unlock_irqrestore(s, *i);
++#define sa_release_spinlock_noirq_real(s) 	spin_unlock(spinlock)
++#define sa_is_spin_lock_held_real(s) 		spin_is_locked (s);
++#define sa_is_spinlock_not_held_real(s) 	(!(spin_is_locked (lock))
++
++/* Returns size of bitfield in bits. */ #define AMAP_BIT_SIZE(_struct_, 
++_register_) \
++		sizeof(((BE_ ## _struct_ ## _AMAP *)0)->_register_)
++
++/*
++ * Masks the bits (before shifting!) and then shifts to correct offset.
++ * contextMemory.dw[1] = AMAP_SET_BITS (struct, field1, 123) |
++ *                       AMAP_SET_BITS (struct, field2, 456):
++ * Remember this does not clear bits!
++ */
++static inline u32 amap_set_bits(u32 mask, u32 offset, u32 new_value) {
++	return (mask & new_value) << offset;
 +}
 +
 +/*
-+ *-------------------------------------------------------------------
-+ * Function: be_acquire_reset_semaphore
-+ *   Acquires the reset semaphore. If success is returned, the
-+ *   caller owns the reset semaphore. Otherwise the caller does not
-+ *   own the reset semaphore. Callers must acquire the reset semaphore
-+ *   before inducing a BladeEngine runtime reset. Callers must
-+ *   also release the reset semaphore once they are done with a
-+ *   soft reset. Release of the reset semaphore is accomplished with
-+ *   be_release_reset_semaphore.
-+ * function_object -
-+ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
-+ *-------------------------------------------------------------------
++ * Returns the a bit mask for the register that is NOT shifted into location.
++ * That means return values always look like: 0x1, 0xFF, 0x7FF, etc...
 + */
-+BESTATUS be_acquire_reset_semaphore(IN PBE_FUNCTION_OBJECT function_object)
-+{
-+	ASSERT(FALSE == function_object->own_semaphore);
-+	if (FALSE == function_object->own_semaphore) {
-+		if (0 == PCICFG0_READ(function_object, semaphore[2])) {
-+			/* This driver now owns the resource */
-+			function_object->own_semaphore = TRUE;
-+			return BE_SUCCESS;
-+		} else {
-+			/* Some other driver owns the resource */
-+			return BE_NOT_OK;
-+		}
-+	}
++static inline u32 amap_mask(u32 bit_size) {
++	return (bit_size == 32 ? 0xFFFFFFFF : (1 << bit_size) - 1); }
 +
-+	return BE_SUCCESS;
-+}
++#define AMAP_SET_BITS(_struct_, _register_, _new_value_)  \
++	amap_set_bits(AMAP_BIT_MASK(_struct_, _register_),    \
++	AMAP_BIT_OFFSET(_struct_, _register_), _new_value_)
++
++#define AMAP_BIT_MASK(_struct_, _register_)       \
++	amap_mask (AMAP_BIT_SIZE (_struct_, _register_))
++
++#define BE_BIT_OFFSET   AMAP_BIT_OFFSET
++#define BE_WORD_OFFSET  AMAP_WORD_OFFSET
++#define BE_BIT_SIZE     AMAP_BIT_SIZE
++#define BE_BYTE_OFFSET  AMAP_BYTE_OFFSET
++#define BE_SET_BITS     AMAP_SET_BITS
++
++/*------- MAC address related -------*/
++
++#define SA_MAC_FORMAT "%02x:%02x:%02x:%02x:%02x:%02x"
++
++#define SA_MAC_ADDRESS_SIZE (6)
++typedef struct _SA_MAC_ADDRESS {
++	u8 bytes[SA_MAC_ADDRESS_SIZE];
++} __attribute__ ((packed)) SA_MAC_ADDRESS, *PSA_MAC_ADDRESS;
++
++#define SA_MAC_ARGS(_mac_address_)  \
++	(u32)((_mac_address_).bytes[0]),     \
++	(u32)((_mac_address_).bytes[1]),     \
++	(u32)((_mac_address_).bytes[2]),     \
++	(u32)((_mac_address_).bytes[3]),     \
++	(u32)((_mac_address_).bytes[4]),     \
++	(u32)((_mac_address_).bytes[5])
 +
 +/*
-+ *-------------------------------------------------------------------
-+ * Function: be_release_reset_semaphore
-+ *   Releases the reset semaphore. Callers must release the reset
-+ *   semaphore once they are done with a soft reset.
-+ * function_object    -
-+ * return return_type -
-+ *-------------------------------------------------------------------
++ * Creates a SGL for a physically contiguous chunk of memory.
++ * The sgl struct must be previously allocated.
 + */
-+void be_release_reset_semaphore(IN PBE_FUNCTION_OBJECT function_object)
++static inline SA_STATUS
++sa_sgl_create_contiguous(PVOID va, SA_PHYSICAL_ADDRESS pa,
++			 u32 length, PSA_SGL sgl)
 +{
-+	ASSERT(TRUE == function_object->own_semaphore);
 +
-+	if (TRUE == function_object->own_semaphore) {
-+		PCICFG0_WRITE_CONST(function_object, semaphore[2], 0);
-+		function_object->own_semaphore = FALSE;
-+	}
-+
-+	return;
++	sgl->va = va;
++	sgl->pa = pa;
++	sgl->length = length;
++	return (SA_SUCCESS);
 +}
++
++#define sa_sgl_destroy_contiguous(sgl) SA_ZERO_MEM (sgl)
 +
 +/*
-+ *-------------------------------------------------------------------
-+ * Function: be_pci_reset_required
-+ *   This private function is called to detect if a host entity is
-+ *   required to issue a PCI soft reset and subsequently drive
-+ *   BladeEngine POST. Scenarios where this is required:
-+ *   1) BIOS-less configuration
-+ *   2) Hot-swap/plug/power-on
-+ * function_object -
-+ * return   TRUE if a reset is required, FALSE otherwise
-+ *-------------------------------------------------------------------
++ *------ bit manipulation macros / functions -----
++ * Checks for truncation of the value when assigning to a bitfield that
++ * may have fewer bits.  e.g.
++ * struct { u32 hi : 1; } me;
++ * SA_SET_BITFIELD(me.hi, 2);
 + */
-+boolean be_pci_reset_required(IN PBE_FUNCTION_OBJECT function_object)
-+{
-+	MGMT_HBA_POST_STATUS_STRUCT postStatus;
-+	boolean doReset = FALSE;
++#define SA_SET_BITFIELD(_bitfield_, _value_)  \
++	do {\
++		(_bitfield_) = (_value_);                 \
++		ASSERT((_bitfield_) == (_value_))        \
++	} while (0) \
 +
-+	/*
-+	 * Read the POST status register
-+	 *postStatus.dw = CSR_READ(function_object, mpu.ep.ep_semaphore);
-+	 */
-+	postStatus.dw =
-+	    BeCsrRead(function_object->sa_dev, MPU_EP_SEMAPHORE, NULL);
++static
++inline u32 sa_bit_range(u32 value, u32 bit_offset, u32 num_bits) {
++	ASSERT(bit_offset <= sizeof(value) * 8);
++	ASSERT(num_bits <= sizeof(value) * 8);
++	return (value >> bit_offset) & ((1UL << num_bits) - 1); }
 +
-+	if (postStatus.stage <= POST_STAGE_AWAITING_HOST_RDY) {
-+		/*
-+		 * If BladeEngine is waiting for host ready indication,
-+		 * we want to do a PCI reset.
-+		 */
-+		doReset = TRUE;
-+	}
++static
++inline u64 sa_bit_range64(u64 value, u32 bit_offset, u32 num_bits) {
++	ASSERT(bit_offset <= sizeof(value) * 8);
++	ASSERT(num_bits <= sizeof(value) * 8);
++	return (value >> bit_offset) & ((1ULL << num_bits) - 1); }
 +
-+	return doReset;
++static inline u32 sa_upper_bits(u32 value, u32 num_bits) {
++	ASSERT(num_bits <= sizeof(value) * 8);
++	return sa_bit_range(value, sizeof(value) * 8 - num_bits, num_bits); }
++
++static inline u64 sa_upper_bits64(u64 value, u32 num_bits) {
++	ASSERT(num_bits <= sizeof(value) * 8);
++	return sa_bit_range64(value, sizeof(value) * 8 - num_bits,
++			      num_bits);
 +}
 +
-+/*
-+ *-------------------------------------------------------------------
-+ * Function: be_drive_POST
-+ *   This function is called to drive BladeEngine POST. The
-+ *   caller should ensure they cannot be pre-empted while this routine executes.
-+ * function_object -
-+ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
-+ *-------------------------------------------------------------------
-+ */
-+BESTATUS be_drive_POST(IN PBE_FUNCTION_OBJECT function_object)
-+{
-+	BESTATUS status;
++/* The bit vector structure. */
++typedef struct _SA_BIT_VECTOR {
++	u32 magic;
++	u32 numBits;
++	u32 numDwords;
++	u32 numSet;
++	u32 *bits;
++} SA_BIT_VECTOR, *PSA_BIT_VECTOR;
 +
-+	if (FALSE != be_pci_reset_required(function_object)) {
-+		/* PCI reset is needed (implicitly starts and waits for POST) */
-+		status = be_pci_soft_reset(function_object);
-+	} else {
-+		/* No PCI reset is needed, start POST */
-+		status = be_kickoff_and_wait_for_POST(function_object);
-+	}
-+
-+	return status;
-+}
++#endif /* __sa_h__ */
 
 ___________________________________________________________________________________
 This message, together with any attachment(s), contains confidential and proprietary information of
