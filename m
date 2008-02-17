@@ -1,66 +1,55 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] remove include/linux/netfilter_ipv4/ipt_SAME.h
-Date: Sun, 17 Feb 2008 10:30:31 +0200
-Message-ID: <20080217083031.GY3848@cs181133002.pp.htv.fi>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: RESEND, HTB(?) softlockup, vanilla 2.6.24
+Date: Sun, 17 Feb 2008 10:11:47 +0100
+Message-ID: <20080217091147.GA6093@ami.dom.local>
+References: <20080213081318.M90354@visp.net.lb> <47B69824.4030405@gmail.com> <20080216102502.M41110@visp.net.lb> <20080216204519.GA2739@ami.dom.local> <20080216235419.M80874@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6.pp.htv.fi ([213.243.153.40]:37336 "EHLO smtp6.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753371AbYBQIa5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Feb 2008 03:30:57 -0500
+Received: from ug-out-1314.google.com ([66.249.92.170]:35254 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753575AbYBQJIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2008 04:08:02 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so129815ugc.16
+        for <netdev@vger.kernel.org>; Sun, 17 Feb 2008 01:08:01 -0800 (PST)
 Content-Disposition: inline
+In-Reply-To: <20080216235419.M80874@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes the no longer used include/linux/netfilter_ipv4/ipt_SAME.h
+On Sun, Feb 17, 2008 at 02:03:33AM +0200, Denys Fedoryshchenko wrote:
+> Server is fully redundant now, so i apply patches (but i apply both, probably 
+> it will make system more reliable somehow) and i enable required debug 
+> options in kernel. So i will try to catch this bug few more times, probably 
+> if it will generate more detailed info over netconsole it will be useful.
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+I guess you mean the patches mentioned in the "BUG/ spinlock lockup";
+they could be useful, but we are not sure this is the same problem.
+Anyway, if there are really stack overflows then we don't need any
+bug report after this: with stack data corrupted they would show some
+"false" problems. We need to find which code overflows and why. If you
+want to debug this, then try to make this more reproducible e.g. with
+CONFIG_4KSTACKS; anyway you should always turn on these options with
+such problems: CONFIG_DEBUG_STACKOVERFLOW CONFIG_DEBUG_STACK_USAGE.
 
----
+> Is there any project to dump console messages/kernel dump to disk? For 
+...
+I don't know, but there is probably something better: a project by
+Intel to save this in some cpu memory (or something...). But again:
+we don't need corrupted messages after stack overflow, and, if we
+don't let for this, maybe these netconsole messages would be properly
+printed and quite enough...
 
- include/linux/netfilter_ipv4/Kbuild     |    1 -
- include/linux/netfilter_ipv4/ipt_SAME.h |   19 -------------------
- 2 files changed, 20 deletions(-)
+> I notice some code in MTD(CONFIG_MTD_OOPS), but i am not sure it is correct 
+> and will work if i will setup MTD emulation for block device.
 
-553bf355efd03581a094d8a4e0b278e04228aae8 diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/Kbuild
-index 3a7105b..646d104 100644
---- a/include/linux/netfilter_ipv4/Kbuild
-+++ b/include/linux/netfilter_ipv4/Kbuild
-@@ -7,7 +7,6 @@ header-y += ipt_LOG.h
- header-y += ipt_MARK.h
- header-y += ipt_NFQUEUE.h
- header-y += ipt_REJECT.h
--header-y += ipt_SAME.h
- header-y += ipt_TCPMSS.h
- header-y += ipt_TOS.h
- header-y += ipt_TTL.h
-diff --git a/include/linux/netfilter_ipv4/ipt_SAME.h b/include/linux/netfilter_ipv4/ipt_SAME.h
-deleted file mode 100644
-index be6e682..0000000
---- a/include/linux/netfilter_ipv4/ipt_SAME.h
-+++ /dev/null
-@@ -1,19 +0,0 @@
--#ifndef _IPT_SAME_H
--#define _IPT_SAME_H
--
--#define IPT_SAME_MAX_RANGE	10
--
--#define IPT_SAME_NODST		0x01
--
--struct ipt_same_info
--{
--	unsigned char info;
--	u_int32_t rangesize;
--	u_int32_t ipnum;
--	u_int32_t *iparray;
--
--	/* hangs off end. */
--	struct nf_nat_range range[IPT_SAME_MAX_RANGE];
--};
--
--#endif /*_IPT_SAME_H*/
+I'm not sure what do you mean by MTD emulation: it should be used with
+MTD devices only, I presume?
 
+Regards,
+Jarek P.
+
+PS: BTW, for HTB with actions I recommend my "sch_htb: htb_requeue fix",
+available in 2.6.25-rc.
