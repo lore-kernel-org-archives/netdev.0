@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [resend] [PATCH] IPv4: Reset scope when changing address
-Date: Sun, 17 Feb 2008 22:22:45 -0800 (PST)
-Message-ID: <20080217.222245.132418529.davem@davemloft.net>
-References: <87bq6hazvo.fsf@obelix.mork.no>
+Subject: Re: [PATCH 1/3] fib_trie: move statistics to debugfs
+Date: Sun, 17 Feb 2008 22:26:55 -0800 (PST)
+Message-ID: <20080217.222655.262637827.davem@davemloft.net>
+References: <20080213195805.493794050@vyatta.com>
+	<20080213195929.781366896@vyatta.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: bjorn@mork.no
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41258
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40242
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751855AbYBRGWI convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2008 01:22:08 -0500
-In-Reply-To: <87bq6hazvo.fsf@obelix.mork.no>
+	by vger.kernel.org with ESMTP id S1751666AbYBRG0S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 01:26:18 -0500
+In-Reply-To: <20080213195929.781366896@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn_Mork <bjorn@mork.no>
-Date: Sat, 16 Feb 2008 12:45:31 +0100
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 13 Feb 2008 11:58:06 -0800
 
-> <#part type=3Dtext/plain nofile=3Dyes>
-> Any comments on this?  Apparently introduced in 2.1.68, so there's no=
-t
-> much hurry.  But I'd still like to hear whether that analysis is corr=
-ect
-> or not...
-> MIME-Version: 1.0
-> Content-Type: multipart/mixed; boundary=3D"=3D=3D-=3D-=3D"
+> Don't want /proc/net/fib_trie and /proc/net/fib_triestat to become
+> permanent kernel space ABI issues, so move to the safer confines of debugfs.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Please clear up all of the inline mime tag stuff in your
-outgoing emails.  Your description and patch is very difficult
-to read because of this.
+Stephen, the cat is already out of the bag.  We already export this
+thing so if you want to export different stuff you'll have to provide
+it via some other means, somewhere else.
 
-Thank you.
+Thanks.
