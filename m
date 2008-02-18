@@ -1,124 +1,59 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [2.6.25-rc2] e100: Trying to free already-free
- IRQ 11 during suspend ...
-Date: Mon, 18 Feb 2008 05:01:13 -0800
-Message-ID: <20080218050113.1b4b0897.akpm@linux-foundation.org>
-References: <200802171536.51695.arvidjaar@mail.ru>
+From: Chris Rankin <rankincj@yahoo.com>
+Subject: Re: Linux 2.6.24.1  - kernel does not boot; IRQ trouble?
+Date: Mon, 18 Feb 2008 13:16:21 +0000 (GMT)
+Message-ID: <71379.56187.qm@web52910.mail.re2.yahoo.com>
+References: <20080218050049.12bcc596.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrey Borzenkov <arvidjaar@mail.ru>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <200802171536.51695.arvidjaar@mail.ru>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <20080218050049.12bcc596.akpm@linux-foundation.org>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 17 Feb 2008 15:36:50 +0300 Andrey Borzenkov <arvidjaar@mail.ru> wrote:
-
-> ... and possibly reboot/poweroff (it flows by too fast to be legible).
+--- Andrew Morton <akpm@linux-foundation.org> wrote:
+> > sysfs: duplicate filename 'bridge' can not be created
+> > WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
+> > Pid: 1, comm: swapper Not tainted 2.6.24.1 #1
+> >  [<c0105020>] show_trace_log_lvl+0x1a/0x2f
+> >  [<c0105990>] show_trace+0x12/0x14
+> >  [<c010613d>] dump_stack+0x6c/0x72
+> >  [<c01991bf>] sysfs_add_one+0x57/0xbc
+> >  [<c0199e41>] sysfs_create_link+0xc2/0x10d
+> >  [<c01bae9a>] pci_bus_add_devices+0xbd/0x103
+> >  [<c034016c>] pci_legacy_init+0x56/0xe3
+> >  [<c03274e1>] kernel_init+0x157/0x2c3
+> >  [<c0104c83>] kernel_thread_helper+0x7/0x10
+> >  =======================
+> > pci 0000:00:01.0: Error creating sysfs bridge symlink, continuing...
+> > sysfs: duplicate filename 'bridge' can not be created
+> > WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
+> > Pid: 1, comm: swapper Not tainted 2.6.24.1 #1
+> >  [<c0105020>] show_trace_log_lvl+0x1a/0x2f
+> >  [<c0105990>] show_trace+0x12/0x14
+> >  [<c010613d>] dump_stack+0x6c/0x72
+> >  [<c01991bf>] sysfs_add_one+0x57/0xbc
+> >  [<c0199e41>] sysfs_create_link+0xc2/0x10d
+> >  [<c01bae9a>] pci_bus_add_devices+0xbd/0x103
+> >  [<c01bae82>] pci_bus_add_devices+0xa5/0x103
+> >  [<c034016c>] pci_legacy_init+0x56/0xe3
+> >  [<c03274e1>] kernel_init+0x157/0x2c3
+> >  [<c0104c83>] kernel_thread_helper+0x7/0x10
+> >  =======================
 > 
-> [ 8803.850634] ACPI: Preparing to enter system sleep state S3
-> [ 8803.853141] Suspending console(s)
-> [ 8805.287505] serial 00:09: disabled
-> [ 8805.291564] Trying to free already-free IRQ 11
-> [ 8805.291579] Pid: 6920, comm: pm-suspend Not tainted 2.6.25-rc2-1avb #2
-> [ 8805.291628]  [<c0152127>] free_irq+0xb7/0x130
-> [ 8805.291675]  [<c024bd80>] e100_suspend+0xc0/0x100
-> [ 8805.291724]  [<c01eaa36>] pci_device_suspend+0x26/0x70
-> [ 8805.291747]  [<c0243674>] suspend_device+0x94/0xd0
-> [ 8805.291763]  [<c02439a3>] device_suspend+0x153/0x240
-> [ 8805.291784]  [<c014314f>] suspend_devices_and_enter+0x4f/0xf0
-> [ 8805.291808]  [<c0143a5f>] ? freeze_processes+0x3f/0x80
-> [ 8805.291825]  [<c01432fa>] enter_state+0xaa/0x140
-> [ 8805.291840]  [<c014341f>] state_store+0x8f/0xd0
-> [ 8805.291852]  [<c0143390>] ? state_store+0x0/0xd0
-> [ 8805.291866]  [<c01d3404>] kobj_attr_store+0x24/0x30
-> [ 8805.291901]  [<c01b547b>] sysfs_write_file+0xbb/0x110
-> [ 8805.291936]  [<c0177d79>] vfs_write+0x99/0x130
-> [ 8805.291963]  [<c01b53c0>] ? sysfs_write_file+0x0/0x110
-> [ 8805.291979]  [<c01782fd>] sys_write+0x3d/0x70
-> [ 8805.291998]  [<c010409a>] sysenter_past_esp+0x5f/0xa5
-> [ 8805.292038]  =======================
-> [ 8805.347640] ACPI: PCI interrupt for device 0000:00:06.0 disabled
-> [ 8805.361128] ACPI: PCI interrupt for device 0000:00:02.0 disabled
-> [ 8805.376670]  hwsleep-0322 [00] enter_sleep_state     : Entering sleep state [S3]
-> [ 8805.376670] Back to C!
-> 
-> Interface is unused normally (only for netconsole sometimes). dmesg and config
-> attached.
+> I have a vague feeling that this was fixed, perhaps in 2.6.24.x?
 
-Does reverting this:
+Obviously not in 2.6.24.1, and I thought that 2.6.24.2 just added the fix for the vmsplice
+exploit. So unless 2.6.24.3 has been released...?
 
-commit 8543da6672b0994921f014f2250e27ae81645580
-Author: Auke Kok <auke-jan.h.kok@intel.com>
-Date:   Wed Dec 12 16:30:42 2007 -0800
+Cheers,
+Chris
 
-    e100: free IRQ to remove warningwhenrebooting
-    
-with this patch:
 
---- a/drivers/net/e100.c~revert-1
-+++ a/drivers/net/e100.c
-@@ -2804,9 +2804,8 @@ static int e100_suspend(struct pci_dev *
- 		pci_enable_wake(pdev, PCI_D3cold, 0);
- 	}
- 
--	free_irq(pdev->irq, netdev);
--
- 	pci_disable_device(pdev);
-+	free_irq(pdev->irq, netdev);
- 	pci_set_power_state(pdev, PCI_D3hot);
- 
- 	return 0;
-@@ -2848,8 +2847,6 @@ static void e100_shutdown(struct pci_dev
- 		pci_enable_wake(pdev, PCI_D3cold, 0);
- 	}
- 
--	free_irq(pdev->irq, netdev);
--
- 	pci_disable_device(pdev);
- 	pci_set_power_state(pdev, PCI_D3hot);
- }
-_
 
-fix it?
-
-> Hmm ... after resume device has disappeared at all ...
-> 
-> {pts/1}% cat /proc/interrupts
->            CPU0
->   0:    1290492    XT-PIC-XT        timer
->   1:       6675    XT-PIC-XT        i8042
->   2:          0    XT-PIC-XT        cascade
->   3:          2    XT-PIC-XT
->   4:          2    XT-PIC-XT
->   5:          3    XT-PIC-XT
->   7:          4    XT-PIC-XT        irda0
->   8:          0    XT-PIC-XT        rtc0
->   9:        583    XT-PIC-XT        acpi
->  10:          2    XT-PIC-XT
->  11:      31483    XT-PIC-XT        yenta, yenta, yenta, ohci_hcd:usb1, ALI 5451, pcmcia0.0
->  12:      28070    XT-PIC-XT        i8042
->  14:      21705    XT-PIC-XT        ide0
->  15:      82123    XT-PIC-XT        ide1
-> NMI:          0   Non-maskable interrupts
-> TRM:          0   Thermal event interrupts
-> SPU:          0   Spurious interrupts
-> ERR:          0
-
-I hope that's not a separate bug...
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2008.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+      ___________________________________________________________
+Support the World Aids Awareness campaign this month with Yahoo! For Good http://uk.promotions.yahoo.com/forgood/
