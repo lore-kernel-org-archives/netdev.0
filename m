@@ -1,126 +1,107 @@
-From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Subject: Re: tbench regression in 2.6.25-rc1
-Date: Mon, 18 Feb 2008 09:39:06 +0800
-Message-ID: <1203298746.3027.179.camel@ymzhang>
-References: <1203040321.3027.131.camel@ymzhang>
-	 <47B52B95.3070607@cosmosbay.com> <1203057044.3027.134.camel@ymzhang>
-	 <47B59FFC.4030603@cosmosbay.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [BUG] IPv6 recursive locking
+Date: Sun, 17 Feb 2008 18:41:24 -0800 (PST)
+Message-ID: <20080217.184124.193855419.davem@davemloft.net>
+References: <20080217141229.GB1677@nereid>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: herbert@gondor.apana.org.au, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Kristof@provost-engineering.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:10078 "EHLO
-	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751814AbYBRBoR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2008 20:44:17 -0500
-In-Reply-To: <47B59FFC.4030603@cosmosbay.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47217
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753808AbYBRCks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2008 21:40:48 -0500
+In-Reply-To: <20080217141229.GB1677@nereid>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-02-15 at 15:21 +0100, Eric Dumazet wrote:
-> Zhang, Yanmin a =C3=A9crit :
-> > On Fri, 2008-02-15 at 07:05 +0100, Eric Dumazet wrote:
-> >  =20
-> >> Zhang, Yanmin a =EF=BF=BDcrit :
-> >>    =20
-> >>> Comparing with kernel 2.6.24, tbench result has regression with
-> >>> 2.6.25-rc1.
-> >>>
-> >>> 1) On 2 quad-core processor stoakley: 4%.
-> >>> 2) On 4 quad-core processor tigerton: more than 30%.
-> >>>
-> >>> bisect located below patch.
-> >>>
-> >>> b4ce92775c2e7ff9cf79cca4e0a19c8c5fd6287b is first bad commit
-> >>> commit b4ce92775c2e7ff9cf79cca4e0a19c8c5fd6287b
-> >>> Author: Herbert Xu <herbert@gondor.apana.org.au>
-> >>> Date:   Tue Nov 13 21:33:32 2007 -0800
-> >>>
-> >>>     [IPV6]: Move nfheader_len into rt6_info
-> >>>    =20
-> >>>     The dst member nfheader_len is only used by IPv6.  It's also =
-currently
-> >>>     creating a rather ugly alignment hole in struct dst.  Therefo=
-re this patch
-> >>>     moves it from there into struct rt6_info.
-> >>>
-> >>>
-> >>> As tbench uses ipv4, so the patch's real impact on ipv4 is it del=
-etes
-> >>> nfheader_len in dst_entry. It might change cache line alignment.
-> >>>
-> >>> To verify my finding, I just added nfheader_len back to dst_entry=
- in 2.6.25-rc1
-> >>> and reran tbench on the 2 machines. Performance could be recovere=
-d completely.
-> >>>
-> >>> I started cpu_number*2 tbench processes. On my 16-core tigerton:
-> >>> #./tbench_srv &
-> >>> #./tbench 32 127.0.0.1
-> >>>
-> >>> -yanmin
-> >>>      =20
-> >> Yup. struct dst is sensitive to alignements, especially for benche=
-s.
-> >>
-> >> In the real world, we need to make sure that next pointer start at=
- a cache=20
-> >> line bondary (or a litle bit after), so that RT cache lookups use =
-one cache=20
-> >> line per entry instead of two. This permits better behavior in DDO=
-S attacks.
-> >>
-> >> (check commit 1e19e02ca0c5e33ea73a25127dbe6c3b8fcaac4b for referen=
-ce)
-> >>
-> >> Are you using a 64 or a 32 bit kernel ?
-> >>    =20
-> > 64bit x86-64 machine. On another 4-way Madison Itanium machine, tbe=
-nch has the
-> > similiar regression.
-> >
-> >  =20
->=20
-> On linux-2.6.25-rc1 x86_64 :
->=20
-> offsetof(struct dst_entry, lastuse)=3D0xb0
-> offsetof(struct dst_entry, __refcnt)=3D0xb8
-> offsetof(struct dst_entry, __use)=3D0xbc
-> offsetof(struct dst_entry, next)=3D0xc0
->=20
-> So it should be optimal... I dont know why tbench prefers __refcnt be=
-ing=20
-> on 0xc0, since in this case lastuse will be on a different cache line=
-=2E..
->=20
-> Each incoming IP packet will need to change lastuse, __refcnt and __u=
-se,=20
-> so keeping them in the same cache line is a win.
->=20
-> I suspect then that even this patch could help tbench, since it avoid=
-s=20
-> writing lastuse...
->=20
-> diff --git a/include/net/dst.h b/include/net/dst.h
-> index e3ac7d0..24d3c4e 100644
-> --- a/include/net/dst.h
-> +++ b/include/net/dst.h
-> @@ -147,7 +147,8 @@ static inline void dst_use(struct dst_entry *dst,=
-=20
-> unsigned long time)
->  {
->         dst_hold(dst);
->         dst->__use++;
-> -       dst->lastuse =3D time;
-> +       if (time !=3D dst->lastuse)
-> +               dst->lastuse =3D time;
->  }
-I did a quick test and this patch doesn't help tbench.
+From: Kristof Provost <Kristof@provost-engineering.be>
+Date: Sun, 17 Feb 2008 14:12:29 +0000
 
-Thanks,
--yanmin
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+> 
+> Hi,
+> 
+> I'm running the current git (1309d4e68497184d2fd87e892ddf14076c2bda98) 
+> without problems. While I was toying with IPv6 on my local network I managed 
+> to completely hang my machine whenever it receives or sends a neighbour
+> sollictation. At least, I think that's the cause. It started as soon as I 
+> installed radvd on the router. The included trace seems to point in the same
+> direction.
+> 
+> The machine is a Dell Latitude D505 (so x86). Network interfaces are e100 and
+> ipw2200 (firmware not loaded). I'm currently using the e100.
+> 
+> I'll try to bisect it but here's the trace already. Let me know if
+> there's anything else you'd like to know.
 
+I've committed the following revert to fix this, the race bug
+will need another solution, perhaps the one which uses skb_copy().
+
+commit 9ff566074689e3aed1488780b97714ec43ba361d
+Author: David S. Miller <davem@davemloft.net>
+Date:   Sun Feb 17 18:39:54 2008 -0800
+
+    Revert "[NDISC]: Fix race in generic address resolution"
+    
+    This reverts commit 69cc64d8d92bf852f933e90c888dfff083bd4fc9.
+    
+    It causes recursive locking in IPV6 because unlike other
+    neighbour layer clients, it even needs neighbour cache
+    entries to send neighbour soliciation messages :-(
+    
+    We'll have to find another way to fix this race.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 7bb6a9a..a16cf1e 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -834,12 +834,18 @@ static void neigh_timer_handler(unsigned long arg)
+ 	}
+ 	if (neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) {
+ 		struct sk_buff *skb = skb_peek(&neigh->arp_queue);
+-
++		/* keep skb alive even if arp_queue overflows */
++		if (skb)
++			skb_get(skb);
++		write_unlock(&neigh->lock);
+ 		neigh->ops->solicit(neigh, skb);
+ 		atomic_inc(&neigh->probes);
+-	}
++		if (skb)
++			kfree_skb(skb);
++	} else {
+ out:
+-	write_unlock(&neigh->lock);
++		write_unlock(&neigh->lock);
++	}
+ 
+ 	if (notify)
+ 		neigh_update_notify(neigh);
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index c663fa5..8e17f65 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -368,6 +368,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 		if (!(neigh->nud_state&NUD_VALID))
+ 			printk(KERN_DEBUG "trying to ucast probe in NUD_INVALID\n");
+ 		dst_ha = neigh->ha;
++		read_lock_bh(&neigh->lock);
+ 	} else if ((probes -= neigh->parms->app_probes) < 0) {
+ #ifdef CONFIG_ARPD
+ 		neigh_app_ns(neigh);
+@@ -377,6 +378,8 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 
+ 	arp_send(ARPOP_REQUEST, ETH_P_ARP, target, dev, saddr,
+ 		 dst_ha, dev->dev_addr, NULL);
++	if (dst_ha)
++		read_unlock_bh(&neigh->lock);
+ }
+ 
+ static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
 
