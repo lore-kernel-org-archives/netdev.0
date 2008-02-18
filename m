@@ -1,86 +1,97 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH v2][IPROUTE] tc filters usage fixes
-Date: Tue, 19 Feb 2008 00:26:12 +0100
-Message-ID: <20080218232612.GC6373@ami.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+From: Andy Fleming <afleming@freescale.com>
+Subject: [PATCH v2.6.25] gianfar: don't pass NULL dev ptr to DMA ops
+Date: Mon, 18 Feb 2008 17:24:30 -0600
+Message-ID: <1203377070-19870-1-git-send-email-afleming@freescale.com>
+Cc: Becky Bruce <bgill@freescale.com>,
+	Becky Bruce <becky.bruce@freescale.com>
+To: jeff@garzik.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:30100 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753608AbYBRXUm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 18:20:42 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so439381ugc.16
-        for <netdev@vger.kernel.org>; Mon, 18 Feb 2008 15:20:41 -0800 (PST)
-Content-Disposition: inline
+Received: from de01egw01.freescale.net ([192.88.165.102]:40591 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755031AbYBRXYu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 18:24:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Becky Bruce <bgill@freescale.com>
 
-CLASSID := X:Y:Z ==> X:Y in f_basic is changed here and no change for
-f_u32 (it has both CLASSID and FILTERID mentioned).
+Change all dma op invocations in gianfar.c to actually pass in the
+device pointer.  Currently, the value is ignored, but it will be
+used going forward as we implement archdata for 32-bit powerpc.
 
------------------> (take 2)
-
-A few usage description fixes of tc filters for some minimal
-consistency (FILTER_KIND because of QDISC_KIND).
-
-
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-
+Signed-off-by: Becky Bruce <becky.bruce@freescale.com>
+Acked-by: Andy Fleming <afleming@freescale.com>
 ---
+ drivers/net/gianfar.c |   14 +++++++-------
+ 1 files changed, 7 insertions(+), 7 deletions(-)
 
- tc/f_basic.c   |    4 ++--
- tc/f_rsvp.c    |    2 +-
- tc/tc_filter.c |    6 +++---
- 3 files changed, 6 insertions(+), 6 deletions(-)
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 0431e9e..9a5160b 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -605,7 +605,7 @@ void stop_gfar(struct net_device *dev)
+ 
+ 	free_skb_resources(priv);
+ 
+-	dma_free_coherent(NULL,
++	dma_free_coherent(&dev->dev,
+ 			sizeof(struct txbd8)*priv->tx_ring_size
+ 			+ sizeof(struct rxbd8)*priv->rx_ring_size,
+ 			priv->tx_bd_base,
+@@ -626,7 +626,7 @@ static void free_skb_resources(struct gfar_private *priv)
+ 	for (i = 0; i < priv->tx_ring_size; i++) {
+ 
+ 		if (priv->tx_skbuff[i]) {
+-			dma_unmap_single(NULL, txbdp->bufPtr,
++			dma_unmap_single(&priv->dev->dev, txbdp->bufPtr,
+ 					txbdp->length,
+ 					DMA_TO_DEVICE);
+ 			dev_kfree_skb_any(priv->tx_skbuff[i]);
+@@ -643,7 +643,7 @@ static void free_skb_resources(struct gfar_private *priv)
+ 	if(priv->rx_skbuff != NULL) {
+ 		for (i = 0; i < priv->rx_ring_size; i++) {
+ 			if (priv->rx_skbuff[i]) {
+-				dma_unmap_single(NULL, rxbdp->bufPtr,
++				dma_unmap_single(&priv->dev->dev, rxbdp->bufPtr,
+ 						priv->rx_buffer_size,
+ 						DMA_FROM_DEVICE);
+ 
+@@ -708,7 +708,7 @@ int startup_gfar(struct net_device *dev)
+ 	gfar_write(&regs->imask, IMASK_INIT_CLEAR);
+ 
+ 	/* Allocate memory for the buffer descriptors */
+-	vaddr = (unsigned long) dma_alloc_coherent(NULL,
++	vaddr = (unsigned long) dma_alloc_coherent(&dev->dev,
+ 			sizeof (struct txbd8) * priv->tx_ring_size +
+ 			sizeof (struct rxbd8) * priv->rx_ring_size,
+ 			&addr, GFP_KERNEL);
+@@ -919,7 +919,7 @@ err_irq_fail:
+ rx_skb_fail:
+ 	free_skb_resources(priv);
+ tx_skb_fail:
+-	dma_free_coherent(NULL,
++	dma_free_coherent(&dev->dev,
+ 			sizeof(struct txbd8)*priv->tx_ring_size
+ 			+ sizeof(struct rxbd8)*priv->rx_ring_size,
+ 			priv->tx_bd_base,
+@@ -1053,7 +1053,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	/* Set buffer length and pointer */
+ 	txbdp->length = skb->len;
+-	txbdp->bufPtr = dma_map_single(NULL, skb->data,
++	txbdp->bufPtr = dma_map_single(&dev->dev, skb->data,
+ 			skb->len, DMA_TO_DEVICE);
+ 
+ 	/* Save the skb pointer so we can free it later */
+@@ -1332,7 +1332,7 @@ struct sk_buff * gfar_new_skb(struct net_device *dev, struct rxbd8 *bdp)
+ 	 */
+ 	skb_reserve(skb, alignamount);
+ 
+-	bdp->bufPtr = dma_map_single(NULL, skb->data,
++	bdp->bufPtr = dma_map_single(&dev->dev, skb->data,
+ 			priv->rx_buffer_size, DMA_FROM_DEVICE);
+ 
+ 	bdp->length = 0;
+-- 
+1.5.4.23.gef5b9
 
-diff --git a/tc/f_basic.c b/tc/f_basic.c
-index ad41633..d8a42d9 100644
---- a/tc/f_basic.c
-+++ b/tc/f_basic.c
-@@ -30,8 +30,8 @@ static void explain(void)
- 	fprintf(stderr, "Usage: ... basic [ match EMATCH_TREE ] [ police POLICE_SPEC ]\n");
- 	fprintf(stderr, "                 [ action ACTION_SPEC ] [ classid CLASSID ]\n");
- 	fprintf(stderr, "\n");
--	fprintf(stderr, "Where: SELECTOR := SAMPLE SAMPLE ...\n");
--	fprintf(stderr, "       FILTERID := X:Y:Z\n");
-+	fprintf(stderr, "Where:\n");
-+	fprintf(stderr, "       CLASSID := X:Y\n");
- 	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
- }
- 
-diff --git a/tc/f_rsvp.c b/tc/f_rsvp.c
-index 7e1e6d9..8f92e8f 100644
---- a/tc/f_rsvp.c
-+++ b/tc/f_rsvp.c
-@@ -33,7 +33,7 @@ static void explain(void)
- 	fprintf(stderr, "Where: GPI := { flowlabel NUMBER | spi/ah SPI | spi/esp SPI |\n");
- 	fprintf(stderr, "                u{8|16|32} NUMBER mask MASK at OFFSET}\n");
- 	fprintf(stderr, "       POLICE_SPEC := ... look at TBF\n");
--	fprintf(stderr, "       FILTERID := X:Y\n");
-+	fprintf(stderr, "       CLASSID := X:Y\n");
- 	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
- }
- 
-diff --git a/tc/tc_filter.c b/tc/tc_filter.c
-index d70c656..eb74f89 100644
---- a/tc/tc_filter.c
-+++ b/tc/tc_filter.c
-@@ -33,12 +33,12 @@ static void usage(void)
- 	fprintf(stderr, "Usage: tc filter [ add | del | change | replace | show ] dev STRING\n");
- 	fprintf(stderr, "       [ pref PRIO ] protocol PROTO\n");
- 	fprintf(stderr, "       [ estimator INTERVAL TIME_CONSTANT ]\n");
--	fprintf(stderr, "       [ root | classid CLASSID ] [ handle FILTERID ]\n");
--	fprintf(stderr, "       [ [ FILTER_TYPE ] [ help | OPTIONS ] ]\n");
-+	fprintf(stderr, "       [ root | parent CLASSID ] [ handle FILTERID ]\n");
-+	fprintf(stderr, "       [ [ FILTER_KIND ] [ help | OPTIONS ] ]\n");
- 	fprintf(stderr, "\n");
- 	fprintf(stderr, "       tc filter show [ dev STRING ] [ root | parent CLASSID ]\n");
- 	fprintf(stderr, "Where:\n");
--	fprintf(stderr, "FILTER_TYPE := { rsvp | u32 | fw | route | etc. }\n");
-+	fprintf(stderr, "FILTER_KIND := { rsvp | u32 | fw | route | etc. }\n");
- 	fprintf(stderr, "FILTERID := ... format depends on classifier, see there\n");
- 	fprintf(stderr, "OPTIONS := ... try tc filter add <desired FILTER_KIND> help\n");
- 	return;
