@@ -1,48 +1,86 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
-Date: Tue, 19 Feb 2008 00:01:54 +0100
-Message-ID: <20080218230154.GB6373@ami.dom.local>
-References: <47B0C9F7.5040200@katalix.com> <20080211224924.GA2863@ami.dom.local> <47B0DD1E.5000608@katalix.com> <20080211.213048.192442721.davem@davemloft.net> <47B17BCD.2070903@katalix.com> <20080214130016.GA2583@ff.dom.local> <47BA0214.40703@katalix.com>
+Subject: [PATCH v2][IPROUTE] tc filters usage fixes
+Date: Tue, 19 Feb 2008 00:26:12 +0100
+Message-ID: <20080218232612.GC6373@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:38172 "EHLO
+Received: from ug-out-1314.google.com ([66.249.92.168]:30100 "EHLO
 	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753206AbYBRW4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 17:56:34 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so436032ugc.16
-        for <netdev@vger.kernel.org>; Mon, 18 Feb 2008 14:56:33 -0800 (PST)
+	with ESMTP id S1753608AbYBRXUm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 18:20:42 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so439381ugc.16
+        for <netdev@vger.kernel.org>; Mon, 18 Feb 2008 15:20:41 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <47BA0214.40703@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 18, 2008 at 10:09:24PM +0000, James Chapman wrote:
-> Jarek Poplawski wrote:
->> Hi,
->>
->> It seems, this nice report is still uncomplete: could you check if
->> there could have been something more yet?
->
-> Unfortunately the ISP's syslog stops. But I've been able to borrow two
-> Quad Xeon boxes and have reproduced the problem.
->
-> Here's a new version of the patch. The patch avoids disabling irqs and
-> fixes the sk_dst_get() usage that DaveM mentioned. But even with this
-> patch, lockdep still complains if hundreds of ppp sessions are inserted
-> into a tunnel as rapidly as possible (lockdep trace is below). I can
-> stop these errors by wrapping the call to ppp_input() in
-> pppol2tp_recv_dequeue_skb() with local_irq_save/restore. What is a
-> better fix?
 
-Hmm... This is a really long report and quite a bit different from
-the previous one. I need some time for this. BTW: you sent before a
-lockdep report with hlist_lock problem. I think this could be fixed
-in some independent patch to make this all more readable. Are all
-the other changes in this current patch only because of this or
-previous lockdep report or for some other reasons (or reports) yet?
+CLASSID := X:Y:Z ==> X:Y in f_basic is changed here and no change for
+f_u32 (it has both CLASSID and FILTERID mentioned).
 
-Regards,
-Jarek P.
+-----------------> (take 2)
+
+A few usage description fixes of tc filters for some minimal
+consistency (FILTER_KIND because of QDISC_KIND).
+
+
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
+---
+
+ tc/f_basic.c   |    4 ++--
+ tc/f_rsvp.c    |    2 +-
+ tc/tc_filter.c |    6 +++---
+ 3 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/tc/f_basic.c b/tc/f_basic.c
+index ad41633..d8a42d9 100644
+--- a/tc/f_basic.c
++++ b/tc/f_basic.c
+@@ -30,8 +30,8 @@ static void explain(void)
+ 	fprintf(stderr, "Usage: ... basic [ match EMATCH_TREE ] [ police POLICE_SPEC ]\n");
+ 	fprintf(stderr, "                 [ action ACTION_SPEC ] [ classid CLASSID ]\n");
+ 	fprintf(stderr, "\n");
+-	fprintf(stderr, "Where: SELECTOR := SAMPLE SAMPLE ...\n");
+-	fprintf(stderr, "       FILTERID := X:Y:Z\n");
++	fprintf(stderr, "Where:\n");
++	fprintf(stderr, "       CLASSID := X:Y\n");
+ 	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
+ }
+ 
+diff --git a/tc/f_rsvp.c b/tc/f_rsvp.c
+index 7e1e6d9..8f92e8f 100644
+--- a/tc/f_rsvp.c
++++ b/tc/f_rsvp.c
+@@ -33,7 +33,7 @@ static void explain(void)
+ 	fprintf(stderr, "Where: GPI := { flowlabel NUMBER | spi/ah SPI | spi/esp SPI |\n");
+ 	fprintf(stderr, "                u{8|16|32} NUMBER mask MASK at OFFSET}\n");
+ 	fprintf(stderr, "       POLICE_SPEC := ... look at TBF\n");
+-	fprintf(stderr, "       FILTERID := X:Y\n");
++	fprintf(stderr, "       CLASSID := X:Y\n");
+ 	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
+ }
+ 
+diff --git a/tc/tc_filter.c b/tc/tc_filter.c
+index d70c656..eb74f89 100644
+--- a/tc/tc_filter.c
++++ b/tc/tc_filter.c
+@@ -33,12 +33,12 @@ static void usage(void)
+ 	fprintf(stderr, "Usage: tc filter [ add | del | change | replace | show ] dev STRING\n");
+ 	fprintf(stderr, "       [ pref PRIO ] protocol PROTO\n");
+ 	fprintf(stderr, "       [ estimator INTERVAL TIME_CONSTANT ]\n");
+-	fprintf(stderr, "       [ root | classid CLASSID ] [ handle FILTERID ]\n");
+-	fprintf(stderr, "       [ [ FILTER_TYPE ] [ help | OPTIONS ] ]\n");
++	fprintf(stderr, "       [ root | parent CLASSID ] [ handle FILTERID ]\n");
++	fprintf(stderr, "       [ [ FILTER_KIND ] [ help | OPTIONS ] ]\n");
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "       tc filter show [ dev STRING ] [ root | parent CLASSID ]\n");
+ 	fprintf(stderr, "Where:\n");
+-	fprintf(stderr, "FILTER_TYPE := { rsvp | u32 | fw | route | etc. }\n");
++	fprintf(stderr, "FILTER_KIND := { rsvp | u32 | fw | route | etc. }\n");
+ 	fprintf(stderr, "FILTERID := ... format depends on classifier, see there\n");
+ 	fprintf(stderr, "OPTIONS := ... try tc filter add <desired FILTER_KIND> help\n");
+ 	return;
