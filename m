@@ -1,7 +1,8 @@
 From: Dave Young <hidave.darkstar@gmail.com>
-Subject: [PATCH 1/2] bluetooth : put hci dev after del conn
-Date: Mon, 18 Feb 2008 15:55:55 +0800
-Message-ID: <20080218075555.GA5940@darkstar.te-china.tietoenator.com>
+Subject: [PATCH 2/2] bluetooth : do not move child device
+	other than rfcomm
+Date: Mon, 18 Feb 2008 15:58:05 +0800
+Message-ID: <20080218075805.GB5940@darkstar.te-china.tietoenator.com>
 Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,49 +23,40 @@ Sender: bluez-devel-bounces@lists.sourceforge.net
 Errors-To: bluez-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Move hci_dev_put to del_conn to avoid hci dev going away before hci conn.
+hci conn child devices other than rfcomm tty should not be moved here.
+This is my lost, thanks for Barnaby's reporting and testing.
 
 Signed-off-by: Dave Young <hidave.darkstar@gmail.com> 
 
 ---
-net/bluetooth/hci_conn.c  |    1 -
-net/bluetooth/hci_sysfs.c |    5 ++++-
-2 files changed, 4 insertions(+), 2 deletions(-)
+net/bluetooth/hci_sysfs.c |   13 ++++++-------
+1 file changed, 6 insertions(+), 7 deletions(-)
 
-diff -upr linux/net/bluetooth/hci_conn.c linux.new/net/bluetooth/hci_conn.c
---- linux/net/bluetooth/hci_conn.c	2008-02-16 06:38:56.000000000 +0800
-+++ linux.new/net/bluetooth/hci_conn.c	2008-02-16 06:54:17.000000000 +0800
-@@ -260,7 +260,6 @@ int hci_conn_del(struct hci_conn *conn)
- 	tasklet_enable(&hdev->tx_task);
- 	skb_queue_purge(&conn->data_q);
- 	hci_conn_del_sysfs(conn);
--	hci_dev_put(hdev);
- 
- 	return 0;
- }
 diff -upr linux/net/bluetooth/hci_sysfs.c linux.new/net/bluetooth/hci_sysfs.c
 --- linux/net/bluetooth/hci_sysfs.c	2008-02-16 06:38:56.000000000 +0800
-+++ linux.new/net/bluetooth/hci_sysfs.c	2008-02-16 06:54:17.000000000 +0800
-@@ -333,15 +333,18 @@ static int __match_tty(struct device *de
- 
- static void del_conn(struct work_struct *work)
- {
--	struct device *dev;
- 	struct hci_conn *conn = container_of(work, struct hci_conn, work);
-+	struct hci_dev *hdev = conn->hdev;
-+	struct device *dev;
- 
- 	while (dev = device_find_child(&conn->dev, NULL, __match_tty)) {
- 		device_move(dev, NULL);
- 		put_device(dev);
- 	}
-+
- 	device_del(&conn->dev);
- 	put_device(&conn->dev);
-+	hci_dev_put(hdev);
++++ linux.new/net/bluetooth/hci_sysfs.c	2008-02-17 15:45:15.000000000 +0800
+@@ -320,15 +320,14 @@ void hci_conn_add_sysfs(struct hci_conn 
+ 	queue_work(btaddconn, &conn->work);
  }
  
- void hci_conn_del_sysfs(struct hci_conn *conn)
++/*
++ * The rfcomm tty device will possibly retain even when conn
++ * is down, and sysfs doesn't support move zombie device,
++ * so we should move the device before conn device is destroyed.
++ */
+ static int __match_tty(struct device *dev, void *data)
+ {
+-	/* The rfcomm tty device will possibly retain even when conn
+-	 * is down, and sysfs doesn't support move zombie device,
+-	 * so we should move the device before conn device is destroyed.
+-	 * Due to the only child device of hci_conn dev is rfcomm
+-	 * tty_dev, here just return 1
+-	 */
+-	return 1;
++	return !strncmp(dev->bus_id, "rfcomm", 6);
+ }
+ 
+ static void del_conn(struct work_struct *work)
 
 -------------------------------------------------------------------------
 This SF.net email is sponsored by: Microsoft
