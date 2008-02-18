@@ -1,66 +1,54 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Linux 2.6.24.1  - kernel does not boot; IRQ trouble?
-Date: Mon, 18 Feb 2008 08:53:33 -0800
-Message-ID: <20080218085333.3d32b626@extreme>
-References: <23590.97305.qm@web52910.mail.re2.yahoo.com>
-	<20080218050049.12bcc596.akpm@linux-foundation.org>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: tbench regression in 2.6.25-rc1
+Date: Mon, 18 Feb 2008 12:33:53 -0500
+Message-ID: <20040.1203356033@turing-police.cc.vt.edu>
+References: <47B52B95.3070607@cosmosbay.com> <1203057044.3027.134.camel@ymzhang> <47B59FFC.4030603@cosmosbay.com> <20080215.152200.145584182.davem@davemloft.net>
+            <1203322358.3027.200.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed; boundary="==_Exmh_1203356033_2991P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: Chris Rankin <rankincj@yahoo.com>, linux-acpi@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20080218050049.12bcc596.akpm@linux-foundation.org>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, dada1@cosmosbay.com,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from turing-police.cc.vt.edu ([128.173.14.107]:45161 "EHLO
+	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751754AbYBRRfK (ORCPT
+	<RFC822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 12:35:10 -0500
+In-Reply-To: Your message of "Mon, 18 Feb 2008 16:12:38 +0800."
+             <1203322358.3027.200.camel@ymzhang>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 18 Feb 2008 05:00:49 -0800
-Andrew Morton <akpm@linux-foundation.org> wrote:
+--==_Exmh_1203356033_2991P
+Content-Type: text/plain; charset=us-ascii
 
-> On Sun, 17 Feb 2008 00:54:08 +0000 (GMT) Chris Rankin <rankincj@yahoo.com> wrote:
+On Mon, 18 Feb 2008 16:12:38 +0800, "Zhang, Yanmin" said:
+
+> I also think __refcnt is the key. I did a new testing by adding 2 unsigned long
+> pading before lastuse, so the 3 members are moved to next cache line. The performance is
+> recovered.
 > 
-> > [Try this again, except this time I'll force the attachment as inline text!]
-> > 
-> > Hi,
-> > 
-> > I have managed to boot 2.6.24.1 on this machine, with the NMI watchdog enabled, by using the
-> > "acpi=noirq" option. (There does seem to be some unhappiness with bridge symlinks in sysfs,
-> > though.)
-> > 
-> > ...
-> >
-> > sysfs: duplicate filename 'bridge' can not be created
-> > WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
-> > Pid: 1, comm: swapper Not tainted 2.6.24.1 #1
-> >  [<c0105020>] show_trace_log_lvl+0x1a/0x2f
-> >  [<c0105990>] show_trace+0x12/0x14
-> >  [<c010613d>] dump_stack+0x6c/0x72
-> >  [<c01991bf>] sysfs_add_one+0x57/0xbc
-> >  [<c0199e41>] sysfs_create_link+0xc2/0x10d
-> >  [<c01bae9a>] pci_bus_add_devices+0xbd/0x103
-> >  [<c034016c>] pci_legacy_init+0x56/0xe3
-> >  [<c03274e1>] kernel_init+0x157/0x2c3
-> >  [<c0104c83>] kernel_thread_helper+0x7/0x10
-> >  =======================
-> > pci 0000:00:01.0: Error creating sysfs bridge symlink, continuing...
-> > sysfs: duplicate filename 'bridge' can not be created
-> > WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
-> > Pid: 1, comm: swapper Not tainted 2.6.24.1 #1
-> >  [<c0105020>] show_trace_log_lvl+0x1a/0x2f
-> >  [<c0105990>] show_trace+0x12/0x14
-> >  [<c010613d>] dump_stack+0x6c/0x72
-> >  [<c01991bf>] sysfs_add_one+0x57/0xbc
-> >  [<c0199e41>] sysfs_create_link+0xc2/0x10d
-> >  [<c01bae9a>] pci_bus_add_devices+0xbd/0x103
-> >  [<c01bae82>] pci_bus_add_devices+0xa5/0x103
-> >  [<c034016c>] pci_legacy_init+0x56/0xe3
-> >  [<c03274e1>] kernel_init+0x157/0x2c3
-> >  [<c0104c83>] kernel_thread_helper+0x7/0x10
-> >  =======================
+> How about below patch? Almost all performance is recovered with the new patch.
 > 
-> I have a vague feeling that this was fixed, perhaps in 2.6.24.x?
+> Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
 
-Never heard of this, what is the initialization script that causes this?
-Also do you have the SYSFS_DEPRECATED option configured? that caused issues
-with regular network drivers.
+Could you add a comment someplace that says "refcnt wants to be on a different
+cache line from input/output/ops or performance tanks badly", to warn some
+future kernel hacker who starts adding new fields to the structure?
+
+--==_Exmh_1203356033_2991P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.8 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFHucGBcC3lWbTT17ARAuBuAJoC9jm6ztQBAPBUryQDldMiNtKl4wCdF3r+
+PnOci+BHj3mVt3k/X5tU/3A=
+=6j9Z
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1203356033_2991P--
