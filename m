@@ -1,62 +1,60 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Linux 2.6.24.1  - kernel does not boot; IRQ trouble?
-Date: Mon, 18 Feb 2008 12:06:36 -0800
-Message-ID: <20080218120636.00451d46@extreme>
-References: <20080218085333.3d32b626@extreme>
-	<395400.45093.qm@web52907.mail.re2.yahoo.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/1] sis190: read the mac address from the eeprom first
+Date: Mon, 18 Feb 2008 21:20:32 +0100
+Message-ID: <20080218202032.GA2565@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Chris Rankin <rankincj@yahoo.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <395400.45093.qm@web52907.mail.re2.yahoo.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	dsd@gentoo.org, "Gabriel A. Devenyi" <ace@staticwave.ca>
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48101 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752076AbYBRUjQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 15:39:16 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 18 Feb 2008 19:42:25 +0000 (GMT)
-Chris Rankin <rankincj@yahoo.com> wrote:
+Reading a serie of zero from the cmos sram area do not work
+well with is_valid_ether_addr(). Let's read the mac address
+from the eeprom first as it seems more reliable.
 
-> --- Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> > > > sysfs: duplicate filename 'bridge' can not be created
-> > > > WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
-> > > > Pid: 1, comm: swapper Not tainted 2.6.24.1 #1
-> > > >  [<c0105020>] show_trace_log_lvl+0x1a/0x2f
-> > > >  [<c0105990>] show_trace+0x12/0x14
-> > > >  [<c010613d>] dump_stack+0x6c/0x72
-> > > >  [<c01991bf>] sysfs_add_one+0x57/0xbc
-> > > >  [<c0199e41>] sysfs_create_link+0xc2/0x10d
-> > > >  [<c01bae9a>] pci_bus_add_devices+0xbd/0x103
-> > > >  [<c034016c>] pci_legacy_init+0x56/0xe3
-> > > >  [<c03274e1>] kernel_init+0x157/0x2c3
-> > > >  [<c0104c83>] kernel_thread_helper+0x7/0x10
-> > > >  =======================
-> > > > pci 0000:00:01.0: Error creating sysfs bridge symlink, continuing...
-> > > > sysfs: duplicate filename 'bridge' can not be created
-> > > > WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
-> > > > Pid: 1, comm: swapper Not tainted 2.6.24.1 #1
-> > > >  [<c0105020>] show_trace_log_lvl+0x1a/0x2f
-> > > >  [<c0105990>] show_trace+0x12/0x14
-> > > >  [<c010613d>] dump_stack+0x6c/0x72
-> > > >  [<c01991bf>] sysfs_add_one+0x57/0xbc
-> > > >  [<c0199e41>] sysfs_create_link+0xc2/0x10d
-> > > >  [<c01bae9a>] pci_bus_add_devices+0xbd/0x103
-> > > >  [<c01bae82>] pci_bus_add_devices+0xa5/0x103
-> > > >  [<c034016c>] pci_legacy_init+0x56/0xe3
-> > > >  [<c03274e1>] kernel_init+0x157/0x2c3
-> > > >  [<c0104c83>] kernel_thread_helper+0x7/0x10
-> > > >  =======================
-> > > 
-> > > I have a vague feeling that this was fixed, perhaps in 2.6.24.x?
-> > 
-> > Never heard of this, what is the initialization script that causes this?
-> > Also do you have the SYSFS_DEPRECATED option configured? that caused issues
-> > with regular network drivers.
-> 
-> Yes, SYSFS_DEPRECATED is enabled. And the init scripts are from Fedora 8.
+Fix for http://bugzilla.kernel.org/show_bug.cgi?id=9831
 
-There was a bug (fixed in 2.6.24) that had to do with sysfs_create_link
-and SYSFS_DEPRECATED probably there is a similar problem with directories. 
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/sis190.c |   15 ++++++++++-----
+ 1 files changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
+index 202fdf3..20745fd 100644
+--- a/drivers/net/sis190.c
++++ b/drivers/net/sis190.c
+@@ -1633,13 +1633,18 @@ static inline void sis190_init_rxfilter(struct net_device *dev)
+ static int __devinit sis190_get_mac_addr(struct pci_dev *pdev, 
+ 					 struct net_device *dev)
+ {
+-	u8 from;
++	int rc;
++
++	rc = sis190_get_mac_addr_from_eeprom(pdev, dev);
++	if (rc < 0) {
++		u8 reg;
+ 
+-	pci_read_config_byte(pdev, 0x73, &from);
++		pci_read_config_byte(pdev, 0x73, &reg);
+ 
+-	return (from & 0x00000001) ?
+-		sis190_get_mac_addr_from_apc(pdev, dev) :
+-		sis190_get_mac_addr_from_eeprom(pdev, dev);
++		if (reg & 0x00000001)
++			rc = sis190_get_mac_addr_from_apc(pdev, dev);
++	}
++	return rc;
+ }
+ 
+ static void sis190_set_speed_auto(struct net_device *dev)
+-- 
+1.5.3.3
 
