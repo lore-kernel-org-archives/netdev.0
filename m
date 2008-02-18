@@ -1,56 +1,327 @@
-From: Glenn Griffin <ggriffin.kernel@gmail.com>
-Subject: Re: [PATCH 1/3] Support arbitrary initial TCP timestamps
-Date: Mon, 18 Feb 2008 14:46:18 -0800
-Message-ID: <20080218164723.GA13941@fin>
-References: <20080217.233330.157255657.davem@davemloft.net>
-Cc: ggriffin.kernel@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Tony Battersby <tonyb@cybernetics.com>
+Subject: TG3 network data corruption regression 2.6.24/2.6.23.4
+Date: Mon, 18 Feb 2008 17:41:08 -0500
+Message-ID: <47BA0984.2070306@cybernetics.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Greg Kroah-Hartman <gregkh@suse.de>, linux-kernel@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:31393 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756581AbYBRWiP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 17:38:15 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so3040204wah.23
-        for <netdev@vger.kernel.org>; Mon, 18 Feb 2008 14:38:14 -0800 (PST)
-In-Reply-To: <20080217.233330.157255657.davem@davemloft.net>
+Received: from host64.cybernetics.com ([70.169.137.4]:1701 "EHLO
+	mail.cybernetics.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1753857AbYBRWlJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 17:41:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Adding yet another member to the already bloated tcp_sock structure to
-> implement this is too high a cost.
+I am experiencing network data corruption with a 3Com 3C996B-T NIC
+(Broadcom NetXtreme BCM5701; driver tg3.ko).  I have identified the
+following patch as the trigger:
 
-Yes, I was worried that would be deemed too high of a cost, but it was
-the most efficient way I could think to accomplish what I wanted.
+commit fb93134dfc2a6e6fbedc7c270a31da03fce88db9
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Wed Nov 14 15:45:21 2007 -0800
 
-> I would instead prefer that there be some global random number
-> calculated when the first TCP socket is created, and use that as a
-> global offset.  You can even recompute it every few hours if you
-> like.
+    [TCP]: Fix size calculation in sk_stream_alloc_pskb
+   
+    We round up the header size in sk_stream_alloc_pskb so that
+    TSO packets get zero tail room.  Unfortunately this rounding
+    up is not coordinated with the select_size() function used by
+    TCP to calculate the second parameter of sk_stream_alloc_pskb.
+   
+    As a result, we may allocate more than a page of data in the
+    non-TSO case when exactly one page is desired.
+   
+    In fact, rounding up the head room is detrimental in the non-TSO
+    case because it makes memory that would otherwise be available to
+    the payload head room.  TSO doesn't need this either, all it wants
+    is the guarantee that there is no tail room.
+   
+    So this patch fixes this by adjusting the skb_reserve call so that
+    exactly the requested amount (which all callers have calculated in
+    a precise way) is made available as tail room.
+   
+    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-That would work fine if my mine purpose was to randomize the tcp
-timestamp to mitigate the leak in information regarding uptime, but
-despite the brief description, that's only a side effect of what I
-intended to do.  What I wanted was a way to be able to choose an initial
-tcp timestamp for a particular connection that was not tied directly to
-jiffies.
+This patch was included in 2.6.24 and 2.6.23.4 -stable.  I am
+experiencing data corruption with kernels 2.6.23.4 - 2.6.23.16, 2.6.24 -
+2.6.24.2, and 2.6.25-rc2-git1.  I have verified that reverting the above
+patch (by hand) makes the data corruption go away on all affected
+kernels (note that in 2.6.25 the function is sk_stream_alloc_skb() in
+net/ipv4/tcp.c rather than sk_stream_alloc_pskb() in include/net/sock.h).
 
-The two patches following this show my intended use case.  I intend to
-enhance syncookie support to allow it to support advanced tcp options
-(sack and window scaling).  Normally syncookies encode the bare minimum
-state of a connection in the ISN they choose, but the 32bit ISN isn't
-enough to encode advanced tcp options so you are left with a working but
-crippled tcp stack during a synflood attack.  If in addition to choosing
-an ISN we are able to choose an initial tcp timestamp, we are then able
-to encode an additional 32 bits of information that can contain more of
-the advanced tcp options.
+(Also note that when testing 2.6.23 - 2.6.23.4, I had to apply the
+individual patch "TG3: Fix performance regression on 5705." from 2.6.23.5.)
 
-This stems from a discussion about implementing IPv6 support for
-syncookies, and the main concern being that syncookies disabled too many
-valuable tcp features to be relevant on modern systems.  Many people
-stood in opposition to that statement, but it did not seem as though a
-general consensus was reached.  http://lkml.org/lkml/2008/2/4/396
+I do not get data corruption when substituting a SysKonnect 9D21 NIC
+(which also uses the tg3.ko driver) or a Intel PRO/1000 82546GB NIC
+(which uses the e1000.ko driver).
 
-I'm always open to alternatives.
+In addition to the 3Com NIC, my computer has a SCSI HBA with an attached
+tape drive.  The network data corruption happens only when reading from
+or writing to the tape drive.  I have tried both a LSI MPT Fusion
+Ultra320 SCSI HBA (mptspi.ko) and a LSI 53c1010 Ultra160 HBA
+(sym53c8xx.ko) with the same results.  The NIC and SCSI HBA are on
+separate PCI-X buses and do not share IRQs.  I am using two completely
+separate test programs to access the SCSI tape drive and test network
+data integrity, so one would expect no interaction between the two tests
+other than CPU scheduling and DMA bandwidth.  There is no disk I/O
+generated by either test program.
 
---Glenn
+The test program that I am using to debug this problem does the following:
+
+Computer A (kernel 2.6.24.2; 3Com 3C996B-T NIC):
+   malloc a 64 KB buf aligned to a 4 KB boundary
+   loop {
+      fill 64 KB buf with count data pattern
+      send(64 KB, MSG_MORE) <--- eventually sends corrupted data
+   }
+   (SCSI tape drive test program runs separately in the background)
+
+Computer B (kernel 2.6.12):
+   malloc a 64 KB buf aligned to a 4 KB boundary
+   loop {
+      recv(64 KB, MSG_WAITALL)
+      verify count data pattern in 64 KB buf
+   }
+
+After running for a few seconds, the verify on computer B detects data
+corruption in the last 4 bytes of the 64 KB buffer.  The last 48 bytes
+of the corrupted 64 KB buffer look like this:
+
+D0 D1 D2 D3 | D4 D5 D6 D7 | D8 D9 DA DB | DC DD DE DF
+E0 E1 E2 E3 | E4 E5 E6 E7 | E8 E9 EA EB | EC ED EE EF
+F0 F1 F2 F3 | F4 F5 F6 F7 | F8 F9 FA FB | F4 F5 F6 F7
+
+The last 4 bytes should be "FC FD FE FF" but instead are corrupted to
+"F4 F5 F6 F7", a sequence which came earlier in the data stream.  The
+data corruption always occurs at this same buffer offset and with the
+same 4 earlier bytes duplicated.  However, it occurs on a different
+iteration of the send()/recv() loop each time the test is run.
+
+When I reverse the test so that Computer A does recv() and Computer B
+does send(), the test passes with no data corruption.  Therefore, it
+appears that the data corruption happens on send() but not recv().
+
+The motherboard that I am using is a Commell LV-672.  This motherboard
+has a PCI-express x16 slot but no PCI-X slots.  To plug in the PCI-X NIC
+and SCSI HBA, I am using a SuperMicro CSE-RR2UE-AX riser card which
+plugs into the PCI-express slot on the motherboard and provides 3 PCI-X
+slots (two slots together on one PCI-X bus and one slot on its own PCI-X
+bus).  The data corruption happens with every combination of the 2 cards
+in the 3 slots.
+
+I assume that the above patch is just exposing some way in which the tg3
+driver or the BCM5701 chip are broken.  For now, I am just reverting the
+above patch for kernels that I use until a better solution is
+forthcoming.  I expect that this problem will be difficult for other
+developers to reproduce, but I can test any patches that anyone wants to
+send me.  [ In the meantime, should we revert the patch for 2.6.23.x and
+2.6.24.x -stable, or wait for a fix to tg3? ]
+
+I am not sure if it is relevant, but I am also getting the following
+messages sometimes during testing:
+
+Clocksource tsc unstable (delta = 64002086 ns)
+Time: pit clocksource has been installed.
+
+This seems bogus because the CPU is a Intel Pentium 4 with
+HyperThreading, so the tsc should be reliable.
+
+---
+
+network MTU = 1500
+
+lspci
+00:00.0 Host bridge: Intel Corporation 82915G/P/GV/GL/PL/910GL Memory
+Controller Hub (rev 0e)
+00:01.0 PCI bridge: Intel Corporation 82915G/P/GV/GL/PL/910GL PCI
+Express Root Port (rev 0e)
+00:02.0 VGA compatible controller: Intel Corporation 82915G/GV/910GL
+Integrated Graphics Controller (rev 0e)
+00:1d.0 USB Controller: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6
+Family) USB UHCI #1 (rev 04)
+00:1d.1 USB Controller: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6
+Family) USB UHCI #2 (rev 04)
+00:1d.2 USB Controller: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6
+Family) USB UHCI #3 (rev 04)
+00:1d.3 USB Controller: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6
+Family) USB UHCI #4 (rev 04)
+00:1d.7 USB Controller: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6
+Family) USB2 EHCI Controller (rev 04)
+00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev d4)
+00:1f.0 ISA bridge: Intel Corporation 82801FB/FR (ICH6/ICH6R) LPC
+Interface Bridge (rev 04)
+00:1f.1 IDE interface: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6
+Family) IDE Controller (rev 04)
+00:1f.3 SMBus: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6 Family)
+SMBus Controller (rev 04)
+01:00.0 PCI bridge: Intel Corporation 6700PXH PCI Express-to-PCI Bridge
+A (rev 09)
+01:00.2 PCI bridge: Intel Corporation 6700PXH PCI Express-to-PCI Bridge
+B (rev 09)
+02:02.0 SCSI storage controller: LSI Logic / Symbios Logic 53c1030 PCI-X
+Fusion-MPT Dual Ultra320 SCSI (rev 08)
+03:01.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5701
+Gigabit Ethernet (rev 15)
+04:0d.0 FireWire (IEEE 1394): Agere Systems FW323 (rev 61)
+
+cat /proc/interrupts
+           CPU0       CPU1      
+  0:         89          0   IO-APIC-edge      timer
+  1:         78          0   IO-APIC-edge      i8042
+  3:         17          0   IO-APIC-edge      serial
+  8:          0          0   IO-APIC-edge      rtc
+  9:          0          0   IO-APIC-fasteoi   acpi
+ 12:          5          0   IO-APIC-edge      i8042
+ 14:        465          0   IO-APIC-edge      ide0
+ 16:          0          0   IO-APIC-fasteoi   uhci_hcd:usb5
+ 17:     149220          0   IO-APIC-fasteoi   eth0
+ 18:      10007          0   IO-APIC-fasteoi   uhci_hcd:usb4, ioc0
+ 19:         29          0   IO-APIC-fasteoi   uhci_hcd:usb3
+ 23:          2          0   IO-APIC-fasteoi   ehci_hcd:usb1, uhci_hcd:usb2
+NMI:          0          0   Non-maskable interrupts
+LOC:       7457      10023   Local timer interrupts
+RES:       1962      14316   Rescheduling interrupts
+CAL:         40         49   function call interrupts
+TLB:         39         76   TLB shootdowns
+TRM:          0          0   Thermal event interrupts
+SPU:          0          0   Spurious interrupts
+ERR:          0
+MIS:          0
+(eth0 == tg3; ioc0 == LSI SCSI HBA)
+
+ifconfig
+eth0      Link encap:Ethernet  HWaddr 00:02:A5:E7:3C:2D 
+          inet addr:192.168.1.1  Bcast:192.168.1.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:77198 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:3488350 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:5403873 (5.1 MiB)  TX bytes:1000276920 (953.9 MiB)
+          Interrupt:17
+
+lo        Link encap:Local Loopback 
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+information from ethtool
+
+driver: tg3
+version: 3.87
+firmware-version:
+bus-info: 0000:03:01.0
+
+Settings for eth0:
+    Supported ports: [ TP ]
+    Supported link modes:   10baseT/Half 10baseT/Full
+                            100baseT/Half 100baseT/Full
+                            1000baseT/Half 1000baseT/Full
+    Supports auto-negotiation: Yes
+    Advertised link modes:  10baseT/Half 10baseT/Full
+                            100baseT/Half 100baseT/Full
+                            1000baseT/Half 1000baseT/Full
+    Advertised auto-negotiation: Yes
+    Speed: 1000Mb/s
+    Duplex: Full
+    Port: Twisted Pair
+    PHYAD: 1
+    Transceiver: internal
+    Auto-negotiation: on
+    Supports Wake-on: g
+    Wake-on: g
+    Current message level: 0x000000ff (255)
+    Link detected: yes
+
+Offload parameters for eth0:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: off
+
+NIC statistics:
+     rx_octets: 5403873
+     rx_fragments: 0
+     rx_ucast_packets: 77197
+     rx_mcast_packets: 0
+     rx_bcast_packets: 1
+     rx_fcs_errors: 0
+     rx_align_errors: 0
+     rx_xon_pause_rcvd: 0
+     rx_xoff_pause_rcvd: 0
+     rx_mac_ctrl_rcvd: 0
+     rx_xoff_entered: 0
+     rx_frame_too_long_errors: 0
+     rx_jabbers: 0
+     rx_undersize_packets: 0
+     rx_in_length_errors: 0
+     rx_out_length_errors: 0
+     rx_64_or_less_octet_packets: 2
+     rx_65_to_127_octet_packets: 77196
+     rx_128_to_255_octet_packets: 0
+     rx_256_to_511_octet_packets: 0
+     rx_512_to_1023_octet_packets: 0
+     rx_1024_to_1522_octet_packets: 0
+     rx_1523_to_2047_octet_packets: 0
+     rx_2048_to_4095_octet_packets: 0
+     rx_4096_to_8191_octet_packets: 0
+     rx_8192_to_9022_octet_packets: 0
+     tx_octets: 1000276920
+     tx_collisions: 0
+     tx_xon_sent: 0
+     tx_xoff_sent: 0
+     tx_flow_control: 0
+     tx_mac_errors: 0
+     tx_single_collisions: 0
+     tx_mult_collisions: 0
+     tx_deferred: 0
+     tx_excessive_collisions: 0
+     tx_late_collisions: 0
+     tx_collide_2times: 0
+     tx_collide_3times: 0
+     tx_collide_4times: 0
+     tx_collide_5times: 0
+     tx_collide_6times: 0
+     tx_collide_7times: 0
+     tx_collide_8times: 0
+     tx_collide_9times: 0
+     tx_collide_10times: 0
+     tx_collide_11times: 0
+     tx_collide_12times: 0
+     tx_collide_13times: 0
+     tx_collide_14times: 0
+     tx_collide_15times: 0
+     tx_ucast_packets: 3488350
+     tx_mcast_packets: 0
+     tx_bcast_packets: 0
+     tx_carrier_sense_errors: 0
+     tx_discards: 0
+     tx_errors: 0
+     dma_writeq_full: 0
+     dma_write_prioq_full: 0
+     rxbds_empty: 0
+     rx_discards: 0
+     rx_errors: 0
+     rx_threshold_hit: 11
+     dma_readq_full: 2188114
+     dma_read_prioq_full: 162588
+     tx_comp_queue_full: 0
+     ring_set_send_prod_index: 2901128
+     ring_status_update: 218885
+     nic_irqs: 146494
+     nic_avoided_irqs: 72391
+     nic_tx_threshold_hit: 103584
+
+Tony Battersby
+Cybernetics
+
