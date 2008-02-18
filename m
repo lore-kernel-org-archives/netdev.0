@@ -1,38 +1,66 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH] net/8021q/vlan_dev.c - Use print_mac
-Date: Mon, 18 Feb 2008 10:31:02 -0800
-Message-ID: <1203359462.7181.80.camel@localhost>
-References: <20080215104804.9870.15722.stgit@one>
-	 <20080215.025855.202184003.davem@davemloft.net>
-	 <1203097370.21308.18.camel@localhost>  <47B9A20C.10304@trash.net>
+From: Chris Rankin <rankincj@yahoo.com>
+Subject: Re: Linux 2.6.24.1  - kernel does not boot; IRQ trouble?
+Date: Mon, 18 Feb 2008 19:42:25 +0000 (GMT)
+Message-ID: <395400.45093.qm@web52907.mail.re2.yahoo.com>
+References: <20080218085333.3d32b626@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, bruno-L9ZBdB2wSWtl57MIdRCFDg@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <47B9A20C.10304-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <20080218085333.3d32b626@extreme>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2008-02-18 at 16:19 +0100, Patrick McHardy wrote:
-> > @@ -404,11 +405,8 @@ static int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >  
-> >  	pr_debug("%s: about to send skb: %p to dev: %s\n",
-> >  		__FUNCTION__, skb, skb->dev->name);
-> > -	pr_debug("  " MAC_FMT " " MAC_FMT " %4hx %4hx %4hx\n",
-> > -		 veth->h_dest[0], veth->h_dest[1], veth->h_dest[2],
-> > -		 veth->h_dest[3], veth->h_dest[4], veth->h_dest[5],
-> > -		 veth->h_source[0], veth->h_source[1], veth->h_source[2],
-> > -		 veth->h_source[3], veth->h_source[4], veth->h_source[5],
-> > +	pr_debug("  %s %s %4hx %4hx %4hx\n",
-> > +		 print_mac(mac, veth->h_dest), print_mac(mac2, veth->h_source),
-> This results in print_mac getting called twice per packet even without
-> debugging. Whats the problem with MAC_FMT?
+--- Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+> > > sysfs: duplicate filename 'bridge' can not be created
+> > > WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
+> > > Pid: 1, comm: swapper Not tainted 2.6.24.1 #1
+> > >  [<c0105020>] show_trace_log_lvl+0x1a/0x2f
+> > >  [<c0105990>] show_trace+0x12/0x14
+> > >  [<c010613d>] dump_stack+0x6c/0x72
+> > >  [<c01991bf>] sysfs_add_one+0x57/0xbc
+> > >  [<c0199e41>] sysfs_create_link+0xc2/0x10d
+> > >  [<c01bae9a>] pci_bus_add_devices+0xbd/0x103
+> > >  [<c034016c>] pci_legacy_init+0x56/0xe3
+> > >  [<c03274e1>] kernel_init+0x157/0x2c3
+> > >  [<c0104c83>] kernel_thread_helper+0x7/0x10
+> > >  =======================
+> > > pci 0000:00:01.0: Error creating sysfs bridge symlink, continuing...
+> > > sysfs: duplicate filename 'bridge' can not be created
+> > > WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
+> > > Pid: 1, comm: swapper Not tainted 2.6.24.1 #1
+> > >  [<c0105020>] show_trace_log_lvl+0x1a/0x2f
+> > >  [<c0105990>] show_trace+0x12/0x14
+> > >  [<c010613d>] dump_stack+0x6c/0x72
+> > >  [<c01991bf>] sysfs_add_one+0x57/0xbc
+> > >  [<c0199e41>] sysfs_create_link+0xc2/0x10d
+> > >  [<c01bae9a>] pci_bus_add_devices+0xbd/0x103
+> > >  [<c01bae82>] pci_bus_add_devices+0xa5/0x103
+> > >  [<c034016c>] pci_legacy_init+0x56/0xe3
+> > >  [<c03274e1>] kernel_init+0x157/0x2c3
+> > >  [<c0104c83>] kernel_thread_helper+0x7/0x10
+> > >  =======================
+> > 
+> > I have a vague feeling that this was fixed, perhaps in 2.6.24.x?
+> 
+> Never heard of this, what is the initialization script that causes this?
+> Also do you have the SYSFS_DEPRECATED option configured? that caused issues
+> with regular network drivers.
 
-It's just a consistency thing.
-It identifies code where MAC addresses are used.
-an allyesconfig is a bit smaller (~.1%).
-pr_debug is a noop when not debugging, print_mac is optimized away.
+Yes, SYSFS_DEPRECATED is enabled. And the init scripts are from Fedora 8.
+
+Cheers,
+Chris
+
+
+
+
+
+
+      __________________________________________________________
+Sent from Yahoo! Mail - a smarter inbox http://uk.mail.yahoo.com
+
