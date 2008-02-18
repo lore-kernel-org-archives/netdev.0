@@ -1,42 +1,53 @@
-From: Pierre Ossman <drzeus-list@drzeus.cx>
-Subject: Re: keyboard dead with 45b5035
-Date: Mon, 18 Feb 2008 21:50:12 +0100
-Message-ID: <20080218215012.0462a302@mjolnir.drzeus.cx>
-References: <20080218185305.48a67587@mjolnir.drzeus.cx>
-	<200802182050.01964.rjw@sisk.pl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/8021q/vlan_dev.c - Use print_mac
+Date: Mon, 18 Feb 2008 12:55:25 -0800 (PST)
+Message-ID: <20080218.125525.192686382.davem@davemloft.net>
+References: <20080215.025855.202184003.davem@davemloft.net>
+	<1203097370.21308.18.camel@localhost>
+	<47B9A20C.10304@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Laszlo Attila Toth <panther@balabit.hu>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: joe@perches.com, bruno@thinktube.com, netdev@vger.kernel.org,
+	jgarzik@pobox.com, linux-wireless@vger.kernel.org,
+	linville@tuxdriver.com
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway.drzeus.cx ([85.8.24.16]:39872 "EHLO smtp.drzeus.cx"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753217AbYBRUuq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2008 15:50:46 -0500
-In-Reply-To: <200802182050.01964.rjw@sisk.pl>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40600
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756533AbYBRUys (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 15:54:48 -0500
+In-Reply-To: <47B9A20C.10304@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 18 Feb 2008 20:50:01 +0100
-"Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 18 Feb 2008 16:19:40 +0100
 
-> On Monday, 18 of February 2008, Pierre Ossman wrote:
-> > The patch "[RTNETLINK]: Send a single notification on device state changes." kills (at least)
-> > the keyboard here. Everything seems to work fine in single user mode, but when init starts
-> > spawning of logins, the keyboard goes bye-bye. Even the power button is ignored. :/ 
+> Joe Perches wrote:
+> > On Fri, 2008-02-15 at 02:58 -0800, David Miller wrote:
+> >> From: Bruno Randolf <bruno@thinktube.com>
+> >> Date: Fri, 15 Feb 2008 19:48:05 +0900
+> >>> is there any chance to include a macro like this for printing mac
+> >> addresses?
+> >>> its advantage is that it can be used without the need to declare
+> >> buffers for
+> >>> print_mac(), for example:
+> >> We specifically removed this sort of thing, please don't
+> >> add it back.
 > 
-> Please try with the patch from http://lkml.org/lkml/2008/2/18/331 .
-> 
+> Why?
 
-That solved it.
+We converted the entire tree over the print_mac(), and since
+the MAC_FMT stuff was therefore no longer used we could
+remove it.
 
-I wonder if that's also why modprobe tends to wedge up with the new USB announce thingy... Tomorrow's debugging will tell.
+Some references slipped back in somehow, and thus MAC_FMT
+did too.
 
--- 
-     -- Pierre Ossman
+There is no reason to keep around a global interface for
+_one_ user when that user can use the recommended interface
+just as equally as the rest of the tree which we converted.
 
-  Linux kernel, MMC maintainer        http://www.kernel.org
-  PulseAudio, core developer          http://pulseaudio.org
-  rdesktop, core developer          http://www.rdesktop.org
+This is a pr_debug() statement we're talking about here.
+:-)
