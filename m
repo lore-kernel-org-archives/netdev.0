@@ -1,66 +1,27 @@
-From: Chris Rankin <rankincj@yahoo.com>
-Subject: Re: Linux 2.6.24.1  - kernel does not boot; IRQ trouble?
-Date: Mon, 18 Feb 2008 19:42:25 +0000 (GMT)
-Message-ID: <395400.45093.qm@web52907.mail.re2.yahoo.com>
-References: <20080218085333.3d32b626@extreme>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: keyboard dead with 45b5035
+Date: Mon, 18 Feb 2008 20:50:01 +0100
+Message-ID: <200802182050.01964.rjw@sisk.pl>
+References: <20080218185305.48a67587@mjolnir.drzeus.cx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20080218085333.3d32b626@extreme>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Laszlo Attila Toth <panther@balabit.hu>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Pierre Ossman <drzeus-list@drzeus.cx>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760814AbYBRTwA@vger.kernel.org>
+In-Reply-To: <20080218185305.48a67587@mjolnir.drzeus.cx>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---- Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> > > sysfs: duplicate filename 'bridge' can not be created
-> > > WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
-> > > Pid: 1, comm: swapper Not tainted 2.6.24.1 #1
-> > >  [<c0105020>] show_trace_log_lvl+0x1a/0x2f
-> > >  [<c0105990>] show_trace+0x12/0x14
-> > >  [<c010613d>] dump_stack+0x6c/0x72
-> > >  [<c01991bf>] sysfs_add_one+0x57/0xbc
-> > >  [<c0199e41>] sysfs_create_link+0xc2/0x10d
-> > >  [<c01bae9a>] pci_bus_add_devices+0xbd/0x103
-> > >  [<c034016c>] pci_legacy_init+0x56/0xe3
-> > >  [<c03274e1>] kernel_init+0x157/0x2c3
-> > >  [<c0104c83>] kernel_thread_helper+0x7/0x10
-> > >  =======================
-> > > pci 0000:00:01.0: Error creating sysfs bridge symlink, continuing...
-> > > sysfs: duplicate filename 'bridge' can not be created
-> > > WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
-> > > Pid: 1, comm: swapper Not tainted 2.6.24.1 #1
-> > >  [<c0105020>] show_trace_log_lvl+0x1a/0x2f
-> > >  [<c0105990>] show_trace+0x12/0x14
-> > >  [<c010613d>] dump_stack+0x6c/0x72
-> > >  [<c01991bf>] sysfs_add_one+0x57/0xbc
-> > >  [<c0199e41>] sysfs_create_link+0xc2/0x10d
-> > >  [<c01bae9a>] pci_bus_add_devices+0xbd/0x103
-> > >  [<c01bae82>] pci_bus_add_devices+0xa5/0x103
-> > >  [<c034016c>] pci_legacy_init+0x56/0xe3
-> > >  [<c03274e1>] kernel_init+0x157/0x2c3
-> > >  [<c0104c83>] kernel_thread_helper+0x7/0x10
-> > >  =======================
-> > 
-> > I have a vague feeling that this was fixed, perhaps in 2.6.24.x?
-> 
-> Never heard of this, what is the initialization script that causes this?
-> Also do you have the SYSFS_DEPRECATED option configured? that caused issues
-> with regular network drivers.
+On Monday, 18 of February 2008, Pierre Ossman wrote:
+> The patch "[RTNETLINK]: Send a single notification on device state changes." kills (at least)
+> the keyboard here. Everything seems to work fine in single user mode, but when init starts
+> spawning of logins, the keyboard goes bye-bye. Even the power button is ignored. :/ 
 
-Yes, SYSFS_DEPRECATED is enabled. And the init scripts are from Fedora 8.
+Please try with the patch from http://lkml.org/lkml/2008/2/18/331 .
 
-Cheers,
-Chris
-
-
-
-
-
-
-      __________________________________________________________
-Sent from Yahoo! Mail - a smarter inbox http://uk.mail.yahoo.com
-
+Thanks,
+Rafael
