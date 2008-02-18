@@ -1,35 +1,39 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][IPROUTE] tc filters usage fixes
-Date: Tue, 19 Feb 2008 00:32:22 +0100
-Message-ID: <47BA1586.1030803@gmail.com>
-References: <20080218221043.GA6373@ami.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+From: Glenn Griffin <ggriffin.kernel@gmail.com>
+Subject: Re: [PATCH] Add IPv6 support to TCP SYN cookies
+Date: Mon, 18 Feb 2008 15:45:12 -0800
+Message-ID: <47ba169f.23f8720a.54d4.0229@mx.google.com>
+References: <20080212.030741.132208013.yoshfuji@linux-ipv6.org>
+Cc: dada1@cosmosbay.com, johnpol@2ka.mipt.ru, alan@lxorguk.ukuu.org.uk,
+	andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: ggriffin.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.188]:3962 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762819AbYBRX0r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 18:26:47 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so2082327fkz.5
-        for <netdev@vger.kernel.org>; Mon, 18 Feb 2008 15:26:45 -0800 (PST)
-In-Reply-To: <20080218221043.GA6373@ami.dom.local>
+Received: from wa-out-1112.google.com ([209.85.146.182]:43541 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752457AbYBRXhF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 18:37:05 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so3067827wah.23
+        for <netdev@vger.kernel.org>; Mon, 18 Feb 2008 15:37:05 -0800 (PST)
+In-Reply-To: <20080212.030741.132208013.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote, On 02/18/2008 11:10 PM:
+I've posted a series of patches that I believe address Andi's concerns
+about syncookies not supporting valuable tcp options (primarily SACK,
+and window scaling).  The premise being if the client support tcp
+timestamps we can encode the additional tcp options in the initial
+timestamp we send back to the client, and they will be echo'd back to us
+in the ack.  Anyone interested have a look, and provide any suggestions
+you may have.  The new patches are a superset of this patch, so if they
+are accepted this is one obsolete.
 
-> A few usage description fixes of tc filters for some minimal
-> consistency (FILTER_KIND because of QDISC_KIND).
-> 
-> 
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Support arbitrary initial TCP timestamps
+http://lkml.org/lkml/2008/2/15/244
 
-Don't apply: I've sent 2nd version of this patch.
+Enable the use of TCP options with syncookies
+http://lkml.org/lkml/2008/2/15/245
 
-Sorry,
-Jarek P.
+Add IPv6 Support to TCP SYN cookies
+http://lkml.org/lkml/2008/2/15/246
 
-
+--Glenn
