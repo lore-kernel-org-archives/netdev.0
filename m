@@ -1,101 +1,67 @@
-From: Christian Borntraeger <borntraeger@de.ibm.com>
-Subject: [PATCH resend] virtio_net: Fix oops on early interrupts - introduced by virtio reset code
-Date: Mon, 18 Feb 2008 10:02:51 +0100
-Message-ID: <200802181002.51645.borntraeger@de.ibm.com>
-References: <200802111411.15745.borntraeger@de.ibm.com> <47B069E0.9040905@us.ibm.com>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: e1000: Question about polling
+Date: Mon, 18 Feb 2008 12:18:20 +0300
+Message-ID: <47B94D5C.2070509@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.de.ibm.com ([195.212.29.152]:31266 "EHLO
-	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754052AbYBRJCy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 04:02:54 -0500
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate3.de.ibm.com (8.13.8/8.13.8) with ESMTP id m1I92rMB090994
-	for <netdev@vger.kernel.org>; Mon, 18 Feb 2008 09:02:53 GMT
-Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m1I92qda2236536
-	for <netdev@vger.kernel.org>; Mon, 18 Feb 2008 10:02:53 +0100
-Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m1I92qLx003990
-	for <netdev@vger.kernel.org>; Mon, 18 Feb 2008 10:02:52 +0100
-In-Reply-To: <47B069E0.9040905@us.ibm.com>
-Content-Disposition: inline
+Received: from mail.bigtelecom.ru ([87.255.0.61]:55970 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751099AbYBRJS2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 04:18:28 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by mail.bigtelecom.ru (Postfix) with ESMTP id AED73A6C414
+	for <netdev@vger.kernel.org>; Mon, 18 Feb 2008 12:18:26 +0300 (MSK)
+Received: from mail.bigtelecom.ru ([127.0.0.1])
+	by localhost (mail.bigtelecom.ru [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 5sYN5ROqEm-4 for <netdev@vger.kernel.org>;
+	Mon, 18 Feb 2008 12:18:20 +0300 (MSK)
+Received: from [87.255.0.131] (slavon.bigtelecom.ru [87.255.0.131])
+	by mail.bigtelecom.ru (Postfix) with ESMTP id B561BA6C42D
+	for <netdev@vger.kernel.org>; Mon, 18 Feb 2008 12:18:20 +0300 (MSK)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Montag, 11. Februar 2008 schrieb Anthony Liguori:
-> The reset support is in Linus's tree so we should try to push it for -rc2.
+Hello all.
 
-You are right. My repository was borked. will push it to Jeff Garzik. Thanks
+Interesting think:
 
-Jeff can you schedule this fix into your network driver updates? Thanks
----
+Have PC that do NAT. Bandwidth about 600 mbs.
+
+Have  4 CPU (2xCoRe 2 DUO "HT OFF" 3.2 HZ).
+
+irqbalance in kernel is off.
+
+nat2 ~ # cat /proc/irq/217/smp_affinity
+00000001
+nat2 ~ # cat /proc/irq/218/smp_affinity
+00000003
+
+Load SI on CPU0 and CPU1 is about 90%
+
+Good... try do
+echo ffffffff > /proc/irq/217/smp_affinity
+echo ffffffff > /proc/irq/218/smp_affinity
+
+Get 100% SI at CPU0
+
+Question Why?
+
+I listen that if use IRQ from 1 netdevice to 1 CPU i can get 30% 
+perfomance... but i have 4 CPU... i must get more perfomance if i cat 
+"ffffffff"  to smp_affinity.
+
+picture looks liks this:
+0-3 CPU get over 50% SI.... bandwith up.... 55% SI... bandwith up... 
+100% SI on CPU0....
+
+I remember patch to fix problem like it... patched function 
+e1000_clean...  kernel on pc have this patch (2.6.24-rc7-git2)... e1000 
+driver work much better (i up to 1.5-2x bandwidth before i get 100% SI), 
+but i think that it not get 100% that it can =)
+
+Thanks for answers and sorry for my English
 
 
-With the latest virtio_reset patches I got the following oops:
-
-Unable to handle kernel pointer dereference at virtual kernel address 0000000000000000
-Oops: 0004 [#1] PREEMPT SMP
-Modules linked in:
-CPU: 1 Not tainted 2.6.24zlive-guest-10577-g63f5307-dirty #168
-Process swapper (pid: 0, task: 000000000f866040, ksp: 000000000f86fd78)
-Krnl PSW : 0404100180000000 000000000047598a (skb_recv_done+0x52/0x98)
-           R:0 T:1 IO:0 EX:0 Key:0 M:1 W:0 P:0 AS:0 CC:1 PM:0 EA:3
-Krnl GPRS: 0000000000000001 0000000000000000 000000000efd0e60 0000000000000001
-           0000000000000000 000000000f866040 0000000000000000 0000000000000000
-           00000000008de4c8 0000000000001237 0000000000001237 000000000f977dd8
-           0000000000000020 00000000001132bc 000000000f977e08 000000000f977dd8
-Krnl Code: 000000000047597c: e31040300004       lg      %r1,48(%r4)
-           0000000000475982: b9040001           lgr     %r0,%r1
-           0000000000475986: b9810003           ogr     %r0,%r3
-          >000000000047598a: eb1040300030       csg     %r1,%r0,48(%r4)
-           0000000000475990: a744fff9           brc     4,475982
-           0000000000475994: a7110001           tmll    %r1,1
-           0000000000475998: a7840009           brc     8,4759aa
-           000000000047599c: e340b0b80004       lg      %r4,184(%r11)
-Call Trace:
-([<000001500f978000>] 0x1500f978000)
- [<00000000004779a6>] vring_interrupt+0x72/0x88
- [<0000000000491d9c>] kvm_extint_handler+0x34/0x44
- [<000000000010d2d4>] do_extint+0xc0/0xfc
- [<0000000000113b5a>] ext_no_vtime+0x1c/0x20
- [<000000000010a0b6>] cpu_idle+0x21a/0x230
-([<000000000010a096>] cpu_idle+0x1fa/0x230)
- [<000000000057dfe4>] start_secondary+0xa0/0xb4
-
-We must initialize vdev->priv before we use the notify hypercall as 
-vdev->priv is used in skb_recv_done. So lets move the assignment of 
-vdev->priv before we call try_fill_recv.
-
-Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
-Acked-by: Anthony Liguori <aliguori@us.ibm.com>
-
----
- drivers/net/virtio_net.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-Index: kvm/drivers/net/virtio_net.c
-===================================================================
---- kvm.orig/drivers/net/virtio_net.c
-+++ kvm/drivers/net/virtio_net.c
-@@ -361,6 +361,7 @@ static int virtnet_probe(struct virtio_d
- 	netif_napi_add(dev, &vi->napi, virtnet_poll, napi_weight);
- 	vi->dev = dev;
- 	vi->vdev = vdev;
-+	vdev->priv = vi;
- 
- 	/* We expect two virtqueues, receive then send. */
- 	vi->rvq = vdev->config->find_vq(vdev, 0, skb_recv_done);
-@@ -395,7 +396,6 @@ static int virtnet_probe(struct virtio_d
- 	}
- 
- 	pr_debug("virtnet: registered device %s\n", dev->name);
--	vdev->priv = vi;
- 	return 0;
- 
- unregister:
