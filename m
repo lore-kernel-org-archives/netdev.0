@@ -1,50 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] net/8021q/vlan_dev.c - Use print_mac
-Date: Mon, 18 Feb 2008 16:19:40 +0100
-Message-ID: <47B9A20C.10304@trash.net>
-References: <20080215104804.9870.15722.stgit@one>	 <20080215.025855.202184003.davem@davemloft.net> <1203097370.21308.18.camel@localhost>
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: "protocol 0300 is buggy" spam in dmesg when injecting&capturing on
+	same interface
+Date: Mon, 18 Feb 2008 17:39:03 +0200
+Message-ID: <20080218153903.GA30253@ee.oulu.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, bruno@thinktube.com,
-	netdev@vger.kernel.org, jgarzik@pobox.com,
-	linux-wireless@vger.kernel.org, linville@tuxdriver.com
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:61693 "EHLO
-	viefep19-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756347AbYBRPTt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 10:19:49 -0500
-In-Reply-To: <1203097370.21308.18.camel@localhost>
+Received: from ee.oulu.fi ([130.231.61.23]:56840 "EHLO ee.oulu.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754423AbYBRQMs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Feb 2008 11:12:48 -0500
+Received: from tk-cn0002.oulu.fi (tk-cn0002 [130.231.63.2])
+	by ee.oulu.fi (8.14.2/8.14.2) with ESMTP id m1IFd3wC009453
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 18 Feb 2008 17:39:03 +0200 (EET)
+Received: (from pp@localhost)
+	by tk-cn0002.oulu.fi (8.14.2/8.14.2/Submit) id m1IFd3CC030714
+	for netdev@vger.kernel.org; Mon, 18 Feb 2008 17:39:03 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joe Perches wrote:
-> On Fri, 2008-02-15 at 02:58 -0800, David Miller wrote:
->> From: Bruno Randolf <bruno@thinktube.com>
->> Date: Fri, 15 Feb 2008 19:48:05 +0900
->>> is there any chance to include a macro like this for printing mac
->> addresses?
->>> its advantage is that it can be used without the need to declare
->> buffers for
->>> print_mac(), for example:
->> We specifically removed this sort of thing, please don't
->> add it back.
+When playing with some L2 level fuzzing I started getting lots of
+"protocol 0300 is buggy, dev eth3" spew in dmesg. That interface is also
+capturing the traffic that's being sent, that's probably why the
+dev_queue_xmit_nit codepath is getting called in the first place.
 
-Why?
+Tested on 2.6.23-as-shipped-in-F8. didn't spot any relevant changes in .24
+but can pretty easily verify there too. 
 
-> @@ -404,11 +405,8 @@ static int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  
->  	pr_debug("%s: about to send skb: %p to dev: %s\n",
->  		__FUNCTION__, skb, skb->dev->name);
-> -	pr_debug("  " MAC_FMT " " MAC_FMT " %4hx %4hx %4hx\n",
-> -		 veth->h_dest[0], veth->h_dest[1], veth->h_dest[2],
-> -		 veth->h_dest[3], veth->h_dest[4], veth->h_dest[5],
-> -		 veth->h_source[0], veth->h_source[1], veth->h_source[2],
-> -		 veth->h_source[3], veth->h_source[4], veth->h_source[5],
-> +	pr_debug("  %s %s %4hx %4hx %4hx\n",
-> +		 print_mac(mac, veth->h_dest), print_mac(mac2, veth->h_source),
+Oh. That printk wasn't very easy to find:
+
+                              if (net_ratelimit())
+                                        printk(KERN_CRIT "protocol %04x is "
+                                               "buggy, dev %s\n",
 
 
-This results in print_mac getting called twice per packet even without
-debugging. Whats the problem with MAC_FMT?
+and I naturally grepped for "is buggy". 
+
+Any ideas? Add a "If it came from AF_PACKET, don't print out anything" to
+that if-statement?
+
+
