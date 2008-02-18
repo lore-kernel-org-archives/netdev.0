@@ -1,60 +1,42 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 1/1] sis190: read the mac address from the eeprom first
-Date: Mon, 18 Feb 2008 21:20:32 +0100
-Message-ID: <20080218202032.GA2565@electric-eye.fr.zoreil.com>
+From: Pierre Ossman <drzeus-list@drzeus.cx>
+Subject: Re: keyboard dead with 45b5035
+Date: Mon, 18 Feb 2008 21:50:12 +0100
+Message-ID: <20080218215012.0462a302@mjolnir.drzeus.cx>
+References: <20080218185305.48a67587@mjolnir.drzeus.cx>
+	<200802182050.01964.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	dsd@gentoo.org, "Gabriel A. Devenyi" <ace@staticwave.ca>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Laszlo Attila Toth <panther@balabit.hu>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48101 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752076AbYBRUjQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 15:39:16 -0500
-Content-Disposition: inline
+Received: from gateway.drzeus.cx ([85.8.24.16]:39872 "EHLO smtp.drzeus.cx"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753217AbYBRUuq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Feb 2008 15:50:46 -0500
+In-Reply-To: <200802182050.01964.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reading a serie of zero from the cmos sram area do not work
-well with is_valid_ether_addr(). Let's read the mac address
-from the eeprom first as it seems more reliable.
+On Mon, 18 Feb 2008 20:50:01 +0100
+"Rafael J. Wysocki" <rjw@sisk.pl> wrote:
 
-Fix for http://bugzilla.kernel.org/show_bug.cgi?id=9831
+> On Monday, 18 of February 2008, Pierre Ossman wrote:
+> > The patch "[RTNETLINK]: Send a single notification on device state changes." kills (at least)
+> > the keyboard here. Everything seems to work fine in single user mode, but when init starts
+> > spawning of logins, the keyboard goes bye-bye. Even the power button is ignored. :/ 
+> 
+> Please try with the patch from http://lkml.org/lkml/2008/2/18/331 .
+> 
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/sis190.c |   15 ++++++++++-----
- 1 files changed, 10 insertions(+), 5 deletions(-)
+That solved it.
 
-diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-index 202fdf3..20745fd 100644
---- a/drivers/net/sis190.c
-+++ b/drivers/net/sis190.c
-@@ -1633,13 +1633,18 @@ static inline void sis190_init_rxfilter(struct net_device *dev)
- static int __devinit sis190_get_mac_addr(struct pci_dev *pdev, 
- 					 struct net_device *dev)
- {
--	u8 from;
-+	int rc;
-+
-+	rc = sis190_get_mac_addr_from_eeprom(pdev, dev);
-+	if (rc < 0) {
-+		u8 reg;
- 
--	pci_read_config_byte(pdev, 0x73, &from);
-+		pci_read_config_byte(pdev, 0x73, &reg);
- 
--	return (from & 0x00000001) ?
--		sis190_get_mac_addr_from_apc(pdev, dev) :
--		sis190_get_mac_addr_from_eeprom(pdev, dev);
-+		if (reg & 0x00000001)
-+			rc = sis190_get_mac_addr_from_apc(pdev, dev);
-+	}
-+	return rc;
- }
- 
- static void sis190_set_speed_auto(struct net_device *dev)
+I wonder if that's also why modprobe tends to wedge up with the new USB announce thingy... Tomorrow's debugging will tell.
+
 -- 
-1.5.3.3
+     -- Pierre Ossman
 
+  Linux kernel, MMC maintainer        http://www.kernel.org
+  PulseAudio, core developer          http://pulseaudio.org
+  rdesktop, core developer          http://www.rdesktop.org
