@@ -1,50 +1,94 @@
-From: Ferenc Wagner <wferi@niif.hu>
-Subject: Re: ipv6 debugging
-Date: Mon, 18 Feb 2008 22:46:50 +0100
-Message-ID: <87mypygcol.fsf@szonett.ki.iif.hu>
-References: <87zltyjr50.fsf@tac.ki.iif.hu>
-	<3740A925537C481CAA40DE393FA0D00E@intranet.dti2.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH][IPROUTE] tc filters usage fixes
+Date: Mon, 18 Feb 2008 23:10:43 +0100
+Message-ID: <20080218221043.GA6373@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>
-To: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tac.ki.iif.hu ([193.6.222.43]:49310 "EHLO tac.ki.iif.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751738AbYBRVqx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2008 16:46:53 -0500
-In-Reply-To: <3740A925537C481CAA40DE393FA0D00E@intranet.dti2.net> (Jorge
-	Boncompte's message of "Mon, 18 Feb 2008 16:02:05 +0100")
+Received: from ug-out-1314.google.com ([66.249.92.170]:52476 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752935AbYBRWF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 17:05:59 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so430139ugc.16
+        for <netdev@vger.kernel.org>; Mon, 18 Feb 2008 14:05:58 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Jorge Boncompte [DTI2]" <jorge@dti2.net> writes:
+A few usage description fixes of tc filters for some minimal
+consistency (FILTER_KIND because of QDISC_KIND).
 
-> Ferenc Wagner <wferi@niif.hu> writes:
->
->> I'm kindly asking for some debugging tips with the following problem:
->> a machine is running Linux 2.6.24.2, several 802.1q VLAN-s over
->> active/backup bonding over two physical interfaces.  Everything is
->> allright, except for after a reboot, there's no IPv6, while IPv4
->> works.  The router's ARP(6) table is empty, the machine doesn't answer
->> ping6.  However, if I start tcpdump -i bond0 ip6, everything is
->> allright again.  There are some indications that after some period
->> without IPv6 traffic, the same can happen again.  Are there known
->> issues which can exhibit themselves like this?  Other very similar
->> setups don't show this erratic behaviour.
->>
->> I know that the above doesn't give a fully detailed picture, but
->> thought that I'd better ask before taking the setup into pieces.
->
-> This sounds to me like the same problem that I was having with
-> OSPF, I think ARP(6) uses multicast ethernet address too. Can you try
-> if the patch below, that I sent Patrick McHardy some days ago, fixes
-> your problem?
 
-Hi Jorge,
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Thank you very much!  Your patch indeed fixes my problem.  I hope the
-fix will make it into a stable release soon!
--- 
-Regards,
-Feri.
+---
+
+ tc/f_basic.c   |    4 ++--
+ tc/f_rsvp.c    |    2 +-
+ tc/f_u32.c     |    2 +-
+ tc/tc_filter.c |    6 +++---
+ 4 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/tc/f_basic.c b/tc/f_basic.c
+index ad41633..cf2650b 100644
+--- a/tc/f_basic.c
++++ b/tc/f_basic.c
+@@ -30,8 +30,8 @@ static void explain(void)
+ 	fprintf(stderr, "Usage: ... basic [ match EMATCH_TREE ] [ police POLICE_SPEC ]\n");
+ 	fprintf(stderr, "                 [ action ACTION_SPEC ] [ classid CLASSID ]\n");
+ 	fprintf(stderr, "\n");
+-	fprintf(stderr, "Where: SELECTOR := SAMPLE SAMPLE ...\n");
+-	fprintf(stderr, "       FILTERID := X:Y:Z\n");
++	fprintf(stderr, "Where:\n");
++	fprintf(stderr, "       CLASSID := X:Y:Z\n");
+ 	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
+ }
+ 
+diff --git a/tc/f_rsvp.c b/tc/f_rsvp.c
+index 7e1e6d9..8f92e8f 100644
+--- a/tc/f_rsvp.c
++++ b/tc/f_rsvp.c
+@@ -33,7 +33,7 @@ static void explain(void)
+ 	fprintf(stderr, "Where: GPI := { flowlabel NUMBER | spi/ah SPI | spi/esp SPI |\n");
+ 	fprintf(stderr, "                u{8|16|32} NUMBER mask MASK at OFFSET}\n");
+ 	fprintf(stderr, "       POLICE_SPEC := ... look at TBF\n");
+-	fprintf(stderr, "       FILTERID := X:Y\n");
++	fprintf(stderr, "       CLASSID := X:Y\n");
+ 	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
+ }
+ 
+diff --git a/tc/f_u32.c b/tc/f_u32.c
+index 9bc4bb5..957b1b1 100644
+--- a/tc/f_u32.c
++++ b/tc/f_u32.c
+@@ -38,7 +38,7 @@ static void explain(void)
+ 	fprintf(stderr, "Where: SELECTOR := SAMPLE SAMPLE ...\n");
+ 	fprintf(stderr, "       SAMPLE := { ip | ip6 | udp | tcp | icmp |"
+ 		" u{32|16|8} | mark } SAMPLE_ARGS [divisor DIVISOR]\n");
+-	fprintf(stderr, "       FILTERID := X:Y:Z\n");
++	fprintf(stderr, "       CLASSID := X:Y:Z\n");
+ 	fprintf(stderr, "\nNOTE: CLASSID is parsed at hexadecimal input.\n");
+ }
+ 
+diff --git a/tc/tc_filter.c b/tc/tc_filter.c
+index d70c656..eb74f89 100644
+--- a/tc/tc_filter.c
++++ b/tc/tc_filter.c
+@@ -33,12 +33,12 @@ static void usage(void)
+ 	fprintf(stderr, "Usage: tc filter [ add | del | change | replace | show ] dev STRING\n");
+ 	fprintf(stderr, "       [ pref PRIO ] protocol PROTO\n");
+ 	fprintf(stderr, "       [ estimator INTERVAL TIME_CONSTANT ]\n");
+-	fprintf(stderr, "       [ root | classid CLASSID ] [ handle FILTERID ]\n");
+-	fprintf(stderr, "       [ [ FILTER_TYPE ] [ help | OPTIONS ] ]\n");
++	fprintf(stderr, "       [ root | parent CLASSID ] [ handle FILTERID ]\n");
++	fprintf(stderr, "       [ [ FILTER_KIND ] [ help | OPTIONS ] ]\n");
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "       tc filter show [ dev STRING ] [ root | parent CLASSID ]\n");
+ 	fprintf(stderr, "Where:\n");
+-	fprintf(stderr, "FILTER_TYPE := { rsvp | u32 | fw | route | etc. }\n");
++	fprintf(stderr, "FILTER_KIND := { rsvp | u32 | fw | route | etc. }\n");
+ 	fprintf(stderr, "FILTERID := ... format depends on classifier, see there\n");
+ 	fprintf(stderr, "OPTIONS := ... try tc filter add <desired FILTER_KIND> help\n");
+ 	return;
