@@ -1,122 +1,350 @@
-From: Andrey Borzenkov <arvidjaar@mail.ru>
-Subject: Re: [2.6.25-rc2] e100: Trying to free already-free IRQ 11 during suspend ...
-Date: Mon, 18 Feb 2008 21:01:58 +0300
-Message-ID: <200802182101.59705.arvidjaar@mail.ru>
-References: <200802171536.51695.arvidjaar@mail.ru> <20080218050113.1b4b0897.akpm@linux-foundation.org>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [PATCH] tlan: add static to function definitions
+Date: Mon, 18 Feb 2008 10:04:38 -0800
+Message-ID: <1203357878.5757.26.camel@brick>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1973545.oUyVvA2uOI";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx33.mail.ru ([194.67.23.194]:14491 "EHLO mx33.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752309AbYBRSCG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2008 13:02:06 -0500
-In-Reply-To: <20080218050113.1b4b0897.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>, Samuel Chessman <chessman@tux.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758916AbYBRSEq@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---nextPart1973545.oUyVvA2uOI
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+The forward declarations were already marked static, make the definitions
+be static as well.  Fixes the sparse warnings as well.
 
-On Monday 18 February 2008, Andrew Morton wrote:
-> On Sun, 17 Feb 2008 15:36:50 +0300 Andrey Borzenkov <arvidjaar@mail.ru> w=
-rote:
->=20
-> > ... and possibly reboot/poweroff (it flows by too fast to be legible).
-> >=20
-> > [ 8803.850634] ACPI: Preparing to enter system sleep state S3
-> > [ 8803.853141] Suspending console(s)
-> > [ 8805.287505] serial 00:09: disabled
-> > [ 8805.291564] Trying to free already-free IRQ 11
-> > [ 8805.291579] Pid: 6920, comm: pm-suspend Not tainted 2.6.25-rc2-1avb =
-#2
-> > [ 8805.291628]  [<c0152127>] free_irq+0xb7/0x130
-> > [ 8805.291675]  [<c024bd80>] e100_suspend+0xc0/0x100
-> > [ 8805.291724]  [<c01eaa36>] pci_device_suspend+0x26/0x70
-> > [ 8805.291747]  [<c0243674>] suspend_device+0x94/0xd0
-> > [ 8805.291763]  [<c02439a3>] device_suspend+0x153/0x240
-> > [ 8805.291784]  [<c014314f>] suspend_devices_and_enter+0x4f/0xf0
-> > [ 8805.291808]  [<c0143a5f>] ? freeze_processes+0x3f/0x80
-> > [ 8805.291825]  [<c01432fa>] enter_state+0xaa/0x140
-> > [ 8805.291840]  [<c014341f>] state_store+0x8f/0xd0
-> > [ 8805.291852]  [<c0143390>] ? state_store+0x0/0xd0
-> > [ 8805.291866]  [<c01d3404>] kobj_attr_store+0x24/0x30
-> > [ 8805.291901]  [<c01b547b>] sysfs_write_file+0xbb/0x110
-> > [ 8805.291936]  [<c0177d79>] vfs_write+0x99/0x130
-> > [ 8805.291963]  [<c01b53c0>] ? sysfs_write_file+0x0/0x110
-> > [ 8805.291979]  [<c01782fd>] sys_write+0x3d/0x70
-> > [ 8805.291998]  [<c010409a>] sysenter_past_esp+0x5f/0xa5
-> > [ 8805.292038]  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D
-> > [ 8805.347640] ACPI: PCI interrupt for device 0000:00:06.0 disabled
-> > [ 8805.361128] ACPI: PCI interrupt for device 0000:00:02.0 disabled
-> > [ 8805.376670]  hwsleep-0322 [00] enter_sleep_state     : Entering slee=
-p state [S3]
-> > [ 8805.376670] Back to C!
-> >=20
-> > Interface is unused normally (only for netconsole sometimes). dmesg and=
- config
-> > attached.
->=20
-> Does reverting this:
->=20
-> commit 8543da6672b0994921f014f2250e27ae81645580
-[...]
-> fix it?
->=20
+drivers/net/tlan.c:1403:5: warning: symbol 'TLan_HandleInvalid' was not declared. Should it be static?
+drivers/net/tlan.c:1435:5: warning: symbol 'TLan_HandleTxEOF' was not declared. Should it be static?
+drivers/net/tlan.c:1521:5: warning: symbol 'TLan_HandleStatOverflow' was not declared. Should it be static?
+drivers/net/tlan.c:1557:5: warning: symbol 'TLan_HandleRxEOF' was not declared. Should it be static?
+drivers/net/tlan.c:1692:5: warning: symbol 'TLan_HandleDummy' was not declared. Should it be static?
+drivers/net/tlan.c:1722:5: warning: symbol 'TLan_HandleTxEOC' was not declared. Should it be static?
+drivers/net/tlan.c:1770:5: warning: symbol 'TLan_HandleStatusCheck' was not declared. Should it be static?
+drivers/net/tlan.c:1845:5: warning: symbol 'TLan_HandleRxEOC' was not declared. Should it be static?
+drivers/net/tlan.c:1905:6: warning: symbol 'TLan_Timer' was not declared. Should it be static?
+drivers/net/tlan.c:1986:6: warning: symbol 'TLan_ResetLists' was not declared. Should it be static?
+drivers/net/tlan.c:2046:6: warning: symbol 'TLan_FreeLists' was not declared. Should it be static?
+drivers/net/tlan.c:2095:6: warning: symbol 'TLan_PrintDio' was not declared. Should it be static?
+drivers/net/tlan.c:2130:6: warning: symbol 'TLan_PrintList' was not declared. Should it be static?
+drivers/net/tlan.c:2166:6: warning: symbol 'TLan_ReadAndClearStats' was not declared. Should it be static?
+drivers/net/tlan.c:2242:1: warning: symbol 'TLan_ResetAdapter' was not declared. Should it be static?
+drivers/net/tlan.c:2328:1: warning: symbol 'TLan_FinishReset' was not declared. Should it be static?
+drivers/net/tlan.c:2451:6: warning: symbol 'TLan_SetMac' was not declared. Should it be static?
+drivers/net/tlan.c:2493:6: warning: symbol 'TLan_PhyPrint' was not declared. Should it be static?
+drivers/net/tlan.c:2542:6: warning: symbol 'TLan_PhyDetect' was not declared. Should it be static?
+drivers/net/tlan.c:2589:6: warning: symbol 'TLan_PhyPowerDown' was not declared. Should it be static?
+drivers/net/tlan.c:2614:6: warning: symbol 'TLan_PhyPowerUp' was not declared. Should it be static?
+drivers/net/tlan.c:2635:6: warning: symbol 'TLan_PhyReset' was not declared. Should it be static?
+drivers/net/tlan.c:2663:6: warning: symbol 'TLan_PhyStartLink' was not declared. Should it be static?
+drivers/net/tlan.c:2750:6: warning: symbol 'TLan_PhyFinishAutoNeg' was not declared. Should it be static?
+drivers/net/tlan.c:2906:5: warning: symbol 'TLan_MiiReadReg' was not declared. Should it be static?
+drivers/net/tlan.c:2996:6: warning: symbol 'TLan_MiiSendData' was not declared. Should it be static?
+drivers/net/tlan.c:3038:6: warning: symbol 'TLan_MiiSync' was not declared. Should it be static?
+drivers/net/tlan.c:3077:6: warning: symbol 'TLan_MiiWriteReg' was not declared. Should it be static?
+drivers/net/tlan.c:3147:6: warning: symbol 'TLan_EeSendStart' was not declared. Should it be static?
+drivers/net/tlan.c:3187:5: warning: symbol 'TLan_EeSendByte' was not declared. Should it be static?
+drivers/net/tlan.c:3248:6: warning: symbol 'TLan_EeReceiveByte' was not declared. Should it be static?
+drivers/net/tlan.c:3306:5: warning: symbol 'TLan_EeReadByte' was not declared. Should it be static?
 
-no
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+Kept the style consistent with the rest of the file, checkpatch will complain.
+ drivers/net/tlan.c |   64 ++++++++++++++++++++++++++--------------------------
+ 1 files changed, 32 insertions(+), 32 deletions(-)
 
-> > Hmm ... after resume device has disappeared at all ...
-> >=20
-> > {pts/1}% cat /proc/interrupts
-> >            CPU0
-> >   0:    1290492    XT-PIC-XT        timer
-> >   1:       6675    XT-PIC-XT        i8042
-> >   2:          0    XT-PIC-XT        cascade
-> >   3:          2    XT-PIC-XT
-> >   4:          2    XT-PIC-XT
-> >   5:          3    XT-PIC-XT
-> >   7:          4    XT-PIC-XT        irda0
-> >   8:          0    XT-PIC-XT        rtc0
-> >   9:        583    XT-PIC-XT        acpi
-> >  10:          2    XT-PIC-XT
-> >  11:      31483    XT-PIC-XT        yenta, yenta, yenta, ohci_hcd:usb1,=
- ALI 5451, pcmcia0.0
-> >  12:      28070    XT-PIC-XT        i8042
-> >  14:      21705    XT-PIC-XT        ide0
-> >  15:      82123    XT-PIC-XT        ide1
-> > NMI:          0   Non-maskable interrupts
-> > TRM:          0   Thermal event interrupts
-> > SPU:          0   Spurious interrupts
-> > ERR:          0
->=20
-> I hope that's not a separate bug...
->=20
->=20
-
-this is red herring. pm-utils restart network across suspend; eth0 is not
-activated automatically so it "disappears". ifconfig eth0 up brings it back.
-
---nextPart1973545.oUyVvA2uOI
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.8 (GNU/Linux)
-
-iEYEABECAAYFAke5yBcACgkQR6LMutpd94yuWgCfa9XwZ6kzfhOvO+qG8RKv1/k4
-L9YAn29xdaVUe7mG/L/0pZNgrVREV874
-=MvjR
------END PGP SIGNATURE-----
-
---nextPart1973545.oUyVvA2uOI--
+diff --git a/drivers/net/tlan.c b/drivers/net/tlan.c
+index 3af5b92..0166407 100644
+--- a/drivers/net/tlan.c
++++ b/drivers/net/tlan.c
+@@ -1400,7 +1400,7 @@ static void TLan_SetMulticastList( struct net_device *dev )
+ 	 *
+ 	 **************************************************************/
+ 
+-u32 TLan_HandleInvalid( struct net_device *dev, u16 host_int )
++static u32 TLan_HandleInvalid( struct net_device *dev, u16 host_int )
+ {
+ 	/* printk( "TLAN:  Invalid interrupt on %s.\n", dev->name ); */
+ 	return 0;
+@@ -1432,7 +1432,7 @@ u32 TLan_HandleInvalid( struct net_device *dev, u16 host_int )
+ 	 *
+ 	 **************************************************************/
+ 
+-u32 TLan_HandleTxEOF( struct net_device *dev, u16 host_int )
++static u32 TLan_HandleTxEOF( struct net_device *dev, u16 host_int )
+ {
+ 	TLanPrivateInfo	*priv = netdev_priv(dev);
+ 	int		eoc = 0;
+@@ -1518,7 +1518,7 @@ u32 TLan_HandleTxEOF( struct net_device *dev, u16 host_int )
+ 	 *
+ 	 **************************************************************/
+ 
+-u32 TLan_HandleStatOverflow( struct net_device *dev, u16 host_int )
++static u32 TLan_HandleStatOverflow( struct net_device *dev, u16 host_int )
+ {
+ 	TLan_ReadAndClearStats( dev, TLAN_RECORD );
+ 
+@@ -1554,7 +1554,7 @@ u32 TLan_HandleStatOverflow( struct net_device *dev, u16 host_int )
+ 	 *
+ 	 **************************************************************/
+ 
+-u32 TLan_HandleRxEOF( struct net_device *dev, u16 host_int )
++static u32 TLan_HandleRxEOF( struct net_device *dev, u16 host_int )
+ {
+ 	TLanPrivateInfo	*priv = netdev_priv(dev);
+ 	u32		ack = 0;
+@@ -1689,7 +1689,7 @@ u32 TLan_HandleRxEOF( struct net_device *dev, u16 host_int )
+ 	 *
+ 	 **************************************************************/
+ 
+-u32 TLan_HandleDummy( struct net_device *dev, u16 host_int )
++static u32 TLan_HandleDummy( struct net_device *dev, u16 host_int )
+ {
+ 	printk( "TLAN:  Test interrupt on %s.\n", dev->name );
+ 	return 1;
+@@ -1719,7 +1719,7 @@ u32 TLan_HandleDummy( struct net_device *dev, u16 host_int )
+ 	 *
+ 	 **************************************************************/
+ 
+-u32 TLan_HandleTxEOC( struct net_device *dev, u16 host_int )
++static u32 TLan_HandleTxEOC( struct net_device *dev, u16 host_int )
+ {
+ 	TLanPrivateInfo	*priv = netdev_priv(dev);
+ 	TLanList		*head_list;
+@@ -1767,7 +1767,7 @@ u32 TLan_HandleTxEOC( struct net_device *dev, u16 host_int )
+ 	 *
+ 	 **************************************************************/
+ 
+-u32 TLan_HandleStatusCheck( struct net_device *dev, u16 host_int )
++static u32 TLan_HandleStatusCheck( struct net_device *dev, u16 host_int )
+ {
+ 	TLanPrivateInfo	*priv = netdev_priv(dev);
+ 	u32		ack;
+@@ -1842,7 +1842,7 @@ u32 TLan_HandleStatusCheck( struct net_device *dev, u16 host_int )
+ 	 *
+ 	 **************************************************************/
+ 
+-u32 TLan_HandleRxEOC( struct net_device *dev, u16 host_int )
++static u32 TLan_HandleRxEOC( struct net_device *dev, u16 host_int )
+ {
+ 	TLanPrivateInfo	*priv = netdev_priv(dev);
+ 	dma_addr_t	head_list_phys;
+@@ -1902,7 +1902,7 @@ u32 TLan_HandleRxEOC( struct net_device *dev, u16 host_int )
+ 	 *
+ 	 **************************************************************/
+ 
+-void TLan_Timer( unsigned long data )
++static void TLan_Timer( unsigned long data )
+ {
+ 	struct net_device	*dev = (struct net_device *) data;
+ 	TLanPrivateInfo	*priv = netdev_priv(dev);
+@@ -1983,7 +1983,7 @@ void TLan_Timer( unsigned long data )
+ 	 *
+ 	 **************************************************************/
+ 
+-void TLan_ResetLists( struct net_device *dev )
++static void TLan_ResetLists( struct net_device *dev )
+ {
+ 	TLanPrivateInfo *priv = netdev_priv(dev);
+ 	int		i;
+@@ -2043,7 +2043,7 @@ void TLan_ResetLists( struct net_device *dev )
+ } /* TLan_ResetLists */
+ 
+ 
+-void TLan_FreeLists( struct net_device *dev )
++static void TLan_FreeLists( struct net_device *dev )
+ {
+ 	TLanPrivateInfo *priv = netdev_priv(dev);
+ 	int		i;
+@@ -2092,7 +2092,7 @@ void TLan_FreeLists( struct net_device *dev )
+ 	 *
+ 	 **************************************************************/
+ 
+-void TLan_PrintDio( u16 io_base )
++static void TLan_PrintDio( u16 io_base )
+ {
+ 	u32 data0, data1;
+ 	int	i;
+@@ -2127,7 +2127,7 @@ void TLan_PrintDio( u16 io_base )
+ 	 *
+ 	 **************************************************************/
+ 
+-void TLan_PrintList( TLanList *list, char *type, int num)
++static void TLan_PrintList( TLanList *list, char *type, int num)
+ {
+ 	int i;
+ 
+@@ -2163,7 +2163,7 @@ void TLan_PrintList( TLanList *list, char *type, int num)
+ 	 *
+ 	 **************************************************************/
+ 
+-void TLan_ReadAndClearStats( struct net_device *dev, int record )
++static void TLan_ReadAndClearStats( struct net_device *dev, int record )
+ {
+ 	TLanPrivateInfo	*priv = netdev_priv(dev);
+ 	u32		tx_good, tx_under;
+@@ -2238,7 +2238,7 @@ void TLan_ReadAndClearStats( struct net_device *dev, int record )
+ 	 *
+ 	 **************************************************************/
+ 
+-void
++static void
+ TLan_ResetAdapter( struct net_device *dev )
+ {
+ 	TLanPrivateInfo	*priv = netdev_priv(dev);
+@@ -2324,7 +2324,7 @@ TLan_ResetAdapter( struct net_device *dev )
+ 
+ 
+ 
+-void
++static void
+ TLan_FinishReset( struct net_device *dev )
+ {
+ 	TLanPrivateInfo	*priv = netdev_priv(dev);
+@@ -2448,7 +2448,7 @@ TLan_FinishReset( struct net_device *dev )
+ 	 *
+ 	 **************************************************************/
+ 
+-void TLan_SetMac( struct net_device *dev, int areg, char *mac )
++static void TLan_SetMac( struct net_device *dev, int areg, char *mac )
+ {
+ 	int i;
+ 
+@@ -2490,7 +2490,7 @@ void TLan_SetMac( struct net_device *dev, int areg, char *mac )
+ 	 *
+ 	 ********************************************************************/
+ 
+-void TLan_PhyPrint( struct net_device *dev )
++static void TLan_PhyPrint( struct net_device *dev )
+ {
+ 	TLanPrivateInfo *priv = netdev_priv(dev);
+ 	u16 i, data0, data1, data2, data3, phy;
+@@ -2539,7 +2539,7 @@ void TLan_PhyPrint( struct net_device *dev )
+ 	 *
+ 	 ********************************************************************/
+ 
+-void TLan_PhyDetect( struct net_device *dev )
++static void TLan_PhyDetect( struct net_device *dev )
+ {
+ 	TLanPrivateInfo *priv = netdev_priv(dev);
+ 	u16		control;
+@@ -2586,7 +2586,7 @@ void TLan_PhyDetect( struct net_device *dev )
+ 
+ 
+ 
+-void TLan_PhyPowerDown( struct net_device *dev )
++static void TLan_PhyPowerDown( struct net_device *dev )
+ {
+ 	TLanPrivateInfo	*priv = netdev_priv(dev);
+ 	u16		value;
+@@ -2611,7 +2611,7 @@ void TLan_PhyPowerDown( struct net_device *dev )
+ 
+ 
+ 
+-void TLan_PhyPowerUp( struct net_device *dev )
++static void TLan_PhyPowerUp( struct net_device *dev )
+ {
+ 	TLanPrivateInfo	*priv = netdev_priv(dev);
+ 	u16		value;
+@@ -2632,7 +2632,7 @@ void TLan_PhyPowerUp( struct net_device *dev )
+ 
+ 
+ 
+-void TLan_PhyReset( struct net_device *dev )
++static void TLan_PhyReset( struct net_device *dev )
+ {
+ 	TLanPrivateInfo	*priv = netdev_priv(dev);
+ 	u16		phy;
+@@ -2660,7 +2660,7 @@ void TLan_PhyReset( struct net_device *dev )
+ 
+ 
+ 
+-void TLan_PhyStartLink( struct net_device *dev )
++static void TLan_PhyStartLink( struct net_device *dev )
+ {
+ 	TLanPrivateInfo	*priv = netdev_priv(dev);
+ 	u16		ability;
+@@ -2747,7 +2747,7 @@ void TLan_PhyStartLink( struct net_device *dev )
+ 
+ 
+ 
+-void TLan_PhyFinishAutoNeg( struct net_device *dev )
++static void TLan_PhyFinishAutoNeg( struct net_device *dev )
+ {
+ 	TLanPrivateInfo	*priv = netdev_priv(dev);
+ 	u16		an_adv;
+@@ -2903,7 +2903,7 @@ void TLan_PhyMonitor( struct net_device *dev )
+ 	 *
+ 	 **************************************************************/
+ 
+-int TLan_MiiReadReg( struct net_device *dev, u16 phy, u16 reg, u16 *val )
++static int TLan_MiiReadReg( struct net_device *dev, u16 phy, u16 reg, u16 *val )
+ {
+ 	u8	nack;
+ 	u16	sio, tmp;
+@@ -2993,7 +2993,7 @@ int TLan_MiiReadReg( struct net_device *dev, u16 phy, u16 reg, u16 *val )
+ 	 *
+ 	 **************************************************************/
+ 
+-void TLan_MiiSendData( u16 base_port, u32 data, unsigned num_bits )
++static void TLan_MiiSendData( u16 base_port, u32 data, unsigned num_bits )
+ {
+ 	u16 sio;
+ 	u32 i;
+@@ -3035,7 +3035,7 @@ void TLan_MiiSendData( u16 base_port, u32 data, unsigned num_bits )
+ 	 *
+ 	 **************************************************************/
+ 
+-void TLan_MiiSync( u16 base_port )
++static void TLan_MiiSync( u16 base_port )
+ {
+ 	int i;
+ 	u16 sio;
+@@ -3074,7 +3074,7 @@ void TLan_MiiSync( u16 base_port )
+ 	 *
+ 	 **************************************************************/
+ 
+-void TLan_MiiWriteReg( struct net_device *dev, u16 phy, u16 reg, u16 val )
++static void TLan_MiiWriteReg( struct net_device *dev, u16 phy, u16 reg, u16 val )
+ {
+ 	u16	sio;
+ 	int	minten;
+@@ -3144,7 +3144,7 @@ void TLan_MiiWriteReg( struct net_device *dev, u16 phy, u16 reg, u16 val )
+ 	 *
+ 	 **************************************************************/
+ 
+-void TLan_EeSendStart( u16 io_base )
++static void TLan_EeSendStart( u16 io_base )
+ {
+ 	u16	sio;
+ 
+@@ -3184,7 +3184,7 @@ void TLan_EeSendStart( u16 io_base )
+ 	 *
+ 	 **************************************************************/
+ 
+-int TLan_EeSendByte( u16 io_base, u8 data, int stop )
++static int TLan_EeSendByte( u16 io_base, u8 data, int stop )
+ {
+ 	int	err;
+ 	u8	place;
+@@ -3245,7 +3245,7 @@ int TLan_EeSendByte( u16 io_base, u8 data, int stop )
+ 	 *
+ 	 **************************************************************/
+ 
+-void TLan_EeReceiveByte( u16 io_base, u8 *data, int stop )
++static void TLan_EeReceiveByte( u16 io_base, u8 *data, int stop )
+ {
+ 	u8  place;
+ 	u16 sio;
+@@ -3303,7 +3303,7 @@ void TLan_EeReceiveByte( u16 io_base, u8 *data, int stop )
+ 	 *
+ 	 **************************************************************/
+ 
+-int TLan_EeReadByte( struct net_device *dev, u8 ee_addr, u8 *data )
++static int TLan_EeReadByte( struct net_device *dev, u8 ee_addr, u8 *data )
+ {
+ 	int err;
+ 	TLanPrivateInfo *priv = netdev_priv(dev);
+-- 
+1.5.4.1.1278.gc75be
