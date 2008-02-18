@@ -1,45 +1,118 @@
-From: Pekka Pietikainen <pp@ee.oulu.fi>
-Subject: "protocol 0300 is buggy" spam in dmesg when injecting&capturing on
-	same interface
-Date: Mon, 18 Feb 2008 17:39:03 +0200
-Message-ID: <20080218153903.GA30253@ee.oulu.fi>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: Re: Compex FreedomLine 32 PnP-PCI2 broken with de2104x
+Date: Mon, 18 Feb 2008 17:40:42 +0100
+Message-ID: <200802181740.44196.linux@rainbow-software.org>
+References: <200801262158.12016.linux@rainbow-software.org> <200801302123.07783.linux@rainbow-software.org> <20080218032111.GA7970@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Grant Grundler <grundler@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ee.oulu.fi ([130.231.61.23]:56840 "EHLO ee.oulu.fi"
+Received: from mail.atlantis.sk ([80.94.52.35]:54865 "EHLO mail.atlantis.sk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754423AbYBRQMs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2008 11:12:48 -0500
-Received: from tk-cn0002.oulu.fi (tk-cn0002 [130.231.63.2])
-	by ee.oulu.fi (8.14.2/8.14.2) with ESMTP id m1IFd3wC009453
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 18 Feb 2008 17:39:03 +0200 (EET)
-Received: (from pp@localhost)
-	by tk-cn0002.oulu.fi (8.14.2/8.14.2/Submit) id m1IFd3CC030714
-	for netdev@vger.kernel.org; Mon, 18 Feb 2008 17:39:03 +0200
+	id S1750969AbYBRQku (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Feb 2008 11:40:50 -0500
+In-Reply-To: <20080218032111.GA7970@colo.lackof.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When playing with some L2 level fuzzing I started getting lots of
-"protocol 0300 is buggy, dev eth3" spew in dmesg. That interface is also
-capturing the traffic that's being sent, that's probably why the
-dev_queue_xmit_nit codepath is getting called in the first place.
+On Monday 18 February 2008 04:21:11 Grant Grundler wrote:
+> On Wed, Jan 30, 2008 at 09:23:06PM +0100, Ondrej Zary wrote:
+> > On Saturday 26 January 2008 21:58:10 Ondrej Zary wrote:
+> > > Hello,
+> > > I was having problems with these FreedomLine cards with Linux before
+> > > but tested it thoroughly today. This card uses DEC 21041 chip and has
+> > > TP and BNC connectors:
+> > >
+> > > 00:12.0 Ethernet controller [0200]: Digital Equipment Corporation
+> > > DECchip 21041 [Tulip Pass 3] [1011:0014] (rev 21)
+> > >
+> > >
+> > > de2104x driver was loaded automatically by udev and card seemed to
+> > > work. Until I disconnected the TP cable and putting it back after a
+> > > while. The driver then switched to (non-existing) AUI port and remained
+> > > there. I tried to set media to TP using ethtool - and the whole kernel
+> > > crashed because of BUG_ON(de_is_running(de));
+> > > in de_set_media(). Seems that the driver is unable to stop the DMA in
+> > > de_stop_rxtx().
+>
+> The BUG_ON() is probably fine normally. But the media selection sounds
+> broken. It's possible to select the wrong media type with 21040 chip but
+> shouldn't be possible with 21041. For 21040 support, see
+> de21040_get_media_info(). But de21041_get_srom_info() is expected to
+> determine which media
+> types are supported from SEPROM "media blocks".   My guess is that code
+> is broken since it seems to work with de405 driver. If you care to
+> work the difference, I'd be happy to make a patch to fix that up.
 
-Tested on 2.6.23-as-shipped-in-F8. didn't spot any relevant changes in .24
-but can pretty easily verify there too. 
+I don't think that BUG_ON() should be there. It should probably printk a 
+warning but certainly not crash the whole machine.
 
-Oh. That printk wasn't very easy to find:
+> Also, from code review, DE2104X driver still has a few places with
+> potential PCI MMIO Write posting issues.  Specifically, I was looking
+> in de_stop_hw() and de_set_media(). Several other bits of code correctly
+> flush MMIO writes: e.g. tulip_read_eeprom().
+>
+> > > I commented out AUI detection in the driver - this time it switched to
+> > > BNC after unplugging the cable and remained there. I also attempted to
+> > > reset the chip when de_stop_rxtx failed but failed to do it.
+>
+> You'd have to basically hardcode only one media type and it's corresponding
+> parameters.
 
-                              if (net_ratelimit())
-                                        printk(KERN_CRIT "protocol %04x is "
-                                               "buggy, dev %s\n",
+That's bad. It just works with de4x5 with any cable at any time.
+
+> > > Then I found that there's de4x5 driver which supports the same cards as
+> > > de2104x (and some other too) - and this one works fine! I can plug and
+> > > unplug the cable and even change between TP and BNC ports just by
+> > > unplugging one and plugging the other cable in. Unfortunately, this
+> > > driver is blacklisted by default - at least in Slackware and Debian.
+>
+> ISTR there was a time when tulip would compete with de4x5 for devices.
+> tulip is the preferred driver. That's clearly no longer the case
+> and perhaps both distro's need to revisit this.
+
+de4x5 has no MODULE_DEVICE_TABLE for PCI devices anymore, so no conflicts. 
+That's probably good for cards that work with tulip driver but bad for mine 
+card and also probably for some other cards that (should) work with de2104x.
+
+>
+> > > The question is: why does de2104x exist? Does it work better with some
+> > > hardware?
+>
+> de2104x is a "work in progress".
+> That's why it's marked "EXPERIMENTAL" in the Kconfig file.
+
+Great, it looks to be 6 years old and it's still experimental. Probably 
+because it never worked properly.
+
+I think that de2104x driver should be removed (or at least its 
+MODULE_DEVICE_TABLE) and MODULE_DEVICE_TABLE with only 21040 and 21041 PCI 
+IDs added to de4x5.
+
+I can send a patch if this is acceptable.
+
+>
+> > > BTW. Found that the problem exist at least since 2003:
+> > > http://oss.sgi.com/archives/netdev/2003-08/msg00951.html
+> >
+> > Does the de2104x driver work correctly for anyone?
+>
+> No idea. I've only used tulip driver.
+>
+> thanks for the bug report,
+> grant
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
 
-and I naturally grepped for "is buggy". 
 
-Any ideas? Add a "If it came from AF_PACKET, don't print out anything" to
-that if-statement?
-
-
+-- 
+Ondrej Zary
