@@ -1,52 +1,61 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: [RESEND/patch 2.6.25-rc2-git] net/enc28j60: oops fix
-Date: Tue, 19 Feb 2008 12:52:21 -0800
-Message-ID: <200802191252.22197.david-b@pacbell.net>
-References: <20080205190124.E72F48E45F@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <20080206173342.21CDF8E152@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <47AADC51.8060401@eptar.com>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: Bonding support for eth1394?
+Date: Tue, 19 Feb 2008 22:27:55 +0100
+Message-ID: <47BB49DB.3060204@s5r6.in-berlin.de>
+References: <FFB081ED-646B-489D-8836-FBA619A57E3E@gmail.com>	<47106EDE.1090601@s5r6.in-berlin.de>	<adair5bm3jf.fsf@cisco.com>	<4711087E.1050005@s5r6.in-berlin.de>	<20071014021850.9bd7c9ad.billfink@mindspring.com>	<471201D7.8090001@s5r6.in-berlin.de>
+	<47139D28.9010303@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Claudio Lanconelli <lanconelli.claudio@eptar.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp120.sbc.mail.sp1.yahoo.com ([69.147.64.93]:30576 "HELO
-	smtp120.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752527AbYBSU5T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 15:57:19 -0500
-In-Reply-To: <47AADC51.8060401@eptar.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Bill Fink <billfink@mindspring.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	linux1394-devel@lists.sourceforge.net,
+	Roland Dreier <rdreier@cisco.com>
+To: Karl Svec <karlsvec@gmail.com>
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <47139D28.9010303@hp.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux1394-devel-bounces@lists.sourceforge.net
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Prevent oops on enc28j60 packet RX:  make sure buffers are aligned.
-Not all architectures support unaligned accesses in kernel space.
+Roland Dreier wrote on 2007-10-13:
+>  > The bonding sources have a few occurrences of EOPNOTSUPP.  Unless I
+>  > missed something, they are all related to setting the hardware address
+>  > of the interface.  AFAICS this is impossible with IP over FireWire.  If
+>  > it is crucial to bonding to be able to change the slaves' hardware
+>  > addresses, then you are out of luck.
+> 
+> There are a few changes to the bonding driver pending that will add
+> support for bonding IP-over-InfiniBand interfaces.  IPoIB also cannot
+> change its HW address, so the patches address that issue.
+> 
+> Once those patches land, bonding eth1394 interfaces may "just work".
 
-Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
-Acked-by: Claudio Lanconelli <lanconelli.claudio@eptar.com>
----
-Seems the enc28j60 patches didn't get picked up, ergo resend...
-they're not in net-2.6.git, even this oops fix.
+Bill Fink wrote on 2007-10-14:
+> While that might allow multiple eth1394 interfaces to be bonded,
+> I believe the user wanted to bond an eth1394 interface with a normal
+> Ethernet interface, and I don't think that will work even with the
+> IPoIB bonding changes, since bonding of different fundamental types
+> of network interfaces still won't be supported, and I'm pretty sure
+> eth1394 is not considered a standard Ethernet interface (different
+> MAC address format for one thing).
 
- drivers/net/enc28j60.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletion(-)
 
---- a/drivers/net/enc28j60.c	2008-02-06 09:29:00.000000000 -0800
-+++ b/drivers/net/enc28j60.c	2008-02-06 09:30:03.000000000 -0800
-@@ -900,7 +900,7 @@ static void enc28j60_hw_rx(struct net_de
- 		if (RSV_GETBIT(rxstat, RSV_LENCHECKERR))
- 			ndev->stats.rx_frame_errors++;
- 	} else {
--		skb = dev_alloc_skb(len);
-+		skb = dev_alloc_skb(len + NET_IP_ALIGN);
- 		if (!skb) {
- 			if (netif_msg_rx_err(priv))
- 				dev_err(&ndev->dev,
-@@ -908,6 +908,7 @@ static void enc28j60_hw_rx(struct net_de
- 			ndev->stats.rx_dropped++;
- 		} else {
- 			skb->dev = ndev;
-+			skb_reserve(skb, NET_IP_ALIGN);
- 			/* copy the packet from the receive buffer */
- 			enc28j60_mem_read(priv, priv->next_pk_ptr + sizeof(rsv),
- 					len, skb_put(skb, len));
+Karl, you could try kernel 2.6.24(.2) which AFAIU features the mentioned 
+changes.
+-- 
+Stefan Richter
+-=====-==--- --=- =--==
+http://arcgraph.de/sr/
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
