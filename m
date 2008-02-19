@@ -1,42 +1,62 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: AW: AW: AW: Problem receiving multicast with kernel.2.6.24, REAL
-	solution
-Date: Tue, 19 Feb 2008 15:56:07 +0100
-Message-ID: <47BAEE07.1080603@trash.net>
-References: <BA41E8A07B73A041948C2E3A4EF6239D062F1B@av-digital-exch.avdigital.at>
+Subject: [NET]: Messed multicast lists after dev_mc_sync/unsync
+Date: Tue, 19 Feb 2008 15:56:59 +0100
+Message-ID: <47BAEE3B.7020502@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Reither Robert <Robert.Reither@av-digital.at>
+Content-Type: multipart/mixed;
+ boundary="------------000200030504080205070601"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:23026 "EHLO
-	viefep17-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756248AbYBSO40 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 09:56:26 -0500
-Received: from edge03 ([192.168.13.238]) by viefep17-int.chello.at
-          (InterMail vM.7.08.02.00 201-2186-121-20061213) with ESMTP
-          id <20080219145622.PKGH27032.viefep17-int.chello.at@edge03>
-          for <netdev@vger.kernel.org>; Tue, 19 Feb 2008 15:56:22 +0100
-In-Reply-To: <BA41E8A07B73A041948C2E3A4EF6239D062F1B@av-digital-exch.avdigital.at>
+Received: from viefep18-int.chello.at ([213.46.255.22]:58556 "EHLO
+	viefep19-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753300AbYBSO5P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 09:57:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reither Robert wrote:
-> Visit AVD on prolight+sound in Frankfurt from 12.-15. March 2008 - Hall 8.0, Stand G16
-> ________________________________________________________________________
-> 
-> 
-> 
-> Hurray, your patch does the trick for me !!!
-> 
-> Now join/leave und receiving of multicasts work like it should !!
-> 
-> May i kiss you Patrick, this saves my week ;-)
+This is a multi-part message in MIME format.
+--------------000200030504080205070601
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-The credit goes to Jorge Boncompte, I only broke it :|
 
-> Hope we see a minor kernel release with this patch very soon ...
+--------------000200030504080205070601
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-Yes, I'll send it to -stable as soon as it hits upstream.
+commit 6548b91f39381b2c5f02f99c14734546354bff89
+Author: Jorge Boncompte [DTI2] <jorge@dti2.net>
+Date:   Mon Feb 18 16:02:01 2008 +0100
 
+    [NET]: Messed multicast lists after dev_mc_sync/unsync
+    
+    Commit a0a400d79e3dd7843e7e81baa3ef2957bdc292d0 from you
+    introduced a new field "da_synced" to struct dev_addr_list that is
+    not properly initialized to 0. So when any of the current users (8021q,
+    macvlan, mac80211) calls dev_mc_sync/unsync they mess the address
+    list for both devices.
+    
+    The attached patch fixed it for me and avoid future problems.
+    
+    Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6cfc123..9516105 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2900,7 +2900,7 @@ int __dev_addr_add(struct dev_addr_list **list, int *count,
+ 		}
+ 	}
+ 
+-	da = kmalloc(sizeof(*da), GFP_ATOMIC);
++	da = kzalloc(sizeof(*da), GFP_ATOMIC);
+ 	if (da == NULL)
+ 		return -ENOMEM;
+ 	memcpy(da->da_addr, addr, alen);
+
+--------------000200030504080205070601--
