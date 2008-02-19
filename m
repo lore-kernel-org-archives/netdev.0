@@ -1,67 +1,54 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] net/8021q/vlan_dev.c - Use print_mac
-Date: Mon, 18 Feb 2008 16:50:36 -0800 (PST)
-Message-ID: <20080218.165036.218650084.davem@davemloft.net>
-References: <20080218.125525.192686382.davem@davemloft.net>
-	<47B9F5E7.3020905@trash.net>
-	<20080218.164305.67586867.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: TG3 network data corruption regression 2.6.24/2.6.23.4
+Date: Mon, 18 Feb 2008 17:04:06 -0800
+Message-ID: <1203383046.13495.87.camel@dell>
+References: <47BA0984.2070306@cybernetics.com>
+ <1203381120.13495.78.camel@dell>
+ <20080218.163554.74130592.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, bruno-L9ZBdB2wSWtl57MIdRCFDg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080218.164305.67586867.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: tonyb@cybernetics.com, herbert@gondor.apana.org.au,
+	netdev <netdev@vger.kernel.org>, gregkh@suse.de,
+	linux-kernel@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:3617 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750766AbYBSBBn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Feb 2008 20:01:43 -0500
+In-Reply-To: <20080218.163554.74130592.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Date: Mon, 18 Feb 2008 16:43:05 -0800 (PST)
+On Mon, 2008-02-18 at 16:35 -0800, David Miller wrote:
 
-> I think we can fix this easily by using __attribute_const_
-> on the print_mac() declaration.  Let me play with that.
+> One consequence of Herbert's change is that the chip will see a
+> different datastream.  The initial skb->data linear area will be
+> smaller, and the transition to the fragmented area of pages will be
+> quicker.
+> 
 
-Actually it seems the 'pure' attribute is more important
-here.  Although it's not semantically a perfect match,
-what we need to tell the compiler is basically that:
+I see.  Perhaps when we get to the end of the data-stream, there is a
+tiny frag that the chip cannot handle.  That's the only thing I can
+think of.
 
-1) the return value depends upon the inputs
-2) if the input is not used, it's safe to avoid the call
+Please try this patch to see if the problem goes away.  This will
+disable SG on 5701 so we always get linear SKBs.
 
-and 'pure' accomplishes that without any unwanted side-effects.
-
-I think this will not result in any unwanted over-optimization.
-Because if the inputs change in any way GCC has to emit the
-call.
-
-Any objections?
-
-commit 8f789c48448aed74fe1c07af76de8f04adacec7d
-Author: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Date:   Mon Feb 18 16:50:22 2008 -0800
-
-    [NET]: Elminate spurious print_mac() calls.
-    
-    Patrick McHardy notes that print_mac() can get invoked
-    even if the result it unused (f.e. as an argument to
-    pr_debug() when DEBUG is not defined).
-    
-    Mark this function as "__pure" to eliminate this problem.
-    
-    Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-
-diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
-index 7a1e011..42dc6a3 100644
---- a/include/linux/if_ether.h
-+++ b/include/linux/if_ether.h
-@@ -129,7 +129,7 @@ extern ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len);
- /*
-  *	Display a 6 byte device address (MAC) in a readable format.
-  */
--extern char *print_mac(char *buf, const unsigned char *addr);
-+extern __pure char *print_mac(char *buf, const unsigned char *addr);
- #define MAC_BUF_SIZE	18
- #define DECLARE_MAC_BUF(var) char var[MAC_BUF_SIZE] __maybe_unused
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index db606b6..bb37e76 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -12717,6 +12717,9 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 	} else
+ 		tp->tg3_flags &= ~TG3_FLAG_RX_CHECKSUMS;
  
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701)
++		dev->features &= ~(NETIF_F_IP_CSUM | NETIF_F_SG);
++
+ 	/* flow control autonegotiation is default behavior */
+ 	tp->tg3_flags |= TG3_FLAG_PAUSE_AUTONEG;
+ 	tp->link_config.flowctrl = TG3_FLOW_CTRL_TX | TG3_FLOW_CTRL_RX;
+
+
