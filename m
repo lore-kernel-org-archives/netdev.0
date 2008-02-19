@@ -1,64 +1,85 @@
-From: Pekka Pietikainen <pp@ee.oulu.fi>
-Subject: Re: "protocol 0300 is buggy" spam in dmesg when
-	injecting&capturing on same interface
-Date: Tue, 19 Feb 2008 15:39:25 +0200
-Message-ID: <20080219133925.GA21492@ee.oulu.fi>
-References: <20080218153903.GA30253@ee.oulu.fi>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [NETFILTER]: Introduce nf_inet_address
+Date: Tue, 19 Feb 2008 22:49:08 +0900
+Message-ID: <1203428949.3223.25.camel@shinybook.infradead.org>
+References: <200801291316.m0TDGivY024953@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jan Engelhardt <jengelh@computergmbh.de>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, varevoka@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ee.oulu.fi ([130.231.61.23]:34415 "EHLO ee.oulu.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751454AbYBSNj2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Feb 2008 08:39:28 -0500
-Received: from tk-cn0002.oulu.fi (tk-cn0002 [130.231.63.2])
-	by ee.oulu.fi (8.14.2/8.14.2) with ESMTP id m1JDdPjp007396
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 19 Feb 2008 15:39:26 +0200 (EET)
-Received: (from pp@localhost)
-	by tk-cn0002.oulu.fi (8.14.2/8.14.2/Submit) id m1JDdP3j021646
-	for netdev@vger.kernel.org; Tue, 19 Feb 2008 15:39:25 +0200
-Content-Disposition: inline
-In-Reply-To: <20080218153903.GA30253@ee.oulu.fi>
+Received: from bombadil.infradead.org ([18.85.46.34]:44345 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751737AbYBSNtR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 08:49:17 -0500
+In-Reply-To: <200801291316.m0TDGivY024953@hera.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 18, 2008 at 05:39:03PM +0200, Pekka Pietikainen wrote:
-> When playing with some L2 level fuzzing I started getting lots of
-> "protocol 0300 is buggy, dev eth3" spew in dmesg. That interface is also
-> capturing the traffic that's being sent, that's probably why the
-> dev_queue_xmit_nit codepath is getting called in the first place.
-> 
-> Any ideas? Add a "If it came from AF_PACKET, don't print out anything" to
-> that if-statement?
-I'm probably just plastering over a bug in af_packet.c with this one,
-but the following patch should make it shut up. The printk definately
-needs a ntohs for skb2->protocol, took me a while to figure out where
-the 0300 even came from :-) 
 
-Signed-off-by: Pekka Pietikainen <pp@ee.oulu.fi>
+On Tue, 2008-01-29 at 13:16 +0000, Linux Kernel Mailing List wrote:
+> Commit:     643a2c15a407faf08101a20e1a3461160711899d
+>
+>     [NETFILTER]: Introduce nf_inet_address
+>     
+>     A few netfilter modules provide their own union of IPv4 and IPv6
+>     address storage. Will unify that in this patch series.
+>     
+>     (1/4): Rename union nf_conntrack_address to union nf_inet_addr and
+>     move it to x_tables.h.
+>     
+>     Signed-off-by: Jan Engelhardt <jengelh@computergmbh.de>
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
 
-diff -up linux-2.6.24.i686/net/core/dev.c.orig linux-2.6.24.i686/net/core/dev.c
---- linux-2.6.24.i686/net/core/dev.c.orig	2008-02-19 15:22:12.000000000 +0200
-+++ linux-2.6.24.i686/net/core/dev.c	2008-02-19 15:29:37.000000000 +0200
-@@ -1262,10 +1262,11 @@ static void dev_queue_xmit_nit(struct sk
- 
- 			if (skb_network_header(skb2) < skb2->data ||
- 			    skb2->network_header > skb2->tail) {
--				if (net_ratelimit())
--					printk(KERN_CRIT "protocol %04x is "
--					       "buggy, dev %s\n",
--					       skb2->protocol, dev->name);
-+				if (skb2->protocol != htons(ETH_P_ALL) &&
-+				    net_ratelimit())
-+					pr_crit("protocol %04x is buggy, dev %s\n",
-+						ntohs(skb2->protocol),
-+						dev->name);
- 				skb_reset_network_header(skb2);
- 			}
- 
+ ...
 
+> --- a/include/linux/netfilter.h
+> +++ b/include/linux/netfilter.h
+> @@ -48,6 +48,12 @@ enum nf_inet_hooks {
+>  	NF_INET_NUMHOOKS
+>  };
+>  
+> +union nf_inet_addr {
+> +	u_int32_t	all[4];
+> +	__be32		ip;
+> +	__be32		ip6[4];
+> +};
+> +
+>  #ifdef __KERNEL__
+>  #ifdef CONFIG_NETFILTER
+
+This breaks the busybox build:
+
+CC      ipsvd/tcpudp.o
+In file included from /usr/include/linux/netfilter_ipv4.h:8,
+                 from ipsvd/tcpudp.c:33:
+/usr/include/linux/netfilter.h:40: error: expected specifier-qualifier-list before 'u_int32_t'
+
+What is this 'u_int32_t' nonsense anyway?
+
+If a user-visible header is likely to be included by libc directly from
+a 'standard' header, it may not require <stdint.h>. Therefore it should
+use the system-specific types such as '__u32'.
+
+If it isn't likely to be included by libc, which is the case for
+netfilter, then it might as well just use the proper C types. Those who
+are stuck on C89 or earlier might still prefer to use '__u32' even when
+there's no need for it, but 'u_int32_t' is just silly. I suspect we
+should eradicate it. I couldn't make busybox work with it --
+__BIT_TYPES_DEFINED__ is defined in <sys/types.h> and prevents the
+definitions of u_int32_t et al from appearing in <linux/types.h>. And if
+I include <linux/types.h> first, other things break.
+
+A later commit adds struct in_addr and struct in6_addr to this union
+too, which breaks busybox even harder.
+
+How is this supposed to be used in userspace? Or is it even supposed to
+be exposed?
 
 -- 
-Pekka Pietikainen
+dwmw2
+
