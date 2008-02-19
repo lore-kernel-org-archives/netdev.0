@@ -1,47 +1,39 @@
-From: Tony Battersby <tonyb@cybernetics.com>
-Subject: Re: TG3 network data corruption regression 2.6.24/2.6.23.4
-Date: Tue, 19 Feb 2008 17:14:26 -0500
-Message-ID: <47BB54C2.6090501@cybernetics.com>
-References: <47BA0984.2070306@cybernetics.com> <1203381120.13495.78.camel@dell> <20080218.163554.74130592.davem@davemloft.net> <1203383046.13495.87.camel@dell> <47BB00EC.3010607@cybernetics.com> <1203448265.13495.95.camel@dell>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET]: Messed multicast lists after dev_mc_sync/unsync
+Date: Tue, 19 Feb 2008 14:17:57 -0800 (PST)
+Message-ID: <20080219.141757.213666958.davem@davemloft.net>
+References: <47BAEE3B.7020502@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	netdev <netdev@vger.kernel.org>, gregkh@suse.de,
-	linux-kernel@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host64.cybernetics.com ([70.169.137.4]:4093 "EHLO
-	mail.cybernetics.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1755070AbYBSWOZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 17:14:25 -0500
-In-Reply-To: <1203448265.13495.95.camel@dell>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43036
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1762965AbYBSWRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 17:17:22 -0500
+In-Reply-To: <47BAEE3B.7020502@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Chan wrote:
-> On Tue, 2008-02-19 at 11:16 -0500, Tony Battersby wrote:
->   
->> iSCSI
->> performance drops to 6 - 15 MB/s when the 3Com NIC is doing heavy rx
->> with light tx,
->>     
->
-> That's strange.  The patch should only affect TX performance slightly
-> since we are just turning off SG for TX.  Please take an ethereal trace
-> to see what's happening and compare with a good trace.
->
->   
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue, 19 Feb 2008 15:56:59 +0100
 
-Update: when I revert Herbert's patch in addition to applying your
-patch, the iSCSI performance goes back up to 115 MB/s again in both
-directions.  So it looks like turning off SG for TX didn't itself cause
-the performance drop, but rather that the performance drop is just
-another manifestation of whatever bug is causing the data corruption.
+>     [NET]: Messed multicast lists after dev_mc_sync/unsync
+>     
+>     Commit a0a400d79e3dd7843e7e81baa3ef2957bdc292d0 from you
+>     introduced a new field "da_synced" to struct dev_addr_list that is
+>     not properly initialized to 0. So when any of the current users (8021q,
+>     macvlan, mac80211) calls dev_mc_sync/unsync they mess the address
+>     list for both devices.
+>     
+>     The attached patch fixed it for me and avoid future problems.
+>     
+>     Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-I do not regularly use wireshark or look at network packet dumps, so I
-am not really sure what to look for.  Given the above information, do
-you still believe that there is value in examining the packet dump?
+I've added the headline description of the referenced commit
+to this commit message, and will queue this up to -stable.
 
-Tony
-
+Thanks!
