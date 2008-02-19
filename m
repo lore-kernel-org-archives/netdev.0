@@ -1,71 +1,93 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [Lksctp-developers] [PATCH][SCTP]: Pick up an orphaned	sctp_sockets_allocated
- counter.
-Date: Tue, 19 Feb 2008 11:43:44 -0500
-Message-ID: <47BB0740.2070104@hp.com>
-References: <47BB05AA.6090101@openvz.org>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: e1000: Detected Tx Unit Hang
+Date: Tue, 19 Feb 2008 08:47:05 -0800
+Message-ID: <47BB0809.7060509@intel.com>
+References: <fp553k$9r8$1@ger.gmane.org> <47B6204D.8060503@intel.com> <200802160126.43069.bernd-schubert@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	lksctp-developers@lists.sourceforge.net
-To: Pavel Emelyanov <xemul@openvz.org>
+Cc: netdev@vger.kernel.org
+To: Bernd Schubert <bernd-schubert@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:23965 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752765AbYBSQnd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 11:43:33 -0500
-In-Reply-To: <47BB05AA.6090101@openvz.org>
+Received: from mga03.intel.com ([143.182.124.21]:9375 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753310AbYBSQzx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Feb 2008 11:55:53 -0500
+In-Reply-To: <200802160126.43069.bernd-schubert@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pavel Emelyanov wrote:
-> This counter is currently write-only.
+Bernd Schubert wrote:
+> On Saturday 16 February 2008, Kok, Auke wrote:
+>> Bernd Schubert wrote:
+>>> Hello,
+>>>
+>>> I can't login to one of our servers and just got this in an ipmi sol
+>>> session:
+>>>
+>>> [18169.209181] e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+>>> [18169.209183]   Tx Queue             <0>
+>>> [18169.209184]   TDH                  <e3>
+>>> [18169.209185]   TDT                  <e3>
+>>> [18169.209186]   next_to_use          <e3>
+>>> [18169.209187]   next_to_clean        <bd>
+>>> [18169.209188] buffer_info[next_to_clean]
+>>> [18169.209189]   time_stamp           <10043e4d2>
+>>> [18169.209190]   next_to_watch        <be>
+>>> [18169.209191]   jiffies              <10043e6f6>
+>>> [18169.209192]   next_to_watch.status <1>
+>>> [18169.256978] e1000: eth2: e1000_clean_tx_irq: Detected Tx Unit Hang
+>>> [18169.256979]   Tx Queue             <0>
+>>> [18169.256980]   TDH                  <de>
+>>> [18169.256982]   TDT                  <de>
+>>> [18169.256983]   next_to_use          <de>
+>>> [18169.256984]   next_to_clean        <bc>
+>>> [18169.256985] buffer_info[next_to_clean]
+>>> [18169.256986]   time_stamp           <10043e511>
+>>> [18169.256987]   next_to_watch        <bd>
+>>> [18169.256988]   jiffies              <10043e701>
+>>> [18169.256989]   next_to_watch.status <1>
+>>>
+>>> This is with 2.6.22.18. Is there any chance to recover the system? For
+>>> some reasons I would prefer not to reboot now.
+>> if that's all you have then it was false alarm. there should be a 'netdev
+>> timeout - link reset' following those messages. can you send some more
+>> context on those messages?
 > 
-> Drawing an analogy with the similar tcp counter, I think
-> that this one should be pointed by the sockets_allocated
-> members of sctp_prot and sctpv6_prot.
+> All I presently know is that there are 20 servers and login doesn't work any 
+> more - sysrq+t does show me it hangs in fuse, which is accessing the 
+> underlying nfs (we are using unionfs-fuse). While I checked the sysrq-t 
+> output suddenly these e1000 messages appeared.
+> Thinking a bit about it, it either could be 2.6.22.18 has an e1000 bug, which 
+> 2.6.22.X didn't have (X=16, I think, but I'm not sure) or someone  
+> mis-configured the switch/network environment today. 
+> Hmm, now that I think about the last part, there already had been other 
+> networking problems today, which were supposed to be fixed several hours ago. 
+> Seems they didn't fix it properly.
 > 
-> Or should it be instead removed at all?
+>> in real tx hang cases, the hardware is reset within 2 seconds, and
+>> everything continues as normal.
 > 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> Thanks, this gives me hope I don't need to reboot the serves (reboot would 
+> mean I would need to start 60 md-raid rebuilds...).
 
-Ack.  Looks like it got missed.  It should be added.
+my first thought after I read this e-mail is that the tx-hang message is just a
+symptom of your system not responding or being spinlocked all the time. These TX
+hang issues normally completely do not interfere with normal system operation and
+unless you have continuous TX resets you would be able to logon perfectly fine.
 
--vlad
+I think you might have hit another kernel bug here... perhaps even unionfs/fuse
+related and that certainly looks plausible from your problem description.
 
-> 
-> ---
-> 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index d47d578..44797ad 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -6488,6 +6488,7 @@ struct proto sctp_prot = {
->  	.memory_pressure = &sctp_memory_pressure,
->  	.enter_memory_pressure = sctp_enter_memory_pressure,
->  	.memory_allocated = &sctp_memory_allocated,
-> +	.sockets_allocated = &sctp_sockets_allocated,
->  	REF_PROTO_INUSE(sctp)
->  };
->  
-> @@ -6521,6 +6522,7 @@ struct proto sctpv6_prot = {
->  	.memory_pressure = &sctp_memory_pressure,
->  	.enter_memory_pressure = sctp_enter_memory_pressure,
->  	.memory_allocated = &sctp_memory_allocated,
-> +	.sockets_allocated = &sctp_sockets_allocated,
->  	REF_PROTO_INUSE(sctpv6)
->  };
->  #endif /* defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE) */
-> 
-> -------------------------------------------------------------------------
-> This SF.net email is sponsored by: Microsoft
-> Defy all challenges. Microsoft(R) Visual Studio 2008.
-> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
-> _______________________________________________
-> Lksctp-developers mailing list
-> Lksctp-developers@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/lksctp-developers
-> 
+looking at the changelog for 2.6.22.16->2.6.22.18 I can't see anything relevant
+(see
+http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.22.y.git;a=shortlog),
+but there are definately no e1000 driver changes in that range anyway.
 
+I don't suppose you can do a git-bisect? that would certainly help. I don't think
+we can rule out anything just yet here.
+
+At least try to revert some of your systems to the previous kernel version and see
+if the problem goes away...
+
+Auke
