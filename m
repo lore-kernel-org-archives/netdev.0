@@ -1,79 +1,56 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: Re: [PATCH 6/17 net-2.6.26] [NETNS]: Default arp parameters lookup.
-Date: Tue, 19 Feb 2008 13:05:49 +0300
-Message-ID: <1203415549.27296.16.camel@iris.sw.ru>
-References: <1203406116.27296.1.camel@iris.sw.ru>
-	 <1203406297-32725-6-git-send-email-den@openvz.org>
-	 <47BA9E0B.6080209@fr.ibm.com> <1203413980.27296.9.camel@iris.sw.ru>
-	 <47BAA690.2010504@fr.ibm.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
+Date: Tue, 19 Feb 2008 10:30:47 +0000
+Message-ID: <20080219103047.GA3898@ff.dom.local>
+References: <47B17BCD.2070903@katalix.com> <20080214130016.GA2583@ff.dom.local> <47BA0214.40703@katalix.com> <20080218.202934.79548477.davem@davemloft.net> <47BA9B50.8040404@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	containers@lists.osdl.org, devel@openvz.org
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:29307 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760007AbYBSKFp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Feb 2008 05:05:45 -0500
-In-Reply-To: <47BAA690.2010504@fr.ibm.com>
+Received: from mu-out-0910.google.com ([209.85.134.187]:23150 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753687AbYBSK35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 05:29:57 -0500
+Received: by mu-out-0910.google.com with SMTP id i10so2068104mue.5
+        for <netdev@vger.kernel.org>; Tue, 19 Feb 2008 02:29:55 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <47BA9B50.8040404@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-02-19 at 10:51 +0100, Daniel Lezcano wrote:
-> Denis V. Lunev wrote:
-> > On Tue, 2008-02-19 at 10:14 +0100, Daniel Lezcano wrote:
-> >> Denis V. Lunev wrote:
-> >>> Default ARP parameters should be findable regardless of the context.
-> >>> Required to make inetdev_event working.
-> >>>
-> >>> Signed-off-by: Denis V. Lunev <den@openvz.org>
-> >>> ---
-> >>>  net/core/neighbour.c |    4 +---
-> >>>  1 files changed, 1 insertions(+), 3 deletions(-)
-> >>>
-> >>> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> >>> index c895ad4..45ed620 100644
-> >>> --- a/net/core/neighbour.c
-> >>> +++ b/net/core/neighbour.c
-> >>> @@ -1275,9 +1275,7 @@ static inline struct neigh_parms *lookup_neigh_params(struct neigh_table *tbl,
-> >>>  	struct neigh_parms *p;
-> >>>
-> >>>  	for (p = &tbl->parms; p; p = p->next) {
-> >>> -		if (p->net != net)
-> >>> -			continue;
-> >>> -		if ((p->dev && p->dev->ifindex == ifindex) ||
-> >>> +		if ((p->dev && p->dev->ifindex == ifindex && p->net == net) ||
-> >>>  		    (!p->dev && !ifindex))
-> >>>  			return p;
-> >>>  	}
-> >> If the values are:
-> >> 	p->dev == NULL
-> >> 	ifindex == 0
-> >> 	p->net != net
-> >>
-> >> The parms should not be taken into account and the looping must 
-> >> continue. But with this modification it is not the case, if we specify 
-> >> parms ifindex == 0, the first parms with the dev field set to NULL will 
-> >> be taken belonging or not to the right net.
-> > 
-> > They should be taken. In the other case inetdev_event will fail for sure
-> > in the middle. You could check.
-> > 
-> > These are ARP defaults and I do not see a problem for now to get them.
-> 
-> Because there is a parms default per namespace. So several instances of 
-> them per nd table. That was the initial approach with Eric's patchset.
-> 
+On Tue, Feb 19, 2008 at 09:03:12AM +0000, James Chapman wrote:
+> David Miller wrote:
+>> From: James Chapman <jchapman@katalix.com>
+>> Date: Mon, 18 Feb 2008 22:09:24 +0000
+>>
+>>> Here's a new version of the patch. The patch avoids disabling irqs
+>>> and fixes the sk_dst_get() usage that DaveM mentioned. But even with
+>>> this patch, lockdep still complains if hundreds of ppp sessions are
+>>> inserted into a tunnel as rapidly as possible (lockdep trace is
+>>> below). I can stop these errors by wrapping the call to ppp_input()
+>>> in pppol2tp_recv_dequeue_skb() with local_irq_save/restore. What is
+>>> a better fix?
+>>
+>> Firstly, let's fix one thing at a time.  Leave the sk_dst_get()
+>> thing alone until we can prove that it's part of the lockdep
+>> traces.
+>
+> In reproducing the problem, I obtained several lockdep traces that  
+> implicated sk_dst_get().
 
-These changes are not in mainstream and I do not want to touch ARP as
-this is not a simple thing. In reality ARP will be needed only when
-we'll have a real device inside a namespace.
+As a matter of fact I missed just that kind information on previous
+lockdep report, so if you could send them too this should be still
+helpful.
 
-Right now I prefer to have minimal set of working changes to finish IP
-and upper layers.
+...
+> I agree. I'm seeking advice on what the underlying cause is of this new  
+> trace.
 
-Regards,
-	Den
+IMHO, just like I wrote earlier, the main problem is in ppp_generic(),
+especially ppp_connect_channel(), where main tx & rx locks are used.
+I didn't know enough about this sk_dst_lock traces yet. I hope I could
+help with this, but after these changes I need some time to figure
+this out again.
 
+Jarek P.
