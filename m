@@ -1,43 +1,43 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] net/phy/mdio_bus.c: fix a check-after-use
-Date: Wed, 20 Feb 2008 02:13:53 +0200
-Message-ID: <20080220001353.GV31955@cs181133002.pp.htv.fi>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [RTNL]: Add missing link netlink attribute policy definitions
+Date: Wed, 20 Feb 2008 00:46:06 +0100
+Message-ID: <20080219234606.GA3119@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:36211 "EHLO smtp4.pp.htv.fi"
+Received: from postel.suug.ch ([194.88.212.233]:51362 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758742AbYBTAOa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Feb 2008 19:14:30 -0500
+	id S1763230AbYBTAOs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Feb 2008 19:14:48 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a check-after-use spotted by the Coverity checker.
+IFLA_LINK is no longer a write-only attribute on the kernel
+side and must thus be validated. Same goes for the newly
+introduced IFLA_LINKINFO.
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Fixes undefined behaviour if either of the attributes are
+not well formed.
 
----
-6beeb3ac577d74d72b2f91bd654eecb904c3c17e diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 6e9f619..963630c 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -49,13 +49,13 @@ int mdiobus_register(struct mii_bus *bus)
- 	int i;
- 	int err = 0;
- 
--	mutex_init(&bus->mdio_lock);
--
- 	if (NULL == bus || NULL == bus->name ||
- 			NULL == bus->read ||
- 			NULL == bus->write)
- 		return -EINVAL;
- 
-+	mutex_init(&bus->mdio_lock);
-+
- 	if (bus->reset)
- 		bus->reset(bus);
- 
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
+Index: net-2.6.26/net/core/rtnetlink.c
+===================================================================
+--- net-2.6.26.orig/net/core/rtnetlink.c	2008-02-19 20:30:08.000000000 +0100
++++ net-2.6.26/net/core/rtnetlink.c	2008-02-20 00:39:54.000000000 +0100
+@@ -693,10 +693,12 @@
+ 	[IFLA_BROADCAST]	= { .type = NLA_BINARY, .len = MAX_ADDR_LEN },
+ 	[IFLA_MAP]		= { .len = sizeof(struct rtnl_link_ifmap) },
+ 	[IFLA_MTU]		= { .type = NLA_U32 },
++	[IFLA_LINK]		= { .type = NLA_U32 },
+ 	[IFLA_TXQLEN]		= { .type = NLA_U32 },
+ 	[IFLA_WEIGHT]		= { .type = NLA_U32 },
+ 	[IFLA_OPERSTATE]	= { .type = NLA_U8 },
+ 	[IFLA_LINKMODE]		= { .type = NLA_U8 },
++	[IFLA_LINKINFO]		= { .type = NLA_NESTED },
+ 	[IFLA_NET_NS_PID]	= { .type = NLA_U32 },
+ };
+ 
