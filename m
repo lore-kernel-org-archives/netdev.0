@@ -1,28 +1,45 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
-Date: Tue, 19 Feb 2008 10:36:51 +0000
-Message-ID: <20080219103651.GB3898@ff.dom.local>
-References: <47B17BCD.2070903@katalix.com> <20080214130016.GA2583@ff.dom.local> <47BA0214.40703@katalix.com> <20080218.202934.79548477.davem@davemloft.net> <47BA9B50.8040404@katalix.com> <20080219103047.GA3898@ff.dom.local>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] net/8021q/vlan_dev.c - Use print_mac
+Date: Tue, 19 Feb 2008 12:48:22 +0100
+Message-ID: <47BAC206.5070304@trash.net>
+References: <20080218.125525.192686382.davem@davemloft.net>	<47B9F5E7.3020905@trash.net>	<20080218.164305.67586867.davem@davemloft.net> <20080218.165036.218650084.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: joe@perches.com, bruno@thinktube.com, netdev@vger.kernel.org,
+	jgarzik@pobox.com, linux-wireless@vger.kernel.org,
+	linville@tuxdriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.189]:47105 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753394AbYBSKgC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 05:36:02 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so2319542fkz.5
-        for <netdev@vger.kernel.org>; Tue, 19 Feb 2008 02:35:58 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080219103047.GA3898@ff.dom.local>
+Received: from viefep32-int.chello.at ([62.179.121.50]:44116 "EHLO
+	viefep32-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752641AbYBSLse (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 06:48:34 -0500
+In-Reply-To: <20080218.165036.218650084.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 19, 2008 at 10:30:47AM +0000, Jarek Poplawski wrote:
-...
-> IMHO, just like I wrote earlier, the main problem is in ppp_generic(),
+David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Mon, 18 Feb 2008 16:43:05 -0800 (PST)
+> 
+>> I think we can fix this easily by using __attribute_const_
+>> on the print_mac() declaration.  Let me play with that.
+> 
+> Actually it seems the 'pure' attribute is more important
+> here.  Although it's not semantically a perfect match,
+> what we need to tell the compiler is basically that:
+> 
+> 1) the return value depends upon the inputs
+> 2) if the input is not used, it's safe to avoid the call
+> 
+> and 'pure' accomplishes that without any unwanted side-effects.
+> 
+> I think this will not result in any unwanted over-optimization.
+> Because if the inputs change in any way GCC has to emit the
+> call.
+> 
+> Any objections?
 
-...or maybe ppp_generic.c? Whatever...
 
-Jarek P.
+This seems fine to me, thanks Dave.
