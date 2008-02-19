@@ -1,47 +1,79 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH] [NETLABEL] Minor cleanup: remove unused method definition
-Date: Tue, 19 Feb 2008 11:08:27 -0500
-Message-ID: <200802191108.27168.paul.moore@hp.com>
-References: <eb3ff54b0802190625v5315aac9m7ffd580b30bce8cd@mail.gmail.com>
+From: Tony Battersby <tonyb@cybernetics.com>
+Subject: Re: TG3 network data corruption regression 2.6.24/2.6.23.4
+Date: Tue, 19 Feb 2008 11:16:44 -0500
+Message-ID: <47BB00EC.3010607@cybernetics.com>
+References: <47BA0984.2070306@cybernetics.com> <1203381120.13495.78.camel@dell> <20080218.163554.74130592.davem@davemloft.net> <1203383046.13495.87.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	casey@schaufler-ca.com
-To: "Rami Rosen" <ramirose@gmail.com>
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	netdev <netdev@vger.kernel.org>, gregkh@suse.de,
+	linux-kernel@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:13662 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752415AbYBSQIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 11:08:32 -0500
-In-Reply-To: <eb3ff54b0802190625v5315aac9m7ffd580b30bce8cd@mail.gmail.com>
-Content-Disposition: inline
+Received: from host64.cybernetics.com ([70.169.137.4]:2556 "EHLO
+	mail.cybernetics.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751541AbYBSQQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 11:16:43 -0500
+In-Reply-To: <1203383046.13495.87.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 19 February 2008 9:25:31 am Rami Rosen wrote:
-> Hi,
+Michael Chan wrote:
+> On Mon, 2008-02-18 at 16:35 -0800, David Miller wrote:
 >
-> This patch removes definition of netlbl_cfg_cipsov4_del() method in
-> netlabel/netlabel_kapi.c and in include/net/netlabel.h as it is not
-> used.
+>   
+>> One consequence of Herbert's change is that the chip will see a
+>> different datastream.  The initial skb->data linear area will be
+>> smaller, and the transition to the fragmented area of pages will be
+>> quicker.
+>>
+>>     
+>
+> I see.  Perhaps when we get to the end of the data-stream, there is a
+> tiny frag that the chip cannot handle.  That's the only thing I can
+> think of.
+>
+> Please try this patch to see if the problem goes away.  This will
+> disable SG on 5701 so we always get linear SKBs.
+>
+> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> index db606b6..bb37e76 100644
+> --- a/drivers/net/tg3.c
+> +++ b/drivers/net/tg3.c
+> @@ -12717,6 +12717,9 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+>  	} else
+>  		tp->tg3_flags &= ~TG3_FLAG_RX_CHECKSUMS;
+>  
+> +	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701)
+> +		dev->features &= ~(NETIF_F_IP_CSUM | NETIF_F_SG);
+> +
+>  	/* flow control autonegotiation is default behavior */
+>  	tp->tg3_flags |= TG3_FLAG_PAUSE_AUTONEG;
+>  	tp->link_config.flowctrl = TG3_FLOW_CTRL_TX | TG3_FLOW_CTRL_RX;
 >
 >
-> Regards,
-> Rami Rosen
 >
->
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+>   
+This patch does appear to fix the data corruption (tested with
+2.6.24.2).  However, it results in performance problems with the iSCSI
+application that I am trying to run on this machine.
 
-This was added for use by Smack (and any other LSMs which want to 
-configure NetLabel directly) and since this is an area that is 
-undergoing a lot of churn at this point I'd prefer if this function was 
-left in place for the time being.
+The test program that I described in the previous message still gets
+good performance in both directions.  "iperf -r" gets good performance
+in both directions (940 Mbits/s or 117 MB/s).  However, my target-mode
+iSCSI application (which obviously generates rx/tx traffic patterns more
+complicated than the synthetic tests) gets very poor performance in one
+direction but good performance in the other direction.  iSCSI
+performance drops to 6 - 15 MB/s when the 3Com NIC is doing heavy rx
+with light tx, but remains at a decent 115 MB/s when the 3Com NIC is
+doing heavy tx with light rx.  When I revert Herbert's patch instead of
+applying the patch above, I get 115 MB/s in both cases.  (With a stock
+unpatched kernel, the test fails almost immediately because the iSCSI
+control PDUs are corrupted, causing the TCP connection to be dropped.)
 
-At a later date if this function is still unused, I'll gladly ack it's 
-removal or do so myself.
+The SysKonnect NIC that does not exhibit this problem has a chip that
+says "BCM5411KQM" "TT0128 P2Q" and "56975E".
 
--- 
-paul moore
-linux security @ hp
+Tony
+
