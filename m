@@ -1,35 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [IPV6]: dst_entry leak in ip4ip6_err. (resend)
-Date: Mon, 18 Feb 2008 20:50:09 -0800 (PST)
-Message-ID: <20080218.205009.116589985.davem@davemloft.net>
-References: <1203325178.28825.5.camel@iris.sw.ru>
+Subject: Re: [PATCH][IPV6]: Use BUG_ON instead of if + BUG in
+ fib6_del_route.
+Date: Mon, 18 Feb 2008 20:50:51 -0800 (PST)
+Message-ID: <20080218.205051.30999241.davem@davemloft.net>
+References: <47B97F03.7080105@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: den@openvz.org
+Cc: netdev@vger.kernel.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53671
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43073
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752644AbYBSEtc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 23:49:32 -0500
-In-Reply-To: <1203325178.28825.5.camel@iris.sw.ru>
+	by vger.kernel.org with ESMTP id S1753053AbYBSEuT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2008 23:50:19 -0500
+In-Reply-To: <47B97F03.7080105@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Mon, 18 Feb 2008 11:59:38 +0300
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Mon, 18 Feb 2008 15:50:11 +0300
 
-> The result of the ip_route_output is not assigned to skb. This means that
-> - it is leaked
-> - possible OOPS below dereferrencing skb->dst
-> - no ICMP message for this case
-> 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-This bug has been there for a few releases :-)
-
-Applied and I'll queue this up for -stable too.
-
-Thanks!
+Applied, thanks Pavel.
