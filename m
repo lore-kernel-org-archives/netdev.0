@@ -1,99 +1,28 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [PATCH 6/17 net-2.6.26] [NETNS]: Default arp parameters lookup.
-Date: Tue, 19 Feb 2008 11:22:35 +0100
-Message-ID: <47BAADEB.3080005@fr.ibm.com>
-References: <1203406116.27296.1.camel@iris.sw.ru> <1203406297-32725-6-git-send-email-den@openvz.org> <47BA9E0B.6080209@fr.ibm.com> <1203413980.27296.9.camel@iris.sw.ru> <47BAA690.2010504@fr.ibm.com> <1203415549.27296.16.camel@iris.sw.ru>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
+Date: Tue, 19 Feb 2008 10:36:51 +0000
+Message-ID: <20080219103651.GB3898@ff.dom.local>
+References: <47B17BCD.2070903@katalix.com> <20080214130016.GA2583@ff.dom.local> <47BA0214.40703@katalix.com> <20080218.202934.79548477.davem@davemloft.net> <47BA9B50.8040404@katalix.com> <20080219103047.GA3898@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	containers@lists.osdl.org, devel@openvz.org
-To: "Denis V. Lunev" <den@openvz.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([195.212.29.140]:8039 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755490AbYBSKbM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 05:31:12 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate7.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m1JAV9ae021660
-	for <netdev@vger.kernel.org>; Tue, 19 Feb 2008 10:31:09 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m1JAV4ij1126400
-	for <netdev@vger.kernel.org>; Tue, 19 Feb 2008 10:31:06 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m1JAV0i1011224
-	for <netdev@vger.kernel.org>; Tue, 19 Feb 2008 10:31:00 GMT
-In-Reply-To: <1203415549.27296.16.camel@iris.sw.ru>
+Received: from fk-out-0910.google.com ([209.85.128.189]:47105 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753394AbYBSKgC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 05:36:02 -0500
+Received: by fk-out-0910.google.com with SMTP id z23so2319542fkz.5
+        for <netdev@vger.kernel.org>; Tue, 19 Feb 2008 02:35:58 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080219103047.GA3898@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denis V. Lunev wrote:
-> On Tue, 2008-02-19 at 10:51 +0100, Daniel Lezcano wrote:
->> Denis V. Lunev wrote:
->>> On Tue, 2008-02-19 at 10:14 +0100, Daniel Lezcano wrote:
->>>> Denis V. Lunev wrote:
->>>>> Default ARP parameters should be findable regardless of the context.
->>>>> Required to make inetdev_event working.
->>>>>
->>>>> Signed-off-by: Denis V. Lunev <den@openvz.org>
->>>>> ---
->>>>>  net/core/neighbour.c |    4 +---
->>>>>  1 files changed, 1 insertions(+), 3 deletions(-)
->>>>>
->>>>> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
->>>>> index c895ad4..45ed620 100644
->>>>> --- a/net/core/neighbour.c
->>>>> +++ b/net/core/neighbour.c
->>>>> @@ -1275,9 +1275,7 @@ static inline struct neigh_parms *lookup_neigh_params(struct neigh_table *tbl,
->>>>>  	struct neigh_parms *p;
->>>>>
->>>>>  	for (p = &tbl->parms; p; p = p->next) {
->>>>> -		if (p->net != net)
->>>>> -			continue;
->>>>> -		if ((p->dev && p->dev->ifindex == ifindex) ||
->>>>> +		if ((p->dev && p->dev->ifindex == ifindex && p->net == net) ||
->>>>>  		    (!p->dev && !ifindex))
->>>>>  			return p;
->>>>>  	}
->>>> If the values are:
->>>> 	p->dev == NULL
->>>> 	ifindex == 0
->>>> 	p->net != net
->>>>
->>>> The parms should not be taken into account and the looping must 
->>>> continue. But with this modification it is not the case, if we specify 
->>>> parms ifindex == 0, the first parms with the dev field set to NULL will 
->>>> be taken belonging or not to the right net.
->>> They should be taken. In the other case inetdev_event will fail for sure
->>> in the middle. You could check.
->>>
->>> These are ARP defaults and I do not see a problem for now to get them.
->> Because there is a parms default per namespace. So several instances of 
->> them per nd table. That was the initial approach with Eric's patchset.
->>
-> 
-> These changes are not in mainstream and I do not want to touch ARP as
-> this is not a simple thing. In reality ARP will be needed only when
-> we'll have a real device inside a namespace.
-> 
-> Right now I prefer to have minimal set of working changes to finish IP
-> and upper layers.
+On Tue, Feb 19, 2008 at 10:30:47AM +0000, Jarek Poplawski wrote:
+...
+> IMHO, just like I wrote earlier, the main problem is in ppp_generic(),
 
-core/neighbour.c is a common part between several protocols, especially 
-ipv4 and ipv6. If you modify this function just to fit your need in the 
-arp that will block me for ipv6 until you make parms default per 
-namespace. So please, find another way to do that, perhaps just add a 
-helper function.
+...or maybe ppp_generic.c? Whatever...
 
-I suggest you do parms default per namespace first, it is quite small 
-and easy :)
-
-Just let me the time to send the copy-parms-default function.
-
-Is it ok ?
-
-   -- Daniel
-
-
-
-  -- Daniel
+Jarek P.
