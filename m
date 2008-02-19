@@ -1,119 +1,144 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: tbench regression in 2.6.25-rc1
-Date: Tue, 19 Feb 2008 08:40:32 +0100
-Message-ID: <47BA87F0.1050709@cosmosbay.com>
-References: <47B52B95.3070607@cosmosbay.com>	 <1203057044.3027.134.camel@ymzhang> <47B59FFC.4030603@cosmosbay.com>	 <20080215.152200.145584182.davem@davemloft.net>	 <1203322358.3027.200.camel@ymzhang>	 <20040.1203356033@turing-police.cc.vt.edu> <1203403903.3248.29.camel@ymzhang>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [patch] pegasus.c
+Date: Tue, 19 Feb 2008 10:11:13 +0200 (EET)
+Message-ID: <alpine.DEB.1.00.0802191002500.3219@bender.nucleusys.com>
+References: <alpine.DEB.1.00.0801091222560.3171@bender.nucleusys.com> <47B06BF4.7010009@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Valdis.Kletnieks@vt.edu, David Miller <davem@davemloft.net>,
-	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762809AbYBSHky@vger.kernel.org>
-In-Reply-To: <1203403903.3248.29.camel@ymzhang>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811350-1862151011-1203408310=:3219"
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from n152-u15.cabletel.bg ([89.253.152.15]:38284 "EHLO
+	zztop.nucleusys.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750832AbYBSIL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 03:11:28 -0500
+In-Reply-To: <47B06BF4.7010009@garzik.org>
+Content-ID: <alpine.DEB.1.00.0802191005570.3219@bender.nucleusys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Zhang, Yanmin a =C3=A9crit :
-> On Mon, 2008-02-18 at 12:33 -0500, Valdis.Kletnieks@vt.edu wrote:=20
->> On Mon, 18 Feb 2008 16:12:38 +0800, "Zhang, Yanmin" said:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---1463811350-1862151011-1203408310=:3219
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; format=flowed
+Content-ID: <alpine.DEB.1.00.0802191005571.3219@bender.nucleusys.com>
+
+This is another attempt on sending the pegasus patch with Alpine.  I know 
+it's even worse, but i've attached gzip-ed version just in case.
+
+Here goes a brief description of what's changed:
+
+---
+This patch is fixing a driver bug triggered when malformed string is 
+passed to the 'devid' module parameter.  The expected format is:
+
+ 	"device_name:vendor_id:device_id:flags"
+
+but it turned out people often type:
+
+ 	"somename::0"
+
+instead of:
+
+ 	"somename:::0"
+
+which typically ends up dereferencing null pointer.
+
+
+Signed-off-by: Petko Manolov <petkan@nucleusys.com>
+---
+
+
+cheers,
+Petko
+
+
+On Mon, 11 Feb 2008, Jeff Garzik wrote:
+
+> Petko Manolov wrote:
+>>     Hi Jeff,
+>> 
+>> Attached you'll find a patch that is fixing a driver bug triggered when 
+>> malformed string is passed to the 'devid' module parameter.  The expected 
+>> format is:
 >>
->>> I also think __refcnt is the key. I did a new testing by adding 2 u=
-nsigned long
->>> pading before lastuse, so the 3 members are moved to next cache lin=
-e. The performance is
->>> recovered.
->>>
->>> How about below patch? Almost all performance is recovered with the=
- new patch.
->>>
->>> Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
->> Could you add a comment someplace that says "refcnt wants to be on a=
- different
->> cache line from input/output/ops or performance tanks badly", to war=
-n some
->> future kernel hacker who starts adding new fields to the structure?
-> Ok. Below is the new patch.
->=20
-> 1) Move tclassid under ops in case CONFIG_NET_CLS_ROUTE=3Dy. So sizeo=
-f(dst_entry)=3D200
-> no matter if CONFIG_NET_CLS_ROUTE=3Dy/n. I tested many patches on my =
-16-core tigerton by
-> moving tclassid to different place. It looks like tclassid could also=
- have impact on
-> performance.
-> If moving tclassid before metrics, or just don't move tclassid, the p=
-erformance isn't
-> good. So I move it behind metrics.
->=20
-> 2) Add comments before __refcnt.
->=20
-> If CONFIG_NET_CLS_ROUTE=3Dy, the result with below patch is about 18%=
- better than
-> the one without the patch.
->=20
-> If CONFIG_NET_CLS_ROUTE=3Dn, the result with below patch is about 30%=
- better than
-> the one without the patch.
->=20
-> Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
->=20
-> ---
->=20
-> --- linux-2.6.25-rc1/include/net/dst.h	2008-02-21 14:33:43.000000000 =
-+0800
-> +++ linux-2.6.25-rc1_work/include/net/dst.h	2008-02-22 12:52:19.00000=
-0000 +0800
-> @@ -52,15 +52,10 @@ struct dst_entry
->  	unsigned short		header_len;	/* more space at head required */
->  	unsigned short		trailer_len;	/* space to reserve at tail */
-> =20
-> -	u32			metrics[RTAX_MAX];
-> -	struct dst_entry	*path;
-> -
-> -	unsigned long		rate_last;	/* rate limiting for ICMP */
->  	unsigned int		rate_tokens;
-> +	unsigned long		rate_last;	/* rate limiting for ICMP */
-> =20
-> -#ifdef CONFIG_NET_CLS_ROUTE
-> -	__u32			tclassid;
-> -#endif
-> +	struct dst_entry	*path;
-> =20
->  	struct neighbour	*neighbour;
->  	struct hh_cache		*hh;
-> @@ -70,10 +65,20 @@ struct dst_entry
->  	int			(*output)(struct sk_buff*);
-> =20
->  	struct  dst_ops	        *ops;
-> -	=09
-> -	unsigned long		lastuse;
-> +
-> +	u32			metrics[RTAX_MAX];
-> +
-> +#ifdef CONFIG_NET_CLS_ROUTE
-> +	__u32			tclassid;
-> +#endif
-> +
-> +	/*
-> +	 * __refcnt wants to be on a different cache line from
-> +	 * input/output/ops or performance tanks badly
-> +	 */
->  	atomic_t		__refcnt;	/* client references	*/
->  	int			__use;
-> +	unsigned long		lastuse;
->  	union {
->  		struct dst_entry *next;
->  		struct rtable    *rt_next;
->=20
->=20
->=20
+>>     "device_name:vendor_id:device_id:flags"
+>> 
+>> but it turned out people often type:
+>>
+>>     "somename::0"
+>> 
+>> instead of:
+>>
+>>     "somename:::0"
+>
+> ACK but two process problems preventing application:
+>
+> * patch is base64-encoded
+>
+> * no signed-off-by included
+>
+>
+>
+---1463811350-1862151011-1203408310=:3219
+Content-Type: APPLICATION/OCTET-STREAM; NAME=pegasus.c.patch.gz
+Content-Transfer-Encoding: BASE64
+Content-ID: <alpine.DEB.1.00.0802191005100.3219@bender.nucleusys.com>
+Content-Description: 
+Content-Disposition: ATTACHMENT; FILENAME=pegasus.c.patch.gz
 
-I prefer this patch, but unfortunatly your perf numbers are for 64 bits=
- kernels.
+H4sICL2MukcAA3BlZ2FzdXMuYy5wYXRjaAClU11v0zAUfU5/xaXSWNI4bVJK
+1iWqNFgnUWkgJNheAEUhcTuLxI5sp+sL/53rJO1AKaITeWj9cXzuOffD8zzI
+JdtSqSac6kmtvk8quklVrcbZWEi2saa+P/f8wPMvIZhGQRi9no79/Qeuj/cD
+13X/TnOEYd5juLoCL5iFAQmm4DaL6QzwUOlUswy2guVQpVLRhOV29pBKGLHc
+GcAALLYG29biB+WwQDxiKvslywkMo6HjwIsFfLi7vUWsZfG0pAhqwPHAtWih
+KP5ZG6EFUCljBE1G0MC4eIRKMK4V4iEFXhcFaCpLxlNNcxOJ8c1o8jwFW8pz
+IdGEQbKyKmiCD7Soi5aANFACQegcF+g+L15OtyyjJ8bzrHWRblQfarj/qctt
+dGGkQ3wE/A8hWBVmiq+FPTxTEXD6CK0dOFME2kzCagn+7syf7cj+8reTJnpk
+truvfEiQEbqv7dbEVJpA+3sozZ6pWTYUKBG6Fr0ISWg6dD4nF6c0qGVJqmvJ
+46ZX16jYZgs/BhyRBMMg+gv7NjYKYmCu67TG+7eYwwbUu+zysHjS38d0mVk8
+GYs7O/NXrZ3LkATBSX66ucZjZajLVGcPyb7Md5/eJsub+9X1TbJaJu/ffL5+
+1+3j/lOW3x/V3oN9lCKvM/2nftNw+9TiGnsmwpNDx5RpgckucVDPzaP8HEok
+KagxhXnEQcaOMHX9aQrTucZphwQJmIaDCNzYJhvO4BdrcxYvLQUAAA==
 
-Could you please test now with 32 bits one ?
+---1463811350-1862151011-1203408310=:3219
+Content-Type: TEXT/x-diff; name=pegasus.c.patch
+Content-Transfer-Encoding: BASE64
+Content-ID: <alpine.DEB.1.00.0802191011130.3219@bender.nucleusys.com>
+Content-Description: 
+Content-Disposition: attachment; filename=pegasus.c.patch
 
-Thank you
+LS0tIGRyaXZlcnMvbmV0L3VzYi9wZWdhc3VzLmMub3JpZwkyMDA4LTAxLTA5
+IDEyOjE2OjUyLjAwMDAwMDAwMCArMDIwMA0KKysrIGRyaXZlcnMvbmV0L3Vz
+Yi9wZWdhc3VzLmMJMjAwOC0wMS0wOSAxMjoxNjo1OC4wMDAwMDAwMDAgKzAy
+MDANCkBAIC0xNDYxLDEyICsxNDYxLDI0IEBAIHN0YXRpYyB2b2lkIHBhcnNl
+X2lkKGNoYXIgKmlkKQ0KIA0KIAlpZiAoKHRva2VuID0gc3Ryc2VwKCZpZCwg
+IjoiKSkgIT0gTlVMTCkNCiAJCW5hbWUgPSB0b2tlbjsNCisJZWxzZQ0KKwkJ
+Z290byBlcnI7DQogCS8qIG5hbWUgbm93IHBvaW50cyB0byBhIG51bGwgdGVy
+bWluYXRlZCBzdHJpbmcqLw0KIAlpZiAoKHRva2VuID0gc3Ryc2VwKCZpZCwg
+IjoiKSkgIT0gTlVMTCkNCiAJCXZlbmRvcl9pZCA9IHNpbXBsZV9zdHJ0b3Vs
+KHRva2VuLCBOVUxMLCAxNik7DQorCWVsc2UNCisJCWdvdG8gZXJyOw0KKw0K
+IAlpZiAoKHRva2VuID0gc3Ryc2VwKCZpZCwgIjoiKSkgIT0gTlVMTCkNCiAJ
+CWRldmljZV9pZCA9IHNpbXBsZV9zdHJ0b3VsKHRva2VuLCBOVUxMLCAxNik7
+DQotCWZsYWdzID0gc2ltcGxlX3N0cnRvdWwoaWQsIE5VTEwsIDE2KTsNCisJ
+ZWxzZQ0KKwkJZ290byBlcnI7DQorDQorCWlmIChpZCAhPSBOVUxMKQ0KKwkJ
+ZmxhZ3MgPSBzaW1wbGVfc3RydG91bChpZCwgTlVMTCwgMTYpOw0KKwllbHNl
+DQorCQlnb3RvIGVycjsNCisNCiAJcHJfaW5mbygiJXM6IG5ldyBkZXZpY2Ug
+JXMsIHZlbmRvciBJRCAweCUwNHgsIGRldmljZSBJRCAweCUwNHgsIGZsYWdz
+OiAweCV4XG4iLA0KIAkgICAgICAgIGRyaXZlcl9uYW1lLCBuYW1lLCB2ZW5k
+b3JfaWQsIGRldmljZV9pZCwgZmxhZ3MpOw0KIA0KQEAgLTE0NzYsNiArMTQ4
+OCw3IEBAIHN0YXRpYyB2b2lkIHBhcnNlX2lkKGNoYXIgKmlkKQ0KIAkJcmV0
+dXJuOw0KIA0KIAlmb3IgKGk9MDsgdXNiX2Rldl9pZFtpXS5uYW1lOyBpKysp
+Ow0KKw0KIAl1c2JfZGV2X2lkW2ldLm5hbWUgPSBuYW1lOw0KIAl1c2JfZGV2
+X2lkW2ldLnZlbmRvciA9IHZlbmRvcl9pZDsNCiAJdXNiX2Rldl9pZFtpXS5k
+ZXZpY2UgPSBkZXZpY2VfaWQ7DQpAQCAtMTQ4Myw2ICsxNDk2LDExIEBAIHN0
+YXRpYyB2b2lkIHBhcnNlX2lkKGNoYXIgKmlkKQ0KIAlwZWdhc3VzX2lkc1tp
+XS5tYXRjaF9mbGFncyA9IFVTQl9ERVZJQ0VfSURfTUFUQ0hfREVWSUNFOw0K
+IAlwZWdhc3VzX2lkc1tpXS5pZFZlbmRvciA9IHZlbmRvcl9pZDsNCiAJcGVn
+YXN1c19pZHNbaV0uaWRQcm9kdWN0ID0gZGV2aWNlX2lkOw0KKw0KKwlyZXR1
+cm47DQorDQorZXJyOg0KKwlwcl9pbmZvKCJtYWxmb3JtZWQgJ2RldmlkJyBt
+b2R1bGUgcGFyYW1ldGVyXG4iKTsNCiB9DQogDQogc3RhdGljIGludCBfX2lu
+aXQgcGVnYXN1c19pbml0KHZvaWQpDQo=
+
+---1463811350-1862151011-1203408310=:3219--
