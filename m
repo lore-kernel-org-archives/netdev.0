@@ -1,33 +1,39 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] cls_u32 u32_classify()
-Date: Tue, 19 Feb 2008 06:54:48 -0500
-Message-ID: <1203422088.4436.229.camel@localhost>
-References: <47A078AE.6060500@bspu.unibel.by>
-	 <20080218.214600.94322068.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.26 0/5][SYSCTL]: Make some sysctl RO in net namespaces.
+Date: Tue, 19 Feb 2008 14:54:55 +0300
+Message-ID: <47BAC38F.10100@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: mahatma@eu.by, mahatma@bspu.unibel.by, netdev@vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.183]:25780 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750877AbYBSLyv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 06:54:51 -0500
-Received: by py-out-1112.google.com with SMTP id u52so2570412pyb.10
-        for <netdev@vger.kernel.org>; Tue, 19 Feb 2008 03:54:50 -0800 (PST)
-In-Reply-To: <20080218.214600.94322068.davem@davemloft.net>
+Received: from sacred.ru ([62.205.161.221]:56654 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750825AbYBSLzI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Feb 2008 06:55:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-18-02 at 21:46 -0800, David Miller wrote:
+Hi, David.
 
+Some time ago, when I made the net.core.somaxconn ctl per-namespace,
+you told that the approach I used to make some ctl tables read-only
+in namespace was not very good and said to improve it. After looking
+at other code, I decided, that many ctl variables will have to be 
+read-only in namespace, so we need some generic way to do this.
 
-> Can some u32 expert review this?
+So, here's the patchset, that allows to create ctl tables, that are
+read-only in some namespace in general (and in some net namespace in 
+particular). I tried to make it work the way not to consume extra
+memory at run time.
 
-http://marc.info/?l=linux-netdev&m=120178638323045&w=2
+This patchset is related to net namespaces only, but on the other hand
+it affects the core sysctl engine. What is your opinion about this set:
+should I send these patches (or some of them) to Andrew instead and wait 
+till it appears in mainline (and sequentially in net tree) or will you
+accept this one in net-2.6.26?
 
-cheers,
-jamal
+Thanks,
+Pavel
 
