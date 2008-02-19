@@ -1,130 +1,58 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [2.6.25-rc2] e100: Trying to free already-free
- IRQ 11 during suspend ...
-Date: Tue, 19 Feb 2008 09:18:46 -0800
-Message-ID: <47BB0F76.1040808@intel.com>
-References: <200802171536.51695.arvidjaar@mail.ru>
-	<20080218050113.1b4b0897.akpm@linux-foundation.org>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH] [2.6.25-rc2] igb: Fix panic with NICs with 1000BASE-SX PHY
+Date: Tue, 19 Feb 2008 12:46:03 -0500
+Message-ID: <20080219174603.GN856@gospo.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Andrey Borzenkov <arvidjaar@mail.ru>, linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20080218050113.1b4b0897.akpm@linux-foundation.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: auke-jan.h.kok@intel.com, jeff@garzik.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:45735 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753840AbYBSRqU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Feb 2008 12:46:20 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
-> On Sun, 17 Feb 2008 15:36:50 +0300 Andrey Borzenkov <arvidjaar@mail.ru> wrote:
-> 
->> ... and possibly reboot/poweroff (it flows by too fast to be legible).
->>
->> [ 8803.850634] ACPI: Preparing to enter system sleep state S3
->> [ 8803.853141] Suspending console(s)
->> [ 8805.287505] serial 00:09: disabled
->> [ 8805.291564] Trying to free already-free IRQ 11
->> [ 8805.291579] Pid: 6920, comm: pm-suspend Not tainted 2.6.25-rc2-1avb #2
->> [ 8805.291628]  [<c0152127>] free_irq+0xb7/0x130
->> [ 8805.291675]  [<c024bd80>] e100_suspend+0xc0/0x100
->> [ 8805.291724]  [<c01eaa36>] pci_device_suspend+0x26/0x70
->> [ 8805.291747]  [<c0243674>] suspend_device+0x94/0xd0
->> [ 8805.291763]  [<c02439a3>] device_suspend+0x153/0x240
->> [ 8805.291784]  [<c014314f>] suspend_devices_and_enter+0x4f/0xf0
->> [ 8805.291808]  [<c0143a5f>] ? freeze_processes+0x3f/0x80
->> [ 8805.291825]  [<c01432fa>] enter_state+0xaa/0x140
->> [ 8805.291840]  [<c014341f>] state_store+0x8f/0xd0
->> [ 8805.291852]  [<c0143390>] ? state_store+0x0/0xd0
->> [ 8805.291866]  [<c01d3404>] kobj_attr_store+0x24/0x30
->> [ 8805.291901]  [<c01b547b>] sysfs_write_file+0xbb/0x110
->> [ 8805.291936]  [<c0177d79>] vfs_write+0x99/0x130
->> [ 8805.291963]  [<c01b53c0>] ? sysfs_write_file+0x0/0x110
->> [ 8805.291979]  [<c01782fd>] sys_write+0x3d/0x70
->> [ 8805.291998]  [<c010409a>] sysenter_past_esp+0x5f/0xa5
->> [ 8805.292038]  =======================
->> [ 8805.347640] ACPI: PCI interrupt for device 0000:00:06.0 disabled
->> [ 8805.361128] ACPI: PCI interrupt for device 0000:00:02.0 disabled
->> [ 8805.376670]  hwsleep-0322 [00] enter_sleep_state     : Entering sleep state [S3]
->> [ 8805.376670] Back to C!
->>
->> Interface is unused normally (only for netconsole sometimes). dmesg and config
->> attached.
-> 
-> Does reverting this:
-> 
-> commit 8543da6672b0994921f014f2250e27ae81645580
-> Author: Auke Kok <auke-jan.h.kok@intel.com>
-> Date:   Wed Dec 12 16:30:42 2007 -0800
-> 
->     e100: free IRQ to remove warningwhenrebooting
->     
-> with this patch:
-> 
-> --- a/drivers/net/e100.c~revert-1
-> +++ a/drivers/net/e100.c
-> @@ -2804,9 +2804,8 @@ static int e100_suspend(struct pci_dev *
->  		pci_enable_wake(pdev, PCI_D3cold, 0);
->  	}
->  
-> -	free_irq(pdev->irq, netdev);
-> -
->  	pci_disable_device(pdev);
-> +	free_irq(pdev->irq, netdev);
->  	pci_set_power_state(pdev, PCI_D3hot);
->  
->  	return 0;
-> @@ -2848,8 +2847,6 @@ static void e100_shutdown(struct pci_dev
->  		pci_enable_wake(pdev, PCI_D3cold, 0);
->  	}
->  
-> -	free_irq(pdev->irq, netdev);
-> -
->  	pci_disable_device(pdev);
->  	pci_set_power_state(pdev, PCI_D3hot);
->  }
-> _
-> 
-> fix it?
-> 
->> Hmm ... after resume device has disappeared at all ...
->>
->> {pts/1}% cat /proc/interrupts
->>            CPU0
->>   0:    1290492    XT-PIC-XT        timer
->>   1:       6675    XT-PIC-XT        i8042
->>   2:          0    XT-PIC-XT        cascade
->>   3:          2    XT-PIC-XT
->>   4:          2    XT-PIC-XT
->>   5:          3    XT-PIC-XT
->>   7:          4    XT-PIC-XT        irda0
->>   8:          0    XT-PIC-XT        rtc0
->>   9:        583    XT-PIC-XT        acpi
->>  10:          2    XT-PIC-XT
->>  11:      31483    XT-PIC-XT        yenta, yenta, yenta, ohci_hcd:usb1, ALI 5451, pcmcia0.0
->>  12:      28070    XT-PIC-XT        i8042
->>  14:      21705    XT-PIC-XT        ide0
->>  15:      82123    XT-PIC-XT        ide1
->> NMI:          0   Non-maskable interrupts
->> TRM:          0   Thermal event interrupts
->> SPU:          0   Spurious interrupts
->> ERR:          0
-> 
-> I hope that's not a separate bug...
+From: Bill Hayes <bill.hayes@hp.com>
 
-I'll take a look at this as well. thanks for reporting.
+Auke, Jeff and David,
 
-Auke
+This patch eliminates a kernel panic with the igb driver in 2.6.25-rc2 when 
+running on a Intel 82575 Ethernet controller with a 1000BASE-SX PHY.  The 
+panic does not happen with the 1000BASE-T PHY, only with a SX connection.  
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2008.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+Signed-off-by: Bill Hayes <bill.hayes@hp.com>
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+
+ drivers/net/igb/igb_main.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index d4eb8e2..666c8f0 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -843,7 +843,8 @@ void igb_reset(struct igb_adapter *adapter)
+ 	wr32(E1000_VET, ETHERNET_IEEE_VLAN_TYPE);
+ 
+ 	igb_reset_adaptive(&adapter->hw);
+-	adapter->hw.phy.ops.get_phy_info(&adapter->hw);
++	if (adapter->hw.phy.ops.get_phy_info)
++		adapter->hw.phy.ops.get_phy_info(&adapter->hw);
+ 	igb_release_manageability(adapter);
+ }
+ 
+@@ -2083,7 +2084,8 @@ static void igb_set_multi(struct net_device *netdev)
+ static void igb_update_phy_info(unsigned long data)
+ {
+ 	struct igb_adapter *adapter = (struct igb_adapter *) data;
+-	adapter->hw.phy.ops.get_phy_info(&adapter->hw);
++	if (adapter->hw.phy.ops.get_phy_info)
++		adapter->hw.phy.ops.get_phy_info(&adapter->hw);
+ }
+ 
+ /**
+
+
+
