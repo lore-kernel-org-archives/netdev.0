@@ -1,340 +1,182 @@
-From: "Reither Robert" <Robert.Reither@av-digital.at>
-Subject: AW: Problem receiving multicast/promiscuous-mode with kernel.2.6.24
-Date: Tue, 19 Feb 2008 09:40:03 +0100
-Message-ID: <BA41E8A07B73A041948C2E3A4EF6239D062F17@av-digital-exch.avdigital.at>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Subject: Re: tbench regression in 2.6.25-rc1
+Date: Tue, 19 Feb 2008 16:40:19 +0800
+Message-ID: <1203410419.3248.39.camel@ymzhang>
+References: <47B52B95.3070607@cosmosbay.com>
+	 <1203057044.3027.134.camel@ymzhang> <47B59FFC.4030603@cosmosbay.com>
+	 <20080215.152200.145584182.davem@davemloft.net>
+	 <1203322358.3027.200.camel@ymzhang>
+	 <20080218111101.6d590c04.dada1@cosmosbay.com>
+	 <1203389095.3248.6.camel@ymzhang>  <47BA86C8.4050207@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Stevens" <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.av-digital.at ([88.116.237.238]:12366 "EHLO
-	av-digital-exch.avdigital.at" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750796AbYBSIkH convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Feb 2008 03:40:07 -0500
-Content-Class: urn:content-classes:message
+Received: from mga05.intel.com ([192.55.52.89]:12115 "EHLO
+	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750851AbYBSIl5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 03:41:57 -0500
+In-Reply-To: <47BA86C8.4050207@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Visit AVD on prolight+sound in Frankfurt from 12.-15. March 2008 - Hall 8.0, Stand G16
-________________________________________________________________________
+On Tue, 2008-02-19 at 08:35 +0100, Eric Dumazet wrote:
+> Zhang, Yanmin a =E9crit :
+> > On Mon, 2008-02-18 at 11:11 +0100, Eric Dumazet wrote:
+> >> On Mon, 18 Feb 2008 16:12:38 +0800
+> >> "Zhang, Yanmin" <yanmin_zhang@linux.intel.com> wrote:
+> >>
+> >>> On Fri, 2008-02-15 at 15:22 -0800, David Miller wrote:
+> >>>> From: Eric Dumazet <dada1@cosmosbay.com>
+> >>>> Date: Fri, 15 Feb 2008 15:21:48 +0100
+> >>>>
+> >>>>> On linux-2.6.25-rc1 x86_64 :
+> >>>>>
+> >>>>> offsetof(struct dst_entry, lastuse)=3D0xb0
+> >>>>> offsetof(struct dst_entry, __refcnt)=3D0xb8
+> >>>>> offsetof(struct dst_entry, __use)=3D0xbc
+> >>>>> offsetof(struct dst_entry, next)=3D0xc0
+> >>>>>
+> >>>>> So it should be optimal... I dont know why tbench prefers __ref=
+cnt being=20
+> >>>>> on 0xc0, since in this case lastuse will be on a different cach=
+e line...
+> >>>>>
+> >>>>> Each incoming IP packet will need to change lastuse, __refcnt a=
+nd __use,=20
+> >>>>> so keeping them in the same cache line is a win.
+> >>>>>
+> >>>>> I suspect then that even this patch could help tbench, since it=
+ avoids=20
+> >>>>> writing lastuse...
+> >>>> I think your suspicions are right, and even moreso
+> >>>> it helps to keep __refcnt out of the same cache line
+> >>>> as input/output/ops which are read-almost-entirely :-
+> >>> I think you are right. The issue is these three variables sharing=
+ the same cache line
+> >>> with input/output/ops.
+> >>>
+> >>>> )
+> >>>>
+> >>>> I haven't done an exhaustive analysis, but it seems that
+> >>>> the write traffic to lastuse and __refcnt are about the
+> >>>> same.  However if we find that __refcnt gets hit more
+> >>>> than lastuse in this workload, it explains the regression.
+> >>> I also think __refcnt is the key. I did a new testing by adding 2=
+ unsigned long
+> >>> pading before lastuse, so the 3 members are moved to next cache l=
+ine. The performance is
+> >>> recovered.
+> >>>
+> >>> How about below patch? Almost all performance is recovered with t=
+he new patch.
+> >>>
+> >>> Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
+> >>>
+> >>> ---
+> >>>
+> >>> --- linux-2.6.25-rc1/include/net/dst.h	2008-02-21 14:33:43.000000=
+000 +0800
+> >>> +++ linux-2.6.25-rc1_work/include/net/dst.h	2008-02-21 14:36:22.0=
+00000000 +0800
+> >>> @@ -52,11 +52,10 @@ struct dst_entry
+> >>>  	unsigned short		header_len;	/* more space at head required */
+> >>>  	unsigned short		trailer_len;	/* space to reserve at tail */
+> >>> =20
+> >>> -	u32			metrics[RTAX_MAX];
+> >>> -	struct dst_entry	*path;
+> >>> -
+> >>> -	unsigned long		rate_last;	/* rate limiting for ICMP */
+> >>>  	unsigned int		rate_tokens;
+> >>> +	unsigned long		rate_last;	/* rate limiting for ICMP */
+> >>> +
+> >>> +	struct dst_entry	*path;
+> >>> =20
+> >>>  #ifdef CONFIG_NET_CLS_ROUTE
+> >>>  	__u32			tclassid;
+> >>> @@ -70,10 +69,12 @@ struct dst_entry
+> >>>  	int			(*output)(struct sk_buff*);
+> >>> =20
+> >>>  	struct  dst_ops	        *ops;
+> >>> -	=09
+> >>> -	unsigned long		lastuse;
+> >>> +
+> >>> +	u32			metrics[RTAX_MAX];
+> >>> +
+> >>>  	atomic_t		__refcnt;	/* client references	*/
+> >>>  	int			__use;
+> >>> +	unsigned long		lastuse;
+> >>>  	union {
+> >>>  		struct dst_entry *next;
+> >>>  		struct rtable    *rt_next;
+> >>>
+> >>>
+> >> Well, after this patch, we grow dst_entry by 8 bytes :
+> > With my .config, it doesn't grow. Perhaps because of CONFIG_NET_CLS=
+_ROUTE, I don't
+> > enable it. I will move tclassid under ops.
+> >=20
+> >> sizeof(struct dst_entry)=3D0xd0
+> >> offsetof(struct dst_entry, input)=3D0x68
+> >> offsetof(struct dst_entry, output)=3D0x70
+> >> offsetof(struct dst_entry, __refcnt)=3D0xb4
+> >> offsetof(struct dst_entry, lastuse)=3D0xc0
+> >> offsetof(struct dst_entry, __use)=3D0xb8
+> >> sizeof(struct rtable)=3D0x140
+> >>
+> >>
+> >> So we dirty two cache lines instead of one, unless your cpu have 1=
+28 bytes cache lines ?
+> >>
+> >> I am quite suprised that my patch to not change lastuse if already=
+ set to jiffies changes nothing...
+> >>
+> >> If you have some time, could you also test this (unrelated) patch =
+?
+> >>
+> >> We can avoid dirty all the time a cache line of loopback device.
+> >>
+> >> diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+> >> index f2a6e71..0a4186a 100644
+> >> --- a/drivers/net/loopback.c
+> >> +++ b/drivers/net/loopback.c
+> >> @@ -150,7 +150,10 @@ static int loopback_xmit(struct sk_buff *skb,=
+ struct net_device *dev)
+> >>                 return 0;
+> >>         }
+> >>  #endif
+> >> -       dev->last_rx =3D jiffies;
+> >> +#ifdef CONFIG_SMP
+> >> +       if (dev->last_rx !=3D jiffies)
+> >> +#endif
+> >> +               dev->last_rx =3D jiffies;
+> >> =20
+> >>         /* it's OK to use per_cpu_ptr() because BHs are off */
+> >>         pcpu_lstats =3D netdev_priv(dev);
+> >>
+> > Although I didn't test it, I don't think it's ok. The key is __refc=
+nt shares the same
+> > cache line with ops/input/output.
+> >=20
+>=20
+> Note it was unrelated to struct dst, but dirtying of one cache line o=
+f=20
+> 'loopback netdevice'
+>=20
+> I tested it, and tbench result was better with this patch : 890 MB/s =
+instead=20
+> of 870 MB/s on a bi dual core machine.
+I tested your new patch and it doesn't help tbench.
+
+On my 8-core stoakley machine, the regression is only 5%, but it's 30% =
+on 16-core tigerton.
+It looks like the scalability is poor.
+
+>=20
+>=20
+> I was curious of the potential gain on your 16 cores (4x4) machine.
 
 
-
-Hi,
-
-ok, i managed to shrink down my code to show the behaviour in small size ;-)
-
-It shows the same effect as my app, sometimes i get all the packets after a mc_join, sometimes i get only the timeouts.
-I find no predictive behaviour, i'm really desperate ...
-Hope you can see the effect too .. Do u need an app sending the multicast VLAN packets ?
-
-Robert
-
------------------------------------------
-
-#include <stdint.h>
-#include <sys/select.h>
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <errno.h>
-#include <netdb.h>
-
-//#include <linux/if.h>
-#include <linux/sockios.h>
-#include <sys/ioctl.h>
-
-//#define JOIN_SINGLE_IF
-#undef JOIN_SINGLE_IF
-
-
-#define PORT 10500
-
-/*
-** Try to receive VLAN-tagged UDP multicast packets 
-** VLAN-ID:3, VLAN_PRI=6, Addr: 224.1.9.0, dstnport 10500
-**
-** Kernel used: 2.6.24
-**
-** HW: VIA Epia 5000, VIA Epia LT (VIA Rhine II and VIA VT6107)
-**
-** Additional network settings:
-** vconfig add eth0 3
-** vconfig set_egress_map eth0.3 6 6
-** ifconfig eth0.3 10.0.0.1
-** route add -net 224.0.0.0 netmask 240.0.0.0 dev eth0.3
-**
-*/
-
-#define MAX_PAYLOAD 1000
-
-/* 
- * Network representation of the rtp header.
- */
-
-struct rtp_header {
-#ifdef WORDS_BIGENDIAN
-        uint16_t version:2;
-        uint16_t padbit:1;
-        uint16_t extbit:1;
-        uint16_t cc:4;
-        uint16_t markbit:1;
-        uint16_t paytype:7;
-#else
-        uint16_t cc:4;
-        uint16_t extbit:1;
-        uint16_t padbit:1;
-        uint16_t version:2;
-        uint16_t paytype:7;
-        uint16_t markbit:1;
-#endif
-        uint16_t seq_number;
-        uint32_t timestamp;
-        uint32_t ssrc;
-
-	/* In fact we rely on rtp_header being not larger than 
-	 * the minimum header length. So, there's no contributing
-	 * sync source field here. */
-};
-
-struct rtp_packet {
-	struct rtp_header header;
-	unsigned char payload[MAX_PAYLOAD];
-};
-
-
-#ifdef WORDS_BIGENDIAN
-#error Sorry this is not supported on bigendian targets.
-#endif
-
-#define BYTE0(x) ((x) & 0xff)
-#define BYTE1(x) (((x) >> 8)  & 0xff)
-#define BYTE2(x) (((x) >> 16)  & 0xff)
-#define BYTE3(x) (((x) >> 24)  & 0xff)
-
-static char *my_inet_ntoa (char *buf, size_t n, struct in_addr in)
-{
-	if (snprintf (buf, n, "%u.%u.%u.%u", BYTE0(in.s_addr), BYTE1(in.s_addr), BYTE2(in.s_addr), BYTE3(in.s_addr))  >= n) {
-		return NULL;
-	}
-	return buf;
-}
-
-static int set_non_blocking (int fd)
-{
-	int flags;
-
-	if ((flags = fcntl (fd, F_GETFL)) < 0) {
-		perror ("fcntl getflags ()");
-		return -1;
-	}
-	if (fcntl (fd, F_SETFL, flags | O_NONBLOCK) < 0) {
-		perror ("fcntl setflags ()");
-		return -1;
-	}
-
-	return fd;
-}
-
-int main()
-{
-  int fd;
-  fd_set read_fds;
-  struct timespec timeout;
-  
-  while(1)
-  {
-    int i, ret;
-
-  	if ((fd = subscribe_udp (PORT)) < 0) {
-  		printf("Could not register UDP port.\n");
-   		return 1;
-    }
-    	
-  
-  	if (join_multicast_group (fd, "224.1.9.0") < 0)
-  	{
-  	  printf("Error joining multicast !\n");
-  	  return 1;  
-  	}
-
-    for(i=0;i<10;i++)
-    {
-
-      FD_ZERO (&read_fds);
-    	FD_SET (fd, &read_fds);
-    	timeout.tv_sec = 1;
-    	timeout.tv_nsec = 0;
-  
-  
-  		ret = pselect (fd+1, &read_fds, NULL, NULL, &timeout, NULL);
-  
-  
-  		if (ret < 0) {
-  			if (errno == EINTR) {
-  				continue;
-  			} else {
-  				printf("select failed.\n");
-  				return 1;
-  			}
-  		}
-
-      if (FD_ISSET(fd, &read_fds))
-      {
-        ssize_t len;
-      	struct rtp_packet p; 
-      	struct sockaddr_in from;
-      	socklen_t fromlen;
-      	char from_ip[20];
-        
-    	  len = recvfrom (fd, &p, sizeof (p), 0, (struct sockaddr*) &from, &fromlen);
-      	my_inet_ntoa (from_ip, sizeof (from_ip), from.sin_addr);
-    
-        printf("Received data packet from %s, length %u\n", from_ip, len);
-      }
-      else
-      {
-        printf("Got timeout receiving Multicast packets !\n");  
-      }
-    } /* loop 10 */
-  
-    if (leave_multicast_group(fd, "224.1.9.0") < 0)
-  	{
-  	  printf("Error leaving multicast !\n");
-  	  return 1;  
-  	}
-    close(fd);	
-  }
-}
-
-int subscribe_udp (int port)
-{
-	int s; 
-
-	s = create_listening_socket (port, 1);
-	return s;
-}
-
-int create_listening_socket (int listen_port, int udp) 
-{
-	struct sockaddr_in a;
-	int s;
-	int yes;
-	if ((s = socket (AF_INET, udp ? SOCK_DGRAM : SOCK_STREAM, 0)) < 0) {
-		perror ("socket");
-		return -1;
-	}
-	yes = 1;
-	if (setsockopt (s, SOL_SOCKET, SO_REUSEADDR,
-		 (char *) &yes, sizeof (yes)) < 0) {
-		perror ("setsockopt reuseaddr");
-		close (s);
-		return -1;
-	}
-
-	memset (&a, 0, sizeof (a));
-
-	a.sin_port = htons (listen_port);
-	a.sin_family = AF_INET;
-	if (bind (s, (struct sockaddr *) &a, sizeof (a)) < 0) {
-		perror ("bind");
-		close (s);
-		return -1;
-	}
-	if (set_non_blocking (s) < 0) {
-		close (s);
-		return -1;
-	}
-
-	if (!udp) {
-		listen (s, 10);
-	}
-	return s;
-}
-
-int join_multicast_group (int fd, const char *mc_address)
-{
-	struct ip_mreqn imr;
-
-  printf("In join_mc_group: %s\n",mc_address);
-
-
-  if (inet_pton(AF_INET, mc_address, &imr.imr_multiaddr) != 1) {
-//old	if (inet_aton (mc_address, &imr.imr_multiaddr) == 0) {
-		printf ( "join_mc:Bad IP address format: %s\n", mc_address);
-		return -1;
-	}
-
-	imr.imr_address.s_addr = INADDR_ANY;
-
-#ifdef JOIN_SINGLE_IF
-	imr.imr_ifindex = if_nametoindex("eth0.3"); // 0;
-//	imr.imr_ifindex = if_nametoindex("eth0"); // Testing
-  if (imr.imr_ifindex == 0)
-  {
-		printf ("join_mc:Got no interface-number from name !\n");
-		return -1;    
-  }
-#else
-	imr.imr_ifindex = 0;
-#endif
-
-  // Check if already member
-	if (setsockopt (fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &imr, sizeof (imr)) < 0)
-	{
-	  if (errno == EADDRINUSE) // Address already joined for IP_ADD_MEMBERSHIP
-	    printf("Already joined IP_ADD_MEMBERSHIP for %s.\n", mc_address);
-    else
-    {
-  		perror ("getsockopt ip_add_membership");
-  		return -1;
-	  }
-	}
-	return 0;
-}
-
-int leave_multicast_group(int fd, const char *mc_address)
-{
-	struct ip_mreqn imr;
-
-  printf("In leave_mc_group: %s\n",mc_address);
-
-  if (inet_pton(AF_INET, mc_address, &imr.imr_multiaddr) != 1) {
-//	if (inet_aton (mc_address, &imr.imr_multiaddr) == 0) {
-		printf ("leave_mc:Bad IP address format: %s\n", mc_address);
-		return -1;
-	}
-
-	imr.imr_address.s_addr = INADDR_ANY;
-
-#ifdef JOIN_SINGLE_IF
-	imr.imr_ifindex = if_nametoindex("eth0.3"); // 0 VLAN_ID ist aber vernderbar !!!!!
-//	imr.imr_ifindex = if_nametoindex("eth0"); // 0
-  if (imr.imr_ifindex == 0)
-  {
-		printf ("leave_mc:Got no interface-namber from name !\n");
-		return -1;    
-  }
-#else
-	imr.imr_ifindex = 0;
-#endif
-
-	if (setsockopt (fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &imr, sizeof (imr)) < 0) {
-		perror ("setsockopt ip_drop_membership");
-		return -1;
-	}
-  return 0;
-}
