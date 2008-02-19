@@ -1,150 +1,169 @@
-From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Subject: Re: tbench regression in 2.6.25-rc1
-Date: Tue, 19 Feb 2008 10:44:55 +0800
-Message-ID: <1203389095.3248.6.camel@ymzhang>
-References: <47B52B95.3070607@cosmosbay.com>
-	 <1203057044.3027.134.camel@ymzhang> <47B59FFC.4030603@cosmosbay.com>
-	 <20080215.152200.145584182.davem@davemloft.net>
-	 <1203322358.3027.200.camel@ymzhang>
-	 <20080218111101.6d590c04.dada1@cosmosbay.com>
+From: Joonwoo Park <joonwpark81@gmail.com>
+Subject: Re: [Bugme-new] [Bug 9920] New: kernel panic when using ebtables
+	redirect target
+Date: Tue, 19 Feb 2008 11:53:24 +0900
+Message-ID: <20080219025324.GA27084@ehus.geninetworks.com>
+References: <bug-9920-10286@http.bugzilla.kernel.org/> <20080208175942.a8b495ac.akpm@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:50192 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754879AbYBSCsI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2008 21:48:08 -0500
-In-Reply-To: <20080218111101.6d590c04.dada1@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	mingching.tiew@redtone.com
+To: Andrew Morton <akpm@kernel.org>, netfilter-devel@vger.kernel.org,
+	davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080208175942.a8b495ac.akpm@kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2008-02-18 at 11:11 +0100, Eric Dumazet wrote:
-> On Mon, 18 Feb 2008 16:12:38 +0800
-> "Zhang, Yanmin" <yanmin_zhang@linux.intel.com> wrote:
+On Fri, Feb 08, 2008 at 05:59:42PM -0800, Andrew Morton wrote:
+> On Fri,  8 Feb 2008 17:40:20 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
 > 
-> > On Fri, 2008-02-15 at 15:22 -0800, David Miller wrote:
-> > > From: Eric Dumazet <dada1@cosmosbay.com>
-> > > Date: Fri, 15 Feb 2008 15:21:48 +0100
-> > > 
-> > > > On linux-2.6.25-rc1 x86_64 :
-> > > > 
-> > > > offsetof(struct dst_entry, lastuse)=0xb0
-> > > > offsetof(struct dst_entry, __refcnt)=0xb8
-> > > > offsetof(struct dst_entry, __use)=0xbc
-> > > > offsetof(struct dst_entry, next)=0xc0
-> > > > 
-> > > > So it should be optimal... I dont know why tbench prefers __refcnt being 
-> > > > on 0xc0, since in this case lastuse will be on a different cache line...
-> > > > 
-> > > > Each incoming IP packet will need to change lastuse, __refcnt and __use, 
-> > > > so keeping them in the same cache line is a win.
-> > > > 
-> > > > I suspect then that even this patch could help tbench, since it avoids 
-> > > > writing lastuse...
-> > > 
-> > > I think your suspicions are right, and even moreso
-> > > it helps to keep __refcnt out of the same cache line
-> > > as input/output/ops which are read-almost-entirely :-
-> > I think you are right. The issue is these three variables sharing the same cache line
-> > with input/output/ops.
+> > http://bugzilla.kernel.org/show_bug.cgi?id=9920
 > > 
-> > > )
-> > > 
-> > > I haven't done an exhaustive analysis, but it seems that
-> > > the write traffic to lastuse and __refcnt are about the
-> > > same.  However if we find that __refcnt gets hit more
-> > > than lastuse in this workload, it explains the regression.
-> > I also think __refcnt is the key. I did a new testing by adding 2 unsigned long
-> > pading before lastuse, so the 3 members are moved to next cache line. The performance is
-> > recovered.
-> > 
-> > How about below patch? Almost all performance is recovered with the new patch.
-> > 
-> > Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
-> > 
-> > ---
-> > 
-> > --- linux-2.6.25-rc1/include/net/dst.h	2008-02-21 14:33:43.000000000 +0800
-> > +++ linux-2.6.25-rc1_work/include/net/dst.h	2008-02-21 14:36:22.000000000 +0800
-> > @@ -52,11 +52,10 @@ struct dst_entry
-> >  	unsigned short		header_len;	/* more space at head required */
-> >  	unsigned short		trailer_len;	/* space to reserve at tail */
-> >  
-> > -	u32			metrics[RTAX_MAX];
-> > -	struct dst_entry	*path;
-> > -
-> > -	unsigned long		rate_last;	/* rate limiting for ICMP */
-> >  	unsigned int		rate_tokens;
-> > +	unsigned long		rate_last;	/* rate limiting for ICMP */
-> > +
-> > +	struct dst_entry	*path;
-> >  
-> >  #ifdef CONFIG_NET_CLS_ROUTE
-> >  	__u32			tclassid;
-> > @@ -70,10 +69,12 @@ struct dst_entry
-> >  	int			(*output)(struct sk_buff*);
-> >  
-> >  	struct  dst_ops	        *ops;
-> > -		
-> > -	unsigned long		lastuse;
-> > +
-> > +	u32			metrics[RTAX_MAX];
-> > +
-> >  	atomic_t		__refcnt;	/* client references	*/
-> >  	int			__use;
-> > +	unsigned long		lastuse;
-> >  	union {
-> >  		struct dst_entry *next;
-> >  		struct rtable    *rt_next;
+> >            Summary: kernel panic when using ebtables redirect target
+> >            Product: Networking
+> >            Version: 2.5
+> >      KernelVersion: 2.6.24 and 2.6.24-git
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: normal
+> >           Priority: P1
+> >          Component: Other
+> >         AssignedTo: acme@ghostprotocols.net
+> >         ReportedBy: mingching.tiew@redtone.com
 > > 
 > > 
-> 
-> Well, after this patch, we grow dst_entry by 8 bytes :
-With my .config, it doesn't grow. Perhaps because of CONFIG_NET_CLS_ROUTE, I don't
-enable it. I will move tclassid under ops.
+> > Latest working kernel version: 2.6.22 ( did not test 2.6.23 )
+> > Earliest failing kernel version: 2.6.24 
+> > Distribution:
+> > Hardware Environment: 
+> > Software Environment: bridge working as a router
+> > Problem Description: when using ebtables to set up target-redirect, there will
+> > be kernel panic
+> > 
+> > Steps to reproduce:
+> > 1. set up a basic bridge br0 with slaves eth0, eth1
+> > 2. on the bridge setup a default router to route traffic
+> > 3. use ebtables to setup target redirect, 
+> > 
+> > ebtables -t broute -A BROUTING --logical-in br0 \
+> > -p ipv4  --ip-protocol tcp --ip-destination-port 80 \
+> > -j redirect --redirect-target ACCEPT
+> > 
+> > 4. from a client which is connect to the bridge, 
+> > send some traffic to allow the BROUTE chain to be 
+> > traversed :-
+> > 
+> >     lynx http://www.google.com
+> > 
+> > 5. Kernel panic :-
+> > 
+> > Pid: 0, comm: swapper Not tainted (2.6.24-tmc #1)
+> > EIP: 0060:[<c69f61aa>] EFLAGS: 00000217 CPU: 0
+> > EIP is at ebt_do_table+0x4ea/0x5d0 [ebtables]
+> > EAX: 00000000 EBX: 00000000 ECX: 00000000 EDX: 00000001
+> > ESI: c69f1178 EDI: c69f1108 EBP: c69f1000 ESP: c0315e20
+> > DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+> > Process swapper (pid: 0, ti=c0314000 task=c02f1300 task.ti=c0314000)
+> > Stack: 00000000 c69f11dc 00000004 00000000 c28c7800 c2b79c20 00000005 c69de350
+> >       00000001 00000002 c69ed040 c69ed040 00000000 00000000 c69f1000 000000b0
+> >       000000b0 c29b0812 00000000 c69f1122 00000000 00000000 0000a0c3 c29b0812
+> > Call Trace:
+> > [<c69de032>] ebt_broute+0x22/0x30 [ebtable_broute]
+> > [<c69fef48>] br_handle_frame+0xb8/0x220 [bridge]
+> > [<c02274ac>] netif_receive_skb+0x19c/0x440
+> > [<c0229ffb>] process_backlog+0x6b/0xd0
+> > [<c0229a45>] net_rx_action+0x105/0x1b0
+> > [<c011f835>] __do_softirq+0x75/0xf0
+> > [<c011f8e7>] do_softirq+0x37/0x40
+> > [<c011fb25>] irq_exit+0x75/0x80
+> > [<c010d877>] smp_apic_timer_interrupt+0x57/0x90
+> > [<c0105b34>] apic_timer_interrupt+0x28/0x30
+> > [<c0103cd0>] default_idle+0x0/0x40
+> > [<c0103cff>] default_idle+0x2f/0x40
+> > [<c0103443>] cpu_idle+0x73/0xa0
+> > [<c0319cd5>] start_kernel+0x2c5/0x340
+> > [<c0319420>] unknown_bootoption+0x0/0x1e0
+> > =======================
+> > Code: 00 00 83 f9 fe 74 64 83 f9 fc 0f 84 d7 fb ff ff 83 f9 fd 0f 84 bb fc ff
+> > ff 8b 5c 24 30 8b 54 24 34 8d 04 5b 8d 04 82 8b 54 24 20 <89> 28 42 89 50 08 8b
+> > 5f 6c 01 df 89 78 04 8b 6c 24 38 8b 54 24
+> > EIP: [<c69f61aa>] ebt_do_table+0x4ea/0x5d0 [ebtables] SS:ESP 0068:c0315e20
+> > 
+> > 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-> 
-> sizeof(struct dst_entry)=0xd0
-> offsetof(struct dst_entry, input)=0x68
-> offsetof(struct dst_entry, output)=0x70
-> offsetof(struct dst_entry, __refcnt)=0xb4
-> offsetof(struct dst_entry, lastuse)=0xc0
-> offsetof(struct dst_entry, __use)=0xb8
-> sizeof(struct rtable)=0x140
-> 
-> 
-> So we dirty two cache lines instead of one, unless your cpu have 128 bytes cache lines ?
-> 
-> I am quite suprised that my patch to not change lastuse if already set to jiffies changes nothing...
-> 
-> If you have some time, could you also test this (unrelated) patch ?
-> 
-> We can avoid dirty all the time a cache line of loopback device.
-> 
-> diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-> index f2a6e71..0a4186a 100644
-> --- a/drivers/net/loopback.c
-> +++ b/drivers/net/loopback.c
-> @@ -150,7 +150,10 @@ static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
->                 return 0;
->         }
->  #endif
-> -       dev->last_rx = jiffies;
-> +#ifdef CONFIG_SMP
-> +       if (dev->last_rx != jiffies)
-> +#endif
-> +               dev->last_rx = jiffies;
->  
->         /* it's OK to use per_cpu_ptr() because BHs are off */
->         pcpu_lstats = netdev_priv(dev);
-> 
-Although I didn't test it, I don't think it's ok. The key is __refcnt shares the same
-cache line with ops/input/output.
+[PATCH] netfilter: fix incorrect use of skb_make_writable
 
--yanmin
+http://bugzilla.kernel.org/show_bug.cgi?id=9920
+The function skb_make_writable returns true or false.
 
+Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+---
+ net/bridge/netfilter/ebt_dnat.c     |    2 +-
+ net/bridge/netfilter/ebt_redirect.c |    2 +-
+ net/bridge/netfilter/ebt_snat.c     |    2 +-
+ net/ipv4/netfilter/arpt_mangle.c    |    2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/bridge/netfilter/ebt_dnat.c b/net/bridge/netfilter/ebt_dnat.c
+index e700cbf..1ec671d 100644
+--- a/net/bridge/netfilter/ebt_dnat.c
++++ b/net/bridge/netfilter/ebt_dnat.c
+@@ -20,7 +20,7 @@ static int ebt_target_dnat(struct sk_buff *skb, unsigned int hooknr,
+ {
+ 	const struct ebt_nat_info *info = data;
+ 
+-	if (skb_make_writable(skb, 0))
++	if (!skb_make_writable(skb, 0))
+ 		return NF_DROP;
+ 
+ 	memcpy(eth_hdr(skb)->h_dest, info->mac, ETH_ALEN);
+diff --git a/net/bridge/netfilter/ebt_redirect.c b/net/bridge/netfilter/ebt_redirect.c
+index bfdf2fb..bfb9f74 100644
+--- a/net/bridge/netfilter/ebt_redirect.c
++++ b/net/bridge/netfilter/ebt_redirect.c
+@@ -21,7 +21,7 @@ static int ebt_target_redirect(struct sk_buff *skb, unsigned int hooknr,
+ {
+ 	const struct ebt_redirect_info *info = data;
+ 
+-	if (skb_make_writable(skb, 0))
++	if (!skb_make_writable(skb, 0))
+ 		return NF_DROP;
+ 
+ 	if (hooknr != NF_BR_BROUTING)
+diff --git a/net/bridge/netfilter/ebt_snat.c b/net/bridge/netfilter/ebt_snat.c
+index e252dab..204f996 100644
+--- a/net/bridge/netfilter/ebt_snat.c
++++ b/net/bridge/netfilter/ebt_snat.c
+@@ -22,7 +22,7 @@ static int ebt_target_snat(struct sk_buff *skb, unsigned int hooknr,
+ {
+ 	const struct ebt_nat_info *info = data;
+ 
+-	if (skb_make_writable(skb, 0))
++	if (!skb_make_writable(skb, 0))
+ 		return NF_DROP;
+ 
+ 	memcpy(eth_hdr(skb)->h_source, info->mac, ETH_ALEN);
+diff --git a/net/ipv4/netfilter/arpt_mangle.c b/net/ipv4/netfilter/arpt_mangle.c
+index 45fa4e2..3f4222b 100644
+--- a/net/ipv4/netfilter/arpt_mangle.c
++++ b/net/ipv4/netfilter/arpt_mangle.c
+@@ -19,7 +19,7 @@ target(struct sk_buff *skb,
+ 	unsigned char *arpptr;
+ 	int pln, hln;
+ 
+-	if (skb_make_writable(skb, skb->len))
++	if (!skb_make_writable(skb, skb->len))
+ 		return NF_DROP;
+ 
+ 	arp = arp_hdr(skb);
+-- 
+1.5.3.rc5
 
