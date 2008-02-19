@@ -1,61 +1,76 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 10/17 net-2.6.26] [NETNS]: Process ip_rt_redirect in the correct namespace.
-Date: Tue, 19 Feb 2008 10:31:30 +0300
-Message-ID: <1203406297-32725-10-git-send-email-den@openvz.org>
+Subject: [PATCH 12/17 net-2.6.26] [NETNS]: Process /proc/net/rt_cache inside a namespace.
+Date: Tue, 19 Feb 2008 10:31:32 +0300
+Message-ID: <1203406297-32725-12-git-send-email-den@openvz.org>
 References: <1203406116.27296.1.camel@iris.sw.ru>
 Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
 	devel@openvz.org, "Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:60012 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:64727 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754475AbYBSHbP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754501AbYBSHbP (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 19 Feb 2008 02:31:15 -0500
 In-Reply-To: <1203406116.27296.1.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Show routing cache for a particular namespace only.
+
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- net/ipv4/route.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+ net/ipv4/route.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 525787b..44708ab 100644
+index 67df872..c11e6bf 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -1132,10 +1132,12 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
- 	__be32  skeys[2] = { saddr, 0 };
- 	int  ikeys[2] = { dev->ifindex, 0 };
- 	struct netevent_redirect netevent;
-+	struct net *net;
+@@ -273,6 +273,7 @@ static unsigned int rt_hash_code(u32 daddr, u32 saddr)
  
- 	if (!in_dev)
- 		return;
- 
-+	net = dev->nd_net;
- 	if (new_gw == old_gw || !IN_DEV_RX_REDIRECTS(in_dev)
- 	    || ipv4_is_multicast(new_gw) || ipv4_is_lbcast(new_gw)
- 	    || ipv4_is_zeronet(new_gw))
-@@ -1147,7 +1149,7 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
- 		if (IN_DEV_SEC_REDIRECTS(in_dev) && ip_fib_check_default(new_gw, dev))
- 			goto reject_redirect;
- 	} else {
--		if (inet_addr_type(&init_net, new_gw) != RTN_UNICAST)
-+		if (inet_addr_type(net, new_gw) != RTN_UNICAST)
- 			goto reject_redirect;
+ #ifdef CONFIG_PROC_FS
+ struct rt_cache_iter_state {
++	struct seq_net_private p;
+ 	int bucket;
+ 	int genid;
+ };
+@@ -285,7 +286,8 @@ static struct rtable *rt_cache_get_first(struct rt_cache_iter_state *st)
+ 		rcu_read_lock_bh();
+ 		r = rcu_dereference(rt_hash_table[st->bucket].chain);
+ 		while (r) {
+-			if (r->rt_genid == st->genid)
++			if (r->u.dst.dev->nd_net == st->p.net &&
++			    r->rt_genid == st->genid)
+ 				return r;
+ 			r = rcu_dereference(r->u.dst.rt_next);
+ 		}
+@@ -312,6 +314,8 @@ static struct rtable *rt_cache_get_next(struct rt_cache_iter_state *st,
+ 					struct rtable *r)
+ {
+ 	while ((r = __rt_cache_get_next(st, r)) != NULL) {
++		if (r->u.dst.dev->nd_net != st->p.net)
++			continue;
+ 		if (r->rt_genid == st->genid)
+ 			break;
  	}
+@@ -398,7 +402,7 @@ static const struct seq_operations rt_cache_seq_ops = {
  
-@@ -1165,7 +1167,8 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
- 				    rth->fl.fl4_src != skeys[i] ||
- 				    rth->fl.oif != ikeys[k] ||
- 				    rth->fl.iif != 0 ||
--				    rth->rt_genid != atomic_read(&rt_genid)) {
-+				    rth->rt_genid != atomic_read(&rt_genid) ||
-+				    rth->u.dst.dev->nd_net != net) {
- 					rthp = &rth->u.dst.rt_next;
- 					continue;
- 				}
+ static int rt_cache_seq_open(struct inode *inode, struct file *file)
+ {
+-	return seq_open_private(file, &rt_cache_seq_ops,
++	return seq_open_net(inode, file, &rt_cache_seq_ops,
+ 			sizeof(struct rt_cache_iter_state));
+ }
+ 
+@@ -407,7 +411,7 @@ static const struct file_operations rt_cache_seq_fops = {
+ 	.open	 = rt_cache_seq_open,
+ 	.read	 = seq_read,
+ 	.llseek	 = seq_lseek,
+-	.release = seq_release_private,
++	.release = seq_release_net,
+ };
+ 
+ 
 -- 
 1.5.3.rc5
 
