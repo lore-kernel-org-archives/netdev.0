@@ -1,34 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cls_u32 u32_classify()
-Date: Mon, 18 Feb 2008 21:46:00 -0800 (PST)
-Message-ID: <20080218.214600.94322068.davem@davemloft.net>
-References: <47A078AE.6060500@bspu.unibel.by>
+From: Pierre Ossman <drzeus-list@drzeus.cx>
+Subject: Re: keyboard dead with 45b5035
+Date: Tue, 19 Feb 2008 06:50:18 +0100
+Message-ID: <20080219065018.729b56f2@mjolnir.drzeus.cx>
+References: <20080218185305.48a67587@mjolnir.drzeus.cx>
+	<200802182050.01964.rjw@sisk.pl>
+	<20080218215012.0462a302@mjolnir.drzeus.cx>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mahatma@eu.by, mahatma@bspu.unibel.by
+Cc: Laszlo Attila Toth <panther@balabit.hu>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44057
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755145AbYBSFpX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 00:45:23 -0500
-In-Reply-To: <47A078AE.6060500@bspu.unibel.by>
+Received: from gateway.drzeus.cx ([85.8.24.16]:55203 "EHLO smtp.drzeus.cx"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751007AbYBSFuv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Feb 2008 00:50:51 -0500
+In-Reply-To: <20080218215012.0462a302@mjolnir.drzeus.cx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dzianis Kahanovich <mahatma@bspu.unibel.by>
-Date: Wed, 30 Jan 2008 11:16:30 -0200
+On Mon, 18 Feb 2008 21:50:12 +0100
+Pierre Ossman <drzeus-list@drzeus.cx> wrote:
 
-> Currently fine u32 "hashkey ... at ..." not work with relative offsets.
-> There are simpliest fix to use "eat".
+> On Mon, 18 Feb 2008 20:50:01 +0100
+> "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+> 
+> > On Monday, 18 of February 2008, Pierre Ossman wrote:
+> > > The patch "[RTNETLINK]: Send a single notification on device state changes." kills (at least)
+> > > the keyboard here. Everything seems to work fine in single user mode, but when init starts
+> > > spawning of logins, the keyboard goes bye-bye. Even the power button is ignored. :/ 
+> > 
+> > Please try with the patch from http://lkml.org/lkml/2008/2/18/331 .
+> > 
+> 
+> That solved it.
+> 
 
-So the question is whether 'sel' is defined to be calculated
-before all offsets and EAT operations are processed or before.
+Perhaps not quite. When I returned to my laptop this morning, the keyboard was gone again. Did a hard reboot, and the machine locked up a few seconds after starting X. I'll see if it can be reproduced...
 
-I do not understand the U32 classifier enough to know what
-this kind of change might or might not break.
+Rgds
+-- 
+     -- Pierre Ossman
 
-Can some u32 expert review this?
-
-Thanks.
+  Linux kernel, MMC maintainer        http://www.kernel.org
+  PulseAudio, core developer          http://pulseaudio.org
+  rdesktop, core developer          http://www.rdesktop.org
