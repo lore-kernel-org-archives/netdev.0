@@ -1,45 +1,33 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] net/8021q/vlan_dev.c - Use print_mac
-Date: Tue, 19 Feb 2008 12:48:22 +0100
-Message-ID: <47BAC206.5070304@trash.net>
-References: <20080218.125525.192686382.davem@davemloft.net>	<47B9F5E7.3020905@trash.net>	<20080218.164305.67586867.davem@davemloft.net> <20080218.165036.218650084.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] cls_u32 u32_classify()
+Date: Tue, 19 Feb 2008 06:54:48 -0500
+Message-ID: <1203422088.4436.229.camel@localhost>
+References: <47A078AE.6060500@bspu.unibel.by>
+	 <20080218.214600.94322068.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, bruno@thinktube.com, netdev@vger.kernel.org,
-	jgarzik@pobox.com, linux-wireless@vger.kernel.org,
-	linville@tuxdriver.com
+Cc: mahatma@eu.by, mahatma@bspu.unibel.by, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep32-int.chello.at ([62.179.121.50]:44116 "EHLO
-	viefep32-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752641AbYBSLse (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 06:48:34 -0500
-In-Reply-To: <20080218.165036.218650084.davem@davemloft.net>
+Received: from py-out-1112.google.com ([64.233.166.183]:25780 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750877AbYBSLyv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 06:54:51 -0500
+Received: by py-out-1112.google.com with SMTP id u52so2570412pyb.10
+        for <netdev@vger.kernel.org>; Tue, 19 Feb 2008 03:54:50 -0800 (PST)
+In-Reply-To: <20080218.214600.94322068.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Mon, 18 Feb 2008 16:43:05 -0800 (PST)
-> 
->> I think we can fix this easily by using __attribute_const_
->> on the print_mac() declaration.  Let me play with that.
-> 
-> Actually it seems the 'pure' attribute is more important
-> here.  Although it's not semantically a perfect match,
-> what we need to tell the compiler is basically that:
-> 
-> 1) the return value depends upon the inputs
-> 2) if the input is not used, it's safe to avoid the call
-> 
-> and 'pure' accomplishes that without any unwanted side-effects.
-> 
-> I think this will not result in any unwanted over-optimization.
-> Because if the inputs change in any way GCC has to emit the
-> call.
-> 
-> Any objections?
+On Mon, 2008-18-02 at 21:46 -0800, David Miller wrote:
 
 
-This seems fine to me, thanks Dave.
+> Can some u32 expert review this?
+
+http://marc.info/?l=linux-netdev&m=120178638323045&w=2
+
+cheers,
+jamal
+
