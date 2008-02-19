@@ -1,44 +1,38 @@
-From: =?utf-8?Q?=E3=80=8ETaiwan_News_Express=E3=80=8F?=
-	<noreply@etaiwannews.com>
-Subject: =?utf-8?Q?On_the_Top_of_the_World~=E3=80=8ETextile_Industry=E3=80=8F?=
-Date: Tue, 19 Feb 2008 19:48:06 +0800
-Message-ID: <6786de1bbe92337610ba36d82326aa4c@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH] [NETNS]: Namespace leak in pneigh_lookup.
+Date: Tue, 19 Feb 2008 16:12:38 +0300
+Message-ID: <1203426758-27813-1-git-send-email-den@openvz.org>
+Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
+	devel@openvz.org, dlezcano@fr.ibm.com,
+	"Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw.etaiwannews.com ([211.72.1.254]:38748 "EHLO
-	mailgw.etaiwannews.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751337AbYBSMWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 07:22:00 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by mailgw.etaiwannews.com (Postfix) with ESMTP id 6EA857325F
-	for <netdev@vger.kernel.org>; Tue, 19 Feb 2008 19:48:31 +0800 (CST)
-Received: from mailgw.etaiwannews.com ([127.0.0.1])
-	by localhost (mailGW.etaiwannews.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 28004-09 for <netdev@vger.kernel.org>;
-	Tue, 19 Feb 2008 19:48:31 +0800 (CST)
-Received: from wlog.etaiwannews.com (unknown [192.168.0.9])
-	by mailgw.etaiwannews.com (Postfix) with ESMTP id 35A717323C
-	for <netdev@vger.kernel.org>; Tue, 19 Feb 2008 19:48:31 +0800 (CST)
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:53345 "EHLO iris.sw.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754217AbYBSNMM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Feb 2008 08:12:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+release_net is missed on the error path in pneigh_lookup.
 
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ net/core/neighbour.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
- <http://www.taiwannews.com.tw/static/express/080219-01.pdf>
-<http://www.taiwannews.com.tw/static/express/080219-02.pdf>
-<http://www.taiwannews.com.tw/static/express/080219-03.pdf>
-<http://www.taiwannews.com.tw/static/express/080219-04.pdf>
-
-
-
- 
-
-
---
-Powered by PHPlist, www.phplist.com --
-
-
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 7bb6a9a..174e29e 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -507,6 +507,7 @@ struct pneigh_entry * pneigh_lookup(struct neigh_table *tbl,
+ 	if (tbl->pconstructor && tbl->pconstructor(n)) {
+ 		if (dev)
+ 			dev_put(dev);
++		release_net(net);
+ 		kfree(n);
+ 		n = NULL;
+ 		goto out;
+-- 
+1.5.3.rc5
 
