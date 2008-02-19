@@ -1,50 +1,42 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+From: Philip Craig <philipc-XXXsiaCtIV5Wk0Htik3J/w@public.gmane.org>
 Subject: Re: [PATCH] net/8021q/vlan_dev.c - Use print_mac
-Date: Mon, 18 Feb 2008 17:03:32 -0800
-Message-ID: <1203383012.7181.102.camel@localhost>
-References: <20080218.125525.192686382.davem@davemloft.net>
-	 <47B9F5E7.3020905@trash.net> <20080218.164305.67586867.davem@davemloft.net>
-	 <20080218.165036.218650084.davem@davemloft.net>
+Date: Tue, 19 Feb 2008 11:30:25 +1000
+Message-ID: <47BA3131.3080907@snapgear.com>
+References: <20080218.125525.192686382.davem@davemloft.net>	 <47B9F5E7.3020905@trash.net> <20080218.164305.67586867.davem@davemloft.net>	 <20080218.165036.218650084.davem@davemloft.net> <1203383012.7181.102.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, bruno-L9ZBdB2wSWtl57MIdRCFDg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	bruno-L9ZBdB2wSWtl57MIdRCFDg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080218.165036.218650084.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+In-Reply-To: <1203383012.7181.102.camel@localhost>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2008-02-18 at 16:50 -0800, David Miller wrote:
-> Actually it seems the 'pure' attribute is more important
-> here.  Although it's not semantically a perfect match,
-> what we need to tell the compiler is basically that:
+Joe Perches wrote:
+> Perhaps it's more sensible to go back to
 > 
-> 1) the return value depends upon the inputs
-> 2) if the input is not used, it's safe to avoid the call
+> #ifdef DEBUG
+> #define pr_debug(fmt, arg...) do {} while (0)
+> #endif
 > 
-> and 'pure' accomplishes that without any unwanted side-effects.
-> 
-> I think this will not result in any unwanted over-optimization.
-> Because if the inputs change in any way GCC has to emit the
-> call.
-> 
-> Any objections?
+> and give up the printf argument verification
 
-Does this need to be done for all function calls
-declared with __attribute__((format(printf, x, y)))
-{
-return 0;
-}
-
-ie: pr_debug, dev_dbg, dev_vdbg?
-
-Perhaps it's more sensible to go back to
+I think argument verification is important.   Can you keep it
+like this:
 
 #ifdef DEBUG
-#define pr_debug(fmt, arg...) do {} while (0)
+#define pr_debug(fmt, arg...) \
+	do { \
+		if (0) \
+			printk(KERN_DEBUG fmt, ##arg); \
+	} while (0)
 #endif
 
-and give up the printf argument verification
+We still lose the return value though, I'm not sure how to keep that
+safely in macros.
+
+But does anything rely on the side effects already?  This would
+introduce bugs if so.
