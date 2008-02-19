@@ -1,123 +1,45 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
-Date: Wed, 20 Feb 2008 00:28:40 +0100
-Message-ID: <20080219232840.GB2755@ami.dom.local>
-References: <47B0C9F7.5040200@katalix.com> <20080211224924.GA2863@ami.dom.local> <47B0DD1E.5000608@katalix.com> <20080211.213048.192442721.davem@davemloft.net> <47B17BCD.2070903@katalix.com> <20080214130016.GA2583@ff.dom.local> <47BA0214.40703@katalix.com> <20080219230640.GA2755@ami.dom.local>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: TG3 network data corruption regression 2.6.24/2.6.23.4
+Date: Tue, 19 Feb 2008 15:52:43 -0800
+Message-ID: <1203465163.13495.102.camel@dell>
+References: <47BA0984.2070306@cybernetics.com>
+ <1203381120.13495.78.camel@dell>
+ <20080218.163554.74130592.davem@davemloft.net>
+ <1203383046.13495.87.camel@dell> <47BB00EC.3010607@cybernetics.com>
+ <1203448265.13495.95.camel@dell> <47BB54C2.6090501@cybernetics.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	netdev <netdev@vger.kernel.org>, gregkh@suse.de,
+	linux-kernel@vger.kernel.org
+To: "Tony Battersby" <tonyb@cybernetics.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:60439 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751409AbYBSXZm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 18:25:42 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so659167ugc.16
-        for <netdev@vger.kernel.org>; Tue, 19 Feb 2008 15:25:40 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080219230640.GA2755@ami.dom.local>
+Received: from mms1.broadcom.com ([216.31.210.17]:4104 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751703AbYBSXuQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Feb 2008 18:50:16 -0500
+In-Reply-To: <47BB54C2.6090501@cybernetics.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 20, 2008 at 12:06:40AM +0100, Jarek Poplawski wrote:
-...
-> (testing patch #1)
+On Tue, 2008-02-19 at 17:14 -0500, Tony Battersby wrote:
 
-SORRY!!! ----> take 2 (unlocking fixed)
+> 
+> Update: when I revert Herbert's patch in addition to applying your
+> patch, the iSCSI performance goes back up to 115 MB/s again in both
+> directions.  So it looks like turning off SG for TX didn't itself cause
+> the performance drop, but rather that the performance drop is just
+> another manifestation of whatever bug is causing the data corruption.
+> 
+> I do not regularly use wireshark or look at network packet dumps, so I
+> am not really sure what to look for.  Given the above information, do
+> you still believe that there is value in examining the packet dump?
+> 
 
----
+Can you confirm whether you're getting TCP checksum errors on the other
+side that is receiving packets from the 5701?  You can just check
+statistics using netstat -s.  I suspect that after we turn off SG,
+checksum is no longer offloaded and we are getting lots of TCP checksum
+errors instead that are slowing the performance.
 
- drivers/net/ppp_generic.c |   39 +++++++++++++++++++++++++++++----------
- 1 files changed, 29 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-index 4dc5b4b..c4e3808 100644
---- a/drivers/net/ppp_generic.c
-+++ b/drivers/net/ppp_generic.c
-@@ -1473,7 +1473,7 @@ void
- ppp_input(struct ppp_channel *chan, struct sk_buff *skb)
- {
- 	struct channel *pch = chan->ppp;
--	int proto;
-+	int proto, locked;
- 
- 	if (!pch || skb->len == 0) {
- 		kfree_skb(skb);
-@@ -1481,8 +1481,13 @@ ppp_input(struct ppp_channel *chan, struct sk_buff *skb)
- 	}
- 
- 	proto = PPP_PROTO(skb);
--	read_lock_bh(&pch->upl);
--	if (!pch->ppp || proto >= 0xc000 || proto == PPP_CCPFRAG) {
-+	/*
-+	 * We use trylock to avoid dependency between soft-irq-safe upl lock
-+	 * and soft-irq-unsafe sk_dst_lock.
-+	 */
-+	local_bh_disable();
-+	locked = read_trylock(&pch->upl);
-+	if (!locked || !pch->ppp || proto >= 0xc000 || proto == PPP_CCPFRAG) {
- 		/* put it on the channel queue */
- 		skb_queue_tail(&pch->file.rq, skb);
- 		/* drop old frames if queue too long */
-@@ -1493,7 +1498,10 @@ ppp_input(struct ppp_channel *chan, struct sk_buff *skb)
- 	} else {
- 		ppp_do_recv(pch->ppp, skb, pch);
- 	}
--	read_unlock_bh(&pch->upl);
-+
-+	if (locked)
-+		read_unlock(&pch->upl);
-+	local_bh_enable();
- }
- 
- /* Put a 0-length skb in the receive queue as an error indication */
-@@ -1502,12 +1510,14 @@ ppp_input_error(struct ppp_channel *chan, int code)
- {
- 	struct channel *pch = chan->ppp;
- 	struct sk_buff *skb;
-+	int locked;
- 
- 	if (!pch)
- 		return;
- 
--	read_lock_bh(&pch->upl);
--	if (pch->ppp) {
-+	/* a trylock comment in ppp_input() */
-+	local_bh_disable();
-+	if ((locked = read_trylock(&pch->upl)) && pch->ppp) {
- 		skb = alloc_skb(0, GFP_ATOMIC);
- 		if (skb) {
- 			skb->len = 0;		/* probably unnecessary */
-@@ -1515,7 +1525,10 @@ ppp_input_error(struct ppp_channel *chan, int code)
- 			ppp_do_recv(pch->ppp, skb, pch);
- 		}
- 	}
--	read_unlock_bh(&pch->upl);
-+
-+	if (locked)
-+		read_unlock(&pch->upl);
-+	local_bh_enable();
- }
- 
- /*
-@@ -2044,10 +2057,16 @@ int ppp_unit_number(struct ppp_channel *chan)
- 	int unit = -1;
- 
- 	if (pch) {
--		read_lock_bh(&pch->upl);
--		if (pch->ppp)
-+		int locked;
-+
-+		/* a trylock comment in ppp_input() */
-+		local_bh_disable();
-+		if ((locked = read_trylock(&pch->upl)) && pch->ppp)
- 			unit = pch->ppp->file.index;
--		read_unlock_bh(&pch->upl);
-+
-+		if (locked)
-+			read_unlock(&pch->upl);
-+		local_bh_enable();
- 	}
- 	return unit;
- }
