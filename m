@@ -1,43 +1,90 @@
-From: Nicolas Pitre <nico@cam.org>
-Subject: Re: [PATCH 00/04] smc91x: request bus width using platform data
-Date: Wed, 20 Feb 2008 10:36:57 -0500 (EST)
-Message-ID: <alpine.LFD.1.00.0802201028570.2732@xanadu.home>
-References: <20080220095740.22645.36783.sendpatchset@clockwork.opensource.se>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, lethal@linux-sh.org,
-	akpm@linux-foundation.org
-To: Magnus Damm <magnus.damm@gmail.com>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: [PATCH 05/28] mm: allow PF_MEMALLOC from softirq context
+Date: Wed, 20 Feb 2008 15:46:15 +0100
+Message-ID: <20080220150305.905314000@chello.nl>
+References: <20080220144610.548202000@chello.nl>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relais.videotron.ca ([24.201.245.36]:21730 "EHLO
-	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933268AbYBTPg7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:36:59 -0500
-Received: from xanadu.home ([66.131.194.97]) by VL-MO-MR002.ip.videotron.ca
- (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
- with ESMTP id <0JWJ0092SNDLG070@VL-MO-MR002.ip.videotron.ca> for
- netdev@vger.kernel.org; Wed, 20 Feb 2008 10:36:58 -0500 (EST)
-In-reply-to: <20080220095740.22645.36783.sendpatchset@clockwork.opensource.se>
+Received: from viefep11-int.chello.at ([62.179.121.31]:51420 "EHLO
+	viefep11-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933386AbYBTPiP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:38:15 -0500
+Content-Disposition: inline; filename=mm-PF_MEMALLOC-softirq.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Feb 2008, Magnus Damm wrote:
+Allow PF_MEMALLOC to be set in softirq context. When running softirqs from
+a borrowed context save current->flags, ksoftirqd will have its own 
+task_struct.
 
-> These patches make it possible to request bus width in the platform data.
-> 
-> Instead of keep on updating smc91x.h with board specific configuration,
-> use platform data to pass along bus width and irq flags to the driver.
-> This change is designed to be backwards-compatible, so all boards configured
-> in the header file should just work as usual.
+This is needed to allow network softirq packet processing to make use of
+PF_MEMALLOC.
 
-Thank you for doing this work.  I really meant to do it, and commit 
-09779c6df2dbe95483269d194b327d41fe2cc57e was the first step towards that 
-goal, but as you can see we're nearly two years later and I didn't do 
-it.
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+---
+ include/linux/sched.h |    4 ++++
+ kernel/softirq.c      |    3 +++
+ mm/page_alloc.c       |    7 ++++---
+ 3 files changed, 11 insertions(+), 3 deletions(-)
 
-I have a few comments though.  I will reply to those messages 
-separately.
+Index: linux-2.6/mm/page_alloc.c
+===================================================================
+--- linux-2.6.orig/mm/page_alloc.c
++++ linux-2.6/mm/page_alloc.c
+@@ -1471,9 +1471,10 @@ int gfp_to_alloc_flags(gfp_t gfp_mask)
+ 		alloc_flags |= ALLOC_HARDER;
+ 
+ 	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
+-		if (!in_interrupt() &&
+-		    ((p->flags & PF_MEMALLOC) ||
+-		     unlikely(test_thread_flag(TIF_MEMDIE))))
++		if (!in_irq() && (p->flags & PF_MEMALLOC))
++			alloc_flags |= ALLOC_NO_WATERMARKS;
++		else if (!in_interrupt() &&
++				unlikely(test_thread_flag(TIF_MEMDIE)))
+ 			alloc_flags |= ALLOC_NO_WATERMARKS;
+ 	}
+ 
+Index: linux-2.6/kernel/softirq.c
+===================================================================
+--- linux-2.6.orig/kernel/softirq.c
++++ linux-2.6/kernel/softirq.c
+@@ -213,6 +213,8 @@ asmlinkage void __do_softirq(void)
+ 	__u32 pending;
+ 	int max_restart = MAX_SOFTIRQ_RESTART;
+ 	int cpu;
++	unsigned long pflags = current->flags;
++	current->flags &= ~PF_MEMALLOC;
+ 
+ 	pending = local_softirq_pending();
+ 	account_system_vtime(current);
+@@ -251,6 +253,7 @@ restart:
+ 
+ 	account_system_vtime(current);
+ 	_local_bh_enable();
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ }
+ 
+ #ifndef __ARCH_HAS_DO_SOFTIRQ
+Index: linux-2.6/include/linux/sched.h
+===================================================================
+--- linux-2.6.orig/include/linux/sched.h
++++ linux-2.6/include/linux/sched.h
+@@ -1497,6 +1497,10 @@ static inline void put_task_struct(struc
+ #define tsk_used_math(p) ((p)->flags & PF_USED_MATH)
+ #define used_math() tsk_used_math(current)
+ 
++#define tsk_restore_flags(p, pflags, mask) \
++	do {	(p)->flags &= ~(mask); \
++		(p)->flags |= ((pflags) & (mask)); } while (0)
++
+ #ifdef CONFIG_SMP
+ extern int set_cpus_allowed(struct task_struct *p, cpumask_t new_mask);
+ #else
 
+--
 
-Nicolas
