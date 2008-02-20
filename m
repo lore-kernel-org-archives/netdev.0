@@ -1,106 +1,81 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
-Date: Wed, 20 Feb 2008 19:38:38 +0100
-Message-ID: <20080220183837.GA2881@ami.dom.local>
-References: <47B0C9F7.5040200@katalix.com> <20080211224924.GA2863@ami.dom.local> <47B0DD1E.5000608@katalix.com> <20080211.213048.192442721.davem@davemloft.net> <47B17BCD.2070903@katalix.com> <20080214130016.GA2583@ff.dom.local> <47BA0214.40703@katalix.com> <20080219230640.GA2755@ami.dom.local> <47BC4F2C.4000802@katalix.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] sungem: remove superfluous variable
+Date: Wed, 20 Feb 2008 11:09:27 -0800
+Message-ID: <1203534567.7181.200.camel@localhost>
+References: <1203507467.17534.34.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:1816 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756742AbYBTSfR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 13:35:17 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so809437ugc.16
-        for <netdev@vger.kernel.org>; Wed, 20 Feb 2008 10:35:15 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <47BC4F2C.4000802@katalix.com>
+Received: from 136-022.dsl.labridge.com ([206.117.136.22]:1279 "EHLO
+	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1760362AbYBTTKs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 14:10:48 -0500
+In-Reply-To: <1203507467.17534.34.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 20, 2008 at 04:02:52PM +0000, James Chapman wrote:
-...
-> I tried your ppp_generic patch with only the hlist_lock bh patch in  
-> pppol2tp and it seems to fix the ppp create/delete issue. However, when  
-> I added much more traffic into the test (flood pings over ppp interfaces  
-> while repeatedly creating/deleting the L2TP (PPP) sessions) I get a soft  
-> lockup detected in pppol2tp_xmit() after anything between 1 minute and  
-> an hour. :( I'm investigating that now.
->
-> Thanks for your help!
+On Wed, 2008-02-20 at 12:37 +0100, Johannes Berg wrote:
+> There's no need to have two variables called 'i' when one
+> suffices.
 
-Not at all!
+Additional minor cleanups: tabs and style
 
->
->> (testing patch #1)
+Signed-off-by: Joe Perches <joe@perches.com>
 
-But I hope you tested with the fixed (take 2) version of this patch...
-
-Since it's quite experimental (testing) this patch could be wrong
-as it is, but I hope it should show the proper way to solve this
-problem. Probably you did some of these, but here are a few of my
-suggestions for testing this:
-
-1) try my patch with your full bh locking changing patch;
-2) add while loops to these trylocks on failure, with e.g.  __delay(1);
-   this should work like full locks again, but there should be no (this
-   kind of) lockdep reports;
-3) I send here another testing patch with this second way to do this:
-   on the write side, but it's even more "experimental" and only a
-   proof of concept (should be applied on vanilla ppp_generic).
-
-Regards,
-Jarek P.
-
-(testing patch #2)
-
----
-
- drivers/net/ppp_generic.c |   20 +++++++++++++-------
- 1 files changed, 13 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-index 4dc5b4b..70bd255 100644
---- a/drivers/net/ppp_generic.c
-+++ b/drivers/net/ppp_generic.c
-@@ -2606,11 +2606,16 @@ ppp_connect_channel(struct channel *pch, int unit)
- 	ppp = ppp_find_unit(unit);
- 	if (!ppp)
- 		goto out;
--	write_lock_bh(&pch->upl);
-+
- 	ret = -EINVAL;
--	if (pch->ppp)
--		goto outl;
-+	read_lock_bh(&pch->upl);
-+	if (pch->ppp) {
-+		read_unlock_bh(&pch->upl);
-+		goto out;
-+	}
-+	read_unlock_bh(&pch->upl);
+diff --git a/drivers/net/sungem.c b/drivers/net/sungem.c
+index 9721279..8d52d20 100644
+--- a/drivers/net/sungem.c
++++ b/drivers/net/sungem.c
+@@ -1817,24 +1817,22 @@ static void gem_init_dma(struct gem *gp)
+ /* Must be invoked under gp->lock and gp->tx_lock. */
+ static u32 gem_setup_multicast(struct gem *gp)
+ {
+-	u32 rxcfg = 0;
++	u32 rxcfg;
+ 	int i;
  
-+	atomic_inc(&ppp->file.refcnt);
- 	ppp_lock(ppp);
- 	if (pch->file.hdrlen > ppp->file.hdrlen)
- 		ppp->file.hdrlen = pch->file.hdrlen;
-@@ -2619,13 +2624,14 @@ ppp_connect_channel(struct channel *pch, int unit)
- 		ppp->dev->hard_header_len = hdrlen;
- 	list_add_tail(&pch->clist, &ppp->channels);
- 	++ppp->n_channels;
--	pch->ppp = ppp;
--	atomic_inc(&ppp->file.refcnt);
- 	ppp_unlock(ppp);
--	ret = 0;
+ 	if ((gp->dev->flags & IFF_ALLMULTI) ||
+ 	    (gp->dev->mc_count > 256)) {
+-	    	for (i=0; i<16; i++)
++		for (i = 0; i < 16; i++)
+ 			writel(0xffff, gp->regs + MAC_HASH0 + (i << 2));
+-		rxcfg |= MAC_RXCFG_HFE;
++		rxcfg = MAC_RXCFG_HFE;
+ 	} else if (gp->dev->flags & IFF_PROMISC) {
+-		rxcfg |= MAC_RXCFG_PROM;
++		rxcfg = MAC_RXCFG_PROM;
+ 	} else {
+ 		u16 hash_table[16];
+ 		u32 crc;
+ 		struct dev_mc_list *dmi = gp->dev->mc_list;
+-		int i;
  
-- outl:
-+	/* avoid lock dependency with ppp_locks */
-+	write_lock_bh(&pch->upl);
-+	BUG_ON(pch->ppp);
-+	pch->ppp = ppp;
- 	write_unlock_bh(&pch->upl);
-+	ret = 0;
-  out:
- 	mutex_unlock(&all_ppp_mutex);
- 	return ret;
+-		for (i = 0; i < 16; i++)
+-			hash_table[i] = 0;
++		memset(hash_table, 0, sizeof(hash_table));
+ 
+ 		for (i = 0; i < gp->dev->mc_count; i++) {
+ 			char *addrs = dmi->dmi_addr;
+@@ -1844,13 +1842,13 @@ static u32 gem_setup_multicast(struct gem *gp)
+ 			if (!(*addrs & 1))
+ 				continue;
+ 
+- 			crc = ether_crc_le(6, addrs);
++			crc = ether_crc_le(6, addrs);
+ 			crc >>= 24;
+ 			hash_table[crc >> 4] |= 1 << (15 - (crc & 0xf));
+ 		}
+-	    	for (i=0; i<16; i++)
++		for (i = 0; i < ARRAY_SIZE(hash_table); i++)
+ 			writel(hash_table[i], gp->regs + MAC_HASH0 + (i << 2));
+-		rxcfg |= MAC_RXCFG_HFE;
++		rxcfg = MAC_RXCFG_HFE;
+ 	}
+ 
+ 	return rxcfg;
+
+
