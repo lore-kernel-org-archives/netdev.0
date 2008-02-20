@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 05/28] mm: allow PF_MEMALLOC from softirq context
-Date: Wed, 20 Feb 2008 15:46:15 +0100
-Message-ID: <20080220150305.905314000@chello.nl>
+Subject: [PATCH 24/28] nfs: remove mempools
+Date: Wed, 20 Feb 2008 15:46:34 +0100
+Message-ID: <20080220150308.414866000@chello.nl>
 References: <20080220144610.548202000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
@@ -9,82 +9,168 @@ To: Linus Torvalds <torvalds@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep11-int.chello.at ([62.179.121.31]:51420 "EHLO
-	viefep11-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933386AbYBTPiP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:38:15 -0500
-Content-Disposition: inline; filename=mm-PF_MEMALLOC-softirq.patch
+Received: from viefep32-int.chello.at ([62.179.121.50]:48773 "EHLO
+	viefep32-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1765577AbYBTPiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:38:16 -0500
+Content-Disposition: inline; filename=nfs-no-mempool.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow PF_MEMALLOC to be set in softirq context. When running softirqs from
-a borrowed context save current->flags, ksoftirqd will have its own 
-task_struct.
-
-This is needed to allow network softirq packet processing to make use of
-PF_MEMALLOC.
+With the introduction of the shared dirty page accounting in .19, NFS should
+not be able to surpise the VM with all dirty pages. Thus it should always be
+able to free some memory. Hence no more need for mempools.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/linux/sched.h |    4 ++++
- kernel/softirq.c      |    3 +++
- mm/page_alloc.c       |    7 ++++---
- 3 files changed, 11 insertions(+), 3 deletions(-)
+ fs/nfs/read.c  |   15 +++------------
+ fs/nfs/write.c |   27 +++++----------------------
+ 2 files changed, 8 insertions(+), 34 deletions(-)
 
-Index: linux-2.6/mm/page_alloc.c
+Index: linux-2.6/fs/nfs/read.c
 ===================================================================
---- linux-2.6.orig/mm/page_alloc.c
-+++ linux-2.6/mm/page_alloc.c
-@@ -1471,9 +1471,10 @@ int gfp_to_alloc_flags(gfp_t gfp_mask)
- 		alloc_flags |= ALLOC_HARDER;
+--- linux-2.6.orig/fs/nfs/read.c
++++ linux-2.6/fs/nfs/read.c
+@@ -33,13 +33,10 @@ static const struct rpc_call_ops nfs_rea
+ static const struct rpc_call_ops nfs_read_full_ops;
  
- 	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
--		if (!in_interrupt() &&
--		    ((p->flags & PF_MEMALLOC) ||
--		     unlikely(test_thread_flag(TIF_MEMDIE))))
-+		if (!in_irq() && (p->flags & PF_MEMALLOC))
-+			alloc_flags |= ALLOC_NO_WATERMARKS;
-+		else if (!in_interrupt() &&
-+				unlikely(test_thread_flag(TIF_MEMDIE)))
- 			alloc_flags |= ALLOC_NO_WATERMARKS;
- 	}
+ static struct kmem_cache *nfs_rdata_cachep;
+-static mempool_t *nfs_rdata_mempool;
+-
+-#define MIN_POOL_READ	(32)
  
-Index: linux-2.6/kernel/softirq.c
-===================================================================
---- linux-2.6.orig/kernel/softirq.c
-+++ linux-2.6/kernel/softirq.c
-@@ -213,6 +213,8 @@ asmlinkage void __do_softirq(void)
- 	__u32 pending;
- 	int max_restart = MAX_SOFTIRQ_RESTART;
- 	int cpu;
-+	unsigned long pflags = current->flags;
-+	current->flags &= ~PF_MEMALLOC;
+ struct nfs_read_data *nfs_readdata_alloc(unsigned int pagecount)
+ {
+-	struct nfs_read_data *p = mempool_alloc(nfs_rdata_mempool, GFP_NOFS);
++	struct nfs_read_data *p = kmem_cache_alloc(nfs_rdata_cachep, GFP_NOFS);
  
- 	pending = local_softirq_pending();
- 	account_system_vtime(current);
-@@ -251,6 +253,7 @@ restart:
- 
- 	account_system_vtime(current);
- 	_local_bh_enable();
-+	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -50,7 +47,7 @@ struct nfs_read_data *nfs_readdata_alloc
+ 		else {
+ 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
+ 			if (!p->pagevec) {
+-				mempool_free(p, nfs_rdata_mempool);
++				kmem_cache_free(nfs_rdata_cachep, p);
+ 				p = NULL;
+ 			}
+ 		}
+@@ -63,7 +60,7 @@ static void nfs_readdata_rcu_free(struct
+ 	struct nfs_read_data *p = container_of(head, struct nfs_read_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_rdata_mempool);
++	kmem_cache_free(nfs_rdata_cachep, p);
  }
  
- #ifndef __ARCH_HAS_DO_SOFTIRQ
-Index: linux-2.6/include/linux/sched.h
-===================================================================
---- linux-2.6.orig/include/linux/sched.h
-+++ linux-2.6/include/linux/sched.h
-@@ -1497,6 +1497,10 @@ static inline void put_task_struct(struc
- #define tsk_used_math(p) ((p)->flags & PF_USED_MATH)
- #define used_math() tsk_used_math(current)
+ static void nfs_readdata_free(struct nfs_read_data *rdata)
+@@ -595,16 +592,10 @@ int __init nfs_init_readpagecache(void)
+ 	if (nfs_rdata_cachep == NULL)
+ 		return -ENOMEM;
  
-+#define tsk_restore_flags(p, pflags, mask) \
-+	do {	(p)->flags &= ~(mask); \
-+		(p)->flags |= ((pflags) & (mask)); } while (0)
-+
- #ifdef CONFIG_SMP
- extern int set_cpus_allowed(struct task_struct *p, cpumask_t new_mask);
- #else
+-	nfs_rdata_mempool = mempool_create_slab_pool(MIN_POOL_READ,
+-						     nfs_rdata_cachep);
+-	if (nfs_rdata_mempool == NULL)
+-		return -ENOMEM;
+-
+ 	return 0;
+ }
+ 
+ void nfs_destroy_readpagecache(void)
+ {
+-	mempool_destroy(nfs_rdata_mempool);
+ 	kmem_cache_destroy(nfs_rdata_cachep);
+ }
+Index: linux-2.6/fs/nfs/write.c
+===================================================================
+--- linux-2.6.orig/fs/nfs/write.c
++++ linux-2.6/fs/nfs/write.c
+@@ -28,9 +28,6 @@
+ 
+ #define NFSDBG_FACILITY		NFSDBG_PAGECACHE
+ 
+-#define MIN_POOL_WRITE		(32)
+-#define MIN_POOL_COMMIT		(4)
+-
+ /*
+  * Local function declarations
+  */
+@@ -44,12 +41,10 @@ static const struct rpc_call_ops nfs_wri
+ static const struct rpc_call_ops nfs_commit_ops;
+ 
+ static struct kmem_cache *nfs_wdata_cachep;
+-static mempool_t *nfs_wdata_mempool;
+-static mempool_t *nfs_commit_mempool;
+ 
+ struct nfs_write_data *nfs_commit_alloc(void)
+ {
+-	struct nfs_write_data *p = mempool_alloc(nfs_commit_mempool, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -63,7 +58,7 @@ static void nfs_commit_rcu_free(struct r
+ 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_commit_mempool);
++	kmem_cache_free(nfs_wdata_cachep, p);
+ }
+ 
+ void nfs_commit_free(struct nfs_write_data *wdata)
+@@ -73,7 +68,7 @@ void nfs_commit_free(struct nfs_write_da
+ 
+ struct nfs_write_data *nfs_writedata_alloc(unsigned int pagecount)
+ {
+-	struct nfs_write_data *p = mempool_alloc(nfs_wdata_mempool, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -84,7 +79,7 @@ struct nfs_write_data *nfs_writedata_all
+ 		else {
+ 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
+ 			if (!p->pagevec) {
+-				mempool_free(p, nfs_wdata_mempool);
++				kmem_cache_free(nfs_wdata_cachep, p);
+ 				p = NULL;
+ 			}
+ 		}
+@@ -97,7 +92,7 @@ static void nfs_writedata_rcu_free(struc
+ 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_wdata_mempool);
++	kmem_cache_free(nfs_wdata_cachep, p);
+ }
+ 
+ static void nfs_writedata_free(struct nfs_write_data *wdata)
+@@ -1514,16 +1509,6 @@ int __init nfs_init_writepagecache(void)
+ 	if (nfs_wdata_cachep == NULL)
+ 		return -ENOMEM;
+ 
+-	nfs_wdata_mempool = mempool_create_slab_pool(MIN_POOL_WRITE,
+-						     nfs_wdata_cachep);
+-	if (nfs_wdata_mempool == NULL)
+-		return -ENOMEM;
+-
+-	nfs_commit_mempool = mempool_create_slab_pool(MIN_POOL_COMMIT,
+-						      nfs_wdata_cachep);
+-	if (nfs_commit_mempool == NULL)
+-		return -ENOMEM;
+-
+ 	/*
+ 	 * NFS congestion size, scale with available memory.
+ 	 *
+@@ -1549,8 +1534,6 @@ int __init nfs_init_writepagecache(void)
+ 
+ void nfs_destroy_writepagecache(void)
+ {
+-	mempool_destroy(nfs_commit_mempool);
+-	mempool_destroy(nfs_wdata_mempool);
+ 	kmem_cache_destroy(nfs_wdata_cachep);
+ }
+ 
 
 --
 
