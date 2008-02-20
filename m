@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 01/28] mm: gfp_to_alloc_flags()
-Date: Wed, 20 Feb 2008 15:46:11 +0100
-Message-ID: <20080220150305.020202000@chello.nl>
+Subject: [PATCH 25/28] nfs: teach the NFS client how to treat PG_swapcache pages
+Date: Wed, 20 Feb 2008 15:46:35 +0100
+Message-ID: <20080220150308.505200000@chello.nl>
 References: <20080220144610.548202000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
@@ -9,180 +9,350 @@ To: Linus Torvalds <torvalds@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:52234 "EHLO
-	viefep15-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756958AbYBTPSr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:18:47 -0500
-Content-Disposition: inline; filename=mm-gfp-to-alloc_flags.patch
+Received: from viefep18-int.chello.at ([213.46.255.22]:43431 "EHLO
+	viefep16-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753818AbYBTPSk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:18:40 -0500
+Content-Disposition: inline; filename=nfs-swapcache.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Factor out the gfp to alloc_flags mapping so it can be used in other places.
+Replace all relevant occurences of page->index and page->mapping in the NFS
+client with the new page_file_index() and page_file_mapping() functions.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- mm/internal.h   |   11 ++++++
- mm/page_alloc.c |   98 ++++++++++++++++++++++++++++++++------------------------
- 2 files changed, 67 insertions(+), 42 deletions(-)
+ fs/nfs/file.c     |    6 +++---
+ fs/nfs/internal.h |    7 ++++---
+ fs/nfs/pagelist.c |    6 +++---
+ fs/nfs/read.c     |    6 +++---
+ fs/nfs/write.c    |   51 ++++++++++++++++++++++++++-------------------------
+ 5 files changed, 39 insertions(+), 37 deletions(-)
 
-Index: linux-2.6/mm/internal.h
+Index: linux-2.6/fs/nfs/file.c
 ===================================================================
---- linux-2.6.orig/mm/internal.h
-+++ linux-2.6/mm/internal.h
-@@ -47,4 +47,15 @@ static inline unsigned long page_order(s
- 	VM_BUG_ON(!PageBuddy(page));
- 	return page_private(page);
- }
-+
-+#define ALLOC_HARDER		0x01 /* try to alloc harder */
-+#define ALLOC_HIGH		0x02 /* __GFP_HIGH set */
-+#define ALLOC_WMARK_MIN		0x04 /* use pages_min watermark */
-+#define ALLOC_WMARK_LOW		0x08 /* use pages_low watermark */
-+#define ALLOC_WMARK_HIGH	0x10 /* use pages_high watermark */
-+#define ALLOC_NO_WATERMARKS	0x20 /* don't check watermarks at all */
-+#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
-+
-+int gfp_to_alloc_flags(gfp_t gfp_mask);
-+
- #endif
-Index: linux-2.6/mm/page_alloc.c
-===================================================================
---- linux-2.6.orig/mm/page_alloc.c
-+++ linux-2.6/mm/page_alloc.c
-@@ -1127,14 +1127,6 @@ failed:
- 	return NULL;
+--- linux-2.6.orig/fs/nfs/file.c
++++ linux-2.6/fs/nfs/file.c
+@@ -359,7 +359,7 @@ static void nfs_invalidate_page(struct p
+ 	if (offset != 0)
+ 		return;
+ 	/* Cancel any unstarted writes on this page */
+-	nfs_wb_page_cancel(page->mapping->host, page);
++	nfs_wb_page_cancel(page_file_mapping(page)->host, page);
  }
  
--#define ALLOC_NO_WATERMARKS	0x01 /* don't check watermarks at all */
--#define ALLOC_WMARK_MIN		0x02 /* use pages_min watermark */
--#define ALLOC_WMARK_LOW		0x04 /* use pages_low watermark */
--#define ALLOC_WMARK_HIGH	0x08 /* use pages_high watermark */
--#define ALLOC_HARDER		0x10 /* try to alloc harder */
--#define ALLOC_HIGH		0x20 /* __GFP_HIGH set */
--#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
--
- #ifdef CONFIG_FAIL_PAGE_ALLOC
+ static int nfs_release_page(struct page *page, gfp_t gfp)
+@@ -370,7 +370,7 @@ static int nfs_release_page(struct page 
  
- static struct fail_page_alloc_attr {
-@@ -1523,6 +1515,44 @@ static void set_page_owner(struct page *
- #endif /* CONFIG_PAGE_OWNER */
+ static int nfs_launder_page(struct page *page)
+ {
+-	return nfs_wb_page(page->mapping->host, page);
++	return nfs_wb_page(page_file_mapping(page)->host, page);
+ }
  
- /*
-+ * get the deepest reaching allocation flags for the given gfp_mask
-+ */
-+int gfp_to_alloc_flags(gfp_t gfp_mask)
-+{
-+	struct task_struct *p = current;
-+	int alloc_flags = ALLOC_WMARK_MIN | ALLOC_CPUSET;
-+	const gfp_t wait = gfp_mask & __GFP_WAIT;
-+
-+	/*
-+	 * The caller may dip into page reserves a bit more if the caller
-+	 * cannot run direct reclaim, or if the caller has realtime scheduling
-+	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
-+	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
-+	 */
-+	if (gfp_mask & __GFP_HIGH)
-+		alloc_flags |= ALLOC_HIGH;
-+
-+	if (!wait) {
-+		alloc_flags |= ALLOC_HARDER;
-+		/*
-+		 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
-+		 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
-+		 */
-+		alloc_flags &= ~ALLOC_CPUSET;
-+	} else if (unlikely(rt_task(p)) && !in_interrupt())
-+		alloc_flags |= ALLOC_HARDER;
-+
-+	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
-+		if (!in_interrupt() &&
-+		    ((p->flags & PF_MEMALLOC) ||
-+		     unlikely(test_thread_flag(TIF_MEMDIE))))
-+			alloc_flags |= ALLOC_NO_WATERMARKS;
-+	}
-+
-+	return alloc_flags;
-+}
-+
-+/*
-  * This is the 'heart' of the zoned buddy allocator.
-  */
- struct page *
-@@ -1577,48 +1607,28 @@ restart:
- 	 * OK, we're below the kswapd watermark and have kicked background
- 	 * reclaim. Now things get more complex, so set up alloc_flags according
- 	 * to how we want to proceed.
--	 *
--	 * The caller may dip into page reserves a bit more if the caller
--	 * cannot run direct reclaim, or if the caller has realtime scheduling
--	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
--	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
- 	 */
--	alloc_flags = ALLOC_WMARK_MIN;
--	if ((unlikely(rt_task(p)) && !in_interrupt()) || !wait)
--		alloc_flags |= ALLOC_HARDER;
--	if (gfp_mask & __GFP_HIGH)
--		alloc_flags |= ALLOC_HIGH;
--	if (wait)
--		alloc_flags |= ALLOC_CPUSET;
-+	alloc_flags = gfp_to_alloc_flags(gfp_mask);
+ const struct address_space_operations nfs_file_aops = {
+@@ -397,7 +397,7 @@ static int nfs_vm_page_mkwrite(struct vm
+ 	struct address_space *mapping;
  
--	/*
--	 * Go through the zonelist again. Let __GFP_HIGH and allocations
--	 * coming from realtime tasks go deeper into reserves.
--	 *
--	 * This is the last chance, in general, before the goto nopage.
--	 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
--	 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
--	 */
--	page = get_page_from_freelist(gfp_mask, order, zonelist, alloc_flags);
-+	/* This is the last chance, in general, before the goto nopage. */
-+	page = get_page_from_freelist(gfp_mask, order, zonelist,
-+			alloc_flags & ~ALLOC_NO_WATERMARKS);
- 	if (page)
- 		goto got_pg;
+ 	lock_page(page);
+-	mapping = page->mapping;
++	mapping = page_file_mapping(page);
+ 	if (mapping != vma->vm_file->f_path.dentry->d_inode->i_mapping)
+ 		goto out_unlock;
  
- 	/* This allocation should allow future memory freeing. */
--
- rebalance:
--	if (((p->flags & PF_MEMALLOC) || unlikely(test_thread_flag(TIF_MEMDIE)))
--			&& !in_interrupt()) {
--		if (!(gfp_mask & __GFP_NOMEMALLOC)) {
-+	if (alloc_flags & ALLOC_NO_WATERMARKS) {
- nofail_alloc:
--			/* go through the zonelist yet again, ignoring mins */
--			page = get_page_from_freelist(gfp_mask, order,
--				zonelist, ALLOC_NO_WATERMARKS);
--			if (page)
--				goto got_pg;
--			if (gfp_mask & __GFP_NOFAIL) {
--				congestion_wait(WRITE, HZ/50);
--				goto nofail_alloc;
--			}
-+		/* go through the zonelist yet again, ignoring mins */
-+		page = get_page_from_freelist(gfp_mask, order, zonelist,
-+				ALLOC_NO_WATERMARKS);
-+		if (page)
-+			goto got_pg;
-+
-+		if (wait && (gfp_mask & __GFP_NOFAIL)) {
-+			congestion_wait(WRITE, HZ/50);
-+			goto nofail_alloc;
- 		}
- 		goto nopage;
+Index: linux-2.6/fs/nfs/pagelist.c
+===================================================================
+--- linux-2.6.orig/fs/nfs/pagelist.c
++++ linux-2.6/fs/nfs/pagelist.c
+@@ -76,11 +76,11 @@ nfs_create_request(struct nfs_open_conte
+ 	 * update_nfs_request below if the region is not locked. */
+ 	req->wb_page    = page;
+ 	atomic_set(&req->wb_complete, 0);
+-	req->wb_index	= page->index;
++	req->wb_index	= page_file_index(page);
+ 	page_cache_get(page);
+ 	BUG_ON(PagePrivate(page));
+ 	BUG_ON(!PageLocked(page));
+-	BUG_ON(page->mapping->host != inode);
++	BUG_ON(page_file_mapping(page)->host != inode);
+ 	req->wb_offset  = offset;
+ 	req->wb_pgbase	= offset;
+ 	req->wb_bytes   = count;
+@@ -376,7 +376,7 @@ void nfs_pageio_cond_complete(struct nfs
+  * nfs_scan_list - Scan a list for matching requests
+  * @nfsi: NFS inode
+  * @dst: Destination list
+- * @idx_start: lower bound of page->index to scan
++ * @idx_start: lower bound of page_file_index(page) to scan
+  * @npages: idx_start + npages sets the upper bound to scan.
+  * @tag: tag to scan for
+  *
+Index: linux-2.6/fs/nfs/read.c
+===================================================================
+--- linux-2.6.orig/fs/nfs/read.c
++++ linux-2.6/fs/nfs/read.c
+@@ -458,11 +458,11 @@ static const struct rpc_call_ops nfs_rea
+ int nfs_readpage(struct file *file, struct page *page)
+ {
+ 	struct nfs_open_context *ctx;
+-	struct inode *inode = page->mapping->host;
++	struct inode *inode = page_file_mapping(page)->host;
+ 	int		error;
+ 
+ 	dprintk("NFS: nfs_readpage (%p %ld@%lu)\n",
+-		page, PAGE_CACHE_SIZE, page->index);
++		page, PAGE_CACHE_SIZE, page_file_index(page));
+ 	nfs_inc_stats(inode, NFSIOS_VFSREADPAGE);
+ 	nfs_add_stats(inode, NFSIOS_READPAGES, 1);
+ 
+@@ -509,7 +509,7 @@ static int
+ readpage_async_filler(void *data, struct page *page)
+ {
+ 	struct nfs_readdesc *desc = (struct nfs_readdesc *)data;
+-	struct inode *inode = page->mapping->host;
++	struct inode *inode = page_file_mapping(page)->host;
+ 	struct nfs_page *new;
+ 	unsigned int len;
+ 	int error;
+Index: linux-2.6/fs/nfs/write.c
+===================================================================
+--- linux-2.6.orig/fs/nfs/write.c
++++ linux-2.6/fs/nfs/write.c
+@@ -126,7 +126,7 @@ static struct nfs_page *nfs_page_find_re
+ 
+ static struct nfs_page *nfs_page_find_request(struct page *page)
+ {
+-	struct inode *inode = page->mapping->host;
++	struct inode *inode = page_file_mapping(page)->host;
+ 	struct nfs_page *req = NULL;
+ 
+ 	spin_lock(&inode->i_lock);
+@@ -138,13 +138,13 @@ static struct nfs_page *nfs_page_find_re
+ /* Adjust the file length if we're writing beyond the end */
+ static void nfs_grow_file(struct page *page, unsigned int offset, unsigned int count)
+ {
+-	struct inode *inode = page->mapping->host;
++	struct inode *inode = page_file_mapping(page)->host;
+ 	loff_t end, i_size = i_size_read(inode);
+ 	pgoff_t end_index = (i_size - 1) >> PAGE_CACHE_SHIFT;
+ 
+-	if (i_size > 0 && page->index < end_index)
++	if (i_size > 0 && page_file_index(page) < end_index)
+ 		return;
+-	end = ((loff_t)page->index << PAGE_CACHE_SHIFT) + ((loff_t)offset+count);
++	end = page_offset(page) + ((loff_t)offset+count);
+ 	if (i_size >= end)
+ 		return;
+ 	nfs_inc_stats(inode, NFSIOS_EXTENDWRITE);
+@@ -155,7 +155,7 @@ static void nfs_grow_file(struct page *p
+ static void nfs_set_pageerror(struct page *page)
+ {
+ 	SetPageError(page);
+-	nfs_zap_mapping(page->mapping->host, page->mapping);
++	nfs_zap_mapping(page_file_mapping(page)->host, page_file_mapping(page));
+ }
+ 
+ /* We can set the PG_uptodate flag if we see that a write request
+@@ -185,7 +185,7 @@ static int nfs_writepage_setup(struct nf
+ 		ret = PTR_ERR(req);
+ 		if (ret != -EBUSY)
+ 			return ret;
+-		ret = nfs_wb_page(page->mapping->host, page);
++		ret = nfs_wb_page(page_file_mapping(page)->host, page);
+ 		if (ret != 0)
+ 			return ret;
  	}
-@@ -1627,6 +1637,10 @@ nofail_alloc:
- 	if (!wait)
- 		goto nopage;
+@@ -219,7 +219,7 @@ static int nfs_set_page_writeback(struct
+ 	int ret = test_set_page_writeback(page);
  
-+	/* Avoid recursion of direct reclaim */
-+	if (p->flags & PF_MEMALLOC)
-+		goto nopage;
-+
- 	cond_resched();
+ 	if (!ret) {
+-		struct inode *inode = page->mapping->host;
++		struct inode *inode = page_file_mapping(page)->host;
+ 		struct nfs_server *nfss = NFS_SERVER(inode);
  
- 	/* We now go into synchronous reclaim */
+ 		if (atomic_long_inc_return(&nfss->writeback) >
+@@ -231,7 +231,7 @@ static int nfs_set_page_writeback(struct
+ 
+ static void nfs_end_page_writeback(struct page *page)
+ {
+-	struct inode *inode = page->mapping->host;
++	struct inode *inode = page_file_mapping(page)->host;
+ 	struct nfs_server *nfss = NFS_SERVER(inode);
+ 
+ 	end_page_writeback(page);
+@@ -246,7 +246,7 @@ static void nfs_end_page_writeback(struc
+ static int nfs_page_async_flush(struct nfs_pageio_descriptor *pgio,
+ 				struct page *page)
+ {
+-	struct inode *inode = page->mapping->host;
++	struct inode *inode = page_file_mapping(page)->host;
+ 	struct nfs_page *req;
+ 	int ret;
+ 
+@@ -289,12 +289,12 @@ static int nfs_page_async_flush(struct n
+ 
+ static int nfs_do_writepage(struct page *page, struct writeback_control *wbc, struct nfs_pageio_descriptor *pgio)
+ {
+-	struct inode *inode = page->mapping->host;
++	struct inode *inode = page_file_mapping(page)->host;
+ 
+ 	nfs_inc_stats(inode, NFSIOS_VFSWRITEPAGE);
+ 	nfs_add_stats(inode, NFSIOS_WRITEPAGES, 1);
+ 
+-	nfs_pageio_cond_complete(pgio, page->index);
++	nfs_pageio_cond_complete(pgio, page_file_index(page));
+ 	return nfs_page_async_flush(pgio, page);
+ }
+ 
+@@ -306,7 +306,7 @@ static int nfs_writepage_locked(struct p
+ 	struct nfs_pageio_descriptor pgio;
+ 	int err;
+ 
+-	nfs_pageio_init_write(&pgio, page->mapping->host, wb_priority(wbc));
++	nfs_pageio_init_write(&pgio, page_file_mapping(page)->host, wb_priority(wbc));
+ 	err = nfs_do_writepage(page, wbc, &pgio);
+ 	nfs_pageio_complete(&pgio);
+ 	if (err < 0)
+@@ -438,7 +438,8 @@ nfs_mark_request_commit(struct nfs_page 
+ 			NFS_PAGE_TAG_COMMIT);
+ 	spin_unlock(&inode->i_lock);
+ 	inc_zone_page_state(req->wb_page, NR_UNSTABLE_NFS);
+-	inc_bdi_stat(req->wb_page->mapping->backing_dev_info, BDI_RECLAIMABLE);
++	inc_bdi_stat(page_file_mapping(req->wb_page)->backing_dev_info,
++			BDI_RECLAIMABLE);
+ 	__mark_inode_dirty(inode, I_DIRTY_DATASYNC);
+ }
+ 
+@@ -525,7 +526,7 @@ static void nfs_cancel_commit_list(struc
+ 	while(!list_empty(head)) {
+ 		req = nfs_list_entry(head->next);
+ 		dec_zone_page_state(req->wb_page, NR_UNSTABLE_NFS);
+-		dec_bdi_stat(req->wb_page->mapping->backing_dev_info,
++		dec_bdi_stat(page_file_mapping(req->wb_page)->backing_dev_info,
+ 				BDI_RECLAIMABLE);
+ 		nfs_list_remove_request(req);
+ 		clear_bit(PG_NEED_COMMIT, &(req)->wb_flags);
+@@ -539,7 +540,7 @@ static void nfs_cancel_commit_list(struc
+  * nfs_scan_commit - Scan an inode for commit requests
+  * @inode: NFS inode to scan
+  * @dst: destination list
+- * @idx_start: lower bound of page->index to scan.
++ * @idx_start: lower bound of page_file_index(page) to scan.
+  * @npages: idx_start + npages sets the upper bound to scan.
+  *
+  * Moves requests from the inode's 'commit' request list.
+@@ -575,7 +576,7 @@ static inline int nfs_scan_commit(struct
+ static struct nfs_page * nfs_update_request(struct nfs_open_context* ctx,
+ 		struct page *page, unsigned int offset, unsigned int bytes)
+ {
+-	struct address_space *mapping = page->mapping;
++	struct address_space *mapping = page_file_mapping(page);
+ 	struct inode *inode = mapping->host;
+ 	struct nfs_page		*req, *new = NULL;
+ 	pgoff_t		rqend, end;
+@@ -686,7 +687,7 @@ int nfs_flush_incompatible(struct file *
+ 		nfs_release_request(req);
+ 		if (!do_flush)
+ 			return 0;
+-		status = nfs_wb_page(page->mapping->host, page);
++		status = nfs_wb_page(page_file_mapping(page)->host, page);
+ 	} while (status == 0);
+ 	return status;
+ }
+@@ -712,7 +713,7 @@ int nfs_updatepage(struct file *file, st
+ 		unsigned int offset, unsigned int count)
+ {
+ 	struct nfs_open_context *ctx = nfs_file_open_context(file);
+-	struct inode	*inode = page->mapping->host;
++	struct inode	*inode = page_file_mapping(page)->host;
+ 	int		status = 0;
+ 
+ 	nfs_inc_stats(inode, NFSIOS_VFSUPDATEPAGE);
+@@ -980,7 +981,7 @@ static void nfs_writeback_done_partial(s
+ 	}
+ 
+ 	if (nfs_write_need_commit(data)) {
+-		struct inode *inode = page->mapping->host;
++		struct inode *inode = page_file_mapping(page)->host;
+ 
+ 		spin_lock(&inode->i_lock);
+ 		if (test_bit(PG_NEED_RESCHED, &req->wb_flags)) {
+@@ -1231,7 +1232,7 @@ nfs_commit_list(struct inode *inode, str
+ 		nfs_list_remove_request(req);
+ 		nfs_mark_request_commit(req);
+ 		dec_zone_page_state(req->wb_page, NR_UNSTABLE_NFS);
+-		dec_bdi_stat(req->wb_page->mapping->backing_dev_info,
++		dec_bdi_stat(page_file_mapping(req->wb_page)->backing_dev_info,
+ 				BDI_RECLAIMABLE);
+ 		nfs_clear_page_tag_locked(req);
+ 	}
+@@ -1258,7 +1259,7 @@ static void nfs_commit_done(struct rpc_t
+ 		nfs_list_remove_request(req);
+ 		clear_bit(PG_NEED_COMMIT, &(req)->wb_flags);
+ 		dec_zone_page_state(req->wb_page, NR_UNSTABLE_NFS);
+-		dec_bdi_stat(req->wb_page->mapping->backing_dev_info,
++		dec_bdi_stat(page_file_mapping(req->wb_page)->backing_dev_info,
+ 				BDI_RECLAIMABLE);
+ 
+ 		dprintk("NFS: commit (%s/%Ld %d@%Ld)",
+@@ -1424,7 +1425,7 @@ int nfs_wb_page_cancel(struct inode *ino
+ 	loff_t range_start = page_offset(page);
+ 	loff_t range_end = range_start + (loff_t)(PAGE_CACHE_SIZE - 1);
+ 	struct writeback_control wbc = {
+-		.bdi = page->mapping->backing_dev_info,
++		.bdi = page_file_mapping(page)->backing_dev_info,
+ 		.sync_mode = WB_SYNC_ALL,
+ 		.nr_to_write = LONG_MAX,
+ 		.range_start = range_start,
+@@ -1457,7 +1458,7 @@ int nfs_wb_page_cancel(struct inode *ino
+ 	}
+ 	if (!PagePrivate(page))
+ 		return 0;
+-	ret = nfs_sync_mapping_wait(page->mapping, &wbc, FLUSH_INVALIDATE);
++	ret = nfs_sync_mapping_wait(page_file_mapping(page), &wbc, FLUSH_INVALIDATE);
+ out:
+ 	return ret;
+ }
+@@ -1468,7 +1469,7 @@ static int nfs_wb_page_priority(struct i
+ 	loff_t range_start = page_offset(page);
+ 	loff_t range_end = range_start + (loff_t)(PAGE_CACHE_SIZE - 1);
+ 	struct writeback_control wbc = {
+-		.bdi = page->mapping->backing_dev_info,
++		.bdi = page_file_mapping(page)->backing_dev_info,
+ 		.sync_mode = WB_SYNC_ALL,
+ 		.nr_to_write = LONG_MAX,
+ 		.range_start = range_start,
+@@ -1484,7 +1485,7 @@ static int nfs_wb_page_priority(struct i
+ 	}
+ 	if (!PagePrivate(page))
+ 		return 0;
+-	ret = nfs_sync_mapping_wait(page->mapping, &wbc, how);
++	ret = nfs_sync_mapping_wait(page_file_mapping(page), &wbc, how);
+ 	if (ret >= 0)
+ 		return 0;
+ out:
+Index: linux-2.6/fs/nfs/internal.h
+===================================================================
+--- linux-2.6.orig/fs/nfs/internal.h
++++ linux-2.6/fs/nfs/internal.h
+@@ -252,13 +252,14 @@ void nfs_super_set_maxbytes(struct super
+ static inline
+ unsigned int nfs_page_length(struct page *page)
+ {
+-	loff_t i_size = i_size_read(page->mapping->host);
++	loff_t i_size = i_size_read(page_file_mapping(page)->host);
+ 
+ 	if (i_size > 0) {
++		pgoff_t page_index = page_file_index(page);
+ 		pgoff_t end_index = (i_size - 1) >> PAGE_CACHE_SHIFT;
+-		if (page->index < end_index)
++		if (page_index < end_index)
+ 			return PAGE_CACHE_SIZE;
+-		if (page->index == end_index)
++		if (page_index == end_index)
+ 			return ((i_size - 1) & ~PAGE_CACHE_MASK) + 1;
+ 	}
+ 	return 0;
 
 --
 
