@@ -1,55 +1,59 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [PATCH 2.6.25] RDMA/cxgb3: Shift calculation wrong for single sge entries.
-Date: Wed, 20 Feb 2008 17:31:48 -0600
-Message-ID: <20080220233148.25301.54457.stgit@dell3.ogc.int>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, general@lists.openfabrics.org,
-	linux-kernel@vger.kernel.org
-To: rdreier@cisco.com
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Subject: RE: [PATCH 2.6.25 2/4]S2io: Multiqueue network device support - FIFO selection based on L4 ports
+Date: Wed, 20 Feb 2008 18:49:41 -0500
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77030E313E@nekter>
+References: <47BCB304.9050709@trash.net>	<20080220.151244.79005114.davem@davemloft.net>	<47BCB481.8050203@trash.net> <20080220.151834.133850272.davem@davemloft.net> <47BCB60C.3040409@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>,
+	<netdev@vger.kernel.org>, <jeff@garzik.org>,
+	"support" <support@neterion.com>
+To: "Patrick McHardy" <kaber@trash.net>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 209-198-142-2-host.prismnet.net ([209.198.142.2]:36075 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750785AbYBTXbt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 18:31:49 -0500
+Received: from mx.neterion.com ([72.1.205.142]:14766 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754338AbYBTXwU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 18:52:20 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <47BCB60C.3040409@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> From: Patrick McHardy [mailto:kaber@trash.net]
+> Sent: Wednesday, February 20, 2008 3:22 PM
+> To: David Miller
+> Cc: Ramkrishna Vepa; Sreenivasa Honnur; netdev@vger.kernel.org;
+> jeff@garzik.org; support
+> Subject: Re: [PATCH 2.6.25 2/4]S2io: Multiqueue network device support
+-
+> FIFO selection based on L4 ports
+> 
+> David Miller wrote:
+> > From: Patrick McHardy <kaber@trash.net>
+> > Date: Thu, 21 Feb 2008 00:15:13 +0100
+> >
+> >
+> >> I missed those discussions, but this has already been agreed on,
+> >> fine by me. It would still be preferable to use queue_mapping
+> >> instead of priority IMO, even if its activated by a module
+> >> parameter, since that leaves the option to use classifiers.
+> >>
+> >
+> > I think the driver should compute the value in it's transmit
+> > routine and keep the value local.  It shouldn't be setting
+> > skb->foo values at all, they don't belong to the driver
+> > and this could confuse other code.
+> >
+> 
+> Yes, I didn't meant it should set anything, but on of the options
+> this patch introduces is to _use_ skb->priority for classification,
+> so the classification is already external, in which case it might
+> as well offer the full flexibility (as one option) to use qdisc
+> classifiers.
+[Ram] Yes, this should be possible. We can add an additional option to
+use qdisc classifiers and submit it as a patch later on.
 
-RDMA/cxgb3: Shift calculation wrong for single sge entries.
-
-A single entry (addr 0x10001000, size 0x2000) will get converted to
-page address 0x10000000 with a page size of 0x4000.  The code as it
-stands doesn't address the single buffer case, but in fact it allows
-the subsequent single-buffer special case to be eliminated entirely.
-Because the mask now includes the (page adjusted) starting and ending
-addresses, the general case works for the single buffer case as well.
-
-Signed-off-by: Bryan Rosenburg <rosnbrg@us.ibm.com>
-Acked-by: Steve Wise <swise@opengridcomputing.com>
----
-
- drivers/infiniband/hw/cxgb3/iwch_mem.c |   10 ++--------
- 1 files changed, 2 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_mem.c b/drivers/infiniband/hw/cxgb3/iwch_mem.c
-index 73bfd16..b8797c6 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_mem.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_mem.c
-@@ -136,14 +136,8 @@ int build_phys_page_list(struct ib_phys_buf *buffer_list,
- 
- 	/* Find largest page shift we can use to cover buffers */
- 	for (*shift = PAGE_SHIFT; *shift < 27; ++(*shift))
--		if (num_phys_buf > 1) {
--			if ((1ULL << *shift) & mask)
--				break;
--		} else
--			if (1ULL << *shift >=
--			    buffer_list[0].size +
--			    (buffer_list[0].addr & ((1ULL << *shift) - 1)))
--				break;
-+		if ((1ULL << *shift) & mask)
-+			break;
- 
- 	buffer_list[0].size += buffer_list[0].addr & ((1ULL << *shift) - 1);
- 	buffer_list[0].addr &= ~0ull << *shift;
+Ram
