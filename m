@@ -1,44 +1,67 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] igb: Fix panic with NICs with 1000BASE-SX
-	PHY
-Date: Wed, 20 Feb 2008 11:52:20 -0500
-Message-ID: <47BC5AC4.9020007@garzik.org>
-References: <20080219182441.12033.64731.stgit@localhost.localdomain>
+Subject: Re: [PATCH] tlan: add static to function definitions
+Date: Wed, 20 Feb 2008 11:51:57 -0500
+Message-ID: <47BC5AAD.7070100@garzik.org>
+References: <1203357878.5757.26.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	bill.hayes@hp.com, andy@greyhouse.net
-To: Auke Kok <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20080219182441.12033.64731.stgit@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Samuel Chessman <chessman@tux.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Harvey Harrison <harvey.harrison@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:48848 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754259AbYBTQwB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Feb 2008 11:52:01 -0500
+In-Reply-To: <1203357878.5757.26.camel@brick>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Auke Kok wrote:
-> From: Bill Hayes <bill.hayes@hp.com>
+Harvey Harrison wrote:
+> The forward declarations were already marked static, make the definitions
+> be static as well.  Fixes the sparse warnings as well.
 > 
-> This patch eliminates a kernel panic with the igb driver in 2.6.25-rc2 when 
-> running on a Intel 82575 Ethernet controller with a 1000BASE-SX PHY.  The 
-> panic does not happen with the 1000BASE-T PHY, only with a SX connection.  
+> drivers/net/tlan.c:1403:5: warning: symbol 'TLan_HandleInvalid' was not declared. Should it be static?
+> drivers/net/tlan.c:1435:5: warning: symbol 'TLan_HandleTxEOF' was not declared. Should it be static?
+> drivers/net/tlan.c:1521:5: warning: symbol 'TLan_HandleStatOverflow' was not declared. Should it be static?
+> drivers/net/tlan.c:1557:5: warning: symbol 'TLan_HandleRxEOF' was not declared. Should it be static?
+> drivers/net/tlan.c:1692:5: warning: symbol 'TLan_HandleDummy' was not declared. Should it be static?
+> drivers/net/tlan.c:1722:5: warning: symbol 'TLan_HandleTxEOC' was not declared. Should it be static?
+> drivers/net/tlan.c:1770:5: warning: symbol 'TLan_HandleStatusCheck' was not declared. Should it be static?
+> drivers/net/tlan.c:1845:5: warning: symbol 'TLan_HandleRxEOC' was not declared. Should it be static?
+> drivers/net/tlan.c:1905:6: warning: symbol 'TLan_Timer' was not declared. Should it be static?
+> drivers/net/tlan.c:1986:6: warning: symbol 'TLan_ResetLists' was not declared. Should it be static?
+> drivers/net/tlan.c:2046:6: warning: symbol 'TLan_FreeLists' was not declared. Should it be static?
+> drivers/net/tlan.c:2095:6: warning: symbol 'TLan_PrintDio' was not declared. Should it be static?
+> drivers/net/tlan.c:2130:6: warning: symbol 'TLan_PrintList' was not declared. Should it be static?
+> drivers/net/tlan.c:2166:6: warning: symbol 'TLan_ReadAndClearStats' was not declared. Should it be static?
+> drivers/net/tlan.c:2242:1: warning: symbol 'TLan_ResetAdapter' was not declared. Should it be static?
+> drivers/net/tlan.c:2328:1: warning: symbol 'TLan_FinishReset' was not declared. Should it be static?
+> drivers/net/tlan.c:2451:6: warning: symbol 'TLan_SetMac' was not declared. Should it be static?
+> drivers/net/tlan.c:2493:6: warning: symbol 'TLan_PhyPrint' was not declared. Should it be static?
+> drivers/net/tlan.c:2542:6: warning: symbol 'TLan_PhyDetect' was not declared. Should it be static?
+> drivers/net/tlan.c:2589:6: warning: symbol 'TLan_PhyPowerDown' was not declared. Should it be static?
+> drivers/net/tlan.c:2614:6: warning: symbol 'TLan_PhyPowerUp' was not declared. Should it be static?
+> drivers/net/tlan.c:2635:6: warning: symbol 'TLan_PhyReset' was not declared. Should it be static?
+> drivers/net/tlan.c:2663:6: warning: symbol 'TLan_PhyStartLink' was not declared. Should it be static?
+> drivers/net/tlan.c:2750:6: warning: symbol 'TLan_PhyFinishAutoNeg' was not declared. Should it be static?
+> drivers/net/tlan.c:2906:5: warning: symbol 'TLan_MiiReadReg' was not declared. Should it be static?
+> drivers/net/tlan.c:2996:6: warning: symbol 'TLan_MiiSendData' was not declared. Should it be static?
+> drivers/net/tlan.c:3038:6: warning: symbol 'TLan_MiiSync' was not declared. Should it be static?
+> drivers/net/tlan.c:3077:6: warning: symbol 'TLan_MiiWriteReg' was not declared. Should it be static?
+> drivers/net/tlan.c:3147:6: warning: symbol 'TLan_EeSendStart' was not declared. Should it be static?
+> drivers/net/tlan.c:3187:5: warning: symbol 'TLan_EeSendByte' was not declared. Should it be static?
+> drivers/net/tlan.c:3248:6: warning: symbol 'TLan_EeReceiveByte' was not declared. Should it be static?
+> drivers/net/tlan.c:3306:5: warning: symbol 'TLan_EeReadByte' was not declared. Should it be static?
 > 
-> Signed-off-by: Bill Hayes <bill.hayes@hp.com>
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> ---
+> Kept the style consistent with the rest of the file, checkpatch will complain.
+>  drivers/net/tlan.c |   64 ++++++++++++++++++++++++++--------------------------
+>  1 files changed, 32 insertions(+), 32 deletions(-)
 
 applied
 
 
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2008.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
