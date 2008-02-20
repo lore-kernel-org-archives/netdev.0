@@ -1,50 +1,75 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] igb: fix legacy mode irq issue
-Date: Wed, 20 Feb 2008 11:50:59 -0500
-Message-ID: <47BC5A73.5000901@garzik.org>
-References: <20080215220525.28483.30217.stgit@localhost.localdomain>
+Subject: Re: [PATCH resend] virtio_net: Fix oops on early interrupts - introduced
+ by virtio reset code
+Date: Wed, 20 Feb 2008 11:51:22 -0500
+Message-ID: <47BC5A8A.3010407@garzik.org>
+References: <200802111411.15745.borntraeger@de.ibm.com> <47B069E0.9040905@us.ibm.com> <200802181002.51645.borntraeger@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	andy@greyhouse.net
-To: Auke Kok <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20080215220525.28483.30217.stgit@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Christian Borntraeger <borntraeger@de.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:48817 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757051AbYBTQv1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Feb 2008 11:51:27 -0500
+In-Reply-To: <200802181002.51645.borntraeger@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Auke Kok wrote:
-> From: Andy Gospodarek <andy@greyhouse.net>
+Christian Borntraeger wrote:
+> Am Montag, 11. Februar 2008 schrieb Anthony Liguori:
+>> The reset support is in Linus's tree so we should try to push it for -rc2.
 > 
-> I booted an igb kernel with the option pci=nomsi and instantly noticed
-> that interrupts no longer worked on my igb device.  I took a look at the
-> interrupt initialization and quickly discovered a comment stating:
+> You are right. My repository was borked. will push it to Jeff Garzik. Thanks
 > 
-> "DO NOT USE EIAME or IAME in legacy mode"
+> Jeff can you schedule this fix into your network driver updates? Thanks
+> ---
 > 
-> It seemed a bit odd that bits to enable IAM were being set in legacy
-> interrupt mode, so I dropped out the following parts and interrupts
-> began working fine again.
 > 
-> [Updated code flow and a nitpick spelling error --Auke]
+> With the latest virtio_reset patches I got the following oops:
 > 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> Unable to handle kernel pointer dereference at virtual kernel address 0000000000000000
+> Oops: 0004 [#1] PREEMPT SMP
+> Modules linked in:
+> CPU: 1 Not tainted 2.6.24zlive-guest-10577-g63f5307-dirty #168
+> Process swapper (pid: 0, task: 000000000f866040, ksp: 000000000f86fd78)
+> Krnl PSW : 0404100180000000 000000000047598a (skb_recv_done+0x52/0x98)
+>            R:0 T:1 IO:0 EX:0 Key:0 M:1 W:0 P:0 AS:0 CC:1 PM:0 EA:3
+> Krnl GPRS: 0000000000000001 0000000000000000 000000000efd0e60 0000000000000001
+>            0000000000000000 000000000f866040 0000000000000000 0000000000000000
+>            00000000008de4c8 0000000000001237 0000000000001237 000000000f977dd8
+>            0000000000000020 00000000001132bc 000000000f977e08 000000000f977dd8
+> Krnl Code: 000000000047597c: e31040300004       lg      %r1,48(%r4)
+>            0000000000475982: b9040001           lgr     %r0,%r1
+>            0000000000475986: b9810003           ogr     %r0,%r3
+>           >000000000047598a: eb1040300030       csg     %r1,%r0,48(%r4)
+>            0000000000475990: a744fff9           brc     4,475982
+>            0000000000475994: a7110001           tmll    %r1,1
+>            0000000000475998: a7840009           brc     8,4759aa
+>            000000000047599c: e340b0b80004       lg      %r4,184(%r11)
+> Call Trace:
+> ([<000001500f978000>] 0x1500f978000)
+>  [<00000000004779a6>] vring_interrupt+0x72/0x88
+>  [<0000000000491d9c>] kvm_extint_handler+0x34/0x44
+>  [<000000000010d2d4>] do_extint+0xc0/0xfc
+>  [<0000000000113b5a>] ext_no_vtime+0x1c/0x20
+>  [<000000000010a0b6>] cpu_idle+0x21a/0x230
+> ([<000000000010a096>] cpu_idle+0x1fa/0x230)
+>  [<000000000057dfe4>] start_secondary+0xa0/0xb4
+> 
+> We must initialize vdev->priv before we use the notify hypercall as 
+> vdev->priv is used in skb_recv_done. So lets move the assignment of 
+> vdev->priv before we call try_fill_recv.
+> 
+> Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
+> Acked-by: Anthony Liguori <aliguori@us.ibm.com>
+> 
+> ---
+>  drivers/net/virtio_net.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
 applied
 
 
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2008.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
