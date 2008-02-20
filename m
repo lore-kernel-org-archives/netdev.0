@@ -1,45 +1,33 @@
-From: David Miller <davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
 Subject: Re: [git patches] net driver fixes
-Date: Wed, 20 Feb 2008 14:57:56 -0800 (PST)
-Message-ID: <20080220.145756.63719432.davem@davemloft.net>
-References: <20080220212302.GJ30160@fieldses.org>
-	<20080220.134257.41491836.davem@davemloft.net>
-	<20080220222530.GK30160@fieldses.org>
+Date: Wed, 20 Feb 2008 23:40:53 +0100
+Message-ID: <20080220224053.GA8500@electric-eye.fr.zoreil.com>
+References: <20080220165557.GA18816@havoc.gtf.org> <20080220.131530.18314167.davem@davemloft.net> <20080220212302.GJ30160@fieldses.org> <20080220.134257.41491836.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: bfields@fieldses.org, jeff@garzik.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: bfields@fieldses.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42326
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752546AbYBTW5T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 17:57:19 -0500
-In-Reply-To: <20080220222530.GK30160@fieldses.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41220 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933399AbYBTW7S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 17:59:18 -0500
+Content-Disposition: inline
+In-Reply-To: <20080220.134257.41491836.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Date: Wed, 20 Feb 2008 17:25:30 -0500
+David Miller <davem@davemloft.net> :
+[...]
+> Because it forces me to pull Linus's upstream into net-2.6,
+> I don't have any choice in the matter.
 
-> The advantages include earlier warning of merge problems, and avoidance
-> of duplicate commits--if Jeff's done work that depends on patches that
-> already upstream, then he either does that work against upstream, or
-> includes backported patches in the branch he asks you to pull, and you
-> end up with both the original and the backported patch.  Which isn't the
-> end of the world, but the resulting history seems messier than
-> necessary.
-> 
-> Or I guess you could both wait to do this merge until you're ready to
-> pull in Linus's latest?
+Jeff's choice is a bit surprizing. That being said, it would had been nice
+to fast-forward net-2.6 from a442585952f137bd4cdb1f2f3166e4157d383b82
+to Linus's upstream before applying the content of
+12aa343add3eced38a44bdb612b35fdf634d918c in order to keep the drift
+with Linus's branch to a minimum during the bugfix cycle.
 
-I do a test pull and build of net-2.6 into Linus's current tree
-before I send Linus a pull request.
-
-If any non-trivial merges are necessary, which hasn't happened yet at
-all, I would then do a merge into my net-2.6 tree and resolve the
-conflicts.
-
-There is no reason for someone downstream of net-2.6 to do this.
-
+-- 
+Ueimor
