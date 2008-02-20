@@ -1,36 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6][DRIVER][VETH] fix dev refcount race
-Date: Wed, 20 Feb 2008 00:22:10 -0800 (PST)
-Message-ID: <20080220.002210.103312359.davem@davemloft.net>
-References: <47BB0138.1000104@fr.ibm.com>
+Subject: Re: [Lksctp-developers] [PATCH][SCTP]: Pick up an orphaned
+ sctp_sockets_allocated counter.
+Date: Wed, 20 Feb 2008 00:23:19 -0800 (PST)
+Message-ID: <20080220.002319.130915234.davem@davemloft.net>
+References: <47BB05AA.6090101@openvz.org>
+	<47BB0740.2070104@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org
-To: dlezcano@fr.ibm.com
+Cc: xemul@openvz.org, netdev@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57598
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57603
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752469AbYBTIVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 03:21:33 -0500
-In-Reply-To: <47BB0138.1000104@fr.ibm.com>
+	by vger.kernel.org with ESMTP id S1753099AbYBTIWm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 03:22:42 -0500
+In-Reply-To: <47BB0740.2070104@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Date: Tue, 19 Feb 2008 17:18:00 +0100
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Tue, 19 Feb 2008 11:43:44 -0500
 
-> veth: fix dev refcount race
+> Pavel Emelyanov wrote:
+> > This counter is currently write-only.
+> > 
+> > Drawing an analogy with the similar tcp counter, I think
+> > that this one should be pointed by the sockets_allocated
+> > members of sctp_prot and sctpv6_prot.
+> > 
+> > Or should it be instead removed at all?
+> > 
+> > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 > 
-> When deleting the veth driver, veth_close calls netif_carrier_off
-> for the two extremities of the network device. netif_carrier_off on
-> the peer device will fire an event and hold a reference on the peer
-> device. Just after, the peer is unregistered taking the rtnl_lock while
-> the linkwatch_event is scheduled. If __linkwatch_run_queue does not
-> occurs before the unregistering, unregister_netdevice will wait for
-> the dev refcount to reach zero holding the rtnl_lock and linkwatch_event
-> will wait for the rtnl_lock and hold the dev refcount.
-> 
-> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+> Ack.  Looks like it got missed.  It should be added.
 
-Thank you for fixing this bug, patch applied.
+Applied, thanks everyone.
