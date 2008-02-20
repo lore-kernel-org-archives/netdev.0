@@ -1,40 +1,57 @@
-From: Magnus Damm <magnus.damm@gmail.com>
-Subject: [PATCH 04/04] smc91x: add insw/outsw to default config
-Date: Wed, 20 Feb 2008 18:58:21 +0900
-Message-ID: <20080220095821.22645.60604.sendpatchset@clockwork.opensource.se>
-References: <20080220095740.22645.36783.sendpatchset@clockwork.opensource.se>
-Cc: Magnus Damm <magnus.damm@gmail.com>, lethal@linux-sh.org,
-	nico@cam.org, akpm@linux-foundation.org
-To: netdev@vger.kernel.org
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Subject: Re: [NETFILTER]: Introduce nf_inet_address
+Date: Wed, 20 Feb 2008 11:24:50 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0802201122150.26109@fbirervta.pbzchgretzou.qr>
+References: <200801291316.m0TDGivY024953@hera.kernel.org>
+ <1203428949.3223.25.camel@shinybook.infradead.org>  <47BAE13D.4060206@trash.net>
+ <1203431447.3223.33.camel@shinybook.infradead.org> <47BAEB6C.1030609@trash.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Woodhouse <dwmw2@infradead.org>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, varekova@redhat.com
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qb-out-0506.google.com ([72.14.204.227]:59948 "EHLO
-	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751065AbYBTKDl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 05:03:41 -0500
-Received: by qb-out-0506.google.com with SMTP id e11so2598712qbe.15
-        for <netdev@vger.kernel.org>; Wed, 20 Feb 2008 02:03:38 -0800 (PST)
-In-Reply-To: <20080220095740.22645.36783.sendpatchset@clockwork.opensource.se>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:37760 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752610AbYBTKYw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 05:24:52 -0500
+In-Reply-To: <47BAEB6C.1030609@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes sure SMC_insw()/SMC_outsw() are defined for the
-default configuration. Without this change BUG()s will be triggered
-when using 16-bit only platform data and the default configuration.
 
-Signed-off-by: Magnus Damm <damm@igel.co.jp>
----
+On Feb 19 2008 15:45, Patrick McHardy wrote:
+>> 
+>> It's in busybox 1.9.1. Just including <netinet/in.h> seems to be
+>> sufficient to make it happy again. I wonder if netfilter.h should
+>> include that for itself?
+>
+> That would break iptables compilation, which already includes
+> linux/in.h in some files. I guess the best fix for now is to
+> include netinet/in.h in busybox and long-term clean this up
+> properly.
+>
 
- drivers/net/smc91x.h |    2 ++
- 1 file changed, 2 insertions(+)
+If <linux/netfilter.h> includes <linux/in.h>, userspace compilation
+fails (clashing defs, etc.); if <linux/netfilter.h> includes
+<netinet/in.h>, kernel compilation fails (file not found).
 
---- 0019/drivers/net/smc91x.h
-+++ work/drivers/net/smc91x.h	2008-02-20 17:11:19.000000000 +0900
-@@ -446,6 +446,8 @@ static inline void LPD7_SMC_outsw (unsig
- #define SMC_outb(v, a, r)	writeb(v, (a) + (r))
- #define SMC_outw(v, a, r)	writew(v, (a) + (r))
- #define SMC_outl(v, a, r)	writel(v, (a) + (r))
-+#define SMC_insw(a, r, p, l)	readsw((a) + (r), p, l)
-+#define SMC_outsw(a, r, p, l)	writesw((a) + (r), p, l)
- #define SMC_insl(a, r, p, l)	readsl((a) + (r), p, l)
- #define SMC_outsl(a, r, p, l)	writesl((a) + (r), p, l)
- 
+What comes to mind is the ugly hack we had for a few days:
+
+#ifdef __KERNEL__
+#	include <linux/in.h>
+#else
+#	include <netinet/in.h>
+#endif
+
+and I think we should not impose any inclusion rules on userspace
+this way.
+
+Right now, it is solved this way:
+
+kernel .c files explicitly include <linux/in.h> when loading
+<linux/netfilter.h>,
+
+userspace .c files explicitly includ <netinet/in.h> when loading
+<linux/netfilter.h>. And that seems to work out.
+
