@@ -1,47 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [NETLABEL] Minor cleanup: remove unused method
- definition
-Date: Wed, 20 Feb 2008 00:27:11 -0800 (PST)
-Message-ID: <20080220.002711.181069536.davem@davemloft.net>
-References: <eb3ff54b0802190625v5315aac9m7ffd580b30bce8cd@mail.gmail.com>
-	<200802191108.27168.paul.moore@hp.com>
+From: "Tomas Winkler" <tomas.winkler@intel.com>
+Subject: Re: [2.6.25 patch] fix broken error handling in ieee80211_sta_process_addba_request()
+Date: Wed, 20 Feb 2008 10:38:04 +0200
+Message-ID: <1ba2fa240802200038l79ae3b31na7604c2fb692929@mail.gmail.com>
+References: <20080219225852.GQ31955@cs181133002.pp.htv.fi>
+	 <20080220064613.GA3885@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: ramirose@gmail.com, netdev@vger.kernel.org, casey@schaufler-ca.com
-To: paul.moore@hp.com
+Cc: "Adrian Bunk" <bunk@kernel.org>,
+	"Ron Rindjunsky" <ron.rindjunsky@intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Jarek Poplawski" <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57408
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753655AbYBTI0e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 03:26:34 -0500
-In-Reply-To: <200802191108.27168.paul.moore@hp.com>
+Received: from wx-out-0506.google.com ([66.249.82.227]:49238 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753176AbYBTIiG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 03:38:06 -0500
+Received: by wx-out-0506.google.com with SMTP id h31so2082921wxd.4
+        for <netdev@vger.kernel.org>; Wed, 20 Feb 2008 00:38:05 -0800 (PST)
+In-Reply-To: <20080220064613.GA3885@ff.dom.local>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Tue, 19 Feb 2008 11:08:27 -0500
-
-> On Tuesday 19 February 2008 9:25:31 am Rami Rosen wrote:
-> > Hi,
-> >
-> > This patch removes definition of netlbl_cfg_cipsov4_del() method in
-> > netlabel/netlabel_kapi.c and in include/net/netlabel.h as it is not
-> > used.
-> >
-> >
-> > Regards,
-> > Rami Rosen
-> >
-> >
-> > Signed-off-by: Rami Rosen <ramirose@gmail.com>
-> 
-> This was added for use by Smack (and any other LSMs which want to 
-> configure NetLabel directly) and since this is an area that is 
-> undergoing a lot of churn at this point I'd prefer if this function was 
-> left in place for the time being.
-> 
-> At a later date if this function is still unused, I'll gladly ack it's 
-> removal or do so myself.
-
-Ok, let's leave it in for now.
+On Feb 20, 2008 8:46 AM, Jarek Poplawski <jarkao2@gmail.com> wrote:
+> On 19-02-2008 23:58, Adrian Bunk wrote:
+> ...
+> > --- a/net/mac80211/ieee80211_sta.c
+> > +++ b/net/mac80211/ieee80211_sta.c
+> > @@ -1116,9 +1116,10 @@ static void ieee80211_sta_process_addba_request(struct net_device *dev,
+> ...
+> > +                     printk(KERN_ERR "can not allocate reordering buffer "
+>
+>   +                     printk(KERN_ERR "cannot allocate reordering buffer "
+>
+> Probably this can be fixed during the commit.
+>
+> Jarek P
+.
+ACK: both patches.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
