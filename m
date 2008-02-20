@@ -1,372 +1,135 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 27/28] nfs: enable swap on NFS
-Date: Wed, 20 Feb 2008 15:46:37 +0100
-Message-ID: <20080220150308.809007000@chello.nl>
-References: <20080220144610.548202000@chello.nl>
+Subject: [PATCH 00/28] Swap over NFS -v16
+Date: Wed, 20 Feb 2008 15:46:10 +0100
+Message-ID: <20080220144610.548202000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:4635 "EHLO
-	viefep18-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753693AbYBTPSj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:18:39 -0500
-Content-Disposition: inline; filename=nfs-swap_ops.patch
+Received: from viefep18-int.chello.at ([213.46.255.22]:21358 "EHLO
+	viefep33-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756443AbYBTPSp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:18:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement all the new swapfile a_ops for NFS. This will set the NFS socket to
-SOCK_MEMALLOC and run socket reconnect under PF_MEMALLOC as well as reset
-SOCK_MEMALLOC before engaging the protocol ->connect() method.
+Hi,
 
-PF_MEMALLOC should allow the allocation of struct socket and related objects
-and the early (re)setting of SOCK_MEMALLOC should allow us to receive the
-packets required for the TCP connection buildup.
+Another posting of the full swap over NFS series. 
 
-(swapping continues over a server reset during heavy network traffic)
+Andrew/Linus, could we start thinking of sticking this in -mm?
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
----
- fs/Kconfig                  |   17 +++++++++++
- fs/nfs/file.c               |   12 ++++++++
- fs/nfs/write.c              |   19 +++++++++++++
- include/linux/nfs_fs.h      |    2 +
- include/linux/sunrpc/xprt.h |    5 ++-
- net/sunrpc/sched.c          |    9 ++++--
- net/sunrpc/xprtsock.c       |   63 ++++++++++++++++++++++++++++++++++++++++++++
- 7 files changed, 124 insertions(+), 3 deletions(-)
+[ patches against 2.6.25-rc2-mm1, also to be found online at:
+  http://programming.kicks-ass.net/kernel-patches/vm_deadlock/v2.6.25-rc2-mm1/ ]
 
-Index: linux-2.6/fs/nfs/file.c
-===================================================================
---- linux-2.6.orig/fs/nfs/file.c
-+++ linux-2.6/fs/nfs/file.c
-@@ -373,6 +373,13 @@ static int nfs_launder_page(struct page 
- 	return nfs_wb_page(page_file_mapping(page)->host, page);
- }
- 
-+#ifdef CONFIG_NFS_SWAP
-+static int nfs_swapfile(struct address_space *mapping, int enable)
-+{
-+	return xs_swapper(NFS_CLIENT(mapping->host)->cl_xprt, enable);
-+}
-+#endif
-+
- const struct address_space_operations nfs_file_aops = {
- 	.readpage = nfs_readpage,
- 	.readpages = nfs_readpages,
-@@ -387,6 +394,11 @@ const struct address_space_operations nf
- 	.direct_IO = nfs_direct_IO,
- #endif
- 	.launder_page = nfs_launder_page,
-+#ifdef CONFIG_NFS_SWAP
-+	.swapfile = nfs_swapfile,
-+	.swap_out = nfs_swap_out,
-+	.swap_in = nfs_readpage,
-+#endif
- };
- 
- static int nfs_vm_page_mkwrite(struct vm_area_struct *vma, struct page *page)
-Index: linux-2.6/fs/nfs/write.c
-===================================================================
---- linux-2.6.orig/fs/nfs/write.c
-+++ linux-2.6/fs/nfs/write.c
-@@ -362,6 +362,25 @@ int nfs_writepage(struct page *page, str
- 	return ret;
- }
- 
-+int nfs_swap_out(struct file *file, struct page *page,
-+		 struct writeback_control *wbc)
-+{
-+	struct nfs_open_context *ctx = nfs_file_open_context(file);
-+	int status;
-+
-+	status = nfs_writepage_setup(ctx, page, 0, nfs_page_length(page));
-+	if (status < 0) {
-+		nfs_set_pageerror(page);
-+		goto out;
-+	}
-+
-+	status = nfs_writepage_locked(page, wbc);
-+
-+out:
-+	unlock_page(page);
-+	return status;
-+}
-+
- static int nfs_writepages_callback(struct page *page, struct writeback_control *wbc, void *data)
- {
- 	int ret;
-Index: linux-2.6/include/linux/nfs_fs.h
-===================================================================
---- linux-2.6.orig/include/linux/nfs_fs.h
-+++ linux-2.6/include/linux/nfs_fs.h
-@@ -453,6 +453,8 @@ extern int  nfs_flush_incompatible(struc
- extern int  nfs_updatepage(struct file *, struct page *, unsigned int, unsigned int);
- extern int nfs_writeback_done(struct rpc_task *, struct nfs_write_data *);
- extern void nfs_writedata_release(void *);
-+extern int  nfs_swap_out(struct file *file, struct page *page,
-+			 struct writeback_control *wbc);
- 
- /*
-  * Try to write back everything synchronously (but check the
-Index: linux-2.6/fs/Kconfig
-===================================================================
---- linux-2.6.orig/fs/Kconfig
-+++ linux-2.6/fs/Kconfig
-@@ -1661,6 +1661,18 @@ config NFS_DIRECTIO
- 	  causes open() to return EINVAL if a file residing in NFS is
- 	  opened with the O_DIRECT flag.
- 
-+config NFS_SWAP
-+	bool "Provide swap over NFS support"
-+	default n
-+	depends on NFS_FS
-+	select SUNRPC_SWAP
-+	help
-+	  This option enables swapon to work on files located on NFS mounts.
-+
-+	  For more details, see Documentation/vm_deadlock.txt
-+
-+	  If unsure, say N.
-+
- config NFSD
- 	tristate "NFS server support"
- 	depends on INET
-@@ -1794,6 +1806,11 @@ config SUNRPC_BIND34
- 	  If unsure, say N to get traditional behavior (version 2 rpcbind
- 	  requests only).
- 
-+config SUNRPC_SWAP
-+	def_bool n
-+	depends on SUNRPC
-+	select NETVM
-+
- config RPCSEC_GSS_KRB5
- 	tristate "Secure RPC: Kerberos V mechanism (EXPERIMENTAL)"
- 	depends on SUNRPC && EXPERIMENTAL
-Index: linux-2.6/include/linux/sunrpc/xprt.h
-===================================================================
---- linux-2.6.orig/include/linux/sunrpc/xprt.h
-+++ linux-2.6/include/linux/sunrpc/xprt.h
-@@ -143,7 +143,9 @@ struct rpc_xprt {
- 	unsigned int		max_reqs;	/* total slots */
- 	unsigned long		state;		/* transport state */
- 	unsigned char		shutdown   : 1,	/* being shut down */
--				resvport   : 1; /* use a reserved port */
-+				resvport   : 1, /* use a reserved port */
-+				swapper    : 1; /* we're swapping over this
-+						   transport */
- 	unsigned int		bind_index;	/* bind function index */
- 
- 	/*
-@@ -241,6 +243,7 @@ void			xprt_complete_rqst(struct rpc_tas
- void			xprt_release_rqst_cong(struct rpc_task *task);
- void			xprt_disconnect_done(struct rpc_xprt *xprt);
- void			xprt_force_disconnect(struct rpc_xprt *xprt);
-+int			xs_swapper(struct rpc_xprt *xprt, int enable);
- 
- /*
-  * Reserved bit positions in xprt->state
-Index: linux-2.6/net/sunrpc/sched.c
-===================================================================
---- linux-2.6.orig/net/sunrpc/sched.c
-+++ linux-2.6/net/sunrpc/sched.c
-@@ -766,7 +766,10 @@ struct rpc_buffer {
- void *rpc_malloc(struct rpc_task *task, size_t size)
- {
- 	struct rpc_buffer *buf;
--	gfp_t gfp = RPC_IS_SWAPPER(task) ? GFP_ATOMIC : GFP_NOWAIT;
-+	gfp_t gfp = GFP_NOWAIT;
-+
-+	if (RPC_IS_SWAPPER(task))
-+		gfp |= __GFP_MEMALLOC;
- 
- 	size += sizeof(struct rpc_buffer);
- 	if (size <= RPC_BUFFER_MAXSIZE)
-@@ -839,6 +842,8 @@ static void rpc_init_task(struct rpc_tas
- 		kref_get(&task->tk_client->cl_kref);
- 		if (task->tk_client->cl_softrtry)
- 			task->tk_flags |= RPC_TASK_SOFT;
-+		if (task->tk_client->cl_xprt->swapper)
-+			task->tk_flags |= RPC_TASK_SWAPPER;
- 	}
- 
- 	if (task->tk_ops->rpc_call_prepare != NULL)
-@@ -865,7 +870,7 @@ static void rpc_init_task(struct rpc_tas
- static struct rpc_task *
- rpc_alloc_task(void)
- {
--	return (struct rpc_task *)mempool_alloc(rpc_task_mempool, GFP_NOFS);
-+	return (struct rpc_task *)mempool_alloc(rpc_task_mempool, GFP_NOIO);
- }
- 
- static void rpc_free_task(struct rcu_head *rcu)
-Index: linux-2.6/net/sunrpc/xprtsock.c
-===================================================================
---- linux-2.6.orig/net/sunrpc/xprtsock.c
-+++ linux-2.6/net/sunrpc/xprtsock.c
-@@ -1451,6 +1451,9 @@ static void xs_udp_finish_connecting(str
- 		transport->sock = sock;
- 		transport->inet = sk;
- 
-+		if (xprt->swapper)
-+			sk_set_memalloc(sk);
-+
- 		write_unlock_bh(&sk->sk_callback_lock);
- 	}
- 	xs_udp_do_set_buffer_size(xprt);
-@@ -1468,11 +1471,15 @@ static void xs_udp_connect_worker4(struc
- 		container_of(work, struct sock_xprt, connect_worker.work);
- 	struct rpc_xprt *xprt = &transport->xprt;
- 	struct socket *sock = transport->sock;
-+	unsigned long pflags = current->flags;
- 	int err, status = -EIO;
- 
- 	if (xprt->shutdown || !xprt_bound(xprt))
- 		goto out;
- 
-+	if (xprt->swapper)
-+		current->flags |= PF_MEMALLOC;
-+
- 	/* Start by resetting any existing state */
- 	xs_close(xprt);
- 
-@@ -1495,6 +1502,7 @@ static void xs_udp_connect_worker4(struc
- out:
- 	xprt_wake_pending_tasks(xprt, status);
- 	xprt_clear_connecting(xprt);
-+	tsk_restore_flags(current, pflags, PF_MEMALLOC);
- }
- 
- /**
-@@ -1509,11 +1517,15 @@ static void xs_udp_connect_worker6(struc
- 		container_of(work, struct sock_xprt, connect_worker.work);
- 	struct rpc_xprt *xprt = &transport->xprt;
- 	struct socket *sock = transport->sock;
-+	unsigned long pflags = current->flags;
- 	int err, status = -EIO;
- 
- 	if (xprt->shutdown || !xprt_bound(xprt))
- 		goto out;
- 
-+	if (xprt->swapper)
-+		current->flags |= PF_MEMALLOC;
-+
- 	/* Start by resetting any existing state */
- 	xs_close(xprt);
- 
-@@ -1536,6 +1548,7 @@ static void xs_udp_connect_worker6(struc
- out:
- 	xprt_wake_pending_tasks(xprt, status);
- 	xprt_clear_connecting(xprt);
-+	tsk_restore_flags(current, pflags, PF_MEMALLOC);
- }
- 
- /*
-@@ -1595,6 +1608,9 @@ static int xs_tcp_finish_connecting(stru
- 		write_unlock_bh(&sk->sk_callback_lock);
- 	}
- 
-+	if (xprt->swapper)
-+		sk_set_memalloc(transport->inet);
-+
- 	/* Tell the socket layer to start connecting... */
- 	xprt->stat.connect_count++;
- 	xprt->stat.connect_start = jiffies;
-@@ -1613,11 +1629,15 @@ static void xs_tcp_connect_worker4(struc
- 		container_of(work, struct sock_xprt, connect_worker.work);
- 	struct rpc_xprt *xprt = &transport->xprt;
- 	struct socket *sock = transport->sock;
-+	unsigned long pflags = current->flags;
- 	int err, status = -EIO;
- 
- 	if (xprt->shutdown || !xprt_bound(xprt))
- 		goto out;
- 
-+	if (xprt->swapper)
-+		current->flags |= PF_MEMALLOC;
-+
- 	if (!sock) {
- 		/* start from scratch */
- 		if ((err = sock_create_kern(PF_INET, SOCK_STREAM, IPPROTO_TCP, &sock)) < 0) {
-@@ -1659,6 +1679,7 @@ out:
- 	xprt_wake_pending_tasks(xprt, status);
- out_clear:
- 	xprt_clear_connecting(xprt);
-+	tsk_restore_flags(current, pflags, PF_MEMALLOC);
- }
- 
- /**
-@@ -1673,11 +1694,15 @@ static void xs_tcp_connect_worker6(struc
- 		container_of(work, struct sock_xprt, connect_worker.work);
- 	struct rpc_xprt *xprt = &transport->xprt;
- 	struct socket *sock = transport->sock;
-+	unsigned long pflags = current->flags;
- 	int err, status = -EIO;
- 
- 	if (xprt->shutdown || !xprt_bound(xprt))
- 		goto out;
- 
-+	if (xprt->swapper)
-+		current->flags |= PF_MEMALLOC;
-+
- 	if (!sock) {
- 		/* start from scratch */
- 		if ((err = sock_create_kern(PF_INET6, SOCK_STREAM, IPPROTO_TCP, &sock)) < 0) {
-@@ -1718,6 +1743,7 @@ out:
- 	xprt_wake_pending_tasks(xprt, status);
- out_clear:
- 	xprt_clear_connecting(xprt);
-+	tsk_restore_flags(current, pflags, PF_MEMALLOC);
- }
- 
- /**
-@@ -2055,6 +2081,43 @@ int init_socket_xprt(void)
- 	return 0;
- }
- 
-+#ifdef CONFIG_SUNRPC_SWAP
-+#define RPC_BUF_RESERVE_PAGES \
-+	kestimate_single(sizeof(struct rpc_rqst), GFP_KERNEL, RPC_MAX_SLOT_TABLE)
-+#define RPC_RESERVE_PAGES	(RPC_BUF_RESERVE_PAGES + TX_RESERVE_PAGES)
-+
-+/**
-+ * xs_swapper - Tag this transport as being used for swap.
-+ * @xprt: transport to tag
-+ * @enable: enable/disable
-+ *
-+ */
-+int xs_swapper(struct rpc_xprt *xprt, int enable)
-+{
-+	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
-+	int err = 0;
-+
-+	if (enable) {
-+		/*
-+		 * keep one extra sock reference so the reserve won't dip
-+		 * when the socket gets reconnected.
-+		 */
-+		err = sk_adjust_memalloc(1, RPC_RESERVE_PAGES);
-+		if (!err) {
-+			sk_set_memalloc(transport->inet);
-+			xprt->swapper = 1;
-+		}
-+	} else if (xprt->swapper) {
-+		xprt->swapper = 0;
-+		sk_clear_memalloc(transport->inet);
-+		sk_adjust_memalloc(-1, -RPC_RESERVE_PAGES);
-+	}
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(xs_swapper);
-+#endif
-+
- /**
-  * cleanup_socket_xprt - remove xprtsock's sysctls, unregister
-  *
+The patch-set can be split in roughtly 5 parts, for each of which I shall give
+a description.
 
---
+
+  Part 1, patches 1-11
+
+The problem with swap over network is the generic swap problem: needing memory
+to free memory. Normally this is solved using mempools, as can be seen in the
+BIO layer.
+
+Swap over network has the problem that the network subsystem does not use fixed
+sized allocations, but heavily relies on kmalloc(). This makes mempools
+unusable.
+
+This first part provides a generic reserve framework. This framework
+could also be used to get rid of some of the __GFP_NOFAIL users.
+
+Care is taken to only affect the slow paths - when we're low on memory.
+
+Caveats: it currently doesn't do SLOB.
+
+ 1 - mm: gfp_to_alloc_flags()
+ 2 - mm: tag reseve pages
+ 3 - mm: sl[au]b: add knowledge of reserve pages
+ 4 - mm: kmem_estimate_pages()
+ 5 - mm: allow PF_MEMALLOC from softirq context
+ 6 - mm: serialize access to min_free_kbytes
+ 7 - mm: emergency pool
+ 8 - mm: system wide ALLOC_NO_WATERMARK
+ 9 - mm: __GFP_MEMALLOC
+10 - mm: memory reserve management
+11 - selinux: tag avc cache alloc as non-critical
+
+
+  Part 2, patches 12-14
+
+Provide some generic network infrastructure needed later on.
+
+12 - net: wrap sk->sk_backlog_rcv()
+13 - net: packet split receive api
+14 - net: sk_allocation() - concentrate socket related allocations
+
+
+  Part 3, patches 15-21
+
+Now that we have a generic memory reserve system, use it on the network stack.
+The thing that makes this interesting is that, contrary to BIO, both the
+transmit and receive path require memory allocations. 
+
+That is, in the BIO layer write back completion is usually just an ISR flipping
+a bit and waking stuff up. A network write back completion involved receiving
+packets, which when there is no memory, is rather hard. And even when there is
+memory there is no guarantee that the required packet comes in in the window
+that that memory buys us.
+
+The solution to this problem is found in the fact that network is to be assumed
+lossy. Even now, when there is no memory to receive packets the network card
+will have to discard packets. What we do is move this into the network stack.
+
+So we reserve a little pool to act as a receive buffer, this allows us to
+inspect packets before tossing them. This way, we can filter out those packets
+that ensure progress (writeback completion) and disregard the others (as would
+have happened anyway). [ NOTE: this is a stable mode of operation with limited
+memory usage, exactly the kind of thing we need ]
+
+Again, care is taken to keep much of the overhead of this to only affect the
+slow path. Only packets allocated from the reserves will suffer the extra
+atomic overhead needed for accounting.
+
+15 - netvm: network reserve infrastructure
+16 - netvm: INET reserves.
+17 - netvm: hook skb allocation to reserves
+18 - netvm: filter emergency skbs.
+19 - netvm: prevent a TCP specific deadlock
+20 - netfilter: NF_QUEUE vs emergency skbs
+21 - netvm: skb processing
+
+
+  Part 4, patches 22-23
+
+Generic vm infrastructure to handle swapping to a filesystem instead of a block
+device.
+
+This provides new a_ops to handle swapcache pages and could be used to obsolete
+the bmap usage for swapfiles.
+
+22 - mm: add support for non block device backed swap files
+23 - mm: methods for teaching filesystems about PG_swapcache pages
+
+
+  Part 5, patches 24-28
+
+Finally, convert NFS to make use of the new network and vm infrastructure to
+provide swap over NFS.
+
+24 - nfs: remove mempools
+25 - nfs: teach the NFS client how to treat PG_swapcache pages
+26 - nfs: disable data cache revalidation for swapfiles
+27 - nfs: enable swap on NFS
+28 - nfs: fix various memory recursions possible with swap over NFS.
+
+
+Changes since -v15:
+ - fwd port
+ - more SGE fragment drivers ported
+ - made the new swapfile logic unconditional
+ - various bug fixes and cleanups
+
 
