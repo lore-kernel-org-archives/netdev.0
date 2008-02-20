@@ -1,44 +1,65 @@
 From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: [PATCH 2.6.25 8/8][BNX2X]: add to MAINTAINERS
-Date: Wed, 20 Feb 2008 19:34:07 +0200
-Message-ID: <1203528847.8232.96.camel@lb-tlvb-eliezer.il.broadcom.com>
+Subject: [PATCH 2.6.25 5/8][BNX2X]: workaround for a PCI core bug
+Date: Wed, 20 Feb 2008 19:34:03 +0200
+Message-ID: <1203528843.8232.93.camel@lb-tlvb-eliezer.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: davem@davemloft.net, jeff@garzik.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1743 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1719 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759827AbYBTReP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1759039AbYBTReP (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 20 Feb 2008 12:34:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[BNX2X]: add to MAINTAINERS
+[BNX2X]: workaround for a PCI core bug
 
 
 Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
 ---
- MAINTAINERS |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/bnx2x_init.h |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 6680ec4..da69429 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -982,6 +982,12 @@ M:	mchan@broadcom.com
- L:	netdev@vger.kernel.org
- S:	Supported
+diff --git a/drivers/net/bnx2x_init.h b/drivers/net/bnx2x_init.h
+index 04f93bf..dcaecc5 100644
+--- a/drivers/net/bnx2x_init.h
++++ b/drivers/net/bnx2x_init.h
+@@ -1,6 +1,6 @@
+ /* bnx2x_init.h: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007 Broadcom Corporation
++ * Copyright (c) 2007-2008 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -409,7 +409,7 @@ static void bnx2x_init_pxp(struct bnx2x *bp)
  
-+BROADCOM BNX2X 10 GIGABIT ETHERNET DRIVER
-+P:	Eliezer Tamir
-+M:	eliezert@broadcom.com
-+L:	netdev@vger.kernel.org
-+S:	Supported
+ 	pci_read_config_word(bp->pdev,
+ 			     bp->pcie_cap + PCI_EXP_DEVCTL, (u16 *)&val);
+-	DP(NETIF_MSG_HW, "read 0x%x from devctl\n", val);
++	DP(NETIF_MSG_HW, "read 0x%x from devctl\n", (u16)val);
+ 	w_order = ((val & PCI_EXP_DEVCTL_PAYLOAD) >> 5);
+ 	r_order = ((val & PCI_EXP_DEVCTL_READRQ) >> 12);
+ 
+@@ -472,10 +472,14 @@ static void bnx2x_init_pxp(struct bnx2x *bp)
+ 	REG_WR(bp, PXP2_REG_PSWRQ_BW_WR, val);
+ 
+ 	REG_WR(bp, PXP2_REG_RQ_WR_MBS0, w_order);
+-	REG_WR(bp, PXP2_REG_RQ_WR_MBS0 + 8, w_order);
++	REG_WR(bp, PXP2_REG_RQ_WR_MBS1, w_order);
+ 	REG_WR(bp, PXP2_REG_RQ_RD_MBS0, r_order);
+-	REG_WR(bp, PXP2_REG_RQ_RD_MBS0 + 8, r_order);
++	REG_WR(bp, PXP2_REG_RQ_RD_MBS1, r_order);
+ 
++	if (r_order == MAX_RD_ORD)
++		REG_WR(bp, PXP2_REG_RQ_PDR_LIMIT, 0xe00);
 +
- BROADCOM TG3 GIGABIT ETHERNET DRIVER
- P:	Michael Chan
- M:	mchan@broadcom.com
++	REG_WR(bp, PXP2_REG_WR_USDMDP_TH, (0x18 << w_order));
+ 	REG_WR(bp, PXP2_REG_WR_DMAE_TH, (128 << w_order)/16);
+ }
+ 
 -- 
 1.5.3.2
 
