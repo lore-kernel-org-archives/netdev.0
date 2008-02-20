@@ -1,47 +1,41 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 18/28] netvm: filter emergency skbs.
-Date: Wed, 20 Feb 2008 15:46:28 +0100
-Message-ID: <20080220150307.640565000@chello.nl>
-References: <20080220144610.548202000@chello.nl>
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] SUNRPC: Mark buffer used for debug printks with
+	__maybe_unused
+Date: Wed, 20 Feb 2008 07:29:17 -0800
+Message-ID: <1203521357.7181.163.camel@localhost>
+References: <47BC3303.2040101@openvz.org>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "J. Bruce Fields" <bfields@citi.umich.edu>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:35879 "EHLO
-	viefep16-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932324AbYBTP2O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:28:14 -0500
-Content-Disposition: inline; filename=netvm-sk_filter.patch
+Received: from 136-022.dsl.labridge.com ([206.117.136.22]:1063 "EHLO
+	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S932560AbYBTP3z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:29:55 -0500
+In-Reply-To: <47BC3303.2040101@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Toss all emergency packets not for a SOCK_MEMALLOC socket. This ensures our
-precious memory reserve doesn't get stuck waiting for user-space.
+On Wed, 2008-02-20 at 17:02 +0300, Pavel Emelyanov wrote:
+> There are tree places, which declare the char buf[...] on the stack
+> to push it later into dprintk(). Since the dprintk sometimes (if the 
+> CONFIG_SYSCTL=n) becomes an empty do { } while (0) stub, these buffers
+> cause gcc to produce appropriate warnings.
 
-The correctness of this approach relies on the fact that networks must be
-assumed lossy.
+What about the uses in fs?
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
----
- include/net/sock.h |    3 +++
- 1 file changed, 3 insertions(+)
+fs/lockd/svc.c:         char buf[RPC_MAX_ADDRBUFLEN];
+fs/lockd/svc4proc.c:            char buf[RPC_MAX_ADDRBUFLEN];
+fs/lockd/svcproc.c:             char buf[RPC_MAX_ADDRBUFLEN];
+fs/nfs/callback.c:      char buf[RPC_MAX_ADDRBUFLEN];
+fs/nfsd/nfsfh.c:                char buf[RPC_MAX_ADDRBUFLEN];
+fs/nfsd/nfsproc.c:              char buf[RPC_MAX_ADDRBUFLEN];
 
-Index: linux-2.6/include/net/sock.h
-===================================================================
---- linux-2.6.orig/include/net/sock.h
-+++ linux-2.6/include/net/sock.h
-@@ -998,6 +998,9 @@ static inline int sk_filter(struct sock 
- {
- 	int err;
- 	struct sk_filter *filter;
-+
-+	if (skb_emergency(skb) && !sk_has_memalloc(sk))
-+		return -ENOMEM;
- 	
- 	err = security_sock_rcv_skb(sk, skb);
- 	if (err)
+Perhaps there should be a DECLARE_RPC_BUF(buf) macro?
 
---
+#define DECLARE_RPC_BUF(var) char var[MAC_BUF_SIZE] __maybe_unused
+
 
