@@ -1,83 +1,53 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 06/28] mm: serialize access to min_free_kbytes
-Date: Wed, 20 Feb 2008 15:46:16 +0100
-Message-ID: <20080220150306.041993000@chello.nl>
-References: <20080220144610.548202000@chello.nl>
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+From: Nicolas Pitre <nico@cam.org>
+Subject: Re: [PATCH 01/04] smc91x: pass along private data
+Date: Wed, 20 Feb 2008 10:42:44 -0500 (EST)
+Message-ID: <alpine.LFD.1.00.0802201037070.2732@xanadu.home>
+References: <20080220095740.22645.36783.sendpatchset@clockwork.opensource.se>
+ <20080220095751.22645.15949.sendpatchset@clockwork.opensource.se>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, lethal@linux-sh.org,
+	akpm@linux-foundation.org
+To: Magnus Damm <magnus.damm@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:42941 "EHLO
-	viefep16-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1761457AbYBTPiQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:38:16 -0500
-Content-Disposition: inline; filename=mm-setup_per_zone_pages_min.patch
+Received: from relais.videotron.ca ([24.201.245.36]:38901 "EHLO
+	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751728AbYBTPmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:42:45 -0500
+Received: from xanadu.home ([66.131.194.97]) by VL-MO-MR004.ip.videotron.ca
+ (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
+ with ESMTP id <0JWJ00BNTNN8S580@VL-MO-MR004.ip.videotron.ca> for
+ netdev@vger.kernel.org; Wed, 20 Feb 2008 10:42:44 -0500 (EST)
+In-reply-to: <20080220095751.22645.15949.sendpatchset@clockwork.opensource.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a small race between the procfs caller and the memory hotplug caller
-of setup_per_zone_pages_min(). Not a big deal, but the next patch will add yet
-another caller. Time to close the gap.
+On Wed, 20 Feb 2008, Magnus Damm wrote:
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
----
- mm/page_alloc.c |   16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
+> Pass a private data pointer to macros and functions. This makes it easy
+> to later on make run time decisions. This patch does not change any logic.
+> These changes should be optimized away during compilation.
+> 
+> Signed-off-by: Magnus Damm <damm@igel.co.jp>
+> ---
+> --- 0001/drivers/net/smc91x.c
+> +++ work/drivers/net/smc91x.c	2008-02-20 16:52:48.000000000 +0900
+> @@ -220,23 +220,23 @@ static void PRINT_PKT(u_char *buf, int l
+>  
+>  
+>  /* this enables an interrupt in the interrupt mask register */
+> -#define SMC_ENABLE_INT(x) do {						\
+> +#define SMC_ENABLE_INT(priv, x) do {					\
+>  	unsigned char mask;						\
+> -	spin_lock_irq(&lp->lock);					\
+> -	mask = SMC_GET_INT_MASK();					\
+> +	spin_lock_irq(&priv->lock);					\
+> +	mask = SMC_GET_INT_MASK(priv);					\
 
-Index: linux-2.6/mm/page_alloc.c
-===================================================================
---- linux-2.6.orig/mm/page_alloc.c
-+++ linux-2.6/mm/page_alloc.c
-@@ -116,6 +116,7 @@ static char * const zone_names[MAX_NR_ZO
- 	 "Movable",
- };
- 
-+static DEFINE_SPINLOCK(min_free_lock);
- int min_free_kbytes = 1024;
- 
- unsigned long __meminitdata nr_kernel_pages;
-@@ -4087,12 +4088,12 @@ static void setup_per_zone_lowmem_reserv
- }
- 
- /**
-- * setup_per_zone_pages_min - called when min_free_kbytes changes.
-+ * __setup_per_zone_pages_min - called when min_free_kbytes changes.
-  *
-  * Ensures that the pages_{min,low,high} values for each zone are set correctly
-  * with respect to min_free_kbytes.
-  */
--void setup_per_zone_pages_min(void)
-+static void __setup_per_zone_pages_min(void)
- {
- 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
- 	unsigned long lowmem_pages = 0;
-@@ -4147,6 +4148,15 @@ void setup_per_zone_pages_min(void)
- 	calculate_totalreserve_pages();
- }
- 
-+void setup_per_zone_pages_min(void)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&min_free_lock, flags);
-+	__setup_per_zone_pages_min();
-+	spin_unlock_irqrestore(&min_free_lock, flags);
-+}
-+
- /*
-  * Initialise min_free_kbytes.
-  *
-@@ -4182,7 +4192,7 @@ static int __init init_per_zone_pages_mi
- 		min_free_kbytes = 128;
- 	if (min_free_kbytes > 65536)
- 		min_free_kbytes = 65536;
--	setup_per_zone_pages_min();
-+	__setup_per_zone_pages_min();
- 	setup_per_zone_lowmem_reserve();
- 	return 0;
- }
+Since "lp" is already used all over the place, could you simply use "lp" 
+for the macro argument name as well instead of "priv"?  This will make 
+the code more uniform and reduce the patch size.
 
---
 
+Nicolas
