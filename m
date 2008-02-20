@@ -1,35 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH v2.6.25] gianfar: don't pass NULL dev ptr to DMA ops
-Date: Wed, 20 Feb 2008 11:52:13 -0500
-Message-ID: <47BC5ABD.1000103@garzik.org>
-References: <1203377070-19870-1-git-send-email-afleming@freescale.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [2.6 patch] net/phy/mdio_bus.c: fix a check-after-use
+Date: Wed, 20 Feb 2008 11:52:27 -0500
+Message-ID: <47BC5ACB.6070203@pobox.com>
+References: <20080220001353.GV31955@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Becky Bruce <bgill@freescale.com>,
-	Becky Bruce <becky.bruce@freescale.com>
-To: Andy Fleming <afleming@freescale.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48860 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48871 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758876AbYBTQwP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Feb 2008 11:52:15 -0500
-In-Reply-To: <1203377070-19870-1-git-send-email-afleming@freescale.com>
+	id S1759569AbYBTQwb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Feb 2008 11:52:31 -0500
+In-Reply-To: <20080220001353.GV31955@cs181133002.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Fleming wrote:
-> From: Becky Bruce <bgill@freescale.com>
+Adrian Bunk wrote:
+> This patch fixes a check-after-use spotted by the Coverity checker.
 > 
-> Change all dma op invocations in gianfar.c to actually pass in the
-> device pointer.  Currently, the value is ignored, but it will be
-> used going forward as we implement archdata for 32-bit powerpc.
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 > 
-> Signed-off-by: Becky Bruce <becky.bruce@freescale.com>
-> Acked-by: Andy Fleming <afleming@freescale.com>
 > ---
->  drivers/net/gianfar.c |   14 +++++++-------
->  1 files changed, 7 insertions(+), 7 deletions(-)
+> 6beeb3ac577d74d72b2f91bd654eecb904c3c17e diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+> index 6e9f619..963630c 100644
+> --- a/drivers/net/phy/mdio_bus.c
+> +++ b/drivers/net/phy/mdio_bus.c
+> @@ -49,13 +49,13 @@ int mdiobus_register(struct mii_bus *bus)
+>  	int i;
+>  	int err = 0;
+>  
+> -	mutex_init(&bus->mdio_lock);
+> -
+>  	if (NULL == bus || NULL == bus->name ||
+>  			NULL == bus->read ||
+>  			NULL == bus->write)
+>  		return -EINVAL;
+>  
+> +	mutex_init(&bus->mdio_lock);
+> +
 
 applied
 
