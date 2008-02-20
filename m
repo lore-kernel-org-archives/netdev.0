@@ -1,46 +1,71 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] bonding: simplify code and get rid of warning
-Date: Wed, 20 Feb 2008 09:24:30 -0800
-Message-ID: <20080220092430.623b640f@extreme>
-References: <20080218210426.022bbe36@extreme>
-	<21522.1203526676@death>
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Subject: [PATCH 2.6.25 0/8][BNX2X]: bugfixes and updates
+Date: Wed, 20 Feb 2008 19:33:47 +0200
+Message-ID: <1203528827.8232.85.camel@lb-tlvb-eliezer.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: "davem@davemloft.net" <davem@davemloft.net>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:35207 "EHLO mail.vyatta.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1756 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753075AbYBTRYg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 12:24:36 -0500
-In-Reply-To: <21522.1203526676@death>
+	id S1753123AbYBTRd5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Feb 2008 12:33:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Feb 2008 08:57:56 -0800
-Jay Vosburgh <fubar@us.ibm.com> wrote:
+Hello All,
 
-> Stephen Hemminger <shemminger@vyatta.com> wrote:
->=20
-> >Get rid of warning and simplify code that looks up vlan tag.
-> >No need to get tag, then copy it. Also no need for a local status
-> >variable.
->=20
-> 	Granted, the current code is suboptimal, but I don't see any
-> warnings compiling this (gcc 4.1.2).  What are you getting?
->=20
+This patch-set updates several sections of the bnx2x driver.
 
-Gcc 4.2.3
-  CC [M]  drivers/net/bonding/bond_main.o
-drivers/net/bonding/bond_main.c: In function =E2=80=98bond_dev_queue_xm=
-it=E2=80=99:
-drivers/net/bonding/bond_main.c:386: warning: =E2=80=98vlan_id=E2=80=99=
- may be used uninitialized in this function
-  CC [M]  drivers/net/bonding/bond_3ad.o
-  CC [M]  drivers/net/bonding/bond_alb.o
-drivers/net/bonding/bond_alb.c: In function =E2=80=98rlb_choose_channel=
-=E2=80=99:
-drivers/net/bonding/bond_alb.c:681: warning: =E2=80=98vlan_id=E2=80=99 =
-may be used uninitialized in this function
-  CC [M]  drivers/net/bonding/bond_sysfs.o
+Patches 2-4 are a set that should not be applied partially.
+
+1: fix spelling, some fashion policework, report PCI link
+
+Spelling corrections, style fixes and properly report the PCI link speed
+Many Thanks to Stephen Hemminger, that pointed out many of the
+corrections.
+
+2: update bootcode and link/phy code
+
+The shared memory region used to talk to the bootcode has changed
+** This is not backwards compatible and the older bootcode is no longer
+supported **
+** you will need to update the bootcode! **
+This is the final version of the shared memory region that is supposed
+to support upcoming chips as well.
+This version also extends phy support.
+
+3: Fix FW client config and assert printing
+
+A rewrite of the code that configures rx filtering.
+Some simple bug fixes to FW assert reporting.
+
+4: rework slowpath and hw attentions
+
+A rework of the slowpath code, fixes race when bringing down an
+interface under traffic.
+
+5: workaround for a PCI core bug
+
+One of the internal queues can overflow when PCI max read request size
+is big. This prevents the problem.
+
+
+6: Xmit rework, add TSO6 and CSUM_HW support
+
+Rework of the Xmit code, I hope that it is now clearer, this rework was
+needed in order to add IPv6 CSUM and TSO.
+
+7: update version to 1.42.2
+
+8: add to MAINTAINERS
+(So Michael stops getting complaints about my bugs)
+
+Thanks
+Eliezer
+
+
+
