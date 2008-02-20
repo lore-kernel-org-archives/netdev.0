@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 10/28] mm: memory reserve management
-Date: Wed, 20 Feb 2008 15:46:20 +0100
-Message-ID: <20080220150306.548965000@chello.nl>
+Subject: [PATCH 17/28] netvm: hook skb allocation to reserves
+Date: Wed, 20 Feb 2008 15:46:27 +0100
+Message-ID: <20080220150307.507134000@chello.nl>
 References: <20080220144610.548202000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
@@ -9,535 +9,510 @@ To: Linus Torvalds <torvalds@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:45712 "EHLO
-	viefep16-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752892AbYBTPSg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:18:36 -0500
-Content-Disposition: inline; filename=mm-reserve.patch
+Received: from viefep18-int.chello.at ([213.46.255.22]:3513 "EHLO
+	viefep18-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753823AbYBTPSk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:18:40 -0500
+Content-Disposition: inline; filename=netvm-skbuff-reserve.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Generic reserve management code. 
+Change the skb allocation api to indicate RX usage and use this to fall back to
+the reserve when needed. SKBs allocated from the reserve are tagged in
+skb->emergency.
 
-It provides methods to reserve and charge. Upon this, generic alloc/free style
-reserve pools could be build, which could fully replace mempool_t
-functionality.
+Teach all other skb ops about emergency skbs and the reserve accounting.
 
-It should also allow for a Banker's algorithm replacement of __GFP_NOFAIL.
+Use the (new) packet split API to allocate and track fragment pages from the
+emergency reserve. Do this using an atomic counter in page->index. This is
+needed because the fragments have a different sharing semantic than that
+indicated by skb_shinfo()->dataref. 
+
+Note that the decision to distinguish between regular and emergency SKBs allows
+the accounting overhead to be limited to the later kind.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/linux/reserve.h |   54 ++++++
- mm/Makefile             |    2 
- mm/reserve.c            |  429 ++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 484 insertions(+), 1 deletion(-)
+ include/linux/mm_types.h |    1 
+ include/linux/skbuff.h   |   26 +++++-
+ net/core/skbuff.c        |  177 +++++++++++++++++++++++++++++++++++++++++------
+ 3 files changed, 177 insertions(+), 27 deletions(-)
 
-Index: linux-2.6/include/linux/reserve.h
+Index: linux-2.6/include/linux/skbuff.h
 ===================================================================
---- /dev/null
-+++ linux-2.6/include/linux/reserve.h
-@@ -0,0 +1,54 @@
-+/*
-+ * Memory reserve management.
-+ *
-+ *  Copyright (C) 2007 Red Hat, Inc., Peter Zijlstra <pzijlstr@redhat.com>
-+ *
-+ * This file contains the public data structure and API definitions.
-+ */
-+
-+#ifndef _LINUX_RESERVE_H
-+#define _LINUX_RESERVE_H
-+
-+#include <linux/list.h>
-+#include <linux/spinlock.h>
-+
-+struct mem_reserve {
-+	struct mem_reserve *parent;
-+	struct list_head children;
-+	struct list_head siblings;
-+
-+	const char *name;
-+
-+	long pages;
-+	long limit;
-+	long usage;
-+	spinlock_t lock;	/* protects limit and usage */
-+};
-+
-+extern struct mem_reserve mem_reserve_root;
-+
-+void mem_reserve_init(struct mem_reserve *res, const char *name,
-+		      struct mem_reserve *parent);
-+int mem_reserve_connect(struct mem_reserve *new_child,
-+			struct mem_reserve *node);
-+int mem_reserve_disconnect(struct mem_reserve *node);
-+
-+int mem_reserve_pages_set(struct mem_reserve *res, long pages);
-+int mem_reserve_pages_add(struct mem_reserve *res, long pages);
-+int mem_reserve_pages_charge(struct mem_reserve *res, long pages,
-+			     int overcommit);
-+
-+int mem_reserve_kmalloc_set(struct mem_reserve *res, long bytes);
-+int mem_reserve_kmalloc_charge(struct mem_reserve *res, long bytes,
-+			       int overcommit);
-+
-+struct kmem_cache;
-+
-+int mem_reserve_kmem_cache_set(struct mem_reserve *res,
-+			       struct kmem_cache *s,
-+			       int objects);
-+int mem_reserve_kmem_cache_charge(struct mem_reserve *res,
-+				  long objs,
-+				  int overcommit);
-+
-+#endif /* _LINUX_RESERVE_H */
-Index: linux-2.6/mm/Makefile
-===================================================================
---- linux-2.6.orig/mm/Makefile
-+++ linux-2.6/mm/Makefile
-@@ -11,7 +11,7 @@ obj-y			:= bootmem.o filemap.o mempool.o
- 			   page_alloc.o page-writeback.o pdflush.o \
- 			   readahead.o swap.o truncate.o vmscan.o \
- 			   prio_tree.o util.o mmzone.o vmstat.o backing-dev.o \
--			   page_isolation.o $(mmu-y)
-+			   page_isolation.o reserve.o $(mmu-y)
+--- linux-2.6.orig/include/linux/skbuff.h
++++ linux-2.6/include/linux/skbuff.h
+@@ -308,7 +308,9 @@ struct sk_buff {
+ 	__u16			tc_verd;	/* traffic control verdict */
+ #endif
+ #endif
+-	/* 2 byte hole */
++	__u8 			emergency:1;
++				/* 7 bit hole */
++	/* 1 byte hole */
  
- obj-$(CONFIG_PROC_PAGE_MONITOR) += pagewalk.o
- obj-$(CONFIG_BOUNCE)	+= bounce.o
-Index: linux-2.6/mm/reserve.c
+ #ifdef CONFIG_NET_DMA
+ 	dma_cookie_t		dma_cookie;
+@@ -339,10 +341,22 @@ struct sk_buff {
+ 
+ #include <asm/system.h>
+ 
++#define SKB_ALLOC_FCLONE	0x01
++#define SKB_ALLOC_RX		0x02
++
++static inline bool skb_emergency(const struct sk_buff *skb)
++{
++#ifdef CONFIG_NETVM
++	return unlikely(skb->emergency);
++#else
++	return false;
++#endif
++}
++
+ extern void kfree_skb(struct sk_buff *skb);
+ extern void	       __kfree_skb(struct sk_buff *skb);
+ extern struct sk_buff *__alloc_skb(unsigned int size,
+-				   gfp_t priority, int fclone, int node);
++				   gfp_t priority, int flags, int node);
+ static inline struct sk_buff *alloc_skb(unsigned int size,
+ 					gfp_t priority)
+ {
+@@ -352,7 +366,7 @@ static inline struct sk_buff *alloc_skb(
+ static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
+ 					       gfp_t priority)
+ {
+-	return __alloc_skb(size, priority, 1, -1);
++	return __alloc_skb(size, priority, SKB_ALLOC_FCLONE, -1);
+ }
+ 
+ extern struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
+@@ -1297,7 +1311,8 @@ static inline void __skb_queue_purge(str
+ static inline struct sk_buff *__dev_alloc_skb(unsigned int length,
+ 					      gfp_t gfp_mask)
+ {
+-	struct sk_buff *skb = alloc_skb(length + NET_SKB_PAD, gfp_mask);
++	struct sk_buff *skb =
++		__alloc_skb(length + NET_SKB_PAD, gfp_mask, SKB_ALLOC_RX, -1);
+ 	if (likely(skb))
+ 		skb_reserve(skb, NET_SKB_PAD);
+ 	return skb;
+@@ -1343,6 +1358,7 @@ static inline struct sk_buff *netdev_all
+ }
+ 
+ extern struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask);
++extern void __netdev_free_page(struct net_device *dev, struct page *page);
+ 
+ /**
+  *	netdev_alloc_page - allocate a page for ps-rx on a specific device
+@@ -1359,7 +1375,7 @@ static inline struct page *netdev_alloc_
+ 
+ static inline void netdev_free_page(struct net_device *dev, struct page *page)
+ {
+-	__free_page(page);
++	__netdev_free_page(dev, page);
+ }
+ 
+ /**
+Index: linux-2.6/net/core/skbuff.c
 ===================================================================
---- /dev/null
-+++ linux-2.6/mm/reserve.c
-@@ -0,0 +1,429 @@
-+/*
-+ * Memory reserve management.
-+ *
-+ *  Copyright (C) 2007, Red Hat, Inc., Peter Zijlstra <pzijlstr@redhat.com>
-+ *
-+ * Description:
-+ *
-+ * Manage a set of memory reserves.
-+ *
-+ * A memory reserve is a reserve for a specified number of object of specified
-+ * size. Since memory is managed in pages, this reserve demand is then
-+ * translated into a page unit.
-+ *
-+ * So each reserve has a specified object limit, an object usage count and a
-+ * number of pages required to back these objects.
-+ *
-+ * Usage is charged against a reserve, if the charge fails, the resource must
-+ * not be allocated/used.
-+ *
-+ * The reserves are managed in a tree, and the resource demands (pages and
-+ * limit) are propagated up the tree. Obviously the object limit will be
-+ * meaningless as soon as the unit starts mixing, but the required page reserve
-+ * (being of one unit) is still valid at the root.
-+ *
-+ * It is the page demand of the root node that is used to set the global
-+ * reserve (adjust_memalloc_reserve() which sets zone->pages_emerg).
-+ *
-+ * As long as a subtree has the same usage unit, an aggregate node can be used
-+ * to charge against, instead of the leaf nodes. However, do be consistent with
-+ * who is charged, resource usage is not propagated up the tree (for
-+ * performance reasons).
-+ */
+--- linux-2.6.orig/net/core/skbuff.c
++++ linux-2.6/net/core/skbuff.c
+@@ -179,21 +179,28 @@ EXPORT_SYMBOL(skb_truesize_bug);
+  *	%GFP_ATOMIC.
+  */
+ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+-			    int fclone, int node)
++			    int flags, int node)
+ {
+ 	struct kmem_cache *cache;
+ 	struct skb_shared_info *shinfo;
+ 	struct sk_buff *skb;
+ 	u8 *data;
++	int emergency = 0, memalloc = sk_memalloc_socks();
+ 
+-	cache = fclone ? skbuff_fclone_cache : skbuff_head_cache;
++	size = SKB_DATA_ALIGN(size);
++	cache = (flags & SKB_ALLOC_FCLONE)
++		? skbuff_fclone_cache : skbuff_head_cache;
++#ifdef CONFIG_NETVM
++	if (memalloc && (flags & SKB_ALLOC_RX))
++		gfp_mask |= __GFP_NOMEMALLOC|__GFP_NOWARN;
+ 
++retry_alloc:
++#endif
+ 	/* Get the HEAD */
+ 	skb = kmem_cache_alloc_node(cache, gfp_mask & ~__GFP_DMA, node);
+ 	if (!skb)
+-		goto out;
++		goto noskb;
+ 
+-	size = SKB_DATA_ALIGN(size);
+ 	data = kmalloc_node_track_caller(size + sizeof(struct skb_shared_info),
+ 			gfp_mask, node);
+ 	if (!data)
+@@ -203,6 +210,7 @@ struct sk_buff *__alloc_skb(unsigned int
+ 	 * See comment in sk_buff definition, just before the 'tail' member
+ 	 */
+ 	memset(skb, 0, offsetof(struct sk_buff, tail));
++	skb->emergency = emergency;
+ 	skb->truesize = size + sizeof(struct sk_buff);
+ 	atomic_set(&skb->users, 1);
+ 	skb->head = data;
+@@ -219,7 +227,7 @@ struct sk_buff *__alloc_skb(unsigned int
+ 	shinfo->ip6_frag_id = 0;
+ 	shinfo->frag_list = NULL;
+ 
+-	if (fclone) {
++	if (flags & SKB_ALLOC_FCLONE) {
+ 		struct sk_buff *child = skb + 1;
+ 		atomic_t *fclone_ref = (atomic_t *) (child + 1);
+ 
+@@ -227,12 +235,31 @@ struct sk_buff *__alloc_skb(unsigned int
+ 		atomic_set(fclone_ref, 1);
+ 
+ 		child->fclone = SKB_FCLONE_UNAVAILABLE;
++		child->emergency = skb->emergency;
+ 	}
+ out:
+ 	return skb;
 +
-+#include <linux/reserve.h>
-+#include <linux/mutex.h>
-+#include <linux/mmzone.h>
-+#include <linux/log2.h>
-+#include <linux/proc_fs.h>
-+#include <linux/seq_file.h>
-+#include <linux/module.h>
-+#include <linux/slab.h>
+ nodata:
+ 	kmem_cache_free(cache, skb);
+ 	skb = NULL;
++noskb:
++#ifdef CONFIG_NETVM
++	/* Attempt emergency allocation when RX skb. */
++	if (likely(!(flags & SKB_ALLOC_RX) || !memalloc))
++		goto out;
 +
-+static DEFINE_MUTEX(mem_reserve_mutex);
-+
-+/**
-+ * @mem_reserve_root - the global reserve root
-+ *
-+ * The global reserve is empty, and has no limit unit, it merely
-+ * acts as an aggregation point for reserves and an interface to
-+ * adjust_memalloc_reserve().
-+ */
-+struct mem_reserve mem_reserve_root = {
-+	.children = LIST_HEAD_INIT(mem_reserve_root.children),
-+	.siblings = LIST_HEAD_INIT(mem_reserve_root.siblings),
-+	.name = "total reserve",
-+	.lock = __SPIN_LOCK_UNLOCKED(mem_reserve_root.lock),
-+};
-+EXPORT_SYMBOL_GPL(mem_reserve_root);
-+
-+/**
-+ * mem_reserve_init - initialize a memory reserve object
-+ * @res - the new reserve object
-+ * @name - a name for this reserve
-+ */
-+void mem_reserve_init(struct mem_reserve *res, const char *name,
-+		      struct mem_reserve *parent)
-+{
-+	memset(res, 0, sizeof(*res));
-+	INIT_LIST_HEAD(&res->children);
-+	INIT_LIST_HEAD(&res->siblings);
-+	res->name = name;
-+	spin_lock_init(&res->lock);
-+
-+	if (parent)
-+		mem_reserve_connect(res, parent);
-+}
-+EXPORT_SYMBOL_GPL(mem_reserve_init);
-+
-+/*
-+ * propagate the pages and limit changes up the tree.
-+ */
-+static void __calc_reserve(struct mem_reserve *res, long pages, long limit)
-+{
-+	unsigned long flags;
-+
-+	for ( ; res; res = res->parent) {
-+		res->pages += pages;
-+
-+		if (limit) {
-+			spin_lock_irqsave(&res->lock, flags);
-+			res->limit += limit;
-+			spin_unlock_irqrestore(&res->lock, flags);
++	if (!emergency) {
++		if (rx_emergency_get(size)) {
++			gfp_mask &= ~(__GFP_NOMEMALLOC|__GFP_NOWARN);
++			gfp_mask |= __GFP_MEMALLOC;
++			emergency = 1;
++			goto retry_alloc;
 +		}
-+	}
-+}
-+
-+/**
-+ * __mem_reserve_add - primitive to change the size of a reserve
-+ * @res - reserve to change
-+ * @pages - page delta
-+ * @limit - usage limit delta
-+ *
-+ * Returns -ENOMEM when a size increase is not possible atm.
-+ */
-+static int __mem_reserve_add(struct mem_reserve *res, long pages, long limit)
-+{
-+	int ret = 0;
-+	long reserve;
-+
-+	reserve = mem_reserve_root.pages;
-+	__calc_reserve(res, pages, 0);
-+	reserve = mem_reserve_root.pages - reserve;
-+
-+	if (reserve) {
-+		ret = adjust_memalloc_reserve(reserve);
-+		if (ret)
-+			__calc_reserve(res, -pages, 0);
-+	}
-+
-+	if (!ret)
-+		__calc_reserve(res, 0, limit);
-+
-+	return ret;
-+}
-+
-+/**
-+ * __mem_reserve_charge - primitive to charge object usage to a reserve
-+ * @res - reserve to charge
-+ * @charge - size of the charge
-+ * @overcommit - allow despite of limit (use with caution!)
-+ *
-+ * Returns non-zero on success, zero on failure.
-+ */
-+static
-+int __mem_reserve_charge(struct mem_reserve *res, long charge, int overcommit)
-+{
-+	unsigned long flags;
-+	int ret = 0;
-+
-+	spin_lock_irqsave(&res->lock, flags);
-+	if (charge < 0 || res->usage + charge < res->limit || overcommit) {
-+		res->usage += charge;
-+		if (unlikely(res->usage < 0))
-+			res->usage = 0;
-+		ret = 1;
-+	}
-+	spin_unlock_irqrestore(&res->lock, flags);
-+
-+	return ret;
-+}
-+
-+/**
-+ * mem_reserve_connect - connect a reserve to another in a child-parent relation
-+ * @new_child - the reserve node to connect (child)
-+ * @node - the reserve node to connect to (parent)
-+ *
-+ * Returns -ENOMEM when the new connection would increase the reserve (parent
-+ * is connected to mem_reserve_root) and there is no memory to do so.
-+ *
-+ * The child is _NOT_ connected on error.
-+ */
-+int mem_reserve_connect(struct mem_reserve *new_child, struct mem_reserve *node)
-+{
-+	int ret;
-+
-+	WARN_ON(!new_child->name);
-+
-+	mutex_lock(&mem_reserve_mutex);
-+	new_child->parent = node;
-+	list_add(&new_child->siblings, &node->children);
-+	ret = __mem_reserve_add(node, new_child->pages, new_child->limit);
-+	if (ret) {
-+		new_child->parent = NULL;
-+		list_del_init(&new_child->siblings);
-+	}
-+	mutex_unlock(&mem_reserve_mutex);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(mem_reserve_connect);
-+
-+/**
-+ * mem_reserve_disconnect - sever a nodes connection to the reserve tree
-+ * @node - the node to disconnect
-+ *
-+ * Could, in theory, return -ENOMEM, but since disconnecting a node _should_
-+ * only decrease the reserves that _should_ not happen.
-+ */
-+int mem_reserve_disconnect(struct mem_reserve *node)
-+{
-+	int ret;
-+
-+	BUG_ON(!node->parent);
-+
-+	mutex_lock(&mem_reserve_mutex);
-+	ret = __mem_reserve_add(node->parent, -node->pages, -node->limit);
-+	if (!ret) {
-+		node->parent = NULL;
-+		list_del_init(&node->siblings);
-+	}
-+	mutex_unlock(&mem_reserve_mutex);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(mem_reserve_disconnect);
-+
-+#ifdef CONFIG_PROC_FS
-+
-+/*
-+ * Simple output of the reserve tree in: /proc/reserve_info
-+ * Example:
-+ *
-+ * localhost ~ # cat /proc/reserve_info
-+ * total reserve                  8156K (0/544817)
-+ *   total network reserve          8156K (0/544817)
-+ *     network TX reserve             196K (0/49)
-+ *       protocol TX pages              196K (0/49)
-+ *     network RX reserve             7960K (0/544768)
-+ *       IPv6 route cache               1372K (0/4096)
-+ *       IPv4 route cache               5468K (0/16384)
-+ *       SKB data reserve               1120K (0/524288)
-+ *         IPv6 fragment cache            560K (0/262144)
-+ *         IPv4 fragment cache            560K (0/262144)
-+ */
-+
-+static void mem_reserve_show_item(struct seq_file *m, struct mem_reserve *res,
-+				  int nesting)
-+{
-+	int i;
-+	struct mem_reserve *child;
-+
-+	for (i = 0; i < nesting; i++)
-+		seq_puts(m, "  ");
-+
-+	seq_printf(m, "%-30s %ldK (%ld/%ld)\n",
-+		   res->name, res->pages << (PAGE_SHIFT - 10),
-+		   res->usage, res->limit);
-+
-+	list_for_each_entry(child, &res->children, siblings)
-+		mem_reserve_show_item(m, child, nesting+1);
-+}
-+
-+static int mem_reserve_show(struct seq_file *m, void *v)
-+{
-+	mutex_lock(&mem_reserve_mutex);
-+	mem_reserve_show_item(m, &mem_reserve_root, 0);
-+	mutex_unlock(&mem_reserve_mutex);
-+
-+	return 0;
-+}
-+
-+static int mem_reserve_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, mem_reserve_show, NULL);
-+}
-+
-+static const struct file_operations mem_reserve_opterations = {
-+	.open = mem_reserve_open,
-+	.read = seq_read,
-+	.llseek = seq_lseek,
-+	.release = single_release,
-+};
-+
-+static __init int mem_reserve_proc_init(void)
-+{
-+	struct proc_dir_entry *entry;
-+
-+	entry = create_proc_entry("reserve_info", S_IRUSR, NULL);
-+	if (entry)
-+		entry->proc_fops = &mem_reserve_opterations;
-+
-+	return 0;
-+}
-+
-+__initcall(mem_reserve_proc_init);
-+
++	} else
++		rx_emergency_put(size);
 +#endif
 +
-+/*
-+ * alloc_page helpers
-+ */
+ 	goto out;
+ }
+ 
+@@ -255,7 +282,7 @@ struct sk_buff *__netdev_alloc_skb(struc
+ 	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
+ 	struct sk_buff *skb;
+ 
+-	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, node);
++	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, SKB_ALLOC_RX, node);
+ 	if (likely(skb)) {
+ 		skb_reserve(skb, NET_SKB_PAD);
+ 		skb->dev = dev;
+@@ -268,11 +295,36 @@ struct page *__netdev_alloc_page(struct 
+ 	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
+ 	struct page *page;
+ 
++#ifdef CONFIG_NETVM
++	gfp_mask |= __GFP_NOMEMALLOC | __GFP_NOWARN;
++#endif
 +
-+/**
-+ * mem_reserve_pages_set - set reserves size in pages
-+ * @res - reserve to set
-+ * @pages - size in pages to set it to
-+ *
-+ * Returns -ENOMEM when it fails to set the reserve. On failure the old size
-+ * is preserved.
-+ */
-+int mem_reserve_pages_set(struct mem_reserve *res, long pages)
+ 	page = alloc_pages_node(node, gfp_mask, 0);
++
++#ifdef CONFIG_NETVM
++	if (!page && rx_emergency_get(PAGE_SIZE)) {
++		gfp_mask &= ~(__GFP_NOMEMALLOC | __GFP_NOWARN);
++		gfp_mask |= __GFP_MEMALLOC;
++		page = alloc_pages_node(node, gfp_mask, 0);
++		if (!page)
++			rx_emergency_put(PAGE_SIZE);
++	}
++#endif
++
+ 	return page;
+ }
+ EXPORT_SYMBOL(__netdev_alloc_page);
+ 
++void __netdev_free_page(struct net_device *dev, struct page *page)
 +{
-+	int ret;
-+
-+	mutex_lock(&mem_reserve_mutex);
-+	pages -= res->pages;
-+	ret = __mem_reserve_add(res, pages, pages);
-+	mutex_unlock(&mem_reserve_mutex);
-+
-+	return ret;
++#ifdef CONFIG_NETVM
++	if (unlikely(page->reserve))
++		rx_emergency_put(PAGE_SIZE);
++#endif
++	__free_page(page);
 +}
-+EXPORT_SYMBOL_GPL(mem_reserve_pages_set);
++EXPORT_SYMBOL(__netdev_free_page);
 +
-+/**
-+ * mem_reserve_pages_add - change the size in a relative way
-+ * @res - reserve to change
-+ * @pages - number of pages to add (or subtract when negative)
-+ *
-+ * Similar to mem_reserve_pages_set, except that the argument is relative
-+ * instead of absolute.
-+ *
-+ * Returns -ENOMEM when it fails to increase.
-+ */
-+int mem_reserve_pages_add(struct mem_reserve *res, long pages)
+ void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
+ 		int size)
+ {
+@@ -280,6 +332,34 @@ void skb_add_rx_frag(struct sk_buff *skb
+ 	skb->len += size;
+ 	skb->data_len += size;
+ 	skb->truesize += size;
++
++#ifdef CONFIG_NETVM
++	/*
++	 * Fix-up the emergency accounting; make sure all pages match
++	 * skb->emergency.
++	 *
++	 * This relies on page->reserve to be preserved between
++	 * the call to __netdev_alloc_page() and this call.
++	 */
++	if (skb_emergency(skb)) {
++		/*
++		 * If the page was not an emergency alloc (ALLOC_NO_WATERMARK)
++		 * we can use overcommit accounting, since we already have the
++		 * memory.
++		 */
++		if (!page->reserve)
++			rx_emergency_get_overcommit(PAGE_SIZE);
++		atomic_set(&page->frag_count, 1);
++	} else if (unlikely(page->reserve)) {
++		/*
++		 * Rare case; the skb wasn't allocated under pressure but
++		 * the page was. We need to return the page. This can offset
++		 * the accounting a little, but its a constant shift, it does
++		 * not accumulate.
++		 */
++		rx_emergency_put(PAGE_SIZE);
++	}
++#endif
+ }
+ EXPORT_SYMBOL(skb_add_rx_frag);
+ 
+@@ -309,21 +389,47 @@ static void skb_clone_fraglist(struct sk
+ 		skb_get(list);
+ }
+ 
++static inline void skb_get_page(struct sk_buff *skb, struct page *page)
 +{
-+	int ret;
-+
-+	mutex_lock(&mem_reserve_mutex);
-+	ret = __mem_reserve_add(res, pages, pages);
-+	mutex_unlock(&mem_reserve_mutex);
-+
-+	return ret;
++	get_page(page);
++	if (skb_emergency(skb))
++		atomic_inc(&page->frag_count);
 +}
 +
-+/**
-+ * mem_reserve_pages_charge - charge page usage to a reserve
-+ * @res - reserve to charge
-+ * @pages - size to charge
-+ * @overcommit - disregard the usage limit (use with caution!)
-+ *
-+ * Returns non-zero on success.
-+ */
-+int mem_reserve_pages_charge(struct mem_reserve *res,
-+			     long pages, int overcommit)
++static inline void skb_put_page(struct sk_buff *skb, struct page *page)
 +{
-+	return __mem_reserve_charge(res, pages, overcommit);
++	if (skb_emergency(skb) && atomic_dec_and_test(&page->frag_count))
++		rx_emergency_put(PAGE_SIZE);
++	put_page(page);
 +}
-+EXPORT_SYMBOL_GPL(mem_reserve_pages_charge);
 +
-+/*
-+ * kmalloc helpers
-+ */
+ static void skb_release_data(struct sk_buff *skb)
+ {
+ 	if (!skb->cloned ||
+ 	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
+ 			       &skb_shinfo(skb)->dataref)) {
++		int size;
 +
-+/**
-+ * mem_reserve_kmalloc_set - set this reserve to bytes worth of kmalloc
-+ * @res - reserve to change
-+ * @bytes - size in bytes to reserve
-+ *
-+ * Returns -ENOMEM on failure.
-+ */
-+int mem_reserve_kmalloc_set(struct mem_reserve *res, long bytes)
++#ifdef NET_SKBUFF_DATA_USES_OFFSET
++		size = skb->end;
++#else
++		size = skb->end - skb->head;
++#endif
++
+ 		if (skb_shinfo(skb)->nr_frags) {
+ 			int i;
+-			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+-				put_page(skb_shinfo(skb)->frags[i].page);
++			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
++				skb_put_page(skb,
++					     skb_shinfo(skb)->frags[i].page);
++			}
+ 		}
+ 
+ 		if (skb_shinfo(skb)->frag_list)
+ 			skb_drop_fraglist(skb);
+ 
+ 		kfree(skb->head);
++		if (skb_emergency(skb))
++			rx_emergency_put(size);
+ 	}
+ }
+ 
+@@ -444,6 +550,7 @@ static void __copy_skb_header(struct sk_
+ #if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
+ 	new->ipvs_property	= old->ipvs_property;
+ #endif
++	new->emergency		= old->emergency;
+ 	new->protocol		= old->protocol;
+ 	new->mark		= old->mark;
+ 	__nf_copy(new, old);
+@@ -532,6 +639,9 @@ struct sk_buff *skb_clone(struct sk_buff
+ 		n->fclone = SKB_FCLONE_CLONE;
+ 		atomic_inc(fclone_ref);
+ 	} else {
++		if (skb_emergency(skb))
++			gfp_mask |= __GFP_MEMALLOC;
++
+ 		n = kmem_cache_alloc(skbuff_head_cache, gfp_mask);
+ 		if (!n)
+ 			return NULL;
+@@ -563,6 +673,14 @@ static void copy_skb_header(struct sk_bu
+ 	skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
+ }
+ 
++static inline int skb_alloc_rx_flag(const struct sk_buff *skb)
 +{
-+	int ret;
-+	long pages;
++	if (skb_emergency(skb))
++		return SKB_ALLOC_RX;
 +
-+	mutex_lock(&mem_reserve_mutex);
-+	pages = kestimate(GFP_ATOMIC, bytes);
-+	pages -= res->pages;
-+	bytes -= res->limit;
-+	ret = __mem_reserve_add(res, pages, bytes);
-+	mutex_unlock(&mem_reserve_mutex);
-+
-+	return ret;
++	return 0;
 +}
-+EXPORT_SYMBOL_GPL(mem_reserve_kmalloc_set);
 +
-+/**
-+ * mem_reserve_kmalloc_charge - charge bytes to a reserve
-+ * @res - reserve to charge
-+ * @bytes - bytes to charge
-+ * @overcommit - disregard the usage limit (use with caution!)
-+ *
-+ * Returns non-zero on success.
-+ */
-+int mem_reserve_kmalloc_charge(struct mem_reserve *res, long bytes,
-+			       int overcommit)
-+{
-+	if (bytes < 0)
-+		bytes = -roundup_pow_of_two(-bytes);
-+	else
-+		bytes = roundup_pow_of_two(bytes);
+ /**
+  *	skb_copy	-	create private copy of an sk_buff
+  *	@skb: buffer to copy
+@@ -583,15 +701,17 @@ static void copy_skb_header(struct sk_bu
+ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
+ {
+ 	int headerlen = skb->data - skb->head;
++	int size;
+ 	/*
+ 	 *	Allocate the copy buffer
+ 	 */
+ 	struct sk_buff *n;
+ #ifdef NET_SKBUFF_DATA_USES_OFFSET
+-	n = alloc_skb(skb->end + skb->data_len, gfp_mask);
++	size = skb->end + skb->data_len;
+ #else
+-	n = alloc_skb(skb->end - skb->head + skb->data_len, gfp_mask);
++	size = skb->end - skb->head + skb->data_len;
+ #endif
++	n = __alloc_skb(size, gfp_mask, skb_alloc_rx_flag(skb), -1);
+ 	if (!n)
+ 		return NULL;
+ 
+@@ -626,12 +746,14 @@ struct sk_buff *pskb_copy(struct sk_buff
+ 	/*
+ 	 *	Allocate the copy buffer
+ 	 */
++	int size;
+ 	struct sk_buff *n;
+ #ifdef NET_SKBUFF_DATA_USES_OFFSET
+-	n = alloc_skb(skb->end, gfp_mask);
++	size = skb->end;
+ #else
+-	n = alloc_skb(skb->end - skb->head, gfp_mask);
++	size = skb->end - skb->head;
+ #endif
++	n = __alloc_skb(size, gfp_mask, skb_alloc_rx_flag(skb), -1);
+ 	if (!n)
+ 		goto out;
+ 
+@@ -650,8 +772,9 @@ struct sk_buff *pskb_copy(struct sk_buff
+ 		int i;
+ 
+ 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+-			skb_shinfo(n)->frags[i] = skb_shinfo(skb)->frags[i];
+-			get_page(skb_shinfo(n)->frags[i].page);
++			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
++			skb_shinfo(n)->frags[i] = *frag;
++			skb_get_page(n, frag->page);
+ 		}
+ 		skb_shinfo(n)->nr_frags = i;
+ 	}
+@@ -699,6 +822,14 @@ int pskb_expand_head(struct sk_buff *skb
+ 
+ 	size = SKB_DATA_ALIGN(size);
+ 
++	if (skb_emergency(skb)) {
++		if (rx_emergency_get(size))
++			gfp_mask |= __GFP_MEMALLOC;
++		else
++			goto nodata;
++	} else
++		gfp_mask |= __GFP_NOMEMALLOC;
 +
-+	return __mem_reserve_charge(res, bytes, overcommit);
-+}
-+EXPORT_SYMBOL_GPL(mem_reserve_kmalloc_charge);
-+
-+/*
-+ * kmem_cache helpers
-+ */
-+
-+/**
-+ * mem_reserve_kmem_cache_set - set reserve to @objects worth of kmem_cache_alloc of @s
-+ * @res - reserve to set
-+ * @s - kmem_cache to reserve from
-+ * @objects - number of objects to reserve
-+ *
-+ * Returns -ENOMEM on failure.
-+ */
-+int mem_reserve_kmem_cache_set(struct mem_reserve *res, struct kmem_cache *s,
-+			       int objects)
-+{
-+	int ret;
-+	long pages;
-+
-+	mutex_lock(&mem_reserve_mutex);
-+	pages = kmem_estimate_pages(s, GFP_ATOMIC, objects);
-+	pages -= res->pages;
-+	objects -= res->limit;
-+	ret = __mem_reserve_add(res, pages, objects);
-+	mutex_unlock(&mem_reserve_mutex);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(mem_reserve_kmem_cache_set);
-+
-+/**
-+ * mem_reserve_kmem_cache_charge - charge (or uncharge) usage of objs
-+ * @res - reserve to charge
-+ * @objs - objects to charge for
-+ * @overcommit - disregard the usage limit (use with caution!)
-+ *
-+ * Returns non-zero on success.
-+ */
-+int mem_reserve_kmem_cache_charge(struct mem_reserve *res, long objs,
-+				  int overcommit)
-+{
-+	return __mem_reserve_charge(res, objs, overcommit);
-+}
-+EXPORT_SYMBOL_GPL(mem_reserve_kmem_cache_charge);
+ 	data = kmalloc(size + sizeof(struct skb_shared_info), gfp_mask);
+ 	if (!data)
+ 		goto nodata;
+@@ -714,7 +845,7 @@ int pskb_expand_head(struct sk_buff *skb
+ 	       sizeof(struct skb_shared_info));
+ 
+ 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+-		get_page(skb_shinfo(skb)->frags[i].page);
++		skb_get_page(skb, skb_shinfo(skb)->frags[i].page);
+ 
+ 	if (skb_shinfo(skb)->frag_list)
+ 		skb_clone_fraglist(skb);
+@@ -793,8 +924,8 @@ struct sk_buff *skb_copy_expand(const st
+ 	/*
+ 	 *	Allocate the copy buffer
+ 	 */
+-	struct sk_buff *n = alloc_skb(newheadroom + skb->len + newtailroom,
+-				      gfp_mask);
++	struct sk_buff *n = __alloc_skb(newheadroom + skb->len + newtailroom,
++					gfp_mask, skb_alloc_rx_flag(skb), -1);
+ 	int oldheadroom = skb_headroom(skb);
+ 	int head_copy_len, head_copy_off;
+ 	int off;
+@@ -911,7 +1042,7 @@ drop_pages:
+ 		skb_shinfo(skb)->nr_frags = i;
+ 
+ 		for (; i < nfrags; i++)
+-			put_page(skb_shinfo(skb)->frags[i].page);
++			skb_put_page(skb, skb_shinfo(skb)->frags[i].page);
+ 
+ 		if (skb_shinfo(skb)->frag_list)
+ 			skb_drop_fraglist(skb);
+@@ -1080,7 +1211,7 @@ pull_pages:
+ 	k = 0;
+ 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+ 		if (skb_shinfo(skb)->frags[i].size <= eat) {
+-			put_page(skb_shinfo(skb)->frags[i].page);
++			skb_put_page(skb, skb_shinfo(skb)->frags[i].page);
+ 			eat -= skb_shinfo(skb)->frags[i].size;
+ 		} else {
+ 			skb_shinfo(skb)->frags[k] = skb_shinfo(skb)->frags[i];
+@@ -1852,6 +1983,7 @@ static inline void skb_split_no_header(s
+ 			skb_shinfo(skb1)->frags[k] = skb_shinfo(skb)->frags[i];
+ 
+ 			if (pos < len) {
++				struct page *page = skb_shinfo(skb)->frags[i].page;
+ 				/* Split frag.
+ 				 * We have two variants in this case:
+ 				 * 1. Move all the frag to the second
+@@ -1860,7 +1992,7 @@ static inline void skb_split_no_header(s
+ 				 *    where splitting is expensive.
+ 				 * 2. Split is accurately. We make this.
+ 				 */
+-				get_page(skb_shinfo(skb)->frags[i].page);
++				skb_get_page(skb1, page);
+ 				skb_shinfo(skb1)->frags[0].page_offset += len - pos;
+ 				skb_shinfo(skb1)->frags[0].size -= len - pos;
+ 				skb_shinfo(skb)->frags[i].size	= len - pos;
+@@ -2190,7 +2322,8 @@ struct sk_buff *skb_segment(struct sk_bu
+ 		if (hsize > len || !sg)
+ 			hsize = len;
+ 
+-		nskb = alloc_skb(hsize + doffset + headroom, GFP_ATOMIC);
++		nskb = __alloc_skb(hsize + doffset + headroom, GFP_ATOMIC,
++				   skb_alloc_rx_flag(skb), -1);
+ 		if (unlikely(!nskb))
+ 			goto err;
+ 
+@@ -2235,7 +2368,7 @@ struct sk_buff *skb_segment(struct sk_bu
+ 			BUG_ON(i >= nfrags);
+ 
+ 			*frag = skb_shinfo(skb)->frags[i];
+-			get_page(frag->page);
++			skb_get_page(nskb, frag->page);
+ 			size = frag->size;
+ 
+ 			if (pos < offset) {
+Index: linux-2.6/include/linux/mm_types.h
+===================================================================
+--- linux-2.6.orig/include/linux/mm_types.h
++++ linux-2.6/include/linux/mm_types.h
+@@ -74,6 +74,7 @@ struct page {
+ 		pgoff_t index;		/* Our offset within mapping. */
+ 		void *freelist;		/* SLUB: freelist req. slab lock */
+ 		int reserve;		/* page_alloc: page is a reserve page */
++		atomic_t frag_count;	/* skb fragment use count */
+ 	};
+ 	struct list_head lru;		/* Pageout list, eg. active_list
+ 					 * protected by zone->lru_lock !
 
 --
 
