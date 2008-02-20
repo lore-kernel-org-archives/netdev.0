@@ -1,43 +1,57 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [RTNL]: Add missing link netlink attribute policy definitions
-Date: Wed, 20 Feb 2008 00:46:06 +0100
-Message-ID: <20080219234606.GA3119@postel.suug.ch>
+From: "Dave Young" <hidave.darkstar@gmail.com>
+Subject: Re: [PATCH 1/2] bluetooth : put hci dev after del conn
+Date: Wed, 20 Feb 2008 08:17:31 +0800
+Message-ID: <a8e1da0802191617p7b5630a3mf017c9f0fdb52bc8@mail.gmail.com>
+References: <20080218075555.GA5940@darkstar.te-china.tietoenator.com>
+	<20080218.204457.167455192.davem@davemloft.net>
+Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:51362 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763230AbYBTAOs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Feb 2008 19:14:48 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, marcel@holtmann.org,
+	linux-kernel@vger.kernel.org, bluez-devel@lists.sf.net
+To: "David Miller" <davem@davemloft.net>
+Return-path: <bluez-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20080218.204457.167455192.davem@davemloft.net>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=bluez-devel>
+List-Post: <mailto:bluez-devel@lists.sourceforge.net>
+List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: bluez-devel-bounces@lists.sourceforge.net
+Errors-To: bluez-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-IFLA_LINK is no longer a write-only attribute on the kernel
-side and must thus be validated. Same goes for the newly
-introduced IFLA_LINKINFO.
+On Feb 19, 2008 12:44 PM, David Miller <davem@davemloft.net> wrote:
+> From: Dave Young <hidave.darkstar@gmail.com>
+> Date: Mon, 18 Feb 2008 15:55:55 +0800
+>
+> > Move hci_dev_put to del_conn to avoid hci dev going away before hci conn.
+>
+> This looks correct so I have applied it.
+>
+> > Signed-off-by: Dave Young <hidave.darkstar@gmail.com>
+>
+> Please remove the extraneous space at the end of your
+> signoff line next time :-)
 
-Fixes undefined behaviour if either of the attributes are
-not well formed.
+Will do :)
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+>
+> Also, I reworked the loop in del_conn() so that it no longer
+> generates a compile warning, so I had to apply your patch
+> by hand.
+>
 
-Index: net-2.6.26/net/core/rtnetlink.c
-===================================================================
---- net-2.6.26.orig/net/core/rtnetlink.c	2008-02-19 20:30:08.000000000 +0100
-+++ net-2.6.26/net/core/rtnetlink.c	2008-02-20 00:39:54.000000000 +0100
-@@ -693,10 +693,12 @@
- 	[IFLA_BROADCAST]	= { .type = NLA_BINARY, .len = MAX_ADDR_LEN },
- 	[IFLA_MAP]		= { .len = sizeof(struct rtnl_link_ifmap) },
- 	[IFLA_MTU]		= { .type = NLA_U32 },
-+	[IFLA_LINK]		= { .type = NLA_U32 },
- 	[IFLA_TXQLEN]		= { .type = NLA_U32 },
- 	[IFLA_WEIGHT]		= { .type = NLA_U32 },
- 	[IFLA_OPERSTATE]	= { .type = NLA_U8 },
- 	[IFLA_LINKMODE]		= { .type = NLA_U8 },
-+	[IFLA_LINKINFO]		= { .type = NLA_NESTED },
- 	[IFLA_NET_NS_PID]	= { .type = NLA_U32 },
- };
- 
+Thanks a lot.
+
+Regards
+dave
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
