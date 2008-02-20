@@ -1,46 +1,40 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2.6.25 2/4]S2io: Multiqueue network device support - FIFO
- selection based on L4 ports
-Date: Thu, 21 Feb 2008 00:21:48 +0100
-Message-ID: <47BCB60C.3040409@trash.net>
-References: <47BCB304.9050709@trash.net>	<20080220.151244.79005114.davem@davemloft.net>	<47BCB481.8050203@trash.net> <20080220.151834.133850272.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: TG3 network data corruption regression 2.6.24/2.6.23.4
+Date: Wed, 20 Feb 2008 15:17:29 -0800
+Message-ID: <1203549449.13495.140.camel@dell>
+References: <47BB54C2.6090501@cybernetics.com>
+ <20080220013824.GA5416@localdomain> <47BCB1E9.8020102@cybernetics.com>
+ <20080220.150850.56732755.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Ramkrishna.Vepa@neterion.com, Sreenivasa.Honnur@neterion.com,
-	netdev@vger.kernel.org, jeff@garzik.org, support@neterion.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62915 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763895AbYBTXWB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 18:22:01 -0500
-In-Reply-To: <20080220.151834.133850272.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tonyb@cybernetics.com, mcarlson@broadcom.com,
+	herbert@gondor.apana.org.au, netdev <netdev@vger.kernel.org>,
+	gregkh@suse.de, linux-kernel@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934868AbYBTXWi@vger.kernel.org>
+In-Reply-To: <20080220.150850.56732755.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Thu, 21 Feb 2008 00:15:13 +0100
->
->   
->> I missed those discussions, but this has already been agreed on,
->> fine by me. It would still be preferable to use queue_mapping
->> instead of priority IMO, even if its activated by a module
->> parameter, since that leaves the option to use classifiers.
->>     
->
-> I think the driver should compute the value in it's transmit
-> routine and keep the value local.  It shouldn't be setting
-> skb->foo values at all, they don't belong to the driver
-> and this could confuse other code.
->   
+On Wed, 2008-02-20 at 15:08 -0800, David Miller wrote:
+> From: Tony Battersby <tonyb@cybernetics.com>
+> Date: Wed, 20 Feb 2008 18:04:09 -0500
+> 
+> > The following patch fixes the problem for me.  Do we want to accept this
+> > patch and call it a day or continue investigating the source of the problem?
+> > 
+> > Patch applies to 2.6.24.2, but doesn't apply to 2.6.25-rc.  If everyone
+> > agrees that this is the right solution, I will resubmit with a proper
+> > subject line and description.
+> 
+> A chipset bug, if it even exists, should be worked around in the
+> driver for that hardware.  We shouldn't make every other piece
+> of hardware in the world suffer too.
+> 
+> 
 
-Yes, I didn't meant it should set anything, but on of the options
-this patch introduces is to _use_ skb->priority for classification,
-so the classification is already external, in which case it might
-as well offer the full flexibility (as one option) to use qdisc
-classifiers.
-
-
-
+Yes, we should workaround this in the TG3 driver once we understand what
+the problem is and how to workaround it.  We are still looking through
+the errata list to sort this out.  It looks like it is the starting DMA
+address of the TX buffer that is causing the problem.
