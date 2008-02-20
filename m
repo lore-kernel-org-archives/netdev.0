@@ -1,47 +1,51 @@
-From: Jan Engelhardt <jengelh@computergmbh.de>
-Subject: Re: [RFC PATCH 3/8] [NET]: uninline dev_alloc_skb, de-bloats a lot
-Date: Wed, 20 Feb 2008 17:19:37 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0802201651580.26109@fbirervta.pbzchgretzou.qr>
-References: <1203515238-22848-1-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1203515238-22848-2-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1203515238-22848-3-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1203515238-22848-4-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH] SUNRPC: Mark buffer used for debug printks with	__maybe_unused
+Date: Wed, 20 Feb 2008 19:27:57 +0300
+Message-ID: <47BC550D.7040003@openvz.org>
+References: <47BC3303.2040101@openvz.org>	 <1203521357.7181.163.camel@localhost> <1203521514.7181.167.camel@localhost> <47BC48C6.3050208@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Joe Perches <joe@perches.com>,
+	"J. Bruce Fields" <bfields@citi.umich.edu>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:46322 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933410AbYBTQTi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 11:19:38 -0500
-In-Reply-To: <1203515238-22848-4-git-send-email-ilpo.jarvinen@helsinki.fi>
+Received: from sacred.ru ([62.205.161.221]:42514 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934464AbYBTQ2E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Feb 2008 11:28:04 -0500
+In-Reply-To: <47BC48C6.3050208@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Patrick McHardy wrote:
+> Joe Perches wrote:
+>> On Wed, 2008-02-20 at 07:29 -0800, Joe Perches wrote:
+>>   
+>>> fs/nfsd/nfsproc.c:              char buf[RPC_MAX_ADDRBUFLEN];
+>>> Perhaps there should be a DECLARE_RPC_BUF(buf) macro?
+>>> #define DECLARE_RPC_BUF(var) char var[MAC_BUF_SIZE] __maybe_unused
+>>>     
+>> Make that:
+>>
+>> #define DECLARE_RPC_BUF(var) char var[RPC_MAX_ADDRBUFLEN] __maybe_unuse
 
-On Feb 20 2008 15:47, Ilpo J=C3=A4rvinen wrote:
->
->-23668  392 funcs, 104 +, 23772 -, diff: -23668 --- dev_alloc_skb
->
->-static inline struct sk_buff *dev_alloc_skb(unsigned int length)
->-{
->-	return __dev_alloc_skb(length, GFP_ATOMIC);
->-}
->+extern struct sk_buff *dev_alloc_skb(unsigned int length);
+OK, I'll send the patch in a moment.
 
-Striking. How can this even happen? A callsite which calls
+> Alternatively change the dprintk macro to behave similar like
 
-	dev_alloc_skb(n)
+This is too heavy. The problem is that some arguments passed to this
+function exist only under appropriate ifdefs, so having a static
+inline there will produce a warning :(
 
-is just equivalent to
+> pr_debug() and mark things like svc_print_addr() __pure, which
+> has the advantage that is still performs format checking even
+> if debugging is disabled.
 
-	__dev_alloc_skb(n, GFP_ATOMIC);
+Taking my above statement into account, this becomes useless, since
+svc_print_addr() is used inside those "empty" macros and are complied
+out automatically.
 
-which means there's like 4 (or 8 if it's long) bytes more on the
-stack. For a worst case, count in another 8 bytes for push and pop or m=
-ov on
-the stack. But that still does not add up to 23 kb.
+> 
+
