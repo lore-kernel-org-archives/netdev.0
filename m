@@ -1,39 +1,160 @@
-From: Nicolas Pitre <nico@cam.org>
-Subject: Re: [PATCH 04/04] smc91x: add insw/outsw to default config
-Date: Wed, 20 Feb 2008 11:00:44 -0500 (EST)
-Message-ID: <alpine.LFD.1.00.0802201059080.2732@xanadu.home>
-References: <20080220095740.22645.36783.sendpatchset@clockwork.opensource.se>
- <20080220095821.22645.60604.sendpatchset@clockwork.opensource.se>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
+Date: Wed, 20 Feb 2008 16:02:52 +0000
+Message-ID: <47BC4F2C.4000802@katalix.com>
+References: <47B0C9F7.5040200@katalix.com> <20080211224924.GA2863@ami.dom.local> <47B0DD1E.5000608@katalix.com> <20080211.213048.192442721.davem@davemloft.net> <47B17BCD.2070903@katalix.com> <20080214130016.GA2583@ff.dom.local> <47BA0214.40703@katalix.com> <20080219230640.GA2755@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, lethal@linux-sh.org,
-	akpm@linux-foundation.org
-To: Magnus Damm <magnus.damm@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relais.videotron.ca ([24.201.245.36]:59750 "EHLO
-	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752076AbYBTQAp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 11:00:45 -0500
-Received: from xanadu.home ([66.131.194.97]) by VL-MO-MR003.ip.videotron.ca
- (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
- with ESMTP id <0JWJ00341OH9I190@VL-MO-MR003.ip.videotron.ca> for
- netdev@vger.kernel.org; Wed, 20 Feb 2008 11:00:45 -0500 (EST)
-In-reply-to: <20080220095821.22645.60604.sendpatchset@clockwork.opensource.se>
+Received: from s36.avahost.net ([74.53.95.194]:40066 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754256AbYBTQDE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Feb 2008 11:03:04 -0500
+In-Reply-To: <20080219230640.GA2755@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Feb 2008, Magnus Damm wrote:
-
-> This patch makes sure SMC_insw()/SMC_outsw() are defined for the
-> default configuration. Without this change BUG()s will be triggered
-> when using 16-bit only platform data and the default configuration.
+Jarek Poplawski wrote:
+> On Mon, Feb 18, 2008 at 10:09:24PM +0000, James Chapman wrote:
+> ...
+>> Unfortunately the ISP's syslog stops. But I've been able to borrow
+>> two Quad Xeon boxes and have reproduced the problem.
+>>
+>> Here's a new version of the patch. The patch avoids disabling irqs
+>> and fixes the sk_dst_get() usage that DaveM mentioned. But even with
+>> this patch, lockdep still complains if hundreds of ppp sessions are
+>> inserted into a tunnel as rapidly as possible (lockdep trace is below).
+>> I can stop these errors by wrapping the call to ppp_input() in
+>> pppol2tp_recv_dequeue_skb() with local_irq_save/restore. What is a
+>> better fix?
 > 
-> Signed-off-by: Magnus Damm <damm@igel.co.jp>
+> I send here my proposal: it's intended for testing and to check one of
+> possible solutions here. IMHO your lockdep reports show there is no
+> use to change anything around sk_dst_lock: it would need the global
+> change of this lock to fix this problem. So the fix should be done
+> around pch->upl lock and this means changing ppp_generic.
 
-You should have introduced this patch as 3/4 instead of 4/4 so to make 
-sure the series won't  create a non functional kernel between 3/4 and 
-4/4.
+Hmm, I need to study the lockdep report again. It seems I'm misreading 
+the lockdep output. :(
+
+> In the patch below I've used trylock in places which seem to allow
+> for skipping some things (while config is changed only) or simply
+> don't need this lock because there is no ppp struct. This could be
+> modified to add some waiting loop if necessary. Another option is to
+> change the write side of this lock: it looks like more vulnerable if
+> something missed because there are more locks involved, but probably
+> should be enough to solve this problem too.
+> 
+> I think pppol2tp need to be first checked only with hlist_lock bh
+> patch, unless there were some lockdep reports on these other locks
+> too. (BTW, I added ppp maintainer to CC - I hope we get Paul's opinion
+> on this.)
+
+I tried your ppp_generic patch with only the hlist_lock bh patch in 
+pppol2tp and it seems to fix the ppp create/delete issue. However, when 
+I added much more traffic into the test (flood pings over ppp interfaces 
+while repeatedly creating/deleting the L2TP (PPP) sessions) I get a soft 
+lockup detected in pppol2tp_xmit() after anything between 1 minute and 
+an hour. :( I'm investigating that now.
+
+Thanks for your help!
+
+> (testing patch #1)
+> ---
+> 
+>  drivers/net/ppp_generic.c |   33 +++++++++++++++++++++++----------
+>  1 files changed, 23 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+> index 4dc5b4b..5cbc534 100644
+> --- a/drivers/net/ppp_generic.c
+> +++ b/drivers/net/ppp_generic.c
+> @@ -1473,7 +1473,7 @@ void
+>  ppp_input(struct ppp_channel *chan, struct sk_buff *skb)
+>  {
+>  	struct channel *pch = chan->ppp;
+> -	int proto;
+> +	int proto, locked;
+>  
+>  	if (!pch || skb->len == 0) {
+>  		kfree_skb(skb);
+> @@ -1481,8 +1481,13 @@ ppp_input(struct ppp_channel *chan, struct sk_buff *skb)
+>  	}
+>  
+>  	proto = PPP_PROTO(skb);
+> -	read_lock_bh(&pch->upl);
+> -	if (!pch->ppp || proto >= 0xc000 || proto == PPP_CCPFRAG) {
+> +	/*
+> +	 * We use trylock to avoid dependency between soft-irq-safe upl lock
+> +	 * and soft-irq-unsafe sk_dst_lock.
+> +	 */
+> +	local_bh_disable();
+> +	locked = read_trylock(&pch->upl);
+> +	if (!locked || !pch->ppp || proto >= 0xc000 || proto == PPP_CCPFRAG) {
+>  		/* put it on the channel queue */
+>  		skb_queue_tail(&pch->file.rq, skb);
+>  		/* drop old frames if queue too long */
+> @@ -1493,7 +1498,10 @@ ppp_input(struct ppp_channel *chan, struct sk_buff *skb)
+>  	} else {
+>  		ppp_do_recv(pch->ppp, skb, pch);
+>  	}
+> -	read_unlock_bh(&pch->upl);
+> +
+> +	if (locked)
+> +		read_unlock(&pch->upl);
+> +	local_bh_enable();
+>  }
+>  
+>  /* Put a 0-length skb in the receive queue as an error indication */
+> @@ -1506,16 +1514,18 @@ ppp_input_error(struct ppp_channel *chan, int code)
+>  	if (!pch)
+>  		return;
+>  
+> -	read_lock_bh(&pch->upl);
+> -	if (pch->ppp) {
+> +	/* a trylock comment in ppp_input() */
+> +	local_bh_disable();
+> +	if (read_trylock(&pch->upl) && pch->ppp) {
+>  		skb = alloc_skb(0, GFP_ATOMIC);
+>  		if (skb) {
+>  			skb->len = 0;		/* probably unnecessary */
+>  			skb->cb[0] = code;
+>  			ppp_do_recv(pch->ppp, skb, pch);
+>  		}
+> +		read_unlock(&pch->upl);
+>  	}
+> -	read_unlock_bh(&pch->upl);
+> +	local_bh_enable();
+>  }
+>  
+>  /*
+> @@ -2044,10 +2054,13 @@ int ppp_unit_number(struct ppp_channel *chan)
+>  	int unit = -1;
+>  
+>  	if (pch) {
+> -		read_lock_bh(&pch->upl);
+> -		if (pch->ppp)
+> +		/* a trylock comment in ppp_input() */
+> +		local_bh_disable();
+> +		if (read_trylock(&pch->upl) && pch->ppp) {
+>  			unit = pch->ppp->file.index;
+> -		read_unlock_bh(&pch->upl);
+> +			read_unlock(&pch->upl);
+> +		}
+> +		local_bh_enable();
+>  	}
+>  	return unit;
+>  }
+> --
 
 
-Nicolas
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
