@@ -1,45 +1,43 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH] SUNRPC: Mark buffer used for debug printks with	__maybe_unused
-Date: Wed, 20 Feb 2008 18:36:40 +0300
-Message-ID: <47BC4908.7010104@openvz.org>
-References: <47BC3303.2040101@openvz.org> <1203521357.7181.163.camel@localhost>
+From: Nicolas Pitre <nico@cam.org>
+Subject: Re: [PATCH 00/04] smc91x: request bus width using platform data
+Date: Wed, 20 Feb 2008 10:36:57 -0500 (EST)
+Message-ID: <alpine.LFD.1.00.0802201028570.2732@xanadu.home>
+References: <20080220095740.22645.36783.sendpatchset@clockwork.opensource.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "J. Bruce Fields" <bfields@citi.umich.edu>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, lethal@linux-sh.org,
+	akpm@linux-foundation.org
+To: Magnus Damm <magnus.damm@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:54811 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933268AbYBTPgz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Feb 2008 10:36:55 -0500
-In-Reply-To: <1203521357.7181.163.camel@localhost>
+Received: from relais.videotron.ca ([24.201.245.36]:21730 "EHLO
+	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933268AbYBTPg7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:36:59 -0500
+Received: from xanadu.home ([66.131.194.97]) by VL-MO-MR002.ip.videotron.ca
+ (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
+ with ESMTP id <0JWJ0092SNDLG070@VL-MO-MR002.ip.videotron.ca> for
+ netdev@vger.kernel.org; Wed, 20 Feb 2008 10:36:58 -0500 (EST)
+In-reply-to: <20080220095740.22645.36783.sendpatchset@clockwork.opensource.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joe Perches wrote:
-> On Wed, 2008-02-20 at 17:02 +0300, Pavel Emelyanov wrote:
->> There are tree places, which declare the char buf[...] on the stack
->> to push it later into dprintk(). Since the dprintk sometimes (if the 
->> CONFIG_SYSCTL=n) becomes an empty do { } while (0) stub, these buffers
->> cause gcc to produce appropriate warnings.
-> 
-> What about the uses in fs?
-> 
-> fs/lockd/svc.c:         char buf[RPC_MAX_ADDRBUFLEN];
-> fs/lockd/svc4proc.c:            char buf[RPC_MAX_ADDRBUFLEN];
-> fs/lockd/svcproc.c:             char buf[RPC_MAX_ADDRBUFLEN];
-> fs/nfs/callback.c:      char buf[RPC_MAX_ADDRBUFLEN];
-> fs/nfsd/nfsfh.c:                char buf[RPC_MAX_ADDRBUFLEN];
-> fs/nfsd/nfsproc.c:              char buf[RPC_MAX_ADDRBUFLEN];
-> 
-> Perhaps there should be a DECLARE_RPC_BUF(buf) macro?
-> 
-> #define DECLARE_RPC_BUF(var) char var[MAC_BUF_SIZE] __maybe_unused
+On Wed, 20 Feb 2008, Magnus Damm wrote:
 
-Sigh... Why is that better than a strait declaration with attribute?
-
+> These patches make it possible to request bus width in the platform data.
 > 
-> 
+> Instead of keep on updating smc91x.h with board specific configuration,
+> use platform data to pass along bus width and irq flags to the driver.
+> This change is designed to be backwards-compatible, so all boards configured
+> in the header file should just work as usual.
 
+Thank you for doing this work.  I really meant to do it, and commit 
+09779c6df2dbe95483269d194b327d41fe2cc57e was the first step towards that 
+goal, but as you can see we're nearly two years later and I didn't do 
+it.
+
+I have a few comments though.  I will reply to those messages 
+separately.
+
+
+Nicolas
