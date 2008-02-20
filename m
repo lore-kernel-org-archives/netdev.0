@@ -1,64 +1,52 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: simplify code and get rid of warning
-Date: Wed, 20 Feb 2008 08:57:56 -0800
-Message-ID: <21522.1203526676@death>
-References: <20080218210426.022bbe36@extreme>
-Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Trond Myklebust <trond.myklebust@fys.uio.no>
+Subject: Re: [PATCH] SUNRPC: Mark buffer used for debug printks
+	with	__maybe_unused
+Date: Wed, 20 Feb 2008 12:00:35 -0500
+Message-ID: <1203526835.13125.11.camel@heimdal.trondhjem.org>
+References: <47BC3303.2040101@openvz.org>
+	 <1203521357.7181.163.camel@localhost> <1203521514.7181.167.camel@localhost>
+	 <47BC48C6.3050208@trash.net>  <47BC550D.7040003@openvz.org>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, Joe Perches <joe@perches.com>,
+	"J. Bruce Fields" <bfields@citi.umich.edu>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:47629 "EHLO e1.ny.us.ibm.com"
+Received: from pat.uio.no ([129.240.10.15]:45251 "EHLO pat.uio.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932948AbYBTQ6D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Feb 2008 11:58:03 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m1KGvxiO008789
-	for <netdev@vger.kernel.org>; Wed, 20 Feb 2008 11:57:59 -0500
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m1KGvxXR241122
-	for <netdev@vger.kernel.org>; Wed, 20 Feb 2008 11:57:59 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m1KGvxsQ006572
-	for <netdev@vger.kernel.org>; Wed, 20 Feb 2008 11:57:59 -0500
-In-reply-to: <20080218210426.022bbe36@extreme> 
+	id S1754783AbYBTRAo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Feb 2008 12:00:44 -0500
+In-Reply-To: <47BC550D.7040003@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> wrote:
 
->Get rid of warning and simplify code that looks up vlan tag.
->No need to get tag, then copy it. Also no need for a local status
->variable.
+On Wed, 2008-02-20 at 19:27 +0300, Pavel Emelyanov wrote:
+> Patrick McHardy wrote:
+> > Joe Perches wrote:
+> >> On Wed, 2008-02-20 at 07:29 -0800, Joe Perches wrote:
+> >>   
+> >>> fs/nfsd/nfsproc.c:              char buf[RPC_MAX_ADDRBUFLEN];
+> >>> Perhaps there should be a DECLARE_RPC_BUF(buf) macro?
+> >>> #define DECLARE_RPC_BUF(var) char var[MAC_BUF_SIZE] __maybe_unused
+> >>>     
+> >> Make that:
+> >>
+> >> #define DECLARE_RPC_BUF(var) char var[RPC_MAX_ADDRBUFLEN] __maybe_unuse
+> 
+> OK, I'll send the patch in a moment.
 
-	Granted, the current code is suboptimal, but I don't see any
-warnings compiling this (gcc 4.1.2).  What are you getting?
+1) Please always Cc linux-nfs@vger.kernel.org when changing the sunrpc
+code
 
-	-J
+2) Please don't use the name RPC_BUF. These are debugging strings, not
+buffers. Something like DECLARE_RPC_DEBUG_STR() would be more
+appropriate.
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+3) If you're going to use a macro, why not just use the existing
+RPC_IFDEBUG()?
 
+Trond
 
->Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->---
->Patch against current 2.6.25 version.
->
->--- a/drivers/net/bonding/bond_alb.c	2008-02-18 20:58:53.000000000 -0800
->+++ b/drivers/net/bonding/bond_alb.c	2008-02-18 21:01:10.000000000 -0800
->@@ -678,12 +678,8 @@ static struct slave *rlb_choose_channel(
-> 		}
->
-> 		if (!list_empty(&bond->vlan_list)) {
->-			unsigned short vlan_id;
->-			int res = vlan_get_tag(skb, &vlan_id);
->-			if (!res) {
->+			if (!vlan_get_tag(skb, &client_info->vlan_id))
-> 				client_info->tag = 1;
->-				client_info->vlan_id = vlan_id;
->-			}
-> 		}
->
-> 		if (!client_info->assigned) {
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
