@@ -1,59 +1,64 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] SUNRPC: Mark buffer used for debug printks with __maybe_unused
-Date: Wed, 20 Feb 2008 17:02:43 +0300
-Message-ID: <47BC3303.2040101@openvz.org>
+From: Jonas Bonn <jonas@southpole.se>
+Subject: Re: PowerPC toolchain for x86 [Was: pci_device_id cleanups]
+Date: Wed, 20 Feb 2008 15:03:30 +0100
+Message-ID: <47BC3332.7090705@southpole.se>
+References: <1203512031-14318-1-git-send-email-jonas@southpole.se> <20080220131704.GB18790@uranus.ravnborg.org> <47BC2AB7.4040402@southpole.se> <20080220135533.GA19024@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "J. Bruce Fields" <bfields@citi.umich.edu>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	greg@kroah.com, Andrew Morton <akpm@linux-foundation.org>
+To: Sam Ravnborg <sam@ravnborg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:41377 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753882AbYBTOCn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Feb 2008 09:02:43 -0500
+Received: from mail.southpole.se ([193.12.106.18]:39966 "EHLO
+	mail.southpole.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756322AbYBTODc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 09:03:32 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by mail.southpole.se (Postfix) with SMTP id 7B0F64ED0FD
+	for <netdev@vger.kernel.org>; Wed, 20 Feb 2008 15:03:31 +0100 (CET)
+In-Reply-To: <20080220135533.GA19024@uranus.ravnborg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are tree places, which declare the char buf[...] on the stack
-to push it later into dprintk(). Since the dprintk sometimes (if the 
-CONFIG_SYSCTL=n) becomes an empty do { } while (0) stub, these buffers
-cause gcc to produce appropriate warnings.
 
-Mark them as __maybe_unused.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Sam Ravnborg wrote:
+> On Wed, Feb 20, 2008 at 02:27:19PM +0100, Jonas Bonn wrote:
+>> Sam Ravnborg wrote:
+>>> On Wed, Feb 20, 2008 at 01:53:36PM +0100, Jonas Bonn wrote:
+>>>> The PCI_DEVICE_TABLE patch I sent earlier doesn't necessarily make
+>>>> much sense by itself... here is a set of patches that apply
+>>>> this macro, in turn moving a lot of this data into __devinitconst
+>>>> which is discardable in certain situations.
+>>>> Hopefully the benefit of this approach is a bit clearer now.
+>>> [shorter lines please..]
+>> Sorry...
+>>
+>>> Can you please confirm that this does not break powerpc (64 bit)
+>>> as they have troubles with the constification..
+>> I do not have access to any PowerPC machine... Olof Johansson built the 
+>> tree I posted earlier on PowerPC; there's nothing really new here except 
+>> the wrapping of the definition in a macro.
+> And you added const and a specific section.
 
----
+No... once the macro is expanded the code is exactly the same as that 
+which built cleanly on powerpc previously (which Olof, built, I mean)... 
+nothing new here.
 
-diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index 1d3e5fc..303f105 100644
---- a/net/sunrpc/svcsock.c
-+++ b/net/sunrpc/svcsock.c
-@@ -175,7 +175,7 @@ static int svc_sendto(struct svc_rqst *rqstp, struct xdr_buf *xdr)
- 	size_t		base = xdr->page_base;
- 	unsigned int	pglen = xdr->page_len;
- 	unsigned int	flags = MSG_MORE;
--	char		buf[RPC_MAX_ADDRBUFLEN];
-+	char		buf[RPC_MAX_ADDRBUFLEN] __maybe_unused;
- 
- 	slen = xdr->len;
- 
-@@ -716,7 +716,7 @@ static struct svc_xprt *svc_tcp_accept(struct svc_xprt *xprt)
- 	struct socket	*newsock;
- 	struct svc_sock	*newsvsk;
- 	int		err, slen;
--	char		buf[RPC_MAX_ADDRBUFLEN];
-+	char		buf[RPC_MAX_ADDRBUFLEN] __maybe_unused;
- 
- 	dprintk("svc: tcp_accept %p sock %p\n", svsk, sock);
- 	if (!sock)
-@@ -1206,7 +1206,7 @@ static struct svc_xprt *svc_create_socket(struct svc_serv *serv,
- 	struct socket	*sock;
- 	int		error;
- 	int		type;
--	char		buf[RPC_MAX_ADDRBUFLEN];
-+	char		buf[RPC_MAX_ADDRBUFLEN] __maybe_unused;
- 	struct sockaddr_storage addr;
- 	struct sockaddr *newsin = (struct sockaddr *)&addr;
- 	int		newlen;
+> Exactly what could break on PowerPC.
+> 
+> To do the build break check is easy.
+> Google for "crosstool" and build your own powerpc toolchain.
+> 
+
+Thanks... I'll throw together a cross compiler and see what I can do.
+
+/Jonas
+
+> Andrew has something precompiled somewhere but I lost the link.
+> 
+> 
+> 	Sam
+> 
+
