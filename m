@@ -1,15 +1,15 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Subject: [RFC PATCH 0/8]: uninline & uninline
-Date: Wed, 20 Feb 2008 15:35:07 +0200
-Message-ID: <12035145151801-git-send-email-ilpo.jarvinen@helsinki.fi>
+Date: Wed, 20 Feb 2008 15:47:10 +0200
+Message-ID: <1203515238-22848-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Cc: David Miller <davem@davemloft.net>,
 	Arnaldo Carvalho de Melo <acme@redhat.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:40116 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:47679 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752158AbYBTNfR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 08:35:17 -0500
+	with ESMTP id S1753086AbYBTNrU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 08:47:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -76,6 +76,9 @@ those tools.
 
 --
  i.
+
+ps. I'm sorry about the duplicates, old git-send-email's
+8-bit-header problem bit me again. :-(
 
 
 
