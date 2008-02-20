@@ -1,135 +1,178 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 00/28] Swap over NFS -v16
-Date: Wed, 20 Feb 2008 15:46:10 +0100
-Message-ID: <20080220144610.548202000@chello.nl>
+Subject: [PATCH 14/28] net: sk_allocation() - concentrate socket related allocations
+Date: Wed, 20 Feb 2008 15:46:24 +0100
+Message-ID: <20080220150307.122541000@chello.nl>
+References: <20080220144610.548202000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:21358 "EHLO
-	viefep33-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756443AbYBTPSp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:18:45 -0500
+Received: from viefep18-int.chello.at ([213.46.255.22]:44784 "EHLO
+	viefep24-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757854AbYBTPSs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:18:48 -0500
+Content-Disposition: inline; filename=net-sk_allocation.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Introduce sk_allocation(), this function allows to inject sock specific
+flags to each sock related allocation.
 
-Another posting of the full swap over NFS series. 
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+---
+ include/net/sock.h    |    5 +++++
+ net/ipv4/tcp.c        |    3 ++-
+ net/ipv4/tcp_output.c |   12 +++++++-----
+ net/ipv6/tcp_ipv6.c   |   14 +++++++++-----
+ 4 files changed, 23 insertions(+), 11 deletions(-)
 
-Andrew/Linus, could we start thinking of sticking this in -mm?
+Index: linux-2.6/net/ipv4/tcp_output.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/tcp_output.c
++++ linux-2.6/net/ipv4/tcp_output.c
+@@ -2078,7 +2078,8 @@ void tcp_send_fin(struct sock *sk)
+ 	} else {
+ 		/* Socket is locked, keep trying until memory is available. */
+ 		for (;;) {
+-			skb = alloc_skb_fclone(MAX_TCP_HEADER, GFP_KERNEL);
++			skb = alloc_skb_fclone(MAX_TCP_HEADER,
++					       sk->sk_allocation);
+ 			if (skb)
+ 				break;
+ 			yield();
+@@ -2104,7 +2105,7 @@ void tcp_send_active_reset(struct sock *
+ 	struct sk_buff *skb;
+ 
+ 	/* NOTE: No TCP options attached and we never retransmit this. */
+-	skb = alloc_skb(MAX_TCP_HEADER, priority);
++	skb = alloc_skb(MAX_TCP_HEADER, sk_allocation(sk, priority));
+ 	if (!skb) {
+ 		NET_INC_STATS(LINUX_MIB_TCPABORTFAILED);
+ 		return;
+@@ -2171,7 +2172,8 @@ struct sk_buff *tcp_make_synack(struct s
+ 	__u8 *md5_hash_location;
+ #endif
+ 
+-	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1, GFP_ATOMIC);
++	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1,
++			sk_allocation(sk, GFP_ATOMIC));
+ 	if (skb == NULL)
+ 		return NULL;
+ 
+@@ -2425,7 +2427,7 @@ void tcp_send_ack(struct sock *sk)
+ 	 * tcp_transmit_skb() will set the ownership to this
+ 	 * sock.
+ 	 */
+-	buff = alloc_skb(MAX_TCP_HEADER, GFP_ATOMIC);
++	buff = alloc_skb(MAX_TCP_HEADER, sk_allocation(sk, GFP_ATOMIC));
+ 	if (buff == NULL) {
+ 		inet_csk_schedule_ack(sk);
+ 		inet_csk(sk)->icsk_ack.ato = TCP_ATO_MIN;
+@@ -2460,7 +2462,7 @@ static int tcp_xmit_probe_skb(struct soc
+ 	struct sk_buff *skb;
+ 
+ 	/* We don't queue it, tcp_transmit_skb() sets ownership. */
+-	skb = alloc_skb(MAX_TCP_HEADER, GFP_ATOMIC);
++	skb = alloc_skb(MAX_TCP_HEADER, sk_allocation(sk, GFP_ATOMIC));
+ 	if (skb == NULL)
+ 		return -1;
+ 
+Index: linux-2.6/include/net/sock.h
+===================================================================
+--- linux-2.6.orig/include/net/sock.h
++++ linux-2.6/include/net/sock.h
+@@ -427,6 +427,11 @@ static inline int sock_flag(struct sock 
+ 	return test_bit(flag, &sk->sk_flags);
+ }
+ 
++static inline gfp_t sk_allocation(struct sock *sk, gfp_t gfp_mask)
++{
++	return gfp_mask;
++}
++
+ static inline void sk_acceptq_removed(struct sock *sk)
+ {
+ 	sk->sk_ack_backlog--;
+Index: linux-2.6/net/ipv6/tcp_ipv6.c
+===================================================================
+--- linux-2.6.orig/net/ipv6/tcp_ipv6.c
++++ linux-2.6/net/ipv6/tcp_ipv6.c
+@@ -568,7 +568,8 @@ static int tcp_v6_md5_do_add(struct sock
+ 	} else {
+ 		/* reallocate new list if current one is full. */
+ 		if (!tp->md5sig_info) {
+-			tp->md5sig_info = kzalloc(sizeof(*tp->md5sig_info), GFP_ATOMIC);
++			tp->md5sig_info = kzalloc(sizeof(*tp->md5sig_info),
++					sk_allocation(sk, GFP_ATOMIC));
+ 			if (!tp->md5sig_info) {
+ 				kfree(newkey);
+ 				return -ENOMEM;
+@@ -581,7 +582,8 @@ static int tcp_v6_md5_do_add(struct sock
+ 		}
+ 		if (tp->md5sig_info->alloced6 == tp->md5sig_info->entries6) {
+ 			keys = kmalloc((sizeof (tp->md5sig_info->keys6[0]) *
+-				       (tp->md5sig_info->entries6 + 1)), GFP_ATOMIC);
++				       (tp->md5sig_info->entries6 + 1)),
++				       sk_allocation(sk, GFP_ATOMIC));
+ 
+ 			if (!keys) {
+ 				tcp_free_md5sig_pool();
+@@ -705,7 +707,7 @@ static int tcp_v6_parse_md5_keys (struct
+ 		struct tcp_sock *tp = tcp_sk(sk);
+ 		struct tcp_md5sig_info *p;
+ 
+-		p = kzalloc(sizeof(struct tcp_md5sig_info), GFP_KERNEL);
++		p = kzalloc(sizeof(struct tcp_md5sig_info), sk->sk_allocation);
+ 		if (!p)
+ 			return -ENOMEM;
+ 
+@@ -1006,7 +1008,7 @@ static void tcp_v6_send_reset(struct soc
+ 	 */
+ 
+ 	buff = alloc_skb(MAX_HEADER + sizeof(struct ipv6hdr) + tot_len,
+-			 GFP_ATOMIC);
++			 sk_allocation(sk, GFP_ATOMIC));
+ 	if (buff == NULL)
+ 		return;
+ 
+@@ -1085,10 +1087,12 @@ static void tcp_v6_send_ack(struct tcp_t
+ 	struct tcp_md5sig_key *key;
+ 	struct tcp_md5sig_key tw_key;
+ #endif
++	gfp_t gfp_mask = GFP_ATOMIC;
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+ 	if (!tw && skb->sk) {
+ 		key = tcp_v6_md5_do_lookup(skb->sk, &ipv6_hdr(skb)->daddr);
++		gfp_mask = sk_allocation(skb->sk, gfp_mask);
+ 	} else if (tw && tw->tw_md5_keylen) {
+ 		tw_key.key = tw->tw_md5_key;
+ 		tw_key.keylen = tw->tw_md5_keylen;
+@@ -1106,7 +1110,7 @@ static void tcp_v6_send_ack(struct tcp_t
+ #endif
+ 
+ 	buff = alloc_skb(MAX_HEADER + sizeof(struct ipv6hdr) + tot_len,
+-			 GFP_ATOMIC);
++			 gfp_mask);
+ 	if (buff == NULL)
+ 		return;
+ 
+Index: linux-2.6/net/ipv4/tcp.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/tcp.c
++++ linux-2.6/net/ipv4/tcp.c
+@@ -636,7 +636,8 @@ struct sk_buff *sk_stream_alloc_skb(stru
+ 	/* The TCP header must be at least 32-bit aligned.  */
+ 	size = ALIGN(size, 4);
+ 
+-	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
++	skb = alloc_skb_fclone(size + sk->sk_prot->max_header,
++			       sk_allocation(sk, gfp));
+ 	if (skb) {
+ 		if (sk_wmem_schedule(sk, skb->truesize)) {
+ 			/*
 
-[ patches against 2.6.25-rc2-mm1, also to be found online at:
-  http://programming.kicks-ass.net/kernel-patches/vm_deadlock/v2.6.25-rc2-mm1/ ]
-
-The patch-set can be split in roughtly 5 parts, for each of which I shall give
-a description.
-
-
-  Part 1, patches 1-11
-
-The problem with swap over network is the generic swap problem: needing memory
-to free memory. Normally this is solved using mempools, as can be seen in the
-BIO layer.
-
-Swap over network has the problem that the network subsystem does not use fixed
-sized allocations, but heavily relies on kmalloc(). This makes mempools
-unusable.
-
-This first part provides a generic reserve framework. This framework
-could also be used to get rid of some of the __GFP_NOFAIL users.
-
-Care is taken to only affect the slow paths - when we're low on memory.
-
-Caveats: it currently doesn't do SLOB.
-
- 1 - mm: gfp_to_alloc_flags()
- 2 - mm: tag reseve pages
- 3 - mm: sl[au]b: add knowledge of reserve pages
- 4 - mm: kmem_estimate_pages()
- 5 - mm: allow PF_MEMALLOC from softirq context
- 6 - mm: serialize access to min_free_kbytes
- 7 - mm: emergency pool
- 8 - mm: system wide ALLOC_NO_WATERMARK
- 9 - mm: __GFP_MEMALLOC
-10 - mm: memory reserve management
-11 - selinux: tag avc cache alloc as non-critical
-
-
-  Part 2, patches 12-14
-
-Provide some generic network infrastructure needed later on.
-
-12 - net: wrap sk->sk_backlog_rcv()
-13 - net: packet split receive api
-14 - net: sk_allocation() - concentrate socket related allocations
-
-
-  Part 3, patches 15-21
-
-Now that we have a generic memory reserve system, use it on the network stack.
-The thing that makes this interesting is that, contrary to BIO, both the
-transmit and receive path require memory allocations. 
-
-That is, in the BIO layer write back completion is usually just an ISR flipping
-a bit and waking stuff up. A network write back completion involved receiving
-packets, which when there is no memory, is rather hard. And even when there is
-memory there is no guarantee that the required packet comes in in the window
-that that memory buys us.
-
-The solution to this problem is found in the fact that network is to be assumed
-lossy. Even now, when there is no memory to receive packets the network card
-will have to discard packets. What we do is move this into the network stack.
-
-So we reserve a little pool to act as a receive buffer, this allows us to
-inspect packets before tossing them. This way, we can filter out those packets
-that ensure progress (writeback completion) and disregard the others (as would
-have happened anyway). [ NOTE: this is a stable mode of operation with limited
-memory usage, exactly the kind of thing we need ]
-
-Again, care is taken to keep much of the overhead of this to only affect the
-slow path. Only packets allocated from the reserves will suffer the extra
-atomic overhead needed for accounting.
-
-15 - netvm: network reserve infrastructure
-16 - netvm: INET reserves.
-17 - netvm: hook skb allocation to reserves
-18 - netvm: filter emergency skbs.
-19 - netvm: prevent a TCP specific deadlock
-20 - netfilter: NF_QUEUE vs emergency skbs
-21 - netvm: skb processing
-
-
-  Part 4, patches 22-23
-
-Generic vm infrastructure to handle swapping to a filesystem instead of a block
-device.
-
-This provides new a_ops to handle swapcache pages and could be used to obsolete
-the bmap usage for swapfiles.
-
-22 - mm: add support for non block device backed swap files
-23 - mm: methods for teaching filesystems about PG_swapcache pages
-
-
-  Part 5, patches 24-28
-
-Finally, convert NFS to make use of the new network and vm infrastructure to
-provide swap over NFS.
-
-24 - nfs: remove mempools
-25 - nfs: teach the NFS client how to treat PG_swapcache pages
-26 - nfs: disable data cache revalidation for swapfiles
-27 - nfs: enable swap on NFS
-28 - nfs: fix various memory recursions possible with swap over NFS.
-
-
-Changes since -v15:
- - fwd port
- - more SGE fragment drivers ported
- - made the new swapfile logic unconditional
- - various bug fixes and cleanups
-
+--
 
