@@ -1,57 +1,36 @@
-From: Jan Engelhardt <jengelh@computergmbh.de>
-Subject: Re: [NETFILTER]: Introduce nf_inet_address
-Date: Wed, 20 Feb 2008 11:24:50 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0802201122150.26109@fbirervta.pbzchgretzou.qr>
-References: <200801291316.m0TDGivY024953@hera.kernel.org>
- <1203428949.3223.25.camel@shinybook.infradead.org>  <47BAE13D.4060206@trash.net>
- <1203431447.3223.33.camel@shinybook.infradead.org> <47BAEB6C.1030609@trash.net>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: e1000: Question about polling
+Date: Wed, 20 Feb 2008 14:54:27 +0300
+Message-ID: <47BC14F3.9000305@bigtelecom.ru>
+References: <20080220075054.GB3885@ff.dom.local> <47BBF20C.1050706@bigtelecom.ru> <20080220094756.GC3885@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Woodhouse <dwmw2@infradead.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, varekova@redhat.com
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:37760 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752610AbYBTKYw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 05:24:52 -0500
-In-Reply-To: <47BAEB6C.1030609@trash.net>
+Received: from mail.bigtelecom.ru ([87.255.0.61]:36353 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750948AbYBTLyg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 06:54:36 -0500
+In-Reply-To: <20080220094756.GC3885@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Khrm.... i try to say that i have language barrier and some time may 
+wrong compose clauses. Example below =)
+"I'll try fix my English next time!"
 
-On Feb 19 2008 15:45, Patrick McHardy wrote:
->> 
->> It's in busybox 1.9.1. Just including <netinet/in.h> seems to be
->> sufficient to make it happy again. I wonder if netfilter.h should
->> include that for itself?
+Vyacheslav
+> On Wed, Feb 20, 2008 at 12:25:32PM +0300, Badalian Vyacheslav wrote:
+> ...
+>   
+>> Please not think that it disrespect for you. Its simple language barrier =(
+>>     
 >
-> That would break iptables compilation, which already includes
-> linux/in.h in some files. I guess the best fix for now is to
-> include netinet/in.h in busybox and long-term clean this up
-> properly.
+> OK! Don't disrespect for me -  I'll try fix my English next time!)
 >
-
-If <linux/netfilter.h> includes <linux/in.h>, userspace compilation
-fails (clashing defs, etc.); if <linux/netfilter.h> includes
-<netinet/in.h>, kernel compilation fails (file not found).
-
-What comes to mind is the ugly hack we had for a few days:
-
-#ifdef __KERNEL__
-#	include <linux/in.h>
-#else
-#	include <netinet/in.h>
-#endif
-
-and I think we should not impose any inclusion rules on userspace
-this way.
-
-Right now, it is solved this way:
-
-kernel .c files explicitly include <linux/in.h> when loading
-<linux/netfilter.h>,
-
-userspace .c files explicitly includ <netinet/in.h> when loading
-<linux/netfilter.h>. And that seems to work out.
+> Jarek P.
+>
+>   
 
