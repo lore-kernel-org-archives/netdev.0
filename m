@@ -1,49 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver fixes
-Date: Wed, 20 Feb 2008 13:15:30 -0800 (PST)
-Message-ID: <20080220.131530.18314167.davem@davemloft.net>
-References: <20080220165557.GA18816@havoc.gtf.org>
+Subject: Re: [PATCH 2.6.25 0/8][BNX2X]: bugfixes and updates
+Date: Wed, 20 Feb 2008 13:17:20 -0800 (PST)
+Message-ID: <20080220.131720.177076228.davem@davemloft.net>
+References: <1203528827.8232.85.camel@lb-tlvb-eliezer.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: eliezert@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45989
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45992
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758903AbYBTVO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 16:14:56 -0500
-In-Reply-To: <20080220165557.GA18816@havoc.gtf.org>
+	by vger.kernel.org with ESMTP id S932179AbYBTVQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 16:16:43 -0500
+In-Reply-To: <1203528827.8232.85.camel@lb-tlvb-eliezer.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Wed, 20 Feb 2008 11:55:57 -0500
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Date: Wed, 20 Feb 2008 19:33:47 +0200
 
-> 
-> Note:  this is based off of Linus's latest commit
-> (5d9c4a7de64d398604a978d267a6987f1f4025b7), since all my previous
-> submissions are now upstream (thanks!).
+> This patch-set updates several sections of the bnx2x driver.
 
-The whole point of my not rebasing net-2.6 is so that you can always
-use it as a base.
+It is not appropriate to be adding features at this time
+to the 2.6.25 tree.
 
-With what you've giving me now I either have to:
+Please wait for the opportunity to submit 2.6.26 bound
+patches for new features.
 
-1) Pull in Linus's tree to net-2.6, then pull from you.
-
-2) Pull in directly from you to get it all.
-
-The whole point of my not touching or rebasing net-2.6 is so that
-everyonce can simply use it as a base and just keep working relative
-to it.
-
-If you have some need for upstream stuff outside networking (f.e.
-some ACPI bug prevents interrupts from working or there is some build
-failure), you can clone Linus's tree and pull net-2.6 and your driver
-bits into there for building and testing.
-
-Thanks for your consideration, I'm trying to show you mine by
-giving everyone a relatively stable tree in which all networking
-development can occur.
-
+I encourage you to split out just the bug fixes from this
+series and resubmit, thank you.
