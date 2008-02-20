@@ -1,53 +1,31 @@
-From: Nicolas Pitre <nico@cam.org>
-Subject: Re: [PATCH 01/04] smc91x: pass along private data
-Date: Wed, 20 Feb 2008 10:42:44 -0500 (EST)
-Message-ID: <alpine.LFD.1.00.0802201037070.2732@xanadu.home>
-References: <20080220095740.22645.36783.sendpatchset@clockwork.opensource.se>
- <20080220095751.22645.15949.sendpatchset@clockwork.opensource.se>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] SUNRPC: Mark buffer used for debug printks
+	with	__maybe_unused
+Date: Wed, 20 Feb 2008 07:56:32 -0800
+Message-ID: <1203522992.7181.169.camel@localhost>
+References: <47BC3303.2040101@openvz.org>
+	 <1203521357.7181.163.camel@localhost>  <47BC4908.7010104@openvz.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, lethal@linux-sh.org,
-	akpm@linux-foundation.org
-To: Magnus Damm <magnus.damm@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "J. Bruce Fields" <bfields@citi.umich.edu>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relais.videotron.ca ([24.201.245.36]:38901 "EHLO
-	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751728AbYBTPmp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:42:45 -0500
-Received: from xanadu.home ([66.131.194.97]) by VL-MO-MR004.ip.videotron.ca
- (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
- with ESMTP id <0JWJ00BNTNN8S580@VL-MO-MR004.ip.videotron.ca> for
- netdev@vger.kernel.org; Wed, 20 Feb 2008 10:42:44 -0500 (EST)
-In-reply-to: <20080220095751.22645.15949.sendpatchset@clockwork.opensource.se>
+Received: from 136-022.dsl.labridge.com ([206.117.136.22]:1093 "EHLO
+	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1754452AbYBTP45 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 10:56:57 -0500
+In-Reply-To: <47BC4908.7010104@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Feb 2008, Magnus Damm wrote:
+> Sigh... Why is that better than a strait declaration with attribute?
 
-> Pass a private data pointer to macros and functions. This makes it easy
-> to later on make run time decisions. This patch does not change any logic.
-> These changes should be optimized away during compilation.
-> 
-> Signed-off-by: Magnus Damm <damm@igel.co.jp>
-> ---
-> --- 0001/drivers/net/smc91x.c
-> +++ work/drivers/net/smc91x.c	2008-02-20 16:52:48.000000000 +0900
-> @@ -220,23 +220,23 @@ static void PRINT_PKT(u_char *buf, int l
->  
->  
->  /* this enables an interrupt in the interrupt mask register */
-> -#define SMC_ENABLE_INT(x) do {						\
-> +#define SMC_ENABLE_INT(priv, x) do {					\
->  	unsigned char mask;						\
-> -	spin_lock_irq(&lp->lock);					\
-> -	mask = SMC_GET_INT_MASK();					\
-> +	spin_lock_irq(&priv->lock);					\
-> +	mask = SMC_GET_INT_MASK(priv);					\
+If at some point there's a gcc'ism to remove a maybe_unused
+variable from the stack declaration, you only have change
+the macro.
 
-Since "lp" is already used all over the place, could you simply use "lp" 
-for the macro argument name as well instead of "priv"?  This will make 
-the code more uniform and reduce the patch size.
+cheers, Joe
 
 
-Nicolas
