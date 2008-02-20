@@ -1,43 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: TG3 network data corruption regression 2.6.24/2.6.23.4
-Date: Wed, 20 Feb 2008 11:45:15 +0800
-Message-ID: <20080220034515.GC22703@gondor.apana.org.au>
-References: <47BA0984.2070306@cybernetics.com> <1203381120.13495.78.camel@dell> <20080218.163554.74130592.davem@davemloft.net> <1203383046.13495.87.camel@dell> <47BB00EC.3010607@cybernetics.com> <1203448265.13495.95.camel@dell> <47BB54C2.6090501@cybernetics.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [2.6.25 patch] fix broken error handling in
+	ieee80211_sta_process_addba_request()
+Date: Wed, 20 Feb 2008 06:46:13 +0000
+Message-ID: <20080220064613.GA3885@ff.dom.local>
+References: <20080219225852.GQ31955@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Michael Chan <mchan@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, gregkh@suse.de,
+Cc: Ron Rindjunsky <ron.rindjunsky@intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Tony Battersby <tonyb@cybernetics.com>
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:39694 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751281AbYBTDp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 22:45:28 -0500
+Received: from an-out-0708.google.com ([209.85.132.250]:18090 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751838AbYBTGpV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 01:45:21 -0500
+Received: by an-out-0708.google.com with SMTP id d31so591345and.103
+        for <netdev@vger.kernel.org>; Tue, 19 Feb 2008 22:45:20 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <47BB54C2.6090501@cybernetics.com>
+In-Reply-To: <20080219225852.GQ31955@cs181133002.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 19, 2008 at 05:14:26PM -0500, Tony Battersby wrote:
->
-> Update: when I revert Herbert's patch in addition to applying your
-> patch, the iSCSI performance goes back up to 115 MB/s again in both
-> directions.  So it looks like turning off SG for TX didn't itself cause
-> the performance drop, but rather that the performance drop is just
-> another manifestation of whatever bug is causing the data corruption.
+On 19-02-2008 23:58, Adrian Bunk wrote:
+...
+> --- a/net/mac80211/ieee80211_sta.c
+> +++ b/net/mac80211/ieee80211_sta.c
+> @@ -1116,9 +1116,10 @@ static void ieee80211_sta_process_addba_request(struct net_device *dev,
+...
+> +			printk(KERN_ERR "can not allocate reordering buffer "
 
-Interesting.  So the workload that regressed is mostly RX with a
-little TX traffic? Can you try to reproduce this with something
-like netperf to eliminate other variables?
+  +			printk(KERN_ERR "cannot allocate reordering buffer "
 
-This is all very puzzling since the patch in question shouldn't
-change an RX load at all.
+Probably this can be fixed during the commit.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Jarek P.
