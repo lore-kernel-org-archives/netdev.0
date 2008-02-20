@@ -1,99 +1,48 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 22/28] mm: add support for non block device backed swap
- files
-Date: Wed, 20 Feb 2008 08:30:46 -0800
-Message-ID: <20080220083046.a3ab16d3.randy.dunlap@oracle.com>
-References: <20080220144610.548202000@chello.nl>
-	<20080220150308.142619000@chello.nl>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] SUNRPC: Mark buffer used for debug printks
+	with	__maybe_unused
+Date: Wed, 20 Feb 2008 08:36:38 -0800
+Message-ID: <1203525398.7181.178.camel@localhost>
+References: <47BC3303.2040101@openvz.org>
+	 <1203521357.7181.163.camel@localhost> <1203521514.7181.167.camel@localhost>
+	 <47BC48C6.3050208@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Pavel Emelyanov <xemul@openvz.org>,
+	"J. Bruce Fields" <bfields@citi.umich.edu>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:60201 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934880AbYBTQcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 11:32:08 -0500
-In-Reply-To: <20080220150308.142619000@chello.nl>
+Received: from 136-022.dsl.labridge.com ([206.117.136.22]:1133 "EHLO
+	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S933846AbYBTQhJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 11:37:09 -0500
+In-Reply-To: <47BC48C6.3050208@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Feb 2008 15:46:32 +0100 Peter Zijlstra wrote:
+On Wed, 2008-02-20 at 16:35 +0100, Patrick McHardy wrote:
+> Alternatively change the dprintk macro to behave similar like
+> pr_debug() and mark things like svc_print_addr() __pure, which
+> has the advantage that is still performs format checking even
+> if debugging is disabled.
 
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> ---
->  Documentation/filesystems/Locking |   19 +++++++++++++
->  Documentation/filesystems/vfs.txt |   17 ++++++++++++
->  include/linux/buffer_head.h       |    2 -
->  include/linux/fs.h                |    8 +++++
->  include/linux/swap.h              |    4 ++
->  mm/page_io.c                      |   52 ++++++++++++++++++++++++++++++++++++++
->  mm/swap_state.c                   |    4 +-
->  mm/swapfile.c                     |   26 ++++++++++++++++++-
->  8 files changed, 128 insertions(+), 4 deletions(-)
+I think it's better to change the dprintk style macros
+to what Philip Craig suggested.
 
-> Index: linux-2.6/Documentation/filesystems/Locking
-> ===================================================================
-> --- linux-2.6.orig/Documentation/filesystems/Locking
-> +++ linux-2.6/Documentation/filesystems/Locking
+http://marc.info/?l=linux-wireless&m=120338413108120&w=2
 
-> @@ -291,6 +297,19 @@ cleaned, or an error value if not. Note 
->  getting mapped back in and redirtied, it needs to be kept locked
->  across the entire operation.
->  
-> +	->swapfile() will be called with a non zero argument on address spaces
+This makes clear to the compiler that the called function is not
+going to be used so it can be optimized away, keeps any argument
+verification in place, and doesn't require __pure attributes on
+arbitrary functions that may be called during the dprintk
 
-                                           non-zero
+#ifdef DEBUG
+#define some_print_wrapper(fmt, arg...) \
+        do { if (0) printk(KERN_DEBUG fmt, ##arg); } while (0)
+#else
+#define some_print_wrapper(fmt, arg...) \
+	printk(KERN_DEBUG fmt, ##arg)
+#endif
 
-> +backing non block device backed swapfiles. A return value of zero indicates
-> +success. In which case this address space can be used for backing swapspace.
-
-   success, in which case
-
-> +The swapspace operations will be proxied to the address space operations.
-> +Swapoff will call this method with a zero argument to release the address
-> +space.
-> +
-> +	->swap_out() when swapfile() returned success, this method is used to
-> +write the swap page.
-> +
-> +	->swap_in() when swapfile() returned success, this method is used to
-> +read the swap page.
-> +
->  	Note: currently almost all instances of address_space methods are
->  using BKL for internal serialization and that's one of the worst sources
->  of contention. Normally they are calling library functions (in fs/buffer.c)
-
-> Index: linux-2.6/Documentation/filesystems/vfs.txt
-> ===================================================================
-> --- linux-2.6.orig/Documentation/filesystems/vfs.txt
-> +++ linux-2.6/Documentation/filesystems/vfs.txt
-> @@ -728,6 +732,19 @@ struct address_space_operations {
->    	prevent redirtying the page, it is kept locked during the whole
->  	operation.
->  
-> +  swapfile: Called with a non-zero argument when swapon is used on a file. A
-> +	return value of zero indicates success. In which case this
-
-                                       success, in which case this
-
-> +	address_space can be used to back swapspace. The swapspace operations
-> +	will be proxied to this address space's ->swap_{out,in} methods.
-> +	Swapoff will call this method with a zero argument to release the
-> +	address space.
-> +
-> +  swap_out: Called to write a swapcache page to a backing store, similar to
-> +	writepage.
-> +
-> +  swap_in: Called to read a swapcache page from a backing store, similar to
-> +	readpage.
-> +
->  The File Object
->  ===============
-
----
-~Randy
