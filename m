@@ -1,32 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RTNL]: Add missing link netlink attribute policy definitions
-Date: Tue, 19 Feb 2008 16:12:18 -0800 (PST)
-Message-ID: <20080219.161218.28391471.davem@davemloft.net>
-References: <20080219234606.GA3119@postel.suug.ch>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [2.6 patch] net/phy/mdio_bus.c: fix a check-after-use
+Date: Wed, 20 Feb 2008 02:13:53 +0200
+Message-ID: <20080220001353.GV31955@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@suug.ch
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45751
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753519AbYBTALl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2008 19:11:41 -0500
-In-Reply-To: <20080219234606.GA3119@postel.suug.ch>
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:36211 "EHLO smtp4.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758742AbYBTAOa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Feb 2008 19:14:30 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Wed, 20 Feb 2008 00:46:06 +0100
+This patch fixes a check-after-use spotted by the Coverity checker.
 
-> IFLA_LINK is no longer a write-only attribute on the kernel
-> side and must thus be validated. Same goes for the newly
-> introduced IFLA_LINKINFO.
-> 
-> Fixes undefined behaviour if either of the attributes are
-> not well formed.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-Applied, thanks Thomas.
+---
+6beeb3ac577d74d72b2f91bd654eecb904c3c17e diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 6e9f619..963630c 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -49,13 +49,13 @@ int mdiobus_register(struct mii_bus *bus)
+ 	int i;
+ 	int err = 0;
+ 
+-	mutex_init(&bus->mdio_lock);
+-
+ 	if (NULL == bus || NULL == bus->name ||
+ 			NULL == bus->read ||
+ 			NULL == bus->write)
+ 		return -EINVAL;
+ 
++	mutex_init(&bus->mdio_lock);
++
+ 	if (bus->reset)
+ 		bus->reset(bus);
+ 
+
