@@ -1,46 +1,44 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [2.6 patch] net/phy/mdio_bus.c: fix a check-after-use
-Date: Wed, 20 Feb 2008 11:52:27 -0500
-Message-ID: <47BC5ACB.6070203@pobox.com>
-References: <20080220001353.GV31955@cs181133002.pp.htv.fi>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] igb: Fix panic with NICs with 1000BASE-SX
+	PHY
+Date: Wed, 20 Feb 2008 11:52:20 -0500
+Message-ID: <47BC5AC4.9020007@garzik.org>
+References: <20080219182441.12033.64731.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48871 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759569AbYBTQwb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Feb 2008 11:52:31 -0500
-In-Reply-To: <20080220001353.GV31955@cs181133002.pp.htv.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	bill.hayes@hp.com, andy@greyhouse.net
+To: Auke Kok <auke-jan.h.kok@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20080219182441.12033.64731.stgit@localhost.localdomain>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> This patch fixes a check-after-use spotted by the Coverity checker.
+Auke Kok wrote:
+> From: Bill Hayes <bill.hayes@hp.com>
 > 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> This patch eliminates a kernel panic with the igb driver in 2.6.25-rc2 when 
+> running on a Intel 82575 Ethernet controller with a 1000BASE-SX PHY.  The 
+> panic does not happen with the 1000BASE-T PHY, only with a SX connection.  
 > 
-> ---
-> 6beeb3ac577d74d72b2f91bd654eecb904c3c17e diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-> index 6e9f619..963630c 100644
-> --- a/drivers/net/phy/mdio_bus.c
-> +++ b/drivers/net/phy/mdio_bus.c
-> @@ -49,13 +49,13 @@ int mdiobus_register(struct mii_bus *bus)
->  	int i;
->  	int err = 0;
->  
-> -	mutex_init(&bus->mdio_lock);
-> -
->  	if (NULL == bus || NULL == bus->name ||
->  			NULL == bus->read ||
->  			NULL == bus->write)
->  		return -EINVAL;
->  
-> +	mutex_init(&bus->mdio_lock);
-> +
+> Signed-off-by: Bill Hayes <bill.hayes@hp.com>
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 
 applied
 
 
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
