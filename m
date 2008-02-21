@@ -1,36 +1,55 @@
-From: David Miller <davem@davemloft.net>
+From: Harvey Harrison <harvey.harrison@gmail.com>
 Subject: Re: New sparse warning in net/mac80211/debugfs_sta.c
-Date: Thu, 21 Feb 2008 02:05:54 -0800 (PST)
-Message-ID: <20080221.020554.259219477.davem@davemloft.net>
+Date: Thu, 21 Feb 2008 02:08:18 -0800
+Message-ID: <1203588498.20345.20.camel@brick>
 References: <1203586467.20345.14.camel@brick>
-	<20080221.015743.222059206.davem@davemloft.net>
-	<1203588079.20345.15.camel@brick>
+	 <1203587699.17534.135.camel@johannes.berg>
+	 <20080221.020343.190715910.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org
-To: harvey.harrison@gmail.com
+Cc: johannes@sipsolutions.net, joe@perches.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58354
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751559AbYBUKFR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 05:05:17 -0500
-In-Reply-To: <1203588079.20345.15.camel@brick>
+Received: from hs-out-0708.google.com ([64.233.178.242]:14144 "EHLO
+	hs-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756207AbYBUKIE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 05:08:04 -0500
+Received: by hs-out-0708.google.com with SMTP id 54so2686855hsz.5
+        for <netdev@vger.kernel.org>; Thu, 21 Feb 2008 02:08:03 -0800 (PST)
+In-Reply-To: <20080221.020343.190715910.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Date: Thu, 21 Feb 2008 02:01:19 -0800
+On Thu, 2008-02-21 at 02:03 -0800, David Miller wrote:
+> From: Johannes Berg <johannes@sipsolutions.net>
+> Date: Thu, 21 Feb 2008 10:54:59 +0100
+> 
+> > It modifies the buffer, and I think it's more likely that the warning
+> > was introduced by
+>  ...
+> >     [NET]: Elminate spurious print_mac() calls.
+> 
+> Right and that's what I just suggested in another reply.
+> 
+> Harvey how did you "narrow it down" to Joe's patch?  Did you really
+> bisect to figure it out, or did you just guess?  You said "commit X
+> introduced" and if you really didn't bisect it down to that
+> such a claim is very misleading.
 
-> In this case, it's being passed to a debugfs create function, could it
-> instead use sysfs_format_mac?
+Sorry, that was misleading, it was a simple-minded git-log/git-blame
+very short look, saw that line introduced here.
 
-Just assigning print_mac() to a local variable then passing that to
-debugfs_create_dir() will make the warning go away.
+Really, that should have read:
 
->From another perspective adding that __pure attribute to print_mac()
-might not have been the best idea.  But I can't think of another
-way to elimitate the "passing print_mac() args to pr_debug()
-still generates calls to print_mac() even when DEBUG is not
-defined" problem :-/
+Sparse warning introduced since -rc2:
+..etc
+
+Harvey's best guess is this commit...
+
+I'll be more careful about this language going forward.
+
+Cheers,
+
+Harvey
 
