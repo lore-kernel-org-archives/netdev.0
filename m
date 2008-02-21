@@ -1,32 +1,40 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] [NETFILTER]: fix ebtable targets return
-Date: Thu, 21 Feb 2008 11:50:07 +0100
-Message-ID: <47BD575F.2070505@trash.net>
-References: <12035721921230-git-send-email-joonwpark81@gmail.com> <20080220.214533.205446881.davem@davemloft.net>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: ni52.c warnings explosion
+Date: Thu, 21 Feb 2008 10:56:16 +0000
+Message-ID: <20080221105616.52c2406f@core>
+References: <1203578784.20345.4.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: joonwpark81@gmail.com, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080220.214533.205446881.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Harvey Harrison <harvey.harrison@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:56560 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759011AbYBULF1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 06:05:27 -0500
+In-Reply-To: <1203578784.20345.4.camel@brick>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Joonwoo Park <joonwpark81@gmail.com>
-> Date: Thu, 21 Feb 2008 14:36:32 +0900
-> 
->> The function ebt_do_table doesn't take NF_DROP as a verdict from the targets.
->>
->> Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
-> 
-> Whoops, good catch :-)
-> 
-> Patrick, if you want you can just signoff on this and I can
-> put it directly into my tree.
+On Wed, 20 Feb 2008 23:26:24 -0800
+Harvey Harrison <harvey.harrison@gmail.com> wrote:
 
-Good catch indeed, thanks.
+> Dave,
+> 
+> Somewhere between 2.6.25-rc1 and -rc2 something changed that produces a
+> few hundred sparse warnings in ni52.c.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+I gave it a massive clean up but I've not annotated it
+> 
+> I see Alan touched it last.
+> 
+> drivers/net/ni52.c:219:15: warning: incorrect type in argument 1 (different address spaces)
+> drivers/net/ni52.c:219:15:    expected void const volatile [noderef] <asn:2>*addr
+> drivers/net/ni52.c:219:15:    got unsigned char *<noident>
+> 
+> If you want the full log, let me know.
+
+Throw it my way. I'll go through it but its probably mostly about
+annotating it now it uses io spaces.
