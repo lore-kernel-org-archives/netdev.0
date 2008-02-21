@@ -1,100 +1,108 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 07/10] [ACKVEC]: Consolidate Ack-Vector processing within main DCCP module
-Date: Thu, 21 Feb 2008 09:09:25 +0000
-Message-ID: <1203584968-8957-8-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 01/10] [ACKVEC]: Need to ignore Ack Vectors on request sockets
+Date: Thu, 21 Feb 2008 09:09:19 +0000
+Message-ID: <1203584968-8957-2-git-send-email-gerrit@erg.abdn.ac.uk>
 References: ack_vector_implementation_repackaged_no_changes
  <1203584968-8957-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1203584968-8957-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1203584968-8957-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1203584968-8957-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1203584968-8957-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1203584968-8957-6-git-send-email-gerrit@erg.abdn.ac.uk>
- <1203584968-8957-7-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60947 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60964 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753488AbYBUJKe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Feb 2008 04:10:34 -0500
-In-Reply-To: <1203584968-8957-7-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1751326AbYBUJK5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Feb 2008 04:10:57 -0500
+In-Reply-To: <1203584968-8957-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This aggregates Ack Vector processing (handling input and clearing old state)
-into one function, for the following reasons and benefits:
- * all Ack Vector-specific processing is now in one place;
- * duplicated code is removed;
- * ensuring sanity: from an Ack Vector point of view, it is better to clear the
-                    old state first before entering new state;
- * Ack Event handling happens mostly within the CCIDs, not the main DCCP module.
+This fixes an oversight from an earlier patch.
+
+The issue is that Ack Vectors must not be parsed on request sockets, since
+the Ack Vector feature depends on the selection of the (TX) CCID. During the
+initial handshake the CCIDs are undefined, and so RFC 4340, 10.3 applies:
+
+ "Using CCID-specific options and feature options during a negotiation
+  for the corresponding CCID feature is NOT RECOMMENDED [...]"
+
+Worse, it is not even possible: when the server receives the Request from the
+client, the CCID and Ack vector features are undefined; when the Ack finalising
+the 3-way hanshake arrives, the request socket has not been cloned yet into a
+full socket. (This order is necessary, since otherwise the newly created socket
+would have to be destroyed whenever an option error occurred - a malicious
+hacker could simply send garbage options and exploit this.)
+
+As a result, it is not feasible to parse Ack Vectors on request sockets, since
+their sink (the CCIDs interested in using Ack Vector information) is undefined.
+
+Hence disabled by this patch.
+
+Two further, minor changes:
+ * replaced magic numbers for CCID-specific options with symbolic constants;
+ * replaced local variables `idx' with computation in argument list (btw,
+   these indices are nowhere used -- are they really still needed???).
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/input.c |   32 ++++++++++----------------------
- 1 files changed, 10 insertions(+), 22 deletions(-)
+ include/linux/dccp.h |    6 ++++--
+ net/dccp/options.c   |   19 +++++++------------
+ 2 files changed, 11 insertions(+), 14 deletions(-)
 
---- a/net/dccp/input.c
-+++ b/net/dccp/input.c
-@@ -159,13 +159,16 @@ static void dccp_rcv_reset(struct sock *sk, struct sk_buff *skb)
- 	dccp_time_wait(sk, DCCP_TIME_WAIT, 0);
- }
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -165,8 +165,10 @@ enum {
+ 	DCCPO_TIMESTAMP_ECHO = 42,
+ 	DCCPO_ELAPSED_TIME = 43,
+ 	DCCPO_MAX = 45,
+-	DCCPO_MIN_CCID_SPECIFIC = 128,
+-	DCCPO_MAX_CCID_SPECIFIC = 255,
++	DCCPO_MIN_RX_CCID_SPECIFIC = 128,	/* from sender to receiver */
++	DCCPO_MAX_RX_CCID_SPECIFIC = 191,
++	DCCPO_MIN_TX_CCID_SPECIFIC = 192,	/* from receiver to sender */
++	DCCPO_MAX_TX_CCID_SPECIFIC = 255,
+ };
  
--static void dccp_event_ack_recv(struct sock *sk, struct sk_buff *skb)
-+static void dccp_handle_ackvec_processing(struct sock *sk, struct sk_buff *skb)
- {
--	struct dccp_sock *dp = dccp_sk(sk);
-+	struct dccp_ackvec *av = dccp_sk(sk)->dccps_hc_rx_ackvec;
-+	struct dccp_skb_cb *dcb = DCCP_SKB_CB(skb);
+ /* DCCP CCIDS */
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -104,9 +104,10 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
+ 		 *
+ 		 * CCID-specific options are ignored during connection setup, as
+ 		 * negotiation may still be in progress (see RFC 4340, 10.3).
+-		 *
++		 * The same applies to Ack Vectors, as these depend on the CCID.
+ 		 */
+-		if (dreq != NULL && opt >= 128)
++		if (dreq != NULL && (opt >= DCCPO_MIN_RX_CCID_SPECIFIC ||
++		    opt == DCCPO_ACK_VECTOR_0 || opt == DCCPO_ACK_VECTOR_1))
+ 			goto ignore_option;
  
--	if (dp->dccps_hc_rx_ackvec != NULL)
--		dccp_ackvec_clear_state(dp->dccps_hc_rx_ackvec,
--					DCCP_SKB_CB(skb)->dccpd_ack_seq);
-+	if (av != NULL) {
-+		if (dcb->dccpd_ack_seq != DCCP_PKT_WITHOUT_ACK_SEQ)
-+			dccp_ackvec_clear_state(av, dcb->dccpd_ack_seq);
-+		dccp_ackvec_input(av, dcb->dccpd_seq, DCCPAV_RECEIVED);
-+	}
- }
- 
- static void dccp_deliver_input_to_ccids(struct sock *sk, struct sk_buff *skb)
-@@ -364,21 +367,13 @@ discard:
- int dccp_rcv_established(struct sock *sk, struct sk_buff *skb,
- 			 const struct dccp_hdr *dh, const unsigned len)
- {
--	struct dccp_sock *dp = dccp_sk(sk);
+ 		switch (opt) {
+@@ -226,23 +227,17 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
+ 			dccp_pr_debug("%s rx opt: ELAPSED_TIME=%d\n",
+ 				      dccp_role(sk), elapsed_time);
+ 			break;
+-		case 128 ... 191: {
+-			const u16 idx = value - options;
 -
- 	if (dccp_check_seqno(sk, skb))
- 		goto discard;
- 
- 	if (dccp_parse_options(sk, NULL, skb))
- 		goto discard;
- 
--	if (DCCP_SKB_CB(skb)->dccpd_ack_seq != DCCP_PKT_WITHOUT_ACK_SEQ)
--		dccp_event_ack_recv(sk, skb);
++		case DCCPO_MIN_RX_CCID_SPECIFIC ... DCCPO_MAX_RX_CCID_SPECIFIC:
+ 			if (ccid_hc_rx_parse_options(dp->dccps_hc_rx_ccid, sk,
+-						     opt, len, idx,
++						     opt, len, value - options,
+ 						     value) != 0)
+ 				goto out_invalid_option;
+-		}
+ 			break;
+-		case 192 ... 255: {
+-			const u16 idx = value - options;
 -
--	if (dp->dccps_hc_rx_ackvec != NULL &&
--	    dccp_ackvec_add(dp->dccps_hc_rx_ackvec, sk,
--			    DCCP_SKB_CB(skb)->dccpd_seq, DCCPAV_RECEIVED))
--		goto discard;
-+	dccp_handle_ackvec_processing(sk, skb);
- 	dccp_deliver_input_to_ccids(sk, skb);
- 
- 	return __dccp_rcv_established(sk, skb, dh, len);
-@@ -621,14 +616,7 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 		if (dccp_parse_options(sk, NULL, skb))
- 			goto discard;
- 
--		if (dcb->dccpd_ack_seq != DCCP_PKT_WITHOUT_ACK_SEQ)
--			dccp_event_ack_recv(sk, skb);
--
--		if (dp->dccps_hc_rx_ackvec != NULL &&
--		    dccp_ackvec_add(dp->dccps_hc_rx_ackvec, sk,
--				    DCCP_SKB_CB(skb)->dccpd_seq, DCCPAV_RECEIVED))
--			goto discard;
--
-+		dccp_handle_ackvec_processing(sk, skb);
- 		dccp_deliver_input_to_ccids(sk, skb);
- 	}
- 
++		case DCCPO_MIN_TX_CCID_SPECIFIC ... DCCPO_MAX_TX_CCID_SPECIFIC:
+ 			if (ccid_hc_tx_parse_options(dp->dccps_hc_tx_ccid, sk,
+-						     opt, len, idx,
++						     opt, len, value - options,
+ 						     value) != 0)
+ 				goto out_invalid_option;
+-		}
+ 			break;
+ 		default:
+ 			DCCP_CRIT("DCCP(%p): option %d(len=%d) not "
