@@ -1,118 +1,66 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [git patches] net driver updates
-Date: Wed, 20 Feb 2008 17:16:15 -0800
-Message-ID: <47BCD0DF.1050205@chelsio.com>
-References: <20080211170516.GA13872@havoc.gtf.org> <47B0AB0B.806@chelsio.com> <47BC8FBD.2070401@garzik.org>
+From: "Magnus Damm" <magnus.damm@gmail.com>
+Subject: Re: [PATCH 01/04] smc91x: pass along private data
+Date: Thu, 21 Feb 2008 11:14:51 +0900
+Message-ID: <aec7e5c30802201814j1f0ab232i60a97c53121fc3b6@mail.gmail.com>
+References: <20080220095740.22645.36783.sendpatchset@clockwork.opensource.se>
+	 <20080220095751.22645.15949.sendpatchset@clockwork.opensource.se>
+	 <alpine.LFD.1.00.0802201037070.2732@xanadu.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org, lethal@linux-sh.org,
+	akpm@linux-foundation.org
+To: "Nicolas Pitre" <nico@cam.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:31201 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757026AbYBUBQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 20:16:25 -0500
-In-Reply-To: <47BC8FBD.2070401@garzik.org>
+Received: from ag-out-0708.google.com ([72.14.246.242]:37605 "EHLO
+	ag-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750695AbYBUCOx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 21:14:53 -0500
+Received: by ag-out-0708.google.com with SMTP id 33so4907006agc.1
+        for <netdev@vger.kernel.org>; Wed, 20 Feb 2008 18:14:52 -0800 (PST)
+In-Reply-To: <alpine.LFD.1.00.0802201037070.2732@xanadu.home>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik wrote:
-> Divy Le Ray wrote:
->> Jeff Garzik wrote:
->>> Mostly fixes, a few cleanups (generally assisting fixes), and an
->>> exception for PS3 wireless because it had been posted, reviewed and
->>> acked for a while, just not committed.
->>>
->>> Please pull from 'upstream-davem' branch of
->>> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git 
->>> upstream-davem
->>>
->>> to receive the following updates:
->>>
->>>  
->>>  drivers/net/cxgb3/sge.c          |   35 +-
->>>    diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
->>> index 9ca8c66..979f3fc 100644
->>> --- a/drivers/net/cxgb3/sge.c
->>> +++ b/drivers/net/cxgb3/sge.c
->>> @@ -1059,6 +1059,14 @@ static void write_tx_pkt_wr(struct adapter 
->>> *adap, struct sk_buff *skb,
->>>               htonl(V_WR_TID(q->token)));
->>>  }
->>>  
->>> +static inline void t3_stop_queue(struct net_device *dev, struct 
->>> sge_qset *qs,
->>> +                 struct sge_txq *q)
->>> +{
->>> +    netif_stop_queue(dev);
->>> +    set_bit(TXQ_ETH, &qs->txq_stopped);
->>> +    q->stops++;
->>> +}
->>> +
->>>  /**
->>>   *    eth_xmit - add a packet to the Ethernet Tx queue
->>>   *    @skb: the packet
->>> @@ -1090,31 +1098,18 @@ int t3_eth_xmit(struct sk_buff *skb, struct 
->>> net_device *dev)
->>>      ndesc = calc_tx_descs(skb);
->>>  
->>>      if (unlikely(credits < ndesc)) {
->>> -        if (!netif_queue_stopped(dev)) {
->>> -            netif_stop_queue(dev);
->>> -            set_bit(TXQ_ETH, &qs->txq_stopped);
->>> -            q->stops++;
->>> -            dev_err(&adap->pdev->dev,
->>> -                "%s: Tx ring %u full while queue awake!\n",
->>> -                dev->name, q->cntxt_id & 7);
->>> -        }
->>> +        t3_stop_queue(dev, qs, q);
->>> +        dev_err(&adap->pdev->dev,
->>> +            "%s: Tx ring %u full while queue awake!\n",
->>> +            dev->name, q->cntxt_id & 7);
->>>          spin_unlock(&q->lock);
->>>          return NETDEV_TX_BUSY;
->>>      }
->>>  
->>>      q->in_use += ndesc;
->>> -    if (unlikely(credits - ndesc < q->stop_thres)) {
->>> -        q->stops++;
->>> -        netif_stop_queue(dev);
->>> -        set_bit(TXQ_ETH, &qs->txq_stopped);
->>> -#if !USE_GTS
->>> -        if (should_restart_tx(q) &&
->>> -            test_and_clear_bit(TXQ_ETH, &qs->txq_stopped)) {
->>> -            q->restarts++;
->>> -            netif_wake_queue(dev);
->>> -        }
->>> -#endif
->>> -    }
->>> +    if (unlikely(credits - ndesc < q->stop_thres))
->>> +        if (USE_GTS || !should_restart_tx(q))
->>> +            t3_stop_queue(dev, qs, q);
->>>  
->>>      gen = q->gen;
->>>      q->unacked += ndesc;
->>>   
->> Hi Jeff,
->>
->> I thought I had NAK'ed the patch modifying sge.c from Krishna Kumar.
->> Looking back at my answer at the time, I was obviously unclear.
->> Can you please revert the drivers/net/cxgb3sge.c change ?
+On Thu, Feb 21, 2008 at 12:42 AM, Nicolas Pitre <nico@cam.org> wrote:
+> On Wed, 20 Feb 2008, Magnus Damm wrote:
 >
-> Explain why, so I can include it in the changelog please...
+>  > Pass a private data pointer to macros and functions. This makes it easy
+>  > to later on make run time decisions. This patch does not change any logic.
+>  > These changes should be optimized away during compilation.
+>  >
+>  > Signed-off-by: Magnus Damm <damm@igel.co.jp>
+>  > ---
+>
+> > --- 0001/drivers/net/smc91x.c
+>  > +++ work/drivers/net/smc91x.c 2008-02-20 16:52:48.000000000 +0900
+>  > @@ -220,23 +220,23 @@ static void PRINT_PKT(u_char *buf, int l
+>  >
+>  >
+>  >  /* this enables an interrupt in the interrupt mask register */
+>  > -#define SMC_ENABLE_INT(x) do {                                               \
+>  > +#define SMC_ENABLE_INT(priv, x) do {                                 \
+>  >       unsigned char mask;                                             \
+>  > -     spin_lock_irq(&lp->lock);                                       \
+>  > -     mask = SMC_GET_INT_MASK();                                      \
+>  > +     spin_lock_irq(&priv->lock);                                     \
+>  > +     mask = SMC_GET_INT_MASK(priv);                                  \
+>
+>  Since "lp" is already used all over the place, could you simply use "lp"
+>  for the macro argument name as well instead of "priv"?  This will make
+>  the code more uniform and reduce the patch size.
 
-Hi Jeff,
+I used the name "priv" instead of "lp" intentionally to make sure I
+got compile errors if I missed something. Some variables like "ioaddr"
+are today not passed as arguments to the macros but simply assumed to
+be present as local variables. I wanted to avoid using the local "lp"
+variable by mistake. So the "priv" name is actually a feature. =)
 
-The first part of the patch removes the !netif_queue_stopped(dev).
-It opens the race discussed a while ago between Stephen hemminger and 
-David Miller:
-http://marc.info/?l=linux-netdev&m=113383224512427&w=2
+I'd be happy to rewrite the patch to use "lp" though, but I have to
+confess that I don't see the point in redoing it. Anyway, please let
+me know what you prefer.
 
-The second part of the patch breaks the current usage of txq_stopped and 
-the logic that stops and restarts the Tx queue.
+Thank you.
 
-Cheers,
-Divy
-
+/ magnus
