@@ -1,34 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cls_u32 u32_classify()
-Date: Wed, 20 Feb 2008 22:43:33 -0800 (PST)
-Message-ID: <20080220.224333.64582841.davem@davemloft.net>
-References: <47A078AE.6060500@bspu.unibel.by>
-	<20080218.214600.94322068.davem@davemloft.net>
-	<1203422088.4436.229.camel@localhost>
+From: "Divy Le Ray" <divy@chelsio.com>
+Subject: RE: [git patches] net driver updates
+Date: Wed, 20 Feb 2008 22:54:15 -0800
+Message-ID: <8A71B368A89016469F72CD08050AD334026D652F@maui.asicdesigners.com>
+References: <OF5F5F5698.07AB615F-ON652573F6.00142D8A-652573F6.00147DC9@in.ibm.com><20080220.214651.235108740.davem@davemloft.net><8A71B368A89016469F72CD08050AD334026D6511@maui.asicdesigners.com> <20080220.221554.128587906.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mahatma@eu.by, mahatma@bspu.unibel.by, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <krkumar2@in.ibm.com>, <jeff@garzik.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46125
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753052AbYBUGm7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 01:42:59 -0500
-In-Reply-To: <1203422088.4436.229.camel@localhost>
+Received: from stargate.chelsio.com ([12.22.49.110]:15250 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753426AbYBUGya convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 01:54:30 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jamal <hadi@cyberus.ca>
-Date: Tue, 19 Feb 2008 06:54:48 -0500
-
-> On Mon, 2008-18-02 at 21:46 -0800, David Miller wrote:
+> From: "Divy Le Ray" <divy@chelsio.com>
+> Date: Wed, 20 Feb 2008 21:57:08 -0800
 > 
+> > The driver is cxgb3 here, it uses LLTX.
 > 
-> > Can some u32 expert review this?
-> 
-> http://marc.info/?l=linux-netdev&m=120178638323045&w=2
+> That's extremely unfortunate, hopefully you can update it to
+> use a model like tg3 and others use.  LLTX is a lost cause
+> for hardware device drivers, and in fact we'd like to remove
+> it tree wide eventually.
 
-Fair enough.
+It sounds like I messed up.
+cxgb3 does not use LLTX - The Chelsio driver does, thus should be
+converted.
 
-Dzianis, please provide the feedback Jamal is asking for.
+Divy
