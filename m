@@ -1,100 +1,69 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: New sparse warning in net/mac80211/debugfs_sta.c
-Date: Thu, 21 Feb 2008 09:17:13 -0800
-Message-ID: <1203614233.7181.262.camel@localhost>
-References: <1203586467.20345.14.camel@brick>
-	 <20080221.015743.222059206.davem@davemloft.net>
-	 <1203588079.20345.15.camel@brick>
-	 <20080221.020554.259219477.davem@davemloft.net>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: pull request: wireless-2.6.26 2008-02-21
+Date: Thu, 21 Feb 2008 12:25:25 -0500
+Message-ID: <20080221172525.GI3094@tuxdriver.com>
+References: <20080221021530.GG3825@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: harvey.harrison@gmail.com, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.labridge.com ([206.117.136.22]:2384 "EHLO
-	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1755328AbYBURRr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 12:17:47 -0500
-In-Reply-To: <20080221.020554.259219477.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20080221021530.GG3825-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2008-02-21 at 02:05 -0800, David Miller wrote:
-> >From another perspective adding that __pure attribute to print_mac()
-> might not have been the best idea.  But I can't think of another
-> way to eliminate the "passing print_mac() args to pr_debug()
-> still generates calls to print_mac() even when DEBUG is not
-> defined" problem :-/
+On Wed, Feb 20, 2008 at 09:15:30PM -0500, John W. Linville wrote:
 
-Philip Craig made a suggestion:
-http://marc.info/?l=linux-wireless&m=120338413108120&w=2
+> Here are a slew of developments intended for 2.6.26.  The patches are
+> too diverse to comment upon in this summary... :-)
 
-to use this:
+David,
 
-If not debugging, guard #define wrapper_printks with if (0).
-The gcc optimizer removes the printk but gcc still does
-printf argument verification.
+This is additive on top of the pull request from last night.  Only
+Pavel's fix for the brown-paper-bag CONFIG_MAC80211_IBSS_DEBUG build
+issue is applied on top of the previous commits.
 
-There are many other debug printk wrappers
+Please let me know if there are problems!
 
-	#ifdef DEBUG
-	#define printk_wrapper 
-	#else
-	#define printk_wrapper printk
-	#endif
+Thanks,
 
-that should be converted as well.
+John
 
-Signed-off-by: Joe Perches <joe@perches.com>
+---
 
-diff --git a/include/linux/device.h b/include/linux/device.h
-index 2258d89..79601b1 100644
---- a/include/linux/device.h
-+++ b/include/linux/device.h
-@@ -608,21 +608,15 @@ extern const char *dev_driver_string(struct device *dev);
- #define dev_dbg(dev, format, arg...)		\
- 	dev_printk(KERN_DEBUG , dev , format , ## arg)
- #else
--static inline int __attribute__ ((format (printf, 2, 3)))
--dev_dbg(struct device *dev, const char *fmt, ...)
--{
--	return 0;
--}
-+#define dev_dbg(dev, format, arg...) \
-+	do { if (0) dev_printk(KERN_DEBUG , dev , format, ## arg); } while (0)
- #endif
- 
- #ifdef VERBOSE_DEBUG
- #define dev_vdbg	dev_dbg
- #else
--static inline int __attribute__ ((format (printf, 2, 3)))
--dev_vdbg(struct device *dev, const char *fmt, ...)
--{
--	return 0;
--}
-+#define dev_vdbg(dev, format, arg...) \
-+	do { if (0) dev_printk(KERN_DEBUG , dev , format, ## arg); } while (0)
- #endif
- 
- /* Create alias, so I can be autoloaded. */
-diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index 2df44e7..cd24112 100644
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -293,10 +293,8 @@ extern void print_hex_dump_bytes(const char *prefix_str, int prefix_type,
- #define pr_debug(fmt, arg...) \
- 	printk(KERN_DEBUG fmt, ##arg)
- #else
--static inline int __attribute__ ((format (printf, 1, 2))) pr_debug(const char * fmt, ...)
--{
--	return 0;
--}
-+#define pr_debug(fmt, arg...) \
-+	do { if (0) printk(KERN_DEBUG fmt, ##arg); } while (0)
- #endif
- 
- /*
+The following changes since commit 4d161f9d7f3f3ce069006b53dc8a84ed8a33753f:
+  Johannes Berg (1):
+        p54: fix sparse warnings
 
+are available in the git repository at:
 
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git
+
+Pavel Roskin (1):
+      mac80211: fix incorrect use of CONFIG_MAC80211_IBSS_DEBUG
+
+ net/mac80211/ieee80211_sta.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
+index 05cc908..453d14a 100644
+--- a/net/mac80211/ieee80211_sta.c
++++ b/net/mac80211/ieee80211_sta.c
+@@ -2452,10 +2452,12 @@ static void ieee80211_rx_bss_info(struct net_device *dev,
+ 		       jiffies);
+ #endif /* CONFIG_MAC80211_IBSS_DEBUG */
+ 		if (beacon_timestamp > rx_timestamp) {
+-			if (CONFIG_MAC80211_IBSS_DEBUG || net_ratelimit())
++#ifdef CONFIG_MAC80211_IBSS_DEBUG
++			if (net_ratelimit())
+ 				printk(KERN_DEBUG "%s: beacon TSF higher than "
+ 				       "local TSF - IBSS merge with BSSID %s\n",
+ 				       dev->name, print_mac(mac, mgmt->bssid));
++#endif /* CONFIG_MAC80211_IBSS_DEBUG */
+ 			ieee80211_sta_join_ibss(dev, &sdata->u.sta, bss);
+ 			ieee80211_ibss_add_sta(dev, NULL,
+ 					       mgmt->bssid, mgmt->sa);
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
