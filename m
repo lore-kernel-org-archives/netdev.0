@@ -1,45 +1,43 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: sungem triggers NAPI warning
-Date: Fri, 22 Feb 2008 09:50:27 +1100
-Message-ID: <1203634227.10422.200.camel@pasglop>
-References: <1203457124.3874.2.camel@johannes.berg>
-	 <1203562472.10422.102.camel@pasglop>
-	 <1203599125.4427.0.camel@johannes.berg>
-Reply-To: benh@kernel.crashing.org
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH 3/7] e1000e: fix link up message to show ethX:
+Date: Thu, 21 Feb 2008 15:10:52 -0800
+Message-ID: <20080221231052.5595.24432.stgit@localhost.localdomain>
+References: <20080221231041.5595.4933.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:55559 "EHLO gate.crashing.org"
+Received: from mga09.intel.com ([134.134.136.24]:16570 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751054AbYBUWuy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Feb 2008 17:50:54 -0500
-In-Reply-To: <1203599125.4427.0.camel@johannes.berg>
+	id S1754973AbYBUXKy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Feb 2008 18:10:54 -0500
+In-Reply-To: <20080221231041.5595.4933.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-On Thu, 2008-02-21 at 14:05 +0100, Johannes Berg wrote:
-> On Thu, 2008-02-21 at 13:54 +1100, Benjamin Herrenschmidt wrote:
-> > On Tue, 2008-02-19 at 22:38 +0100, Johannes Berg wrote:
-> > > I started getting this warning with recent kernels:
-> > 
-> > Do that help ?
-> > 
-> > In gem_poll(), do:
-> > 
-> > -  work_done += gem_rx(gp, budget);
-> > +  work_done += gem_rx(gp, budget - work_done);
-> 
-> That looks correct, but I haven't been able to trigger the warning again
-> even with similar workloads so I haven't tested this change because I
-> can't even reproduce without it.
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-I still think the change is obviously correct, so I'll give a second
-close look at the code and produce a patch.
+ drivers/net/e1000e/e1000.h |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-Ben.
-
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 8b88c22..327c062 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -42,8 +42,7 @@
+ struct e1000_info;
+ 
+ #define ndev_printk(level, netdev, format, arg...) \
+-	printk(level "%s: %s: " format, (netdev)->dev.parent->bus_id, \
+-	       (netdev)->name, ## arg)
++	printk(level "%s: " format, (netdev)->name, ## arg)
+ 
+ #ifdef DEBUG
+ #define ndev_dbg(netdev, format, arg...) \
 
