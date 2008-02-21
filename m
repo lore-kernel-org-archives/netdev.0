@@ -1,84 +1,70 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: [PATCH] The kernel gets no IP from some DHCP servers, 2.6.24
-Date: Fri, 22 Feb 2008 00:41:22 +0100
-Message-ID: <E1JSL2Y-0001fc-DK@faramir.fjphome.nl>
-References: <83116F0A4FF67A4F97BA0B6E408C48E301C5C723@zuerich.BC-Int.NET>
+From: Aurelien Jarno <aurelien@aurel32.net>
+Subject: [PATCH] [SSB] Add CHIPCO IRQ access functions
+Date: Fri, 22 Feb 2008 00:17:13 +0100
+Message-ID: <20080221231713.GA12041@hall.aurel32.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Wappler Marcel <Marcel.Wappler@bridgeco.net>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: netdev@vger.kernel.org
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hpsmtp-eml11.KPNXCHANGE.COM ([213.75.38.111]:23261 "EHLO
-	hpsmtp-eml11.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933873AbYBUXl1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 18:41:27 -0500
-In-reply-To: <83116F0A4FF67A4F97BA0B6E408C48E301C5C723@zuerich.BC-Int.NET>
+Received: from hall.aurel32.net ([88.191.38.19]:51619 "EHLO hall.aurel32.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753574AbYBVAFn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Feb 2008 19:05:43 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adding netdev list.
-Original patch can be found at: http://lkml.org/lkml/2008/2/21/171
+This patch adds functions to setup and read the CHIPCO IRQ.
 
-Wappler Marcel wrote:
-> This patch fixes a DHCP issue of the kernel: some DHCP servers
-> (i.e. in the Linksys WRT54Gv5) are very strict about the contents
-> of the DHCPDISCOVER packet they receive from clients. Table 5 in RFC2=
-131
-> page 36 requests the fields 'ciaddr' and 'siaddr' MUST be set to '0'.
-> These DHCP servers ignore Linux kernel's DHCP discovery packets with =
-these
-> two fields set to '255.255.255.255' (in contrast to popular DHCP clie=
-nts,
-> such as 'dhclient' or 'udhcpc'). This leads to a not booting system.
-> I tested this on a ARM embedded device mounting rootfs over NFS obtai=
-ning
-> its IP from a Linksys WRT54Gv5 Router running VxWorks and a PC based
-> Server running a Linux. Changing the two fields to '0.0.0.0' worked.
->=20
-> Please CC me personaly when answering this message.
->=20
-> Thanks,
-> Marcel
->=20
-> --- linux-2.6.24.2/net/ipv4/ipconfig.c	2008-02-21 15:27:47.250890963 =
-+0100
-> +++ linux/net/ipv4/ipconfig.c	2008-02-21 15:36:12.686735925 +0100
-> @@ -29,6 +29,10 @@
->   *
->   *  Multiple Nameservers in /proc/net/pnp
->   *              --  Josef Siemes <jsiemes@web.de>, Aug 2002
-> + *
-> + *  Bugfix: Not getting an IP from some DHCP servers: RFC2131 page 3=
-6
-> + *  Table 5 requests DHCPDISCOVER fields ciaddr and siaddr MUST be '=
-0'.
-> + *              -- marcel.wappler@bridgeco.net
->   */
-> =20
->  #include <linux/types.h>
-> @@ -103,6 +107,7 @@
->  - '3' from resolv.h */
-> =20
->  #define NONE __constant_htonl(INADDR_NONE)
-> +#define ZERO __constant_htonl(((unsigned long int) 0x00000000))
-> =20
->  /*
->   * Public IP configuration
-> @@ -740,8 +745,8 @@
->  b->htype =3D dev->type; /* can cause undefined behavior */
->  }
->  b->hlen =3D dev->addr_len;
-> -	b->your_ip =3D NONE;
-> -	b->server_ip =3D NONE;
-> +	b->your_ip =3D ZERO;
-> +	b->server_ip =3D ZERO;
->  memcpy(b->hw_addr, dev->dev_addr, dev->addr_len);
->  b->secs =3D htons(jiffies_diff / HZ);
->  b->xid =3D d->xid;
->=20
-> --
-> Marcel Wappler
-> Bridgeco AG
-> CH-8600 D=C3=BCbendorf
-> Switzerland
+Signed-off-by: Aurelien Jarno <aurelien@aurel32.net>
+---
+ drivers/ssb/driver_chipcommon.c           |   10 ++++++++++
+ include/linux/ssb/ssb_driver_chipcommon.h |    4 ++++
+ 2 files changed, 14 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/ssb/driver_chipcommon.c b/drivers/ssb/driver_chipcommon.c
+index e586321..45b672a 100644
+--- a/drivers/ssb/driver_chipcommon.c
++++ b/drivers/ssb/driver_chipcommon.c
+@@ -353,6 +353,16 @@ void ssb_chipco_watchdog_timer_set(struct ssb_chipcommon *cc, u32 ticks)
+ 	chipco_write32(cc, SSB_CHIPCO_WATCHDOG, ticks);
+ }
+ 
++void ssb_chipco_irq_mask(struct ssb_chipcommon *cc, u32 mask, u32 value)
++{
++	chipco_write32_masked(cc, SSB_CHIPCO_IRQMASK, mask, value);
++}
++
++u32 ssb_chipco_irq_status(struct ssb_chipcommon *cc, u32 mask)
++{
++	return chipco_read32(cc, SSB_CHIPCO_IRQSTAT) & mask;
++}
++
+ u32 ssb_chipco_gpio_in(struct ssb_chipcommon *cc, u32 mask)
+ {
+ 	return chipco_read32(cc, SSB_CHIPCO_GPIOIN) & mask;
+diff --git a/include/linux/ssb/ssb_driver_chipcommon.h b/include/linux/ssb/ssb_driver_chipcommon.h
+index 536851b..b548a54 100644
+--- a/include/linux/ssb/ssb_driver_chipcommon.h
++++ b/include/linux/ssb/ssb_driver_chipcommon.h
+@@ -390,6 +390,10 @@ extern void ssb_chipco_set_clockmode(struct ssb_chipcommon *cc,
+ extern void ssb_chipco_watchdog_timer_set(struct ssb_chipcommon *cc,
+ 					  u32 ticks);
+ 
++void ssb_chipco_irq_mask(struct ssb_chipcommon *cc, u32 mask, u32 value);
++
++u32 ssb_chipco_irq_status(struct ssb_chipcommon *cc, u32 mask);
++
+ /* Chipcommon GPIO pin access. */
+ u32 ssb_chipco_gpio_in(struct ssb_chipcommon *cc, u32 mask);
+ u32 ssb_chipco_gpio_out(struct ssb_chipcommon *cc, u32 mask, u32 value);
+-- 
+1.5.4.1
+
+
+-- 
+  .''`.  Aurelien Jarno	            | GPG: 1024D/F1BCDB73
+ : :' :  Debian developer           | Electrical Engineer
+ `. `'   aurel32@debian.org         | aurelien@aurel32.net
+   `-    people.debian.org/~aurel32 | www.aurel32.net
