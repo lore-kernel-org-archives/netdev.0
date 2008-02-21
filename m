@@ -1,59 +1,118 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [PATCH 2.6.25 2/4]S2io: Multiqueue network device support - FIFO selection based on L4 ports
-Date: Wed, 20 Feb 2008 18:49:41 -0500
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77030E313E@nekter>
-References: <47BCB304.9050709@trash.net>	<20080220.151244.79005114.davem@davemloft.net>	<47BCB481.8050203@trash.net> <20080220.151834.133850272.davem@davemloft.net> <47BCB60C.3040409@trash.net>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [git patches] net driver updates
+Date: Wed, 20 Feb 2008 17:16:15 -0800
+Message-ID: <47BCD0DF.1050205@chelsio.com>
+References: <20080211170516.GA13872@havoc.gtf.org> <47B0AB0B.806@chelsio.com> <47BC8FBD.2070401@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>,
-	<netdev@vger.kernel.org>, <jeff@garzik.org>,
-	"support" <support@neterion.com>
-To: "Patrick McHardy" <kaber@trash.net>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:14766 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754338AbYBTXwU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 18:52:20 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <47BCB60C.3040409@trash.net>
+Received: from stargate.chelsio.com ([12.22.49.110]:31201 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757026AbYBUBQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 20:16:25 -0500
+In-Reply-To: <47BC8FBD.2070401@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Patrick McHardy [mailto:kaber@trash.net]
-> Sent: Wednesday, February 20, 2008 3:22 PM
-> To: David Miller
-> Cc: Ramkrishna Vepa; Sreenivasa Honnur; netdev@vger.kernel.org;
-> jeff@garzik.org; support
-> Subject: Re: [PATCH 2.6.25 2/4]S2io: Multiqueue network device support
--
-> FIFO selection based on L4 ports
-> 
-> David Miller wrote:
-> > From: Patrick McHardy <kaber@trash.net>
-> > Date: Thu, 21 Feb 2008 00:15:13 +0100
-> >
-> >
-> >> I missed those discussions, but this has already been agreed on,
-> >> fine by me. It would still be preferable to use queue_mapping
-> >> instead of priority IMO, even if its activated by a module
-> >> parameter, since that leaves the option to use classifiers.
-> >>
-> >
-> > I think the driver should compute the value in it's transmit
-> > routine and keep the value local.  It shouldn't be setting
-> > skb->foo values at all, they don't belong to the driver
-> > and this could confuse other code.
-> >
-> 
-> Yes, I didn't meant it should set anything, but on of the options
-> this patch introduces is to _use_ skb->priority for classification,
-> so the classification is already external, in which case it might
-> as well offer the full flexibility (as one option) to use qdisc
-> classifiers.
-[Ram] Yes, this should be possible. We can add an additional option to
-use qdisc classifiers and submit it as a patch later on.
+Jeff Garzik wrote:
+> Divy Le Ray wrote:
+>> Jeff Garzik wrote:
+>>> Mostly fixes, a few cleanups (generally assisting fixes), and an
+>>> exception for PS3 wireless because it had been posted, reviewed and
+>>> acked for a while, just not committed.
+>>>
+>>> Please pull from 'upstream-davem' branch of
+>>> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git 
+>>> upstream-davem
+>>>
+>>> to receive the following updates:
+>>>
+>>>  
+>>>  drivers/net/cxgb3/sge.c          |   35 +-
+>>>    diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+>>> index 9ca8c66..979f3fc 100644
+>>> --- a/drivers/net/cxgb3/sge.c
+>>> +++ b/drivers/net/cxgb3/sge.c
+>>> @@ -1059,6 +1059,14 @@ static void write_tx_pkt_wr(struct adapter 
+>>> *adap, struct sk_buff *skb,
+>>>               htonl(V_WR_TID(q->token)));
+>>>  }
+>>>  
+>>> +static inline void t3_stop_queue(struct net_device *dev, struct 
+>>> sge_qset *qs,
+>>> +                 struct sge_txq *q)
+>>> +{
+>>> +    netif_stop_queue(dev);
+>>> +    set_bit(TXQ_ETH, &qs->txq_stopped);
+>>> +    q->stops++;
+>>> +}
+>>> +
+>>>  /**
+>>>   *    eth_xmit - add a packet to the Ethernet Tx queue
+>>>   *    @skb: the packet
+>>> @@ -1090,31 +1098,18 @@ int t3_eth_xmit(struct sk_buff *skb, struct 
+>>> net_device *dev)
+>>>      ndesc = calc_tx_descs(skb);
+>>>  
+>>>      if (unlikely(credits < ndesc)) {
+>>> -        if (!netif_queue_stopped(dev)) {
+>>> -            netif_stop_queue(dev);
+>>> -            set_bit(TXQ_ETH, &qs->txq_stopped);
+>>> -            q->stops++;
+>>> -            dev_err(&adap->pdev->dev,
+>>> -                "%s: Tx ring %u full while queue awake!\n",
+>>> -                dev->name, q->cntxt_id & 7);
+>>> -        }
+>>> +        t3_stop_queue(dev, qs, q);
+>>> +        dev_err(&adap->pdev->dev,
+>>> +            "%s: Tx ring %u full while queue awake!\n",
+>>> +            dev->name, q->cntxt_id & 7);
+>>>          spin_unlock(&q->lock);
+>>>          return NETDEV_TX_BUSY;
+>>>      }
+>>>  
+>>>      q->in_use += ndesc;
+>>> -    if (unlikely(credits - ndesc < q->stop_thres)) {
+>>> -        q->stops++;
+>>> -        netif_stop_queue(dev);
+>>> -        set_bit(TXQ_ETH, &qs->txq_stopped);
+>>> -#if !USE_GTS
+>>> -        if (should_restart_tx(q) &&
+>>> -            test_and_clear_bit(TXQ_ETH, &qs->txq_stopped)) {
+>>> -            q->restarts++;
+>>> -            netif_wake_queue(dev);
+>>> -        }
+>>> -#endif
+>>> -    }
+>>> +    if (unlikely(credits - ndesc < q->stop_thres))
+>>> +        if (USE_GTS || !should_restart_tx(q))
+>>> +            t3_stop_queue(dev, qs, q);
+>>>  
+>>>      gen = q->gen;
+>>>      q->unacked += ndesc;
+>>>   
+>> Hi Jeff,
+>>
+>> I thought I had NAK'ed the patch modifying sge.c from Krishna Kumar.
+>> Looking back at my answer at the time, I was obviously unclear.
+>> Can you please revert the drivers/net/cxgb3sge.c change ?
+>
+> Explain why, so I can include it in the changelog please...
 
-Ram
+Hi Jeff,
+
+The first part of the patch removes the !netif_queue_stopped(dev).
+It opens the race discussed a while ago between Stephen hemminger and 
+David Miller:
+http://marc.info/?l=linux-netdev&m=113383224512427&w=2
+
+The second part of the patch breaks the current usage of txq_stopped and 
+the logic that stops and restarts the Tx queue.
+
+Cheers,
+Divy
+
