@@ -1,49 +1,35 @@
-From: diana <dianetraywick@myway.com>
-Subject: hello
-Date: Thu, 21 Feb 2008 12:36:00 +0300
-Message-ID: <1203586560.47bd46006300f__29902.9725989842$1203588574$gmane$org@webmail.africaonline.co.tz>
-Reply-To: 4peterjwallace@myway.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: New sparse warning in net/mac80211/debugfs_sta.c
+Date: Thu, 21 Feb 2008 02:12:28 -0800 (PST)
+Message-ID: <20080221.021228.09081608.davem@davemloft.net>
+References: <1203587699.17534.135.camel@johannes.berg>
+	<20080221.020343.190715910.davem@davemloft.net>
+	<1203588498.20345.20.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johannes@sipsolutions.net, joe@perches.com, netdev@vger.kernel.org
+To: harvey.harrison@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.africaonline.co.tz ([196.46.128.5]:50922 "EHLO
-	smtp.africaonline.co.tz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757011AbYBUKIr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 05:08:47 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60020
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756108AbYBUKLv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 05:11:51 -0500
+In-Reply-To: <1203588498.20345.20.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Date: Thu, 21 Feb 2008 02:08:18 -0800
 
+> Really, that should have read:
+> 
+> Sparse warning introduced since -rc2:
+> ..etc
+> 
+> Harvey's best guess is this commit...
 
-Blessed one, 
-
-My name  is Mrs. Deborah Traywick
-I am 59 years old and I was diagnosed for cancer 
-for about 2 years ago, i am a dying woman and i 
-have decided to donate the sum of $5.5 million dollars.)
-to you for the good of humanity.
-
-Contact my lawyer with this email: 
-
-Name: Peter J. Wallace. 
-Email: 4peterjwallace@myway.com
-
-Tell him that I have WILLED 5.5M to you by 
-quoting my personal reference number Qe/yr/088/51/wsa/ld
-and I have also notified him that I am WILLING that 
-amount to you.
-
-Please use the funds well and always 
-extend the good work to othersI don't know you but 
-I have been directed to do this. I wish you the best in your life.   
- 
-
-Regards,
-
-Deborah Traywick
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
+I think the commit you originally blamed got added in 2.6.24,
+so it would be very difficult for it to cause a post-2.6.25-rc2
+regression :-)
 
