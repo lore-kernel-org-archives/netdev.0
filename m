@@ -1,49 +1,33 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: 2.6.25-rc2-mm1 - several bugs and a crash
-Date: Thu, 21 Feb 2008 17:34:56 +0100
-Message-ID: <47BDA830.1000608@trash.net>
-References: <20080216002522.9c4bd0fb.akpm@linux-foundation.org>	<47BC982C.7050402@imap.cc>	<47BD6072.4000407@trash.net> <20080221083248.5b76b496@extreme>
+From: Haavard Skinnemoen <hskinnemoen@atmel.com>
+Subject: Re: [PATCH] macb: Fix speed setting
+Date: Thu, 21 Feb 2008 17:39:23 +0100
+Message-ID: <20080221173923.1301d0c9@dhcp-252-066.norway.atmel.com>
+References: <20080221.225054.61509660.anemo@mba.ocn.ne.jp>
+	<20080221151246.6f2044b9@dhcp-252-066.norway.atmel.com>
+	<20080222.000731.18312290.anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Tilman Schmidt <tilman@imap.cc>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54925 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752829AbYBUQfP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 11:35:15 -0500
-In-Reply-To: <20080221083248.5b76b496@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jeff@garzik.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934303AbYBUQjz@vger.kernel.org>
+In-Reply-To: <20080222.000731.18312290.anemo@mba.ocn.ne.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Thu, 21 Feb 2008 12:28:50 +0100
-> Patrick McHardy <kaber@trash.net> wrote:
->
->
->   
->> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
->> index 327e847..b77eb56 100644
->> --- a/net/netfilter/nf_conntrack_core.c
->> +++ b/net/netfilter/nf_conntrack_core.c
->> @@ -256,13 +256,19 @@ __nf_conntrack_find(const struct nf_conntrack_tuple *tuple)
->>  	struct hlist_node *n;
->>  	unsigned int hash = hash_conntrack(tuple);
->>  
->> +	/* Disable BHs the entire time since we normally need to disable them
->> +	 * at least once for the stats anyway.
->> +	 */
->> +	local_bh_disable();
->>     
->
-> Use rcu_read_lock instead. local_bh_disable() won't work with some of the other forms
-> of RCU alternatives.
->   
+On Fri, 22 Feb 2008 00:07:31 +0900 (JST)
+Atsushi Nemoto <anemo@mba.ocn.ne.jp> wrote:
 
-The caller already calls rcu_read_lock(). This is for the per-cpu
-statistics.
+> > I'm willing to take your word for it, but some documentation would be
+> > really nice...  
+> 
+> Well, simple grepping drivers/net/phy enlighten us ;)
 
+Yeah, the patch certainly looks correct as far as I can tell.
+
+> Anyway, this patch fixes problem with 10Mbps on AT91SAM9260 board.
+
+Thanks. I'll pass it on.
+
+Haavard
