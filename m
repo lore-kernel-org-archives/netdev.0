@@ -1,33 +1,57 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: pull request: wireless-2.6 2008-02-20
-Date: Thu, 21 Feb 2008 11:13:21 -0500
-Message-ID: <20080221161321.GD3094@tuxdriver.com>
-References: <20080221021132.GF3825@tuxdriver.com> <20080220.221510.28377813.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: 2.6.25-rc2-mm1 - several bugs and a crash
+Date: Thu, 21 Feb 2008 08:32:48 -0800
+Message-ID: <20080221083248.5b76b496@extreme>
+References: <20080216002522.9c4bd0fb.akpm@linux-foundation.org>
+	<47BC982C.7050402@imap.cc>
+	<47BD6072.4000407@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:2141 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758029AbYBUQc0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Feb 2008 11:32:26 -0500
-Content-Disposition: inline
-In-Reply-To: <20080220.221510.28377813.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Tilman Schmidt <tilman@imap.cc>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <47BD6072.4000407@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 20, 2008 at 10:15:10PM -0800, David Miller wrote:
+On Thu, 21 Feb 2008 12:28:50 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-> >       ssb: Fix the GPIO API
+> Tilman Schmidt wrote:
+> > Still, X came up fine, I could log in (Gnome feeling subjectively
+> > a bit sluggish), call up a web page from the Internet in Firefox,
+> > and start perusing the logs, when the whole system froze: neither
+> > mouse nor keyboard would react anymore, and only the Wind^Wreset
+> > button would put me back in control. After rebooting into the
+> > previous, non-mm kernel I found this in the syslog:
+> > 
+> > Feb 20 17:22:40 xenon kernel: [   48.180297] BUG: using smp_processor_id() in preemptible [00000000] code: ntpdate/3562
+> > Feb 20 17:22:40 xenon kernel: [   48.180297] caller is __nf_conntrack_find+0x9b/0xeb [nf_conntrack]
+> > Feb 20 17:22:40 xenon kernel: [   48.180297] Pid: 3562, comm: ntpdate Not tainted 2.6.25-rc2-mm1-testing #1
+> > Feb 20 17:22:40 xenon kernel: [   48.180297]  [<c02015b9>] debug_smp_processor_id+0x99/0xb0
 > 
-> This could have had a much better changelog, it's way too terse.
+> 
+> Could you test whether this patch fixes the netfilter
+> warnings please?
+> 
 
-You're right.  I'll try to police those better.
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index 327e847..b77eb56 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -256,13 +256,19 @@ __nf_conntrack_find(const struct nf_conntrack_tuple *tuple)
+>  	struct hlist_node *n;
+>  	unsigned int hash = hash_conntrack(tuple);
+>  
+> +	/* Disable BHs the entire time since we normally need to disable them
+> +	 * at least once for the stats anyway.
+> +	 */
+> +	local_bh_disable();
 
-Thanks,
+Use rcu_read_lock instead. local_bh_disable() won't work with some of the other forms
+of RCU alternatives.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
