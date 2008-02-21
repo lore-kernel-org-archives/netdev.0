@@ -1,42 +1,63 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [git patches] net driver updates
-Date: Thu, 21 Feb 2008 09:13:49 +0530
-Message-ID: <OF5F5F5698.07AB615F-ON652573F6.00142D8A-652573F6.00147DC9@in.ibm.com>
-References: <47BCD0DF.1050205@chelsio.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, Jeff Garzik <jeff@garzik.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Divy Le Ray <divy@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp03.in.ibm.com ([59.145.155.3]:36471 "EHLO
-	e28esmtp03.in.ibm.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753718AbYBUDpq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2008 22:45:46 -0500
-In-Reply-To: <47BCD0DF.1050205@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joonwoo Park <joonwpark81@gmail.com>
+Subject: [PATCH] [NETFILTER]: fix ebtable targets return
+Date: Thu, 21 Feb 2008 14:36:32 +0900
+Message-ID: <12035721921230-git-send-email-joonwpark81@gmail.com>
+Cc: Joonwoo Park <joonwpark81@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Divy,
+The function ebt_do_table doesn't take NF_DROP as a verdict from the targets.
 
-> > Explain why, so I can include it in the changelog please...
->
-> Hi Jeff,
->
-> The first part of the patch removes the !netif_queue_stopped(dev).
-> It opens the race discussed a while ago between Stephen hemminger and
-> David Miller:
-> http://marc.info/?l=linux-netdev&m=113383224512427&w=2
+Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+---
+ net/bridge/netfilter/ebt_dnat.c     |    2 +-
+ net/bridge/netfilter/ebt_redirect.c |    2 +-
+ net/bridge/netfilter/ebt_snat.c     |    2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-I feel this race cannot happen anymore. I think the fix for that race was
-to introduce the
-__LINK_STATE_QDISC_RUNNING bit thus eliminating any races between CPU's. If
-one
-CPU has called xmit, the other CPU will enqueue skbs (by holding the
-queue_lock) and
-exit from qdisc_run since it finds the bit set already.
-
-Thanks,
-
-- KK
+diff --git a/net/bridge/netfilter/ebt_dnat.c b/net/bridge/netfilter/ebt_dnat.c
+index 1ec671d..ca64c1c 100644
+--- a/net/bridge/netfilter/ebt_dnat.c
++++ b/net/bridge/netfilter/ebt_dnat.c
+@@ -21,7 +21,7 @@ static int ebt_target_dnat(struct sk_buff *skb, unsigned int hooknr,
+ 	const struct ebt_nat_info *info = data;
+ 
+ 	if (!skb_make_writable(skb, 0))
+-		return NF_DROP;
++		return EBT_DROP;
+ 
+ 	memcpy(eth_hdr(skb)->h_dest, info->mac, ETH_ALEN);
+ 	return info->target;
+diff --git a/net/bridge/netfilter/ebt_redirect.c b/net/bridge/netfilter/ebt_redirect.c
+index bfb9f74..b8afe85 100644
+--- a/net/bridge/netfilter/ebt_redirect.c
++++ b/net/bridge/netfilter/ebt_redirect.c
+@@ -22,7 +22,7 @@ static int ebt_target_redirect(struct sk_buff *skb, unsigned int hooknr,
+ 	const struct ebt_redirect_info *info = data;
+ 
+ 	if (!skb_make_writable(skb, 0))
+-		return NF_DROP;
++		return EBT_DROP;
+ 
+ 	if (hooknr != NF_BR_BROUTING)
+ 		memcpy(eth_hdr(skb)->h_dest,
+diff --git a/net/bridge/netfilter/ebt_snat.c b/net/bridge/netfilter/ebt_snat.c
+index 204f996..5425333 100644
+--- a/net/bridge/netfilter/ebt_snat.c
++++ b/net/bridge/netfilter/ebt_snat.c
+@@ -23,7 +23,7 @@ static int ebt_target_snat(struct sk_buff *skb, unsigned int hooknr,
+ 	const struct ebt_nat_info *info = data;
+ 
+ 	if (!skb_make_writable(skb, 0))
+-		return NF_DROP;
++		return EBT_DROP;
+ 
+ 	memcpy(eth_hdr(skb)->h_source, info->mac, ETH_ALEN);
+ 	if (!(info->target & NAT_ARP_BIT) &&
+-- 
+1.5.3.rc5
 
