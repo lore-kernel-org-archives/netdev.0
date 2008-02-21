@@ -1,27 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [NETFILTER]: fix ebtable targets return
-Date: Wed, 20 Feb 2008 21:45:33 -0800 (PST)
-Message-ID: <20080220.214533.205446881.davem@davemloft.net>
-References: <12035721921230-git-send-email-joonwpark81@gmail.com>
+Subject: Re: [git patches] net driver updates
+Date: Wed, 20 Feb 2008 21:46:51 -0800 (PST)
+Message-ID: <20080220.214651.235108740.davem@davemloft.net>
+References: <47BCD0DF.1050205@chelsio.com>
+	<OF5F5F5698.07AB615F-ON652573F6.00142D8A-652573F6.00147DC9@in.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netfilter-devel@vger.kernel.org,
+Cc: divy@chelsio.com, jeff@garzik.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: joonwpark81@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <12035721921230-git-send-email-joonwpark81@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: krkumar2@in.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40253
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752620AbYBUFqO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 00:46:14 -0500
+In-Reply-To: <OF5F5F5698.07AB615F-ON652573F6.00142D8A-652573F6.00147DC9@in.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joonwoo Park <joonwpark81@gmail.com>
-Date: Thu, 21 Feb 2008 14:36:32 +0900
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Date: Thu, 21 Feb 2008 09:13:49 +0530
 
-> The function ebt_do_table doesn't take NF_DROP as a verdict from the targets.
+> Hi Divy,
 > 
-> Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+> > > Explain why, so I can include it in the changelog please...
+> >
+> > Hi Jeff,
+> >
+> > The first part of the patch removes the !netif_queue_stopped(dev).
+> > It opens the race discussed a while ago between Stephen hemminger and
+> > David Miller:
+> > http://marc.info/?l=linux-netdev&m=113383224512427&w=2
+> 
+> I feel this race cannot happen anymore. I think the fix for that race was
+> to introduce the
+> __LINK_STATE_QDISC_RUNNING bit thus eliminating any races between CPU's. If
+> one
+> CPU has called xmit, the other CPU will enqueue skbs (by holding the
+> queue_lock) and
+> exit from qdisc_run since it finds the bit set already.
 
-Whoops, good catch :-)
-
-Patrick, if you want you can just signoff on this and I can
-put it directly into my tree.
+And the race is talking about LLTX, which S2IO doesn't use as
+far as I can tell.
