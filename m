@@ -1,52 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: kernel BUG at net/core/skbuff.c:95!
-Date: Wed, 20 Feb 2008 21:57:07 -0800 (PST)
-Message-ID: <20080220.215707.194209573.davem@davemloft.net>
-References: <20080220002000.GS84358@surrealistic.net>
-	<20080221054648.GU84358@surrealistic.net>
+From: "Divy Le Ray" <divy@chelsio.com>
+Subject: RE: [git patches] net driver updates
+Date: Wed, 20 Feb 2008 21:57:08 -0800
+Message-ID: <8A71B368A89016469F72CD08050AD334026D6511@maui.asicdesigners.com>
+References: <47BCD0DF.1050205@chelsio.com><OF5F5F5698.07AB615F-ON652573F6.00142D8A-652573F6.00147DC9@in.ibm.com> <20080220.214651.235108740.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, acme@ghostprotocols.net
-To: jwestfall@surrealistic.net
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <jeff@garzik.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>, <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60818
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751540AbYBUF43 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 00:56:29 -0500
-In-Reply-To: <20080221054648.GU84358@surrealistic.net>
+Received: from stargate.chelsio.com ([12.22.49.110]:16666 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752103AbYBUF5W convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 00:57:22 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jim Westfall <jwestfall@surrealistic.net>
-Date: Wed, 20 Feb 2008 21:46:48 -0800
 
-> static inline void llc_pdu_init_as_test_rsp(struct sk_buff *skb,
->                                             struct sk_buff *ev_skb)
-> {
->         struct llc_pdu_un *pdu = llc_pdu_un_hdr(skb);
->          
->         pdu->ctrl_1  = LLC_PDU_TYPE_U;
->         pdu->ctrl_1 |= LLC_1_PDU_CMD_TEST;
->         pdu->ctrl_1 |= LLC_U_PF_BIT_MASK;
->         if (ev_skb->protocol == htons(ETH_P_802_2)) {
->                 struct llc_pdu_un *ev_pdu = llc_pdu_un_hdr(ev_skb);
->                 int dsize;
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, February 20, 2008 9:47 PM
+> To: krkumar2@in.ibm.com
+> Cc: Divy Le Ray; jeff@garzik.org; linux-kernel@vger.kernel.org;
+> netdev@vger.kernel.org
+> Subject: Re: [git patches] net driver updates
 > 
->                 dsize = ntohs(eth_hdr(ev_skb)->h_proto) - 3;
->                 memcpy(((u8 *)pdu) + 3, ((u8 *)ev_pdu) + 3, dsize);
->                 skb_put(skb, dsize);
->         }
-> ..
-> }
+> From: Krishna Kumar2 <krkumar2@in.ibm.com>
+> Date: Thu, 21 Feb 2008 09:13:49 +0530
+> 
+> > Hi Divy,
+> >
+> > > > Explain why, so I can include it in the changelog please...
+> > >
+> > > Hi Jeff,
+> > >
+> > > The first part of the patch removes the !netif_queue_stopped(dev).
+> > > It opens the race discussed a while ago between Stephen hemminger
+> and
+> > > David Miller:
+> > > http://marc.info/?l=linux-netdev&m=113383224512427&w=2
+> >
+> > I feel this race cannot happen anymore. I think the fix for that
+race
+> was
+> > to introduce the
+> > __LINK_STATE_QDISC_RUNNING bit thus eliminating any races between
+> CPU's. If
+> > one
+> > CPU has called xmit, the other CPU will enqueue skbs (by holding the
+> > queue_lock) and
+> > exit from qdisc_run since it finds the bit set already.
+> 
+> And the race is talking about LLTX, which S2IO doesn't use as
+> far as I can tell.
 
-Probably what should happen is:
+Dave,
 
-1) First this function validates that there are really
-   'dsize' bytes available in the ev_skb source.
+The driver is cxgb3 here, it uses LLTX.
 
-2) Second, skb_realloc_headroom() is called on 'skb' with
-   a second argument of 'dsize'.
-
-That means also this function now needs to return error
-values, and the callers updated to handle that.
+Cheers,
+Divy
