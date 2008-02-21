@@ -1,68 +1,60 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
-Date: Thu, 21 Feb 2008 08:59:59 +0000
-Message-ID: <20080221085959.GA12944@ff.dom.local>
-References: <20080211224924.GA2863@ami.dom.local> <47B0DD1E.5000608@katalix.com> <20080211.213048.192442721.davem@davemloft.net> <47B17BCD.2070903@katalix.com> <20080214130016.GA2583@ff.dom.local> <47BA0214.40703@katalix.com> <20080219230640.GA2755@ami.dom.local> <47BC4F2C.4000802@katalix.com> <20080220183837.GA2881@ami.dom.local> <47BCABC5.9080204@katalix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [DCCP] [Patch 0/10]: Finish and repair existing Ack Vector implementation
+Date: Thu, 21 Feb 2008 09:09:18 +0000
+Message-ID: <1203584968-8957-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.240]:62635 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751385AbYBUI7I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 03:59:08 -0500
-Received: by an-out-0708.google.com with SMTP id d31so725776and.103
-        for <netdev@vger.kernel.org>; Thu, 21 Feb 2008 00:59:05 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <47BCABC5.9080204@katalix.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60940 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753488AbYBUJKY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Feb 2008 04:10:24 -0500
+In-Reply-To: ack_vector_implementation_repackaged_no_changes
+References: ack_vector_implementation_repackaged_no_changes
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 20, 2008 at 10:37:57PM +0000, James Chapman wrote:
-> Jarek Poplawski wrote:
->
->>>> (testing patch #1)
->>
->> But I hope you tested with the fixed (take 2) version of this patch...
->
-> Yes I did. :)
->
-> But I just got another lockdep error (attached).
->
->> Since it's quite experimental (testing) this patch could be wrong
->> as it is, but I hope it should show the proper way to solve this
->> problem. Probably you did some of these, but here are a few of my
->> suggestions for testing this:
->>
->> 1) try my patch with your full bh locking changing patch;
->> 2) add while loops to these trylocks on failure, with e.g.  __delay(1);
->>    this should work like full locks again, but there should be no (this
->>    kind of) lockdep reports;
->
-> Hmm, isn't this just bypassing the lockdep checks?
+This is a re-packaged resubmission (reduction from about 20 small patches) of the
+Ack Vector patch set, which accomplishes two main things.
 
-Yes! But it's only for debugging: to find if this change in locking
-is to be blamed for these new lockups. It should effectively work just
-like without this patch, but without this lockdep warning. So, if
-after such change lockups still happen, then it would seem you didn't
-test this enough before. Otherwise the new patch is to blame and needs
-reworking.
+ First, it completes the implementation of a circular Ack Vector buffer. So far
+ the buffer was implemented as a linear array which dropped packets on overflow.
 
->
->> 3) I send here another testing patch with this second way to do this:
->>    on the write side, but it's even more "experimental" and only a
->>    proof of concept (should be applied on vanilla ppp_generic).
->
-> I'll look over it. I think I need to take a step back and look at what's  
-> happening in more detail though.
+ Second, it makes the Ack Vector implementation workable for Ack Ratios greater
+ than 1. The code does not currently work when Ack Ratio is greater than 1.
+ 
+ The reason that existing problems were not observed is that the main module 
+ sets Ack Ratio to 1, which in effect bypasses Ack Vectors entirely.
+ 
+ Several bugs with regard to a basic implementation of RFC 4340 Ack Vectors
+ were fixed and protections against corrupting buffer state added:
+ * successive overlapping Ack Vectors were corrupting buffer state;
+ * a protection against outdated entries was missing;
+ * a modification was necessary to compute ECN nonces over multiple vectors;
+ * reserving entries (one per packet) didn't work well with large burst losses;
+ 
+A summary of the problems that were fixed and full code documentation is on
+http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/ack_vectors/
 
-This is something completely new and changes all the picture: the xmit
-path wasn't expected (at least by me) to be called in softirq context
-at all, and there were no traces of this on previous reports. But,
-since lockdep always stops after the first warning, there could be
-even more surprises like this in the future. I'll check this report.
+The code has been tested extensively and has been part of the test tree for over
+two months.
 
-Regards,
-Jarek P.
+Ack Vectors are a necessary requirement of CCID-2, so it expected that CCID-2
+can subsequently also be improved.
+ 
+ Short summary
+ -------------
+ Patch # 1: Fixes an oversight: Ack Vectors need to be ignored as long as
+            feature-negotiation is processing.
+ Patch # 2: Ack Vector interface clean-up -- preparation for subsequent patches.
+ Patch # 3: Separates Ack Vector - specific code from option-inserting code.
+ Patch # 4: Completes the implementation of a fully circular Ack Vector buffer. 
+ Patch # 5: Adds a tested algorithm to update Ack Vector buffer state.
+ Patch # 6: Updates and revises the way new Ack Vector information is registered.
+ Patch # 7: Consolidates Ack Vector processing within DCCP main module.
+ Patch # 8: Adds a fallback solution - scheduling a Sync when out-of-space.
+ Patch # 9: Removes older and now unused parts of the Ack Vector infrastructure.
+ Patch #10: Separates the task of parsing Ack Vectors from the CCID(-2) code.
+
+The revised patch set has been uploaded to
+	git://eden-feed.erg.abdn.ac.uk/dccp_exp 	[dccp]
