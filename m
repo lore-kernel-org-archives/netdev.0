@@ -1,69 +1,45 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-2.6.26 2008-02-21
-Date: Thu, 21 Feb 2008 12:25:25 -0500
-Message-ID: <20080221172525.GI3094@tuxdriver.com>
-References: <20080221021530.GG3825@tuxdriver.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: New sparse warning in net/mac80211/debugfs_sta.c
+Date: Thu, 21 Feb 2008 18:45:11 +0100
+Message-ID: <47BDB8A7.3070201@trash.net>
+References: <1203586467.20345.14.camel@brick>	<20080221.015743.222059206.davem@davemloft.net>	<1203588079.20345.15.camel@brick> <20080221.020554.259219477.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20080221021530.GG3825-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: harvey.harrison@gmail.com, joe@perches.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from viefep18-int.chello.at ([213.46.255.22]:14578 "EHLO
+	viefep18-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750924AbYBURpe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 12:45:34 -0500
+In-Reply-To: <20080221.020554.259219477.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 20, 2008 at 09:15:30PM -0500, John W. Linville wrote:
+David Miller wrote:
+> From: Harvey Harrison <harvey.harrison@gmail.com>
+> Date: Thu, 21 Feb 2008 02:01:19 -0800
+> 
+>> In this case, it's being passed to a debugfs create function, could it
+>> instead use sysfs_format_mac?
+> 
+> Just assigning print_mac() to a local variable then passing that to
+> debugfs_create_dir() will make the warning go away.
+> 
+>>From another perspective adding that __pure attribute to print_mac()
+> might not have been the best idea.  But I can't think of another
+> way to elimitate the "passing print_mac() args to pr_debug()
+> still generates calls to print_mac() even when DEBUG is not
+> defined" problem :-/
 
-> Here are a slew of developments intended for 2.6.26.  The patches are
-> too diverse to comment upon in this summary... :-)
 
-David,
+Frankly, I think the main problem is that MAC_FMT got removed
+for no real reason and is forcing us to come up with lots of
+workarounds. We have NIPQUAD_FMT, NIP6_FMT, so I don't see
+whats wrong with MAC_FMT. In fact I think a simple
 
-This is additive on top of the pull request from last night.  Only
-Pavel's fix for the brown-paper-bag CONFIG_MAC80211_IBSS_DEBUG build
-issue is applied on top of the previous commits.
+printk(MAC_FMT, addr);
 
-Please let me know if there are problems!
-
-Thanks,
-
-John
-
----
-
-The following changes since commit 4d161f9d7f3f3ce069006b53dc8a84ed8a33753f:
-  Johannes Berg (1):
-        p54: fix sparse warnings
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git
-
-Pavel Roskin (1):
-      mac80211: fix incorrect use of CONFIG_MAC80211_IBSS_DEBUG
-
- net/mac80211/ieee80211_sta.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
-index 05cc908..453d14a 100644
---- a/net/mac80211/ieee80211_sta.c
-+++ b/net/mac80211/ieee80211_sta.c
-@@ -2452,10 +2452,12 @@ static void ieee80211_rx_bss_info(struct net_device *dev,
- 		       jiffies);
- #endif /* CONFIG_MAC80211_IBSS_DEBUG */
- 		if (beacon_timestamp > rx_timestamp) {
--			if (CONFIG_MAC80211_IBSS_DEBUG || net_ratelimit())
-+#ifdef CONFIG_MAC80211_IBSS_DEBUG
-+			if (net_ratelimit())
- 				printk(KERN_DEBUG "%s: beacon TSF higher than "
- 				       "local TSF - IBSS merge with BSSID %s\n",
- 				       dev->name, print_mac(mac, mgmt->bssid));
-+#endif /* CONFIG_MAC80211_IBSS_DEBUG */
- 			ieee80211_sta_join_ibss(dev, &sdata->u.sta, bss);
- 			ieee80211_ibss_add_sta(dev, NULL,
- 					       mgmt->bssid, mgmt->sa);
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+is much nicer than all this temporary buffer and function
+call stuff.
