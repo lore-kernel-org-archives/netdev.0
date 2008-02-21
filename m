@@ -1,100 +1,44 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC,PATCH] loopback: calls netif_receive_skb() instead of netif_rx()
-Date: Fri, 22 Feb 2008 00:19:19 +0100
-Message-ID: <47BE06F7.5080305@cosmosbay.com>
-References: <47BDC848.50607@cosmosbay.com> <47BDDBB5.1050603@fr.ibm.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH 1/7] ixgb: add RNBC counter - no buffer count - to ethtool
+	stats
+Date: Thu, 21 Feb 2008 15:10:41 -0800
+Message-ID: <20080221231041.5595.4933.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from neuf-infra-smtp-out-sp604007av.neufgp.fr ([84.96.92.120]:48469
-	"EHLO neuf-infra-smtp-out-sp604007av.neufgp.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755925AbYBUXTc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 18:19:32 -0500
-In-Reply-To: <47BDDBB5.1050603@fr.ibm.com>
+Received: from mga03.intel.com ([143.182.124.21]:11050 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755941AbYBUXVl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Feb 2008 18:21:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Lezcano a =E9crit :
-> Eric Dumazet wrote:
->> Hi David
->>
->> This is an RFC, based on net-2.6 for convenience only.
->>
->> Thank you
->>
->> [RFC,PATCH] loopback: calls netif_receive_skb() instead of netif_rx(=
-)
->>
->> Loopback transmit function loopback_xmit() actually calls netif_rx()=
-=20
->> to queue
->> a skb to the softnet queue, and arms a softirq so that this skb can =
-be=20
->> handled later.
->>
->> This has a cost on SMP, because we need to hold a reference on the=20
->> device, and free this
->> reference when softirq dequeues packet.
->>
->> Following patch directly calls netif_receive_skb() and avoids lot of=
-=20
->> atomic operations.
->> (atomic_inc(&dev->refcnt), set_and_set_bit(NAPI_STATE_SCHED,=20
->> &n->state), ...
->>  atomic_dec(&dev->refcnt)...), cache line ping-pongs on device refcn=
-t,=20
->> but also softirq overhead.
->>
->> This gives a nice boost on tbench for example (5 % on my machine)
->=20
-> I understand this is interesting for the loopback when there is no=20
-> multiple instances of it and it can't be unregistered. But now with t=
-he=20
-> network namespaces, we can have multiple instances of the loopback an=
-d=20
-> it can to be unregistered. Shouldn't we still use netif_rx ?
-> Perhaps we can do something like:
->=20
->     if (dev->nd_net =3D=3D &init_net)
->         netif_receive_skb(skb);
->     else
->         netif_rx(skb);
+This counter is valuable to determine if the system is unable
+to timely return buffers to the hardware and this counter starts
+to increase well before the hardware starts to drop packets. If
+users experience rx_no_buffer_count increasing, they should increase
+the amount of descriptors. That will provide more buffers for the
+hardware and will decrease the chance of hard drops.
 
-or
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-#ifdef CONFIG_NET_NS
-	if (dev->nd_net !=3D &init_net)
-		netif_rx(skb);
-	else
-#endif
-		netif_receive_skb(skb);
+ drivers/net/ixgb/ixgb_ethtool.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
->=20
-> Or we create:
->     init_loopback_xmit() calling netif_receive_skb(skb);
->     and setup this function when creating the loopback for init_net,
->     otherwise we setup the usual loopback_xmit.
->=20
-> We are still safe for multiple network namespaces and we have the=20
-> improvement for init_net loopback.
->=20
+diff --git a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ixgb/ixgb_ethtool.c
+index 53a9fd0..75f3a68 100644
+--- a/drivers/net/ixgb/ixgb_ethtool.c
++++ b/drivers/net/ixgb/ixgb_ethtool.c
+@@ -67,6 +67,7 @@ static struct ixgb_stats ixgb_gstrings_stats[] = {
+ 	{"rx_over_errors", IXGB_STAT(net_stats.rx_over_errors)},
+ 	{"rx_crc_errors", IXGB_STAT(net_stats.rx_crc_errors)},
+ 	{"rx_frame_errors", IXGB_STAT(net_stats.rx_frame_errors)},
++	{"rx_no_buffer_count", IXGB_STAT(stats.rnbc)},
+ 	{"rx_fifo_errors", IXGB_STAT(net_stats.rx_fifo_errors)},
+ 	{"rx_missed_errors", IXGB_STAT(net_stats.rx_missed_errors)},
+ 	{"tx_aborted_errors", IXGB_STAT(net_stats.tx_aborted_errors)},
 
-I dont understand how my patch could degrade loopbackdev unregister log=
-ic. It=20
-should only help it, by avoiding a queue of 'pending packets' per cpu.
-
-When we want to unregister a network device, stack makes sure that no m=
-ore=20
-calls to dev->hard_start_xmit() can occur.
-
-If no more loopback_xmit() calls are done on this device, it doesnt mat=
-ter if=20
-it internally uses netif_rx() or netif_receive_skb(skb)
-
-loopback device has no queue, its really unfortunate to use the 'softir=
-q'=20
-internal queue.
