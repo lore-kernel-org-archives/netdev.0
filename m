@@ -1,87 +1,100 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 5/7] e1000e: fix flow control denial of
-	service possibility
-Date: Thu, 21 Feb 2008 15:11:02 -0800
-Message-ID: <20080221231102.5595.51852.stgit@localhost.localdomain>
-References: <20080221231041.5595.4933.stgit@localhost.localdomain>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC,PATCH] loopback: calls netif_receive_skb() instead of netif_rx()
+Date: Fri, 22 Feb 2008 00:19:19 +0100
+Message-ID: <47BE06F7.5080305@cosmosbay.com>
+References: <47BDC848.50607@cosmosbay.com> <47BDDBB5.1050603@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: jeff@garzik.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20080221231041.5595.4933.stgit@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from neuf-infra-smtp-out-sp604007av.neufgp.fr ([84.96.92.120]:48469
+	"EHLO neuf-infra-smtp-out-sp604007av.neufgp.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755925AbYBUXTc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 18:19:32 -0500
+In-Reply-To: <47BDDBB5.1050603@fr.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Daniel Lezcano a =E9crit :
+> Eric Dumazet wrote:
+>> Hi David
+>>
+>> This is an RFC, based on net-2.6 for convenience only.
+>>
+>> Thank you
+>>
+>> [RFC,PATCH] loopback: calls netif_receive_skb() instead of netif_rx(=
+)
+>>
+>> Loopback transmit function loopback_xmit() actually calls netif_rx()=
+=20
+>> to queue
+>> a skb to the softnet queue, and arms a softirq so that this skb can =
+be=20
+>> handled later.
+>>
+>> This has a cost on SMP, because we need to hold a reference on the=20
+>> device, and free this
+>> reference when softirq dequeues packet.
+>>
+>> Following patch directly calls netif_receive_skb() and avoids lot of=
+=20
+>> atomic operations.
+>> (atomic_inc(&dev->refcnt), set_and_set_bit(NAPI_STATE_SCHED,=20
+>> &n->state), ...
+>>  atomic_dec(&dev->refcnt)...), cache line ping-pongs on device refcn=
+t,=20
+>> but also softirq overhead.
+>>
+>> This gives a nice boost on tbench for example (5 % on my machine)
+>=20
+> I understand this is interesting for the loopback when there is no=20
+> multiple instances of it and it can't be unregistered. But now with t=
+he=20
+> network namespaces, we can have multiple instances of the loopback an=
+d=20
+> it can to be unregistered. Shouldn't we still use netif_rx ?
+> Perhaps we can do something like:
+>=20
+>     if (dev->nd_net =3D=3D &init_net)
+>         netif_receive_skb(skb);
+>     else
+>         netif_rx(skb);
 
-this patch avoids a denial of service from an evildoer sending a
-continuous stream of flow control at our adapter that is plugged
-into a non-flow control enabled switch.
+or
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+#ifdef CONFIG_NET_NS
+	if (dev->nd_net !=3D &init_net)
+		netif_rx(skb);
+	else
+#endif
+		netif_receive_skb(skb);
 
- drivers/net/e1000e/lib.c |   31 +++++--------------------------
- 1 files changed, 5 insertions(+), 26 deletions(-)
+>=20
+> Or we create:
+>     init_loopback_xmit() calling netif_receive_skb(skb);
+>     and setup this function when creating the loopback for init_net,
+>     otherwise we setup the usual loopback_xmit.
+>=20
+> We are still safe for multiple network namespaces and we have the=20
+> improvement for init_net loopback.
+>=20
 
-diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
-index 0860b5f..341d74e 100644
---- a/drivers/net/e1000e/lib.c
-+++ b/drivers/net/e1000e/lib.c
-@@ -1104,34 +1104,13 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 			 (mii_nway_lp_ability_reg & NWAY_LPAR_ASM_DIR)) {
- 			mac->fc = e1000_fc_rx_pause;
- 			hw_dbg(hw, "Flow Control = RX PAUSE frames only.\r\n");
--		}
--		/* Per the IEEE spec, at this point flow control should be
--		 * disabled.  However, we want to consider that we could
--		 * be connected to a legacy switch that doesn't advertise
--		 * desired flow control, but can be forced on the link
--		 * partner.  So if we advertised no flow control, that is
--		 * what we will resolve to.  If we advertised some kind of
--		 * receive capability (Rx Pause Only or Full Flow Control)
--		 * and the link partner advertised none, we will configure
--		 * ourselves to enable Rx Flow Control only.  We can do
--		 * this safely for two reasons:  If the link partner really
--		 * didn't want flow control enabled, and we enable Rx, no
--		 * harm done since we won't be receiving any PAUSE frames
--		 * anyway.  If the intent on the link partner was to have
--		 * flow control enabled, then by us enabling RX only, we
--		 * can at least receive pause frames and process them.
--		 * This is a good idea because in most cases, since we are
--		 * predominantly a server NIC, more times than not we will
--		 * be asked to delay transmission of packets than asking
--		 * our link partner to pause transmission of frames.
--		 */
--		else if ((mac->original_fc == e1000_fc_none) ||
--			 (mac->original_fc == e1000_fc_tx_pause)) {
-+		} else {
-+			/*
-+			 * Per the IEEE spec, at this point flow control
-+			 * should be disabled.
-+			 */
- 			mac->fc = e1000_fc_none;
- 			hw_dbg(hw, "Flow Control = NONE.\r\n");
--		} else {
--			mac->fc = e1000_fc_rx_pause;
--			hw_dbg(hw, "Flow Control = RX PAUSE frames only.\r\n");
- 		}
- 
- 		/* Now we need to do one last check...  If we auto-
+I dont understand how my patch could degrade loopbackdev unregister log=
+ic. It=20
+should only help it, by avoiding a queue of 'pending packets' per cpu.
 
+When we want to unregister a network device, stack makes sure that no m=
+ore=20
+calls to dev->hard_start_xmit() can occur.
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2008.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+If no more loopback_xmit() calls are done on this device, it doesnt mat=
+ter if=20
+it internally uses netif_rx() or netif_receive_skb(skb)
+
+loopback device has no queue, its really unfortunate to use the 'softir=
+q'=20
+internal queue.
