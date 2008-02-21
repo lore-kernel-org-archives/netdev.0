@@ -1,97 +1,83 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
-Date: Thu, 21 Feb 2008 09:53:56 +0000
-Message-ID: <47BD4A34.7070606@katalix.com>
-References: <20080211224924.GA2863@ami.dom.local> <47B0DD1E.5000608@katalix.com> <20080211.213048.192442721.davem@davemloft.net> <47B17BCD.2070903@katalix.com> <20080214130016.GA2583@ff.dom.local> <47BA0214.40703@katalix.com> <20080219230640.GA2755@ami.dom.local> <47BC4F2C.4000802@katalix.com> <20080220183837.GA2881@ami.dom.local> <47BCABC5.9080204@katalix.com> <20080221085959.GA12944@ff.dom.local>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: New sparse warning in net/mac80211/debugfs_sta.c
+Date: Thu, 21 Feb 2008 10:54:59 +0100
+Message-ID: <1203587699.17534.135.camel@johannes.berg>
+References: <1203586467.20345.14.camel@brick>
+	 (sfid-20080221_093434_677550_A65AEFBB)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-TTwIFCuQu1h2A98F+a62"
+Cc: David Miller <davem@davemloft.net>, Joe Perches <joe@perches.com>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Harvey Harrison <harvey.harrison@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:50161 "EHLO s36.avahost.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754529AbYBUJyB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Feb 2008 04:54:01 -0500
-In-Reply-To: <20080221085959.GA12944@ff.dom.local>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:53930 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752510AbYBUJzO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2008 04:55:14 -0500
+In-Reply-To: <1203586467.20345.14.camel@brick> (sfid-20080221_093434_677550_A65AEFBB)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> On Wed, Feb 20, 2008 at 10:37:57PM +0000, James Chapman wrote:
->> Jarek Poplawski wrote:
->>
->>>>> (testing patch #1)
->>> But I hope you tested with the fixed (take 2) version of this patch...
->> Yes I did. :)
->>
->> But I just got another lockdep error (attached).
->>
->>> Since it's quite experimental (testing) this patch could be wrong
->>> as it is, but I hope it should show the proper way to solve this
->>> problem. Probably you did some of these, but here are a few of my
->>> suggestions for testing this:
->>>
->>> 1) try my patch with your full bh locking changing patch;
->>> 2) add while loops to these trylocks on failure, with e.g.  __delay(1);
->>>    this should work like full locks again, but there should be no (this
->>>    kind of) lockdep reports;
->> Hmm, isn't this just bypassing the lockdep checks?
-> 
-> Yes! But it's only for debugging: to find if this change in locking
-> is to be blamed for these new lockups. It should effectively work just
-> like without this patch, but without this lockdep warning. So, if
-> after such change lockups still happen, then it would seem you didn't
-> test this enough before. Otherwise the new patch is to blame and needs
-> reworking.
 
-The lockups still happen, but I think they are now due to a different 
-problem, as you say.
+--=-TTwIFCuQu1h2A98F+a62
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Some background on this issue might be useful to help get feedback from 
-others on the list. This issue was first reported by an ISP who found 
-random lockups if an L2TP tunnel carrying hundreds/thousands of L2TP 
-sessions went down due to a network outage and then recovered itself. On 
-recovery, all of the tunnel's sessions (PPP) are created rapidly. 
-Sometimes the tunnel would recover just fine, but other times not. The 
-ISP put some effort into reproducing the problem and found that 
-repeatedly creating/deleting a tunnel with lots of L2TP sessions would 
-cause the failure after a random time between a few minutes and several 
-hours. The original lockdep trace came from the ISP. I initially 
-couldn't reproduce the problem but I borrowed two equivalent quad-core 
-systems and can now reproduce it. Subsequent lockdep traces have been 
-from my testing.
 
-The _bh locking fixes in pppol2tp combined with your ppp_generic change 
-solved that problem. So I then added data traffic into the mix (since 
-this will happen in a real network) and found that lockups still happen. 
-But the lockdep trace in this case is different, as you noted.
+On Thu, 2008-02-21 at 01:34 -0800, Harvey Harrison wrote:
+> commit 0795af5729b18218767fab27c44b1384f72dc9ad
+> Author: Joe Perches <joe@perches.com>
+> Date:   Wed Oct 3 17:59:30 2007 -0700
+>=20
+>     [NET]: Introduce and use print_mac() and DECLARE_MAC_BUF()
+>    =20
+>     This is nicer than the MAC_FMT stuff.
+>    =20
+>     Signed-off-by: Joe Perches <joe@perches.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>=20
+> Introduced:
+> net/mac80211/debugfs_sta.c: In function =E2=80=98ieee80211_sta_debugfs_ad=
+d=E2=80=99:
+> net/mac80211/debugfs_sta.c:211: warning: statement with no effect
+>=20
+> Does print_mac modify the mac buffer in-place, or return a new buffer?
 
-Does PPPoE stress the PPP setup code as much as this scenario? I guess 
-in theory it could if lots of PPPoE clients connected at the same time, 
-but there is no aggregate tunnel like there is with L2TP to cause all 
-sessions to connect simultaneously. Perhaps PPTP also suffers from these 
-issues? Perhaps not because it tends to be used only in VPN setups where 
-there is only 1 session per tunnel.
+It modifies the buffer, and I think it's more likely that the warning
+was introduced by
 
->>> 3) I send here another testing patch with this second way to do this:
->>>    on the write side, but it's even more "experimental" and only a
->>>    proof of concept (should be applied on vanilla ppp_generic).
->> I'll look over it. I think I need to take a step back and look at what's  
->> happening in more detail though.
-> 
-> This is something completely new and changes all the picture: the xmit
-> path wasn't expected (at least by me) to be called in softirq context
-> at all, and there were no traces of this on previous reports. But,
-> since lockdep always stops after the first warning, there could be
-> even more surprises like this in the future. I'll check this report.
+commit 8f789c48448aed74fe1c07af76de8f04adacec7d
+Author: David S. Miller <davem@davemloft.net>
+Date:   Mon Feb 18 16:50:22 2008 -0800
 
-Doesn't the TX softirq do transmits if they've been queued up?
+    [NET]: Elminate spurious print_mac() calls.
 
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+since __pure indicates that the function has no side effects apart from
+the return value (IIRC)
+
+johannes
+
+--=-TTwIFCuQu1h2A98F+a62
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUAR71KcqVg1VMiehFYAQJ7IxAAuR218Er53oqXmIi7fa8Em79aZDHa0wuk
+WAwjzi7SzdPkCN8uVtn/4nLbdCoqRmRWI624B2uWd5qiI/HAT5LPzWfKuunrl/n+
+OAsaxxL1YLRDvwwD3Z9RW6RaAE8D/kqV8kqOhuRAzRjzu6ZDHuSBOcVri2/8P3Ya
+e+aFd/eqn8b3iLNd6zjYnAR00iOeR8+IGI8Kg42Rw+fkrzc9cHITC9HClan/IL/X
+iC2Ljc0aCA4Dcb8r+e0x+S1Xso9NRWRnT6UhHJEQCql8IAf9ARobqtkl6ZK7d/yk
+X8fzDcWQLnd+EKEqA3kNCG3xT2aRcIsTY+y+4A0asTTwPfvikrFYANs2WMo8ms9S
+MCdIKrKfDYQvLaRV9kLEYVKwSN0+sJ0AzfQB45liz4sHFK+eb6v8v2qLlzzvLmtj
+7FZQul1GF6elo53vw2SY/PCIYoVvI2HvM1eh3HQOS0+/o3ByvyEWsx9hwwg0k261
+x21MsL1ZogNbAKNp7HRiL1L262xKPnuv7+ybAI6CPy/lP5iuiWnhTH2B0rfKEgWq
+QdaxhlGxHEouiiLQrI4NNC7kVBYeQ4i/5KQh/Zd7eaBhdPe0IuLv62/XuQRNJQ29
+zg/sXVVxvnGYaoxeO+DGVI7j2vuoDal4NHGV6EAEnRFQY7N7pAtHM45ImWO1vv7p
+LSBF2TElNM8=
+=cd3k
+-----END PGP SIGNATURE-----
+
+--=-TTwIFCuQu1h2A98F+a62--
 
