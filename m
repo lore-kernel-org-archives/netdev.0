@@ -1,68 +1,50 @@
-From: "Francesco Saverio Giudice" <info@fsgiudice.com>
-Subject: Error on ip route replace command
-Date: Fri, 22 Feb 2008 23:22:01 +0100
-Message-ID: <00a701c875a1$58f70fb0$b400a8c0@ASUSFSG>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [NETFILTER]: Introduce nf_inet_address
+Date: Sat, 23 Feb 2008 07:37:46 +0900
+Message-ID: <1203719866.5771.81.camel@shinybook.infradead.org>
+References: <200801291316.m0TDGivY024953@hera.kernel.org>
+	 <1203428949.3223.25.camel@shinybook.infradead.org>
+	 <47BAE13D.4060206@trash.net>
+	 <1203431447.3223.33.camel@shinybook.infradead.org>
+	 <47BAEB6C.1030609@trash.net>
+	 <1203666762.5771.35.camel@shinybook.infradead.org>
+	 <47BEE31D.7020003@trash.net> <47BEEC5C.4060201@netfilter.org>
+	 <47BEEDEF.5060503@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=original
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host18-125-static.189-82-b.business.telecomitalia.it ([82.189.125.18]:53338
-	"EHLO mailserver.infocomsrl.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754587AbYBVW2p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2008 17:28:45 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
+	Jan Engelhardt <jengelh@computergmbh.de>,
+	"David S. Miller" <davem@davemloft.net>, varekova@redhat.com,
+	twoerner@redhat.com,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <47BEEDEF.5060503@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi All,
 
-I have a problem with kernel 2.6.24.
+On Fri, 2008-02-22 at 16:44 +0100, Patrick McHardy wrote:
+> Pablo Neira Ayuso wrote:
+> > Patrick McHardy wrote:
+> >> Yes, that was a bug in the lastest release. We need to
+> >> release a 1.4.1 version or something like that, but I'm
+> >> not too familiar with the release process, so I haven't
+> >> done this so far.
+> > 
+> > I can schedule one for this weekend, just send me an ACK.
+> 
+> 
+> That would be great. I think we had another issue in 1.4.0 with
+> some header files, but I can't remeber the details.
 
-Having a running configuration using Shorewall and restarting it I got 
-follow error:
-RTNETLINK answers: File exists
+If you are going to include header files in the release (which makes a
+certain amount of sense), it would be best if those are simply the
+result of the kernel's 'make headers_install', without any manual
+changes.
 
-Tom Eastep, Shorewall creator, told me to inform you about the problem.
-
-Here is the mail:
-------------------------------------------------------------
-Francesco Saverio Giudice wrote:
-> Hi Tom,
->
-> I get the error:
->
-> ---------
-> # ip route add 1.2.4.5 dev eth3
-> # ip route replace 1.2.4.5 dev eth3
-> RTNETLINK answers: File exists
-> ---------
->
-> I have to patch kernel or something else ?
->
-
-You should report it at netdev@vger.kernel.org (that's where the Linux
-networking developers hang out). This failure does not occur with kernel
-2.6.22 and iproute2 ss070710:
-
-gateway:~ # ip route add 1.2.4.5 dev eth0
-gateway:~ # ip route replace 1.2.4.5 dev eth0
-gateway:~ # ip route del 1.2.4.5
-
--Tom
 -- 
-Tom Eastep    \ Nothing is foolproof to a sufficiently talented fool
-Shoreline,     \ http://shorewall.net
-Washington USA  \ teastep@shorewall.net
-PGP Public Key   \ https://lists.shorewall.net/teastep.pgp.key
-
-------------------------------------------------------------
-
-Best Regards
-
-Francesco Saverio Giudice
-
-
+dwmw2
 
