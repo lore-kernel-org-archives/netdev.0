@@ -1,90 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RTNL]: Validate hardware and broadcast address attribute for
- RTM_NEWLINK
-Date: Fri, 22 Feb 2008 14:05:34 +0100
-Message-ID: <47BEC89E.9030909@trash.net>
-References: <20080222125702.GB20815@postel.suug.ch>
+From: =?utf-8?Q?=E3=80=8ETaiwan_News_Express=E3=80=8F?=
+	<noreply@etaiwannews.com>
+Subject: Taiwan's glory--computer industry
+Date: Fri, 22 Feb 2008 21:14:56 +0800
+Message-ID: <9fd71ff0db916dbbdf58234ff6cdee67@wlog.etaiwannews.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep20-int.chello.at ([62.179.121.40]:47003 "EHLO
-	viefep20-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751405AbYBVNFz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2008 08:05:55 -0500
-In-Reply-To: <20080222125702.GB20815@postel.suug.ch>
+Received: from mailgw.etaiwannews.com ([211.72.1.254]:59059 "EHLO
+	mailgw.etaiwannews.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755463AbYBVNP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2008 08:15:26 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by mailgw.etaiwannews.com (Postfix) with ESMTP id 82B9075192
+	for <netdev@vger.kernel.org>; Fri, 22 Feb 2008 21:15:24 +0800 (CST)
+Received: from mailgw.etaiwannews.com ([127.0.0.1])
+	by localhost (mailGW.etaiwannews.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 06346-09 for <netdev@vger.kernel.org>;
+	Fri, 22 Feb 2008 21:15:24 +0800 (CST)
+Received: from wlog.etaiwannews.com (unknown [192.168.0.9])
+	by mailgw.etaiwannews.com (Postfix) with ESMTP id 6049575185
+	for <netdev@vger.kernel.org>; Fri, 22 Feb 2008 21:15:24 +0800 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thomas Graf wrote:
-> RTM_NEWLINK allows for already existing links to be modified. For this
-> purpose do_setlink() is called which expects address attributes with a
-> payload length of at least dev->addr_len. This patch adds the necessary
-> validation for the RTM_NEWLINK case.
-> 
-> The address length for links to be created is not checked for now as the
-> actual attribute length is used when copying the address to the netdevice
-> structure. It might make sense to report an error if less than addr_len
-> bytes are provided but enforcing this might break drivers trying to be
-> smart with not transmitting all zero addresses.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> 
-> Index: net-2.6.26/net/core/rtnetlink.c
-> ===================================================================
-> --- net-2.6.26.orig/net/core/rtnetlink.c	2008-02-22 01:50:53.000000000 +0100
-> +++ net-2.6.26/net/core/rtnetlink.c	2008-02-22 11:28:59.000000000 +0100
-> @@ -726,6 +726,21 @@
->  	return net;
->  }
->  
-> +static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
-> +{
-> +	if (dev) {
-> +		if (tb[IFLA_ADDRESS] &&
-> +		    nla_len(tb[IFLA_ADDRESS]) < dev->addr_len)
-> +			return -EINVAL;
-> +
-> +		if (tb[IFLA_BROADCAST] &&
-> +		    nla_len(tb[IFLA_BROADCAST]) < dev->addr_len)
-> +			return -EINVAL;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
->  static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
->  		      struct nlattr **tb, char *ifname, int modified)
->  {
-> @@ -910,12 +925,7 @@
->  		goto errout;
->  	}
->  
-> -	if (tb[IFLA_ADDRESS] &&
-> -	    nla_len(tb[IFLA_ADDRESS]) < dev->addr_len)
-> -		goto errout_dev;
-> -
-> -	if (tb[IFLA_BROADCAST] &&
-> -	    nla_len(tb[IFLA_BROADCAST]) < dev->addr_len)
-> +	if ((err = validate_linkmsg(dev, tb)) < 0)
->  		goto errout_dev;
->  
->  	err = do_setlink(dev, ifm, tb, ifname, 0);
-> @@ -1036,6 +1046,9 @@
->  	else
->  		dev = NULL;
->  
-> +	if ((err = validate_linkmsg(dev, tb)) < 0)
-> +		return err;
-> +
 
-Minor nitpick: it would be more logical to put this in the
 
-if (dev) {
-  ...
+ <http://www.taiwannews.com.tw/static/express/080222-01.pdf>
+<http://www.taiwannews.com.tw/static/express/080222-02.pdf>
+<http://www.taiwannews.com.tw/static/express/080222-03.pdf>
+<http://www.taiwannews.com.tw/static/express/080222-04.pdf>
 
-branch a bit below since thats the only path that leads to
-do_setlink(). That would also allow to remove the
-if (dev) check from validate_linkmsg().
+
+
+ 
+
+
+--
+Powered by PHPlist, www.phplist.com --
+
+
+
