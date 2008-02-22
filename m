@@ -1,42 +1,43 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] unexport ip6_find_1stfragopt
-Date: Fri, 22 Feb 2008 21:58:11 +0200
-Message-ID: <20080222195811.GC1409@cs181133002.pp.htv.fi>
+From: "Stephens, Allan" <allan.stephens@windriver.com>
+Subject: [PATCH 01/08] [TIPC]: Update version to 1.6.3
+Date: Fri, 22 Feb 2008 11:59:00 -0800
+Message-ID: <AF1602CB2550CE4381C0C75118A7856B0246C88E@ala-mail02.corp.ad.wrs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.pp.htv.fi ([213.243.153.39]:52678 "EHLO smtp5.pp.htv.fi"
+Received: from mail.windriver.com ([147.11.1.11]:37357 "EHLO mail.wrs.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762145AbYBVT67 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Feb 2008 14:58:59 -0500
-Content-Disposition: inline
+	id S932069AbYBVT70 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2008 14:59:26 -0500
+Received: from ALA-MAIL03.corp.ad.wrs.com (ala-mail03 [147.11.57.144])
+	by mail.wrs.com (8.13.6/8.13.6) with ESMTP id m1MJxOfh017773
+	for <netdev@vger.kernel.org>; Fri, 22 Feb 2008 11:59:25 -0800 (PST)
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes the no longer used 
-EXPORT_SYMBOL_GPL(ip6_find_1stfragopt).
+This patch updates TIPC's version number to 1.6.3.
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
-
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 ---
+ net/tipc/core.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-This patch has been sent on:
-- 30 Jan 2008
-
-961bcbf7370019e35920a75d2d34c91b71708dfe 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 15c4f6c..ca707c0 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -595,7 +595,6 @@ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index d2d7d32..9b9429e 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -57,7 +57,7 @@ void tipc_socket_stop(void);
+ int  tipc_netlink_start(void);
+ void tipc_netlink_stop(void);
  
- 	return offset;
- }
--EXPORT_SYMBOL_GPL(ip6_find_1stfragopt);
+-#define TIPC_MOD_VER "1.6.2"
++#define TIPC_MOD_VER "1.6.3"
  
- static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- {
-
-
+ #ifndef CONFIG_TIPC_ZONES
+ #define CONFIG_TIPC_ZONES 3
+-- 
+1.5.3.2
