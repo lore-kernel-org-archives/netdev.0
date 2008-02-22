@@ -1,62 +1,38 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][NEIGH]: Fix race between neighbor lookup and table's hash_rnd
- update.
-Date: Fri, 22 Feb 2008 12:37:03 +0300
-Message-ID: <47BE97BF.6020600@openvz.org>
+From: Chris Rankin <rankincj@yahoo.com>
+Subject: Re: Linux 2.6.24.1 - kernel does not boot; IRQ trouble?
+Date: Fri, 22 Feb 2008 09:41:54 +0000 (GMT)
+Message-ID: <769836.91421.qm@web52909.mail.re2.yahoo.com>
+References: <3ae72650802220111s11e68f1ft149d7832e9bebbd6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:48724 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753512AbYBVJhF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Feb 2008 04:37:05 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Kay Sievers <kay.sievers@vrfy.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <3ae72650802220111s11e68f1ft149d7832e9bebbd6@mail.gmail.com>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The neigh_hash_grow() may update the tbl->hash_rnd value, which 
-is used in all tbl->hash callbacks to calculate the hashval.
+--- Kay Sievers <kay.sievers@vrfy.org> wrote:
+> Greg,
+> it seems that:
+>   arch/x86/pci/legacy.c :: pci_legacy_init()
+> 
+> tries to create already created "bridge" symlinks in 2.6.24. So we
+> discover the same devices twice? Can this be a reason for the hang?
 
-Two lookup routines may race with this, since they call the 
-->hash callback without the tbl->lock held. Since the hash_rnd
-is changed with this lock write-locked moving the calls to ->hash
-under this lock read-locked closes this gap.
+No, it can't be because it's *not* hanging in this configuration :-). It hangs when I *don't* add
+the acpi=noirq option, whereas here it's just adding noise to the dmesg log. (I'm guessing Linux
+doesn't call pci_legacy_init() when ACPI takes charge of the IRQs.)
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Cheers,
+Chris
 
----
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 4062b88..2328acb 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -358,11 +358,12 @@ struct neighbour *neigh_lookup(struct neigh_table *tbl, const void *pkey,
- {
- 	struct neighbour *n;
- 	int key_len = tbl->key_len;
--	u32 hash_val = tbl->hash(pkey, dev);
-+	u32 hash_val;
- 
- 	NEIGH_CACHE_STAT_INC(tbl, lookups);
- 
- 	read_lock_bh(&tbl->lock);
-+	hash_val = tbl->hash(pkey, dev);
- 	for (n = tbl->hash_buckets[hash_val & tbl->hash_mask]; n; n = n->next) {
- 		if (dev == n->dev && !memcmp(n->primary_key, pkey, key_len)) {
- 			neigh_hold(n);
-@@ -379,11 +380,12 @@ struct neighbour *neigh_lookup_nodev(struct neigh_table *tbl, struct net *net,
- {
- 	struct neighbour *n;
- 	int key_len = tbl->key_len;
--	u32 hash_val = tbl->hash(pkey, NULL);
-+	u32 hash_val;
- 
- 	NEIGH_CACHE_STAT_INC(tbl, lookups);
- 
- 	read_lock_bh(&tbl->lock);
-+	hash_val = tbl->hash(pkey, NULL);
- 	for (n = tbl->hash_buckets[hash_val & tbl->hash_mask]; n; n = n->next) {
- 		if (!memcmp(n->primary_key, pkey, key_len) &&
- 		    (net == n->dev->nd_net)) {
+
+      __________________________________________________________
+Sent from Yahoo! Mail.
+A Smarter Inbox. http://uk.docs.yahoo.com/nowyoucan.html
