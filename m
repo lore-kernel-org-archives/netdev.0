@@ -1,129 +1,96 @@
 From: Andy Fleming <afleming@freescale.com>
-Subject: Re: Marvell PHY driver fix
-Date: Fri, 22 Feb 2008 11:25:42 -0600
-Message-ID: <B35B214F-5E9F-4DAA-8F74-41ACDC8480FA@freescale.com>
-References: <20080222143409.GA1477@ru.mvista.com>
+Subject: Re: [PATCH RFC] phylib: fix forced mode misbehaviour for aneg off case
+Date: Fri, 22 Feb 2008 11:40:04 -0600
+Message-ID: <B1C15E4A-AA44-46E4-831A-698317E5F677@freescale.com>
+References: <20080222155524.GA6623@localhost.localdomain>
 Mime-Version: 1.0 (Apple Message framework v753)
 Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Vitaly Bordug <vbordug@ru.mvista.com>,
-	"Mark A. Greer" <mgreer@mvista.com>
-To: Alexandr Smirnov <asmirnov@ru.mvista.com>
+Cc: netdev@vger.kernel.org
+To: Anton Vorontsov <avorontsov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:48888 "EHLO
+Received: from az33egw02.freescale.net ([192.88.158.103]:57771 "EHLO
 	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752613AbYBVR1F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2008 12:27:05 -0500
-In-Reply-To: <20080222143409.GA1477@ru.mvista.com>
+	with ESMTP id S1753618AbYBVRkT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2008 12:40:19 -0500
+In-Reply-To: <20080222155524.GA6623@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On Feb 22, 2008, at 08:34, Alexandr Smirnov wrote:
+On Feb 22, 2008, at 09:55, Anton Vorontsov wrote:
 
-> Marvell PHY m88e1111 (not sure about other models, but think they  
-> too) works in
-> two modes: fiber and copper. In Marvell PHY driver (that we have in  
-> current
-> community kernels) code supported only copper mode, and this is not  
-> configurable,
-> bits for copper mode are simply written in registers during PHY
-> initialization. This patch adds support for both modes.
-
-Excellent.  I've known about this problem for a while, but haven't  
-been able to look into it.
-
-However, some comments below
-
+> When user disabled autonegotiation via ethtool, and no link is  
+> detected,
+> phylib will place phy into forcing mode, and then will start calling
+> phy_force_reduction(). This will break user expectations. For example,
+> user asks for fixed speed 1000:
 >
-> Signed-off-by: Alexandr Smirnov <asmirnov@ru.mvista.com>
+> ethtool -s eth0 autoneg off speed 1000
 >
-> diff -pruN powerpc.orig/drivers/net/phy/marvell.c powerpc/drivers/ 
-> net/phy/marvell.c
-> --- powerpc.orig/drivers/net/phy/marvell.c	2008-02-07  
-> 14:59:32.000000000 +0300
-> +++ powerpc/drivers/net/phy/marvell.c	2008-02-19 21:47:34.000000000  
-> +0300
-> @@ -58,9 +58,28 @@
-
+> Without link attached what will actually happen is:
 >
-> +#define MII_M1111_PHY_CR		0
-> +#define MII_M1111_SOFTWARE_RESET	0x8000
-
-You don't need to do this.  There are already constants for both of  
-those values.  That's a standard register.
-
->
->
->  MODULE_DESCRIPTION("Marvell PHY driver");
->  MODULE_AUTHOR("Andy Fleming");
-> @@ -141,12 +160,22 @@ static int marvell_config_aneg(struct ph
->  static int m88e1111_config_init(struct phy_device *phydev)
->  {
->  	int err;
-> +	int temp;
-> +	int mode;
-> +
-> +	/* Enable Fiber/Copper auto selection */
-> +	temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
-> +	temp |= MII_M1111_HWCFG_FIBER_COPPER_AUTO;
-> +	phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
-> +
-> +	temp = phy_read(phydev, MII_M1111_PHY_CR);
-> +	temp |= MII_M1111_SOFTWARE_RESET;
-> +	phy_write(phydev, MII_M1111_PHY_CR, temp);
+> Trying 100/FULL
+> Trying 100/HALF
+> Trying 10/FULL
+> Trying 10/HALF
+> ...
 
 
-Use the standard constants from mii.h (MII_BMCR, and BMCR_RESET)
+The intent of phy_force_reduction() was to provide a fallback in case  
+the user unknowingly selects a speed that is not possible with the  
+current link partner.  For instance, if you try to select gigabit on  
+a 100MB link, it wouldn't work, but because of the way the code was  
+designed, the phylib will find a link configuration that works.
+
+However, I agree that it's not ideal to have the phylib spending a  
+lot of time looking for a link if there's not one there.  On the  
+other hand, why is the user trying to force the link to a certain  
+speed if there's no link?
+
+I'm not really opposed to it, though.
 
 
 >
+> This patch implements "software autonegotiation" that is equivalent to
+> current behaviour, but enabled only when hardware autonegotiation was
+> enabled and failed afterwards. With aneg disabled, phylib will not try
+> other link setups.
 >
->
->  		temp &= ~(MII_M1111_HWCFG_MODE_MASK);
-> -		temp |= MII_M1111_HWCFG_MODE_RGMII;
-> +
-> +		mode = phy_read(phydev, MII_M1111_PHY_EXT_CR);
-> +		mode = (mode & MII_M1111_HWCFG_FIBER_COPPER_RES) >> 13;
-> +
-> +		switch (mode) {
-> +		case MII_M1111_COPPER:
-> +			temp |= MII_M1111_HWCFG_MODE_COPPER_RGMII;
-> +			break;
-> +		case MII_M1111_FIBER:
-> +			temp |= MII_M1111_HWCFG_MODE_FIBER_RGMII;
-> +		}
-
-
-I think using a switch statement on a single bit is probably  
-overkill.  Much clearer, I think, if you do:
-
-mode = phy_read(phydev, MII_M1111_PHY_EXT_CR);
-
-if (mode & MII_M1111_HWCFG_FIBER_COPPER_RES)
-	temp |= MII_M1111_HWCFG_MODE_FIBER_RGMII;
-else
-	temp |= MII_M1111_HWCFG_MODE_COPPER_RGMII;
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+> ---
 
 
 >
-> +/* marvell_read_status
-> + *
-> + * Generic status code does not detect Fiber correctly!
+> @@ -447,7 +451,8 @@ int phy_start_aneg(struct phy_device *phydev)
+>  			phydev->link_timeout = PHY_AN_TIMEOUT;
+>  		} else {
+>  			phydev->state = PHY_FORCING;
+> -			phydev->link_timeout = PHY_FORCE_TIMEOUT;
+> +			if (AUTONEG_SOFT == phydev->autoneg)
+> +				phydev->link_timeout = PHY_FORCE_TIMEOUT;
+>  		}
+>  	}
 
 
-After looking at the manual for the 88e1111, I think there may be a  
-way to continue using the generic code, rather than replicating the  
-generic code with slightly different values.  It looks like the  
-problem isn't that Fiber disobeys the MIIM standard, but that it uses  
-a paging mechanism to determine whether it's the Fiber Status/Control  
-or the Copper Status/Control.  Many of the registers exist in both  
-pages, but those two don't.  However, based on this, it seems  
-reasonable to use the detected mode (fiber/copper) to determine  
-whether we should be operating out of page 0 or 1.
+I'm worried that phydev->link_timeout may end up being left in an  
+unknown state here.  Are you expecting it to be 0?  If so, I think it  
+would be best to set it to 0 in an if clause.
 
-Could you try making sure that register 22[7:0] = 0x1 for fiber, and  
-see if you can then just use the standard genphy_read_status()?
+>
+>
+> @@ -904,7 +909,7 @@ static void phy_state_machine(struct  
+> work_struct *work)
+>  			if (phydev->link) {
+>  				phydev->state = PHY_RUNNING;
+>  				netif_carrier_on(phydev->attached_dev);
+> -			} else {
+> +			} else if (AUTONEG_SOFT == phydev->autoneg) {
+>  				if (0 == phydev->link_timeout--) {
+>  					phy_force_reduction(phydev);
+>  					needs_aneg = 1;
+
+
+Especially since this will, I believe, leave link_timeout at -1
 
 Andy
