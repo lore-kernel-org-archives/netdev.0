@@ -1,70 +1,63 @@
-From: Aurelien Jarno <aurelien@aurel32.net>
-Subject: [PATCH] [SSB] Add CHIPCO IRQ access functions
-Date: Fri, 22 Feb 2008 00:17:13 +0100
-Message-ID: <20080221231713.GA12041@hall.aurel32.net>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: 2.6.25-rc2-mm1 - several bugs and a crash
+Date: Fri, 22 Feb 2008 01:40:35 +0100
+Message-ID: <47BE1A03.30300@imap.cc>
+References: <20080216002522.9c4bd0fb.akpm@linux-foundation.org> <47BC982C.7050402@imap.cc> <47BD6072.4000407@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: netdev@vger.kernel.org
-To: Michael Buesch <mb@bu3sch.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hall.aurel32.net ([88.191.38.19]:51619 "EHLO hall.aurel32.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753574AbYBVAFn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Feb 2008 19:05:43 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigEF1905353D0DD7FA78FC6775"
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <47BD6072.4000407@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds functions to setup and read the CHIPCO IRQ.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigEF1905353D0DD7FA78FC6775
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Aurelien Jarno <aurelien@aurel32.net>
----
- drivers/ssb/driver_chipcommon.c           |   10 ++++++++++
- include/linux/ssb/ssb_driver_chipcommon.h |    4 ++++
- 2 files changed, 14 insertions(+), 0 deletions(-)
+Am 21.02.2008 12:28 schrieb Patrick McHardy:
+>=20
+> Could you test whether this patch fixes the netfilter
+> warnings please?
 
-diff --git a/drivers/ssb/driver_chipcommon.c b/drivers/ssb/driver_chipcommon.c
-index e586321..45b672a 100644
---- a/drivers/ssb/driver_chipcommon.c
-+++ b/drivers/ssb/driver_chipcommon.c
-@@ -353,6 +353,16 @@ void ssb_chipco_watchdog_timer_set(struct ssb_chipcommon *cc, u32 ticks)
- 	chipco_write32(cc, SSB_CHIPCO_WATCHDOG, ticks);
- }
- 
-+void ssb_chipco_irq_mask(struct ssb_chipcommon *cc, u32 mask, u32 value)
-+{
-+	chipco_write32_masked(cc, SSB_CHIPCO_IRQMASK, mask, value);
-+}
-+
-+u32 ssb_chipco_irq_status(struct ssb_chipcommon *cc, u32 mask)
-+{
-+	return chipco_read32(cc, SSB_CHIPCO_IRQSTAT) & mask;
-+}
-+
- u32 ssb_chipco_gpio_in(struct ssb_chipcommon *cc, u32 mask)
- {
- 	return chipco_read32(cc, SSB_CHIPCO_GPIOIN) & mask;
-diff --git a/include/linux/ssb/ssb_driver_chipcommon.h b/include/linux/ssb/ssb_driver_chipcommon.h
-index 536851b..b548a54 100644
---- a/include/linux/ssb/ssb_driver_chipcommon.h
-+++ b/include/linux/ssb/ssb_driver_chipcommon.h
-@@ -390,6 +390,10 @@ extern void ssb_chipco_set_clockmode(struct ssb_chipcommon *cc,
- extern void ssb_chipco_watchdog_timer_set(struct ssb_chipcommon *cc,
- 					  u32 ticks);
- 
-+void ssb_chipco_irq_mask(struct ssb_chipcommon *cc, u32 mask, u32 value);
-+
-+u32 ssb_chipco_irq_status(struct ssb_chipcommon *cc, u32 mask);
-+
- /* Chipcommon GPIO pin access. */
- u32 ssb_chipco_gpio_in(struct ssb_chipcommon *cc, u32 mask);
- u32 ssb_chipco_gpio_out(struct ssb_chipcommon *cc, u32 mask, u32 value);
--- 
-1.5.4.1
+> commit 736b33102292be0d75be1e950ca9bcd5361db7dd
+> Author: Patrick McHardy <kaber@trash.net>
+> Date:   Thu Feb 21 12:26:01 2008 +0100
+>=20
+>     [NETFILTER]: nf_conntrack: fix smp_processor_id() in preemptible co=
+de warning
+
+Yes, it does; and the system also survives substantially longer.
+(IOW, it hasn't crashed on me so far.)
+
+Thanks,
+T.
+
+--=20
+Tilman Schmidt                          E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
 
 
--- 
-  .''`.  Aurelien Jarno	            | GPG: 1024D/F1BCDB73
- : :' :  Debian developer           | Electrical Engineer
- `. `'   aurel32@debian.org         | aurelien@aurel32.net
-   `-    people.debian.org/~aurel32 | www.aurel32.net
+--------------enigEF1905353D0DD7FA78FC6775
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3rc1 (MingW32)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFHvhoDMdB4Whm86/kRAn4aAJ0RoN1yil24MkFPeoYSoYWM2U8PLQCeLPkR
+qLhSqyWd2ariH9j+tacr9jE=
+=vSmV
+-----END PGP SIGNATURE-----
+
+--------------enigEF1905353D0DD7FA78FC6775--
