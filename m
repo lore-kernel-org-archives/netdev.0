@@ -1,206 +1,30 @@
-From: Alexandr Smirnov <asmirnov@ru.mvista.com>
-Subject: Marvell PHY driver fix
-Date: Fri, 22 Feb 2008 17:34:09 +0300
-Message-ID: <20080222143409.GA1477@ru.mvista.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [NETFILTER]: Introduce nf_inet_address
+Date: Fri, 22 Feb 2008 16:38:04 +0100
+Message-ID: <47BEEC5C.4060201@netfilter.org>
+References: <200801291316.m0TDGivY024953@hera.kernel.org>	 <1203428949.3223.25.camel@shinybook.infradead.org>	 <47BAE13D.4060206@trash.net>	 <1203431447.3223.33.camel@shinybook.infradead.org>	 <47BAEB6C.1030609@trash.net> <1203666762.5771.35.camel@shinybook.infradead.org> <47BEE31D.7020003@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linuxppc-dev@ozlabs.org, afleming@freescale.com,
-	vbordug@ru.mvista.com, mgreer@mvista.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [212.176.242.38] ([212.176.242.38]:57169 "EHLO spb.rtsoft.ru"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752504AbYBVP3t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Feb 2008 10:29:49 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Woodhouse <dwmw2@infradead.org>, netdev@vger.kernel.org,
+	Jan Engelhardt <jengelh@computergmbh.de>,
+	"David S. Miller" <davem@davemloft.net>, varekova@redhat.com,
+	twoerner@redhat.com,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <47BEE31D.7020003@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Marvell PHY m88e1111 (not sure about other models, but think they too) works in
-two modes: fiber and copper. In Marvell PHY driver (that we have in current
-community kernels) code supported only copper mode, and this is not configurable,
-bits for copper mode are simply written in registers during PHY
-initialization. This patch adds support for both modes.
+Patrick McHardy wrote:
+> Yes, that was a bug in the lastest release. We need to
+> release a 1.4.1 version or something like that, but I'm
+> not too familiar with the release process, so I haven't
+> done this so far.
 
-Signed-off-by: Alexandr Smirnov <asmirnov@ru.mvista.com>
+I can schedule one for this weekend, just send me an ACK.
 
-diff -pruN powerpc.orig/drivers/net/phy/marvell.c powerpc/drivers/net/phy/marvell.c
---- powerpc.orig/drivers/net/phy/marvell.c	2008-02-07 14:59:32.000000000 +0300
-+++ powerpc/drivers/net/phy/marvell.c	2008-02-19 21:47:34.000000000 +0300
-@@ -58,9 +58,28 @@
- #define MII_M1111_RX_DELAY		0x80
- #define MII_M1111_TX_DELAY		0x2
- #define MII_M1111_PHY_EXT_SR		0x1b
--#define MII_M1111_HWCFG_MODE_MASK	0xf
--#define MII_M1111_HWCFG_MODE_RGMII	0xb
-+
-+#define MII_M1111_HWCFG_MODE_MASK		0xf
-+#define MII_M1111_HWCFG_MODE_COPPER_RGMII	0xb
-+#define MII_M1111_HWCFG_MODE_FIBER_RGMII	0x3
- #define MII_M1111_HWCFG_MODE_SGMII_NO_CLK	0x4
-+#define MII_M1111_HWCFG_FIBER_COPPER_AUTO	0x8000
-+#define MII_M1111_HWCFG_FIBER_COPPER_RES	0x2000
-+
-+#define MII_M1111_PHY_CR		0
-+#define MII_M1111_SOFTWARE_RESET	0x8000
-+
-+#define MII_M1111_COPPER		0
-+#define MII_M1111_FIBER			1
-+
-+#define MII_M1011_PHY_STATUS		0x11
-+#define MII_M1011_PHY_STATUS_1000	0x8000
-+#define MII_M1011_PHY_STATUS_100	0x4000
-+#define MII_M1011_PHY_STATUS_SPD_MASK	0xc000
-+#define MII_M1011_PHY_STATUS_FULLDUPLEX	0x2000
-+#define MII_M1011_PHY_STATUS_RESOLVED	0x0800
-+#define MII_M1011_PHY_STATUS_LINK	0x0400
-+
- 
- MODULE_DESCRIPTION("Marvell PHY driver");
- MODULE_AUTHOR("Andy Fleming");
-@@ -141,12 +160,22 @@ static int marvell_config_aneg(struct ph
- static int m88e1111_config_init(struct phy_device *phydev)
- {
- 	int err;
-+	int temp;
-+	int mode;
-+
-+	/* Enable Fiber/Copper auto selection */
-+	temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
-+	temp |= MII_M1111_HWCFG_FIBER_COPPER_AUTO;
-+	phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
-+
-+	temp = phy_read(phydev, MII_M1111_PHY_CR);
-+	temp |= MII_M1111_SOFTWARE_RESET;
-+	phy_write(phydev, MII_M1111_PHY_CR, temp);
- 
- 	if ((phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
- 	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) ||
- 	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) ||
- 	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)) {
--		int temp;
- 
- 		temp = phy_read(phydev, MII_M1111_PHY_EXT_CR);
- 		if (temp < 0)
-@@ -171,7 +200,17 @@ static int m88e1111_config_init(struct p
- 			return temp;
- 
- 		temp &= ~(MII_M1111_HWCFG_MODE_MASK);
--		temp |= MII_M1111_HWCFG_MODE_RGMII;
-+
-+		mode = phy_read(phydev, MII_M1111_PHY_EXT_CR);
-+		mode = (mode & MII_M1111_HWCFG_FIBER_COPPER_RES) >> 13;
-+
-+		switch (mode) {
-+		case MII_M1111_COPPER:
-+			temp |= MII_M1111_HWCFG_MODE_COPPER_RGMII;
-+			break;
-+		case MII_M1111_FIBER:
-+			temp |= MII_M1111_HWCFG_MODE_FIBER_RGMII;
-+		}
- 
- 		err = phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
- 		if (err < 0)
-@@ -262,6 +301,93 @@ static int m88e1145_config_init(struct p
- 	return 0;
- }
- 
-+/* marvell_read_status
-+ *
-+ * Generic status code does not detect Fiber correctly!
-+ * Description: 
-+ *   Check the link, then figure out the current state
-+ *   by comparing what we advertise with what the link partner
-+ *   advertises.  Start by checking the gigabit possibilities,
-+ *   then move on to 10/100.
-+ */
-+static int marvell_read_status(struct phy_device *phydev)
-+{
-+	int adv;
-+	int err;
-+	int lpa;
-+	int status = 0;
-+
-+	/* Update the link, but return if there
-+	 * was an error */
-+	err = genphy_update_link(phydev);
-+	if (err)
-+		return err;
-+
-+	if (AUTONEG_ENABLE == phydev->autoneg) {
-+		status = phy_read(phydev, MII_M1011_PHY_STATUS);
-+		if (status < 0)
-+			return status;
-+
-+		lpa = phy_read(phydev, MII_LPA);
-+		if (lpa < 0)
-+			return lpa;
-+
-+		adv = phy_read(phydev, MII_ADVERTISE);
-+		if (adv < 0)
-+			return adv;
-+
-+		lpa &= adv;
-+
-+		if (status & MII_M1011_PHY_STATUS_FULLDUPLEX)
-+			phydev->duplex = DUPLEX_FULL;
-+		else
-+			phydev->duplex = DUPLEX_HALF;
-+
-+		status = status & MII_M1011_PHY_STATUS_SPD_MASK;
-+		phydev->pause = phydev->asym_pause = 0;
-+
-+		switch (status) {
-+		case MII_M1011_PHY_STATUS_1000:
-+			phydev->speed = SPEED_1000;
-+			break;
-+
-+		case MII_M1011_PHY_STATUS_100:
-+			phydev->speed = SPEED_100;
-+			break;
-+
-+		default:
-+			phydev->speed = SPEED_10;
-+			break;
-+		}
-+
-+		if (phydev->duplex == DUPLEX_FULL) {
-+			phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
-+			phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
-+		}
-+	} else {
-+		int bmcr = phy_read(phydev, MII_BMCR);
-+
-+		if (bmcr < 0)
-+			return bmcr;
-+
-+		if (bmcr & BMCR_FULLDPLX)
-+			phydev->duplex = DUPLEX_FULL;
-+		else
-+			phydev->duplex = DUPLEX_HALF;
-+
-+		if (bmcr & BMCR_SPEED1000)
-+			phydev->speed = SPEED_1000;
-+		else if (bmcr & BMCR_SPEED100)
-+			phydev->speed = SPEED_100;
-+		else
-+			phydev->speed = SPEED_10;
-+
-+		phydev->pause = phydev->asym_pause = 0;
-+	}
-+
-+	return 0;
-+}
-+
- static struct phy_driver marvell_drivers[] = {
- 	{
- 		.phy_id = 0x01410c60,
-@@ -296,7 +422,7 @@ static struct phy_driver marvell_drivers
- 		.flags = PHY_HAS_INTERRUPT,
- 		.config_init = &m88e1111_config_init,
- 		.config_aneg = &marvell_config_aneg,
--		.read_status = &genphy_read_status,
-+		.read_status = &marvell_read_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
- 		.driver = { .owner = THIS_MODULE },
+-- 
+"Los honestos son inadaptados sociales" -- Les Luthiers
