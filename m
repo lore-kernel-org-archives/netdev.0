@@ -1,75 +1,102 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2/3][BNX2]: Disable parallel detect on an HP blade.
-Date: Fri, 22 Feb 2008 11:50:11 -0800
-Message-ID: <1203709811.13495.178.camel@dell>
+Subject: [PATCH 1/3][BNX2]: More 5706S link down workaround.
+Date: Fri, 22 Feb 2008 11:49:38 -0800
+Message-ID: <1203709778.13495.177.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1723 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4307 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758435AbYBVTrb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Feb 2008 14:47:31 -0500
+	id S1764721AbYBVTrD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Feb 2008 14:47:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[BNX2]: Disable parallel detect on an HP blade.
+[BNX2]: More 5706S link down workaround.
 
-Because of some board issues, we need to disable parallel detect on
-an HP blade.  Without this patch, the link state can become stuck
-when it goes into parallel detect mode.
+The previous patches to workaround the 5706S on an HP blade were not
+sufficient.  The link state still does not change properly in some
+cases.  This patch adds polling to make it completely reliable.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 2fa2580..35356fb 100644
+index 471c7f3..2fa2580 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
-@@ -5362,11 +5362,15 @@ bnx2_test_intr(struct bnx2 *bp)
- 	return -ENODEV;
- }
+@@ -1273,14 +1273,20 @@ bnx2_set_link(struct bnx2 *bp)
  
-+/* Determining link for parallel detection. */
- static int
- bnx2_5706_serdes_has_link(struct bnx2 *bp)
- {
- 	u32 mode_ctl, an_dbg, exp;
+ 	if ((bp->phy_flags & BNX2_PHY_FLAG_SERDES) &&
+ 	    (CHIP_NUM(bp) == CHIP_NUM_5706)) {
+-		u32 val;
++		u32 val, an_dbg;
  
-+	if (bp->phy_flags & BNX2_PHY_FLAG_NO_PARALLEL)
-+		return 0;
-+
- 	bnx2_write_phy(bp, MII_BNX2_MISC_SHADOW, MISC_SHDW_MODE_CTL);
- 	bnx2_read_phy(bp, MII_BNX2_MISC_SHADOW, &mode_ctl);
- 
-@@ -7328,7 +7332,15 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
- 			bp->flags |= BNX2_FLAG_NO_WOL;
- 			bp->wol = 0;
+ 		if (bp->phy_flags & BNX2_PHY_FLAG_FORCED_DOWN) {
+ 			bnx2_5706s_force_link_dn(bp, 0);
+ 			bp->phy_flags &= ~BNX2_PHY_FLAG_FORCED_DOWN;
  		}
--		if (CHIP_NUM(bp) != CHIP_NUM_5706) {
-+		if (CHIP_NUM(bp) == CHIP_NUM_5706) {
-+			/* Don't do parallel detect on this board because of
-+			 * some board problems.  The link will not go down
-+			 * if we do parallel detect.
-+			 */
-+			if (pdev->subsystem_vendor == PCI_VENDOR_ID_HP &&
-+			    pdev->subsystem_device == 0x310c)
-+				bp->phy_flags |= BNX2_PHY_FLAG_NO_PARALLEL;
-+		} else {
- 			bp->phy_addr = 2;
- 			if (reg & BNX2_SHARED_HW_CFG_PHY_2_5G)
- 				bp->phy_flags |= BNX2_PHY_FLAG_2_5G_CAPABLE;
-diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
-index 3aa0364..1eaf5bb 100644
---- a/drivers/net/bnx2.h
-+++ b/drivers/net/bnx2.h
-@@ -6673,6 +6673,7 @@ struct bnx2 {
- #define BNX2_PHY_FLAG_DIS_EARLY_DAC		0x00000400
- #define BNX2_PHY_FLAG_REMOTE_PHY_CAP		0x00000800
- #define BNX2_PHY_FLAG_FORCED_DOWN		0x00001000
-+#define BNX2_PHY_FLAG_NO_PARALLEL		0x00002000
+ 		val = REG_RD(bp, BNX2_EMAC_STATUS);
+-		if (val & BNX2_EMAC_STATUS_LINK)
++
++		bnx2_write_phy(bp, MII_BNX2_MISC_SHADOW, MISC_SHDW_AN_DBG);
++		bnx2_read_phy(bp, MII_BNX2_MISC_SHADOW, &an_dbg);
++		bnx2_read_phy(bp, MII_BNX2_MISC_SHADOW, &an_dbg);
++
++		if ((val & BNX2_EMAC_STATUS_LINK) &&
++		    !(an_dbg & MISC_SHDW_AN_DBG_NOSYNC))
+ 			bmsr |= BMSR_LSTATUS;
+ 		else
+ 			bmsr &= ~BMSR_LSTATUS;
+@@ -5390,13 +5396,6 @@ bnx2_5706_serdes_timer(struct bnx2 *bp)
+ 	int check_link = 1;
  
- 	u32			mii_bmcr;
- 	u32			mii_bmsr;
+ 	spin_lock(&bp->phy_lock);
+-	if (bp->phy_flags & BNX2_PHY_FLAG_FORCED_DOWN) {
+-		bnx2_5706s_force_link_dn(bp, 0);
+-		bp->phy_flags &= ~BNX2_PHY_FLAG_FORCED_DOWN;
+-		spin_unlock(&bp->phy_lock);
+-		return;
+-	}
+-
+ 	if (bp->serdes_an_pending) {
+ 		bp->serdes_an_pending--;
+ 		check_link = 0;
+@@ -5420,7 +5419,6 @@ bnx2_5706_serdes_timer(struct bnx2 *bp)
+ 		 (bp->phy_flags & BNX2_PHY_FLAG_PARALLEL_DETECT)) {
+ 		u32 phy2;
+ 
+-		check_link = 0;
+ 		bnx2_write_phy(bp, 0x17, 0x0f01);
+ 		bnx2_read_phy(bp, 0x15, &phy2);
+ 		if (phy2 & 0x20) {
+@@ -5435,17 +5433,21 @@ bnx2_5706_serdes_timer(struct bnx2 *bp)
+ 	} else
+ 		bp->current_interval = bp->timer_interval;
+ 
+-	if (bp->link_up && (bp->autoneg & AUTONEG_SPEED) && check_link) {
++	if (check_link) {
+ 		u32 val;
+ 
+ 		bnx2_write_phy(bp, MII_BNX2_MISC_SHADOW, MISC_SHDW_AN_DBG);
+ 		bnx2_read_phy(bp, MII_BNX2_MISC_SHADOW, &val);
+ 		bnx2_read_phy(bp, MII_BNX2_MISC_SHADOW, &val);
+ 
+-		if (val & MISC_SHDW_AN_DBG_NOSYNC) {
+-			bnx2_5706s_force_link_dn(bp, 1);
+-			bp->phy_flags |= BNX2_PHY_FLAG_FORCED_DOWN;
+-		}
++		if (bp->link_up && (val & MISC_SHDW_AN_DBG_NOSYNC)) {
++			if (!(bp->phy_flags & BNX2_PHY_FLAG_FORCED_DOWN)) {
++				bnx2_5706s_force_link_dn(bp, 1);
++				bp->phy_flags |= BNX2_PHY_FLAG_FORCED_DOWN;
++			} else
++				bnx2_set_link(bp);
++		} else if (!bp->link_up && !(val & MISC_SHDW_AN_DBG_NOSYNC))
++			bnx2_set_link(bp);
+ 	}
+ 	spin_unlock(&bp->phy_lock);
+ }
 
 
