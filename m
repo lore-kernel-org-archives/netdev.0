@@ -1,64 +1,28 @@
-From: "Stephens, Allan" <allan.stephens@windriver.com>
-Subject: [PATCH 06/08] [TIPC]: Enhancements to message header field writing
-Date: Fri, 22 Feb 2008 11:59:27 -0800
-Message-ID: <AF1602CB2550CE4381C0C75118A7856B0246C896@ala-mail02.corp.ad.wrs.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [PATCH 03/08] [TIPC]: Eliminate "sparse" warning in socket code
+Date: Fri, 22 Feb 2008 21:04:25 +0100
+Message-ID: <20080222200425.GC7154@uranus.ravnborg.org>
+References: <AF1602CB2550CE4381C0C75118A7856B0246C891@ala-mail02.corp.ad.wrs.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "Stephens, Allan" <allan.stephens@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:37823 "EHLO mail.wrs.com"
+Received: from pasmtpb.tele.dk ([80.160.77.98]:58866 "EHLO pasmtpB.tele.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1766010AbYBVUAW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2008 15:00:22 -0500
-Received: from ALA-MAIL03.corp.ad.wrs.com (ala-mail03 [147.11.57.144])
-	by mail.wrs.com (8.13.6/8.13.6) with ESMTP id m1MK0KFH018288
-	for <netdev@vger.kernel.org>; Fri, 22 Feb 2008 12:00:21 -0800 (PST)
-Content-class: urn:content-classes:message
+	id S933818AbYBVUEN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Feb 2008 15:04:13 -0500
+Content-Disposition: inline
+In-Reply-To: <AF1602CB2550CE4381C0C75118A7856B0246C891@ala-mail02.corp.ad.wrs.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From d588668422a802166b8368104490c7f644e95271 Mon Sep 17 00:00:00 2001
-From: Allan Stephens <allan.stephens@windriver.com>
-Date: Fri, 22 Feb 2008 10:21:42 -0500
-Subject: 
+On Fri, Feb 22, 2008 at 11:59:12AM -0800, Stephens, Allan wrote:
+> This patch eliminates warnings about a pair of undeclared symbols.
 
-This patch makes two enhancements to the routine used to
-set bit fields within a TIPC message header:
+Hi Allan.
 
- 1) It now ignores any bits of the new field value that are not
-    covered by the mask being used.  (Previously, if the new value
-    exceeded the size of the mask the extra bits could corrupt
-    other fields in the message header word being updated.)
+Last I looked there where ~90 sparse warnings for tipc.
+I assume you are aware and that they are getting fixed.
 
- 2) The code has been optimized to minimize the number of run-time
-    endianness conversion operations by leveraging the fact that the
-    mask (and, in some cases, the value as well) is constant and the
-    necessary conversion can be performed by the compiler.
-
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
----
- net/tipc/msg.h |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 45c85a2..3f03739 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -70,8 +70,10 @@ static inline void msg_set_bits(struct tipc_msg *m,
-u32 w,
- 				u32 pos, u32 mask, u32 val)
- {
- 	val = (val & mask) << pos;
--	m->hdr[w] &= ~htonl(mask << pos);
--	m->hdr[w] |= htonl(val);
-+	val = htonl(val);
-+	mask = htonl(mask << pos);
-+	m->hdr[w] &= ~mask;
-+	m->hdr[w] |= val;
- }
- 
- /*
--- 
-1.5.3.2
+	Sam - who would like to see an almost sparse clean kernel
