@@ -1,76 +1,34 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: lockdep warning
-Date: Fri, 22 Feb 2008 14:20:40 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0802221420250.30955@jikos.suse.cz>
-References: <20080222104049.BD95A93C12F@tippex.mynet.homeunix.org>
- <Pine.LNX.4.64.0802221214020.7699@twin.jikos.cz>
- <20080222131608.7FC1E93C12F@tippex.mynet.homeunix.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RTNL]: Validate hardware and broadcast address attribute for RTM_NEWLINK
+Date: Fri, 22 Feb 2008 14:31:35 +0100
+Message-ID: <20080222133135.GC20815@postel.suug.ch>
+References: <20080222125702.GB20815@postel.suug.ch> <47BEC89E.9030909@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Anders Eriksson <aeriksson@fastmail.fm>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:45800 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758658AbYBVNUl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Feb 2008 08:20:41 -0500
-In-Reply-To: <20080222131608.7FC1E93C12F@tippex.mynet.homeunix.org>
+Received: from postel.suug.ch ([194.88.212.233]:48498 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760246AbYBVNbP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Feb 2008 08:31:15 -0500
+Content-Disposition: inline
+In-Reply-To: <47BEC89E.9030909@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 22 Feb 2008, Anders Eriksson wrote:
+* Patrick McHardy <kaber@trash.net> 2008-02-22 14:05
+> Minor nitpick: it would be more logical to put this in the
+> 
+> if (dev) {
+>  ...
+> 
+> branch a bit below since thats the only path that leads to
+> do_setlink(). That would also allow to remove the
+> if (dev) check from validate_linkmsg().
 
-> > This needs to be CCed to netdev.
-> > Any chance that
-> > 	git revert 69cc64d8d92
-> > makes this report go away? 
-> I'll have to install a git repo to check, or maybe you can send me the diff to 
-> reverse vs. 2.6.25-rc2?
+I knew this question would come up :-)
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 7bb6a9a..a16cf1e 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -834,12 +834,18 @@ static void neigh_timer_handler(unsigned long arg)
- 	}
- 	if (neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) {
- 		struct sk_buff *skb = skb_peek(&neigh->arp_queue);
--
-+		/* keep skb alive even if arp_queue overflows */
-+		if (skb)
-+			skb_get(skb);
-+		write_unlock(&neigh->lock);
- 		neigh->ops->solicit(neigh, skb);
- 		atomic_inc(&neigh->probes);
--	}
-+		if (skb)
-+			kfree_skb(skb);
-+	} else {
- out:
--	write_unlock(&neigh->lock);
-+		write_unlock(&neigh->lock);
-+	}
- 
- 	if (notify)
- 		neigh_update_notify(neigh);
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index c663fa5..8e17f65 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -368,6 +368,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
- 		if (!(neigh->nud_state&NUD_VALID))
- 			printk(KERN_DEBUG "trying to ucast probe in NUD_INVALID\n");
- 		dst_ha = neigh->ha;
-+		read_lock_bh(&neigh->lock);
- 	} else if ((probes -= neigh->parms->app_probes) < 0) {
- #ifdef CONFIG_ARPD
- 		neigh_app_ns(neigh);
-@@ -377,6 +378,8 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
- 
- 	arp_send(ARPOP_REQUEST, ETH_P_ARP, target, dev, saddr,
- 		 dst_ha, dev->dev_addr, NULL);
-+	if (dst_ha)
-+		read_unlock_bh(&neigh->lock);
- }
- 
- static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
+The reason I did it this way is to keep validate_linkmsg() generic
+and make it possible to put validation code which must also apply
+to new links (dev==NULL) into that function.
