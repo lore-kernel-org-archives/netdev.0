@@ -1,65 +1,62 @@
-From: "Kay Sievers" <kay.sievers@vrfy.org>
-Subject: Re: Linux 2.6.24.1 - kernel does not boot; IRQ trouble?
-Date: Fri, 22 Feb 2008 10:11:33 +0100
-Message-ID: <3ae72650802220111s11e68f1ft149d7832e9bebbd6@mail.gmail.com>
-References: <20080218085333.3d32b626@extreme>
-	 <395400.45093.qm@web52907.mail.re2.yahoo.com>
-	 <20080218120636.00451d46@extreme>
-	 <3ae72650802190047l5a1f07d9u5fc2031ac92608b6@mail.gmail.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][NEIGH]: Fix race between neighbor lookup and table's hash_rnd
+ update.
+Date: Fri, 22 Feb 2008 12:37:03 +0300
+Message-ID: <47BE97BF.6020600@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Chris Rankin" <rankincj@yahoo.com>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <3ae72650802190047l5a1f07d9u5fc2031ac92608b6@mail.gmail.com>
-Content-Disposition: inline
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:48724 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753512AbYBVJhF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Feb 2008 04:37:05 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 19, 2008 at 9:47 AM, Kay Sievers <kay.sievers@vrfy.org> wrote:
-> On Feb 18, 2008 9:06 PM, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
->  > On Mon, 18 Feb 2008 19:42:25 +0000 (GMT)
->  > Chris Rankin <rankincj@yahoo.com> wrote:
->  >
->  > > --- Stephen Hemminger <shemminger@linux-foundation.org> wrote:
->  > > > > > sysfs: duplicate filename 'bridge' can not be created
->  > > > > > WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
->  > > > > > Pid: 1, comm: swapper Not tainted 2.6.24.1 #1
->  > > > > >  [<c0105020>] show_trace_log_lvl+0x1a/0x2f
->  > > > > >  [<c0105990>] show_trace+0x12/0x14
->  > > > > >  [<c010613d>] dump_stack+0x6c/0x72
->  > > > > >  [<c01991bf>] sysfs_add_one+0x57/0xbc
->  > > > > >  [<c0199e41>] sysfs_create_link+0xc2/0x10d
->  > > > > >  [<c01bae9a>] pci_bus_add_devices+0xbd/0x103
->  > > > > >  [<c034016c>] pci_legacy_init+0x56/0xe3
->  > > > > >  [<c03274e1>] kernel_init+0x157/0x2c3
->  > > > > >  [<c0104c83>] kernel_thread_helper+0x7/0x10
->  > > > > >  =======================
->  > > > > > pci 0000:00:01.0: Error creating sysfs bridge symlink, continuing...
->  > > > > > sysfs: duplicate filename 'bridge' can not be created
->  > > > > > WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
+The neigh_hash_grow() may update the tbl->hash_rnd value, which 
+is used in all tbl->hash callbacks to calculate the hashval.
 
-Greg,
-it seems that:
-  arch/x86/pci/legacy.c :: pci_legacy_init()
+Two lookup routines may race with this, since they call the 
+->hash callback without the tbl->lock held. Since the hash_rnd
+is changed with this lock write-locked moving the calls to ->hash
+under this lock read-locked closes this gap.
 
-tries to create already created "bridge" symlinks in 2.6.24. So we
-discover the same devices twice? Can this be a reason for the hang?
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-I guess in 2.6.25, the warning is gone with:
-  commit fd7d1ced29e5beb88c9068801da7a362606d8273
-  Author: Greg Kroah-Hartman <gregkh@suse.de>
-  Date:   Tue May 22 22:47:54 2007 -0400
+---
 
-  PCI: make pci_bus a struct device
-
-  This moves the pci_bus class device to be a real struct device and at
-  the same time, place it in the device tree in the correct location.
-  Note, the old "bridge" symlink is now gone.
-
-Thanks,
-Kay
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 4062b88..2328acb 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -358,11 +358,12 @@ struct neighbour *neigh_lookup(struct neigh_table *tbl, const void *pkey,
+ {
+ 	struct neighbour *n;
+ 	int key_len = tbl->key_len;
+-	u32 hash_val = tbl->hash(pkey, dev);
++	u32 hash_val;
+ 
+ 	NEIGH_CACHE_STAT_INC(tbl, lookups);
+ 
+ 	read_lock_bh(&tbl->lock);
++	hash_val = tbl->hash(pkey, dev);
+ 	for (n = tbl->hash_buckets[hash_val & tbl->hash_mask]; n; n = n->next) {
+ 		if (dev == n->dev && !memcmp(n->primary_key, pkey, key_len)) {
+ 			neigh_hold(n);
+@@ -379,11 +380,12 @@ struct neighbour *neigh_lookup_nodev(struct neigh_table *tbl, struct net *net,
+ {
+ 	struct neighbour *n;
+ 	int key_len = tbl->key_len;
+-	u32 hash_val = tbl->hash(pkey, NULL);
++	u32 hash_val;
+ 
+ 	NEIGH_CACHE_STAT_INC(tbl, lookups);
+ 
+ 	read_lock_bh(&tbl->lock);
++	hash_val = tbl->hash(pkey, NULL);
+ 	for (n = tbl->hash_buckets[hash_val & tbl->hash_mask]; n; n = n->next) {
+ 		if (!memcmp(n->primary_key, pkey, key_len) &&
+ 		    (net == n->dev->nd_net)) {
