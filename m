@@ -1,77 +1,206 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH] ssb: Add CHIPCO IRQ access functions
-Date: Fri, 22 Feb 2008 16:14:58 +0100
-Message-ID: <200802221614.59119.mb@bu3sch.de>
+From: Alexandr Smirnov <asmirnov@ru.mvista.com>
+Subject: Marvell PHY driver fix
+Date: Fri, 22 Feb 2008 17:34:09 +0300
+Message-ID: <20080222143409.GA1477@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Aurelien Jarno <aurelien@aurel32.net>
-To: John Linville <linville@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linuxppc-dev@ozlabs.org, afleming@freescale.com,
+	vbordug@ru.mvista.com, mgreer@mvista.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs166246.vserver.de ([62.75.166.246]:56126 "EHLO
-	vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753264AbYBVPPr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2008 10:15:47 -0500
+Received: from [212.176.242.38] ([212.176.242.38]:57169 "EHLO spb.rtsoft.ru"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752504AbYBVP3t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Feb 2008 10:29:49 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Aurelien Jarno <aurelien@aurel32.net>
+Marvell PHY m88e1111 (not sure about other models, but think they too) works in
+two modes: fiber and copper. In Marvell PHY driver (that we have in current
+community kernels) code supported only copper mode, and this is not configurable,
+bits for copper mode are simply written in registers during PHY
+initialization. This patch adds support for both modes.
 
-This patch adds functions to setup and read the CHIPCO IRQ.
+Signed-off-by: Alexandr Smirnov <asmirnov@ru.mvista.com>
 
-Signed-off-by: Aurelien Jarno <aurelien@aurel32.net>
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
-
----
-
-For 2.6.26.
-
- drivers/ssb/driver_chipcommon.c           |   10 ++++++++++
- include/linux/ssb/ssb_driver_chipcommon.h |    4 ++++
- 2 files changed, 14 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/ssb/driver_chipcommon.c b/drivers/ssb/driver_chipcommon.c
-index e586321..45b672a 100644
---- a/drivers/ssb/driver_chipcommon.c
-+++ b/drivers/ssb/driver_chipcommon.c
-@@ -353,6 +353,16 @@ void ssb_chipco_watchdog_timer_set(struct ssb_chipcommon *cc, u32 ticks)
- 	chipco_write32(cc, SSB_CHIPCO_WATCHDOG, ticks);
+diff -pruN powerpc.orig/drivers/net/phy/marvell.c powerpc/drivers/net/phy/marvell.c
+--- powerpc.orig/drivers/net/phy/marvell.c	2008-02-07 14:59:32.000000000 +0300
++++ powerpc/drivers/net/phy/marvell.c	2008-02-19 21:47:34.000000000 +0300
+@@ -58,9 +58,28 @@
+ #define MII_M1111_RX_DELAY		0x80
+ #define MII_M1111_TX_DELAY		0x2
+ #define MII_M1111_PHY_EXT_SR		0x1b
+-#define MII_M1111_HWCFG_MODE_MASK	0xf
+-#define MII_M1111_HWCFG_MODE_RGMII	0xb
++
++#define MII_M1111_HWCFG_MODE_MASK		0xf
++#define MII_M1111_HWCFG_MODE_COPPER_RGMII	0xb
++#define MII_M1111_HWCFG_MODE_FIBER_RGMII	0x3
+ #define MII_M1111_HWCFG_MODE_SGMII_NO_CLK	0x4
++#define MII_M1111_HWCFG_FIBER_COPPER_AUTO	0x8000
++#define MII_M1111_HWCFG_FIBER_COPPER_RES	0x2000
++
++#define MII_M1111_PHY_CR		0
++#define MII_M1111_SOFTWARE_RESET	0x8000
++
++#define MII_M1111_COPPER		0
++#define MII_M1111_FIBER			1
++
++#define MII_M1011_PHY_STATUS		0x11
++#define MII_M1011_PHY_STATUS_1000	0x8000
++#define MII_M1011_PHY_STATUS_100	0x4000
++#define MII_M1011_PHY_STATUS_SPD_MASK	0xc000
++#define MII_M1011_PHY_STATUS_FULLDUPLEX	0x2000
++#define MII_M1011_PHY_STATUS_RESOLVED	0x0800
++#define MII_M1011_PHY_STATUS_LINK	0x0400
++
+ 
+ MODULE_DESCRIPTION("Marvell PHY driver");
+ MODULE_AUTHOR("Andy Fleming");
+@@ -141,12 +160,22 @@ static int marvell_config_aneg(struct ph
+ static int m88e1111_config_init(struct phy_device *phydev)
+ {
+ 	int err;
++	int temp;
++	int mode;
++
++	/* Enable Fiber/Copper auto selection */
++	temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
++	temp |= MII_M1111_HWCFG_FIBER_COPPER_AUTO;
++	phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
++
++	temp = phy_read(phydev, MII_M1111_PHY_CR);
++	temp |= MII_M1111_SOFTWARE_RESET;
++	phy_write(phydev, MII_M1111_PHY_CR, temp);
+ 
+ 	if ((phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
+ 	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) ||
+ 	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) ||
+ 	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)) {
+-		int temp;
+ 
+ 		temp = phy_read(phydev, MII_M1111_PHY_EXT_CR);
+ 		if (temp < 0)
+@@ -171,7 +200,17 @@ static int m88e1111_config_init(struct p
+ 			return temp;
+ 
+ 		temp &= ~(MII_M1111_HWCFG_MODE_MASK);
+-		temp |= MII_M1111_HWCFG_MODE_RGMII;
++
++		mode = phy_read(phydev, MII_M1111_PHY_EXT_CR);
++		mode = (mode & MII_M1111_HWCFG_FIBER_COPPER_RES) >> 13;
++
++		switch (mode) {
++		case MII_M1111_COPPER:
++			temp |= MII_M1111_HWCFG_MODE_COPPER_RGMII;
++			break;
++		case MII_M1111_FIBER:
++			temp |= MII_M1111_HWCFG_MODE_FIBER_RGMII;
++		}
+ 
+ 		err = phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
+ 		if (err < 0)
+@@ -262,6 +301,93 @@ static int m88e1145_config_init(struct p
+ 	return 0;
  }
  
-+void ssb_chipco_irq_mask(struct ssb_chipcommon *cc, u32 mask, u32 value)
++/* marvell_read_status
++ *
++ * Generic status code does not detect Fiber correctly!
++ * Description: 
++ *   Check the link, then figure out the current state
++ *   by comparing what we advertise with what the link partner
++ *   advertises.  Start by checking the gigabit possibilities,
++ *   then move on to 10/100.
++ */
++static int marvell_read_status(struct phy_device *phydev)
 +{
-+	chipco_write32_masked(cc, SSB_CHIPCO_IRQMASK, mask, value);
++	int adv;
++	int err;
++	int lpa;
++	int status = 0;
++
++	/* Update the link, but return if there
++	 * was an error */
++	err = genphy_update_link(phydev);
++	if (err)
++		return err;
++
++	if (AUTONEG_ENABLE == phydev->autoneg) {
++		status = phy_read(phydev, MII_M1011_PHY_STATUS);
++		if (status < 0)
++			return status;
++
++		lpa = phy_read(phydev, MII_LPA);
++		if (lpa < 0)
++			return lpa;
++
++		adv = phy_read(phydev, MII_ADVERTISE);
++		if (adv < 0)
++			return adv;
++
++		lpa &= adv;
++
++		if (status & MII_M1011_PHY_STATUS_FULLDUPLEX)
++			phydev->duplex = DUPLEX_FULL;
++		else
++			phydev->duplex = DUPLEX_HALF;
++
++		status = status & MII_M1011_PHY_STATUS_SPD_MASK;
++		phydev->pause = phydev->asym_pause = 0;
++
++		switch (status) {
++		case MII_M1011_PHY_STATUS_1000:
++			phydev->speed = SPEED_1000;
++			break;
++
++		case MII_M1011_PHY_STATUS_100:
++			phydev->speed = SPEED_100;
++			break;
++
++		default:
++			phydev->speed = SPEED_10;
++			break;
++		}
++
++		if (phydev->duplex == DUPLEX_FULL) {
++			phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
++			phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
++		}
++	} else {
++		int bmcr = phy_read(phydev, MII_BMCR);
++
++		if (bmcr < 0)
++			return bmcr;
++
++		if (bmcr & BMCR_FULLDPLX)
++			phydev->duplex = DUPLEX_FULL;
++		else
++			phydev->duplex = DUPLEX_HALF;
++
++		if (bmcr & BMCR_SPEED1000)
++			phydev->speed = SPEED_1000;
++		else if (bmcr & BMCR_SPEED100)
++			phydev->speed = SPEED_100;
++		else
++			phydev->speed = SPEED_10;
++
++		phydev->pause = phydev->asym_pause = 0;
++	}
++
++	return 0;
 +}
 +
-+u32 ssb_chipco_irq_status(struct ssb_chipcommon *cc, u32 mask)
-+{
-+	return chipco_read32(cc, SSB_CHIPCO_IRQSTAT) & mask;
-+}
-+
- u32 ssb_chipco_gpio_in(struct ssb_chipcommon *cc, u32 mask)
- {
- 	return chipco_read32(cc, SSB_CHIPCO_GPIOIN) & mask;
-diff --git a/include/linux/ssb/ssb_driver_chipcommon.h b/include/linux/ssb/ssb_driver_chipcommon.h
-index 536851b..b548a54 100644
---- a/include/linux/ssb/ssb_driver_chipcommon.h
-+++ b/include/linux/ssb/ssb_driver_chipcommon.h
-@@ -390,6 +390,10 @@ extern void ssb_chipco_set_clockmode(struct ssb_chipcommon *cc,
- extern void ssb_chipco_watchdog_timer_set(struct ssb_chipcommon *cc,
- 					  u32 ticks);
- 
-+void ssb_chipco_irq_mask(struct ssb_chipcommon *cc, u32 mask, u32 value);
-+
-+u32 ssb_chipco_irq_status(struct ssb_chipcommon *cc, u32 mask);
-+
- /* Chipcommon GPIO pin access. */
- u32 ssb_chipco_gpio_in(struct ssb_chipcommon *cc, u32 mask);
- u32 ssb_chipco_gpio_out(struct ssb_chipcommon *cc, u32 mask, u32 value);
--- 
-1.5.4.1
-
-
-
--- 
-Greetings Michael.
+ static struct phy_driver marvell_drivers[] = {
+ 	{
+ 		.phy_id = 0x01410c60,
+@@ -296,7 +422,7 @@ static struct phy_driver marvell_drivers
+ 		.flags = PHY_HAS_INTERRUPT,
+ 		.config_init = &m88e1111_config_init,
+ 		.config_aneg = &marvell_config_aneg,
+-		.read_status = &genphy_read_status,
++		.read_status = &marvell_read_status,
+ 		.ack_interrupt = &marvell_ack_interrupt,
+ 		.config_intr = &marvell_config_intr,
+ 		.driver = { .owner = THIS_MODULE },
