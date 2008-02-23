@@ -1,31 +1,32 @@
-From: Sebastian Siewior <netdev@ml.breakpoint.cc>
-Subject: Re: [PATCH] [PS3] gelic wireless driver needs MAC80211 support
-Date: Sat, 23 Feb 2008 21:43:53 +0100
-Message-ID: <20080223204353.GE7135@Chamillionaire.breakpoint.cc>
-References: <20080223193517.GA6704@Chamillionaire.breakpoint.cc> <47C0815F.7020100@pobox.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC PATCH 0/8]: uninline & uninline
+Date: Sat, 23 Feb 2008 22:02:23 +0100
+Message-ID: <20080223210223.GA12148@basil.nowhere.org>
+References: <1203515238-22848-1-git-send-email-ilpo.jarvinen@helsinki.fi> <20080223000220.e9229c99.akpm@linux-foundation.org> <p734pbz95lx.fsf@bingen.suse.de> <20080223105517.4d706511.akpm@linux-foundation.org> <00ac01c87656$777c02a0$667407e0$@com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Sebastian Siewior <netdev@ml.breakpoint.cc>,
-	Masakazu Mokuno <mokuno@sm.sony.co.jp>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: 'Andrew Morton' <akpm@linux-foundation.org>,
+	'Andi Kleen' <andi@firstfloor.org>,
+	'Ilpo =?iso-8859-1?Q?J=E4rvinen'?= <ilpo.jarvinen@helsinki.fi>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	'David Miller' <davem@davemloft.net>,
+	'Arnaldo Carvalho de Melo' <acme@redhat.com>
+To: Hua Zhong <hzhong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:41074 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754259AbYBWUo3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2008 15:44:29 -0500
+Received: from smtp-out02.alice-dsl.net ([88.44.60.12]:45034 "EHLO
+	smtp-out02.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760063AbYBWVC0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2008 16:02:26 -0500
 Content-Disposition: inline
-In-Reply-To: <47C0815F.7020100@pobox.com>
+In-Reply-To: <00ac01c87656$777c02a0$667407e0$@com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Jeff Garzik | 2008-02-23 15:26:07 [-0500]:
+> Is it possible to catch this automatically, like, by re-defining
+> likely/unlikely to the raw form in specific file(s)?
 
-> Given that this is straying clearly into wireless territory, I think the 
-> linux-wireless folks and John Linville (wireless maintainer) are 
-> appropriate patch targets.
-Okey, I'm going to forward the pach.
+Sure it would be possible to define a IN_VDSO symbol in all vdso
+related files and then do that. Might be useful for other things
+too. vdso has some very specific requirements.
 
-> 	Jeff
-
-Sebastian
+-Andi
