@@ -1,9 +1,9 @@
 From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 04/28] mm: kmem_estimate_pages()
-Date: Sat, 23 Feb 2008 00:05:47 -0800
-Message-ID: <20080223000547.25c7ba92.akpm@linux-foundation.org>
+Subject: Re: [PATCH 17/28] netvm: hook skb allocation to reserves
+Date: Sat, 23 Feb 2008 00:06:13 -0800
+Message-ID: <20080223000613.123c57b6.akpm@linux-foundation.org>
 References: <20080220144610.548202000@chello.nl>
-	<20080220150305.774294000@chello.nl>
+	<20080220150307.507134000@chello.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,39 +12,61 @@ Cc: Linus Torvalds <torvalds@linux-foundation.org>,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([207.189.120.13]:53647 "EHLO
+Received: from smtp1.linux-foundation.org ([207.189.120.13]:53044 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933054AbYBWIIx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2008 03:08:53 -0500
-In-Reply-To: <20080220150305.774294000@chello.nl>
+	by vger.kernel.org with ESMTP id S933038AbYBWII7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2008 03:08:59 -0500
+In-Reply-To: <20080220150307.507134000@chello.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Feb 2008 15:46:14 +0100 Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+On Wed, 20 Feb 2008 15:46:27 +0100 Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
 
-> Provide a method to get the upper bound on the pages needed to allocate
-> a given number of objects from a given kmem_cache.
+> Change the skb allocation api to indicate RX usage and use this to fall back to
+> the reserve when needed. SKBs allocated from the reserve are tagged in
+> skb->emergency.
 > 
-> This lays the foundation for a generic reserve framework as presented in
-> a later patch in this series. This framework needs to convert object demand
-> (kmalloc() bytes, kmem_cache_alloc() objects) to pages.
+> Teach all other skb ops about emergency skbs and the reserve accounting.
+> 
+> Use the (new) packet split API to allocate and track fragment pages from the
+> emergency reserve. Do this using an atomic counter in page->index. This is
+> needed because the fragments have a different sharing semantic than that
+> indicated by skb_shinfo()->dataref. 
+> 
+> Note that the decision to distinguish between regular and emergency SKBs allows
+> the accounting overhead to be limited to the later kind.
 > 
 > ...
 >
->  /*
-> + * return the max number of pages required to allocated count
-> + * objects from the given cache
-> + */
-> +unsigned kmem_estimate_pages(struct kmem_cache *s, gfp_t flags, int objects)
+> +static inline void skb_get_page(struct sk_buff *skb, struct page *page)
+> +{
+> +	get_page(page);
+> +	if (skb_emergency(skb))
+> +		atomic_inc(&page->frag_count);
+> +}
+> +
+> +static inline void skb_put_page(struct sk_buff *skb, struct page *page)
+> +{
+> +	if (skb_emergency(skb) && atomic_dec_and_test(&page->frag_count))
+> +		rx_emergency_put(PAGE_SIZE);
+> +	put_page(page);
+> +}
 
-You might want to have another go at that comment.
+I'm thinking we should do `#define slowcall inline' then use that in the future.
 
-> +/*
-> + * return the max number of pages required to allocate @bytes from kmalloc
-> + * in an unspecified number of allocation of heterogeneous size.
-> + */
-> +unsigned kestimate(gfp_t flags, size_t bytes)
+>  static void skb_release_data(struct sk_buff *skb)
+>  {
+>  	if (!skb->cloned ||
+>  	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
+>  			       &skb_shinfo(skb)->dataref)) {
+> +		int size;
+> +
+> +#ifdef NET_SKBUFF_DATA_USES_OFFSET
+> +		size = skb->end;
+> +#else
+> +		size = skb->end - skb->head;
+> +#endif
 
-And its pal.
+The patch adds rather a lot of ifdefs.
 
 
