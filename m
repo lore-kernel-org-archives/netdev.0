@@ -1,64 +1,84 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: [patch 2.6.25-rc2-git] rndis_host:  fix transfer size negotiation
-Date: Fri, 22 Feb 2008 17:31:16 -0800
-Message-ID: <200802221731.16698.david-b@pacbell.net>
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Subject: Re: Error on ip route replace command
+Date: Sat, 23 Feb 2008 15:44:48 +0900
+Message-ID: <b25c3fa70802222244g1d3d08ecme90f4395c1c5505c@mail.gmail.com>
+References: <00a701c875a1$58f70fb0$b400a8c0@ASUSFSG>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Jean-Christophe Dubois" <jcd@tribudubois.net>
-To: Network development list <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: "Francesco Saverio Giudice" <info@fsgiudice.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp118.sbc.mail.sp1.yahoo.com ([69.147.64.91]:30998 "HELO
-	smtp118.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752384AbYBWBdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2008 20:33:37 -0500
+Received: from rv-out-0910.google.com ([209.85.198.187]:60770 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751345AbYBWGot (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2008 01:44:49 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so435228rvb.1
+        for <netdev@vger.kernel.org>; Fri, 22 Feb 2008 22:44:48 -0800 (PST)
+In-Reply-To: <00a701c875a1$58f70fb0$b400a8c0@ASUSFSG>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean-Christophe Dubois <jcd@tribudubois.net>
+2008/2/23, Francesco Saverio Giudice <info@fsgiudice.com>:
+> Hi All,
+>
+> I have a problem with kernel 2.6.24.
+>
+> Having a running configuration using Shorewall and restarting it I got
+> follow error:
+> RTNETLINK answers: File exists
+>
+> Tom Eastep, Shorewall creator, told me to inform you about the problem.
+>
+> Here is the mail:
+> ------------------------------------------------------------
+> Francesco Saverio Giudice wrote:
+> > Hi Tom,
+> >
+> > I get the error:
+> >
+> > ---------
+> > # ip route add 1.2.4.5 dev eth3
+> > # ip route replace 1.2.4.5 dev eth3
+> > RTNETLINK answers: File exists
+> > ---------
+> >
+> > I have to patch kernel or something else ?
+> >
+>
+> You should report it at netdev@vger.kernel.org (that's where the Linux
+> networking developers hang out). This failure does not occur with kernel
+> 2.6.22 and iproute2 ss070710:
+>
+> gateway:~ # ip route add 1.2.4.5 dev eth0
+> gateway:~ # ip route replace 1.2.4.5 dev eth0
+> gateway:~ # ip route del 1.2.4.5
+>
+> -Tom
+> --
+> Tom Eastep    \ Nothing is foolproof to a sufficiently talented fool
+> Shoreline,     \ http://shorewall.net
+> Washington USA  \ teastep@shorewall.net
+> PGP Public Key   \ https://lists.shorewall.net/teastep.pgp.key
+>
+> ------------------------------------------------------------
+>
+> Best Regards
+>
+> Francesco Saverio Giudice
+>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
 
-This patch should resolve a problem that's troubled support for
-some RNDIS peripherals.  It seems to have boiled down to using a
-variable to establish transfer size limits before it was assigned,
-which caused those devices to fallback to a default "jumbogram"
-mode we don't support.  Fix by assigning it earlier for RNDIS.
+Francesco,
+It was fixed by 936f6f8e1bc46834bbb3e3fa3ac13ab44f1e7ba6 and
+c18865f39276435abb9286f9a816cb5b66c99a00.
+Please try with lastest git source
 
-Signed-off-by: Jean-Christophe Dubois <jcd@tribudubois.net>
-[ cleanups ]
-Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
----
-This bugfix should be merged before 2.6.25-final.
-
- drivers/net/usb/rndis_host.c |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
-
---- g26.orig/drivers/net/usb/rndis_host.c	2008-02-01 22:24:38.000000000 -0800
-+++ g26/drivers/net/usb/rndis_host.c	2008-02-16 12:55:35.000000000 -0800
-@@ -16,10 +16,6 @@
-  * along with this program; if not, write to the Free Software
-  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-  */
--
--// #define	DEBUG			// error path messages, extra info
--// #define	VERBOSE			// more; success messages
--
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/netdevice.h>
-@@ -318,6 +314,14 @@ generic_rndis_bind(struct usbnet *dev, s
- 	net->hard_header_len += sizeof (struct rndis_data_hdr);
- 	dev->hard_mtu = net->mtu + net->hard_header_len;
- 
-+	dev->maxpacket = usb_maxpacket(dev->udev, dev->out, 1);
-+	if (dev->maxpacket == 0) {
-+		if (netif_msg_probe(dev))
-+			dev_dbg(&intf->dev, "dev->maxpacket can't be 0\n");
-+		retval = -EINVAL;
-+		goto fail_and_release;
-+	}
-+
- 	dev->rx_urb_size = dev->hard_mtu + (dev->maxpacket + 1);
- 	dev->rx_urb_size &= ~(dev->maxpacket - 1);
- 	u.init->max_transfer_size = cpu_to_le32(dev->rx_urb_size);
+Joonwoo.
