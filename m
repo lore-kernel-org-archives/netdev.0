@@ -1,118 +1,46 @@
 From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 15/28] netvm: network reserve infrastructure
-Date: Sat, 23 Feb 2008 00:06:09 -0800
-Message-ID: <20080223000609.b64b5b36.akpm@linux-foundation.org>
-References: <20080220144610.548202000@chello.nl>
-	<20080220150307.208040000@chello.nl>
+Subject: Re: [PATCH] alloc_percpu() fails to allocate percpu data
+Date: Sat, 23 Feb 2008 00:04:48 -0800
+Message-ID: <20080223000448.9dadd2c5.akpm@linux-foundation.org>
+References: <47BDBC23.10605@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Christoph Lameter <clameter@sgi.com>,
+	"Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([207.189.120.13]:52122 "EHLO
+Received: from smtp1.linux-foundation.org ([207.189.120.13]:34151 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933175AbYBWIJC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2008 03:09:02 -0500
-In-Reply-To: <20080220150307.208040000@chello.nl>
+	by vger.kernel.org with ESMTP id S933254AbYBWIJT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2008 03:09:19 -0500
+In-Reply-To: <47BDBC23.10605@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Feb 2008 15:46:25 +0100 Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+On Thu, 21 Feb 2008 19:00:03 +0100 Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-> Provide the basic infrastructure to reserve and charge/account network memory.
-> 
-> We provide the following reserve tree:
-> 
-> 1)  total network reserve
-> 2)    network TX reserve
-> 3)      protocol TX pages
-> 4)    network RX reserve
-> 5)      SKB data reserve
-> 
-> [1] is used to make all the network reserves a single subtree, for easy
-> manipulation.
-> 
-> [2] and [4] are merely for eastetic reasons.
-> 
-> The TX pages reserve [3] is assumed bounded by it being the upper bound of
-> memory that can be used for sending pages (not quite true, but good enough)
-> 
-> The SKB reserve [5] is an aggregate reserve, which is used to charge SKB data
-> against in the fallback path.
-> 
-> The consumers for these reserves are sockets marked with:
->   SOCK_MEMALLOC
-> 
-> Such sockets are to be used to service the VM (iow. to swap over). They
-> must be handled kernel side, exposing such a socket to user-space is a BUG.
-> 
-> +/**
-> + *	sk_adjust_memalloc - adjust the global memalloc reserve for critical RX
-> + *	@socks: number of new %SOCK_MEMALLOC sockets
-> + *	@tx_resserve_pages: number of pages to (un)reserve for TX
-> + *
-> + *	This function adjusts the memalloc reserve based on system demand.
-> + *	The RX reserve is a limit, and only added once, not for each socket.
-> + *
-> + *	NOTE:
-> + *	   @tx_reserve_pages is an upper-bound of memory used for TX hence
-> + *	   we need not account the pages like we do for RX pages.
-> + */
-> +int sk_adjust_memalloc(int socks, long tx_reserve_pages)
-> +{
-> +	int nr_socks;
-> +	int err;
-> +
-> +	err = mem_reserve_pages_add(&net_tx_pages, tx_reserve_pages);
-> +	if (err)
-> +		return err;
-> +
-> +	nr_socks = atomic_read(&memalloc_socks);
-> +	if (!nr_socks && socks > 0)
-> +		err = mem_reserve_connect(&net_reserve, &mem_reserve_root);
-
-This looks like it should have some locking?
-
-> +	nr_socks = atomic_add_return(socks, &memalloc_socks);
-> +	if (!nr_socks && socks)
-> +		err = mem_reserve_disconnect(&net_reserve);
-
-Or does that try to make up for it?  Still looks fishy.
-
-> +	if (err)
-> +		mem_reserve_pages_add(&net_tx_pages, -tx_reserve_pages);
-> +
-> +	return err;
-> +}
-> +
-> +/**
-> + *	sk_set_memalloc - sets %SOCK_MEMALLOC
-> + *	@sk: socket to set it on
-> + *
-> + *	Set %SOCK_MEMALLOC on a socket and increase the memalloc reserve
-> + *	accordingly.
-> + */
-> +int sk_set_memalloc(struct sock *sk)
-> +{
-> +	int set = sock_flag(sk, SOCK_MEMALLOC);
-> +#ifndef CONFIG_NETVM
-> +	BUG();
+> +#ifndef cache_line_size
+> +#define cache_line_size()	L1_CACHE_BYTES
 > +#endif
 
-??  #error, maybe?
+argh, you made me look.
 
-> +	if (!set) {
-> +		int err = sk_adjust_memalloc(1, 0);
-> +		if (err)
-> +			return err;
-> +
-> +		sock_set_flag(sk, SOCK_MEMALLOC);
-> +		sk->sk_allocation |= __GFP_MEMALLOC;
-> +	}
-> +	return !set;
-> +}
-> +EXPORT_SYMBOL_GPL(sk_set_memalloc);
+Really cache_line_size() should be implemented in include/linux/cache.h. 
+Then we tromp the stupid private implementations in slob.c and slub.c.
 
+Then we wonder why x86 uses a custom cache_line_size(), but still uses
+L1_CACHE_BYTES for its L1_CACHE_ALIGN().
+
+Once we've answered that, we look at your
+
++	/*
++	 * We should make sure each CPU gets private memory.
++	 */
++	size = roundup(size, cache_line_size());
+
+and wonder whether it should have used L1_CACHE_ALIGN().
+
+I think I'd better stop looking.
