@@ -1,54 +1,43 @@
-From: "Hua Zhong" <hzhong@gmail.com>
-Subject: RE: [RFC PATCH 0/8]: uninline & uninline
-Date: Sat, 23 Feb 2008 11:58:30 -0800
-Message-ID: <00ac01c87656$777c02a0$667407e0$@com>
-References: <1203515238-22848-1-git-send-email-ilpo.jarvinen@helsinki.fi>	<20080223000220.e9229c99.akpm@linux-foundation.org>	<p734pbz95lx.fsf@bingen.suse.de> <20080223105517.4d706511.akpm@linux-foundation.org>
+From: Sebastian Siewior <bigeasy@breakpoint.cc>
+Subject: Re: [PATCH] [PS3] gelic wireless driver needs MAC80211 support
+Date: Sat, 23 Feb 2008 21:06:37 +0100
+Message-ID: <20080223200637.GA7135@Chamillionaire.breakpoint.cc>
+References: <20080223193517.GA6704@Chamillionaire.breakpoint.cc> <200802232044.59887.IvDoorn@gmail.com> <200802232050.35157.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?'Ilpo_J=E4rvinen'?= <ilpo.jarvinen@helsinki.fi>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"'David Miller'" <davem@davemloft.net>,
-	"'Arnaldo Carvalho de Melo'" <acme@redhat.com>
-To: "'Andrew Morton'" <akpm@linux-foundation.org>,
-	"'Andi Kleen'" <andi@firstfloor.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Sebastian Siewior <netdev@ml.breakpoint.cc>,
+	Masakazu Mokuno <mokuno@sm.sony.co.jp>, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.238]:57777 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762069AbYBWT6i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2008 14:58:38 -0500
-Received: by wr-out-0506.google.com with SMTP id c48so1347361wra.23
-        for <netdev@vger.kernel.org>; Sat, 23 Feb 2008 11:58:36 -0800 (PST)
-In-Reply-To: <20080223105517.4d706511.akpm@linux-foundation.org>
-Content-Language: en-us
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:52605 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1764017AbYBWUHC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2008 15:07:02 -0500
+Content-Disposition: inline
+In-Reply-To: <200802232050.35157.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > Is there any reason they couldn't just be merged to mainline?
-> >
-> > I think it's a useful facility.
-> 
-> ummm, now why did we made that decision...  I think we decided that
-> it's the sort of thing which one person can run once per few months
-> and that will deliver its full value.  I can maintain it in -mm and
-> we're happy - no need to add it to mainline.  No strong feelings
-> either way really.
+* Ivo van Doorn | 2008-02-23 20:50:34 [+0100]:
 
-Apparently nobody has been doing it for a while. :-) Last time I did it it
-was around the submission time and I actually patched it into mainline
-kernel to do so. Not particularly hard to do, but sitting in mm-only does
-make it a bit harder, and there are the vdso problem you just mentioned that
-one has to fix for himself if it exists in mainline.
-
-> It does have the downside that the kernel explodes if someone adds
-> unlikely or likely to the vdso code and I need to occasionally hunt
-> down new additions and revert them in that patch.  That makes it a
-> bit of a maintenance burden.
-
-Is it possible to catch this automatically, like, by re-defining
-likely/unlikely to the raw form in specific file(s)?
-
-Hua
+>Additionally, what part of the driver actually uses mac80211?
+>I just browsed to the code, and it seems to work completely without
+>using mac80211. Instead it seems to work directly by registering a
+>net_device structure...
+  CC      drivers/net/ps3_gelic_wireless.o
+/home/bigeasy/git/linux-2.6/drivers/net/ps3_gelic_wireless.c: In function 'gelic_wl_setup_netdev_ops':
+/home/bigeasy/git/linux-2.6/drivers/net/ps3_gelic_wireless.c:2660: error: 'struct net_device' has no member named 'wireless_data'
+/home/bigeasy/git/linux-2.6/drivers/net/ps3_gelic_wireless.c:2661: error: 'struct net_device' has no member named 'wireless_handlers'
+make[3]: *** [drivers/net/ps3_gelic_wireless.o] Error 1
+make[2]: *** [drivers/net] Error 2
+make[1]: *** [drivers] Error 2
+make[1]: *** Waiting for unfinished jobs....
+make: *** [sub-make] Error 2
 
 
+I add this to the patch desctiption and post a depends on patach
+
+>Ivo
+
+Sebastian
