@@ -1,45 +1,42 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [RFC PATCH 0/8]: uninline & uninline
-Date: Sat, 23 Feb 2008 14:15:06 +0100
-Message-ID: <p734pbz95lx.fsf@bingen.suse.de>
-References: <1203515238-22848-1-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<20080223000220.e9229c99.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?iso-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+From: Laura Garcia <nevola@gmail.com>
+Subject: [PATCH 1/2]via-rhine.c: Use-register-offset-definition-for-WOLcgClr
+Date: Sat, 23 Feb 2008 18:56:35 +0100
+Message-ID: <E1JSybz-0004BD-Tu@elite>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:44820 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751376AbYBWNPI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Feb 2008 08:15:08 -0500
-In-Reply-To: <20080223000220.e9229c99.akpm@linux-foundation.org> (Andrew Morton's message of "Sat\, 23 Feb 2008 00\:02\:20 -0800")
+Received: from ug-out-1314.google.com ([66.249.92.173]:63916 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753525AbYBWR4l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2008 12:56:41 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so205295ugc.16
+        for <netdev@vger.kernel.org>; Sat, 23 Feb 2008 09:56:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton <akpm@linux-foundation.org> writes:
+Use register offset definition for WOLcgClr. This patch does not 
+change the driver behaviour.
 
+Signed-off-by: Laura Garcia Liebana <nevola@gmail.com>
 
->> -41525  2066 f, 3370 +, 44895 -, diff: -41525  IS_ERR 
->
-> This is a surprise.  I expect that the -mm-only
-> profile-likely-unlikely-macros.patch is the cause of this and mainline
-> doesn't have this problem.
+	modified:   drivers/net/via-rhine.c
+---
+ drivers/net/via-rhine.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Shouldn't they only have overhead when the respective CONFIG is enabled?
+diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
+index 7c851b1..8c9d6ae 100644
+--- a/drivers/net/via-rhine.c
++++ b/drivers/net/via-rhine.c
+@@ -1893,7 +1893,7 @@ static void rhine_shutdown (struct pci_dev *pdev)
+ 
+ 	/* Make sure we use pattern 0, 1 and not 4, 5 */
+ 	if (rp->quirks & rq6patterns)
+-		iowrite8(0x04, ioaddr + 0xA7);
++		iowrite8(0x04, ioaddr + WOLcgClr);
+ 
+ 	if (rp->wolopts & WAKE_MAGIC) {
+ 		iowrite8(WOLmagic, ioaddr + WOLcrSet);
+-- 
+1.5.3.8
 
-> If true, then this likely/unlikely bloat has probably spread into a lot of
-> your other results and it all should be redone against mainline, sorry :(
->
-> (I'm not aware of anyone having used profile-likely-unlikely-macros.patch
-> in quite some time.  That's unfortunate because it has turned up some
-> fairly flagrant code deoptimisations)
-
-Is there any reason they couldn't just be merged to mainline? 
-
-I think it's a useful facility.
-
--Andi
