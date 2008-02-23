@@ -1,9 +1,9 @@
 From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 05/28] mm: allow PF_MEMALLOC from softirq context
-Date: Sat, 23 Feb 2008 00:05:50 -0800
-Message-ID: <20080223000550.00cfbfa5.akpm@linux-foundation.org>
+Subject: Re: [PATCH 15/28] netvm: network reserve infrastructure
+Date: Sat, 23 Feb 2008 00:06:09 -0800
+Message-ID: <20080223000609.b64b5b36.akpm@linux-foundation.org>
 References: <20080220144610.548202000@chello.nl>
-	<20080220150305.905314000@chello.nl>
+	<20080220150307.208040000@chello.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,33 +12,107 @@ Cc: Linus Torvalds <torvalds@linux-foundation.org>,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([207.189.120.13]:47940 "EHLO
+Received: from smtp1.linux-foundation.org ([207.189.120.13]:52122 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933010AbYBWIIx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2008 03:08:53 -0500
-In-Reply-To: <20080220150305.905314000@chello.nl>
+	by vger.kernel.org with ESMTP id S933175AbYBWIJC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2008 03:09:02 -0500
+In-Reply-To: <20080220150307.208040000@chello.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Feb 2008 15:46:15 +0100 Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+On Wed, 20 Feb 2008 15:46:25 +0100 Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
 
-> Allow PF_MEMALLOC to be set in softirq context. When running softirqs from
-> a borrowed context save current->flags, ksoftirqd will have its own 
-> task_struct.
-
-The second sentence doesn't make sense.
-
-> This is needed to allow network softirq packet processing to make use of
-> PF_MEMALLOC.
->
-> ...
->
-> +#define tsk_restore_flags(p, pflags, mask) \
-> +	do {	(p)->flags &= ~(mask); \
-> +		(p)->flags |= ((pflags) & (mask)); } while (0)
+> Provide the basic infrastructure to reserve and charge/account network memory.
+> 
+> We provide the following reserve tree:
+> 
+> 1)  total network reserve
+> 2)    network TX reserve
+> 3)      protocol TX pages
+> 4)    network RX reserve
+> 5)      SKB data reserve
+> 
+> [1] is used to make all the network reserves a single subtree, for easy
+> manipulation.
+> 
+> [2] and [4] are merely for eastetic reasons.
+> 
+> The TX pages reserve [3] is assumed bounded by it being the upper bound of
+> memory that can be used for sending pages (not quite true, but good enough)
+> 
+> The SKB reserve [5] is an aggregate reserve, which is used to charge SKB data
+> against in the fallback path.
+> 
+> The consumers for these reserves are sockets marked with:
+>   SOCK_MEMALLOC
+> 
+> Such sockets are to be used to service the VM (iow. to swap over). They
+> must be handled kernel side, exposing such a socket to user-space is a BUG.
+> 
+> +/**
+> + *	sk_adjust_memalloc - adjust the global memalloc reserve for critical RX
+> + *	@socks: number of new %SOCK_MEMALLOC sockets
+> + *	@tx_resserve_pages: number of pages to (un)reserve for TX
+> + *
+> + *	This function adjusts the memalloc reserve based on system demand.
+> + *	The RX reserve is a limit, and only added once, not for each socket.
+> + *
+> + *	NOTE:
+> + *	   @tx_reserve_pages is an upper-bound of memory used for TX hence
+> + *	   we need not account the pages like we do for RX pages.
+> + */
+> +int sk_adjust_memalloc(int socks, long tx_reserve_pages)
+> +{
+> +	int nr_socks;
+> +	int err;
 > +
+> +	err = mem_reserve_pages_add(&net_tx_pages, tx_reserve_pages);
+> +	if (err)
+> +		return err;
+> +
+> +	nr_socks = atomic_read(&memalloc_socks);
+> +	if (!nr_socks && socks > 0)
+> +		err = mem_reserve_connect(&net_reserve, &mem_reserve_root);
 
-Does it need to be a macro?
+This looks like it should have some locking?
 
-If so, it really should cook up a temporary to avoid referencing p twice -
-the children might be watching.
+> +	nr_socks = atomic_add_return(socks, &memalloc_socks);
+> +	if (!nr_socks && socks)
+> +		err = mem_reserve_disconnect(&net_reserve);
+
+Or does that try to make up for it?  Still looks fishy.
+
+> +	if (err)
+> +		mem_reserve_pages_add(&net_tx_pages, -tx_reserve_pages);
+> +
+> +	return err;
+> +}
+> +
+> +/**
+> + *	sk_set_memalloc - sets %SOCK_MEMALLOC
+> + *	@sk: socket to set it on
+> + *
+> + *	Set %SOCK_MEMALLOC on a socket and increase the memalloc reserve
+> + *	accordingly.
+> + */
+> +int sk_set_memalloc(struct sock *sk)
+> +{
+> +	int set = sock_flag(sk, SOCK_MEMALLOC);
+> +#ifndef CONFIG_NETVM
+> +	BUG();
+> +#endif
+
+??  #error, maybe?
+
+> +	if (!set) {
+> +		int err = sk_adjust_memalloc(1, 0);
+> +		if (err)
+> +			return err;
+> +
+> +		sock_set_flag(sk, SOCK_MEMALLOC);
+> +		sk->sk_allocation |= __GFP_MEMALLOC;
+> +	}
+> +	return !set;
+> +}
+> +EXPORT_SYMBOL_GPL(sk_set_memalloc);
+
