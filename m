@@ -1,38 +1,48 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH] [PS3] gelic wireless driver needs MAC80211 support
-Date: Sat, 23 Feb 2008 21:19:42 +0100
-Message-ID: <200802232119.43051.IvDoorn@gmail.com>
-References: <20080223193517.GA6704@Chamillionaire.breakpoint.cc> <200802232044.59887.IvDoorn@gmail.com> <20080223201535.GC7135@Chamillionaire.breakpoint.cc>
+From: Sebastian Siewior <netdev@ml.breakpoint.cc>
+Subject: [PATCH] [NET] [PS3] gelic wireless driver needs WIRELESS_EXT
+	support
+Date: Sat, 23 Feb 2008 21:25:53 +0100
+Message-ID: <20080223202553.GD7135@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Masakazu Mokuno <mokuno@sm.sony.co.jp>, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: Sebastian Siewior <netdev@ml.breakpoint.cc>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: Masakazu Mokuno <mokuno@sm.sony.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from el-out-1112.google.com ([209.85.162.181]:1917 "EHLO
-	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754378AbYBWUUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2008 15:20:05 -0500
-Received: by el-out-1112.google.com with SMTP id v27so734139ele.23
-        for <netdev@vger.kernel.org>; Sat, 23 Feb 2008 12:20:02 -0800 (PST)
-In-Reply-To: <20080223201535.GC7135@Chamillionaire.breakpoint.cc>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:54053 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757593AbYBWU0P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2008 15:26:15 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 23 February 2008, Sebastian Siewior wrote:
-> * Ivo van Doorn | 2008-02-23 20:44:59 [+0100]:
-> 
-> >Is there any particular reason why this driver is in drivers/net instead
-> >of drivers/net/wireless (along with all other wireless drivers?
-> 
-> My understanding is/was that the wireless device and the eth device are
-> exposed by the hypervisor to the system and they share ressources.
+|   CC      drivers/net/ps3_gelic_wireless.o
+| /home/bigeasy/git/linux-2.6/drivers/net/ps3_gelic_wireless.c: In function 'gelic_wl_setup_netdev_ops':
+| /home/bigeasy/git/linux-2.6/drivers/net/ps3_gelic_wireless.c:2660: error: 'struct net_device' has no member named 'wireless_data'
+| /home/bigeasy/git/linux-2.6/drivers/net/ps3_gelic_wireless.c:2661: error: 'struct net_device' has no member named 'wireless_handlers'
+| make[3]: *** [drivers/net/ps3_gelic_wireless.o] Error 1
+| make[2]: *** [drivers/net] Error 2
+| make[1]: *** [drivers] Error 2
+| make[1]: *** Waiting for unfinished jobs....
+| make: *** [sub-make] Error 2
 
-Ah ok, makes sense. :)
+Signed-off-by: Sebastian Siewior <sebastian@breakpoint.cc>
+---
+ drivers/net/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Thanks.
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index f337800..e0a06e9 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2363,6 +2363,7 @@ config GELIC_NET
+ config GELIC_WIRELESS
+        bool "PS3 Wireless support"
+        depends on GELIC_NET
++       select WIRELESS_EXT
+        help
+         This option adds the support for the wireless feature of PS3.
+         If you have the wireless-less model of PS3 or have no plan to
+-- 
+1.5.3.8
 
-Ivo
