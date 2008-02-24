@@ -1,84 +1,134 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [BUG][AX25] spinlock lockup
-Date: Sun, 24 Feb 2008 20:51:01 +0100
-Message-ID: <20080224195101.GA2961@ami.dom.local>
-References: <001a01c87692$cfca8d00$453c822c@dg8ngn>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: circular locking, mirred, 2.6.24.2
+Date: Mon, 25 Feb 2008 00:20:35 +0200
+Message-ID: <20080224222035.M62480@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, 'Ralf Baechle' <ralf@linux-mips.org>
-To: Jann Traschewski <jann@gmx.de>
+Content-Type: text/plain;
+	charset=koi8-r
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:56569 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751738AbYBXTpB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2008 14:45:01 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so514808ugc.16
-        for <netdev@vger.kernel.org>; Sun, 24 Feb 2008 11:45:00 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <001a01c87692$cfca8d00$453c822c@dg8ngn>
+Received: from usermail.globalproof.net ([194.146.153.18]:46474 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752764AbYBXWUw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2008 17:20:52 -0500
+Received: from visp.net.lb (localhost [127.0.0.1])
+	by usermail.globalproof.net (Postfix) with ESMTP id 5938EBD07B
+	for <netdev@vger.kernel.org>; Mon, 25 Feb 2008 00:20:35 +0200 (EET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 24, 2008 at 04:10:29AM +0100, Jann Traschewski wrote:
-> Hello,
+2.6.24.2 with applied patches for printk,softlockup, and patch for htb (as i 
+understand, they are in 2.6.25 git and it is fixes).
 
-Hi!
+I will send also to private mails QoS rules i am using.
 
-> I got a "spinlock lockup" using the latest Kernel 2.6.24.2 with recent
-> patches from Jarek Poplawski applied.
-...
->  ppp_deflate nf_nat zlib_deflateBUG: unable to handle kernel NULL pointer
-> dereference zlib_inflate nf_conntrack_ipv4 bsd_comp slhc ppp_async xt_state
-...
-> EIP is at skb_append+0x1b/0x30
-...
-> 00000010 BUG: spinlock lockup on CPU#1, bcm/12213, f40846b8
+[  118.840072] =======================================================
+[  118.840158] [ INFO: possible circular locking dependency detected ]
+[  118.840203] 2.6.24.2-build-0022 #7
+[  118.840243] -------------------------------------------------------
+[  118.840288] swapper/0 is trying to acquire lock:
+[  118.840329]  (&dev->queue_lock){-+..}, at: [<c0289c11>] dev_queue_xmit
++0x177/0x302
+[  118.840490]
+[  118.840490] but task is already holding lock:
+[  118.840567]  (&p->tcfc_lock){-+..}, at: [<f89f0066>] tcf_mirred+0x20/0x180 
+[act_mirred]
+[  118.840727]
+[  118.840727] which lock already depends on the new lock.
+[  118.840728]
+[  118.840842]
+[  118.840842] the existing dependency chain (in reverse order) is:
+[  118.840921]
+[  118.840921] -> #2 (&p->tcfc_lock){-+..}:
+[  118.841075]        [<c0143624>] __lock_acquire+0xa30/0xc19
+[  118.841324]        [<c0143887>] lock_acquire+0x7a/0x94
+[  118.841572]        [<c02d93f5>] _spin_lock+0x2e/0x58
+[  118.841820]        [<f89f0066>] tcf_mirred+0x20/0x180 [act_mirred]
+[  118.842068]        [<c0297ec4>] tcf_action_exec+0x44/0x77
+[  118.842344]        [<f89ba5d2>] u32_classify+0x119/0x24a [cls_u32]
+[  118.842595]        [<c0295ce2>] tc_classify_compat+0x2f/0x5e
+[  118.842845]        [<c0295ec3>] tc_classify+0x1a/0x80
+[  118.843092]        [<f899c118>] ingress_enqueue+0x1a/0x53 [sch_ingress]
+[  118.843343]        [<c0287139>] netif_receive_skb+0x296/0x44c
+[  118.843592]        [<f88d1a4e>] e100_poll+0x14b/0x26a [e100]
+[  118.843843]        [<c02894bc>] net_rx_action+0xbf/0x201
+[  118.844091]        [<c012ac15>] __do_softirq+0x6f/0xe9
+[  118.844343]        [<c01078af>] do_softirq+0x61/0xc8
+[  118.844591]        [<ffffffff>] 0xffffffff
+[  118.844840]
+[  118.844840] -> #1 (&dev->ingress_lock){-+..}:
+[  118.844993]        [<c0143624>] __lock_acquire+0xa30/0xc19
+[  118.845242]        [<c0143887>] lock_acquire+0x7a/0x94
+[  118.845489]        [<c02d93f5>] _spin_lock+0x2e/0x58
+[  118.845737]        [<c0295387>] qdisc_lock_tree+0x1e/0x21
+[  118.845984]        [<c02953b6>] dev_init_scheduler+0xb/0x53
+[  118.846235]        [<c0288483>] register_netdevice+0x2a3/0x2fd
+[  118.846483]        [<c028850f>] register_netdev+0x32/0x3f
+[  118.846730]        [<c03ea8ee>] loopback_net_init+0x39/0x6c
+[  118.846980]        [<c02858ef>] register_pernet_operations+0x13/0x15
+[  118.847230]        [<c0285958>] register_pernet_device+0x1f/0x4c
+[  118.847478]        [<c03ea8b3>] loopback_init+0xd/0xf
+[  118.847725]        [<c03d64df>] kernel_init+0x155/0x2c6
+[  118.847973]        [<c0105bab>] kernel_thread_helper+0x7/0x10
+[  118.848225]        [<ffffffff>] 0xffffffff
+[  118.848472]
+[  118.848472] -> #0 (&dev->queue_lock){-+..}:
+[  118.848626]        [<c0143514>] __lock_acquire+0x920/0xc19
+[  118.848874]        [<c0143887>] lock_acquire+0x7a/0x94
+[  118.849122]        [<c02d93f5>] _spin_lock+0x2e/0x58
+[  118.849370]        [<c0289c11>] dev_queue_xmit+0x177/0x302
+[  118.849617]        [<f89f01a5>] tcf_mirred+0x15f/0x180 [act_mirred]
+[  118.849866]        [<c0297ec4>] tcf_action_exec+0x44/0x77
+[  118.850114]        [<f89ba5d2>] u32_classify+0x119/0x24a [cls_u32]
+[  118.850366]        [<c0295ce2>] tc_classify_compat+0x2f/0x5e
+[  118.850614]        [<c0295ec3>] tc_classify+0x1a/0x80
+[  118.850861]        [<f899c118>] ingress_enqueue+0x1a/0x53 [sch_ingress]
+[  118.851111]        [<c0287139>] netif_receive_skb+0x296/0x44c
+[  118.851360]        [<f88d1a4e>] e100_poll+0x14b/0x26a [e100]
+[  118.851612]        [<c02894bc>] net_rx_action+0xbf/0x201
+[  118.851859]        [<c012ac15>] __do_softirq+0x6f/0xe9
+[  118.852106]        [<c01078af>] do_softirq+0x61/0xc8
+[  118.852355]        [<ffffffff>] 0xffffffff
+[  118.852602]
+[  118.852602] other info that might help us debug this:
+[  118.852603]
+[  118.852716] 5 locks held by swapper/0:
+[  118.852756]  #0:  (rcu_read_lock){..--}, at: [<c028944d>] net_rx_action
++0x50/0x201
+[  118.852940]  #1:  (rcu_read_lock){..--}, at: [<c0286f99>] netif_receive_skb
++0xf6/0x44c
+[  118.853123]  #2:  (&dev->ingress_lock){-+..}, at: [<c0287125>] 
+netif_receive_skb+0x282/0x44c
+[  118.853309]  #3:  (&p->tcfc_lock){-+..}, at: [<f89f0066>] tcf_mirred
++0x20/0x180 [act_mirred]
+[  118.853493]  #4:  (rcu_read_lock){..--}, at: [<c0289bb7>] dev_queue_xmit
++0x11d/0x302
+[  118.853677]
+[  118.853677] stack backtrace:
+[  118.853753] Pid: 0, comm: swapper Not tainted 2.6.24.2-build-0022 #7
+[  118.853796]  [<c0105f2a>] show_trace_log_lvl+0x1a/0x2f
+[  118.853865]  [<c0106843>] show_trace+0x12/0x14
+[  118.853932]  [<c010713a>] dump_stack+0x6c/0x72
+[  118.853999]  [<c01416f4>] print_circular_bug_tail+0x5f/0x68
+[  118.854068]  [<c0143514>] __lock_acquire+0x920/0xc19
+[  118.854135]  [<c0143887>] lock_acquire+0x7a/0x94
+[  118.854205]  [<c02d93f5>] _spin_lock+0x2e/0x58
+[  118.854272]  [<c0289c11>] dev_queue_xmit+0x177/0x302
+[  118.854340]  [<f89f01a5>] tcf_mirred+0x15f/0x180 [act_mirred]
+[  118.854409]  [<c0297ec4>] tcf_action_exec+0x44/0x77
+[  118.854477]  [<f89ba5d2>] u32_classify+0x119/0x24a [cls_u32]
+[  118.854547]  [<c0295ce2>] tc_classify_compat+0x2f/0x5e
+[  118.854615]  [<c0295ec3>] tc_classify+0x1a/0x80
+[  118.854682]  [<f899c118>] ingress_enqueue+0x1a/0x53 [sch_ingress]
+[  118.854752]  [<c0287139>] netif_receive_skb+0x296/0x44c
+[  118.854820]  [<f88d1a4e>] e100_poll+0x14b/0x26a [e100]
+[  118.854890]  [<c02894bc>] net_rx_action+0xbf/0x201
+[  118.854958]  [<c012ac15>] __do_softirq+0x6f/0xe9
+[  118.855025]  [<c01078af>] do_softirq+0x61/0xc8
 
-Looks like 2 in 1: NULL pointer dereference and (later?) lockup.
 
-There is only one function in AX25 calling skb_append(), and it really
-looks suspicious: appends skb after previously enqueued one, but in
-the meantime this previous skb could be removed from the queue.
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
-Here is a patch for testing: it fixes this simple way, so this is not
-fully compatible with the current method, but let's check if this could
-be a problem?
-
-Regards,
-Jarek P.
-
-(testing patch #1)
-
----
-
- net/ax25/ax25_subr.c |   11 +++--------
- 1 files changed, 3 insertions(+), 8 deletions(-)
-
-diff --git a/net/ax25/ax25_subr.c b/net/ax25/ax25_subr.c
-index d8f2157..034aa10 100644
---- a/net/ax25/ax25_subr.c
-+++ b/net/ax25/ax25_subr.c
-@@ -64,20 +64,15 @@ void ax25_frames_acked(ax25_cb *ax25, unsigned short nr)
- 
- void ax25_requeue_frames(ax25_cb *ax25)
- {
--	struct sk_buff *skb, *skb_prev = NULL;
-+	struct sk_buff *skb;
- 
- 	/*
- 	 * Requeue all the un-ack-ed frames on the output queue to be picked
- 	 * up by ax25_kick called from the timer. This arrangement handles the
- 	 * possibility of an empty output queue.
- 	 */
--	while ((skb = skb_dequeue(&ax25->ack_queue)) != NULL) {
--		if (skb_prev == NULL)
--			skb_queue_head(&ax25->write_queue, skb);
--		else
--			skb_append(skb_prev, skb, &ax25->write_queue);
--		skb_prev = skb;
--	}
-+	while ((skb = skb_dequeue_tail(&ax25->ack_queue)) != NULL)
-+		skb_queue_head(&ax25->write_queue, skb);
- }
- 
- /*
