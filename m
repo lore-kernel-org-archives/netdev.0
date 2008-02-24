@@ -1,108 +1,42 @@
-From: "Daniel J Blueman" <daniel.blueman@gmail.com>
-Subject: Re: [2.6.25-rc2, 2.6.24-rc8] page allocation failure...
-Date: Sun, 24 Feb 2008 12:37:36 +0000
-Message-ID: <6278d2220802240437o1f730bbof65d366d5506d3e6@mail.gmail.com>
-References: <6278d2220802141240g6ee2421ew94e57669ef930be6@mail.gmail.com>
-	 <6278d2220802170520k2ddf9072x386e4a9e3062f4da@mail.gmail.com>
-	 <20080218045849.59311851.akpm@linux-foundation.org>
-	 <47BB13DD.1040804@intel.com>
+From: Kristof Provost <Kristof@sigsegv.be>
+Subject: Re: lockdep warnings in ipv6
+Date: Sun, 24 Feb 2008 13:12:34 +0000
+Message-ID: <20080224131234.GA4973@nereid>
+References: <Pine.LNX.4.64.0802241307310.15321@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	"Linux Kernel" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=us-ascii; x-action=pgp-signed
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Jan Engelhardt <jengelh@computergmbh.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.232]:32768 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752376AbYBXMhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2008 07:37:38 -0500
-Received: by wr-out-0506.google.com with SMTP id c48so1687714wra.23
-        for <netdev@vger.kernel.org>; Sun, 24 Feb 2008 04:37:37 -0800 (PST)
-In-Reply-To: <47BB13DD.1040804@intel.com>
+Received: from rhineheart.priorweb.be ([213.193.229.215]:33349 "HELO
+	rhineheart.priorweb.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752403AbYBXNTV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2008 08:19:21 -0500
 Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0802241307310.15321@fbirervta.pbzchgretzou.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 19, 2008 at 5:37 PM, Kok, Auke <auke-jan.h.kok@intel.com> wrote:
-> Andrew Morton wrote:
->  > On Sun, 17 Feb 2008 13:20:59 +0000 "Daniel J Blueman" <daniel.blueman@gmail.com> wrote:
->  >> I'm still hitting this with e1000e on 2.6.25-rc2, 10 times again.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
->  are you sure? I don't think that's the case and you're seeing e1000 dumps here...
+On 2008-02-24 13:10:58 (+0100), Jan Engelhardt <jengelh@computergmbh.de> wrote:
+> Hi,
+> 
+> 
+> when doing IPv6 (ping6, ssh otherhost, etc.), lockdep spews a warning in 
+> 2.6.25-rc2 on the target. CONFIG_..._FRAME_POINTER is off,
+I think that's the same bug I ran into. It was introduced in
+69cc64d8d9 and reversed in 9ff56607468. I think Linus' tree has the
+reversal by now.
 
-Indeed so! I thought I moved to e1000e a time ago, but forgot that I
-had moved back due to lack of support for 82566DC, added since.
+Kristof
+ 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
 
-I'm not seeing any related messages with e1000e after a few days'
-uptime, so all looks well...
-
-Thanks again,
-  Daniel
-
->  >> It's clearly non-fatal, but then do we expect it to occur?
->  >>
->  >> Daniel
->  >>
->  >> --- [dmesg]
->  >>
->  >> [ 1250.822786] swapper: page allocation failure. order:3, mode:0x4020
->  >> [ 1250.822786] Pid: 0, comm: swapper Not tainted 2.6.25-rc2-119 #2
->  >> [ 1250.822786]
->  >> [ 1250.822786] Call Trace:
->  >> [ 1250.822786]  <IRQ>  [<ffffffff8025fe9e>] __alloc_pages+0x34e/0x3a0
->  >> [ 1250.822786]  [<ffffffff8048c6df>] ? __netdev_alloc_skb+0x1f/0x40
->  >> [ 1250.822786]  [<ffffffff8027acc2>] __slab_alloc+0x102/0x3d0
->  >> [ 1250.822786]  [<ffffffff8048c6df>] ? __netdev_alloc_skb+0x1f/0x40
->  >> [ 1250.822786]  [<ffffffff8027b8cb>] __kmalloc_track_caller+0x7b/0xc0
->  >> [ 1250.822786]  [<ffffffff8048b74f>] __alloc_skb+0x6f/0x160
->  >> [ 1250.822786]  [<ffffffff8048c6df>] __netdev_alloc_skb+0x1f/0x40
->  >> [ 1250.822786]  [<ffffffff8042652d>] e1000_alloc_rx_buffers+0x1ed/0x260
->  >> [ 1250.822786]  [<ffffffff80426b5a>] e1000_clean_rx_irq+0x22a/0x330
->  >> [ 1250.822786]  [<ffffffff80422981>] e1000_clean+0x1e1/0x540
->  >> [ 1250.822786]  [<ffffffff8024b7a5>] ? tick_program_event+0x45/0x70
->  >> [ 1250.822786]  [<ffffffff804930ba>] net_rx_action+0x9a/0x150
->  >> [ 1250.822786]  [<ffffffff802336b4>] __do_softirq+0x74/0xf0
->  >> [ 1250.822786]  [<ffffffff8020c5fc>] call_softirq+0x1c/0x30
->  >> [ 1250.822786]  [<ffffffff8020eaad>] do_softirq+0x3d/0x80
->  >> [ 1250.822786]  [<ffffffff80233635>] irq_exit+0x85/0x90
->  >> [ 1250.822786]  [<ffffffff8020eba5>] do_IRQ+0x85/0x100
->  >> [ 1250.822786]  [<ffffffff8020a5b0>] ? mwait_idle+0x0/0x50
->  >> [ 1250.822786]  [<ffffffff8020b981>] ret_from_intr+0x0/0xa
->  >> [ 1250.822786]  <EOI>  [<ffffffff8020a5f5>] ? mwait_idle+0x45/0x50
->  >> [ 1250.822786]  [<ffffffff80209a92>] ? enter_idle+0x22/0x30
->  >> [ 1250.822786]  [<ffffffff8020a534>] ? cpu_idle+0x74/0xa0
->  >> [ 1250.822786]  [<ffffffff80527825>] ? rest_init+0x55/0x60
->  >
->  > They're regularly reported with e1000 too - I don't think aything really
->  > changed.
->  >
->  > e1000 has this crazy problem where because of a cascade of follies (mainly
->  > borked hardware) it has to do a 32kb allocation for a 9kb(?) packet.  It
->  > would be sad if that was carried over into e1000e?
->
->  can't be, I personally removed that code.
->
->  for MTU > 1500 e1000e uses a plain normal sized SKB. for anything bigger e1000e
->  uses pages.
->
->  so I don't see how this bug could still be showing up for e1000e at all. The large
->  skb receive code is all gone (literally, removed).
->
->  *please* rmmod e1000; modprobe e1000e and show the dumps again so we know for sure
->  that we're not looking at e1000 dumps.
->
->  short fix: increase ring size for e1000 with `modprobe e1000 RxDescriptors=4096`
->  (or use ethtool) and `echo -n 8192 > /proc/sys/vm/min_free_kbytes` or something
->  like that.
->
->  what nic hardware is this on? lspci?
->
->  Auke
->
-
-
-
--- 
-Daniel J Blueman
+iD8DBQFHwW1CUEZ9DhGwDugRAkVJAKCFxUjwfQNTtAX0Z5OquJRyNimmCgCbBgio
+0voGZL/B6iaz5kSLgTbV2EY=
+=CPho
+-----END PGP SIGNATURE-----
