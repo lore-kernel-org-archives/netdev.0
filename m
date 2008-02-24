@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver fixes
-Date: Sat, 23 Feb 2008 21:59:24 -0800 (PST)
-Message-ID: <20080223.215924.141439027.davem@davemloft.net>
-References: <20080220224053.GA8500@electric-eye.fr.zoreil.com>
-	<20080220.150753.17432290.davem@davemloft.net>
-	<47C10546.7050508@garzik.org>
+Subject: Re: [PATCH 2.6.25 0/8][BNX2X]: bugfixes and updates
+Date: Sat, 23 Feb 2008 21:59:46 -0800 (PST)
+Message-ID: <20080223.215946.37132344.davem@davemloft.net>
+References: <1203528827.8232.85.camel@lb-tlvb-eliezer.il.broadcom.com>
+	<20080220.131720.177076228.davem@davemloft.net>
+	<1203832231.8232.118.camel@lb-tlvb-eliezer.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, bfields@fieldses.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jeff@garzik.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760313AbYBXF65@vger.kernel.org>
-In-Reply-To: <47C10546.7050508@garzik.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: eliezert@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41633
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1760515AbYBXF7F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2008 00:59:05 -0500
+In-Reply-To: <1203832231.8232.118.camel@lb-tlvb-eliezer.il.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Sun, 24 Feb 2008 00:48:54 -0500
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Date: Sun, 24 Feb 2008 07:50:31 +0200
 
-> I trust you...  Otherwise I wouldn't have volunteered to move my 
-> upstream from Linus to you :)
-...
-> So (as you saw in last email)... rebased and resend.
+> I will resubmit the bug fixes only.
+> Can I keep the spelling fixes in?
 
-Thanks :)
+Sure.
