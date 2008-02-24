@@ -1,74 +1,74 @@
-From: =?iso-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [resend] [PATCH] IPv4: Reset scope when changing address
-Date: Sun, 24 Feb 2008 19:12:38 +0100
-Message-ID: <873arib4vd.fsf@obelix.mork.no>
-References: <87bq6hazvo.fsf@obelix.mork.no>
-	<20080217.222245.132418529.davem@davemloft.net>
+From: Jim Westfall <jwestfall@surrealistic.net>
+Subject: [PATCH] llc: fix skb size for test responses
+Date: Sun, 24 Feb 2008 11:07:58 -0800
+Message-ID: <20080224190758.GW84358@surrealistic.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+To: netdev@vger.kernel.org, acme@ghostprotocols.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:41201 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751675AbYBXSMr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Feb 2008 13:12:47 -0500
-Received: from obelix.mork.no (obelix.mork.no [IPv6:2001:16d8:ffb4:2:205:4eff:fe4c:7769])
-	by canardo.mork.no (8.13.8/8.13.8) with ESMTP id m1OICe4a009300
-	(version=TLSv1/SSLv3 cipher=AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Sun, 24 Feb 2008 19:12:41 +0100
-Received: from bjorn by obelix.mork.no with local (Exim 4.63)
-	(envelope-from <bjorn@mork.no>)
-	id 1JTLL4-0007mr-QY
-	for netdev@vger.kernel.org; Sun, 24 Feb 2008 19:12:38 +0100
-In-Reply-To: <20080217.222245.132418529.davem@davemloft.net> (David Miller's
-	message of "Sun, 17 Feb 2008 22:22:45 -0800 (PST)")
+Received: from snapper.surrealistic.net ([67.40.222.186]:54713 "EHLO
+	snapper.surrealistic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754706AbYBXTIG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2008 14:08:06 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+Hi
 
-> Please clear up all of the inline mime tag stuff in your
-> outgoing emails.  Your description and patch is very difficult
-> to read because of this.
+The llc test command is used for a layer2 ping and contains a variable 
+length payload that we must include in the response.  Use the size of the 
+received skb as the size of the skb we must allocate to hold the payload. 
 
-Ouch, sorry. I wish I could blame my user agent, but this was mostly my
-sausage fingers..
+This resolved an skb_over_panic(), when trying to copy the payload into 
+what was a hard coded skb of size 128.
 
-New attempt:
+Signed-off-by: Jim Westfall <jwestfall@surrealistic.net>
 
-
-This bug did bite at least one user, who did have to resort to rebooting
-the system after an "ifconfig eth0 127.0.0.1" typo.  
-
-Deleting the address and adding a new is a less intrusive workaround.
-But I still beleive this is a bug that should be fixed.  Some way or
-another.
-
-Another possibility would be to remove the scope mangling based on
-address.  This will always be incomplete (are 127/8 the only address
-space with host scope requirements?)
-
-
-
-We set the scope to RT_SCOPE_HOST if an IPv4 interface is configured
-with a loopback address (127/8).  The scope is never reset, and will
-remain set to RT_SCOPE_HOST after changing the address. This patch
-resets the scope if the address is changed again, to restore normal
-functionality.
-
-Signed-off-by: Bjorn Mork <bjorn@mork.no>
----
- devinet.c |    1 +
- 1 file changed, 1 insertion(+)
-
-
---- linux-2.6.24-rc8.orig/net/ipv4/devinet.c	2008-01-16 05:22:48.000000000 +0100
-+++ linux-2.6.24-rc8/net/ipv4/devinet.c	2008-01-23 19:17:30.000000000 +0100
-@@ -753,6 +753,7 @@
- 			inet_del_ifa(in_dev, ifap, 0);
- 			ifa->ifa_broadcast = 0;
- 			ifa->ifa_anycast = 0;
-+			ifa->ifa_scope = 0;
- 		}
+diff -urp linux-2.6.24.2.org/net/llc/llc_s_ac.c linux-2.6.24.2/net/llc/llc_s_ac.c
+--- linux-2.6.24.2.org/net/llc/llc_s_ac.c	2008-02-10 21:51:11.000000000 -0800
++++ linux-2.6.24.2/net/llc/llc_s_ac.c	2008-02-24 10:15:02.000000000 -0800
+@@ -148,9 +148,18 @@ int llc_sap_action_send_test_r(struct ll
+ 	llc_pdu_decode_sa(skb, mac_da);
+ 	llc_pdu_decode_da(skb, mac_sa);
+ 	llc_pdu_decode_ssap(skb, &dsap);
+-	nskb = llc_alloc_frame(NULL, skb->dev);
++	nskb = alloc_skb(skb->end - skb->head, GFP_ATOMIC);
++
+ 	if (!nskb)
+ 		goto out;
++
++	skb_reset_mac_header(nskb);
++	skb_reserve(nskb, 50);
++	skb_reset_network_header(nskb);
++	skb_reset_transport_header(nskb);
++	nskb->protocol = htons(ETH_P_802_2);
++	nskb->dev = skb->dev;
++
+ 	llc_pdu_header_init(nskb, LLC_PDU_TYPE_U, sap->laddr.lsap, dsap,
+ 			    LLC_PDU_RSP);
+ 	llc_pdu_init_as_test_rsp(nskb, skb);
+diff -urp linux-2.6.24.2.org/net/llc/llc_station.c linux-2.6.24.2/net/llc/llc_station.c
+--- linux-2.6.24.2.org/net/llc/llc_station.c	2008-02-10 21:51:11.000000000 -0800
++++ linux-2.6.24.2/net/llc/llc_station.c	2008-02-24 10:10:01.000000000 -0800
+@@ -298,10 +298,18 @@ static int llc_station_ac_send_test_r(st
+ {
+ 	u8 mac_da[ETH_ALEN], dsap;
+ 	int rc = 1;
+-	struct sk_buff *nskb = llc_alloc_frame(NULL, skb->dev);
++	struct sk_buff *nskb = alloc_skb(skb->end - skb->head, GFP_ATOMIC);
  
- 		ifa->ifa_address = ifa->ifa_local = sin->sin_addr.s_addr;
+ 	if (!nskb)
+ 		goto out;
++
++	skb_reset_mac_header(nskb);
++	skb_reserve(nskb, 50);
++	skb_reset_network_header(nskb);
++	skb_reset_transport_header(nskb);
++	nskb->protocol = htons(ETH_P_802_2);
++	nskb->dev = skb->dev;
++
+ 	rc = 0;
+ 	llc_pdu_decode_sa(skb, mac_da);
+ 	llc_pdu_decode_ssap(skb, &dsap);
+
