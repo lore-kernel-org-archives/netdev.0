@@ -1,57 +1,44 @@
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: Re: [PATCH] tg3: ethtool phys_id default (rev2)
-Date: Sun, 24 Feb 2008 07:42:06 +0200
-Message-ID: <1203831726.8232.115.camel@lb-tlvb-eliezer.il.broadcom.com>
-References: <20080222102429.7e48f1f1@extreme>
- <1203707802.13495.169.camel@dell>
- <20080223.195221.177613282.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [git patches] net driver fixes
+Date: Sun, 24 Feb 2008 00:48:54 -0500
+Message-ID: <47C10546.7050508@garzik.org>
+References: <20080220212302.GJ30160@fieldses.org>	<20080220.134257.41491836.davem@davemloft.net>	<20080220224053.GA8500@electric-eye.fr.zoreil.com> <20080220.150753.17432290.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, shemminger@vyatta.com, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Cc: romieu@fr.zoreil.com, bfields@fieldses.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2613 "EHLO MMS3.broadcom.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:43654 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753559AbYBXFmW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Feb 2008 00:42:22 -0500
-In-Reply-To: <20080223.195221.177613282.davem@davemloft.net>
+	id S1753641AbYBXFs6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Feb 2008 00:48:58 -0500
+In-Reply-To: <20080220.150753.17432290.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Sat, 2008-02-23 at 19:52 -0800, David Miller wrote:
-> From: "Michael Chan" <mchan@broadcom.com>
-> Date: Fri, 22 Feb 2008 11:16:42 -0800
-> 
-> > On Fri, 2008-02-22 at 10:24 -0800, Stephen Hemminger wrote:
-> > > When asked to blink LEDs the tg3 driver behaves when using:
-> > > 	ethtool -p ethX
-> > > The default value for data is zero, and other drivers interpret this
-> > > as blink forever (or at least a really long time).  The tg3 driver
-> > > interprets this as blink once.  All drivers should have the same
-> > > behaviour.
-...
-> > We should do this across the board for bnx2, bnx2x, and niu as well.
-> 
-> Agreed.
-
-Doesn't this mean that ethtool -p will hold the RTNL lock forever?
-Is this a good idea?
-
-For example on the Red Hat machine I have here if you do:
-
-ethtool -p eth2 100000 &
-reboot
-
-Various things the shutdown scripts try to do will fail because of the
-held RTNL lock. in the end the script dies and the machine does not
-reboot.
-
-Eliezer
+David Miller wrote:
+> Jeff, I really don't want to pull that tree in.  Please trust me as
+> your upstream to handle merging issues, as needed.
 
 
+I trust you...  Otherwise I wouldn't have volunteered to move my 
+upstream from Linus to you :)
 
+My main issues/motivations were:
+
+* quite simply, just force of habit:  I'm used to basing off of a recent 
+Linus tree, to guarantee build&boot testing against the latest.
+
+* worry about testing against a too-old tree, where non-networking fixes 
+may have a relevant impact on my to-be-pushed netdrvr fixes.
+
+But in this case it's fair to say there are no such issues, and it was 
+mainly just out of habit.
+
+So (as you saw in last email)... rebased and resend.
+
+	Jeff
 
 
