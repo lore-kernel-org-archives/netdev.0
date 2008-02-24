@@ -1,28 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.25 0/8][BNX2X]: bugfixes and updates
-Date: Sat, 23 Feb 2008 21:59:46 -0800 (PST)
-Message-ID: <20080223.215946.37132344.davem@davemloft.net>
-References: <1203528827.8232.85.camel@lb-tlvb-eliezer.il.broadcom.com>
-	<20080220.131720.177076228.davem@davemloft.net>
-	<1203832231.8232.118.camel@lb-tlvb-eliezer.il.broadcom.com>
+From: Phil Oester <kernel@linuxace.com>
+Subject: Re: [PATCH] Fix multicast on VLAN interfaces
+Date: Sat, 23 Feb 2008 22:32:52 -0800
+Message-ID: <20080224063252.GA4846@linuxace.com>
+References: <20080221220542.GA19693@linuxace.com> <20080223.200018.128938227.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: eliezert@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41633
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760515AbYBXF7F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2008 00:59:05 -0500
-In-Reply-To: <1203832231.8232.118.camel@lb-tlvb-eliezer.il.broadcom.com>
+Received: from adsl-67-120-171-161.dsl.lsan03.pacbell.net ([67.120.171.161]:38513
+	"HELO linuxace.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751033AbYBXGcy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2008 01:32:54 -0500
+Content-Disposition: inline
+In-Reply-To: <20080223.200018.128938227.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Date: Sun, 24 Feb 2008 07:50:31 +0200
+On Sat, Feb 23, 2008 at 08:00:18PM -0800, David Miller wrote:
+> "da" is kzalloc()'d, how can da->da_synced not be zero?
 
-> I will resubmit the bug fixes only.
-> Can I keep the spelling fixes in?
+Because it was originally kmalloc'd, not kzalloc'd.  It was
+fixed about 2 days prior to my patch submission, here:
 
-Sure.
+    http://marc.info/?l=linux-netdev&m=120343348811767&w=2
+
+which I missed.
+
+Phil
