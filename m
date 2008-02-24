@@ -1,74 +1,84 @@
-From: Jim Westfall <jwestfall@surrealistic.net>
-Subject: [PATCH] llc: fix skb size for test responses
-Date: Sun, 24 Feb 2008 11:07:58 -0800
-Message-ID: <20080224190758.GW84358@surrealistic.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG][AX25] spinlock lockup
+Date: Sun, 24 Feb 2008 20:51:01 +0100
+Message-ID: <20080224195101.GA2961@ami.dom.local>
+References: <001a01c87692$cfca8d00$453c822c@dg8ngn>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, acme@ghostprotocols.net
+Cc: netdev@vger.kernel.org, 'Ralf Baechle' <ralf@linux-mips.org>
+To: Jann Traschewski <jann@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from snapper.surrealistic.net ([67.40.222.186]:54713 "EHLO
-	snapper.surrealistic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754706AbYBXTIG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2008 14:08:06 -0500
+Received: from ug-out-1314.google.com ([66.249.92.174]:56569 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751738AbYBXTpB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2008 14:45:01 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so514808ugc.16
+        for <netdev@vger.kernel.org>; Sun, 24 Feb 2008 11:45:00 -0800 (PST)
 Content-Disposition: inline
+In-Reply-To: <001a01c87692$cfca8d00$453c822c@dg8ngn>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+On Sun, Feb 24, 2008 at 04:10:29AM +0100, Jann Traschewski wrote:
+> Hello,
 
-The llc test command is used for a layer2 ping and contains a variable 
-length payload that we must include in the response.  Use the size of the 
-received skb as the size of the skb we must allocate to hold the payload. 
+Hi!
 
-This resolved an skb_over_panic(), when trying to copy the payload into 
-what was a hard coded skb of size 128.
+> I got a "spinlock lockup" using the latest Kernel 2.6.24.2 with recent
+> patches from Jarek Poplawski applied.
+...
+>  ppp_deflate nf_nat zlib_deflateBUG: unable to handle kernel NULL pointer
+> dereference zlib_inflate nf_conntrack_ipv4 bsd_comp slhc ppp_async xt_state
+...
+> EIP is at skb_append+0x1b/0x30
+...
+> 00000010 BUG: spinlock lockup on CPU#1, bcm/12213, f40846b8
 
-Signed-off-by: Jim Westfall <jwestfall@surrealistic.net>
+Looks like 2 in 1: NULL pointer dereference and (later?) lockup.
 
-diff -urp linux-2.6.24.2.org/net/llc/llc_s_ac.c linux-2.6.24.2/net/llc/llc_s_ac.c
---- linux-2.6.24.2.org/net/llc/llc_s_ac.c	2008-02-10 21:51:11.000000000 -0800
-+++ linux-2.6.24.2/net/llc/llc_s_ac.c	2008-02-24 10:15:02.000000000 -0800
-@@ -148,9 +148,18 @@ int llc_sap_action_send_test_r(struct ll
- 	llc_pdu_decode_sa(skb, mac_da);
- 	llc_pdu_decode_da(skb, mac_sa);
- 	llc_pdu_decode_ssap(skb, &dsap);
--	nskb = llc_alloc_frame(NULL, skb->dev);
-+	nskb = alloc_skb(skb->end - skb->head, GFP_ATOMIC);
-+
- 	if (!nskb)
- 		goto out;
-+
-+	skb_reset_mac_header(nskb);
-+	skb_reserve(nskb, 50);
-+	skb_reset_network_header(nskb);
-+	skb_reset_transport_header(nskb);
-+	nskb->protocol = htons(ETH_P_802_2);
-+	nskb->dev = skb->dev;
-+
- 	llc_pdu_header_init(nskb, LLC_PDU_TYPE_U, sap->laddr.lsap, dsap,
- 			    LLC_PDU_RSP);
- 	llc_pdu_init_as_test_rsp(nskb, skb);
-diff -urp linux-2.6.24.2.org/net/llc/llc_station.c linux-2.6.24.2/net/llc/llc_station.c
---- linux-2.6.24.2.org/net/llc/llc_station.c	2008-02-10 21:51:11.000000000 -0800
-+++ linux-2.6.24.2/net/llc/llc_station.c	2008-02-24 10:10:01.000000000 -0800
-@@ -298,10 +298,18 @@ static int llc_station_ac_send_test_r(st
- {
- 	u8 mac_da[ETH_ALEN], dsap;
- 	int rc = 1;
--	struct sk_buff *nskb = llc_alloc_frame(NULL, skb->dev);
-+	struct sk_buff *nskb = alloc_skb(skb->end - skb->head, GFP_ATOMIC);
+There is only one function in AX25 calling skb_append(), and it really
+looks suspicious: appends skb after previously enqueued one, but in
+the meantime this previous skb could be removed from the queue.
+
+Here is a patch for testing: it fixes this simple way, so this is not
+fully compatible with the current method, but let's check if this could
+be a problem?
+
+Regards,
+Jarek P.
+
+(testing patch #1)
+
+---
+
+ net/ax25/ax25_subr.c |   11 +++--------
+ 1 files changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/net/ax25/ax25_subr.c b/net/ax25/ax25_subr.c
+index d8f2157..034aa10 100644
+--- a/net/ax25/ax25_subr.c
++++ b/net/ax25/ax25_subr.c
+@@ -64,20 +64,15 @@ void ax25_frames_acked(ax25_cb *ax25, unsigned short nr)
  
- 	if (!nskb)
- 		goto out;
-+
-+	skb_reset_mac_header(nskb);
-+	skb_reserve(nskb, 50);
-+	skb_reset_network_header(nskb);
-+	skb_reset_transport_header(nskb);
-+	nskb->protocol = htons(ETH_P_802_2);
-+	nskb->dev = skb->dev;
-+
- 	rc = 0;
- 	llc_pdu_decode_sa(skb, mac_da);
- 	llc_pdu_decode_ssap(skb, &dsap);
-
+ void ax25_requeue_frames(ax25_cb *ax25)
+ {
+-	struct sk_buff *skb, *skb_prev = NULL;
++	struct sk_buff *skb;
+ 
+ 	/*
+ 	 * Requeue all the un-ack-ed frames on the output queue to be picked
+ 	 * up by ax25_kick called from the timer. This arrangement handles the
+ 	 * possibility of an empty output queue.
+ 	 */
+-	while ((skb = skb_dequeue(&ax25->ack_queue)) != NULL) {
+-		if (skb_prev == NULL)
+-			skb_queue_head(&ax25->write_queue, skb);
+-		else
+-			skb_append(skb_prev, skb, &ax25->write_queue);
+-		skb_prev = skb;
+-	}
++	while ((skb = skb_dequeue_tail(&ax25->ack_queue)) != NULL)
++		skb_queue_head(&ax25->write_queue, skb);
+ }
+ 
+ /*
