@@ -1,50 +1,40 @@
-From: "Miroslav Kratochvil" <exa.exa@gmail.com>
-Subject: r8169 driver compatibility with rtl8168 [need confirm]
-Date: Mon, 25 Feb 2008 23:03:58 +0100
-Message-ID: <a37929f0802251403q36ef6306wa30298dbded0d8ed@mail.gmail.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general] [PATCH 2.6.25] RDMA/cxgb3: Shift calculation wrong
+	for single sge entries.
+Date: Mon, 25 Feb 2008 14:29:34 -0800
+Message-ID: <ada63wczn3l.fsf@cisco.com>
+References: <20080220233148.25301.54457.stgit@dell3.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.190]:11103 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756695AbYBYWEC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 17:04:02 -0500
-Received: by ti-out-0910.google.com with SMTP id 28so1125147tif.23
-        for <netdev@vger.kernel.org>; Mon, 25 Feb 2008 14:04:00 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: Steve Wise <swise@opengridcomputing.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20080220233148.25301.54457.stgit@dell3.ogc.int> (Steve Wise's
+	message of "Wed, 20 Feb 2008 17:31:48 -0600")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-Many users who have onboard Realtek 8168 network controllers in
-combination with nVidia hardware (mostly nVidia graphic card and/or
-nForce motherboard (MCP5x) ) experience still-not-very-explained
-hangup triggered by heavy network usage which fills a tx buffer, and
-(speculation) causes race condition on irq sharing, resulting in
-absolute freeze (not oops/panic). On all affected machines I've seen
-this fix solved the problem:
+Thanks, applied, although I assume based on the Signed-off-by line
+that you left out a
 
---- a/drivers/net/r8169.c   2008-02-25 22:53:01.000000000 +0100
-+++ b/drivers/net/r8169.c   2008-02-25 22:54:32.000000000 +0100
-@@ -86,8 +86,8 @@
+  From: Bryan Rosenburg <rosnbrg@us.ibm.com>
 
- #define R8169_REGS_SIZE                256
- #define R8169_NAPI_WEIGHT      64
--#define NUM_TX_DESC    64      /* Number of Tx descriptor registers */
--#define NUM_RX_DESC    256     /* Number of Rx descriptor registers */
-+#define NUM_TX_DESC    1024    /* Number of Tx descriptor registers */
-+#define NUM_RX_DESC    1024    /* Number of Rx descriptor registers */
- #define RX_BUF_SIZE    1536    /* Rx Buffer size */
- #define R8169_TX_RING_BYTES    (NUM_TX_DESC * sizeof(struct TxDesc))
- #define R8169_RX_RING_BYTES    (NUM_RX_DESC * sizeof(struct RxDesc))
+at the top (to get the authorship in git correctly).
 
-It's not really a fix, we do not address the real race cond. (or
-whatever) problem, but it removes the hangup and causes no negative
-side effects. I need someone else who can confirm that it works.
+ > RDMA/cxgb3: Shift calculation wrong for single sge entries.
 
-cheers,
-[exa]
+BTW, there's no need to duplicate the subject line in the message
+body, but if you are going to do it, please put a "Subject:" before
+it.  Otherwise I just have to edit it out by hand to avoid git putting
+the subject in twice.
 
-PS. There might already be some fixes, but I didn't manage to find them.
+ - R.
