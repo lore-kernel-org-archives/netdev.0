@@ -1,39 +1,52 @@
-From: Jim Westfall <jwestfall@surrealistic.net>
-Subject: [PATCH] llc: dont trust payload size on test cmd
-Date: Mon, 25 Feb 2008 08:14:39 -0800
-Message-ID: <20080225161439.GZ84358@surrealistic.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: New sparse warning in net/mac80211/debugfs_sta.c
+Date: Mon, 25 Feb 2008 08:53:49 -0800
+Message-ID: <1203958429.19319.273.camel@localhost>
+References: <1203589042.17534.145.camel@johannes.berg>
+	 <1203616486.7181.269.camel@localhost> <47BDBC23.5080007@trash.net>
+	 <20080223.200202.255773165.davem@davemloft.net>
+	 <1203933228.13162.58.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, acme@ghostprotocols.net
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	harvey.harrison@gmail.com, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from snapper.surrealistic.net ([67.40.222.186]:59125 "EHLO
-	snapper.surrealistic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754222AbYBYQOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 11:14:46 -0500
-Content-Disposition: inline
+Received: from 136-022.dsl.labridge.com ([206.117.136.22]:2659 "EHLO
+	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1756192AbYBYQyv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 11:54:51 -0500
+In-Reply-To: <1203933228.13162.58.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+On Mon, 2008-02-25 at 10:53 +0100, Johannes Berg wrote:
+> Maybe we should just add a new printf modifier like %M for MAC
+> addresses? Then we could use sprintf, snprintf, printk and whatever we
+> please without any of the macro stuff...
 
-In testing its not safe to trust the payload length we are given in a
-received llc test command header.  Instead we should calculate this 
-ourselves or run the risk of an skb_over_panic() if the received length in 
-the header is > then the actual payload size.
+Could gcc validate the printf %M arguments?
 
-Signed-off-by: Jim Westfall <jwestfall@surrealistic.net>
+Another possibility without changing printf argument validation
+is to use a MAC_FMT macro in place of "%s"
 
-diff -urp linux-2.6.24.2.org/include/net/llc_pdu.h linux-2.6.24.2/include/net/llc_pdu.h
---- linux-2.6.24.2.org/include/net/llc_pdu.h	2008-02-10 21:51:11.000000000 -0800
-+++ linux-2.6.24.2/include/net/llc_pdu.h	2008-02-24 10:23:02.000000000 -0800
-@@ -348,7 +348,7 @@ static inline void llc_pdu_init_as_test_
- 		struct llc_pdu_un *ev_pdu = llc_pdu_un_hdr(ev_skb);
- 		int dsize;
- 
--		dsize = ntohs(eth_hdr(ev_skb)->h_proto) - 3;
-+		dsize = (ev_skb->tail - (u8 *)ev_pdu) - 3;
- 		memcpy(((u8 *)pdu) + 3, ((u8 *)ev_pdu) + 3, dsize);
- 		skb_put(skb, dsize);
- 	}
+#ifdef CONFIG_INLINE_MAC
 
------ End forwarded message -----
+#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
+#define DECLARE_MAC_BUF(var)
+#define print_mac(buf, addr) (addr)[0], (addr)[1], (addr)[2], (addr)[3], (addr)[4], (addr)[5]
+
+#else
+
+#define MAC_FMT "%s"
+#define DECLARE_MAC_BUF(var) char var[18];
+extern char *print_mac(char *buf, const unsigned char *addr);
+
+#endif
+
+use:
+
+DECLARE_MAC_BUF(mac);
+printk(KERN_INFO "Mac address is: " MAC_FMT "\n", print_mac(mac, addr));
+
