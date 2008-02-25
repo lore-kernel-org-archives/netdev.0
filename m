@@ -1,55 +1,78 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
-Date: Mon, 25 Feb 2008 22:58:38 +0100
-Message-ID: <20080225215837.GA3281@ami.dom.local>
-References: <20080225133948.GC4733@ff.dom.local>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 10071] New: kernel hang in inet_init
+Date: Mon, 25 Feb 2008 14:00:34 -0800
+Message-ID: <20080225140034.5ef88935.akpm@linux-foundation.org>
+References: <bug-10071-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, yannick.dirou@axetic.com,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: linux-acpi@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:43294 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753728AbYBYVx6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 16:53:58 -0500
-Received: by nf-out-0910.google.com with SMTP id g13so921695nfb.21
-        for <netdev@vger.kernel.org>; Mon, 25 Feb 2008 13:53:57 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080225133948.GC4733@ff.dom.local>
+Received: from smtp1.linux-foundation.org ([207.189.120.13]:34964 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751470AbYBYWCD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 17:02:03 -0500
+In-Reply-To: <bug-10071-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote, On 02/25/2008 02:39 PM:
-...
-> Hmm... Wait a minute! But on the other hand David has written about
-> his cons here, and it looks reasonable: this place would be fixed,
-> but some others can start reports like this. Maybe, it's better to
-> analyze yet if it's really so hard to eliminate taking this lock
-> on the xmit path?
+On Sat, 23 Feb 2008 00:34:06 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
 
-James, I wonder if you could try to test this patch below?
-ip_queue_xmit() seems to do proper things with __sk_dst_check(), and
-if some other functions don't behave similarly lockdep should tell.
-I think, you could test it with your "locks to _bh" patch (without
-pppol2tp_xmit() part), and maybe with my sock.c lockdep patch (it
-should help lockdep to see these locks a bit more distinctly).
-
-Jarek P.
-
-PS: Since ppp_generic isn't endangered for now I removed Paul from CC.
-
----
-
-diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
-index e0b072d..b94659a 100644
---- a/drivers/net/pppol2tp.c
-+++ b/drivers/net/pppol2tp.c
-@@ -1058,7 +1058,7 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- 
- 	/* Get routing info from the tunnel socket */
- 	dst_release(skb->dst);
--	skb->dst = sk_dst_get(sk_tun);
-+	skb->dst = NULL;
- 	skb_orphan(skb);
- 	skb->sk = sk_tun;
- 
+> http://bugzilla.kernel.org/show_bug.cgi?id=10071
+> 
+>            Summary: kernel hang in inet_init
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.25 rc2 latest git
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: yannick.dirou@axetic.com
+> 
+> 
+> Distribution:ubuntu hardy
+> Hardware Environment:dell dimension 5150
+> Problem Description:
+> kernel hang mostly but boot slowly sometimes
+> 
+> Steps to reproduce:
+> boot
+> 
+> when the computer manage to boot, inet_init last some time:
+> [    1.725306] NET: Registered protocol family 2
+> [    6.825384] IP route cache hash table entries: 32768 (order: 5, 131072
+> bytes)
+> [    6.825803] TCP established hash table entries: 131072 (order: 8, 1048576
+> bytes)
+> [    6.826691] TCP bind hash table entries: 65536 (order: 9, 2359296 bytes)
+> [    6.836160] TCP: Hash tables configured (established 131072 bind 65536)
+> [    6.836255] TCP reno registered
+> [    7.081569] initcall 0xc03b8920: inet_init+0x0/0x3aa() returned 0.
+> [    7.081569] initcall 0xc03b8920 ran for 5106 msecs: inet_init+0x0/0x3aa()
+> 
+> When booting with acpi=ht it works:
+> [0.124668] Calling initcall 0xc03b8920: inet_init+0x0/0x3aa()
+> [    0.124867] NET: Registered protocol family 2
+> [    0.288067] IP route cache hash table entries: 32768 (order: 5, 131072
+> bytes)
+> [    0.288856] TCP established hash table entries: 131072 (order: 8, 1048576
+> bytes)
+> [    0.289739] TCP bind hash table entries: 65536 (order: 9, 2359296 bytes)
+> [    0.299156] TCP: Hash tables configured (established 131072 bind 65536)
+> [    0.299250] TCP reno registered
+> Feb 23 09:10:28 tiyann kernel: [    0.162267] initcall 0xc03b8920:
+> inet_init+0x0/0x3aa() returned 0.
+> [    0.162383] initcall 0xc03b8920 ran for 33 msecs: inet_init+0x0/0x3aa()
+> 
+> there seem to be a weird interaction between acpi and inet_init
+> 
+> any hint on how to provide better information
+> thanks
+> 
