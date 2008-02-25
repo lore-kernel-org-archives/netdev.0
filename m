@@ -1,52 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: New sparse warning in net/mac80211/debugfs_sta.c
-Date: Mon, 25 Feb 2008 12:14:34 -0800 (PST)
-Message-ID: <20080225.121434.59949449.davem@davemloft.net>
-References: <20080225.115220.02432174.davem@davemloft.net>
-	<1203969403.13162.147.camel@johannes.berg>
-	<1203969942.13162.151.camel@johannes.berg>
+From: Joe Perches <joe@perches.com>
+Subject: RE: printk_ratelimit and net_ratelimit conflict and tunable
+	behavior
+Date: Mon, 25 Feb 2008 12:13:37 -0800
+Message-ID: <1203970417.19319.287.camel@localhost>
+References: <7BFDACCD6948EF4D8FE8F4888A91596A016371E8@tx14exm60.ds.mot.com>
+	 <20080220.223219.165157596.davem@davemloft.net>
+	 <1203577246.7181.241.camel@localhost>
+	 <7BFDACCD6948EF4D8FE8F4888A91596A016371FA@tx14exm60.ds.mot.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, joe@perches.com, harvey.harrison@gmail.com,
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: johannes@sipsolutions.net
+To: Hawkes Steve-FSH016 <Steve.Hawkes@motorola.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39750
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756057AbYBYUNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 15:13:51 -0500
-In-Reply-To: <1203969942.13162.151.camel@johannes.berg>
+Received: from 136-022.dsl.labridge.com ([206.117.136.22]:1151 "EHLO
+	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1756366AbYBYUOB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 15:14:01 -0500
+In-Reply-To: <7BFDACCD6948EF4D8FE8F4888A91596A016371FA@tx14exm60.ds.mot.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Mon, 25 Feb 2008 21:05:42 +0100
+On Mon, 2008-02-25 at 09:47 -0600, Hawkes Steve-FSH016 wrote:
+> How about this?
 
+line wrapped, but seems better.
+
+> Signed-off-by: Steve Hawkes <steve.hawkes@motorola.com> 
 > 
-> On Mon, 2008-02-25 at 20:56 +0100, Johannes Berg wrote:
-> > On Mon, 2008-02-25 at 11:52 -0800, David Miller wrote:
-> > > From: Johannes Berg <johannes@sipsolutions.net>
-> > > Date: Mon, 25 Feb 2008 10:53:48 +0100
-> > > 
-> > > > Maybe we should just add a new printf modifier like %M for MAC
-> > > > addresses? Then we could use sprintf, snprintf, printk and whatever we
-> > > > please without any of the macro stuff...
-> > > 
-> > > But GCC has no idea what the heck it is and will warn.
-> > 
-> > No, I actually wondered about that too and finally just tried, it simply
-> > ignores it when doing the printf warnings.
-> 
-> Wait, no, you're right, I had the wrong warning flags enabled :(
+> diff -uprN linux-2.6.24/include/linux/kernel.h
+> linux-2.6.24-printk_ratelimit/include/linux/kernel.h
+> --- linux-2.6.24/include/linux/kernel.h 2008-01-24 16:58:37.000000000
+> + * This enforces a rate limit to mitigate denial-of-service attacks:
+> + * not more than ratelimit_burst messages every ratelimit_jiffies.
+>   */
+> -int __printk_ratelimit(int ratelimit_jiffies, int ratelimit_burst)
+> +int __printk_ratelimit(int ratelimit_jiffies,
+> +                       int ratelimit_burst,
+> +                       struct printk_ratelimit_state *state)
 
-Oh well :-/
+I think the value of in-place tunables is low.
+I'd remove that bit and use the struct printk_ratelimit_state.
 
-I really think it's not worth dorking around with this print_mac()
-stuff so much like this, let's just take care of the cases that
-Patrick mentioned (which need to go back to MAC_FMT because they
-are in fast paths) and then leave this alone for a while.
+David Miller points out that struct initializations to 0 or NULL
+are not necessary.
 
-We've already wasted too much time on this.
-
-Thanks.
