@@ -1,59 +1,59 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: Re: [PATCH] llc: fix skb size for test responses
-Date: Mon, 25 Feb 2008 17:30:19 +0900
-Message-ID: <b25c3fa70802250030l2a6420caw6c423683ccb7089b@mail.gmail.com>
-References: <20080224190758.GW84358@surrealistic.net>
-	 <20080224.185104.207884881.davem@davemloft.net>
-	 <20080225050421.GY84358@surrealistic.net>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: 2.6.25-rc2-mm1 - several bugs and a crash
+Date: Mon, 25 Feb 2008 09:54:19 +0100
+Message-ID: <47C2823B.8080407@imap.cc>
+References: <20080216002522.9c4bd0fb.akpm@linux-foundation.org> <47BC982C.7050402@imap.cc> <47BD6072.4000407@trash.net> <47BE1A03.30300@imap.cc> <47BE1CE5.1030001@imap.cc> <20080222170908.GA9386@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	acme@ghostprotocols.net
-To: "Jim Westfall" <jwestfall@surrealistic.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.237]:15622 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753774AbYBYIaV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 03:30:21 -0500
-Received: by wx-out-0506.google.com with SMTP id h31so1393861wxd.4
-        for <netdev@vger.kernel.org>; Mon, 25 Feb 2008 00:30:20 -0800 (PST)
-In-Reply-To: <20080225050421.GY84358@surrealistic.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig8A62F2E943E78ECF9CF94C03"
+Cc: Patrick McHardy <kaber@trash.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754137AbYBYIzL@vger.kernel.org>
+In-Reply-To: <20080222170908.GA9386@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2008/2/25, Jim Westfall <jwestfall@surrealistic.net>:
-> David Miller <davem@davemloft.net> wrote [02.24.08]:
-> > From: Jim Westfall <jwestfall@surrealistic.net>
-> > Date: Sun, 24 Feb 2008 11:07:58 -0800
-> >
-> > > Hi
-> > >
-> > > The llc test command is used for a layer2 ping and contains a variable
-> > > length payload that we must include in the response.  Use the size of the
-> > > received skb as the size of the skb we must allocate to hold the payload.
-> > >
-> > > This resolved an skb_over_panic(), when trying to copy the payload into
-> > > what was a hard coded skb of size 128.
-> > >
-> > > Signed-off-by: Jim Westfall <jwestfall@surrealistic.net>
-> >
-> > Arnaldo, please review Jim's patch, thanks!
->
-> Our of curiosity did you all get my 2nd patch?
->
-> Subject: [PATCH] llc: dont trust payload size on test cmd
->
-> I sent it a few minutes after this one, but seems like it never made it
-> to the list.  My local smtp shows it was delivered sucussfully to
-> vger.kernel.org.
->
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig8A62F2E943E78ECF9CF94C03
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-Jim,
-Could you please send it again?
-I cannot find your second patch on the list.
-I have a pending patch for LLC as well, so I want to avoid conflict with yours.
+Paul E. McKenney schrieb:
+> On Fri, Feb 22, 2008 at 01:52:53AM +0100, Tilman Schmidt wrote:
 
-Thanks,
-Joonwoo
+>> So the nf_conntrack BUG is fixed, but the crash (and of course the
+>> swapper "spinlock bad magic" BUG) persists.
+>=20
+> Do you have CONFIG_DEBUG_PREEMPT set?  That would help find any other
+> bugs similar to nf_conntrack.
+
+CONFIG_DEBUG_PREEMPT=3Dy was set but didn't produce anything.
+Or perhaps it did and the message just didn't make it to the disk.
+Time to set up a test with netconsole, I guess.
+
+--=20
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+
+
+--------------enig8A62F2E943E78ECF9CF94C03
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.4 (MingW32)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFHwoJDQ3+did9BuFsRAiR5AJ4/uCmh8WnUNZ9XTFwLU9ThzW2aXwCfZRyL
+3m5dMAqRrSrbnxxPNe4F+fY=
+=i5d6
+-----END PGP SIGNATURE-----
+
+--------------enig8A62F2E943E78ECF9CF94C03--
