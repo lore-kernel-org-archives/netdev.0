@@ -1,35 +1,40 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [patch 2.6.25-rc3] smc91x section fix
-Date: Mon, 25 Feb 2008 21:11:12 +0100
-Message-ID: <20080225201112.GA23667@uranus.ravnborg.org>
-References: <20080225033411.941C328DEAA@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <20080225060220.GA12459@uranus.ravnborg.org> <200802242233.12764.david-b@pacbell.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: New sparse warning in net/mac80211/debugfs_sta.c
+Date: Mon, 25 Feb 2008 12:12:56 -0800 (PST)
+Message-ID: <20080225.121256.266297266.davem@davemloft.net>
+References: <1203933228.13162.58.camel@johannes.berg>
+	<20080225.115220.02432174.davem@davemloft.net>
+	<1203969403.13162.147.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nico@cam.org, netdev@vger.kernel.org
-To: David Brownell <david-b@pacbell.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, joe@perches.com, harvey.harrison@gmail.com,
+	netdev@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:54399 "EHLO pasmtpA.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755941AbYBYULA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Feb 2008 15:11:00 -0500
-Content-Disposition: inline
-In-Reply-To: <200802242233.12764.david-b@pacbell.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39743
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755623AbYBYUMM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 15:12:12 -0500
+In-Reply-To: <1203969403.13162.147.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 24, 2008 at 10:33:12PM -0800, David Brownell wrote:
-> On Sunday 24 February 2008, Sam Ravnborg wrote:
-> 
-> > From a quick look this is wrong.
-> > smc_drv_probe is assined the .probe member so it is used during
-> > hotplug and thus should be __devinit.
-> > Likewise smc_probe is used by smc_drv_probe and thus smc_probe
-> > should be __devinit too.
-> 
-> Thing is, with only rare exceptions, devices on the platform
-> bus are *NOT* hotpluggable.  So using __devinit/__devexit and
-> friends adds up to no more than a waste of I-space.
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Mon, 25 Feb 2008 20:56:43 +0100
 
-It was a quick look - thanks for the explanation.
+> 
+> On Mon, 2008-02-25 at 11:52 -0800, David Miller wrote:
+> > From: Johannes Berg <johannes@sipsolutions.net>
+> > Date: Mon, 25 Feb 2008 10:53:48 +0100
+> > 
+> > > Maybe we should just add a new printf modifier like %M for MAC
+> > > addresses? Then we could use sprintf, snprintf, printk and whatever we
+> > > please without any of the macro stuff...
+> > 
+> > But GCC has no idea what the heck it is and will warn.
+> 
+> No, I actually wondered about that too and finally just tried, it simply
+> ignores it when doing the printf warnings.
 
-	Sam
+Ok, so it simply can't validate the thing.
