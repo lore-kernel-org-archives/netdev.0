@@ -1,31 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver fixes (50% rebased)
-Date: Sun, 24 Feb 2008 19:43:42 -0800 (PST)
-Message-ID: <20080224.194342.141102218.davem@davemloft.net>
-References: <20080224052041.GA16773@havoc.gtf.org>
+From: Jim Westfall <jwestfall@surrealistic.net>
+Subject: Re: [PATCH] llc: fix skb size for test responses
+Date: Sun, 24 Feb 2008 21:04:21 -0800
+Message-ID: <20080225050421.GY84358@surrealistic.net>
+References: <20080224190758.GW84358@surrealistic.net> <20080224.185104.207884881.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, acme@ghostprotocols.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33659
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751151AbYBYDnA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2008 22:43:00 -0500
-In-Reply-To: <20080224052041.GA16773@havoc.gtf.org>
+Received: from snapper.surrealistic.net ([67.40.222.186]:56756 "EHLO
+	snapper.surrealistic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750747AbYBYFEc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 00:04:32 -0500
+Content-Disposition: inline
+In-Reply-To: <20080224.185104.207884881.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Sun, 24 Feb 2008 00:20:41 -0500
+David Miller <davem@davemloft.net> wrote [02.24.08]:
+> From: Jim Westfall <jwestfall@surrealistic.net>
+> Date: Sun, 24 Feb 2008 11:07:58 -0800
+> 
+> > Hi
+> > 
+> > The llc test command is used for a layer2 ping and contains a variable 
+> > length payload that we must include in the response.  Use the size of the 
+> > received skb as the size of the skb we must allocate to hold the payload. 
+> > 
+> > This resolved an skb_over_panic(), when trying to copy the payload into 
+> > what was a hard coded skb of size 128.
+> > 
+> > Signed-off-by: Jim Westfall <jwestfall@surrealistic.net>
+> 
+> Arnaldo, please review Jim's patch, thanks!
 
-> 
-> This is a 50% resend, rebased on top of net-2.6.
-> 
-> Please pull from 'upstream-davem' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-davem
-> 
-> to receive the following updates:
+Our of curiosity did you all get my 2nd patch?  
 
-Pulled and pushed back out, thanks Jeff.
+Subject: [PATCH] llc: dont trust payload size on test cmd
+
+I sent it a few minutes after this one, but seems like it never made it 
+to the list.  My local smtp shows it was delivered sucussfully to 
+vger.kernel.org.
+
+thanks
+jim
