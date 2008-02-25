@@ -1,78 +1,50 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 10071] New: kernel hang in inet_init
-Date: Mon, 25 Feb 2008 14:00:34 -0800
-Message-ID: <20080225140034.5ef88935.akpm@linux-foundation.org>
-References: <bug-10071-10286@http.bugzilla.kernel.org/>
+From: "Miroslav Kratochvil" <exa.exa@gmail.com>
+Subject: r8169 driver compatibility with rtl8168 [need confirm]
+Date: Mon, 25 Feb 2008 23:03:58 +0100
+Message-ID: <a37929f0802251403q36ef6306wa30298dbded0d8ed@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, yannick.dirou@axetic.com,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: linux-acpi@vger.kernel.org, netdev@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([207.189.120.13]:34964 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751470AbYBYWCD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 17:02:03 -0500
-In-Reply-To: <bug-10071-10286@http.bugzilla.kernel.org/>
+Received: from ti-out-0910.google.com ([209.85.142.190]:11103 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756695AbYBYWEC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 17:04:02 -0500
+Received: by ti-out-0910.google.com with SMTP id 28so1125147tif.23
+        for <netdev@vger.kernel.org>; Mon, 25 Feb 2008 14:04:00 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 23 Feb 2008 00:34:06 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+Hi,
+Many users who have onboard Realtek 8168 network controllers in
+combination with nVidia hardware (mostly nVidia graphic card and/or
+nForce motherboard (MCP5x) ) experience still-not-very-explained
+hangup triggered by heavy network usage which fills a tx buffer, and
+(speculation) causes race condition on irq sharing, resulting in
+absolute freeze (not oops/panic). On all affected machines I've seen
+this fix solved the problem:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=10071
-> 
->            Summary: kernel hang in inet_init
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.25 rc2 latest git
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: yannick.dirou@axetic.com
-> 
-> 
-> Distribution:ubuntu hardy
-> Hardware Environment:dell dimension 5150
-> Problem Description:
-> kernel hang mostly but boot slowly sometimes
-> 
-> Steps to reproduce:
-> boot
-> 
-> when the computer manage to boot, inet_init last some time:
-> [    1.725306] NET: Registered protocol family 2
-> [    6.825384] IP route cache hash table entries: 32768 (order: 5, 131072
-> bytes)
-> [    6.825803] TCP established hash table entries: 131072 (order: 8, 1048576
-> bytes)
-> [    6.826691] TCP bind hash table entries: 65536 (order: 9, 2359296 bytes)
-> [    6.836160] TCP: Hash tables configured (established 131072 bind 65536)
-> [    6.836255] TCP reno registered
-> [    7.081569] initcall 0xc03b8920: inet_init+0x0/0x3aa() returned 0.
-> [    7.081569] initcall 0xc03b8920 ran for 5106 msecs: inet_init+0x0/0x3aa()
-> 
-> When booting with acpi=ht it works:
-> [0.124668] Calling initcall 0xc03b8920: inet_init+0x0/0x3aa()
-> [    0.124867] NET: Registered protocol family 2
-> [    0.288067] IP route cache hash table entries: 32768 (order: 5, 131072
-> bytes)
-> [    0.288856] TCP established hash table entries: 131072 (order: 8, 1048576
-> bytes)
-> [    0.289739] TCP bind hash table entries: 65536 (order: 9, 2359296 bytes)
-> [    0.299156] TCP: Hash tables configured (established 131072 bind 65536)
-> [    0.299250] TCP reno registered
-> Feb 23 09:10:28 tiyann kernel: [    0.162267] initcall 0xc03b8920:
-> inet_init+0x0/0x3aa() returned 0.
-> [    0.162383] initcall 0xc03b8920 ran for 33 msecs: inet_init+0x0/0x3aa()
-> 
-> there seem to be a weird interaction between acpi and inet_init
-> 
-> any hint on how to provide better information
-> thanks
-> 
+--- a/drivers/net/r8169.c   2008-02-25 22:53:01.000000000 +0100
++++ b/drivers/net/r8169.c   2008-02-25 22:54:32.000000000 +0100
+@@ -86,8 +86,8 @@
+
+ #define R8169_REGS_SIZE                256
+ #define R8169_NAPI_WEIGHT      64
+-#define NUM_TX_DESC    64      /* Number of Tx descriptor registers */
+-#define NUM_RX_DESC    256     /* Number of Rx descriptor registers */
++#define NUM_TX_DESC    1024    /* Number of Tx descriptor registers */
++#define NUM_RX_DESC    1024    /* Number of Rx descriptor registers */
+ #define RX_BUF_SIZE    1536    /* Rx Buffer size */
+ #define R8169_TX_RING_BYTES    (NUM_TX_DESC * sizeof(struct TxDesc))
+ #define R8169_RX_RING_BYTES    (NUM_RX_DESC * sizeof(struct RxDesc))
+
+It's not really a fix, we do not address the real race cond. (or
+whatever) problem, but it removes the hangup and causes no negative
+side effects. I need someone else who can confirm that it works.
+
+cheers,
+[exa]
+
+PS. There might already be some fixes, but I didn't manage to find them.
