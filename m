@@ -1,40 +1,41 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] [PATCH 2.6.25] RDMA/cxgb3: Shift calculation wrong
-	for single sge entries.
-Date: Mon, 25 Feb 2008 14:29:34 -0800
-Message-ID: <ada63wczn3l.fsf@cisco.com>
-References: <20080220233148.25301.54457.stgit@dell3.ogc.int>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [git patches] net driver updates
+Date: Mon, 25 Feb 2008 17:59:04 -0500
+Message-ID: <47C34838.3040502@garzik.org>
+References: <OF5F5F5698.07AB615F-ON652573F6.00142D8A-652573F6.00147DC9@in.ibm.com><20080220.214651.235108740.davem@davemloft.net><8A71B368A89016469F72CD08050AD334026D6511@maui.asicdesigners.com> <20080220.221554.128587906.davem@davemloft.net> <8A71B368A89016469F72CD08050AD334026D652F@maui.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: Steve Wise <swise@opengridcomputing.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20080220233148.25301.54457.stgit@dell3.ogc.int> (Steve Wise's
-	message of "Wed, 20 Feb 2008 17:31:48 -0600")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, krkumar2@in.ibm.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Divy Le Ray <divy@chelsio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:59875 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761307AbYBYW7N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Feb 2008 17:59:13 -0500
+In-Reply-To: <8A71B368A89016469F72CD08050AD334026D652F@maui.asicdesigners.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks, applied, although I assume based on the Signed-off-by line
-that you left out a
+Divy Le Ray wrote:
+>> From: "Divy Le Ray" <divy@chelsio.com>
+>> Date: Wed, 20 Feb 2008 21:57:08 -0800
+>>
+>>> The driver is cxgb3 here, it uses LLTX.
+>> That's extremely unfortunate, hopefully you can update it to
+>> use a model like tg3 and others use.  LLTX is a lost cause
+>> for hardware device drivers, and in fact we'd like to remove
+>> it tree wide eventually.
+> 
+> It sounds like I messed up.
+> cxgb3 does not use LLTX - The Chelsio driver does, thus should be
+> converted.
 
-  From: Bryan Rosenburg <rosnbrg@us.ibm.com>
+So, it sounds like Krishna's patch is ok, because the race does not 
+exist anymore in this driver?
 
-at the top (to get the authorship in git correctly).
+	Jeff
 
- > RDMA/cxgb3: Shift calculation wrong for single sge entries.
 
-BTW, there's no need to duplicate the subject line in the message
-body, but if you are going to do it, please put a "Subject:" before
-it.  Otherwise I just have to edit it out by hand to avoid git putting
-the subject in twice.
 
- - R.
