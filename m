@@ -1,93 +1,136 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/2] [DCCP]: Leave headroom for options when calculating the MPS
-Date: Mon, 25 Feb 2008 09:52:01 +0000
-Message-ID: <1203933122-27140-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/2] [ACKVEC]: Schedule Sync as out-of-band mechanism
+Date: Mon, 25 Feb 2008 09:52:02 +0000
+Message-ID: <1203933122-27140-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: patch_v2_ack_vector_MPS_contribution
  <1203933122-27140-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1203933122-27140-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:37331 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:37325 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751641AbYBYJxA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Feb 2008 04:53:00 -0500
-In-Reply-To: <1203933122-27140-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1751682AbYBYJxV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Feb 2008 04:53:21 -0500
+In-Reply-To: <1203933122-27140-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Maximum Packet Size (MPS) is of interest for applications which want
-to transfer data, so it is only relevant to the data transfer phase of a
-connection (unless one wants to send data on the DCCP-Request, but that is
-not considered here).
+The problem with Ack Vectors is that 
 
-The strategy chosen to deal with this requirement is to leave room for only 
-such options that may appear on data packets.
+  i) their length is variable and can in principle grow quite large,
+ ii) it is hard to predict exactly how large they will be.
 
-A special consideration applies to Ack Vectors: this is purely guesswork,
-since these can have any length between 3 and 1020 bytes. The strategy
-chosen here is to subtract a configurable minimum, the value of 16 bytes
-(2 bytes for type/length plus 14 Ack Vector cells) has been found by 
-experimentatation. If people experience this as too much or too little,
-this could later be turned into a Kconfig option.	
+Due to the second point it seems not a good idea to reduce the MPS; in
+particular when on average there is enough room for the Ack Vector and an
+increase in length is momentarily due to some burst loss, after which the
+Ack Vector returns to its normal/average length.
 
-There are currently no CCID-specific header options which may appear on data
-packets, hence it is not necessary to define a corresponding CCID field.
+The solution taken by this patch is to subtract a minimum-expected Ack Vector
+length from the MPS (previous patch), and to defer any larger Ack Vectors onto
+a separate Sync - but only if indeed there is no space left on the skb.
+
+This patch provides the infrastructure to schedule Sync-packets for transporting
+(urgent) out-of-band data. Its signalling is quicker than scheduling an Ack, since
+it does not need to wait for new application data.
+
+It can thus serve other parts of the DCCP code as well.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/ackvec.h |    3 +++
- net/dccp/output.c |   22 ++++++++++++++--------
- 2 files changed, 17 insertions(+), 8 deletions(-)
+ include/linux/dccp.h |    2 ++
+ net/dccp/options.c   |   24 ++++++++++++++++++++----
+ net/dccp/output.c    |    8 ++++++++
+ 3 files changed, 30 insertions(+), 4 deletions(-)
 
---- a/net/dccp/ackvec.h
-+++ b/net/dccp/ackvec.h
-@@ -21,6 +21,9 @@
- /* We can spread an ack vector across multiple options */
- #define DCCP_MAX_ACKVEC_LEN (DCCP_SINGLE_OPT_MAXLEN * 2)
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -475,6 +475,7 @@ struct dccp_ackvec;
+  * @dccps_hc_rx_insert_options - receiver wants to add options when acking
+  * @dccps_hc_tx_insert_options - sender wants to add options when sending
+  * @dccps_server_timewait - server holds timewait state on close (RFC 4340, 8.3)
++ * @dccps_sync_scheduled - flag which signals "send out-of-band message soon"
+  * @dccps_xmit_timer - timer for when CCID is not ready to send
+  * @dccps_syn_rtt - RTT sample from Request/Response exchange (in usecs)
+  */
+@@ -515,6 +516,7 @@ struct dccp_sock {
+ 	__u8				dccps_hc_rx_insert_options:1;
+ 	__u8				dccps_hc_tx_insert_options:1;
+ 	__u8				dccps_server_timewait:1;
++	__u8				dccps_sync_scheduled:1;
+ 	struct timer_list		dccps_xmit_timer;
+ };
  
-+/* Estimated minimum average Ack Vector length - used for updating MPS */
-+#define DCCPAV_MIN_OPTLEN	16
-+
- #define DCCP_ACKVEC_STATE_RECEIVED	0
- #define DCCP_ACKVEC_STATE_ECN_MARKED	(1 << 6)
- #define DCCP_ACKVEC_STATE_NOT_RECEIVED	(3 << 6)
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -428,6 +428,7 @@ int dccp_insert_option_ackvec(struct soc
+ {
+ 	struct dccp_sock *dp = dccp_sk(sk);
+ 	struct dccp_ackvec *av = dp->dccps_hc_rx_ackvec;
++	struct dccp_skb_cb *dcb = DCCP_SKB_CB(skb);
+ 	const u16 buflen = dccp_ackvec_buflen(av);
+ 	/* Figure out how many options do we need to represent the ackvec */
+ 	const u16 nr_opts = DIV_ROUND_UP(buflen, DCCP_SINGLE_OPT_MAXLEN);
+@@ -436,10 +437,25 @@ int dccp_insert_option_ackvec(struct soc
+ 	const unsigned char *tail, *from;
+ 	unsigned char *to;
+ 
+-	if (DCCP_SKB_CB(skb)->dccpd_opt_len + len > DCCP_MAX_OPT_LEN)
++	if (dcb->dccpd_opt_len + len > DCCP_MAX_OPT_LEN) {
++		DCCP_WARN("Lacking space for %u bytes on %s packet\n", len,
++			  dccp_packet_name(dcb->dccpd_type));
+ 		return -1;
+-
+-	DCCP_SKB_CB(skb)->dccpd_opt_len += len;
++	}
++	/*
++	 * Since Ack Vectors are variable-length, we can not always predict
++	 * their size. To catch exception cases where the space is running out
++	 * on the skb, a separate Sync is scheduled to carry the Ack Vector.
++	 */
++	if (len > DCCPAV_MIN_OPTLEN &&
++	    len + dcb->dccpd_opt_len + skb->len > dp->dccps_mss_cache) {
++		DCCP_WARN("No space left for Ack Vector (%u) on skb (%u+%u), "
++			  "MPS=%u ==> reduce payload size?\n", len, skb->len,
++			  dcb->dccpd_opt_len, dp->dccps_mss_cache);
++		dp->dccps_sync_scheduled = 1;
++		return 0;
++	}
++	dcb->dccpd_opt_len += len;
+ 
+ 	to   = skb_push(skb, len);
+ 	len  = buflen;
+@@ -480,7 +496,7 @@ int dccp_insert_option_ackvec(struct soc
+ 	/*
+ 	 * Each sent Ack Vector is recorded in the list, as per A.2 of RFC 4340.
+ 	 */
+-	if (dccp_ackvec_update_records(av, DCCP_SKB_CB(skb)->dccpd_seq, nonce))
++	if (dccp_ackvec_update_records(av, dcb->dccpd_seq, nonce))
+ 		return -ENOBUFS;
+ 	return 0;
+ }
 --- a/net/dccp/output.c
 +++ b/net/dccp/output.c
-@@ -153,21 +153,27 @@ unsigned int dccp_sync_mss(struct sock *
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct dccp_sock *dp = dccp_sk(sk);
- 	u32 ccmps = dccp_determine_ccmps(dp);
--	int cur_mps = ccmps ? min(pmtu, ccmps) : pmtu;
-+	u32 cur_mps = ccmps ? min(pmtu, ccmps) : pmtu;
+@@ -292,6 +292,8 @@ void dccp_write_xmit(struct sock *sk, in
+ 			if (err)
+ 				DCCP_BUG("err=%d after ccid_hc_tx_packet_sent",
+ 					 err);
++			if (dp->dccps_sync_scheduled)
++				dccp_send_sync(sk, dp->dccps_gsr, DCCP_PKT_SYNC);
+ 		} else {
+ 			dccp_pr_debug("packet discarded due to err=%d\n", err);
+ 			kfree_skb(skb);
+@@ -564,6 +566,12 @@ void dccp_send_sync(struct sock *sk, con
+ 	DCCP_SKB_CB(skb)->dccpd_type = pkt_type;
+ 	DCCP_SKB_CB(skb)->dccpd_ack_seq = ackno;
  
- 	/* Account for header lengths and IPv4/v6 option overhead */
- 	cur_mps -= (icsk->icsk_af_ops->net_header_len + icsk->icsk_ext_hdr_len +
- 		    sizeof(struct dccp_hdr) + sizeof(struct dccp_hdr_ext));
++	/*
++	 * Clear the flag in case the Sync was scheduled for out-of-band data,
++	 * such as carrying a long Ack Vector.
++	 */
++	dccp_sk(sk)->dccps_sync_scheduled = 0;
++
+ 	dccp_transmit_skb(sk, skb);
+ }
  
- 	/*
--	 * FIXME: this should come from the CCID infrastructure, where, say,
--	 * TFRC will say it wants TIMESTAMPS, ELAPSED time, etc, for now lets
--	 * put a rough estimate for NDP + TIMESTAMP + TIMESTAMP_ECHO + ELAPSED
--	 * TIME + TFRC_OPT_LOSS_EVENT_RATE + TFRC_OPT_RECEIVE_RATE + padding to
--	 * make it a multiple of 4
-+	 * Leave enough headroom for common DCCP header options.
-+	 * This only considers options which may appear on DCCP-Data packets, as
-+	 * per table 3 in RFC 4340, 5.8. When running out of space for other
-+	 * options (eg. Ack Vector which can take up to 255 bytes), it is better
-+	 * to schedule a separate Ack. Thus we leave headroom for the following:
-+	 *  - 1 byte for Slow Receiver (11.6)
-+	 *  - 6 bytes for Timestamp (13.1)
-+	 *  - 10 bytes for Timestamp Echo (13.3)
-+	 *  - 8 bytes for NDP count (7.7, when activated)
-+	 *  - 6 bytes for Data Checksum (9.3)
-+	 *  - %DCCPAV_MIN_OPTLEN bytes for Ack Vector size (11.4, when enabled)
- 	 */
--
--	cur_mps -= ((5 + 6 + 10 + 6 + 6 + 6 + 3) / 4) * 4;
-+	cur_mps -= roundup(1 + 6 + 10 + dp->dccps_send_ndp_count * 8 + 6 +
-+			   (dp->dccps_hc_rx_ackvec ? DCCPAV_MIN_OPTLEN : 0), 4);
- 
- 	/* And store cached results */
- 	icsk->icsk_pmtu_cookie = pmtu;
