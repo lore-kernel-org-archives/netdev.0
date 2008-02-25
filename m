@@ -1,81 +1,41 @@
-From: Sam Ravnborg <sam@ravnborg.org>
+From: David Brownell <david-b@pacbell.net>
 Subject: Re: [patch 2.6.25-rc3] smc91x section fix
-Date: Mon, 25 Feb 2008 07:02:20 +0100
-Message-ID: <20080225060220.GA12459@uranus.ravnborg.org>
-References: <20080225033411.941C328DEAA@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
+Date: Sun, 24 Feb 2008 22:33:12 -0800
+Message-ID: <200802242233.12764.david-b@pacbell.net>
+References: <20080225033411.941C328DEAA@adsl-69-226-248-13.dsl.pltn13.pacbell.net> <20080225060220.GA12459@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: nico@cam.org, netdev@vger.kernel.org
-To: David Brownell <david-b@pacbell.net>
+To: Sam Ravnborg <sam@ravnborg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:59335 "EHLO pasmtpA.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752250AbYBYGCI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Feb 2008 01:02:08 -0500
+Received: from smtp116.sbc.mail.sp1.yahoo.com ([69.147.64.89]:32601 "HELO
+	smtp116.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753367AbYBYGdS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 01:33:18 -0500
+In-Reply-To: <20080225060220.GA12459@uranus.ravnborg.org>
 Content-Disposition: inline
-In-Reply-To: <20080225033411.941C328DEAA@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 24, 2008 at 07:34:11PM -0800, David Brownell wrote:
-> Section fixup:
-> 
-> WARNING: drivers/net/built-in.o(.text+0x1a2c): Section mismatch
-> 	in reference from the function smc_drv_probe()
-> 	to the function .init.text:smc_probe()
-> The function smc_drv_probe() references
-> the function __init smc_probe().
-> This is often because smc_drv_probe lacks a __init
-> annotation or the annotation of smc_probe is wrong.
-> 
-> Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
-> ---
->  drivers/net/smc91x.c |    2 +-
->  1 files changed, 1 insertion(+), 1 deletion(-)
-> 
-> --- a/drivers/net/smc91x.c	2008-02-24 18:50:32.000000000 -0800
-> +++ b/drivers/net/smc91x.c	2008-02-24 19:16:29.000000000 -0800
-> @@ -2121,7 +2121,7 @@ static void smc_release_datacs(struct pl
->   *	0 --> there is a device
->   *	anything else, error
->   */
-> -static int smc_drv_probe(struct platform_device *pdev)
-> +static int __init smc_drv_probe(struct platform_device *pdev)
->  {
->  	struct net_device *ndev;
->  	struct resource *res, *ires;
+On Sunday 24 February 2008, Sam Ravnborg wrote:
 
->From a quick look this is wrong.
-smc_drv_probe is assined the .probe member so it is used during
-hotplug and thus should be __devinit.
-Likewise smc_probe is used by smc_drv_probe and thus smc_probe
-should be __devinit too.
+> From a quick look this is wrong.
+> smc_drv_probe is assined the .probe member so it is used during
+> hotplug and thus should be __devinit.
+> Likewise smc_probe is used by smc_drv_probe and thus smc_probe
+> should be __devinit too.
 
-So something like the appended. On my way out of the door so
-not even build tested!
+Thing is, with only rare exceptions, devices on the platform
+bus are *NOT* hotpluggable.  So using __devinit/__devexit and
+friends adds up to no more than a waste of I-space.
 
+Nico may know if this driver is one of the rare exceptions.
+Example, is it used in PCMCIA cards?
 
-	Sam
+See also platform_driver_probe(), which is a much safer way
+to handle such issues.  I've seen it save a full page in some
+drivers, but usually it's less.
 
-diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-index 4020e9e..640bca5 100644
---- a/drivers/net/smc91x.c
-+++ b/drivers/net/smc91x.c
-@@ -1775,7 +1775,7 @@ static int __init smc_findirq(void __iomem *ioaddr)
-  * o  actually GRAB the irq.
-  * o  GRAB the region
-  */
--static int __init smc_probe(struct net_device *dev, void __iomem *ioaddr,
-+static int __devinit smc_probe(struct net_device *dev, void __iomem *ioaddr,
- 			    unsigned long irq_flags)
- {
- 	struct smc_local *lp = netdev_priv(dev);
-@@ -2121,7 +2121,7 @@ static void smc_release_datacs(struct platform_device *pdev, struct net_device *
-  *	0 --> there is a device
-  *	anything else, error
-  */
--static int smc_drv_probe(struct platform_device *pdev)
-+static int __devinit smc_drv_probe(struct platform_device *pdev)
- {
- 	struct net_device *ndev;
- 	struct resource *res, *ires;
+- Dave
