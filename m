@@ -1,41 +1,149 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [NETFILTER]: Introduce nf_inet_address
-Date: Mon, 25 Feb 2008 12:17:12 +0000
-Message-ID: <1203941832.2979.0.camel@shinybook.infradead.org>
-References: <200801291316.m0TDGivY024953@hera.kernel.org>
-	 <1203428949.3223.25.camel@shinybook.infradead.org>
-	 <47BAE13D.4060206@trash.net>
-	 <1203431447.3223.33.camel@shinybook.infradead.org>
-	 <47BAEB6C.1030609@trash.net>
-	 <1203666762.5771.35.camel@shinybook.infradead.org>
-	 <47BEE31D.7020003@trash.net> <47BEEC5C.4060201@netfilter.org>
-	 <47BEEDEF.5060503@trash.net>
-	 <1203719866.5771.81.camel@shinybook.infradead.org>
-	 <47C2B09A.1040102@trash.net>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
+Date: Mon, 25 Feb 2008 12:19:50 +0000
+Message-ID: <47C2B266.8070604@katalix.com>
+References: <20080211.213048.192442721.davem@davemloft.net> <47B17BCD.2070903@katalix.com> <20080214130016.GA2583@ff.dom.local> <47BA0214.40703@katalix.com> <20080219230640.GA2755@ami.dom.local> <47BC4F2C.4000802@katalix.com> <20080220183837.GA2881@ami.dom.local> <47BCABC5.9080204@katalix.com> <20080221085959.GA12944@ff.dom.local> <47BD4A34.7070606@katalix.com> <20080221120829.GB12944@ff.dom.local> <47BDB030.1050105@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/mixed;
+ boundary="------------040001080103030704030505"
+Cc: David Miller <davem@davemloft.net>,
+	Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s36.avahost.net ([74.53.95.194]:37034 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754198AbYBYMUK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Feb 2008 07:20:10 -0500
+In-Reply-To: <47BDB030.1050105@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------040001080103030704030505
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
-	Jan Engelhardt <jengelh@computergmbh.de>,
-	"David S. Miller" <davem@davemloft.net>, varekova@redhat.com,
-	twoerner@redhat.com,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <47C2B09A.1040102@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-
-On Mon, 2008-02-25 at 13:12 +0100, Patrick McHardy wrote:
+Jarek Poplawski wrote:
+> Jarek Poplawski wrote, On 02/21/2008 01:08 PM:
+> ...
 > 
-> Yes, the kernel headers need to be fixed as well to not include
-> linux/compiler.h outside of #ifdef __KERNEL__. I'll take care
-> of that.
+>> Another, probably simpler way would be to move almost all pppol2tp_xmit
+> ...
+> 
+> Actually, the simplest off all seems to be now this old idea to maybe make
+> sk_dst_lock globally softirq immune. At least I think it's worth of testing,
+> to check for these other possible lockdep warnings. It should only need to
+> change all write_ and read_lock(&sk->sk_dst_lock) in very few places:
+> include/net/sock.h, include/net/ip6_route.h, and net/ipv6/ipv6_sockglue.c.
+> This could be tested together with you full _bh locking patch (maybe except
+> these other changes in pppol2tp_xmit).
 
-No. When you run 'make headers_install' that's already taken care of.
+I did this and all lockdep errors have now gone. Tests ran all weekend. 
+See attached patch.
+
+Is this an acceptable solution? If so, I'll prepare and send official 
+patches.
+
 
 -- 
-dwmw2
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
+
+--------------040001080103030704030505
+Content-Type: text/x-diff;
+ name="sk_dst_lock-softirq-safe.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="sk_dst_lock-softirq-safe.patch"
+
+Index: linux-2.6.24.2/include/net/ip6_route.h
+===================================================================
+--- linux-2.6.24.2.orig/include/net/ip6_route.h
++++ linux-2.6.24.2/include/net/ip6_route.h
+@@ -150,9 +150,9 @@ static inline void __ip6_dst_store(struc
+ static inline void ip6_dst_store(struct sock *sk, struct dst_entry *dst,
+ 				 struct in6_addr *daddr, struct in6_addr *saddr)
+ {
+-	write_lock(&sk->sk_dst_lock);
++	write_lock_bh(&sk->sk_dst_lock);
+ 	__ip6_dst_store(sk, dst, daddr, saddr);
+-	write_unlock(&sk->sk_dst_lock);
++	write_unlock_bh(&sk->sk_dst_lock);
+ }
+ 
+ static inline int ipv6_unicast_destination(struct sk_buff *skb)
+Index: linux-2.6.24.2/include/net/sock.h
+===================================================================
+--- linux-2.6.24.2.orig/include/net/sock.h
++++ linux-2.6.24.2/include/net/sock.h
+@@ -1058,11 +1058,11 @@ sk_dst_get(struct sock *sk)
+ {
+ 	struct dst_entry *dst;
+ 
+-	read_lock(&sk->sk_dst_lock);
++	read_lock_bh(&sk->sk_dst_lock);
+ 	dst = sk->sk_dst_cache;
+ 	if (dst)
+ 		dst_hold(dst);
+-	read_unlock(&sk->sk_dst_lock);
++	read_unlock_bh(&sk->sk_dst_lock);
+ 	return dst;
+ }
+ 
+@@ -1079,9 +1079,9 @@ __sk_dst_set(struct sock *sk, struct dst
+ static inline void
+ sk_dst_set(struct sock *sk, struct dst_entry *dst)
+ {
+-	write_lock(&sk->sk_dst_lock);
++	write_lock_bh(&sk->sk_dst_lock);
+ 	__sk_dst_set(sk, dst);
+-	write_unlock(&sk->sk_dst_lock);
++	write_unlock_bh(&sk->sk_dst_lock);
+ }
+ 
+ static inline void
+@@ -1097,9 +1097,9 @@ __sk_dst_reset(struct sock *sk)
+ static inline void
+ sk_dst_reset(struct sock *sk)
+ {
+-	write_lock(&sk->sk_dst_lock);
++	write_lock_bh(&sk->sk_dst_lock);
+ 	__sk_dst_reset(sk);
+-	write_unlock(&sk->sk_dst_lock);
++	write_unlock_bh(&sk->sk_dst_lock);
+ }
+ 
+ extern struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie);
+Index: linux-2.6.24.2/net/ipv6/ipv6_sockglue.c
+===================================================================
+--- linux-2.6.24.2.orig/net/ipv6/ipv6_sockglue.c
++++ linux-2.6.24.2/net/ipv6/ipv6_sockglue.c
+@@ -440,9 +440,9 @@ static int do_ipv6_setsockopt(struct soc
+ 			opt = xchg(&np->opt, opt);
+ 			sk_dst_reset(sk);
+ 		} else {
+-			write_lock(&sk->sk_dst_lock);
++			write_lock_bh(&sk->sk_dst_lock);
+ 			opt = xchg(&np->opt, opt);
+-			write_unlock(&sk->sk_dst_lock);
++			write_unlock_bh(&sk->sk_dst_lock);
+ 			sk_dst_reset(sk);
+ 		}
+ sticky_done:
+@@ -504,9 +504,9 @@ update:
+ 			opt = xchg(&np->opt, opt);
+ 			sk_dst_reset(sk);
+ 		} else {
+-			write_lock(&sk->sk_dst_lock);
++			write_lock_bh(&sk->sk_dst_lock);
+ 			opt = xchg(&np->opt, opt);
+-			write_unlock(&sk->sk_dst_lock);
++			write_unlock_bh(&sk->sk_dst_lock);
+ 			sk_dst_reset(sk);
+ 		}
+ 
+
+--------------040001080103030704030505--
