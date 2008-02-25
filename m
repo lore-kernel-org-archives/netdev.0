@@ -1,25 +1,37 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] ethtool netlink interface
-Date: Mon, 25 Feb 2008 19:23:43 +0100
-Message-ID: <20080225182343.GF20815@postel.suug.ch>
-References: <20080225130456.GD20815@postel.suug.ch> <47C2FB1F.5090009@garzik.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [patch 2.6.25-rc2-git] rndis_host:  fix transfer size
+	negotiation
+Date: Mon, 25 Feb 2008 13:29:18 -0500
+Message-ID: <20080225182918.GA3094@tuxdriver.com>
+References: <200802221731.16698.david-b@pacbell.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: Network development list <netdev@vger.kernel.org>,
+	Jean-Christophe Dubois <jcd@tribudubois.net>,
+	jussi.kivilinna@mbnet.fi
+To: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:47715 "EHLO postel.suug.ch"
+Received: from ra.tuxdriver.com ([70.61.120.52]:4369 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754284AbYBYSXX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Feb 2008 13:23:23 -0500
+	id S1757975AbYBYScT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Feb 2008 13:32:19 -0500
 Content-Disposition: inline
-In-Reply-To: <47C2FB1F.5090009@garzik.org>
+In-Reply-To: <200802221731.16698.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Jeff Garzik <jeff@garzik.org> 2008-02-25 12:30
-> However, I would think it inconsistent to only do SSET/GSET.  If others 
-> are OK with this patch, are you open to implementing the full set of 
-> ethtool operations?
+On Fri, Feb 22, 2008 at 05:31:16PM -0800, David Brownell wrote:
+> From: Jean-Christophe Dubois <jcd@tribudubois.net>
+> 
+> This patch should resolve a problem that's troubled support for
+> some RNDIS peripherals.  It seems to have boiled down to using a
+> variable to establish transfer size limits before it was assigned,
+> which caused those devices to fallback to a default "jumbogram"
+> mode we don't support.  Fix by assigning it earlier for RNDIS.
 
-Of course, I would also provide a documented userspace api within libnl.
+Any chance that something like this is appropriate for rndis_wlan?
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
