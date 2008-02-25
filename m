@@ -1,73 +1,55 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: New sparse warning in net/mac80211/debugfs_sta.c
-Date: Mon, 25 Feb 2008 18:29:00 +0100
-Message-ID: <1203960540.13162.124.camel@johannes.berg>
-References: <1203589042.17534.145.camel@johannes.berg>
-	 <1203616486.7181.269.camel@localhost> <47BDBC23.5080007@trash.net>
-	 <20080223.200202.255773165.davem@davemloft.net>
-	 <1203933228.13162.58.camel@johannes.berg>
-	 <1203958429.19319.273.camel@localhost>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RFC] ethtool netlink interface
+Date: Mon, 25 Feb 2008 12:30:07 -0500
+Message-ID: <47C2FB1F.5090009@garzik.org>
+References: <20080225130456.GD20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-jF0OP5ubMvwQfX/7vEm5"
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	harvey.harrison@gmail.com, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:54460 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752165AbYBYR3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 12:29:12 -0500
-In-Reply-To: <1203958429.19319.273.camel@localhost>
+Received: from srv5.dvmed.net ([207.36.208.214]:40284 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753516AbYBYRaK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Feb 2008 12:30:10 -0500
+In-Reply-To: <20080225130456.GD20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Thomas Graf wrote:
+> Hello,
+> 
+> Before I continue to finish this work I'd like to get a few comments
+> on my implementation attempt.
+> 
+> The following patch implements the ETHTOOL_SSET and ETHTOOL_GSET
+> command via netlink. The individual commands are implemented as
+> separate functions and hooked into a table holding a validate,
+> set and fill function for each command. Additionaly an entry must
+> be made in the attribute policy to validate attributes when received.
+> 
+> Each ethtool command bundle is stored as a nested attribute in
+> the regular link netlink message, therefore, unlike the ioctl
+> interface, multiple ethtool commands can be issued in the same
+> message allowing for links to be fully configured with a single
+> message.
+> 
+> There is one big disadvantage: Due to the nature of ioctl it is
+> basically not possible to share any code between the ioctl and
+> neltink implementation therefore it implies duplicating code
+> unless we want to do the same hack as fib fronted by constructing
+> netlink messages inside the kernel.
 
---=-jF0OP5ubMvwQfX/7vEm5
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+No objections, and it certainly makes sense that you would need a 
+separate "thunking" layer to unwrap ethtool-nl msgs rather than handling 
+an ioctl.
+
+However, I would think it inconsistent to only do SSET/GSET.  If others 
+are OK with this patch, are you open to implementing the full set of 
+ethtool operations?
+
+	Jeff
 
 
-> > Maybe we should just add a new printf modifier like %M for MAC
-> > addresses? Then we could use sprintf, snprintf, printk and whatever we
-> > please without any of the macro stuff...
->=20
-> Could gcc validate the printf %M arguments?
-
-No, but it won't barf on it either, it silently ignores unknown stuff.
-
-> Another possibility without changing printf argument validation
-> is to use a MAC_FMT macro in place of "%s"
->=20
-> #ifdef CONFIG_INLINE_MAC
-
-Yes, but the argument was that in some debugging cases these things are
-in the fast path even when debugging is turned off, so to not have  them
-there would force you to always turn this config ON which defeats the
-point.
-
-johannes
-
---=-jF0OP5ubMvwQfX/7vEm5
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUAR8L626Vg1VMiehFYAQLfHA/8Crp9otAdBCV+4fl8tcSmN9Kb/E85C6Yr
-RvIQYa+dTSgkHR9J4/LVpBG3YW77HvC9mtc/tYFWhCN/j+X9ldsGuPQ5wBARJgjy
-el7Hvpxt+TfseOSlw3Dn110DE3eTM06vV08J5NOvXJ5nWdMlXNjj6m8E3ms4d/3a
-Fwvi75f0hHnIfAztX2RCggmkWqNjPIbO3H4rYw+WOmKClAHa+NUZgaPLfO8nYb9+
-Y+Sr8g3VVLyGAv7VENuoDEAOjkMFttJ8nU2BMsdJWfxz+RJJmcjjtf0wMJzOv94a
-h+4CV7HstXCVPQ/IpxBYVn7PmQPKhJU0UXZerQWJ1TzTqHmDcAK4Ex2WIcdDdJuH
-p/jYOmCTJxGNZg516ag5VlVdcZWyN6+3oFQFPpYHojvLXpFQROKocm+LSYUCvMv/
-eJwQNVgX6D1N3j+BgAmC0we8B6dteqIPIjTriledQ+oCtCmzbmTg4+pDqMd0rPcC
-UK/S/HdB/8G2wfxa7FuJ0s/lqLPVPs0/Er19E1ENLz13hnZ9MCklis1esq43KGBL
-evAkZOUbf9IANFprVgaHT1J+fWKKqxHAcI0QfAe1cvGVNR86JKTq/hnuBp5SDqtD
-33Pg/ULu/gH1eVk2eiImRAdI4sVZc7+LWkYQnhcmvFUqBKSA1iauBHiNNohKhGHS
-1A5OHbZhljA=
-=KWQi
------END PGP SIGNATURE-----
-
---=-jF0OP5ubMvwQfX/7vEm5--
 
