@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] llc: fix skb size for test responses
-Date: Mon, 25 Feb 2008 11:47:11 -0800 (PST)
-Message-ID: <20080225.114711.102171146.davem@davemloft.net>
-References: <20080224190758.GW84358@surrealistic.net>
-	<20080224.185104.207884881.davem@davemloft.net>
-	<20080225050421.GY84358@surrealistic.net>
+Subject: Re: New sparse warning in net/mac80211/debugfs_sta.c
+Date: Mon, 25 Feb 2008 11:52:20 -0800 (PST)
+Message-ID: <20080225.115220.02432174.davem@davemloft.net>
+References: <47BDBC23.5080007@trash.net>
+	<20080223.200202.255773165.davem@davemloft.net>
+	<1203933228.13162.58.camel@johannes.berg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, acme@ghostprotocols.net
-To: jwestfall@surrealistic.net
+Cc: kaber@trash.net, joe@perches.com, harvey.harrison@gmail.com,
+	netdev@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51244
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43286
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755469AbYBYTq3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 14:46:29 -0500
-In-Reply-To: <20080225050421.GY84358@surrealistic.net>
+	by vger.kernel.org with ESMTP id S1755517AbYBYTvh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 14:51:37 -0500
+In-Reply-To: <1203933228.13162.58.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jim Westfall <jwestfall@surrealistic.net>
-Date: Sun, 24 Feb 2008 21:04:21 -0800
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Mon, 25 Feb 2008 10:53:48 +0100
 
-> I sent it a few minutes after this one, but seems like it never made it 
-> to the list.  My local smtp shows it was delivered sucussfully to 
-> vger.kernel.org.
+> Maybe we should just add a new printf modifier like %M for MAC
+> addresses? Then we could use sprintf, snprintf, printk and whatever we
+> please without any of the macro stuff...
 
-Usually this means some string in the email triggered our
-Majordomo level regexp filters, they are listed at:
-
-http://vger.kernel.org/majordomo-info.html#taboo
+But GCC has no idea what the heck it is and will warn.
