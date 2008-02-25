@@ -1,55 +1,44 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [RFC] ethtool netlink interface
-Date: Mon, 25 Feb 2008 12:30:07 -0500
-Message-ID: <47C2FB1F.5090009@garzik.org>
-References: <20080225130456.GD20815@postel.suug.ch>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: [PATCH] de2104x: remove BUG_ON() when changing media type
+Date: Mon, 25 Feb 2008 18:45:46 +0100
+Message-ID: <200802251845.51562.linux@rainbow-software.org>
+References: <200801262158.12016.linux@rainbow-software.org> <200802181740.44196.linux@rainbow-software.org> <20080225071505.GC26674@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Cc: jgarzik@pobox.com, Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Grant Grundler <grundler@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40284 "EHLO mail.dvmed.net"
+Received: from mail.atlantis.sk ([80.94.52.35]:51606 "EHLO mail.atlantis.sk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753516AbYBYRaK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Feb 2008 12:30:10 -0500
-In-Reply-To: <20080225130456.GD20815@postel.suug.ch>
+	id S1753123AbYBYRqD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Feb 2008 12:46:03 -0500
+In-Reply-To: <20080225071505.GC26674@colo.lackof.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thomas Graf wrote:
-> Hello,
-> 
-> Before I continue to finish this work I'd like to get a few comments
-> on my implementation attempt.
-> 
-> The following patch implements the ETHTOOL_SSET and ETHTOOL_GSET
-> command via netlink. The individual commands are implemented as
-> separate functions and hooked into a table holding a validate,
-> set and fill function for each command. Additionaly an entry must
-> be made in the attribute policy to validate attributes when received.
-> 
-> Each ethtool command bundle is stored as a nested attribute in
-> the regular link netlink message, therefore, unlike the ioctl
-> interface, multiple ethtool commands can be issued in the same
-> message allowing for links to be fully configured with a single
-> message.
-> 
-> There is one big disadvantage: Due to the nature of ioctl it is
-> basically not possible to share any code between the ioctl and
-> neltink implementation therefore it implies duplicating code
-> unless we want to do the same hack as fib fronted by constructing
-> netlink messages inside the kernel.
+When the chip dies (probably because of a bug somewhere in the driver), 
+de_stop_rxtx() fails and changing the media type crashes the whole machine. 
+Replace BUG_ON() in de_set_media() with a warning.
 
-No objections, and it certainly makes sense that you would need a 
-separate "thunking" layer to unwrap ethtool-nl msgs rather than handling 
-an ioctl.
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
 
-However, I would think it inconsistent to only do SSET/GSET.  If others 
-are OK with this patch, are you open to implementing the full set of 
-ethtool operations?
-
-	Jeff
+--- linux-2.6.24-orig/drivers/net/tulip/de2104x.c	2008-02-25 18:27:34.000000000 +0100
++++ linux-2.6.24-pentium/drivers/net/tulip/de2104x.c	2008-02-25 18:34:56.000000000 +0100
+@@ -910,7 +910,8 @@
+ 	unsigned media = de->media_type;
+ 	u32 macmode = dr32(MacMode);
+ 
+-	BUG_ON(de_is_running(de));
++	if (de_is_running(de))
++		printk(KERN_WARNING "%s: chip is running while changing media!\n", de->dev->name);
+ 
+ 	if (de->de21040)
+ 		dw32(CSR11, FULL_DUPLEX_MAGIC);
 
 
-
+-- 
+Ondrej Zary
