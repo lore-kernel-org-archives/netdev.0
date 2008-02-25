@@ -1,50 +1,56 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH] llc: fix skb size for test responses
-Date: Mon, 25 Feb 2008 11:06:52 -0300
-Message-ID: <20080225140652.GC4022@ghostprotocols.net>
-References: <20080224190758.GW84358@surrealistic.net> <20080224.185104.207884881.davem@davemloft.net> <20080225050421.GY84358@surrealistic.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [MACVLAN]: Update Kconfig to refer to iproute
+Date: Mon, 25 Feb 2008 15:51:35 +0100
+Message-ID: <47C2D5F7.4070503@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jim Westfall <jwestfall@surrealistic.net>
+Content-Type: multipart/mixed;
+ boundary="------------030103010709070303040807"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:43425 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753238AbYBYOG7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Feb 2008 09:06:59 -0500
-Content-Disposition: inline
-In-Reply-To: <20080225050421.GY84358@surrealistic.net>
+Received: from viefep20-int.chello.at ([62.179.121.40]:48539 "EHLO
+	viefep20-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754667AbYBYOvk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2008 09:51:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Sun, Feb 24, 2008 at 09:04:21PM -0800, Jim Westfall escreveu:
-> David Miller <davem@davemloft.net> wrote [02.24.08]:
-> > From: Jim Westfall <jwestfall@surrealistic.net>
-> > Date: Sun, 24 Feb 2008 11:07:58 -0800
-> > 
-> > > Hi
-> > > 
-> > > The llc test command is used for a layer2 ping and contains a variable 
-> > > length payload that we must include in the response.  Use the size of the 
-> > > received skb as the size of the skb we must allocate to hold the payload. 
-> > > 
-> > > This resolved an skb_over_panic(), when trying to copy the payload into 
-> > > what was a hard coded skb of size 128.
-> > > 
-> > > Signed-off-by: Jim Westfall <jwestfall@surrealistic.net>
-> > 
-> > Arnaldo, please review Jim's patch, thanks!
-> 
-> Our of curiosity did you all get my 2nd patch?  
-> 
-> Subject: [PATCH] llc: dont trust payload size on test cmd
-> 
-> I sent it a few minutes after this one, but seems like it never made it 
-> to the list.  My local smtp shows it was delivered sucussfully to 
-> vger.kernel.org.
+This is a multi-part message in MIME format.
+--------------030103010709070303040807
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I got it, but you made a mistake on the To: address:
 
-From: Jim Westfall <jwestfall@surrealistic.net>
-Subject: [PATCH] llc: dont trust payload size on test cmd
-To: "To:netdev"@vger.kernel.org, acme@ghostprotocols.net
+--------------030103010709070303040807
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+[MACVLAN]: Update Kconfig to refer to iproute
+
+Since the macvlan release I had at least 5 users asking how to configure
+it since the old userspace tool doesn't work with the version in the
+kernel. Add a pointer to the Kconfig help.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index f337800..f333c11 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -90,6 +90,11 @@ config MACVLAN
+ 	  This allows one to create virtual interfaces that map packets to
+ 	  or from specific MAC addresses to a particular interface.
+ 
++	  Macvlan devices can be added using the "ip" command from the
++	  iproute2 package starting with the iproute2-2.6.23 release:
++
++	  "ip link add link <real dev> [ address MAC ] [ NAME ] type macvlan"
++
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called macvlan.
+ 
+
+--------------030103010709070303040807--
