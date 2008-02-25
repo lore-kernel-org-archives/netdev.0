@@ -1,91 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: lockdep warnings in ipv6
-Date: Sun, 24 Feb 2008 17:16:25 -0800 (PST)
-Message-ID: <20080224.171625.193730295.davem@davemloft.net>
-References: <Pine.LNX.4.64.0802241307310.15321@fbirervta.pbzchgretzou.qr>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [PATCH] tipc: fix integer as NULL pointer sparse warnings in tipc
+Date: Sun, 24 Feb 2008 17:59:05 -0800
+Message-ID: <1203904745.1767.19.camel@brick>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jengelh@computergmbh.de
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53902
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756331AbYBYBPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2008 20:15:44 -0500
-In-Reply-To: <Pine.LNX.4.64.0802241307310.15321@fbirervta.pbzchgretzou.qr>
+Received: from el-out-1112.google.com ([209.85.162.182]:44060 "EHLO
+	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752326AbYBYB7B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2008 20:59:01 -0500
+Received: by el-out-1112.google.com with SMTP id v27so1104323ele.23
+        for <netdev@vger.kernel.org>; Sun, 24 Feb 2008 17:59:00 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Engelhardt <jengelh@computergmbh.de>
-Date: Sun, 24 Feb 2008 13:10:58 +0100 (CET)
+net/tipc/cluster.c:145:2: warning: Using plain integer as NULL pointer
+net/tipc/link.c:3254:36: warning: Using plain integer as NULL pointer
+net/tipc/ref.c:151:15: warning: Using plain integer as NULL pointer
+net/tipc/zone.c:85:2: warning: Using plain integer as NULL pointer
 
-> when doing IPv6 (ping6, ssh otherhost, etc.), lockdep spews a warning in 
-> 2.6.25-rc2 on the target. CONFIG_..._FRAME_POINTER is off,
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+ net/tipc/cluster.c |    2 +-
+ net/tipc/link.c    |    2 +-
+ net/tipc/ref.c     |    2 +-
+ net/tipc/zone.c    |    2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
 
-We reverted the change which causes this, and it results
-in real bonafide lockups too :-)
-
-commit 9ff566074689e3aed1488780b97714ec43ba361d
-Author: David S. Miller <davem@davemloft.net>
-Date:   Sun Feb 17 18:39:54 2008 -0800
-
-    Revert "[NDISC]: Fix race in generic address resolution"
-    
-    This reverts commit 69cc64d8d92bf852f933e90c888dfff083bd4fc9.
-    
-    It causes recursive locking in IPV6 because unlike other
-    neighbour layer clients, it even needs neighbour cache
-    entries to send neighbour soliciation messages :-(
-    
-    We'll have to find another way to fix this race.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 7bb6a9a..a16cf1e 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -834,12 +834,18 @@ static void neigh_timer_handler(unsigned long arg)
+diff --git a/net/tipc/cluster.c b/net/tipc/cluster.c
+index 95b3739..4bb3404 100644
+--- a/net/tipc/cluster.c
++++ b/net/tipc/cluster.c
+@@ -142,7 +142,7 @@ void tipc_cltr_attach_node(struct cluster *c_ptr, struct node *n_ptr)
+ 		max_n_num = tipc_highest_allowed_slave;
+ 	assert(n_num > 0);
+ 	assert(n_num <= max_n_num);
+-	assert(c_ptr->nodes[n_num] == 0);
++	assert(c_ptr->nodes[n_num] == NULL);
+ 	c_ptr->nodes[n_num] = n_ptr;
+ 	if (n_num > c_ptr->highest_node)
+ 		c_ptr->highest_node = n_num;
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 1b17fec..cefa998 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -3251,7 +3251,7 @@ static void link_print(struct link *l_ptr, struct print_buf *buf,
+ 		if ((mod(msg_seqno(buf_msg(l_ptr->last_out)) -
+ 			 msg_seqno(buf_msg(l_ptr->first_out)))
+ 		     != (l_ptr->out_queue_size - 1))
+-		    || (l_ptr->last_out->next != 0)) {
++		    || (l_ptr->last_out->next != NULL)) {
+ 			tipc_printf(buf, "\nSend queue inconsistency\n");
+ 			tipc_printf(buf, "first_out= %x ", l_ptr->first_out);
+ 			tipc_printf(buf, "next_out= %x ", l_ptr->next_out);
+diff --git a/net/tipc/ref.c b/net/tipc/ref.c
+index 6704a58..c38744c 100644
+--- a/net/tipc/ref.c
++++ b/net/tipc/ref.c
+@@ -148,7 +148,7 @@ u32 tipc_ref_acquire(void *object, spinlock_t **lock)
+ 		reference = (next_plus_upper & ~index_mask) + index;
+ 		entry->data.reference = reference;
+ 		entry->object = object;
+-		if (lock != 0)
++		if (lock != NULL)
+ 			*lock = &entry->lock;
+ 		spin_unlock_bh(&entry->lock);
  	}
- 	if (neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) {
- 		struct sk_buff *skb = skb_peek(&neigh->arp_queue);
--
-+		/* keep skb alive even if arp_queue overflows */
-+		if (skb)
-+			skb_get(skb);
-+		write_unlock(&neigh->lock);
- 		neigh->ops->solicit(neigh, skb);
- 		atomic_inc(&neigh->probes);
--	}
-+		if (skb)
-+			kfree_skb(skb);
-+	} else {
- out:
--	write_unlock(&neigh->lock);
-+		write_unlock(&neigh->lock);
-+	}
+diff --git a/net/tipc/zone.c b/net/tipc/zone.c
+index 114e173..3506f85 100644
+--- a/net/tipc/zone.c
++++ b/net/tipc/zone.c
+@@ -82,7 +82,7 @@ void tipc_zone_attach_cluster(struct _zone *z_ptr, struct cluster *c_ptr)
  
- 	if (notify)
- 		neigh_update_notify(neigh);
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index c663fa5..8e17f65 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -368,6 +368,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
- 		if (!(neigh->nud_state&NUD_VALID))
- 			printk(KERN_DEBUG "trying to ucast probe in NUD_INVALID\n");
- 		dst_ha = neigh->ha;
-+		read_lock_bh(&neigh->lock);
- 	} else if ((probes -= neigh->parms->app_probes) < 0) {
- #ifdef CONFIG_ARPD
- 		neigh_app_ns(neigh);
-@@ -377,6 +378,8 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
- 
- 	arp_send(ARPOP_REQUEST, ETH_P_ARP, target, dev, saddr,
- 		 dst_ha, dev->dev_addr, NULL);
-+	if (dst_ha)
-+		read_unlock_bh(&neigh->lock);
+ 	assert(c_ptr->addr);
+ 	assert(c_num <= tipc_max_clusters);
+-	assert(z_ptr->clusters[c_num] == 0);
++	assert(z_ptr->clusters[c_num] == NULL);
+ 	z_ptr->clusters[c_num] = c_ptr;
  }
  
- static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
+-- 
+1.5.4.2.200.g99e75
+
+
+
