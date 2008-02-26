@@ -1,54 +1,48 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] Can not send icmp netunreach packet
-Date: Tue, 26 Feb 2008 07:35:38 +0000
-Message-ID: <20080226073538.GA4101@ff.dom.local>
-References: <47C3B2D9.9090601@cn.fujitsu.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH] Don't limit the number of tunnels with generic name explicitly.
+Date: Tue, 26 Feb 2008 10:47:44 +0300
+Message-ID: <47C3C420.1060407@openvz.org>
+References: <47BD6BD7.1060200@openvz.org>	<47BD6CE9.7000908@trash.net>	<47BD70B8.3030507@openvz.org> <20080223.202021.191612366.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, swhiteho@redhat.com, netdev@vger.kernel.org
-To: Li Yewang <lyw@cn.fujitsu.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netdev@vger.kernel.org, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:4976 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752550AbYBZHeh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 02:34:37 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so1146409ugc.16
-        for <netdev@vger.kernel.org>; Mon, 25 Feb 2008 23:34:35 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <47C3B2D9.9090601@cn.fujitsu.com>
+Received: from sacred.ru ([62.205.161.221]:34258 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754917AbYBZHru (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Feb 2008 02:47:50 -0500
+In-Reply-To: <20080223.202021.191612366.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26-02-2008 07:34, Li Yewang wrote:
-> Hi All
+David Miller wrote:
+> From: Pavel Emelyanov <xemul@openvz.org>
+> Date: Thu, 21 Feb 2008 15:38:16 +0300
 > 
->    There is a bug about icmp netunreach.
->    If the kernel does not find a route for a packet, 
->    it must send a icmp netunreach packet to the source host, 
->    and  discard  the packet. But the  kernel  does not send 
->    a icmp netunreach packet because of the  fib_lookup
->    return value  of -ESRCH when a route  is not found. 
+>> Changelog:
+>>
+>> Use the added dev_alloc_name() call to create tunnel device name,
+>> rather than iterate in a hand-made loop with an artificial limit.
+>>
+>> Thanks Patrick for noticing this.
+>>
+>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> 
+> Applied, but I had to rework this in two places that didn't
+> apply cleanly.
 
-...or because some function doesn't handle -ESRCH return from
-fib_lookup? It seems changing this to -ESRCH was needed in some cases.
-And you don't explain enough why it can't be handled later (like in
-ipv4/route.c: ip_route_input_slow)?
+That's because you skipped the first patch titled "Don't create 
+tunnels with '%' in name.", which adds the dev_alloc_name() call 
+and tosses the error paths a bit. Without this first patch, these 
+four drivers become broken :( When user doesn't specify the name, 
+the device's name will be e.g. "tunl%d", but not "tunl0" like 
+he expects.
 
-Regards,
-Jarek P.
+> The ip_gre.c and ipip.c changes remove a "failed" label but
+> that can't be done in the current tree as there are other
+> existing references.
+> 
 
-> 
-> Signed-off-by: Li Yewang <lyw@cn.fujitsu.com>
-> 
-> diff -Nurp net/core_back/fib_rules.c net/core/fib_rules.c
-> --- net/core_back/fib_rules.c   2008-02-25 13:15:37.000000000 +0800
-> +++ net/core/fib_rules.c        2008-02-25 13:16:01.000000000 +0800
-> @@ -188,7 +188,7 @@ jumped:
->  		}
->  	}
->  
-> -	err = -ESRCH;
-> +	err = -ENETUNREACH;
->  out:
->  	rcu_read_unlock();
-> 
+Yup :( this code was removed in that first patch...
