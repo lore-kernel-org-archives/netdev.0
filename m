@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Subject: Re: [PATCH 00/28] Swap over NFS -v16
-Date: Tue, 26 Feb 2008 16:41:57 +0100
-Message-ID: <1204040517.6242.324.camel@lappy>
+Date: Tue, 26 Feb 2008 16:43:49 +0100
+Message-ID: <1204040629.6242.326.camel@lappy>
 References: <20080220144610.548202000@chello.nl>
 	 <20080223000620.7fee8ff8.akpm@linux-foundation.org>
 	 <18371.43950.150842.429997@notabene.brown>
@@ -15,10 +15,10 @@ Cc: neilb@suse.de, akpm@linux-foundation.org,
 	trond.myklebust@fys.uio.no
 To: Miklos Szeredi <miklos@szeredi.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:47626 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762862AbYBZPmM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 10:42:12 -0500
+Received: from bombadil.infradead.org ([18.85.46.34]:51408 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763079AbYBZPoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 10:44:11 -0500
 In-Reply-To: <E1JU1kk-0001t9-25@pomaz-ex.szeredi.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -39,18 +39,14 @@ On Tue, 2008-02-26 at 16:29 +0100, Miklos Szeredi wrote:
 > > the swap-cache uses page->private to store it in.
 > 
 > Yeah, and putting the condition into page_offset() will confuse code
-> which uses it for finding the offset in the VMA 
-
-Right, do we do that anywhere?
-
-> or in a tmpfs file.
-
-Good point. I really should go read tmpfs some day, its really a blind
-spot for me.
-
+> which uses it for finding the offset in the VMA or in a tmpfs file.
+> 
 > So why not just have a separate page_swap_offset() function, used
 > exclusively by swap_in/out()?
 
-That would require duplicating quite a lot of NFS code from what I can
-see.
+Ah, we can do the page_file_offset() to match page_file_index() and
+page_file_mapping(). And convert NFS to use page_file_offset() where
+appropriate, as I already did for these others.
+
+That would sort out the mess, right?
 
