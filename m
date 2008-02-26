@@ -1,51 +1,43 @@
-From: Miklos Szeredi <miklos@szeredi.hu>
+From: Andrew Morton <akpm@linux-foundation.org>
 Subject: Re: [PATCH 00/28] Swap over NFS -v16
-Date: Tue, 26 Feb 2008 16:47:34 +0100
-Message-ID: <E1JU21m-0001wp-ET@pomaz-ex.szeredi.hu>
+Date: Tue, 26 Feb 2008 09:56:05 -0800
+Message-ID: <20080226095605.62edc0f3.akpm@linux-foundation.org>
 References: <20080220144610.548202000@chello.nl>
-	 <20080223000620.7fee8ff8.akpm@linux-foundation.org>
-	 <18371.43950.150842.429997@notabene.brown>
-	 <1204023042.6242.271.camel@lappy>  <E1JU1kk-0001t9-25@pomaz-ex.szeredi.hu> <1204040629.6242.326.camel@lappy>
-Cc: miklos@szeredi.hu, neilb@suse.de, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org,
-	trond.myklebust@fys.uio.no
-To: a.p.zijlstra@chello.nl
+	<20080223000620.7fee8ff8.akpm@linux-foundation.org>
+	<18371.43950.150842.429997@notabene.brown>
+	<1204023042.6242.271.camel@lappy>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Neil Brown <neilb@suse.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fxip-0047f.externet.hu ([88.209.222.127]:46274 "EHLO
-	pomaz-ex.szeredi.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755595AbYBZPrs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 10:47:48 -0500
-In-reply-to: <1204040629.6242.326.camel@lappy> (message from Peter Zijlstra on
-	Tue, 26 Feb 2008 16:43:49 +0100)
+Received: from smtp1.linux-foundation.org ([207.189.120.13]:58341 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757942AbYBZR5P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 12:57:15 -0500
+In-Reply-To: <1204023042.6242.271.camel@lappy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > > > mm-page_file_methods.patch
-> > > > 
-> > > >     This makes page_offset and others more expensive by adding a
-> > > >     conditional jump to a function call that is not usually made.
-> > > > 
-> > > >     Why do swap pages have a different index to everyone else?
-> > > 
-> > > Because the page->index of an anonymous page is related to its (anon)vma
-> > > so that it satisfies the constraints for vm_normal_page().
-> > > 
-> > > The index in the swap file it totally unrelated and quite random. Hence
-> > > the swap-cache uses page->private to store it in.
-> > 
-> > Yeah, and putting the condition into page_offset() will confuse code
-> > which uses it for finding the offset in the VMA or in a tmpfs file.
-> > 
-> > So why not just have a separate page_swap_offset() function, used
-> > exclusively by swap_in/out()?
-> 
-> Ah, we can do the page_file_offset() to match page_file_index() and
-> page_file_mapping(). And convert NFS to use page_file_offset() where
-> appropriate, as I already did for these others.
-> 
-> That would sort out the mess, right?
+On Tue, 26 Feb 2008 11:50:42 +0100 Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
 
-Yes, that sounds perfect.
+> On Tue, 2008-02-26 at 17:03 +1100, Neil Brown wrote:
+> > On Saturday February 23, akpm@linux-foundation.org wrote:
+>  
+> > > What is the NFS and net people's take on all of this?
+> > 
+> > Well I'm only vaguely an NFS person, barely a net person, sporadically
+> > an mm person, but I've had a look and it seems to mostly make sense.
+> 
+> Thanks for taking a look, and giving such elaborate feedback. I'll try
+> and address these issues asap, but first let me reply to a few points
+> here.
 
-Miklos
+Neil's overview of what-all-this-is and how-it-all-works is really good. 
+I'd suggest that you take it over, flesh it out and attach it firmly to the
+patchset.  It really helps.
+
