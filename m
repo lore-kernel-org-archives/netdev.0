@@ -1,69 +1,42 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][EBTABLES] Fix alignment checks in ebt_among.ko module.
-Date: Tue, 26 Feb 2008 17:38:05 +0300
-Message-ID: <47C4244D.9010806@openvz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: ebtables-devel@lists.sourceforge.net,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Bart De Schuymer <bart.de.schuymer@pandora.be>
+From: Miklos Szeredi <miklos@szeredi.hu>
+Subject: Re: [PATCH 00/28] Swap over NFS -v16
+Date: Tue, 26 Feb 2008 16:29:58 +0100
+Message-ID: <E1JU1kk-0001t9-25@pomaz-ex.szeredi.hu>
+References: <20080220144610.548202000@chello.nl>
+	 <20080223000620.7fee8ff8.akpm@linux-foundation.org>
+	 <18371.43950.150842.429997@notabene.brown> <1204023042.6242.271.camel@lappy>
+Cc: neilb@suse.de, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org,
+	trond.myklebust@fys.uio.no
+To: a.p.zijlstra@chello.nl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:42119 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751952AbYBZOiK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Feb 2008 09:38:10 -0500
+Received: from fxip-0047f.externet.hu ([88.209.222.127]:41203 "EHLO
+	pomaz-ex.szeredi.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752678AbYBZPaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 10:30:14 -0500
+In-reply-to: <1204023042.6242.271.camel@lappy> (message from Peter Zijlstra on
+	Tue, 26 Feb 2008 11:50:42 +0100)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When trying to do
+> > mm-page_file_methods.patch
+> > 
+> >     This makes page_offset and others more expensive by adding a
+> >     conditional jump to a function call that is not usually made.
+> > 
+> >     Why do swap pages have a different index to everyone else?
+> 
+> Because the page->index of an anonymous page is related to its (anon)vma
+> so that it satisfies the constraints for vm_normal_page().
+> 
+> The index in the swap file it totally unrelated and quite random. Hence
+> the swap-cache uses page->private to store it in.
 
-	# ebtables -A FORWARD --among-src 0:12:34:56:78:9a=192.168.0.10 -j ACCEPT
+Yeah, and putting the condition into page_offset() will confuse code
+which uses it for finding the offset in the VMA or in a tmpfs file.
 
-on x86_64 box the ebt_among->check() callback warns me that
+So why not just have a separate page_swap_offset() function, used
+exclusively by swap_in/out()?
 
-	ebtables: among: wrong size: 1060 against expected 1056, rounded to 1056
-
-Checking the ebtables sources, I found that the alignment is done
-differently in the tool and the kernel. Tool makes it like this:
-
-	EBT_ALIGN(sizeof(struct ebt_among_info)) + X
-
-while the kernel module like this:
-
-	EBT_ALIGN(sizeof(struct ebt_among_info) + X)
-
-So the suggested fix is to move the alignment in the kernel. After
-the fix the rule is added and appears in the ebtables -L output.
-
-Originally developed by Evgeny Kravtsunov.
-
-Prepared against net-2.6 tree.
-
-Signed-off-by: Evgeny Kravtsunov <emkravts@openvz.org>
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
-
-diff --git a/net/bridge/netfilter/ebt_among.c b/net/bridge/netfilter/ebt_among.c
-index 70b6dca..349a543 100644
---- a/net/bridge/netfilter/ebt_among.c
-+++ b/net/bridge/netfilter/ebt_among.c
-@@ -182,7 +182,7 @@ static int ebt_among_check(const char *tablename, unsigned int hookmask,
- 			   unsigned int datalen)
- {
- 	const struct ebt_among_info *info = data;
--	int expected_length = sizeof(struct ebt_among_info);
-+	int expected_length = EBT_ALIGN(sizeof(struct ebt_among_info));
- 	const struct ebt_mac_wormhash *wh_dst, *wh_src;
- 	int err;
- 
-@@ -191,7 +191,7 @@ static int ebt_among_check(const char *tablename, unsigned int hookmask,
- 	expected_length += ebt_mac_wormhash_size(wh_dst);
- 	expected_length += ebt_mac_wormhash_size(wh_src);
- 
--	if (datalen != EBT_ALIGN(expected_length)) {
-+	if (datalen != expected_length) {
- 		printk(KERN_WARNING
- 		       "ebtables: among: wrong size: %d "
- 		       "against expected %d, rounded to %Zd\n",
+Miklos
