@@ -1,48 +1,52 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH] Don't limit the number of tunnels with generic name explicitly.
-Date: Tue, 26 Feb 2008 10:47:44 +0300
-Message-ID: <47C3C420.1060407@openvz.org>
-References: <47BD6BD7.1060200@openvz.org>	<47BD6CE9.7000908@trash.net>	<47BD70B8.3030507@openvz.org> <20080223.202021.191612366.davem@davemloft.net>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: Compex FreedomLine 32 PnP-PCI2 broken with de2104x
+Date: Tue, 26 Feb 2008 00:48:19 -0700
+Message-ID: <20080226074819.GA27484@colo.lackof.org>
+References: <200801262158.12016.linux@rainbow-software.org> <200801302123.07783.linux@rainbow-software.org> <20080218032111.GA7970@colo.lackof.org> <200802181740.44196.linux@rainbow-software.org> <20080225071505.GC26674@colo.lackof.org> <47C26E78.1040103@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	Ondrej Zary <linux@rainbow-software.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:34258 "EHLO sacred.ru"
+Received: from colo.lackof.org ([198.49.126.79]:48296 "EHLO colo.lackof.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754917AbYBZHru (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Feb 2008 02:47:50 -0500
-In-Reply-To: <20080223.202021.191612366.davem@davemloft.net>
+	id S1756157AbYBZHsb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Feb 2008 02:48:31 -0500
+Content-Disposition: inline
+In-Reply-To: <47C26E78.1040103@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Pavel Emelyanov <xemul@openvz.org>
-> Date: Thu, 21 Feb 2008 15:38:16 +0300
-> 
->> Changelog:
->>
->> Use the added dev_alloc_name() call to create tunnel device name,
->> rather than iterate in a hand-made loop with an artificial limit.
->>
->> Thanks Patrick for noticing this.
->>
->> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> 
-> Applied, but I had to rework this in two places that didn't
-> apply cleanly.
+On Mon, Feb 25, 2008 at 02:30:00AM -0500, Jeff Garzik wrote:
+> Grant Grundler wrote:
+>> On Mon, Feb 18, 2008 at 05:40:42PM +0100, Ondrej Zary wrote:
+>>> I think that de2104x driver should be removed (or at least its 
+>>> MODULE_DEVICE_TABLE) and MODULE_DEVICE_TABLE with only 21040 and 21041 
+>>> PCI IDs added to de4x5.
+>>>
+>>> I can send a patch if this is acceptable.
+>> It's acceptable to me. Jeff? (jgarzik)
+>
+> NAK, sorry, for two reasons:
+>
+> 1) we don't delete otherwise clean, working drivers
 
-That's because you skipped the first patch titled "Don't create 
-tunnels with '%' in name.", which adds the dev_alloc_name() call 
-and tosses the error paths a bit. Without this first patch, these 
-four drivers become broken :( When user doesn't specify the name, 
-the device's name will be e.g. "tunl%d", but not "tunl0" like 
-he expects.
+Just to be clear - he's not trying to remove the driver.
+He's just interested in making de4x5 the "default" for this set of boards
+by doctoring with the pci device ids each driver will claim.
 
-> The ip_gre.c and ipip.c changes remove a "failed" label but
-> that can't be done in the current tree as there are other
-> existing references.
-> 
+>     simply because of a bug triggered by unplugging a cable.
 
-Yup :( this code was removed in that first patch...
+Ondrej would be happy to test any patches sent. Tracking this sort
+of bug down usually isn't trivial as the statement above implies.
+
+> 2) de4x5 needs to go away.
+
+Ok. I'd prefer to wait until someone demonstrates de2104x driver is a fully
+functional alternative for all the PCI Ids it claims.
+
+thanks,
+grant
