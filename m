@@ -1,41 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Can not send icmp netunreach packet
-Date: Tue, 26 Feb 2008 13:30:30 -0800 (PST)
-Message-ID: <20080226.133030.147637482.davem@davemloft.net>
-References: <47C3B2D9.9090601@cn.fujitsu.com>
-	<20080226073538.GA4101@ff.dom.local>
+Subject: Re: [PATCH] Don't limit the number of tunnels with generic name
+ explicitly.
+Date: Tue, 26 Feb 2008 13:31:25 -0800 (PST)
+Message-ID: <20080226.133125.21157292.davem@davemloft.net>
+References: <47BD70B8.3030507@openvz.org>
+	<20080223.202021.191612366.davem@davemloft.net>
+	<47C3C420.1060407@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lyw@cn.fujitsu.com, swhiteho@redhat.com, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: kaber@trash.net, netdev@vger.kernel.org, devel@openvz.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40183
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40187
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754772AbYBZV3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 16:29:46 -0500
-In-Reply-To: <20080226073538.GA4101@ff.dom.local>
+	by vger.kernel.org with ESMTP id S1762124AbYBZVak (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 16:30:40 -0500
+In-Reply-To: <47C3C420.1060407@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Tue, 26 Feb 2008 07:35:38 +0000
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Tue, 26 Feb 2008 10:47:44 +0300
 
-> On 26-02-2008 07:34, Li Yewang wrote:
-> > Hi All
-> > 
-> >    There is a bug about icmp netunreach.
-> >    If the kernel does not find a route for a packet, 
-> >    it must send a icmp netunreach packet to the source host, 
-> >    and  discard  the packet. But the  kernel  does not send 
-> >    a icmp netunreach packet because of the  fib_lookup
-> >    return value  of -ESRCH when a route  is not found. 
-> 
-> ...or because some function doesn't handle -ESRCH return from
-> fib_lookup? It seems changing this to -ESRCH was needed in some cases.
-> And you don't explain enough why it can't be handled later (like in
-> ipv4/route.c: ip_route_input_slow)?
+> That's because you skipped the first patch titled "Don't create 
+> tunnels with '%' in name.", which adds the dev_alloc_name() call 
+> and tosses the error paths a bit. Without this first patch, these 
+> four drivers become broken :( When user doesn't specify the name, 
+> the device's name will be e.g. "tunl%d", but not "tunl0" like 
+> he expects.
 
-This was changed to -ESRCH so that the proper statistics
-would be bumped.  So if we change it back, the statistics
-will be broken again.
+Please respin and post the first patch, I had no idea there was a
+dependency.
