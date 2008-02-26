@@ -1,71 +1,81 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 00/28] Swap over NFS -v16
-Date: Tue, 26 Feb 2008 13:00:37 +0100
-Message-ID: <1204027238.6242.302.camel@lappy>
-References: <20080220144610.548202000@chello.nl>
-	 <20080223000620.7fee8ff8.akpm@linux-foundation.org>
-	 <18371.43950.150842.429997@notabene.brown>
-	 <1204023042.6242.271.camel@lappy>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
+Date: Tue, 26 Feb 2008 12:14:26 +0000
+Message-ID: <47C402A2.8040401@katalix.com>
+References: <20080225215837.GA3281@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Neil Brown <neilb@suse.de>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:35201 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751577AbYBZMA6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 07:00:58 -0500
-In-Reply-To: <1204023042.6242.271.camel@lappy>
+Received: from s36.avahost.net ([74.53.95.194]:52765 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750705AbYBZMOh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Feb 2008 07:14:37 -0500
+In-Reply-To: <20080225215837.GA3281@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Tue, 2008-02-26 at 11:50 +0100, Peter Zijlstra wrote:
-
-> > mm-reserve.patch
-> > 
-> >    I'm confused by __mem_reserve_add.
-> > 
-> > +	reserve = mem_reserve_root.pages;
-> > +	__calc_reserve(res, pages, 0);
-> > +	reserve = mem_reserve_root.pages - reserve;
-> > 
-> >    __calc_reserve will always add 'pages' to mem_reserve_root.pages.
-> >    So this is a complex way of doing
-> >         reserve = pages;
-> >         __calc_reserve(res, pages, 0);
-> > 
-> >     And as you can calculate reserve before calling __calc_reserve
-> >     (which seems odd when stated that way), the whole function looks
-> >     like it could become:
-> > 
-> >            ret = adjust_memalloc_reserve(pages);
-> > 	   if (!ret)
-> > 		__calc_reserve(res, pages, limit);
-> > 	   return ret;
-> > 
-> >     What am I missing?
+Jarek Poplawski wrote:
+> Jarek Poplawski wrote, On 02/25/2008 02:39 PM:
+> ...
+>> Hmm... Wait a minute! But on the other hand David has written about
+>> his cons here, and it looks reasonable: this place would be fixed,
+>> but some others can start reports like this. Maybe, it's better to
+>> analyze yet if it's really so hard to eliminate taking this lock
+>> on the xmit path?
 > 
-> Probably the horrible twist my brain has. Looking at it makes me doubt
-> my own sanity. I think you're right - it would also clean up
-> __calc_reserve() a little.
+> James, I wonder if you could try to test this patch below?
+> ip_queue_xmit() seems to do proper things with __sk_dst_check(), and
+> if some other functions don't behave similarly lockdep should tell.
+> I think, you could test it with your "locks to _bh" patch (without
+> pppol2tp_xmit() part), and maybe with my sock.c lockdep patch (it
+> should help lockdep to see these locks a bit more distinctly).
+
+I found the same thing and was running a variant of your patch last 
+night; rather than set skb->dst to NULL though, I use __sk_dst_get() and 
+let ip_queue_xmit() do the route lookup if it returns NULL. But this has 
+the same symptoms as the code I tried a few days ago - no lockdep errors 
+but a system lockup after up to several hours. Nothing is logged in the 
+syslog.
+
+Luckily, I'm in the lab where my two borrowed servers are today so I 
+have access to their consoles. Hopefully I'll be able to find out why 
+there are hanging. Btw, they don't hang if I disable irqs around the 
+ppp_input() call.
+
+Will update you later.
+
+/james
+
+> PS: Since ppp_generic isn't endangered for now I removed Paul from CC.
 > 
-> This is what review for :-)
+> ---
+> 
+> diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
+> index e0b072d..b94659a 100644
+> --- a/drivers/net/pppol2tp.c
+> +++ b/drivers/net/pppol2tp.c
+> @@ -1058,7 +1058,7 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+>  
+>  	/* Get routing info from the tunnel socket */
+>  	dst_release(skb->dst);
+> -	skb->dst = sk_dst_get(sk_tun);
+> +	skb->dst = NULL;
+>  	skb_orphan(skb);
+>  	skb->sk = sk_tun;
+>  
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-Ah, you confused me. Well, I confused me - this does deserve a comment
-its tricksy.
 
-Its correct. The trick is, the mem_reserve in question (res) need not be
-connected to mem_reserve_root.
-
-In that case, mem_reserve_root.pages will not change, but we do
-propagate the change as far up as possible, so that
-mem_reserve_connect() can just observe the parent and child without
-being bothered by the rest of the hierarchy.
-
-
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
