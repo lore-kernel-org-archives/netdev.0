@@ -1,52 +1,50 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: Compex FreedomLine 32 PnP-PCI2 broken with de2104x
-Date: Tue, 26 Feb 2008 00:48:19 -0700
-Message-ID: <20080226074819.GA27484@colo.lackof.org>
-References: <200801262158.12016.linux@rainbow-software.org> <200801302123.07783.linux@rainbow-software.org> <20080218032111.GA7970@colo.lackof.org> <200802181740.44196.linux@rainbow-software.org> <20080225071505.GC26674@colo.lackof.org> <47C26E78.1040103@pobox.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: include/linux/pcounter.h
+Date: Tue, 26 Feb 2008 10:24:54 +0100
+Message-ID: <20080226092454.GA10987@elte.hu>
+References: <20080216025051.751b4a86.akpm@linux-foundation.org> <47B6D12A.3090401@cosmosbay.com> <20080216112618.ec450f9b.akpm@linux-foundation.org> <20080216.215401.20463603.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	Ondrej Zary <linux@rainbow-software.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: akpm@linux-foundation.org, dada1@cosmosbay.com,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from colo.lackof.org ([198.49.126.79]:48296 "EHLO colo.lackof.org"
+Received: from mx3.mail.elte.hu ([157.181.1.138]:34674 "EHLO mx3.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756157AbYBZHsb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Feb 2008 02:48:31 -0500
+	id S1756839AbYBZJZT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Feb 2008 04:25:19 -0500
 Content-Disposition: inline
-In-Reply-To: <47C26E78.1040103@pobox.com>
+In-Reply-To: <20080216.215401.20463603.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 25, 2008 at 02:30:00AM -0500, Jeff Garzik wrote:
-> Grant Grundler wrote:
->> On Mon, Feb 18, 2008 at 05:40:42PM +0100, Ondrej Zary wrote:
->>> I think that de2104x driver should be removed (or at least its 
->>> MODULE_DEVICE_TABLE) and MODULE_DEVICE_TABLE with only 21040 and 21041 
->>> PCI IDs added to de4x5.
->>>
->>> I can send a patch if this is acceptable.
->> It's acceptable to me. Jeff? (jgarzik)
->
-> NAK, sorry, for two reasons:
->
-> 1) we don't delete otherwise clean, working drivers
 
-Just to be clear - he's not trying to remove the driver.
-He's just interested in making de4x5 the "default" for this set of boards
-by doctoring with the pci device ids each driver will claim.
+* David Miller <davem@davemloft.net> wrote:
 
->     simply because of a bug triggered by unplugging a cable.
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Sat, 16 Feb 2008 11:26:18 -0800
+> 
+> > On Sat, 16 Feb 2008 13:03:54 +0100 Eric Dumazet <dada1@cosmosbay.com> wrote:
+> > 
+> > > Yes, per connection basis. Some workloads want to open/close more 
+> > > than 1000 sockets per second.
+> > 
+> > ie: slowpath
+> 
+> Definitely not slow path in the networking.
+> 
+> Connection rates are definitely as, or more, important than packet 
+> rates for certain workloads.
 
-Ondrej would be happy to test any patches sent. Tracking this sort
-of bug down usually isn't trivial as the statement above implies.
+but the main and fundamental question still remains unanswered (more 
+than 3 weeks after Andrew asked that question): why was this piece of 
+general infrastructure merged via net.git and not submitted to lkml 
+ever? The code touching -mm does _not_ count as "review".
 
-> 2) de4x5 needs to go away.
+Now that there was review of it and there is clearly controversy, the 
+code should be reverted/undone and resubmitted after all review 
+observations have been addressed. Just sitting around and ignoring 
+objections, hoping for the code to hit v2.6.25 is rather un-nice ...
 
-Ok. I'd prefer to wait until someone demonstrates de2104x driver is a fully
-functional alternative for all the PCI Ids it claims.
-
-thanks,
-grant
+	Ingo
