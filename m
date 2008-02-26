@@ -1,70 +1,60 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 22/28] mm: add support for non block device backed swap
-	files
-Date: Tue, 26 Feb 2008 13:58:03 +0100
-Message-ID: <1204030683.6242.319.camel@lappy>
-References: <20080220144610.548202000@chello.nl>
-	 <20080220150308.142619000@chello.nl>
-	 <E1JTzBV-0001aO-R3@pomaz-ex.szeredi.hu>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
+Date: Tue, 26 Feb 2008 13:03:34 +0000
+Message-ID: <20080226130334.GA16049@ff.dom.local>
+References: <20080225215837.GA3281@ami.dom.local> <47C402A2.8040401@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	linux-fsdevel@vger.kernel.org
-To: Miklos Szeredi <miklos@szeredi.hu>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:52489 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751818AbYBZM6R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 07:58:17 -0500
-In-Reply-To: <E1JTzBV-0001aO-R3@pomaz-ex.szeredi.hu>
+Received: from mu-out-0910.google.com ([209.85.134.189]:26429 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752425AbYBZNCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 08:02:36 -0500
+Received: by mu-out-0910.google.com with SMTP id i10so3460080mue.5
+        for <netdev@vger.kernel.org>; Tue, 26 Feb 2008 05:02:32 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <47C402A2.8040401@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Feb 26, 2008 at 12:14:26PM +0000, James Chapman wrote:
+> Jarek Poplawski wrote:
+>> Jarek Poplawski wrote, On 02/25/2008 02:39 PM:
+>> ...
+>>> Hmm... Wait a minute! But on the other hand David has written about
+>>> his cons here, and it looks reasonable: this place would be fixed,
+>>> but some others can start reports like this. Maybe, it's better to
+>>> analyze yet if it's really so hard to eliminate taking this lock
+>>> on the xmit path?
+>>
+>> James, I wonder if you could try to test this patch below?
+>> ip_queue_xmit() seems to do proper things with __sk_dst_check(), and
+>> if some other functions don't behave similarly lockdep should tell.
+>> I think, you could test it with your "locks to _bh" patch (without
+>> pppol2tp_xmit() part), and maybe with my sock.c lockdep patch (it
+>> should help lockdep to see these locks a bit more distinctly).
+>
+> I found the same thing and was running a variant of your patch last  
+> night; rather than set skb->dst to NULL though, I use __sk_dst_get() and  
+> let ip_queue_xmit() do the route lookup if it returns NULL. But this has  
+> the same symptoms as the code I tried a few days ago - no lockdep errors  
+> but a system lockup after up to several hours. Nothing is logged in the  
+> syslog.
 
-On Tue, 2008-02-26 at 13:45 +0100, Miklos Szeredi wrote:
-> Starting review in the middle, because this is the part I'm most
-> familiar with.
-> 
-> > New addres_space_operations methods are added:
-> >   int swapfile(struct address_space *, int);
-> 
-> Separate ->swapon() and ->swapoff() methods would be so much cleaner IMO.
+I guess you are going to try this together with this sk_dst_lock with
+bh patch too. If it's possible I'd suggest to try this skb->dst = NULL
+as well (__sk_dst_get instead of __sk_dst_check seems to be too racy).
 
-I'm ok with that, but its a_ops bloat, do we care about that? I guess
-since it has limited instances - typically one per filesystem - there is
-no issue here.
+> Luckily, I'm in the lab where my two borrowed servers are today so I  
+> have access to their consoles. Hopefully I'll be able to find out why  
+> there are hanging. Btw, they don't hang if I disable irqs around the  
+> ppp_input() call.
 
-> Also is there a reason why 'struct file *' cannot be supplied to these
-> functions?
+...and disabling bh instead isn't enough, BTW?
 
-No real reason here. I guess its cleaner indeed. Thanks.
+> Will update you later.
 
-> > +int swap_set_page_dirty(struct page *page)
-> > +{
-> > +	struct swap_info_struct *sis = page_swap_info(page);
-> > +
-> > +	if (sis->flags & SWP_FILE) {
-> > +		const struct address_space_operations *a_ops =
-> > +			sis->swap_file->f_mapping->a_ops;
-> > +		int (*spd)(struct page *) = a_ops->set_page_dirty;
-> > +#ifdef CONFIG_BLOCK
-> > +		if (!spd)
-> > +			spd = __set_page_dirty_buffers;
-> > +#endif
-> 
-> This ifdef is not really needed.  Just require ->set_page_dirty() be
-> filled in by filesystems which want swapfiles (and others too, in the
-> longer term, the fallback is just historical crud).
-
-Agreed. This is a good motivation to clean up that stuff.
-
-> Here's an incremental patch addressing these issues and beautifying
-> the new code.
-
-Thanks, I'll fold it into the patch and update the documentation. I'll
-put your creds in akpm style.
-
-
+Thanks,
+Jarek P.
