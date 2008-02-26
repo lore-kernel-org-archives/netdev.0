@@ -1,50 +1,45 @@
 From: Olof Johansson <olof@lixom.net>
-Subject: Re: [patch 1/6] pasemi_mac: Move RX/TX section enablement to
-	dma_lib
-Date: Tue, 26 Feb 2008 08:14:20 -0600
-Message-ID: <20080226141420.GA22572@lixom.net>
-References: <20080221025753.903665000@lixom.net> <20080221025929.082348000@lixom.net> <1204026366.7203.9.camel@concordia>
+Subject: Re: [patch 0/6] pasemi_mac updates for 2.6.26
+Date: Tue, 26 Feb 2008 08:16:24 -0600
+Message-ID: <20080226141624.GB22572@lixom.net>
+References: <20080221025753.903665000@lixom.net> <18371.57542.77446.443231@cargo.ozlabs.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, pasemi-linux@ozlabs.org, jgarzik@pobox.com,
 	linuxppc-dev@ozlabs.org
-To: Michael Ellerman <michael@ellerman.id.au>
+To: Paul Mackerras <paulus@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:49593 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:49656 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753872AbYBZOKL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Feb 2008 09:10:11 -0500
+	id S1754679AbYBZOMO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Feb 2008 09:12:14 -0500
 Content-Disposition: inline
-In-Reply-To: <1204026366.7203.9.camel@concordia>
+In-Reply-To: <18371.57542.77446.443231@cargo.ozlabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Tue, Feb 26, 2008 at 10:46:06PM +1100, Michael Ellerman wrote:
-> On Wed, 2008-02-20 at 20:57 -0600, Olof Johansson wrote:
-> > +	i = 1000;
-> > +	pasemi_write_dma_reg(PAS_DMA_COM_RXCMD, 0);
-> > +	while ((i > 0) && (pasemi_read_dma_reg(PAS_DMA_COM_RXSTA) & 1))
-> > +		i--;
-> > +	if (i < 0)
-> > +		printk(KERN_INFO "Warning: Could not disable RX section\n");
-> > +
-> > +	i = 1000;
-> > +	pasemi_write_dma_reg(PAS_DMA_COM_TXCMD, 0);
-> > +	while ((i > 0) && (pasemi_read_dma_reg(PAS_DMA_COM_TXSTA) & 1))
-> > +		i--;
+On Tue, Feb 26, 2008 at 08:49:58PM +1100, Paul Mackerras wrote:
+> Olof Johansson writes:
 > 
-> This kind of caught my eye, is it still going to work when the next core
-> is twice as fast?
+> > Here's a set of updates for pasemi_mac for 2.6.26. Some of them touch
+> > the dma_lib in the platform code as well, but it's easier if it's all
+> > merged through netdev to avoid dependencies.
+> > 
+> > Major highlights are jumbo frame support and ethtool basics, the rest
+> > is mostly minor plumbing around it.
+> 
+> What route do you think these should take upstream?  I'm happy to take
+> them if Jeff is OK with that.
 
-Actually, I added the variable right before posting, I used to have an
-infinite loop there while testing the patch. I've never seen it do more
-than a few rounds, so I'm not that worried.
+I've sent them through Jeff in the past, that's been convenient when
+there's been churn in the network APIs. I'm not sure if there's much of
+that for .26 though.
 
-We already have a similar loop in the channel shutdown code, but it runs
-a bit longer. I might bring that over instead. Thanks for pointing it
-out.
+If Jeff prefers to ACK, I'll just add it to my git and ask you to pull
+that. But I was originally planning to just feed it through him.
+
+(Note: I'll repost the patch set later today or tomorrow with a couple
+of tweaks).
 
 
 -Olof
