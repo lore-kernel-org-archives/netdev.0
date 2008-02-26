@@ -1,190 +1,96 @@
-From: Pekka J Enberg <penberg@cs.helsinki.fi>
-Subject: [RFC/PATCH] ipg: add jumbo frame support kconfig option
-Date: Tue, 26 Feb 2008 21:49:58 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0802262148270.12999@sbz-30.cs.Helsinki.FI>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
+Date: Tue, 26 Feb 2008 21:00:33 +0100
+Message-ID: <20080226200033.GA6550@ami.dom.local>
+References: <47C402A2.8040401@katalix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: romieu@fr.zoreil.com, sorbica@icplus.com.tw, jesse@icplus.com.tw
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:48076 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752239AbYBZTuG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 14:50:06 -0500
+Received: from ug-out-1314.google.com ([66.249.92.173]:1965 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764761AbYBZT52 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 14:57:28 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so1403805ugc.16
+        for <netdev@vger.kernel.org>; Tue, 26 Feb 2008 11:57:26 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <47C402A2.8040401@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[ Sorry for the duplicate. I typoed Francois' email address. ]
+James Chapman wrote, On 02/26/2008 01:14 PM:
+...
+> Luckily, I'm in the lab where my two borrowed servers are today so I 
+> have access to their consoles. Hopefully I'll be able to find out why 
+> there are hanging. Btw, they don't hang if I disable irqs around the 
+> ppp_input() call.
 
-From: Pekka Enberg <penberg@cs.helsinki.fi>
+Maybe you've found the same, or there is some other reason yet, but
+IMHO this locking break around ppp_input() is wrong. Probably there
+is needed more advanced solution, but this should fix the problem if
+it really exists (isn't there possible a race e.g. between receive
+from socket and from network card?).
 
-Convert the internal JUMBO_FRAME #ifdef to CONFIG_IP1000_JUMBO_FRAME proper and
-fix compilation errors.
-
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Sorbica Shieh <sorbica@icplus.com.tw>
-Cc: Jesse Huang <jesse@icplus.com.tw>
-Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
+Jarek P.
 ---
- drivers/net/Kconfig |    8 ++++++++
- drivers/net/ipg.c   |   21 ++++++++++-----------
- drivers/net/ipg.h   |   11 ++++++-----
- 3 files changed, 24 insertions(+), 16 deletions(-)
 
-Index: linux-2.6/drivers/net/Kconfig
-===================================================================
---- linux-2.6.orig/drivers/net/Kconfig
-+++ linux-2.6/drivers/net/Kconfig
-@@ -2029,6 +2029,14 @@ config IP1000
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called ipg.  This is recommended.
- 
-+config IP1000_JUMBO_FRAME
-+	bool "Support for jumbo frames (EXPERIMENTAL)"
-+	depends on IP1000 && EXPERIMENTAL
-+	help
-+	  This option enables jumbo frame support for the IP1000 driver.
-+
-+	  If in doubt, say N.
-+
- config IGB
-        tristate "Intel(R) 82575 PCI-Express Gigabit Ethernet support"
-        depends on PCI
-Index: linux-2.6/drivers/net/ipg.c
-===================================================================
---- linux-2.6.orig/drivers/net/ipg.c
-+++ linux-2.6/drivers/net/ipg.c
-@@ -42,7 +42,6 @@
- #define ipg_r16(reg)		ioread16(ioaddr + (reg))
- #define ipg_r8(reg)		ioread8(ioaddr + (reg))
- 
--#define JUMBO_FRAME_4k_ONLY
- enum {
- 	netdev_io_size = 128
- };
-@@ -1079,7 +1078,7 @@ static int ipg_nic_rxrestore(struct net_
- 	return 0;
+ drivers/net/pppol2tp.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
+index e0b072d..7c6fcb9 100644
+--- a/drivers/net/pppol2tp.c
++++ b/drivers/net/pppol2tp.c
+@@ -363,18 +363,17 @@ out:
+ 	spin_unlock(&session->reorder_q.lock);
  }
  
--#ifdef JUMBO_FRAME
-+#ifdef CONFIG_IP1000_JUMBO_FRAME
+-/* Dequeue a single skb.
++/* Requeue a single skb.
+  */
+-static void pppol2tp_recv_dequeue_skb(struct pppol2tp_session *session, struct sk_buff *skb)
++static void pppol2tp_recv_requeue_skb(struct pppol2tp_session *session, struct sk_buff *skb)
+ {
+ 	struct pppol2tp_tunnel *tunnel = session->tunnel;
+ 	int length = PPPOL2TP_SKB_CB(skb)->length;
+ 	struct sock *session_sock = NULL;
  
- /* use jumboindex and jumbosize to control jumbo frame status
-  * initial status is jumboindex=-1 and jumbosize=0
-@@ -1274,7 +1273,7 @@ static void ipg_nic_rx_with_end(struct n
+-	/* We're about to requeue the skb, so unlink it and return resources
++	/* We're about to requeue the skb, so return resources
+ 	 * to its current owner (a socket receive buffer).
+ 	 */
+-	skb_unlink(skb, &session->reorder_q);
+ 	skb_orphan(skb);
  
- 			framelen = le64_to_cpu(rxfd->rfs) & IPG_RFS_RXFRAMELEN;
+ 	tunnel->stats.rx_packets++;
+@@ -436,14 +435,14 @@ static void pppol2tp_recv_dequeue_skb(struct pppol2tp_session *session, struct s
+ static void pppol2tp_recv_dequeue(struct pppol2tp_session *session)
+ {
+ 	struct sk_buff *skb;
+-	struct sk_buff *tmp;
  
--			endframeLen = framelen - jumbo->current_size;
-+			endframelen = framelen - jumbo->current_size;
- 			/*
- 			if (framelen > IPG_RXFRAG_SIZE)
- 				framelen=IPG_RXFRAG_SIZE;
-@@ -1282,8 +1281,8 @@ static void ipg_nic_rx_with_end(struct n
- 			if (framelen > IPG_RXSUPPORT_SIZE)
- 				dev_kfree_skb_irq(jumbo->skb);
- 			else {
--				memcpy(skb_put(jumbo->skb, endframeLen),
--				       skb->data, endframeLen);
-+				memcpy(skb_put(jumbo->skb, endframelen),
-+				       skb->data, endframelen);
- 
- 				jumbo->skb->protocol =
- 				    eth_type_trans(jumbo->skb, dev);
-@@ -1355,16 +1354,16 @@ static int ipg_nic_rx(struct net_device 
- 
- 		switch (ipg_nic_rx_check_frame_type(dev)) {
- 		case FRAME_WITH_START_WITH_END:
--			ipg_nic_rx_with_start_and_end(dev, tp, rxfd, entry);
-+			ipg_nic_rx_with_start_and_end(dev, sp, rxfd, entry);
- 			break;
- 		case FRAME_WITH_START:
--			ipg_nic_rx_with_start(dev, tp, rxfd, entry);
-+			ipg_nic_rx_with_start(dev, sp, rxfd, entry);
- 			break;
- 		case FRAME_WITH_END:
--			ipg_nic_rx_with_end(dev, tp, rxfd, entry);
-+			ipg_nic_rx_with_end(dev, sp, rxfd, entry);
- 			break;
- 		case FRAME_NO_START_NO_END:
--			ipg_nic_rx_no_start_no_end(dev, tp, rxfd, entry);
-+			ipg_nic_rx_no_start_no_end(dev, sp, rxfd, entry);
- 			break;
+ 	/* If the pkt at the head of the queue has the nr that we
+ 	 * expect to send up next, dequeue it and any other
+ 	 * in-sequence packets behind it.
+ 	 */
++again:
+ 	spin_lock(&session->reorder_q.lock);
+-	skb_queue_walk_safe(&session->reorder_q, skb, tmp) {
++	skb_queue_walk(&session->reorder_q, skb) {
+ 		if (time_after(jiffies, PPPOL2TP_SKB_CB(skb)->expires)) {
+ 			session->stats.rx_seq_discards++;
+ 			session->stats.rx_errors++;
+@@ -469,9 +468,10 @@ static void pppol2tp_recv_dequeue(struct pppol2tp_session *session)
+ 				goto out;
+ 			}
  		}
++		__skb_unlink(skb, &session->reorder_q);
+ 		spin_unlock(&session->reorder_q.lock);
+-		pppol2tp_recv_dequeue_skb(session, skb);
+-		spin_lock(&session->reorder_q.lock);
++		pppol2tp_recv_requeue_skb(session, skb);
++		goto again;
  	}
-@@ -1595,7 +1594,7 @@ static irqreturn_t ipg_interrupt_handler
  
- 	IPG_DEBUG_MSG("_interrupt_handler\n");
- 
--#ifdef JUMBO_FRAME
-+#ifdef CONFIG_IP1000_JUMBO_FRAME
- 	ipg_nic_rxrestore(dev);
- #endif
- 	spin_lock(&sp->lock);
-@@ -1807,7 +1806,7 @@ static int ipg_nic_open(struct net_devic
- 	if (ipg_config_autoneg(dev) < 0)
- 		printk(KERN_INFO "%s: Auto-negotiation error.\n", dev->name);
- 
--#ifdef JUMBO_FRAME
-+#ifdef CONFIG_IP1000_JUMBO_FRAME
- 	/* initialize JUMBO Frame control variable */
- 	sp->jumbo.found_start = 0;
- 	sp->jumbo.current_size = 0;
-Index: linux-2.6/drivers/net/ipg.h
-===================================================================
---- linux-2.6.orig/drivers/net/ipg.h
-+++ linux-2.6/drivers/net/ipg.h
-@@ -536,7 +536,7 @@ enum ipg_regs {
-  */
- #define		IPG_FRAMESBETWEENTXDMACOMPLETES 0x1
- 
--#ifdef JUMBO_FRAME
-+#ifdef CONFIG_IP1000_JUMBO_FRAME
- 
- # ifdef JUMBO_FRAME_SIZE_2K
- # define JUMBO_FRAME_SIZE 2048
-@@ -575,6 +575,7 @@ enum ipg_regs {
- #         define __IPG_RXFRAG_SIZE 4088
- #         else
- #         define JUMBO_FRAME_SIZE 4096
-+#         define __IPG_RXFRAG_SIZE 4088
- #         endif
- #        endif
- #       endif
-@@ -589,7 +590,7 @@ enum ipg_regs {
- /* Size of allocated received buffers. Nominally 0x0600.
-  * Define larger if expecting jumbo frames.
-  */
--#ifdef JUMBO_FRAME
-+#ifdef CONFIG_IP1000_JUMBO_FRAME
- /* IPG_TXFRAG_SIZE must <= 0x2b00, or TX will crash */
- #define		IPG_TXFRAG_SIZE		JUMBO_FRAME_SIZE
- #endif
-@@ -597,7 +598,7 @@ enum ipg_regs {
- /* Size of allocated received buffers. Nominally 0x0600.
-  * Define larger if expecting jumbo frames.
-  */
--#ifdef JUMBO_FRAME
-+#ifdef CONFIG_IP1000_JUMBO_FRAME
- /* 4088 = 4096 - 8 */
- #define		IPG_RXFRAG_SIZE		__IPG_RXFRAG_SIZE
- #define     IPG_RXSUPPORT_SIZE   IPG_MAX_RXFRAME_SIZE
-@@ -607,7 +608,7 @@ enum ipg_regs {
- #endif
- 
- /* IPG_MAX_RXFRAME_SIZE <= IPG_RXFRAG_SIZE */
--#ifdef JUMBO_FRAME
-+#ifdef CONFIG_IP1000_JUMBO_FRAME
- #define		IPG_MAX_RXFRAME_SIZE		JUMBO_FRAME_SIZE
- #else
- #define		IPG_MAX_RXFRAME_SIZE		0x0600
-@@ -786,7 +787,7 @@ struct ipg_nic_private {
- 	unsigned int tx_dirty;
- 	unsigned int rx_current;
- 	unsigned int rx_dirty;
--#ifdef JUMBO_FRAME
-+#ifdef CONFIG_IP1000_JUMBO_FRAME
- 	struct ipg_jumbo jumbo;
- #endif
- 	unsigned int rx_buf_sz;
+ out:
