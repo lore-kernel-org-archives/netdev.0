@@ -1,42 +1,120 @@
-From: Miklos Szeredi <miklos@szeredi.hu>
-Subject: Re: [PATCH 00/28] Swap over NFS -v16
-Date: Tue, 26 Feb 2008 16:29:58 +0100
-Message-ID: <E1JU1kk-0001t9-25@pomaz-ex.szeredi.hu>
-References: <20080220144610.548202000@chello.nl>
-	 <20080223000620.7fee8ff8.akpm@linux-foundation.org>
-	 <18371.43950.150842.429997@notabene.brown> <1204023042.6242.271.camel@lappy>
-Cc: neilb@suse.de, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org,
-	trond.myklebust@fys.uio.no
-To: a.p.zijlstra@chello.nl
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] Can not send icmp netunreach packet
+Date: Tue, 26 Feb 2008 07:34:35 -0800
+Message-ID: <20080226073435.1765de3e@extreme>
+References: <20080226073538.GA4101@ff.dom.local>
+	<47C3E2EC.1020402@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Li Yewang <lyw@cn.fujitsu.com>, davem@davemloft.net,
+	swhiteho@redhat.com, netdev@vger.kernel.org
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fxip-0047f.externet.hu ([88.209.222.127]:41203 "EHLO
-	pomaz-ex.szeredi.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752678AbYBZPaO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 10:30:14 -0500
-In-reply-to: <1204023042.6242.271.camel@lappy> (message from Peter Zijlstra on
-	Tue, 26 Feb 2008 11:50:42 +0100)
+Received: from mail.vyatta.com ([216.93.170.194]:56566 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755497AbYBZPel (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Feb 2008 10:34:41 -0500
+In-Reply-To: <47C3E2EC.1020402@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > mm-page_file_methods.patch
-> > 
-> >     This makes page_offset and others more expensive by adding a
-> >     conditional jump to a function call that is not usually made.
-> > 
-> >     Why do swap pages have a different index to everyone else?
+On Tue, 26 Feb 2008 18:59:08 +0900
+Wei Yongjun <yjwei@cn.fujitsu.com> wrote:
+
+> Jarek Poplawski wrote:
 > 
-> Because the page->index of an anonymous page is related to its (anon)vma
-> so that it satisfies the constraints for vm_normal_page().
+> Maybe ip_error() does not handle the ESRCH error. In this place ESRCH eq 
+> to ENETUNREACH?
 > 
-> The index in the swap file it totally unrelated and quite random. Hence
-> the swap-cache uses page->private to store it in.
+> static int ip_error(struct sk_buff *skb)
+> {
+> 	struct rtable *rt = (struct rtable*)skb->dst;
+> 	unsigned long now;
+> 	int code;
+> 
+> 	switch (rt->u.dst.error) {
+> 		case EINVAL:
+> 		default:
+> 			goto out;
+> 		case EHOSTUNREACH:
+> 			code = ICMP_HOST_UNREACH;
+> 			break;
+> 		case ENETUNREACH:
+> 			code = ICMP_NET_UNREACH;
+> 			break;
+> 		case EACCES:
+> 			code = ICMP_PKT_FILTERED;
+> 			break;
+> 	}
+> ...............snip....................
+> }
+> 
+> 
+> 
+> > On 26-02-2008 07:34, Li Yewang wrote:
+> >   
+> >> Hi All
+> >>
+> >>    There is a bug about icmp netunreach.
+> >>    If the kernel does not find a route for a packet, 
+> >>    it must send a icmp netunreach packet to the source host, 
+> >>    and  discard  the packet. But the  kernel  does not send 
+> >>    a icmp netunreach packet because of the  fib_lookup
+> >>    return value  of -ESRCH when a route  is not found. 
+> >>     
+> >
+> > ...or because some function doesn't handle -ESRCH return from
+> > fib_lookup? It seems changing this to -ESRCH was needed in some cases.
+> > And you don't explain enough why it can't be handled later (like in
+> > ipv4/route.c: ip_route_input_slow)?
+> >   
+> 
+> 
+> > Regards,
+> > Jarek P.
+> >
+> >   
+> >> Signed-off-by: Li Yewang <lyw@cn.fujitsu.com>
+> >>
+> >> diff -Nurp net/core_back/fib_rules.c net/core/fib_rules.c
+> >> --- net/core_back/fib_rules.c   2008-02-25 13:15:37.000000000 +0800
+> >> +++ net/core/fib_rules.c        2008-02-25 13:16:01.000000000 +0800
+> >> @@ -188,7 +188,7 @@ jumped:
+> >>  		}
+> >>  	}
+> >>  
+> >> -	err = -ESRCH;
+> >> +	err = -ENETUNREACH;
+> >>  out:
+> >>  	rcu_read_unlock();
+> >>
+> >>     
 
-Yeah, and putting the condition into page_offset() will confuse code
-which uses it for finding the offset in the VMA or in a tmpfs file.
+The switch shouldn't see a problem because ENETUNREACH is already substituted
+for ESRCH in:
 
-So why not just have a separate page_swap_offset() function, used
-exclusively by swap_in/out()?
 
-Miklos
+static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+			       u8 tos, struct net_device *dev)
+{
+...
+	/*
+	 *	Now we are ready to route packet.
+	 */
+	if ((err = fib_lookup(net, &fl, &res)) != 0) {
+		if (!IN_DEV_FORWARD(in_dev))
+			goto e_hostunreach;
+		goto no_route;
+
+...
+no_route:
+	RT_CACHE_STAT_INC(in_no_route);
+	spec_dst = inet_select_addr(dev, 0, RT_SCOPE_UNIVERSE);
+	res.type = RTN_UNREACHABLE;
+	if (err == -ESRCH)
+		err = -ENETUNREACH;
+	goto local_input;
+
+
