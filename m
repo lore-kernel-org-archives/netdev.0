@@ -1,19 +1,21 @@
 From: Pekka J Enberg <penberg@cs.helsinki.fi>
 Subject: [RFC/PATCH] ipg: add jumbo frame support kconfig option
-Date: Tue, 26 Feb 2008 21:46:03 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0802262144300.12927@sbz-30.cs.Helsinki.FI>
+Date: Tue, 26 Feb 2008 21:49:58 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0802262148270.12999@sbz-30.cs.Helsinki.FI>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: romieu@fr.zoriel.com, sorbica@icplus.com.tw, jesse@icplus.com.tw
+To: romieu@fr.zoreil.com, sorbica@icplus.com.tw, jesse@icplus.com.tw
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:35215 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:48076 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750973AbYBZTqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 14:46:16 -0500
+	with ESMTP id S1752239AbYBZTuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 14:50:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+[ Sorry for the duplicate. I typoed Francois' email address. ]
 
 From: Pekka Enberg <penberg@cs.helsinki.fi>
 
