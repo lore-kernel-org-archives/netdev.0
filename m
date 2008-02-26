@@ -1,81 +1,188 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
-Date: Tue, 26 Feb 2008 12:14:26 +0000
-Message-ID: <47C402A2.8040401@katalix.com>
-References: <20080225215837.GA3281@ami.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:52765 "EHLO s36.avahost.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750705AbYBZMOh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Feb 2008 07:14:37 -0500
-In-Reply-To: <20080225215837.GA3281@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Miklos Szeredi <miklos@szeredi.hu>
+Subject: Re: [PATCH 22/28] mm: add support for non block device backed swap files
+Date: Tue, 26 Feb 2008 13:45:25 +0100
+Message-ID: <E1JTzBV-0001aO-R3@pomaz-ex.szeredi.hu>
+References: <20080220144610.548202000@chello.nl> <20080220150308.142619000@chello.nl>
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	a.p.zijlstra@chello.nl, linux-fsdevel@vger.kernel.org
+To: a.p.zijlstra@chello.nl
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-reply-to: <20080220150308.142619000@chello.nl> (message from Peter Zijlstra
+	on Wed, 20 Feb 2008 15:46:32 +0100)
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> Jarek Poplawski wrote, On 02/25/2008 02:39 PM:
-> ...
->> Hmm... Wait a minute! But on the other hand David has written about
->> his cons here, and it looks reasonable: this place would be fixed,
->> but some others can start reports like this. Maybe, it's better to
->> analyze yet if it's really so hard to eliminate taking this lock
->> on the xmit path?
-> 
-> James, I wonder if you could try to test this patch below?
-> ip_queue_xmit() seems to do proper things with __sk_dst_check(), and
-> if some other functions don't behave similarly lockdep should tell.
-> I think, you could test it with your "locks to _bh" patch (without
-> pppol2tp_xmit() part), and maybe with my sock.c lockdep patch (it
-> should help lockdep to see these locks a bit more distinctly).
+Starting review in the middle, because this is the part I'm most
+familiar with.
 
-I found the same thing and was running a variant of your patch last 
-night; rather than set skb->dst to NULL though, I use __sk_dst_get() and 
-let ip_queue_xmit() do the route lookup if it returns NULL. But this has 
-the same symptoms as the code I tried a few days ago - no lockdep errors 
-but a system lockup after up to several hours. Nothing is logged in the 
-syslog.
+> New addres_space_operations methods are added:
+>   int swapfile(struct address_space *, int);
 
-Luckily, I'm in the lab where my two borrowed servers are today so I 
-have access to their consoles. Hopefully I'll be able to find out why 
-there are hanging. Btw, they don't hang if I disable irqs around the 
-ppp_input() call.
+Separate ->swapon() and ->swapoff() methods would be so much cleaner IMO.
 
-Will update you later.
+Also is there a reason why 'struct file *' cannot be supplied to these
+functions?
 
-/james
+[snip]
 
-> PS: Since ppp_generic isn't endangered for now I removed Paul from CC.
-> 
-> ---
-> 
-> diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
-> index e0b072d..b94659a 100644
-> --- a/drivers/net/pppol2tp.c
-> +++ b/drivers/net/pppol2tp.c
-> @@ -1058,7 +1058,7 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
->  
->  	/* Get routing info from the tunnel socket */
->  	dst_release(skb->dst);
-> -	skb->dst = sk_dst_get(sk_tun);
-> +	skb->dst = NULL;
->  	skb_orphan(skb);
->  	skb->sk = sk_tun;
->  
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> +int swap_set_page_dirty(struct page *page)
+> +{
+> +	struct swap_info_struct *sis = page_swap_info(page);
+> +
+> +	if (sis->flags & SWP_FILE) {
+> +		const struct address_space_operations *a_ops =
+> +			sis->swap_file->f_mapping->a_ops;
+> +		int (*spd)(struct page *) = a_ops->set_page_dirty;
+> +#ifdef CONFIG_BLOCK
+> +		if (!spd)
+> +			spd = __set_page_dirty_buffers;
+> +#endif
+
+This ifdef is not really needed.  Just require ->set_page_dirty() be
+filled in by filesystems which want swapfiles (and others too, in the
+longer term, the fallback is just historical crud).
+
+Here's an incremental patch addressing these issues and beautifying
+the new code.
+
+Signed-off-by: Miklos Szeredi <mszeredi@suse.cz>
+
+Index: linux/mm/page_io.c
+===================================================================
+--- linux.orig/mm/page_io.c	2008-02-26 11:15:58.000000000 +0100
++++ linux/mm/page_io.c	2008-02-26 13:40:55.000000000 +0100
+@@ -106,8 +106,10 @@ int swap_writepage(struct page *page, st
+ 	}
+ 
+ 	if (sis->flags & SWP_FILE) {
+-		ret = sis->swap_file->f_mapping->
+-			a_ops->swap_out(sis->swap_file, page, wbc);
++		struct file *swap_file = sis->swap_file;
++		struct address_space *mapping = swap_file->f_mapping;
++
++		ret = mapping->a_ops->swap_out(swap_file, page, wbc);
+ 		if (!ret)
+ 			count_vm_event(PSWPOUT);
+ 		return ret;
+@@ -136,12 +138,13 @@ void swap_sync_page(struct page *page)
+ 	struct swap_info_struct *sis = page_swap_info(page);
+ 
+ 	if (sis->flags & SWP_FILE) {
+-		const struct address_space_operations *a_ops =
+-			sis->swap_file->f_mapping->a_ops;
+-		if (a_ops->sync_page)
+-			a_ops->sync_page(page);
+-	} else
++		struct address_space *mapping = sis->swap_file->f_mapping;
++
++		if (mapping->a_ops->sync_page)
++			mapping->a_ops->sync_page(page);
++	} else {
+ 		block_sync_page(page);
++	}
+ }
+ 
+ int swap_set_page_dirty(struct page *page)
+@@ -149,17 +152,12 @@ int swap_set_page_dirty(struct page *pag
+ 	struct swap_info_struct *sis = page_swap_info(page);
+ 
+ 	if (sis->flags & SWP_FILE) {
+-		const struct address_space_operations *a_ops =
+-			sis->swap_file->f_mapping->a_ops;
+-		int (*spd)(struct page *) = a_ops->set_page_dirty;
+-#ifdef CONFIG_BLOCK
+-		if (!spd)
+-			spd = __set_page_dirty_buffers;
+-#endif
+-		return (*spd)(page);
+-	}
++		struct address_space *mapping = sis->swap_file->f_mapping;
+ 
+-	return __set_page_dirty_nobuffers(page);
++		return mapping->a_ops->set_page_dirty(page);
++	} else {
++		return __set_page_dirty_nobuffers(page);
++	}
+ }
+ 
+ int swap_readpage(struct file *file, struct page *page)
+@@ -172,8 +170,10 @@ int swap_readpage(struct file *file, str
+ 	BUG_ON(PageUptodate(page));
+ 
+ 	if (sis->flags & SWP_FILE) {
+-		ret = sis->swap_file->f_mapping->
+-			a_ops->swap_in(sis->swap_file, page);
++		struct file *swap_file = sis->swap_file;
++		struct address_space *mapping = swap_file->f_mapping;
++
++		ret = mapping->a_ops->swap_in(swap_file, page);
+ 		if (!ret)
+ 			count_vm_event(PSWPIN);
+ 		return ret;
+Index: linux/include/linux/fs.h
+===================================================================
+--- linux.orig/include/linux/fs.h	2008-02-26 11:15:58.000000000 +0100
++++ linux/include/linux/fs.h	2008-02-26 13:29:40.000000000 +0100
+@@ -485,7 +485,8 @@ struct address_space_operations {
+ 	/*
+ 	 * swapfile support
+ 	 */
+-	int (*swapfile)(struct address_space *, int);
++	int (*swapon)(struct file *file);
++	int (*swapoff)(struct file *file);
+ 	int (*swap_out)(struct file *file, struct page *page,
+ 			struct writeback_control *wbc);
+ 	int (*swap_in)(struct file *file, struct page *page);
+Index: linux/mm/swapfile.c
+===================================================================
+--- linux.orig/mm/swapfile.c	2008-02-26 12:43:57.000000000 +0100
++++ linux/mm/swapfile.c	2008-02-26 13:34:57.000000000 +0100
+@@ -1014,9 +1014,11 @@ static void destroy_swap_extents(struct 
+ 	}
+ 
+ 	if (sis->flags & SWP_FILE) {
++		struct file *swap_file = sis->swap_file;
++		struct address_space *mapping = swap_file->f_mapping;
++
+ 		sis->flags &= ~SWP_FILE;
+-		sis->swap_file->f_mapping->a_ops->
+-			swapfile(sis->swap_file->f_mapping, 0);
++		mapping->a_ops->swapoff(swap_file);
+ 	}
+ }
+ 
+@@ -1092,7 +1094,9 @@ add_swap_extent(struct swap_info_struct 
+  */
+ static int setup_swap_extents(struct swap_info_struct *sis, sector_t *span)
+ {
+-	struct inode *inode;
++	struct file *swap_file = sis->swap_file;
++	struct address_space *mapping = swap_file->f_mapping;
++	struct inode *inode = mapping->host;
+ 	unsigned blocks_per_page;
+ 	unsigned long page_no;
+ 	unsigned blkbits;
+@@ -1103,16 +1107,14 @@ static int setup_swap_extents(struct swa
+ 	int nr_extents = 0;
+ 	int ret;
+ 
+-	inode = sis->swap_file->f_mapping->host;
+ 	if (S_ISBLK(inode->i_mode)) {
+ 		ret = add_swap_extent(sis, 0, sis->max, 0);
+ 		*span = sis->pages;
+ 		goto done;
+ 	}
+ 
+-	if (sis->swap_file->f_mapping->a_ops->swapfile) {
+-		ret = sis->swap_file->f_mapping->a_ops->
+-			swapfile(sis->swap_file->f_mapping, 1);
++	if (mapping->a_ops->swapon) {
++		ret = mapping->a_ops->swapon(swap_file);
+ 		if (!ret) {
+ 			sis->flags |= SWP_FILE;
+ 			ret = add_swap_extent(sis, 0, sis->max, 0);
 
 
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
 
