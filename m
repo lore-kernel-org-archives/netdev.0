@@ -1,80 +1,85 @@
-From: "Julio Kriger" <juliokriger@gmail.com>
-Subject: Re: [Netem] Fixed delay patch for netem
-Date: Tue, 26 Feb 2008 09:45:31 -0200
-Message-ID: <682bc30a0802260345w676f4339v3c5742e1f0bad1fd@mail.gmail.com>
-References: <682bc30a0802240611r5670fc9etba66cf86a9a78113@mail.gmail.com>
-	 <20080225165428.24ee90fe@extreme>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: [patch 1/6] pasemi_mac: Move RX/TX section enablement to
+	dma_lib
+Date: Tue, 26 Feb 2008 22:46:06 +1100
+Message-ID: <1204026366.7203.9.camel@concordia>
+References: <20080221025753.903665000@lixom.net>
+	 <20080221025929.082348000@lixom.net>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netdev@oss.sgi.com,
-	netem@linux-foundation.org, netem@lists.linux-foundation.org
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-mwKwnmm86Lx4mQHMYku+"
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, pasemi-linux@ozlabs.org,
+	linuxppc-dev@ozlabs.org
+To: Olof Johansson <olof@lixom.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ag-out-0708.google.com ([72.14.246.248]:48199 "EHLO
-	ag-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753506AbYBZLpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 06:45:34 -0500
-Received: by ag-out-0708.google.com with SMTP id 33so5564452agc.1
-        for <netdev@vger.kernel.org>; Tue, 26 Feb 2008 03:45:33 -0800 (PST)
-In-Reply-To: <20080225165428.24ee90fe@extreme>
-Content-Disposition: inline
+Received: from ozlabs.org ([203.10.76.45]:50795 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755358AbYBZLqK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Feb 2008 06:46:10 -0500
+In-Reply-To: <20080221025929.082348000@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
-Answering your question: there is no diffence if (and only if) there
-is no gap reordering. If there is gap reordering then packets will get
-a delay of 0ms or 80ms +/- 15ms. With the patch I sent,  packets will
-get a delay of 50ms or 80ms +/- 15ms.
-I have read about other network emulators, like NS-2, and they have
-the option of gap reordering.
-As I say, I need a fixed delay of 50ms plus all the other usefull
-stuff that comes with netem. And netem does not allow be nested with
-himself.
-Regards,
-Julio
 
+--=-mwKwnmm86Lx4mQHMYku+
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-On 2/25/08, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> On Sun, 24 Feb 2008 12:11:16 -0200
-> "Julio Kriger" <juliokriger@gmail.com> wrote:
->
-> > Hi!
-> > I have created this patch to add a fixed delay on packet filtered by
-> > netem. Soon I will send the patch to iproute2.
-> > This patch comes from a need I have to delay all packets 50ms, beside
-> > the actual delay setting, like 30ms +- 15 ms.
->
-> Why is 50ms + 30m +/- 15ms any different than 80ms +/- 15ms
->
-> > This strike, IMMHO, a
-> > missing point on gap reordering. If I set "gap 5 delay 10ms" every 5th
-> > (10th, 15th, ...) packet to go to be sent immediately and every other
-> > packet to be delayed by 10ms. This  is ok, but I also need a "fixed"
-> > delay of 50ms to be applied to all packets. Since netem can't be
-> > nested with himself (so I can do a fixed delay), I needed this new
-> > feature on netem.
->
-> The gap stuff is an awkward interface that should/could have been
-> done better.
->
-> > This patch was create with linux kernel version 2.6.24.2.
-> > I hope you like it, and it would be great if it goes shiped with the
-> > next version of the kernel :-))
-> > Regards,
-> > Julio Kriger
->
-> Maybe, but it is getting confusing with all the growth of parameters.
-> Probably time for a rethink.
->
+On Wed, 2008-02-20 at 20:57 -0600, Olof Johansson wrote:
+> plain text document attachment (in-progress)
+> Also stop both rx and tx sections before changing the configuration of
+> the dma device during init.
+>=20
+> Signed-off-by: Olof Johansson <olof@lixom.net>
+>=20
+> Index: k.org/arch/powerpc/platforms/pasemi/dma_lib.c
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> --- k.org.orig/arch/powerpc/platforms/pasemi/dma_lib.c
+> +++ k.org/arch/powerpc/platforms/pasemi/dma_lib.c
+> @@ -478,6 +478,30 @@ int pasemi_dma_init(void)
+>  	for (i =3D 0; i < MAX_RXCH; i++)
+>  		__set_bit(i, rxch_free);
+> =20
+> +	i =3D 1000;
+> +	pasemi_write_dma_reg(PAS_DMA_COM_RXCMD, 0);
+> +	while ((i > 0) && (pasemi_read_dma_reg(PAS_DMA_COM_RXSTA) & 1))
+> +		i--;
+> +	if (i < 0)
+> +		printk(KERN_INFO "Warning: Could not disable RX section\n");
+> +
+> +	i =3D 1000;
+> +	pasemi_write_dma_reg(PAS_DMA_COM_TXCMD, 0);
+> +	while ((i > 0) && (pasemi_read_dma_reg(PAS_DMA_COM_TXSTA) & 1))
+> +		i--;
 
+This kind of caught my eye, is it still going to work when the next core
+is twice as fast?
 
--- 
---
->From the moment I picked your book up until I laid it down, I was
-convulsed with laughter. Someday I intend reading it.
-Groucho Marx
-----------------------------
-Julio Kriger
-mailto:juliokriger@gmail.com
+cheers
+
+--=20
+Michael Ellerman
+OzLabs, IBM Australia Development Lab
+
+wwweb: http://michael.ellerman.id.au
+phone: +61 2 6212 1183 (tie line 70 21183)
+
+We do not inherit the earth from our ancestors,
+we borrow it from our children. - S.M.A.R.T Person
+
+--=-mwKwnmm86Lx4mQHMYku+
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQBHw/v+dSjSd0sB4dIRAhVHAJoCdo3re9BOushlTDbGDjxt7m2EpQCgq1Yz
+gmpPrlHuTZ1Dv2O23HwB67U=
+=1kwx
+-----END PGP SIGNATURE-----
+
+--=-mwKwnmm86Lx4mQHMYku+--
+
