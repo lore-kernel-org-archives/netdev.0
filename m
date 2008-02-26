@@ -1,46 +1,45 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [patch 0/6] pasemi_mac updates for 2.6.26
-Date: Tue, 26 Feb 2008 12:33:42 -0600
-Message-ID: <20080226183342.GA25225@lixom.net>
-References: <20080221025753.903665000@lixom.net> <18371.57542.77446.443231@cargo.ozlabs.ibm.com> <20080226141624.GB22572@lixom.net> <47C4588C.5060904@pobox.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: problems with e1000 and flow control
+Date: Tue, 26 Feb 2008 10:26:41 -0800
+Message-ID: <47C459E1.1050803@intel.com>
+References: <200802252015.49862.wolfgang.walter@studentenwerk.mhn.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, pasemi-linux@ozlabs.org,
-	Paul Mackerras <paulus@samba.org>, linuxppc-dev@ozlabs.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:34657 "EHLO mail.lixom.net"
+Received: from mga03.intel.com ([143.182.124.21]:6097 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755071AbYBZS3b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Feb 2008 13:29:31 -0500
-Content-Disposition: inline
-In-Reply-To: <47C4588C.5060904@pobox.com>
+	id S1753882AbYBZSol (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Feb 2008 13:44:41 -0500
+In-Reply-To: <200802252015.49862.wolfgang.walter@studentenwerk.mhn.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 26, 2008 at 01:21:00PM -0500, Jeff Garzik wrote:
-> Olof Johansson wrote:
-> > On Tue, Feb 26, 2008 at 08:49:58PM +1100, Paul Mackerras wrote:
-
-> >> What route do you think these should take upstream?  I'm happy to take
-> >> them if Jeff is OK with that.
-> > 
-> > I've sent them through Jeff in the past, that's been convenient when
-> > there's been churn in the network APIs. I'm not sure if there's much of
-> > that for .26 though.
-> > 
-> > If Jeff prefers to ACK, I'll just add it to my git and ask you to pull
-> > that. But I was originally planning to just feed it through him.
-> > 
-> > (Note: I'll repost the patch set later today or tomorrow with a couple
-> > of tweaks).
+Wolfgang Walter wrote:
+> Hello,
 > 
-> Not much networking churn for 2.6.26, and IMO this patchset have 
-> above-average ppc changes/dependencies, so....   ACK
+> it seems that e1000 enables flow-control (rx pause frames) even if the switch 
+> does not advertise flow control. This seems to get a problem as (at least 
+> some) switches then forward pause frames directed to the card from other 
+> hosts. We think there are hosts which indeed do this in the lans of our 
+> student halls.
+> 
+> I think flow control should be completely disabled by default if the switch 
+> does not advertise it. It still can be forced with ethtool.
 
-Ok, thanks Jeff.
+Are you sure that the switch actually advertises the flow control "disabled"
+setting properly? Perhaps you can include the e1000 ethtool flow control settings
+and dmesg output (2.6.24 will print out FC status when link comes up).
 
-Paul: I'll commit to my tree and ask you to pull later.
+There's a lengthy argumentation including spec references in the e1000/e1000e
+driver code on how FC is handled (look for "IEEE 802.3ab"). Can you take a look at
+that and see what might be happening?
 
+Changing this behaviour might give other people issues which is something we need
+to be very cautious about, obviously :)
 
--Olof
+Cheers,
+
+Auke
