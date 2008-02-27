@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH]: TCP + SACK + skb processing latency
-Date: Tue, 26 Feb 2008 22:45:55 -0800 (PST)
-Message-ID: <20080226.224555.239440389.davem@davemloft.net>
-References: <Pine.LNX.4.64.0802011756140.31652@kivilampi-30.cs.helsinki.fi>
+Subject: Re: [RFC, PATCH]: Pass link level header from/to PPP interface
+Date: Tue, 26 Feb 2008 22:51:04 -0800 (PST)
+Message-ID: <20080226.225104.175000479.davem@davemloft.net>
+References: <ygfprv55egs.fsf@janus.isnogud.escape.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+To: urs@isnogud.escape.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36176
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57077
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752838AbYB0Gpz convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2008 01:45:55 -0500
-In-Reply-To: <Pine.LNX.4.64.0802011756140.31652@kivilampi-30.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1753446AbYB0GvF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 01:51:05 -0500
+In-Reply-To: <ygfprv55egs.fsf@janus.isnogud.escape.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Fri, 1 Feb 2008 18:18:02 +0200 (EET)
+From: Urs Thuermann <urs@isnogud.escape.de>
+Date: 10 Feb 2008 10:48:51 +0100
 
-Interesting idea... it is like a baby step towards a more efficient
-write queue data management facility :-)
+> * Using strace on tcpdump, it seems that libpcap on Linux uses
+>   PF_PACKET/SOCK_DGRAM for PPP interfaces and thus is not affected by
+>   my patch.
 
-> I'd appreciate if somebody with more knowledge about skb internals co=
-uld=20
-> take a look at the relevant parts (mainly skb_shift) and confirm that=
-=20
-> doing all this I'm trying to do is allowed :-).
+When given a specific device, libpcap uses SOCK_RAW.
 
-It looks good.  You never have to worry about skb's in the write queue
-having headers, ever.  They only contain data.
+I spent some time seriously considering this change but I
+can't because it really can potentially break so much stuff.
 
-
+Sorry.
