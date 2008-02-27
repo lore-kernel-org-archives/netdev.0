@@ -1,26 +1,28 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [PATCH] alloc_percpu() fails to allocate percpu data
-Date: Wed, 27 Feb 2008 11:59:32 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0802271158100.1790@schroedinger.engr.sgi.com>
-References: <47BDBC23.10605@cosmosbay.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.25-rc] [IPV6] SYSCTL: Fix possible memory leakage
+ in error path.
+Date: Wed, 27 Feb 2008 12:06:56 -0800 (PST)
+Message-ID: <20080227.120656.129224449.davem@davemloft.net>
+References: <20080228.002014.05421460.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	"Zhang, Yanmin" <yanmin_zhang@linux.intel.com>, travis@sgi.com
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.sgi.com ([192.48.171.29]:38124 "EHLO relay.sgi.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754234AbYB0T7e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2008 14:59:34 -0500
-In-Reply-To: <47BDBC23.10605@cosmosbay.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59600
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757291AbYB0UG5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 15:06:57 -0500
+In-Reply-To: <20080228.002014.05421460.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Any decision made on what to do about this one? Mike or I can 
-repost the per cpu allocator against mm? The fix by Eric could be used 
-in the interim for 2.6.24?
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Thu, 28 Feb 2008 00:20:14 +0900 (JST)
 
+> In error path, we do need to free memory just allocated.
+> 
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+Patch applied, thank you.
