@@ -1,34 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [resend] [PATCH] IPv4: Reset scope when changing address
-Date: Tue, 26 Feb 2008 18:18:10 -0800 (PST)
-Message-ID: <20080226.181810.240565409.davem@davemloft.net>
-References: <87bq6hazvo.fsf@obelix.mork.no>
-	<20080217.222245.132418529.davem@davemloft.net>
-	<873arib4vd.fsf@obelix.mork.no>
+Subject: Re: [RFC,PATCH] loopback: calls netif_receive_skb() instead of
+ netif_rx()
+Date: Tue, 26 Feb 2008 18:21:20 -0800 (PST)
+Message-ID: <20080226.182120.183405235.davem@davemloft.net>
+References: <47BDC848.50607@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: bjorn@mork.no
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50287
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50290
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1763428AbYB0CRZ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Feb 2008 21:17:25 -0500
-In-Reply-To: <873arib4vd.fsf@obelix.mork.no>
+	by vger.kernel.org with ESMTP id S1753567AbYB0CUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 21:20:35 -0500
+In-Reply-To: <47BDC848.50607@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn_Mork <bjorn@mork.no>
-Date: Sun, 24 Feb 2008 19:12:38 +0100
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Thu, 21 Feb 2008 19:51:52 +0100
 
-> We set the scope to RT_SCOPE_HOST if an IPv4 interface is configured
-> with a loopback address (127/8).  The scope is never reset, and will
-> remain set to RT_SCOPE_HOST after changing the address. This patch
-> resets the scope if the address is changed again, to restore normal
-> functionality.
->=20
-> Signed-off-by: Bjorn Mork <bjorn@mork.no>
+> Following patch directly calls netif_receive_skb() and avoids lot of 
+> atomic operations.
+> (atomic_inc(&dev->refcnt), set_and_set_bit(NAPI_STATE_SCHED, &n->state), ...
+>   atomic_dec(&dev->refcnt)...), cache line ping-pongs on device refcnt, 
+> but also softirq overhead.
+> 
+> This gives a nice boost on tbench for example (5 % on my machine)
 
-This patch looks fine, applied, thanks!
+My only concern is stack usage.
+
+Note that packet reception can elicit a response and go all the way
+back into this driver and all the way down into netif_receive_skb()
+again.  And so on and so forth.
+
+If there is some bug in the stack (ACK'ing ACKs, stuff like that) we
+could get into a loop and overrun the kernel stack in no time at all.
+
+So, if anything, this change could make inconvenient errors become
+catastrophic and hard to diagnose.
