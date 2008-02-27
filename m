@@ -1,121 +1,106 @@
-From: Nathan Grennan <linux-netdev@cygnusx-1.org>
-Subject: Re: sky2 0000:02:00.0: error interrupt status=0x8
-Date: Tue, 26 Feb 2008 20:37:32 -0800
-Message-ID: <47C4E90C.3090600@cygnusx-1.org>
-References: <47C4CB57.2060004@cygnusx-1.org> <20080226194818.1ee41099@extreme>
+From: Neil Brown <neilb@suse.de>
+Subject: Re: [PATCH 00/28] Swap over NFS -v16
+Date: Wed, 27 Feb 2008 16:51:13 +1100
+Message-ID: <18372.64081.995262.986841@notabene.brown>
+References: <20080220144610.548202000@chello.nl>
+	<20080223000620.7fee8ff8.akpm@linux-foundation.org>
+	<18371.43950.150842.429997@notabene.brown>
+	<1204023042.6242.271.camel@lappy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from okcforum.org ([69.17.49.173]:48245 "EHLO mail.okcforum.org"
+Received: from cantor.suse.de ([195.135.220.2]:45370 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753639AbYB0Ehd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Feb 2008 23:37:33 -0500
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.okcforum.org (Postfix) with ESMTP id 33F9952B167
-	for <netdev@vger.kernel.org>; Tue, 26 Feb 2008 20:37:33 -0800 (PST)
-Received: from mail.okcforum.org ([127.0.0.1])
-	by localhost (okcforum.org [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id L23bipFyZjDi for <netdev@vger.kernel.org>;
-	Tue, 26 Feb 2008 20:37:33 -0800 (PST)
-Received: from proton.cygnusx-1.org (proton.cygnusx-1.org [69.17.49.61])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mail.okcforum.org (Postfix) with ESMTP id 12FC152B11B
-	for <netdev@vger.kernel.org>; Tue, 26 Feb 2008 20:37:33 -0800 (PST)
-In-Reply-To: <20080226194818.1ee41099@extreme>
+	id S1750805AbYB0FvM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2008 00:51:12 -0500
+In-Reply-To: message from Peter Zijlstra on Tuesday February 26
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Tue, 26 Feb 2008 18:30:47 -0800
-> Nathan Grennan <linux-netdev@cygnusx-1.org> wrote:
->
->   
->>     I am using the sky2 driver in kernel-2.6.23.15-137.fc8.x86_64 with 
->> my Marvell 88E8056 to do iSCSI. I have many errors in dmesg like the 
->> ones below. If I count just the lines that match the first one, there 
->> are over 1500. If I include the suppressed lines it is over 100k. At 
->> first I got three of these doing something and then didn't see it for a 
->> while. I suspect the 100k came from a download of an 8gb file from the 
->> internet that was being written to the remote machine via iSCSI. The 
->> download took about an hour and fifteen minutes. I would ignore just 
->> three of these, but 100k of them suggests a real problem to me.
->>
->> sky2 0000:02:00.0: error interrupt status=0x8
->> printk: 77 messages suppressed.
->>     
->
-> That status comes from the MAC getting an error.
-> Most likely the receive FIFO is getting overrun. Look at the receive
-> errors, RX fifo is probably non-zero.
->
-> $ ip -s -s li show dev eth0
-> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast qlen 1000
->     link/ether 00:00:5a:9b:0e:76 brd ff:ff:ff:ff:ff:ff
->     RX: bytes  packets  errors  dropped overrun mcast   
->     199873594  240394   0       0       0       0      
->     RX errors: length  crc     frame   fifo    missed
->                0        0       0       0       0      
->                                         ^
->
->
-> Make sure and use hardware flow control if you are using jumbo frames because
-> it is real easy to get the ram buffer full, and frames lost.
->
->   
-I couldn't find mention of the flow control till I downed and upped the 
-interface.
 
-sky2 eth2: Link is up at 1000 Mbps, full duplex, flow control both
+Hi Peter,
 
+On Tuesday February 26, a.p.zijlstra@chello.nl wrote:
+> Hi Neil,
+> 
+> Thanks for taking a look, and giving such elaborate feedback. I'll try
+> and address these issues asap, but first let me reply to a few points
+> here.
 
-Yes, I do have fifo/overrun errors and the count is around the 100k 
-mark, but not on RX. It is on TX.
+Thanks... the tree thing is starting to make sense, and I'm not
+confused my __mem_reserve_add any more :-)
 
-ifconfig eth2
-eth2      Link encap:Ethernet  HWaddr 00:18:F3:7C:38:5A 
-          inet addr:192.168.254.1  Bcast:192.168.254.255  Mask:255.255.255.0
-          inet6 addr: fe80::218:f3ff:fe7c:385a/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:9000  Metric:1
-          RX packets:3196945 errors:69 dropped:69 overruns:2 frame:69
-          TX packets:2930128 errors:0 dropped:0 overruns:111324 carrier:0
-          collisions:0 txqueuelen:10000
-          RX bytes:15313780678 (14.2 GiB)  TX bytes:14583689334 (13.5 GiB)
-          Interrupt:17
+I've been having a closer read of some of the code that I skimmed over
+before and I have some more questions.
 
+1/ I note there is no way to tell if memory returned by kmalloc is
+  from the emergency reserve - which contrasts with alloc_page
+  which does make that information available through page->reserve.
+  This seems a slightly unfortunate aspect of the interface.
 
-ip -s -s li show dev eth2
-6: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdisc pfifo_fast 
-qlen 10000
-    link/ether 00:18:f3:7c:38:5a brd ff:ff:ff:ff:ff:ff
-    RX: bytes  packets  errors  dropped overrun mcast  
-    2428878890 3196946  69      69      69      0     
-    RX errors: length  crc     frame   fifo    missed
-               0        0       0       2       0     
-    TX: bytes  packets  errors  dropped carrier collsns
-    1698787626 2930130  0       0       0       0     
-    TX errors: aborted fifo    window  heartbeat
-               0        111324  0       0     
+  It seems to me that __alloc_skb could be simpler if this
+  information was available.  It currently tries the allocation
+  normally, then if that fails it retries with __GFP_MEMALLOC set and
+  if that works it assume it was from the emergency pool ... which it
+  might not be, though the assumption is safe enough.
+
+  It would seem to be nicer if you could just make the one alloc call,
+  setting GFP_MEMALLOC if that might be appropriate.  Then if the
+  memory came from the emergency reserve, flag it as an emergency skb.
+
+  However doing that would have issues with reservations.... the
+  mem_reserve would need to be passed to kmalloc :-(
+
+2/ It doesn't appear to be possible to wait on a reservation. i.e. if
+   mem_reserve_*_charge fails, we might sometimes want to wait until
+   it will succeed.  This feature is an integral part of how mempools
+   work and are used.  If you want reservations to (be able to)
+   replace mempools, then waiting really is needed.
+
+   It seems that waiting would work best if it was done quite low down
+   inside kmalloc.  That would require kmalloc to know which
+   'mem_reserve' you are using which it currently doesn't.
+
+   If it did, then it could choose to use emergency pages if the
+   mem_reserve allowed it more space, otherwise require a regular page.
+   And if __GFP_WAIT is set then each time around the loop it could
+   revise whether to use an emergency page or not, based on whether it
+   can successfully charge the reservation.
+
+   Of course, having a mem_reserve available for PF_MEMALLOC
+   allocations would require changing every kmalloc call in the
+   protected region, which might not be ideal, but might not be a
+   major hassle, and would ensure that you find all kmalloc calls that
+   might be made while in PF_MALLOC state.
+
+3/ Thinking about the tree structure a bit more:  Your motivation
+   seems to be that it allows you to make two separate reservations,
+   and then charge some memory usage again either-one-of-the-other.
+   This seems to go against a key attribute of reservations.  I would
+   have thought that an important rule about reservations is that
+   no-one else can use memory reserved for a particular purpose.
+   So if IPv6 reserves some memory, and the IPv4 uses it, that doesn't
+   seem like something we want to encourage...
 
 
+4/ __netdev_alloc_page is bothering me a bit.
+   This is used to allocate memory for incoming fragments in a
+   (potentially multi-fragment) packet.  But we only rx_emergency_get
+   for each page as it arrives rather than all at once at the start.
+   So you could have a situation where two very large packets are
+   arriving at the same time and there is enough reserve to hold
+   either of them but not both.  The current code will hand out that
+   reservation a little (well, one page) at a time to each packet and
+   will run out before either packet has been fully received.  This
+   seems like a bad thing.  Is it?
 
+   Is it possible to do the rx_emergency_get just once of the whole
+   packet I wonder?
 
-I also notice I can't turn on TX checksumming. I can't turn on any of 
-the others either, except generic segmentation offload.
-
-ethtool -k eth2         
-Offload parameters for eth2:
-Cannot get device udp large send offload settings: Operation not supported
-rx-checksumming: on
-tx-checksumming: off
-scatter-gather: off
-tcp segmentation offload: off
-udp fragmentation offload: off
-generic segmentation offload: off
-
-
-
-ethtool -K eth2 tx on
-Cannot set device tx csum settings: Invalid argument
+NeilBrown
