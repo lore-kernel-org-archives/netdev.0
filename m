@@ -1,52 +1,42 @@
-From: Adrian Bunk <adrian.bunk@movial.fi>
-Subject: [2.6.25 patch] FIXED_PHY must depend on PHYLIB=y
-Date: Wed, 27 Feb 2008 17:07:54 +0200
-Message-ID: <20080227150754.GA29269@cs181133002.pp.htv.fi>
-References: <200802271158.00453.olaf@aepfle.de>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH 2.6.25-rc] [IPV6] SYSCTL: Fix possible memory leakage in
+ error path.
+Date: Thu, 28 Feb 2008 00:20:14 +0900 (JST)
+Message-ID: <20080228.002014.05421460.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Olaf Hering <olaf@aepfle.de>,
-	Anton Vorontsov <avorontsov@ru.mvista.com>,
-	Vitaly Bordug <vitb@kernel.crashing.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	Kumar Gala <galak@kernel.crashing.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.pp.htv.fi ([213.243.153.39]:39099 "EHLO smtp5.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754845AbYB0PJF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2008 10:09:05 -0500
-Content-Disposition: inline
-In-Reply-To: <200802271158.00453.olaf@aepfle.de>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:49635 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754167AbYB0PTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 10:19:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the following build error introduced by commit 
-a79d8e93d300adb84cccc38ac396cfb118c238ad and reported by Olaf Hering:
+In error path, we do need to free memory just allocated.
 
-<--  snip  -->
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-...
-  LD      .tmp_vmlinux1
-arch/powerpc/sysdev/built-in.o: In function `of_add_fixed_phys':
-fsl_soc.c:(.init.text+0xd34): undefined reference to `fixed_phy_add'
-make: *** [.tmp_vmlinux1] Error 1
-
-<--   snip  -->
-
-Signed-off-by: Adrian Bunk <adrian.bunk@movial.fi>
-
----
-47a94f1d74e448d39f34f0ad37f8b4f69412ee13 diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index f4ca059..3ac8529 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -67,6 +67,7 @@ config REALTEK_PHY
+-- 
+diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+index 408691b..d6d3e68 100644
+--- a/net/ipv6/sysctl_net_ipv6.c
++++ b/net/ipv6/sysctl_net_ipv6.c
+@@ -102,9 +102,6 @@ static int ipv6_sysctl_net_init(struct net *net)
+ 	net->ipv6.sysctl.table = register_net_sysctl_table(net, net_ipv6_ctl_path,
+ 							   ipv6_table);
+ 	if (!net->ipv6.sysctl.table)
+-		return -ENOMEM;
+-
+-	if (!net->ipv6.sysctl.table)
+ 		goto out_ipv6_icmp_table;
  
- config FIXED_PHY
- 	bool "Driver for MDIO Bus/PHY emulation with fixed speed/link PHYs"
-+	depends on PHYLIB=y
- 	---help---
- 	  Adds the platform "fixed" MDIO Bus to cover the boards that use
- 	  PHYs that are not connected to the real MDIO bus.
+ 	err = 0;
 
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
