@@ -1,40 +1,59 @@
-From: Benny Amorsen <benny+usenet@amorsen.dk>
-Subject: Re: capturing vlan on 2.6.18
-Date: Wed, 27 Feb 2008 21:55:20 +0100
-Message-ID: <m3r6eyyv9j.fsf@ursa.amorsen.dk>
-References: <200802271517.52092.krauz@cncz.cz>
+From: Urs Thuermann <urs@isnogud.escape.de>
+Subject: Re: [RFC, PATCH]: Pass link level header from/to PPP interface
+Date: 27 Feb 2008 22:08:06 +0100
+Message-ID: <ygfhcfu85vt.fsf@janus.isnogud.escape.de>
+References: <ygfprv55egs.fsf@janus.isnogud.escape.de>
+	<20080226.225104.175000479.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:40001 "EHLO ciao.gmane.org"
+Received: from oker.escape.de ([194.120.234.254]:49214 "EHLO oker.escape.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754193AbYB0Uzb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2008 15:55:31 -0500
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1JUTJH-0008Us-Pq
-	for netdev@vger.kernel.org; Wed, 27 Feb 2008 20:55:27 +0000
-Received: from hd5b9080a.c45-01-12.sta.perspektivbredband.net ([213.185.8.10])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 27 Feb 2008 20:55:27 +0000
-Received: from benny+usenet by hd5b9080a.c45-01-12.sta.perspektivbredband.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 27 Feb 2008 20:55:27 +0000
+	id S1751049AbYB0VKK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2008 16:10:10 -0500
+In-Reply-To: <20080226.225104.175000479.davem@davemloft.net>; from David Miller on Tue, 26 Feb 2008 22:51:04 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pavel Krauz <krauz@cncz.cz> writes:
+David Miller <davem@davemloft.net> writes:
 
-> Is this a kernel bug or am I supposed to set something?
+> When given a specific device, libpcap uses SOCK_RAW.
 
-It's an unfortunate side effect of hardware VLAN acceleration. It
-can't be turned off (apart from patching the driver to not advertise
-VLAN acceleration support).
+I don't think this is completely true for PPP interfaces.  If you do a
+pcap_open_live() on interface "any", libpcap opens a PF_PACKET/SOCK_DGRAM
+socket.  Otherwise, on a specific device a SOCK_RAW is opened like you
+write but libpcap asks with SIOCGIFHWADDR for the ARPHRD_* type of the
+interface.  In case of PPP libpcap closes the socket and opens a new
+socket with SOCK_DGRAM to capture packets on.  Here's a strace showing
+this behavior:
 
-Yes, it's annoying.
+    execve("./pcap", ["./pcap", "ppp0"], [/* 34 vars */]) = 0
+    brk(0)                                  = 0x8068f5c
+    ...
+    socket(PF_PACKET, SOCK_RAW, 768)        = 3
+    ioctl(3, SIOCGIFINDEX, {ifr_name="lo", ifr_index=1}) = 0
+    ioctl(3, SIOCGIFHWADDR, {ifr_name="ppp0", ifr_hwaddr=00:00:00:00:00:00}) = 0
+    close(3)                                = 0
+    socket(PF_PACKET, SOCK_DGRAM, 768)      = 3
+    ioctl(3, SIOCGIFINDEX, {ifr_name="ppp0", ifr_index=22}) = 0
+    bind(3, {sa_family=AF_PACKET, proto=0x03, if22, pkttype=PACKET_HOST, addr(0)={0, }, 20) = 0
+    ...
 
+> I spent some time seriously considering this change but I
+> can't because it really can potentially break so much stuff.
 
-/Benny
+Thanks for your time on this.  But AFAICS, the patch doesn't break
+libpcap.  I have it running here on 2.4 and 2.6 kernels for some weeks
+now with PPPoE.  tcpdump and wireshark run without problems since they
+use libpcap and for SOCK_DGRAM there is no difference.
 
+My own simple packet sniffer is not libpcap based and takes advantage of
+the patch.  Other programs using PF_PACKET I run here are dhcpd,
+dhclient, rarpd, pppoe-server, and pppoe, but all of these use
+SOCK_DGRAM or SOCK_PACKET and/or work on Ethernet interfaces.
 
+I don't think the patch would break much stuff.
+
+urs
