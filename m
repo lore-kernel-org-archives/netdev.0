@@ -1,48 +1,61 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] [resend]The kernel gets no IP from some DHCP servers,
- 2.6.24
-Date: Wed, 27 Feb 2008 08:38:19 -0800
-Message-ID: <20080227083819.70ddb374@extreme>
-References: <83116F0A4FF67A4F97BA0B6E408C48E301C5CDEF@zuerich.BC-Int.NET>
-	<47C55BBF.7080501@trash.net>
-	<83116F0A4FF67A4F97BA0B6E408C48E301C5CE08@zuerich.BC-Int.NET>
+Subject: Re: unregister_netdev() deadlock
+Date: Wed, 27 Feb 2008 08:46:24 -0800
+Message-ID: <20080227084624.163c762b@extreme>
+References: <1204127094.11318.0.camel@vglwks010.vgl2.office.vaioni.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Patrick McHardy" <kaber@trash.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <ebiederman@lnxi.com>
-To: "Wappler Marcel" <Marcel.Wappler@bridgeco.net>
+Cc: netdev@vger.kernel.org, matthew.hattersley@vaioni.com
+To: Jeba Anandhan <jeba.anandhan@vaioni.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:58982 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([216.93.170.194]:59174 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754576AbYB0QiY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2008 11:38:24 -0500
-In-Reply-To: <83116F0A4FF67A4F97BA0B6E408C48E301C5CE08@zuerich.BC-Int.NET>
+	id S1753150AbYB0Qq2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2008 11:46:28 -0500
+In-Reply-To: <1204127094.11318.0.camel@vglwks010.vgl2.office.vaioni.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Feb 2008 14:11:55 +0100
-"Wappler Marcel" <Marcel.Wappler@bridgeco.net> wrote:
+On Wed, 27 Feb 2008 15:44:54 +0000
+Jeba Anandhan <jeba.anandhan@vaioni.com> wrote:
 
-> -----Original Message-----
-> >>  #include <linux/types.h>
-> >> @@ -103,6 +107,7 @@
-> >>  					   - '3' from resolv.h */
-> >>  
-> >>  #define NONE __constant_htonl(INADDR_NONE)
-> >> +#define ZERO __constant_htonl(((unsigned long int) 0x00000000))
-> >This should probably use INADDR_ANY.
-> My first try went in this direction. But at a second look I thought
-> that the names ANY (255.255.255.255) and NONE (0.0.0.0) are indirect
-> leading to confusion. The interpretation of the zero addresses in
-> the DHCPDISCOVER packet is in the kind of 'no address' and not of
-> 'any addressee'. So the meaning and usage of INADDR_ANY and ZERO
-> may be totally different in this file.
-> In my opinion it is necessary to distinguish between INADDR_ANY
-> and the ZERO address which ist requested to be in the DHCPDISCOVER
-> packet.
+> Hi all,
+> I have doubts about unregister the netdevice.
+> 
+> Scenario
+> I have two netdevice entities. I wish to unregister one entity.
+> 
+> struct net_device *dev1;
+> struct net_device *dev2;
+> 
+> dev1->timer = XXX;
+> dev2->timer = YYY;
+> 
+> dev1->ioctl() {
+> 
+> ...
+> case delete_other:
+>             unregister_netdev(dev2);
+>             free_netdev(dev2);
+>             return 0;
+> ...
+> }
+> 
+> The dev2->refcnt is not zero in this case. unregister_netdev(dev2) cause
+> deadlock. Could you tell me why it happens?.
+> 
+> 
+> It works smoothly when we call the unregister_netdev(dev2) from
+> cleanup_module(). dev2->refcnt is not zero in this case.  Still it is
+> able to unregister.
+> 
+> 
+> Thanks
+> Jeba
 > 
 
-Just delete the lines and the address will be zero because of
-earlier memset().
+You need to properly manage device refcounts (or delete both).
+Also since dev1->ioctl is called with RTNL you can't:
+    use unregister_netdev() recursive locking (use unregister_netdevice)
+    or  call free_netdev because of netdevice could still be in use (use dev->destructor instead).
