@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] ethtool netlink interface
-Date: Tue, 26 Feb 2008 17:50:36 -0800 (PST)
-Message-ID: <20080226.175036.256705356.davem@davemloft.net>
-References: <20080225130456.GD20815@postel.suug.ch>
-	<47C2FB1F.5090009@garzik.org>
-	<20080225182343.GF20815@postel.suug.ch>
+Subject: Re: [PATCH] llc: dont trust payload size on test cmd
+Date: Tue, 26 Feb 2008 17:51:40 -0800 (PST)
+Message-ID: <20080226.175140.187595682.davem@davemloft.net>
+References: <20080225161439.GZ84358@surrealistic.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: tgraf@suug.ch
+Cc: netdev@vger.kernel.org, acme@ghostprotocols.net
+To: jwestfall@surrealistic.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36478
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36482
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756842AbYB0Btv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 20:49:51 -0500
-In-Reply-To: <20080225182343.GF20815@postel.suug.ch>
+	by vger.kernel.org with ESMTP id S1751914AbYB0Buz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 20:50:55 -0500
+In-Reply-To: <20080225161439.GZ84358@surrealistic.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Mon, 25 Feb 2008 19:23:43 +0100
+From: Jim Westfall <jwestfall@surrealistic.net>
+Date: Mon, 25 Feb 2008 08:14:39 -0800
 
-> * Jeff Garzik <jeff@garzik.org> 2008-02-25 12:30
-> > However, I would think it inconsistent to only do SSET/GSET.  If others 
-> > are OK with this patch, are you open to implementing the full set of 
-> > ethtool operations?
+> In testing its not safe to trust the payload length we are given in a
+> received llc test command header.  Instead we should calculate this 
+> ourselves or run the risk of an skb_over_panic() if the received length in 
+> the header is > then the actual payload size.
 > 
-> Of course, I would also provide a documented userspace api within libnl.
+> Signed-off-by: Jim Westfall <jwestfall@surrealistic.net>
 
-I'm perfectly fine with all of this.
+I think we should, rather, use the value given to us in the
+proto field, but validate it against the real packet length.
+
+If it's found to be bogus, we should drop the packet.
