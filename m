@@ -1,38 +1,54 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] selinux/netlabel.c should #include "netlabel.h"
-Date: Wed, 27 Feb 2008 23:20:42 +0200
-Message-ID: <20080227212042.GK29269@cs181133002.pp.htv.fi>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [2.6 patch] selinux/netlabel.c should #include "netlabel.h"
+Date: Wed, 27 Feb 2008 16:42:57 -0500
+Message-ID: <200802271642.57556.paul.moore@hp.com>
+References: <20080227212042.GK29269@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.or
-To: paul.moore@hp.com, sds@tycho.nsa.gov, jmorris@namei.org,
-	eparis@parisplace.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: sds@tycho.nsa.gov, jmorris@namei.org, eparis@parisplace.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.pp.htv.fi ([213.243.153.39]:33270 "EHLO smtp5.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757605AbYB0VVw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2008 16:21:52 -0500
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:47370 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751288AbYB0Vm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 16:42:59 -0500
+In-Reply-To: <20080227212042.GK29269@cs181133002.pp.htv.fi>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Every file should include the headers containing the externs for its 
-global code.
+On Wednesday 27 February 2008 4:20:42 pm Adrian Bunk wrote:
+> Every file should include the headers containing the externs for its
+> global code.
+>
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+It doesn't _need_ the file in the strictest sense, the header file is 
+just there for the core SELinux code to call into the NetLabel/SELinux 
+glue code (what is in security/selinux/netlabel.c).  However, if this 
+is to conform better to kernel coding policy (I assume that is the case 
+here?) then that is fine with me.
 
----
-1f65757bac3e82514b447822ab30ee10d33a59a2 foobar
-diff --git a/security/selinux/netlabel.c b/security/selinux/netlabel.c
-index 0fa2be4..6d22d76 100644
---- a/security/selinux/netlabel.c
-+++ b/security/selinux/netlabel.c
-@@ -34,6 +34,7 @@
- 
- #include "objsec.h"
- #include "security.h"
-+#include "netlabel.h"
- 
- /**
-  * selinux_netlbl_sidlookup_cached - Cache a SID lookup
+Acked-by: Paul Moore <paul.moore@hp.com>
 
+> ---
+> 1f65757bac3e82514b447822ab30ee10d33a59a2 foobar
+> diff --git a/security/selinux/netlabel.c
+> b/security/selinux/netlabel.c index 0fa2be4..6d22d76 100644
+> --- a/security/selinux/netlabel.c
+> +++ b/security/selinux/netlabel.c
+> @@ -34,6 +34,7 @@
+>
+>  #include "objsec.h"
+>  #include "security.h"
+> +#include "netlabel.h"
+>
+>  /**
+>   * selinux_netlbl_sidlookup_cached - Cache a SID lookup
+
+-- 
+paul moore
+linux security @ hp
