@@ -1,47 +1,36 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [PATCH] alloc_percpu() fails to allocate percpu data
-Date: Wed, 27 Feb 2008 13:56:55 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0802271353520.12963@schroedinger.engr.sgi.com>
-References: <47BDBC23.10605@cosmosbay.com> <Pine.LNX.4.64.0802271158100.1790@schroedinger.engr.sgi.com>
- <20080227122451.6a3b5565.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC, PATCH]: Pass link level header from/to PPP interface
+Date: Wed, 27 Feb 2008 13:58:49 -0800 (PST)
+Message-ID: <20080227.135849.145717144.davem@davemloft.net>
+References: <ygfprv55egs.fsf@janus.isnogud.escape.de>
+	<20080226.225104.175000479.davem@davemloft.net>
+	<ygfhcfu85vt.fsf@janus.isnogud.escape.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: dada1@cosmosbay.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	yanmin_zhang@linux.intel.com, travis@sgi.com
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: urs@isnogud.escape.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netops-testserver-3-out.sgi.com ([192.48.171.28]:49526 "EHLO
-	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756897AbYB0V47 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 16:56:59 -0500
-In-Reply-To: <20080227122451.6a3b5565.akpm@linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56052
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753836AbYB0V6u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 16:58:50 -0500
+In-Reply-To: <ygfhcfu85vt.fsf@janus.isnogud.escape.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Feb 2008, Andrew Morton wrote:
+From: Urs Thuermann <urs@isnogud.escape.de>
+Date: 27 Feb 2008 22:08:06 +0100
 
-> On Wed, 27 Feb 2008 11:59:32 -0800 (PST)
-> Christoph Lameter <clameter@sgi.com> wrote:
+> David Miller <davem@davemloft.net> writes:
 > 
-> > Any decision made on what to do about this one? Mike or I can 
-> > repost the per cpu allocator against mm? The fix by Eric could be used 
-> > in the interim for 2.6.24?
-> > 
+> > I spent some time seriously considering this change but I
+> > can't because it really can potentially break so much stuff.
 > 
-> I suppose I'll merge Eric's patch when I've tested it fully (well, as fully
-> as I test stuff).
+> Thanks for your time on this.  But AFAICS, the patch doesn't break
+> libpcap.
 
-Urgh. You too?
- 
-> It'd be nice to get that cache_line_size()/L1_CACHE_BYTES/L1_CACHE_ALIGN()
-> mess sorted out.  If it's a mess - I _think_ it is?
+Not libpcap in this case, but potentially other programs
+might be effected by it.
 
-Well I tried it when slub went first in and it did not go well. The issue 
-is that x86 detects the cache line size on bootup. Thus cache_line_size(). 
-Most of the other arch have compile time cache line sizes. Thus 
-L1_CACHE_BYTES. So L1_CACHE_BYTES is the maximum value that 
-cache_line_size() can take.
-
-What I was attempting to do is to make x86 have one compile time cache 
-line size L1_CACHE_BYTES. That raised objections because space was wasted.
+Sorry.
