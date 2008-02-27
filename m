@@ -1,47 +1,46 @@
-From: Pekka J Enberg <penberg@cs.helsinki.fi>
-Subject: Re: [PATCH 00/28] Swap over NFS -v16
-Date: Wed, 27 Feb 2008 10:43:32 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0802271041140.20599@sbz-30.cs.Helsinki.FI>
-References: <20080220144610.548202000@chello.nl>
- <20080223000620.7fee8ff8.akpm@linux-foundation.org>  <18371.43950.150842.429997@notabene.brown>
-  <1204023042.6242.271.camel@lappy>  <18372.64081.995262.986841@notabene.brown>
-  <1204099113.6242.353.camel@lappy>  <84144f020802270005p3bfbd04ar9da2875218ef98c4@mail.gmail.com>
-  <1204100059.6242.360.camel@lappy> <1204101239.6242.372.camel@lappy>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: Glen Gray <glen.gray@lincor.com>
+Subject: Status of r8169 and Multicast
+Date: Wed, 27 Feb 2008 09:10:29 +0000
+Message-ID: <1985987B-FA5B-4885-B667-AB3A9C722FBD@lincor.com>
+References: <a37929f0802251403q36ef6306wa30298dbded0d8ed@mail.gmail.com> <20080226201441.GA15796@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0 (Apple Message framework v919.2)
+Content-Type: text/plain; charset="US-ASCII"; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: Neil Brown <neilb@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:52643 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753127AbYB0Ine (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 03:43:34 -0500
-In-Reply-To: <1204101239.6242.372.camel@lappy>
+Received: from mail.station1.mxsweep.com ([212.147.136.149]:1512 "EHLO
+	scmp07.mxsweep.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753309AbYB0JXT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 04:23:19 -0500
+In-Reply-To: <20080226201441.GA15796@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Feb 2008, Peter Zijlstra wrote:
-> Humm, and here I sit staring at the screen. Perhaps I should go get my
-> morning juice, but...
-> 
->   if (mem_reserve_kmalloc_charge(my_res, sizeof(*foo), 0)) {
->     foo = kmalloc(sizeof(*foo), gfp|__GFP_MEMALLOC)
->     if (!kmem_is_emergency(foo))
->       mem_reserve_kmalloc_charge(my_res, -sizeof(*foo), 0)
->   } else
->     foo = kmalloc(sizeof(*foo), gfp);
-> 
-> Just doesn't look too pretty..
-> 
-> And needing to always account the allocation seems wrong.. but I'll take
-> poison and see if that wakes up my mind.
+Hey Francois,
 
-Hmm, perhaps this is just hand-waving but why don't you have a 
-kmalloc_reserve() function in SLUB that does the accounting properly?
+It's been a while since I've been in touch and it's been a while since  
+I've been involved in the project at work that deals with these Set  
+top boxes with the Realtek chipset
 
-			Pekka
+If you recall, we had problems with kernels correctly accessing  
+multicast broadcasts of our IPTV service (SAP announcements). You sent  
+me a patch at one point but I never got around to testing it. To get  
+around it we went with the Realtek driver which didn't seem to have  
+the problem but which did have some freezing problems. You kindly  
+provided a patch for this which seemed to resolve the problem.  
+However, we've recently been made aware that there are still issues  
+with freezing, especially during channel changes (subscribing to a new  
+multicast address).
+
+I'm going to be looking into this shortly, but I was wondering if the  
+current stable or development branches are known to have the previous  
+multicast issues fixed ? From memory the device would come up as only  
+supporting igmpv3 when we needed it to do igmpv2, I think this was why  
+it couldn't pick up the SAP announcements.
+
+Kind Regards,
+--
+Glen Gray <glen.gray@lincor.com>         Digital Depot, Thomas Street
+Senior Software Engineer                            Dublin 8, Ireland
+Lincor Solutions Ltd.                          Ph: +353 (0) 1 4893682
