@@ -1,107 +1,108 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/4] [CCID2]: Simplify dec_pipe and rearming of RTO timer
-Date: Wed, 27 Feb 2008 14:23:06 +0000
-Message-ID: <1204122188-9984-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/4] [CCID2]: Remove wrappers around sk_{reset,stop}_timer()
+Date: Wed, 27 Feb 2008 14:23:08 +0000
+Message-ID: <1204122188-9984-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: ccid2_clean_ups
  <1204122188-9984-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1204122188-9984-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1204122188-9984-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1204122188-9984-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:65386 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:65416 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753412AbYB0OYj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2008 09:24:39 -0500
-In-Reply-To: <1204122188-9984-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753482AbYB0OYl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2008 09:24:41 -0500
+In-Reply-To: <1204122188-9984-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This removes the dec_pipe function and improves the way the RTO timer is rearmed
-when a new acknowledgment comes in.
+This removes the wrappers around the sk timer functions as it makes the code
+clearer and not much is gained from using wrappers: the BUG_ON in
+start_rto_timer will never trigger since that function was called only when
+ * the RTO timer expired (rto_expire, and then timer_pending() is false);
+ * in tx_packet_sent only if !timer_pending() (BUG_ON is redundant here);
+ * previously in new_ack, after stopping the timer (timer_pending() false).
 
-Details and justification for removal:
---------------------------------------
- 1) The BUG_ON in dec_pipe is never triggered: pipe is only decremented for TX
-    history entries between tail and head, for which it had previously been
-    incremented in tx_packet_sent; and it is not decremented twice for the same
-    entry, since it is
-    - either decremented when a corresponding Ack Vector cell in state 0 or 1
-      was received (and then ccid2s_acked==1),
-    - or it is decremented when ccid2s_acked==0, as part of the loss detection
-      in tx_packet_recv (and hence it can not have been decremented earlier).
-
- 2) Restarting the RTO timer happens for every single entry in each Ack Vector
-    parsed by tx_packet_recv (according to RFC 4340, 11.4 this can happen up to
-    16192 times per Ack Vector).
-
- 3) The RTO timer should not be restarted when all outstanding data has been
-    acknowledged. This is currently done similar to (2), in dec_pipe, when
-    pipe has reached 0.
-
-The patch onsolidates the code which rearms the RTO timer, combining the
-segments from new_ack and dec_pipe. As a result, the code becomes clearer
-(compare with tcp_rearm_rto()).
+One further motive behind this patch is to replace the RTO timer with the
+icsk retransmission timer, as it is already part of the DCCP socket.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid2.c |   27 ++++++++-------------------
- 1 files changed, 8 insertions(+), 19 deletions(-)
+ net/dccp/ccids/ccid2.c |   30 ++++++------------------------
+ 1 files changed, 6 insertions(+), 24 deletions(-)
 
 --- a/net/dccp/ccids/ccid2.c
 +++ b/net/dccp/ccids/ccid2.c
-@@ -356,23 +356,6 @@ static inline void ccid2_new_ack(struct sock *sk,
- 			       hctx->ccid2hctx_srtt, hctx->ccid2hctx_rttvar,
- 			       hctx->ccid2hctx_rto, HZ, r);
- 	}
+@@ -111,8 +111,6 @@ static void ccid2_change_l_ack_ratio(struct sock *sk, u32 val)
+ 	dp->dccps_l_ack_ratio = val;
+ }
+ 
+-static void ccid2_start_rto_timer(struct sock *sk);
 -
--	/* we got a new ack, so re-start RTO timer */
--	ccid2_hc_tx_kill_rto_timer(sk);
+ static void ccid2_hc_tx_rto_expire(unsigned long data)
+ {
+ 	struct sock *sk = (struct sock *)data;
+@@ -152,23 +150,14 @@ static void ccid2_hc_tx_rto_expire(unsigned long data)
+ 	/* if we were blocked before, we may now send cwnd=1 packet */
+ 	if (sender_was_blocked)
+ 		tasklet_schedule(&dccp_sk(sk)->dccps_xmitlet);
 -	ccid2_start_rto_timer(sk);
--}
--
--static void ccid2_hc_tx_dec_pipe(struct sock *sk)
++	/* restart backed-off timer */
++	sk_reset_timer(sk, &hctx->ccid2hctx_rtotimer,
++		       jiffies + hctx->ccid2hctx_rto);
+ out:
+ 	bh_unlock_sock(sk);
+ 	sock_put(sk);
+ }
+ 
+-static void ccid2_start_rto_timer(struct sock *sk)
 -{
 -	struct ccid2_hc_tx_sock *hctx = ccid2_hc_tx_sk(sk);
 -
--	if (hctx->ccid2hctx_pipe == 0)
--		DCCP_BUG("pipe == 0");
--	else
--		hctx->ccid2hctx_pipe--;
+-	ccid2_pr_debug("setting RTO timeout=%ld\n", hctx->ccid2hctx_rto);
 -
--	if (hctx->ccid2hctx_pipe == 0)
--		ccid2_hc_tx_kill_rto_timer(sk);
- }
+-	BUG_ON(timer_pending(&hctx->ccid2hctx_rtotimer));
+-	sk_reset_timer(sk, &hctx->ccid2hctx_rtotimer,
+-		       jiffies + hctx->ccid2hctx_rto);
+-}
+-
+ static void ccid2_hc_tx_packet_sent(struct sock *sk, unsigned int len)
+ {
+ 	struct dccp_sock *dp = dccp_sk(sk);
+@@ -248,7 +237,8 @@ static void ccid2_hc_tx_packet_sent(struct sock *sk, unsigned int len)
  
- static void ccid2_congestion_event(struct sock *sk, struct ccid2_seq *seqp)
-@@ -522,7 +505,7 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 					seqp->ccid2s_acked = 1;
- 					ccid2_pr_debug("Got ack for %llu\n",
- 						       (unsigned long long)seqp->ccid2s_seq);
--					ccid2_hc_tx_dec_pipe(sk);
-+					hctx->ccid2hctx_pipe--;
- 				}
- 				if (seqp == hctx->ccid2hctx_seqt) {
- 					done = 1;
-@@ -578,7 +561,7 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 				 * one ack vector.
- 				 */
- 				ccid2_congestion_event(sk, seqp);
--				ccid2_hc_tx_dec_pipe(sk);
-+				hctx->ccid2hctx_pipe--;
- 			}
- 			if (seqp == hctx->ccid2hctx_seqt)
- 				break;
-@@ -596,6 +579,12 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 		hctx->ccid2hctx_seqt = hctx->ccid2hctx_seqt->ccid2s_next;
- 	}
- 
-+	/* restart RTO timer if not all outstanding data has been acked */
-+	if (hctx->ccid2hctx_pipe == 0)
-+		sk_stop_timer(sk, &hctx->ccid2hctx_rtotimer);
-+	else
+ 	/* setup RTO timer */
+ 	if (!timer_pending(&hctx->ccid2hctx_rtotimer))
+-		ccid2_start_rto_timer(sk);
 +		sk_reset_timer(sk, &hctx->ccid2hctx_rtotimer,
 +			       jiffies + hctx->ccid2hctx_rto);
- done:
- 	/* check if incoming Acks allow pending packets to be sent */
- 	if (sender_was_blocked && !ccid2_cwnd_network_limited(hctx))
+ 
+ #ifdef CONFIG_IP_DCCP_CCID2_DEBUG
+ 	do {
+@@ -265,14 +255,6 @@ static void ccid2_hc_tx_packet_sent(struct sock *sk, unsigned int len)
+ #endif
+ }
+ 
+-static void ccid2_hc_tx_kill_rto_timer(struct sock *sk)
+-{
+-	struct ccid2_hc_tx_sock *hctx = ccid2_hc_tx_sk(sk);
+-
+-	sk_stop_timer(sk, &hctx->ccid2hctx_rtotimer);
+-	ccid2_pr_debug("deleted RTO timer\n");
+-}
+-
+ /**
+  * ccid2_rtt_estimator - Sample RTT and compute RTO using RFC2988 algorithm
+  * This code is almost identical with TCP's tcp_rtt_estimator(), since
+@@ -651,7 +633,7 @@ static void ccid2_hc_tx_exit(struct sock *sk)
+ 	struct ccid2_hc_tx_sock *hctx = ccid2_hc_tx_sk(sk);
+ 	int i;
+ 
+-	ccid2_hc_tx_kill_rto_timer(sk);
++	sk_stop_timer(sk, &hctx->ccid2hctx_rtotimer);
+ 
+ 	for (i = 0; i < hctx->ccid2hctx_seqbufc; i++)
+ 		kfree(hctx->ccid2hctx_seqbuf[i]);
