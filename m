@@ -1,45 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: lockdep trace from rc2.
-Date: Tue, 26 Feb 2008 22:40:10 -0800 (PST)
-Message-ID: <20080226.224010.227576469.davem@davemloft.net>
-References: <20080226.181354.33497295.davem@davemloft.net>
-	<20080226195157.46645a62@extreme>
-	<20080226195400.3f6e010b@extreme>
+Subject: Re: [RFC PATCH]: TCP + SACK + skb processing latency
+Date: Tue, 26 Feb 2008 22:45:55 -0800 (PST)
+Message-ID: <20080226.224555.239440389.davem@davemloft.net>
+References: <Pine.LNX.4.64.0802011756140.31652@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davej@codemonkey.org.uk, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40788
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36176
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751360AbYB0GkK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 01:40:10 -0500
-In-Reply-To: <20080226195400.3f6e010b@extreme>
+	by vger.kernel.org with ESMTP id S1752838AbYB0Gpz convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2008 01:45:55 -0500
+In-Reply-To: <Pine.LNX.4.64.0802011756140.31652@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 26 Feb 2008 19:54:00 -0800
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Fri, 1 Feb 2008 18:18:02 +0200 (EET)
 
-> > This has come up before in other drivers,
-> > you can't call flush_scheduled_work under RTNL.
-> 
-> Correct link: http://kerneltrap.org/mailarchive/linux-kernel/2007/4/11/76312
+Interesting idea... it is like a baby step towards a more efficient
+write queue data management facility :-)
 
-Ok.
+> I'd appreciate if somebody with more knowledge about skb internals co=
+uld=20
+> take a look at the relevant parts (mainly skb_shift) and confirm that=
+=20
+> doing all this I'm trying to do is allowed :-).
 
-When I first looked at Dave's lockdep trace I grepped around and there
-are a bunch of drivers that call flush_scheduled_work like this.
+It looks good.  You never have to worry about skb's in the write queue
+having headers, ever.  They only contain data.
 
-It seems that the common case is a driver that shares a lot of code
-between the suspend and ->stop paths.  Tulip is just such a case.
 
-I can't tell if it's legal to just move the flush_scheduled_work()
-call out of tulip_down() and into it's suspend function.  If it
-needs this for suspend it probably needs it for ->stop() too.
-
-Maybe it could do something similar to the 8139too fix at the above
-URL, but this is quite cumbersome if you ask me.
-
-Anyways, could someone please work on a fix for this stuff?
