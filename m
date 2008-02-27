@@ -1,47 +1,49 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC PATCH]: TCP + SACK + skb processing latency
-Date: Wed, 27 Feb 2008 09:34:14 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0802270926490.21342@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0802011756140.31652@kivilampi-30.cs.helsinki.fi>
- <20080226.224555.239440389.davem@davemloft.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: include/linux/pcounter.h
+Date: Wed, 27 Feb 2008 08:36:50 +0100
+Message-ID: <20080227073650.GC4638@elte.hu>
+References: <20080216112618.ec450f9b.akpm@linux-foundation.org> <20080216.215401.20463603.davem@davemloft.net> <20080226092454.GA10987@elte.hu> <20080226.133531.69481052.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1373397800-1204097654=:21342"
-Cc: Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, dada1@cosmosbay.com,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:34976 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750844AbYB0HeR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 02:34:17 -0500
-In-Reply-To: <20080226.224555.239440389.davem@davemloft.net>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:49026 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750921AbYB0Hh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2008 02:37:27 -0500
+Content-Disposition: inline
+In-Reply-To: <20080226.133531.69481052.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----696243703-1373397800-1204097654=:21342
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+* David Miller <davem@davemloft.net> wrote:
 
-On Tue, 26 Feb 2008, David Miller wrote:
-
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Fri, 1 Feb 2008 18:18:02 +0200 (EET)
+> > but the main and fundamental question still remains unanswered (more 
+> > than 3 weeks after Andrew asked that question): why was this piece 
+> > of general infrastructure merged via net.git and not submitted to 
+> > lkml ever? The code touching -mm does _not_ count as "review".
 > 
-> Interesting idea... it is like a baby step towards a more efficient
-> write queue data management facility :-)
-> 
-> > I'd appreciate if somebody with more knowledge about skb internals could 
-> > take a look at the relevant parts (mainly skb_shift) and confirm that 
-> > doing all this I'm trying to do is allowed :-).
-> 
-> It looks good.  You never have to worry about skb's in the write queue
-> having headers, ever.  They only contain data.
+> I already stated this was a mistake and it won't happen again in the 
+> future.
 
-Thanks for taking a look, I've mostly added the missing bits to the
-TCP side so I hope I can soon begin some testing with it... :-)
+sorry - that bit of the thread didnt seem to make it to lkml. I just saw 
+this incomplete discussion with a denial and with no resolution.
 
--- 
- i.
----696243703-1373397800-1204097654=:21342--
+And you did the right thing anyway by thinking in terms of a generic 
+piece of infrastructure instead of hiding it away into say 
+include/net/pcounter.h (which nobody could have objected against).
+
+I sometimes think that the forced isolation of subsystems (rather 
+strongly enforced both by -mm and by linux-next) and their hiding away 
+on non-lkml lists will eventually hurt the core kernel because less and 
+less people will be willing to go the trouble of doing proper 
+cross-subsystem development. That results in duplicated or specialistic 
+infrastructure, increased code size and longer term, ultimately less 
+performance. (by the time we notice _that_ it will probably be too late 
+to do anything about it)
+
+	Ingo
