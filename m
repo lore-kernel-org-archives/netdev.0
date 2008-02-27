@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: lockdep trace from rc2.
-Date: Tue, 26 Feb 2008 18:13:54 -0800 (PST)
-Message-ID: <20080226.181354.33497295.davem@davemloft.net>
-References: <20080225022237.GA3907@codemonkey.org.uk>
+Subject: Re: [resend] [PATCH] IPv4: Reset scope when changing address
+Date: Tue, 26 Feb 2008 18:18:10 -0800 (PST)
+Message-ID: <20080226.181810.240565409.davem@davemloft.net>
+References: <87bq6hazvo.fsf@obelix.mork.no>
+	<20080217.222245.132418529.davem@davemloft.net>
+	<873arib4vd.fsf@obelix.mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: davej@codemonkey.org.uk
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42526
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50287
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750805AbYB0CNK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2008 21:13:10 -0500
-In-Reply-To: <20080225022237.GA3907@codemonkey.org.uk>
+	by vger.kernel.org with ESMTP id S1763428AbYB0CRZ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Feb 2008 21:17:25 -0500
+In-Reply-To: <873arib4vd.fsf@obelix.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Jones <davej@codemonkey.org.uk>
-Date: Sun, 24 Feb 2008 21:22:37 -0500
+=46rom: Bj=F8rn_Mork <bjorn@mork.no>
+Date: Sun, 24 Feb 2008 19:12:38 +0100
 
-> https://bugzilla.redhat.com/show_bug.cgi?id=431038 has some more info,
-> but the trace is below...
-> I'll get an rc3 kernel built and ask the user to retest, but in case this
-> isn't a known problem, I'm forwarding this here.
+> We set the scope to RT_SCOPE_HOST if an IPv4 interface is configured
+> with a loopback address (127/8).  The scope is never reset, and will
+> remain set to RT_SCOPE_HOST after changing the address. This patch
+> resets the scope if the address is changed again, to restore normal
+> functionality.
+>=20
+> Signed-off-by: Bjorn Mork <bjorn@mork.no>
 
-So basically, tulip's ->stop() calls tulip_down() which does a
-flush_scheduled_work().
-
-Lockdep is saying that the RTNL mutex (which is held when we
-call the driver's ->stop() method) conflicts with that work
-queue lock that flush_scheduled_work() takes.
-
-Maybe this has something to do with how linkwatch works, but
-I can't say that I've seen this before nor do I quite understand
-what lockdep doesn't exactly like here.
+This patch looks fine, applied, thanks!
