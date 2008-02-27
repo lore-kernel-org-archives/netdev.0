@@ -1,45 +1,36 @@
-From: "Wappler Marcel" <Marcel.Wappler@bridgeco.net>
-Subject: RE: [PATCH] [resend]The kernel gets no IP from some DHCP servers, 2.6.24
-Date: Wed, 27 Feb 2008 14:11:55 +0100
-Message-ID: <83116F0A4FF67A4F97BA0B6E408C48E301C5CE08@zuerich.BC-Int.NET>
-References: <83116F0A4FF67A4F97BA0B6E408C48E301C5CDEF@zuerich.BC-Int.NET> <47C55BBF.7080501@trash.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Bugme-new] [Bug 10071] New: kernel hang in inet_init
+Date: Wed, 27 Feb 2008 13:49:48 +0000
+Message-ID: <20080227134948.GA6422@ff.dom.local>
+References: <20080225140034.5ef88935.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <ebiederman@lnxi.com>
-To: "Patrick McHardy" <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.bridgeco.net ([213.173.191.47]:2612 "EHLO mx.bridgeco.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755586AbYB0NL7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 08:11:59 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <47C55BBF.7080501@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-acpi@vger.kernel.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>
+To: yannick.dirou@axetic.com
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080225140034.5ef88935.akpm@linux-foundation.org>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------Original Message-----
->>  #include <linux/types.h>
->> @@ -103,6 +107,7 @@
->>  					   - '3' from resolv.h */
->> =20
->>  #define NONE __constant_htonl(INADDR_NONE)
->> +#define ZERO __constant_htonl(((unsigned long int) 0x00000000))
->This should probably use INADDR_ANY.
-My first try went in this direction. But at a second look I thought
-that the names ANY (255.255.255.255) and NONE (0.0.0.0) are indirect
-leading to confusion. The interpretation of the zero addresses in
-the DHCPDISCOVER packet is in the kind of 'no address' and not of
-'any addressee'. So the meaning and usage of INADDR_ANY and ZERO
-may be totally different in this file.
-In my opinion it is necessary to distinguish between INADDR_ANY
-and the ZERO address which ist requested to be in the DHCPDISCOVER
-packet.
+On 25-02-2008 23:00, Andrew Morton wrote:
+> On Sat, 23 Feb 2008 00:34:06 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+> 
+>> http://bugzilla.kernel.org/show_bug.cgi?id=10071
+...
+>>      KernelVersion: 2.6.25 rc2 latest git
+...
+>> there seem to be a weird interaction between acpi and inet_init
+>>
+>> any hint on how to provide better information
 
-Marcel
---
-Marcel Wappler
-Bridgeco AG
-CH-8600 D=FCbendorf
-Switzerland
+Yannick, here are a few questions:
+
+- is this bug just with this git, but OK before (or 2.6.25-rc3?)?
+- do all other drivers work properly and only net is a problem?
+- could you add to bugzilla full dmesg in both cases?
+
+Regards,
+Jarek P.
