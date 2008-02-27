@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Subject: Re: [PATCH 00/28] Swap over NFS -v16
-Date: Wed, 27 Feb 2008 09:14:19 +0100
-Message-ID: <1204100059.6242.360.camel@lappy>
+Date: Wed, 27 Feb 2008 09:33:58 +0100
+Message-ID: <1204101239.6242.372.camel@lappy>
 References: <20080220144610.548202000@chello.nl>
 	 <20080223000620.7fee8ff8.akpm@linux-foundation.org>
 	 <18371.43950.150842.429997@notabene.brown>
@@ -9,6 +9,7 @@ References: <20080220144610.548202000@chello.nl>
 	 <18372.64081.995262.986841@notabene.brown>
 	 <1204099113.6242.353.camel@lappy>
 	 <84144f020802270005p3bfbd04ar9da2875218ef98c4@mail.gmail.com>
+	 <1204100059.6242.360.camel@lappy>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -19,38 +20,56 @@ Cc: Neil Brown <neilb@suse.de>,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 To: Pekka Enberg <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:45496 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752309AbYB0IOd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 03:14:33 -0500
-In-Reply-To: <84144f020802270005p3bfbd04ar9da2875218ef98c4@mail.gmail.com>
+Received: from bombadil.infradead.org ([18.85.46.34]:38091 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755574AbYB0IeU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 03:34:20 -0500
+In-Reply-To: <1204100059.6242.360.camel@lappy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On Wed, 2008-02-27 at 10:05 +0200, Pekka Enberg wrote:
-> Hi Peter,
+On Wed, 2008-02-27 at 09:14 +0100, Peter Zijlstra wrote:
+> On Wed, 2008-02-27 at 10:05 +0200, Pekka Enberg wrote:
+> > Hi Peter,
+> > 
+> > On Wed, Feb 27, 2008 at 9:58 AM, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+> > >  > 1/ I note there is no way to tell if memory returned by kmalloc is
+> > >  >   from the emergency reserve - which contrasts with alloc_page
+> > >  >   which does make that information available through page->reserve.
+> > >  >   This seems a slightly unfortunate aspect of the interface.
+> > >
+> > >  Yes, but alas there is no room to store such information in kmalloc().
+> > >  That is, in a sane way. I think it was Daniel Phillips who suggested
+> > >  encoding it in the return pointer by flipping the low bit - but that is
+> > >  just too ugly and breaks all current kmalloc sites to boot.
+> > 
+> > Why can't you add a kmem_is_emergency() to SLUB that looks up the
+> > cache/slab/page (whatever is the smallest unit of the emergency pool
+> > here) for the object and use that?
 > 
-> On Wed, Feb 27, 2008 at 9:58 AM, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
-> >  > 1/ I note there is no way to tell if memory returned by kmalloc is
-> >  >   from the emergency reserve - which contrasts with alloc_page
-> >  >   which does make that information available through page->reserve.
-> >  >   This seems a slightly unfortunate aspect of the interface.
-> >
-> >  Yes, but alas there is no room to store such information in kmalloc().
-> >  That is, in a sane way. I think it was Daniel Phillips who suggested
-> >  encoding it in the return pointer by flipping the low bit - but that is
-> >  just too ugly and breaks all current kmalloc sites to boot.
+> There is an idea.. :-) It would mean preserving page->reserved, but SLUB
+> has plenty of page flags to pick from. Or maybe I should move the thing
+> to a page flag anyway. If we do that SLAB would allow something similar,
+> just look up the page for whatever address you get and look at PG_emerg
+> or something.
 > 
-> Why can't you add a kmem_is_emergency() to SLUB that looks up the
-> cache/slab/page (whatever is the smallest unit of the emergency pool
-> here) for the object and use that?
+> Having this would clean things up. I'll go work on this.
 
-There is an idea.. :-) It would mean preserving page->reserved, but SLUB
-has plenty of page flags to pick from. Or maybe I should move the thing
-to a page flag anyway. If we do that SLAB would allow something similar,
-just look up the page for whatever address you get and look at PG_emerg
-or something.
+Humm, and here I sit staring at the screen. Perhaps I should go get my
+morning juice, but...
 
-Having this would clean things up. I'll go work on this.
+  if (mem_reserve_kmalloc_charge(my_res, sizeof(*foo), 0)) {
+    foo = kmalloc(sizeof(*foo), gfp|__GFP_MEMALLOC)
+    if (!kmem_is_emergency(foo))
+      mem_reserve_kmalloc_charge(my_res, -sizeof(*foo), 0)
+  } else
+    foo = kmalloc(sizeof(*foo), gfp);
+
+Just doesn't look too pretty..
+
+And needing to always account the allocation seems wrong.. but I'll take
+poison and see if that wakes up my mind.
+
+
 
