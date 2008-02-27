@@ -1,64 +1,54 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2054 tcp_mark_head_lost()
-Date: Wed, 27 Feb 2008 21:29:08 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0802272120430.1741@kivilampi-30.cs.helsinki.fi>
-References: <858077.97160.qm@web39709.mail.mud.yahoo.com>
- <20080223000310.4630daa8.akpm@linux-foundation.org>
- <Pine.LNX.4.64.0802271108290.13029@kivilampi-30.cs.helsinki.fi>
- <3d8471ca0802271056l320a7ee2m5227e114a968d483@mail.gmail.com>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [PATCH] alloc_percpu() fails to allocate percpu data
+Date: Wed, 27 Feb 2008 11:44:42 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0802271140470.1790@schroedinger.engr.sgi.com>
+References: <47BDBC23.10605@cosmosbay.com> <1203632765.6112.20.camel@lappy>
+ <200802232023.52352.nickpiggin@yahoo.com.au>
 Mime-Version: 1.0
-Content-Type: MULTIPART/Mixed; boundary="=_courier-8386-1204138613-0001-2"
-Cc: Giangiacomo Mariotti <giangiacomo_mariotti@yahoo.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Guillaume Chazarain <guichaz@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758242AbYB0T3W@vger.kernel.org>
-In-Reply-To: <3d8471ca0802271056l320a7ee2m5227e114a968d483@mail.gmail.com>
-Content-ID: <Pine.LNX.4.64.0802272120431.1741@kivilampi-30.cs.helsinki.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+To: Nick Piggin <nickpiggin@yahoo.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from netops-testserver-3-out.sgi.com ([192.48.171.28]:44233 "EHLO
+	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756746AbYB0Ton (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 14:44:43 -0500
+In-Reply-To: <200802232023.52352.nickpiggin@yahoo.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Sat, 23 Feb 2008, Nick Piggin wrote:
 
---=_courier-8386-1204138613-0001-2
-Content-Type: TEXT/PLAIN; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0802272120432.1741@kivilampi-30.cs.helsinki.fi>
-Content-Disposition: inline
-
-On Wed, 27 Feb 2008, Guillaume Chazarain wrote:
-
-> On Wed, Feb 27, 2008 at 10:29 AM, Ilpo Järvinen 
-> <ilpo.jarvinen@helsinki.fi> wrote:
-> > I did in the past a debug patch
-> >  that verifies TCP's write queue state by the hard way, ie., by 
-> >  bruteforce
-> >  walking often enough to catch inconsistencies early enough to find 
-> >  out
-> >  the root cause.
+> What I don't understand is why the slab allocators have something like
+> this in it:
 > 
-> Are you talking about this one:
-> http://marc.info/?l=linux-netdev&m=119482084511178 ?
-> I attached a forward port to current git.
+>         if ((flags & SLAB_HWCACHE_ALIGN) &&
+>                         size > cache_line_size() / 2)
+>                 return max_t(unsigned long, align, cache_line_size());
+> 
+> If you ask for HWCACHE_ALIGN, then you should get it. I don't
+> understand, why do they think they knows better than the caller?
 
-No, I'd much more complete set of tests than in that one.
+Tradition.... Its irks me as well.
 
-> I am using this patch, and caught this maybe related error while 
-> Bittorrenting:
->
-> KERNEL: assertion (packets <= tp->packets_out) failed at
-> /home/g/linux-2.6/net/ipv4/tcp_input.c (2145)
-> KERNEL: assertion (packets <= tp->packets_out) failed at
-> /home/g/linux-2.6/net/ipv4/tcp_input.c (2145)
-> ------------[ cut here ]------------
-> WARNING: at /home/g/linux-2.6/net/ipv4/tcp_input.c:2515
-> tcp_fastretrans_alert+0xa5/0xa4f()
+> Things like this are just going to lead to very difficult to track
+> performance problems. Possibly correctness problems in rare cases.
+> 
+> There could be another flag for "maybe align".
 
-You seem to be good in catching these... :-)
+SLAB_HWCACHE_ALIGN *is* effectively a maybe align flag given the above 
+code. 
 
+If we all agree then we could change this to have must have semantics? It 
+has the potential of enlarging objects for small caches. 
 
--- 
- i.
---=_courier-8386-1204138613-0001-2--
+SLAB_HWCACHE_ALIGN has an effect that varies according to the alignment 
+requirements of the architecture that the kernel is build on. We may be in 
+for some surprises if we change this.
+
