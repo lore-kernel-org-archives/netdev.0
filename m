@@ -1,49 +1,52 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: include/linux/pcounter.h
-Date: Wed, 27 Feb 2008 08:36:50 +0100
-Message-ID: <20080227073650.GC4638@elte.hu>
-References: <20080216112618.ec450f9b.akpm@linux-foundation.org> <20080216.215401.20463603.davem@davemloft.net> <20080226092454.GA10987@elte.hu> <20080226.133531.69481052.davem@davemloft.net>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: [NET]: Messed multicast lists after dev_mc_sync/unsync
+Date: Wed, 27 Feb 2008 09:38:34 +0200 (EET)
+Message-ID: <alpine.LRH.1.00.0802270936470.12755@netcore.fi>
+References: <47BAEE3B.7020502@trash.net> <20080219.141757.213666958.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, dada1@cosmosbay.com,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: kaber@trash.net, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:49026 "EHLO mx3.mail.elte.hu"
+Received: from netcore.fi ([193.94.160.1]:37923 "EHLO netcore.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750921AbYB0Hh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2008 02:37:27 -0500
-Content-Disposition: inline
-In-Reply-To: <20080226.133531.69481052.davem@davemloft.net>
+	id S1755770AbYB0HjG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2008 02:39:06 -0500
+In-Reply-To: <20080219.141757.213666958.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This seems to have missed 2.6.24.3 (also 2.6.23.17), hopefully the 
+next stable will have it.
 
-* David Miller <davem@davemloft.net> wrote:
+On Tue, 19 Feb 2008, David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Tue, 19 Feb 2008 15:56:59 +0100
+>
+>>     [NET]: Messed multicast lists after dev_mc_sync/unsync
+>>
+>>     Commit a0a400d79e3dd7843e7e81baa3ef2957bdc292d0 from you
+>>     introduced a new field "da_synced" to struct dev_addr_list that is
+>>     not properly initialized to 0. So when any of the current users (8021q,
+>>     macvlan, mac80211) calls dev_mc_sync/unsync they mess the address
+>>     list for both devices.
+>>
+>>     The attached patch fixed it for me and avoid future problems.
+>>
+>>     Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
+>>     Signed-off-by: Patrick McHardy <kaber@trash.net>
+>
+> I've added the headline description of the referenced commit
+> to this commit message, and will queue this up to -stable.
+>
+> Thanks!
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
 
-> > but the main and fundamental question still remains unanswered (more 
-> > than 3 weeks after Andrew asked that question): why was this piece 
-> > of general infrastructure merged via net.git and not submitted to 
-> > lkml ever? The code touching -mm does _not_ count as "review".
-> 
-> I already stated this was a mistake and it won't happen again in the 
-> future.
-
-sorry - that bit of the thread didnt seem to make it to lkml. I just saw 
-this incomplete discussion with a denial and with no resolution.
-
-And you did the right thing anyway by thinking in terms of a generic 
-piece of infrastructure instead of hiding it away into say 
-include/net/pcounter.h (which nobody could have objected against).
-
-I sometimes think that the forced isolation of subsystems (rather 
-strongly enforced both by -mm and by linux-next) and their hiding away 
-on non-lkml lists will eventually hurt the core kernel because less and 
-less people will be willing to go the trouble of doing proper 
-cross-subsystem development. That results in duplicated or specialistic 
-infrastructure, increased code size and longer term, ultimately less 
-performance. (by the time we notice _that_ it will probably be too late 
-to do anything about it)
-
-	Ingo
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
