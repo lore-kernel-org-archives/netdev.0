@@ -1,28 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.25-rc] [IPV6] SYSCTL: Fix possible memory leakage
- in error path.
-Date: Wed, 27 Feb 2008 12:06:56 -0800 (PST)
-Message-ID: <20080227.120656.129224449.davem@davemloft.net>
-References: <20080228.002014.05421460.yoshfuji@linux-ipv6.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] alloc_percpu() fails to allocate percpu data
+Date: Wed, 27 Feb 2008 12:24:51 -0800
+Message-ID: <20080227122451.6a3b5565.akpm@linux-foundation.org>
+References: <47BDBC23.10605@cosmosbay.com>
+	<Pine.LNX.4.64.0802271158100.1790@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: dada1@cosmosbay.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	yanmin_zhang@linux.intel.com, travis@sgi.com
+To: Christoph Lameter <clameter@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59600
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757291AbYB0UG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 15:06:57 -0500
-In-Reply-To: <20080228.002014.05421460.yoshfuji@linux-ipv6.org>
+Received: from smtp1.linux-foundation.org ([207.189.120.13]:47484 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757212AbYB0U0t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 15:26:49 -0500
+In-Reply-To: <Pine.LNX.4.64.0802271158100.1790@schroedinger.engr.sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Thu, 28 Feb 2008 00:20:14 +0900 (JST)
+On Wed, 27 Feb 2008 11:59:32 -0800 (PST)
+Christoph Lameter <clameter@sgi.com> wrote:
 
-> In error path, we do need to free memory just allocated.
+> Any decision made on what to do about this one? Mike or I can 
+> repost the per cpu allocator against mm? The fix by Eric could be used 
+> in the interim for 2.6.24?
 > 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Patch applied, thank you.
+I suppose I'll merge Eric's patch when I've tested it fully (well, as fully
+as I test stuff).
+
+It'd be nice to get that cache_line_size()/L1_CACHE_BYTES/L1_CACHE_ALIGN()
+mess sorted out.  If it's a mess - I _think_ it is?
+
+
