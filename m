@@ -1,28 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Messed multicast lists after dev_mc_sync/unsync
-Date: Tue, 26 Feb 2008 23:52:03 -0800 (PST)
-Message-ID: <20080226.235203.119392670.davem@davemloft.net>
-References: <47BAEE3B.7020502@trash.net>
-	<20080219.141757.213666958.davem@davemloft.net>
-	<alpine.LRH.1.00.0802270936470.12755@netcore.fi>
+From: Pekka J Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [RFC/PATCH] ipg: add jumbo frame support kconfig option
+Date: Wed, 27 Feb 2008 09:52:31 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0802270952050.19294@sbz-30.cs.Helsinki.FI>
+References: <Pine.LNX.4.64.0802262148270.12999@sbz-30.cs.Helsinki.FI>
+ <20080226123247.2b63bbf0@extreme> <47C49BDD.50205@garzik.org>
+ <Pine.LNX.4.64.0802270942070.19136@sbz-30.cs.Helsinki.FI>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: pekkas@netcore.fi
+Cc: Stephen Hemminger <shemminger@vyatta.com>, romieu@fr.zoreil.com,
+	sorbica@icplus.com.tw, jesse@icplus.com.tw,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50925
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752026AbYB0HwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 02:52:03 -0500
-In-Reply-To: <alpine.LRH.1.00.0802270936470.12755@netcore.fi>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:54145 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752310AbYB0Hwd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 02:52:33 -0500
+In-Reply-To: <Pine.LNX.4.64.0802270942070.19136@sbz-30.cs.Helsinki.FI>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pekka Savola <pekkas@netcore.fi>
-Date: Wed, 27 Feb 2008 09:38:34 +0200 (EET)
+On Wed, 27 Feb 2008, Pekka J Enberg wrote:
+> Ok, so a sysfs attribute would be sufficient, I suppose?
 
-> This seems to have missed 2.6.24.3 (also 2.6.23.17), hopefully the 
-> next stable will have it.
+s/sysfs attribute/module parameter/
 
-I will make sure it does.
+Sorry, too early in the morning for me.
