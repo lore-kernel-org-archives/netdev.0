@@ -1,65 +1,95 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH][PPPOL2TP] add missing sock_put() in
-	pppol2tp_tunnel_closeall()
-Date: Wed, 27 Feb 2008 11:48:37 +0000
-Message-ID: <20080227114837.GA5795@ff.dom.local>
-References: <20080225215837.GA3281@ami.dom.local> <47C402A2.8040401@katalix.com>
+From: frederic Rodo <f.rodo@til-technologies.fr>
+Subject: [PATCH] dm9161: add configuration for MII/RMII
+Date: Wed, 27 Feb 2008 12:58:37 +0100
+Message-ID: <47C5506D.9080302@til-technologies.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jgarzik@pobox.com, avictor.za@gmail.com, afleming@freescale.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:32043 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754001AbYB0Lre (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 06:47:34 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so2172132fga.17
-        for <netdev@vger.kernel.org>; Wed, 27 Feb 2008 03:47:33 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <47C402A2.8040401@katalix.com>
+Received: from smtp25.orange.fr ([193.252.22.22]:20751 "EHLO smtp25.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753457AbYB0L7q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2008 06:59:46 -0500
+Received: from smtp.til-technologies.fr (LAubervilliers-151-12-100-178.w193-252.abo.wanadoo.fr [193.252.204.178])
+	by mwinf2522.orange.fr (SMTP Server) with ESMTP id 073AF1C0008A
+	for <netdev@vger.kernel.org>; Wed, 27 Feb 2008 12:59:43 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-And here is one more similar BTW fix.
+Hi Jeff,
 
-Jarek P.
+I've send this patch on netdev on January. It's add the MII/RMII config=
+uration for davicom dm9161. Can you merge it into=20
+the mainline?
 
--------------->
+thanks
 
-Subject: [PPPOL2TP] add missing sock_put() in pppol2tp_tunnel_closeall()
+diff --git a/drivers/net/phy/davicom.c b/drivers/net/phy/davicom.c
+index 7ed632d..6bdc32f 100644
+--- a/drivers/net/phy/davicom.c
++++ b/drivers/net/phy/davicom.c
+@@ -37,6 +37,7 @@
 
-Every skb removed from session->reorder_q needs sock_put().
+  #define MII_DM9161_SCR        0x10
+  #define MII_DM9161_SCR_INIT    0x0610
++#define MII_DM9161_SCR_RMII    0x0100
 
+  /* DM9161 Interrupt Register */
+  #define MII_DM9161_INTR    0x15
+@@ -103,7 +104,7 @@ static int dm9161_config_aneg(struct phy_device *ph=
+ydev)
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+  static int dm9161_config_init(struct phy_device *phydev)
+  {
+-    int err;
++    int err, temp;
 
----
+      /* Isolate the PHY */
+      err =3D phy_write(phydev, MII_BMCR, BMCR_ISOLATE);
+@@ -111,8 +112,19 @@ static int dm9161_config_init(struct phy_device *p=
+hydev)
+      if (err < 0)
+          return err;
 
- drivers/net/pppol2tp.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
-index e0b072d..ee9e2a7 100644
---- a/drivers/net/pppol2tp.c
-+++ b/drivers/net/pppol2tp.c
-@@ -1110,6 +1110,8 @@ static void pppol2tp_tunnel_closeall(struct pppol2tp_tunnel *tunnel)
- 	for (hash = 0; hash < PPPOL2TP_HASH_SIZE; hash++) {
- again:
- 		hlist_for_each_safe(walk, tmp, &tunnel->session_hlist[hash]) {
-+			struct sk_buff *skb;
+-    /* Do not bypass the scrambler/descrambler */
+-    err =3D phy_write(phydev, MII_DM9161_SCR, MII_DM9161_SCR_INIT);
++    /* Do not bypass the scrambler/descrambler , configure MII Mode */
++    switch (phydev->interface) {
++    case PHY_INTERFACE_MODE_MII:
++        temp =3D MII_DM9161_SCR_INIT;
++        break;
++    case PHY_INTERFACE_MODE_RMII:
++        temp =3D  MII_DM9161_SCR_INIT | MII_DM9161_SCR_RMII;
++        break;
++    default:
++        return -EINVAL;
++    }
 +
- 			session = hlist_entry(walk, struct pppol2tp_session, hlist);
- 
- 			sk = session->sock;
-@@ -1138,7 +1140,10 @@ again:
- 			/* Purge any queued data */
- 			skb_queue_purge(&sk->sk_receive_queue);
- 			skb_queue_purge(&sk->sk_write_queue);
--			skb_queue_purge(&session->reorder_q);
-+			while ((skb = skb_dequeue(&session->reorder_q))) {
-+				kfree_skb(skb);
-+				sock_put(sk);
-+			}
- 
- 			release_sock(sk);
- 			sock_put(sk);
++    err =3D phy_write(phydev, MII_DM9161_SCR, temp);
+
+      if (err < 0)
+          return err;
+Signed-off-by: Frederic Rodo <f.rodo@til-technologies.fr>
+
+-----------------------------------------------------------------------=
+--
+Les informations pr=E9c=E9dentes peuvent =EAtre confidentielles ou priv=
+il=E9gi=E9es.
+Si vous n'=EAtes pas le destinataire pr=E9vu de ce mail, veuillez en no=
+tifier=20
+l'exp=E9diteur en r=E9pondant =E0 ce message puis supprimez-en toute tr=
+ace=20
+de vos syst=E8mes.
+
+TIL Technologies
+Parc du Golf, Bat 43
+350 rue J.R Guilibert Gautier de la Lauzi=E8re=20
+13856 AIX EN PROVENCE
+Tel. : +33 4 42 37 11 77
+-----------------------------------------------------------------------=
+--
+
+
