@@ -1,40 +1,65 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET]: Messed multicast lists after dev_mc_sync/unsync
-Date: Wed, 27 Feb 2008 12:46:41 +0100
-Message-ID: <47C54DA1.5070402@trash.net>
-References: <47BAEE3B.7020502@trash.net>	 (sfid-20080219_145720_362430_7BA05F2C) <1204112235.3729.54.camel@johannes.berg>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH][PPPOL2TP] add missing sock_put() in
+	pppol2tp_tunnel_closeall()
+Date: Wed, 27 Feb 2008 11:48:37 +0000
+Message-ID: <20080227114837.GA5795@ff.dom.local>
+References: <20080225215837.GA3281@ami.dom.local> <47C402A2.8040401@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50710 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753858AbYB0LrF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 06:47:05 -0500
-In-Reply-To: <1204112235.3729.54.camel@johannes.berg>
+Received: from fg-out-1718.google.com ([72.14.220.154]:32043 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754001AbYB0Lre (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 06:47:34 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so2172132fga.17
+        for <netdev@vger.kernel.org>; Wed, 27 Feb 2008 03:47:33 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <47C402A2.8040401@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Johannes Berg wrote:
->     
->   
->>     Commit a0a400d79e3dd7843e7e81baa3ef2957bdc292d0 from you
->>     introduced a new field "da_synced" to struct dev_addr_list that is
->>     not properly initialized to 0. So when any of the current users (8021q,
->>     macvlan, mac80211) calls dev_mc_sync/unsync they mess the address
->>     list for both devices.
->>  
->> -	da = kmalloc(sizeof(*da), GFP_ATOMIC);
->> +	da = kzalloc(sizeof(*da), GFP_ATOMIC);
->>     
->
-> Could this be the reason for us seeing "multicast address leakage"
-> warnings?
+And here is one more similar BTW fix.
+
+Jarek P.
+
+-------------->
+
+Subject: [PPPOL2TP] add missing sock_put() in pppol2tp_tunnel_closeall()
+
+Every skb removed from session->reorder_q needs sock_put().
 
 
-I don't think so, the users field was already initialized properly
-before. Is wireless using dev_unicast_sync or dev_mc_sync?
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
+---
+
+ drivers/net/pppol2tp.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
+index e0b072d..ee9e2a7 100644
+--- a/drivers/net/pppol2tp.c
++++ b/drivers/net/pppol2tp.c
+@@ -1110,6 +1110,8 @@ static void pppol2tp_tunnel_closeall(struct pppol2tp_tunnel *tunnel)
+ 	for (hash = 0; hash < PPPOL2TP_HASH_SIZE; hash++) {
+ again:
+ 		hlist_for_each_safe(walk, tmp, &tunnel->session_hlist[hash]) {
++			struct sk_buff *skb;
++
+ 			session = hlist_entry(walk, struct pppol2tp_session, hlist);
+ 
+ 			sk = session->sock;
+@@ -1138,7 +1140,10 @@ again:
+ 			/* Purge any queued data */
+ 			skb_queue_purge(&sk->sk_receive_queue);
+ 			skb_queue_purge(&sk->sk_write_queue);
+-			skb_queue_purge(&session->reorder_q);
++			while ((skb = skb_dequeue(&session->reorder_q))) {
++				kfree_skb(skb);
++				sock_put(sk);
++			}
+ 
+ 			release_sock(sk);
+ 			sock_put(sk);
