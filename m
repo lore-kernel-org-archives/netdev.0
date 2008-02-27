@@ -1,54 +1,65 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH][PPPOL2TP] add missing sock_put() in pppol2tp_recv_dequeue()
-Date: Wed, 27 Feb 2008 10:54:32 +0000
-Message-ID: <20080227105431.GA4527@ff.dom.local>
-References: <20080225215837.GA3281@ami.dom.local> <47C402A2.8040401@katalix.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [NET]: Messed multicast lists after dev_mc_sync/unsync
+Date: Wed, 27 Feb 2008 12:37:15 +0100
+Message-ID: <1204112235.3729.54.camel@johannes.berg>
+References: <47BAEE3B.7020502@trash.net>
+	 (sfid-20080219_145720_362430_7BA05F2C)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-+jTO7Sxzdpbq11TGAZqc"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:51344 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755671AbYB0Kx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 05:53:29 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so275870ugc.16
-        for <netdev@vger.kernel.org>; Wed, 27 Feb 2008 02:53:27 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <47C402A2.8040401@katalix.com>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:55174 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751856AbYB0LhX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 06:37:23 -0500
+In-Reply-To: <47BAEE3B.7020502@trash.net> (sfid-20080219_145720_362430_7BA05F2C)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-Here is some tiny BTW fix (probably not connected with these lockups).
+--=-+jTO7Sxzdpbq11TGAZqc
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Regards,
-Jarek P.
+   =20
+>     Commit a0a400d79e3dd7843e7e81baa3ef2957bdc292d0 from you
+>     introduced a new field "da_synced" to struct dev_addr_list that is
+>     not properly initialized to 0. So when any of the current users (8021=
+q,
+>     macvlan, mac80211) calls dev_mc_sync/unsync they mess the address
+>     list for both devices.
+> =20
+> -	da =3D kmalloc(sizeof(*da), GFP_ATOMIC);
+> +	da =3D kzalloc(sizeof(*da), GFP_ATOMIC);
 
--------------->
+Could this be the reason for us seeing "multicast address leakage"
+warnings?
 
-Subject: [PPPOL2TP] add missing sock_put() in pppol2tp_recv_dequeue()
+johannes
 
-Every skb removed from session->reorder_q needs sock_put().
+--=-+jTO7Sxzdpbq11TGAZqc
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+iQIVAwUAR8VLaqVg1VMiehFYAQIUCg/+OUnVMYq9hw4iZ/iwOWQHKLCOA0HmGCyq
+cvHBm83vWwwswI5ysbXrCiuifcVIGYJw7XZCQHtXcdaUdjaSAUmFyC8a0qEJaCux
+O9x/rx9iXKmzfFf68Bli0EAhVdlWxIRPcw7doTbHLTvpo+OxJ2sRGakQ0TRG+qYY
+i7fO8Q85YSjbatHDycpR+uWb5CoZFAvaYl2iZr+YLh0zXXbowlTCu8w9uExPVcwP
+07dNWJSuzU07NC+OsVWLefWsQSOnoXndnM7pg2GhwlUJ+o+HLWVF4AqImSOJ0KEA
+djAvvBk2aQGHpbbQj5ueEBzCT0EVOfkayHXrgiz2WtwUn5JK0sKDBsAflqxeXYcb
+2cMNpaTqfj0p6XjQHIXDTaH2lnzuS0igu9j/wnIWGqa7ZksGIdVa2ZALmnBws8RN
+wMFoM+reUTdOXmXmiok4tIAhSci0adaGmmMybTaNXweWtvohYgfA48L6L3dxK53J
+EtZpRRt8MgXv77v535UEly6EB1sJesZTFsMlLsVXzpo0q8vduQVyRd+iRXfWGokv
+hgR+36RbA2NBENnGSBjqJcRo5xKXsPQZXHw4VP7xc2xGBXoBDkr5setxxji6f7Rd
+YiaQ0YO1TNuC9MR3L65U9xC6WfZHyLwaCBNmkCmIQKBq3mCxqDvIbguWi3M/Xdrc
+yIulVbUwAUA=
+=9ykE
+-----END PGP SIGNATURE-----
 
----
+--=-+jTO7Sxzdpbq11TGAZqc--
 
- drivers/net/pppol2tp.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
-index e0b072d..dcd4991 100644
---- a/drivers/net/pppol2tp.c
-+++ b/drivers/net/pppol2tp.c
-@@ -455,6 +455,7 @@ static void pppol2tp_recv_dequeue(struct pppol2tp_session *session)
- 			       skb_queue_len(&session->reorder_q));
- 			__skb_unlink(skb, &session->reorder_q);
- 			kfree_skb(skb);
-+			sock_put(session->sock);
- 			continue;
- 		}
- 
