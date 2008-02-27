@@ -1,95 +1,80 @@
-From: frederic Rodo <f.rodo@til-technologies.fr>
-Subject: [PATCH] dm9161: add configuration for MII/RMII
-Date: Wed, 27 Feb 2008 12:58:37 +0100
-Message-ID: <47C5506D.9080302@til-technologies.fr>
+From: Louis JANG <louis@mizi.com>
+Subject: Re: [Bluez-devel] forcing SCO connection patch
+Date: Wed, 27 Feb 2008 21:21:57 +0900
+Message-ID: <47C555E5.2000903@mizi.com>
+References: <47666E1F.2000902@mizi.com>	 <a8e1da0802242330l765b8b1ava62b857baf8a5568@mail.gmail.com>	 <47C28A33.4070102@mizi.com> <a8e1da0802250155u1b7af481va203849f68d9106b@mail.gmail.com> <47C2A7FA.2060902@mizi.com> <70692DDF-93B7-447E-ABEE-3CDBD94F15F1@holtmann.org> <47C38D40.3040809@mizi.com> <B96BD3FE-F490-4AD5-9315-ECD42CE9C728@holtmann.org> <47C4C3D4.8010902@mizi.com> <2A7EF87C-1340-45D7-B457-F81799674B1E@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jgarzik@pobox.com, avictor.za@gmail.com, afleming@freescale.com
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------080202030206090505010301"
+Cc: Dave Young <hidave.darkstar@gmail.com>,
+	linux-bluetooth@vger.kernel.org,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	bmidgley@gmail.com, David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp25.orange.fr ([193.252.22.22]:20751 "EHLO smtp25.orange.fr"
+Received: from mail.mizi.com ([61.107.31.33]:45396 "EHLO mail.mizi.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753457AbYB0L7q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2008 06:59:46 -0500
-Received: from smtp.til-technologies.fr (LAubervilliers-151-12-100-178.w193-252.abo.wanadoo.fr [193.252.204.178])
-	by mwinf2522.orange.fr (SMTP Server) with ESMTP id 073AF1C0008A
-	for <netdev@vger.kernel.org>; Wed, 27 Feb 2008 12:59:43 +0100 (CET)
+	id S1754069AbYB0MWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2008 07:22:25 -0500
+In-Reply-To: <2A7EF87C-1340-45D7-B457-F81799674B1E@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jeff,
+This is a multi-part message in MIME format.
+--------------080202030206090505010301
+Content-Type: text/plain; charset=EUC-KR
+Content-Transfer-Encoding: 8bit
 
-I've send this patch on netdev on January. It's add the MII/RMII config=
-uration for davicom dm9161. Can you merge it into=20
-the mainline?
+Marcel Holtmann ¾´ ±Û:
+>
+> so the patch is fine, but the description of what this patch is doing,
+> why it is doing it this way and what it fixes is fully missing. Please
+> update it with a proper description.
+I added more information. please check it, and please let me know if
+there are any missings.
 
-thanks
+Thanks
+Louis JANG
 
-diff --git a/drivers/net/phy/davicom.c b/drivers/net/phy/davicom.c
-index 7ed632d..6bdc32f 100644
---- a/drivers/net/phy/davicom.c
-+++ b/drivers/net/phy/davicom.c
-@@ -37,6 +37,7 @@
-
-  #define MII_DM9161_SCR        0x10
-  #define MII_DM9161_SCR_INIT    0x0610
-+#define MII_DM9161_SCR_RMII    0x0100
-
-  /* DM9161 Interrupt Register */
-  #define MII_DM9161_INTR    0x15
-@@ -103,7 +104,7 @@ static int dm9161_config_aneg(struct phy_device *ph=
-ydev)
-
-  static int dm9161_config_init(struct phy_device *phydev)
-  {
--    int err;
-+    int err, temp;
-
-      /* Isolate the PHY */
-      err =3D phy_write(phydev, MII_BMCR, BMCR_ISOLATE);
-@@ -111,8 +112,19 @@ static int dm9161_config_init(struct phy_device *p=
-hydev)
-      if (err < 0)
-          return err;
-
--    /* Do not bypass the scrambler/descrambler */
--    err =3D phy_write(phydev, MII_DM9161_SCR, MII_DM9161_SCR_INIT);
-+    /* Do not bypass the scrambler/descrambler , configure MII Mode */
-+    switch (phydev->interface) {
-+    case PHY_INTERFACE_MODE_MII:
-+        temp =3D MII_DM9161_SCR_INIT;
-+        break;
-+    case PHY_INTERFACE_MODE_RMII:
-+        temp =3D  MII_DM9161_SCR_INIT | MII_DM9161_SCR_RMII;
-+        break;
-+    default:
-+        return -EINVAL;
-+    }
-+
-+    err =3D phy_write(phydev, MII_DM9161_SCR, temp);
-
-      if (err < 0)
-          return err;
-Signed-off-by: Frederic Rodo <f.rodo@til-technologies.fr>
-
------------------------------------------------------------------------=
---
-Les informations pr=E9c=E9dentes peuvent =EAtre confidentielles ou priv=
-il=E9gi=E9es.
-Si vous n'=EAtes pas le destinataire pr=E9vu de ce mail, veuillez en no=
-tifier=20
-l'exp=E9diteur en r=E9pondant =E0 ce message puis supprimez-en toute tr=
-ace=20
-de vos syst=E8mes.
-
-TIL Technologies
-Parc du Golf, Bat 43
-350 rue J.R Guilibert Gautier de la Lauzi=E8re=20
-13856 AIX EN PROVENCE
-Tel. : +33 4 42 37 11 77
------------------------------------------------------------------------=
---
+>
+> Regards
+>
+> Marcel
 
 
+--------------080202030206090505010301
+Content-Type: text/plain;
+ name="patch_hci_event.c6"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="patch_hci_event.c6"
+
+V2hlbiBibHVleiB0cmllZCB0byBjb25uZWN0IFNDTyBjaGFubmVsIHdpdGggSENJX09QX1NF
+VFVQX1NZTkNfQ09OTihFU0NPX0xJTkspLCAKYSByZWFsIGNvbm5lY3Rpb24gbWF5IGJlIGNv
+bm5lY3RlZCB3aXRoIFNDT19MSU5LIGluc3RlYWQgb2YgRVNDT19MSU5LIHdoZW4gCnBlZXIg
+ZGV2aWNlIGRvZXNuJ3Qgc3VwcG9ydCBlU0NPLiAgaG93ZXZlciBibHVleiB0cnkgdG8gZmlu
+ZCBjb25uZWN0aW9uIGhhbmRsZSAKYnkgZXZlbnQncyBsaW5rIHR5cGUoU0NPX0xJTksgaW4g
+YWJvdmUgY2FzZSkgYW5kIHRoZSB2YWxpZCBjb25uZWN0aW9uIGhhbmRsZSAKZm9yIHRoaXMg
+ZXZlbnQgaXMgd2FpdGluZyBmb3IgRVNDT19MSU5LLiBzbyBibHVleiBjYW4ndCBmaW5kIGNv
+bm5lY3Rpb24gaGFuZGxlIAphbmQgZGlzY2FyZGVkIHRoZSBldmVudC4gCgpUaGlzIHBhdGNo
+IGlzIHRvIGhhbmRsZSBkaWZmZXJlbnQgdHlwZSBvZiBzeW5jaHJvbm91cyBsaW5rIGlzIGVz
+dGFiaWxpc2hlZCAKd2l0aCBpdHMgcmVxdWVzdC4gCgpJZiBibHVleiBjYW4ndCBmaW5kIGNv
+bm5lY3Rpb24gaGFuZGxlLCBpdCB0cnkgdG8gZmluZCB3aXRoIGRpZmZlcmVudCAKbGluayB0
+eXBlIGFnYWluLiAoRm9yIHRoZSBhYm92ZSBjYXNlLCBpZiBibHVleiBjYW4ndCBmaW5kIGNv
+bm5lY3Rpb24gCmhhbmRsZSB3aXRoIFNDT19MSU5LLCBpdCB0cnkgdG8gZmluZCBjb25uZWN0
+aW9uIGhhbmRsZSB3aXRoIEVTQ09fTElOSyBhZ2Fpbi4pCmFuZCB1cGRhdGUgbGluayB0eXBl
+IG9mIHRoaXMgY29ubmVjdGlvbiBoYW5kbGUgd2l0aCBldmVudCdzIGxpbmsgdHlwZS4KClNp
+Z25lZC1vZmYtYnk6IExvdWlzIEpBTkcgPGxvdWlzQG1pemkuY29tPgotLS0gbGludXgtMi42
+LjIzL25ldC9ibHVldG9vdGgvaGNpX2V2ZW50LmMub3JpZwkyMDA4LTAyLTI2IDEyOjQ2OjM2
+LjAwMDAwMDAwMCArMDkwMAorKysgbGludXgtMi42LjIzL25ldC9ibHVldG9vdGgvaGNpX2V2
+ZW50LmMJMjAwOC0wMi0yNyAxMDo0ODoyOS4wMDAwMDAwMDAgKzA5MDAKQEAgLTEzMTMsOCAr
+MTMxMywxNSBAQAogCWhjaV9kZXZfbG9jayhoZGV2KTsKIAogCWNvbm4gPSBoY2lfY29ubl9o
+YXNoX2xvb2t1cF9iYShoZGV2LCBldi0+bGlua190eXBlLCAmZXYtPmJkYWRkcik7Ci0JaWYg
+KCFjb25uKQotCQlnb3RvIHVubG9jazsKKwlpZiAoIWNvbm4pIHsKKwkJX191OCBsaW5rX3R5
+cGUgPSAoZXYtPmxpbmtfdHlwZSA9PSBFU0NPX0xJTkspID8gU0NPX0xJTksgOiBFU0NPX0xJ
+Tks7CisKKwkJY29ubiA9IGhjaV9jb25uX2hhc2hfbG9va3VwX2JhKGhkZXYsIGxpbmtfdHlw
+ZSwgJmV2LT5iZGFkZHIpOworCQlpZiAoIWNvbm4pCisJCQlnb3RvIHVubG9jazsKKworCQlj
+b25uLT50eXBlID0gZXYtPmxpbmtfdHlwZTsKKwl9CiAKIAlpZiAoIWV2LT5zdGF0dXMpIHsK
+IAkJY29ubi0+aGFuZGxlID0gX19sZTE2X3RvX2NwdShldi0+aGFuZGxlKTsK
+--------------080202030206090505010301--
