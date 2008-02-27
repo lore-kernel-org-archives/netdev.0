@@ -1,37 +1,40 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] alloc_percpu() fails to allocate percpu data
-Date: Wed, 27 Feb 2008 12:24:51 -0800
-Message-ID: <20080227122451.6a3b5565.akpm@linux-foundation.org>
-References: <47BDBC23.10605@cosmosbay.com>
-	<Pine.LNX.4.64.0802271158100.1790@schroedinger.engr.sgi.com>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: capturing vlan on 2.6.18
+Date: Wed, 27 Feb 2008 21:55:20 +0100
+Message-ID: <m3r6eyyv9j.fsf@ursa.amorsen.dk>
+References: <200802271517.52092.krauz@cncz.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	yanmin_zhang@linux.intel.com, travis@sgi.com
-To: Christoph Lameter <clameter@sgi.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([207.189.120.13]:47484 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757212AbYB0U0t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 15:26:49 -0500
-In-Reply-To: <Pine.LNX.4.64.0802271158100.1790@schroedinger.engr.sgi.com>
+Received: from main.gmane.org ([80.91.229.2]:40001 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754193AbYB0Uzb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2008 15:55:31 -0500
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1JUTJH-0008Us-Pq
+	for netdev@vger.kernel.org; Wed, 27 Feb 2008 20:55:27 +0000
+Received: from hd5b9080a.c45-01-12.sta.perspektivbredband.net ([213.185.8.10])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 27 Feb 2008 20:55:27 +0000
+Received: from benny+usenet by hd5b9080a.c45-01-12.sta.perspektivbredband.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 27 Feb 2008 20:55:27 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Feb 2008 11:59:32 -0800 (PST)
-Christoph Lameter <clameter@sgi.com> wrote:
+Pavel Krauz <krauz@cncz.cz> writes:
 
-> Any decision made on what to do about this one? Mike or I can 
-> repost the per cpu allocator against mm? The fix by Eric could be used 
-> in the interim for 2.6.24?
-> 
+> Is this a kernel bug or am I supposed to set something?
 
-I suppose I'll merge Eric's patch when I've tested it fully (well, as fully
-as I test stuff).
+It's an unfortunate side effect of hardware VLAN acceleration. It
+can't be turned off (apart from patching the driver to not advertise
+VLAN acceleration support).
 
-It'd be nice to get that cache_line_size()/L1_CACHE_BYTES/L1_CACHE_ALIGN()
-mess sorted out.  If it's a mess - I _think_ it is?
+Yes, it's annoying.
+
+
+/Benny
 
 
