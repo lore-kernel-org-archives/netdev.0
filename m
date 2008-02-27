@@ -1,59 +1,38 @@
-From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: Re: [RFC, PATCH]: Pass link level header from/to PPP interface
-Date: 27 Feb 2008 22:08:06 +0100
-Message-ID: <ygfhcfu85vt.fsf@janus.isnogud.escape.de>
-References: <ygfprv55egs.fsf@janus.isnogud.escape.de>
-	<20080226.225104.175000479.davem@davemloft.net>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [2.6 patch] selinux/netlabel.c should #include "netlabel.h"
+Date: Wed, 27 Feb 2008 23:20:42 +0200
+Message-ID: <20080227212042.GK29269@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.or
+To: paul.moore@hp.com, sds@tycho.nsa.gov, jmorris@namei.org,
+	eparis@parisplace.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:49214 "EHLO oker.escape.de"
+Received: from smtp5.pp.htv.fi ([213.243.153.39]:33270 "EHLO smtp5.pp.htv.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751049AbYB0VKK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2008 16:10:10 -0500
-In-Reply-To: <20080226.225104.175000479.davem@davemloft.net>; from David Miller on Tue, 26 Feb 2008 22:51:04 -0800 (PST)
+	id S1757605AbYB0VVw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2008 16:21:52 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+Every file should include the headers containing the externs for its 
+global code.
 
-> When given a specific device, libpcap uses SOCK_RAW.
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-I don't think this is completely true for PPP interfaces.  If you do a
-pcap_open_live() on interface "any", libpcap opens a PF_PACKET/SOCK_DGRAM
-socket.  Otherwise, on a specific device a SOCK_RAW is opened like you
-write but libpcap asks with SIOCGIFHWADDR for the ARPHRD_* type of the
-interface.  In case of PPP libpcap closes the socket and opens a new
-socket with SOCK_DGRAM to capture packets on.  Here's a strace showing
-this behavior:
+---
+1f65757bac3e82514b447822ab30ee10d33a59a2 foobar
+diff --git a/security/selinux/netlabel.c b/security/selinux/netlabel.c
+index 0fa2be4..6d22d76 100644
+--- a/security/selinux/netlabel.c
++++ b/security/selinux/netlabel.c
+@@ -34,6 +34,7 @@
+ 
+ #include "objsec.h"
+ #include "security.h"
++#include "netlabel.h"
+ 
+ /**
+  * selinux_netlbl_sidlookup_cached - Cache a SID lookup
 
-    execve("./pcap", ["./pcap", "ppp0"], [/* 34 vars */]) = 0
-    brk(0)                                  = 0x8068f5c
-    ...
-    socket(PF_PACKET, SOCK_RAW, 768)        = 3
-    ioctl(3, SIOCGIFINDEX, {ifr_name="lo", ifr_index=1}) = 0
-    ioctl(3, SIOCGIFHWADDR, {ifr_name="ppp0", ifr_hwaddr=00:00:00:00:00:00}) = 0
-    close(3)                                = 0
-    socket(PF_PACKET, SOCK_DGRAM, 768)      = 3
-    ioctl(3, SIOCGIFINDEX, {ifr_name="ppp0", ifr_index=22}) = 0
-    bind(3, {sa_family=AF_PACKET, proto=0x03, if22, pkttype=PACKET_HOST, addr(0)={0, }, 20) = 0
-    ...
-
-> I spent some time seriously considering this change but I
-> can't because it really can potentially break so much stuff.
-
-Thanks for your time on this.  But AFAICS, the patch doesn't break
-libpcap.  I have it running here on 2.4 and 2.6 kernels for some weeks
-now with PPPoE.  tcpdump and wireshark run without problems since they
-use libpcap and for SOCK_DGRAM there is no difference.
-
-My own simple packet sniffer is not libpcap based and takes advantage of
-the patch.  Other programs using PF_PACKET I run here are dhcpd,
-dhclient, rarpd, pppoe-server, and pppoe, but all of these use
-SOCK_DGRAM or SOCK_PACKET and/or work on Ethernet interfaces.
-
-I don't think the patch would break much stuff.
-
-urs
