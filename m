@@ -1,35 +1,61 @@
-From: "Kevin Lloyd" <klloyd@sierrawireless.com>
-Subject: Network device driver with PPP
-Date: Wed, 27 Feb 2008 17:28:05 -0800
-Message-ID: <3415E2A2AB26944B9159CDB22001004D024DA732@nestea.sierrawireless.local>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: include/linux/pcounter.h
+Date: Wed, 27 Feb 2008 22:27:30 -0300
+Message-ID: <20080228012730.GN4725@ghostprotocols.net>
+References: <20080216112618.ec450f9b.akpm@linux-foundation.org> <20080216.215401.20463603.davem@davemloft.net> <20080226092454.GA10987@elte.hu> <20080226.133531.69481052.davem@davemloft.net> <20080227073650.GC4638@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	dada1@cosmosbay.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from carmdsmtp.sierrawireless.com ([208.81.121.7]:53118 "EHLO
-	mx1.sierrawireless.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751401AbYB1B0V convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2008 20:26:21 -0500
-Content-class: urn:content-classes:message
+Received: from mx1.redhat.com ([66.187.233.31]:40581 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751500AbYB1B2u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2008 20:28:50 -0500
+Content-Disposition: inline
+In-Reply-To: <20080227073650.GC4638@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Em Wed, Feb 27, 2008 at 08:36:50AM +0100, Ingo Molnar escreveu:
+> 
+> * David Miller <davem@davemloft.net> wrote:
+> 
+> > > but the main and fundamental question still remains unanswered (more 
+> > > than 3 weeks after Andrew asked that question): why was this piece 
+> > > of general infrastructure merged via net.git and not submitted to 
+> > > lkml ever? The code touching -mm does _not_ count as "review".
+> > 
+> > I already stated this was a mistake and it won't happen again in the 
+> > future.
+> 
+> sorry - that bit of the thread didnt seem to make it to lkml. I just saw 
+> this incomplete discussion with a denial and with no resolution.
+> 
+> And you did the right thing anyway by thinking in terms of a generic 
+> piece of infrastructure instead of hiding it away into say 
+> include/net/pcounter.h (which nobody could have objected against).
+> 
+> I sometimes think that the forced isolation of subsystems (rather 
+> strongly enforced both by -mm and by linux-next) and their hiding away 
+> on non-lkml lists will eventually hurt the core kernel because less and 
+> less people will be willing to go the trouble of doing proper 
+> cross-subsystem development. That results in duplicated or specialistic 
+> infrastructure, increased code size and longer term, ultimately less 
+> performance. (by the time we notice _that_ it will probably be too late 
+> to do anything about it)
 
-I have a device that is currently supported via a combination of loadin=
-g the device with usb-serial (drivers/usb/serial/sierra) to expose the =
-serial ports and connecting by manually launching pppd.
-I would like to support this device in a network driver as opposed to a=
- serial driver in an effort to offer a seamless always-on device, such =
-as an Ethernet device.
+This more friendly wording makes me feel actually happy to get from my
+hiding place and tell that I actually saw the percpu counters code, just
+after I made Eric's code generic as I thought it should have been from
+the start, I found out about what was already in lib/.
 
-=46rom what I understand the ppp support in the kernel is only for ppp =
-framing and that all control (e.g., IPCP) is done in user-space via ppp=
-d. Are there any network drivers that currently manage the ppp connecti=
-on (entirely, IPCP included) internally to the driver and expose either=
- a raw ip or ethernet stream to the user-space?
+I just got lazy to do what at the time looked the right thing
+to do: to read thru the existing lib/ code and use it where pcounter was
+being used. But at least it got exposed 8-)
 
-Thank you,
-=A0-Kevin
+Anyway, progress was made, I do not feel too bad about it even now.
 
+- Arnaldo
