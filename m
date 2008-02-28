@@ -1,17 +1,17 @@
 From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH 12/15] [IPV4]: Use proc_create() to setup ->proc_fops first
-Date: Thu, 28 Feb 2008 18:58:06 +0800
-Message-ID: <47C693BE.10302@cn.fujitsu.com>
+Subject: [PATCH 13/15] [8021Q]: Use proc_create() to setup ->proc_fops first
+Date: Thu, 28 Feb 2008 18:58:24 +0800
+Message-ID: <47C693D0.3090007@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 To: "David S. Miller" <davem@davemloft.net>,
 	NETDEV <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:52801 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:56647 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756440AbYB1LAf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Feb 2008 06:00:35 -0500
+	id S1756658AbYB1LAx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Feb 2008 06:00:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,28 +20,43 @@ PDE to main tree.
 
 Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 ---
- net/ipv4/route.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ net/8021q/vlanproc.c |   11 ++++-------
+ 1 files changed, 4 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 525787b..7b5e8e1 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -542,12 +542,11 @@ static __init int ip_rt_proc_init(struct net *net)
- 	if (!pde)
- 		goto err1;
+diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
+index a0ec479..146cfb0 100644
+--- a/net/8021q/vlanproc.c
++++ b/net/8021q/vlanproc.c
+@@ -161,11 +161,10 @@ int __init vlan_proc_init(void)
+ 	if (!proc_vlan_dir)
+ 		goto err;
  
--	pde = create_proc_entry("rt_cache", S_IRUGO, net->proc_net_stat);
-+	pde = proc_create("rt_cache", S_IRUGO,
-+			  net->proc_net_stat, &rt_cpu_seq_fops);
- 	if (!pde)
- 		goto err2;
+-	proc_vlan_conf = create_proc_entry(name_conf, S_IFREG|S_IRUSR|S_IWUSR,
+-					   proc_vlan_dir);
++	proc_vlan_conf = proc_create(name_conf, S_IFREG|S_IRUSR|S_IWUSR,
++				     proc_vlan_dir, &vlan_fops);
+ 	if (!proc_vlan_conf)
+ 		goto err;
+-	proc_vlan_conf->proc_fops = &vlan_fops;
+ 	return 0;
  
--	pde->proc_fops = &rt_cpu_seq_fops;
--
- #ifdef CONFIG_NET_CLS_ROUTE
- 	pde = create_proc_read_entry("rt_acct", 0, net->proc_net,
- 			ip_rt_acct_read, NULL);
+ err:
+@@ -182,13 +181,11 @@ int vlan_proc_add_dev(struct net_device *vlandev)
+ {
+ 	struct vlan_dev_info *dev_info = vlan_dev_info(vlandev);
+ 
+-	dev_info->dent = create_proc_entry(vlandev->name,
+-					   S_IFREG|S_IRUSR|S_IWUSR,
+-					   proc_vlan_dir);
++	dev_info->dent = proc_create(vlandev->name, S_IFREG|S_IRUSR|S_IWUSR,
++				     proc_vlan_dir, &vlandev_fops);
+ 	if (!dev_info->dent)
+ 		return -ENOBUFS;
+ 
+-	dev_info->dent->proc_fops = &vlandev_fops;
+ 	dev_info->dent->data = vlandev;
+ 	return 0;
+ }
 -- 
 WCN
 
