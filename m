@@ -1,48 +1,37 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: Network device driver with PPP
-Date: Thu, 28 Feb 2008 09:27:03 +0000
-Message-ID: <47C67E67.70604@katalix.com>
-References: <3415E2A2AB26944B9159CDB22001004D024DA732@nestea.sierrawireless.local> <1204164955.26292.5.camel@localhost.localdomain>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 3/4] [CCID2]: Replace broken RTT estimator with better algorithm
+Date: Thu, 28 Feb 2008 09:53:33 +0000
+Message-ID: <20080228095333.GA4730@gerrit.erg.abdn.ac.uk>
+References: <1204122188-9984-1-git-send-email-gerrit@erg.abdn.ac.uk> <1204122188-9984-2-git-send-email-gerrit@erg.abdn.ac.uk> <1204122188-9984-3-git-send-email-gerrit@erg.abdn.ac.uk> <1204122188-9984-4-git-send-email-gerrit@erg.abdn.ac.uk> <5bc4c4570802271840t2b3b12a1k260d1e2d7440bdb2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kevin Lloyd <klloyd@sierrawireless.com>, netdev@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Leandro Sales <leandroal@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:33780 "EHLO s36.avahost.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754965AbYB1J1J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Feb 2008 04:27:09 -0500
-In-Reply-To: <1204164955.26292.5.camel@localhost.localdomain>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:33848 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751597AbYB1Jyl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Feb 2008 04:54:41 -0500
+Content-Disposition: inline
+In-Reply-To: <5bc4c4570802271840t2b3b12a1k260d1e2d7440bdb2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan Williams wrote:
-> On Wed, 2008-02-27 at 17:28 -0800, Kevin Lloyd wrote:
->> Hi all,
->>
->> I have a device that is currently supported via a combination of loading the device with usb-serial (drivers/usb/serial/sierra) to expose the serial ports and connecting by manually launching pppd.
->> I would like to support this device in a network driver as opposed to a serial driver in an effort to offer a seamless always-on device, such as an Ethernet device.
->>
->> From what I understand the ppp support in the kernel is only for ppp framing and that all control (e.g., IPCP) is done in user-space via pppd. Are there any network drivers that currently manage the ppp connection (entirely, IPCP included) internally to the driver and expose either a raw ip or ethernet stream to the user-space?
-> 
-> That seems quite icky to do all in kernel space and a pile of code
-> running in the kernel.  What's so wrong with userspace?  Don't you need
-> to push values to the driver like username/password and get IP config
-> out of it (which would involve userspace anyway)?  It just seems like
-> there's a different solution to your actual problem here than stuff all
-> off pppd into kernel space.
+| >  +                * Decay RTTVAR at most once per flight, exploiting that
+| >  +                *  1) pipe <= cwnd <= Sequence_Window = W  (RFC 4340, 7.5.2)
+| >  +                *  2) AWL = GSS-W+1 <= GAR <= GSS          (RFC 4340, 7.5.1)
+| >  +                * GAR is a useful bound for FlightSize = pipe, AWL is probably
+| >  +                * too low as it over-estimates pipe.
+| >  +                */
+| >  +               if (after48(dccp_sk(sk)->dccps_gar, hctx->ccid2hctx_rtt_seq)) {
+| >  +                       if (hctx->ccid2hctx_mdev_max < hctx->ccid2hctx_rttvar)
+| >  +                               hctx->ccid2hctx_rttvar -= (hctx->ccid2hctx_rttvar - hctx->ccid2hctx_mdev_max) >> 2;
+| 
+| More than 80 chars in this line! 87 chars. Is this ok?
+| 
+There are actually 120 characters in this line. The 80-characters constraint
+has become a recommendation, i.e. it is possible and legal to make exceptions.
+I kept it in to allow a better comparison to the original TCP code.
 
-I agree.
-
-Kevin mentions manually launching pppd and the desire for a seamless 
-always-on device. I think this could be done using udev/hotplug rules to 
-launch/stop pppd automatically when the usb device is hot-plugged. No 
-additional kernel support needed.
-
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
-
+If anything, it shows how the ubiquitous `hctx->ccid?hctx_' prefixes make
+it hard to read the code.
