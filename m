@@ -1,65 +1,26 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/2] Fix /proc/net in presence of net namespaces
-Date: Thu, 28 Feb 2008 12:31:23 -0700
-Message-ID: <m1y794514k.fsf@ebiederm.dsl.xmission.com>
-References: <47C6D743.1050802@openvz.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.25 0/13][BNX2X]: updates, this time with better
+ changlog
+Date: Thu, 28 Feb 2008 12:04:01 -0800 (PST)
+Message-ID: <20080228.120401.12668194.davem@davemloft.net>
+References: <1204115058.8232.354.camel@lb-tlvb-eliezer.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@openvz.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Pavel Emelyanov <xemul@openvz.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763327AbYB1TeM@vger.kernel.org>
-In-Reply-To: <47C6D743.1050802@openvz.org> (Pavel Emelyanov's message of "Thu,
-	28 Feb 2008 18:46:11 +0300")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: eliezert@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42269
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750713AbYB1UEB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2008 15:04:01 -0500
+In-Reply-To: <1204115058.8232.354.camel@lb-tlvb-eliezer.il.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pavel Emelyanov <xemul@openvz.org> writes:
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Date: Wed, 27 Feb 2008 14:24:18 +0200
 
-> Current /proc/net is done with so called "shadows", but current
-> implementation is broken and has little chances to get fixed.
->
-> The problem is that dentries subtree of /proc/net directory has
-> fancy revalidation rules to make processes living in different
-> net namespaces see different entries in /proc/net subtree, but
-> currently, tasks see in the /proc/net subdir the contents of any
-> other namespace, depending on who opened the file first.
->
-> The proposed fix is to turn /proc/net into a symlink, which behaves
-> similar to /proc/self link - it points to .netns/<id> directory 
-> where the <id> is the id of net namespace, current task lives in.
->
-> # ls -l /proc/net
-> lrwxrwxrwx  1 root root 8 Feb 28 18:38 /proc/net -> .netns/0
->
-> The /proc/.netns dir contains subtrees for all the namespaces in 
-> the system:
->
-> # ls -l /proc/.netns/
-> total 0
-> dr-xr-xr-x  5 root root 0 Feb 28 18:39 0
-> dr-xr-xr-x  3 root root 0 Feb 28 18:39 1
->
-> To provide some security each /proc/.netns/<id> directory allows
-> access to tasks that live in the owning namespace only (with the
-> exception, that init_net tasks can see everything).
+> Here is a re-spin of the previous patch set.
 
-
-Nack.  Yet another global set of ids that require us to implement another
-namespace looks like the wrong way to go.
-
-Can you try this approach by capturing a struct pid instead of an id
-in a new global namespace? 
-
-In particular the pid of the process that creates the pid namespace.
-Like we do with setsid.
-
-I think the implementation difficulty should be about the same, but
-it will allow us something that works cleanly in the cases of
-migration and nested namespaces.  As well as not adding an unnecessary
-special case with init_net and visibility.
-
-Eric
+Looks great, all applied, thanks!
