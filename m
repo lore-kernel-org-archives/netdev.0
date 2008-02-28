@@ -1,37 +1,39 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 3/4] [CCID2]: Replace broken RTT estimator with better algorithm
-Date: Thu, 28 Feb 2008 09:53:33 +0000
-Message-ID: <20080228095333.GA4730@gerrit.erg.abdn.ac.uk>
-References: <1204122188-9984-1-git-send-email-gerrit@erg.abdn.ac.uk> <1204122188-9984-2-git-send-email-gerrit@erg.abdn.ac.uk> <1204122188-9984-3-git-send-email-gerrit@erg.abdn.ac.uk> <1204122188-9984-4-git-send-email-gerrit@erg.abdn.ac.uk> <5bc4c4570802271840t2b3b12a1k260d1e2d7440bdb2@mail.gmail.com>
+From: Olaf Hering <olaf@aepfle.de>
+Subject: Re: [2.6.25 patch] FIXED_PHY must depend on PHYLIB=y
+Date: Thu, 28 Feb 2008 11:30:34 +0100
+Message-ID: <20080228103034.GA8174@aepfle.de>
+References: <200802271158.00453.olaf@aepfle.de> <20080227150754.GA29269@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Leandro Sales <leandroal@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Anton Vorontsov <avorontsov@ru.mvista.com>,
+	Vitaly Bordug <vitb@kernel.crashing.org>,
+	Jeff Garzik <jeff@garzik.org>,
+	Kumar Gala <galak@kernel.crashing.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Adrian Bunk <adrian.bunk@movial.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:33848 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751597AbYB1Jyl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Feb 2008 04:54:41 -0500
+Received: from mail-out.m-online.net ([212.18.0.9]:54591 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753197AbYB1KbY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2008 05:31:24 -0500
 Content-Disposition: inline
-In-Reply-To: <5bc4c4570802271840t2b3b12a1k260d1e2d7440bdb2@mail.gmail.com>
+In-Reply-To: <20080227150754.GA29269@cs181133002.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| >  +                * Decay RTTVAR at most once per flight, exploiting that
-| >  +                *  1) pipe <= cwnd <= Sequence_Window = W  (RFC 4340, 7.5.2)
-| >  +                *  2) AWL = GSS-W+1 <= GAR <= GSS          (RFC 4340, 7.5.1)
-| >  +                * GAR is a useful bound for FlightSize = pipe, AWL is probably
-| >  +                * too low as it over-estimates pipe.
-| >  +                */
-| >  +               if (after48(dccp_sk(sk)->dccps_gar, hctx->ccid2hctx_rtt_seq)) {
-| >  +                       if (hctx->ccid2hctx_mdev_max < hctx->ccid2hctx_rttvar)
-| >  +                               hctx->ccid2hctx_rttvar -= (hctx->ccid2hctx_rttvar - hctx->ccid2hctx_mdev_max) >> 2;
-| 
-| More than 80 chars in this line! 87 chars. Is this ok?
-| 
-There are actually 120 characters in this line. The 80-characters constraint
-has become a recommendation, i.e. it is possible and legal to make exceptions.
-I kept it in to allow a better comparison to the original TCP code.
+On Wed, Feb 27, Adrian Bunk wrote:
 
-If anything, it shows how the ubiquitous `hctx->ccid?hctx_' prefixes make
-it hard to read the code.
+> This patch fixes the following build error introduced by commit 
+> a79d8e93d300adb84cccc38ac396cfb118c238ad and reported by Olaf Hering:
+> 
+> <--  snip  -->
+> 
+> ...
+>   LD      .tmp_vmlinux1
+> arch/powerpc/sysdev/built-in.o: In function `of_add_fixed_phys':
+> fsl_soc.c:(.init.text+0xd34): undefined reference to `fixed_phy_add'
+> make: *** [.tmp_vmlinux1] Error 1
+
+Yes, this patch helps.
+Thanks.
+
