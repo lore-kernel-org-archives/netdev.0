@@ -1,46 +1,63 @@
-From: "m. allan noah" <kitno455@gmail.com>
-Subject: forcedeth kernel panic with nForce 630a on 100Mbps FD network
-Date: Thu, 28 Feb 2008 15:39:58 -0500
-Message-ID: <97246d0e0802281239t43d9167dwe2740ed11d1300e0@mail.gmail.com>
+From: Nebojsa Miljanovic <neb@alcatel-lucent.com>
+Subject: Re: SO_REUSEADDR not allowing server and client to use same port
+Date: Thu, 28 Feb 2008 14:44:15 -0600
+Message-ID: <47C71D1F.80005@alcatel-lucent.com>
+References: <47C6FA2A.5030302@alcatel-lucent.com> <20080228203616.GD8953@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.172]:41820 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756073AbYB1UkB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2008 15:40:01 -0500
-Received: by wf-out-1314.google.com with SMTP id 28so3390384wff.4
-        for <netdev@vger.kernel.org>; Thu, 28 Feb 2008 12:39:58 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+	"Kittlitz, Edward (Ned)" <nkittlitz@alcatel-lucent.com>,
+	asweeney@alcatel-lucent.com,
+	"Polhemus, William (Bart)" <bpolhemus@alcatel-lucent.com>,
+	netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763621AbYB1Uon@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Have two Asus M2N-VN DVI motherboards, Athlon 64 X2 5000+, 8 gigs of
-ram, both running Fedora 8. with updated distro kernel
-(2.6.23.15-137).
+Willy,
+I agree. That would also work nicely. I do wish SO_REUSEPORT was available.
 
-When RXing large amounts of data on a 100Meg network, i start seeing
-RX errors almost immediately, seemingly always equal numbers of
-rx_frame_error and rx_frame_align_error (according to ethtool -S).
+But, I am amazed that this issue has a long history (I've seen posts from 1999)
+and that there was no progress with it.
 
-Soon afterwards, the network speed drops pretty drastically, and then
-stops altogether. no ping, etc. rmmod and insmod forcedeth seems to
-fix things again, but if i let the scp continue against the dead card,
-it will eventually kernel panic.
+Thanks,
+Neb
 
-there is nothing unusual in syslog, and none of this happens if i
-connect the two machines directly with crossover cable at 1000Meg
 
-I have just upgraded one of the machines to vanilla 2.6.24, and i
-still see the ethtool errors, and eventually the slow downs, but no
-network freeze or kernel panic yet, so it looks a little better?
-
-The machines are not going into production for a few weeks, so i
-wondered if there was any use in getting you guys some debugging info,
-or any hope of an updated driver to try?
-
-allan
--- 
-"The truth is an offense, but not a sin"
+On 2/28/2008 2:36 PM, Willy Tarreau wrote:
+> [cc'd netdev]
+> 
+> On Thu, Feb 28, 2008 at 12:15:06PM -0600, Nebojsa Miljanovic wrote:
+> 
+>>Hello all,
+>>I have seen similar complaints about this issue before in the list archive, but
+>>I have not seen any resolution. So, I am posting the question again in hope of
+>>getting some replies.
+>>
+>>Currently, Linux does not allow reuse of same local port for both TCP server and
+>>TCP client. I understand that there may be a need to prevent two servers from
+>>binding to the same local port, but having 1 server and 1 outgoing client use it
+>>should be allowed. Other Unix like operating systems do allow it.
+> 
+> 
+> I've been encountering the need for SO_REUSEPORT as implemented on some BSD
+> for instance. It allows any process to explicitly permit another one to bind
+> to the same IP:port provided that it also sets its socket with SO_REUSEPORT.
+> This is a real requirement when you need to restart a service without any
+> service disruption.
+> 
+> In the end, I've written a trivial patch for 2.4 (but most likely 2.6 would
+> use nearly the same one). I noticed that the conflict detection logic already
+> distinguished between 3 cases: sk->reuse==0, sk->reuse==1, sk->reuse >1.
+> sk->reuse was set to 1 with SO_REUSEADDR. I simply had to make SO_REUSEPORT
+> do sk->reuse |= 2 to get everything working as expected.
+> 
+> I don't know yet if it is as easy to do in 2.6, but if there is a possible
+> acceptance of including this useful feature into mainline, I can try to
+> work a patch (possibly cleaner than my existing one for 2.4).
+> 
+> Regards,
+> Willy
+> 
