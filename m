@@ -1,55 +1,89 @@
-From: "Gordon Farquharson" <gordonfarquharson@gmail.com>
-Subject: Re: pull request: wireless-2.6 2008-02-27
-Date: Thu, 28 Feb 2008 14:21:21 -0700
-Message-ID: <97a0a9ac0802281321h6f302865j38a55c6f761dc14b@mail.gmail.com>
-References: <20080228014125.GI3078@tuxdriver.com>
-	 <20080227.235110.242439399.davem@davemloft.net>
+From: serge@hallyn.com
+Subject: Re: [PATCH 0/2] Fix /proc/net in presence of net namespaces
+Date: Thu, 28 Feb 2008 15:17:20 -0600
+Message-ID: <20080228211720.GA1232@vino.hallyn.com>
+References: <47C6D743.1050802@openvz.org> <m1y794514k.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hs-out-0708.google.com ([64.233.178.249]:28945 "EHLO
-	hs-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752947AbYB1VVW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2008 16:21:22 -0500
-Received: by hs-out-0708.google.com with SMTP id 54so3580951hsz.5
-        for <netdev@vger.kernel.org>; Thu, 28 Feb 2008 13:21:21 -0800 (PST)
-In-Reply-To: <20080227.235110.242439399.davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pavel Emelyanov <xemul@openvz.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@openvz.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763943AbYB1VUo@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <m1y794514k.fsf@ebiederm.dsl.xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> Pavel Emelyanov <xemul@openvz.org> writes:
+> 
+> > Current /proc/net is done with so called "shadows", but current
+> > implementation is broken and has little chances to get fixed.
+> >
+> > The problem is that dentries subtree of /proc/net directory has
+> > fancy revalidation rules to make processes living in different
+> > net namespaces see different entries in /proc/net subtree, but
+> > currently, tasks see in the /proc/net subdir the contents of any
+> > other namespace, depending on who opened the file first.
+> >
+> > The proposed fix is to turn /proc/net into a symlink, which behaves
+> > similar to /proc/self link - it points to .netns/<id> directory 
+> > where the <id> is the id of net namespace, current task lives in.
+> >
+> > # ls -l /proc/net
+> > lrwxrwxrwx  1 root root 8 Feb 28 18:38 /proc/net -> .netns/0
+> >
+> > The /proc/.netns dir contains subtrees for all the namespaces in 
+> > the system:
+> >
+> > # ls -l /proc/.netns/
+> > total 0
+> > dr-xr-xr-x  5 root root 0 Feb 28 18:39 0
+> > dr-xr-xr-x  3 root root 0 Feb 28 18:39 1
+> >
+> > To provide some security each /proc/.netns/<id> directory allows
+> > access to tasks that live in the owning namespace only (with the
+> > exception, that init_net tasks can see everything).
+> 
+> 
+> Nack.  Yet another global set of ids that require us to implement another
+> namespace looks like the wrong way to go.
 
-On Thu, Feb 28, 2008 at 12:51 AM, David Miller <davem@davemloft.net> wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
->  Date: Wed, 27 Feb 2008 20:41:25 -0500
->
->
->  > Gordon Farquharson (1):
->  >       Fix b43 driver build for arm
->
->  Please revert this change and resend your pull request.
->
->  If file2alias doesn't work properly in a cross build environment, we
->  don't fix it by crapping up mod_devalias.h with these silly align
->  attribute annotations.
+Sentiment granted, but I'm not sure it can be an issue.  It *could* be
+in issue if we moved to a more flexible access control here here any
+netns could access the .netns/N directories for all it's child
+namespaces.
 
-This was extensively discussed on LKML [1, 2] and the patch has been
-merged into Andrew Morton's -mm tree. It is understood that this is
-not the Right Way to fix to problem, hence the big fat comment in the
-code. It would be great if you could reconsider your decision.
+But it can't, and /proc/net is set by the kernel.  So the <id> can't be
+an issue for any checkpoint/restart except htat of the whole system, and
+of course on whole-system resume we have no <id> collision worries.
 
-Thanks.
+So userspace can't do anything with <id>, so there is no reason to worry
+about it becoming another namespace?
 
-Gordon
+Right?
 
-[1] http://groups.google.com/group/linux.kernel/browse_thread/thread/0013ccdcfce3feaa/608657870eb62a12?#608657870eb62a12
-[2] http://groups.google.com/group/linux.kernel/browse_thread/thread/13ccdcfce3feaa/a37a5fcbb6431eb0?lnk=gst&q=Fix+b43+driver+build+for+arm#a37a5fcbb6431eb0
+thanks,
+-serge
 
--- 
-Gordon Farquharson
-GnuPG Key ID: 32D6D676
+> Can you try this approach by capturing a struct pid instead of an id
+> in a new global namespace? 
+> 
+> In particular the pid of the process that creates the pid namespace.
+> Like we do with setsid.
+> 
+> I think the implementation difficulty should be about the same, but
+> it will allow us something that works cleanly in the cases of
+> migration and nested namespaces.  As well as not adding an unnecessary
+> special case with init_net and visibility.
+> 
+> Eric
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
