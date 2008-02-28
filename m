@@ -1,89 +1,73 @@
-From: serge@hallyn.com
-Subject: Re: [PATCH 0/2] Fix /proc/net in presence of net namespaces
-Date: Thu, 28 Feb 2008 15:17:20 -0600
-Message-ID: <20080228211720.GA1232@vino.hallyn.com>
-References: <47C6D743.1050802@openvz.org> <m1y794514k.fsf@ebiederm.dsl.xmission.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Bug 10071] kernel hang in inet_init (PREEMPT_RCU problem)
+Date: Thu, 28 Feb 2008 22:34:57 +0100
+Message-ID: <20080228213457.GA2770@ami.dom.local>
+References: <bug-10071-11547@http.bugzilla.kernel.org/> <20080228205303.261D311D108@picon.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@openvz.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@openvz.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763943AbYB1VUo@vger.kernel.org>
+Cc: Yannick Dirou <yannick.dirou@axetic.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: bugme-daemon@bugzilla.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.186]:60277 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756877AbYB1V34 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2008 16:29:56 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so2032166nfb.21
+        for <netdev@vger.kernel.org>; Thu, 28 Feb 2008 13:29:54 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <m1y794514k.fsf@ebiederm.dsl.xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080228205303.261D311D108@picon.linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Eric W. Biederman (ebiederm@xmission.com):
-> Pavel Emelyanov <xemul@openvz.org> writes:
+On Thu, Feb 28, 2008 at 12:53:03PM -0800, bugme-daemon@bugzilla.kernel.org wrote:
+> http://bugzilla.kernel.org/show_bug.cgi?id=10071
+...
+> ------- Comment #17 from yannick.dirou@axetic.com  2008-02-28 12:53 -------
+> bingo with classic rcu
+
+Congratulations Yannick!
+
+So, it seems mainly RCU vs. timer(?) problem. I send CC of this message
+to RCU author, linux-kernel and netdev lists.
+
+I'm not sure how much time you could/will to offer for this debugging.
+Anyway, if it's possible I think it would be interesting to check with
+CONFIG_PREEMPT_RCU = y again, but CONFIG_HOTPLUG_CPU = n ("Processor
+type and features --> Support for suspend on SMP and ...") in the
+meantime.
+
+Many thanks,
+Jarek P.
+
+
+> [    0.770854] NET: Registered protocol family 2
+> [    0.770868] 4294668327 net/ipv4/af_inet.c 1387
+> [    0.770884] 4294668327 net/ipv4/af_inet.c 1390
+> [    0.770888] 4294668327 net/ipv4/af_inet.c 1393
+> [    0.770891] 4294668327 net/ipv4/af_inet.c 1402
+> [    0.770893] 4294668327 net/ipv4/af_inet.c 1407
+> [    0.773078] 0 4294668328l
+> [    0.774036] 0 4294668329l
+> [    0.775037] 0 4294668330l
+> [    0.775040] 4294668330 net/ipv4/af_inet.c 1419
+> [    0.775077] 4294668330 net/ipv4/af_inet.c 1426
+> [    0.775077] 4294668330 net/ipv4/route.c 2998
+> [    0.775077] 4294668330 net/ipv4/route.c 3009
+> [    0.775077] 4294668330 net/ipv4/route.c 3016
+> [    0.775077] IP route cache hash table entries: 32768 (order: 5, 131072
+> bytes)
+> [    0.775077] 4294668330 net/ipv4/route.c 3027
+> [    0.775492] TCP established hash table entries: 131072 (order: 8, 1048576
+> bytes)
+> [    0.776318] TCP bind hash table entries: 65536 (order: 9, 2359296 bytes)
+> [    0.785670] TCP: Hash tables configured (established 131072 bind 65536)
+> [    0.785715] TCP reno registered
 > 
-> > Current /proc/net is done with so called "shadows", but current
-> > implementation is broken and has little chances to get fixed.
-> >
-> > The problem is that dentries subtree of /proc/net directory has
-> > fancy revalidation rules to make processes living in different
-> > net namespaces see different entries in /proc/net subtree, but
-> > currently, tasks see in the /proc/net subdir the contents of any
-> > other namespace, depending on who opened the file first.
-> >
-> > The proposed fix is to turn /proc/net into a symlink, which behaves
-> > similar to /proc/self link - it points to .netns/<id> directory 
-> > where the <id> is the id of net namespace, current task lives in.
-> >
-> > # ls -l /proc/net
-> > lrwxrwxrwx  1 root root 8 Feb 28 18:38 /proc/net -> .netns/0
-> >
-> > The /proc/.netns dir contains subtrees for all the namespaces in 
-> > the system:
-> >
-> > # ls -l /proc/.netns/
-> > total 0
-> > dr-xr-xr-x  5 root root 0 Feb 28 18:39 0
-> > dr-xr-xr-x  3 root root 0 Feb 28 18:39 1
-> >
-> > To provide some security each /proc/.netns/<id> directory allows
-> > access to tasks that live in the owning namespace only (with the
-> > exception, that init_net tasks can see everything).
 > 
-> 
-> Nack.  Yet another global set of ids that require us to implement another
-> namespace looks like the wrong way to go.
-
-Sentiment granted, but I'm not sure it can be an issue.  It *could* be
-in issue if we moved to a more flexible access control here here any
-netns could access the .netns/N directories for all it's child
-namespaces.
-
-But it can't, and /proc/net is set by the kernel.  So the <id> can't be
-an issue for any checkpoint/restart except htat of the whole system, and
-of course on whole-system resume we have no <id> collision worries.
-
-So userspace can't do anything with <id>, so there is no reason to worry
-about it becoming another namespace?
-
-Right?
-
-thanks,
--serge
-
-> Can you try this approach by capturing a struct pid instead of an id
-> in a new global namespace? 
-> 
-> In particular the pid of the process that creates the pid namespace.
-> Like we do with setsid.
-> 
-> I think the implementation difficulty should be about the same, but
-> it will allow us something that works cleanly in the cases of
-> migration and nested namespaces.  As well as not adding an unnecessary
-> special case with init_net and visibility.
-> 
-> Eric
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+> -- 
+> Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
+> ------- You are receiving this mail because: -------
+> You are on the CC list for the bug, or are watching someone who is.
+> You are the assignee for the bug, or are watching the assignee.
