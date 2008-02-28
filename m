@@ -1,153 +1,122 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 2/4] [SCTP]: Clean up naming conventions of sctp protocol/address family registration
-Date: Thu, 28 Feb 2008 16:52:39 -0500
-Message-ID: <1204235561-19993-3-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 4/4] [SCTP]: Update AUTH structures to match declarations in draft-16.
+Date: Thu, 28 Feb 2008 16:52:41 -0500
+Message-ID: <1204235561-19993-5-git-send-email-vladislav.yasevich@hp.com>
 References: <1204235561-19993-1-git-send-email-vladislav.yasevich@hp.com>
 Cc: davem@davemloft.net, lksctp-developers@lists.sourceforge.net,
-	Neil Horman <nhorman@tuxdriver.com>,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:24358 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754952AbYB1VwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2008 16:52:19 -0500
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:25440 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755206AbYB1VwU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2008 16:52:20 -0500
 In-Reply-To: <1204235561-19993-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
+The new SCTP socket api (draft 16) updates the AUTH API structures.
+We never exported these since we knew they would change.
+Update the rest to match the draft.
 
-I noticed while looking into some odd behavior in sctp, that the variable
-name sctp_pf_inet6_specific was used twice to represent two different
-pieces of data (its both a structure name and a pointer to that type of
-structure), which is confusing to say the least, and potentially dangerous
-depending on the variable scope.  This patch cleans that up, and makes the
-protocol and address family registration names in SCTP more regular,
-increasing readability.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-
- ipv6.c     |   12 ++++++------
- protocol.c |   12 ++++++------
- 2 files changed, 12 insertions(+), 12 deletions(-)
 ---
- net/sctp/ipv6.c     |   12 ++++++------
- net/sctp/protocol.c |   12 ++++++------
- 2 files changed, 12 insertions(+), 12 deletions(-)
+ include/net/sctp/user.h |   10 ++++++----
+ net/sctp/auth.c         |    4 ++--
+ net/sctp/socket.c       |    6 +++++-
+ 3 files changed, 13 insertions(+), 7 deletions(-)
 
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index 4d7ec96..87f9405 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -966,7 +966,7 @@ static struct inet6_protocol sctpv6_protocol = {
- 	.flags        = INET6_PROTO_NOPOLICY | INET6_PROTO_FINAL,
+diff --git a/include/net/sctp/user.h b/include/net/sctp/user.h
+index 9462d6a..9619b9d 100644
+--- a/include/net/sctp/user.h
++++ b/include/net/sctp/user.h
+@@ -411,6 +411,7 @@ struct sctp_event_subscribe {
+ 	__u8 sctp_shutdown_event;
+ 	__u8 sctp_partial_delivery_event;
+ 	__u8 sctp_adaptation_layer_event;
++	__u8 sctp_authentication_event;
  };
  
--static struct sctp_af sctp_ipv6_specific = {
-+static struct sctp_af sctp_af_inet6 = {
- 	.sa_family	   = AF_INET6,
- 	.sctp_xmit	   = sctp_v6_xmit,
- 	.setsockopt	   = ipv6_setsockopt,
-@@ -998,7 +998,7 @@ static struct sctp_af sctp_ipv6_specific = {
- #endif
+ /*
+@@ -587,7 +588,7 @@ struct sctp_authchunk {
+  * endpoint requires the peer to use.
+ */
+ struct sctp_hmacalgo {
+-	__u16		shmac_num_idents;
++	__u32		shmac_num_idents;
+ 	__u16		shmac_idents[];
  };
  
--static struct sctp_pf sctp_pf_inet6_specific = {
-+static struct sctp_pf sctp_pf_inet6 = {
- 	.event_msgname = sctp_inet6_event_msgname,
- 	.skb_msgname   = sctp_inet6_skb_msgname,
- 	.af_supported  = sctp_inet6_af_supported,
-@@ -1008,7 +1008,7 @@ static struct sctp_pf sctp_pf_inet6_specific = {
- 	.supported_addrs = sctp_inet6_supported_addrs,
- 	.create_accept_sk = sctp_v6_create_accept_sk,
- 	.addr_v4map    = sctp_v6_addr_v4map,
--	.af            = &sctp_ipv6_specific,
-+	.af            = &sctp_af_inet6,
+@@ -600,7 +601,7 @@ struct sctp_hmacalgo {
+ struct sctp_authkey {
+ 	sctp_assoc_t	sca_assoc_id;
+ 	__u16		sca_keynumber;
+-	__u16		sca_keylen;
++	__u16		sca_keylength;
+ 	__u8		sca_key[];
  };
  
- /* Initialize IPv6 support and register with socket layer.  */
-@@ -1017,10 +1017,10 @@ int sctp_v6_init(void)
- 	int rc;
- 
- 	/* Register the SCTP specific PF_INET6 functions. */
--	sctp_register_pf(&sctp_pf_inet6_specific, PF_INET6);
-+	sctp_register_pf(&sctp_pf_inet6, PF_INET6);
- 
- 	/* Register the SCTP specific AF_INET6 functions. */
--	sctp_register_af(&sctp_ipv6_specific);
-+	sctp_register_af(&sctp_af_inet6);
- 
- 	rc = proto_register(&sctpv6_prot, 1);
- 	if (rc)
-@@ -1051,7 +1051,7 @@ void sctp_v6_exit(void)
- 	inet6_unregister_protosw(&sctpv6_seqpacket_protosw);
- 	inet6_unregister_protosw(&sctpv6_stream_protosw);
- 	proto_unregister(&sctpv6_prot);
--	list_del(&sctp_ipv6_specific.list);
-+	list_del(&sctp_af_inet6.list);
- }
- 
- /* Unregister with inet6 layer. */
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 22a1657..688546d 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -832,7 +832,7 @@ static inline int sctp_v4_xmit(struct sk_buff *skb,
- 	return ip_queue_xmit(skb, ipfragok);
- }
- 
--static struct sctp_af sctp_ipv4_specific;
-+static struct sctp_af sctp_af_inet;
- 
- static struct sctp_pf sctp_pf_inet = {
- 	.event_msgname = sctp_inet_event_msgname,
-@@ -844,7 +844,7 @@ static struct sctp_pf sctp_pf_inet = {
- 	.supported_addrs = sctp_inet_supported_addrs,
- 	.create_accept_sk = sctp_v4_create_accept_sk,
- 	.addr_v4map	= sctp_v4_addr_v4map,
--	.af            = &sctp_ipv4_specific,
-+	.af            = &sctp_af_inet
+@@ -693,8 +694,9 @@ struct sctp_status {
+  * the peer requires to be received authenticated only.
+  */
+ struct sctp_authchunks {
+-	sctp_assoc_t            gauth_assoc_id;
+-	uint8_t                 gauth_chunks[];
++	sctp_assoc_t	gauth_assoc_id;
++	__u32		gauth_number_of_chunks;
++	uint8_t		gauth_chunks[];
  };
  
- /* Notifier for inetaddr addition/deletion events.  */
-@@ -906,7 +906,7 @@ static struct net_protocol sctp_protocol = {
- };
+ /*
+diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+index 8bb79f2..675a5c3 100644
+--- a/net/sctp/auth.c
++++ b/net/sctp/auth.c
+@@ -838,11 +838,11 @@ int sctp_auth_set_key(struct sctp_endpoint *ep,
+ 	}
  
- /* IPv4 address related functions.  */
--static struct sctp_af sctp_ipv4_specific = {
-+static struct sctp_af sctp_af_inet = {
- 	.sa_family	   = AF_INET,
- 	.sctp_xmit	   = sctp_v4_xmit,
- 	.setsockopt	   = ip_setsockopt,
-@@ -1192,7 +1192,7 @@ SCTP_STATIC __init int sctp_init(void)
- 	sctp_sysctl_register();
+ 	/* Create a new key data based on the info passed in */
+-	key = sctp_auth_create_key(auth_key->sca_keylen, GFP_KERNEL);
++	key = sctp_auth_create_key(auth_key->sca_keylength, GFP_KERNEL);
+ 	if (!key)
+ 		goto nomem;
  
- 	INIT_LIST_HEAD(&sctp_address_families);
--	sctp_register_af(&sctp_ipv4_specific);
-+	sctp_register_af(&sctp_af_inet);
+-	memcpy(key->data, &auth_key->sca_key[0], auth_key->sca_keylen);
++	memcpy(key->data, &auth_key->sca_key[0], auth_key->sca_keylength);
  
- 	status = proto_register(&sctp_prot, 1);
- 	if (status)
-@@ -1249,7 +1249,7 @@ err_v6_init:
- 	proto_unregister(&sctp_prot);
- err_proto_register:
- 	sctp_sysctl_unregister();
--	list_del(&sctp_ipv4_specific.list);
-+	list_del(&sctp_af_inet.list);
- 	free_pages((unsigned long)sctp_port_hashtable,
- 		   get_order(sctp_port_hashsize *
- 			     sizeof(struct sctp_bind_hashbucket)));
-@@ -1299,7 +1299,7 @@ SCTP_STATIC __exit void sctp_exit(void)
- 	inet_unregister_protosw(&sctp_seqpacket_protosw);
+ 	/* If we are replacing, remove the old keys data from the
+ 	 * key id.  If we are adding new key id, add it to the
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 848df21..9398926 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -1964,7 +1964,7 @@ static int sctp_setsockopt_disable_fragments(struct sock *sk,
+ static int sctp_setsockopt_events(struct sock *sk, char __user *optval,
+ 					int optlen)
+ {
+-	if (optlen != sizeof(struct sctp_event_subscribe))
++	if (optlen > sizeof(struct sctp_event_subscribe))
+ 		return -EINVAL;
+ 	if (copy_from_user(&sctp_sk(sk)->subscribe, optval, optlen))
+ 		return -EFAULT;
+@@ -5094,6 +5094,8 @@ static int sctp_getsockopt_peer_auth_chunks(struct sock *sk, int len,
+ 	len = num_chunks;
+ 	if (put_user(len, optlen))
+ 		return -EFAULT;
++	if (put_user(num_chunks, &p->gauth_number_of_chunks))
++		return -EFAULT;
+ 	if (copy_to_user(to, ch->chunks, len))
+ 		return -EFAULT;
  
- 	sctp_sysctl_unregister();
--	list_del(&sctp_ipv4_specific.list);
-+	list_del(&sctp_af_inet.list);
+@@ -5133,6 +5135,8 @@ static int sctp_getsockopt_local_auth_chunks(struct sock *sk, int len,
+ 	len = num_chunks;
+ 	if (put_user(len, optlen))
+ 		return -EFAULT;
++	if (put_user(num_chunks, &p->gauth_number_of_chunks))
++		return -EFAULT;
+ 	if (copy_to_user(to, ch->chunks, len))
+ 		return -EFAULT;
  
- 	free_pages((unsigned long)sctp_assoc_hashtable,
- 		   get_order(sctp_assoc_hashsize *
 -- 
 1.5.3.5
 
