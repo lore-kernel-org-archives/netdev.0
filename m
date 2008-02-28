@@ -1,39 +1,76 @@
-From: Olaf Hering <olaf@aepfle.de>
-Subject: Re: [2.6.25 patch] FIXED_PHY must depend on PHYLIB=y
-Date: Thu, 28 Feb 2008 11:30:34 +0100
-Message-ID: <20080228103034.GA8174@aepfle.de>
-References: <200802271158.00453.olaf@aepfle.de> <20080227150754.GA29269@cs181133002.pp.htv.fi>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: [PATCH 01/15] [APPLETALK]: Use proc_create() to setup ->proc_fops
+ first
+Date: Thu, 28 Feb 2008 18:54:51 +0800
+Message-ID: <47C692FB.9010201@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Anton Vorontsov <avorontsov@ru.mvista.com>,
-	Vitaly Bordug <vitb@kernel.crashing.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	Kumar Gala <galak@kernel.crashing.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Adrian Bunk <adrian.bunk@movial.fi>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: NETDEV <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:54591 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753197AbYB1KbY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2008 05:31:24 -0500
-Content-Disposition: inline
-In-Reply-To: <20080227150754.GA29269@cs181133002.pp.htv.fi>
+Received: from cn.fujitsu.com ([222.73.24.84]:53834 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751662AbYB1K5U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Feb 2008 05:57:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 27, Adrian Bunk wrote:
+As Davem mentioned in his recently patch
+(d9595a7b9c777d45a74774f1428c263a0a47f4c0)
+that the procfs visibility should occur after
+the ->proc_fops are setup.
 
-> This patch fixes the following build error introduced by commit 
-> a79d8e93d300adb84cccc38ac396cfb118c238ad and reported by Olaf Hering:
-> 
-> <--  snip  -->
-> 
-> ...
->   LD      .tmp_vmlinux1
-> arch/powerpc/sysdev/built-in.o: In function `of_add_fixed_phys':
-> fsl_soc.c:(.init.text+0xd34): undefined reference to `fixed_phy_add'
-> make: *** [.tmp_vmlinux1] Error 1
+And also, Alexey provide proc_create() to make
+sure that ->proc_fops is setup before gluing PDE
+to main tree.
 
-Yes, this patch helps.
-Thanks.
+We use proc_create().
+
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+ net/appletalk/atalk_proc.c |   15 +++++++--------
+ 1 files changed, 7 insertions(+), 8 deletions(-)
+
+diff --git a/net/appletalk/atalk_proc.c b/net/appletalk/atalk_proc.c
+index 8e8dcfd..162199a 100644
+--- a/net/appletalk/atalk_proc.c
++++ b/net/appletalk/atalk_proc.c
+@@ -283,25 +283,24 @@ int __init atalk_proc_init(void)
+ 		goto out;
+ 	atalk_proc_dir->owner = THIS_MODULE;
+ 
+-	p = create_proc_entry("interface", S_IRUGO, atalk_proc_dir);
++	p = proc_create("interface", S_IRUGO, atalk_proc_dir,
++			&atalk_seq_interface_fops);
+ 	if (!p)
+ 		goto out_interface;
+-	p->proc_fops = &atalk_seq_interface_fops;
+ 
+-	p = create_proc_entry("route", S_IRUGO, atalk_proc_dir);
++	p = proc_create("route", S_IRUGO, atalk_proc_dir,
++			&atalk_seq_route_fops);
+ 	if (!p)
+ 		goto out_route;
+-	p->proc_fops = &atalk_seq_route_fops;
+ 
+-	p = create_proc_entry("socket", S_IRUGO, atalk_proc_dir);
++	p = proc_create("socket", S_IRUGO, atalk_proc_dir,
++			&atalk_seq_socket_fops);
+ 	if (!p)
+ 		goto out_socket;
+-	p->proc_fops = &atalk_seq_socket_fops;
+ 
+-	p = create_proc_entry("arp", S_IRUGO, atalk_proc_dir);
++	p = proc_create("arp", S_IRUGO, atalk_proc_dir, &atalk_seq_arp_fops);
+ 	if (!p)
+ 		goto out_arp;
+-	p->proc_fops = &atalk_seq_arp_fops;
+ 
+ 	rc = 0;
+ out:
+-- 
+WCN
+
+
 
