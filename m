@@ -1,77 +1,76 @@
 From: Phil Oester <kernel@linuxace.com>
-Subject: [PATCH][BONDING] Add max_bonds kernel parameter
-Date: Fri, 29 Feb 2008 10:51:30 -0800
-Message-ID: <20080229185130.GA28138@linuxace.com>
+Subject: [PATCH][BONDING] Allow setting max_bonds to zero
+Date: Fri, 29 Feb 2008 10:52:57 -0800
+Message-ID: <20080229185257.GB28138@linuxace.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="gBBFr7Ir9EOA20Yy"
+Content-Type: multipart/mixed; boundary="WhfpMioaduB5tiZL"
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from adsl-67-120-171-161.dsl.lsan03.pacbell.net ([67.120.171.161]:51088
+Received: from adsl-67-120-171-161.dsl.lsan03.pacbell.net ([67.120.171.161]:51089
 	"HELO linuxace.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1760000AbYB2Svb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 13:51:31 -0500
+	with SMTP id S1759428AbYB2Sw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 13:52:57 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---gBBFr7Ir9EOA20Yy
+--WhfpMioaduB5tiZL
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
 
 
 
---gBBFr7Ir9EOA20Yy
+--WhfpMioaduB5tiZL
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=patch-maxbonds
+Content-Disposition: attachment; filename=patch-zerobonds
 
-commit eb8694ab0a53343ebb45abeb2a9568d6267fa2f2
+commit fc78750341ab174a16f865625b24377670e92e50
 Author: Phil Oester <kernel@linuxace.com>
-Date:   Fri Feb 29 13:26:34 2008 -0500
+Date:   Fri Feb 29 13:43:34 2008 -0500
 
-    The bonding driver (and initscripts) seem to assume everyone loads bonding
-    as a module.  So when compiled into the kernel, changing the max_bonds
-    parameter can only be done in the source code.
-    
-    Below adds a kernel command line parameter to change max_bonds when
-    compiled in.
+    If the bonding driver is compiled into the kernel, it will create a
+    "bond0" device by default.  The patch below allows max_bonds to be
+    set to 0 to prevent any devices from being created.
     
     Phil
     
     Signed-off-by: Phil Oester <kernel@linuxace.com>
 
-diff --git a/Documentation/kernel-parameters.txt b/Documentation/kernel-parameters.txt
-index 9a5b665..4b21045 100644
---- a/Documentation/kernel-parameters.txt
-+++ b/Documentation/kernel-parameters.txt
-@@ -1071,6 +1071,10 @@ and is between 256 and 4096 characters. It is defined in the file
- 			(machvec) in a generic kernel.
- 			Example: machvec=hpzx1_swiotlb
- 
-+	max_bonds=	[NET] Maximum number of bonded devices which can be
-+			created and the default number of devices which
-+			will be created automatically at boot.
-+
- 	max_loop=	[LOOP] Maximum number of loopback devices that can
- 			be mounted
- 			Format: <1-256>
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 0942d82..64597d8 100644
+index 64597d8..2bef4b4 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -5032,3 +5032,12 @@ MODULE_SUPPORTED_DEVICE("most ethernet devices");
-  * End:
-  */
+@@ -4624,11 +4624,11 @@ static int bond_check_params(struct bond_params *params)
+ 		}
+ 	}
  
-+#ifndef MODULE
-+static int __init max_bonds_setup(char *str)
-+{
-+        max_bonds = simple_strtol(str, NULL, 0);
-+        return 1;
-+}
-+
-+__setup("max_bonds=", max_bonds_setup);
-+#endif
+-	if (max_bonds < 1 || max_bonds > INT_MAX) {
++	if (max_bonds > INT_MAX) {
+ 		printk(KERN_WARNING DRV_NAME
+-		       ": Warning: max_bonds (%d) not in range %d-%d, so it "
++		       ": Warning: max_bonds (%d) not in range 0-%d, so it "
+ 		       "was reset to BOND_DEFAULT_MAX_BONDS (%d)\n",
+-		       max_bonds, 1, INT_MAX, BOND_DEFAULT_MAX_BONDS);
++		       max_bonds, INT_MAX, BOND_DEFAULT_MAX_BONDS);
+ 		max_bonds = BOND_DEFAULT_MAX_BONDS;
+ 	}
+ 
+@@ -4982,9 +4982,11 @@ static int __init bonding_init(void)
+ 			goto err;
+ 	}
+ 
+-	res = bond_create_sysfs();
+-	if (res)
+-		goto err;
++	if (max_bonds > 0) {
++		res = bond_create_sysfs();
++		if (res)
++			goto err;
++	}
+ 
+ 	register_netdevice_notifier(&bond_netdev_notifier);
+ 	register_inetaddr_notifier(&bond_inetaddr_notifier);
 
---gBBFr7Ir9EOA20Yy--
+--WhfpMioaduB5tiZL--
