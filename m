@@ -1,7 +1,7 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+From: "Pekka Enberg" <penberg@cs.helsinki.fi>
 Subject: Re: [PATCH 00/28] Swap over NFS -v16
-Date: Fri, 29 Feb 2008 12:51:52 +0100
-Message-ID: <1204285912.6243.93.camel@lappy>
+Date: Fri, 29 Feb 2008 13:58:52 +0200
+Message-ID: <84144f020802290358t2774f7bwd87efe79e7bd4235@mail.gmail.com>
 References: <20080220144610.548202000@chello.nl>
 	 <20080223000620.7fee8ff8.akpm@linux-foundation.org>
 	 <18371.43950.150842.429997@notabene.brown>
@@ -9,72 +9,58 @@ References: <20080220144610.548202000@chello.nl>
 	 <18372.64081.995262.986841@notabene.brown>
 	 <1204099113.6242.353.camel@lappy>
 	 <84144f020802270005p3bfbd04ar9da2875218ef98c4@mail.gmail.com>
+	 <1204285912.6243.93.camel@lappy>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Neil Brown <neilb@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
+Cc: "Neil Brown" <neilb@suse.de>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Linus Torvalds" <torvalds@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Pekka Enberg <penberg@cs.helsinki.fi>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759738AbYB2LwY@vger.kernel.org>
-In-Reply-To: <84144f020802270005p3bfbd04ar9da2875218ef98c4@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	"Christoph Lameter" <clameter@sgi.com>
+To: "Peter Zijlstra" <a.p.zijlstra@chello.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0910.google.com ([209.85.198.187]:2142 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754033AbYB2L6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 06:58:53 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so2532592rvb.1
+        for <netdev@vger.kernel.org>; Fri, 29 Feb 2008 03:58:52 -0800 (PST)
+In-Reply-To: <1204285912.6243.93.camel@lappy>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi Peter,
 
-On Wed, 2008-02-27 at 10:05 +0200, Pekka Enberg wrote:
-> Hi Peter,
-> 
-> On Wed, Feb 27, 2008 at 9:58 AM, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
-> >  > 1/ I note there is no way to tell if memory returned by kmalloc is
-> >  >   from the emergency reserve - which contrasts with alloc_page
-> >  >   which does make that information available through page->reserve.
-> >  >   This seems a slightly unfortunate aspect of the interface.
-> >
-> >  Yes, but alas there is no room to store such information in kmalloc().
-> >  That is, in a sane way. I think it was Daniel Phillips who suggested
-> >  encoding it in the return pointer by flipping the low bit - but that is
-> >  just too ugly and breaks all current kmalloc sites to boot.
-> 
-> Why can't you add a kmem_is_emergency() to SLUB that looks up the
-> cache/slab/page (whatever is the smallest unit of the emergency pool
-> here) for the object and use that?
+On Fri, Feb 29, 2008 at 1:51 PM, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+>  I made page->reserve into PG_emergency and made that bit stick for the
+>  lifetime of that page allocation. I then made kmem_is_emergency() look
+>  up the head page backing that allocation's slab and return
+>  PageEmergency().
 
-I made page->reserve into PG_emergency and made that bit stick for the
-lifetime of that page allocation. I then made kmem_is_emergency() look
-up the head page backing that allocation's slab and return
-PageEmergency().
+[snip]
 
-This gives a consistent kmem_is_emergency() - that is if during the
-lifetime of the kmem allocation it returns true once, it must return
-true always.
+On Fri, Feb 29, 2008 at 1:51 PM, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+>  This is a stricter model than I had before, and has one ramification I'm
+>  not entirely sure I like.
+>
+>  It means the page remains a reserve page throughout its lifetime, which
+>  means the slab remains a reserve slab throughout its lifetime. Therefore
+>  it may never be used for !reserve allocations. Which in turn generates
+>  complexities for the partial list.
 
-You can then, using this properly, push the accounting into
-kmalloc_reserve() and kfree_reserve() (and
-kmem_cache_{alloc,free}_reserve).
+Hmm, so why don't we then clear the PG_emergency flag then and
+allocate a new fresh page to the reserves?
 
-Which yields very pretty code all round. (can make public if you like to
-see..)
+On Fri, Feb 29, 2008 at 1:51 PM, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+>  Does this sound like something I should pursuit? I feel it might
+>  complicate the slab allocators too much..
 
-However...
+I can't answer that question until I see the code ;-). But overall, I
+think it's better to put that code in SLUB rather than trying to work
+around it elsewhere. The fact is, as soon as you have some sort of
+reservation for _objects_, you need help from the SLUB allocator.
 
-This is a stricter model than I had before, and has one ramification I'm
-not entirely sure I like.
-
-It means the page remains a reserve page throughout its lifetime, which
-means the slab remains a reserve slab throughout its lifetime. Therefore
-it may never be used for !reserve allocations. Which in turn generates
-complexities for the partial list.
-
-In my previous model I had the reserve accounting external to the
-allocation, which relaxed the strict need for consistency here, and I
-dropped the reserve status once we were above the page limits again. 
-
-I managed to complicate the SLUB patch with this extra constraint, by
-checking reserve against PageEmergency() when scanning the partial list,
-but gave up on SLAB.
-
-Does this sound like something I should pursuit? I feel it might
-complicate the slab allocators too much..
+                           Pekka
