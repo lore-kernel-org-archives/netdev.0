@@ -1,71 +1,64 @@
-From: "Sosnowski, Maciej" <maciej.sosnowski@intel.com>
-Subject: FW: [PATCH][I/OAT]: Remove duplicate assignation in dma_skb_copy_datagram_iovec
-Date: Fri, 29 Feb 2008 14:30:00 -0000
-Message-ID: <7F38996F7185A24AB9071ED4950AD8C1013A15FE@swsmsx413.ger.corp.intel.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: Network device driver with PPP
+Date: Fri, 29 Feb 2008 15:02:52 +0000
+Message-ID: <47C81E9C.4050903@katalix.com>
+References: <3415E2A2AB26944B9159CDB22001004D024DA732@nestea.sierrawireless.local> <1204164955.26292.5.camel@localhost.localdomain> <47C67E67.70604@katalix.com> <3415E2A2AB26944B9159CDB22001004D024DA7DC@nestea.sierrawireless.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <Brice.Goglin@inria.fr>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>,
-	"Williams, Dan J" <dan.j.williams@intel.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org
+To: Kevin Lloyd <klloyd@sierrawireless.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:46226 "EHLO mga01.intel.com"
+Received: from s36.avahost.net ([74.53.95.194]:34380 "EHLO s36.avahost.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757695AbYB2OhE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 09:37:04 -0500
-Content-class: urn:content-classes:message
+	id S932208AbYB2PDF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Feb 2008 10:03:05 -0500
+In-Reply-To: <3415E2A2AB26944B9159CDB22001004D024DA7DC@nestea.sierrawireless.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+Kevin Lloyd wrote:
+>> That seems quite icky to do all in kernel space and a pile of code
+>> running in the kernel.  What's so wrong with userspace?  Don't you
+> need
+>> to push values to the driver like username/password and get IP config
+>> out of it (which would involve userspace anyway)?  It just seems like
+>> there's a different solution to your actual problem here than stuff
+> all
+>> off pppd into kernel space.
+> 
+> Actually we provide a method for the driver to obtain the
+> username/password information needed for the CHAP authentication so in
+> theory the driver has the information needed to create the connection.
+> I'm not sure how it would go about setting the DNS and IP addresses, but
+> that's a separate issue further down the road.
 
-This patch just removes redundant copy calculation. Please include it in
-the tree.
+Can you explain why you need the driver to be involved in any of this?
 
-Regards,
-Maciej
+> I understand that typical implementation is to deal with ppp
+> negotiations in the userspace however are there no devices that have
+> attempted this in the kernel space / no kernel space modules to aid with
+> this? 
 
-[I/OAT]: Remove duplicate assignation in dma_skb_copy_datagram_iovec
+No.
 
-No need to compute copy twice in the frags loop in
-dma_skb_copy_datagram_iovec().
+Control protocols live in userspace, datapath in the kernel.
 
-Signed-off-by: Brice Goglin <Brice.Goglin@inria.fr>
-Signed-off-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
----
-user_dma.c |    2 +-
-1 file changed, 1 insertion(+), 1 deletion(-)
+> Just trying to do a full investigation of all available options,
+> even if they aren't the best ones.
 
-diff --git a/net/core/user_dma.c b/net/core/user_dma.c
-index 0ad1cd5..c77aff9 100644
---- a/net/core/user_dma.c
-+++ b/net/core/user_dma.c
-@@ -75,7 +75,7 @@ int dma_skb_copy_datagram_iovec(struct dma_chan *chan,
+> If not, is there a method for the network driver to launch pppd with a
+> given set of parameters (not using udev) since the driver would be
+> determining username/password runtime.
 
-               end = start + skb_shinfo(skb)->frags[i].size;
-               copy = end - offset;
--               if ((copy = end - offset) > 0) {
-+               if (copy > 0) {
-                       skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-                       struct page *page = frag->page;
+Can't you implement a private interface to your kernel driver so that 
+userspace can ask it for the username/password and userspace then starts 
+pppd with those parameters?
 
-Acked-by: Shannon Nelson <shannon.nelson@intel.com>
----------------------------------------------------------------------
-Intel Technology Poland sp. z o.o.
-z siedziba w Gdansku
-ul. Slowackiego 173
-80-298 Gdansk
 
-Sad Rejonowy Gdansk Polnoc w Gdansku, 
-VII Wydzial Gospodarczy Krajowego Rejestru Sadowego, 
-numer KRS 101882
-
-NIP 957-07-52-316
-Kapital zakladowy 200.000 zl
-
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
