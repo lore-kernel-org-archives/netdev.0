@@ -1,102 +1,63 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2054 tcp_mark_head_lost()
-Date: Fri, 29 Feb 2008 14:24:59 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0802290941120.18002@kivilampi-30.cs.helsinki.fi>
-References: <858077.97160.qm@web39709.mail.mud.yahoo.com>
- <20080223000310.4630daa8.akpm@linux-foundation.org>
- <Pine.LNX.4.64.0802271108290.13029@kivilampi-30.cs.helsinki.fi>
- <3d8471ca0802271056l320a7ee2m5227e114a968d483@mail.gmail.com>
- <Pine.LNX.4.64.0802272120430.1741@kivilampi-30.cs.helsinki.fi>
- <Pine.LNX.4.64.0802281018480.32401@kivilampi-30.cs.helsinki.fi>
- <20080228171011.fc56eace.akpm@linux-foundation.org>
- <20080228233514.63b7136e.billfink@mindspring.com>
+From: "Pekka Enberg" <penberg@cs.helsinki.fi>
+Subject: Re: [PATCH 00/28] Swap over NFS -v16
+Date: Fri, 29 Feb 2008 14:29:06 +0200
+Message-ID: <84144f020802290429v25bd4ab2j8ab640e2ccb48140@mail.gmail.com>
+References: <20080220144610.548202000@chello.nl>
+	 <20080223000620.7fee8ff8.akpm@linux-foundation.org>
+	 <18371.43950.150842.429997@notabene.brown>
+	 <1204023042.6242.271.camel@lappy>
+	 <18372.64081.995262.986841@notabene.brown>
+	 <1204099113.6242.353.camel@lappy>
+	 <84144f020802270005p3bfbd04ar9da2875218ef98c4@mail.gmail.com>
+	 <1204285912.6243.93.camel@lappy>
+	 <84144f020802290358t2774f7bwd87efe79e7bd4235@mail.gmail.com>
+	 <1204287533.6243.105.camel@lappy>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-1639218683-1204271164=:18002"
-Cc: Guillaume Chazarain <guichaz@gmail.com>,
-	Giangiacomo Mariotti <giangiacomo_mariotti@yahoo.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Bill Fink <billfink@mindspring.com>,
-	Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Neil Brown" <neilb@suse.de>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Linus Torvalds" <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	"Christoph Lameter" <clameter@sgi.com>
+To: "Peter Zijlstra" <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:60317 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756966AbYB2MZD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 07:25:03 -0500
-In-Reply-To: <20080228233514.63b7136e.billfink@mindspring.com>
-Content-ID: <Pine.LNX.4.64.0802291408120.13029@kivilampi-30.cs.helsinki.fi>
+Received: from rv-out-0910.google.com ([209.85.198.186]:2277 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758522AbYB2M3H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 07:29:07 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so2540499rvb.1
+        for <netdev@vger.kernel.org>; Fri, 29 Feb 2008 04:29:07 -0800 (PST)
+In-Reply-To: <1204287533.6243.105.camel@lappy>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Fri, Feb 29, 2008 at 2:18 PM, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+>  Clearing PG_emergency would mean kmem_is_emergency() would return false
+>  in kfree_reserve() and fail to un-charge the object.
+>
+>  Previously objects would track their account status themselves (when
+>  needed) and freeing PG_emergency wouldn't be a problem.
+>
+>  > and allocate a new fresh page to the reserves?
+>
+>  Not sure I understand this properly. We would only do this once the page
+>  watermarks are high enough, so the reserves are full again.
 
----696243703-1639218683-1204271164=:18002
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0802291159241.13029@kivilampi-30.cs.helsinki.fi>
+The problem with PG_emergency is that, once the watermarks are high
+again, SLUB keeps holding to the emergency page and it cannot be used
+for regular kmalloc allocations, right?
 
-On Thu, 28 Feb 2008, Bill Fink wrote:
+So the way to fix this is to batch uncharge the objects and clear
+PG_emergency for the said SLUB pages thus freeing them for regular
+allocations. And to compensate for the loss in the reserves, we ask
+the page allocator to give a new one that SLUB knows nothing about.
 
-> On Thu, 28 Feb 2008, Andrew Morton wrote:
-> 
-> > On Thu, 28 Feb 2008 10:22:27 +0200 (EET) "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote:
-> > 
-> > > [PATCH] TCP debug S+L (for 2.6.25-rcs, incompatible with 2.6.24.y)
-> > > 
-> > > ---
-> > >  include/net/tcp.h     |    9 +++-
-> > >  net/ipv4/tcp_input.c  |   18 +++++++-
-> > >  net/ipv4/tcp_ipv4.c   |  127 +++++++++++++++++++++++++++++++++++++++++++++++++
-> > >  net/ipv4/tcp_output.c |   23 +++++++--
-> > 
-> > I'll put this in -mm, see if we can flush anything out.
+If you don't do this, the reserve page can only contain few objects
+making them unavailable for regular allocations. So we're might be
+forced into "emergency mode" even though there's enough memory
+available to satisfy the allocation.
 
-Ok, thanks. Were you aware of the considerable cpu consumption it will 
-cause...? I.e., scanning throught the write queue in a number of place per 
-ACK will certainly show up if somebody tests with netperf or so... ;-)
-...Just please make sure it won't leak into mainline (for sure you would 
-have done that without this explicit note :-)).
-
-Good thing in that debug patch is that it catches inconsistencies 
-immediately when they happen even if the cheap trap (which is in mainline) 
-wouldn't ever see them because the situation would correct itself due to 
-some other event.
-
-> > Please let me know if/when it's obsolete, updated, etc.
-
-Ok. Since many seem to now reporting this, I suppose the cause is 
-relatively easy to find.
-
-> > What is "S+L"?
-> 
-> I'll let Ilpo give the definitive answer.  But to test if I'm starting
-> to grasp this, I'll give my understanding.  I believe 'S' means that a
-> transmitted TCP skb has been acknowledged by a SACK, while 'L' means
-> that a transmitted SKB is believed lost.  Since the 'S' state implies
-> that the packet has actually been successfully received, it should not be
-> possible for it to be considered lost ('L' state).  Thus an "S+L" state
-> for a TCP skb is an internally inconsistent state and an indication of
-> a TCP bug.
-> 
-> Anyone feel free to correct me if I'm way off base in my understanding.
-
-Yes, this is exactly what it means. There's a big comment about them in 
-the net/ipv4/tcp_input.c too. I answered to a similar question (but Bill 
-mostly told all of it already):
-  http://marc.info/?l=linux-netdev&m=120099888912383&w=2
-
-We can do only cheap checking for sacked_out+lost_out > packets_out in 
-mainline, and if that's true those warnings get printed but they won't 
-necessarily tell the location of the bug because there might be 
-considerable "latency" before that check triggers. On the other hand, this 
-S+L debug patch verifies skb's ->sacked bitmaps against sacked/lost_out 
-counters in multiple places per ACK and will catch the inconsistencies 
-immediately at the site where they occurred (even if sacked_out + lost_out 
-would still be below or equal to packets_out).
-
-
-
--- 
- i.
----696243703-1639218683-1204271164=:18002--
+                          Pekka
