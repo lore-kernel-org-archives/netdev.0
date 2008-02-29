@@ -1,32 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.26] Use existing device list walker for
- /proc/dev_mcast.
-Date: Fri, 29 Feb 2008 11:44:24 -0800 (PST)
-Message-ID: <20080229.114424.229375788.davem@davemloft.net>
-References: <47C82EEE.1040409@openvz.org>
+Subject: Re: [PATCH 1/2] [SCTP]: Kill unused static inline
+ sctp_sysctl_jiffies_ms
+Date: Fri, 29 Feb 2008 11:45:45 -0800 (PST)
+Message-ID: <20080229.114545.112949128.davem@davemloft.net>
+References: <1204301596-15568-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<47C83C59.9000304@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xemul@openvz.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59380
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59383
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758390AbYB2ToZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 14:44:25 -0500
-In-Reply-To: <47C82EEE.1040409@openvz.org>
+	by vger.kernel.org with ESMTP id S1754889AbYB2Tpp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Feb 2008 14:45:45 -0500
+In-Reply-To: <47C83C59.9000304@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Fri, 29 Feb 2008 19:12:30 +0300
+=46rom: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Fri, 29 Feb 2008 12:09:45 -0500
 
-> The seq_file_operations' dev_mc_seq_xxx callbacks do the same 
-> thing as the dev_seq_xxx ones do, but skip the SEQ_START_TOKEN.
-> 
-> So use the existing exported dev_seq_xxx calls and handle the 
-> SEQ_START_TOKEN in the dev_mc_seq_show().
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> Ilpo J=E4rvinen wrote:
+> > After the patch:
+> > $ git-grep sctp_sysctl_jiffies_ms | wc -l
+> > 0
+> >=20
+> > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> > Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
+>=20
+> Good catch.  Looks like dead declaration.
+>=20
+> Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-Nice simplification, applied.
+Applied to net-2.6.26, thanks everyone.
