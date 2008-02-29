@@ -1,117 +1,114 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 3/12 net-2.6.26] [ICMP]: Optimize icmp_socket usage.
-Date: Fri, 29 Feb 2008 16:40:49 +0300
-Message-ID: <1204292458-11636-3-git-send-email-den@openvz.org>
+Subject: [PATCH 2/12 net-2.6.26] [ICMP]: Add return code to icmp_init.
+Date: Fri, 29 Feb 2008 16:40:48 +0300
+Message-ID: <1204292458-11636-2-git-send-email-den@openvz.org>
 References: <1204292360.10368.11.camel@iris.sw.ru>
 Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
 	"Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:50043 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:60045 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758737AbYB2Nkl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Feb 2008 08:40:41 -0500
+	id S1759442AbYB2Nkm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Feb 2008 08:40:42 -0500
 In-Reply-To: <1204292360.10368.11.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use this macro only once in a function to save a bit of space.
+icmp_init could fail and this is normal for namespace other than initial.
+So, the panic should be triggered only on init_net initialization path.
 
-add/remove: 0/0 grow/shrink: 0/3 up/down: 0/-98 (-98)
-function                                     old     new   delta
-icmp_reply                                   562     561      -1
-icmp_push_reply                              305     258     -47
-icmp_init                                    273     223     -50
+Additionally create rollback path for icmp_init as a separate function.
+It will also be used later during namespace destruction.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 Acked-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 ---
- net/ipv4/icmp.c |   29 +++++++++++++++++------------
- 1 files changed, 17 insertions(+), 12 deletions(-)
+ include/net/icmp.h |    2 +-
+ net/ipv4/af_inet.c |    3 ++-
+ net/ipv4/icmp.c    |   26 ++++++++++++++++++++++----
+ 3 files changed, 25 insertions(+), 6 deletions(-)
 
+diff --git a/include/net/icmp.h b/include/net/icmp.h
+index 7bf714d..faba64d 100644
+--- a/include/net/icmp.h
++++ b/include/net/icmp.h
+@@ -48,7 +48,7 @@ struct sk_buff;
+ extern void	icmp_send(struct sk_buff *skb_in,  int type, int code, __be32 info);
+ extern int	icmp_rcv(struct sk_buff *skb);
+ extern int	icmp_ioctl(struct sock *sk, int cmd, unsigned long arg);
+-extern void	icmp_init(void);
++extern int	icmp_init(void);
+ extern void	icmp_out_count(unsigned char type);
+ 
+ /* Move into dst.h ? */
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index a7a99ac..4f539bd 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1430,7 +1430,8 @@ static int __init inet_init(void)
+ 	 *	Set the ICMP layer up
+ 	 */
+ 
+-	icmp_init();
++	if (icmp_init() < 0)
++		panic("Failed to create the ICMP control socket.\n");
+ 
+ 	/*
+ 	 *	Initialise the multicast router
 diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index b345b3d..831b6ad 100644
+index 98372db..b345b3d 100644
 --- a/net/ipv4/icmp.c
 +++ b/net/ipv4/icmp.c
-@@ -346,19 +346,21 @@ static int icmp_glue_bits(void *from, char *to, int offset, int len, int odd,
- static void icmp_push_reply(struct icmp_bxm *icmp_param,
- 			    struct ipcm_cookie *ipc, struct rtable *rt)
- {
-+	struct sock *sk;
- 	struct sk_buff *skb;
+@@ -1139,19 +1139,32 @@ static const struct icmp_control icmp_pointers[NR_ICMP_TYPES + 1] = {
+ 	},
+ };
  
--	if (ip_append_data(icmp_socket->sk, icmp_glue_bits, icmp_param,
-+	sk = icmp_socket->sk;
-+	if (ip_append_data(sk, icmp_glue_bits, icmp_param,
- 			   icmp_param->data_len+icmp_param->head_len,
- 			   icmp_param->head_len,
- 			   ipc, rt, MSG_DONTWAIT) < 0)
--		ip_flush_pending_frames(icmp_socket->sk);
--	else if ((skb = skb_peek(&icmp_socket->sk->sk_write_queue)) != NULL) {
-+		ip_flush_pending_frames(sk);
-+	else if ((skb = skb_peek(&sk->sk_write_queue)) != NULL) {
- 		struct icmphdr *icmph = icmp_hdr(skb);
- 		__wsum csum = 0;
- 		struct sk_buff *skb1;
- 
--		skb_queue_walk(&icmp_socket->sk->sk_write_queue, skb1) {
-+		skb_queue_walk(&sk->sk_write_queue, skb1) {
- 			csum = csum_add(csum, skb1->csum);
- 		}
- 		csum = csum_partial_copy_nocheck((void *)&icmp_param->data,
-@@ -366,7 +368,7 @@ static void icmp_push_reply(struct icmp_bxm *icmp_param,
- 						 icmp_param->head_len, csum);
- 		icmph->checksum = csum_fold(csum);
- 		skb->ip_summed = CHECKSUM_NONE;
--		ip_push_pending_frames(icmp_socket->sk);
-+		ip_push_pending_frames(sk);
- 	}
- }
- 
-@@ -1156,25 +1158,28 @@ static void __exit icmp_exit(void)
- 
- int __init icmp_init(void)
+-void __init icmp_init(void)
++static void __exit icmp_exit(void)
  {
 -	struct inet_sock *inet;
- 	int i, err;
+ 	int i;
  
  	for_each_possible_cpu(i) {
--		err = sock_create_kern(PF_INET, SOCK_RAW, IPPROTO_ICMP,
--				       &per_cpu(__icmp_socket, i));
-+		struct sock *sk;
+-		int err;
 +		struct socket *sock;
-+		struct inet_sock *inet;
++
++		sock = per_cpu(__icmp_socket, i);
++		if (sock == NULL)
++			continue;
++		per_cpu(__icmp_socket, i) = NULL;
++		sock_release(sock);
++	}
++}
  
-+		err = sock_create_kern(PF_INET, SOCK_RAW, IPPROTO_ICMP, &sock);
++int __init icmp_init(void)
++{
++	struct inet_sock *inet;
++	int i, err;
++
++	for_each_possible_cpu(i) {
+ 		err = sock_create_kern(PF_INET, SOCK_RAW, IPPROTO_ICMP,
+ 				       &per_cpu(__icmp_socket, i));
+ 
  		if (err < 0)
- 			goto fail;
+-			panic("Failed to create the ICMP control socket.\n");
++			goto fail;
  
--		per_cpu(__icmp_socket, i)->sk->sk_allocation = GFP_ATOMIC;
-+		per_cpu(__icmp_socket, i) = sock;
-+		sk = sock->sk;
-+		sk->sk_allocation = GFP_ATOMIC;
+ 		per_cpu(__icmp_socket, i)->sk->sk_allocation = GFP_ATOMIC;
  
- 		/* Enough space for 2 64K ICMP packets, including
- 		 * sk_buff struct overhead.
+@@ -1171,6 +1184,11 @@ void __init icmp_init(void)
  		 */
--		per_cpu(__icmp_socket, i)->sk->sk_sndbuf =
-+		sk->sk_sndbuf =
- 			(2 * ((64 * 1024) + sizeof(struct sk_buff)));
- 
--		inet = inet_sk(per_cpu(__icmp_socket, i)->sk);
-+		inet = inet_sk(sk);
- 		inet->uc_ttl = -1;
- 		inet->pmtudisc = IP_PMTUDISC_DONT;
- 
-@@ -1182,7 +1187,7 @@ int __init icmp_init(void)
- 		 * see it, we do not wish this socket to see incoming
- 		 * packets.
- 		 */
--		per_cpu(__icmp_socket, i)->sk->sk_prot->unhash(per_cpu(__icmp_socket, i)->sk);
-+		sk->sk_prot->unhash(sk);
+ 		per_cpu(__icmp_socket, i)->sk->sk_prot->unhash(per_cpu(__icmp_socket, i)->sk);
  	}
- 	return 0;
++	return 0;
++
++fail:
++	icmp_exit();
++	return err;
+ }
  
+ EXPORT_SYMBOL(icmp_err_convert);
 -- 
 1.5.3.rc5
 
