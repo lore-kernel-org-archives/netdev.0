@@ -1,92 +1,57 @@
-From: serge@hallyn.com
-Subject: Re: [PATCH 0/2] Fix /proc/net in presence of net namespaces
-Date: Fri, 29 Feb 2008 09:38:11 -0600
-Message-ID: <20080229153811.GA5647@vino.hallyn.com>
-References: <47C6D743.1050802@openvz.org> <m1y794514k.fsf@ebiederm.dsl.xmission.com> <20080228211720.GA1232@vino.hallyn.com> <m1k5ko4sfi.fsf@ebiederm.dsl.xmission.com> <20080229031737.GA3047@vino.hallyn.com> <47C7BF4D.6020202@openvz.org>
+From: "m. allan noah" <kitno455@gmail.com>
+Subject: Re: forcedeth kernel panic with nForce 630a on 100Mbps FD network
+Date: Fri, 29 Feb 2008 10:45:05 -0500
+Message-ID: <97246d0e0802290745s38a8b9f5j82deeb49fd97c72e@mail.gmail.com>
+References: <97246d0e0802281239t43d9167dwe2740ed11d1300e0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: serge@hallyn.com, "Eric W. Biederman" <ebiederm@xmission.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@openvz.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Pavel Emelyanov <xemul@openvz.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932320AbYB2PlU@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wf-out-1314.google.com ([209.85.200.172]:39930 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753946AbYB2PpF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 10:45:05 -0500
+Received: by wf-out-1314.google.com with SMTP id 28so4084300wff.4
+        for <netdev@vger.kernel.org>; Fri, 29 Feb 2008 07:45:05 -0800 (PST)
+In-Reply-To: <97246d0e0802281239t43d9167dwe2740ed11d1300e0@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <47C7BF4D.6020202@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Pavel Emelyanov (xemul@openvz.org):
-> [snip]
-> 
-> >> However at least for visibility and inspection we want that.
-> >> We want to inspect what is happening to other processes.  If we didn't
-> >> care then all of the pid namespaces could just be disjoint.
-> > 
-> > But the way Pavel has it coded, only tasks in the init namespace can
-> > view /proc/.net/* for any other net namespaces.
-> 
-> This is not essential part of the patch :) I did so to make my
-> life in init namespace easier. This part can be dropped.
-> 
-> [snip]
-> 
-> >> Think of user space processes inspecting /proc etc.
-> > 
-> > Well a task in one pid namespace cannot view the /proc for another pid
-> > namespace, right?
-> 
-> No. Pid namespace provides another pid-to-task map, but have noting
-> to do with VFS visibility.
-> 
-> >> Having directory
-> >> names change out form under you for no apparent reason is pretty nasty.
-> > 
-> > Yes, but they won't just 'change out' from under you, you ask for it...
-> > But here like I said I do prefer an approach where /proc/net is bind
-> > mounted by the user.  But I have no good reason to back it up...
-> 
-> If you make /proc/net be a bund mount then you have to force all of
-> the users to update their init scripts. I tried to make so with sysctl 
-> filesystem, but this thread was not very popular :)
+On Thu, Feb 28, 2008 at 3:39 PM, m. allan noah <kitno455@gmail.com> wrote:
+> Have two Asus M2N-VN DVI motherboards, Athlon 64 X2 5000+, 8 gigs of
+>  ram, both running Fedora 8. with updated distro kernel
+>  (2.6.23.15-137).
+>
+>  When RXing large amounts of data on a 100Meg network, i start seeing
+>  RX errors almost immediately, seemingly always equal numbers of
+>  rx_frame_error and rx_frame_align_error (according to ethtool -S).
+>
+>  Soon afterwards, the network speed drops pretty drastically, and then
+>  stops altogether. no ping, etc. rmmod and insmod forcedeth seems to
+>  fix things again, but if i let the scp continue against the dead card,
+>  it will eventually kernel panic.
+>
+>  there is nothing unusual in syslog, and none of this happens if i
+>  connect the two machines directly with crossover cable at 1000Meg
+>
+>  I have just upgraded one of the machines to vanilla 2.6.24, and i
+>  still see the ethtool errors, and eventually the slow downs, but no
+>  network freeze or kernel panic yet, so it looks a little better?
+>
+>  The machines are not going into production for a few weeks, so i
+>  wondered if there was any use in getting you guys some debugging info,
+>  or any hope of an updated driver to try?
+>
 
-Ok.
+Oh, after a few minutes of waiting, 2.6.24 kernel panics too, and
+2.6.25-rc3 will temporarily halt the card, but seems to recover some
+time later, have not made that kernel panic yet.
 
-A symlink is far preferable to sneaky redirection imo.
+if the forcedeth driver devels would like some more info, please
+contact me directly.
 
-> Another way to do so - is to mount this one from inside the kernel, 
-> but are you ready to fight with Al Viro for this? :)
-
-Nope :)  Especially since it's an ugly idea.
-
-> [snip]
-> 
-> >> So I think /proc/.netns/ or simply /proc/netns/ is a good choice. We
-> >> just need a non-global id for our directory entries so we don't paint
-> >> ourselves into a corner.
-> > 
-> > But I don't see how this is going to work.  If you're using a pid_nr
-> > inside a pid namespace, then you're not guaranteeing that the pid_nr
-> > will be unique, so you may not be able to create th e/proc/.netns/X
-> > directory.  If you're using the global pid, then you're not guaranteeing
-> > that it will be available upon a container restart.
-> 
-> Right - this is the same as using other ids, which I propose.
-> 
-> >> And honestly pid visibility is a very natural choice for which network
-> >> namespaces you can see.  You can see the namespace of any process you
-> >> can see.  Which especially means your children.  It is an arbitrary
-> >> rule, it is a simple rule to explain, and it works recursively unlike
-> > 
-> > But apparently not simple enough for a simpleton like me to understand,
-> > sorry :(
-> > 
-> >> any init_net is special rule.
-> >>
-> >> Eric
-
-I suspect I'm misunderstanding Eric's proposal, though.
-
--serge
+allan
+-- 
+"The truth is an offense, but not a sin"
