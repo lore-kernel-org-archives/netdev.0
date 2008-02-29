@@ -1,66 +1,43 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: pull request: wireless-2.6 2008-02-27
-Date: Fri, 29 Feb 2008 20:54:15 +0100
-Message-ID: <1204314856.3938.42.camel@johannes.berg>
-References: <20080228014125.GI3078@tuxdriver.com>
-	 <97a0a9ac0802281321h6f302865j38a55c6f761dc14b@mail.gmail.com>
-	 <20080228.133008.228590007.davem@davemloft.net>
-	 <200802291316.59738.mb@bu3sch.de> <20080229162629.GB3234@tuxdriver.com>
-	 <1204302853.3938.40.camel@johannes.berg>
-	 <20080229191058.GD3234@tuxdriver.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-2.6.26 2008-02-21
+Date: Fri, 29 Feb 2008 14:56:31 -0500
+Message-ID: <20080229195631.GE3234@tuxdriver.com>
+References: <20080221021530.GG3825@tuxdriver.com> <20080221172525.GI3094@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-POWEJcvVWXuZhXlgS8Ll"
-Cc: Michael Buesch <mb@bu3sch.de>, David Miller <davem@davemloft.net>,
-	gordonfarquharson@gmail.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:52479 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760965AbYB2Typ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 14:54:45 -0500
-In-Reply-To: <20080229191058.GD3234@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20080221172525.GI3094-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Feb 21, 2008 at 12:25:25PM -0500, John W. Linville wrote:
+> On Wed, Feb 20, 2008 at 09:15:30PM -0500, John W. Linville wrote:
+> 
+> > Here are a slew of developments intended for 2.6.26.  The patches are
+> > too diverse to comment upon in this summary... :-)
+> 
+> David,
+> 
+> This is additive on top of the pull request from last night.  Only
+> Pavel's fix for the brown-paper-bag CONFIG_MAC80211_IBSS_DEBUG build
+> issue is applied on top of the previous commits.
+> 
+> Please let me know if there are problems!
 
---=-POWEJcvVWXuZhXlgS8Ll
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+It looks like you haven't pulled this into net-2.6.26 yet.  So just
+disregard this pull request.  I'll rebased on the current net-2.6.26,
+and a few things to it, and send a new request.
 
+FYI...
 
-> > ... it can just check whether CROSS_COMPILE is set in its environment.
-> > No?
->=20
-> Not a bad idea...something like this?
-
-*shrug* I don't even know what the thread is about :) Just
-interfering ;)
-
-johannes
-
---=-POWEJcvVWXuZhXlgS8Ll
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUAR8hi5qVg1VMiehFYAQL8/A/8CvLFYQDdk+OtWshazRmJZNjENALG3R8O
-aHGAOoaZ27rJgwAT+j6T9vRNkgtHnb1ZrqaTY9vHFcvH3kmwvLL5geSMYYV0npsc
-059UvBuQMJ0HTtQVTC8J+yr8P3GTgwtMGmd2euSwtU/l1EPdnHYBaFS7gXdDFVjY
-ndMtz7kzD/bA1ol1HFKxvUseEo1GQnaeW48XBByUK+q5iPOIYJKH+OMXUxh5lKPq
-UC2/yDnGGqlNc7LJ91gIF5iB4eDdqyMuW1F0n7TD+1sh/BMmXk/Xttw+RiwkDdVp
-rjncGHal+tO1w6wGmKCs97ilSZ6bWFL8oYoZEog4eLvl9GushP//vQidTeh+s0J7
-+Vk7F9LpgmjQeOb1tskHUCKpyh/lY5YaFTm2QASOyUzpntA11nVCejKIYq/HlUaR
-kmxnF4xvGgsPxvMnXjq3sgTW6iaTLcnlIwg5fxVcyp85AfcBgceCyHGtIiXC9sma
-E1wciV+VM7oS8/U9AXKPyOqxko7gb1SyYvk7aZNtaPtJsTsqq1wPfhPUFk3CC83v
-a+pTCe0gK/XWQAoI52M09W/yqQNy3cqdR94nPLqImvn4j92klP/M9MaAEiIH5bwF
-m1mlrxcpi8rkiLoR5ma3ohi6uR3x/r/x2WuuY1tiTH2MTfyj7GE7lAbpWqjnE2qR
-BLKY0DSO6AM=
-=AYIm
------END PGP SIGNATURE-----
-
---=-POWEJcvVWXuZhXlgS8Ll--
-
+John
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
