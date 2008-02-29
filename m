@@ -1,208 +1,137 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 1/12 net-2.6.26] [INET]: Remove struct net_proto_family* from _init calls.
-Date: Fri, 29 Feb 2008 16:40:47 +0300
-Message-ID: <1204292458-11636-1-git-send-email-den@openvz.org>
+Subject: [PATCH 6/12 net-2.6.26] [ICMP]: Allocate data for __icmp(v6)_sk dynamically.
+Date: Fri, 29 Feb 2008 16:40:52 +0300
+Message-ID: <1204292458-11636-6-git-send-email-den@openvz.org>
 References: <1204292360.10368.11.camel@iris.sw.ru>
 Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
 	"Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:54545 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:59007 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759807AbYB2Nkm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1758874AbYB2Nkm (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 29 Feb 2008 08:40:42 -0500
 In-Reply-To: <1204292360.10368.11.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-struct net_proto_family* is not used in icmp[v6]_init, ndisc_init, igmp_init
-and tcp_v4_init. Remove it.
+Own __icmp(v6)_sk should be present in each namespace. So, it should be
+allocated dynamically. Though, alloc_percpu does not fit the case as it
+implies additional dereferrence for no bonus.
+
+Allocate data for pointers just like __percpu_alloc_mask does and place
+pointers to struct sock into this array.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 Acked-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 ---
- include/linux/icmpv6.h |    2 +-
- include/net/icmp.h     |    2 +-
- include/net/ndisc.h    |    4 ++--
- include/net/tcp.h      |    2 +-
- net/ipv4/af_inet.c     |    4 ++--
- net/ipv4/icmp.c        |    2 +-
- net/ipv4/tcp_ipv4.c    |    2 +-
- net/ipv6/af_inet6.c    |    6 +++---
- net/ipv6/icmp.c        |    2 +-
- net/ipv6/mcast.c       |    2 +-
- net/ipv6/ndisc.c       |    2 +-
- 11 files changed, 15 insertions(+), 15 deletions(-)
+ net/ipv4/icmp.c |   15 ++++++++++-----
+ net/ipv6/icmp.c |   14 +++++++++-----
+ 2 files changed, 19 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/icmpv6.h b/include/linux/icmpv6.h
-index 7c5e981..8f86d6b 100644
---- a/include/linux/icmpv6.h
-+++ b/include/linux/icmpv6.h
-@@ -176,7 +176,7 @@ extern void				icmpv6_send(struct sk_buff *skb,
- 						    __u32 info, 
- 						    struct net_device *dev);
- 
--extern int				icmpv6_init(struct net_proto_family *ops);
-+extern int				icmpv6_init(void);
- extern int				icmpv6_err_convert(int type, int code,
- 							   int *err);
- extern void				icmpv6_cleanup(void);
-diff --git a/include/net/icmp.h b/include/net/icmp.h
-index 9f7ef3c..7bf714d 100644
---- a/include/net/icmp.h
-+++ b/include/net/icmp.h
-@@ -48,7 +48,7 @@ struct sk_buff;
- extern void	icmp_send(struct sk_buff *skb_in,  int type, int code, __be32 info);
- extern int	icmp_rcv(struct sk_buff *skb);
- extern int	icmp_ioctl(struct sock *sk, int cmd, unsigned long arg);
--extern void	icmp_init(struct net_proto_family *ops);
-+extern void	icmp_init(void);
- extern void	icmp_out_count(unsigned char type);
- 
- /* Move into dst.h ? */
-diff --git a/include/net/ndisc.h b/include/net/ndisc.h
-index 59b7062..5aedf32 100644
---- a/include/net/ndisc.h
-+++ b/include/net/ndisc.h
-@@ -77,7 +77,7 @@ struct nd_opt_hdr {
- } __attribute__((__packed__));
- 
- 
--extern int			ndisc_init(struct net_proto_family *ops);
-+extern int			ndisc_init(void);
- 
- extern void			ndisc_cleanup(void);
- 
-@@ -107,7 +107,7 @@ extern int			ndisc_mc_map(struct in6_addr *addr, char *buf, struct net_device *d
- /*
-  *	IGMP
-  */
--extern int			igmp6_init(struct net_proto_family *ops);
-+extern int			igmp6_init(void);
- 
- extern void			igmp6_cleanup(void);
- 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 7de4ea3..ae9774b 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1373,7 +1373,7 @@ struct tcp_request_sock_ops {
- #endif
- };
- 
--extern void tcp_v4_init(struct net_proto_family *ops);
-+extern void tcp_v4_init(void);
- extern void tcp_init(void);
- 
- #endif	/* _TCP_H */
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index c270080..a7a99ac 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1415,7 +1415,7 @@ static int __init inet_init(void)
- 
- 	ip_init();
- 
--	tcp_v4_init(&inet_family_ops);
-+	tcp_v4_init();
- 
- 	/* Setup TCP slab cache for open requests. */
- 	tcp_init();
-@@ -1430,7 +1430,7 @@ static int __init inet_init(void)
- 	 *	Set the ICMP layer up
- 	 */
- 
--	icmp_init(&inet_family_ops);
-+	icmp_init();
- 
- 	/*
- 	 *	Initialise the multicast router
 diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index a13c074..98372db 100644
+index 9bcf263..7c62a0d 100644
 --- a/net/ipv4/icmp.c
 +++ b/net/ipv4/icmp.c
-@@ -1139,7 +1139,7 @@ static const struct icmp_control icmp_pointers[NR_ICMP_TYPES + 1] = {
- 	},
- };
+@@ -229,8 +229,8 @@ static const struct icmp_control icmp_pointers[NR_ICMP_TYPES+1];
+  *
+  *	On SMP we have one ICMP socket per-cpu.
+  */
+-static DEFINE_PER_CPU(struct sock *, __icmp_sk) = NULL;
+-#define icmp_sk		__get_cpu_var(__icmp_sk)
++static struct sock **__icmp_sk = NULL;
++#define icmp_sk		(__icmp_sk[smp_processor_id()])
  
--void __init icmp_init(struct net_proto_family *ops)
-+void __init icmp_init(void)
+ static inline int icmp_xmit_lock(struct sock *sk)
  {
- 	struct inet_sock *inet;
- 	int i;
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 00156bf..256032a 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2443,7 +2443,7 @@ struct proto tcp_prot = {
- 	REF_PROTO_INUSE(tcp)
- };
+@@ -1149,18 +1149,23 @@ static void __exit icmp_exit(void)
+ 	for_each_possible_cpu(i) {
+ 		struct sock *sk;
  
--void __init tcp_v4_init(struct net_proto_family *ops)
-+void __init tcp_v4_init(void)
+-		sk = per_cpu(__icmp_sk, i);
++		sk = __icmp_sk[i];
+ 		if (sk == NULL)
+ 			continue;
+-		per_cpu(__icmp_sk, i) = NULL;
+ 		sock_release(sk->sk_socket);
+ 	}
++	kfree(__icmp_sk);
++	__icmp_sk = NULL;
+ }
+ 
+ int __init icmp_init(void)
  {
- 	if (inet_csk_ctl_sock_create(&tcp_socket, PF_INET, SOCK_RAW,
- 				     IPPROTO_TCP) < 0)
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index f0aa977..9869f87 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -808,13 +808,13 @@ static int __init inet6_init(void)
- 	if (err)
- 		goto sysctl_fail;
- #endif
--	err = icmpv6_init(&inet6_family_ops);
-+	err = icmpv6_init();
- 	if (err)
- 		goto icmp_fail;
--	err = ndisc_init(&inet6_family_ops);
-+	err = ndisc_init();
- 	if (err)
- 		goto ndisc_fail;
--	err = igmp6_init(&inet6_family_ops);
-+	err = igmp6_init();
- 	if (err)
- 		goto igmp_fail;
- 	err = ipv6_netfilter_init();
+ 	int i, err;
+ 
++	__icmp_sk = kzalloc(nr_cpu_ids * sizeof(struct sock *), GFP_KERNEL);
++	if (__icmp_sk == NULL)
++		return -ENOMEM;
++
+ 	for_each_possible_cpu(i) {
+ 		struct sock *sk;
+ 		struct socket *sock;
+@@ -1170,7 +1175,7 @@ int __init icmp_init(void)
+ 		if (err < 0)
+ 			goto fail;
+ 
+-		per_cpu(__icmp_sk, i) = sk = sock->sk;
++		__icmp_sk[i] = sk = sock->sk;
+ 		sk->sk_allocation = GFP_ATOMIC;
+ 
+ 		/* Enough space for 2 64K ICMP packets, including
 diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index 121d517..b9b13a7 100644
+index 18f220a..3368f32 100644
 --- a/net/ipv6/icmp.c
 +++ b/net/ipv6/icmp.c
-@@ -780,7 +780,7 @@ drop_no_count:
+@@ -80,8 +80,8 @@ EXPORT_SYMBOL(icmpv6msg_statistics);
+  *
+  *	On SMP we have one ICMP socket per-cpu.
   */
- static struct lock_class_key icmpv6_socket_sk_dst_lock_key;
+-static DEFINE_PER_CPU(struct sock *, __icmpv6_sk) = NULL;
+-#define icmpv6_sk	__get_cpu_var(__icmpv6_sk)
++static struct sock **__icmpv6_sk = NULL;
++#define icmpv6_sk	(__icmpv6_sk[smp_processor_id()])
  
--int __init icmpv6_init(struct net_proto_family *ops)
-+int __init icmpv6_init(void)
- {
+ static int icmpv6_rcv(struct sk_buff *skb);
+ 
+@@ -785,6 +785,10 @@ int __init icmpv6_init(void)
  	struct sock *sk;
  	int err, i, j;
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index ab228d1..8ce894d 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -2597,7 +2597,7 @@ static const struct file_operations igmp6_mcf_seq_fops = {
- };
- #endif
  
--int __init igmp6_init(struct net_proto_family *ops)
-+int __init igmp6_init(void)
- {
- 	struct ipv6_pinfo *np;
- 	struct sock *sk;
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 0d33a7d..1fc33c8 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1733,7 +1733,7 @@ static int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl, int __user *name,
++	__icmpv6_sk = kzalloc(nr_cpu_ids * sizeof(struct sock *), GFP_KERNEL);
++	if (__icmpv6_sk == NULL)
++		return -ENOMEM;
++
+ 	for_each_possible_cpu(i) {
+ 		struct socket *sock;
+ 		err = sock_create_kern(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6,
+@@ -797,7 +801,7 @@ int __init icmpv6_init(void)
+ 			goto fail;
+ 		}
  
- #endif
+-		per_cpu(__icmpv6_sk, i) = sk = sock->sk;
++		__icmpv6_sk[i] = sk = sock->sk;
+ 		sk->sk_allocation = GFP_ATOMIC;
+ 		/*
+ 		 * Split off their lock-class, because sk->sk_dst_lock
+@@ -830,7 +834,7 @@ int __init icmpv6_init(void)
+ 	for (j = 0; j < i; j++) {
+ 		if (!cpu_possible(j))
+ 			continue;
+-		sock_release(per_cpu(__icmpv6_sk, j)->sk_socket);
++		sock_release(__icmpv6_sk[j]->sk_socket);
+ 	}
  
--int __init ndisc_init(struct net_proto_family *ops)
-+int __init ndisc_init(void)
- {
- 	struct ipv6_pinfo *np;
- 	struct sock *sk;
+ 	return err;
+@@ -841,7 +845,7 @@ void icmpv6_cleanup(void)
+ 	int i;
+ 
+ 	for_each_possible_cpu(i) {
+-		sock_release(per_cpu(__icmpv6_sk, i)->sk_socket);
++		sock_release(__icmpv6_sk[i]->sk_socket);
+ 	}
+ 	inet6_del_protocol(&icmpv6_protocol, IPPROTO_ICMPV6);
+ }
 -- 
 1.5.3.rc5
 
