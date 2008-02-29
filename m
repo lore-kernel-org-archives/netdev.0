@@ -1,56 +1,40 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH 1/2] [SCTP]: Kill unused static inline sctp_sysctl_jiffies_ms
-Date: Fri, 29 Feb 2008 12:09:45 -0500
-Message-ID: <47C83C59.9000304@hp.com>
-References: <1204301596-15568-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: [PATCH (resend)][EBTABLES]: Fix alignment checks in
+	ebt_among.ko module.
+Date: Fri, 29 Feb 2008 18:23:13 +0100
+Message-ID: <1204305793.2923.12.camel@localhost.localdomain>
+References: <47C7C23C.2050100@openvz.org> <47C7FF31.1060108@trash.net>
+	 <Pine.LNX.4.64.0802291639390.24056@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:47039 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753463AbYB2RJv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 12:09:51 -0500
-In-Reply-To: <1204301596-15568-1-git-send-email-ilpo.jarvinen@helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Jan Engelhardt <jengelh@computergmbh.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0802291639390.24056@fbirervta.pbzchgretzou.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ilpo J=E4rvinen wrote:
-> After the patch:
-> $ git-grep sctp_sysctl_jiffies_ms | wc -l
-> 0
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
+Op vr, 29-02-2008 te 16:40 +0100, schreef Jan Engelhardt:
+> > It seems the kernel is correct and userspace is doing it
+> > wrong, so I think userspace should be fixed instead.
+> > The problem with your patch is that is causes misalignment
+> > for following structures that contain u64 members.
+> 
+> ebt_among is a true mess! It hinders my efforts to port ebtables
+> to xtables, but I could of course use a hack and will likely
+> do just that.
 
-Good catch.  Looks like dead declaration.
+Ebtables' dynamic memory allocation scheme is probably not portable to
+iptables. I agree the fix is in userspace. Anyway, I think the author of
+that module did a great job and provided a very useful and often-used
+functionality.
 
-Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+Bart
 
-Thanks
--vlad
-
-> ---
->  include/net/sctp/sctp.h |    5 -----
->  1 files changed, 0 insertions(+), 5 deletions(-)
->=20
-> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-> index 57df27f..a653eb3 100644
-> --- a/include/net/sctp/sctp.h
-> +++ b/include/net/sctp/sctp.h
-> @@ -368,11 +368,6 @@ void sctp_sysctl_unregister(void);
->  #else
->  static inline void sctp_sysctl_register(void) { return; }
->  static inline void sctp_sysctl_unregister(void) { return; }
-> -static inline int sctp_sysctl_jiffies_ms(ctl_table *table, int __use=
-r *name, int nlen,
-> -		void __user *oldval, size_t __user *oldlenp,
-> -		void __user *newval, size_t newlen) {
-> -	return -ENOSYS;
-> -}
->  #endif
-> =20
->  /* Size of Supported Address Parameter for 'x' address types. */
 
