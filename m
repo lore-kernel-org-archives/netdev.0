@@ -1,37 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [ATM]: Add error handling for proc_create fail
-Date: Fri, 29 Feb 2008 10:38:03 -0800 (PST)
-Message-ID: <20080229.103803.151963676.davem@davemloft.net>
-References: <47C7B79C.2010304@cn.fujitsu.com>
+From: "Stephens, Allan" <allan.stephens@windriver.com>
+Subject: [PATCH 00/08 net-2.6.26] [TIPC]: Initial patch set for TIPC 1.6.3
+Date: Fri, 29 Feb 2008 10:40:37 -0800
+Message-ID: <AF1602CB2550CE4381C0C75118A7856B0252DE1F@ala-mail02.corp.ad.wrs.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: wangchen@cn.fujitsu.com
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42582
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752556AbYB2SiE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 13:38:04 -0500
-In-Reply-To: <47C7B79C.2010304@cn.fujitsu.com>
+Received: from mail.windriver.com ([147.11.1.11]:51564 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758264AbYB2Skj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 13:40:39 -0500
+Received: from ALA-MAIL03.corp.ad.wrs.com (ala-mail03 [147.11.57.144])
+	by mail.wrs.com (8.13.6/8.13.6) with ESMTP id m1TIecxc012166
+	for <netdev@vger.kernel.org>; Fri, 29 Feb 2008 10:40:38 -0800 (PST)
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Date: Fri, 29 Feb 2008 15:43:24 +0800
+This is a patch set containing TIPC code developed as part of the TIPC
+1.7 development project.  This first set contains small enhancements
+only, and is thus being integrated under the current TIPC 1.6
+designation.
 
-> @@ -963,6 +963,10 @@ static int __init atm_clip_init(void)
->  		struct proc_dir_entry *p;
->  
->  		p = proc_create("arp", S_IRUGO, atm_proc_root, &arp_seq_fops);
-> +		if (!p) {
-> +			printk(KERN_ERR "Unable to initialize /proc/atm/arp\n");
-> +			return -ENOMEM;
-> +		}
->  	}
->  #endif
->  
+Patch set summary:
+01 Update version to 1.6.3
+02 Add argument validation for shutdown
+03 Eliminate sparse warning in socket code
+04 Minor cleanup of message header code
+05 Use correct bitmask when setting version in message
+06 Enhancements to message header field writing
+07 Removal of obsolete message header option code
+08 TIPC network address handling cleanup
 
-This is not sufficient.  If this fails you need to unregister
-the ioctl and all of the other things that get registered
-before this procfs registry runs.
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
