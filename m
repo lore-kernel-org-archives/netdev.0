@@ -1,87 +1,49 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26] Use existing device list walker for /proc/dev_mcast.
-Date: Fri, 29 Feb 2008 19:12:30 +0300
-Message-ID: <47C82EEE.1040409@openvz.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 1/2] [SCTP]: Kill unused static inline sctp_sysctl_jiffies_ms
+Date: Fri, 29 Feb 2008 18:13:15 +0200
+Message-ID: <1204301596-15568-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"=?utf-8?q?Ilpo=20J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:40681 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758911AbYB2QMd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Feb 2008 11:12:33 -0500
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:53417 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759372AbYB2QNS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 11:13:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The seq_file_operations' dev_mc_seq_xxx callbacks do the same 
-thing as the dev_seq_xxx ones do, but skip the SEQ_START_TOKEN.
+After the patch:
+$ git-grep sctp_sysctl_jiffies_ms | wc -l
+0
 
-So use the existing exported dev_seq_xxx calls and handle the 
-SEQ_START_TOKEN in the dev_mc_seq_show().
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
+ include/net/sctp/sctp.h |    5 -----
+ 1 files changed, 0 insertions(+), 5 deletions(-)
 
-diff --git a/net/core/dev_mcast.c b/net/core/dev_mcast.c
-index cec5825..f8a3455 100644
---- a/net/core/dev_mcast.c
-+++ b/net/core/dev_mcast.c
-@@ -156,39 +156,14 @@ void dev_mc_unsync(struct net_device *to, struct net_device *from)
- EXPORT_SYMBOL(dev_mc_unsync);
- 
- #ifdef CONFIG_PROC_FS
--static void *dev_mc_seq_start(struct seq_file *seq, loff_t *pos)
--	__acquires(dev_base_lock)
--{
--	struct net *net = seq_file_net(seq);
--	struct net_device *dev;
--	loff_t off = 0;
--
--	read_lock(&dev_base_lock);
--	for_each_netdev(net, dev) {
--		if (off++ == *pos)
--			return dev;
--	}
--	return NULL;
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 57df27f..a653eb3 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -368,11 +368,6 @@ void sctp_sysctl_unregister(void);
+ #else
+ static inline void sctp_sysctl_register(void) { return; }
+ static inline void sctp_sysctl_unregister(void) { return; }
+-static inline int sctp_sysctl_jiffies_ms(ctl_table *table, int __user =
+*name, int nlen,
+-		void __user *oldval, size_t __user *oldlenp,
+-		void __user *newval, size_t newlen) {
+-	return -ENOSYS;
 -}
--
--static void *dev_mc_seq_next(struct seq_file *seq, void *v, loff_t *pos)
--{
--	++*pos;
--	return next_net_device((struct net_device *)v);
--}
--
--static void dev_mc_seq_stop(struct seq_file *seq, void *v)
--	__releases(dev_base_lock)
--{
--	read_unlock(&dev_base_lock);
--}
--
--
- static int dev_mc_seq_show(struct seq_file *seq, void *v)
- {
- 	struct dev_addr_list *m;
- 	struct net_device *dev = v;
- 
-+	if (v == SEQ_START_TOKEN)
-+		return 0;
-+
- 	netif_tx_lock_bh(dev);
- 	for (m = dev->mc_list; m; m = m->next) {
- 		int i;
-@@ -206,9 +181,9 @@ static int dev_mc_seq_show(struct seq_file *seq, void *v)
- }
- 
- static const struct seq_operations dev_mc_seq_ops = {
--	.start = dev_mc_seq_start,
--	.next  = dev_mc_seq_next,
--	.stop  = dev_mc_seq_stop,
-+	.start = dev_seq_start,
-+	.next  = dev_seq_next,
-+	.stop  = dev_seq_stop,
- 	.show  = dev_mc_seq_show,
- };
- 
+ #endif
+=20
+ /* Size of Supported Address Parameter for 'x' address types. */
+--=20
+1.5.2.2
+
