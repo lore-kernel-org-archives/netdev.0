@@ -1,81 +1,102 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 00/28] Swap over NFS -v16
-Date: Fri, 29 Feb 2008 13:18:53 +0100
-Message-ID: <1204287533.6243.105.camel@lappy>
-References: <20080220144610.548202000@chello.nl>
-	 <20080223000620.7fee8ff8.akpm@linux-foundation.org>
-	 <18371.43950.150842.429997@notabene.brown>
-	 <1204023042.6242.271.camel@lappy>
-	 <18372.64081.995262.986841@notabene.brown>
-	 <1204099113.6242.353.camel@lappy>
-	 <84144f020802270005p3bfbd04ar9da2875218ef98c4@mail.gmail.com>
-	 <1204285912.6243.93.camel@lappy>
-	 <84144f020802290358t2774f7bwd87efe79e7bd4235@mail.gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c:2054 tcp_mark_head_lost()
+Date: Fri, 29 Feb 2008 14:24:59 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0802290941120.18002@kivilampi-30.cs.helsinki.fi>
+References: <858077.97160.qm@web39709.mail.mud.yahoo.com>
+ <20080223000310.4630daa8.akpm@linux-foundation.org>
+ <Pine.LNX.4.64.0802271108290.13029@kivilampi-30.cs.helsinki.fi>
+ <3d8471ca0802271056l320a7ee2m5227e114a968d483@mail.gmail.com>
+ <Pine.LNX.4.64.0802272120430.1741@kivilampi-30.cs.helsinki.fi>
+ <Pine.LNX.4.64.0802281018480.32401@kivilampi-30.cs.helsinki.fi>
+ <20080228171011.fc56eace.akpm@linux-foundation.org>
+ <20080228233514.63b7136e.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Neil Brown <neilb@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Christoph Lameter <clameter@sgi.com>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+Content-Type: MULTIPART/MIXED; boundary="-696243703-1639218683-1204271164=:18002"
+Cc: Guillaume Chazarain <guichaz@gmail.com>,
+	Giangiacomo Mariotti <giangiacomo_mariotti@yahoo.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Bill Fink <billfink@mindspring.com>,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:33284 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754453AbYB2MTz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 07:19:55 -0500
-In-Reply-To: <84144f020802290358t2774f7bwd87efe79e7bd4235@mail.gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:60317 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756966AbYB2MZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 07:25:03 -0500
+In-Reply-To: <20080228233514.63b7136e.billfink@mindspring.com>
+Content-ID: <Pine.LNX.4.64.0802291408120.13029@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-On Fri, 2008-02-29 at 13:58 +0200, Pekka Enberg wrote:
-> Hi Peter,
+---696243703-1639218683-1204271164=:18002
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0802291159241.13029@kivilampi-30.cs.helsinki.fi>
+
+On Thu, 28 Feb 2008, Bill Fink wrote:
+
+> On Thu, 28 Feb 2008, Andrew Morton wrote:
 > 
-> On Fri, Feb 29, 2008 at 1:51 PM, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
-> >  I made page->reserve into PG_emergency and made that bit stick for the
-> >  lifetime of that page allocation. I then made kmem_is_emergency() look
-> >  up the head page backing that allocation's slab and return
-> >  PageEmergency().
+> > On Thu, 28 Feb 2008 10:22:27 +0200 (EET) "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+> > 
+> > > [PATCH] TCP debug S+L (for 2.6.25-rcs, incompatible with 2.6.24.y)
+> > > 
+> > > ---
+> > >  include/net/tcp.h     |    9 +++-
+> > >  net/ipv4/tcp_input.c  |   18 +++++++-
+> > >  net/ipv4/tcp_ipv4.c   |  127 +++++++++++++++++++++++++++++++++++++++++++++++++
+> > >  net/ipv4/tcp_output.c |   23 +++++++--
+> > 
+> > I'll put this in -mm, see if we can flush anything out.
+
+Ok, thanks. Were you aware of the considerable cpu consumption it will 
+cause...? I.e., scanning throught the write queue in a number of place per 
+ACK will certainly show up if somebody tests with netperf or so... ;-)
+...Just please make sure it won't leak into mainline (for sure you would 
+have done that without this explicit note :-)).
+
+Good thing in that debug patch is that it catches inconsistencies 
+immediately when they happen even if the cheap trap (which is in mainline) 
+wouldn't ever see them because the situation would correct itself due to 
+some other event.
+
+> > Please let me know if/when it's obsolete, updated, etc.
+
+Ok. Since many seem to now reporting this, I suppose the cause is 
+relatively easy to find.
+
+> > What is "S+L"?
 > 
-> [snip]
+> I'll let Ilpo give the definitive answer.  But to test if I'm starting
+> to grasp this, I'll give my understanding.  I believe 'S' means that a
+> transmitted TCP skb has been acknowledged by a SACK, while 'L' means
+> that a transmitted SKB is believed lost.  Since the 'S' state implies
+> that the packet has actually been successfully received, it should not be
+> possible for it to be considered lost ('L' state).  Thus an "S+L" state
+> for a TCP skb is an internally inconsistent state and an indication of
+> a TCP bug.
 > 
-> On Fri, Feb 29, 2008 at 1:51 PM, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
-> >  This is a stricter model than I had before, and has one ramification I'm
-> >  not entirely sure I like.
-> >
-> >  It means the page remains a reserve page throughout its lifetime, which
-> >  means the slab remains a reserve slab throughout its lifetime. Therefore
-> >  it may never be used for !reserve allocations. Which in turn generates
-> >  complexities for the partial list.
-> 
-> Hmm, so why don't we then clear the PG_emergency flag then 
+> Anyone feel free to correct me if I'm way off base in my understanding.
 
-Clearing PG_emergency would mean kmem_is_emergency() would return false
-in kfree_reserve() and fail to un-charge the object.
+Yes, this is exactly what it means. There's a big comment about them in 
+the net/ipv4/tcp_input.c too. I answered to a similar question (but Bill 
+mostly told all of it already):
+  http://marc.info/?l=linux-netdev&m=120099888912383&w=2
 
-Previously objects would track their account status themselves (when
-needed) and freeing PG_emergency wouldn't be a problem.
-
-> and allocate a new fresh page to the reserves?
-
-Not sure I understand this properly. We would only do this once the page
-watermarks are high enough, so the reserves are full again.
-
-> On Fri, Feb 29, 2008 at 1:51 PM, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
-> >  Does this sound like something I should pursuit? I feel it might
-> >  complicate the slab allocators too much..
-> 
-> I can't answer that question until I see the code ;-). But overall, I
-> think it's better to put that code in SLUB rather than trying to work
-> around it elsewhere. The fact is, as soon as you have some sort of
-> reservation for _objects_, you need help from the SLUB allocator.
-
-Well, I agree with that consolidating it makes sense. And like I said,
-it gives pretty code. However, it also puts the burden of this feature
-on everyone and might affect performance - still its only the slow path,
-but still.
+We can do only cheap checking for sacked_out+lost_out > packets_out in 
+mainline, and if that's true those warnings get printed but they won't 
+necessarily tell the location of the bug because there might be 
+considerable "latency" before that check triggers. On the other hand, this 
+S+L debug patch verifies skb's ->sacked bitmaps against sacked/lost_out 
+counters in multiple places per ACK and will catch the inconsistencies 
+immediately at the site where they occurred (even if sacked_out + lost_out 
+would still be below or equal to packets_out).
 
 
+
+-- 
+ i.
+---696243703-1639218683-1204271164=:18002--
