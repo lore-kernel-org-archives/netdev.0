@@ -1,43 +1,56 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH] fix boot-time hangs from PREEMPT_RCU and NO_HZ
-Date: Fri, 29 Feb 2008 12:08:29 -0500 (EST)
-Message-ID: <Pine.LNX.4.58.0802291207250.30943@gandalf.stny.rr.com>
-References: <Pine.LNX.4.58.0801291113350.20371@gandalf.stny.rr.com>
- <20080229044329.GA20207@linux.vnet.ibm.com> <20080228210140.37abe9cd.akpm@linux-foundation.org>
- <20080229154835.GB27248@elte.hu> <20080229165557.GC13330@linux.vnet.ibm.com>
- <20080229165752.GB7952@elte.hu>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH 1/2] [SCTP]: Kill unused static inline sctp_sysctl_jiffies_ms
+Date: Fri, 29 Feb 2008 12:09:45 -0500
+Message-ID: <47C83C59.9000304@hp.com>
+References: <1204301596-15568-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	john stultz <johnstul@us.ibm.com>, jarkao2@gmail.com,
-	netdev@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.123]:35572 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761181AbYB2RIe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 12:08:34 -0500
-In-Reply-To: <20080229165752.GB7952@elte.hu>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:47039 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753463AbYB2RJv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 12:09:51 -0500
+In-Reply-To: <1204301596-15568-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Ilpo J=E4rvinen wrote:
+> After the patch:
+> $ git-grep sctp_sysctl_jiffies_ms | wc -l
+> 0
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
 
+Good catch.  Looks like dead declaration.
 
-On Fri, 29 Feb 2008, Ingo Molnar wrote:
->
-> no, sorry about me taking longer than usual about it - this is not a
-> small patch and it had to be observed a bit longer. But as it is usual
-> with your patches, it's working perfectly :-)
+Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-Not to mention that this patch has been in the -rt tree for some time now.
-But you are right, it's a pretty big patch to go in without shaking it out
-further.
+Thanks
+-vlad
 
-Good to know that I hasn't needed any tweaks in the bigger arena.
-
--- Steve
+> ---
+>  include/net/sctp/sctp.h |    5 -----
+>  1 files changed, 0 insertions(+), 5 deletions(-)
+>=20
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index 57df27f..a653eb3 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -368,11 +368,6 @@ void sctp_sysctl_unregister(void);
+>  #else
+>  static inline void sctp_sysctl_register(void) { return; }
+>  static inline void sctp_sysctl_unregister(void) { return; }
+> -static inline int sctp_sysctl_jiffies_ms(ctl_table *table, int __use=
+r *name, int nlen,
+> -		void __user *oldval, size_t __user *oldlenp,
+> -		void __user *newval, size_t newlen) {
+> -	return -ENOSYS;
+> -}
+>  #endif
+> =20
+>  /* Size of Supported Address Parameter for 'x' address types. */
 
