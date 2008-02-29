@@ -1,36 +1,28 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH 02/15] [ATM]: Use proc_create() to setup ->proc_fops first
-Date: Fri, 29 Feb 2008 13:23:45 +0800
-Message-ID: <47C796E1.7030203@cn.fujitsu.com>
-References: <47C6931B.70204@cn.fujitsu.com> <20080228.135611.252555298.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [NIU] Add Support for Sun ATCA Blade Server.
+Date: Thu, 28 Feb 2008 21:26:40 -0800 (PST)
+Message-ID: <20080228.212640.236979160.davem@davemloft.net>
+References: <200802211734.m1LHYPFa040177@sr1-umpk-51.sfbay.sun.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: matheos.worku@sun.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:52575 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750745AbYB2F0W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Feb 2008 00:26:22 -0500
-In-Reply-To: <20080228.135611.252555298.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42973
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750929AbYB2F0k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 00:26:40 -0500
+In-Reply-To: <200802211734.m1LHYPFa040177@sr1-umpk-51.sfbay.sun.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller said the following on 2008-2-29 5:56:
-> From: Wang Chen <wangchen@cn.fujitsu.com>
-> Date: Thu, 28 Feb 2008 18:55:23 +0800
-> 
->> Use proc_create() to make sure that ->proc_fops be setup before gluing
->> PDE to main tree.
->>
->> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-> 
-> Applied, thanks.
-> 
-> Some of those paths could definitely use some error
-> handling.
-> 
+From: Matheos Worku <matheos.worku@sun.com>
+Date: Wed, 20 Feb 2008 08:28:43 -0800
 
-Thanks Dave, I will make patch for error handling later.
+> Ports 0 and 1 of the NIU device are connected to extended fabric through
+> SERDES. Ports 2 and 3 are connected using RGMII Fiber mode.
+> 
+> Signed-off-by: Matheos Worku <matheos.worku@sun.com>
 
+Applied, with some coding style cleanups.
