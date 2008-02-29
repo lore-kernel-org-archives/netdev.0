@@ -1,38 +1,87 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH] fix boot-time hangs from PREEMPT_RCU and NO_HZ
-Date: Fri, 29 Feb 2008 16:48:35 +0100
-Message-ID: <20080229154835.GB27248@elte.hu>
-References: <Pine.LNX.4.58.0801291113350.20371@gandalf.stny.rr.com> <20080229044329.GA20207@linux.vnet.ibm.com> <20080228210140.37abe9cd.akpm@linux-foundation.org>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.26] Use existing device list walker for /proc/dev_mcast.
+Date: Fri, 29 Feb 2008 19:12:30 +0300
+Message-ID: <47C82EEE.1040409@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: paulmck@linux.vnet.ibm.com, Steven Rostedt <rostedt@goodmis.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	john stultz <johnstul@us.ibm.com>, jarkao2@gmail.com,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:46795 "EHLO mx2.mail.elte.hu"
+Received: from sacred.ru ([62.205.161.221]:40681 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932343AbYB2Ps5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Feb 2008 10:48:57 -0500
-Content-Disposition: inline
-In-Reply-To: <20080228210140.37abe9cd.akpm@linux-foundation.org>
+	id S1758911AbYB2QMd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Feb 2008 11:12:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The seq_file_operations' dev_mc_seq_xxx callbacks do the same 
+thing as the dev_seq_xxx ones do, but skip the SEQ_START_TOKEN.
 
-* Andrew Morton <akpm@linux-foundation.org> wrote:
+So use the existing exported dev_seq_xxx calls and handle the 
+SEQ_START_TOKEN in the dev_mc_seq_show().
 
-> > Note: This patch came directly from the -rt patch where it has been 
-> > tested for several months.
-> > 
-> > Andrew, could you please apply this?
-> 
-> I already have it, via git-sched.  Presumably Ingo has it lined up for 
-> the next sched-related merge.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-yes.
+---
 
-	Ingo
+diff --git a/net/core/dev_mcast.c b/net/core/dev_mcast.c
+index cec5825..f8a3455 100644
+--- a/net/core/dev_mcast.c
++++ b/net/core/dev_mcast.c
+@@ -156,39 +156,14 @@ void dev_mc_unsync(struct net_device *to, struct net_device *from)
+ EXPORT_SYMBOL(dev_mc_unsync);
+ 
+ #ifdef CONFIG_PROC_FS
+-static void *dev_mc_seq_start(struct seq_file *seq, loff_t *pos)
+-	__acquires(dev_base_lock)
+-{
+-	struct net *net = seq_file_net(seq);
+-	struct net_device *dev;
+-	loff_t off = 0;
+-
+-	read_lock(&dev_base_lock);
+-	for_each_netdev(net, dev) {
+-		if (off++ == *pos)
+-			return dev;
+-	}
+-	return NULL;
+-}
+-
+-static void *dev_mc_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+-{
+-	++*pos;
+-	return next_net_device((struct net_device *)v);
+-}
+-
+-static void dev_mc_seq_stop(struct seq_file *seq, void *v)
+-	__releases(dev_base_lock)
+-{
+-	read_unlock(&dev_base_lock);
+-}
+-
+-
+ static int dev_mc_seq_show(struct seq_file *seq, void *v)
+ {
+ 	struct dev_addr_list *m;
+ 	struct net_device *dev = v;
+ 
++	if (v == SEQ_START_TOKEN)
++		return 0;
++
+ 	netif_tx_lock_bh(dev);
+ 	for (m = dev->mc_list; m; m = m->next) {
+ 		int i;
+@@ -206,9 +181,9 @@ static int dev_mc_seq_show(struct seq_file *seq, void *v)
+ }
+ 
+ static const struct seq_operations dev_mc_seq_ops = {
+-	.start = dev_mc_seq_start,
+-	.next  = dev_mc_seq_next,
+-	.stop  = dev_mc_seq_stop,
++	.start = dev_seq_start,
++	.next  = dev_seq_next,
++	.stop  = dev_seq_stop,
+ 	.show  = dev_mc_seq_show,
+ };
+ 
