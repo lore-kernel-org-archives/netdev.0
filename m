@@ -1,64 +1,80 @@
-From: Florian Lohoff <flo@rfc822.org>
-Subject: Re: capturing VLAN
-Date: Fri, 29 Feb 2008 11:22:09 +0100
-Message-ID: <20080229102209.GC15289@paradigm.rfc822.org>
-References: <200802290956.19093.krauz@cncz.cz>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH 00/28] Swap over NFS -v16
+Date: Fri, 29 Feb 2008 12:51:52 +0100
+Message-ID: <1204285912.6243.93.camel@lappy>
+References: <20080220144610.548202000@chello.nl>
+	 <20080223000620.7fee8ff8.akpm@linux-foundation.org>
+	 <18371.43950.150842.429997@notabene.brown>
+	 <1204023042.6242.271.camel@lappy>
+	 <18372.64081.995262.986841@notabene.brown>
+	 <1204099113.6242.353.camel@lappy>
+	 <84144f020802270005p3bfbd04ar9da2875218ef98c4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="V88s5gaDVPzZ0KCq"
-Cc: netdev@vger.kernel.org
-To: Pavel Krauz <krauz@cncz.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hydra.gt.owl.de ([195.71.99.218]:36064 "EHLO hydra.gt.owl.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758690AbYB2KzI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Feb 2008 05:55:08 -0500
-Content-Disposition: inline
-In-Reply-To: <200802290956.19093.krauz@cncz.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Neil Brown <neilb@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759738AbYB2LwY@vger.kernel.org>
+In-Reply-To: <84144f020802270005p3bfbd04ar9da2875218ef98c4@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---V88s5gaDVPzZ0KCq
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Wed, 2008-02-27 at 10:05 +0200, Pekka Enberg wrote:
+> Hi Peter,
+> 
+> On Wed, Feb 27, 2008 at 9:58 AM, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+> >  > 1/ I note there is no way to tell if memory returned by kmalloc is
+> >  >   from the emergency reserve - which contrasts with alloc_page
+> >  >   which does make that information available through page->reserve.
+> >  >   This seems a slightly unfortunate aspect of the interface.
+> >
+> >  Yes, but alas there is no room to store such information in kmalloc().
+> >  That is, in a sane way. I think it was Daniel Phillips who suggested
+> >  encoding it in the return pointer by flipping the low bit - but that is
+> >  just too ugly and breaks all current kmalloc sites to boot.
+> 
+> Why can't you add a kmem_is_emergency() to SLUB that looks up the
+> cache/slab/page (whatever is the smallest unit of the emergency pool
+> here) for the object and use that?
 
-On Fri, Feb 29, 2008 at 09:56:18AM +0100, Pavel Krauz wrote:
-> Hi guys
-> as I see it, capturing packets with VLAN tag over PCAP is simply
-> broken on 2.6 kernel with the HW acceleration. Applications that need
-> unmodified packets over PCAP in promisc mode cannot work when VLAN
-> is present in the traffic.
+I made page->reserve into PG_emergency and made that bit stick for the
+lifetime of that page allocation. I then made kmem_is_emergency() look
+up the head page backing that allocation's slab and return
+PageEmergency().
 
-Older kernels (e.g. debian 2.6.18) had the problem that when you enable
-802.1q VLAN support the acenic driver dropped the first vlan tag on a
-packet regardless if you enable vlans or not. If you recompile a kernel
-without 802.1q VLAN support all 802.1q tags should be in the pcap.
+This gives a consistent kmem_is_emergency() - that is if during the
+lifetime of the kmem allocation it returns true once, it must return
+true always.
 
-I was dumping 802.1qinq with 2 VLAN tags stacked and the outer tag
-was gone ...
+You can then, using this properly, push the accounting into
+kmalloc_reserve() and kfree_reserve() (and
+kmem_cache_{alloc,free}_reserve).
 
-Without looking at all the drivers there is definitly something
-driver and config option dependent when capturing 802.1q traffic.
+Which yields very pretty code all round. (can make public if you like to
+see..)
 
-Flo
---=20
-Florian Lohoff                  flo@rfc822.org             +49-171-2280134
-	Those who would give up a little freedom to get a little=20
-          security shall soon have neither - Benjamin Franklin
+However...
 
---V88s5gaDVPzZ0KCq
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+This is a stricter model than I had before, and has one ramification I'm
+not entirely sure I like.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
+It means the page remains a reserve page throughout its lifetime, which
+means the slab remains a reserve slab throughout its lifetime. Therefore
+it may never be used for !reserve allocations. Which in turn generates
+complexities for the partial list.
 
-iD8DBQFHx9zRUaz2rXW+gJcRAoPoAJ42DKwBgWPrnJ+s10SODhr6JnmJYwCcCaif
-E+ahYO9te2FDErSG7e9ijrE=
-=1JIE
------END PGP SIGNATURE-----
+In my previous model I had the reserve accounting external to the
+allocation, which relaxed the strict need for consistency here, and I
+dropped the reserve status once we were above the page limits again. 
 
---V88s5gaDVPzZ0KCq--
+I managed to complicate the SLUB patch with this extra constraint, by
+checking reserve against PageEmergency() when scanning the partial list,
+but gave up on SLAB.
+
+Does this sound like something I should pursuit? I feel it might
+complicate the slab allocators too much..
