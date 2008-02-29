@@ -1,127 +1,176 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 8/12 net-2.6.26] Make netlink_kernel_release publically available as sk_release_kernel.
-Date: Fri, 29 Feb 2008 16:40:54 +0300
-Message-ID: <1204292458-11636-8-git-send-email-den@openvz.org>
+Subject: [PATCH 11/12] [NETNS]: Make icmpv6_sk per namespace.
+Date: Fri, 29 Feb 2008 16:40:57 +0300
+Message-ID: <1204292458-11636-11-git-send-email-den@openvz.org>
 References: <1204292360.10368.11.camel@iris.sw.ru>
 Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
 	"Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:56288 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:65059 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759616AbYB2Nkm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1759745AbYB2Nkm (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 29 Feb 2008 08:40:42 -0500
 In-Reply-To: <1204292360.10368.11.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This staff will be needed for non-netlink kernel sockets, which should also
-not pin a namespace like tcp_socket and icmp_socket.
+All preparations are done. Now just add a hook to perform an initialization
+on namespace startup and replace icmpv6_sk macro with proper inline call.
+Actual namespace the packet belongs too will be passed later along with the
+one for the routing.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 Acked-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 ---
- include/net/sock.h       |   13 +++++++++++++
- net/core/sock.c          |   18 ++++++++++++++++++
- net/netlink/af_netlink.c |   18 ++----------------
- 3 files changed, 33 insertions(+), 16 deletions(-)
+ include/net/netns/ipv6.h |    1 +
+ net/ipv6/icmp.c          |   68 +++++++++++++++++++++++++++++++--------------
+ 2 files changed, 48 insertions(+), 21 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index fd98760..39112e7 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -850,6 +850,7 @@ extern struct sock		*sk_alloc(struct net *net, int family,
- 					  gfp_t priority,
- 					  struct proto *prot);
- extern void			sk_free(struct sock *sk);
-+extern void			sk_release_kernel(struct sock *sk);
- extern struct sock		*sk_clone(const struct sock *sk,
- 					  const gfp_t priority);
- 
-@@ -1333,6 +1334,18 @@ static inline void sk_eat_skb(struct sock *sk, struct sk_buff *skb, int copied_e
- }
+diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+index 1dd7de4..82623d3 100644
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -36,5 +36,6 @@ struct netns_ipv6 {
+ 	struct xt_table		*ip6table_mangle;
+ 	struct xt_table		*ip6table_raw;
  #endif
- 
-+/*
-+ * Kernel sockets, f.e. rtnl or icmp_socket, are a part of a namespace.
-+ * They should not hold a referrence to a namespace in order to allow
-+ * to stop it.
-+ * Sockets after sk_change_net should be released using sk_release_kernel
-+ */
-+static inline void sk_change_net(struct sock *sk, struct net *net)
++	struct sock		**icmp_sk;
+ };
+ #endif
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 7341d79..9f55a96 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -80,8 +80,10 @@ EXPORT_SYMBOL(icmpv6msg_statistics);
+  *
+  *	On SMP we have one ICMP socket per-cpu.
+  */
+-static struct sock **__icmpv6_sk = NULL;
+-#define icmpv6_sk	(__icmpv6_sk[smp_processor_id()])
++static inline struct sock *icmpv6_sk(struct net *net)
 +{
-+	put_net(sk->sk_net);
-+	sk->sk_net = net;
++	return net->ipv6.icmp_sk[smp_processor_id()];
 +}
-+
- extern void sock_enable_timestamp(struct sock *sk);
- extern int sock_get_timestamp(struct sock *, struct timeval __user *);
- extern int sock_get_timestampns(struct sock *, struct timespec __user *);
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 09cb3a7..c71b645 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -987,6 +987,24 @@ void sk_free(struct sock *sk)
- 	sk_prot_free(sk->sk_prot_creator, sk);
- }
  
-+/*
-+ * Last sock_put should drop referrence to sk->sk_net. It has already
-+ * been dropped in sk_change_net. Taking referrence to stopping namespace
-+ * is not an option.
-+ * Take referrence to a socket to remove it from hash _alive_ and after that
-+ * destroy it in the context of init_net.
-+ */
-+void sk_release_kernel(struct sock *sk)
-+{
-+	if (sk == NULL || sk->sk_socket == NULL)
-+		return;
-+
-+	sock_hold(sk);
-+	sock_release(sk->sk_socket);
-+	sk->sk_net = get_net(&init_net);
-+	sock_put(sk);
-+}
-+
- struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
+ static int icmpv6_rcv(struct sk_buff *skb);
+ 
+@@ -389,7 +391,7 @@ void icmpv6_send(struct sk_buff *skb, int type, int code, __u32 info,
+ 	fl.fl_icmp_code = code;
+ 	security_skb_classify_flow(skb, &fl);
+ 
+-	sk = icmpv6_sk;
++	sk = icmpv6_sk(&init_net);
+ 	np = inet6_sk(sk);
+ 
+ 	if (icmpv6_xmit_lock(sk))
+@@ -535,7 +537,7 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 	fl.fl_icmp_type = ICMPV6_ECHO_REPLY;
+ 	security_skb_classify_flow(skb, &fl);
+ 
+-	sk = icmpv6_sk;
++	sk = icmpv6_sk(&init_net);
+ 	np = inet6_sk(sk);
+ 
+ 	if (icmpv6_xmit_lock(sk))
+@@ -780,13 +782,14 @@ drop_no_count:
+  */
+ static struct lock_class_key icmpv6_socket_sk_dst_lock_key;
+ 
+-int __init icmpv6_init(void)
++static int __net_init icmpv6_sk_init(struct net *net)
  {
- 	struct sock *newsk;
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index e6b636d..524e826 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1372,8 +1372,7 @@ netlink_kernel_create(struct net *net, int unit, unsigned int groups,
- 		goto out_sock_release_nosk;
+ 	struct sock *sk;
+ 	int err, i, j;
  
- 	sk = sock->sk;
--	put_net(sk->sk_net);
--	sk->sk_net = net;
-+	sk_change_net(sk, net);
+-	__icmpv6_sk = kzalloc(nr_cpu_ids * sizeof(struct sock *), GFP_KERNEL);
+-	if (__icmpv6_sk == NULL)
++	net->ipv6.icmp_sk =
++		kzalloc(nr_cpu_ids * sizeof(struct sock *), GFP_KERNEL);
++	if (net->ipv6.icmp_sk == NULL)
+ 		return -ENOMEM;
  
- 	if (groups < 32)
- 		groups = 32;
-@@ -1421,20 +1420,7 @@ EXPORT_SYMBOL(netlink_kernel_create);
- void
- netlink_kernel_release(struct sock *sk)
- {
--	/*
--	 * Last sock_put should drop referrence to sk->sk_net. It has already
--	 * been dropped in netlink_kernel_create. Taking referrence to stopping
--	 * namespace is not an option.
--	 * Take referrence to a socket to remove it from netlink lookup table
--	 * _alive_ and after that destroy it in the context of init_net.
--	 */
--	if (sk == NULL || sk->sk_socket == NULL)
--		return;
+ 	for_each_possible_cpu(i) {
+@@ -801,8 +804,8 @@ int __init icmpv6_init(void)
+ 			goto fail;
+ 		}
+ 
+-		__icmpv6_sk[i] = sk = sock->sk;
+- 		sk_change_net(sk, &init_net);
++		net->ipv6.icmp_sk[i] = sk = sock->sk;
++		sk_change_net(sk, net);
+ 
+ 		sk->sk_allocation = GFP_ATOMIC;
+ 		/*
+@@ -822,33 +825,56 @@ int __init icmpv6_init(void)
+ 
+ 		sk->sk_prot->unhash(sk);
+ 	}
 -
--	sock_hold(sk);
--	sock_release(sk->sk_socket);
--	sk->sk_net = get_net(&init_net);
--	sock_put(sk);
-+	sk_release_kernel(sk);
- }
- EXPORT_SYMBOL(netlink_kernel_release);
+-
+-	if (inet6_add_protocol(&icmpv6_protocol, IPPROTO_ICMPV6) < 0) {
+-		printk(KERN_ERR "Failed to register ICMP6 protocol\n");
+-		err = -EAGAIN;
+-		goto fail;
+-	}
+-
+ 	return 0;
  
+  fail:
+ 	for (j = 0; j < i; j++)
+-		sk_release_kernel(__icmpv6_sk[j]);
+-
++		sk_release_kernel(net->ipv6.icmp_sk[j]);
++	kfree(net->ipv6.icmp_sk);
+ 	return err;
+ }
+ 
+-void icmpv6_cleanup(void)
++static void __net_exit icmpv6_sk_exit(struct net *net)
+ {
+ 	int i;
+ 
+ 	for_each_possible_cpu(i) {
+-		sk_release_kernel(__icmpv6_sk[i]);
++		sk_release_kernel(net->ipv6.icmp_sk[i]);
+ 	}
++	kfree(net->ipv6.icmp_sk);
++}
++
++static struct pernet_operations __net_initdata icmpv6_sk_ops = {
++       .init = icmpv6_sk_init,
++       .exit = icmpv6_sk_exit,
++};
++
++int __init icmpv6_init(void)
++{
++	int err;
++
++	err = register_pernet_subsys(&icmpv6_sk_ops);
++	if (err < 0)
++		return err;
++
++	err = -EAGAIN;
++	if (inet6_add_protocol(&icmpv6_protocol, IPPROTO_ICMPV6) < 0)
++		goto fail;
++	return 0;
++
++fail:
++	printk(KERN_ERR "Failed to register ICMP6 protocol\n");
++	unregister_pernet_subsys(&icmpv6_sk_ops);
++	return err;
++}
++
++void __exit icmpv6_cleanup(void)
++{
++	unregister_pernet_subsys(&icmpv6_sk_ops);
+ 	inet6_del_protocol(&icmpv6_protocol, IPPROTO_ICMPV6);
+ }
+ 
++
+ static const struct icmp6_err {
+ 	int err;
+ 	int fatal;
 -- 
 1.5.3.rc5
 
