@@ -1,61 +1,63 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] [NET 2.6.26]: Add per-connection option to set max TSOframe   size
-Date: Fri, 29 Feb 2008 15:20:20 -0800
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329049C4342@orsmsx414.amr.corp.intel.com>
-References: <20080228183150.4431.81252.stgit@localhost.localdomain> <20080229204650.GA2848@ami.dom.local>
+From: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-02-27
+Date: Fri, 29 Feb 2008 15:51:49 -0800
+Message-ID: <20080229155149.9575f2d0.randy.dunlap@oracle.com>
+References: <20080228014125.GI3078@tuxdriver.com>
+	<20080229162629.GB3234@tuxdriver.com>
+	<1204302853.3938.40.camel@johannes.berg>
+	<200803010013.11458.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <stephen.hemminger@vyatta.com>,
-	<netdev@vger.kernel.org>
-To: "Jarek Poplawski" <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:55330 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750863AbYB2XWN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 18:22:13 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20080229204650.GA2848@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	gordonfarquharson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200803010013.11458.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> > +++ b/include/linux/netdevice.h
-> ...
-> > +	/* for setting kernel sock attribute on TCP connection setup */
-> > +#define GSO_MAX_SIZE		65536
-> > +	u32			gso_max_size;
+On Sat, 1 Mar 2008 00:13:11 +0100 Michael Buesch wrote:
+
+> On Friday 29 February 2008 17:34:13 Johannes Berg wrote:
+> > 
+> > On Fri, 2008-02-29 at 11:26 -0500, John W. Linville wrote:
+> > > On Fri, Feb 29, 2008 at 01:16:59PM +0100, Michael Buesch wrote:
+> > > 
+> > > > I'm wondering if we can't simply pass a commandline parameter to file2alias
+> > > > that tells it whether we are crosscompiling. It should simply omit the sanity check
+> > > 
+> > > Sounds reasonable to me.
+> > 
+> > In fact, file2alias shouldn't need a command line argument ...
 > 
-> One more, maybe foolish, thrifty idea: do we really need such 
-> a precision here? I don't know those devices, but maybe it 
-> would be enough (for the beginning at least?) to use a few 
-> divisors e.g.:
+> Well, if...
 > 
-> gso_max_size = 65536 >> GSO_MAX_SIZE_SHIFT
+> > > > in that case. Is there any easy and reliable way to find out whether we
+> > > > are crosscompiling from a makefile (I don't know the makefile core that much)?
+> > > 
+> > > Non-empty CROSS_COMPILE definition?
+> > 
+> > ... it can just check whether CROSS_COMPILE is set in its environment.
+> > No?
 > 
-> Then it seems 3 or 4 bits should be enough for this, and BTW, 
-> it looks like dev->features has 16 bits for various GSO 
-> flags, with "a lot" of free space yet - unless I missed something?
+> Is that exported to the environment?
 
-This patch has two purposes, one to add an additional tunable for TSO
-for drivers, and two, to support buggy hardware that can do segmentation
-offloading, but can't handle 64 KB frames.  Your suggestion here would
-lend well for the latter, for drivers needing to set the maximum frame
-size to something "smaller," and not really needing or wanting fine
-granularity.  It just needs something smaller to chew on vs. the current
-64 KB frames.
+Certainly, in top-level Makefile:
 
-For the tuning, I see the desire for something much more granular.
-Looking ahead at some of the giant send offload features coming (support
-for TSOs bigger than 64 KB) and even for current adapters looking to
-fine tune TSO given a certain workload, I see the need for this
-granularity.  For a certain type of workload, a TSO max frame size of 40
-KB, or 20 KB, or even 50 KB might be something a driver would like to
-do.
+export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
+export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
+export CPP AR NM STRIP OBJCOPY OBJDUMP MAKE AWK GENKSYMS PERL UTS_MACHINE
+export HOSTCXX HOSTCXXFLAGS LDFLAGS_MODULE CHECK CHECKFLAGS
 
-Hopefully this clarifies my intent.  I think keeping the full precision
-is the right thing to do moving forward.  I really do appreciate the
-inputs though, keep them coming please.  :-)
 
-Cheers,
--PJ Waskiewicz
+---
+~Randy
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
