@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.26] [SCTP]: extend exported data in
- /proc/net/sctp/assoc
-Date: Fri, 29 Feb 2008 11:41:09 -0800 (PST)
-Message-ID: <20080229.114109.166834859.davem@davemloft.net>
-References: <47C8227D.1050201@hp.com>
+Subject: Re: [PATCH net-2.6.26] [INET]: Remove struct dst_entry *dst from
+ request_sock_ops.rtx_syn_ack.
+Date: Fri, 29 Feb 2008 11:43:15 -0800 (PST)
+Message-ID: <20080229.114315.84886517.davem@davemloft.net>
+References: <1204299136-12294-1-git-send-email-den@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: vladislav.yasevich@hp.com
+To: den@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48229
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59377
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751637AbYB2TlL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 14:41:11 -0500
-In-Reply-To: <47C8227D.1050201@hp.com>
+	by vger.kernel.org with ESMTP id S1757102AbYB2TnQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 14:43:16 -0500
+In-Reply-To: <1204299136-12294-1-git-send-email-den@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Fri, 29 Feb 2008 10:19:25 -0500
+From: "Denis V. Lunev" <den@openvz.org>
+Date: Fri, 29 Feb 2008 18:32:16 +0300
 
-> RFC 3873  specifies several MIB objects that can't be obtained by the
-> current data set exported by /proc/sys/net/sctp/assoc.  This
-> patch adds the missing pieces of data that allow us to compute all the
-> objects in the sctpAssocTable object.
+> It looks like dst parameter is used in this API due to historical reasons.
+> Actually, it is really used in the direct call to tcp_v4_send_synack only.
+> So, create a wrapper for tcp_v4_send_synack and remove dst from rtx_syn_ack.
 > 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Signed-off-by: Denis V. Lunev <den@openvz.org>
 
-Applied to net-2.6.26, thanks.
+Good catch, applied.
