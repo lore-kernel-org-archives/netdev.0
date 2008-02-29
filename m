@@ -1,123 +1,93 @@
-From: "Injong Rhee" <rhee@eos.ncsu.edu>
-Subject: [PATCH] New Update on CUBIC
-Date: Fri, 29 Feb 2008 08:26:24 -0500
-Message-ID: <008401c87ad6$aea52e30$4a580e98@ncsu2cc0c3fa00>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.26 3/4] Use seq_open_private in appletalk and decnet.
+Date: Fri, 29 Feb 2008 16:48:24 +0300
+Message-ID: <47C80D28.9020009@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="ks_c_5601-1987";
-	reply-type=original
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Stephen Hemminger" <shemminger@vyatta.com>
-To: <netdev@vger.kernel.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Christine Caulfield <christine.caulfield@googlemail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from uni10mr.unity.ncsu.edu ([152.1.1.170]:63918 "EHLO
-	uni10mr.unity.ncsu.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932532AbYB2Nrc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 08:47:32 -0500
+Received: from sacred.ru ([62.205.161.221]:44538 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758522AbYB2Nsj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Feb 2008 08:48:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have updated CUBIC to fix some issues with slow increase in large BDP 
-networks. We also improved its convergence speed. The fix is in fact very 
-simple --  the window increase limit of smax during the window probing phase 
-(i.e., convex growth phase) is removed. We found that this does not affect 
-TCP friendliness, but only improves its scalability. We have run some tests 
-in our lab and also over the Internet path from NCSU to Japan. These results 
-can be seen from the following page:
+These two also perform manual seq_open_private, so patch them both
+at once. But unlike ATM code, these already use the seq_release_private, 
+so I splitted this patch from the previous one.
 
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-http://netsrv.csc.ncsu.edu/wiki/index.php/Intra_protocol_fairness_testing_with_linux-2.6.23.9
-http://netsrv.csc.ncsu.edu/wiki/index.php/RTT_fairness_testing_with_linux-2.6.23.9
-http://netsrv.csc.ncsu.edu/wiki/index.php/TCP_friendliness_testing_with_linux-2.6.23.9
-
-
-Signed-off-by: Sangtae Ha <sha2@ncsu.edu>
 ---
- net/ipv4/tcp_cubic.c |   33 +++++++--------------------------
- 1 files changed, 7 insertions(+), 26 deletions(-)
 
-diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
-index 3aa0b23..97df45c 100644
---- a/net/ipv4/tcp_cubic.c
-+++ b/net/ipv4/tcp_cubic.c
-@@ -1,12 +1,13 @@
- /*
-- * TCP CUBIC: Binary Increase Congestion control for TCP v2.1
-- *
-+ * TCP CUBIC: Binary Increase Congestion control for TCP v2.2
-+ * Home page:
-+ *      http://netsrv.csc.ncsu.edu/twiki/bin/view/Main/BIC
-  * This is from the implementation of CUBIC TCP in
-  * Injong Rhee, Lisong Xu.
-  *  "CUBIC: A New TCP-Friendly High-Speed TCP Variant
-  *  in PFLDnet 2005
-  * Available from:
-- *  http://www.csc.ncsu.edu/faculty/rhee/export/bitcp/cubic-paper.pdf
-+ *  http://netsrv.csc.ncsu.edu/export/cubic-paper.pdf
-  *
-  * Unless CUBIC is enabled and congestion window is large
-  * this behaves the same as the original Reno.
-@@ -20,15 +21,10 @@
- #define BICTCP_BETA_SCALE    1024 /* Scale factor beta calculation
-  * max_cwnd = snd_cwnd * beta
-  */
--#define BICTCP_B 4 /*
--   * In binary search,
--   * go to point (max+min)/N
--   */
- #define BICTCP_HZ 10 /* BIC HZ 2^10 = 1024 */
-
- static int fast_convergence __read_mostly = 1;
--static int max_increment __read_mostly = 16;
--static int beta __read_mostly = 819; /* = 819/1024 (BICTCP_BETA_SCALE) */
-+static int beta __read_mostly = 717; /* = 717/1024 (BICTCP_BETA_SCALE) */
- static int initial_ssthresh __read_mostly;
- static int bic_scale __read_mostly = 41;
- static int tcp_friendliness __read_mostly = 1;
-@@ -40,9 +36,7 @@ static u64 cube_factor __read_mostly;
- /* Note parameters that are used for precomputing scale factors are 
-read-only */
- module_param(fast_convergence, int, 0644);
- MODULE_PARM_DESC(fast_convergence, "turn on/off fast convergence");
--module_param(max_increment, int, 0644);
--MODULE_PARM_DESC(max_increment, "Limit on increment allowed during binary 
-search");
--module_param(beta, int, 0444);
-+module_param(beta, int, 0644);
- MODULE_PARM_DESC(beta, "beta for multiplicative increase");
- module_param(initial_ssthresh, int, 0644);
- MODULE_PARM_DESC(initial_ssthresh, "initial value of slow start 
-threshold");
-@@ -211,19 +205,6 @@ static inline void bictcp_update(struct bictcp *ca, u32 
-cwnd)
-  ca->cnt = 100 * cwnd;              /* very small increment*/
-  }
-
-- if (ca->delay_min > 0) {
-- /* max increment = Smax * rtt / 0.1  */
-- min_cnt = (cwnd * HZ * 8)/(10 * max_increment * ca->delay_min);
+diff --git a/net/appletalk/aarp.c b/net/appletalk/aarp.c
+index 18058bb..61166f6 100644
+--- a/net/appletalk/aarp.c
++++ b/net/appletalk/aarp.c
+@@ -1033,25 +1033,8 @@ static const struct seq_operations aarp_seq_ops = {
+ 
+ static int aarp_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct aarp_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
 -
-- /* use concave growth when the target is above the origin */
-- if (ca->cnt < min_cnt && t >= ca->bic_K)
-- ca->cnt = min_cnt;
-- }
+-	if (!s)
+-		goto out;
 -
-- /* slow start and low utilization  */
-- if (ca->loss_cwnd == 0) /* could be aggressive in slow start */
-- ca->cnt = 50;
+-	rc = seq_open(file, &aarp_seq_ops);
+-	if (rc)
+-		goto out_kfree;
 -
-  /* TCP Friendly */
-  if (tcp_friendliness) {
-  u32 scale = beta_scale;
-@@ -391,4 +372,4 @@ module_exit(cubictcp_unregister);
- MODULE_AUTHOR("Sangtae Ha, Stephen Hemminger");
- MODULE_LICENSE("GPL");
- MODULE_DESCRIPTION("CUBIC TCP");
--MODULE_VERSION("2.1");
-+MODULE_VERSION("2.2");
--- 
-1.5.4.1
+-	seq	     = file->private_data;
+-	seq->private = s;
+-	memset(s, 0, sizeof(*s));
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &aarp_seq_ops,
++			sizeof(struct aarp_iter_state));
+ }
+ 
+ const struct file_operations atalk_seq_arp_fops = {
 
+diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
+index acd48ee..23fd95a 100644
+--- a/net/decnet/af_decnet.c
++++ b/net/decnet/af_decnet.c
+@@ -2320,25 +2320,8 @@ static const struct seq_operations dn_socket_seq_ops = {
+ 
+ static int dn_socket_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct dn_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &dn_socket_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq		= file->private_data;
+-	seq->private	= s;
+-	memset(s, 0, sizeof(*s));
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &dn_socket_seq_ops,
++			sizeof(struct dn_iter_state));
+ }
+ 
+ static const struct file_operations dn_socket_seq_fops = {
 
