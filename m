@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/17] Finish IPv4 infrastructure namespacing.
-Date: Thu, 28 Feb 2008 20:53:09 -0800 (PST)
-Message-ID: <20080228.205309.73700976.davem@davemloft.net>
-References: <1203406116.27296.1.camel@iris.sw.ru>
+Subject: Re: [PATCH 1/2] [IPV6]: Add ORCHID prefix to address label table
+Date: Thu, 28 Feb 2008 20:55:11 -0800 (PST)
+Message-ID: <20080228.205511.09236600.davem@davemloft.net>
+References: <20080221100813.GA24291@verkkotelakka.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org, devel@openvz.org
-To: den@openvz.org
+Cc: netdev@vger.kernel.org
+To: jmtapio@verkkotelakka.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46189
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46193
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752665AbYB2ExJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2008 23:53:09 -0500
-In-Reply-To: <1203406116.27296.1.camel@iris.sw.ru>
+	by vger.kernel.org with ESMTP id S1754565AbYB2EzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2008 23:55:12 -0500
+In-Reply-To: <20080221100813.GA24291@verkkotelakka.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Tue, 19 Feb 2008 10:28:36 +0300
+From: Juha-Matti Tapio <jmtapio@verkkotelakka.net>
+Date: Thu, 21 Feb 2008 12:08:14 +0200
 
-> This set finally allows to manipulate with network devices inside a
-> namespace and allows to configure them [via netlink]. 'route' is not yet
-> supported (but prepared to) as it requires a socket.
+> Add a new label for Overlay Routable Cryptographic Hash Identifiers
+> (RFC 4843) prefix 2001:10::/28 to help proper source address
+> selection.
 > 
-> Additionally, better routing cache support is added.
+> ORCHID addresses are used by for example Host Identity Protocol. They are 
+> global and routable, but they currently need support from both endpoints 
+> and therefore mixing regular and ORCHID addresses for source and 
+> destination is a bad idea in general case.
 > 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
+> Signed-off-by: Juha-Matti Tapio <jmtapio@verkkotelakka.net>
 
-All applied to net-2.6.26, thanks Denis.
+Applied to net-2.6.26, thanks.
