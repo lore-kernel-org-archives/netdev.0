@@ -1,41 +1,38 @@
-From: Pavel Krauz <krauz@cncz.cz>
-Subject: Re: capturing VLAN
-Date: Fri, 29 Feb 2008 16:45:20 +0100
-Message-ID: <200802291645.21331.krauz@cncz.cz>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH] fix boot-time hangs from PREEMPT_RCU and NO_HZ
+Date: Fri, 29 Feb 2008 16:48:35 +0100
+Message-ID: <20080229154835.GB27248@elte.hu>
+References: <Pine.LNX.4.58.0801291113350.20371@gandalf.stny.rr.com> <20080229044329.GA20207@linux.vnet.ibm.com> <20080228210140.37abe9cd.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: paulmck@linux.vnet.ibm.com, Steven Rostedt <rostedt@goodmis.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	john stultz <johnstul@us.ibm.com>, jarkao2@gmail.com,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kwall.cncz.cz ([194.213.192.9]:28206 "EHLO kwall.cncz.cz"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:46795 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754530AbYB2Ppb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Feb 2008 10:45:31 -0500
-Received: from asterix.domain.local (unknown [10.3.1.3])
-	by kwall.cncz.cz (Postfix) with ESMTP id C0984BAB35
-	for <netdev@vger.kernel.org>; Fri, 29 Feb 2008 16:45:30 +0100 (CET)
+	id S932343AbYB2Ps5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Feb 2008 10:48:57 -0500
 Content-Disposition: inline
+In-Reply-To: <20080228210140.37abe9cd.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> Hi guys
->> as I see it, capturing packets with VLAN tag over PCAP is simply
->> broken on 2.6 kernel with the HW acceleration. Applications that need
->> unmodified packets over PCAP in promisc mode cannot work when VLAN
->> is present in the traffic.
 
-> Older kernels (e.g. debian 2.6.18) had the problem that when you enable
-> 802.1q VLAN support the acenic driver dropped the first vlan tag on a
-> packet regardless if you enable vlans or not. If you recompile a kernel
-> without 802.1q VLAN support all 802.1q tags should be in the pcap.
+* Andrew Morton <akpm@linux-foundation.org> wrote:
 
-Unfortunately even when the CONFIG_VLAN_8021Q is undefined (no 
-support for VLAN in kernel) I do not get the VLAN tags in PCAP for
-NetXtreme II driver (I do not know about the Intel E1000 driver
-which we also use). Even if it worked I do not think it solves the problem
--  you may need to connect the server over VLAN on different
-(non monitoring) eth interface.
+> > Note: This patch came directly from the -rt patch where it has been 
+> > tested for several months.
+> > 
+> > Andrew, could you please apply this?
+> 
+> I already have it, via git-sched.  Presumably Ingo has it lined up for 
+> the next sched-related merge.
 
-b.r.
-Pavel
+yes.
+
+	Ingo
