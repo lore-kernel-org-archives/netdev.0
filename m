@@ -1,59 +1,130 @@
 From: "Stephens, Allan" <allan.stephens@windriver.com>
-Subject: [PATCH 06/08 net-2.6.26] [TIPC]: Enhancements to message header field writing
-Date: Fri, 29 Feb 2008 10:40:54 -0800
-Message-ID: <AF1602CB2550CE4381C0C75118A7856B0252DE25@ala-mail02.corp.ad.wrs.com>
+Subject: [PATCH 07/08 net-2.6.26] [TIPC]: Removal of obsolete message header option code
+Date: Fri, 29 Feb 2008 10:40:57 -0800
+Message-ID: <AF1602CB2550CE4381C0C75118A7856B0252DE26@ala-mail02.corp.ad.wrs.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="US-ASCII"
 Content-Transfer-Encoding: 8BIT
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:51702 "EHLO mail.wrs.com"
+Received: from mail.windriver.com ([147.11.1.11]:51735 "EHLO mail.wrs.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759284AbYB2Sk4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 13:40:56 -0500
+	id S932421AbYB2Sk6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 13:40:58 -0500
 Received: from ALA-MAIL03.corp.ad.wrs.com (ala-mail03 [147.11.57.144])
-	by mail.wrs.com (8.13.6/8.13.6) with ESMTP id m1TIet79012306
-	for <netdev@vger.kernel.org>; Fri, 29 Feb 2008 10:40:55 -0800 (PST)
+	by mail.wrs.com (8.13.6/8.13.6) with ESMTP id m1TIewfV012333
+	for <netdev@vger.kernel.org>; Fri, 29 Feb 2008 10:40:58 -0800 (PST)
 Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes two enhancements to the routine used to
-set bit fields within a TIPC message header:
-
- 1) It now ignores any bits of the new field value that are not
-    covered by the mask being used.  (Previously, if the new value
-    exceeded the size of the mask the extra bits could corrupt
-    other fields in the message header word being updated.)
-
- 2) The code has been optimized to minimize the number of run-time
-    endianness conversion operations by leveraging the fact that the
-    mask (and, in some cases, the value as well) is constant and the
-    necessary conversion can be performed by the compiler.
+This patch removes code associated with optional, user-specified
+fields of the TIPC message header.  Such fields were never
+utilized by TIPC, and have now been removed from the protocol
+specification.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 ---
- net/tipc/msg.h |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ include/net/tipc/tipc_port.h |    7 -------
+ net/tipc/core.c              |    1 -
+ net/tipc/msg.h               |   23 -----------------------
+ net/tipc/port.c              |    7 -------
+ 4 files changed, 0 insertions(+), 38 deletions(-)
 
+diff --git a/include/net/tipc/tipc_port.h b/include/net/tipc/tipc_port.h
+index cfc4ba4..c9b36b7 100644
+--- a/include/net/tipc/tipc_port.h
++++ b/include/net/tipc/tipc_port.h
+@@ -86,13 +86,6 @@ u32 tipc_createport_raw(void *usr_handle,
+ 			void (*wakeup)(struct tipc_port *),
+ 			const u32 importance);
+ 
+-/*
+- * tipc_set_msg_option(): port must be locked.
+- */
+-int tipc_set_msg_option(struct tipc_port *tp_ptr,
+-			const char *opt,
+-			const u32 len);
+-
+ int tipc_reject_msg(struct sk_buff *buf, u32 err);
+ 
+ int tipc_send_buf_fast(struct sk_buff *buf, u32 destnode);
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index 9b9429e..99ddb8e 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -277,7 +277,6 @@ EXPORT_SYMBOL(tipc_register_media);
+ /* TIPC API for external APIs (see tipc_port.h) */
+ 
+ EXPORT_SYMBOL(tipc_createport_raw);
+-EXPORT_SYMBOL(tipc_set_msg_option);
+ EXPORT_SYMBOL(tipc_reject_msg);
+ EXPORT_SYMBOL(tipc_send_buf_fast);
+ EXPORT_SYMBOL(tipc_acknowledge);
 diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 45c85a2..3f03739 100644
+index 3f03739..4bcf4c9 100644
 --- a/net/tipc/msg.h
 +++ b/net/tipc/msg.h
-@@ -70,8 +70,10 @@ static inline void msg_set_bits(struct tipc_msg *m,
-u32 w,
- 				u32 pos, u32 mask, u32 val)
- {
- 	val = (val & mask) << pos;
--	m->hdr[w] &= ~htonl(mask << pos);
--	m->hdr[w] |= htonl(val);
-+	val = htonl(val);
-+	mask = htonl(mask << pos);
-+	m->hdr[w] &= ~mask;
-+	m->hdr[w] |= val;
+@@ -190,18 +190,6 @@ static inline void msg_set_lookup_scope(struct
+tipc_msg *m, u32 n)
+ 	msg_set_bits(m, 1, 19, 0x3, n);
  }
  
+-static inline void msg_set_options(struct tipc_msg *m, const char *opt,
+u32 sz)
+-{
+-	u32 hsz = msg_hdr_sz(m);
+-	char *to = (char *)&m->hdr[hsz/4];
+-
+-	if ((hsz < DIR_MSG_H_SIZE) || ((hsz + sz) > MAX_H_SIZE))
+-		return;
+-	msg_set_bits(m, 1, 16, 0x7, (hsz - 28)/4);
+-	msg_set_hdr_sz(m, hsz + sz);
+-	memcpy(to, opt, sz);
+-}
+-
+ static inline u32 msg_bcast_ack(struct tipc_msg *m)
+ {
+ 	return msg_bits(m, 1, 0, 0xffff);
+@@ -330,17 +318,6 @@ static inline struct tipc_msg
+*msg_get_wrapped(struct tipc_msg *m)
+ 	return (struct tipc_msg *)msg_data(m);
+ }
+ 
+-static inline void msg_expand(struct tipc_msg *m, u32 destnode)
+-{
+-	if (!msg_short(m))
+-		return;
+-	msg_set_hdr_sz(m, LONG_H_SIZE);
+-	msg_set_orignode(m, msg_prevnode(m));
+-	msg_set_destnode(m, destnode);
+-	memset(&m->hdr[8], 0, 12);
+-}
+-
+-
+ 
  /*
+ 		TIPC internal message header format, version 2
+diff --git a/net/tipc/port.c b/net/tipc/port.c
+index 25b6967..c4ea00f 100644
+--- a/net/tipc/port.c
++++ b/net/tipc/port.c
+@@ -413,13 +413,6 @@ static struct sk_buff *port_build_proto_msg(u32
+destport, u32 destnode,
+ 	return buf;
+ }
+ 
+-int tipc_set_msg_option(struct tipc_port *tp_ptr, const char *opt,
+const u32 sz)
+-{
+-	msg_expand(&tp_ptr->phdr, msg_destnode(&tp_ptr->phdr));
+-	msg_set_options(&tp_ptr->phdr, opt, sz);
+-	return TIPC_OK;
+-}
+-
+ int tipc_reject_msg(struct sk_buff *buf, u32 err)
+ {
+ 	struct tipc_msg *msg = buf_msg(buf);
 -- 
 1.5.3.2
