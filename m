@@ -1,45 +1,59 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH 0/2] Fix /proc/net in presence of net namespaces
-Date: Fri, 29 Feb 2008 10:44:03 +0300
-Message-ID: <47C7B7C3.4000504@openvz.org>
-References: <47C6D743.1050802@openvz.org> <m1y794514k.fsf@ebiederm.dsl.xmission.com> <20080228211720.GA1232@vino.hallyn.com>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: [PATCH] [ATM]: Add error handling for proc_create fail
+Date: Fri, 29 Feb 2008 15:43:24 +0800
+Message-ID: <47C7B79C.2010304@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@openvz.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: serge@hallyn.com
+To: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:41770 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752201AbYB2HoR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Feb 2008 02:44:17 -0500
-In-Reply-To: <20080228211720.GA1232@vino.hallyn.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:64382 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751824AbYB2Hp4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Feb 2008 02:45:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> Nack.  Yet another global set of ids that require us to implement another
->> namespace looks like the wrong way to go.
-> 
-> Sentiment granted, but I'm not sure it can be an issue.  It *could* be
-> in issue if we moved to a more flexible access control here here any
-> netns could access the .netns/N directories for all it's child
-> namespaces.
-> 
-> But it can't, and /proc/net is set by the kernel.  So the <id> can't be
-> an issue for any checkpoint/restart except htat of the whole system, and
-> of course on whole-system resume we have no <id> collision worries.
-> 
-> So userspace can't do anything with <id>, so there is no reason to worry
-> about it becoming another namespace?
-> 
-> Right?
+When proc_create() fail, we return -ENOMEM.
 
-Right. Thanks, Serge.
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+ net/atm/clip.c |    4 ++++
+ net/atm/lec.c  |    4 ++++
+ 2 files changed, 8 insertions(+), 0 deletions(-)
 
-> thanks,
-> -serge
+diff --git a/net/atm/clip.c b/net/atm/clip.c
+index d30167c..57ed448 100644
+--- a/net/atm/clip.c
++++ b/net/atm/clip.c
+@@ -963,6 +963,10 @@ static int __init atm_clip_init(void)
+ 		struct proc_dir_entry *p;
+ 
+ 		p = proc_create("arp", S_IRUGO, atm_proc_root, &arp_seq_fops);
++		if (!p) {
++			printk(KERN_ERR "Unable to initialize /proc/atm/arp\n");
++			return -ENOMEM;
++		}
+ 	}
+ #endif
+ 
+diff --git a/net/atm/lec.c b/net/atm/lec.c
+index 0e450d1..532965d 100644
+--- a/net/atm/lec.c
++++ b/net/atm/lec.c
+@@ -1250,6 +1250,10 @@ static int __init lane_module_init(void)
+ 	struct proc_dir_entry *p;
+ 
+ 	p = proc_create("lec", S_IRUGO, atm_proc_root, &lec_seq_fops);
++	if (!p) {
++		printk(KERN_ERR "Unable to initialize /proc/atm/lec\n");
++		return -ENOMEM;
++	}
+ #endif
+ 
+ 	register_atm_ioctl(&lane_ioctl_ops);
+-- 
+WCN
+
+
