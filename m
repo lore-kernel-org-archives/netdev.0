@@ -1,49 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Purpose of __net_exit & friends
-Date: Fri, 29 Feb 2008 12:23:55 -0800 (PST)
-Message-ID: <20080229.122355.90044797.davem@davemloft.net>
-References: <1204292458-11636-12-git-send-email-den@openvz.org>
-	<20080229.112342.76764059.davem@davemloft.net>
-	<20080229201247.GA7139@uranus.ravnborg.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] [NET 2.6.26]: Add per-connection option to set max TSO
+	frame   size
+Date: Fri, 29 Feb 2008 21:46:50 +0100
+Message-ID: <20080229204650.GA2848@ami.dom.local>
+References: <20080228183150.4431.81252.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: den@openvz.org, netdev@vger.kernel.org, containers@lists.osdl.org
-To: sam@ravnborg.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, stephen.hemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38721
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752252AbYB2UX4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 15:23:56 -0500
-In-Reply-To: <20080229201247.GA7139@uranus.ravnborg.org>
+Received: from nf-out-0910.google.com ([64.233.182.186]:60971 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751831AbYB2Unl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 15:43:41 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so2438585nfb.21
+        for <netdev@vger.kernel.org>; Fri, 29 Feb 2008 12:43:40 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080228183150.4431.81252.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sam Ravnborg <sam@ravnborg.org>
-Date: Fri, 29 Feb 2008 21:12:47 +0100
-
-> On Fri, Feb 29, 2008 at 11:23:42AM -0800, David Miller wrote:
-> > From: "Denis V. Lunev" <den@openvz.org>
-> > Date: Fri, 29 Feb 2008 16:40:58 +0300
-> > 
-> > > +static void __net_exit icmpv6_sk_exit(struct net *net)
-> > > +{
-> > 
-> > Since you call this from __new_init code, won't this
-> > create a section conflict when ipv6 is built statically
-> > into the kernel?
+PJ Waskiewicz wrote, On 02/28/2008 07:31 PM:
+...
+> This can be desirable to help tune the bursty nature of TSO on a
+> per-adapter basis, where one may have 1 GbE and 10 GbE devices coexisting
+> in a system, one running multiqueue and the other not, etc.
 > 
-> I have noticed this __net_init/__net_exit stuff before
-> but never got around to ask about it.
-> 
-> Whats the actual purpose and are there any strict
-> rules as to what may be called from where?
-> If there are we should apply the same checks as we do
-> for __devinit/__devexit and friends.
+> This can also be desirable for devices that cannot support full 64 KB
+> TSO's, but still want to benefit from some level of segmentation
+> offloading.
+...
+> +++ b/include/linux/netdevice.h
+...
+> +	/* for setting kernel sock attribute on TCP connection setup */
+> +#define GSO_MAX_SIZE		65536
+> +	u32			gso_max_size;
 
-Basically, if network namespace support isn't enabled,
-these functions can act like normal __init and __exit
-functions.
+One more, maybe foolish, thrifty idea: do we really need such a
+precision here? I don't know those devices, but maybe it would be
+enough (for the beginning at least?) to use a few divisors e.g.:
 
-Otherwise we have to keep them around so that they can
-be called when namespaces are created and destroyed.
+gso_max_size = 65536 >> GSO_MAX_SIZE_SHIFT
+
+Then it seems 3 or 4 bits should be enough for this, and BTW, it looks
+like dev->features has 16 bits for various GSO flags, with "a lot" of
+free space yet - unless I missed something?
+
+Jarek P.
