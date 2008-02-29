@@ -1,51 +1,63 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [Bug 10071] kernel hang in inet_init (PREEMPT_RCU problem)
-Date: Thu, 28 Feb 2008 20:32:35 -0800
-Message-ID: <20080229043235.GA25167@linux.vnet.ibm.com>
-References: <bug-10071-11547@http.bugzilla.kernel.org/> <20080228205303.261D311D108@picon.linux-foundation.org> <20080228213457.GA2770@ami.dom.local> <20080229005823.GF14104@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c:2054 tcp_mark_head_lost()
+Date: Thu, 28 Feb 2008 23:35:14 -0500
+Message-ID: <20080228233514.63b7136e.billfink@mindspring.com>
+References: <858077.97160.qm@web39709.mail.mud.yahoo.com>
+	<20080223000310.4630daa8.akpm@linux-foundation.org>
+	<Pine.LNX.4.64.0802271108290.13029@kivilampi-30.cs.helsinki.fi>
+	<3d8471ca0802271056l320a7ee2m5227e114a968d483@mail.gmail.com>
+	<Pine.LNX.4.64.0802272120430.1741@kivilampi-30.cs.helsinki.fi>
+	<Pine.LNX.4.64.0802281018480.32401@kivilampi-30.cs.helsinki.fi>
+	<20080228171011.fc56eace.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bugme-daemon@bugzilla.kernel.org,
-	Yannick Dirou <yannick.dirou@axetic.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Ilpo =?ISO-8859-1?Q?J=E4rvinen" ?= <ilpo.jarvinen@helsinki.fi>,
+	Guillaume Chazarain <guichaz@gmail.com>,
+	Giangiacomo Mariotti <giangiacomo_mariotti@yahoo.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:54794 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751697AbYB2Ecr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2008 23:32:47 -0500
-Content-Disposition: inline
-In-Reply-To: <20080229005823.GF14104@linux.vnet.ibm.com>
+Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:38951 "EHLO
+	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755642AbYB2Ef3 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Feb 2008 23:35:29 -0500
+In-Reply-To: <20080228171011.fc56eace.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 28, 2008 at 04:58:23PM -0800, Paul E. McKenney wrote:
-> On Thu, Feb 28, 2008 at 10:34:57PM +0100, Jarek Poplawski wrote:
-> > On Thu, Feb 28, 2008 at 12:53:03PM -0800, bugme-daemon@bugzilla.kernel.org wrote:
-> > > http://bugzilla.kernel.org/show_bug.cgi?id=10071
-> > ...
-> > > ------- Comment #17 from yannick.dirou@axetic.com  2008-02-28 12:53 -------
-> > > bingo with classic rcu
-> > 
-> > Congratulations Yannick!
-> > 
-> > So, it seems mainly RCU vs. timer(?) problem. I send CC of this message
-> > to RCU author, linux-kernel and netdev lists.
-> 
-> Interesting!  Any chance of a pointer to the original messages?
-> A quick Google search and a look at LKML showed me nothing.  :-/
+On Thu, 28 Feb 2008, Andrew Morton wrote:
 
-Thanks to Raphael for pointing me at the above bugzilla URL!
+> On Thu, 28 Feb 2008 10:22:27 +0200 (EET) "Ilpo J=E4rvinen" <ilpo.jarv=
+inen@helsinki.fi> wrote:
+>=20
+> > [PATCH] TCP debug S+L (for 2.6.25-rcs, incompatible with 2.6.24.y)
+> >=20
+> > ---
+> >  include/net/tcp.h     |    9 +++-
+> >  net/ipv4/tcp_input.c  |   18 +++++++-
+> >  net/ipv4/tcp_ipv4.c   |  127 +++++++++++++++++++++++++++++++++++++=
+++++++++++++
+> >  net/ipv4/tcp_output.c |   23 +++++++--
+>=20
+> I'll put this in -mm, see if we can flush anything out.  Please let m=
+e know
+> if/when it's obsolete, updated, etc.
+>=20
+> What is "S+L"?
 
-Yannick,
+I'll let Ilpo give the definitive answer.  But to test if I'm starting
+to grasp this, I'll give my understanding.  I believe 'S' means that a
+transmitted TCP skb has been acknowledged by a SACK, while 'L' means
+that a transmitted SKB is believed lost.  Since the 'S' state implies
+that the packet has actually been successfully received, it should not =
+be
+possible for it to be considered lost ('L' state).  Thus an "S+L" state
+for a TCP skb is an internally inconsistent state and an indication of
+a TCP bug.
 
-Would you be willing to try your test again after applying the
-patch in http://lkml.org/lkml/2008/2/2/11 and rebuilding your
-kernel?
+Anyone feel free to correct me if I'm way off base in my understanding.
 
-This patch does not appear to be in 2.6.25-rc3.  :-(
-
-I am reposting this patch separately.
-
-							Thanx, Paul
+						-Bill
