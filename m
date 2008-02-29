@@ -1,58 +1,50 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH] [ATM]: Add error handling for proc_create fail
-Date: Fri, 29 Feb 2008 07:42:56 -0500
-Message-ID: <200802291242.m1TCguPo018924@cmf.nrl.navy.mil>
-References: <47C7B79C.2010304@cn.fujitsu.com>
-Reply-To: chas3@users.sourceforge.net
-Cc: NETDEV <netdev@vger.kernel.org>
-To: Wang Chen <wangchen@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:50323 "EHLO
-	ginger.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752330AbYB2MnU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 07:43:20 -0500
-In-reply-to: <47C7B79C.2010304@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH (resend)][EBTABLES]: Fix alignment checks in ebt_among.ko
+ module.
+Date: Fri, 29 Feb 2008 13:48:49 +0100
+Message-ID: <47C7FF31.1060108@trash.net>
+References: <47C7C23C.2050100@openvz.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Bart De Schuymer <bdschuym@pandora.be>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <47C7C23C.2050100@openvz.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-it should be /proc/net/atm/foo not /proc/atm/foo i think.
+Pavel Emelyanov wrote:
+> I've sent this patch some days ago to Bart, but with no answer...
+> 
+> When trying to do
+> 
+> 	# ebtables -A FORWARD --among-src 0:12:34:56:78:9a=192.168.0.10 -j ACCEPT
+> 
+> on x86_64 box the ebt_among->check() callback warns me that
+> 
+> 	ebtables: among: wrong size: 1060 against expected 1056, rounded to 1056
+> 
+> Checking the ebtables sources, I found that the alignment is done
+> differently in the tool and the kernel. Tool makes it like this:
+> 
+> 	EBT_ALIGN(sizeof(struct ebt_among_info)) + X
+> 
+> while the kernel module like this:
+> 
+> 	EBT_ALIGN(sizeof(struct ebt_among_info) + X)
+> 
+> So the suggested fix is to move the alignment in the kernel. After
+> the fix the rule is added and appears in the ebtables -L output.
 
-In message <47C7B79C.2010304@cn.fujitsu.com>,Wang Chen writes:
->When proc_create() fail, we return -ENOMEM.
->
->Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
->---
-> net/atm/clip.c |    4 ++++
-> net/atm/lec.c  |    4 ++++
-> 2 files changed, 8 insertions(+), 0 deletions(-)
->
->diff --git a/net/atm/clip.c b/net/atm/clip.c
->index d30167c..57ed448 100644
->--- a/net/atm/clip.c
->+++ b/net/atm/clip.c
->@@ -963,6 +963,10 @@ static int __init atm_clip_init(void)
-> 		struct proc_dir_entry *p;
-> 
-> 		p = proc_create("arp", S_IRUGO, atm_proc_root, &arp_seq_fops);
->+		if (!p) {
->+			printk(KERN_ERR "Unable to initialize /proc/atm/arp\n");
->+			return -ENOMEM;
->+		}
-> 	}
-> #endif
-> 
->diff --git a/net/atm/lec.c b/net/atm/lec.c
->index 0e450d1..532965d 100644
->--- a/net/atm/lec.c
->+++ b/net/atm/lec.c
->@@ -1250,6 +1250,10 @@ static int __init lane_module_init(void)
-> 	struct proc_dir_entry *p;
-> 
-> 	p = proc_create("lec", S_IRUGO, atm_proc_root, &lec_seq_fops);
->+	if (!p) {
->+		printk(KERN_ERR "Unable to initialize /proc/atm/lec\n");
->+		return -ENOMEM;
->+	}
-> #endif
-> 
-> 	register_atm_ioctl(&lane_ioctl_ops);
+
+It seems the kernel is correct and userspace is doing it
+wrong, so I think userspace should be fixed instead.
+The problem with your patch is that is causes misalignment
+for following structures that contain u64 members.
+
+
