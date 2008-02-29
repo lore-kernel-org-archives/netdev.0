@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.26 3/4] Use seq_open_private in appletalk and
- decnet.
-Date: Fri, 29 Feb 2008 11:38:32 -0800 (PST)
-Message-ID: <20080229.113832.128771062.davem@davemloft.net>
-References: <47C80D28.9020009@openvz.org>
-	<20080229141059.GK4306@ghostprotocols.net>
+Subject: Re: [PATCH net-2.6.26 4/4] Don't use seq_release_private where
+ inappropriate.
+Date: Fri, 29 Feb 2008 11:39:27 -0800 (PST)
+Message-ID: <20080229.113927.109042590.davem@davemloft.net>
+References: <47C80DA4.9000208@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org,
-	christine.caulfield@googlemail.com
-To: acme@redhat.com
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48220
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48225
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753813AbYB2Tid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 14:38:33 -0500
-In-Reply-To: <20080229141059.GK4306@ghostprotocols.net>
+	by vger.kernel.org with ESMTP id S1755861AbYB2Tj2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 14:39:28 -0500
+In-Reply-To: <47C80DA4.9000208@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date: Fri, 29 Feb 2008 11:10:59 -0300
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Fri, 29 Feb 2008 16:50:28 +0300
 
-> Em Fri, Feb 29, 2008 at 04:48:24PM +0300, Pavel Emelyanov escreveu:
-> > These two also perform manual seq_open_private, so patch them both
-> > at once. But unlike ATM code, these already use the seq_release_private, 
-> > so I splitted this patch from the previous one.
-> > 
-> > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> Some netfilter code and rxrpc one use seq_open() to open
+> a proc file, but seq_release_private to release one.
+> 
+> This is harmless, but ambiguous.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 Applied, thanks.
