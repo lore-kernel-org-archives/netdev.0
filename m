@@ -1,35 +1,84 @@
-From: Phil Oester <kernel@linuxace.com>
-Subject: Re: [PATCH][BONDING] Add max_bonds kernel parameter
-Date: Fri, 29 Feb 2008 11:31:59 -0800
-Message-ID: <20080229193159.GA31576@linuxace.com>
-References: <20080229185130.GA28138@linuxace.com> <4405.1204311836@death>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-02-27
+Date: Fri, 29 Feb 2008 14:10:58 -0500
+Message-ID: <20080229191058.GD3234@tuxdriver.com>
+References: <20080228014125.GI3078@tuxdriver.com> <97a0a9ac0802281321h6f302865j38a55c6f761dc14b@mail.gmail.com> <20080228.133008.228590007.davem@davemloft.net> <200802291316.59738.mb@bu3sch.de> <20080229162629.GB3234@tuxdriver.com> <1204302853.3938.40.camel@johannes.berg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from adsl-67-120-171-161.dsl.lsan03.pacbell.net ([67.120.171.161]:42487
-	"HELO linuxace.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753761AbYB2TcA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 14:32:00 -0500
+Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	gordonfarquharson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <4405.1204311836@death>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1204302853.3938.40.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 29, 2008 at 11:03:56AM -0800, Jay Vosburgh wrote:
-> 	The kernel should already handle options for compiled-in
-> modules.  For bonding, you'd put something like "bonding.max_bonds=3" on
-> the kernel boot line.  No need to patch bonding for this.  This is
-> described in Documentation/kernel-parameters.txt (right at the top).
+On Fri, Feb 29, 2008 at 05:34:13PM +0100, Johannes Berg wrote:
+> 
+> On Fri, 2008-02-29 at 11:26 -0500, John W. Linville wrote:
+> > On Fri, Feb 29, 2008 at 01:16:59PM +0100, Michael Buesch wrote:
+> > 
+> > > I'm wondering if we can't simply pass a commandline parameter to file2alias
+> > > that tells it whether we are crosscompiling. It should simply omit the sanity check
+> > 
+> > Sounds reasonable to me.
+> 
+> In fact, file2alias shouldn't need a command line argument ...
+> 
+> > > in that case. Is there any easy and reliable way to find out whether we
+> > > are crosscompiling from a makefile (I don't know the makefile core that much)?
+> > 
+> > Non-empty CROSS_COMPILE definition?
+> 
+> ... it can just check whether CROSS_COMPILE is set in its environment.
+> No?
 
-Duh...guess I should've read the file I was patching. :-/
+Not a bad idea...something like this?
+
+---
+
+modpost: avoid user/kernel struct size compat check if cross-compiling
+
+Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+---
+ scripts/mod/file2alias.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
+
+diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
+index 9ddf944..040721e 100644
+--- a/scripts/mod/file2alias.c
++++ b/scripts/mod/file2alias.c
+@@ -10,6 +10,7 @@
+  * of the GNU General Public License, incorporated herein by reference.
+  */
  
-> 	On your other patch, I don't see a big issue with allowing
-> max_bonds to be zero; I'll have a look at the details and test it out.
++#include <stdlib.h>
+ #include "modpost.h"
+ 
+ /* We use the ELF typedefs for kernel_ulong_t but bite the bullet and
+@@ -63,6 +64,12 @@ static void device_id_check(const char *modname, const char *device_id,
+ {
+ 	int i;
+ 
++	if (getenv("CROSS_COMPILE")) {
++		warn("%s: cross-compile can not verify userspace/kernel "
++		     "structure size compatibility.\n", modname);
++		return;
++	}
++
+ 	if (size % id_size || size < id_size) {
+ 		fatal("%s: sizeof(struct %s_device_id)=%lu is not a modulo "
+ 		      "of the size of section __mod_%s_device_table=%lu.\n"
+-- 
+1.5.3.3
 
-Thanks.  Initscripts doesn't like it when it is set to zero,
-but at least we can hopefully get the kernel to allow it, then 
-fixup initscipts later.
-
-Phil
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
