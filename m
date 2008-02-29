@@ -1,84 +1,62 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-02-27
-Date: Fri, 29 Feb 2008 14:10:58 -0500
-Message-ID: <20080229191058.GD3234@tuxdriver.com>
-References: <20080228014125.GI3078@tuxdriver.com> <97a0a9ac0802281321h6f302865j38a55c6f761dc14b@mail.gmail.com> <20080228.133008.228590007.davem@davemloft.net> <200802291316.59738.mb@bu3sch.de> <20080229162629.GB3234@tuxdriver.com> <1204302853.3938.40.camel@johannes.berg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 9/12 net-2.6.26] [NETNS]: icmp(v6)_sk should not pin a
+ namespace.
+Date: Fri, 29 Feb 2008 11:35:25 -0800 (PST)
+Message-ID: <20080229.113525.108898422.davem@davemloft.net>
+References: <1204292360.10368.11.camel@iris.sw.ru>
+	<1204292458-11636-9-git-send-email-den@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	gordonfarquharson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1204302853.3938.40.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, containers@lists.osdl.org
+To: den@openvz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44958
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754978AbYB2TfZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 14:35:25 -0500
+In-Reply-To: <1204292458-11636-9-git-send-email-den@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 29, 2008 at 05:34:13PM +0100, Johannes Berg wrote:
+From: "Denis V. Lunev" <den@openvz.org>
+Date: Fri, 29 Feb 2008 16:40:55 +0300
+
+> So, change icmp(v6)_sk creation/disposal to the scheme used in the netlink
+> for rtnl, i.e. create a socket in the context of the init_net and
+> assign the namespace without getting a referrence later.
 > 
-> On Fri, 2008-02-29 at 11:26 -0500, John W. Linville wrote:
-> > On Fri, Feb 29, 2008 at 01:16:59PM +0100, Michael Buesch wrote:
-> > 
-> > > I'm wondering if we can't simply pass a commandline parameter to file2alias
-> > > that tells it whether we are crosscompiling. It should simply omit the sanity check
-> > 
-> > Sounds reasonable to me.
+> Also use sk_release_kernel instead of sock_release to properly destroy
+> such sockets.
 > 
-> In fact, file2alias shouldn't need a command line argument ...
-> 
-> > > in that case. Is there any easy and reliable way to find out whether we
-> > > are crosscompiling from a makefile (I don't know the makefile core that much)?
-> > 
-> > Non-empty CROSS_COMPILE definition?
-> 
-> ... it can just check whether CROSS_COMPILE is set in its environment.
-> No?
+> Signed-off-by: Denis V. Lunev <den@openvz.org>
+> Acked-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 
-Not a bad idea...something like this?
+Please validate the build in the future, thanks :-/
 
----
+I just checked in the following:
 
-modpost: avoid user/kernel struct size compat check if cross-compiling
+commit 45af1754bc09926b5e062bda24f789d7b320939f
+Author: David S. Miller <davem@davemloft.net>
+Date:   Fri Feb 29 11:33:19 2008 -0800
 
-Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
----
- scripts/mod/file2alias.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+    [NET]: sk_release_kernel needs to be exported to modules
+    
+    Fixes:
+    
+    ERROR: "sk_release_kernel" [net/ipv6/ipv6.ko] undefined!
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
-index 9ddf944..040721e 100644
---- a/scripts/mod/file2alias.c
-+++ b/scripts/mod/file2alias.c
-@@ -10,6 +10,7 @@
-  * of the GNU General Public License, incorporated herein by reference.
-  */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index c71b645..0ca0697 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1004,6 +1004,7 @@ void sk_release_kernel(struct sock *sk)
+ 	sk->sk_net = get_net(&init_net);
+ 	sock_put(sk);
+ }
++EXPORT_SYMBOL(sk_release_kernel);
  
-+#include <stdlib.h>
- #include "modpost.h"
- 
- /* We use the ELF typedefs for kernel_ulong_t but bite the bullet and
-@@ -63,6 +64,12 @@ static void device_id_check(const char *modname, const char *device_id,
+ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
  {
- 	int i;
- 
-+	if (getenv("CROSS_COMPILE")) {
-+		warn("%s: cross-compile can not verify userspace/kernel "
-+		     "structure size compatibility.\n", modname);
-+		return;
-+	}
-+
- 	if (size % id_size || size < id_size) {
- 		fatal("%s: sizeof(struct %s_device_id)=%lu is not a modulo "
- 		      "of the size of section __mod_%s_device_table=%lu.\n"
--- 
-1.5.3.3
-
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
