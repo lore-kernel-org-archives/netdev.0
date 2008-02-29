@@ -1,29 +1,37 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 2/2] [LLC]: Kill static inline llc_addrany
-Date: Fri, 29 Feb 2008 13:28:33 -0300
-Message-ID: <20080229162833.GO4306@ghostprotocols.net>
-References: <1204301596-15568-1-git-send-email-ilpo.jarvinen@helsinki.fi> <1204301596-15568-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-02-27
+Date: Fri, 29 Feb 2008 11:26:29 -0500
+Message-ID: <20080229162629.GB3234@tuxdriver.com>
+References: <20080228014125.GI3078@tuxdriver.com> <97a0a9ac0802281321h6f302865j38a55c6f761dc14b@mail.gmail.com> <20080228.133008.228590007.davem@davemloft.net> <200802291316.59738.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:40637 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752288AbYB2Q2y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Feb 2008 11:28:54 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, gordonfarquharson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1204301596-15568-2-git-send-email-ilpo.jarvinen@helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <200802291316.59738.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Em Fri, Feb 29, 2008 at 06:13:16PM +0200, Ilpo J=E4rvinen escreveu:
-> After the patch:
-> $ git-grep llc_addrany | wc -l
-> 0
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+On Fri, Feb 29, 2008 at 01:16:59PM +0100, Michael Buesch wrote:
 
+> I'm wondering if we can't simply pass a commandline parameter to file2alias
+> that tells it whether we are crosscompiling. It should simply omit the sanity check
+
+Sounds reasonable to me.
+
+> in that case. Is there any easy and reliable way to find out whether we
+> are crosscompiling from a makefile (I don't know the makefile core that much)?
+
+Non-empty CROSS_COMPILE definition?
+
+John
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
