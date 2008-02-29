@@ -1,43 +1,39 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: pull request: wireless-2.6.26 2008-02-21
-Date: Fri, 29 Feb 2008 14:56:31 -0500
-Message-ID: <20080229195631.GE3234@tuxdriver.com>
-References: <20080221021530.GG3825@tuxdriver.com> <20080221172525.GI3094@tuxdriver.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Purpose of __net_exit & friends [Was: [ICMP6]: Consolidate fail ...]
+Date: Fri, 29 Feb 2008 21:12:47 +0100
+Message-ID: <20080229201247.GA7139@uranus.ravnborg.org>
+References: <1204292360.10368.11.camel@iris.sw.ru> <1204292458-11636-12-git-send-email-den@openvz.org> <20080229.112342.76764059.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: den@openvz.org, netdev@vger.kernel.org, containers@lists.osdl.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pasmtpb.tele.dk ([80.160.77.98]:41168 "EHLO pasmtpB.tele.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753505AbYB2UMe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Feb 2008 15:12:34 -0500
 Content-Disposition: inline
-In-Reply-To: <20080221172525.GI3094-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080229.112342.76764059.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 21, 2008 at 12:25:25PM -0500, John W. Linville wrote:
-> On Wed, Feb 20, 2008 at 09:15:30PM -0500, John W. Linville wrote:
+On Fri, Feb 29, 2008 at 11:23:42AM -0800, David Miller wrote:
+> From: "Denis V. Lunev" <den@openvz.org>
+> Date: Fri, 29 Feb 2008 16:40:58 +0300
 > 
-> > Here are a slew of developments intended for 2.6.26.  The patches are
-> > too diverse to comment upon in this summary... :-)
+> > +static void __net_exit icmpv6_sk_exit(struct net *net)
+> > +{
 > 
-> David,
-> 
-> This is additive on top of the pull request from last night.  Only
-> Pavel's fix for the brown-paper-bag CONFIG_MAC80211_IBSS_DEBUG build
-> issue is applied on top of the previous commits.
-> 
-> Please let me know if there are problems!
+> Since you call this from __new_init code, won't this
+> create a section conflict when ipv6 is built statically
+> into the kernel?
 
-It looks like you haven't pulled this into net-2.6.26 yet.  So just
-disregard this pull request.  I'll rebased on the current net-2.6.26,
-and a few things to it, and send a new request.
+I have noticed this __net_init/__net_exit stuff before
+but never got around to ask about it.
 
-FYI...
+Whats the actual purpose and are there any strict
+rules as to what may be called from where?
+If there are we should apply the same checks as we do
+for __devinit/__devexit and friends.
 
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Sam
