@@ -1,63 +1,57 @@
-From: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-02-27
-Date: Fri, 29 Feb 2008 15:51:49 -0800
-Message-ID: <20080229155149.9575f2d0.randy.dunlap@oracle.com>
-References: <20080228014125.GI3078@tuxdriver.com>
-	<20080229162629.GB3234@tuxdriver.com>
-	<1204302853.3938.40.camel@johannes.berg>
-	<200803010013.11458.mb@bu3sch.de>
+From: "Kevin Lloyd" <klloyd@sierrawireless.com>
+Subject: RE: Network device driver with PPP
+Date: Fri, 29 Feb 2008 17:41:14 -0800
+Message-ID: <3415E2A2AB26944B9159CDB22001004D0252D1B7@nestea.sierrawireless.local>
+References: <3415E2A2AB26944B9159CDB22001004D024DA732@nestea.sierrawireless.local> <1204164955.26292.5.camel@localhost.localdomain> <47C67E67.70604@katalix.com> <3415E2A2AB26944B9159CDB22001004D024DA7DC@nestea.sierrawireless.local> <47C81E9C.4050903@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	gordonfarquharson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200803010013.11458.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Dan Williams" <dcbw@redhat.com>, <netdev@vger.kernel.org>
+To: "James Chapman" <jchapman@katalix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.sierrawireless.com ([208.81.121.7]:40722 "EHLO
+	mx1.sierrawireless.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755886AbYCABj2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 20:39:28 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <47C81E9C.4050903@katalix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 1 Mar 2008 00:13:11 +0100 Michael Buesch wrote:
-
-> On Friday 29 February 2008 17:34:13 Johannes Berg wrote:
-> > 
-> > On Fri, 2008-02-29 at 11:26 -0500, John W. Linville wrote:
-> > > On Fri, Feb 29, 2008 at 01:16:59PM +0100, Michael Buesch wrote:
-> > > 
-> > > > I'm wondering if we can't simply pass a commandline parameter to file2alias
-> > > > that tells it whether we are crosscompiling. It should simply omit the sanity check
-> > > 
-> > > Sounds reasonable to me.
-> > 
-> > In fact, file2alias shouldn't need a command line argument ...
+James Chapman wrote:
+> > Actually we provide a method for the driver to obtain the
+> > username/password information needed for the CHAP authentication so
+in
+> > theory the driver has the information needed to create the
+connection.
+> > I'm not sure how it would go about setting the DNS and IP addresses,
+but
+> > that's a separate issue further down the road.
 > 
-> Well, if...
-> 
-> > > > in that case. Is there any easy and reliable way to find out whether we
-> > > > are crosscompiling from a makefile (I don't know the makefile core that much)?
-> > > 
-> > > Non-empty CROSS_COMPILE definition?
-> > 
-> > ... it can just check whether CROSS_COMPILE is set in its environment.
-> > No?
-> 
-> Is that exported to the environment?
+> Can you explain why you need the driver to be involved in any of this?
+I'm trying to evaluate what level of consistency can be maintained for
+our drivers across operating systems and whether there is precedence for
+such a design. Looking like it's not going to happen...
 
-Certainly, in top-level Makefile:
+> Control protocols live in userspace, datapath in the kernel.
+Okay. I have a question about the datapath actually: If I have a serial
+device and I establish a connection with pppd does it configure the
+generic ppp driver to talk to the ttyUSBx port and then route the
+control (e.g. NCP and LCP) packets to /dev/ppp for control by pppd and
+the data (IP) packets somewhere else? Also is it pppd that directly sets
+up the network interface in ifconfig? I'm a little confused/lost here...
 
-export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
-export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
-export CPP AR NM STRIP OBJCOPY OBJDUMP MAKE AWK GENKSYMS PERL UTS_MACHINE
-export HOSTCXX HOSTCXXFLAGS LDFLAGS_MODULE CHECK CHECKFLAGS
+> Can't you implement a private interface to your kernel driver so that
+> userspace can ask it for the username/password and userspace then
+starts
+> pppd with those parameters?
+Yes I suppose I could do that, how would you recommend approaching this,
+ioctl?
 
+Also, is Documentation\networking\ppp_generic.txt up-to-date (says
+edited 2002) or is there a better resource explaining ppp architecture
+on Linux?
 
----
-~Randy
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks for your help,
+-Kevin
