@@ -1,119 +1,75 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [RFC: 2.6 patch] remove irlan_eth_send_gratuitous_arp()
-Date: Sat, 1 Mar 2008 18:19:48 +0200
-Message-ID: <20080301161948.GQ25835@cs181133002.pp.htv.fi>
+Subject: [RFC: 2.6 patch] #if 0 e1000e_read_nvm_spi()
+Date: Sat, 1 Mar 2008 18:23:02 +0200
+Message-ID: <20080301162302.GX25835@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Robert P. J. Day" <rpjday@crashcourse.ca>
-To: samuel@sortiz.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.pp.htv.fi ([213.243.153.38]:55688 "EHLO smtp4.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758361AbYCAQVN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Mar 2008 11:21:13 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Auke Kok <auke-jan.h.kok@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jeff Garzik <jeff@garzik.org>, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Even kernel 2.2.26 (sic) already contains the
-  #undef CONFIG_IRLAN_SEND_GRATUITOUS_ARP
-with the comment "but for some reason the machine crashes if you use DHCP".
+This patch #if 0's the no longer used e1000e_read_nvm_spi().
 
-Either someone finally looks into this or it's simply time to remove 
-this dead code.
-
-Reported-by: Robert P. J. Day <rpjday@crashcourse.ca>
 Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
 ---
 
- include/net/irda/irlan_eth.h  |    1 -
- net/irda/irlan/irlan_common.c |   10 ----------
- net/irda/irlan/irlan_eth.c    |   33 ---------------------------------
- 3 files changed, 44 deletions(-)
+ drivers/net/e1000e/e1000.h |    1 -
+ drivers/net/e1000e/lib.c   |    2 ++
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-d8768e55070eb92eddb69ab8136ded02cc4ef9d0 foobar
-diff --git a/include/net/irda/irlan_eth.h b/include/net/irda/irlan_eth.h
-index 0062347..de5c816 100644
---- a/include/net/irda/irlan_eth.h
-+++ b/include/net/irda/irlan_eth.h
-@@ -29,5 +29,4 @@ struct net_device *alloc_irlandev(const char *name);
- int  irlan_eth_receive(void *instance, void *sap, struct sk_buff *skb);
- 
- void irlan_eth_flow_indication( void *instance, void *sap, LOCAL_FLOW flow);
--void irlan_eth_send_gratuitous_arp(struct net_device *dev);
- #endif
-diff --git a/net/irda/irlan/irlan_common.c b/net/irda/irlan/irlan_common.c
-index a4b56e2..c31cb55 100644
---- a/net/irda/irlan/irlan_common.c
-+++ b/net/irda/irlan/irlan_common.c
-@@ -54,13 +54,6 @@
- #include <net/irda/irlan_filter.h>
- 
- 
--/*
-- * Send gratuitous ARP when connected to a new AP or not. May be a clever
-- * thing to do, but for some reason the machine crashes if you use DHCP. So
-- * lets not use it by default.
-- */
--#undef CONFIG_IRLAN_SEND_GRATUITOUS_ARP
--
- /* extern char sysctl_devname[]; */
- 
- /*
-@@ -395,9 +388,6 @@ static void irlan_connect_confirm(void *instance, void *sap,
- 	/* Ready to transfer Ethernet frames */
- 	netif_start_queue(self->dev);
- 	self->disconnect_reason = 0; /* Clear reason */
--#ifdef CONFIG_IRLAN_SEND_GRATUITOUS_ARP
--	irlan_eth_send_gratuitous_arp(&self->dev);
--#endif
- 	wake_up_interruptible(&self->open_wait);
+9bab4dc421a7e5a947739e2fa1363b4efffbcbe2 foobar
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 327c062..6e0c6ed 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -462,7 +462,6 @@ extern s32 e1000e_acquire_nvm(struct e1000_hw *hw);
+ extern s32 e1000e_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
+ extern s32 e1000e_update_nvm_checksum_generic(struct e1000_hw *hw);
+ extern s32 e1000e_poll_eerd_eewr_done(struct e1000_hw *hw, int ee_reg);
+-extern s32 e1000e_read_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
+ extern s32 e1000e_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
+ extern s32 e1000e_validate_nvm_checksum_generic(struct e1000_hw *hw);
+ extern void e1000e_release_nvm(struct e1000_hw *hw);
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index 95f75a4..cb2dac8 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -1851,6 +1851,7 @@ static s32 e1000_ready_nvm_eeprom(struct e1000_hw *hw)
+ 	return 0;
  }
  
-diff --git a/net/irda/irlan/irlan_eth.c b/net/irda/irlan/irlan_eth.c
-index 1ab91f7..ef12ef1 100644
---- a/net/irda/irlan/irlan_eth.c
-+++ b/net/irda/irlan/irlan_eth.c
-@@ -289,39 +289,6 @@ void irlan_eth_flow_indication(void *instance, void *sap, LOCAL_FLOW flow)
++#if 0
+ /**
+  *  e1000e_read_nvm_spi - Reads EEPROM using SPI
+  *  @hw: pointer to the HW structure
+@@ -1906,6 +1907,7 @@ s32 e1000e_read_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
+ 	nvm->ops.release_nvm(hw);
+ 	return 0;
  }
++#endif  /*  0  */
  
- /*
-- * Function irlan_etc_send_gratuitous_arp (dev)
-- *
-- *    Send gratuitous ARP to announce that we have changed
-- *    hardware address, so that all peers updates their ARP tables
-- */
--void irlan_eth_send_gratuitous_arp(struct net_device *dev)
--{
--#ifdef CONFIG_INET
--	struct in_device *in_dev;
--
--	/*
--	 * When we get a new MAC address do a gratuitous ARP. This
--	 * is useful if we have changed access points on the same
--	 * subnet.
--	 */
--	IRDA_DEBUG(4, "IrLAN: Sending gratuitous ARP\n");
--	rcu_read_lock();
--	in_dev = __in_dev_get_rcu(dev);
--	if (in_dev == NULL)
--		goto out;
--	if (in_dev->ifa_list)
--
--	arp_send(ARPOP_REQUEST, ETH_P_ARP,
--		 in_dev->ifa_list->ifa_address,
--		 dev,
--		 in_dev->ifa_list->ifa_address,
--		 NULL, dev->dev_addr, NULL);
--out:
--	rcu_read_unlock();
--#endif /* CONFIG_INET */
--}
--
--/*
-  * Function set_multicast_list (dev)
-  *
-  *    Configure the filtering of the device
+ /**
+  *  e1000e_read_nvm_eerd - Reads EEPROM using EERD register
 
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
