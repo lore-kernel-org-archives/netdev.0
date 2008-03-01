@@ -1,57 +1,87 @@
-From: "Kevin Lloyd" <klloyd@sierrawireless.com>
-Subject: RE: Network device driver with PPP
-Date: Fri, 29 Feb 2008 17:41:14 -0800
-Message-ID: <3415E2A2AB26944B9159CDB22001004D0252D1B7@nestea.sierrawireless.local>
-References: <3415E2A2AB26944B9159CDB22001004D024DA732@nestea.sierrawireless.local> <1204164955.26292.5.camel@localhost.localdomain> <47C67E67.70604@katalix.com> <3415E2A2AB26944B9159CDB22001004D024DA7DC@nestea.sierrawireless.local> <47C81E9C.4050903@katalix.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Patch: [NET]: Remove CONFIG_PROC_FS depency for pcounter inuse
+Date: Sat, 01 Mar 2008 06:19:51 +0100
+Message-ID: <47C8E777.5050804@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Dan Williams" <dcbw@redhat.com>, <netdev@vger.kernel.org>
-To: "James Chapman" <jchapman@katalix.com>
+Content-Type: multipart/mixed;
+ boundary="------------090703010805030202040303"
+Cc: netdev@vger.kernel.org
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.sierrawireless.com ([208.81.121.7]:40722 "EHLO
-	mx1.sierrawireless.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755886AbYCABj2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Feb 2008 20:39:28 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <47C81E9C.4050903@katalix.com>
+Received: from mo-p00-fb.rzone.de ([81.169.146.163]:15728 "EHLO
+	mo-p00-fb.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751993AbYCAFwI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Mar 2008 00:52:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-James Chapman wrote:
-> > Actually we provide a method for the driver to obtain the
-> > username/password information needed for the CHAP authentication so
-in
-> > theory the driver has the information needed to create the
-connection.
-> > I'm not sure how it would go about setting the DNS and IP addresses,
-but
-> > that's a separate issue further down the road.
-> 
-> Can you explain why you need the driver to be involved in any of this?
-I'm trying to evaluate what level of consistency can be maintained for
-our drivers across operating systems and whether there is precedence for
-such a design. Looking like it's not going to happen...
+This is a multi-part message in MIME format.
+--------------090703010805030202040303
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Control protocols live in userspace, datapath in the kernel.
-Okay. I have a question about the datapath actually: If I have a serial
-device and I establish a connection with pppd does it configure the
-generic ppp driver to talk to the ttyUSBx port and then route the
-control (e.g. NCP and LCP) packets to /dev/ppp for control by pppd and
-the data (IP) packets somewhere else? Also is it pppd that directly sets
-up the network interface in ifconfig? I'm a little confused/lost here...
+Hi all,
 
-> Can't you implement a private interface to your kernel driver so that
-> userspace can ask it for the username/password and userspace then
-starts
-> pppd with those parameters?
-Yes I suppose I could do that, how would you recommend approaching this,
-ioctl?
+attached you'll find a patch that fixes the depency that has been 
+introduced in commit 65f7651788e18fadb2fbb7276af935d7871e1803 ([NET]: 
+prot_inuse cleanups and optimizations).
 
-Also, is Documentation\networking\ppp_generic.txt up-to-date (says
-edited 2002) or is there a better resource explaining ppp architecture
-on Linux?
+As the inuse counters are only used by internet protocols right now, 
+using CONFIG_INET would have been more obvious to recognize this illegal 
+optimization here. Going a bit deeper into this problem we can see, that 
+the pcounters are ONLY used for the internet protocols BUT initialized 
+for ALL protocols in proto_[un|]register() in net/core/sock.c.
 
-Thanks for your help,
--Kevin
+This forces all network protocols to initialize the pcounters and 
+therefore request dynamic percpu memory even when it is not used at all.
+
+I would suggest to
+
+1. move the ..._inuse_[init|free]() stuff from sock.c to af_inet[|6].c 
+and his friends
+
+OR
+
+2. add new parameters to proto_[un|]register() like 'alloc_inuse' and 
+'free_inuse'
+
+My favourite sollution would be the second one but before creating a 
+patch for one of these suggestions, i wanted to ask for your opinion or 
+if there is any 'even nicer' idea from your side.
+
+Regards,
+Oliver
+
+--------------090703010805030202040303
+Content-Type: text/x-patch;
+ name="remove_config_proc_fs_depency_for_pcounter_inuse.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename*0="remove_config_proc_fs_depency_for_pcounter_inuse.patch"
+
+
+[NET]: Remove CONFIG_PROC_FS depency for pcounter inuse
+
+The pcounters are initialized for each protocol and could also be used outside
+CONFIG_INET context which forces CONFIG_PROC_FS to be set.
+
+Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index fd98760..505ac6f 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -552,9 +552,7 @@ struct proto {
+ 	int			(*get_port)(struct sock *sk, unsigned short snum);
+ 
+ 	/* Keeping track of sockets in use */
+-#ifdef CONFIG_PROC_FS
+ 	struct pcounter		inuse;
+-#endif
+ 
+ 	/* Memory pressure */
+ 	void			(*enter_memory_pressure)(void);
+
+--------------090703010805030202040303--
