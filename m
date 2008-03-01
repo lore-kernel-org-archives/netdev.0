@@ -1,87 +1,82 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Patch: [NET]: Remove CONFIG_PROC_FS depency for pcounter inuse
-Date: Sat, 01 Mar 2008 06:19:51 +0100
-Message-ID: <47C8E777.5050804@hartkopp.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Patch: [NET]: Remove CONFIG_PROC_FS depency for pcounter inuse
+Date: Sat, 01 Mar 2008 10:03:02 +0100
+Message-ID: <47C91BC6.6050603@cosmosbay.com>
+References: <47C8E777.5050804@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090703010805030202040303"
-Cc: netdev@vger.kernel.org
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Oliver Hartkopp <oliver@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-fb.rzone.de ([81.169.146.163]:15728 "EHLO
-	mo-p00-fb.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751993AbYCAFwI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Mar 2008 00:52:08 -0500
+Received: from neuf-infra-smtp-out-sp604007av.neufgp.fr ([84.96.92.120]:51698
+	"EHLO neuf-infra-smtp-out-sp604007av.neufgp.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760144AbYCAJDa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Mar 2008 04:03:30 -0500
+In-Reply-To: <47C8E777.5050804@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------090703010805030202040303
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Oliver Hartkopp a =E9crit :
+> Hi all,
+>=20
+> attached you'll find a patch that fixes the depency that has been=20
+> introduced in commit 65f7651788e18fadb2fbb7276af935d7871e1803 ([NET]:=
+=20
+> prot_inuse cleanups and optimizations).
+>=20
+> As the inuse counters are only used by internet protocols right now,=20
+> using CONFIG_INET would have been more obvious to recognize this ille=
+gal=20
+> optimization here. Going a bit deeper into this problem we can see, t=
+hat=20
+> the pcounters are ONLY used for the internet protocols BUT initialize=
+d=20
+> for ALL protocols in proto_[un|]register() in net/core/sock.c.
+>=20
+> This forces all network protocols to initialize the pcounters and=20
+> therefore request dynamic percpu memory even when it is not used at a=
+ll.
+>=20
+> I would suggest to
+>=20
+> 1. move the ..._inuse_[init|free]() stuff from sock.c to af_inet[|6].=
+c=20
+> and his friends
+>=20
+> OR
+>=20
+> 2. add new parameters to proto_[un|]register() like 'alloc_inuse' and=
+=20
+> 'free_inuse'
+>=20
+> My favourite sollution would be the second one but before creating a=20
+> patch for one of these suggestions, i wanted to ask for your opinion =
+or=20
+> if there is any 'even nicer' idea from your side.
 
-Hi all,
+Hello Oliver
 
-attached you'll find a patch that fixes the depency that has been 
-introduced in commit 65f7651788e18fadb2fbb7276af935d7871e1803 ([NET]: 
-prot_inuse cleanups and optimizations).
+I am just coming back from hollidays.
 
-As the inuse counters are only used by internet protocols right now, 
-using CONFIG_INET would have been more obvious to recognize this illegal 
-optimization here. Going a bit deeper into this problem we can see, that 
-the pcounters are ONLY used for the internet protocols BUT initialized 
-for ALL protocols in proto_[un|]register() in net/core/sock.c.
+Last thing I did before leaving was to post a patch to correct performa=
+nce hit=20
+of percpu_counters in mainline. ([PATCH] alloc_percpu() fails to alloca=
+te=20
+percpu data http://lkml.org/lkml/2008/2/21/254 )
 
-This forces all network protocols to initialize the pcounters and 
-therefore request dynamic percpu memory even when it is not used at all.
+Before accepting Andrew Morton claims about percpu_counters being super=
+ior to=20
+pcounter, I benched them and found they were not.
 
-I would suggest to
+As soon as percpu_counters are not grossly inefficient, the only move w=
+ill be=20
+to just zap pcounter, as most people dont like it.
 
-1. move the ..._inuse_[init|free]() stuff from sock.c to af_inet[|6].c 
-and his friends
+Only one patch will be necessary, please dont try to hide pcounter by s=
+mall=20
+patches :)
 
-OR
-
-2. add new parameters to proto_[un|]register() like 'alloc_inuse' and 
-'free_inuse'
-
-My favourite sollution would be the second one but before creating a 
-patch for one of these suggestions, i wanted to ask for your opinion or 
-if there is any 'even nicer' idea from your side.
-
-Regards,
-Oliver
-
---------------090703010805030202040303
-Content-Type: text/x-patch;
- name="remove_config_proc_fs_depency_for_pcounter_inuse.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename*0="remove_config_proc_fs_depency_for_pcounter_inuse.patch"
-
-
-[NET]: Remove CONFIG_PROC_FS depency for pcounter inuse
-
-The pcounters are initialized for each protocol and could also be used outside
-CONFIG_INET context which forces CONFIG_PROC_FS to be set.
-
-Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index fd98760..505ac6f 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -552,9 +552,7 @@ struct proto {
- 	int			(*get_port)(struct sock *sk, unsigned short snum);
- 
- 	/* Keeping track of sockets in use */
--#ifdef CONFIG_PROC_FS
- 	struct pcounter		inuse;
--#endif
- 
- 	/* Memory pressure */
- 	void			(*enter_memory_pressure)(void);
-
---------------090703010805030202040303--
+Thank you
