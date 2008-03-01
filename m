@@ -1,39 +1,119 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-02-27
-Date: Sat, 1 Mar 2008 16:51:12 +0100
-Message-ID: <200803011651.13652.mb@bu3sch.de>
-References: <20080228014125.GI3078@tuxdriver.com> <20080229214240.GH3234@tuxdriver.com> <20080301130133.GA14250@uranus.ravnborg.org>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [RFC: 2.6 patch] remove irlan_eth_send_gratuitous_arp()
+Date: Sat, 1 Mar 2008 18:19:48 +0200
+Message-ID: <20080301161948.GQ25835@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	gordonfarquharson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080301130133.GA14250-QabhHTsIXMSnlFQ6Q1D1Y0B+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Robert P. J. Day" <rpjday@crashcourse.ca>
+To: samuel@sortiz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:55688 "EHLO smtp4.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758361AbYCAQVN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Mar 2008 11:21:13 -0500
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 01 March 2008, Sam Ravnborg wrote:
-> > This version seems to work, but it is a bit chatty when CROSS_COMPILE
-> > is set and you build lots of modules...thoughts?
-> 
-> We cannot use CROSS_COMPILE to detect a cross build as CROSS_COMPILE
-> is used used to select different gcc versions, cccache etc.
-> The only relaiably way to detect a cross build is to check
-> is ARCH != modified uname -m arch.
-> So this check would have to be done in the top-level Makefile.
-> 
-> And that for shaving 6 bytes of a structure..
+Even kernel 2.2.26 (sic) already contains the
+  #undef CONFIG_IRLAN_SEND_GRATUITOUS_ARP
+with the comment "but for some reason the machine crashes if you use DHCP".
 
-Wrong. For maintaining userspace ABI compatibility.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Either someone finally looks into this or it's simply time to remove 
+this dead code.
+
+Reported-by: Robert P. J. Day <rpjday@crashcourse.ca>
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
+
+---
+
+ include/net/irda/irlan_eth.h  |    1 -
+ net/irda/irlan/irlan_common.c |   10 ----------
+ net/irda/irlan/irlan_eth.c    |   33 ---------------------------------
+ 3 files changed, 44 deletions(-)
+
+d8768e55070eb92eddb69ab8136ded02cc4ef9d0 foobar
+diff --git a/include/net/irda/irlan_eth.h b/include/net/irda/irlan_eth.h
+index 0062347..de5c816 100644
+--- a/include/net/irda/irlan_eth.h
++++ b/include/net/irda/irlan_eth.h
+@@ -29,5 +29,4 @@ struct net_device *alloc_irlandev(const char *name);
+ int  irlan_eth_receive(void *instance, void *sap, struct sk_buff *skb);
+ 
+ void irlan_eth_flow_indication( void *instance, void *sap, LOCAL_FLOW flow);
+-void irlan_eth_send_gratuitous_arp(struct net_device *dev);
+ #endif
+diff --git a/net/irda/irlan/irlan_common.c b/net/irda/irlan/irlan_common.c
+index a4b56e2..c31cb55 100644
+--- a/net/irda/irlan/irlan_common.c
++++ b/net/irda/irlan/irlan_common.c
+@@ -54,13 +54,6 @@
+ #include <net/irda/irlan_filter.h>
+ 
+ 
+-/*
+- * Send gratuitous ARP when connected to a new AP or not. May be a clever
+- * thing to do, but for some reason the machine crashes if you use DHCP. So
+- * lets not use it by default.
+- */
+-#undef CONFIG_IRLAN_SEND_GRATUITOUS_ARP
+-
+ /* extern char sysctl_devname[]; */
+ 
+ /*
+@@ -395,9 +388,6 @@ static void irlan_connect_confirm(void *instance, void *sap,
+ 	/* Ready to transfer Ethernet frames */
+ 	netif_start_queue(self->dev);
+ 	self->disconnect_reason = 0; /* Clear reason */
+-#ifdef CONFIG_IRLAN_SEND_GRATUITOUS_ARP
+-	irlan_eth_send_gratuitous_arp(&self->dev);
+-#endif
+ 	wake_up_interruptible(&self->open_wait);
+ }
+ 
+diff --git a/net/irda/irlan/irlan_eth.c b/net/irda/irlan/irlan_eth.c
+index 1ab91f7..ef12ef1 100644
+--- a/net/irda/irlan/irlan_eth.c
++++ b/net/irda/irlan/irlan_eth.c
+@@ -289,39 +289,6 @@ void irlan_eth_flow_indication(void *instance, void *sap, LOCAL_FLOW flow)
+ }
+ 
+ /*
+- * Function irlan_etc_send_gratuitous_arp (dev)
+- *
+- *    Send gratuitous ARP to announce that we have changed
+- *    hardware address, so that all peers updates their ARP tables
+- */
+-void irlan_eth_send_gratuitous_arp(struct net_device *dev)
+-{
+-#ifdef CONFIG_INET
+-	struct in_device *in_dev;
+-
+-	/*
+-	 * When we get a new MAC address do a gratuitous ARP. This
+-	 * is useful if we have changed access points on the same
+-	 * subnet.
+-	 */
+-	IRDA_DEBUG(4, "IrLAN: Sending gratuitous ARP\n");
+-	rcu_read_lock();
+-	in_dev = __in_dev_get_rcu(dev);
+-	if (in_dev == NULL)
+-		goto out;
+-	if (in_dev->ifa_list)
+-
+-	arp_send(ARPOP_REQUEST, ETH_P_ARP,
+-		 in_dev->ifa_list->ifa_address,
+-		 dev,
+-		 in_dev->ifa_list->ifa_address,
+-		 NULL, dev->dev_addr, NULL);
+-out:
+-	rcu_read_unlock();
+-#endif /* CONFIG_INET */
+-}
+-
+-/*
+  * Function set_multicast_list (dev)
+  *
+  *    Configure the filtering of the device
+
