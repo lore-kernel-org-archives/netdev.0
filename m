@@ -1,146 +1,31 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 3/3 (spin 2)] TCP_DEFER_ACCEPT updates - process as
- established
-Date: Sun, 2 Mar 2008 00:03:34 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0803012355510.2793@kivilampi-30.cs.helsinki.fi>
-References: <1204405149.5792.28.camel@tng> <1204405501.5792.36.camel@tng>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-02-27
+Date: Sat, 01 Mar 2008 14:59:58 -0800 (PST)
+Message-ID: <20080301.145958.33975454.davem@davemloft.net>
+References: <20080229191058.GD3234@tuxdriver.com>
+	<20080229214240.GH3234@tuxdriver.com>
+	<20080301130133.GA14250@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Patrick McManus <mcmanus@ducksong.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:34340 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752047AbYCAWDg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Mar 2008 17:03:36 -0500
-In-Reply-To: <1204405501.5792.36.camel@tng>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org,
+	gordonfarquharson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+To: sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080301130133.GA14250-QabhHTsIXMSnlFQ6Q1D1Y0B+6BGkLq7r@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 1 Mar 2008, Patrick McManus wrote:
+From: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
+Date: Sat, 1 Mar 2008 14:01:33 +0100
 
-There are a number of style issues, please see Documentation/CodingStyle 
-for more details (most of them noted below as well)...
+> And that for shaving 6 bytes of a structure..
 
-> @@ -461,9 +457,8 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
->                 reqp=&lopt->syn_table[i];
->                 while ((req = *reqp) != NULL) {
->                         if (time_after_eq(now, req->expires)) {
-> -                               if ((req->retrans < (inet_rsk(req)->acked ? max_retries : thresh))
-> -                                   &&  (inet_rsk(req)->acked ||
-> -                                        !req->rsk_ops->rtx_syn_ack(parent, req, NULL))) {
-> +                               if (req->retrans < thresh
-> +                                   && !req->rsk_ops->rtx_syn_ack(parent, req, NULL)) {
-
-These &&/|| are usually placed into end of the previous line.
-
->                                         unsigned long timeo;
-> 
->                                         if (req->retrans++ == 0)
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 071e83a..905e39e 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2105,16 +2105,15 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
->                 break;
-> 
->         case TCP_DEFER_ACCEPT:
-> -               icsk->icsk_accept_queue.rskq_defer_accept = 0;
-> -               if (val > 0) {
-> -                       /* Translate value in seconds to number of
-> -                        * retransmits */
-> -                       while (icsk->icsk_accept_queue.rskq_defer_accept < 32 &&
-> -                              val > ((TCP_TIMEOUT_INIT / HZ) <<
-> -                                      icsk->icsk_accept_queue.rskq_defer_accept))
-> -                               icsk->icsk_accept_queue.rskq_defer_accept++;
-> -                       icsk->icsk_accept_queue.rskq_defer_accept++;
-> +               if (val < 0)
-> +                       err = -EINVAL;
-> +               else
-> +               {
-
-Put brace to the same line with else and use braces for the both blocks  
-whenever either block needs them.
-
-> +                       if (val > MAX_TCP_ACCEPT_DEFERRED)
-> +                               val = MAX_TCP_ACCEPT_DEFERRED;
-> +                       icsk->icsk_accept_queue.rskq_defer_accept = val;
->                 }
-> +
->                 break;
-> 
->         case TCP_WINDOW_CLAMP:
-> @@ -2295,8 +2294,7 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
->                         val = (val ? : sysctl_tcp_fin_timeout) / HZ;
->                 break;
->         case TCP_DEFER_ACCEPT:
-> -               val = !icsk->icsk_accept_queue.rskq_defer_accept ? 0 :
-> -                       ((TCP_TIMEOUT_INIT / HZ) << (icsk->icsk_accept_queue.rskq_defer_accept - 1));
-> +               val = icsk->icsk_accept_queue.rskq_defer_accept;
->                 break;
->         case TCP_WINDOW_CLAMP:
->                 val = tp->window_clamp;
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 19c449f..60a51e7 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -4807,6 +4807,40 @@ step5:
-> 
->         tcp_data_snd_check(sk);
->         tcp_ack_snd_check(sk);
-> +
-> +       if (tp->defer_tcp_accept.request ) {
-
-space--
-
-> +
-> +               if ((!th->fin) &&
-> +                   tp->defer_tcp_accept.listen_sk->sk_state == TCP_LISTEN) {
-> +
-> +                       if (sock_flag(sk, SOCK_KEEPOPEN)) {
-> +                               inet_csk_reset_keepalive_timer(sk,
-> +                                                              keepalive_time_when(tp));
-> +                       }
-> +                       else {
-
-braces & elses to the same line please.
-
-> +                               inet_csk_delete_keepalive_timer(sk);
-> +                       }
-> +
-> +                       inet_csk_reqsk_queue_add(
-> +                               tp->defer_tcp_accept.listen_sk,
-> +                               tp->defer_tcp_accept.request,
-> +                               sk);
-> +
-> +                       tp->defer_tcp_accept.listen_sk->sk_data_ready(
-> +                               tp->defer_tcp_accept.listen_sk, 0);
-> +
-> +                       sock_put (tp->defer_tcp_accept.listen_sk);
-> +                       sock_put (sk);
-
-spaces--;
-
-> +                       tp->defer_tcp_accept.listen_sk = NULL;
-> +                       tp->defer_tcp_accept.request = NULL;
-> +               }
-> +               else
-> +               {
-
-both braces on the same line as else please.
-
-> +                       tcp_reset(sk);
-> +                       return 1;
-> +               }
-> +       }
-> +
->         return 0;
-
-Please check for similar things elsewhere as well, and quickly check what 
-the CodingStyle has to say as well. I stopped here and might have missed 
-something above as well.
-
-
--- 
- i.
+No, it's for not breaking existing userland binaries out there.  We
+released 2.6.24 with the existing struct layout, we have to live with
+it.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
