@@ -1,63 +1,67 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: pull request: wireless-2.6 2008-02-27
-Date: Sat, 1 Mar 2008 14:01:33 +0100
-Message-ID: <20080301130133.GA14250@uranus.ravnborg.org>
-References: <20080228014125.GI3078@tuxdriver.com> <97a0a9ac0802281321h6f302865j38a55c6f761dc14b@mail.gmail.com> <20080228.133008.228590007.davem@davemloft.net> <200802291316.59738.mb@bu3sch.de> <20080229162629.GB3234@tuxdriver.com> <1204302853.3938.40.camel@johannes.berg> <20080229191058.GD3234@tuxdriver.com> <20080229214240.GH3234@tuxdriver.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Patch: [NET]: Remove CONFIG_PROC_FS depency for pcounter inuse
+Date: Sat, 01 Mar 2008 14:45:54 +0100
+Message-ID: <47C95E12.609@cosmosbay.com>
+References: <47C8E777.5050804@hartkopp.net> <47C91BC6.6050603@cosmosbay.com> <47C93C76.5090905@hartkopp.net> <47C945D7.7050601@cosmosbay.com> <47C950B4.5040703@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Michael Buesch <mb@bu3sch.de>,
-	David Miller <davem@davemloft.net>,
-	gordonfarquharson@gmail.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Oliver Hartkopp <oliver@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:43252 "EHLO pasmtpA.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754674AbYCANBW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Mar 2008 08:01:22 -0500
-Content-Disposition: inline
-In-Reply-To: <20080229214240.GH3234@tuxdriver.com>
+Received: from neuf-infra-smtp-out-sp604007av.neufgp.fr ([84.96.92.120]:40944
+	"EHLO neuf-infra-smtp-out-sp604007av.neufgp.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755382AbYCANqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Mar 2008 08:46:16 -0500
+In-Reply-To: <47C950B4.5040703@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 29, 2008 at 04:42:40PM -0500, John W. Linville wrote:
-> On Fri, Feb 29, 2008 at 02:10:58PM -0500, John W. Linville wrote:
-> > On Fri, Feb 29, 2008 at 05:34:13PM +0100, Johannes Berg wrote:
-> > > 
-> > > On Fri, 2008-02-29 at 11:26 -0500, John W. Linville wrote:
-> > > > On Fri, Feb 29, 2008 at 01:16:59PM +0100, Michael Buesch wrote:
-> > > > 
-> > > > > I'm wondering if we can't simply pass a commandline parameter to file2alias
-> > > > > that tells it whether we are crosscompiling. It should simply omit the sanity check
-> > > > 
-> > > > Sounds reasonable to me.
-> > > 
-> > > In fact, file2alias shouldn't need a command line argument ...
-> > > 
-> > > > > in that case. Is there any easy and reliable way to find out whether we
-> > > > > are crosscompiling from a makefile (I don't know the makefile core that much)?
-> > > > 
-> > > > Non-empty CROSS_COMPILE definition?
-> > > 
-> > > ... it can just check whether CROSS_COMPILE is set in its environment.
-> > > No?
-> > 
-> > Not a bad idea...something like this?
-> 
-> That version didn't work -- it seems CROSS_COMPILE is always set,
-> even if it is empty.
-> 
-> This version seems to work, but it is a bit chatty when CROSS_COMPILE
-> is set and you build lots of modules...thoughts?
+Oliver Hartkopp a =E9crit :
+> Eric Dumazet wrote:
+>> Oliver Hartkopp a =E9crit :
+>>> It's not about the counter implementation but the integration/usage=
+=20
+>>> in the networking subsystem.
+>>>
+>>> Or does your mentioned patch mean, that the added functions in=20
+>>> proto_[un|]register() will also be reverted?
+>>>
+>>
+>> A patch will make inet use percpu_counter instead of pcounter.
+>>
+>> Then a zap patch will delete lib/pcounter.c & include/linux/pcounter=
+=2Eh
+>>
+>> I dont understand why you say CONFIG_PROC_FS is *forced*.
+>> I can build a kernel with CONFIG_PROC_FS=3Dn, with working INET.
+> Right. With enabled CONFIG_EMBEDDED you might have CONFIG_INET with=20
+> CONFIG_PROC_FS=3Dn.
+>=20
+> But this is not the thing, i wanted to point out.
+>=20
+> My major concern was, that "whatever-per-cpu-counters" are=20
+> allocated/initialized in "proto_register()" for *every* network proto=
+col=20
+> but *only* IPv[4|6] is using these counters (when CONFIG_PROC_FS is s=
+et).
+>=20
+> I just wanted to point out the situation for network protocols that d=
+o=20
+> not need any inuse counters. In the current implementation the pcount=
+ers=20
+> are allocated for every networking protocol in proto_register() which=
+=20
+> does not look optimized to me.
+>=20
+> Will this change with your patch that uses percpu_counter instead of=20
+> pcounter??
+>=20
 
-We cannot use CROSS_COMPILE to detect a cross build as CROSS_COMPILE
-is used used to select different gcc versions, cccache etc.
-The only relaiably way to detect a cross build is to check
-is ARCH != modified uname -m arch.
-So this check would have to be done in the top-level Makefile.
+Yes, everything will be cleaned by me.
 
-And that for shaving 6 bytes of a structure..
+We dont need to *optimize* something that will die very soon.
 
-	Sam
+Thank you
