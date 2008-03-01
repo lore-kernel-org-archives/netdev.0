@@ -1,9 +1,9 @@
 From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: RFC [PATCH 2/3] TCP_DEFER_ACCEPT updates: don't retransmit syn-ack
- while waiting for first data byte
-Date: Sat, 01 Mar 2008 11:42:51 +0100
-Message-ID: <47C9332B.4050207@cosmosbay.com>
-References: <1204076945.15970.35.camel@tng>
+Subject: Re: RFC [PATCH 3/3] TCP_DEFER_ACCEPT updates: more accurate timers
+ and	resets
+Date: Sat, 01 Mar 2008 11:53:48 +0100
+Message-ID: <47C935BC.9060409@cosmosbay.com>
+References: <1204076973.15970.37.camel@tng>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1;
 	format=flowed
@@ -11,50 +11,54 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Patrick McManus <mcmanus@ducksong.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from neuf-infra-smtp-out-sp604003av.neufgp.fr ([84.96.92.124]:59070
+Received: from neuf-infra-smtp-out-sp604003av.neufgp.fr ([84.96.92.124]:33222
 	"EHLO neuf-infra-smtp-out-sp604003av.neufgp.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752147AbYCAKm5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Mar 2008 05:42:57 -0500
-In-Reply-To: <1204076945.15970.35.camel@tng>
+	by vger.kernel.org with ESMTP id S1752644AbYCAKxy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Mar 2008 05:53:54 -0500
+In-Reply-To: <1204076973.15970.37.camel@tng>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Patrick McManus a =E9crit :
 > Signed-off-by: Patrick McManus <mcmanus@ducksong.com>
 >=20
->     a socket in LISTEN that had completed its 3 way handshake, but no=
-t notified
->     userspace because of SO_DEFER_ACCEPT, would retransmit the alread=
-y
->     acked syn-ack during the time it was waiting for the first data b=
-yte
->     from the peer.
+>   Change TCP_DEFER_ACCEPT implementation so that it transitions a
+>     connection to ESTABLISHED after handshake is complete instead of
+>     leaving it in SYN-RECV until some data arrvies. Place connection =
+in
+>     accept queue when first data packet arrives from slow path.
 >=20
-> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connecti=
-on_sock.c
-> index 03cc323..7216f5e 100644
-> --- a/net/ipv4/inet_connection_sock.c
-> +++ b/net/ipv4/inet_connection_sock.c
-> @@ -461,8 +461,9 @@ void inet_csk_reqsk_queue_prune(struct sock *pare=
-nt,
->                 reqp=3D&lopt->syn_table[i];
->                 while ((req =3D *reqp) !=3D NULL) {
->                         if (time_after_eq(now, req->expires)) {
-> -                               if ((req->retrans < (inet_rsk(req)->a=
-cked ? max_retries : thresh))
-> -                                   && !req->rsk_ops->rtx_syn_ack(par=
-ent, req, NULL)) {
-> +                               if ((req->retrans < (inet_rsk(req)->a=
-cked ? max_retries : thresh))
-> +                                   &&  (inet_rsk(req)->acked ||
-> +                                        !req->rsk_ops->rtx_syn_ack(p=
-arent, req, NULL))) {
->                                         unsigned long timeo;
+>     Benefits:
+>      - established connection is now reset if it never makes it to th=
+e accept
+>      queue
 >=20
->                                         if (req->retrans++ =3D=3D 0)
+>      - diagnostic state of established matches with the packet traces
+>        showing completed handshake
 >=20
->=20
+>     - TCP_DEFER_ACCEPT timeouts are expressed in seconds and can now =
+be
+>       enforced with reasonable accuracy instead of rounding up to nex=
+t
+>       exponential back-off of syn-ack retry.
 
-Acked-by: Eric Dumazet <dada1@cosmosbay.com>
+This all makes sense Patrick.
 
+Your patch is quite large and difficult to review (for me :) )
+
+1) Adding "struct tcp_deferred_accept_info" on "struct tcp_sock" (24 by=
+tes on=20
+64 bit arches) is a rather high cost to pay for an obscure TCP_DEFER_AC=
+CEPT.
+
+But then, many "struct tcp_sock" fields are used only at socket establi=
+shment.
+
+2) About MAX_TCP_ACCEPT_DEFERRED test in do_tcp_setsockopt(), I am not =
+sure we=20
+can return -EINVAL.
+
+setsockopt(TCP_DEFER_ACCEPT, 100000) is a hint given by application, an=
+d could=20
+be mapped to setsockopt(TCP_DEFER_ACCEPT, 65535) silently.
 
