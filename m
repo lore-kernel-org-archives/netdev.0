@@ -1,70 +1,76 @@
-From: Chris Wedgwood <cw@f00f.org>
-Subject: Re: 2.6.25-rc3ish TCP assertion & WARN_ON
-Date: Sun, 2 Mar 2008 09:50:13 -0800
-Message-ID: <20080302175013.GA4483@puku.stupidest.org>
-References: <20080301183234.GA4707@puku.stupidest.org> <Pine.LNX.4.64.0803012213190.350@kivilampi-30.cs.helsinki.fi>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 2/2] [IPV6]: Fix source address selection for ORCHID
+ addresses
+Date: Mon, 03 Mar 2008 03:02:39 +0900 (JST)
+Message-ID: <20080303.030239.105475439.yoshfuji@linux-ipv6.org>
+References: <20080221100842.GA24905@verkkotelakka.net>
+	<20080302.213902.68664760.yoshfuji@linux-ipv6.org>
+	<20080302165453.GP32279@verkkotelakka.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: jmtapio@verkkotelakka.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp120.sbc.mail.sp1.yahoo.com ([69.147.64.93]:46760 "HELO
-	smtp120.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754827AbYCBRuU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2008 12:50:20 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0803012213190.350@kivilampi-30.cs.helsinki.fi>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:53629 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751433AbYCBSBi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2008 13:01:38 -0500
+In-Reply-To: <20080302165453.GP32279@verkkotelakka.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 01, 2008 at 10:19:07PM +0200, Ilpo J?rvinen wrote:
+In article <20080302165453.GP32279@verkkotelakka.net> (at Sun, 2 Mar 2008 18:54:53 +0200), Juha-Matti Tapio <jmtapio@verkkotelakka.net> says:
 
-> It consumes some cpu by validating the whole TCP's write queue
-> multiple times per ACK to find most of the errors as soon as they
-> happen rather than when some cheap mainline trap triggers (often
-> much later than the actual bug).
+> > Is this really required?
+> > I believe address labels (rule 6) should work, no?
+> 
+> The corner case that I run into was like this (using HIPL):
+> 
+> $ ip -6 addr
+> 1: lo: <LOOPBACK,UP,10000> mtu 16436
+>     inet6 ::1/128 scope host
+>        valid_lft forever preferred_lft forever
+> 2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qlen 1000
+>     inet6 2002:4fab:e944:1100::1/64 scope global
+>        valid_lft forever preferred_lft forever
+>     inet6 fe80::2c0:4fff:fe17:ecd9/64 scope link
+>        valid_lft forever preferred_lft forever
+> 3: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,10000> mtu 1500 qlen 100
+>     inet6 fe80::2/64 scope link
+>        valid_lft forever preferred_lft forever
+> 8: dummy0: <BROADCAST,NOARP,UP,10000> mtu 1500
+>     inet6 2001:1c:ed0f:6dda:e9c3:8921:2ee7:7a52/28 scope global
+>        valid_lft forever preferred_lft forever
+> [...]
+> 
+> $ ip -6 route
+> 2001:1c:ed0f:6dda:e9c3:8921:2ee7:7a52 dev dummy0  metric 1024  expires 8567991sec mtu 1500 advmss 1440 hoplimit 4294967295
+> [...]
+> 2002:4fab:e944:1100::/64 dev eth0  metric 256  expires 8211503sec mtu 1500 advmss 1440 hoplimit 4294967295
+> [...]
+> default via fe80::1 dev tun0  metric 512  expires 8211512sec mtu 1500 advmss 1440 hoplimit 4294967295
+> [...]
+> 
+> In this case if I try to connect to www.ripe.net alias
+> 2001:610:240:11::c100:1319, there is no local source address that
+> matches the destination's label and the outgoing interface does not
+> have any public addresses. Therefore the 8th rule applies and the HIT
+> (2001:...) wins and the destination can not understand the source
+> address.
+> 
+> I'm not particularly happy with the above mentioned second patch, but
+> I could not come up with a more elegant fix.
 
-With that:
+And then, what address should you use? 6to4 address?
 
-  [ 1911.211964] P: 0 L: 0 vs 0 S: 0 vs 0 F: 0 vs 2 w: 2569814359-2569814359 (3)
-  [ 1911.211981] l0 s0 f2 p0 seq: su2569814359 hs2569814359 sn2569814359
-  [ 1911.211995] ------------[ cut here ]------------
-  [ 1911.212005] WARNING: at net/ipv4/tcp_ipv4.c:234 tcp_verify_wq+0x23d/0x271()
-  [ 1911.212022] Modules linked in: kvm_amd kvm tun firewire_ohci firewire_core crc_itu_t
-  [ 1911.212046] Pid: 0, comm: swapper Not tainted 2.6.25-rc3-cw3-01124-g4b36a25-dirty #8
-  [ 1911.212062]
-  [ 1911.212063] Call Trace:
-  [ 1911.212076]  <IRQ>  [<ffffffff80231aeb>] warn_on_slowpath+0x58/0x6b
-  [ 1911.212093]  [<ffffffff80232912>] ? printk+0x67/0x69
-  [ 1911.212103]  [<ffffffff804d26c6>] ? tcp_print_queue+0x21b/0x22d
-  [ 1911.212115]  [<ffffffff8053caeb>] ? _spin_unlock_bh+0x2f/0x34
-  [ 1911.212127]  [<ffffffff804d2ec0>] tcp_verify_wq+0x23d/0x271
-  [ 1911.212140]  [<ffffffff804c92db>] tcp_ack+0x749/0xfab
-  [ 1911.212152]  [<ffffffff8053f369>] ? __atomic_notifier_call_chain+0x74/0x83
-  [ 1911.212165]  [<ffffffff804cc13c>] tcp_rcv_state_process+0x731/0xb2d
-  [ 1911.212177]  [<ffffffff804d2458>] tcp_v4_do_rcv+0x167/0x1ba
-  [ 1911.212188]  [<ffffffff804d4543>] tcp_v4_rcv+0x701/0x75e
-  [ 1911.212199]  [<ffffffff804b9684>] ip_local_deliver_finish+0x158/0x230
-  [ 1911.212211]  [<ffffffff804b9b6d>] ip_local_deliver+0x72/0x7d
-  [ 1911.212222]  [<ffffffff804b9507>] ip_rcv_finish+0x353/0x378
-  [ 1911.212233]  [<ffffffff804b9ac8>] ip_rcv+0x272/0x2a5
-  [ 1911.212249]  [<ffffffff80492f57>] netif_receive_skb+0x26c/0x2b9
-  [ 1911.212261]  [<ffffffff8049575c>] process_backlog+0x82/0xe7
-  [ 1911.212273]  [<ffffffff80495207>] net_rx_action+0x87/0x14e
-  [ 1911.212285]  [<ffffffff80236d07>] __do_softirq+0x66/0xd3
-  [ 1911.212297]  [<ffffffff8020c45c>] call_softirq+0x1c/0x28
-  [ 1911.212308]  [<ffffffff8020dd03>] do_softirq+0x34/0x72
-  [ 1911.212319]  [<ffffffff80236c9f>] irq_exit+0x3f/0x41
-  [ 1911.212329]  [<ffffffff8020deb2>] do_IRQ+0x147/0x169
-  [ 1911.212340]  [<ffffffff8020a225>] ? default_idle+0x0/0x5f
-  [ 1911.212351]  [<ffffffff8020b7a1>] ret_from_intr+0x0/0xa
-  [ 1911.212360]  <EOI>  [<ffffffff8053f2f5>] ? __atomic_notifier_call_chain+0x0/0x83
-  [ 1911.212379]  [<ffffffff8020a25e>] ? default_idle+0x39/0x5f
-  [ 1911.212390]  [<ffffffff8020a259>] ? default_idle+0x34/0x5f
-  [ 1911.212401]  [<ffffffff8020a225>] ? default_idle+0x0/0x5f
-  [ 1911.212411]  [<ffffffff8020a31c>] ? cpu_idle+0x98/0xba
-  [ 1911.212423]  [<ffffffff805277d1>] ? rest_init+0x55/0x57
-  [ 1911.212434]
-  [ 1911.212440] ---[ end trace 9f6658e64a24d34b ]---
+Then, what you should do is to appropriately configure your policy
+(label) table via the addrlabel subsystem.
 
-Is that useful?
+Or, if ORCHID address can never communicate with non-ORCHID
+address, we could have it in the rule 0 (not 8 minus).
+
+What do you think?
+
+--yoshfuji
