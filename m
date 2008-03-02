@@ -1,196 +1,154 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 09/11][NETNS][IPV6] fib6_rules - handle several network namespaces
-Date: Sun, 02 Mar 2008 10:37:29 +0100
-Message-ID: <20080302094230.642282606@mai.toulouse-stg.fr.ibm.com>
-References: <20080302093720.649869114@mai.toulouse-stg.fr.ibm.com>
-Cc: netdev@vger.kernel.org, benjamin.thery@bull.net
-To: davem@davemloft.net
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: pull request: wireless-2.6 2008-02-27
+Date: Sun, 2 Mar 2008 12:58:28 +0100
+Message-ID: <20080302115828.GA15820@uranus.ravnborg.org>
+References: <20080228014125.GI3078@tuxdriver.com> <20080229214240.GH3234@tuxdriver.com> <20080301130133.GA14250@uranus.ravnborg.org> <200803011651.13652.mb@bu3sch.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	David Miller <davem@davemloft.net>,
+	gordonfarquharson@gmail.com, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.de.ibm.com ([195.212.29.152]:45581 "EHLO
-	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753094AbYCBJol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2008 04:44:41 -0500
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate3.de.ibm.com (8.13.8/8.13.8) with ESMTP id m229ieCg150750
-	for <netdev@vger.kernel.org>; Sun, 2 Mar 2008 09:44:40 GMT
-Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m229iehh512180
-	for <netdev@vger.kernel.org>; Sun, 2 Mar 2008 10:44:40 +0100
-Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m229idCO021909
-	for <netdev@vger.kernel.org>; Sun, 2 Mar 2008 10:44:39 +0100
-Content-Disposition: inline; filename=09_11-fib6-rules-per-network-namespace.patch
+Received: from pasmtpb.tele.dk ([80.160.77.98]:35911 "EHLO pasmtpB.tele.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750765AbYCBL6R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Mar 2008 06:58:17 -0500
+Content-Disposition: inline
+In-Reply-To: <200803011651.13652.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The fib6_rules_ops is moved to the network namespace structure.
-All references are changed to have it relatively to it.
+On Sat, Mar 01, 2008 at 04:51:12PM +0100, Michael Buesch wrote:
+> On Saturday 01 March 2008, Sam Ravnborg wrote:
+> > > This version seems to work, but it is a bit chatty when CROSS_COMPILE
+> > > is set and you build lots of modules...thoughts?
+> > 
+> > We cannot use CROSS_COMPILE to detect a cross build as CROSS_COMPILE
+> > is used used to select different gcc versions, cccache etc.
+> > The only relaiably way to detect a cross build is to check
+> > is ARCH != modified uname -m arch.
+> > So this check would have to be done in the top-level Makefile.
+> > 
+> > And that for shaving 6 bytes of a structure..
+> 
+> Wrong. For maintaining userspace ABI compatibility.
+NEws to me - that argument I did not see when I posted my previous mail
+about possible worarounds.
+Find below a patch that detect when we do a cross build and thus ignore
+the check.
 
-Each time a network namespace is created a new fib6_rules_ops is
-allocated, initialized and stored into the network namespace
-structure.
+This is NOT tested as I do not have access to my dev box atm.
+I have only tested I could build a i386 kernel.
 
-The common part of the fib rules is namespace aware, so it is
-quite easy to retrieve the network namespace from the rules and use
-it in the different callbacks.
+So please let me know if this works and then I can push it upstrem
+hopefully already by tomorrow.
 
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
----
- include/net/netns/ipv6.h |    1 
- net/ipv6/fib6_rules.c    |   82 ++++++++++++++++++++++++++---------------------
- 2 files changed, 47 insertions(+), 36 deletions(-)
+Note: I decided to name the variable KBUILD_BUILDHOST as this is more
+descriptive then SUBARCH. We can later clean up the naming and get rid
+of SUBARCH but I refrained from this to make the pacht minimal.
 
-Index: net-2.6.26/include/net/netns/ipv6.h
-===================================================================
---- net-2.6.26.orig/include/net/netns/ipv6.h
-+++ net-2.6.26/include/net/netns/ipv6.h
-@@ -41,6 +41,7 @@ struct netns_ipv6 {
- 	struct fib6_table       *fib6_main_tbl;
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
- 	struct fib6_table       *fib6_local_tbl;
-+	struct fib_rules_ops    *fib6_rules_ops;
- #endif
- 	struct sock		**icmp_sk;
- };
-Index: net-2.6.26/net/ipv6/fib6_rules.c
-===================================================================
---- net-2.6.26.orig/net/ipv6/fib6_rules.c
-+++ net-2.6.26/net/ipv6/fib6_rules.c
-@@ -29,8 +29,6 @@ struct fib6_rule
- 	u8			tclass;
- };
- 
--static struct fib_rules_ops *fib6_rules_ops;
+	Sam
+
+diff --git a/Makefile b/Makefile
+index a229784..de28306 100644
+--- a/Makefile
++++ b/Makefile
+@@ -189,7 +189,7 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
+ # Alternatively CROSS_COMPILE can be set in the environment.
+ # Default value for CROSS_COMPILE is not to prefix executables
+ # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 -
- struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi *fl,
- 				   int flags, pol_lookup_t lookup)
- {
-@@ -38,7 +36,7 @@ struct dst_entry *fib6_rule_lookup(struc
- 		.lookup_ptr = lookup,
- 	};
++export KBUILD_BUILDHOST := $(SUBARCH)
+ ARCH		?= $(SUBARCH)
+ CROSS_COMPILE	?=
  
--	fib_rules_lookup(fib6_rules_ops, fl, flags, &arg);
-+	fib_rules_lookup(net->ipv6.fib6_rules_ops, fl, flags, &arg);
- 	if (arg.rule)
- 		fib_rule_put(arg.rule);
+diff --git a/scripts/Makefile.modpost b/scripts/Makefile.modpost
+index cfc004e..2d20640 100644
+--- a/scripts/Makefile.modpost
++++ b/scripts/Makefile.modpost
+@@ -58,6 +58,9 @@ modules   := $(patsubst %.o,%.ko, $(wildcard $(__modules:.ko=.o)))
+ # Stop after building .o files if NOFINAL is set. Makes compile tests quicker
+ _modpost: $(if $(KBUILD_MODPOST_NOFINAL), $(modules:.ko:.o),$(modules))
  
-@@ -71,7 +69,7 @@ static int fib6_rule_action(struct fib_r
- 		goto discard_pkt;
- 	}
++ifneq ($(KBUILD_BUILDHOST),$(ARCH))
++        cross_build := 1
++endif
  
--	table = fib6_get_table(&init_net, rule->table);
-+	table = fib6_get_table(rule->fr_net, rule->table);
- 	if (table)
- 		rt = lookup(table, flp, flags);
+ # Step 2), invoke modpost
+ #  Includes step 3,4
+@@ -70,7 +73,8 @@ modpost = scripts/mod/modpost                    \
+  $(if $(CONFIG_DEBUG_SECTION_MISMATCH),,-S)      \
+  $(if $(CONFIG_MARKERS),-K $(kernelmarkersfile)) \
+  $(if $(CONFIG_MARKERS),-M $(markersfile))	 \
+- $(if $(KBUILD_EXTMOD)$(KBUILD_MODPOST_WARN),-w)
++ $(if $(KBUILD_EXTMOD)$(KBUILD_MODPOST_WARN),-w) \
++ $(if $(cross_build),-c)
  
-@@ -145,13 +143,14 @@ static int fib6_rule_configure(struct fi
- 			       struct nlattr **tb)
- {
- 	int err = -EINVAL;
-+	struct net *net = skb->sk->sk_net;
- 	struct fib6_rule *rule6 = (struct fib6_rule *) rule;
+ quiet_cmd_modpost = MODPOST $(words $(filter-out vmlinux FORCE, $^)) modules
+       cmd_modpost = $(modpost) -s
+diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
+index 9ddf944..348d868 100644
+--- a/scripts/mod/file2alias.c
++++ b/scripts/mod/file2alias.c
+@@ -51,11 +51,13 @@ do {                                                            \
+                 sprintf(str + strlen(str), "*");                \
+ } while(0)
  
- 	if (rule->action == FR_ACT_TO_TBL) {
- 		if (rule->table == RT6_TABLE_UNSPEC)
- 			goto errout;
++unsigned int cross_build = 0;
+ /**
+  * Check that sizeof(device_id type) are consistent with size of section
+  * in .o file. If in-consistent then userspace and kernel does not agree
+  * on actual size which is a bug.
+  * Also verify that the final entry in the table is all zeros.
++ * Ignore both checks if build host differ from target host and size differs.
+  **/
+ static void device_id_check(const char *modname, const char *device_id,
+ 			    unsigned long size, unsigned long id_size,
+@@ -64,6 +66,8 @@ static void device_id_check(const char *modname, const char *device_id,
+ 	int i;
  
--		if (fib6_new_table(&init_net, rule->table) == NULL) {
-+		if (fib6_new_table(net, rule->table) == NULL) {
- 			err = -ENOBUFS;
- 			goto errout;
- 		}
-@@ -251,49 +250,60 @@ static struct fib_rules_ops fib6_rules_o
- 	.fro_net		= &init_net,
+ 	if (size % id_size || size < id_size) {
++		if (cross_build != 0)
++			return;
+ 		fatal("%s: sizeof(struct %s_device_id)=%lu is not a modulo "
+ 		      "of the size of section __mod_%s_device_table=%lu.\n"
+ 		      "Fix definition of struct %s_device_id "
+diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
+index 695b5d6..110cf24 100644
+--- a/scripts/mod/modpost.c
++++ b/scripts/mod/modpost.c
+@@ -2026,7 +2026,7 @@ int main(int argc, char **argv)
+ 	int opt;
+ 	int err;
+ 
+-	while ((opt = getopt(argc, argv, "i:I:msSo:awM:K:")) != -1) {
++	while ((opt = getopt(argc, argv, "i:I:cmsSo:awM:K:")) != -1) {
+ 		switch (opt) {
+ 		case 'i':
+ 			kernel_read = optarg;
+@@ -2035,6 +2035,9 @@ int main(int argc, char **argv)
+ 			module_read = optarg;
+ 			external_module = 1;
+ 			break;
++		case 'c':
++			cross_build = 1;
++			break;
+ 		case 'm':
+ 			modversions = 1;
+ 			break;
+diff --git a/scripts/mod/modpost.h b/scripts/mod/modpost.h
+index 565c587..09f58e3 100644
+--- a/scripts/mod/modpost.h
++++ b/scripts/mod/modpost.h
+@@ -135,6 +135,7 @@ struct elf_info {
  };
  
--static int __init fib6_default_rules_init(void)
-+static int fib6_rules_net_init(struct net *net)
- {
--	int err;
-+	int err = -ENOMEM;
- 
--	fib6_rules_ops = kmemdup(&fib6_rules_ops_template,
--				 sizeof(*fib6_rules_ops), GFP_KERNEL);
--	if (!fib6_rules_ops)
--		return -ENOMEM;
-+	net->ipv6.fib6_rules_ops = kmemdup(&fib6_rules_ops_template,
-+					   sizeof(*net->ipv6.fib6_rules_ops),
-+					   GFP_KERNEL);
-+	if (!net->ipv6.fib6_rules_ops)
-+		goto out;
- 
--	INIT_LIST_HEAD(&fib6_rules_ops->rules_list);
-+	net->ipv6.fib6_rules_ops->fro_net = net;
-+	INIT_LIST_HEAD(&net->ipv6.fib6_rules_ops->rules_list);
- 
--	err = fib_default_rule_add(fib6_rules_ops, 0,
-+	err = fib_default_rule_add(net->ipv6.fib6_rules_ops, 0,
- 				   RT6_TABLE_LOCAL, FIB_RULE_PERMANENT);
--	if (err < 0)
--		return err;
--	err = fib_default_rule_add(fib6_rules_ops, 0x7FFE, RT6_TABLE_MAIN, 0);
--	if (err < 0)
--		return err;
--	return 0;
-+	if (err)
-+		goto out_fib6_rules_ops;
-+
-+	err = fib_default_rule_add(net->ipv6.fib6_rules_ops,
-+				   0x7FFE, RT6_TABLE_MAIN, 0);
-+	if (err)
-+		goto out_fib6_default_rule_add;
-+
-+	err = fib_rules_register(net->ipv6.fib6_rules_ops);
-+	if (err)
-+		goto out_fib6_default_rule_add;
-+out:
-+	return err;
-+
-+out_fib6_default_rule_add:
-+	fib_rules_cleanup_ops(net->ipv6.fib6_rules_ops);
-+out_fib6_rules_ops:
-+	kfree(net->ipv6.fib6_rules_ops);
-+	goto out;
- }
- 
--int __init fib6_rules_init(void)
-+static void fib6_rules_net_exit(struct net *net)
- {
--	int ret;
--
--	ret = fib6_default_rules_init();
--	if (ret)
--		goto out;
-+	fib_rules_unregister(net->ipv6.fib6_rules_ops);
-+	kfree(net->ipv6.fib6_rules_ops);
-+}
- 
--	ret = fib_rules_register(fib6_rules_ops);
--	if (ret)
--		goto out_default_rules_init;
--out:
--	return ret;
-+static struct pernet_operations fib6_rules_net_ops = {
-+	.init = fib6_rules_net_init,
-+	.exit = fib6_rules_net_exit,
-+};
- 
--out_default_rules_init:
--	fib_rules_cleanup_ops(fib6_rules_ops);
--	kfree(fib6_rules_ops);
--	goto out;
-+int __init fib6_rules_init(void)
-+{
-+	return register_pernet_subsys(&fib6_rules_net_ops);
- }
- 
-+
- void fib6_rules_cleanup(void)
- {
--	fib_rules_unregister(fib6_rules_ops);
--	kfree(fib6_rules_ops);
-+	return unregister_pernet_subsys(&fib6_rules_net_ops);
- }
-
--- 
+ /* file2alias.c */
++extern unsigned int cross_build;
+ void handle_moddevtable(struct module *mod, struct elf_info *info,
+ 			Elf_Sym *sym, const char *symname);
+ void add_moddevtable(struct buffer *buf, struct module *mod);
