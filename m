@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [PATCH 0/2] Fix /proc/net in presence of net namespaces
-Date: Sat, 01 Mar 2008 19:03:28 -0700
-Message-ID: <m14pbp51cf.fsf@ebiederm.dsl.xmission.com>
+Date: Sat, 01 Mar 2008 19:17:00 -0700
+Message-ID: <m1zlth3m5f.fsf@ebiederm.dsl.xmission.com>
 References: <47C6D743.1050802@openvz.org>
 	<m1y794514k.fsf@ebiederm.dsl.xmission.com>
 	<20080228211720.GA1232@vino.hallyn.com>
@@ -13,94 +13,89 @@ Cc: serge@hallyn.com, Andrew Morton <akpm@linux-foundation.org>,
 	David Miller <davem@davemloft.net>,
 	Alexey Dobriyan <adobriyan@openvz.org>,
 	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Containers <containers@lists.osdl.org>
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:49594 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:36873 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751651AbYCBCFU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Mar 2008 21:05:20 -0500
+	with ESMTP id S1750803AbYCBCSV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Mar 2008 21:18:21 -0500
 In-Reply-To: <47C7BB1B.9060906@openvz.org> (Pavel Emelyanov's message of "Fri,
 	29 Feb 2008 10:58:19 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Pavel Emelyanov <xemul@openvz.org> writes:
 
+>> I was thinking we might be able to hide the existence of
+>> /proc/.netns/NNN/  however we can read the current working directory.
+>> So even if we only allow explicit access through /proc/net and all
+>> others paths don't work we have something that is visible.
+>
+> I have a patch that overrides the ->readdir method for /proc/.netns,
+> so that you can no longer read the directory contents, but you still
+> can guess one by guessing and opening files in it. Overriding the 
+> ->lookup to screw one up looks like "shadowing" technics.
 
-- The experience from vserver, planetlab and OpenVZ is that it is good
-  to be able to monitor processes in other namespaces.  
+Or looking at the symlinks under /proc/<pid>/fd/1
+Or opening something under /proc/net/ and calling get pwd.
 
-- The linux experience says filesystems are a good way to do that.
+> OTOH - consider you have the ids of existing net namespaces, but cannot 
+> read the contents on any but yours. So what? This information is useless
+> for you. So I dropped this part of a patch.
 
-- So we really want to filesystem monitoring interfaces to depend on
-  the filesystem mount options instead of current.
+However it is fundamental that monitoring programs want to inspect
+the namespaces of other processes.
 
-- Starting with making /proc and sysctls depend on current is a cheap
-  way to get things up and going.
+In theory the resource group stuff was suppose to provide us with
+all of the names we would need.  However the semantics seem a bit
+to flexible to use for something like this.
 
-- When I consider breaking things up into multiple filesystems I run
-  across the occasional file that depends on multiple namespaces.
-  uids in /proc/sysvipc/* for example.  Luckily I have yet to find
-  any directory structures that depend on more then one namespace.
+>> - Have readdir and lookup filter the directory entries by the pid
+>>   namespace of the proc mount.
+>
+> So, how are you going to filter the lookup? The problem I see - you have
+> a process that opened the /proc/.netns/X directory (he onws that namespace)
+> and the other one trying to do the same. The VFS layer finds the hashed
+> dentry corresponding to this /proc/.netns/X. The only way you can prevent
+> VFS from giving one to the second task is to override .d_revalidate method 
+> and drop that dentry....
+>
+> But we've already tried to walk this way with no luck.
 
-  Maybe that can be handled properly by capturing multiple 
-  namespaces at mount time but I am a bit leery of that.
+I meant a per mount filtering.  Exactly like we do for the pids now.
 
-- The visibility of namespaces should be match the visibility of the
-  processes that use them.   Access control of course can be more
-  restricted.
+>> It looks like we have to tweak things just a bit so that free_pid
+>> would not be called until the pid namespace goes away.  Something
+>> similar to how we do the hash chains.
+>
+> This is not about pid namespace, this is about net namespace and
+> tuning pids management to facilitate networking needs is not the right
+> thing to do.
 
-- We want to see how namespaces connect to tasks.
+Not exactly.  It is about process attribute visibility.  Which
+is what proc is about.  In plan9 where the concept comes from
+namespaces are referred to as process groups, and that is a valid
+view.  At least from a monitoring perspective.
 
-Therefore.
+>> If we make namespaces show up anywhere besides under
+>> "/proc/<pid>/task/<tid>/" we have to do something like this, and pids
+>> are largely designed for this kind of use.
+>
+> Proc consists of two parts - the <pid>-s one with generated-on-the-fly
+> entries and the static one that is represented by proc_dir_entry tree.
+> Do you propose to mix those two?
 
-/proc/net, /proc/sys, /proc/sysvipc, and probably a few others
-should migrate under /proc/<pid>/task/<tid> (not under /proc/<pid>
-so we can finally straighten out the task group vs task issue).
+Yes.  Because the static entries are beginning to depend on process
+specific attributes.  We have already started with /proc/mounts.
 
-Todays problem of course is /proc/net/
+>> just need a non-global id for our directory entries so we don't paint
+>> ourselves into a corner.
+>
+> What namespace do you mean by "non-global"?
 
-What I had intended to implement was:
-/proc/current -> /proc/<pid>/task/<tid>
-(A new symlink to the task directory)
-
-/proc/net -> /proc/current/net
-(like /proc/mounts)
-
-The only downside of placing files under the task directory is
-that we use a lot more dentries for /proc.
-
-....
-
-Optimizations.
-
-If the dentry pressure is significant and we don't have data from
-other namespaces in the files causing us to want to present the
-information differently for different processes I support using
-an id and a per namespace upper level directory.  With a symlink
-into there from the task directories.
-
-/proc/<pid>/task/<tid>/net -> ../../.../netns/<netns id>
-
-
-The id I would use is a struct pid because that makes the id useful
-for userspace monitoring and control applications and because we
-can migrate it.
-
-In my view /proc/netns/<pids> would be implemented like
-/proc/<pids> with readdir and lookup returning different contents
-based upon the pid namespace captured when we mounted proc.
-
-Further struct pid would be enhanced so that as long as we have
-a namespace using a struct pid as an id we would not free that pid_nr
-in any of the pid namespaces.  Just like we do with process groups
-and sessions today.
-
-I think for the network namespace and network /proc files that
-optimization is safe.  I seem to recall checking and not finding any
-ids from other namespaces in the files under /proc/net.
-
-I will try for some more detailed replies.
+The best is an id I can take with me when I migrate from machine A
+to machine B.  An id in some namespace or a form that doesn't need
+an id at all is the core requirement.
 
 Eric
