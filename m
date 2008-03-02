@@ -1,44 +1,67 @@
-From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: [PATCH 2/2] [IPV6]: Fix source address selection for ORCHID addresses
-Date: Sun, 2 Mar 2008 20:11:48 +0200
-Message-ID: <200803022011.48294.rdenis@simphalempin.com>
-References: <20080221100842.GA24905@verkkotelakka.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c:2054 tcp_mark_head_lost()
+Date: Sun, 2 Mar 2008 21:51:28 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0803022145210.18020@kivilampi-30.cs.helsinki.fi>
+References: <858077.97160.qm@web39709.mail.mud.yahoo.com>
+ <20080223000310.4630daa8.akpm@linux-foundation.org>
+ <Pine.LNX.4.64.0802271108290.13029@kivilampi-30.cs.helsinki.fi>
+ <3d8471ca0802271056l320a7ee2m5227e114a968d483@mail.gmail.com>
+ <Pine.LNX.4.64.0802272120430.1741@kivilampi-30.cs.helsinki.fi>
+ <Pine.LNX.4.64.0802281018480.32401@kivilampi-30.cs.helsinki.fi>
+ <3d8471ca0803020420ka42319bu1b9888217c869d9d@mail.gmail.com>
+ <Pine.LNX.4.64.0803021432200.17919@kivilampi-30.cs.helsinki.fi>
+ <3d8471ca0803020515m1e4af9d9xd37a8912e58a4504@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Juha-Matti Tapio <jmtapio@verkkotelakka.net>
+Content-Type: MULTIPART/MIXED; boundary="-696243703-662713104-1204487187=:18020"
+Cc: Giangiacomo Mariotti <giangiacomo_mariotti@yahoo.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Guillaume Chazarain <guichaz@gmail.com>,
+	Ray Lee <ray-lk@madrabbit.org>, Chris Wedgwood <cw@f00f.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:44112 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751409AbYCBSLx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2008 13:11:53 -0500
-In-Reply-To: <20080221100842.GA24905@verkkotelakka.net>
-Content-Disposition: inline
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:59028 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752945AbYCBTvc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2008 14:51:32 -0500
+In-Reply-To: <3d8471ca0803020515m1e4af9d9xd37a8912e58a4504@mail.gmail.com>
+Content-ID: <Pine.LNX.4.64.0803022147040.18020@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Moi,
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Le Thursday 21 February 2008 12:08:42 Juha-Matti Tapio, vous avez =E9cr=
-it=A0:
-> Skip the prefix length matching in source address selection for
-> orchid -> non-orchid addresses.
+---696243703-662713104-1204487187=:18020
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0803022146411.18020@kivilampi-30.cs.helsinki.fi>
+
+On Sun, 2 Mar 2008, Guillaume Chazarain wrote:
+
+>> On Sun, Mar 2, 2008 at 1:38 PM, Ilpo Järvinen <ilpo.jarvinen@helsinki.fi> wrote:
+>>> It does not contain any "KERNEL: assertion (packets <=
+>> > tp->packets_out) failed at" line, so I'm afraid it's just noise.
+
+Doh, you were right in this one...
+
+>>  At least it catches one bug which could cause that assertion (it is much
+>>  more rigid than the assertion and thus it catched it even though you
+>>  won't see that assertion to ever trigger :-)).
 >
-> Overlay Routable Cryptographic Hash IDentifiers (RFC 4843,
-> 2001:10::/28) are currenty not globally reachable. Without this
-> check a host with an ORCHID address can end up preferring those over
-> regular addresses when talking to other regular hosts in the 2001::/1=
-6
-> range thus breaking non-orchid connections.
+> Great :-)
 
-This is not really a "kernel" issue, but did you consider fixing glibc =
-as=20
-well, as it needs to replicate source address selection as well in=20
-getaddrinfo()? There you will not only have problems with Rule 8, but=20
-possibly also with Rule 2 as you will have to take IPv4 addresses into=20
-account: e.g. http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=3D468801
+...I spoke too early, it was just that the verify call was placed into
+a place where the fackets_out is not yet reduced (I had too many version 
+of that patch when I first did that and probably picked wrong one of 
+them as a starting point, I'm sorry about that). I'll send an updated 
+patch tomorrow for you and also correct it so that I don't need to ask 
+things like this again (as long as one pastes couple of first occuring 
+stacktraces):
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+>>>  Could you next figure out what is at:
+
+
+-- 
+ i.
+---696243703-662713104-1204487187=:18020--
