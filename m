@@ -1,39 +1,38 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
-Subject: Re: [BUG kernel 2.6.25-rc3 IPV6] ping6 -I eth0 ff02::1 causes
- system hang.
-Date: Sun, 02 Mar 2008 21:27:17 +0900 (JST)
-Message-ID: <20080302.212717.120106718.yoshfuji@linux-ipv6.org>
-References: <20071006132601.f944f461.komurojun@nifty.com>
-	<20071014073658.d4352b8c.komurojun@nifty.com>
-	<20080302210716.69727582.komurojun-mbn@nifty.com>
+Subject: Re: [PATCH 2/2] [IPV6]: Fix source address selection for ORCHID
+ addresses
+Date: Sun, 02 Mar 2008 21:39:02 +0900 (JST)
+Message-ID: <20080302.213902.68664760.yoshfuji@linux-ipv6.org>
+References: <20080221100842.GA24905@verkkotelakka.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: komurojun-mbn@nifty.com
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: jmtapio@verkkotelakka.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:53609 "EHLO
+Received: from yue.linux-ipv6.org ([203.178.140.15]:53612 "EHLO
 	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753281AbYCBM0Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2008 07:26:16 -0500
-In-Reply-To: <20080302210716.69727582.komurojun-mbn@nifty.com>
+	with ESMTP id S1753535AbYCBMiB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2008 07:38:01 -0500
+In-Reply-To: <20080221100842.GA24905@verkkotelakka.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Switch to netdev.
+In article <20080221100842.GA24905@verkkotelakka.net> (at Thu, 21 Feb 2008 12:08:42 +0200), Juha-Matti Tapio <jmtapio@verkkotelakka.net> says:
 
-In article <20080302210716.69727582.komurojun-mbn@nifty.com> (at Sun, 2 Mar 2008 21:07:16 +0900), Komuro <komurojun-mbn@nifty.com> says:
-
-> On kernel 2.6.25-rc3, IPV6 multicast ping causes system hang
-> after sending several multicast ping packet.
+> Skip the prefix length matching in source address selection for
+> orchid -> non-orchid addresses.
 > 
-> >ping6 -I eth0 ff02::1 
+> Overlay Routable Cryptographic Hash IDentifiers (RFC 4843,
+> 2001:10::/28) are currenty not globally reachable. Without this
+> check a host with an ORCHID address can end up preferring those over
+> regular addresses when talking to other regular hosts in the 2001::/16
+> range thus breaking non-orchid connections.
 > 
-> This problem does not happen on kernel 2.6.24.
-> (does not depend on NIC)
+> Signed-off-by: Juha-Matti Tapio <jmtapio@verkkotelakka.net>
 
-Hmm, I've never seen this on our testlab.  Anyone else?
-It would be great if you have chance to bisect it...
+Is this really required?
+I believe address labels (rule 6) should work, no?
 
 --yoshfuji
