@@ -1,45 +1,121 @@
-From: "Guillaume Chazarain" <guichaz@gmail.com>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2054 tcp_mark_head_lost()
-Date: Sun, 2 Mar 2008 14:15:01 +0100
-Message-ID: <3d8471ca0803020515m1e4af9d9xd37a8912e58a4504@mail.gmail.com>
-References: <858077.97160.qm@web39709.mail.mud.yahoo.com>
-	 <20080223000310.4630daa8.akpm@linux-foundation.org>
-	 <Pine.LNX.4.64.0802271108290.13029@kivilampi-30.cs.helsinki.fi>
-	 <3d8471ca0802271056l320a7ee2m5227e114a968d483@mail.gmail.com>
-	 <Pine.LNX.4.64.0802272120430.1741@kivilampi-30.cs.helsinki.fi>
-	 <Pine.LNX.4.64.0802281018480.32401@kivilampi-30.cs.helsinki.fi>
-	 <3d8471ca0803020420ka42319bu1b9888217c869d9d@mail.gmail.com>
-	 <Pine.LNX.4.64.0803021432200.17919@kivilampi-30.cs.helsinki.fi>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: [PATCH (resend)][EBTABLES]: Fix alignment checks in
+	ebt_among.ko module.
+Date: Sun, 02 Mar 2008 16:12:53 +0100
+Message-ID: <1204470773.2919.9.camel@localhost.localdomain>
+References: <47C7C23C.2050100@openvz.org>  <47C7FF31.1060108@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: "Giangiacomo Mariotti" <giangiacomo_mariotti@yahoo.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>
-To: "=?UTF-8?Q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755022AbYCBNPT@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0803021432200.17919@kivilampi-30.cs.helsinki.fi>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-8cX1W5m8JXg4/FCX8M1V"
+Cc: Pavel Emelyanov <xemul@openvz.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <47C7FF31.1060108@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gU3VuLCBNYXIgMiwgMjAwOCBhdCAxOjM4IFBNLCBJbHBvIErDpHJ2aW5lbiA8aWxwby5qYXJ2
-aW5lbkBoZWxzaW5raS5maT4gd3JvdGU6Cj4gIEluIGZ1dHVyZSwgcGxlYXNlIGlubGluZSBhdCBs
-ZWFzdCB0aGUgZmlyc3Qgb25lIG9mIHRoZW0sIGlmIG5vdCBzdXJlCj4gIHdoZXJlIHRvIGN1dCwg
-dG9vIG11Y2ggd29uJ3QgaHVydC4uLiA6LSkKCk9LLCB3aWxsIGRvLgoKPiAgPiBJdCBkb2VzIG5v
-dCBjb250YWluIGFueSAiS0VSTkVMOiBhc3NlcnRpb24gKHBhY2tldHMgPD0KPiAgPiB0cC0+cGFj
-a2V0c19vdXQpIGZhaWxlZCBhdCIgbGluZSwgc28gSSdtIGFmcmFpZCBpdCdzIGp1c3Qgbm9pc2Uu
-Cj4KPiAgQXQgbGVhc3QgaXQgY2F0Y2hlcyBvbmUgYnVnIHdoaWNoIGNvdWxkIGNhdXNlIHRoYXQg
-YXNzZXJ0aW9uIChpdCBpcyBtdWNoCj4gIG1vcmUgcmlnaWQgdGhhbiB0aGUgYXNzZXJ0aW9uIGFu
-ZCB0aHVzIGl0IGNhdGNoZWQgaXQgZXZlbiB0aG91Z2ggeW91Cj4gIHdvbid0IHNlZSB0aGF0IGFz
-c2VydGlvbiB0byBldmVyIHRyaWdnZXIgOi0pKS4KCkdyZWF0IDotKQoKPiAgQ291bGQgeW91IG5l
-eHQgZmlndXJlIG91dCB3aGF0IGlzIGF0Ogo+ICAgWzxjMDJlMGY4Mz5dIHRjcF9hY2srMHg2MjEv
-MHhkMmYKCnRjcF9jbGVhbl9ydHhfcXVldWUoKSBpcyBhdXRvbWF0aWNhbGx5IGlubGluZWQgaW50
-byB0Y3BfYWNrKCkgYnkgZ2NjLgoKVGhhdCdzOgoKdGNwX2FjaygpOgogICAgICAgIC8qIFNlZSBp
-ZiB3ZSBjYW4gdGFrZSBhbnl0aGluZyBvZmYgb2YgdGhlIHJldHJhbnNtaXQgcXVldWUuICovCiAg
-ICAgICAgZmxhZyB8PSB0Y3BfY2xlYW5fcnR4X3F1ZXVlKHNrLCBwcmlvcl9mYWNrZXRzKTsKCnRj
-cF9jbGVhbl9ydHhfcXVldWUoKToKICAgICAgICB0Y3BfdmVyaWZ5X2xlZnRfb3V0KHRwKTsgICAg
-PD09PT09PT09PT09IEhlcmUKCiAgICAgICAgaWYgKHNrYiAmJiAoVENQX1NLQl9DQihza2IpLT5z
-YWNrZWQgJiBUQ1BDQl9TQUNLRURfQUNLRUQpKQogICAgICAgICAgICAgICAgZmxhZyB8PSBGTEFH
-X1NBQ0tfUkVORUdJTkc7CgoKVGhhbmtzLgoKLS0gCkd1aWxsYXVtZQo=
+
+--=-8cX1W5m8JXg4/FCX8M1V
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+Op vr, 29-02-2008 te 13:48 +0100, schreef Patrick McHardy:
+> Pavel Emelyanov wrote:
+> > I've sent this patch some days ago to Bart, but with no answer...
+
+Sorry about that.
+
+> > 
+> > When trying to do
+> > 
+> > 	# ebtables -A FORWARD --among-src 0:12:34:56:78:9a=192.168.0.10 -j ACCEPT
+> > 
+> > on x86_64 box the ebt_among->check() callback warns me that
+> > 
+> > 	ebtables: among: wrong size: 1060 against expected 1056, rounded to 1056
+> > 
+> > So the suggested fix is to move the alignment in the kernel. After
+> > the fix the rule is added and appears in the ebtables -L output.
+> 
+> 
+> It seems the kernel is correct and userspace is doing it
+> wrong, so I think userspace should be fixed instead.
+> The problem with your patch is that is causes misalignment
+> for following structures that contain u64 members.
+
+Pavel, please try the attached userspace patch to see if it fixes the
+problem (and let me know the result).
+
+cheers,
+Bart
+
+
+--=-8cX1W5m8JXg4/FCX8M1V
+Content-Disposition: attachment; filename=among64.diff
+Content-Type: text/x-patch; name=among64.diff; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+--- ebtables-v2.0.8-2/extensions/ebt_among.c.old	2008-03-02 16:08:13.000000000 +0100
++++ ebtables-v2.0.8-2/extensions/ebt_among.c	2008-03-02 16:06:55.000000000 +0100
+@@ -68,6 +68,7 @@ static void print_help()
+ " 00:00:00:fa:eb:fe=153.19.120.250,00:00:00:fa:eb:fe=192.168.0.1\n"
+ 	);
+ }
++static int old_size;
+ 
+ static void init(struct ebt_entry_match *match)
+ {
+@@ -75,6 +76,7 @@ static void init(struct ebt_entry_match 
+ 	    (struct ebt_among_info *) match->data;
+ 
+ 	memset(amonginfo, 0, sizeof(struct ebt_among_info));
++	old_size = sizeof(struct ebt_among_info);
+ }
+ 
+ static struct ebt_mac_wormhash *new_wormhash(int n)
+@@ -308,7 +310,7 @@ static int parse(int c, char **argv, int
+ 	    (struct ebt_among_info *) (*match)->data;
+ 	struct ebt_mac_wormhash *wh;
+ 	struct ebt_entry_match *h;
+-	int new_size, old_size;
++	int new_size;
+ 	long flen;
+ 	int fd;
+ 
+@@ -354,21 +356,23 @@ static int parse(int c, char **argv, int
+ 		if (ebt_errormsg[0] != '\0')
+ 			break;
+ 
+-		old_size = sizeof(struct ebt_entry_match) + (**match).match_size;
+-		h = malloc((new_size = old_size + ebt_mac_wormhash_size(wh)));
++		new_size = old_size+ebt_mac_wormhash_size(wh);
++		h = malloc(sizeof(struct ebt_entry_match)+EBT_ALIGN(new_size));
+ 		if (!h)
+ 			ebt_print_memory();
+-		memcpy(h, *match, old_size);
+-		memcpy((char *) h + old_size, wh, ebt_mac_wormhash_size(wh));
+-		h->match_size = new_size - sizeof(struct ebt_entry_match);
++		memcpy(h, *match, old_size+sizeof(struct ebt_entry_match));
++		memcpy((char *)h+old_size+sizeof(struct ebt_entry_match), wh,
++		       ebt_mac_wormhash_size(wh));
++		h->match_size = EBT_ALIGN(new_size);
+ 		info = (struct ebt_among_info *) h->data;
+ 		if (c == AMONG_DST) {
+ 			info->wh_dst_ofs =
+-			    old_size - sizeof(struct ebt_entry_match);
++			    old_size;
+ 		} else {
+ 			info->wh_src_ofs =
+-			    old_size - sizeof(struct ebt_entry_match);
++			    old_size;
+ 		}
++		old_size = new_size;
+ 		free(*match);
+ 		*match = h;
+ 		free(wh);
+
+--=-8cX1W5m8JXg4/FCX8M1V--
+
