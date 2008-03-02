@@ -1,64 +1,45 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+From: "Guillaume Chazarain" <guichaz@gmail.com>
 Subject: Re: WARNING: at net/ipv4/tcp_input.c:2054 tcp_mark_head_lost()
-Date: Sun, 2 Mar 2008 14:38:30 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0803021432200.17919@kivilampi-30.cs.helsinki.fi>
+Date: Sun, 2 Mar 2008 14:15:01 +0100
+Message-ID: <3d8471ca0803020515m1e4af9d9xd37a8912e58a4504@mail.gmail.com>
 References: <858077.97160.qm@web39709.mail.mud.yahoo.com>
- <20080223000310.4630daa8.akpm@linux-foundation.org>
- <Pine.LNX.4.64.0802271108290.13029@kivilampi-30.cs.helsinki.fi>
- <3d8471ca0802271056l320a7ee2m5227e114a968d483@mail.gmail.com>
- <Pine.LNX.4.64.0802272120430.1741@kivilampi-30.cs.helsinki.fi>
- <Pine.LNX.4.64.0802281018480.32401@kivilampi-30.cs.helsinki.fi>
- <3d8471ca0803020420ka42319bu1b9888217c869d9d@mail.gmail.com>
+	 <20080223000310.4630daa8.akpm@linux-foundation.org>
+	 <Pine.LNX.4.64.0802271108290.13029@kivilampi-30.cs.helsinki.fi>
+	 <3d8471ca0802271056l320a7ee2m5227e114a968d483@mail.gmail.com>
+	 <Pine.LNX.4.64.0802272120430.1741@kivilampi-30.cs.helsinki.fi>
+	 <Pine.LNX.4.64.0802281018480.32401@kivilampi-30.cs.helsinki.fi>
+	 <3d8471ca0803020420ka42319bu1b9888217c869d9d@mail.gmail.com>
+	 <Pine.LNX.4.64.0803021432200.17919@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-2090882198-1204461510=:17919"
-Cc: Giangiacomo Mariotti <giangiacomo_mariotti@yahoo.com>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: "Giangiacomo Mariotti" <giangiacomo_mariotti@yahoo.com>,
 	LKML <linux-kernel@vger.kernel.org>,
 	Netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Guillaume Chazarain <guichaz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:48393 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753573AbYCBMib (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2008 07:38:31 -0500
-In-Reply-To: <3d8471ca0803020420ka42319bu1b9888217c869d9d@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"Andrew Morton" <akpm@linux-foundation.org>
+To: "=?UTF-8?Q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755022AbYCBNPT@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0803021432200.17919@kivilampi-30.cs.helsinki.fi>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696243703-2090882198-1204461510=:17919
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Sun, 2 Mar 2008, Guillaume Chazarain wrote:
-
-> On Thu, Feb 28, 2008 at 9:22 AM, Ilpo Järvinen
-<ilpo.jarvinen@helsinki.fi> wrote:
-> >  [PATCH] TCP debug S+L (for 2.6.25-rcs, incompatible with 2.6.24.y)
->
-> Bittorrenting with this patch applied floods my dmesg. Here is a log 
-> dump:
-> 
-> http://guichaz.free.fr/tcp-debug.log.bz2 (2.3M compressed, 113M 
-> uncompressed)
-
-In future, please inline at least the first one of them, if not sure 
-where to cut, too much won't hurt... :-)
-
-> It does not contain any "KERNEL: assertion (packets <=
-> tp->packets_out) failed at" line, so I'm afraid it's just noise.
-
-At least it catches one bug which could cause that assertion (it is much 
-more rigid than the assertion and thus it catched it even though you 
-won't see that assertion to ever trigger :-)).
-
-Could you next figure out what is at:
-  [<c02e0f83>] tcp_ack+0x621/0xd2f
-
-
-
--- 
- i.
----696243703-2090882198-1204461510=:17919--
+T24gU3VuLCBNYXIgMiwgMjAwOCBhdCAxOjM4IFBNLCBJbHBvIErDpHJ2aW5lbiA8aWxwby5qYXJ2
+aW5lbkBoZWxzaW5raS5maT4gd3JvdGU6Cj4gIEluIGZ1dHVyZSwgcGxlYXNlIGlubGluZSBhdCBs
+ZWFzdCB0aGUgZmlyc3Qgb25lIG9mIHRoZW0sIGlmIG5vdCBzdXJlCj4gIHdoZXJlIHRvIGN1dCwg
+dG9vIG11Y2ggd29uJ3QgaHVydC4uLiA6LSkKCk9LLCB3aWxsIGRvLgoKPiAgPiBJdCBkb2VzIG5v
+dCBjb250YWluIGFueSAiS0VSTkVMOiBhc3NlcnRpb24gKHBhY2tldHMgPD0KPiAgPiB0cC0+cGFj
+a2V0c19vdXQpIGZhaWxlZCBhdCIgbGluZSwgc28gSSdtIGFmcmFpZCBpdCdzIGp1c3Qgbm9pc2Uu
+Cj4KPiAgQXQgbGVhc3QgaXQgY2F0Y2hlcyBvbmUgYnVnIHdoaWNoIGNvdWxkIGNhdXNlIHRoYXQg
+YXNzZXJ0aW9uIChpdCBpcyBtdWNoCj4gIG1vcmUgcmlnaWQgdGhhbiB0aGUgYXNzZXJ0aW9uIGFu
+ZCB0aHVzIGl0IGNhdGNoZWQgaXQgZXZlbiB0aG91Z2ggeW91Cj4gIHdvbid0IHNlZSB0aGF0IGFz
+c2VydGlvbiB0byBldmVyIHRyaWdnZXIgOi0pKS4KCkdyZWF0IDotKQoKPiAgQ291bGQgeW91IG5l
+eHQgZmlndXJlIG91dCB3aGF0IGlzIGF0Ogo+ICAgWzxjMDJlMGY4Mz5dIHRjcF9hY2srMHg2MjEv
+MHhkMmYKCnRjcF9jbGVhbl9ydHhfcXVldWUoKSBpcyBhdXRvbWF0aWNhbGx5IGlubGluZWQgaW50
+byB0Y3BfYWNrKCkgYnkgZ2NjLgoKVGhhdCdzOgoKdGNwX2FjaygpOgogICAgICAgIC8qIFNlZSBp
+ZiB3ZSBjYW4gdGFrZSBhbnl0aGluZyBvZmYgb2YgdGhlIHJldHJhbnNtaXQgcXVldWUuICovCiAg
+ICAgICAgZmxhZyB8PSB0Y3BfY2xlYW5fcnR4X3F1ZXVlKHNrLCBwcmlvcl9mYWNrZXRzKTsKCnRj
+cF9jbGVhbl9ydHhfcXVldWUoKToKICAgICAgICB0Y3BfdmVyaWZ5X2xlZnRfb3V0KHRwKTsgICAg
+PD09PT09PT09PT09IEhlcmUKCiAgICAgICAgaWYgKHNrYiAmJiAoVENQX1NLQl9DQihza2IpLT5z
+YWNrZWQgJiBUQ1BDQl9TQUNLRURfQUNLRUQpKQogICAgICAgICAgICAgICAgZmxhZyB8PSBGTEFH
+X1NBQ0tfUkVORUdJTkc7CgoKVGhhbmtzLgoKLS0gCkd1aWxsYXVtZQo=
