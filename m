@@ -1,207 +1,196 @@
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 11/11][NETNS][IPV6] rt6_stats - make the stats per network namespace
-Date: Sun, 02 Mar 2008 10:37:31 +0100
-Message-ID: <20080302094243.621444844@mai.toulouse-stg.fr.ibm.com>
+Subject: [patch 09/11][NETNS][IPV6] fib6_rules - handle several network namespaces
+Date: Sun, 02 Mar 2008 10:37:29 +0100
+Message-ID: <20080302094230.642282606@mai.toulouse-stg.fr.ibm.com>
 References: <20080302093720.649869114@mai.toulouse-stg.fr.ibm.com>
 Cc: netdev@vger.kernel.org, benjamin.thery@bull.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:7820 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753110AbYCBJoy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2008 04:44:54 -0500
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:45581 "EHLO
+	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753094AbYCBJol (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2008 04:44:41 -0500
 Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate5.de.ibm.com (8.13.8/8.13.8) with ESMTP id m229irvh236020
-	for <netdev@vger.kernel.org>; Sun, 2 Mar 2008 09:44:53 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m229irjR540804
-	for <netdev@vger.kernel.org>; Sun, 2 Mar 2008 10:44:53 +0100
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m229iqLc005729
-	for <netdev@vger.kernel.org>; Sun, 2 Mar 2008 09:44:53 GMT
-Content-Disposition: inline; filename=11_11-rt6-stats-per-namespace.patch
+	by mtagate3.de.ibm.com (8.13.8/8.13.8) with ESMTP id m229ieCg150750
+	for <netdev@vger.kernel.org>; Sun, 2 Mar 2008 09:44:40 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m229iehh512180
+	for <netdev@vger.kernel.org>; Sun, 2 Mar 2008 10:44:40 +0100
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m229idCO021909
+	for <netdev@vger.kernel.org>; Sun, 2 Mar 2008 10:44:39 +0100
+Content-Disposition: inline; filename=09_11-fib6-rules-per-network-namespace.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The rt6_stats is now per namespace with this patch. It is
-allocated when a network namespace is created and freed
-when the network namespace exits and references are relative
-to the network namespace.
+The fib6_rules_ops is moved to the network namespace structure.
+All references are changed to have it relatively to it.
 
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+Each time a network namespace is created a new fib6_rules_ops is
+allocated, initialized and stored into the network namespace
+structure.
+
+The common part of the fib rules is namespace aware, so it is
+quite easy to retrieve the network namespace from the rules and use
+it in the different callbacks.
+
 Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
 ---
- include/net/ipv6.h       |    1 -
- include/net/netns/ipv6.h |    1 +
- net/ipv6/ip6_fib.c       |   32 +++++++++++++++-----------------
- net/ipv6/route.c         |   12 +++++++-----
- 4 files changed, 23 insertions(+), 23 deletions(-)
+ include/net/netns/ipv6.h |    1 
+ net/ipv6/fib6_rules.c    |   82 ++++++++++++++++++++++++++---------------------
+ 2 files changed, 47 insertions(+), 36 deletions(-)
 
-Index: net-2.6.26/include/net/ipv6.h
-===================================================================
---- net-2.6.26.orig/include/net/ipv6.h
-+++ net-2.6.26/include/net/ipv6.h
-@@ -610,7 +610,6 @@ extern void ipv6_misc_proc_exit(void);
- extern int snmp6_register_dev(struct inet6_dev *idev);
- extern int snmp6_unregister_dev(struct inet6_dev *idev);
- 
--extern struct rt6_statistics *rt6_stats;
- #else
- static inline int snmp6_register_dev(struct inet6_dev *idev)
- {
 Index: net-2.6.26/include/net/netns/ipv6.h
 ===================================================================
 --- net-2.6.26.orig/include/net/netns/ipv6.h
 +++ net-2.6.26/include/net/netns/ipv6.h
-@@ -36,6 +36,7 @@ struct netns_ipv6 {
- 	struct xt_table		*ip6table_mangle;
- 	struct xt_table		*ip6table_raw;
- #endif
-+	struct rt6_statistics   *rt6_stats;
- 	struct timer_list       *ip6_fib_timer;
- 	struct hlist_head       *fib_table_hash;
+@@ -41,6 +41,7 @@ struct netns_ipv6 {
  	struct fib6_table       *fib6_main_tbl;
-Index: net-2.6.26/net/ipv6/ip6_fib.c
-===================================================================
---- net-2.6.26.orig/net/ipv6/ip6_fib.c
-+++ net-2.6.26/net/ipv6/ip6_fib.c
-@@ -48,8 +48,6 @@
- #define RT6_TRACE(x...) do { ; } while (0)
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ 	struct fib6_table       *fib6_local_tbl;
++	struct fib_rules_ops    *fib6_rules_ops;
  #endif
+ 	struct sock		**icmp_sk;
+ };
+Index: net-2.6.26/net/ipv6/fib6_rules.c
+===================================================================
+--- net-2.6.26.orig/net/ipv6/fib6_rules.c
++++ net-2.6.26/net/ipv6/fib6_rules.c
+@@ -29,8 +29,6 @@ struct fib6_rule
+ 	u8			tclass;
+ };
  
--struct rt6_statistics *rt6_stats;
+-static struct fib_rules_ops *fib6_rules_ops;
 -
- static struct kmem_cache * fib6_node_kmem __read_mostly;
- 
- enum fib_walk_state_t
-@@ -653,10 +651,10 @@ static int fib6_add_rt2node(struct fib6_
- 	rt->rt6i_node = fn;
- 	atomic_inc(&rt->rt6i_ref);
- 	inet6_rt_notify(RTM_NEWROUTE, rt, info);
--	rt6_stats->fib_rt_entries++;
-+	info->nl_net->ipv6.rt6_stats->fib_rt_entries++;
- 
- 	if ((fn->fn_flags & RTN_RTINFO) == 0) {
--		rt6_stats->fib_route_nodes++;
-+		info->nl_net->ipv6.rt6_stats->fib_route_nodes++;
- 		fn->fn_flags |= RTN_RTINFO;
- 	}
- 
-@@ -1087,14 +1085,15 @@ static void fib6_del_route(struct fib6_n
+ struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi *fl,
+ 				   int flags, pol_lookup_t lookup)
  {
- 	struct fib6_walker_t *w;
- 	struct rt6_info *rt = *rtp;
-+	struct net *net = info->nl_net;
+@@ -38,7 +36,7 @@ struct dst_entry *fib6_rule_lookup(struc
+ 		.lookup_ptr = lookup,
+ 	};
  
- 	RT6_TRACE("fib6_del_route\n");
+-	fib_rules_lookup(fib6_rules_ops, fl, flags, &arg);
++	fib_rules_lookup(net->ipv6.fib6_rules_ops, fl, flags, &arg);
+ 	if (arg.rule)
+ 		fib_rule_put(arg.rule);
  
- 	/* Unlink it */
- 	*rtp = rt->u.dst.rt6_next;
- 	rt->rt6i_node = NULL;
--	rt6_stats->fib_rt_entries--;
--	rt6_stats->fib_discarded_routes++;
-+	net->ipv6.rt6_stats->fib_rt_entries--;
-+	net->ipv6.rt6_stats->fib_discarded_routes++;
- 
- 	/* Reset round-robin state, if necessary */
- 	if (fn->rr_ptr == rt)
-@@ -1117,7 +1116,7 @@ static void fib6_del_route(struct fib6_n
- 	/* If it was last route, expunge its radix tree node */
- 	if (fn->leaf == NULL) {
- 		fn->fn_flags &= ~RTN_RTINFO;
--		rt6_stats->fib_route_nodes--;
-+		net->ipv6.rt6_stats->fib_route_nodes--;
- 		fn = fib6_repair_tree(fn);
+@@ -71,7 +69,7 @@ static int fib6_rule_action(struct fib_r
+ 		goto discard_pkt;
  	}
  
-@@ -1486,11 +1485,15 @@ static int fib6_net_init(struct net *net
- 	setup_timer(timer, fib6_gc_timer_cb, (unsigned long)net);
- 	net->ipv6.ip6_fib_timer = timer;
+-	table = fib6_get_table(&init_net, rule->table);
++	table = fib6_get_table(rule->fr_net, rule->table);
+ 	if (table)
+ 		rt = lookup(table, flp, flags);
  
-+	net->ipv6.rt6_stats = kzalloc(sizeof(*net->ipv6.rt6_stats), GFP_KERNEL);
-+	if (!net->ipv6.rt6_stats)
-+		goto out_timer;
+@@ -145,13 +143,14 @@ static int fib6_rule_configure(struct fi
+ 			       struct nlattr **tb)
+ {
+ 	int err = -EINVAL;
++	struct net *net = skb->sk->sk_net;
+ 	struct fib6_rule *rule6 = (struct fib6_rule *) rule;
+ 
+ 	if (rule->action == FR_ACT_TO_TBL) {
+ 		if (rule->table == RT6_TABLE_UNSPEC)
+ 			goto errout;
+ 
+-		if (fib6_new_table(&init_net, rule->table) == NULL) {
++		if (fib6_new_table(net, rule->table) == NULL) {
+ 			err = -ENOBUFS;
+ 			goto errout;
+ 		}
+@@ -251,49 +250,60 @@ static struct fib_rules_ops fib6_rules_o
+ 	.fro_net		= &init_net,
+ };
+ 
+-static int __init fib6_default_rules_init(void)
++static int fib6_rules_net_init(struct net *net)
+ {
+-	int err;
++	int err = -ENOMEM;
+ 
+-	fib6_rules_ops = kmemdup(&fib6_rules_ops_template,
+-				 sizeof(*fib6_rules_ops), GFP_KERNEL);
+-	if (!fib6_rules_ops)
+-		return -ENOMEM;
++	net->ipv6.fib6_rules_ops = kmemdup(&fib6_rules_ops_template,
++					   sizeof(*net->ipv6.fib6_rules_ops),
++					   GFP_KERNEL);
++	if (!net->ipv6.fib6_rules_ops)
++		goto out;
+ 
+-	INIT_LIST_HEAD(&fib6_rules_ops->rules_list);
++	net->ipv6.fib6_rules_ops->fro_net = net;
++	INIT_LIST_HEAD(&net->ipv6.fib6_rules_ops->rules_list);
+ 
+-	err = fib_default_rule_add(fib6_rules_ops, 0,
++	err = fib_default_rule_add(net->ipv6.fib6_rules_ops, 0,
+ 				   RT6_TABLE_LOCAL, FIB_RULE_PERMANENT);
+-	if (err < 0)
+-		return err;
+-	err = fib_default_rule_add(fib6_rules_ops, 0x7FFE, RT6_TABLE_MAIN, 0);
+-	if (err < 0)
+-		return err;
+-	return 0;
++	if (err)
++		goto out_fib6_rules_ops;
 +
- 	net->ipv6.fib_table_hash =
- 		kzalloc(sizeof(*net->ipv6.fib_table_hash)*FIB_TABLE_HASHSZ,
- 			GFP_KERNEL);
- 	if (!net->ipv6.fib_table_hash)
--		goto out_timer;
-+		goto out_rt6_stats;
- 
- 	net->ipv6.fib6_main_tbl = kzalloc(sizeof(*net->ipv6.fib6_main_tbl),
- 					  GFP_KERNEL);
-@@ -1524,6 +1527,8 @@ out_fib6_main_tbl:
- #endif
- out_fib_table_hash:
- 	kfree(net->ipv6.fib_table_hash);
-+out_rt6_stats:
-+	kfree(net->ipv6.rt6_stats);
- out_timer:
- 	kfree(timer);
- 	goto out;
-@@ -1538,6 +1543,7 @@ static void fib6_net_exit(struct net *ne
- #endif
- 	kfree(net->ipv6.fib6_main_tbl);
- 	kfree(net->ipv6.fib_table_hash);
-+	kfree(net->ipv6.rt6_stats);
++	err = fib_default_rule_add(net->ipv6.fib6_rules_ops,
++				   0x7FFE, RT6_TABLE_MAIN, 0);
++	if (err)
++		goto out_fib6_default_rule_add;
++
++	err = fib_rules_register(net->ipv6.fib6_rules_ops);
++	if (err)
++		goto out_fib6_default_rule_add;
++out:
++	return err;
++
++out_fib6_default_rule_add:
++	fib_rules_cleanup_ops(net->ipv6.fib6_rules_ops);
++out_fib6_rules_ops:
++	kfree(net->ipv6.fib6_rules_ops);
++	goto out;
  }
  
- static struct pernet_operations fib6_net_ops = {
-@@ -1556,14 +1562,9 @@ int __init fib6_init(void)
- 	if (!fib6_node_kmem)
- 		goto out;
- 
--	ret = -ENOMEM;
--	rt6_stats = kzalloc(sizeof(*rt6_stats), GFP_KERNEL);
--	if (!rt6_stats)
--		goto out_kmem_cache_create;
+-int __init fib6_rules_init(void)
++static void fib6_rules_net_exit(struct net *net)
+ {
+-	int ret;
 -
- 	ret = register_pernet_subsys(&fib6_net_ops);
- 	if (ret)
--		goto out_rt6_stats;
-+		goto out_kmem_cache_create;
+-	ret = fib6_default_rules_init();
+-	if (ret)
+-		goto out;
++	fib_rules_unregister(net->ipv6.fib6_rules_ops);
++	kfree(net->ipv6.fib6_rules_ops);
++}
  
- 	ret = __rtnl_register(PF_INET6, RTM_GETROUTE, NULL, inet6_dump_fib);
- 	if (ret)
-@@ -1573,8 +1574,6 @@ out:
+-	ret = fib_rules_register(fib6_rules_ops);
+-	if (ret)
+-		goto out_default_rules_init;
+-out:
+-	return ret;
++static struct pernet_operations fib6_rules_net_ops = {
++	.init = fib6_rules_net_init,
++	.exit = fib6_rules_net_exit,
++};
  
- out_unregister_subsys:
- 	unregister_pernet_subsys(&fib6_net_ops);
--out_rt6_stats:
--	kfree(rt6_stats);
- out_kmem_cache_create:
- 	kmem_cache_destroy(fib6_node_kmem);
- 	goto out;
-@@ -1583,6 +1582,5 @@ out_kmem_cache_create:
- void fib6_gc_cleanup(void)
- {
- 	unregister_pernet_subsys(&fib6_net_ops);
--	kfree(rt6_stats);
- 	kmem_cache_destroy(fib6_node_kmem);
+-out_default_rules_init:
+-	fib_rules_cleanup_ops(fib6_rules_ops);
+-	kfree(fib6_rules_ops);
+-	goto out;
++int __init fib6_rules_init(void)
++{
++	return register_pernet_subsys(&fib6_rules_net_ops);
  }
-Index: net-2.6.26/net/ipv6/route.c
-===================================================================
---- net-2.6.26.orig/net/ipv6/route.c
-+++ net-2.6.26/net/ipv6/route.c
-@@ -2354,11 +2354,13 @@ static const struct file_operations ipv6
- static int rt6_stats_seq_show(struct seq_file *seq, void *v)
- {
- 	seq_printf(seq, "%04x %04x %04x %04x %04x %04x %04x\n",
--		      rt6_stats->fib_nodes, rt6_stats->fib_route_nodes,
--		      rt6_stats->fib_rt_alloc, rt6_stats->fib_rt_entries,
--		      rt6_stats->fib_rt_cache,
--		      atomic_read(&ip6_dst_ops.entries),
--		      rt6_stats->fib_discarded_routes);
-+		   init_net.ipv6.rt6_stats->fib_nodes,
-+		   init_net.ipv6.rt6_stats->fib_route_nodes,
-+		   init_net.ipv6.rt6_stats->fib_rt_alloc,
-+		   init_net.ipv6.rt6_stats->fib_rt_entries,
-+		   init_net.ipv6.rt6_stats->fib_rt_cache,
-+		   atomic_read(&ip6_dst_ops.entries),
-+		   init_net.ipv6.rt6_stats->fib_discarded_routes);
  
- 	return 0;
++
+ void fib6_rules_cleanup(void)
+ {
+-	fib_rules_unregister(fib6_rules_ops);
+-	kfree(fib6_rules_ops);
++	return unregister_pernet_subsys(&fib6_rules_net_ops);
  }
 
 -- 
