@@ -1,58 +1,49 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/2] Fix /proc/net in presence of net namespaces
-Date: Sat, 01 Mar 2008 19:29:26 -0700
-Message-ID: <m1ve453lkp.fsf@ebiederm.dsl.xmission.com>
-References: <47C6D743.1050802@openvz.org>
-	<m1y794514k.fsf@ebiederm.dsl.xmission.com> <47C7B779.808@openvz.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: assertion (packets <= tp->packets_out) failed
+Date: Sun, 2 Mar 2008 10:44:29 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0803021041560.17707@kivilampi-30.cs.helsinki.fi>
+References: <2c0942db0803011510s5cfc30cbhee8ac9c1b849a2aa@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@openvz.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Transfer-Encoding: 7bit
+Cc: kernel list <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Ray Lee <ray-lk@madrabbit.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:39106 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752288AbYCBCbK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Mar 2008 21:31:10 -0500
-In-Reply-To: <47C7B779.808@openvz.org> (Pavel Emelyanov's message of "Fri, 29
-	Feb 2008 10:42:49 +0300")
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:43775 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752447AbYCBIoc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2008 03:44:32 -0500
+In-Reply-To: <2c0942db0803011510s5cfc30cbhee8ac9c1b849a2aa@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pavel Emelyanov <xemul@openvz.org> writes:
+On Sat, 1 Mar 2008, Ray Lee wrote:
 
-> I could use the struct net pointer values (obtained with sprintf(id, "%p", net))
-> instead, but exporting internal kernel addresses seemed even uglier.
+> Wireless below is b43, wired interface (tg3) was disconnected. I run
+> openvpn which uses a tun interface and regularly sends a heartbeat
+> even when not in use. The trace appeared twice.
+> 
+> Likely unrelated but reporting just for completeness: about fifteen
+> minutes after this the system oopsed when I told my wireless base
+> station to switch from mixed B/G to just B. I'll be taking that up
+> separately with the bcm43xx list.
+> 
+> Mar  1 11:06:37 phoenix kernel: [35251.208275] eth1: switched to short
+> barker preamble (BSSID=00:16:01:d1:44:3e)
+> Mar  1 11:06:37 phoenix kernel: [35251.320282] eth1: switched to long
+> barker preamble (BSSID=00:16:01:d1:44:3e)
+> Mar  1 11:08:28 phoenix kernel: [35274.396163] KERNEL: assertion
+> (packets <= tp->packets_out) failed at net/ipv4/tcp_input.c (2139)
+> Mar  1 11:08:29 phoenix kernel: [35274.406126] ------------[ cut here
+> ]------------
+> Mar  1 11:08:29 phoenix kernel: [35274.406132] WARNING: at
+> net/ipv4/tcp_input.c:2506 tcp_ack+0xe3f/0x1b12()
 
-Agreed.
+Do people ever look into archives before posting? I'm a bit tired of point 
+to the debug patch:
 
->> Can you try this approach by capturing a struct pid instead of an id
->> in a new global namespace? 
->
-> This is a bad approach. When task, that created the namespace dies, his
-> pid is removed from the pidmap and can be reused, so we can get another
-> net with the same id.
+http://marc.info/?l=linux-kernel&m=120418703023153&w=2
 
-It takes a little updating of how we use pids.  The easiest method
-is to add an extra counter.  So we know when someone besides the hash
-chains is using the pid as an id.  However it might make sense to actually
-have a net namespace pointer in the pid.
-
->
-> This net's id is not supposed to be used to address any net in the kernel.
-> And I see no problems with migration - you can change the net's id safely
-> during checkpoint/restart - tasks will always see this one via the /proc/net
-> symlink, which is dynamic.
-
-So you are really talking about a hidden id.  There are just enough
-ways for something like that to slip out I'm not especially
-comfortable with the idea.
-
-I really think we need something clean that we can live with, and be
-proud of.  However we implement the enhancement to /proc/net this has
-to be maintained for decades.
-
-Eric
+-- 
+ i.
