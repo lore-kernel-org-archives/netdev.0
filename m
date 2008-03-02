@@ -1,90 +1,93 @@
-From: Neil Brown <neilb@suse.de>
-Subject: Re: [PATCH 00/28] Swap over NFS -v16
-Date: Mon, 3 Mar 2008 09:18:47 +1100
-Message-ID: <18379.10183.427082.282748@notabene.brown>
-References: <20080220144610.548202000@chello.nl>
-	<20080223000620.7fee8ff8.akpm@linux-foundation.org>
-	<18371.43950.150842.429997@notabene.brown>
-	<1204023042.6242.271.camel@lappy>
-	<18372.64081.995262.986841@notabene.brown>
-	<1204099113.6242.353.camel@lappy>
-	<18375.24558.876276.255804@notabene.brown>
-	<1204280500.6243.70.camel@lappy>
+From: Josh Boyer <jwboyer@gmail.com>
+Subject: [PATCH][NEWEMAC] Fix section mismatch warnings
+Date: Sun, 2 Mar 2008 16:37:32 -0600
+Message-ID: <20080302163732.7c3af536@vader.jdub.homelinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:53326 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751708AbYCBWSl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Mar 2008 17:18:41 -0500
-In-Reply-To: message from Peter Zijlstra on Friday February 29
+Received: from py-out-1112.google.com ([64.233.166.179]:54476 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752602AbYCBWhn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2008 17:37:43 -0500
+Received: by py-out-1112.google.com with SMTP id u52so8770801pyb.10
+        for <netdev@vger.kernel.org>; Sun, 02 Mar 2008 14:37:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday February 29, a.p.zijlstra@chello.nl wrote:
-> 
-> The tx path is a bit fuzzed. I assume it has an upper limit, take a stab
-> at that upper limit and leave it at that.
-> 
-> It should be full of holes, and there is some work on writeout
-> throttling to fill some of them - but I haven't seen any lockups in this
-> area for a long long while.
+This patch fixes several section mismatch warnings in the
+ibm_newemac driver similar to:
 
-I think this is very interesting and useful.
+WARNING: vmlinux.o(.devinit.text+0x3a04): Section mismatch in reference from the function emac_probe() to the function .devexit.text:tah_detach()
+The function __devinit emac_probe() references
+a function __devexit tah_detach().
 
-You seem to be saying that the write-throttling is enough to avoid any
-starvation on the transmit path. i.e. the VM is limiting the amount
-of dirty memory so that when we desperately need memory on the
-writeout path we can always get it, without lots of careful
-accounting.
+Signed-off-by: Josh Boyer <jwboyer@linux.vnet.ibm.com>
 
-So why doesn't this work on for the receive side?  What - exactly - is
-the difference.
+---
+ drivers/net/ibm_newemac/core.c  |    2 +-
+ drivers/net/ibm_newemac/mal.c   |    4 ++--
+ drivers/net/ibm_newemac/rgmii.c |    2 +-
+ drivers/net/ibm_newemac/tah.c   |    2 +-
+ drivers/net/ibm_newemac/zmii.c  |    2 +-
+ 5 files changed, 6 insertions(+), 6 deletions(-)
 
-I think the difference is that on the receive side we have to hand
-out memory before we know how it will be used (i.e. whether it is for
-a SK_MEMALLOC socket or not) and so emergency memory could get stuck
-in some non-emergency usage.
-
-So suppose we forgot about all the allocation tracking (that doesn't
-seem to be needed on the send side so maybe isn't on the receive side)
-and just focus on not letting emergency memory get used for the wrong
-thing.
-
-So: Have some global flag that says "we are into the emergency pool"
-which gets set the first time an allocation has to dip below the low
-water mark, and cleared when an allocation succeeds without needing to
-dip that low.
-
-Then whenever we have memory that might have been allocated from below
-the watermark (i.e. an incoming packet) and we find out that it isn't
-required for write-out (i.e. it gets attached to a socket for which
-SK_MEMALLOC is not set) we test the global flag and if it is set, we
-drop the packet and free the memory.
-
-To clarify: 
-   no new accounting
-   no new reservations
-   just "drop non-writeout packets when we are low on memory"
-
-Is there any chance that could work reliably?
-
-I call this the "Linus" approach because I remember reading somewhere
-(that google cannot find for me) where Linus said he didn't think a
-provably correct implementation was the way to go - just something
-that made it very likely that we won't run out of memory at an awkward
-time.
-
-I guess my position is that any accounting that we do needs to have a
-clear theoretical model underneath it so we can reason about it.
-I cannot see the clear model in beneath the current code so I'm trying
-to come up with models that seem to capture the important elements of
-the code, and to explore them.
-
-NeilBrown
+--- linux-2.6.orig/drivers/net/ibm_newemac/core.c
++++ linux-2.6/drivers/net/ibm_newemac/core.c
+@@ -2230,7 +2230,7 @@ static int __devinit emac_of_bus_notify(
+ 	return 0;
+ }
+ 
+-static struct notifier_block emac_of_bus_notifier = {
++static struct notifier_block emac_of_bus_notifier __devinitdata = {
+ 	.notifier_call = emac_of_bus_notify
+ };
+ 
+--- linux-2.6.orig/drivers/net/ibm_newemac/mal.c
++++ linux-2.6/drivers/net/ibm_newemac/mal.c
+@@ -61,8 +61,8 @@ int __devinit mal_register_commac(struct
+ 	return 0;
+ }
+ 
+-void __devexit mal_unregister_commac(struct mal_instance	*mal,
+-				     struct mal_commac		*commac)
++void mal_unregister_commac(struct mal_instance	*mal,
++		struct mal_commac *commac)
+ {
+ 	unsigned long flags;
+ 
+--- linux-2.6.orig/drivers/net/ibm_newemac/rgmii.c
++++ linux-2.6/drivers/net/ibm_newemac/rgmii.c
+@@ -179,7 +179,7 @@ void rgmii_put_mdio(struct of_device *of
+ 	mutex_unlock(&dev->lock);
+ }
+ 
+-void __devexit rgmii_detach(struct of_device *ofdev, int input)
++void rgmii_detach(struct of_device *ofdev, int input)
+ {
+ 	struct rgmii_instance *dev = dev_get_drvdata(&ofdev->dev);
+ 	struct rgmii_regs __iomem *p = dev->base;
+--- linux-2.6.orig/drivers/net/ibm_newemac/tah.c
++++ linux-2.6/drivers/net/ibm_newemac/tah.c
+@@ -35,7 +35,7 @@ int __devinit tah_attach(struct of_devic
+ 	return 0;
+ }
+ 
+-void __devexit tah_detach(struct of_device *ofdev, int channel)
++void tah_detach(struct of_device *ofdev, int channel)
+ {
+ 	struct tah_instance *dev = dev_get_drvdata(&ofdev->dev);
+ 
+--- linux-2.6.orig/drivers/net/ibm_newemac/zmii.c
++++ linux-2.6/drivers/net/ibm_newemac/zmii.c
+@@ -189,7 +189,7 @@ void zmii_set_speed(struct of_device *of
+ 	mutex_unlock(&dev->lock);
+ }
+ 
+-void __devexit zmii_detach(struct of_device *ofdev, int input)
++void zmii_detach(struct of_device *ofdev, int input)
+ {
+ 	struct zmii_instance *dev = dev_get_drvdata(&ofdev->dev);
+ 
