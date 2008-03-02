@@ -1,49 +1,37 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: assertion (packets <= tp->packets_out) failed
-Date: Sun, 2 Mar 2008 10:44:29 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0803021041560.17707@kivilampi-30.cs.helsinki.fi>
-References: <2c0942db0803011510s5cfc30cbhee8ac9c1b849a2aa@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kernel list <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Ray Lee <ray-lk@madrabbit.org>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: [patch 00/11][NETNS][IPV6] make a subset of the routing per namespace
+Date: Sun, 02 Mar 2008 10:37:20 +0100
+Message-ID: <20080302093720.649869114@mai.toulouse-stg.fr.ibm.com>
+Cc: netdev@vger.kernel.org, benjamin.thery@bull.net
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43775 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752447AbYCBIoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2008 03:44:32 -0500
-In-Reply-To: <2c0942db0803011510s5cfc30cbhee8ac9c1b849a2aa@mail.gmail.com>
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:16700 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750759AbYCBJnX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Mar 2008 04:43:23 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id m229hKwQ101424
+	for <netdev@vger.kernel.org>; Sun, 2 Mar 2008 09:43:20 GMT
+Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m229hJvp528438
+	for <netdev@vger.kernel.org>; Sun, 2 Mar 2008 10:43:19 +0100
+Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m229hIgv030290
+	for <netdev@vger.kernel.org>; Sun, 2 Mar 2008 09:43:19 GMT
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 1 Mar 2008, Ray Lee wrote:
+This patchset makes a subset of the routing to be per
+namespace. It takes into account fib tables, garbage
+collecting timer, fib rules and route statistics.
 
-> Wireless below is b43, wired interface (tg3) was disconnected. I run
-> openvpn which uses a tun interface and regularly sends a heartbeat
-> even when not in use. The trace appeared twice.
-> 
-> Likely unrelated but reporting just for completeness: about fifteen
-> minutes after this the system oopsed when I told my wireless base
-> station to switch from mixed B/G to just B. I'll be taking that up
-> separately with the bcm43xx list.
-> 
-> Mar  1 11:06:37 phoenix kernel: [35251.208275] eth1: switched to short
-> barker preamble (BSSID=00:16:01:d1:44:3e)
-> Mar  1 11:06:37 phoenix kernel: [35251.320282] eth1: switched to long
-> barker preamble (BSSID=00:16:01:d1:44:3e)
-> Mar  1 11:08:28 phoenix kernel: [35274.396163] KERNEL: assertion
-> (packets <= tp->packets_out) failed at net/ipv4/tcp_input.c (2139)
-> Mar  1 11:08:29 phoenix kernel: [35274.406126] ------------[ cut here
-> ]------------
-> Mar  1 11:08:29 phoenix kernel: [35274.406132] WARNING: at
-> net/ipv4/tcp_input.c:2506 tcp_ack+0xe3f/0x1b12()
+The routing per namespace is not complete with this
+patchset, so there are some interactions between the init
+network namespace and other namespaces, but nothing
+critical.
 
-Do people ever look into archives before posting? I'm a bit tired of point 
-to the debug patch:
-
-http://marc.info/?l=linux-kernel&m=120418703023153&w=2
+This patchset will be followed by another one which
+will complete the routing per namespace. I just don't want
+to flood netdev@ with a huge patchset.
 
 -- 
- i.
