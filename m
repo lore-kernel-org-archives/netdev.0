@@ -1,87 +1,56 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: take#2: [PATCH] [ATM]: Add error handling for proc_create fail
-Date: Mon, 03 Mar 2008 10:44:33 +0800
-Message-ID: <47CB6611.30004@cn.fujitsu.com>
-References: <47C7B79C.2010304@cn.fujitsu.com> <20080229.103803.151963676.davem@davemloft.net>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Subject: Re: [PATCH] alloc_percpu() fails to allocate percpu data
+Date: Mon, 3 Mar 2008 14:14:42 +1100
+Message-ID: <200803031414.43076.nickpiggin@yahoo.com.au>
+References: <47BDBC23.10605@cosmosbay.com> <200802232023.52352.nickpiggin@yahoo.com.au> <Pine.LNX.4.64.0802271140470.1790@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, chas3@users.sourceforge.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:60514 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755894AbYCCCrg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Mar 2008 21:47:36 -0500
-In-Reply-To: <20080229.103803.151963676.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+To: Christoph Lameter <clameter@sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760183AbYCCDPn@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0802271140470.1790@schroedinger.engr.sgi.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller said the following on 2008-3-1 2:38:
-> This is not sufficient.  If this fails you need to unregister
-> the ioctl and all of the other things that get registered
-> before this procfs registry runs.
-> 
+On Thursday 28 February 2008 06:44, Christoph Lameter wrote:
+> On Sat, 23 Feb 2008, Nick Piggin wrote:
+> > What I don't understand is why the slab allocators have something like
+> > this in it:
+> >
+> >         if ((flags & SLAB_HWCACHE_ALIGN) &&
+> >                         size > cache_line_size() / 2)
+> >                 return max_t(unsigned long, align, cache_line_size());
+> >
+> > If you ask for HWCACHE_ALIGN, then you should get it. I don't
+> > understand, why do they think they knows better than the caller?
+>
+> Tradition.... Its irks me as well.
+>
+> > Things like this are just going to lead to very difficult to track
+> > performance problems. Possibly correctness problems in rare cases.
+> >
+> > There could be another flag for "maybe align".
+>
+> SLAB_HWCACHE_ALIGN *is* effectively a maybe align flag given the above
+> code.
+>
+> If we all agree then we could change this to have must have semantics? It
+> has the potential of enlarging objects for small caches.
+>
+> SLAB_HWCACHE_ALIGN has an effect that varies according to the alignment
+> requirements of the architecture that the kernel is build on. We may be in
+> for some surprises if we change this.
 
-When proc_create() fail, we return -ENOMEM.
-
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- net/atm/clip.c |   18 ++++++++++--------
- net/atm/lec.c  |    4 ++++
- 2 files changed, 14 insertions(+), 8 deletions(-)
-
-diff --git a/net/atm/clip.c b/net/atm/clip.c
-index d30167c..66e5a91 100644
---- a/net/atm/clip.c
-+++ b/net/atm/clip.c
-@@ -949,6 +949,16 @@ static const struct file_operations arp_seq_fops = {
- 
- static int __init atm_clip_init(void)
- {
-+#ifdef CONFIG_PROC_FS
-+	struct proc_dir_entry *p;
-+
-+	p = proc_create("arp", S_IRUGO, atm_proc_root, &arp_seq_fops);
-+	if (!p) {
-+		printk(KERN_ERR "Unable to initialize /proc/net/atm/arp\n");
-+		return -ENOMEM;
-+	}
-+#endif
-+
- 	neigh_table_init_no_netlink(&clip_tbl);
- 
- 	clip_tbl_hook = &clip_tbl;
-@@ -958,14 +968,6 @@ static int __init atm_clip_init(void)
- 
- 	setup_timer(&idle_timer, idle_timer_check, 0);
- 
--#ifdef CONFIG_PROC_FS
--	{
--		struct proc_dir_entry *p;
--
--		p = proc_create("arp", S_IRUGO, atm_proc_root, &arp_seq_fops);
--	}
--#endif
--
- 	return 0;
- }
- 
-diff --git a/net/atm/lec.c b/net/atm/lec.c
-index 0e450d1..a2efa7f 100644
---- a/net/atm/lec.c
-+++ b/net/atm/lec.c
-@@ -1250,6 +1250,10 @@ static int __init lane_module_init(void)
- 	struct proc_dir_entry *p;
- 
- 	p = proc_create("lec", S_IRUGO, atm_proc_root, &lec_seq_fops);
-+	if (!p) {
-+		printk(KERN_ERR "Unable to initialize /proc/net/atm/lec\n");
-+		return -ENOMEM;
-+	}
- #endif
- 
- 	register_atm_ioctl(&lane_ioctl_ops);
--- 
-WCN
-
+I think so. If we ask for HWCACHE_ALIGN, it must be for a good reason.
+If some structures get too bloated for no good reason, then the problem
+is not with the slab allocator but with the caller asking for
+HWCACHE_ALIGN.
