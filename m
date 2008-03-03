@@ -1,85 +1,96 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [RFC: 2.6 patch] #if 0 e1000e_read_nvm_spi()
-Date: Mon, 03 Mar 2008 09:24:35 -0800
-Message-ID: <47CC3453.9010108@intel.com>
-References: <20080301162302.GX25835@cs181133002.pp.htv.fi>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: Re: [Devel] Re: network namespace ipv6 perfs
+Date: Mon, 03 Mar 2008 18:27:50 +0100
+Message-ID: <47CC3516.7030901@bull.net>
+References: <47CC0920.6000005@fr.ibm.com> <47CC0E3B.1040809@bull.net>	 <47CC114F.8050104@openvz.org> <939d53060803030704g5d693c19i34061f1a896d91cd@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20080301162302.GX25835@cs181133002.pp.htv.fi>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Denis Lunev <den@openvz.org>
+To: Benjamin Thery <ben.thery@gmail.com>,
+	Pavel Emelyanov <xemul@openvz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:50181 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762220AbYCCR1k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 12:27:40 -0500
+In-Reply-To: <939d53060803030704g5d693c19i34061f1a896d91cd@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adrian Bunk wrote:
-> This patch #if 0's the no longer used e1000e_read_nvm_spi().
+Benjamin Thery wrote:
+> On Mon, Mar 3, 2008 at 3:55 PM, Pavel Emelyanov <xemul@openvz.org> wrote:
+>> Benjamin Thery wrote:
+>>  > Daniel Lezcano wrote:
+>>  >> Hi,
+>>  >>
+>>  >> Some performance tests was made by Benjamin to watch out the impact of
+>>  >> the network namespace. The good news is there is no impact when used
+>>  >> with or without namespaces. That has been checked using a real network
+>>  >> device inside a network namespace.
+>>  >>
+>>  >> These results are consistent with the ones previously made for ipv4.
+>>  >>
+>>  >> http://lxc.sourceforge.net/network/bench_ipv6_graph.php
+>>  >>
+>>  >> Thanks to Benjamin who did all the performance tests :)
+>>  >
+>>  > In these results, may be, there is one thing that should be explained.
+>>  > It is the CPU utilization overhead in the 'veth' case.
+>>  >
+>>  > Compared to physical devices or macvlan, veth interfaces don't benefit
+>>  > from hardware offloading mechanisms: i.e. checksums have to be computed
+>>  > by the soft. That explains the big overhead in CPU utilization when
+>>
+>>  You can tune the veth devices not to account checksum when unnecessary.
+> 
+> Oh. This is interesting.
+> 
+> You mean with ethtool -K rx/tx?
+> I will give it a try.
 
-OK, thanks Adrian
+Pavel,
 
-I'll send a patch to remove the function alltogether.
+I had no luck with "ethtool -K veth0 rx on tx on".
+On my testbed, with these options TCP drops packets
+(trying to establish a ssh connection between init and child namespace).
 
-Auke
 
+Then, I tested "ethtool -K veth0 rx on tx off".
+This time TCP (and netperf) work, but I see no difference in
+CPU load compared to the case without offloading.
+
+Can I tune veth differently?
+
+(BTW, I run netperf between a child namespace on host A and netserv
+on host B. The stream goes through the following interface:
+veth1 on A -> veth0 on A -> eth1 on A -> ("real network") -> eth1 on B)
+
+Benjamin
 
 > 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+>>
+>>  > using this kind of virtual interface.
+>>  >
+>>  > Benjamin
+>>  >
+>>  >> Regards
+>>  >>     -- Daniel
+>>  >>
 > 
-> ---
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>  the body of a message to majordomo@vger.kernel.org
+>>  More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
 > 
->  drivers/net/e1000e/e1000.h |    1 -
->  drivers/net/e1000e/lib.c   |    2 ++
->  2 files changed, 2 insertions(+), 1 deletion(-)
-> 
-> 9bab4dc421a7e5a947739e2fa1363b4efffbcbe2 foobar
-> diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-> index 327c062..6e0c6ed 100644
-> --- a/drivers/net/e1000e/e1000.h
-> +++ b/drivers/net/e1000e/e1000.h
-> @@ -462,7 +462,6 @@ extern s32 e1000e_acquire_nvm(struct e1000_hw *hw);
->  extern s32 e1000e_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
->  extern s32 e1000e_update_nvm_checksum_generic(struct e1000_hw *hw);
->  extern s32 e1000e_poll_eerd_eewr_done(struct e1000_hw *hw, int ee_reg);
-> -extern s32 e1000e_read_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
->  extern s32 e1000e_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
->  extern s32 e1000e_validate_nvm_checksum_generic(struct e1000_hw *hw);
->  extern void e1000e_release_nvm(struct e1000_hw *hw);
-> diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
-> index 95f75a4..cb2dac8 100644
-> --- a/drivers/net/e1000e/lib.c
-> +++ b/drivers/net/e1000e/lib.c
-> @@ -1851,6 +1851,7 @@ static s32 e1000_ready_nvm_eeprom(struct e1000_hw *hw)
->  	return 0;
->  }
->  
-> +#if 0
->  /**
->   *  e1000e_read_nvm_spi - Reads EEPROM using SPI
->   *  @hw: pointer to the HW structure
-> @@ -1906,6 +1907,7 @@ s32 e1000e_read_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
->  	nvm->ops.release_nvm(hw);
->  	return 0;
->  }
-> +#endif  /*  0  */
->  
->  /**
->   *  e1000e_read_nvm_eerd - Reads EEPROM using EERD register
 > 
 
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2008.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+-- 
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+
+    http://www.bull.com
