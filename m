@@ -1,45 +1,34 @@
-From: Sami Farin <safari-kernel@safari.iki.fi>
-Subject: Re: e1000e fails to find IRQ
-Date: Mon, 3 Mar 2008 21:03:40 +0200
-Message-ID: <20080303190339.wbilb6qaknwvj4sk@m.safari.iki.fi>
-References: <20080303124443.52gfbwwmahxf7wmk@m.safari.iki.fi> <47CC3DF7.20907@intel.com>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [rfc][patch 2/3] slab: introduce SMP alignment
+Date: Mon, 3 Mar 2008 11:06:55 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0803031104570.6917@schroedinger.engr.sgi.com>
+References: <20080303093449.GA15091@wotan.suse.de> <20080303093529.GB15091@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Linux Networking Mailing List <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
+	Eric Dumazet <dada1@cosmosbay.com>
+To: Nick Piggin <npiggin@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pne-smtpout4-sn1.fre.skanova.net ([81.228.11.168]:36969 "EHLO
-	pne-smtpout4-sn1.fre.skanova.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761620AbYCCTDm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 14:03:42 -0500
-Received: from safari.iki.fi (80.223.84.180) by pne-smtpout4-sn1.fre.skanova.net (7.3.129)
-        id 47A7970A0017DE65 for netdev@vger.kernel.org; Mon, 3 Mar 2008 20:03:41 +0100
-Content-Disposition: inline
-In-Reply-To: <47CC3DF7.20907@intel.com>
+Received: from relay2.sgi.com ([192.48.171.30]:59307 "EHLO relay.sgi.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752391AbYCCTG4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 14:06:56 -0500
+In-Reply-To: <20080303093529.GB15091@wotan.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 03, 2008 at 10:05:43 -0800, Kok, Auke wrote:
-> Sami Farin wrote:
-..
-> > I have Intel DQ965GF mobo, version CO96510J.86A.6002.2007.1125.2356,
-> > Linux 2.6.24.3.
-> 
-> a bit unclear what kernel version you are actually using here... the device that
-> you have (ich8 onboard lan) is NOT supported in 2.6.24.x by e1000e - you'll have
+On Mon, 3 Mar 2008, Nick Piggin wrote:
 
-OK, that was not very clear from "PCI interrupt disabled" message.
+> Introduce SLAB_SMP_ALIGN, for allocations where false sharing must be
+> minimised on SMP systems.
 
-> to use the e1000 driver until 2.6.25 ships.
-> 
-> what kernel version are you using here?
+Mandatory alignment are specified as a parameter to kmem_cache_create not 
+as flags. Ycan specify the alignment as a parameter. i.e. L1_CACHE_BYTES 
+or cache_line_size().
 
-2.6.24.3.
+Maybe we should drop SLAB_HWCACHE_ALIGN because of the confusion is 
+creates because it seems that flags can be used to enforce alignments?
 
-I thought I could try e1000e for fun, because e1000 module said:
-  This device (id 8086:104a) will no longer be supported by this driver
-  in the future, please use the "e1000e" driver
-:)
-
--- 
-Do what you love because life is too short for anything else.
 
