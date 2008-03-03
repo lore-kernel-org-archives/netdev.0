@@ -1,123 +1,85 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26][VLAN]: Reduce memory consumed by vlan_group-s.
-Date: Mon, 03 Mar 2008 19:43:59 +0300
-Message-ID: <47CC2ACF.6080903@openvz.org>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [RFC: 2.6 patch] #if 0 e1000e_read_nvm_spi()
+Date: Mon, 03 Mar 2008 09:24:35 -0800
+Message-ID: <47CC3453.9010108@intel.com>
+References: <20080301162302.GX25835@cs181133002.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:58852 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754142AbYCCQoD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2008 11:44:03 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jeff Garzik <jeff@garzik.org>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Adrian Bunk <bunk@kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20080301162302.GX25835@cs181133002.pp.htv.fi>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Currently each vlan_groupd contains 8 pointers on arrays with 512 
-pointers on struct net_device each :) Such a construction "in many 
-cases ... wastes memory".
+Adrian Bunk wrote:
+> This patch #if 0's the no longer used e1000e_read_nvm_spi().
 
-My proposal is to allow for some of these arrays pointers be NULL,
-meaning that there are no devices in it. When a new device is added 
-to the vlan_group, the appropriate array is allocated.
+OK, thanks Adrian
 
-The check in vlan_group_get_device's is safe, since the pointer
-vg->vlan_devices_arrays[x] can only switch from NULL to not-NULL.
-The vlan_group_prealloc_vid() is guarded with rtnl lock and is
-also safe.
+I'll send a patch to remove the function alltogether.
 
-I've checked (I hope that) all the places, that use these arrays 
-and found, that the register_vlan_dev is the only place, that can
-put a vlan device on an empty vlan_group.
+Auke
 
-Rough calculations shows, that after the patch a setup with a 
-single vlan dev (or up to 512 vlans with sequential vids) will 
-occupy approximately 8 times less memory.
 
-The question I have is - does this patch makes sense, or a totally 
-new structures are required to store the vlan_devs?
+> 
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> 
+> ---
+> 
+>  drivers/net/e1000e/e1000.h |    1 -
+>  drivers/net/e1000e/lib.c   |    2 ++
+>  2 files changed, 2 insertions(+), 1 deletion(-)
+> 
+> 9bab4dc421a7e5a947739e2fa1363b4efffbcbe2 foobar
+> diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+> index 327c062..6e0c6ed 100644
+> --- a/drivers/net/e1000e/e1000.h
+> +++ b/drivers/net/e1000e/e1000.h
+> @@ -462,7 +462,6 @@ extern s32 e1000e_acquire_nvm(struct e1000_hw *hw);
+>  extern s32 e1000e_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
+>  extern s32 e1000e_update_nvm_checksum_generic(struct e1000_hw *hw);
+>  extern s32 e1000e_poll_eerd_eewr_done(struct e1000_hw *hw, int ee_reg);
+> -extern s32 e1000e_read_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
+>  extern s32 e1000e_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
+>  extern s32 e1000e_validate_nvm_checksum_generic(struct e1000_hw *hw);
+>  extern void e1000e_release_nvm(struct e1000_hw *hw);
+> diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+> index 95f75a4..cb2dac8 100644
+> --- a/drivers/net/e1000e/lib.c
+> +++ b/drivers/net/e1000e/lib.c
+> @@ -1851,6 +1851,7 @@ static s32 e1000_ready_nvm_eeprom(struct e1000_hw *hw)
+>  	return 0;
+>  }
+>  
+> +#if 0
+>  /**
+>   *  e1000e_read_nvm_spi - Reads EEPROM using SPI
+>   *  @hw: pointer to the HW structure
+> @@ -1906,6 +1907,7 @@ s32 e1000e_read_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
+>  	nvm->ops.release_nvm(hw);
+>  	return 0;
+>  }
+> +#endif  /*  0  */
+>  
+>  /**
+>   *  e1000e_read_nvm_eerd - Reads EEPROM using EERD register
+> 
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
----
-
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 79504b2..edd55af 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -93,7 +93,7 @@ static inline struct net_device *vlan_group_get_device(struct vlan_group *vg,
- {
- 	struct net_device **array;
- 	array = vg->vlan_devices_arrays[vlan_id / VLAN_GROUP_ARRAY_PART_LEN];
--	return array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN];
-+	return array ? array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN] : NULL;
- }
- 
- static inline void vlan_group_set_device(struct vlan_group *vg,
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index dbc81b9..4ff856d 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -106,29 +106,35 @@ static void vlan_group_free(struct vlan_group *grp)
- static struct vlan_group *vlan_group_alloc(int ifindex)
- {
- 	struct vlan_group *grp;
--	unsigned int size;
--	unsigned int i;
- 
- 	grp = kzalloc(sizeof(struct vlan_group), GFP_KERNEL);
- 	if (!grp)
- 		return NULL;
- 
--	size = sizeof(struct net_device *) * VLAN_GROUP_ARRAY_PART_LEN;
--
--	for (i = 0; i < VLAN_GROUP_ARRAY_SPLIT_PARTS; i++) {
--		grp->vlan_devices_arrays[i] = kzalloc(size, GFP_KERNEL);
--		if (!grp->vlan_devices_arrays[i])
--			goto err;
--	}
--
- 	grp->real_dev_ifindex = ifindex;
- 	hlist_add_head_rcu(&grp->hlist,
- 			   &vlan_group_hash[vlan_grp_hashfn(ifindex)]);
- 	return grp;
-+}
- 
--err:
--	vlan_group_free(grp);
--	return NULL;
-+static int vlan_group_prealloc_vid(struct vlan_group *vg, int vid)
-+{
-+	struct net_device **array;
-+	unsigned int size;
-+
-+	ASSERT_RTNL();
-+
-+	array = vg->vlan_devices_arrays[vid / VLAN_GROUP_ARRAY_PART_LEN];
-+	if (array != NULL)
-+		return 0;
-+
-+	size = sizeof(struct net_device *) * VLAN_GROUP_ARRAY_PART_LEN;
-+	array = kzalloc(size, GFP_KERNEL);
-+	if (array == NULL)
-+		return -ENOBUFS;
-+
-+	vg->vlan_devices_arrays[vid / VLAN_GROUP_ARRAY_PART_LEN] = array;
-+	return 0;
- }
- 
- static void vlan_rcu_free(struct rcu_head *rcu)
-@@ -247,6 +253,10 @@ int register_vlan_dev(struct net_device *dev)
- 			return -ENOBUFS;
- 	}
- 
-+	err = vlan_group_prealloc_vid(grp, vlan_id);
-+	if (err < 0)
-+		goto out_free_group;
-+
- 	err = register_netdevice(dev);
- 	if (err < 0)
- 		goto out_free_group;
-
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
