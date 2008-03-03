@@ -1,51 +1,54 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [rfc][patch 2/3] slab: introduce SMP alignment
-Date: Mon, 3 Mar 2008 13:23:48 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0803031318310.4131@schroedinger.engr.sgi.com>
-References: <20080303093449.GA15091@wotan.suse.de>  <20080303093529.GB15091@wotan.suse.de>
-  <Pine.LNX.4.64.0803031104570.6917@schroedinger.engr.sgi.com>
- <20080303200355.GB8974@wotan.suse.de>  <Pine.LNX.4.64.0803031208400.16049@schroedinger.engr.sgi.com>
-  <20080303201211.GE8974@wotan.suse.de>  <Pine.LNX.4.64.0803031216430.3110@schroedinger.engr.sgi.com>
-  <20080303202411.GH8974@wotan.suse.de> <84144f020803031241l277aa3b8h2fe0714f5765cb49@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/4 net-2.6.26] [IPV4]: Cleanup ip_options_compile.
+Date: Mon, 03 Mar 2008 13:24:22 -0800 (PST)
+Message-ID: <20080303.132422.64941146.davem@davemloft.net>
+References: <1204559323-19953-2-git-send-email-den@openvz.org>
+	<20080303.115509.71743609.davem@davemloft.net>
+	<1204577698.23504.13.camel@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Nick Piggin <npiggin@suse.de>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
-	Eric Dumazet <dada1@cosmosbay.com>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: den@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.sgi.com ([192.48.171.30]:39419 "EHLO relay.sgi.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1763358AbYCCVXu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2008 16:23:50 -0500
-In-Reply-To: <84144f020803031241l277aa3b8h2fe0714f5765cb49@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47483
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1763462AbYCCVYh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 16:24:37 -0500
+In-Reply-To: <1204577698.23504.13.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 3 Mar 2008, Pekka Enberg wrote:
+From: "Denis V. Lunev" <den@openvz.org>
+Date: Mon, 03 Mar 2008 23:54:58 +0300
 
-> Hmm... Can't we just fix SLAB_HWCACHE_ALIGN in SLUB to follow the
-> semantics of SLAB?
+> Though, it seems to me, that this structure does not came from
+> userspace. At least I do not see a way for this. Could you show me how
+> this can happen?
 
-AFAICT it follows SLAB semantics. The only small difference is for objects 
-small than cache_line_size() / 2 where SLUB does not bother to align to a 
-fraction of a cacheline since we are already placing multile object into a 
-cacheline. We effectively have made the decision to give up the 
-organization of objects in separatate cache lines.
+Sorry, I meant to talk about cases where the options have
+been munged by the input or packet processing path, and
+as a result the kernel intends opt->__data to be used.
 
-Lets say you have a 64 byte cache line size. Then the alignment can be 
-as follows. (8 byte alignment is the basic alignment requirement).
+For example, we might parse the options of an incoming
+packet, edit out some things we wish to ignore, and leave
+the result in opt->__data for ip_options_compile() to
+process.
 
-Objsize	[C	SLAB	SLUB
------------------------------
-> 64		X	X
-33 .. 64	64	64
-32		32	32
-24		32	24	-> 3 object per cacheline sizes = 72 so overlap.
-16		16	16
-8		8	8
+cipso_v4_sock_setattr() is a similar case.
 
-So there is only one difference for 24 byte sizes slabs.
+Look at how ip_options_get_from_user() works, it copies in the
+user provided IP options into opt->__data and sets
+opt->is_data.  This gets passed down to ip_options_get_finish()
+which passes that down to ip_options_compile().
 
+Next, look at ip_cmsg_send(), it calls ip_options_get() which
+copies the data into opt->__data and passes this down to
+ip_options_get_finish() and thus ip_options_compile.
 
+I guess your ip_options_get_finish() changes handle these
+cases, but I cannot prove that the CIPSO is_data setting
+ends up being unused.
+
+I suppose it gets used by ip_options_build() for outgoing
+packets, which assumes that is_data is always set?
