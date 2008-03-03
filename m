@@ -1,39 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv6: fix icmpv6_cleanup/icmpv6_init section
- mismatch
-Date: Mon, 03 Mar 2008 12:03:56 -0800 (PST)
-Message-ID: <20080303.120356.248538925.davem@davemloft.net>
-References: <20080303125217.GA6026@localhost.sw.ru>
-	<20080303145451.GC6026@localhost.sw.ru>
+From: Nick Piggin <npiggin@suse.de>
+Subject: Re: [rfc][patch 1/3] slub: fix small HWCACHE_ALIGN alignment
+Date: Mon, 3 Mar 2008 21:06:13 +0100
+Message-ID: <20080303200613.GC8974@wotan.suse.de>
+References: <20080303093449.GA15091@wotan.suse.de> <Pine.LNX.4.64.0803031107130.6917@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, den@openvz.org
-To: adobriyan@sw.ru
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
+	Eric Dumazet <dada1@cosmosbay.com>
+To: Christoph Lameter <clameter@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42927
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754428AbYCCUEM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 15:04:12 -0500
-In-Reply-To: <20080303145451.GC6026@localhost.sw.ru>
+Received: from cantor.suse.de ([195.135.220.2]:42463 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754351AbYCCUGP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 15:06:15 -0500
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0803031107130.6917@schroedinger.engr.sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@sw.ru>
-Date: Mon, 3 Mar 2008 17:54:51 +0300
-
-> Doh! Ignore this one. Below is correct.
-> --------
+On Mon, Mar 03, 2008 at 11:08:44AM -0800, Christoph Lameter wrote:
+> On Mon, 3 Mar 2008, Nick Piggin wrote:
 > 
-> [PATCH] ipv6: fix inet6_init/icmpv6_cleanup sections mismatch
+> > SLUB should pack even small objects nicely into cachelines if that is what
+> > has been asked for. Use the same algorithm as SLAB for this.
 > 
-> Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
+> Why? SLAB does not cacheline align objects smaller than cache_line_size() 
+> /2.
 
-Applied.
+It still doesn't after this patch.
 
-However, dealing with all of these interactions between real
-__{init,exit} and __net_{init,exit} becomes tiresome.
+> If they are already not cache line aligned then we can make them as 
+> dense as possible. That is what SLUB does.
 
-We used to be able to mark icmpv6_cleanup as __exit now
-with the netns stuff we can't, that's a step backwards and
-it's happening a lot as the conversions take place.
+Because when you specify HWCACHE_ALIGN, it means that you want the object
+not to cross cacheline boundaries for at least cache_line_size() bytes.
+SLAB does this. SLUB does not without this patch.
+
