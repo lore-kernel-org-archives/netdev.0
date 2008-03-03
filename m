@@ -1,56 +1,53 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: [PATCH] alloc_percpu() fails to allocate percpu data
-Date: Mon, 3 Mar 2008 14:14:42 +1100
-Message-ID: <200803031414.43076.nickpiggin@yahoo.com.au>
-References: <47BDBC23.10605@cosmosbay.com> <200802232023.52352.nickpiggin@yahoo.com.au> <Pine.LNX.4.64.0802271140470.1790@schroedinger.engr.sgi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: take#2: [PATCH] [ATM]: Add error handling for proc_create fail
+Date: Sun, 02 Mar 2008 21:09:26 -0800 (PST)
+Message-ID: <20080302.210926.16120136.davem@davemloft.net>
+References: <47C7B79C.2010304@cn.fujitsu.com>
+	<20080229.103803.151963676.davem@davemloft.net>
+	<47CB6611.30004@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	"Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-To: Christoph Lameter <clameter@sgi.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760183AbYCCDPn@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0802271140470.1790@schroedinger.engr.sgi.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, chas3@users.sourceforge.net
+To: wangchen@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46990
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751410AbYCCFJ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 00:09:26 -0500
+In-Reply-To: <47CB6611.30004@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 28 February 2008 06:44, Christoph Lameter wrote:
-> On Sat, 23 Feb 2008, Nick Piggin wrote:
-> > What I don't understand is why the slab allocators have something like
-> > this in it:
-> >
-> >         if ((flags & SLAB_HWCACHE_ALIGN) &&
-> >                         size > cache_line_size() / 2)
-> >                 return max_t(unsigned long, align, cache_line_size());
-> >
-> > If you ask for HWCACHE_ALIGN, then you should get it. I don't
-> > understand, why do they think they knows better than the caller?
->
-> Tradition.... Its irks me as well.
->
-> > Things like this are just going to lead to very difficult to track
-> > performance problems. Possibly correctness problems in rare cases.
-> >
-> > There could be another flag for "maybe align".
->
-> SLAB_HWCACHE_ALIGN *is* effectively a maybe align flag given the above
-> code.
->
-> If we all agree then we could change this to have must have semantics? It
-> has the potential of enlarging objects for small caches.
->
-> SLAB_HWCACHE_ALIGN has an effect that varies according to the alignment
-> requirements of the architecture that the kernel is build on. We may be in
-> for some surprises if we change this.
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Mon, 03 Mar 2008 10:44:33 +0800
 
-I think so. If we ask for HWCACHE_ALIGN, it must be for a good reason.
-If some structures get too bloated for no good reason, then the problem
-is not with the slab allocator but with the caller asking for
-HWCACHE_ALIGN.
+> David Miller said the following on 2008-3-1 2:38:
+> > This is not sufficient.  If this fails you need to unregister
+> > the ioctl and all of the other things that get registered
+> > before this procfs registry runs.
+> > 
+> 
+> When proc_create() fail, we return -ENOMEM.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+
+Sigh....
+
+I know you want to avoid all of the error handling unwind code, but
+you can't do that in this situation.  It's not valid to register the
+ATM clip procfs file without first initializing the ATM clip neighbour
+table, so moving it up like this isn't going to work.
+
+They way you've done it, a user can open the procfs file and access
+the datastructure before it's initialized properly.
+
+Please, simply add the necessary unregister code and leave the procfs
+initialization where it currently is.
+
+I get the sense you really aren't reading this code carefully and
+you're tossing these patches together as quickly as you can to just
+get it done.  Please don't do that, it wastes both my time and
+your's.
+
+Thank you.
