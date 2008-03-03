@@ -1,41 +1,42 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [rfc][patch 2/3] slab: introduce SMP alignment
-Date: Mon, 3 Mar 2008 12:09:43 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0803031208400.16049@schroedinger.engr.sgi.com>
-References: <20080303093449.GA15091@wotan.suse.de> <20080303093529.GB15091@wotan.suse.de>
- <Pine.LNX.4.64.0803031104570.6917@schroedinger.engr.sgi.com>
- <20080303200355.GB8974@wotan.suse.de>
+From: Nick Piggin <npiggin@suse.de>
+Subject: Re: [rfc][patch 3/3] use SLAB_ALIGN_SMP
+Date: Mon, 3 Mar 2008 21:10:08 +0100
+Message-ID: <20080303201008.GD8974@wotan.suse.de>
+References: <20080303093449.GA15091@wotan.suse.de> <20080303093624.GC15091@wotan.suse.de> <47CBCAB0.2040604@cosmosbay.com> <20080303124142.GB13138@wotan.suse.de> <47CBF683.10201@cosmosbay.com> <20080303134622.GD13138@wotan.suse.de> <84144f020803030553s35a40dd8yf88585ccd5a599fd@mail.gmail.com> <Pine.LNX.4.64.0803031109200.6917@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
-	Eric Dumazet <dada1@cosmosbay.com>
-To: Nick Piggin <npiggin@suse.de>
+	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>
+To: Christoph Lameter <clameter@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.sgi.com ([192.48.171.29]:41935 "EHLO relay.sgi.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750893AbYCCUJo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2008 15:09:44 -0500
-In-Reply-To: <20080303200355.GB8974@wotan.suse.de>
+Received: from ns2.suse.de ([195.135.220.15]:57079 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754921AbYCCUKK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 15:10:10 -0500
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0803031109200.6917@schroedinger.engr.sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 3 Mar 2008, Nick Piggin wrote:
-
-> > Mandatory alignment are specified as a parameter to kmem_cache_create not 
-> > as flags.
+On Mon, Mar 03, 2008 at 11:09:51AM -0800, Christoph Lameter wrote:
+> On Mon, 3 Mar 2008, Pekka Enberg wrote:
 > 
-> Not after this patch.
-
-You want two ways of specifying alignments?
-
-> > Ycan specify the alignment as a parameter. i.e. L1_CACHE_BYTES 
-> > or cache_line_size().
+> > At least historically SLAB_HWCACHE_ALIGN has been just a hint,
+> > although slab tries very hard to satisfy it (see the comments in
+> > mm/slab.c). Why do we need stronger guarantees than that, btw?
 > 
-> We don't want either of those, though.
-> 
-> I don't see why this is a problem to do inside slab.
+> Its a hint. Alignment is specified as a parameter to kmem_cache_create not 
+> as a flag. Maybe we could remove SLAB_HWCACHE_ALIGN because it is causing 
+> so much confusion?
 
-I am not sure why you need to have two ways of specifying alignments.
- 
+Yeah, that's what I thought too, when I got confused by these new
+SLUB semantics that you made up. Actually if you look at SLAB,
+it has very precise and rational semantics. SLUB should respect that.
+
+If you really configure for tiny memory footprint, then I'm fine with
+it going away. In that respect, it is still a hint (the callers can't
+rely on it being a particular alignment), and that also applies for
+SLAB_SMP_ALIGN, in case you are concerned that flags must only be hints.
+
