@@ -1,118 +1,55 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: Re: network namespace ipv6 perfs
-Date: Mon, 03 Mar 2008 15:48:12 +0100
-Message-ID: <47CC0FAC.1010306@bull.net>
-References: <47CC0920.6000005@fr.ibm.com>
+From: Alexey Dobriyan <adobriyan@sw.ru>
+Subject: [PATCH v2] ipv6: fix icmpv6_cleanup/icmpv6_init section mismatch
+Date: Mon, 3 Mar 2008 17:54:51 +0300
+Message-ID: <20080303145451.GC6026@localhost.sw.ru>
+References: <20080303125217.GA6026@localhost.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Containers <containers@lists.osdl.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, den@openvz.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:56922 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753274AbYCCOsF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 09:48:05 -0500
-In-Reply-To: <47CC0920.6000005@fr.ibm.com>
+Received: from mailhub.sw.ru ([195.214.232.25]:5376 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757386AbYCCOzA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 09:55:00 -0500
+Content-Disposition: inline
+In-Reply-To: <20080303125217.GA6026@localhost.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-One more thing about these results: the kernel.
-The version used to run these tests was 2.6.25-rc1 from Dave Miller's
-net-2.6 tree.
+On Mon, Mar 03, 2008 at 03:52:17PM +0300, Alexey Dobriyan wrote:
+> icmpv6_cleanup() is called from inet6_init() which is __init, so the
+> former can't be __exit.
 
-(and I included results from a vanilla 2.6.23.16 as reference)
+Doh! Ignore this one. Below is correct.
+--------
 
-Benjamin
+[PATCH] ipv6: fix inet6_init/icmpv6_cleanup sections mismatch
 
-Daniel Lezcano wrote:
-> Hi,
->=20
-> Some performance tests was made by Benjamin to watch out the impact o=
-f=20
-> the network namespace. The good news is there is no impact when used=20
-> with or without namespaces. That has been checked using a real networ=
-k=20
-> device inside a network namespace.
->=20
-> These results are consistent with the ones previously made for ipv4.
->=20
-> http://lxc.sourceforge.net/network/bench_ipv6_graph.php
->=20
-> Thanks to Benjamin who did all the performance tests :)
->=20
-> Regards
->     -- Daniel
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
->=20
-> Sauf indication contraire ci-dessus:
-> Compagnie IBM France
-> Si=E8ge Social : Tour Descartes, 2, avenue Gambetta, La D=E9fense 5, =
-92400
-> Courbevoie
-> RCS Nanterre 552 118 465
-> Forme Sociale : S.A.S.
-> Capital Social : 542.737.118 ?
-> SIREN/SIRET : 552 118 465 02430
->=20
->=20
+Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
+---
 
+ net/ipv6/icmp.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
---=20
-B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -844,7 +844,7 @@ static void __net_exit icmpv6_sk_exit(struct net *net)
+ 	kfree(net->ipv6.icmp_sk);
+ }
+ 
+-static struct pernet_operations __net_initdata icmpv6_sk_ops = {
++static struct pernet_operations icmpv6_sk_ops = {
+        .init = icmpv6_sk_init,
+        .exit = icmpv6_sk_exit,
+ };
+@@ -868,7 +868,7 @@ fail:
+ 	return err;
+ }
+ 
+-void __exit icmpv6_cleanup(void)
++void icmpv6_cleanup(void)
+ {
+ 	unregister_pernet_subsys(&icmpv6_sk_ops);
+ 	inet6_del_protocol(&icmpv6_protocol, IPPROTO_ICMPV6);
 
-    http://www.bull.com
