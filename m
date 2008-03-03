@@ -1,39 +1,39 @@
-From: Nick Piggin <npiggin@suse.de>
-Subject: Re: [rfc][patch 2/3] slab: introduce SMP alignment
-Date: Mon, 3 Mar 2008 21:03:55 +0100
-Message-ID: <20080303200355.GB8974@wotan.suse.de>
-References: <20080303093449.GA15091@wotan.suse.de> <20080303093529.GB15091@wotan.suse.de> <Pine.LNX.4.64.0803031104570.6917@schroedinger.engr.sgi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] ipv6: fix icmpv6_cleanup/icmpv6_init section
+ mismatch
+Date: Mon, 03 Mar 2008 12:03:56 -0800 (PST)
+Message-ID: <20080303.120356.248538925.davem@davemloft.net>
+References: <20080303125217.GA6026@localhost.sw.ru>
+	<20080303145451.GC6026@localhost.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
-	Eric Dumazet <dada1@cosmosbay.com>
-To: Christoph Lameter <clameter@sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, den@openvz.org
+To: adobriyan@sw.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:42180 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753864AbYCCUD5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2008 15:03:57 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0803031104570.6917@schroedinger.engr.sgi.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42927
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754428AbYCCUEM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 15:04:12 -0500
+In-Reply-To: <20080303145451.GC6026@localhost.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 03, 2008 at 11:06:55AM -0800, Christoph Lameter wrote:
-> On Mon, 3 Mar 2008, Nick Piggin wrote:
+From: Alexey Dobriyan <adobriyan@sw.ru>
+Date: Mon, 3 Mar 2008 17:54:51 +0300
+
+> Doh! Ignore this one. Below is correct.
+> --------
 > 
-> > Introduce SLAB_SMP_ALIGN, for allocations where false sharing must be
-> > minimised on SMP systems.
+> [PATCH] ipv6: fix inet6_init/icmpv6_cleanup sections mismatch
 > 
-> Mandatory alignment are specified as a parameter to kmem_cache_create not 
-> as flags.
+> Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
 
-Not after this patch.
+Applied.
 
-> Ycan specify the alignment as a parameter. i.e. L1_CACHE_BYTES 
-> or cache_line_size().
+However, dealing with all of these interactions between real
+__{init,exit} and __net_{init,exit} becomes tiresome.
 
-We don't want either of those, though.
-
-I don't see why this is a problem to do inside slab.
+We used to be able to mark icmpv6_cleanup as __exit now
+with the netns stuff we can't, that's a step backwards and
+it's happening a lot as the conversions take place.
