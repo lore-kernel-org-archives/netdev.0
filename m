@@ -1,88 +1,58 @@
-From: Juha-Matti Tapio <jmtapio@verkkotelakka.net>
-Subject: Re: [PATCH 2/2] [IPV6]: Fix source address selection for
-	ORCHIDaddresses
-Date: Mon, 3 Mar 2008 13:19:57 +0200
-Message-ID: <20080303111957.GU5813@verkkotelakka.net>
-References: <20080302215954.GS5813@verkkotelakka.net> <04ba29fb2d9e370fd968ee2906a149c1@chewa.net>
+From: Nick Piggin <npiggin@suse.de>
+Subject: Re: [rfc][patch 1/3] slub: fix small HWCACHE_ALIGN alignment
+Date: Mon, 3 Mar 2008 13:28:57 +0100
+Message-ID: <20080303122857.GA13138@wotan.suse.de>
+References: <20080303093449.GA15091@wotan.suse.de> <84144f020803030144v17544936ybe222e8f4850dfa2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="DFFMAMYvrfM3lt66"
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: Remi Denis-Courmont <rdenis@simphalempin.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
+	Christoph Lameter <clameter@engr.sgi.com>,
+	Eric Dumazet <dada1@cosmosbay.com>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from refraktori.verkkotelakka.net ([79.171.233.68]:51041 "EHLO
-	refraktori.verkkotelakka.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752030AbYCCLUD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 06:20:03 -0500
+Received: from ns1.suse.de ([195.135.220.2]:45087 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751375AbYCCM27 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 07:28:59 -0500
 Content-Disposition: inline
-In-Reply-To: <04ba29fb2d9e370fd968ee2906a149c1@chewa.net>
+In-Reply-To: <84144f020803030144v17544936ybe222e8f4850dfa2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Mar 03, 2008 at 11:44:07AM +0200, Pekka Enberg wrote:
+> Hi Nick,
+> 
+> On Mon, Mar 3, 2008 at 11:34 AM, Nick Piggin <npiggin@suse.de> wrote:
+> >  SLUB should pack even small objects nicely into cachelines if that is what
+> >  has been asked for. Use the same algorithm as SLAB for this.
+> 
+> The patches look good but this changelog is missing context. Why do we
+> want to do this?
 
---DFFMAMYvrfM3lt66
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+You're right, the changelog should be improved if/when it is merged.
+Actually the context is discussed in another thread just now on lkml
+if you are interested ("alloc_percpu() fails to allocate percpu data").
 
-On Mon, Mar 03, 2008 at 11:19:40AM +0100, Remi Denis-Courmont wrote:
-> On Sun, 2 Mar 2008 23:59:54 +0200, Juha-Matti Tapio
-> <jmtapio@verkkotelakka.net> wrote:
-> >> Then, what you should do is to appropriately configure your policy
-> >> (label) table via the addrlabel subsystem.
-> > That would propably mean doing something like merging labels 1 (::/0),
-> > 2 (6to4) and 6 (Teredo) together? I suppose that could be possible,
-> > since after all there is also the workaround of just getting separate
-> > 6to4 addresses for all the necessary interfaces.
-> Please do NOT do this.
->=20
-> 6to4 and Teredo have separate labels for a reason: 6to4-to-6to4 is
-> reliable, and Teredo-to-Teredo is fairly OK. 6to4-to-native often fails,
-> and Teredo-to-native very often fails due to missing, congested or even
-> mis-configured relays between the native IPv6 bone, and these two
-> transition mechanism.
+> 
+> On Mon, Mar 3, 2008 at 11:34 AM, Nick Piggin <npiggin@suse.de> wrote:
+> >  @@ -1896,12 +1896,15 @@ static unsigned long calculate_alignment
+> >          * specified alignment though. If that is greater
+> >          * then use it.
+> >          */
+> 
+> You might want to fix the above comment too.
 
-I meant merging them locally on the system where there are ORCHID and
-6to4/Teredo addresses but not native global addresses. Merging the
-generic default labels together would clearly break a lot of stuff.
+Yes.
 
-Then again, I feel putting this configuration burden for the local
-sysadmin is a bit too much as this is a complex matter.
-
-> Unfortunately, glibc has the settings
-> _wrong_ (IMHO): while it has the same labels has the kernel, the way glibc
-> does private IPv4 addresses scoping breaks at Rule 2, which bypasses the
-> IPv6 transition mechanism labels at Rule 5. And will also break the ORCHID
-> label when it is added :( That's a different story, but you may want to
-> make that is not where you problems are coming from.
-
-I had not thought originally about glibc-issues, and I should look
-into it a bit. But the kernel update alone was enough to fix my test
-system. Besides, the bug I encountered is with source address
-selection.
-
-I'm not sure there even is a problem with destination address
-selection and ORCHID. It propably is not a good idea to mix
-native and ORCHID addresses in DNS for the same name because this
-would break hosts without any ORCHID support.
-
-
-
---=20
-Tmi Juha-Matti Tapio    Puh/Tel. +358-50-5419230
-Y-tunnus 1911527-0
-
---DFFMAMYvrfM3lt66
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFHy97dRGhQc/k/gTsRAlLwAKCKAi5WMokEgPh02FQ3Tkb9NbtbnQCgnZaE
-X3bZXwlTbWxPyWcPwufDY/A=
-=72uM
------END PGP SIGNATURE-----
-
---DFFMAMYvrfM3lt66--
+> 
+> >  -       if ((flags & SLAB_HWCACHE_ALIGN) &&
+> >  -                       size > cache_line_size() / 2)
+> >  -               return max_t(unsigned long, align, cache_line_size());
+> >  +       if (flags & SLAB_HWCACHE_ALIGN) {
+> >  +               unsigned long ralign = cache_line_size();
+> >  +               while (size <= ralign / 2)
+> >  +                       ralign /= 2;
+> >  +               align = max(align, ralign);
+> >  +       }
