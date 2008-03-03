@@ -1,7 +1,7 @@
 From: Nick Piggin <npiggin@suse.de>
-Subject: [rfc][patch 2/3] slab: introduce SMP alignment
-Date: Mon, 3 Mar 2008 10:35:29 +0100
-Message-ID: <20080303093529.GB15091@wotan.suse.de>
+Subject: [rfc][patch 3/3] use SLAB_ALIGN_SMP
+Date: Mon, 3 Mar 2008 10:36:24 +0100
+Message-ID: <20080303093624.GC15091@wotan.suse.de>
 References: <20080303093449.GA15091@wotan.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -10,76 +10,88 @@ To: netdev@vger.kernel.org,
 	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
 	Christoph Lameter <clameter@engr.sg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:46013 "EHLO mx2.suse.de"
+Received: from ns.suse.de ([195.135.220.2]:50137 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752161AbYCCJfb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2008 04:35:31 -0500
+	id S1752918AbYCCJgZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 04:36:25 -0500
 Content-Disposition: inline
 In-Reply-To: <20080303093449.GA15091@wotan.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Introduce SLAB_SMP_ALIGN, for allocations where false sharing must be
-minimised on SMP systems.
+Use SLAB_SMP_ALIGN in a few places.
 
 Signed-off-by: Nick Piggin <npiggin@suse.de>
 ---
-Index: linux-2.6/include/linux/slab.h
+Index: linux-2.6/fs/block_dev.c
 ===================================================================
---- linux-2.6.orig/include/linux/slab.h
-+++ linux-2.6/include/linux/slab.h
-@@ -22,7 +22,8 @@
- #define SLAB_RED_ZONE		0x00000400UL	/* DEBUG: Red zone objs in a cache */
- #define SLAB_POISON		0x00000800UL	/* DEBUG: Poison objects */
- #define SLAB_HWCACHE_ALIGN	0x00002000UL	/* Align objs on cache lines */
--#define SLAB_CACHE_DMA		0x00004000UL	/* Use GFP_DMA memory */
-+#define SLAB_SMP_ALIGN		0x00004000UL	/* Align on cachelines for SMP*/
-+#define SLAB_CACHE_DMA		0x00008000UL	/* Use GFP_DMA memory */
- #define SLAB_STORE_USER		0x00010000UL	/* DEBUG: Store the last owner for bug hunting */
- #define SLAB_PANIC		0x00040000UL	/* Panic if kmem_cache_create() fails */
- #define SLAB_DESTROY_BY_RCU	0x00080000UL	/* Defer freeing slabs to RCU */
-Index: linux-2.6/mm/slab.c
+--- linux-2.6.orig/fs/block_dev.c
++++ linux-2.6/fs/block_dev.c
+@@ -332,8 +332,8 @@ void __init bdev_cache_init(void)
+ {
+ 	int err;
+ 	bdev_cachep = kmem_cache_create("bdev_cache", sizeof(struct bdev_inode),
+-			0, (SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
+-				SLAB_MEM_SPREAD|SLAB_PANIC),
++			0, (SLAB_HWCACHE_ALIGN|SLAB_SMP_ALIGN|
++			SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD|SLAB_PANIC),
+ 			init_once);
+ 	err = register_filesystem(&bd_type);
+ 	if (err)
+Index: linux-2.6/kernel/fork.c
 ===================================================================
---- linux-2.6.orig/mm/slab.c
-+++ linux-2.6/mm/slab.c
-@@ -174,13 +174,13 @@
- /* Legal flag mask for kmem_cache_create(). */
- #if DEBUG
- # define CREATE_MASK	(SLAB_RED_ZONE | \
--			 SLAB_POISON | SLAB_HWCACHE_ALIGN | \
-+			 SLAB_POISON | SLAB_HWCACHE_ALIGN | SLAB_SMP_ALIGN | \
- 			 SLAB_CACHE_DMA | \
- 			 SLAB_STORE_USER | \
- 			 SLAB_RECLAIM_ACCOUNT | SLAB_PANIC | \
- 			 SLAB_DESTROY_BY_RCU | SLAB_MEM_SPREAD)
- #else
--# define CREATE_MASK	(SLAB_HWCACHE_ALIGN | \
-+# define CREATE_MASK	(SLAB_HWCACHE_ALIGN | SLAB_SMP_ALIGN | \
- 			 SLAB_CACHE_DMA | \
- 			 SLAB_RECLAIM_ACCOUNT | SLAB_PANIC | \
- 			 SLAB_DESTROY_BY_RCU | SLAB_MEM_SPREAD)
-@@ -2245,6 +2245,9 @@ kmem_cache_create (const char *name, siz
- 		ralign = BYTES_PER_WORD;
- 	}
+--- linux-2.6.orig/kernel/fork.c
++++ linux-2.6/kernel/fork.c
+@@ -1547,23 +1547,23 @@ void __init proc_caches_init(void)
+ {
+ 	sighand_cachep = kmem_cache_create("sighand_cache",
+ 			sizeof(struct sighand_struct), 0,
+-			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_DESTROY_BY_RCU,
++			SLAB_HWCACHE_ALIGN|SLAB_SMP_ALIGN|SLAB_PANIC|SLAB_DESTROY_BY_RCU,
+ 			sighand_ctor);
+ 	signal_cachep = kmem_cache_create("signal_cache",
+ 			sizeof(struct signal_struct), 0,
+-			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
++			SLAB_HWCACHE_ALIGN|SLAB_SMP_ALIGN|SLAB_PANIC, NULL);
+ 	files_cachep = kmem_cache_create("files_cache",
+ 			sizeof(struct files_struct), 0,
+-			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
++			SLAB_HWCACHE_ALIGN|SLAB_SMP_ALIGN|SLAB_PANIC, NULL);
+ 	fs_cachep = kmem_cache_create("fs_cache",
+ 			sizeof(struct fs_struct), 0,
+-			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
++			SLAB_HWCACHE_ALIGN|SLAB_SMP_ALIGN|SLAB_PANIC, NULL);
+ 	vm_area_cachep = kmem_cache_create("vm_area_struct",
+ 			sizeof(struct vm_area_struct), 0,
+ 			SLAB_PANIC, NULL);
+ 	mm_cachep = kmem_cache_create("mm_struct",
+ 			sizeof(struct mm_struct), ARCH_MIN_MMSTRUCT_ALIGN,
+-			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
++			SLAB_HWCACHE_ALIGN|SLAB_SMP_ALIGN|SLAB_PANIC, NULL);
+ }
  
-+	if ((flags & SLAB_SMP_ALIGN) && num_possible_cpus() > 1)
-+		ralign = max_t(unsigned long, ralign, cache_line_size());
-+
- 	/*
- 	 * Redzoning and user store require word alignment or possibly larger.
- 	 * Note this will be overridden by architecture or caller mandated
-Index: linux-2.6/mm/slub.c
+ /*
+Index: linux-2.6/kernel/pid.c
 ===================================================================
---- linux-2.6.orig/mm/slub.c
-+++ linux-2.6/mm/slub.c
-@@ -1903,6 +1903,9 @@ static unsigned long calculate_alignment
- 		align = max(align, ralign);
- 	}
+--- linux-2.6.orig/kernel/pid.c
++++ linux-2.6/kernel/pid.c
+@@ -526,5 +526,5 @@ void __init pidmap_init(void)
+ 	atomic_dec(&init_pid_ns.pidmap[0].nr_free);
  
-+	if ((flags & SLAB_SMP_ALIGN) && num_possible_cpus() > 1)
-+		align = max_t(unsigned long, align, cache_line_size());
-+
- 	if (align < ARCH_SLAB_MINALIGN)
- 		align = ARCH_SLAB_MINALIGN;
+ 	init_pid_ns.pid_cachep = KMEM_CACHE(pid,
+-			SLAB_HWCACHE_ALIGN | SLAB_PANIC);
++			SLAB_HWCACHE_ALIGN | SLAB_SMP_ALIGN | SLAB_PANIC);
+ }
+Index: linux-2.6/kernel/user.c
+===================================================================
+--- linux-2.6.orig/kernel/user.c
++++ linux-2.6/kernel/user.c
+@@ -503,7 +503,7 @@ static int __init uid_cache_init(void)
+ 	int n;
  
+ 	uid_cachep = kmem_cache_create("uid_cache", sizeof(struct user_struct),
+-			0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
++			0, SLAB_HWCACHE_ALIGN|SLAB_SMP_ALIGN|SLAB_PANIC, NULL);
+ 
+ 	for(n = 0; n < UIDHASH_SZ; ++n)
+ 		INIT_HLIST_HEAD(init_user_ns.uidhash_table + n);
