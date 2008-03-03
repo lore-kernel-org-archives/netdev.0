@@ -1,44 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] New driver "sfc" for Solarstorm SFC4000 controller
- (try #7)
-Date: Mon, 03 Mar 2008 13:29:41 -0800 (PST)
-Message-ID: <20080303.132941.176565936.davem@davemloft.net>
-References: <1204572175.16248.5.camel@localhost.localdomain>
-	<20080303123937.2d72d7e8@extreme>
-	<20080303211743.GG2988@solarflare.com>
+From: "Pekka Enberg" <penberg@cs.helsinki.fi>
+Subject: Re: [rfc][patch 1/3] slub: fix small HWCACHE_ALIGN alignment
+Date: Mon, 3 Mar 2008 23:30:56 +0200
+Message-ID: <84144f020803031330i2c0ea1f6kc5b02c8b26145797@mail.gmail.com>
+References: <20080303093449.GA15091@wotan.suse.de>
+	 <Pine.LNX.4.64.0803031107130.6917@schroedinger.engr.sgi.com>
+	 <20080303200613.GC8974@wotan.suse.de>
+	 <Pine.LNX.4.64.0803031209570.16049@schroedinger.engr.sgi.com>
+	 <20080303201701.GF8974@wotan.suse.de>
+	 <Pine.LNX.4.64.0803031315160.4131@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, dcbw@redhat.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: "Nick Piggin" <npiggin@suse.de>, netdev@vger.kernel.org,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	yanmin_zhang@linux.intel.com, "David Miller" <davem@davemloft.net>,
+	"Eric Dumazet" <dada1@cosmosbay.com>
+To: "Christoph Lameter" <clameter@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32999
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751151AbYCCV35 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 16:29:57 -0500
-In-Reply-To: <20080303211743.GG2988@solarflare.com>
+Received: from wr-out-0506.google.com ([64.233.184.233]:38351 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756334AbYCCVbB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 16:31:01 -0500
+Received: by wr-out-0506.google.com with SMTP id c49so441988wra.21
+        for <netdev@vger.kernel.org>; Mon, 03 Mar 2008 13:30:59 -0800 (PST)
+In-Reply-To: <Pine.LNX.4.64.0803031315160.4131@schroedinger.engr.sgi.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 3 Mar 2008 21:17:44 +0000
+Hi,
 
-> It's not a simple device.  There are callbacks into MAC-, PHY- and
-> board-specific code because this code supports several of each.  I
-> spent some weeks ruthlessly paring away unnecessary abstraction and
-> cruft, and I don't believe there is a significant amount left.
+On Mon, 3 Mar 2008, Nick Piggin wrote:
+> > > HWCACHE_ALIGN means that you want the object to be aligned at
+> > > cacheline boundaries for optimization. Why does crossing cacheline
+> > > boundaries matter in this case?
+> >
+> > No, HWCACHE_ALIGN means that you want the object not to cross cacheline
+> > boundaries for at least cache_line_size() bytes. You invented new
 
-That is your opinion.
+On Mon, Mar 3, 2008 at 11:16 PM, Christoph Lameter <clameter@sgi.com> wrote:
+>  Interesting new definition....
 
-We have drivers that handle 30 or so variants of a particular
-ethernet chipset and they are not nearly so huge as this
-driver, and some of those cases don't have firmware either.
+Well, not my definition either but SLAB has guaranteed that for small
+objects in the past, so I think Nick has a point here. However, with
+all this back and forth, I've lost track why this matters. I suppose
+it causes regression on some workload?
 
-The driver needs to be reviewed on at least some level, but nobody is
-going to walk through a 700K driver.  And I do mean nobody.
-
-You have to find a way to trim this driver down and make it
-more reviewable.
-
-If I can write a full 10Gbit driver in ~11,000 lines of code
-(~200,000 bytes), so can anyone else.
+                                Pekka
