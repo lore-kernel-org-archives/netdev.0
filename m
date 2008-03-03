@@ -1,27 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4 net-2.6.26] [TCP]: Merge exit paths in
- tcp_v4_conn_request.
-Date: Mon, 03 Mar 2008 11:59:41 -0800 (PST)
-Message-ID: <20080303.115941.40211199.davem@davemloft.net>
-References: <1204559323-19953-1-git-send-email-den@openvz.org>
-	<1204559323-19953-4-git-send-email-den@openvz.org>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: network namespace ipv6 perfs
+Date: Mon, 03 Mar 2008 21:01:18 +0100
+Message-ID: <47CC590E.5070907@fr.ibm.com>
+References: <47CC0920.6000005@fr.ibm.com> <47CC53C9.1000400@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: den@openvz.org
+Cc: Linux Containers <containers@lists.osdl.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Benjamin Thery <benjamin.thery@bull.net>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45662
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753214AbYCCT75 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 14:59:57 -0500
-In-Reply-To: <1204559323-19953-4-git-send-email-den@openvz.org>
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:52754 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753681AbYCCUDq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 15:03:46 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate6.de.ibm.com (8.13.8/8.13.8) with ESMTP id m23K3juN252642
+	for <netdev@vger.kernel.org>; Mon, 3 Mar 2008 20:03:45 GMT
+Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m23K3i7t1134658
+	for <netdev@vger.kernel.org>; Mon, 3 Mar 2008 21:03:44 +0100
+Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m23K3ieT009784
+	for <netdev@vger.kernel.org>; Mon, 3 Mar 2008 20:03:44 GMT
+In-Reply-To: <47CC53C9.1000400@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Mon,  3 Mar 2008 18:48:43 +0300
+Rick Jones wrote:
+> Daniel Lezcano wrote:
+>> Hi,
+>>
+>> Some performance tests was made by Benjamin to watch out the impact of 
+>> the network namespace. The good news is there is no impact when used 
+>> with or without namespaces. That has been checked using a real network 
+>> device inside a network namespace.
+> 
+> The *_RR tests seem to show a drop in througput and corresponding 
+> increases in service demand - could that be because things like TSO et 
+> al cannot mask much of anything in the way of a path-length increase?
 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
+Hmm. In fact Benjamin took the 2.6.23.16 kernel where there were no 
+network namespace code at all. So these differences between 2.6.23.16 
+and 2.6.25-rc1 does not show a performance degradation especially 
+related to the network namespaces. The important point is the 2.6.25-rc1 
+without ipv6 netns and 2.6.25-rc1 with ipv6 netns code applied, I mean 
+the second and the third line and we can point that the ipv6 netns code 
+does not degrade performances for either throughput and service demand.
 
-Applied, thanks.
+>  From the annotations, I'm ass-u-me-ing that NS was only used on the 
+> netperf side and not both netperf and netserver side?
+
+right :)
+
+> happy benchmarking,
+
+Thanks Rick.
+
+   -- Daniel
