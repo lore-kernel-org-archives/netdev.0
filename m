@@ -1,74 +1,42 @@
-From: "Benjamin Thery" <ben.thery@gmail.com>
-Subject: Re: [Devel] Re: network namespace ipv6 perfs
-Date: Mon, 3 Mar 2008 16:04:47 +0100
-Message-ID: <939d53060803030704g5d693c19i34061f1a896d91cd@mail.gmail.com>
-References: <47CC0920.6000005@fr.ibm.com> <47CC0E3B.1040809@bull.net>
-	 <47CC114F.8050104@openvz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Benjamin Thery" <benjamin.thery@bull.net>,
-	"Daniel Lezcano" <dlezcano@fr.ibm.com>,
-	"Linux Containers" <containers@lists.osdl.org>,
-	"Linux Netdev List" <netdev@vger.kernel.org>,
-	"Denis Lunev" <den@openvz.org>
-To: "Pavel Emelyanov" <xemul@openvz.org>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 1/4 net-2.6.26] [IPV4]: skb->dst can't be NULL in ip_options_echo.
+Date: Mon,  3 Mar 2008 18:48:40 +0300
+Message-ID: <1204559323-19953-1-git-send-email-den@openvz.org>
+Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from po-out-1718.google.com ([72.14.252.152]:9047 "EHLO
-	po-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753667AbYCCPEu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 10:04:50 -0500
-Received: by po-out-1718.google.com with SMTP id b23so8483382poe.1
-        for <netdev@vger.kernel.org>; Mon, 03 Mar 2008 07:04:47 -0800 (PST)
-In-Reply-To: <47CC114F.8050104@openvz.org>
-Content-Disposition: inline
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:58048 "EHLO iris.sw.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755803AbYCCPsh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 10:48:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 3, 2008 at 3:55 PM, Pavel Emelyanov <xemul@openvz.org> wrote:
-> Benjamin Thery wrote:
->  > Daniel Lezcano wrote:
->  >> Hi,
->  >>
->  >> Some performance tests was made by Benjamin to watch out the impact of
->  >> the network namespace. The good news is there is no impact when used
->  >> with or without namespaces. That has been checked using a real network
->  >> device inside a network namespace.
->  >>
->  >> These results are consistent with the ones previously made for ipv4.
->  >>
->  >> http://lxc.sourceforge.net/network/bench_ipv6_graph.php
->  >>
->  >> Thanks to Benjamin who did all the performance tests :)
->  >
->  > In these results, may be, there is one thing that should be explained.
->  > It is the CPU utilization overhead in the 'veth' case.
->  >
->  > Compared to physical devices or macvlan, veth interfaces don't benefit
->  > from hardware offloading mechanisms: i.e. checksums have to be computed
->  > by the soft. That explains the big overhead in CPU utilization when
->
->  You can tune the veth devices not to account checksum when unnecessary.
+ip_options_echo is called on the packet input path after the initial
+routing. The dst entry on the packet is cleared only in the several
+very specific places and immidiately assigned back (may be new).
 
-Oh. This is interesting.
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ net/ipv4/ip_options.c |    5 +----
+ 1 files changed, 1 insertions(+), 4 deletions(-)
 
-You mean with ethtool -K rx/tx?
-I will give it a try.
+diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+index 4d31515..baaedd9 100644
+--- a/net/ipv4/ip_options.c
++++ b/net/ipv4/ip_options.c
+@@ -107,10 +107,7 @@ int ip_options_echo(struct ip_options * dopt, struct sk_buff * skb)
+ 	sptr = skb_network_header(skb);
+ 	dptr = dopt->__data;
+ 
+-	if (skb->dst)
+-		daddr = ((struct rtable*)skb->dst)->rt_spec_dst;
+-	else
+-		daddr = ip_hdr(skb)->daddr;
++	daddr = ((struct rtable*)skb->dst)->rt_spec_dst;
+ 
+ 	if (sopt->rr) {
+ 		optlen  = sptr[sopt->rr+1];
+-- 
+1.5.3.rc5
 
-Benjamin
-
->
->
->  > using this kind of virtual interface.
->  >
->  > Benjamin
->  >
->  >> Regards
->  >>     -- Daniel
->  >>
-
->--
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
->  the body of a message to majordomo@vger.kernel.org
->  More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
