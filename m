@@ -1,29 +1,39 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [rfc][patch 3/3] use SLAB_ALIGN_SMP
-Date: Mon, 3 Mar 2008 12:12:15 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0803031211100.16049@schroedinger.engr.sgi.com>
-References: <20080303093449.GA15091@wotan.suse.de> <20080303093624.GC15091@wotan.suse.de>
- <47CBCAB0.2040604@cosmosbay.com> <20080303124142.GB13138@wotan.suse.de>
- <47CBF683.10201@cosmosbay.com> <20080303134622.GD13138@wotan.suse.de>
- <84144f020803030553s35a40dd8yf88585ccd5a599fd@mail.gmail.com>
- <Pine.LNX.4.64.0803031109200.6917@schroedinger.engr.sgi.com>
- <20080303201008.GD8974@wotan.suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 1/1] iucv: fix build error on !SMP
+Date: Mon, 03 Mar 2008 12:13:30 -0800 (PST)
+Message-ID: <20080303.121330.28236620.davem@davemloft.net>
+References: <20080303131610.405835000@linux.vnet.ibm.com>
+	<20080303131924.416374000@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
-	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>
-To: Nick Piggin <npiggin@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758348AbYCCUMu@vger.kernel.org>
-In-Reply-To: <20080303201008.GD8974@wotan.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	heiko.carstens@de.ibm.com, jeffpc@josefsipek.net
+To: braunu@de.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36157
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754241AbYCCUNq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 15:13:46 -0500
+In-Reply-To: <20080303131924.416374000@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 3 Mar 2008, Nick Piggin wrote:
+From: Ursula Braun <braunu@de.ibm.com>
+Date: Mon, 03 Mar 2008 14:16:11 +0100
 
-> Yeah, that's what I thought too, when I got confused by these new
-> SLUB semantics that you made up. Actually if you look at SLAB,
-> it has very precise and rational semantics. SLUB should respect that.
+> Since a5fbb6d1064be885d2a6b82f625186753cf74848
+> "KVM: fix !SMP build error" smp_call_function isn't a define anymore
+> that folds into nothing but a define that calls up_smp_call_function
+> with all parameters. Hence we cannot #ifdef out the unused code
+> anymore...
+> This seems to be the preferred method, so do this for s390 as well.
+> 
+> net/iucv/iucv.c: In function 'iucv_cleanup_queue':
+> net/iucv/iucv.c:657: error: '__iucv_cleanup_queue' undeclared
+> 
+> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+> Signed-off-by: Josef 'Jeff' Sipek <jeffpc@josefsipek.net>
+> Signed-off-by: Ursula Braun <braunu@de.ibm.com>
 
-These crappy semantics are SLAB semantics that SLUB must support.
+Applied, thanks.
