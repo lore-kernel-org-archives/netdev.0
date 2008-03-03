@@ -1,249 +1,115 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: [PATCH net-2.6.26] [AF_KEY]: Dump SA/SP entries non-atomically
-Date: Mon, 03 Mar 2008 10:06:16 +0200
-Message-ID: <47CBB178.2020809@iki.fi>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH][PPPOL2TP]: Fix SMP oops in pppol2tp driver
+Date: Mon, 3 Mar 2008 08:22:04 +0000
+Message-ID: <20080303082204.GA4066@ff.dom.local>
+References: <20080226200033.GA6550@ami.dom.local> <47CB0E46.9000806@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:55372 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751848AbYCCIDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 03:03:54 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so5258113fga.17
-        for <netdev@vger.kernel.org>; Mon, 03 Mar 2008 00:03:52 -0800 (PST)
+Received: from nf-out-0910.google.com ([64.233.182.185]:23569 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750735AbYCCIUy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 03:20:54 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so3290842nfb.21
+        for <netdev@vger.kernel.org>; Mon, 03 Mar 2008 00:20:53 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <47CB0E46.9000806@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stop dumping of entries when af_key socket receive queue is getting full
-and continue it later when there is more room again.
+On Sun, Mar 02, 2008 at 08:29:58PM +0000, James Chapman wrote:
+> Jarek Poplawski wrote:
+>> James Chapman wrote, On 02/26/2008 01:14 PM:
+...
+>
+> I tried your patch but the result is the same.
+>
+>>
+>> Jarek P.
+>> ---
+>>
+>>  drivers/net/pppol2tp.c |   16 ++++++++--------
+>>  1 files changed, 8 insertions(+), 8 deletions(-)
+>>
+>> diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
+>> index e0b072d..7c6fcb9 100644
+>> --- a/drivers/net/pppol2tp.c
+>> +++ b/drivers/net/pppol2tp.c
+>> @@ -363,18 +363,17 @@ out:
+>>  	spin_unlock(&session->reorder_q.lock);
+>>  }
+>>  -/* Dequeue a single skb.
+>> +/* Requeue a single skb.
+>>   */
+>> -static void pppol2tp_recv_dequeue_skb(struct pppol2tp_session *session, struct sk_buff *skb)
+>> +static void pppol2tp_recv_requeue_skb(struct pppol2tp_session *session, struct sk_buff *skb)
+>>  {
+>>  	struct pppol2tp_tunnel *tunnel = session->tunnel;
+>>  	int length = PPPOL2TP_SKB_CB(skb)->length;
+>>  	struct sock *session_sock = NULL;
+>>  -	/* We're about to requeue the skb, so unlink it and return resources
+>> +	/* We're about to requeue the skb, so return resources
+>>  	 * to its current owner (a socket receive buffer).
+>>  	 */
+>> -	skb_unlink(skb, &session->reorder_q);
+>>  	skb_orphan(skb);
+>>   	tunnel->stats.rx_packets++;
+>> @@ -436,14 +435,14 @@ static void pppol2tp_recv_dequeue_skb(struct pppol2tp_session *session, struct s
+>>  static void pppol2tp_recv_dequeue(struct pppol2tp_session *session)
+>>  {
+>>  	struct sk_buff *skb;
+>> -	struct sk_buff *tmp;
+>>   	/* If the pkt at the head of the queue has the nr that we
+>>  	 * expect to send up next, dequeue it and any other
+>>  	 * in-sequence packets behind it.
+>>  	 */
+>> +again:
+>>  	spin_lock(&session->reorder_q.lock);
+>> -	skb_queue_walk_safe(&session->reorder_q, skb, tmp) {
+>> +	skb_queue_walk(&session->reorder_q, skb) {
+>
+> I think this needs the _safe() call because the list may be modified in  
+> the loop body.
 
-This fixes dumping of large databases. Currently the entries not fitting
-into the receive queue are just dropped (including the end-of-dump
-message) which can confuse applications.
+And you are very right.
 
-Signed-off-by: Timo Teras <timo.teras@iki.fi>
----
+>
+>>  		if (time_after(jiffies, PPPOL2TP_SKB_CB(skb)->expires)) {
+>>  			session->stats.rx_seq_discards++;
+>>  			session->stats.rx_errors++;
+>> @@ -469,9 +468,10 @@ static void pppol2tp_recv_dequeue(struct pppol2tp_session *session)
+>>  				goto out;
+>>  			}
+>>  		}
+>> +		__skb_unlink(skb, &session->reorder_q);
+>>  		spin_unlock(&session->reorder_q.lock);
+>> -		pppol2tp_recv_dequeue_skb(session, skb);
+>> -		spin_lock(&session->reorder_q.lock);
+>> +		pppol2tp_recv_requeue_skb(session, skb);
+>> +		goto again;
+>
+> I'd prefer to take the spinlock again after the recv_dequeue_skb() call  
+> to avoid the goto.
 
- net/key/af_key.c |  120 +++++++++++++++++++++++++++++++++++++++++-------------
- 1 files changed, 91 insertions(+), 29 deletions(-)
+IMHO we have to do something like goto here because during the unlock
+there could be everything changed (including tmp) in this list, but
+maybe I miss something.
 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 7cb6f12..50c442f 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -48,6 +48,17 @@ struct pfkey_sock {
- 	struct sock	sk;
- 	int		registered;
- 	int		promisc;
-+
-+	struct {
-+		uint8_t		msg_version;
-+		uint32_t	msg_pid;
-+		int		(*dump)(struct pfkey_sock *sk);
-+		void		(*done)(struct pfkey_sock *sk);
-+		union {
-+			struct xfrm_policy_walk	policy;
-+			struct xfrm_state_walk	state;
-+		} u;
-+	} dump;
- };
- 
- static inline struct pfkey_sock *pfkey_sk(struct sock *sk)
-@@ -55,6 +66,27 @@ static inline struct pfkey_sock *pfkey_sk(struct sock *sk)
- 	return (struct pfkey_sock *)sk;
- }
- 
-+static int pfkey_can_dump(struct sock *sk)
-+{
-+	if (3 * atomic_read(&sk->sk_rmem_alloc) <= 2 * sk->sk_rcvbuf)
-+		return 1;
-+	return 0;
-+}
-+
-+static int pfkey_do_dump(struct pfkey_sock *pfk)
-+{
-+	int rc;
-+
-+	rc = pfk->dump.dump(pfk);
-+	if (rc == -ENOBUFS)
-+		return 0;
-+
-+	pfk->dump.done(pfk);
-+	pfk->dump.dump = NULL;
-+	pfk->dump.done = NULL;
-+	return rc;
-+}
-+
- static void pfkey_sock_destruct(struct sock *sk)
- {
- 	skb_queue_purge(&sk->sk_receive_queue);
-@@ -1709,51 +1741,60 @@ static int pfkey_flush(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hd
- 	return 0;
- }
- 
--struct pfkey_dump_data
--{
--	struct sk_buff *skb;
--	struct sadb_msg *hdr;
--	struct sock *sk;
--};
--
- static int dump_sa(struct xfrm_state *x, int count, void *ptr)
- {
--	struct pfkey_dump_data *data = ptr;
-+	struct pfkey_sock *pfk = ptr;
- 	struct sk_buff *out_skb;
- 	struct sadb_msg *out_hdr;
- 
-+	if (!pfkey_can_dump(&pfk->sk))
-+		return -ENOBUFS;
-+
- 	out_skb = pfkey_xfrm_state2msg(x);
- 	if (IS_ERR(out_skb))
- 		return PTR_ERR(out_skb);
- 
- 	out_hdr = (struct sadb_msg *) out_skb->data;
--	out_hdr->sadb_msg_version = data->hdr->sadb_msg_version;
-+	out_hdr->sadb_msg_version = pfk->dump.msg_version;
- 	out_hdr->sadb_msg_type = SADB_DUMP;
- 	out_hdr->sadb_msg_satype = pfkey_proto2satype(x->id.proto);
- 	out_hdr->sadb_msg_errno = 0;
- 	out_hdr->sadb_msg_reserved = 0;
- 	out_hdr->sadb_msg_seq = count;
--	out_hdr->sadb_msg_pid = data->hdr->sadb_msg_pid;
--	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_ONE, data->sk);
-+	out_hdr->sadb_msg_pid = pfk->dump.msg_pid;
-+	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_ONE, &pfk->sk);
- 	return 0;
- }
- 
-+static int pfkey_dump_sa(struct pfkey_sock *pfk)
-+{
-+	return xfrm_state_walk(&pfk->dump.u.state, dump_sa, (void *) pfk);
-+}
-+
-+static void pfkey_dump_sa_done(struct pfkey_sock *pfk)
-+{
-+	xfrm_state_walk_done(&pfk->dump.u.state);
-+}
-+
- static int pfkey_dump(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
- {
- 	u8 proto;
--	struct pfkey_dump_data data = { .skb = skb, .hdr = hdr, .sk = sk };
--	struct xfrm_state_walk walk;
--	int rc;
-+	struct pfkey_sock *pfk = pfkey_sk(sk);
-+
-+	if (pfk->dump.dump != NULL)
-+		return -EBUSY;
- 
- 	proto = pfkey_satype2proto(hdr->sadb_msg_satype);
- 	if (proto == 0)
- 		return -EINVAL;
- 
--	xfrm_state_walk_init(&walk, proto);
--	rc = xfrm_state_walk(&walk, dump_sa, &data);
--	xfrm_state_walk_done(&walk);
-+	pfk->dump.msg_version = hdr->sadb_msg_version;
-+	pfk->dump.msg_pid = hdr->sadb_msg_pid;
-+	pfk->dump.dump = pfkey_dump_sa;
-+	pfk->dump.done = pfkey_dump_sa_done;
-+	xfrm_state_walk_init(&pfk->dump.u.state, proto);
- 
--	return rc;
-+	return pfkey_do_dump(pfk);
- }
- 
- static int pfkey_promisc(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
-@@ -2648,11 +2689,14 @@ out:
- 
- static int dump_sp(struct xfrm_policy *xp, int dir, int count, void *ptr)
- {
--	struct pfkey_dump_data *data = ptr;
-+	struct pfkey_sock *pfk = ptr;
- 	struct sk_buff *out_skb;
- 	struct sadb_msg *out_hdr;
- 	int err;
- 
-+	if (!pfkey_can_dump(&pfk->sk))
-+		return -ENOBUFS;
-+
- 	out_skb = pfkey_xfrm_policy2msg_prep(xp);
- 	if (IS_ERR(out_skb))
- 		return PTR_ERR(out_skb);
-@@ -2662,27 +2706,40 @@ static int dump_sp(struct xfrm_policy *xp, int dir, int count, void *ptr)
- 		return err;
- 
- 	out_hdr = (struct sadb_msg *) out_skb->data;
--	out_hdr->sadb_msg_version = data->hdr->sadb_msg_version;
-+	out_hdr->sadb_msg_version = pfk->dump.msg_version;
- 	out_hdr->sadb_msg_type = SADB_X_SPDDUMP;
- 	out_hdr->sadb_msg_satype = SADB_SATYPE_UNSPEC;
- 	out_hdr->sadb_msg_errno = 0;
- 	out_hdr->sadb_msg_seq = count;
--	out_hdr->sadb_msg_pid = data->hdr->sadb_msg_pid;
--	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_ONE, data->sk);
-+	out_hdr->sadb_msg_pid = pfk->dump.msg_pid;
-+	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_ONE, &pfk->sk);
- 	return 0;
- }
- 
-+static int pfkey_dump_sp(struct pfkey_sock *pfk)
-+{
-+	return xfrm_policy_walk(&pfk->dump.u.policy, dump_sp, (void *) pfk);
-+}
-+
-+static void pfkey_dump_sp_done(struct pfkey_sock *pfk)
-+{
-+	xfrm_policy_walk_done(&pfk->dump.u.policy);
-+}
-+
- static int pfkey_spddump(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
- {
--	struct pfkey_dump_data data = { .skb = skb, .hdr = hdr, .sk = sk };
--	struct xfrm_policy_walk walk;
--	int rc;
-+	struct pfkey_sock *pfk = pfkey_sk(sk);
- 
--	xfrm_policy_walk_init(&walk, XFRM_POLICY_TYPE_MAIN);
--	rc = xfrm_policy_walk(&walk, dump_sp, &data);
--	xfrm_policy_walk_done(&walk);
-+	if (pfk->dump.dump != NULL)
-+		return -EBUSY;
- 
--	return rc;
-+	pfk->dump.msg_version = hdr->sadb_msg_version;
-+	pfk->dump.msg_pid = hdr->sadb_msg_pid;
-+	pfk->dump.dump = pfkey_dump_sp;
-+	pfk->dump.done = pfkey_dump_sp_done;
-+	xfrm_policy_walk_init(&pfk->dump.u.policy, XFRM_POLICY_TYPE_MAIN);
-+
-+	return pfkey_do_dump(pfk);
- }
- 
- static int key_notify_policy_flush(struct km_event *c)
-@@ -3687,6 +3744,7 @@ static int pfkey_recvmsg(struct kiocb *kiocb,
- 			 int flags)
- {
- 	struct sock *sk = sock->sk;
-+	struct pfkey_sock *pfk = pfkey_sk(sk);
- 	struct sk_buff *skb;
- 	int copied, err;
- 
-@@ -3714,6 +3772,10 @@ static int pfkey_recvmsg(struct kiocb *kiocb,
- 
- 	err = (flags & MSG_TRUNC) ? skb->len : copied;
- 
-+	if (pfk->dump.dump != NULL &&
-+	    3 * atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf)
-+		pfkey_do_dump(pfk);
-+
- out_free:
- 	skb_free_datagram(sk, skb);
- out:
--- 
-1.5.2.5
+Anyway, this place seems to need more locking, e.g.: session->nr++ or
+some other session accesses in pppol2tp_recv_dequeue_skb() are done
+without locking. Maybe it would be interesting to try (in a test only)
+with calling this with reorder_q.lock held (so without unlocking
+inside this pppol2tp_recv_dequeue's loop at all: at least to see
+possible lockdep report. I can't see how this irq disabling could
+help for anything but some recursion during those misterious lockups.
 
+BTW, since this bug is so hard to trigger, and it can take some time
+yet, I think it would be better to merge to David's 2.6.26 tree at
+least some parts of your "bh" patch and maybe other changes, which
+don't seem to make it worse at least, to try new things on some common
+base?
+
+Regards,
+Jarek P.
