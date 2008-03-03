@@ -1,85 +1,94 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 4/4] Intel ethernet adapter: Update MAINTAINERS
-Date: Mon, 03 Mar 2008 14:37:47 -0800
-Message-ID: <20080303223747.16344.11861.stgit@localhost.localdomain>
-References: <20080303223731.16344.94975.stgit@localhost.localdomain>
+Subject: [PATCH 1/4] e100: Do suspend/shutdown like e1000
+Date: Mon, 03 Mar 2008 14:37:31 -0800
+Message-ID: <20080303223731.16344.94975.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:44045 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:30893 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751520AbYCCWhr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2008 17:37:47 -0500
-In-Reply-To: <20080303223731.16344.94975.stgit@localhost.localdomain>
+	id S1752179AbYCCWma (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 17:42:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Another team member unfortunately left: update MAINTAINERS.
-
-Condense the 3 lists down to a single list for all our drivers.
-
-Point to our new sourceforge index page which is slightly
-better navigateable than the sf.net project page.
+This fixes a "trying to free already free IRQ" message and simplifies
+the shutdown/suspend code by re-using already existing code when going
+to suspend. The code is now symmetric with e100_resume.
 
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- MAINTAINERS |   32 ++++----------------------------
- 1 files changed, 4 insertions(+), 28 deletions(-)
+ drivers/net/e100.c |   29 +++--------------------------
+ 1 files changed, 3 insertions(+), 26 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 2333255..a945724 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2033,43 +2033,19 @@ M:	kernel@wantstofly.org
- L:	netdev@vger.kernel.org
- S:	Maintained
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index 36ba6dc..cdf3090 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -2782,16 +2782,13 @@ static void __devexit e100_remove(struct pci_dev *pdev)
+ 	}
+ }
  
--INTEL PRO/100 ETHERNET SUPPORT
-+INTEL ETHERNET DRIVERS (e100/e1000/e1000e/igb/ixgb/ixgbe)
- P:	Auke Kok
- M:	auke-jan.h.kok@intel.com
- P:	Jesse Brandeburg
- M:	jesse.brandeburg@intel.com
- P:	Jeff Kirsher
- M:	jeffrey.t.kirsher@intel.com
-+P:	Bruce Allan
-+M:	bruce.w.allan@intel.com
- P:	John Ronciak
- M:	john.ronciak@intel.com
- L:	e1000-devel@lists.sourceforge.net
--W:	http://sourceforge.net/projects/e1000/
--S:	Supported
--
--INTEL PRO/1000 GIGABIT ETHERNET SUPPORT
--P:	Auke Kok
--M:	auke-jan.h.kok@intel.com
--P:	Jesse Brandeburg
--M:	jesse.brandeburg@intel.com
--P:	Jeff Kirsher
--M:	jeffrey.t.kirsher@intel.com
--P:	John Ronciak
--M:	john.ronciak@intel.com
--L:	e1000-devel@lists.sourceforge.net
--W:	http://sourceforge.net/projects/e1000/
--S:	Supported
--
--INTEL PRO/10GbE SUPPORT
--P:	Ayyappan Veeraiyan
--M:	ayyappan.veeraiyan@intel.com
--P:	Auke Kok
--M:	auke-jan.h.kok@intel.com
--P:	Jesse Brandeburg
--M:	jesse.brandeburg@intel.com
--P:	John Ronciak
--M:	john.ronciak@intel.com
--L:	e1000-devel@lists.sourceforge.net
--W:	http://sourceforge.net/projects/e1000/
-+W:	http://e1000.sourceforge.net/
- S:	Supported
+-#ifdef CONFIG_PM
+ static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct nic *nic = netdev_priv(netdev);
  
- INTEL PRO/WIRELESS 2100 NETWORK CONNECTION SUPPORT
+ 	if (netif_running(netdev))
+-		napi_disable(&nic->napi);
+-	del_timer_sync(&nic->watchdog);
+-	netif_carrier_off(nic->netdev);
++		e100_down(nic);
+ 	netif_device_detach(netdev);
+ 
+ 	pci_save_state(pdev);
+@@ -2804,14 +2801,13 @@ static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
+ 		pci_enable_wake(pdev, PCI_D3cold, 0);
+ 	}
+ 
+-	free_irq(pdev->irq, netdev);
+-
+ 	pci_disable_device(pdev);
+ 	pci_set_power_state(pdev, PCI_D3hot);
+ 
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_PM
+ static int e100_resume(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+@@ -2832,26 +2828,7 @@ static int e100_resume(struct pci_dev *pdev)
+ 
+ static void e100_shutdown(struct pci_dev *pdev)
+ {
+-	struct net_device *netdev = pci_get_drvdata(pdev);
+-	struct nic *nic = netdev_priv(netdev);
+-
+-	if (netif_running(netdev))
+-		napi_disable(&nic->napi);
+-	del_timer_sync(&nic->watchdog);
+-	netif_carrier_off(nic->netdev);
+-
+-	if ((nic->flags & wol_magic) | e100_asf(nic)) {
+-		pci_enable_wake(pdev, PCI_D3hot, 1);
+-		pci_enable_wake(pdev, PCI_D3cold, 1);
+-	} else {
+-		pci_enable_wake(pdev, PCI_D3hot, 0);
+-		pci_enable_wake(pdev, PCI_D3cold, 0);
+-	}
+-
+-	free_irq(pdev->irq, netdev);
+-
+-	pci_disable_device(pdev);
+-	pci_set_power_state(pdev, PCI_D3hot);
++	e100_suspend(pdev, PMSG_SUSPEND);
+ }
+ 
+ /* ------------------ PCI Error Recovery infrastructure  -------------- */
 
