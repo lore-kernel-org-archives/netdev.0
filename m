@@ -1,39 +1,49 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: [rfc][patch 1/3] slub: fix small HWCACHE_ALIGN alignment
-Date: Mon, 03 Mar 2008 23:35:44 +0200
-Message-ID: <47CC6F30.50802@cs.helsinki.fi>
-References: <20080303093449.GA15091@wotan.suse.de>  <Pine.LNX.4.64.0803031107130.6917@schroedinger.engr.sgi.com>  <20080303200613.GC8974@wotan.suse.de>  <Pine.LNX.4.64.0803031209570.16049@schroedinger.engr.sgi.com>  <20080303201701.GF8974@wotan.suse.de>  <Pine.LNX.4.64.0803031315160.4131@schroedinger.engr.sgi.com> <84144f020803031330i2c0ea1f6kc5b02c8b26145797@mail.gmail.com> <Pine.LNX.4.64.0803031331340.4375@schroedinger.engr.sgi.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: e1000e fails to find IRQ
+Date: Mon, 03 Mar 2008 13:49:32 -0800
+Message-ID: <47CC726C.4060908@intel.com>
+References: <20080303124443.52gfbwwmahxf7wmk@m.safari.iki.fi> <47CC3DF7.20907@intel.com> <20080303190339.wbilb6qaknwvj4sk@m.safari.iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Nick Piggin <npiggin@suse.de>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
-	Eric Dumazet <dada1@cosmosbay.com>
-To: Christoph Lameter <clameter@sgi.com>
+To: Linux Networking Mailing List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:58732 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751434AbYCCVhA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 16:37:00 -0500
-In-Reply-To: <Pine.LNX.4.64.0803031331340.4375@schroedinger.engr.sgi.com>
+Received: from mga09.intel.com ([134.134.136.24]:17485 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754783AbYCCV62 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 16:58:28 -0500
+Received: from [127.0.0.1] (localhost [127.0.0.1])
+	by ahkok-mobl.jf.intel.com (Postfix) with ESMTP id 704F340373
+	for <netdev@vger.kernel.org>; Mon,  3 Mar 2008 13:49:32 -0800 (PST)
+In-Reply-To: <20080303190339.wbilb6qaknwvj4sk@m.safari.iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-Christoph Lameter wrote:
-> Well the guarantee can only be exploited if you would check the cacheline 
-> sizes and the object size from the code that creates the slab cache. 
-> Basically you would have to guestimate what the slab allocator is doing.
+Sami Farin wrote:
+> On Mon, Mar 03, 2008 at 10:05:43 -0800, Kok, Auke wrote:
+>> Sami Farin wrote:
+> ..
+>>> I have Intel DQ965GF mobo, version CO96510J.86A.6002.2007.1125.2356,
+>>> Linux 2.6.24.3.
+>> a bit unclear what kernel version you are actually using here... the device that
+>> you have (ich8 onboard lan) is NOT supported in 2.6.24.x by e1000e - you'll have
 > 
-> So the guarantee is basically meaningless. If the object is larger than a 
-> cacheline then this will never work.
+> OK, that was not very clear from "PCI interrupt disabled" message.
+> 
+>> to use the e1000 driver until 2.6.25 ships.
+>>
+>> what kernel version are you using here?
+> 
+> 2.6.24.3.
+> 
+> I thought I could try e1000e for fun, because e1000 module said:
+>   This device (id 8086:104a) will no longer be supported by this driver
+>   in the future, please use the "e1000e" driver
+> :)
+> 
 
-Yes, I know that. That's why I am asking why this matters. If there's 
-some sort of regression because SLUB does HWCACHE_ALIGN bit differently, 
-we need to fix that. Not that it necessarily means we have to change 
-HWCACHE_ALIGN but I am assuming Nick has some reason why he wants to 
-introduce the SMP alignment flag.
+yep, that message is for 2.6.25+ kernels... not 2.6.24
 
-			Pekka
+Auke
+
+
