@@ -1,50 +1,33 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: Re: [PATCH 2/4 net-2.6.26] [IPV4]: Cleanup ip_options_compile.
-Date: Mon, 03 Mar 2008 23:54:58 +0300
-Message-ID: <1204577698.23504.13.camel@iris.sw.ru>
-References: <1204559323-19953-1-git-send-email-den@openvz.org>
-	 <1204559323-19953-2-git-send-email-den@openvz.org>
-	 <20080303.115509.71743609.davem@davemloft.net>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [rfc][patch 3/3] use SLAB_ALIGN_SMP
+Date: Mon, 3 Mar 2008 13:14:49 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0803031314390.4131@schroedinger.engr.sgi.com>
+References: <20080303093449.GA15091@wotan.suse.de> <20080303093624.GC15091@wotan.suse.de>
+ <47CBCAB0.2040604@cosmosbay.com> <20080303124142.GB13138@wotan.suse.de>
+ <47CBF683.10201@cosmosbay.com> <20080303134622.GD13138@wotan.suse.de>
+ <84144f020803030553s35a40dd8yf88585ccd5a599fd@mail.gmail.com>
+ <Pine.LNX.4.64.0803031109200.6917@schroedinger.engr.sgi.com>
+ <20080303201008.GD8974@wotan.suse.de> <Pine.LNX.4.64.0803031211100.16049@schroedinger.engr.sgi.com>
+ <20080303201837.GG8974@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>
+To: Nick Piggin <npiggin@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:21367 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751153AbYCCUzH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2008 15:55:07 -0500
-In-Reply-To: <20080303.115509.71743609.davem@davemloft.net>
+Received: from relay2.sgi.com ([192.48.171.30]:52243 "EHLO relay.sgi.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1762901AbYCCVOw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 16:14:52 -0500
+In-Reply-To: <20080303201837.GG8974@wotan.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-03-03 at 11:55 -0800, David Miller wrote:
-> From: "Denis V. Lunev" <den@openvz.org>
-> Date: Mon,  3 Mar 2008 18:48:41 +0300
-> 
-> > Right now ip_options_compile is called twice as (NULL, skb) and (opt, NULL).
-> > So, let's move opt initialization into caller and remove this initialization
-> > branch.
-> > 
-> > Additionally, the field ip_options->is_data becomes not needed. All decisions
-> > should be made by the real skb availability.
-> > 
-> > Signed-off-by: Denis V. Lunev <den@openvz.org>
-> 
-> I don't think this "is_data" elimination works.
-> 
-> Sometimes these option blobs come from the user or elsewhere.  And
-> that's why we have to sometimes use opt->__data instead of the SKB
-> embedded blob.
-> 
-> You also missed the is_data case in cipso_ipv4.c, so this wouldn't
-> even compile.  Is there something wrong with "git grep" on your
-> computer?
+On Mon, 3 Mar 2008, Nick Piggin wrote:
 
-thanks for pointing this out.
+> They are only crappy in SLUB. In SLAB they are actually useful.
 
-Though, it seems to me, that this structure does not came from
-userspace. At least I do not see a way for this. Could you show me how
-this can happen?
-
+Cannot figure out what you are talking about....
+ 
