@@ -1,91 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] New driver "sfc" for Solarstorm SFC4000 controller (try #7)
-Date: Mon, 3 Mar 2008 21:17:44 +0000
-Message-ID: <20080303211743.GG2988@solarflare.com>
-References: <20080303185624.GC2988@solarflare.com> <20080303.110206.36977456.davem@davemloft.net> <1204572175.16248.5.camel@localhost.localdomain> <20080303123937.2d72d7e8@extreme>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [rfc][patch 2/3] slab: introduce SMP alignment
+Date: Mon, 3 Mar 2008 13:23:48 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0803031318310.4131@schroedinger.engr.sgi.com>
+References: <20080303093449.GA15091@wotan.suse.de>  <20080303093529.GB15091@wotan.suse.de>
+  <Pine.LNX.4.64.0803031104570.6917@schroedinger.engr.sgi.com>
+ <20080303200355.GB8974@wotan.suse.de>  <Pine.LNX.4.64.0803031208400.16049@schroedinger.engr.sgi.com>
+  <20080303201211.GE8974@wotan.suse.de>  <Pine.LNX.4.64.0803031216430.3110@schroedinger.engr.sgi.com>
+  <20080303202411.GH8974@wotan.suse.de> <84144f020803031241l277aa3b8h2fe0714f5765cb49@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Nick Piggin <npiggin@suse.de>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
+	Eric Dumazet <dada1@cosmosbay.com>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rutherford.zen.co.uk ([212.23.3.142]:32826 "EHLO
-	rutherford.zen.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752447AbYCCVRy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 16:17:54 -0500
-Content-Disposition: inline
-In-Reply-To: <20080303123937.2d72d7e8@extreme>
+Received: from relay2.sgi.com ([192.48.171.30]:39419 "EHLO relay.sgi.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1763358AbYCCVXu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 16:23:50 -0500
+In-Reply-To: <84144f020803031241l277aa3b8h2fe0714f5765cb49@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Mon, 03 Mar 2008 14:22:55 -0500
-> Dan Williams <dcbw@redhat.com> wrote:
-> 
-> > On Mon, 2008-03-03 at 11:02 -0800, David Miller wrote:
-> > > From: Ben Hutchings <bhutchings@solarflare.com>
-> > > Date: Mon, 3 Mar 2008 18:56:24 +0000
-> > > 
-> > > > The patch (against netdev-2.6) is at:
-> > > >   https://support.solarflare.com/netdev/7/netdev-2.6-sfc-2.2.0106.patch
-> > > 
-> > > Nobody can properly review the driver if it's off on some external web
-> > > site instead of posted here.
-> > 
-> > The diff is 707K; I certainly thought that netdev had a message size
-> > limit.  What's the proper policy on splitting up _new_ drivers?  There
-> > may/may not be a good way of splitting up any given new driver for
-> > piecemeal in-line review.  If there's not, what's the alternative?
-> 
-> Part of the problem is that you put a lot of stuff all in one driver:
+On Mon, 3 Mar 2008, Pekka Enberg wrote:
 
-It's comparable in size to most other high-performance Ethernet
-drivers.  It has to do a little more work talking to the hardware as
-there is no firmware.
+> Hmm... Can't we just fix SLAB_HWCACHE_ALIGN in SLUB to follow the
+> semantics of SLAB?
 
->   * sensors support
+AFAICT it follows SLAB semantics. The only small difference is for objects 
+small than cache_line_size() / 2 where SLUB does not bother to align to a 
+fraction of a cacheline since we are already placing multile object into a 
+cacheline. We effectively have made the decision to give up the 
+organization of objects in separatate cache lines.
 
-While this sort of protection is unusual, in this case I don't think
-it's something that can reasonably be done outside the driver.
+Lets say you have a 64 byte cache line size. Then the alignment can be 
+as follows. (8 byte alignment is the basic alignment requirement).
 
->   * large debugfs chunk
+Objsize	[C	SLAB	SLUB
+-----------------------------
+> 64		X	X
+33 .. 64	64	64
+32		32	32
+24		32	24	-> 3 object per cacheline sizes = 72 so overlap.
+16		16	16
+8		8	8
 
-debugfs code is separated out, quite straightforward, and can't
-really go anywhere but in this driver.
+So there is only one difference for 24 byte sizes slabs.
 
->   * efx driver layer
 
-"efx" is a common prefix used in our driver code to be independent of
-product and company names.  It isn't a separate layer.
-
->   * event queue
-
-We could try writing a driver that just guessed what the NIC was
-doing, but I don't think it would work very well. ;-)
-
-> You created a big monolith. No one likes reading big stuff, it requires
-> lots of time, as much as going over a whole subsystem. The fact that so
-> many callbacks and hooks are needed implies that the design got out of hand
-> for a simple device.
-
-It's not a simple device.  There are callbacks into MAC-, PHY- and
-board-specific code because this code supports several of each.  I
-spent some weeks ruthlessly paring away unnecessary abstraction and
-cruft, and I don't believe there is a significant amount left.
-
-> Maybe an alternative would be to make your device better match existing
-> infrastructure. The EFX code looks like a separate driver which should
-> show up as a bus in the driver model, not a network device.
-
-Are you talking about driverlink?
-
-> Other people who don't just do network device could help as well.
-
-The MTD driver has already benefitted from review on the linux-mtd
-list.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
