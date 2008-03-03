@@ -1,42 +1,50 @@
-From: "Pekka Enberg" <penberg@cs.helsinki.fi>
-Subject: Re: [rfc][patch 2/3] slab: introduce SMP alignment
-Date: Mon, 3 Mar 2008 22:41:57 +0200
-Message-ID: <84144f020803031241l277aa3b8h2fe0714f5765cb49@mail.gmail.com>
-References: <20080303093449.GA15091@wotan.suse.de>
-	 <20080303093529.GB15091@wotan.suse.de>
-	 <Pine.LNX.4.64.0803031104570.6917@schroedinger.engr.sgi.com>
-	 <20080303200355.GB8974@wotan.suse.de>
-	 <Pine.LNX.4.64.0803031208400.16049@schroedinger.engr.sgi.com>
-	 <20080303201211.GE8974@wotan.suse.de>
-	 <Pine.LNX.4.64.0803031216430.3110@schroedinger.engr.sgi.com>
-	 <20080303202411.GH8974@wotan.suse.de>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: Re: [PATCH 2/4 net-2.6.26] [IPV4]: Cleanup ip_options_compile.
+Date: Mon, 03 Mar 2008 23:54:58 +0300
+Message-ID: <1204577698.23504.13.camel@iris.sw.ru>
+References: <1204559323-19953-1-git-send-email-den@openvz.org>
+	 <1204559323-19953-2-git-send-email-den@openvz.org>
+	 <20080303.115509.71743609.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Christoph Lameter" <clameter@sgi.com>, netdev@vger.kernel.org,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	yanmin_zhang@linux.intel.com, "David Miller" <davem@davemloft.net>,
-	"Eric Dumazet" <dada1@cosmosbay.com>
-To: "Nick Piggin" <npiggin@suse.de>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.190]:24620 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751478AbYCCUl6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 15:41:58 -0500
-Received: by rv-out-0910.google.com with SMTP id k20so185680rvb.1
-        for <netdev@vger.kernel.org>; Mon, 03 Mar 2008 12:41:57 -0800 (PST)
-In-Reply-To: <20080303202411.GH8974@wotan.suse.de>
-Content-Disposition: inline
+Received: from mailhub.sw.ru ([195.214.232.25]:21367 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751153AbYCCUzH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 15:55:07 -0500
+In-Reply-To: <20080303.115509.71743609.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 3, 2008 at 10:24 PM, Nick Piggin <npiggin@suse.de> wrote:
->  > Then align the objects at cacheline boundaries by providing a value for
->  > the align parameter to kmem_cache_create().
->
->  max(num_possible_cpus() > 1 ? cache_line_size() : 0, mandatory_alignment)?
->
->  Then suppose we want a CONFIG_TINY option to eliminate it?
+On Mon, 2008-03-03 at 11:55 -0800, David Miller wrote:
+> From: "Denis V. Lunev" <den@openvz.org>
+> Date: Mon,  3 Mar 2008 18:48:41 +0300
+> 
+> > Right now ip_options_compile is called twice as (NULL, skb) and (opt, NULL).
+> > So, let's move opt initialization into caller and remove this initialization
+> > branch.
+> > 
+> > Additionally, the field ip_options->is_data becomes not needed. All decisions
+> > should be made by the real skb availability.
+> > 
+> > Signed-off-by: Denis V. Lunev <den@openvz.org>
+> 
+> I don't think this "is_data" elimination works.
+> 
+> Sometimes these option blobs come from the user or elsewhere.  And
+> that's why we have to sometimes use opt->__data instead of the SKB
+> embedded blob.
+> 
+> You also missed the is_data case in cipso_ipv4.c, so this wouldn't
+> even compile.  Is there something wrong with "git grep" on your
+> computer?
 
-Hmm... Can't we just fix SLAB_HWCACHE_ALIGN in SLUB to follow the
-semantics of SLAB?
+thanks for pointing this out.
+
+Though, it seems to me, that this structure does not came from
+userspace. At least I do not see a way for this. Could you show me how
+this can happen?
+
