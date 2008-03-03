@@ -1,36 +1,44 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [rfc][patch 1/3] slub: fix small HWCACHE_ALIGN alignment
-Date: Mon, 3 Mar 2008 12:10:59 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0803031209570.16049@schroedinger.engr.sgi.com>
-References: <20080303093449.GA15091@wotan.suse.de>
- <Pine.LNX.4.64.0803031107130.6917@schroedinger.engr.sgi.com>
- <20080303200613.GC8974@wotan.suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6] [TCP]: Must count fack_count also when
+ skipping
+Date: Mon, 03 Mar 2008 12:11:29 -0800 (PST)
+Message-ID: <20080303.121129.183509475.davem@davemloft.net>
+References: <Pine.LNX.4.64.0803031025210.18640@kivilampi-30.cs.helsinki.fi>
+	<Pine.LNX.4.64.0803031525390.27064@kivilampi-30.cs.helsinki.fi>
+	<Pine.LNX.4.64.0803031541230.28251@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
-	Eric Dumazet <dada1@cosmosbay.com>
-To: Nick Piggin <npiggin@suse.de>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: guichaz@gmail.com, akpm@linux-foundation.org, ray-lk@madrabbit.org,
+	cw@f00f.org, giangiacomo_mariotti@yahoo.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.sgi.com ([192.48.171.30]:49039 "EHLO relay.sgi.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754247AbYCCULA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2008 15:11:00 -0500
-In-Reply-To: <20080303200613.GC8974@wotan.suse.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54085
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754165AbYCCULs convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 15:11:48 -0500
+In-Reply-To: <Pine.LNX.4.64.0803031541230.28251@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 3 Mar 2008, Nick Piggin wrote:
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Mon, 3 Mar 2008 15:53:12 +0200 (EET)
 
-> > If they are already not cache line aligned then we can make them as 
-> > dense as possible. That is what SLUB does.
-> 
-> Because when you specify HWCACHE_ALIGN, it means that you want the object
-> not to cross cacheline boundaries for at least cache_line_size() bytes.
-> SLAB does this. SLUB does not without this patch.
+> [PATCH net-2.6] [TCP]: Must count fack_count also when skipping
+>=20
+> It makes fackets_out to grow too slowly compared with the
+> real write queue.
+>=20
+> This shouldn't cause those BUG_TRAP(packets <=3D tp->packets_out)
+> to trigger but how knows how such inconsistent fackets_out
+> affects here and there around TCP when everything is nowadays
+> assuming accurate fackets_out. So lets see if this silences
+> them all.
+>=20
+> Reported by Guillaume Chazarain <guichaz@gmail.com>.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-HWCACHE_ALIGN means that you want the object to be aligned at 
-cacheline boundaries for optimization. Why does crossing cacheline 
-boundaries matter in this case?
-
+Applied, thanks Ilpo.
