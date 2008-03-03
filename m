@@ -1,59 +1,42 @@
-From: Komuro <komurojun-mbn@nifty.com>
-Subject: Re: Re: [BUG kernel 2.6.25-rc3 IPV6] ping6 -I eth0 ff02::1 causes system hang.
-Date: Tue, 4 Mar 2008 07:06:06 +0900 (JST)
-Message-ID: <25310501.7301204581966098.komurojun-mbn@nifty.com>
-References: <20080302.212717.120106718.yoshfuji@linux-ipv6.org>
- <20071006132601.f944f461.komurojun@nifty.com>
-	<20071014073658.d4352b8c.komurojun@nifty.com>
-	<20080302210716.69727582.komurojun-mbn@nifty.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH 3/4] ixgbe: fix typo in speed mesage
+Date: Mon, 03 Mar 2008 14:37:42 -0800
+Message-ID: <20080303223742.16344.6855.stgit@localhost.localdomain>
+References: <20080303223731.16344.94975.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki / =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pxy2nd.nifty.com ([202.248.175.14]:9342 "HELO pxy2nd.nifty.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751307AbYCCWMr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2008 17:12:47 -0500
-In-Reply-To: <20080302.212717.120106718.yoshfuji@linux-ipv6.org>
+Received: from mga02.intel.com ([134.134.136.20]:44045 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750919AbYCCWhn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 17:37:43 -0500
+In-Reply-To: <20080303223731.16344.94975.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Hi,
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-CONFIG_IPV6=y
-but other IPV6 option is all not set.
-in my configuration(.config)
+ drivers/net/ixgbe/ixgbe_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-
->It would be great if you have chance to bisect it...
-
-I don't have enough time on week-days ...
-
-
-Best Regards
-Komuro
-
-
->
->Switch to netdev.
->
->In article <20080302210716.69727582.komurojun-mbn@nifty.com> (at Sun, 2 Mar 2
-008 21:07:16 +0900), Komuro <komurojun-mbn@nifty.com> says:
->
->> On kernel 2.6.25-rc3, IPV6 multicast ping causes system hang
->> after sending several multicast ping packet.
->> 
->> >ping6 -I eth0 ff02::1 
->> 
->> This problem does not happen on kernel 2.6.24.
->> (does not depend on NIC)
->
->Hmm, I've never seen this on our testlab.  Anyone else?
->It would be great if you have chance to bisect it...
->
->--yoshfuji
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 23d0a4a..c2095ce 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2133,7 +2133,7 @@ static void ixgbe_watchdog(unsigned long data)
+ 				(link_speed == IXGBE_LINK_SPEED_10GB_FULL ?
+ 				 "10 Gbps" :
+ 				 (link_speed == IXGBE_LINK_SPEED_1GB_FULL ?
+-				  "1 Gpbs" : "unknown speed")),
++				  "1 Gbps" : "unknown speed")),
+ 				((FLOW_RX && FLOW_TX) ? "RX/TX" :
+ 				 (FLOW_RX ? "RX" :
+ 				 (FLOW_TX ? "TX" : "None"))));
 
