@@ -1,7 +1,7 @@
 From: Benjamin Thery <benjamin.thery@bull.net>
 Subject: Re: network namespace ipv6 perfs
-Date: Mon, 03 Mar 2008 15:42:03 +0100
-Message-ID: <47CC0E3B.1040809@bull.net>
+Date: Mon, 03 Mar 2008 15:48:12 +0100
+Message-ID: <47CC0FAC.1010306@bull.net>
 References: <47CC0920.6000005@fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1;
@@ -11,13 +11,21 @@ Cc: Linux Containers <containers@lists.osdl.org>,
 	Linux Netdev List <netdev@vger.kernel.org>
 To: Daniel Lezcano <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:54108 "EHLO
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:56922 "EHLO
 	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753509AbYCCOnK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 09:43:10 -0500
+	with ESMTP id S1753274AbYCCOsF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 09:48:05 -0500
 In-Reply-To: <47CC0920.6000005@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+One more thing about these results: the kernel.
+The version used to run these tests was 2.6.25-rc1 from Dave Miller's
+net-2.6 tree.
+
+(and I included results from a vanilla 2.6.23.16 as reference)
+
+Benjamin
 
 Daniel Lezcano wrote:
 > Hi,
@@ -34,17 +42,6 @@ k=20
 > http://lxc.sourceforge.net/network/bench_ipv6_graph.php
 >=20
 > Thanks to Benjamin who did all the performance tests :)
-
-In these results, may be, there is one thing that should be explained.
-It is the CPU utilization overhead in the 'veth' case.
-
-Compared to physical devices or macvlan, veth interfaces don't benefit
-from hardware offloading mechanisms: i.e. checksums have to be computed
-by the soft. That explains the big overhead in CPU utilization when
-using this kind of virtual interface.
-
-Benjamin
-
 >=20
 > Regards
 >     -- Daniel
