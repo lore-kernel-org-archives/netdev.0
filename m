@@ -1,39 +1,37 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] New driver "sfc" for Solarstorm SFC4000 controller
-	(try #7)
-Date: Mon, 03 Mar 2008 14:22:55 -0500
-Message-ID: <1204572175.16248.5.camel@localhost.localdomain>
-References: <20080303185624.GC2988@solarflare.com>
-	 <20080303.110206.36977456.davem@davemloft.net>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [PATCH] alloc_percpu() fails to allocate percpu data
+Date: Mon, 3 Mar 2008 11:30:07 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0803031129330.7275@schroedinger.engr.sgi.com>
+References: <47BDBC23.10605@cosmosbay.com> <200802232023.52352.nickpiggin@yahoo.com.au>
+ <Pine.LNX.4.64.0802271140470.1790@schroedinger.engr.sgi.com>
+ <200803031414.43076.nickpiggin@yahoo.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+To: Nick Piggin <nickpiggin@yahoo.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:52398 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751815AbYCCT0D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2008 14:26:03 -0500
-In-Reply-To: <20080303.110206.36977456.davem@davemloft.net>
+Received: from relay2.sgi.com ([192.48.171.30]:53035 "EHLO relay.sgi.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754205AbYCCTaI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 14:30:08 -0500
+In-Reply-To: <200803031414.43076.nickpiggin@yahoo.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-03-03 at 11:02 -0800, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Mon, 3 Mar 2008 18:56:24 +0000
-> 
-> > The patch (against netdev-2.6) is at:
-> >   https://support.solarflare.com/netdev/7/netdev-2.6-sfc-2.2.0106.patch
-> 
-> Nobody can properly review the driver if it's off on some external web
-> site instead of posted here.
+On Mon, 3 Mar 2008, Nick Piggin wrote:
 
-The diff is 707K; I certainly thought that netdev had a message size
-limit.  What's the proper policy on splitting up _new_ drivers?  There
-may/may not be a good way of splitting up any given new driver for
-piecemeal in-line review.  If there's not, what's the alternative?
+> I think so. If we ask for HWCACHE_ALIGN, it must be for a good reason.
+> If some structures get too bloated for no good reason, then the problem
+> is not with the slab allocator but with the caller asking for
+> HWCACHE_ALIGN.
 
-Dan
-
+Right. There should only be a few select users of this strange flag. 
+Otherwise if a certain alignment is wanted specify it in the alignment 
+parameter passed to kmem_cache_create.
 
