@@ -1,41 +1,38 @@
-From: Thomas Klein <osstklei@de.ibm.com>
-Subject: [PATCH] ehea: Fix missing Kconfig dependency
-Date: Mon, 3 Mar 2008 13:52:06 +0100
-Message-ID: <200803031352.06322.osstklei@de.ibm.com>
+From: Alexey Dobriyan <adobriyan@sw.ru>
+Subject: ipv6: fix icmpv6_cleanup/icmpv6_init section mismatch
+Date: Mon, 3 Mar 2008 15:52:17 +0300
+Message-ID: <20080303125217.GA6026@localhost.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Raisch <raisch@de.ibm.com>,
-	"Jan-Bernd Themann" <themann@de.ibm.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"linux-ppc" <linuxppc-dev@ozlabs.org>,
-	netdev <netdev@vger.kernel.org>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, den@openvz.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([195.212.29.135]:9153 "EHLO
-	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754961AbYCCMwJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 07:52:09 -0500
+Received: from mailhub.sw.ru ([195.214.232.25]:25029 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756330AbYCCMw2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Mar 2008 07:52:28 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixed Kconfig: ehea driver requires sparse mem
+icmpv6_cleanup() is called from inet6_init() which is __init, so the
+former can't be __exit.
 
-Signed-off-by: Thomas Klein <tklein@de.ibm.com>
-
+Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
 ---
-diff -Nurp linux-2.6.25-rc3.org/drivers/net/Kconfig linux-2.6.25-rc3/drivers/net/Kconfig
---- linux-2.6.25-rc3.org/drivers/net/Kconfig	2008-02-24 22:25:54.000000000 +0100
-+++ linux-2.6.25-rc3/drivers/net/Kconfig	2008-03-03 13:36:48.000000000 +0100
-@@ -2513,7 +2513,7 @@ config CHELSIO_T3
+
+ net/ipv6/icmp.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -868,7 +868,7 @@ fail:
+ 	return err;
+ }
  
- config EHEA
- 	tristate "eHEA Ethernet support"
--	depends on IBMEBUS && INET
-+	depends on IBMEBUS && INET && SPARSEMEM
- 	select INET_LRO
- 	---help---
- 	  This driver supports the IBM pSeries eHEA ethernet adapter.
+-void __exit icmpv6_cleanup(void)
++void icmpv6_cleanup(void)
+ {
+ 	unregister_pernet_subsys(&icmpv6_sk_ops);
+ 	inet6_del_protocol(&icmpv6_protocol, IPPROTO_ICMPV6);
+
