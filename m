@@ -1,34 +1,55 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [DCCP] [RFC]: Getting rid of unwieldy struct prefixes
-Date: Mon, 3 Mar 2008 13:57:46 +0000
-Message-ID: <20080303135745.GA15241@gerrit.erg.abdn.ac.uk>
-References: <20080229094518.GA12858@gerrit.erg.abdn.ac.uk> <20080229142334.GL4306@ghostprotocols.net> <20080303073454.GA6937@gerrit.erg.abdn.ac.uk> <20080303130209.GA4196@ghostprotocols.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] Removing unneeded statement from tcp_ipv4.c
+Date: Mon, 3 Mar 2008 16:08:19 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0803031603100.28251@kivilampi-30.cs.helsinki.fi>
+References: <47CBFBDA.7000801@nets.rwth-aachen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53304 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752772AbYCCN61 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2008 08:58:27 -0500
-Content-Disposition: inline
-In-Reply-To: <20080303130209.GA4196@ghostprotocols.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:42884 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751330AbYCCOIV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 09:08:21 -0500
+In-Reply-To: <47CBFBDA.7000801@nets.rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > | > [CCID-2]: Get rid of ccid2hc{tx,rx}_ prefixes
-<snip>
-| > Are you basically ok with the naming scheme, do you have other
-| > suggestions or are there additional considerations?
-| 
-| Its ok, everywhere we use hctx or hcrx as the variable name, so its ok
-| for plain old grep to find it.
-| 
-Great, thanks for checking this. It makes the code much clearer.
+On Mon, 3 Mar 2008, Arnd Hannemann wrote:
 
-Will check this RFC patch once again and upload it, doing a similar 
-update for CCID-3/-4 is further work.
+> Avoid setting tstamp_ok because this is done two lines later anyway.
+> 
+> Signed-off-by: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+> 
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index 00156bf..a28c4c2 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -1302,15 +1302,14 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+>                 tmp_opt.saw_tstamp = 0;
+>         }
+> 
+> -       if (tmp_opt.saw_tstamp && !tmp_opt.rcv_tsval) {
+> +       if (tmp_opt.saw_tstamp && !tmp_opt.rcv_tsval)
+>                 /* Some OSes (unknown ones, but I see them on web server, which
+>                  * contains information interesting only for windows'
+>                  * users) do not send their stamp in SYN. It is easy case.
+>                  * We simply do not advertise TS support.
+>                  */
+>                 tmp_opt.saw_tstamp = 0;
+> -               tmp_opt.tstamp_ok  = 0;
+> -       }
+> +
 
-Cheers
-Gerrit
+Please move the comment before the if (), only then can you remove those 
+braces safely (without affecting readability, etc.).
+
+>         tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
+> 
+>         tcp_openreq_init(req, &tmp_opt, skb);
+
+-- 
+ i.
