@@ -1,61 +1,52 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2/3] partial checksum and GSO support for tun/tap.
-Date: Tue, 4 Mar 2008 18:47:45 +1100
-Message-ID: <200803041847.45500.rusty@rustcorp.com.au>
-References: <200801240107.38929.rusty@rustcorp.com.au> <200803041202.17202.rusty@rustcorp.com.au> <47CCD930.3040200@qualcomm.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: [patch] mark netconsole broken
+Date: Tue, 4 Mar 2008 09:06:44 +0100
+Message-ID: <20080304080644.GC2947@elte.hu>
+References: <20080203150246.50647fa4.akpm@linux-foundation.org> <20080203150744.cf7d0415.akpm@linux-foundation.org> <20080204044304.d244e761.akpm@linux-foundation.org> <20080206003412.dca555d4.akpm@linux-foundation.org> <20080206011643.d9021649.akpm@linux-foundation.org> <20080303210540.cea55e13.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	virtualization@lists.linux-foundation.org
-To: Max Krasnyansky <maxk@qualcomm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:34877 "EHLO ozlabs.org"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:52827 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753315AbYCDHsX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Mar 2008 02:48:23 -0500
-In-Reply-To: <47CCD930.3040200@qualcomm.com>
+	id S1750882AbYCDIHD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Mar 2008 03:07:03 -0500
 Content-Disposition: inline
+In-Reply-To: <20080303210540.cea55e13.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 04 March 2008 16:08:00 Max Krasnyansky wrote:
-> > The problem with this approach is that for what I'm doing, the packets
-> > aren't nicely arranged somewhere; they're in random process memory.
->
-> That's fine. RX/TX descriptors would not contain the data itself. They'd
-> contain pointers to actual packets (ie just like the NIC takes physical
-> memory address and DMAs data in/out).
-> The allows for sending/receiving packets without syscalls and fits nicely
-> with the async schemes like GSO.
 
-Yes, yes it does.  That would be a very nice extension (it's orthogonal to 
-this patch though, so should we get Dave to take these for 2.6.25?).
+* Andrew Morton <akpm@linux-foundation.org> wrote:
 
-And as it happens, virtio already has such a structure: virtio_ring.  See 
-linux/virtio_ring.h.
+> This netconsole regression is still present in current mainline.  
+> Rafael, can you please add it to the list?
+> 
+> It's strange that I can hit it on three separate machines with e100 
+> and e1000 yet nobody else has reported it (afaik).  Is nobody using 
+> netconsole?
 
-> > The structure is for virtio, I'm just borrowing it for tap because it's
-> > already there.  We could rename it and move it out to its own header, but
-> > if so we should do that before 2.6.25 is released.
->
-> If we do the whole enchilada with the RX/TX rings then we probably do not
-> even need it. I'm thinking that RX/TX descriptor would include everything
-> you need for the GSO and stuff.
-> I meant do not need it for the TUN/TAP driver that is. Is it used anywhere
-> else ?
+i'd suggest the patch below, to mark it broken.
 
-Just for the linux virtio drivers.  Reusing it for tun/tap was an 
-afterthought.  It just meant I could pass the same structure straight thru, 
-though, which is nice.
+	Ingo
 
-The userspace->kernel problem is very similar to the guest->host problem, so 
-it doesn't surprise me if we end up with very similar (identical?) 
-interfaces.
+---
+ drivers/net/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Take a look at virtio_ring.h, virtio_ring.c and Documentation/lguest/lguest.c 
-to see how we use it...
-
-Cheers,
-Rusty.
+Index: linux/drivers/net/Kconfig
+===================================================================
+--- linux.orig/drivers/net/Kconfig
++++ linux/drivers/net/Kconfig
+@@ -3109,7 +3109,7 @@ config NET_FC
+ 
+ config NETCONSOLE
+ 	tristate "Network console logging support (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL
++	depends on EXPERIMENTAL && BROKEN
+ 	---help---
+ 	If you want to log kernel messages over the network, enable this.
+ 	See <file:Documentation/networking/netconsole.txt> for details.
