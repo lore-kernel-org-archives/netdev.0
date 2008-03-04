@@ -1,90 +1,60 @@
 From: Andi Kleen <andi@firstfloor.org>
-Subject: [PATCH] [2/2] srandom32 fixes
-Date: Tue,  4 Mar 2008 18:34:49 +0100 (CET)
-Message-ID: <20080304173449.8BAD21B4199@basil.firstfloor.org>
-References: <20080304634.504158800@firstfloor.org>
+Subject: [PATCH] [1/2] Use an own random generator for pageattr-test.c
+Date: Tue,  4 Mar 2008 18:34:48 +0100 (CET)
+Message-ID: <20080304634.504158800@firstfloor.org>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	tglx@linutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp-out01.alice-dsl.net ([88.44.60.11]:40641 "EHLO
 	smtp-out01.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753827AbYCDRew (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 12:34:52 -0500
-In-Reply-To: <20080304634.504158800@firstfloor.org>
+	with ESMTP id S1753536AbYCDRev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 12:34:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-- Rename it to a different name because it does something quite
-different from a traditional user land srandom32 -- it doesn't
-reset state but just adds to it.
+pageattr-test attempts to be repeatable and uses srandom32 to get a 
+repeatable random number sequence.
 
-- Let it update the state of all CPUs. The network stack goes
-into pains to feed the current IP addresses in, but it is not very
-effective if that is only done for some random CPU instead of all.
-So change it to feed bits into all CPUs.  I decided to do that lockless 
-because well somewhat random results are ok.
+Using srandom32() wasn't a good idea for various reasons:
+- it is per cpu and if the cpu changes on a preemptible kernel it gets lost
+- networking and random32 puts in some own state
+- srandom32() does not actually reset the state, but just adds bits to 
+it
+
+Instead use a very simple private standard rnd that gives repeatable
+results. I took the reference rand() from ISO-C.
 
 Signed-off-by: Andi Kleen <ak@suse.de>
-Index: linux/include/linux/random.h
+
+Index: linux/arch/x86/mm/pageattr-test.c
 ===================================================================
---- linux.orig/include/linux/random.h
-+++ linux/include/linux/random.h
-@@ -70,7 +70,7 @@ unsigned int get_random_int(void);
- unsigned long randomize_range(unsigned long start, unsigned long end, unsigned long len);
+--- linux.orig/arch/x86/mm/pageattr-test.c
++++ linux/arch/x86/mm/pageattr-test.c
+@@ -101,6 +101,14 @@ static int print_split(struct split_stat
+ static unsigned long addr[NTEST];
+ static unsigned int len[NTEST];
  
- u32 random32(void);
--void srandom32(u32 seed);
-+void random32_add_bits(u32 seed);
- 
- #endif /* __KERNEL___ */
- 
-Index: linux/lib/random32.c
-===================================================================
---- linux.orig/lib/random32.c
-+++ linux/lib/random32.c
-@@ -93,19 +93,24 @@ u32 random32(void)
- EXPORT_SYMBOL(random32);
- 
- /**
-- *	srandom32 - add entropy to pseudo random number generator
-+ *	random32_add_bits - add entropy to pseudo random number generator
-  *	@seed: seed value
-  *
-  *	Add some additional seeding to the random32() pool.
-- *	Note: this pool is per cpu so it only affects current CPU.
-  */
--void srandom32(u32 entropy)
-+void random32_add_bits(u32 entropy)
++static int next = 100;
++
++static unsigned my_rand(void)
++{
++	next = next * 1103515245 + 12345;
++	return next;
++}
++
+ /* Change the global bit on random pages in the direct mapping */
+ static int pageattr_test(void)
  {
--	struct rnd_state *state = &get_cpu_var(net_rand_state);
--	__set_random32(state, state->s1 ^ entropy);
--	put_cpu_var(state);
-+	int i;
-+	/*
-+	 * No locking on the CPUs, but then somewhat random results are, well,
-+	 * expected.
-+	 */
-+	for_each_possible_cpu (i) {
-+		struct rnd_state *state = &per_cpu(net_rand_state, i);
-+		__set_random32(state, state->s1 ^ entropy);
-+	}
- }
--EXPORT_SYMBOL(srandom32);
-+EXPORT_SYMBOL(random32_add_bits);
+@@ -123,10 +131,9 @@ static int pageattr_test(void)
+ 	memset(bm, 0, (max_pfn_mapped + 7) / 8);
  
- /*
-  *	Generate some initially weak seeding values to allow
-Index: linux/include/linux/net.h
-===================================================================
---- linux.orig/include/linux/net.h
-+++ linux/include/linux/net.h
-@@ -213,7 +213,7 @@ extern struct socket *sockfd_lookup(int 
- extern int	     net_ratelimit(void);
+ 	failed += print_split(&sa);
+-	srandom32(100);
  
- #define net_random()		random32()
--#define net_srandom(seed)	srandom32((__force u32)seed)
-+#define net_srandom(seed)	random32_add_bits((__force u32)seed)
+ 	for (i = 0; i < NTEST; i++) {
+-		unsigned long pfn = random32() % max_pfn_mapped;
++		unsigned long pfn = my_rand() % max_pfn_mapped;
  
- extern int   	     kernel_sendmsg(struct socket *sock, struct msghdr *msg,
- 				    struct kvec *vec, size_t num, size_t len);
+ 		addr[i] = (unsigned long)__va(pfn << PAGE_SHIFT);
+ 		len[i] = random32() % 100;
