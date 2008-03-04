@@ -1,127 +1,126 @@
-From: "Salvatore De Astis" <dev.rinux@gmail.com>
-Subject: (unknown)
-Date: Tue, 4 Mar 2008 10:11:13 +0100
-Message-ID: <c73373920803040111n46467b2qeb11723167747ddf@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: locking api self-test hanging
+Date: Tue, 4 Mar 2008 01:10:50 -0800
+Message-ID: <20080304011050.74f30dd3.akpm@linux-foundation.org>
+References: <20080303210540.cea55e13.akpm@linux-foundation.org>
+	<20080304084024.GA3980@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
+	linux-kernel@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.174]:30419 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751656AbYCDJLN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 04:11:13 -0500
-Received: by wf-out-1314.google.com with SMTP id 28so840396wff.4
-        for <netdev@vger.kernel.org>; Tue, 04 Mar 2008 01:11:13 -0800 (PST)
-Subject: 
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:49059 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752193AbYCDJLa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 04:11:30 -0500
+In-Reply-To: <20080304084024.GA3980@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-I'm a junior developer and I need some informations about the octal
-UART chip  Exar xr17d158.
-I have two pci cards (PSCC-1028 - Actis-Computer cards) with octal
-UART chip  Exar xr17d158. Linux finds the hardware and sets up the
-ports (from ttyS4 to ttyS19). I read the code of 8250_pci.c and this
-chip seems to be supported by linux.
- But I can't transmit and receive because the chip needs specific
-values  to be written in some registers. These ones are: mpiolvl,
-mpiosel and  mpio3t. I have wrote this simple module and when I load
-it the board work in 232 mode.
+On Tue, 4 Mar 2008 08:40:24 +0000 Jarek Poplawski <jarkao2@gmail.com> wrote:
 
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/pci.h>
-#include <asm/io.h>
+> On 04-03-2008 06:05, Andrew Morton wrote:
+> ...
+> >>>> And I've fully bisected this hang twice and both times came up with
+> >>>>
+> >>>> commit 33f807ba0d9259e7c75c7a2ce8bd2787e5b540c7
+> >>>> Author: Stephen Hemminger <shemminger@linux-foundation.org>
+> >>>> Date:   Mon Nov 19 19:24:52 2007 -0800
+> >>>>
+> >>>>     [NETPOLL]: Kill NETPOLL_RX_DROP, set but never tested.
+> >>>>
+> >>>> which is stupid because that patch doesn't do anything.
+> 
+> ...or maybe apparently doesn't do anything?
+> 
+> @@ -128,13 +127,11 @@ static int poll_one_napi(struct netpoll_info *npinfo,
+>         if (!test_bit(NAPI_STATE_SCHED, &napi->state))
+>                 return budget;
+>  
+> -       npinfo->rx_flags |= NETPOLL_RX_DROP;
+> 
+> 
+> But in a next patch we can see:
+> 
+> @@ -51,12 +50,12 @@ static inline int netpoll_rx(struct sk_buff *skb)
+>         unsigned long flags;
+>         int ret = 0;
+>  
+> -       if (!npinfo || (!npinfo->rx_np && !npinfo->rx_flags))
+> +       if (!npinfo || !npinfo->rx_np)
+> 
+> So, it seems rx_flags could have been tested here for NETPOLL_RX_DROP
+> yet?
+> 
 
-#define CONF_REG_START     0x80
-#define CONF_REG_SIZE     0x90
-
-typedef struct _xr17d168_conf_regs {
-     u8 int0;      /* Read-only Interrupt              - value 0x00 */
-    u8 int1;      /* Read-only                    - value 0x00 */
-    u8 int2;      /* Read-only                    - value 0x00 */
-    u8 int3;      /* Read-only                    - value 0x00 */
-
-    u8 timercntl; /* Read-write Timer control              - value 0x00 */
-    u8 timer;      /* Reserved                      - value 0x00 */
-    u8 timerlsb;  /* Read/Write Timer LSB              - value 0x00 */
-     u8 timermsb;  /* Read/Write Timer MSB              - value 0x00 */
-
-    u8 mode8x;    /* Read-write                   - value 0x00 */
-    u8 rega;      /* Reserved                      - value 0x00 */
-    u8 reset;      /* Write only Self clear bits after reset      -
-value 0x00 */
-     u8 sleep;      /* Read/Write Sleep mode              - value 0x00 */
-
-    u8 drev;      /* Read-only Device Revision            - value 0x09 */
-    u8 dvid;      /* Read-only Device Identification          - value 0x28 */
-     u8 regb;      /* Write-only                   - value 0x00 */
-    u8 mpioint;   /* Read/Write MPIO interrupt mask          - value 0x00 */
-
-    u8 mpiolvl;   /* Read/Write MPIO level control          - value 0x00 */
-     u8 mpio3t;    /* Read/Write MPIO output control          - value 0x00 */
-    u8 mpioinv;   /* Read/Write MPIO input polarity select      - value 0x00 */
-    u8 mpiosel;   /* Read/Write MPIO select              - value 0xFF */
- } xr17d168_conf_regs;
-
-xr17d168_conf_regs *xr17d168_conf_regs_ptr;
-
-int xr17d168_init(void) {
-
-    struct pci_dev *dev;
-    int ret;
-    u8 mode;
-    unsigned long start_addr, end_addr, size;
+Oh damn.  I bisected this three times and the second two times both landed on
+this:
 
 
-    dev = pci_get_device(PCI_VENDOR_ID_EXAR, PCI_DEVICE_ID_EXAR_XR17C158, NULL);
-    if(dev) {
-        printk(KERN_ALERT "EXAR XR17D168 Octal PCI UART Driver init.\n");
+commit 33f807ba0d9259e7c75c7a2ce8bd2787e5b540c7
+Author: Stephen Hemminger <shemminger@linux-foundation.org>
+Date:   Mon Nov 19 19:24:52 2007 -0800
 
-    ret = pci_enable_device(dev);
+    [NETPOLL]: Kill NETPOLL_RX_DROP, set but never tested.
+    
+    Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-    start_addr = pci_resource_start(dev, 0);
-    end_addr = pci_resource_end(dev, 0);
-    size = end_addr - start_addr;
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index cf6acd3..9e3aea0 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -40,7 +40,6 @@ static atomic_t trapped;
+ 
+ #define USEC_PER_POLL	50
+ #define NETPOLL_RX_ENABLED  1
+-#define NETPOLL_RX_DROP     2
+ 
+ #define MAX_SKB_SIZE \
+ 		(MAX_UDP_CHUNK + sizeof(struct udphdr) + \
+@@ -128,13 +127,11 @@ static int poll_one_napi(struct netpoll_info *npinfo,
+ 	if (!test_bit(NAPI_STATE_SCHED, &napi->state))
+ 		return budget;
+ 
+-	npinfo->rx_flags |= NETPOLL_RX_DROP;
+ 	atomic_inc(&trapped);
+ 
+ 	work = napi->poll(napi, budget);
+ 
+ 	atomic_dec(&trapped);
+-	npinfo->rx_flags &= ~NETPOLL_RX_DROP;
+ 
+ 	return budget - work;
+ }
+@@ -475,7 +472,7 @@ int __netpoll_rx(struct sk_buff *skb)
+ 	if (skb->dev->type != ARPHRD_ETHER)
+ 		goto out;
+ 
+-	/* check if netpoll clients need ARP */
++	/* if receive ARP during middle of NAPI poll, then queue */
+ 	if (skb->protocol == htons(ETH_P_ARP) &&
+ 	    atomic_read(&trapped)) {
+ 		skb_queue_tail(&npi->arp_tx, skb);
+@@ -537,6 +534,9 @@ int __netpoll_rx(struct sk_buff *skb)
+ 	return 1;
+ 
+ out:
++	/* If packet received while already in poll then just
++	 * silently drop.
++	 */
+ 	if (atomic_read(&trapped)) {
+ 		kfree_skb(skb);
+ 		return 1;
 
-    xr17d168_conf_regs_ptr = (xr17d168_conf_regs
-*)ioremap(start_addr+CONF_REG_START,CONF_REG_SIZE);
+and I stupidly assumed that it couldn't be this commit because it was a
+no-op.  I didn't think to look for an _impicit_ test of NETPOLL_RX_DROP
+such as the one above.  That's pretty poor style IMO :(
 
-     mode = 0xec;
-    iowrite8(mode, &xr17d168_conf_regs_ptr->mpiolvl);
-        iowrite8(0, &xr17d168_conf_regs_ptr->mpiosel);
-        iowrite8(0, &xr17d168_conf_regs_ptr->mpio3t);
 
-    pci_dev_put(dev);
-    }
-    return 0;
-}
+That bisecting took me several hours and at the time I hoped that it would
+receive a more-than-zero response.  btw.
 
-void xr17d168_exit(void) {
-
-    printk(KERN_ALERT "EXAR XR17D168 Octal PCI UART Driver exit.\n");
-    iowrite8(0, &xr17d168_conf_regs_ptr->mpiolvl);
-     iowrite8(0xff, &xr17d168_conf_regs_ptr->reset);
-    iounmap((void *)xr17d168_conf_regs_ptr);
-}
-
-static struct pci_driver
-module_init(xr17d168_init);
-module_exit(xr17d168_exit);
-MODULE_LICENSE("Dual BSD/GPL");
-
-This is my first linux driver so excuse me if it isn't perfect! I'm
-working to improve myself.
-My questions are:
-1) Is the driver necessary to set properly the configuration registers?
-2) Does exist a method (like ioctl, sysfs or proc) to configure my boards?
-3) What is the better way for manage this chip that has the capability
-to work in 232, 422 or half ports in 232 and others in 422 modes?
-
-Excuse me for my bad  english!!
-
-Yours sincerly,
--- 
-Salvatore De Astis
