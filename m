@@ -1,88 +1,93 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: locking api self-test hanging
-Date: Mon, 3 Mar 2008 21:05:40 -0800
-Message-ID: <20080303210540.cea55e13.akpm@linux-foundation.org>
-References: <20080203150246.50647fa4.akpm@linux-foundation.org>
-	<20080203150744.cf7d0415.akpm@linux-foundation.org>
-	<20080204044304.d244e761.akpm@linux-foundation.org>
-	<20080206003412.dca555d4.akpm@linux-foundation.org>
-	<20080206011643.d9021649.akpm@linux-foundation.org>
+From: Max Krasnyansky <maxk@qualcomm.com>
+Subject: Re: [PATCH 2/3] partial checksum and GSO support for tun/tap.
+Date: Mon, 03 Mar 2008 21:08:00 -0800
+Message-ID: <47CCD930.3040200@qualcomm.com>
+References: <200801240107.38929.rusty@rustcorp.com.au>
+	<200801240110.45178.rusty@rustcorp.com.au>
+	<47ABEAF7.8020508@qualcomm.com>
+	<200803041202.17202.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
-	linux-kernel@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:52852 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750834AbYCDFGo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 00:06:44 -0500
-In-Reply-To: <20080206011643.d9021649.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+        virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <200803041202.17202.rusty@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 6 Feb 2008 01:16:43 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
-
-> On Wed, 6 Feb 2008 00:34:12 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
+Rusty Russell wrote:
+> On Friday 08 February 2008 16:39:03 Max Krasnyansky wrote:
+>> Rusty Russell wrote:
+>>> (Changes since last time: we how have explicit IFF_RECV_CSUM and
+>>> IFF_RECV_GSO bits, and some renaming of virtio_net hdr)
+>>>
+>>> We use the virtio_net_hdr: it is an ABI already and designed to
+>>> encapsulate such metadata as GSO and partial checksums.
+>>>
+>>> IFF_VIRTIO_HDR means you will write and read a 'struct virtio_net_hdr'
+>>> at the start of each packet.  You can always write packets with
+>>> partial checksum and gso to the tap device using this header.
+>>>
+>>> IFF_RECV_CSUM means you can handle reading packets with partial
+>>> checksums.  If IFF_RECV_GSO is also set, it means you can handle
+>>> reading (all types of) GSO packets.
+>>>
+>>> Note that there is no easy way to detect if these flags are supported:
+>>> see next patch.
+>> Again sorry for delay in replying. Here are my thoughts on this.
+>>
+>> I like the approach in general. Certainly the part that creates skbs out of
+>> the user-space pages looks good. And it's fits nicely into existing TUN
+>> driver model. However I actually wanted to change the model :). In
+>> particular I'm talking about "syscall per packet"
+>> After messing around with things like libe1000.sf.net I'd like to make
+>> TUN/TAP driver look more like modern nic's to the user-space. In other
+>> words I'm thinking about introducing RX and TX rings that the user-space
+>> can then mmap() and write/read packets descriptors to/from. That will saves
+>> the number of system calls that the user-space app needs to do. That by
+>> itself saves a lot of overhead, combined with the GSO it's be lightning
+>> fast.
 > 
-> > On Mon, 4 Feb 2008 04:43:04 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
-> > 
-> > > On Sun, 3 Feb 2008 15:07:44 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
-> > > 
-> > > > On Sun, 3 Feb 2008 15:02:46 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
-> > > > 
-> > > > > 
-> > > > > With current mainline I'm getting intermittent hangs here:
-> > > > > 
-> > > > > 	http://userweb.kernel.org/~akpm/p2033590.jpg
-> > > > > 
-> > > > > with this config:
-> > > > > 
-> > > > > 	http://userweb.kernel.org/~akpm/config-sony.txt
-> > > > > 
-> > > > > on the Vaio.  Sometimes it boots (then hits another different hang),
-> > > > > sometimes it gets stuck there.
-> > > 
-> > > CONFIG_DEBUG_LOCKING_API_SELFTESTS=n fixed that up.
-> > > 
-> > > > 
-> > > > The second hang is in kobject_uevent_init().  All that function does is call
-> > > > netlink_kernel_create().
-> > > 
-> > > And I've fully bisected this hang twice and both times came up with
-> > > 
-> > > commit 33f807ba0d9259e7c75c7a2ce8bd2787e5b540c7
-> > > Author: Stephen Hemminger <shemminger@linux-foundation.org>
-> > > Date:   Mon Nov 19 19:24:52 2007 -0800
-> > > 
-> > >     [NETPOLL]: Kill NETPOLL_RX_DROP, set but never tested.
-> > > 
-> > > which is stupid because that patch doesn't do anything.
-> > > 
-> > > However I am using netconsole-over-e100 and the hang does go away when I
-> > > disable netconsole on the kernel boot command line.
-> > > 
-> > > I'd say it's some timing thing in netpoll/netconsole/napi/etc.
-> > > 
-> > 
-> > I'm seeing this netconsole hang on a second machine now.  Current
-> > mainline.  It also has e100.  This one is SMP ancient PIII.
-> > 
-> > Config: http://userweb.kernel.org/~akpm/config-vmm.txt
-> > 
-> 
-> I can reproduce this on a third machine: the t61p laptop: dual x86_64 with
-> e1000.
-> 
-> It seems to need quite a lot of printk activity to make it happen.  Turning
-> on initcall_debug is a suitable way of triggering it.
-> 
+> The problem with this approach is that for what I'm doing, the packets aren't 
+> nicely arranged somewhere; they're in random process memory.
+That's fine. RX/TX descriptors would not contain the data itself. They'd
+contain pointers to actual packets (ie just like the NIC takes physical memory
+address and DMAs data in/out).
+The allows for sending/receiving packets without syscalls and fits nicely with
+the async schemes like GSO.
 
-This netconsole regression is still present in current mainline.  Rafael,
-can you please add it to the list?
+btw The code that I sent you does indeed expect packets to be in a mmap()ed
+buffer but I agree that it only works for certain cases. In general it's not
+flexible. I was thinking of introducing some flags in the descriptor that tell
+the kernel how to handle the packet. ie Whether it needs to be just copied
+into a fresh SKB or remapped with get_user_pages().
 
-It's strange that I can hit it on three separate machines with e100 and e1000
-yet nobody else has reported it (afaik).  Is nobody using netconsole?
+> I thought about further abusing writev and readv to do multiple packets at 
+> once.  
+I actually was going to abuse them from day one. At that time Alex Kuznetsov
+told me that I'm crazy and I gave up on it :)
 
+>> Also btw why call it VIRTIO ? For example I'm actually interested in
+>> speeding up tunning and general network apps. We have wireless basestation
+>> apps here that need to handle packets in user-space. Those kind things have
+>> nothing to with virtualization.
+> 
+> The structure is for virtio, I'm just borrowing it for tap because it's 
+> already there.  We could rename it and move it out to its own header, but if 
+> so we should do that before 2.6.25 is released.
+If we do the whole enchilada with the RX/TX rings then we probably do not even
+need it. I'm thinking that RX/TX descriptor would include everything you need
+for the GSO and stuff.
+I meant do not need it for the TUN/TAP driver that is. Is it used anywhere else ?
+
+Max
