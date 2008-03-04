@@ -1,42 +1,93 @@
 From: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-Subject: [patch (for 2.6.25?) 2/2] bluetooth: CONWISE Technology based adapters with buggy SCO support (bugzilla #9027)
-Date: Tue, 04 Mar 2008 14:58:07 -0800
-Message-ID: <200803042258.m24Mw8UK001381@imap1.linux-foundation.org>
+Subject: [patch (for 2.6.25?) 1/2] bluetooth: hci_core: defer hci_unregister_sysfs()
+Date: Tue, 04 Mar 2008 14:58:06 -0800
+Message-ID: <200803042258.m24Mw6sO001378@imap1.linux-foundation.org>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, sdiz-A7iEm+J7xfE@public.gmane.org
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, alon.barlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, seife-l3A5Bk7waGM@public.gmane.org
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: SDiZ <sdiz-A7iEm+J7xfE@public.gmane.org>
+From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Fix the CONWISE Technology based adapters with buggy SCO support issue
-(bugzilla #9027)
+Alon Bar-Lev reports:
 
+> Feb 16 23:41:33 alon1 usb 3-1: configuration #1 chosen from 1 choice
+Feb 16 23:41:33 alon1 BUG: unable to handle kernel NULL pointer dereference at virtual address 00000008
+Feb 16 23:41:33 alon1 printing eip: c01b2db6 *pde = 00000000
+Feb 16 23:41:33 alon1 Oops: 0000 [#1] PREEMPT
+Feb 16 23:41:33 alon1 Modules linked in: ppp_deflate zlib_deflate zlib_inflate bsd_comp ppp_async rfcomm l2cap hci_usb vmnet(P) vmmon(P) tun radeon drm autofs4 ipv6 aes_generic crypto_algapi ieee80211_crypt_ccmp nf_nat_irc nf_nat_ftp nf_conntrack_irc nf_conntrack_ftp ipt_MASQUERADE iptable_nat nf_nat ipt_REJECT xt_tcpudp ipt_LOG xt_limit xt_state nf_conntrack_ipv4 nf_conntrack iptable_filter ip_tables x_tables snd_pcm_oss snd_mixer_oss snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device bluetooth ppp_generic slhc ioatdma dca cfq_iosched cpufreq_powersave cpufreq_ondemand cpufreq_conservative acpi_cpufreq freq_table uinput fan af_packet nls_cp1255 nls_iso8859_1 nls_utf8 nls_base pcmcia snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm nsc_ircc snd_timer ipw2200 thinkpad_acpi irda
+  snd ehci_hcd yenta_socket uhci_hcd psmouse ieee80211 soundcore intel_agp hwmon rsrc_nonstatic pcspkr e1000 crc_ccitt snd_page_alloc i2c_i801 ieee80211_crypt pcmcia_core agpgart thermal bat!
+ tery nvram rtc sr_mod ac sg firmware_class button processor cdrom unix usbcore evdev ext3 jbd ext2 mbcache loop ata_piix libata sd_mod scsi_mod
+Feb 16 23:41:33 alon1
+Feb 16 23:41:33 alon1 Pid: 4, comm: events/0 Tainted: P        (2.6.24-gentoo-r2 #1)
+Feb 16 23:41:33 alon1 EIP: 0060:[<c01b2db6>] EFLAGS: 00010282 CPU: 0
+Feb 16 23:41:33 alon1 EIP is at sysfs_get_dentry+0x26/0x80
+Feb 16 23:41:33 alon1 EAX: 00000000 EBX: 00000000 ECX: 00000000 EDX: f48a2210
+Feb 16 23:41:33 alon1 ESI: f72eb900 EDI: f4803ae0 EBP: f4803ae0 ESP: f7c49efc
+Feb 16 23:41:33 alon1 hcid[7004]: HCI dev 0 registered
+Feb 16 23:41:33 alon1 DS: 007b ES: 007b FS: 0000 GS: 0000 SS: 0068
+Feb 16 23:41:33 alon1 Process events/0 (pid: 4, ti=f7c48000 task=f7c3efc0 task.ti=f7c48000)
+Feb 16 23:41:33 alon1 Stack: f7cb6140 f4822668 f7e71e10 c01b304d ffffffff ffffffff fffffffe c030ba9c
+Feb 16 23:41:33 alon1 f7cb6140 f4822668 f6da6720 f7cb6140 f4822668 f6da6720 c030ba8e c01ce20b
+Feb 16 23:41:33 alon1 f6e9dd00 c030ba8e f6da6720 f6e9dd00 f6e9dd00 00000000 f4822600 00000000
+Feb 16 23:41:33 alon1 Call Trace:
+Feb 16 23:41:33 alon1 [<c01b304d>] sysfs_move_dir+0x3d/0x1f0
+Feb 16 23:41:33 alon1 [<c01ce20b>] kobject_move+0x9b/0x120
+Feb 16 23:41:33 alon1 [<c0241711>] device_move+0x51/0x110
+Feb 16 23:41:33 alon1 [<f9aaed80>] del_conn+0x0/0x70 [bluetooth]
+Feb 16 23:41:33 alon1 [<f9aaed99>] del_conn+0x19/0x70 [bluetooth]
+Feb 16 23:41:33 alon1 [<c012c1a1>] run_workqueue+0x81/0x140
+Feb 16 23:41:33 alon1 [<c02c0c88>] schedule+0x168/0x2e0
+Feb 16 23:41:33 alon1 [<c012fc70>] autoremove_wake_function+0x0/0x50
+Feb 16 23:41:33 alon1 [<c012c9cb>] worker_thread+0x9b/0xf0
+Feb 16 23:41:33 alon1 [<c012fc70>] autoremove_wake_function+0x0/0x50
+Feb 16 23:41:33 alon1 [<c012c930>] worker_thread+0x0/0xf0
+Feb 16 23:41:33 alon1 [<c012f962>] kthread+0x42/0x70
+Feb 16 23:41:33 alon1 [<c012f920>] kthread+0x0/0x70
+Feb 16 23:41:33 alon1 [<c0104c2f>] kernel_thread_helper+0x7/0x18
+Feb 16 23:41:33 alon1 =======================
+Feb 16 23:41:33 alon1 Code: 26 00 00 00 00 57 89 c7 a1 50 1b 3a c0 56 53 8b 70 38 85 f6 74 08 8b 0e 85 c9 74 58 ff 06 8b 56 50 39 fa 74 47 89 fb eb 02 89 c3 <8b> 43 08 39 c2 75 f7 8b 46 08 83 c0 68 e8 98 e7 10 00 8b 43 10
+Feb 16 23:41:33 alon1 EIP: [<c01b2db6>] sysfs_get_dentry+0x26/0x80 SS:ESP 0068:f7c49efc
+Feb 16 23:41:33 alon1 ---[ end trace aae864e9592acc1d ]---
+
+Defer hci_unregister_sysfs because hci device could be destructed
+while hci conn devices still there.
+
+Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Tested-by: Stefan Seyfried <seife-l3A5Bk7waGM@public.gmane.org>
+Acked-by: Alon Bar-Lev <alon.barlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
 Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 ---
 
- drivers/bluetooth/hci_usb.c |    3 +++
- 1 file changed, 3 insertions(+)
+ net/bluetooth/hci_core.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff -puN drivers/bluetooth/hci_usb.c~bluetooth-conwise-technology-based-adapters-with-buggy-sco-support-bugzilla-9027 drivers/bluetooth/hci_usb.c
---- a/drivers/bluetooth/hci_usb.c~bluetooth-conwise-technology-based-adapters-with-buggy-sco-support-bugzilla-9027
-+++ a/drivers/bluetooth/hci_usb.c
-@@ -148,6 +148,9 @@ static struct usb_device_id blacklist_id
- 	{ USB_DEVICE(0x0400, 0x0807), .driver_info = HCI_BROKEN_ISOC },
- 	{ USB_DEVICE(0x0400, 0x080a), .driver_info = HCI_BROKEN_ISOC },
+diff -puN net/bluetooth/hci_core.c~bluetooth-hci_core-defer-hci_unregister_sysfs net/bluetooth/hci_core.c
+--- a/net/bluetooth/hci_core.c~bluetooth-hci_core-defer-hci_unregister_sysfs
++++ a/net/bluetooth/hci_core.c
+@@ -902,8 +902,6 @@ int hci_unregister_dev(struct hci_dev *h
  
-+	/* CONWISE Technology based adapters with buggy SCO support */
-+	{ USB_DEVICE(0x0e5e, 0x6622), .driver_info = HCI_BROKEN_ISOC },
+ 	BT_DBG("%p name %s type %d", hdev, hdev->name, hdev->type);
+ 
+-	hci_unregister_sysfs(hdev);
+-
+ 	write_lock_bh(&hci_dev_list_lock);
+ 	list_del(&hdev->list);
+ 	write_unlock_bh(&hci_dev_list_lock);
+@@ -915,6 +913,8 @@ int hci_unregister_dev(struct hci_dev *h
+ 
+ 	hci_notify(hdev, HCI_DEV_UNREG);
+ 
++	hci_unregister_sysfs(hdev);
 +
- 	/* Belkin F8T012 and F8T013 devices */
- 	{ USB_DEVICE(0x050d, 0x0012), .driver_info = HCI_RESET | HCI_WRONG_SCO_MTU },
- 	{ USB_DEVICE(0x050d, 0x0013), .driver_info = HCI_RESET | HCI_WRONG_SCO_MTU },
+ 	__hci_dev_put(hdev);
+ 
+ 	return 0;
 _
 --
 To unsubscribe from this list: send the line "unsubscribe linux-bluetooth" in
