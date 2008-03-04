@@ -1,43 +1,27 @@
-From: "Stephens, Allan" <allan.stephens@windriver.com>
-Subject: RE: [PATCH 1/7 net-2.6.26] [TIPC]: Update version to 1.6.3
-Date: Tue, 4 Mar 2008 14:01:34 -0800
-Message-ID: <AF1602CB2550CE4381C0C75118A7856B0252E54B@ala-mail02.corp.ad.wrs.com>
-References: <1204665619-6345-1-git-send-email-allan.stephens@windriver.com><1204665619-6345-2-git-send-email-allan.stephens@windriver.com> <20080304.134056.13379327.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 00/12][NETNS][IPV6] Finish the routing per namespace
+Date: Tue, 04 Mar 2008 14:15:16 -0800 (PST)
+Message-ID: <20080304.141516.57445450.davem@davemloft.net>
+References: <20080304210326.169013927@mai.toulouse-stg.fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, benjamin.thery@bull.net
+To: dlezcano@fr.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:58469 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755314AbYCDWBo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 17:01:44 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20080304.134056.13379327.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59783
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753382AbYCDWPX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 17:15:23 -0500
+In-Reply-To: <20080304210326.169013927@mai.toulouse-stg.fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-That's a good point.  I'll include this as the last patch when I
-resubmit (since it turned out you really didn't like the rest of the
-patch set).
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Date: Tue, 04 Mar 2008 22:03:26 +0100
 
--- Al
+> This second round of patches makes the routing per namespace to be 
+> complete and to have the routing engine to support multiple network
+> namespace.
 
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: Tuesday, March 04, 2008 4:41 PM
-To: Stephens, Allan
-Cc: netdev@vger.kernel.org
-Subject: Re: [PATCH 1/7 net-2.6.26] [TIPC]: Update version to 1.6.3
-
-From: Allan Stephens <allan.stephens@windriver.com>
-Date: Tue,  4 Mar 2008 16:20:13 -0500
-
-> This patch updates TIPC's version number to 1.6.3.
-> 
-> Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
-
-You should bump version numbers after actually making changes.  What if
-I didn't like the rest of your patch set, and I only applied this one?
+All applied and pushed out, thanks!
