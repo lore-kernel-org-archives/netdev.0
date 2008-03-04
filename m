@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/7 net-2.6.26] [TIPC]: Update version to 1.6.3
-Date: Tue, 04 Mar 2008 14:16:29 -0800 (PST)
-Message-ID: <20080304.141629.37408596.davem@davemloft.net>
-References: <1204665619-6345-2-git-send-email-allan.stephens@windriver.com>
-	<20080304.134056.13379327.davem@davemloft.net>
-	<AF1602CB2550CE4381C0C75118A7856B0252E54B@ala-mail02.corp.ad.wrs.com>
+Subject: Re: [PATCH] TCP cubic v2.2
+Date: Tue, 04 Mar 2008 14:18:23 -0800 (PST)
+Message-ID: <20080304.141823.238894086.davem@davemloft.net>
+References: <20080228223148.01a7cbae@extreme>
+	<00a801c87ad7$7db74820$4a580e98@ncsu2cc0c3fa00>
+	<20080304115740.63f8fa7c@extreme>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: allan.stephens@windriver.com
+Cc: rhee@eos.ncsu.edu, sha2@ncsu.edu, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59791
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36706
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754205AbYCDWQi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 17:16:38 -0500
-In-Reply-To: <AF1602CB2550CE4381C0C75118A7856B0252E54B@ala-mail02.corp.ad.wrs.com>
+	by vger.kernel.org with ESMTP id S1753339AbYCDWSc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 17:18:32 -0500
+In-Reply-To: <20080304115740.63f8fa7c@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Stephens, Allan" <allan.stephens@windriver.com>
-Date: Tue, 4 Mar 2008 14:01:34 -0800
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 4 Mar 2008 11:57:40 -0800
 
-> That's a good point.  I'll include this as the last patch when I
-> resubmit
+> We have updated CUBIC to fix some issues with slow increase in large BDP 
+> networks. We also improved its convergence speed. The fix is in fact very 
+> simple --  the window increase limit of smax during the window probing phase 
+> (i.e., convex growth phase) is removed. We found that this does not affect 
+> TCP friendliness, but only improves its scalability. We have run some tests 
+> in our lab and also over the Internet path from NCSU to Japan. These results 
+> can be seen from the following page:
+> 
+> 
+> http://netsrv.csc.ncsu.edu/wiki/index.php/Intra_protocol_fairness_testing_with_linux-2.6.23.9
+> http://netsrv.csc.ncsu.edu/wiki/index.php/RTT_fairness_testing_with_linux-2.6.23.9
+> http://netsrv.csc.ncsu.edu/wiki/index.php/TCP_friendliness_testing_with_linux-2.6.23.9
+> 
+> Signed-off-by: Sangtae Ha <sha2@ncsu.edu>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Thanks.
-
-Hopefully it'll all be good this time around.
-
+I've applied this to net-2.6.26, thanks!
