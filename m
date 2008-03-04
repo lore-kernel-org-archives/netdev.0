@@ -1,51 +1,95 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC,PATCH] loopback: calls netif_receive_skb() instead of
- netif_rx()
-Date: Mon, 3 Mar 2008 21:15:35 -0800
-Message-ID: <20080303211535.03e3c81e@extreme>
-References: <47BDC848.50607@cosmosbay.com>
-	<20080226.182120.183405235.davem@davemloft.net>
-	<47C92F49.4070100@cosmosbay.com>
-	<20080303.205558.114610030.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: iptables breakage on fc8 with recent kernels
+Date: Mon, 3 Mar 2008 21:47:25 -0800
+Message-ID: <20080303214725.92ba0955.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:38357 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751041AbYCDFPl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Mar 2008 00:15:41 -0500
-In-Reply-To: <20080303.205558.114610030.davem@davemloft.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:36362 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750863AbYCDFrz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 00:47:55 -0500
+Received: from imap1.linux-foundation.org (imap1.linux-foundation.org [140.211.169.55])
+	by smtp1.linux-foundation.org (8.14.2/8.14.2/Debian-2build1) with ESMTP id m245lasU032354
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 3 Mar 2008 21:47:37 -0800
+Received: from box (localhost [127.0.0.1])
+	by imap1.linux-foundation.org (8.13.5.20060308/8.13.5/Debian-3ubuntu1.1) with SMTP id m245lQpx025860
+	for <netdev@vger.kernel.org>; Mon, 3 Mar 2008 21:47:26 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 03 Mar 2008 20:55:58 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
 
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Sat, 01 Mar 2008 11:26:17 +0100
-> 
-> > You are absolutly right. We should guard against recursion, using a new field 
-> > in "pcpu_lstats" (cheap access in a hot cache line as we have to update stats 
-> > anyway)
->  ...
-> > [PATCH] loopback: calls netif_receive_skb() instead of netif_rx()
-> 
-> I'm willing to seriously entertain this change and stick it
-> into net-2.6.26 if you will perform a reasonable deep stack
-> test.
-> 
-> For example, create an XFS filesystem, and mount it NFS over
-> loopback.  Then stress it like crazy.
-> 
-> See if this generates stack overflows or weird crashes.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I've noticed that my fc8 initscripts have been failing for a while with:
 
-Also (unrealistic) benchmarks often test loopback performance, so you
-should also check for performance gains/losses in things like
-netbench, netperf, tbench, etc.
+ip6tables-restore: line 20 failed
+iptables-restore: line 20 failed
+
+It could be that this was caused by some config change which broke `make
+oldconfig', but from a quick look nothing stands out.
+
+Here's my /etc/sysconfig/iptables:
+
+# Firewall configuration written by system-config-firewall
+# Manual customization of this file is not recommended.
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:RH-Firewall-1-INPUT - [0:0]
+-A INPUT -j RH-Firewall-1-INPUT
+-A RH-Firewall-1-INPUT -i lo -j ACCEPT
+-A RH-Firewall-1-INPUT -p icmp --icmp-type any -j ACCEPT
+-A RH-Firewall-1-INPUT -p 50 -j ACCEPT
+-A RH-Firewall-1-INPUT -p 51 -j ACCEPT
+-A RH-Firewall-1-INPUT -p udp --dport 5353 -d 224.0.0.251 -j ACCEPT
+-A RH-Firewall-1-INPUT -p udp -m udp --dport 631 -j ACCEPT
+-A RH-Firewall-1-INPUT -p tcp -m tcp --dport 631 -j ACCEPT
+-A RH-Firewall-1-INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 22 -j ACCEPT
+-A RH-Firewall-1-INPUT -j REJECT --reject-with icmp-host-prohibited
+-A FORWARD -j REJECT --reject-with icmp-host-prohibited
+COMMIT
+
+
+Line 20 is the "COMMIT", which is rather unhelpful of iptables-restore.
+
+<debugs a bit>
+
+OK, I commented all the lines and then did a linear-search-by-uncommenting.
+It fails here:
+
+
+# Firewall configuration written by system-config-firewall
+# Manual customization of this file is not recommended.
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:RH-Firewall-1-INPUT - [0:0]
+-A INPUT -j RH-Firewall-1-INPUT
+-A RH-Firewall-1-INPUT -i lo -j ACCEPT
+-A RH-Firewall-1-INPUT -p icmp --icmp-type any -j ACCEPT
+-A RH-Firewall-1-INPUT -p 50 -j ACCEPT
+-A RH-Firewall-1-INPUT -p 51 -j ACCEPT
+-A RH-Firewall-1-INPUT -p udp --dport 5353 -d 224.0.0.251 -j ACCEPT
+-A RH-Firewall-1-INPUT -p udp -m udp --dport 631 -j ACCEPT
+-A RH-Firewall-1-INPUT -p tcp -m tcp --dport 631 -j ACCEPT
+-A RH-Firewall-1-INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+#-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 22 -j ACCEPT
+#-A RH-Firewall-1-INPUT -j REJECT --reject-with icmp-host-prohibited
+#-A FORWARD -j REJECT --reject-with icmp-host-prohibited
+COMMIT
+
+
+So it is
+
+   -A RH-Firewall-1-INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+which is now failing.
+
+config: http://userweb.kernel.org/~akpm/config-t61p.txt
+
+Thanks.
