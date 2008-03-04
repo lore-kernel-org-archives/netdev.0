@@ -1,59 +1,74 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [patch 06/12][NETNS][IPV6] route6 - make route6 per namespace
-Date: Wed, 05 Mar 2008 08:02:25 +0900 (JST)
-Message-ID: <20080305.080225.41277542.yoshfuji@linux-ipv6.org>
-References: <20080304210326.169013927@mai.toulouse-stg.fr.ibm.com>
-	<20080304211023.817913201@mai.toulouse-stg.fr.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	benjamin.thery@bull.net, yoshfuji@linux-ipv6.org
-To: dlezcano@fr.ibm.com
+From: akpm@linux-foundation.org
+Subject: [patch (for 2.6.25?) 1/2] The kernel gets no IP from some DHCP servers
+Date: Tue, 04 Mar 2008 14:56:48 -0800
+Message-ID: <200803042256.m24MumHJ001353@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	Marcel.Wappler@bridgeco.net, kaber@trash.net,
+	shemminger@linux-foundation.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:53729 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1765541AbYCDXBW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 18:01:22 -0500
-In-Reply-To: <20080304211023.817913201@mai.toulouse-stg.fr.ibm.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:34486 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1765373AbYCDXBV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 18:01:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <20080304211023.817913201@mai.toulouse-stg.fr.ibm.com> (at Tue, 04 Mar 2008 22:03:32 +0100), Daniel Lezcano <dlezcano@fr.ibm.com> says:
+From: "Wappler Marcel" <Marcel.Wappler@bridgeco.net>
 
-> This patch makes the routing engine use the network namespaces
-> to access routing informations:
-> Add a network namespace parameter to ipv6_route_ioctl and 
-> propagate the network namespace value to all the routing code
-> that have not yet been changed.
-> 
-> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
-> Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
-> ---
->  include/net/ip6_route.h |    4 +
->  net/ipv6/af_inet6.c     |    3 -
->  net/ipv6/route.c        |   98 ++++++++++++++++++++++++------------------------
->  3 files changed, 54 insertions(+), 51 deletions(-)
-> 
-:
-> @@ -2544,6 +2545,7 @@ static void ip6_route_net_exit(struct ne
->  	proc_net_remove(net, "ipv6_route");
->  	proc_net_remove(net, "rt6_stats");
->  #endif
-> +	rt6_ifdown(net, NULL);
->  }
->  
->  static struct pernet_operations ip6_route_net_ops = {
-> @@ -2592,7 +2594,6 @@ fib6_rules_init:
->  xfrm6_init:
->  	xfrm6_fini();
->  out_fib6_init:
-> -	rt6_ifdown(&init_net, NULL);
->  	fib6_gc_cleanup();
->  out_kmem_cache:
->  	kmem_cache_destroy(ip6_dst_ops.kmem_cachep);
+This patch fixes a DHCP issue of the kernel: some DHCP servers (i.e.  in the
+Linksys WRT54Gv5) are very strict about the contents of the DHCPDISCOVER
+packet they receive from clients.
 
-Please do not change the calling path here.
+Table 5 in RFC2131 page 36 requests the fields 'ciaddr' and 'siaddr' MUST be
+set to '0'.  These DHCP servers ignore Linux kernel's DHCP discovery packets
+with these two fields set to '255.255.255.255' (in contrast to popular DHCP
+clients, such as 'dhclient' or 'udhcpc').  This leads to a not booting system.
 
---yoshfuji
+I tested this on a ARM embedded device mounting rootfs over NFS obtaining its
+IP from a Linksys WRT54Gv5 Router running VxWorks and a PC based Server
+running a Linux.  Changing the two fields to '0.0.0.0' worked.
+
+Cc: Stephen Hemminger <shemminger@osdl.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ net/ipv4/ipconfig.c |    9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff -puN net/ipv4/ipconfig.c~the-kernel-gets-no-ip-from-some-dhcp-servers net/ipv4/ipconfig.c
+--- a/net/ipv4/ipconfig.c~the-kernel-gets-no-ip-from-some-dhcp-servers
++++ a/net/ipv4/ipconfig.c
+@@ -29,6 +29,10 @@
+  *
+  *  Multiple Nameservers in /proc/net/pnp
+  *              --  Josef Siemes <jsiemes@web.de>, Aug 2002
++ *
++ *  Bugfix: Not getting an IP from some DHCP servers: RFC2131 page 36
++ *  Table 5 requests DHCPDISCOVER fields ciaddr and siaddr MUST be '0'.
++ *              -- marcel.wappler@bridgeco.net
+  */
+ 
+ #include <linux/types.h>
+@@ -103,6 +107,7 @@
+ 					   - '3' from resolv.h */
+ 
+ #define NONE __constant_htonl(INADDR_NONE)
++#define ZERO __constant_htonl(((unsigned long int) 0x00000000))
+ 
+ /*
+  * Public IP configuration
+@@ -754,8 +759,8 @@ static void __init ic_bootp_send_if(stru
+ 		b->htype = dev->type; /* can cause undefined behavior */
+ 	}
+ 	b->hlen = dev->addr_len;
+-	b->your_ip = NONE;
+-	b->server_ip = NONE;
++	b->your_ip = ZERO;
++	b->server_ip = ZERO;
+ 	memcpy(b->hw_addr, dev->dev_addr, dev->addr_len);
+ 	b->secs = htons(jiffies_diff / HZ);
+ 	b->xid = d->xid;
+_
