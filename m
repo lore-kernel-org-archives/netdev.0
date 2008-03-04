@@ -1,91 +1,49 @@
-From: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
-Subject: Re: TCP IPv4 strange retransmits
-Date: Tue, 04 Mar 2008 15:31:31 +0100
-Message-ID: <47CD5D43.9020408@nets.rwth-aachen.de>
-References: <47CD4808.1050202@nets.rwth-aachen.de>
- <Pine.LNX.4.64.0803041507001.5423@kivilampi-30.cs.helsinki.fi>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: Re: [patch 11/11][NETNS][IPV6] rt6_stats - make the stats per network
+ namespace
+Date: Tue, 04 Mar 2008 15:59:58 +0100
+Message-ID: <47CD63EE.8090204@bull.net>
+References: <20080302093720.649869114@mai.toulouse-stg.fr.ibm.com>	<20080302094243.621444844@mai.toulouse-stg.fr.ibm.com> <20080303.233430.199177100.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: dlezcano@fr.ibm.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:58080 "EHLO
-	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753308AbYCDOaX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 09:30:23 -0500
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.3.58])
- by mta-2.ms.rz.RWTH-Aachen.de
- (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
- with ESMTP id <0JX700FR8MYMQ960@mta-2.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Tue, 04 Mar 2008 15:30:22 +0100 (CET)
-In-reply-to: <Pine.LNX.4.64.0803041507001.5423@kivilampi-30.cs.helsinki.fi>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:42739 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756193AbYCDO7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 09:59:50 -0500
+In-Reply-To: <20080303.233430.199177100.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+David Miller wrote:
+> From: Daniel Lezcano <dlezcano@fr.ibm.com>
+> Date: Sun, 02 Mar 2008 10:37:31 +0100
+> 
+>> The rt6_stats is now per namespace with this patch. It is
+>> allocated when a network namespace is created and freed
+>> when the network namespace exits and references are relative
+>> to the network namespace.
+>>
+>> Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+>> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+> 
+> Also applied, thanks a lot guys!
 
-Ilpo J=E4rvinen wrote:
-> On Tue, 4 Mar 2008, Arnd Hannemann wrote:
->=20
->> I'm observing some retransmits with kernel 2.6.24.2, which I don't=20
->> understand. For instance in this cutout[1] of a sequence diagram whi=
-ch=20
->> was captured[2] on the TCP sender, 4 retransmits are made.
->=20
-> They don't correspond to each other?
+Dave,
 
-Hmm, they should.
+I can't see the patches in net-2.6.26 tree. Have you been forced
+to revert them because they conflict with Yoshifuji patchset?
+or am I too impatient? :)
 
->=20
->> According to netstat -st output[3][4] all those 4 retransmits were "=
-fast=20
->> retransmit".
->> But there are no three DUPACKs which I expected would be needed for =
-fast=20
->> retransmit?
->=20
-> With FACK it's enough that you have fackets_out > tp->reordering=20
-> (=3DdupThresh).
+Anyway, if you want us to resend the patchset refreshed for the latest 
+net-2.6.26 don't hesitate to ask.
 
-If it is FACK shouldn't it be accounted for LINUX_MIB_TCPFORWARDRETRANS
-instead of LINUX_MIB_TCPFASTRETRANS?
+Benjamin
 
->=20
->> Also interesting all retransmits happen _after_ those segments were
->> already acked and sacked, internal queuing or latency issues?
->=20
-> I think your viewer is doing something wrong, sender.dump is not givi=
-ng=20
-> such information (or you draw that from wrong end?). Or it just draws
-> DSACK like that?
+-- 
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
 
-Viewer is tcptrace and xplot. So nothing special at all.
-You see it also in wireshark, if you draw a sequence diagram.
-You also see it in wireshark if you sort by capture timestamp. I always=
- thought
-that capture timestamp order is correct and not dump order, but maybe I=
-'m wrong?
-
-Tcpdump:
-
-12:08:20.667538 IP 192.168.0.7.33824 > 192.168.0.5.50139: . ack 23485 w=
-in 22720 <nop,nop,timestamp 969759 972885,nop,nop,sack 2 {24905:26325}{=
-27745:29165}>
-^^^^^ got acked at .667538
-
-12:08:20.646749 IP 192.168.0.5.50139 > 192.168.0.7.33824: . 22065:23485=
-(1420) ack 1 win 2864 <nop,nop,timestamp 972885 969754>
-^^^^^ got retransmitted at .646749
-
->=20
->> It would be great if somebody could shed some light on this,
->> why those segments are retransmitted.
->> Dumps and xplots are available here[5].
->=20
-> ...I quickly glanced over it and found no strange behavior in
-> the sender.dump.
-
-Best regards,
-Arnd
-
+    http://www.bull.com
