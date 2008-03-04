@@ -1,69 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: inet established hash question
-Date: Tue, 04 Mar 2008 14:24:13 -0800 (PST)
-Message-ID: <20080304.142413.254346205.davem@davemloft.net>
-References: <47CDA6E4.1050505@ixiacom.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 0/2] Fix /proc/net in presence of net namespaces
+Date: Tue, 04 Mar 2008 15:23:59 -0700
+Message-ID: <m1k5ki2kn4.fsf@ebiederm.dsl.xmission.com>
+References: <47C6D743.1050802@openvz.org>
+	<m1y794514k.fsf@ebiederm.dsl.xmission.com> <47C7B779.808@openvz.org>
+	<m1ve453lkp.fsf@ebiederm.dsl.xmission.com>
+	<47CBBC61.1010605@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, opurdila@ixiacom.com
-To: cratiu@ixiacom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@openvz.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34201
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754249AbYCDWYT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 17:24:19 -0500
-In-Reply-To: <47CDA6E4.1050505@ixiacom.com>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:38380 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754655AbYCDWZi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 17:25:38 -0500
+In-Reply-To: <47CBBC61.1010605@openvz.org> (Pavel Emelyanov's message of "Mon,
+	03 Mar 2008 11:52:49 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cosmin Ratiu <cratiu@ixiacom.com>
-Date: Tue, 04 Mar 2008 21:45:40 +0200
+Pavel Emelyanov <xemul@openvz.org> writes:
 
-> My question is whether this is a good thing to do or not, as I am
-> not so good with hash functions, so I can't say for sure if we won't
-> run into a collision with a different setup.
+>> 
+>> It takes a little updating of how we use pids.  The easiest method
+>> is to add an extra counter.  So we know when someone besides the hash
+>> chains is using the pid as an id.  However it might make sense to actually
+>> have a net namespace pointer in the pid.
+>
+> No, please, no. I'm strongly opposed to making pids provide identification
+> for anything we need in the kernel.
 
-It makes perfect sense, I'll add the following patch to
-the tree, thanks!
+I don't see the problem.  Sessions and process groups are roughly the
+same kinds of concept as namespaces.
 
-[TCP]: Improve ipv4 established hash function.
+However I do agree that not using any kind of id is cleaner, leaves us
+with less legacy that we have to deal with, and keeps struct pid
+small, so it is preferable.
 
-If all of the entropy is in the local and foreign addresses,
-but xor'ing together would cancel out that entropy, the
-current hash performs poorly.
-
-Suggested by Cosmin Ratiu:
-
-	Basically, the situation is as follows: There is a client
-	machine and a server machine. Both create 15000 virtual
-	interfaces, open up a socket for each pair of interfaces and
-	do SIP traffic. By profiling I noticed that there is a lot of
-	time spent walking the established hash chains with this
-	particular setup.
-
-	The addresses were distributed like this: client interfaces
-	were 198.18.0.1/16 with increments of 1 and server interfaces
-	were 198.18.128.1/16 with increments of 1. As I said, there
-	were 15000 interfaces. Source and destination ports were 5060
-	for each connection.  So in this case, ports don't matter for
-	hashing purposes, and the bits from the address pairs used
-	cancel each other, meaning there are no differences in the
-	whole lot of pairs, so they all end up in the same hash chain.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 70013c5..89cd011 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -175,7 +175,8 @@ extern void build_ehash_secret(void);
- static inline unsigned int inet_ehashfn(const __be32 laddr, const __u16 lport,
- 					const __be32 faddr, const __be16 fport)
- {
--	return jhash_2words((__force __u32) laddr ^ (__force __u32) faddr,
-+	return jhash_3words((__force __u32) laddr,
-+			    (__force __u32) faddr,
- 			    ((__u32) lport) << 16 | (__force __u32)fport,
- 			    inet_ehash_secret);
- }
+Eric
