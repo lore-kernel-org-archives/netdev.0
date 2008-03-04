@@ -1,61 +1,131 @@
-From: "=?UTF-8?Q?Rui_Tiago_Ca=C3=A7=C3=A3o_Matos?=" <rmatos@av.it.pt>
-Subject: [PATCH][LIBNL] Remove usage of C++ keyword 'class' on htb.h header
-Date: Tue, 4 Mar 2008 15:30:12 +0000
-Message-ID: <eae3b3410803040730s1b02be55m1bc0a717cc53ccd@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: locking api self-test hanging
+Date: Tue, 4 Mar 2008 07:51:37 -0800
+Message-ID: <20080304075137.6bbd285f@extreme>
+References: <20080303210540.cea55e13.akpm@linux-foundation.org>
+	<20080304084024.GA3980@ff.dom.local>
+	<20080304011050.74f30dd3.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_55950_10709858.1204644612812"
-Cc: tgraf@suug.ch
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.228]:12056 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759304AbYCDPaQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 10:30:16 -0500
-Received: by wr-out-0506.google.com with SMTP id 50so1262896wra.13
-        for <netdev@vger.kernel.org>; Tue, 04 Mar 2008 07:30:13 -0800 (PST)
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:33343 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755747AbYCDPwX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 10:52:23 -0500
+In-Reply-To: <20080304011050.74f30dd3.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_55950_10709858.1204644612812
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Tue, 4 Mar 2008 01:10:50 -0800
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
+> On Tue, 4 Mar 2008 08:40:24 +0000 Jarek Poplawski <jarkao2@gmail.com> wrote:
+> 
+> > On 04-03-2008 06:05, Andrew Morton wrote:
+> > ...
+> > >>>> And I've fully bisected this hang twice and both times came up with
+> > >>>>
+> > >>>> commit 33f807ba0d9259e7c75c7a2ce8bd2787e5b540c7
+> > >>>> Author: Stephen Hemminger <shemminger@linux-foundation.org>
+> > >>>> Date:   Mon Nov 19 19:24:52 2007 -0800
+> > >>>>
+> > >>>>     [NETPOLL]: Kill NETPOLL_RX_DROP, set but never tested.
+> > >>>>
+> > >>>> which is stupid because that patch doesn't do anything.
+> > 
+> > ...or maybe apparently doesn't do anything?
+> > 
+> > @@ -128,13 +127,11 @@ static int poll_one_napi(struct netpoll_info *npinfo,
+> >         if (!test_bit(NAPI_STATE_SCHED, &napi->state))
+> >                 return budget;
+> >  
+> > -       npinfo->rx_flags |= NETPOLL_RX_DROP;
+> > 
+> > 
+> > But in a next patch we can see:
+> > 
+> > @@ -51,12 +50,12 @@ static inline int netpoll_rx(struct sk_buff *skb)
+> >         unsigned long flags;
+> >         int ret = 0;
+> >  
+> > -       if (!npinfo || (!npinfo->rx_np && !npinfo->rx_flags))
+> > +       if (!npinfo || !npinfo->rx_np)
+> > 
+> > So, it seems rx_flags could have been tested here for NETPOLL_RX_DROP
+> > yet?
+> > 
+> 
+> Oh damn.  I bisected this three times and the second two times both landed on
+> this:
+> 
+> 
+> commit 33f807ba0d9259e7c75c7a2ce8bd2787e5b540c7
+> Author: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date:   Mon Nov 19 19:24:52 2007 -0800
+> 
+>     [NETPOLL]: Kill NETPOLL_RX_DROP, set but never tested.
+>     
+>     Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index cf6acd3..9e3aea0 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -40,7 +40,6 @@ static atomic_t trapped;
+>  
+>  #define USEC_PER_POLL	50
+>  #define NETPOLL_RX_ENABLED  1
+> -#define NETPOLL_RX_DROP     2
+>  
+>  #define MAX_SKB_SIZE \
+>  		(MAX_UDP_CHUNK + sizeof(struct udphdr) + \
+> @@ -128,13 +127,11 @@ static int poll_one_napi(struct netpoll_info *npinfo,
+>  	if (!test_bit(NAPI_STATE_SCHED, &napi->state))
+>  		return budget;
+>  
+> -	npinfo->rx_flags |= NETPOLL_RX_DROP;
+>  	atomic_inc(&trapped);
+>  
+>  	work = napi->poll(napi, budget);
+>  
+>  	atomic_dec(&trapped);
+> -	npinfo->rx_flags &= ~NETPOLL_RX_DROP;
+>  
+>  	return budget - work;
+>  }
+> @@ -475,7 +472,7 @@ int __netpoll_rx(struct sk_buff *skb)
+>  	if (skb->dev->type != ARPHRD_ETHER)
+>  		goto out;
+>  
+> -	/* check if netpoll clients need ARP */
+> +	/* if receive ARP during middle of NAPI poll, then queue */
+>  	if (skb->protocol == htons(ETH_P_ARP) &&
+>  	    atomic_read(&trapped)) {
+>  		skb_queue_tail(&npi->arp_tx, skb);
+> @@ -537,6 +534,9 @@ int __netpoll_rx(struct sk_buff *skb)
+>  	return 1;
+>  
+>  out:
+> +	/* If packet received while already in poll then just
+> +	 * silently drop.
+> +	 */
+>  	if (atomic_read(&trapped)) {
+>  		kfree_skb(skb);
+>  		return 1;
+> 
+> and I stupidly assumed that it couldn't be this commit because it was a
+> no-op.  I didn't think to look for an _impicit_ test of NETPOLL_RX_DROP
+> such as the one above.  That's pretty poor style IMO :(
+> 
+> 
+> That bisecting took me several hours and at the time I hoped that it would
+> receive a more-than-zero response.  btw.
 
+Mia culpa, individual tests of the netconsole when I did the patch worked.
+But obviously didn't stress it enough or trigger that drop code.
 
-------=_Part_55950_10709858.1204644612812
-Content-Type: text/x-patch;
- name=0001-Remove-usage-of-C-keyword-class-on-htb.h-header.patch
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fdem9s05
-Content-Disposition: attachment;
- filename=0001-Remove-usage-of-C-keyword-class-on-htb.h-header.patch
-
-RnJvbSAzNzkyNzAxMzM2NDA0MGZjNzUxMmYzZjc1NzMxYjZhMzg2NzQwOTQ4IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiA9P3V0Zi04P3E/UnVpPTIwVGlhZ289MjBDYT1DMz1BNz1DMz1B
-M289MjBNYXRvcz89IDxybWF0b3NAYXYuaXQucHQ+CkRhdGU6IFR1ZSwgNCBNYXIgMjAwOCAxNTox
-MzowNiArMDAwMApTdWJqZWN0OiBbUEFUQ0hdIFJlbW92ZSB1c2FnZSBvZiBDKysga2V5d29yZCAn
-Y2xhc3MnIG9uIGh0Yi5oIGhlYWRlci4KTUlNRS1WZXJzaW9uOiAxLjAKQ29udGVudC1UeXBlOiB0
-ZXh0L3BsYWluOyBjaGFyc2V0PXV0Zi04CkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IDhiaXQK
-ClNpZ25lZC1vZmYtYnk6IFJ1aSBUaWFnbyBDYcOnw6NvIE1hdG9zIDxybWF0b3NAYXYuaXQucHQ+
-Ci0tLQogaW5jbHVkZS9uZXRsaW5rL3JvdXRlL3NjaC9odGIuaCB8ICAgIDYgKysrLS0tCiAxIGZp
-bGVzIGNoYW5nZWQsIDMgaW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQg
-YS9pbmNsdWRlL25ldGxpbmsvcm91dGUvc2NoL2h0Yi5oIGIvaW5jbHVkZS9uZXRsaW5rL3JvdXRl
-L3NjaC9odGIuaAppbmRleCA1ZDRkNjgxLi5kNDRmMDM5IDEwMDY0NAotLS0gYS9pbmNsdWRlL25l
-dGxpbmsvcm91dGUvc2NoL2h0Yi5oCisrKyBiL2luY2x1ZGUvbmV0bGluay9yb3V0ZS9zY2gvaHRi
-LmgKQEAgLTMwLDkgKzMwLDkgQEAgZXh0ZXJuIHZvaWQgcnRubF9odGJfc2V0X3JhdGUoc3RydWN0
-IHJ0bmxfY2xhc3MgKiwgdWludDMyX3QpOwogZXh0ZXJuIHZvaWQgcnRubF9odGJfc2V0X2NlaWwo
-c3RydWN0IHJ0bmxfY2xhc3MgKiwgdWludDMyX3QpOwogZXh0ZXJuIHZvaWQgcnRubF9odGJfc2V0
-X3JidWZmZXIoc3RydWN0IHJ0bmxfY2xhc3MgKiwgdWludDMyX3QpOwogZXh0ZXJuIHZvaWQgcnRu
-bF9odGJfc2V0X2NidWZmZXIoc3RydWN0IHJ0bmxfY2xhc3MgKiwgdWludDMyX3QpOwotZXh0ZXJu
-IHZvaWQgcnRubF9odGJfc2V0X3F1YW50dW0oc3RydWN0IHJ0bmxfY2xhc3MgKmNsYXNzLCB1aW50
-MzJfdCBxdWFudHVtKTsKLWV4dGVybiB2b2lkIHJ0bmxfaHRiX3NldF9vdmVyaGVhZChzdHJ1Y3Qg
-cnRubF9jbGFzcyAqY2xhc3MsIHVpbnQ4X3Qgb3ZlcmhlYWQpOwotZXh0ZXJuIHZvaWQgcnRubF9o
-dGJfc2V0X21wdShzdHJ1Y3QgcnRubF9jbGFzcyAqY2xhc3MsIHVpbnQ4X3QgbXB1KTsKK2V4dGVy
-biB2b2lkIHJ0bmxfaHRiX3NldF9xdWFudHVtKHN0cnVjdCBydG5sX2NsYXNzICosIHVpbnQzMl90
-IHF1YW50dW0pOworZXh0ZXJuIHZvaWQgcnRubF9odGJfc2V0X292ZXJoZWFkKHN0cnVjdCBydG5s
-X2NsYXNzICosIHVpbnQ4X3Qgb3ZlcmhlYWQpOworZXh0ZXJuIHZvaWQgcnRubF9odGJfc2V0X21w
-dShzdHJ1Y3QgcnRubF9jbGFzcyAqLCB1aW50OF90IG1wdSk7CiAKICNpZmRlZiBfX2NwbHVzcGx1
-cwogfQotLSAKMS41LjQuMQoK
-------=_Part_55950_10709858.1204644612812--
+Plus, I didn't believe the bisect.
