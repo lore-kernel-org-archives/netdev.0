@@ -1,65 +1,52 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/2] bluetooth: Make hci_sock_cleanup() return void
-Date: Tue, 04 Mar 2008 15:18:22 -0800
-Message-ID: <200803042318.m24NIMum002602@imap1.linux-foundation.org>
-Cc: marcel@holtmann.org, hidave.darkstar@gmail.com,
-	netdev@vger.kernel.org, linux-bluetooth@vger.kerenl.org,
-	akpm@linux-foundation.org, tklauser@distanz.ch
-To: davem@davemloft.net
+Subject: [patch 02/17] qla3xxx: convert byte order of constant instead of variable
+Date: Tue, 04 Mar 2008 15:19:20 -0800
+Message-ID: <200803042319.m24NJKLT002661@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	marcin.slusarz@gmail.com, ron.mercer@qlogic.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:43559 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:50077 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935039AbYCDXTB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 18:19:01 -0500
+	by vger.kernel.org with ESMTP id S935064AbYCDXT1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 18:19:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Klauser <tklauser@distanz.ch>
+From: Marcin Slusarz <marcin.slusarz@gmail.com>
 
-hci_sock_cleanup() always returns 0 and its return value isn't used
-anywhere in the code.
+Convert byte order of constant instead of variable which can be done at
+compile time (vs run time)
 
-Compile-tested with 'make allyesconfig && make net/bluetooth/bluetooth.ko'
-
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-Cc: Marcel Holtmann <marcel@holtmann.org>
-Cc: Dave Young <hidave.darkstar@gmail.com>
+Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
+Acked-by: Ron Mercer <ron.mercer@qlogic.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- include/net/bluetooth/bluetooth.h |    2 +-
- net/bluetooth/hci_sock.c          |    4 +---
- 2 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/qla3xxx.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff -puN include/net/bluetooth/bluetooth.h~bluetooth-make-hci_sock_cleanup-return-void include/net/bluetooth/bluetooth.h
---- a/include/net/bluetooth/bluetooth.h~bluetooth-make-hci_sock_cleanup-return-void
-+++ a/include/net/bluetooth/bluetooth.h
-@@ -170,7 +170,7 @@ static inline int skb_frags_no(struct sk
- int bt_err(__u16 code);
+diff -puN drivers/net/qla3xxx.c~qla3xxx-convert-byte-order-of-constant-instead-of-variable drivers/net/qla3xxx.c
+--- a/drivers/net/qla3xxx.c~qla3xxx-convert-byte-order-of-constant-instead-of-variable
++++ a/drivers/net/qla3xxx.c
+@@ -2472,8 +2472,7 @@ static int ql_send_map(struct ql3_adapte
  
- extern int hci_sock_init(void);
--extern int hci_sock_cleanup(void);
-+extern void hci_sock_cleanup(void);
+ 	if (seg_cnt == 1) {
+ 		/* Terminate the last segment. */
+-		oal_entry->len =
+-		    cpu_to_le32(le32_to_cpu(oal_entry->len) | OAL_LAST_ENTRY);
++		oal_entry->len |= cpu_to_le32(OAL_LAST_ENTRY);
+ 	} else {
+ 		oal = tx_cb->oal;
+ 		for (completed_segs=0; completed_segs<frag_cnt; completed_segs++,seg++) {
+@@ -2530,8 +2529,7 @@ static int ql_send_map(struct ql3_adapte
+ 					  frag->size);
+ 		}
+ 		/* Terminate the last segment. */
+-		oal_entry->len =
+-		    cpu_to_le32(le32_to_cpu(oal_entry->len) | OAL_LAST_ENTRY);
++		oal_entry->len |= cpu_to_le32(OAL_LAST_ENTRY);
+ 	}
  
- extern int bt_sysfs_init(void);
- extern void bt_sysfs_cleanup(void);
-diff -puN net/bluetooth/hci_sock.c~bluetooth-make-hci_sock_cleanup-return-void net/bluetooth/hci_sock.c
---- a/net/bluetooth/hci_sock.c~bluetooth-make-hci_sock_cleanup-return-void
-+++ a/net/bluetooth/hci_sock.c
-@@ -734,7 +734,7 @@ error:
- 	return err;
- }
- 
--int __exit hci_sock_cleanup(void)
-+void __exit hci_sock_cleanup(void)
- {
- 	if (bt_sock_unregister(BTPROTO_HCI) < 0)
- 		BT_ERR("HCI socket unregistration failed");
-@@ -742,6 +742,4 @@ int __exit hci_sock_cleanup(void)
- 	hci_unregister_notifier(&hci_sock_nblock);
- 
- 	proto_unregister(&hci_sk_proto);
--
--	return 0;
- }
+ 	return NETDEV_TX_OK;
 _
