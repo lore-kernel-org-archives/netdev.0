@@ -1,43 +1,51 @@
-From: Kazunori Miyazawa <kazunori@miyazawa.org>
-Subject: Re: [ESP]: Add select on AUTHENC
-Date: Tue, 04 Mar 2008 22:11:30 +0900
-Message-ID: <47CD4A82.7010803@miyazawa.org>
-References: <20080304121752.GA17343@gondor.apana.org.au>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TCP IPv4 strange retransmits
+Date: Tue, 4 Mar 2008 15:36:42 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0803041507001.5423@kivilampi-30.cs.helsinki.fi>
+References: <47CD4808.1050202@nets.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Netdev <netdev@vger.kernel.org>
+To: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi004.linux-ipv6.org ([203.178.140.4]:43610 "EHLO
-	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756776AbYCDNLw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Mar 2008 08:11:52 -0500
-In-Reply-To: <20080304121752.GA17343@gondor.apana.org.au>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:48044 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751218AbYCDNgs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 08:36:48 -0500
+In-Reply-To: <47CD4808.1050202@nets.rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Herbert,
+On Tue, 4 Mar 2008, Arnd Hannemann wrote:
 
-I could install an IPsec SA with your patch :-)
+> I'm observing some retransmits with kernel 2.6.24.2, which I don't 
+> understand. For instance in this cutout[1] of a sequence diagram which 
+> was captured[2] on the TCP sender, 4 retransmits are made.
 
-Thank you,
+They don't correspond to each other?
 
-Herbert Xu wrote:
-> Hi:
-> 
-> This patch should make the IPv6 tests work again.
-> 
-> [ESP]: Add select on AUTHENC
-> 
-> Now the ESP uses the AEAD interface even for algorithms which are
-> not combined mode, we need to select CONFIG_CRYPTO_AUTHENC as
-> otherwise only combined mode algorithms will work.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Cheers,
+> According to netstat -st output[3][4] all those 4 retransmits were "fast 
+> retransmit".
+> But there are no three DUPACKs which I expected would be needed for fast 
+> retransmit?
 
---
-Kazunori Miyazawa
+With FACK it's enough that you have fackets_out > tp->reordering 
+(=dupThresh).
+
+> Also interesting all retransmits happen _after_ those segments were
+> already acked and sacked, internal queuing or latency issues?
+
+I think your viewer is doing something wrong, sender.dump is not giving 
+such information (or you draw that from wrong end?). Or it just draws
+DSACK like that?
+
+> It would be great if somebody could shed some light on this,
+> why those segments are retransmitted.
+> Dumps and xplots are available here[5].
+
+...I quickly glanced over it and found no strange behavior in
+the sender.dump.
+
+-- 
+ i.
