@@ -1,33 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 11/11][NETNS][IPV6] rt6_stats - make the stats per
- network namespace
-Date: Mon, 03 Mar 2008 23:34:30 -0800 (PST)
-Message-ID: <20080303.233430.199177100.davem@davemloft.net>
-References: <20080302093720.649869114@mai.toulouse-stg.fr.ibm.com>
-	<20080302094243.621444844@mai.toulouse-stg.fr.ibm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [IPV4]: Add an 'rtable' field in struct sk_buff to alias 'dst'
+ field and avoid casts
+Date: Tue, 04 Mar 2008 08:36:43 +0100
+Message-ID: <47CCFC0B.7060801@cosmosbay.com>
+References: <47CCF71D.2030800@cosmosbay.com> <20080303.232342.221759327.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benjamin.thery@bull.net
-To: dlezcano@fr.ibm.com
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57825
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1761538AbYCDHeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 02:34:31 -0500
-In-Reply-To: <20080302094243.621444844@mai.toulouse-stg.fr.ibm.com>
+Received: from neuf-infra-smtp-out-sp604007av.neufgp.fr ([84.96.92.120]:57393
+	"EHLO neuf-infra-smtp-out-sp604007av.neufgp.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1763991AbYCDHgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 02:36:47 -0500
+In-Reply-To: <20080303.232342.221759327.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Date: Sun, 02 Mar 2008 10:37:31 +0100
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Tue, 04 Mar 2008 08:15:41 +0100
+>=20
+>> @@ -223,7 +223,7 @@ static int br_nf_pre_routing_finish_ipv6(struct =
+sk_buff *skb)
+>>  	}
+>>  	nf_bridge->mask ^=3D BRNF_NF_BRIDGE_PREROUTING;
+>> =20
+>> -	skb->dst =3D (struct dst_entry *)&__fake_rtable;
+>> +	skb->dst =3D &__fake_rtable.u.dst;
+>>  	dst_hold(skb->dst);
+>> =20
+>>  	skb->dev =3D nf_bridge->physindev;
+>=20
+> Any reason this case (and the next 3 hunks) can't simply
+> use just plain "&__fake_rtable"?  That would probably
+> look nicer and match the rest of this patch.
+>=20
+>=20
+>=20
 
-> The rt6_stats is now per namespace with this patch. It is
-> allocated when a network namespace is created and freed
-> when the network namespace exits and references are relative
-> to the network namespace.
-> 
-> Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
-> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+Yes, I had this idea, but felt that it was better in this case to have =
+a=20
+dst_hold() that refers to the above affectation.
 
-Also applied, thanks a lot guys!
+skb->dst =3D &__fake_rtable.u.dst;
+dst_hold(skb->dst);
+
+instead of
+
+skb->rtable =3D &__fake_rtable;
+dst_hold(skb->dst);
+
+Do you prefer the later ?
+
