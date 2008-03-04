@@ -1,43 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV4]: Add an 'rtable' field in struct sk_buff to alias 'dst'
- field and avoid casts
-Date: Mon, 03 Mar 2008 23:46:49 -0800 (PST)
-Message-ID: <20080303.234649.109971767.davem@davemloft.net>
-References: <47CCF71D.2030800@cosmosbay.com>
-	<20080303.232342.221759327.davem@davemloft.net>
-	<47CCFC0B.7060801@cosmosbay.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/3] partial checksum and GSO support for tun/tap.
+Date: Tue, 4 Mar 2008 18:47:45 +1100
+Message-ID: <200803041847.45500.rusty@rustcorp.com.au>
+References: <200801240107.38929.rusty@rustcorp.com.au> <200803041202.17202.rusty@rustcorp.com.au> <47CCD930.3040200@qualcomm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	virtualization@lists.linux-foundation.org
+To: Max Krasnyansky <maxk@qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47115
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750859AbYCDHqu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 02:46:50 -0500
-In-Reply-To: <47CCFC0B.7060801@cosmosbay.com>
+Received: from ozlabs.org ([203.10.76.45]:34877 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753315AbYCDHsX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Mar 2008 02:48:23 -0500
+In-Reply-To: <47CCD930.3040200@qualcomm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 04 Mar 2008 08:36:43 +0100
+On Tuesday 04 March 2008 16:08:00 Max Krasnyansky wrote:
+> > The problem with this approach is that for what I'm doing, the packets
+> > aren't nicely arranged somewhere; they're in random process memory.
+>
+> That's fine. RX/TX descriptors would not contain the data itself. They'd
+> contain pointers to actual packets (ie just like the NIC takes physical
+> memory address and DMAs data in/out).
+> The allows for sending/receiving packets without syscalls and fits nicely
+> with the async schemes like GSO.
 
-> Yes, I had this idea, but felt that it was better in this case to have a 
-> dst_hold() that refers to the above affectation.
-> 
-> skb->dst = &__fake_rtable.u.dst;
-> dst_hold(skb->dst);
-> 
-> instead of
-> 
-> skb->rtable = &__fake_rtable;
-> dst_hold(skb->dst);
-> 
-> Do you prefer the later ?
+Yes, yes it does.  That would be a very nice extension (it's orthogonal to 
+this patch though, so should we get Dave to take these for 2.6.25?).
 
-Wouldn't it be pleasant if you could pass
-&__fake_rtable to dst_hold() directly?
+And as it happens, virtio already has such a structure: virtio_ring.  See 
+linux/virtio_ring.h.
 
-Can't we do that by making it's arg an anonymous union like the thing
-you're doing here?
+> > The structure is for virtio, I'm just borrowing it for tap because it's
+> > already there.  We could rename it and move it out to its own header, but
+> > if so we should do that before 2.6.25 is released.
+>
+> If we do the whole enchilada with the RX/TX rings then we probably do not
+> even need it. I'm thinking that RX/TX descriptor would include everything
+> you need for the GSO and stuff.
+> I meant do not need it for the TUN/TAP driver that is. Is it used anywhere
+> else ?
+
+Just for the linux virtio drivers.  Reusing it for tun/tap was an 
+afterthought.  It just meant I could pass the same structure straight thru, 
+though, which is nice.
+
+The userspace->kernel problem is very similar to the guest->host problem, so 
+it doesn't surprise me if we end up with very similar (identical?) 
+interfaces.
+
+Take a look at virtio_ring.h, virtio_ring.c and Documentation/lguest/lguest.c 
+to see how we use it...
+
+Cheers,
+Rusty.
