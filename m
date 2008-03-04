@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL] [INET]: Updates for net-2.6.26.
-Date: Mon, 03 Mar 2008 20:45:49 -0800 (PST)
-Message-ID: <20080303.204549.82367997.davem@davemloft.net>
-References: <20080303.004449.98475557.yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH][PPPOL2TP] add missing sock_put() in
+ pppol2tp_recv_dequeue()
+Date: Mon, 03 Mar 2008 20:49:02 -0800 (PST)
+Message-ID: <20080303.204902.263458978.davem@davemloft.net>
+References: <47C402A2.8040401@katalix.com>
+	<20080227105431.GA4527@ff.dom.local>
+	<47CB0E95.4040601@katalix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org
+To: jchapman@katalix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56771
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56881
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751352AbYCDEpv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 23:45:51 -0500
-In-Reply-To: <20080303.004449.98475557.yoshfuji@linux-ipv6.org>
+	by vger.kernel.org with ESMTP id S1751454AbYCDEtH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 23:49:07 -0500
+In-Reply-To: <47CB0E95.4040601@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Mon, 03 Mar 2008 00:44:49 +0900 (JST)
+From: James Chapman <jchapman@katalix.com>
+Date: Sun, 02 Mar 2008 20:31:17 +0000
 
-> Please consider pulling following changesets on top of net-2.6.26
-> tree from
->         git://git.skbuff.net/gitroot/yoshfuji/linux-2.6-dev.git net-2.6.26-inet-20080302
+> Jarek Poplawski wrote:
+> 
+> > Subject: [PPPOL2TP] add missing sock_put() in pppol2tp_recv_dequeue()
+> > 
+> > Every skb removed from session->reorder_q needs sock_put().
+> > 
+> > 
+> > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> Acked-by: James Chapman <jchapman@katalix.com>
 
-I can't pull this in, it breaks the build in various ways:
-
-drivers/net/cxgb3/l2t.c: In function 't3_l2t_update':
-drivers/net/cxgb3/l2t.c:410: error: implicit declaration of function 'neigh_is_connected'
-net/ipv4/udp_ipv4.c:1068: error: 'compat_udpv4_setsockopt' undeclared here (not in a function)
-net/ipv4/udp_ipv4.c:1069: error: 'compat_udpv4_getsockopt' undeclared here (not in a function)
+Patch applied.
