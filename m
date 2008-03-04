@@ -1,44 +1,44 @@
 From: akpm@linux-foundation.org
-Subject: [patch (for 2.6.25?) 3/3] FIXED_PHY must depend on PHYLIB=y
-Date: Tue, 04 Mar 2008 14:58:43 -0800
-Message-ID: <200803042258.m24MwhPF001403@imap1.linux-foundation.org>
+Subject: [patch (for 2.6.25?) 2/3] de2104x: remove BUG_ON() when changing media type
+Date: Tue, 04 Mar 2008 14:58:42 -0800
+Message-ID: <200803042258.m24Mwgqn001400@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	adrian.bunk@movial.fi, olaf@aepfle.de
+	linux@rainbow-software.org, grundler@parisc-linux.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:50493 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:37125 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762690AbYCDW7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 17:59:32 -0500
+	by vger.kernel.org with ESMTP id S1762128AbYCDW72 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 17:59:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Adrian Bunk <adrian.bunk@movial.fi>
+From: Ondrej Zary <linux@rainbow-software.org>
 
-Fix the following build error introduced by commit
-a79d8e93d300adb84cccc38ac396cfb118c238ad and reported by Olaf Hering:
+When the chip dies (probably because of a bug somewhere in the driver),
+de_stop_rxtx() fails and changing the media type crashes the whole machine.
+ Replace BUG_ON() in de_set_media() with a warning.
 
-arch/powerpc/sysdev/built-in.o: In function `of_add_fixed_phys':
-fsl_soc.c:(.init.text+0xd34): undefined reference to `fixed_phy_add'
-
-Signed-off-by: Adrian Bunk <adrian.bunk@movial.fi>
-Tested-by: Olaf Hering <olaf@aepfle.de>
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
 Cc: Jeff Garzik <jeff@garzik.org>
+Acked-by: Grant Grundler <grundler@parisc-linux.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/phy/Kconfig |    1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/tulip/de2104x.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff -puN drivers/net/phy/Kconfig~fixed_phy-must-depend-on-phylib=y drivers/net/phy/Kconfig
---- a/drivers/net/phy/Kconfig~fixed_phy-must-depend-on-phylib=y
-+++ a/drivers/net/phy/Kconfig
-@@ -67,6 +67,7 @@ config REALTEK_PHY
+diff -puN drivers/net/tulip/de2104x.c~de2104x-remove-bug_on-when-changing-media-type drivers/net/tulip/de2104x.c
+--- a/drivers/net/tulip/de2104x.c~de2104x-remove-bug_on-when-changing-media-type
++++ a/drivers/net/tulip/de2104x.c
+@@ -910,7 +910,8 @@ static void de_set_media (struct de_priv
+ 	unsigned media = de->media_type;
+ 	u32 macmode = dr32(MacMode);
  
- config FIXED_PHY
- 	bool "Driver for MDIO Bus/PHY emulation with fixed speed/link PHYs"
-+	depends on PHYLIB=y
- 	---help---
- 	  Adds the platform "fixed" MDIO Bus to cover the boards that use
- 	  PHYs that are not connected to the real MDIO bus.
+-	BUG_ON(de_is_running(de));
++	if (de_is_running(de))
++		printk(KERN_WARNING "%s: chip is running while changing media!\n", de->dev->name);
+ 
+ 	if (de->de21040)
+ 		dw32(CSR11, FULL_DUPLEX_MAGIC);
 _
