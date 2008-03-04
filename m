@@ -1,31 +1,32 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] [resend] 3c509: convert to isa_driver and pnp_driver v5
-Date: Mon, 3 Mar 2008 20:25:55 -0800
-Message-ID: <20080303202555.3bb63526.akpm@linux-foundation.org>
-References: <200801312012.43447.linux@rainbow-software.org>
-	<200802021925.36552.linux@rainbow-software.org>
-	<47A4D791.3050700@garzik.org>
-	<200802171202.27747.linux@rainbow-software.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] [INET]: Updates for net-2.6.26.
+Date: Mon, 03 Mar 2008 20:45:49 -0800 (PST)
+Message-ID: <20080303.204549.82367997.davem@davemloft.net>
+References: <20080303.004449.98475557.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-To: Ondrej Zary <linux@rainbow-software.org>
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:60571 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751146AbYCDE0t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 23:26:49 -0500
-In-Reply-To: <200802171202.27747.linux@rainbow-software.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56771
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751352AbYCDEpv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 23:45:51 -0500
+In-Reply-To: <20080303.004449.98475557.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 17 Feb 2008 12:02:25 +0100 Ondrej Zary <linux@rainbow-software.org> wrote:
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Mon, 03 Mar 2008 00:44:49 +0900 (JST)
 
-> this patch converts 3c509 driver to isa_driver and pnp_driver.
+> Please consider pulling following changesets on top of net-2.6.26
+> tree from
+>         git://git.skbuff.net/gitroot/yoshfuji/linux-2.6-dev.git net-2.6.26-inet-20080302
 
-alpha allmodconfig:
+I can't pull this in, it breaks the build in various ways:
 
-drivers/net/3c509.c:494: error: 'el3_suspend' undeclared here (not in a function)
-drivers/net/3c509.c:495: error: 'el3_resume' undeclared here (not in a function)
+drivers/net/cxgb3/l2t.c: In function 't3_l2t_update':
+drivers/net/cxgb3/l2t.c:410: error: implicit declaration of function 'neigh_is_connected'
+net/ipv4/udp_ipv4.c:1068: error: 'compat_udpv4_setsockopt' undeclared here (not in a function)
+net/ipv4/udp_ipv4.c:1069: error: 'compat_udpv4_getsockopt' undeclared here (not in a function)
