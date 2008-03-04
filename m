@@ -1,36 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][ROSE][NETROM] display neigh instead of address
-Date: Mon, 03 Mar 2008 20:53:04 -0800 (PST)
-Message-ID: <20080303.205304.225449154.davem@davemloft.net>
-References: <20080211124251.GB3597@ff.dom.local>
-	<20080211.212659.228544422.davem@davemloft.net>
-	<47C88AEF.4050504@free.fr>
+Subject: Re: [RFC,PATCH] loopback: calls netif_receive_skb() instead of
+ netif_rx()
+Date: Mon, 03 Mar 2008 20:55:58 -0800 (PST)
+Message-ID: <20080303.205558.114610030.davem@davemloft.net>
+References: <47BDC848.50607@cosmosbay.com>
+	<20080226.182120.183405235.davem@davemloft.net>
+	<47C92F49.4070100@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org
-To: f6bvp@free.fr
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <47C88AEF.4050504@free.fr>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: dada1@cosmosbay.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49707
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752226AbYCDE4A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 23:56:00 -0500
+In-Reply-To: <47C92F49.4070100@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bernard Pidoux F6BVP <f6bvp@free.fr>
-Date: Fri, 29 Feb 2008 23:45:03 +0100
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Sat, 01 Mar 2008 11:26:17 +0100
 
-> I submit the following patch against kernel 2.6.24.3 to replace
-> labels "addr" in /proc/net/rose_neigh and /proc/net/nr_neigh
-> by labels "neigh" for the display of neighbour numbers in the
-> first columns.
-> 
-> This makes the reading of proc more consistent with the labels of
-> /proc/net/rose_nodes and /proc/net/nr_nodes.
-> Finding the callsign of a given node neighbour number becomes easier.
+> You are absolutly right. We should guard against recursion, using a new field 
+> in "pcpu_lstats" (cheap access in a hot cache line as we have to update stats 
+> anyway)
+ ...
+> [PATCH] loopback: calls netif_receive_skb() instead of netif_rx()
 
-I'm not so sure there is much value to this.
-"address", "neigh", it's all about the same.
+I'm willing to seriously entertain this change and stick it
+into net-2.6.26 if you will perform a reasonable deep stack
+test.
 
-Yes, it's inconsistent in various areas, but procfs
-output is like a fixed API with userspace and we generally
-cannot change it without potentially breaking userspace.
+For example, create an XFS filesystem, and mount it NFS over
+loopback.  Then stress it like crazy.
+
+See if this generates stack overflows or weird crashes.
