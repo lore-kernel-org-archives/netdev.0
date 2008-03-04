@@ -1,52 +1,65 @@
 From: akpm@linux-foundation.org
-Subject: [patch 02/17] qla3xxx: convert byte order of constant instead of variable
-Date: Tue, 04 Mar 2008 15:19:20 -0800
-Message-ID: <200803042319.m24NJKLT002661@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	marcin.slusarz@gmail.com, ron.mercer@qlogic.com
+Subject: [patch 01/17] drivers/net/mv643xx_eth.c: Use FIELD_SIZEOF
+Date: Tue, 04 Mar 2008 15:19:19 -0800
+Message-ID: <200803042319.m24NJK7X002654@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, julia@diku.dk
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:50077 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:50820 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935064AbYCDXT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 18:19:27 -0500
+	by vger.kernel.org with ESMTP id S935069AbYCDXT2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 18:19:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcin Slusarz <marcin.slusarz@gmail.com>
+From: Julia Lawall <julia@diku.dk>
 
-Convert byte order of constant instead of variable which can be done at
-compile time (vs run time)
+Robert P.J. Day proposed to use the macro FIELD_SIZEOF in replace of code
+that matches its definition.
 
-Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
-Acked-by: Ron Mercer <ron.mercer@qlogic.com>
+The modification was made using the following semantic patch
+(http://www.emn.fr/x-info/coccinelle/)
+
+// <smpl>
+@haskernel@
+@@
+
+#include <linux/kernel.h>
+
+@depends on haskernel@
+type t;
+identifier f;
+@@
+
+- (sizeof(((t*)0)->f))
++ FIELD_SIZEOF(t, f)
+
+@depends on haskernel@
+type t;
+identifier f;
+@@
+
+- sizeof(((t*)0)->f)
++ FIELD_SIZEOF(t, f)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/qla3xxx.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/mv643xx_eth.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/net/qla3xxx.c~qla3xxx-convert-byte-order-of-constant-instead-of-variable drivers/net/qla3xxx.c
---- a/drivers/net/qla3xxx.c~qla3xxx-convert-byte-order-of-constant-instead-of-variable
-+++ a/drivers/net/qla3xxx.c
-@@ -2472,8 +2472,7 @@ static int ql_send_map(struct ql3_adapte
+diff -puN drivers/net/mv643xx_eth.c~drivers-net-mv643xx_ethc-use-field_sizeof drivers/net/mv643xx_eth.c
+--- a/drivers/net/mv643xx_eth.c~drivers-net-mv643xx_ethc-use-field_sizeof
++++ a/drivers/net/mv643xx_eth.c
+@@ -3155,7 +3155,7 @@ struct mv643xx_stats {
+ 	int stat_offset;
+ };
  
- 	if (seg_cnt == 1) {
- 		/* Terminate the last segment. */
--		oal_entry->len =
--		    cpu_to_le32(le32_to_cpu(oal_entry->len) | OAL_LAST_ENTRY);
-+		oal_entry->len |= cpu_to_le32(OAL_LAST_ENTRY);
- 	} else {
- 		oal = tx_cb->oal;
- 		for (completed_segs=0; completed_segs<frag_cnt; completed_segs++,seg++) {
-@@ -2530,8 +2529,7 @@ static int ql_send_map(struct ql3_adapte
- 					  frag->size);
- 		}
- 		/* Terminate the last segment. */
--		oal_entry->len =
--		    cpu_to_le32(le32_to_cpu(oal_entry->len) | OAL_LAST_ENTRY);
-+		oal_entry->len |= cpu_to_le32(OAL_LAST_ENTRY);
- 	}
+-#define MV643XX_STAT(m) sizeof(((struct mv643xx_private *)0)->m), \
++#define MV643XX_STAT(m) FIELD_SIZEOF(struct mv643xx_private, m), \
+ 					offsetof(struct mv643xx_private, m)
  
- 	return NETDEV_TX_OK;
+ static const struct mv643xx_stats mv643xx_gstrings_stats[] = {
 _
