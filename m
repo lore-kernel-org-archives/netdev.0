@@ -1,51 +1,83 @@
 From: akpm@linux-foundation.org
-Subject: [patch 13/17] drivers/net/arcnet/com20020.c: replace init_module&cleanup_module with module_init&module_exit
-Date: Tue, 04 Mar 2008 15:19:30 -0800
-Message-ID: <200803042319.m24NJUfl002724@imap1.linux-foundation.org>
+Subject: [patch (trollpatch!) 2/2] forcedeth: fix MAC address detection on network card (regression in 2.6.23)
+Date: Tue, 04 Mar 2008 15:20:13 -0800
+Message-ID: <200803042320.m24NKDSA002856@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	jkschind@gmail.com
+	michael.pyne@kdemail.net, AAbdulla@nvidia.com, aabdulla@nvidia.com,
+	stable@kernel.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:32907 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:53228 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934961AbYCDXTh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 18:19:37 -0500
+	by vger.kernel.org with ESMTP id S935210AbYCDXWf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 18:22:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Schindler <jkschind@gmail.com>
+From: Michael Pyne <michael.pyne@kdemail.net>
 
-Replaced init_module and cleanup_module with static functions and
-module_init/module_exit.
+Partially revert a change to mac address detection introduced to the forcedeth
+driver.  The change was intended to correct mac address detection for newer
+nVidia chipsets where the mac address was stored in reverse order.  One of
+those chipsets appears to still have the mac address in reverse order (or at
+least, it does on my system).
 
-Signed-off-by: Jon Schindler <jkschind@gmail.com>
+The change that broke mac address detection for my card was commit
+ef756b3e56c68a4d76d9d7b9a73fa8f4f739180f "forcedeth: mac address correct"
+
+My network card is an nVidia built-in Ethernet card, output from lspci as
+follows (with text and numeric ids):
+$ lspci | grep Ethernet
+00:07.0 Bridge: nVidia Corporation MCP61 Ethernet (rev a2)
+$ lspci -n | grep 07.0
+00:07.0 0680: 10de:03ef (rev a2)
+
+The vendor id is, of course, nVidia.  The device id corresponds to the
+NVIDIA_NVENET_19 entry.
+
+The included patch fixes the MAC address detection on my system.
+Interestingly, the MAC address appears to be in the range reserved for my
+motherboard manufacturer (Gigabyte) and not nVidia.
+
+Signed-off-by: Michael J. Pyne <michael.pyne@kdemail.net>
 Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: <stable@kernel.org>
+
+On Wed, 21 Nov 2007 15:34:52 -0800
+"Ayaz Abdulla" <AAbdulla@nvidia.com> wrote:
+
+> The solution is to get the OEM to update their BIOS (instead of
+> integrating this patch) since the MCP61 specs indicate that the MAC
+> Address should be in correct order from BIOS.
+> 
+> By changing the feature DEV_HAS_CORRECT_MACADDR to all MCP61 boards, it
+> could cause it to break on other OEM systems who have implemented it
+> correctly.
+> 
+
+On Tue, 05 Feb 2008 13:20:59 -0500 Jeff Garzik <jeff@garzik.org> wrote:
+> NAK - this fixes one set of users, and breaks a working set of users.
+> 
+> Need to add DMI check for the specific motherboard (dmi_check_system), 
+> and flip flag according to success/failure of that check.
+
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/arcnet/com20020.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/forcedeth.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/net/arcnet/com20020.c~drivers-net-arcnet-com20020c-replace-init_modulecleanup_module-with-module_initmodule_exit drivers/net/arcnet/com20020.c
---- a/drivers/net/arcnet/com20020.c~drivers-net-arcnet-com20020c-replace-init_modulecleanup_module-with-module_initmodule_exit
-+++ a/drivers/net/arcnet/com20020.c
-@@ -348,14 +348,15 @@ MODULE_LICENSE("GPL");
- 
- #ifdef MODULE
- 
--int init_module(void)
-+static int __init com20020_module_init(void)
- {
- 	BUGLVL(D_NORMAL) printk(VERSION);
- 	return 0;
- }
- 
--void cleanup_module(void)
-+static void __exit com20020_module_exit(void)
- {
- }
--
-+module_init(com20020_module_init);
-+module_exit(com20020_module_exit);
- #endif				/* MODULE */
+diff -puN drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623 drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623
++++ a/drivers/net/forcedeth.c
+@@ -5603,7 +5603,7 @@ static struct pci_device_id pci_tbl[] = 
+ 	},
+ 	{	/* MCP61 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_16),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
+ 	},
+ 	{	/* MCP61 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_17),
 _
