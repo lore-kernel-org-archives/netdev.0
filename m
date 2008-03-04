@@ -1,65 +1,115 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: iptables breakage on fc8 with recent kernels
-Date: Mon, 03 Mar 2008 22:55:49 -0800 (PST)
-Message-ID: <20080303.225549.191075913.davem@davemloft.net>
-References: <20080303214725.92ba0955.akpm@linux-foundation.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [GIT PULL] [INET]: Updates for net-2.6.26.
+Date: Tue, 04 Mar 2008 15:59:46 +0900 (JST)
+Message-ID: <20080304.155946.31980558.yoshfuji@linux-ipv6.org>
+References: <20080303.004449.98475557.yoshfuji@linux-ipv6.org>
+	<20080303.204549.82367997.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54675
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753796AbYCDGzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 01:55:52 -0500
-In-Reply-To: <20080303214725.92ba0955.akpm@linux-foundation.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:53713 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751008AbYCDG6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 01:58:44 -0500
+In-Reply-To: <20080303.204549.82367997.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Mon, 3 Mar 2008 21:47:25 -0800
+In article <20080303.204549.82367997.davem@davemloft.net> (at Mon, 03 Mar 2008 20:45:49 -0800 (PST)), David Miller <davem@davemloft.net> says:
 
-> I've noticed that my fc8 initscripts have been failing for a while with:
+> From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+> Date: Mon, 03 Mar 2008 00:44:49 +0900 (JST)
 > 
-> ip6tables-restore: line 20 failed
-> iptables-restore: line 20 failed
+> > Please consider pulling following changesets on top of net-2.6.26
+> > tree from
+> >         git://git.skbuff.net/gitroot/yoshfuji/linux-2.6-dev.git net-2.6.26-inet-20080302
 > 
-> It could be that this was caused by some config change which broke `make
-> oldconfig', but from a quick look nothing stands out.
+> I can't pull this in, it breaks the build in various ways:
 > 
-> Here's my /etc/sysconfig/iptables:
-> 
-> # Firewall configuration written by system-config-firewall
-> # Manual customization of this file is not recommended.
-> *filter
-> :INPUT ACCEPT [0:0]
-> :FORWARD ACCEPT [0:0]
-> :OUTPUT ACCEPT [0:0]
-> :RH-Firewall-1-INPUT - [0:0]
-> -A INPUT -j RH-Firewall-1-INPUT
-> -A RH-Firewall-1-INPUT -i lo -j ACCEPT
-> -A RH-Firewall-1-INPUT -p icmp --icmp-type any -j ACCEPT
-> -A RH-Firewall-1-INPUT -p 50 -j ACCEPT
-> -A RH-Firewall-1-INPUT -p 51 -j ACCEPT
-> -A RH-Firewall-1-INPUT -p udp --dport 5353 -d 224.0.0.251 -j ACCEPT
-> -A RH-Firewall-1-INPUT -p udp -m udp --dport 631 -j ACCEPT
-> -A RH-Firewall-1-INPUT -p tcp -m tcp --dport 631 -j ACCEPT
-> -A RH-Firewall-1-INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-> -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 22 -j ACCEPT
-> -A RH-Firewall-1-INPUT -j REJECT --reject-with icmp-host-prohibited
-> -A FORWARD -j REJECT --reject-with icmp-host-prohibited
-> COMMIT
- ...
-> So it is
-> 
->    -A RH-Firewall-1-INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-> 
-> which is now failing.
-> 
-> config: http://userweb.kernel.org/~akpm/config-t61p.txt
+> drivers/net/cxgb3/l2t.c: In function 't3_l2t_update':
+> drivers/net/cxgb3/l2t.c:410: error: implicit declaration of function 'neigh_is_connected'
+> net/ipv4/udp_ipv4.c:1068: error: 'compat_udpv4_setsockopt' undeclared here (not in a function)
+> net/ipv4/udp_ipv4.c:1069: error: 'compat_udpv4_getsockopt' undeclared here (not in a function)
 
-Please set CONFIG_NF_CONNTRACK.
+Oh, sorry.  I've updated / rebased them and pushed at:
+  git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git net-2.6.26-inet-20080304
 
-Sorry about that, I think we did something stupid a few
-releases ago.
+I hope issues have gone away...
+
+Regards,
+
+--
+HEADLINES
+---------
+
+    [TCP]: lower stack usage in cookie_hash() function
+    [TCP]: Add IPv6 support to TCP SYN cookies
+    [UDP]: Allow users to configure UDP-Lite.
+    [IPV4]: Fix size description of CONFIG_INET.
+    [IPV4] UDP: Move IPv4-specific bits to other file.
+    [IPV6] UDP: Rename IPv6 UDP files.
+    [IPV6]: Move packet_type{} related bits to af_inet6.c.
+    [IPV6] SYSCTL: complete initialization for sysctl table in subsystem code.
+    [IPV6]: Use htonl() instead of __constant_htonl() where appricable.
+    [NET] NEIGHBOUR: Remove unpopular neigh_is_connected().
+    [IPV6] ADDRCONF: Convert ipv6_get_saddr() to ipv6_dev_get_saddr().
+    [IPV6]: Make ndisc_flow_init() common for later use.
+    [IPV6]: Make ndisc_dst_alloc() common for later use.
+    [IPV6] MCAST: Use standard path for sending MLD/MLDv2 messages.
+
+DIFFSTAT
+--------
+
+ drivers/net/cxgb3/l2t.c    |    2 
+ include/linux/icmpv6.h     |    8 
+ include/linux/udp.h        |   11 
+ include/net/addrconf.h     |   19 -
+ include/net/ip6_route.h    |    8 
+ include/net/ipv6.h         |    9 
+ include/net/neighbour.h    |    6 
+ include/net/tcp.h          |    8 
+ include/net/transp_v6.h    |    5 
+ include/net/udplite.h      |    9 
+ net/Kconfig                |    2 
+ net/ipv4/Kconfig           |   10 
+ net/ipv4/Makefile          |    3 
+ net/ipv4/af_inet.c         |    7 
+ net/ipv4/proc.c            |    5 
+ net/ipv4/syncookies.c      |   11 
+ net/ipv4/tcp_input.c       |    1 
+ net/ipv4/tcp_minisocks.c   |    2 
+ net/ipv4/tcp_output.c      |    1 
+ net/ipv4/udp.c             | 1090 ------------------------------------------
+ net/ipv4/udp_ipv4.c        | 1134 ++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/udplite.c         |  121 -----
+ net/ipv4/udplite_ipv4.c    |  121 +++++
+ net/ipv6/Makefile          |    4 
+ net/ipv6/addrconf.c        |    9 
+ net/ipv6/af_inet6.c        |  137 +++++
+ net/ipv6/fib6_rules.c      |    4 
+ net/ipv6/icmp.c            |   20 +
+ net/ipv6/ip6_fib.c         |    2 
+ net/ipv6/ip6_output.c      |    3 
+ net/ipv6/ipv6_sockglue.c   |  128 -----
+ net/ipv6/mcast.c           |   66 ++-
+ net/ipv6/ndisc.c           |   25 -
+ net/ipv6/proc.c            |    6 
+ net/ipv6/route.c           |   44 +-
+ net/ipv6/syncookies.c      |  267 ++++++++++
+ net/ipv6/sysctl_net_ipv6.c |   15 -
+ net/ipv6/tcp_ipv6.c        |   77 ++-
+ net/ipv6/udp.c             | 1065 -----------------------------------------
+ net/ipv6/udp_ipv6.c        | 1065 +++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/udplite.c         |  125 -----
+ net/ipv6/udplite_ipv6.c    |  125 +++++
+ net/ipv6/xfrm6_policy.c    |    5 
+ net/sctp/ipv6.c            |    3 
+ 44 files changed, 3121 insertions(+), 2667 deletions(-)
+
+
+
+--yoshfuji
