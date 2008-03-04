@@ -1,267 +1,100 @@
-From: Neil Brown <neilb@suse.de>
-Subject: Re: [PATCH 00/28] Swap over NFS -v16
-Date: Tue, 4 Mar 2008 10:41:23 +1100
-Message-ID: <18380.36003.162081.900296@notabene.brown>
-References: <20080220144610.548202000@chello.nl>
-	<20080223000620.7fee8ff8.akpm@linux-foundation.org>
-	<18371.43950.150842.429997@notabene.brown>
-	<1204023042.6242.271.camel@lappy>
-	<18372.64081.995262.986841@notabene.brown>
-	<1204099113.6242.353.camel@lappy>
-	<18375.24558.876276.255804@notabene.brown>
-	<1204280500.6243.70.camel@lappy>
-	<18379.10183.427082.282748@notabene.brown>
-	<1204500793.6240.123.camel@lappy>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: Panic 2.6.24-3 Unable to handle kernel paging request
+Date: Mon, 3 Mar 2008 16:43:59 -0800
+Message-ID: <20080303164359.2506fef1.akpm@linux-foundation.org>
+References: <200803010902.47997.edt@aei.ca>
+	<200803031934.51944.edt@aei.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=unknown
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Ed Tomlinson <edt@aei.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:41930 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751159AbYCCXld (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Mar 2008 18:41:33 -0500
-In-Reply-To: message from Peter Zijlstra on Monday March 3
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:45286 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751158AbYCDAsa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Mar 2008 19:48:30 -0500
+In-Reply-To: <200803031934.51944.edt@aei.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 3 Mar 2008 19:34:51 -0500
+Ed Tomlinson <edt@aei.ca> wrote:
 
-Hi Peter,
-
- Thanks for trying to spell it out for me. :-)
-
-On Monday March 3, a.p.zijlstra@chello.nl wrote:
+> On March 1, 2008, Ed Tomlinson wrote:
 > 
-> >From my POV there is a model, and I've tried to convey it, but clearly
-> I'm failing $,3r_(Bhorribly. Let me try again:
+> Andrew,
 > 
-> Create a stable state where you can receive an unlimited amount of
-> network packets awaiting the one packet you need to move forward.
-
-Yep.
-
+> Is there anyone else I should be copying on this? 
 > 
-> To do so we need to distinguish needed from unneeded packets; we do this
-> by means of SK_MEMALLOC. So we need to be able to receive packets up to
-> that point.
 
-Yep.
+netdev@vger.kernel.org!
 
-> 
-> The unlimited amount of packets means unlimited time; which means that
-> our state must not consume memory, merely use memory. That is, the
-> amount of memory used must not grow unbounded over time.
+> > I have been seeing these since I installed 2.6.24.   Previous kernels (up to 2.6.23-5) have been ok.   Using the .24 kernels I get 
+> > from a minute to a few days of uptime.  Any ideas on what might be causing this?  
+> > 
+> > TIA,
+> > Ed Tomlinson
+> > 
+> > (2.6.24-gentoo-r2 + 2.6.24-3 patchset)
+> > grover login: [72899.939987] Unable to handle kernel paging request at 000000620000005e RIP: 
+> > [72899.953805]  [<000000620000005e>]
+> > [72899.971089] PGD 48cfa067 PUD 0 
+> > [72899.980552] Oops: 0010 [1] PREEMPT 
+> > [72899.991054] CPU 0 
+> > [72899.997110] Modules linked in: radeon ipv6 af_packet rfcomm l2cap snd_pcm_oss snd_mixer_oss snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device xfs hci_usb bluetooth usbhid pl2303 usbserial usbmouse ohci_hcd ehci_hcd video1394 w83627hf hwmon_vid i2c_nforce2 forcedeth sr_mod cdrom sbp2 radeonfb fb_ddc i2c_algo_bit i2c_core ohci1394 ieee1394 snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm thermal processor snd_timer snd button soundcore snd_page_alloc parport_pc parport psmouse pcspkr evdev k8temp hwmon floppy rtc unix
+> > [72900.139457] Pid: 0, comm: swapper Not tainted 2.6.24-gentoo-r2-crc #2
+> > [72900.158744] RIP: 0010:[<000000620000005e>]  [<000000620000005e>]
+> > [72900.176758] RSP: 0018:ffffffff8062cbb8  EFLAGS: 00010202
+> > [72900.192666] RAX: 000000620000005e RBX: 0000000000000002 RCX: 0000000000000136
+> > [72900.214034] RDX: 0000000000000011 RSI: ffffffff8062cbf0 RDI: ffff810044e90100
+> > [72900.235400] RBP: ffffffff8062cc90 R08: ffff810044e90100 R09: ffffffff80672000
+> > [72900.256768] R10: 0000000000000103 R11: 0000000000000001 R12: ffff810044e90138
+> > [72900.278136] R13: 0000000000000002 R14: 0000000000000000 R15: ffff810044e90100
+> > [72900.299504] FS:  00002af955fe21d0(0000) GS:ffffffff805ed000(0000) knlGS:00000000f7d1c6c0
+> > [72900.323731] CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
+> > [72900.340939] CR2: 000000620000005e CR3: 000000004b2cc000 CR4: 00000000000006e0
+> > [72900.362306] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> > [72900.383673] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> > [72900.405042] Process swapper (pid: 0, threadinfo ffffffff805f6000, task ffffffff805ac360)
+> > [72900.429268] Stack:  ffffffff80476f61 ffffffff8062cbd0 0000000080227f4d ffffffff8062cbf0
+> > [72900.453443]  ffffffff80242fb1 ffff810002186fc0 ffff8100021857a8 0000000000000000
+> > [72900.475720]  0207a8c000000000 000000005b025257 0000000000000000 0000000000000000
+> > [72900.497425] Call Trace:
+> > [72900.505301]  <IRQ>  [<ffffffff80476f61>] __xfrm_policy_check+0x461/0x5b0
+> > [72900.525426]  [<ffffffff80242fb1>] autoremove_wake_function+0x11/0x40
+> > [72900.544455]  [<ffffffff80228a84>] __wake_up+0x84/0x90
+> > [72900.559579]  [<ffffffff8045d51a>] __udp4_lib_lookup+0x10a/0x160
+> > [72900.577309]  [<ffffffff8045e6b6>] __udp4_lib_rcv+0x6a6/0x8a0
+> > [72900.594257]  [<ffffffff80261ed0>] mempool_free+0x30/0xe0
+> > [72900.610165]  [<ffffffff802b2c5b>] bio_free+0x3b/0x50
+> > [72900.625035]  [<ffffffff80225be0>] __enqueue_entity+0x80/0x90
+> > [72900.641984]  [<ffffffff8045e8c5>] udp_rcv+0x15/0x20
+> > [72900.656592]  [<ffffffff8043aecb>] ip_local_deliver_finish+0xbb/0x230
+> > [72900.675619]  [<ffffffff8043b49b>] ip_local_deliver+0x3b/0x90
+> > [72900.692569]  [<ffffffff8043abb4>] ip_rcv_finish+0x124/0x380
+> > [72900.709256]  [<ffffffff80227f5b>] wake_up_state+0xb/0x10
+> > [72900.725164]  [<ffffffff80237dad>] signal_wake_up+0x1d/0x20
+> > [72900.741593]  [<ffffffff8043b372>] ip_rcv+0x1b2/0x2a0
+> > [72900.756463]  [<ffffffff80416740>] netif_receive_skb+0x250/0x4b0
+> > [72900.774192]  [<ffffffff80418ec5>] process_backlog+0x75/0xe0
+> > [72900.790883]  [<ffffffff8813cbb2>] :forcedeth:nv_alloc_rx+0xc2/0x1c0
+> > [72900.809647]  [<ffffffff80418a12>] net_rx_action+0x152/0x240
+> > [72900.826337]  [<ffffffff8023249a>] __do_softirq+0x5a/0xc0
+> > [72900.842245]  [<ffffffff8020c89c>] call_softirq+0x1c/0x30
+> > [72900.858152]  [<ffffffff8020da9d>] do_softirq+0x3d/0x90
+> > [72900.873542]  [<ffffffff802323c8>] irq_exit+0x88/0xa0
+> > [72900.888410]  [<ffffffff8020de52>] do_IRQ+0x62/0xc0
+> > [72900.902759]  [<ffffffff8020c0c1>] ret_from_intr+0x0/0xa
+> > [72900.918405]  <EOI>  [<ffffffff8024c99d>] tick_nohz_stop_sched_tick+0x1ad/0x2b0
+> > [72900.940062]  [<ffffffff8020a7e0>] poll_idle+0x0/0x10
+> > [72900.954929]  [<ffffffff8020a8aa>] cpu_idle+0x2a/0x90
+> > [72900.969798]  [<ffffffff8047ea79>] rest_init+0x69/0x70
+> > [72900.984930]  [<ffffffff805f9aaa>] start_kernel+0x25a/0x2a0
+> > [72901.001356]  [<ffffffff805f9107>] _sinittext+0x107/0x110
 
-Yes.  Good point.
-
-> 
-> So we must guarantee that all memory allocated will be promptly freed
-> again, and never allocate more than available.
-
-Definitely.
-
-> 
-> Because this state is not the normal state, we need a trigger to enter
-> this state (and consequently a trigger to leave this state). We do that
-> by detecting a low memory situation just like you propose. We enter this
-> state once normal memory allocations fail and leave this state once they
-> start succeeding again.
-
-Agreed.
-
-> 
-> We need the accounting to ensure we never allocate more than is
-> available, but more importantly because we need to ensure progress for
-> those packets we already have allocated.
-
-Maybe...
- 1/ Memory is used 
-     a/ in caches, such as the fragment cache and the route cache
-     b/ in transient allocations on their way from one place to
-        another. e.g. network card to fragment cache, frag cache to
-        socket. 
-    The caches can (do?) impose a natural limit on the amount of
-    memory they use.  The transient allocations should be satisfied
-    from the normal low watermark pool.  When we are in a low memory
-    conditions we can expect packet loss so we expect network streams
-    to slow down, so we expect there to be fewer bits in transit.
-    Also in low memory conditions the caches would be extra-cautious
-    not to use too much memory.
-    So it isn't completely clear (to me) that extra accounting is needed.
-
- 2/ If we were to do accounting to "ensure progress for those packets
-    we already have allocated", then I would expect a reservation
-    (charge) of max_packet_size when a fragment arrives on the network
-    card - or at least when a new fragment is determined to not match
-    any packet already in the fragment cache.  But I didn't see that
-    in your code.  I saw incremental charges as each page arrived.
-    And that implementation does seem to fit the model.
-  
-> 
-> A packet is received, it can be a fragment, it will be placed in the
-> fragment cache for packet re-assembly.
-
-Understood.
-
-> 
-> We need to ensure we can overflow this fragment cache in order that
-> something will come out at the other end. If under a fragment attack,
-> the fragment cache limit will prune the oldest fragments, freeing up
-> memory to receive new ones.
-
-I don't understand why we want to "overflow this fragment cache".
-I picture the cache having a target size.  When under this size,
-fragments might be allowed to live longer.  When at or over the target
-size, old fragments are pruned earlier.  When in a low memory
-situation it might be even more keen to prune old fragments, to keep
-beneath the target size.
-When you say "overflow this fragment cache", I picture deliberately
-allowing the cache to get bigger than the target size.  I don't
-understand why you would want to do that.
-
-> 
-> Eventually we'd be able to receive either a whole packet, or enough
-> fragments to assemble one.
-
-That would be important, yes.
-
-> 
-> Next comes routing the packet; we need to know where to process the
-> packet; local or non-local. This potentially involves filling the
-> route-cache.
-> 
-> If at this point there is no memory available because we forgot to limit
-> the amount of memory available for skb allocation we again are stuck.
-
-Those skbs we allocated - they are either sitting in the fragment
-cache, or have been attached to a SK_MEMALLOC socket, or have been
-freed - correct?  If so, then there is already a limit to how much
-memory they can consume.
-
-> 
-> The route-cache, like the fragment assembly, is already accounted and
-> will prune old (unused) entries once the total memory usage exceeds a
-> pre-determined amount of memory.
-
-Good.  So as long as the normal emergency reserves covers the size of
-the route cache plus the size of the fragment cache plus a little bit
-of slack, we should be safe - yes?
-
-> 
-> Eventually we'll end up at socket demux, matching packets to sockets
-> which allows us to either toss the packet or consume it. Dropping
-> packets is allowed because network is assumed lossy, and we have not yet
-> acknowledged the receive.
-> 
-> Does this make sense?
-
-Lots of it does, yes.
-
-> 
-> 
-> Then we have TX, which like I said above needs to operate under certain
-> limits as well. We need to be able to send out packets when under
-> pressure in order to relieve said pressure.
-
-Catch-22 ?? :-)
-
-> 
-> We need to ensure doing so will not exhaust our reserves.
-> 
-> Writing out a page typically takes a little memory, you fudge some
-> packets with protocol info, mtu size etc.. send them out, and wait for
-> an acknowledge from the other end, and drop the stuff and go on writing
-> other pages.
-
-Yes, rate-limiting those write-outs should keep that moving.
-
-> 
-> So sending out pages does not consume memory if we're able to receive
-> ACKs. Being able to receive packets what what all the previous was
-> about.
-> 
-> Now of course there is some RPC concurrency, TCP windows and other
-> funnies going on, but I assumed - and I don't think that's a wrong
-> assumption - that sending out pages will consume endless amounts of
-                                          ^not ??
-> memory.
-
-Sounds fair.
-
-> 
-> Nor will it keep on sending pages, once there is a certain amount of
-> packets outstanding (nfs congestion logic), it will wait, at which point
-> it should have no memory in use at all.
-
-Providing it frees any headers it attached to each page (or had
-allocated them from a private pool), it should have no memory in use.
-I'd have to check through the RPC code (I get lost in there too) to
-see how much memory is tied up by each outstanding page write.
-
-> 
-> Anyway I did get lost in the RPC code, and I know I didn't fully account
-> everything, but under some (hopefully realistic) assumptions I think the
-> model is sound.
-> 
-> Does this make sense?
-
-Yes.
-
-So I can see two possible models here.
-
-The first is the "bounded cache" or "locally bounded" model.
-At every step in the path from writepage to clear_page_writeback,
-the amount of extra memory used is bounded by some local rules.
-NFS and RPC uses congestion logic to limit the number of outstanding
-writes.  For incoming packets, the fragment cache and route cache
-impose their own limits.
-We simply need that the VM reserves a total amount of memory to meet
-the sum of those local limits.
-
-Your code embodies this model with the tree of reservations.  The root
-of the tree stores the sum of all the reservations below, and this
-number is given to the VM.
-The value of the tree is that different components can register their
-needs independently, and the whole tree (or subtrees) can be attached
-or not depending on global conditions, such as whether there are any
-SK_MEMALLOC sockets or not.
-
-However I don't see how the charging that you implemented fits into
-this model.
-You don't do any significant charging for the route cache.  But you do
-for skbs.  Why?  Don't the majority of those skbs live in the fragment
-cache?  Doesn't it account their size? (Maybe it doesn't.... maybe it
-should?).
-
-I also don't see the value of tracking pages to see if they are
-'reserve' pages or not.  The decision to drop an skb that is not for
-an SK_MEMALLOC socket should be based on whether we are currently
-short on memory.  Not whether we were short on memory when the skb was
-allocated.
-
-The second model that could fit is "total accounting". 
-In this model we reserve memory at each stage including the transient
-stages (packet that has arrived but isn't in fragment cache yet).
-As memory moves around, we move the charging from one reserve to
-another.  If the target reserve doesn't have an space, we drop the
-message.
-On the transmit side, that means putting the page back on a queue for
-sending later.  On the receive side that means discarding the packet
-and waiting for a resend.
-This model makes it easy for the various limits to be very different
-while under memory pressure that otherwise.  It also means they are
-imposed differently which isn't so good.
-
-So:
- - Why do you impose skb allocation limits beyond what is imposed
-   by the fragment cache?
- - Why do you need to track whether each allocation is a reserve or
-   not?
-
-Thanks,
-NeilBrown
+That's a bit cryptic.  Does it happen in 2.6.25-rc3?  If so, that kernel
+has extra info about the trace reliability.  Also, disbling
+CONFIG_FRAME_POINTER _should_ give a clean trace.
 
