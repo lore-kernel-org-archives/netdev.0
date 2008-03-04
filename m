@@ -1,126 +1,65 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] TCP cubic v2.2
-Date: Tue, 4 Mar 2008 11:57:40 -0800
-Message-ID: <20080304115740.63f8fa7c@extreme>
-References: <005d01c87a97$1ccee2b0$4a580e98@ncsu2cc0c3fa00>
-	<20080228223148.01a7cbae@extreme>
-	<00a801c87ad7$7db74820$4a580e98@ncsu2cc0c3fa00>
+From: Max Krasnyanskiy <maxk@qualcomm.com>
+Subject: Re: [PATCH 2/3] partial checksum and GSO support for tun/tap.
+Date: Tue, 04 Mar 2008 12:08:58 -0800
+Message-ID: <47CDAC5A.1070103@qualcomm.com>
+References: <200801240107.38929.rusty@rustcorp.com.au> <200803041202.17202.rusty@rustcorp.com.au> <47CCD930.3040200@qualcomm.com> <200803041847.45500.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <sha2@ncsu.edu>,
-	netdev@vger.kernel.org
-To: "Injong Rhee" <rhee@eos.ncsu.edu>
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:54779 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752356AbYCDT5w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Mar 2008 14:57:52 -0500
-In-Reply-To: <00a801c87ad7$7db74820$4a580e98@ncsu2cc0c3fa00>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:46703 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751275AbYCDUJB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 15:09:01 -0500
+In-Reply-To: <200803041847.45500.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have updated CUBIC to fix some issues with slow increase in large BDP 
-networks. We also improved its convergence speed. The fix is in fact very 
-simple --  the window increase limit of smax during the window probing phase 
-(i.e., convex growth phase) is removed. We found that this does not affect 
-TCP friendliness, but only improves its scalability. We have run some tests 
-in our lab and also over the Internet path from NCSU to Japan. These results 
-can be seen from the following page:
+Rusty Russell wrote:
+> On Tuesday 04 March 2008 16:08:00 Max Krasnyansky wrote:
+>>> The problem with this approach is that for what I'm doing, the packets
+>>> aren't nicely arranged somewhere; they're in random process memory.
+>> That's fine. RX/TX descriptors would not contain the data itself. They'd
+>> contain pointers to actual packets (ie just like the NIC takes physical
+>> memory address and DMAs data in/out).
+>> The allows for sending/receiving packets without syscalls and fits nicely
+>> with the async schemes like GSO.
+> 
+> Yes, yes it does.  That would be a very nice extension (it's orthogonal to 
+> this patch though, so should we get Dave to take these for 2.6.25?).
+It's orthogonal in general I agree. The only concern is whether we should keep 
+extending existing driver API (ie adding more flags like TUN_NO_PI, etc) or go 
+straight to the new/better ring based API. I do not have a strong preference 
+one way or the other. So I guess I'm saying I'd be ok with Dave taking them 
+for 2.6.25, but that API may be obsolete when the ring based thing comes out.
 
+> And as it happens, virtio already has such a structure: virtio_ring.  See 
+> linux/virtio_ring.h.
+I'll take a look.
 
-http://netsrv.csc.ncsu.edu/wiki/index.php/Intra_protocol_fairness_testing_with_linux-2.6.23.9
-http://netsrv.csc.ncsu.edu/wiki/index.php/RTT_fairness_testing_with_linux-2.6.23.9
-http://netsrv.csc.ncsu.edu/wiki/index.php/TCP_friendliness_testing_with_linux-2.6.23.9
+>>> The structure is for virtio, I'm just borrowing it for tap because it's
+>>> already there.  We could rename it and move it out to its own header, but
+>>> if so we should do that before 2.6.25 is released.
+>> If we do the whole enchilada with the RX/TX rings then we probably do not
+>> even need it. I'm thinking that RX/TX descriptor would include everything
+>> you need for the GSO and stuff.
+>> I meant do not need it for the TUN/TAP driver that is. Is it used anywhere
+>> else ?
+> 
+> Just for the linux virtio drivers.  Reusing it for tun/tap was an 
+> afterthought.  It just meant I could pass the same structure straight thru, 
+> though, which is nice.
+> 
+> The userspace->kernel problem is very similar to the guest->host problem, so 
+> it doesn't surprise me if we end up with very similar (identical?) 
+> interfaces.
+> 
+> Take a look at virtio_ring.h, virtio_ring.c and Documentation/lguest/lguest.c 
+> to see how we use it...
+Thanx for the pointers.
 
-Signed-off-by: Sangtae Ha <sha2@ncsu.edu>
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Max
 
----
- net/ipv4/tcp_cubic.c |   32 +++++++-------------------------
- 1 file changed, 7 insertions(+), 25 deletions(-)
-
-Fixed mailer damage and compiler warnings from unused variables. --sch
-
---- a/net/ipv4/tcp_cubic.c	2008-03-03 09:10:01.000000000 -0800
-+++ b/net/ipv4/tcp_cubic.c	2008-03-03 09:34:32.000000000 -0800
-@@ -1,12 +1,13 @@
- /*
-- * TCP CUBIC: Binary Increase Congestion control for TCP v2.1
-- *
-+ * TCP CUBIC: Binary Increase Congestion control for TCP v2.2
-+ * Home page:
-+ *      http://netsrv.csc.ncsu.edu/twiki/bin/view/Main/BIC
-  * This is from the implementation of CUBIC TCP in
-  * Injong Rhee, Lisong Xu.
-  *  "CUBIC: A New TCP-Friendly High-Speed TCP Variant
-  *  in PFLDnet 2005
-  * Available from:
-- *  http://www.csc.ncsu.edu/faculty/rhee/export/bitcp/cubic-paper.pdf
-+ *  http://netsrv.csc.ncsu.edu/export/cubic-paper.pdf
-  *
-  * Unless CUBIC is enabled and congestion window is large
-  * this behaves the same as the original Reno.
-@@ -20,15 +21,10 @@
- #define BICTCP_BETA_SCALE    1024	/* Scale factor beta calculation
- 					 * max_cwnd = snd_cwnd * beta
- 					 */
--#define BICTCP_B		4	 /*
--					  * In binary search,
--					  * go to point (max+min)/N
--					  */
- #define	BICTCP_HZ		10	/* BIC HZ 2^10 = 1024 */
- 
- static int fast_convergence __read_mostly = 1;
--static int max_increment __read_mostly = 16;
--static int beta __read_mostly = 819;	/* = 819/1024 (BICTCP_BETA_SCALE) */
-+static int beta __read_mostly = 717;	/* = 717/1024 (BICTCP_BETA_SCALE) */
- static int initial_ssthresh __read_mostly;
- static int bic_scale __read_mostly = 41;
- static int tcp_friendliness __read_mostly = 1;
-@@ -40,9 +36,7 @@ static u64 cube_factor __read_mostly;
- /* Note parameters that are used for precomputing scale factors are read-only */
- module_param(fast_convergence, int, 0644);
- MODULE_PARM_DESC(fast_convergence, "turn on/off fast convergence");
--module_param(max_increment, int, 0644);
--MODULE_PARM_DESC(max_increment, "Limit on increment allowed during binary search");
--module_param(beta, int, 0444);
-+module_param(beta, int, 0644);
- MODULE_PARM_DESC(beta, "beta for multiplicative increase");
- module_param(initial_ssthresh, int, 0644);
- MODULE_PARM_DESC(initial_ssthresh, "initial value of slow start threshold");
-@@ -145,7 +139,7 @@ static u32 cubic_root(u64 a)
- static inline void bictcp_update(struct bictcp *ca, u32 cwnd)
- {
- 	u64 offs;
--	u32 delta, t, bic_target, min_cnt, max_cnt;
-+	u32 delta, t, bic_target, max_cnt;
- 
- 	ca->ack_cnt++;	/* count the number of ACKs */
- 
-@@ -211,19 +205,6 @@ static inline void bictcp_update(struct 
- 		ca->cnt = 100 * cwnd;              /* very small increment*/
- 	}
- 
--	if (ca->delay_min > 0) {
--		/* max increment = Smax * rtt / 0.1  */
--		min_cnt = (cwnd * HZ * 8)/(10 * max_increment * ca->delay_min);
--
--		/* use concave growth when the target is above the origin */
--		if (ca->cnt < min_cnt && t >= ca->bic_K)
--			ca->cnt = min_cnt;
--	}
--
--	/* slow start and low utilization  */
--	if (ca->loss_cwnd == 0)		/* could be aggressive in slow start */
--		ca->cnt = 50;
--
- 	/* TCP Friendly */
- 	if (tcp_friendliness) {
- 		u32 scale = beta_scale;
-@@ -391,4 +372,4 @@ module_exit(cubictcp_unregister);
- MODULE_AUTHOR("Sangtae Ha, Stephen Hemminger");
- MODULE_LICENSE("GPL");
- MODULE_DESCRIPTION("CUBIC TCP");
--MODULE_VERSION("2.1");
-+MODULE_VERSION("2.2");
