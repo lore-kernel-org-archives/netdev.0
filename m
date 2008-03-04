@@ -1,32 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] mark netconsole broken
-Date: Tue, 04 Mar 2008 12:30:31 -0800 (PST)
-Message-ID: <20080304.123031.242861949.davem@davemloft.net>
-References: <20080206011643.d9021649.akpm@linux-foundation.org>
-	<20080303210540.cea55e13.akpm@linux-foundation.org>
-	<20080304080644.GC2947@elte.hu>
+Subject: Re: locking api self-test hanging
+Date: Tue, 04 Mar 2008 12:30:00 -0800 (PST)
+Message-ID: <20080304.123000.183265831.davem@davemloft.net>
+References: <20080304084024.GA3980@ff.dom.local>
+	<20080304011050.74f30dd3.akpm@linux-foundation.org>
+	<20080304075137.6bbd285f@extreme>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, shemminger@linux-foundation.org,
-	rjw@sisk.pl
-To: mingo@elte.hu
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33441
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33438
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757328AbYCDUak (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 15:30:40 -0500
-In-Reply-To: <20080304080644.GC2947@elte.hu>
+	by vger.kernel.org with ESMTP id S1756319AbYCDUaG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 15:30:06 -0500
+In-Reply-To: <20080304075137.6bbd285f@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Tue, 4 Mar 2008 09:06:44 +0100
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Tue, 4 Mar 2008 07:51:37 -0800
 
-> i'd suggest the patch below, to mark it broken.
+> On Tue, 4 Mar 2008 01:10:50 -0800
+> Andrew Morton <akpm@linux-foundation.org> wrote:
+> 
+> > That bisecting took me several hours and at the time I hoped that it would
+> > receive a more-than-zero response.  btw.
+> 
+> Mia culpa, individual tests of the netconsole when I did the patch worked.
+> But obviously didn't stress it enough or trigger that drop code.
+> 
+> Plus, I didn't believe the bisect.
 
-Why bother when we know what the bug is and can fix it? :-)
+At least Jarek figured it out in the end :-)  I'll revert
+these two changesets like so:
 
 commit d9452e9f81e997cbd0c9bface8d2c2a4b064cc3e
 Author: David S. Miller <davem@davemloft.net>
