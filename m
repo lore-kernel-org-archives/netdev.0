@@ -1,65 +1,40 @@
-From: Max Krasnyanskiy <maxk@qualcomm.com>
-Subject: Re: [PATCH 2/3] partial checksum and GSO support for tun/tap.
-Date: Tue, 04 Mar 2008 12:08:58 -0800
-Message-ID: <47CDAC5A.1070103@qualcomm.com>
-References: <200801240107.38929.rusty@rustcorp.com.au> <200803041202.17202.rusty@rustcorp.com.au> <47CCD930.3040200@qualcomm.com> <200803041847.45500.rusty@rustcorp.com.au>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [patch 11/11][NETNS][IPV6] rt6_stats - make the stats per network
+ namespace
+Date: Tue, 04 Mar 2008 21:20:39 +0100
+Message-ID: <47CDAF17.1040309@fr.ibm.com>
+References: <20080302094243.621444844@mai.toulouse-stg.fr.ibm.com> <20080303.233430.199177100.davem@davemloft.net> <47CD63EE.8090204@bull.net> <20080304.115425.165558612.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	virtualization@lists.linux-foundation.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: benjamin.thery@bull.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:46703 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751275AbYCDUJB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 15:09:01 -0500
-In-Reply-To: <200803041847.45500.rusty@rustcorp.com.au>
+Received: from mtagate2.de.ibm.com ([195.212.29.151]:44736 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755488AbYCDUXV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 15:23:21 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate2.de.ibm.com (8.13.8/8.13.8) with ESMTP id m24KNJSG120102
+	for <netdev@vger.kernel.org>; Tue, 4 Mar 2008 20:23:19 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m24KNJpR1913016
+	for <netdev@vger.kernel.org>; Tue, 4 Mar 2008 21:23:19 +0100
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m24KNJL3022650
+	for <netdev@vger.kernel.org>; Tue, 4 Mar 2008 20:23:19 GMT
+In-Reply-To: <20080304.115425.165558612.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rusty Russell wrote:
-> On Tuesday 04 March 2008 16:08:00 Max Krasnyansky wrote:
->>> The problem with this approach is that for what I'm doing, the packets
->>> aren't nicely arranged somewhere; they're in random process memory.
->> That's fine. RX/TX descriptors would not contain the data itself. They'd
->> contain pointers to actual packets (ie just like the NIC takes physical
->> memory address and DMAs data in/out).
->> The allows for sending/receiving packets without syscalls and fits nicely
->> with the async schemes like GSO.
+David Miller wrote:
+> From: Benjamin Thery <benjamin.thery@bull.net>
+> Date: Tue, 04 Mar 2008 15:59:58 +0100
 > 
-> Yes, yes it does.  That would be a very nice extension (it's orthogonal to 
-> this patch though, so should we get Dave to take these for 2.6.25?).
-It's orthogonal in general I agree. The only concern is whether we should keep 
-extending existing driver API (ie adding more flags like TUN_NO_PI, etc) or go 
-straight to the new/better ring based API. I do not have a strong preference 
-one way or the other. So I guess I'm saying I'd be ok with Dave taking them 
-for 2.6.25, but that API may be obsolete when the ring based thing comes out.
+>> I can't see the patches in net-2.6.26 tree. Have you been forced
+>> to revert them because they conflict with Yoshifuji patchset?
+> 
+> No, I took care of all of the conflicts by hand.
 
-> And as it happens, virtio already has such a structure: virtio_ring.  See 
-> linux/virtio_ring.h.
-I'll take a look.
-
->>> The structure is for virtio, I'm just borrowing it for tap because it's
->>> already there.  We could rename it and move it out to its own header, but
->>> if so we should do that before 2.6.25 is released.
->> If we do the whole enchilada with the RX/TX rings then we probably do not
->> even need it. I'm thinking that RX/TX descriptor would include everything
->> you need for the GSO and stuff.
->> I meant do not need it for the TUN/TAP driver that is. Is it used anywhere
->> else ?
-> 
-> Just for the linux virtio drivers.  Reusing it for tun/tap was an 
-> afterthought.  It just meant I could pass the same structure straight thru, 
-> though, which is nice.
-> 
-> The userspace->kernel problem is very similar to the guest->host problem, so 
-> it doesn't surprise me if we end up with very similar (identical?) 
-> interfaces.
-> 
-> Take a look at virtio_ring.h, virtio_ring.c and Documentation/lguest/lguest.c 
-> to see how we use it...
-Thanx for the pointers.
-
-Max
+Thank you for taking care of these conflicts :)
 
