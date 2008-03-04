@@ -1,85 +1,76 @@
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 05/12][NETNS][IPV6] route6 - Pass the network namespace parameter to rt6_purge_dflt_routers
-Date: Tue, 04 Mar 2008 22:03:31 +0100
-Message-ID: <20080304211021.274125254@mai.toulouse-stg.fr.ibm.com>
+Subject: [patch 12/12][NETNS][IPV6] route6 - Make ip6_dst_gc simpler
+Date: Tue, 04 Mar 2008 22:03:38 +0100
+Message-ID: <20080304211044.458249424@mai.toulouse-stg.fr.ibm.com>
 References: <20080304210326.169013927@mai.toulouse-stg.fr.ibm.com>
 Cc: netdev@vger.kernel.org, benjamin.thery@bull.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([195.212.29.134]:1972 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754106AbYCDVM7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 16:12:59 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate1.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m24LCwsr061066
-	for <netdev@vger.kernel.org>; Tue, 4 Mar 2008 21:12:58 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m24LCwiH2023480
-	for <netdev@vger.kernel.org>; Tue, 4 Mar 2008 21:12:58 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m24LCvt0001101
-	for <netdev@vger.kernel.org>; Tue, 4 Mar 2008 21:12:58 GMT
-Content-Disposition: inline; filename=route6-pass-network-namespace-to-rt6_purge_dflt_routers.patch
+Received: from mtagate7.de.ibm.com ([195.212.29.156]:10817 "EHLO
+	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754831AbYCDVN1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 16:13:27 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate7.de.ibm.com (8.13.8/8.13.8) with ESMTP id m24LDQYC382366
+	for <netdev@vger.kernel.org>; Tue, 4 Mar 2008 21:13:26 GMT
+Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m24LDQEO2031716
+	for <netdev@vger.kernel.org>; Tue, 4 Mar 2008 22:13:26 +0100
+Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m24LDP2i015208
+	for <netdev@vger.kernel.org>; Tue, 4 Mar 2008 21:13:25 GMT
+Content-Disposition: inline; filename=route6-make-ip6_dst_gc-simpler.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a network namespace parameter to rt6_purge_dflt_routers.
-This is needed to call fib6_get_table with the appropriate 
-network namespace.
+This patches improves the readibility of the ip6_dst_gc() routine.
+It simplifies long lines which grow a lot due to the introduction
+of network namespaces support.
 
 Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+Acked-by: Benjamin Thery <benjamin.thery@bull.net>
 ---
- include/net/ip6_route.h |    2 +-
- net/ipv6/addrconf.c     |    2 +-
- net/ipv6/route.c        |    4 ++--
- 3 files changed, 4 insertions(+), 4 deletions(-)
+ net/ipv6/route.c |   20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
 
-Index: net-2.6.26/include/net/ip6_route.h
-===================================================================
---- net-2.6.26.orig/include/net/ip6_route.h
-+++ net-2.6.26/include/net/ip6_route.h
-@@ -95,7 +95,7 @@ extern struct rt6_info *	rt6_add_dflt_ro
- 						    struct net_device *dev,
- 						    unsigned int pref);
- 
--extern void			rt6_purge_dflt_routers(void);
-+extern void			rt6_purge_dflt_routers(struct net *net);
- 
- extern int			rt6_route_rcv(struct net_device *dev,
- 					      u8 *opt, int len,
-Index: net-2.6.26/net/ipv6/addrconf.c
-===================================================================
---- net-2.6.26.orig/net/ipv6/addrconf.c
-+++ net-2.6.26/net/ipv6/addrconf.c
-@@ -493,7 +493,7 @@ static void addrconf_fixup_forwarding(st
- 		dev_forward_change((struct inet6_dev *)table->extra1);
- 
- 	if (*p)
--		rt6_purge_dflt_routers();
-+		rt6_purge_dflt_routers(net);
- }
- #endif
- 
 Index: net-2.6.26/net/ipv6/route.c
 ===================================================================
 --- net-2.6.26.orig/net/ipv6/route.c
 +++ net-2.6.26/net/ipv6/route.c
-@@ -1697,13 +1697,13 @@ struct rt6_info *rt6_add_dflt_router(str
- 	return rt6_get_dflt_router(gwaddr, dev);
+@@ -992,22 +992,26 @@ int icmp6_dst_gc(int *more)
+ 
+ static int ip6_dst_gc(struct dst_ops *ops)
+ {
+-	struct net *net = ops->dst_net;
+ 	unsigned long now = jiffies;
++	struct net *net = ops->dst_net;
++	int rt_min_interval = net->ipv6.sysctl.ip6_rt_gc_min_interval;
++	int rt_max_size = net->ipv6.sysctl.ip6_rt_max_size;
++	int rt_elasticity = net->ipv6.sysctl.ip6_rt_gc_elasticity;
++	int rt_gc_timeout = net->ipv6.sysctl.ip6_rt_gc_timeout;
++	unsigned long rt_last_gc = net->ipv6.ip6_rt_last_gc;
+ 
+-	if (time_after(net->ipv6.ip6_rt_last_gc + net->ipv6.sysctl.ip6_rt_gc_min_interval, now) &&
+-	    atomic_read(&net->ipv6.ip6_dst_ops->entries) <= net->ipv6.sysctl.ip6_rt_max_size)
++	if (time_after(rt_last_gc + rt_min_interval, now) &&
++	    atomic_read(&ops->entries) <= rt_max_size)
+ 		goto out;
+ 
+ 	net->ipv6.ip6_rt_gc_expire++;
+ 	fib6_run_gc(net->ipv6.ip6_rt_gc_expire, net);
+ 	net->ipv6.ip6_rt_last_gc = now;
+-	if (atomic_read(&net->ipv6.ip6_dst_ops->entries) < net->ipv6.ip6_dst_ops->gc_thresh)
+-		net->ipv6.ip6_rt_gc_expire = net->ipv6.sysctl.ip6_rt_gc_timeout>>1;
+-
++	if (atomic_read(&ops->entries) < ops->gc_thresh)
++		net->ipv6.ip6_rt_gc_expire = rt_gc_timeout>>1;
+ out:
+-	net->ipv6.ip6_rt_gc_expire -= net->ipv6.ip6_rt_gc_expire>>net->ipv6.sysctl.ip6_rt_gc_elasticity;
+-	return (atomic_read(&net->ipv6.ip6_dst_ops->entries) > net->ipv6.sysctl.ip6_rt_max_size);
++	net->ipv6.ip6_rt_gc_expire -= net->ipv6.ip6_rt_gc_expire>>rt_elasticity;
++	return (atomic_read(&ops->entries) > rt_max_size);
  }
  
--void rt6_purge_dflt_routers(void)
-+void rt6_purge_dflt_routers(struct net *net)
- {
- 	struct rt6_info *rt;
- 	struct fib6_table *table;
- 
- 	/* NOTE: Keep consistent with rt6_get_dflt_router */
--	table = fib6_get_table(&init_net, RT6_TABLE_DFLT);
-+	table = fib6_get_table(net, RT6_TABLE_DFLT);
- 	if (table == NULL)
- 		return;
- 
+ /* Clean host part of a prefix. Not necessary in radix tree,
 
 -- 
