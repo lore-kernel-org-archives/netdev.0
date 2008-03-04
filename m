@@ -1,60 +1,33 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: [PATCH] [1/2] Use an own random generator for pageattr-test.c
-Date: Tue,  4 Mar 2008 18:34:48 +0100 (CET)
-Message-ID: <20080304634.504158800@firstfloor.org>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	tglx@linutronix.de
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [BUG kernel 2.6.25-rc3 IPV6] ping6 -I eth0 ff02::1 causes system
+ hang.
+Date: Tue, 04 Mar 2008 12:49:29 -0500
+Message-ID: <47CD8BA9.3050006@hp.com>
+References: <20071006132601.f944f461.komurojun@nifty.com>	<20071014073658.d4352b8c.komurojun@nifty.com>	<20080302210716.69727582.komurojun-mbn@nifty.com> <20080302.212717.120106718.yoshfuji@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: komurojun-mbn@nifty.com, netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?YOSHIFUJI_Hideaki_/_=3F=3F=3F=3F?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out01.alice-dsl.net ([88.44.60.11]:40641 "EHLO
-	smtp-out01.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753536AbYCDRev (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 12:34:51 -0500
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:20734 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752549AbYCDRtb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 12:49:31 -0500
+In-Reply-To: <20080302.212717.120106718.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+>> On kernel 2.6.25-rc3, IPV6 multicast ping causes system hang
+>> after sending several multicast ping packet.
+>>
+>>> ping6 -I eth0 ff02::1 
+>> This problem does not happen on kernel 2.6.24.
+>> (does not depend on NIC)
+> 
+> Hmm, I've never seen this on our testlab.  Anyone else?
 
-pageattr-test attempts to be repeatable and uses srandom32 to get a 
-repeatable random number sequence.
+Not here.  I tried just CONFIG_IPV6=y as well.
 
-Using srandom32() wasn't a good idea for various reasons:
-- it is per cpu and if the cpu changes on a preemptible kernel it gets lost
-- networking and random32 puts in some own state
-- srandom32() does not actually reset the state, but just adds bits to 
-it
-
-Instead use a very simple private standard rnd that gives repeatable
-results. I took the reference rand() from ISO-C.
-
-Signed-off-by: Andi Kleen <ak@suse.de>
-
-Index: linux/arch/x86/mm/pageattr-test.c
-===================================================================
---- linux.orig/arch/x86/mm/pageattr-test.c
-+++ linux/arch/x86/mm/pageattr-test.c
-@@ -101,6 +101,14 @@ static int print_split(struct split_stat
- static unsigned long addr[NTEST];
- static unsigned int len[NTEST];
- 
-+static int next = 100;
-+
-+static unsigned my_rand(void)
-+{
-+	next = next * 1103515245 + 12345;
-+	return next;
-+}
-+
- /* Change the global bit on random pages in the direct mapping */
- static int pageattr_test(void)
- {
-@@ -123,10 +131,9 @@ static int pageattr_test(void)
- 	memset(bm, 0, (max_pfn_mapped + 7) / 8);
- 
- 	failed += print_split(&sa);
--	srandom32(100);
- 
- 	for (i = 0; i < NTEST; i++) {
--		unsigned long pfn = random32() % max_pfn_mapped;
-+		unsigned long pfn = my_rand() % max_pfn_mapped;
- 
- 		addr[i] = (unsigned long)__va(pfn << PAGE_SHIFT);
- 		len[i] = random32() % 100;
+-Brian
