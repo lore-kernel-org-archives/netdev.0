@@ -1,32 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 03/11][NETNS][IPV6] ip6_fib - fib6_clean_all handle
- several network namespaces
-Date: Mon, 03 Mar 2008 23:27:15 -0800 (PST)
-Message-ID: <20080303.232715.52497048.davem@davemloft.net>
-References: <20080302093720.649869114@mai.toulouse-stg.fr.ibm.com>
-	<20080302094144.746906445@mai.toulouse-stg.fr.ibm.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: iptables breakage on fc8 with recent kernels
+Date: Mon, 3 Mar 2008 23:27:40 -0800
+Message-ID: <20080303232740.42c3c3b9.akpm@linux-foundation.org>
+References: <20080303214725.92ba0955.akpm@linux-foundation.org>
+	<20080303.225549.191075913.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benjamin.thery@bull.net
-To: dlezcano@fr.ibm.com
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60790
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751210AbYCDH1Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 02:27:16 -0500
-In-Reply-To: <20080302094144.746906445@mai.toulouse-stg.fr.ibm.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54878 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751695AbYCDH2Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 02:28:16 -0500
+In-Reply-To: <20080303.225549.191075913.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Date: Sun, 02 Mar 2008 10:37:23 +0100
+On Mon, 03 Mar 2008 22:55:49 -0800 (PST) David Miller <davem@davemloft.net> wrote:
 
-> The function fib6_clean_all takes the network namespace
-> as parameter. That allows to flush the routes related to 
-> a specific network namespace.
+> > COMMIT
+>  ...
+> > So it is
+> > 
+> >    -A RH-Firewall-1-INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+> > 
+> > which is now failing.
+> > 
+> > config: http://userweb.kernel.org/~akpm/config-t61p.txt
 > 
-> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
-> Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+> Please set CONFIG_NF_CONNTRACK.
 
-Applied.
+ah, right, yup, thanks, I missed that.  I seem to have lost a great shower
+of netfilter config options somewhere along the line.  I thought I'd
+checked that :(
+
