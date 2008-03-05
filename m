@@ -1,88 +1,108 @@
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 7/9][NETNS][IPV6] route6 - pass always a valid socket to ip6_dst_lookup
-Date: Wed, 05 Mar 2008 18:56:56 +0100
-Message-ID: <20080305180203.366538434@mai.toulouse-stg.fr.ibm.com>
+Subject: [patch 9/9][NETNS][IPV6] icmp6 - make icmpv6_socket per namespace
+Date: Wed, 05 Mar 2008 18:56:58 +0100
+Message-ID: <20080305180206.043262980@mai.toulouse-stg.fr.ibm.com>
 References: <20080305175649.348451657@mai.toulouse-stg.fr.ibm.com>
 Cc: netdev@vger.kernel.org, benjamin.thery@bull.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.de.ibm.com ([195.212.29.155]:12648 "EHLO
-	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752937AbYCESCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 13:02:09 -0500
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate6.de.ibm.com (8.13.8/8.13.8) with ESMTP id m25I27Z4374832
-	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 18:02:07 GMT
-Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m25I27da2015280
-	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 19:02:07 +0100
-Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m25I26Kx004309
-	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 18:02:06 GMT
-Content-Disposition: inline; filename=ip6_dst_lookup.patch
+Received: from mtagate4.uk.ibm.com ([195.212.29.137]:50854 "EHLO
+	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752920AbYCESCL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 13:02:11 -0500
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate4.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m25I29OV090624
+	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 18:02:09 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m25I29GV1962188
+	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 18:02:09 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m25I29UO018737
+	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 18:02:09 GMT
+Content-Disposition: inline; filename=icmp6-allocate-icmpv6_socket-per-namespace.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ip6_dst_lookup receive a socket as parameter. In some part of the code
-it is called with a NULL socket parameter. We want to rely on the socket
-to retrieve the network namespace, so we always pass a valid socket in all
-cases.
+This patch make the changes necessary to support network namespaces in ICMPv6.
 
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 ---
- net/ipv6/ip6_output.c |    4 ++--
- net/ipv6/tcp_ipv6.c   |    9 ++++++---
- 2 files changed, 8 insertions(+), 5 deletions(-)
+ net/ipv6/icmp.c |   13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
-Index: net-2.6.26/net/ipv6/ip6_output.c
+Index: net-2.6.26/net/ipv6/icmp.c
 ===================================================================
---- net-2.6.26.orig/net/ipv6/ip6_output.c
-+++ net-2.6.26/net/ipv6/ip6_output.c
-@@ -913,7 +913,7 @@ static int ip6_dst_lookup_tail(struct so
- 	int err;
+--- net-2.6.26.orig/net/ipv6/icmp.c
++++ net-2.6.26/net/ipv6/icmp.c
+@@ -163,6 +163,7 @@ static inline int icmpv6_xrlim_allow(str
+ 				     struct flowi *fl)
+ {
+ 	struct dst_entry *dst;
++	struct net *net = sk->sk_net;
+ 	int res = 0;
  
- 	if (*dst == NULL)
--		*dst = ip6_route_output(&init_net, sk, fl);
-+		*dst = ip6_route_output(sk->sk_net, sk, fl);
+ 	/* Informational messages are not limited. */
+@@ -178,7 +179,7 @@ static inline int icmpv6_xrlim_allow(str
+ 	 * XXX: perhaps the expire for routing entries cloned by
+ 	 * this lookup should be more aggressive (not longer than timeout).
+ 	 */
+-	dst = ip6_route_output(&init_net, sk, fl);
++	dst = ip6_route_output(net, sk, fl);
+ 	if (dst->error) {
+ 		IP6_INC_STATS(ip6_dst_idev(dst),
+ 			      IPSTATS_MIB_OUTNOROUTES);
+@@ -186,7 +187,7 @@ static inline int icmpv6_xrlim_allow(str
+ 		res = 1;
+ 	} else {
+ 		struct rt6_info *rt = (struct rt6_info *)dst;
+-		int tmo = init_net.ipv6.sysctl.icmpv6_time;
++		int tmo = net->ipv6.sysctl.icmpv6_time;
  
- 	if ((err = (*dst)->error))
- 		goto out_err_release;
-@@ -954,7 +954,7 @@ static int ip6_dst_lookup_tail(struct so
- 				dst_release(*dst);
- 				memcpy(&fl_gw, fl, sizeof(struct flowi));
- 				memset(&fl_gw.fl6_dst, 0, sizeof(struct in6_addr));
--				*dst = ip6_route_output(&init_net, sk, &fl_gw);
-+				*dst = ip6_route_output(sk->sk_net, sk, &fl_gw);
- 				if ((err = (*dst)->error))
- 					goto out_err_release;
- 			}
-Index: net-2.6.26/net/ipv6/tcp_ipv6.c
-===================================================================
---- net-2.6.26.orig/net/ipv6/tcp_ipv6.c
-+++ net-2.6.26/net/ipv6/tcp_ipv6.c
-@@ -1071,8 +1071,11 @@ static void tcp_v6_send_reset(struct soc
- 	fl.fl_ip_sport = t1->source;
+ 		/* Give more bandwidth to wider prefixes. */
+ 		if (rt->rt6i_dst.plen < 128)
+@@ -305,6 +306,7 @@ static inline void mip6_addr_swap(struct
+ void icmpv6_send(struct sk_buff *skb, int type, int code, __u32 info,
+ 		 struct net_device *dev)
+ {
++	struct net *net = skb->dev->nd_net;
+ 	struct inet6_dev *idev = NULL;
+ 	struct ipv6hdr *hdr = ipv6_hdr(skb);
+ 	struct sock *sk;
+@@ -334,7 +336,7 @@ void icmpv6_send(struct sk_buff *skb, in
+ 	 */
+ 	addr_type = ipv6_addr_type(&hdr->daddr);
+ 
+-	if (ipv6_chk_addr(&init_net, &hdr->daddr, skb->dev, 0))
++	if (ipv6_chk_addr(net, &hdr->daddr, skb->dev, 0))
+ 		saddr = &hdr->daddr;
+ 
+ 	/*
+@@ -391,7 +393,7 @@ void icmpv6_send(struct sk_buff *skb, in
+ 	fl.fl_icmp_code = code;
  	security_skb_classify_flow(skb, &fl);
  
--	/* sk = NULL, but it is safe for now. RST socket required. */
--	if (!ip6_dst_lookup(NULL, &buff->dst, &fl)) {
-+	/* Pass a socket to ip6_dst_lookup either it is for RST
-+	 * Underlying function will use this to retrieve the network
-+	 * namespace
-+	 */
-+	if (!ip6_dst_lookup(tcp6_socket->sk, &buff->dst, &fl)) {
+-	sk = icmpv6_sk(&init_net);
++	sk = icmpv6_sk(net);
+ 	np = inet6_sk(sk);
  
- 		if (xfrm_lookup(&buff->dst, &fl, NULL, 0) >= 0) {
- 			ip6_xmit(tcp6_socket->sk, buff, &fl, NULL, 0);
-@@ -1172,7 +1175,7 @@ static void tcp_v6_send_ack(struct tcp_t
- 	fl.fl_ip_sport = t1->source;
+ 	if (icmpv6_xmit_lock(sk))
+@@ -507,6 +509,7 @@ EXPORT_SYMBOL(icmpv6_send);
+ 
+ static void icmpv6_echo_reply(struct sk_buff *skb)
+ {
++	struct net *net = skb->dev->nd_net;
+ 	struct sock *sk;
+ 	struct inet6_dev *idev;
+ 	struct ipv6_pinfo *np;
+@@ -537,7 +540,7 @@ static void icmpv6_echo_reply(struct sk_
+ 	fl.fl_icmp_type = ICMPV6_ECHO_REPLY;
  	security_skb_classify_flow(skb, &fl);
  
--	if (!ip6_dst_lookup(NULL, &buff->dst, &fl)) {
-+	if (!ip6_dst_lookup(tcp6_socket->sk, &buff->dst, &fl)) {
- 		if (xfrm_lookup(&buff->dst, &fl, NULL, 0) >= 0) {
- 			ip6_xmit(tcp6_socket->sk, buff, &fl, NULL, 0);
- 			TCP_INC_STATS_BH(TCP_MIB_OUTSEGS);
+-	sk = icmpv6_sk(&init_net);
++	sk = icmpv6_sk(net);
+ 	np = inet6_sk(sk);
+ 
+ 	if (icmpv6_xmit_lock(sk))
 
 -- 
