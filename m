@@ -1,136 +1,103 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH] [SCTP]: Bring MAX_BURST socket option into ietf API extension
- compliance
-Date: Tue, 04 Mar 2008 22:46:33 -0500
-Message-ID: <47CE1799.5040706@hp.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TCP IPv4 strange retransmits
+Date: Wed, 5 Mar 2008 09:00:12 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0803050819020.15712@kivilampi-30.cs.helsinki.fi>
+References: <47CD4808.1050202@nets.rwth-aachen.de>
+ <Pine.LNX.4.64.0803041507001.5423@kivilampi-30.cs.helsinki.fi>
+ <47CD5D43.9020408@nets.rwth-aachen.de> <Pine.LNX.4.64.0803042243050.15040@kivilampi-30.cs.helsinki.fi>
+ <47CDD543.1090607@nets.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	lksctp-developers <lksctp-developers@lists.sourceforge.net>
-To: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-553561648-1204700412=:15712"
+Cc: Netdev <netdev@vger.kernel.org>
+To: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:31542 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752152AbYCEDqh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 22:46:37 -0500
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:58282 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755872AbYCEHAR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 02:00:17 -0500
+In-Reply-To: <47CDD543.1090607@nets.rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Brings max_burst socket option set/get into line with the latest ietf socket
-extensions api draft, while maintaining backwards compatibility.
+---696243703-553561648-1204700412=:15712
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- net/sctp/socket.c |   73 +++++++++++++++++++++++++++++++++++++++++++---------
- 1 files changed, 60 insertions(+), 13 deletions(-)
+On Wed, 5 Mar 2008, Arnd Hannemann wrote:
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 9398926..d994d82 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -2933,17 +2933,39 @@ static int sctp_setsockopt_maxburst(struct sock *sk,
- 				    char __user *optval,
- 				    int optlen)
- {
-+	struct sctp_assoc_value params;
-+	struct sctp_sock *sp;
-+	struct sctp_association *asoc;
- 	int val;
-+	int assoc_id = 0;
- 
--	if (optlen != sizeof(int))
-+	if (optlen < sizeof(int))
- 		return -EINVAL;
--	if (get_user(val, (int __user *)optval))
--		return -EFAULT;
- 
--	if (val < 0)
-+	if (optlen == sizeof(int)) {
-+		printk(KERN_WARNING
-+		   "SCTP: Use of int in max_burst socket option deprecated\n");
-+		printk(KERN_WARNING
-+		   "SCTP: Use struct sctp_assoc_value instead\n");
-+		if (copy_from_user(&val, optval, optlen))
-+			return -EFAULT;
-+	} else if (optlen == sizeof(struct sctp_assoc_value)) {
-+		if (copy_from_user(&params, optval, optlen))
-+			return -EFAULT;
-+		val = params.assoc_value;
-+		assoc_id = params.assoc_id;
-+	} else
- 		return -EINVAL;
- 
--	sctp_sk(sk)->max_burst = val;
-+	sp = sctp_sk(sk);
-+
-+	if (assoc_id != 0) {
-+		asoc = sctp_id2assoc(sk, assoc_id);
-+		if (!asoc)
-+			return -EINVAL;
-+		asoc->max_burst = val;
-+	} else
-+		sp->max_burst = val;
- 
- 	return 0;
- }
-@@ -5005,20 +5027,45 @@ static int sctp_getsockopt_maxburst(struct sock *sk, int len,
- 				    char __user *optval,
- 				    int __user *optlen)
- {
--	int val;
-+	struct sctp_assoc_value params;
-+	struct sctp_sock *sp;
-+	struct sctp_association *asoc;
- 
- 	if (len < sizeof(int))
- 		return -EINVAL;
- 
--	len = sizeof(int);
-+	if (len == sizeof(int)) {
-+		printk(KERN_WARNING
-+		   "SCTP: Use of int in max_burst socket option deprecated\n");
-+		printk(KERN_WARNING
-+		   "SCTP: Use struct sctp_assoc_value instead\n");
-+		params.assoc_id = 0;
-+	} else if (len == sizeof (struct sctp_assoc_value)) {
-+		if (copy_from_user(&params, optval, len))
-+			return -EFAULT;
-+	} else
-+		return -EINVAL;
- 
--	val = sctp_sk(sk)->max_burst;
--	if (put_user(len, optlen))
--		return -EFAULT;
--	if (copy_to_user(optval, &val, len))
--		return -EFAULT;
-+	sp = sctp_sk(sk);
-+
-+	if (params.assoc_id != 0) {
-+		asoc = sctp_id2assoc(sk, params.assoc_id);
-+		if (!asoc)
-+			return -EINVAL;
-+		params.assoc_value = asoc->max_burst;
-+	} else
-+		params.assoc_value = sp->max_burst;
-+
-+	if (len == sizeof(int)) {
-+		if (copy_to_user(optval, &params.assoc_value, len))
-+			return -EFAULT;
-+	} else {
-+		if (copy_to_user(optval, &params, len))
-+			return -EFAULT;
-+	}
-+
-+	return 0;
- 
--	return -ENOTSUPP;
- }
- 
- static int sctp_getsockopt_hmac_ident(struct sock *sk, int len,
+> Ilpo Järvinen wrote:
+>
+> > No, if there's any skb which is more than fackets_out-tp->reordering from 
+> > the highest SACKed skb, it will be marked TCPCB_LOST (see 
+> > tcp_mark_head_lost & it's caller), and all LOST segments are retransmitted 
+> > by the earlier loop (for a while still as I'm going to very likely change 
+> > that in net-2.6.26, commits for consolidating both, nearly identical loops 
+> > are already in my local git and await some testing).
+> > 
+> > Forwardretrans is only incremented when there isn't TCPCB_LOST set for a 
+> > segment and it doesn't apply in this case anyway because you have new data 
+> > to send (see the decision making for forward retransmits, it's well 
+> > commented btw).
+> 
+> Ah, I see. Thank you for clarifying.
+> However fackets_out is not so well documented ;-)
+
+I think I've fixed this for 2.6.25... :-) :
+
+...
+/* Heurestics to calculate number of duplicate ACKs. There's no dupACKs
+ * counter when SACK is enabled (without SACK, sacked_out is used for
+ * that purpose).
+ *
+ * Instead, with FACK TCP uses fackets_out that includes both SACKed
+ * segments up to the highest received SACK block so far and holes in
+ * between them.
+ *
+ * With reordering, holes may still be in flight, so RFC3517 recovery
+ * uses pure sacked_out (total number of SACKed segments) even though
+ * it violates the RFC that uses duplicate ACKs, often these are equal
+ * but when e.g. out-of-window ACKs or packet duplication occurs,
+ * they differ. Since neither occurs due to loss, TCP should really
+ * ignore them.
+ */
+static inline int tcp_dupack_heurestics(struct tcp_sock *tp)
+...
+
+...Though some FACK comments seem to be saying something else still.
+
+> But it now makes all sense (with dump order):
+> An ACK 19225 arrives with SACK block {27745:29165}, so fackets_out becomes 
+> ~6 ((27745-19225)/1450)
+> tp->reordering is 3 at this time so he starts to retransmit.
+> However some SACK ACK comes early enough so he stops at 4 retransmits.
+> Or something like that...
+
+Another thing you should consider is reordering detection which hopefully 
+worked at 13:08:20.667529 through the newly discored SACK block which is 
+_lower_ than the highestmost SACK block received so far. That results in 
+FACK -> RFC3517, FACK is built on inorder assumptions and whenever we find 
+that untrue, e.g., due to SACK/ACK for non-rexmit when something larger 
+has been confirmed received we disable it. Ah, but this was 2.6.24.y? It 
+doesn't yet do RFC3517 IIRC, but has something remotely resembling 
+newreno, but only for the first packet because the next cumulative ACK may 
+often trigger timedout loop which basically marks everything lost (I don't 
+remember if the latter was changed to occur only with FACK ages ago or 
+not).
+
+> >> Tcpdump:
+> 
+> Sorry, this was just bogus. Just wanted to point out the timestamp 
+> differences and made a wrong example. Screen full of numbers... ;-)
+
+I thought so :-).
+
+...Large, nearly equal numbers in two dimensions, maybe at some day 
+I wake up and notice I've read them too long noticing that capturing 
+this kind of things is no longer a problem to me... :-/
+
 -- 
-1.5.2.5
-
+ i.
+---696243703-553561648-1204700412=:15712--
