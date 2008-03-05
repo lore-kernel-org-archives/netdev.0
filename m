@@ -1,310 +1,340 @@
-From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-Subject: [PATCH][IPSEC] inter address family IPsec tunnel on the fly
-Date: Wed, 5 Mar 2008 21:37:27 +0900
-Message-ID: <20080305213727.35f46f2f.kazunori@miyazawa.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [git patches] net driver fixes
+Date: Wed, 5 Mar 2008 07:39:25 -0500
+Message-ID: <20080305123925.GA27691@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi004.linux-ipv6.org ([203.178.140.4]:42219 "EHLO
-	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1757753AbYCEMhf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2008 07:37:35 -0500
+Received: from havoc.gtf.org ([69.61.125.42]:55756 "EHLO havoc.gtf.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755278AbYCEMj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2008 07:39:27 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+Note - The #upstream branch of netdev-2.5.git will be getting pushed to
+net-2.6.26.git soon.  That's where I've been keeping my for-2.6.26
+stuff.
 
-This patch fix inter address family ipsec tunneling
-when we install IPsec SA via PF_KEY interface
-because there are no interface to set the selector.
+Please pull from 'upstream-davem' branch of
+master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-davem
 
-This patch is for net-2.6
+to receive the following updates:
 
-Signed-off-by: Kazunori MIYAZAWA <miyazawa@linux-ipv6.org>
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+ MAINTAINERS                    |   32 ++++----------------------------
+ drivers/net/Kconfig            |    2 +-
+ drivers/net/atarilance.c       |    5 ++---
+ drivers/net/e100.c             |   29 +++--------------------------
+ drivers/net/ixgbe/ixgbe_main.c |    2 +-
+ drivers/net/mv643xx_eth.c      |    1 +
+ drivers/net/pcmcia/axnet_cs.c  |    2 +-
+ drivers/net/phy/Kconfig        |    1 +
+ drivers/net/phy/davicom.c      |   17 ++++++++++++++---
+ drivers/net/s2io.c             |    2 +-
+ drivers/net/tulip/de2104x.c    |    3 ++-
+ 11 files changed, 31 insertions(+), 65 deletions(-)
 
-Best regards,
+Adrian Bunk (3):
+      fix drivers/net/atarilance.c compilation
+      FIXED_PHY must depend on PHYLIB=y
+      make s2io.c:init_tti() static
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index eea7785..6a52805 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -386,6 +386,48 @@ enum {
+Auke Kok (2):
+      e100: Do suspend/shutdown like e1000
+      Intel ethernet adapter: Update MAINTAINERS
+
+Emil Tantilov (1):
+      ixgbe: fix typo in speed mesage
+
+Komuro (1):
+      axnet_cs: change debugging level for "Too much work at interrupt" message.
+
+Martin Michlmayr (1):
+      mv643xx_eth: Define module alias for platform device
+
+Ondrej Zary (1):
+      de2104x: remove BUG_ON() when changing media type
+
+Thomas Klein (1):
+      ehea: Fix missing Kconfig dependency
+
+frederic Rodo (1):
+      dm9161: add configuration for MII/RMII
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 33d99dc..93e0de9 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2039,43 +2039,19 @@ M:	kernel@wantstofly.org
+ L:	netdev@vger.kernel.org
+ S:	Maintained
  
- extern int xfrm_register_mode(struct xfrm_mode *mode, int family);
- extern int xfrm_unregister_mode(struct xfrm_mode *mode, int family);
-+extern struct xfrm_mode *xfrm_get_mode(unsigned int encap, int family);
-+extern void xfrm_put_mode(struct xfrm_mode *mode);
-+
-+static inline int xfrm_proto2af(int proto)
-+{
-+	switch (proto) {
-+	case IPPROTO_IPIP:
-+		return AF_INET;
-+	case IPPROTO_IPV6:
-+		return AF_INET6;
-+	default:
-+		return AF_UNSPEC;
-+	}
-+}
-+
-+static inline int xfrm_af2proto(unsigned int family)
-+{
-+	switch(family) {
-+	case AF_INET:
-+		return IPPROTO_IPIP;
-+	case AF_INET6:
-+		return IPPROTO_IPV6;
-+	default:
-+		return 0;
-+	}
-+}
-+
-+static inline struct xfrm_mode *xfrm_get_inner_mode(struct xfrm_state *x, int family)
-+{
-+	if (x->inner_mode)
-+		return x->inner_mode;
-+	else
-+		return xfrm_get_mode(x->props.mode, family);
-+}
-+
-+static inline void xfrm_put_inner_mode(struct xfrm_state *x, struct xfrm_mode *mode)
-+{
-+	if (x->inner_mode != NULL)
-+		xfrm_put_mode(mode);
-+}
-+
-+extern int xfrm_inner_extract_output(struct xfrm_state *x, struct sk_buff *skb);
+-INTEL PRO/100 ETHERNET SUPPORT
++INTEL ETHERNET DRIVERS (e100/e1000/e1000e/igb/ixgb/ixgbe)
+ P:	Auke Kok
+ M:	auke-jan.h.kok@intel.com
+ P:	Jesse Brandeburg
+ M:	jesse.brandeburg@intel.com
+ P:	Jeff Kirsher
+ M:	jeffrey.t.kirsher@intel.com
++P:	Bruce Allan
++M:	bruce.w.allan@intel.com
+ P:	John Ronciak
+ M:	john.ronciak@intel.com
+ L:	e1000-devel@lists.sourceforge.net
+-W:	http://sourceforge.net/projects/e1000/
+-S:	Supported
+-
+-INTEL PRO/1000 GIGABIT ETHERNET SUPPORT
+-P:	Auke Kok
+-M:	auke-jan.h.kok@intel.com
+-P:	Jesse Brandeburg
+-M:	jesse.brandeburg@intel.com
+-P:	Jeff Kirsher
+-M:	jeffrey.t.kirsher@intel.com
+-P:	John Ronciak
+-M:	john.ronciak@intel.com
+-L:	e1000-devel@lists.sourceforge.net
+-W:	http://sourceforge.net/projects/e1000/
+-S:	Supported
+-
+-INTEL PRO/10GbE SUPPORT
+-P:	Ayyappan Veeraiyan
+-M:	ayyappan.veeraiyan@intel.com
+-P:	Auke Kok
+-M:	auke-jan.h.kok@intel.com
+-P:	Jesse Brandeburg
+-M:	jesse.brandeburg@intel.com
+-P:	John Ronciak
+-M:	john.ronciak@intel.com
+-L:	e1000-devel@lists.sourceforge.net
+-W:	http://sourceforge.net/projects/e1000/
++W:	http://e1000.sourceforge.net/
+ S:	Supported
  
- struct xfrm_tmpl
+ INTEL PRO/WIRELESS 2100 NETWORK CONNECTION SUPPORT
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index a0f0e60..a64bb41 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2519,7 +2519,7 @@ config CHELSIO_T3
+ 
+ config EHEA
+ 	tristate "eHEA Ethernet support"
+-	depends on IBMEBUS && INET
++	depends on IBMEBUS && INET && SPARSEMEM
+ 	select INET_LRO
+ 	---help---
+ 	  This driver supports the IBM pSeries eHEA ethernet adapter.
+diff --git a/drivers/net/atarilance.c b/drivers/net/atarilance.c
+index b74dbee..13c293b 100644
+--- a/drivers/net/atarilance.c
++++ b/drivers/net/atarilance.c
+@@ -336,8 +336,6 @@ struct lance_addr {
+ 
+ /***************************** Prototypes *****************************/
+ 
+-static int addr_accessible( volatile void *regp, int wordflag, int
+-                            writeflag );
+ static unsigned long lance_probe1( struct net_device *dev, struct lance_addr
+                                    *init_rec );
+ static int lance_open( struct net_device *dev );
+@@ -406,7 +404,8 @@ struct net_device * __init atarilance_probe(int unit)
+ 
+ /* Derived from hwreg_present() in atari/config.c: */
+ 
+-static int __init addr_accessible( volatile void *regp, int wordflag, int writeflag )
++static noinline int __init addr_accessible(volatile void *regp, int wordflag,
++					   int writeflag)
  {
-diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
-index 8dee617..584e6d7 100644
---- a/net/ipv4/xfrm4_mode_tunnel.c
-+++ b/net/ipv4/xfrm4_mode_tunnel.c
-@@ -41,7 +41,7 @@ static int xfrm4_mode_tunnel_output(stru
- 	top_iph->ihl = 5;
- 	top_iph->version = 4;
+ 	int		ret;
+ 	long	flags;
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index 36ba6dc..cdf3090 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -2782,16 +2782,13 @@ static void __devexit e100_remove(struct pci_dev *pdev)
+ 	}
+ }
  
--	top_iph->protocol = x->inner_mode->afinfo->proto;
-+	top_iph->protocol = xfrm_af2proto(skb->dst->ops->family);
- 
- 	/* DS disclosed */
- 	top_iph->tos = INET_ECN_encapsulate(XFRM_MODE_SKB_CB(skb)->tos,
-diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
-index d5a58a8..8c3180a 100644
---- a/net/ipv4/xfrm4_output.c
-+++ b/net/ipv4/xfrm4_output.c
-@@ -56,7 +56,7 @@ int xfrm4_prepare_output(struct xfrm_sta
+-#ifdef CONFIG_PM
+ static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
  {
- 	int err;
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct nic *nic = netdev_priv(netdev);
  
--	err = x->inner_mode->afinfo->extract_output(x, skb);
-+	err = xfrm_inner_extract_output(x, skb);
- 	if (err)
- 		return err;
+ 	if (netif_running(netdev))
+-		napi_disable(&nic->napi);
+-	del_timer_sync(&nic->watchdog);
+-	netif_carrier_off(nic->netdev);
++		e100_down(nic);
+ 	netif_device_detach(netdev);
  
-diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
-index 0c742fa..e20529b 100644
---- a/net/ipv6/xfrm6_mode_tunnel.c
-+++ b/net/ipv6/xfrm6_mode_tunnel.c
-@@ -45,7 +45,7 @@ static int xfrm6_mode_tunnel_output(stru
- 
- 	memcpy(top_iph->flow_lbl, XFRM_MODE_SKB_CB(skb)->flow_lbl,
- 	       sizeof(top_iph->flow_lbl));
--	top_iph->nexthdr = x->inner_mode->afinfo->proto;
-+	top_iph->nexthdr = xfrm_af2proto(skb->dst->ops->family);
- 
- 	dsfield = XFRM_MODE_SKB_CB(skb)->tos;
- 	dsfield = INET_ECN_encapsulate(dsfield, dsfield);
-diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-index 79ccfb0..0af823c 100644
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@ -62,7 +62,7 @@ int xfrm6_prepare_output(struct xfrm_sta
- {
- 	int err;
- 
--	err = x->inner_mode->afinfo->extract_output(x, skb);
-+	err = xfrm_inner_extract_output(x, skb);
- 	if (err)
- 		return err;
- 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 8b5f486..7c175e1 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1219,9 +1219,6 @@ static struct xfrm_state * pfkey_msg2xfr
- 		x->sel.prefixlen_s = addr->sadb_address_prefixlen;
+ 	pci_save_state(pdev);
+@@ -2804,14 +2801,13 @@ static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
+ 		pci_enable_wake(pdev, PCI_D3cold, 0);
  	}
  
--	if (!x->sel.family)
--		x->sel.family = x->props.family;
+-	free_irq(pdev->irq, netdev);
 -
- 	if (ext_hdrs[SADB_X_EXT_NAT_T_TYPE-1]) {
- 		struct sadb_x_nat_t_type* n_type;
- 		struct xfrm_encap_tmpl *natt;
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 62188c6..c81455f 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -82,6 +82,35 @@ int xfrm_parse_spi(struct sk_buff *skb, 
+ 	pci_disable_device(pdev);
+ 	pci_set_power_state(pdev, PCI_D3hot);
+ 
  	return 0;
  }
  
-+static inline int xfrm_inner_input(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	struct xfrm_mode *inner_mode;
-+	int err;
-+
-+	inner_mode = xfrm_get_inner_mode(x, xfrm_proto2af(XFRM_MODE_SKB_CB(skb)->protocol));
-+	if (!inner_mode)
-+		return -EINVAL;
-+	err = inner_mode->input(x, skb);
-+	xfrm_put_inner_mode(x, inner_mode);
-+
-+	return err;
-+}
-+
-+static inline int xfrm_inner_input2(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	struct xfrm_mode *inner_mode;
-+	int err;
-+
-+	inner_mode = xfrm_get_inner_mode(x, xfrm_proto2af(XFRM_MODE_SKB_CB(skb)->protocol));
-+	if (!inner_mode)
-+		return -EINVAL;
-+	err = inner_mode->input2(x, skb);
-+	if (err >= 0)
-+		err = inner_mode->afinfo->eth_proto;
-+	xfrm_put_inner_mode(x, inner_mode);
-+	return err;
-+}
-+
- int xfrm_prepare_input(struct xfrm_state *x, struct sk_buff *skb)
++#ifdef CONFIG_PM
+ static int e100_resume(struct pci_dev *pdev)
  {
- 	int err;
-@@ -90,8 +119,10 @@ int xfrm_prepare_input(struct xfrm_state
- 	if (err)
- 		return err;
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+@@ -2832,26 +2828,7 @@ static int e100_resume(struct pci_dev *pdev)
  
--	skb->protocol = x->inner_mode->afinfo->eth_proto;
--	return x->inner_mode->input2(x, skb);
-+	err = xfrm_inner_input2(x, skb);
-+	if (err >= 0)
-+		skb->protocol = err;
-+	return 0;
- }
- EXPORT_SYMBOL(xfrm_prepare_input);
- 
-@@ -207,7 +238,8 @@ resume:
- 
- 		XFRM_MODE_SKB_CB(skb)->protocol = nexthdr;
- 
--		if (x->inner_mode->input(x, skb)) {
-+		err = xfrm_inner_input(x, skb);
-+		if (err) {
- 			XFRM_INC_STATS(LINUX_MIB_XFRMINSTATEMODEERROR);
- 			goto drop;
- 		}
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index 569d377..711873e 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -18,6 +18,21 @@ #include <linux/spinlock.h>
- #include <net/dst.h>
- #include <net/xfrm.h>
- 
-+int xfrm_inner_extract_output(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	struct xfrm_mode *inner_mode;
-+	int err;
-+
-+	inner_mode = xfrm_get_inner_mode(x, skb->dst->ops->family);
-+	if (!inner_mode)
-+		return -EINVAL;
-+	err = inner_mode->afinfo->extract_output(x, skb);
-+	xfrm_put_inner_mode(x, inner_mode);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL(xfrm_inner_extract_output);
-+
- static int xfrm_output2(struct sk_buff *skb);
- 
- static int xfrm_state_check_space(struct xfrm_state *x, struct sk_buff *skb)
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 7ba65e8..88894b1 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -344,7 +344,7 @@ int xfrm_unregister_mode(struct xfrm_mod
- }
- EXPORT_SYMBOL(xfrm_unregister_mode);
- 
--static struct xfrm_mode *xfrm_get_mode(unsigned int encap, int family)
-+struct xfrm_mode *xfrm_get_mode(unsigned int encap, int family)
+ static void e100_shutdown(struct pci_dev *pdev)
  {
- 	struct xfrm_state_afinfo *afinfo;
- 	struct xfrm_mode *mode;
-@@ -372,7 +372,7 @@ retry:
- 	return mode;
- }
- 
--static void xfrm_put_mode(struct xfrm_mode *mode)
-+void xfrm_put_mode(struct xfrm_mode *mode)
- {
- 	module_put(mode->owner);
- }
-@@ -796,7 +796,7 @@ xfrm_state_find(xfrm_address_t *daddr, x
- 			      selector.
- 			 */
- 			if (x->km.state == XFRM_STATE_VALID) {
--				if (!xfrm_selector_match(&x->sel, fl, x->sel.family) ||
-+				if ((x->sel.family && !xfrm_selector_match(&x->sel, fl, x->sel.family)) ||
- 				    !security_xfrm_state_pol_flow_match(x, pol, fl))
- 					continue;
- 				if (!best ||
-@@ -1962,13 +1962,15 @@ int xfrm_init_state(struct xfrm_state *x
- 		goto error;
- 
- 	err = -EPROTONOSUPPORT;
--	x->inner_mode = xfrm_get_mode(x->props.mode, x->sel.family);
--	if (x->inner_mode == NULL)
--		goto error;
-+	if (x->sel.family != 0) {
-+		x->inner_mode = xfrm_get_mode(x->props.mode, x->sel.family);
-+		if (x->inner_mode == NULL)
-+			goto error;
- 
--	if (!(x->inner_mode->flags & XFRM_MODE_FLAG_TUNNEL) &&
--	    family != x->sel.family)
--		goto error;
-+		if (!(x->inner_mode->flags & XFRM_MODE_FLAG_TUNNEL) &&
-+		    family != x->sel.family)
-+			goto error;
-+	}
- 
- 	x->type = xfrm_get_type(x->id.proto, family);
- 	if (x->type == NULL)
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index f971ca5..6499a84 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -287,13 +287,6 @@ static void copy_from_user_state(struct 
- 	x->props.family = p->family;
- 	memcpy(&x->props.saddr, &p->saddr, sizeof(x->props.saddr));
- 	x->props.flags = p->flags;
+-	struct net_device *netdev = pci_get_drvdata(pdev);
+-	struct nic *nic = netdev_priv(netdev);
 -
--	/*
--	 * Set inner address family if the KM left it as zero.
--	 * See comment in validate_tmpl.
--	 */
--	if (!x->sel.family)
--		x->sel.family = p->family;
+-	if (netif_running(netdev))
+-		napi_disable(&nic->napi);
+-	del_timer_sync(&nic->watchdog);
+-	netif_carrier_off(nic->netdev);
+-
+-	if ((nic->flags & wol_magic) | e100_asf(nic)) {
+-		pci_enable_wake(pdev, PCI_D3hot, 1);
+-		pci_enable_wake(pdev, PCI_D3cold, 1);
+-	} else {
+-		pci_enable_wake(pdev, PCI_D3hot, 0);
+-		pci_enable_wake(pdev, PCI_D3cold, 0);
+-	}
+-
+-	free_irq(pdev->irq, netdev);
+-
+-	pci_disable_device(pdev);
+-	pci_set_power_state(pdev, PCI_D3hot);
++	e100_suspend(pdev, PMSG_SUSPEND);
  }
+ 
+ /* ------------------ PCI Error Recovery infrastructure  -------------- */
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 23d0a4a..c2095ce 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2133,7 +2133,7 @@ static void ixgbe_watchdog(unsigned long data)
+ 				(link_speed == IXGBE_LINK_SPEED_10GB_FULL ?
+ 				 "10 Gbps" :
+ 				 (link_speed == IXGBE_LINK_SPEED_1GB_FULL ?
+-				  "1 Gpbs" : "unknown speed")),
++				  "1 Gbps" : "unknown speed")),
+ 				((FLOW_RX && FLOW_TX) ? "RX/TX" :
+ 				 (FLOW_RX ? "RX" :
+ 				 (FLOW_TX ? "TX" : "None"))));
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index b528ce7..771139e 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -2104,6 +2104,7 @@ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR(	"Rabeeh Khoury, Assaf Hoffman, Matthew Dharm, Manish Lachwani"
+ 		" and Dale Farnsworth");
+ MODULE_DESCRIPTION("Ethernet driver for Marvell MV643XX");
++MODULE_ALIAS("platform:mv643xx_eth");
  
  /*
+  * The second part is the low level driver of the gigE ethernet ports.
+diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_cs.c
+index e8a63e4..ce95c5d 100644
+--- a/drivers/net/pcmcia/axnet_cs.c
++++ b/drivers/net/pcmcia/axnet_cs.c
+@@ -1268,7 +1268,7 @@ static irqreturn_t ax_interrupt(int irq, void *dev_id)
+ 		}
+ 	}
+     
+-	if (interrupts && ei_debug) 
++	if (interrupts && ei_debug > 3) 
+ 	{
+ 		handled = 1;
+ 		if (nr_serviced >= MAX_SERVICE) 
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index f4ca059..3ac8529 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -67,6 +67,7 @@ config REALTEK_PHY
+ 
+ config FIXED_PHY
+ 	bool "Driver for MDIO Bus/PHY emulation with fixed speed/link PHYs"
++	depends on PHYLIB=y
+ 	---help---
+ 	  Adds the platform "fixed" MDIO Bus to cover the boards that use
+ 	  PHYs that are not connected to the real MDIO bus.
+diff --git a/drivers/net/phy/davicom.c b/drivers/net/phy/davicom.c
+index 7ed632d..d926168 100644
+--- a/drivers/net/phy/davicom.c
++++ b/drivers/net/phy/davicom.c
+@@ -37,6 +37,7 @@
+ 
+ #define MII_DM9161_SCR		0x10
+ #define MII_DM9161_SCR_INIT	0x0610
++#define MII_DM9161_SCR_RMII	0x0100
+ 
+ /* DM9161 Interrupt Register */
+ #define MII_DM9161_INTR	0x15
+@@ -103,7 +104,7 @@ static int dm9161_config_aneg(struct phy_device *phydev)
+ 
+ static int dm9161_config_init(struct phy_device *phydev)
+ {
+-	int err;
++	int err, temp;
+ 
+ 	/* Isolate the PHY */
+ 	err = phy_write(phydev, MII_BMCR, BMCR_ISOLATE);
+@@ -111,9 +112,19 @@ static int dm9161_config_init(struct phy_device *phydev)
+ 	if (err < 0)
+ 		return err;
+ 
+-	/* Do not bypass the scrambler/descrambler */
+-	err = phy_write(phydev, MII_DM9161_SCR, MII_DM9161_SCR_INIT);
++	switch (phydev->interface) {
++	case PHY_INTERFACE_MODE_MII:
++		temp = MII_DM9161_SCR_INIT;
++		break;
++	case PHY_INTERFACE_MODE_RMII:
++		temp =  MII_DM9161_SCR_INIT | MII_DM9161_SCR_RMII;
++		break;
++	default:
++		return -EINVAL;
++	}
+ 
++	/* Do not bypass the scrambler/descrambler */
++	err = phy_write(phydev, MII_DM9161_SCR, temp);
+ 	if (err < 0)
+ 		return err;
+ 
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index 6179a0a..c72787a 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -1088,7 +1088,7 @@ static int s2io_print_pci_mode(struct s2io_nic *nic)
+  *  '-1' on failure
+  */
+ 
+-int init_tti(struct s2io_nic *nic, int link)
++static int init_tti(struct s2io_nic *nic, int link)
+ {
+ 	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	register u64 val64 = 0;
+diff --git a/drivers/net/tulip/de2104x.c b/drivers/net/tulip/de2104x.c
+index 77d9dd7..567c627 100644
+--- a/drivers/net/tulip/de2104x.c
++++ b/drivers/net/tulip/de2104x.c
+@@ -910,7 +910,8 @@ static void de_set_media (struct de_private *de)
+ 	unsigned media = de->media_type;
+ 	u32 macmode = dr32(MacMode);
+ 
+-	BUG_ON(de_is_running(de));
++	if (de_is_running(de))
++		printk(KERN_WARNING "%s: chip is running while changing media!\n", de->dev->name);
+ 
+ 	if (de->de21040)
+ 		dw32(CSR11, FULL_DUPLEX_MAGIC);
