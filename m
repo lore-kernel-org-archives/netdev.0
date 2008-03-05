@@ -1,110 +1,190 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH 0/2] Fix /proc/net in presence of net namespaces
-Date: Wed, 05 Mar 2008 12:43:40 +0300
-Message-ID: <47CE6B4C.4010009@openvz.org>
-References: <47C6D743.1050802@openvz.org>	<m1y794514k.fsf@ebiederm.dsl.xmission.com>	<20080228211720.GA1232@vino.hallyn.com>	<m1k5ko4sfi.fsf@ebiederm.dsl.xmission.com>	<47C7BB1B.9060906@openvz.org>	<m1zlth3m5f.fsf@ebiederm.dsl.xmission.com>	<47CBBFBC.3010607@openvz.org> <m1ejaq2jh4.fsf@ebiederm.dsl.xmission.com>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: Re: circular locking, mirred, 2.6.24.2
+Date: Wed, 5 Mar 2008 12:45:51 +0200
+Message-ID: <20080305103935.M76165@visp.net.lb>
+References: <20080224222035.M62480@visp.net.lb> <20080225095646.GA4321@ff.dom.local> <20080225104652.M2446@visp.net.lb> <20080225113930.GA4733@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: serge@hallyn.com, Alexey Dobriyan <adobriyan@openvz.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:40617 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752200AbYCEJnt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2008 04:43:49 -0500
-In-Reply-To: <m1ejaq2jh4.fsf@ebiederm.dsl.xmission.com>
+Received: from usermail.globalproof.net ([194.146.153.18]:51435 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758851AbYCEKqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 05:46:06 -0500
+In-Reply-To: <20080225113930.GA4733@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman wrote:
-> Pavel Emelyanov <xemul@openvz.org> writes:
-> 
->>>>> - Have readdir and lookup filter the directory entries by the pid
->>>>>   namespace of the proc mount.
->>>> So, how are you going to filter the lookup? The problem I see - you have
->>>> a process that opened the /proc/.netns/X directory (he onws that namespace)
->>>> and the other one trying to do the same. The VFS layer finds the hashed
->>>> dentry corresponding to this /proc/.netns/X. The only way you can prevent
->>>> VFS from giving one to the second task is to override .d_revalidate method 
->>>> and drop that dentry....
->>>>
->>>> But we've already tried to walk this way with no luck.
->>> I meant a per mount filtering.  Exactly like we do for the pids now.
->> We (me) do not perform any "filtering" in /proc. I just make /proc play 
->> the VFS rules - one super-block one tree of dentries.
-> 
-> Exactly.  For different super blocks we return a different set of
-> processes and a different set of numbers of those processes.  If you
-> do use ids that do not live in a namespace I agree you do not need to
-> do different things for different mounts, but that seems ugly and
-> problematic.
-> 
->>>>> If we make namespaces show up anywhere besides under
->>>>> "/proc/<pid>/task/<tid>/" we have to do something like this, and pids
->>>>> are largely designed for this kind of use.
->>>> Proc consists of two parts - the <pid>-s one with generated-on-the-fly
->>>> entries and the static one that is represented by proc_dir_entry tree.
->>>> Do you propose to mix those two?
->>> Yes.  Because the static entries are beginning to depend on process
->>> specific attributes.  We have already started with /proc/mounts.
->> /proc/<pid>/mounts is not represented with any proc_dir_entry, but
->> what you're proposing with /proc/<pid>/net seems like doing this
->> representation.
-> 
-> Yes.  I am talking about placing things represented with a
-> prod_dir_entry and having them show up under a hierarchy not
-> represented with proc_dir_entries under /proc/<pid>.
-> 
-> As that is clean, worked well for /proc/mounts, does not
-> require ids at all, and is essentially the optimal form
-> for monitoring processes.
-> 
-> /proc/mounts used to have a proc_dir_entry.  When it was reimplemented
-> to be per fs namespace that was removed.
-> 
->>>>> just need a non-global id for our directory entries so we don't paint
->>>>> ourselves into a corner.
->>>> What namespace do you mean by "non-global"?
->>> The best is an id I can take with me when I migrate from machine A
->>> to machine B.  An id in some namespace or a form that doesn't need
->>> an id at all is the core requirement.
->> If we're OK in having a /proc/netns/<xxx> for each namespace, then
->> this <xxx> is an id, regardless whatever it is - a pre-generated 
->> number, a pointer, etc.
->>
->> That said, your only wish is to make this <xxx> be preservable across 
->> migration, right?
-> 
-> No, that is not my only wish.
-> 
-> - I wish for a clean maintainable interface.
-> - I wish for an interface that we can use for monitoring programs like
->   top and ps.
-> - I wish for an interface that is migration safe.
-> 
-> It is my opinion that using an id is simply an optimization to reduce
-> the number of cached proc dentries.
-> 
-> I gave a full run down of what I wish and the reasons for it earlier
-> in this thread. I have not seen you respond to that message.
+I did test on vanilla 2.6.25-rc3, on clean Gentoo distro and got 
+similar message. The strange thing, message appeared not immediately after 
+launching script, but after few seconds.
 
-I took you opinion, expressed in this letter, into account.
+Scripts is the same. I have same message on another script, used for ppp 
+shaper.
 
-> Currently I am NOT ok having a /proc/netns/<xxx>. It appears to be
-> a contentious premature optimization.
+[   10.536424] =======================================================
+[   10.536424] [ INFO: possible circular locking dependency detected ]
+[   10.536424] 2.6.25-rc3-devel #3
+[   10.536424] -------------------------------------------------------
+[   10.536424] swapper/0 is trying to acquire lock:
+[   10.536424]  (&dev->queue_lock){-+..}, at: [<c0299b4a>] 
+dev_queue_xmit+0x175/0x2f3
+[   10.536424]
+[   10.536424] but task is already holding lock:
+[   10.536424]  (&p->tcfc_lock){-+..}, at: [<f8a67154>] tcf_mirred+0x20/0x178 
+[act_mirred]
+[   10.536424]
+[   10.536424] which lock already depends on the new lock.
+[   10.536424]
+[   10.536424]
+[   10.536424] the existing dependency chain (in reverse order) is:
+[   10.536424]
+[   10.536424] -> #2 (&p->tcfc_lock){-+..}:
+[   10.536424]        [<c013efb6>] __lock_acquire+0x963/0xb18
+[   10.536424]        [<f8a67154>] tcf_mirred+0x20/0x178 [act_mirred]
+[   10.536424]        [<c013f1d7>] lock_acquire+0x6c/0x89
+[   10.536424]        [<f8a67154>] tcf_mirred+0x20/0x178 [act_mirred]
+[   10.536424]        [<c02f6927>] _spin_lock+0x1c/0x49
+[   10.536424]        [<f8a67154>] tcf_mirred+0x20/0x178 [act_mirred]
+[   10.536424]        [<f8a67134>] tcf_mirred+0x0/0x178 [act_mirred]
+[   10.536424]        [<f8a67154>] tcf_mirred+0x20/0x178 [act_mirred]
+[   10.536424]        [<c010b2ce>] save_stack_address+0x0/0x28
+[   10.536424]        [<f8a67134>] tcf_mirred+0x0/0x178 [act_mirred]
+[   10.536424]        [<c02a7018>] tcf_action_exec+0x44/0x77
+[   10.536424]        [<f89927b0>] u32_classify+0x119/0x24e [cls_u32]
+[   10.536424]        [<c013f123>] __lock_acquire+0xad0/0xb18
+[   10.536424]        [<c02a5006>] tc_classify_compat+0x2f/0x5e
+[   10.536424]        [<c02a5d1c>] tc_classify+0x17/0x78
+[   10.536424]        [<f89670a4>] ingress_enqueue+0x1a/0x53 [sch_ingress]
+[   10.536424]        [<c0297009>] netif_receive_skb+0x263/0x3e6
+[   10.536424]        [<f882b4d9>] e1000_clean_rx_irq+0x380/0x448 [e1000]
+[   10.536424]        [<f8828e1e>] e1000_clean+0x62/0x1fd [e1000]
+[   10.536424]        [<c029926f>] net_rx_action+0xb3/0x19e
+[   10.536424]        [<c01276f7>] __do_softirq+0x6f/0xe9
+[   10.536424]        [<c0106aa7>] do_softirq+0x5e/0xa8
+[   10.536424]        [<ffffffff>] 0xffffffff
+[   10.536424]
+[   10.536424] -> #1 (&dev->ingress_lock){-+..}:
+[   10.536424]        [<c013efb6>] __lock_acquire+0x963/0xb18
+[   10.536424]        [<c02a4718>] qdisc_lock_tree+0x1e/0x21
+[   10.536424]        [<c013f1d7>] lock_acquire+0x6c/0x89
+[   10.536424]        [<c02a4718>] qdisc_lock_tree+0x1e/0x21
+[   10.536424]        [<c02f6927>] _spin_lock+0x1c/0x49
+[   10.536424]        [<c02a4718>] qdisc_lock_tree+0x1e/0x21
+[   10.536424]        [<c02a4718>] qdisc_lock_tree+0x1e/0x21
+[   10.536424]        [<c02a4747>] dev_init_scheduler+0xb/0x4d
+[   10.536424]        [<c0298299>] register_netdevice+0x288/0x2e2
+[   10.536424]        [<c0298325>] register_netdev+0x32/0x3f
+[   10.536424]        [<c042a867>] loopback_net_init+0x34/0x63
+[   10.536424]        [<c0295b3f>] register_pernet_operations+0x13/0x15
+[   10.536424]        [<c0295ba8>] register_pernet_device+0x1f/0x4c
+[   10.536424]        [<c042a831>] loopback_init+0xd/0xf
+[   10.536424]        [<c0415478>] kernel_init+0x132/0x27c
+[   10.536424]        [<c0415346>] kernel_init+0x0/0x27c
+[   10.536424]        [<c0415346>] kernel_init+0x0/0x27c
+[   10.536424]        [<c01056bf>] kernel_thread_helper+0x7/0x10
+[   10.536424]        [<ffffffff>] 0xffffffff
+[   10.536424]
+[   10.536424] -> #0 (&dev->queue_lock){-+..}:
+[   10.536424]        [<c013d169>] print_circular_bug_tail+0x2e/0x66
+[   10.536424]        [<c013eedd>] __lock_acquire+0x88a/0xb18
+[   10.536424]        [<c013f1d7>] lock_acquire+0x6c/0x89
+[   10.536424]        [<c0299b4a>] dev_queue_xmit+0x175/0x2f3
+[   10.536424]        [<c02f6927>] _spin_lock+0x1c/0x49
+[   10.536424]        [<c0299b4a>] dev_queue_xmit+0x175/0x2f3
+[   10.536425]        [<c0299b4a>] dev_queue_xmit+0x175/0x2f3
+[   10.536425]        [<f8a6728b>] tcf_mirred+0x157/0x178 [act_mirred]
+[   10.536425]        [<f8a67134>] tcf_mirred+0x0/0x178 [act_mirred]
+[   10.536425]        [<c02a7018>] tcf_action_exec+0x44/0x77
+[   10.536425]        [<f89927b0>] u32_classify+0x119/0x24e [cls_u32]
+[   10.536425]        [<c013f123>] __lock_acquire+0xad0/0xb18
+[   10.536425]        [<c02a5006>] tc_classify_compat+0x2f/0x5e
+[   10.536425]        [<c02a5d1c>] tc_classify+0x17/0x78
+[   10.536425]        [<f89670a4>] ingress_enqueue+0x1a/0x53 [sch_ingress]
+[   10.536425]        [<c0297009>] netif_receive_skb+0x263/0x3e6
+[   10.536425]        [<f882b4d9>] e1000_clean_rx_irq+0x380/0x448 [e1000]
+[   10.536425]        [<f8828e1e>] e1000_clean+0x62/0x1fd [e1000]
+[   10.536425]        [<c029926f>] net_rx_action+0xb3/0x19e
+[   10.536425]        [<c01276f7>] __do_softirq+0x6f/0xe9
+[   10.536425]        [<c0106aa7>] do_softirq+0x5e/0xa8
+[   10.536425]        [<ffffffff>] 0xffffffff
+[   10.536425]
+[   10.536425] other info that might help us debug this:
+[   10.536425]
+[   10.536425] 5 locks held by swapper/0:
+[   10.536425]  #0:  (rcu_read_lock){..--}, at: [<c029920c>] 
+net_rx_action+0x50/0x19e
+[   10.536425]  #1:  (rcu_read_lock){..--}, at: [<c0296e96>] 
+netif_receive_skb+0xf0/0x3e6
+[   10.536425]  #2:  (&dev->ingress_lock){-+..}, at: [<c0296ff5>] 
+netif_receive_skb+0x24f/0x3e6
+[   10.536425]  #3:  (&p->tcfc_lock){-+..}, at: [<f8a67154>] tcf_mirred+0x20/
+0x178 [act_mirred]
+[   10.536425]  #4:  (rcu_read_lock){..--}, at: [<c0299afb>] 
+dev_queue_xmit+0x126/0x2f3
+[   10.536425]
+[   10.536425] stack backtrace:
+[   10.536425] Pid: 0, comm: swapper Not tainted 2.6.25-rc3-devel #3
+[   10.536425]  [<c013d196>] print_circular_bug_tail+0x5b/0x66
+[   10.536425]  [<c013eedd>] __lock_acquire+0x88a/0xb18
+[   10.536425]  [<c013f1d7>] lock_acquire+0x6c/0x89
+[   10.536425]  [<c0299b4a>] ? dev_queue_xmit+0x175/0x2f3
+[   10.536425]  [<c02f6927>] _spin_lock+0x1c/0x49
+[   10.536425]  [<c0299b4a>] ? dev_queue_xmit+0x175/0x2f3
+[   10.536425]  [<c0299b4a>] dev_queue_xmit+0x175/0x2f3
+[   10.536425]  [<f8a6728b>] tcf_mirred+0x157/0x178 [act_mirred]
+[   10.536425]  [<f8a67134>] ? tcf_mirred+0x0/0x178 [act_mirred]
+[   10.536425]  [<c02a7018>] tcf_action_exec+0x44/0x77
+[   10.536425]  [<f89927b0>] u32_classify+0x119/0x24e [cls_u32]
+[   10.536425]  [<c013f123>] ? __lock_acquire+0xad0/0xb18
+[   10.536425]  [<c02a5006>] tc_classify_compat+0x2f/0x5e
+[   10.536425]  [<c02a5d1c>] tc_classify+0x17/0x78
+[   10.536425]  [<f89670a4>] ingress_enqueue+0x1a/0x53 [sch_ingress]
+[   10.536425]  [<c0297009>] netif_receive_skb+0x263/0x3e6
+[   10.536425]  [<f882b4d9>] e1000_clean_rx_irq+0x380/0x448 [e1000]
+[   10.536425]  [<f8828e1e>] e1000_clean+0x62/0x1fd [e1000]
+[   10.536425]  [<c029926f>] net_rx_action+0xb3/0x19e
+[   10.536425]  [<c01276f7>] __do_softirq+0x6f/0xe9
+[   10.536425]  [<c0106aa7>] do_softirq+0x5e/0xa8
+[   10.536425]  [<c014d8c9>] ? handle_edge_irq+0x0/0x10a
+[   10.536425]  [<c0127655>] irq_exit+0x44/0x77
+[   10.536425]  [<c0106b91>] do_IRQ+0xa0/0xb7
+[   10.536425]  [<c0105446>] common_interrupt+0x2e/0x34
+[   10.536425]  [<c01031b9>] ? mwait_idle_with_hints+0x39/0x3d
+[   10.536425]  [<c0103364>] ? mwait_idle+0x0/0x14
+[   10.536425]  [<c0103376>] mwait_idle+0x12/0x14
+[   10.536425]  [<c0103696>] cpu_idle+0xb5/0xd5
+[   10.536425]  [<c02e5b79>] rest_init+0x49/0x4b
 
-Have you changed your mind suddenly? 
-You told opposite less than a week ago.
 
-> VFS clean, maintainable, and usable for monitoring is
-> /proc/<pid>/task/<tid>/net.
 
-Why not /proc/pid/net? Are we ever going to move threads in namespace?
 
-> We can always figure out how to optimize that form later.
+On Mon, 25 Feb 2008 11:39:30 +0000, Jarek Poplawski wrote
+> On Mon, Feb 25, 2008 at 12:48:38PM +0200, Denys Fedoryshchenko wrote:
+> > What does it mean early?
+> > I have custom boot scripts, it is also custom system based on busybox. 
+There 
+> > is a chance that i forgot to bring ifb0 up, but thats it.
+> > I think such warning must not appear on any actions in userspace.
 > 
-> Eric
+> It's not about ifb0: this report shows loopback_init after some 
+> action on eth, so eth was probably up before lo. And of course you 
+> are right: this warning shouldn't be there. But, since this report 
+> looks very strange, I wonder if there could be something else that mislead
+> lockdep. Could you try to reproduce this with 2.6.24.2 without these
+> additional patches?
 > 
+> Jarek P.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
+
