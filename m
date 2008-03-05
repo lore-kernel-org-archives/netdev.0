@@ -1,34 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] SCTP: Fix chunk parameter processing bug
-Date: Wed, 05 Mar 2008 13:44:13 -0800 (PST)
-Message-ID: <20080305.134413.234972395.davem@davemloft.net>
-References: <47CE474B.3040709@cn.fujitsu.com>
-	<47CEA5E9.80202@hp.com>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [PATCH] netfilter: replace horrible hack with ksize()
+Date: Wed, 5 Mar 2008 13:56:13 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0803051355140.31527@schroedinger.engr.sgi.com>
+References: <Pine.LNX.4.64.0803052319210.15759@sbz-30.cs.Helsinki.FI>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: guijianfeng@cn.fujitsu.com, netdev@vger.kernel.org
-To: vladislav.yasevich@hp.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, joe@perches.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Pekka J Enberg <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54952
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1762487AbYCEVoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 16:44:16 -0500
-In-Reply-To: <47CEA5E9.80202@hp.com>
+Received: from relay1.sgi.com ([192.48.171.29]:59558 "EHLO relay.sgi.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1764062AbYCEV4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2008 16:56:25 -0500
+In-Reply-To: <Pine.LNX.4.64.0803052319210.15759@sbz-30.cs.Helsinki.FI>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Wed, 05 Mar 2008 08:53:45 -0500
+Acked-by: Christoph Lameter <clameter@sgi.com>
 
-> Gui Jianfeng wrote:
-> > Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
-> 
-> Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-> 
-> Thanks for catching this.
+I guess this should go through the netdev tree?
 
-I applied this after killing trailing whitespace errors and making the
-added comment conform to kernel coding standards.
 
-Thanks.
