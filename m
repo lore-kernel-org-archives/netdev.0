@@ -1,56 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][IPSEC] inter address family IPsec tunnel on the fly
-Date: Wed, 05 Mar 2008 13:40:20 -0800 (PST)
-Message-ID: <20080305.134020.05696990.davem@davemloft.net>
-References: <20080305213727.35f46f2f.kazunori@miyazawa.org>
+Subject: Re: [PATCH] [SCTP]: Bring MAX_BURST socket option into ietf API
+ extension compliance
+Date: Wed, 05 Mar 2008 13:44:54 -0800 (PST)
+Message-ID: <20080305.134454.126646739.davem@davemloft.net>
+References: <47CE1799.5040706@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
-To: kazunori@miyazawa.org
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54946
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46690
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1762305AbYCEVkX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 16:40:23 -0500
-In-Reply-To: <20080305213727.35f46f2f.kazunori@miyazawa.org>
+	by vger.kernel.org with ESMTP id S1763162AbYCEVoz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 16:44:55 -0500
+In-Reply-To: <47CE1799.5040706@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-Date: Wed, 5 Mar 2008 21:37:27 +0900
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Tue, 04 Mar 2008 22:46:33 -0500
 
-> Hello David,
-
-Hello,
-
-> This patch fix inter address family ipsec tunneling
-> when we install IPsec SA via PF_KEY interface
-> because there are no interface to set the selector.
+> From: Neil Horman <nhorman@tuxdriver.com>
 > 
-> This patch is for net-2.6
+> Brings max_burst socket option set/get into line with the latest ietf socket
+> extensions api draft, while maintaining backwards compatibility.
 > 
-> Signed-off-by: Kazunori MIYAZAWA <miyazawa@linux-ipv6.org>
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-It seems quite excessive to grab and release the module reference
-count during every packet input/output which happens through IPSEC
-tunnels.
-
-The whole reason we store the mode information in the state is so that
-we only have to grab the reference during IPSEC rule addition, instead
-of during packet processing.
-
-Having to export xfrm_mode_{get,put} from xfrm_state.c is a sure
-sign of trouble :-)
-
-Is there some way we can simply propagate the correct setting to
-x->inner_mode?
-
-I also wonder if the PF_KEY limitation really exists.  For example we
-will set x->sel.family etc. from the SADB_EXT_ADDRESS_PROXY attribute
-if present.
-
-Finally, if the determination can be made in the data path, it
-by definition could be made during rule insertion which is much
-more efficient and appropriate.
+Applied, thanks!
