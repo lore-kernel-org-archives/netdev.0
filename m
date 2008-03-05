@@ -1,46 +1,32 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [rfc][patch 1/3] slub: fix small HWCACHE_ALIGN alignment
-Date: Wed, 5 Mar 2008 13:06:30 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0803051257030.30742@schroedinger.engr.sgi.com>
-References: <20080303201701.GF8974@wotan.suse.de>
- <Pine.LNX.4.64.0803031315160.4131@schroedinger.engr.sgi.com>
- <20080305000637.GA1510@wotan.suse.de> <20080304.161003.129716254.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RFC [PATCH net-2.6 1/6] net: Scheduling softirqs between CPUSs
+Date: Wed, 05 Mar 2008 13:21:12 -0800 (PST)
+Message-ID: <20080305.132112.01598419.davem@davemloft.net>
+References: <20080305205116.5989A412541@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: npiggin@suse.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yanmin_zhang@linux.intel.com,
-	dada1@cosmosbay.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.sgi.com ([192.48.171.29]:58961 "EHLO relay.sgi.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753791AbYCEVGl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2008 16:06:41 -0500
-In-Reply-To: <20080304.161003.129716254.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39048
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756580AbYCEVVM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 16:21:12 -0500
+In-Reply-To: <20080305205116.5989A412541@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 4 Mar 2008, David Miller wrote:
+From: therbert@google.com (Tom Herbert)
+Date: Wed,  5 Mar 2008 12:51:16 -0800 (PST)
 
-> > Huh?? It is not a new definition, it is exactly what SLAB does. And
-> > then you go and do something different and claim that you follow
-> > what slab does.
+> This patch implements kernel changes to allow scheduling of softirq's between processors.
 > 
-> I completely agree with Nick.
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-So you also want subalignment because of cacheline crossing for 24 byte 
-slabs? We then only have 2 objects per cacheline instead of 3 but no 
-crossing anymore.
+I've stated this in the past and I still feel that it is foolish to
+put all of this code into the kernel when every single piece of
+networking hardware will be doing this for us transparently.
 
-Well okay if there are multiple requests then lets merge Nick's patch that 
-does this. Still think that this will do much ...
-Instead of 170 we will only have 128 objects per slab (64 byte 
-cacheline).
-
-It will affect the following slab caches (mm) reducing the density of 
-objects. 
-
-scsi_bidi_sdb numa_policy fasync_cache xfs_bmap_free_item xfs_dabuf 
-fstrm_item dm_target_io
-
-Nothing related to networking....
+Maybe if someone had proposed this 4 or 5 years ago, but right now
+this code will be irrelevant by the time it ships to any real users.
