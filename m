@@ -1,119 +1,61 @@
 From: therbert@google.com (Tom Herbert)
-Subject: RFC [PATCH net-2.6 6/6] net: softRSS net-sysfs
+Subject: RFC [PATCH net-2.6 4/6] net: softRSS sysctls
 Date: Wed,  5 Mar 2008 12:51:16 -0800 (PST)
-Message-ID: <20080305205116.63E16412794@localhost>
+Message-ID: <20080305205116.5FDAB412791@localhost>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:9580 "EHLO
+Received: from smtp-out.google.com ([216.239.33.17]:19860 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754295AbYCEUvU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 15:51:20 -0500
+	with ESMTP id S1755103AbYCEUvd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 15:51:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch implements per device sys-fs variables to set the CPU mask used for software RSS.
+This patch adds sysctls for enabling/disabling software RSS.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 
 ---
 
-diff -uprN -X /tmp/donts/rss_3 net-2.6/net/core/net-sysfs.c net-2.6.patch/net/core/net-sysfs.c
---- net-2.6/net/core/net-sysfs.c	2008-03-05 09:03:28.210553000 -0800
-+++ net-2.6.patch/net/core/net-sysfs.c	2008-03-05 09:25:33.622754000 -0800
-@@ -208,6 +208,81 @@ static ssize_t store_tx_queue_len(struct
- 	return netdev_store(dev, attr, buf, len, change_tx_queue_len);
- }
+diff -uprN -X /tmp/donts/rss_2 net-2.6/include/linux/sysctl.h net-2.6.patch/include/linux/sysctl.h
+--- net-2.6/include/linux/sysctl.h	2008-03-05 09:03:23.482838000 -0800
++++ net-2.6.patch/include/linux/sysctl.h	2008-03-05 09:25:33.573767000 -0800
+@@ -285,6 +285,8 @@ enum
+ 	NET_CORE_AEVENT_ETIME=20,
+ 	NET_CORE_AEVENT_RSEQTH=21,
+ 	NET_CORE_WARNINGS=22,
++	NET_CORE_NAPI_RSS=23,
++	NET_CORE_SOFT_RSS=24,
+ };
  
-+
-+#if defined(CONFIG_NET_NAPI_RSS) || defined(CONFIG_NET_SOFTRSS)
-+static ssize_t netdev_store_cpumask(struct net_device *net, const char *buf,
-+    size_t len, cpumask_t *maskp)
-+{
-+	cpumask_t new_value;
-+	int err;
-+
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
-+
-+	err = cpumask_parse(buf, len, new_value);
-+	if (err)
-+		return err;
-+
-+	rtnl_lock();
-+	if (dev_isalive(net)) 
-+		*maskp = new_value;
-+	rtnl_unlock();
-+
-+	return len;
-+}
-+
-+static ssize_t netdev_show_cpumask(struct net_device *net, char *buf,
-+    cpumask_t *maskp)
-+{
-+	size_t len;
-+	cpumask_t tmp;
-+
-+	read_lock(&dev_base_lock);
-+	if (dev_isalive(net))
-+		cpus_and(tmp, *maskp, cpu_online_map);
-+	else
-+		cpus_clear(tmp);
-+	read_unlock(&dev_base_lock);
-+
-+	len = cpumask_scnprintf(buf, PAGE_SIZE, tmp);
-+	if (PAGE_SIZE - len < 2)
-+		return -EINVAL;
-+
-+	len += sprintf(buf + len, "\n");
-+	return len;
-+}
-+#endif
-+
+ /* /proc/sys/net/ethernet */
+diff -uprN -X /tmp/donts/rss_2 net-2.6/net/core/sysctl_net_core.c net-2.6.patch/net/core/sysctl_net_core.c
+--- net-2.6/net/core/sysctl_net_core.c	2008-03-05 09:03:28.270548000 -0800
++++ net-2.6.patch/net/core/sysctl_net_core.c	2008-03-05 09:25:33.644759000 -0800
+@@ -148,6 +148,26 @@ static struct ctl_table net_core_table[]
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec
+ 	},
 +#ifdef CONFIG_NET_NAPI_RSS
-+static ssize_t show_napi_rss_cpus(struct class_device *dev, char *buf)
-+{
-+	const struct net_device *net = to_net_dev(dev);
-+	return (netdev_show_cpumask(net, buf, &net->napi_rss_cpus));
-+}
-+
-+static ssize_t store_napi_rss_cpus(struct class_device *dev, const char *buf,
-+    size_t len)
-+{
-+	const struct net_device *net = to_net_dev(dev);
-+	return (netdev_store_cpumask(net, buf, len, &net->napi_rss_cpus));
-+}
-+#endif
-+
++	{
++		.ctl_name	= NET_CORE_NAPI_RSS,
++		.procname	= "napi_rss",
++		.data		= &sysctl_napi_rss,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec
++	},
++#endif /* CONFIG_NET_NAPI_RSS */
 +#ifdef CONFIG_NET_SOFTRSS
-+static ssize_t show_soft_rss_cpus(struct class_device *dev, char *buf)
-+{
-+	const struct net_device *net = to_net_dev(dev);
-+	return (netdev_show_cpumask(net, buf, &net->soft_rss_cpus));
-+}
-+
-+static ssize_t store_soft_rss_cpus(struct class_device *dev, const char *buf,
-+    size_t len)
-+{
-+	const struct net_device *net = to_net_dev(dev);
-+	return (netdev_store_cpumask(net, buf, len, &net->soft_rss_cpus));
-+}
-+#endif
-+
- static struct device_attribute net_class_attributes[] = {
- 	__ATTR(addr_len, S_IRUGO, show_addr_len, NULL),
- 	__ATTR(iflink, S_IRUGO, show_iflink, NULL),
-@@ -224,6 +299,14 @@ static struct device_attribute net_class
- 	__ATTR(flags, S_IRUGO | S_IWUSR, show_flags, store_flags),
- 	__ATTR(tx_queue_len, S_IRUGO | S_IWUSR, show_tx_queue_len,
- 	       store_tx_queue_len),
-+#ifdef CONFIG_NET_NAPI_RSS
-+	__ATTR(napi_rss_cpus, S_IRUGO | S_IWUSR, show_napi_rss_cpus,
-+	       store_napi_rss_cpus),
-+#endif
-+#ifdef CONFIG_NET_SOFTRSS
-+	__ATTR(soft_rss_cpus, S_IRUGO | S_IWUSR, show_soft_rss_cpus,
-+	       store_soft_rss_cpus),
-+#endif
- 	{}
++	{
++		.ctl_name	= NET_CORE_SOFT_RSS,
++		.procname	= "soft_rss",
++		.data		= &sysctl_soft_rss,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec
++	},
++#endif /* CONFIG_NET_SOFTRSS */
+ 	{ .ctl_name = 0 }
  };
  
