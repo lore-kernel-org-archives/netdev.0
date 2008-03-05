@@ -1,61 +1,56 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: E1000:   e1000_update_stats()
-Date: Wed, 05 Mar 2008 13:34:44 -0800
-Message-ID: <47CF11F4.6030207@intel.com>
-References: <67F3071335CB9945A6047FE06957E0240D6D94CE93@exchange.rivulet.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][IPSEC] inter address family IPsec tunnel on the fly
+Date: Wed, 05 Mar 2008 13:40:20 -0800 (PST)
+Message-ID: <20080305.134020.05696990.davem@davemloft.net>
+References: <20080305213727.35f46f2f.kazunori@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Todd Tomaino <ttomaino@rivulet.com>
+Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+To: kazunori@miyazawa.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:10654 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753374AbYCEVjS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2008 16:39:18 -0500
-In-Reply-To: <67F3071335CB9945A6047FE06957E0240D6D94CE93@exchange.rivulet.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54946
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1762305AbYCEVkX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 16:40:23 -0500
+In-Reply-To: <20080305213727.35f46f2f.kazunori@miyazawa.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Date: Wed, 5 Mar 2008 21:37:27 +0900
 
-[ Adding netdev@vger.kernel.org !]
+> Hello David,
 
-Todd Tomaino wrote:
-> 
-> I have been having trouble with interrupt latencies.  While profiling my system, I measured the e1000_update_stats() function disabling interrupts for roughly 100 usec.  For my application, this long of a delay results in data loss.  The e1000_update_stats() function is broken down into 3 main operations:
-> 
-> 1. acquire spinlock
-> 2. read registers & update adapter->stat counters
-> 3. update OS adapter->net_stats statistics
-> 4. update phy stats.
-> 5. release spinlock.
-> 
-> On my system I measured 57 usec to perform operations #2 and #3, and 52 usec to perform operation #4.
-> 
-> Reading the comments in the code it appeared that updating adapter->net_stats and adapter->stat required interrupts to be turned off to prevent the e1000_adjust_tbi_stats() function from modifying these structures from interrupt context.  In order to reduce the amount of time spent with interrupts disabled I separated the register reads from updating adapter->stat counters.  The register reads take up the bulk of the 57 usec and shouldn't require protection (I could be wrong).  The new operation looks like this and reduces the amount of time spent with interrupts turned off by 1/2:
-> 
-> 1. read registers
-> 2. acquire spinlock
-> 3. update adapter->stat counters
-> 4. update OS adapter->net_stats statistics
-> 5. update phy stats.
-> 6. release spinlock.
-> 
-> 
-> It seemed like a bad idea to attempt to move the phy reads out of the spin locked code area.
-> 
-> These changes have greatly reduced my interrupt latency, but are there any negative side effects that could be caused??
+Hello,
 
-not per se, I think you did the right thing here. I think it might even be safe to
-move the PHY reads outside the spinlock area, and this is certainly something I
-would like to try.
+> This patch fix inter address family ipsec tunneling
+> when we install IPsec SA via PF_KEY interface
+> because there are no interface to set the selector.
+> 
+> This patch is for net-2.6
+> 
+> Signed-off-by: Kazunori MIYAZAWA <miyazawa@linux-ipv6.org>
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-would you care to send an RFC patch to netdev@vger.kernel.org?
+It seems quite excessive to grab and release the module reference
+count during every packet input/output which happens through IPSEC
+tunnels.
 
-Also, I notice you are using an old driver/kernel. care to retest against the
-latest git trees?
+The whole reason we store the mode information in the state is so that
+we only have to grab the reference during IPSEC rule addition, instead
+of during packet processing.
 
-I'll certainly take your suggestion and have it tested.
+Having to export xfrm_mode_{get,put} from xfrm_state.c is a sure
+sign of trouble :-)
 
-Auke
+Is there some way we can simply propagate the correct setting to
+x->inner_mode?
+
+I also wonder if the PF_KEY limitation really exists.  For example we
+will set x->sel.family etc. from the SADB_EXT_ADDRESS_PROXY attribute
+if present.
+
+Finally, if the determination can be made in the data path, it
+by definition could be made during rule insertion which is much
+more efficient and appropriate.
