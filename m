@@ -1,45 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] New driver "sfc" for Solarstorm SFC4000 controller (try #7)
-Date: Wed, 5 Mar 2008 14:22:04 +0000
-Message-ID: <20080305142203.GQ2988@solarflare.com>
-References: <1204572175.16248.5.camel@localhost.localdomain> <20080303123937.2d72d7e8@extreme> <20080303211743.GG2988@solarflare.com> <20080303.132941.176565936.davem@davemloft.net>
+From: "=?UTF-8?Q?Rui_Tiago_Ca=C3=A7=C3=A3o_Matos?=" <rmatos@av.it.pt>
+Subject: Re: [PATCH] Remove usage of C++ keyword 'class' on htb.h header.
+Date: Wed, 5 Mar 2008 14:41:19 +0000
+Message-ID: <eae3b3410803050641n6b45cd7ei53f18b59832ba919@mail.gmail.com>
+References: <1204655476-2663-1-git-send-email-rmatos@av.it.pt>
+	 <1204655476-2663-2-git-send-email-rmatos@av.it.pt>
+	 <20080305124220.GH20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, dcbw@redhat.com, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Thomas Graf" <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pythagoras.zen.co.uk ([212.23.3.140]:40601 "EHLO
-	pythagoras.zen.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751804AbYCEOWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 09:22:19 -0500
+Received: from ug-out-1314.google.com ([66.249.92.173]:25301 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750802AbYCEOlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 09:41:21 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so3304545ugc.16
+        for <netdev@vger.kernel.org>; Wed, 05 Mar 2008 06:41:19 -0800 (PST)
+In-Reply-To: <20080305124220.GH20815@postel.suug.ch>
 Content-Disposition: inline
-In-Reply-To: <20080303.132941.176565936.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David,
+On 05/03/2008, Thomas Graf <tgraf@suug.ch> wrote:
+>  Is this the only change required to make all the headers c++ safe?
 
-We concede that the driver is currently too large to be properly
-reviewed in one go.
+I'm quite sure there are no more headers using the 'class' keyword. As
+I find more problems I'll keep you posted. A simple .cpp file
+including all of the netlink/ headers fails to compile with messages
+like
 
-We propose to:
+'__u32' does not name a type
 
-1. Remove what we can - i.e. internal HW support, extraneous comments,
-unused HW register defines, and non-essential peripheral driver features
-such as sensor support - leaving a minimal network driver.
+I suppose there are implicit header dependencies but I'm not familiar
+enough with libnl yet to say.
 
-2. Post the minimal driver in sub-100K patches to netdev.  This
-minimal driver will still require several patches, but future patches
-should represent independent pieces of functionality.
+BTW, there isn't a catch all header in libnl, is there?
 
-If you can see reasons why this will still not get us to a point where
-a review can take place then please tell us what else is required.
-
-We hope to complete this work within the next few days.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+Rui
