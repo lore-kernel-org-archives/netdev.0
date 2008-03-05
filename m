@@ -1,83 +1,110 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [patch 06/12][NETNS][IPV6] route6 - make route6 per namespace
-Date: Wed, 05 Mar 2008 10:33:15 +0100
-Message-ID: <47CE68DB.3000207@fr.ibm.com>
-References: <20080304210326.169013927@mai.toulouse-stg.fr.ibm.com> <20080304211023.817913201@mai.toulouse-stg.fr.ibm.com> <20080305.080225.41277542.yoshfuji@linux-ipv6.org>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH 0/2] Fix /proc/net in presence of net namespaces
+Date: Wed, 05 Mar 2008 12:43:40 +0300
+Message-ID: <47CE6B4C.4010009@openvz.org>
+References: <47C6D743.1050802@openvz.org>	<m1y794514k.fsf@ebiederm.dsl.xmission.com>	<20080228211720.GA1232@vino.hallyn.com>	<m1k5ko4sfi.fsf@ebiederm.dsl.xmission.com>	<47C7BB1B.9060906@openvz.org>	<m1zlth3m5f.fsf@ebiederm.dsl.xmission.com>	<47CBBFBC.3010607@openvz.org> <m1ejaq2jh4.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	benjamin.thery@bull.net
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: serge@hallyn.com, Alexey Dobriyan <adobriyan@openvz.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([195.212.29.139]:28031 "EHLO
-	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757364AbYCEJgG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 04:36:06 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate6.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m259a48V334318
-	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 09:36:04 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m259a4pv1769584
-	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 09:36:04 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m259a3bA029220
-	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 09:36:03 GMT
-In-Reply-To: <20080305.080225.41277542.yoshfuji@linux-ipv6.org>
+Received: from sacred.ru ([62.205.161.221]:40617 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752200AbYCEJnt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2008 04:43:49 -0500
+In-Reply-To: <m1ejaq2jh4.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
-> In article <20080304211023.817913201@mai.toulouse-stg.fr.ibm.com> (at=
- Tue, 04 Mar 2008 22:03:32 +0100), Daniel Lezcano <dlezcano@fr.ibm.com>=
- says:
->=20
->> This patch makes the routing engine use the network namespaces
->> to access routing informations:
->> Add a network namespace parameter to ipv6_route_ioctl and=20
->> propagate the network namespace value to all the routing code
->> that have not yet been changed.
+Eric W. Biederman wrote:
+> Pavel Emelyanov <xemul@openvz.org> writes:
+> 
+>>>>> - Have readdir and lookup filter the directory entries by the pid
+>>>>>   namespace of the proc mount.
+>>>> So, how are you going to filter the lookup? The problem I see - you have
+>>>> a process that opened the /proc/.netns/X directory (he onws that namespace)
+>>>> and the other one trying to do the same. The VFS layer finds the hashed
+>>>> dentry corresponding to this /proc/.netns/X. The only way you can prevent
+>>>> VFS from giving one to the second task is to override .d_revalidate method 
+>>>> and drop that dentry....
+>>>>
+>>>> But we've already tried to walk this way with no luck.
+>>> I meant a per mount filtering.  Exactly like we do for the pids now.
+>> We (me) do not perform any "filtering" in /proc. I just make /proc play 
+>> the VFS rules - one super-block one tree of dentries.
+> 
+> Exactly.  For different super blocks we return a different set of
+> processes and a different set of numbers of those processes.  If you
+> do use ids that do not live in a namespace I agree you do not need to
+> do different things for different mounts, but that seems ugly and
+> problematic.
+> 
+>>>>> If we make namespaces show up anywhere besides under
+>>>>> "/proc/<pid>/task/<tid>/" we have to do something like this, and pids
+>>>>> are largely designed for this kind of use.
+>>>> Proc consists of two parts - the <pid>-s one with generated-on-the-fly
+>>>> entries and the static one that is represented by proc_dir_entry tree.
+>>>> Do you propose to mix those two?
+>>> Yes.  Because the static entries are beginning to depend on process
+>>> specific attributes.  We have already started with /proc/mounts.
+>> /proc/<pid>/mounts is not represented with any proc_dir_entry, but
+>> what you're proposing with /proc/<pid>/net seems like doing this
+>> representation.
+> 
+> Yes.  I am talking about placing things represented with a
+> prod_dir_entry and having them show up under a hierarchy not
+> represented with proc_dir_entries under /proc/<pid>.
+> 
+> As that is clean, worked well for /proc/mounts, does not
+> require ids at all, and is essentially the optimal form
+> for monitoring processes.
+> 
+> /proc/mounts used to have a proc_dir_entry.  When it was reimplemented
+> to be per fs namespace that was removed.
+> 
+>>>>> just need a non-global id for our directory entries so we don't paint
+>>>>> ourselves into a corner.
+>>>> What namespace do you mean by "non-global"?
+>>> The best is an id I can take with me when I migrate from machine A
+>>> to machine B.  An id in some namespace or a form that doesn't need
+>>> an id at all is the core requirement.
+>> If we're OK in having a /proc/netns/<xxx> for each namespace, then
+>> this <xxx> is an id, regardless whatever it is - a pre-generated 
+>> number, a pointer, etc.
 >>
->> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
->> Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
->> ---
->>  include/net/ip6_route.h |    4 +
->>  net/ipv6/af_inet6.c     |    3 -
->>  net/ipv6/route.c        |   98 ++++++++++++++++++++++++------------=
-------------
->>  3 files changed, 54 insertions(+), 51 deletions(-)
->>
-> :
->> @@ -2544,6 +2545,7 @@ static void ip6_route_net_exit(struct ne
->>  	proc_net_remove(net, "ipv6_route");
->>  	proc_net_remove(net, "rt6_stats");
->>  #endif
->> +	rt6_ifdown(net, NULL);
->>  }
->> =20
->>  static struct pernet_operations ip6_route_net_ops =3D {
->> @@ -2592,7 +2594,6 @@ fib6_rules_init:
->>  xfrm6_init:
->>  	xfrm6_fini();
->>  out_fib6_init:
->> -	rt6_ifdown(&init_net, NULL);
->>  	fib6_gc_cleanup();
->>  out_kmem_cache:
->>  	kmem_cache_destroy(ip6_dst_ops.kmem_cachep);
->=20
-> Please do not change the calling path here.
+>> That said, your only wish is to make this <xxx> be preservable across 
+>> migration, right?
+> 
+> No, that is not my only wish.
+> 
+> - I wish for a clean maintainable interface.
+> - I wish for an interface that we can use for monitoring programs like
+>   top and ps.
+> - I wish for an interface that is migration safe.
+> 
+> It is my opinion that using an id is simply an optimization to reduce
+> the number of cached proc dentries.
+> 
+> I gave a full run down of what I wish and the reasons for it earlier
+> in this thread. I have not seen you respond to that message.
 
-The calling path is still the same. Instead of having rt6_ifdown called=
-=20
-before fib6_gc_cleanup, it is the first function called into=20
-fib6_gc_cleanup via unregister_pernet_subsys.
+I took you opinion, expressed in this letter, into account.
 
-This is because we need to call rt6_ifdown when a network namespace=20
-exits or when the system shutdown (aka init_net exits).
+> Currently I am NOT ok having a /proc/netns/<xxx>. It appears to be
+> a contentious premature optimization.
 
-   -- Daniel
+Have you changed your mind suddenly? 
+You told opposite less than a week ago.
 
+> VFS clean, maintainable, and usable for monitoring is
+> /proc/<pid>/task/<tid>/net.
 
+Why not /proc/pid/net? Are we ever going to move threads in namespace?
 
+> We can always figure out how to optimize that form later.
+> 
+> Eric
+> 
