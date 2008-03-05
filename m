@@ -1,74 +1,62 @@
-From: Nick Piggin <npiggin@suse.de>
-Subject: Re: [rfc][patch 2/3] slab: introduce SMP alignment
-Date: Wed, 5 Mar 2008 01:16:21 +0100
-Message-ID: <20080305001621.GC1510@wotan.suse.de>
-References: <20080303093449.GA15091@wotan.suse.de> <20080303093529.GB15091@wotan.suse.de> <Pine.LNX.4.64.0803031104570.6917@schroedinger.engr.sgi.com> <20080303200355.GB8974@wotan.suse.de> <Pine.LNX.4.64.0803031208400.16049@schroedinger.engr.sgi.com> <20080303201211.GE8974@wotan.suse.de> <Pine.LNX.4.64.0803031216430.3110@schroedinger.engr.sgi.com> <20080303202411.GH8974@wotan.suse.de> <Pine.LNX.4.64.0803031327330.4375@schroedinger.engr.sgi.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [patch (for 2.6.25?) 1/2] The kernel gets no IP from some DHCP
+ servers
+Date: Tue, 4 Mar 2008 16:23:42 -0800
+Message-ID: <20080304162342.65d6340c@extreme>
+References: <200803042256.m24MumHJ001353@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
-	Eric Dumazet <dada1@cosmosbay.com>
-To: Christoph Lameter <clameter@sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, Marcel.Wappler@bridgeco.net,
+	kaber@trash.net
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:47586 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753197AbYCEAQ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Mar 2008 19:16:26 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0803031327330.4375@schroedinger.engr.sgi.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:39237 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757308AbYCEAY1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Mar 2008 19:24:27 -0500
+In-Reply-To: <200803042256.m24MumHJ001353@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 03, 2008 at 01:31:14PM -0800, Christoph Lameter wrote:
-> On Mon, 3 Mar 2008, Nick Piggin wrote:
+On Tue, 04 Mar 2008 14:56:48 -0800
+akpm@linux-foundation.org wrote:
+
+> From: "Wappler Marcel" <Marcel.Wappler@bridgeco.net>
 > 
-> > On Mon, Mar 03, 2008 at 12:17:20PM -0800, Christoph Lameter wrote:
-> > > On Mon, 3 Mar 2008, Nick Piggin wrote:
-> > > 
-> > > > > You want two ways of specifying alignments?
-> > > > 
-> > > > I want a way to ask for SMP friendly allocation.
-> > > 
-> > > Then align the objects at cacheline boundaries by providing a value for 
-> > > the align parameter to kmem_cache_create().
-> > 
-> > max(num_possible_cpus() > 1 ? cache_line_size() : 0, mandatory_alignment)?
+> This patch fixes a DHCP issue of the kernel: some DHCP servers (i.e.  in the
+> Linksys WRT54Gv5) are very strict about the contents of the DHCPDISCOVER
+> packet they receive from clients.
 > 
-> The mandatory alignment is applied anyways. You do not need to max() on 
-> that.
-
-No that's the caller's required alignment.
-
- 
-> One could simply specify cache_line_size() with Pekka's patch. 
-> cache_line_size() could default to 0 if !SMP.
-
-That's totally wrong and stupid.
-
- 
-> > Then suppose we want a CONFIG_TINY option to eliminate it?
+> Table 5 in RFC2131 page 36 requests the fields 'ciaddr' and 'siaddr' MUST be
+> set to '0'.  These DHCP servers ignore Linux kernel's DHCP discovery packets
+> with these two fields set to '255.255.255.255' (in contrast to popular DHCP
+> clients, such as 'dhclient' or 'udhcpc').  This leads to a not booting system.
 > 
-> No slab allocator supports that right now.
-
-That's way I said suppose we want it. Which is not unreasonable.
-
-
-> However, SLOB in the past has 
-> ignored the alignment in order to reduce memory use. So maybe Matt wants 
-> to introduce this?
+> I tested this on a ARM embedded device mounting rootfs over NFS obtaining its
+> IP from a Linksys WRT54Gv5 Router running VxWorks and a PC based Server
+> running a Linux.  Changing the two fields to '0.0.0.0' worked.
 > 
-> > And maybe the VSMP guys will want to blow this out to their internode
-> > alignment?
-> > 
-> > max(!CONFIG_TINY && num_possible_cpus() > 1 ? (is_vsmp ? internode_alignemnt : cache_line_size()) : 0, mandatory_alignment)
-> 
-> No the slab allocators were optimized for VSMP so that the 
-> internode_alignment is not necessary there. That was actually one of the 
-> requirements that triggered the slab numa work.
+> Cc: Stephen Hemminger <shemminger@osdl.org>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
 
-What do you mean internode_alignment is not necessary there? This is
-about memory returned by the allocator to the caller, and the caller
-does not want any false sharing of the cacheline on SMP systems. How
-can internode alignemnt be not necessary?
+Same patch without the noise comment and extra code.
 
+--- a/net/ipv4/ipconfig.c	2008-03-04 16:20:10.000000000 -0800
++++ b/net/ipv4/ipconfig.c	2008-03-04 16:22:49.000000000 -0800
+@@ -753,9 +753,9 @@ static void __init ic_bootp_send_if(stru
+ 		printk("Unknown ARP type 0x%04x for device %s\n", dev->type, dev->name);
+ 		b->htype = dev->type; /* can cause undefined behavior */
+ 	}
++
++	/* server_ip and your_ip address are both already zero per RFC2131 */
+ 	b->hlen = dev->addr_len;
+-	b->your_ip = NONE;
+-	b->server_ip = NONE;
+ 	memcpy(b->hw_addr, dev->dev_addr, dev->addr_len);
+ 	b->secs = htons(jiffies_diff / HZ);
+ 	b->xid = d->xid;
