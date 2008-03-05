@@ -1,22 +1,30 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 1/2] qeth: new qeth device driver
-Date: Wed, 05 Mar 2008 06:14:57 -0500
-Message-ID: <47CE80B1.4060102@pobox.com>
-References: <20080215081941.450161000@de.ibm.com> <20080215082018.607314000@de.ibm.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH][IBMVETH]: Use single_open instead of manual manipulations.
+Date: Wed, 05 Mar 2008 06:16:04 -0500
+Message-ID: <47CE80F4.60901@garzik.org>
+References: <47B9640E.8000701@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: frank.blaschka@de.ibm.com
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Brian King <brking@linux.vnet.ibm.com>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34433 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:34451 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751794AbYCELPB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2008 06:15:01 -0500
-In-Reply-To: <20080215082018.607314000@de.ibm.com>
+	id S1751794AbYCELQI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2008 06:16:08 -0500
+In-Reply-To: <47B9640E.8000701@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-applied 1-2
+Pavel Emelyanov wrote:
+> The code opening proc entry for each device makes the
+> same thing, as the single_open does, so remove the
+> unneeded code.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+ACK from ibmveth maintainer?
 
 
