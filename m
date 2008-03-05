@@ -1,32 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: locking api self-test hanging
-Date: Wed, 05 Mar 2008 00:27:14 -0800 (PST)
-Message-ID: <20080305.002714.158217312.davem@davemloft.net>
-References: <20080304075137.6bbd285f@extreme>
-	<20080304.123000.183265831.davem@davemloft.net>
-	<20080305002338.c7777808.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [patch (for 2.6.25?) 2/2] bluetooth: CONWISE Technology based adapters with buggy SCO support (bugzilla #9027)
+Date: Wed, 5 Mar 2008 09:46:19 +0100
+Message-ID: <CAB9A765-5115-4F9F-A867-44E0CDECF86F@holtmann.org>
+References: <200803042258.m24Mw8UK001381@imap1.linux-foundation.org>
+Mime-Version: 1.0 (Apple Message framework v919.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	rjw@sisk.pl
-To: akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38725
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752362AbYCEI1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 03:27:17 -0500
-In-Reply-To: <20080305002338.c7777808.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	sdiz-A7iEm+J7xfE@public.gmane.org
+To: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200803042258.m24Mw8UK001381-AB4EexQrvXRQetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Wed, 5 Mar 2008 00:23:38 -0800
+Hi Andrew,
 
-> On Tue, 04 Mar 2008 12:30:00 -0800 (PST) David Miller <davem@davemloft.net> wrote:
-> 
-> >     [NETPOLL]: Revert two bogus cleanups that broke netconsole.
-> 
-> Seems OK now, thanks.
+> From: SDiZ <sdiz-A7iEm+J7xfE@public.gmane.org>
+>
+> Fix the CONWISE Technology based adapters with buggy SCO support issue
+> (bugzilla #9027)
+>
+> Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+> ---
+>
+> drivers/bluetooth/hci_usb.c |    3 +++
+> 1 file changed, 3 insertions(+)
+>
+> diff -puN drivers/bluetooth/hci_usb.c~bluetooth-conwise-technology- 
+> based-adapters-with-buggy-sco-support-bugzilla-9027 drivers/ 
+> bluetooth/hci_usb.c
+> --- a/drivers/bluetooth/hci_usb.c~bluetooth-conwise-technology-based- 
+> adapters-with-buggy-sco-support-bugzilla-9027
+> +++ a/drivers/bluetooth/hci_usb.c
+> @@ -148,6 +148,9 @@ static struct usb_device_id blacklist_id
+> 	{ USB_DEVICE(0x0400, 0x0807), .driver_info = HCI_BROKEN_ISOC },
+> 	{ USB_DEVICE(0x0400, 0x080a), .driver_info = HCI_BROKEN_ISOC },
+>
+> +	/* CONWISE Technology based adapters with buggy SCO support */
+> +	{ USB_DEVICE(0x0e5e, 0x6622), .driver_info = HCI_BROKEN_ISOC },
 
-Great, thanks for testing.
+this is the one with the proper description and acked by me. Please  
+drop the other one.
+
+Regards
+
+Marcel
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-bluetooth" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
