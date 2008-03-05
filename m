@@ -1,227 +1,418 @@
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 6/9][NETNS][IPV6] route6 - add netns parameter to ip6_route_output
-Date: Wed, 05 Mar 2008 18:56:55 +0100
-Message-ID: <20080305180202.072396975@mai.toulouse-stg.fr.ibm.com>
+Subject: [patch 5/9][NETNS][IPV6] addrconf - make addrconf per namespace
+Date: Wed, 05 Mar 2008 18:56:54 +0100
+Message-ID: <20080305180200.664742731@mai.toulouse-stg.fr.ibm.com>
 References: <20080305175649.348451657@mai.toulouse-stg.fr.ibm.com>
 Cc: netdev@vger.kernel.org, benjamin.thery@bull.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.uk.ibm.com ([195.212.29.141]:38725 "EHLO
-	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753572AbYCESCM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 13:02:12 -0500
+Received: from mtagate6.uk.ibm.com ([195.212.29.139]:57091 "EHLO
+	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753433AbYCESCF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 13:02:05 -0500
 Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate8.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m25I2BLD209982
-	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 18:02:11 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m25I2As41925348
-	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 18:02:11 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m25I2Ath019855
-	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 18:02:10 GMT
-Content-Disposition: inline; filename=ip6_route_output.patch
+	by mtagate6.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m25I248T339586
+	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 18:02:04 GMT
+Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m25I24WI2142382
+	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 18:02:04 GMT
+Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m25I243I012003
+	for <netdev@vger.kernel.org>; Wed, 5 Mar 2008 18:02:04 GMT
+Content-Disposition: inline; filename=addrconf-truly-per-namespace.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add an netns parameter to ip6_route_output. That will allow to access
-to the right routing table for outgoing traffic.
+All the infrastructure to propagate the network namespace
+information is ready. Make use of it.
 
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+There is a special case here between the initial network namespace
+and the other namespaces:
+
+* When ipv6 is initialized at boot time (aka in the init_net), it 
+registers to the notifier callback. So addrconf_notify will be called
+as many time as there are network devices setup on the system and the
+function will add ipv6 addresses to the network devices. But the first
+device which needs to have its ipv6 address setup is the loopback, 
+unfortunatly this is not the case. So the loopback address is setup
+manually in the ipv6 init function.
+
+* With the network namespace, this ordering problem does not appears
+because notifier is already setup and active, so as soon as we register
+the loopback the ipv6 address is setup and it will be the first device.
+
 Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 ---
- include/net/ip6_route.h          |    3 ++-
- net/ipv6/icmp.c                  |    2 +-
- net/ipv6/ip6_output.c            |    4 ++--
- net/ipv6/ip6_tunnel.c            |    2 +-
- net/ipv6/ndisc.c                 |    2 +-
- net/ipv6/netfilter.c             |    4 ++--
- net/ipv6/netfilter/ip6t_REJECT.c |    2 +-
- net/ipv6/route.c                 |    7 ++++---
- net/ipv6/sit.c                   |    2 +-
- net/ipv6/xfrm6_policy.c          |    2 +-
- net/sctp/ipv6.c                  |    2 +-
- 11 files changed, 17 insertions(+), 15 deletions(-)
+ net/ipv6/addrconf.c |  113 +++++++++++++++++++++++-----------------------------
+ 1 file changed, 50 insertions(+), 63 deletions(-)
 
-Index: net-2.6.26/include/net/ip6_route.h
+Index: net-2.6.26/net/ipv6/addrconf.c
 ===================================================================
---- net-2.6.26.orig/include/net/ip6_route.h
-+++ net-2.6.26/include/net/ip6_route.h
-@@ -43,7 +43,8 @@ extern struct rt6_info	*ip6_blk_hole_ent
+--- net-2.6.26.orig/net/ipv6/addrconf.c
++++ net-2.6.26/net/ipv6/addrconf.c
+@@ -561,7 +561,7 @@ ipv6_add_addr(struct inet6_dev *idev, co
+ 	write_lock(&addrconf_hash_lock);
  
- extern void			ip6_route_input(struct sk_buff *skb);
+ 	/* Ignore adding duplicate addresses on an interface */
+-	if (ipv6_chk_same_addr(&init_net, addr, idev->dev)) {
++	if (ipv6_chk_same_addr(idev->dev->nd_net, addr, idev->dev)) {
+ 		ADBG(("ipv6_add_addr: already assigned\n"));
+ 		err = -EEXIST;
+ 		goto out;
+@@ -751,9 +751,9 @@ static void ipv6_del_addr(struct inet6_i
+ 	if ((ifp->flags & IFA_F_PERMANENT) && onlink < 1) {
+ 		struct in6_addr prefix;
+ 		struct rt6_info *rt;
+-
++		struct net *net = ifp->idev->dev->nd_net;
+ 		ipv6_addr_prefix(&prefix, &ifp->addr, ifp->prefix_len);
+-		rt = rt6_lookup(&init_net, &prefix, NULL, ifp->idev->dev->ifindex, 1);
++		rt = rt6_lookup(net, &prefix, NULL, ifp->idev->dev->ifindex, 1);
  
--extern struct dst_entry *	ip6_route_output(struct sock *sk,
-+extern struct dst_entry *	ip6_route_output(struct net *net,
-+						 struct sock *sk,
- 						 struct flowi *fl);
+ 		if (rt && ((rt->rt6i_flags & (RTF_GATEWAY | RTF_DEFAULT)) == 0)) {
+ 			if (onlink == 0) {
+@@ -905,6 +905,7 @@ int ipv6_dev_get_saddr(struct net_device
+ {
+ 	struct ipv6_saddr_score hiscore;
+ 	struct inet6_ifaddr *ifa_result = NULL;
++	struct net *net = daddr_dev->nd_net;
+ 	int daddr_type = __ipv6_addr_type(daddr);
+ 	int daddr_scope = __ipv6_addr_src_scope(daddr_type);
+ 	int daddr_ifindex = daddr_dev ? daddr_dev->ifindex : 0;
+@@ -916,7 +917,7 @@ int ipv6_dev_get_saddr(struct net_device
+ 	read_lock(&dev_base_lock);
+ 	rcu_read_lock();
  
- extern int			ip6_route_init(void);
-Index: net-2.6.26/net/ipv6/icmp.c
-===================================================================
---- net-2.6.26.orig/net/ipv6/icmp.c
-+++ net-2.6.26/net/ipv6/icmp.c
-@@ -178,7 +178,7 @@ static inline int icmpv6_xrlim_allow(str
- 	 * XXX: perhaps the expire for routing entries cloned by
- 	 * this lookup should be more aggressive (not longer than timeout).
- 	 */
--	dst = ip6_route_output(sk, fl);
-+	dst = ip6_route_output(&init_net, sk, fl);
- 	if (dst->error) {
- 		IP6_INC_STATS(ip6_dst_idev(dst),
- 			      IPSTATS_MIB_OUTNOROUTES);
-Index: net-2.6.26/net/ipv6/ip6_output.c
-===================================================================
---- net-2.6.26.orig/net/ipv6/ip6_output.c
-+++ net-2.6.26/net/ipv6/ip6_output.c
-@@ -913,7 +913,7 @@ static int ip6_dst_lookup_tail(struct so
- 	int err;
+-	for_each_netdev(&init_net, dev) {
++	for_each_netdev(net, dev) {
+ 		struct inet6_dev *idev;
+ 		struct inet6_ifaddr *ifa;
  
- 	if (*dst == NULL)
--		*dst = ip6_route_output(sk, fl);
-+		*dst = ip6_route_output(&init_net, sk, fl);
- 
- 	if ((err = (*dst)->error))
- 		goto out_err_release;
-@@ -954,7 +954,7 @@ static int ip6_dst_lookup_tail(struct so
- 				dst_release(*dst);
- 				memcpy(&fl_gw, fl, sizeof(struct flowi));
- 				memset(&fl_gw.fl6_dst, 0, sizeof(struct in6_addr));
--				*dst = ip6_route_output(sk, &fl_gw);
-+				*dst = ip6_route_output(&init_net, sk, &fl_gw);
- 				if ((err = (*dst)->error))
- 					goto out_err_release;
- 			}
-Index: net-2.6.26/net/ipv6/ip6_tunnel.c
-===================================================================
---- net-2.6.26.orig/net/ipv6/ip6_tunnel.c
-+++ net-2.6.26/net/ipv6/ip6_tunnel.c
-@@ -847,7 +847,7 @@ static int ip6_tnl_xmit2(struct sk_buff 
- 	if ((dst = ip6_tnl_dst_check(t)) != NULL)
- 		dst_hold(dst);
- 	else {
--		dst = ip6_route_output(NULL, fl);
-+		dst = ip6_route_output(&init_net, NULL, fl);
- 
- 		if (dst->error || xfrm_lookup(&dst, fl, NULL, 0) < 0)
- 			goto tx_err_link_failure;
-Index: net-2.6.26/net/ipv6/ndisc.c
-===================================================================
---- net-2.6.26.orig/net/ipv6/ndisc.c
-+++ net-2.6.26/net/ipv6/ndisc.c
-@@ -1427,7 +1427,7 @@ void ndisc_send_redirect(struct sk_buff 
- 	icmpv6_flow_init(ndisc_socket->sk, &fl, NDISC_REDIRECT,
- 			 &saddr_buf, &ipv6_hdr(skb)->saddr, dev->ifindex);
- 
--	dst = ip6_route_output(NULL, &fl);
-+	dst = ip6_route_output(&init_net, NULL, &fl);
- 	if (dst == NULL)
- 		return;
- 
-Index: net-2.6.26/net/ipv6/netfilter.c
-===================================================================
---- net-2.6.26.orig/net/ipv6/netfilter.c
-+++ net-2.6.26/net/ipv6/netfilter.c
-@@ -23,7 +23,7 @@ int ip6_route_me_harder(struct sk_buff *
- 		    .saddr = iph->saddr, } },
+@@ -1555,7 +1556,7 @@ addrconf_prefix_route(struct in6_addr *p
+ 		.fc_expires = expires,
+ 		.fc_dst_len = plen,
+ 		.fc_flags = RTF_UP | flags,
+-		.fc_nlinfo.nl_net = &init_net,
++		.fc_nlinfo.nl_net = dev->nd_net,
  	};
  
--	dst = ip6_route_output(skb->sk, &fl);
-+	dst = ip6_route_output(&init_net, skb->sk, &fl);
+ 	ipv6_addr_copy(&cfg.fc_dst, pfx);
+@@ -1582,7 +1583,7 @@ static void addrconf_add_mroute(struct n
+ 		.fc_ifindex = dev->ifindex,
+ 		.fc_dst_len = 8,
+ 		.fc_flags = RTF_UP,
+-		.fc_nlinfo.nl_net = &init_net,
++		.fc_nlinfo.nl_net = dev->nd_net,
+ 	};
  
- #ifdef CONFIG_XFRM
- 	if (!(IP6CB(skb)->flags & IP6SKB_XFRM_TRANSFORMED) &&
-@@ -86,7 +86,7 @@ static int nf_ip6_reroute(struct sk_buff
+ 	ipv6_addr_set(&cfg.fc_dst, htonl(0xFF000000), 0, 0, 0);
+@@ -1599,7 +1600,7 @@ static void sit_route_add(struct net_dev
+ 		.fc_ifindex = dev->ifindex,
+ 		.fc_dst_len = 96,
+ 		.fc_flags = RTF_UP | RTF_NONEXTHOP,
+-		.fc_nlinfo.nl_net = &init_net,
++		.fc_nlinfo.nl_net = dev->nd_net,
+ 	};
  
- static int nf_ip6_route(struct dst_entry **dst, struct flowi *fl)
- {
--	*dst = ip6_route_output(NULL, fl);
-+	*dst = ip6_route_output(&init_net, NULL, fl);
- 	return (*dst)->error;
- }
+ 	/* prefix length - 96 bits "::d.d.d.d" */
+@@ -1700,7 +1701,8 @@ void addrconf_prefix_rcv(struct net_devi
  
-Index: net-2.6.26/net/ipv6/netfilter/ip6t_REJECT.c
-===================================================================
---- net-2.6.26.orig/net/ipv6/netfilter/ip6t_REJECT.c
-+++ net-2.6.26/net/ipv6/netfilter/ip6t_REJECT.c
-@@ -93,7 +93,7 @@ static void send_reset(struct sk_buff *o
- 	fl.fl_ip_sport = otcph.dest;
- 	fl.fl_ip_dport = otcph.source;
- 	security_skb_classify_flow(oldskb, &fl);
--	dst = ip6_route_output(NULL, &fl);
-+	dst = ip6_route_output(&init_net, NULL, &fl);
- 	if (dst == NULL)
+ 	if (pinfo->onlink) {
+ 		struct rt6_info *rt;
+-		rt = rt6_lookup(&init_net, &pinfo->prefix, NULL, dev->ifindex, 1);
++		rt = rt6_lookup(dev->nd_net, &pinfo->prefix, NULL,
++				dev->ifindex, 1);
+ 
+ 		if (rt && ((rt->rt6i_flags & (RTF_GATEWAY | RTF_DEFAULT)) == 0)) {
+ 			if (rt->rt6i_flags&RTF_EXPIRES) {
+@@ -1743,7 +1745,7 @@ void addrconf_prefix_rcv(struct net_devi
+ 
+ ok:
+ 
+-		ifp = ipv6_get_ifaddr(&init_net, &addr, dev, 1);
++		ifp = ipv6_get_ifaddr(dev->nd_net, &addr, dev, 1);
+ 
+ 		if (ifp == NULL && valid_lft) {
+ 			int max_addresses = in6_dev->cnf.max_addresses;
+@@ -2066,6 +2068,7 @@ static void sit_add_v4_addrs(struct inet
+ 	struct inet6_ifaddr * ifp;
+ 	struct in6_addr addr;
+ 	struct net_device *dev;
++	struct net *net = idev->dev->nd_net;
+ 	int scope;
+ 
+ 	ASSERT_RTNL();
+@@ -2092,7 +2095,7 @@ static void sit_add_v4_addrs(struct inet
  		return;
- 	if (dst->error || xfrm_lookup(&dst, &fl, NULL, 0))
-Index: net-2.6.26/net/ipv6/route.c
-===================================================================
---- net-2.6.26.orig/net/ipv6/route.c
-+++ net-2.6.26/net/ipv6/route.c
-@@ -772,7 +772,8 @@ static struct rt6_info *ip6_pol_route_ou
- 	return ip6_pol_route(net, table, fl->oif, fl, flags);
- }
- 
--struct dst_entry * ip6_route_output(struct sock *sk, struct flowi *fl)
-+struct dst_entry * ip6_route_output(struct net *net, struct sock *sk,
-+				    struct flowi *fl)
- {
- 	int flags = 0;
- 
-@@ -782,7 +783,7 @@ struct dst_entry * ip6_route_output(stru
- 	if (!ipv6_addr_any(&fl->fl6_src))
- 		flags |= RT6_LOOKUP_F_HAS_SADDR;
- 
--	return fib6_rule_lookup(&init_net, fl, flags, ip6_pol_route_output);
-+	return fib6_rule_lookup(net, fl, flags, ip6_pol_route_output);
- }
- 
- EXPORT_SYMBOL(ip6_route_output);
-@@ -2260,7 +2261,7 @@ static int inet6_rtm_getroute(struct sk_
- 	skb_reset_mac_header(skb);
- 	skb_reserve(skb, MAX_HEADER + sizeof(struct ipv6hdr));
- 
--	rt = (struct rt6_info*) ip6_route_output(NULL, &fl);
-+	rt = (struct rt6_info*) ip6_route_output(&init_net, NULL, &fl);
- 	skb->dst = &rt->u.dst;
- 
- 	err = rt6_fill_node(skb, rt, &fl.fl6_dst, &fl.fl6_src, iif,
-Index: net-2.6.26/net/ipv6/sit.c
-===================================================================
---- net-2.6.26.orig/net/ipv6/sit.c
-+++ net-2.6.26/net/ipv6/sit.c
-@@ -393,7 +393,7 @@ isatap_srcok(struct sk_buff *skb, struct
- 	fl.oif = dev->ifindex;
- 	security_skb_classify_flow(skb, &fl);
- 
--	dst = ip6_route_output(NULL, &fl);
-+	dst = ip6_route_output(&init_net, NULL, &fl);
- 	if (!dst->error && (dst->dev == dev) && (neigh = dst->neighbour)) {
- 
- 		addr6 = (struct in6_addr*)&neigh->primary_key;
-Index: net-2.6.26/net/ipv6/xfrm6_policy.c
-===================================================================
---- net-2.6.26.orig/net/ipv6/xfrm6_policy.c
-+++ net-2.6.26/net/ipv6/xfrm6_policy.c
-@@ -38,7 +38,7 @@ static struct dst_entry *xfrm6_dst_looku
- 	if (saddr)
- 		memcpy(&fl.fl6_src, saddr, sizeof(fl.fl6_src));
- 
--	dst = ip6_route_output(NULL, &fl);
-+	dst = ip6_route_output(&init_net, NULL, &fl);
- 
- 	err = dst->error;
- 	if (dst->error) {
-Index: net-2.6.26/net/sctp/ipv6.c
-===================================================================
---- net-2.6.26.orig/net/sctp/ipv6.c
-+++ net-2.6.26/net/sctp/ipv6.c
-@@ -257,7 +257,7 @@ static struct dst_entry *sctp_v6_get_dst
- 			NIP6(fl.fl6_src));
  	}
  
--	dst = ip6_route_output(NULL, &fl);
-+	dst = ip6_route_output(&init_net, NULL, &fl);
- 	if (!dst->error) {
- 		struct rt6_info *rt;
- 		rt = (struct rt6_info *)dst;
+-	for_each_netdev(&init_net, dev) {
++	for_each_netdev(net, dev) {
+ 		struct in_device * in_dev = __in_dev_get_rtnl(dev);
+ 		if (in_dev && (dev->flags & IFF_UP)) {
+ 			struct in_ifaddr * ifa;
+@@ -2255,15 +2258,16 @@ ipv6_inherit_linklocal(struct inet6_dev 
+ static void ip6_tnl_add_linklocal(struct inet6_dev *idev)
+ {
+ 	struct net_device *link_dev;
++	struct net *net = idev->dev->nd_net;
+ 
+ 	/* first try to inherit the link-local address from the link device */
+ 	if (idev->dev->iflink &&
+-	    (link_dev = __dev_get_by_index(&init_net, idev->dev->iflink))) {
++	    (link_dev = __dev_get_by_index(net, idev->dev->iflink))) {
+ 		if (!ipv6_inherit_linklocal(idev, link_dev))
+ 			return;
+ 	}
+ 	/* then try to inherit it from any device */
+-	for_each_netdev(&init_net, link_dev) {
++	for_each_netdev(net, link_dev) {
+ 		if (!ipv6_inherit_linklocal(idev, link_dev))
+ 			return;
+ 	}
+@@ -2296,9 +2300,6 @@ static int addrconf_notify(struct notifi
+ 	int run_pending = 0;
+ 	int err;
+ 
+-	if (dev->nd_net != &init_net)
+-		return NOTIFY_DONE;
+-
+ 	switch(event) {
+ 	case NETDEV_REGISTER:
+ 		if (!idev && dev->mtu >= IPV6_MIN_MTU) {
+@@ -3056,9 +3057,6 @@ inet6_rtm_deladdr(struct sk_buff *skb, s
+ 	struct in6_addr *pfx;
+ 	int err;
+ 
+-	if (net != &init_net)
+-		return -EINVAL;
+-
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
+ 	if (err < 0)
+ 		return err;
+@@ -3121,9 +3119,6 @@ inet6_rtm_newaddr(struct sk_buff *skb, s
+ 	u8 ifa_flags;
+ 	int err;
+ 
+-	if (net != &init_net)
+-		return -EINVAL;
+-
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
+ 	if (err < 0)
+ 		return err;
+@@ -3324,12 +3319,13 @@ static int inet6_dump_addr(struct sk_buf
+ 	struct inet6_ifaddr *ifa;
+ 	struct ifmcaddr6 *ifmca;
+ 	struct ifacaddr6 *ifaca;
++	struct net *net = skb->sk->sk_net;
+ 
+ 	s_idx = cb->args[0];
+ 	s_ip_idx = ip_idx = cb->args[1];
+ 
+ 	idx = 0;
+-	for_each_netdev(&init_net, dev) {
++	for_each_netdev(net, dev) {
+ 		if (idx < s_idx)
+ 			goto cont;
+ 		if (idx > s_idx)
+@@ -3396,35 +3392,23 @@ cont:
+ 
+ static int inet6_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+-	struct net *net = skb->sk->sk_net;
+ 	enum addr_type_t type = UNICAST_ADDR;
+ 
+-	if (net != &init_net)
+-		return 0;
+-
+ 	return inet6_dump_addr(skb, cb, type);
+ }
+ 
+ static int inet6_dump_ifmcaddr(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+-	struct net *net = skb->sk->sk_net;
+ 	enum addr_type_t type = MULTICAST_ADDR;
+ 
+-	if (net != &init_net)
+-		return 0;
+-
+ 	return inet6_dump_addr(skb, cb, type);
+ }
+ 
+ 
+ static int inet6_dump_ifacaddr(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+-	struct net *net = skb->sk->sk_net;
+ 	enum addr_type_t type = ANYCAST_ADDR;
+ 
+-	if (net != &init_net)
+-		return 0;
+-
+ 	return inet6_dump_addr(skb, cb, type);
+ }
+ 
+@@ -3440,9 +3424,6 @@ static int inet6_rtm_getaddr(struct sk_b
+ 	struct sk_buff *skb;
+ 	int err;
+ 
+-	if (net != &init_net)
+-		return -EINVAL;
+-
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
+ 	if (err < 0)
+ 		goto errout;
+@@ -3455,7 +3436,7 @@ static int inet6_rtm_getaddr(struct sk_b
+ 
+ 	ifm = nlmsg_data(nlh);
+ 	if (ifm->ifa_index)
+-		dev = __dev_get_by_index(&init_net, ifm->ifa_index);
++		dev = __dev_get_by_index(net, ifm->ifa_index);
+ 
+ 	if ((ifa = ipv6_get_ifaddr(net, addr, dev, 1)) == NULL) {
+ 		err = -EADDRNOTAVAIL;
+@@ -3475,7 +3456,7 @@ static int inet6_rtm_getaddr(struct sk_b
+ 		kfree_skb(skb);
+ 		goto errout_ifa;
+ 	}
+-	err = rtnl_unicast(skb, &init_net, NETLINK_CB(in_skb).pid);
++	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).pid);
+ errout_ifa:
+ 	in6_ifa_put(ifa);
+ errout:
+@@ -3485,6 +3466,7 @@ errout:
+ static void inet6_ifa_notify(int event, struct inet6_ifaddr *ifa)
+ {
+ 	struct sk_buff *skb;
++	struct net *net = ifa->idev->dev->nd_net;
+ 	int err = -ENOBUFS;
+ 
+ 	skb = nlmsg_new(inet6_ifaddr_msgsize(), GFP_ATOMIC);
+@@ -3498,10 +3480,10 @@ static void inet6_ifa_notify(int event, 
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_notify(skb, &init_net, 0, RTNLGRP_IPV6_IFADDR, NULL, GFP_ATOMIC);
++	err = rtnl_notify(skb, net, 0, RTNLGRP_IPV6_IFADDR, NULL, GFP_ATOMIC);
+ errout:
+ 	if (err < 0)
+-		rtnl_set_sk_err(&init_net, RTNLGRP_IPV6_IFADDR, err);
++		rtnl_set_sk_err(net, RTNLGRP_IPV6_IFADDR, err);
+ }
+ 
+ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+@@ -3666,12 +3648,9 @@ static int inet6_dump_ifinfo(struct sk_b
+ 	struct net_device *dev;
+ 	struct inet6_dev *idev;
+ 
+-	if (net != &init_net)
+-		return 0;
+-
+ 	read_lock(&dev_base_lock);
+ 	idx = 0;
+-	for_each_netdev(&init_net, dev) {
++	for_each_netdev(net, dev) {
+ 		if (idx < s_idx)
+ 			goto cont;
+ 		if ((idev = in6_dev_get(dev)) == NULL)
+@@ -3693,6 +3672,7 @@ cont:
+ void inet6_ifinfo_notify(int event, struct inet6_dev *idev)
+ {
+ 	struct sk_buff *skb;
++	struct net *net = idev->dev->nd_net;
+ 	int err = -ENOBUFS;
+ 
+ 	skb = nlmsg_new(inet6_if_nlmsg_size(), GFP_ATOMIC);
+@@ -3706,10 +3686,10 @@ void inet6_ifinfo_notify(int event, stru
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_notify(skb, &init_net, 0, RTNLGRP_IPV6_IFADDR, NULL, GFP_ATOMIC);
++	err = rtnl_notify(skb, net, 0, RTNLGRP_IPV6_IFADDR, NULL, GFP_ATOMIC);
+ errout:
+ 	if (err < 0)
+-		rtnl_set_sk_err(&init_net, RTNLGRP_IPV6_IFADDR, err);
++		rtnl_set_sk_err(net, RTNLGRP_IPV6_IFADDR, err);
+ }
+ 
+ static inline size_t inet6_prefix_nlmsg_size(void)
+@@ -3762,6 +3742,7 @@ static void inet6_prefix_notify(int even
+ 			 struct prefix_info *pinfo)
+ {
+ 	struct sk_buff *skb;
++	struct net *net = idev->dev->nd_net;
+ 	int err = -ENOBUFS;
+ 
+ 	skb = nlmsg_new(inet6_prefix_nlmsg_size(), GFP_ATOMIC);
+@@ -3775,10 +3756,10 @@ static void inet6_prefix_notify(int even
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_notify(skb, &init_net, 0, RTNLGRP_IPV6_PREFIX, NULL, GFP_ATOMIC);
++	err = rtnl_notify(skb, net, 0, RTNLGRP_IPV6_PREFIX, NULL, GFP_ATOMIC);
+ errout:
+ 	if (err < 0)
+-		rtnl_set_sk_err(&init_net, RTNLGRP_IPV6_PREFIX, err);
++		rtnl_set_sk_err(net, RTNLGRP_IPV6_PREFIX, err);
+ }
+ 
+ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
+@@ -4276,7 +4257,26 @@ static int addrconf_net_init(struct net 
+ 
+ static void addrconf_net_exit(struct net *net)
+ {
+-	;
++	struct net_device *dev;
++
++	/*
++	 * Remove loopback references from default routing entries
++	 */
++/* 	in6_dev_put(net->ipv6.ip6_null_entry->rt6i_idev); */
++/* #ifdef CONFIG_IPV6_MULTIPLE_TABLES */
++/* 	in6_dev_put(net->ipv6.ip6_prohibit_entry->rt6i_idev); */
++/* 	in6_dev_put(net->ipv6.ip6_blk_hole_entry->rt6i_idev); */
++/* #endif */
++
++	rtnl_lock();
++	/* clean dev list */
++	for_each_netdev(net, dev) {
++		if (__in6_dev_get(dev) == NULL)
++			continue;
++		addrconf_ifdown(dev, 1);
++	}
++	addrconf_ifdown(net->loopback_dev, 2);
++	rtnl_unlock();
+ }
+ 
+ static struct pernet_operations addrconf_net_ops = {
+@@ -4357,7 +4357,6 @@ errlo:
+ 
+ void addrconf_cleanup(void)
+ {
+-	struct net_device *dev;
+ 	struct inet6_ifaddr *ifa;
+ 	int i;
+ 
+@@ -4369,20 +4368,8 @@ void addrconf_cleanup(void)
+ 	rtnl_lock();
+ 
+ 	/*
+-	 *	clean dev list.
+-	 */
+-
+-	for_each_netdev(&init_net, dev) {
+-		if (__in6_dev_get(dev) == NULL)
+-			continue;
+-		addrconf_ifdown(dev, 1);
+-	}
+-	addrconf_ifdown(init_net.loopback_dev, 2);
+-
+-	/*
+ 	 *	Check hash table.
+ 	 */
+-
+ 	write_lock_bh(&addrconf_hash_lock);
+ 	for (i=0; i < IN6_ADDR_HSIZE; i++) {
+ 		for (ifa=inet6_addr_lst[i]; ifa; ) {
 
 -- 
