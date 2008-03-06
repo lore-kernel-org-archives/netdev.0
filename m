@@ -1,136 +1,62 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [NET] ioc3.c: replace remaining __FUNCTION__ occurrences
-Date: Thu, 6 Mar 2008 15:55:09 +0000
-Message-ID: <20080306155509.GA16365@linux-mips.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] Make /proc/net a symlink on /proc/self/net (v2)
+Date: Thu, 06 Mar 2008 08:57:41 -0700
+Message-ID: <m1od9r26bu.fsf@ebiederm.dsl.xmission.com>
+References: <47CFB6CA.8090001@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Harvey Harrison <harvey.harrison@gmail.com>
-To: Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Christoph Hellwig <hch@infradead.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:47041 "EHLO
-	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933400AbYCFPzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 10:55:18 -0500
-Received: from localhost.localdomain ([127.0.0.1]:48827 "EHLO
-	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
-	id S28603680AbYCFPzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Mar 2008 15:55:16 +0000
-Content-Disposition: inline
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:41874 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757452AbYCFQDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 11:03:42 -0500
+In-Reply-To: <47CFB6CA.8090001@openvz.org> (Pavel Emelyanov's message of "Thu,
+	06 Mar 2008 12:18:02 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harvey Harrison <harvey.harrison@gmail.com>
+Pavel Emelyanov <xemul@openvz.org> writes:
 
-__FUNCTION__ is gcc-specific, use __func__
+> Current /proc/net is done with so called "shadows", but current
+> implementation is broken and has little chances to get fixed.
+>
+> The problem is that dentries subtree of /proc/net directory has
+> fancy revalidation rules to make processes living in different
+> net namespaces see different entries in /proc/net subtree, but
+> currently, tasks see in the /proc/net subdir the contents of any
+> other namespace, depending on who opened the file first.
+>
+> The proposed fix is to turn /proc/net into a symlink, which points
+> to /proc/self/net, which in turn shows what previously was in
+> /proc/net - the network-related info, from the net namespace the
+> appropriate task lives in.
+>
+> # ls -l /proc/net
+> lrwxrwxrwx  1 root root 8 Mar  5 15:17 /proc/net -> self/net
+>
+> In other words - this behaves like /proc/mounts, but unlike
+> "mounts", "net" is not a file, but a directory.
+>
+> Fixed a task_struct leak in get_proc_task_net, pointed out by Paul.
+>
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+Before I forget.
 
- drivers/sn/ioc3.c |   22 +++++++++++-----------
- 1 files changed, 11 insertions(+), 11 deletions(-)
+As a future patch we need to implement a d_revalidate rule for
+/proc/<pid>/task/net that will notice we have unshared a network
+namespace and flush all cached dentries for the old network namespace.
 
-diff --git a/drivers/sn/ioc3.c b/drivers/sn/ioc3.c
-index 29fcd6d..c083274 100644
---- a/drivers/sn/ioc3.c
-+++ b/drivers/sn/ioc3.c
-@@ -561,7 +561,7 @@ void ioc3_unregister_submodule(struct ioc3_submodule *is)
- 					printk(KERN_WARNING
- 					       "%s: IOC3 submodule %s remove failed "
- 					       "for pci_dev %s.\n",
--					       __FUNCTION__, module_name(is->owner),
-+					       __func__, module_name(is->owner),
- 					       pci_name(idd->pdev));
- 			idd->active[is->id] = 0;
- 			if(is->irq_mask)
-@@ -611,7 +611,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
- 	if ((ret = pci_enable_device(pdev))) {
- 		printk(KERN_WARNING
- 		       "%s: Failed to enable IOC3 device for pci_dev %s.\n",
--		       __FUNCTION__, pci_name(pdev));
-+		       __func__, pci_name(pdev));
- 		goto out;
- 	}
- 	pci_set_master(pdev);
-@@ -623,7 +623,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
-                 if (ret < 0) {
-                         printk(KERN_WARNING "%s: Unable to obtain 64 bit DMA "
-                                "for consistent allocations\n",
--				__FUNCTION__);
-+				__func__);
-                 }
- 	}
- #endif
-@@ -633,7 +633,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
- 	if (!idd) {
- 		printk(KERN_WARNING
- 		       "%s: Failed to allocate IOC3 data for pci_dev %s.\n",
--		       __FUNCTION__, pci_name(pdev));
-+		       __func__, pci_name(pdev));
- 		ret = -ENODEV;
- 		goto out_idd;
- 	}
-@@ -649,7 +649,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
- 		printk(KERN_WARNING
- 		       "%s: Unable to find IOC3 resource "
- 		       "for pci_dev %s.\n",
--		       __FUNCTION__, pci_name(pdev));
-+		       __func__, pci_name(pdev));
- 		ret = -ENODEV;
- 		goto out_pci;
- 	}
-@@ -657,7 +657,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
- 		printk(KERN_WARNING
- 		       "%s: Unable to request IOC3 region "
- 		       "for pci_dev %s.\n",
--		       __FUNCTION__, pci_name(pdev));
-+		       __func__, pci_name(pdev));
- 		ret = -ENODEV;
- 		goto out_pci;
- 	}
-@@ -666,7 +666,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
- 		printk(KERN_WARNING
- 		       "%s: Unable to remap IOC3 region "
- 		       "for pci_dev %s.\n",
--		       __FUNCTION__, pci_name(pdev));
-+		       __func__, pci_name(pdev));
- 		ret = -ENODEV;
- 		goto out_misc_region;
- 	}
-@@ -709,7 +709,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
- 		} else {
- 			printk(KERN_WARNING
- 			       "%s : request_irq fails for IRQ 0x%x\n ",
--			       __FUNCTION__, pdev->irq);
-+			       __func__, pdev->irq);
- 		}
- 		if (!request_irq(pdev->irq+2, ioc3_intr_io, IRQF_SHARED,
- 				 "ioc3-io", (void *)idd)) {
-@@ -717,7 +717,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
- 		} else {
- 			printk(KERN_WARNING
- 			       "%s : request_irq fails for IRQ 0x%x\n ",
--			       __FUNCTION__, pdev->irq+2);
-+			       __func__, pdev->irq+2);
- 		}
- 	} else {
- 		if (!request_irq(pdev->irq, ioc3_intr_io, IRQF_SHARED,
-@@ -726,7 +726,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
- 		} else {
- 			printk(KERN_WARNING
- 			       "%s : request_irq fails for IRQ 0x%x\n ",
--			       __FUNCTION__, pdev->irq);
-+			       __func__, pdev->irq);
- 		}
- 	}
- 
-@@ -769,7 +769,7 @@ static void ioc3_remove(struct pci_dev *pdev)
- 					printk(KERN_WARNING
- 					       "%s: IOC3 submodule 0x%s remove failed "
- 					       "for pci_dev %s.\n",
--					        __FUNCTION__,
-+						__func__,
- 						module_name(ioc3_submodules[id]->owner),
- 					        pci_name(pdev));
- 			idd->active[id] = 0;
+Since unsharing happens rarely if at all this d_revalidate should
+be relatively cheap, and since the change is real and for everyone
+it will not suffer from the inconsistencies that plagued us when
+working with d_revalidate on /proc/net.
+
+Eric
