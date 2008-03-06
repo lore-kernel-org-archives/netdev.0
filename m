@@ -1,45 +1,39 @@
-From: Nick Piggin <npiggin@suse.de>
-Subject: Re: [rfc][patch 1/3] slub: fix small HWCACHE_ALIGN alignment
-Date: Thu, 6 Mar 2008 03:49:04 +0100
-Message-ID: <20080306024904.GA27150@wotan.suse.de>
-References: <Pine.LNX.4.64.0803031107130.6917@schroedinger.engr.sgi.com> <20080303200613.GC8974@wotan.suse.de> <Pine.LNX.4.64.0803031209570.16049@schroedinger.engr.sgi.com> <20080303201701.GF8974@wotan.suse.de> <Pine.LNX.4.64.0803031315160.4131@schroedinger.engr.sgi.com> <84144f020803031330i2c0ea1f6kc5b02c8b26145797@mail.gmail.com> <Pine.LNX.4.64.0803031331340.4375@schroedinger.engr.sgi.com> <47CC6F30.50802@cs.helsinki.fi> <20080305002821.GD1510@wotan.suse.de> <Pine.LNX.4.64.0803051254570.30742@schroedinger.engr.sgi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RE(*2)SEND/patch 2.6.25-rc2-git] net/enc28j60: oops fix
+Date: Wed, 05 Mar 2008 18:52:16 -0800 (PST)
+Message-ID: <20080305.185216.113979641.davem@davemloft.net>
+References: <20080206173342.21CDF8E152@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
+	<47AADC51.8060401@eptar.com>
+	<200803041717.32868.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
-	Eric Dumazet <dada1@cosmosbay.com>
-To: Christoph Lameter <clameter@sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lanconelli.claudio@eptar.com
+To: david-b@pacbell.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:42299 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755875AbYCFCtH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Mar 2008 21:49:07 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0803051254570.30742@schroedinger.engr.sgi.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42271
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755643AbYCFCwQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 21:52:16 -0500
+In-Reply-To: <200803041717.32868.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 05, 2008 at 12:56:33PM -0800, Christoph Lameter wrote:
-> On Wed, 5 Mar 2008, Nick Piggin wrote:
-> 
-> > It started out as a SLUB regression that was exposing poor code in the
-> > percpu allocator due to different SLUB kmalloc alignments. That prompted
-> 
-> That was due to SLUB's support for smaller allocation sizes. AFAICT has 
-> nothing to do with alignment.
+From: David Brownell <david-b@pacbell.net>
+Date: Tue, 4 Mar 2008 17:17:32 -0800
 
-The smaller sizes meant objects were less often aligned on cacheline
-boundaries.
+> Seems the enc28j60 patches didn't get picked up, ergo (2x) resend...
+> they're not in net-2.6.git, even this oops fix (which I'd expect
+> would be prioritized for 2.6.25)
 
- 
-> > The SMP flag was just an RFC. I think some people (like Christoph) were
-> > being confused about the HWCACHE_ALIGN flag being for avoiding false
-> > sharing on SMP systems. It would actually be also generally useful to
-> > have the SMP flag (eg. see the sites I added it to in patch #3).
+We prioritize them about the same as bootup hard hangs with EHCI.
+
+> Subject: [RE(*2)SEND/patch 2.6.25-rc2-git] net/enc28j60: oops fix
 > 
-> Hmmm. We could define a global constant for that? Determine it on bootup 
-> and then pass it as an alignment parameter?
-  
-We could, but I'd rather just use the flag.
+> Prevent oops on enc28j60 packet RX:  make sure buffers are aligned.
+> Not all architectures support unaligned accesses in kernel space.
+> 
+> Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+> Acked-by: Claudio Lanconelli <lanconelli.claudio@eptar.com>
 
+Applied.
