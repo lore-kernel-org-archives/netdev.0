@@ -1,43 +1,59 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [BUG] Probably lockdep bug Re: circular locking, mirred,
-	2.6.24.2
-Date: Thu, 6 Mar 2008 09:41:57 +0000
-Message-ID: <20080306094156.GA3954@ff.dom.local>
-References: <20080305103935.M76165@visp.net.lb> <20080305135448.GA4636@ff.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+From: Li Yang <leoli@freescale.com>
+Subject: [PATCH] ucc_geth: use correct thread number for 10/100Mbps link
+Date: Thu,  6 Mar 2008 18:48:46 +0800
+Message-ID: <1204800526-11670-1-git-send-email-leoli@freescale.com>
+Cc: netdev@vger.kernel.org,
+	Joakim Tjernlund <Joakim.Tjernlund@transmode.se>,
+	Li Yang <leoli@freescale.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:15332 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760775AbYCFJkj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 04:40:39 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so3734295ugc.16
-        for <netdev@vger.kernel.org>; Thu, 06 Mar 2008 01:40:38 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080305135448.GA4636@ff.dom.local>
+Received: from de01egw01.freescale.net ([192.88.165.102]:37758 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756167AbYCFKiU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 05:38:20 -0500
+Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
+	by de01egw01.freescale.net (8.12.11/de01egw01) with ESMTP id m26AcDdV026141
+	for <netdev@vger.kernel.org>; Thu, 6 Mar 2008 03:38:14 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id m26AcBmp011510
+	for <netdev@vger.kernel.org>; Thu, 6 Mar 2008 04:38:12 -0600 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 05, 2008 at 01:54:48PM +0000, Jarek Poplawski wrote:
-> Hi,
-> 
-> dev->queue_lock is taken in a scenario like below: always after
-> dev->ingress_lock and p->tcfc_lock, so just like on this last
-> backtrace with info about held locks. But this report shows that
-> lockdep for some reason forgot the history before dev->queue_lock,
-> and recorded it again. It seems, even if there is something wrong
-> with init lockdep shouldn't report it like this.
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 
-...Hmmm... On the other hand, despite misleading dependency chain on
-this report, lockdep seems to be right: dev->queue_lock and
-dev->ingress_lock are really taken in a different order from
-qdisc_lock_tree() and while using act_mirred! Now I wonder why this
-warning is so rare?
+Use thread number of 1 for 10/100Mbps link instead of 4.
 
-So, let's give a break to lockdep maintainers and linux-kernel, and
-try to figure it out more in netdev...
+Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Signed-off-by: Li Yang <leoli@freescale.com>
+---
+ drivers/net/ucc_geth.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-Jarek P.
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index fba0811..8cc3166 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -154,8 +154,8 @@ static struct ucc_geth_info ugeth_primary_info = {
+ 	.rxQoSMode = UCC_GETH_QOS_MODE_DEFAULT,
+ 	.aufc = UPSMR_AUTOMATIC_FLOW_CONTROL_MODE_NONE,
+ 	.padAndCrc = MACCFG2_PAD_AND_CRC_MODE_PAD_AND_CRC,
+-	.numThreadsTx = UCC_GETH_NUM_OF_THREADS_4,
+-	.numThreadsRx = UCC_GETH_NUM_OF_THREADS_4,
++	.numThreadsTx = UCC_GETH_NUM_OF_THREADS_1,
++	.numThreadsRx = UCC_GETH_NUM_OF_THREADS_1,
+ 	.riscTx = QE_RISC_ALLOCATION_RISC1_AND_RISC2,
+ 	.riscRx = QE_RISC_ALLOCATION_RISC1_AND_RISC2,
+ };
+@@ -3975,6 +3975,8 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 		ug_info->uf_info.utfs = UCC_GETH_UTFS_GIGA_INIT;
+ 		ug_info->uf_info.utfet = UCC_GETH_UTFET_GIGA_INIT;
+ 		ug_info->uf_info.utftt = UCC_GETH_UTFTT_GIGA_INIT;
++		ug_info->numThreadsTx = UCC_GETH_NUM_OF_THREADS_4;
++		ug_info->numThreadsRx = UCC_GETH_NUM_OF_THREADS_4;
+ 	}
+ 
+ 	/* Set the bus id */
+-- 
+1.5.4
+
