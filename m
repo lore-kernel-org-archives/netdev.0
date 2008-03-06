@@ -1,56 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: replace horrible hack with ksize()
-Date: Thu, 06 Mar 2008 15:51:07 +0100
-Message-ID: <47D004DB.4010105@trash.net>
-References: <Pine.LNX.4.64.0803052319210.15759@sbz-30.cs.Helsinki.FI> <47CFF9B7.5060803@trash.net> <Pine.LNX.4.64.0803061612290.4202@sbz-30.cs.Helsinki.FI> <Pine.LNX.4.64.0803061618090.4378@sbz-30.cs.Helsinki.FI> <47D0014D.1060901@trash.net> <Pine.LNX.4.64.0803061640380.4820@sbz-30.cs.Helsinki.FI>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] Make /proc/net a symlink on /proc/self/net (v2)
+Date: Thu, 06 Mar 2008 08:06:40 -0700
+Message-ID: <m1tzjj28ov.fsf@ebiederm.dsl.xmission.com>
+References: <47CFB6CA.8090001@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, clameter@sgi.com,
-	joe@perches.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Pekka J Enberg <penberg@cs.helsinki.fi>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0803061640380.4820@sbz-30.cs.Helsinki.FI>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Pavel Emelyanov <xemul@openvz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:55803 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755317AbYCFPIV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 10:08:21 -0500
+In-Reply-To: <47CFB6CA.8090001@openvz.org> (Pavel Emelyanov's message of "Thu,
+	06 Mar 2008 12:18:02 +0300")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pekka J Enberg wrote:
-> On Thu, 6 Mar 2008, Patrick McHardy wrote:
->> It decides to reallocate when the remaining space isn't enough
->> to hold the new data. NF_CT_EXT_MIN_SIZE is used to make sure it
->> doesn't allocate anything smaller than the minimum slab size and
->> hopefully avoid reallocations in the future. Unless I'm
->> misunderstanding what ksize() does, the easiest way to get
->> rid of this would be to replace NF_CT_EXT_MIN_SIZE by ksize(0).
-> 
-> I think you are misunderstanding ksize() (see mm/slub.c::ksize() for 
-> example).
+Pavel Emelyanov <xemul@openvz.org> writes:
 
-The ksize() description in mm/slab.c matches exactly what netfilter
-wants to do:
+> Current /proc/net is done with so called "shadows", but current
+> implementation is broken and has little chances to get fixed.
+>
+> The problem is that dentries subtree of /proc/net directory has
+> fancy revalidation rules to make processes living in different
+> net namespaces see different entries in /proc/net subtree, but
+> currently, tasks see in the /proc/net subdir the contents of any
+> other namespace, depending on who opened the file first.
+>
+> The proposed fix is to turn /proc/net into a symlink, which points
+> to /proc/self/net, which in turn shows what previously was in
+> /proc/net - the network-related info, from the net namespace the
+> appropriate task lives in.
+>
+> # ls -l /proc/net
+> lrwxrwxrwx  1 root root 8 Mar  5 15:17 /proc/net -> self/net
+>
+> In other words - this behaves like /proc/mounts, but unlike
+> "mounts", "net" is not a file, but a directory.
+>
+> Fixed a task_struct leak in get_proc_task_net, pointed out by Paul.
+>
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-  * kmalloc may internally round up allocations and return more memory
-  * than requested. ksize() can be used to determine the actual amount 
-of
-  * memory allocated. The caller may use this additional memory, even though
-  * a smaller amount of memory was initially specified with the kmalloc 
-call.
-
-> Furthermore, I think your current reallocation code is broken 
-> too as explained in a previous mail and my patch fixes that to behave as 
-> krealloc() does.
-
-I don't think there is anything broken with that code.
-
-The initial allocation size is calculated as max(size, min slab size)
-and is stored as ext->alloc_size. When adding the first extension,
-it allocates ext->alloc_size of memory and stores both the real amount
-of space used (ext->len) and the actual size (ext->real_len).
-When adding further extensions, it calculates the new total amount of
-space needed (newlen). If that is larger than the real amount of
-memory allocated (real_len), it reallocates.
-
-What am I missing here?
-
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
