@@ -1,36 +1,130 @@
-From: Nick Piggin <npiggin@suse.de>
-Subject: Re: [rfc][patch 1/3] slub: fix small HWCACHE_ALIGN alignment
-Date: Fri, 7 Mar 2008 04:22:51 +0100
-Message-ID: <20080307032251.GG21185@wotan.suse.de>
-References: <20080304.161003.129716254.davem@davemloft.net> <Pine.LNX.4.64.0803051257030.30742@schroedinger.engr.sgi.com> <20080306025758.GB27150@wotan.suse.de> <Pine.LNX.4.64.0803061453360.16212@schroedinger.engr.sgi.com> <20080307022355.GB21185@wotan.suse.de> <Pine.LNX.4.64.0803061825120.29527@schroedinger.engr.sgi.com> <20080307023223.GD21185@wotan.suse.de> <Pine.LNX.4.64.0803061841220.29959@schroedinger.engr.sgi.com> <20080307031044.GF21185@wotan.suse.de> <Pine.LNX.4.64.0803061916580.30259@schroedinger.engr.sgi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yanmin_zhang@linux.intel.com,
-	dada1@cosmosbay.com
-To: Christoph Lameter <clameter@sgi.com>
+From: Daniel Walker <dwalker@mvista.com>
+Subject: [PATCH 2/5] net: ehea: ehea_fw_handles semaphore to mutex
+Date: Thu, 06 Mar 2008 00:00:02 -0800
+Message-ID: <20080307031633.040677497@mvista.com>
+References: <20080307031621.590778480@mvista.com>
+Cc: Christoph Raisch <raisch@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:48610 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755473AbYCGDWw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Mar 2008 22:22:52 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0803061916580.30259@schroedinger.engr.sgi.com>
+Received: from gateway-1237.mvista.com ([63.81.120.158]:63397 "EHLO
+	dwalker1.mvista.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757079AbYCGD0D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 22:26:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 06, 2008 at 07:18:54PM -0800, Christoph Lameter wrote:
-> On Fri, 7 Mar 2008, Nick Piggin wrote:
-> 
-> > No, it *is not about avoiding cacheline contention*. As such, the rest
-> > of what you wrote below about smp_align etc is rubbish.
-> > 
-> > Can you actually read what I posted?
-> 
-> I am trying but it barely makes sense. You first state that it 
-> is *not* about avoiding cacheline contention and then argue that it 
-> reduces cacheline contention.
+-- 
+Content-Disposition: inline; filename=net-ehea-fw_handles-semaphore-to-mutex.patch
 
-Where do I argue that it reduces cacheline contention? All arguments
-I made apply to a UP system equally.
+Converted the ehea_fw_handles.lock to a mutex.
 
+Signed-off-by: Daniel Walker <dwalker@mvista.com>
+
+---
+ drivers/net/ehea/ehea.h      |    2 +-
+ drivers/net/ehea/ehea_main.c |   18 +++++++++---------
+ 2 files changed, 10 insertions(+), 10 deletions(-)
+
+Index: linux-2.6.24/drivers/net/ehea/ehea.h
+===================================================================
+--- linux-2.6.24.orig/drivers/net/ehea/ehea.h
++++ linux-2.6.24/drivers/net/ehea/ehea.h
+@@ -421,7 +421,7 @@ struct ehea_fw_handle_entry {
+ struct ehea_fw_handle_array {
+ 	struct ehea_fw_handle_entry *arr;
+ 	int num_entries;
+-	struct semaphore lock;
++	struct mutex lock;
+ };
+ 
+ struct ehea_bcmc_reg_entry {
+Index: linux-2.6.24/drivers/net/ehea/ehea_main.c
+===================================================================
+--- linux-2.6.24.orig/drivers/net/ehea/ehea_main.c
++++ linux-2.6.24/drivers/net/ehea/ehea_main.c
+@@ -2453,7 +2453,7 @@ static int ehea_up(struct net_device *de
+ 	if (port->state == EHEA_PORT_UP)
+ 		return 0;
+ 
+-	down(&ehea_fw_handles.lock);
++	mutex_lock(&ehea_fw_handles.lock);
+ 
+ 	ret = ehea_port_res_setup(port, port->num_def_qps,
+ 				  port->num_add_tx_qps);
+@@ -2517,7 +2517,7 @@ out:
+ 	up(&ehea_bcmc_regs.lock);
+ 
+ 	ehea_update_firmware_handles();
+-	up(&ehea_fw_handles.lock);
++	mutex_unlock(&ehea_fw_handles.lock);
+ 
+ 	return ret;
+ }
+@@ -2573,7 +2573,7 @@ static int ehea_down(struct net_device *
+ 
+ 	ehea_free_interrupts(dev);
+ 
+-	down(&ehea_fw_handles.lock);
++	mutex_lock(&ehea_fw_handles.lock);
+ 
+ 	port->state = EHEA_PORT_DOWN;
+ 
+@@ -2586,7 +2586,7 @@ static int ehea_down(struct net_device *
+ 			  dev->name, ret);
+ 
+ 	ehea_update_firmware_handles();
+-	up(&ehea_fw_handles.lock);
++	mutex_unlock(&ehea_fw_handles.lock);
+ 
+ 	return ret;
+ }
+@@ -3343,7 +3343,7 @@ static int __devinit ehea_probe_adapter(
+ 		ehea_error("Invalid ibmebus device probed");
+ 		return -EINVAL;
+ 	}
+-	down(&ehea_fw_handles.lock);
++	mutex_lock(&ehea_fw_handles.lock);
+ 
+ 	adapter = kzalloc(sizeof(*adapter), GFP_KERNEL);
+ 	if (!adapter) {
+@@ -3427,7 +3427,7 @@ out_free_ad:
+ 
+ out:
+ 	ehea_update_firmware_handles();
+-	up(&ehea_fw_handles.lock);
++	mutex_unlock(&ehea_fw_handles.lock);
+ 	return ret;
+ }
+ 
+@@ -3446,7 +3446,7 @@ static int __devexit ehea_remove(struct 
+ 
+ 	flush_scheduled_work();
+ 
+-	down(&ehea_fw_handles.lock);
++	mutex_lock(&ehea_fw_handles.lock);
+ 
+ 	ibmebus_free_irq(adapter->neq->attr.ist1, adapter);
+ 	tasklet_kill(&adapter->neq_tasklet);
+@@ -3457,7 +3457,7 @@ static int __devexit ehea_remove(struct 
+ 	kfree(adapter);
+ 
+ 	ehea_update_firmware_handles();
+-	up(&ehea_fw_handles.lock);
++	mutex_unlock(&ehea_fw_handles.lock);
+ 
+ 	return 0;
+ }
+@@ -3544,7 +3544,7 @@ int __init ehea_module_init(void)
+ 	memset(&ehea_fw_handles, 0, sizeof(ehea_fw_handles));
+ 	memset(&ehea_bcmc_regs, 0, sizeof(ehea_bcmc_regs));
+ 
+-	sema_init(&ehea_fw_handles.lock, 1);
++	mutex_init(&ehea_fw_handles.lock);
+ 	sema_init(&ehea_bcmc_regs.lock, 1);
+ 
+ 	ret = check_module_parm();
+
+-- 
