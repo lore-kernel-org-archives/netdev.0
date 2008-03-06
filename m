@@ -1,46 +1,51 @@
 From: Jonas Bonn <jonas@southpole.se>
-Subject: [PATCH] net: use DECLARE_PCI_DEVICE_TABLE
-Date: Thu,  6 Mar 2008 11:55:41 +0100
-Message-ID: <1204800947-21569-4-git-send-email-jonas@southpole.se>
-References: <>
- <1204800947-21569-1-git-send-email-jonas@southpole.se>
- <1204800947-21569-2-git-send-email-jonas@southpole.se>
- <1204800947-21569-3-git-send-email-jonas@southpole.se>
+Subject: struct pci_device_id declaration cleanups
+Date: Thu,  6 Mar 2008 11:55:38 +0100
+Message-ID: <1204800947-21569-1-git-send-email-jonas@southpole.se>
 To: jonas@southpole.se, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.southpole.se ([193.12.106.18]:44126 "EHLO
+Received: from mail.southpole.se ([193.12.106.18]:44090 "EHLO
 	mail.southpole.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763262AbYCFKzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 05:55:52 -0500
+	with ESMTP id S1760504AbYCFKzt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 05:55:49 -0500
 Received: from localhost (localhost [127.0.0.1])
-	by mail.southpole.se (Postfix) with SMTP id B4D684ED0FE
-	for <netdev@vger.kernel.org>; Thu,  6 Mar 2008 11:55:48 +0100 (CET)
-In-Reply-To: <1204800947-21569-3-git-send-email-jonas@southpole.se>
+	by mail.southpole.se (Postfix) with SMTP id DC0894ED0F8
+	for <netdev@vger.kernel.org>; Thu,  6 Mar 2008 11:55:47 +0100 (CET)
+In-Reply-To: <>
+References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Makes struct pci_device_id array const and moves it to __devinitconst
 
-Signed-off-by: Jonas Bonn <jonas@southpole.se>
----
- drivers/net/wan/pc300too.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+This set of patches applies the macro DECLARE_PCI_DEVICE_TABLE to the 
+declarations of struct pci_device_id in several network drivers.  The drivers
+build cleanly with these patches (without any new warnings) on both x86 and 
+PowerPC.
 
-diff --git a/drivers/net/wan/pc300too.c b/drivers/net/wan/pc300too.c
-index bf1b015..deacb94 100644
---- a/drivers/net/wan/pc300too.c
-+++ b/drivers/net/wan/pc300too.c
-@@ -501,7 +501,7 @@ static int __devinit pc300_pci_init_one(struct pci_dev *pdev,
- 
- 
- 
--static struct pci_device_id pc300_pci_tbl[] __devinitdata = {
-+static DECLARE_PCI_DEVICE_TABLE(pc300_pci_tbl) = {
- 	{ PCI_VENDOR_ID_CYCLADES, PCI_DEVICE_ID_PC300_RX_1, PCI_ANY_ID,
- 	  PCI_ANY_ID, 0, 0, 0 },
- 	{ PCI_VENDOR_ID_CYCLADES, PCI_DEVICE_ID_PC300_RX_2, PCI_ANY_ID,
--- 
-1.5.4.3
+There are ~90 such cleanups in the /drivers/net tree alone (and ~350 in the
+kernel overall); these patches are just a subset to avoid flooding the mailing 
+list before getting feedback.
 
+These 9 patches can also be pulled from the "net" branch of:
+
+git://www.southpole.se/~jonas/git/linux.git
+
+The remainder of the cleanups will be pushed out to my public tree once I 
+know the reaction to this subset.
+
+The diffstat for this subset is:
+
+ drivers/net/cassini.c                |    2 +-
+ drivers/net/e1000/e1000_main.c       |    2 +-
+ drivers/net/e1000e/netdev.c          |    2 +-
+ drivers/net/netxen/netxen_nic_main.c |    2 +-
+ drivers/net/wan/farsync.c            |    2 +-
+ drivers/net/wan/pc300_drv.c          |    2 +-
+ drivers/net/wan/pc300too.c           |    2 +-
+ drivers/net/wan/pci200syn.c          |    2 +-
+ drivers/net/wan/wanxl.c              |    2 +-
+ 9 files changed, 9 insertions(+), 9 deletions(-)
+
+/Jonas
 
