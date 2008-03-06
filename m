@@ -1,385 +1,149 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: [PATCH] Make /proc/net a symlink on /proc/self/net (v2)
-Date: Thu, 06 Mar 2008 14:43:39 -0500
-Message-ID: <1204832619.1397.354.camel@moss-spartans.epoch.ncsc.mil>
-References: <47CFB6CA.8090001@openvz.org>
-	 <1204821325.1397.298.camel@moss-spartans.epoch.ncsc.mil>
-	 <47D01F98.5010609@openvz.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: circular locking, mirred, 2.6.24.2
+Date: Thu, 6 Mar 2008 21:25:51 +0100
+Message-ID: <20080306202551.GB2876@ami.dom.local>
+References: <20080224222035.M62480@visp.net.lb> <20080225095646.GA4321@ff.dom.local> <20080225104652.M2446@visp.net.lb> <20080225113930.GA4733@ff.dom.local> <20080305103935.M76165@visp.net.lb> <20080306134015.GA4571@ff.dom.local> <20080306135625.M25627@visp.net.lb> <1204813634.4440.59.camel@localhost> <20080306143910.M91001@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	James Morris <jmorris@namei.org>,
-	Eric Paris <eparis@parisplace.org>
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zombie.ncsc.mil ([144.51.88.131]:65418 "EHLO zombie.ncsc.mil"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755746AbYCFTpA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Mar 2008 14:45:00 -0500
-In-Reply-To: <47D01F98.5010609@openvz.org>
+Received: from ug-out-1314.google.com ([66.249.92.174]:37900 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932809AbYCFUUk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 15:20:40 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so3980194ugc.16
+        for <netdev@vger.kernel.org>; Thu, 06 Mar 2008 12:20:39 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080306143910.M91001@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Thu, 2008-03-06 at 19:45 +0300, Pavel Emelyanov wrote:
-> Stephen Smalley wrote:
-> > On Thu, 2008-03-06 at 12:18 +0300, Pavel Emelyanov wrote:
-> >> Current /proc/net is done with so called "shadows", but current
-> >> implementation is broken and has little chances to get fixed.
-> >>
-> >> The problem is that dentries subtree of /proc/net directory has
-> >> fancy revalidation rules to make processes living in different
-> >> net namespaces see different entries in /proc/net subtree, but
-> >> currently, tasks see in the /proc/net subdir the contents of any
-> >> other namespace, depending on who opened the file first.
-> >>
-> >> The proposed fix is to turn /proc/net into a symlink, which points
-> >> to /proc/self/net, which in turn shows what previously was in
-> >> /proc/net - the network-related info, from the net namespace the
-> >> appropriate task lives in.
-> >>
-> >> # ls -l /proc/net
-> >> lrwxrwxrwx  1 root root 8 Mar  5 15:17 /proc/net -> self/net
-> >>
-> >> In other words - this behaves like /proc/mounts, but unlike
-> >> "mounts", "net" is not a file, but a directory.
-> >>
-> >> Fixed a task_struct leak in get_proc_task_net, pointed out by Paul.
+On Thu, Mar 06, 2008 at 05:50:59PM +0200, Denys Fedoryshchenko wrote:
+> On Thu, 06 Mar 2008 09:27:14 -0500, jamal wrote
+> > On Thu, 2008-06-03 at 15:57 +0200, Denys Fedoryshchenko wrote:
+> > > I am able to reproduce this warning over this relatively simple shell 
+> script
+> > > on my Gentoo PC (2.6.25-rc3).
+> > > http://www.nuclearcat.com/files/bug_feb.txt
+> > >
 > > 
-> > Does this break SELinux labeling of /proc/net inodes and thus its access
-> > controls on them?
+> > That script looks pretty sane to me - nothing super-exciting. I suspect
+> > you eventually want them all to look like ifb1 on the egress.
+> > Do you see the same issue without the ifb1 speacial case?
+> Well, i am able to reproduce in much more trivial script. Tested 2.6.25-rc4 
+> also.
 > 
-> It should not, since the proc_dir_etries are still organized in
-> a required hierarchy.
-
-Unfortunately, it does break selinux labeling of /proc/net inodes.
-Easily seen by running ls -ZR /proc/net before and after the patch is
-applied and comparing the results.  
-
-Also, as a separate issue, a "find /proc/self/net ..." will show that
-the hard link count is wrong for it.
-
-Currently the inodes get labeled by selinux_proc_get_sid() by walking up
-the proc_dir_entry tree to generate a name and prefix matching that name
-in policy.  Before the patch, we'd get names like "//net/tcp", i.e.
-relative to the root of proc (the extra leading slash is due to the
-earlier proc net rewrite which also broke selinux until we adjusted it
-to ignore it).  After the patch, we just get "//tcp", which is ambiguous
-since we would also get that for a /proc/tcp inode if one existed.
-
-Not trying to obstruct your proc net improvements, but just want to make
-sure that selinux doesn't get broken in the process.
-
+> modprobe ifb
+> ifconfig ifb0 up
+> TC=/sbin/tc
+> $TC qdisc del dev eth0 ingress 1>/dev/null 2>/dev/null
+> $TC qdisc add dev eth0 ingress
+> ${TC} filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
+>       match u32 0 0 flowid 1:1 \
+>       action mirred egress redirect dev ifb0
 > 
-> >> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> >>
-> >> ---
-> >>
-> >> diff --git a/fs/proc/base.c b/fs/proc/base.c
-> >> index 96ee899..cc43cf0 100644
-> >> --- a/fs/proc/base.c
-> >> +++ b/fs/proc/base.c
-> >> @@ -2274,6 +2274,7 @@ static const struct pid_entry tgid_base_stuff[] = {
-> >>  	DIR("task",       S_IRUGO|S_IXUGO, task),
-> >>  	DIR("fd",         S_IRUSR|S_IXUSR, fd),
-> >>  	DIR("fdinfo",     S_IRUSR|S_IXUSR, fdinfo),
-> >> +	DIR("net",        S_IRUGO|S_IXUSR, net),
-> >>  	REG("environ",    S_IRUSR, environ),
-> >>  	INF("auxv",       S_IRUSR, pid_auxv),
-> >>  	ONE("status",     S_IRUGO, pid_status),
-> >> diff --git a/fs/proc/generic.c b/fs/proc/generic.c
-> >> index 68971e6..a36ad3c 100644
-> >> --- a/fs/proc/generic.c
-> >> +++ b/fs/proc/generic.c
-> >> @@ -377,15 +377,14 @@ static struct dentry_operations proc_dentry_operations =
-> >>   * Don't create negative dentries here, return -ENOENT by hand
-> >>   * instead.
-> >>   */
-> >> -struct dentry *proc_lookup(struct inode * dir, struct dentry *dentry, struct nameidata *nd)
-> >> +struct dentry *proc_lookup_de(struct proc_dir_entry *de, struct inode *dir,
-> >> +		struct dentry *dentry)
-> >>  {
-> >>  	struct inode *inode = NULL;
-> >> -	struct proc_dir_entry * de;
-> >>  	int error = -ENOENT;
-> >>  
-> >>  	lock_kernel();
-> >>  	spin_lock(&proc_subdir_lock);
-> >> -	de = PDE(dir);
-> >>  	if (de) {
-> >>  		for (de = de->subdir; de ; de = de->next) {
-> >>  			if (de->namelen != dentry->d_name.len)
-> >> @@ -393,8 +392,6 @@ struct dentry *proc_lookup(struct inode * dir, struct dentry *dentry, struct nam
-> >>  			if (!memcmp(dentry->d_name.name, de->name, de->namelen)) {
-> >>  				unsigned int ino;
-> >>  
-> >> -				if (de->shadow_proc)
-> >> -					de = de->shadow_proc(current, de);
-> >>  				ino = de->low_ino;
-> >>  				de_get(de);
-> >>  				spin_unlock(&proc_subdir_lock);
-> >> @@ -417,6 +414,12 @@ out_unlock:
-> >>  	return ERR_PTR(error);
-> >>  }
-> >>  
-> >> +struct dentry *proc_lookup(struct inode *dir, struct dentry *dentry,
-> >> +		struct nameidata *nd)
-> >> +{
-> >> +	return proc_lookup_de(PDE(dir), dir, dentry);
-> >> +}
-> >> +
-> >>  /*
-> >>   * This returns non-zero if at EOF, so that the /proc
-> >>   * root directory can use this and check if it should
-> >> @@ -426,10 +429,9 @@ out_unlock:
-> >>   * value of the readdir() call, as long as it's non-negative
-> >>   * for success..
-> >>   */
-> >> -int proc_readdir(struct file * filp,
-> >> -	void * dirent, filldir_t filldir)
-> >> +int proc_readdir_de(struct proc_dir_entry *de, struct file *filp, void *dirent,
-> >> +		filldir_t filldir)
-> >>  {
-> >> -	struct proc_dir_entry * de;
-> >>  	unsigned int ino;
-> >>  	int i;
-> >>  	struct inode *inode = filp->f_path.dentry->d_inode;
-> >> @@ -438,7 +440,6 @@ int proc_readdir(struct file * filp,
-> >>  	lock_kernel();
-> >>  
-> >>  	ino = inode->i_ino;
-> >> -	de = PDE(inode);
-> >>  	if (!de) {
-> >>  		ret = -EINVAL;
-> >>  		goto out;
-> >> @@ -499,6 +500,13 @@ out:	unlock_kernel();
-> >>  	return ret;	
-> >>  }
-> >>  
-> >> +int proc_readdir(struct file *filp, void *dirent, filldir_t filldir)
-> >> +{
-> >> +	struct inode *inode = filp->f_path.dentry->d_inode;
-> >> +
-> >> +	return proc_readdir_de(PDE(inode), filp, dirent, filldir);
-> >> +}
-> >> +
-> >>  /*
-> >>   * These are the generic /proc directory operations. They
-> >>   * use the in-memory "struct proc_dir_entry" tree to parse
-> >> diff --git a/fs/proc/internal.h b/fs/proc/internal.h
-> >> index 1c81c8f..bc72f5c 100644
-> >> --- a/fs/proc/internal.h
-> >> +++ b/fs/proc/internal.h
-> >> @@ -64,6 +64,8 @@ extern const struct file_operations proc_numa_maps_operations;
-> >>  extern const struct file_operations proc_smaps_operations;
-> >>  extern const struct file_operations proc_clear_refs_operations;
-> >>  extern const struct file_operations proc_pagemap_operations;
-> >> +extern const struct file_operations proc_net_operations;
-> >> +extern const struct inode_operations proc_net_inode_operations;
-> >>  
-> >>  void free_proc_entry(struct proc_dir_entry *de);
-> >>  
-> >> @@ -83,3 +85,8 @@ static inline int proc_fd(struct inode *inode)
-> >>  {
-> >>  	return PROC_I(inode)->fd;
-> >>  }
-> >> +
-> >> +struct dentry *proc_lookup_de(struct proc_dir_entry *de, struct inode *ino,
-> >> +		struct dentry *dentry);
-> >> +int proc_readdir_de(struct proc_dir_entry *de, struct file *filp, void *dirent,
-> >> +		filldir_t filldir);
-> >> diff --git a/fs/proc/proc_net.c b/fs/proc/proc_net.c
-> >> index 14e9b5a..18d413c 100644
-> >> --- a/fs/proc/proc_net.c
-> >> +++ b/fs/proc/proc_net.c
-> >> @@ -63,6 +63,63 @@ int seq_release_net(struct inode *ino, struct file *f)
-> >>  }
-> >>  EXPORT_SYMBOL_GPL(seq_release_net);
-> >>  
-> >> +static struct net *get_proc_task_net(struct inode *dir)
-> >> +{
-> >> +	struct task_struct *task;
-> >> +	struct nsproxy *ns;
-> >> +	struct net *net = NULL;
-> >> +
-> >> +	rcu_read_lock();
-> >> +	task = pid_task(proc_pid(dir), PIDTYPE_PID);
-> >> +	if (task != NULL) {
-> >> +		ns = task_nsproxy(task);
-> >> +		if (ns != NULL)
-> >> +			net = get_net(ns->net_ns);
-> >> +	}
-> >> +	rcu_read_unlock();
-> >> +
-> >> +	return net;
-> >> +}
-> >> +
-> >> +static struct dentry *proc_tgid_net_lookup(struct inode *dir,
-> >> +		struct dentry *dentry, struct nameidata *nd)
-> >> +{
-> >> +	struct dentry *de;
-> >> +	struct net *net;
-> >> +
-> >> +	de = ERR_PTR(-ENOENT);
-> >> +	net = get_proc_task_net(dir);
-> >> +	if (net != NULL) {
-> >> +		de = proc_lookup_de(net->proc_net, dir, dentry);
-> >> +		put_net(net);
-> >> +	}
-> >> +	return de;
-> >> +}
-> >> +
-> >> +const struct inode_operations proc_net_inode_operations = {
-> >> +	.lookup		= proc_tgid_net_lookup,
-> >> +};
-> >> +
-> >> +static int proc_tgid_net_readdir(struct file *filp, void *dirent,
-> >> +		filldir_t filldir)
-> >> +{
-> >> +	int ret;
-> >> +	struct net *net;
-> >> +
-> >> +	ret = -EINVAL;
-> >> +	net = get_proc_task_net(filp->f_path.dentry->d_inode);
-> >> +	if (net != NULL) {
-> >> +		ret = proc_readdir_de(net->proc_net, filp, dirent, filldir);
-> >> +		put_net(net);
-> >> +	}
-> >> +	return ret;
-> >> +}
-> >> +
-> >> +const struct file_operations proc_net_operations = {
-> >> +	.read		= generic_read_dir,
-> >> +	.readdir	= proc_tgid_net_readdir,
-> >> +};
-> >> +
-> >>  
-> >>  struct proc_dir_entry *proc_net_fops_create(struct net *net,
-> >>  	const char *name, mode_t mode, const struct file_operations *fops)
-> >> @@ -83,14 +140,6 @@ struct net *get_proc_net(const struct inode *inode)
-> >>  }
-> >>  EXPORT_SYMBOL_GPL(get_proc_net);
-> >>  
-> >> -static struct proc_dir_entry *shadow_pde;
-> >> -
-> >> -static struct proc_dir_entry *proc_net_shadow(struct task_struct *task,
-> >> -						struct proc_dir_entry *de)
-> >> -{
-> >> -	return task->nsproxy->net_ns->proc_net;
-> >> -}
-> >> -
-> >>  struct proc_dir_entry *proc_net_mkdir(struct net *net, const char *name,
-> >>  		struct proc_dir_entry *parent)
-> >>  {
-> >> @@ -104,45 +153,35 @@ EXPORT_SYMBOL_GPL(proc_net_mkdir);
-> >>  
-> >>  static __net_init int proc_net_ns_init(struct net *net)
-> >>  {
-> >> -	struct proc_dir_entry *root, *netd, *net_statd;
-> >> +	struct proc_dir_entry *netd, *net_statd;
-> >>  	int err;
-> >>  
-> >>  	err = -ENOMEM;
-> >> -	root = kzalloc(sizeof(*root), GFP_KERNEL);
-> >> -	if (!root)
-> >> +	netd = kzalloc(sizeof(*netd), GFP_KERNEL);
-> >> +	if (!netd)
-> >>  		goto out;
-> >>  
-> >> -	err = -EEXIST;
-> >> -	netd = proc_net_mkdir(net, "net", root);
-> >> -	if (!netd)
-> >> -		goto free_root;
-> >> +	netd->data = net;
-> >>  
-> >>  	err = -EEXIST;
-> >>  	net_statd = proc_net_mkdir(net, "stat", netd);
-> >>  	if (!net_statd)
-> >>  		goto free_net;
-> >>  
-> >> -	root->data = net;
-> >> -
-> >> -	net->proc_net_root = root;
-> >>  	net->proc_net = netd;
-> >>  	net->proc_net_stat = net_statd;
-> >> -	err = 0;
-> >> +	return 0;
-> >>  
-> >> +free_net:
-> >> +	kfree(netd);
-> >>  out:
-> >>  	return err;
-> >> -free_net:
-> >> -	remove_proc_entry("net", root);
-> >> -free_root:
-> >> -	kfree(root);
-> >> -	goto out;
-> >>  }
-> >>  
-> >>  static __net_exit void proc_net_ns_exit(struct net *net)
-> >>  {
-> >>  	remove_proc_entry("stat", net->proc_net);
-> >> -	remove_proc_entry("net", net->proc_net_root);
-> >> -	kfree(net->proc_net_root);
-> >> +	kfree(net->proc_net);
-> >>  }
-> >>  
-> >>  static struct pernet_operations __net_initdata proc_net_ns_ops = {
-> >> @@ -152,8 +191,7 @@ static struct pernet_operations __net_initdata proc_net_ns_ops = {
-> >>  
-> >>  int __init proc_net_init(void)
-> >>  {
-> >> -	shadow_pde = proc_mkdir("net", NULL);
-> >> -	shadow_pde->shadow_proc = proc_net_shadow;
-> >> +	proc_symlink("net", NULL, "self/net");
-> >>  
-> >>  	return register_pernet_subsys(&proc_net_ns_ops);
-> >>  }
-> >> diff --git a/include/linux/proc_fs.h b/include/linux/proc_fs.h
-> >> index d9a9e71..9b6c935 100644
-> >> --- a/include/linux/proc_fs.h
-> >> +++ b/include/linux/proc_fs.h
-> >> @@ -50,8 +50,6 @@ typedef	int (read_proc_t)(char *page, char **start, off_t off,
-> >>  typedef	int (write_proc_t)(struct file *file, const char __user *buffer,
-> >>  			   unsigned long count, void *data);
-> >>  typedef int (get_info_t)(char *, char **, off_t, int);
-> >> -typedef struct proc_dir_entry *(shadow_proc_t)(struct task_struct *task,
-> >> -						struct proc_dir_entry *pde);
-> >>  
-> >>  struct proc_dir_entry {
-> >>  	unsigned int low_ino;
-> >> @@ -82,7 +80,6 @@ struct proc_dir_entry {
-> >>  	int pde_users;	/* number of callers into module in progress */
-> >>  	spinlock_t pde_unload_lock; /* proc_fops checks and pde_users bumps */
-> >>  	struct completion *pde_unload_completion;
-> >> -	shadow_proc_t *shadow_proc;
-> >>  };
-> >>  
-> >>  struct kcore_list {
-> >> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-> >> index 28738b7..923f2b8 100644
-> >> --- a/include/net/net_namespace.h
-> >> +++ b/include/net/net_namespace.h
-> >> @@ -31,7 +31,6 @@ struct net {
-> >>  
-> >>  	struct proc_dir_entry 	*proc_net;
-> >>  	struct proc_dir_entry 	*proc_net_stat;
-> >> -	struct proc_dir_entry 	*proc_net_root;
-> >>  
-> >>  	struct list_head	sysctl_table_headers;
-> >>  
-> >> --
-> >> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> >> the body of a message to majordomo@vger.kernel.org
-> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >> Please read the FAQ at  http://www.tux.org/lkml/
--- 
-Stephen Smalley
-National Security Agency
 
+It's really strange: I can't reproduce this, and if it were so easy we
+would get really a lot of similar reports. It looks like you have
+something special. This lockdep report with this kind of problem
+usually looks different too. The good side is it's easy to reproduce.
+So, could you try the patch below? (It's only supposed to fix the lockdep
+warning, not lockups).
+
+> > 
+> > > Probably it will help to debug issue for more experienced developers. 
+> Note:
+> > > it appears not immediately, second time i tested, it's appeared after 
+> while,
+> > > but in matter of seconds.
+> > 
+> > I wonder is there some latency from the moment you insmod ifb to the
+> > moment the tc rules take effect? Will it still happen if you dont 
+> > have modules? Also note, that lock dependency is a bit strange,
+> >  Jarek correct me if i am wrong; it seems to say: a packet received 
+> > on ingress of some e1000 (ethx) gets acted on by mirred which ends 
+> > grabbing lock of an ifb device - this part should be fine and no 
+> > need for the alarm. The alarm seems to be a result of a loopback 
+> > device that is being registered in between the two activities.
+> > i.e there are three devices affected with entirely different 
+> > locks(ethx, ifbx, and loopback). Smells like lockdep is getting it wrong?
+
+Yes, the details look wrong, but IMHO there are reasons to report
+possible problems yet.
+
+> No idea, i have strange lockup's on my systems where i have ifb, and that 
+> make me worry. And i feel it is directly related with my love to use ifb 
+> devices and way how i am using them.
+
+Did you try to change the order of rules in this first script: ifb rules
+before eth?
+
+> > > Note - it can stop traffic on PC completely. It is also seems crashed my 
+> > > desktop PC, i am not able to execute "tc qdisc del dev eth0 root".
+> > > The system hang completely. I had few similar issues on my PPPoE servers 
+> > > (with different scripts for shapers), that system hang, and even "reboot -
+> f" 
+> > > doesn't work sometimes.
+> > 
+> > This sounds like a different issue from above - when did this start 
+> > to happen? Is it at the same time as above warnings showing up?
+> 
+> Yes, it is different issue seems, it is rare to lockup system , and i will 
+> dig more, to understand how it is happening.
+
+If you are willing for debugging I would be interested with results or
+sending some patches.
+
+Cheers,
+Jarek P.
+
+(testing patch take 2)
+
+---
+
+ drivers/net/ifb.c |   24 ++++++++++++++++++++++++
+ 1 files changed, 24 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+index 15949d3..c553b62 100644
+--- a/drivers/net/ifb.c
++++ b/drivers/net/ifb.c
+@@ -227,6 +227,27 @@ static struct rtnl_link_ops ifb_link_ops __read_mostly = {
+ module_param(numifbs, int, 0);
+ MODULE_PARM_DESC(numifbs, "Number of ifb devices");
+ 
++#ifdef CONFIG_DEBUG_LOCK_ALLOC
++/*
++ * dev_ifb->queue_lock is usually taken after dev->ingress_lock,
++ * reversely to e.g. qdisc_lock_tree(). It should be safe until
++ * ifb doesn't take dev->queue_lock with dev_ifb->ingress_lock.
++ * But lockdep should know that ifb has different locks from dev.
++ */
++static struct lock_class_key ifb_queue_lock_key;
++static struct lock_class_key ifb_ingress_lock_key;
++
++static inline void ifb_set_lock_classes(struct net_device *dev_ifb)
++{
++	lockdep_set_class(&dev_ifb->queue_lock, &ifb_queue_lock_key);
++	lockdep_set_class(&dev_ifb->ingress_lock, &ifb_ingress_lock_key);
++}
++#else
++static inline void ifb_set_lock_classes(struct net_device *dev_ifb)
++{
++}
++#endif	/* CONFIG_DEBUG_LOCK_ALLOC */
++
+ static int __init ifb_init_one(int index)
+ {
+ 	struct net_device *dev_ifb;
+@@ -246,6 +267,9 @@ static int __init ifb_init_one(int index)
+ 	err = register_netdevice(dev_ifb);
+ 	if (err < 0)
+ 		goto err;
++
++	ifb_set_lock_classes(dev_ifb);
++
+ 	return 0;
+ 
+ err:
