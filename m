@@ -1,66 +1,61 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: circular locking, mirred, 2.6.24.2
-Date: Thu, 06 Mar 2008 15:44:48 -0500
-Message-ID: <1204836288.4457.100.camel@localhost>
+Date: Thu, 06 Mar 2008 15:48:42 -0500
+Message-ID: <1204836523.4457.103.camel@localhost>
 References: <20080224222035.M62480@visp.net.lb>
 	 <20080225095646.GA4321@ff.dom.local> <20080225104652.M2446@visp.net.lb>
 	 <20080225113930.GA4733@ff.dom.local> <20080305103935.M76165@visp.net.lb>
-	 <20080306134015.GA4571@ff.dom.local>  <20080306135625.M25627@visp.net.lb>
-	 <1204813634.4440.59.camel@localhost>  <20080306143910.M91001@visp.net.lb>
+	 <20080306134015.GA4571@ff.dom.local> <1204811995.4440.30.camel@localhost>
+	 <20080306175629.GA2876@ami.dom.local>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.230]:54117 "EHLO
+Received: from wx-out-0506.google.com ([66.249.82.231]:59009 "EHLO
 	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755769AbYCFUoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 15:44:55 -0500
-Received: by wx-out-0506.google.com with SMTP id h31so74805wxd.4
-        for <netdev@vger.kernel.org>; Thu, 06 Mar 2008 12:44:52 -0800 (PST)
-In-Reply-To: <20080306143910.M91001@visp.net.lb>
+	with ESMTP id S1759791AbYCFUsr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 15:48:47 -0500
+Received: by wx-out-0506.google.com with SMTP id h31so77068wxd.4
+        for <netdev@vger.kernel.org>; Thu, 06 Mar 2008 12:48:46 -0800 (PST)
+In-Reply-To: <20080306175629.GA2876@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-06-03 at 17:50 +0200, Denys Fedoryshchenko wrote:
+On Thu, 2008-06-03 at 18:56 +0100, Jarek Poplawski wrote:
 
-> Well, i am able to reproduce in much more trivial script. Tested 2.6.25-rc4 
-> also.
-> 
-> modprobe ifb
-> ifconfig ifb0 up
-> TC=/sbin/tc
-> $TC qdisc del dev eth0 ingress 1>/dev/null 2>/dev/null
-> $TC qdisc add dev eth0 ingress
-> ${TC} filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
->       match u32 0 0 flowid 1:1 \
->       action mirred egress redirect dev ifb0
-> 
+> Every netdevice after register_netdevice() has its queue_lock and
+> ingress_lock initialized with the same static lock_class_keys, so unless
+> changed later, these locks are treated by lockdep as 2 global locks.
+>  So, taking such locks with different order should be reported. 
 
-I have tried this on my laptop - 2.6.24 and it doesnt happen. Indicates
-whatever issues that are occuring must be post 2.6.24 since you are
-running something newer. 
+ok.
+
+> This really
+> happens in act_mirred, and I don't know yet, why this wasn't reported
+> earlier.
+
+Look closely at those traces again ;-> there are *three* different
+netdevices involved, one (loopback) seems to be _totaly_ unrelated.
+Tracing of those locks just seems confused - perhaps the pernet stuff is
+confusing loopback?
+
+> Of course, if there are two different devices this could be safe, but
+> not always (e.g. thread1 has dev_eth0->ingress_lock and wants
+> dev_eth1->queue_lock, thread2 has dev_eth1->ingress_lock, wants
+> dev_eth0->qdisc_lock, and thread3 has dev_eth0->qdisc_lock and wants
+> dev_eth0->ingress_lock). With ifb this shouldn't be the case, but
+> anyway we have to tell lockdep that ifb uses a different pair of locks.
+
+thread3 can not happen because we dont allow it (the other 2 are not
+contentious).
+There are cases where redirecting will cause you problems (example if
+you redirected to yourself and cause an infinite redirect) which are
+listed in iproute2/doc. Denys script is fine afaics.
 
 
-> > locks(ethx, ifbx, and loopback). Smells like lockdep is getting it wrong?
-> No idea, i have strange lockup's on my systems where i have ifb, and that 
-> make me worry. And i feel it is directly related with my love to use ifb 
-> devices and way how i am using them.
 
-I will like to help resolve it - if i can reproduce it i can fix it. I
-love the fact you love to use ifb. I am going to try later on 2.6.25-rc4
-that you are running.
 
-> > This sounds like a different issue from above - when did this start 
-> > to happen? Is it at the same time as above warnings showing up?
-> 
-> Yes, it is different issue seems, it is rare to lockup system , and i will 
-> dig more, to understand how it is happening.
-
-Are you running std kernels or do you have some other patches?
-
-cheers,
-jamal
 
