@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [BUILD_FAILURE] linux-next: Tree for March 6 build failure
-Date: Thu, 06 Mar 2008 11:12:39 -0800 (PST)
-Message-ID: <20080306.111239.85901884.davem@davemloft.net>
-References: <20080306162606.970aefe1.sfr@canb.auug.org.au>
-	<47CFF332.4040807@linux.vnet.ibm.com>
+Subject: Re: [PATCHv8 1/2] Interface group: core and netlink part
+Date: Thu, 06 Mar 2008 11:15:19 -0800 (PST)
+Message-ID: <20080306.111519.46454329.davem@davemloft.net>
+References: <12048121721361-git-send-email-panther@balabit.hu>
+	<1204812239968-git-send-email-panther@balabit.hu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	apw@shadowen.org
-To: kamalesh@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org
+To: panther@balabit.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37255
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57720
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1761962AbYCFTMk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 14:12:40 -0500
-In-Reply-To: <47CFF332.4040807@linux.vnet.ibm.com>
+	by vger.kernel.org with ESMTP id S1755352AbYCFTPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 14:15:22 -0500
+In-Reply-To: <1204812239968-git-send-email-panther@balabit.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-Date: Thu, 06 Mar 2008 19:05:46 +0530
+From: Laszlo Attila Toth <panther@balabit.hu>
+Date: Thu,  6 Mar 2008 15:03:58 +0100
 
-> The kernel build fails with error
+> Interface groups let handle different interfaces together.
+> Modified net device structure and netlink interface.
 > 
-> net/built-in.o(.toc1+0x2060): undefined reference to `udplite_statistics'
-> net/built-in.o(.toc1+0x2100): undefined reference to `udplite_statistics'
-> make: *** [.tmp_vmlinux1] Error 1
+> Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
 
-Please provide your .config so that others have a chance
-to reproduce and fix this.
+I can't say whether this makes sense without seeing how
+it will actually be used.
 
-Thank you.
+And both of your patches here do nothing but set and
+read this group value, making it useless.
+
+If that's all it is, userland can record such mappings
+in the filesystem or elsewhere such that multiple
+applications can work with and maintain the relationships.
+There is zero reason to add this bloat to the kernel in
+such a case.
