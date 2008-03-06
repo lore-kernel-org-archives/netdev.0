@@ -1,34 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2][PPPOL2TP]: Fix SMP issues in skb reorder queue
- handling
-Date: Wed, 05 Mar 2008 18:40:14 -0800 (PST)
-Message-ID: <20080305.184014.240862635.davem@davemloft.net>
-References: <200803052320.m25NKdVP003905@quickie.katalix.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [patch (for 2.6.25?) 2/2] bluetooth: CONWISE Technology based
+ adapters with buggy SCO support (bugzilla #9027)
+Date: Wed, 05 Mar 2008 18:44:03 -0800 (PST)
+Message-ID: <20080305.184403.58829596.davem@davemloft.net>
+References: <200803042258.m24Mw8UK001381@imap1.linux-foundation.org>
+	<CAB9A765-5115-4F9F-A867-44E0CDECF86F@holtmann.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jarkao2@gmail.com
-To: jchapman@katalix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42747
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759312AbYCFCkO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 21:40:14 -0500
-In-Reply-To: <200803052320.m25NKdVP003905@quickie.katalix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	sdiz-A7iEm+J7xfE@public.gmane.org
+To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAB9A765-5115-4F9F-A867-44E0CDECF86F-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: James Chapman <jchapman@katalix.com>
-Date: Wed, 5 Mar 2008 23:20:39 GMT
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Date: Wed, 5 Mar 2008 09:46:19 +0100
 
-> When walking a session's packet reorder queue, use
-> skb_queue_walk_safe() since the list could be modified inside the
-> loop.
+> Hi Andrew,
 > 
-> Rearrange the unlinking skbs from the reorder queue such that it
-> is done while the queue lock is held in pppol2tp_recv_dequeue() when
-> walking the skb list.
+> > diff -puN drivers/bluetooth/hci_usb.c~bluetooth-conwise-technology- 
+> > based-adapters-with-buggy-sco-support-bugzilla-9027 drivers/ 
+> > bluetooth/hci_usb.c
+> > --- a/drivers/bluetooth/hci_usb.c~bluetooth-conwise-technology-based- 
+> > adapters-with-buggy-sco-support-bugzilla-9027
+> > +++ a/drivers/bluetooth/hci_usb.c
+> > @@ -148,6 +148,9 @@ static struct usb_device_id blacklist_id
+> > 	{ USB_DEVICE(0x0400, 0x0807), .driver_info = HCI_BROKEN_ISOC },
+> > 	{ USB_DEVICE(0x0400, 0x080a), .driver_info = HCI_BROKEN_ISOC },
+> >
+> > +	/* CONWISE Technology based adapters with buggy SCO support */
+> > +	{ USB_DEVICE(0x0e5e, 0x6622), .driver_info = HCI_BROKEN_ISOC },
 > 
-> Signed-off-by: James Chapman <jchapman@katalix.com>
+> this is the one with the proper description and acked by me. Please  
+> drop the other one.
 
-Also applied, th anks.
+I've added this to net-2.6
+--
+To unsubscribe from this list: send the line "unsubscribe linux-bluetooth" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
