@@ -1,92 +1,136 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: Re: circular locking, mirred, 2.6.24.2
-Date: Thu, 6 Mar 2008 17:50:59 +0200
-Message-ID: <20080306143910.M91001@visp.net.lb>
-References: <20080224222035.M62480@visp.net.lb> <20080225095646.GA4321@ff.dom.local> <20080225104652.M2446@visp.net.lb> <20080225113930.GA4733@ff.dom.local> <20080305103935.M76165@visp.net.lb> <20080306134015.GA4571@ff.dom.local>  <20080306135625.M25627@visp.net.lb> <1204813634.4440.59.camel@localhost>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [NET] ioc3.c: replace remaining __FUNCTION__ occurrences
+Date: Thu, 6 Mar 2008 15:55:09 +0000
+Message-ID: <20080306155509.GA16365@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: Harvey Harrison <harvey.harrison@gmail.com>
+To: Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:52153 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755207AbYCFPvS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 10:51:18 -0500
-In-Reply-To: <1204813634.4440.59.camel@localhost>
+Received: from ftp.linux-mips.org ([194.74.144.162]:47041 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933400AbYCFPzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 10:55:18 -0500
+Received: from localhost.localdomain ([127.0.0.1]:48827 "EHLO
+	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
+	id S28603680AbYCFPzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2008 15:55:16 +0000
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 06 Mar 2008 09:27:14 -0500, jamal wrote
-> On Thu, 2008-06-03 at 15:57 +0200, Denys Fedoryshchenko wrote:
-> > I am able to reproduce this warning over this relatively simple shell 
-script
-> > on my Gentoo PC (2.6.25-rc3).
-> > http://www.nuclearcat.com/files/bug_feb.txt
-> >
-> 
-> That script looks pretty sane to me - nothing super-exciting. I suspect
-> you eventually want them all to look like ifb1 on the egress.
-> Do you see the same issue without the ifb1 speacial case?
-Well, i am able to reproduce in much more trivial script. Tested 2.6.25-rc4 
-also.
+From: Harvey Harrison <harvey.harrison@gmail.com>
 
-modprobe ifb
-ifconfig ifb0 up
-TC=/sbin/tc
-$TC qdisc del dev eth0 ingress 1>/dev/null 2>/dev/null
-$TC qdisc add dev eth0 ingress
-${TC} filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
-      match u32 0 0 flowid 1:1 \
-      action mirred egress redirect dev ifb0
+__FUNCTION__ is gcc-specific, use __func__
 
-> 
-> > Probably it will help to debug issue for more experienced developers. 
-Note:
-> > it appears not immediately, second time i tested, it's appeared after 
-while,
-> > but in matter of seconds.
-> 
-> I wonder is there some latency from the moment you insmod ifb to the
-> moment the tc rules take effect? Will it still happen if you dont 
-> have modules? Also note, that lock dependency is a bit strange,
->  Jarek correct me if i am wrong; it seems to say: a packet received 
-> on ingress of some e1000 (ethx) gets acted on by mirred which ends 
-> grabbing lock of an ifb device - this part should be fine and no 
-> need for the alarm. The alarm seems to be a result of a loopback 
-> device that is being registered in between the two activities.
-> i.e there are three devices affected with entirely different 
-> locks(ethx, ifbx, and loopback). Smells like lockdep is getting it wrong?
-No idea, i have strange lockup's on my systems where i have ifb, and that 
-make me worry. And i feel it is directly related with my love to use ifb 
-devices and way how i am using them.
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-> 
-> > Note - it can stop traffic on PC completely. It is also seems crashed my 
-> > desktop PC, i am not able to execute "tc qdisc del dev eth0 root".
-> > The system hang completely. I had few similar issues on my PPPoE servers 
-> > (with different scripts for shapers), that system hang, and even "reboot -
-f" 
-> > doesn't work sometimes.
-> 
-> This sounds like a different issue from above - when did this start 
-> to happen? Is it at the same time as above warnings showing up?
+ drivers/sn/ioc3.c |   22 +++++++++++-----------
+ 1 files changed, 11 insertions(+), 11 deletions(-)
 
-Yes, it is different issue seems, it is rare to lockup system , and i will 
-dig more, to understand how it is happening.
-
-> 
-> cheers,
-> jamal
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
-
+diff --git a/drivers/sn/ioc3.c b/drivers/sn/ioc3.c
+index 29fcd6d..c083274 100644
+--- a/drivers/sn/ioc3.c
++++ b/drivers/sn/ioc3.c
+@@ -561,7 +561,7 @@ void ioc3_unregister_submodule(struct ioc3_submodule *is)
+ 					printk(KERN_WARNING
+ 					       "%s: IOC3 submodule %s remove failed "
+ 					       "for pci_dev %s.\n",
+-					       __FUNCTION__, module_name(is->owner),
++					       __func__, module_name(is->owner),
+ 					       pci_name(idd->pdev));
+ 			idd->active[is->id] = 0;
+ 			if(is->irq_mask)
+@@ -611,7 +611,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
+ 	if ((ret = pci_enable_device(pdev))) {
+ 		printk(KERN_WARNING
+ 		       "%s: Failed to enable IOC3 device for pci_dev %s.\n",
+-		       __FUNCTION__, pci_name(pdev));
++		       __func__, pci_name(pdev));
+ 		goto out;
+ 	}
+ 	pci_set_master(pdev);
+@@ -623,7 +623,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
+                 if (ret < 0) {
+                         printk(KERN_WARNING "%s: Unable to obtain 64 bit DMA "
+                                "for consistent allocations\n",
+-				__FUNCTION__);
++				__func__);
+                 }
+ 	}
+ #endif
+@@ -633,7 +633,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
+ 	if (!idd) {
+ 		printk(KERN_WARNING
+ 		       "%s: Failed to allocate IOC3 data for pci_dev %s.\n",
+-		       __FUNCTION__, pci_name(pdev));
++		       __func__, pci_name(pdev));
+ 		ret = -ENODEV;
+ 		goto out_idd;
+ 	}
+@@ -649,7 +649,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
+ 		printk(KERN_WARNING
+ 		       "%s: Unable to find IOC3 resource "
+ 		       "for pci_dev %s.\n",
+-		       __FUNCTION__, pci_name(pdev));
++		       __func__, pci_name(pdev));
+ 		ret = -ENODEV;
+ 		goto out_pci;
+ 	}
+@@ -657,7 +657,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
+ 		printk(KERN_WARNING
+ 		       "%s: Unable to request IOC3 region "
+ 		       "for pci_dev %s.\n",
+-		       __FUNCTION__, pci_name(pdev));
++		       __func__, pci_name(pdev));
+ 		ret = -ENODEV;
+ 		goto out_pci;
+ 	}
+@@ -666,7 +666,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
+ 		printk(KERN_WARNING
+ 		       "%s: Unable to remap IOC3 region "
+ 		       "for pci_dev %s.\n",
+-		       __FUNCTION__, pci_name(pdev));
++		       __func__, pci_name(pdev));
+ 		ret = -ENODEV;
+ 		goto out_misc_region;
+ 	}
+@@ -709,7 +709,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
+ 		} else {
+ 			printk(KERN_WARNING
+ 			       "%s : request_irq fails for IRQ 0x%x\n ",
+-			       __FUNCTION__, pdev->irq);
++			       __func__, pdev->irq);
+ 		}
+ 		if (!request_irq(pdev->irq+2, ioc3_intr_io, IRQF_SHARED,
+ 				 "ioc3-io", (void *)idd)) {
+@@ -717,7 +717,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
+ 		} else {
+ 			printk(KERN_WARNING
+ 			       "%s : request_irq fails for IRQ 0x%x\n ",
+-			       __FUNCTION__, pdev->irq+2);
++			       __func__, pdev->irq+2);
+ 		}
+ 	} else {
+ 		if (!request_irq(pdev->irq, ioc3_intr_io, IRQF_SHARED,
+@@ -726,7 +726,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
+ 		} else {
+ 			printk(KERN_WARNING
+ 			       "%s : request_irq fails for IRQ 0x%x\n ",
+-			       __FUNCTION__, pdev->irq);
++			       __func__, pdev->irq);
+ 		}
+ 	}
+ 
+@@ -769,7 +769,7 @@ static void ioc3_remove(struct pci_dev *pdev)
+ 					printk(KERN_WARNING
+ 					       "%s: IOC3 submodule 0x%s remove failed "
+ 					       "for pci_dev %s.\n",
+-					        __FUNCTION__,
++						__func__,
+ 						module_name(ioc3_submodules[id]->owner),
+ 					        pci_name(pdev));
+ 			idd->active[id] = 0;
