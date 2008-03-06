@@ -1,59 +1,67 @@
-From: Li Yang <leoli@freescale.com>
-Subject: [PATCH] ucc_geth: use correct thread number for 10/100Mbps link
-Date: Thu,  6 Mar 2008 18:48:46 +0800
-Message-ID: <1204800526-11670-1-git-send-email-leoli@freescale.com>
-Cc: netdev@vger.kernel.org,
-	Joakim Tjernlund <Joakim.Tjernlund@transmode.se>,
-	Li Yang <leoli@freescale.com>
-To: jeff@garzik.org
+From: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+Subject: Re: [PATCH-RESEND] Removing unneeded statement from tcp_ipv4.c
+Date: Thu, 06 Mar 2008 11:46:36 +0100
+Message-ID: <47CFCB8C.5070801@nets.rwth-aachen.de>
+References: <47CBFBDA.7000801@nets.rwth-aachen.de>
+ <Pine.LNX.4.64.0803031603100.28251@kivilampi-30.cs.helsinki.fi>
+ <47CC872F.9020202@nets.rwth-aachen.de>
+ <20080305.190003.22581298.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:37758 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756167AbYCFKiU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 05:38:20 -0500
-Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
-	by de01egw01.freescale.net (8.12.11/de01egw01) with ESMTP id m26AcDdV026141
-	for <netdev@vger.kernel.org>; Thu, 6 Mar 2008 03:38:14 -0700 (MST)
-Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
-	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id m26AcBmp011510
-	for <netdev@vger.kernel.org>; Thu, 6 Mar 2008 04:38:12 -0600 (CST)
+Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:55833 "EHLO
+	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1763263AbYCFKpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 05:45:22 -0500
+In-reply-to: <20080305.190003.22581298.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+David Miller schrieb:
+> From: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+> Date: Tue, 04 Mar 2008 00:18:07 +0100
+> 
+>> Avoid setting tstamp_ok because this is done two lines later anyway.
+>>
+>> Signed-off-by: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+> 
+> Patch does not apply, your email client has corrupted the
+> patch by turning tabs into spaces etc.
+> 
+Sorry, this one should apply.
 
-Use thread number of 1 for 10/100Mbps link instead of 4.
+Avoid setting tstamp_ok because this is done two lines later anyway.
 
-Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Signed-off-by: Li Yang <leoli@freescale.com>
----
- drivers/net/ucc_geth.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+Signed-off-by: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index fba0811..8cc3166 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -154,8 +154,8 @@ static struct ucc_geth_info ugeth_primary_info = {
- 	.rxQoSMode = UCC_GETH_QOS_MODE_DEFAULT,
- 	.aufc = UPSMR_AUTOMATIC_FLOW_CONTROL_MODE_NONE,
- 	.padAndCrc = MACCFG2_PAD_AND_CRC_MODE_PAD_AND_CRC,
--	.numThreadsTx = UCC_GETH_NUM_OF_THREADS_4,
--	.numThreadsRx = UCC_GETH_NUM_OF_THREADS_4,
-+	.numThreadsTx = UCC_GETH_NUM_OF_THREADS_1,
-+	.numThreadsRx = UCC_GETH_NUM_OF_THREADS_1,
- 	.riscTx = QE_RISC_ALLOCATION_RISC1_AND_RISC2,
- 	.riscRx = QE_RISC_ALLOCATION_RISC1_AND_RISC2,
- };
-@@ -3975,6 +3975,8 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 		ug_info->uf_info.utfs = UCC_GETH_UTFS_GIGA_INIT;
- 		ug_info->uf_info.utfet = UCC_GETH_UTFET_GIGA_INIT;
- 		ug_info->uf_info.utftt = UCC_GETH_UTFTT_GIGA_INIT;
-+		ug_info->numThreadsTx = UCC_GETH_NUM_OF_THREADS_4;
-+		ug_info->numThreadsRx = UCC_GETH_NUM_OF_THREADS_4;
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 00156bf..ecef356 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1302,15 +1302,14 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 		tmp_opt.saw_tstamp = 0;
  	}
- 
- 	/* Set the bus id */
--- 
-1.5.4
 
+-	if (tmp_opt.saw_tstamp && !tmp_opt.rcv_tsval) {
+-		/* Some OSes (unknown ones, but I see them on web server, which
+-		 * contains information interesting only for windows'
+-		 * users) do not send their stamp in SYN. It is easy case.
+-		 * We simply do not advertise TS support.
+-		 */
++	/* Some OSes (unknown ones, but I see them on web server, which
++	 * contains information interesting only for windows'
++	 * users) do not send their stamp in SYN. It is easy case.
++	 * We simply do not advertise TS support.
++	 */
++	if (tmp_opt.saw_tstamp && !tmp_opt.rcv_tsval)
+ 		tmp_opt.saw_tstamp = 0;
+-		tmp_opt.tstamp_ok  = 0;
+-	}
++	
+ 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
+
+ 	tcp_openreq_init(req, &tmp_opt, skb);
