@@ -1,62 +1,41 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] Make /proc/net a symlink on /proc/self/net (v2)
-Date: Thu, 06 Mar 2008 08:57:41 -0700
-Message-ID: <m1od9r26bu.fsf@ebiederm.dsl.xmission.com>
-References: <47CFB6CA.8090001@openvz.org>
+From: "Andrew Brampton" <andrew@bramp.freeserve.co.uk>
+Subject: net_disable_timestamp() needed when disable SO_TIMESTAMP?
+Date: Thu, 6 Mar 2008 15:55:33 -0000
+Message-ID: <044f01c87fa2$844086f0$0a00a8c0@Andrew>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Christoph Hellwig <hch@infradead.org>
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:41874 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757452AbYCFQDm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 11:03:42 -0500
-In-Reply-To: <47CFB6CA.8090001@openvz.org> (Pavel Emelyanov's message of "Thu,
-	06 Mar 2008 12:18:02 +0300")
+Received: from pih-relay05.plus.net ([212.159.14.132]:56251 "EHLO
+	pih-relay05.plus.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755863AbYCFQZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 11:25:21 -0500
+Received: from [80.229.232.206] (helo=Andrew)
+	 by pih-relay05.plus.net with smtp (Exim) id 1JXIRM-0001fq-Vs
+	for netdev@vger.kernel.org; Thu, 06 Mar 2008 15:55:29 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pavel Emelyanov <xemul@openvz.org> writes:
+Hi,
+I'm new to the linux kernel, but I was trying to understand how the kernel 
+records timestamps for each packets and this lead me to net/core/sock.c.
 
-> Current /proc/net is done with so called "shadows", but current
-> implementation is broken and has little chances to get fixed.
->
-> The problem is that dentries subtree of /proc/net directory has
-> fancy revalidation rules to make processes living in different
-> net namespaces see different entries in /proc/net subtree, but
-> currently, tasks see in the /proc/net subdir the contents of any
-> other namespace, depending on who opened the file first.
->
-> The proposed fix is to turn /proc/net into a symlink, which points
-> to /proc/self/net, which in turn shows what previously was in
-> /proc/net - the network-related info, from the net namespace the
-> appropriate task lives in.
->
-> # ls -l /proc/net
-> lrwxrwxrwx  1 root root 8 Mar  5 15:17 /proc/net -> self/net
->
-> In other words - this behaves like /proc/mounts, but unlike
-> "mounts", "net" is not a file, but a directory.
->
-> Fixed a task_struct leak in get_proc_task_net, pointed out by Paul.
->
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Now lines 610-624 (http://lxr.linux.no/linux/net/core/sock.c#L610 ) enable 
+and disable SO_TIMESTAMP, and when enabling sock_enable_timestamp(sk) is 
+called to enable time stamping on the socket. However 
+sock_disable_timestamp() isn't called if SO_TIMESTAMP is being disabled. I 
+was wondering if that was an over sight or done on purpose?
 
-Before I forget.
+I see that sock_disable_timestamp() is eventually called when the socket is 
+freed. I thought it might not be disabled in sock.c if for example it was 
+enabled elsewhere, and it was unclear if it should be disabled or not?
 
-As a future patch we need to implement a d_revalidate rule for
-/proc/<pid>/task/net that will notice we have unshared a network
-namespace and flush all cached dentries for the old network namespace.
+Thanks for any clarity on this.
+Andrew
 
-Since unsharing happens rarely if at all this d_revalidate should
-be relatively cheap, and since the change is real and for everyone
-it will not suffer from the inconsistencies that plagued us when
-working with d_revalidate on /proc/net.
+P.S If it is a bug, I'm going to prepare my first kernel patch :) 
 
-Eric
