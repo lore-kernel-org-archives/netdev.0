@@ -1,63 +1,61 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [PATCH] Make /proc/net a symlink on /proc/self/net
-Date: Wed, 5 Mar 2008 16:22:05 -0800
-Message-ID: <20080306002205.GI8728@linux.vnet.ibm.com>
-References: <47CE8FF7.7000701@openvz.org> <20080305191501.GF8728@linux.vnet.ibm.com> <m1ablc3eo3.fsf@ebiederm.dsl.xmission.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+Date: Wed, 05 Mar 2008 17:24:10 -0700
+Message-ID: <m163w03djp.fsf@ebiederm.dsl.xmission.com>
+References: <47CE8FF7.7000701@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@openvz.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
+Cc: Andrew Morton <akpm@linux-foundation.org>,
 	David Miller <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Alexey Dobriyan <adobriyan@openvz.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:48136 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752109AbYCFAWH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 19:22:07 -0500
-Content-Disposition: inline
-In-Reply-To: <m1ablc3eo3.fsf@ebiederm.dsl.xmission.com>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:47454 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754054AbYCFAZa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 19:25:30 -0500
+In-Reply-To: <47CE8FF7.7000701@openvz.org> (Pavel Emelyanov's message of "Wed,
+	05 Mar 2008 15:20:07 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 05, 2008 at 04:59:56PM -0700, Eric W. Biederman wrote:
-> >> 
-> >> +static struct net *get_proc_task_net(struct inode *dir)
-> >> +{
-> >> +	struct task_struct *task;
-> >> +	struct nsproxy *ns;
-> >> +	struct net *net = NULL;
-> >> +
-> >> +	rcu_read_lock();
-> >> +	task = get_proc_task(dir);
-> >
-> > This implies a get_task_struct(), as get_proc_task() invokes get_proc_task()
-> > which invokes get_pid_task() which invokes get_task_struct().
-> >
-> > I don't see the corresponding put_task_struct() -- what am I missing here?
-> 
-> You aren't.  However we can easily make this:
-> 	task = pid_task(proc_pid(dir), PIDTYPE_PID);
-> And we won't need to increment the count on the task_struct.
+Pavel Emelyanov <xemul@openvz.org> writes:
 
-That looks like it should do the trick!  And the net_get() below
-will allow you to safely export the "net" pointer out of an RCU
-read-side critical section, so with that change looks good to me!
+> Current /proc/net is done with so called "shadows", but current
+> implementation is broken and has little chances to get fixed.
+>
+> The problem is that dentries subtree of /proc/net directory has
+> fancy revalidation rules to make processes living in different
+> net namespaces see different entries in /proc/net subtree, but
+> currently, tasks see in the /proc/net subdir the contents of any
+> other namespace, depending on who opened the file first.
+>
+> The proposed fix is to turn /proc/net into a symlink, which points
+> to /proc/self/net, which in turn shows what previously was in
+> /proc/net - the network-related info, from the net namespace the
+> appropriate task lives in.
+>
+> # ls -l /proc/net
+> lrwxrwxrwx  1 root root 8 Mar  5 15:17 /proc/net -> self/net
+>
+> In other words - this behaves like /proc/mounts, but unlike
+> "mounts", "net" is not a file, but a directory.
 
-						Thanx, Paul
+Overall this looks good, thanks.
 
-> Good catch.
-> 
-> >> +	if (task != NULL) {
-> >> +		ns = task_nsproxy(task);
-> >> +		if (ns != NULL)
-> >> +			net = get_net(ns->net_ns);
-> >> +	}
-> >> +	rcu_read_unlock();
-> >> +
-> >> +	return net;
-> >> +}
-> >> +
+
+As a follow on patch this should be moved from /proc/<pid>/net
+into /proc/<pid>/task/<tid>/net.
+
+We don't have anything that currently forces network namespaces to be
+the same between different tasks of the same task group (I just
+looked), nor do we have a technical reason to require that.
+
+So we should fix our infrastructure to include the companion of
+/proc/self, a /proc/current (which points at the current task)
+after which it should be about a two line change to move this
+from the tgid to the task directory.
+
+Eric
