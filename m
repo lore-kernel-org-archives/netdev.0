@@ -1,91 +1,54 @@
 From: Allan Stephens <allan.stephens@windriver.com>
-Subject: [PATCH 3/7 net-2.6.26] [TIPC]: Eliminate "sparse" symbol warnings
-Date: Thu,  6 Mar 2008 16:34:25 -0500
-Message-ID: <1204839269-30593-4-git-send-email-allan.stephens@windriver.com>
+Subject: [PATCH 6/7 net-2.6.26] [TIPC]: Enhancements to message header writing
+Date: Thu,  6 Mar 2008 16:34:28 -0500
+Message-ID: <1204839269-30593-7-git-send-email-allan.stephens@windriver.com>
 References: <1204839269-30593-1-git-send-email-allan.stephens@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:55388 "EHLO mail.wrs.com"
+Received: from mail.windriver.com ([147.11.1.11]:55395 "EHLO mail.wrs.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763495AbYCFVu3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1764078AbYCFVu3 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 6 Mar 2008 16:50:29 -0500
 In-Reply-To: <1204839269-30593-1-git-send-email-allan.stephens@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch eliminates warnings about undeclared symbols.
+This patch makes two enhancements to the routine used to
+set bit fields within a TIPC message header:
+
+ 1) It now ignores any bits of the new field value that are not
+    covered by the mask being used.  (Previously, if the new value
+    exceeded the size of the mask the extra bits could corrupt
+    other fields in the message header word being updated.)
+
+ 2) The code has been optimized to minimize the number of run-time
+    endianness conversion operations by leveraging the fact that the
+    mask (and, in some cases, the value as well) is constant and the
+    necessary conversion can be performed by the compiler.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 ---
- include/net/tipc/tipc_bearer.h |    9 +++++++++
- net/tipc/core.c                |    8 --------
- net/tipc/core.h                |    6 ++++++
- 3 files changed, 15 insertions(+), 8 deletions(-)
+ net/tipc/msg.h |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/tipc/tipc_bearer.h b/include/net/tipc/tipc_bearer.h
-index 2151a80..ee2f304 100644
---- a/include/net/tipc/tipc_bearer.h
-+++ b/include/net/tipc/tipc_bearer.h
-@@ -99,6 +99,9 @@ struct tipc_bearer {
- 	char name[TIPC_MAX_BEARER_NAME];
- };
- 
-+/*
-+ * TIPC routines available to supported media types
-+ */
- 
- int  tipc_register_media(u32 media_type,
- 			 char *media_name, 
-@@ -123,6 +126,12 @@ void tipc_continue(struct tipc_bearer *tb_ptr);
- int tipc_enable_bearer(const char *bearer_name, u32 bcast_scope, u32 priority);
- int tipc_disable_bearer(const char *name);
- 
-+/*
-+ * Routines made available to TIPC by supported media types
-+ */
-+
-+int  tipc_eth_media_start(void);
-+void tipc_eth_media_stop(void);
- 
- #endif
- 
-diff --git a/net/tipc/core.c b/net/tipc/core.c
-index 9a5eb97..b41b0ac 100644
---- a/net/tipc/core.c
-+++ b/net/tipc/core.c
-@@ -48,14 +48,6 @@
- #include "subscr.h"
- #include "config.h"
- 
--int  tipc_eth_media_start(void);
--void tipc_eth_media_stop(void);
--int  tipc_handler_start(void);
--void tipc_handler_stop(void);
--int  tipc_socket_init(void);
--void tipc_socket_stop(void);
--int  tipc_netlink_start(void);
--void tipc_netlink_stop(void);
- 
- #define TIPC_MOD_VER "1.6.2"
- 
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index feabca5..3fe9b70 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -180,6 +180,12 @@ extern int  tipc_core_start(void);
- extern void tipc_core_stop(void);
- extern int  tipc_core_start_net(void);
- extern void tipc_core_stop_net(void);
-+extern int  tipc_handler_start(void);
-+extern void tipc_handler_stop(void);
-+extern int  tipc_netlink_start(void);
-+extern void tipc_netlink_stop(void);
-+extern int  tipc_socket_init(void);
-+extern void tipc_socket_stop(void);
- 
- static inline int delimit(int val, int min, int max)
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index 88a2ee0..6ad070d 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -70,8 +70,10 @@ static inline void msg_set_bits(struct tipc_msg *m, u32 w,
+ 				u32 pos, u32 mask, u32 val)
  {
+ 	val = (val & mask) << pos;
+-	m->hdr[w] &= ~htonl(mask << pos);
+-	m->hdr[w] |= htonl(val);
++	val = htonl(val);
++	mask = htonl(mask << pos);
++	m->hdr[w] &= ~mask;
++	m->hdr[w] |= val;
+ }
+ 
+ /*
 -- 
 1.5.3.2
 
