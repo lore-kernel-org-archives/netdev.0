@@ -1,44 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH]kernel crashes when using aes-xcbc-mac with IPsec
-Date: Thu, 6 Mar 2008 19:29:46 +0800
-Message-ID: <20080306112946.GA7083@gondor.apana.org.au>
-References: <200803051451.m25EpKv8016389@faith.austin.ibm.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH] Make /proc/net a symlink on /proc/self/net (v2)
+Date: Thu, 6 Mar 2008 07:24:40 -0500
+Message-ID: <20080306122440.GA28561@infradead.org>
+References: <47CFB6CA.8090001@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-crypto@vger.kernel, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Joy Latten <latten@austin.ibm.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:40005 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755962AbYCFLaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 06:30:10 -0500
+Received: from bombadil.infradead.org ([18.85.46.34]:34418 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753939AbYCFMYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 07:24:48 -0500
 Content-Disposition: inline
-In-Reply-To: <200803051451.m25EpKv8016389@faith.austin.ibm.com>
+In-Reply-To: <47CFB6CA.8090001@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 05, 2008 at 08:51:20AM -0600, Joy Latten wrote:
-> When using aes-xcbc-mac for authentication in IPsec, 
-> the kernel crashes. It seems this algorithm doesn't 
-> account for the space IPsec may make in scatterlist for authtag.
-> Thus when crypto_xcbc_digest_update2() gets called,
-> nbytes may be less than sg[i].length. 
-> Since nbytes is an unsigned number, it wraps
-> at the end of the loop allowing us to go back 
-> into loop and causing crash in memcpy.
+On Thu, Mar 06, 2008 at 12:18:02PM +0300, Pavel Emelyanov wrote:
+> Current /proc/net is done with so called "shadows", but current
+> implementation is broken and has little chances to get fixed.
 > 
-> I used update function in digest.c to model this fix.
-> Please let me know if it looks ok.
+> The problem is that dentries subtree of /proc/net directory has
+> fancy revalidation rules to make processes living in different
+> net namespaces see different entries in /proc/net subtree, but
+> currently, tasks see in the /proc/net subdir the contents of any
+> other namespace, depending on who opened the file first.
 > 
-> regards,
-> Joy 
-> 
-> Signed-off-by: Joy Latten <latten@austin.ibm.com>
+> The proposed fix is to turn /proc/net into a symlink, which points
+> to /proc/self/net, which in turn shows what previously was in
+> /proc/net - the network-related info, from the net namespace the
+> appropriate task lives in.
 
-Good catch! Patch applied, thanks Joy.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Yes, that's a much better way to get this functionality.
+
