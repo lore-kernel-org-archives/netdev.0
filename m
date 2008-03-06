@@ -1,65 +1,72 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: circular locking, mirred, 2.6.24.2
-Date: Thu, 06 Mar 2008 09:27:14 -0500
-Message-ID: <1204813634.4440.59.camel@localhost>
-References: <20080224222035.M62480@visp.net.lb>
-	 <20080225095646.GA4321@ff.dom.local> <20080225104652.M2446@visp.net.lb>
-	 <20080225113930.GA4733@ff.dom.local> <20080305103935.M76165@visp.net.lb>
-	 <20080306134015.GA4571@ff.dom.local>  <20080306135625.M25627@visp.net.lb>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: replace horrible hack with ksize()
+Date: Thu, 06 Mar 2008 15:35:57 +0100
+Message-ID: <47D0014D.1060901@trash.net>
+References: <Pine.LNX.4.64.0803052319210.15759@sbz-30.cs.Helsinki.FI> <47CFF9B7.5060803@trash.net> <Pine.LNX.4.64.0803061612290.4202@sbz-30.cs.Helsinki.FI> <Pine.LNX.4.64.0803061618090.4378@sbz-30.cs.Helsinki.FI>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.187]:2157 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754971AbYCFO1S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 09:27:18 -0500
-Received: by rv-out-0910.google.com with SMTP id k20so1262833rvb.1
-        for <netdev@vger.kernel.org>; Thu, 06 Mar 2008 06:27:17 -0800 (PST)
-In-Reply-To: <20080306135625.M25627@visp.net.lb>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>, clameter@sgi.com,
+	joe@perches.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Pekka J Enberg <penberg@cs.helsinki.fi>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0803061618090.4378@sbz-30.cs.Helsinki.FI>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2008-06-03 at 15:57 +0200, Denys Fedoryshchenko wrote:
-> I am able to reproduce this warning over this relatively simple shell script
-> on my Gentoo PC (2.6.25-rc3).
-> http://www.nuclearcat.com/files/bug_feb.txt
+Pekka J Enberg wrote:
+> On Thu, 6 Mar 2008, Pekka J Enberg wrote:
+>>>> -	if (newlen >= ct->ext->real_len) {
+>>>> +	if (newlen >= ksize(ct->ext)) {
+>>> This needs to look at the currently allocated size, otherwise
+>>> it will always realloc when adding new extensions after having
+>>> used up ksize(ct->ext) space.
+>> Lets say you
+>>
+>>   p = kmalloc(8, ...);
+>>
+>> Then ksize(p) will return the currently allocated size which is 32 bytes 
+>> when page size is 4 KB, and not 8 bytes. So it should be equivalent of 
+>> what the current code does.
+>>
+>> What am I missing here?
 > 
-
-That script looks pretty sane to me - nothing super-exciting. I suspect
-you eventually want them all to look like ifb1 on the egress.
-Do you see the same issue without the ifb1 speacial case?
-
-> Probably it will help to debug issue for more experienced developers. Note:
-> it appears not immediately, second time i tested, it's appeared after while,
-> but in matter of seconds.
-
-I wonder is there some latency from the moment you insmod ifb to the
-moment the tc rules take effect? Will it still happen if you dont have
-modules?
-Also note, that lock dependency is a bit strange, Jarek correct me if i
-am wrong; it seems to say:
-a packet received on ingress of some e1000 (ethx) gets acted on by
-mirred which ends grabbing lock of an ifb device - this part should be
-fine and no need for the alarm. The alarm seems to be a result of a
-loopback device that is being registered in between the two activities.
-i.e there are three devices affected with entirely different locks(ethx,
-ifbx, and loopback). Smells like lockdep is getting it wrong?
-
-> Note - it can stop traffic on PC completely. It is also seems crashed my 
-> desktop PC, i am not able to execute "tc qdisc del dev eth0 root".
-> The system hang completely. I had few similar issues on my PPPoE servers 
-> (with different scripts for shapers), that system hang, and even "reboot -f" 
-> doesn't work sometimes.
-
-This sounds like a different issue from above - when did this start to
-happen? Is it at the same time as above warnings showing up?
-
-cheers,
-jamal
+> Ok, it's not equivalent. We have two sizes: object size (8 bytes) and 
+> buffer size (32 bytes) here. In netfilter, ->real_len is same as object 
+> size, not buffer size as ksize() is.
+> 
+> But now I am officially even more confused, why does the netfilter code 
+> decided whether to reallocate based on _object size_ and not _buffer size_ 
+> (as krealloc() does, for example)?
 
 
+It decides to reallocate when the remaining space isn't enough
+to hold the new data. NF_CT_EXT_MIN_SIZE is used to make sure it
+doesn't allocate anything smaller than the minimum slab size and
+hopefully avoid reallocations in the future. Unless I'm
+misunderstanding what ksize() does, the easiest way to get
+rid of this would be to replace NF_CT_EXT_MIN_SIZE by ksize(0).
+
+Even better would be to not only avoid waste on the first allocation,
+but also on reallocations. This would look something like this:
+
+__nf_ct_ext_add():
+{
+         struct nf_ct_ext *new;
+-       int i, newlen, newoff;
++	int i, newlen, newoff, reallen;
+...
+         if (newlen >= ct->ext->real_len) {
++		reallen = ksize(newlen);
+-               new = kmalloc(newlen, gfp);
++		new = kmalloc(reallen, gfp);
+                 if (!new)
+                         return NULL;
+...
+-               new->real_len = newlen;
++		new->real_len = reallen;
+                 ct->ext = new;
+         }
 
