@@ -1,35 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/2] bluetooth: make bnep_sock_cleanup() return void
-Date: Wed, 05 Mar 2008 18:47:55 -0800 (PST)
-Message-ID: <20080305.184755.76159563.davem@davemloft.net>
-References: <200803042318.m24NIOc3002607@imap1.linux-foundation.org>
+From: Nick Piggin <npiggin@suse.de>
+Subject: Re: [rfc][patch 1/3] slub: fix small HWCACHE_ALIGN alignment
+Date: Thu, 6 Mar 2008 03:49:04 +0100
+Message-ID: <20080306024904.GA27150@wotan.suse.de>
+References: <Pine.LNX.4.64.0803031107130.6917@schroedinger.engr.sgi.com> <20080303200613.GC8974@wotan.suse.de> <Pine.LNX.4.64.0803031209570.16049@schroedinger.engr.sgi.com> <20080303201701.GF8974@wotan.suse.de> <Pine.LNX.4.64.0803031315160.4131@schroedinger.engr.sgi.com> <84144f020803031330i2c0ea1f6kc5b02c8b26145797@mail.gmail.com> <Pine.LNX.4.64.0803031331340.4375@schroedinger.engr.sgi.com> <47CC6F30.50802@cs.helsinki.fi> <20080305002821.GD1510@wotan.suse.de> <Pine.LNX.4.64.0803051254570.30742@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: marcel@holtmann.org, hidave.darkstar@gmail.com,
-	netdev@vger.kernel.org, linux-bluetooth@vger.kerenl.org,
-	tklauser@distanz.ch
-To: akpm@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
+	Eric Dumazet <dada1@cosmosbay.com>
+To: Christoph Lameter <clameter@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56000
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1762123AbYCFCrz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Mar 2008 21:47:55 -0500
-In-Reply-To: <200803042318.m24NIOc3002607@imap1.linux-foundation.org>
+Received: from mx2.suse.de ([195.135.220.15]:42299 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755875AbYCFCtH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Mar 2008 21:49:07 -0500
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0803051254570.30742@schroedinger.engr.sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: akpm@linux-foundation.org
-Date: Tue, 04 Mar 2008 15:18:24 -0800
-
-> From: Tobias Klauser <tklauser@distanz.ch>
+On Wed, Mar 05, 2008 at 12:56:33PM -0800, Christoph Lameter wrote:
+> On Wed, 5 Mar 2008, Nick Piggin wrote:
 > 
-> bnep_sock_cleanup() always returns 0 and its return value isn't used
-> anywhere in the code.
+> > It started out as a SLUB regression that was exposing poor code in the
+> > percpu allocator due to different SLUB kmalloc alignments. That prompted
 > 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-> Cc: Marcel Holtmann <marcel@holtmann.org>
-> Cc: Dave Young <hidave.darkstar@gmail.com>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> That was due to SLUB's support for smaller allocation sizes. AFAICT has 
+> nothing to do with alignment.
 
-Applied.
+The smaller sizes meant objects were less often aligned on cacheline
+boundaries.
+
+ 
+> > The SMP flag was just an RFC. I think some people (like Christoph) were
+> > being confused about the HWCACHE_ALIGN flag being for avoiding false
+> > sharing on SMP systems. It would actually be also generally useful to
+> > have the SMP flag (eg. see the sites I added it to in patch #3).
+> 
+> Hmmm. We could define a global constant for that? Determine it on bootup 
+> and then pass it as an alignment parameter?
+  
+We could, but I'd rather just use the flag.
+
