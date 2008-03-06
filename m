@@ -1,39 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv8 1/2] Interface group: core and netlink part
-Date: Thu, 06 Mar 2008 11:15:19 -0800 (PST)
-Message-ID: <20080306.111519.46454329.davem@davemloft.net>
-References: <12048121721361-git-send-email-panther@balabit.hu>
-	<1204812239968-git-send-email-panther@balabit.hu>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [E1000-devel] [PATCH 2/4] [RFC] e1000: make ioport free for	supported
+ devices
+Date: Thu, 06 Mar 2008 11:35:17 -0800
+Message-ID: <47D04775.7020002@intel.com>
+References: <20080303223731.16344.94975.stgit@localhost.localdomain>	<20080303223737.16344.16498.stgit@localhost.localdomain> <47CE84BB.1010408@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: panther@balabit.hu
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57720
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755352AbYCFTPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 14:15:22 -0500
-In-Reply-To: <1204812239968-git-send-email-panther@balabit.hu>
+Received: from mga03.intel.com ([143.182.124.21]:7542 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754092AbYCFTjl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2008 14:39:41 -0500
+In-Reply-To: <47CE84BB.1010408@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Laszlo Attila Toth <panther@balabit.hu>
-Date: Thu,  6 Mar 2008 15:03:58 +0100
-
-> Interface groups let handle different interfaces together.
-> Modified net device structure and netlink interface.
+Jeff Garzik wrote:
+> Auke Kok wrote:
+>> From: Tomohiro Kusumi <kusumi.tomohiro@jp.fujitsu.com>
+>>
+>> Most e1000 devices do not need ioport access to function properly.
+>> This is desirable for a few massive homed systems where ioport
+>> resources become constrained.
+>>
+>> This patch is based on the code from Tomohiro Kusumi, heavily
+>> modified to fit PCI API changes and e1000 driver changes.
+>>
+>> Signed-off-by: Tomohiro Kusumi <kusumi.tomohiro@jp.fujitsu.com>
+>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 > 
-> Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
+> I don't think you need pci_select_bars()?  It should just be 
+> pci_enable_device_mem() in both paths AFAICS...
 
-I can't say whether this makes sense without seeing how
-it will actually be used.
+honestly I don't know :) - I'll look into it. if that's the case then the patch
+will change significantly.
 
-And both of your patches here do nothing but set and
-read this group value, making it useless.
+thanks,
 
-If that's all it is, userland can record such mappings
-in the filesystem or elsewhere such that multiple
-applications can work with and maintain the relationships.
-There is zero reason to add this bloat to the kernel in
-such a case.
+Auke
