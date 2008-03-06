@@ -1,71 +1,148 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: circular locking, mirred, 2.6.24.2
-Date: Thu, 6 Mar 2008 22:40:00 +0100
-Message-ID: <20080306214000.GC2876@ami.dom.local>
-References: <20080224222035.M62480@visp.net.lb> <20080225095646.GA4321@ff.dom.local> <20080225104652.M2446@visp.net.lb> <20080225113930.GA4733@ff.dom.local> <20080305103935.M76165@visp.net.lb> <20080306134015.GA4571@ff.dom.local> <1204811995.4440.30.camel@localhost> <20080306175629.GA2876@ami.dom.local> <1204836523.4457.103.camel@localhost>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [PATCH] ivp4: igmp.c remove __inline__ and old changelog
+Date: Thu, 06 Mar 2008 11:31:03 -0800
+Message-ID: <1204831863.23455.1.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:11812 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752547AbYCFVe1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 16:34:27 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so4011505ugc.16
-        for <netdev@vger.kernel.org>; Thu, 06 Mar 2008 13:34:25 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1204836523.4457.103.camel@localhost>
+Received: from wa-out-1112.google.com ([209.85.146.177]:58351 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753385AbYCFVhF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 16:37:05 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so83343wah.23
+        for <netdev@vger.kernel.org>; Thu, 06 Mar 2008 13:37:01 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 06, 2008 at 03:48:42PM -0500, jamal wrote:
-> On Thu, 2008-06-03 at 18:56 +0100, Jarek Poplawski wrote:
-> 
-> > Every netdevice after register_netdevice() has its queue_lock and
-> > ingress_lock initialized with the same static lock_class_keys, so unless
-> > changed later, these locks are treated by lockdep as 2 global locks.
-> >  So, taking such locks with different order should be reported. 
-> 
-> ok.
-> 
-> > This really
-> > happens in act_mirred, and I don't know yet, why this wasn't reported
-> > earlier.
-> 
-> Look closely at those traces again ;-> there are *three* different
-> netdevices involved, one (loopback) seems to be _totaly_ unrelated.
-> Tracing of those locks just seems confused - perhaps the pernet stuff is
-> confusing loopback?
+Also move EXPORT_SYMBOL() next to the function they export.
 
-But currently lockdep doesn't know dev->queue_lock could mean eth or lo.
-It sees one class of devices using one lock. We can let it know (e.g.
-dev->_xmit_lock is different according to dev->type), but it wasn't
-necessary. I hope it will suffice here if lockdep knows more about ifb,
-but similar problem could theoretically happen with other devs.
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+Dave, would you be interested in a follow-on janitor patch for
+some of the stylistic stuff in this file?
 
-> > Of course, if there are two different devices this could be safe, but
-> > not always (e.g. thread1 has dev_eth0->ingress_lock and wants
-> > dev_eth1->queue_lock, thread2 has dev_eth1->ingress_lock, wants
-> > dev_eth0->qdisc_lock, and thread3 has dev_eth0->qdisc_lock and wants
+ net/ipv4/igmp.c |   64 ++++--------------------------------------------------
+ 1 files changed, 5 insertions(+), 59 deletions(-)
 
-Sorry, should be:
- dev_eth0->queue_lock, and thread3 has dev_eth0->queue_lock and wants
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 732cd07..3a27222 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -17,59 +17,6 @@
+  *	modify it under the terms of the GNU General Public License
+  *	as published by the Free Software Foundation; either version
+  *	2 of the License, or (at your option) any later version.
+- *
+- *	Fixes:
+- *
+- *		Alan Cox	:	Added lots of __inline__ to optimise
+- *					the memory usage of all the tiny little
+- *					functions.
+- *		Alan Cox	:	Dumped the header building experiment.
+- *		Alan Cox	:	Minor tweaks ready for multicast routing
+- *					and extended IGMP protocol.
+- *		Alan Cox	:	Removed a load of inline directives. Gcc 2.5.8
+- *					writes utterly bogus code otherwise (sigh)
+- *					fixed IGMP loopback to behave in the manner
+- *					desired by mrouted, fixed the fact it has been
+- *					broken since 1.3.6 and cleaned up a few minor
+- *					points.
+- *
+- *		Chih-Jen Chang	:	Tried to revise IGMP to Version 2
+- *		Tsu-Sheng Tsao		E-mail: chihjenc@scf.usc.edu and tsusheng@scf.usc.edu
+- *					The enhancements are mainly based on Steve Deering's
+- * 					ipmulti-3.5 source code.
+- *		Chih-Jen Chang	:	Added the igmp_get_mrouter_info and
+- *		Tsu-Sheng Tsao		igmp_set_mrouter_info to keep track of
+- *					the mrouted version on that device.
+- *		Chih-Jen Chang	:	Added the max_resp_time parameter to
+- *		Tsu-Sheng Tsao		igmp_heard_query(). Using this parameter
+- *					to identify the multicast router version
+- *					and do what the IGMP version 2 specified.
+- *		Chih-Jen Chang	:	Added a timer to revert to IGMP V2 router
+- *		Tsu-Sheng Tsao		if the specified time expired.
+- *		Alan Cox	:	Stop IGMP from 0.0.0.0 being accepted.
+- *		Alan Cox	:	Use GFP_ATOMIC in the right places.
+- *		Christian Daudt :	igmp timer wasn't set for local group
+- *					memberships but was being deleted,
+- *					which caused a "del_timer() called
+- *					from %p with timer not initialized\n"
+- *					message (960131).
+- *		Christian Daudt :	removed del_timer from
+- *					igmp_timer_expire function (960205).
+- *             Christian Daudt :       igmp_heard_report now only calls
+- *                                     igmp_timer_expire if tm->running is
+- *                                     true (960216).
+- *		Malcolm Beattie :	ttl comparison wrong in igmp_rcv made
+- *					igmp_heard_query never trigger. Expiry
+- *					miscalculation fixed in igmp_heard_query
+- *					and random() made to return unsigned to
+- *					prevent negative expiry times.
+- *		Alexey Kuznetsov:	Wrong group leaving behaviour, backport
+- *					fix from pending 2.1.x patches.
+- *		Alan Cox:		Forget to enable FDDI support earlier.
+- *		Alexey Kuznetsov:	Fixed leaving groups on device down.
+- *		Alexey Kuznetsov:	Accordance to igmp-v2-06 draft.
+- *		David L Stevens:	IGMPv3 support, with help from
+- *					Vinay Kulkarni
+  */
+ 
+ #include <linux/module.h>
+@@ -164,7 +111,7 @@ static void ip_ma_put(struct ip_mc_list *im)
+  *	Timer management
+  */
+ 
+-static __inline__ void igmp_stop_timer(struct ip_mc_list *im)
++static void igmp_stop_timer(struct ip_mc_list *im)
+ {
+ 	spin_lock_bh(&im->lock);
+ 	if (del_timer(&im->timer))
+@@ -1244,6 +1191,7 @@ void ip_mc_inc_group(struct in_device *in_dev, __be32 addr)
+ out:
+ 	return;
+ }
++EXPORT_SYMBOL(ip_mc_inc_group);
+ 
+ /*
+  *	Resend IGMP JOIN report; used for bonding.
+@@ -1266,6 +1214,7 @@ void ip_mc_rejoin_group(struct ip_mc_list *im)
+ 	igmp_ifc_event(in_dev);
+ #endif
+ }
++EXPORT_SYMBOL(ip_mc_rejoin_group);
+ 
+ /*
+  *	A socket has left a multicast group on device dev
+@@ -1295,6 +1244,7 @@ void ip_mc_dec_group(struct in_device *in_dev, __be32 addr)
+ 		}
+ 	}
+ }
++EXPORT_SYMBOL(ip_mc_dec_group);
+ 
+ /* Device going down */
+ 
+@@ -1780,6 +1730,7 @@ done:
+ 	rtnl_unlock();
+ 	return err;
+ }
++EXPORT_SYMBOL(ip_mc_join_group);
+ 
+ static int ip_mc_leave_src(struct sock *sk, struct ip_mc_socklist *iml,
+ 			   struct in_device *in_dev)
+@@ -2577,8 +2528,3 @@ int __init igmp_mc_proc_init(void)
+ 	return 0;
+ }
+ #endif
+-
+-EXPORT_SYMBOL(ip_mc_dec_group);
+-EXPORT_SYMBOL(ip_mc_inc_group);
+-EXPORT_SYMBOL(ip_mc_join_group);
+-EXPORT_SYMBOL(ip_mc_rejoin_group);
+-- 
+1.5.4.GIT
 
-> > dev_eth0->ingress_lock). With ifb this shouldn't be the case, but
-> > anyway we have to tell lockdep that ifb uses a different pair of locks.
-> 
-> thread3 can not happen because we dont allow it (the other 2 are not
-> contentious).
 
-Could you explain why? It's a qdisc_lock_tree case and probably not only
-this.
 
-> There are cases where redirecting will cause you problems (example if
-> you redirected to yourself and cause an infinite redirect) which are
-> listed in iproute2/doc. Denys script is fine afaics.
-
-Yes, but it seems such redirection between two eths like above mentioned
-is legal?
-
-Jarek P.
