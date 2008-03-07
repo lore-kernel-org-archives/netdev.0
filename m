@@ -1,328 +1,248 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] ethtool: command line support for lro
-Date: Fri, 7 Mar 2008 13:43:12 -0800
-Message-ID: <20080307134312.037e2cf6@extreme>
-References: <1204898997.4220.41.camel@moonstone.uk.level5networks.com>
-	<20080307082538.1a674ae1@extreme>
-	<1204909575.4220.71.camel@moonstone.uk.level5networks.com>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH] drivers/net/wireless/ath5k - convert == (true|false) to
+	simple logical tests
+Date: Fri, 07 Mar 2008 14:21:16 -0800
+Message-ID: <1204928476.5541.92.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Kieran Mansley <kmansley@solarflare.com>,
-	Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:58435 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760802AbYCGVnU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Mar 2008 16:43:20 -0500
-In-Reply-To: <1204909575.4220.71.camel@moonstone.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
+	Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add lro support to command in similar manner to TSO, GSO, etc.
-The file ethtool-copy.h is updated to be sanitised version of
-ethtool.h from 2.6.25-rc4 (ie make headers_install)
+(test == true) is not nice.
 
-Not tested on actual LRO hardware.
+Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+ drivers/net/wireless/ath5k/hw.c  |   42 +++++++++++++++++++-------------------
+ drivers/net/wireless/ath5k/phy.c |   10 ++++----
+ 2 files changed, 26 insertions(+), 26 deletions(-)
 
----
- ethtool-copy.h |  134 +++++++------------------------------------------------
- ethtool.c      |   51 +++++++++++++++++++---
- 2 files changed, 62 insertions(+), 123 deletions(-)
-
-diff --git a/ethtool-copy.h b/ethtool-copy.h
-index 3a63224..87c7c9a 100644
---- a/ethtool-copy.h
-+++ b/ethtool-copy.h
-@@ -39,7 +39,8 @@ struct ethtool_drvinfo {
- 	char	bus_info[ETHTOOL_BUSINFO_LEN];	/* Bus info for this IF. */
- 				/* For PCI devices, use pci_name(pci_dev). */
- 	char	reserved1[32];
--	char	reserved2[16];
-+	char	reserved2[12];
-+	__u32	n_priv_flags;	/* number of flags valid in ETHTOOL_GPFLAGS */
- 	__u32	n_stats;	/* number of u64's from ETHTOOL_GSTATS */
- 	__u32	testinfo_len;
- 	__u32	eedump_len;	/* Size of data from ETHTOOL_GEEPROM (bytes) */
-@@ -219,6 +220,7 @@ struct ethtool_pauseparam {
- enum ethtool_stringset {
- 	ETH_SS_TEST		= 0,
- 	ETH_SS_STATS,
-+	ETH_SS_PRIV_FLAGS,
- };
+diff --git a/drivers/net/wireless/ath5k/hw.c b/drivers/net/wireless/ath5k/hw.c
+index c2de2d9..e214a2f 100644
+--- a/drivers/net/wireless/ath5k/hw.c
++++ b/drivers/net/wireless/ath5k/hw.c
+@@ -1,4 +1,4 @@
+- /*
++/*
+  * Copyright (c) 2004-2007 Reyk Floeter <reyk-7YlrpqBBQ3VAfugRpC6u6w@public.gmane.org>
+  * Copyright (c) 2006-2007 Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+  * Copyright (c) 2007 Matthew W. S. Bell  <mentor-b3NiPy265MhAfugRpC6u6w@public.gmane.org>
+@@ -81,12 +81,12 @@ static int ath5k_hw_disable_pspoll(struct ath5k_hw *);
  
- /* for passing string sets for data tagging */
-@@ -256,125 +258,19 @@ struct ethtool_perm_addr {
- 	__u8	data[0];
- };
- 
--#ifdef __KERNEL__
--
--struct net_device;
--
--/* Some generic methods drivers may use in their ethtool_ops */
--u32 ethtool_op_get_link(struct net_device *dev);
--u32 ethtool_op_get_tx_csum(struct net_device *dev);
--int ethtool_op_set_tx_csum(struct net_device *dev, u32 data);
--int ethtool_op_set_tx_hw_csum(struct net_device *dev, u32 data);
--int ethtool_op_set_tx_ipv6_csum(struct net_device *dev, u32 data);
--u32 ethtool_op_get_sg(struct net_device *dev);
--int ethtool_op_set_sg(struct net_device *dev, u32 data);
--u32 ethtool_op_get_tso(struct net_device *dev);
--int ethtool_op_set_tso(struct net_device *dev, u32 data);
--int ethtool_op_get_perm_addr(struct net_device *dev, 
--			     struct ethtool_perm_addr *addr, u8 *data);
--u32 ethtool_op_get_ufo(struct net_device *dev);
--int ethtool_op_set_ufo(struct net_device *dev, u32 data);
--
--/**
-- * &ethtool_ops - Alter and report network device settings
-- * get_settings: Get device-specific settings
-- * set_settings: Set device-specific settings
-- * get_drvinfo: Report driver information
-- * get_regs: Get device registers
-- * get_wol: Report whether Wake-on-Lan is enabled
-- * set_wol: Turn Wake-on-Lan on or off
-- * get_msglevel: Report driver message level
-- * set_msglevel: Set driver message level
-- * nway_reset: Restart autonegotiation
-- * get_link: Get link status
-- * get_eeprom: Read data from the device EEPROM
-- * set_eeprom: Write data to the device EEPROM
-- * get_coalesce: Get interrupt coalescing parameters
-- * set_coalesce: Set interrupt coalescing parameters
-- * get_ringparam: Report ring sizes
-- * set_ringparam: Set ring sizes
-- * get_pauseparam: Report pause parameters
-- * set_pauseparam: Set pause paramters
-- * get_rx_csum: Report whether receive checksums are turned on or off
-- * set_rx_csum: Turn receive checksum on or off
-- * get_tx_csum: Report whether transmit checksums are turned on or off
-- * set_tx_csum: Turn transmit checksums on or off
-- * get_sg: Report whether scatter-gather is enabled
-- * set_sg: Turn scatter-gather on or off
-- * get_tso: Report whether TCP segmentation offload is enabled
-- * set_tso: Turn TCP segmentation offload on or off
-- * get_ufo: Report whether UDP fragmentation offload is enabled
-- * set_ufo: Turn UDP fragmentation offload on or off
-- * self_test: Run specified self-tests
-- * get_strings: Return a set of strings that describe the requested objects 
-- * phys_id: Identify the device
-- * get_stats: Return statistics about the device
-- * get_perm_addr: Gets the permanent hardware address
-- * 
-- * Description:
-+/* boolean flags controlling per-interface behavior characteristics.
-+ * When reading, the flag indicates whether or not a certain behavior
-+ * is enabled/present.  When writing, the flag indicates whether
-+ * or not the driver should turn on (set) or off (clear) a behavior.
-  *
-- * get_settings:
-- *	@get_settings is passed an &ethtool_cmd to fill in.  It returns
-- *	an negative errno or zero.
-- *
-- * set_settings:
-- *	@set_settings is passed an &ethtool_cmd and should attempt to set
-- *	all the settings this device supports.  It may return an error value
-- *	if something goes wrong (otherwise 0).
-- *
-- * get_eeprom:
-- *	Should fill in the magic field.  Don't need to check len for zero
-- *	or wraparound.  Fill in the data argument with the eeprom values
-- *	from offset to offset + len.  Update len to the amount read.
-- *	Returns an error or zero.
-- *
-- * set_eeprom:
-- *	Should validate the magic field.  Don't need to check len for zero
-- *	or wraparound.  Update len to the amount written.  Returns an error
-- *	or zero.
-+ * Some behaviors may read-only (unconditionally absent or present).
-+ * If such is the case, return EINVAL in the set-flags operation if the
-+ * flag differs from the read-only value.
-  */
--struct ethtool_ops {
--	int	(*get_settings)(struct net_device *, struct ethtool_cmd *);
--	int	(*set_settings)(struct net_device *, struct ethtool_cmd *);
--	void	(*get_drvinfo)(struct net_device *, struct ethtool_drvinfo *);
--	int	(*get_regs_len)(struct net_device *);
--	void	(*get_regs)(struct net_device *, struct ethtool_regs *, void *);
--	void	(*get_wol)(struct net_device *, struct ethtool_wolinfo *);
--	int	(*set_wol)(struct net_device *, struct ethtool_wolinfo *);
--	u32	(*get_msglevel)(struct net_device *);
--	void	(*set_msglevel)(struct net_device *, u32);
--	int	(*nway_reset)(struct net_device *);
--	u32	(*get_link)(struct net_device *);
--	int	(*get_eeprom_len)(struct net_device *);
--	int	(*get_eeprom)(struct net_device *, struct ethtool_eeprom *, u8 *);
--	int	(*set_eeprom)(struct net_device *, struct ethtool_eeprom *, u8 *);
--	int	(*get_coalesce)(struct net_device *, struct ethtool_coalesce *);
--	int	(*set_coalesce)(struct net_device *, struct ethtool_coalesce *);
--	void	(*get_ringparam)(struct net_device *, struct ethtool_ringparam *);
--	int	(*set_ringparam)(struct net_device *, struct ethtool_ringparam *);
--	void	(*get_pauseparam)(struct net_device *, struct ethtool_pauseparam*);
--	int	(*set_pauseparam)(struct net_device *, struct ethtool_pauseparam*);
--	u32	(*get_rx_csum)(struct net_device *);
--	int	(*set_rx_csum)(struct net_device *, u32);
--	u32	(*get_tx_csum)(struct net_device *);
--	int	(*set_tx_csum)(struct net_device *, u32);
--	u32	(*get_sg)(struct net_device *);
--	int	(*set_sg)(struct net_device *, u32);
--	u32	(*get_tso)(struct net_device *);
--	int	(*set_tso)(struct net_device *, u32);
--	int	(*self_test_count)(struct net_device *);
--	void	(*self_test)(struct net_device *, struct ethtool_test *, u64 *);
--	void	(*get_strings)(struct net_device *, u32 stringset, u8 *);
--	int	(*phys_id)(struct net_device *, u32);
--	int	(*get_stats_count)(struct net_device *);
--	void	(*get_ethtool_stats)(struct net_device *, struct ethtool_stats *, u64 *);
--	int	(*get_perm_addr)(struct net_device *, struct ethtool_perm_addr *, u8 *);
--	int	(*begin)(struct net_device *);
--	void	(*complete)(struct net_device *);
--	u32     (*get_ufo)(struct net_device *);
--	int     (*set_ufo)(struct net_device *, u32);
-+enum ethtool_flags {
-+	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
- };
--#endif /* __KERNEL__ */
-+
- 
- /* CMDs currently supported */
- #define ETHTOOL_GSET		0x00000001 /* Get settings. */
-@@ -414,6 +310,10 @@ struct ethtool_ops {
- #define ETHTOOL_SUFO		0x00000022 /* Set UFO enable (ethtool_value) */
- #define ETHTOOL_GGSO		0x00000023 /* Get GSO enable (ethtool_value) */
- #define ETHTOOL_SGSO		0x00000024 /* Set GSO enable (ethtool_value) */
-+#define ETHTOOL_GFLAGS		0x00000025 /* Get flags bitmap(ethtool_value) */
-+#define ETHTOOL_SFLAGS		0x00000026 /* Set flags bitmap(ethtool_value) */
-+#define ETHTOOL_GPFLAGS		0x00000027 /* Get driver-private flags bitmap */
-+#define ETHTOOL_SPFLAGS		0x00000028 /* Set driver-private flags bitmap */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/ethtool.c b/ethtool.c
-index a668b49..8a063fa 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -151,7 +151,9 @@ static struct option {
- 		"		[ sg on|off ]\n"
- 	        "		[ tso on|off ]\n"
- 	        "		[ ufo on|off ]\n"
--	        "		[ gso on|off ]\n" },
-+	        "		[ gso on|off ]\n"
-+                "               [ lro on|off ]\n"
-+    },
-     { "-i", "--driver", MODE_GDRV, "Show driver information" },
-     { "-d", "--register-dump", MODE_GREGS, "Do a register dump",
- 		"		[ raw on|off ]\n"
-@@ -200,6 +202,7 @@ static int off_sg_wanted = -1;
- static int off_tso_wanted = -1;
- static int off_ufo_wanted = -1;
- static int off_gso_wanted = -1;
-+static int off_lro_wanted = -1;
- 
- static struct ethtool_pauseparam epause;
- static int gpause_changed = 0;
-@@ -310,6 +313,7 @@ static struct cmdline_info cmdline_offload[] = {
- 	{ "tso", CMDL_BOOL, &off_tso_wanted, NULL },
- 	{ "ufo", CMDL_BOOL, &off_ufo_wanted, NULL },
- 	{ "gso", CMDL_BOOL, &off_gso_wanted, NULL },
-+	{ "lro", CMDL_BOOL, &off_lro_wanted, NULL },
- };
- 
- static struct cmdline_info cmdline_pause[] = {
-@@ -1217,7 +1221,7 @@ static int dump_coalesce(void)
- 	return 0;
- }
- 
--static int dump_offload (int rx, int tx, int sg, int tso, int ufo, int gso)
-+static int dump_offload (int rx, int tx, int sg, int tso, int ufo, int gso, int lro)
+ static inline unsigned int ath5k_hw_htoclock(unsigned int usec, bool turbo)
  {
- 	fprintf(stdout,
- 		"rx-checksumming: %s\n"
-@@ -1225,13 +1229,15 @@ static int dump_offload (int rx, int tx, int sg, int tso, int ufo, int gso)
- 		"scatter-gather: %s\n"
- 		"tcp segmentation offload: %s\n"
- 		"udp fragmentation offload: %s\n"
--		"generic segmentation offload: %s\n",
-+		"generic segmentation offload: %s\n"
-+		"large receive offload: %s\n",
- 		rx ? "on" : "off",
- 		tx ? "on" : "off",
- 		sg ? "on" : "off",
- 		tso ? "on" : "off",
- 		ufo ? "on" : "off",
--		gso ? "on" : "off");
-+		gso ? "on" : "off",
-+		lro ? "on" : "off");
- 
- 	return 0;
+-	return turbo == true ? (usec * 80) : (usec * 40);
++	return turbo ? (usec * 80) : (usec * 40);
  }
-@@ -1495,7 +1501,8 @@ static int do_scoalesce(int fd, struct ifreq *ifr)
- static int do_goffload(int fd, struct ifreq *ifr)
+ 
+ static inline unsigned int ath5k_hw_clocktoh(unsigned int clock, bool turbo)
  {
- 	struct ethtool_value eval;
--	int err, allfail = 1, rx = 0, tx = 0, sg = 0, tso = 0, ufo = 0, gso = 0;
-+	int err, allfail = 1, rx = 0, tx = 0, sg = 0;
-+	int tso = 0, ufo = 0, gso = 0, lro = 0;
- 
- 	fprintf(stdout, "Offload parameters for %s:\n", devname);
- 
-@@ -1559,12 +1566,20 @@ static int do_goffload(int fd, struct ifreq *ifr)
- 		allfail = 0;
- 	}
- 
-+	eval.cmd = ETHTOOL_GFLAGS;
-+	ifr->ifr_data = (caddr_t)&eval;
-+	err = ioctl(fd, SIOCETHTOOL, ifr);
-+	if (!err) {
-+		lro = eval.data & ETH_FLAG_LRO;
-+		allfail = 0;
-+	}
-+
- 	if (allfail) {
- 		fprintf(stdout, "no offload info available\n");
- 		return 83;
- 	}
- 
--	return dump_offload(rx, tx, sg, tso, ufo, gso);
-+	return dump_offload(rx, tx, sg, tso, ufo, gso, lro);
+-	return turbo == true ? (clock / 80) : (clock / 40);
++	return turbo ? (clock / 80) : (clock / 40);
  }
  
- static int do_soffload(int fd, struct ifreq *ifr)
-@@ -1641,6 +1656,30 @@ static int do_soffload(int fd, struct ifreq *ifr)
- 			return 90;
- 		}
+ /*
+@@ -100,7 +100,7 @@ int ath5k_hw_register_timeout(struct ath5k_hw *ah, u32 reg, u32 flag, u32 val,
+ 
+ 	for (i = AR5K_TUNE_REGISTER_TIMEOUT; i > 0; i--) {
+ 		data = ath5k_hw_reg_read(ah, reg);
+-		if ((is_set == true) && (data & flag))
++		if (is_set && (data & flag))
+ 			break;
+ 		else if ((data & flag) == val)
+ 			break;
+@@ -358,7 +358,7 @@ static int ath5k_hw_nic_wakeup(struct ath5k_hw *ah, int flags, bool initial)
  	}
-+	if (off_lro_wanted >= 0) {
-+		changed = 1;
-+		eval.cmd = ETHTOOL_GFLAGS;
-+		eval.data = 0;
-+		ifr->ifr_data = (caddr_t)&eval;
-+		err = ioctl(fd, SIOCETHTOOL, ifr);
-+		if (err) {
-+			perror("Cannot get device flag settings");
-+			return 90;
-+		}
-+
-+		eval.cmd = ETHTOOL_SFLAGS;
-+		if (off_lro_wanted == 1)
-+			eval.data |= ETH_FLAG_LRO;
-+		else
-+			eval.data &= ~ETH_FLAG_LRO;
-+			
-+		err = ioctl(fd, SIOCETHTOOL, ifr);
-+		if (err) {
-+			perror("Cannot set large receive offload settings");
-+			return 90;
-+		}
-+	}		
-+
- 	if (!changed) {
- 		fprintf(stdout, "no offload settings changed\n");
+ 
+ 	/* ...reset chipset and PCI device */
+-	if (ah->ah_single_chip == false && ath5k_hw_nic_reset(ah,
++	if (!ah->ah_single_chip && ath5k_hw_nic_reset(ah,
+ 				AR5K_RESET_CTL_CHIP | AR5K_RESET_CTL_PCI)) {
+ 		ATH5K_ERR(ah->ah_sc, "failed to reset the MAC Chip + PCI\n");
+ 		return -EIO;
+@@ -583,7 +583,7 @@ int ath5k_hw_reset(struct ath5k_hw *ah, enum ieee80211_if_types op_mode,
+ 	 */
+ 	/*DCU/Antenna selection not available on 5210*/
+ 	if (ah->ah_version != AR5K_AR5210) {
+-		if (change_channel == true) {
++		if (change_channel) {
+ 			/* Seq number for queue 0 -do this for all queues ? */
+ 			s_seq = ath5k_hw_reg_read(ah,
+ 					AR5K_QUEUE_DFS_SEQNUM(0));
+@@ -597,7 +597,7 @@ int ath5k_hw_reset(struct ath5k_hw *ah, enum ieee80211_if_types op_mode,
+ 	s_led[1] = ath5k_hw_reg_read(ah, AR5K_GPIOCR);
+ 	s_led[2] = ath5k_hw_reg_read(ah, AR5K_GPIODO);
+ 
+-	if (change_channel == true && ah->ah_rf_banks != NULL)
++	if (change_channel && ah->ah_rf_banks != NULL)
+ 		ath5k_hw_get_rf_gain(ah);
+ 
+ 
+@@ -1063,7 +1063,7 @@ int ath5k_hw_set_power(struct ath5k_hw *ah, enum ath5k_power_mode mode,
+ 		staid &= ~AR5K_STA_ID1_DEFAULT_ANTENNA;
+ 		/* fallthrough */
+ 	case AR5K_PM_NETWORK_SLEEP:
+-		if (set_chip == true)
++		if (set_chip)
+ 			ath5k_hw_reg_write(ah,
+ 				AR5K_SLEEP_CTL_SLE | sleep_duration,
+ 				AR5K_SLEEP_CTL);
+@@ -1072,7 +1072,7 @@ int ath5k_hw_set_power(struct ath5k_hw *ah, enum ath5k_power_mode mode,
+ 		break;
+ 
+ 	case AR5K_PM_FULL_SLEEP:
+-		if (set_chip == true)
++		if (set_chip)
+ 			ath5k_hw_reg_write(ah, AR5K_SLEEP_CTL_SLE_SLP,
+ 				AR5K_SLEEP_CTL);
+ 
+@@ -1080,7 +1080,7 @@ int ath5k_hw_set_power(struct ath5k_hw *ah, enum ath5k_power_mode mode,
+ 		break;
+ 
+ 	case AR5K_PM_AWAKE:
+-		if (set_chip == false)
++		if (!set_chip)
+ 			goto commit;
+ 
+ 		ath5k_hw_reg_write(ah, AR5K_SLEEP_CTL_SLE_WAKE,
+@@ -1387,7 +1387,7 @@ int ath5k_hw_update_tx_triglevel(struct ath5k_hw *ah, bool increase)
+ 	trigger_level = AR5K_REG_MS(ath5k_hw_reg_read(ah, AR5K_TXCFG),
+ 			AR5K_TXCFG_TXFULL);
+ 
+-	if (increase == false) {
++	if (!increase) {
+ 		if (--trigger_level < AR5K_TUNE_MIN_TX_FIFO_THRES)
+ 			goto done;
+ 	} else
+@@ -2051,7 +2051,7 @@ static bool ath5k_eeprom_regulation_domain(struct ath5k_hw *ah, bool write,
+ 	u16 ee_regdomain;
+ 
+ 	/* Read current value */
+-	if (write != true) {
++	if (!write) {
+ 		ee_regdomain = ah->ah_capabilities.cap_eeprom.ee_regdomain;
+ 		*regdomain = ath5k_regdom_to_ieee(ee_regdomain);
+ 		return true;
+@@ -2080,7 +2080,7 @@ int ath5k_hw_set_regdomain(struct ath5k_hw *ah, u16 regdomain)
+ 
+ 	ieee_regdomain = ath5k_regdom_to_ieee(regdomain);
+ 
+-	if (ath5k_eeprom_regulation_domain(ah, true, &ieee_regdomain) == true)
++	if (ath5k_eeprom_regulation_domain(ah, true, &ieee_regdomain))
+ 		return 0;
+ 
+ 	return -EIO;
+@@ -3184,19 +3184,19 @@ int ath5k_hw_reset_tx_queue(struct ath5k_hw *ah, unsigned int queue)
+ 			return 0;
+ 
+ 		/* Set Slot time */
+-		ath5k_hw_reg_write(ah, ah->ah_turbo == true ?
++		ath5k_hw_reg_write(ah, ah->ah_turbo ?
+ 			AR5K_INIT_SLOT_TIME_TURBO : AR5K_INIT_SLOT_TIME,
+ 			AR5K_SLOT_TIME);
+ 		/* Set ACK_CTS timeout */
+-		ath5k_hw_reg_write(ah, ah->ah_turbo == true ?
++		ath5k_hw_reg_write(ah, ah->ah_turbo ?
+ 			AR5K_INIT_ACK_CTS_TIMEOUT_TURBO :
+ 			AR5K_INIT_ACK_CTS_TIMEOUT, AR5K_SLOT_TIME);
+ 		/* Set Transmit Latency */
+-		ath5k_hw_reg_write(ah, ah->ah_turbo == true ?
++		ath5k_hw_reg_write(ah, ah->ah_turbo ?
+ 			AR5K_INIT_TRANSMIT_LATENCY_TURBO :
+ 			AR5K_INIT_TRANSMIT_LATENCY, AR5K_USEC_5210);
+ 		/* Set IFS0 */
+-		if (ah->ah_turbo == true)
++		if (ah->ah_turbo)
+ 			 ath5k_hw_reg_write(ah, ((AR5K_INIT_SIFS_TURBO +
+ 				(ah->ah_aifs + tq->tqi_aifs) *
+ 				AR5K_INIT_SLOT_TIME_TURBO) <<
+@@ -3209,16 +3209,16 @@ int ath5k_hw_reset_tx_queue(struct ath5k_hw *ah, unsigned int queue)
+ 				AR5K_INIT_SIFS, AR5K_IFS0);
+ 
+ 		/* Set IFS1 */
+-		ath5k_hw_reg_write(ah, ah->ah_turbo == true ?
++		ath5k_hw_reg_write(ah, ah->ah_turbo ?
+ 			AR5K_INIT_PROTO_TIME_CNTRL_TURBO :
+ 			AR5K_INIT_PROTO_TIME_CNTRL, AR5K_IFS1);
+ 		/* Set PHY register 0x9844 (??) */
+-		ath5k_hw_reg_write(ah, ah->ah_turbo == true ?
++		ath5k_hw_reg_write(ah, ah->ah_turbo ?
+ 			(ath5k_hw_reg_read(ah, AR5K_PHY(17)) & ~0x7F) | 0x38 :
+ 			(ath5k_hw_reg_read(ah, AR5K_PHY(17)) & ~0x7F) | 0x1C,
+ 			AR5K_PHY(17));
+ 		/* Set Frame Control Register */
+-		ath5k_hw_reg_write(ah, ah->ah_turbo == true ?
++		ath5k_hw_reg_write(ah, ah->ah_turbo ?
+ 			(AR5K_PHY_FRAME_CTL_INI | AR5K_PHY_TURBO_MODE |
+ 			AR5K_PHY_TURBO_SHORT | 0x2020) :
+ 			(AR5K_PHY_FRAME_CTL_INI | 0x1020),
+@@ -3257,7 +3257,7 @@ int ath5k_hw_reset_tx_queue(struct ath5k_hw *ah, unsigned int queue)
+ 	/*
+ 	 * Calculate and set retry limits
+ 	 */
+-	if (ah->ah_software_retry == true) {
++	if (ah->ah_software_retry) {
+ 		/* XXX Need to test this */
+ 		retry_lg = ah->ah_limit_tx_retries;
+ 		retry_sh = retry_lg = retry_lg > AR5K_DCU_RETRY_LMT_SH_RETRY ?
+diff --git a/drivers/net/wireless/ath5k/phy.c b/drivers/net/wireless/ath5k/phy.c
+index b959417..a0e4fdf 100644
+--- a/drivers/net/wireless/ath5k/phy.c
++++ b/drivers/net/wireless/ath5k/phy.c
+@@ -844,14 +844,14 @@ static unsigned int ath5k_hw_rfregs_op(u32 *rf, u32 offset, u32 reg, u32 bits,
+ 	entry = ((first - 1) / 8) + offset;
+ 	position = (first - 1) % 8;
+ 
+-	if (set == true)
++	if (set)
+ 		data = ath5k_hw_bitswap(reg, bits);
+ 
+ 	for (i = shift = 0, left = bits; left > 0; position = 0, entry++, i++) {
+ 		last = (position + left > 8) ? 8 : position + left;
+ 		mask = (((1 << last) - 1) ^ ((1 << position) - 1)) << (col * 8);
+ 
+-		if (set == true) {
++		if (set) {
+ 			rf[entry] &= ~mask;
+ 			rf[entry] |= ((data << position) << (col * 8)) & mask;
+ 			data >>= (8 - position);
+@@ -864,7 +864,7 @@ static unsigned int ath5k_hw_rfregs_op(u32 *rf, u32 offset, u32 reg, u32 bits,
+ 		left -= 8 - position;
  	}
--- 
-1.5.4.3
+ 
+-	data = set == true ? 1 : ath5k_hw_bitswap(data, bits);
++	data = set ? 1 : ath5k_hw_bitswap(data, bits);
+ 
+ 	return data;
+ }
+@@ -1825,7 +1825,7 @@ static int ath5k_hw_rf511x_calibrate(struct ath5k_hw *ah,
+ 	s32 iq_corr, i_coff, i_coffd, q_coff, q_coffd;
+ 	ATH5K_TRACE(ah->ah_sc);
+ 
+-	if (ah->ah_calibration == false ||
++	if (!ah->ah_calibration ||
+ 			ath5k_hw_reg_read(ah, AR5K_PHY_IQ) & AR5K_PHY_IQ_RUN)
+ 		goto done;
+ 
+@@ -2048,7 +2048,7 @@ ath5k_hw_txpower(struct ath5k_hw *ah, struct ieee80211_channel *channel,
+ 		AR5K_TXPOWER_CCK(13, 16) | AR5K_TXPOWER_CCK(12, 8) |
+ 		AR5K_TXPOWER_CCK(11, 0), AR5K_PHY_TXPOWER_RATE4);
+ 
+-	if (ah->ah_txpower.txp_tpc == true)
++	if (ah->ah_txpower.txp_tpc)
+ 		ath5k_hw_reg_write(ah, AR5K_PHY_TXPOWER_RATE_MAX_TPC_ENABLE |
+ 			AR5K_TUNE_MAX_TXPOWER, AR5K_PHY_TXPOWER_RATE_MAX);
+ 	else
 
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
