@@ -1,51 +1,52 @@
-From: Florian Fainelli <florian.fainelli@telecomint.eu>
-Subject: Re: [PATCH] Add support the Korina (IDT RC32434) Ethernet MAC
-Date: Fri, 7 Mar 2008 11:07:48 +0100
-Message-ID: <200803071107.52314.florian.fainelli@telecomint.eu>
-References: <200803052345.06610.florian.fainelli@telecomint.eu> <1204760141.25502.97.camel@johannes.berg>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: pppd soft lockups under load
+Date: Fri, 7 Mar 2008 10:13:09 +0000
+Message-ID: <20080307101309.GB4203@ff.dom.local>
+References: <47D05778.6090006@samoylyk.sumy.ua>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3244899.n4lNHzBRXc";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>, Felix Fietkau <nbd@openwrt.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Oleksandr Samoylyk <oleksandr@samoylyk.sumy.ua>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.int-evry.fr ([157.159.10.71]:50532 "EHLO
-	smtp4.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750925AbYCGKHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2008 05:07:49 -0500
-In-Reply-To: <1204760141.25502.97.camel@johannes.berg>
+Received: from fg-out-1718.google.com ([72.14.220.156]:47759 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750861AbYCGKLt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2008 05:11:49 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so461924fga.17
+        for <netdev@vger.kernel.org>; Fri, 07 Mar 2008 02:11:48 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <47D05778.6090006@samoylyk.sumy.ua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart3244899.n4lNHzBRXc
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On 06-03-2008 21:43, Oleksandr Samoylyk wrote:
+> Dear community,
+> 
+> I'm running a busy pptp-server which serves about 1500 users on about 80 
+> Mbit/s (> 15000 packets/sec). I use poptop, traffic shaper and basic 
+> firewall rules.
+> 
+> As for hardware it's a server on SuperMicro Server on X7DB8+ serverboard 
+> server with 8 GB RAM on it running Ubuntu Server Edition.
+> 
+> As for problem, sometimes I get the following erors in logs:
+> [    0.000000] BUG: soft lockup - CPU#3 stuck for 11s! [pppd:65437]
+...
+> root@vpn:~# cat /proc/interrupts
+>            CPU0       CPU1       CPU2       CPU3       CPU4       CPU5 
+>       CPU6       CPU7
+...
+> 2296:      76853      76976      76639      76692     248073     247957 
+>     248079     248084   PCI-MSI-edge      eth1
+> 2297:     266795     266672     267009     266956      93920      94035 
+>      93914      93908   PCI-MSI-edge      eth0
 
-Hi Johannes,
+Hi,
 
-Le jeudi 6 mars 2008, Johannes Berg a =E9crit=A0:
-> You can have multiple MODULE_AUTHOR statements afaik.
+Maybe it doesn't matter here but I think you should rethink this
+irq balancing for eths. Here is something interesting:
 
-Thanks, I did not know about this. Any other comment on the driver itself ?
+http://marc.info/?l=linux-netdev&m=120349568512423&w=2
 
-=46lorian
-
---nextPart3244899.n4lNHzBRXc
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.7 (GNU/Linux)
-
-iD8DBQBH0RP4mx9n1G/316sRAq9kAKCSg8oy1Xu4/dAXT01eW82FkiNsTACdFpV1
-xi/EWD7F+X7I2kNjniJGheE=
-=S4h7
------END PGP SIGNATURE-----
-
---nextPart3244899.n4lNHzBRXc--
+Regards,
+Jarek P.
