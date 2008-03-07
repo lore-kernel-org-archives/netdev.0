@@ -1,109 +1,111 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH] Make /proc/net a symlink on /proc/self/net (v2)
-Date: Fri, 07 Mar 2008 15:03:04 +0300
-Message-ID: <47D12EF8.8010801@openvz.org>
-References: <47CFB6CA.8090001@openvz.org>	 <1204821325.1397.298.camel@moss-spartans.epoch.ncsc.mil>	 <47D01F98.5010609@openvz.org> <1204832619.1397.354.camel@moss-spartans.epoch.ncsc.mil>
+From: Laszlo Attila Toth <panther@balabit.hu>
+Subject: Re: [PATCHv8 1/2] Interface group: core and netlink part
+Date: Fri, 07 Mar 2008 13:40:11 +0100
+Message-ID: <47D137AB.9040305@balabit.hu>
+References: <12048121721361-git-send-email-panther@balabit.hu>	<1204812239968-git-send-email-panther@balabit.hu> <20080306.111519.46454329.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	James Morris <jmorris@namei.org>,
-	Eric Paris <eparis@parisplace.org>
-To: Stephen Smalley <sds@tycho.nsa.gov>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:46289 "EHLO sacred.ru"
+Received: from www.balabit.hu ([212.92.18.33]:50180 "EHLO lists.balabit.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754445AbYCGMaS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Mar 2008 07:30:18 -0500
-In-Reply-To: <1204832619.1397.354.camel@moss-spartans.epoch.ncsc.mil>
+	id S1757489AbYCGMkR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Mar 2008 07:40:17 -0500
+Received: from balabit.hu (unknown [10.80.0.254])
+	by lists.balabit.hu (Postfix) with ESMTP id 32E41C141E
+	for <netdev@vger.kernel.org>; Fri,  7 Mar 2008 13:40:15 +0100 (CET)
+In-Reply-To: <20080306.111519.46454329.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[snip]
+David Miller =EDrta:
+> From: Laszlo Attila Toth <panther@balabit.hu>
+> Date: Thu,  6 Mar 2008 15:03:58 +0100
+>=20
+>> Interface groups let handle different interfaces together.
+>> Modified net device structure and netlink interface.
+>>
+>> Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
+>=20
+> I can't say whether this makes sense without seeing how
+> it will actually be used.
 
->>> Does this break SELinux labeling of /proc/net inodes and thus its access
->>> controls on them?
->> It should not, since the proc_dir_etries are still organized in
->> a required hierarchy.
-> 
-> Unfortunately, it does break selinux labeling of /proc/net inodes.
-> Easily seen by running ls -ZR /proc/net before and after the patch is
-> applied and comparing the results.  
-> 
-> Also, as a separate issue, a "find /proc/self/net ..." will show that
-> the hard link count is wrong for it.
+The userspace has two parts, one is in iproute2:
 
-Oops... I've checked this thing explicitly before sending, but it looks
-like I used too old find version. I.e. 4.1.20 worked OK, but 4.2.23
-reported the nlink discrepancy.
+  ip link set dev eth0 group 4
 
-Anyway, this is fixed now (see below). I override the getattr method for
-/proc/net directory and update one from the net->proc_net entry, which 
-is calculated correctly.
+  ip link show dev eth0
+3: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast=20
+group 0x04 qlen 1000
+     link/ether 00:0c:29:97:52:99 brd ff:ff:ff:ff:ff:ff
 
-> Currently the inodes get labeled by selinux_proc_get_sid() by walking up
-> the proc_dir_entry tree to generate a name and prefix matching that name
-> in policy.  Before the patch, we'd get names like "//net/tcp", i.e.
-> relative to the root of proc (the extra leading slash is due to the
-> earlier proc net rewrite which also broke selinux until we adjusted it
-> to ignore it).  After the patch, we just get "//tcp", which is ambiguous
-> since we would also get that for a /proc/tcp inode if one existed.
+This is still nothing special.
 
-OK, got it. Is it good if we used to get the //net/tcp, but will /net/tcp
-(without the double slash)? The patch below does exactly this. It initializes
-the name for the net->proc_net entry and makes its parent be proc_root.
+Where can it be used? The netfilter part is an ifgroup match:
 
-Can you Ack this patch, so that I can merge it with the original one and 
-re-post the combined v3?
+  ifgroup -A INPUT -m ifgroup --ifgroup-in 4/0xf ...
+  ifgroup -A OUTPUT -m ifgroup --ifgroup-out 4/0xf ...
 
-> Not trying to obstruct your proc net improvements, but just want to make
-> sure that selinux doesn't get broken in the process.
+Also multiple devices can be grouped and handled with one rule. Althoug=
+h=20
+  the interfaces can be named as the user wants, it is not always enoug=
+h=20
+(I mean for instance:  iptables ... -i ppp+ ...).
 
-diff --git a/fs/proc/proc_net.c b/fs/proc/proc_net.c
-index 18d413c..4caa5f7 100644
---- a/fs/proc/proc_net.c
-+++ b/fs/proc/proc_net.c
-@@ -96,8 +96,27 @@ static struct dentry *proc_tgid_net_lookup(struct inode *dir,
- 	return de;
- }
- 
-+static int proc_tgid_net_getattr(struct vfsmount *mnt, struct dentry *dentry,
-+		struct kstat *stat)
-+{
-+	struct inode *inode = dentry->d_inode;
-+	struct net *net;
-+
-+	net = get_proc_task_net(inode);
-+
-+	generic_fillattr(inode, stat);
-+
-+	if (net != NULL) {
-+		stat->nlink = net->proc_net->nlink;
-+		put_net(net);
-+	}
-+
-+	return 0;
-+}
-+
- const struct inode_operations proc_net_inode_operations = {
- 	.lookup		= proc_tgid_net_lookup,
-+	.getattr	= proc_tgid_net_getattr,
- };
- 
- static int proc_tgid_net_readdir(struct file *filp, void *dirent,
-@@ -162,6 +181,10 @@ static __net_init int proc_net_ns_init(struct net *net)
- 		goto out;
- 
- 	netd->data = net;
-+	netd->nlink = 2;
-+	netd->name = "net";
-+	netd->namelen = 3;
-+	netd->parent = &proc_root;
- 
- 	err = -EEXIST;
- 	net_statd = proc_net_mkdir(net, "stat", netd);
+
+Consider the following example (a bit complex, I think): a VPN server=20
+has many clients but not all services and networks has to be accessible=
+=20
+for each clients, also an ACL is needed (Or the same situation on a=20
+router with several interfaces) The ifgroup value has 32 bits also 32=20
+different rule can be set up. The only necessary thing for the=20
+corresponding "if-up" scripts to calculate the value corresponding to=20
+the acl list and set this as an ifgroup value for the device. Next in=20
+the netfilter rules  access to unneeded services can be rejected with a=
+=20
+single rule:
+
+   iptables -A PREROUTING -m ifgroup --ifgroup-in 0/0x4 ... -j REJECT .=
+=2E.
+
+Also the ifgroup match helps iptables rules to be simplier. Whithout it=
+=20
+a new chain is necessary and on every interface change a new rule has t=
+o=20
+be added/removed. If two iptables commands are running, AFAIK a=20
+concurrency problem can be occured because two iptables command=20
+downloads the ruleset, change it and uploaded. But only one of them is=20
+taken into account.
+
+
+Another possible use case is - I have no patch yet:
+currently the ip command can access information of exactly one device o=
+r=20
+all of them, but only a few of them cannot be used. With ifgroup this=20
+problem can be solved, also instead of:
+
+  ip link show dev eth0
+
+use
+
+   ip link show group 3
+
+and so on.
+
+
+> If that's all it is, userland can record such mappings
+> in the filesystem or elsewhere such that multiple
+> applications can work with and maintain the relationships.
+> There is zero reason to add this bloat to the kernel in
+> such a case.
+
+Yeah, without the netfilter rules this would be unnecessary in the=20
+kernel but it depends on it.
+
+--
+Attila
+
+
