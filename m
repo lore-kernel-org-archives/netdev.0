@@ -1,98 +1,49 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: circular locking, mirred, 2.6.24.2
-Date: Fri, 7 Mar 2008 07:51:13 +0000
-Message-ID: <20080307075113.GA3912@ff.dom.local>
-References: <20080225095646.GA4321@ff.dom.local> <20080225104652.M2446@visp.net.lb> <20080225113930.GA4733@ff.dom.local> <20080305103935.M76165@visp.net.lb> <20080306134015.GA4571@ff.dom.local> <1204811995.4440.30.camel@localhost> <20080306175629.GA2876@ami.dom.local> <1204836523.4457.103.camel@localhost> <20080306214000.GC2876@ami.dom.local> <1204846839.4431.23.camel@localhost>
+From: Jonas Bonn <jonas@southpole.se>
+Subject: Re: [PATCH] net: use DECLARE_PCI_DEVICE_TABLE
+Date: Fri, 07 Mar 2008 08:58:54 +0100
+Message-ID: <47D0F5BE.7010909@southpole.se>
+References: <1204800947-21569-1-git-send-email-jonas@southpole.se>	<1204800947-21569-2-git-send-email-jonas@southpole.se> <20080306154150.0ba906fa.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com, Greg KH <greg@kroah.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:60882 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755068AbYCGHt4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2008 02:49:56 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so4234544ugc.16
-        for <netdev@vger.kernel.org>; Thu, 06 Mar 2008 23:49:54 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1204846839.4431.23.camel@localhost>
+Received: from mail.southpole.se ([193.12.106.18]:54808 "EHLO
+	mail.southpole.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757890AbYCGH7B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2008 02:59:01 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by mail.southpole.se (Postfix) with SMTP id 2AFCB4ED0FC
+	for <netdev@vger.kernel.org>; Fri,  7 Mar 2008 08:58:58 +0100 (CET)
+In-Reply-To: <20080306154150.0ba906fa.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 06, 2008 at 06:40:39PM -0500, jamal wrote:
-> Jarek,
+Andrew Morton wrote:
+> Bah.
 > 
-> On Thu, 2008-06-03 at 22:40 +0100, Jarek Poplawski wrote:
+> a) DECLARE_PCI_DEVICE_TABLE is misnamed.  It is used to *define* tables,
+>    not to declare them.  It should be called DEFINE_PCI_DEVICE_TABLE.
 > 
-> > But currently lockdep doesn't know dev->queue_lock could mean eth or lo.
-> > It sees one class of devices using one lock. 
-> 
-> yikes ;-> I missed the implication when you mentioned it first - thanks
-> for the enlightnment. IMO, it needs to be per netdevice not global; so i
-> contend this is the problem i.e those warnings are false.
-> 
-> > We can let it know (e.g.
-> > dev->_xmit_lock is different according to dev->type), but it wasn't
-> > necessary. I hope it will suffice here if lockdep knows more about ifb,
-> > but similar problem could theoretically happen with other devs.
-> 
-> I think the condition needs to be met for all netdevices, not just ifb.
-> Instead of annotating each netdevice type separately, could you not use
-> a different annotation in the generic netdev registration code of the
-> form dev_%s->ingress/queue_lock ? (where %s is dev->name)
 
-At first this lockdep method looks like wrong (too general). But it
-works. With every lock tracked separately there would be huge overhead
-(especially with some structures created in thousands of instances).
-And with this general approach we can see general problems: e.g.
-wrong locking order even reported on two different devices like here,
-and impossible in reality, can help to analyze if the same could
-happen in another, maybe even very hard to reproduce, variant, and to
-fix this before ever happened.
+Fair enough...
 
-So, current way is to start from very general tracking, and if it
-doesn't work (I mean false reports, not lockups), we make it more
-specific. With dev->_xmit_lock the type level seems to be enough
-for some time (so lockdep doesn't even know eth0 and eth1 created
-as ARPHRD_ETHER use 2 different _xmit_locks).
-
-Such specific information is usually necessary only with nesting.
-But here, with sch_ingress + act_mirred it's not about nesting: it's
-really about wrong order, which could be safe only because ifb
-doesn't currently work with a full egress + ingress functionality.
-
-Making this all more specific for lockdep won't help with real
-lockups then, but will make reports more exact and less reproducible.
-
-> > Sorry, should be:
-> >  dev_eth0->queue_lock, and thread3 has dev_eth0->queue_lock and wants
+> b) It's lame, anyway.  We could implement any number of such helper
+>    thingies, but we choose not to.
 > 
-> indeed - i understood when you said that; it doesnt invalidate what i
-> said.
-> 
-> > > thread3 can not happen because we dont allow it (the other 2 are not
-> > > contentious).
-> > 
-> > Could you explain why? 
-> 
-> Because we never redirect to ingress (it is in the todo as mentioned as
-> described at the top of the source file). You can redirect from ingress
-> or egress but only to egress (to sockets and ingress are going to happen
-> at some future point).
-> 
-> > Yes, but it seems such redirection between two eths like above mentioned
-> > is legal?
-> 
-> Indeed it is. I think it is clear to me now the issues seem to be the
-> namespace of what lockdep - it should be per-device and NOT global.
-> What do you think?
 
-I've to find first what really bothers lockdep here, and why this
-queue_lock vs. ingress_lock order isn't reported "by default". But if
-this really is like it looks now, then it seems before doing this
-ingress "future point" some change in locking could be necessary.
-(Maybe even sooner if lockdep finds something real after this current
-patch to ifb.)
+When I originally proposed these cleanups, I posted opened-coded 
+versions.  That was deemed to be ugly and using a macro was suggested. 
+So now I've reworked this with a macro, and now the macro is being 
+deemed to be ugly, too!
 
-Cheers,
-Jarek P.
+The point of this exercise wasn't really to do a macro at all; the point 
+was to get these structures marked 'const'  and into __devinitconst 
+where they belong.  Whether the open-coded approach or the macro is the 
+way to go, is all the same to me; any guidance on how to proceed would 
+be appreciated.
+
+
+
