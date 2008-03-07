@@ -1,55 +1,109 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH 00/28] Swap over NFS -v16
-Date: Fri, 07 Mar 2008 12:55:31 +0100
-Message-ID: <1204890931.8514.107.camel@twins>
-References: <20080220144610.548202000@chello.nl>
-	 <20080223000620.7fee8ff8.akpm@linux-foundation.org>
-	 <18371.43950.150842.429997@notabene.brown>
-	 <1204023042.6242.271.camel@lappy>
-	 <18372.64081.995262.986841@notabene.brown>
-	 <1204099113.6242.353.camel@lappy> <1837 <1204626509.6241.39.camel@lappy>
-	 <18384.46967.583615.711455@notabene.brown>
-	 <1204888675.8514.102.camel@twins>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH] Make /proc/net a symlink on /proc/self/net (v2)
+Date: Fri, 07 Mar 2008 15:03:04 +0300
+Message-ID: <47D12EF8.8010801@openvz.org>
+References: <47CFB6CA.8090001@openvz.org>	 <1204821325.1397.298.camel@moss-spartans.epoch.ncsc.mil>	 <47D01F98.5010609@openvz.org> <1204832619.1397.354.camel@moss-spartans.epoch.ncsc.mil>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Pekka Enberg <penberg@cs.helsinki.fi>
-To: Neil Brown <neilb@suse.de>
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	James Morris <jmorris@namei.org>,
+	Eric Paris <eparis@parisplace.org>
+To: Stephen Smalley <sds@tycho.nsa.gov>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:44724 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758797AbYCGLzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2008 06:55:37 -0500
-In-Reply-To: <1204888675.8514.102.camel@twins>
+Received: from sacred.ru ([62.205.161.221]:46289 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754445AbYCGMaS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Mar 2008 07:30:18 -0500
+In-Reply-To: <1204832619.1397.354.camel@moss-spartans.epoch.ncsc.mil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-03-07 at 12:17 +0100, Peter Zijlstra wrote:
+[snip]
 
-> That would be so if the whole path from RX to socket demux would have
-> hard-irqs disabled. However I didn't see that. Moreover I think the
-> whole purpose of the NetPoll interface is to allow some RX queueing to
-> cut down on softirq overhead.
-
-s/NetPoll/NAPI/
-
-More specifically look at net/core/dev.c:netif_rx()
-It has a input queue per device.
-
-> >   2/ If the host is routing network packets, then incoming packets
-> >      might go on an outbound queue.  Is this space limited?  and
-> >      included in the reserve?
+>>> Does this break SELinux labeling of /proc/net inodes and thus its access
+>>> controls on them?
+>> It should not, since the proc_dir_etries are still organized in
+>> a required hierarchy.
 > 
-> Not sure, somewhere along the routing code I lost it again. Constructive
-> input from someone versed in that part of the kernel would be most
-> welcome.
+> Unfortunately, it does break selinux labeling of /proc/net inodes.
+> Easily seen by running ls -ZR /proc/net before and after the patch is
+> applied and comparing the results.  
+> 
+> Also, as a separate issue, a "find /proc/self/net ..." will show that
+> the hard link count is wrong for it.
 
-To clarify, I think we just send it on as I saw no reason why that could
-fail. However the more fancy stuff like engress or QoS might spoil the
-party, that is where I lost track.
+Oops... I've checked this thing explicitly before sending, but it looks
+like I used too old find version. I.e. 4.1.20 worked OK, but 4.2.23
+reported the nlink discrepancy.
 
+Anyway, this is fixed now (see below). I override the getattr method for
+/proc/net directory and update one from the net->proc_net entry, which 
+is calculated correctly.
 
+> Currently the inodes get labeled by selinux_proc_get_sid() by walking up
+> the proc_dir_entry tree to generate a name and prefix matching that name
+> in policy.  Before the patch, we'd get names like "//net/tcp", i.e.
+> relative to the root of proc (the extra leading slash is due to the
+> earlier proc net rewrite which also broke selinux until we adjusted it
+> to ignore it).  After the patch, we just get "//tcp", which is ambiguous
+> since we would also get that for a /proc/tcp inode if one existed.
+
+OK, got it. Is it good if we used to get the //net/tcp, but will /net/tcp
+(without the double slash)? The patch below does exactly this. It initializes
+the name for the net->proc_net entry and makes its parent be proc_root.
+
+Can you Ack this patch, so that I can merge it with the original one and 
+re-post the combined v3?
+
+> Not trying to obstruct your proc net improvements, but just want to make
+> sure that selinux doesn't get broken in the process.
+
+diff --git a/fs/proc/proc_net.c b/fs/proc/proc_net.c
+index 18d413c..4caa5f7 100644
+--- a/fs/proc/proc_net.c
++++ b/fs/proc/proc_net.c
+@@ -96,8 +96,27 @@ static struct dentry *proc_tgid_net_lookup(struct inode *dir,
+ 	return de;
+ }
+ 
++static int proc_tgid_net_getattr(struct vfsmount *mnt, struct dentry *dentry,
++		struct kstat *stat)
++{
++	struct inode *inode = dentry->d_inode;
++	struct net *net;
++
++	net = get_proc_task_net(inode);
++
++	generic_fillattr(inode, stat);
++
++	if (net != NULL) {
++		stat->nlink = net->proc_net->nlink;
++		put_net(net);
++	}
++
++	return 0;
++}
++
+ const struct inode_operations proc_net_inode_operations = {
+ 	.lookup		= proc_tgid_net_lookup,
++	.getattr	= proc_tgid_net_getattr,
+ };
+ 
+ static int proc_tgid_net_readdir(struct file *filp, void *dirent,
+@@ -162,6 +181,10 @@ static __net_init int proc_net_ns_init(struct net *net)
+ 		goto out;
+ 
+ 	netd->data = net;
++	netd->nlink = 2;
++	netd->name = "net";
++	netd->namelen = 3;
++	netd->parent = &proc_root;
+ 
+ 	err = -EEXIST;
+ 	net_statd = proc_net_mkdir(net, "stat", netd);
