@@ -1,34 +1,38 @@
 From: Nick Piggin <npiggin@suse.de>
-Subject: Re: [rfc][patch 1/3] slub: fix small HWCACHE_ALIGN alignment
-Date: Fri, 7 Mar 2008 05:05:40 +0100
-Message-ID: <20080307040540.GH21185@wotan.suse.de>
-References: <20080306025758.GB27150@wotan.suse.de> <Pine.LNX.4.64.0803061453360.16212@schroedinger.engr.sgi.com> <20080307022355.GB21185@wotan.suse.de> <Pine.LNX.4.64.0803061825120.29527@schroedinger.engr.sgi.com> <20080307023223.GD21185@wotan.suse.de> <Pine.LNX.4.64.0803061841220.29959@schroedinger.engr.sgi.com> <20080307031044.GF21185@wotan.suse.de> <Pine.LNX.4.64.0803061916580.30259@schroedinger.engr.sgi.com> <20080307032251.GG21185@wotan.suse.de> <Pine.LNX.4.64.0803061956390.532@schroedinger.engr.sgi.com>
+Subject: Re: [rfc][patch 2/3] slab: introduce SMP alignment
+Date: Fri, 7 Mar 2008 05:37:00 +0100
+Message-ID: <20080307043700.GI21185@wotan.suse.de>
+References: <20080303093449.GA15091@wotan.suse.de> <20080303093529.GB15091@wotan.suse.de> <Pine.LNX.4.64.0803031104570.6917@schroedinger.engr.sgi.com> <20080303200355.GB8974@wotan.suse.de> <Pine.LNX.4.64.0803031208400.16049@schroedinger.engr.sgi.com> <20080303201211.GE8974@wotan.suse.de> <Pine.LNX.4.64.0803031216430.3110@schroedinger.engr.sgi.com> <20080303202411.GH8974@wotan.suse.de> <Pine.LNX.4.64.0803031327330.4375@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yanmin_zhang@linux.intel.com,
-	dada1@cosmosbay.com
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
+	Eric Dumazet <dada1@cosmosbay.com>
 To: Christoph Lameter <clameter@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:34902 "EHLO mx1.suse.de"
+Received: from mx2.suse.de ([195.135.220.15]:55604 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755409AbYCGEFm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Mar 2008 23:05:42 -0500
+	id S1758159AbYCGEhE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2008 23:37:04 -0500
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0803061956390.532@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0803031327330.4375@schroedinger.engr.sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 06, 2008 at 07:58:06PM -0800, Christoph Lameter wrote:
-> On Fri, 7 Mar 2008, Nick Piggin wrote:
+On Mon, Mar 03, 2008 at 01:31:14PM -0800, Christoph Lameter wrote:
+> On Mon, 3 Mar 2008, Nick Piggin wrote:
 > 
-> > Where do I argue that it reduces cacheline contention? All arguments
-> > I made apply to a UP system equally.
+> > And maybe the VSMP guys will want to blow this out to their internode
+> > alignment?
+> > 
+> > max(!CONFIG_TINY && num_possible_cpus() > 1 ? (is_vsmp ? internode_alignemnt : cache_line_size()) : 0, mandatory_alignment)
 > 
-> Huh? I thought you wanted to avoid cacheline alignment on UP to save 
-> memory?
+> No the slab allocators were optimized for VSMP so that the 
+> internode_alignment is not necessary there. That was actually one of the 
+> requirements that triggered the slab numa work.
 
-We're talking about HWCACHE_ALIGN in this thread. SMP_ALIGN is for
-reducing cacheline contention and that's where you can avoid it on UP.
-
+BTW. can you explain this incredible claim that the slab allocators
+do not need internode_alignment to avoid false sharing of allocated
+objects on VSMP? I don't understand how that would work at all.
 
