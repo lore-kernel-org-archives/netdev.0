@@ -1,80 +1,70 @@
 From: Laurent Pinchart <laurentp@cse-semaphore.com>
-Subject: [PATCH] fs_enet: Don't call NAPI functions when NAPI is not used.
-Date: Fri, 7 Mar 2008 16:13:12 +0100
-Message-ID: <200803071613.17060.laurentp@cse-semaphore.com>
+Subject: Re: [PATCH 6/9] fs_enet: Be an of_platform device when CONFIG_PPC_CPM_NEW_BINDING is set.
+Date: Fri, 7 Mar 2008 16:23:39 +0100
+Message-ID: <200803071623.42519.laurentp@cse-semaphore.com>
+References: <20070920220121.GF28784@loki.buserror.net> <200802151350.20627.laurentp@cse-semaphore.com> <1203089936.20350.7.camel@p60365-ste>
 Mime-Version: 1.0
 Content-Type: multipart/signed;
-  boundary="nextPart1818887.vyJ5jlCckg";
+  boundary="nextPart1306640.PFn9xxkKFV";
   protocol="application/pgp-signature";
   micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, jgarzik@pobox.com
+To: Sergej Stepanov <Sergej.Stepanov@ids.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay005.isp.belgacom.be ([195.238.6.171]:20791 "EHLO
+Received: from mailrelay005.isp.belgacom.be ([195.238.6.171]:34188 "EHLO
 	mailrelay005.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753960AbYCGPNW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2008 10:13:22 -0500
-Received: from smtp.belgium.cse-semaphore.com (localhost [127.0.0.1])
-	by smtp.belgium.cse-semaphore.com (Postfix) with ESMTP id 6A195580C
-	for <netdev@vger.kernel.org>; Fri,  7 Mar 2008 16:13:19 +0100 (CET)
-Received: from pclaurent.belgium.cse-semaphore.com (pclaurent.belgium.cse-semaphore.com [192.168.1.47])
-	by smtp.belgium.cse-semaphore.com (Postfix) with ESMTP id 227B657F1
-	for <netdev@vger.kernel.org>; Fri,  7 Mar 2008 16:13:19 +0100 (CET)
+	by vger.kernel.org with ESMTP id S1752160AbYCGPXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2008 10:23:45 -0500
+In-Reply-To: <1203089936.20350.7.camel@p60365-ste>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart1818887.vyJ5jlCckg
+--nextPart1306640.PFn9xxkKFV
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="utf-8"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
 
-fs_enet_close() calls napi_disable() unconditionally. This patch skips the
-call when use_napi isn't set.
+Hi Sergej,
 
-Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
-=2D--
- drivers/net/fs_enet/fs_enet-main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+On Friday 15 February 2008 16:38, Sergej Stepanov wrote:
+> Am Freitag, den 15.02.2008, 13:50 +0100 schrieb Laurent Pinchart:
+> > We're loosing the possibility of having MDC and MDIO on different ports.
+> > This is quite easy to fix for the non-CONFIG_PPC_CPM_NEW_BINDING case b=
+ut
+> > I'm not familiar with OF bindings (yet) to fix the
+> > CONFIG_PPC_CPM_NEW_BINDING case.
+>
+> for OF issue i had this for a paar month:
+> http://www.spinics.net/lists/netdev/msg45778.html
+> http://www.spinics.net/lists/netdev/msg47159.html
+> i'll be glad if it helps...
 
-diff --git a/drivers/net/fs_enet/fs_enet-main.c=20
-b/drivers/net/fs_enet/fs_enet-main.c
-index c83bd65..1801ce3 100644
-=2D-- a/drivers/net/fs_enet/fs_enet-main.c
-+++ b/drivers/net/fs_enet/fs_enet-main.c
-@@ -835,7 +835,8 @@ static int fs_enet_close(struct net_device *dev)
-=20
- 	netif_stop_queue(dev);
- 	netif_carrier_off(dev);
-=2D	napi_disable(&fep->napi);
-+	if (fep->fpi->use_napi)
-+		napi_disable(&fep->napi);
- 	phy_stop(fep->phydev);
-=20
- 	spin_lock_irqsave(&fep->lock, flags);
-=2D-=20
-1.5.0
+Could these be applied ? Any showstopper ?
+
+Best regards,
 
 =2D-=20
 Laurent Pinchart
 CSE Semaphore Belgium
 
-Chauss=E9e de Bruxelles, 732A
+Chauss=C3=A9e de Bruxelles, 732A
 B-1410 Waterloo
 Belgium
 
 T +32 (2) 387 42 59
 =46 +32 (2) 387 42 75
 
---nextPart1818887.vyJ5jlCckg
+--nextPart1306640.PFn9xxkKFV
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.5 (GNU/Linux)
 
-iD8DBQBH0VuN8y9gWxC9vpcRAr92AJ9AU7RrejCusDUPUc1Riag9B8uXcgCgy7MQ
-sP5sddVkO0kY3V2lLc2dumY=
-=cNcp
+iD8DBQBH0V3+8y9gWxC9vpcRAsxrAKCM3B9Od9SMB7zGOGLifeiLypd1gwCgmG2m
+k+dzZ8nQBjO5yq8g2Qo1t+s=
+=dp8U
 -----END PGP SIGNATURE-----
 
---nextPart1818887.vyJ5jlCckg--
+--nextPart1306640.PFn9xxkKFV--
