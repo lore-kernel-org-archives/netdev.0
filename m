@@ -1,66 +1,40 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: Treason uncloaked spams syslog with latest git
-Date: Fri, 7 Mar 2008 20:52:03 +0100 (CET)
-Message-ID: <alpine.LFD.1.00.0803072050410.3099@apollo.tec.linutronix.de>
-References: <alpine.LFD.1.00.0803061140380.3099@apollo.tec.linutronix.de> <20080306153129.e247cd1a.akpm@linux-foundation.org> <Pine.LNX.4.64.0803071547370.5423@kivilampi-30.cs.helsinki.fi>
+From: Nathaniel Case <ncase@xes-inc.com>
+Subject: Re: [Pasemi-linux] I2C MDIO support for pasemi_mac driver
+Date: Fri, 07 Mar 2008 13:28:11 -0600
+Message-ID: <1204918091.8864.36.camel@localhost.localdomain>
+References: <1204911643.8864.15.camel@localhost.localdomain>
+	 <20080307183738.GA22366@lixom.net>  <20080307184854.GA23402@lixom.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1261117493-1204919525=:3099"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, pasemi-linux@ozlabs.org,
+	afleming@freescale.com
+To: Olof Johansson <olof@lixom.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.tglx.de ([62.245.132.106]:44487 "EHLO www.tglx.de"
+Received: from xes-mad.com ([216.165.139.214]:52961 "EHLO xes-mad.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756409AbYCGTw4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Mar 2008 14:52:56 -0500
-In-Reply-To: <Pine.LNX.4.64.0803071547370.5423@kivilampi-30.cs.helsinki.fi>
+	id S1756839AbYCGUIQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Mar 2008 15:08:16 -0500
+In-Reply-To: <20080307184854.GA23402@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323328-1261117493-1204919525=:3099
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-
-On Fri, 7 Mar 2008, Ilpo Järvinen wrote:
-> On Thu, 6 Mar 2008, Andrew Morton wrote:
+On Fri, 2008-03-07 at 12:48 -0600, Olof Johansson wrote:
+> On second thought, it might be a better idea to change from BUS:ID to
+> BUSTYPE:BUS:ID in phylib, to separate the namespaces.
 > 
-> > On Thu, 6 Mar 2008 11:47:12 +0100 (CET)
-> > Thomas Gleixner <tglx@linutronix.de> wrote:
-> > 
-> > > Since I updated one of my compile boxen to latest git I get the syslog
-> > > flooded with:
-> > > 
-> > > TCP: Treason uncloaked! Peer 192.168.0.1:10245/56637 shrinks window
-> > > 2748077551:2748080447. Repaired.
-> > > TCP: Treason uncloaked! Peer 192.168.0.68:10245/39915 shrinks window
-> > > 2890195332:2890201124. Repaired.
-> > > TCP: Treason uncloaked! Peer 192.168.0.65:10245/46058 shrinks window
-> > > 2880740873:2880745217. Repaired.
-> > > 
-> > > This happens _always_ when I compile kernels with distcc or icecc. All
-> > > systems involved run Linux with kernels >= 2.6.23 and are on the same
-> > > network; no routers, firewalls or other fancy stuff.
-> > > 
-> > > Any idea what's going on here ?
-> > > 
-> > 
-> > (cc netdev)
-> 
-> Could you tcpdump it?
+> That, plus a way to get to an i2c bus number from a device tree node,
+> and we should be all set. That might be tricker though.
 
-Will do.
- 
-> I'm not sure which party was updated to git and on which host(s) you do 
-> see them?
+I like this idea, since it would eliminate the need for the MAC driver
+to decide policy on a "global" MDIO bus numbering scheme.  I was also
+trying to make it compatible with the case (however unlikely) of having
+both an SMBus PHY and a bit-banged MDIO PHY.
 
-The compile machine was updated and I see the messages on that
-machine. No such messages on any machine.
+For getting the I2C bus number from a device tree node, I've just been
+parsing the node->full_name for the number following the i2c@XXXXXX with
+an ugly string parsing function (xes_of_get_node_loc() in one of the
+older patches I sent you).
 
-Thanks,
-	tglx
---8323328-1261117493-1204919525=:3099--
+- Nate Case <ncase@xes-inc.com>
+
