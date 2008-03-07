@@ -1,125 +1,106 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: [PATCH] Make /proc/net a symlink on /proc/self/net (v2)
-Date: Fri, 07 Mar 2008 08:24:34 -0500
-Message-ID: <1204896274.1397.403.camel@moss-spartans.epoch.ncsc.mil>
-References: <47CFB6CA.8090001@openvz.org>
-	 <1204821325.1397.298.camel@moss-spartans.epoch.ncsc.mil>
-	 <47D01F98.5010609@openvz.org>
-	 <1204832619.1397.354.camel@moss-spartans.epoch.ncsc.mil>
-	 <47D12EF8.8010801@openvz.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: circular locking, mirred, 2.6.24.2
+Date: Fri, 07 Mar 2008 08:53:22 -0500
+Message-ID: <1204898002.4431.99.camel@localhost>
+References: <20080225095646.GA4321@ff.dom.local>
+	 <20080225104652.M2446@visp.net.lb> <20080225113930.GA4733@ff.dom.local>
+	 <20080305103935.M76165@visp.net.lb> <20080306134015.GA4571@ff.dom.local>
+	 <1204811995.4440.30.camel@localhost> <20080306175629.GA2876@ami.dom.local>
+	 <1204836523.4457.103.camel@localhost> <20080306214000.GC2876@ami.dom.local>
+	 <1204846839.4431.23.camel@localhost>  <20080307075113.GA3912@ff.dom.local>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	James Morris <jmorris@namei.org>,
-	Eric Paris <eparis@parisplace.org>
-To: Pavel Emelyanov <xemul@openvz.org>
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zombie.ncsc.mil ([144.51.88.131]:38316 "EHLO zombie.ncsc.mil"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751722AbYCGN2X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Mar 2008 08:28:23 -0500
-In-Reply-To: <47D12EF8.8010801@openvz.org>
+Received: from wx-out-0506.google.com ([66.249.82.225]:12860 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757628AbYCGNxa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2008 08:53:30 -0500
+Received: by wx-out-0506.google.com with SMTP id h31so680702wxd.4
+        for <netdev@vger.kernel.org>; Fri, 07 Mar 2008 05:53:30 -0800 (PST)
+In-Reply-To: <20080307075113.GA3912@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2008-07-03 at 07:51 +0000, Jarek Poplawski wrote:
 
-On Fri, 2008-03-07 at 15:03 +0300, Pavel Emelyanov wrote:
-> [snip]
-> 
-> >>> Does this break SELinux labeling of /proc/net inodes and thus its access
-> >>> controls on them?
-> >> It should not, since the proc_dir_etries are still organized in
-> >> a required hierarchy.
-> > 
-> > Unfortunately, it does break selinux labeling of /proc/net inodes.
-> > Easily seen by running ls -ZR /proc/net before and after the patch is
-> > applied and comparing the results.  
-> > 
-> > Also, as a separate issue, a "find /proc/self/net ..." will show that
-> > the hard link count is wrong for it.
-> 
-> Oops... I've checked this thing explicitly before sending, but it looks
-> like I used too old find version. I.e. 4.1.20 worked OK, but 4.2.23
-> reported the nlink discrepancy.
-> 
-> Anyway, this is fixed now (see below). I override the getattr method for
-> /proc/net directory and update one from the net->proc_net entry, which 
-> is calculated correctly.
-> 
-> > Currently the inodes get labeled by selinux_proc_get_sid() by walking up
-> > the proc_dir_entry tree to generate a name and prefix matching that name
-> > in policy.  Before the patch, we'd get names like "//net/tcp", i.e.
-> > relative to the root of proc (the extra leading slash is due to the
-> > earlier proc net rewrite which also broke selinux until we adjusted it
-> > to ignore it).  After the patch, we just get "//tcp", which is ambiguous
-> > since we would also get that for a /proc/tcp inode if one existed.
-> 
-> OK, got it. Is it good if we used to get the //net/tcp, but will /net/tcp
-> (without the double slash)? The patch below does exactly this. It initializes
-> the name for the net->proc_net entry and makes its parent be proc_root.
-> 
-> Can you Ack this patch, so that I can merge it with the original one and 
-> re-post the combined v3?
+> At first this lockdep method looks like wrong (too general). But it
+> works. With every lock tracked separately there would be huge overhead
+> (especially with some structures created in thousands of instances).
+> And with this general approach we can see general problems: e.g.
+> wrong locking order even reported on two different devices like here,
+> and impossible in reality, 
 
-Thanks, ls -ZR /proc/net now yields the same output before and after the
-patch.
+The problem is not so much so that it is an impossible situation, rather
+it is not a useful detail to report as is. 
+As an example, heres something i consider useful to catch:
+ dev->queuelock for ethx being held recursively
+In your current setup, there will be many false-positives. i.e it will
+show something like dev->queuelock for eth0 is being held and flagging
+that as a problem because dev->queuelock for eth1 is also being held.
+i.e a lot of noise.
 
-Acked-by:  Stephen Smalley <sds@tycho.nsa.gov>
+> can help to analyze if the same could
+> happen in another, maybe even very hard to reproduce, variant, and to
+> fix this before ever happened.
 
-> 
-> > Not trying to obstruct your proc net improvements, but just want to make
-> > sure that selinux doesn't get broken in the process.
-> 
-> diff --git a/fs/proc/proc_net.c b/fs/proc/proc_net.c
-> index 18d413c..4caa5f7 100644
-> --- a/fs/proc/proc_net.c
-> +++ b/fs/proc/proc_net.c
-> @@ -96,8 +96,27 @@ static struct dentry *proc_tgid_net_lookup(struct inode *dir,
->  	return de;
->  }
->  
-> +static int proc_tgid_net_getattr(struct vfsmount *mnt, struct dentry *dentry,
-> +		struct kstat *stat)
-> +{
-> +	struct inode *inode = dentry->d_inode;
-> +	struct net *net;
-> +
-> +	net = get_proc_task_net(inode);
-> +
-> +	generic_fillattr(inode, stat);
-> +
-> +	if (net != NULL) {
-> +		stat->nlink = net->proc_net->nlink;
-> +		put_net(net);
-> +	}
-> +
-> +	return 0;
-> +}
-> +
->  const struct inode_operations proc_net_inode_operations = {
->  	.lookup		= proc_tgid_net_lookup,
-> +	.getattr	= proc_tgid_net_getattr,
->  };
->  
->  static int proc_tgid_net_readdir(struct file *filp, void *dirent,
-> @@ -162,6 +181,10 @@ static __net_init int proc_net_ns_init(struct net *net)
->  		goto out;
->  
->  	netd->data = net;
-> +	netd->nlink = 2;
-> +	netd->name = "net";
-> +	netd->namelen = 3;
-> +	netd->parent = &proc_root;
->  
->  	err = -EEXIST;
->  	net_statd = proc_net_mkdir(net, "stat", netd);
--- 
-Stephen Smalley
-National Security Agency
+It is possible some odd issue will be found by having the lockdeps in
+their current setup - but if you have to sift through noise in order to
+find it, then it makes it harder.
+
+> So, current way is to start from very general tracking, and if it
+> doesn't work (I mean false reports, not lockups), we make it more
+> specific. 
+
+Is it time to do that now? I know you said it was too much data to
+carry. However, such data depends on how many netdevices are on the
+system and lockdep is optional. You could even make NETDEV_LOCKDEP
+version which is accurate and the other one as being less accurate.
+
+> With dev->_xmit_lock the type level seems to be enough
+> for some time (so lockdep doesn't even know eth0 and eth1 created
+> as ARPHRD_ETHER use 2 different _xmit_locks).
+
+I am curious what issue has been found with this approach. I can see
+that someone who knows what they are doing could sift through reports
+and be able to catch something. My thinking is it most reports are going
+to be noise. People will report them because they are scary looking.
+
+> Such specific information is usually necessary only with nesting.
+
+It could also apply to a single lock (for example redirecting 
+eth0->eth0 or eth0->manyotherredirectshere->eth0)
+
+> But here, with sch_ingress + act_mirred it's not about nesting: it's
+> really about wrong order, which could be safe only because ifb
+> doesn't currently work with a full egress + ingress functionality.
+
+ifb never ever works with ingress. It is design intent. It is a special
+netdevice (as the text says) which receives only redirected packets.
+
+> I've to find first what really bothers lockdep here, and why this
+> queue_lock vs. ingress_lock order isn't reported "by default". 
+
+I dont see the problem in this case, those traces are false-positives -
+but no harm in investigating further. I still think the only time you
+can find real issues is when you have per-netdevice lockdep; anything
+else will only find issues only with the help of an expert.
+
+> But if
+> this really is like it looks now, then it seems before doing this
+> ingress "future point" some change in locking could be necessary.
+
+true. 
+
+> (Maybe even sooner if lockdep finds something real after this current
+> patch to ifb.)
+
+As it stands right now Jarek, I think you need to teach lockedep more
+smarter details.
+
+cheers,
+jamal
 
