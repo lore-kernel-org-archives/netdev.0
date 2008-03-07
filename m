@@ -1,49 +1,34 @@
-From: Jonas Bonn <jonas@southpole.se>
-Subject: Re: [PATCH] net: use DECLARE_PCI_DEVICE_TABLE
-Date: Fri, 07 Mar 2008 08:58:54 +0100
-Message-ID: <47D0F5BE.7010909@southpole.se>
-References: <1204800947-21569-1-git-send-email-jonas@southpole.se>	<1204800947-21569-2-git-send-email-jonas@southpole.se> <20080306154150.0ba906fa.akpm@linux-foundation.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [NET] ioc3.c: replace remaining __FUNCTION__ occurrences
+Date: Fri, 7 Mar 2008 00:17:52 -0800
+Message-ID: <20080307001752.09a8b291.akpm@linux-foundation.org>
+References: <20080306155509.GA16365@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com, Greg KH <greg@kroah.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	Harvey Harrison <harvey.harrison@gmail.com>
+To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.southpole.se ([193.12.106.18]:54808 "EHLO
-	mail.southpole.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757890AbYCGH7B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2008 02:59:01 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by mail.southpole.se (Postfix) with SMTP id 2AFCB4ED0FC
-	for <netdev@vger.kernel.org>; Fri,  7 Mar 2008 08:58:58 +0100 (CET)
-In-Reply-To: <20080306154150.0ba906fa.akpm@linux-foundation.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:39878 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752219AbYCGISg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2008 03:18:36 -0500
+In-Reply-To: <20080306155509.GA16365@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
-> Bah.
+On Thu, 6 Mar 2008 15:55:09 +0000 Ralf Baechle <ralf@linux-mips.org> wrote:
+
+> From: Harvey Harrison <harvey.harrison@gmail.com>
 > 
-> a) DECLARE_PCI_DEVICE_TABLE is misnamed.  It is used to *define* tables,
->    not to declare them.  It should be called DEFINE_PCI_DEVICE_TABLE.
+> __FUNCTION__ is gcc-specific, use __func__
 > 
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+>
+>  drivers/sn/ioc3.c |   22 +++++++++++-----------
 
-Fair enough...
+this isn't a net driver is it?
 
-> b) It's lame, anyway.  We could implement any number of such helper
->    thingies, but we choose not to.
-> 
-
-When I originally proposed these cleanups, I posted opened-coded 
-versions.  That was deemed to be ugly and using a macro was suggested. 
-So now I've reworked this with a macro, and now the macro is being 
-deemed to be ugly, too!
-
-The point of this exercise wasn't really to do a macro at all; the point 
-was to get these structures marked 'const'  and into __devinitconst 
-where they belong.  Whether the open-coded approach or the macro is the 
-way to go, is all the same to me; any guidance on how to proceed would 
-be appreciated.
-
-
-
+I already had it queued - I'll add your acked-by ;)
