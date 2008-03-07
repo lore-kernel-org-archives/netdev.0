@@ -1,45 +1,53 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [NET] ioc3.c: replace remaining __FUNCTION__ occurrences
-Date: Fri, 7 Mar 2008 09:10:38 +0000
-Message-ID: <20080307091038.GA30078@linux-mips.org>
-References: <20080306155509.GA16365@linux-mips.org> <20080307001752.09a8b291.akpm@linux-foundation.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: circular locking, mirred, 2.6.24.2
+Date: Fri, 7 Mar 2008 09:31:50 +0000
+Message-ID: <20080307093150.GA4203@ff.dom.local>
+References: <20080225113930.GA4733@ff.dom.local> <20080305103935.M76165@visp.net.lb> <20080306134015.GA4571@ff.dom.local> <20080306135625.M25627@visp.net.lb> <1204813634.4440.59.camel@localhost> <20080306143910.M91001@visp.net.lb> <20080306202551.GB2876@ami.dom.local> <1204837000.4457.108.camel@localhost> <20080306221253.GD2876@ami.dom.local> <20080306233151.M43262@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	Harvey Harrison <harvey.harrison@gmail.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: jamal <hadi@cyberus.ca>, netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:48616 "EHLO
-	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762040AbYCGJKn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2008 04:10:43 -0500
-Received: from localhost.localdomain ([127.0.0.1]:6369 "EHLO
-	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
-	id S28640654AbYCGJKl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Mar 2008 09:10:41 +0000
+Received: from nf-out-0910.google.com ([64.233.182.189]:30206 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762059AbYCGJah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2008 04:30:37 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so207347nfb.21
+        for <netdev@vger.kernel.org>; Fri, 07 Mar 2008 01:30:30 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20080307001752.09a8b291.akpm@linux-foundation.org>
+In-Reply-To: <20080306233151.M43262@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 07, 2008 at 12:17:52AM -0800, Andrew Morton wrote:
+On Fri, Mar 07, 2008 at 01:43:33AM +0200, Denys Fedoryshchenko wrote:
+> About reproducing, I think .config matter
+> Mine is at http://www.nuclearcat.com/files/config.txt
 
-> On Thu, 6 Mar 2008 15:55:09 +0000 Ralf Baechle <ralf@linux-mips.org> wrote:
-> 
-> > From: Harvey Harrison <harvey.harrison@gmail.com>
-> > 
-> > __FUNCTION__ is gcc-specific, use __func__
-> > 
-> > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> > Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
-> >
-> >  drivers/sn/ioc3.c |   22 +++++++++++-----------
-> 
-> this isn't a net driver is it?
+I see: CONFIG_4KSTACKS=y  but CONFIG_DEBUG_STACKOVERFLOW is not set.
+This doesn't look safe to me... And can trigger really strange things.
 
--EFINGERSTOOFAST ;-)
+Probably dmesg could be interesting too. And since it all takes place
+and can change in time, I wonder if it isn't better to open a report
+in bugzilla for this. Of course, you should remember to mask any
+confidential information.
 
-(IOC3 is an everything and the kitchensink thing - ethernet, RTC, PS/2,
-serial.)
+I'm also not sure this: 
+http://www.nuclearcat.com/files/bug_feb.txt
+is a full script (no more ifbs?) or an example. Doesn't "magic sysrq"
+work during such lockups?
 
-Ralf
+Denys, there were some reports on similar problems with ifb on SMP,
+but this was hard to trigger and debugging stopped for some reason.
+It seems there were some timer OOPSes, but this could be because
+wrong locking too. This could be even because some other apps can't
+handle their lost net traffic. Without some good log traces this could
+be impossible to tell. And such debugging shouldn't be done at
+production of course: it's really hard to foresee any locking changes.
+So, until you are willing to respond to our proposals and try the
+patches I can see no problem with assisting this problem.
+
+BTW, probably it's easier to stick to one kernel version, so maybe
+2.6.24.3 isn't a bad choice if 2.6.25-rc4 didn't help at all.
+ 
+Regards,
+Jarek P.
