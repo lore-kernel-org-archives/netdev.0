@@ -1,41 +1,65 @@
 From: Christoph Lameter <clameter@sgi.com>
 Subject: Re: [rfc][patch 1/3] slub: fix small HWCACHE_ALIGN alignment
-Date: Thu, 6 Mar 2008 18:33:35 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0803061833140.29585@schroedinger.engr.sgi.com>
-References: <Pine.LNX.4.64.0803031331340.4375@schroedinger.engr.sgi.com>
- <47CC6F30.50802@cs.helsinki.fi> <20080305002821.GD1510@wotan.suse.de>
- <Pine.LNX.4.64.0803051254570.30742@schroedinger.engr.sgi.com>
- <20080306024904.GA27150@wotan.suse.de> <Pine.LNX.4.64.0803061451230.16212@schroedinger.engr.sgi.com>
- <20080307020443.GA21185@wotan.suse.de> <Pine.LNX.4.64.0803061816430.28976@schroedinger.engr.sgi.com>
- <20080307022537.GC21185@wotan.suse.de> <Pine.LNX.4.64.0803061827040.29527@schroedinger.engr.sgi.com>
- <20080307023315.GE21185@wotan.suse.de>
+Date: Thu, 6 Mar 2008 18:54:19 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0803061841220.29959@schroedinger.engr.sgi.com>
+References: <20080303201701.GF8974@wotan.suse.de>
+ <Pine.LNX.4.64.0803031315160.4131@schroedinger.engr.sgi.com>
+ <20080305000637.GA1510@wotan.suse.de> <20080304.161003.129716254.davem@davemloft.net>
+ <Pine.LNX.4.64.0803051257030.30742@schroedinger.engr.sgi.com>
+ <20080306025758.GB27150@wotan.suse.de> <Pine.LNX.4.64.0803061453360.16212@schroedinger.engr.sgi.com>
+ <20080307022355.GB21185@wotan.suse.de> <Pine.LNX.4.64.0803061825120.29527@schroedinger.engr.sgi.com>
+ <20080307023223.GD21185@wotan.suse.de>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	yanmin_zhang@linux.intel.com, David Miller <davem@davemloft.net>,
-	Eric Dumazet <dada1@cosmosbay.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yanmin_zhang@linux.intel.com,
+	dada1@cosmosbay.com
 To: Nick Piggin <npiggin@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netops-testserver-3-out.sgi.com ([192.48.171.28]:55842 "EHLO
-	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1761686AbYCGCdx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2008 21:33:53 -0500
-In-Reply-To: <20080307023315.GE21185@wotan.suse.de>
+Received: from relay2.sgi.com ([192.48.171.30]:50159 "EHLO relay.sgi.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750771AbYCGCyh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2008 21:54:37 -0500
+In-Reply-To: <20080307023223.GD21185@wotan.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 7 Mar 2008, Nick Piggin wrote:
+> It doesn't say start of cache line. It says align them *on* cachelines.
+> 2 32 byte objects on a 64 byte cacheline are aligned on the cacheline.
+> 2.67 24 bytes objects on a 64 byte cacheline are not aligned on the
+> cacheline.
 
-> On Thu, Mar 06, 2008 at 06:27:12PM -0800, Christoph Lameter wrote:
-> > On Fri, 7 Mar 2008, Nick Piggin wrote:
-> > 
-> > > > Is that really a noteworthy effect?
-> > > 
-> > > Yes.
-> > 
-> > Numbers?
-> 
-> Uhh... big number > small number
+2 32 byte objects means only one is aligned on a cache line.
 
-Can you quantify the effect?
+Certainly cacheline contention is reduced and performance potentially 
+increased if there are less objects in a cacheline.
+
+The same argument can be made of aligning 8 byte objects on 32 byte 
+boundaries. Instead of 8 objects per cacheline you only have two. Why 8?
+
+Isnt all of this a bit arbitrary and contrary to the intend of avoiding 
+cacheline contention?
+
+The cleanest solution to this is to specify the alignment for each 
+slabcache if such an alignment is needed. The alignment can be just a 
+global constant or function like cache_line_size(). 
+
+I.e. define
+
+	int smp_align;
+
+On bootup check the number of running cpus and then pass smp_align as
+the align parameter (most slabcaches have no other alignment needs, if 
+they do then we can combine these using max).
+
+If we want to do more sophisticated things then lets have function that
+aligns the object on power of two boundaries like SLAB_HWCACHE_ALIGN does
+now:
+
+	sub_cacheline_align(size)
+
+Doing so will make it more transparent as to what is going on and which 
+behavior we want. And we can get rid of SLAB_HWCACHE_ALIGN with the weird
+semantics. Specifying smp_align wil truly always align on a cacheline 
+boundary if we are on an SMP system.
+
