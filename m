@@ -1,31 +1,52 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: DoS by cat /proc/net/ip_conntrack ?
-Date: Sat, 8 Mar 2008 15:44:26 +0100
-Message-ID: <20080308144426.GB3378@ami.dom.local>
-References: <20080306134037.M70019@visp.net.lb> <Pine.LNX.4.64.0803061449220.23263@bizon.gios.gov.pl> <47D28601.4080106@gmail.com> <47D28786.80600@gmail.com> <20080308142254.M64724@visp.net.lb>
+From: Kazunori MIAZAWA <kazunori@miyazawa.org>
+Subject: Re: [PATCH][IPSEC] inter address family IPsec tunnel on the fly
+Date: Sat, 08 Mar 2008 23:46:13 +0900
+Message-ID: <47D2A6B5.101@miyazawa.org>
+References: <20080305213727.35f46f2f.kazunori@miyazawa.org>	<20080305.134020.05696990.davem@davemloft.net>	<47D0E169.5050006@miyazawa.org> <20080306.231947.135681188.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Krzysztof Oledzki <olel@ans.pl>, netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:64190 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752865AbYCHOhZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2008 09:37:25 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so4593402ugc.16
-        for <netdev@vger.kernel.org>; Sat, 08 Mar 2008 06:37:23 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080308142254.M64724@visp.net.lb>
+Received: from usagi004.linux-ipv6.org ([203.178.140.4]:47629 "EHLO
+	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753722AbYCHOqz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Mar 2008 09:46:55 -0500
+In-Reply-To: <20080306.231947.135681188.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 08, 2008 at 04:24:34PM +0200, Denys Fedoryshchenko wrote:
-> For me personally, i think must be as a rule, that _READING_ must not hang 
-> whole system by consuming all resources (router becoming completely 
-> unreachable and blocking all traffic passing thru it). It can hang console, 
-> current program, but not crash router.
+David Miller wrote:
+> From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+> Date: Fri, 07 Mar 2008 15:32:09 +0900
+> 
+>> David Miller wrote:
+>>> I also wonder if the PF_KEY limitation really exists.  For example we
+>>> will set x->sel.family etc. from the SADB_EXT_ADDRESS_PROXY attribute
+>>> if present.
+>>>
+>> Yes, we have SADB_EXT_ADDRESS_PROXY. But it is not enough, I think.
+>> xfrm_selector has both src and dst so that we need some way to
+>> specify the address is src or dst.
+>>
+>> from RFC2367
+> 
+> Thank you for this information.
+> 
+>>> Finally, if the determination can be made in the data path, it
+>>> by definition could be made during rule insertion which is much
+>>> more efficient and appropriate.
+>> I agree with you.
+> 
+> I am sure there is a simple solution to this problem somewhere,
+> it is just hiding :-)
+> 
 
-IMHO you're right, and it's a bug. Only calling this DOS isn't probably
-very right if only root can do this, but maybe I'm wrong.
+I think one solution is xfrm_state has two inner_modes
+and switch them when the family is any.
 
-Jarek P.
+This is just an idea :-p
+
+--
+Kazunori Miyazawa
