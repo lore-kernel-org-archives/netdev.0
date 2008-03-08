@@ -1,39 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG kernel 2.6.25-rc3 IPV6] ping6 -I eth0 ff02::1 causes
- system hang.
-Date: Sat, 08 Mar 2008 03:56:47 -0800 (PST)
-Message-ID: <20080308.035647.193709286.davem@davemloft.net>
-References: <20071014073658.d4352b8c.komurojun@nifty.com>
-	<20080302210716.69727582.komurojun-mbn@nifty.com>
-	<20080308134410.69d07a2d.komurojun-mbn@nifty.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: circular locking, mirred, 2.6.24.2
+Date: Sat, 8 Mar 2008 13:02:44 +0100
+Message-ID: <20080308120244.GA3378@ami.dom.local>
+References: <20080306214000.GC2876@ami.dom.local> <1204846839.4431.23.camel@localhost> <20080307075113.GA3912@ff.dom.local> <1204898002.4431.99.camel@localhost> <20080308084628.GA2749@ami.dom.local> <20080308085854.GB2749@ami.dom.local> <20080308101540.M65133@visp.net.lb> <20080308104322.GA3301@ami.dom.local> <20080308105250.GB3301@ami.dom.local> <20080308110611.M62976@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: komurojun-mbn@nifty.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49561
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752833AbYCHL4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2008 06:56:46 -0500
-In-Reply-To: <20080308134410.69d07a2d.komurojun-mbn@nifty.com>
+Received: from fg-out-1718.google.com ([72.14.220.159]:13645 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754896AbYCHL4z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2008 06:56:55 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so1017037fga.17
+        for <netdev@vger.kernel.org>; Sat, 08 Mar 2008 03:56:54 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080308110611.M62976@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Komuro <komurojun-mbn@nifty.com>
-Date: Sat, 8 Mar 2008 13:44:10 +0900
+On Sat, Mar 08, 2008 at 01:09:10PM +0200, Denys Fedoryshchenko wrote:
+> Seems "try 2" helped. lockdep is not triggered anymore. I test on 3 different 
+> servers for now.
+> I will test more deeply and on more servers.
 
-> The bad commit is below.
-> 
-> 69cc64d8d92bf852f933e90c888dfff083bd4fc9 is first bad commit
-> commit 69cc64d8d92bf852f933e90c888dfff083bd4fc9
-> Author: David S. Miller <davem@davemloft.net>
-> Date:   Mon Feb 11 21:45:44 2008 -0800
-> 
->     [NDISC]: Fix race in generic address resolution
-> 
->     Frank Blaschka provided the bug report and the initial suggested fix
->     for this bug.  He also validated this version of this fix.
+Fine! So, let's wait yet... (No need to hurry.)
 
-This was a known bad commit and got reverted more than a week ago.
+BTW, I thought about those earlier probably stack overflow problems,
+and I wonder if using action ipt couldn't be blamed here. Sometimes
+it seems to be unnecessary, so maybe you could try if re-doing some
+filter rules can help.
+
+Jarek P.
