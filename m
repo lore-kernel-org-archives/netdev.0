@@ -1,28 +1,40 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: circular locking, mirred, 2.6.24.2
-Date: Sat, 8 Mar 2008 09:58:54 +0100
-Message-ID: <20080308085854.GB2749@ami.dom.local>
-References: <20080305103935.M76165@visp.net.lb> <20080306134015.GA4571@ff.dom.local> <1204811995.4440.30.camel@localhost> <20080306175629.GA2876@ami.dom.local> <1204836523.4457.103.camel@localhost> <20080306214000.GC2876@ami.dom.local> <1204846839.4431.23.camel@localhost> <20080307075113.GA3912@ff.dom.local> <1204898002.4431.99.camel@localhost> <20080308084628.GA2749@ami.dom.local>
+Subject: Re: PROBLEM: A set of networking related oopses
+Date: Sat, 08 Mar 2008 10:53:05 +0100
+Message-ID: <47D26201.2060201@gmail.com>
+References: <D04F01C2-03F0-4FBC-933D-62899456BEE9@solitudo.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Tuomas Jormola <tj@solitudo.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.157]:12788 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750775AbYCHIyb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2008 03:54:31 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so956907fga.17
-        for <netdev@vger.kernel.org>; Sat, 08 Mar 2008 00:54:30 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080308084628.GA2749@ami.dom.local>
+Received: from fk-out-0910.google.com ([209.85.128.187]:4250 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751400AbYCHJsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2008 04:48:13 -0500
+Received: by fk-out-0910.google.com with SMTP id z23so698200fkz.5
+        for <netdev@vger.kernel.org>; Sat, 08 Mar 2008 01:48:11 -0800 (PST)
+In-Reply-To: <D04F01C2-03F0-4FBC-933D-62899456BEE9@solitudo.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 08, 2008 at 09:46:28AM +0100, Jarek Poplawski wrote:
-...
-> said doesn't use this patch with it's ingress (at least currently).
+Tuomas Jormola wrote, On 03/06/2008 08:05 PM:
 
-+ said doesn't use this path with it's ingress (at least currently).
+> Hello,
 
+Hi,
+
+> [1.] One line summary of the problem:
+> My gateway machine is suffering from kernel oopses that don't kill the  
+> machine, but do occur every now and then
+
+Do you have irq balancing enabled for your eths (are eth interrupts shown
+for more than one cpu in /proc/interrupts)? If so, try to disable this.
+
+This link could be helpful:
+
+http://marc.info/?l=linux-netdev&m=120349568512423&w=2
+
+Regards,
 Jarek P.
