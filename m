@@ -1,53 +1,55 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [IOC3] Fix section missmatch
-Date: Sat, 8 Mar 2008 16:58:33 +0000
-Message-ID: <20080308165833.GA8625@linux-mips.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: PROBLEM: A set of networking related oopses
+Date: Sat, 8 Mar 2008 18:57:21 +0100
+Message-ID: <20080308175721.GA3582@ami.dom.local>
+References: <D04F01C2-03F0-4FBC-933D-62899456BEE9@solitudo.net> <47D26201.2060201@gmail.com> <0CFB0535-DE03-4C13-8EC5-9471CED9B6BE@solitudo.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-mips@linux-mips.org
+Cc: netdev@vger.kernel.org
+To: Tuomas Jormola <tj@solitudo.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:58568 "EHLO
-	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752079AbYCHQ6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2008 11:58:37 -0500
-Received: from localhost.localdomain ([127.0.0.1]:721 "EHLO
-	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
-	id S28645951AbYCHQ6f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Mar 2008 16:58:35 +0000
+Received: from fg-out-1718.google.com ([72.14.220.153]:7649 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750703AbYCHRsv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2008 12:48:51 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so1132564fga.17
+        for <netdev@vger.kernel.org>; Sat, 08 Mar 2008 09:48:50 -0800 (PST)
 Content-Disposition: inline
+In-Reply-To: <0CFB0535-DE03-4C13-8EC5-9471CED9B6BE@solitudo.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  LD      drivers/net/built-in.o
-WARNING: drivers/net/built-in.o(.text+0x3468): Section mismatch in reference fro
-m the function ioc3_probe() to the function .devinit.text:ioc3_serial_probe()
-The function ioc3_probe() references
-the function __devinit ioc3_serial_probe().
-This is often because ioc3_probe lacks a __devinit 
-annotation or the annotation of ioc3_serial_probe is wrong.
+On Sat, Mar 08, 2008 at 06:13:55PM +0200, Tuomas Jormola wrote:
+...
+> (18:08:32)(tj@shakti)(~)$ cat /proc/interrupts
+>            CPU0       CPU1
+...
+>  18:     875645     873991   IO-APIC-fasteoi   uhci_hcd:usb1,  
+> uhci_hcd:usb6, eth0
+>  19:          2          1   IO-APIC-fasteoi   uhci_hcd:usb5, ohci1394
+>  20:          0          0   IO-APIC-fasteoi   uhci_hcd:usb2
+>  21:          0          0   IO-APIC-fasteoi   uhci_hcd:usb4,  
+> ehci_hcd:usb8
+>  22:          4          3   IO-APIC-fasteoi   heci
+> 217:     498561     498427   PCI-MSI-edge      eth1
+> 218:   88587922   88715380   PCI-MSI-edge      ahci
+...
+> So I would be able to bind eth0 to CPU0 by running
+>
+> echo 1 > /proc/irq/18/smp_affinity
+>
+> right? http://www.cs.uwaterloo.ca/~brecht/servers/apic/SMP-affinity.txt 
+> says that smp affinity only works for drivers that support IO-APIC. The 
+> eth1 card is an old Intel card, and looks like it doesn't support this. I 
+> guess I'll replace the card with a newer one.
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+Should be right. If it's possibile, you can try if moving eth0 to
+another slot could give it it's own irq.
 
----
-Resend, this time with Jeff's address corrected.
+I think it should work with both of your cards: eth1 uses newer type
+of interrupts - are you sure it's e100?
 
-diff --git a/drivers/net/ioc3-eth.c b/drivers/net/ioc3-eth.c
-index 373f72c..1f25263 100644
---- a/drivers/net/ioc3-eth.c
-+++ b/drivers/net/ioc3-eth.c
-@@ -1221,7 +1221,8 @@ static void __devinit ioc3_serial_probe(struct pci_dev *pdev, struct ioc3 *ioc3)
- }
- #endif
- 
--static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
-+static int __devinit ioc3_probe(struct pci_dev *pdev,
-+	const struct pci_device_id *ent)
- {
- 	unsigned int sw_physid1, sw_physid2;
- 	struct net_device *dev = NULL;
+You can also check if it really fixes the problem by booting with
+a kernel parameter: noirqbalance.
 
------ End forwarded message -----
-
-  Ralf
+Jarek P.
