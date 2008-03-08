@@ -1,37 +1,82 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: DoS by cat /proc/net/ip_conntrack ?
-Date: Sat, 08 Mar 2008 16:18:30 +0100
-Message-ID: <47D2AE46.1010406@trash.net>
-References: <20080306134037.M70019@visp.net.lb> <Pine.LNX.4.64.0803061449220.23263@bizon.gios.gov.pl> <47D28601.4080106@gmail.com> <47D28786.80600@gmail.com> <20080308142254.M64724@visp.net.lb> <20080308144426.GB3378@ami.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Tuomas Jormola <tj@solitudo.net>
+Subject: Re: PROBLEM: A set of networking related oopses
+Date: Sat, 8 Mar 2008 18:13:55 +0200
+Message-ID: <0CFB0535-DE03-4C13-8EC5-9471CED9B6BE@solitudo.net>
+References: <D04F01C2-03F0-4FBC-933D-62899456BEE9@solitudo.net> <47D26201.2060201@gmail.com>
+Mime-Version: 1.0 (Apple Message framework v919.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: Denys Fedoryshchenko <denys@visp.net.lb>,
-	Krzysztof Oledzki <olel@ans.pl>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33799 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753265AbYCHPrO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2008 10:47:14 -0500
-In-Reply-To: <20080308144426.GB3378@ami.dom.local>
+Received: from emh05.mail.saunalahti.fi ([62.142.5.111]:45066 "EHLO
+	emh05.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752351AbYCHQN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2008 11:13:59 -0500
+In-Reply-To: <47D26201.2060201@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> On Sat, Mar 08, 2008 at 04:24:34PM +0200, Denys Fedoryshchenko wrote:
->   
->> For me personally, i think must be as a rule, that _READING_ must not hang 
->> whole system by consuming all resources (router becoming completely 
->> unreachable and blocking all traffic passing thru it). It can hang console, 
->> current program, but not crash router.
->>     
+
+On 8 Mar 2008, at 11:53, Jarek Poplawski wrote:
+
+> Tuomas Jormola wrote, On 03/06/2008 08:05 PM:
 >
-> IMHO you're right, and it's a bug. Only calling this DOS isn't probably
-> very right if only root can do this, but maybe I'm wrong.
->   
+>> Hello,
+>
+> Hi,
+>
+>> [1.] One line summary of the problem:
+>> My gateway machine is suffering from kernel oopses that don't kill  
+>> the
+>> machine, but do occur every now and then
+>
+> Do you have irq balancing enabled for your eths (are eth interrupts  
+> shown
+> for more than one cpu in /proc/interrupts)? If so, try to disable  
+> this.
+>
+> This link could be helpful:
+>
+> http://marc.info/?l=linux-netdev&m=120349568512423&w=2
+Thanks for the tip. Currently, I have
 
-Starting with current -git we don't take the conntrack
-lock for /proc anymore, so it should behave better now.
+(18:08:32)(tj@shakti)(~)$ cat /proc/interrupts
+            CPU0       CPU1
+   0:        334        190   IO-APIC-edge      timer
+   1:          5          6   IO-APIC-edge      i8042
+   8:          3          4   IO-APIC-edge      rtc
+   9:          0          0   IO-APIC-fasteoi   acpi
+  12:          3          1   IO-APIC-edge      i8042
+  16:        223        207   IO-APIC-fasteoi   uhci_hcd:usb3,  
+ehci_hcd:usb7, libata
+  18:     875645     873991   IO-APIC-fasteoi   uhci_hcd:usb1,  
+uhci_hcd:usb6, eth0
+  19:          2          1   IO-APIC-fasteoi   uhci_hcd:usb5, ohci1394
+  20:          0          0   IO-APIC-fasteoi   uhci_hcd:usb2
+  21:          0          0   IO-APIC-fasteoi   uhci_hcd:usb4,  
+ehci_hcd:usb8
+  22:          4          3   IO-APIC-fasteoi   heci
+217:     498561     498427   PCI-MSI-edge      eth1
+218:   88587922   88715380   PCI-MSI-edge      ahci
+NMI:          0          0   Non-maskable interrupts
+LOC:   12081665   11441729   Local timer interrupts
+RES:    1372553    1227633   Rescheduling interrupts
+CAL:     513863     442462   function call interrupts
+TLB:      44149      48844   TLB shootdowns
+TRM:          0          0   Thermal event interrupts
+SPU:          0          0   Spurious interrupts
+ERR:          0
+MIS:          0
 
+So I would be able to bind eth0 to CPU0 by running
 
+echo 1 > /proc/irq/18/smp_affinity
+
+right? http://www.cs.uwaterloo.ca/~brecht/servers/apic/SMP- 
+affinity.txt says that smp affinity only works for drivers that  
+support IO-APIC. The eth1 card is an old Intel card, and looks like it  
+doesn't support this. I guess I'll replace the card with a newer one.
+
+-- 
+Tuomas Jormola <tj@solitudo.net>
