@@ -1,33 +1,25 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH][AX25] ax25_out: check skb for NULL in ax25_kick()
-Date: Sun, 9 Mar 2008 19:03:00 +0100
-Message-ID: <20080309180300.GB3339@ami.dom.local>
-References: <20080206074529.GC4496@ff.dom.local> <20080213115607.GB2867@ff.dom.local> <025801c86ea3$75add3f0$453c822c@dg8ngn> <47D3A7AF.1030607@free.fr> <20080309143052.GA2749@ami.dom.local> <001101c8820b$e0409880$453c822c@dg8ngn>
+From: Roel Kluin <12o3l@tiscali.nl>
+Subject: drivers/net/tokenring/smctr.c: logical-bitwise or confusion?
+Date: Sun, 09 Mar 2008 22:43:43 +0100
+Message-ID: <47D45A0F.1060102@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'Pidoux' <f6bvp@free.fr>, 'David Miller' <davem@davemloft.net>,
-	'Ralf Baechle' <ralf@linux-mips.org>, netdev@vger.kernel.org
-To: Jann Traschewski <jann@gmx.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jschlst@samba.org, p_gortmaker@yahoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:19118 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752030AbYCIR5x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2008 13:57:53 -0400
-Received: by fg-out-1718.google.com with SMTP id e21so1608303fga.17
-        for <netdev@vger.kernel.org>; Sun, 09 Mar 2008 10:57:50 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <001101c8820b$e0409880$453c822c@dg8ngn>
+Received: from smtp-out1.tiscali.nl ([195.241.79.176]:34585 "EHLO
+	smtp-out1.tiscali.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751885AbYCIVoA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2008 17:44:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 09, 2008 at 06:34:47PM +0100, Jann Traschewski wrote:
-> Indeed. I'd like to see it in 2.6.24. My heavy used machine has no problems
-> with this patch since 13 days now.
+drivers/net/tokenring/smctr.c:3416
 
-I hope David or Ralf will consider this.
+tsv->svv[0] = ((tx_fstatus & 0x0100 >> 6) || IBM_PASS_SOURCE_ADDR);
 
-BTW, Jann, I guess we're waiting with this last AX.25 testing patch
-for the magic 13 too?
+shouldn't this be a bit-wise or?
+from drivers/net/tokenring/smctr.h:50:
 
-Thanks,
-Jarek P.
+#define      IBM_PASS_SOURCE_ADDR    0x01
