@@ -1,34 +1,48 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: PROBLEM: A set of networking related oopses
-Date: Sun, 9 Mar 2008 18:31:22 +0100
-Message-ID: <20080309173122.GA3339@ami.dom.local>
-References: <D04F01C2-03F0-4FBC-933D-62899456BEE9@solitudo.net> <47D26201.2060201@gmail.com> <0CFB0535-DE03-4C13-8EC5-9471CED9B6BE@solitudo.net> <20080308175721.GA3582@ami.dom.local> <2DAAA71E-5F03-41CA-B7E0-5BE4073D14F5@solitudo.net>
+From: "Jann Traschewski" <jann@gmx.de>
+Subject: Re: [PATCH][AX25] ax25_out: check skb for NULL in ax25_kick()
+Date: Sun, 9 Mar 2008 18:34:47 +0100
+Message-ID: <001101c8820b$e0409880$453c822c@dg8ngn>
+References: <20080206074529.GC4496@ff.dom.local> <20080213115607.GB2867@ff.dom.local> <025801c86ea3$75add3f0$453c822c@dg8ngn> <47D3A7AF.1030607@free.fr> <20080309143052.GA2749@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Tuomas Jormola <tj@solitudo.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "'David Miller'" <davem@davemloft.net>,
+	"'Ralf Baechle'" <ralf@linux-mips.org>, <netdev@vger.kernel.org>
+To: "'Jarek Poplawski'" <jarkao2@gmail.com>, "'Pidoux'" <f6bvp@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:3058 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750941AbYCIR01 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2008 13:26:27 -0400
-Received: by fg-out-1718.google.com with SMTP id e21so1598218fga.17
-        for <netdev@vger.kernel.org>; Sun, 09 Mar 2008 10:26:26 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <2DAAA71E-5F03-41CA-B7E0-5BE4073D14F5@solitudo.net>
+Received: from mail.gmx.net ([213.165.64.20]:43204 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751845AbYCIRew convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2008 13:34:52 -0400
+In-Reply-To: <20080309143052.GA2749@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 09, 2008 at 06:58:47PM +0200, Tuomas Jormola wrote:
-...
-> there be new oopses, I will replace the old card with a newer Intel 
-> gigabit card that I have laying around, and put it in a different PCI 
-> slot.
+Indeed. I'd like to see it in 2.6.24. My heavy used machine has no prob=
+lems
+with this patch since 13 days now.
+Thank you,
+Jann
 
-The link I gave you described similar problem just with e1000.
-The next message after this thread looks alike (e1000 driver).
-So, you shouldn't hurry with this change. Just set this affinity
-for both cards and check if it's respected.
+> -----Urspr=FCngliche Nachricht-----
+> Von: Jarek Poplawski [mailto:jarkao2@gmail.com]=20
+> Gesendet: Sonntag, 9. M=E4rz 2008 15:31
+> An: Pidoux
+> Cc: Jann Traschewski; 'David Miller'; 'Ralf Baechle';=20
+> netdev@vger.kernel.org
+> Betreff: Re: [PATCH][AX25] ax25_out: check skb for NULL in ax25_kick(=
+)
+>=20
+> On Sun, Mar 09, 2008 at 10:02:39AM +0100, Pidoux wrote:
+> ...
+> >>> Subject: [AX25] ax25_out: check skb for NULL in ax25_kick()
+> ...
+> > Applied too and stable with kernel 2.6.24.3 since a week.
+>=20
+> Good to know! It's merged to 2.6.25-rc3, but maybe recommending it fo=
+r
+> 2.6.24 wouldn't be a bad idea...
+>=20
+> Thanks Bernard,
+> Jarek P.
 
-Regards,
-Jarek P.
