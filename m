@@ -1,63 +1,84 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: [PATCH] 2.6.25-rc4 de_stop_rxtx polling wrong
-Date: Sat, 8 Mar 2008 18:33:16 -0700
-Message-ID: <20080309013316.GD25083@colo.lackof.org>
+From: "Jon Schindler" <jkschind@gmail.com>
+Subject: Re: [patch 16/17] drivers/net/8390.c: replace init_module&cleanup_module with module_init&module_exit
+Date: Sun, 9 Mar 2008 00:56:25 -0600
+Message-ID: <f68151390803082256i2bc7cd77x86d21aa915af8bfe@mail.gmail.com>
+References: <200803042319.m24NJXjS002733@imap1.linux-foundation.org>
+	 <47D1D70A.2070003@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
-To: jgarzik@pobox.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, akpm@linux-foundation.org, netdev@vger.kernel.org,
+	alan@lxorguk.ukuu.org.uk
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from colo.lackof.org ([198.49.126.79]:48761 "EHLO colo.lackof.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752494AbYCIBd2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Mar 2008 20:33:28 -0500
+Received: from rv-out-0910.google.com ([209.85.198.189]:30041 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751314AbYCIG40 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2008 01:56:26 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so741243rvb.1
+        for <netdev@vger.kernel.org>; Sat, 08 Mar 2008 22:56:26 -0800 (PST)
+In-Reply-To: <47D1D70A.2070003@intel.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff,
-This untested patch _should_ fix:
-	"(net de2104x) Kernel panic with de2104x tulip driver on boot"	
-	http://bugzilla.kernel.org/show_bug.cgi?id=3156
+Hi,
 
-But the bug submitter isn't responding.  Same fix has been applied
-to tulip.c (several years ago) and uli526x.c (Feb 2008) drivers.
+I actually ended up doing a resubmit, but forgot to send it to Jeff.
+I'll send it in the next email.
 
-Patch was originally against 2.6.23 but applies clean against 2.6.25-rc4.
+Jon
 
-[ The panic reported in the bug report was removed in a recently
-  (march 2008) accepted patch from Ondrej Zary. ]
-
-
-Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
-
-
---- linux-2.6.23/drivers/net/tulip/de2104x.c	2007-10-09 13:31:38.000000000 -0700
-+++ linux-2.6.23/drivers/net/tulip/de2104x.c-ggg	2007-11-02 23:24:46.000000000 -0700
-@@ -842,7 +842,7 @@
- static void de_stop_rxtx (struct de_private *de)
- {
- 	u32 macmode;
--	unsigned int work = 1000;
-+	unsigned int i = 1300/100;
- 
- 	macmode = dr32(MacMode);
- 	if (macmode & RxTx) {
-@@ -850,10 +850,14 @@
- 		dr32(MacMode);
- 	}
- 
--	while (--work > 0) {
-+	/* wait until in-flight frame completes.
-+	 * Max time @ 10BT: 1500*8b/10Mbps == 1200us (+ 100us margin)
-+	 * Typically expect this loop to end in < 50 us on 100BT.
-+	 */
-+	while (--i) {
- 		if (!de_is_running(de))
- 			return;
--		cpu_relax();
-+		udelay(100);
- 	}
- 
- 	printk(KERN_WARNING "%s: timeout expired stopping DMA\n", de->dev->name);
-
+On Fri, Mar 7, 2008 at 6:00 PM, Kok, Auke <auke-jan.h.kok@intel.com> wrote:
+> akpm@linux-foundation.org wrote:
+>  > From: Jon Schindler <jkschind@gmail.com>
+>  >
+>  > Replace init_module and cleanup_module with static functions and
+>  > module_init/module_exit.
+>  >
+>  > Signed-off-by: Jon Schindler <jkschind@gmail.com>
+>  > Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
+>  > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+>
+>  something went wrong here as this patch already appears to be in jeff's upstream
+>  tree as commit 8724c2de65fe527f5b7aa662fcb8573fb8cd02f2, but breaks compile.
+>
+>  with CONFIG_NE2K_PCI=m:
+>
+>   CC [M]  drivers/net/8390.o
+>  drivers/net/8390.c: In function '__inittest':
+>  drivers/net/8390.c:60: error: 'ns8390_init_module' undeclared (first use in this
+>  function)
+>  drivers/net/8390.c:60: error: (Each undeclared identifier is reported only once
+>  drivers/net/8390.c:60: error: for each function it appears in.)
+>  make[2]: *** [drivers/net/8390.o] Error 1
+>  make[1]: *** [drivers/net] Error 2
+>  make: *** [drivers] Error 2
+>
+>
+>  reverting the patch fixes the issue, but better would be to fix.
+>
+>  Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+>  Cc: Jon Schindler <jkschind@gmail.com>
+>
+> Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
+>  Cc: Andrew Morton <akpm@linux-foundation.org>
+>
+>  ---
+>  diff --git a/drivers/net/8390.c b/drivers/net/8390.c
+>  index 0ed41a3..a499e86 100644
+>
+> --- a/drivers/net/8390.c
+>  +++ b/drivers/net/8390.c
+>  @@ -57,7 +57,7 @@ static void __exit ns8390_module_exit(void)
+>   {
+>   }
+>
+>  -module_init(ns8390_init_module);
+>
+>
+> +module_init(ns8390_module_init);
+>   module_exit(ns8390_module_exit);
+>   #endif /* MODULE */
+>   MODULE_LICENSE("GPL");
+>
