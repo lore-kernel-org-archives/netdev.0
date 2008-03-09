@@ -1,60 +1,63 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 10201] New: Yum update of Kernel broke sis900
- ethernet driver
-Date: Sat, 8 Mar 2008 15:50:52 -0800
-Message-ID: <20080308155052.81cf3c8b.akpm@linux-foundation.org>
-References: <bug-10201-10286@http.bugzilla.kernel.org/>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: [PATCH] 2.6.25-rc4 de_stop_rxtx polling wrong
+Date: Sat, 8 Mar 2008 18:33:16 -0700
+Message-ID: <20080309013316.GD25083@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, dmcnaul@hotmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
+To: jgarzik@pobox.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44321 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750740AbYCHXuz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2008 18:50:55 -0500
-In-Reply-To: <bug-10201-10286@http.bugzilla.kernel.org/>
+Received: from colo.lackof.org ([198.49.126.79]:48761 "EHLO colo.lackof.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752494AbYCIBd2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Mar 2008 20:33:28 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat,  8 Mar 2008 15:36:55 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+Jeff,
+This untested patch _should_ fix:
+	"(net de2104x) Kernel panic with de2104x tulip driver on boot"	
+	http://bugzilla.kernel.org/show_bug.cgi?id=3156
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=10201
-> 
->            Summary: Yum update of Kernel broke sis900 ethernet driver
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: 2.6.24.3-12.fc8.i686
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: blocking
->           Priority: P1
->          Component: Network
->         AssignedTo: jgarzik@pobox.com
->         ReportedBy: dmcnaul@hotmail.com
-> 
-> 
-> Latest working kernel version:  2.6.23.15-137.fc8.i686
-> Earliest failing kernel version: 2.6.24.3-12.fc8.i686
-> Distribution:  Fedora Core 8
-> Hardware Environment:  PC
-> Software Environment:  Following YUM update
-> Problem Description:  After reboot following YUM update to new kernel - SiS 900
-> PCI Fast Ethernet (driver sis900) can not ifconfig eth0.  Configuration fails
-> with  message "SIOCSIFFLAGS: Invalid argument".  System does boot.  SO  To
-> recover, insert FC8 DVD and copy original kernel RPM's to the hard drive.  Then
-> install the old Kernel with "rpm -ivh --force --hash *.rpm" and reboot.  System
-> comes up and configures the sis900 eth0 correctly at startup.
-> 
-> Steps to reproduce:  A machine with a SiS 900 PCI Fast Ethernet installed. 
-> INstall RC8 and apply the updates.  After 2.6.24.3, reboot and notice the
-> trouble.
-> 
+But the bug submitter isn't responding.  Same fix has been applied
+to tulip.c (several years ago) and uli526x.c (Feb 2008) drivers.
 
-Apparently a regression.  I seem to recall having seen reports of this
-before.
+Patch was originally against 2.6.23 but applies clean against 2.6.25-rc4.
 
-What could cuase SIOCSIFFLAGS to newly return -EINVAL?
+[ The panic reported in the bug report was removed in a recently
+  (march 2008) accepted patch from Ondrej Zary. ]
+
+
+Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
+
+
+--- linux-2.6.23/drivers/net/tulip/de2104x.c	2007-10-09 13:31:38.000000000 -0700
++++ linux-2.6.23/drivers/net/tulip/de2104x.c-ggg	2007-11-02 23:24:46.000000000 -0700
+@@ -842,7 +842,7 @@
+ static void de_stop_rxtx (struct de_private *de)
+ {
+ 	u32 macmode;
+-	unsigned int work = 1000;
++	unsigned int i = 1300/100;
+ 
+ 	macmode = dr32(MacMode);
+ 	if (macmode & RxTx) {
+@@ -850,10 +850,14 @@
+ 		dr32(MacMode);
+ 	}
+ 
+-	while (--work > 0) {
++	/* wait until in-flight frame completes.
++	 * Max time @ 10BT: 1500*8b/10Mbps == 1200us (+ 100us margin)
++	 * Typically expect this loop to end in < 50 us on 100BT.
++	 */
++	while (--i) {
+ 		if (!de_is_running(de))
+ 			return;
+-		cpu_relax();
++		udelay(100);
+ 	}
+ 
+ 	printk(KERN_WARNING "%s: timeout expired stopping DMA\n", de->dev->name);
+
