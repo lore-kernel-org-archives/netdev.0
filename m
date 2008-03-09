@@ -1,116 +1,56 @@
-From: Pidoux <f6bvp@free.fr>
-Subject: Re: [PATCH][AX25] ax25_out: check skb for NULL in ax25_kick()
-Date: Sun, 09 Mar 2008 10:02:39 +0100
-Message-ID: <47D3A7AF.1030607@free.fr>
-References: <20080206074529.GC4496@ff.dom.local> <20080213115607.GB2867@ff.dom.local> <025801c86ea3$75add3f0$453c822c@dg8ngn>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: 'Jarek Poplawski' <jarkao2@gmail.com>,
-	'David Miller' <davem@davemloft.net>,
-	'Ralf Baechle' <ralf@linux-mips.org>, netdev@vger.kernel.org
-To: Jann Traschewski <jann@gmx.de>
+From: Martin Devera <devik@cdi.cz>
+Subject: [PATCH 2.6.24 ver2 1/1] sch_htb: fix "too many events" situation
+Date: Sun, 09 Mar 2008 14:52:53 +0100
+Message-ID: <E1JYLxN-00024M-HI@luxik.cdi.cz>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g19.free.fr ([212.27.42.35]:50879 "EHLO smtp5-g19.free.fr"
+Received: from gate.cdi.cz ([80.95.109.117]:60235 "EHLO luxik.cdi.cz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751991AbYCIJEr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Mar 2008 05:04:47 -0400
-In-Reply-To: <025801c86ea3$75add3f0$453c822c@dg8ngn>
+	id S1751278AbYCINyN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Mar 2008 09:54:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jann Traschewski a =E9crit :
-> Applied and stable with Kernel 2.6.24.2 since 12 hours.
-> Regards,
-> Jann
->
->  =20
->> -----Urspr=FCngliche Nachricht-----
->> Von: Jarek Poplawski [mailto:jarkao2@gmail.com]=20
->> Gesendet: Mittwoch, 13. Februar 2008 12:56
->> An: David Miller
->> Cc: Jann Traschewski; Bernard Pidoux F6BVP; Ralf Baechle;=20
->> netdev@vger.kernel.org
->> Betreff: [PATCH][AX25] ax25_out: check skb for NULL in ax25_kick()
->>
->> Hi,
->>
->> Here is an "official" version of "testing patch #2" from this thread=
-=2E
->> The only difference: ax25->vs is changed only after checking=20
->> skb is not NULL (plus a comment). IMHO it could be applied.
->>
->> Thanks,
->> Jarek P.
->>
->> ---------------->
->>
->> Subject: [AX25] ax25_out: check skb for NULL in ax25_kick()
->>
->> According to some OOPS reports ax25_kick tries to clone NULL=20
->> skbs sometimes. It looks like a race with=20
->> ax25_clear_queues(). Probably there is no need to add more=20
->> than a simple check for this yet.
->> Another report suggested there are probably also cases where ax25
->> ->paclen =3D=3D 0 can happen in ax25_output(); this wasn't confirmed
->> during testing but let's leave this debugging check for some time.
->>
->>
->> Reported-and-tested-by: Jann Traschewski <jann@gmx.de>
->> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
->>
->> ---
->>
->> diff -Nurp 2.6.24-mm1-/net/ax25/ax25_out.c=20
->> 2.6.24-mm1+/net/ax25/ax25_out.c
->> --- 2.6.24-mm1-/net/ax25/ax25_out.c	2008-01-24=20
->> 22:58:37.000000000 +0000
->> +++ 2.6.24-mm1+/net/ax25/ax25_out.c	2008-02-13=20
->> 10:43:50.000000000 +0000
->> @@ -117,6 +117,12 @@ void ax25_output(ax25_cb *ax25, int pacl
->>  	unsigned char *p;
->>  	int frontlen, len, fragno, ka9qfrag, first =3D 1;
->> =20
->> +	if (paclen < 16) {
->> +		WARN_ON_ONCE(1);
->> +		kfree_skb(skb);
->> +		return;
->> +	}
->> +
->>  	if ((skb->len - 1) > paclen) {
->>  		if (*skb->data =3D=3D AX25_P_TEXT) {
->>  			skb_pull(skb, 1); /* skip PID */
->> @@ -251,8 +257,6 @@ void ax25_kick(ax25_cb *ax25)
->>  	if (start =3D=3D end)
->>  		return;
->> =20
->> -	ax25->vs =3D start;
->> -
->>  	/*
->>  	 * Transmit data until either we're out of data to send or
->>  	 * the window is full. Send a poll on the final I frame=20
->> if @@ -261,8 +265,13 @@ void ax25_kick(ax25_cb *ax25)
->> =20
->>  	/*
->>  	 * Dequeue the frame and copy it.
->> +	 * Check for race with ax25_clear_queues().
->>  	 */
->>  	skb  =3D skb_dequeue(&ax25->write_queue);
->> +	if (!skb)
->> +		return;
->> +
->> +	ax25->vs =3D start;
->> =20
->>  	do {
->>  		if ((skbn =3D skb_clone(skb, GFP_ATOMIC)) =3D=3D NULL) {
->>    =20
->
->
->
->  =20
-Applied too and stable with kernel 2.6.24.3 since a week.
+From: Martin Devera <devik@cdi.cz>
 
-Thanks Jarek.
+HTB is event driven algorithm and part of its work is to apply
+scheduled events at proper times. It tried to defend itself from
+livelock by processing only limited number of events per dequeue.
+Because of faster computers some users already hit this hardcoded
+limit.
+This patch limits processing up to 2 jiffies (why not 1 jiffie ?
+because it might stop prematurely when only fraction of jiffie
+remains).
 
-Bernard Pidoux
+Signed-off-by: Martin Devera <devik@cdi.cz>
+
+--- a/net/sched/sch_htb.c	2008-02-14 22:56:48.000000000 +0100
++++ b/net/sched/sch_htb.c	2008-03-09 14:43:30.000000000 +0100
+@@ -708,9 +708,11 @@
+  */
+ static psched_time_t htb_do_events(struct htb_sched *q, int level)
+ {
+-	int i;
+-
+-	for (i = 0; i < 500; i++) {
++	/* don't run for longer than 2 jiffies; 2 is used instead of
++	   1 to simplify things when jiffy is going to be incremented
++	   too soon */
++	unsigned long stop_at = jiffies + 2;
++	while (time_before(jiffies, stop_at)) {
+ 		struct htb_class *cl;
+ 		long diff;
+ 		struct rb_node *p = rb_first(&q->wait_pq[level]);
+@@ -728,9 +730,8 @@
+ 		if (cl->cmode != HTB_CAN_SEND)
+ 			htb_add_to_wait_tree(q, cl, diff);
+ 	}
+-	if (net_ratelimit())
+-		printk(KERN_WARNING "htb: too many events !\n");
+-	return q->now + PSCHED_TICKS_PER_SEC / 10;
++	/* too much load - let's continue on next jiffie */
++	return q->now + PSCHED_TICKS_PER_SEC / HZ;
+ }
+ 
+ /* Returns class->node+prio from id-tree where classe's id is >= id. NULL
