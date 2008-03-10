@@ -1,80 +1,98 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH] Shrink syncookie_secret by 8 byte.
-Date: Mon, 10 Mar 2008 16:49:17 +0100
-Message-ID: <1205164157-26681-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>,
-	Glenn Griffin <ggriffin.kernel@gmail.com>
+From: "=?UTF-8?Q?Rui_Tiago_Ca=C3=A7=C3=A3o_Matos?=" <rmatos@av.it.pt>
+Subject: Possible bug on HTB class netlink attributes treatment
+Date: Mon, 10 Mar 2008 17:46:08 +0000
+Message-ID: <eae3b3410803101046t47849479g545e9efc1e72e81b@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: devik@cdi.cz, "Thomas Graf" <tgraf@suug.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:59721 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750967AbYCJPrG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 11:47:06 -0400
+Received: from an-out-0708.google.com ([209.85.132.247]:39744 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750699AbYCJRqK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 13:46:10 -0400
+Received: by an-out-0708.google.com with SMTP id d31so486182and.103
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2008 10:46:08 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-the first u32 copied from syncookie_secret is overwritten by the
-minute-counter four lines below.
-After adjusting the destination address, the size of syncookie_secret
-can be reduced accordingly.
+Hi all,
 
-text    data     bss     dec     hex filename
-1517       4     144    1665     681 old/net/ipv4/syncookies.o
-1517       4     136    1657     679 new/net/ipv4/syncookies.o
+I found what I think is a bug but I can't completely say if it is in
+kernel code or in libnl.
 
-CC: Glenn Griffin <ggriffin.kernel@gmail.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
-AFAICS, the only other user of syncookie_secret[] is the ipv6 syncookie
-support.
-Because ipv6 syncookies only grab 44 bytes from syncookie_secret[],
-this shouldn't affect them in any way.
+The following program:
 
- include/net/tcp.h     |    2 +-
- net/ipv4/syncookies.c |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+#include <stdio.h>
+#include <netlink/netlink.h>
+#include <linux/pkt_sched.h>
+#include <netlink/route/qdisc.h>
+#include <netlink/route/sch/htb.h>
+#include <netlink/route/link.h>
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 11119e3..66e2970 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -434,9 +434,9 @@ extern int			tcp_disconnect(struct sock *sk, int flags);
- 
- extern void			tcp_unhash(struct sock *sk);
- 
- /* From syncookies.c */
--extern __u32 syncookie_secret[2][16-3+SHA_DIGEST_WORDS];
-+extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
- extern struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb, 
- 				    struct ip_options *opt);
- extern __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, 
- 				     __u16 *mss);
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index 4704f27..abc752d 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -20,9 +20,9 @@
- #include <net/tcp.h>
- 
- extern int sysctl_tcp_syncookies;
- 
--__u32 syncookie_secret[2][16-3+SHA_DIGEST_WORDS];
-+__u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
- EXPORT_SYMBOL(syncookie_secret);
- 
- static __init int init_syncookies(void)
- {
-@@ -40,9 +40,9 @@ static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
- 		       u32 count, int c)
- {
- 	__u32 *tmp = __get_cpu_var(cookie_scratch);
- 
--	memcpy(tmp + 3, syncookie_secret[c], sizeof(syncookie_secret[c]));
-+	memcpy(tmp + 4, syncookie_secret[c], sizeof(syncookie_secret[c]));
- 	tmp[0] = (__force u32)saddr;
- 	tmp[1] = (__force u32)daddr;
- 	tmp[2] = ((__force u32)sport << 16) + (__force u32)dport;
- 	tmp[3] = count;
--- 
-1.5.3.7
+int main(void)
+{
+        const char *in_iface_name = "eth1";
+        struct nl_handle *netlink_handle;
+        struct nl_cache *link_cache;
+        struct rtnl_qdisc *htb_qdisc;
+        int iface_idx;
 
+        netlink_handle = nl_handle_alloc();
+        nl_connect(netlink_handle, NETLINK_ROUTE);
+        link_cache = rtnl_link_alloc_cache(netlink_handle);
+        iface_idx = rtnl_link_name2i(link_cache, in_iface_name);
+
+        htb_qdisc = rtnl_qdisc_alloc();
+        rtnl_qdisc_set_ifindex(htb_qdisc, iface_idx);
+        rtnl_qdisc_set_parent(htb_qdisc, TC_H_ROOT);
+        rtnl_qdisc_set_handle(htb_qdisc, 0x00010000);
+        rtnl_qdisc_set_kind(htb_qdisc, "htb");
+
+/*        rtnl_htb_set_rate2quantum(htb_qdisc, 10); */
+/*        rtnl_htb_set_defcls(htb_qdisc, 0x00010001); */
+
+        rtnl_qdisc_add(netlink_handle, htb_qdisc, 0);
+        fprintf(stderr, "%s\n", nl_geterror());
+        rtnl_qdisc_put(htb_qdisc);
+
+        return 0;
+}
+
+triggers this code on net/sched/sch_htb.c:
+
+	if (tb[TCA_HTB_INIT] == NULL) {
+		printk(KERN_ERR "HTB: hey probably you have bad tc tool ?\n");
+		return -EINVAL;
+	}
+
+Even though it is simply doing the equivalent of:
+
+# tc qdisc add dev eth1 handle 1: root htb
+
+But, if *either* one of those commented lines above is uncommented it
+will succeed.
+
+After reading the iproute2's tc code I've realized that on
+q_htb.c:htb_parse_opt() there is always a default for rate2quantum.
+But libnl doesn't provide one on htb.c:htb_qdisc_get_opts().
+
+Given the above, what can be done?
+
+1. Nothing. i.e. the user of libnl should know better.
+    Then it should be documented.
+
+2. Put a default on libnl.
+    I don't like this, since when someone else comes around with
+another netlink library (not realisitic, I know) the same mistake will
+probably be made.
+
+3. Put the default in the htb kernel code.
+    This is the only sane option IMHO since that code needs it to
+work, it shouldn't rely on userspace setting it properly.
+
+What do you think?
+
+Rui
