@@ -1,73 +1,88 @@
-From: Laurent Pinchart <laurentp@cse-semaphore.com>
-Subject: Re: [PATCH 6/9] fs_enet: Be an of_platform device when CONFIG_PPC_CPM_NEW_BINDING is set.
-Date: Mon, 10 Mar 2008 12:05:08 +0100
-Message-ID: <200803101205.16158.laurentp@cse-semaphore.com>
-References: <20070920220121.GF28784@loki.buserror.net> <20080307163747.GF10545@ld0162-tx32.am.freescale.net> <1205135421.3837.1.camel@p60365-ste>
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Subject: [PATCH 2.6.25][BNX2X] BNX2X: prevent ethtool setting of port
+ type
+Date: Mon, 10 Mar 2008 14:04:09 +0200
+Message-ID: <1205150649.8232.385.camel@lb-tlvb-eliezer.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart5558490.dEVfZHYD6O";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Scott Wood <scottwood@freescale.com>, linuxppc-dev@ozlabs.org,
-	jgarzik@pobox.com, netdev@vger.kernel.org
-To: Sergej Stepanov <Sergej.Stepanov@ids.de>
+To: "davem@davemloft.net" <davem@davemloft.net>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay005.isp.belgacom.be ([195.238.6.171]:15502 "EHLO
-	mailrelay005.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751141AbYCJLFT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 07:05:19 -0400
-In-Reply-To: <1205135421.3837.1.camel@p60365-ste>
+Received: from mms5.broadcom.com ([216.31.210.20]:4840 "EHLO mms5.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751998AbYCJMEX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Mar 2008 08:04:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart5558490.dEVfZHYD6O
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+BNX2X: prevent ethtool setting of port type
 
-On Monday 10 March 2008 08:50, Sergej Stepanov wrote:
-> > Acked-by: Scott Wood <scottwood@freescale.com>, if I haven't already.
-> >
-> > -Scott
->
-> I thought, you did it.
-> Thank you.
+On 10GBaseT boards setting the type to TP will cause the driver to try
+to configure 1GBaseT.
+Since there are currently no boards that support setting the of the port
+type, disable this for now. 
 
-Your documentation patch states that
+Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
 
-"The first reg resource is the I/O port register block on which MDIO
-resides.  The second reg resource is the I/O port register block on
-which MDC resides.  If there is only one reg resource, it is used for
-both MDIO and MDC."
+---
+ drivers/net/bnx2x.c |   36 ++----------------------------------
+ 1 files changed, 2 insertions(+), 34 deletions(-)
 
-If I'm not mistaken the code uses the first reg resource for MDC and the=20
-second reg resource for MDIO. Which one should be fixed, the doc or the=20
-code ?
+diff --git a/drivers/net/bnx2x.c b/drivers/net/bnx2x.c
+index 8af142c..de32b3f 100644
+--- a/drivers/net/bnx2x.c
++++ b/drivers/net/bnx2x.c
+@@ -63,8 +63,8 @@
+ #include "bnx2x.h"
+ #include "bnx2x_init.h"
+ 
+-#define DRV_MODULE_VERSION      "1.40.22"
+-#define DRV_MODULE_RELDATE      "2007/11/27"
++#define DRV_MODULE_VERSION      "1.42.3"
++#define DRV_MODULE_RELDATE      "2008/3/9"
+ #define BNX2X_BC_VER    	0x040200
+ 
+ /* Time in jiffies before concluding the transmitter is hung. */
+@@ -8008,38 +8008,6 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	   cmd->duplex, cmd->port, cmd->phy_address, cmd->transceiver,
+ 	   cmd->autoneg, cmd->maxtxpkt, cmd->maxrxpkt);
+ 
+-	switch (cmd->port) {
+-	case PORT_TP:
+-		if (!(bp->supported & SUPPORTED_TP)) {
+-			DP(NETIF_MSG_LINK, "TP not supported\n");
+-			return -EINVAL;
+-		}
+-
+-		if (bp->phy_flags & PHY_XGXS_FLAG) {
+-			bnx2x_link_reset(bp);
+-			bnx2x_link_settings_supported(bp, SWITCH_CFG_1G);
+-			bnx2x_phy_deassert(bp);
+-		}
+-		break;
+-
+-	case PORT_FIBRE:
+-		if (!(bp->supported & SUPPORTED_FIBRE)) {
+-			DP(NETIF_MSG_LINK, "FIBRE not supported\n");
+-			return -EINVAL;
+-		}
+-
+-		if (!(bp->phy_flags & PHY_XGXS_FLAG)) {
+-			bnx2x_link_reset(bp);
+-			bnx2x_link_settings_supported(bp, SWITCH_CFG_10G);
+-			bnx2x_phy_deassert(bp);
+-		}
+-		break;
+-
+-	default:
+-		DP(NETIF_MSG_LINK, "Unknown port type\n");
+-		return -EINVAL;
+-	}
+-
+ 	if (cmd->autoneg == AUTONEG_ENABLE) {
+ 		if (!(bp->supported & SUPPORTED_Autoneg)) {
+ 			DP(NETIF_MSG_LINK, "Aotoneg not supported\n");
 
-Best regards,
 
-=2D-=20
-Laurent Pinchart
-CSE Semaphore Belgium
-
-Chauss=C3=A9e de Bruxelles, 732A
-B-1410 Waterloo
-Belgium
-
-T +32 (2) 387 42 59
-=46 +32 (2) 387 42 75
-
---nextPart5558490.dEVfZHYD6O
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-
-iD8DBQBH1RXs8y9gWxC9vpcRAm3jAJ9EKgr2IrdS69E3pEfa6PKs5z78rACdFA1P
-wL54yUPXE1/7gI30qYR0jss=
-=rnhD
------END PGP SIGNATURE-----
-
---nextPart5558490.dEVfZHYD6O--
