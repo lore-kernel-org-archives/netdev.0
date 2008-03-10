@@ -1,87 +1,27 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ethtool: command line support for lro
-Date: Mon, 10 Mar 2008 18:07:07 +0000
-Message-ID: <20080310180706.GF12660@solarflare.com>
-References: <1204898997.4220.41.camel@moonstone.uk.level5networks.com> <20080307082538.1a674ae1@extreme> <1204909575.4220.71.camel@moonstone.uk.level5networks.com> <20080307134312.037e2cf6@extreme>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] Shrink syncookie_secret by 8 byte.
+Date: Mon, 10 Mar 2008 19:07:07 +0100
+Message-ID: <20080310180707.GK31123@Chamillionaire.breakpoint.cc>
+References: <1205164157-26681-1-git-send-email-fw@strlen.de> <47d57829.4301360a.7970.ffffb769@mx.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Kieran Mansley <kmansley@solarflare.com>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Glenn Griffin <ggriffin.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rutherford.zen.co.uk ([212.23.3.142]:52178 "EHLO
-	rutherford.zen.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753742AbYCJSHL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 14:07:11 -0400
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:43536 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751592AbYCJSHI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 14:07:08 -0400
 Content-Disposition: inline
-In-Reply-To: <20080307134312.037e2cf6@extreme>
+In-Reply-To: <47d57829.4301360a.7970.ffffb769@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> Add lro support to command in similar manner to TSO, GSO, etc.
-> The file ethtool-copy.h is updated to be sanitised version of
-> ethtool.h from 2.6.25-rc4 (ie make headers_install)
+Glenn Griffin <ggriffin.kernel@gmail.com> wrote:
+> You are correct.  syncookie_secret was declared static before ipv6 support was
+> added, and shrinking it by 4 bytes wont have any effect on ipv6.
+> 
+> You forgot to change the declaration in net/ipv6/syncookies.c.  Here is
+> an amended patch to include that.
 
-I already posted a patch to do this, though I didn't update
-ethtool-copy.h.
-
-> Not tested on actual LRO hardware.
-
-Mine was, and this looks very similar.
-
-> @@ -1559,12 +1566,20 @@ static int do_goffload(int fd, struct ifreq *ifr)
->  		allfail = 0;
->  	}
->  
-> +	eval.cmd = ETHTOOL_GFLAGS;
-> +	ifr->ifr_data = (caddr_t)&eval;
-> +	err = ioctl(fd, SIOCETHTOOL, ifr);
-> +	if (!err) {
-> +		lro = eval.data & ETH_FLAG_LRO;
-> +		allfail = 0;
-> +	}
-> +
-
-To be consistent, this should print a specific error if the ioctl
-fails.
-
-> @@ -1641,6 +1656,30 @@ static int do_soffload(int fd, struct ifreq *ifr)
->  			return 90;
->  		}
->  	}
-> +	if (off_lro_wanted >= 0) {
-> +		changed = 1;
-> +		eval.cmd = ETHTOOL_GFLAGS;
-> +		eval.data = 0;
-> +		ifr->ifr_data = (caddr_t)&eval;
-> +		err = ioctl(fd, SIOCETHTOOL, ifr);
-> +		if (err) {
-> +			perror("Cannot get device flag settings");
-> +			return 90;
-> +		}
-
-I didn't bother fetching the existing flags because only ETH_FLAG_LRO
-is defined.  But this would be more future-proof.
-
-> +
-> +		eval.cmd = ETHTOOL_SFLAGS;
-> +		if (off_lro_wanted == 1)
-> +			eval.data |= ETH_FLAG_LRO;
-> +		else
-> +			eval.data &= ~ETH_FLAG_LRO;
-> +			
-> +		err = ioctl(fd, SIOCETHTOOL, ifr);
-> +		if (err) {
-> +			perror("Cannot set large receive offload settings");
-> +			return 90;
-> +		}
-
-The error return codes are unique so far, so these error paths
-should return 91 and 92, not 90.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+Oops. Thanks for reviewing and fixing this up!
