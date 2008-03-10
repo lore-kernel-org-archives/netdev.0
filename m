@@ -1,74 +1,61 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [patch 16/17] drivers/net/8390.c: replace
- init_module&cleanup_module with module_init&module_exit
-Date: Mon, 10 Mar 2008 11:58:42 -0700
-Message-ID: <20080310115842.8b2ca9fd.akpm@linux-foundation.org>
-References: <200803042319.m24NJXjS002733@imap1.linux-foundation.org>
-	<47D1D70A.2070003@intel.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: Treason uncloaked spams syslog with latest git
+Date: Mon, 10 Mar 2008 20:48:05 +0100 (CET)
+Message-ID: <alpine.LFD.1.00.0803102046420.3781@apollo.tec.linutronix.de>
+References: <alpine.LFD.1.00.0803061140380.3099@apollo.tec.linutronix.de> <20080306153129.e247cd1a.akpm@linux-foundation.org> <Pine.LNX.4.64.0803071547370.5423@kivilampi-30.cs.helsinki.fi> <alpine.LFD.1.00.0803072050410.3099@apollo.tec.linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, jkschind@gmail.com,
-	alan@lxorguk.ukuu.org.uk
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:33816 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751468AbYCJS65 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 14:58:57 -0400
-In-Reply-To: <47D1D70A.2070003@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-569145175-1205178487=:3781"
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755731AbYCJTsj@vger.kernel.org>
+In-Reply-To: <alpine.LFD.1.00.0803072050410.3099@apollo.tec.linutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 07 Mar 2008 16:00:10 -0800
-"Kok, Auke" <auke-jan.h.kok@intel.com> wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> akpm@linux-foundation.org wrote:
-> > From: Jon Schindler <jkschind@gmail.com>
+--8323328-569145175-1205178487=:3781
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+
+On Fri, 7 Mar 2008, Thomas Gleixner wrote:
+> On Fri, 7 Mar 2008, Ilpo Järvinen wrote:
+> > On Thu, 6 Mar 2008, Andrew Morton wrote:
 > > 
-> > Replace init_module and cleanup_module with static functions and
-> > module_init/module_exit.
+> > > On Thu, 6 Mar 2008 11:47:12 +0100 (CET)
+> > > Thomas Gleixner <tglx@linutronix.de> wrote:
+> > > 
+> > > > Since I updated one of my compile boxen to latest git I get the syslog
+> > > > flooded with:
+> > > > 
+> > > > TCP: Treason uncloaked! Peer 192.168.0.1:10245/56637 shrinks window
+> > > > 2748077551:2748080447. Repaired.
+> > > > TCP: Treason uncloaked! Peer 192.168.0.68:10245/39915 shrinks window
+> > > > 2890195332:2890201124. Repaired.
+> > > > TCP: Treason uncloaked! Peer 192.168.0.65:10245/46058 shrinks window
+> > > > 2880740873:2880745217. Repaired.
+> > > > 
+> > > > This happens _always_ when I compile kernels with distcc or icecc. All
+> > > > systems involved run Linux with kernels >= 2.6.23 and are on the same
+> > > > network; no routers, firewalls or other fancy stuff.
+> > > > 
+> > > > Any idea what's going on here ?
+> > > > 
+> > > 
+> > > (cc netdev)
 > > 
-> > Signed-off-by: Jon Schindler <jkschind@gmail.com>
-> > Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
-> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> > Could you tcpdump it?
 > 
-> something went wrong here as this patch already appears to be in jeff's upstream
-> tree as commit 8724c2de65fe527f5b7aa662fcb8573fb8cd02f2, but breaks compile.
-> 
-> with CONFIG_NE2K_PCI=m:
-> 
->   CC [M]  drivers/net/8390.o
-> drivers/net/8390.c: In function '__inittest':
-> drivers/net/8390.c:60: error: 'ns8390_init_module' undeclared (first use in this
-> function)
-> drivers/net/8390.c:60: error: (Each undeclared identifier is reported only once
-> drivers/net/8390.c:60: error: for each function it appears in.)
-> make[2]: *** [drivers/net/8390.o] Error 1
-> make[1]: *** [drivers/net] Error 2
-> make: *** [drivers] Error 2
-> 
-> 
-> reverting the patch fixes the issue, but better would be to fix.
-> 
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> Cc: Jon Schindler <jkschind@gmail.com>
-> Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
-> Cc: Andrew Morton <akpm@linux-foundation.org>
-> 
-> ---
-> diff --git a/drivers/net/8390.c b/drivers/net/8390.c
-> index 0ed41a3..a499e86 100644
-> --- a/drivers/net/8390.c
-> +++ b/drivers/net/8390.c
-> @@ -57,7 +57,7 @@ static void __exit ns8390_module_exit(void)
->  {
->  }
-> 
-> -module_init(ns8390_init_module);
-> +module_init(ns8390_module_init);
->  module_exit(ns8390_module_exit);
->  #endif /* MODULE */
->  MODULE_LICENSE("GPL");
+> Will do.
 
-OK, thanks, I'll drop it.
+http://www.tglx.de/~tglx/treason.cap
+
+That's on -rc5
+
+Thanks,
+	tglx
+--8323328-569145175-1205178487=:3781--
