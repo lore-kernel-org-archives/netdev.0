@@ -1,95 +1,87 @@
-From: Glenn Griffin <ggriffin.kernel@gmail.com>
-Subject: Re: [PATCH] Shrink syncookie_secret by 8 byte.
-Date: Mon, 10 Mar 2008 11:05:27 -0700
-Message-ID: <47d57829.4301360a.7970.ffffb769@mx.google.com>
-References: <1205164157-26681-1-git-send-email-fw@strlen.de>
-Cc: netdev@vger.kernel.org, Glenn Griffin <ggriffin.kernel@gmail.com>
-To: Florian Westphal <fw@strlen.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ethtool: command line support for lro
+Date: Mon, 10 Mar 2008 18:07:07 +0000
+Message-ID: <20080310180706.GF12660@solarflare.com>
+References: <1204898997.4220.41.camel@moonstone.uk.level5networks.com> <20080307082538.1a674ae1@extreme> <1204909575.4220.71.camel@moonstone.uk.level5networks.com> <20080307134312.037e2cf6@extreme>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Kieran Mansley <kmansley@solarflare.com>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gv-out-0910.google.com ([216.239.58.187]:34006 "EHLO
-	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751013AbYCJSEa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 14:04:30 -0400
-Received: by gv-out-0910.google.com with SMTP id s4so522887gve.37
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2008 11:04:28 -0700 (PDT)
-In-Reply-To: <1205164157-26681-1-git-send-email-fw@strlen.de>
+Received: from rutherford.zen.co.uk ([212.23.3.142]:52178 "EHLO
+	rutherford.zen.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753742AbYCJSHL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 14:07:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20080307134312.037e2cf6@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> the first u32 copied from syncookie_secret is overwritten by the
-> minute-counter four lines below.
-> After adjusting the destination address, the size of syncookie_secret
-> can be reduced accordingly.
+Stephen Hemminger wrote:
+> Add lro support to command in similar manner to TSO, GSO, etc.
+> The file ethtool-copy.h is updated to be sanitised version of
+> ethtool.h from 2.6.25-rc4 (ie make headers_install)
 
-Agreed.
+I already posted a patch to do this, though I didn't update
+ethtool-copy.h.
 
-> AFAICS, the only other user of syncookie_secret[] is the ipv6 syncookie
-> support.
-> Because ipv6 syncookies only grab 44 bytes from syncookie_secret[],
-> this shouldn't affect them in any way.
+> Not tested on actual LRO hardware.
 
-You are correct.  syncookie_secret was declared static before ipv6 support was
-added, and shrinking it by 4 bytes wont have any effect on ipv6.
+Mine was, and this looks very similar.
 
-You forgot to change the declaration in net/ipv6/syncookies.c.  Here is
-an amended patch to include that.
+> @@ -1559,12 +1566,20 @@ static int do_goffload(int fd, struct ifreq *ifr)
+>  		allfail = 0;
+>  	}
+>  
+> +	eval.cmd = ETHTOOL_GFLAGS;
+> +	ifr->ifr_data = (caddr_t)&eval;
+> +	err = ioctl(fd, SIOCETHTOOL, ifr);
+> +	if (!err) {
+> +		lro = eval.data & ETH_FLAG_LRO;
+> +		allfail = 0;
+> +	}
+> +
 
-Acked-by: Glenn Griffin <ggriffin.kernel@gmail.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- include/net/tcp.h     |    2 +-
- net/ipv4/syncookies.c |    4 ++--
- net/ipv6/syncookies.c |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+To be consistent, this should print a specific error if the ioctl
+fails.
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 11119e3..66e2970 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -435,7 +435,7 @@ extern int			tcp_disconnect(struct sock *sk, int flags);
- extern void			tcp_unhash(struct sock *sk);
- 
- /* From syncookies.c */
--extern __u32 syncookie_secret[2][16-3+SHA_DIGEST_WORDS];
-+extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
- extern struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb, 
- 				    struct ip_options *opt);
- extern __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, 
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index 4704f27..abc752d 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -21,7 +21,7 @@
- 
- extern int sysctl_tcp_syncookies;
- 
--__u32 syncookie_secret[2][16-3+SHA_DIGEST_WORDS];
-+__u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
- EXPORT_SYMBOL(syncookie_secret);
- 
- static __init int init_syncookies(void)
-@@ -41,7 +41,7 @@ static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
- {
- 	__u32 *tmp = __get_cpu_var(cookie_scratch);
- 
--	memcpy(tmp + 3, syncookie_secret[c], sizeof(syncookie_secret[c]));
-+	memcpy(tmp + 4, syncookie_secret[c], sizeof(syncookie_secret[c]));
- 	tmp[0] = (__force u32)saddr;
- 	tmp[1] = (__force u32)daddr;
- 	tmp[2] = ((__force u32)sport << 16) + (__force u32)dport;
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index 827c5aa..3a622e7 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -22,7 +22,7 @@
- #include <net/tcp.h>
- 
- extern int sysctl_tcp_syncookies;
--extern __u32 syncookie_secret[2][16-3+SHA_DIGEST_WORDS];
-+extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
- 
- #define COOKIEBITS 24	/* Upper bits store count */
- #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+> @@ -1641,6 +1656,30 @@ static int do_soffload(int fd, struct ifreq *ifr)
+>  			return 90;
+>  		}
+>  	}
+> +	if (off_lro_wanted >= 0) {
+> +		changed = 1;
+> +		eval.cmd = ETHTOOL_GFLAGS;
+> +		eval.data = 0;
+> +		ifr->ifr_data = (caddr_t)&eval;
+> +		err = ioctl(fd, SIOCETHTOOL, ifr);
+> +		if (err) {
+> +			perror("Cannot get device flag settings");
+> +			return 90;
+> +		}
+
+I didn't bother fetching the existing flags because only ETH_FLAG_LRO
+is defined.  But this would be more future-proof.
+
+> +
+> +		eval.cmd = ETHTOOL_SFLAGS;
+> +		if (off_lro_wanted == 1)
+> +			eval.data |= ETH_FLAG_LRO;
+> +		else
+> +			eval.data &= ~ETH_FLAG_LRO;
+> +			
+> +		err = ioctl(fd, SIOCETHTOOL, ifr);
+> +		if (err) {
+> +			perror("Cannot set large receive offload settings");
+> +			return 90;
+> +		}
+
+The error return codes are unique so far, so these error paths
+should return 91 and 92, not 90.
+
+Ben.
+
 -- 
-1.5.4
-
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
