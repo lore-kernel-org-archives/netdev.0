@@ -1,60 +1,80 @@
-From: Sergej Stepanov <Sergej.Stepanov@ids.de>
-Subject: [PATCH v3] using mii-bitbang on different processor ports - update
-	the booting-without-of.txt-file
-Date: Mon, 10 Mar 2008 16:02:44 +0100
-Message-ID: <1205161364.4627.12.camel@p60365-ste>
-References: <20070920220121.GF28784@loki.buserror.net>
-	 <20080307163747.GF10545@ld0162-tx32.am.freescale.net>
-	 <1205135421.3837.1.camel@p60365-ste>
-	 <200803101205.16158.laurentp@cse-semaphore.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Scott Wood <scottwood@freescale.com>, linuxppc-dev@ozlabs.org,
-	jgarzik@pobox.com, netdev@vger.kernel.org
-To: Laurent Pinchart <laurentp@cse-semaphore.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH] Shrink syncookie_secret by 8 byte.
+Date: Mon, 10 Mar 2008 16:49:17 +0100
+Message-ID: <1205164157-26681-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+	Glenn Griffin <ggriffin.kernel@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ares.ids.de ([213.144.29.131]:45313 "EHLO ares.ids.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754095AbYCJPCq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Mar 2008 11:02:46 -0400
-Received: from ares.ids.de (ares.ids.de [127.0.0.1])
-	by ares.ids.de (PGP Universal) with ESMTP id E37C8F49178
-	for <netdev@vger.kernel.org>; Mon, 10 Mar 2008 16:02:44 +0100 (CET)
-In-Reply-To: <200803101205.16158.laurentp@cse-semaphore.com>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:59721 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750967AbYCJPrG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 11:47:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch updates the booting-without-of.txt-file.
-There is a description for the case
-if mdio data and clock pins are on different processor ports.
-It extends the "[PATCH v3] using mii-bitbang on different processor ports".
+the first u32 copied from syncookie_secret is overwritten by the
+minute-counter four lines below.
+After adjusting the destination address, the size of syncookie_secret
+can be reduced accordingly.
 
-Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
-Signed-off-by: Scott Wood <scottwood@freescale.com>
-Signed-off-by: Sergej Stepanov <Sergej.Stepanov@ids.de>
---
+text    data     bss     dec     hex filename
+1517       4     144    1665     681 old/net/ipv4/syncookies.o
+1517       4     136    1657     679 new/net/ipv4/syncookies.o
 
-diff --git a/Documentation/powerpc/booting-without-of.txt b/Documentation/powerpc/booting-without-of.txt
-index 7b4e8a7..3285f58 100644
---- a/Documentation/powerpc/booting-without-of.txt
-+++ b/Documentation/powerpc/booting-without-of.txt
-@@ -2003,10 +2003,14 @@ platforms are moved over to use the flattened-device-tree model.
+CC: Glenn Griffin <ggriffin.kernel@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+AFAICS, the only other user of syncookie_secret[] is the ipv6 syncookie
+support.
+Because ipv6 syncookies only grab 44 bytes from syncookie_secret[],
+this shouldn't affect them in any way.
+
+ include/net/tcp.h     |    2 +-
+ net/ipv4/syncookies.c |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 11119e3..66e2970 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -434,9 +434,9 @@ extern int			tcp_disconnect(struct sock *sk, int flags);
  
-    Currently defined compatibles:
-    fsl,pq1-fec-mdio (reg is same as first resource of FEC device)
--   fsl,cpm2-mdio-bitbang (reg is port C registers)
-+   fsl,cpm2-mdio-bitbang
+ extern void			tcp_unhash(struct sock *sk);
  
-    Properties for fsl,cpm2-mdio-bitbang:
--   fsl,mdio-pin : pin of port C controlling mdio data
--   fsl,mdc-pin : pin of port C controlling mdio clock
-+   The first reg resource is the I/O port register block on which MDC
-+   resides.  The second reg resource is the I/O port register block on
-+   which MDIO resides.  If there is only one reg resource, it is used for
-+   both MDIO and MDC.
-+   fsl,mdio-pin : pin of chosen port for controlling mdio data
-+   fsl,mdc-pin : pin of chosen port for controlling mdio clock
+ /* From syncookies.c */
+-extern __u32 syncookie_secret[2][16-3+SHA_DIGEST_WORDS];
++extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
+ extern struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb, 
+ 				    struct ip_options *opt);
+ extern __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, 
+ 				     __u16 *mss);
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 4704f27..abc752d 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -20,9 +20,9 @@
+ #include <net/tcp.h>
  
-    Example:
+ extern int sysctl_tcp_syncookies;
+ 
+-__u32 syncookie_secret[2][16-3+SHA_DIGEST_WORDS];
++__u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
+ EXPORT_SYMBOL(syncookie_secret);
+ 
+ static __init int init_syncookies(void)
+ {
+@@ -40,9 +40,9 @@ static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
+ 		       u32 count, int c)
+ {
+ 	__u32 *tmp = __get_cpu_var(cookie_scratch);
+ 
+-	memcpy(tmp + 3, syncookie_secret[c], sizeof(syncookie_secret[c]));
++	memcpy(tmp + 4, syncookie_secret[c], sizeof(syncookie_secret[c]));
+ 	tmp[0] = (__force u32)saddr;
+ 	tmp[1] = (__force u32)daddr;
+ 	tmp[2] = ((__force u32)sport << 16) + (__force u32)dport;
+ 	tmp[3] = count;
+-- 
+1.5.3.7
 
