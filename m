@@ -1,37 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] include/net/ieee80211.h - remove duplicate include
-Date: Sun, 09 Mar 2008 16:55:10 -0700
-Message-ID: <1205106910.656.99.camel@localhost>
+From: Paul Gortmaker <p_gortmaker@yahoo.com>
+Subject: Re: drivers/net/tokenring/smctr.c: logical-bitwise or confusion?
+Date: Sun, 9 Mar 2008 20:09:39 -0400 (EDT)
+Message-ID: <993737.45508.qm@web65610.mail.ac4.yahoo.com>
+References: <47D45A0F.1060102@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: Roel Kluin <12o3l@tiscali.nl>, jschlst@samba.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.labridge.com ([206.117.136.22]:4376 "EHLO
-	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1754028AbYCIX55 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2008 19:57:57 -0400
+Received: from web65610.mail.ac4.yahoo.com ([76.13.9.78]:28521 "HELO
+	web65610.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753662AbYCJAQX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2008 20:16:23 -0400
+In-Reply-To: <47D45A0F.1060102@tiscali.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Joe Perches <joe@perches.com>
 
- include/net/ieee80211.h |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+--- Roel Kluin <12o3l@tiscali.nl> wrote:
 
-diff --git a/include/net/ieee80211.h b/include/net/ieee80211.h
-index 285b2ad..529816b 100644
---- a/include/net/ieee80211.h
-+++ b/include/net/ieee80211.h
-@@ -183,7 +183,6 @@ const char *escape_essid(const char *essid, u8 essid_len);
- #define IEEE80211_DEBUG_RX(f, a...)  IEEE80211_DEBUG(IEEE80211_DL_RX, f, ## a)
- #define IEEE80211_DEBUG_QOS(f, a...)  IEEE80211_DEBUG(IEEE80211_DL_QOS, f, ## a)
- #include <linux/netdevice.h>
--#include <linux/wireless.h>
- #include <linux/if_arp.h>	/* ARPHRD_ETHER */
+> drivers/net/tokenring/smctr.c:3416
+> 
+> tsv->svv[0] = ((tx_fstatus & 0x0100 >> 6) || IBM_PASS_SOURCE_ADDR);
+> 
+> shouldn't this be a bit-wise or?
+> from drivers/net/tokenring/smctr.h:50:
+> 
+> #define      IBM_PASS_SOURCE_ADDR    0x01
+
+Probably a safe bet that is what they meant to have. Since
+as it stands, gcc will (correctly) optimize that into:
+
+tsv->svv[0]= 1;
+
+which probably isn't particularly useful.
+
+Paul.
  
- #ifndef WIRELESS_SPY
 
 
+
+      Connect with friends from any web browser - no download required. Try the new Yahoo! Canada Messenger for the Web BETA at http://ca.messenger.yahoo.com/webmessengerpromo.php
