@@ -1,98 +1,74 @@
-From: "=?UTF-8?Q?Rui_Tiago_Ca=C3=A7=C3=A3o_Matos?=" <rmatos@av.it.pt>
-Subject: Possible bug on HTB class netlink attributes treatment
-Date: Mon, 10 Mar 2008 17:46:08 +0000
-Message-ID: <eae3b3410803101046t47849479g545e9efc1e72e81b@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: replace horrible hack with ksize()
+Date: Mon, 10 Mar 2008 18:57:55 +0100
+Message-ID: <47D576A3.1080503@trash.net>
+References: <Pine.LNX.4.64.0803052319210.15759@sbz-30.cs.Helsinki.FI> <47CFF9B7.5060803@trash.net> <Pine.LNX.4.64.0803061612290.4202@sbz-30.cs.Helsinki.FI> <Pine.LNX.4.64.0803061618090.4378@sbz-30.cs.Helsinki.FI> <47D0014D.1060901@trash.net> <Pine.LNX.4.64.0803061640380.4820@sbz-30.cs.Helsinki.FI> <47D004DB.4010105@trash.net> <47D01277.9060807@cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: devik@cdi.cz, "Thomas Graf" <tgraf@suug.ch>
-To: netdev@vger.kernel.org
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>, clameter@sgi.com,
+	joe@perches.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Pekka Enberg <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.247]:39744 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750699AbYCJRqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 13:46:10 -0400
-Received: by an-out-0708.google.com with SMTP id d31so486182and.103
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2008 10:46:08 -0700 (PDT)
-Content-Disposition: inline
+Received: from viefep25-int.chello.at ([62.179.121.45]:29796 "EHLO
+	viefep25-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755196AbYCJR6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 13:58:23 -0400
+In-Reply-To: <47D01277.9060807@cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Pekka Enberg wrote:
+> Hi Patrick,
+> 
+> Patrick McHardy wrote:
+>> > I think you are misunderstanding ksize() (see mm/slub.c::ksize() for 
+>> > example).
+>>
+>> The ksize() description in mm/slab.c matches exactly what netfilter
+>> wants to do:
+> 
+> Agreed.
+> 
+> Patrick McHardy wrote:
+>> The initial allocation size is calculated as max(size, min slab size)
+>> and is stored as ext->alloc_size. When adding the first extension,
+> 
+> Yes, this part is correct, however...
+> 
+>> it allocates ext->alloc_size of memory and stores both the real amount
+>> of space used (ext->len) and the actual size (ext->real_len).
+>> When adding further extensions, it calculates the new total amount of
+>> space needed (newlen). If that is larger than the real amount of
+>> memory allocated (real_len), it reallocates.
+> 
+> ...looking at nf_ct_ext_create() you do:
+> 
+>         *ext = kzalloc(real_len, gfp);
+>                        ^^^^^^^^
+>         if (!*ext)
+>                 return NULL;
+> 
+>         (*ext)->offset[id] = off;
+>         (*ext)->len = len;
+>         (*ext)->real_len = real_len;
+>                            ^^^^^^^^
+> 
+> You are storing the _object size_ (total amount of memory requested) and 
+> not the _buffer size_ (total amount of memory allocated). Keep in mind 
+> that object size < buffer size and that ksize() returns the latter.
 
-I found what I think is a bug but I can't completely say if it is in
-kernel code or in libnl.
 
-The following program:
+For all length <= minimum slab size alloc_size (and thus
+real_len) is equal to the buffer size. You are correct
+however that your patch is fine, I somehow misread the
 
-#include <stdio.h>
-#include <netlink/netlink.h>
-#include <linux/pkt_sched.h>
-#include <netlink/route/qdisc.h>
-#include <netlink/route/sch/htb.h>
-#include <netlink/route/link.h>
++       if (newlen >= ksize(ct->ext)) {
 
-int main(void)
-{
-        const char *in_iface_name = "eth1";
-        struct nl_handle *netlink_handle;
-        struct nl_cache *link_cache;
-        struct rtnl_qdisc *htb_qdisc;
-        int iface_idx;
+part and thought you would always compare against the
+minimum slab size.
 
-        netlink_handle = nl_handle_alloc();
-        nl_connect(netlink_handle, NETLINK_ROUTE);
-        link_cache = rtnl_link_alloc_cache(netlink_handle);
-        iface_idx = rtnl_link_name2i(link_cache, in_iface_name);
-
-        htb_qdisc = rtnl_qdisc_alloc();
-        rtnl_qdisc_set_ifindex(htb_qdisc, iface_idx);
-        rtnl_qdisc_set_parent(htb_qdisc, TC_H_ROOT);
-        rtnl_qdisc_set_handle(htb_qdisc, 0x00010000);
-        rtnl_qdisc_set_kind(htb_qdisc, "htb");
-
-/*        rtnl_htb_set_rate2quantum(htb_qdisc, 10); */
-/*        rtnl_htb_set_defcls(htb_qdisc, 0x00010001); */
-
-        rtnl_qdisc_add(netlink_handle, htb_qdisc, 0);
-        fprintf(stderr, "%s\n", nl_geterror());
-        rtnl_qdisc_put(htb_qdisc);
-
-        return 0;
-}
-
-triggers this code on net/sched/sch_htb.c:
-
-	if (tb[TCA_HTB_INIT] == NULL) {
-		printk(KERN_ERR "HTB: hey probably you have bad tc tool ?\n");
-		return -EINVAL;
-	}
-
-Even though it is simply doing the equivalent of:
-
-# tc qdisc add dev eth1 handle 1: root htb
-
-But, if *either* one of those commented lines above is uncommented it
-will succeed.
-
-After reading the iproute2's tc code I've realized that on
-q_htb.c:htb_parse_opt() there is always a default for rate2quantum.
-But libnl doesn't provide one on htb.c:htb_qdisc_get_opts().
-
-Given the above, what can be done?
-
-1. Nothing. i.e. the user of libnl should know better.
-    Then it should be documented.
-
-2. Put a default on libnl.
-    I don't like this, since when someone else comes around with
-another netlink library (not realisitic, I know) the same mistake will
-probably be made.
-
-3. Put the default in the htb kernel code.
-    This is the only sane option IMHO since that code needs it to
-work, it shouldn't rely on userspace setting it properly.
-
-What do you think?
-
-Rui
+I've queued your patch and will pass it upstream after
+some testing, thanks.
