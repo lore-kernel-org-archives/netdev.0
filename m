@@ -1,57 +1,74 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ethtool: command line support for lro
-Date: Mon, 10 Mar 2008 18:50:47 +0000
-Message-ID: <20080310185045.GG12660@solarflare.com>
-References: <1204898997.4220.41.camel@moonstone.uk.level5networks.com> <20080307082538.1a674ae1@extreme> <1204909575.4220.71.camel@moonstone.uk.level5networks.com> <20080307134312.037e2cf6@extreme> <20080310180706.GF12660@solarflare.com> <20080310112949.153a8cd5@extreme>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch 16/17] drivers/net/8390.c: replace
+ init_module&cleanup_module with module_init&module_exit
+Date: Mon, 10 Mar 2008 11:58:42 -0700
+Message-ID: <20080310115842.8b2ca9fd.akpm@linux-foundation.org>
+References: <200803042319.m24NJXjS002733@imap1.linux-foundation.org>
+	<47D1D70A.2070003@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kieran Mansley <kmansley@solarflare.com>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org, jkschind@gmail.com,
+	alan@lxorguk.ukuu.org.uk
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pythagoras.zen.co.uk ([212.23.3.140]:40466 "EHLO
-	pythagoras.zen.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751810AbYCJSuz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 14:50:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20080310112949.153a8cd5@extreme>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:33816 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751468AbYCJS65 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 14:58:57 -0400
+In-Reply-To: <47D1D70A.2070003@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Mon, 10 Mar 2008 18:07:07 +0000
-> Ben Hutchings <bhutchings@solarflare.com> wrote:
-> 
-> > Stephen Hemminger wrote:
-<snip>
-> > > @@ -1559,12 +1566,20 @@ static int do_goffload(int fd, struct ifreq *ifr)
-> > >  		allfail = 0;
-> > >  	}
-> > >  
-> > > +	eval.cmd = ETHTOOL_GFLAGS;
-> > > +	ifr->ifr_data = (caddr_t)&eval;
-> > > +	err = ioctl(fd, SIOCETHTOOL, ifr);
-> > > +	if (!err) {
-> > > +		lro = eval.data & ETH_FLAG_LRO;
-> > > +		allfail = 0;
-> > > +	}
-> > > +
+On Fri, 07 Mar 2008 16:00:10 -0800
+"Kok, Auke" <auke-jan.h.kok@intel.com> wrote:
+
+> akpm@linux-foundation.org wrote:
+> > From: Jon Schindler <jkschind@gmail.com>
 > > 
-> > To be consistent, this should print a specific error if the ioctl
-> > fails.
+> > Replace init_module and cleanup_module with static functions and
+> > module_init/module_exit.
+> > 
+> > Signed-off-by: Jon Schindler <jkschind@gmail.com>
+> > Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
+> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 > 
-> No, since most hardware won't support LRO or the flags, it makes sense not
-> to complain when fetching the value.
-<snip>
+> something went wrong here as this patch already appears to be in jeff's upstream
+> tree as commit 8724c2de65fe527f5b7aa662fcb8573fb8cd02f2, but breaks compile.
+> 
+> with CONFIG_NE2K_PCI=m:
+> 
+>   CC [M]  drivers/net/8390.o
+> drivers/net/8390.c: In function '__inittest':
+> drivers/net/8390.c:60: error: 'ns8390_init_module' undeclared (first use in this
+> function)
+> drivers/net/8390.c:60: error: (Each undeclared identifier is reported only once
+> drivers/net/8390.c:60: error: for each function it appears in.)
+> make[2]: *** [drivers/net/8390.o] Error 1
+> make[1]: *** [drivers/net] Error 2
+> make: *** [drivers] Error 2
+> 
+> 
+> reverting the patch fixes the issue, but better would be to fix.
+> 
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> Cc: Jon Schindler <jkschind@gmail.com>
+> Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> 
+> ---
+> diff --git a/drivers/net/8390.c b/drivers/net/8390.c
+> index 0ed41a3..a499e86 100644
+> --- a/drivers/net/8390.c
+> +++ b/drivers/net/8390.c
+> @@ -57,7 +57,7 @@ static void __exit ns8390_module_exit(void)
+>  {
+>  }
+> 
+> -module_init(ns8390_init_module);
+> +module_init(ns8390_module_init);
+>  module_exit(ns8390_module_exit);
+>  #endif /* MODULE */
+>  MODULE_LICENSE("GPL");
 
-Many of the other offloads have the same issue, particularly when
-using a new ethtool with an old kernel.  Maybe we should not print an
-error message if the error is EOPNOTSUPP or EPERM (unknown commands
-are assumed to require admin capability).  But that's a separate
-change and again it's not specific to LRO.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+OK, thanks, I'll drop it.
