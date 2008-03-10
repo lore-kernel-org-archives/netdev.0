@@ -1,43 +1,45 @@
-From: Florian Fainelli <florian.fainelli@telecomint.eu>
-Subject: Re: [PATCH] Add support the Korina (IDT RC32434) Ethernet MAC
-Date: Mon, 10 Mar 2008 21:55:37 +0100
-Message-ID: <200803102155.38671.florian.fainelli@telecomint.eu>
-References: <200803052345.06610.florian.fainelli@telecomint.eu> <1204886746.6387.17.camel@johannes.berg> <200803081905.46020.florian.fainelli@telecomint.eu>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Ixgbe question
+Date: Mon, 10 Mar 2008 14:27:00 -0700
+Message-ID: <47D5A7A4.30606@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>, Felix Fietkau <nbd@openwrt.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.int-evry.fr ([157.159.10.71]:35856 "EHLO
-	smtp4.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751053AbYCJUzo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 16:55:44 -0400
-In-Reply-To: <200803081905.46020.florian.fainelli@telecomint.eu>
-Content-Disposition: inline
+Received: from mail.candelatech.com ([66.165.47.212]:58497 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753143AbYCJV1D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 17:27:03 -0400
+Received: from [192.168.100.224] (static-71-121-249-218.sttlwa.dsl-w.verizon.net [71.121.249.218])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id m2ALR1EA007622
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 10 Mar 2008 14:27:03 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David, Jeff,
+I have a pair of IXGBE NICs in a system, and notice a strange
+case where the NIC is not always 'UP' after my programs finish
+trying to configure it.  I haven't noticed this with any other
+NICs, but I also just moved to 2.6.23.17 from 23.9 and 23.14.
 
-Any comments on this driver ?
+I see this in the logs:
 
-Thank you.
+ADDRCONF(NETDEV_UP): eth0: link is not ready
 
-Le samedi 8 mars 2008, Florian Fainelli a =E9crit=A0:
-> Hi Johannes,
->
-> Thanks for your comments, here is the second try.
-> ---
-> From: Florian Fainelli <florian.fainelli@telecomint.eu>
-> Subject: [PATCH] Add support the Korina (IDT RC32434) Ethernet MAC
->
-> This patch adds support for the IDT rc32434 Ethernet MAC
-> we can find in the IDT boards and the Mikrotik RB500.
-> Driver references some code from the linux-mips RB500
-> support.
->
-> Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
-> Signed-off-by: Felix Fietkau <nbd@openwrt.org>
-> Signed-off-by: Philip Rischel <rischelp@idt.com>
+It would seem to me that we should be able to set the admin
+state to UP, even if the link is not up??
+
+Kernel is 2.6.23.17 plus my hacks.   Ixgbe driver is version 1.3.7.8-lro.
+
+Hardware is quad-core Intel, 2 build-in e1000, 2-port ixgbe (CX4) chipset NIC
+on a pcie riser.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
