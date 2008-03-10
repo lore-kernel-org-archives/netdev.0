@@ -1,134 +1,106 @@
-From: Neil Brown <neilb@suse.de>
-Subject: Re: [PATCH 00/28] Swap over NFS -v16
-Date: Mon, 10 Mar 2008 16:15:56 +1100
-Message-ID: <18388.50188.552322.780524@notabene.brown>
-References: <20080220144610.548202000@chello.nl>
-	<20080223000620.7fee8ff8.akpm@linux-foundation.org>
-	<18371.43950.150842.429997@notabene.brown>
-	<1204023042.6242.271.camel@lappy>
-	<18372.64081.995262.986841@notabene.brown>
-	<1204099113.6242.353.camel@lappy>
-	<1837 <1204626509.6241.39.camel@lappy>
-	<18384.46967.583615.711455@notabene.brown>
-	<1204888675.8514.102.camel@twins>
+From: David Monro <davidm@davidmonro.net>
+Subject: Re: cassini driver and IPv6
+Date: Mon, 10 Mar 2008 15:51:22 +1030
+Message-ID: <47D4C552.5050704@davidmonro.net>
+References: <4377F74A.8090707@davidmonro.net> <20051114.214848.83997631.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Pekka Enberg <penberg@cs.helsinki.fi>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: asun@darksunrising.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:59107 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751998AbYCJFQG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Mar 2008 01:16:06 -0400
-In-Reply-To: message from Peter Zijlstra on Friday March 7
+Received: from davidmonro.net ([150.101.97.43]:46251 "EHLO
+	barbican.davidmonro.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750967AbYCJGRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 02:17:22 -0400
+In-Reply-To: <20051114.214848.83997631.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday March 7, a.p.zijlstra@chello.nl wrote:
-> Hi Neil,
+Well, I thought I would take another look at this, since I saw lots of 
+cassini-related code going into the kernel and its been some time since 
+I last played with this...
+
+I'm using a board with Natsemi Saturn chips (one of the gigaswifts with 
+2xGig ether and 2x scsi), on a little-endian PC rather than a sparc box 
+(not that that should matter...). _Most_ IPV6 packets don't seem to get 
+checksummed correctly  (they trigger the eth1: hw csum failure message 
+and a traceback as follows:
+
+   [<c010505a>] show_trace_log_lvl+0x1a/0x30
+   [<c0105a72>] show_trace+0x12/0x20
+   [<c010642a>] dump_stack+0x6a/0x70
+   [<c0292f01>] netdev_rx_csum_fault+0x31/0x40
+   [<c028f300>] __skb_checksum_complete_head+0x60/0x70
+   [<c028f31b>] __skb_checksum_complete+0xb/0x10
+   [<e0fba769>] tcp_v6_rcv+0x459/0x920 [ipv6]
+   [<e0f9aa4f>] ip6_input_finish+0x12f/0x340 [ipv6]
+   [<e0f9ac7f>] ip6_input+0x1f/0x60 [ipv6]
+   [<e0f9af55>] ipv6_rcv+0x1f5/0x340 [ipv6]
+   [<c0292b54>] netif_receive_skb+0x364/0x510
+   [<c02958f6>] process_backlog+0x66/0xd0
+   [<c02953ee>] net_rx_action+0x15e/0x210
+   [<c0123f52>] __do_softirq+0x52/0xb0
+   [<c0123ff6>] do_softirq+0x46/0x50
+   [<c012445c>] irq_exit+0x6c/0x80
+   [<c01065b3>] do_IRQ+0x53/0x90
+   [<c0104afa>] common_interrupt+0x2e/0x34
+   [<c0116971>] do_page_fault+0xa1/0x5f0
+   [<c03081e2>] error_code+0x6a/0x70
+
+).
+
+(Not all packets trigger it; eg I sent a ping6 with a length of 2000, 
+and as far as I can tell only the 2nd packet in each ping triggers the 
+failure - odd. Does it depend on the v6 extension headers present or 
+something I wonder. Actually, how on earth does the hardware produce the 
+pseudo header for tcp? And even odder - how could it possibly go wrong 
+with non-tcp packets like ping?)
+
+Has anyone else ever tested a saturn (or actually any cassini device) 
+using ipv6?
+
+I've spent a while looking at the packet parser stuff but I have only a 
+vague idea what it is doing and am certainly not in a position to debug 
+it. My current solution is simply to only do the checksumming stuff at 
+the bottom of cas_rx_process_pkt if ntohs(skb->protocol) == 0x0800 (ie, 
+IPv4), else set skb->csum to CHECKSUM_NONE, which is kinda dirty. If 
+someone with a non-saturn cassini can confirm that they don't get hw 
+csum errors with ipv6, then I'd have to assume a saturn-only hardware 
+bug and could wrap it with (cp->cas_flags & CAS_FLAG_SATURN) as well.
+
+Does this seem reasonable?
+
+Cheers,
+
+	David
+
+
+
+David S. Miller wrote:
+> From: David Monro <davidm@davidmonro.net>
+> Date: Mon, 14 Nov 2005 13:02:42 +1030
 > 
-> I'm so glad you are working with me on this and writing this in human
-> English. It seems to be my eternal short-comming to communicate my ideas
-> clearly :-/. Thanks for your effort!
-
-:-)
-It always helps to have a second brain with a different perspective.
-
-
+>> I don't know if it just needs to be told not to calulate the checksums
+>> for v6 packets, or what.
 > 
-> On Fri, 2008-03-07 at 14:33 +1100, Neil Brown wrote:
-> > 
-> > [I don't find the above wholly satisfying.  There seems to be too much
-> >  hand-waving.  If someone can provide better text explaining why
-> >  swapout is a special case, that would be great.]
+> It generates a generic checksum calculation on all packets,
+> similarly to the Sun GEM chip, which ought to be totally
+> protocol agnostic.
 > 
-> Anonymous pages are dirty by definition (except the zero page, but I
-> think we recently ditched it). So shrinking of the anonymous pool will
-> require swapping.
-
-Well, there is the swap cache.  That's probably what I was thinking of
-when I said "clean anonymous pages".  I suspect they are the first to
-go!
-
+> The Cassini is a very complex chip, so debugging this without docs
+> will be a chore.  There are many things that influence how this chip
+> looks at the packet, including a packet parsing engine which tells it
+> where to split packets up into header and data portions for zero-copy
+> stuff.
 > 
-> It is indeed the last refuge for those with GFP_NOFS. Allong with the
-> strict limit on the amount of dirty file pages it also ensures writing
-> those out will never deadlock the machine as there are always clean file
-> pages and or anonymous pages to launder.
-
-The difficulty I have is justifying exactly why page-cache writeout
-will not deadlock.  What if all the memory that is not dirty-pagecache
-is anonymous, and if swap isn't enabled?
-Maybe the number returned by "determine_dirtyable_memory" in
-page-writeback.c excludes anonymous pages?  I wonder if the meaning of
-NR_FREE_PAGES, NR_INACTIVE, etc is documented anywhere....
-
-...
+> Special versions of this packet parser are needed to workaround bugs
+> in certain revisions of the chip, and I bet there are buffer alignment
+> constraints on receive and other odd things that need to be right.
 > 
-> Right. I've had a long conversation on PG_emergency with Pekka. And I
-> think the conclusion was that PG_emergency will create more head-aches
-> than it solves. I probably have the conversation in my IRC logs and
-> could email it if you're interested (and Pekka doesn't object).
-
-Maybe that depends on the exact semantic of PG_emergency ??
-I remember you being concerned that PG_emergency never changes between
-allocation and freeing, and that wouldn't work well with slub.
-My envisioned semantic has it possibly changing quite often.
-What it means is:
-   The last allocation done from this page was in a low-memory
-   condition.
-
-You really need some way to tell if the result of kmalloc/kmemalloc
-should be treated as reserved.
-I think you had code which first tried the allocation without
-GFP_MEMALLOC and then if that failed, tried again *with*
-GFP_MEMALLOC.  If that then succeeded, it is assumed to be an
-allocation from reserves.  That seemed rather ugly, though I guess you
-could wrap it in a function to hide the ugliness:
-
-void *kmalloc_reserve(size_t size, int *reserve, gfp_t gfp_flags)
-{
-	void *result = kmalloc(size, gfp_flags & ~GFP_MEMALLOC);
-	if (result) {
-		*reserve = 0;
-		return result;
-	}
-	result = kmalloc(size, gfp_flags | GFP_MEMALLOC);
-	if (result) {
-		*reserve = 1;
-		return result;
-	}
-	return NULL;
-}
-???
-
+> The only thing I can do to work on this bug is to use the driver
+> source, and reproduce the bug here and just tinker around, which
+> you can also do. :-)
 > 
-> I've already heard interest from other people to use these hooks to
-> provide swap on other non-block filesystems such as jffs2, logfs and the
-> like.
+> 
 
-I'm interested in the swap_in/swap_out interface for external
-write-intent bitmaps for md/raid arrays.
-You can have a write-intent bitmap which records which blocks might be
-dirty if the host crashes, so that resync is much faster.
-It can be stored in a file in a separate filesystem, but that is
-currently implemented by using bmap to enumerate the blocks and then
-reading/writing directly to the device (like swap).  Your interface
-would be much nicer for that (not that I think having a
-write-intent-bitmap on an NFS filesystem would be a clever idea ;-)
-
-I'll look forward to your next patch set....
-
-One thing I had thought odd while reading the patches, but haven't
-found an opportunity to mention before, is the "IS_SWAPFILE" test in
-nfs-swapper.patch.
-This seems like a layering violation.  It would be better if the test
-was based on whether  ->swapfile had been called on the file.  That way
-my write-intent-bitmaps would get the same benefit.
-
-NeilBrown
