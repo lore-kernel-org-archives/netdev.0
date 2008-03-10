@@ -1,74 +1,95 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: replace horrible hack with ksize()
-Date: Mon, 10 Mar 2008 18:57:55 +0100
-Message-ID: <47D576A3.1080503@trash.net>
-References: <Pine.LNX.4.64.0803052319210.15759@sbz-30.cs.Helsinki.FI> <47CFF9B7.5060803@trash.net> <Pine.LNX.4.64.0803061612290.4202@sbz-30.cs.Helsinki.FI> <Pine.LNX.4.64.0803061618090.4378@sbz-30.cs.Helsinki.FI> <47D0014D.1060901@trash.net> <Pine.LNX.4.64.0803061640380.4820@sbz-30.cs.Helsinki.FI> <47D004DB.4010105@trash.net> <47D01277.9060807@cs.helsinki.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, clameter@sgi.com,
-	joe@perches.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+From: Glenn Griffin <ggriffin.kernel@gmail.com>
+Subject: Re: [PATCH] Shrink syncookie_secret by 8 byte.
+Date: Mon, 10 Mar 2008 11:05:27 -0700
+Message-ID: <47d57829.4301360a.7970.ffffb769@mx.google.com>
+References: <1205164157-26681-1-git-send-email-fw@strlen.de>
+Cc: netdev@vger.kernel.org, Glenn Griffin <ggriffin.kernel@gmail.com>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep25-int.chello.at ([62.179.121.45]:29796 "EHLO
-	viefep25-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755196AbYCJR6X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 13:58:23 -0400
-In-Reply-To: <47D01277.9060807@cs.helsinki.fi>
+Received: from gv-out-0910.google.com ([216.239.58.187]:34006 "EHLO
+	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751013AbYCJSEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 14:04:30 -0400
+Received: by gv-out-0910.google.com with SMTP id s4so522887gve.37
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2008 11:04:28 -0700 (PDT)
+In-Reply-To: <1205164157-26681-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pekka Enberg wrote:
-> Hi Patrick,
-> 
-> Patrick McHardy wrote:
->> > I think you are misunderstanding ksize() (see mm/slub.c::ksize() for 
->> > example).
->>
->> The ksize() description in mm/slab.c matches exactly what netfilter
->> wants to do:
-> 
-> Agreed.
-> 
-> Patrick McHardy wrote:
->> The initial allocation size is calculated as max(size, min slab size)
->> and is stored as ext->alloc_size. When adding the first extension,
-> 
-> Yes, this part is correct, however...
-> 
->> it allocates ext->alloc_size of memory and stores both the real amount
->> of space used (ext->len) and the actual size (ext->real_len).
->> When adding further extensions, it calculates the new total amount of
->> space needed (newlen). If that is larger than the real amount of
->> memory allocated (real_len), it reallocates.
-> 
-> ...looking at nf_ct_ext_create() you do:
-> 
->         *ext = kzalloc(real_len, gfp);
->                        ^^^^^^^^
->         if (!*ext)
->                 return NULL;
-> 
->         (*ext)->offset[id] = off;
->         (*ext)->len = len;
->         (*ext)->real_len = real_len;
->                            ^^^^^^^^
-> 
-> You are storing the _object size_ (total amount of memory requested) and 
-> not the _buffer size_ (total amount of memory allocated). Keep in mind 
-> that object size < buffer size and that ksize() returns the latter.
+> the first u32 copied from syncookie_secret is overwritten by the
+> minute-counter four lines below.
+> After adjusting the destination address, the size of syncookie_secret
+> can be reduced accordingly.
 
+Agreed.
 
-For all length <= minimum slab size alloc_size (and thus
-real_len) is equal to the buffer size. You are correct
-however that your patch is fine, I somehow misread the
+> AFAICS, the only other user of syncookie_secret[] is the ipv6 syncookie
+> support.
+> Because ipv6 syncookies only grab 44 bytes from syncookie_secret[],
+> this shouldn't affect them in any way.
 
-+       if (newlen >= ksize(ct->ext)) {
+You are correct.  syncookie_secret was declared static before ipv6 support was
+added, and shrinking it by 4 bytes wont have any effect on ipv6.
 
-part and thought you would always compare against the
-minimum slab size.
+You forgot to change the declaration in net/ipv6/syncookies.c.  Here is
+an amended patch to include that.
 
-I've queued your patch and will pass it upstream after
-some testing, thanks.
+Acked-by: Glenn Griffin <ggriffin.kernel@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ include/net/tcp.h     |    2 +-
+ net/ipv4/syncookies.c |    4 ++--
+ net/ipv6/syncookies.c |    2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 11119e3..66e2970 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -435,7 +435,7 @@ extern int			tcp_disconnect(struct sock *sk, int flags);
+ extern void			tcp_unhash(struct sock *sk);
+ 
+ /* From syncookies.c */
+-extern __u32 syncookie_secret[2][16-3+SHA_DIGEST_WORDS];
++extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
+ extern struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb, 
+ 				    struct ip_options *opt);
+ extern __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, 
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 4704f27..abc752d 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -21,7 +21,7 @@
+ 
+ extern int sysctl_tcp_syncookies;
+ 
+-__u32 syncookie_secret[2][16-3+SHA_DIGEST_WORDS];
++__u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
+ EXPORT_SYMBOL(syncookie_secret);
+ 
+ static __init int init_syncookies(void)
+@@ -41,7 +41,7 @@ static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
+ {
+ 	__u32 *tmp = __get_cpu_var(cookie_scratch);
+ 
+-	memcpy(tmp + 3, syncookie_secret[c], sizeof(syncookie_secret[c]));
++	memcpy(tmp + 4, syncookie_secret[c], sizeof(syncookie_secret[c]));
+ 	tmp[0] = (__force u32)saddr;
+ 	tmp[1] = (__force u32)daddr;
+ 	tmp[2] = ((__force u32)sport << 16) + (__force u32)dport;
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index 827c5aa..3a622e7 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -22,7 +22,7 @@
+ #include <net/tcp.h>
+ 
+ extern int sysctl_tcp_syncookies;
+-extern __u32 syncookie_secret[2][16-3+SHA_DIGEST_WORDS];
++extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
+ 
+ #define COOKIEBITS 24	/* Upper bits store count */
+ #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+-- 
+1.5.4
+
