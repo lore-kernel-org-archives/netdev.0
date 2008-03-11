@@ -1,100 +1,26 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: [PATCH REPOST] srandom32 fixes for networking
-Date: Tue, 11 Mar 2008 02:31:13 +0100
-Message-ID: <20080311013113.GA28742@basil.nowhere.org>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [ofa-general] Re: [PATCH 2.6.25] RDMA/IWCM: don't access the cm_id
+	after dereferencing it.
+Date: Mon, 10 Mar 2008 21:23:16 -0700
+Message-ID: <adad4q1nb2j.fsf@cisco.com>
+References: <20080304224451.8548.33855.stgit@dell3.ogc.int>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, akpm@osdl.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out01.alice-dsl.net ([88.44.60.11]:50480 "EHLO
-	smtp-out01.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750859AbYCKBbP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 21:31:15 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: Steve Wise <swise@opengridcomputing.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20080304224451.8548.33855.stgit@dell3.ogc.int> (Steve Wise's
+	message of "Tue, 04 Mar 2008 16:44:52 -0600")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-srandom32 fixes for networking
-
-[Repost; please ack/nack. This fixes some subtle issues in networking
-random number handling]
-
-- Rename it to a different name because it does something quite
-different from a traditional user land srandom32 -- it doesn't
-reset state but just adds to it.
-
-- Let it update the state of all CPUs. The network stack goes
-into pains to feed the current IP addresses in, but it is not very
-effective if that is only done for some random CPU instead of all.
-So change it to feed bits into all CPUs.  I decided to do that lockless 
-because well somewhat random results are ok.
-
-Signed-off-by: Andi Kleen <ak@suse.de>
----
- include/linux/net.h    |    2 +-
- include/linux/random.h |    2 +-
- lib/random32.c         |   19 ++++++++++++-------
- 3 files changed, 14 insertions(+), 9 deletions(-)
-
-Index: linux/include/linux/random.h
-===================================================================
---- linux.orig/include/linux/random.h
-+++ linux/include/linux/random.h
-@@ -70,7 +70,7 @@ unsigned int get_random_int(void);
- unsigned long randomize_range(unsigned long start, unsigned long end, unsigned long len);
- 
- u32 random32(void);
--void srandom32(u32 seed);
-+void random32_add_bits(u32 seed);
- 
- #endif /* __KERNEL___ */
- 
-Index: linux/lib/random32.c
-===================================================================
---- linux.orig/lib/random32.c
-+++ linux/lib/random32.c
-@@ -93,19 +93,24 @@ u32 random32(void)
- EXPORT_SYMBOL(random32);
- 
- /**
-- *	srandom32 - add entropy to pseudo random number generator
-+ *	random32_add_bits - add entropy to pseudo random number generator
-  *	@seed: seed value
-  *
-  *	Add some additional seeding to the random32() pool.
-- *	Note: this pool is per cpu so it only affects current CPU.
-  */
--void srandom32(u32 entropy)
-+void random32_add_bits(u32 entropy)
- {
--	struct rnd_state *state = &get_cpu_var(net_rand_state);
--	__set_random32(state, state->s1 ^ entropy);
--	put_cpu_var(state);
-+	int i;
-+	/*
-+	 * No locking on the CPUs, but then somewhat random results are, well,
-+	 * expected.
-+	 */
-+	for_each_possible_cpu (i) {
-+		struct rnd_state *state = &per_cpu(net_rand_state, i);
-+		__set_random32(state, state->s1 ^ entropy);
-+	}
- }
--EXPORT_SYMBOL(srandom32);
-+EXPORT_SYMBOL(random32_add_bits);
- 
- /*
-  *	Generate some initially weak seeding values to allow
-Index: linux/include/linux/net.h
-===================================================================
---- linux.orig/include/linux/net.h
-+++ linux/include/linux/net.h
-@@ -213,7 +213,7 @@ extern struct socket *sockfd_lookup(int 
- extern int	     net_ratelimit(void);
- 
- #define net_random()		random32()
--#define net_srandom(seed)	srandom32((__force u32)seed)
-+#define net_srandom(seed)	random32_add_bits((__force u32)seed)
- 
- extern int   	     kernel_sendmsg(struct socket *sock, struct msghdr *msg,
- 				    struct kvec *vec, size_t num, size_t len);
+thanks, applied.
