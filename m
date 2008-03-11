@@ -1,54 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: RFC [PATCH net-2.6 1/6] net: Scheduling softirqs between CPUSs
-Date: Tue, 11 Mar 2008 16:52:54 +0000
-Message-ID: <20080311165253.GG26963@solarflare.com>
-References: <20080305205116.5989A412541@localhost> <20080305.132112.01598419.davem@davemloft.net> <47D19147.9070609@qualcomm.com> <36D9DB17C6DE9E40B059440DB8D95F52049D5CE5@orsmsx418.amr.corp.intel.com> <65634d660803110920g5103dc60ya055a10f999b4e25@mail.gmail.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH -mm] ne2: needs more 8390 support functions
+Date: Tue, 11 Mar 2008 09:56:43 -0700
+Message-ID: <20080311095643.01cd3708.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Max Krasnyanskiy <maxk@qualcomm.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Ingo Molnar <mingo@elte.hu>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: akpm <akpm@linux-foundation.org>, alan@lxorguk.ukuu.org.uk,
+	jgarzik <jgarzik@pobox.com>
+To: lkml <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pythagoras.zen.co.uk ([212.23.3.140]:41641 "EHLO
-	pythagoras.zen.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751831AbYCKQxJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2008 12:53:09 -0400
-Content-Disposition: inline
-In-Reply-To: <65634d660803110920g5103dc60ya055a10f999b4e25@mail.gmail.com>
+Received: from agminet01.oracle.com ([141.146.126.228]:52579 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752057AbYCKQ7s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2008 12:59:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert wrote:
-> >  Could we use something like this to reschedule NAPI onto other
-> >  processors?  If we get unlucky enough to have multiple napi routines
-> >  polling on a single CPU, and one or more completely idle CPUs (idle at
-> >  least for softirq) then we could really use one or the other of these
-> >  solutions.
-> 
-> Jesse,
-> 
-> This patch does provide a general mechanism to schedule (or
-> reschedule) NAPI to other CPUs.  We implemented two scheduling
-> algorithms: 1) round robin scheduling of NAPI poll function across a
-> set of CPUs on a per device basis 2) scheduling stack processing by
-> directing packets to a CPU (using backlog queue); a hash is done on
-> the 4-tuple to direct the packets for a connection to same CPU thus
-> emulating HW RSS (we will add support for those devices that can
-> provide the computed hash per packet).
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Recent versions of Windows that are aware of RSS will instruct network
-drivers to update their RSS indirection tables so that received
-packets are handled on the same CPU as the thread likely to use the
-received data.  This requires that the network stack knows the hash
-function, so Microsoft specified a "Toeplitz hash" for IPv4 and IPv6.
-You can expect that most hardware RSS implementations will use this
-function and not a simple XOR.
+ne2 (MCA) needs both 8390.o and 8390p.o functions:
 
-Ben.
+drivers/built-in.o: In function `ne_close':
+ne2.c:(.text+0x30544): undefined reference to `eip_close'
+drivers/built-in.o: In function `ne_open':
+ne2.c:(.text+0x30554): undefined reference to `eip_open'
+drivers/built-in.o: In function `ne2_probe':
+(.init.text+0x1bce): undefined reference to `__alloc_eip_netdev'
+drivers/built-in.o: In function `ne2_probe':
+(.init.text+0x1dd9): undefined reference to `eip_interrupt'
+make[1]: *** [.tmp_vmlinux1] Error 1
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/Makefile |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- linux-2.6.25-rc5-mm1.orig/drivers/net/Makefile
++++ linux-2.6.25-rc5-mm1/drivers/net/Makefile
+@@ -108,7 +108,7 @@ obj-$(CONFIG_68360_ENET) += 68360enet.o
+ obj-$(CONFIG_WD80x3) += wd.o 8390.o
+ obj-$(CONFIG_EL2) += 3c503.o 8390p.o
+ obj-$(CONFIG_NE2000) += ne.o 8390p.o
+-obj-$(CONFIG_NE2_MCA) += ne2.o 8390.o
++obj-$(CONFIG_NE2_MCA) += ne2.o 8390.o 8390p.o
+ obj-$(CONFIG_HPLAN) += hp.o 8390p.o
+ obj-$(CONFIG_HPLAN_PLUS) += hp-plus.o 8390p.o
+ obj-$(CONFIG_ULTRA) += smc-ultra.o 8390.o
