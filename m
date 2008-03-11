@@ -1,146 +1,49 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH][NEIGH]: Fix race between pneigh deletion and ipv6's ndisc_recv_ns.
-Date: Tue, 11 Mar 2008 16:24:39 +0300
-Message-ID: <47D68817.9030709@openvz.org>
-References: <47CFD2ED.3060207@openvz.org>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: Treason uncloaked spams syslog with latest git
+Date: Tue, 11 Mar 2008 14:59:53 +0100 (CET)
+Message-ID: <alpine.LFD.1.00.0803111440040.3781@apollo.tec.linutronix.de>
+References: <alpine.LFD.1.00.0803061140380.3099@apollo.tec.linutronix.de> <20080306153129.e247cd1a.akpm@linux-foundation.org> <Pine.LNX.4.64.0803071547370.5423@kivilampi-30.cs.helsinki.fi> <alpine.LFD.1.00.0803072050410.3099@apollo.tec.linutronix.de>
+ <alpine.LFD.1.00.0803102046420.3781@apollo.tec.linutronix.de> <Pine.LNX.4.64.0803111138360.5423@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-298178265-1205243994=:3781"
+Cc: David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:39549 "EHLO sacred.ru"
+Received: from www.tglx.de ([62.245.132.106]:57777 "EHLO www.tglx.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752849AbYCKNYr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Mar 2008 09:24:47 -0400
-In-Reply-To: <47CFD2ED.3060207@openvz.org>
+	id S1752218AbYCKOAh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2008 10:00:37 -0400
+In-Reply-To: <Pine.LNX.4.64.0803111138360.5423@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, David.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-You picked up the patch with /proc/net symlink, but skipped this
-one, while it was sent earlier. Is it _that_ bad :) ?
+--8323328-298178265-1205243994=:3781
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+
+On Tue, 11 Mar 2008, Ilpo Järvinen wrote:
+> > http://www.tglx.de/~tglx/treason.cap
+> > 
+> > That's on -rc5
+> 
+> Thanks, I think I found the reason. Does the patch below fix it...
+
+Yes, it does.
+
+> message suggests, we had just sent something past it without
+> a permission to do so).
+> 
+> Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+
+Tested-by: Thomas Gleixner <tglx@linutronix.de>
 
 Thanks,
-Pavel
 
-> Proxy neighbors do not have any reference counting, so any caller
-> of pneigh_lookup (unless it's a netlink triggered add/del routine)
-> should _not_ perform any actions on the found proxy entry. 
-> 
-> There's one exception from this rule - the ipv6's ndisc_recv_ns() 
-> uses found entry to check the flags for NTF_ROUTER.
-> 
-> This creates a race between the ndisc and pneigh_delete - after 
-> the pneigh is returned to the caller, the nd_tbl.lock is dropped 
-> and the deleting procedure may proceed.
-> 
-> One of the fixes would be to add a reference counting, but this
-> problem exists for ndisc only. Besides such a patch would be too 
-> big for -rc4.
-> 
-> So I propose to introduce a __pneigh_lookup() which is supposed
-> to be called with the lock held and use it in ndisc code to check
-> the flags on alive pneigh entry. 
-> 
-> If this is OK, is there a real need in proxy neighbors reference
-> counting for 2.6.26 :) ?
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> 
-> ---
-> 
-> diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-> index ebbfb50..cca1904 100644
-> --- a/include/net/neighbour.h
-> +++ b/include/net/neighbour.h
-> @@ -218,6 +218,8 @@ extern unsigned long		neigh_rand_reach_time(unsigned long base);
->  extern void			pneigh_enqueue(struct neigh_table *tbl, struct neigh_parms *p,
->  					       struct sk_buff *skb);
->  extern struct pneigh_entry	*pneigh_lookup(struct neigh_table *tbl, struct net *net, const void *key, struct net_device *dev, int creat);
-> +extern struct pneigh_entry	*__pneigh_lookup(struct neigh_table *tbl,
-> +		struct net *net, const void *key, struct net_device *dev);
->  extern int			pneigh_delete(struct neigh_table *tbl, struct net *net, const void *key, struct net_device *dev);
->  
->  extern void neigh_app_ns(struct neighbour *n);
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index d9a02b2..c97bf5b 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -466,6 +466,28 @@ out_neigh_release:
->  	goto out;
->  }
->  
-> +struct pneigh_entry *__pneigh_lookup(struct neigh_table *tbl,
-> +		struct net *net, const void *pkey, struct net_device *dev)
-> +{
-> +	struct pneigh_entry *n;
-> +	int key_len = tbl->key_len;
-> +	u32 hash_val = *(u32 *)(pkey + key_len - 4);
-> +
-> +	hash_val ^= (hash_val >> 16);
-> +	hash_val ^= hash_val >> 8;
-> +	hash_val ^= hash_val >> 4;
-> +	hash_val &= PNEIGH_HASHMASK;
-> +
-> +	for (n = tbl->phash_buckets[hash_val]; n; n = n->next) {
-> +		if (!memcmp(n->key, pkey, key_len) &&
-> +		    (n->net == net) &&
-> +		    (n->dev == dev || !n->dev))
-> +			break;
-> +	}
-> +
-> +	return n;
-> +}
-> +
->  struct pneigh_entry * pneigh_lookup(struct neigh_table *tbl,
->  				    struct net *net, const void *pkey,
->  				    struct net_device *dev, int creat)
-> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-> index 0d33a7d..bb72ef4 100644
-> --- a/net/ipv6/ndisc.c
-> +++ b/net/ipv6/ndisc.c
-> @@ -676,6 +676,20 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
->  	}
->  }
->  
-> +static struct pneigh_entry *neigh_check_router(struct net_device *dev,
-> +		struct in6_addr *addr, int *is_router)
-> +{
-> +	struct pneigh_entry *n;
-> +
-> +	read_lock_bh(&nd_tbl.lock);
-> +	n = __pneigh_lookup(&nd_tbl, &init_net, addr, dev);
-> +	if (n != NULL)
-> +		*is_router = (n->flags & NTF_ROUTER);
-> +	read_unlock_bh(&nd_tbl.lock);
-> +
-> +	return n;
-> +}
-> +
->  static void ndisc_recv_ns(struct sk_buff *skb)
->  {
->  	struct nd_msg *msg = (struct nd_msg *)skb_transport_header(skb);
-> @@ -790,8 +804,8 @@ static void ndisc_recv_ns(struct sk_buff *skb)
->  		if (ipv6_chk_acast_addr(dev, &msg->target) ||
->  		    (idev->cnf.forwarding &&
->  		     (ipv6_devconf.proxy_ndp || idev->cnf.proxy_ndp) &&
-> -		     (pneigh = pneigh_lookup(&nd_tbl, &init_net,
-> -					     &msg->target, dev, 0)) != NULL)) {
-> +		     (pneigh = neigh_check_router(dev, &msg->target,
-> +						  &is_router)) != NULL)) {
->  			if (!(NEIGH_CB(skb)->flags & LOCALLY_ENQUEUED) &&
->  			    skb->pkt_type != PACKET_HOST &&
->  			    inc != 0 &&
-> @@ -812,7 +826,7 @@ static void ndisc_recv_ns(struct sk_buff *skb)
->  			goto out;
->  	}
->  
-> -	is_router = !!(pneigh ? pneigh->flags & NTF_ROUTER : idev->cnf.forwarding);
-> +	is_router = !!(pneigh ? is_router : idev->cnf.forwarding);
->  
->  	if (dad) {
->  		struct in6_addr maddr;
-> 
-
+	tglx
+--8323328-298178265-1205243994=:3781--
