@@ -1,126 +1,146 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Treason uncloaked spams syslog with latest git
-Date: Tue, 11 Mar 2008 12:20:53 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0803111138360.5423@kivilampi-30.cs.helsinki.fi>
-References: <alpine.LFD.1.00.0803061140380.3099@apollo.tec.linutronix.de>
- <20080306153129.e247cd1a.akpm@linux-foundation.org>
- <Pine.LNX.4.64.0803071547370.5423@kivilampi-30.cs.helsinki.fi>
- <alpine.LFD.1.00.0803072050410.3099@apollo.tec.linutronix.de>
- <alpine.LFD.1.00.0803102046420.3781@apollo.tec.linutronix.de>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH][NEIGH]: Fix race between pneigh deletion and ipv6's ndisc_recv_ns.
+Date: Tue, 11 Mar 2008 16:24:39 +0300
+Message-ID: <47D68817.9030709@openvz.org>
+References: <47CFD2ED.3060207@openvz.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/Mixed; boundary="8323328-569145175-1205178487=:3781"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757418AbYCKKVZ@vger.kernel.org>
-In-Reply-To: <alpine.LFD.1.00.0803102046420.3781@apollo.tec.linutronix.de>
-Content-ID: <Pine.LNX.4.64.0803111138361.5423@kivilampi-30.cs.helsinki.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:39549 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752849AbYCKNYr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2008 09:24:47 -0400
+In-Reply-To: <47CFD2ED.3060207@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi, David.
 
---8323328-569145175-1205178487=:3781
-Content-Type: TEXT/PLAIN; charset=iso-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0803111138362.5423@kivilampi-30.cs.helsinki.fi>
+You picked up the patch with /proc/net symlink, but skipped this
+one, while it was sent earlier. Is it _that_ bad :) ?
 
-On Mon, 10 Mar 2008, Thomas Gleixner wrote:
+Thanks,
+Pavel
 
-> On Fri, 7 Mar 2008, Thomas Gleixner wrote:
-> > On Fri, 7 Mar 2008, Ilpo Järvinen wrote:
-> > > On Thu, 6 Mar 2008, Andrew Morton wrote:
-> > > 
-> > > > On Thu, 6 Mar 2008 11:47:12 +0100 (CET)
-> > > > Thomas Gleixner <tglx@linutronix.de> wrote:
-> > > > 
-> > > > > Since I updated one of my compile boxen to latest git I get the syslog
-> > > > > flooded with:
-> > > > > 
-> > > > > TCP: Treason uncloaked! Peer 192.168.0.1:10245/56637 shrinks window
-> > > > > 2748077551:2748080447. Repaired.
-> > > > > TCP: Treason uncloaked! Peer 192.168.0.68:10245/39915 shrinks window
-> > > > > 2890195332:2890201124. Repaired.
-> > > > > TCP: Treason uncloaked! Peer 192.168.0.65:10245/46058 shrinks window
-> > > > > 2880740873:2880745217. Repaired.
-> > > > > 
-> > > > > This happens _always_ when I compile kernels with distcc or icecc. All
-> > > > > systems involved run Linux with kernels >= 2.6.23 and are on the same
-> > > > > network; no routers, firewalls or other fancy stuff.
-> > > > > 
-> > > > > Any idea what's going on here ?
-> > > > > 
-> > > 
-> > > Could you tcpdump it?
-> > 
-> > Will do.
+> Proxy neighbors do not have any reference counting, so any caller
+> of pneigh_lookup (unless it's a netlink triggered add/del routine)
+> should _not_ perform any actions on the found proxy entry. 
 > 
-> http://www.tglx.de/~tglx/treason.cap
+> There's one exception from this rule - the ipv6's ndisc_recv_ns() 
+> uses found entry to check the flags for NTF_ROUTER.
 > 
-> That's on -rc5
+> This creates a race between the ndisc and pneigh_delete - after 
+> the pneigh is returned to the caller, the nd_tbl.lock is dropped 
+> and the deleting procedure may proceed.
+> 
+> One of the fixes would be to add a reference counting, but this
+> problem exists for ndisc only. Besides such a patch would be too 
+> big for -rc4.
+> 
+> So I propose to introduce a __pneigh_lookup() which is supposed
+> to be called with the lock held and use it in ndisc code to check
+> the flags on alive pneigh entry. 
+> 
+> If this is OK, is there a real need in proxy neighbors reference
+> counting for 2.6.26 :) ?
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> 
+> ---
+> 
+> diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+> index ebbfb50..cca1904 100644
+> --- a/include/net/neighbour.h
+> +++ b/include/net/neighbour.h
+> @@ -218,6 +218,8 @@ extern unsigned long		neigh_rand_reach_time(unsigned long base);
+>  extern void			pneigh_enqueue(struct neigh_table *tbl, struct neigh_parms *p,
+>  					       struct sk_buff *skb);
+>  extern struct pneigh_entry	*pneigh_lookup(struct neigh_table *tbl, struct net *net, const void *key, struct net_device *dev, int creat);
+> +extern struct pneigh_entry	*__pneigh_lookup(struct neigh_table *tbl,
+> +		struct net *net, const void *key, struct net_device *dev);
+>  extern int			pneigh_delete(struct neigh_table *tbl, struct net *net, const void *key, struct net_device *dev);
+>  
+>  extern void neigh_app_ns(struct neighbour *n);
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index d9a02b2..c97bf5b 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -466,6 +466,28 @@ out_neigh_release:
+>  	goto out;
+>  }
+>  
+> +struct pneigh_entry *__pneigh_lookup(struct neigh_table *tbl,
+> +		struct net *net, const void *pkey, struct net_device *dev)
+> +{
+> +	struct pneigh_entry *n;
+> +	int key_len = tbl->key_len;
+> +	u32 hash_val = *(u32 *)(pkey + key_len - 4);
+> +
+> +	hash_val ^= (hash_val >> 16);
+> +	hash_val ^= hash_val >> 8;
+> +	hash_val ^= hash_val >> 4;
+> +	hash_val &= PNEIGH_HASHMASK;
+> +
+> +	for (n = tbl->phash_buckets[hash_val]; n; n = n->next) {
+> +		if (!memcmp(n->key, pkey, key_len) &&
+> +		    (n->net == net) &&
+> +		    (n->dev == dev || !n->dev))
+> +			break;
+> +	}
+> +
+> +	return n;
+> +}
+> +
+>  struct pneigh_entry * pneigh_lookup(struct neigh_table *tbl,
+>  				    struct net *net, const void *pkey,
+>  				    struct net_device *dev, int creat)
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> index 0d33a7d..bb72ef4 100644
+> --- a/net/ipv6/ndisc.c
+> +++ b/net/ipv6/ndisc.c
+> @@ -676,6 +676,20 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
+>  	}
+>  }
+>  
+> +static struct pneigh_entry *neigh_check_router(struct net_device *dev,
+> +		struct in6_addr *addr, int *is_router)
+> +{
+> +	struct pneigh_entry *n;
+> +
+> +	read_lock_bh(&nd_tbl.lock);
+> +	n = __pneigh_lookup(&nd_tbl, &init_net, addr, dev);
+> +	if (n != NULL)
+> +		*is_router = (n->flags & NTF_ROUTER);
+> +	read_unlock_bh(&nd_tbl.lock);
+> +
+> +	return n;
+> +}
+> +
+>  static void ndisc_recv_ns(struct sk_buff *skb)
+>  {
+>  	struct nd_msg *msg = (struct nd_msg *)skb_transport_header(skb);
+> @@ -790,8 +804,8 @@ static void ndisc_recv_ns(struct sk_buff *skb)
+>  		if (ipv6_chk_acast_addr(dev, &msg->target) ||
+>  		    (idev->cnf.forwarding &&
+>  		     (ipv6_devconf.proxy_ndp || idev->cnf.proxy_ndp) &&
+> -		     (pneigh = pneigh_lookup(&nd_tbl, &init_net,
+> -					     &msg->target, dev, 0)) != NULL)) {
+> +		     (pneigh = neigh_check_router(dev, &msg->target,
+> +						  &is_router)) != NULL)) {
+>  			if (!(NEIGH_CB(skb)->flags & LOCALLY_ENQUEUED) &&
+>  			    skb->pkt_type != PACKET_HOST &&
+>  			    inc != 0 &&
+> @@ -812,7 +826,7 @@ static void ndisc_recv_ns(struct sk_buff *skb)
+>  			goto out;
+>  	}
+>  
+> -	is_router = !!(pneigh ? pneigh->flags & NTF_ROUTER : idev->cnf.forwarding);
+> +	is_router = !!(pneigh ? is_router : idev->cnf.forwarding);
+>  
+>  	if (dad) {
+>  		struct in6_addr maddr;
+> 
 
-Thanks, I think I found the reason. Does the patch below fix it...
-
--- 
- i.
-
---
-[PATCH net-2.6] [TCP]: Prevent sending past receiver window with TSO (at last skb)
-
-With TSO it was possible to send past the receiver window when
-the skb to be sent was the last in the write queue while the
-receiver window is the limiting factor. One can notice that
-there's a loophole in the tcp_mss_split_point that lacked
-a receiver window check for the tcp_write_queue_tail() if also
-cwnd was smaller than the full skb.
-
-Noticed by Thomas Gleixner <tglx@linutronix.de> in form of
-"Treason uncloaked! Peer ... shrinks window .... Repaired."
-messages (the peer didn't actually shrink its window as the
-message suggests, we had just sent something past it without
-a permission to do so).
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_output.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index cbfef8b..67f84f5 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1035,6 +1035,13 @@ static void tcp_cwnd_validate(struct sock *sk)
-  * introducing MSS oddities to segment boundaries. In rare cases where
-  * mss_now != mss_cache, we will request caller to create a small skb
-  * per input skb which could be mostly avoided here (if desired).
-+ *
-+ * We explicitly want to create a request for splitting write queue tail
-+ * to a small skb for Nagle purposes while avoiding unnecessary modulos,
-+ * thus all the complexity (cwnd_len is always MSS multiple which we
-+ * return whenever allowed by the other factors). Basically we need the
-+ * modulo only when the receiver window alone is the limiting factor or
-+ * when we would be allowed to send the split-due-to-Nagle skb fully.
-  */
- static unsigned int tcp_mss_split_point(struct sock *sk, struct sk_buff *skb,
- 					unsigned int mss_now, unsigned int cwnd)
-@@ -1048,10 +1055,11 @@ static unsigned int tcp_mss_split_point(struct sock *sk, struct sk_buff *skb,
- 	if (likely(cwnd_len <= window && skb != tcp_write_queue_tail(sk)))
- 		return cwnd_len;
- 
--	if (skb == tcp_write_queue_tail(sk) && cwnd_len <= skb->len)
-+	needed = min(skb->len, window);
-+
-+	if (skb == tcp_write_queue_tail(sk) && cwnd_len <= needed)
- 		return cwnd_len;
- 
--	needed = min(skb->len, window);
- 	return needed - needed % mss_now;
- }
- 
--- 
-1.5.2.2
-
---8323328-569145175-1205178487=:3781--
