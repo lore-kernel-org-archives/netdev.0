@@ -1,57 +1,100 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: RFC [PATCH net-2.6 1/6] net: Scheduling softirqs between CPUSs
-Date: Mon, 10 Mar 2008 18:06:30 -0700
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52049D5CE5@orsmsx418.amr.corp.intel.com>
-References: <20080305205116.5989A412541@localhost> <20080305.132112.01598419.davem@davemloft.net> <47D19147.9070609@qualcomm.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH REPOST] srandom32 fixes for networking
+Date: Tue, 11 Mar 2008 02:31:13 +0100
+Message-ID: <20080311013113.GA28742@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <therbert@google.com>, <netdev@vger.kernel.org>,
-	"Steven Rostedt" <rostedt@goodmis.org>,
-	"Ingo Molnar" <mingo@elte.hu>
-To: "Max Krasnyanskiy" <maxk@qualcomm.com>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, akpm@osdl.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:8517 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750967AbYCKBGc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 21:06:32 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <47D19147.9070609@qualcomm.com>
+Received: from smtp-out01.alice-dsl.net ([88.44.60.11]:50480 "EHLO
+	smtp-out01.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750859AbYCKBbP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2008 21:31:15 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Max Krasnyanskiy wrote:
-> David Miller wrote:
->> From: therbert@google.com (Tom Herbert)
->> Date: Wed,  5 Mar 2008 12:51:16 -0800 (PST)
->> 
->>> This patch implements kernel changes to allow scheduling of
->>> softirq's between processors. 
->>> 
->>> Signed-off-by: Tom Herbert <therbert@google.com>
->> 
->> I've stated this in the past and I still feel that it is foolish to
->> put all of this code into the kernel when every single piece of
->> networking hardware will be doing this for us transparently.
->> 
->> Maybe if someone had proposed this 4 or 5 years ago, but right now
->> this code will be irrelevant by the time it ships to any real users.
-> 
-> Plus it seems that for this kind of stuff it be better to replace
-> network softirq with kthreads (like in -rt kernel) and let the
-> scheduler take care of the load balancing. More flexible and scalable.
-> I'd suggest for your to play with -rt kernel and see if it already
-> does what you need.
+srandom32 fixes for networking
 
-Could we use something like this to reschedule NAPI onto other
-processors?  If we get unlucky enough to have multiple napi routines
-polling on a single CPU, and one or more completely idle CPUs (idle at
-least for softirq) then we could really use one or the other of these
-solutions.
+[Repost; please ack/nack. This fixes some subtle issues in networking
+random number handling]
 
-anyone know how -rt kernels work for high I/O load environments like 10
-Gigabit Ethernet?
+- Rename it to a different name because it does something quite
+different from a traditional user land srandom32 -- it doesn't
+reset state but just adds to it.
 
-Jesse
+- Let it update the state of all CPUs. The network stack goes
+into pains to feed the current IP addresses in, but it is not very
+effective if that is only done for some random CPU instead of all.
+So change it to feed bits into all CPUs.  I decided to do that lockless 
+because well somewhat random results are ok.
+
+Signed-off-by: Andi Kleen <ak@suse.de>
+---
+ include/linux/net.h    |    2 +-
+ include/linux/random.h |    2 +-
+ lib/random32.c         |   19 ++++++++++++-------
+ 3 files changed, 14 insertions(+), 9 deletions(-)
+
+Index: linux/include/linux/random.h
+===================================================================
+--- linux.orig/include/linux/random.h
++++ linux/include/linux/random.h
+@@ -70,7 +70,7 @@ unsigned int get_random_int(void);
+ unsigned long randomize_range(unsigned long start, unsigned long end, unsigned long len);
+ 
+ u32 random32(void);
+-void srandom32(u32 seed);
++void random32_add_bits(u32 seed);
+ 
+ #endif /* __KERNEL___ */
+ 
+Index: linux/lib/random32.c
+===================================================================
+--- linux.orig/lib/random32.c
++++ linux/lib/random32.c
+@@ -93,19 +93,24 @@ u32 random32(void)
+ EXPORT_SYMBOL(random32);
+ 
+ /**
+- *	srandom32 - add entropy to pseudo random number generator
++ *	random32_add_bits - add entropy to pseudo random number generator
+  *	@seed: seed value
+  *
+  *	Add some additional seeding to the random32() pool.
+- *	Note: this pool is per cpu so it only affects current CPU.
+  */
+-void srandom32(u32 entropy)
++void random32_add_bits(u32 entropy)
+ {
+-	struct rnd_state *state = &get_cpu_var(net_rand_state);
+-	__set_random32(state, state->s1 ^ entropy);
+-	put_cpu_var(state);
++	int i;
++	/*
++	 * No locking on the CPUs, but then somewhat random results are, well,
++	 * expected.
++	 */
++	for_each_possible_cpu (i) {
++		struct rnd_state *state = &per_cpu(net_rand_state, i);
++		__set_random32(state, state->s1 ^ entropy);
++	}
+ }
+-EXPORT_SYMBOL(srandom32);
++EXPORT_SYMBOL(random32_add_bits);
+ 
+ /*
+  *	Generate some initially weak seeding values to allow
+Index: linux/include/linux/net.h
+===================================================================
+--- linux.orig/include/linux/net.h
++++ linux/include/linux/net.h
+@@ -213,7 +213,7 @@ extern struct socket *sockfd_lookup(int 
+ extern int	     net_ratelimit(void);
+ 
+ #define net_random()		random32()
+-#define net_srandom(seed)	srandom32((__force u32)seed)
++#define net_srandom(seed)	random32_add_bits((__force u32)seed)
+ 
+ extern int   	     kernel_sendmsg(struct socket *sock, struct msghdr *msg,
+ 				    struct kvec *vec, size_t num, size_t len);
