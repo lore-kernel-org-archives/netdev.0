@@ -1,29 +1,32 @@
-From: Ferenc Wagner <wferi@niif.hu>
-Subject: bridge forwarding delay without STP
-Date: Tue, 11 Mar 2008 17:49:01 +0100
-Message-ID: <87ejah2ole.fsf@tac.ki.iif.hu>
+From: Kieran Mansley <kmansley@solarflare.com>
+Subject: Re: LRO/GSO interaction when packets are forwarded
+Date: Tue, 11 Mar 2008 16:50:18 +0000
+Message-ID: <1205254218.21379.21.camel@moonstone.uk.level5networks.com>
+References: <1204898997.4220.41.camel@moonstone.uk.level5networks.com>
+	 <20080307082538.1a674ae1@extreme>
+	 <1204909575.4220.71.camel@moonstone.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tac.ki.iif.hu ([193.6.222.43]:34942 "EHLO tac.ki.iif.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752721AbYCKQtG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Mar 2008 12:49:06 -0400
-Received: from wferi by tac.ki.iif.hu with local (Exim 4.63)
-	(envelope-from <wferi@niif.hu>)
-	id 1JZ7ev-0002Q0-Tt
-	for netdev@vger.kernel.org; Tue, 11 Mar 2008 17:49:01 +0100
+Received: from 216-237-3-220.orange.nextweb.net ([216.237.3.220]:57099 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751521AbYCKQuW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2008 12:50:22 -0400
+In-Reply-To: <1204909575.4220.71.camel@moonstone.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri, 2008-03-07 at 17:06 +0000, Kieran Mansley wrote:
+> Given that there seem to be a small number of places where this is
+> currently causing problems (LRO through a bridge to a stack is fine,
+> it's only if the packet is forwarded that things go wrong), and that an
+> LRO packet should in most cases be very easy to segment (it's already in
+> network-sized fragments) I wonder if making it work would be
+> easier/better than preventing it from happening.
 
-why does a bridge without STP enabled respect its forward delay and
-not skip the learning state?  Forward delay is an STP parameter AFAIK
-(and according to the brctl manual), so I can't see why a bridge not
-doing STP should consider it at all.  Please enlighten me (and Cc: as
-I'm not subscribed).
--- 
-Thanks,
-Feri.
+I hope to get some time to work on this in the not-too-distant future.  
+
+Kieran
+
