@@ -1,7 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 1/8] New driver "sfc" for Solarstorm SFC4000 controller (try #8)
-Date: Wed, 12 Mar 2008 01:22:48 +0000
-Message-ID: <20080312012246.GC24160@solarflare.com>
+Subject: [PATCH 3/8] New driver "sfc" for Solarstorm SFC4000 controller (try #8)
+Date: Wed, 12 Mar 2008 01:24:06 +0000
+Message-ID: <20080312012405.GE24160@solarflare.com>
 References: <20080312012102.GB24160@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,20 +11,20 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:54836 "EHLO
 	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752921AbYCLCXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2008 22:23:09 -0400
+	by vger.kernel.org with ESMTP id S1752841AbYCLCXD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2008 22:23:03 -0400
 Content-Disposition: inline
 In-Reply-To: <20080312012102.GB24160@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
 new file mode 100644
-index 0000000..42fbb23
+index 0000000..936e351
 --- /dev/null
-+++ b/drivers/net/sfc/efx.c
-@@ -0,0 +1,2343 @@
++++ b/drivers/net/sfc/net_driver.h
+@@ -0,0 +1,896 @@
 +/****************************************************************************
 + * Driver for Solarflare Solarstorm network controllers and boards
 + * Copyright 2005-2006 Fen Systems Ltd.
@@ -35,2345 +35,898 @@ index 0000000..42fbb23
 + * by the Free Software Foundation, incorporated herein by reference.
 + */
 +
-+#include <linux/module.h>
-+#include <linux/pci.h>
++/* Common definitions for all Efx net driver code */
++
++#ifndef EFX_NET_DRIVER_H
++#define EFX_NET_DRIVER_H
++
++#include <linux/version.h>
 +#include <linux/netdevice.h>
 +#include <linux/etherdevice.h>
-+#include <linux/delay.h>
-+#include <linux/notifier.h>
-+#include <linux/ip.h>
-+#include <linux/tcp.h>
-+#include <linux/in.h>
-+#include <linux/crc32.h>
 +#include <linux/ethtool.h>
-+#include <asm/uaccess.h>
-+#include "net_driver.h"
-+#include "gmii.h"
-+#include "ethtool.h"
-+#include "tx.h"
-+#include "rx.h"
-+#include "efx.h"
-+#include "mdio_10g.h"
-+#include "falcon.h"
-+#include "workarounds.h"
-+#include "mac.h"
++#include <linux/if_vlan.h>
++#include <linux/timer.h>
++#include <linux/mii.h>
++#include <linux/list.h>
++#include <linux/pci.h>
++#include <linux/device.h>
++#include <linux/highmem.h>
++#include <linux/workqueue.h>
++#include <linux/inet_lro.h>
 +
-+#define EFX_MAX_MTU (9 * 1024)
++#include "enum.h"
++#include "bitfield.h"
++#include "i2c-direct.h"
 +
-+/* RX slow fill workqueue. If memory allocation fails in the fast path,
-+ * a work item is pushed onto this work queue to retry the allocation later,
-+ * to avoid the NIC being starved of RX buffers. Since this is a per cpu
-+ * workqueue, there is nothing to be gained in making it per NIC
-+ */
-+static struct workqueue_struct *refill_workqueue;
++#define EFX_MAX_LRO_DESCRIPTORS 8
++#define EFX_MAX_LRO_AGGR MAX_SKB_FRAGS
 +
 +/**************************************************************************
 + *
-+ * Configurable values
-+ *
-+ *************************************************************************/
-+
-+/*
-+ * Enable large receive offload (LRO) aka soft segment reassembly (SSR)
-+ *
-+ * This sets the default for new devices.  It can be controlled later
-+ * using ethtool.
-+ */
-+static int lro = 1;
-+module_param(lro, int, 0644);
-+MODULE_PARM_DESC(lro, "Large receive offload acceleration");
-+
-+/*
-+ * Use separate channels for TX and RX events
-+ *
-+ * Set this to 1 to use separate channels for TX and RX. It allows us to
-+ * apply a higher level of interrupt moderation to TX events.
-+ *
-+ * This is forced to 0 for MSI interrupt mode as the interrupt vector
-+ * is not written
-+ */
-+static unsigned int separate_tx_and_rx_channels = 1;
-+
-+/* This is the weight assigned to each of the (per-channel) virtual
-+ * NAPI devices.
-+ */
-+static int napi_weight = 64;
-+
-+/* This is the time (in jiffies) between invocations of the hardware
-+ * monitor, which checks for known hardware bugs and resets the
-+ * hardware and driver as necessary.
-+ */
-+unsigned int efx_monitor_interval = 1 * HZ;
-+
-+/* This controls whether or not the hardware monitor will trigger a
-+ * reset when it detects an error condition.
-+ */
-+static unsigned int monitor_reset = 1;
-+
-+/* This controls whether or not the driver will initialise devices
-+ * with invalid MAC addresses stored in the EEPROM or flash.  If true,
-+ * such devices will be initialised with a random locally-generated
-+ * MAC address.  This allows for loading the sfc_mtd driver to
-+ * reprogram the flash, even if the flash contents (including the MAC
-+ * address) have previously been erased.
-+ */
-+static unsigned int allow_bad_hwaddr;
-+
-+/* Initial interrupt moderation settings.  They can be modified after
-+ * module load with ethtool.
-+ *
-+ * The default for RX should strike a balance between increasing the
-+ * round-trip latency and reducing overhead.
-+ */
-+static unsigned int rx_irq_mod_usec = 60;
-+
-+/* Initial interrupt moderation settings.  They can be modified after
-+ * module load with ethtool.
-+ *
-+ * This default is chosen to ensure that a 10G link does not go idle
-+ * while a TX queue is stopped after it has become full.  A queue is
-+ * restarted when it drops below half full.  The time this takes (assuming
-+ * worst case 3 descriptors per packet and 1024 descriptors) is
-+ *   512 / 3 * 1.2 = 205 usec.
-+ */
-+static unsigned int tx_irq_mod_usec = 150;
-+
-+/* This is the first interrupt mode to try out of:
-+ * 0 => MSI-X
-+ * 1 => MSI
-+ * 2 => legacy
-+ */
-+static unsigned int interrupt_mode;
-+
-+/* This is the requested number of CPUs to use for Receive-Side Scaling (RSS),
-+ * i.e. the number of CPUs among which we may distribute simultaneous
-+ * interrupt handling.
-+ *
-+ * Cards without MSI-X will only target one CPU via legacy or MSI interrupt.
-+ * The default (0) means to assign an interrupt to each package (level II cache)
-+ */
-+static unsigned int rss_cpus;
-+module_param(rss_cpus, uint, 0444);
-+MODULE_PARM_DESC(rss_cpus, "Number of CPUs to use for Receive-Side Scaling");
-+
-+/**************************************************************************
-+ *
-+ * Utility functions and prototypes
-+ *
-+ *************************************************************************/
-+static void efx_remove_channel(struct efx_channel *channel);
-+static void efx_remove_port(struct efx_nic *efx);
-+static void efx_fini_napi(struct efx_nic *efx);
-+static void efx_fini_channels(struct efx_nic *efx);
-+
-+#define EFX_ASSERT_RESET_SERIALISED(efx)		\
-+	do {						\
-+		if ((efx->state == STATE_RUNNING) ||	\
-+		    (efx->state == STATE_RESETTING))	\
-+			ASSERT_RTNL();			\
-+	} while (0)
-+
-+/**************************************************************************
-+ *
-+ * Event queue processing
-+ *
-+ *************************************************************************/
-+
-+/* Process channel's event queue
-+ *
-+ * This function is responsible for processing the event queue of a
-+ * single channel.  The caller must guarantee that this function will
-+ * never be concurrently called more than once on the same channel,
-+ * though different channels may be being processed concurrently.
-+ */
-+static inline int efx_process_channel(struct efx_channel *channel, int rx_quota)
-+{
-+	int rxdmaqs;
-+	struct efx_rx_queue *rx_queue;
-+
-+	if (unlikely(channel->efx->reset_pending != RESET_TYPE_NONE ||
-+		     !channel->enabled))
-+		return rx_quota;
-+
-+	rxdmaqs = falcon_process_eventq(channel, &rx_quota);
-+
-+	/* Deliver last RX packet. */
-+	if (channel->rx_pkt) {
-+		__efx_rx_packet(channel, channel->rx_pkt,
-+				channel->rx_pkt_csummed);
-+		channel->rx_pkt = NULL;
-+	}
-+
-+	efx_flush_lro(channel);
-+	efx_rx_strategy(channel);
-+
-+	/* Refill descriptor rings as necessary */
-+	rx_queue = &channel->efx->rx_queue[0];
-+	while (rxdmaqs) {
-+		if (rxdmaqs & 0x01)
-+			efx_fast_push_rx_descriptors(rx_queue);
-+		rx_queue++;
-+		rxdmaqs >>= 1;
-+	}
-+
-+	return rx_quota;
-+}
-+
-+/* Mark channel as finished processing
-+ *
-+ * Note that since we will not receive further interrupts for this
-+ * channel before we finish processing and call the eventq_read_ack()
-+ * method, there is no need to use the interrupt hold-off timers.
-+ */
-+static inline void efx_channel_processed(struct efx_channel *channel)
-+{
-+	/* Write to EVQ_RPTR_REG.  If a new event arrived in a race
-+	 * with finishing processing, a new interrupt will be raised.
-+	 */
-+	channel->work_pending = 0;
-+	smp_wmb(); /* Ensure channel updated before any new interrupt. */
-+	falcon_eventq_read_ack(channel);
-+}
-+
-+/* NAPI poll handler
-+ *
-+ * NAPI guarantees serialisation of polls of the same device, which
-+ * provides the guarantee required by efx_process_channel().
-+ */
-+static int efx_poll(struct napi_struct *napi, int budget)
-+{
-+	struct efx_channel *channel =
-+		container_of(napi, struct efx_channel, napi_str);
-+	struct net_device *napi_dev = channel->napi_dev;
-+	int unused;
-+	int rx_packets;
-+
-+	EFX_TRACE(channel->efx, "channel %d NAPI poll executing on CPU %d\n",
-+		  channel->channel, raw_smp_processor_id());
-+
-+	unused = efx_process_channel(channel, budget);
-+	rx_packets = (budget - unused);
-+
-+	if (rx_packets < budget) {
-+		/* There is no race here; although napi_disable() will
-+		 * only wait for netif_rx_complete(), this isn't a problem
-+		 * since efx_channel_processed() will have no effect if
-+		 * interrupts have already been disabled.
-+		 */
-+		netif_rx_complete(napi_dev, napi);
-+		efx_channel_processed(channel);
-+	}
-+
-+	return rx_packets;
-+}
-+
-+/* Process the eventq of the specified channel immediately on this CPU
-+ *
-+ * Disable hardware generated interrupts, wait for any existing
-+ * processing to finish, then directly poll (and ack ) the eventq.
-+ * Finally reenable NAPI and interrupts.
-+ *
-+ * Since we are touching interrupts the caller should hold the suspend lock
-+ */
-+void efx_process_channel_now(struct efx_channel *channel)
-+{
-+	struct efx_nic *efx = channel->efx;
-+
-+	BUG_ON(!channel->used_flags);
-+	BUG_ON(!channel->enabled);
-+
-+	/* Disable interrupts and wait for ISRs to complete */
-+	falcon_disable_interrupts(efx);
-+	if (efx->legacy_irq)
-+		synchronize_irq(efx->legacy_irq);
-+	if (channel->has_interrupt && channel->irq)
-+		synchronize_irq(channel->irq);
-+
-+	/* Wait for any NAPI processing to complete */
-+	napi_disable(&channel->napi_str);
-+
-+	/* Poll the channel */
-+	(void) efx_process_channel(channel, efx->type->evq_size);
-+
-+	/* Ack the eventq. This may cause an interrupt to be generated
-+	 * when they are reenabled */
-+	efx_channel_processed(channel);
-+
-+	napi_enable(&channel->napi_str);
-+	falcon_enable_interrupts(efx);
-+}
-+
-+/* Create event queue
-+ * Event queue memory allocations are done only once.  If the channel
-+ * is reset, the memory buffer will be reused; this guards against
-+ * errors during channel reset and also simplifies interrupt handling.
-+ */
-+static int efx_probe_eventq(struct efx_channel *channel)
-+{
-+	EFX_LOG(channel->efx, "chan %d create event queue\n", channel->channel);
-+
-+	return falcon_probe_eventq(channel);
-+}
-+
-+/* Prepare channel's event queue */
-+static int efx_init_eventq(struct efx_channel *channel)
-+{
-+	EFX_LOG(channel->efx, "chan %d init event queue\n", channel->channel);
-+
-+	channel->eventq_read_ptr = 0;
-+
-+	return falcon_init_eventq(channel);
-+}
-+
-+static void efx_fini_eventq(struct efx_channel *channel)
-+{
-+	EFX_LOG(channel->efx, "chan %d fini event queue\n", channel->channel);
-+
-+	falcon_fini_eventq(channel);
-+}
-+
-+static void efx_remove_eventq(struct efx_channel *channel)
-+{
-+	EFX_LOG(channel->efx, "chan %d remove event queue\n", channel->channel);
-+
-+	falcon_remove_eventq(channel);
-+}
-+
-+/**************************************************************************
-+ *
-+ * Channel handling
-+ *
-+ *************************************************************************/
-+
-+/* Setup per-NIC RX buffer parameters.
-+ * Calculate the rx buffer allocation parameters required to support
-+ * the current MTU, including padding for header alignment and overruns.
-+ */
-+static void efx_calc_rx_buffer_params(struct efx_nic *efx)
-+{
-+	unsigned int order, len;
-+
-+	len = (max(EFX_PAGE_IP_ALIGN, NET_IP_ALIGN) +
-+	       EFX_MAX_FRAME_LEN(efx->net_dev->mtu) +
-+	       efx->type->rx_buffer_padding);
-+
-+	/* Calculate page-order */
-+	for (order = 0; ((1u << order) * PAGE_SIZE) < len; ++order)
-+		;
-+
-+	efx->rx_buffer_len = len;
-+	efx->rx_buffer_order = order;
-+}
-+
-+static int efx_probe_channel(struct efx_channel *channel)
-+{
-+	struct efx_tx_queue *tx_queue;
-+	struct efx_rx_queue *rx_queue;
-+	int rc;
-+
-+	EFX_LOG(channel->efx, "creating channel %d\n", channel->channel);
-+
-+	rc = efx_probe_eventq(channel);
-+	if (rc)
-+		goto fail1;
-+
-+	efx_for_each_channel_tx_queue(tx_queue, channel) {
-+		rc = efx_probe_tx_queue(tx_queue);
-+		if (rc)
-+			goto fail2;
-+	}
-+
-+	efx_for_each_channel_rx_queue(rx_queue, channel) {
-+		rc = efx_probe_rx_queue(rx_queue);
-+		if (rc)
-+			goto fail3;
-+	}
-+
-+	channel->n_rx_frm_trunc = 0;
-+
-+	return 0;
-+
-+ fail3:
-+	efx_for_each_channel_rx_queue(rx_queue, channel)
-+		efx_remove_rx_queue(rx_queue);
-+ fail2:
-+	efx_for_each_channel_tx_queue(tx_queue, channel)
-+		efx_remove_tx_queue(tx_queue);
-+ fail1:
-+	return rc;
-+}
-+
-+
-+/* Channels are shutdown and reinitialised whilst the NIC is running
-+ * to propagate configuration changes (mtu, checksum offload), or
-+ * to clear hardware error conditions
-+ */
-+static int efx_init_channels(struct efx_nic *efx)
-+{
-+	struct efx_tx_queue *tx_queue;
-+	struct efx_rx_queue *rx_queue;
-+	struct efx_channel *channel;
-+	int rc = 0;
-+
-+	efx_calc_rx_buffer_params(efx);
-+
-+	/* Initialise the channels */
-+	efx_for_each_channel(channel, efx) {
-+		EFX_LOG(channel->efx, "init chan %d\n", channel->channel);
-+
-+		rc = efx_init_eventq(channel);
-+		if (rc)
-+			goto err;
-+
-+		efx_for_each_channel_tx_queue(tx_queue, channel) {
-+			rc = efx_init_tx_queue(tx_queue);
-+			if (rc)
-+				goto err;
-+		}
-+
-+		/* The rx buffer allocation strategy is MTU dependent */
-+		efx_rx_strategy(channel);
-+
-+		efx_for_each_channel_rx_queue(rx_queue, channel) {
-+			rc = efx_init_rx_queue(rx_queue);
-+			if (rc)
-+				goto err;
-+		}
-+
-+		WARN_ON(channel->rx_pkt != NULL);
-+		efx_rx_strategy(channel);
-+	}
-+
-+	return 0;
-+
-+ err:
-+	EFX_ERR(efx, "failed to initialise channel %d\n",
-+		channel ? channel->channel : -1);
-+	efx_fini_channels(efx);
-+	return rc;
-+}
-+
-+/* This enables event queue processing and packet transmission.
-+ *
-+ * Note that this function is not allowed to fail, since that would
-+ * introduce too much complexity into the suspend/resume path.
-+ */
-+static void efx_start_channel(struct efx_channel *channel)
-+{
-+	struct efx_rx_queue *rx_queue;
-+
-+	EFX_LOG(channel->efx, "starting chan %d\n", channel->channel);
-+
-+	if (!(channel->efx->net_dev->flags & IFF_UP))
-+		netif_napi_add(channel->napi_dev, &channel->napi_str,
-+			       efx_poll, napi_weight);
-+
-+	channel->work_pending = 0;
-+	channel->enabled = 1;
-+	smp_wmb(); /* ensure channel updated before first interrupt */
-+
-+	napi_enable(&channel->napi_str);
-+
-+	/* Load up RX descriptors */
-+	efx_for_each_channel_rx_queue(rx_queue, channel)
-+		efx_fast_push_rx_descriptors(rx_queue);
-+}
-+
-+/* This disables event queue processing and packet transmission.
-+ * This function does not guarantee that all queue processing
-+ * (e.g. RX refill) is complete.
-+ */
-+static void efx_stop_channel(struct efx_channel *channel)
-+{
-+	struct efx_rx_queue *rx_queue;
-+
-+	if (!channel->enabled)
-+		return;
-+
-+	EFX_LOG(channel->efx, "stop chan %d\n", channel->channel);
-+
-+	channel->enabled = 0;
-+	napi_disable(&channel->napi_str);
-+
-+	/* Ensure that any worker threads have exited or will be no-ops */
-+	efx_for_each_channel_rx_queue(rx_queue, channel) {
-+		spin_lock_bh(&rx_queue->add_lock);
-+		spin_unlock_bh(&rx_queue->add_lock);
-+	}
-+}
-+
-+/* The caller SHOULD call efx_drain_port() before calling this function */
-+static void efx_fini_channels(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+	struct efx_tx_queue *tx_queue;
-+	struct efx_rx_queue *rx_queue;
-+
-+	EFX_ASSERT_RESET_SERIALISED(efx);
-+
-+	efx_for_each_channel(channel, efx) {
-+		EFX_LOG(channel->efx, "shut down chan %d\n", channel->channel);
-+
-+		efx_for_each_channel_rx_queue(rx_queue, channel)
-+			efx_fini_rx_queue(rx_queue);
-+		efx_for_each_channel_tx_queue(tx_queue, channel)
-+			efx_fini_tx_queue(tx_queue);
-+	}
-+
-+	/* Do the event queues last so that we can handle flush events
-+	 * for all DMA queues. */
-+	efx_for_each_channel(channel, efx) {
-+		EFX_LOG(channel->efx, "shut down evq %d\n", channel->channel);
-+
-+		efx_fini_eventq(channel);
-+	}
-+}
-+
-+static void efx_remove_channel(struct efx_channel *channel)
-+{
-+	struct efx_tx_queue *tx_queue;
-+	struct efx_rx_queue *rx_queue;
-+
-+	EFX_LOG(channel->efx, "destroy chan %d\n", channel->channel);
-+
-+	efx_for_each_channel_rx_queue(rx_queue, channel)
-+		efx_remove_rx_queue(rx_queue);
-+	efx_for_each_channel_tx_queue(tx_queue, channel)
-+		efx_remove_tx_queue(tx_queue);
-+	efx_remove_eventq(channel);
-+
-+	channel->used_flags = 0;
-+}
-+
-+void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue, int delay)
-+{
-+	queue_delayed_work(refill_workqueue, &rx_queue->work, delay);
-+}
-+
-+/**************************************************************************
-+ *
-+ * Port handling
++ * Build definitions
 + *
 + **************************************************************************/
++#ifndef EFX_DRIVER_NAME
++#define EFX_DRIVER_NAME	"sfc"
++#endif
++#define EFX_DRIVER_VERSION	"2.2.0110"
 +
-+/* This ensures that the kernel is kept informed (via
-+ * netif_carrier_on/off) of the link status, and also maintains the
-+ * link status's stop on the port's TX queue.
-+ */
-+static void efx_link_status_changed(struct efx_nic *efx)
-+{
-+	unsigned long flags __attribute__ ((unused));
-+	int carrier_ok;
-+
-+	/* Ensure no link status notifications get sent to the OS after the net
-+	 * device has been unregistered. */
-+	if (!efx->net_dev_registered)
-+		return;
-+
-+	carrier_ok = netif_carrier_ok(efx->net_dev) ? 1 : 0;
-+	if (efx->link_up != carrier_ok) {
-+		efx->n_link_state_changes++;
-+
-+		if (efx->link_up)
-+			netif_carrier_on(efx->net_dev);
-+		else
-+			netif_carrier_off(efx->net_dev);
-+	}
-+
-+	/* Status message for kernel log */
-+	if (efx->link_up) {
-+		struct mii_if_info *gmii = &efx->mii;
-+		unsigned adv, lpa;
-+		/* NONE here means direct XAUI from the controller, with no
-+		 * MDIO-attached device we can query. */
-+		if (efx->phy_type != PHY_TYPE_NONE) {
-+			adv = gmii_advertised(gmii);
-+			lpa = gmii_lpa(gmii);
-+		} else {
-+			lpa = GM_LPA_10000 | LPA_DUPLEX;
-+			adv = lpa;
-+		}
-+		EFX_INFO(efx, "link up at %dMbps %s-duplex "
-+			 "(adv %04x lpa %04x) (MTU %d)%s\n",
-+			 (efx->link_options & GM_LPA_10000 ? 10000 :
-+			  (efx->link_options & GM_LPA_1000 ? 1000 :
-+			   (efx->link_options & GM_LPA_100 ? 100 :
-+			    10))),
-+			 (efx->link_options & GM_LPA_DUPLEX ?
-+			  "full" : "half"),
-+			 adv, lpa,
-+			 efx->net_dev->mtu,
-+			 (efx->promiscuous ? " [PROMISC]" : ""));
-+	} else {
-+		EFX_INFO(efx, "link down\n");
-+	}
-+
-+}
-+
-+/* This call reinitialises the MAC to pick up new PHY settings. The
-+ * caller must hold the mac_lock */
-+static void __efx_reconfigure_port(struct efx_nic *efx)
-+{
-+	WARN_ON(!mutex_is_locked(&efx->mac_lock));
-+
-+	EFX_LOG(efx, "reconfiguring MAC from PHY settings on CPU %d\n",
-+		raw_smp_processor_id());
-+
-+	falcon_reconfigure_xmac(efx);
-+
-+	/* Inform kernel of loss/gain of carrier */
-+	efx_link_status_changed(efx);
-+}
-+
-+/* Reinitialise the MAC to pick up new PHY settings, even if the port is
-+ * disabled. */
-+void efx_reconfigure_port(struct efx_nic *efx)
-+{
-+	EFX_ASSERT_RESET_SERIALISED(efx);
-+
-+	mutex_lock(&efx->mac_lock);
-+	__efx_reconfigure_port(efx);
-+	mutex_unlock(&efx->mac_lock);
-+}
-+
-+/* Asynchronous efx_reconfigure_port work item. To speed up efx_flush_all()
-+ * we don't efx_reconfigure_port() if the port is disabled. Care is taken
-+ * in efx_stop_all() and efx_start_port() to prevent PHY events being lost */
-+static void efx_reconfigure_work(struct work_struct *data)
-+{
-+	struct efx_nic *efx = container_of(data, struct efx_nic,
-+					   reconfigure_work);
-+	mutex_lock(&efx->mac_lock);
-+	if (efx->port_enabled)
-+		__efx_reconfigure_port(efx);
-+	mutex_unlock(&efx->mac_lock);
-+}
-+
-+static int efx_probe_port(struct efx_nic *efx)
-+{
-+	unsigned char *dev_addr;
-+	int rc;
-+
-+	EFX_LOG(efx, "create port\n");
-+
-+	/* Connect up MAC/PHY operations table and read MAC address */
-+	rc = falcon_probe_port(efx);
-+	if (rc)
-+		goto err;
-+
-+	/* Sanity check MAC address */
-+	dev_addr = efx->mac_address;
-+	if (!is_valid_ether_addr(dev_addr)) {
-+		DECLARE_MAC_BUF(mac);
-+
-+		EFX_ERR(efx, "invalid MAC address %s\n",
-+			print_mac(mac, dev_addr));
-+		if (!allow_bad_hwaddr) {
-+			rc = -EINVAL;
-+			goto err;
-+		}
-+		random_ether_addr(dev_addr);
-+		EFX_INFO(efx, "using locally-generated MAC %s\n",
-+			 print_mac(mac, dev_addr));
-+	}
-+
-+	return 0;
-+
-+ err:
-+	efx_remove_port(efx);
-+	return rc;
-+}
-+
-+static int efx_init_port(struct efx_nic *efx)
-+{
-+	int rc;
-+
-+	EFX_LOG(efx, "init port\n");
-+
-+	/* Initialise the MAC and PHY */
-+	rc = falcon_init_xmac(efx);
-+	if (rc)
-+		return rc;
-+
-+	efx->port_initialized = 1;
-+
-+	/* Reconfigure port to program MAC registers */
-+	falcon_reconfigure_xmac(efx);
-+
-+	return 0;
-+}
-+
-+/* Allow efx_reconfigure_port() to run, and propagate delayed changes
-+ * to the promiscuous flag to the MAC if needed */
-+static void efx_start_port(struct efx_nic *efx)
-+{
-+	EFX_LOG(efx, "start port\n");
-+	BUG_ON(efx->port_enabled);
-+
-+	mutex_lock(&efx->mac_lock);
-+	efx->port_enabled = 1;
-+	mutex_unlock(&efx->mac_lock);
-+
-+	if (efx->net_dev_registered) {
-+		int promiscuous;
-+
-+		netif_tx_lock_bh(efx->net_dev);
-+		promiscuous = (efx->net_dev->flags & IFF_PROMISC) ? 1 : 0;
-+		if (efx->promiscuous != promiscuous) {
-+			efx->promiscuous = promiscuous;
-+			queue_work(efx->workqueue, &efx->reconfigure_work);
-+		}
-+		netif_tx_unlock_bh(efx->net_dev);
-+	}
-+}
-+
-+/* Prevent efx_reconfigure_work and efx_monitor() from executing, and
-+ * efx_set_multicast_list() from scheduling efx_reconfigure_work.
-+ * efx_reconfigure_work can still be scheduled via NAPI processing
-+ * until efx_flush_all() is called */
-+static void efx_stop_port(struct efx_nic *efx)
-+{
-+	EFX_LOG(efx, "stop port\n");
-+
-+	mutex_lock(&efx->mac_lock);
-+	efx->port_enabled = 0;
-+	mutex_unlock(&efx->mac_lock);
-+
-+	/* Serialise against efx_set_multicast_list() */
-+	if (efx->net_dev_registered) {
-+		netif_tx_lock_bh(efx->net_dev);
-+		netif_tx_unlock_bh(efx->net_dev);
-+	}
-+}
-+
-+/* Isolate the MAC from the TX and RX engines, so that queue flushes will
-+ * complete in a timely manner. The port must be in the disabled state.
-+ * efx_reconfigure_port() MUST be called to reinitialise the hardware */
-+static void __efx_drain_port(struct efx_nic *efx)
-+{
-+	BUG_ON(efx->port_enabled);
-+	falcon_deconfigure_mac_wrapper(efx);
-+	falcon_drain_tx_fifo(efx);
-+}
-+
-+static void efx_drain_port(struct efx_nic *efx)
-+{
-+	mutex_lock(&efx->mac_lock);
-+	__efx_drain_port(efx);
-+	mutex_unlock(&efx->mac_lock);
-+}
-+
-+static void efx_fini_port(struct efx_nic *efx)
-+{
-+	EFX_LOG(efx, "shut down port\n");
-+
-+	if (!efx->port_initialized)
-+		return;
-+
-+	falcon_fini_xmac(efx);
-+	efx->port_initialized = 0;
-+
-+	efx->link_up = 0;
-+	efx_link_status_changed(efx);
-+}
-+
-+static void efx_remove_port(struct efx_nic *efx)
-+{
-+	EFX_LOG(efx, "destroying port\n");
-+
-+	falcon_remove_port(efx);
-+}
-+
-+/**************************************************************************
-+ *
-+ * NIC handling
-+ *
-+ **************************************************************************/
-+
-+/* This configures the PCI device to enable I/O and DMA. */
-+static int efx_init_io(struct efx_nic *efx)
-+{
-+	struct pci_dev *pci_dev = efx->pci_dev;
-+	dma_addr_t dma_mask = efx->type->max_dma_mask;
-+	int rc;
-+
-+	EFX_LOG(efx, "initialising I/O\n");
-+
-+	rc = pci_enable_device(pci_dev);
-+	if (rc) {
-+		EFX_ERR(efx, "failed to enable PCI device\n");
-+		goto fail1;
-+	}
-+
-+	pci_set_master(pci_dev);
-+
-+	/* Set the PCI DMA mask.  Try all possibilities from our
-+	 * genuine mask down to 32 bits, because some architectures
-+	 * (e.g. x86_64 with iommu_sac_force set) will allow 40 bit
-+	 * masks event though they reject 46 bit masks.
-+	 */
-+	while (dma_mask > 0x7fffffffUL) {
-+		if (pci_dma_supported(pci_dev, dma_mask) &&
-+		    ((rc = pci_set_dma_mask(pci_dev, dma_mask)) == 0))
-+			break;
-+		dma_mask >>= 1;
-+	}
-+	if (rc) {
-+		EFX_ERR(efx, "could not find a suitable DMA mask\n");
-+		goto fail2;
-+	}
-+	EFX_LOG(efx, "using DMA mask %llx\n", (unsigned long long) dma_mask);
-+	rc = pci_set_consistent_dma_mask(pci_dev, dma_mask);
-+	if (rc) {
-+		/* pci_set_consistent_dma_mask() is not *allowed* to
-+		 * fail with a mask that pci_set_dma_mask() accepted,
-+		 * but just in case...
-+		 */
-+		EFX_ERR(efx, "failed to set consistent DMA mask\n");
-+		goto fail2;
-+	}
-+
-+	efx->membase_phys = pci_resource_start(efx->pci_dev,
-+					       efx->type->mem_bar);
-+	rc = pci_request_region(pci_dev, efx->type->mem_bar, "sfc");
-+	if (rc) {
-+		EFX_ERR(efx, "request for memory BAR failed\n");
-+		rc = -EIO;
-+		goto fail3;
-+	}
-+	efx->membase = ioremap_nocache(efx->membase_phys,
-+				       efx->type->mem_map_size);
-+	if (!efx->membase) {
-+		EFX_ERR(efx, "could not map memory BAR %d at %lx+%x\n",
-+			efx->type->mem_bar, efx->membase_phys,
-+			efx->type->mem_map_size);
-+		rc = -ENOMEM;
-+		goto fail4;
-+	}
-+	EFX_LOG(efx, "memory BAR %u at %lx+%x (virtual %p)\n",
-+		efx->type->mem_bar, efx->membase_phys, efx->type->mem_map_size,
-+		efx->membase);
-+
-+	return 0;
-+
-+ fail4:
-+	release_mem_region(efx->membase_phys, efx->type->mem_map_size);
-+ fail3:
-+	efx->membase_phys = 0UL;
-+ fail2:
-+	pci_disable_device(efx->pci_dev);
-+ fail1:
-+	return rc;
-+}
-+
-+static void efx_fini_io(struct efx_nic *efx)
-+{
-+	EFX_LOG(efx, "shutting down I/O\n");
-+
-+	if (efx->membase) {
-+		iounmap(efx->membase);
-+		efx->membase = NULL;
-+	}
-+
-+	if (efx->membase_phys) {
-+		pci_release_region(efx->pci_dev, efx->type->mem_bar);
-+		efx->membase_phys = 0UL;
-+	}
-+
-+	pci_disable_device(efx->pci_dev);
-+}
-+
-+/* Probe the number and type of interrupts we are able to obtain. */
-+static int efx_probe_interrupts(struct efx_nic *efx)
-+{
-+	int max_channel = efx->type->phys_addr_channels - 1;
-+	struct msix_entry xentries[EFX_MAX_CHANNELS];
-+	int rc, i;
-+
-+	if (efx->interrupt_mode == EFX_INT_MODE_MSIX) {
-+		BUG_ON(!pci_find_capability(efx->pci_dev, PCI_CAP_ID_MSIX));
-+
-+		if (rss_cpus == 0) {
-+#ifdef topology_core_siblings
-+			cpumask_t core_mask;
-+			int cpu;
-+
-+			cpus_clear(core_mask);
-+			efx->rss_queues = 0;
-+			for_each_online_cpu(cpu) {
-+				if (!cpu_isset(cpu, core_mask)) {
-+					++efx->rss_queues;
-+					cpus_or(core_mask, core_mask,
-+						topology_core_siblings(cpu));
-+				}
-+			}
++#ifdef EFX_ENABLE_DEBUG
++#define EFX_BUG_ON_PARANOID(x) BUG_ON(x)
++#define EFX_WARN_ON_PARANOID(x) WARN_ON(x)
 +#else
-+			efx->rss_queues = num_online_cpus();
++#define EFX_BUG_ON_PARANOID(x) do {} while (0)
++#define EFX_WARN_ON_PARANOID(x) do {} while (0)
 +#endif
-+		} else {
-+			efx->rss_queues = rss_cpus;
-+		}
 +
-+		efx->rss_queues = min(efx->rss_queues, max_channel + 1);
-+		efx->rss_queues = min(efx->rss_queues, EFX_MAX_CHANNELS);
-+
-+		/* Request maximum number of MSI interrupts, and fill out
-+		 * the channel interrupt information the allowed allocation */
-+		for (i = 0; i < efx->rss_queues; i++)
-+			xentries[i].entry = i;
-+		rc = pci_enable_msix(efx->pci_dev, xentries, efx->rss_queues);
-+		if (rc > 0) {
-+			EFX_BUG_ON_PARANOID(rc >= efx->rss_queues);
-+			efx->rss_queues = rc;
-+			rc = pci_enable_msix(efx->pci_dev, xentries,
-+					     efx->rss_queues);
-+		}
-+
-+		if (rc == 0) {
-+			for (i = 0; i < efx->rss_queues; i++) {
-+				efx->channel[i].has_interrupt = 1;
-+				efx->channel[i].irq = xentries[i].vector;
-+			}
-+		} else {
-+			/* Fall back to single channel MSI */
-+			efx->interrupt_mode = EFX_INT_MODE_MSI;
-+			EFX_ERR(efx, "could not enable MSI-X\n");
-+		}
-+	}
-+
-+	/* Try single interrupt MSI */
-+	if (efx->interrupt_mode == EFX_INT_MODE_MSI) {
-+		efx->rss_queues = 1;
-+		rc = pci_enable_msi(efx->pci_dev);
-+		if (rc == 0) {
-+			efx->channel[0].irq = efx->pci_dev->irq;
-+			efx->channel[0].has_interrupt = 1;
-+		} else {
-+			EFX_ERR(efx, "could not enable MSI\n");
-+			efx->interrupt_mode = EFX_INT_MODE_LEGACY;
-+		}
-+	}
-+
-+	/* Assume legacy interrupts */
-+	if (efx->interrupt_mode == EFX_INT_MODE_LEGACY) {
-+		efx->rss_queues = 1;
-+		/* Every channel is interruptible */
-+		for (i = 0; i < EFX_MAX_CHANNELS; i++)
-+			efx->channel[i].has_interrupt = 1;
-+		efx->legacy_irq = efx->pci_dev->irq;
-+	}
-+
-+	return 0;
-+}
-+
-+static void efx_remove_interrupts(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+
-+	/* Remove MSI/MSI-X interrupts */
-+	efx_for_each_channel_with_interrupt(channel, efx)
-+		channel->irq = 0;
-+	pci_disable_msi(efx->pci_dev);
-+	pci_disable_msix(efx->pci_dev);
-+
-+	/* Remove legacy interrupt */
-+	efx->legacy_irq = 0;
-+}
-+
-+/* Select number of used resources
-+ * Should be called after probe_interrupts()
++/* Include net device name in log messages if it has been registered.
++ * Use efx->name not efx->net_dev->name so that races with (un)registration
++ * are harmless.
 + */
-+static int efx_select_used(struct efx_nic *efx)
-+{
-+	struct efx_tx_queue *tx_queue;
-+	struct efx_rx_queue *rx_queue;
-+	int i;
++#define NET_DEV_NAME(efx) ((efx)->net_dev_registered ? (efx)->name : "")
 +
-+	/* TX queues.  One per port per channel with TX capability
-+	 * (more than one per port won't work on Linux, due to out
-+	 *  of order issues... but will be fine on Solaris)
-+	 */
-+	tx_queue = &efx->tx_queue[0];
++/* Un-rate-limited logging */
++#define EFX_ERR(efx, fmt, args...) \
++dev_err(&((efx)->pci_dev->dev), "ERR: %s " fmt, NET_DEV_NAME(efx), ##args)
 +
-+	/* Perform this for each channel with TX capabilities.
-+	 * At the moment, we only support a single TX queue
-+	 */
-+	tx_queue->used = 1;
-+	if ((!EFX_INT_MODE_USE_MSI(efx)) && separate_tx_and_rx_channels)
-+		tx_queue->channel = &efx->channel[1];
-+	else
-+		tx_queue->channel = &efx->channel[0];
-+	tx_queue->channel->used_flags |= EFX_USED_BY_TX;
-+	tx_queue++;
++#define EFX_INFO(efx, fmt, args...) \
++dev_info(&((efx)->pci_dev->dev), "INFO: %s " fmt, NET_DEV_NAME(efx), ##args)
 +
-+	/* RX queues.  Each has a dedicated channel. */
-+	for (i = 0; i < EFX_MAX_RX_QUEUES; i++) {
-+		rx_queue = &efx->rx_queue[i];
++#ifdef EFX_ENABLE_DEBUG
++#define EFX_LOG(efx, fmt, args...) \
++dev_info(&((efx)->pci_dev->dev), "DBG: %s " fmt, NET_DEV_NAME(efx), ##args)
++#else
++#define EFX_LOG(efx, fmt, args...) \
++dev_dbg(&((efx)->pci_dev->dev), "DBG: %s " fmt, NET_DEV_NAME(efx), ##args)
++#endif
 +
-+		if (i < efx->rss_queues) {
-+			rx_queue->used = 1;
-+			/* If we allow multiple RX queues per channel
-+			 * we need to decide that here
-+			 */
-+			rx_queue->channel = &efx->channel[rx_queue->queue];
-+			rx_queue->channel->used_flags |= EFX_USED_BY_RX;
-+			rx_queue++;
-+		}
-+	}
-+	return 0;
-+}
++#define EFX_TRACE(efx, fmt, args...) do {} while (0)
 +
-+static int efx_probe_nic(struct efx_nic *efx)
-+{
-+	int rc;
++#define EFX_REGDUMP(efx, fmt, args...) do {} while (0)
 +
-+	EFX_LOG(efx, "creating NIC\n");
++/* Rate-limited logging */
++#define EFX_ERR_RL(efx, fmt, args...) \
++do {if (net_ratelimit()) EFX_ERR(efx, fmt, ##args); } while (0)
 +
-+	/* Carry out hardware-type specific initialisation */
-+	rc = falcon_probe_nic(efx);
-+	if (rc)
-+		goto fail1;
++#define EFX_INFO_RL(efx, fmt, args...) \
++do {if (net_ratelimit()) EFX_INFO(efx, fmt, ##args); } while (0)
 +
-+	/* Determine the number of channels and RX queues by trying to hook
-+	 * in MSI-X interrupts. */
-+	rc = efx_probe_interrupts(efx);
-+	if (rc)
-+		goto fail2;
++#define EFX_LOG_RL(efx, fmt, args...) \
++do {if (net_ratelimit()) EFX_LOG(efx, fmt, ##args); } while (0)
 +
-+	/* Determine number of RX queues and TX queues */
-+	rc = efx_select_used(efx);
-+	if (rc)
-+		goto fail3;
-+
-+	/* Initialise the interrupt moderation settings */
-+	efx_init_irq_moderation(efx, tx_irq_mod_usec, rx_irq_mod_usec);
-+
-+	return 0;
-+
-+ fail3:
-+	efx_remove_interrupts(efx);
-+ fail2:
-+	falcon_remove_nic(efx);
-+ fail1:
-+	return rc;
-+}
-+
-+static void efx_remove_nic(struct efx_nic *efx)
-+{
-+	EFX_LOG(efx, "destroying NIC\n");
-+
-+	efx_remove_interrupts(efx);
-+	falcon_remove_nic(efx);
-+}
-+
-+/**************************************************************************
-+ *
-+ * NIC startup/shutdown
-+ *
-+ *************************************************************************/
-+
-+static int efx_probe_all(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+	int rc;
-+
-+	/* Create NIC */
-+	rc = efx_probe_nic(efx);
-+	if (rc) {
-+		EFX_ERR(efx, "failed to create NIC\n");
-+		goto fail1;
-+	}
-+
-+	/* Create port */
-+	rc = efx_probe_port(efx);
-+	if (rc) {
-+		EFX_ERR(efx, "failed to create port\n");
-+		goto fail2;
-+	}
-+
-+	/* Create channels */
-+	efx_for_each_channel(channel, efx) {
-+		rc = efx_probe_channel(channel);
-+		if (rc) {
-+			EFX_ERR(efx, "failed to create channel %d\n",
-+				channel->channel);
-+			goto fail3;
-+		}
-+	}
-+
-+	return 0;
-+
-+ fail3:
-+	efx_for_each_channel(channel, efx)
-+		efx_remove_channel(channel);
-+ fail2:
-+	efx_remove_port(efx);
-+ fail1:
-+	return rc;
-+}
-+
-+/* Called after previous invocation(s) of efx_stop_all, restarts the
-+ * port, kernel transmit queue, NAPI processing and hardware interrupts.
-+ * This function is safe to call multiple times when the NIC is in any
-+ * state. */
-+static void efx_start_all(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+
-+	EFX_ASSERT_RESET_SERIALISED(efx);
-+
-+	/* Check that it is appropriate to restart the interface. All
-+	 * of these flags are safe to read under just the rtnl lock */
-+	if (efx->port_enabled)
-+		return;
-+	if ((efx->state != STATE_RUNNING) && (efx->state != STATE_INIT))
-+		return;
-+	if (efx->net_dev_registered && !netif_running(efx->net_dev))
-+		return;
-+
-+	/* Mark the port as enabled so port reconfigurations can start, then
-+	 * restart the transmit interface early so the watchdog timer stops */
-+	efx_start_port(efx);
-+	efx_wake_queue(efx);
-+
-+	efx_for_each_channel(channel, efx)
-+		efx_start_channel(channel);
-+
-+	falcon_enable_interrupts(efx);
-+
-+	/* Start hardware monitor if we're in RUNNING */
-+	if (efx->state == STATE_RUNNING)
-+		queue_delayed_work(efx->workqueue, &efx->monitor_work,
-+				   efx_monitor_interval);
-+}
-+
-+/* Flush all delayed work. Should only be called when no more delayed work
-+ * will be scheduled. This doesn't flush pending online resets (efx_reset),
-+ * since we're holding the rtnl_lock at this point. */
-+static void efx_flush_all(struct efx_nic *efx)
-+{
-+	struct efx_rx_queue *rx_queue;
-+
-+	/* Make sure the hardware monitor is stopped */
-+	cancel_delayed_work_sync(&efx->monitor_work);
-+
-+	/* Ensure that all RX slow refills are complete. */
-+	efx_for_each_rx_queue(rx_queue, efx) {
-+		cancel_delayed_work_sync(&rx_queue->work);
-+	}
-+
-+	/* Stop scheduled port reconfigurations */
-+	cancel_work_sync(&efx->reconfigure_work);
-+
-+}
-+
-+/* Quiesce hardware and software without bringing the link down.
-+ * Safe to call multiple times, when the nic and interface is in any
-+ * state. The caller is guaranteed to subsequently be in a position
-+ * to modify any hardware and software state they see fit without
-+ * taking locks. */
-+static void efx_stop_all(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+
-+	EFX_ASSERT_RESET_SERIALISED(efx);
-+
-+	/* port_enabled can be read safely under the rtnl lock */
-+	if (!efx->port_enabled)
-+		return;
-+
-+	/* Disable interrupts and wait for ISR to complete */
-+	falcon_disable_interrupts(efx);
-+	if (efx->legacy_irq)
-+		synchronize_irq(efx->legacy_irq);
-+	efx_for_each_channel_with_interrupt(channel, efx)
-+		if (channel->irq)
-+			synchronize_irq(channel->irq);
-+
-+	/* Stop all NAPI processing and synchronous rx refills */
-+	efx_for_each_channel(channel, efx)
-+		efx_stop_channel(channel);
-+
-+	/* Stop all asynchronous port reconfigurations. Since all
-+	 * event processing has already been stopped, there is no
-+	 * window to loose phy events */
-+	efx_stop_port(efx);
-+
-+	/* Flush reconfigure_work, refill_workqueue, monitor_work */
-+	efx_flush_all(efx);
-+
-+	/* Stop the kernel transmit interface late, so the watchdog
-+	 * timer isn't ticking over the flush */
-+	efx_stop_queue(efx);
-+	if (efx->net_dev_registered) {
-+		netif_tx_lock_bh(efx->net_dev);
-+		netif_tx_unlock_bh(efx->net_dev);
-+	}
-+}
-+
-+static void efx_remove_all(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+
-+	efx_for_each_channel(channel, efx)
-+		efx_remove_channel(channel);
-+	efx_remove_port(efx);
-+	efx_remove_nic(efx);
-+}
-+
-+/* A convinience function to safely flush all the queues */
-+int efx_flush_queues(struct efx_nic *efx)
-+{
-+	int rc;
-+
-+	EFX_ASSERT_RESET_SERIALISED(efx);
-+
-+	efx_stop_all(efx);
-+	efx_drain_port(efx);
-+
-+	efx_fini_channels(efx);
-+	rc = efx_init_channels(efx);
-+	if (rc) {
-+		efx_schedule_reset(efx, RESET_TYPE_DISABLE);
-+		return rc;
-+	}
-+
-+	efx_reconfigure_port(efx);
-+	efx_start_all(efx);
-+
-+	return 0;
-+}
-+
-+/**************************************************************************
-+ *
-+ * Interrupt moderation
-+ *
-+ **************************************************************************/
-+
-+/* Set interrupt moderation parameters */
-+void efx_init_irq_moderation(struct efx_nic *efx, int tx_usecs, int rx_usecs)
-+{
-+	struct efx_tx_queue *tx_queue;
-+	struct efx_rx_queue *rx_queue;
-+
-+	EFX_ASSERT_RESET_SERIALISED(efx);
-+
-+	efx_for_each_tx_queue(tx_queue, efx)
-+		tx_queue->channel->irq_moderation = tx_usecs;
-+
-+	efx_for_each_rx_queue(rx_queue, efx)
-+		rx_queue->channel->irq_moderation = rx_usecs;
-+}
-+
-+/**************************************************************************
-+ *
-+ * Hardware monitor
-+ *
-+ **************************************************************************/
-+
-+/* Run periodically off the general workqueue. Serialised against
-+ * efx_reconfigure_port via the mac_lock */
-+static void efx_monitor(struct work_struct *data)
-+{
-+	struct efx_nic *efx = container_of(data, struct efx_nic,
-+					   monitor_work.work);
-+	int rc = 0;
-+
-+	EFX_TRACE(efx, "hardware monitor executing on CPU %d\n",
-+		  raw_smp_processor_id());
-+
-+
-+	/* If the mac_lock is already held then it is likely a port
-+	 * reconfiguration is already in place, which will likely do
-+	 * most of the work of check_hw() anyway. */
-+	if (!mutex_trylock(&efx->mac_lock)) {
-+		queue_delayed_work(efx->workqueue, &efx->monitor_work,
-+				   efx_monitor_interval);
-+		return;
-+	}
-+
-+	if (efx->port_enabled)
-+		rc = falcon_check_xmac(efx);
-+	mutex_unlock(&efx->mac_lock);
-+
-+	if (rc) {
-+		if (monitor_reset) {
-+			EFX_ERR(efx, "hardware monitor detected a fault: "
-+				"triggering reset\n");
-+			efx_schedule_reset(efx, RESET_TYPE_MONITOR);
-+		} else {
-+			EFX_ERR(efx, "hardware monitor detected a fault, "
-+				"skipping reset\n");
-+		}
-+	}
-+
-+	queue_delayed_work(efx->workqueue, &efx->monitor_work,
-+			   efx_monitor_interval);
-+}
-+
-+/**************************************************************************
-+ *
-+ * ioctls
-+ *
-+ *************************************************************************/
-+
-+/* Net device ioctl
-+ * Context: process, rtnl_lock() held.
-+ */
-+static int efx_ioctl(struct net_device *net_dev, struct ifreq *ifr, int cmd)
-+{
-+	struct efx_nic *efx = net_dev->priv;
-+	int rc;
-+
-+	EFX_ASSERT_RESET_SERIALISED(efx);
-+
-+	switch (cmd) {
-+	case SIOCGMIIPHY:
-+	case SIOCGMIIREG:
-+		rc = generic_mii_ioctl(&efx->mii, if_mii(ifr), cmd, NULL);
-+		break;
-+	case SIOCSMIIREG:
-+		rc = generic_mii_ioctl(&efx->mii, if_mii(ifr), cmd, NULL);
-+		efx_reconfigure_port(efx);
-+		break;
-+	default:
-+		rc = -EOPNOTSUPP;
-+	}
-+
-+	return rc;
-+}
-+
-+/**************************************************************************
-+ *
-+ * NAPI interface
-+ *
-+ **************************************************************************/
-+
-+/* Allocate the NAPI dev's.
-+ * Called after we know how many channels there are.
-+ */
-+static int efx_init_napi(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+	int rc;
-+
-+	/* Allocate the NAPI dev for the port */
-+	efx->net_dev = alloc_etherdev(0);
-+	if (!efx->net_dev) {
-+		rc = -ENOMEM;
-+		goto err;
-+	}
-+	efx->net_dev->priv = efx;
-+	efx->mii.dev = efx->net_dev;
-+
-+	efx->net_dev->features |= (NETIF_F_IP_CSUM | NETIF_F_SG |
-+				   NETIF_F_HIGHDMA);
-+	if (lro)
-+		efx->net_dev->features |= NETIF_F_LRO;
-+
-+	/* Copy MAC address */
-+	memcpy(&efx->net_dev->dev_addr, efx->mac_address, ETH_ALEN);
-+
-+	/* Allocate the per channel devs */
-+	efx_for_each_channel(channel, efx) {
-+		channel->napi_dev = efx->net_dev;
-+
-+		/* Initialise LRO/SSR */
-+		rc = efx_lro_init(&channel->lro_mgr, efx);
-+		if (rc)
-+			goto err;
-+	}
-+
-+	return 0;
-+ err:
-+	efx_fini_napi(efx);
-+	return rc;
-+}
-+
-+/* Free the NAPI state for the port and channels */
-+static void efx_fini_napi(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+
-+	efx_for_each_channel(channel, efx) {
-+		efx_lro_fini(&channel->lro_mgr);
-+		channel->napi_dev = NULL;
-+	}
-+
-+	if (efx->net_dev) {
-+		efx->net_dev->priv = NULL;
-+		free_netdev(efx->net_dev);
-+		efx->net_dev = NULL;
-+	}
-+}
-+
-+/**************************************************************************
-+ *
-+ * Kernel netpoll interface
-+ *
-+ *************************************************************************/
-+
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+
-+/* Although in the common case interrupts will be disabled, this is not
-+ * guaranteed. However, all our work happens inside the NAPI callback,
-+ * so no locking is required.
-+ */
-+static void efx_netpoll(struct net_device *net_dev)
-+{
-+	struct efx_nic *efx = net_dev->priv;
-+	struct efx_channel *channel;
-+
-+	efx_for_each_channel_with_interrupt(channel, efx)
-+		efx_schedule_channel(channel);
-+}
-+
++/* Kernel headers may redefine inline anyway */
++#ifndef inline
++#define inline inline __attribute__ ((always_inline))
 +#endif
 +
 +/**************************************************************************
 + *
-+ * Kernel net device interface
++ * Efx data structures
 + *
-+ *************************************************************************/
++ **************************************************************************/
 +
-+/* Context: process, rtnl_lock() held. */
-+static int efx_net_open(struct net_device *net_dev)
-+{
-+	struct efx_nic *efx = net_dev->priv;
-+	EFX_ASSERT_RESET_SERIALISED(efx);
++#define EFX_MAX_CHANNELS 32
++#define EFX_MAX_TX_QUEUES 1
++#define EFX_MAX_RX_QUEUES EFX_MAX_CHANNELS
 +
-+	EFX_LOG(efx, "opening device %s on CPU %d\n", net_dev->name,
-+		raw_smp_processor_id());
-+
-+	/* Reverse the efx_port_drain() in efx_net_stop(), and ensure we
-+	 * call efx_link_status_changed() at start of day even if no
-+	 * PHY event is generated */
-+	efx_reconfigure_port(efx);
-+
-+	efx_start_all(efx);
-+	return 0;
-+}
-+
-+/* Context: process, rtnl_lock() held.
-+ * Note that the kernel will ignore our return code; this method
-+ * should really be a void.
++/**
++ * struct efx_special_buffer - An Efx special buffer
++ * @addr: CPU base address of the buffer
++ * @dma_addr: DMA base address of the buffer
++ * @len: Buffer length, in bytes
++ * @index: Buffer index within controller;s buffer table
++ * @entries: Number of buffer table entries
++ *
++ * Special buffers are used for the event queues and the TX and RX
++ * descriptor queues for each channel.  They are *not* used for the
++ * actual transmit and receive buffers.
++ *
++ * Note that for Falcon, TX and RX descriptor queues live in host memory.
++ * Allocation and freeing procedures must take this into account.
 + */
-+static int efx_net_stop(struct net_device *net_dev)
-+{
-+	struct efx_nic *efx = net_dev->priv;
-+	int rc;
++struct efx_special_buffer {
++	void *addr;
++	dma_addr_t dma_addr;
++	unsigned int len;
++	int index;
++	int entries;
++};
 +
-+	EFX_LOG(efx, "closing %s on CPU %d\n", net_dev->name,
-+		raw_smp_processor_id());
-+
-+	/* Stop the device and flush all the channels */
-+	efx_stop_all(efx);
-+	efx_drain_port(efx);
-+	efx_fini_channels(efx);
-+	rc = efx_init_channels(efx);
-+	if (rc)
-+		efx_schedule_reset(efx, RESET_TYPE_DISABLE);
-+
-+	return 0;
-+}
-+
-+/* Context: process, dev_base_lock held, non-blocking.
-+ * Statistics are taken directly from the MAC.
++/**
++ * struct efx_tx_buffer - An Efx TX buffer
++ * @skb: The associated socket buffer.
++ *	Set only on the final fragment of a packet; %NULL for all other
++ *	fragments.  When this fragment completes, then we can free this
++ *	skb.
++ * @dma_addr: DMA address of the fragment.
++ * @len: Length of this fragment.
++ *	This field is zero when the queue slot is empty.
++ * @continuation: True if this fragment is not the end of a packet.
++ * @unmap_single: True if pci_unmap_single should be used.
++ * @unmap_addr: DMA address to unmap
++ * @unmap_len: Length of this fragment to unmap
 + */
-+static struct net_device_stats *efx_net_stats(struct net_device *net_dev)
-+{
-+	struct efx_nic *efx = net_dev->priv;
-+	struct efx_mac_stats *mac_stats = &efx->mac_stats;
-+	struct net_device_stats *stats = &net_dev->stats;
++struct efx_tx_buffer {
++	const struct sk_buff *skb;
++	dma_addr_t dma_addr;
++	unsigned short len;
++	unsigned char continuation;
++	unsigned char unmap_single;
++	dma_addr_t unmap_addr;
++	unsigned short unmap_len;
++};
 +
-+	if (!spin_trylock(&efx->stats_lock))
-+		return stats;
-+	if (efx->state == STATE_RUNNING)
-+		falcon_update_stats_xmac(efx);
-+	spin_unlock(&efx->stats_lock);
++/**
++ * struct efx_tx_queue - An Efx TX queue
++ *
++ * This is a ring buffer of TX fragments.
++ * Since the TX completion path always executes on the same
++ * CPU and the xmit path can operate on different CPUs,
++ * performance is increased by ensuring that the completion
++ * path and the xmit path operate on different cache lines.
++ * This is particularly important if the xmit path is always
++ * executing on one CPU which is different from the completion
++ * path.  There is also a cache line for members which are
++ * read but not written on the fast path.
++ *
++ * @efx: The associated Efx NIC
++ * @queue: DMA queue number
++ * @used: Queue is used by net driver
++ * @channel: The associated channel
++ * @buffer: The software buffer ring
++ * @txd: The hardware descriptor ring
++ * @read_count: Current read pointer.
++ *	This is the number of buffers that have been removed from both rings.
++ * @stopped: Stopped flag.
++ *	Set if this TX queue is currently stopping its port.
++ * @insert_count: Current insert pointer
++ *	This is the number of buffers that have been added to the
++ *	software ring.
++ * @write_count: Current write pointer
++ *	This is the number of buffers that have been added to the
++ *	hardware ring.
++ * @old_read_count: The value of read_count when last checked.
++ *	This is here for performance reasons.  The xmit path will
++ *	only get the up-to-date value of read_count if this
++ *	variable indicates that the queue is full.  This is to
++ *	avoid cache-line ping-pong between the xmit path and the
++ *	completion path.
++ */
++struct efx_tx_queue {
++	/* Members which don't change on the fast path */
++	struct efx_nic *efx ____cacheline_aligned_in_smp;
++	int queue;
++	int used;
++	struct efx_channel *channel;
++	struct efx_nic *nic;
++	struct efx_tx_buffer *buffer;
++	struct efx_special_buffer txd;
 +
-+	stats->rx_packets = mac_stats->rx_packets;
-+	stats->tx_packets = mac_stats->tx_packets;
-+	stats->rx_bytes = mac_stats->rx_bytes;
-+	stats->tx_bytes = mac_stats->tx_bytes;
-+	stats->multicast = mac_stats->rx_multicast;
-+	stats->collisions = mac_stats->tx_collision;
-+	stats->rx_length_errors = (mac_stats->rx_gtjumbo +
-+				   mac_stats->rx_length_error);
-+	stats->rx_over_errors = efx->n_rx_nodesc_drop_cnt;
-+	stats->rx_crc_errors = mac_stats->rx_bad;
-+	stats->rx_frame_errors = mac_stats->rx_align_error;
-+	stats->rx_fifo_errors = mac_stats->rx_overflow;
-+	stats->rx_missed_errors = mac_stats->rx_missed;
-+	stats->tx_window_errors = mac_stats->tx_late_collision;
++	/* Members used mainly on the completion path */
++	unsigned int read_count ____cacheline_aligned_in_smp;
++	int stopped;
 +
-+	stats->rx_errors = (stats->rx_length_errors +
-+			    stats->rx_over_errors +
-+			    stats->rx_crc_errors +
-+			    stats->rx_frame_errors +
-+			    stats->rx_fifo_errors +
-+			    stats->rx_missed_errors +
-+			    mac_stats->rx_symbol_error);
-+	stats->tx_errors = (stats->tx_window_errors +
-+			    mac_stats->tx_bad);
++	/* Members used only on the xmit path */
++	unsigned int insert_count ____cacheline_aligned_in_smp;
++	unsigned int write_count;
++	unsigned int old_read_count;
++};
 +
-+	return stats;
-+}
++/**
++ * struct efx_rx_buffer - An Efx RX data buffer
++ * @dma_addr: DMA base address of the buffer
++ * @skb: The associated socket buffer, if any.
++ *	If both this and page are %NULL, the buffer slot is currently free.
++ * @page: The associated page buffer, if any.
++ *	If both this and skb are %NULL, the buffer slot is currently free.
++ * @data: Pointer to ethernet header
++ * @len: Buffer length, in bytes.
++ * @unmap_addr: DMA address to unmap
++ */
++struct efx_rx_buffer {
++	dma_addr_t dma_addr;
++	struct sk_buff *skb;
++	struct page *page;
++	char *data;
++	unsigned int len;
++	dma_addr_t unmap_addr;
++};
 +
-+/* Context: netif_tx_lock held, BHs disabled. */
-+static void efx_watchdog(struct net_device *net_dev)
-+{
-+	struct efx_nic *efx = net_dev->priv;
++/**
++ * struct efx_rx_queue - An Efx RX queue
++ * @efx: The associated Efx NIC
++ * @queue: DMA queue number
++ * @used: Queue is used by net driver
++ * @channel: The associated channel
++ * @buffer: The software buffer ring
++ * @rxd: The hardware descriptor ring
++ * @added_count: Number of buffers added to the receive queue.
++ * @notified_count: Number of buffers given to NIC (<= @added_count).
++ * @removed_count: Number of buffers removed from the receive queue.
++ * @add_lock: Receive queue descriptor add spin lock.
++ *	This lock must be held in order to add buffers to the RX
++ *	descriptor ring (rxd and buffer) and to update added_count (but
++ *	not removed_count).
++ * @max_fill: RX descriptor maximum fill level (<= ring size)
++ * @fast_fill_trigger: RX descriptor fill level that will trigger a fast fill
++ *	(<= @max_fill)
++ * @fast_fill_limit: The level to which a fast fill will fill
++ *	(@fast_fill_trigger <= @fast_fill_limit <= @max_fill)
++ * @min_fill: RX descriptor minimum non-zero fill level.
++ *	This records the minimum fill level observed when a ring
++ *	refill was triggered.
++ * @min_overfill: RX descriptor minimum overflow fill level.
++ *	This records the minimum fill level at which RX queue
++ *	overflow was observed.  It should never be set.
++ * @alloc_page_count: RX allocation strategy counter.
++ * @alloc_skb_count: RX allocation strategy counter.
++ * @work: Descriptor push work thread
++ * @buf_page: Page for next RX buffer.
++ *	We can use a single page for multiple RX buffers. This tracks
++ *	the remaining space in the allocation.
++ * @buf_dma_addr: Page's DMA address.
++ * @buf_data: Page's host address.
++ */
++struct efx_rx_queue {
++	struct efx_nic *efx;
++	int queue;
++	int used;
++	struct efx_channel *channel;
++	struct efx_rx_buffer *buffer;
++	struct efx_special_buffer rxd;
 +
-+	EFX_ERR(efx, "TX stuck with stop_count=%d port_enabled=%d: %s\n",
-+		atomic_read(&efx->netif_stop_count), efx->port_enabled,
-+		monitor_reset ? "resetting channels" : "skipping reset");
++	int added_count;
++	int notified_count;
++	int removed_count;
++	spinlock_t add_lock;
++	unsigned int max_fill;
++	unsigned int fast_fill_trigger;
++	unsigned int fast_fill_limit;
++	unsigned int min_fill;
++	unsigned int min_overfill;
++	unsigned int alloc_page_count;
++	unsigned int alloc_skb_count;
++	struct delayed_work work;
++	unsigned int slow_fill_count;
 +
-+	if (monitor_reset)
-+		efx_schedule_reset(efx, RESET_TYPE_MONITOR);
-+}
++	struct page *buf_page;
++	dma_addr_t buf_dma_addr;
++	char *buf_data;
++};
++
++/**
++ * struct efx_buffer - An Efx general-purpose buffer
++ * @addr: host base address of the buffer
++ * @dma_addr: DMA base address of the buffer
++ * @len: Buffer length, in bytes
++ *
++ * Falcon uses these buffers for its interrupt status registers and
++ * MAC stats dumps.
++ */
++struct efx_buffer {
++	void *addr;
++	dma_addr_t dma_addr;
++	unsigned int len;
++};
 +
 +
-+/* Context: process, rtnl_lock() held. */
-+static int efx_change_mtu(struct net_device *net_dev, int new_mtu)
-+{
-+	struct efx_nic *efx = net_dev->priv;
-+	int rc = 0;
++/* Flags for channel->used_flags */
++#define EFX_USED_BY_RX 1
++#define EFX_USED_BY_TX 2
++#define EFX_USED_BY_RX_TX (EFX_USED_BY_RX | EFX_USED_BY_TX)
 +
-+	EFX_ASSERT_RESET_SERIALISED(efx);
++enum efx_rx_alloc_method {
++	RX_ALLOC_METHOD_AUTO = 0,
++	RX_ALLOC_METHOD_SKB = 1,
++	RX_ALLOC_METHOD_PAGE = 2,
++};
 +
-+	if (new_mtu > EFX_MAX_MTU)
-+		return -EINVAL;
++/**
++ * struct efx_channel - An Efx channel
++ *
++ * A channel comprises an event queue, at least one TX queue, at least
++ * one RX queue, and an associated tasklet for processing the event
++ * queue.
++ *
++ * @efx: Associated Efx NIC
++ * @evqnum: Event queue number
++ * @channel: Channel instance number
++ * @used_flags: Channel is used by net driver
++ * @enabled: Channel enabled indicator
++ * @irq: IRQ number (MSI and MSI-X only)
++ * @has_interrupt: Channel has an interrupt
++ * @irq_moderation: IRQ moderation value (in us)
++ * @napi_dev: Net device used with NAPI
++ * @napi_str: NAPI control structure
++ * @reset_work: Scheduled reset work thread
++ * @work_pending: Is work pending via NAPI?
++ * @eventq: Event queue buffer
++ * @eventq_read_ptr: Event queue read pointer
++ * @last_eventq_read_ptr: Last event queue read pointer value.
++ * @eventq_magic: Event queue magic value for driver-generated test events
++ * @lro_mgr: LRO state
++ * @rx_alloc_level: Watermark based heuristic counter for pushing descriptors
++ *	and diagnostic counters
++ * @rx_alloc_push_pages: RX allocation method currently in use for pushing
++ *	descriptors
++ * @rx_alloc_pop_pages: RX allocation method currently in use for popping
++ *	descriptors
++ * @n_rx_tobe_disc: Count of RX_TOBE_DISC errors
++ * @n_rx_ip_frag_err: Count of RX IP fragment errors
++ * @n_rx_ip_hdr_chksum_err: Count of RX IP header checksum errors
++ * @n_rx_tcp_udp_chksum_err: Count of RX TCP and UDP checksum errors
++ * @n_rx_frm_trunc: Count of RX_FRM_TRUNC errors
++ * @n_rx_overlength: Count of RX_OVERLENGTH errors
++ * @n_skbuff_leaks: Count of skbuffs leaked due to RX overrun
++ */
++struct efx_channel {
++	struct efx_nic *efx;
++	int evqnum;
++	int channel;
++	int used_flags;
++	int enabled;
++	int irq;
++	unsigned int has_interrupt;
++	unsigned int irq_moderation;
++	struct net_device *napi_dev;
++	struct napi_struct napi_str;
++	struct work_struct reset_work;
++	int work_pending;
++	struct efx_special_buffer eventq;
++	unsigned int eventq_read_ptr;
++	unsigned int last_eventq_read_ptr;
++	unsigned int eventq_magic;
 +
-+	efx_stop_all(efx);
++	struct net_lro_mgr lro_mgr;
++	int rx_alloc_level;
++	int rx_alloc_push_pages;
++	int rx_alloc_pop_pages;
 +
-+	EFX_LOG(efx, "changing MTU to %d\n", new_mtu);
++	unsigned n_rx_tobe_disc;
++	unsigned n_rx_ip_frag_err;
++	unsigned n_rx_ip_hdr_chksum_err;
++	unsigned n_rx_tcp_udp_chksum_err;
++	unsigned n_rx_frm_trunc;
++	unsigned n_rx_overlength;
++	unsigned n_skbuff_leaks;
 +
-+	efx_drain_port(efx);
-+	efx_fini_channels(efx);
-+	net_dev->mtu = new_mtu;
-+	rc = efx_init_channels(efx);
-+	if (rc)
-+		goto fail;
++	/* Used to pipeline received packets in order to optimise memory
++	 * access with prefetches.
++	 */
++	struct efx_rx_buffer *rx_pkt;
++	int rx_pkt_csummed;
 +
-+	/* Reconfigure the MAC */
-+	efx_reconfigure_port(efx);
++};
 +
-+	efx_start_all(efx);
-+	return rc;
++/**
++ * struct efx_blinker - S/W LED blinking context
++ * @led_num: LED ID (board-specific meaning)
++ * @state: Current state - on or off
++ * @resubmit: Timer resubmission flag
++ * @timer: Control timer for blinking
++ */
++struct efx_blinker {
++	int led_num;
++	int state;
++	int resubmit;
++	struct timer_list timer;
++};
 +
-+ fail:
-+	efx_schedule_reset(efx, RESET_TYPE_DISABLE);
-+	return rc;
-+}
 +
-+static int efx_set_mac_address(struct net_device *net_dev, void *data)
-+{
-+	struct efx_nic *efx = net_dev->priv;
-+	struct sockaddr *addr = data;
-+	char *new_addr = addr->sa_data;
++/**
++ * struct efx_board - board information
++ * @type: Board model type
++ * @major: Major rev. ('A', 'B' ...)
++ * @minor: Minor rev. (0, 1, ...)
++ * @init: Initialisation function
++ * @init_leds: Sets up board LEDs
++ * @set_fault_led: Turns the fault LED on or off
++ * @blink: Starts/stops blinking
++ * @blinker: used to blink LEDs in software
++ */
++struct efx_board {
++	int type;
++	int major;
++	int minor;
++	int (*init) (struct efx_nic *nic);
++	/* As the LEDs are typically attached to the PHY, LEDs
++	 * have a separate init callback that happens later than
++	 * board init. */
++	int (*init_leds)(struct efx_nic *efx);
++	void (*set_fault_led) (struct efx_nic *efx, int state);
++	void (*blink) (struct efx_nic *efx, int start);
++	struct efx_blinker blinker;
++};
 +
-+	EFX_ASSERT_RESET_SERIALISED(efx);
++enum efx_int_mode {
++	/* Be careful if altering to correct macro below */
++	EFX_INT_MODE_MSIX = 0,
++	EFX_INT_MODE_MSI = 1,
++	EFX_INT_MODE_LEGACY = 2,
++	EFX_INT_MODE_MAX	/* Insert any new items before this */
++};
++#define EFX_INT_MODE_USE_MSI(x) (((x)->interrupt_mode) <= EFX_INT_MODE_MSI)
 +
-+	if (!is_valid_ether_addr(new_addr)) {
-+		DECLARE_MAC_BUF(mac);
-+		EFX_ERR(efx, "invalid ethernet MAC address requested: %s\n",
-+			print_mac(mac, new_addr));
-+		return -EINVAL;
-+	}
++enum phy_type {
++	PHY_TYPE_NONE = 0,
++	PHY_TYPE_CX4_RTMR = 1,
++	PHY_TYPE_1G_ALASKA = 2,
++	PHY_TYPE_10XPRESS = 3,
++	PHY_TYPE_XFP = 4,
++	PHY_TYPE_PM8358 = 6,
++	PHY_TYPE_MAX	/* Insert any new items before this */
++};
 +
-+	memcpy(net_dev->dev_addr, new_addr, net_dev->addr_len);
++#define PHY_ADDR_INVALID 0xff
 +
-+	/* Reconfigure the MAC */
-+	efx_reconfigure_port(efx);
++enum nic_state {
++	STATE_INIT = 0,
++	STATE_RUNNING = 1,
++	STATE_FINI = 2,
++	STATE_RESETTING = 3, /* rtnl_lock always held */
++	STATE_DISABLED = 4,
++	STATE_MAX,
++};
 +
-+	return 0;
-+}
++/*
++ * Alignment of page-allocated RX buffers
++ *
++ * Controls the number of bytes inserted at the start of an RX buffer.
++ * This is the equivalent of NET_IP_ALIGN [which controls the alignment
++ * of the skb->head for hardware DMA].
++ */
++#ifdef __ia64__
++#define EFX_PAGE_IP_ALIGN 2
++#else
++#define EFX_PAGE_IP_ALIGN 0
++#endif
 +
-+/* Context: netif_tx_lock held, BHs disabled. */
-+static void efx_set_multicast_list(struct net_device *net_dev)
-+{
-+	struct efx_nic *efx = net_dev->priv;
-+	struct dev_mc_list *mc_list = net_dev->mc_list;
-+	union efx_multicast_hash *mc_hash = &efx->multicast_hash;
-+	unsigned long flags __attribute__ ((unused));
++/*
++ * Alignment of the skb->head which wraps a page-allocated RX buffer
++ *
++ * The skb allocated to wrap an rx_buffer can have this alignment. Since
++ * the data is memcpy'd from the rx_buf, it does not need to be equal to
++ * EFX_PAGE_IP_ALIGN.
++ */
++#define EFX_PAGE_SKB_ALIGN 2
++
++/* Forward declaration */
++struct efx_nic;
++
++/* Pseudo bit-mask flow control field */
++enum efx_fc_type {
++	EFX_FC_RX = 1,
++	EFX_FC_TX = 2,
++	EFX_FC_AUTO = 4,
++};
++
++/**
++ * struct efx_phy_operations - Efx PHY operations table
++ * @init: Initialise PHY
++ * @fini: Shut down PHY
++ * @reconfigure: Reconfigure PHY (e.g. for new link parameters)
++ * @clear_interrupt: Clear down interrupt
++ * @blink: Blink LEDs
++ * @check_hw: Check hardware
++ * @reset_xaui: Reset XAUI side of PHY for (software sequenced reset)
++ * @mmds: MMD presence mask
++ */
++struct efx_phy_operations {
++	int (*init) (struct efx_nic *efx);
++	void (*fini) (struct efx_nic *efx);
++	void (*reconfigure) (struct efx_nic *efx);
++	void (*clear_interrupt) (struct efx_nic *efx);
++	int (*check_hw) (struct efx_nic *efx);
++	void (*reset_xaui) (struct efx_nic *efx);
++	int mmds;
++};
++
++/*
++ * Efx extended statistics
++ *
++ * Not all statistics are provided by all supported MACs.  The purpose
++ * is this structure is to contain the raw statistics provided by each
++ * MAC.
++ */
++struct efx_mac_stats {
++	u64 tx_bytes;
++	u64 tx_good_bytes;
++	u64 tx_bad_bytes;
++	unsigned long tx_packets;
++	unsigned long tx_bad;
++	unsigned long tx_pause;
++	unsigned long tx_control;
++	unsigned long tx_unicast;
++	unsigned long tx_multicast;
++	unsigned long tx_broadcast;
++	unsigned long tx_lt64;
++	unsigned long tx_64;
++	unsigned long tx_65_to_127;
++	unsigned long tx_128_to_255;
++	unsigned long tx_256_to_511;
++	unsigned long tx_512_to_1023;
++	unsigned long tx_1024_to_15xx;
++	unsigned long tx_15xx_to_jumbo;
++	unsigned long tx_gtjumbo;
++	unsigned long tx_collision;
++	unsigned long tx_single_collision;
++	unsigned long tx_multiple_collision;
++	unsigned long tx_excessive_collision;
++	unsigned long tx_deferred;
++	unsigned long tx_late_collision;
++	unsigned long tx_excessive_deferred;
++	unsigned long tx_non_tcpudp;
++	unsigned long tx_mac_src_error;
++	unsigned long tx_ip_src_error;
++	u64 rx_bytes;
++	u64 rx_good_bytes;
++	u64 rx_bad_bytes;
++	unsigned long rx_packets;
++	unsigned long rx_good;
++	unsigned long rx_bad;
++	unsigned long rx_pause;
++	unsigned long rx_control;
++	unsigned long rx_unicast;
++	unsigned long rx_multicast;
++	unsigned long rx_broadcast;
++	unsigned long rx_lt64;
++	unsigned long rx_64;
++	unsigned long rx_65_to_127;
++	unsigned long rx_128_to_255;
++	unsigned long rx_256_to_511;
++	unsigned long rx_512_to_1023;
++	unsigned long rx_1024_to_15xx;
++	unsigned long rx_15xx_to_jumbo;
++	unsigned long rx_gtjumbo;
++	unsigned long rx_bad_lt64;
++	unsigned long rx_bad_64_to_15xx;
++	unsigned long rx_bad_15xx_to_jumbo;
++	unsigned long rx_bad_gtjumbo;
++	unsigned long rx_overflow;
++	unsigned long rx_missed;
++	unsigned long rx_false_carrier;
++	unsigned long rx_symbol_error;
++	unsigned long rx_align_error;
++	unsigned long rx_length_error;
++	unsigned long rx_internal_error;
++	unsigned long rx_good_lt64;
++};
++
++/* Number of bits used in a multicast filter hash address */
++#define EFX_MCAST_HASH_BITS 8
++
++/* Number of (single-bit) entries in a multicast filter hash */
++#define EFX_MCAST_HASH_ENTRIES (1 << EFX_MCAST_HASH_BITS)
++
++/* An Efx multicast filter hash */
++union efx_multicast_hash {
++	u8 byte[EFX_MCAST_HASH_ENTRIES / 8];
++	efx_oword_t oword[EFX_MCAST_HASH_ENTRIES / sizeof(efx_oword_t) / 8];
++};
++
++/**
++ * struct efx_nic - an Efx NIC
++ * @name: Device name (net device name or bus id before net device registered)
++ * @pci_dev: The PCI device
++ * @type: Controller type attributes
++ * @legacy_irq: IRQ number
++ * @workqueue: Workqueue for resets, port reconfigures and the HW monitor
++ * @reset_work: Scheduled reset workitem
++ * @monitor_work: Hardware monitor workitem
++ * @membase_phys: Memory BAR value as physical address
++ * @membase: Memory BAR value
++ * @biu_lock: BIU (bus interface unit) lock
++ * @interrupt_mode: Interrupt mode
++ * @i2c: I2C interface
++ * @board_info: Board-level information
++ * @state: Device state flag. Serialised by the rtnl_lock.
++ * @reset_pending: Pending reset method (normally RESET_TYPE_NONE)
++ * @tx_queue: TX DMA queues
++ * @rx_queue: RX DMA queues
++ * @channel: Channels
++ * @rss_queues: Number of RSS queues
++ * @rx_buffer_len: RX buffer length
++ * @rx_buffer_order: Order (log2) of number of pages for each RX buffer
++ * @irq_status: Interrupt status buffer
++ * @last_irq_cpu: Last CPU to handle interrupt.
++ *	This register is written with the SMP processor ID whenever an
++ *	interrupt is handled.  It is used by falcon_test_interrupt()
++ *	to verify that an interrupt has occurred.
++ * @spi_flash: SPI flash device
++ *	This field will be %NULL if no flash device is present.
++ * @spi_eeprom: SPI EEPROM device
++ *	This field will be %NULL if no EEPROM device is present.
++ * @spi_lock: SPI bus lock
++ * @n_rx_nodesc_drop_cnt: RX no descriptor drop count
++ * @nic_data: Hardware dependant state
++ * @mac_lock: MAC access lock. Protects @port_enabled, @net_dev_registered,
++ *            and efx_monitor() and efx_reconfigure_port()
++ * @port_enabled: Port enabled indicator.
++ *	Serialises efx_stop_all(), efx_start_all() and efx_monitor() and
++ *	efx_reconfigure_work with kernel interfaces. Safe to read under any
++ *	one of the rtnl_lock, mac_lock, or netif_tx_lock, but all three must
++ *	be held to modify it.
++ * @net_dev_registered: Port is registered with operating system.
++ * @port_initialized: Port initialized?
++ * @net_dev: Operating system network device. Consider holding the rtnl lock
++ * @rx_checksum_enabled: RX checksumming enabled
++ * @netif_stop_count: Port stop count
++ * @netif_stop_lock: Port stop lock
++ * @mac_stats: MAC statistics. These include all statistics the MACs
++ *	can provide.  Generic code converts these into a standard
++ *	&struct net_device_stats.
++ * @stats_buffer: DMA buffer for statistics
++ * @stats_lock: Statistics update lock
++ * @mac_address: Permanent MAC address
++ * @phy_type: PHY type
++ * @phy_lock: PHY access lock
++ * @phy_op: PHY interface
++ * @phy_data: PHY private data (including PHY-specific stats)
++ * @mii: PHY interface
++ * @phy_powered: PHY power state
++ * @tx_disabled: PHY transmitter turned off
++ * @link_up: Link status
++ * @link_options: Link options (MII/GMII format)
++ * @n_link_state_changes: Number of times the link has changed state
++ * @promiscuous: Promiscuous flag. Protected by netif_tx_lock.
++ * @multicast_hash: Multicast hash table
++ * @flow_control: Flow control flags - separate RX/TX so can't use link_options
++ * @reconfigure_work: work item for dealing with PHY events
++ *
++ * The @priv field of the corresponding &struct net_device points to
++ * this.
++ */
++struct efx_nic {
++	char name[IFNAMSIZ];
++	struct pci_dev *pci_dev;
++	const struct efx_nic_type *type;
++	int legacy_irq;
++	struct workqueue_struct *workqueue;
++	struct work_struct reset_work;
++	struct delayed_work monitor_work;
++	unsigned long membase_phys;
++	void __iomem *membase;
++	spinlock_t biu_lock;
++	enum efx_int_mode interrupt_mode;
++
++	struct efx_i2c_interface i2c;
++	struct efx_board board_info;
++
++	enum nic_state state;
++	enum reset_type reset_pending;
++
++	struct efx_tx_queue tx_queue[EFX_MAX_TX_QUEUES];
++	struct efx_rx_queue rx_queue[EFX_MAX_RX_QUEUES];
++	struct efx_channel channel[EFX_MAX_CHANNELS];
++
++	int rss_queues;
++	unsigned int rx_buffer_len;
++	unsigned int rx_buffer_order;
++
++	struct efx_buffer irq_status;
++	volatile signed int last_irq_cpu;
++
++	struct efx_spi_device *spi_flash;
++	struct efx_spi_device *spi_eeprom;
++	struct mutex spi_lock;
++
++	unsigned n_rx_nodesc_drop_cnt;
++
++	void *nic_data;
++
++	struct mutex mac_lock;
++	int port_enabled;
++	int net_dev_registered;
++
++	int port_initialized;
++	struct net_device *net_dev;
++	int rx_checksum_enabled;
++
++	atomic_t netif_stop_count;
++	spinlock_t netif_stop_lock;
++
++	struct efx_mac_stats mac_stats;
++	struct efx_buffer stats_buffer;
++	spinlock_t stats_lock;
++
++	unsigned char mac_address[ETH_ALEN];
++
++	enum phy_type phy_type;
++	spinlock_t phy_lock;
++	struct efx_phy_operations *phy_op;
++	void *phy_data;
++	struct mii_if_info mii;
++
++	int link_up;
++	unsigned int link_options;
++	unsigned int n_link_state_changes;
++
 +	int promiscuous;
-+	u32 crc;
-+	int bit;
-+	int i;
++	union efx_multicast_hash multicast_hash;
++	enum efx_fc_type flow_control;
++	struct work_struct reconfigure_work;
 +
-+	/* Set per-MAC promiscuity flag and reconfigure MAC if necessary */
-+	promiscuous = (net_dev->flags & IFF_PROMISC) ? 1 : 0;
-+	if (efx->promiscuous != promiscuous) {
-+		if (efx->port_enabled) {
-+			efx->promiscuous = promiscuous;
-+			queue_work(efx->workqueue, &efx->reconfigure_work);
-+		}
-+	}
-+
-+	/* Build multicast hash table */
-+	if (promiscuous || (net_dev->flags & IFF_ALLMULTI)) {
-+		memset(mc_hash, 0xff, sizeof(*mc_hash));
-+	} else {
-+		memset(mc_hash, 0x00, sizeof(*mc_hash));
-+		for (i = 0; i < net_dev->mc_count; i++) {
-+			crc = ether_crc_le(ETH_ALEN, mc_list->dmi_addr);
-+			bit = crc & (EFX_MCAST_HASH_ENTRIES - 1);
-+			set_bit_le(bit, mc_hash->byte);
-+			mc_list = mc_list->next;
-+		}
-+	}
-+
-+	/* Create and activate new global multicast hash table */
-+	falcon_set_multicast_hash(efx);
-+}
-+
-+static int efx_netdev_event(struct notifier_block *this,
-+			    unsigned long event, void *ptr)
-+{
-+	struct net_device *net_dev = (struct net_device *)ptr;
-+
-+	if (net_dev->open == efx_net_open && event == NETDEV_CHANGENAME) {
-+		struct efx_nic *efx = net_dev->priv;
-+
-+		strcpy(efx->name, net_dev->name);
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block efx_netdev_notifier = {
-+	.notifier_call = efx_netdev_event,
++	atomic_t rx_reset;
 +};
 +
-+static int efx_register_netdev(struct efx_nic *efx)
-+{
-+	struct net_device *net_dev = efx->net_dev;
-+	int rc;
-+
-+	net_dev->watchdog_timeo = 5 * HZ;
-+	net_dev->irq = efx->pci_dev->irq;
-+	net_dev->open = efx_net_open;
-+	net_dev->stop = efx_net_stop;
-+	net_dev->get_stats = efx_net_stats;
-+	net_dev->tx_timeout = &efx_watchdog;
-+	net_dev->hard_start_xmit = efx_hard_start_xmit;
-+	net_dev->do_ioctl = efx_ioctl;
-+	net_dev->change_mtu = efx_change_mtu;
-+	net_dev->set_mac_address = efx_set_mac_address;
-+	net_dev->set_multicast_list = efx_set_multicast_list;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	net_dev->poll_controller = efx_netpoll;
-+#endif
-+	SET_NETDEV_DEV(net_dev, &efx->pci_dev->dev);
-+	SET_ETHTOOL_OPS(net_dev, &efx_ethtool_ops);
-+
-+	/* Always start with carrier off; PHY events will detect the link */
-+	netif_carrier_off(efx->net_dev);
-+
-+	BUG_ON(efx->net_dev_registered);
-+
-+	/* Clear MAC statistics */
-+	falcon_update_stats_xmac(efx);
-+	memset(&efx->mac_stats, 0, sizeof(efx->mac_stats));
-+
-+	rc = register_netdev(net_dev);
-+	if (rc) {
-+		EFX_ERR(efx, "could not register net dev\n");
-+		return rc;
-+	}
-+	strcpy(efx->name, net_dev->name);
-+
-+	/* Allow link change notifications to be sent to the operating
-+	 * system.  The must happen after register_netdev so that
-+	 * there are no outstanding link changes if that call fails.
-+	 * It must happen before efx_reconfigure_port so that the
-+	 * initial state of the link is reported. */
-+	mutex_lock(&efx->mac_lock);
-+	efx->net_dev_registered = 1;
-+	mutex_unlock(&efx->mac_lock);
-+
-+	return 0;
-+}
-+
-+static void efx_unregister_netdev(struct efx_nic *efx)
-+{
-+	int was_registered = efx->net_dev_registered;
-+	struct efx_tx_queue *tx_queue;
-+
-+	if (!efx->net_dev)
-+		return;
-+
-+	BUG_ON(efx->net_dev->priv != efx);
-+
-+	/* SFC Bug 5356: Ensure that no more link status notifications get
-+	 * sent to the stack.  Bad things happen if there's an
-+	 * outstanding notification after the net device is freed, but
-+	 * they only get flushed out by unregister_netdev, not by
-+	 * free_netdev. */
-+	mutex_lock(&efx->mac_lock);
-+	efx->net_dev_registered = 0;
-+	mutex_unlock(&efx->mac_lock);
-+
-+	/* Free up any skbs still remaining. This has to happen before
-+	 * we try to unregister the netdev as running their destructors
-+	 * may be needed to get the device ref. count to 0. */
-+	efx_for_each_tx_queue(tx_queue, efx)
-+		efx_release_tx_buffers(tx_queue);
-+
-+	if (was_registered) {
-+		strlcpy(efx->name, pci_name(efx->pci_dev), sizeof(efx->name));
-+		unregister_netdev(efx->net_dev);
-+	}
-+}
-+
-+/**************************************************************************
-+ *
-+ * Device reset and suspend
-+ *
-+ **************************************************************************/
-+
-+/* The final hardware and software finalisation before reset. */
-+static int efx_reset_down(struct efx_nic *efx, struct ethtool_cmd *ecmd)
-+{
-+	int rc;
-+
-+	EFX_ASSERT_RESET_SERIALISED(efx);
-+
-+	rc = falcon_xmac_get_settings(efx, ecmd);
-+	if (rc) {
-+		EFX_ERR(efx, "could not back up PHY settings\n");
-+		goto fail;
-+	}
-+
-+	__efx_drain_port(efx);
-+	efx_fini_channels(efx);
-+	return 0;
-+
-+ fail:
-+	return rc;
-+}
-+
-+/* The first part of software initialisation after a hardware reset
-+ * This function does not handle serialisation with the kernel, it
-+ * assumes the caller has done this */
-+static int efx_reset_up(struct efx_nic *efx, struct ethtool_cmd *ecmd)
-+{
-+	int rc;
-+
-+	rc = efx_init_channels(efx);
-+	if (rc)
-+		goto fail1;
-+
-+	/* Restore MAC and PHY settings. */
-+	rc = falcon_xmac_set_settings(efx, ecmd);
-+	if (rc) {
-+		EFX_ERR(efx, "could not restore PHY settings\n");
-+		goto fail2;
-+	}
-+
-+	/* Push the settings to the MAC and PHY */
-+	__efx_reconfigure_port(efx);
-+
-+	return 0;
-+
-+ fail2:
-+	efx_fini_channels(efx);
-+ fail1:
-+	return rc;
-+}
-+
-+/* Reset the NIC as transparently as possible. Do not reset the PHY
-+ * Note that the reset may fail, in which case the card will be left
-+ * in a most-probably-unusable state.
-+ *
-+ * This function will sleep.  You cannot reset from within an atomic
-+ * state; use efx_schedule_reset() instead.
-+ *
-+ * Grabs the rtnl_lock.
++/**
++ * struct efx_nic_type - Efx device type definition
++ * @mem_bar: Memory BAR number
++ * @mem_map_size: Memory BAR mapped size
++ * @txd_ptr_tbl_base: TX descriptor ring base address
++ * @rxd_ptr_tbl_base: RX descriptor ring base address
++ * @buf_tbl_base: Buffer table base address
++ * @evq_ptr_tbl_base: Event queue pointer table base address
++ * @evq_rptr_tbl_base: Event queue read-pointer table base address
++ * @txd_ring_mask: TX descriptor ring size - 1 (must be a power of two - 1)
++ * @rxd_ring_mask: RX descriptor ring size - 1 (must be a power of two - 1)
++ * @evq_size: Event queue size (must be a power of two)
++ * @max_dma_mask: Maximum possible DMA mask
++ * @tx_dma_mask: TX DMA mask
++ * @bug5391_mask: Address mask for bug 5391 workaround
++ * @rx_xoff_thresh: RX FIFO XOFF watermark (bytes)
++ * @rx_xon_thresh: RX FIFO XON watermark (bytes)
++ * @rx_buffer_padding: Padding added to each RX buffer
++ * @max_interrupt_mode: Highest capability interrupt mode supported
++ *	from &enum efx_init_mode.
++ * @phys_addr_channels: Number of channels with physically addressed
++ *	descriptors
 + */
-+static int efx_reset(struct efx_nic *efx)
-+{
-+	struct ethtool_cmd ecmd;
-+	unsigned long flags __attribute__ ((unused));
-+	enum reset_type method = efx->reset_pending;
-+	int rc;
++struct efx_nic_type {
++	unsigned int mem_bar;
++	unsigned int mem_map_size;
++	unsigned int txd_ptr_tbl_base;
++	unsigned int rxd_ptr_tbl_base;
++	unsigned int buf_tbl_base;
++	unsigned int evq_ptr_tbl_base;
++	unsigned int evq_rptr_tbl_base;
 +
-+	/* Serialise with kernel interfaces */
-+	rtnl_lock();
++	unsigned int txd_ring_mask;
++	unsigned int rxd_ring_mask;
++	unsigned int evq_size;
++	dma_addr_t max_dma_mask;
++	unsigned int tx_dma_mask;
++	unsigned bug5391_mask;
 +
-+	/* If we're not RUNNING then don't reset. Leave the reset_pending
-+	 * flag set so that efx_pci_probe_main will be retried */
-+	if (efx->state != STATE_RUNNING) {
-+		EFX_INFO(efx, "scheduled reset quenched. NIC not RUNNING\n");
-+		goto unlock_rtnl;
-+	}
-+
-+	efx->state = STATE_RESETTING;
-+	EFX_INFO(efx, "resetting (%d)\n", method);
-+
-+	/* The net_dev->get_stats handler is quite slow, and will fail
-+	 * if a fetch is pending over reset. Serialise against it. */
-+	spin_lock(&efx->stats_lock);
-+	spin_unlock(&efx->stats_lock);
-+
-+	efx_stop_all(efx);
-+	mutex_lock(&efx->mac_lock);
-+
-+	rc = efx_reset_down(efx, &ecmd);
-+	if (rc)
-+		goto fail1;
-+
-+	rc = falcon_reset_hw(efx, method);
-+	if (rc) {
-+		EFX_ERR(efx, "failed to reset hardware\n");
-+		goto fail2;
-+	}
-+
-+	/* Allow resets to be rescheduled. */
-+	efx->reset_pending = RESET_TYPE_NONE;
-+
-+	/* Reinitialise bus-mastering, which may have been turned off before
-+	 * the reset was scheduled. This is still appropriate, even in the
-+	 * RESET_TYPE_DISABLE since this driver generally assumes the hardware
-+	 * can respond to requests. */
-+	pci_set_master(efx->pci_dev);
-+
-+	/* Reinitialise device. This is appropriate in the RESET_TYPE_DISABLE
-+	 * case so the driver can talk to external SRAM */
-+	rc = falcon_init_nic(efx);
-+	if (rc) {
-+		EFX_ERR(efx, "failed to initialise NIC\n");
-+		goto fail3;
-+	}
-+
-+	/* Leave device stopped if necessary */
-+	if (method == RESET_TYPE_DISABLE) {
-+		/* Reinitialise the device anyway so the driver unload sequence
-+		 * can talk to the external SRAM */
-+		(void) falcon_init_nic(efx);
-+		rc = -EIO;
-+		goto fail4;
-+	}
-+
-+	rc = efx_reset_up(efx, &ecmd);
-+	if (rc)
-+		goto fail5;
-+
-+	mutex_unlock(&efx->mac_lock);
-+	EFX_LOG(efx, "reset complete\n");
-+
-+	efx->state = STATE_RUNNING;
-+	efx_start_all(efx);
-+
-+ unlock_rtnl:
-+	rtnl_unlock();
-+	return 0;
-+
-+ fail5:
-+ fail4:
-+ fail3:
-+ fail2:
-+ fail1:
-+	EFX_ERR(efx, "has been disabled\n");
-+	efx->state = STATE_DISABLED;
-+
-+	mutex_unlock(&efx->mac_lock);
-+	rtnl_unlock();
-+	efx_unregister_netdev(efx);
-+	efx_fini_port(efx);
-+	return rc;
-+}
-+
-+/* The worker thread exists so that code that cannot sleep can
-+ * schedule a reset for later.
-+ */
-+static void efx_reset_work(struct work_struct *data)
-+{
-+	struct efx_nic *nic = container_of(data, struct efx_nic, reset_work);
-+
-+	efx_reset(nic);
-+}
-+
-+void efx_schedule_reset(struct efx_nic *efx, enum reset_type type)
-+{
-+	enum reset_type method;
-+
-+	if (efx->reset_pending != RESET_TYPE_NONE) {
-+		EFX_INFO(efx, "quenching already scheduled reset\n");
-+		return;
-+	}
-+
-+	switch (type) {
-+	case RESET_TYPE_INVISIBLE:
-+	case RESET_TYPE_ALL:
-+	case RESET_TYPE_WORLD:
-+	case RESET_TYPE_DISABLE:
-+		method = type;
-+		break;
-+	case RESET_TYPE_RX_RECOVERY:
-+	case RESET_TYPE_RX_DESC_FETCH:
-+	case RESET_TYPE_TX_DESC_FETCH:
-+		method = RESET_TYPE_INVISIBLE;
-+		break;
-+	default:
-+		method = RESET_TYPE_ALL;
-+		break;
-+	}
-+
-+	if (method != type)
-+		EFX_LOG(efx, "scheduling reset (%d:%d)\n", type, method);
-+	else
-+		EFX_LOG(efx, "scheduling reset (%d)\n", method);
-+
-+	efx->reset_pending = method;
-+
-+	queue_work(efx->workqueue, &efx->reset_work);
-+}
-+
-+/**************************************************************************
-+ *
-+ * List of NICs we support
-+ *
-+ **************************************************************************/
-+
-+/* PCI device ID table */
-+static struct pci_device_id efx_pci_table[] __devinitdata = {
-+	{PCI_DEVICE(EFX_VENDID_SFC, FALCON_A_P_DEVID),
-+	 .driver_data = (unsigned long) &falcon_a_nic_type},
-+	{PCI_DEVICE(EFX_VENDID_SFC, FALCON_B_P_DEVID),
-+	 .driver_data = (unsigned long) &falcon_b_nic_type},
-+	{0}			/* end of list */
++	int rx_xoff_thresh;
++	int rx_xon_thresh;
++	unsigned int rx_buffer_padding;
++	unsigned int max_interrupt_mode;
++	unsigned int phys_addr_channels;
 +};
 +
 +/**************************************************************************
 + *
-+ * Dummy PHY/MAC/Board operations
-+ *
-+ * Can be used where the MAC does not implement this operation
-+ * Needed so all function pointers are valid and do not have to be tested
-+ * before use
-+ *
-+ **************************************************************************/
-+int efx_port_dummy_op_int(struct efx_nic *efx)
-+{
-+	return 0;
-+}
-+void efx_port_dummy_op_void(struct efx_nic *efx) {}
-+void efx_port_dummy_op_blink(struct efx_nic *efx, int blink) {}
-+
-+static struct efx_phy_operations efx_dummy_phy_operations = {
-+	.init		 = efx_port_dummy_op_int,
-+	.reconfigure	 = efx_port_dummy_op_void,
-+	.check_hw        = efx_port_dummy_op_int,
-+	.fini		 = efx_port_dummy_op_void,
-+	.clear_interrupt = efx_port_dummy_op_void,
-+	.reset_xaui      = efx_port_dummy_op_void,
-+};
-+
-+/* Dummy board operations */
-+static int efx_nic_dummy_op_int(struct efx_nic *nic)
-+{
-+	return 0;
-+}
-+
-+static struct efx_board efx_dummy_board_info = {
-+	.init    = efx_nic_dummy_op_int,
-+	.init_leds = efx_port_dummy_op_int,
-+	.set_fault_led = efx_port_dummy_op_blink,
-+};
-+
-+/**************************************************************************
-+ *
-+ * Data housekeeping
-+ *
-+ **************************************************************************/
-+
-+/* This zeroes out and then fills in the invariants in a struct
-+ * efx_nic (including all sub-structures).
-+ */
-+static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
-+			   struct pci_dev *pci_dev)
-+{
-+	struct efx_channel *channel;
-+	struct efx_tx_queue *tx_queue;
-+	struct efx_rx_queue *rx_queue;
-+	int i, rc;
-+
-+	/* Initialise common structures */
-+	memset(efx, 0, sizeof(*efx));
-+	spin_lock_init(&efx->biu_lock);
-+	spin_lock_init(&efx->phy_lock);
-+	mutex_init(&efx->spi_lock);
-+	INIT_WORK(&efx->reset_work, efx_reset_work);
-+	INIT_DELAYED_WORK(&efx->monitor_work, efx_monitor);
-+	efx->pci_dev = pci_dev;
-+	efx->state = STATE_INIT;
-+	efx->reset_pending = RESET_TYPE_NONE;
-+	strlcpy(efx->name, pci_name(pci_dev), sizeof(efx->name));
-+	efx->board_info = efx_dummy_board_info;
-+
-+	efx->rx_checksum_enabled = 1;
-+	spin_lock_init(&efx->netif_stop_lock);
-+	spin_lock_init(&efx->stats_lock);
-+	mutex_init(&efx->mac_lock);
-+	efx->phy_op = &efx_dummy_phy_operations;
-+	INIT_WORK(&efx->reconfigure_work, efx_reconfigure_work);
-+	atomic_set(&efx->netif_stop_count, 1);
-+
-+	for (i = 0; i < EFX_MAX_CHANNELS; i++) {
-+		channel = &efx->channel[i];
-+		channel->efx = efx;
-+		channel->channel = i;
-+		channel->evqnum = i;
-+		channel->work_pending = 0;
-+	}
-+	for (i = 0; i < EFX_MAX_TX_QUEUES; i++) {
-+		tx_queue = &efx->tx_queue[i];
-+		tx_queue->efx = efx;
-+		tx_queue->queue = i;
-+		tx_queue->buffer = NULL;
-+		tx_queue->channel = &efx->channel[0]; /* for safety */
-+	}
-+	for (i = 0; i < EFX_MAX_RX_QUEUES; i++) {
-+		rx_queue = &efx->rx_queue[i];
-+		rx_queue->efx = efx;
-+		rx_queue->queue = i;
-+		rx_queue->channel = &efx->channel[0]; /* for safety */
-+		rx_queue->buffer = NULL;
-+		spin_lock_init(&rx_queue->add_lock);
-+		INIT_DELAYED_WORK(&rx_queue->work, efx_rx_work);
-+	}
-+
-+	efx->type = type;
-+
-+	/* Sanity-check NIC type */
-+	EFX_BUG_ON_PARANOID(efx->type->txd_ring_mask &
-+			    (efx->type->txd_ring_mask + 1));
-+	EFX_BUG_ON_PARANOID(efx->type->rxd_ring_mask &
-+			    (efx->type->rxd_ring_mask + 1));
-+	EFX_BUG_ON_PARANOID(efx->type->evq_size &
-+			    (efx->type->evq_size - 1));
-+	/* As close as we can get to guaranteeing that we don't overflow */
-+	EFX_BUG_ON_PARANOID(efx->type->evq_size <
-+			    (efx->type->txd_ring_mask + 1 +
-+			     efx->type->rxd_ring_mask + 1));
-+	EFX_BUG_ON_PARANOID(efx->type->phys_addr_channels > EFX_MAX_CHANNELS);
-+
-+	/* Higher numbered interrupt modes are less capable! */
-+	efx->interrupt_mode = max(efx->type->max_interrupt_mode,
-+				  interrupt_mode);
-+
-+	efx->workqueue = create_singlethread_workqueue("sfc_work");
-+	if (!efx->workqueue) {
-+		rc = -ENOMEM;
-+		goto fail1;
-+	}
-+
-+	return 0;
-+
-+ fail1:
-+	return rc;
-+}
-+
-+static void efx_fini_struct(struct efx_nic *efx)
-+{
-+	if (efx->workqueue) {
-+		destroy_workqueue(efx->workqueue);
-+		efx->workqueue = NULL;
-+	}
-+}
-+
-+/**************************************************************************
-+ *
-+ * PCI interface
-+ *
-+ **************************************************************************/
-+
-+/* Main body of final NIC shutdown code
-+ * This is called only at module unload (or hotplug removal).
-+ */
-+static void efx_pci_remove_main(struct efx_nic *efx)
-+{
-+	EFX_ASSERT_RESET_SERIALISED(efx);
-+
-+	/* Skip everything if we never obtained a valid membase */
-+	if (!efx->membase)
-+		return;
-+
-+	efx_drain_port(efx);
-+	efx_fini_channels(efx);
-+	efx_fini_port(efx);
-+
-+	/* Shutdown the board, then the NIC and board state */
-+	falcon_fini_interrupt(efx);
-+
-+	efx_fini_napi(efx);
-+	efx_remove_all(efx);
-+}
-+
-+/* Final NIC shutdown
-+ * This is called only at module unload (or hotplug removal).
-+ */
-+static void efx_pci_remove(struct pci_dev *pci_dev)
-+{
-+	struct efx_nic *efx;
-+
-+	efx = pci_get_drvdata(pci_dev);
-+	if (!efx)
-+		return;
-+
-+	/* Mark the NIC as fini, then stop the interface */
-+	rtnl_lock();
-+	efx->state = STATE_FINI;
-+	if (efx->net_dev_registered)
-+		dev_close(efx->net_dev);
-+
-+	/* Allow any queued efx_resets() to complete */
-+	rtnl_unlock();
-+
-+	if (efx->membase == NULL)
-+		goto out;
-+
-+	efx_unregister_netdev(efx);
-+
-+	/* Wait for any scheduled resets to complete. No more will be
-+	 * scheduled from this point because efx_stop_all() has been
-+	 * called, we are no longer registered with driverlink, and
-+	 * the net_device's have been removed. */
-+	flush_workqueue(efx->workqueue);
-+
-+	efx_pci_remove_main(efx);
-+
-+out:
-+	efx_fini_io(efx);
-+	EFX_LOG(efx, "shutdown successful\n");
-+
-+	pci_set_drvdata(pci_dev, NULL);
-+	efx_fini_struct(efx);
-+	kfree(efx);
-+};
-+
-+/* Main body of NIC initialisation
-+ * This is called at module load (or hotplug insertion, theoretically).
-+ */
-+static int efx_pci_probe_main(struct efx_nic *efx)
-+{
-+	int rc;
-+
-+	/* Do start-of-day initialisation */
-+	rc = efx_probe_all(efx);
-+	if (rc)
-+		goto fail1;
-+
-+	rc = efx_init_napi(efx);
-+	if (rc)
-+		goto fail2;
-+
-+	/* Initialise the board */
-+	rc = efx->board_info.init(efx);
-+	if (rc) {
-+		EFX_ERR(efx, "failed to initialise board\n");
-+		goto fail3;
-+	}
-+
-+	rc = falcon_init_nic(efx);
-+	if (rc) {
-+		EFX_ERR(efx, "failed to initialise NIC\n");
-+		goto fail4;
-+	}
-+
-+	rc = efx_init_port(efx);
-+	if (rc) {
-+		EFX_ERR(efx, "failed to initialise port\n");
-+		goto fail5;
-+	}
-+
-+	rc = efx_init_channels(efx);
-+	if (rc)
-+		goto fail6;
-+
-+	rc = falcon_init_interrupt(efx);
-+	if (rc)
-+		goto fail7;
-+
-+	return 0;
-+
-+ fail7:
-+	efx_drain_port(efx);
-+	efx_fini_channels(efx);
-+ fail6:
-+	efx_fini_port(efx);
-+ fail5:
-+ fail4:
-+ fail3:
-+	efx_fini_napi(efx);
-+ fail2:
-+	efx_remove_all(efx);
-+ fail1:
-+	return rc;
-+}
-+
-+/* NIC initialisation
-+ *
-+ * This is called at module load (or hotplug insertion,
-+ * theoretically).  It sets up PCI mappings, tests and resets the NIC,
-+ * sets up and registers the network devices with the kernel and hooks
-+ * the interrupt service routine.  It does not prepare the device for
-+ * transmission; this is left to the first time one of the network
-+ * interfaces is brought up (i.e. efx_net_open).
-+ */
-+static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
-+				   const struct pci_device_id *entry)
-+{
-+	struct efx_nic *efx;
-+	struct efx_nic_type *type = (struct efx_nic_type *) entry->driver_data;
-+	int i, rc;
-+
-+	/* Allocate and initialise a struct efx_nic */
-+	efx = kmalloc(sizeof(*efx), GFP_KERNEL);
-+	if (!efx) {
-+		rc = -ENOMEM;
-+		goto fail1;
-+	}
-+	pci_set_drvdata(pci_dev, efx);
-+	rc = efx_init_struct(efx, type, pci_dev);
-+	if (rc)
-+		goto fail2;
-+
-+	EFX_INFO(efx, "Solarflare Communications NIC detected\n");
-+
-+	/* Set up basic I/O (BAR mappings etc) */
-+	rc = efx_init_io(efx);
-+	if (rc)
-+		goto fail3;
-+
-+	/* No serialisation is required with the reset path because
-+	 * we're in STATE_INIT. */
-+	for (i = 0; i < 5; i++) {
-+		rc = efx_pci_probe_main(efx);
-+		if (rc == 0)
-+			break;
-+
-+		/* Serialise against efx_reset(). No more resets will be
-+		 * scheduled since efx_stop_all() has been called, and we
-+		 * have not and never have been registered with either
-+		 * the rtnetlink or driverlink layers. */
-+		cancel_work_sync(&efx->reset_work);
-+
-+		/* Retry if a recoverably reset event has been scheduled */
-+		if ((efx->reset_pending != RESET_TYPE_INVISIBLE) &&
-+		    (efx->reset_pending != RESET_TYPE_ALL))
-+			goto fail4;
-+
-+		efx->reset_pending = RESET_TYPE_NONE;
-+	}
-+
-+	if (rc) {
-+		EFX_ERR(efx, "Could not reset NIC\n");
-+		goto fail5;
-+	}
-+
-+	/* Switch to the running state before we expose the device to
-+	 * the OS.  This is to ensure that the initial gathering of
-+	 * MAC stats succeeds. */
-+	rtnl_lock();
-+	efx->state = STATE_RUNNING;
-+	rtnl_unlock();
-+
-+	rc = efx_register_netdev(efx);
-+	if (rc)
-+		goto fail7;
-+
-+	EFX_LOG(efx, "initialisation successful\n");
-+
-+	return 0;
-+
-+ fail7:
-+	efx_pci_remove_main(efx);
-+ fail5:
-+ fail4:
-+	efx_fini_io(efx);
-+ fail3:
-+	efx_fini_struct(efx);
-+ fail2:
-+	kfree(efx);
-+ fail1:
-+	EFX_LOG(efx, "initialisation failed. rc=%d\n", rc);
-+	return rc;
-+}
-+
-+static struct pci_driver efx_pci_driver = {
-+	.name		= EFX_DRIVER_NAME,
-+	.id_table	= efx_pci_table,
-+	.probe		= efx_pci_probe,
-+	.remove		= efx_pci_remove,
-+};
-+
-+/**************************************************************************
-+ *
-+ * Kernel module interface
++ * Prototypes and inline functions
 + *
 + *************************************************************************/
 +
-+module_param(interrupt_mode, uint, 0444);
-+MODULE_PARM_DESC(interrupt_mode,
-+		 "Interrupt mode (0=>MSIX 1=>MSI 2=>legacy)");
++/* Iterate over all used channels */
++#define efx_for_each_channel(_channel, _efx)				\
++	for (_channel = &_efx->channel[0];				\
++	     _channel < &_efx->channel[EFX_MAX_CHANNELS];		\
++	     _channel++)						\
++		if (!_channel->used_flags)				\
++			continue;					\
++		else
 +
-+static int __init efx_init_module(void)
++/* Iterate over all used channels with interrupts */
++#define efx_for_each_channel_with_interrupt(_channel, _efx)		\
++	for (_channel = &_efx->channel[0];				\
++	     _channel < &_efx->channel[EFX_MAX_CHANNELS];		\
++	     _channel++)						\
++		if (!(_channel->used_flags && _channel->has_interrupt))	\
++			continue;					\
++		else
++
++/* Iterate over all used TX queues */
++#define efx_for_each_tx_queue(_tx_queue, _efx)				\
++	for (_tx_queue = &_efx->tx_queue[0];				\
++	     _tx_queue < &_efx->tx_queue[EFX_MAX_TX_QUEUES];		\
++	     _tx_queue++)						\
++		if (!_tx_queue->used)					\
++			continue;					\
++		else
++
++/* Iterate over all TX queues belonging to a channel */
++#define efx_for_each_channel_tx_queue(_tx_queue, _channel)		\
++	for (_tx_queue = &_channel->efx->tx_queue[0];			\
++	     _tx_queue < &_channel->efx->tx_queue[EFX_MAX_TX_QUEUES];	\
++	     _tx_queue++)						\
++		if ((!_tx_queue->used) ||				\
++		    (_tx_queue->channel != _channel))			\
++			continue;					\
++		else
++
++/* Iterate over all used RX queues */
++#define efx_for_each_rx_queue(_rx_queue, _efx)				\
++	for (_rx_queue = &_efx->rx_queue[0];				\
++	     _rx_queue < &_efx->rx_queue[EFX_MAX_RX_QUEUES];		\
++	     _rx_queue++)						\
++		if (!_rx_queue->used)					\
++			continue;					\
++		else
++
++/* Iterate over all RX queues belonging to a channel */
++#define efx_for_each_channel_rx_queue(_rx_queue, _channel)		\
++	for (_rx_queue = &_channel->efx->rx_queue[0];			\
++	     _rx_queue < &_channel->efx->rx_queue[EFX_MAX_RX_QUEUES];	\
++	     _rx_queue++)						\
++		if ((!_rx_queue->used) ||				\
++		    (_rx_queue->channel != _channel))			\
++			continue;					\
++		else
++
++/* Name formats */
++#define EFX_CHANNEL_NAME(_channel) "channel%d", _channel->channel
++#define EFX_TX_QUEUE_NAME(_tx_queue) "txq%d", _tx_queue->queue
++#define EFX_RX_QUEUE_NAME(_rx_queue) "rxq%d", _rx_queue->queue
++
++/* Returns a pointer to the specified receive buffer in the RX
++ * descriptor queue.
++ */
++static inline struct efx_rx_buffer *efx_rx_buffer(struct efx_rx_queue *rx_queue,
++						  unsigned int index)
 +{
-+	int rc;
-+
-+	printk(KERN_INFO "Solarflare NET driver v" EFX_DRIVER_VERSION "\n");
-+
-+	rc = register_netdevice_notifier(&efx_netdev_notifier);
-+	if (rc)
-+		goto err_notifier;
-+
-+	refill_workqueue = create_workqueue("sfc_refill");
-+	if (!refill_workqueue) {
-+		rc = -ENOMEM;
-+		goto err_refill;
-+	}
-+
-+	rc = pci_register_driver(&efx_pci_driver);
-+	if (rc < 0)
-+		goto err_pci;
-+
-+	return 0;
-+
-+ err_pci:
-+	destroy_workqueue(refill_workqueue);
-+ err_refill:
-+	unregister_netdevice_notifier(&efx_netdev_notifier);
-+ err_notifier:
-+	return rc;
++	return (&rx_queue->buffer[index]);
 +}
 +
-+static void __exit efx_exit_module(void)
++/* Set bit in a little-endian bitfield */
++static inline void set_bit_le(int nr, unsigned char *addr)
 +{
-+	printk(KERN_INFO "Solarflare NET driver unloading\n");
-+
-+	pci_unregister_driver(&efx_pci_driver);
-+	destroy_workqueue(refill_workqueue);
-+	unregister_netdevice_notifier(&efx_netdev_notifier);
-+
++	addr[nr / 8] |= (1 << (nr % 8));
 +}
 +
-+module_init(efx_init_module);
-+module_exit(efx_exit_module);
++/* Clear bit in a little-endian bitfield */
++static inline void clear_bit_le(int nr, unsigned char *addr)
++{
++	addr[nr / 8] &= ~(1 << (nr % 8));
++}
 +
-+MODULE_AUTHOR("Michael Brown <mbrown@fensystems.co.uk> and "
-+	      "Solarflare Communications");
-+MODULE_DESCRIPTION("Solarflare Communications network driver");
-+MODULE_LICENSE("GPL");
-+MODULE_DEVICE_TABLE(pci, efx_pci_table);
-diff --git a/drivers/net/sfc/efx.h b/drivers/net/sfc/efx.h
++
++/**
++ * EFX_MAX_FRAME_LEN - calculate maximum frame length
++ *
++ * This calculates the maximum frame length that will be used for a
++ * given MTU.  The frame length will be equal to the MTU plus a
++ * constant amount of header space and padding.  This is the quantity
++ * that the net driver will program into the MAC as the maximum frame
++ * length.
++ *
++ * The 10G MAC used in Falcon requires 8-byte alignment on the frame
++ * length, so we round up to the nearest 8.
++ */
++#define EFX_MAX_FRAME_LEN(mtu) \
++	((((mtu) + ETH_HLEN + VLAN_HLEN + 4/* FCS */) + 7) & ~7)
++
++
++#endif /* EFX_NET_DRIVER_H */
+diff --git a/drivers/net/sfc/bitfield.h b/drivers/net/sfc/bitfield.h
 new file mode 100644
-index 0000000..3b2f69f
+index 0000000..8ba2fa0
 --- /dev/null
-+++ b/drivers/net/sfc/efx.h
-@@ -0,0 +1,67 @@
++++ b/drivers/net/sfc/bitfield.h
+@@ -0,0 +1,527 @@
 +/****************************************************************************
 + * Driver for Solarflare Solarstorm network controllers and boards
 + * Copyright 2005-2006 Fen Systems Ltd.
@@ -2384,63 +937,575 @@ index 0000000..3b2f69f
 + * by the Free Software Foundation, incorporated herein by reference.
 + */
 +
-+#ifndef EFX_EFX_H
-+#define EFX_EFX_H
++#ifndef EFX_BITFIELD_H
++#define EFX_BITFIELD_H
 +
-+#include "net_driver.h"
++/*
++ * Efx bitfield access
++ *
++ * Efx NICs make extensive use of bitfields up to 128 bits
++ * wide.  Since there is no native 128-bit datatype on most systems,
++ * and since 64-bit datatypes are inefficient on 32-bit systems and
++ * vice versa, we wrap accesses in a way that uses the most efficient
++ * datatype.
++ *
++ * The NICs are PCI devices and therefore little-endian.  Since most
++ * of the quantities that we deal with are DMAed to/from host memory,
++ * we define our datatypes (efx_oword_t, efx_qword_t and
++ * efx_dword_t) to be little-endian.
++ */
 +
-+/* PCI IDs */
-+#define EFX_VENDID_SFC	        0x1924
-+#define FALCON_A_P_DEVID	0x0703
-+#define FALCON_A_S_DEVID        0x6703
-+#define FALCON_B_P_DEVID        0x0710
++/* Lowest bit numbers and widths */
++#define EFX_DUMMY_FIELD_LBN 0
++#define EFX_DUMMY_FIELD_WIDTH 0
++#define EFX_DWORD_0_LBN 0
++#define EFX_DWORD_0_WIDTH 32
++#define EFX_DWORD_1_LBN 32
++#define EFX_DWORD_1_WIDTH 32
++#define EFX_DWORD_2_LBN 64
++#define EFX_DWORD_2_WIDTH 32
++#define EFX_DWORD_3_LBN 96
++#define EFX_DWORD_3_WIDTH 32
 +
-+/* TX */
-+extern int efx_xmit(struct efx_nic *efx,
-+		    struct efx_tx_queue *tx_queue, struct sk_buff *skb);
-+extern void efx_stop_queue(struct efx_nic *efx);
-+extern void efx_wake_queue(struct efx_nic *efx);
++#define EFX_BYTE  1
++#define EFX_WORD  2
++#define EFX_DWORD 4
++#define EFX_OWORD 8
 +
-+/* RX */
-+extern void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index);
-+extern void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
-+			  unsigned int len, int checksummed, int discard);
-+extern void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue, int delay);
++/* Specified attribute (e.g. LBN) of the specified field */
++#define EFX_VAL(field, attribute) field ## _ ## attribute
++/* Low bit number of the specified field */
++#define EFX_LOW_BIT(field) EFX_VAL(field, LBN)
++/* Bit width of the specified field */
++#define EFX_WIDTH(field) EFX_VAL(field, WIDTH)
++/* High bit number of the specified field */
++#define EFX_HIGH_BIT(field) (EFX_LOW_BIT(field) + EFX_WIDTH(field) - 1)
++/* Mask equal in width to the specified field.
++ *
++ * For example, a field with width 5 would have a mask of 0x1f.
++ *
++ * The maximum width mask that can be generated is 64 bits.
++ */
++#define EFX_MASK64(field)					\
++	(EFX_WIDTH(field) == 64 ? ~((u64) 0) :		\
++	 (((((u64) 1) << EFX_WIDTH(field))) - 1))
 +
-+/* Channels */
-+extern void efx_process_channel_now(struct efx_channel *channel);
-+extern int efx_flush_queues(struct efx_nic *efx);
++/* Mask equal in width to the specified field.
++ *
++ * For example, a field with width 5 would have a mask of 0x1f.
++ *
++ * The maximum width mask that can be generated is 32 bits.  Use
++ * EFX_MASK64 for higher width fields.
++ */
++#define EFX_MASK32(field)					\
++	(EFX_WIDTH(field) == 32 ? ~((u32) 0) :		\
++	 (((((u32) 1) << EFX_WIDTH(field))) - 1))
 +
-+/* Ports */
-+extern void efx_reconfigure_port(struct efx_nic *efx);
++/* A doubleword (i.e. 4 byte) datatype - little-endian in HW */
++typedef union efx_dword {
++	__le32 u32[1];
++} efx_dword_t;
 +
-+/* Global */
-+extern void efx_schedule_reset(struct efx_nic *efx, enum reset_type type);
-+extern void efx_suspend(struct efx_nic *efx);
-+extern void efx_resume(struct efx_nic *efx);
-+extern void efx_init_irq_moderation(struct efx_nic *efx, int tx_usecs,
-+				    int rx_usecs);
-+extern int efx_request_power(struct efx_nic *efx, int mw, const char *name);
-+extern void efx_hex_dump(const u8 *, unsigned int, const char *);
++/* A quadword (i.e. 8 byte) datatype - little-endian in HW */
++typedef union efx_qword {
++	__le64 u64[1];
++	__le32 u32[2];
++	efx_dword_t dword[2];
++} efx_qword_t;
 +
-+/* Dummy PHY ops for PHY drivers */
-+extern int efx_port_dummy_op_int(struct efx_nic *efx);
-+extern void efx_port_dummy_op_void(struct efx_nic *efx);
-+extern void efx_port_dummy_op_blink(struct efx_nic *efx, int blink);
++/* An octword (eight-word, i.e. 16 byte) datatype - little-endian in HW */
++typedef union efx_oword {
++	__le64 u64[2];
++	efx_qword_t qword[2];
++	__le32 u32[4];
++	efx_dword_t dword[4];
++} efx_oword_t;
 +
++/* Format string and value expanders for printk */
++#define EFX_DWORD_FMT "%08x"
++#define EFX_QWORD_FMT "%08x:%08x"
++#define EFX_OWORD_FMT "%08x:%08x:%08x:%08x"
++#define EFX_DWORD_VAL(dword)				\
++	((unsigned int) le32_to_cpu((dword).u32[0]))
++#define EFX_QWORD_VAL(qword)				\
++	((unsigned int) le32_to_cpu((qword).u32[1])),	\
++	((unsigned int) le32_to_cpu((qword).u32[0]))
++#define EFX_OWORD_VAL(oword)				\
++	((unsigned int) le32_to_cpu((oword).u32[3])),	\
++	((unsigned int) le32_to_cpu((oword).u32[2])),	\
++	((unsigned int) le32_to_cpu((oword).u32[1])),	\
++	((unsigned int) le32_to_cpu((oword).u32[0]))
 +
-+extern unsigned int efx_monitor_interval;
++/*
++ * Extract bit field portion [low,high) from the native-endian element
++ * which contains bits [min,max).
++ *
++ * For example, suppose "element" represents the high 32 bits of a
++ * 64-bit value, and we wish to extract the bits belonging to the bit
++ * field occupying bits 28-45 of this 64-bit value.
++ *
++ * Then EFX_EXTRACT ( element, 32, 63, 28, 45 ) would give
++ *
++ *   ( element ) << 4
++ *
++ * The result will contain the relevant bits filled in in the range
++ * [0,high-low), with garbage in bits [high-low+1,...).
++ */
++#define EFX_EXTRACT_NATIVE(native_element, min, max, low, high)		\
++	(((low > max) || (high < min)) ? 0 :				\
++	 ((low > min) ?							\
++	  ((native_element) >> (low - min)) :				\
++	  ((native_element) << (min - low))))
 +
-+static inline void efx_schedule_channel(struct efx_channel *channel)
++/*
++ * Extract bit field portion [low,high) from the 64-bit little-endian
++ * element which contains bits [min,max)
++ */
++#define EFX_EXTRACT64(element, min, max, low, high)			\
++	EFX_EXTRACT_NATIVE(le64_to_cpu(element), min, max, low, high)
++
++/*
++ * Extract bit field portion [low,high) from the 32-bit little-endian
++ * element which contains bits [min,max)
++ */
++#define EFX_EXTRACT32(element, min, max, low, high)			\
++	EFX_EXTRACT_NATIVE(le32_to_cpu(element), min, max, low, high)
++
++#define EFX_EXTRACT_OWORD64(oword, low, high)				\
++	(EFX_EXTRACT64((oword).u64[0], 0, 63, low, high) |		\
++	 EFX_EXTRACT64((oword).u64[1], 64, 127, low, high))
++
++#define EFX_EXTRACT_QWORD64(qword, low, high)				\
++	EFX_EXTRACT64((qword).u64[0], 0, 63, low, high)
++
++#define EFX_EXTRACT_OWORD32(oword, low, high)				\
++	(EFX_EXTRACT32((oword).u32[0], 0, 31, low, high) |		\
++	 EFX_EXTRACT32((oword).u32[1], 32, 63, low, high) |		\
++	 EFX_EXTRACT32((oword).u32[2], 64, 95, low, high) |		\
++	 EFX_EXTRACT32((oword).u32[3], 96, 127, low, high))
++
++#define EFX_EXTRACT_QWORD32(qword, low, high)				\
++	(EFX_EXTRACT32((qword).u32[0], 0, 31, low, high) |		\
++	 EFX_EXTRACT32((qword).u32[1], 32, 63, low, high))
++
++#define EFX_EXTRACT_DWORD(dword, low, high)				\
++	EFX_EXTRACT32((dword).u32[0], 0, 31, low, high)
++
++#define EFX_OWORD_FIELD64(oword, field)					\
++	(EFX_EXTRACT_OWORD64(oword, EFX_LOW_BIT(field), EFX_HIGH_BIT(field)) \
++	 & EFX_MASK64(field))
++
++#define EFX_QWORD_FIELD64(qword, field)					\
++	(EFX_EXTRACT_QWORD64(qword, EFX_LOW_BIT(field), EFX_HIGH_BIT(field)) \
++	 & EFX_MASK64(field))
++
++#define EFX_OWORD_FIELD32(oword, field)					\
++	(EFX_EXTRACT_OWORD32(oword, EFX_LOW_BIT(field), EFX_HIGH_BIT(field)) \
++	 & EFX_MASK32(field))
++
++#define EFX_QWORD_FIELD32(qword, field)					\
++	(EFX_EXTRACT_QWORD32(qword, EFX_LOW_BIT(field), EFX_HIGH_BIT(field)) \
++	 & EFX_MASK32(field))
++
++#define EFX_DWORD_FIELD(dword, field)					   \
++	(EFX_EXTRACT_DWORD(dword, EFX_LOW_BIT(field), EFX_HIGH_BIT(field)) \
++	 & EFX_MASK32(field))
++
++#define EFX_OWORD_IS_ZERO64(oword)					\
++	(((oword).u64[0] | (oword).u64[1]) == (__force __le64) 0)
++
++#define EFX_QWORD_IS_ZERO64(qword)					\
++	(((qword).u64[0]) == (__force __le64) 0)
++
++#define EFX_OWORD_IS_ZERO32(oword)					     \
++	(((oword).u32[0] | (oword).u32[1] | (oword).u32[2] | (oword).u32[3]) \
++	 == (__force __le32) 0)
++
++#define EFX_QWORD_IS_ZERO32(qword)					\
++	(((qword).u32[0] | (qword).u32[1]) == (__force __le32) 0)
++
++#define EFX_DWORD_IS_ZERO(dword)					\
++	(((dword).u32[0]) == (__force __le32) 0)
++
++#define EFX_OWORD_IS_ALL_ONES64(oword)					\
++	(((oword).u64[0] & (oword).u64[1]) == ~((__force __le64) 0))
++
++#define EFX_QWORD_IS_ALL_ONES64(qword)					\
++	((qword).u64[0] == ~((__force __le64) 0))
++
++#define EFX_OWORD_IS_ALL_ONES32(oword)					\
++	(((oword).u32[0] & (oword).u32[1] & (oword).u32[2] & (oword).u32[3]) \
++	 == ~((__force __le32) 0))
++
++#define EFX_QWORD_IS_ALL_ONES32(qword)					\
++	(((qword).u32[0] & (qword).u32[1]) == ~((__force __le32) 0))
++
++#define EFX_DWORD_IS_ALL_ONES(dword)					\
++	((dword).u32[0] == ~((__force __le32) 0))
++
++#if BITS_PER_LONG == 64
++#define EFX_OWORD_FIELD		EFX_OWORD_FIELD64
++#define EFX_QWORD_FIELD		EFX_QWORD_FIELD64
++#define EFX_OWORD_IS_ZERO	EFX_OWORD_IS_ZERO64
++#define EFX_QWORD_IS_ZERO	EFX_QWORD_IS_ZERO64
++#define EFX_OWORD_IS_ALL_ONES	EFX_OWORD_IS_ALL_ONES64
++#define EFX_QWORD_IS_ALL_ONES	EFX_QWORD_IS_ALL_ONES64
++#else
++#define EFX_OWORD_FIELD		EFX_OWORD_FIELD32
++#define EFX_QWORD_FIELD		EFX_QWORD_FIELD32
++#define EFX_OWORD_IS_ZERO	EFX_OWORD_IS_ZERO32
++#define EFX_QWORD_IS_ZERO	EFX_QWORD_IS_ZERO32
++#define EFX_OWORD_IS_ALL_ONES	EFX_OWORD_IS_ALL_ONES32
++#define EFX_QWORD_IS_ALL_ONES	EFX_QWORD_IS_ALL_ONES32
++#endif
++
++/*
++ * Construct bit field portion
++ *
++ * Creates the portion of the bit field [low,high) that lies within
++ * the range [min,max).
++ */
++#define EFX_INSERT_NATIVE64(min, max, low, high, value)		\
++	(((low > max) || (high < min)) ? 0 :			\
++	 ((low > min) ?						\
++	  (((u64) (value)) << (low - min)) :		\
++	  (((u64) (value)) >> (min - low))))
++
++#define EFX_INSERT_NATIVE32(min, max, low, high, value)		\
++	(((low > max) || (high < min)) ? 0 :			\
++	 ((low > min) ?						\
++	  (((u32) (value)) << (low - min)) :		\
++	  (((u32) (value)) >> (min - low))))
++
++#define EFX_INSERT_NATIVE(min, max, low, high, value)		\
++	((((max - min) >= 32) || ((high - low) >= 32)) ?	\
++	 EFX_INSERT_NATIVE64(min, max, low, high, value) :	\
++	 EFX_INSERT_NATIVE32(min, max, low, high, value))
++
++/*
++ * Construct bit field portion
++ *
++ * Creates the portion of the named bit field that lies within the
++ * range [min,max).
++ */
++#define EFX_INSERT_FIELD_NATIVE(min, max, field, value)		\
++	EFX_INSERT_NATIVE(min, max, EFX_LOW_BIT(field),		\
++			  EFX_HIGH_BIT(field), value)
++
++/*
++ * Construct bit field
++ *
++ * Creates the portion of the named bit fields that lie within the
++ * range [min,max).
++ */
++#define EFX_INSERT_FIELDS_NATIVE(min, max,				\
++				 field1, value1,			\
++				 field2, value2,			\
++				 field3, value3,			\
++				 field4, value4,			\
++				 field5, value5,			\
++				 field6, value6,			\
++				 field7, value7,			\
++				 field8, value8,			\
++				 field9, value9,			\
++				 field10, value10)			\
++	(EFX_INSERT_FIELD_NATIVE((min), (max), field1, (value1)) |	\
++	 EFX_INSERT_FIELD_NATIVE((min), (max), field2, (value2)) |	\
++	 EFX_INSERT_FIELD_NATIVE((min), (max), field3, (value3)) |	\
++	 EFX_INSERT_FIELD_NATIVE((min), (max), field4, (value4)) |	\
++	 EFX_INSERT_FIELD_NATIVE((min), (max), field5, (value5)) |	\
++	 EFX_INSERT_FIELD_NATIVE((min), (max), field6, (value6)) |	\
++	 EFX_INSERT_FIELD_NATIVE((min), (max), field7, (value7)) |	\
++	 EFX_INSERT_FIELD_NATIVE((min), (max), field8, (value8)) |	\
++	 EFX_INSERT_FIELD_NATIVE((min), (max), field9, (value9)) |	\
++	 EFX_INSERT_FIELD_NATIVE((min), (max), field10, (value10)))
++
++#define EFX_INSERT_FIELDS64(...)				\
++	cpu_to_le64(EFX_INSERT_FIELDS_NATIVE(__VA_ARGS__))
++
++#define EFX_INSERT_FIELDS32(...)				\
++	cpu_to_le32(EFX_INSERT_FIELDS_NATIVE(__VA_ARGS__))
++
++#define EFX_POPULATE_OWORD64(oword, ...) do {				\
++	(oword).u64[0] = EFX_INSERT_FIELDS64(0, 63, __VA_ARGS__);	\
++	(oword).u64[1] = EFX_INSERT_FIELDS64(64, 127, __VA_ARGS__);	\
++	} while (0)
++
++#define EFX_POPULATE_QWORD64(qword, ...) do {				\
++	(qword).u64[0] = EFX_INSERT_FIELDS64(0, 63, __VA_ARGS__);	\
++	} while (0)
++
++#define EFX_POPULATE_OWORD32(oword, ...) do {				\
++	(oword).u32[0] = EFX_INSERT_FIELDS32(0, 31, __VA_ARGS__);	\
++	(oword).u32[1] = EFX_INSERT_FIELDS32(32, 63, __VA_ARGS__);	\
++	(oword).u32[2] = EFX_INSERT_FIELDS32(64, 95, __VA_ARGS__);	\
++	(oword).u32[3] = EFX_INSERT_FIELDS32(96, 127, __VA_ARGS__);	\
++	} while (0)
++
++#define EFX_POPULATE_QWORD32(qword, ...) do {				\
++	(qword).u32[0] = EFX_INSERT_FIELDS32(0, 31, __VA_ARGS__);	\
++	(qword).u32[1] = EFX_INSERT_FIELDS32(32, 63, __VA_ARGS__);	\
++	} while (0)
++
++#define EFX_POPULATE_DWORD(dword, ...) do {				\
++	(dword).u32[0] = EFX_INSERT_FIELDS32(0, 31, __VA_ARGS__);	\
++	} while (0)
++
++#if BITS_PER_LONG == 64
++#define EFX_POPULATE_OWORD EFX_POPULATE_OWORD64
++#define EFX_POPULATE_QWORD EFX_POPULATE_QWORD64
++#else
++#define EFX_POPULATE_OWORD EFX_POPULATE_OWORD32
++#define EFX_POPULATE_QWORD EFX_POPULATE_QWORD32
++#endif
++
++/* Populate an octword field with various numbers of arguments */
++#define EFX_POPULATE_OWORD_10 EFX_POPULATE_OWORD
++#define EFX_POPULATE_OWORD_9(oword, ...) \
++	EFX_POPULATE_OWORD_10(oword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_OWORD_8(oword, ...) \
++	EFX_POPULATE_OWORD_9(oword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_OWORD_7(oword, ...) \
++	EFX_POPULATE_OWORD_8(oword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_OWORD_6(oword, ...) \
++	EFX_POPULATE_OWORD_7(oword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_OWORD_5(oword, ...) \
++	EFX_POPULATE_OWORD_6(oword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_OWORD_4(oword, ...) \
++	EFX_POPULATE_OWORD_5(oword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_OWORD_3(oword, ...) \
++	EFX_POPULATE_OWORD_4(oword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_OWORD_2(oword, ...) \
++	EFX_POPULATE_OWORD_3(oword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_OWORD_1(oword, ...) \
++	EFX_POPULATE_OWORD_2(oword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_ZERO_OWORD(oword) \
++	EFX_POPULATE_OWORD_1(oword, EFX_DUMMY_FIELD, 0)
++#define EFX_SET_OWORD(oword) \
++	EFX_POPULATE_OWORD_4(oword, \
++			     EFX_DWORD_0, 0xffffffff, \
++			     EFX_DWORD_1, 0xffffffff, \
++			     EFX_DWORD_2, 0xffffffff, \
++			     EFX_DWORD_3, 0xffffffff)
++
++/* Populate a quadword field with various numbers of arguments */
++#define EFX_POPULATE_QWORD_10 EFX_POPULATE_QWORD
++#define EFX_POPULATE_QWORD_9(qword, ...) \
++	EFX_POPULATE_QWORD_10(qword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_QWORD_8(qword, ...) \
++	EFX_POPULATE_QWORD_9(qword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_QWORD_7(qword, ...) \
++	EFX_POPULATE_QWORD_8(qword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_QWORD_6(qword, ...) \
++	EFX_POPULATE_QWORD_7(qword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_QWORD_5(qword, ...) \
++	EFX_POPULATE_QWORD_6(qword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_QWORD_4(qword, ...) \
++	EFX_POPULATE_QWORD_5(qword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_QWORD_3(qword, ...) \
++	EFX_POPULATE_QWORD_4(qword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_QWORD_2(qword, ...) \
++	EFX_POPULATE_QWORD_3(qword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_QWORD_1(qword, ...) \
++	EFX_POPULATE_QWORD_2(qword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_ZERO_QWORD(qword) \
++	EFX_POPULATE_QWORD_1(qword, EFX_DUMMY_FIELD, 0)
++#define EFX_SET_QWORD(qword) \
++	EFX_POPULATE_QWORD_2(qword, \
++			     EFX_DWORD_0, 0xffffffff, \
++			     EFX_DWORD_1, 0xffffffff)
++
++/* Populate a dword field with various numbers of arguments */
++#define EFX_POPULATE_DWORD_10 EFX_POPULATE_DWORD
++#define EFX_POPULATE_DWORD_9(dword, ...) \
++	EFX_POPULATE_DWORD_10(dword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_DWORD_8(dword, ...) \
++	EFX_POPULATE_DWORD_9(dword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_DWORD_7(dword, ...) \
++	EFX_POPULATE_DWORD_8(dword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_DWORD_6(dword, ...) \
++	EFX_POPULATE_DWORD_7(dword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_DWORD_5(dword, ...) \
++	EFX_POPULATE_DWORD_6(dword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_DWORD_4(dword, ...) \
++	EFX_POPULATE_DWORD_5(dword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_DWORD_3(dword, ...) \
++	EFX_POPULATE_DWORD_4(dword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_DWORD_2(dword, ...) \
++	EFX_POPULATE_DWORD_3(dword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_POPULATE_DWORD_1(dword, ...) \
++	EFX_POPULATE_DWORD_2(dword, EFX_DUMMY_FIELD, 0, __VA_ARGS__)
++#define EFX_ZERO_DWORD(dword) \
++	EFX_POPULATE_DWORD_1(dword, EFX_DUMMY_FIELD, 0)
++#define EFX_SET_DWORD(dword) \
++	EFX_POPULATE_DWORD_1(dword, EFX_DWORD_0, 0xffffffff)
++
++/*
++ * Modify a named field within an already-populated structure.  Used
++ * for read-modify-write operations.
++ *
++ */
++
++#define EFX_INVERT_OWORD(oword) do {		\
++	(oword).u64[0] = ~((oword).u64[0]);	\
++	(oword).u64[1] = ~((oword).u64[1]);	\
++	} while (0)
++
++#define EFX_INSERT_FIELD64(...)					\
++	cpu_to_le64(EFX_INSERT_FIELD_NATIVE(__VA_ARGS__))
++
++#define EFX_INSERT_FIELD32(...)					\
++	cpu_to_le32(EFX_INSERT_FIELD_NATIVE(__VA_ARGS__))
++
++#define EFX_INPLACE_MASK64(min, max, field)			\
++	EFX_INSERT_FIELD64(min, max, field, EFX_MASK64(field))
++
++#define EFX_INPLACE_MASK32(min, max, field)			\
++	EFX_INSERT_FIELD32(min, max, field, EFX_MASK32(field))
++
++#define EFX_SET_OWORD_FIELD64(oword, field, value) do {			\
++	(oword).u64[0] = (((oword).u64[0] 				\
++			   & ~EFX_INPLACE_MASK64(0,  63, field))	\
++			  | EFX_INSERT_FIELD64(0,  63, field, value));  \
++	(oword).u64[1] = (((oword).u64[1] 				\
++			   & ~EFX_INPLACE_MASK64(64, 127, field))	\
++			  | EFX_INSERT_FIELD64(64, 127, field, value)); \
++	} while (0)
++
++#define EFX_SET_QWORD_FIELD64(qword, field, value) do {			\
++	(qword).u64[0] = (((qword).u64[0] 				\
++			   & ~EFX_INPLACE_MASK64(0, 63, field))		\
++			  | EFX_INSERT_FIELD64(0, 63, field, value));	\
++	} while (0)
++
++#define EFX_SET_OWORD_FIELD32(oword, field, value) do {			\
++	(oword).u32[0] = (((oword).u32[0] 				\
++			   & ~EFX_INPLACE_MASK32(0, 31, field))		\
++			  | EFX_INSERT_FIELD32(0, 31, field, value));	\
++	(oword).u32[1] = (((oword).u32[1] 				\
++			   & ~EFX_INPLACE_MASK32(32, 63, field))	\
++			  | EFX_INSERT_FIELD32(32, 63, field, value));	\
++	(oword).u32[2] = (((oword).u32[2] 				\
++			   & ~EFX_INPLACE_MASK32(64, 95, field))	\
++			  | EFX_INSERT_FIELD32(64, 95, field, value));	\
++	(oword).u32[3] = (((oword).u32[3] 				\
++			   & ~EFX_INPLACE_MASK32(96, 127, field))	\
++			  | EFX_INSERT_FIELD32(96, 127, field, value));	\
++	} while (0)
++
++#define EFX_SET_QWORD_FIELD32(qword, field, value) do {			\
++	(qword).u32[0] = (((qword).u32[0] 				\
++			   & ~EFX_INPLACE_MASK32(0, 31, field))		\
++			  | EFX_INSERT_FIELD32(0, 31, field, value));	\
++	(qword).u32[1] = (((qword).u32[1] 				\
++			   & ~EFX_INPLACE_MASK32(32, 63, field))	\
++			  | EFX_INSERT_FIELD32(32, 63, field, value));	\
++	} while (0)
++
++#define EFX_SET_DWORD_FIELD(dword, field, value) do {			\
++	(dword).u32[0] = (((dword).u32[0] 				\
++			   & ~EFX_INPLACE_MASK32(0, 31, field))		\
++			  | EFX_INSERT_FIELD32(0, 31, field, value));	\
++	} while (0)
++
++#if BITS_PER_LONG == 64
++#define EFX_SET_OWORD_FIELD EFX_SET_OWORD_FIELD64
++#define EFX_SET_QWORD_FIELD EFX_SET_QWORD_FIELD64
++#else
++#define EFX_SET_OWORD_FIELD EFX_SET_OWORD_FIELD32
++#define EFX_SET_QWORD_FIELD EFX_SET_QWORD_FIELD32
++#endif
++
++#define EFX_SET_OWORD_FIELD_VER(efx, oword, field, value) do { \
++	if (FALCON_REV(efx) >= FALCON_REV_B0) {			   \
++		EFX_SET_OWORD_FIELD((oword), field##_B0, (value)); \
++	} else { \
++		EFX_SET_OWORD_FIELD((oword), field##_A1, (value)); \
++	} \
++} while (0)
++
++#define EFX_QWORD_FIELD_VER(efx, qword, field)	\
++	(FALCON_REV(efx) >= FALCON_REV_B0 ?	\
++	 EFX_QWORD_FIELD((qword), field##_B0) :	\
++	 EFX_QWORD_FIELD((qword), field##_A1))
++
++/* Used to avoid compiler warnings about shift range exceeding width
++ * of the data types when dma_addr_t is only 32 bits wide.
++ */
++#define DMA_ADDR_T_WIDTH	(8 * sizeof(dma_addr_t))
++#define EFX_DMA_TYPE_WIDTH(width) \
++	(((width) < DMA_ADDR_T_WIDTH) ? (width) : DMA_ADDR_T_WIDTH)
++#define EFX_DMA_MAX_MASK ((DMA_ADDR_T_WIDTH == 64) ? \
++			  ~((u64) 0) : ~((u32) 0))
++#define EFX_DMA_MASK(mask) ((mask) & EFX_DMA_MAX_MASK)
++
++/*
++ * Determine if a DMA address is over the 4GB threshold
++ *
++ * Defined in a slightly tortuous way to avoid compiler warnings.
++ */
++static inline int efx_is_over_4gb(dma_addr_t address)
 +{
-+	EFX_TRACE(channel->efx, "channel %d scheduling NAPI poll on CPU%d\n",
-+		  channel->channel, raw_smp_processor_id());
-+	channel->work_pending = 1;
-+
-+	netif_rx_schedule(channel->napi_dev, &channel->napi_str);
++	if (DMA_ADDR_T_WIDTH > 32)
++		return (((u64) address) >> 32) ? 1 : 0;
++	else
++		/* Can never be true */
++		return 0;
 +}
 +
-+#endif /* EFX_EFX_H */
++#endif /* EFX_BITFIELD_H */
+diff --git a/drivers/net/sfc/enum.h b/drivers/net/sfc/enum.h
+new file mode 100644
+index 0000000..67e07a5
+--- /dev/null
++++ b/drivers/net/sfc/enum.h
+@@ -0,0 +1,46 @@
++/****************************************************************************
++ * Driver for Solarflare Solarstorm network controllers and boards
++ * Copyright 2007 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#ifndef EFX_ENUM_H
++#define EFX_ENUM_H
++
++/*****************************************************************************/
++
++/**
++ * enum reset_type - reset types
++ *
++ * %RESET_TYPE_INVSIBLE, %RESET_TYPE_ALL, %RESET_TYPE_WORLD and
++ * %RESET_TYPE_DISABLE specify the method/scope of the reset.  The
++ * other valuesspecify reasons, which efx_schedule_reset() will choose
++ * a method for.
++ *
++ * @RESET_TYPE_INVISIBLE: don't reset the PHYs or interrupts
++ * @RESET_TYPE_ALL: reset everything but PCI core blocks
++ * @RESET_TYPE_WORLD: reset everything, save & restore PCI config
++ * @RESET_TYPE_DISABLE: disable NIC
++ * @RESET_TYPE_MONITOR: reset due to hardware monitor
++ * @RESET_TYPE_INT_ERROR: reset due to internal error
++ * @RESET_TYPE_RX_RECOVERY: reset to recover from RX datapath errors
++ */
++enum reset_type {
++	RESET_TYPE_NONE = -1,
++	RESET_TYPE_INVISIBLE = 0,
++	RESET_TYPE_ALL = 1,
++	RESET_TYPE_WORLD = 2,
++	RESET_TYPE_DISABLE = 3,
++	RESET_TYPE_MAX_METHOD,
++	RESET_TYPE_MONITOR,
++	RESET_TYPE_INT_ERROR,
++	RESET_TYPE_RX_RECOVERY,
++	RESET_TYPE_RX_DESC_FETCH,
++	RESET_TYPE_TX_DESC_FETCH,
++	RESET_TYPE_MAX,
++};
++
++#endif /* EFX_ENUM_H */
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
