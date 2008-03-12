@@ -1,46 +1,71 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH] NPROTO is redundant; it's equal to AF_MAX/PF_MAX.
-Date: Thu, 13 Mar 2008 10:50:13 +1100
-Message-ID: <200803131050.13790.rusty@rustcorp.com.au>
-References: <200803121224.25228.rusty@rustcorp.com.au> <200803121834.26493.rusty@rustcorp.com.au> <20080312.041318.193687381.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: netconsole still hangs
+Date: Wed, 12 Mar 2008 16:57:17 -0700
+Message-ID: <20080312165717.c0879b1d.akpm@linux-foundation.org>
+References: <20080312161429.d5b1c67b.akpm@linux-foundation.org>
+	<20080312161637.b082b515.akpm@linux-foundation.org>
+	<20080312163013.aaf07aa0.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	rjw@sisk.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:45469 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751700AbYCLXv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Mar 2008 19:51:26 -0400
-In-Reply-To: <20080312.041318.193687381.davem@davemloft.net>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38569 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751952AbYCLX57 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2008 19:57:59 -0400
+In-Reply-To: <20080312163013.aaf07aa0.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DaveM pointed out NPROTO exposed to userspace, so keep it around,
-just make sure it stays in sync.
+On Wed, 12 Mar 2008 16:30:13 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> On Wed, 12 Mar 2008 16:16:37 -0700
+> Andrew Morton <akpm@linux-foundation.org> wrote:
+> 
+> > On Wed, 12 Mar 2008 16:14:29 -0700
+> > Andrew Morton <akpm@linux-foundation.org> wrote:
+> > 
+> > > 
+> > > I thought the recent reverts fixed this, but it seems that it's just become
+> > > a little harder to hit.
+> > > 
+> > > I'm seeing netconsole hangs on two x86_64 systems (2-way t61p laptop, 8-way
+> > > server).  Both use e1000.
+> > > 
+> > > With current mainline on the 8-way, create a printk storm with
+> > > 
+> > > while true
+> > > do
+> > > 	echo t > /proc/sysrq-trigger
+> > > done
+> > > 
+> > > and the machine goes tits-up after about five seconds.
+> > > 
+> > 
+> > whoops, hang on, it's still running.
+> 
+> And it's still running!  I killed the above loop five minutes ago and
+> nothing new is coming out in `dmesg -c', yet data is still flying out over
+> netconsole.  hundreds and hundreds of megabytes.
+> 
+> So I'd say that something in netconsole or the console susbsytem has
+> screwed up its buffer indices and it has gone infinite.
+> 
+> I don't know whether that's a regression though.
+> 
+> <does reboot -f>
+> 
+> OK, that stopped it, so the problem isn't buffering at the receiver.  I
+> already knew that, because the ifconfig "TX bytes" counters were going up
+> on the sending side.
+> 
+> <runs the sysrq-trigger thing again>
+> 
+> OK, this time it did hang up.  Machine unpingable, no signs of life.
+> 
 
-diff -r 1c65089f4c8f include/linux/net.h
---- a/include/linux/net.h	Wed Mar 12 11:19:20 2008 +1100
-+++ b/include/linux/net.h	Wed Mar 12 12:21:46 2008 +1100
-@@ -19,14 +19,15 @@
- #define _LINUX_NET_H
- 
- #include <linux/wait.h>
-+#include <linux/socket.h>
- #include <asm/socket.h>
- 
- struct poll_table_struct;
- struct pipe_inode_info;
- struct inode;
- struct net;
- 
--#define NPROTO		34		/* should be enough for now..	*/
-+#define NPROTO		AF_MAX
- 
- #define SYS_SOCKET	1		/* sys_socket(2)		*/
- #define SYS_BIND	2		/* sys_bind(2)			*/
+I reran the test on 2.6.24 and all seemed fine: the machine didn't hang and
+stopping the script stopped the netconsole output.
