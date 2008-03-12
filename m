@@ -1,49 +1,53 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: Re: [stable] [PATCH] alloc_percpu() fails to allocate percpu data
-Date: Tue, 11 Mar 2008 17:18:13 -0700
-Message-ID: <20080312001813.GS4416@sequoia.sous-sol.org>
-References: <47BDBC23.10605@cosmosbay.com> <170fa0d20803111115n3e8eb438s9b1ad7fff2fb8672@mail.gmail.com> <47D6D24D.2080007@cosmosbay.com> <170fa0d20803111239u4d25b7c8p915e63a43cb389c6@mail.gmail.com>
+From: Philip Craig <philipc@snapgear.com>
+Subject: Re: bridge forwarding delay without STP
+Date: Wed, 12 Mar 2008 10:49:54 +1000
+Message-ID: <47D728B2.2090903@snapgear.com>
+References: <87ejah2ole.fsf@tac.ki.iif.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	"Zhang, Yanmin" <yanmin_zhang@linux.intel.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	netdev@vger.kernel.org,
-	linux kernel <linux-kernel@vger.kernel.org>, stable@kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Christoph Lameter <clameter@sgi.com>
-To: Mike Snitzer <snitzer@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ferenc Wagner <wferi@niif.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:41958 "EHLO
-	sous-sol.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751303AbYCLATx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Mar 2008 20:19:53 -0400
-Content-Disposition: inline
-In-Reply-To: <170fa0d20803111239u4d25b7c8p915e63a43cb389c6@mail.gmail.com>
+Received: from rex.snapgear.com ([203.143.235.140]:54347 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751480AbYCLAuA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2008 20:50:00 -0400
+In-Reply-To: <87ejah2ole.fsf@tac.ki.iif.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Mike Snitzer (snitzer@gmail.com) wrote:
-> On 3/11/08, Eric Dumazet <dada1@cosmosbay.com> wrote:
-> > Mike Snitzer a =E9crit :
-> >  > I see that this fix was committed to mainline as commit
-> >  > be852795e1c8d3829ddf3cb1ce806113611fa555
-> >  >
-> >  > The commit didn't "Cc: <stable@kernel.org>", and it doesn't appe=
-ar to
-> >  > be queued for 2.6.24.x.  Should it be?
-> >
-> > Yes, it should be queued fo 2.6.24.x
->=20
-> That means both of the following commits need to be cherry-picked int=
-o 2.6.24.x:
-> b3242151906372f30f57feaa43b4cac96a23edb1
-> be852795e1c8d3829ddf3cb1ce806113611fa555
+Ferenc Wagner wrote:
+> why does a bridge without STP enabled respect its forward delay and
+> not skip the learning state?  Forward delay is an STP parameter AFAIK
+> (and according to the brctl manual), so I can't see why a bridge not
+> doing STP should consider it at all.  Please enlighten me (and Cc: as
+> I'm not subscribed).
 
-Just send each with appropriate commit hash id and relevant Cc's to
-stable@kernel.org so we can pick them up.
+It doesn't make sense to me either.  But since you can disable the
+forward delay by setting it to 0, I don't think it's a problem to
+leave this capability in, just in case someone wants it.
 
-thanks,
--chris
+But a related problem I have seen is that when you set the forward
+delay to 0, the bridge does not learn addresses for the first 20
+seconds, and so it floods everything during this time.
+
+Here's what I wrote about this back in July (I didn't get any
+replies then):
+
+The reason for this is that hold_time() returns 0 after a topology
+change, br_fdb_update() is a no-op if hold_time() is 0 (so that
+'brctl setmaxage br0 0' can be used to disable learning), and the
+topology change flag isn't cleared for max_age seconds, so nothing
+is learnt during that time.
+
+It seems that the intent of hold_time() is to expire entries that are
+older than forward_delay seconds at the time of the topology change,
+which it does, but then it keeps on checking this expiry again for
+max_age seconds, and bases these checks on the current time rather
+than the time of the change.
+
+A quick fix for the forward delay 0 case would be to skip the
+topology change check if stp is disabled, but if I understand things
+correctly, the expiry isn't right for non-zero cases either.
+
