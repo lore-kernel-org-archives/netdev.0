@@ -1,7 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 2/8] New driver "sfc" for Solarstorm SFC4000 controller (try #8)
-Date: Wed, 12 Mar 2008 01:23:23 +0000
-Message-ID: <20080312012322.GD24160@solarflare.com>
+Subject: [PATCH 5/8] New driver "sfc" for Solarstorm SFC4000 controller (try #8)
+Date: Wed, 12 Mar 2008 01:25:14 +0000
+Message-ID: <20080312012513.GG24160@solarflare.com>
 References: <20080312012102.GB24160@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,1410 +11,23 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:54836 "EHLO
 	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752710AbYCLCW4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2008 22:22:56 -0400
+	by vger.kernel.org with ESMTP id S1751508AbYCLCW7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2008 22:22:59 -0400
 Content-Disposition: inline
 In-Reply-To: <20080312012102.GB24160@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
+diff --git a/drivers/net/sfc/falcon_hwdefs.h b/drivers/net/sfc/falcon_hwdefs.h
 new file mode 100644
-index 0000000..cf74b5f
+index 0000000..26250b1
 --- /dev/null
-+++ b/drivers/net/sfc/rx.c
-@@ -0,0 +1,875 @@
++++ b/drivers/net/sfc/falcon_hwdefs.h
+@@ -0,0 +1,1115 @@
 +/****************************************************************************
 + * Driver for Solarflare Solarstorm network controllers and boards
 + * Copyright 2005-2006 Fen Systems Ltd.
-+ * Copyright 2005-2008 Solarflare Communications Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License version 2 as published
-+ * by the Free Software Foundation, incorporated herein by reference.
-+ */
-+
-+#include <linux/socket.h>
-+#include <linux/in.h>
-+#include <linux/ip.h>
-+#include <linux/tcp.h>
-+#include <linux/udp.h>
-+#include <net/ip.h>
-+#include <net/checksum.h>
-+#include "net_driver.h"
-+#include "rx.h"
-+#include "efx.h"
-+#include "falcon.h"
-+#include "workarounds.h"
-+
-+/* Number of RX descriptors pushed at once. */
-+#define EFX_RX_BATCH  8
-+
-+/* Size of buffer allocated for skb header area. */
-+#define EFX_SKB_HEADERS  64u
-+
-+/*
-+ * rx_alloc_method - RX buffer allocation method
-+ *
-+ * This driver supports two methods for allocating and using RX buffers:
-+ * each RX buffer may be backed by an skb or by an order-n page.
-+ *
-+ * When LRO is in use then the second method has a lower overhead,
-+ * since we don't have to allocate then free skbs on reassembled frames.
-+ *
-+ * Values:
-+ *   - RX_ALLOC_METHOD_AUTO = 0
-+ *   - RX_ALLOC_METHOD_SKB  = 1
-+ *   - RX_ALLOC_METHOD_PAGE = 2
-+ *
-+ * The heuristic for %RX_ALLOC_METHOD_AUTO is a simple hysteresis count
-+ * controlled by the parameters below.
-+ *
-+ *   - Since pushing and popping descriptors are separated by the rx_queue
-+ *     size, so the watermarks should be ~rxd_size.
-+ *   - The performance win by using page-based allocation for LRO is less
-+ *     than the performance hit of using page-based allocation of non-LRO,
-+ *     so the watermarks should reflect this.
-+ *
-+ * Per channel we maintain a single variable, updated by each channel:
-+ *
-+ *   rx_alloc_level += (lro_performed ? RX_ALLOC_FACTOR_LRO :
-+ *                      RX_ALLOC_FACTOR_SKB)
-+ * Per NAPI poll interval, we constrain rx_alloc_level to 0..MAX (which
-+ * limits the hysteresis), and update the allocation strategy:
-+ *
-+ *   rx_alloc_method = (rx_alloc_level > RX_ALLOC_LEVEL_LRO ?
-+ *                      RX_ALLOC_METHOD_PAGE : RX_ALLOC_METHOD_SKB)
-+ */
-+static int rx_alloc_method = RX_ALLOC_METHOD_PAGE;
-+
-+#define RX_ALLOC_LEVEL_LRO 0x2000
-+#define RX_ALLOC_LEVEL_MAX 0x3000
-+#define RX_ALLOC_FACTOR_LRO 1
-+#define RX_ALLOC_FACTOR_SKB -2
-+
-+/* This is the percentage fill level below which new RX descriptors
-+ * will be added to the RX descriptor ring.
-+ */
-+static unsigned int rx_refill_threshold = 90;
-+
-+/* This is the percentage fill level to which an RX queue will be refilled
-+ * when the "RX refill threshold" is reached.
-+ */
-+static unsigned int rx_refill_limit = 95;
-+
-+/*
-+ * RX maximum head room required.
-+ *
-+ * This must be at least 1 to prevent overflow and at least 2 to allow
-+ * pipelined receives.
-+ */
-+#define EFX_RXD_HEAD_ROOM 2
-+
-+/* Macros for zero-order pages (potentially) containing multiple RX buffers */
-+#define RX_DATA_OFFSET(_data)				\
-+	(((unsigned long) (_data)) & (PAGE_SIZE-1))
-+#define RX_BUF_OFFSET(_rx_buf)				\
-+	RX_DATA_OFFSET((_rx_buf)->data)
-+
-+#define RX_PAGE_SIZE(_efx)				\
-+	(PAGE_SIZE * (1u << (_efx)->rx_buffer_order))
-+
-+
-+/**************************************************************************
-+ *
-+ * Linux generic LRO handling
-+ *
-+ **************************************************************************
-+ */
-+
-+static int efx_lro_get_skb_hdr(struct sk_buff *skb, void **ip_hdr,
-+			       void **tcpudp_hdr, u64 *hdr_flags, void *priv)
-+{
-+	struct efx_channel *channel = (struct efx_channel *)priv;
-+	struct iphdr *iph;
-+	struct tcphdr *th;
-+
-+	iph = (struct iphdr *)skb->data;
-+	if (skb->protocol != htons(ETH_P_IP) || iph->protocol != IPPROTO_TCP)
-+		goto fail;
-+
-+	th = (struct tcphdr *)(skb->data + iph->ihl * 4);
-+
-+	*tcpudp_hdr = th;
-+	*ip_hdr = iph;
-+	*hdr_flags = LRO_IPV4 | LRO_TCP;
-+
-+	channel->rx_alloc_level += RX_ALLOC_FACTOR_LRO;
-+	return 0;
-+fail:
-+	channel->rx_alloc_level += RX_ALLOC_FACTOR_SKB;
-+	return -1;
-+}
-+
-+static int efx_get_frag_hdr(struct skb_frag_struct *frag, void **mac_hdr,
-+			    void **ip_hdr, void **tcpudp_hdr, u64 *hdr_flags,
-+			    void *priv)
-+{
-+	struct efx_channel *channel = (struct efx_channel *)priv;
-+	struct ethhdr *eh;
-+	struct iphdr *iph;
-+
-+	/* We support EtherII and VLAN encapsulated IPv4 */
-+	eh = (struct ethhdr *)(page_address(frag->page) + frag->page_offset);
-+	*mac_hdr = eh;
-+
-+	if (eh->h_proto == htons(ETH_P_IP)) {
-+		iph = (struct iphdr *)(eh + 1);
-+	} else {
-+		struct vlan_ethhdr *veh = (struct vlan_ethhdr *)eh;
-+		if (veh->h_vlan_encapsulated_proto != htons(ETH_P_IP))
-+			goto fail;
-+
-+		iph = (struct iphdr *)(veh + 1);
-+	}
-+	*ip_hdr = iph;
-+
-+	/* We can only do LRO over TCP */
-+	if (iph->protocol != IPPROTO_TCP)
-+		goto fail;
-+
-+	*hdr_flags = LRO_IPV4 | LRO_TCP;
-+	*tcpudp_hdr = (struct tcphdr *)((u8 *) iph + iph->ihl * 4);
-+
-+	channel->rx_alloc_level += RX_ALLOC_FACTOR_LRO;
-+	return 0;
-+ fail:
-+	channel->rx_alloc_level += RX_ALLOC_FACTOR_SKB;
-+	return -1;
-+}
-+
-+int efx_lro_init(struct net_lro_mgr *lro_mgr, struct efx_nic *efx)
-+{
-+	size_t s = sizeof(struct net_lro_desc) * EFX_MAX_LRO_DESCRIPTORS;
-+	struct net_lro_desc *lro_arr;
-+
-+	/* Allocate the LRO descriptors structure */
-+	lro_arr = kzalloc(s, GFP_KERNEL);
-+	if (lro_arr == NULL)
-+		return -ENOMEM;
-+
-+	lro_mgr->lro_arr = lro_arr;
-+	lro_mgr->max_desc = EFX_MAX_LRO_DESCRIPTORS;
-+	lro_mgr->max_aggr = EFX_MAX_LRO_AGGR;
-+	lro_mgr->frag_align_pad = EFX_PAGE_SKB_ALIGN;
-+
-+	lro_mgr->get_skb_header = efx_lro_get_skb_hdr;
-+	lro_mgr->get_frag_header = efx_get_frag_hdr;
-+	lro_mgr->dev = efx->net_dev;
-+
-+	lro_mgr->features = LRO_F_NAPI;
-+
-+	/* We can pass packets up with the checksum intact */
-+	lro_mgr->ip_summed = CHECKSUM_UNNECESSARY;
-+
-+	lro_mgr->ip_summed_aggr = CHECKSUM_UNNECESSARY;
-+
-+	return 0;
-+}
-+
-+void efx_lro_fini(struct net_lro_mgr *lro_mgr)
-+{
-+	kfree(lro_mgr->lro_arr);
-+	lro_mgr->lro_arr = NULL;
-+}
-+
-+/**
-+ * efx_init_rx_buffer_skb - create new RX buffer using skb-based allocation
-+ *
-+ * @rx_queue:		Efx RX queue
-+ * @rx_buf:		RX buffer structure to populate
-+ *
-+ * This allocates memory for a new receive buffer, maps it for DMA,
-+ * and populates a struct efx_rx_buffer with the relevant
-+ * information.  Return a negative error code or 0 on success.
-+ */
-+static inline int efx_init_rx_buffer_skb(struct efx_rx_queue *rx_queue,
-+					 struct efx_rx_buffer *rx_buf)
-+{
-+	struct efx_nic *efx = rx_queue->efx;
-+	struct net_device *net_dev = efx->net_dev;
-+	int skb_len = efx->rx_buffer_len;
-+
-+	rx_buf->skb = netdev_alloc_skb(net_dev, skb_len);
-+	if (unlikely(!rx_buf->skb))
-+		return -ENOMEM;
-+
-+	/* Adjust the SKB for padding and checksum */
-+	skb_reserve(rx_buf->skb, NET_IP_ALIGN);
-+	rx_buf->len = skb_len - NET_IP_ALIGN;
-+	rx_buf->data = (char *)rx_buf->skb->data;
-+	rx_buf->skb->ip_summed = CHECKSUM_UNNECESSARY;
-+
-+	rx_buf->dma_addr = pci_map_single(efx->pci_dev,
-+					  rx_buf->data, rx_buf->len,
-+					  PCI_DMA_FROMDEVICE);
-+
-+	if (unlikely(pci_dma_mapping_error(rx_buf->dma_addr))) {
-+		dev_kfree_skb_any(rx_buf->skb);
-+		rx_buf->skb = NULL;
-+		return -EIO;
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ * efx_init_rx_buffer_page - create new RX buffer using page-based allocation
-+ *
-+ * @rx_queue:		Efx RX queue
-+ * @rx_buf:		RX buffer structure to populate
-+ *
-+ * This allocates memory for a new receive buffer, maps it for DMA,
-+ * and populates a struct efx_rx_buffer with the relevant
-+ * information.  Return a negative error code or 0 on success.
-+ */
-+static inline int efx_init_rx_buffer_page(struct efx_rx_queue *rx_queue,
-+					  struct efx_rx_buffer *rx_buf)
-+{
-+	struct efx_nic *efx = rx_queue->efx;
-+	int bytes, space, offset;
-+
-+	bytes = efx->rx_buffer_len - EFX_PAGE_IP_ALIGN;
-+
-+	/* If there is space left in the previously allocated page,
-+	 * then use it. Otherwise allocate a new one */
-+	rx_buf->page = rx_queue->buf_page;
-+	if (rx_buf->page == NULL) {
-+		dma_addr_t dma_addr;
-+
-+		rx_buf->page = alloc_pages(__GFP_COLD | __GFP_COMP | GFP_ATOMIC,
-+					   efx->rx_buffer_order);
-+		if (unlikely(rx_buf->page == NULL))
-+			return -ENOMEM;
-+
-+		dma_addr = pci_map_page(efx->pci_dev, rx_buf->page,
-+					0, RX_PAGE_SIZE(efx),
-+					PCI_DMA_FROMDEVICE);
-+
-+		if (unlikely(pci_dma_mapping_error(dma_addr))) {
-+			__free_pages(rx_buf->page, efx->rx_buffer_order);
-+			rx_buf->page = NULL;
-+			return -EIO;
-+		}
-+
-+		rx_queue->buf_page = rx_buf->page;
-+		rx_queue->buf_dma_addr = dma_addr;
-+		rx_queue->buf_data = ((char *) page_address(rx_buf->page) +
-+				      EFX_PAGE_IP_ALIGN);
-+	}
-+
-+	offset = RX_DATA_OFFSET(rx_queue->buf_data);
-+	rx_buf->len = bytes;
-+	rx_buf->dma_addr = rx_queue->buf_dma_addr + offset;
-+	rx_buf->data = rx_queue->buf_data;
-+
-+	/* Try to pack multiple buffers per page */
-+	if (efx->rx_buffer_order == 0) {
-+		/* The next buffer starts on the next 512 byte boundary */
-+		rx_queue->buf_data += ((bytes + 0x1ff) & ~0x1ff);
-+		offset += ((bytes + 0x1ff) & ~0x1ff);
-+
-+		space = RX_PAGE_SIZE(efx) - offset;
-+		if (space >= bytes) {
-+			/* Refs dropped on kernel releasing each skb */
-+			get_page(rx_queue->buf_page);
-+			goto out;
-+		}
-+	}
-+
-+	/* This is the final RX buffer for this page, so mark it for
-+	 * unmapping */
-+	rx_queue->buf_page = NULL;
-+	rx_buf->unmap_addr = rx_queue->buf_dma_addr;
-+
-+ out:
-+	return 0;
-+}
-+
-+/* This allocates memory for a new receive buffer, maps it for DMA,
-+ * and populates a struct efx_rx_buffer with the relevant
-+ * information.
-+ */
-+static inline int efx_init_rx_buffer(struct efx_rx_queue *rx_queue,
-+				     struct efx_rx_buffer *new_rx_buf)
-+{
-+	int rc = 0;
-+
-+	if (rx_queue->channel->rx_alloc_push_pages) {
-+		new_rx_buf->skb = NULL;
-+		rc = efx_init_rx_buffer_page(rx_queue, new_rx_buf);
-+		rx_queue->alloc_page_count++;
-+	} else {
-+		new_rx_buf->page = NULL;
-+		rc = efx_init_rx_buffer_skb(rx_queue, new_rx_buf);
-+		rx_queue->alloc_skb_count++;
-+	}
-+
-+	if (unlikely(rc < 0))
-+		EFX_LOG_RL(rx_queue->efx, "%s RXQ[%d] =%d\n", __func__,
-+			   rx_queue->queue, rc);
-+	return rc;
-+}
-+
-+static inline void efx_unmap_rx_buffer(struct efx_nic *efx,
-+				       struct efx_rx_buffer *rx_buf)
-+{
-+	if (rx_buf->page) {
-+		EFX_BUG_ON_PARANOID(rx_buf->skb);
-+		if (rx_buf->unmap_addr) {
-+			pci_unmap_page(efx->pci_dev, rx_buf->unmap_addr,
-+				       RX_PAGE_SIZE(efx), PCI_DMA_FROMDEVICE);
-+			rx_buf->unmap_addr = 0;
-+		}
-+	} else if (likely(rx_buf->skb)) {
-+		pci_unmap_single(efx->pci_dev, rx_buf->dma_addr,
-+				 rx_buf->len, PCI_DMA_FROMDEVICE);
-+	}
-+}
-+
-+static inline void efx_free_rx_buffer(struct efx_nic *efx,
-+				      struct efx_rx_buffer *rx_buf)
-+{
-+	if (rx_buf->page) {
-+		__free_pages(rx_buf->page, efx->rx_buffer_order);
-+		rx_buf->page = NULL;
-+	} else if (likely(rx_buf->skb)) {
-+		dev_kfree_skb_any(rx_buf->skb);
-+		rx_buf->skb = NULL;
-+	}
-+}
-+
-+static inline void efx_fini_rx_buffer(struct efx_rx_queue *rx_queue,
-+				      struct efx_rx_buffer *rx_buf)
-+{
-+	efx_unmap_rx_buffer(rx_queue->efx, rx_buf);
-+	efx_free_rx_buffer(rx_queue->efx, rx_buf);
-+}
-+
-+/**
-+ * efx_fast_push_rx_descriptors - push new RX descriptors quickly
-+ * @rx_queue:		RX descriptor queue
-+ * @retry:              Recheck the fill level
-+ * This will aim to fill the RX descriptor queue up to
-+ * @rx_queue->@fast_fill_limit. If there is insufficient atomic
-+ * memory to do so, the caller should retry.
-+ */
-+static int __efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue,
-+					  int retry)
-+{
-+	struct efx_rx_buffer *rx_buf;
-+	unsigned fill_level, index;
-+	int i, space, rc = 0;
-+
-+	/* Calculate current fill level.  Do this outside the lock,
-+	 * because most of the time we'll end up not wanting to do the
-+	 * fill anyway.
-+	 */
-+	fill_level = (rx_queue->added_count - rx_queue->removed_count);
-+	EFX_BUG_ON_PARANOID(fill_level >
-+			    rx_queue->efx->type->rxd_ring_mask + 1);
-+
-+	/* Don't fill if we don't need to */
-+	if (fill_level >= rx_queue->fast_fill_trigger)
-+		return 0;
-+
-+	/* Record minimum fill level */
-+	if (unlikely(fill_level < rx_queue->min_fill))
-+		if (fill_level)
-+			rx_queue->min_fill = fill_level;
-+
-+	/* Acquire RX add lock.  If this lock is contended, then a fast
-+	 * fill must already be in progress (e.g. in the refill
-+	 * tasklet), so we don't need to do anything
-+	 */
-+	if (!spin_trylock_bh(&rx_queue->add_lock))
-+		return -1;
-+
-+ retry:
-+	/* Recalculate current fill level now that we have the lock */
-+	fill_level = (rx_queue->added_count - rx_queue->removed_count);
-+	EFX_BUG_ON_PARANOID(fill_level >
-+			    rx_queue->efx->type->rxd_ring_mask + 1);
-+	space = rx_queue->fast_fill_limit - fill_level;
-+	if (space < EFX_RX_BATCH)
-+		goto out_unlock;
-+
-+	EFX_TRACE(rx_queue->efx, "RX queue %d fast-filling descriptor ring from"
-+		  " level %d to level %d using %s allocation\n",
-+		  rx_queue->queue, fill_level, rx_queue->fast_fill_limit,
-+		  rx_queue->channel->rx_alloc_push_pages ? "page" : "skb");
-+
-+	do {
-+		for (i = 0; i < EFX_RX_BATCH; ++i) {
-+			index = (rx_queue->added_count &
-+				 rx_queue->efx->type->rxd_ring_mask);
-+			rx_buf = efx_rx_buffer(rx_queue, index);
-+			rc = efx_init_rx_buffer(rx_queue, rx_buf);
-+			if (unlikely(rc))
-+				goto out;
-+			++rx_queue->added_count;
-+		}
-+	} while ((space -= EFX_RX_BATCH) >= EFX_RX_BATCH);
-+
-+	EFX_TRACE(rx_queue->efx, "RX queue %d fast-filled descriptor ring "
-+		  "to level %d\n", rx_queue->queue,
-+		  rx_queue->added_count - rx_queue->removed_count);
-+
-+ out:
-+	/* Send write pointer to card. */
-+	falcon_notify_rx_desc(rx_queue);
-+
-+	/* If the fast fill is running inside from the refill tasklet, then
-+	 * for SMP systems it may be running on a different CPU to
-+	 * RX event processing, which means that the fill level may now be
-+	 * out of date. */
-+	if (unlikely(retry && (rc == 0)))
-+		goto retry;
-+
-+ out_unlock:
-+	spin_unlock_bh(&rx_queue->add_lock);
-+
-+	return rc;
-+}
-+
-+/**
-+ * efx_fast_push_rx_descriptors - push new RX descriptors quickly
-+ * @rx_queue:		RX descriptor queue
-+ *
-+ * This will aim to fill the RX descriptor queue up to
-+ * @rx_queue->@fast_fill_limit.  If there is insufficient memory to do so,
-+ * it will schedule a work item to immediately continue the fast fill
-+ */
-+void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue)
-+{
-+	int rc;
-+
-+	rc = __efx_fast_push_rx_descriptors(rx_queue, 0);
-+	if (unlikely(rc)) {
-+		/* Schedule the work item to run immediately. The hope is
-+		 * that work is immediately pending to free some memory
-+		 * (e.g. an RX event or TX completion)
-+		 */
-+		efx_schedule_slow_fill(rx_queue, 0);
-+	}
-+}
-+
-+void efx_rx_work(struct work_struct *data)
-+{
-+	struct efx_rx_queue *rx_queue;
-+	int rc;
-+
-+	rx_queue = container_of(data, struct efx_rx_queue, work.work);
-+
-+	if (unlikely(!rx_queue->channel->enabled))
-+		return;
-+
-+	EFX_TRACE(rx_queue->efx, "RX queue %d worker thread executing on CPU "
-+		  "%d\n", rx_queue->queue, raw_smp_processor_id());
-+
-+	++rx_queue->slow_fill_count;
-+	/* Push new RX descriptors, allowing at least 1 jiffy for
-+	 * the kernel to free some more memory. */
-+	rc = __efx_fast_push_rx_descriptors(rx_queue, 1);
-+	if (rc)
-+		efx_schedule_slow_fill(rx_queue, 1);
-+}
-+
-+static inline void efx_rx_packet__check_len(struct efx_rx_queue *rx_queue,
-+					    struct efx_rx_buffer *rx_buf,
-+					    int len, int *discard,
-+					    int *leak_packet)
-+{
-+	struct efx_nic *efx = rx_queue->efx;
-+	unsigned max_len = rx_buf->len - efx->type->rx_buffer_padding;
-+
-+	if (likely(len <= max_len))
-+		return;
-+
-+	/* The packet must be discarded, but this is only a fatal error
-+	 * if the caller indicated it was
-+	 */
-+	*discard = 1;
-+
-+	if ((len > rx_buf->len) && EFX_WORKAROUND_8071(efx)) {
-+		EFX_ERR_RL(efx, " RX queue %d seriously overlength "
-+			   "RX event (0x%x > 0x%x+0x%x). Leaking\n",
-+			   rx_queue->queue, len, max_len,
-+			   efx->type->rx_buffer_padding);
-+		/* If this buffer was skb-allocated, then the meta
-+		 * data at the end of the skb will be trashed. So
-+		 * we have no choice but to leak the fragment.
-+		 */
-+		*leak_packet = (rx_buf->skb != NULL);
-+		efx_schedule_reset(efx, RESET_TYPE_RX_RECOVERY);
-+	} else {
-+		EFX_ERR_RL(efx, " RX queue %d overlength RX event "
-+			   "(0x%x > 0x%x)\n", rx_queue->queue, len, max_len);
-+	}
-+
-+	rx_queue->channel->n_rx_overlength++;
-+}
-+
-+/* Pass a received packet up through the generic LRO stack
-+ *
-+ * Handles driverlink veto, and passes the fragment up via
-+ * the appropriate LRO method
-+ */
-+static inline void efx_rx_packet_lro(struct efx_channel *channel,
-+				     struct efx_rx_buffer *rx_buf)
-+{
-+	struct net_lro_mgr *lro_mgr = &channel->lro_mgr;
-+	void *priv = channel;
-+
-+	/* Pass the skb/page into the LRO engine */
-+	if (rx_buf->page) {
-+		struct skb_frag_struct frags;
-+
-+		frags.page = rx_buf->page;
-+		frags.page_offset = RX_BUF_OFFSET(rx_buf);
-+		frags.size = rx_buf->len;
-+
-+		lro_receive_frags(lro_mgr, &frags, rx_buf->len,
-+				  rx_buf->len, priv, 0);
-+
-+		EFX_BUG_ON_PARANOID(rx_buf->skb);
-+		rx_buf->page = NULL;
-+	} else {
-+		EFX_BUG_ON_PARANOID(!rx_buf->skb);
-+
-+		lro_receive_skb(lro_mgr, rx_buf->skb, priv);
-+		rx_buf->skb = NULL;
-+	}
-+}
-+
-+/* Allocate and construct an SKB around a struct page.*/
-+static inline struct sk_buff *efx_rx_mk_skb(struct efx_rx_buffer *rx_buf,
-+					    struct efx_nic *efx,
-+					    int hdr_len)
-+{
-+	struct sk_buff *skb;
-+
-+	/* Allocate an SKB to store the headers */
-+	skb = netdev_alloc_skb(efx->net_dev, hdr_len + EFX_PAGE_SKB_ALIGN);
-+	if (unlikely(skb == NULL)) {
-+		EFX_ERR_RL(efx, "RX out of memory for skb\n");
-+		return NULL;
-+	}
-+
-+	EFX_BUG_ON_PARANOID(skb_shinfo(skb)->nr_frags);
-+	EFX_BUG_ON_PARANOID(rx_buf->len < hdr_len);
-+
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	skb_reserve(skb, EFX_PAGE_SKB_ALIGN);
-+
-+	skb->len = rx_buf->len;
-+	skb->truesize = rx_buf->len + sizeof(struct sk_buff);
-+	memcpy(skb->data, rx_buf->data, hdr_len);
-+	skb->tail += hdr_len;
-+
-+	/* Append the remaining page onto the frag list */
-+	if (unlikely(rx_buf->len > hdr_len)) {
-+		struct skb_frag_struct *frag = skb_shinfo(skb)->frags;
-+		frag->page = rx_buf->page;
-+		frag->page_offset = RX_BUF_OFFSET(rx_buf) + hdr_len;
-+		frag->size = skb->len - hdr_len;
-+		skb_shinfo(skb)->nr_frags = 1;
-+		skb->data_len = frag->size;
-+	} else {
-+		__free_pages(rx_buf->page, efx->rx_buffer_order);
-+		skb->data_len = 0;
-+	}
-+
-+	/* Ownership has transferred from the rx_buf to skb */
-+	rx_buf->page = NULL;
-+
-+	/* Move past the ethernet header */
-+	skb->protocol = eth_type_trans(skb, efx->net_dev);
-+
-+	return skb;
-+}
-+
-+void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
-+		   unsigned int len, int checksummed, int discard)
-+{
-+	struct efx_nic *efx = rx_queue->efx;
-+	struct efx_rx_buffer *rx_buf;
-+	int leak_packet = 0;
-+
-+	rx_buf = efx_rx_buffer(rx_queue, index);
-+	EFX_BUG_ON_PARANOID(!rx_buf->data);
-+	EFX_BUG_ON_PARANOID(rx_buf->skb && rx_buf->page);
-+	EFX_BUG_ON_PARANOID(!(rx_buf->skb || rx_buf->page));
-+
-+	/* This allows the refill path to post another buffer.
-+	 * EFX_RXD_HEAD_ROOM ensures that the slot we are using
-+	 * isn't overwritten yet.
-+	 */
-+	rx_queue->removed_count++;
-+
-+	/* Validate the length encoded in the event vs the descriptor pushed */
-+	efx_rx_packet__check_len(rx_queue, rx_buf, len,
-+				 &discard, &leak_packet);
-+
-+	EFX_TRACE(efx, "RX queue %d received id %x at %llx+%x %s%s\n",
-+		  rx_queue->queue, index,
-+		  (unsigned long long)rx_buf->dma_addr, len,
-+		  (checksummed ? " [SUMMED]" : ""),
-+		  (discard ? " [DISCARD]" : ""));
-+
-+	/* Discard packet, if instructed to do so */
-+	if (unlikely(discard)) {
-+		if (unlikely(leak_packet))
-+			rx_queue->channel->n_skbuff_leaks++;
-+		else
-+			/* We haven't called efx_unmap_rx_buffer yet,
-+			 * so fini the entire rx_buffer here */
-+			efx_fini_rx_buffer(rx_queue, rx_buf);
-+		return;
-+	}
-+
-+	/* Release card resources - assumes all RX buffers consumed in-order
-+	 * per RX queue
-+	 */
-+	efx_unmap_rx_buffer(efx, rx_buf);
-+
-+	/* Prefetch nice and early so data will (hopefully) be in cache by
-+	 * the time we look at it.
-+	 */
-+	prefetch(rx_buf->data);
-+
-+	/* Pipeline receives so that we give time for packet headers to be
-+	 * prefetched into cache.
-+	 */
-+	rx_buf->len = len;
-+	if (rx_queue->channel->rx_pkt)
-+		__efx_rx_packet(rx_queue->channel,
-+				rx_queue->channel->rx_pkt,
-+				rx_queue->channel->rx_pkt_csummed);
-+	rx_queue->channel->rx_pkt = rx_buf;
-+	rx_queue->channel->rx_pkt_csummed = checksummed;
-+}
-+
-+/* Handle a received packet.  Second half: Touches packet payload. */
-+void __efx_rx_packet(struct efx_channel *channel,
-+		     struct efx_rx_buffer *rx_buf, int checksummed)
-+{
-+	struct efx_nic *efx = channel->efx;
-+	struct sk_buff *skb;
-+	int lro = efx->net_dev->features & NETIF_F_LRO;
-+
-+	if (rx_buf->skb) {
-+		prefetch(skb_shinfo(rx_buf->skb));
-+
-+		skb_put(rx_buf->skb, rx_buf->len);
-+
-+		/* Move past the ethernet header. rx_buf->data still points
-+		 * at the ethernet header */
-+		rx_buf->skb->protocol = eth_type_trans(rx_buf->skb,
-+						       efx->net_dev);
-+	}
-+
-+	/* Both our generic-LRO and SFC-SSR support skb and page based
-+	 * allocation, but neither support switching from one to the
-+	 * other on the fly. If we spot that the allocation mode has
-+	 * changed, then flush the LRO state.
-+	 */
-+	if (unlikely(channel->rx_alloc_pop_pages != (rx_buf->page != NULL))) {
-+		efx_flush_lro(channel);
-+		channel->rx_alloc_pop_pages = (rx_buf->page != NULL);
-+	}
-+	if (likely(checksummed && lro)) {
-+		efx_rx_packet_lro(channel, rx_buf);
-+		goto done;
-+	}
-+
-+	/* Form an skb if required */
-+	if (rx_buf->page) {
-+		int hdr_len = min(rx_buf->len, EFX_SKB_HEADERS);
-+		skb = efx_rx_mk_skb(rx_buf, efx, hdr_len);
-+		if (unlikely(skb == NULL)) {
-+			efx_free_rx_buffer(efx, rx_buf);
-+			goto done;
-+		}
-+	} else {
-+		/* We now own the SKB */
-+		skb = rx_buf->skb;
-+		rx_buf->skb = NULL;
-+	}
-+
-+	EFX_BUG_ON_PARANOID(rx_buf->page);
-+	EFX_BUG_ON_PARANOID(rx_buf->skb);
-+	EFX_BUG_ON_PARANOID(!skb);
-+
-+	/* Set the SKB flags */
-+	if (unlikely(!checksummed || !efx->rx_checksum_enabled))
-+		skb->ip_summed = CHECKSUM_NONE;
-+
-+	/* Pass the packet up */
-+	netif_receive_skb(skb);
-+
-+	/* Update allocation strategy method */
-+	channel->rx_alloc_level += RX_ALLOC_FACTOR_SKB;
-+
-+	/* fall-thru */
-+done:
-+	efx->net_dev->last_rx = jiffies;
-+}
-+
-+void efx_rx_strategy(struct efx_channel *channel)
-+{
-+	enum efx_rx_alloc_method method = rx_alloc_method;
-+
-+	/* Only makes sense to use page based allocation if LRO is enabled */
-+	if (!(channel->efx->net_dev->features & NETIF_F_LRO)) {
-+		method = RX_ALLOC_METHOD_SKB;
-+	} else if (method == RX_ALLOC_METHOD_AUTO) {
-+		/* Constrain the rx_alloc_level */
-+		if (channel->rx_alloc_level < 0)
-+			channel->rx_alloc_level = 0;
-+		else if (channel->rx_alloc_level > RX_ALLOC_LEVEL_MAX)
-+			channel->rx_alloc_level = RX_ALLOC_LEVEL_MAX;
-+
-+		/* Decide on the allocation method */
-+		method = ((channel->rx_alloc_level > RX_ALLOC_LEVEL_LRO) ?
-+			  RX_ALLOC_METHOD_PAGE : RX_ALLOC_METHOD_SKB);
-+	}
-+
-+	/* Push the option */
-+	channel->rx_alloc_push_pages = (method == RX_ALLOC_METHOD_PAGE);
-+}
-+
-+int efx_probe_rx_queue(struct efx_rx_queue *rx_queue)
-+{
-+	struct efx_nic *efx = rx_queue->efx;
-+	unsigned int rxq_size;
-+	int rc;
-+
-+	EFX_LOG(efx, "creating RX queue %d\n", rx_queue->queue);
-+
-+	/* Allocate RX buffers */
-+	rxq_size = (efx->type->rxd_ring_mask + 1) * sizeof(*rx_queue->buffer);
-+	rx_queue->buffer = kzalloc(rxq_size, GFP_KERNEL);
-+	if (!rx_queue->buffer) {
-+		rc = -ENOMEM;
-+		goto fail1;
-+	}
-+
-+	rc = falcon_probe_rx(rx_queue);
-+	if (rc)
-+		goto fail2;
-+
-+	return 0;
-+
-+ fail2:
-+	kfree(rx_queue->buffer);
-+	rx_queue->buffer = NULL;
-+ fail1:
-+	rx_queue->used = 0;
-+
-+	return rc;
-+}
-+
-+int efx_init_rx_queue(struct efx_rx_queue *rx_queue)
-+{
-+	struct efx_nic *efx = rx_queue->efx;
-+	unsigned int max_fill, trigger, limit;
-+
-+	EFX_LOG(rx_queue->efx, "initialising RX queue %d\n", rx_queue->queue);
-+
-+	/* Initialise ptr fields */
-+	rx_queue->added_count = 0;
-+	rx_queue->notified_count = 0;
-+	rx_queue->removed_count = 0;
-+	rx_queue->min_fill = -1U;
-+	rx_queue->min_overfill = -1U;
-+
-+	/* Initialise limit fields */
-+	max_fill = efx->type->rxd_ring_mask + 1 - EFX_RXD_HEAD_ROOM;
-+	trigger = max_fill * min(rx_refill_threshold, 100U) / 100U;
-+	limit = max_fill * min(rx_refill_limit, 100U) / 100U;
-+
-+	rx_queue->max_fill = max_fill;
-+	rx_queue->fast_fill_trigger = trigger;
-+	rx_queue->fast_fill_limit = limit;
-+
-+	/* Set up RX descriptor ring */
-+	return falcon_init_rx(rx_queue);
-+}
-+
-+void efx_fini_rx_queue(struct efx_rx_queue *rx_queue)
-+{
-+	int i;
-+	struct efx_rx_buffer *rx_buf;
-+
-+	EFX_LOG(rx_queue->efx, "shutting down RX queue %d\n", rx_queue->queue);
-+
-+	falcon_fini_rx(rx_queue);
-+
-+	/* Release RX buffers NB start at index 0 not current HW ptr */
-+	if (rx_queue->buffer) {
-+		for (i = 0; i <= rx_queue->efx->type->rxd_ring_mask; i++) {
-+			rx_buf = efx_rx_buffer(rx_queue, i);
-+			efx_fini_rx_buffer(rx_queue, rx_buf);
-+		}
-+	}
-+
-+	/* For a page that is part-way through splitting into RX buffers */
-+	if (rx_queue->buf_page != NULL) {
-+		pci_unmap_page(rx_queue->efx->pci_dev, rx_queue->buf_dma_addr,
-+			       RX_PAGE_SIZE(rx_queue->efx), PCI_DMA_FROMDEVICE);
-+		__free_pages(rx_queue->buf_page,
-+			     rx_queue->efx->rx_buffer_order);
-+		rx_queue->buf_page = NULL;
-+	}
-+}
-+
-+void efx_remove_rx_queue(struct efx_rx_queue *rx_queue)
-+{
-+	EFX_LOG(rx_queue->efx, "destroying RX queue %d\n", rx_queue->queue);
-+
-+	falcon_remove_rx(rx_queue);
-+
-+	kfree(rx_queue->buffer);
-+	rx_queue->buffer = NULL;
-+	rx_queue->used = 0;
-+}
-+
-+void efx_flush_lro(struct efx_channel *channel)
-+{
-+	lro_flush_all(&channel->lro_mgr);
-+}
-+
-+
-+module_param(rx_alloc_method, int, 0644);
-+MODULE_PARM_DESC(rx_alloc_method, "Allocation method used for RX buffers");
-+
-+module_param(rx_refill_threshold, uint, 0444);
-+MODULE_PARM_DESC(rx_refill_threshold,
-+		 "RX descriptor ring fast/slow fill threshold (%)");
-+
-diff --git a/drivers/net/sfc/rx.h b/drivers/net/sfc/rx.h
-new file mode 100644
-index 0000000..f35e377
---- /dev/null
-+++ b/drivers/net/sfc/rx.h
-@@ -0,0 +1,29 @@
-+/****************************************************************************
-+ * Driver for Solarflare Solarstorm network controllers and boards
-+ * Copyright 2006 Solarflare Communications Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License version 2 as published
-+ * by the Free Software Foundation, incorporated herein by reference.
-+ */
-+
-+#ifndef EFX_RX_H
-+#define EFX_RX_H
-+
-+#include "net_driver.h"
-+
-+int efx_probe_rx_queue(struct efx_rx_queue *rx_queue);
-+void efx_remove_rx_queue(struct efx_rx_queue *rx_queue);
-+int efx_init_rx_queue(struct efx_rx_queue *rx_queue);
-+void efx_fini_rx_queue(struct efx_rx_queue *rx_queue);
-+
-+int efx_lro_init(struct net_lro_mgr *lro_mgr, struct efx_nic *efx);
-+void efx_lro_fini(struct net_lro_mgr *lro_mgr);
-+void efx_flush_lro(struct efx_channel *channel);
-+void efx_rx_strategy(struct efx_channel *channel);
-+void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue);
-+void efx_rx_work(struct work_struct *data);
-+void __efx_rx_packet(struct efx_channel *channel,
-+		     struct efx_rx_buffer *rx_buf, int checksummed);
-+
-+#endif /* EFX_RX_H */
-diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
-new file mode 100644
-index 0000000..7dc70a2
---- /dev/null
-+++ b/drivers/net/sfc/tx.c
-@@ -0,0 +1,465 @@
-+/****************************************************************************
-+ * Driver for Solarflare Solarstorm network controllers and boards
-+ * Copyright 2005-2006 Fen Systems Ltd.
-+ * Copyright 2005-2008 Solarflare Communications Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License version 2 as published
-+ * by the Free Software Foundation, incorporated herein by reference.
-+ */
-+
-+#include <linux/pci.h>
-+#include <linux/tcp.h>
-+#include <linux/ip.h>
-+#include <linux/in.h>
-+#include <linux/if_ether.h>
-+#include <linux/highmem.h>
-+#include "net_driver.h"
-+#include "tx.h"
-+#include "efx.h"
-+#include "falcon.h"
-+#include "workarounds.h"
-+
-+/*
-+ * TX descriptor ring full threshold
-+ *
-+ * The tx_queue descriptor ring fill-level must fall below this value
-+ * before we restart the netif queue
-+ */
-+#define EFX_NETDEV_TX_THRESHOLD(_tx_queue)	\
-+	(_tx_queue->efx->type->txd_ring_mask / 2u)
-+
-+/* We want to be able to nest calls to netif_stop_queue(), since each
-+ * channel can have an individual stop on the queue.
-+ */
-+void efx_stop_queue(struct efx_nic *efx)
-+{
-+	spin_lock_bh(&efx->netif_stop_lock);
-+	EFX_TRACE(efx, "stop TX queue\n");
-+
-+	atomic_inc(&efx->netif_stop_count);
-+	if (likely(efx->net_dev_registered))
-+		netif_stop_queue(efx->net_dev);
-+
-+	spin_unlock_bh(&efx->netif_stop_lock);
-+}
-+
-+/* Wake netif's TX queue
-+ * We want to be able to nest calls to netif_stop_queue(), since each
-+ * channel can have an individual stop on the queue.
-+ */
-+inline void efx_wake_queue(struct efx_nic *efx)
-+{
-+	local_bh_disable();
-+	if (atomic_dec_and_lock(&efx->netif_stop_count,
-+				&efx->netif_stop_lock)) {
-+		EFX_TRACE(efx, "waking TX queue\n");
-+		if (likely(efx->net_dev_registered))
-+			netif_wake_queue(efx->net_dev);
-+		spin_unlock(&efx->netif_stop_lock);
-+	}
-+	local_bh_enable();
-+}
-+
-+/*
-+ * Add a socket buffer to a TX queue
-+ *
-+ * This maps all fragments of a socket buffer for DMA and adds them to
-+ * the TX queue.  The queue's insert pointer will be incremented by
-+ * the number of fragments in the socket buffer.
-+ *
-+ * If any DMA mapping fails, any mapped fragments will be unmapped,
-+ * the queue's insert pointer will be restored to its original value.
-+ *
-+ * Returns NETDEV_TX_OK or NETDEV_TX_BUSY
-+ * You must hold netif_tx_lock() to call this function.
-+ */
-+static inline int efx_enqueue_skb(struct efx_tx_queue *tx_queue,
-+				  const struct sk_buff *skb)
-+{
-+	struct efx_nic *efx = tx_queue->efx;
-+	struct pci_dev *pci_dev = efx->pci_dev;
-+	struct efx_tx_buffer *buffer;
-+	skb_frag_t *fragment;
-+	struct page *page;
-+	int page_offset;
-+	unsigned int len, unmap_len = 0, fill_level, insert_ptr, misalign;
-+	dma_addr_t dma_addr, unmap_addr = 0;
-+	unsigned int dma_len;
-+	unsigned unmap_single;
-+	int q_space, i = 0;
-+	int rc = NETDEV_TX_OK;
-+
-+	EFX_BUG_ON_PARANOID(tx_queue->write_count != tx_queue->insert_count);
-+
-+	/* Get size of the initial fragment */
-+	len = skb_headlen(skb);
-+
-+	fill_level = tx_queue->insert_count - tx_queue->old_read_count;
-+	q_space = efx->type->txd_ring_mask - 1 - fill_level;
-+
-+	/* Map for DMA.  Use pci_map_single rather than pci_map_page
-+	 * since this is more efficient on machines with sparse
-+	 * memory.
-+	 */
-+	unmap_single = 1;
-+	dma_addr = pci_map_single(pci_dev, skb->data, len, PCI_DMA_TODEVICE);
-+
-+	/* Process all fragments */
-+	while (1) {
-+		if (unlikely(pci_dma_mapping_error(dma_addr)))
-+			goto pci_err;
-+
-+		/* Store fields for marking in the per-fragment final
-+		 * descriptor */
-+		unmap_len = len;
-+		unmap_addr = dma_addr;
-+
-+		/* Add to TX queue, splitting across DMA boundaries */
-+		do {
-+			if (unlikely(q_space-- <= 0)) {
-+				/* It might be that completions have
-+				 * happened since the xmit path last
-+				 * checked.  Update the xmit path's
-+				 * copy of read_count.
-+				 */
-+				++tx_queue->stopped;
-+				/* This memory barrier protects the
-+				 * change of stopped from the access
-+				 * of read_count. */
-+				smp_mb();
-+				tx_queue->old_read_count =
-+					*(volatile unsigned *)
-+					&tx_queue->read_count;
-+				fill_level = (tx_queue->insert_count
-+					      - tx_queue->old_read_count);
-+				q_space = (efx->type->txd_ring_mask - 1 -
-+					   fill_level);
-+				if (unlikely(q_space-- <= 0))
-+					goto stop;
-+				smp_mb();
-+				--tx_queue->stopped;
-+			}
-+
-+			insert_ptr = (tx_queue->insert_count &
-+				      efx->type->txd_ring_mask);
-+			buffer = &tx_queue->buffer[insert_ptr];
-+			EFX_BUG_ON_PARANOID(buffer->skb);
-+			EFX_BUG_ON_PARANOID(buffer->len);
-+			EFX_BUG_ON_PARANOID(buffer->continuation != 1);
-+			EFX_BUG_ON_PARANOID(buffer->unmap_len);
-+
-+			dma_len = (((~dma_addr) & efx->type->tx_dma_mask) + 1);
-+			if (likely(dma_len > len))
-+				dma_len = len;
-+
-+			misalign = (unsigned)dma_addr & efx->type->bug5391_mask;
-+			if (misalign && dma_len + misalign > 512)
-+				dma_len = 512 - misalign;
-+
-+			/* Fill out per descriptor fields */
-+			buffer->len = dma_len;
-+			buffer->dma_addr = dma_addr;
-+			len -= dma_len;
-+			dma_addr += dma_len;
-+			++tx_queue->insert_count;
-+		} while (len);
-+
-+		/* Transfer ownership of the unmapping to the final buffer */
-+		buffer->unmap_addr = unmap_addr;
-+		buffer->unmap_single = unmap_single;
-+		buffer->unmap_len = unmap_len;
-+		unmap_len = 0;
-+
-+		/* Get address and size of next fragment */
-+		if (i >= skb_shinfo(skb)->nr_frags)
-+			break;
-+		fragment = &skb_shinfo(skb)->frags[i];
-+		len = fragment->size;
-+		page = fragment->page;
-+		page_offset = fragment->page_offset;
-+		i++;
-+		/* Map for DMA */
-+		unmap_single = 0;
-+		dma_addr = pci_map_page(pci_dev, page, page_offset, len,
-+					PCI_DMA_TODEVICE);
-+	}
-+
-+	/* Transfer ownership of the skb to the final buffer */
-+	buffer->skb = skb;
-+	buffer->continuation = 0;
-+
-+	/* Pass off to hardware */
-+	falcon_push_buffers(tx_queue);
-+
-+	return NETDEV_TX_OK;
-+
-+ pci_err:
-+	EFX_ERR_RL(efx, " TX queue %d could not map skb with %d bytes %d "
-+		   "fragments for DMA\n", tx_queue->queue, skb->len,
-+		   skb_shinfo(skb)->nr_frags + 1);
-+
-+	/* Mark the packet as transmitted, and free the SKB ourselves */
-+	dev_kfree_skb_any((struct sk_buff *)skb);
-+	goto unwind;
-+
-+ stop:
-+	rc = NETDEV_TX_BUSY;
-+
-+	if (tx_queue->stopped == 1)
-+		efx_stop_queue(efx);
-+
-+ unwind:
-+	/* Work backwards until we hit the original insert pointer value */
-+	while (tx_queue->insert_count != tx_queue->write_count) {
-+		--tx_queue->insert_count;
-+		insert_ptr = tx_queue->insert_count & efx->type->txd_ring_mask;
-+		buffer = &tx_queue->buffer[insert_ptr];
-+		if (buffer->unmap_len) {
-+			if (buffer->unmap_single)
-+				pci_unmap_single(pci_dev, buffer->unmap_addr,
-+						 buffer->unmap_len,
-+						 PCI_DMA_TODEVICE);
-+			else
-+				pci_unmap_page(pci_dev, buffer->unmap_addr,
-+					       buffer->unmap_len,
-+					       PCI_DMA_TODEVICE);
-+		}
-+		buffer->unmap_len = 0;
-+		buffer->len = 0;
-+	}
-+
-+	/* Free the fragment we were mid-way through pushing */
-+	if (unmap_len)
-+		pci_unmap_page(pci_dev, unmap_addr, unmap_len,
-+			       PCI_DMA_TODEVICE);
-+
-+	return rc;
-+}
-+
-+/* Remove packets from the TX queue
-+ *
-+ * This removes packets from the TX queue, up to and including the
-+ * specified index.
-+ */
-+static inline void efx_dequeue_buffers(struct efx_tx_queue *tx_queue,
-+				       unsigned int index)
-+{
-+	struct pci_dev *pci_dev = tx_queue->efx->pci_dev;
-+	struct efx_tx_buffer *buffer;
-+	unsigned int stop_index, read_ptr;
-+
-+	/* Calculate the stopping point.  Doing the check this way
-+	 * avoids wrongly completing every buffer in the ring if we
-+	 * get called twice with the same index.  (Hardware should
-+	 * never do this, since it can't complete that many buffers in
-+	 * one go.)
-+	 */
-+	stop_index = (index + 1) & tx_queue->efx->type->txd_ring_mask;
-+	read_ptr = tx_queue->read_count & tx_queue->efx->type->txd_ring_mask;
-+
-+	while (read_ptr != stop_index) {
-+		buffer = &tx_queue->buffer[read_ptr];
-+		if (unlikely(buffer->len == 0)) {
-+			EFX_ERR(tx_queue->efx, "TX queue %d spurious TX "
-+				"completion id %x\n", tx_queue->queue,
-+				read_ptr);
-+			/* Don't reset */
-+		} else {
-+			if (buffer->unmap_len) {
-+				if (buffer->unmap_single)
-+					pci_unmap_single(pci_dev,
-+							 buffer->unmap_addr,
-+							 buffer->unmap_len,
-+							 PCI_DMA_TODEVICE);
-+				else
-+					pci_unmap_page(pci_dev,
-+						       buffer->unmap_addr,
-+						       buffer->unmap_len,
-+						       PCI_DMA_TODEVICE);
-+				buffer->unmap_single = 0;
-+				buffer->unmap_len = 0;
-+			}
-+			if (buffer->skb) {
-+				dev_kfree_skb_any((struct sk_buff *)
-+						  buffer->skb);
-+				buffer->skb = NULL;
-+				EFX_TRACE(tx_queue->efx, "TX queue %d "
-+					  "transmission id %x complete\n",
-+					  tx_queue->queue, read_ptr);
-+			}
-+			buffer->continuation = 1;
-+			buffer->len = 0;
-+		}
-+		++tx_queue->read_count;
-+		read_ptr = (tx_queue->read_count &
-+			    tx_queue->efx->type->txd_ring_mask);
-+	}
-+}
-+
-+/* Initiate a packet transmission on the specified TX queue.
-+ * Note that returning anything other than NETDEV_TX_OK will cause the
-+ * OS to free the skb.
-+ *
-+ * This function is split out from efx_hard_start_xmit to allow the
-+ * loopback test to direct packets via specific TX queues.  It is
-+ * therefore a non-static inline, so as not to penalise performance
-+ * for non-loopback transmissions.
-+ *
-+ * Context: netif_tx_lock held
-+ */
-+inline int efx_xmit(struct efx_nic *efx,
-+		    struct efx_tx_queue *tx_queue, struct sk_buff *skb)
-+{
-+	int rc;
-+
-+	/* Map fragments for DMA and add to TX queue */
-+	rc = efx_enqueue_skb(tx_queue, skb);
-+	if (unlikely(rc != NETDEV_TX_OK))
-+		goto out;
-+
-+	/* Update last TX timer */
-+	efx->net_dev->trans_start = jiffies;
-+
-+ out:
-+	return rc;
-+}
-+
-+/* Initiate a packet transmission.  We use one channel per CPU
-+ * (sharing when we have more CPUs than channels).  On Falcon, the TX
-+ * completion events will be directed back to the CPU that transmitted
-+ * the packet, which should be cache-efficient.
-+ *
-+ * Context: non-blocking.
-+ * Note that returning anything other than NETDEV_TX_OK will cause the
-+ * OS to free the skb.
-+ */
-+int efx_hard_start_xmit(struct sk_buff *skb, struct net_device *net_dev)
-+{
-+	struct efx_nic *efx = net_dev->priv;
-+	return efx_xmit(efx, &efx->tx_queue[0], skb);
-+}
-+
-+void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index)
-+{
-+	unsigned long flags __attribute__ ((unused));
-+	unsigned fill_level;
-+	struct efx_nic *efx = tx_queue->efx;
-+
-+	EFX_BUG_ON_PARANOID(index > efx->type->txd_ring_mask);
-+
-+	efx_dequeue_buffers(tx_queue, index);
-+
-+	/* See if we need to restart the netif queue.  This barrier
-+	 * separates the update of read_count from the test of
-+	 * stopped. */
-+	smp_mb();
-+	if (unlikely(tx_queue->stopped)) {
-+		fill_level = tx_queue->insert_count - tx_queue->read_count;
-+		if (fill_level < EFX_NETDEV_TX_THRESHOLD(tx_queue)) {
-+			/* If the port is stopped and the net_dev isn't
-+			 * registered, then the caller must be performing
-+			 * flow control manually */
-+			if (unlikely(!efx->net_dev_registered))
-+				return;
-+
-+			/* Do this under netif_tx_lock(), to avoid racing
-+			 * with efx_xmit(). */
-+			netif_tx_lock(efx->net_dev);
-+			if (tx_queue->stopped) {
-+				tx_queue->stopped = 0;
-+				efx_wake_queue(efx);
-+			}
-+			netif_tx_unlock(efx->net_dev);
-+		}
-+	}
-+}
-+
-+int efx_probe_tx_queue(struct efx_tx_queue *tx_queue)
-+{
-+	struct efx_nic *efx = tx_queue->efx;
-+	unsigned int txq_size;
-+	int i, rc;
-+
-+	EFX_LOG(efx, "creating TX queue %d\n", tx_queue->queue);
-+
-+	/* Allocate software ring */
-+	txq_size = (efx->type->txd_ring_mask + 1) * sizeof(*tx_queue->buffer);
-+	tx_queue->buffer = kzalloc(txq_size, GFP_KERNEL);
-+	if (!tx_queue->buffer) {
-+		rc = -ENOMEM;
-+		goto fail1;
-+	}
-+	for (i = 0; i <= efx->type->txd_ring_mask; ++i)
-+		tx_queue->buffer[i].continuation = 1;
-+
-+	/* Allocate hardware ring */
-+	rc = falcon_probe_tx(tx_queue);
-+	if (rc)
-+		goto fail2;
-+
-+	return 0;
-+
-+ fail2:
-+	kfree(tx_queue->buffer);
-+	tx_queue->buffer = NULL;
-+ fail1:
-+	tx_queue->used = 0;
-+
-+	return rc;
-+}
-+
-+int efx_init_tx_queue(struct efx_tx_queue *tx_queue)
-+{
-+	EFX_LOG(tx_queue->efx, "initialising TX queue %d\n", tx_queue->queue);
-+
-+	tx_queue->insert_count = 0;
-+	tx_queue->write_count = 0;
-+	tx_queue->read_count = 0;
-+	tx_queue->old_read_count = 0;
-+	BUG_ON(tx_queue->stopped);
-+
-+	/* Set up TX descriptor ring */
-+	return falcon_init_tx(tx_queue);
-+}
-+
-+void efx_release_tx_buffers(struct efx_tx_queue *tx_queue)
-+{
-+	unsigned int last_index, mask;
-+	if (tx_queue->buffer) {
-+		/* Free any buffers left in the ring */
-+		mask = tx_queue->efx->type->txd_ring_mask;
-+		last_index = (tx_queue->insert_count - 1) & mask;
-+		EFX_LOG(tx_queue->efx, "Will dequeue up to 0x%x from 0x%x\n",
-+			last_index, tx_queue->read_count & mask);
-+		efx_dequeue_buffers(tx_queue, last_index);
-+	}
-+}
-+
-+void efx_fini_tx_queue(struct efx_tx_queue *tx_queue)
-+{
-+	EFX_LOG(tx_queue->efx, "shutting down TX queue %d\n", tx_queue->queue);
-+
-+	/* Flush TX queue, remove descriptor ring */
-+	falcon_fini_tx(tx_queue);
-+
-+	efx_release_tx_buffers(tx_queue);
-+
-+	/* Release queue's stop on port, if any */
-+	if (tx_queue->stopped) {
-+		tx_queue->stopped = 0;
-+		efx_wake_queue(tx_queue->efx);
-+	}
-+}
-+
-+void efx_remove_tx_queue(struct efx_tx_queue *tx_queue)
-+{
-+	EFX_LOG(tx_queue->efx, "destroying TX queue %d\n", tx_queue->queue);
-+	falcon_remove_tx(tx_queue);
-+
-+	kfree(tx_queue->buffer);
-+	tx_queue->buffer = NULL;
-+	tx_queue->used = 0;
-+}
-+
-+
-diff --git a/drivers/net/sfc/tx.h b/drivers/net/sfc/tx.h
-new file mode 100644
-index 0000000..1526a73
---- /dev/null
-+++ b/drivers/net/sfc/tx.h
-@@ -0,0 +1,24 @@
-+/****************************************************************************
-+ * Driver for Solarflare Solarstorm network controllers and boards
-+ * Copyright 2006 Fen Systems Ltd.
 + * Copyright 2006-2008 Solarflare Communications Inc.
 + *
 + * This program is free software; you can redistribute it and/or modify it
@@ -1422,20 +35,1498 @@ index 0000000..1526a73
 + * by the Free Software Foundation, incorporated herein by reference.
 + */
 +
-+#ifndef EFX_TX_H
-+#define EFX_TX_H
++#ifndef EFX_FALCON_HWDEFS_H
++#define EFX_FALCON_HWDEFS_H
++
++/*
++ * Falcon hardware value definitions.
++ * Falcon is the internal codename for the SFC4000 controller that is
++ * present in SFE400X evaluation boards
++ */
++
++/**************************************************************************
++ *
++ * Falcon registers
++ *
++ **************************************************************************
++ */
++
++/* Address region register */
++#define ADR_REGION_REG_KER	0x00
++#define ADR_REGION0_LBN	0
++#define ADR_REGION0_WIDTH	18
++#define ADR_REGION1_LBN	32
++#define ADR_REGION1_WIDTH	18
++#define ADR_REGION2_LBN	64
++#define ADR_REGION2_WIDTH	18
++#define ADR_REGION3_LBN	96
++#define ADR_REGION3_WIDTH	18
++
++/* Interrupt enable register */
++#define INT_EN_REG_KER 0x0010
++#define KER_INT_KER_LBN 3
++#define KER_INT_KER_WIDTH 1
++#define DRV_INT_EN_KER_LBN 0
++#define DRV_INT_EN_KER_WIDTH 1
++
++/* Interrupt status address register */
++#define INT_ADR_REG_KER	0x0030
++#define NORM_INT_VEC_DIS_KER_LBN 64
++#define NORM_INT_VEC_DIS_KER_WIDTH 1
++#define INT_ADR_KER_LBN 0
++#define INT_ADR_KER_WIDTH EFX_DMA_TYPE_WIDTH(64) /* not 46 for this one */
++
++/* Interrupt status register (B0 only) */
++#define INT_ISR0_B0 0x90
++#define INT_ISR1_B0 0xA0
++
++/* Interrupt acknowledge register (A0/A1 only) */
++#define INT_ACK_REG_KER_A1 0x0050
++#define INT_ACK_DUMMY_DATA_LBN 0
++#define INT_ACK_DUMMY_DATA_WIDTH 32
++
++/* Interrupt acknowledge work-around register (A0/A1 only )*/
++#define WORK_AROUND_BROKEN_PCI_READS_REG_KER_A1 0x0070
++
++/* SPI host command register */
++#define EE_SPI_HCMD_REG_KER 0x0100
++#define EE_SPI_HCMD_CMD_EN_LBN 31
++#define EE_SPI_HCMD_CMD_EN_WIDTH 1
++#define EE_WR_TIMER_ACTIVE_LBN 28
++#define EE_WR_TIMER_ACTIVE_WIDTH 1
++#define EE_SPI_HCMD_SF_SEL_LBN 24
++#define EE_SPI_HCMD_SF_SEL_WIDTH 1
++#define EE_SPI_EEPROM 0
++#define EE_SPI_FLASH 1
++#define EE_SPI_HCMD_DABCNT_LBN 16
++#define EE_SPI_HCMD_DABCNT_WIDTH 5
++#define EE_SPI_HCMD_READ_LBN 15
++#define EE_SPI_HCMD_READ_WIDTH 1
++#define EE_SPI_READ 1
++#define EE_SPI_WRITE 0
++#define EE_SPI_HCMD_DUBCNT_LBN 12
++#define EE_SPI_HCMD_DUBCNT_WIDTH 2
++#define EE_SPI_HCMD_ADBCNT_LBN 8
++#define EE_SPI_HCMD_ADBCNT_WIDTH 2
++#define EE_SPI_HCMD_ENC_LBN 0
++#define EE_SPI_HCMD_ENC_WIDTH 8
++
++/* SPI host address register */
++#define EE_SPI_HADR_REG_KER 0x0110
++#define EE_SPI_HADR_ADR_LBN 0
++#define EE_SPI_HADR_ADR_WIDTH 24
++
++/* SPI host data register */
++#define EE_SPI_HDATA_REG_KER 0x0120
++
++/* PCIE CORE ACCESS REG */
++#define PCIE_CORE_ADDR_PCIE_DEVICE_CTRL_STAT 0x68
++#define PCIE_CORE_ADDR_PCIE_LINK_CTRL_STAT 0x70
++#define PCIE_CORE_ADDR_ACK_RPL_TIMER 0x700
++#define PCIE_CORE_ADDR_ACK_FREQ 0x70C
++
++/* NIC status register */
++#define NIC_STAT_REG 0x0200
++#define ONCHIP_SRAM_LBN 16
++#define ONCHIP_SRAM_WIDTH 1
++#define SF_PRST_LBN 9
++#define SF_PRST_WIDTH 1
++#define EE_PRST_LBN 8
++#define EE_PRST_WIDTH 1
++/* See pic_mode_t for decoding of this field */
++/* These bit definitions are extrapolated from the list of numerical
++ * values for STRAP_PINS.
++ */
++#define STRAP_10G_LBN 2
++#define STRAP_10G_WIDTH 1
++#define STRAP_PCIE_LBN 0
++#define STRAP_PCIE_WIDTH 1
++
++/* GPIO control register */
++#define GPIO_CTL_REG_KER 0x0210
++#define GPIO_OUTPUTS_LBN   (16)
++#define GPIO_OUTPUTS_WIDTH (4)
++#define GPIO_INPUTS_LBN (8)
++#define GPIO_DIRECTION_LBN (24)
++#define GPIO_DIRECTION_WIDTH (4)
++#define GPIO_DIRECTION_OUT (1)
++#define GPIO_SRAM_SLEEP (1 << 1)
++
++#define GPIO3_OEN_LBN (GPIO_DIRECTION_LBN + 3)
++#define	GPIO3_OEN_WIDTH 1
++#define	GPIO2_OEN_LBN (GPIO_DIRECTION_LBN + 2)
++#define	GPIO2_OEN_WIDTH 1
++#define	GPIO1_OEN_LBN (GPIO_DIRECTION_LBN + 1)
++#define	GPIO1_OEN_WIDTH 1
++#define GPIO0_OEN_LBN (GPIO_DIRECTION_LBN + 0)
++#define	GPIO0_OEN_WIDTH 1
++
++#define	GPIO3_OUT_LBN (GPIO_OUTPUTS_LBN + 3)
++#define	GPIO3_OUT_WIDTH 1
++#define	GPIO2_OUT_LBN (GPIO_OUTPUTS_LBN + 2)
++#define	GPIO2_OUT_WIDTH 1
++#define	GPIO1_OUT_LBN (GPIO_OUTPUTS_LBN + 1)
++#define	GPIO1_OUT_WIDTH 1
++#define	GPIO0_OUT_LBN (GPIO_OUTPUTS_LBN + 0)
++#define	GPIO0_OUT_WIDTH 1
++
++#define GPIO3_IN_LBN (GPIO_INPUTS_LBN + 3)
++#define	GPIO3_IN_WIDTH 1
++#define	GPIO2_IN_WIDTH 1
++#define	GPIO1_IN_WIDTH 1
++#define GPIO0_IN_LBN (GPIO_INPUTS_LBN + 0)
++#define	GPIO0_IN_WIDTH 1
++
++/* Global control register */
++#define GLB_CTL_REG_KER	0x0220
++#define EXT_PHY_RST_CTL_LBN 63
++#define EXT_PHY_RST_CTL_WIDTH 1
++#define PCIE_SD_RST_CTL_LBN 61
++#define PCIE_SD_RST_CTL_WIDTH 1
++
++#define PCIE_NSTCK_RST_CTL_LBN 58
++#define PCIE_NSTCK_RST_CTL_WIDTH 1
++#define PCIE_CORE_RST_CTL_LBN 57
++#define PCIE_CORE_RST_CTL_WIDTH 1
++#define EE_RST_CTL_LBN 49
++#define EE_RST_CTL_WIDTH 1
++#define RST_XGRX_LBN 24
++#define RST_XGRX_WIDTH 1
++#define RST_XGTX_LBN 23
++#define RST_XGTX_WIDTH 1
++#define RST_EM_LBN 22
++#define RST_EM_WIDTH 1
++#define EXT_PHY_RST_DUR_LBN 1
++#define EXT_PHY_RST_DUR_WIDTH 3
++#define SWRST_LBN 0
++#define SWRST_WIDTH 1
++#define INCLUDE_IN_RESET 0
++#define EXCLUDE_FROM_RESET 1
++
++/* Fatal interrupt register */
++#define FATAL_INTR_REG_KER 0x0230
++#define RBUF_OWN_INT_KER_EN_LBN 39
++#define RBUF_OWN_INT_KER_EN_WIDTH 1
++#define TBUF_OWN_INT_KER_EN_LBN 38
++#define TBUF_OWN_INT_KER_EN_WIDTH 1
++#define ILL_ADR_INT_KER_EN_LBN 33
++#define ILL_ADR_INT_KER_EN_WIDTH 1
++#define MEM_PERR_INT_KER_LBN 8
++#define MEM_PERR_INT_KER_WIDTH 1
++#define INT_KER_ERROR_LBN 0
++#define INT_KER_ERROR_WIDTH 12
++
++#define DP_CTRL_REG 0x250
++#define FLS_EVQ_ID_LBN 0
++#define FLS_EVQ_ID_WIDTH 11
++
++#define MEM_STAT_REG_KER 0x260
++
++/* Debug probe register */
++#define DEBUG_BLK_SEL_MISC 7
++#define DEBUG_BLK_SEL_SERDES 6
++#define DEBUG_BLK_SEL_EM 5
++#define DEBUG_BLK_SEL_SR 4
++#define DEBUG_BLK_SEL_EV 3
++#define DEBUG_BLK_SEL_RX 2
++#define DEBUG_BLK_SEL_TX 1
++#define DEBUG_BLK_SEL_BIU 0
++
++/* FPGA build version */
++#define ALTERA_BUILD_REG_KER 0x0300
++#define VER_ALL_LBN 0
++#define VER_ALL_WIDTH 32
++
++/* Spare EEPROM bits register (flash 0x390) */
++#define SPARE_REG_KER 0x310
++#define MEM_PERR_EN_TX_DATA_LBN 72
++#define MEM_PERR_EN_TX_DATA_WIDTH 2
++
++/* Timer table for kernel access */
++#define TIMER_CMD_REG_KER 0x420
++#define TIMER_MODE_LBN 12
++#define TIMER_MODE_WIDTH 2
++#define TIMER_MODE_DIS 0
++#define TIMER_MODE_INT_HLDOFF 2
++#define TIMER_VAL_LBN 0
++#define TIMER_VAL_WIDTH 12
++
++/* Driver generated event register */
++#define DRV_EV_REG_KER 0x440
++#define DRV_EV_QID_LBN 64
++#define DRV_EV_QID_WIDTH 12
++#define DRV_EV_DATA_LBN 0
++#define DRV_EV_DATA_WIDTH 64
++
++/* Buffer table configuration register */
++#define BUF_TBL_CFG_REG_KER 0x600
++#define BUF_TBL_MODE_LBN 3
++#define BUF_TBL_MODE_WIDTH 1
++#define BUF_TBL_MODE_HALF 0
++#define BUF_TBL_MODE_FULL 1
++
++/* SRAM receive descriptor cache configuration register */
++#define SRM_RX_DC_CFG_REG_KER 0x610
++#define SRM_RX_DC_BASE_ADR_LBN 0
++#define SRM_RX_DC_BASE_ADR_WIDTH 21
++
++/* SRAM transmit descriptor cache configuration register */
++#define SRM_TX_DC_CFG_REG_KER 0x620
++#define SRM_TX_DC_BASE_ADR_LBN 0
++#define SRM_TX_DC_BASE_ADR_WIDTH 21
++
++/* SRAM configuration register */
++#define SRM_CFG_REG_KER 0x630
++#define SRAM_OOB_BT_INIT_EN_LBN 3
++#define SRAM_OOB_BT_INIT_EN_WIDTH 1
++#define SRM_NUM_BANKS_AND_BANK_SIZE_LBN 0
++#define SRM_NUM_BANKS_AND_BANK_SIZE_WIDTH 3
++#define SRM_NB_BSZ_1BANKS_2M 0
++#define SRM_NB_BSZ_1BANKS_4M 1
++#define SRM_NB_BSZ_1BANKS_8M 2
++#define SRM_NB_BSZ_DEFAULT 3 /* char driver will set the default */
++#define SRM_NB_BSZ_2BANKS_4M 4
++#define SRM_NB_BSZ_2BANKS_8M 5
++#define SRM_NB_BSZ_2BANKS_16M 6
++#define SRM_NB_BSZ_RESERVED 7
++
++/* Special buffer table update register */
++#define BUF_TBL_UPD_REG_KER 0x0650
++#define BUF_UPD_CMD_LBN 63
++#define BUF_UPD_CMD_WIDTH 1
++#define BUF_CLR_CMD_LBN 62
++#define BUF_CLR_CMD_WIDTH 1
++#define BUF_CLR_END_ID_LBN 32
++#define BUF_CLR_END_ID_WIDTH 20
++#define BUF_CLR_START_ID_LBN 0
++#define BUF_CLR_START_ID_WIDTH 20
++
++/* Receive configuration register */
++#define RX_CFG_REG_KER 0x800
++
++/* B0 */
++#define RX_INGR_EN_B0_LBN 47
++#define RX_INGR_EN_B0_WIDTH 1
++#define RX_DESC_PUSH_EN_B0_LBN 43
++#define RX_DESC_PUSH_EN_B0_WIDTH 1
++#define RX_XON_TX_TH_B0_LBN 33
++#define RX_XON_TX_TH_B0_WIDTH 5
++#define RX_XOFF_TX_TH_B0_LBN 28
++#define RX_XOFF_TX_TH_B0_WIDTH 5
++#define RX_USR_BUF_SIZE_B0_LBN 19
++#define RX_USR_BUF_SIZE_B0_WIDTH 9
++#define RX_XON_MAC_TH_B0_LBN 10
++#define RX_XON_MAC_TH_B0_WIDTH 9
++#define RX_XOFF_MAC_TH_B0_LBN 1
++#define RX_XOFF_MAC_TH_B0_WIDTH 9
++#define RX_XOFF_MAC_EN_B0_LBN 0
++#define RX_XOFF_MAC_EN_B0_WIDTH 1
++
++/* A1 */
++#define RX_DESC_PUSH_EN_A1_LBN 35
++#define RX_DESC_PUSH_EN_A1_WIDTH 1
++#define RX_XON_TX_TH_A1_LBN 25
++#define RX_XON_TX_TH_A1_WIDTH 5
++#define RX_XOFF_TX_TH_A1_LBN 20
++#define RX_XOFF_TX_TH_A1_WIDTH 5
++#define RX_USR_BUF_SIZE_A1_LBN 11
++#define RX_USR_BUF_SIZE_A1_WIDTH 9
++#define RX_XON_MAC_TH_A1_LBN 6
++#define RX_XON_MAC_TH_A1_WIDTH 5
++#define RX_XOFF_MAC_TH_A1_LBN 1
++#define RX_XOFF_MAC_TH_A1_WIDTH 5
++#define RX_XOFF_MAC_EN_A1_LBN 0
++#define RX_XOFF_MAC_EN_A1_WIDTH 1
++
++/* Receive filter control register */
++#define RX_FILTER_CTL_REG 0x810
++#define UDP_FULL_SRCH_LIMIT_LBN 32
++#define UDP_FULL_SRCH_LIMIT_WIDTH 8
++#define NUM_KER_LBN 24
++#define NUM_KER_WIDTH 2
++#define UDP_WILD_SRCH_LIMIT_LBN 16
++#define UDP_WILD_SRCH_LIMIT_WIDTH 8
++#define TCP_WILD_SRCH_LIMIT_LBN 8
++#define TCP_WILD_SRCH_LIMIT_WIDTH 8
++#define TCP_FULL_SRCH_LIMIT_LBN 0
++#define TCP_FULL_SRCH_LIMIT_WIDTH 8
++
++/* RX queue flush register */
++#define RX_FLUSH_DESCQ_REG_KER 0x0820
++#define RX_FLUSH_DESCQ_CMD_LBN 24
++#define RX_FLUSH_DESCQ_CMD_WIDTH 1
++#define RX_FLUSH_DESCQ_LBN 0
++#define RX_FLUSH_DESCQ_WIDTH 12
++
++/* Receive descriptor update register */
++#define RX_DESC_UPD_REG_KER_DWORD (0x830 + 12)
++#define RX_DESC_WPTR_DWORD_LBN 0
++#define RX_DESC_WPTR_DWORD_WIDTH 12
++
++/* Receive descriptor cache configuration register */
++#define RX_DC_CFG_REG_KER 0x840
++#define RX_DC_SIZE_LBN 0
++#define RX_DC_SIZE_WIDTH 2
++
++#define RX_DC_PF_WM_REG_KER 0x850
++#define RX_DC_PF_LWM_LBN 0
++#define RX_DC_PF_LWM_WIDTH 6
++
++/* RX no descriptor drop counter */
++#define RX_NODESC_DROP_REG_KER 0x880
++#define RX_NODESC_DROP_CNT_LBN 0
++#define RX_NODESC_DROP_CNT_WIDTH 16
++
++/* RX black magic register */
++#define RX_SELF_RST_REG_KER 0x890
++#define RX_ISCSI_DIS_LBN 17
++#define RX_ISCSI_DIS_WIDTH 1
++#define RX_NODESC_WAIT_DIS_LBN 9
++#define RX_NODESC_WAIT_DIS_WIDTH 1
++#define RX_RECOVERY_EN_LBN 8
++#define RX_RECOVERY_EN_WIDTH 1
++
++/* TX queue flush register */
++#define TX_FLUSH_DESCQ_REG_KER 0x0a00
++#define TX_FLUSH_DESCQ_CMD_LBN 12
++#define TX_FLUSH_DESCQ_CMD_WIDTH 1
++#define TX_FLUSH_DESCQ_LBN 0
++#define TX_FLUSH_DESCQ_WIDTH 12
++
++/* Transmit descriptor update register */
++#define TX_DESC_UPD_REG_KER_DWORD (0xa10 + 12)
++#define TX_DESC_WPTR_DWORD_LBN 0
++#define TX_DESC_WPTR_DWORD_WIDTH 12
++
++/* Transmit descriptor cache configuration register */
++#define TX_DC_CFG_REG_KER 0xa20
++#define TX_DC_SIZE_LBN 0
++#define TX_DC_SIZE_WIDTH 2
++
++/* Transmit checksum configuration register (A0/A1 only) */
++#define TX_CHKSM_CFG_REG_KER_A1 0xa30
++
++/* Transmit configuration register */
++#define TX_CFG_REG_KER 0xa50
++#define TX_NO_EOP_DISC_EN_LBN 5
++#define TX_NO_EOP_DISC_EN_WIDTH 1
++
++/* Transmit configuration register 2 */
++#define TX_CFG2_REG_KER 0xa80
++#define TX_CSR_PUSH_EN_LBN 89
++#define TX_CSR_PUSH_EN_WIDTH 1
++#define TX_RX_SPACER_LBN 64
++#define TX_RX_SPACER_WIDTH 8
++#define TX_SW_EV_EN_LBN 59
++#define TX_SW_EV_EN_WIDTH 1
++#define TX_RX_SPACER_EN_LBN 57
++#define TX_RX_SPACER_EN_WIDTH 1
++#define TX_PREF_THRESHOLD_LBN 19
++#define TX_PREF_THRESHOLD_WIDTH 2
++#define TX_ONE_PKT_PER_Q_LBN 18
++#define TX_ONE_PKT_PER_Q_WIDTH 1
++#define TX_DIS_NON_IP_EV_LBN 17
++#define TX_DIS_NON_IP_EV_WIDTH 1
++#define TX_FLUSH_MIN_LEN_EN_B0_LBN 7
++#define TX_FLUSH_MIN_LEN_EN_B0_WIDTH 1
++
++/* PHY management transmit data register */
++#define MD_TXD_REG_KER 0xc00
++#define MD_TXD_LBN 0
++#define MD_TXD_WIDTH 16
++
++/* PHY management receive data register */
++#define MD_RXD_REG_KER 0xc10
++#define MD_RXD_LBN 0
++#define MD_RXD_WIDTH 16
++
++/* PHY management configuration & status register */
++#define MD_CS_REG_KER 0xc20
++#define MD_GC_LBN 4
++#define MD_GC_WIDTH 1
++#define MD_RIC_LBN 2
++#define MD_RIC_WIDTH 1
++#define MD_RDC_LBN 1
++#define MD_RDC_WIDTH 1
++#define MD_WRC_LBN 0
++#define MD_WRC_WIDTH 1
++
++/* PHY management PHY address register */
++#define MD_PHY_ADR_REG_KER 0xc30
++#define MD_PHY_ADR_LBN 0
++#define MD_PHY_ADR_WIDTH 16
++
++/* PHY management ID register */
++#define MD_ID_REG_KER 0xc40
++#define MD_PRT_ADR_LBN 11
++#define MD_PRT_ADR_WIDTH 5
++#define MD_DEV_ADR_LBN 6
++#define MD_DEV_ADR_WIDTH 5
++/* Used for writing both at once */
++#define MD_PRT_DEV_ADR_LBN 6
++#define MD_PRT_DEV_ADR_WIDTH 10
++
++/* PHY management status & mask register (DWORD read only) */
++#define MD_STAT_REG_KER 0xc50
++#define MD_BSERR_LBN 2
++#define MD_BSERR_WIDTH 1
++#define MD_LNFL_LBN 1
++#define MD_LNFL_WIDTH 1
++#define MD_BSY_LBN 0
++#define MD_BSY_WIDTH 1
++
++/* Port 0 and 1 MAC stats registers */
++#define MAC0_STAT_DMA_REG_KER 0xc60
++#define MAC_STAT_DMA_CMD_LBN 48
++#define MAC_STAT_DMA_CMD_WIDTH 1
++#define MAC_STAT_DMA_ADR_LBN 0
++#define MAC_STAT_DMA_ADR_WIDTH EFX_DMA_TYPE_WIDTH(46)
++
++/* Port 0 and 1 MAC control registers */
++#define MAC0_CTRL_REG_KER 0xc80
++#define MAC_XOFF_VAL_LBN 16
++#define MAC_XOFF_VAL_WIDTH 16
++#define TXFIFO_DRAIN_EN_B0_LBN 7
++#define TXFIFO_DRAIN_EN_B0_WIDTH 1
++#define MAC_BCAD_ACPT_LBN 4
++#define MAC_BCAD_ACPT_WIDTH 1
++#define MAC_UC_PROM_LBN 3
++#define MAC_UC_PROM_WIDTH 1
++#define MAC_LINK_STATUS_LBN 2
++#define MAC_LINK_STATUS_WIDTH 1
++#define MAC_SPEED_LBN 0
++#define MAC_SPEED_WIDTH 2
++
++/* 10G XAUI XGXS default values */
++#define XX_TXDRV_DEQ_DEFAULT 0xe /* deq=.6 */
++#define XX_TXDRV_DTX_DEFAULT 0x5 /* 1.25 */
++#define XX_SD_CTL_DRV_DEFAULT 0  /* 20mA */
++
++/* Multicast address hash table */
++#define MAC_MCAST_HASH_REG0_KER 0xca0
++#define MAC_MCAST_HASH_REG1_KER 0xcb0
++
++/* GMAC registers */
++#define FALCON_GMAC_REGBANK 0xe00
++#define FALCON_GMAC_REGBANK_SIZE 0x200
++#define FALCON_GMAC_REG_SIZE 0x10
++
++/* XMAC registers */
++#define FALCON_XMAC_REGBANK 0x1200
++#define FALCON_XMAC_REGBANK_SIZE 0x200
++#define FALCON_XMAC_REG_SIZE 0x10
++
++/* XGMAC address register low */
++#define XM_ADR_LO_REG_MAC 0x00
++#define XM_ADR_3_LBN 24
++#define XM_ADR_3_WIDTH 8
++#define XM_ADR_2_LBN 16
++#define XM_ADR_2_WIDTH 8
++#define XM_ADR_1_LBN 8
++#define XM_ADR_1_WIDTH 8
++#define XM_ADR_0_LBN 0
++#define XM_ADR_0_WIDTH 8
++
++/* XGMAC address register high */
++#define XM_ADR_HI_REG_MAC 0x01
++#define XM_ADR_5_LBN 8
++#define XM_ADR_5_WIDTH 8
++#define XM_ADR_4_LBN 0
++#define XM_ADR_4_WIDTH 8
++
++/* XGMAC global configuration */
++#define XM_GLB_CFG_REG_MAC 0x02
++#define XM_RX_STAT_EN_LBN 11
++#define XM_RX_STAT_EN_WIDTH 1
++#define XM_TX_STAT_EN_LBN 10
++#define XM_TX_STAT_EN_WIDTH 1
++#define XM_RX_JUMBO_MODE_LBN 6
++#define XM_RX_JUMBO_MODE_WIDTH 1
++#define XM_CORE_RST_LBN 0
++#define XM_CORE_RST_WIDTH 1
++
++/* XGMAC transmit configuration */
++#define XM_TX_CFG_REG_MAC 0x03
++#define XM_IPG_LBN 16
++#define XM_IPG_WIDTH 4
++#define XM_FCNTL_LBN 10
++#define XM_FCNTL_WIDTH 1
++#define XM_TXCRC_LBN 8
++#define XM_TXCRC_WIDTH 1
++#define XM_AUTO_PAD_LBN 5
++#define XM_AUTO_PAD_WIDTH 1
++#define XM_TX_PRMBL_LBN 2
++#define XM_TX_PRMBL_WIDTH 1
++#define XM_TXEN_LBN 1
++#define XM_TXEN_WIDTH 1
++
++/* XGMAC receive configuration */
++#define XM_RX_CFG_REG_MAC 0x04
++#define XM_PASS_CRC_ERR_LBN 25
++#define XM_PASS_CRC_ERR_WIDTH 1
++#define XM_ACPT_ALL_MCAST_LBN 11
++#define XM_ACPT_ALL_MCAST_WIDTH 1
++#define XM_ACPT_ALL_UCAST_LBN 9
++#define XM_ACPT_ALL_UCAST_WIDTH 1
++#define XM_AUTO_DEPAD_LBN 8
++#define XM_AUTO_DEPAD_WIDTH 1
++#define XM_RXEN_LBN 1
++#define XM_RXEN_WIDTH 1
++
++/* XGMAC flow control register */
++#define XM_FC_REG_MAC 0x7
++#define XM_PAUSE_TIME_LBN 16
++#define XM_PAUSE_TIME_WIDTH 16
++#define XM_DIS_FCNTL_LBN 0
++#define XM_DIS_FCNTL_WIDTH 1
++
++/* XGMAC pause time count register */
++#define XM_PAUSE_TIME_REG_MAC 0x9
++
++/* XGMAC transmit parameter register */
++#define XM_TX_PARAM_REG_MAC 0x0d
++#define XM_TX_JUMBO_MODE_LBN 31
++#define XM_TX_JUMBO_MODE_WIDTH 1
++#define XM_MAX_TX_FRM_SIZE_LBN 16
++#define XM_MAX_TX_FRM_SIZE_WIDTH 14
++
++/* XGMAC receive parameter register */
++#define XM_RX_PARAM_REG_MAC 0x0e
++#define XM_MAX_RX_FRM_SIZE_LBN 0
++#define XM_MAX_RX_FRM_SIZE_WIDTH 14
++
++/* XGXS/XAUI powerdown/reset register */
++#define XX_PWR_RST_REG_MAC 0x10
++
++#define XX_PWRDND_EN_LBN 15
++#define XX_PWRDND_EN_WIDTH 1
++#define XX_PWRDNC_EN_LBN 14
++#define XX_PWRDNC_EN_WIDTH 1
++#define XX_PWRDNB_EN_LBN 13
++#define XX_PWRDNB_EN_WIDTH 1
++#define XX_PWRDNA_EN_LBN 12
++#define XX_PWRDNA_EN_WIDTH 1
++#define XX_RSTPLLCD_EN_LBN 9
++#define XX_RSTPLLCD_EN_WIDTH 1
++#define XX_RSTPLLAB_EN_LBN 8
++#define XX_RSTPLLAB_EN_WIDTH 1
++#define XX_RESETD_EN_LBN 7
++#define XX_RESETD_EN_WIDTH 1
++#define XX_RESETC_EN_LBN 6
++#define XX_RESETC_EN_WIDTH 1
++#define XX_RESETB_EN_LBN 5
++#define XX_RESETB_EN_WIDTH 1
++#define XX_RESETA_EN_LBN 4
++#define XX_RESETA_EN_WIDTH 1
++#define XX_RSTXGXSRX_EN_LBN 2
++#define XX_RSTXGXSRX_EN_WIDTH 1
++#define XX_RSTXGXSTX_EN_LBN 1
++#define XX_RSTXGXSTX_EN_WIDTH 1
++#define XX_RST_XX_EN_LBN 0
++#define XX_RST_XX_EN_WIDTH 1
++
++/* XGXS/XAUI powerdown/reset control register */
++#define XX_SD_CTL_REG_MAC 0x11
++#define XX_HIDRVD_LBN 15
++#define XX_HIDRVD_WIDTH 1
++#define XX_LODRVD_LBN 14
++#define XX_LODRVD_WIDTH 1
++#define XX_HIDRVC_LBN 13
++#define XX_HIDRVC_WIDTH 1
++#define XX_LODRVC_LBN 12
++#define XX_LODRVC_WIDTH 1
++#define XX_HIDRVB_LBN 11
++#define XX_HIDRVB_WIDTH 1
++#define XX_LODRVB_LBN 10
++#define XX_LODRVB_WIDTH 1
++#define XX_HIDRVA_LBN 9
++#define XX_HIDRVA_WIDTH 1
++#define XX_LODRVA_LBN 8
++#define XX_LODRVA_WIDTH 1
++
++#define XX_TXDRV_CTL_REG_MAC 0x12
++#define XX_DEQD_LBN 28
++#define XX_DEQD_WIDTH 4
++#define XX_DEQC_LBN 24
++#define XX_DEQC_WIDTH 4
++#define XX_DEQB_LBN 20
++#define XX_DEQB_WIDTH 4
++#define XX_DEQA_LBN 16
++#define XX_DEQA_WIDTH 4
++#define XX_DTXD_LBN 12
++#define XX_DTXD_WIDTH 4
++#define XX_DTXC_LBN 8
++#define XX_DTXC_WIDTH 4
++#define XX_DTXB_LBN 4
++#define XX_DTXB_WIDTH 4
++#define XX_DTXA_LBN 0
++#define XX_DTXA_WIDTH 4
++
++/* XAUI XGXS core status register */
++#define XX_FORCE_SIG_DECODE_FORCED 0xff
++#define XX_CORE_STAT_REG_MAC 0x16
++#define XX_ALIGN_DONE_LBN 20
++#define XX_ALIGN_DONE_WIDTH 1
++#define XX_SYNC_STAT_LBN 16
++#define XX_SYNC_STAT_WIDTH 4
++#define XX_SYNC_STAT_DECODE_SYNCED 0xf
++#define XX_COMMA_DET_LBN 12
++#define XX_COMMA_DET_WIDTH 4
++#define XX_COMMA_DET_DECODE_DETECTED 0xf
++#define XX_COMMA_DET_RESET 0xf
++#define XX_CHARERR_LBN 4
++#define XX_CHARERR_WIDTH 4
++#define XX_CHARERR_RESET 0xf
++#define XX_DISPERR_LBN 0
++#define XX_DISPERR_WIDTH 4
++#define XX_DISPERR_RESET 0xf
++
++/* Receive filter table */
++#define RX_FILTER_TBL0 0xF00000
++
++/* Receive descriptor pointer table */
++#define RX_DESC_PTR_TBL_KER_A1 0x11800
++#define RX_DESC_PTR_TBL_KER_B0 0xF40000
++#define RX_DESC_PTR_TBL_KER_P0 0x900
++#define RX_ISCSI_DDIG_EN_LBN 88
++#define RX_ISCSI_DDIG_EN_WIDTH 1
++#define RX_ISCSI_HDIG_EN_LBN 87
++#define RX_ISCSI_HDIG_EN_WIDTH 1
++#define RX_DESCQ_BUF_BASE_ID_LBN 36
++#define RX_DESCQ_BUF_BASE_ID_WIDTH 20
++#define RX_DESCQ_EVQ_ID_LBN 24
++#define RX_DESCQ_EVQ_ID_WIDTH 12
++#define RX_DESCQ_OWNER_ID_LBN 10
++#define RX_DESCQ_OWNER_ID_WIDTH 14
++#define RX_DESCQ_LABEL_LBN 5
++#define RX_DESCQ_LABEL_WIDTH 5
++#define RX_DESCQ_SIZE_LBN 3
++#define RX_DESCQ_SIZE_WIDTH 2
++#define RX_DESCQ_SIZE_4K 3
++#define RX_DESCQ_SIZE_2K 2
++#define RX_DESCQ_SIZE_1K 1
++#define RX_DESCQ_SIZE_512 0
++#define RX_DESCQ_TYPE_LBN 2
++#define RX_DESCQ_TYPE_WIDTH 1
++#define RX_DESCQ_JUMBO_LBN 1
++#define RX_DESCQ_JUMBO_WIDTH 1
++#define RX_DESCQ_EN_LBN 0
++#define RX_DESCQ_EN_WIDTH 1
++
++/* Transmit descriptor pointer table */
++#define TX_DESC_PTR_TBL_KER_A1 0x11900
++#define TX_DESC_PTR_TBL_KER_B0 0xF50000
++#define TX_DESC_PTR_TBL_KER_P0 0xa40
++#define TX_NON_IP_DROP_DIS_B0_LBN 91
++#define TX_NON_IP_DROP_DIS_B0_WIDTH 1
++#define TX_IP_CHKSM_DIS_B0_LBN 90
++#define TX_IP_CHKSM_DIS_B0_WIDTH 1
++#define TX_TCP_CHKSM_DIS_B0_LBN 89
++#define TX_TCP_CHKSM_DIS_B0_WIDTH 1
++#define TX_DESCQ_EN_LBN 88
++#define TX_DESCQ_EN_WIDTH 1
++#define TX_ISCSI_DDIG_EN_LBN 87
++#define TX_ISCSI_DDIG_EN_WIDTH 1
++#define TX_ISCSI_HDIG_EN_LBN 86
++#define TX_ISCSI_HDIG_EN_WIDTH 1
++#define TX_DESCQ_BUF_BASE_ID_LBN 36
++#define TX_DESCQ_BUF_BASE_ID_WIDTH 20
++#define TX_DESCQ_EVQ_ID_LBN 24
++#define TX_DESCQ_EVQ_ID_WIDTH 12
++#define TX_DESCQ_OWNER_ID_LBN 10
++#define TX_DESCQ_OWNER_ID_WIDTH 14
++#define TX_DESCQ_LABEL_LBN 5
++#define TX_DESCQ_LABEL_WIDTH 5
++#define TX_DESCQ_SIZE_LBN 3
++#define TX_DESCQ_SIZE_WIDTH 2
++#define TX_DESCQ_SIZE_4K 3
++#define TX_DESCQ_SIZE_2K 2
++#define TX_DESCQ_SIZE_1K 1
++#define TX_DESCQ_SIZE_512 0
++#define TX_DESCQ_TYPE_LBN 1
++#define TX_DESCQ_TYPE_WIDTH 2
++
++/* Event queue pointer */
++#define EVQ_PTR_TBL_KER_A1 0x11a00
++#define EVQ_PTR_TBL_KER_B0 0xf60000
++#define EVQ_PTR_TBL_KER_P0 0x500
++#define EVQ_EN_LBN 23
++#define EVQ_EN_WIDTH 1
++#define EVQ_SIZE_LBN 20
++#define EVQ_SIZE_WIDTH 3
++#define EVQ_SIZE_32K 6
++#define EVQ_SIZE_16K 5
++#define EVQ_SIZE_8K 4
++#define EVQ_SIZE_4K 3
++#define EVQ_SIZE_2K 2
++#define EVQ_SIZE_1K 1
++#define EVQ_SIZE_512 0
++#define EVQ_BUF_BASE_ID_LBN 0
++#define EVQ_BUF_BASE_ID_WIDTH 20
++
++/* Event queue read pointer */
++#define EVQ_RPTR_REG_KER_A1 0x11b00
++#define EVQ_RPTR_REG_KER_B0 0xfa0000
++#define EVQ_RPTR_REG_KER_DWORD (EVQ_RPTR_REG_KER + 0)
++#define EVQ_RPTR_DWORD_LBN 0
++#define EVQ_RPTR_DWORD_WIDTH 14
++
++/* RSS indirection table */
++#define RX_RSS_INDIR_TBL_B0 0xFB0000
++#define RX_RSS_INDIR_ENT_B0_LBN 0
++#define RX_RSS_INDIR_ENT_B0_WIDTH 6
++
++/* Special buffer descriptors (full-mode) */
++#define BUF_FULL_TBL_KER_A1 0x8000
++#define BUF_FULL_TBL_KER_B0 0x800000
++#define IP_DAT_BUF_SIZE_LBN 50
++#define IP_DAT_BUF_SIZE_WIDTH 1
++#define IP_DAT_BUF_SIZE_8K 1
++#define IP_DAT_BUF_SIZE_4K 0
++#define BUF_ADR_REGION_LBN 48
++#define BUF_ADR_REGION_WIDTH 2
++#define BUF_ADR_FBUF_LBN 14
++#define BUF_ADR_FBUF_WIDTH 34
++#define BUF_OWNER_ID_FBUF_LBN 0
++#define BUF_OWNER_ID_FBUF_WIDTH 14
++
++/* Transmit descriptor */
++#define TX_KER_PORT_LBN 63
++#define TX_KER_PORT_WIDTH 1
++#define TX_KER_CONT_LBN 62
++#define TX_KER_CONT_WIDTH 1
++#define TX_KER_BYTE_CNT_LBN 48
++#define TX_KER_BYTE_CNT_WIDTH 14
++#define TX_KER_BUF_REGION_LBN 46
++#define TX_KER_BUF_REGION_WIDTH 2
++#define TX_KER_BUF_REGION0_DECODE 0
++#define TX_KER_BUF_REGION1_DECODE 1
++#define TX_KER_BUF_REGION2_DECODE 2
++#define TX_KER_BUF_REGION3_DECODE 3
++#define TX_KER_BUF_ADR_LBN 0
++#define TX_KER_BUF_ADR_WIDTH EFX_DMA_TYPE_WIDTH(46)
++
++/* Receive descriptor */
++#define RX_KER_BUF_SIZE_LBN 48
++#define RX_KER_BUF_SIZE_WIDTH 14
++#define RX_KER_BUF_REGION_LBN 46
++#define RX_KER_BUF_REGION_WIDTH 2
++#define RX_KER_BUF_REGION0_DECODE 0
++#define RX_KER_BUF_REGION1_DECODE 1
++#define RX_KER_BUF_REGION2_DECODE 2
++#define RX_KER_BUF_REGION3_DECODE 3
++#define RX_KER_BUF_ADR_LBN 0
++#define RX_KER_BUF_ADR_WIDTH EFX_DMA_TYPE_WIDTH(46)
++
++/**************************************************************************
++ *
++ * Falcon events
++ *
++ **************************************************************************
++ */
++
++/* Event queue entries */
++#define EV_CODE_LBN 60
++#define EV_CODE_WIDTH 4
++#define RX_IP_EV_DECODE 0
++#define TX_IP_EV_DECODE 2
++#define DRIVER_EV_DECODE 5
++#define GLOBAL_EV_DECODE 6
++#define DRV_GEN_EV_DECODE 7
++#define WHOLE_EVENT_LBN 0
++#define WHOLE_EVENT_WIDTH 64
++
++/* Receive events */
++#define RX_EV_PKT_OK_LBN 56
++#define RX_EV_PKT_OK_WIDTH 1
++#define RX_EV_PAUSE_FRM_ERR_LBN 55
++#define RX_EV_PAUSE_FRM_ERR_WIDTH 1
++#define RX_EV_BUF_OWNER_ID_ERR_LBN 54
++#define RX_EV_BUF_OWNER_ID_ERR_WIDTH 1
++#define RX_EV_IF_FRAG_ERR_LBN 53
++#define RX_EV_IF_FRAG_ERR_WIDTH 1
++#define RX_EV_IP_HDR_CHKSUM_ERR_LBN 52
++#define RX_EV_IP_HDR_CHKSUM_ERR_WIDTH 1
++#define RX_EV_TCP_UDP_CHKSUM_ERR_LBN 51
++#define RX_EV_TCP_UDP_CHKSUM_ERR_WIDTH 1
++#define RX_EV_ETH_CRC_ERR_LBN 50
++#define RX_EV_ETH_CRC_ERR_WIDTH 1
++#define RX_EV_FRM_TRUNC_LBN 49
++#define RX_EV_FRM_TRUNC_WIDTH 1
++#define RX_EV_DRIB_NIB_LBN 48
++#define RX_EV_DRIB_NIB_WIDTH 1
++#define RX_EV_TOBE_DISC_LBN 47
++#define RX_EV_TOBE_DISC_WIDTH 1
++#define RX_EV_PKT_TYPE_LBN 44
++#define RX_EV_PKT_TYPE_WIDTH 3
++#define RX_EV_PKT_TYPE_ETH_DECODE 0
++#define RX_EV_PKT_TYPE_LLC_DECODE 1
++#define RX_EV_PKT_TYPE_JUMBO_DECODE 2
++#define RX_EV_PKT_TYPE_VLAN_DECODE 3
++#define RX_EV_PKT_TYPE_VLAN_LLC_DECODE 4
++#define RX_EV_PKT_TYPE_VLAN_JUMBO_DECODE 5
++#define RX_EV_HDR_TYPE_LBN 42
++#define RX_EV_HDR_TYPE_WIDTH 2
++#define RX_EV_HDR_TYPE_TCP_IP_DECODE 0
++#define RX_EV_HDR_TYPE_UDP_IP_DECODE 1
++#define RX_EV_HDR_TYPE_OTHER_IP_DECODE 2
++#define RX_EV_HDR_TYPE_NON_IP_DECODE 3
++#define RX_EV_HDR_TYPE_HAS_CHECKSUMS(hdr_type) \
++	((hdr_type) <= RX_EV_HDR_TYPE_UDP_IP_DECODE)
++#define RX_EV_MCAST_HASH_MATCH_LBN 40
++#define RX_EV_MCAST_HASH_MATCH_WIDTH 1
++#define RX_EV_MCAST_PKT_LBN 39
++#define RX_EV_MCAST_PKT_WIDTH 1
++#define RX_EV_Q_LABEL_LBN 32
++#define RX_EV_Q_LABEL_WIDTH 5
++#define RX_EV_JUMBO_CONT_LBN 31
++#define RX_EV_JUMBO_CONT_WIDTH 1
++#define RX_EV_BYTE_CNT_LBN 16
++#define RX_EV_BYTE_CNT_WIDTH 14
++#define RX_EV_SOP_LBN 15
++#define RX_EV_SOP_WIDTH 1
++#define RX_EV_DESC_PTR_LBN 0
++#define RX_EV_DESC_PTR_WIDTH 12
++
++/* Transmit events */
++#define TX_EV_PKT_ERR_LBN 38
++#define TX_EV_PKT_ERR_WIDTH 1
++#define TX_EV_Q_LABEL_LBN 32
++#define TX_EV_Q_LABEL_WIDTH 5
++#define TX_EV_WQ_FF_FULL_LBN 15
++#define TX_EV_WQ_FF_FULL_WIDTH 1
++#define TX_EV_COMP_LBN 12
++#define TX_EV_COMP_WIDTH 1
++#define TX_EV_DESC_PTR_LBN 0
++#define TX_EV_DESC_PTR_WIDTH 12
++
++/* Driver events */
++#define DRIVER_EV_SUB_CODE_LBN 56
++#define DRIVER_EV_SUB_CODE_WIDTH 4
++#define DRIVER_EV_SUB_DATA_LBN 0
++#define DRIVER_EV_SUB_DATA_WIDTH 14
++#define TX_DESCQ_FLS_DONE_EV_DECODE 0
++#define RX_DESCQ_FLS_DONE_EV_DECODE 1
++#define EVQ_INIT_DONE_EV_DECODE 2
++#define EVQ_NOT_EN_EV_DECODE 3
++#define RX_DESCQ_FLSFF_OVFL_EV_DECODE 4
++#define SRM_UPD_DONE_EV_DECODE 5
++#define WAKE_UP_EV_DECODE 6
++#define TX_PKT_NON_TCP_UDP_DECODE 9
++#define TIMER_EV_DECODE 10
++#define RX_RECOVERY_EV_DECODE 11
++#define RX_DSC_ERROR_EV_DECODE 14
++#define TX_DSC_ERROR_EV_DECODE 15
++#define DRIVER_EV_TX_DESCQ_ID_LBN 0
++#define DRIVER_EV_TX_DESCQ_ID_WIDTH 12
++#define DRIVER_EV_RX_FLUSH_FAIL_LBN 12
++#define DRIVER_EV_RX_FLUSH_FAIL_WIDTH 1
++#define DRIVER_EV_RX_DESCQ_ID_LBN 0
++#define DRIVER_EV_RX_DESCQ_ID_WIDTH 12
++#define SRM_CLR_EV_DECODE 0
++#define SRM_UPD_EV_DECODE 1
++#define SRM_ILLCLR_EV_DECODE 2
++
++/* Global events */
++#define RX_RECOVERY_B0_LBN 12
++#define RX_RECOVERY_B0_WIDTH 1
++#define XG_MNT_INTR_B0_LBN 11
++#define XG_MNT_INTR_B0_WIDTH 1
++#define RX_RECOVERY_A1_LBN 11
++#define RX_RECOVERY_A1_WIDTH 1
++#define XG_PHY_INTR_LBN 9
++#define XG_PHY_INTR_WIDTH 1
++#define G_PHY1_INTR_LBN 8
++#define G_PHY1_INTR_WIDTH 1
++#define G_PHY0_INTR_LBN 7
++#define G_PHY0_INTR_WIDTH 1
++
++/* Driver-generated test events */
++#define EVQ_MAGIC_LBN 0
++#define EVQ_MAGIC_WIDTH 32
++
++/**************************************************************************
++ *
++ * Falcon MAC stats
++ *
++ **************************************************************************
++ *
++ */
++#define GRxGoodOct_offset 0x0
++#define GRxBadOct_offset 0x8
++#define GRxMissPkt_offset 0x10
++#define GRxFalseCRS_offset 0x14
++#define GRxPausePkt_offset 0x18
++#define GRxBadPkt_offset 0x1C
++#define GRxUcastPkt_offset 0x20
++#define GRxMcastPkt_offset 0x24
++#define GRxBcastPkt_offset 0x28
++#define GRxGoodLt64Pkt_offset 0x2C
++#define GRxBadLt64Pkt_offset 0x30
++#define GRx64Pkt_offset 0x34
++#define GRx65to127Pkt_offset 0x38
++#define GRx128to255Pkt_offset 0x3C
++#define GRx256to511Pkt_offset 0x40
++#define GRx512to1023Pkt_offset 0x44
++#define GRx1024to15xxPkt_offset 0x48
++#define GRx15xxtoJumboPkt_offset 0x4C
++#define GRxGtJumboPkt_offset 0x50
++#define GRxFcsErr64to15xxPkt_offset 0x54
++#define GRxFcsErr15xxtoJumboPkt_offset 0x58
++#define GRxFcsErrGtJumboPkt_offset 0x5C
++#define GTxGoodBadOct_offset 0x80
++#define GTxGoodOct_offset 0x88
++#define GTxSglColPkt_offset 0x90
++#define GTxMultColPkt_offset 0x94
++#define GTxExColPkt_offset 0x98
++#define GTxDefPkt_offset 0x9C
++#define GTxLateCol_offset 0xA0
++#define GTxExDefPkt_offset 0xA4
++#define GTxPausePkt_offset 0xA8
++#define GTxBadPkt_offset 0xAC
++#define GTxUcastPkt_offset 0xB0
++#define GTxMcastPkt_offset 0xB4
++#define GTxBcastPkt_offset 0xB8
++#define GTxLt64Pkt_offset 0xBC
++#define GTx64Pkt_offset 0xC0
++#define GTx65to127Pkt_offset 0xC4
++#define GTx128to255Pkt_offset 0xC8
++#define GTx256to511Pkt_offset 0xCC
++#define GTx512to1023Pkt_offset 0xD0
++#define GTx1024to15xxPkt_offset 0xD4
++#define GTx15xxtoJumboPkt_offset 0xD8
++#define GTxGtJumboPkt_offset 0xDC
++#define GTxNonTcpUdpPkt_offset 0xE0
++#define GTxMacSrcErrPkt_offset 0xE4
++#define GTxIpSrcErrPkt_offset 0xE8
++#define GDmaDone_offset 0xEC
++
++#define XgRxOctets_offset 0x0
++#define XgRxOctets_WIDTH 48
++#define XgRxOctetsOK_offset 0x8
++#define XgRxOctetsOK_WIDTH 48
++#define XgRxPkts_offset 0x10
++#define XgRxPkts_WIDTH 32
++#define XgRxPktsOK_offset 0x14
++#define XgRxPktsOK_WIDTH 32
++#define XgRxBroadcastPkts_offset 0x18
++#define XgRxBroadcastPkts_WIDTH 32
++#define XgRxMulticastPkts_offset 0x1C
++#define XgRxMulticastPkts_WIDTH 32
++#define XgRxUnicastPkts_offset 0x20
++#define XgRxUnicastPkts_WIDTH 32
++#define XgRxUndersizePkts_offset 0x24
++#define XgRxUndersizePkts_WIDTH 32
++#define XgRxOversizePkts_offset 0x28
++#define XgRxOversizePkts_WIDTH 32
++#define XgRxJabberPkts_offset 0x2C
++#define XgRxJabberPkts_WIDTH 32
++#define XgRxUndersizeFCSerrorPkts_offset 0x30
++#define XgRxUndersizeFCSerrorPkts_WIDTH 32
++#define XgRxDropEvents_offset 0x34
++#define XgRxDropEvents_WIDTH 32
++#define XgRxFCSerrorPkts_offset 0x38
++#define XgRxFCSerrorPkts_WIDTH 32
++#define XgRxAlignError_offset 0x3C
++#define XgRxAlignError_WIDTH 32
++#define XgRxSymbolError_offset 0x40
++#define XgRxSymbolError_WIDTH 32
++#define XgRxInternalMACError_offset 0x44
++#define XgRxInternalMACError_WIDTH 32
++#define XgRxControlPkts_offset 0x48
++#define XgRxControlPkts_WIDTH 32
++#define XgRxPausePkts_offset 0x4C
++#define XgRxPausePkts_WIDTH 32
++#define XgRxPkts64Octets_offset 0x50
++#define XgRxPkts64Octets_WIDTH 32
++#define XgRxPkts65to127Octets_offset 0x54
++#define XgRxPkts65to127Octets_WIDTH 32
++#define XgRxPkts128to255Octets_offset 0x58
++#define XgRxPkts128to255Octets_WIDTH 32
++#define XgRxPkts256to511Octets_offset 0x5C
++#define XgRxPkts256to511Octets_WIDTH 32
++#define XgRxPkts512to1023Octets_offset 0x60
++#define XgRxPkts512to1023Octets_WIDTH 32
++#define XgRxPkts1024to15xxOctets_offset 0x64
++#define XgRxPkts1024to15xxOctets_WIDTH 32
++#define XgRxPkts15xxtoMaxOctets_offset 0x68
++#define XgRxPkts15xxtoMaxOctets_WIDTH 32
++#define XgRxLengthError_offset 0x6C
++#define XgRxLengthError_WIDTH 32
++#define XgTxPkts_offset 0x80
++#define XgTxPkts_WIDTH 32
++#define XgTxOctets_offset 0x88
++#define XgTxOctets_WIDTH 48
++#define XgTxMulticastPkts_offset 0x90
++#define XgTxMulticastPkts_WIDTH 32
++#define XgTxBroadcastPkts_offset 0x94
++#define XgTxBroadcastPkts_WIDTH 32
++#define XgTxUnicastPkts_offset 0x98
++#define XgTxUnicastPkts_WIDTH 32
++#define XgTxControlPkts_offset 0x9C
++#define XgTxControlPkts_WIDTH 32
++#define XgTxPausePkts_offset 0xA0
++#define XgTxPausePkts_WIDTH 32
++#define XgTxPkts64Octets_offset 0xA4
++#define XgTxPkts64Octets_WIDTH 32
++#define XgTxPkts65to127Octets_offset 0xA8
++#define XgTxPkts65to127Octets_WIDTH 32
++#define XgTxPkts128to255Octets_offset 0xAC
++#define XgTxPkts128to255Octets_WIDTH 32
++#define XgTxPkts256to511Octets_offset 0xB0
++#define XgTxPkts256to511Octets_WIDTH 32
++#define XgTxPkts512to1023Octets_offset 0xB4
++#define XgTxPkts512to1023Octets_WIDTH 32
++#define XgTxPkts1024to15xxOctets_offset 0xB8
++#define XgTxPkts1024to15xxOctets_WIDTH 32
++#define XgTxPkts1519toMaxOctets_offset 0xBC
++#define XgTxPkts1519toMaxOctets_WIDTH 32
++#define XgTxUndersizePkts_offset 0xC0
++#define XgTxUndersizePkts_WIDTH 32
++#define XgTxOversizePkts_offset 0xC4
++#define XgTxOversizePkts_WIDTH 32
++#define XgTxNonTcpUdpPkt_offset 0xC8
++#define XgTxNonTcpUdpPkt_WIDTH 16
++#define XgTxMacSrcErrPkt_offset 0xCC
++#define XgTxMacSrcErrPkt_WIDTH 16
++#define XgTxIpSrcErrPkt_offset 0xD0
++#define XgTxIpSrcErrPkt_WIDTH 16
++#define XgDmaDone_offset 0xD4
++
++#define FALCON_STATS_NOT_DONE 0x00000000
++#define FALCON_STATS_DONE 0xffffffff
++
++/* Interrupt status register bits */
++#define FATAL_INT_LBN 64
++#define FATAL_INT_WIDTH 1
++#define INT_EVQS_LBN 40
++#define INT_EVQS_WIDTH 4
++
++/**************************************************************************
++ *
++ * Falcon non-volatile configuration
++ *
++ **************************************************************************
++ */
++
++/* Board configuration v2 (v1 is obsolete; later versions are compatible) */
++struct falcon_nvconfig_board_v2 {
++	__le16 nports;
++	u8 port0_phy_addr;
++	u8 port0_phy_type;
++	u8 port1_phy_addr;
++	u8 port1_phy_type;
++	__le16 asic_sub_revision;
++	__le16 board_revision;
++} __attribute__ ((packed));
++
++#define NVCONFIG_BASE 0x300
++#define NVCONFIG_BOARD_MAGIC_NUM 0xFA1C
++struct falcon_nvconfig {
++	efx_oword_t ee_vpd_cfg_reg;			/* 0x300 */
++	u8 mac_address[2][8];			/* 0x310 */
++	efx_oword_t pcie_sd_ctl0123_reg;		/* 0x320 */
++	efx_oword_t pcie_sd_ctl45_reg;			/* 0x330 */
++	efx_oword_t pcie_pcs_ctl_stat_reg;		/* 0x340 */
++	efx_oword_t hw_init_reg;			/* 0x350 */
++	efx_oword_t nic_stat_reg;			/* 0x360 */
++	efx_oword_t glb_ctl_reg;			/* 0x370 */
++	efx_oword_t srm_cfg_reg;			/* 0x380 */
++	efx_oword_t spare_reg;				/* 0x390 */
++	__le16 board_magic_num;			/* 0x3A0 */
++	__le16 board_struct_ver;
++	__le16 board_checksum;
++	struct falcon_nvconfig_board_v2 board_v2;
++} __attribute__ ((packed));
++
++#endif /* EFX_FALCON_HWDEFS_H */
+diff --git a/drivers/net/sfc/falcon_io.h b/drivers/net/sfc/falcon_io.h
+new file mode 100644
+index 0000000..d02fc17
+--- /dev/null
++++ b/drivers/net/sfc/falcon_io.h
+@@ -0,0 +1,242 @@
++/****************************************************************************
++ * Driver for Solarflare Solarstorm network controllers and boards
++ * Copyright 2005-2006 Fen Systems Ltd.
++ * Copyright 2006-2008 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#ifndef EFX_FALCON_IO_H
++#define EFX_FALCON_IO_H
++
++#include "net_driver.h"
++#include "falcon.h"
++
++/**************************************************************************
++ *
++ * Falcon hardware access
++ *
++ **************************************************************************
++ *
++ * Notes on locking strategy:
++ *
++ * Most Falcon registers require 16-byte (or 8-byte, for SRAM
++ * registers) atomic writes which necessitates locking.
++ * Under normal operation few writes to the Falcon BAR are made and these
++ * registers (EVQ_RPTR_REG, RX_DESC_UPD_REG and TX_DESC_UPD_REG) are special
++ * cased to allow 4-byte (hence lockless) accesses.
++ *
++ * It *is* safe to write to these 4-byte registers in the middle of an
++ * access to an 8-byte or 16-byte register.  We therefore use a
++ * spinlock to protect accesses to the larger registers, but no locks
++ * for the 4-byte registers.
++ *
++ * A write barrier is needed to ensure that DW3 is written after DW0/1/2
++ * due to the way the 16byte registers are "collected" in the Falcon BIU
++ *
++ * We also lock when carrying out reads, to ensure consistency of the
++ * data (made possible since the BIU reads all 128 bits into a cache).
++ * Reads are very rare, so this isn't a significant performance
++ * impact.  (Most data transferred from NIC to host is DMAed directly
++ * into host memory).
++ *
++ * I/O BAR access uses locks for both reads and writes (but is only provided
++ * for testing purposes).
++ */
++
++/* Special buffer descriptors (Falcon SRAM) */
++#define BUF_TBL_KER_A1 0x18000
++#define BUF_TBL_KER_B0 0x800000
++
++
++#if BITS_PER_LONG == 64
++#define FALCON_USE_QWORD_IO 1
++#endif
++
++#define _falcon_writeq(efx, value, reg) \
++	__raw_writeq((__force u64) (value), (efx)->membase + (reg))
++#define _falcon_writel(efx, value, reg) \
++	__raw_writel((__force u32) (value), (efx)->membase + (reg))
++#define _falcon_readq(efx, reg) \
++	((__force __le64) __raw_readq((efx)->membase + (reg)))
++#define _falcon_readl(efx, reg) \
++	((__force __le32) __raw_readl((efx)->membase + (reg)))
++
++/* Writes to a normal 16-byte Falcon register, locking as appropriate. */
++static inline void falcon_write(struct efx_nic *efx, efx_oword_t *value,
++				unsigned int reg)
++{
++	unsigned long flags __attribute__ ((unused));
++
++	EFX_REGDUMP(efx, "writing register %x with " EFX_OWORD_FMT "\n", reg,
++		    EFX_OWORD_VAL(*value));
++
++	spin_lock_irqsave(&efx->biu_lock, flags);
++#ifdef FALCON_USE_QWORD_IO
++	_falcon_writeq(efx, value->u64[0], reg + 0);
++	wmb();
++	_falcon_writeq(efx, value->u64[1], reg + 8);
++#else
++	_falcon_writel(efx, value->u32[0], reg + 0);
++	_falcon_writel(efx, value->u32[1], reg + 4);
++	_falcon_writel(efx, value->u32[2], reg + 8);
++	wmb();
++	_falcon_writel(efx, value->u32[3], reg + 12);
++#endif
++	mmiowb();
++	spin_unlock_irqrestore(&efx->biu_lock, flags);
++}
++
++/* Writes to an 8-byte Falcon SRAM register, locking as appropriate. */
++static inline void falcon_write_sram(struct efx_nic *efx, efx_qword_t *value,
++				     unsigned int index)
++{
++	unsigned int reg = efx->type->buf_tbl_base + (index * sizeof(*value));
++	unsigned long flags __attribute__ ((unused));
++
++	EFX_REGDUMP(efx, "writing SRAM register %x with " EFX_QWORD_FMT "\n",
++		    reg, EFX_QWORD_VAL(*value));
++
++	spin_lock_irqsave(&efx->biu_lock, flags);
++#ifdef FALCON_USE_QWORD_IO
++	_falcon_writeq(efx, value->u64[0], reg + 0);
++#else
++	_falcon_writel(efx, value->u32[0], reg + 0);
++	wmb();
++	_falcon_writel(efx, value->u32[1], reg + 4);
++#endif
++	mmiowb();
++	spin_unlock_irqrestore(&efx->biu_lock, flags);
++}
++
++/* Write dword to Falcon register that allows partial writes
++ *
++ * Some Falcon registers (EVQ_RPTR_REG, RX_DESC_UPD_REG and
++ * TX_DESC_UPD_REG) can be written to as a single dword.  This allows
++ * for lockless writes.
++ */
++static inline void falcon_writel(struct efx_nic *efx, efx_dword_t *value,
++				 unsigned int reg)
++{
++	EFX_REGDUMP(efx, "writing partial register %x with "EFX_DWORD_FMT"\n",
++		    reg, EFX_DWORD_VAL(*value));
++
++	/* No lock required */
++	_falcon_writel(efx, value->u32[0], reg);
++}
++
++/* Read from a Falcon register
++ *
++ * This reads an entire 16-byte Falcon register in one go, locking as
++ * appropriate.  It is essential to read the first dword first, as this
++ * prompts Falcon to load the current value into the shadow register.
++ */
++static inline void falcon_read(struct efx_nic *efx, efx_oword_t *value,
++			       unsigned int reg)
++{
++	unsigned long flags __attribute__ ((unused));
++
++	spin_lock_irqsave(&efx->biu_lock, flags);
++	value->u32[0] = _falcon_readl(efx, reg + 0);
++	rmb();
++	value->u32[1] = _falcon_readl(efx, reg + 4);
++	value->u32[2] = _falcon_readl(efx, reg + 8);
++	value->u32[3] = _falcon_readl(efx, reg + 12);
++	spin_unlock_irqrestore(&efx->biu_lock, flags);
++
++	EFX_REGDUMP(efx, "read from register %x, got " EFX_OWORD_FMT "\n", reg,
++		    EFX_OWORD_VAL(*value));
++}
++
++/* This reads an 8-byte Falcon SRAM entry in one go. */
++static inline void falcon_read_sram(struct efx_nic *efx, efx_qword_t *value,
++				    unsigned int index)
++{
++	unsigned int reg = efx->type->buf_tbl_base + (index * sizeof(*value));
++	unsigned long flags __attribute__ ((unused));
++
++	spin_lock_irqsave(&efx->biu_lock, flags);
++#ifdef FALCON_USE_QWORD_IO
++	value->u64[0] = _falcon_readq(efx, reg + 0);
++#else
++	value->u32[0] = _falcon_readl(efx, reg + 0);
++	rmb();
++	value->u32[1] = _falcon_readl(efx, reg + 4);
++#endif
++	spin_unlock_irqrestore(&efx->biu_lock, flags);
++
++	EFX_REGDUMP(efx, "read from SRAM register %x, got "EFX_QWORD_FMT"\n",
++		    reg, EFX_QWORD_VAL(*value));
++}
++
++/* Read dword from Falcon register that allows partial writes (sic) */
++static inline void falcon_readl(struct efx_nic *efx, efx_dword_t *value,
++				unsigned int reg)
++{
++	value->u32[0] = _falcon_readl(efx, reg);
++	EFX_REGDUMP(efx, "read from register %x, got "EFX_DWORD_FMT"\n",
++		    reg, EFX_DWORD_VAL(*value));
++}
++
++/* Write to a register forming part of a table */
++static inline void falcon_write_table(struct efx_nic *efx, efx_oword_t *value,
++				      unsigned int reg, unsigned int index)
++{
++	falcon_write(efx, value, reg + index * sizeof(efx_oword_t));
++}
++
++/* Read to a register forming part of a table */
++static inline void falcon_read_table(struct efx_nic *efx, efx_oword_t *value,
++				     unsigned int reg, unsigned int index)
++{
++	falcon_read(efx, value, reg + index * sizeof(efx_oword_t));
++}
++
++/* Write to a dword register forming part of a table */
++static inline void falcon_writel_table(struct efx_nic *efx, efx_dword_t *value,
++				       unsigned int reg, unsigned int index)
++{
++	falcon_writel(efx, value, reg + index * sizeof(efx_oword_t));
++}
++
++/* Page-mapped register block size */
++#define FALCON_PAGE_BLOCK_SIZE 0x2000
++
++/* Calculate offset to page-mapped register block */
++#define FALCON_PAGED_REG(page, reg) \
++	((page) * FALCON_PAGE_BLOCK_SIZE + (reg))
++
++/* As for falcon_write(), but for a page-mapped register. */
++static inline void falcon_write_page(struct efx_nic *efx, efx_oword_t *value,
++				     unsigned int reg, unsigned int page)
++{
++	falcon_write(efx, value, FALCON_PAGED_REG(page, reg));
++}
++
++/* As for falcon_writel(), but for a page-mapped register. */
++static inline void falcon_writel_page(struct efx_nic *efx, efx_dword_t *value,
++				      unsigned int reg, unsigned int page)
++{
++	falcon_writel(efx, value, FALCON_PAGED_REG(page, reg));
++}
++
++/* Write dword to Falcon page-mapped register with an extra lock.
++ *
++ * As for falcon_writel_page(), but for a register that suffers from
++ * SFC bug 3181. Take out a lock so the BIU collector cannot be
++ * confused. */
++static inline void falcon_writel_page_locked(struct efx_nic *efx,
++					     efx_dword_t *value,
++					     unsigned int reg,
++					     unsigned int page)
++{
++	unsigned long flags __attribute__ ((unused));
++
++	spin_lock_irqsave(&efx->biu_lock, flags);
++	falcon_writel(efx, value, FALCON_PAGED_REG(page, reg));
++	spin_unlock_irqrestore(&efx->biu_lock, flags);
++}
++
++#endif /* EFX_FALCON_IO_H */
+diff --git a/drivers/net/sfc/spi.h b/drivers/net/sfc/spi.h
+new file mode 100644
+index 0000000..34412f3
+--- /dev/null
++++ b/drivers/net/sfc/spi.h
+@@ -0,0 +1,71 @@
++/****************************************************************************
++ * Driver for Solarflare Solarstorm network controllers and boards
++ * Copyright 2005 Fen Systems Ltd.
++ * Copyright 2006 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#ifndef EFX_SPI_H
++#define EFX_SPI_H
 +
 +#include "net_driver.h"
 +
-+int efx_probe_tx_queue(struct efx_tx_queue *tx_queue);
-+void efx_remove_tx_queue(struct efx_tx_queue *tx_queue);
-+int efx_init_tx_queue(struct efx_tx_queue *tx_queue);
-+void efx_fini_tx_queue(struct efx_tx_queue *tx_queue);
++/**************************************************************************
++ *
++ * Basic SPI command set and bit definitions
++ *
++ *************************************************************************/
 +
-+int efx_hard_start_xmit(struct sk_buff *skb, struct net_device *net_dev);
-+void efx_release_tx_buffers(struct efx_tx_queue *tx_queue);
++/*
++ * Commands common to all known devices.
++ *
++ */
 +
-+#endif /* EFX_TX_H */
++/* Write status register */
++#define SPI_WRSR 0x01
++
++/* Write data to memory array */
++#define SPI_WRITE 0x02
++
++/* Read data from memory array */
++#define SPI_READ 0x03
++
++/* Reset write enable latch */
++#define SPI_WRDI 0x04
++
++/* Read status register */
++#define SPI_RDSR 0x05
++
++/* Set write enable latch */
++#define SPI_WREN 0x06
++
++/* SST: Enable write to status register */
++#define SPI_SST_EWSR 0x50
++
++/*
++ * Status register bits.  Not all bits are supported on all devices.
++ *
++ */
++
++/* Write-protect pin enabled */
++#define SPI_STATUS_WPEN 0x80
++
++/* Block protection bit 2 */
++#define SPI_STATUS_BP2 0x10
++
++/* Block protection bit 1 */
++#define SPI_STATUS_BP1 0x08
++
++/* Block protection bit 0 */
++#define SPI_STATUS_BP0 0x04
++
++/* State of the write enable latch */
++#define SPI_STATUS_WEN 0x02
++
++/* Device busy flag */
++#define SPI_STATUS_NRDY 0x01
++
++#endif /* EFX_SPI_H */
+diff --git a/drivers/net/sfc/workarounds.h b/drivers/net/sfc/workarounds.h
+new file mode 100644
+index 0000000..dca62f1
+--- /dev/null
++++ b/drivers/net/sfc/workarounds.h
+@@ -0,0 +1,56 @@
++/****************************************************************************
++ * Driver for Solarflare Solarstorm network controllers and boards
++ * Copyright 2006-2008 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#ifndef EFX_WORKAROUNDS_H
++#define EFX_WORKAROUNDS_H
++
++/*
++ * Hardware workarounds.
++ * Bug numbers are from Solarflare's Bugzilla.
++ */
++
++#define EFX_WORKAROUND_ALWAYS(efx) 1
++#define EFX_WORKAROUND_FALCON_A(efx) (FALCON_REV(efx) <= FALCON_REV_A1)
++
++/* XAUI resets if link not detected */
++#define EFX_WORKAROUND_5147 EFX_WORKAROUND_ALWAYS
++/* SNAP frames have TOBE_DISC set */
++#define EFX_WORKAROUND_5475 EFX_WORKAROUND_ALWAYS
++/* RX PCIe double split performance issue */
++#define EFX_WORKAROUND_7575 EFX_WORKAROUND_ALWAYS
++/* TX pkt parser problem with <= 16 byte TXes */
++#define EFX_WORKAROUND_9141 EFX_WORKAROUND_ALWAYS
++/* XGXS and XAUI reset sequencing in SW */
++#define EFX_WORKAROUND_9388 EFX_WORKAROUND_ALWAYS
++/* Low rate CRC errors require XAUI reset */
++#define EFX_WORKAROUND_10750 EFX_WORKAROUND_ALWAYS
++/* TX_EV_PKT_ERR can be caused by a dangling TX descriptor
++ * or a PCIe error (bug 11028) */
++#define EFX_WORKAROUND_10727 EFX_WORKAROUND_ALWAYS
++/* Transmit flow control may get disabled */
++#define EFX_WORKAROUND_11482 EFX_WORKAROUND_ALWAYS
++/* Flush events can take a very long time to appear */
++#define EFX_WORKAROUND_11557 EFX_WORKAROUND_ALWAYS
++
++/* Spurious parity errors in TSORT buffers */
++#define EFX_WORKAROUND_5129 EFX_WORKAROUND_FALCON_A
++/* iSCSI parsing errors */
++#define EFX_WORKAROUND_5583 EFX_WORKAROUND_FALCON_A
++/* RX events go missing */
++#define EFX_WORKAROUND_5676 EFX_WORKAROUND_FALCON_A
++/* RX_RESET on A1 */
++#define EFX_WORKAROUND_6555 EFX_WORKAROUND_FALCON_A
++/* Increase filter depth to avoid RX_RESET */
++#define EFX_WORKAROUND_7244 EFX_WORKAROUND_FALCON_A
++/* Flushes may never complete */
++#define EFX_WORKAROUND_7803 EFX_WORKAROUND_FALCON_A
++/* Leak overlength packets rather than free */
++#define EFX_WORKAROUND_8071 EFX_WORKAROUND_FALCON_A
++
++#endif /* EFX_WORKAROUNDS_H */
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
