@@ -1,32 +1,34 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 8/8] New driver "sfc" for Solarstorm SFC4000 controller (try #8)
-Date: Wed, 12 Mar 2008 01:45:26 +0000
-Message-ID: <20080312014525.GK24160@solarflare.com>
-References: <20080312012102.GB24160@solarflare.com> <20080312012629.GJ24160@solarflare.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 8/8] New driver "sfc" for Solarstorm SFC4000 controller
+ (try #8)
+Date: Tue, 11 Mar 2008 19:01:35 -0700 (PDT)
+Message-ID: <20080311.190135.108058050.davem@davemloft.net>
+References: <20080312012102.GB24160@solarflare.com>
+	<20080312012629.GJ24160@solarflare.com>
+	<20080312014525.GK24160@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:54805 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750923AbYCLBp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2008 21:45:28 -0400
-Received: from uklogin.uk.level5networks.com (localhost [127.0.0.1])
-	by uklogin.uk.level5networks.com (8.12.11/8.12.5) with ESMTP id m2C1jQvY006115
-	for <netdev@vger.kernel.org>; Wed, 12 Mar 2008 01:45:26 GMT
-Received: (from bwh@localhost)
-	by uklogin.uk.level5networks.com (8.12.11/8.12.11/Submit) id m2C1jQrm006111
-	for netdev@vger.kernel.org; Wed, 12 Mar 2008 01:45:26 GMT
-Content-Disposition: inline
-In-Reply-To: <20080312012629.GJ24160@solarflare.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60215
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751195AbYCLCB2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2008 22:01:28 -0400
+In-Reply-To: <20080312014525.GK24160@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I did send 8 messages prior to this one, but they haven't hit the list
-for some reason.  Should I try again?
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 12 Mar 2008 01:45:26 +0000
 
-Ben.
+> I did send 8 messages prior to this one, but they haven't hit the list
+> for some reason.  Should I try again?
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+I can't tell why they got rejected, sorry.
+
+Please just resend the first patch and I will watch for
+any bounces on the list-owner alias.
+
+Thank you.
