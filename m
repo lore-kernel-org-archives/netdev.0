@@ -1,57 +1,80 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: RFC [PATCH net-2.6 1/6] net: Scheduling softirqs between CPUSs
-Date: Wed, 12 Mar 2008 15:10:52 +0000
-Message-ID: <20080312151051.GI26963@solarflare.com>
-References: <20080305205116.5989A412541@localhost> <20080305.132112.01598419.davem@davemloft.net> <47D19147.9070609@qualcomm.com> <36D9DB17C6DE9E40B059440DB8D95F52049D5CE5@orsmsx418.amr.corp.intel.com> <65634d660803110920g5103dc60ya055a10f999b4e25@mail.gmail.com> <20080311165253.GG26963@solarflare.com> <65634d660803111648l15c4d653t52b4fc9e8dfa531d@mail.gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [RFC PATCH 3/8] [NET]: uninline dev_alloc_skb, de-bloats a lot
+Date: Wed, 12 Mar 2008 17:27:16 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0803121711400.24534@kivilampi-30.cs.helsinki.fi>
+References: <1203515238-22848-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1203515238-22848-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1203515238-22848-3-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1203515238-22848-4-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <Pine.LNX.4.64.0802201651580.26109@fbirervta.pbzchgretzou.qr>
+ <47BC54FB.2050508@trash.net> <Pine.LNX.4.64.0802201730240.26109@fbirervta.pbzchgretzou.qr>
+ <Pine.LNX.4.64.0802202135080.32171@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Max Krasnyanskiy <maxk@qualcomm.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Ingo Molnar <mingo@elte.hu>
-To: Tom Herbert <therbert@google.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-652228311-1205335636=:24534"
+Cc: Patrick McHardy <kaber@trash.net>, Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
+To: Jan Engelhardt <jengelh@computergmbh.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pythagoras.zen.co.uk ([212.23.3.140]:59257 "EHLO
-	pythagoras.zen.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751752AbYCLPLG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2008 11:11:06 -0400
-Content-Disposition: inline
-In-Reply-To: <65634d660803111648l15c4d653t52b4fc9e8dfa531d@mail.gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:38701 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750924AbYCLP1T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2008 11:27:19 -0400
+In-Reply-To: <Pine.LNX.4.64.0802202135080.32171@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert wrote:
-> >  Recent versions of Windows that are aware of RSS will instruct network
-> >  drivers to update their RSS indirection tables so that received
-> >  packets are handled on the same CPU as the thread likely to use the
-> >  received data.  This requires that the network stack knows the hash
-> >  function, so Microsoft specified a "Toeplitz hash" for IPv4 and IPv6.
-> >  You can expect that most hardware RSS implementations will use this
-> >  function and not a simple XOR.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696243703-652228311-1205335636=:24534
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Thu, 21 Feb 2008, Ilpo Järvinen wrote:
+
+> On Wed, 20 Feb 2008, Jan Engelhardt wrote:
+> 
+> > On Feb 20 2008 17:27, Patrick McHardy wrote:
 > >
+> > > __dev_alloc_skb() is also an inline function which performs
+> > > some extra work. Which raises the question - if dev_alloc_skb()
+> >
+> > I'd like to see the results when {__dev_alloc_skb is externed
+> > and dev_alloc_skb remains inlined}.
 > 
-> Thanks.  I am planning to do the Toeplitz hash in the softRSS.  Also,
-> I was planning to add support for devices that provide the Toeplitz
-> hash but don't do full RSS.
+> The results are right under your nose already... ;-)
+> See from the list of the series introduction:
 > 
-> One nice feature about Microsoft RSS seems to be the ability for the
-> stack to dynamically re-balance networking load of a device using
-> an indirection table that is set up in the device.  I was wondering if
-> this is supported in Linux stack or if anyone is working on that?
+>   http://marc.info/?l=linux-netdev&m=120351526210711&w=2
+> 
+> IMHO more interesting number (which I currently don't have) is the 
+> _remaining_ benefits of uninlining __dev_alloc_skb after
+> dev_alloc_skb was first uninlined.
 
-It's not supported, but it's on David Miller's to-do list[1].
+I've measured this now... Without many debug CONFIGs (in v2.6.25-rc2-mm1), 
+the dev_alloc_skb is much less than 23kB:
 
-By the way, Microsoft suddenly decided that RSS is too problematic to
-enable by default[2] because software and hardware can disagree about
-hash values in the presence of some local NAT implementations.
-Hopefully we can avoid that particular pitfall in Linux.
+    382 funcs, 157 +, 12335 -, diff: -12178 --- dev_alloc_skb
+    dev_alloc_skb                 |  +37
 
-Ben.
+...and on top of that, I got only this:
+    48 funcs, 111 +, 836 -, diff: -725 --- __dev_alloc_skb
 
-1. http://vger.kernel.org/~davem/net_todo.html
-2. http://support.microsoft.com/kb/948496
+Not that impressive compared with many much worse cases (wasn't a big 
+surprise because there were fewer callsites for the latter).
+
+Anyway, would I uninline it (or one some another function that has such 
+two variants that are good candidates for uninlining), should I try to 
+avoid deepening the call-chain by two functions? To me it seems that only 
+way to fool gcc to do that for sure would be using some trick like this:
+Rename __dev_alloc_skb to ___dev_alloc_skb in the header (with appropriate
+don't ever call this due to bloat comment added) and both __dev_alloc_skb 
+and dev_alloc_skb could then be made to call that one in .c file. 
+Otherwise I'm not that sure gcc wouldn't try to be too clever if I just 
+use inline in .c file.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+ i.
+---696243703-652228311-1205335636=:24534--
