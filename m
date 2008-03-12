@@ -1,39 +1,33 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: question regarding (AF_INET6, SOCK_RAW, IPPROTO_RAW) sockets
-Date: Thu, 13 Mar 2008 01:02:02 +0200
-Message-ID: <200803130102.02366.opurdila@ixiacom.com>
-References: <200803121834.29293.opurdila@ixiacom.com> <200803122006.49506.rdenis@simphalempin.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: netconsole still hangs
+Date: Wed, 12 Mar 2008 16:14:29 -0700
+Message-ID: <20080312161429.d5b1c67b.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:3628 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751744AbYCLXBR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2008 19:01:17 -0400
-In-Reply-To: <200803122006.49506.rdenis@simphalempin.com>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48900 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751543AbYCLXPC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2008 19:15:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 12 March 2008, R=C3=A9mi Denis-Courmont wrote:
 
->
-> I am a bit confused here. Why would you use IPV6_PKTINFO with a
-> network-layer raw socket? You have to write the IPv6 header anyway, s=
-o what
-> useful additional infos would you the ancillary data contain?
+I thought the recent reverts fixed this, but it seems that it's just become
+a little harder to hit.
 
+I'm seeing netconsole hangs on two x86_64 systems (2-way t61p laptop, 8-way
+server).  Both use e1000.
 
-Hi R=C3=A9mi,
+With current mainline on the 8-way, create a printk storm with
 
-You are right. For some reason (the IPV4 case / man 7 raw) I though tha=
-t=20
-IPV6_PKTINFO is implied when using IPPROTO_RAW but I see now that it is=
- not=20
-required.
+while true
+do
+	echo t > /proc/sysrq-trigger
+done
 
-Thanks,
-tavi
+and the machine goes tits-up after about five seconds.
+
