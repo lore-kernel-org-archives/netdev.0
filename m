@@ -1,56 +1,49 @@
-From: "Tom Herbert" <therbert@google.com>
-Subject: Re: RFC [PATCH net-2.6 1/6] net: Scheduling softirqs between CPUSs
-Date: Tue, 11 Mar 2008 16:48:26 -0700
-Message-ID: <65634d660803111648l15c4d653t52b4fc9e8dfa531d@mail.gmail.com>
-References: <20080305205116.5989A412541@localhost>
-	 <20080305.132112.01598419.davem@davemloft.net>
-	 <47D19147.9070609@qualcomm.com>
-	 <36D9DB17C6DE9E40B059440DB8D95F52049D5CE5@orsmsx418.amr.corp.intel.com>
-	 <65634d660803110920g5103dc60ya055a10f999b4e25@mail.gmail.com>
-	 <20080311165253.GG26963@solarflare.com>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: Re: [stable] [PATCH] alloc_percpu() fails to allocate percpu data
+Date: Tue, 11 Mar 2008 17:18:13 -0700
+Message-ID: <20080312001813.GS4416@sequoia.sous-sol.org>
+References: <47BDBC23.10605@cosmosbay.com> <170fa0d20803111115n3e8eb438s9b1ad7fff2fb8672@mail.gmail.com> <47D6D24D.2080007@cosmosbay.com> <170fa0d20803111239u4d25b7c8p915e63a43cb389c6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Max Krasnyanskiy" <maxk@qualcomm.com>,
-	"David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	"Steven Rostedt" <rostedt@goodmis.org>,
-	"Ingo Molnar" <mingo@elte.hu>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	"Zhang, Yanmin" <yanmin_zhang@linux.intel.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	netdev@vger.kernel.org,
+	linux kernel <linux-kernel@vger.kernel.org>, stable@kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Christoph Lameter <clameter@sgi.com>
+To: Mike Snitzer <snitzer@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:56664 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbYCKXsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2008 19:48:33 -0400
-Received: from zps18.corp.google.com (zps18.corp.google.com [172.25.146.18])
-	by smtp-out.google.com with ESMTP id m2BNmRxX021714
-	for <netdev@vger.kernel.org>; Tue, 11 Mar 2008 23:48:28 GMT
-Received: from rv-out-0910.google.com (rvfc24.prod.google.com [10.140.180.24])
-	by zps18.corp.google.com with ESMTP id m2BNmQc5027332
-	for <netdev@vger.kernel.org>; Tue, 11 Mar 2008 16:48:27 -0700
-Received: by rv-out-0910.google.com with SMTP id c24so1679965rvf.13
-        for <netdev@vger.kernel.org>; Tue, 11 Mar 2008 16:48:26 -0700 (PDT)
-In-Reply-To: <20080311165253.GG26963@solarflare.com>
+Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:41958 "EHLO
+	sous-sol.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751303AbYCLATx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2008 20:19:53 -0400
 Content-Disposition: inline
+In-Reply-To: <170fa0d20803111239u4d25b7c8p915e63a43cb389c6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->  Recent versions of Windows that are aware of RSS will instruct network
->  drivers to update their RSS indirection tables so that received
->  packets are handled on the same CPU as the thread likely to use the
->  received data.  This requires that the network stack knows the hash
->  function, so Microsoft specified a "Toeplitz hash" for IPv4 and IPv6.
->  You can expect that most hardware RSS implementations will use this
->  function and not a simple XOR.
->
+* Mike Snitzer (snitzer@gmail.com) wrote:
+> On 3/11/08, Eric Dumazet <dada1@cosmosbay.com> wrote:
+> > Mike Snitzer a =E9crit :
+> >  > I see that this fix was committed to mainline as commit
+> >  > be852795e1c8d3829ddf3cb1ce806113611fa555
+> >  >
+> >  > The commit didn't "Cc: <stable@kernel.org>", and it doesn't appe=
+ar to
+> >  > be queued for 2.6.24.x.  Should it be?
+> >
+> > Yes, it should be queued fo 2.6.24.x
+>=20
+> That means both of the following commits need to be cherry-picked int=
+o 2.6.24.x:
+> b3242151906372f30f57feaa43b4cac96a23edb1
+> be852795e1c8d3829ddf3cb1ce806113611fa555
 
-Thanks.  I am planning to do the Toeplitz hash in the softRSS.  Also,
-I was planning to add support for devices that provide the Toeplitz
-hash but don't do full RSS.
+Just send each with appropriate commit hash id and relevant Cc's to
+stable@kernel.org so we can pick them up.
 
-One nice feature about Microsoft RSS seems to be the ability for the
-stack to dynamically re-balance networking load of a device using
-an indirection table that is set up in the device.  I was wondering if
-this is supported in Linux stack or if anyone is working on that?
-
-Tom
+thanks,
+-chris
