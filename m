@@ -1,41 +1,67 @@
-From: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: question regarding (AF_INET6, SOCK_RAW, IPPROTO_RAW) sockets
-Date: Wed, 12 Mar 2008 20:06:48 +0200
-Message-ID: <200803122006.49506.rdenis@simphalempin.com>
-References: <200803121834.29293.opurdila@ixiacom.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: WAN: new PPP code for generic HDLC
+Date: Wed, 12 Mar 2008 19:21:55 +0100
+Message-ID: <m3prtzsszg.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:47039 "EHLO yop.chewa.net"
+Received: from khc.piap.pl ([195.187.100.11]:41553 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751501AbYCLSHE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2008 14:07:04 -0400
-In-Reply-To: <200803121834.29293.opurdila@ixiacom.com>
-Content-Disposition: inline
+	id S1751681AbYCLSWB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Mar 2008 14:22:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le Wednesday 12 March 2008 18:34:29 Octavian Purdila, vous avez =C3=A9c=
-rit=C2=A0:
-> Hi,
->
-> I've noticed that when using IPv6 raw sockets with IPPROTO_RAW protoc=
-ol and
-> IPV6_PKTINFO set, we are not allow to specify a source address that i=
-t is
-> not configured in the system.
->
-> Disabling ipv6_chk_addr in datagram_send_ctl for IPv6 raw sockets see=
-ms to
-> fix our problem. Is this approach the right one?
+Hi,
 
-I am a bit confused here. Why would you use IPV6_PKTINFO with a network=
--layer=20
-raw socket? You have to write the IPv6 header anyway, so what useful=20
-additional infos would you the ancillary data contain?
+I'll follow up with a patch for generic HDLC PPP code.
 
---=20
-R=C3=A9mi Denis-Courmont
+Current status of generic HDLC is:
+- up to 2.6.22 - working.
+- 2.6.23.* and 2.6.24.* - Frame Relay and PPP protocols panic instantly,
+  breakage caused by a change to netdev code that I overlooked.
+- 2.6.25-git - Frame Relay is already fixed, PPP still panics.
+
+The fix to FR was simple (983e23041b28abb113862b2935a85cfb9aab4f5a).
+
+PPP has been using syncppp.c implementation for years, meaning working
+as a mid-layer between hardware drivers and syncppp. This situation is
+increasingly hard to maintain, and I've decided to write a dedicated
+PPP implementation for generic HDLC.
+
+Rationale:
+- syncppp assumes no mid-layer between itself and hw drivers - dirty
+  hacks must be used to work around this
+- syncppp doesn't even try to implement PPP correctly, it looks like
+  it was written to work with another specific implementation and then
+  left in this state for *teen years
+- every protocol (LCP and IPCP) uses different state machine code.
+- lack of IPv6 support and adding it is non-trivial.
+- I've considered using the generic PPP stack, however it's oriented
+  towards async tty and requires the pppd daemon - I guess code to
+  interface to it would be more complicated than the new PPP code.
+
+The PPP state machine is distributed over many functions and this is
+extremely hard to maintain or even understand. No wonder it's not very
+standard-compliant.
+
+Instead my new implementation has:
+- a single state machine code for all control protocols (LCP, IPCP,
+  IPV6CP, and whatever is needed)
+- it's modelled after STD-51
+- even more minimalistic than syncppp (no "magic number"), though
+  adding optional support (if needed) is simple.
+- can actually be maintained.
+
+I have positively tested it on i686 and big-endian ARM, against itself
+and against syncppp.c. I can't test it against any other device due to
+-ENOHW, so I expect some bugs/problems in/with this code, though I hope
+it's better than the current brokenness.
+
+I guess it should go into 2.6.25, not sure about "stable" series.
+I will appreciate any feedback, review and/or test results.
+-- 
+Krzysztof Halasa
