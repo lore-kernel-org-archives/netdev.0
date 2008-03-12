@@ -1,41 +1,30 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH][IBMVETH]: Use single_open instead of manual manipulations.
-Date: Thu, 13 Mar 2008 12:52:05 +0300
-Message-ID: <47D8F945.7020404@openvz.org>
-References: <47B9640E.8000701@openvz.org> <47CE80F4.60901@garzik.org> <47CE831C.4030508@openvz.org> <47CEB544.6060002@linux.vnet.ibm.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH -mm] ne2: needs more 8390 support functions
+Date: Wed, 12 Mar 2008 12:44:12 +0000
+Message-ID: <20080312124412.6089948c@the-village.bc.nu>
+References: <20080311095643.01cd3708.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: brking@linux.vnet.ibm.com,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	akpm <akpm@linux-foundation.org>, jgarzik <jgarzik@pobox.com>
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33337 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750807AbYCMJwh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Mar 2008 05:52:37 -0400
-In-Reply-To: <47CEB544.6060002@linux.vnet.ibm.com>
+Received: from zux006-051-205.adsl.green.ch ([81.6.51.205]:11893 "EHLO
+	the-village.bc.nu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751480AbYCMKZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2008 06:25:06 -0400
+In-Reply-To: <20080311095643.01cd3708.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brian King wrote:
-> Pavel Emelyanov wrote:
->> Jeff Garzik wrote:
->>> Pavel Emelyanov wrote:
->>>> The code opening proc entry for each device makes the
->>>> same thing, as the single_open does, so remove the
->>>> unneeded code.
->>>>
->>>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
->>> ACK from ibmveth maintainer?
->>>
->> There's no such in MAINTAINERS file. Git log since 2.6.22 shows
->> Brian King as main contributor, he is in Cc and no reply from him.
-> 
-> Acked-by: Brian King <brking@linux.vnet.ibm.com>
-> 
+On Tue, 11 Mar 2008 09:56:43 -0700
+Randy Dunlap <randy.dunlap@oracle.com> wrote:
 
-Jeff, what are your plans about this patch?
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> ne2 (MCA) needs both 8390.o and 8390p.o functions:
 
-Thanks,
-Pavel
+NAK - the two modules are alternatives nothing should use both - is 8390p
+not sufficient ?
