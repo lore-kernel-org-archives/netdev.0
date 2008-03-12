@@ -1,322 +1,57 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [RFC PATCH] [SCTP]: Fix a race between module load and protosw access
-Date: Wed, 12 Mar 2008 10:16:48 -0400
-Message-ID: <47D7E5D0.9060607@hp.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: RFC [PATCH net-2.6 1/6] net: Scheduling softirqs between CPUSs
+Date: Wed, 12 Mar 2008 15:10:52 +0000
+Message-ID: <20080312151051.GI26963@solarflare.com>
+References: <20080305205116.5989A412541@localhost> <20080305.132112.01598419.davem@davemloft.net> <47D19147.9070609@qualcomm.com> <36D9DB17C6DE9E40B059440DB8D95F52049D5CE5@orsmsx418.amr.corp.intel.com> <65634d660803110920g5103dc60ya055a10f999b4e25@mail.gmail.com> <20080311165253.GG26963@solarflare.com> <65634d660803111648l15c4d653t52b4fc9e8dfa531d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: lksctp-developers <lksctp-developers@lists.sourceforge.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Max Krasnyanskiy <maxk@qualcomm.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Ingo Molnar <mingo@elte.hu>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:46709 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751491AbYCLOQv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2008 10:16:51 -0400
+Received: from pythagoras.zen.co.uk ([212.23.3.140]:59257 "EHLO
+	pythagoras.zen.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751752AbYCLPLG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2008 11:11:06 -0400
+Content-Disposition: inline
+In-Reply-To: <65634d660803111648l15c4d653t52b4fc9e8dfa531d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Can folks please review this.  It solves the crashes I and others ]
-[have been seeing, but I want to make sure nothing else got goofed.]
+Tom Herbert wrote:
+> >  Recent versions of Windows that are aware of RSS will instruct network
+> >  drivers to update their RSS indirection tables so that received
+> >  packets are handled on the same CPU as the thread likely to use the
+> >  received data.  This requires that the network stack knows the hash
+> >  function, so Microsoft specified a "Toeplitz hash" for IPv4 and IPv6.
+> >  You can expect that most hardware RSS implementations will use this
+> >  function and not a simple XOR.
+> >
+> 
+> Thanks.  I am planning to do the Toeplitz hash in the softRSS.  Also,
+> I was planning to add support for devices that provide the Toeplitz
+> hash but don't do full RSS.
+> 
+> One nice feature about Microsoft RSS seems to be the ability for the
+> stack to dynamically re-balance networking load of a device using
+> an indirection table that is set up in the device.  I was wondering if
+> this is supported in Linux stack or if anyone is working on that?
 
-There is a race is SCTP between the loading of the module
-and the access by the socket layer to the protocol functions.
-In particular, a list of addresses that SCTP maintains is
-not initialized prior to the registration with the protosw.
-Thus it is possible for a user application to gain access
-to SCTP functions before everything has been initialized.
-The problem shows up as odd crashes during connection
-initialization when we try to access the SCTP address list.
+It's not supported, but it's on David Miller's to-do list[1].
 
-The solution is to re-factor how we do registration and
-initialize the lists prior to registering with the protosw.
-Care must be taken since the address list initialization
-depends on some other pieces of SCTP initialization.  Also
-the clean-up in case of failure now also needs to be refactored.
+By the way, Microsoft suddenly decided that RSS is too problematic to
+enable by default[2] because software and hardware can disagree about
+hash values in the presence of some local NAT implementations.
+Hopefully we can avoid that particular pitfall in Linux.
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- include/net/sctp/sctp.h |   12 +++--
- net/sctp/ipv6.c         |   32 ++++++++-----
- net/sctp/protocol.c     |  117 ++++++++++++++++++++++++++++++----------------
- 3 files changed, 104 insertions(+), 57 deletions(-)
+Ben.
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index 57df27f..53aa5e1 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -380,15 +380,19 @@ static inline int sctp_sysctl_jiffies_ms(ctl_table *table, int __user *name, int
- 
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- 
--int sctp_v6_init(void);
--void sctp_v6_exit(void);
-+int sctp_v6_pf_init(void);
-+void sctp_v6_pf_exit(void);
-+int sctp_v6_protosw_init(void);
-+void sctp_v6_protosw_exit(void);
- int sctp_v6_add_protocol(void);
- void sctp_v6_del_protocol(void);
- 
- #else /* #ifdef defined(CONFIG_IPV6) */
- 
--static inline int sctp_v6_init(void) { return 0; }
--static inline void sctp_v6_exit(void) { return; }
-+static inline int sctp_v6_pf_init(void) { return 0; }
-+static inline void sctp_v6_pf_exit(void) { return; }
-+static inline int sctp_v6_protosw_init(void) { return 0; }
-+static inline void sctp_v6_protosw_exit(void) { return; }
- static inline int sctp_v6_add_protocol(void) { return 0; }
- static inline void sctp_v6_del_protocol(void) { return; }
- 
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index 9aa0733..c7e56db 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -1014,15 +1014,24 @@ static struct sctp_pf sctp_pf_inet6 = {
- };
- 
- /* Initialize IPv6 support and register with socket layer.  */
--int sctp_v6_init(void)
-+void sctp_v6_pf_init(void)
- {
--	int rc;
--
- 	/* Register the SCTP specific PF_INET6 functions. */
- 	sctp_register_pf(&sctp_pf_inet6, PF_INET6);
- 
- 	/* Register the SCTP specific AF_INET6 functions. */
- 	sctp_register_af(&sctp_af_inet6);
-+}
-+
-+void sctp_v6_pf_exit(void)
-+{
-+	list_del(&sctp_ipv6_specific.list);
-+}
-+ 
-+/* Initialize IPv6 support and register with socket layer.  */
-+int sctp_v6_protosw_init(void)
-+{
-+	int rc;
- 
- 	rc = proto_register(&sctpv6_prot, 1);
- 	if (rc)
-@@ -1035,6 +1044,14 @@ int sctp_v6_init(void)
- 	return 0;
- }
- 
-+void sctp_v6_protosw_exit(void)
-+{
-+	inet6_unregister_protosw(&sctpv6_seqpacket_protosw);
-+	inet6_unregister_protosw(&sctpv6_stream_protosw);
-+	proto_unregister(&sctpv6_prot);
-+}
-+
-+
- /* Register with inet6 layer. */
- int sctp_v6_add_protocol(void)
- {
-@@ -1047,15 +1064,6 @@ int sctp_v6_add_protocol(void)
- 	return 0;
- }
- 
--/* IPv6 specific exit support. */
--void sctp_v6_exit(void)
--{
--	inet6_unregister_protosw(&sctpv6_seqpacket_protosw);
--	inet6_unregister_protosw(&sctpv6_stream_protosw);
--	proto_unregister(&sctpv6_prot);
--	list_del(&sctp_af_inet6.list);
--}
--
- /* Unregister with inet6 layer. */
- void sctp_v6_del_protocol(void)
- {
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index ad0a406..62f271c 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -992,6 +992,54 @@ static void cleanup_sctp_mibs(void)
- 	free_percpu(sctp_statistics[1]);
- }
- 
-+static void sctp_v4_pf_init(void)
-+{
-+	/* Initialize the SCTP specific PF functions. */
-+	sctp_register_pf(&sctp_pf_inet, PF_INET);
-+	sctp_register_af(&sctp_ipv4_specific);
-+}
-+
-+static void sctp_v4_pf_exit(void)
-+{
-+	list_del(&sctp_ipv4_specific.list);
-+}
-+
-+static int sctp_v4_protosw_init(void)
-+{
-+	int rc;
-+
-+	rc = proto_register(&sctp_prot, 1);
-+	if (rc)
-+		return rc;
-+
-+	/* Register SCTP(UDP and TCP style) with socket layer.  */
-+	inet_register_protosw(&sctp_seqpacket_protosw);
-+	inet_register_protosw(&sctp_stream_protosw);
-+}
-+
-+static void sctp_v4_protosw_exit(void)
-+{
-+	inet_unregister_protosw(&sctp_stream_protosw);
-+	inet_unregister_protosw(&sctp_seqpacket_protosw);
-+	proto_unregister(&sctp_prot);
-+}
-+
-+static int sctp_v4_add_protocol(void)
-+{
-+	/* Register notifier for inet address additions/deletions. */
-+	register_inetaddr_notifier(&sctp_inetaddr_notifier);
-+
-+	/* Register SCTP with inet layer.  */
-+	if (inet_add_protocol(&sctp_protocol, IPPROTO_SCTP) < 0)
-+		return -EAGAIN;
-+}
-+
-+static void sctp_v4_del_protocol(void)
-+{
-+	inet_del_protocol(&sctp_protocol, IPPROTO_SCTP);
-+	unregister_inetaddr_notifier(&sctp_inetaddr_notifier);
-+}
-+
- /* Initialize the universe into something sensible.  */
- SCTP_STATIC __init int sctp_init(void)
- {
-@@ -1035,8 +1083,6 @@ SCTP_STATIC __init int sctp_init(void)
- 	/* Initialize object count debugging.  */
- 	sctp_dbg_objcnt_init();
- 
--	/* Initialize the SCTP specific PF functions. */
--	sctp_register_pf(&sctp_pf_inet, PF_INET);
- 	/*
- 	 * 14. Suggested SCTP Protocol Parameter Values
- 	 */
-@@ -1194,17 +1240,20 @@ SCTP_STATIC __init int sctp_init(void)
- 	sctp_sysctl_register();
- 
- 	INIT_LIST_HEAD(&sctp_address_families);
--	sctp_register_af(&sctp_af_inet);
-+	sctp_v4_pf_init();
-+	sctp_v6_pf_init();
-+	
-+	/* Initialize the local address list. */
-+	INIT_LIST_HEAD(&sctp_local_addr_list);
-+	spin_lock_init(&sctp_local_addr_lock);
-+	sctp_get_local_addr_list();
- 
--	status = proto_register(&sctp_prot, 1);
-+	status = sctp_v4_protosw_init();
-+	
- 	if (status)
- 		goto err_proto_register;
- 
--	/* Register SCTP(UDP and TCP style) with socket layer.  */
--	inet_register_protosw(&sctp_seqpacket_protosw);
--	inet_register_protosw(&sctp_stream_protosw);
--
--	status = sctp_v6_init();
-+	status = sctp_v6_protosw_init();
- 	if (status)
- 		goto err_v6_init;
- 
-@@ -1215,19 +1264,9 @@ SCTP_STATIC __init int sctp_init(void)
- 		goto err_ctl_sock_init;
- 	}
- 
--	/* Initialize the local address list. */
--	INIT_LIST_HEAD(&sctp_local_addr_list);
--	spin_lock_init(&sctp_local_addr_lock);
--	sctp_get_local_addr_list();
--
--	/* Register notifier for inet address additions/deletions. */
--	register_inetaddr_notifier(&sctp_inetaddr_notifier);
--
--	/* Register SCTP with inet layer.  */
--	if (inet_add_protocol(&sctp_protocol, IPPROTO_SCTP) < 0) {
--		status = -EAGAIN;
-+	status = sctp_v4_add_protocol();
-+	if (status)
- 		goto err_add_protocol;
--	}
- 
- 	/* Register SCTP with inet6 layer.  */
- 	status = sctp_v6_add_protocol();
-@@ -1238,18 +1277,18 @@ SCTP_STATIC __init int sctp_init(void)
- out:
- 	return status;
- err_v6_add_protocol:
--	inet_del_protocol(&sctp_protocol, IPPROTO_SCTP);
--	unregister_inetaddr_notifier(&sctp_inetaddr_notifier);
-+	sctp_v6_del_protocol();
- err_add_protocol:
--	sctp_free_local_addr_list();
-+	sctp_v4_del_protocol();
- 	sock_release(sctp_ctl_socket);
- err_ctl_sock_init:
--	sctp_v6_exit();
-+	sctp_v6_protosw_exit();
- err_v6_init:
--	inet_unregister_protosw(&sctp_stream_protosw);
--	inet_unregister_protosw(&sctp_seqpacket_protosw);
--	proto_unregister(&sctp_prot);
-+	sctp_v4_protosw_exit();
- err_proto_register:
-+	sctp_free_local_addr_list();
-+	sctp_v4_pf_exit();
-+	sctp_v6_pf_exit();
- 	sctp_sysctl_unregister();
- 	list_del(&sctp_af_inet.list);
- 	free_pages((unsigned long)sctp_port_hashtable,
-@@ -1282,23 +1321,21 @@ SCTP_STATIC __exit void sctp_exit(void)
- 
- 	/* Unregister with inet6/inet layers. */
- 	sctp_v6_del_protocol();
--	inet_del_protocol(&sctp_protocol, IPPROTO_SCTP);
--
--	/* Unregister notifier for inet address additions/deletions. */
--	unregister_inetaddr_notifier(&sctp_inetaddr_notifier);
--
--	/* Free the local address list.  */
--	sctp_free_local_addr_list();
-+	sctp_v4_del_protocol();
- 
- 	/* Free the control endpoint.  */
- 	sock_release(sctp_ctl_socket);
- 
--	/* Cleanup v6 initializations. */
--	sctp_v6_exit();
-+	/* Free protosw registrations */
-+	sctp_v6_protosw_exit();
-+	sctp_v4_protosw_exit();
-+
-+	/* Free the local address list.  */
-+	sctp_free_local_addr_list();
- 
- 	/* Unregister with socket layer. */
--	inet_unregister_protosw(&sctp_stream_protosw);
--	inet_unregister_protosw(&sctp_seqpacket_protosw);
-+	sctp_v4_pf_exit();
-+	sctp_v6_pf_exit();
- 
- 	sctp_sysctl_unregister();
- 	list_del(&sctp_af_inet.list);
-@@ -1317,8 +1354,6 @@ SCTP_STATIC __exit void sctp_exit(void)
- 
- 	kmem_cache_destroy(sctp_chunk_cachep);
- 	kmem_cache_destroy(sctp_bucket_cachep);
--
--	proto_unregister(&sctp_prot);
- }
- 
- module_init(sctp_init);
+1. http://vger.kernel.org/~davem/net_todo.html
+2. http://support.microsoft.com/kb/948496
+
 -- 
-1.5.3.5
-
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
