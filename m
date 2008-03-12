@@ -1,38 +1,23 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] Remove NPROTO.
-Date: Wed, 12 Mar 2008 18:34:26 +1100
-Message-ID: <200803121834.26493.rusty@rustcorp.com.au>
-References: <200803121224.25228.rusty@rustcorp.com.au> <20080311.211441.105701252.davem@davemloft.net>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH 0/4] netxen fixes
+Date: Wed, 12 Mar 2008 01:29:47 -0700
+Message-ID: <Pine.LNX.4.64.0803120059270.7717@unm84.unminc.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Jeff Garzik <jeff@garzik.org>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:57329 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750875AbYCLHfJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Mar 2008 03:35:09 -0400
-In-Reply-To: <20080311.211441.105701252.davem@davemloft.net>
-Content-Disposition: inline
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:45524 "EHLO
+	nxexch.unminc.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750972AbYCLIfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2008 04:35:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 12 March 2008 15:14:41 David Miller wrote:
-> From: Rusty Russell <rusty@rustcorp.com.au>
-> Date: Wed, 12 Mar 2008 12:24:25 +1100
->
-> > NPROTO seems redundant; it's equal to AF_MAX/PF_MAX.
-> >
-> > It's fairly simple to find all users and replace them appropriately.
-> >
-> > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
->
-> Redundant, but exported to userspace for about 15 years.
->
-> We'd be wise to not remove it.
 
-Thanks.  Should we #define NPROTO AF_MAX then?
+Sending couple of patches that had failed to apply in last submission,
+with two new fixes/optimizations.
 
-Rusty.
+Thanks,
+-Dhananjay
+
