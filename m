@@ -1,29 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 8/8] New driver "sfc" for Solarstorm SFC4000 controller
- (try #8)
-Date: Tue, 11 Mar 2008 19:29:10 -0700 (PDT)
-Message-ID: <20080311.192910.193689205.davem@davemloft.net>
-References: <20080312012629.GJ24160@solarflare.com>
-	<20080312014525.GK24160@solarflare.com>
-	<20080311.190135.108058050.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6.26 2008-03-07
+Date: Tue, 11 Mar 2008 19:55:36 -0700 (PDT)
+Message-ID: <20080311.195536.181601769.davem@davemloft.net>
+References: <20080308010006.GA12913@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55223
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752783AbYCLC3E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2008 22:29:04 -0400
-In-Reply-To: <20080311.190135.108058050.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080308010006.GA12913-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 11 Mar 2008 19:01:35 -0700 (PDT)
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Fri, 7 Mar 2008 20:00:06 -0500
 
-> Please just resend the first patch and I will watch for
-> any bounces on the list-owner alias.
+> Another week, another 89 patches...  Lots of driver updates, and the
+> inclusion of 802.11s mesh networking.  There is also some SSB bus
+> support fo "gigabit ethernet", but it is really just support for an
+> SSB->PCI bridge (i.e. not a new ethernet driver).
 
-The postings have made it to the list.
+Pulled and pushed out to net-2.6.26
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
