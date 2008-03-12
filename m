@@ -1,65 +1,85 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: netconsole still hangs
-Date: Wed, 12 Mar 2008 16:30:13 -0700
-Message-ID: <20080312163013.aaf07aa0.akpm@linux-foundation.org>
-References: <20080312161429.d5b1c67b.akpm@linux-foundation.org>
-	<20080312161637.b082b515.akpm@linux-foundation.org>
+From: "office + magicsoft.tv" <office@magicsoft.tv>
+Subject: Broadcast 3D Character Generator SD and HD free Demo available
+Date: Thu, 13 Mar 2008 01:41:10 +0200
+Message-ID: <47D86A16.2000000@magicsoft.tv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	rjw@sisk.pl
+Content-Type: multipart/mixed;
+ boundary="------------050307030208000005050808"
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:45610 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751474AbYCLXa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2008 19:30:29 -0400
-In-Reply-To: <20080312161637.b082b515.akpm@linux-foundation.org>
+Received: from outbound-mail-01.bluehost.com ([69.89.21.11]:58585 "HELO
+	outbound-mail-01.bluehost.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751890AbYCLXtg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2008 19:49:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 Mar 2008 16:16:37 -0700
-Andrew Morton <akpm@linux-foundation.org> wrote:
-
-> On Wed, 12 Mar 2008 16:14:29 -0700
-> Andrew Morton <akpm@linux-foundation.org> wrote:
-> 
-> > 
-> > I thought the recent reverts fixed this, but it seems that it's just become
-> > a little harder to hit.
-> > 
-> > I'm seeing netconsole hangs on two x86_64 systems (2-way t61p laptop, 8-way
-> > server).  Both use e1000.
-> > 
-> > With current mainline on the 8-way, create a printk storm with
-> > 
-> > while true
-> > do
-> > 	echo t > /proc/sysrq-trigger
-> > done
-> > 
-> > and the machine goes tits-up after about five seconds.
-> > 
-> 
-> whoops, hang on, it's still running.
-
-And it's still running!  I killed the above loop five minutes ago and
-nothing new is coming out in `dmesg -c', yet data is still flying out over
-netconsole.  hundreds and hundreds of megabytes.
-
-So I'd say that something in netconsole or the console susbsytem has
-screwed up its buffer indices and it has gone infinite.
-
-I don't know whether that's a regression though.
-
-<does reboot -f>
-
-OK, that stopped it, so the problem isn't buffering at the receiver.  I
-already knew that, because the ifconfig "TX bytes" counters were going up
-on the sending side.
-
-<runs the sysrq-trigger thing again>
-
-OK, this time it did hang up.  Machine unpingable, no signs of life.
+This is a multi-part message in MIME format.
+--------------050307030208000005050808
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
 
 
+
+Dear Sir
+
+Magicsoft is pleased to announce the free downloadable demo
+version of the CG and Playout software from Magicsoft’s web site at
+www.magicsoft.tv
+
+In UltraRed, Magicsoft has created an SD and HD broadcast solution
+that can handle simultaneous previewing, creating, displaying and
+controlling of projects for logos, tickers, crawls, image sequences,
+analog and digital clocks and playback of AVI DV clips.
+
+The software runs on Windows XP and uses an nVidia video card for
+real-time GPU rendering.
+
+MagicSoft CG works in standard or high definition, analog or digital
+and the keying can be either internal or external.
+
+The Blackmagic-Design, BlueFish444, Deltacast and StreamLabs cards
+are supported in the last version of the software.
+
+UltraRed graphics is 24 bit (TrueColor) with an 8 bit alpha channel
+(256 transparency levels) and keying can be internal or external.
+Anti-aliasing for TrueType Fonts and Anisotropic Filtering for images
+are implemented using the GPU.
+Objects can be animated by moving, rotating and changing color.
+Objects also can be moved on a Z-axis eliminating the limitations of
+layer oriented programs.
+Rendering for both Preview and OnAir is done by GPU so powerful CPUs
+are not required.
+
+Please watch our video tutorials before trying the software.
+
+We will wait for you feedback .
+
+Best regards
+
+Cristi Mirea
+
+
+Cristi Mirea
+General Manager MagicSoft
+web: www.magicsoft.tv
+mail: office@magicsoft.tv
+phone : 0040.722.76.32.65
+
+--------------050307030208000005050808
+Content-Type: text/x-vcard; charset=utf-8;
+ name="office.vcf"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="office.vcf"
+
+begin:vcard
+fn:Mirea Cristi
+n:Cristi;Mirea
+email;internet:office@magicsoft.tv
+tel;work:+40.722.76.32.65.
+version:2.1
+end:vcard
+
+
+--------------050307030208000005050808--
