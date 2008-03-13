@@ -1,51 +1,58 @@
-From: "Jike Song" <albcamus@gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
 Subject: Re: netconsole still hangs
-Date: Thu, 13 Mar 2008 15:48:04 +0800
-Message-ID: <df9815e70803130048w44001478s8aa9f35edf972bc7@mail.gmail.com>
-References: <20080312165717.c0879b1d.akpm@linux-foundation.org>
-	 <20080312.231053.216645957.davem@davemloft.net>
-	 <20080312235205.dcec2d35.akpm@linux-foundation.org>
-	 <20080313.001255.01742148.davem@davemloft.net>
-	 <20080313002535.9cc7b946.akpm@linux-foundation.org>
+Date: Thu, 13 Mar 2008 00:59:01 -0700
+Message-ID: <20080313005901.fdc2c67e.akpm@linux-foundation.org>
+References: <20080312161637.b082b515.akpm@linux-foundation.org>
+	<20080312163013.aaf07aa0.akpm@linux-foundation.org>
+	<20080312165717.c0879b1d.akpm@linux-foundation.org>
+	<20080312.231053.216645957.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org,
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
 	rjw@sisk.pl
-To: "Andrew Morton" <akpm@linux-foundation.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.173]:1544 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751293AbYCMHsG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2008 03:48:06 -0400
-Received: by wf-out-1314.google.com with SMTP id 28so3367955wff.4
-        for <netdev@vger.kernel.org>; Thu, 13 Mar 2008 00:48:05 -0700 (PDT)
-In-Reply-To: <20080313002535.9cc7b946.akpm@linux-foundation.org>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52457 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751259AbYCMH7w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2008 03:59:52 -0400
+In-Reply-To: <20080312.231053.216645957.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 13, 2008 at 3:25 PM, Andrew Morton
-<akpm@linux-foundation.org> wrote:
-> On Thu, 13 Mar 2008 00:12:55 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
->
->
->  > I asked you to do the bisect check since that's the fastest
->  > way forward at the current time.
->
->  I'm sitting here waiting to do it, but was hoping that you'd
->  know what the magical git command is.
+On Wed, 12 Mar 2008 23:10:53 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
 
-Hello Mr Andrew,
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Wed, 12 Mar 2008 16:57:17 -0700
+> 
+> > I reran the test on 2.6.24 and all seemed fine: the machine didn't hang and
+> > stopping the script stopped the netconsole output.
+> 
+> Can you go back and bisect the tree in one shot to the guilty
+> commit you found last time, and make sure this test case
+> works at that point?
 
-I guess you just want this?
+Plain old
 
-$ git archive -v 33f807ba0d9259e7c75c7a2ce8bd2787e5b540c7 | ( cd
-<pathname> && tar xf -)
+git-checkout 33f807ba0d9259e7c75c7a2ce8bd2787e5b540c7 seems to dtrt.
 
-The commit prior to this one is
-0953864160bdd28dfe45fd46fa462b4d2d53cb96, so please use the latter
-instead if you don't want include 33f807ba0d9259e7c75c7a2ce8bd2787e5b540c7.
 
-Best Regards,
+
+git-checkout 33f807ba0d9259e7c75c7a2ce8bd2787e5b540c7
+
+  Fails very very easily.  Basically the machine never successfully boots.
+
+
+git-checkout 0953864160bdd28dfe45fd46fa462b4d2d53cb96
+
+  Works OK.
+
+
+So yes, I'd say that the revert was not complete.
+
+
+aside: running that while loop just slays the machine.  It took 30 seocnds
+to respond to ^C (across ssh over the same link).  There's some severe
+starvation happening somewhere.
+
