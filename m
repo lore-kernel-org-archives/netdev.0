@@ -1,198 +1,103 @@
-From: "Torsten Kaiser" <just.for.lkml@googlemail.com>
-Subject: Re: 2.6.25-rc5-mm1
-Date: Thu, 13 Mar 2008 23:05:11 +0100
-Message-ID: <64bb37e0803131505u7ae920fdvbbed005cbeb8c98e@mail.gmail.com>
-References: <20080311011434.ad8c8d7d.akpm@linux-foundation.org>
-	 <20080311202300.GA8957@vino.hallyn.com>
-	 <20080311133920.68dc410b.akpm@linux-foundation.org>
-	 <64bb37e0803121233v30d12a58i77a1e23fd02ea6f2@mail.gmail.com>
-	 <20080312124420.3ba8c3d7.akpm@linux-foundation.org>
-	 <64bb37e0803121301u6f836710m9ebb30e065751bec@mail.gmail.com>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [2.6.25-rc5-mm1] regression: cannot run Postfix sendmail command
+ as non-root
+Date: Thu, 13 Mar 2008 23:21:19 +0100
+Message-ID: <47D9A8DF.30809@fr.ibm.com>
+References: <20080311011434.ad8c8d7d.akpm@linux-foundation.org> <47D98510.60801@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Badari Pulavarty" <pbadari@gmail.com>
-To: "Andrew Morton" <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, pekkas@netcore.fi,
+	yoshfuji@linux-ipv6.org
+To: Tilman Schmidt <tilman@imap.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.234]:10596 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757740AbYCMWFP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2008 18:05:15 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so3939951wxd.4
-        for <netdev@vger.kernel.org>; Thu, 13 Mar 2008 15:05:13 -0700 (PDT)
-In-Reply-To: <64bb37e0803121301u6f836710m9ebb30e065751bec@mail.gmail.com>
-Content-Disposition: inline
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:17352 "EHLO
+	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754732AbYCMWXV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2008 18:23:21 -0400
+In-Reply-To: <47D98510.60801@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 12, 2008 at 9:01 PM, Torsten Kaiser
-<just.for.lkml@googlemail.com> wrote:
-> On Wed, Mar 12, 2008 at 8:44 PM, Andrew Morton
-> <akpm@linux-foundation.org> wrote:
-> >  OK, so it looks like it died during networking initialisation.
->  >
->  >  Could you please add initcall_debug to the boot command line so we can see
->  >  which function it is getting stuck in?
->
->  Yes, here is the result:
->  [    2.573979] PCI-DMA: Disabling AGP.
->  [    2.577639] PCI-DMA: aperture base @ 8000000 size 65536 KB
->  [    2.589504] PCI-DMA: using GART IOMMU.
->  [    2.593258] PCI-DMA: Reserving 64MB of IOMMU area in the AGP aperture
->  [    2.600132] initcall pci_iommu_init+0x0/0x20() returned 0 after 19 msecs
->  [    2.622146] calling  hpet_late_init+0x0/0x140()
->  [    2.626689] hpet0: at MMIO 0xfed00000, IRQs 2, 8, 31
->  [    2.633022] hpet0: 3 32-bit timers, 25000000 Hz
->  [    2.638562] initcall hpet_late_init+0x0/0x140() returned 0 after 9 msecs
->  [    2.654545] calling  clocksource_done_booting+0x0/0x20()
->  [    2.659855] initcall clocksource_done_booting+0x0/0x20()<6>Time:
->
-> hpet clocksource has been installed.
->  [    2.662185]  returned 0 after 0 msecs
->  [    2.688448] calling  init_pipe_fs+0x0/0x60()
->  [    2.695423] initcall init_pipe_fs+0x0/0x60() returned 0 after 0 msecs
->  [    2.705784] calling  init_mnt_writers+0x0/0x70()
->  [    2.711681] initcall init_mnt_writers+0x0/0x70() returned 0 after 0 msecs
->  [    2.721678] calling  eventpoll_init+0x0/0x90()
->  [    2.731644] initcall eventpoll_init+0x0/0x90() returned 0 after 0 msecs
->  [    2.738295] calling  anon_inode_init+0x0/0x130()
->  [    2.751614] initcall anon_inode_init+0x0/0x130() returned 0 after 0 msecs
->  [    2.771585] calling  pcie_aspm_init+0x0/0x30()
->  [    2.779297] initcall pcie_aspm_init+0x0/0x30() returned 0 after 2 msecs
->  [    2.793911] calling  acpi_event_init+0x0/0x52()
->
->  -> it looked like the system this time already hung here. But just
->  pressing the 'Alt' key let the system continue until the network hang.
->  (I tried this a second time, again it paused here until I pressed a key)
->
->  [   94.857929] initcall acpi_event_init+0x0/0x52() returned 0 after 29276 msecs
->  [   94.865002] calling  pnp_system_init+0x0/0x20()
->  [   94.877935] system 00:06: ioport range 0x4d0-0x4d1 has been reserved
->  [   94.884286] system 00:06: ioport range 0x7b0-0x7df has been reserved
->  [   94.897886] system 00:06: ioport range 0x800-0x80f has been reserved
->  [   94.907886] system 00:06: ioport range 0xbb0-0xbdf has been reserved
->  [   94.917855] system 00:06: ioport range 0x2000-0x207f has been reserved
->  [   94.937827] system 00:06: ioport range 0x2080-0x20ff has been reserved
->  [   94.947827] system 00:06: ioport range 0x2400-0x247f has been reserved
->  [   94.957793] system 00:06: ioport range 0x2480-0x24ff has been reserved
->  [   94.977766] system 00:06: ioport range 0x2800-0x287f has been reserved
->  [   94.987766] system 00:06: ioport range 0x2880-0x28ff has been reserved
->  [   94.997734] system 00:06: ioport range 0x2c00-0x2c7f has been reserved
->  [   95.017708] system 00:06: ioport range 0x2c80-0x2cff has been reserved
->  [   95.024234] system 00:06: iomem range 0x0-0x0 could not be reserved
->  [   95.037678] system 00:06: iomem range 0xfee01000-0xfeefffff could
->  not be reserved
->  [   95.060158] system 00:06: iomem range 0xefa80000-0xefabffff has been reserved
->  [   95.070158] system 00:06: iomem range 0xffb00000-0xffbfffff could
->  not be reserved
->  [   95.077633] system 00:06: iomem range 0xfff00000-0xffffffff could
->  not be reserved
->  [   95.097590] system 00:08: iomem range 0xfec00000-0xfec00fff could
->  not be reserved
->  [   95.120064] system 00:08: iomem range 0xfee00000-0xfee00fff could
->  not be reserved
->  [   95.130070] system 00:0c: ioport range 0x290-0x297 has been reserved
->  [   95.137523] system 00:0d: iomem range 0x0-0x9ffff could not be reserved
->  [   95.157495] system 00:0d: iomem range 0xc0000-0xcffff has been reserved
->  [   95.167495] system 00:0d: iomem range 0xe0000-0xfffff could not be reserved
->  [   95.177463] system 00:0d: iomem range 0x100000-0xdfffffff could not
->  be reserved
->  [   95.197437] system 00:0d: iomem range 0xfec00000-0xffffffff could
->  not be reserved
->  [   95.219983] initcall pnp_system_init+0x0/0x20() returned 0 after 162 msecs
->  [   95.226887] calling  chr_dev_init+0x0/0xd0()
->  [   95.237813] initcall chr_dev_init+0x0/0xd0() returned 0 after 0 msecs
->  [   95.247378] calling  firmware_class_init+0x0/0x90()
->  [   95.257320] initcall firmware_class_init+0x0/0x90() returned 0 after 0 msecs
->  [   95.276031] calling  loopback_init+0x0/0x20()
->  [   95.288590] initcall loopback_init+0x0/0x20() returned 0 after 0 msecs
->  [   95.296837] calling  cpufreq_gov_performance_init+0x0/0x20()
->  [   95.309084] initcall cpufreq_gov_performance_init+0x0/0x20()
->  returned 0 after 0 msecs
->  [   95.317734] calling  cpufreq_gov_dbs_init+0x0/0x50()
->  [   95.338090] initcall cpufreq_gov_dbs_init+0x0/0x50() returned 0 after 0 msecs
->  [   95.345254] calling  init_acpi_pm_clocksource+0x0/0xc0()
->  [   95.355293] initcall init_acpi_pm_clocksource+0x0/0xc0() returned 0
->  after 0 msecs
->  [   95.374115] calling  pcibios_assign_resources+0x0/0x90()
->  [   95.379618] PCI: Bridge: 0000:00:06.0
->  [   95.394087]   IO window: disabled.
->  [   95.397502]   MEM window: 0xeff00000-0xefffffff
->  [   95.402032]   PREFETCH window: 0x00000000eef00000-0x00000000eeffffff
->  [   95.415189] PCI: Bridge: 0000:00:0b.0
->  [   95.418860]   IO window: e000-efff
->  [   95.438075]   MEM window: 0xefe00000-0xefefffff
->  [   95.442610]   PREFETCH window: disabled.
->  [   95.455526] PCI: Bridge: 0000:00:0c.0
->  [   95.459197]   IO window: disabled.
->  [   95.462604]   MEM window: 0xefd00000-0xefdfffff
->  [   95.475513]   PREFETCH window: disabled.
->  [   95.479443] PCI: Bridge: 0000:00:0d.0
->  [   95.485512]   IO window: disabled.
->  [   95.495480]   MEM window: 0xefc00000-0xefcfffff
->  [   95.500010]   PREFETCH window: disabled.
->  [   95.515455] PCI: Bridge: 0000:00:0f.0
->  [   95.519124]   IO window: d000-dfff
->  [   95.522533]   MEM window: 0xefb00000-0xefbfffff
->  [   95.535423]   PREFETCH window: 0x00000000e0000000-0x00000000e7ffffff
->  [   95.545456] initcall pcibios_assign_resources+0x0/0x90() returned 0
->  after 79 msecs
->  [   95.557830] calling  fill_mp_bus_to_cpumask+0x0/0x100()
->  [   95.575408] initcall fill_mp_bus_to_cpumask+0x0/0x100() returned 0
->  after 0 msecs
->  [   95.593777] calling  inet_init+0x0/0x380()
->  [   95.597890] NET: Registered protocol family 2
->
->  -> same hang, no reaction to SysRq.
->
->  What looks suspicious: The call to pcie_aspm_init is just before the
->  temporary hang. When I used make oldconfig to upgrade the .config from
->  2.6.25-rc3-mm1 to -rc5-mm1 I activated the new option CONFIG_PCIEASPM.
->
->  I will try with CONFIG_PCIEASPM_DEBUG added and completely without this option.
+Tilman Schmidt wrote:
+> Am 11.03.2008 09:14 schrieb Andrew Morton:
+>> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.25=
+-rc5/2.6.25-rc5-mm1/
+>=20
+> I'm noticing a strange effect with this:
+>=20
+> On my openSUSE 10.3 development machine with SUSEs default MTA
+> Postfix installed, I occasionally send a pre-formatted mail by
+> feeding it directly into "/usr/sbin/sendmail -t". If I try that
+> while running a 2.6.25-rc5-mm1 kernel, I get:
+>=20
+> ts@xenon:~/kernel> /usr/sbin/sendmail -t < patch-usb-reduce-syslog-cl=
+utter-v3
+> postdrop: warning: can't open /proc/net/if_inet6 (Permission denied) =
+- skipping IPv6 configuration
+> postdrop: fatal: parameter inet_interfaces: no local interface found =
+for ::1
+> sendmail: warning: command "/usr/sbin/postdrop -r" exited with status=
+ 1
+> sendmail: fatal: ts(1000): unable to execute /usr/sbin/postdrop -r: S=
+uccess
+> ts@xenon:~/kernel>
+>=20
+> and unsurprisingly, the mail is not sent. If I do the same as root,
+> everything works as usual, there is no console output from the
+> sendmail command, and the mail goes out as it should. All other
+> networking applications appear to be running normally.
+>=20
+> On a 2.6.25-rc5 (non-mm) kernel I do not need to run the sendmail
+> command as root. It works just as well if I run it as myself.
+>=20
+> IPv6 is not in use on that machine. The Ethernet interface has
+> just the link local IPv6 address. Possibly relevant information:
+>=20
+> ts@xenon:~> /sbin/ifconfig -a
+> eth0      Protokoll:Ethernet  Hardware Adresse 00:19:D1:03:D8:FF
+>           inet Adresse:192.168.59.102  Bcast:192.168.59.255  Maske:25=
+5.255.255.0
+>           inet6 Adresse: fe80::219:d1ff:fe03:d8ff/64 G=FCltigkeitsber=
+eich:Verbindung
+>           UP BROADCAST NOTRAILERS RUNNING MULTICAST  MTU:1500  Metric=
+:1
+>           RX packets:78 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:145 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 Sendewarteschlangenl=E4nge:100
+>           RX bytes:9547 (9.3 Kb)  TX bytes:17952 (17.5 Kb)
+>           Speicher:92c00000-92c20000
+>=20
+> lo        Protokoll:Lokale Schleife
+>           inet Adresse:127.0.0.1  Maske:255.0.0.0
+>           inet6 Adresse: ::1/128 G=FCltigkeitsbereich:Maschine
+>           UP LOOPBACK RUNNING  MTU:16436  Metric:1
+>           RX packets:2 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:2 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 Sendewarteschlangenl=E4nge:0
+>           RX bytes:100 (100.0 b)  TX bytes:100 (100.0 b)
+>=20
+> ts@xenon:~/kernel> ls -l /proc/net/if_inet6
+> -r--r--r-- 1 root root 0 13. M=E4r 19:26 /proc/net/if_inet6
+> ts@xenon:~> cat /proc/net/if_inet6
+> fe800000000000000219d1fffe03d8ff 02 40 20 80     eth0
+> 00000000000000000000000000000001 01 80 10 80       lo
+> ts@xenon:~> uname -a
+> Linux xenon 2.6.25-rc5-mm1-testing #1 SMP PREEMPT Tue Mar 11 14:34:49=
+ CET 2008 i686 i686 i386 GNU/Linux
+>=20
+> As you see, I can cat /proc/net/if_inet6 as regular (non-root) user
+> just fine, even though Postfix complains it cannot access it.
+> The content of /proc/net/if_inet6 is identical if I cat it on
+> kernel 2.6.25-rc5 mainline.
+>=20
+> CCing a selection of IPv6 networking related maintainer addresses.
+> If you need more information or want me to test something, let me
+> know.
 
-CONFIG_PCIEASPM does not change anything.
-Also testing the range of ipc patches you suggested to Badari did not fix it.
+Hi Tilman,
 
-I did a bisect, these patches are currently remaining, but I dod not
-have the time for more bisect steps until tomorrow:
-
-git-scsi-misc
-git-sh
-execute-tasklets-in-the-same-order-they-were-queued
-git-sched
-sched: work around hrtick related lockup
-sched: make sure jiffies is up to date before calling __update_rq_clock()
-sched: fix rq->clock overflows detection with CONFIG_NO_HZ
-sched: make cpu_clock() globally synchronous
-sched: remove isolcpus
-ftrace: make the task state char-string visible to all
-sched: add latency tracer callbacks to the scheduler
-latencytop: optimize LT_BACKTRACEDEPTH loops a bit
-sched: cleanup old and rarely used 'debug' features.
-[SCSI] zfcp: convert zfcp to use target reset and device reset handler
-[SCSI] qla4xxx: Add target reset functionality
-[SCSI] scsi_error: add target reset handler
-[SCSI] ps3rom: Simplify fill_from_dev_buffer()
-[SCSI] scsi_debug: use shost_priv macro
-[SCSI] scsi_debug: remove unnecessary checking
-[SCSI] scsi_debug: remove scsi_debug.h
-[SCSI] scsi_debug: stop including drivers/scsi/scsi.h
-[SCSI] Remove random noop unchecked_isa_dma users
-[SCSI] aacraid: READ_CAPACITY_16 shouldn't trust allocation length in cdb
-[SCSI] st: show options currently set in sysfs
-[SCSI] st: add option to use SILI in variable block reads
-[SCSI] gdth: remove command accessors
-[SCSI] aic94xx: Use sas_request_addr() to provide SAS WWN if the
-adapter lacks one
-[SCSI] libsas: Provide a transport-level facility to request SAS addrs
-[SCSI] ips: sg chaining support to the path to non I/O commands
-[SCSI] gdth: convert to PCI hotplug API
-[SCSI] gdth: PCI probe cleanups, prep for PCI hotplug API conversion
-rtc: rtc-sh: Add support for periodic IRQs.
-sh: SuperH KEYSC keypad data for Solution Engine 7722
-sh: SuperH KEYSC keypad data for MigoR
-sh: SuperH KEYSC platform driver
-
-Torsten
+Is it possible to have your config file used to compile the kernel ?
