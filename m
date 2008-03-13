@@ -1,36 +1,41 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [RFC PATCH] [SCTP]: Fix a race between module load and protosw
- access
-Date: Wed, 12 Mar 2008 20:11:52 -0400
-Message-ID: <47D87148.3030208@hp.com>
-References: <47D7E5D0.9060607@hp.com> <1205359220.6906.9.camel@w-sridhar2.beaverton.ibm.com>
+From: Haavard Skinnemoen <hskinnemoen@atmel.com>
+Subject: Re: MACB driver question
+Date: Thu, 13 Mar 2008 01:12:37 +0100
+Message-ID: <20080313011237.3119f8e8@siona.local>
+References: <d6c8ef150803120804qfd2f57ds509ddf40c5ddbb11@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers <lksctp-developers@lists.sourceforge.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
+Cc: netdev@vger.kernel.org
+To: "Bosko Radivojevic" <bosko.radivojevic@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:27547 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754031AbYCMALz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2008 20:11:55 -0400
-In-Reply-To: <1205359220.6906.9.camel@w-sridhar2.beaverton.ibm.com>
+Received: from nat-132.atmel.no ([80.232.32.132]:59353 "EHLO relay.atmel.no"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755389AbYCMAMD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Mar 2008 20:12:03 -0400
+In-Reply-To: <d6c8ef150803120804qfd2f57ds509ddf40c5ddbb11@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sridhar Samudrala wrote:
-> Vlad,
+On Wed, 12 Mar 2008 16:04:27 +0100
+"Bosko Radivojevic" <bosko.radivojevic@gmail.com> wrote:
+
+> Hi Haavard!
 > 
-> See my comments inline.
-> 
-> Thanks
-> Sridhar
-> 
+> I have question regarding MACB driver. Actually, I want to use it
+> without connected PHY (we connected MACB directly to EtherCAT ET1200
+> asic). In previous versions (2.6.20) I've manually removed all
+> phy-related parts from macb.c at it works good. Now, when there is PHY
+> API is there any 'nice and clean' way for doing it? I've tried with
+> Fixed PHY, but it is not working (I get "No PHY found" message). For
+> the test purposes, I tried the same with another board with Micrel's
+> PHY and it works (with Fixed PHY, 100/Full).
 
-Hi Sridhar
+Sorry, I don't have much experience with the Fixed PHY driver, but I
+was under the impression that this is the sort of thing it was meant
+for. Maybe someone at the Netdev list can help?
 
-Thanks.  I fixed up all the issues you brought up and will repost shortly.
+(dropping linux-arm from Cc becase it's subscribers-only and it was the
+wrong list to begin with.)
 
--vlad
-
+Haavard
