@@ -1,81 +1,82 @@
-From: Glen Gray <glen.gray@lincor.com>
-Subject: Re: [PATCH 13/13] r8169: more phy init for the 8168
-Date: Thu, 13 Mar 2008 14:20:10 +0000
-Message-ID: <328390F7-B41D-4A90-BACA-4746C5E92F1B@lincor.com>
-References: <20071018204846.GC8594@electric-eye.fr.zoreil.com> <20071018210224.GN31724@electric-eye.fr.zoreil.com> <471F1067.50403@lincor.com> <20071024221438.GB6189@electric-eye.fr.zoreil.com> <5B10F916-9877-4954-84E7-7F4FE26875C4@lincor.com> <20071031211006.GA12688@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0 (Apple Message framework v919.2)
-Content-Type: text/plain; charset="US-ASCII"; format=flowed; delsp=yes
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: netconsole still hangs
+Date: Thu, 13 Mar 2008 08:09:26 -0700
+Message-ID: <20080313080926.4eaa94f7@extreme>
+References: <20080312161637.b082b515.akpm@linux-foundation.org>
+	<20080312163013.aaf07aa0.akpm@linux-foundation.org>
+	<20080312165717.c0879b1d.akpm@linux-foundation.org>
+	<20080312.231053.216645957.davem@davemloft.net>
+	<20080313005901.fdc2c67e.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	rjw@sisk.pl
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.station1.mxsweep.com ([212.147.136.149]:4500 "EHLO
-	scmp07.mxsweep.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752000AbYCMOXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2008 10:23:09 -0400
-In-Reply-To: <20071031211006.GA12688@electric-eye.fr.zoreil.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:60459 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752402AbYCMPK3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2008 11:10:29 -0400
+In-Reply-To: <20080313005901.fdc2c67e.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey Francois,
+On Thu, 13 Mar 2008 00:59:01 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-Spent some time on this yesterday and today, managed to get a Fedora 8  
-install up and running on the hardware. This is using the 2.6.24.3  
-kernel from Fedora.
+> On Wed, 12 Mar 2008 23:10:53 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
+> 
+> > From: Andrew Morton <akpm@linux-foundation.org>
+> > Date: Wed, 12 Mar 2008 16:57:17 -0700
+> > 
+> > > I reran the test on 2.6.24 and all seemed fine: the machine didn't hang and
+> > > stopping the script stopped the netconsole output.
+> > 
+> > Can you go back and bisect the tree in one shot to the guilty
+> > commit you found last time, and make sure this test case
+> > works at that point?
+> 
+> Plain old
+> 
+> git-checkout 33f807ba0d9259e7c75c7a2ce8bd2787e5b540c7 seems to dtrt.
+> 
+> 
+> 
+> git-checkout 33f807ba0d9259e7c75c7a2ce8bd2787e5b540c7
+> 
+>   Fails very very easily.  Basically the machine never successfully boots.
+> 
+> 
+> git-checkout 0953864160bdd28dfe45fd46fa462b4d2d53cb96
+> 
+>   Works OK.
+> 
+> 
+> So yes, I'd say that the revert was not complete.
+> 
+> 
+> aside: running that while loop just slays the machine.  It took 30 seocnds
+> to respond to ^C (across ssh over the same link).  There's some severe
+> starvation happening somewhere.
 
-Unfortunately it's still got exactly the same problem, specifically,  
-the device comes up and doesn't see any SAP announcements. It's  
-getting it's IP address via DHCP.
 
-cat /proc/net/igmp also shows it as V3. If I force it to version 2 it  
-still doesn't seem to detect anything.
+The other possible candidates for this are:
 
-You suggested the patch below back in October and I didn't get any  
-time to work on it. I've just checked the source for the Fedora  
-2.6.24.3 kernel and it doesn't have the blow in there, so I'm going to  
-patch this against the kernel and see if it helps in anyway.
+commit 0953864160bdd28dfe45fd46fa462b4d2d53cb96
+Author: Stephen Hemminger <shemminger@linux-foundation.org>
+Date:   Mon Nov 19 19:23:29 2007 -0800
 
-If you've any further suggestions then please pass them on.
+    [NETPOLL]: no need to store local_mac
 
-Appropriate data from dmesg........
-r8169 Gigabit Ethernet driver 2.2LK-NAPI loaded
-eth0: RTL8169sc/8110sc at 0xdc868000, 00:05:6b:40:2c:be, XID 18000000  
-IRQ 18
-r8169: eth0: link up
+commit 5106930bd6b57402205e3de54dae9476e215b622
+Author: Stephen Hemminger <shemminger@linux-foundation.org>
+Date:   Mon Nov 19 19:18:11 2007 -0800
 
-Kind Regards,
---
-Glen Gray <glen.gray@lincor.com>         Digital Depot, Thomas Street
-Senior Software Engineer                            Dublin 8, Ireland
-Lincor Solutions Ltd.                          Ph: +353 (0) 1 4893682
+    [NETPOLL]: netpoll_poll() cleanup
 
-On 31 Oct 2007, at 21:10, Francois Romieu wrote:
+What hardware is the problem seen on? Perhaps there is something different
+to look for?
 
-> Glen Gray <glen.gray@lincor.com> :
-> [...]
->> However, we do have a few hundred units out in the field now that
->> we'll need to support going forward. So I'm keeping an eye on this
->> issue's progress.
->
-> Can you try 2.6.13 + the patch below if you have some time left ?
->
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index b94fa7e..1191802 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -1367,8 +1367,10 @@ static void rtl8169_phy_timer(unsigned long  
-> __opaque)
-> 		goto out_mod_timer;
-> 	}
->
-> -	if (tp->link_ok(ioaddr))
-> +	if (tp->link_ok(ioaddr)) {
-> +		dev->set_multicast_list(dev);
-> 		goto out_unlock;
-> +	}
->
-> 	if (netif_msg_link(tp))
-> 		printk(KERN_WARNING "%s: PHY reset until link up\n", dev->name);
-> -- 
-> Ueimor
 
+ 
