@@ -1,48 +1,28 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: RFC [PATCH net-2.6 1/6] net: Scheduling softirqs between CPUSs
-Date: Thu, 13 Mar 2008 11:47:19 +0000
-Message-ID: <20080313114717.GM24160@solarflare.com>
-References: <20080311165253.GG26963@solarflare.com> <65634d660803111648l15c4d653t52b4fc9e8dfa531d@mail.gmail.com> <20080312151051.GI26963@solarflare.com> <20080312.204145.202573599.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: therbert@google.com, jesse.brandeburg@intel.com, maxk@qualcomm.com,
-	netdev@vger.kernel.org, rostedt@goodmis.org, mingo@elte.hu
-To: David Miller <davem@davemloft.net>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: [net-2.6.26 patch 0/6][NETNS][IPV6] handling more proc per namespace
+Date: Thu, 13 Mar 2008 12:46:09 +0100
+Message-ID: <20080313114609.176640638@mai.toulouse-stg.fr.ibm.com>
+Cc: netdev@vger.kernel.org, benjamin.thery@bull.net, den@openvz.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:57704 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753069AbYCMLsM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2008 07:48:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20080312.204145.202573599.davem@davemloft.net>
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:57652 "EHLO
+	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752049AbYCMLu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2008 07:50:56 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate3.de.ibm.com (8.13.8/8.13.8) with ESMTP id m2DBoumV114998
+	for <netdev@vger.kernel.org>; Thu, 13 Mar 2008 11:50:56 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m2DBot6c1851540
+	for <netdev@vger.kernel.org>; Thu, 13 Mar 2008 12:50:55 +0100
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m2DBosCh020167
+	for <netdev@vger.kernel.org>; Thu, 13 Mar 2008 12:50:55 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Wed, 12 Mar 2008 15:10:52 +0000
-> 
-> > It's not supported, but it's on David Miller's to-do list[1].
-> ...
-> > 1. http://vger.kernel.org/~davem/net_todo.html
-> 
-> That copy of the TODO list is out of date, and we fully
-> support multiqueue RX devices, it's a device driver level
-> issue at this point.
-
-The specific part I was referring to was:
-
-   "This scheme can be further improved upon, if the host tells the driver what
-    CPU it wished to run a particular session on. With this information, the
-    driver can steer a session to the same CPU that the scheduler runs the
-    socket reads on, and achieve the best cache locality for both kernel and
-    user level rx processing."
-
-So far as I'm aware, this hasn't been done.  If it has, I would love to know
-how to work with it.
-
-Ben.
+This patchset makes tcp6/udp6 to have their proc files to be per
+namespace. This is useful for netstat :)  
+It fixes also a compilation warning for multicast.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
