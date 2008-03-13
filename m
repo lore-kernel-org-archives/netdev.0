@@ -1,32 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: RFC [PATCH net-2.6 1/6] net: Scheduling softirqs between CPUSs
-Date: Wed, 12 Mar 2008 20:41:45 -0700 (PDT)
-Message-ID: <20080312.204145.202573599.davem@davemloft.net>
-References: <20080311165253.GG26963@solarflare.com>
-	<65634d660803111648l15c4d653t52b4fc9e8dfa531d@mail.gmail.com>
-	<20080312151051.GI26963@solarflare.com>
+Subject: Re: netconsole still hangs
+Date: Wed, 12 Mar 2008 23:10:53 -0700 (PDT)
+Message-ID: <20080312.231053.216645957.davem@davemloft.net>
+References: <20080312161637.b082b515.akpm@linux-foundation.org>
+	<20080312163013.aaf07aa0.akpm@linux-foundation.org>
+	<20080312165717.c0879b1d.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, jesse.brandeburg@intel.com, maxk@qualcomm.com,
-	netdev@vger.kernel.org, rostedt@goodmis.org, mingo@elte.hu
-To: bhutchings@solarflare.com
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	rjw@sisk.pl
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42843
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46485
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751291AbYCMDlh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2008 23:41:37 -0400
-In-Reply-To: <20080312151051.GI26963@solarflare.com>
+	by vger.kernel.org with ESMTP id S1750929AbYCMGKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2008 02:10:45 -0400
+In-Reply-To: <20080312165717.c0879b1d.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 12 Mar 2008 15:10:52 +0000
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Wed, 12 Mar 2008 16:57:17 -0700
 
-> It's not supported, but it's on David Miller's to-do list[1].
-...
-> 1. http://vger.kernel.org/~davem/net_todo.html
+> I reran the test on 2.6.24 and all seemed fine: the machine didn't hang and
+> stopping the script stopped the netconsole output.
 
-That copy of the TODO list is out of date, and we fully
-support multiqueue RX devices, it's a device driver level
-issue at this point.
+Can you go back and bisect the tree in one shot to the guilty
+commit you found last time, and make sure this test case
+works at that point?
+
+With the current data points available, the only conclusion
+I have is that I somehow mis-reverted the changes or missed
+some important detail.  Because, you said that the problem
+went away when you bisected to that specific point.
+
+Thanks.
