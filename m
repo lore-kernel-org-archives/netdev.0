@@ -1,31 +1,48 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bugme-new] [Bug 10201] New: Yum update of Kernel broke sis900
-	ethernet driver
-Date: Thu, 13 Mar 2008 11:37:35 +0000
-Message-ID: <20080313113735.GA4930@ff.dom.local>
-References: <20080308155052.81cf3c8b.akpm@linux-foundation.org> <20080311091928.GA5765@ff.dom.local> <20080313110312.GA4764@ff.dom.local>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: RFC [PATCH net-2.6 1/6] net: Scheduling softirqs between CPUSs
+Date: Thu, 13 Mar 2008 11:47:19 +0000
+Message-ID: <20080313114717.GM24160@solarflare.com>
+References: <20080311165253.GG26963@solarflare.com> <65634d660803111648l15c4d653t52b4fc9e8dfa531d@mail.gmail.com> <20080312151051.GI26963@solarflare.com> <20080312.204145.202573599.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Dan McNaul <dmcnaul@hotmail.com>
+Cc: therbert@google.com, jesse.brandeburg@intel.com, maxk@qualcomm.com,
+	netdev@vger.kernel.org, rostedt@goodmis.org, mingo@elte.hu
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.189]:22112 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752565AbYCMLgE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2008 07:36:04 -0400
-Received: by fk-out-0910.google.com with SMTP id z23so3321903fkz.5
-        for <netdev@vger.kernel.org>; Thu, 13 Mar 2008 04:36:02 -0700 (PDT)
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:57704 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753069AbYCMLsM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2008 07:48:12 -0400
 Content-Disposition: inline
-In-Reply-To: <20080313110312.GA4764@ff.dom.local>
+In-Reply-To: <20080312.204145.202573599.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 13, 2008 at 11:03:12AM +0000, Jarek Poplawski wrote:
-...
-> Dan, you don't have HW (MAC) address set on your card, and it's
-> verified since 2.6.23.
+David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Wed, 12 Mar 2008 15:10:52 +0000
+> 
+> > It's not supported, but it's on David Miller's to-do list[1].
+> ...
+> > 1. http://vger.kernel.org/~davem/net_todo.html
+> 
+> That copy of the TODO list is out of date, and we fully
+> support multiqueue RX devices, it's a device driver level
+> issue at this point.
 
-Actually: verified before open since 2.6.24.
+The specific part I was referring to was:
 
-Jarek P.
+   "This scheme can be further improved upon, if the host tells the driver what
+    CPU it wished to run a particular session on. With this information, the
+    driver can steer a session to the same CPU that the scheduler runs the
+    socket reads on, and achieve the best cache locality for both kernel and
+    user level rx processing."
+
+So far as I'm aware, this hasn't been done.  If it has, I would love to know
+how to work with it.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
