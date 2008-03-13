@@ -1,24 +1,32 @@
-From: Matteo Croce <technoboy85@gmail.com>
-Subject: Re: [PATCH][MIPS][6/6]: AR7 leds
-Date: Thu, 13 Mar 2008 01:34:30 +0100
-Message-ID: <200803130134.31002.technoboy85@gmail.com>
-References: <200803120221.25044.technoboy85@gmail.com> <200803120234.40306.technoboy85@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RFC [PATCH net-2.6 1/6] net: Scheduling softirqs between CPUSs
+Date: Wed, 12 Mar 2008 20:41:45 -0700 (PDT)
+Message-ID: <20080312.204145.202573599.davem@davemloft.net>
+References: <20080311165253.GG26963@solarflare.com>
+	<65634d660803111648l15c4d653t52b4fc9e8dfa531d@mail.gmail.com>
+	<20080312151051.GI26963@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, Eugene Konev <ejka@imfi.kspu.ru>,
-	netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@coreworks.de, Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Anton Vorontsov <avorontsov@ru.mvista.com>
-To: linux-mips@linux-mips.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <200803120234.40306.technoboy85@gmail.com>
-Content-Disposition: inline
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Cc: therbert@google.com, jesse.brandeburg@intel.com, maxk@qualcomm.com,
+	netdev@vger.kernel.org, rostedt@goodmis.org, mingo@elte.hu
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42843
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751291AbYCMDlh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2008 23:41:37 -0400
+In-Reply-To: <20080312151051.GI26963@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Subject really was: AR7 ethernet
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 12 Mar 2008 15:10:52 +0000
+
+> It's not supported, but it's on David Miller's to-do list[1].
+...
+> 1. http://vger.kernel.org/~davem/net_todo.html
+
+That copy of the TODO list is out of date, and we fully
+support multiqueue RX devices, it's a device driver level
+issue at this point.
