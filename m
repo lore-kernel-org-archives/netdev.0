@@ -1,149 +1,72 @@
-From: "Vernon Mauery" <vmauery@gmail.com>
-Subject: Re: [PATCH 4/4] netxen: fix rx dropped stats
-Date: Thu, 13 Mar 2008 09:44:20 -0700
-Message-ID: <200495120803130944j207f5d20s8bfdfd4fd163a35f@mail.gmail.com>
-References: <Pine.LNX.4.64.0803120059270.7717@unm84.unminc.com>
-	 <Pine.LNX.4.64.0803120122590.7717@unm84.unminc.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] cxgb3: enhance t3_l2t_update to catch netevents in
+	whicharp entries have their probe timer expire
+Date: Thu, 13 Mar 2008 13:47:10 -0400
+Message-ID: <20080313174710.GA6514@hmsreliant.think-freely.org>
+References: <20080311173447.GB13374@hmsreliant.think-freely.org> <47D8D195.8060808@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Jeff Garzik" <jeff@garzik.org>
-To: "Dhananjay Phadke" <dhananjay@netxen.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: agospoda@redhat.com, davem@davemloft.net, netdev@vger.kernel.org,
+	jeff@garzik.org
+To: Divy Le Ray <divy@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rn-out-0910.google.com ([64.233.170.185]:17354 "EHLO
-	rn-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752009AbYCMQoX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2008 12:44:23 -0400
-Received: by rn-out-0910.google.com with SMTP id v46so2479812rnb.15
-        for <netdev@vger.kernel.org>; Thu, 13 Mar 2008 09:44:21 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0803120122590.7717@unm84.unminc.com>
+Received: from ra.tuxdriver.com ([70.61.120.52]:2927 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752189AbYCMRsm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Mar 2008 13:48:42 -0400
 Content-Disposition: inline
+In-Reply-To: <47D8D195.8060808@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/12/08, Dhananjay Phadke <dhananjay@netxen.com> wrote:
+On Thu, Mar 13, 2008 at 12:02:45AM -0700, Divy Le Ray wrote:
+> Neil Horman wrote:
+>>
+>> Recently commit 4eb61e0231be536d8116457b67b3e447bbd510dc went in to handle 
+>> arp
+>> completion events in the cxgb driver.  This was done to catch arp events 
+>> for
+>> which the corresponding entry was marked stale.  This was done to prevent 
+>> RDMA
+>> connection failures.  However the preceding patch misses a case.  While 
+>> checking
+>> for NUD_STALE states allows the processing of arp entries that were 
+>> completed
+>> due to arp requests rather than arp replies, it fails to catch arp entries 
+>> that
+>> have had their probe timer expire (NUD_PROBE).  It seems the same failure 
+>> can
+>> occur in that case.  By changing the check from NUD_CONNECTED|NUD_STALE to
+>> NUD_VALID, we can catch the previous set of events and add 
+>> exprired/revalidated
+>> arp entries to the set of handled cases as well.
+>>
 >
->  Don't count rx dropped packets based on return value of netif_receive_skb(),
->  which is misleading.
+> Hi Neil,
 >
->  Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+> I don't see transitions to NUD_PROBE triggering netevent notifications.
+> This patch would not alter the current behaviour.
+> The idea behind the implementation is that NUD_PROBE is considered as
+> an intermediate state rather than indicating a completion.
+>
+> I'm inclined to NAK the patch.
+Oh, you're right.  I was thinking that the nud_state & (NUD_INCOMPPLETE
+|NUD_PROBE) clause would set the notify flag and we'd get the notification.  But
+to fall into that clause, we'd need to also exceede our max probe count, which
+then puts us into NUD_FAILED state.
 
-I have tested this patch on my netxen hardware and found that it fixes
-a TX timeout hang that I was seeing previously.
+Patch is recinded.
 
-Tested-by: Vernon Mauery <vernux@us.ibm.com>
+Regards
+Neil
 
---Vernon
+>
+> Cheers,
+> Divy
+>
 
->  ---
->   drivers/net/netxen/netxen_nic.h         |    7 +-----
->   drivers/net/netxen/netxen_nic_ethtool.c |    6 -----
->   drivers/net/netxen/netxen_nic_init.c    |   33 +------------------------------
->   drivers/net/netxen/netxen_nic_isr.c     |    2 +-
->   4 files changed, 3 insertions(+), 45 deletions(-)
->
->  diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
->  index 070421b..7f20a03 100644
->  --- a/drivers/net/netxen/netxen_nic.h
->  +++ b/drivers/net/netxen/netxen_nic.h
->  @@ -818,12 +818,7 @@ struct netxen_adapter_stats {
->         u64  badskblen;
->         u64  nocmddescriptor;
->         u64  polled;
->  -       u64  uphappy;
->  -       u64  updropped;
->  -       u64  uplcong;
->  -       u64  uphcong;
->  -       u64  upmcong;
->  -       u64  updunno;
->  +       u64  rxdropped;
->         u64  txdropped;
->         u64  csummed;
->         u64  no_rcv;
->  diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
->  index d324ea3..6e98d83 100644
->  --- a/drivers/net/netxen/netxen_nic_ethtool.c
->  +++ b/drivers/net/netxen/netxen_nic_ethtool.c
->  @@ -64,12 +64,6 @@ static const struct netxen_nic_stats netxen_nic_gstrings_stats[] = {
->         {"bad_skb_len", NETXEN_NIC_STAT(stats.badskblen)},
->         {"no_cmd_desc", NETXEN_NIC_STAT(stats.nocmddescriptor)},
->         {"polled", NETXEN_NIC_STAT(stats.polled)},
->  -       {"uphappy", NETXEN_NIC_STAT(stats.uphappy)},
->  -       {"updropped", NETXEN_NIC_STAT(stats.updropped)},
->  -       {"uplcong", NETXEN_NIC_STAT(stats.uplcong)},
->  -       {"uphcong", NETXEN_NIC_STAT(stats.uphcong)},
->  -       {"upmcong", NETXEN_NIC_STAT(stats.upmcong)},
->  -       {"updunno", NETXEN_NIC_STAT(stats.updunno)},
->         {"tx_dropped", NETXEN_NIC_STAT(stats.txdropped)},
->         {"csummed", NETXEN_NIC_STAT(stats.csummed)},
->         {"no_rcv", NETXEN_NIC_STAT(stats.no_rcv)},
->  diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
->  index fe64618..d9713d9 100644
->  --- a/drivers/net/netxen/netxen_nic_init.c
->  +++ b/drivers/net/netxen/netxen_nic_init.c
->  @@ -1089,7 +1089,7 @@ static void netxen_process_rcv(struct netxen_adapter *adapter, int ctxid,
->         skb = (struct sk_buff *)buffer->skb;
->
->         if (likely(adapter->rx_csum &&
->  -                               netxen_get_sts_status(sts_data) == STATUS_CKSUM_OK)) {
->  +                       netxen_get_sts_status(sts_data) == STATUS_CKSUM_OK)) {
->                 adapter->stats.csummed++;
->                 skb->ip_summed = CHECKSUM_UNNECESSARY;
->         } else
->  @@ -1106,37 +1106,6 @@ static void netxen_process_rcv(struct netxen_adapter *adapter, int ctxid,
->         skb->protocol = eth_type_trans(skb, netdev);
->
->         ret = netif_receive_skb(skb);
->  -
->  -       /*
->  -        * RH: Do we need these stats on a regular basis. Can we get it from
->  -        * Linux stats.
->  -        */
->  -       switch (ret) {
->  -       case NET_RX_SUCCESS:
->  -               adapter->stats.uphappy++;
->  -               break;
->  -
->  -       case NET_RX_CN_LOW:
->  -               adapter->stats.uplcong++;
->  -               break;
->  -
->  -       case NET_RX_CN_MOD:
->  -               adapter->stats.upmcong++;
->  -               break;
->  -
->  -       case NET_RX_CN_HIGH:
->  -               adapter->stats.uphcong++;
->  -               break;
->  -
->  -       case NET_RX_DROP:
->  -               adapter->stats.updropped++;
->  -               break;
->  -
->  -       default:
->  -               adapter->stats.updunno++;
->  -               break;
->  -       }
->  -
->         netdev->last_rx = jiffies;
->
->         rcv_desc->rcv_pending--;
->  diff --git a/drivers/net/netxen/netxen_nic_isr.c b/drivers/net/netxen/netxen_nic_isr.c
->  index 1a2333a..c81313b 100644
->  --- a/drivers/net/netxen/netxen_nic_isr.c
->  +++ b/drivers/net/netxen/netxen_nic_isr.c
->  @@ -59,7 +59,7 @@ struct net_device_stats *netxen_nic_get_stats(struct net_device *netdev)
->         /* packet transmit problems */
->         stats->tx_errors = adapter->stats.nocmddescriptor;
->         /* no space in linux buffers    */
->  -       stats->rx_dropped = adapter->stats.updropped;
->  +       stats->rx_dropped = adapter->stats.rxdropped;
->         /* no space available in linux  */
->         stats->tx_dropped = adapter->stats.txdropped;
->
->
->  --
->  To unsubscribe from this list: send the line "unsubscribe netdev" in
->  the body of a message to majordomo@vger.kernel.org
->  More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+-- 
+/****************************************************
+ * Neil Horman <nhorman@tuxdriver.com>
+ * Software Engineer, Red Hat
+ ****************************************************/
