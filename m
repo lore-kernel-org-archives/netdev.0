@@ -1,82 +1,71 @@
-From: Neil Brown <neilb@suse.de>
-Subject: Re: [PATCH 00/28] Swap over NFS -v16
-Date: Fri, 14 Mar 2008 16:22:27 +1100
-Message-ID: <18394.2963.890847.4606@notabene.brown>
-References: <20080220144610.548202000@chello.nl>
-	<20080223000620.7fee8ff8.akpm@linux-foundation.org>
-	<18371.43950.150842.429997@notabene.brown>
-	<1204023042.6242.271.camel@lappy>
-	<18372.64081.995262.986841@notabene.brown>
-	<1204099113.6242.353.camel@lappy>
-	<1837 <1204626509.6241.39.camel@lappy>
-	<18384.46967.583615.711455@notabene.brown>
-	<1204888675.8514.102.camel@twins>
-	<18388.50188.552322.780524@notabene.brown>
-	<1205140674.8514.152.camel@twins>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Pekka Enberg <penberg@cs.helsinki.fi>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+From: Stefan Roese <sr@denx.de>
+Subject: [PATCH] net: NEWEMAC: Support for Pause packets in EMAC driver
+Date: Fri, 14 Mar 2008 10:52:28 +0100
+Message-ID: <1205488348-22536-1-git-send-email-sr@denx.de>
+Cc: benh@kernel.crashing.org, jwboyer@linux.vnet.ibm.com
+To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:47437 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758699AbYCNFWl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Mar 2008 01:22:41 -0400
-In-Reply-To: message from Peter Zijlstra on Monday March 10
+Received: from moutng.kundenserver.de ([212.227.126.186]:64630 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752238AbYCNJwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2008 05:52:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday March 10, a.p.zijlstra@chello.nl wrote:
-> > 
-> > Maybe that depends on the exact semantic of PG_emergency ??
-> > I remember you being concerned that PG_emergency never changes between
-> > allocation and freeing, and that wouldn't work well with slub.
-> > My envisioned semantic has it possibly changing quite often.
-> > What it means is:
-> >    The last allocation done from this page was in a low-memory
-> >    condition.
-> 
-> Yes, that works, except that we'd need to iterate all pages and clear
-> PG_emergency - which would imply tracking all these pages etc..
-> 
+From: Pravin M. Bathija <pbathija@amcc.com>
 
-I don't see why you need to clear PG_emergency at all.
-If the semantic is:
+Problem Description and Fix
+---------------------------
+When a pause packet(with destination as reserved Multicast address) is
+received by the EMAC hardware to control the flow of frames being
+transmitted by it, it is dropped by the hardware unless the reserved
+Multicast address is hashed in to the GAHT[1-4] registers. This code fix
+adds the default reserved multicast address to the GAHT[1-4] registers
+in the EMAC(s) present on the chip. The flow control with Pause packets
+will only work if the following register bits are programmed in EMAC:
+EMACx_MR1[APP] = 1
+EMACx_RMR[BAE] = 1
+EMACx_RMR[MAE] = 1
 
-> >    The last allocation done from this page was in a low-memory
-> >    condition.
+Behavior that may be observed in a running system
+-------------------------------------------------
+A host transferring data from a PPC based system may send a Pause packet
+to the PPC EMAC requesting it to slow down the flow of packets. If the
+default reserved multicast MAC address is not programmed into the
+GAHT[1-4] registers this Pause packet will be dropped by PPC EMAC and no
+Flow Control will be done.
 
-Then you only need to (potentially) modify it's value when you
-allocate it, or an element within it.
+Signed-off-by: Pravin M. Bathija <pbathija@amcc.com>
+Signed-off-by: Stefan Roese <sr@denx.de>
+---
+ drivers/net/ibm_newemac/core.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-But if it doesn't fit well in the overall picture, then by all means
-get rid of it.
+diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
+index e6c69f7..0789802 100644
+--- a/drivers/net/ibm_newemac/core.c
++++ b/drivers/net/ibm_newemac/core.c
+@@ -143,6 +143,10 @@ static inline void emac_report_timeout_error(struct emac_instance *dev,
+ #define STOP_TIMEOUT_1000	13
+ #define STOP_TIMEOUT_1000_JUMBO	73
+ 
++static unsigned char default_mcast_addr[] = {
++	0x01, 0x80, 0xC2, 0x00, 0x00, 0x01
++};
++
+ /* Please, keep in sync with struct ibm_emac_stats/ibm_emac_error_stats */
+ static const char emac_stats_keys[EMAC_ETHTOOL_STATS_COUNT][ETH_GSTRING_LEN] = {
+ 	"rx_packets", "rx_bytes", "tx_packets", "tx_bytes", "rx_packets_csum",
+@@ -618,6 +622,9 @@ static int emac_configure(struct emac_instance *dev)
+ 	if (emac_phy_gpcs(dev->phy.mode))
+ 		emac_mii_reset_phy(&dev->phy);
+ 
++	/* Required for Pause packet support in EMAC */
++	dev_mc_add(ndev, default_mcast_addr, sizeof(default_mcast_addr), 1);
++
+ 	return 0;
+ }
+ 
+-- 
+1.5.4.4
 
-> 
-> Hmm, right. But for that purpose the names swap_* are a tad misleading.
-> I remember hch mentioning this at some point. What would be a more
-> suitable naming scheme so we can both use it?
-
-One could argue that "swap" is already a misleading term.
-Level 7 Unix used to do swapping.  It would write one process image
-out to swap space, and read a different one in.  Moving whole
-processes at a time was called swapping.
-When this clever idea of only moving pages at a time was introduced (I
-think in 4BSD, but possible in 2BSD and elsewhere) it was called
-"demand paging" or just "paging".
-
-So we don't have a swap partition any more.  We have a paging
-partition.
-
-But everyone calls it 'swap' and we know what it means.  I don't think
-there would be a big cost in keeping the swap_ names but allowing them
-to be used for occasional things other than swap.
-And I suspect you would lose a lot if you tried to use a different
-name that people didn't immediately identify with...
-
-NeilBrown
