@@ -1,71 +1,97 @@
-From: Stefan Roese <sr@denx.de>
-Subject: [PATCH] net: NEWEMAC: Support for Pause packets in EMAC driver
-Date: Fri, 14 Mar 2008 10:52:28 +0100
-Message-ID: <1205488348-22536-1-git-send-email-sr@denx.de>
-Cc: benh@kernel.crashing.org, jwboyer@linux.vnet.ibm.com
-To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+From: Glen Gray <glen.gray@lincor.com>
+Subject: Re: [PATCH 13/13] r8169: more phy init for the 8168
+Date: Fri, 14 Mar 2008 12:33:50 +0000
+Message-ID: <3CFDA04B-ED5A-4579-B6E7-0EDC52678C95@lincor.com>
+References: <20071018204846.GC8594@electric-eye.fr.zoreil.com> <20071018210224.GN31724@electric-eye.fr.zoreil.com> <471F1067.50403@lincor.com> <20071024221438.GB6189@electric-eye.fr.zoreil.com> <5B10F916-9877-4954-84E7-7F4FE26875C4@lincor.com> <20071031211006.GA12688@electric-eye.fr.zoreil.com> <328390F7-B41D-4A90-BACA-4746C5E92F1B@lincor.com>
+Mime-Version: 1.0 (Apple Message framework v919.2)
+Content-Type: text/plain; charset="US-ASCII"; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:64630 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752238AbYCNJwp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2008 05:52:45 -0400
+Received: from mail.station1.mxsweep.com ([212.147.136.149]:2222 "EHLO
+	scmp07.mxsweep.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751858AbYCNMff (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2008 08:35:35 -0400
+In-Reply-To: <328390F7-B41D-4A90-BACA-4746C5E92F1B@lincor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin M. Bathija <pbathija@amcc.com>
+Applied this patch to 2.6.24.3 and unfortunately it causes the kernel  
+to freeze up once network traffic starts coming in.
 
-Problem Description and Fix
----------------------------
-When a pause packet(with destination as reserved Multicast address) is
-received by the EMAC hardware to control the flow of frames being
-transmitted by it, it is dropped by the hardware unless the reserved
-Multicast address is hashed in to the GAHT[1-4] registers. This code fix
-adds the default reserved multicast address to the GAHT[1-4] registers
-in the EMAC(s) present on the chip. The flow control with Pause packets
-will only work if the following register bits are programmed in EMAC:
-EMACx_MR1[APP] = 1
-EMACx_RMR[BAE] = 1
-EMACx_RMR[MAE] = 1
+Back to the drawing board.
+--
+Glen Gray <glen.gray@lincor.com>         Digital Depot, Thomas Street
+Senior Software Engineer                            Dublin 8, Ireland
+Lincor Solutions Ltd.                          Ph: +353 (0) 1 4893682
 
-Behavior that may be observed in a running system
--------------------------------------------------
-A host transferring data from a PPC based system may send a Pause packet
-to the PPC EMAC requesting it to slow down the flow of packets. If the
-default reserved multicast MAC address is not programmed into the
-GAHT[1-4] registers this Pause packet will be dropped by PPC EMAC and no
-Flow Control will be done.
+On 13 Mar 2008, at 14:20, Glen Gray wrote:
 
-Signed-off-by: Pravin M. Bathija <pbathija@amcc.com>
-Signed-off-by: Stefan Roese <sr@denx.de>
----
- drivers/net/ibm_newemac/core.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
-index e6c69f7..0789802 100644
---- a/drivers/net/ibm_newemac/core.c
-+++ b/drivers/net/ibm_newemac/core.c
-@@ -143,6 +143,10 @@ static inline void emac_report_timeout_error(struct emac_instance *dev,
- #define STOP_TIMEOUT_1000	13
- #define STOP_TIMEOUT_1000_JUMBO	73
- 
-+static unsigned char default_mcast_addr[] = {
-+	0x01, 0x80, 0xC2, 0x00, 0x00, 0x01
-+};
-+
- /* Please, keep in sync with struct ibm_emac_stats/ibm_emac_error_stats */
- static const char emac_stats_keys[EMAC_ETHTOOL_STATS_COUNT][ETH_GSTRING_LEN] = {
- 	"rx_packets", "rx_bytes", "tx_packets", "tx_bytes", "rx_packets_csum",
-@@ -618,6 +622,9 @@ static int emac_configure(struct emac_instance *dev)
- 	if (emac_phy_gpcs(dev->phy.mode))
- 		emac_mii_reset_phy(&dev->phy);
- 
-+	/* Required for Pause packet support in EMAC */
-+	dev_mc_add(ndev, default_mcast_addr, sizeof(default_mcast_addr), 1);
-+
- 	return 0;
- }
- 
--- 
-1.5.4.4
+> Hey Francois,
+>
+> Spent some time on this yesterday and today, managed to get a Fedora  
+> 8 install up and running on the hardware. This is using the 2.6.24.3  
+> kernel from Fedora.
+>
+> Unfortunately it's still got exactly the same problem, specifically,  
+> the device comes up and doesn't see any SAP announcements. It's  
+> getting it's IP address via DHCP.
+>
+> cat /proc/net/igmp also shows it as V3. If I force it to version 2  
+> it still doesn't seem to detect anything.
+>
+> You suggested the patch below back in October and I didn't get any  
+> time to work on it. I've just checked the source for the Fedora  
+> 2.6.24.3 kernel and it doesn't have the blow in there, so I'm going  
+> to patch this against the kernel and see if it helps in anyway.
+>
+> If you've any further suggestions then please pass them on.
+>
+> Appropriate data from dmesg........
+> r8169 Gigabit Ethernet driver 2.2LK-NAPI loaded
+> eth0: RTL8169sc/8110sc at 0xdc868000, 00:05:6b:40:2c:be, XID  
+> 18000000 IRQ 18
+> r8169: eth0: link up
+>
+> Kind Regards,
+> --
+> Glen Gray <glen.gray@lincor.com>         Digital Depot, Thomas Street
+> Senior Software Engineer                            Dublin 8, Ireland
+> Lincor Solutions Ltd.                          Ph: +353 (0) 1 4893682
+>
+> On 31 Oct 2007, at 21:10, Francois Romieu wrote:
+>
+>> Glen Gray <glen.gray@lincor.com> :
+>> [...]
+>>> However, we do have a few hundred units out in the field now that
+>>> we'll need to support going forward. So I'm keeping an eye on this
+>>> issue's progress.
+>>
+>> Can you try 2.6.13 + the patch below if you have some time left ?
+>>
+>> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+>> index b94fa7e..1191802 100644
+>> --- a/drivers/net/r8169.c
+>> +++ b/drivers/net/r8169.c
+>> @@ -1367,8 +1367,10 @@ static void rtl8169_phy_timer(unsigned long  
+>> __opaque)
+>> 		goto out_mod_timer;
+>> 	}
+>>
+>> -	if (tp->link_ok(ioaddr))
+>> +	if (tp->link_ok(ioaddr)) {
+>> +		dev->set_multicast_list(dev);
+>> 		goto out_unlock;
+>> +	}
+>>
+>> 	if (netif_msg_link(tp))
+>> 		printk(KERN_WARNING "%s: PHY reset until link up\n", dev->name);
+>> -- 
+>> Ueimor
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
