@@ -1,87 +1,346 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Audit vs netlink interaction problem
-Date: Fri, 14 Mar 2008 19:40:52 +0100
-Message-ID: <20080314184052.GR20815@postel.suug.ch>
-References: <47DAA660.90401@openvz.org> <20080314163929.GP20815@postel.suug.ch> <47DAB065.6060804@openvz.org> <20080314182927.GQ20815@postel.suug.ch>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [RFC PATCH v2] [SCTP]: Fix a race between module load and
+	protosw access
+Date: Fri, 14 Mar 2008 14:26:25 -0700
+Message-ID: <1205529985.21095.1.camel@w-sridhar2.beaverton.ibm.com>
+References: <47D87552.7010303@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	lksctp-developers <lksctp-developers@lists.sourceforge.net>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:54756 "EHLO postel.suug.ch"
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:38080 "EHLO e2.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751488AbYCNSkd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Mar 2008 14:40:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20080314182927.GQ20815@postel.suug.ch>
+	id S1751754AbYCNV0a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2008 17:26:30 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m2ELQRPK003878
+	for <netdev@vger.kernel.org>; Fri, 14 Mar 2008 17:26:27 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m2ELQRxP299500
+	for <netdev@vger.kernel.org>; Fri, 14 Mar 2008 17:26:27 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m2ELQRZI020359
+	for <netdev@vger.kernel.org>; Fri, 14 Mar 2008 17:26:27 -0400
+In-Reply-To: <47D87552.7010303@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Thomas Graf <tgraf@suug.ch> 2008-03-14 19:29
-> * Pavel Emelyanov <xemul@openvz.org> 2008-03-14 20:05
-> > Hmmm... I'm afraid, that this can break the audit filtering and signal
-> > auditing. I haven't yet looked deep into it, but it compares the 
-> > task->tgid with this audit_pid for different purposes. If audit_pid
-> > changes this code will be broken.
+On Wed, 2008-03-12 at 20:29 -0400, Vlad Yasevich wrote:
+> There is a race is SCTP between the loading of the module
+> and the access by the socket layer to the protocol functions.
+> In particular, a list of addresss that SCTP maintains is
+> not initialized prior to the registration with the protosw.
+> Thus it is possible for a user application to gain access
+> to SCTP functions before everything has been initialized.
+> The problem shows up as odd crashes during connection
+> initializtion when we try to access the SCTP address list.
 > 
-> OK, then both pids have to be stored. audit_pid remains as-is but is
-> no longer used as destination netlink pid. A second pid is stored and
-> updated whenever a netlink message is received from userspace.
+> The solution is to refactor how we do registration and
+> initialize the lists prior to registering with the protosw.
+> Care must be taken since the address list initialization
+> depends on some other pieces of SCTP initialization.  Also
+> the clean-up in case of failure now also needs to be refactored.
+> 
+> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-The following patch represents what I mean. Untested!
+Acked-by: Sridhar Samudrala <sri@us.ibm.com>
 
-Index: net-2.6.26/kernel/audit.c
-===================================================================
---- net-2.6.26.orig/kernel/audit.c	2008-03-14 19:31:53.000000000 +0100
-+++ net-2.6.26/kernel/audit.c	2008-03-14 19:38:35.000000000 +0100
-@@ -82,6 +82,9 @@
-  * contains the (non-zero) pid. */
- int		audit_pid;
- 
-+/* Actual netlink pid of the userspace process */
-+static int	audit_nlk_pid;
-+
- /* If audit_rate_limit is non-zero, limit the rate of sending audit records
-  * to that number per second.  This prevents DoS attacks, but results in
-  * audit records being dropped. */
-@@ -347,12 +350,12 @@
- 		skb = skb_dequeue(&audit_skb_queue);
- 		wake_up(&audit_backlog_wait);
- 		if (skb) {
--			if (audit_pid) {
--				int err = netlink_unicast(audit_sock, skb, audit_pid, 0);
-+			if (audit_nlk_pid) {
-+				int err = netlink_unicast(audit_sock, skb, audit_nlk_pid, 0);
- 				if (err < 0) {
- 					BUG_ON(err != -ECONNREFUSED); /* Shoudn't happen */
--					printk(KERN_ERR "audit: *NO* daemon at audit_pid=%d\n", audit_pid);
--					audit_pid = 0;
-+					printk(KERN_ERR "audit: *NO* daemon at audit_nlk_pid=%d\n", audit_nlk_pid);
-+					audit_nlk_pid = 0;
- 				}
- 			} else {
- 				if (printk_ratelimit())
-@@ -623,6 +626,12 @@
- 							sid, 1);
- 
- 			audit_pid = new_pid;
-+
-+			/*
-+			 * Netlink pid is only updated here to avoid overwrites
-+			 * from potential processes only querying the interface.
-+			 */
-+			audit_nlk_pid = NETLINK_CB(skb).pid;
- 		}
- 		if (status_get->mask & AUDIT_STATUS_RATE_LIMIT)
- 			err = audit_set_rate_limit(status_get->rate_limit,
-@@ -1350,7 +1359,7 @@
- 	if (!audit_rate_check()) {
- 		audit_log_lost("rate limit exceeded");
- 	} else {
--		if (audit_pid) {
-+		if (audit_nlk_pid) {
- 			struct nlmsghdr *nlh = nlmsg_hdr(ab->skb);
- 			nlh->nlmsg_len = ab->skb->len - NLMSG_SPACE(0);
- 			skb_queue_tail(&audit_skb_queue, ab->skb);
+Thanks
+Sridhar
+> ---
+>  include/net/sctp/sctp.h |   12 +++--
+>  net/sctp/ipv6.c         |   32 +++++++----
+>  net/sctp/protocol.c     |  129 ++++++++++++++++++++++++++++++----------------
+>  3 files changed, 112 insertions(+), 61 deletions(-)
+> 
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index 57df27f..57ed3e3 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -380,15 +380,19 @@ static inline int sctp_sysctl_jiffies_ms(ctl_table *table, int __user *name, int
+> 
+>  #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+> 
+> -int sctp_v6_init(void);
+> -void sctp_v6_exit(void);
+> +void sctp_v6_pf_init(void);
+> +void sctp_v6_pf_exit(void);
+> +int sctp_v6_protosw_init(void);
+> +void sctp_v6_protosw_exit(void);
+>  int sctp_v6_add_protocol(void);
+>  void sctp_v6_del_protocol(void);
+> 
+>  #else /* #ifdef defined(CONFIG_IPV6) */
+> 
+> -static inline int sctp_v6_init(void) { return 0; }
+> -static inline void sctp_v6_exit(void) { return; }
+> +static inline void sctp_v6_pf_init(void) { return 0; }
+> +static inline void sctp_v6_pf_exit(void) { return; }
+> +static inline int sctp_v6_protosw_init(void) { return 0; }
+> +static inline void sctp_v6_protosw_exit(void) { return; }
+>  static inline int sctp_v6_add_protocol(void) { return 0; }
+>  static inline void sctp_v6_del_protocol(void) { return; }
+> 
+> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> index 9aa0733..248d960 100644
+> --- a/net/sctp/ipv6.c
+> +++ b/net/sctp/ipv6.c
+> @@ -1014,15 +1014,24 @@ static struct sctp_pf sctp_pf_inet6 = {
+>  };
+> 
+>  /* Initialize IPv6 support and register with socket layer.  */
+> -int sctp_v6_init(void)
+> +void sctp_v6_pf_init(void)
+>  {
+> -	int rc;
+> -
+>  	/* Register the SCTP specific PF_INET6 functions. */
+>  	sctp_register_pf(&sctp_pf_inet6, PF_INET6);
+> 
+>  	/* Register the SCTP specific AF_INET6 functions. */
+>  	sctp_register_af(&sctp_af_inet6);
+> +}
+> +
+> +void sctp_v6_pf_exit(void)
+> +{
+> +	list_del(&sctp_af_inet6.list);
+> +}
+> + 
+> +/* Initialize IPv6 support and register with socket layer.  */
+> +int sctp_v6_protosw_init(void)
+> +{
+> +	int rc;
+> 
+>  	rc = proto_register(&sctpv6_prot, 1);
+>  	if (rc)
+> @@ -1035,6 +1044,14 @@ int sctp_v6_init(void)
+>  	return 0;
+>  }
+> 
+> +void sctp_v6_protosw_exit(void)
+> +{
+> +	inet6_unregister_protosw(&sctpv6_seqpacket_protosw);
+> +	inet6_unregister_protosw(&sctpv6_stream_protosw);
+> +	proto_unregister(&sctpv6_prot);
+> +}
+> +
+> +
+>  /* Register with inet6 layer. */
+>  int sctp_v6_add_protocol(void)
+>  {
+> @@ -1047,15 +1064,6 @@ int sctp_v6_add_protocol(void)
+>  	return 0;
+>  }
+> 
+> -/* IPv6 specific exit support. */
+> -void sctp_v6_exit(void)
+> -{
+> -	inet6_unregister_protosw(&sctpv6_seqpacket_protosw);
+> -	inet6_unregister_protosw(&sctpv6_stream_protosw);
+> -	proto_unregister(&sctpv6_prot);
+> -	list_del(&sctp_af_inet6.list);
+> -}
+> -
+>  /* Unregister with inet6 layer. */
+>  void sctp_v6_del_protocol(void)
+>  {
+> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+> index ad0a406..353f837 100644
+> --- a/net/sctp/protocol.c
+> +++ b/net/sctp/protocol.c
+> @@ -992,6 +992,58 @@ static void cleanup_sctp_mibs(void)
+>  	free_percpu(sctp_statistics[1]);
+>  }
+> 
+> +static void sctp_v4_pf_init(void)
+> +{
+> +	/* Initialize the SCTP specific PF functions. */
+> +	sctp_register_pf(&sctp_pf_inet, PF_INET);
+> +	sctp_register_af(&sctp_af_inet);
+> +}
+> +
+> +static void sctp_v4_pf_exit(void)
+> +{
+> +	list_del(&sctp_af_inet.list);
+> +}
+> +
+> +static int sctp_v4_protosw_init(void)
+> +{
+> +	int rc;
+> +
+> +	rc = proto_register(&sctp_prot, 1);
+> +	if (rc)
+> +		return rc;
+> +
+> +	/* Register SCTP(UDP and TCP style) with socket layer.  */
+> +	inet_register_protosw(&sctp_seqpacket_protosw);
+> +	inet_register_protosw(&sctp_stream_protosw);
+> +
+> +	return 0;
+> +}
+> +
+> +static void sctp_v4_protosw_exit(void)
+> +{
+> +	inet_unregister_protosw(&sctp_stream_protosw);
+> +	inet_unregister_protosw(&sctp_seqpacket_protosw);
+> +	proto_unregister(&sctp_prot);
+> +}
+> +
+> +static int sctp_v4_add_protocol(void)
+> +{
+> +	/* Register notifier for inet address additions/deletions. */
+> +	register_inetaddr_notifier(&sctp_inetaddr_notifier);
+> +
+> +	/* Register SCTP with inet layer.  */
+> +	if (inet_add_protocol(&sctp_protocol, IPPROTO_SCTP) < 0)
+> +		return -EAGAIN;
+> +
+> +	return 0;
+> +}
+> +
+> +static void sctp_v4_del_protocol(void)
+> +{
+> +	inet_del_protocol(&sctp_protocol, IPPROTO_SCTP);
+> +	unregister_inetaddr_notifier(&sctp_inetaddr_notifier);
+> +}
+> +
+>  /* Initialize the universe into something sensible.  */
+>  SCTP_STATIC __init int sctp_init(void)
+>  {
+> @@ -1035,8 +1087,6 @@ SCTP_STATIC __init int sctp_init(void)
+>  	/* Initialize object count debugging.  */
+>  	sctp_dbg_objcnt_init();
+> 
+> -	/* Initialize the SCTP specific PF functions. */
+> -	sctp_register_pf(&sctp_pf_inet, PF_INET);
+>  	/*
+>  	 * 14. Suggested SCTP Protocol Parameter Values
+>  	 */
+> @@ -1194,19 +1244,22 @@ SCTP_STATIC __init int sctp_init(void)
+>  	sctp_sysctl_register();
+> 
+>  	INIT_LIST_HEAD(&sctp_address_families);
+> -	sctp_register_af(&sctp_af_inet);
+> +	sctp_v4_pf_init();
+> +	sctp_v6_pf_init();
+> +	
+> +	/* Initialize the local address list. */
+> +	INIT_LIST_HEAD(&sctp_local_addr_list);
+> +	spin_lock_init(&sctp_local_addr_lock);
+> +	sctp_get_local_addr_list();
+> 
+> -	status = proto_register(&sctp_prot, 1);
+> +	status = sctp_v4_protosw_init();
+> +	
+>  	if (status)
+> -		goto err_proto_register;
+> +		goto err_protosw_init;
+> 
+> -	/* Register SCTP(UDP and TCP style) with socket layer.  */
+> -	inet_register_protosw(&sctp_seqpacket_protosw);
+> -	inet_register_protosw(&sctp_stream_protosw);
+> -
+> -	status = sctp_v6_init();
+> +	status = sctp_v6_protosw_init();
+>  	if (status)
+> -		goto err_v6_init;
+> +		goto err_v6_protosw_init;
+> 
+>  	/* Initialize the control inode/socket for handling OOTB packets.  */
+>  	if ((status = sctp_ctl_sock_init())) {
+> @@ -1215,19 +1268,9 @@ SCTP_STATIC __init int sctp_init(void)
+>  		goto err_ctl_sock_init;
+>  	}
+> 
+> -	/* Initialize the local address list. */
+> -	INIT_LIST_HEAD(&sctp_local_addr_list);
+> -	spin_lock_init(&sctp_local_addr_lock);
+> -	sctp_get_local_addr_list();
+> -
+> -	/* Register notifier for inet address additions/deletions. */
+> -	register_inetaddr_notifier(&sctp_inetaddr_notifier);
+> -
+> -	/* Register SCTP with inet layer.  */
+> -	if (inet_add_protocol(&sctp_protocol, IPPROTO_SCTP) < 0) {
+> -		status = -EAGAIN;
+> +	status = sctp_v4_add_protocol();
+> +	if (status)
+>  		goto err_add_protocol;
+> -	}
+> 
+>  	/* Register SCTP with inet6 layer.  */
+>  	status = sctp_v6_add_protocol();
+> @@ -1238,18 +1281,18 @@ SCTP_STATIC __init int sctp_init(void)
+>  out:
+>  	return status;
+>  err_v6_add_protocol:
+> -	inet_del_protocol(&sctp_protocol, IPPROTO_SCTP);
+> -	unregister_inetaddr_notifier(&sctp_inetaddr_notifier);
+> +	sctp_v6_del_protocol();
+>  err_add_protocol:
+> -	sctp_free_local_addr_list();
+> +	sctp_v4_del_protocol();
+>  	sock_release(sctp_ctl_socket);
+>  err_ctl_sock_init:
+> -	sctp_v6_exit();
+> -err_v6_init:
+> -	inet_unregister_protosw(&sctp_stream_protosw);
+> -	inet_unregister_protosw(&sctp_seqpacket_protosw);
+> -	proto_unregister(&sctp_prot);
+> -err_proto_register:
+> +	sctp_v6_protosw_exit();
+> +err_v6_protosw_init:
+> +	sctp_v4_protosw_exit();
+> +err_protosw_init:
+> +	sctp_free_local_addr_list();
+> +	sctp_v4_pf_exit();
+> +	sctp_v6_pf_exit();
+>  	sctp_sysctl_unregister();
+>  	list_del(&sctp_af_inet.list);
+>  	free_pages((unsigned long)sctp_port_hashtable,
+> @@ -1282,23 +1325,21 @@ SCTP_STATIC __exit void sctp_exit(void)
+> 
+>  	/* Unregister with inet6/inet layers. */
+>  	sctp_v6_del_protocol();
+> -	inet_del_protocol(&sctp_protocol, IPPROTO_SCTP);
+> -
+> -	/* Unregister notifier for inet address additions/deletions. */
+> -	unregister_inetaddr_notifier(&sctp_inetaddr_notifier);
+> -
+> -	/* Free the local address list.  */
+> -	sctp_free_local_addr_list();
+> +	sctp_v4_del_protocol();
+> 
+>  	/* Free the control endpoint.  */
+>  	sock_release(sctp_ctl_socket);
+> 
+> -	/* Cleanup v6 initializations. */
+> -	sctp_v6_exit();
+> +	/* Free protosw registrations */
+> +	sctp_v6_protosw_exit();
+> +	sctp_v4_protosw_exit();
+> +
+> +	/* Free the local address list.  */
+> +	sctp_free_local_addr_list();
+> 
+>  	/* Unregister with socket layer. */
+> -	inet_unregister_protosw(&sctp_stream_protosw);
+> -	inet_unregister_protosw(&sctp_seqpacket_protosw);
+> +	sctp_v6_pf_exit();
+> +	sctp_v4_pf_exit();
+> 
+>  	sctp_sysctl_unregister();
+>  	list_del(&sctp_af_inet.list);
+> @@ -1317,8 +1358,6 @@ SCTP_STATIC __exit void sctp_exit(void)
+> 
+>  	kmem_cache_destroy(sctp_chunk_cachep);
+>  	kmem_cache_destroy(sctp_bucket_cachep);
+> -
+> -	proto_unregister(&sctp_prot);
+>  }
+> 
+>  module_init(sctp_init);
+
