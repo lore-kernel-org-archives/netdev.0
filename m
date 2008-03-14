@@ -1,425 +1,82 @@
-From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-Subject: Re: [PATCH][IPSEC] inter address family IPsec tunnel on the fly
-Date: Fri, 14 Mar 2008 12:23:14 +0900
-Message-ID: <20080314122314.b877cfab.kazunori@miyazawa.org>
-References: <47D0E169.5050006@miyazawa.org>
-	<20080306.231947.135681188.davem@davemloft.net>
-	<47D2A6B5.101@miyazawa.org>
-	<20080308.141506.193713220.davem@davemloft.net>
+From: Neil Brown <neilb@suse.de>
+Subject: Re: [PATCH 00/28] Swap over NFS -v16
+Date: Fri, 14 Mar 2008 16:22:27 +1100
+Message-ID: <18394.2963.890847.4606@notabene.brown>
+References: <20080220144610.548202000@chello.nl>
+	<20080223000620.7fee8ff8.akpm@linux-foundation.org>
+	<18371.43950.150842.429997@notabene.brown>
+	<1204023042.6242.271.camel@lappy>
+	<18372.64081.995262.986841@notabene.brown>
+	<1204099113.6242.353.camel@lappy>
+	<1837 <1204626509.6241.39.camel@lappy>
+	<18384.46967.583615.711455@notabene.brown>
+	<1204888675.8514.102.camel@twins>
+	<18388.50188.552322.780524@notabene.brown>
+	<1205140674.8514.152.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	Pekka Enberg <penberg@cs.helsinki.fi>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi004.linux-ipv6.org ([203.178.140.4]:55465 "EHLO
-	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751143AbYCNDYT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Mar 2008 23:24:19 -0400
-In-Reply-To: <20080308.141506.193713220.davem@davemloft.net>
+Received: from mx2.suse.de ([195.135.220.15]:47437 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758699AbYCNFWl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2008 01:22:41 -0400
+In-Reply-To: message from Peter Zijlstra on Monday March 10
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 08 Mar 2008 14:15:06 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Kazunori MIAZAWA <kazunori@miyazawa.org>
-> Date: Sat, 08 Mar 2008 23:46:13 +0900
-> 
-> > David Miller wrote:
-> > > I am sure there is a simple solution to this problem somewhere,
-> > > it is just hiding :-)
-> > > 
+On Monday March 10, a.p.zijlstra@chello.nl wrote:
 > > 
-> > I think one solution is xfrm_state has two inner_modes
-> > and switch them when the family is any.
-> > 
-> > This is just an idea :-p
+> > Maybe that depends on the exact semantic of PG_emergency ??
+> > I remember you being concerned that PG_emergency never changes between
+> > allocation and freeing, and that wouldn't work well with slub.
+> > My envisioned semantic has it possibly changing quite often.
+> > What it means is:
+> >    The last allocation done from this page was in a low-memory
+> >    condition.
 > 
-> I can't see any immediate problem with this approach.
+> Yes, that works, except that we'd need to iterate all pages and clear
+> PG_emergency - which would imply tracking all these pages etc..
 > 
-> If you like, give it a try and we can see what it
-> looks like :)
 
-I made the patch for that.
+I don't see why you need to clear PG_emergency at all.
+If the semantic is:
 
-Signed-off-by Kazunori MIYAZAWA <kazunori@miyazawa.org>
+> >    The last allocation done from this page was in a low-memory
+> >    condition.
 
----
- include/net/xfrm.h           |   34 +++++++++++++++++++++++
- net/ipv4/xfrm4_mode_tunnel.c |    2 +-
- net/ipv4/xfrm4_output.c      |    2 +-
- net/ipv6/xfrm6_mode_tunnel.c |    2 +-
- net/ipv6/xfrm6_output.c      |    2 +-
- net/key/af_key.c             |    6 +++-
- net/xfrm/Kconfig             |   11 +++++++
- net/xfrm/xfrm_input.c        |   24 +++++++++++++---
- net/xfrm/xfrm_output.c       |   20 +++++++++++++-
- net/xfrm/xfrm_state.c        |   61 +++++++++++++++++++++++++++++++++++++-----
- net/xfrm/xfrm_user.c         |    5 +++
- 11 files changed, 152 insertions(+), 17 deletions(-)
+Then you only need to (potentially) modify it's value when you
+allocate it, or an element within it.
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index eea7785..0a81d83 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -204,6 +204,9 @@ struct xfrm_state
- 	 * transformer. */
- 	const struct xfrm_type	*type;
- 	struct xfrm_mode	*inner_mode;
-+#ifdef CONFIG_IPSEC_IAF_TUNNEL
-+	struct xfrm_mode	*inner_mode_iaf;
-+#endif
- 	struct xfrm_mode	*outer_mode;
- 
- 	/* Security context */
-@@ -387,6 +390,29 @@ enum {
- extern int xfrm_register_mode(struct xfrm_mode *mode, int family);
- extern int xfrm_unregister_mode(struct xfrm_mode *mode, int family);
- 
-+static inline int xfrm_af2proto(unsigned int family)
-+{
-+	switch(family) {
-+	case AF_INET:
-+		return IPPROTO_IPIP;
-+	case AF_INET6:
-+		return IPPROTO_IPV6;
-+	default:
-+		return 0;
-+	}
-+}
-+
-+#ifdef CONFIG_IPSEC_IAF_TUNNEL
-+static inline struct xfrm_mode *xfrm_ip2inner_mode(struct xfrm_state *x, int ipproto)
-+{
-+	if ((ipproto == IPPROTO_IPIP && x->props.family == AF_INET) ||
-+	    (ipproto == IPPROTO_IPV6 && x->props.family == AF_INET6))
-+		return x->inner_mode;
-+	else
-+		return x->inner_mode_iaf;
-+}
-+#endif
-+
- struct xfrm_tmpl
- {
- /* id in template is interpreted as:
-@@ -1253,6 +1279,14 @@ extern int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi,
- extern int xfrm_input_resume(struct sk_buff *skb, int nexthdr);
- extern int xfrm_output_resume(struct sk_buff *skb, int err);
- extern int xfrm_output(struct sk_buff *skb);
-+#ifdef CONFIG_IPSEC_IAF_TUNNEL
-+extern int xfrm_inner_extract_output(struct xfrm_state *x, struct sk_buff *skb);
-+#else
-+static inline int xfrm_inner_extract_output(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	return x->inner_mode->afinfo->extract_output(x, skb);
-+}
-+#endif
- extern int xfrm4_extract_header(struct sk_buff *skb);
- extern int xfrm4_extract_input(struct xfrm_state *x, struct sk_buff *skb);
- extern int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
-diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
-index 8dee617..584e6d7 100644
---- a/net/ipv4/xfrm4_mode_tunnel.c
-+++ b/net/ipv4/xfrm4_mode_tunnel.c
-@@ -41,7 +41,7 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
- 	top_iph->ihl = 5;
- 	top_iph->version = 4;
- 
--	top_iph->protocol = x->inner_mode->afinfo->proto;
-+	top_iph->protocol = xfrm_af2proto(skb->dst->ops->family);
- 
- 	/* DS disclosed */
- 	top_iph->tos = INET_ECN_encapsulate(XFRM_MODE_SKB_CB(skb)->tos,
-diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
-index d5a58a8..8c3180a 100644
---- a/net/ipv4/xfrm4_output.c
-+++ b/net/ipv4/xfrm4_output.c
-@@ -56,7 +56,7 @@ int xfrm4_prepare_output(struct xfrm_state *x, struct sk_buff *skb)
- {
- 	int err;
- 
--	err = x->inner_mode->afinfo->extract_output(x, skb);
-+	err = xfrm_inner_extract_output(x, skb);
- 	if (err)
- 		return err;
- 
-diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
-index 0c742fa..e20529b 100644
---- a/net/ipv6/xfrm6_mode_tunnel.c
-+++ b/net/ipv6/xfrm6_mode_tunnel.c
-@@ -45,7 +45,7 @@ static int xfrm6_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
- 
- 	memcpy(top_iph->flow_lbl, XFRM_MODE_SKB_CB(skb)->flow_lbl,
- 	       sizeof(top_iph->flow_lbl));
--	top_iph->nexthdr = x->inner_mode->afinfo->proto;
-+	top_iph->nexthdr = xfrm_af2proto(skb->dst->ops->family);
- 
- 	dsfield = XFRM_MODE_SKB_CB(skb)->tos;
- 	dsfield = INET_ECN_encapsulate(dsfield, dsfield);
-diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-index 79ccfb0..0af823c 100644
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@ -62,7 +62,7 @@ int xfrm6_prepare_output(struct xfrm_state *x, struct sk_buff *skb)
- {
- 	int err;
- 
--	err = x->inner_mode->afinfo->extract_output(x, skb);
-+	err = xfrm_inner_extract_output(x, skb);
- 	if (err)
- 		return err;
- 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 8b5f486..229456e 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1218,9 +1218,13 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct sadb_msg *hdr,
- 		x->sel.family = pfkey_sadb_addr2xfrm_addr(addr, &x->sel.saddr);
- 		x->sel.prefixlen_s = addr->sadb_address_prefixlen;
- 	}
--
-+#ifndef CONFIG_IPSEC_IAF_TUNNEL
- 	if (!x->sel.family)
- 		x->sel.family = x->props.family;
-+#else
-+	if (x->props.mode == XFRM_MODE_TRANSPORT)
-+		x->sel.family = x->props.family;
-+#endif
- 
- 	if (ext_hdrs[SADB_X_EXT_NAT_T_TYPE-1]) {
- 		struct sadb_x_nat_t_type* n_type;
-diff --git a/net/xfrm/Kconfig b/net/xfrm/Kconfig
-index 9201ef8..3d26f7d 100644
---- a/net/xfrm/Kconfig
-+++ b/net/xfrm/Kconfig
-@@ -72,3 +72,14 @@ config NET_KEY_MIGRATE
- 
- 	  If unsure, say N.
- 
-+config IPSEC_IAF_TUNNEL
-+	bool "IPSEC_IAF_TUNNEL"
-+	depends on XFRM
-+	---help---
-+	  IPsec inter address family tunnel.
-+	  The kernel supports IPv6 over IPv4 IPsec tunnel and/or
-+	  IPv4 over IPv6 IPsec tunnel with this.
-+	  This is compatible with the 2.6.24 kernel.
-+
-+	  If unsure, say Y.
-+
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 62188c6..18eff53 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -84,14 +84,21 @@ int xfrm_parse_spi(struct sk_buff *skb, u8 nexthdr, __be32 *spi, __be32 *seq)
- 
- int xfrm_prepare_input(struct xfrm_state *x, struct sk_buff *skb)
- {
-+	struct xfrm_mode *inner_mode = x->inner_mode;
- 	int err;
- 
- 	err = x->outer_mode->afinfo->extract_input(x, skb);
- 	if (err)
- 		return err;
--
--	skb->protocol = x->inner_mode->afinfo->eth_proto;
--	return x->inner_mode->input2(x, skb);
-+#ifdef CONFIG_IPSEC_IAF_TUNNEL
-+	if (x->sel.family == AF_UNSPEC) {
-+		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
-+		if (inner_mode == NULL)
-+			return -EAFNOSUPPORT;
-+	}
-+#endif
-+	skb->protocol = inner_mode->afinfo->eth_proto;
-+	return inner_mode->input2(x, skb);
- }
- EXPORT_SYMBOL(xfrm_prepare_input);
- 
-@@ -101,6 +108,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 	__be32 seq;
- 	struct xfrm_state *x;
- 	xfrm_address_t *daddr;
-+	struct xfrm_mode *inner_mode;
- 	unsigned int family;
- 	int decaps = 0;
- 	int async = 0;
-@@ -207,7 +215,15 @@ resume:
- 
- 		XFRM_MODE_SKB_CB(skb)->protocol = nexthdr;
- 
--		if (x->inner_mode->input(x, skb)) {
-+		inner_mode = x->inner_mode;
-+#ifdef CONFIG_IPSEC_IAF_TUNNEL
-+		if (x->sel.family == AF_UNSPEC) {
-+			inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
-+			if (inner_mode == NULL)
-+				goto drop;
-+		}
-+#endif
-+		if (inner_mode->input(x, skb)) {
- 			XFRM_INC_STATS(LINUX_MIB_XFRMINSTATEMODEERROR);
- 			goto drop;
- 		}
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index 569d377..358600a 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -124,7 +124,7 @@ int xfrm_output_resume(struct sk_buff *skb, int err)
- 		if (!x)
- 			return dst_output(skb);
- 
--		err = nf_hook(x->inner_mode->afinfo->family,
-+		err = nf_hook(skb->dst->ops->family,
- 			      NF_INET_POST_ROUTING, skb,
- 			      NULL, skb->dst->dev, xfrm_output2);
- 		if (unlikely(err != 1))
-@@ -193,4 +193,22 @@ int xfrm_output(struct sk_buff *skb)
- 
- 	return xfrm_output2(skb);
- }
-+
-+#ifdef CONFIG_IPSEC_IAF_TUNNEL
-+int xfrm_inner_extract_output(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	struct xfrm_mode *inner_mode;
-+	if (x->sel.family == AF_UNSPEC)
-+		inner_mode = xfrm_ip2inner_mode(x,
-+				xfrm_af2proto(skb->dst->ops->family));
-+	else
-+		inner_mode = x->inner_mode;
-+
-+	if (inner_mode == NULL)
-+		return -EAFNOSUPPORT;
-+	return inner_mode->afinfo->extract_output(x, skb);
-+}
-+#endif
-+
- EXPORT_SYMBOL_GPL(xfrm_output);
-+EXPORT_SYMBOL_GPL(xfrm_inner_extract_output);
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 7ba65e8..e085cce 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -388,6 +388,10 @@ static void xfrm_state_gc_destroy(struct xfrm_state *x)
- 	kfree(x->coaddr);
- 	if (x->inner_mode)
- 		xfrm_put_mode(x->inner_mode);
-+#ifdef CONFIG_IPSEC_IAF_TUNNEL
-+	if (x->inner_mode_iaf)
-+		xfrm_put_mode(x->inner_mode_iaf);
-+#endif
- 	if (x->outer_mode)
- 		xfrm_put_mode(x->outer_mode);
- 	if (x->type) {
-@@ -523,6 +527,10 @@ struct xfrm_state *xfrm_state_alloc(void)
- 		x->lft.hard_packet_limit = XFRM_INF;
- 		x->replay_maxage = 0;
- 		x->replay_maxdiff = 0;
-+		x->inner_mode = NULL;
-+#ifdef CONFIG_IPSEC_IAF_TUNNEL
-+		x->inner_mode_iaf = NULL;
-+#endif
- 		spin_lock_init(&x->lock);
- 	}
- 	return x;
-@@ -796,7 +804,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
- 			      selector.
- 			 */
- 			if (x->km.state == XFRM_STATE_VALID) {
--				if (!xfrm_selector_match(&x->sel, fl, x->sel.family) ||
-+				if ((x->sel.family && !xfrm_selector_match(&x->sel, fl, x->sel.family)) ||
- 				    !security_xfrm_state_pol_flow_match(x, pol, fl))
- 					continue;
- 				if (!best ||
-@@ -1944,6 +1952,7 @@ int xfrm_state_mtu(struct xfrm_state *x, int mtu)
- int xfrm_init_state(struct xfrm_state *x)
- {
- 	struct xfrm_state_afinfo *afinfo;
-+	struct xfrm_mode *inner_mode;
- 	int family = x->props.family;
- 	int err;
- 
-@@ -1962,13 +1971,51 @@ int xfrm_init_state(struct xfrm_state *x)
- 		goto error;
- 
- 	err = -EPROTONOSUPPORT;
--	x->inner_mode = xfrm_get_mode(x->props.mode, x->sel.family);
--	if (x->inner_mode == NULL)
--		goto error;
- 
--	if (!(x->inner_mode->flags & XFRM_MODE_FLAG_TUNNEL) &&
--	    family != x->sel.family)
--		goto error;
-+	if (x->sel.family != AF_UNSPEC) {
-+		inner_mode = xfrm_get_mode(x->props.mode, x->sel.family);
-+		if (x->inner_mode == NULL)
-+			goto error;
-+
-+		if (!(inner_mode->flags & XFRM_MODE_FLAG_TUNNEL) &&
-+		    family != x->sel.family) {
-+			xfrm_put_mode(inner_mode);
-+			goto error;
-+		}
-+
-+		x->inner_mode = inner_mode;
-+	}
-+#ifdef CONFIG_IPSEC_IAF_TUNNEL
-+	else {
-+		struct xfrm_mode *inner_mode_iaf;
-+
-+		inner_mode = xfrm_get_mode(x->props.mode, AF_INET);
-+		if (inner_mode == NULL)
-+			goto error;
-+
-+		if (!(inner_mode->flags & XFRM_MODE_FLAG_TUNNEL)) {
-+			xfrm_put_mode(inner_mode);
-+			goto error;
-+		}
-+
-+		inner_mode_iaf = xfrm_get_mode(x->props.mode, AF_INET6);
-+		if (inner_mode_iaf == NULL)
-+			goto error;
-+
-+ 		if (!(inner_mode_iaf->flags & XFRM_MODE_FLAG_TUNNEL)) {
-+			xfrm_put_mode(inner_mode_iaf);
-+			goto error;
-+		}
-+
-+		if (x->props.family == AF_INET) {
-+			x->inner_mode = inner_mode;
-+			x->inner_mode_iaf = inner_mode_iaf;	
-+		} else {
-+			x->inner_mode = inner_mode_iaf;
-+			x->inner_mode_iaf = inner_mode;
-+		}
-+	}
-+#endif
- 
- 	x->type = xfrm_get_type(x->id.proto, family);
- 	if (x->type == NULL)
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index f971ca5..f47497f 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -288,12 +288,17 @@ static void copy_from_user_state(struct xfrm_state *x, struct xfrm_usersa_info *
- 	memcpy(&x->props.saddr, &p->saddr, sizeof(x->props.saddr));
- 	x->props.flags = p->flags;
- 
-+#ifndef CONFIG_IPSEC_IAF_TUNNEL
- 	/*
- 	 * Set inner address family if the KM left it as zero.
- 	 * See comment in validate_tmpl.
- 	 */
- 	if (!x->sel.family)
- 		x->sel.family = p->family;
-+#else
-+	if (x->props.mode == XFRM_MODE_TRANSPORT)
-+		x->sel.family = p->family;
-+#endif
- }
- 
- /*
--- 
-1.5.2.5
+But if it doesn't fit well in the overall picture, then by all means
+get rid of it.
+
+> 
+> Hmm, right. But for that purpose the names swap_* are a tad misleading.
+> I remember hch mentioning this at some point. What would be a more
+> suitable naming scheme so we can both use it?
+
+One could argue that "swap" is already a misleading term.
+Level 7 Unix used to do swapping.  It would write one process image
+out to swap space, and read a different one in.  Moving whole
+processes at a time was called swapping.
+When this clever idea of only moving pages at a time was introduced (I
+think in 4BSD, but possible in 2BSD and elsewhere) it was called
+"demand paging" or just "paging".
+
+So we don't have a swap partition any more.  We have a paging
+partition.
+
+But everyone calls it 'swap' and we know what it means.  I don't think
+there would be a big cost in keeping the swap_ names but allowing them
+to be used for occasional things other than swap.
+And I suspect you would lose a lot if you tried to use a different
+name that people didn't immediately identify with...
+
+NeilBrown
