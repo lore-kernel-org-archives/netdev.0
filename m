@@ -1,72 +1,97 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: Audit vs netlink interaction problem
-Date: Fri, 14 Mar 2008 20:05:41 +0300
-Message-ID: <47DAB065.6060804@openvz.org>
-References: <47DAA660.90401@openvz.org> <20080314163929.GP20815@postel.suug.ch>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [TCP]: Fix shrinking windows with window scaling
+Date: Fri, 14 Mar 2008 18:42:38 +0100
+Message-ID: <47DAB90E.40806@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: multipart/mixed;
+ boundary="------------010505000607060106080605"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	=?ISO-8859-15?Q?Ilpo_J=E4r?= =?ISO-8859-15?Q?vinen?=
+	<ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:35182 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754666AbYCNRGA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Mar 2008 13:06:00 -0400
-In-Reply-To: <20080314163929.GP20815@postel.suug.ch>
+Received: from viefep31-int.chello.at ([62.179.121.49]:57252 "EHLO
+	viefep31-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754663AbYCNRvd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2008 13:51:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thomas Graf wrote:
-> * Pavel Emelyanov <xemul@openvz.org> 2008-03-14 19:22
->> I've found an interesting feature of how audit uses netlink for
->> communications. Look.
->>
->> The kauditd_thread() calls netlink_unicast() and passes the 
->> audit_pid to it. The audit_pid, in turn, is received from the 
->> user space and the tool (I've checked the audit v1.6.9) uses 
->> getpid() to pass one in the kernel. Besides, this tool doesn't
->> bind the netlink socket to this id, but simply creates it 
->> allowing the kernel to auto-bind one.
->>
->> That's the preamble.
->>
->> The problem is that netlink_autobind() _does_not_ guarantees
->> that the socket will be auto-binded to the current pid. Instead
->> it uses the current pid as a hint to start looking for a free
->> id. So, in case of conflict, the audit messages can be sent
->> to a wrong socket. This can happen (it's unlikely, but can be)
->> in case some task opens more than one netlink sockets and then
->> the audit one starts - in this case the audit's pid can be busy
->> and its socket will be bound to another id.
-> 
-> The audit userspace tool should be fixed, no question. It can continue
+This is a multi-part message in MIME format.
+--------------010505000607060106080605
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Oh, this is good.
-I was afraid, that we'd have to stick to this logic...
+Please review carefully since I'm not too familiar with the
+TCP code.
 
-> to auto bind but must report the correct netlink pid.
 
-Hmmm... I'm afraid, that this can break the audit filtering and signal
-auditing. I haven't yet looked deep into it, but it compares the 
-task->tgid with this audit_pid for different purposes. If audit_pid
-changes this code will be broken.
+--------------010505000607060106080605
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-That's why I asked David for comments.
+commit adced31497ffbb3fe6ffef2d05f2b8fc74f1f138
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Fri Mar 14 17:15:20 2008 +0100
 
-> As a workaround: Assuming that the audit daemon is the only application
-> to issue a AUDIT_SET command to set the status pid, the kernel can
-> compare the netlink source pid of the AUDIT_SET message and compare it
+    [TCP]: Fix shrinking windows with window scaling
 
-Bu we have no the netlink socket at the moment of setting the pid to
-check this. The audit_reveive_msg() call which does this set is received 
-via another (pre-created global) socket.
+    When selecting a new window, tcp_select_window() tries not to shrink
+    the offered window by using the maximum of the remaining offered window
+    size and the newly calculated window size. The newly calculated window
+    size is always a multiple of the window scaling factor, the remaining
+    window size however might not be since it depends on rcv_wup/rcv_nxt.
+    This means we're effectively shrinking the window when scaling it down.
 
-> against the status pid provided. If they differ, issue a warning but
-> use the netlink source pid thus covering the case where the auto bound
-> netlink pid actually differs from the process pid.
 
-I though, that proper behavior would be to split audit_pid, used for
-filtering from the audit_nlk_pid used for netlink communications.
+    The dump below shows the problem (scaling factor 2^7):
+
+    - Window size of 557 (71296) is advertised, up to 3111907257:
+
+    IP 172.2.2.3.33000 > 172.2.2.2.33000: . ack 3111835961 win 557 <...>
+
+    - New window size of 514 (65792) is advertised, up to 3111907217, 40 bytes
+      below the last end:
+
+    IP 172.2.2.3.33000 > 172.2.2.2.33000: . 3113575668:3113577116(1448) ack 3111841425 win 514 <...>
+
+    The number 40 results from downscaling the remaining window:
+
+    3111907257 - 3111841425 = 65832
+    65832 / 2^7 = 514
+    65832 % 2^7 = 40
+
+    If the sender uses up the entire window before it is shrunk, this can have
+    chaotic effects on the connection. When sending ACKs, tcp_acceptable_seq()
+    will notice that the window has been shrunk since tcp_wnd_end() is before
+    tp->snd_nxt, which makes it choose tcp_wnd_end() as sequence number.
+    This will fail the receivers checks in tcp_sequence() however since it
+    is before it's tp->rcv_wup, making it respond with a dupack.
+
+    If both sides are in this condition, this leads to a constant flood of
+    ACKs until the connection times out.
+
+
+    Make sure the window is never shrunk by aligning the remaining window to
+    the window scaling factor.
+
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 01578f5..72b9350 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -255,7 +255,7 @@ static u16 tcp_select_window(struct sock *sk)
+ 		 *
+ 		 * Relax Will Robinson.
+ 		 */
+-		new_win = cur_win;
++		new_win = ALIGN(cur_win, 1 << tp->rx_opt.rcv_wscale);
+ 	}
+ 	tp->rcv_wnd = new_win;
+ 	tp->rcv_wup = tp->rcv_nxt;
+
+--------------010505000607060106080605--
