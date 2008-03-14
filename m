@@ -1,97 +1,151 @@
-From: Glen Gray <glen.gray@lincor.com>
-Subject: Re: [PATCH 13/13] r8169: more phy init for the 8168
-Date: Fri, 14 Mar 2008 12:33:50 +0000
-Message-ID: <3CFDA04B-ED5A-4579-B6E7-0EDC52678C95@lincor.com>
-References: <20071018204846.GC8594@electric-eye.fr.zoreil.com> <20071018210224.GN31724@electric-eye.fr.zoreil.com> <471F1067.50403@lincor.com> <20071024221438.GB6189@electric-eye.fr.zoreil.com> <5B10F916-9877-4954-84E7-7F4FE26875C4@lincor.com> <20071031211006.GA12688@electric-eye.fr.zoreil.com> <328390F7-B41D-4A90-BACA-4746C5E92F1B@lincor.com>
-Mime-Version: 1.0 (Apple Message framework v919.2)
-Content-Type: text/plain; charset="US-ASCII"; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Stefan Roese <sr@denx.de>
+Subject: [PATCH] net: NEWEMAC: Add desc-base-addr-high property to McMAL node
+Date: Fri, 14 Mar 2008 13:53:59 +0100
+Message-ID: <1205499239-17959-1-git-send-email-sr@denx.de>
+Cc: benh@kernel.crashing.org
+To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.station1.mxsweep.com ([212.147.136.149]:2222 "EHLO
-	scmp07.mxsweep.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751858AbYCNMff (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2008 08:35:35 -0400
-In-Reply-To: <328390F7-B41D-4A90-BACA-4746C5E92F1B@lincor.com>
+Received: from moutng.kundenserver.de ([212.227.126.171]:51020 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751858AbYCNMyR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2008 08:54:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Applied this patch to 2.6.24.3 and unfortunately it causes the kernel  
-to freeze up once network traffic starts coming in.
+Upper 4 bits (35...32) of the 36bit MAL descriptor base address. This
+value will be written into the MAL_TXBADDR/MAL_RXBADDR registers. It can
+be used to move the descriptors into the high bandwidth PLB segment on
+some platforms (e.g. 460EX/GT) for performance enhancement. Defaults to 0
+when not defined.
 
-Back to the drawing board.
---
-Glen Gray <glen.gray@lincor.com>         Digital Depot, Thomas Street
-Senior Software Engineer                            Dublin 8, Ireland
-Lincor Solutions Ltd.                          Ph: +353 (0) 1 4893682
+Signed-off-by: Stefan Roese <sr@denx.de>
+---
+ Documentation/powerpc/booting-without-of.txt |   17 ++++++++++++-----
+ drivers/net/ibm_newemac/mal.c                |   20 ++++++++++++++++++--
+ drivers/net/ibm_newemac/mal.h                |    2 ++
+ 3 files changed, 32 insertions(+), 7 deletions(-)
 
-On 13 Mar 2008, at 14:20, Glen Gray wrote:
-
-> Hey Francois,
->
-> Spent some time on this yesterday and today, managed to get a Fedora  
-> 8 install up and running on the hardware. This is using the 2.6.24.3  
-> kernel from Fedora.
->
-> Unfortunately it's still got exactly the same problem, specifically,  
-> the device comes up and doesn't see any SAP announcements. It's  
-> getting it's IP address via DHCP.
->
-> cat /proc/net/igmp also shows it as V3. If I force it to version 2  
-> it still doesn't seem to detect anything.
->
-> You suggested the patch below back in October and I didn't get any  
-> time to work on it. I've just checked the source for the Fedora  
-> 2.6.24.3 kernel and it doesn't have the blow in there, so I'm going  
-> to patch this against the kernel and see if it helps in anyway.
->
-> If you've any further suggestions then please pass them on.
->
-> Appropriate data from dmesg........
-> r8169 Gigabit Ethernet driver 2.2LK-NAPI loaded
-> eth0: RTL8169sc/8110sc at 0xdc868000, 00:05:6b:40:2c:be, XID  
-> 18000000 IRQ 18
-> r8169: eth0: link up
->
-> Kind Regards,
-> --
-> Glen Gray <glen.gray@lincor.com>         Digital Depot, Thomas Street
-> Senior Software Engineer                            Dublin 8, Ireland
-> Lincor Solutions Ltd.                          Ph: +353 (0) 1 4893682
->
-> On 31 Oct 2007, at 21:10, Francois Romieu wrote:
->
->> Glen Gray <glen.gray@lincor.com> :
->> [...]
->>> However, we do have a few hundred units out in the field now that
->>> we'll need to support going forward. So I'm keeping an eye on this
->>> issue's progress.
->>
->> Can you try 2.6.13 + the patch below if you have some time left ?
->>
->> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
->> index b94fa7e..1191802 100644
->> --- a/drivers/net/r8169.c
->> +++ b/drivers/net/r8169.c
->> @@ -1367,8 +1367,10 @@ static void rtl8169_phy_timer(unsigned long  
->> __opaque)
->> 		goto out_mod_timer;
->> 	}
->>
->> -	if (tp->link_ok(ioaddr))
->> +	if (tp->link_ok(ioaddr)) {
->> +		dev->set_multicast_list(dev);
->> 		goto out_unlock;
->> +	}
->>
->> 	if (netif_msg_link(tp))
->> 		printk(KERN_WARNING "%s: PHY reset until link up\n", dev->name);
->> -- 
->> Ueimor
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/Documentation/powerpc/booting-without-of.txt b/Documentation/powerpc/booting-without-of.txt
+index 7b4e8a7..4cfa0e2 100644
+--- a/Documentation/powerpc/booting-without-of.txt
++++ b/Documentation/powerpc/booting-without-of.txt
+@@ -979,7 +979,7 @@ compatibility.
+       translation of SOC addresses for memory mapped SOC registers.
+     - bus-frequency: Contains the bus frequency for the SOC node.
+       Typically, the value of this field is filled in by the boot
+-      loader. 
++      loader.
+ 
+ 
+   Recommended properties:
+@@ -1388,7 +1388,7 @@ platforms are moved over to use the flattened-device-tree model.
+    The device node for a USB controller that is part of a Freescale
+    SOC is as described in the document "Open Firmware Recommended
+    Practice : Universal Serial Bus" with the following modifications
+-   and additions :  
++   and additions :
+ 
+    Required properties :
+     - compatible : Should be "fsl-usb2-mph" for multi port host USB
+@@ -1399,11 +1399,11 @@ platforms are moved over to use the flattened-device-tree model.
+     - reg : Offset and length of the register set for the device
+     - port0 : boolean; if defined, indicates port0 is connected for
+       fsl-usb2-mph compatible controllers.  Either this property or
+-      "port1" (or both) must be defined for "fsl-usb2-mph" compatible 
++      "port1" (or both) must be defined for "fsl-usb2-mph" compatible
+       controllers.
+     - port1 : boolean; if defined, indicates port1 is connected for
+       fsl-usb2-mph compatible controllers.  Either this property or
+-      "port0" (or both) must be defined for "fsl-usb2-mph" compatible 
++      "port0" (or both) must be defined for "fsl-usb2-mph" compatible
+       controllers.
+     - dr_mode : indicates the working mode for "fsl-usb2-dr" compatible
+       controllers.  Can be "host", "peripheral", or "otg".  Default to
+@@ -2286,6 +2286,13 @@ platforms are moved over to use the flattened-device-tree model.
+     - dcr-parent         : if needed for dcr-reg
+     - num-tx-chans       : 1 cell, number of Tx channels
+     - num-rx-chans       : 1 cell, number of Rx channels
++    - desc-base-addr-high: 1 cell, Upper 4 bits (35...32) of the 36bit MAL
++			   descriptor base address. Will be written into the
++			   MAL_TXBADDR/MAL_RXBADDR registers. Can be used to
++			   move the descriptors into the high bandwidth PLB
++			   segment on some platforms (e.g. 460EX/GT) for
++			   performance enhancement. Defaults to 0 when not
++			   defined.
+ 
+       iii) ZMII node
+ 
+@@ -2570,7 +2577,7 @@ platforms are moved over to use the flattened-device-tree model.
+       listed above, nodes for these devices should include a phy-handle
+       property, and may include other common network device properties
+       like local-mac-address.
+-      
++
+       iv) Xilinx Uartlite
+ 
+       Xilinx uartlite devices are simple fixed speed serial ports.
+diff --git a/drivers/net/ibm_newemac/mal.c b/drivers/net/ibm_newemac/mal.c
+index 6869f08..31fad11 100644
+--- a/drivers/net/ibm_newemac/mal.c
++++ b/drivers/net/ibm_newemac/mal.c
+@@ -477,6 +477,7 @@ static int __devinit mal_probe(struct of_device *ofdev,
+ 	unsigned int dcr_base;
+ 	const u32 *prop;
+ 	u32 cfg;
++	u32 desc_base_addr_high = 0;
+ 
+ 	mal = kzalloc(sizeof(struct mal_instance), GFP_KERNEL);
+ 	if (!mal) {
+@@ -582,15 +583,30 @@ static int __devinit mal_probe(struct of_device *ofdev,
+ 	}
+ 	memset(mal->bd_virt, 0, bd_size);
+ 
+-	for (i = 0; i < mal->num_tx_chans; ++i)
++	prop = of_get_property(ofdev->node, "desc-base-addr-high", NULL);
++	if (prop != NULL)
++		desc_base_addr_high = prop[0];
++
++	/*
++	 * To update the 36bit address for each MAL channel descriptor,
++	 * the 4 msb's in MAL_TXBADDR/MAL_RXBADDR have to be written
++	 * each time before the 32 lsb's are written
++	 */
++	for (i = 0; i < mal->num_tx_chans; ++i) {
++		if (desc_base_addr_high)
++			set_mal_dcrn(mal, MAL_TXBADDR, desc_base_addr_high);
+ 		set_mal_dcrn(mal, MAL_TXCTPR(i), mal->bd_dma +
+ 			     sizeof(struct mal_descriptor) *
+ 			     mal_tx_bd_offset(mal, i));
++	}
+ 
+-	for (i = 0; i < mal->num_rx_chans; ++i)
++	for (i = 0; i < mal->num_rx_chans; ++i) {
++		if (desc_base_addr_high)
++			set_mal_dcrn(mal, MAL_RXBADDR, desc_base_addr_high);
+ 		set_mal_dcrn(mal, MAL_RXCTPR(i), mal->bd_dma +
+ 			     sizeof(struct mal_descriptor) *
+ 			     mal_rx_bd_offset(mal, i));
++	}
+ 
+ 	err = request_irq(mal->serr_irq, mal_serr, 0, "MAL SERR", mal);
+ 	if (err)
+diff --git a/drivers/net/ibm_newemac/mal.h b/drivers/net/ibm_newemac/mal.h
+index eaa7262..28f95bf 100644
+--- a/drivers/net/ibm_newemac/mal.h
++++ b/drivers/net/ibm_newemac/mal.h
+@@ -118,10 +118,12 @@
+ #define MAL_TXCARR		0x05
+ #define MAL_TXEOBISR		0x06
+ #define MAL_TXDEIR		0x07
++#define MAL_TXBADDR		0x09
+ #define MAL_RXCASR		0x10
+ #define MAL_RXCARR		0x11
+ #define MAL_RXEOBISR		0x12
+ #define MAL_RXDEIR		0x13
++#define MAL_RXBADDR		0x15
+ #define MAL_TXCTPR(n)		((n) + 0x20)
+ #define MAL_RXCTPR(n)		((n) + 0x40)
+ #define MAL_RCBS(n)		((n) + 0x60)
+-- 
+1.5.4.4
 
