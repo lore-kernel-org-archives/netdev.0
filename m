@@ -1,291 +1,425 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-2.6.26 2008-03-13
-Date: Thu, 13 Mar 2008 21:26:16 -0400
-Message-ID: <20080314012616.GB31964@tuxdriver.com>
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Subject: Re: [PATCH][IPSEC] inter address family IPsec tunnel on the fly
+Date: Fri, 14 Mar 2008 12:23:14 +0900
+Message-ID: <20080314122314.b877cfab.kazunori@miyazawa.org>
+References: <47D0E169.5050006@miyazawa.org>
+	<20080306.231947.135681188.davem@davemloft.net>
+	<47D2A6B5.101@miyazawa.org>
+	<20080308.141506.193713220.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usagi004.linux-ipv6.org ([203.178.140.4]:55465 "EHLO
+	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751143AbYCNDYT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Mar 2008 23:24:19 -0400
+In-Reply-To: <20080308.141506.193713220.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David,
+On Sat, 08 Mar 2008 14:15:06 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-Here is another round of updates for 2.6.26.  Only 38 this week -- we
-must be slowing-down. :-)
+> From: Kazunori MIAZAWA <kazunori@miyazawa.org>
+> Date: Sat, 08 Mar 2008 23:46:13 +0900
+> 
+> > David Miller wrote:
+> > > I am sure there is a simple solution to this problem somewhere,
+> > > it is just hiding :-)
+> > > 
+> > 
+> > I think one solution is xfrm_state has two inner_modes
+> > and switch them when the family is any.
+> > 
+> > This is just an idea :-p
+> 
+> I can't see any immediate problem with this approach.
+> 
+> If you like, give it a try and we can see what it
+> looks like :)
 
-Along with the usual batch of driver updates there is also the
-removal of the old bcm43xx driver, the (now unused) ieee80211softmac
-component, and the old "simple" rate control algorithm for mac80211.
-Other than that, there is nothing particularly remarkable.  FWIW,
-the rt2x00 patches in particular fixed a lot of Fedora bugzillas...
+I made the patch for that.
 
-Let me know if there are problems!
-
-Thanks,
-
-John
-
-P.S.  The rt2x00 patch I just sent you in the wireless-2.6 tree will
-conflict with your net-2.6.26 tree, and the resolution is not obvious
-when looking at the change markers alone.  I created a "merge-sample"
-branch in the wireless-2.6.26 tree to serve as a reference to show
-you how I resolved the conflict.  Hth!
+Signed-off-by Kazunori MIYAZAWA <kazunori@miyazawa.org>
 
 ---
+ include/net/xfrm.h           |   34 +++++++++++++++++++++++
+ net/ipv4/xfrm4_mode_tunnel.c |    2 +-
+ net/ipv4/xfrm4_output.c      |    2 +-
+ net/ipv6/xfrm6_mode_tunnel.c |    2 +-
+ net/ipv6/xfrm6_output.c      |    2 +-
+ net/key/af_key.c             |    6 +++-
+ net/xfrm/Kconfig             |   11 +++++++
+ net/xfrm/xfrm_input.c        |   24 +++++++++++++---
+ net/xfrm/xfrm_output.c       |   20 +++++++++++++-
+ net/xfrm/xfrm_state.c        |   61 +++++++++++++++++++++++++++++++++++++-----
+ net/xfrm/xfrm_user.c         |    5 +++
+ 11 files changed, 152 insertions(+), 17 deletions(-)
 
-Individual patches are available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6.26/
-
----
-
-The following changes since commit ba73d4c84a7344f1b5635c2b4e96796e8c13a126:
-  David S. Miller (1):
-        Merge branch 'master' of master.kernel.org:/.../linville/wireless-2.6.26
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.26.git master
-
-Adam Baker (1):
-      rt2x00:correct rx packet length for USB devices
-
-Adrian Bunk (4):
-      make b43_mac_{enable,suspend}() static
-      the scheduled bcm43xx removal
-      the scheduled ieee80211 softmac removal
-      the scheduled rc80211-simple.c removal
-
-Assaf Krauss (1):
-      iwlwifi: Use eeprom form iwlcore
-
-Harvey Harrison (1):
-      b43: pull out helpers for writing noise table
-
-Holger Schurig (1):
-      libertas: implement SSID scanning for SIOCSIWSCAN
-
-Ivo van Doorn (16):
-      rt2x00: Align RX descriptor to 4 bytes
-      rt2x00: Don't use uninitialized desc_len
-      rt2x00: Use skbdesc fields for descriptor initialization
-      rt2x00: Only disable beaconing just before beacon update
-      rt2x00: Upgrade queue->lock to use irqsave
-      rt2x00: Move firmware checksumming to driver
-      rt2x00: Start bugging when rt2x00lib doesn't filter SW diversity
-      rt2x00: Check IEEE80211_TXCTL_SEND_AFTER_DTIM flag
-      rt2x00: Rename config_preamble() to config_erp()
-      rt2x00: Make rt2x00leds_register return void
-      rt2x00: Always enable TSF ticking
-      rt2x00: Fix basic rate initialization
-      rt2x00: Fix RX DMA ring initialization
-      rt2x00: Fix rt2400pci signal
-      rt2x00: Release rt2x00 2.1.4
-      rt2x00: Only strip preamble bit in rt2400pci
-
-Joe Perches (2):
-      drivers/net/wireless/ath5k - convert == (true|false) to simple logical tests
-      include/net/ieee80211.h - remove duplicate include
-
-Jussi Kivilinna (2):
-      rndis_wlan: cleanup, rename and reorder enums and structures
-      rndis_wlan: cleanup, rename structure members
-
-Luis Correia (1):
-      rt2x00: Fix trivial log message
-
-Mattias Nissler (3):
-      rt2x00: Initialize TX control field in data entries
-      rt2x00: Use the correct size when copying the control info in txdone
-      rt2x00: Don't use unitialized rxdesc->size
-
-Michael Buesch (1):
-      ssb: Add SPROM/invariants support for PCMCIA devices
-
-Reinette Chatre (2):
-      iwlwifi: update copyright year
-      iwlwifi: fix bug to show hidden APs during scan
-
-Tomas Winkler (3):
-      iwlwifi: Use sta_bcast_id variable instead of BROADCAST_ID constant
-      iwlwifi: Fix endianity in debug print
-      iwlwifi: change rate number to a constant
-
- Documentation/feature-removal-schedule.txt       |   27 -
- Documentation/laptops/acer-wmi.txt               |    2 +-
- Documentation/networking/bcm43xx.txt             |   89 -
- MAINTAINERS                                      |   15 -
- drivers/net/wireless/Kconfig                     |    1 -
- drivers/net/wireless/Makefile                    |    1 -
- drivers/net/wireless/ath5k/hw.c                  |   36 +-
- drivers/net/wireless/ath5k/phy.c                 |   10 +-
- drivers/net/wireless/b43/main.c                  |    4 +-
- drivers/net/wireless/b43/main.h                  |    3 -
- drivers/net/wireless/b43/wa.c                    |   45 +-
- drivers/net/wireless/bcm43xx/Kconfig             |   70 -
- drivers/net/wireless/bcm43xx/Makefile            |   12 -
- drivers/net/wireless/bcm43xx/bcm43xx.h           |  997 -----
- drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c   |  556 ---
- drivers/net/wireless/bcm43xx/bcm43xx_debugfs.h   |  118 -
- drivers/net/wireless/bcm43xx/bcm43xx_dma.c       | 1263 -------
- drivers/net/wireless/bcm43xx/bcm43xx_dma.h       |  386 --
- drivers/net/wireless/bcm43xx/bcm43xx_ethtool.c   |   50 -
- drivers/net/wireless/bcm43xx/bcm43xx_ethtool.h   |    8 -
- drivers/net/wireless/bcm43xx/bcm43xx_ilt.c       |  352 --
- drivers/net/wireless/bcm43xx/bcm43xx_ilt.h       |   33 -
- drivers/net/wireless/bcm43xx/bcm43xx_leds.c      |  307 --
- drivers/net/wireless/bcm43xx/bcm43xx_leds.h      |   62 -
- drivers/net/wireless/bcm43xx/bcm43xx_main.c      | 4281 ----------------------
- drivers/net/wireless/bcm43xx/bcm43xx_main.h      |  133 -
- drivers/net/wireless/bcm43xx/bcm43xx_phy.c       | 2346 ------------
- drivers/net/wireless/bcm43xx/bcm43xx_phy.h       |   78 -
- drivers/net/wireless/bcm43xx/bcm43xx_pio.c       |  674 ----
- drivers/net/wireless/bcm43xx/bcm43xx_pio.h       |  163 -
- drivers/net/wireless/bcm43xx/bcm43xx_power.c     |  393 --
- drivers/net/wireless/bcm43xx/bcm43xx_power.h     |   56 -
- drivers/net/wireless/bcm43xx/bcm43xx_radio.c     | 2170 -----------
- drivers/net/wireless/bcm43xx/bcm43xx_radio.h     |  115 -
- drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c     |  471 ---
- drivers/net/wireless/bcm43xx/bcm43xx_sysfs.h     |    9 -
- drivers/net/wireless/bcm43xx/bcm43xx_wx.c        | 1035 ------
- drivers/net/wireless/bcm43xx/bcm43xx_wx.h        |   36 -
- drivers/net/wireless/bcm43xx/bcm43xx_xmit.c      |  565 ---
- drivers/net/wireless/bcm43xx/bcm43xx_xmit.h      |  150 -
- drivers/net/wireless/iwlwifi/Makefile            |    2 +-
- drivers/net/wireless/iwlwifi/iwl-3945-commands.h |    4 +-
- drivers/net/wireless/iwlwifi/iwl-3945-debug.h    |    2 +-
- drivers/net/wireless/iwlwifi/iwl-3945-hw.h       |    4 +-
- drivers/net/wireless/iwlwifi/iwl-3945-io.h       |    2 +-
- drivers/net/wireless/iwlwifi/iwl-3945-rs.c       |    2 +-
- drivers/net/wireless/iwlwifi/iwl-3945-rs.h       |    2 +-
- drivers/net/wireless/iwlwifi/iwl-3945.c          |    6 +-
- drivers/net/wireless/iwlwifi/iwl-3945.h          |    2 +-
- drivers/net/wireless/iwlwifi/iwl-4965-commands.h |    4 +-
- drivers/net/wireless/iwlwifi/iwl-4965-debug.h    |    2 +-
- drivers/net/wireless/iwlwifi/iwl-4965-hw.h       |  314 +--
- drivers/net/wireless/iwlwifi/iwl-4965-io.h       |    2 +-
- drivers/net/wireless/iwlwifi/iwl-4965-rs.c       |    2 +-
- drivers/net/wireless/iwlwifi/iwl-4965-rs.h       |    2 +-
- drivers/net/wireless/iwlwifi/iwl-4965.c          |   55 +-
- drivers/net/wireless/iwlwifi/iwl-4965.h          |    6 +-
- drivers/net/wireless/iwlwifi/iwl-core.c          |    4 +-
- drivers/net/wireless/iwlwifi/iwl-core.h          |   10 +
- drivers/net/wireless/iwlwifi/iwl-csr.h           |    2 +-
- drivers/net/wireless/iwlwifi/iwl-helpers.h       |    2 +-
- drivers/net/wireless/iwlwifi/iwl-prph.h          |    4 +-
- drivers/net/wireless/iwlwifi/iwl-spectrum.h      |    2 +-
- drivers/net/wireless/iwlwifi/iwl3945-base.c      |   25 +-
- drivers/net/wireless/iwlwifi/iwl4965-base.c      |  112 +-
- drivers/net/wireless/libertas/assoc.c            |    4 +-
- drivers/net/wireless/libertas/debugfs.c          |  169 -
- drivers/net/wireless/libertas/dev.h              |    2 +
- drivers/net/wireless/libertas/scan.c             |  145 +-
- drivers/net/wireless/libertas/scan.h             |   69 +-
- drivers/net/wireless/libertas/wext.c             |    3 +
- drivers/net/wireless/rndis_wlan.c                |  451 ++--
- drivers/net/wireless/rt2x00/Kconfig              |    4 +-
- drivers/net/wireless/rt2x00/rt2400pci.c          |   70 +-
- drivers/net/wireless/rt2x00/rt2400pci.h          |    6 +-
- drivers/net/wireless/rt2x00/rt2500pci.c          |   71 +-
- drivers/net/wireless/rt2x00/rt2500usb.c          |   97 +-
- drivers/net/wireless/rt2x00/rt2x00.h             |   27 +-
- drivers/net/wireless/rt2x00/rt2x00config.c       |   62 +-
- drivers/net/wireless/rt2x00/rt2x00debug.c        |    5 +-
- drivers/net/wireless/rt2x00/rt2x00dev.c          |   58 +-
- drivers/net/wireless/rt2x00/rt2x00firmware.c     |   34 +-
- drivers/net/wireless/rt2x00/rt2x00leds.c         |    7 +-
- drivers/net/wireless/rt2x00/rt2x00lib.h          |   25 +-
- drivers/net/wireless/rt2x00/rt2x00mac.c          |   22 +-
- drivers/net/wireless/rt2x00/rt2x00pci.c          |    1 +
- drivers/net/wireless/rt2x00/rt2x00queue.c        |   17 +-
- drivers/net/wireless/rt2x00/rt2x00queue.h        |    3 +
- drivers/net/wireless/rt2x00/rt2x00usb.c          |   19 +-
- drivers/net/wireless/rt2x00/rt61pci.c            |  100 +-
- drivers/net/wireless/rt2x00/rt73usb.c            |  126 +-
- drivers/ssb/Kconfig                              |    6 +
- drivers/ssb/Makefile                             |    1 +
- drivers/ssb/main.c                               |   23 +-
- drivers/ssb/pci.c                                |  113 +-
- drivers/ssb/pcmcia.c                             |  518 +++-
- drivers/ssb/sprom.c                              |  133 +
- drivers/ssb/ssb_private.h                        |   17 +
- include/linux/ssb/ssb.h                          |    4 +-
- include/net/ieee80211.h                          |    1 -
- include/net/ieee80211softmac.h                   |  373 --
- include/net/ieee80211softmac_wx.h                |   99 -
- net/ieee80211/Kconfig                            |    1 -
- net/ieee80211/Makefile                           |    1 -
- net/ieee80211/softmac/Kconfig                    |   12 -
- net/ieee80211/softmac/Makefile                   |    9 -
- net/ieee80211/softmac/ieee80211softmac_assoc.c   |  489 ---
- net/ieee80211/softmac/ieee80211softmac_auth.c    |  413 ---
- net/ieee80211/softmac/ieee80211softmac_event.c   |  189 -
- net/ieee80211/softmac/ieee80211softmac_io.c      |  488 ---
- net/ieee80211/softmac/ieee80211softmac_module.c  |  568 ---
- net/ieee80211/softmac/ieee80211softmac_priv.h    |  244 --
- net/ieee80211/softmac/ieee80211softmac_scan.c    |  254 --
- net/ieee80211/softmac/ieee80211softmac_wx.c      |  508 ---
- net/mac80211/Kconfig                             |   19 -
- net/mac80211/Makefile                            |    2 -
- net/mac80211/ieee80211.c                         |    9 +-
- net/mac80211/ieee80211_rate.h                    |   15 -
- net/mac80211/rc80211_simple.c                    |  394 --
- 119 files changed, 1493 insertions(+), 22703 deletions(-)
- delete mode 100644 Documentation/networking/bcm43xx.txt
- delete mode 100644 drivers/net/wireless/bcm43xx/Kconfig
- delete mode 100644 drivers/net/wireless/bcm43xx/Makefile
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx.h
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_debugfs.h
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_dma.c
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_dma.h
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_ethtool.c
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_ethtool.h
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_ilt.c
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_ilt.h
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_leds.c
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_leds.h
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_main.c
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_main.h
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_phy.c
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_phy.h
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_pio.c
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_pio.h
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_power.c
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_power.h
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_radio.c
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_radio.h
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_sysfs.h
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_wx.c
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_wx.h
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
- delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_xmit.h
- create mode 100644 drivers/ssb/sprom.c
- delete mode 100644 include/net/ieee80211softmac.h
- delete mode 100644 include/net/ieee80211softmac_wx.h
- delete mode 100644 net/ieee80211/softmac/Kconfig
- delete mode 100644 net/ieee80211/softmac/Makefile
- delete mode 100644 net/ieee80211/softmac/ieee80211softmac_assoc.c
- delete mode 100644 net/ieee80211/softmac/ieee80211softmac_auth.c
- delete mode 100644 net/ieee80211/softmac/ieee80211softmac_event.c
- delete mode 100644 net/ieee80211/softmac/ieee80211softmac_io.c
- delete mode 100644 net/ieee80211/softmac/ieee80211softmac_module.c
- delete mode 100644 net/ieee80211/softmac/ieee80211softmac_priv.h
- delete mode 100644 net/ieee80211/softmac/ieee80211softmac_scan.c
- delete mode 100644 net/ieee80211/softmac/ieee80211softmac_wx.c
- delete mode 100644 net/mac80211/rc80211_simple.c
-
-Omnibus patch is available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6.26-2008-03-13.patch.bz2
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index eea7785..0a81d83 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -204,6 +204,9 @@ struct xfrm_state
+ 	 * transformer. */
+ 	const struct xfrm_type	*type;
+ 	struct xfrm_mode	*inner_mode;
++#ifdef CONFIG_IPSEC_IAF_TUNNEL
++	struct xfrm_mode	*inner_mode_iaf;
++#endif
+ 	struct xfrm_mode	*outer_mode;
+ 
+ 	/* Security context */
+@@ -387,6 +390,29 @@ enum {
+ extern int xfrm_register_mode(struct xfrm_mode *mode, int family);
+ extern int xfrm_unregister_mode(struct xfrm_mode *mode, int family);
+ 
++static inline int xfrm_af2proto(unsigned int family)
++{
++	switch(family) {
++	case AF_INET:
++		return IPPROTO_IPIP;
++	case AF_INET6:
++		return IPPROTO_IPV6;
++	default:
++		return 0;
++	}
++}
++
++#ifdef CONFIG_IPSEC_IAF_TUNNEL
++static inline struct xfrm_mode *xfrm_ip2inner_mode(struct xfrm_state *x, int ipproto)
++{
++	if ((ipproto == IPPROTO_IPIP && x->props.family == AF_INET) ||
++	    (ipproto == IPPROTO_IPV6 && x->props.family == AF_INET6))
++		return x->inner_mode;
++	else
++		return x->inner_mode_iaf;
++}
++#endif
++
+ struct xfrm_tmpl
+ {
+ /* id in template is interpreted as:
+@@ -1253,6 +1279,14 @@ extern int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi,
+ extern int xfrm_input_resume(struct sk_buff *skb, int nexthdr);
+ extern int xfrm_output_resume(struct sk_buff *skb, int err);
+ extern int xfrm_output(struct sk_buff *skb);
++#ifdef CONFIG_IPSEC_IAF_TUNNEL
++extern int xfrm_inner_extract_output(struct xfrm_state *x, struct sk_buff *skb);
++#else
++static inline int xfrm_inner_extract_output(struct xfrm_state *x, struct sk_buff *skb)
++{
++	return x->inner_mode->afinfo->extract_output(x, skb);
++}
++#endif
+ extern int xfrm4_extract_header(struct sk_buff *skb);
+ extern int xfrm4_extract_input(struct xfrm_state *x, struct sk_buff *skb);
+ extern int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
+diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
+index 8dee617..584e6d7 100644
+--- a/net/ipv4/xfrm4_mode_tunnel.c
++++ b/net/ipv4/xfrm4_mode_tunnel.c
+@@ -41,7 +41,7 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	top_iph->ihl = 5;
+ 	top_iph->version = 4;
+ 
+-	top_iph->protocol = x->inner_mode->afinfo->proto;
++	top_iph->protocol = xfrm_af2proto(skb->dst->ops->family);
+ 
+ 	/* DS disclosed */
+ 	top_iph->tos = INET_ECN_encapsulate(XFRM_MODE_SKB_CB(skb)->tos,
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+index d5a58a8..8c3180a 100644
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -56,7 +56,7 @@ int xfrm4_prepare_output(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	int err;
+ 
+-	err = x->inner_mode->afinfo->extract_output(x, skb);
++	err = xfrm_inner_extract_output(x, skb);
+ 	if (err)
+ 		return err;
+ 
+diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
+index 0c742fa..e20529b 100644
+--- a/net/ipv6/xfrm6_mode_tunnel.c
++++ b/net/ipv6/xfrm6_mode_tunnel.c
+@@ -45,7 +45,7 @@ static int xfrm6_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ 
+ 	memcpy(top_iph->flow_lbl, XFRM_MODE_SKB_CB(skb)->flow_lbl,
+ 	       sizeof(top_iph->flow_lbl));
+-	top_iph->nexthdr = x->inner_mode->afinfo->proto;
++	top_iph->nexthdr = xfrm_af2proto(skb->dst->ops->family);
+ 
+ 	dsfield = XFRM_MODE_SKB_CB(skb)->tos;
+ 	dsfield = INET_ECN_encapsulate(dsfield, dsfield);
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index 79ccfb0..0af823c 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -62,7 +62,7 @@ int xfrm6_prepare_output(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	int err;
+ 
+-	err = x->inner_mode->afinfo->extract_output(x, skb);
++	err = xfrm_inner_extract_output(x, skb);
+ 	if (err)
+ 		return err;
+ 
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 8b5f486..229456e 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -1218,9 +1218,13 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct sadb_msg *hdr,
+ 		x->sel.family = pfkey_sadb_addr2xfrm_addr(addr, &x->sel.saddr);
+ 		x->sel.prefixlen_s = addr->sadb_address_prefixlen;
+ 	}
+-
++#ifndef CONFIG_IPSEC_IAF_TUNNEL
+ 	if (!x->sel.family)
+ 		x->sel.family = x->props.family;
++#else
++	if (x->props.mode == XFRM_MODE_TRANSPORT)
++		x->sel.family = x->props.family;
++#endif
+ 
+ 	if (ext_hdrs[SADB_X_EXT_NAT_T_TYPE-1]) {
+ 		struct sadb_x_nat_t_type* n_type;
+diff --git a/net/xfrm/Kconfig b/net/xfrm/Kconfig
+index 9201ef8..3d26f7d 100644
+--- a/net/xfrm/Kconfig
++++ b/net/xfrm/Kconfig
+@@ -72,3 +72,14 @@ config NET_KEY_MIGRATE
+ 
+ 	  If unsure, say N.
+ 
++config IPSEC_IAF_TUNNEL
++	bool "IPSEC_IAF_TUNNEL"
++	depends on XFRM
++	---help---
++	  IPsec inter address family tunnel.
++	  The kernel supports IPv6 over IPv4 IPsec tunnel and/or
++	  IPv4 over IPv6 IPsec tunnel with this.
++	  This is compatible with the 2.6.24 kernel.
++
++	  If unsure, say Y.
++
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 62188c6..18eff53 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -84,14 +84,21 @@ int xfrm_parse_spi(struct sk_buff *skb, u8 nexthdr, __be32 *spi, __be32 *seq)
+ 
+ int xfrm_prepare_input(struct xfrm_state *x, struct sk_buff *skb)
+ {
++	struct xfrm_mode *inner_mode = x->inner_mode;
+ 	int err;
+ 
+ 	err = x->outer_mode->afinfo->extract_input(x, skb);
+ 	if (err)
+ 		return err;
+-
+-	skb->protocol = x->inner_mode->afinfo->eth_proto;
+-	return x->inner_mode->input2(x, skb);
++#ifdef CONFIG_IPSEC_IAF_TUNNEL
++	if (x->sel.family == AF_UNSPEC) {
++		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
++		if (inner_mode == NULL)
++			return -EAFNOSUPPORT;
++	}
++#endif
++	skb->protocol = inner_mode->afinfo->eth_proto;
++	return inner_mode->input2(x, skb);
+ }
+ EXPORT_SYMBOL(xfrm_prepare_input);
+ 
+@@ -101,6 +108,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 	__be32 seq;
+ 	struct xfrm_state *x;
+ 	xfrm_address_t *daddr;
++	struct xfrm_mode *inner_mode;
+ 	unsigned int family;
+ 	int decaps = 0;
+ 	int async = 0;
+@@ -207,7 +215,15 @@ resume:
+ 
+ 		XFRM_MODE_SKB_CB(skb)->protocol = nexthdr;
+ 
+-		if (x->inner_mode->input(x, skb)) {
++		inner_mode = x->inner_mode;
++#ifdef CONFIG_IPSEC_IAF_TUNNEL
++		if (x->sel.family == AF_UNSPEC) {
++			inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
++			if (inner_mode == NULL)
++				goto drop;
++		}
++#endif
++		if (inner_mode->input(x, skb)) {
+ 			XFRM_INC_STATS(LINUX_MIB_XFRMINSTATEMODEERROR);
+ 			goto drop;
+ 		}
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index 569d377..358600a 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -124,7 +124,7 @@ int xfrm_output_resume(struct sk_buff *skb, int err)
+ 		if (!x)
+ 			return dst_output(skb);
+ 
+-		err = nf_hook(x->inner_mode->afinfo->family,
++		err = nf_hook(skb->dst->ops->family,
+ 			      NF_INET_POST_ROUTING, skb,
+ 			      NULL, skb->dst->dev, xfrm_output2);
+ 		if (unlikely(err != 1))
+@@ -193,4 +193,22 @@ int xfrm_output(struct sk_buff *skb)
+ 
+ 	return xfrm_output2(skb);
+ }
++
++#ifdef CONFIG_IPSEC_IAF_TUNNEL
++int xfrm_inner_extract_output(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct xfrm_mode *inner_mode;
++	if (x->sel.family == AF_UNSPEC)
++		inner_mode = xfrm_ip2inner_mode(x,
++				xfrm_af2proto(skb->dst->ops->family));
++	else
++		inner_mode = x->inner_mode;
++
++	if (inner_mode == NULL)
++		return -EAFNOSUPPORT;
++	return inner_mode->afinfo->extract_output(x, skb);
++}
++#endif
++
+ EXPORT_SYMBOL_GPL(xfrm_output);
++EXPORT_SYMBOL_GPL(xfrm_inner_extract_output);
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 7ba65e8..e085cce 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -388,6 +388,10 @@ static void xfrm_state_gc_destroy(struct xfrm_state *x)
+ 	kfree(x->coaddr);
+ 	if (x->inner_mode)
+ 		xfrm_put_mode(x->inner_mode);
++#ifdef CONFIG_IPSEC_IAF_TUNNEL
++	if (x->inner_mode_iaf)
++		xfrm_put_mode(x->inner_mode_iaf);
++#endif
+ 	if (x->outer_mode)
+ 		xfrm_put_mode(x->outer_mode);
+ 	if (x->type) {
+@@ -523,6 +527,10 @@ struct xfrm_state *xfrm_state_alloc(void)
+ 		x->lft.hard_packet_limit = XFRM_INF;
+ 		x->replay_maxage = 0;
+ 		x->replay_maxdiff = 0;
++		x->inner_mode = NULL;
++#ifdef CONFIG_IPSEC_IAF_TUNNEL
++		x->inner_mode_iaf = NULL;
++#endif
+ 		spin_lock_init(&x->lock);
+ 	}
+ 	return x;
+@@ -796,7 +804,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
+ 			      selector.
+ 			 */
+ 			if (x->km.state == XFRM_STATE_VALID) {
+-				if (!xfrm_selector_match(&x->sel, fl, x->sel.family) ||
++				if ((x->sel.family && !xfrm_selector_match(&x->sel, fl, x->sel.family)) ||
+ 				    !security_xfrm_state_pol_flow_match(x, pol, fl))
+ 					continue;
+ 				if (!best ||
+@@ -1944,6 +1952,7 @@ int xfrm_state_mtu(struct xfrm_state *x, int mtu)
+ int xfrm_init_state(struct xfrm_state *x)
+ {
+ 	struct xfrm_state_afinfo *afinfo;
++	struct xfrm_mode *inner_mode;
+ 	int family = x->props.family;
+ 	int err;
+ 
+@@ -1962,13 +1971,51 @@ int xfrm_init_state(struct xfrm_state *x)
+ 		goto error;
+ 
+ 	err = -EPROTONOSUPPORT;
+-	x->inner_mode = xfrm_get_mode(x->props.mode, x->sel.family);
+-	if (x->inner_mode == NULL)
+-		goto error;
+ 
+-	if (!(x->inner_mode->flags & XFRM_MODE_FLAG_TUNNEL) &&
+-	    family != x->sel.family)
+-		goto error;
++	if (x->sel.family != AF_UNSPEC) {
++		inner_mode = xfrm_get_mode(x->props.mode, x->sel.family);
++		if (x->inner_mode == NULL)
++			goto error;
++
++		if (!(inner_mode->flags & XFRM_MODE_FLAG_TUNNEL) &&
++		    family != x->sel.family) {
++			xfrm_put_mode(inner_mode);
++			goto error;
++		}
++
++		x->inner_mode = inner_mode;
++	}
++#ifdef CONFIG_IPSEC_IAF_TUNNEL
++	else {
++		struct xfrm_mode *inner_mode_iaf;
++
++		inner_mode = xfrm_get_mode(x->props.mode, AF_INET);
++		if (inner_mode == NULL)
++			goto error;
++
++		if (!(inner_mode->flags & XFRM_MODE_FLAG_TUNNEL)) {
++			xfrm_put_mode(inner_mode);
++			goto error;
++		}
++
++		inner_mode_iaf = xfrm_get_mode(x->props.mode, AF_INET6);
++		if (inner_mode_iaf == NULL)
++			goto error;
++
++ 		if (!(inner_mode_iaf->flags & XFRM_MODE_FLAG_TUNNEL)) {
++			xfrm_put_mode(inner_mode_iaf);
++			goto error;
++		}
++
++		if (x->props.family == AF_INET) {
++			x->inner_mode = inner_mode;
++			x->inner_mode_iaf = inner_mode_iaf;	
++		} else {
++			x->inner_mode = inner_mode_iaf;
++			x->inner_mode_iaf = inner_mode;
++		}
++	}
++#endif
+ 
+ 	x->type = xfrm_get_type(x->id.proto, family);
+ 	if (x->type == NULL)
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index f971ca5..f47497f 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -288,12 +288,17 @@ static void copy_from_user_state(struct xfrm_state *x, struct xfrm_usersa_info *
+ 	memcpy(&x->props.saddr, &p->saddr, sizeof(x->props.saddr));
+ 	x->props.flags = p->flags;
+ 
++#ifndef CONFIG_IPSEC_IAF_TUNNEL
+ 	/*
+ 	 * Set inner address family if the KM left it as zero.
+ 	 * See comment in validate_tmpl.
+ 	 */
+ 	if (!x->sel.family)
+ 		x->sel.family = p->family;
++#else
++	if (x->props.mode == XFRM_MODE_TRANSPORT)
++		x->sel.family = p->family;
++#endif
+ }
+ 
+ /*
 -- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.5.2.5
