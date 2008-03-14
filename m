@@ -1,505 +1,291 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 2008-03-13
-Date: Thu, 13 Mar 2008 21:05:04 -0400
-Message-ID: <20080314010504.GA31964@tuxdriver.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: pull request: wireless-2.6.26 2008-03-13
+Date: Thu, 13 Mar 2008 21:26:16 -0400
+Message-ID: <20080314012616.GB31964@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3973 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751618AbYCNBVx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Mar 2008 21:21:53 -0400
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 David,
 
-Here are a few more fixes for 2.6.25.  The rt2x00 one is a bit big, but
-it is needed to fix kernel.org bug 9585 (a NULL pointer dereference).
-There is also a work-around for a firmware bug on the PS3 wireless
-driver, as well as some one liners.
+Here is another round of updates for 2.6.26.  Only 38 this week -- we
+must be slowing-down. :-)
 
-Please let me know if there are problems!
+Along with the usual batch of driver updates there is also the
+removal of the old bcm43xx driver, the (now unused) ieee80211softmac
+component, and the old "simple" rate control algorithm for mac80211.
+Other than that, there is nothing particularly remarkable.  FWIW,
+the rt2x00 patches in particular fixed a lot of Fedora bugzillas...
+
+Let me know if there are problems!
 
 Thanks,
 
 John
 
+P.S.  The rt2x00 patch I just sent you in the wireless-2.6 tree will
+conflict with your net-2.6.26 tree, and the resolution is not obvious
+when looking at the change markers alone.  I created a "merge-sample"
+branch in the wireless-2.6.26 tree to serve as a reference to show
+you how I resolved the conflict.  Hth!
+
 ---
 
 Individual patches are available here:
 
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6.26/
 
 ---
 
-The following changes since commit f1dd9c379cac7d5a76259e7dffcd5f8edc697d17:
-  Zhang Yanmin (1):
-        [NET]: Fix tbench regression in 2.6.25-rc1
+The following changes since commit ba73d4c84a7344f1b5635c2b4e96796e8c13a126:
+  David S. Miller (1):
+        Merge branch 'master' of master.kernel.org:/.../linville/wireless-2.6.26
 
 are available in the git repository at:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.26.git master
+
+Adam Baker (1):
+      rt2x00:correct rx packet length for USB devices
+
+Adrian Bunk (4):
+      make b43_mac_{enable,suspend}() static
+      the scheduled bcm43xx removal
+      the scheduled ieee80211 softmac removal
+      the scheduled rc80211-simple.c removal
+
+Assaf Krauss (1):
+      iwlwifi: Use eeprom form iwlcore
 
 Harvey Harrison (1):
-      b43: phy.c fix typo in register write
+      b43: pull out helpers for writing noise table
 
-Ivo van Doorn (1):
-      rt2x00: Add suspend/resume handlers to rt2x00rfkill
+Holger Schurig (1):
+      libertas: implement SSID scanning for SIOCSIWSCAN
 
-Jan Slupski (1):
-      prism54: support for 124a:4025 - another version of IOGear GWU513 802.11g
+Ivo van Doorn (16):
+      rt2x00: Align RX descriptor to 4 bytes
+      rt2x00: Don't use uninitialized desc_len
+      rt2x00: Use skbdesc fields for descriptor initialization
+      rt2x00: Only disable beaconing just before beacon update
+      rt2x00: Upgrade queue->lock to use irqsave
+      rt2x00: Move firmware checksumming to driver
+      rt2x00: Start bugging when rt2x00lib doesn't filter SW diversity
+      rt2x00: Check IEEE80211_TXCTL_SEND_AFTER_DTIM flag
+      rt2x00: Rename config_preamble() to config_erp()
+      rt2x00: Make rt2x00leds_register return void
+      rt2x00: Always enable TSF ticking
+      rt2x00: Fix basic rate initialization
+      rt2x00: Fix RX DMA ring initialization
+      rt2x00: Fix rt2400pci signal
+      rt2x00: Release rt2x00 2.1.4
+      rt2x00: Only strip preamble bit in rt2400pci
 
-Masakazu Mokuno (2):
-      PS3: gelic: ignore scan info from zero SSID beacons
-      PS3: gelic: change the prefix of the net interface for wireless
+Joe Perches (2):
+      drivers/net/wireless/ath5k - convert == (true|false) to simple logical tests
+      include/net/ieee80211.h - remove duplicate include
 
-Pavel Roskin (1):
-      ath5k: disable irq handling in ath5k_hw_detach()
+Jussi Kivilinna (2):
+      rndis_wlan: cleanup, rename and reorder enums and structures
+      rndis_wlan: cleanup, rename structure members
 
- drivers/net/ps3_gelic_wireless.c           |   29 ++++---
- drivers/net/wireless/ath5k/hw.c            |    2 +
- drivers/net/wireless/b43/phy.c             |    2 +-
- drivers/net/wireless/p54usb.c              |    1 +
- drivers/net/wireless/rt2x00/rt2x00.h       |    3 +
- drivers/net/wireless/rt2x00/rt2x00dev.c    |   35 ++++-----
- drivers/net/wireless/rt2x00/rt2x00lib.h    |   20 ++++--
- drivers/net/wireless/rt2x00/rt2x00rfkill.c |  116 ++++++++++++++++++----------
- 8 files changed, 127 insertions(+), 81 deletions(-)
+Luis Correia (1):
+      rt2x00: Fix trivial log message
 
-diff --git a/drivers/net/ps3_gelic_wireless.c b/drivers/net/ps3_gelic_wireless.c
-index daf5aba..ddbc6e4 100644
---- a/drivers/net/ps3_gelic_wireless.c
-+++ b/drivers/net/ps3_gelic_wireless.c
-@@ -1644,13 +1644,24 @@ static void gelic_wl_scan_complete_event(struct gelic_wl_info *wl)
- 	}
- 
- 	/* put them in the newtork_list */
--	scan_info = wl->buf;
--	scan_info_size = 0;
--	i = 0;
--	while (scan_info_size < data_len) {
-+	for (i = 0, scan_info_size = 0, scan_info = wl->buf;
-+	     scan_info_size < data_len;
-+	     i++, scan_info_size += be16_to_cpu(scan_info->size),
-+	     scan_info = (void *)scan_info + be16_to_cpu(scan_info->size)) {
- 		pr_debug("%s:size=%d bssid=%s scan_info=%p\n", __func__,
- 			 be16_to_cpu(scan_info->size),
- 			 print_mac(mac, &scan_info->bssid[2]), scan_info);
-+
-+		/*
-+		 * The wireless firmware may return invalid channel 0 and/or
-+		 * invalid rate if the AP emits zero length SSID ie. As this
-+		 * scan information is useless, ignore it
-+		 */
-+		if (!be16_to_cpu(scan_info->channel) || !scan_info->rate[0]) {
-+			pr_debug("%s: invalid scan info\n", __func__);
-+			continue;
-+		}
-+
- 		found = 0;
- 		oldest = NULL;
- 		list_for_each_entry(target, &wl->network_list, list) {
-@@ -1687,10 +1698,6 @@ static void gelic_wl_scan_complete_event(struct gelic_wl_info *wl)
- 					 GFP_KERNEL);
- 		if (!target->hwinfo) {
- 			pr_info("%s: kzalloc failed\n", __func__);
--			i++;
--			scan_info_size += be16_to_cpu(scan_info->size);
--			scan_info = (void *)scan_info +
--				be16_to_cpu(scan_info->size);
- 			continue;
- 		}
- 		/* copy hw scan info */
-@@ -1709,10 +1716,6 @@ static void gelic_wl_scan_complete_event(struct gelic_wl_info *wl)
- 			if (scan_info->ext_rate[r])
- 				target->rate_ext_len++;
- 		list_move_tail(&target->list, &wl->network_list);
--		/* bump pointer */
--		i++;
--		scan_info_size += be16_to_cpu(scan_info->size);
--		scan_info = (void *)scan_info + be16_to_cpu(scan_info->size);
- 	}
- 	memset(&data, 0, sizeof(data));
- 	wireless_send_event(port_to_netdev(wl_port(wl)), SIOCGIWSCAN, &data,
-@@ -2389,6 +2392,8 @@ static struct net_device *gelic_wl_alloc(struct gelic_card *card)
- 	if (!netdev)
- 		return NULL;
- 
-+	strcpy(netdev->name, "wlan%d");
-+
- 	port = netdev_priv(netdev);
- 	port->netdev = netdev;
- 	port->card = card;
-diff --git a/drivers/net/wireless/ath5k/hw.c b/drivers/net/wireless/ath5k/hw.c
-index c2de2d9..0175743 100644
---- a/drivers/net/wireless/ath5k/hw.c
-+++ b/drivers/net/wireless/ath5k/hw.c
-@@ -427,6 +427,8 @@ void ath5k_hw_detach(struct ath5k_hw *ah)
- {
- 	ATH5K_TRACE(ah->ah_sc);
- 
-+	__set_bit(ATH_STAT_INVALID, ah->ah_sc->status);
-+
- 	if (ah->ah_rf_banks != NULL)
- 		kfree(ah->ah_rf_banks);
- 
-diff --git a/drivers/net/wireless/b43/phy.c b/drivers/net/wireless/b43/phy.c
-index 71507b2..575c543 100644
---- a/drivers/net/wireless/b43/phy.c
-+++ b/drivers/net/wireless/b43/phy.c
-@@ -860,7 +860,7 @@ static void b43_phy_ww(struct b43_wldev *dev)
- 	b43_phy_write(dev, B43_PHY_OFDM(0xBB),
- 		(b43_phy_read(dev, B43_PHY_OFDM(0xBB)) & 0xF000) | 0x0053);
- 	b43_phy_write(dev, B43_PHY_OFDM61,
--		(b43_phy_read(dev, B43_PHY_OFDM61 & 0xFE1F)) | 0x0120);
-+		(b43_phy_read(dev, B43_PHY_OFDM61) & 0xFE1F) | 0x0120);
- 	b43_phy_write(dev, B43_PHY_OFDM(0x13),
- 		(b43_phy_read(dev, B43_PHY_OFDM(0x13)) & 0x0FFF) | 0x3000);
- 	b43_phy_write(dev, B43_PHY_OFDM(0x14),
-diff --git a/drivers/net/wireless/p54usb.c b/drivers/net/wireless/p54usb.c
-index e7d4aee..98ddbb3 100644
---- a/drivers/net/wireless/p54usb.c
-+++ b/drivers/net/wireless/p54usb.c
-@@ -63,6 +63,7 @@ static struct usb_device_id p54u_table[] __devinitdata = {
- 	{USB_DEVICE(0x0cde, 0x0008)},	/* Sagem XG703A */
- 	{USB_DEVICE(0x0d8e, 0x3762)},	/* DLink DWL-G120 Cohiba */
- 	{USB_DEVICE(0x09aa, 0x1000)},	/* Spinnaker Proto board */
-+	{USB_DEVICE(0x124a, 0x4025)},	/* IOGear GWU513 (GW3887IK chip) */
- 	{USB_DEVICE(0x13b1, 0x000a)},	/* Linksys WUSB54G ver 2 */
- 	{USB_DEVICE(0x13B1, 0x000C)},	/* Linksys WUSB54AG */
- 	{USB_DEVICE(0x1435, 0x0427)},	/* Inventel UR054G */
-diff --git a/drivers/net/wireless/rt2x00/rt2x00.h b/drivers/net/wireless/rt2x00/rt2x00.h
-index 05927b9..6c72542 100644
---- a/drivers/net/wireless/rt2x00/rt2x00.h
-+++ b/drivers/net/wireless/rt2x00/rt2x00.h
-@@ -620,6 +620,9 @@ struct rt2x00_dev {
- 	 * This will only be compiled in when required.
- 	 */
- #ifdef CONFIG_RT2X00_LIB_RFKILL
-+unsigned long rfkill_state;
-+#define RFKILL_STATE_ALLOCATED		1
-+#define RFKILL_STATE_REGISTERED		2
- 	struct rfkill *rfkill;
- 	struct input_polled_dev *poll_dev;
- #endif /* CONFIG_RT2X00_LIB_RFKILL */
-diff --git a/drivers/net/wireless/rt2x00/rt2x00dev.c b/drivers/net/wireless/rt2x00/rt2x00dev.c
-index 0d51f47..bc846ba 100644
---- a/drivers/net/wireless/rt2x00/rt2x00dev.c
-+++ b/drivers/net/wireless/rt2x00/rt2x00dev.c
-@@ -1098,7 +1098,7 @@ static void rt2x00lib_uninitialize(struct rt2x00_dev *rt2x00dev)
- 		return;
- 
- 	/*
--	 * Unregister rfkill.
-+	 * Unregister extra components.
- 	 */
- 	rt2x00rfkill_unregister(rt2x00dev);
- 
-@@ -1139,11 +1139,9 @@ static int rt2x00lib_initialize(struct rt2x00_dev *rt2x00dev)
- 	__set_bit(DEVICE_INITIALIZED, &rt2x00dev->flags);
- 
- 	/*
--	 * Register the rfkill handler.
-+	 * Register the extra components.
- 	 */
--	status = rt2x00rfkill_register(rt2x00dev);
--	if (status)
--		goto exit_unitialize;
-+	rt2x00rfkill_register(rt2x00dev);
- 
- 	return 0;
- 
-@@ -1313,15 +1311,9 @@ int rt2x00lib_probe_dev(struct rt2x00_dev *rt2x00dev)
- 	}
- 
- 	/*
--	 * Allocatie rfkill.
--	 */
--	retval = rt2x00rfkill_allocate(rt2x00dev);
--	if (retval)
--		goto exit;
--
--	/*
--	 * Open the debugfs entry.
-+	 * Register extra components.
- 	 */
-+	rt2x00rfkill_allocate(rt2x00dev);
- 	rt2x00debug_register(rt2x00dev);
- 
- 	__set_bit(DEVICE_PRESENT, &rt2x00dev->flags);
-@@ -1350,13 +1342,9 @@ void rt2x00lib_remove_dev(struct rt2x00_dev *rt2x00dev)
- 	rt2x00lib_uninitialize(rt2x00dev);
- 
- 	/*
--	 * Close debugfs entry.
-+	 * Free extra components
- 	 */
- 	rt2x00debug_deregister(rt2x00dev);
--
--	/*
--	 * Free rfkill
--	 */
- 	rt2x00rfkill_free(rt2x00dev);
- 
- 	/*
-@@ -1395,11 +1383,15 @@ int rt2x00lib_suspend(struct rt2x00_dev *rt2x00dev, pm_message_t state)
- 	__set_bit(DEVICE_STARTED_SUSPEND, &rt2x00dev->flags);
- 
- 	/*
--	 * Disable radio and unitialize all items
--	 * that must be recreated on resume.
-+	 * Disable radio.
- 	 */
- 	rt2x00lib_stop(rt2x00dev);
- 	rt2x00lib_uninitialize(rt2x00dev);
-+
-+	/*
-+	 * Suspend/disable extra components.
-+	 */
-+	rt2x00rfkill_suspend(rt2x00dev);
- 	rt2x00debug_deregister(rt2x00dev);
- 
- exit:
-@@ -1422,9 +1414,10 @@ int rt2x00lib_resume(struct rt2x00_dev *rt2x00dev)
- 	NOTICE(rt2x00dev, "Waking up.\n");
- 
- 	/*
--	 * Open the debugfs entry.
-+	 * Restore/enable extra components.
- 	 */
- 	rt2x00debug_register(rt2x00dev);
-+	rt2x00rfkill_resume(rt2x00dev);
- 
- 	/*
- 	 * Only continue if mac80211 had open interfaces.
-diff --git a/drivers/net/wireless/rt2x00/rt2x00lib.h b/drivers/net/wireless/rt2x00/rt2x00lib.h
-index 1adbd28..ce58c65 100644
---- a/drivers/net/wireless/rt2x00/rt2x00lib.h
-+++ b/drivers/net/wireless/rt2x00/rt2x00lib.h
-@@ -100,28 +100,36 @@ static inline void rt2x00debug_dump_frame(struct rt2x00_dev *rt2x00dev,
-  * RFkill handlers.
-  */
- #ifdef CONFIG_RT2X00_LIB_RFKILL
--int rt2x00rfkill_register(struct rt2x00_dev *rt2x00dev);
-+void rt2x00rfkill_register(struct rt2x00_dev *rt2x00dev);
- void rt2x00rfkill_unregister(struct rt2x00_dev *rt2x00dev);
--int rt2x00rfkill_allocate(struct rt2x00_dev *rt2x00dev);
-+void rt2x00rfkill_allocate(struct rt2x00_dev *rt2x00dev);
- void rt2x00rfkill_free(struct rt2x00_dev *rt2x00dev);
-+void rt2x00rfkill_suspend(struct rt2x00_dev *rt2x00dev);
-+void rt2x00rfkill_resume(struct rt2x00_dev *rt2x00dev);
- #else
--static inline int rt2x00rfkill_register(struct rt2x00_dev *rt2x00dev)
-+static inline void rt2x00rfkill_register(struct rt2x00_dev *rt2x00dev)
- {
--	return 0;
- }
- 
- static inline void rt2x00rfkill_unregister(struct rt2x00_dev *rt2x00dev)
- {
- }
- 
--static inline int rt2x00rfkill_allocate(struct rt2x00_dev *rt2x00dev)
-+static inline void rt2x00rfkill_allocate(struct rt2x00_dev *rt2x00dev)
- {
--	return 0;
- }
- 
- static inline void rt2x00rfkill_free(struct rt2x00_dev *rt2x00dev)
- {
- }
-+
-+static inline void rt2x00rfkill_suspend(struct rt2x00_dev *rt2x00dev)
-+{
-+}
-+
-+static inline void rt2x00rfkill_resume(struct rt2x00_dev *rt2x00dev)
-+{
-+}
- #endif /* CONFIG_RT2X00_LIB_RFKILL */
- 
- #endif /* RT2X00LIB_H */
-diff --git a/drivers/net/wireless/rt2x00/rt2x00rfkill.c b/drivers/net/wireless/rt2x00/rt2x00rfkill.c
-index 34a96d4..f955775 100644
---- a/drivers/net/wireless/rt2x00/rt2x00rfkill.c
-+++ b/drivers/net/wireless/rt2x00/rt2x00rfkill.c
-@@ -69,56 +69,81 @@ static void rt2x00rfkill_poll(struct input_polled_dev *poll_dev)
- 	}
- }
- 
--int rt2x00rfkill_register(struct rt2x00_dev *rt2x00dev)
-+void rt2x00rfkill_register(struct rt2x00_dev *rt2x00dev)
- {
--	int retval;
--
--	if (!test_bit(CONFIG_SUPPORT_HW_BUTTON, &rt2x00dev->flags))
--		return 0;
-+	if (!test_bit(CONFIG_SUPPORT_HW_BUTTON, &rt2x00dev->flags) ||
-+	    !test_bit(RFKILL_STATE_ALLOCATED, &rt2x00dev->rfkill_state))
-+		return;
- 
--	retval = rfkill_register(rt2x00dev->rfkill);
--	if (retval) {
-+	if (rfkill_register(rt2x00dev->rfkill)) {
- 		ERROR(rt2x00dev, "Failed to register rfkill handler.\n");
--		return retval;
-+		return;
- 	}
- 
--	retval = input_register_polled_device(rt2x00dev->poll_dev);
--	if (retval) {
-+	if (input_register_polled_device(rt2x00dev->poll_dev)) {
- 		ERROR(rt2x00dev, "Failed to register polled device.\n");
- 		rfkill_unregister(rt2x00dev->rfkill);
--		return retval;
-+		return;
- 	}
- 
-+	__set_bit(RFKILL_STATE_REGISTERED, &rt2x00dev->rfkill_state);
-+
- 	/*
- 	 * Force initial poll which will detect the initial device state,
- 	 * and correctly sends the signal to the rfkill layer about this
- 	 * state.
- 	 */
- 	rt2x00rfkill_poll(rt2x00dev->poll_dev);
--
--	return 0;
- }
- 
- void rt2x00rfkill_unregister(struct rt2x00_dev *rt2x00dev)
- {
--	if (!test_bit(CONFIG_SUPPORT_HW_BUTTON, &rt2x00dev->flags))
-+	if (!test_bit(CONFIG_SUPPORT_HW_BUTTON, &rt2x00dev->flags) ||
-+	    !test_bit(RFKILL_STATE_REGISTERED, &rt2x00dev->rfkill_state))
- 		return;
- 
- 	input_unregister_polled_device(rt2x00dev->poll_dev);
- 	rfkill_unregister(rt2x00dev->rfkill);
-+
-+	__clear_bit(RFKILL_STATE_REGISTERED, &rt2x00dev->rfkill_state);
- }
- 
--int rt2x00rfkill_allocate(struct rt2x00_dev *rt2x00dev)
-+static struct input_polled_dev *
-+rt2x00rfkill_allocate_polldev(struct rt2x00_dev *rt2x00dev)
- {
--	struct device *device = wiphy_dev(rt2x00dev->hw->wiphy);
-+	struct input_polled_dev *poll_dev;
-+
-+	poll_dev = input_allocate_polled_device();
-+	if (!poll_dev)
-+		return NULL;
-+
-+	poll_dev->private = rt2x00dev;
-+	poll_dev->poll = rt2x00rfkill_poll;
-+	poll_dev->poll_interval = RFKILL_POLL_INTERVAL;
-+
-+	poll_dev->input->name = rt2x00dev->ops->name;
-+	poll_dev->input->phys = wiphy_name(rt2x00dev->hw->wiphy);
-+	poll_dev->input->id.bustype = BUS_HOST;
-+	poll_dev->input->id.vendor = 0x1814;
-+	poll_dev->input->id.product = rt2x00dev->chip.rt;
-+	poll_dev->input->id.version = rt2x00dev->chip.rev;
-+	poll_dev->input->dev.parent = wiphy_dev(rt2x00dev->hw->wiphy);
-+	poll_dev->input->evbit[0] = BIT(EV_KEY);
-+	set_bit(KEY_WLAN, poll_dev->input->keybit);
-+
-+	return poll_dev;
-+}
- 
-+void rt2x00rfkill_allocate(struct rt2x00_dev *rt2x00dev)
-+{
- 	if (!test_bit(CONFIG_SUPPORT_HW_BUTTON, &rt2x00dev->flags))
--		return 0;
-+		return;
- 
--	rt2x00dev->rfkill = rfkill_allocate(device, RFKILL_TYPE_WLAN);
-+	rt2x00dev->rfkill =
-+	    rfkill_allocate(wiphy_dev(rt2x00dev->hw->wiphy), RFKILL_TYPE_WLAN);
- 	if (!rt2x00dev->rfkill) {
- 		ERROR(rt2x00dev, "Failed to allocate rfkill handler.\n");
--		goto exit;
-+		return;
- 	}
- 
- 	rt2x00dev->rfkill->name = rt2x00dev->ops->name;
-@@ -126,40 +151,49 @@ int rt2x00rfkill_allocate(struct rt2x00_dev *rt2x00dev)
- 	rt2x00dev->rfkill->state = -1;
- 	rt2x00dev->rfkill->toggle_radio = rt2x00rfkill_toggle_radio;
- 
--	rt2x00dev->poll_dev = input_allocate_polled_device();
-+	rt2x00dev->poll_dev = rt2x00rfkill_allocate_polldev(rt2x00dev);
- 	if (!rt2x00dev->poll_dev) {
- 		ERROR(rt2x00dev, "Failed to allocate polled device.\n");
--		goto exit_free_rfkill;
-+		rfkill_free(rt2x00dev->rfkill);
-+		rt2x00dev->rfkill = NULL;
-+		return;
- 	}
- 
--	rt2x00dev->poll_dev->private = rt2x00dev;
--	rt2x00dev->poll_dev->poll = rt2x00rfkill_poll;
--	rt2x00dev->poll_dev->poll_interval = RFKILL_POLL_INTERVAL;
-+	return;
-+}
- 
--	rt2x00dev->poll_dev->input->name = rt2x00dev->ops->name;
--	rt2x00dev->poll_dev->input->phys = wiphy_name(rt2x00dev->hw->wiphy);
--	rt2x00dev->poll_dev->input->id.bustype = BUS_HOST;
--	rt2x00dev->poll_dev->input->id.vendor = 0x1814;
--	rt2x00dev->poll_dev->input->id.product = rt2x00dev->chip.rt;
--	rt2x00dev->poll_dev->input->id.version = rt2x00dev->chip.rev;
--	rt2x00dev->poll_dev->input->dev.parent = device;
--	rt2x00dev->poll_dev->input->evbit[0] = BIT(EV_KEY);
--	set_bit(KEY_WLAN, rt2x00dev->poll_dev->input->keybit);
-+void rt2x00rfkill_free(struct rt2x00_dev *rt2x00dev)
-+{
-+	if (!test_bit(CONFIG_SUPPORT_HW_BUTTON, &rt2x00dev->flags) ||
-+	    !test_bit(RFKILL_STATE_ALLOCATED, &rt2x00dev->rfkill_state))
-+		return;
- 
--	return 0;
-+	input_free_polled_device(rt2x00dev->poll_dev);
-+	rt2x00dev->poll_dev = NULL;
- 
--exit_free_rfkill:
- 	rfkill_free(rt2x00dev->rfkill);
--
--exit:
--	return -ENOMEM;
-+	rt2x00dev->rfkill = NULL;
- }
- 
--void rt2x00rfkill_free(struct rt2x00_dev *rt2x00dev)
-+void rt2x00rfkill_suspend(struct rt2x00_dev *rt2x00dev)
- {
--	if (!test_bit(CONFIG_SUPPORT_HW_BUTTON, &rt2x00dev->flags))
-+	if (!test_bit(CONFIG_SUPPORT_HW_BUTTON, &rt2x00dev->flags) ||
-+	    !test_bit(RFKILL_STATE_ALLOCATED, &rt2x00dev->rfkill_state))
- 		return;
- 
- 	input_free_polled_device(rt2x00dev->poll_dev);
--	rfkill_free(rt2x00dev->rfkill);
-+	rt2x00dev->poll_dev = NULL;
-+}
-+
-+void rt2x00rfkill_resume(struct rt2x00_dev *rt2x00dev)
-+{
-+	if (!test_bit(CONFIG_SUPPORT_HW_BUTTON, &rt2x00dev->flags) ||
-+	    !test_bit(RFKILL_STATE_ALLOCATED, &rt2x00dev->rfkill_state))
-+		return;
-+
-+	rt2x00dev->poll_dev = rt2x00rfkill_allocate_polldev(rt2x00dev);
-+	if (!rt2x00dev->poll_dev) {
-+		ERROR(rt2x00dev, "Failed to allocate polled device.\n");
-+		return;
-+	}
- }
+Mattias Nissler (3):
+      rt2x00: Initialize TX control field in data entries
+      rt2x00: Use the correct size when copying the control info in txdone
+      rt2x00: Don't use unitialized rxdesc->size
+
+Michael Buesch (1):
+      ssb: Add SPROM/invariants support for PCMCIA devices
+
+Reinette Chatre (2):
+      iwlwifi: update copyright year
+      iwlwifi: fix bug to show hidden APs during scan
+
+Tomas Winkler (3):
+      iwlwifi: Use sta_bcast_id variable instead of BROADCAST_ID constant
+      iwlwifi: Fix endianity in debug print
+      iwlwifi: change rate number to a constant
+
+ Documentation/feature-removal-schedule.txt       |   27 -
+ Documentation/laptops/acer-wmi.txt               |    2 +-
+ Documentation/networking/bcm43xx.txt             |   89 -
+ MAINTAINERS                                      |   15 -
+ drivers/net/wireless/Kconfig                     |    1 -
+ drivers/net/wireless/Makefile                    |    1 -
+ drivers/net/wireless/ath5k/hw.c                  |   36 +-
+ drivers/net/wireless/ath5k/phy.c                 |   10 +-
+ drivers/net/wireless/b43/main.c                  |    4 +-
+ drivers/net/wireless/b43/main.h                  |    3 -
+ drivers/net/wireless/b43/wa.c                    |   45 +-
+ drivers/net/wireless/bcm43xx/Kconfig             |   70 -
+ drivers/net/wireless/bcm43xx/Makefile            |   12 -
+ drivers/net/wireless/bcm43xx/bcm43xx.h           |  997 -----
+ drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c   |  556 ---
+ drivers/net/wireless/bcm43xx/bcm43xx_debugfs.h   |  118 -
+ drivers/net/wireless/bcm43xx/bcm43xx_dma.c       | 1263 -------
+ drivers/net/wireless/bcm43xx/bcm43xx_dma.h       |  386 --
+ drivers/net/wireless/bcm43xx/bcm43xx_ethtool.c   |   50 -
+ drivers/net/wireless/bcm43xx/bcm43xx_ethtool.h   |    8 -
+ drivers/net/wireless/bcm43xx/bcm43xx_ilt.c       |  352 --
+ drivers/net/wireless/bcm43xx/bcm43xx_ilt.h       |   33 -
+ drivers/net/wireless/bcm43xx/bcm43xx_leds.c      |  307 --
+ drivers/net/wireless/bcm43xx/bcm43xx_leds.h      |   62 -
+ drivers/net/wireless/bcm43xx/bcm43xx_main.c      | 4281 ----------------------
+ drivers/net/wireless/bcm43xx/bcm43xx_main.h      |  133 -
+ drivers/net/wireless/bcm43xx/bcm43xx_phy.c       | 2346 ------------
+ drivers/net/wireless/bcm43xx/bcm43xx_phy.h       |   78 -
+ drivers/net/wireless/bcm43xx/bcm43xx_pio.c       |  674 ----
+ drivers/net/wireless/bcm43xx/bcm43xx_pio.h       |  163 -
+ drivers/net/wireless/bcm43xx/bcm43xx_power.c     |  393 --
+ drivers/net/wireless/bcm43xx/bcm43xx_power.h     |   56 -
+ drivers/net/wireless/bcm43xx/bcm43xx_radio.c     | 2170 -----------
+ drivers/net/wireless/bcm43xx/bcm43xx_radio.h     |  115 -
+ drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c     |  471 ---
+ drivers/net/wireless/bcm43xx/bcm43xx_sysfs.h     |    9 -
+ drivers/net/wireless/bcm43xx/bcm43xx_wx.c        | 1035 ------
+ drivers/net/wireless/bcm43xx/bcm43xx_wx.h        |   36 -
+ drivers/net/wireless/bcm43xx/bcm43xx_xmit.c      |  565 ---
+ drivers/net/wireless/bcm43xx/bcm43xx_xmit.h      |  150 -
+ drivers/net/wireless/iwlwifi/Makefile            |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-3945-commands.h |    4 +-
+ drivers/net/wireless/iwlwifi/iwl-3945-debug.h    |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-3945-hw.h       |    4 +-
+ drivers/net/wireless/iwlwifi/iwl-3945-io.h       |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-3945-rs.c       |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-3945-rs.h       |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-3945.c          |    6 +-
+ drivers/net/wireless/iwlwifi/iwl-3945.h          |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-4965-commands.h |    4 +-
+ drivers/net/wireless/iwlwifi/iwl-4965-debug.h    |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-4965-hw.h       |  314 +--
+ drivers/net/wireless/iwlwifi/iwl-4965-io.h       |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-4965-rs.c       |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-4965-rs.h       |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-4965.c          |   55 +-
+ drivers/net/wireless/iwlwifi/iwl-4965.h          |    6 +-
+ drivers/net/wireless/iwlwifi/iwl-core.c          |    4 +-
+ drivers/net/wireless/iwlwifi/iwl-core.h          |   10 +
+ drivers/net/wireless/iwlwifi/iwl-csr.h           |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-helpers.h       |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-prph.h          |    4 +-
+ drivers/net/wireless/iwlwifi/iwl-spectrum.h      |    2 +-
+ drivers/net/wireless/iwlwifi/iwl3945-base.c      |   25 +-
+ drivers/net/wireless/iwlwifi/iwl4965-base.c      |  112 +-
+ drivers/net/wireless/libertas/assoc.c            |    4 +-
+ drivers/net/wireless/libertas/debugfs.c          |  169 -
+ drivers/net/wireless/libertas/dev.h              |    2 +
+ drivers/net/wireless/libertas/scan.c             |  145 +-
+ drivers/net/wireless/libertas/scan.h             |   69 +-
+ drivers/net/wireless/libertas/wext.c             |    3 +
+ drivers/net/wireless/rndis_wlan.c                |  451 ++--
+ drivers/net/wireless/rt2x00/Kconfig              |    4 +-
+ drivers/net/wireless/rt2x00/rt2400pci.c          |   70 +-
+ drivers/net/wireless/rt2x00/rt2400pci.h          |    6 +-
+ drivers/net/wireless/rt2x00/rt2500pci.c          |   71 +-
+ drivers/net/wireless/rt2x00/rt2500usb.c          |   97 +-
+ drivers/net/wireless/rt2x00/rt2x00.h             |   27 +-
+ drivers/net/wireless/rt2x00/rt2x00config.c       |   62 +-
+ drivers/net/wireless/rt2x00/rt2x00debug.c        |    5 +-
+ drivers/net/wireless/rt2x00/rt2x00dev.c          |   58 +-
+ drivers/net/wireless/rt2x00/rt2x00firmware.c     |   34 +-
+ drivers/net/wireless/rt2x00/rt2x00leds.c         |    7 +-
+ drivers/net/wireless/rt2x00/rt2x00lib.h          |   25 +-
+ drivers/net/wireless/rt2x00/rt2x00mac.c          |   22 +-
+ drivers/net/wireless/rt2x00/rt2x00pci.c          |    1 +
+ drivers/net/wireless/rt2x00/rt2x00queue.c        |   17 +-
+ drivers/net/wireless/rt2x00/rt2x00queue.h        |    3 +
+ drivers/net/wireless/rt2x00/rt2x00usb.c          |   19 +-
+ drivers/net/wireless/rt2x00/rt61pci.c            |  100 +-
+ drivers/net/wireless/rt2x00/rt73usb.c            |  126 +-
+ drivers/ssb/Kconfig                              |    6 +
+ drivers/ssb/Makefile                             |    1 +
+ drivers/ssb/main.c                               |   23 +-
+ drivers/ssb/pci.c                                |  113 +-
+ drivers/ssb/pcmcia.c                             |  518 +++-
+ drivers/ssb/sprom.c                              |  133 +
+ drivers/ssb/ssb_private.h                        |   17 +
+ include/linux/ssb/ssb.h                          |    4 +-
+ include/net/ieee80211.h                          |    1 -
+ include/net/ieee80211softmac.h                   |  373 --
+ include/net/ieee80211softmac_wx.h                |   99 -
+ net/ieee80211/Kconfig                            |    1 -
+ net/ieee80211/Makefile                           |    1 -
+ net/ieee80211/softmac/Kconfig                    |   12 -
+ net/ieee80211/softmac/Makefile                   |    9 -
+ net/ieee80211/softmac/ieee80211softmac_assoc.c   |  489 ---
+ net/ieee80211/softmac/ieee80211softmac_auth.c    |  413 ---
+ net/ieee80211/softmac/ieee80211softmac_event.c   |  189 -
+ net/ieee80211/softmac/ieee80211softmac_io.c      |  488 ---
+ net/ieee80211/softmac/ieee80211softmac_module.c  |  568 ---
+ net/ieee80211/softmac/ieee80211softmac_priv.h    |  244 --
+ net/ieee80211/softmac/ieee80211softmac_scan.c    |  254 --
+ net/ieee80211/softmac/ieee80211softmac_wx.c      |  508 ---
+ net/mac80211/Kconfig                             |   19 -
+ net/mac80211/Makefile                            |    2 -
+ net/mac80211/ieee80211.c                         |    9 +-
+ net/mac80211/ieee80211_rate.h                    |   15 -
+ net/mac80211/rc80211_simple.c                    |  394 --
+ 119 files changed, 1493 insertions(+), 22703 deletions(-)
+ delete mode 100644 Documentation/networking/bcm43xx.txt
+ delete mode 100644 drivers/net/wireless/bcm43xx/Kconfig
+ delete mode 100644 drivers/net/wireless/bcm43xx/Makefile
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx.h
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_debugfs.h
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_dma.c
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_dma.h
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_ethtool.c
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_ethtool.h
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_ilt.c
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_ilt.h
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_leds.c
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_leds.h
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_main.c
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_main.h
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_phy.h
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_pio.c
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_pio.h
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_power.c
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_power.h
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_radio.c
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_radio.h
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_sysfs.h
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_wx.h
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
+ delete mode 100644 drivers/net/wireless/bcm43xx/bcm43xx_xmit.h
+ create mode 100644 drivers/ssb/sprom.c
+ delete mode 100644 include/net/ieee80211softmac.h
+ delete mode 100644 include/net/ieee80211softmac_wx.h
+ delete mode 100644 net/ieee80211/softmac/Kconfig
+ delete mode 100644 net/ieee80211/softmac/Makefile
+ delete mode 100644 net/ieee80211/softmac/ieee80211softmac_assoc.c
+ delete mode 100644 net/ieee80211/softmac/ieee80211softmac_auth.c
+ delete mode 100644 net/ieee80211/softmac/ieee80211softmac_event.c
+ delete mode 100644 net/ieee80211/softmac/ieee80211softmac_io.c
+ delete mode 100644 net/ieee80211/softmac/ieee80211softmac_module.c
+ delete mode 100644 net/ieee80211/softmac/ieee80211softmac_priv.h
+ delete mode 100644 net/ieee80211/softmac/ieee80211softmac_scan.c
+ delete mode 100644 net/ieee80211/softmac/ieee80211softmac_wx.c
+ delete mode 100644 net/mac80211/rc80211_simple.c
+
+Omnibus patch is available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6.26-2008-03-13.patch.bz2
 -- 
 John W. Linville
-linville@tuxdriver.com
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
