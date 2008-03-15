@@ -1,87 +1,91 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [DCCP] [Patch 1/1] [BUG-FIX]: Fix problem with small RTTs in CCID-3
-Date: Sat, 15 Mar 2008 06:56:32 +0000
-Message-ID: <20080315065632.GA5323@gerrit.erg.abdn.ac.uk>
-References: <200712241443.33716.tomasz@grobelny.oswiecenia.net> <200803081629.09562.tomasz@grobelny.oswiecenia.net> <20080310130056.GA28663@gerrit.erg.abdn.ac.uk> <200803102128.17019.tomasz@grobelny.oswiecenia.net> <20080312080633.GA4996@gerrit.erg.abdn.ac.uk> <20080314133324.GA22237@gerrit.erg.abdn.ac.uk>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [2.6.24.3][net] bug: TCP 3rd handshake abnormal timeouts
+Date: Sat, 15 Mar 2008 07:58:49 +0100
+Message-ID: <20080315065849.GA11817@1wt.eu>
+References: <47DB28E9.4050309@oxeva.fr> <20080315065739.GL8953@1wt.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:45376 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750956AbYCOG5P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Mar 2008 02:57:15 -0400
+Cc: linux-kernel@vger.kernel.org, netdev@kernel.org
+To: Gabriel Barazer <gabriel@oxeva.fr>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752908AbYCOHER@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20080314133324.GA22237@gerrit.erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20080315065739.GL8953@1wt.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Arnaldo,
 
-please consider the attached patch which fixes the reported problems with small
-RTTs in CCID-3. Clamping the RTT is not a good idea, since CCID-3 in many places
-computes its throughput in the form "xxx/RTT" - so that increasing the RTT by a
-factor of 10 will decrease the maximum achievable throughput by a factor of 10.
+[ forgot to CC netdev ]
 
-The patch is at the bottom of the test tree. The bug has also been fixed
-in the CCID-4 subtree (a note has been added to patch #19 there).
+Hi Gabriel,
 
-----------------------------> Patch / BUG-FIX <---------------------------------
-[CCID-3]: Fix "t_ipi explosion" bug
+On Sat, Mar 15, 2008 at 02:39:53AM +0100, Gabriel Barazer wrote:
+> Hi,
 
-The identification of this bug is thanks to Cheng Wei and Tomasz Grobelny.
+[cc'd netdev]
 
-To avoid divide-by-zero, the implementation previously ignored RTTs smaller
-than 4 microseconds when performing integer division RTT/4. 
+> I am experiencing a very annoying bug which I think is a kernel bug, 
+> related to how a client establishes a TCP connection to a server (both 
+> linux, same  vanilla 2.6.24.3 kernels but the problem happened also in 
+> the previous 2.6.23.14 and kernel installed).
+> 
+> The case is about a bunch of web servers accessing a MySQL database 
+> server via TCP and non-persistent connections and all application level 
+> errors have been excluded.
+> "Sometimes" when establishing a TCP connection to the server, we are 
+> seeing a 3000ms delay before the connection if effectively made. This 
+> has been confirmed first by some strace-d telnet tests, then by tcpdump 
+> captures on both side at the same time.
+> 
+> Here is a simplified version of what _both_ the server and the client 
+> see (it's important because this means the packets are not lost and the 
+> bug not caused by a lossy network). I can send the original pcap file if 
+> necessary.
+> 
+> - The client send a TCP packet with the SYN bit
+> - The server replies by a TCP packet with the SYN,ACK bits (connection 
+> appears in netstat -a as in the SYN_RECV state)
+> - Here the client should have replied with a TCP ACK packet, but for 
+> some reason wait for exactly 3 seconds instead (the delay for 
+> retransmitting a SYN packet).
+> - The client re-send a TCP SYN packet
+> - The server replies by its TCP SYN,ACK packet
+> - And finally the client send its TCP ACK packet, completing the 3-way 
+> handshake and beginning communication with the MySQL server.
+> 
+> During the time when the bug happens (~1 minute), I can log into the 
+> server, and confirm this 3 second delay when strace-ing a telnet session 
+> to the mysql port.
+> 
+> I believe the problem is on the client side because when this abnormal 
+> delay happens, all the other mysql connections from the other web 
+> servers are doing fine (the MySQL server serves other host's queries 
+> without any connection delay), and I think I can rule out the userland 
+> processes as well because they are not aware of this TCP handshake 
+> failing and retrying, only the connect() syscall does.
+> 
+> I have reports of other people having this problem on other networks 
+> with different hardware specs, and on different networks (I run this on 
+> a local network).
+> 
+> I have no syncookies enabled, and have the netfilter connection tracking 
+> enabled but the tracked connections count is very stable, not 
+> overflowing and not even increasing when the problem happens.
+> 
+> Obviously, no message in the syslog or the kernel buffer ring.
+> 
+> Has anyone any idea on where to start to find and fix this bug? the 
+> situation is becoming critical as this affects all of our installations 
+> and I can't find a way to solve or even workaround this.
+> 
+> Any comment or idea would be very appreciated.
 
-When the RTT reached a value less than 4 microseconds (as observed on loopback),
-this prevented the Window Counter CCVal value from advancing. As a result, the
-receiver stopped sending feedback. This in turn caused non-ending expiries of
-the nofeedback timer at the sender, so that the sending rate was progressively
-reduced until reaching the bottom of one packet per 64 seconds.
+You should carefully check the the SYN-ACK received by the client has a
+correct checksum ("cksum OK" in tcpdump output). It would be possible
+that for some reason, something on the network randomly corrupts it.
 
-The patch fixes this bug by handling integer division more intelligently. Due to
-consistent use of dccp_sample_rtt(), divide-by-zero-RTT is avoided.
+Also, you say you have netfilter with conntrack. Is this on the client ?
+If so, you should try disabling it to rule out any possible bug in the
+connection tracking.
 
-The patch was tested to successfully eliminate the "t_ipi explosion" problem
-for loopback RTTs in the order of 1 microsecond - the sending behaviour now
-became stable and predictable.
-
-Since 1 microsecond is at the same time the minimum RTT resolution, the same
-stable behaviour can be expected for other (small) RTTs.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/ccids/ccid3.c |   13 ++++---------
- 1 file changed, 4 insertions(+), 9 deletions(-)
-
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -193,22 +193,17 @@ static inline void ccid3_hc_tx_update_s(
- 
- /*
-  *	Update Window Counter using the algorithm from [RFC 4342, 8.1].
-- *	The algorithm is not applicable if RTT < 4 microseconds.
-+ *	As elsewhere, RTT > 0 is assumed by using dccp_sample_rtt().
-  */
- static inline void ccid3_hc_tx_update_win_count(struct ccid3_hc_tx_sock *hctx,
- 						ktime_t now)
- {
--	u32 quarter_rtts;
--
--	if (unlikely(hctx->ccid3hctx_rtt < 4))	/* avoid divide-by-zero */
--		return;
--
--	quarter_rtts = ktime_us_delta(now, hctx->ccid3hctx_t_last_win_count);
--	quarter_rtts /= hctx->ccid3hctx_rtt / 4;
-+	u32 delta = ktime_us_delta(now, hctx->ccid3hctx_t_last_win_count),
-+	    quarter_rtts = (4 * delta) / hctx->ccid3hctx_rtt;
- 
- 	if (quarter_rtts > 0) {
- 		hctx->ccid3hctx_t_last_win_count = now;
--		hctx->ccid3hctx_last_win_count	+= min_t(u32, quarter_rtts, 5);
-+		hctx->ccid3hctx_last_win_count	+= min(quarter_rtts, 5U);
- 		hctx->ccid3hctx_last_win_count	&= 0xF;		/* mod 16 */
- 	}
- }
+Regards,
+Willy
