@@ -1,92 +1,87 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] Re: netconsole still hangs
-Date: Sat, 15 Mar 2008 00:47:49 +0100
-Message-ID: <20080314234749.GA10606@ami.dom.local>
-References: <20080312235205.dcec2d35.akpm@linux-foundation.org>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [DCCP] [Patch 1/1] [BUG-FIX]: Fix problem with small RTTs in CCID-3
+Date: Sat, 15 Mar 2008 06:56:32 +0000
+Message-ID: <20080315065632.GA5323@gerrit.erg.abdn.ac.uk>
+References: <200712241443.33716.tomasz@grobelny.oswiecenia.net> <200803081629.09562.tomasz@grobelny.oswiecenia.net> <20080310130056.GA28663@gerrit.erg.abdn.ac.uk> <200803102128.17019.tomasz@grobelny.oswiecenia.net> <20080312080633.GA4996@gerrit.erg.abdn.ac.uk> <20080314133324.GA22237@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	rjw@sisk.pl
-To: Andrew Morton <akpm@linux-foundation.org>
+To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.188]:15976 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753201AbYCNXmz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2008 19:42:55 -0400
-Received: by fk-out-0910.google.com with SMTP id 19so368355fkr.5
-        for <netdev@vger.kernel.org>; Fri, 14 Mar 2008 16:42:53 -0700 (PDT)
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:45376 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750956AbYCOG5P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Mar 2008 02:57:15 -0400
 Content-Disposition: inline
-In-Reply-To: <20080312235205.dcec2d35.akpm@linux-foundation.org>
+In-Reply-To: <20080314133324.GA22237@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote, On 03/13/2008 07:52 AM:
-...
-> I tried it on the t61p and actually got an oops:
-> 
-> general protection fault: 0000 [1] SMP 
-> last sysfs file: /sys/class/net/wlan0/address
-> CPU 0 
-> Modules linked in: autofs4 sunrpc nf_conntrack_ipv4 ipt_REJECT iptable_filter
-> ip_tables nf_conntrack_ipv6 xt_state nf_conntrack xt_tcpudp ip6t_ipv6header
-> ip6t_REJECT ip6table_filter ip6_tables x_tables ipv6 cpufreq_ondemand
-> acpi_cpufreq dm_mirror dm_log dm_multipath dm_mod snd_hda_intel snd_seq_dummy
-> snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device snd_pcm_oss button arc4
-> ecb crypto_blkcipher snd_mixer_oss iwl4965 joydev snd_pcm mac80211
-> firewire_ohci battery ac thinkpad_acpi hwmon cfg80211 snd_timer snd_page_alloc
-> snd_hwdep i2c_i801 i2c_core pcspkr firewire_core crc_itu_t snd soundcore
-> sr_mod sg cdrom ata_piix ahci libata sd_mod scsi_mod ext3 jbd mbcache uhci_hcd
-> ohci_hcd ehci_hcd [last unloaded: microcode]
-> Pid: 2916, comm: zsh Not tainted 2.6.25-rc5-mm1 #9
-> RIP: 0010:[<ffffffff8123a8ee>]  [<ffffffff8123a8ee>] zap_completion_queue+0x54/0x85
-> RSP: 0018:ffff810072c35938  EFLAGS: 00010002
-> RAX: 0000000000000000 RBX: 6b6b6b6b6b6b6b6b RCX: 0000000000000001
+Arnaldo,
 
-It looks like POISON_FREE probably while: "while(clist != NULL)". I
-haven't found a culprit, but it could be some dev_kfree_skb_irq/_any()
-user - not necessarily netpoll to blame. (A card could matter here:
-e1000, iwl4965...?).
+please consider the attached patch which fixes the reported problems with small
+RTTs in CCID-3. Clamping the RTT is not a good idea, since CCID-3 in many places
+computes its throughput in the form "xxx/RTT" - so that increasing the RTT by a
+factor of 10 will decrease the maximum achievable throughput by a factor of 10.
 
-BTW, here is a patch which isn't supposed to fix this OOPs, but seems
-to be needed near this place.
+The patch is at the bottom of the test tree. The bug has also been fixed
+in the CCID-4 subtree (a note has been added to patch #19 there).
 
-Regards,
-Jarek P.
+----------------------------> Patch / BUG-FIX <---------------------------------
+[CCID-3]: Fix "t_ipi explosion" bug
 
------------>
-[NETPOLL] zap_completion_queue: adjust skb->users counter
+The identification of this bug is thanks to Cheng Wei and Tomasz Grobelny.
 
-zap_completion_queue() retrieves skbs from completion_queue where they
-have zero skb->users counter. Before dev_kfree_skb_any() it should be
-non-zero yet, so it's increased now.
+To avoid divide-by-zero, the implementation previously ignored RTTs smaller
+than 4 microseconds when performing integer division RTT/4. 
 
+When the RTT reached a value less than 4 microseconds (as observed on loopback),
+this prevented the Window Counter CCVal value from advancing. As a result, the
+receiver stopped sending feedback. This in turn caused non-ending expiries of
+the nofeedback timer at the sender, so that the sending rate was progressively
+reduced until reaching the bottom of one packet per 64 seconds.
 
-Reported-and-tested-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+The patch fixes this bug by handling integer division more intelligently. Due to
+consistent use of dccp_sample_rtt(), divide-by-zero-RTT is avoided.
 
-(not tested)
+The patch was tested to successfully eliminate the "t_ipi explosion" problem
+for loopback RTTs in the order of 1 microsecond - the sending behaviour now
+became stable and predictable.
+
+Since 1 microsecond is at the same time the minimum RTT resolution, the same
+stable behaviour can be expected for other (small) RTTs.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
+ net/dccp/ccids/ccid3.c |   13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
 
- net/core/netpoll.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index d0c8bf5..b04d643 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -215,10 +215,12 @@ static void zap_completion_queue(void)
- 		while (clist != NULL) {
- 			struct sk_buff *skb = clist;
- 			clist = clist->next;
--			if (skb->destructor)
-+			if (skb->destructor) {
-+				atomic_inc(&skb->users);
- 				dev_kfree_skb_any(skb); /* put this one back */
--			else
-+			} else {
- 				__kfree_skb(skb);
-+			}
- 		}
- 	}
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -193,22 +193,17 @@ static inline void ccid3_hc_tx_update_s(
  
+ /*
+  *	Update Window Counter using the algorithm from [RFC 4342, 8.1].
+- *	The algorithm is not applicable if RTT < 4 microseconds.
++ *	As elsewhere, RTT > 0 is assumed by using dccp_sample_rtt().
+  */
+ static inline void ccid3_hc_tx_update_win_count(struct ccid3_hc_tx_sock *hctx,
+ 						ktime_t now)
+ {
+-	u32 quarter_rtts;
+-
+-	if (unlikely(hctx->ccid3hctx_rtt < 4))	/* avoid divide-by-zero */
+-		return;
+-
+-	quarter_rtts = ktime_us_delta(now, hctx->ccid3hctx_t_last_win_count);
+-	quarter_rtts /= hctx->ccid3hctx_rtt / 4;
++	u32 delta = ktime_us_delta(now, hctx->ccid3hctx_t_last_win_count),
++	    quarter_rtts = (4 * delta) / hctx->ccid3hctx_rtt;
+ 
+ 	if (quarter_rtts > 0) {
+ 		hctx->ccid3hctx_t_last_win_count = now;
+-		hctx->ccid3hctx_last_win_count	+= min_t(u32, quarter_rtts, 5);
++		hctx->ccid3hctx_last_win_count	+= min(quarter_rtts, 5U);
+ 		hctx->ccid3hctx_last_win_count	&= 0xF;		/* mod 16 */
+ 	}
+ }
