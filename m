@@ -1,44 +1,65 @@
-From: "Ray Lee" <ray-lk@madrabbit.org>
-Subject: Re: TCP stack optimization for high number of connections [OT]
-Date: Sat, 15 Mar 2008 09:32:16 -0700
-Message-ID: <2c0942db0803150932s6e654e28g5255ac7af451741b@mail.gmail.com>
-References: <873209.1586.qm@web52510.mail.re2.yahoo.com>
+From: "Robert P. J. Day" <rpjday@crashcourse.ca>
+Subject: [PATCH] NET: Add debugging names to __RW_LOCK_UNLOCKED macros.
+Date: Sat, 15 Mar 2008 14:16:18 -0400 (EDT)
+Message-ID: <alpine.LFD.1.00.0803151414400.24935@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: "Marc Perkel" <mperkel@yahoo.com>, Netdev <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:46807 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751907AbYCOQcS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Mar 2008 12:32:18 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so767839fgb.17
-        for <netdev@vger.kernel.org>; Sat, 15 Mar 2008 09:32:17 -0700 (PDT)
-In-Reply-To: <873209.1586.qm@web52510.mail.re2.yahoo.com>
-Content-Disposition: inline
+Received: from astoria.ccjclearline.com ([64.235.106.9]:60379 "EHLO
+	astoria.ccjclearline.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752030AbYCOSQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Mar 2008 14:16:25 -0400
+Received: from cpe001d60ad7267-cm001225dbafb6.cpe.net.cable.rogers.com ([99.236.100.208] helo=crashcourse.ca)
+	by astoria.ccjclearline.com with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.68)
+	(envelope-from <rpjday@crashcourse.ca>)
+	id 1Jaave-0001bj-K0
+	for netdev@vger.kernel.org; Sat, 15 Mar 2008 14:16:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(CC:netdev added.)
 
-On Sat, Mar 15, 2008 at 8:47 AM, Marc Perkel <mperkel@yahoo.com> wrote:
-> I'm running a front end spam filtering service and I
->  get a lot of incoming connections but not a lot of
->  volume of traffic. I'm experiencing some high loads
->  and I think it might be related to the volume of
->  connections it's processing. I often will be connected
->  to 2500 email servers at once and a lot more that are
->  trying to connect and being denied.
->
->  My question - are there any optimizations I can do to
->  make the TCP faster for high number of short lived
->  connections?
->
->  Also - how much do iptable entries slow things down
->  and is there any optimizations for that?
->
->
->  Marc Perkel
->  Junk Email Filter dot com
->  http://www.junkemailfilter.com
+Signed-off-by: Robert P. J. Day <rpjday@crashcourse.ca>
+
+---
+
+  not compile tested, but this is a fairly straightforward change.
+
+ net/ipv4/raw.c |    2 +-
+ net/ipv6/raw.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index a3002fe..e10ef6c 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -81,7 +81,7 @@
+ #include <linux/netfilter_ipv4.h>
+
+ static struct raw_hashinfo raw_v4_hashinfo = {
+-	.lock = __RW_LOCK_UNLOCKED(),
++	.lock = __RW_LOCK_UNLOCKED(raw_v4_hashinfo.lock),
+ };
+
+ void raw_hash_sk(struct sock *sk, struct raw_hashinfo *h)
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 8897ccf..d6afa02 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -62,7 +62,7 @@
+ #include <linux/seq_file.h>
+
+ static struct raw_hashinfo raw_v6_hashinfo = {
+-	.lock = __RW_LOCK_UNLOCKED(),
++	.lock = __RW_LOCK_UNLOCKED(raw_v6_hashinfo.lock),
+ };
+
+ static void raw_v6_hash(struct sock *sk)
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry:
+    Have classroom, will lecture.
+
+http://crashcourse.ca                          Waterloo, Ontario, CANADA
+========================================================================
