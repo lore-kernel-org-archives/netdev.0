@@ -1,65 +1,67 @@
-From: "Robert P. J. Day" <rpjday@crashcourse.ca>
-Subject: [PATCH] NET: Add debugging names to __RW_LOCK_UNLOCKED macros.
-Date: Sat, 15 Mar 2008 14:16:18 -0400 (EDT)
-Message-ID: <alpine.LFD.1.00.0803151414400.24935@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH] Do not strip binaries with `install`
+Date: Sun, 16 Mar 2008 04:27:01 -0400
+Message-ID: <1205656021-26124-1-git-send-email-vapier@gentoo.org>
+To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from astoria.ccjclearline.com ([64.235.106.9]:60379 "EHLO
-	astoria.ccjclearline.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752030AbYCOSQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Mar 2008 14:16:25 -0400
-Received: from cpe001d60ad7267-cm001225dbafb6.cpe.net.cable.rogers.com ([99.236.100.208] helo=crashcourse.ca)
-	by astoria.ccjclearline.com with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.68)
-	(envelope-from <rpjday@crashcourse.ca>)
-	id 1Jaave-0001bj-K0
-	for netdev@vger.kernel.org; Sat, 15 Mar 2008 14:16:22 -0400
+Received: from smtp.gentoo.org ([140.211.166.183]:46451 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751176AbYCPIZy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Mar 2008 04:25:54 -0400
+In-Reply-To: <>
+References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Signed-off-by: Robert P. J. Day <rpjday@crashcourse.ca>
-
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 ---
+ ip/Makefile   |    2 +-
+ misc/Makefile |    2 +-
+ tc/Makefile   |    4 ++--
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-  not compile tested, but this is a fairly straightforward change.
+diff --git a/ip/Makefile b/ip/Makefile
+index d908817..73978ff 100644
+--- a/ip/Makefile
++++ b/ip/Makefile
+@@ -17,7 +17,7 @@ ip: $(IPOBJ) $(LIBNETLINK) $(LIBUTIL)
+ rtmon: $(RTMONOBJ) $(LIBNETLINK)
+ 
+ install: all
+-	install -m 0755 -s $(TARGETS) $(DESTDIR)$(SBINDIR)
++	install -m 0755 $(TARGETS) $(DESTDIR)$(SBINDIR)
+ 	install -m 0755 $(SCRIPTS) $(DESTDIR)$(SBINDIR)
+ 
+ clean:
+diff --git a/misc/Makefile b/misc/Makefile
+index bda37e5..8c25381 100644
+--- a/misc/Makefile
++++ b/misc/Makefile
+@@ -27,7 +27,7 @@ ssfilter.c: ssfilter.y
+ lnstat: $(LNSTATOBJ)
+ 
+ install: all
+-	install -m 0755 -s $(TARGETS) $(DESTDIR)$(SBINDIR)
++	install -m 0755 $(TARGETS) $(DESTDIR)$(SBINDIR)
+ 	ln -sf lnstat $(DESTDIR)$(SBINDIR)/rtstat
+ 	ln -sf lnstat $(DESTDIR)$(SBINDIR)/ctstat
+ 
+diff --git a/tc/Makefile b/tc/Makefile
+index 7ece958..bf2df00 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -73,9 +73,9 @@ libtc.a: $(TCLIB)
+ 
+ install: all
+ 	mkdir -p $(DESTDIR)/usr/lib/tc
+-	install -m 0755 -s tc $(DESTDIR)$(SBINDIR)
++	install -m 0755 tc $(DESTDIR)$(SBINDIR)
+ 	for i in $(TCSO); \
+-	do install -m 755 -s $$i $(DESTDIR)/usr/lib/tc; \
++	do install -m 755 $$i $(DESTDIR)/usr/lib/tc; \
+ 	done
+ 
+ clean:
+-- 
+1.5.4.3
 
- net/ipv4/raw.c |    2 +-
- net/ipv6/raw.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index a3002fe..e10ef6c 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -81,7 +81,7 @@
- #include <linux/netfilter_ipv4.h>
-
- static struct raw_hashinfo raw_v4_hashinfo = {
--	.lock = __RW_LOCK_UNLOCKED(),
-+	.lock = __RW_LOCK_UNLOCKED(raw_v4_hashinfo.lock),
- };
-
- void raw_hash_sk(struct sock *sk, struct raw_hashinfo *h)
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 8897ccf..d6afa02 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -62,7 +62,7 @@
- #include <linux/seq_file.h>
-
- static struct raw_hashinfo raw_v6_hashinfo = {
--	.lock = __RW_LOCK_UNLOCKED(),
-+	.lock = __RW_LOCK_UNLOCKED(raw_v6_hashinfo.lock),
- };
-
- static void raw_v6_hash(struct sock *sk)
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry:
-    Have classroom, will lecture.
-
-http://crashcourse.ca                          Waterloo, Ontario, CANADA
-========================================================================
