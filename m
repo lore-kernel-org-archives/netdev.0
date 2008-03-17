@@ -1,69 +1,96 @@
-From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Subject: [PATCH-2.6.26] rndis_host: fix oops when query for
-	OID_GEN_PHYSICAL_MEDIUM fails
-Date: Mon, 17 Mar 2008 23:33:13 +0200
-Message-ID: <20080317213301.15070.30388.stgit@fate.lan>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 10273] New: Sun GEM (PCI) - network device
+ doesn't work
+Date: Mon, 17 Mar 2008 14:36:24 -0700
+Message-ID: <20080317143624.da313311.akpm@linux-foundation.org>
+References: <bug-10273-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dmonakhov@openvz.org, netdev@vger.kernel.org
-To: dbrownell@users.sourceforge.net
+Cc: bugme-daemon@bugzilla.kernel.org, seraph@xs4all.nl
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pne-smtpout4-sn1.fre.skanova.net ([81.228.11.168]:44710 "EHLO
-	pne-smtpout4-sn1.fre.skanova.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751778AbYCQVde (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2008 17:33:34 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:44578 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752944AbYCQVg1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2008 17:36:27 -0400
+In-Reply-To: <bug-10273-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+On Mon, 17 Mar 2008 14:25:50 -0700 (PDT)
+bugme-daemon@bugzilla.kernel.org wrote:
 
-When query for OID_GEN_PHYSICAL_MEDIUM fails, uninitialized pointer
-'phym' is being accessed in generic_rndis_bind(), resulting OOPS.
-Patch fixes phym to be initialized and setup correctly when
-rndis_query() for physical medium fails.
+> http://bugzilla.kernel.org/show_bug.cgi?id=10273
+> 
+>            Summary: Sun GEM (PCI) - network device doesn't work
+>            Product: Drivers
+>            Version: 2.5
+>      KernelVersion: 2.6.23
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: jgarzik@pobox.com
+>         ReportedBy: seraph@xs4all.nl
+> 
+> 
+> Latest working kernel version: 2.6.22.9
+> Earliest failing kernel version: 2.6.23
 
-Bug was introduced by following commit:
-commit 039ee17d1baabaa21783a0d5ab3e8c6d8c794bdf
-Author: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Date:   Sun Jan 27 23:34:33 2008 +0200
+A regression in 2.6.23.
 
-Reported-by: Dmitri Monakhov <dmonakhov@openvz.org>
-Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
----
-
- drivers/net/usb/rndis_host.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
-index a613247..1b810ab 100644
---- a/drivers/net/usb/rndis_host.c
-+++ b/drivers/net/usb/rndis_host.c
-@@ -287,7 +287,7 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
- 		struct rndis_set_c	*set_c;
- 		struct rndis_halt	*halt;
- 	} u;
--	u32			tmp, *phym;
-+	u32			tmp, phym_unspec, *phym;
- 	int			reply_len;
- 	unsigned char		*bp;
- 
-@@ -359,12 +359,15 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
- 		goto halt_fail_and_release;
- 
- 	/* Check physical medium */
-+	phym = NULL;
- 	reply_len = sizeof *phym;
- 	retval = rndis_query(dev, intf, u.buf, OID_GEN_PHYSICAL_MEDIUM,
- 			0, (void **) &phym, &reply_len);
--	if (retval != 0)
-+	if (retval != 0 || !phym) {
- 		/* OID is optional so don't fail here. */
--		*phym = RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED;
-+		phym_unspec = RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED;
-+		phym = &phym_unspec;
-+	}
- 	if ((flags & FLAG_RNDIS_PHYM_WIRELESS) &&
- 			*phym != RNDIS_PHYSICAL_MEDIUM_WIRELESS_LAN) {
- 		if (netif_msg_probe(dev))
+> Distribution: Gentoo
+> Hardware Environment: Sparc64 (Sun Blade 100)
+> Software Environment:
+> Problem Description: 
+> 
+> I have two nearly identical Sun Blade 100 systems. Up to and including kernel
+> version 2.6.22.9, both were working fine. However, with the 2.6.23- and 2.6.24-
+> series I cannot get the Sun GEM network device on one of the two Blades to
+> work. The other one strangely does not have this problem at all.
+> 
+> The network device detects fine and the sungem module loads without problems.
+> Mii-diag reports that a 100FDX connection exists and there is link beat.
+> However, packets are neither being sent nor received, all counters in ifconfig
+> remain at zero.
+> 
+> Attempts to use the network eventually result in the following message in
+> dmesg:
+> 
+> eth0: Sun GEM (PCI) 10/100/1000BaseT Ethernet 00:03:ba:08:61:7c
+> eth0: Found Generic MII PHY
+> eth0: Link is up at 100 Mbps, full-duplex.
+> eth0: Link is up at 100 Mbps, full-duplex.
+> eth0: Pause is disabled
+> NETDEV WATCHDOG: eth0: transmit timed out
+> eth0: transmit timed out, resetting
+> eth0: TX_STATE[003ffc05:00000001:0000001f]
+> eth0: RX_STATE[0100c805:00000001:00000021]
+> eth0: Link is up at 100 Mbps, full-duplex.
+> eth0: Pause is disabled
+> 
+> 
+> The difference between the non-working system and the working one are as
+> follows:
+> - The non-working system has more memory (1G opposed to 512M)
+> - A dual SCSI controller is present in this system. Connected to it are two
+> external 72G disks and an Exabyte Mammoth tapedrive.
+> 01:02.0 SCSI storage controller: LSI Logic / Symbios Logic 53c875 (rev 14)
+> 01:02.1 SCSI storage controller: LSI Logic / Symbios Logic 53c875 (rev 14)
+> - The following kernel modules are loaded on this system and not on the working
+> one: sym53c8xx, sd_mod, st, nfsd, md_mod and raid1 plus of course their
+> respective dependencies.
+> 
+> The problem is exactly the same with both Gentoo-patched kernels and vanilla
+> kernels, that's why I am reporting it here.
+> 
+> 
+> Steps to reproduce:
+> 
+> Just boot an affected kernel and try to use eth0 in any way.
+> 
 
