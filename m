@@ -1,47 +1,69 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] net: NEWEMAC: Support for Pause packets in EMAC driver
-Date: Tue, 18 Mar 2008 08:26:45 +1100
-Message-ID: <1205789205.26869.184.camel@pasglop>
-References: <1205488348-22536-1-git-send-email-sr@denx.de>
-	 <47DE5F43.80604@garzik.org>  <1205789101.26869.181.camel@pasglop>
-Reply-To: benh@kernel.crashing.org
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Subject: [PATCH-2.6.26] rndis_host: fix oops when query for
+	OID_GEN_PHYSICAL_MEDIUM fails
+Date: Mon, 17 Mar 2008 23:33:13 +0200
+Message-ID: <20080317213301.15070.30388.stgit@fate.lan>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stefan Roese <sr@denx.de>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, jwboyer@linux.vnet.ibm.com,
-	Valentine Barshak <vbarshak@ru.mvista.com>
-To: Jeff Garzik <jeff@garzik.org>
+Cc: dmonakhov@openvz.org, netdev@vger.kernel.org
+To: dbrownell@users.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:49136 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752791AbYCQV2c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2008 17:28:32 -0400
-In-Reply-To: <1205789101.26869.181.camel@pasglop>
+Received: from pne-smtpout4-sn1.fre.skanova.net ([81.228.11.168]:44710 "EHLO
+	pne-smtpout4-sn1.fre.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751778AbYCQVde (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2008 17:33:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 
-On Tue, 2008-03-18 at 08:25 +1100, Benjamin Herrenschmidt wrote:
-> > > 
-> > > Signed-off-by: Pravin M. Bathija <pbathija@amcc.com>
-> > > Signed-off-by: Stefan Roese <sr@denx.de>
-> > > ---
-> > >  drivers/net/ibm_newemac/core.c |    7 +++++++
-> > >  1 files changed, 7 insertions(+), 0 deletions(-)
-> > 
-> > applied
-> 
-> Thanks. There's also a couple of patches from Valentine that should go
-> in. I'll ask him to resend to you.
+When query for OID_GEN_PHYSICAL_MEDIUM fails, uninitialized pointer
+'phym' is being accessed in generic_rndis_bind(), resulting OOPS.
+Patch fixes phym to be initialized and setup correctly when
+rndis_query() for physical medium fails.
 
-Actually, they need some arch bits so they are better off going through
-Josh tree on top of the said changes.
+Bug was introduced by following commit:
+commit 039ee17d1baabaa21783a0d5ab3e8c6d8c794bdf
+Author: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Date:   Sun Jan 27 23:34:33 2008 +0200
 
-Valentine, can you make sure Jeff at least has a chance to see them and
-ack them though ?
+Reported-by: Dmitri Monakhov <dmonakhov@openvz.org>
+Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+---
 
-Cheers,
-Ben.
+ drivers/net/usb/rndis_host.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+index a613247..1b810ab 100644
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -287,7 +287,7 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
+ 		struct rndis_set_c	*set_c;
+ 		struct rndis_halt	*halt;
+ 	} u;
+-	u32			tmp, *phym;
++	u32			tmp, phym_unspec, *phym;
+ 	int			reply_len;
+ 	unsigned char		*bp;
+ 
+@@ -359,12 +359,15 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
+ 		goto halt_fail_and_release;
+ 
+ 	/* Check physical medium */
++	phym = NULL;
+ 	reply_len = sizeof *phym;
+ 	retval = rndis_query(dev, intf, u.buf, OID_GEN_PHYSICAL_MEDIUM,
+ 			0, (void **) &phym, &reply_len);
+-	if (retval != 0)
++	if (retval != 0 || !phym) {
+ 		/* OID is optional so don't fail here. */
+-		*phym = RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED;
++		phym_unspec = RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED;
++		phym = &phym_unspec;
++	}
+ 	if ((flags & FLAG_RNDIS_PHYM_WIRELESS) &&
+ 			*phym != RNDIS_PHYSICAL_MEDIUM_WIRELESS_LAN) {
+ 		if (netif_msg_probe(dev))
 
