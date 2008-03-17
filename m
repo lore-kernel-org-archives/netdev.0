@@ -1,221 +1,167 @@
-From: Hans-Peter Jansen <hpj@urpla.net>
-Subject: Re: multicast problems in forcedeth driver with MCP51 Ethernet Controller
-Date: Mon, 17 Mar 2008 23:32:17 +0100
-Message-ID: <200803172332.17734.hpj@urpla.net>
-References: <200803162356.49709.hpj@urpla.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] Add support the Korina (IDT RC32434) Ethernet MAC
+Date: Mon, 17 Mar 2008 23:31:53 +0100
+Message-ID: <20080317223153.GA3462@electric-eye.fr.zoreil.com>
+References: <200803052345.06610.florian.fainelli@telecomint.eu> <200803081905.46020.florian.fainelli@telecomint.eu> <20080310223007.GA2887@electric-eye.fr.zoreil.com> <200803131155.28164.florian.fainelli@telecomint.eu>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_xFv3HUmJGbRIZik"
-Cc: netdev@vger.kernel.org
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>, Felix Fietkau <nbd@openwrt.org>
+To: Florian Fainelli <florian.fainelli@telecomint.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.188]:63075 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751514AbYCQWc0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2008 18:32:26 -0400
-In-Reply-To: <200803162356.49709.hpj@urpla.net>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:43457 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752441AbYCQWuX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2008 18:50:23 -0400
+Content-Disposition: inline
+In-Reply-To: <200803131155.28164.florian.fainelli@telecomint.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_xFv3HUmJGbRIZik
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Florian Fainelli <florian.fainelli@telecomint.eu> :
+[...]
+> Thanks for your comments, here is a third try which adresses the
+> mentionned problems.
 
-Am Sonntag, 16. M=C3=A4rz 2008 schrieb Hans-Peter Jansen:
-> Hi Ayaz, hi forcedeth hackers,
->
-> I'm trying to get my first multicast application to life ATM, but even
-> the first tests failed mysteriously for some systems, running a 2.6.24.3
-> kernel. Goggling around let me to one of your fixes:
-> [PATCH 5/5] forcedeth: multicast fix, which Linus applied before
-> 2.6.25-rc1 as: bb9a4fd1f7cc083f72e52f01938c23ac5b3403d5
->
-> I applied your patch to my local 2.6.24.3 kernel build, but still no go.
-> Try attached python script (after setting up a route like this):
->
-> Destination     Gateway        Genmask         Flags Metric Ref   Use=20
-> Iface 229.0.0.0       *              255.0.0.0       U     0      0     =
-=20
->  0 eth0
->
-> Run one instance as './mctest.py server' and others without arguments.
-> Normally, the server sends out a multicast packet every second, and the
-> clients catch 10 of those before quitting, unless such a MCP51 Ethernet
-> Controller is in the equation: that one doesn't send/receive a single MC
-> bit here... Other nics (well, I tested this on e1000s and another MCP55)
-> behave well in this respect.
->
-> If I make the MCP51 the server, tcpdump is able to fetch the packets, but
-> nothing is received on the other systems. Looks, like multicasting is
-> still broken for the NIC in question.
->
-> Here's the complete hwinfo for the affected NIC:
-> ~# hwinfo --netcards
-> 15: PCI 14.0: 0200 Ethernet controller
->   [Created at pci.286]
->   UDI: /org/freedesktop/Hal/devices/pci_10de_269
->   Unique ID: MZfG.uQ5k42VxsiA
->   SysFS ID: /devices/pci0000:00/0000:00:14.0
->   SysFS BusID: 0000:00:14.0
->   Hardware Class: network
->   Model: "ASUSTeK MCP51 Ethernet Controller"
->   Vendor: pci 0x10de "nVidia Corporation"
->   Device: pci 0x0269 "MCP51 Ethernet Controller"
->   SubVendor: pci 0x1043 "ASUSTeK Computer Inc."
->   SubDevice: pci 0x816a
->   Revision: 0xa3
->   Driver: "forcedeth"
->   Driver Modules: "forcedeth"
->   Memory Range: 0xfe02b000-0xfe02bfff (rw,non-prefetchable)
->   I/O Ports: 0xc800-0xc807 (rw)
->   IRQ: 18 (309189603 events)
->   Module Alias: "pci:v000010DEd00000269sv00001043sd0000816Abc06sc80i00"
->   Driver Info #0:
->     Driver Status: forcedeth is active
->     Driver Activation Cmd: "modprobe forcedeth"
->   Config Status: cfg=3Dno, avail=3Dyes, need=3Dno, active=3Dunknown
->
-> Board: ASUS M2NPV-VM ACPI BIOS Revision 0603
-> Distr: openSUSE 10.2
->
-> Ideas, patches, workarounds are heightly appreciated.
+Sorry for the delay.
 
-Okay, I've read the multicast howto again, inquired on linux-net about my=20
-procedures, and did more tests.=20
+1. skb_new->dev = dev; in korina_rx() is useless. eth_type_trans() will
+   do it anyway.
 
-In my environment, it seems to not matter, what multicast routing I use:
-route add -net 224.0.0.0/4 dev eth0
-ip route add 224.0.0.0/4 dev eth0
-ip route add multicast 224.0.0.0/4 dev eth0
+2. skb->dev = dev; in korina_init() is useless as well.
 
-On those systems, that work fine, it does without, and on those, that don't=
-,=20
-it doesn't change behavior (nothing is send/received), _unless_ I use=20
-224.0.0.1 as the multicast group address, which should be avoided, AFAICS.
+3. korina_rx() still drops the received skb each time dev_alloc_skb fails.
+   This is far from optimal.
 
-I've learned to look for the group membership, and while the test program=20
-runs, it looks fine:
+4. The value returned from korina_init() is now checked. That's fine.
+   It is carefully overwritten with -ENOMEM when korina_init() fails
+   while it could/should simply propagate the error code returned from
+   korina_init() (which currentl equals -ENOMEM btw).
 
-~# LANG=3DC netstat -gn
-IPv6/IPv4 Group Memberships
-Interface       RefCnt Group
-=2D-------------- ------ ---------------------
-lo              1      224.0.0.1
-eth0            1      232.1.1.1	    <-- new mc group address default
-eth0            1      224.0.0.1
-lo              1      ff02::1
-eth0            1      ff02::1:ff24:683c
-eth0            1      ff02::1
+5. I would add some korina_{alloc/free}_ring() helpers to remove
+   dev_kfree_skb_any() and dev_alloc_skb from korina_init(), then release
+   the ring when it is really needed (i.e. in korina_restart() instead of
+   korina_init()).
 
-Below, you find the updated/cleaned up version of my test script.
+6. korina_open() leaks memory allocated in korina_init() if any of the
+   request_irq() fails...
 
-Still busted,
-Pete
+7. ... and if none of the request_irq fails, it should probably skip the
+   error path :o)
 
---Boundary-00=_xFv3HUmJGbRIZik
-Content-Type: application/x-python;
-  name="mctest.py"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="mctest.py"
+diff --git a/drivers/net/korina.c b/drivers/net/korina.c
+index 04ce894..f866fe4 100644
+--- a/drivers/net/korina.c
++++ b/drivers/net/korina.c
+@@ -956,59 +956,57 @@ static int korina_open(struct net_device *dev)
+ 	if (korina_init(dev) < 0) {
+ 		printk(KERN_ERR DRV_NAME "%s: cannot open device\n", dev->name);
+ 		ret = -ENOMEM;
+-		goto err_rx_irq;
++		goto out;
+ 	}
+ 
+ 	/* Install the interrupt handler
+ 	 * that handles the Done Finished
+ 	 * Ovr and Und Events */
+-	if (request_irq(lp->rx_irq, &korina_rx_dma_interrupt,
+-		IRQF_SHARED | IRQF_DISABLED,
+-			"Korina ethernet Rx", dev)) {
++	ret = request_irq(lp->rx_irq, &korina_rx_dma_interrupt,
++		IRQF_SHARED | IRQF_DISABLED, "Korina ethernet Rx", dev);
++	if (ret < 0) {
+ 		printk(KERN_ERR DRV_NAME "%s: unable to get Rx DMA IRQ %d\n",
+ 		    dev->name, lp->rx_irq);
+-		ret = -ENXIO;
+-		goto err_rx_irq;
++		goto err_release_0;
+ 	}
+-	if (request_irq(lp->tx_irq, &korina_tx_dma_interrupt,
+-		IRQF_SHARED | IRQF_DISABLED,
+-			"Korina ethernet Tx", dev)) {
++
++	ret = request_irq(lp->tx_irq, &korina_tx_dma_interrupt,
++		IRQF_SHARED | IRQF_DISABLED, "Korina ethernet Tx", dev);
++	if (ret < 0) {
+ 		printk(KERN_ERR DRV_NAME "%s: unable to get Tx DMA IRQ %d\n",
+ 		    dev->name, lp->tx_irq);
+-		free_irq(lp->rx_irq, dev);
+-		ret = -ENXIO;
+-		goto err_tx_irq;
++		goto err_free_rx_irq_1;
+ 	}
+ 
+ 	/* Install handler for overrun error. */
+-	if (request_irq(lp->ovr_irq, &korina_ovr_interrupt,
+-			IRQF_SHARED | IRQF_DISABLED,
+-			"Ethernet Overflow", dev)) {
++	ret = request_irq(lp->ovr_irq, &korina_ovr_interrupt,
++			IRQF_SHARED | IRQF_DISABLED, "Ethernet Overflow", dev);
++	if (ret < 0) {
+ 		printk(KERN_ERR DRV_NAME"%s: unable to get OVR IRQ %d\n",
+ 		    dev->name, lp->ovr_irq);
+-		ret = -ENXIO;
+-		goto err_ovr_irq;
++		goto err_free_tx_irq_2;
+ 	}
+ 
+ 	/* Install handler for underflow error. */
+-	if (request_irq(lp->und_irq, &korina_und_interrupt,
+-			IRQF_SHARED | IRQF_DISABLED,
+-			"Ethernet Underflow", dev)) {
++	ret = request_irq(lp->und_irq, &korina_und_interrupt,
++			IRQF_SHARED | IRQF_DISABLED, "Ethernet Underflow", dev);
++	if (ret < 0)
+ 		printk(KERN_ERR DRV_NAME "%s: unable to get UND IRQ %d\n",
+ 		    dev->name, lp->und_irq);
+-		ret = -ENXIO;
+-		goto err_und_irq;
++		goto err_free_out_irq_3;
+ 	}
++out:
++	return ret;
+ 
+-err_und_irq:
++err_free_ovr_irq_3:
+ 	free_irq(lp->ovr_irq, dev);
+-err_ovr_irq:
++err_free_tx_irq_2:
+ 	free_irq(lp->tx_irq, dev);
+-err_tx_irq:
++err_free_rx_irq_1:
+ 	free_irq(lp->rx_irq, dev);
+-err_rx_irq:
+-
+-	return ret;
++err_release_0:
++	// Help me, I'm leaking memory allocated in korina_init().
++	goto out;
+ }
+ 
+ static int korina_close(struct net_device *dev)
 
-#!/usr/bin/env python
-"""\
-Description: simple multicast server/client test
 
-Usage: %(appname)s [-hs][-m ip][-p port]
-       -h       this text
-       -s       run as server [default: run as client]
-       -m ip    multicast address [default: %(mcip)s]
-       -p port  udp port [default: %(port)s]
-"""
-import os
-import sys
-import time
-import socket
-import struct
-import getopt
+8. korinal_close() leaks the memory allocated in korina_init().
 
-class gpar:
-    """ central parameter class """
-    # internal
-    appdir, appname = os.path.split(sys.argv[0])
-    if appdir == '.':
-        appdir = os.getcwd()
-    mcip = '232.1.1.1'
-    port = 12345
+9. The void * casts in korina_remove() are useless.
 
-def out(arg):
-    err(arg, sys.stdout)
+10. The casts from void * to struct net_device * are not needed in 
+    korina_tx_dma_interrupt, korina_und_interrupt and korina_ovr_interrupt
+    either.
 
-def err(arg, ch = sys.stderr):
-    if arg:
-        ch.write(arg)
-        if arg[-1] != '\n':
-            ch.write('\n')
-    ch.flush()
+11. Same thing as 10 with platform_data and (struct korina_device *) in
+    korina_probe. You could use platform_get_drvdata btw.
 
-def exit(ret = 0, msg = None, usage = False):
-    if msg:
-        err('%s: %s' % (gpar.appname, msg))
-    if usage:
-        err(__doc__ % (gpar.__dict__))
-    sys.exit(ret)
+12. I am not sure that the unbalanced use of disable_irq() in korina_close()
+    is really polite when one of the irq is shared.
 
-def server():
-    # enable multicast loopback for local clients
-    s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
-    # set multicast ttl
-    s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
-    # todo: select the correct iface and check if it is mc capable
-    seq = 0
-    while True:
-        pkt = '%s: %s' % (seq, time.asctime())
-        seq += 1
-        s.sendto(pkt, (gpar.mcip, gpar.port))
-        out('server: %s [%s] send' % (pkt, len(pkt)))
-        time.sleep(1)
+13. Add a "FIXME: check korina_restart returned status code" somewhere.
 
-def client():
-    s.bind((gpar.mcip, gpar.port))
-    # join the broadcast group
-    ip_mreq = struct.pack('4sl', socket.inet_aton(gpar.mcip), socket.INADDR_ANY)
-    s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, ip_mreq)
-    while True:
-        pkt, addr = s.recvfrom(1500)
-        out('client: %s [%s] received from %s' % (pkt, len(pkt), addr[0]))
-    # leave the broadcast group (paranoiac..)
-    s.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, ip_mreq)
+14. Remove kfree(lp) and kfree(bif->dev) from korina_remove(). free_netdev()
+    will clean the allocated device.
 
-if __name__ == '__main__':
-    try:
-        optlist, args = getopt.getopt(sys.argv[1:], 'hsm:p:')
-    except getopt.error, msg:
-        exit(1, msg, True)
+15. Nit: there are a few EOL tabs and tabs after space.
 
-    run = client
-    for opt, par in optlist:
-        if opt == '-h':
-            exit(0, usage = True)
-        elif opt == '-s':
-            run = server
-        elif opt == '-m':
-            gpar.mcip = par
-        elif opt == '-p':
-            try:
-                gpar.port = int(par)
-            except ValueError:
-                exit(1, 'option -p requires numeric argument')
-    
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    # probably we want to reuse the same address
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-    try:
-        run()
-    except KeyboardInterrupt, e:
-        exit(0)
-
---Boundary-00=_xFv3HUmJGbRIZik--
+-- 
+Ueimor
