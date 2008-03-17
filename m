@@ -1,176 +1,85 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 6/8] e1000e: remove irq_sem
-Date: Mon, 17 Mar 2008 09:30:06 -0700
-Message-ID: <20080317163006.4861.19836.stgit@localhost.localdomain>
-References: <20080317162939.4861.91040.stgit@localhost.localdomain>
+From: Phil Oester <kernel@linuxace.com>
+Subject: 2.6.25-rc: Null dereference in ip_defrag
+Date: Mon, 17 Mar 2008 10:00:08 -0700
+Message-ID: <20080317170008.GA30338@linuxace.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: jeff@garzik.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20080317162939.4861.91040.stgit@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: xemul@openvz.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from adsl-67-120-171-161.dsl.lsan03.pacbell.net ([67.120.171.161]:42961
+	"HELO linuxace.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752350AbYCQRAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2008 13:00:10 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Been seeing occasional panics in my testing of 2.6.25-rc in ip_defrag.
+Offending line in ip_defrag is here:
 
-irq_sem can safely be removed by auditing all irq.*able sites to
-make sure that interrupts don't get enabled unexpectedly when the
-interface is down.
+	net = skb->dev->nd_net
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+where dev is NULL.  Bisected the problem down to commit
+ac18e7509e7df327e30d6e073a787d922eaf211d ([NETNS][FRAGS]: Make the
+inet_frag_queue lookup work in namespaces).  
 
- drivers/net/e1000e/e1000.h  |    3 ---
- drivers/net/e1000e/netdev.c |   37 ++++++++++++++-----------------------
- 2 files changed, 14 insertions(+), 26 deletions(-)
+To prevent panic, I added the below patch (whitespace damaged):
 
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index 6e0c6ed..4bf0c6c 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -167,9 +167,6 @@ struct e1000_adapter {
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -568,6 +568,14 @@ int ip_defrag(struct sk_buff *skb, u32 user)
  
- 	spinlock_t tx_queue_lock; /* prevent concurrent tail updates */
+        IP_INC_STATS_BH(IPSTATS_MIB_REASMREQDS);
  
--	/* this is still needed for 82571 and above */
--	atomic_t irq_sem;
--
- 	/* track device up/down/testing state */
- 	unsigned long state;
- 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index fc5c63f..f501dd5 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -836,9 +836,7 @@ static irqreturn_t e1000_intr_msi(int irq, void *data)
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 icr = er32(ICR);
- 
--	/* read ICR disables interrupts using IAM, so keep up with our
--	 * enable/disable accounting */
--	atomic_inc(&adapter->irq_sem);
-+	/* read ICR disables interrupts using IAM */
- 
- 	if (icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC)) {
- 		hw->mac.get_link_status = 1;
-@@ -868,8 +866,6 @@ static irqreturn_t e1000_intr_msi(int irq, void *data)
- 		adapter->total_rx_bytes = 0;
- 		adapter->total_rx_packets = 0;
- 		__netif_rx_schedule(netdev, &adapter->napi);
--	} else {
--		atomic_dec(&adapter->irq_sem);
- 	}
- 
- 	return IRQ_HANDLED;
-@@ -895,11 +891,8 @@ static irqreturn_t e1000_intr(int irq, void *data)
- 	if (!(icr & E1000_ICR_INT_ASSERTED))
- 		return IRQ_NONE;
- 
--	/* Interrupt Auto-Mask...upon reading ICR,
--	 * interrupts are masked.  No need for the
--	 * IMC write, but it does mean we should
--	 * account for it ASAP. */
--	atomic_inc(&adapter->irq_sem);
-+	/* Interrupt Auto-Mask...upon reading ICR, interrupts are masked.  No
-+	 * need for the IMC write */
- 
- 	if (icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC)) {
- 		hw->mac.get_link_status = 1;
-@@ -931,8 +924,6 @@ static irqreturn_t e1000_intr(int irq, void *data)
- 		adapter->total_rx_bytes = 0;
- 		adapter->total_rx_packets = 0;
- 		__netif_rx_schedule(netdev, &adapter->napi);
--	} else {
--		atomic_dec(&adapter->irq_sem);
- 	}
- 
- 	return IRQ_HANDLED;
-@@ -983,7 +974,6 @@ static void e1000_irq_disable(struct e1000_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 
--	atomic_inc(&adapter->irq_sem);
- 	ew32(IMC, ~0);
- 	e1e_flush();
- 	synchronize_irq(adapter->pdev->irq);
-@@ -996,10 +986,8 @@ static void e1000_irq_enable(struct e1000_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 
--	if (atomic_dec_and_test(&adapter->irq_sem)) {
--		ew32(IMS, IMS_ENABLE_MASK);
--		e1e_flush();
--	}
-+	ew32(IMS, IMS_ENABLE_MASK);
-+	e1e_flush();
- }
- 
- /**
-@@ -1427,9 +1415,12 @@ static void e1000_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 vfta, index;
- 
--	e1000_irq_disable(adapter);
-+	if (!test_bit(__E1000_DOWN, &adapter->state))
-+		e1000_irq_disable(adapter);
- 	vlan_group_set_device(adapter->vlgrp, vid, NULL);
--	e1000_irq_enable(adapter);
++       if (!skb->dev) {
++               printk("ip_defrag_bug: %u.%u.%u.%u -> %u.%u.%u.%u\n",
++                      NIPQUAD(ip_hdr(skb)->saddr), NIPQUAD(ip_hdr(skb)->daddr));
++               WARN_ON(1);
++               kfree_skb(skb);
++               return -ENOMEM;
++       }
 +
-+	if (!test_bit(__E1000_DOWN, &adapter->state))
-+		e1000_irq_enable(adapter);
- 
- 	if ((adapter->hw.mng_cookie.status &
- 	     E1000_MNG_DHCP_COOKIE_STATUS_VLAN) &&
-@@ -1480,7 +1471,8 @@ static void e1000_vlan_rx_register(struct net_device *netdev,
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 ctrl, rctl;
- 
--	e1000_irq_disable(adapter);
-+	if (!test_bit(__E1000_DOWN, &adapter->state))
-+		e1000_irq_disable(adapter);
- 	adapter->vlgrp = grp;
- 
- 	if (grp) {
-@@ -1517,7 +1509,8 @@ static void e1000_vlan_rx_register(struct net_device *netdev,
- 		}
- 	}
- 
--	e1000_irq_enable(adapter);
-+	if (!test_bit(__E1000_DOWN, &adapter->state))
-+		e1000_irq_enable(adapter);
- }
- 
- static void e1000_restore_vlan(struct e1000_adapter *adapter)
-@@ -2167,7 +2160,6 @@ void e1000e_down(struct e1000_adapter *adapter)
- 	msleep(10);
- 
- 	napi_disable(&adapter->napi);
--	atomic_set(&adapter->irq_sem, 0);
- 	e1000_irq_disable(adapter);
- 
- 	del_timer_sync(&adapter->watchdog_timer);
-@@ -2227,7 +2219,6 @@ static int __devinit e1000_sw_init(struct e1000_adapter *adapter)
- 	spin_lock_init(&adapter->tx_queue_lock);
- 
- 	/* Explicitly disable IRQ since the NIC can be in any state. */
--	atomic_set(&adapter->irq_sem, 0);
- 	e1000_irq_disable(adapter);
- 
- 	spin_lock_init(&adapter->stats_lock);
+
+And the packets causing the problem are all multicast fragments being
+generated by Quagga's OSPFD (see debug output below).  Tried manually generating
+some multicast fragments with iperf, but couldn't reproduce it.  
+
+Any ideas?
+
+Phil
 
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2008.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+ ip_defrag_bug: 10.253.13.122 -> 224.0.0.5
+ ------------[ cut here ]------------
+ WARNING: at net/ipv4/ip_fragment.c:574 ip_defrag+0x9d/0xa0d()
+ Pid: 1662, comm: ospfd Not tainted 2.6.25-rc4 #4
+ 
+ Call Trace:
+  [<ffffffff8022742a>] warn_on_slowpath+0x53/0x66
+  [<ffffffff80228230>] ? printk+0x67/0x69
+  [<ffffffff803b36f5>] ? skb_release_data+0xa8/0xad
+  [<ffffffff803b35b3>] ? __kfree_skb+0x74/0x78
+  [<ffffffff803d77c7>] ip_defrag+0x9d/0xa0d
+  [<ffffffff803b15c6>] ? sock_def_write_space+0x18/0x89
+  [<ffffffff80404324>] ipv4_conntrack_defrag+0x67/0x96
+  [<ffffffff803caa7b>] nf_iterate+0x41/0x81
+  [<ffffffff803f29b0>] ? dst_output+0x0/0x10
+  [<ffffffff803cab19>] nf_hook_slow+0x5e/0xbe
+  [<ffffffff803f29b0>] ? dst_output+0x0/0x10
+  [<ffffffff803f3b6e>] raw_sendmsg+0x586/0x758
+  [<ffffffff803fb169>] inet_sendmsg+0x46/0x53
+  [<ffffffff803adef9>] sock_sendmsg+0xdf/0xf8
+  [<ffffffff80421cd1>] ? _spin_lock_bh+0x11/0x29
+  [<ffffffff803afbfc>] ? release_sock+0x9b/0xa3
+  [<ffffffff80238b37>] ? autoremove_wake_function+0x0/0x38
+  [<ffffffff803ad359>] ? move_addr_to_kernel+0x25/0x35
+  [<ffffffff803c4c6f>] ? verify_compat_iovec+0x60/0x9e
+  [<ffffffff803ae0f3>] sys_sendmsg+0x1e1/0x253
+  [<ffffffff802332ee>] ? getrusage+0x1c9/0x1e6
+  [<ffffffff804206d4>] ? thread_return+0x3d/0x9c
+  [<ffffffff803c45d0>] compat_sys_sendmsg+0xf/0x11
+  [<ffffffff803c4e82>] compat_sys_socketcall+0x13f/0x158
+  [<ffffffff8021cc12>] sysenter_do_call+0x1b/0x66
+ 
+ ---[ end trace 48218d00aa061d3c ]---
