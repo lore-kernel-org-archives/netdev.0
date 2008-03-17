@@ -1,34 +1,47 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-03-13
-Date: Mon, 17 Mar 2008 12:13:31 -0700 (PDT)
-Message-ID: <20080317.121331.170099564.davem@davemloft.net>
-References: <20080314010504.GA31964@tuxdriver.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH 0/7][MV643XX_ETH] various cleanups
+Date: Mon, 17 Mar 2008 20:15:46 +0100
+Message-ID: <20080317191546.GA17828@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080314010504.GA31964-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Dale Farnsworth <dale@farnsworth.org>,
+	Nicolas Pitre <nico@marvell.com>,
+	Tzachi Perelstein <tzachi@marvell.com>,
+	Saeed Bishara <saeed@marvell.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alephnull.demon.nl ([83.160.184.112]:37913 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751704AbYCQTPs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2008 15:15:48 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Thu, 13 Mar 2008 21:05:04 -0400
+Hi all,
 
-> The following changes since commit f1dd9c379cac7d5a76259e7dffcd5f8edc697d17:
->   Zhang Yanmin (1):
->         [NET]: Fix tbench regression in 2.6.25-rc1
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+This patch series performs various cleanups of mv643xx_eth, and moves
+it into the direction of being able to be instantiated multiple times
+-- which is currently not possible due to the driver using static
+variables, identifying ports by their port index within the single
+supported instance[*] instead of a pointer to a describing structure,
+and such.
 
-Pulled and pushed back out to net-2.6
+The goal of multiple instantiation isn't achieved yet by this patch
+set, since it requires some changes in how mv643xx_eth platform
+devices are instantiated which in turn requires some changes in
+arch/{ppc,powerpc} which haven't been fully sorted out and agreed
+upon yet -- but this patch set is a step in the general direction,
+and the maintainer has informally ACKed these patches previously
+(in private mail), so I'm seeking wider feedback on them now.
 
-I'll try to get to some merging and then pulling in your
-2.6.26 bits
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Comments?
+
+
+thanks,
+Lennert
+
+[*] A single mv643xx_eth instance can support up to 3 ethernet
+    ports, but multiple mv643xx_eth Si blocks can exist within a
+    single chip, requiring instantiation of multiple mv643xx_eth
+    instances.
