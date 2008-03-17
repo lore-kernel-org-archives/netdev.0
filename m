@@ -1,96 +1,83 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 10273] New: Sun GEM (PCI) - network device
- doesn't work
-Date: Mon, 17 Mar 2008 14:36:24 -0700
-Message-ID: <20080317143624.da313311.akpm@linux-foundation.org>
-References: <bug-10273-10286@http.bugzilla.kernel.org/>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH-2.6.26] rndis_host: fix oops when query for OID_GEN_PHYSICAL_MEDIUM fails
+Date: Mon, 17 Mar 2008 13:42:11 -0800
+Message-ID: <200803171442.11529.david-b@pacbell.net>
+References: <20080317213301.15070.30388.stgit@fate.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, seraph@xs4all.nl
-To: netdev@vger.kernel.org
+Cc: dmonakhov@openvz.org, netdev@vger.kernel.org
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44578 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752944AbYCQVg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2008 17:36:27 -0400
-In-Reply-To: <bug-10273-10286@http.bugzilla.kernel.org/>
+Received: from smtp108.sbc.mail.mud.yahoo.com ([68.142.198.207]:22536 "HELO
+	smtp108.sbc.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752835AbYCQVm0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2008 17:42:26 -0400
+In-Reply-To: <20080317213301.15070.30388.stgit@fate.lan>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 Mar 2008 14:25:50 -0700 (PDT)
-bugme-daemon@bugzilla.kernel.org wrote:
+On Monday 17 March 2008, Jussi Kivilinna wrote:
+> From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+> 
+> When query for OID_GEN_PHYSICAL_MEDIUM fails, uninitialized pointer
+> 'phym' is being accessed in generic_rndis_bind(), resulting OOPS.
+> Patch fixes phym to be initialized and setup correctly when
+> rndis_query() for physical medium fails.
+> 
+> Bug was introduced by following commit:
+> commit 039ee17d1baabaa21783a0d5ab3e8c6d8c794bdf
+> Author: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+> Date:   Sun Jan 27 23:34:33 2008 +0200
+> 
+> Reported-by: Dmitri Monakhov <dmonakhov@openvz.org>
+> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=10273
-> 
->            Summary: Sun GEM (PCI) - network device doesn't work
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: 2.6.23
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: jgarzik@pobox.com
->         ReportedBy: seraph@xs4all.nl
-> 
-> 
-> Latest working kernel version: 2.6.22.9
-> Earliest failing kernel version: 2.6.23
+Acked-by: David Brownell <dbrownell@users.sourceforge.net>
 
-A regression in 2.6.23.
+... this should be for 2.6.25 though, yes?  Since that
+change was introduced after 2.6.24, and this would
+otherwise cause a regression ...
 
-> Distribution: Gentoo
-> Hardware Environment: Sparc64 (Sun Blade 100)
-> Software Environment:
-> Problem Description: 
+
+> ---
 > 
-> I have two nearly identical Sun Blade 100 systems. Up to and including kernel
-> version 2.6.22.9, both were working fine. However, with the 2.6.23- and 2.6.24-
-> series I cannot get the Sun GEM network device on one of the two Blades to
-> work. The other one strangely does not have this problem at all.
+>  drivers/net/usb/rndis_host.c |    9 ++++++---
+>  1 files changed, 6 insertions(+), 3 deletions(-)
 > 
-> The network device detects fine and the sungem module loads without problems.
-> Mii-diag reports that a 100FDX connection exists and there is link beat.
-> However, packets are neither being sent nor received, all counters in ifconfig
-> remain at zero.
+> diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+> index a613247..1b810ab 100644
+> --- a/drivers/net/usb/rndis_host.c
+> +++ b/drivers/net/usb/rndis_host.c
+> @@ -287,7 +287,7 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
+>  		struct rndis_set_c	*set_c;
+>  		struct rndis_halt	*halt;
+>  	} u;
+> -	u32			tmp, *phym;
+> +	u32			tmp, phym_unspec, *phym;
+>  	int			reply_len;
+>  	unsigned char		*bp;
+>  
+> @@ -359,12 +359,15 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
+>  		goto halt_fail_and_release;
+>  
+>  	/* Check physical medium */
+> +	phym = NULL;
+>  	reply_len = sizeof *phym;
+>  	retval = rndis_query(dev, intf, u.buf, OID_GEN_PHYSICAL_MEDIUM,
+>  			0, (void **) &phym, &reply_len);
+> -	if (retval != 0)
+> +	if (retval != 0 || !phym) {
+>  		/* OID is optional so don't fail here. */
+> -		*phym = RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED;
+> +		phym_unspec = RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED;
+> +		phym = &phym_unspec;
+> +	}
+>  	if ((flags & FLAG_RNDIS_PHYM_WIRELESS) &&
+>  			*phym != RNDIS_PHYSICAL_MEDIUM_WIRELESS_LAN) {
+>  		if (netif_msg_probe(dev))
 > 
-> Attempts to use the network eventually result in the following message in
-> dmesg:
-> 
-> eth0: Sun GEM (PCI) 10/100/1000BaseT Ethernet 00:03:ba:08:61:7c
-> eth0: Found Generic MII PHY
-> eth0: Link is up at 100 Mbps, full-duplex.
-> eth0: Link is up at 100 Mbps, full-duplex.
-> eth0: Pause is disabled
-> NETDEV WATCHDOG: eth0: transmit timed out
-> eth0: transmit timed out, resetting
-> eth0: TX_STATE[003ffc05:00000001:0000001f]
-> eth0: RX_STATE[0100c805:00000001:00000021]
-> eth0: Link is up at 100 Mbps, full-duplex.
-> eth0: Pause is disabled
-> 
-> 
-> The difference between the non-working system and the working one are as
-> follows:
-> - The non-working system has more memory (1G opposed to 512M)
-> - A dual SCSI controller is present in this system. Connected to it are two
-> external 72G disks and an Exabyte Mammoth tapedrive.
-> 01:02.0 SCSI storage controller: LSI Logic / Symbios Logic 53c875 (rev 14)
-> 01:02.1 SCSI storage controller: LSI Logic / Symbios Logic 53c875 (rev 14)
-> - The following kernel modules are loaded on this system and not on the working
-> one: sym53c8xx, sd_mod, st, nfsd, md_mod and raid1 plus of course their
-> respective dependencies.
-> 
-> The problem is exactly the same with both Gentoo-patched kernels and vanilla
-> kernels, that's why I am reporting it here.
-> 
-> 
-> Steps to reproduce:
-> 
-> Just boot an affected kernel and try to use eth0 in any way.
-> 
+
 
