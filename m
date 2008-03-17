@@ -1,23 +1,23 @@
 From: PROMOTION OFFICE <urq@bellnet.ca>
 Subject: CONGRATULATIONS!!! 2008
-Date: Mon, 17 Mar 2008 5:39:07 -0400
-Message-ID: <6k1gas$kv807@toip40-bus.srvr.bell.ca>
+Date: Mon, 17 Mar 2008 5:40:18 -0400
+Message-ID: <6k1gas$kv833@toip40-bus.srvr.bell.ca>
 Reply-To: uk_lottery.agent7@yahoo.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: <info_@lotteryboard.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tomts37-srv.bellnexxia.net ([209.226.175.94]:39723 "EHLO
+Received: from tomts37.bellnexxia.net ([209.226.175.94]:45119 "EHLO
 	tomts37-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756385AbYCQJjJ convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1751941AbYCQKSU convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2008 05:39:09 -0400
+	Mon, 17 Mar 2008 06:18:20 -0400
 Received: from toip40-bus.srvr.bell.ca ([67.69.240.41])
-          by tomts37-srv.bellnexxia.net
+          by tomts27-srv.bellnexxia.net
           (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
-          id <20080317093907.DBXI1740.tomts37-srv.bellnexxia.net@toip40-bus.srvr.bell.ca>
-          for <netdev@vger.kernel.org>; Mon, 17 Mar 2008 05:39:07 -0400
+          id <20080317094018.TZEX1705.tomts27-srv.bellnexxia.net@toip40-bus.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Mon, 17 Mar 2008 05:40:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
