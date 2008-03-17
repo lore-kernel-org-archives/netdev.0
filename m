@@ -1,7 +1,7 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 3/5][MV643XX_ETH] configurable t_clk
-Date: Mon, 17 Mar 2008 21:05:39 +0100
-Message-ID: <20080317200539.GD18726@xi.wantstofly.org>
+Subject: [PATCH 2/5][MV643XX_ETH] mbus decode window support
+Date: Mon, 17 Mar 2008 21:05:25 +0100
+Message-ID: <20080317200525.GC18726@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dale Farnsworth <dale@farnsworth.org>,
@@ -10,113 +10,132 @@ Cc: Dale Farnsworth <dale@farnsworth.org>,
 	Saeed Bishara <saeed@marvell.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:47075 "EHLO
+Received: from alephnull.demon.nl ([83.160.184.112]:47071 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758675AbYCQUFk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2008 16:05:40 -0400
+	with ESMTP id S1758624AbYCQUF1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2008 16:05:27 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make t_clk configurable via platform device data (with the current
-hardcoded value, 133 MHz, being the default), as it varies across
-different chip families.
+Make it possible to pass mbus_dram_target_info to the mv643xx_eth
+driver via the platform data, and make the mv643xx_eth driver
+program the window registers based on this data if it is passed in.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+Reviewed-by: Tzachi Perelstein <tzachi@marvell.com>
+Acked-by: Russell King <rmk+kernel@arm.linux.org.uk>
 
 Index: linux-2.6.25-rc6/drivers/net/mv643xx_eth.c
 ===================================================================
 --- linux-2.6.25-rc6.orig/drivers/net/mv643xx_eth.c
 +++ linux-2.6.25-rc6/drivers/net/mv643xx_eth.c
-@@ -519,6 +519,8 @@ struct mv643xx_shared_private {
- 	spinlock_t phy_lock;
+@@ -91,6 +91,11 @@
+  */
+ #define PHY_ADDR_REG				0x0000
+ #define SMI_REG					0x0004
++#define WINDOW_BASE(i)				(0x0200 + ((i) << 3))
++#define WINDOW_SIZE(i)				(0x0204 + ((i) << 3))
++#define WINDOW_REMAP_HIGH(i)			(0x0280 + ((i) << 2))
++#define WINDOW_BAR_ENABLE			0x0290
++#define WINDOW_PROTECT(i)			(0x0294 + ((i) << 4))
  
- 	u32 win_protect;
+ /*
+  * Per-port registers.
+@@ -512,6 +517,8 @@ struct mv643xx_shared_private {
+ 
+ 	/* used to protect SMI_REG, which is shared across ports */
+ 	spinlock_t phy_lock;
 +
-+	unsigned int t_clk;
++	u32 win_protect;
  };
  
  struct mv643xx_private {
-@@ -1129,7 +1131,6 @@ static irqreturn_t mv643xx_eth_int_handl
-  *
-  * INPUT:
-  *	struct mv643xx_private *mp	Ethernet port
-- *	unsigned int t_clk		t_clk of the MV-643xx chip in HZ units
-  *	unsigned int delay		Delay in usec
-  *
-  * OUTPUT:
-@@ -1140,10 +1141,10 @@ static irqreturn_t mv643xx_eth_int_handl
-  *
-  */
- static unsigned int eth_port_set_rx_coal(struct mv643xx_private *mp,
--					unsigned int t_clk, unsigned int delay)
-+					unsigned int delay)
- {
- 	unsigned int port_num = mp->port_num;
--	unsigned int coal = ((t_clk / 1000000) * delay) / 64;
-+	unsigned int coal = ((mp->shared->t_clk / 1000000) * delay) / 64;
+@@ -1888,6 +1895,9 @@ static int mv643xx_eth_probe(struct plat
+ 	mp->shared = platform_get_drvdata(pd->shared);
+ 	port_num = mp->port_num = pd->port_number;
  
- 	/* Set RX Coalescing mechanism */
- 	wrl(mp, SDMA_CONFIG_REG(port_num),
-@@ -1168,7 +1169,6 @@ static unsigned int eth_port_set_rx_coal
-  *
-  * INPUT:
-  *	struct mv643xx_private *mp	Ethernet port
-- *	unsigned int t_clk		t_clk of the MV-643xx chip in HZ units
-  *	unsigned int delay		Delay in uSeconds
-  *
-  * OUTPUT:
-@@ -1179,9 +1179,9 @@ static unsigned int eth_port_set_rx_coal
-  *
-  */
- static unsigned int eth_port_set_tx_coal(struct mv643xx_private *mp,
--					unsigned int t_clk, unsigned int delay)
-+					unsigned int delay)
- {
--	unsigned int coal = ((t_clk / 1000000) * delay) / 64;
-+	unsigned int coal = ((mp->shared->t_clk / 1000000) * delay) / 64;
++	if (mp->shared->win_protect)
++		wrl(mp, WINDOW_PROTECT(port_num), mp->shared->win_protect);
++
+ 	/* set default config values */
+ 	eth_port_uc_addr_get(mp, dev->dev_addr);
+ 	mp->rx_ring_size = PORT_DEFAULT_RECEIVE_QUEUE_SIZE;
+@@ -1992,6 +2002,40 @@ static int mv643xx_eth_remove(struct pla
+ 	return 0;
+ }
  
- 	/* Set TX Coalescing mechanism */
- 	wrl(mp, TX_FIFO_URGENT_THRESHOLD_REG(mp->port_num), coal << 4);
-@@ -1423,11 +1423,11 @@ static int mv643xx_eth_open(struct net_d
- 
- #ifdef MV643XX_COAL
- 	mp->rx_int_coal =
--		eth_port_set_rx_coal(mp, 133000000, MV643XX_RX_COAL);
-+		eth_port_set_rx_coal(mp, MV643XX_RX_COAL);
- #endif
- 
- 	mp->tx_int_coal =
--		eth_port_set_tx_coal(mp, 133000000, MV643XX_TX_COAL);
-+		eth_port_set_tx_coal(mp, MV643XX_TX_COAL);
- 
- 	/* Unmask phy and link status changes interrupts */
- 	wrl(mp, INTERRUPT_EXTEND_MASK_REG(port_num), ETH_INT_UNMASK_ALL_EXT);
-@@ -2039,6 +2039,7 @@ static void mv643xx_eth_conf_mbus_window
++static void mv643xx_eth_conf_mbus_windows(struct mv643xx_shared_private *msp,
++					  struct mbus_dram_target_info *dram)
++{
++	void __iomem *base = msp->eth_base;
++	u32 win_enable;
++	u32 win_protect;
++	int i;
++
++	for (i = 0; i < 6; i++) {
++		writel(0, base + WINDOW_BASE(i));
++		writel(0, base + WINDOW_SIZE(i));
++		if (i < 4)
++			writel(0, base + WINDOW_REMAP_HIGH(i));
++	}
++
++	win_enable = 0x3f;
++	win_protect = 0;
++
++	for (i = 0; i < dram->num_cs; i++) {
++		struct mbus_dram_window *cs = dram->cs + i;
++
++		writel((cs->base & 0xffff0000) |
++			(cs->mbus_attr << 8) |
++			dram->mbus_dram_target_id, base + WINDOW_BASE(i));
++		writel((cs->size - 1) & 0xffff0000, base + WINDOW_SIZE(i));
++
++		win_enable &= ~(1 << i);
++		win_protect |= 3 << (2 * i);
++	}
++
++	writel(win_enable, base + WINDOW_BAR_ENABLE);
++	msp->win_protect = win_protect;
++}
++
  static int mv643xx_eth_shared_probe(struct platform_device *pdev)
  {
  	static int mv643xx_version_printed = 0;
-+	struct mv643xx_eth_shared_platform_data *pd = pdev->dev.platform_data;
- 	struct mv643xx_shared_private *msp;
- 	struct resource *res;
- 	int ret;
-@@ -2062,6 +2063,7 @@ static int mv643xx_eth_shared_probe(stru
- 		goto out_free;
- 
- 	spin_lock_init(&msp->phy_lock);
-+	msp->t_clk = (pd != NULL) ? pd->t_clk : 133000000;
+@@ -2021,6 +2065,12 @@ static int mv643xx_eth_shared_probe(stru
  
  	platform_set_drvdata(pdev, msp);
  
++	/*
++	 * (Re-)program MBUS remapping windows if we are asked to.
++	 */
++	if (pd != NULL && pd->dram != NULL)
++		mv643xx_eth_conf_mbus_windows(msp, pd->dram);
++
+ 	return 0;
+ 
+ out_free:
 Index: linux-2.6.25-rc6/include/linux/mv643xx_eth.h
 ===================================================================
 --- linux-2.6.25-rc6.orig/include/linux/mv643xx_eth.h
 +++ linux-2.6.25-rc6/include/linux/mv643xx_eth.h
-@@ -17,6 +17,7 @@
+@@ -5,6 +5,8 @@
+ #ifndef __LINUX_MV643XX_ETH_H
+ #define __LINUX_MV643XX_ETH_H
  
- struct mv643xx_eth_shared_platform_data {
- 	struct mbus_dram_target_info	*dram;
-+	unsigned int	t_clk;
- };
++#include <linux/mbus.h>
++
+ #define MV643XX_ETH_SHARED_NAME		"mv643xx_eth_shared"
+ #define MV643XX_ETH_NAME		"mv643xx_eth"
+ #define MV643XX_ETH_SHARED_REGS		0x2000
+@@ -13,6 +15,10 @@
+ #define MV643XX_ETH_SIZE_REG_4		0x2224
+ #define MV643XX_ETH_BASE_ADDR_ENABLE_REG	0x2290
  
++struct mv643xx_eth_shared_platform_data {
++	struct mbus_dram_target_info	*dram;
++};
++
  struct mv643xx_eth_platform_data {
+ 	struct platform_device	*shared;
+ 	int		port_number;
