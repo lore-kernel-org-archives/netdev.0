@@ -1,31 +1,53 @@
-From: PROMOTION OFFICE <urq@bellnet.ca>
-Subject: CONGRATULATIONS!!! 2008
-Date: Mon, 17 Mar 2008 5:40:18 -0400
-Message-ID: <6k1gas$kv833@toip40-bus.srvr.bell.ca>
-Reply-To: uk_lottery.agent7@yahoo.com
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [2.6.25-rc5-mm1] regression: cannot run Postfix sendmail command
+ as non-root
+Date: Mon, 17 Mar 2008 11:44:11 +0100
+Message-ID: <47DE4B7B.9040504@fr.ibm.com>
+References: <20080311011434.ad8c8d7d.akpm@linux-foundation.org> <47D98510.60801@imap.cc> <47D9A8DF.30809@fr.ibm.com> <47D9C1F0.6050803@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info_@lotteryboard.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, pekkas@netcore.fi,
+	yoshfuji@linux-ipv6.org
+To: Tilman Schmidt <tilman@imap.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tomts37.bellnexxia.net ([209.226.175.94]:45119 "EHLO
-	tomts37-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751941AbYCQKSU convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2008 06:18:20 -0400
-Received: from toip40-bus.srvr.bell.ca ([67.69.240.41])
-          by tomts27-srv.bellnexxia.net
-          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
-          id <20080317094018.TZEX1705.tomts27-srv.bellnexxia.net@toip40-bus.srvr.bell.ca>
-          for <netdev@vger.kernel.org>; Mon, 17 Mar 2008 05:40:18 -0400
+Received: from mtagate2.uk.ibm.com ([195.212.29.135]:31624 "EHLO
+	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751930AbYCQKq7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2008 06:46:59 -0400
+In-Reply-To: <47D9C1F0.6050803@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You Won =A3891,934.00 GBP,On our monthly Program,
-you are to contactMr.Brain Johnson,for your claims
-Email: uk_lottery.agent7@yahoo.com
+Tilman Schmidt wrote:
+> Am 13.03.2008 23:21 schrieb Daniel Lezcano:
+>> Tilman Schmidt wrote:
+> 
+>>> ts@xenon:~/kernel> /usr/sbin/sendmail -t < patch-usb-reduce-syslog-clutter-v3
+>>> postdrop: warning: can't open /proc/net/if_inet6 (Permission denied) - skipping IPv6 configuration
+>>> postdrop: fatal: parameter inet_interfaces: no local interface found for ::1
+>>> sendmail: warning: command "/usr/sbin/postdrop -r" exited with status 1
+>>> sendmail: fatal: ts(1000): unable to execute /usr/sbin/postdrop -r: Success
+>>> ts@xenon:~/kernel>
+>>>
+>>> and unsurprisingly, the mail is not sent. If I do the same as root,
+>>> everything works as usual, there is no console output from the
+>>> sendmail command, and the mail goes out as it should. All other
+>>> networking applications appear to be running normally.
+> 
+>> Is it possible to have your config file used to compile the kernel ?
+> 
+> Sure. You can find it at
+> http://gollum.phnxsoft.com/~ts/linux/config-2.6.25-rc5-mm1
 
-Claims Requirements:
+Thanks,
 
-1.Full name:2.Home Address:3.Age:4.Sex:5.Marital
-Status:6.PhoneNumber:7.Nationality8.Country Of Residence9:Occupation.
+I was not able to reproduce it, but I think I didn't configured postfix 
+as I should had. What version do you use ?
+If I may ask you, can you put your postfix configuration file and a 
+strace -f of your failing command ? on your website, that will help me a 
+lot to investigate.
+
+   -- Daniel
