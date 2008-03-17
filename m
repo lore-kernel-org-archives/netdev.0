@@ -1,35 +1,36 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] igb: Correctly get protocol information
-Date: Mon, 17 Mar 2008 08:13:34 -0400
-Message-ID: <47DE606E.7010506@garzik.org>
-References: <20080307183213.23174.76224.stgit@localhost.localdomain>
+Subject: Re: [IOC3] Fix section missmatch
+Date: Mon, 17 Mar 2008 08:13:27 -0400
+Message-ID: <47DE6067.6070500@garzik.org>
+References: <20080308165833.GA8625@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org
+To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52400 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:52392 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752395AbYCQMNg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2008 08:13:36 -0400
-In-Reply-To: <20080307183213.23174.76224.stgit@localhost.localdomain>
+	id S1752395AbYCQMNb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2008 08:13:31 -0400
+In-Reply-To: <20080308165833.GA8625@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Auke Kok wrote:
-> From: Mitch Williams <mitch.a.williams@intel.com>
+Ralf Baechle wrote:
+>   LD      drivers/net/built-in.o
+> WARNING: drivers/net/built-in.o(.text+0x3468): Section mismatch in reference fro
+> m the function ioc3_probe() to the function .devinit.text:ioc3_serial_probe()
+> The function ioc3_probe() references
+> the function __devinit ioc3_serial_probe().
+> This is often because ioc3_probe lacks a __devinit 
+> annotation or the annotation of ioc3_serial_probe is wrong.
 > 
-> We can't look at the socket to get protocol information. We should
-> instead look directly at the packet, and hope there are no IPv6
-> option headers.
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 > 
-> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 > ---
-> 
->  drivers/net/igb/igb_main.c |   21 +++++++++++++++++----
->  1 files changed, 17 insertions(+), 4 deletions(-)
+> Resend, this time with Jeff's address corrected.
 
 applied
 
