@@ -1,40 +1,75 @@
-From: Christian Borntraeger <borntraeger@de.ibm.com>
-Subject: Re: [PATCH] virtio_net/virtio_ring: fix race in enable_cb
-Date: Mon, 17 Mar 2008 13:45:02 +0100
-Message-ID: <200803171345.02110.borntraeger@de.ibm.com>
-References: <200803141417.05696.borntraeger@de.ibm.com> <200803170730.44218.borntraeger@de.ibm.com> <200803172310.52460.rusty@rustcorp.com.au>
+From: "Benjamin Thery" <ben.thery@gmail.com>
+Subject: Re: [2.6.25-rc5-mm1] regression: cannot run Postfix sendmail command as non-root
+Date: Mon, 17 Mar 2008 13:50:29 +0100
+Message-ID: <939d53060803170550r46a7e93ex31c166fff86bcf50@mail.gmail.com>
+References: <20080311011434.ad8c8d7d.akpm@linux-foundation.org>
+	 <47D98510.60801@imap.cc> <47D9A8DF.30809@fr.ibm.com>
+	 <47D9C1F0.6050803@imap.cc> <47DE4B7B.9040504@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:5803 "EHLO
-	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752395AbYCQMpF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2008 08:45:05 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id m2HCj4aw185642
-	for <netdev@vger.kernel.org>; Mon, 17 Mar 2008 12:45:04 GMT
-Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m2HCj3Dv1695878
-	for <netdev@vger.kernel.org>; Mon, 17 Mar 2008 13:45:03 +0100
-Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m2HCj3Bu015452
-	for <netdev@vger.kernel.org>; Mon, 17 Mar 2008 13:45:03 +0100
-In-Reply-To: <200803172310.52460.rusty@rustcorp.com.au>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Tilman Schmidt" <tilman@imap.cc>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David Miller" <davem@davemloft.net>, pekkas@netcore.fi,
+	yoshfuji@linux-ipv6.org
+To: "Daniel Lezcano" <dlezcano@fr.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754941AbYCQMuq@vger.kernel.org>
+In-Reply-To: <47DE4B7B.9040504@fr.ibm.com>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am Montag, 17. M=E4rz 2008 schrieb Rusty Russell:
-> > > Are you seeing the "Unlikely: restart svq failed" message in the =
-logs?=20
-[...]
-> Interesting you don't see this.  Or is it just on that load that you =
-don't=20
-> see it?
+I also tried to reproduce your problem with Postfix (on a Debian
+distro) but failed to
+obtain the error message.
 
-Dont know. I have never seen it under my test load.
+While googling for the error string, I found this link which report
+the same kind of
+error when Postfix is used with grsecurity (in 2006):
 
-Christian
+http://blog.jensthebrain.de/archives/2006/12/11/IPv6-Probleme-mit-Postfix-und-grsecurity
+
+I barely understand German so I'm not sure it is related to your problem.
+
+Benjamin
+
+
+On Mon, Mar 17, 2008 at 11:44 AM, Daniel Lezcano <dlezcano@fr.ibm.com> wrote:
+> Tilman Schmidt wrote:
+>  > Am 13.03.2008 23:21 schrieb Daniel Lezcano:
+>  >> Tilman Schmidt wrote:
+>  >
+>  >>> ts@xenon:~/kernel> /usr/sbin/sendmail -t < patch-usb-reduce-syslog-clutter-v3
+>  >>> postdrop: warning: can't open /proc/net/if_inet6 (Permission denied) - skipping IPv6 configuration
+>  >>> postdrop: fatal: parameter inet_interfaces: no local interface found for ::1
+>  >>> sendmail: warning: command "/usr/sbin/postdrop -r" exited with status 1
+>  >>> sendmail: fatal: ts(1000): unable to execute /usr/sbin/postdrop -r: Success
+>  >>> ts@xenon:~/kernel>
+>  >>>
+>  >>> and unsurprisingly, the mail is not sent. If I do the same as root,
+>  >>> everything works as usual, there is no console output from the
+>  >>> sendmail command, and the mail goes out as it should. All other
+>  >>> networking applications appear to be running normally.
+>  >
+>  >> Is it possible to have your config file used to compile the kernel ?
+>  >
+>  > Sure. You can find it at
+>  > http://gollum.phnxsoft.com/~ts/linux/config-2.6.25-rc5-mm1
+>
+>  Thanks,
+>
+>  I was not able to reproduce it, but I think I didn't configured postfix
+>  as I should had. What version do you use ?
+>  If I may ask you, can you put your postfix configuration file and a
+>  strace -f of your failing command ? on your website, that will help me a
+>  lot to investigate.
+>
+>    -- Daniel
+>
+>
+> --
+>  To unsubscribe from this list: send the line "unsubscribe netdev" in
+>  the body of a message to majordomo@vger.kernel.org
+>  More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
