@@ -1,41 +1,52 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [RESEND patch 2.6.25-rc2-git] rndis_host:  fix transfer size
- negotiation
-Date: Mon, 17 Mar 2008 08:08:50 -0400
-Message-ID: <47DE5F52.1010602@garzik.org>
-References: <200803131556.36960.david-b@pacbell.net>
+Subject: Re: [PATCH] net: NEWEMAC: Support for Pause packets in EMAC driver
+Date: Mon, 17 Mar 2008 08:08:35 -0400
+Message-ID: <47DE5F43.80604@garzik.org>
+References: <1205488348-22536-1-git-send-email-sr@denx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Network development list <netdev@vger.kernel.org>,
-	Jean-Christophe Dubois <jcd@tribudubois.net>
-To: David Brownell <david-b@pacbell.net>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	benh@kernel.crashing.org, jwboyer@linux.vnet.ibm.com
+To: Stefan Roese <sr@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42329 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:42315 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752781AbYCQMIw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2008 08:08:52 -0400
-In-Reply-To: <200803131556.36960.david-b@pacbell.net>
+	id S1752723AbYCQMIj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2008 08:08:39 -0400
+In-Reply-To: <1205488348-22536-1-git-send-email-sr@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Brownell wrote:
-> From: Jean-Christophe Dubois <jcd@tribudubois.net>
+Stefan Roese wrote:
+> From: Pravin M. Bathija <pbathija@amcc.com>
 > 
-> This patch should resolve a problem that's troubled support for
-> some RNDIS peripherals.  It seems to have boiled down to using a
-> variable to establish transfer size limits before it was assigned,
-> which caused those devices to fallback to a default "jumbogram"
-> mode we don't support.  Fix by assigning it earlier for RNDIS.
+> Problem Description and Fix
+> ---------------------------
+> When a pause packet(with destination as reserved Multicast address) is
+> received by the EMAC hardware to control the flow of frames being
+> transmitted by it, it is dropped by the hardware unless the reserved
+> Multicast address is hashed in to the GAHT[1-4] registers. This code fix
+> adds the default reserved multicast address to the GAHT[1-4] registers
+> in the EMAC(s) present on the chip. The flow control with Pause packets
+> will only work if the following register bits are programmed in EMAC:
+> EMACx_MR1[APP] = 1
+> EMACx_RMR[BAE] = 1
+> EMACx_RMR[MAE] = 1
 > 
-> Signed-off-by: Jean-Christophe Dubois <jcd@tribudubois.net>
-> [ cleanups ]
-> Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+> Behavior that may be observed in a running system
+> -------------------------------------------------
+> A host transferring data from a PPC based system may send a Pause packet
+> to the PPC EMAC requesting it to slow down the flow of packets. If the
+> default reserved multicast MAC address is not programmed into the
+> GAHT[1-4] registers this Pause packet will be dropped by PPC EMAC and no
+> Flow Control will be done.
+> 
+> Signed-off-by: Pravin M. Bathija <pbathija@amcc.com>
+> Signed-off-by: Stefan Roese <sr@denx.de>
 > ---
-> This bugfix should be merged before 2.6.25-final.
-> 
->  drivers/net/usb/rndis_host.c |   12 ++++++++----
->  1 file changed, 8 insertions(+), 4 deletions(-)
+>  drivers/net/ibm_newemac/core.c |    7 +++++++
+>  1 files changed, 7 insertions(+), 0 deletions(-)
 
 applied
 
