@@ -1,36 +1,33 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [IOC3] Fix section missmatch
-Date: Mon, 17 Mar 2008 08:13:27 -0400
-Message-ID: <47DE6067.6070500@garzik.org>
-References: <20080308165833.GA8625@linux-mips.org>
+Subject: Re: [PATCH] ucc_geth: use correct thread number for 10/100Mbps link
+Date: Mon, 17 Mar 2008 08:13:41 -0400
+Message-ID: <47DE6075.3030907@garzik.org>
+References: <1204800526-11670-1-git-send-email-leoli@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org
-To: Ralf Baechle <ralf@linux-mips.org>
+Cc: netdev@vger.kernel.org,
+	Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+To: Li Yang <leoli@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52392 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:52414 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752395AbYCQMNb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2008 08:13:31 -0400
-In-Reply-To: <20080308165833.GA8625@linux-mips.org>
+	id S1753138AbYCQMNp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2008 08:13:45 -0400
+In-Reply-To: <1204800526-11670-1-git-send-email-leoli@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ralf Baechle wrote:
->   LD      drivers/net/built-in.o
-> WARNING: drivers/net/built-in.o(.text+0x3468): Section mismatch in reference fro
-> m the function ioc3_probe() to the function .devinit.text:ioc3_serial_probe()
-> The function ioc3_probe() references
-> the function __devinit ioc3_serial_probe().
-> This is often because ioc3_probe lacks a __devinit 
-> annotation or the annotation of ioc3_serial_probe is wrong.
+Li Yang wrote:
+> From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 > 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> Use thread number of 1 for 10/100Mbps link instead of 4.
 > 
+> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> Signed-off-by: Li Yang <leoli@freescale.com>
 > ---
-> Resend, this time with Jeff's address corrected.
+>  drivers/net/ucc_geth.c |    6 ++++--
+>  1 files changed, 4 insertions(+), 2 deletions(-)
 
 applied
 
