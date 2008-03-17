@@ -1,43 +1,51 @@
-From: Christian Borntraeger <borntraeger@de.ibm.com>
-Subject: Re: [PATCH] virtio_net/virtio_ring: fix race in enable_cb
-Date: Mon, 17 Mar 2008 07:30:44 +0100
-Message-ID: <200803170730.44218.borntraeger@de.ibm.com>
-References: <200803141417.05696.borntraeger@de.ibm.com> <200803171248.14570.rusty@rustcorp.com.au>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: Audit vs netlink interaction problem
+Date: Mon, 17 Mar 2008 10:59:41 +0300
+Message-ID: <47DE24ED.7060101@openvz.org>
+References: <47DAA660.90401@openvz.org> <20080314163929.GP20815@postel.suug.ch> <47DAB065.6060804@openvz.org> <20080314182927.GQ20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: David Woodhouse <dwmw2@infradead.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([195.212.29.136]:63975 "EHLO
-	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752451AbYCQGar (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2008 02:30:47 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate3.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m2H6UkGq130708
-	for <netdev@vger.kernel.org>; Mon, 17 Mar 2008 06:30:46 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m2H6UkSF1777690
-	for <netdev@vger.kernel.org>; Mon, 17 Mar 2008 06:30:46 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m2H6UjMU026465
-	for <netdev@vger.kernel.org>; Mon, 17 Mar 2008 06:30:45 GMT
-In-Reply-To: <200803171248.14570.rusty@rustcorp.com.au>
-Content-Disposition: inline
+Received: from sacred.ru ([62.205.161.221]:34080 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751042AbYCQIAT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2008 04:00:19 -0400
+In-Reply-To: <20080314182927.GQ20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Are you seeing the "Unlikely: restart svq failed" message in the logs?  If 
-> not, I don't think it can be this race.
+Thomas Graf wrote:
+> * Pavel Emelyanov <xemul@openvz.org> 2008-03-14 20:05
+>> Hmmm... I'm afraid, that this can break the audit filtering and signal
+>> auditing. I haven't yet looked deep into it, but it compares the 
+>> task->tgid with this audit_pid for different purposes. If audit_pid
+>> changes this code will be broken.
+> 
+> OK, then both pids have to be stored. audit_pid remains as-is but is
+> no longer used as destination netlink pid. A second pid is stored and
+> updated whenever a netlink message is received from userspace.
+> 
+>> Bu we have no the netlink socket at the moment of setting the pid to
+>> check this. The audit_reveive_msg() call which does this set is received 
+>> via another (pre-created global) socket.
+> 
+> I don't understand this. As far as I can read the code, a plain kernel
+> side netlink socket is created in audit_init(). But it doesn't matter,
+> as soon as we receive the first message from userspace, we know the
+> netlink source pid.
 
-No, I dont see the message, but this message only happens for guest->host 
-traffic in the xmit function. I was fixing the poll function - which has no 
-printk.
-I added the disable_cb in the xmit function only  to adopt to changed 
-enable_cb semantics.
+audit_init() creates a kernel-side socket, while we need to know the pid 
+of a user-side one. But I saw your patch, seems like the NETLINK_CB(skb).pid
+is what we need for this check :)
 
-I double checked my theory with a printk in enable_cb. The more_used check 
-was true several times for the receiving virtqueue. 
+>> I though, that proper behavior would be to split audit_pid, used for
+>> filtering from the audit_nlk_pid used for netlink communications.
+> 
+> Yes, exactly.
+> 
 
-Christian
