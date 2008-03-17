@@ -1,33 +1,41 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] net: NEWEMAC: Add compatible "ibm,tah" to tah matching
- table
-Date: Mon, 17 Mar 2008 08:08:42 -0400
-Message-ID: <47DE5F4A.9080303@garzik.org>
-References: <1205423983-21142-1-git-send-email-sr@denx.de>
+Subject: Re: [RESEND patch 2.6.25-rc2-git] rndis_host:  fix transfer size
+ negotiation
+Date: Mon, 17 Mar 2008 08:08:50 -0400
+Message-ID: <47DE5F52.1010602@garzik.org>
+References: <200803131556.36960.david-b@pacbell.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	jwboyer@linux.vnet.ibm.com, benh@kernel.crashing.org
-To: Stefan Roese <sr@denx.de>
+Cc: Network development list <netdev@vger.kernel.org>,
+	Jean-Christophe Dubois <jcd@tribudubois.net>
+To: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42324 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:42329 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754189AbYCQMIp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2008 08:08:45 -0400
-In-Reply-To: <1205423983-21142-1-git-send-email-sr@denx.de>
+	id S1752781AbYCQMIw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2008 08:08:52 -0400
+In-Reply-To: <200803131556.36960.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stefan Roese wrote:
-> Add "ibm,tah" to the compatible matching table of the ibm_newemac
-> tah driver. The type "tah" is still preserved for compatibility reasons.
-> New dts files should use the compatible property though.
+David Brownell wrote:
+> From: Jean-Christophe Dubois <jcd@tribudubois.net>
 > 
-> Signed-off-by: Stefan Roese <sr@denx.de>
+> This patch should resolve a problem that's troubled support for
+> some RNDIS peripherals.  It seems to have boiled down to using a
+> variable to establish transfer size limits before it was assigned,
+> which caused those devices to fallback to a default "jumbogram"
+> mode we don't support.  Fix by assigning it earlier for RNDIS.
+> 
+> Signed-off-by: Jean-Christophe Dubois <jcd@tribudubois.net>
+> [ cleanups ]
+> Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
 > ---
->  drivers/net/ibm_newemac/tah.c |    4 ++++
->  1 files changed, 4 insertions(+), 0 deletions(-)
+> This bugfix should be merged before 2.6.25-final.
+> 
+>  drivers/net/usb/rndis_host.c |   12 ++++++++----
+>  1 file changed, 8 insertions(+), 4 deletions(-)
 
 applied
 
