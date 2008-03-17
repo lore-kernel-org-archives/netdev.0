@@ -1,128 +1,70 @@
-From: Hans-Peter Jansen <hpj@urpla.net>
-Subject: multicast problems in forcedeth driver with MCP51 Ethernet Controller
-Date: Sun, 16 Mar 2008 23:56:49 +0100
-Message-ID: <200803162356.49709.hpj@urpla.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio_net/virtio_ring: fix race in enable_cb
+Date: Mon, 17 Mar 2008 12:48:13 +1100
+Message-ID: <200803171248.14570.rusty@rustcorp.com.au>
+References: <200803141417.05696.borntraeger@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_xWa3HYkBFqHO14e"
-Cc: netdev@vger.kernel.org
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Christian Borntraeger <borntraeger@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:49549 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752476AbYCPW45 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2008 18:56:57 -0400
+Received: from ozlabs.org ([203.10.76.45]:60537 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751594AbYCQBtH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Mar 2008 21:49:07 -0400
+In-Reply-To: <200803141417.05696.borntraeger@de.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_xWa3HYkBFqHO14e
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Saturday 15 March 2008 00:17:05 Christian Borntraeger wrote:
+> There is a race in virtio_net, dealing with disabling/enabling the
+> callback. I saw the following oops:
+>
+> kernel BUG at /space/kvm/drivers/virtio/virtio_ring.c:218!
+> illegal operation: 0001 [#1] SMP
+> Modules linked in: sunrpc dm_mod
+> CPU: 2 Not tainted 2.6.25-rc1zlive-host-10623-gd358142-dirty #99
+> Process swapper (pid: 0, task: 000000000f85a610, ksp: 000000000f873c60)
+> Krnl PSW : 0404300180000000 00000000002b81a6 (vring_disable_cb+0x16/0x20)
+>            R:0 T:1 IO:0 EX:0 Key:0 M:1 W:0 P:0 AS:0 CC:3 PM:0 EA:3
+> Krnl GPRS: 0000000000000001 0000000000000001 0000000010005800
+> 0000000000000001 000000000f3a0900 000000000f85a610 0000000000000000
+> 0000000000000000 0000000000000000 000000000f870000 0000000000000000
+> 0000000000001237 000000000f3a0920 000000000010ff74 00000000002846f6
+> 000000000fa0bcd8 Krnl Code: 00000000002b819a: a7110001           tmll   
+> %r1,1
+>            00000000002b819e: a7840004           brc     8,2b81a6
+>            00000000002b81a2: a7f40001           brc     15,2b81a4
+>
+>           >00000000002b81a6: a51b0001           oill    %r1,1
+>
+>            00000000002b81aa: 40102000           sth     %r1,0(%r2)
+>            00000000002b81ae: 07fe               bcr     15,%r14
+>            00000000002b81b0: eb7ff0380024       stmg    %r7,%r15,56(%r15)
+>            00000000002b81b6: a7f13e00           tmll    %r15,15872
+> Call Trace:
+> ([<000000000fa0bcd0>] 0xfa0bcd0)
+>  [<00000000002b8350>] vring_interrupt+0x5c/0x6c
+>  [<000000000010ab08>] do_extint+0xb8/0xf0
+>  [<0000000000110716>] ext_no_vtime+0x16/0x1a
+>  [<0000000000107e72>] cpu_idle+0x1c2/0x1e0
+>
+> The problem can be triggered with a high amount of host->guest traffic.
 
-Hi Ayaz, hi forcedeth hackers,
+Are you seeing the "Unlikely: restart svq failed" message in the logs?  If 
+not, I don't think it can be this race.
 
-I'm trying to get my first multicast application to life ATM, but even the 
-first tests failed mysteriously for some systems, running a 2.6.24.3 
-kernel. Goggling around let me to one of your fixes: 
-[PATCH 5/5] forcedeth: multicast fix, which Linus applied before 2.6.25-rc1 
-as: bb9a4fd1f7cc083f72e52f01938c23ac5b3403d5
+Your patch has some nice properties, however.  It means that enable_cb never 
+actually fails, it just returns whether there may have been more work in the 
+enabling window.
 
-I applied your patch to my local 2.6.24.3 kernel build, but still no go.
-Try attached python script (after setting up a route like this):
+Unfortunately, this also implies that it'd be clearer to reverse the meaning 
+of enable_cb's return code: true == more work came in, false == no more work.  
+Doing this is unfortunately a PITA so I shall just apply your patch and fix 
+up the documentation.
 
-Destination     Gateway        Genmask         Flags Metric Ref   Use  Iface
-229.0.0.0       *              255.0.0.0       U     0      0        0 eth0
-
-Run one instance as './mctest.py server' and others without arguments. 
-Normally, the server sends out a multicast packet every second, and the 
-clients catch 10 of those before quitting, unless such a MCP51 Ethernet 
-Controller is in the equation: that one doesn't send/receive a single MC 
-bit here... Other nics (well, I tested this on e1000s and another MCP55) 
-behave well in this respect.
-
-If I make the MCP51 the server, tcpdump is able to fetch the packets, but 
-nothing is received on the other systems. Looks, like multicasting is still 
-broken for the NIC in question.
-
-Here's the complete hwinfo for the affected NIC:
-~# hwinfo --netcards
-15: PCI 14.0: 0200 Ethernet controller                          
-  [Created at pci.286]
-  UDI: /org/freedesktop/Hal/devices/pci_10de_269
-  Unique ID: MZfG.uQ5k42VxsiA
-  SysFS ID: /devices/pci0000:00/0000:00:14.0
-  SysFS BusID: 0000:00:14.0
-  Hardware Class: network
-  Model: "ASUSTeK MCP51 Ethernet Controller"
-  Vendor: pci 0x10de "nVidia Corporation"
-  Device: pci 0x0269 "MCP51 Ethernet Controller"
-  SubVendor: pci 0x1043 "ASUSTeK Computer Inc."
-  SubDevice: pci 0x816a 
-  Revision: 0xa3
-  Driver: "forcedeth"
-  Driver Modules: "forcedeth"
-  Memory Range: 0xfe02b000-0xfe02bfff (rw,non-prefetchable)
-  I/O Ports: 0xc800-0xc807 (rw)
-  IRQ: 18 (309189603 events)
-  Module Alias: "pci:v000010DEd00000269sv00001043sd0000816Abc06sc80i00"
-  Driver Info #0:
-    Driver Status: forcedeth is active
-    Driver Activation Cmd: "modprobe forcedeth"
-  Config Status: cfg=no, avail=yes, need=no, active=unknown
-
-Board: ASUS M2NPV-VM ACPI BIOS Revision 0603
-Distr: openSUSE 10.2
-
-Ideas, patches, workarounds are heightly appreciated.
-
-TIA,
-Pete
-
---Boundary-00=_xWa3HYkBFqHO14e
-Content-Type: application/x-python;
-  name="mctest.py"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="mctest.py"
-
-#!/usr/bin/env python
-# multicast server/client test
-
-import socket
-import struct
-import time
-import sys
-
-mcip = '229.0.0.1'
-host = ''
-port = 12345
-
-s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-if len(sys.argv) > 1 and sys.argv[1] == 'server':
-    # server
-    seq = 0
-    while True:
-        pkt = '%s: %s' % (seq, time.asctime())
-        seq += 1
-        s.sendto(pkt, (mcip, port))
-        print 'server: %s [%s] send' % (pkt, len(pkt))
-        time.sleep(1)
-
-else:
-    # client
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind((mcip, port))
-    # allow broadcasts
-    s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
-    # join the broadcast group
-    mreq = struct.pack('4sl', socket.inet_aton(mcip), socket.INADDR_ANY)
-    s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-    for i in range(10):
-        pkt, addr = s.recvfrom(1500)
-        print 'client: %s [%s] received from %s' % (pkt, len(pkt), addr[0])
-    s.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, mreq)
-
---Boundary-00=_xWa3HYkBFqHO14e--
+Thanks,
+Rusty.
