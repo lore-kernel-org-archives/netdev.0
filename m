@@ -1,135 +1,93 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH net-2.6.26][VLAN]: Reduce memory consumed by vlan_group-s.
-Date: Tue, 18 Mar 2008 12:36:08 +0300
-Message-ID: <47DF8D08.9010205@openvz.org>
-References: <47CC2ACF.6080903@openvz.org>
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Subject: [re-resend] [PATCH 2.6.25] BNX2X: prevent ethtool setting of
+ port type
+Date: Tue, 18 Mar 2008 11:36:37 +0200
+Message-ID: <1205832997.8232.391.camel@lb-tlvb-eliezer.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+To: "davem@davemloft.net" <davem@davemloft.net>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:52748 "EHLO sacred.ru"
+Received: from mms1.broadcom.com ([216.31.210.17]:1153 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751989AbYCRJgL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2008 05:36:11 -0400
-In-Reply-To: <47CC2ACF.6080903@openvz.org>
+	id S1752116AbYCRJmN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Mar 2008 05:42:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Patrick!
+BNX2X: prevent ethtool setting of port type
 
-Did you have time to look at this patch? And besides, Alexey
-Dobriyan sent some netns-related patches for netfilter... :)
+On 10GBaseT boards setting the type to TP will cause the driver to try
+to configure 1GBaseT.
+Since there are currently no boards that support setting of the port
+type, disable this for now.
 
-Thanks,
-Pavel
+Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
 
-> Currently each vlan_groupd contains 8 pointers on arrays with 512 
-> pointers on struct net_device each :) Such a construction "in many 
-> cases ... wastes memory".
-> 
-> My proposal is to allow for some of these arrays pointers be NULL,
-> meaning that there are no devices in it. When a new device is added 
-> to the vlan_group, the appropriate array is allocated.
-> 
-> The check in vlan_group_get_device's is safe, since the pointer
-> vg->vlan_devices_arrays[x] can only switch from NULL to not-NULL.
-> The vlan_group_prealloc_vid() is guarded with rtnl lock and is
-> also safe.
-> 
-> I've checked (I hope that) all the places, that use these arrays 
-> and found, that the register_vlan_dev is the only place, that can
-> put a vlan device on an empty vlan_group.
-> 
-> Rough calculations shows, that after the patch a setup with a 
-> single vlan dev (or up to 512 vlans with sequential vids) will 
-> occupy approximately 8 times less memory.
-> 
-> The question I have is - does this patch makes sense, or a totally 
-> new structures are required to store the vlan_devs?
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> 
-> ---
-> 
-> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-> index 79504b2..edd55af 100644
-> --- a/include/linux/if_vlan.h
-> +++ b/include/linux/if_vlan.h
-> @@ -93,7 +93,7 @@ static inline struct net_device *vlan_group_get_device(struct vlan_group *vg,
->  {
->  	struct net_device **array;
->  	array = vg->vlan_devices_arrays[vlan_id / VLAN_GROUP_ARRAY_PART_LEN];
-> -	return array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN];
-> +	return array ? array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN] : NULL;
->  }
->  
->  static inline void vlan_group_set_device(struct vlan_group *vg,
-> diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-> index dbc81b9..4ff856d 100644
-> --- a/net/8021q/vlan.c
-> +++ b/net/8021q/vlan.c
-> @@ -106,29 +106,35 @@ static void vlan_group_free(struct vlan_group *grp)
->  static struct vlan_group *vlan_group_alloc(int ifindex)
->  {
->  	struct vlan_group *grp;
-> -	unsigned int size;
-> -	unsigned int i;
->  
->  	grp = kzalloc(sizeof(struct vlan_group), GFP_KERNEL);
->  	if (!grp)
->  		return NULL;
->  
-> -	size = sizeof(struct net_device *) * VLAN_GROUP_ARRAY_PART_LEN;
-> -
-> -	for (i = 0; i < VLAN_GROUP_ARRAY_SPLIT_PARTS; i++) {
-> -		grp->vlan_devices_arrays[i] = kzalloc(size, GFP_KERNEL);
-> -		if (!grp->vlan_devices_arrays[i])
-> -			goto err;
-> -	}
-> -
->  	grp->real_dev_ifindex = ifindex;
->  	hlist_add_head_rcu(&grp->hlist,
->  			   &vlan_group_hash[vlan_grp_hashfn(ifindex)]);
->  	return grp;
-> +}
->  
-> -err:
-> -	vlan_group_free(grp);
-> -	return NULL;
-> +static int vlan_group_prealloc_vid(struct vlan_group *vg, int vid)
-> +{
-> +	struct net_device **array;
-> +	unsigned int size;
-> +
-> +	ASSERT_RTNL();
-> +
-> +	array = vg->vlan_devices_arrays[vid / VLAN_GROUP_ARRAY_PART_LEN];
-> +	if (array != NULL)
-> +		return 0;
-> +
-> +	size = sizeof(struct net_device *) * VLAN_GROUP_ARRAY_PART_LEN;
-> +	array = kzalloc(size, GFP_KERNEL);
-> +	if (array == NULL)
-> +		return -ENOBUFS;
-> +
-> +	vg->vlan_devices_arrays[vid / VLAN_GROUP_ARRAY_PART_LEN] = array;
-> +	return 0;
->  }
->  
->  static void vlan_rcu_free(struct rcu_head *rcu)
-> @@ -247,6 +253,10 @@ int register_vlan_dev(struct net_device *dev)
->  			return -ENOBUFS;
->  	}
->  
-> +	err = vlan_group_prealloc_vid(grp, vlan_id);
-> +	if (err < 0)
-> +		goto out_free_group;
-> +
->  	err = register_netdevice(dev);
->  	if (err < 0)
->  		goto out_free_group;
-> 
-> 
+---
+ drivers/net/bnx2x.c |   36 ++----------------------------------
+ 1 files changed, 2 insertions(+), 34 deletions(-)
+
+diff --git a/drivers/net/bnx2x.c b/drivers/net/bnx2x.c
+index 8af142c..de32b3f 100644
+--- a/drivers/net/bnx2x.c
++++ b/drivers/net/bnx2x.c
+@@ -63,8 +63,8 @@
+ #include "bnx2x.h"
+ #include "bnx2x_init.h"
+ 
+-#define DRV_MODULE_VERSION      "1.40.22"
+-#define DRV_MODULE_RELDATE      "2007/11/27"
++#define DRV_MODULE_VERSION      "1.42.3"
++#define DRV_MODULE_RELDATE      "2008/3/9"
+ #define BNX2X_BC_VER    	0x040200
+ 
+ /* Time in jiffies before concluding the transmitter is hung. */
+@@ -8008,38 +8008,6 @@ static int bnx2x_set_settings(struct net_device
+*dev, struct ethtool_cmd *cmd)
+ 	   cmd->duplex, cmd->port, cmd->phy_address, cmd->transceiver,
+ 	   cmd->autoneg, cmd->maxtxpkt, cmd->maxrxpkt);
+ 
+-	switch (cmd->port) {
+-	case PORT_TP:
+-		if (!(bp->supported & SUPPORTED_TP)) {
+-			DP(NETIF_MSG_LINK, "TP not supported\n");
+-			return -EINVAL;
+-		}
+-
+-		if (bp->phy_flags & PHY_XGXS_FLAG) {
+-			bnx2x_link_reset(bp);
+-			bnx2x_link_settings_supported(bp, SWITCH_CFG_1G);
+-			bnx2x_phy_deassert(bp);
+-		}
+-		break;
+-
+-	case PORT_FIBRE:
+-		if (!(bp->supported & SUPPORTED_FIBRE)) {
+-			DP(NETIF_MSG_LINK, "FIBRE not supported\n");
+-			return -EINVAL;
+-		}
+-
+-		if (!(bp->phy_flags & PHY_XGXS_FLAG)) {
+-			bnx2x_link_reset(bp);
+-			bnx2x_link_settings_supported(bp, SWITCH_CFG_10G);
+-			bnx2x_phy_deassert(bp);
+-		}
+-		break;
+-
+-	default:
+-		DP(NETIF_MSG_LINK, "Unknown port type\n");
+-		return -EINVAL;
+-	}
+-
+ 	if (cmd->autoneg == AUTONEG_ENABLE) {
+ 		if (!(bp->supported & SUPPORTED_Autoneg)) {
+ 			DP(NETIF_MSG_LINK, "Aotoneg not supported\n");
+-- 
+1.5.3.2
+
+
+
 
