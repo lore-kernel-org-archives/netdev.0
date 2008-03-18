@@ -1,79 +1,73 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] route: use read_mostly
-Date: Wed, 19 Mar 2008 12:19:46 -0700
-Message-ID: <20080319121946.58d40021@extreme>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] fib_trie: fix warning from rcu_assign_poinger
+Date: Tue, 18 Mar 2008 07:06:54 -0700
+Message-ID: <20080318140654.GA8222@linux.vnet.ibm.com>
+References: <20080317140236.6160fb4f@extreme> <20080317142706.235594c9@extreme>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:35970 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757533AbYCSTkq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Mar 2008 15:40:46 -0400
+Received: from over.ny.us.ibm.com ([32.97.182.150]:38634 "EHLO
+	over.ny.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758043AbYCSTnF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2008 15:43:05 -0400
+Received: from e34.co.us.ibm.com ([32.97.110.152])
+	by pokfb.esmtp.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id m2IFL4lJ030578
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 18 Mar 2008 11:21:05 -0400
+Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
+	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m2IF2Ija007548
+	for <netdev@vger.kernel.org>; Tue, 18 Mar 2008 11:02:18 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m2IF3LmE259700
+	for <netdev@vger.kernel.org>; Tue, 18 Mar 2008 09:03:22 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m2IF3FNs005284
+	for <netdev@vger.kernel.org>; Tue, 18 Mar 2008 09:03:16 -0600
+Content-Disposition: inline
+In-Reply-To: <20080317142706.235594c9@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The route table parameters are set based on system memory and sysctl
-values that almost never change. Also the genid only changes every
-10 minutes.
+On Mon, Mar 17, 2008 at 02:27:06PM -0700, Stephen Hemminger wrote:
+> This gets rid of a warning caused by the test in rcu_assign_pointer.
+> I tried to fix rcu_assign_pointer, but that devolved into a long
+> set of discussions about doing it right that came to no real solution.
+> Since the test in rcu_assign_pointer for constant NULL would never succeed in
+> fib_trie, just open code instead.
 
-RTprint is defined by never used.
+Indeed -- fooling gcc is nontrivial.  :-/
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
----
-This patch is for net-2.6.26
+Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 
---- a/net/ipv4/route.c	2008-03-18 11:52:11.000000000 -0700
-+++ b/net/ipv4/route.c	2008-03-18 11:54:41.000000000 -0700
-@@ -118,21 +118,19 @@
- #define RT_GC_TIMEOUT (300*HZ)
- 
- static int ip_rt_max_size;
--static int ip_rt_gc_timeout		= RT_GC_TIMEOUT;
--static int ip_rt_gc_interval		= 60 * HZ;
--static int ip_rt_gc_min_interval	= HZ / 2;
--static int ip_rt_redirect_number	= 9;
--static int ip_rt_redirect_load		= HZ / 50;
--static int ip_rt_redirect_silence	= ((HZ / 50) << (9 + 1));
--static int ip_rt_error_cost		= HZ;
--static int ip_rt_error_burst		= 5 * HZ;
--static int ip_rt_gc_elasticity		= 8;
--static int ip_rt_mtu_expires		= 10 * 60 * HZ;
--static int ip_rt_min_pmtu		= 512 + 20 + 20;
--static int ip_rt_min_advmss		= 256;
--static int ip_rt_secret_interval	= 10 * 60 * HZ;
--
--#define RTprint(a...)	printk(KERN_DEBUG a)
-+static int ip_rt_gc_timeout __read_mostly	= RT_GC_TIMEOUT;
-+static int ip_rt_gc_interval __read_mostly	= 60 * HZ;
-+static int ip_rt_gc_min_interval __read_mostly	= HZ / 2;
-+static int ip_rt_redirect_number __read_mostly	= 9;
-+static int ip_rt_redirect_load __read_mostly	= HZ / 50;
-+static int ip_rt_redirect_silence __read_mostly	= ((HZ / 50) << (9 + 1));
-+static int ip_rt_error_cost __read_mostly	= HZ;
-+static int ip_rt_error_burst __read_mostly	= 5 * HZ;
-+static int ip_rt_gc_elasticity __read_mostly	= 8;
-+static int ip_rt_mtu_expires __read_mostly	= 10 * 60 * HZ;
-+static int ip_rt_min_pmtu __read_mostly		= 512 + 20 + 20;
-+static int ip_rt_min_advmss __read_mostly	= 256;
-+static int ip_rt_secret_interval __read_mostly	= 10 * 60 * HZ;
- 
- static void rt_worker_func(struct work_struct *work);
- static DECLARE_DELAYED_WORK(expires_work, rt_worker_func);
-@@ -252,10 +250,10 @@ static inline void rt_hash_lock_init(voi
- }
- #endif
- 
--static struct rt_hash_bucket 	*rt_hash_table;
--static unsigned			rt_hash_mask;
--static unsigned int		rt_hash_log;
--static atomic_t			rt_genid;
-+static struct rt_hash_bucket 	*rt_hash_table __read_mostly;
-+static unsigned			rt_hash_mask __read_mostly;
-+static unsigned int		rt_hash_log  __read_mostly;
-+static atomic_t			rt_genid __read_mostly;
- 
- static DEFINE_PER_CPU(struct rt_cache_stat, rt_cache_stat);
- #define RT_CACHE_STAT_INC(field) \
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> ---
+>  net/ipv4/fib_trie.c |    7 +++++--
+>  1 files changed, 5 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+> index a7d089e..ce6cb34 100644
+> --- a/net/ipv4/fib_trie.c
+> +++ b/net/ipv4/fib_trie.c
+> @@ -177,10 +177,13 @@ static inline struct tnode *node_parent_rcu(struct node *node)
+>  	return rcu_dereference(ret);
+>  }
+> 
+> +/* Same as rcu_assign_pointer
+> + * but that macro() assumes that value is a pointer.
+> + */
+>  static inline void node_set_parent(struct node *node, struct tnode *ptr)
+>  {
+> -	rcu_assign_pointer(node->parent,
+> -			   (unsigned long)ptr | NODE_TYPE(node));
+> +	smp_wmb();
+> +	node->parent = (unsigned long)ptr | NODE_TYPE(node);
+>  }
+> 
+>  static inline struct node *tnode_get_child(struct tnode *tn, unsigned int i)
+> -- 
+> 1.5.4.3
+> 
