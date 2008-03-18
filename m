@@ -1,53 +1,42 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: ttcp (maintenance) future?
-Date: Tue, 18 Mar 2008 21:13:11 +0200 (EET)
-Message-ID: <alpine.LRH.1.00.0803182112590.1563@netcore.fi>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] bridge: use time_before() in br_fdb_cleanup()
+Date: Tue, 18 Mar 2008 09:32:29 -0700
+Message-ID: <20080318093229.306b27d6@extreme>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:38158 "EHLO netcore.fi"
+Received: from mail.vyatta.com ([216.93.170.194]:36875 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763569AbYCSUHN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Mar 2008 16:07:13 -0400
-Received: from netcore.fi (localhost [127.0.0.1])
-	by netcore.fi (8.13.8/8.13.8) with ESMTP id m2IJDBxX002102
-	for <netdev@vger.kernel.org>; Tue, 18 Mar 2008 21:13:11 +0200
-Received: from localhost (pekkas@localhost)
-	by netcore.fi (8.13.8/8.13.8/Submit) with ESMTP id m2IJDBMf002099
-	for <netdev@vger.kernel.org>; Tue, 18 Mar 2008 21:13:11 +0200
+	id S1755132AbYCSUOG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Mar 2008 16:14:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+In br_fdb_cleanup() next_timer and this_timer are in jiffies, so they
+should be compared using the time_after() macro.
 
-I've maintaned somewhat updated version of ttcp [1] since 2001 but have not 
-bothered to increment a version number or properly distribute it, CVS version 
-the changes, etc.
+Signed-off-by: Fabio Checconi <fabio@gandalf.sssup.it>
+Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
+---
+ net/bridge/br_fdb.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Having one place with versioning, at least annual releases, etc. would likely 
-be beneficial so all the distributions (both Linux and e.g. BSDs) that ship it 
-could pick up and benefit from the changes collected in one place.
-
-Some questions to the community as a whole:
-
-- Has this already been done (in some other, modified ttcp version)?
-
-- Is this worth doing given that there are other ttcp forks such as
-   nuttcp and nttcp (these add major new features which I believe is
-   not in scope for the original ttcp)?
-
-- Are there major ttcp modifications that a future maintainer should
-   be aware of?
-
-- Would someone be willing to step up and take the maintenance to the
-   next step?  (If not, I'll have to consider whether I can do it
-   myself.)
-
-[1]
-http://netcore.fi/pekkas/linux/ipv6/ttcp.c
-
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index bc40377..9326c37 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -136,7 +136,7 @@ void br_fdb_cleanup(unsigned long _data)
+ 			this_timer = f->ageing_timer + delay;
+ 			if (time_before_eq(this_timer, jiffies))
+ 				fdb_delete(f);
+-			else if (this_timer < next_timer)
++			else if (time_before(this_timer, next_timer))
+ 				next_timer = this_timer;
+ 		}
+ 	}
 -- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+1.5.4.3
+
