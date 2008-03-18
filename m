@@ -1,38 +1,32 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: question regarding (AF_INET6, SOCK_RAW, x != IPPROTO_RAW) sockets
-Date: Wed, 19 Mar 2008 16:19:08 +0200
-Message-ID: <200803191619.08728.opurdila@ixiacom.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [AX25] kernel panic
+Date: Tue, 18 Mar 2008 22:25:32 +0100
+Message-ID: <20080318212531.GA2031@electric-eye.fr.zoreil.com>
+References: <47DF9D21.20807@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Bernard Pidoux F6BVP <f6bvp@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:3396 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753805AbYCST0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2008 15:26:32 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:51610 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754087AbYCSTaL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2008 15:30:11 -0400
 Content-Disposition: inline
+In-Reply-To: <47DF9D21.20807@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Bernard Pidoux F6BVP <f6bvp@free.fr> :
+[...]
+> I used netconsole to document a kernel panic related to AX25 on one of my 
+> systems.
+> This occurs systematically as soon as I close an AX25 session established 
+> through a level 3 ROSE network (FPAC) via AXUDP link (ax25ipd).
+> It is not triggered when connecting locally or via AX25 call through LAN.
 
-Hi,
+May be replacing netif_rx() in drivers/net/hamradio/mkiss.c::ax_bump()
+by netif_receive_skb() ?
 
-In a previous post I was asking about the ipv6_chk_addr check done in 
-datagram_send_ctl when using raw sockets with IPROTO_RAW. Remi pointed out 
-that this case is not relevant since we need to construct the IPv6 header 
-anyway.
-
-What about when using IPV6 raw sockets with protocol != IPPROTO_RAW? In this 
-case, it seems that the header is constructed by the networking stack, and if 
-we want to change the source address we need to use IPV6_PKTINFO.
-
-But datagram_send_ctl is checking in ipv6_chk_addr for the source address to 
-be a previously assigned address in the system. Is this check necessary for 
-IPv6 raw sockets? The same check does not seem to be present for IPv4. Also, 
-disabling ipv6_chk_addr in datagram_send_ctl for IPv6 raw sockets seems to 
-fix our problem. But is this approach the right one?
-
-Thanks,
-tavi
+-- 
+Ueimor
