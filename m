@@ -1,192 +1,128 @@
-From: "Benjamin Thery" <ben.thery@gmail.com>
-Subject: Re: [2.6.25-rc5-mm1] regression: cannot run Postfix sendmail command as non-root
-Date: Wed, 19 Mar 2008 18:52:41 +0100
-Message-ID: <939d53060803191052o2f43b75cu426d51f9f24e2a46@mail.gmail.com>
-References: <20080311011434.ad8c8d7d.akpm@linux-foundation.org>
-	 <47D98510.60801@imap.cc>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bug 10238] Re: [PATCH] Re: netconsole still hangs
+Date: Tue, 18 Mar 2008 14:47:42 -0700
+Message-ID: <20080318144742.83f544f9.akpm@linux-foundation.org>
+References: <20080318015006.3f0efb8e.akpm@linux-foundation.org>
+	<20080318210542.GA2764@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_18122_28960756.1205949161815"
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David Miller" <davem@davemloft.net>, pekkas@netcore.fi,
-	yoshfuji@linux-ipv6.org, "Daniel Lezcano" <dlezcano@fr.ibm.com>,
-	"Pavel Emelyanov" <xemul@openvz.org>
-To: "Tilman Schmidt" <tilman@imap.cc>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org, rjw@sisk.pl,
+	bugme-daemon@bugzilla.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.231]:12444 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753054AbYCSTjc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2008 15:39:32 -0400
-Received: by wr-out-0506.google.com with SMTP id c48so524912wra.1
-        for <netdev@vger.kernel.org>; Wed, 19 Mar 2008 12:39:29 -0700 (PDT)
-In-Reply-To: <47D98510.60801@imap.cc>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:43244 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757858AbYCSTmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2008 15:42:07 -0400
+In-Reply-To: <20080318210542.GA2764@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_18122_28960756.1205949161815
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Tue, 18 Mar 2008 22:05:42 +0100
+Jarek Poplawski <jarkao2@gmail.com> wrote:
 
-Tilman,
+> Andrew Morton wrote, On 03/18/2008 09:50 AM:
+> ...
+> > As a last resort.  But it'd surely be better if a net developer could
+> > reproduce this and do some work on it.  It's bog-trivial to reproduce here
+> > and afaik nobody has even tried.  Perhaps you have...
+> > 
+> > service syslog stop
+> > while true
+> > do
+> > 	echo t > /proc/sysrq-trigger
+> > done
+> > 
+> > and that's it.
+> 
+> Alas my testing possibilities, especially with real network, are very
+> limited, I can confirm: yes, the above test really hangs my box, yet
+> with syslog on and netconsole off. So, maybe I miss something, but I
+> don't understand why do you expect netconsole should endure this?
 
-I've finally managed to reproduce your problem with Postfix on one of
-my victims.
+I expect it to fail coz it's recently been filled with bugs ;)
 
-Earlier, in the afternoon, I wrote a piece of code that triggered a
-similar behaviour,
-but I wasn't sure it was exactly the problem you found. So, I've
-rebuilt Postfix, added
-some traces and, voila, same issue as yours.
-(The version of Postfix originally  installed on my machine seems to
-have IPv6 disabled)
+I see that your netpoll-zap_completion_queue-adjust-skb-users-counter.patch
+should fix the oops I earlier hit.  Good.
 
-I bisected the problem to the commit "[NET]: Make /proc/net a symlink
-on /proc/self/net (v3)"
+> IMHO, after the below patch to sched.c you can't compare netconsole to
+> 2.6.24 with this sysrq-trigger test; any bugs found with this could be
+> something old and not necessarily in netconsole (could be only exposed
+> by netconsole like this earlier mentioned, unexplained, probably after
+> double kfree OOPS).
+> 
+> Regards,
+> Jarek P.
+> 
+> From: Nick Piggin <nickpiggin@yahoo.com.au>
+> Date: Fri, 25 Jan 2008 20:08:34 +0000 (+0100)
+> Subject: sched: print backtrace of running tasks too
+> X-Git-Tag: v2.6.25-rc1~1237^2~3
+> X-Git-Url: http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Ftorvalds%2Flinux-2.6.git;a=commitdiff_plain;h=5fb5e6de55860a99c2d8fe7e0c8222d5c53d8464
+> 
+> sched: print backtrace of running tasks too
+> 
+> The attached patch is something really simple that can sometimes help
+> in getting more info out of a hung system.
+> 
+> Signed-off-by: Ingo Molnar <mingo@elte.hu>
+> ---
+> 
+> diff --git a/kernel/sched.c b/kernel/sched.c
+> index 4d3a5a7..524285e 100644
+> --- a/kernel/sched.c
+> +++ b/kernel/sched.c
+> @@ -5161,8 +5161,7 @@ void sched_show_task(struct task_struct *p)
+>  	printk(KERN_CONT "%5lu %5d %6d\n", free,
+>  		task_pid_nr(p), task_pid_nr(p->real_parent));
+>  
+> -	if (state != TASK_RUNNING)
+> -		show_stack(p, NULL);
+> +	show_stack(p, NULL);
+>  }
+>  
+>  void show_state_filter(unsigned long state_filter)
 
-Here is what happens:
+hm.
 
-- Recently /proc/net has been moved to /proc/self/net, and
-/proc/self/net is a symlink
-  on this directory.
-- Before that everybody could access /proc/net and read /proc/net/if_inet6:
-   dr-xr-xr-x   6 root      root              0 2008-03-05 15:23 /proc/net
+I tried a few things:
 
-- Now, /proc/self/net has a more restrictive access mode and ony the
-owner of the
-  process can enter the directory:
-  dr-xr--r-- 5 toto toto 0 Mar 19 17:30 net
+1:
 
-  This is not a problem in most of the cases, but it becomes annoying
-when a process
-  decides to change its UID or GID. It may loose access to its own
-/proc/self/net entries.
+   cat monstrous-text-file > /dev/kmsg
 
-- What happens in the Postfix case is the 'sendmail' process executes the
-   '/usr/sbin/postdrop' binary to enqueue the message, but unfortunately
-   '/usr/bin/postdrop' has the setgid bit set:
-   -rwxr-sr-x 1 root postdrop 479475 Mar 19 17:14 /usr/sbin/postdrop
+  Works OK.
 
-   The process egid changes and this seems to be problematic to access
-   /proc/self/net/if_inet6. :)
+2:
 
-I've attached a tiny test program that can be used to reproduce the problem
-without Postfix.
-- Either execute it as root and give it an unprivileged uid in argument
-  ./test-proc_net_if_inet6 1001
+   Disable netconsole, do
 
-- Or change its ownership and access mode to: -rwxr-sr-x root postdrop
-  and execute it as a lambda user.
-   chown root:postdrop test-proc_net_if_inet6; chmod 2755 test-proc_net_if_=
-inet6
-   ./test-proc_net_if_inet6
+	while true
+	do
+		echo t > /proc/sysrq-trigger
+	done
 
-I've found the cause but not the fix. :)
-(Adding Pavel in cc:)
+   Works OK.
 
-Regards,
-Benjamin
+3:
+
+  Enable netconsole, do
+
+	while true
+	do
+		echo t > /proc/sysrq-trigger
+	done
+
+  Output comes out.  I was able to ^C the while loop.  After a while the
+  output stopped.  So that seems OK too.
 
 
-On Thu, Mar 13, 2008 at 8:48 PM, Tilman Schmidt <tilman@imap.cc> wrote:
-> Am 11.03.2008 09:14 schrieb Andrew Morton:
->  > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.25-r=
-c5/2.6.25-rc5-mm1/
->
->  I'm noticing a strange effect with this:
->
->  On my openSUSE 10.3 development machine with SUSEs default MTA
->  Postfix installed, I occasionally send a pre-formatted mail by
->  feeding it directly into "/usr/sbin/sendmail -t". If I try that
->  while running a 2.6.25-rc5-mm1 kernel, I get:
->
->  ts@xenon:~/kernel> /usr/sbin/sendmail -t < patch-usb-reduce-syslog-clutt=
-er-v3
->  postdrop: warning: can't open /proc/net/if_inet6 (Permission denied) - s=
-kipping IPv6 configuration
->  postdrop: fatal: parameter inet_interfaces: no local interface found for=
- ::1
->  sendmail: warning: command "/usr/sbin/postdrop -r" exited with status 1
->  sendmail: fatal: ts(1000): unable to execute /usr/sbin/postdrop -r: Succ=
-ess
->  ts@xenon:~/kernel>
->
->  and unsurprisingly, the mail is not sent. If I do the same as root,
->  everything works as usual, there is no console output from the
->  sendmail command, and the mail goes out as it should. All other
->  networking applications appear to be running normally.
->
->  On a 2.6.25-rc5 (non-mm) kernel I do not need to run the sendmail
->  command as root. It works just as well if I run it as myself.
->
->  IPv6 is not in use on that machine. The Ethernet interface has
->  just the link local IPv6 address. Possibly relevant information:
->
->  ts@xenon:~> /sbin/ifconfig -a
->  eth0      Protokoll:Ethernet  Hardware Adresse 00:19:D1:03:D8:FF
->           inet Adresse:192.168.59.102  Bcast:192.168.59.255  Maske:255.25=
-5.255.0
->           inet6 Adresse: fe80::219:d1ff:fe03:d8ff/64 G=FCltigkeitsbereich=
-:Verbindung
->           UP BROADCAST NOTRAILERS RUNNING MULTICAST  MTU:1500  Metric:1
->           RX packets:78 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:145 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 Sendewarteschlangenl=E4nge:100
->           RX bytes:9547 (9.3 Kb)  TX bytes:17952 (17.5 Kb)
->           Speicher:92c00000-92c20000
->
->  lo        Protokoll:Lokale Schleife
->           inet Adresse:127.0.0.1  Maske:255.0.0.0
->           inet6 Adresse: ::1/128 G=FCltigkeitsbereich:Maschine
->           UP LOOPBACK RUNNING  MTU:16436  Metric:1
->           RX packets:2 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:2 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 Sendewarteschlangenl=E4nge:0
->           RX bytes:100 (100.0 b)  TX bytes:100 (100.0 b)
->
->  ts@xenon:~/kernel> ls -l /proc/net/if_inet6
->  -r--r--r-- 1 root root 0 13. M=E4r 19:26 /proc/net/if_inet6
->  ts@xenon:~> cat /proc/net/if_inet6
->  fe800000000000000219d1fffe03d8ff 02 40 20 80     eth0
->  00000000000000000000000000000001 01 80 10 80       lo
->  ts@xenon:~> uname -a
->  Linux xenon 2.6.25-rc5-mm1-testing #1 SMP PREEMPT Tue Mar 11 14:34:49 CE=
-T 2008 i686 i686 i386 GNU/Linux
->
->  As you see, I can cat /proc/net/if_inet6 as regular (non-root) user
->  just fine, even though Postfix complains it cannot access it.
->  The content of /proc/net/if_inet6 is identical if I cat it on
->  kernel 2.6.25-rc5 mainline.
->
->  CCing a selection of IPv6 networking related maintainer addresses.
->  If you need more information or want me to test something, let me
->  know.
->
->  HTH
->  T.
->
->  --
->  Tilman Schmidt                          E-Mail: tilman@imap.cc
->  Bonn, Germany
->  Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
->  Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
->
->
+So right now it's cannot-reproduce.  I'll try things on the other machine
+this evening.
 
-------=_Part_18122_28960756.1205949161815
-Content-Type: text/x-csrc; name=test-proc_net_if_inet6.c
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fe06wffg0
-Content-Disposition: attachment; filename=test-proc_net_if_inet6.c
+I dunno why the sched.c change causes your sysrq-T operation to fail.  Can
+you provide more details please?
 
-I2luY2x1ZGUgPHN0ZGlvLmg+CiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHVuaXN0ZC5o
-PgoKaW50IG1haW4oaW50IGFyZ2MsIGNoYXIgKmFyZ3ZbXSkKewoJRklMRSAqZnA7Cgl1aWRfdCB1
-aWQ7CgoJaWYgKGFyZ2MgPiAxKSB7CgkJdWlkID0gYXRvaShhcmd2WzFdKTsKCQlpZiAoc2V0dWlk
-KHVpZCkgPCAwKSB7CgkJCXBlcnJvcigic2V0dWlkIik7CgkJCXJldHVybiAxOwoJCX0KCX0KCglw
-cmludGYoIlBJRD0lZCBVSUQ9JWQgR0lEPSVkXG4iLCBnZXRwaWQoKSwgZ2V0ZXVpZCgpLCBnZXRl
-Z2lkKCkpOwoKCWlmICgoZnAgPSBmb3BlbigiL3Byb2MvbmV0L2lmX2luZXQ2IiwgInIiKSkgIT0g
-MCkgewoJCXByaW50ZigiUEFTUzogL3Byb2MvbmV0L2lmX2luZXQ2IG9wZW5lZFxuIik7CgkJZmNs
-b3NlKGZwKTsKCX0gZWxzZSB7CgkJcHJpbnRmKCJGQUlMOiBDYW4ndCBvcGVuIC9wcm9jL25ldC9p
-Zl9pbmV0NlxuIik7CgkJcmV0dXJuIDE7Cgl9CglyZXR1cm4gMDsKfQo=
-------=_Part_18122_28960756.1205949161815--
+
