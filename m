@@ -1,30 +1,25 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 09/10] drivers/net/ixgb - Convert u_int32_t to
-	u32
-Date: Tue, 18 Mar 2008 09:13:52 -0700
-Message-ID: <45f493409623e31dc2395ecd86d46ada7f077642.1205779120.git.joe@perches.com>
+Subject: [PATCH 4/6] drivers/net/e1000 - Convert u_int64_t to
+	u64
+Date: Tue, 18 Mar 2008 09:13:47 -0700
+Message-ID: <84e6a8fed68d45f3271a23b7333bfd4627d646c1.1205779102.git.joe@perches.com>
 References: <c9345fb555dc1a1aa8c3922c9957a73e43458469.1205779102.git.joe@perches.com>
 	<41caf0b437b073665972eae10027d13c4ccb5097.1205779102.git.joe@perches.com>
 	<d676af35dec3f20916505c18edea9ee1ae87a744.1205779102.git.joe@perches.com>
-	<84e6a8fed68d45f3271a23b7333bfd4627d646c1.1205779102.git.joe@perches.com>
-	<1c1d35f8165b53f5e1e050c88cf97922b0694229.1205779102.git.joe@perches.com>
-	<c18867835e6cd98fe94fa418abf7f2432a7786a5.1205779102.git.joe@perches.com>
-	<cb3d60ac121b1aa5ecd4908a419115ddd71f749a.1205779120.git.joe@perches.com>
-	<ce1830668a3c8a8d63f514ba26dae26dbf71f1f2.1205779120.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: Auke Kok <auke-jan.h.kok@intel.com>,
 	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Ayyappan Veeraiyan <ayyappan.veeraiyan@intel.com>,
 	John Ronciak <john.ronciak@intel.com>,
-	Jeff Garzik <jgarzik@pobox.com>
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jeff Garzik <jgarzik@pobox.com>, Jeb Cramer <cramerj@intel.com>
 To: Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <ce1830668a3c8a8d63f514ba26dae26dbf71f1f2.1205779120.git.joe@perches.com>
-In-Reply-To: <cb3d60ac121b1aa5ecd4908a419115ddd71f749a.1205779120.git.joe@perches.com>
-References: <cb3d60ac121b1aa5ecd4908a419115ddd71f749a.1205779120.git.joe@perches.com>
+In-Reply-To: <d676af35dec3f20916505c18edea9ee1ae87a744.1205779102.git.joe@perches.com>
+In-Reply-To: <c9345fb555dc1a1aa8c3922c9957a73e43458469.1205779102.git.joe@perches.com>
+References: <c9345fb555dc1a1aa8c3922c9957a73e43458469.1205779102.git.joe@perches.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -39,821 +34,359 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ixgb/ixgb.h         |   16 +++---
- drivers/net/ixgb/ixgb_ee.c      |   26 +++++-----
- drivers/net/ixgb/ixgb_ethtool.c |   36 ++++++------
- drivers/net/ixgb/ixgb_hw.c      |  110 +++++++++++++++++++-------------------
- drivers/net/ixgb/ixgb_hw.h      |   46 ++++++++--------
- drivers/net/ixgb/ixgb_main.c    |   34 ++++++------
- 6 files changed, 134 insertions(+), 134 deletions(-)
+ drivers/net/e1000/e1000.h         |   16 ++--
+ drivers/net/e1000/e1000_ethtool.c |   28 ++++----
+ drivers/net/e1000/e1000_hw.c      |    2 +-
+ drivers/net/e1000/e1000_hw.h      |  138 ++++++++++++++++++------------------
+ drivers/net/e1000/e1000_main.c    |    4 +-
+ 5 files changed, 94 insertions(+), 94 deletions(-)
 
-diff --git a/drivers/net/ixgb/ixgb.h b/drivers/net/ixgb/ixgb.h
-index c975564..c1ec56c 100644
---- a/drivers/net/ixgb/ixgb.h
-+++ b/drivers/net/ixgb/ixgb.h
-@@ -152,9 +152,9 @@ struct ixgb_desc_ring {
- struct ixgb_adapter {
- 	struct timer_list watchdog_timer;
- 	struct vlan_group *vlgrp;
--	uint32_t bd_number;
--	uint32_t rx_buffer_len;
--	uint32_t part_num;
-+	u32 bd_number;
-+	u32 rx_buffer_len;
-+	u32 part_num;
- 	u16 link_speed;
- 	u16 link_duplex;
- 	spinlock_t tx_lock;
-@@ -167,11 +167,11 @@ struct ixgb_adapter {
- 	struct ixgb_desc_ring tx_ring ____cacheline_aligned_in_smp;
- 	unsigned int restart_queue;
- 	unsigned long timeo_start;
--	uint32_t tx_cmd_type;
-+	u32 tx_cmd_type;
- 	uint64_t hw_csum_tx_good;
- 	uint64_t hw_csum_tx_error;
--	uint32_t tx_int_delay;
--	uint32_t tx_timeout_count;
-+	u32 tx_int_delay;
-+	u32 tx_timeout_count;
- 	bool tx_int_delay_enable;
- 	bool detect_tx_hung;
+diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+index c92bc65..31feae1 100644
+--- a/drivers/net/e1000/e1000.h
++++ b/drivers/net/e1000/e1000.h
+@@ -167,7 +167,7 @@ struct e1000_buffer {
  
-@@ -179,7 +179,7 @@ struct ixgb_adapter {
- 	struct ixgb_desc_ring rx_ring;
- 	uint64_t hw_csum_rx_error;
- 	uint64_t hw_csum_rx_good;
--	uint32_t rx_int_delay;
-+	u32 rx_int_delay;
+ 
+ struct e1000_ps_page { struct page *ps_page[PS_PAGE_BUFFERS]; };
+-struct e1000_ps_page_dma { uint64_t ps_page_dma[PS_PAGE_BUFFERS]; };
++struct e1000_ps_page_dma { u64 ps_page_dma[PS_PAGE_BUFFERS]; };
+ 
+ struct e1000_tx_ring {
+ 	/* pointer to the descriptor ring memory */
+@@ -273,9 +273,9 @@ struct e1000_adapter {
+ 	u32 tx_int_delay;
+ 	u32 tx_abs_int_delay;
+ 	u32 gotcl;
+-	uint64_t gotcl_old;
+-	uint64_t tpt_old;
+-	uint64_t colc_old;
++	u64 gotcl_old;
++	u64 tpt_old;
++	u64 colc_old;
+ 	u32 tx_timeout_count;
+ 	u32 tx_fifo_head;
+ 	u32 tx_head_addr;
+@@ -305,16 +305,16 @@ struct e1000_adapter {
+ 	int num_tx_queues;
+ 	int num_rx_queues;
+ 
+-	uint64_t hw_csum_err;
+-	uint64_t hw_csum_good;
+-	uint64_t rx_hdr_split;
++	u64 hw_csum_err;
++	u64 hw_csum_good;
++	u64 rx_hdr_split;
+ 	u32 alloc_rx_buff_failed;
+ 	u32 rx_int_delay;
+ 	u32 rx_abs_int_delay;
  	bool rx_csum;
+ 	unsigned int rx_ps_pages;
+ 	u32 gorcl;
+-	uint64_t gorcl_old;
++	u64 gorcl_old;
+ 	u16 rx_ps_bsize0;
  
- 	/* OS defined structs */
-@@ -192,7 +192,7 @@ struct ixgb_adapter {
- 	struct ixgb_hw hw;
- 	u16 msg_enable;
- 	struct ixgb_hw_stats stats;
--	uint32_t alloc_rx_buff_failed;
-+	u32 alloc_rx_buff_failed;
- 	bool have_msi;
- 	unsigned long flags;
- };
-diff --git a/drivers/net/ixgb/ixgb_ee.c b/drivers/net/ixgb/ixgb_ee.c
-index 73403d7..2f7ed52 100644
---- a/drivers/net/ixgb/ixgb_ee.c
-+++ b/drivers/net/ixgb/ixgb_ee.c
-@@ -48,7 +48,7 @@ static void ixgb_cleanup_eeprom(struct ixgb_hw *hw);
-  *****************************************************************************/
- static void
- ixgb_raise_clock(struct ixgb_hw *hw,
--		  uint32_t *eecd_reg)
-+		  u32 *eecd_reg)
- {
- 	/* Raise the clock input to the EEPROM (by setting the SK bit), and then
- 	 *  wait 50 microseconds.
-@@ -67,7 +67,7 @@ ixgb_raise_clock(struct ixgb_hw *hw,
-  *****************************************************************************/
- static void
- ixgb_lower_clock(struct ixgb_hw *hw,
--		  uint32_t *eecd_reg)
-+		  u32 *eecd_reg)
- {
- 	/* Lower the clock input to the EEPROM (by clearing the SK bit), and then
- 	 * wait 50 microseconds.
-@@ -90,8 +90,8 @@ ixgb_shift_out_bits(struct ixgb_hw *hw,
- 					 u16 data,
- 					 u16 count)
- {
--	uint32_t eecd_reg;
--	uint32_t mask;
-+	u32 eecd_reg;
-+	u32 mask;
  
- 	/* We need to shift "count" bits out to the EEPROM. So, value in the
- 	 * "data" parameter will be shifted out to the EEPROM one bit at a time.
-@@ -136,8 +136,8 @@ ixgb_shift_out_bits(struct ixgb_hw *hw,
- static u16
- ixgb_shift_in_bits(struct ixgb_hw *hw)
- {
--	uint32_t eecd_reg;
--	uint32_t i;
-+	u32 eecd_reg;
-+	u32 i;
- 	u16 data;
- 
- 	/* In order to read a register from the EEPROM, we need to shift 16 bits
-@@ -179,7 +179,7 @@ ixgb_shift_in_bits(struct ixgb_hw *hw)
- static void
- ixgb_setup_eeprom(struct ixgb_hw *hw)
- {
--	uint32_t eecd_reg;
-+	u32 eecd_reg;
- 
- 	eecd_reg = IXGB_READ_REG(hw, EECD);
- 
-@@ -201,7 +201,7 @@ ixgb_setup_eeprom(struct ixgb_hw *hw)
- static void
- ixgb_standby_eeprom(struct ixgb_hw *hw)
- {
--	uint32_t eecd_reg;
-+	u32 eecd_reg;
- 
- 	eecd_reg = IXGB_READ_REG(hw, EECD);
- 
-@@ -235,7 +235,7 @@ ixgb_standby_eeprom(struct ixgb_hw *hw)
- static void
- ixgb_clock_eeprom(struct ixgb_hw *hw)
- {
--	uint32_t eecd_reg;
-+	u32 eecd_reg;
- 
- 	eecd_reg = IXGB_READ_REG(hw, EECD);
- 
-@@ -259,7 +259,7 @@ ixgb_clock_eeprom(struct ixgb_hw *hw)
- static void
- ixgb_cleanup_eeprom(struct ixgb_hw *hw)
- {
--	uint32_t eecd_reg;
-+	u32 eecd_reg;
- 
- 	eecd_reg = IXGB_READ_REG(hw, EECD);
- 
-@@ -285,8 +285,8 @@ ixgb_cleanup_eeprom(struct ixgb_hw *hw)
- static bool
- ixgb_wait_eeprom_command(struct ixgb_hw *hw)
- {
--	uint32_t eecd_reg;
--	uint32_t i;
-+	u32 eecd_reg;
-+	u32 i;
- 
- 	/* Toggle the CS line.  This in effect tells to EEPROM to actually execute
- 	 * the command in question.
-@@ -574,7 +574,7 @@ ixgb_get_ee_mac_addr(struct ixgb_hw *hw,
-  * Returns:
-  *          PBA number if EEPROM contents are valid, 0 otherwise
-  ******************************************************************************/
--uint32_t
-+u32
- ixgb_get_ee_pba_number(struct ixgb_hw *hw)
- {
- 	if (ixgb_check_and_get_eeprom_data(hw) == true)
-diff --git a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ixgb/ixgb_ethtool.c
-index 3daf7b9..cfdfa1c 100644
---- a/drivers/net/ixgb/ixgb_ethtool.c
-+++ b/drivers/net/ixgb/ixgb_ethtool.c
-@@ -185,7 +185,7 @@ ixgb_set_pauseparam(struct net_device *netdev,
- 	return 0;
+diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e1000_ethtool.c
+index 11bbd50..701531e 100644
+--- a/drivers/net/e1000/e1000_ethtool.c
++++ b/drivers/net/e1000/e1000_ethtool.c
+@@ -728,7 +728,7 @@ err_setup:
+ 	return err;
  }
  
--static uint32_t
-+static u32
- ixgb_get_rx_csum(struct net_device *netdev)
+-static bool reg_pattern_test(struct e1000_adapter *adapter, uint64_t *data,
++static bool reg_pattern_test(struct e1000_adapter *adapter, u64 *data,
+ 			     int reg, u32 mask, u32 write)
  {
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
-@@ -194,7 +194,7 @@ ixgb_get_rx_csum(struct net_device *netdev)
+ 	static const u32 test[] =
+@@ -751,7 +751,7 @@ static bool reg_pattern_test(struct e1000_adapter *adapter, uint64_t *data,
+ 	return false;
+ }
+ 
+-static bool reg_set_and_check(struct e1000_adapter *adapter, uint64_t *data,
++static bool reg_set_and_check(struct e1000_adapter *adapter, u64 *data,
+ 			      int reg, u32 mask, u32 write)
+ {
+ 	u8 __iomem *address = adapter->hw.hw_addr + reg;
+@@ -788,7 +788,7 @@ static bool reg_set_and_check(struct e1000_adapter *adapter, uint64_t *data,
+ 	} while (0)
+ 
+ static int
+-e1000_reg_test(struct e1000_adapter *adapter, uint64_t *data)
++e1000_reg_test(struct e1000_adapter *adapter, u64 *data)
+ {
+ 	u32 value, before, after;
+ 	u32 i, toggle;
+@@ -884,7 +884,7 @@ e1000_reg_test(struct e1000_adapter *adapter, uint64_t *data)
  }
  
  static int
--ixgb_set_rx_csum(struct net_device *netdev, uint32_t data)
-+ixgb_set_rx_csum(struct net_device *netdev, u32 data)
+-e1000_eeprom_test(struct e1000_adapter *adapter, uint64_t *data)
++e1000_eeprom_test(struct e1000_adapter *adapter, u64 *data)
  {
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
- 
-@@ -209,14 +209,14 @@ ixgb_set_rx_csum(struct net_device *netdev, uint32_t data)
- 	return 0;
- }
- 	
--static uint32_t
-+static u32
- ixgb_get_tx_csum(struct net_device *netdev)
- {
- 	return (netdev->features & NETIF_F_HW_CSUM) != 0;
+ 	u16 temp;
+ 	u16 checksum = 0;
+@@ -919,7 +919,7 @@ e1000_test_intr(int irq, void *data)
  }
  
  static int
--ixgb_set_tx_csum(struct net_device *netdev, uint32_t data)
-+ixgb_set_tx_csum(struct net_device *netdev, u32 data)
+-e1000_intr_test(struct e1000_adapter *adapter, uint64_t *data)
++e1000_intr_test(struct e1000_adapter *adapter, u64 *data)
  {
- 	if (data)
- 		netdev->features |= NETIF_F_HW_CSUM;
-@@ -227,7 +227,7 @@ ixgb_set_tx_csum(struct net_device *netdev, uint32_t data)
+ 	struct net_device *netdev = adapter->netdev;
+ 	u32 mask, i = 0;
+@@ -1096,8 +1096,8 @@ e1000_setup_desc_rings(struct e1000_adapter *adapter)
+ 	txdr->next_to_use = txdr->next_to_clean = 0;
+ 
+ 	E1000_WRITE_REG(&adapter->hw, TDBAL,
+-			((uint64_t) txdr->dma & 0x00000000FFFFFFFF));
+-	E1000_WRITE_REG(&adapter->hw, TDBAH, ((uint64_t) txdr->dma >> 32));
++			((u64) txdr->dma & 0x00000000FFFFFFFF));
++	E1000_WRITE_REG(&adapter->hw, TDBAH, ((u64) txdr->dma >> 32));
+ 	E1000_WRITE_REG(&adapter->hw, TDLEN,
+ 			txdr->count * sizeof(struct e1000_tx_desc));
+ 	E1000_WRITE_REG(&adapter->hw, TDH, 0);
+@@ -1153,8 +1153,8 @@ e1000_setup_desc_rings(struct e1000_adapter *adapter)
+ 	rctl = E1000_READ_REG(&adapter->hw, RCTL);
+ 	E1000_WRITE_REG(&adapter->hw, RCTL, rctl & ~E1000_RCTL_EN);
+ 	E1000_WRITE_REG(&adapter->hw, RDBAL,
+-			((uint64_t) rxdr->dma & 0xFFFFFFFF));
+-	E1000_WRITE_REG(&adapter->hw, RDBAH, ((uint64_t) rxdr->dma >> 32));
++			((u64) rxdr->dma & 0xFFFFFFFF));
++	E1000_WRITE_REG(&adapter->hw, RDBAH, ((u64) rxdr->dma >> 32));
+ 	E1000_WRITE_REG(&adapter->hw, RDLEN, rxdr->size);
+ 	E1000_WRITE_REG(&adapter->hw, RDH, 0);
+ 	E1000_WRITE_REG(&adapter->hw, RDT, 0);
+@@ -1578,7 +1578,7 @@ e1000_run_loopback_test(struct e1000_adapter *adapter)
  }
  
  static int
--ixgb_set_tso(struct net_device *netdev, uint32_t data)
-+ixgb_set_tso(struct net_device *netdev, u32 data)
+-e1000_loopback_test(struct e1000_adapter *adapter, uint64_t *data)
++e1000_loopback_test(struct e1000_adapter *adapter, u64 *data)
  {
- 	if(data)
- 		netdev->features |= NETIF_F_TSO;
-@@ -236,7 +236,7 @@ ixgb_set_tso(struct net_device *netdev, uint32_t data)
- 	return 0;
- } 
- 
--static uint32_t
-+static u32
- ixgb_get_msglevel(struct net_device *netdev)
- {
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
-@@ -244,7 +244,7 @@ ixgb_get_msglevel(struct net_device *netdev)
+ 	/* PHY loopback cannot be performed if SoL/IDER
+ 	 * sessions are active */
+@@ -1603,7 +1603,7 @@ out:
  }
+ 
+ static int
+-e1000_link_test(struct e1000_adapter *adapter, uint64_t *data)
++e1000_link_test(struct e1000_adapter *adapter, u64 *data)
+ {
+ 	*data = 0;
+ 	if (adapter->hw.media_type == e1000_media_type_internal_serdes) {
+@@ -1647,7 +1647,7 @@ e1000_get_sset_count(struct net_device *netdev, int sset)
  
  static void
--ixgb_set_msglevel(struct net_device *netdev, uint32_t data)
-+ixgb_set_msglevel(struct net_device *netdev, u32 data)
+ e1000_diag_test(struct net_device *netdev,
+-		   struct ethtool_test *eth_test, uint64_t *data)
++		   struct ethtool_test *eth_test, u64 *data)
  {
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
- 	adapter->msg_enable = data;
-@@ -254,7 +254,7 @@ ixgb_set_msglevel(struct net_device *netdev, uint32_t data)
- static int 
- ixgb_get_regs_len(struct net_device *netdev)
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	bool if_running = netif_running(netdev);
+@@ -1927,7 +1927,7 @@ e1000_nway_reset(struct net_device *netdev)
+ 
+ static void
+ e1000_get_ethtool_stats(struct net_device *netdev,
+-		struct ethtool_stats *stats, uint64_t *data)
++		struct ethtool_stats *stats, u64 *data)
  {
--#define IXGB_REG_DUMP_LEN  136*sizeof(uint32_t)
-+#define IXGB_REG_DUMP_LEN  136*sizeof(u32)
- 	return IXGB_REG_DUMP_LEN;
- }
- 
-@@ -264,8 +264,8 @@ ixgb_get_regs(struct net_device *netdev,
- {
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
- 	struct ixgb_hw *hw = &adapter->hw;
--	uint32_t *reg = p;
--	uint32_t *reg_start = reg;
-+	u32 *reg = p;
-+	u32 *reg_start = reg;
- 	u8 i;
- 
- 	/* the 1 (one) below indicates an attempt at versioning, if the
-@@ -395,7 +395,7 @@ ixgb_get_regs(struct net_device *netdev,
- 	*reg++ = IXGB_GET_STAT(adapter, xofftxc);	/* 134 */
- 	*reg++ = IXGB_GET_STAT(adapter, rjc);	/* 135 */
- 
--	regs->len = (reg - reg_start) * sizeof(uint32_t);
-+	regs->len = (reg - reg_start) * sizeof(u32);
- }
- 
- static int
-@@ -563,12 +563,12 @@ ixgb_set_ringparam(struct net_device *netdev,
- 	if(netif_running(adapter->netdev))
- 		ixgb_down(adapter, true);
- 
--	rxdr->count = max(ring->rx_pending,(uint32_t)MIN_RXD);
--	rxdr->count = min(rxdr->count,(uint32_t)MAX_RXD);
-+	rxdr->count = max(ring->rx_pending,(u32)MIN_RXD);
-+	rxdr->count = min(rxdr->count,(u32)MAX_RXD);
- 	rxdr->count = ALIGN(rxdr->count, IXGB_REQ_RX_DESCRIPTOR_MULTIPLE);
- 
--	txdr->count = max(ring->tx_pending,(uint32_t)MIN_TXD);
--	txdr->count = min(txdr->count,(uint32_t)MAX_TXD);
-+	txdr->count = max(ring->tx_pending,(u32)MIN_TXD);
-+	txdr->count = min(txdr->count,(u32)MAX_TXD);
- 	txdr->count = ALIGN(txdr->count, IXGB_REQ_TX_DESCRIPTOR_MULTIPLE);
- 
- 	if(netif_running(adapter->netdev)) {
-@@ -624,7 +624,7 @@ ixgb_led_blink_callback(unsigned long data)
- }
- 
- static int
--ixgb_phys_id(struct net_device *netdev, uint32_t data)
-+ixgb_phys_id(struct net_device *netdev, u32 data)
- {
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
- 
-@@ -669,12 +669,12 @@ ixgb_get_ethtool_stats(struct net_device *netdev,
- 	for(i = 0; i < IXGB_STATS_LEN; i++) {
- 		char *p = (char *)adapter+ixgb_gstrings_stats[i].stat_offset;	
- 		data[i] = (ixgb_gstrings_stats[i].sizeof_stat == 
--			sizeof(uint64_t)) ? *(uint64_t *)p : *(uint32_t *)p;
-+			sizeof(uint64_t)) ? *(uint64_t *)p : *(u32 *)p;
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	int i;
+@@ -1936,7 +1936,7 @@ e1000_get_ethtool_stats(struct net_device *netdev,
+ 	for (i = 0; i < E1000_GLOBAL_STATS_LEN; i++) {
+ 		char *p = (char *)adapter+e1000_gstrings_stats[i].stat_offset;
+ 		data[i] = (e1000_gstrings_stats[i].sizeof_stat ==
+-			sizeof(uint64_t)) ? *(uint64_t *)p : *(u32 *)p;
++			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
  	}
+ /*	BUG_ON(i != E1000_STATS_LEN); */
  }
- 
- static void 
--ixgb_get_strings(struct net_device *netdev, uint32_t stringset, u8 *data)
-+ixgb_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
+index 33bdd62..5d6c624 100644
+--- a/drivers/net/e1000/e1000_hw.c
++++ b/drivers/net/e1000/e1000_hw.c
+@@ -6498,7 +6498,7 @@ e1000_tbi_adjust_stats(struct e1000_hw *hw,
+                        u32 frame_len,
+                        u8 *mac_addr)
  {
- 	int i;
+-    uint64_t carry_bit;
++    u64 carry_bit;
  
-diff --git a/drivers/net/ixgb/ixgb_hw.c b/drivers/net/ixgb/ixgb_hw.c
-index 7536eba..04d2003 100644
---- a/drivers/net/ixgb/ixgb_hw.c
-+++ b/drivers/net/ixgb/ixgb_hw.c
-@@ -35,9 +35,9 @@
+     /* First adjust the frame length. */
+     frame_len--;
+diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
+index 2cf3d99..696e8cb 100644
+--- a/drivers/net/e1000/e1000_hw.h
++++ b/drivers/net/e1000/e1000_hw.h
+@@ -1309,75 +1309,75 @@ struct e1000_ffvt_entry {
  
- /*  Local function prototypes */
- 
--static uint32_t ixgb_hash_mc_addr(struct ixgb_hw *hw, u8 * mc_addr);
-+static u32 ixgb_hash_mc_addr(struct ixgb_hw *hw, u8 * mc_addr);
- 
--static void ixgb_mta_set(struct ixgb_hw *hw, uint32_t hash_value);
-+static void ixgb_mta_set(struct ixgb_hw *hw, u32 hash_value);
- 
- static void ixgb_get_bus_info(struct ixgb_hw *hw);
- 
-@@ -56,17 +56,17 @@ static void ixgb_clear_vfta(struct ixgb_hw *hw);
- static void ixgb_init_rx_addrs(struct ixgb_hw *hw);
- 
- static u16 ixgb_read_phy_reg(struct ixgb_hw *hw,
--				  uint32_t reg_address,
--				  uint32_t phy_address,
--				  uint32_t device_type);
-+				  u32 reg_address,
-+				  u32 phy_address,
-+				  u32 device_type);
- 
- static bool ixgb_setup_fc(struct ixgb_hw *hw);
- 
- static bool mac_addr_valid(u8 *mac_addr);
- 
--static uint32_t ixgb_mac_reset(struct ixgb_hw *hw)
-+static u32 ixgb_mac_reset(struct ixgb_hw *hw)
- {
--	uint32_t ctrl_reg;
-+	u32 ctrl_reg;
- 
- 	ctrl_reg =  IXGB_CTRL0_RST |
- 				IXGB_CTRL0_SDP3_DIR |   /* All pins are Output=1 */
-@@ -117,8 +117,8 @@ static uint32_t ixgb_mac_reset(struct ixgb_hw *hw)
- bool
- ixgb_adapter_stop(struct ixgb_hw *hw)
- {
--	uint32_t ctrl_reg;
--	uint32_t icr_reg;
-+	u32 ctrl_reg;
-+	u32 icr_reg;
- 
- 	DEBUGFUNC("ixgb_adapter_stop");
- 
-@@ -179,7 +179,7 @@ ixgb_adapter_stop(struct ixgb_hw *hw)
- static ixgb_xpak_vendor
- ixgb_identify_xpak_vendor(struct ixgb_hw *hw)
- {
--	uint32_t i;
-+	u32 i;
- 	u16 vendor_name[5];
- 	ixgb_xpak_vendor xpak_vendor;
- 
-@@ -292,8 +292,8 @@ ixgb_identify_phy(struct ixgb_hw *hw)
- bool
- ixgb_init_hw(struct ixgb_hw *hw)
- {
--	uint32_t i;
--	uint32_t ctrl_reg;
-+	u32 i;
-+	u32 ctrl_reg;
- 	bool status;
- 
- 	DEBUGFUNC("ixgb_init_hw");
-@@ -377,7 +377,7 @@ ixgb_init_hw(struct ixgb_hw *hw)
- static void
- ixgb_init_rx_addrs(struct ixgb_hw *hw)
- {
--	uint32_t i;
-+	u32 i;
- 
- 	DEBUGFUNC("ixgb_init_rx_addrs");
- 
-@@ -438,12 +438,12 @@ ixgb_init_rx_addrs(struct ixgb_hw *hw)
- void
- ixgb_mc_addr_list_update(struct ixgb_hw *hw,
- 			  u8 *mc_addr_list,
--			  uint32_t mc_addr_count,
--			  uint32_t pad)
-+			  u32 mc_addr_count,
-+			  u32 pad)
- {
--	uint32_t hash_value;
--	uint32_t i;
--	uint32_t rar_used_count = 1;		/* RAR[0] is used for our MAC address */
-+	u32 hash_value;
-+	u32 i;
-+	u32 rar_used_count = 1;		/* RAR[0] is used for our MAC address */
- 
- 	DEBUGFUNC("ixgb_mc_addr_list_update");
- 
-@@ -515,11 +515,11 @@ ixgb_mc_addr_list_update(struct ixgb_hw *hw,
-  * Returns:
-  *      The hash value
-  *****************************************************************************/
--static uint32_t
-+static u32
- ixgb_hash_mc_addr(struct ixgb_hw *hw,
- 		   u8 *mc_addr)
- {
--	uint32_t hash_value = 0;
-+	u32 hash_value = 0;
- 
- 	DEBUGFUNC("ixgb_hash_mc_addr");
- 
-@@ -565,10 +565,10 @@ ixgb_hash_mc_addr(struct ixgb_hw *hw,
-  *****************************************************************************/
- static void
- ixgb_mta_set(struct ixgb_hw *hw,
--		  uint32_t hash_value)
-+		  u32 hash_value)
- {
--	uint32_t hash_bit, hash_reg;
--	uint32_t mta_reg;
-+	u32 hash_bit, hash_reg;
-+	u32 mta_reg;
- 
- 	/* The MTA is a register array of 128 32-bit registers.
- 	 * It is treated like an array of 4096 bits.  We want to set
-@@ -600,22 +600,22 @@ ixgb_mta_set(struct ixgb_hw *hw,
- void
- ixgb_rar_set(struct ixgb_hw *hw,
- 		  u8 *addr,
--		  uint32_t index)
-+		  u32 index)
- {
--	uint32_t rar_low, rar_high;
-+	u32 rar_low, rar_high;
- 
- 	DEBUGFUNC("ixgb_rar_set");
- 
- 	/* HW expects these in little endian so we reverse the byte order
- 	 * from network order (big endian) to little endian
- 	 */
--	rar_low = ((uint32_t) addr[0] |
--		   ((uint32_t)addr[1] << 8) |
--		   ((uint32_t)addr[2] << 16) |
--		   ((uint32_t)addr[3] << 24));
-+	rar_low = ((u32) addr[0] |
-+		   ((u32)addr[1] << 8) |
-+		   ((u32)addr[2] << 16) |
-+		   ((u32)addr[3] << 24));
- 
--	rar_high = ((uint32_t) addr[4] |
--			((uint32_t)addr[5] << 8) |
-+	rar_high = ((u32) addr[4] |
-+			((u32)addr[5] << 8) |
- 			IXGB_RAH_AV);
- 
- 	IXGB_WRITE_REG_ARRAY(hw, RA, (index << 1), rar_low);
-@@ -632,8 +632,8 @@ ixgb_rar_set(struct ixgb_hw *hw,
-  *****************************************************************************/
- void
- ixgb_write_vfta(struct ixgb_hw *hw,
--		 uint32_t offset,
--		 uint32_t value)
-+		 u32 offset,
-+		 u32 value)
- {
- 	IXGB_WRITE_REG_ARRAY(hw, VFTA, offset, value);
- 	return;
-@@ -647,7 +647,7 @@ ixgb_write_vfta(struct ixgb_hw *hw,
- static void
- ixgb_clear_vfta(struct ixgb_hw *hw)
- {
--	uint32_t offset;
-+	u32 offset;
- 
- 	for(offset = 0; offset < IXGB_VLAN_FILTER_TBL_SIZE; offset++)
- 		IXGB_WRITE_REG_ARRAY(hw, VFTA, offset, 0);
-@@ -663,8 +663,8 @@ ixgb_clear_vfta(struct ixgb_hw *hw)
- static bool
- ixgb_setup_fc(struct ixgb_hw *hw)
- {
--	uint32_t ctrl_reg;
--	uint32_t pap_reg = 0;   /* by default, assume no pause time */
-+	u32 ctrl_reg;
-+	u32 pap_reg = 0;   /* by default, assume no pause time */
- 	bool status = true;
- 
- 	DEBUGFUNC("ixgb_setup_fc");
-@@ -764,13 +764,13 @@ ixgb_setup_fc(struct ixgb_hw *hw)
-  *****************************************************************************/
- static u16
- ixgb_read_phy_reg(struct ixgb_hw *hw,
--		uint32_t reg_address,
--		uint32_t phy_address,
--		uint32_t device_type)
-+		u32 reg_address,
-+		u32 phy_address,
-+		u32 device_type)
- {
--	uint32_t i;
--	uint32_t data;
--	uint32_t command = 0;
-+	u32 i;
-+	u32 data;
-+	u32 command = 0;
- 
- 	ASSERT(reg_address <= IXGB_MAX_PHY_REG_ADDRESS);
- 	ASSERT(phy_address <= IXGB_MAX_PHY_ADDRESS);
-@@ -857,20 +857,20 @@ ixgb_read_phy_reg(struct ixgb_hw *hw,
-  *****************************************************************************/
- static void
- ixgb_write_phy_reg(struct ixgb_hw *hw,
--			uint32_t reg_address,
--			uint32_t phy_address,
--			uint32_t device_type,
-+			u32 reg_address,
-+			u32 phy_address,
-+			u32 device_type,
- 			u16 data)
- {
--	uint32_t i;
--	uint32_t command = 0;
-+	u32 i;
-+	u32 command = 0;
- 
- 	ASSERT(reg_address <= IXGB_MAX_PHY_REG_ADDRESS);
- 	ASSERT(phy_address <= IXGB_MAX_PHY_ADDRESS);
- 	ASSERT(device_type <= IXGB_MAX_PHY_DEV_TYPE);
- 
- 	/* Put the data in the MDIO Read/Write Data register */
--	IXGB_WRITE_REG(hw, MSRWD, (uint32_t)data);
-+	IXGB_WRITE_REG(hw, MSRWD, (u32)data);
- 
- 	/* Setup and write the address cycle command */
- 	command = ((reg_address << IXGB_MSCA_NP_ADDR_SHIFT)  |
-@@ -939,8 +939,8 @@ ixgb_write_phy_reg(struct ixgb_hw *hw,
- void
- ixgb_check_for_link(struct ixgb_hw *hw)
- {
--	uint32_t status_reg;
--	uint32_t xpcss_reg;
-+	u32 status_reg;
-+	u32 xpcss_reg;
- 
- 	DEBUGFUNC("ixgb_check_for_link");
- 
-@@ -975,7 +975,7 @@ ixgb_check_for_link(struct ixgb_hw *hw)
-  *****************************************************************************/
- bool ixgb_check_for_bad_link(struct ixgb_hw *hw)
- {
--	uint32_t newLFC, newRFC;
-+	u32 newLFC, newRFC;
- 	bool bad_link_returncode = false;
- 
- 	if (hw->phy_type == ixgb_phy_type_txn17401) {
-@@ -1002,7 +1002,7 @@ bool ixgb_check_for_bad_link(struct ixgb_hw *hw)
- static void
- ixgb_clear_hw_cntrs(struct ixgb_hw *hw)
- {
--	volatile uint32_t temp_reg;
-+	volatile u32 temp_reg;
- 
- 	DEBUGFUNC("ixgb_clear_hw_cntrs");
- 
-@@ -1083,7 +1083,7 @@ ixgb_clear_hw_cntrs(struct ixgb_hw *hw)
- void
- ixgb_led_on(struct ixgb_hw *hw)
- {
--	uint32_t ctrl0_reg = IXGB_READ_REG(hw, CTRL0);
-+	u32 ctrl0_reg = IXGB_READ_REG(hw, CTRL0);
- 
- 	/* To turn on the LED, clear software-definable pin 0 (SDP0). */
- 	ctrl0_reg &= ~IXGB_CTRL0_SDP0;
-@@ -1099,7 +1099,7 @@ ixgb_led_on(struct ixgb_hw *hw)
- void
- ixgb_led_off(struct ixgb_hw *hw)
- {
--	uint32_t ctrl0_reg = IXGB_READ_REG(hw, CTRL0);
-+	u32 ctrl0_reg = IXGB_READ_REG(hw, CTRL0);
- 
- 	/* To turn off the LED, set software-definable pin 0 (SDP0). */
- 	ctrl0_reg |= IXGB_CTRL0_SDP0;
-@@ -1115,7 +1115,7 @@ ixgb_led_off(struct ixgb_hw *hw)
- static void
- ixgb_get_bus_info(struct ixgb_hw *hw)
- {
--	uint32_t status_reg;
-+	u32 status_reg;
- 
- 	status_reg = IXGB_READ_REG(hw, STATUS);
- 
-diff --git a/drivers/net/ixgb/ixgb_hw.h b/drivers/net/ixgb/ixgb_hw.h
-index a4dc8df..f31cba0 100644
---- a/drivers/net/ixgb/ixgb_hw.h
-+++ b/drivers/net/ixgb/ixgb_hw.h
-@@ -660,8 +660,8 @@ struct ixgb_flash_buffer {
- 
- /* Flow control parameters */
- struct ixgb_fc {
--	uint32_t high_water;	/* Flow Control High-water          */
--	uint32_t low_water;	/* Flow Control Low-water           */
-+	u32 high_water;	/* Flow Control High-water          */
-+	u32 low_water;	/* Flow Control Low-water           */
- 	u16 pause_time;	/* Flow Control Pause timer         */
- 	bool send_xon;		/* Flow control send XON            */
- 	ixgb_fc_type type;	/* Type of flow control             */
-@@ -689,17 +689,17 @@ struct ixgb_hw {
- 	void *back;		/* Pointer to OS-dependent struct   */
- 	struct ixgb_fc fc;	/* Flow control parameters          */
- 	struct ixgb_bus bus;	/* Bus parameters                   */
--	uint32_t phy_id;	/* Phy Identifier                   */
--	uint32_t phy_addr;	/* XGMII address of Phy             */
-+	u32 phy_id;	/* Phy Identifier                   */
-+	u32 phy_addr;	/* XGMII address of Phy             */
- 	ixgb_mac_type mac_type;	/* Identifier for MAC controller    */
- 	ixgb_phy_type phy_type;	/* Transceiver/phy identifier       */
--	uint32_t max_frame_size;	/* Maximum frame size supported     */
--	uint32_t mc_filter_type;	/* Multicast filter hash type       */
--	uint32_t num_mc_addrs;	/* Number of current Multicast addrs */
-+	u32 max_frame_size;	/* Maximum frame size supported     */
-+	u32 mc_filter_type;	/* Multicast filter hash type       */
-+	u32 num_mc_addrs;	/* Number of current Multicast addrs */
- 	u8 curr_mac_addr[IXGB_ETH_LENGTH_OF_ADDRESS];	/* Individual address currently programmed in MAC */
--	uint32_t num_tx_desc;	/* Number of Transmit descriptors   */
--	uint32_t num_rx_desc;	/* Number of Receive descriptors    */
--	uint32_t rx_buffer_size;	/* Size of Receive buffer           */
-+	u32 num_tx_desc;	/* Number of Transmit descriptors   */
-+	u32 num_rx_desc;	/* Number of Receive descriptors    */
-+	u32 rx_buffer_size;	/* Size of Receive buffer           */
- 	bool link_up;		/* true if link is valid            */
- 	bool adapter_stopped;	/* State of adapter                 */
- 	u16 device_id;	/* device id from PCI configuration space */
-@@ -707,15 +707,15 @@ struct ixgb_hw {
- 	u8 revision_id;	/* revision id from PCI configuration space */
- 	u16 subsystem_vendor_id;	/* subsystem vendor id from PCI configuration space */
- 	u16 subsystem_id;	/* subsystem id from PCI configuration space */
--	uint32_t bar0;		/* Base Address registers           */
--	uint32_t bar1;
--	uint32_t bar2;
--	uint32_t bar3;
-+	u32 bar0;		/* Base Address registers           */
-+	u32 bar1;
-+	u32 bar2;
-+	u32 bar3;
- 	u16 pci_cmd_word;	/* PCI command register id from PCI configuration space */
- 	__le16 eeprom[IXGB_EEPROM_SIZE];	/* EEPROM contents read at init time  */
- 	unsigned long io_base;	/* Our I/O mapped location */
--	uint32_t lastLFC;
--	uint32_t lastRFC;
-+	u32 lastLFC;
-+	u32 lastRFC;
+ /* Statistics counters collected by the MAC */
+ struct e1000_hw_stats {
+-	uint64_t		crcerrs;
+-	uint64_t		algnerrc;
+-	uint64_t		symerrs;
+-	uint64_t		rxerrc;
+-	uint64_t		txerrc;
+-	uint64_t		mpc;
+-	uint64_t		scc;
+-	uint64_t		ecol;
+-	uint64_t		mcc;
+-	uint64_t		latecol;
+-	uint64_t		colc;
+-	uint64_t		dc;
+-	uint64_t		tncrs;
+-	uint64_t		sec;
+-	uint64_t		cexterr;
+-	uint64_t		rlec;
+-	uint64_t		xonrxc;
+-	uint64_t		xontxc;
+-	uint64_t		xoffrxc;
+-	uint64_t		xofftxc;
+-	uint64_t		fcruc;
+-	uint64_t		prc64;
+-	uint64_t		prc127;
+-	uint64_t		prc255;
+-	uint64_t		prc511;
+-	uint64_t		prc1023;
+-	uint64_t		prc1522;
+-	uint64_t		gprc;
+-	uint64_t		bprc;
+-	uint64_t		mprc;
+-	uint64_t		gptc;
+-	uint64_t		gorcl;
+-	uint64_t		gorch;
+-	uint64_t		gotcl;
+-	uint64_t		gotch;
+-	uint64_t		rnbc;
+-	uint64_t		ruc;
+-	uint64_t		rfc;
+-	uint64_t		roc;
+-	uint64_t		rlerrc;
+-	uint64_t		rjc;
+-	uint64_t		mgprc;
+-	uint64_t		mgpdc;
+-	uint64_t		mgptc;
+-	uint64_t		torl;
+-	uint64_t		torh;
+-	uint64_t		totl;
+-	uint64_t		toth;
+-	uint64_t		tpr;
+-	uint64_t		tpt;
+-	uint64_t		ptc64;
+-	uint64_t		ptc127;
+-	uint64_t		ptc255;
+-	uint64_t		ptc511;
+-	uint64_t		ptc1023;
+-	uint64_t		ptc1522;
+-	uint64_t		mptc;
+-	uint64_t		bptc;
+-	uint64_t		tsctc;
+-	uint64_t		tsctfc;
+-	uint64_t		iac;
+-	uint64_t		icrxptc;
+-	uint64_t		icrxatc;
+-	uint64_t		ictxptc;
+-	uint64_t		ictxatc;
+-	uint64_t		ictxqec;
+-	uint64_t		ictxqmtc;
+-	uint64_t		icrxdmtc;
+-	uint64_t		icrxoc;
++	u64		crcerrs;
++	u64		algnerrc;
++	u64		symerrs;
++	u64		rxerrc;
++	u64		txerrc;
++	u64		mpc;
++	u64		scc;
++	u64		ecol;
++	u64		mcc;
++	u64		latecol;
++	u64		colc;
++	u64		dc;
++	u64		tncrs;
++	u64		sec;
++	u64		cexterr;
++	u64		rlec;
++	u64		xonrxc;
++	u64		xontxc;
++	u64		xoffrxc;
++	u64		xofftxc;
++	u64		fcruc;
++	u64		prc64;
++	u64		prc127;
++	u64		prc255;
++	u64		prc511;
++	u64		prc1023;
++	u64		prc1522;
++	u64		gprc;
++	u64		bprc;
++	u64		mprc;
++	u64		gptc;
++	u64		gorcl;
++	u64		gorch;
++	u64		gotcl;
++	u64		gotch;
++	u64		rnbc;
++	u64		ruc;
++	u64		rfc;
++	u64		roc;
++	u64		rlerrc;
++	u64		rjc;
++	u64		mgprc;
++	u64		mgpdc;
++	u64		mgptc;
++	u64		torl;
++	u64		torh;
++	u64		totl;
++	u64		toth;
++	u64		tpr;
++	u64		tpt;
++	u64		ptc64;
++	u64		ptc127;
++	u64		ptc255;
++	u64		ptc511;
++	u64		ptc1023;
++	u64		ptc1522;
++	u64		mptc;
++	u64		bptc;
++	u64		tsctc;
++	u64		tsctfc;
++	u64		iac;
++	u64		icrxptc;
++	u64		icrxatc;
++	u64		ictxptc;
++	u64		ictxatc;
++	u64		ictxqec;
++	u64		ictxqmtc;
++	u64		icrxdmtc;
++	u64		icrxoc;
  };
  
- /* Statistics reported by the hardware */
-@@ -791,23 +791,23 @@ extern bool ixgb_check_for_bad_link(struct ixgb_hw *hw);
- 
- extern void ixgb_rar_set(struct ixgb_hw *hw,
- 				u8 *addr,
--				uint32_t index);
-+				u32 index);
- 
- 
- /* Filters (multicast, vlan, receive) */
- extern void ixgb_mc_addr_list_update(struct ixgb_hw *hw,
- 				   u8 *mc_addr_list,
--				   uint32_t mc_addr_count,
--				   uint32_t pad);
-+				   u32 mc_addr_count,
-+				   u32 pad);
- 
- /* Vfta functions */
- extern void ixgb_write_vfta(struct ixgb_hw *hw,
--				 uint32_t offset,
--				 uint32_t value);
-+				 u32 offset,
-+				 u32 value);
- 
- /* Access functions to eeprom data */
- void ixgb_get_ee_mac_addr(struct ixgb_hw *hw, u8 *mac_addr);
--uint32_t ixgb_get_ee_pba_number(struct ixgb_hw *hw);
-+u32 ixgb_get_ee_pba_number(struct ixgb_hw *hw);
- u16 ixgb_get_ee_device_id(struct ixgb_hw *hw);
- bool ixgb_get_eeprom_data(struct ixgb_hw *hw);
- __le16 ixgb_get_eeprom_word(struct ixgb_hw *hw, u16 index);
-@@ -816,7 +816,7 @@ __le16 ixgb_get_eeprom_word(struct ixgb_hw *hw, u16 index);
- void ixgb_led_on(struct ixgb_hw *hw);
- void ixgb_led_off(struct ixgb_hw *hw);
- void ixgb_write_pci_cfg(struct ixgb_hw *hw,
--			 uint32_t reg,
-+			 u32 reg,
- 			 u16 * value);
- 
- 
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index e5032be..e99b855 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -271,7 +271,7 @@ ixgb_up(struct ixgb_adapter *adapter)
- 
- 		if(hw->max_frame_size >
- 		   IXGB_MAX_ENET_FRAME_SIZE_WITHOUT_FCS + ENET_FCS_LENGTH) {
--			uint32_t ctrl0 = IXGB_READ_REG(hw, CTRL0);
-+			u32 ctrl0 = IXGB_READ_REG(hw, CTRL0);
- 
- 			if(!(ctrl0 & IXGB_CTRL0_JFE)) {
- 				ctrl0 |= IXGB_CTRL0_JFE;
-@@ -719,8 +719,8 @@ static void
- ixgb_configure_tx(struct ixgb_adapter *adapter)
- {
- 	uint64_t tdba = adapter->tx_ring.dma;
--	uint32_t tdlen = adapter->tx_ring.count * sizeof(struct ixgb_tx_desc);
--	uint32_t tctl;
-+	u32 tdlen = adapter->tx_ring.count * sizeof(struct ixgb_tx_desc);
-+	u32 tctl;
- 	struct ixgb_hw *hw = &adapter->hw;
- 
- 	/* Setup the Base and Length of the Tx Descriptor Ring 
-@@ -806,7 +806,7 @@ ixgb_setup_rx_resources(struct ixgb_adapter *adapter)
+ /* Structure containing variables used by the shared code (e1000_hw.c) */
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 93e0700..04a7f71 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -1702,7 +1702,7 @@ e1000_setup_all_tx_resources(struct e1000_adapter *adapter)
  static void
- ixgb_setup_rctl(struct ixgb_adapter *adapter)
+ e1000_configure_tx(struct e1000_adapter *adapter)
  {
--	uint32_t rctl;
-+	u32 rctl;
- 
- 	rctl = IXGB_READ_REG(&adapter->hw, RCTL);
- 
-@@ -842,11 +842,11 @@ static void
- ixgb_configure_rx(struct ixgb_adapter *adapter)
+-	uint64_t tdba;
++	u64 tdba;
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 tdlen, tctl, tipg, tarc;
+ 	u32 ipgr1, ipgr2;
+@@ -2065,7 +2065,7 @@ e1000_setup_rctl(struct e1000_adapter *adapter)
+ static void
+ e1000_configure_rx(struct e1000_adapter *adapter)
  {
- 	uint64_t rdba = adapter->rx_ring.dma;
--	uint32_t rdlen = adapter->rx_ring.count * sizeof(struct ixgb_rx_desc);
-+	u32 rdlen = adapter->rx_ring.count * sizeof(struct ixgb_rx_desc);
- 	struct ixgb_hw *hw = &adapter->hw;
--	uint32_t rctl;
--	uint32_t rxcsum;
--	uint32_t rxdctl;
-+	u32 rctl;
-+	u32 rxcsum;
-+	u32 rxdctl;
- 
- 	/* make sure receives are disabled while setting up the descriptors */
- 
-@@ -1079,7 +1079,7 @@ ixgb_set_multi(struct net_device *netdev)
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
- 	struct ixgb_hw *hw = &adapter->hw;
- 	struct dev_mc_list *mc_ptr;
--	uint32_t rctl;
-+	u32 rctl;
- 	int i;
- 
- 	/* Check for Promiscuous and All Multicast modes */
-@@ -1265,7 +1265,7 @@ ixgb_tx_csum(struct ixgb_adapter *adapter, struct sk_buff *skb)
- 		context_desc->tucso = cso;
- 		context_desc->tucse = 0;
- 		/* zero out any previously existing data in one instruction */
--		*(uint32_t *)&(context_desc->ipcss) = 0;
-+		*(u32 *)&(context_desc->ipcss) = 0;
- 		context_desc->status = 0;
- 		context_desc->hdr_len = 0;
- 		context_desc->mss = 0;
-@@ -1372,7 +1372,7 @@ ixgb_tx_queue(struct ixgb_adapter *adapter, int count, int vlan_id,int tx_flags)
- 	struct ixgb_desc_ring *tx_ring = &adapter->tx_ring;
- 	struct ixgb_tx_desc *tx_desc = NULL;
- 	struct ixgb_buffer *buffer_info;
--	uint32_t cmd_type_len = adapter->tx_cmd_type;
-+	u32 cmd_type_len = adapter->tx_cmd_type;
- 	u8 status = 0;
- 	u8 popts = 0;
- 	unsigned int i;
-@@ -1750,7 +1750,7 @@ ixgb_intr(int irq, void *data)
- 	struct net_device *netdev = data;
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
- 	struct ixgb_hw *hw = &adapter->hw;
--	uint32_t icr = IXGB_READ_REG(hw, ICR);
-+	u32 icr = IXGB_READ_REG(hw, ICR);
- #ifndef CONFIG_IXGB_NAPI
- 	unsigned int i;
- #endif
-@@ -1843,7 +1843,7 @@ ixgb_clean_tx_irq(struct ixgb_adapter *adapter)
- 
- 			ixgb_unmap_and_free_tx_resource(adapter, buffer_info);
- 
--			*(uint32_t *)&(tx_desc->status) = 0;
-+			*(u32 *)&(tx_desc->status) = 0;
- 
- 			cleaned = (i == eop);
- 			if(++i == tx_ring->count) i = 0;
-@@ -1948,7 +1948,7 @@ ixgb_clean_rx_irq(struct ixgb_adapter *adapter)
- 	struct pci_dev *pdev = adapter->pdev;
- 	struct ixgb_rx_desc *rx_desc, *next_rxd;
- 	struct ixgb_buffer *buffer_info, *next_buffer, *next2_buffer;
--	uint32_t length;
-+	u32 length;
- 	unsigned int i, j;
- 	bool cleaned = false;
- 
-@@ -2166,7 +2166,7 @@ static void
- ixgb_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
- {
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
--	uint32_t ctrl, rctl;
-+	u32 ctrl, rctl;
- 
- 	ixgb_irq_disable(adapter);
- 	adapter->vlgrp = grp;
-@@ -2206,7 +2206,7 @@ static void
- ixgb_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
- {
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
--	uint32_t vfta, index;
-+	u32 vfta, index;
- 
- 	/* add VID to filter table */
- 
-@@ -2220,7 +2220,7 @@ static void
- ixgb_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
- {
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
--	uint32_t vfta, index;
-+	u32 vfta, index;
- 
- 	ixgb_irq_disable(adapter);
+-	uint64_t rdba;
++	u64 rdba;
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 rdlen, rctl, rxcsum, ctrl_ext;
  
 -- 
 1.5.4.rc2
