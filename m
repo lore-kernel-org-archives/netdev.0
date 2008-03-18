@@ -1,50 +1,48 @@
-From: "Gordon Farquharson" <gordonfarquharson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-02-27
-Date: Mon, 17 Mar 2008 22:07:56 -0600
-Message-ID: <97a0a9ac0803172107s2ac19268h3b297bb645011a3@mail.gmail.com>
-References: <20080228014125.GI3078@tuxdriver.com>
-	 <20080229214240.GH3234@tuxdriver.com>
-	 <20080301130133.GA14250@uranus.ravnborg.org>
-	 <200803011651.13652.mb@bu3sch.de>
-	 <20080302115828.GA15820@uranus.ravnborg.org>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: TCP timewait recycle/reuse for IPv6?
+Date: Tue, 18 Mar 2008 01:27:39 -0400
+Message-ID: <20080318012739.6a5c8602.billfink@mindspring.com>
+References: <200803171818.17494.opurdila@ixiacom.com>
+	<47DEADC1.1040908@hp.com>
+	<200803172004.33246.opurdila@ixiacom.com>
+	<20080317.121006.206760103.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Michael Buesch" <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Andrew Morton" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: "Sam Ravnborg" <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080302115828.GA15820-QabhHTsIXMSnlFQ6Q1D1Y0B+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: opurdila@ixiacom.com, rick.jones2@hp.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:45448 "EHLO
+	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756421AbYCRF1x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2008 01:27:53 -0400
+In-Reply-To: <20080317.121006.206760103.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sam
+On Mon, 17 Mar 2008, David Miller wrote:
 
-On Sun, Mar 2, 2008 at 5:58 AM, Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org> wrote:
+> From: Octavian Purdila <opurdila@ixiacom.com>
+> Date: Mon, 17 Mar 2008 20:04:33 +0200
+> 
+> > While running the same traffic with IPv4, the timewait recyle/reuse
+> > features kicks in and keeps the number of TIMEWAIT sockets to under
+> > a 1000.
+> 
+> Timewait recycling should not be enabled if any of your connections
+> could even potentially be going through a firewall or NAT box.
+> In such cases, the invariants which are necessary for timewait
+> recycling to be valid are not present and thus you could risk
+> connection or data corruption.
+> 
+> Timewait recycling depends upon end systems really being end
+> systems on a connection level.  With NAT, that is no longer
+> true, as the NAT box will reuse the same port for different
+> end nodes in subsequent connections.
 
->  So please let me know if this works and then I can push it upstrem
->  hopefully already by tomorrow.
->
->  Note: I decided to name the variable KBUILD_BUILDHOST as this is more
->  descriptive then SUBARCH. We can later clean up the naming and get rid
->  of SUBARCH but I refrained from this to make the pacht minimal.
+I have this hope that as IPv6/IPSEC becomes more commonplace, perhaps
+it can help get back to the original TCP/IP direct end system to
+end system model of communication, and reduce the current need for
+such unfortunately necessary kludges as NAT boxes.
 
-What is the status of this patch? Is there any chance that it will be
-included in 2.6.25?
-
-Thanks.
-
-Gordon
-
--- 
-Gordon Farquharson
-GnuPG Key ID: 32D6D676
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+						-Bill
