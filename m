@@ -1,93 +1,115 @@
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: [re-resend] [PATCH 2.6.25] BNX2X: prevent ethtool setting of
- port type
-Date: Tue, 18 Mar 2008 11:36:37 +0200
-Message-ID: <1205832997.8232.391.camel@lb-tlvb-eliezer.il.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: "davem@davemloft.net" <davem@davemloft.net>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Subject: [PATCH] Add Fixed PHY support for ucc_geth
+Date: Tue, 18 Mar 2008 10:46:55 +0100
+Message-ID: <1205833615-15833-1-git-send-email-Joakim.Tjernlund@transmode.se>
+Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+To: Netdev <netdev@vger.kernel.org>, Li Yang <LeoLi@freescale.com>,
+	"Linuxppc-Embedded@Ozlabs.Org" <linuxppc-embedded@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1153 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752116AbYCRJmN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2008 05:42:13 -0400
+Received: from mail.transmode.se ([83.241.175.147]:11167 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752304AbYCRJq5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2008 05:46:57 -0400
+In-Reply-To: <>
+References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-BNX2X: prevent ethtool setting of port type
+The new Fixed PHY method, fixed-link property, isn't
+impl. for ucc_geth which makes fixed PHYs non functional.
+Add support for the new method to restore the Fixed PHY
+functionality.
 
-On 10GBaseT boards setting the type to TP will cause the driver to try
-to configure 1GBaseT.
-Since there are currently no boards that support setting of the port
-type, disable this for now.
-
-Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
-
+Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 ---
- drivers/net/bnx2x.c |   36 ++----------------------------------
- 1 files changed, 2 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/bnx2x.c b/drivers/net/bnx2x.c
-index 8af142c..de32b3f 100644
---- a/drivers/net/bnx2x.c
-+++ b/drivers/net/bnx2x.c
-@@ -63,8 +63,8 @@
- #include "bnx2x.h"
- #include "bnx2x_init.h"
+This is a regression as fixed PHYs works in 2.6.23 and I am
+using it.
+
+ drivers/net/ucc_geth.c |   53 +++++++++++++++++++++++++++--------------------
+ 1 files changed, 30 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index ecc5712..18c8b39 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3836,6 +3836,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 	struct device_node *phy;
+ 	int err, ucc_num, max_speed = 0;
+ 	const phandle *ph;
++	const u32 *fixed_link;
+ 	const unsigned int *prop;
+ 	const char *sprop;
+ 	const void *mac_addr;
+@@ -3926,18 +3927,38 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
  
--#define DRV_MODULE_VERSION      "1.40.22"
--#define DRV_MODULE_RELDATE      "2007/11/27"
-+#define DRV_MODULE_VERSION      "1.42.3"
-+#define DRV_MODULE_RELDATE      "2008/3/9"
- #define BNX2X_BC_VER    	0x040200
+ 	ug_info->uf_info.regs = res.start;
+ 	ug_info->uf_info.irq = irq_of_parse_and_map(np, 0);
++	fixed_link = of_get_property(np, "fixed-link", NULL);
++	if (fixed_link) {
++		ug_info->mdio_bus = 0;
++		ug_info->phy_address = fixed_link[0];
++		phy = NULL;
++	} else {
++		ph = of_get_property(np, "phy-handle", NULL);
++		phy = of_find_node_by_phandle(*ph);
  
- /* Time in jiffies before concluding the transmitter is hung. */
-@@ -8008,38 +8008,6 @@ static int bnx2x_set_settings(struct net_device
-*dev, struct ethtool_cmd *cmd)
- 	   cmd->duplex, cmd->port, cmd->phy_address, cmd->transceiver,
- 	   cmd->autoneg, cmd->maxtxpkt, cmd->maxrxpkt);
+-	ph = of_get_property(np, "phy-handle", NULL);
+-	phy = of_find_node_by_phandle(*ph);
++		if (phy == NULL)
++			return -ENODEV;
  
--	switch (cmd->port) {
--	case PORT_TP:
--		if (!(bp->supported & SUPPORTED_TP)) {
--			DP(NETIF_MSG_LINK, "TP not supported\n");
--			return -EINVAL;
--		}
+-	if (phy == NULL)
+-		return -ENODEV;
++		/* set the PHY address */
++		prop = of_get_property(phy, "reg", NULL);
++		if (prop == NULL)
++			return -1;
++		ug_info->phy_address = *prop;
++
++		/* Set the bus id */
++		mdio = of_get_parent(phy);
++
++		if (mdio == NULL)
++			return -1;
+ 
+-	/* set the PHY address */
+-	prop = of_get_property(phy, "reg", NULL);
+-	if (prop == NULL)
+-		return -1;
+-	ug_info->phy_address = *prop;
++		err = of_address_to_resource(mdio, 0, &res);
++		of_node_put(mdio);
++
++		if (err)
++			return -1;
++
++		ug_info->mdio_bus = res.start;
++	}
+ 
+ 	/* get the phy interface type, or default to MII */
+ 	prop = of_get_property(np, "phy-connection-type", NULL);
+@@ -3982,20 +4003,6 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 		ug_info->numThreadsRx = UCC_GETH_NUM_OF_THREADS_4;
+ 	}
+ 
+-	/* Set the bus id */
+-	mdio = of_get_parent(phy);
 -
--		if (bp->phy_flags & PHY_XGXS_FLAG) {
--			bnx2x_link_reset(bp);
--			bnx2x_link_settings_supported(bp, SWITCH_CFG_1G);
--			bnx2x_phy_deassert(bp);
--		}
--		break;
+-	if (mdio == NULL)
+-		return -1;
 -
--	case PORT_FIBRE:
--		if (!(bp->supported & SUPPORTED_FIBRE)) {
--			DP(NETIF_MSG_LINK, "FIBRE not supported\n");
--			return -EINVAL;
--		}
+-	err = of_address_to_resource(mdio, 0, &res);
+-	of_node_put(mdio);
 -
--		if (!(bp->phy_flags & PHY_XGXS_FLAG)) {
--			bnx2x_link_reset(bp);
--			bnx2x_link_settings_supported(bp, SWITCH_CFG_10G);
--			bnx2x_phy_deassert(bp);
--		}
--		break;
+-	if (err)
+-		return -1;
 -
--	default:
--		DP(NETIF_MSG_LINK, "Unknown port type\n");
--		return -EINVAL;
--	}
+-	ug_info->mdio_bus = res.start;
 -
- 	if (cmd->autoneg == AUTONEG_ENABLE) {
- 		if (!(bp->supported & SUPPORTED_Autoneg)) {
- 			DP(NETIF_MSG_LINK, "Aotoneg not supported\n");
+ 	if (netif_msg_probe(&debug))
+ 		printk(KERN_INFO "ucc_geth: UCC%1d at 0x%8x (irq = %d) \n",
+ 			ug_info->uf_info.ucc_num + 1, ug_info->uf_info.regs,
 -- 
-1.5.3.2
-
-
-
+1.5.4.3
 
