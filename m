@@ -1,43 +1,116 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH][NET] ifb: set separate lockdep classes for queue locks
-Date: Wed, 19 Mar 2008 07:34:29 -0400
-Message-ID: <1205926469.4440.25.camel@localhost>
-References: <20080307075113.GA3912@ff.dom.local>
-	 <1204898002.4431.99.camel@localhost> <20080308084628.GA2749@ami.dom.local>
-	 <20080308085854.GB2749@ami.dom.local> <20080308101540.M65133@visp.net.lb>
-	 <20080308104322.GA3301@ami.dom.local> <20080308105250.GB3301@ami.dom.local>
-	 <20080308110611.M62976@visp.net.lb> <20080308120244.GA3378@ami.dom.local>
-	 <20080319004547.M71837@visp.net.lb>  <20080319073441.GA3918@ff.dom.local>
-Reply-To: hadi@cyberus.ca
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/8] e1000: Convert boolean_t to bool
+Date: Tue, 18 Mar 2008 09:41:16 -0700
+Message-ID: <1205858476.26361.34.camel@localhost>
+References: <20080317162939.4861.91040.stgit@localhost.localdomain>
+	 <1205772403.26361.8.camel@localhost>  <47DEA67F.9050205@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.178]:30906 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754446AbYCSTyD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2008 15:54:03 -0400
-Received: by py-out-1112.google.com with SMTP id u52so742874pyb.10
-        for <netdev@vger.kernel.org>; Wed, 19 Mar 2008 12:54:03 -0700 (PDT)
-In-Reply-To: <20080319073441.GA3918@ff.dom.local>
+Received: from 136-022.dsl.labridge.com ([206.117.136.22]:1236 "EHLO
+	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1760696AbYCSTyY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2008 15:54:24 -0400
+In-Reply-To: <47DEA67F.9050205@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-19-03 at 07:34 +0000, Jarek Poplawski wrote:
+On Mon, 2008-03-17 at 10:12 -0700, Kok, Auke wrote:
+> Joe Perches wrote:
+> > On Mon, 2008-03-17 at 09:29 -0700, Auke Kok wrote:
+> >> On Thu, 2008-03-06 at 10:07 -0800, Kok, Auke wrote:
+> >>> send me a patch for e1000 and for ixgb and I'll happily apply those :)
+> > I gather you didn't run the little script to convert
+> > the u[_]*int\(8|16|32|64\) to u\1 uses? (u_int8_t -> u8, etc)
+> > Did you need or want actual patches to do that?
+> I'll take a patch for that and yes, I was too busy to do this myself just now :)
 
-Thanks for logging the false-positive aspect Jarek.
+I just sent you a bunch of patches to do this conversion.
 
-> Reported-and-tested-by: Denys Fedoryshchenko <denys@visp.net.lb>
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-> Cc: Jamal Hadi Salim <hadi@cyberus.ca>
+I started on doing a kind-of checkpatch/Lindent pass on e1000.
 
-Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+Some of the functions in e1000 are heavily indented
+and could be neatened with a little bit of rewrite.
 
-cheers,
-jamal
+For instance, here's a function in e1000_main.c
+
+It's a little bit hard to understand with the indenting
+and breakup of the lines.  I think the rewrite below it
+is shorter and easier to read.
+
+Do you want these sorts of changes too?
+
+static int
+e1000_transfer_dhcp_info(struct e1000_adapter *adapter, struct sk_buff *skb)
+{
+	struct e1000_hw *hw =  &adapter->hw;
+	u16 length, offset;
+
+	if (vlan_tx_tag_present(skb)) {
+		if (!((vlan_tx_tag_get(skb) == adapter->hw.mng_cookie.vlan_id) &&
+			( adapter->hw.mng_cookie.status &
+			  E1000_MNG_DHCP_COOKIE_STATUS_VLAN_SUPPORT)) )
+			return 0;
+	}
+	if (skb->len > MINIMUM_DHCP_PACKET_SIZE) {
+		struct ethhdr *eth = (struct ethhdr *) skb->data;
+		if ((htons(ETH_P_IP) == eth->h_proto)) {
+			const struct iphdr *ip =
+				(struct iphdr *)((u8 *)skb->data+14);
+			if (IPPROTO_UDP == ip->protocol) {
+				struct udphdr *udp =
+					(struct udphdr *)((u8 *)ip +
+						(ip->ihl << 2));
+				if (ntohs(udp->dest) == 67) {
+					offset = (u8 *)udp + 8 - skb->data;
+					length = skb->len - offset;
+
+					return e1000_mng_write_dhcp_info(hw,
+							(u8 *)udp + 8,
+							length);
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+could be:
+
+static int e1000_transfer_dhcp_info(struct e1000_adapter *adapter,
+				    struct sk_buff *skb)
+{
+	struct e1000_hw *hw = &adapter->hw;
+	struct ethhdr *eth;
+	const struct iphdr *ip;
+	struct udphdr *udp;
+	u16 length, offset;
+
+	if (vlan_tx_tag_present(skb) &&
+	    (!((vlan_tx_tag_get(skb) == adapter->hw.mng_cookie.vlan_id)
+	       && (adapter->hw.mng_cookie.status
+		   & E1000_MNG_DHCP_COOKIE_STATUS_VLAN_SUPPORT))))
+		return 0;
+	if (skb->len <= MINIMUM_DHCP_PACKET_SIZE)
+		return 0;
+	eth = (struct ethhdr *)skb->data;
+	if (eth->h_proto != htons(ETH_P_IP))
+		return 0;
+	ip = (struct iphdr *)((u8 *)skb->data + 14);
+	if (ip->protocol != IPPROTO_UDP)
+		return 0;
+	udp = (struct udphdr *)((u8 *)ip + (ip->ihl << 2));
+	if (ntohs(udp->dest) != 67)
+		return 0;
+
+	offset = (u8 *)udp + 8 - skb->data;
+	length = skb->len - offset;
+
+	return e1000_mng_write_dhcp_info(hw, (u8 *)udp + 8, length);
+}
+
+cheers, Joe
 
