@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [resend] [PATCH 2.6.25] BNX2X: prevent ethtool setting of port
- type
-Date: Mon, 17 Mar 2008 22:51:35 -0700 (PDT)
-Message-ID: <20080317.225135.120239252.davem@davemloft.net>
-References: <1205765879.8232.387.camel@lb-tlvb-eliezer.il.broadcom.com>
+Subject: Re: pull request: wireless-2.6.26 2008-03-13
+Date: Tue, 18 Mar 2008 00:51:11 -0700 (PDT)
+Message-ID: <20080318.005111.26535577.davem@davemloft.net>
+References: <20080314012616.GB31964@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: eliezert@broadcom.com
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37117
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45888
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750763AbYCRFvU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2008 01:51:20 -0400
-In-Reply-To: <1205765879.8232.387.camel@lb-tlvb-eliezer.il.broadcom.com>
+	by vger.kernel.org with ESMTP id S1750766AbYCRHuz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2008 03:50:55 -0400
+In-Reply-To: <20080314012616.GB31964@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Date: Mon, 17 Mar 2008 16:57:59 +0200
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Thu, 13 Mar 2008 21:26:16 -0400
 
-> BNX2X: prevent ethtool setting of port type
+> are available in the git repository at:
 > 
-> On 10GBaseT boards setting the type to TP will cause the driver to try
-> to configure 1GBaseT.
-> Since there are currently no boards that support setting the of the port
-> type, disable this for now.
-> 
-> Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.26.git master
 
-Your patch is corrupt, your email client has chopped up long
-lines.
+Ok, I pulled this in, the pulled in my net-2.6 tree (which
+I also merged Linus's current tree into) and dealt with
+the merge issues using your sample merge as a guide (thanks
+for that!)  I think I got it right.
 
-Please correct this and resubmit.
+This is all pushed out to net-2.6.26
+
+Please let me know if I messed anything up.
