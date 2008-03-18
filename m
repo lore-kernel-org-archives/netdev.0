@@ -1,37 +1,50 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] net: NEWEMAC: Support for Pause packets in EMAC driver
-Date: Tue, 18 Mar 2008 00:06:31 -0400
-Message-ID: <47DF3FC7.6070500@garzik.org>
-References: <1205488348-22536-1-git-send-email-sr@denx.de>	 <47DE5F43.80604@garzik.org> <1205789101.26869.181.camel@pasglop>	 <1205789205.26869.184.camel@pasglop>	 <20080317164341.12075616@zod.rchland.ibm.com>	 <1205790747.26869.187.camel@pasglop> <47DEF159.3020504@garzik.org>	 <20080317200855.2954971a@zod.rchland.ibm.com> <1205808100.26869.204.camel@pasglop>
+From: "Gordon Farquharson" <gordonfarquharson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-02-27
+Date: Mon, 17 Mar 2008 22:07:56 -0600
+Message-ID: <97a0a9ac0803172107s2ac19268h3b297bb645011a3@mail.gmail.com>
+References: <20080228014125.GI3078@tuxdriver.com>
+	 <20080229214240.GH3234@tuxdriver.com>
+	 <20080301130133.GA14250@uranus.ravnborg.org>
+	 <200803011651.13652.mb@bu3sch.de>
+	 <20080302115828.GA15820@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Josh Boyer <jwboyer@linux.vnet.ibm.com>, Stefan Roese <sr@denx.de>,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Valentine Barshak <vbarshak@ru.mvista.com>
-To: benh@kernel.crashing.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60222 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750781AbYCREGh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2008 00:06:37 -0400
-In-Reply-To: <1205808100.26869.204.camel@pasglop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael Buesch" <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"Andrew Morton" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: "Sam Ravnborg" <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080302115828.GA15820-QabhHTsIXMSnlFQ6Q1D1Y0B+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Benjamin Herrenschmidt wrote:
->> http://marc.info/?l=linux-netdev&m=120449748701492&w=2
->>
->> I sent it to Ben with netdev on CC because you asked the various people
->> sending NEWEMAC patches to you to find a single person.
->>
->> So from now on, what are we going to do?  It seems we're playing net
->> maintainer russian roulette for NEWEMAC and it's getting old.
-> 
-> I'm happy to collect the patches. I said I would do it, I was just taken
-> aback a bit by Jeff suddenly merging two of Stefan patches directly :-)
+Hi Sam
 
-Sorry...  they were CC'd to me and netdev, Stefan had previously 
-contributed acceptable patches, and the patches looked OK, so...  :)
+On Sun, Mar 2, 2008 at 5:58 AM, Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org> wrote:
 
+>  So please let me know if this works and then I can push it upstrem
+>  hopefully already by tomorrow.
+>
+>  Note: I decided to name the variable KBUILD_BUILDHOST as this is more
+>  descriptive then SUBARCH. We can later clean up the naming and get rid
+>  of SUBARCH but I refrained from this to make the pacht minimal.
 
+What is the status of this patch? Is there any chance that it will be
+included in 2.6.25?
+
+Thanks.
+
+Gordon
+
+-- 
+Gordon Farquharson
+GnuPG Key ID: 32D6D676
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
