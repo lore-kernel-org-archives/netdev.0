@@ -1,48 +1,55 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: TCP timewait recycle/reuse for IPv6?
-Date: Tue, 18 Mar 2008 01:27:39 -0400
-Message-ID: <20080318012739.6a5c8602.billfink@mindspring.com>
-References: <200803171818.17494.opurdila@ixiacom.com>
-	<47DEADC1.1040908@hp.com>
-	<200803172004.33246.opurdila@ixiacom.com>
-	<20080317.121006.206760103.davem@davemloft.net>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] net: NEWEMAC: Support for Pause packets in EMAC driver
+Date: Tue, 18 Mar 2008 16:35:33 +1100
+Message-ID: <1205818533.26869.214.camel@pasglop>
+References: <1205488348-22536-1-git-send-email-sr@denx.de>
+	 <47DE5F43.80604@garzik.org> <1205789101.26869.181.camel@pasglop>
+	 <1205789205.26869.184.camel@pasglop>
+	 <20080317164341.12075616@zod.rchland.ibm.com>
+	 <1205790747.26869.187.camel@pasglop> <47DEF159.3020504@garzik.org>
+	 <20080317200855.2954971a@zod.rchland.ibm.com>
+	 <1205808100.26869.204.camel@pasglop>  <47DF3FC7.6070500@garzik.org>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: opurdila@ixiacom.com, rick.jones2@hp.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Josh Boyer <jwboyer@linux.vnet.ibm.com>, Stefan Roese <sr@denx.de>,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Valentine Barshak <vbarshak@ru.mvista.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:45448 "EHLO
-	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756421AbYCRF1x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2008 01:27:53 -0400
-In-Reply-To: <20080317.121006.206760103.davem@davemloft.net>
+Received: from gate.crashing.org ([63.228.1.57]:55444 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759125AbYCRFgV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Mar 2008 01:36:21 -0400
+In-Reply-To: <47DF3FC7.6070500@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 Mar 2008, David Miller wrote:
 
-> From: Octavian Purdila <opurdila@ixiacom.com>
-> Date: Mon, 17 Mar 2008 20:04:33 +0200
+On Tue, 2008-03-18 at 00:06 -0400, Jeff Garzik wrote:
+> Benjamin Herrenschmidt wrote:
+> >> http://marc.info/?l=linux-netdev&m=120449748701492&w=2
+> >>
+> >> I sent it to Ben with netdev on CC because you asked the various people
+> >> sending NEWEMAC patches to you to find a single person.
+> >>
+> >> So from now on, what are we going to do?  It seems we're playing net
+> >> maintainer russian roulette for NEWEMAC and it's getting old.
+> > 
+> > I'm happy to collect the patches. I said I would do it, I was just taken
+> > aback a bit by Jeff suddenly merging two of Stefan patches directly :-)
 > 
-> > While running the same traffic with IPv4, the timewait recyle/reuse
-> > features kicks in and keeps the number of TIMEWAIT sockets to under
-> > a 1000.
-> 
-> Timewait recycling should not be enabled if any of your connections
-> could even potentially be going through a firewall or NAT box.
-> In such cases, the invariants which are necessary for timewait
-> recycling to be valid are not present and thus you could risk
-> connection or data corruption.
-> 
-> Timewait recycling depends upon end systems really being end
-> systems on a connection level.  With NAT, that is no longer
-> true, as the NAT box will reuse the same port for different
-> end nodes in subsequent connections.
+> Sorry...  they were CC'd to me and netdev, Stefan had previously 
+> contributed acceptable patches, and the patches looked OK, so...  :)
 
-I have this hope that as IPv6/IPSEC becomes more commonplace, perhaps
-it can help get back to the original TCP/IP direct end system to
-end system model of communication, and reduce the current need for
-such unfortunately necessary kludges as NAT boxes.
+Sure they were fine, it's just a matter of getting the right
+procedure :-)
 
-						-Bill
+Now, I'll collect the remaining ones and will send them for
+review again.
+
+Cheers,
+Ben.
+
+
