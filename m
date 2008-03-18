@@ -1,80 +1,150 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: [Bug 10238] Re: [PATCH] Re: netconsole still hangs
-Date: Tue, 18 Mar 2008 01:50:06 -0700
-Message-ID: <20080318015006.3f0efb8e.akpm@linux-foundation.org>
-References: <20080312235205.dcec2d35.akpm@linux-foundation.org>
-	<20080314234749.GA10606@ami.dom.local>
-	<20080317161222.0fb9dfc9.akpm@linux-foundation.org>
-	<20080318080439.GA3965@ff.dom.local>
+From: "Rami Rosen" <ramirose@gmail.com>
+Subject: [PATCH] [IPV6] remove unused parameter (struct sock parameter) from ip6_route_output()
+Date: Tue, 18 Mar 2008 11:03:04 +0200
+Message-ID: <eb3ff54b0803180203h18cda4ceja6ae28033638d338@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/mixed;
+	boundary="----=_Part_11103_30520649.1205830984684"
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	linux-kernel@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752960AbYCRJDY@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+------=_Part_11103_30520649.1205830984684
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org, rjw@sisk.pl,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:45930 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751769AbYCRIul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2008 04:50:41 -0400
-In-Reply-To: <20080318080439.GA3965@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-On Tue, 18 Mar 2008 08:04:39 +0000 Jarek Poplawski <jarkao2@gmail.com> wrote:
+Hi,
+This patch removes the struct sock parameter from ip6_route_output();
+looking at the ip6_route_output() implementation in net/ipv6/route.c
+will show immediately that it is not used in this method.
 
-> On Mon, Mar 17, 2008 at 04:12:22PM -0700, Andrew Morton wrote:
-> ...
-> > I retested.  This patch doesn't appear to make anything worse, but the hang
-> > is still there.  
-> 
-> Yes, but since this doesn't look like something very common, and we
-> don't even know if this OOPS and the hangs are the same bug, there is
-> needed more information e.g.:
-> 
-> - is it reproducible with e1000E only and no wlan?
+In fact, icmp.c and ip6_output.c are the only places in the kernel
+where the sk (struct sock) parameter passed to ip6_route_output() is not NULL;
+anyhow, as explained above, this parameter is unused; changing
+the ip6_route_output() prototype by omitting the struct sock parameter
+does not break anything.
 
-Yes.  Both the machines I can reproduce this on have both E1000=y and
-E1000E=y.  From the dmesg (below), one uses e1000 and the other uses
-e1000e.  Both crash.  
 
-http://userweb.kernel.org/~akpm/config-akpm2.txt
-http://userweb.kernel.org/~akpm/dmesg-akpm2.txt
+Regards,
+Rami Rosen
 
-http://userweb.kernel.org/~akpm/config-t61p.txt
-http://userweb.kernel.org/~akpm/dmesg-t61p.txt
 
-I used to be able to reproduce the problems with a 2-way i386 e100 system,
-but that seems to be fixed now, perhaps from David's revert.
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-I also used to be able to reproduce the problem on a one-way i386 e100
-machine but that also seem to have gone away.
+------=_Part_11103_30520649.1205830984684
+Content-Type: text/plain; name=patch.txt
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fdy8gshq0
+Content-Disposition: attachment; filename=patch.txt
 
-> - is there a possibility to check this with some other card
->   (even wlan while e1000E is off)?
-
-err, dunno.  Perhaps I could try e1000 on the e1000e-using machine and vice
-versa, but for that some PCI ID table hacking might be needed.
-
-I cc'ed bugzilla on this thread.
-
-> - could you add .config to the bugzilla report:
->   http://bugzilla.kernel.org/show_bug.cgi?id=10238
-
-See above.
-
-> - is it acceptable to send you some patches for debugging this?
-
-As a last resort.  But it'd surely be better if a net developer could
-reproduce this and do some work on it.  It's bog-trivial to reproduce here
-and afaik nobody has even tried.  Perhaps you have...
-
-service syslog stop
-while true
-do
-	echo t > /proc/sysrq-trigger
-done
-
-and that's it.
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2lwNl9yb3V0ZS5oIGIvaW5jbHVkZS9uZXQvaXA2X3Jv
+dXRlLmgKaW5kZXggMGUyODk1Yy4uNzgxOTIzYSAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvaXA2
+X3JvdXRlLmgKKysrIGIvaW5jbHVkZS9uZXQvaXA2X3JvdXRlLmgKQEAgLTQ0LDcgKzQ0LDYgQEAg
+ZXh0ZXJuIHN0cnVjdCBydDZfaW5mbwkqaXA2X2Jsa19ob2xlX2VudHJ5OwogZXh0ZXJuIHZvaWQJ
+CQlpcDZfcm91dGVfaW5wdXQoc3RydWN0IHNrX2J1ZmYgKnNrYik7CiAKIGV4dGVybiBzdHJ1Y3Qg
+ZHN0X2VudHJ5ICoJaXA2X3JvdXRlX291dHB1dChzdHJ1Y3QgbmV0ICpuZXQsCi0JCQkJCQkgc3Ry
+dWN0IHNvY2sgKnNrLAogCQkJCQkJIHN0cnVjdCBmbG93aSAqZmwpOwogCiBleHRlcm4gaW50CQkJ
+aXA2X3JvdXRlX2luaXQodm9pZCk7CmRpZmYgLS1naXQgYS9uZXQvaXB2Ni9pY21wLmMgYi9uZXQv
+aXB2Ni9pY21wLmMKaW5kZXggNmI1MzkxYS4uMTZmOGVhMiAxMDA2NDQKLS0tIGEvbmV0L2lwdjYv
+aWNtcC5jCisrKyBiL25ldC9pcHY2L2ljbXAuYwpAQCAtMTc5LDcgKzE3OSw3IEBAIHN0YXRpYyBp
+bmxpbmUgaW50IGljbXB2Nl94cmxpbV9hbGxvdyhzdHJ1Y3Qgc29jayAqc2ssIGludCB0eXBlLAog
+CSAqIFhYWDogcGVyaGFwcyB0aGUgZXhwaXJlIGZvciByb3V0aW5nIGVudHJpZXMgY2xvbmVkIGJ5
+CiAJICogdGhpcyBsb29rdXAgc2hvdWxkIGJlIG1vcmUgYWdncmVzc2l2ZSAobm90IGxvbmdlciB0
+aGFuIHRpbWVvdXQpLgogCSAqLwotCWRzdCA9IGlwNl9yb3V0ZV9vdXRwdXQobmV0LCBzaywgZmwp
+OworCWRzdCA9IGlwNl9yb3V0ZV9vdXRwdXQobmV0LCBmbCk7CiAJaWYgKGRzdC0+ZXJyb3IpIHsK
+IAkJSVA2X0lOQ19TVEFUUyhpcDZfZHN0X2lkZXYoZHN0KSwKIAkJCSAgICAgIElQU1RBVFNfTUlC
+X09VVE5PUk9VVEVTKTsKZGlmZiAtLWdpdCBhL25ldC9pcHY2L2lwNl9vdXRwdXQuYyBiL25ldC9p
+cHY2L2lwNl9vdXRwdXQuYwppbmRleCA5ODc2MmZkLi42MmM1ZTg3IDEwMDY0NAotLS0gYS9uZXQv
+aXB2Ni9pcDZfb3V0cHV0LmMKKysrIGIvbmV0L2lwdjYvaXA2X291dHB1dC5jCkBAIC05MTUsNyAr
+OTE1LDcgQEAgc3RhdGljIGludCBpcDZfZHN0X2xvb2t1cF90YWlsKHN0cnVjdCBzb2NrICpzaywK
+IAlzdHJ1Y3QgbmV0ICpuZXQgPSBzay0+c2tfbmV0OwogCiAJaWYgKCpkc3QgPT0gTlVMTCkKLQkJ
+KmRzdCA9IGlwNl9yb3V0ZV9vdXRwdXQobmV0LCBzaywgZmwpOworCQkqZHN0ID0gaXA2X3JvdXRl
+X291dHB1dChuZXQsIGZsKTsKIAogCWlmICgoZXJyID0gKCpkc3QpLT5lcnJvcikpCiAJCWdvdG8g
+b3V0X2Vycl9yZWxlYXNlOwpAQCAtOTU2LDcgKzk1Niw3IEBAIHN0YXRpYyBpbnQgaXA2X2RzdF9s
+b29rdXBfdGFpbChzdHJ1Y3Qgc29jayAqc2ssCiAJCQkJZHN0X3JlbGVhc2UoKmRzdCk7CiAJCQkJ
+bWVtY3B5KCZmbF9ndywgZmwsIHNpemVvZihzdHJ1Y3QgZmxvd2kpKTsKIAkJCQltZW1zZXQoJmZs
+X2d3LmZsNl9kc3QsIDAsIHNpemVvZihzdHJ1Y3QgaW42X2FkZHIpKTsKLQkJCQkqZHN0ID0gaXA2
+X3JvdXRlX291dHB1dChuZXQsIHNrLCAmZmxfZ3cpOworCQkJCSpkc3QgPSBpcDZfcm91dGVfb3V0
+cHV0KG5ldCwgJmZsX2d3KTsKIAkJCQlpZiAoKGVyciA9ICgqZHN0KS0+ZXJyb3IpKQogCQkJCQln
+b3RvIG91dF9lcnJfcmVsZWFzZTsKIAkJCX0KZGlmZiAtLWdpdCBhL25ldC9pcHY2L2lwNl90dW5u
+ZWwuYyBiL25ldC9pcHY2L2lwNl90dW5uZWwuYwppbmRleCA2MTUxN2ZlLi5hZmFmOWZlIDEwMDY0
+NAotLS0gYS9uZXQvaXB2Ni9pcDZfdHVubmVsLmMKKysrIGIvbmV0L2lwdjYvaXA2X3R1bm5lbC5j
+CkBAIC04NDcsNyArODQ3LDcgQEAgc3RhdGljIGludCBpcDZfdG5sX3htaXQyKHN0cnVjdCBza19i
+dWZmICpza2IsCiAJaWYgKChkc3QgPSBpcDZfdG5sX2RzdF9jaGVjayh0KSkgIT0gTlVMTCkKIAkJ
+ZHN0X2hvbGQoZHN0KTsKIAllbHNlIHsKLQkJZHN0ID0gaXA2X3JvdXRlX291dHB1dCgmaW5pdF9u
+ZXQsIE5VTEwsIGZsKTsKKwkJZHN0ID0gaXA2X3JvdXRlX291dHB1dCgmaW5pdF9uZXQsIGZsKTsK
+IAogCQlpZiAoZHN0LT5lcnJvciB8fCB4ZnJtX2xvb2t1cCgmZHN0LCBmbCwgTlVMTCwgMCkgPCAw
+KQogCQkJZ290byB0eF9lcnJfbGlua19mYWlsdXJlOwpkaWZmIC0tZ2l0IGEvbmV0L2lwdjYvbmRp
+c2MuYyBiL25ldC9pcHY2L25kaXNjLmMKaW5kZXggMjRlNzZlZC4uNzlmYjU1MSAxMDA2NDQKLS0t
+IGEvbmV0L2lwdjYvbmRpc2MuYworKysgYi9uZXQvaXB2Ni9uZGlzYy5jCkBAIC0xNDI3LDcgKzE0
+MjcsNyBAQCB2b2lkIG5kaXNjX3NlbmRfcmVkaXJlY3Qoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3Ry
+dWN0IG5laWdoYm91ciAqbmVpZ2gsCiAJaWNtcHY2X2Zsb3dfaW5pdChzaywgJmZsLCBORElTQ19S
+RURJUkVDVCwKIAkJCSAmc2FkZHJfYnVmLCAmaXB2Nl9oZHIoc2tiKS0+c2FkZHIsIGRldi0+aWZp
+bmRleCk7CiAKLQlkc3QgPSBpcDZfcm91dGVfb3V0cHV0KG5ldCwgTlVMTCwgJmZsKTsKKwlkc3Qg
+PSBpcDZfcm91dGVfb3V0cHV0KG5ldCwgJmZsKTsKIAlpZiAoZHN0ID09IE5VTEwpCiAJCXJldHVy
+bjsKIApkaWZmIC0tZ2l0IGEvbmV0L2lwdjYvbmV0ZmlsdGVyLmMgYi9uZXQvaXB2Ni9uZXRmaWx0
+ZXIuYwppbmRleCBhZWQ1MWJjLi4yMjFmYmM4IDEwMDY0NAotLS0gYS9uZXQvaXB2Ni9uZXRmaWx0
+ZXIuYworKysgYi9uZXQvaXB2Ni9uZXRmaWx0ZXIuYwpAQCAtMjMsNyArMjMsNyBAQCBpbnQgaXA2
+X3JvdXRlX21lX2hhcmRlcihzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogCQkgICAgLnNhZGRyID0gaXBo
+LT5zYWRkciwgfSB9LAogCX07CiAKLQlkc3QgPSBpcDZfcm91dGVfb3V0cHV0KCZpbml0X25ldCwg
+c2tiLT5zaywgJmZsKTsKKwlkc3QgPSBpcDZfcm91dGVfb3V0cHV0KCZpbml0X25ldCwgJmZsKTsK
+IAogI2lmZGVmIENPTkZJR19YRlJNCiAJaWYgKCEoSVA2Q0Ioc2tiKS0+ZmxhZ3MgJiBJUDZTS0Jf
+WEZSTV9UUkFOU0ZPUk1FRCkgJiYKQEAgLTg2LDcgKzg2LDcgQEAgc3RhdGljIGludCBuZl9pcDZf
+cmVyb3V0ZShzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCiBzdGF0aWMgaW50IG5mX2lwNl9yb3V0ZShz
+dHJ1Y3QgZHN0X2VudHJ5ICoqZHN0LCBzdHJ1Y3QgZmxvd2kgKmZsKQogewotCSpkc3QgPSBpcDZf
+cm91dGVfb3V0cHV0KCZpbml0X25ldCwgTlVMTCwgZmwpOworCSpkc3QgPSBpcDZfcm91dGVfb3V0
+cHV0KCZpbml0X25ldCwgZmwpOwogCXJldHVybiAoKmRzdCktPmVycm9yOwogfQogCmRpZmYgLS1n
+aXQgYS9uZXQvaXB2Ni9uZXRmaWx0ZXIvaXA2dF9SRUpFQ1QuYyBiL25ldC9pcHY2L25ldGZpbHRl
+ci9pcDZ0X1JFSkVDVC5jCmluZGV4IGJhZjgyOTAuLmY5NThmYWYgMTAwNjQ0Ci0tLSBhL25ldC9p
+cHY2L25ldGZpbHRlci9pcDZ0X1JFSkVDVC5jCisrKyBiL25ldC9pcHY2L25ldGZpbHRlci9pcDZ0
+X1JFSkVDVC5jCkBAIC05Myw3ICs5Myw3IEBAIHN0YXRpYyB2b2lkIHNlbmRfcmVzZXQoc3RydWN0
+IHNrX2J1ZmYgKm9sZHNrYikKIAlmbC5mbF9pcF9zcG9ydCA9IG90Y3BoLmRlc3Q7CiAJZmwuZmxf
+aXBfZHBvcnQgPSBvdGNwaC5zb3VyY2U7CiAJc2VjdXJpdHlfc2tiX2NsYXNzaWZ5X2Zsb3cob2xk
+c2tiLCAmZmwpOwotCWRzdCA9IGlwNl9yb3V0ZV9vdXRwdXQoJmluaXRfbmV0LCBOVUxMLCAmZmwp
+OworCWRzdCA9IGlwNl9yb3V0ZV9vdXRwdXQoJmluaXRfbmV0LCAmZmwpOwogCWlmIChkc3QgPT0g
+TlVMTCkKIAkJcmV0dXJuOwogCWlmIChkc3QtPmVycm9yIHx8IHhmcm1fbG9va3VwKCZkc3QsICZm
+bCwgTlVMTCwgMCkpCmRpZmYgLS1naXQgYS9uZXQvaXB2Ni9yb3V0ZS5jIGIvbmV0L2lwdjYvcm91
+dGUuYwppbmRleCBhNGI1YWVlLi42ZmNjMTY0IDEwMDY0NAotLS0gYS9uZXQvaXB2Ni9yb3V0ZS5j
+CisrKyBiL25ldC9pcHY2L3JvdXRlLmMKQEAgLTc3Miw4ICs3NzIsNyBAQCBzdGF0aWMgc3RydWN0
+IHJ0Nl9pbmZvICppcDZfcG9sX3JvdXRlX291dHB1dChzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBm
+aWI2X3RhYmxlCiAJcmV0dXJuIGlwNl9wb2xfcm91dGUobmV0LCB0YWJsZSwgZmwtPm9pZiwgZmws
+IGZsYWdzKTsKIH0KIAotc3RydWN0IGRzdF9lbnRyeSAqIGlwNl9yb3V0ZV9vdXRwdXQoc3RydWN0
+IG5ldCAqbmV0LCBzdHJ1Y3Qgc29jayAqc2ssCi0JCQkJICAgIHN0cnVjdCBmbG93aSAqZmwpCitz
+dHJ1Y3QgZHN0X2VudHJ5ICogaXA2X3JvdXRlX291dHB1dChzdHJ1Y3QgbmV0ICpuZXQsc3RydWN0
+IGZsb3dpICpmbCkKIHsKIAlpbnQgZmxhZ3MgPSAwOwogCkBAIC0yMjYxLDcgKzIyNjAsNyBAQCBz
+dGF0aWMgaW50IGluZXQ2X3J0bV9nZXRyb3V0ZShzdHJ1Y3Qgc2tfYnVmZiAqaW5fc2tiLCBzdHJ1
+Y3Qgbmxtc2doZHIqIG5saCwgdm9pZAogCXNrYl9yZXNldF9tYWNfaGVhZGVyKHNrYik7CiAJc2ti
+X3Jlc2VydmUoc2tiLCBNQVhfSEVBREVSICsgc2l6ZW9mKHN0cnVjdCBpcHY2aGRyKSk7CiAKLQly
+dCA9IChzdHJ1Y3QgcnQ2X2luZm8qKSBpcDZfcm91dGVfb3V0cHV0KG5ldCwgTlVMTCwgJmZsKTsK
+KwlydCA9IChzdHJ1Y3QgcnQ2X2luZm8qKSBpcDZfcm91dGVfb3V0cHV0KG5ldCwgJmZsKTsKIAlz
+a2ItPmRzdCA9ICZydC0+dS5kc3Q7CiAKIAllcnIgPSBydDZfZmlsbF9ub2RlKHNrYiwgcnQsICZm
+bC5mbDZfZHN0LCAmZmwuZmw2X3NyYywgaWlmLApkaWZmIC0tZ2l0IGEvbmV0L2lwdjYvc2l0LmMg
+Yi9uZXQvaXB2Ni9zaXQuYwppbmRleCAxYjgxOTZjLi4xYjg2OTQwIDEwMDY0NAotLS0gYS9uZXQv
+aXB2Ni9zaXQuYworKysgYi9uZXQvaXB2Ni9zaXQuYwpAQCAtMzkzLDcgKzM5Myw3IEBAIGlzYXRh
+cF9zcmNvayhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgaXBoZHIgKmlwaCwgc3RydWN0IG5l
+dF9kZXZpY2UgKmRldikKIAlmbC5vaWYgPSBkZXYtPmlmaW5kZXg7CiAJc2VjdXJpdHlfc2tiX2Ns
+YXNzaWZ5X2Zsb3coc2tiLCAmZmwpOwogCi0JZHN0ID0gaXA2X3JvdXRlX291dHB1dCgmaW5pdF9u
+ZXQsIE5VTEwsICZmbCk7CisJZHN0ID0gaXA2X3JvdXRlX291dHB1dCgmaW5pdF9uZXQsICZmbCk7
+CiAJaWYgKCFkc3QtPmVycm9yICYmIChkc3QtPmRldiA9PSBkZXYpICYmIChuZWlnaCA9IGRzdC0+
+bmVpZ2hib3VyKSkgewogCiAJCWFkZHI2ID0gKHN0cnVjdCBpbjZfYWRkciopJm5laWdoLT5wcmlt
+YXJ5X2tleTsKZGlmZiAtLWdpdCBhL25ldC9pcHY2L3hmcm02X3BvbGljeS5jIGIvbmV0L2lwdjYv
+eGZybTZfcG9saWN5LmMKaW5kZXggZTk2ZGFmZC4uOGVmNDgyMSAxMDA2NDQKLS0tIGEvbmV0L2lw
+djYveGZybTZfcG9saWN5LmMKKysrIGIvbmV0L2lwdjYveGZybTZfcG9saWN5LmMKQEAgLTM4LDcg
+KzM4LDcgQEAgc3RhdGljIHN0cnVjdCBkc3RfZW50cnkgKnhmcm02X2RzdF9sb29rdXAoaW50IHRv
+cywgeGZybV9hZGRyZXNzX3QgKnNhZGRyLAogCWlmIChzYWRkcikKIAkJbWVtY3B5KCZmbC5mbDZf
+c3JjLCBzYWRkciwgc2l6ZW9mKGZsLmZsNl9zcmMpKTsKIAotCWRzdCA9IGlwNl9yb3V0ZV9vdXRw
+dXQoJmluaXRfbmV0LCBOVUxMLCAmZmwpOworCWRzdCA9IGlwNl9yb3V0ZV9vdXRwdXQoJmluaXRf
+bmV0LCAmZmwpOwogCiAJZXJyID0gZHN0LT5lcnJvcjsKIAlpZiAoZHN0LT5lcnJvcikgewpkaWZm
+IC0tZ2l0IGEvbmV0L3NjdHAvaXB2Ni5jIGIvbmV0L3NjdHAvaXB2Ni5jCmluZGV4IDE5MzdiZTUu
+LjYxZmJjZjYgMTAwNjQ0Ci0tLSBhL25ldC9zY3RwL2lwdjYuYworKysgYi9uZXQvc2N0cC9pcHY2
+LmMKQEAgLTI1OSw3ICsyNTksNyBAQCBzdGF0aWMgc3RydWN0IGRzdF9lbnRyeSAqc2N0cF92Nl9n
+ZXRfZHN0KHN0cnVjdCBzY3RwX2Fzc29jaWF0aW9uICphc29jLAogCQkJTklQNihmbC5mbDZfc3Jj
+KSk7CiAJfQogCi0JZHN0ID0gaXA2X3JvdXRlX291dHB1dCgmaW5pdF9uZXQsIE5VTEwsICZmbCk7
+CisJZHN0ID0gaXA2X3JvdXRlX291dHB1dCgmaW5pdF9uZXQsICZmbCk7CiAJaWYgKCFkc3QtPmVy
+cm9yKSB7CiAJCXN0cnVjdCBydDZfaW5mbyAqcnQ7CiAJCXJ0ID0gKHN0cnVjdCBydDZfaW5mbyAq
+KWRzdDsK
+------=_Part_11103_30520649.1205830984684--
