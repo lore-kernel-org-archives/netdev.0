@@ -1,224 +1,130 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH 1/4] [RESEND] netxen: improve msi support
-Date: Mon, 17 Mar 2008 19:59:48 -0700
-Message-ID: <1205809191-20901-2-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH 4/4] [RESEND] netxen: fix rx dropped stats
+Date: Mon, 17 Mar 2008 19:59:51 -0700
+Message-ID: <1205809191-20901-5-git-send-email-dhananjay@netxen.com>
 References: <1205809191-20901-1-git-send-email-dhananjay@netxen.com>
 Cc: jeff@garzik.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.209.101.202] ([64.209.101.202]:59169 "EHLO unm84.unminc.com"
+Received: from [64.209.101.202] ([64.209.101.202]:59171 "EHLO unm84.unminc.com"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751514AbYCRDJT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752076AbYCRDJT (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 17 Mar 2008 23:09:19 -0400
 In-Reply-To: <1205809191-20901-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recent netxen firmware has new scheme of generating MSI interrupts, it
-raises interrupt and blocks itself, waiting for driver to unmask. This
-reduces chance of spurious interrupts.
-
-The driver will be able to deal with older firmware as well.
+Don't count rx dropped packets based on return value of netif_receive_skb(),
+which is misleading.
 
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 Tested-by: Vernon Mauery <mauery@us.ibm.com>
 ---
- drivers/net/netxen/netxen_nic.h          |    1 +
- drivers/net/netxen/netxen_nic_hdr.h      |   12 ++++++
- drivers/net/netxen/netxen_nic_hw.c       |    2 +
- drivers/net/netxen/netxen_nic_init.c     |    2 +
- drivers/net/netxen/netxen_nic_main.c     |   56 ++++++++++++-----------------
- drivers/net/netxen/netxen_nic_phan_reg.h |    3 ++
- 6 files changed, 43 insertions(+), 33 deletions(-)
+ drivers/net/netxen/netxen_nic.h         |    7 +-----
+ drivers/net/netxen/netxen_nic_ethtool.c |    6 -----
+ drivers/net/netxen/netxen_nic_init.c    |   33 +------------------------------
+ drivers/net/netxen/netxen_nic_isr.c     |    2 +-
+ 4 files changed, 3 insertions(+), 45 deletions(-)
 
 diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 2bc5eaa..876cd06 100644
+index 070421b..7f20a03 100644
 --- a/drivers/net/netxen/netxen_nic.h
 +++ b/drivers/net/netxen/netxen_nic.h
-@@ -942,6 +942,7 @@ struct netxen_adapter {
- 	struct pci_dev *ctx_desc_pdev;
- 	dma_addr_t ctx_desc_phys_addr;
- 	int intr_scheme;
-+	int msi_mode;
- 	int (*enable_phy_interrupts) (struct netxen_adapter *);
- 	int (*disable_phy_interrupts) (struct netxen_adapter *);
- 	void (*handle_phy_intr) (struct netxen_adapter *);
-diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
-index d72f8f8..160f605 100644
---- a/drivers/net/netxen/netxen_nic_hdr.h
-+++ b/drivers/net/netxen/netxen_nic_hdr.h
-@@ -456,6 +456,12 @@ enum {
- #define ISR_INT_MASK_SLOW	(NETXEN_PCIX_PS_REG(PCIX_INT_MASK))
- #define ISR_INT_TARGET_STATUS	(NETXEN_PCIX_PS_REG(PCIX_TARGET_STATUS))
- #define ISR_INT_TARGET_MASK	(NETXEN_PCIX_PS_REG(PCIX_TARGET_MASK))
-+#define ISR_INT_TARGET_STATUS_F1   (NETXEN_PCIX_PS_REG(PCIX_TARGET_STATUS_F1))
-+#define ISR_INT_TARGET_MASK_F1     (NETXEN_PCIX_PS_REG(PCIX_TARGET_MASK_F1))
-+#define ISR_INT_TARGET_STATUS_F2   (NETXEN_PCIX_PS_REG(PCIX_TARGET_STATUS_F2))
-+#define ISR_INT_TARGET_MASK_F2     (NETXEN_PCIX_PS_REG(PCIX_TARGET_MASK_F2))
-+#define ISR_INT_TARGET_STATUS_F3   (NETXEN_PCIX_PS_REG(PCIX_TARGET_STATUS_F3))
-+#define ISR_INT_TARGET_MASK_F3     (NETXEN_PCIX_PS_REG(PCIX_TARGET_MASK_F3))
- 
- #define NETXEN_PCI_MAPSIZE	128
- #define NETXEN_PCI_DDR_NET	(0x00000000UL)
-@@ -662,6 +668,12 @@ enum {
- 
- #define PCIX_TARGET_STATUS	(0x10118)
- #define PCIX_TARGET_MASK	(0x10128)
-+#define PCIX_TARGET_STATUS_F1 (0x10160)
-+#define PCIX_TARGET_MASK_F1   (0x10170)
-+#define PCIX_TARGET_STATUS_F2 (0x10164)
-+#define PCIX_TARGET_MASK_F2   (0x10174)
-+#define PCIX_TARGET_STATUS_F3 (0x10168)
-+#define PCIX_TARGET_MASK_F3   (0x10178)
- 
- #define PCIX_MSI_F0		(0x13000)
- #define PCIX_MSI_F1		(0x13004)
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 0135570..05748ca 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -398,6 +398,8 @@ int netxen_nic_hw_resources(struct netxen_adapter *adapter)
- 		NETXEN_CRB_NORMALIZE(adapter, CRB_NIC_CAPABILITIES_FW));
- 	printk(KERN_NOTICE "%s: FW capabilities:0x%x\n", netxen_nic_driver_name,
- 			adapter->intr_scheme);
-+	adapter->msi_mode = readl(
-+		NETXEN_CRB_NORMALIZE(adapter, CRB_NIC_MSI_MODE_FW));
- 	DPRINTK(INFO, "Receive Peg ready too. starting stuff\n");
- 
- 	addr = netxen_alloc(adapter->ahw.pdev,
+@@ -818,12 +818,7 @@ struct netxen_adapter_stats {
+ 	u64  badskblen;
+ 	u64  nocmddescriptor;
+ 	u64  polled;
+-	u64  uphappy;
+-	u64  updropped;
+-	u64  uplcong;
+-	u64  uphcong;
+-	u64  upmcong;
+-	u64  updunno;
++	u64  rxdropped;
+ 	u64  txdropped;
+ 	u64  csummed;
+ 	u64  no_rcv;
+diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
+index d324ea3..6e98d83 100644
+--- a/drivers/net/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/netxen/netxen_nic_ethtool.c
+@@ -64,12 +64,6 @@ static const struct netxen_nic_stats netxen_nic_gstrings_stats[] = {
+ 	{"bad_skb_len", NETXEN_NIC_STAT(stats.badskblen)},
+ 	{"no_cmd_desc", NETXEN_NIC_STAT(stats.nocmddescriptor)},
+ 	{"polled", NETXEN_NIC_STAT(stats.polled)},
+-	{"uphappy", NETXEN_NIC_STAT(stats.uphappy)},
+-	{"updropped", NETXEN_NIC_STAT(stats.updropped)},
+-	{"uplcong", NETXEN_NIC_STAT(stats.uplcong)},
+-	{"uphcong", NETXEN_NIC_STAT(stats.uphcong)},
+-	{"upmcong", NETXEN_NIC_STAT(stats.upmcong)},
+-	{"updunno", NETXEN_NIC_STAT(stats.updunno)},
+ 	{"tx_dropped", NETXEN_NIC_STAT(stats.txdropped)},
+ 	{"csummed", NETXEN_NIC_STAT(stats.csummed)},
+ 	{"no_rcv", NETXEN_NIC_STAT(stats.no_rcv)},
 diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index 9e38bcb..43eb1f6 100644
+index fe64618..d9713d9 100644
 --- a/drivers/net/netxen/netxen_nic_init.c
 +++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -145,6 +145,8 @@ int netxen_init_firmware(struct netxen_adapter *adapter)
- 	/* Window 1 call */
- 	writel(INTR_SCHEME_PERPORT,
- 	       NETXEN_CRB_NORMALIZE(adapter, CRB_NIC_CAPABILITIES_HOST));
-+	writel(MSI_MODE_MULTIFUNC,
-+	       NETXEN_CRB_NORMALIZE(adapter, CRB_NIC_MSI_MODE_HOST));
- 	writel(MPORT_MULTI_FUNCTION_MODE,
- 	       NETXEN_CRB_NORMALIZE(adapter, CRB_MPORT_MODE));
- 	writel(PHAN_INITIALIZE_ACK,
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 9737eae..cd665da 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -149,33 +149,31 @@ static void netxen_nic_update_cmd_consumer(struct netxen_adapter *adapter,
+@@ -1089,7 +1089,7 @@ static void netxen_process_rcv(struct netxen_adapter *adapter, int ctxid,
+ 	skb = (struct sk_buff *)buffer->skb;
  
- #define	ADAPTER_LIST_SIZE 12
+ 	if (likely(adapter->rx_csum &&
+-				netxen_get_sts_status(sts_data) == STATUS_CKSUM_OK)) {
++			netxen_get_sts_status(sts_data) == STATUS_CKSUM_OK)) {
+ 		adapter->stats.csummed++;
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	} else
+@@ -1106,37 +1106,6 @@ static void netxen_process_rcv(struct netxen_adapter *adapter, int ctxid,
+ 	skb->protocol = eth_type_trans(skb, netdev);
  
-+static uint32_t msi_tgt_status[4] = {
-+	ISR_INT_TARGET_STATUS, ISR_INT_TARGET_STATUS_F1,
-+	ISR_INT_TARGET_STATUS_F2, ISR_INT_TARGET_STATUS_F3
-+};
-+
-+static uint32_t sw_int_mask[4] = {
-+	CRB_SW_INT_MASK_0, CRB_SW_INT_MASK_1,
-+	CRB_SW_INT_MASK_2, CRB_SW_INT_MASK_3
-+};
-+
- static void netxen_nic_disable_int(struct netxen_adapter *adapter)
- {
--	uint32_t	mask = 0x7ff;
-+	u32 mask = 0x7ff;
- 	int retries = 32;
-+	int port = adapter->portnum;
-+	int pci_fn = adapter->ahw.pci_func;
- 
--	DPRINTK(1, INFO, "Entered ISR Disable \n");
+ 	ret = netif_receive_skb(skb);
 -
--	switch (adapter->portnum) {
--	case 0:
--		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_0));
+-	/*
+-	 * RH: Do we need these stats on a regular basis. Can we get it from
+-	 * Linux stats.
+-	 */
+-	switch (ret) {
+-	case NET_RX_SUCCESS:
+-		adapter->stats.uphappy++;
 -		break;
--	case 1:
--		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_1));
--		break;
--	case 2:
--		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_2));
--		break;
--	case 3:
--		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_3));
--		break;
-+	if (adapter->msi_mode != MSI_MODE_MULTIFUNC) {
-+		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, sw_int_mask[port]));
- 	}
- 
- 	if (adapter->intr_scheme != -1 &&
- 	    adapter->intr_scheme != INTR_SCHEME_PERPORT)
- 		writel(mask,PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_MASK));
- 
--	/* Window = 0 or 1 */
- 	if (!(adapter->flags & NETXEN_NIC_MSI_ENABLED)) {
- 		do {
- 			writel(0xffffffff,
-@@ -190,14 +188,18 @@ static void netxen_nic_disable_int(struct netxen_adapter *adapter)
- 			printk(KERN_NOTICE "%s: Failed to disable interrupt completely\n",
- 					netxen_nic_driver_name);
- 		}
-+	} else {
-+		if (adapter->msi_mode == MSI_MODE_MULTIFUNC) {
-+			writel(0xffffffff, PCI_OFFSET_SECOND_RANGE(adapter,
-+						msi_tgt_status[pci_fn]));
-+		}
- 	}
 -
--	DPRINTK(1, INFO, "Done with Disable Int\n");
- }
- 
- static void netxen_nic_enable_int(struct netxen_adapter *adapter)
- {
- 	u32 mask;
-+	int port = adapter->portnum;
- 
- 	DPRINTK(1, INFO, "Entered ISR Enable \n");
- 
-@@ -218,20 +220,7 @@ static void netxen_nic_enable_int(struct netxen_adapter *adapter)
- 		writel(mask, PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_MASK));
- 	}
- 
--	switch (adapter->portnum) {
--	case 0:
--		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_0));
+-	case NET_RX_CN_LOW:
+-		adapter->stats.uplcong++;
 -		break;
--	case 1:
--		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_1));
+-
+-	case NET_RX_CN_MOD:
+-		adapter->stats.upmcong++;
 -		break;
--	case 2:
--		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_2));
+-
+-	case NET_RX_CN_HIGH:
+-		adapter->stats.uphcong++;
 -		break;
--	case 3:
--		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_3));
+-
+-	case NET_RX_DROP:
+-		adapter->stats.updropped++;
+-		break;
+-
+-	default:
+-		adapter->stats.updunno++;
 -		break;
 -	}
-+	writel(0x1, NETXEN_CRB_NORMALIZE(adapter, sw_int_mask[port]));
+-
+ 	netdev->last_rx = jiffies;
  
- 	if (!(adapter->flags & NETXEN_NIC_MSI_ENABLED)) {
- 		mask = 0xbff;
-@@ -401,6 +390,7 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	rcv_desc->rcv_pending--;
+diff --git a/drivers/net/netxen/netxen_nic_isr.c b/drivers/net/netxen/netxen_nic_isr.c
+index 1a2333a..c81313b 100644
+--- a/drivers/net/netxen/netxen_nic_isr.c
++++ b/drivers/net/netxen/netxen_nic_isr.c
+@@ -59,7 +59,7 @@ struct net_device_stats *netxen_nic_get_stats(struct net_device *netdev)
+ 	/* packet transmit problems */
+ 	stats->tx_errors = adapter->stats.nocmddescriptor;
+ 	/* no space in linux buffers    */
+-	stats->rx_dropped = adapter->stats.updropped;
++	stats->rx_dropped = adapter->stats.rxdropped;
+ 	/* no space available in linux  */
+ 	stats->tx_dropped = adapter->stats.txdropped;
  
- 	/* this will be read from FW later */
- 	adapter->intr_scheme = -1;
-+	adapter->msi_mode = -1;
- 
- 	/* This will be reset for mezz cards  */
- 	adapter->portnum = pci_func_id;
-diff --git a/drivers/net/netxen/netxen_nic_phan_reg.h b/drivers/net/netxen/netxen_nic_phan_reg.h
-index ffa3b72..a566b50 100644
---- a/drivers/net/netxen/netxen_nic_phan_reg.h
-+++ b/drivers/net/netxen/netxen_nic_phan_reg.h
-@@ -126,8 +126,11 @@
-  */
- #define CRB_NIC_CAPABILITIES_HOST	NETXEN_NIC_REG(0x1a8)
- #define CRB_NIC_CAPABILITIES_FW	  	NETXEN_NIC_REG(0x1dc)
-+#define CRB_NIC_MSI_MODE_HOST		NETXEN_NIC_REG(0x270)
-+#define CRB_NIC_MSI_MODE_FW	  		NETXEN_NIC_REG(0x274)
- 
- #define INTR_SCHEME_PERPORT	      	0x1
-+#define MSI_MODE_MULTIFUNC	      	0x1
- 
- /* used for ethtool tests */
- #define CRB_SCRATCHPAD_TEST	    NETXEN_NIC_REG(0x280)
 -- 
 1.5.4
 
