@@ -1,41 +1,46 @@
-From: Dale Farnsworth <dale@farnsworth.org>
-Subject: Re: [PATCH 0/7][MV643XX_ETH] various cleanups
-Date: Tue, 18 Mar 2008 15:03:53 -0700
-Message-ID: <20080318220353.GA9479@farnsworth.org>
-References: <20080317191546.GA17828@xi.wantstofly.org> <20080318161406.GA27913@farnsworth.org> <20080318164045.GB28917@xi.wantstofly.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Nicolas Pitre <nico@marvell.com>,
-	Tzachi Perelstein <tzachi@marvell.com>,
-	Saeed Bishara <saeed@marvell.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 1/3 net-2.6.26] Remove unnecessary check for opt->is_data in ip_options_compile.
+Date: Wed, 19 Mar 2008 15:42:45 +0300
+Message-ID: <1205930567-30956-1-git-send-email-den@openvz.org>
+References: <1205930508.24116.14.camel@iris.sw.ru>
+Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xyzzy.farnsworth.org ([65.39.95.219]:50149 "EHLO
-	xyzzy.farnsworth.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753439AbYCTGHn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 02:07:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20080318164045.GB28917@xi.wantstofly.org>
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:63469 "EHLO iris.sw.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752897AbYCTGkR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2008 02:40:17 -0400
+In-Reply-To: <1205930508.24116.14.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 18, 2008 at 05:40:45PM +0100, Lennert Buytenhek wrote:
-> On Tue, Mar 18, 2008 at 09:14:06AM -0700, Dale Farnsworth wrote:
-> > I'm happy with the end result, but the current patch series will
-> > not build after patches 1-3 are applied.  Please reorder your
-> > code changes so the result will be git-bisectable.
-> 
-> Urgh.  I could have sworn that I checked that.  Anyway, sorry.
-> 
-> Fixed patch series here:
-> 	http://www.wantstofly.org/~buytenh/mv643xx_eth/
+There is the only way to reach ip_options compile with opt != NULL:
 
-Yes.  :)
+ip_options_get_finish
+    opt->is_data = 1;
+    ip_options_compile(opt, NULL)
 
-I've applied all 1-7 of these to the for-2.6.26 branch of
-	git://git.farnsworth.org/dale/linux-2.6-mv643xx_eth.git for-2.6.26
+So, checking for is_data inside opt != NULL branch is not needed.
 
-It's also viewable at
-<http://www.farnsworth.org/git?p=dale/linux-2.6-mv643xx_eth.git;a=shortlog;h=for-2.6.26>
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ net/ipv4/ip_options.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
--Dale
+diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+index df93a9c..7e94bf8 100644
+--- a/net/ipv4/ip_options.c
++++ b/net/ipv4/ip_options.c
+@@ -267,8 +267,7 @@ int ip_options_compile(struct ip_options * opt, struct sk_buff * skb)
+ 		optptr = iph + sizeof(struct iphdr);
+ 		opt->is_data = 0;
+ 	} else {
+-		optptr = opt->is_data ? opt->__data :
+-					(unsigned char *)&(ip_hdr(skb)[1]);
++		optptr = opt->__data;
+ 		iph = optptr - sizeof(struct iphdr);
+ 	}
+ 
+-- 
+1.5.3.rc5
+
