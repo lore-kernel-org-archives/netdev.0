@@ -1,40 +1,70 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: [PATCH] dm9601: Fix multicast hash table handling
-Date: Tue, 18 Mar 2008 23:16:52 +0100
-Message-ID: <1205878614-29065-1-git-send-email-jacmet@sunsite.dk>
-Cc: Peter Korsgaard <jacmet@sunsite.dk>
-To: jeff@garzik.org, netdev@vger.kernel.org
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 10283] New: Ooops when bonding and vlan on the
+ same device
+Date: Wed, 19 Mar 2008 14:00:56 -0700
+Message-ID: <20080319140056.4eff6571.akpm@linux-foundation.org>
+References: <bug-10283-10286@http.bugzilla.kernel.org/>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	amartins@crefidis.fr
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.185]:31682 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936053AbYCSVFA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2008 17:05:00 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so342168nfb.21
-        for <netdev@vger.kernel.org>; Wed, 19 Mar 2008 14:04:56 -0700 (PDT)
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:58347 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965543AbYCSVHG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2008 17:07:06 -0400
+In-Reply-To: <bug-10283-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The loop forgot to walk the net->mc_list list, so only the first
-multicast address was programmed into the hash table.
 
-Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
----
- drivers/net/usb/dm9601.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+(switching to email - please respond via emailed reply-to-all, not via the
+bugzilla web interface)
 
-diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
-index 4b131a6..96082fd 100644
---- a/drivers/net/usb/dm9601.c
-+++ b/drivers/net/usb/dm9601.c
-@@ -354,7 +354,7 @@ static void dm9601_set_multicast(struct net_device *net)
- 		struct dev_mc_list *mc_list = net->mc_list;
- 		int i;
- 
--		for (i = 0; i < net->mc_count; i++) {
-+		for (i = 0; i < net->mc_count; i++, mlist = mlist->next) {
- 			u32 crc = ether_crc(ETH_ALEN, mc_list->dmi_addr) >> 26;
- 			hashes[crc >> 3] |= 1 << (crc & 0x7);
- 		}
--- 
-1.5.4.1
+On Wed, 19 Mar 2008 05:19:34 -0700 (PDT)
+bugme-daemon@bugzilla.kernel.org wrote:
 
+> http://bugzilla.kernel.org/show_bug.cgi?id=10283
+> 
+>            Summary: Ooops when bonding and vlan on the same device
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.18
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: low
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: amartins@crefidis.fr
+> 
+> 
+> Latest working kernel version: ?
+> Earliest failing kernel version: 2.6.18-6
+> Distribution: Debian
+> Hardware Environment: x86-686
+> Software Environment: stable release of Debian ETCH
+> Problem Description:
+> 
+> Ooops when adding a vlan on a device that is in slave mode of a bond device
+> (Sory for my english :)
+> 
+> Steps to reproduce:
+> 
+> modprobe bonding mode=1 miimon=100
+> ifconfig eth0 promisc up
+> ifenslave bond0 eth0
+> ifconfig bond0 up
+> vconfig add eth0 2 => Ooops
+> 
+
+Is a copy of the oops output available?
+
+Is there any possibility of testing a more up-to-date kernel?
+
+Thanks.
