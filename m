@@ -1,48 +1,79 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: [PATCH] ucc_geth: Add 8 bytes to max TX frame for VLANs
-Date: Tue, 18 Mar 2008 16:11:28 +0100
-Message-ID: <1205853088-30171-1-git-send-email-Joakim.Tjernlund@transmode.se>
-Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-To: Netdev <netdev@vger.kernel.org>, Li Yang <LeoLi@freescale.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] route: use read_mostly
+Date: Wed, 19 Mar 2008 12:19:46 -0700
+Message-ID: <20080319121946.58d40021@extreme>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:60061 "EHLO
-	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753172AbYCSTgz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2008 15:36:55 -0400
-In-Reply-To: <>
-References: <>
+Received: from mail.vyatta.com ([216.93.170.194]:35970 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757533AbYCSTkq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Mar 2008 15:40:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Creating a VLAN interface on top of ucc_geth adds 4 bytes
-to the frame and the HW controller is not prepared to
-TX a frame bigger than 1518 bytes which is 4 bytes too
-small for a full VLAN frame. Also add 4 extra bytes for future
-expansion.
+The route table parameters are set based on system memory and sysctl
+values that almost never change. Also the genid only changes every
+10 minutes.
 
-Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+RTprint is defined by never used.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 ---
- drivers/net/ucc_geth.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+This patch is for net-2.6.26
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 348892b..038ec75 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -114,10 +114,10 @@ static struct ucc_geth_info ugeth_primary_info = {
- 	.maxGroupAddrInHash = 4,
- 	.maxIndAddrInHash = 4,
- 	.prel = 7,
--	.maxFrameLength = 1518,
-+	.maxFrameLength = 1518+8, /* Add 4 bytes for VLAN tags and 4 extra bytes */
- 	.minFrameLength = 64,
--	.maxD1Length = 1520,
--	.maxD2Length = 1520,
-+	.maxD1Length = 1520+8,
-+	.maxD2Length = 1520+8,
- 	.vlantype = 0x8100,
- 	.ecamptr = ((uint32_t) NULL),
- 	.eventRegMask = UCCE_OTHER,
--- 
-1.5.4.3
-
+--- a/net/ipv4/route.c	2008-03-18 11:52:11.000000000 -0700
++++ b/net/ipv4/route.c	2008-03-18 11:54:41.000000000 -0700
+@@ -118,21 +118,19 @@
+ #define RT_GC_TIMEOUT (300*HZ)
+ 
+ static int ip_rt_max_size;
+-static int ip_rt_gc_timeout		= RT_GC_TIMEOUT;
+-static int ip_rt_gc_interval		= 60 * HZ;
+-static int ip_rt_gc_min_interval	= HZ / 2;
+-static int ip_rt_redirect_number	= 9;
+-static int ip_rt_redirect_load		= HZ / 50;
+-static int ip_rt_redirect_silence	= ((HZ / 50) << (9 + 1));
+-static int ip_rt_error_cost		= HZ;
+-static int ip_rt_error_burst		= 5 * HZ;
+-static int ip_rt_gc_elasticity		= 8;
+-static int ip_rt_mtu_expires		= 10 * 60 * HZ;
+-static int ip_rt_min_pmtu		= 512 + 20 + 20;
+-static int ip_rt_min_advmss		= 256;
+-static int ip_rt_secret_interval	= 10 * 60 * HZ;
+-
+-#define RTprint(a...)	printk(KERN_DEBUG a)
++static int ip_rt_gc_timeout __read_mostly	= RT_GC_TIMEOUT;
++static int ip_rt_gc_interval __read_mostly	= 60 * HZ;
++static int ip_rt_gc_min_interval __read_mostly	= HZ / 2;
++static int ip_rt_redirect_number __read_mostly	= 9;
++static int ip_rt_redirect_load __read_mostly	= HZ / 50;
++static int ip_rt_redirect_silence __read_mostly	= ((HZ / 50) << (9 + 1));
++static int ip_rt_error_cost __read_mostly	= HZ;
++static int ip_rt_error_burst __read_mostly	= 5 * HZ;
++static int ip_rt_gc_elasticity __read_mostly	= 8;
++static int ip_rt_mtu_expires __read_mostly	= 10 * 60 * HZ;
++static int ip_rt_min_pmtu __read_mostly		= 512 + 20 + 20;
++static int ip_rt_min_advmss __read_mostly	= 256;
++static int ip_rt_secret_interval __read_mostly	= 10 * 60 * HZ;
+ 
+ static void rt_worker_func(struct work_struct *work);
+ static DECLARE_DELAYED_WORK(expires_work, rt_worker_func);
+@@ -252,10 +250,10 @@ static inline void rt_hash_lock_init(voi
+ }
+ #endif
+ 
+-static struct rt_hash_bucket 	*rt_hash_table;
+-static unsigned			rt_hash_mask;
+-static unsigned int		rt_hash_log;
+-static atomic_t			rt_genid;
++static struct rt_hash_bucket 	*rt_hash_table __read_mostly;
++static unsigned			rt_hash_mask __read_mostly;
++static unsigned int		rt_hash_log  __read_mostly;
++static atomic_t			rt_genid __read_mostly;
+ 
+ static DEFINE_PER_CPU(struct rt_cache_stat, rt_cache_stat);
+ #define RT_CACHE_STAT_INC(field) \
