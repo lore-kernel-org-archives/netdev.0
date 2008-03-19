@@ -1,71 +1,347 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: one more WARNING
-Date: Wed, 19 Mar 2008 18:47:21 +0200
-Message-ID: <20080319164707.M62133@visp.net.lb>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH 1/4] mv643xx_eth: get rid of static variables, allow multiple instances
+Date: Wed, 19 Mar 2008 08:49:15 +0100
+Message-ID: <20080319074915.GB5010@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
+Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:57989 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1765942AbYCSUSJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2008 16:18:09 -0400
-Received: from visp.net.lb (localhost [127.0.0.1])
-	by usermail.globalproof.net (Postfix) with ESMTP id 557B0BDB8F
-	for <netdev@vger.kernel.org>; Wed, 19 Mar 2008 18:47:21 +0200 (EET)
+Received: from alephnull.demon.nl ([83.160.184.112]:47617 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1765774AbYCSUR2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2008 16:17:28 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[ 9178.311398] ------------[ cut here ]------------
-[ 9178.311407] WARNING: at net/ipv4/tcp_input.c:2173 tcp_mark_head_lost+0x11e/
-0x126()
-[ 9178.311410] Modules linked in: tcp_lp xt_dscp xt_owner xt_tcpudp mptspi 
-mptsas scsi_transport_spi scsi_transport_sas mptscsih mptbase xfs em_nbyte 
-cls_tcindex act_gact cls_rsvp sch_htb cls_fw act_mirred em_u32 sch_red 
-sch_sfq sch_tbf sch_teql cls_basic act_police sch_gred act_pedit sch_hfsc 
-cls_rsvp6 sch_ingress em_meta em_text act_ipt sch_dsmark sch_prio sch_netem 
-act_simple cls_u32 em_cmp sch_cbq cls_route xt_TCPMSS iptable_nat 
-nf_conntrack_ipv4 ipt_LOG ipt_MASQUERADE ipt_REDIRECT nf_nat nf_conntrack 
-nfnetlink iptable_filter ip_tables x_tables 8021q tun tulip r8169 sky2 
-via_velocity via_rhine sis900 ne2k_pci 8390 skge tg3 8139too e1000 e100 
-usb_storage mtdblock mtd_blkdevs usbhid uhci_hcd ehci_hcd ohci_hcd usbcore
-[ 9178.311462] Pid: 1568, comm: globax Not tainted 2.6.25-rc6-git2-build-0024 
-#8
-[ 9178.311475]  [<c0121048>] warn_on_slowpath+0x41/0x51
-[ 9178.311519]  [<c013bdc3>] ? mark_held_locks+0x41/0x5c
-[ 9178.311529]  [<c012575a>] ? local_bh_enable_ip+0xb0/0xb6
-[ 9178.311539]  [<c013bf40>] ? trace_hardirqs_on+0xd3/0x111
-[ 9178.311546]  [<f89f2984>] ? __nf_ct_refresh_acct+0xd3/0x10b [nf_conntrack]
-[ 9178.311570]  [<c02beb1c>] ? _spin_unlock_bh+0x25/0x28
-[ 9178.311582]  [<f89f2984>] ? __nf_ct_refresh_acct+0xd3/0x10b [nf_conntrack]
-[ 9178.311607]  [<f89f60c6>] ? tcp_packet+0x9a7/0x9e5 [nf_conntrack]
-[ 9178.311637]  [<c013ce1f>] ? __lock_acquire+0xaef/0xb37
-[ 9178.311670]  [<c02931d7>] tcp_mark_head_lost+0x11e/0x126
-[ 9178.311686]  [<c02956ac>] tcp_ack+0x1535/0x17c3
-[ 9178.311764]  [<c0297f53>] tcp_rcv_established+0xce/0x7df
-[ 9178.311789]  [<c029d136>] tcp_v4_do_rcv+0x28/0x181
-[ 9178.311811]  [<c029ec34>] tcp_v4_rcv+0x663/0x6af
-[ 9178.311839]  [<c0287544>] ip_local_deliver_finish+0xdc/0x15f
-[ 9178.311851]  [<c0287929>] ip_local_deliver+0x64/0x6f
-[ 9178.311860]  [<c028742e>] ip_rcv_finish+0x2ba/0x2f4
-[ 9178.311878]  [<c028789b>] ip_rcv+0x202/0x22c
-[ 9178.311893]  [<c026c809>] netif_receive_skb+0x38d/0x3ec
-[ 9178.311921]  [<f890642b>] e1000_clean_rx_irq+0x369/0x42f [e1000]
-[ 9178.311990]  [<f8903db6>] e1000_clean+0x62/0x1fd [e1000]
-[ 9178.312019]  [<c026e977>] net_rx_action+0xb3/0x1d8
-[ 9178.312038]  [<c0125846>] __do_softirq+0x6f/0xe9
-[ 9178.312052]  [<c01060ab>] do_softirq+0x5e/0xa8
-[ 9178.312062]  [<c0146413>] ? handle_fasteoi_irq+0x0/0xb6
-[ 9178.312069]  [<c01257a4>] irq_exit+0x44/0x77
-[ 9178.312075]  [<c01061af>] do_IRQ+0xba/0xd3
-[ 9178.312088]  [<c010438e>] common_interrupt+0x2e/0x34
-[ 9178.312128]  =======================
-[ 9178.312131] ---[ end trace 1d98aa796f2bac59 ]---
+Move mv643xx_eth's static state (ethernet register block base address
+and MII management interface spinlock) into a struct hanging off the
+shared platform device.  This is necessary to support chips that
+contain multiple mv643xx_eth silicon blocks.
 
+Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
+Index: linux-2.6.25-rc6/arch/powerpc/platforms/chrp/pegasos_eth.c
+===================================================================
+--- linux-2.6.25-rc6.orig/arch/powerpc/platforms/chrp/pegasos_eth.c
++++ linux-2.6.25-rc6/arch/powerpc/platforms/chrp/pegasos_eth.c
+@@ -58,7 +58,9 @@ static struct resource mv643xx_eth0_reso
+ 
+ 
+ static struct mv643xx_eth_platform_data eth0_pd = {
++	.shared		= &mv643xx_eth_shared_device,
+ 	.port_number	= 0,
++
+ 	.tx_sram_addr = PEGASOS2_SRAM_BASE_ETH0,
+ 	.tx_sram_size = PEGASOS2_SRAM_TXRING_SIZE,
+ 	.tx_queue_size = PEGASOS2_SRAM_TXRING_SIZE/16,
+@@ -88,7 +90,9 @@ static struct resource mv643xx_eth1_reso
+ };
+ 
+ static struct mv643xx_eth_platform_data eth1_pd = {
++	.shared		= &mv643xx_eth_shared_device,
+ 	.port_number	= 1,
++
+ 	.tx_sram_addr = PEGASOS2_SRAM_BASE_ETH1,
+ 	.tx_sram_size = PEGASOS2_SRAM_TXRING_SIZE,
+ 	.tx_queue_size = PEGASOS2_SRAM_TXRING_SIZE/16,
+Index: linux-2.6.25-rc6/arch/powerpc/sysdev/mv64x60_dev.c
+===================================================================
+--- linux-2.6.25-rc6.orig/arch/powerpc/sysdev/mv64x60_dev.c
++++ linux-2.6.25-rc6/arch/powerpc/sysdev/mv64x60_dev.c
+@@ -203,51 +203,79 @@ error:
+ }
+ 
+ /*
++ * Bump up the following definition if someone develops a
++ * PowerPC platform that uses multiple mv64x60_eth blocks.
++ * Note that each block can support up to 3 ports.
++ */
++#define MV64X60_ETH_MAX_SHARED_DEVS 1
++
++/*
+  * Create mv64x60_eth platform devices
+  */
+-static int __init eth_register_shared_pdev(struct device_node *np)
++static struct platform_device * __init eth_register_shared_pdev(struct device_node *np)
+ {
++	struct pdev_map {
++		resource_size_t start;
++		struct platform_device *pdev;
++	};
++	static struct pdev_map pdev_map[MV64X60_ETH_MAX_SHARED_DEVS];
+ 	struct platform_device *pdev;
+ 	struct resource r[1];
+ 	int err;
+-
+-	np = of_get_parent(np);
+-	if (!np)
+-		return -ENODEV;
++	int i;
+ 
+ 	err = of_address_to_resource(np, 0, &r[0]);
+-	of_node_put(np);
+ 	if (err)
+-		return err;
++		return ERR_PTR(err);
++
++	for (i = 0; i < ARRAY_SIZE(pdev_map); i++) {
++		if (!pdev_map[i].pdev)
++			break;
++		if (pdev_map[i].start == r->start)
++			return pdev_map[i].pdev;	/* already registered */
++	}
++	if (i >= ARRAY_SIZE(pdev_map))
++		return ERR_PTR(-ENODEV);		/* no more room */
+ 
+ 	pdev = platform_device_register_simple(MV643XX_ETH_SHARED_NAME, 0,
+ 					       r, 1);
+-	if (IS_ERR(pdev))
+-		return PTR_ERR(pdev);
++	if (!IS_ERR(pdev)) {
++		pdev_map[i].start = r->start;
++		pdev_map[i].pdev = pdev;
++	}
+ 
+-	return 0;
++	return pdev;
+ }
+ 
+ static int __init mv64x60_eth_device_setup(struct device_node *np, int id)
+ {
++	static struct platform_device *shared_pdev;
+ 	struct resource r[1];
+ 	struct mv643xx_eth_platform_data pdata;
+ 	struct platform_device *pdev;
++	struct device_node *shared_np;
+ 	struct device_node *phy;
+ 	const u8 *mac_addr;
+ 	const int *prop;
+ 	const phandle *ph;
+ 	int err;
+ 
+-	/* only register the shared platform device the first time through */
+-	if (id == 0 && (err = eth_register_shared_pdev(np)))
+-		return err;
++	shared_np = of_get_parent(np);
++	if (!shared_np)
++		return -ENODEV;
++
++	shared_pdev = eth_register_shared_pdev(shared_np);
++	of_node_put(shared_np);
++	if (IS_ERR(shared_pdev))
++		return PTR_ERR(shared_pdev);
+ 
+ 	memset(r, 0, sizeof(r));
+ 	of_irq_to_resource(np, 0, &r[0]);
+ 
+ 	memset(&pdata, 0, sizeof(pdata));
+ 
++	pdata.shared = shared_pdev;
++
+ 	prop = of_get_property(np, "block-index", NULL);
+ 	if (!prop)
+ 		return -ENODEV;
+Index: linux-2.6.25-rc6/arch/ppc/syslib/mv64x60.c
+===================================================================
+--- linux-2.6.25-rc6.orig/arch/ppc/syslib/mv64x60.c
++++ linux-2.6.25-rc6/arch/ppc/syslib/mv64x60.c
+@@ -341,6 +341,7 @@ static struct resource mv64x60_eth0_reso
+ };
+ 
+ static struct mv643xx_eth_platform_data eth0_pd = {
++	.shared		= &mv64x60_eth_shared_device;
+ 	.port_number	= 0,
+ };
+ 
+@@ -366,6 +367,7 @@ static struct resource mv64x60_eth1_reso
+ };
+ 
+ static struct mv643xx_eth_platform_data eth1_pd = {
++	.shared		= &mv64x60_eth_shared_device;
+ 	.port_number	= 1,
+ };
+ 
+@@ -391,6 +393,7 @@ static struct resource mv64x60_eth2_reso
+ };
+ 
+ static struct mv643xx_eth_platform_data eth2_pd = {
++	.shared		= &mv64x60_eth_shared_device;
+ 	.port_number	= 2,
+ };
+ 
+Index: linux-2.6.25-rc6/drivers/net/mv643xx_eth.c
+===================================================================
+--- linux-2.6.25-rc6.orig/drivers/net/mv643xx_eth.c
++++ linux-2.6.25-rc6/drivers/net/mv643xx_eth.c
+@@ -507,7 +507,15 @@ struct mv643xx_mib_counters {
+ 	u32 late_collision;
+ };
+ 
++struct mv643xx_shared_private {
++	void __iomem *eth_base;
++
++	/* used to protect SMI_REG, which is shared across ports */
++	spinlock_t phy_lock;
++};
++
+ struct mv643xx_private {
++	struct mv643xx_shared_private *shared;
+ 	int port_num;			/* User Ethernet port number	*/
+ 
+ 	u32 rx_sram_addr;		/* Base address of rx sram area */
+@@ -614,19 +622,14 @@ static const struct ethtool_ops mv643xx_
+ static char mv643xx_driver_name[] = "mv643xx_eth";
+ static char mv643xx_driver_version[] = "1.0";
+ 
+-static void __iomem *mv643xx_eth_base;
+-
+-/* used to protect SMI_REG, which is shared across ports */
+-static DEFINE_SPINLOCK(mv643xx_eth_phy_lock);
+-
+ static inline u32 rdl(struct mv643xx_private *mp, int offset)
+ {
+-	return readl(mv643xx_eth_base + offset);
++	return readl(mp->shared->eth_base + offset);
+ }
+ 
+ static inline void wrl(struct mv643xx_private *mp, int offset, u32 data)
+ {
+-	writel(data, mv643xx_eth_base + offset);
++	writel(data, mp->shared->eth_base + offset);
+ }
+ 
+ /*
+@@ -1827,6 +1830,11 @@ static int mv643xx_eth_probe(struct plat
+ 		return -ENODEV;
+ 	}
+ 
++	if (pd->shared == NULL) {
++		printk(KERN_ERR "No mv643xx_eth_platform_data->shared\n");
++		return -ENODEV;
++	}
++
+ 	dev = alloc_etherdev(sizeof(struct mv643xx_private));
+ 	if (!dev)
+ 		return -ENOMEM;
+@@ -1877,6 +1885,7 @@ static int mv643xx_eth_probe(struct plat
+ 
+ 	spin_lock_init(&mp->lock);
+ 
++	mp->shared = platform_get_drvdata(pd->shared);
+ 	port_num = mp->port_num = pd->port_number;
+ 
+ 	/* set default config values */
+@@ -1986,27 +1995,46 @@ static int mv643xx_eth_remove(struct pla
+ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
+ {
+ 	static int mv643xx_version_printed = 0;
++	struct mv643xx_shared_private *msp;
+ 	struct resource *res;
++	int ret;
+ 
+ 	if (!mv643xx_version_printed++)
+ 		printk(KERN_NOTICE "MV-643xx 10/100/1000 Ethernet Driver\n");
+ 
++	ret = -EINVAL;
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (res == NULL)
+-		return -ENODEV;
++		goto out;
+ 
+-	mv643xx_eth_base = ioremap(res->start, res->end - res->start + 1);
+-	if (mv643xx_eth_base == NULL)
+-		return -ENOMEM;
++	ret = -ENOMEM;
++	msp = kmalloc(sizeof(*msp), GFP_KERNEL);
++	if (msp == NULL)
++		goto out;
++	memset(msp, 0, sizeof(*msp));
++
++	msp->eth_base = ioremap(res->start, res->end - res->start + 1);
++	if (msp->eth_base == NULL)
++		goto out_free;
++
++	spin_lock_init(&msp->phy_lock);
++
++	platform_set_drvdata(pdev, msp);
+ 
+ 	return 0;
+ 
++out_free:
++	kfree(msp);
++out:
++	return ret;
+ }
+ 
+ static int mv643xx_eth_shared_remove(struct platform_device *pdev)
+ {
+-	iounmap(mv643xx_eth_base);
+-	mv643xx_eth_base = NULL;
++	struct mv643xx_shared_private *msp = platform_get_drvdata(pdev);
++
++	iounmap(msp->eth_base);
++	kfree(msp);
+ 
+ 	return 0;
+ }
+@@ -2908,7 +2936,7 @@ static void eth_port_read_smi_reg(struct
+ 	int i;
+ 
+ 	/* the SMI register is a shared resource */
+-	spin_lock_irqsave(&mv643xx_eth_phy_lock, flags);
++	spin_lock_irqsave(&mp->shared->phy_lock, flags);
+ 
+ 	/* wait for the SMI register to become available */
+ 	for (i = 0; rdl(mp, SMI_REG) & ETH_SMI_BUSY; i++) {
+@@ -2933,7 +2961,7 @@ static void eth_port_read_smi_reg(struct
+ 
+ 	*value = rdl(mp, SMI_REG) & 0xffff;
+ out:
+-	spin_unlock_irqrestore(&mv643xx_eth_phy_lock, flags);
++	spin_unlock_irqrestore(&mp->shared->phy_lock, flags);
+ }
+ 
+ /*
+@@ -2966,7 +2994,7 @@ static void eth_port_write_smi_reg(struc
+ 	phy_addr = ethernet_phy_get(mp);
+ 
+ 	/* the SMI register is a shared resource */
+-	spin_lock_irqsave(&mv643xx_eth_phy_lock, flags);
++	spin_lock_irqsave(&mp->shared->phy_lock, flags);
+ 
+ 	/* wait for the SMI register to become available */
+ 	for (i = 0; rdl(mp, SMI_REG) & ETH_SMI_BUSY; i++) {
+@@ -2980,7 +3008,7 @@ static void eth_port_write_smi_reg(struc
+ 	wrl(mp, SMI_REG, (phy_addr << 16) | (phy_reg << 21) |
+ 				ETH_SMI_OPCODE_WRITE | (value & 0xffff));
+ out:
+-	spin_unlock_irqrestore(&mv643xx_eth_phy_lock, flags);
++	spin_unlock_irqrestore(&mp->shared->phy_lock, flags);
+ }
+ 
+ /*
+Index: linux-2.6.25-rc6/include/linux/mv643xx_eth.h
+===================================================================
+--- linux-2.6.25-rc6.orig/include/linux/mv643xx_eth.h
++++ linux-2.6.25-rc6/include/linux/mv643xx_eth.h
+@@ -1,6 +1,7 @@
+ /*
+  * MV-643XX ethernet platform device data definition file.
+  */
++
+ #ifndef __LINUX_MV643XX_ETH_H
+ #define __LINUX_MV643XX_ETH_H
+ 
+@@ -13,7 +14,9 @@
+ #define MV643XX_ETH_BASE_ADDR_ENABLE_REG	0x2290
+ 
+ struct mv643xx_eth_platform_data {
++	struct platform_device	*shared;
+ 	int		port_number;
++
+ 	u16		force_phy_addr;	/* force override if phy_addr == 0 */
+ 	u16		phy_addr;
+ 
 
+----
