@@ -1,52 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 6/6] drivers/net/e1000 - Convert int32_t
-	to s32
-Date: Wed, 19 Mar 2008 14:49:49 -0700
-Message-ID: <1205963389.26224.6.camel@localhost>
-References: <c9345fb555dc1a1aa8c3922c9957a73e43458469.1205779102.git.joe@perches.com>
-	<41caf0b437b073665972eae10027d13c4ccb5097.1205779102.git.joe@perches.com>
-	<d676af35dec3f20916505c18edea9ee1ae87a744.1205779102.git.joe@perches.com>
-	<84e6a8fed68d45f3271a23b7333bfd4627d646c1.1205779102.git.joe@perches.com>
-	<1c1d35f8165b53f5e1e050c88cf97922b0694229.1205779102.git.joe@perches.com>
-	<c18867835e6cd98fe94fa418abf7f2432a7786a5.1205779102.git.joe@perches.com>
-	<47E17FBE.4010800@intel.com>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: [PATCH] ucc_geth: Add 8 bytes to max TX frame for VLANs
+Date: Wed, 19 Mar 2008 22:56:23 +0100
+Message-ID: <m37ify1ipk.fsf@ursa.amorsen.dk>
+References: <1205853088-30171-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jeff Garzik <jgarzik@pobox.com>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <47E17FBE.4010800@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from main.gmane.org ([80.91.229.2]:60674 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S939341AbYCSV4e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Mar 2008 17:56:34 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1Jc6Gu-0007Fd-7t
+	for netdev@vger.kernel.org; Wed, 19 Mar 2008 21:56:32 +0000
+Received: from hd5b9080a.c45-01-12.sta.perspektivbredband.net ([213.185.8.10])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 19 Mar 2008 21:56:32 +0000
+Received: from benny+usenet by hd5b9080a.c45-01-12.sta.perspektivbredband.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 19 Mar 2008 21:56:32 +0000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-03-19 at 14:03 -0700, Kok, Auke wrote:
-> so just one patch for ixgb and one patch for e1000 should suffice, instead of 4
-> for each driver :)
+Joakim Tjernlund <Joakim.Tjernlund@transmode.se> writes:
 
-Can't you achieve the same effect by applying
-6 e1000 patches as a single commit and then
-4 ixgb patches as a single commit?
+> Creating a VLAN interface on top of ucc_geth adds 4 bytes
+> to the frame and the HW controller is not prepared to
+> TX a frame bigger than 1518 bytes which is 4 bytes too
+> small for a full VLAN frame. Also add 4 extra bytes for future
+> expansion.
 
-For e1000, the rolled up patch is > 200KB.
-
-If you still need it, I'll send both to you separately.
+What about QinQ -- the 4 extra bytes handle that? If the limit can be
+raised so easily, why have a static limit at all?
 
 
+/Benny
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2008.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
