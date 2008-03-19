@@ -1,46 +1,77 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] [RFC] [IPv6] spelling fix in /proc:	/proc/sys/net/ipv6/conf/default/temp_prefered_lft
-Date: Wed, 19 Mar 2008 16:17:30 -0700
-Message-ID: <47E19F0A.1010301@hp.com>
-References: <20080319204227.GF6935@ens-lyon.fr> <20080319.135205.125229102.davem@davemloft.net>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [2.6.25-rc5-mm1] regression: cannot run Postfix sendmail command
+ as non-root
+Date: Thu, 20 Mar 2008 00:31:50 +0100
+Message-ID: <47E1A266.20500@imap.cc>
+References: <20080311011434.ad8c8d7d.akpm@linux-foundation.org>	<47D98510.60801@imap.cc>	<939d53060803191052o2f43b75cu426d51f9f24e2a46@mail.gmail.com> <20080319141608.ede86a86.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: benoit.boissinot@ens-lyon.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig322D9505A9133F30EF2B7D23"
+Cc: Benjamin Thery <ben.thery@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net, pekkas@netcore.fi,
+	yoshfuji@linux-ipv6.org, dlezcano@fr.ibm.com, xemul@openvz.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:40110 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S942606AbYCSXRg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2008 19:17:36 -0400
-In-Reply-To: <20080319.135205.125229102.davem@davemloft.net>
+Received: from out2.smtp.messagingengine.com ([66.111.4.26]:42890 "EHLO
+	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756586AbYCSXcE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2008 19:32:04 -0400
+In-Reply-To: <20080319141608.ede86a86.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
-> Date: Wed, 19 Mar 2008 21:42:27 +0100
-> 
-> 
->>Is there a way to fix a bad spelling in /proc ?
->>
->>Here is a patch to fix all the spelling error (prefered -> preferred)
->>in the ipv6 code. I didn't change the /proc name but everything else is
->>changed.
->>Currently you can found both spelling in the ipv6 code.
->>Is it ok ?
-> 
-> 
-> I think this doesn't add any value.
-> 
-> If the procfs file name has to remain the same, which it does,
-> changing variable and macro names to be different will only
-> cause merge conflicts and pain yet have no redeeming value.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig322D9505A9133F30EF2B7D23
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-I've not split many hairs today so I'll ask - is there _no_ way to 
-migrate a name in /proc et al?  While it may be minor to most, it would 
-seem that leaving spelling errors out where users see them doesn't 
-convey all that positive an image.
+Am 19.03.2008 22:16 schrieb Andrew Morton:
+> On Wed, 19 Mar 2008 18:52:41 +0100
+> "Benjamin Thery" <ben.thery@gmail.com> wrote:
+>=20
+>> I bisected the problem to the commit "[NET]: Make /proc/net a symlink
+>> on /proc/self/net (v3)"
+[...]
+>> I've attached a tiny test program that can be used to reproduce the pr=
+oblem
+>> without Postfix.
 
-rick jones
+Thanks. Works great.
+
+> Although this is advertised as a 2.6.25-rc5-mm1 problem, I assume the
+> regression is also in mainline? 2.6.25-rc6?
+
+My results:
+
+up to 2.6.25-rc5 -- good
+2.6.25-rc5-mm1 -- bad
+2.6.25-rc6 -- bad
+
+HTH
+T.
+
+--=20
+Tilman Schmidt                          E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+
+
+--------------enig322D9505A9133F30EF2B7D23
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3rc1 (MingW32)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFH4aJuMdB4Whm86/kRAoadAJsHwaecacSWR1blDaxJGkDI0ueeGQCZAfzO
+V7ftNLgLj91v8NRfUwHHTp8=
+=LaBb
+-----END PGP SIGNATURE-----
+
+--------------enig322D9505A9133F30EF2B7D23--
