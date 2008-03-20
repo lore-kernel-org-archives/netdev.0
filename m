@@ -1,205 +1,196 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 23/30] netvm: skb processing
-Date: Thu, 20 Mar 2008 21:11:05 +0100
-Message-ID: <20080320202124.799183000@chello.nl>
+Subject: [PATCH 28/30] nfs: disable data cache revalidation for swapfiles
+Date: Thu, 20 Mar 2008 21:11:10 +0100
+Message-ID: <20080320202125.461846000@chello.nl>
 References: <20080320201042.675090000@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep31-int.chello.at ([62.179.121.49]:53413 "EHLO
-	viefep31-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754499AbYCTUVT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:21:19 -0400
-Content-Disposition: inline; filename=netvm.patch
+Received: from viefep20-int.chello.at ([62.179.121.40]:35545 "EHLO
+	viefep20-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755586AbYCTUVU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:21:20 -0400
+Content-Disposition: inline; filename=nfs-swapper.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to make sure emergency packets receive all memory needed to proceed
-ensure processing of emergency SKBs happens under PF_MEMALLOC.
+Do as Trond suggested:
+  http://lkml.org/lkml/2006/8/25/348
 
-Use the (new) sk_backlog_rcv() wrapper to ensure this for backlog processing.
+Disable NFS data cache revalidation on swap files since it doesn't really 
+make sense to have other clients change the file while you are using it.
 
-Skip taps, since those are user-space again.
+Thereby we can stop setting PG_private on swap pages, since there ought to
+be no further races with invalidate_inode_pages2() to deal with.
+
+And since we cannot set PG_private we cannot use page->private (which is
+already used by PG_swapcache pages anyway) to store the nfs_page. Thus
+augment the new nfs_page_find_request logic.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/net/sock.h |    5 ++++
- net/core/dev.c     |   58 +++++++++++++++++++++++++++++++++++++++++++++++------
- net/core/sock.c    |   16 ++++++++++++++
- 3 files changed, 73 insertions(+), 6 deletions(-)
+ fs/nfs/inode.c |    6 ++++
+ fs/nfs/write.c |   73 ++++++++++++++++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 65 insertions(+), 14 deletions(-)
 
-Index: linux-2.6/net/core/dev.c
+Index: linux-2.6/fs/nfs/inode.c
 ===================================================================
---- linux-2.6.orig/net/core/dev.c
-+++ linux-2.6/net/core/dev.c
-@@ -2008,6 +2008,30 @@ out:
- }
- #endif
+--- linux-2.6.orig/fs/nfs/inode.c
++++ linux-2.6/fs/nfs/inode.c
+@@ -764,6 +764,12 @@ int nfs_revalidate_mapping_nolock(struct
+ 	struct nfs_inode *nfsi = NFS_I(inode);
+ 	int ret = 0;
  
-+/*
-+ * Filter the protocols for which the reserves are adequate.
-+ *
-+ * Before adding a protocol make sure that it is either covered by the existing
-+ * reserves, or add reserves covering the memory need of the new protocol's
-+ * packet processing.
-+ */
-+static int skb_emergency_protocol(struct sk_buff *skb)
-+{
-+	if (skb_emergency(skb))
-+		switch (skb->protocol) {
-+		case __constant_htons(ETH_P_ARP):
-+		case __constant_htons(ETH_P_IP):
-+		case __constant_htons(ETH_P_IPV6):
-+		case __constant_htons(ETH_P_8021Q):
-+			break;
-+
-+		default:
-+			return 0;
-+		}
-+
-+	return 1;
-+}
-+
- /**
-  *	netif_receive_skb - process receive buffer from network
-  *	@skb: buffer to process
-@@ -2029,10 +2053,22 @@ int netif_receive_skb(struct sk_buff *sk
- 	struct net_device *orig_dev;
- 	int ret = NET_RX_DROP;
- 	__be16 type;
-+	unsigned long pflags = current->flags;
-+
-+	/* Emergency skb are special, they should
-+	 *  - be delivered to SOCK_MEMALLOC sockets only
-+	 *  - stay away from userspace
-+	 *  - have bounded memory usage
-+	 *
-+	 * Use PF_MEMALLOC so that we're not memory challenged during
-+	 * packet processing of this emergency packet.
++	/*
++	 * swapfiles are not supposed to be shared.
 +	 */
-+	if (skb_emergency(skb))
-+		current->flags |= PF_MEMALLOC;
- 
- 	/* if we've gotten here through NAPI, check netpoll */
- 	if (netpoll_receive_skb(skb))
--		return NET_RX_DROP;
++	if (IS_SWAPFILE(inode))
 +		goto out;
- 
- 	if (!skb->tstamp.tv64)
- 		net_timestamp(skb);
-@@ -2043,7 +2079,7 @@ int netif_receive_skb(struct sk_buff *sk
- 	orig_dev = skb_bond(skb);
- 
- 	if (!orig_dev)
--		return NET_RX_DROP;
-+		goto out;
- 
- 	__get_cpu_var(netdev_rx_stat).total++;
- 
-@@ -2062,6 +2098,9 @@ int netif_receive_skb(struct sk_buff *sk
- 	}
- #endif
- 
-+	if (skb_emergency(skb))
-+		goto skip_taps;
 +
- 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
- 		if (!ptype->dev || ptype->dev == skb->dev) {
- 			if (pt_prev)
-@@ -2070,19 +2109,23 @@ int netif_receive_skb(struct sk_buff *sk
- 		}
- 	}
- 
-+skip_taps:
- #ifdef CONFIG_NET_CLS_ACT
- 	skb = handle_ing(skb, &pt_prev, &ret, orig_dev);
- 	if (!skb)
--		goto out;
-+		goto unlock;
- ncls:
- #endif
- 
-+	if (!skb_emergency_protocol(skb))
-+		goto drop;
-+
- 	skb = handle_bridge(skb, &pt_prev, &ret, orig_dev);
- 	if (!skb)
--		goto out;
-+		goto unlock;
- 	skb = handle_macvlan(skb, &pt_prev, &ret, orig_dev);
- 	if (!skb)
--		goto out;
-+		goto unlock;
- 
- 	type = skb->protocol;
- 	list_for_each_entry_rcu(ptype,
-@@ -2098,6 +2141,7 @@ ncls:
- 	if (pt_prev) {
- 		ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
- 	} else {
-+drop:
- 		kfree_skb(skb);
- 		/* Jamal, now you will not able to escape explaining
- 		 * me how you were going to use this. :-)
-@@ -2105,8 +2149,10 @@ ncls:
- 		ret = NET_RX_DROP;
- 	}
- 
--out:
-+unlock:
- 	rcu_read_unlock();
-+out:
-+	tsk_restore_flags(current, pflags, PF_MEMALLOC);
- 	return ret;
- }
- 
-Index: linux-2.6/include/net/sock.h
+ 	if ((nfsi->cache_validity & NFS_INO_REVAL_PAGECACHE)
+ 			|| nfs_attribute_timeout(inode) || NFS_STALE(inode)) {
+ 		ret = __nfs_revalidate_inode(NFS_SERVER(inode), inode);
+Index: linux-2.6/fs/nfs/write.c
 ===================================================================
---- linux-2.6.orig/include/net/sock.h
-+++ linux-2.6/include/net/sock.h
-@@ -521,8 +521,13 @@ static inline void sk_add_backlog(struct
- 	skb->next = NULL;
+--- linux-2.6.orig/fs/nfs/write.c
++++ linux-2.6/fs/nfs/write.c
+@@ -112,25 +112,62 @@ static void nfs_context_set_write_error(
+ 	set_bit(NFS_CONTEXT_ERROR_WRITE, &ctx->flags);
  }
  
-+extern int __sk_backlog_rcv(struct sock *sk, struct sk_buff *skb);
-+
- static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+-static struct nfs_page *nfs_page_find_request_locked(struct page *page)
++static struct nfs_page *
++__nfs_page_find_request_locked(struct nfs_inode *nfsi, struct page *page, int get)
  {
-+	if (skb_emergency(skb))
-+		return __sk_backlog_rcv(sk, skb);
+ 	struct nfs_page *req = NULL;
+ 
+-	if (PagePrivate(page)) {
++	if (PagePrivate(page))
+ 		req = (struct nfs_page *)page_private(page);
+-		if (req != NULL)
+-			kref_get(&req->wb_kref);
+-	}
++	else if (unlikely(PageSwapCache(page)))
++		req = radix_tree_lookup(&nfsi->nfs_page_tree, page_file_index(page));
 +
- 	return sk->sk_backlog_rcv(sk, skb);
++	if (get && req)
++		kref_get(&req->wb_kref);
++
+ 	return req;
  }
  
-Index: linux-2.6/net/core/sock.c
-===================================================================
---- linux-2.6.orig/net/core/sock.c
-+++ linux-2.6/net/core/sock.c
-@@ -311,6 +311,22 @@ int sk_clear_memalloc(struct sock *sk)
- 	return set;
- }
- EXPORT_SYMBOL_GPL(sk_clear_memalloc);
-+
-+int __sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
++static inline struct nfs_page *
++nfs_page_find_request_locked(struct nfs_inode *nfsi, struct page *page)
 +{
-+	int ret;
-+	unsigned long pflags = current->flags;
-+
-+	/* these should have been dropped before queueing */
-+	BUG_ON(!sk_has_memalloc(sk));
-+
-+	current->flags |= PF_MEMALLOC;
-+	ret = sk->sk_backlog_rcv(sk, skb);
-+	tsk_restore_flags(current, pflags, PF_MEMALLOC);
-+
-+	return ret;
++	return __nfs_page_find_request_locked(nfsi, page, 1);
 +}
-+EXPORT_SYMBOL(__sk_backlog_rcv);
- #endif
++
++static int __nfs_page_has_request(struct page *page)
++{
++	struct inode *inode = page_file_mapping(page)->host;
++	struct nfs_page *req = NULL;
++
++	spin_lock(&inode->i_lock);
++	req = __nfs_page_find_request_locked(NFS_I(inode), page, 0);
++	spin_unlock(&inode->i_lock);
++
++	/*
++	 * hole here plugged by the caller holding onto PG_locked
++	 */
++
++	return req != NULL;
++}
++
++static inline int nfs_page_has_request(struct page *page)
++{
++	if (PagePrivate(page))
++		return 1;
++
++	if (unlikely(PageSwapCache(page)))
++		return __nfs_page_has_request(page);
++
++	return 0;
++}
++
+ static struct nfs_page *nfs_page_find_request(struct page *page)
+ {
+ 	struct inode *inode = page_file_mapping(page)->host;
+ 	struct nfs_page *req = NULL;
  
- static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
+ 	spin_lock(&inode->i_lock);
+-	req = nfs_page_find_request_locked(page);
++	req = nfs_page_find_request_locked(NFS_I(inode), page);
+ 	spin_unlock(&inode->i_lock);
+ 	return req;
+ }
+@@ -252,7 +289,7 @@ static int nfs_page_async_flush(struct n
+ 
+ 	spin_lock(&inode->i_lock);
+ 	for(;;) {
+-		req = nfs_page_find_request_locked(page);
++		req = nfs_page_find_request_locked(NFS_I(inode), page);
+ 		if (req == NULL) {
+ 			spin_unlock(&inode->i_lock);
+ 			return 0;
+@@ -367,8 +404,14 @@ static void nfs_inode_add_request(struct
+ 		if (nfs_have_delegation(inode, FMODE_WRITE))
+ 			nfsi->change_attr++;
+ 	}
+-	SetPagePrivate(req->wb_page);
+-	set_page_private(req->wb_page, (unsigned long)req);
++	/*
++	 * Swap-space should not get truncated. Hence no need to plug the race
++	 * with invalidate/truncate.
++	 */
++	if (likely(!PageSwapCache(req->wb_page))) {
++		SetPagePrivate(req->wb_page);
++		set_page_private(req->wb_page, (unsigned long)req);
++	}
+ 	nfsi->npages++;
+ 	kref_get(&req->wb_kref);
+ 	radix_tree_tag_set(&nfsi->nfs_page_tree, req->wb_index,
+@@ -386,8 +429,10 @@ static void nfs_inode_remove_request(str
+ 	BUG_ON (!NFS_WBACK_BUSY(req));
+ 
+ 	spin_lock(&inode->i_lock);
+-	set_page_private(req->wb_page, 0);
+-	ClearPagePrivate(req->wb_page);
++	if (likely(!PageSwapCache(req->wb_page))) {
++		set_page_private(req->wb_page, 0);
++		ClearPagePrivate(req->wb_page);
++	}
+ 	radix_tree_delete(&nfsi->nfs_page_tree, req->wb_index);
+ 	nfsi->npages--;
+ 	if (!nfsi->npages) {
+@@ -593,7 +638,7 @@ static struct nfs_page * nfs_update_requ
+ 		}
+ 
+ 		spin_lock(&inode->i_lock);
+-		req = nfs_page_find_request_locked(page);
++		req = nfs_page_find_request_locked(NFS_I(inode), page);
+ 		if (req) {
+ 			if (!nfs_set_page_tag_locked(req)) {
+ 				int error;
+@@ -1460,7 +1505,7 @@ int nfs_wb_page_cancel(struct inode *ino
+ 		if (ret < 0)
+ 			goto out;
+ 	}
+-	if (!PagePrivate(page))
++	if (!nfs_page_has_request(page))
+ 		return 0;
+ 	ret = nfs_sync_mapping_wait(page_file_mapping(page), &wbc, FLUSH_INVALIDATE);
+ out:
+@@ -1487,7 +1532,7 @@ static int nfs_wb_page_priority(struct i
+ 		if (ret < 0)
+ 			goto out;
+ 	}
+-	if (!PagePrivate(page))
++	if (!nfs_page_has_request(page))
+ 		return 0;
+ 	ret = nfs_sync_mapping_wait(page_file_mapping(page), &wbc, how);
+ 	if (ret >= 0)
 
 --
 
