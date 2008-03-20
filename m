@@ -1,60 +1,47 @@
-From: "Djalel Chefrour" <cdjalel@gmail.com>
-Subject: Re: Does HTB traffic shaping happen on leaf classes only or could it happen at root qdisc
-Date: Thu, 20 Mar 2008 15:07:05 +0100
-Message-ID: <4a9dfdec0803200707v15f65d8oba1933f1b20e406c@mail.gmail.com>
-References: <4a9dfdec0803180539wb2f9dc7n18cac81a2fe92345@mail.gmail.com>
-	 <20080320115100.GB4037@ff.dom.local>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net-2.6.26][VLAN]: Reduce memory consumed by vlan_group-s.
+Date: Thu, 20 Mar 2008 15:22:18 +0100
+Message-ID: <47E2731A.3090401@trash.net>
+References: <47CC2ACF.6080903@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Jarek Poplawski" <jarkao2@gmail.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.170]:18625 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755145AbYCTOHH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 10:07:07 -0400
-Received: by wf-out-1314.google.com with SMTP id 28so985059wff.4
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2008 07:07:06 -0700 (PDT)
-In-Reply-To: <20080320115100.GB4037@ff.dom.local>
-Content-Disposition: inline
+Received: from viefep18-int.chello.at ([213.46.255.22]:6491 "EHLO
+	viefep14-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755320AbYCTOWX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 10:22:23 -0400
+In-Reply-To: <47CC2ACF.6080903@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-THX for your reply.
+Pavel Emelyanov wrote:
+> Currently each vlan_groupd contains 8 pointers on arrays with 512 
+> pointers on struct net_device each :) Such a construction "in many 
+> cases ... wastes memory".
+> 
+> My proposal is to allow for some of these arrays pointers be NULL,
+> meaning that there are no devices in it. When a new device is added 
+> to the vlan_group, the appropriate array is allocated.
+> 
+> The check in vlan_group_get_device's is safe, since the pointer
+> vg->vlan_devices_arrays[x] can only switch from NULL to not-NULL.
+> The vlan_group_prealloc_vid() is guarded with rtnl lock and is
+> also safe.
+> 
+> I've checked (I hope that) all the places, that use these arrays 
+> and found, that the register_vlan_dev is the only place, that can
+> put a vlan device on an empty vlan_group.
+> 
+> Rough calculations shows, that after the patch a setup with a 
+> single vlan dev (or up to 512 vlans with sequential vids) will 
+> occupy approximately 8 times less memory.
+> 
+> The question I have is - does this patch makes sense, or a totally 
+> new structures are required to store the vlan_devs?
 
->  > # tc -s -d class show dev ppp0
->  > class htb 1:110 parent 1:10 leaf 110: prio 0 quantum 1375 rate 110Kbit
->  > ceil 220Kbit burst 323b/2 mpu 0b overhead 18b atm cburst 392b/2 mpu 0b
->
->  Are these default quantum, burst and cburst parameters?
->
-Yes they are. I forget to mention that I am also using tc-atm pacth with:
-atm overhead 18 nohys mtu 256, for 1:10
-atm overhead 18 nohys, for 1:20
 
->
->  > overhead 18b atm level 0
->  >  Sent 3888361 bytes 19368 pkts (dropped 0, overlimits 0)
->  >  rate 7160bit 35pps
->  >  lended: 19348 borrowed: 20 giants: 50
->
->  giants (>mtu) means something goes out of band here.
->
-Hmmm, that could be explained with mtu set to 256
+Its an improvement, so I've applied it, thanks.
 
->
->  No, HTB root qdisc doesn't even have parameter for shaping.
->  BTW, did you read this fine manual?:
->  http://luxik.cdi.cz/~devik/qos/htb/manual/userg.htm
->
-
-Yes, thats what I read too, but the output shows 0 overlimits for all
-nodes but root !!!
-So how to interpret this?
-
-TIA
-
--- 
-Dr Djalel Chefrour,
-Software Consultant
