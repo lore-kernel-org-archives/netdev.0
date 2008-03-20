@@ -1,390 +1,463 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 24/30] mm: add support for non block device backed swap files
-Date: Thu, 20 Mar 2008 21:11:06 +0100
-Message-ID: <20080320202124.933914000@chello.nl>
+Subject: [PATCH 18/30] netvm: INET reserves.
+Date: Thu, 20 Mar 2008 21:11:00 +0100
+Message-ID: <20080320202124.132168000@chello.nl>
 References: <20080320201042.675090000@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep20-int.chello.at ([62.179.121.40]:40693 "EHLO
-	viefep20-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759610AbYCTU0x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:26:53 -0400
-Content-Disposition: inline; filename=mm-swapfile.patch
+Received: from viefep31-int.chello.at ([62.179.121.49]:63091 "EHLO
+	viefep31-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759643AbYCTU06 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:26:58 -0400
+Content-Disposition: inline; filename=netvm-reserve-inet.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-New addres_space_operations methods are added:
-  int swapon(struct file *);
-  int swapoff(struct file *);
-  int swap_out(struct file *, struct page *, struct writeback_control *);
-  int swap_in(struct file *, struct page *);
+Add reserves for INET.
 
-When during sys_swapon() the ->swapon() method is found and returns no error
-the swapper_space.a_ops will proxy to sis->swap_file->f_mapping->a_ops, and
-make use of ->swap_{out,in}() to write/read swapcache pages.
+The two big users seem to be the route cache and ip-fragment cache.
 
-The ->swapon() method will be used to communicate to the file that the VM
-relies on it, and the address_space should take adequate measures (like
-reserving memory for mempools or the like). The ->swapoff() method will be
-called on sys_swapoff() when ->swapon() was found and returned no error.
+Reserve the route cache under generic RX reserve, its usage is bounded by
+the high reclaim watermark, and thus does not need further accounting.
 
-This new interface can be used to obviate the need for ->bmap in the swapfile
-code. A filesystem would need to load (and maybe even allocate) the full block
-map for a file into memory and pin it there on ->swapon() so that
-->swap_{out,in}() have instant access to it. It can be released on ->swapoff().
+Reserve the ip-fragement caches under SKB data reserve, these add to the
+SKB RX limit. By ensuring we can at least receive as much data as fits in
+the reassmbly line we avoid fragment attack deadlocks.
 
-The reason to provide ->swap_{out,in}() over using {write,read}page() is to
- 1) make a distinction between swapcache and pagecache pages, and
- 2) to provide a struct file * for credential context (normally not needed
-    in the context of writepage, as the page content is normally dirtied
-    using either of the following interfaces:
-      write_{begin,end}()
-      {prepare,commit}_write()
-      page_mkwrite()
-    which do have the file context.
+Use proc conv() routines to update these limits and return -ENOMEM to user
+space.
 
-[miklos@szeredi.hu: split swapfile into swapon/swapoff and cleanups]
+Adds to the reserve tree:
+
+  total network reserve      
+    network TX reserve       
+      protocol TX pages      
+    network RX reserve       
++     IPv6 route cache       
++     IPv4 route cache       
+      SKB data reserve       
++       IPv6 fragment cache  
++       IPv4 fragment cache  
+
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- Documentation/filesystems/Locking |   22 ++++++++++++++++
- Documentation/filesystems/vfs.txt |   18 +++++++++++++
- include/linux/buffer_head.h       |    2 -
- include/linux/fs.h                |    9 ++++++
- include/linux/swap.h              |    4 ++
- mm/page_io.c                      |   52 ++++++++++++++++++++++++++++++++++++++
- mm/swap_state.c                   |    4 +-
- mm/swapfile.c                     |   32 +++++++++++++++++++++--
- 8 files changed, 137 insertions(+), 6 deletions(-)
+ net/ipv4/ip_fragment.c |   65 +++++++++++++++++++++++++++++++++++++++++++++++--
+ net/ipv4/route.c       |   65 +++++++++++++++++++++++++++++++++++++++++++++++--
+ net/ipv6/reassembly.c  |   65 +++++++++++++++++++++++++++++++++++++++++++++++--
+ net/ipv6/route.c       |   65 +++++++++++++++++++++++++++++++++++++++++++++++--
+ 4 files changed, 252 insertions(+), 8 deletions(-)
 
-Index: linux-2.6/include/linux/swap.h
+Index: linux-2.6/net/ipv4/ip_fragment.c
 ===================================================================
---- linux-2.6.orig/include/linux/swap.h
-+++ linux-2.6/include/linux/swap.h
-@@ -120,6 +120,7 @@ enum {
- 	SWP_USED	= (1 << 0),	/* is slot in swap_info[] used? */
- 	SWP_WRITEOK	= (1 << 1),	/* ok to write to this swap?	*/
- 	SWP_ACTIVE	= (SWP_USED | SWP_WRITEOK),
-+	SWP_FILE	= (1 << 2),	/* file swap area */
- 					/* add others here before... */
- 	SWP_SCANNING	= (1 << 8),	/* refcount in scan_swap_map */
- };
-@@ -217,6 +218,8 @@ extern void swap_unplug_io_fn(struct bac
- /* linux/mm/page_io.c */
- extern int swap_readpage(struct file *, struct page *);
- extern int swap_writepage(struct page *page, struct writeback_control *wbc);
-+extern void swap_sync_page(struct page *page);
-+extern int swap_set_page_dirty(struct page *page);
- extern void end_swap_bio_read(struct bio *bio, int err);
+--- linux-2.6.orig/net/ipv4/ip_fragment.c
++++ linux-2.6/net/ipv4/ip_fragment.c
+@@ -44,6 +44,7 @@
+ #include <linux/udp.h>
+ #include <linux/inet.h>
+ #include <linux/netfilter_ipv4.h>
++#include <linux/reserve.h>
  
- /* linux/mm/swap_state.c */
-@@ -250,6 +253,7 @@ extern unsigned int count_swap_pages(int
- extern sector_t map_swap_page(struct swap_info_struct *, pgoff_t);
- extern sector_t swapdev_block(int, pgoff_t);
- extern struct swap_info_struct *get_swap_info_struct(unsigned);
-+extern struct swap_info_struct *page_swap_info(struct page *);
- extern int can_share_swap_page(struct page *);
- extern int remove_exclusive_swap_page(struct page *);
- struct backing_dev_info;
-Index: linux-2.6/mm/page_io.c
-===================================================================
---- linux-2.6.orig/mm/page_io.c
-+++ linux-2.6/mm/page_io.c
-@@ -17,6 +17,7 @@
- #include <linux/bio.h>
- #include <linux/swapops.h>
- #include <linux/writeback.h>
-+#include <linux/buffer_head.h>
- #include <asm/pgtable.h>
+ /* NOTE. Logic of IP defragmentation is parallel to corresponding IPv6
+  * code now. If you change something here, _PLEASE_ update ipv6/reassembly.c
+@@ -591,17 +592,72 @@ int ip_defrag(struct sk_buff *skb, u32 u
+ 	return -ENOMEM;
+ }
  
- static struct bio *get_swap_bio(gfp_t gfp_flags, pgoff_t index,
-@@ -97,11 +98,23 @@ int swap_writepage(struct page *page, st
- {
- 	struct bio *bio;
- 	int ret = 0, rw = WRITE;
-+	struct swap_info_struct *sis = page_swap_info(page);
- 
- 	if (remove_exclusive_swap_page(page)) {
- 		unlock_page(page);
- 		goto out;
- 	}
++static struct mem_reserve ipv4_frag_reserve;
 +
-+	if (sis->flags & SWP_FILE) {
-+		struct file *swap_file = sis->swap_file;
-+		struct address_space *mapping = swap_file->f_mapping;
+ #ifdef CONFIG_SYSCTL
++static int ipv4_frag_bytes;
 +
-+		ret = mapping->a_ops->swap_out(swap_file, page, wbc);
++static int proc_dointvec_fragment(struct ctl_table *table, int write,
++		struct file *filp, void __user *buffer, size_t *lenp,
++		loff_t *ppos)
++{
++	int old_bytes, ret;
++
++	if (!write)
++		ipv4_frag_bytes = init_net.ipv4.frags.high_thresh;
++	old_bytes = ipv4_frag_bytes;
++
++	ret = proc_dointvec(table, write, filp, buffer, lenp, ppos);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmalloc_set(&ipv4_frag_reserve,
++					      ipv4_frag_bytes);
 +		if (!ret)
-+			count_vm_event(PSWPOUT);
-+		return ret;
++			init_net.ipv4.frags.high_thresh = ipv4_frag_bytes;
++		else
++			ipv4_frag_bytes = old_bytes;
 +	}
 +
- 	bio = get_swap_bio(GFP_NOIO, page_private(page), page,
- 				end_swap_bio_write);
- 	if (bio == NULL) {
-@@ -120,13 +133,52 @@ out:
++	return ret;
++}
++
++static int sysctl_intvec_fragment(struct ctl_table *table,
++		int __user *name, int nlen,
++		void __user *oldval, size_t __user *oldlenp,
++		void __user *newval, size_t newlen)
++{
++	int old_bytes, ret;
++	int write = (newval && newlen);
++
++	if (!write)
++		ipv4_frag_bytes = init_net.ipv4.frags.high_thresh;
++	old_bytes = ipv4_frag_bytes;
++
++	ret = sysctl_intvec(table, name, nlen, oldval, oldlenp, newval, newlen);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmalloc_set(&ipv4_frag_reserve,
++					      ipv4_frag_bytes);
++		if (!ret)
++			init_net.ipv4.frags.high_thresh = ipv4_frag_bytes;
++		else
++			ipv4_frag_bytes = old_bytes;
++	}
++
++	return ret;
++}
++
+ static int zero;
+ 
+ static struct ctl_table ip4_frags_ctl_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV4_IPFRAG_HIGH_THRESH,
+ 		.procname	= "ipfrag_high_thresh",
+-		.data		= &init_net.ipv4.frags.high_thresh,
++		.data		= &ipv4_frag_bytes,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec_fragment,
++		.strategy	= &sysctl_intvec_fragment,
+ 	},
+ 	{
+ 		.ctl_name	= NET_IPV4_IPFRAG_LOW_THRESH,
+@@ -736,6 +792,11 @@ void __init ipfrag_init(void)
+ 	ip4_frags.frag_expire = ip_expire;
+ 	ip4_frags.secret_interval = 10 * 60 * HZ;
+ 	inet_frags_init(&ip4_frags);
++
++	mem_reserve_init(&ipv4_frag_reserve, "IPv4 fragment cache",
++			 &net_skb_reserve);
++	mem_reserve_kmalloc_set(&ipv4_frag_reserve,
++				init_net.ipv4.frags.high_thresh);
+ }
+ 
+ EXPORT_SYMBOL(ip_defrag);
+Index: linux-2.6/net/ipv6/reassembly.c
+===================================================================
+--- linux-2.6.orig/net/ipv6/reassembly.c
++++ linux-2.6/net/ipv6/reassembly.c
+@@ -43,6 +43,7 @@
+ #include <linux/random.h>
+ #include <linux/jhash.h>
+ #include <linux/skbuff.h>
++#include <linux/reserve.h>
+ 
+ #include <net/sock.h>
+ #include <net/snmp.h>
+@@ -628,15 +629,70 @@ static struct inet6_protocol frag_protoc
+ 	.flags		=	INET6_PROTO_NOPOLICY,
+ };
+ 
++static struct mem_reserve ipv6_frag_reserve;
++
+ #ifdef CONFIG_SYSCTL
++static int ipv6_frag_bytes;
++
++static int proc_dointvec_fragment(struct ctl_table *table, int write,
++		struct file *filp, void __user *buffer, size_t *lenp,
++		loff_t *ppos)
++{
++	int old_bytes, ret;
++
++	if (!write)
++		ipv6_frag_bytes = init_net.ipv6.frags.high_thresh;
++	old_bytes = ipv6_frag_bytes;
++
++	ret = proc_dointvec(table, write, filp, buffer, lenp, ppos);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmalloc_set(&ipv6_frag_reserve,
++					      ipv6_frag_bytes);
++		if (!ret)
++			init_net.ipv6.frags.high_thresh = ipv6_frag_bytes;
++		else
++			ipv6_frag_bytes = old_bytes;
++	}
++
++	return ret;
++}
++
++static int sysctl_intvec_fragment(struct ctl_table *table,
++		int __user *name, int nlen,
++		void __user *oldval, size_t __user *oldlenp,
++		void __user *newval, size_t newlen)
++{
++	int old_bytes, ret;
++	int write = (newval && newlen);
++
++	if (!write)
++		ipv6_frag_bytes = init_net.ipv6.frags.high_thresh;
++	old_bytes = ipv6_frag_bytes;
++
++	ret = sysctl_intvec(table, name, nlen, oldval, oldlenp, newval, newlen);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmalloc_set(&ipv6_frag_reserve,
++					      ipv6_frag_bytes);
++		if (!ret)
++			init_net.ipv6.frags.high_thresh = ipv6_frag_bytes;
++		else
++			ipv6_frag_bytes = old_bytes;
++	}
++
++	return ret;
++}
++
+ static struct ctl_table ip6_frags_ctl_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV6_IP6FRAG_HIGH_THRESH,
+ 		.procname	= "ip6frag_high_thresh",
+-		.data		= &init_net.ipv6.frags.high_thresh,
++		.data		= &ipv6_frag_bytes,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec_fragment,
++		.strategy	= &sysctl_intvec_fragment,
+ 	},
+ 	{
+ 		.ctl_name	= NET_IPV6_IP6FRAG_LOW_THRESH,
+@@ -758,6 +814,11 @@ int __init ipv6_frag_init(void)
+ 	ip6_frags.frag_expire = ip6_frag_expire;
+ 	ip6_frags.secret_interval = 10 * 60 * HZ;
+ 	inet_frags_init(&ip6_frags);
++
++	mem_reserve_init(&ipv6_frag_reserve, "IPv6 fragment cache",
++			 &net_skb_reserve);
++	mem_reserve_kmalloc_set(&ipv6_frag_reserve,
++				init_net.ipv6.frags.high_thresh);
+ out:
  	return ret;
  }
+Index: linux-2.6/net/ipv4/route.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/route.c
++++ linux-2.6/net/ipv4/route.c
+@@ -109,6 +109,7 @@
+ #ifdef CONFIG_SYSCTL
+ #include <linux/sysctl.h>
+ #endif
++#include <linux/reserve.h>
  
-+void swap_sync_page(struct page *page)
-+{
-+	struct swap_info_struct *sis = page_swap_info(page);
-+
-+	if (sis->flags & SWP_FILE) {
-+		struct address_space *mapping = sis->swap_file->f_mapping;
-+
-+		if (mapping->a_ops->sync_page)
-+			mapping->a_ops->sync_page(page);
-+	} else {
-+		block_sync_page(page);
-+	}
-+}
-+
-+int swap_set_page_dirty(struct page *page)
-+{
-+	struct swap_info_struct *sis = page_swap_info(page);
-+
-+	if (sis->flags & SWP_FILE) {
-+		struct address_space *mapping = sis->swap_file->f_mapping;
-+
-+		return mapping->a_ops->set_page_dirty(page);
-+	} else {
-+		return __set_page_dirty_nobuffers(page);
-+	}
-+}
-+
- int swap_readpage(struct file *file, struct page *page)
- {
- 	struct bio *bio;
- 	int ret = 0;
-+	struct swap_info_struct *sis = page_swap_info(page);
+ #define RT_FL_TOS(oldflp) \
+     ((u32)(oldflp->fl4_tos & (IPTOS_RT_MASK | RTO_ONLINK)))
+@@ -2793,6 +2794,8 @@ void ip_rt_multicast_event(struct in_dev
+ 	rt_cache_flush(0);
+ }
  
- 	BUG_ON(!PageLocked(page));
- 	BUG_ON(PageUptodate(page));
++static struct mem_reserve ipv4_route_reserve;
 +
-+	if (sis->flags & SWP_FILE) {
-+		struct file *swap_file = sis->swap_file;
-+		struct address_space *mapping = swap_file->f_mapping;
+ #ifdef CONFIG_SYSCTL
+ static int flush_delay;
+ 
+@@ -2826,6 +2829,58 @@ static int ipv4_sysctl_rtcache_flush_str
+ 	return 0;
+ }
+ 
++static int ipv4_route_size;
 +
-+		ret = mapping->a_ops->swap_in(swap_file, page);
++static int proc_dointvec_route(struct ctl_table *table, int write,
++		struct file *filp, void __user *buffer, size_t *lenp,
++		loff_t *ppos)
++{
++	int old_size, ret;
++
++	if (!write)
++		ipv4_route_size = ip_rt_max_size;
++	old_size = ipv4_route_size;
++
++	ret = proc_dointvec(table, write, filp, buffer, lenp, ppos);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmem_cache_set(&ipv4_route_reserve,
++				ipv4_dst_ops.kmem_cachep, ipv4_route_size);
 +		if (!ret)
-+			count_vm_event(PSWPIN);
-+		return ret;
++			ip_rt_max_size = ipv4_route_size;
++		else
++			ipv4_route_size = old_size;
 +	}
 +
- 	bio = get_swap_bio(GFP_KERNEL, page_private(page), page,
- 				end_swap_bio_read);
- 	if (bio == NULL) {
-Index: linux-2.6/mm/swap_state.c
-===================================================================
---- linux-2.6.orig/mm/swap_state.c
-+++ linux-2.6/mm/swap_state.c
-@@ -27,8 +27,8 @@
-  */
- static const struct address_space_operations swap_aops = {
- 	.writepage	= swap_writepage,
--	.sync_page	= block_sync_page,
--	.set_page_dirty	= __set_page_dirty_nobuffers,
-+	.sync_page	= swap_sync_page,
-+	.set_page_dirty	= swap_set_page_dirty,
- 	.migratepage	= migrate_page,
- };
- 
-Index: linux-2.6/mm/swapfile.c
-===================================================================
---- linux-2.6.orig/mm/swapfile.c
-+++ linux-2.6/mm/swapfile.c
-@@ -1012,6 +1012,14 @@ static void destroy_swap_extents(struct 
- 		list_del(&se->list);
- 		kfree(se);
- 	}
-+
-+	if (sis->flags & SWP_FILE) {
-+		struct file *swap_file = sis->swap_file;
-+		struct address_space *mapping = swap_file->f_mapping;
-+
-+		sis->flags &= ~SWP_FILE;
-+		mapping->a_ops->swapoff(swap_file);
-+	}
- }
- 
- /*
-@@ -1086,7 +1094,9 @@ add_swap_extent(struct swap_info_struct 
-  */
- static int setup_swap_extents(struct swap_info_struct *sis, sector_t *span)
- {
--	struct inode *inode;
-+	struct file *swap_file = sis->swap_file;
-+	struct address_space *mapping = swap_file->f_mapping;
-+	struct inode *inode = mapping->host;
- 	unsigned blocks_per_page;
- 	unsigned long page_no;
- 	unsigned blkbits;
-@@ -1097,13 +1107,22 @@ static int setup_swap_extents(struct swa
- 	int nr_extents = 0;
- 	int ret;
- 
--	inode = sis->swap_file->f_mapping->host;
- 	if (S_ISBLK(inode->i_mode)) {
- 		ret = add_swap_extent(sis, 0, sis->max, 0);
- 		*span = sis->pages;
- 		goto done;
- 	}
- 
-+	if (mapping->a_ops->swapon) {
-+		ret = mapping->a_ops->swapon(swap_file);
-+		if (!ret) {
-+			sis->flags |= SWP_FILE;
-+			ret = add_swap_extent(sis, 0, sis->max, 0);
-+			*span = sis->pages;
-+		}
-+		goto done;
-+	}
-+
- 	blkbits = inode->i_blkbits;
- 	blocks_per_page = PAGE_SIZE >> blkbits;
- 
-@@ -1676,7 +1695,7 @@ asmlinkage long sys_swapon(const char __
- 
- 	mutex_lock(&swapon_mutex);
- 	spin_lock(&swap_lock);
--	p->flags = SWP_ACTIVE;
-+	p->flags |= SWP_WRITEOK;
- 	nr_swap_pages += nr_good_pages;
- 	total_swap_pages += nr_good_pages;
- 
-@@ -1801,6 +1820,13 @@ get_swap_info_struct(unsigned type)
- 	return &swap_info[type];
- }
- 
-+struct swap_info_struct *page_swap_info(struct page *page)
-+{
-+	swp_entry_t swap = { .val = page_private(page) };
-+	BUG_ON(!PageSwapCache(page));
-+	return &swap_info[swp_type(swap)];
++	return ret;
 +}
 +
- /*
-  * swap_lock prevents swap_map being freed. Don't grab an extra
-  * reference on the swaphandle, it doesn't matter if it becomes unused.
-Index: linux-2.6/include/linux/fs.h
++static int sysctl_intvec_route(struct ctl_table *table,
++		int __user *name, int nlen,
++		void __user *oldval, size_t __user *oldlenp,
++		void __user *newval, size_t newlen)
++{
++	int old_size, ret;
++	int write = (newval && newlen);
++
++	if (!write)
++		ipv4_route_size = ip_rt_max_size;
++	old_size = ipv4_route_size;
++
++	ret = sysctl_intvec(table, name, nlen, oldval, oldlenp, newval, newlen);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmem_cache_set(&ipv4_route_reserve,
++				ipv4_dst_ops.kmem_cachep, ipv4_route_size);
++		if (!ret)
++			ip_rt_max_size = ipv4_route_size;
++		else
++			ipv4_route_size = old_size;
++	}
++
++	return ret;
++}
++
+ ctl_table ipv4_route_table[] = {
+ 	{
+ 		.ctl_name 	= NET_IPV4_ROUTE_FLUSH,
+@@ -2847,10 +2902,11 @@ ctl_table ipv4_route_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV4_ROUTE_MAX_SIZE,
+ 		.procname	= "max_size",
+-		.data		= &ip_rt_max_size,
++		.data		= &ipv4_route_size,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec,
++		.proc_handler	= &proc_dointvec_route,
++		.strategy	= &sysctl_intvec_route,
+ 	},
+ 	{
+ 		/*  Deprecated. Use gc_min_interval_ms */
+@@ -3025,6 +3081,11 @@ int __init ip_rt_init(void)
+ 	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
+ 	ip_rt_max_size = (rt_hash_mask + 1) * 16;
+ 
++	mem_reserve_init(&ipv4_route_reserve, "IPv4 route cache",
++			&net_rx_reserve);
++	mem_reserve_kmem_cache_set(&ipv4_route_reserve,
++			ipv4_dst_ops.kmem_cachep, ip_rt_max_size);
++
+ 	devinet_init();
+ 	ip_fib_init();
+ 
+Index: linux-2.6/net/ipv6/route.c
 ===================================================================
---- linux-2.6.orig/include/linux/fs.h
-+++ linux-2.6/include/linux/fs.h
-@@ -481,6 +481,15 @@ struct address_space_operations {
- 	int (*migratepage) (struct address_space *,
- 			struct page *, struct page *);
- 	int (*launder_page) (struct page *);
-+
-+	/*
-+	 * swapfile support
-+	 */
-+	int (*swapon)(struct file *file);
-+	int (*swapoff)(struct file *file);
-+	int (*swap_out)(struct file *file, struct page *page,
-+			struct writeback_control *wbc);
-+	int (*swap_in)(struct file *file, struct page *page);
- };
+--- linux-2.6.orig/net/ipv6/route.c
++++ linux-2.6/net/ipv6/route.c
+@@ -38,6 +38,7 @@
+ #include <linux/in6.h>
+ #include <linux/init.h>
+ #include <linux/if_arp.h>
++#include <linux/reserve.h>
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <net/net_namespace.h>
+@@ -2393,6 +2394,8 @@ static inline void ipv6_route_proc_fini(
+ }
+ #endif	/* CONFIG_PROC_FS */
  
- /*
-Index: linux-2.6/Documentation/filesystems/Locking
-===================================================================
---- linux-2.6.orig/Documentation/filesystems/Locking
-+++ linux-2.6/Documentation/filesystems/Locking
-@@ -171,6 +171,10 @@ prototypes:
- 	int (*direct_IO)(int, struct kiocb *, const struct iovec *iov,
- 			loff_t offset, unsigned long nr_segs);
- 	int (*launder_page) (struct page *);
-+	int (*swapon) (struct file *);
-+	int (*swapoff) (struct file *);
-+	int (*swap_out) (struct file *, struct page *, struct writeback_control *);
-+	int (*swap_in)  (struct file *, struct page *);
++static struct mem_reserve ipv6_route_reserve;
++
+ #ifdef CONFIG_SYSCTL
  
- locking rules:
- 	All except set_page_dirty may block
-@@ -192,6 +196,10 @@ invalidatepage:		no	yes
- releasepage:		no	yes
- direct_IO:		no
- launder_page:		no	yes
-+swapon			no
-+swapoff			no
-+swap_out		no	yes, unlocks
-+swap_in			no	yes, unlocks
+ static
+@@ -2408,6 +2411,58 @@ int ipv6_sysctl_rtcache_flush(ctl_table 
+ 		return -EINVAL;
+ }
  
- 	->prepare_write(), ->commit_write(), ->sync_page() and ->readpage()
- may be called from the request handler (/dev/loop).
-@@ -291,6 +299,20 @@ cleaned, or an error value if not. Note 
- getting mapped back in and redirtied, it needs to be kept locked
- across the entire operation.
++static int ipv6_route_size;
++
++static int proc_dointvec_route(struct ctl_table *table, int write,
++		struct file *filp, void __user *buffer, size_t *lenp,
++		loff_t *ppos)
++{
++	int old_size, ret;
++
++	if (!write)
++		ipv6_route_size = ip6_rt_max_size;
++	old_size = ipv6_route_size;
++
++	ret = proc_dointvec(table, write, filp, buffer, lenp, ppos);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmem_cache_set(&ipv6_route_reserve,
++				ip6_dst_ops.kmem_cachep, ipv6_route_size);
++		if (!ret)
++			ip6_rt_max_size = ipv6_route_size;
++		else
++			ipv6_route_size = old_size;
++	}
++
++	return ret;
++}
++
++static int sysctl_intvec_route(struct ctl_table *table,
++		int __user *name, int nlen,
++		void __user *oldval, size_t __user *oldlenp,
++		void __user *newval, size_t newlen)
++{
++	int old_size, ret;
++	int write = (newval && newlen);
++
++	if (!write)
++		ipv6_route_size = ip6_rt_max_size;
++	old_size = ipv6_route_size;
++
++	ret = sysctl_intvec(table, name, nlen, oldval, oldlenp, newval, newlen);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmem_cache_set(&ipv6_route_reserve,
++				ip6_dst_ops.kmem_cachep, ipv6_route_size);
++		if (!ret)
++			ip6_rt_max_size = ipv6_route_size;
++		else
++			ipv6_route_size = old_size;
++	}
++
++	return ret;
++}
++
+ ctl_table ipv6_route_table_template[] = {
+ 	{
+ 		.procname	=	"flush",
+@@ -2427,10 +2482,11 @@ ctl_table ipv6_route_table_template[] = 
+ 	{
+ 		.ctl_name	=	NET_IPV6_ROUTE_MAX_SIZE,
+ 		.procname	=	"max_size",
+-		.data		=	&init_net.ipv6.sysctl.ip6_rt_max_size,
++		.data		=	&ipv6_route_size,
+ 		.maxlen		=	sizeof(int),
+ 		.mode		=	0644,
+-		.proc_handler	=	&proc_dointvec,
++		.proc_handler	=	&proc_dointvec_route,
++		.strategy	= 	&sysctl_intvec_route,
+ 	},
+ 	{
+ 		.ctl_name	=	NET_IPV6_ROUTE_GC_MIN_INTERVAL,
+@@ -2521,6 +2577,11 @@ int __init ip6_route_init(void)
  
-+	->swapon() will be called with a non-zero argument on files backing
-+(non block device backed) swapfiles. A return value of zero indicates success,
-+in which case this file can be used for backing swapspace. The swapspace
-+operations will be proxied to the address space operations.
-+
-+	->swapoff() will be called in the sys_swapoff() path when ->swapon()
-+returned success.
-+
-+	->swap_out() when swapon() returned success, this method is used to
-+write the swap page.
-+
-+	->swap_in() when swapon() returned success, this method is used to
-+read the swap page.
-+
- 	Note: currently almost all instances of address_space methods are
- using BKL for internal serialization and that's one of the worst sources
- of contention. Normally they are calling library functions (in fs/buffer.c)
-Index: linux-2.6/include/linux/buffer_head.h
-===================================================================
---- linux-2.6.orig/include/linux/buffer_head.h
-+++ linux-2.6/include/linux/buffer_head.h
-@@ -334,7 +334,7 @@ static inline void invalidate_inode_buff
- static inline int remove_inode_buffers(struct inode *inode) { return 1; }
- static inline int sync_mapping_buffers(struct address_space *mapping) { return 0; }
- static inline void invalidate_bdev(struct block_device *bdev) {}
--
-+static inline void block_sync_page(struct page *) { }
+ 	ip6_dst_blackhole_ops.kmem_cachep = ip6_dst_ops.kmem_cachep;
  
- #endif /* CONFIG_BLOCK */
- #endif /* _LINUX_BUFFER_HEAD_H */
-Index: linux-2.6/Documentation/filesystems/vfs.txt
-===================================================================
---- linux-2.6.orig/Documentation/filesystems/vfs.txt
-+++ linux-2.6/Documentation/filesystems/vfs.txt
-@@ -543,6 +543,11 @@ struct address_space_operations {
- 	/* migrate the contents of a page to the specified target */
- 	int (*migratepage) (struct page *, struct page *);
- 	int (*launder_page) (struct page *);
-+	int (*swapon)(struct file *);
-+	int (*swapoff)(struct file *);
-+	int (*swap_out)(struct file *file, struct page *page,
-+			struct writeback_control *wbc);
-+	int (*swap_in)(struct file *file, struct page *page);
- };
- 
-   writepage: called by the VM to write a dirty page to backing store.
-@@ -728,6 +733,19 @@ struct address_space_operations {
-   	prevent redirtying the page, it is kept locked during the whole
- 	operation.
- 
-+  swapon: Called when swapon is used on a file. A
-+	return value of zero indicates success, in which case this
-+	file can be used to back swapspace. The swapspace operations
-+	will be proxied to this address space's ->swap_{out,in} methods.
++	mem_reserve_init(&ipv6_route_reserve, "IPv6 route cache",
++			&net_rx_reserve);
++	mem_reserve_kmem_cache_set(&ipv6_route_reserve,
++			ip6_dst_ops.kmem_cachep, ip6_rt_max_size);
 +
-+  swapoff: Called during swapoff on files where swapon was successfull.
-+
-+  swap_out: Called to write a swapcache page to a backing store, similar to
-+	writepage.
-+
-+  swap_in: Called to read a swapcache page from a backing store, similar to
-+	readpage.
-+
- The File Object
- ===============
- 
+ 	ret = fib6_init();
+ 	if (ret)
+ 		goto out_kmem_cache;
 
 --
 
