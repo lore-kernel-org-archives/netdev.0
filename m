@@ -1,79 +1,48 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [RFC PATCH] kernel: add byteorder macros with alignment fixups
-Date: Thu, 20 Mar 2008 10:34:14 -0700
-Message-ID: <1206034454.17059.4.camel@brick>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [PATCH/RFC] introduce ARCH_CAN_UNALIGNED_ACCESS Kconfig symbol
+Date: Thu, 20 Mar 2008 19:13:10 +0100
+Message-ID: <20080320181310.GA17884@uranus.ravnborg.org>
+References: <1206023695.16475.137.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Drake <dsd@gentoo.org>,
+	Linux Kernel list <linux-kernel@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from el-out-1112.google.com ([209.85.162.176]:51162 "EHLO
-	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755217AbYCTReT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 13:34:19 -0400
-Received: by el-out-1112.google.com with SMTP id v27so788532ele.17
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2008 10:34:18 -0700 (PDT)
+Received: from pasmtpb.tele.dk ([80.160.77.98]:53289 "EHLO pasmtpB.tele.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754766AbYCTSMu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2008 14:12:50 -0400
+Content-Disposition: inline
+In-Reply-To: <1206023695.16475.137.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A common pattern in the kernel (especially networking) is:
+On Thu, Mar 20, 2008 at 03:34:55PM +0100, Johannes Berg wrote:
+> In many cases, especially in networking, it can be beneficial to
+> know at compile time whether the architecture can do unaligned
+> accesses. This patch introduces a new Kconfig symbol
+> 	ARCH_CAN_UNALIGNED_ACCESS
 
-le32_to_cpu(get_unaligned((__le32 *)x));
+Can we please have a single symbol defined and name it:
+HAVE_*
 
-Repeat for various combinations of le/be and 64/32/16 bit.  Add
-a variant that operates on possibly unaligned pointers to
-byteorder/generic.h
+Then the architectures that HAVE this feature can select the symbol.
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
- include/linux/byteorder/generic.h |   16 ++++++++++++++++
- 1 files changed, 16 insertions(+), 0 deletions(-)
+So somewhere in maybe lib/Kconfig or maybe arch/Kconfig add:
 
-diff --git a/include/linux/byteorder/generic.h b/include/linux/byteorder/generic.h
-index d377155..9b1a7a4 100644
---- a/include/linux/byteorder/generic.h
-+++ b/include/linux/byteorder/generic.h
-@@ -73,6 +73,10 @@
-  *	cpu_to_[bl]eXXp(__uXX x)
-  *	[bl]eXX_to_cpup(__uXX x)
-  *
-+ * The same, but takes a possibly unaligned pointer to the value to convert
-+ *	cpu_to_[bl]eXXp_un(__uXX x)
-+ *	[bl]eXX_to_cpup_un(__uXX x)
-+ *
-  * The same, but change in situ
-  *	cpu_to_[bl]eXXs(__uXX x)
-  *	[bl]eXX_to_cpus(__uXX x)
-@@ -84,6 +88,8 @@
- 
- 
- #if defined(__KERNEL__)
-+#include <asm/unaligned.h>
-+
- /*
-  * inside the kernel, we can use nicknames;
-  * outside of it, we must avoid POSIX namespace pollution...
-@@ -126,6 +132,16 @@
- #define be16_to_cpus __be16_to_cpus
- 
- /*
-+ * Operates on possibly unaligned pointers
-+ */
-+#define le64_to_cpup_un(x) __le64_to_cpu(get_unaligned((__le64 *)(x)))
-+#define le32_to_cpup_un(x) __le32_to_cpu(get_unaligned((__le32 *)(x)))
-+#define le16_to_cpup_un(x) __le16_to_cpu(get_unaligned((__le16 *)(x)))
-+#define be64_to_cpup_un(x) __be64_to_cpu(get_unaligned((__be64 *)(x)))
-+#define be32_to_cpup_un(x) __be32_to_cpu(get_unaligned((__be32 *)(x)))
-+#define be16_to_cpup_un(x) __be16_to_cpu(get_unaligned((__be16 *)(x)))
-+
-+/*
-  * They have to be macros in order to do the constant folding
-  * correctly - if the argument passed into a inline function
-  * it is no longer constant according to gcc..
--- 
-1.5.4.4.684.g0e08
+config HAVE_UNALIGNED_ACCESS_SUPPORT
+	bool
+
+And then for x86 select the symbol:
+
+ config X86
++	select HAVE_UNALIGNED_ACCESS_SUPPORT
 
 
+This follows the suggestion as available in
+Documentation/kbuild/kconfig-language.txt
 
+	Sam
