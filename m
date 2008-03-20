@@ -1,56 +1,37 @@
-From: Roel Kluin <12o3l@tiscali.nl>
-Subject: Re: drivers/net/niu.c: memcpy(dev->dev_addr, dev->perm_addr, dev->addr_len)?
-Date: Fri, 21 Mar 2008 00:01:11 +0100
-Message-ID: <47E2ECB7.5030304@tiscali.nl>
-References: <47E2D08E.5050708@tiscali.nl> <20080320.142510.148381731.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Re: netconsole still hangs
+Date: Thu, 20 Mar 2008 16:08:46 -0700 (PDT)
+Message-ID: <20080320.160846.71909746.davem@davemloft.net>
+References: <20080312235205.dcec2d35.akpm@linux-foundation.org>
+	<20080314234749.GA10606@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: akpm@linux-foundation.org, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org, rjw@sisk.pl
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out1.tiscali.nl ([195.241.79.176]:34670 "EHLO
-	smtp-out1.tiscali.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753072AbYCTXBO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 19:01:14 -0400
-In-Reply-To: <20080320.142510.148381731.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40380
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753793AbYCTXI3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 19:08:29 -0400
+In-Reply-To: <20080314234749.GA10606@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Roel Kluin <12o3l@tiscali.nl>
-> Date: Thu, 20 Mar 2008 22:01:02 +0100
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Sat, 15 Mar 2008 00:47:49 +0100
+
+> [NETPOLL] zap_completion_queue: adjust skb->users counter
 > 
->> in drivers/net/niu.c, line 6406, 6286 and 7173:
->>
->> memcpy(dev->dev_addr, dev->perm_addr, dev->addr_len);
->>
->> I noticed that "
->>
->> memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len)
->>
->> occurs much more often (15x). could it be that the first two arguments
->> are swapped in niu.c?
+> zap_completion_queue() retrieves skbs from completion_queue where they
+> have zero skb->users counter. Before dev_kfree_skb_any() it should be
+> non-zero yet, so it's increased now.
 > 
-> No, these calls are correct.  We are probing the device's permanent
-> ethernet address, we first place it into dev->dev_addr and then we
-> copy it into dev->perm_addr.
 > 
-> Please try to actually understand the pieces of strcpy and memcpy code
-> you are "finding bugs" in before posting to the list as these analysis
-> on false positives are going to eat up a lot of developer time.
+> Reported-and-tested-by: Andrew Morton <akpm@linux-foundation.org>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Sorry for the noise (also for sound/sparc/dbri.c) and thanks for your
-answers, It takes a lot more time for me to understand the code than it
-will do for someone with more knowledge and experience with this driver, 
+I've applied this, thanks everyone.
 
-If drivers/net/niu.c copies in opposite direction compared to 80% of the
-other memcpy calls - using these same variable names - and it is not
-directly transparent why, My opinion is that either the naming is bad or
-there is a lack of comment.
-
-> I notice you posting several of these kinds of things.
-
-Only 2 with the above conditions and patches or not where I was able to
-figure it out myself. I don't really understand why you are opposed to
-these questions.
+I'll queue it up for -stable too.
