@@ -1,75 +1,71 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH] kernel: add byteorder function with alignment fixups
-Date: Thu, 20 Mar 2008 12:41:27 -0700
-Message-ID: <1206042087.17059.15.camel@brick>
-References: <1206034454.17059.4.camel@brick>
-	 <20080320182911.GQ10722@ZenIV.linux.org.uk>
-	 <1206038244.17059.7.camel@brick>
-	 <20080320190953.GR10722@ZenIV.linux.org.uk>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Does HTB traffic shaping happen on leaf classes only or could
+	it happen at root qdisc
+Date: Thu, 20 Mar 2008 20:49:37 +0100
+Message-ID: <20080320194937.GA3193@ami.dom.local>
+References: <4a9dfdec0803180539wb2f9dc7n18cac81a2fe92345@mail.gmail.com> <20080320115100.GB4037@ff.dom.local> <4a9dfdec0803200707v15f65d8oba1933f1b20e406c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757522AbYCTTlq@vger.kernel.org>
-In-Reply-To: <20080320190953.GR10722@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Djalel Chefrour <cdjalel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0910.google.com ([209.85.198.190]:47637 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753476AbYCTTpJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 15:45:09 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so561315rvb.1
+        for <netdev@vger.kernel.org>; Thu, 20 Mar 2008 12:45:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4a9dfdec0803200707v15f65d8oba1933f1b20e406c@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add helpers for the pattern put_unaligned(cpu_to_le32(val), (__le32 *)p)
-to linux/unaligned.h
+On Thu, Mar 20, 2008 at 03:07:05PM +0100, Djalel Chefrour wrote:
+...
+> >  > # tc -s -d class show dev ppp0
+> >  > class htb 1:110 parent 1:10 leaf 110: prio 0 quantum 1375 rate 110Kbit
+> >  > ceil 220Kbit burst 323b/2 mpu 0b overhead 18b atm cburst 392b/2 mpu 0b
+> >
+> >  Are these default quantum, burst and cburst parameters?
+> >
+> Yes they are. I forget to mention that I am also using tc-atm pacth with:
+> atm overhead 18 nohys mtu 256, for 1:10
+> atm overhead 18 nohys, for 1:20
 
-Repeat for various combinations of le/be and 64/32/16 bit.
+I don't know this patch, but if it's about some fine graining, maybe
+it's better to get it working with a vanilla version first. Anyway,
+you wondered why 1:110 could be treated unfair vs. 1:20, so I wonder,
+why it has worse parameters than 1:20 (also by default?).
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
-Applies on top of my last patch, makes it a symmetric API.
+> >  > overhead 18b atm level 0
+> >  >  Sent 3888361 bytes 19368 pkts (dropped 0, overlimits 0)
+> >  >  rate 7160bit 35pps
+> >  >  lended: 19348 borrowed: 20 giants: 50
+> >
+> >  giants (>mtu) means something goes out of band here.
+> >
+> Hmmm, that could be explained with mtu set to 256
 
- include/linux/unaligned.h |   30 ++++++++++++++++++++++++++++++
- 1 files changed, 30 insertions(+), 0 deletions(-)
+I'm not sure where you set this mtu, or if it's changed by this atm
+patch, but HTB gets packets bigger than it can rate, so you probably
+should set HTB's mtu parameter higher, until these giants are not
+reported.
 
-diff --git a/include/linux/unaligned.h b/include/linux/unaligned.h
-index 7d8fddc..c9aa286 100644
---- a/include/linux/unaligned.h
-+++ b/include/linux/unaligned.h
-@@ -37,6 +37,36 @@ static inline u16 be16_to_cpu_unaligned(void *p)
- 	return __be16_to_cpu(get_unaligned((__be16 *)p));
- }
- 
-+static inline void cpu_to_le64_unaligned(u64 val, void *p)
-+{
-+	put_unaligned(cpu_to_le64(val), (__le64 *)p);
-+}
-+
-+static inline void cpu_to_le32_unaligned(u32 val, void *p)
-+{
-+	put_unaligned(cpu_to_le32(val), (__le32 *)p);
-+}
-+
-+static inline void cpu_to_le16_unaligned(u16 val, void *p)
-+{
-+	put_unaligned(cpu_to_le16(val), (__le16 *)p);
-+}
-+
-+static inline void cpu_to_be64_unaligned(u64 val, void *p)
-+{
-+	put_unaligned(cpu_to_be64(val), (__be64 *)p);
-+}
-+
-+static inline void cpu_to_be32_unaligned(u32 val, void *p)
-+{
-+	put_unaligned(cpu_to_be32(val), (__be32 *)p);
-+}
-+
-+static inline void cpu_to_be16_unaligned(u16 val, void *p)
-+{
-+	put_unaligned(cpu_to_be16(val), (__be16 *)p);
-+}
-+
- #endif /* KERNEL */
- 
- #endif /* _LINUX_UNALIGNED_H */
--- 
-1.5.4.4.684.g0e08
+> >  No, HTB root qdisc doesn't even have parameter for shaping.
+> >  BTW, did you read this fine manual?:
+> >  http://luxik.cdi.cz/~devik/qos/htb/manual/userg.htm
+> >
+> 
+> Yes, thats what I read too, but the output shows 0 overlimits for all
+> nodes but root !!!
+> So how to interpret this?
+
+I'm not sure if HTB uses these overlimits for classes yet. But, I
+don't see why should you care about this so much: it only tells
+generally how much classes delay sending - not about overloading.
+
+If I don't miss something in your problem, you should check first
+if 1:110 class works OK without any traffic in 1:20, and if so, than
+limit 1:20 parameters until it doesn't affect 1:110 anymore.
+
+Jarek P.
