@@ -1,110 +1,76 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Does HTB traffic shaping happen on leaf classes only or could
-	it happen at root qdisc
-Date: Thu, 20 Mar 2008 11:51:00 +0000
-Message-ID: <20080320115100.GB4037@ff.dom.local>
-References: <4a9dfdec0803180539wb2f9dc7n18cac81a2fe92345@mail.gmail.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] SCTP: Fix sctp_auth_asoc_get_hmac() to avoid kernel panic
+Date: Thu, 20 Mar 2008 08:20:12 -0400
+Message-ID: <47E2567C.7080105@hp.com>
+References: <47E1FBE0.6030209@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Djalel Chefrour <cdjalel@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.233]:41386 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752581AbYCTLtL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 07:49:11 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1047048wxd.4
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2008 04:49:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4a9dfdec0803180539wb2f9dc7n18cac81a2fe92345@mail.gmail.com>
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:13498 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752833AbYCTMUP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 08:20:15 -0400
+In-Reply-To: <47E1FBE0.6030209@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18-03-2008 13:39, Djalel Chefrour wrote:
-> Hi
-> 
-> According to Traffic-Control-HOWTO
-> (http://tldp.org/HOWTO/Traffic-Control-HOWTO/classful-qdiscs.html),
-> with HTB scheduler, traffic is only throttled in leaf classes.
-> I wonder if this is true in recent implementations ?
-> 
-> In the log below, with kernel 2.6.12.6, "overlimits" increases only
-> for "root qdisc",
-> While uplink rate is 256kbs and I am sending 100kbps to high prio class 1:110
-> and doing ftp upload through class 1:20.
-> 
-> # tc -s -d qdisc show dev ppp0
-> qdisc htb 1: r2q 10 default 20 direct_packets_stat 2 ver 3.17
->  Sent 8926254 bytes 23133 pkts (dropped 0, overlimits 37101 )
->  backlog 82p
-> qdisc pfifo 110: parent 1:110 limit 50p
->  Sent 3887561 bytes 19364 pkts (dropped 0, overlimits 0 )
-> qdisc pfifo 120: parent 1:120 limit 50p
->  Sent 0 bytes 0 pkts (dropped 0, overlimits 0 )
-> qdisc sfq 20: parent 1:20 limit 128p quantum 1492b flows 128/1024 perturb 10sec
->  Sent 5037436 bytes 3767 pkts (dropped 0, overlimits 0 )
->  backlog 82p
-> 
-> # tc -s -d class show dev ppp0
-> class htb 1:110 parent 1:10 leaf 110: prio 0 quantum 1375 rate 110Kbit
-> ceil 220Kbit burst 323b/2 mpu 0b overhead 18b atm cburst 392b/2 mpu 0b
+Hi Wei
 
-Are these default quantum, burst and cburst parameters?
-
-> overhead 18b atm level 0
->  Sent 3888361 bytes 19368 pkts (dropped 0, overlimits 0)
->  rate 7160bit 35pps
->  lended: 19348 borrowed: 20 giants: 50
-
-giants (>mtu) means something goes out of band here.
-
->  tokens: 2404 ctokens: 3813
+Wei Yongjun wrote:
+> If association is setup with HMAC-ALGO parameter in which there is no 
+> HMAC algorithm supported by the endpoint, send a chunk with AUTH will 
+> cause kernel panic.
 > 
-> class htb 1:1 root rate 256Kbit ceil 256Kbit burst 1760b/8 mpu 0b
-> overhead 18b atm cburst 1760b/8 mpu 0b overhead 18b atm level 7
->  Sent 8806437 bytes 23055 pkts (dropped 0, overlimits 0)
->  rate 26913bit 49pps
->  lended: 2365 borrowed: 0 giants: 0
->  tokens: -86236 ctokens: -86236
-> 
-> class htb 1:10 parent 1:1 rate 210Kbit ceil 256Kbit burst 1730b/8 mpu
-> 0b overhead 18b atm cburst 1760b/8 mpu 0b overhead 18b atm level 6
->  Sent 3888361 bytes 19368 pkts (dropped 0, overlimits 0)
->  rate 7279bit 36pps
->  lended: 20 borrowed: 0 giants: 0
->  tokens: 45750 ctokens: 38273
-> 
-> class htb 1:20 parent 1:1 leaf 20: prio 7 quantum 1500 rate 46Kbit
-> ceil 256Kbit burst 1627b/8 mpu 0b overhead 18b atm cburst 1760b/8 mpu
-> 0b overhead 18b atm level 0
->  Sent 5038928 bytes 3768 pkts (dropped 0, overlimits 0)
->  rate 160Kbit 13pps backlog 81p
->  lended: 1322 borrowed: 2365 giants: 0
->  tokens: -154108 ctokens: -41778
-> 
-> class htb 1:120 parent 1:10 leaf 120: prio 1 quantum 1250 rate 100Kbit
-> ceil 100Kbit burst 317b/2 mpu 0b overhead 18b atm cburst 317b/2 mpu 0b
-> overhead 18b atm level 0
->  Sent 0 bytes 0 pkts (dropped 0, overlimits 0)
->  lended: 0 borrowed: 0 giants: 0
->  tokens: 20840 ctokens: 20840
-> 
-> 
-> Normally traffic sent to 1:110 should not be delayed, but I am
-> experiencing an important latency there,
-> also traffic going 1:20 should is not dropped as one would expect !!!
+> This is because  when send chunk with AUTH, sctp_auth_asoc_get_hmac() 
+> will be used to get the hmac. In this function, if the HMAC-ALGO is 
+> empty, it return NULL. If is not empty, it will find a valid hmac for 
+> using. But if all of the HMAC-ALGOs is not supported by endpoint, it 
+> will return a bogus pointer, not expected NULL pointer.
 
-Looks like all is within (below) rates, so no need to drop. Latency
-could be caused by various reasons, mainly wrong parameters. Usually
-defaults are reasonable with normal size packets. But these questions
-aren't the preferred subject of this list...
+This is a workaround, but this problem must never never happen.
+RFC 4890 has the following text:
 
-> Does this mean traffic is shaped at the root qdisc before it is
-> classified and sent down ?
+   The HMAC algorithm based on SHA-1 MUST be supported and
+   included in the HMAC-ALGO parameter.
 
-No, HTB root qdisc doesn't even have parameter for shaping.
-BTW, did you read this fine manual?:
-http://luxik.cdi.cz/~devik/qos/htb/manual/userg.htm
+As a result, we need to check in sctp_verify_param() that HMAC_SHA1 is
+present in the list.  If not, we should probably treat this as a protocol
+violation.
 
-Regards,
-Jarek P.
+It should also be a protocol violation if the HMAC parameter is empty.
+
+That could almost remove the need for the sctp-auth_asoc_get_hmac() function.
+
+-vlad
+
+> 
+> This patch fix this problem.
+> 
+> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+> 
+> --- a/net/sctp/auth.c    2008-02-11 17:14:05.000000000 -0500
+> +++ b/net/sctp/auth.c    2008-02-14 02:01:18.000000000 -0500
+> @@ -549,13 +549,10 @@ struct sctp_hmac *sctp_auth_asoc_get_hma
+>         if (!sctp_hmac_list[id].hmac_name)
+>             continue;
+> 
+> -        break;
+> +        return &sctp_hmac_list[id];
+>     }
+> 
+> -    if (id == 0)
+> -        return NULL;
+> -
+> -    return &sctp_hmac_list[id];
+> +    return NULL;
+> }
+> 
+> static int __sctp_auth_find_hmacid(__be16 *hmacs, int n_elts, __be16 
+> hmac_id)
+> 
+> 
+
