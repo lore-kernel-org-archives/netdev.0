@@ -1,134 +1,245 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 25/30] mm: methods for teaching filesystems about PG_swapcache pages
-Date: Thu, 20 Mar 2008 21:11:07 +0100
-Message-ID: <20080320202125.095096000@chello.nl>
+Subject: [PATCH 06/30] mm: kmem_alloc_estimate()
+Date: Thu, 20 Mar 2008 21:10:48 +0100
+Message-ID: <20080320202121.494786000@chello.nl>
 References: <20080320201042.675090000@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep11-int.chello.at ([62.179.121.31]:62609 "EHLO
+Received: from viefep11-int.chello.at ([62.179.121.31]:61092 "EHLO
 	viefep11-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757903AbYCTUVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:21:36 -0400
-Content-Disposition: inline; filename=mm-page_file_methods.patch
+	with ESMTP id S1755859AbYCTUVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:21:21 -0400
+Content-Disposition: inline; filename=mm-kmem_estimate_pages.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to teach filesystems to handle swap cache pages, three new page
-functions are introduced:
+Provide a method to get the upper bound on the pages needed to allocate
+a given number of objects from a given kmem_cache.
 
-  pgoff_t page_file_index(struct page *);
-  loff_t page_file_offset(struct page *);
-  struct address_space *page_file_mapping(struct page *);
-
-page_file_index() - gives the offset of this page in the file in
-PAGE_CACHE_SIZE blocks. Like page->index is for mapped pages, this function
-also gives the correct index for PG_swapcache pages.
-
-page_file_offset() - uses page_file_index(), so that it will give the expected
-result, even for PG_swapcache pages.
-
-page_file_mapping() - gives the mapping backing the actual page; that is for
-swap cache pages it will give swap_file->f_mapping.
+This lays the foundation for a generic reserve framework as presented in
+a later patch in this series. This framework needs to convert object demand
+(kmalloc() bytes, kmem_cache_alloc() objects) to pages.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/linux/mm.h      |   25 +++++++++++++++++++++++++
- include/linux/pagemap.h |    5 +++++
- mm/swapfile.c           |   19 +++++++++++++++++++
- 3 files changed, 49 insertions(+)
+ include/linux/slab.h |    4 ++
+ mm/slab.c            |   75 +++++++++++++++++++++++++++++++++++++++++++++
+ mm/slub.c            |   84 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 163 insertions(+)
 
-Index: linux-2.6/include/linux/mm.h
+Index: linux-2.6/include/linux/slab.h
 ===================================================================
---- linux-2.6.orig/include/linux/mm.h
-+++ linux-2.6/include/linux/mm.h
-@@ -598,6 +598,17 @@ static inline struct address_space *page
- 	return mapping;
- }
- 
-+extern struct address_space *__page_file_mapping(struct page *);
-+
-+static inline
-+struct address_space *page_file_mapping(struct page *page)
-+{
-+	if (unlikely(PageSwapCache(page)))
-+		return __page_file_mapping(page);
-+
-+	return page->mapping;
-+}
-+
- static inline int PageAnon(struct page *page)
- {
- 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
-@@ -614,6 +625,20 @@ static inline pgoff_t page_index(struct 
- 	return page->index;
- }
- 
-+extern pgoff_t __page_file_index(struct page *page);
-+
-+/*
-+ * Return the file index of the page. Regular pagecache pages use ->index
-+ * whereas swapcache pages use swp_offset(->private)
-+ */
-+static inline pgoff_t page_file_index(struct page *page)
-+{
-+	if (unlikely(PageSwapCache(page)))
-+		return __page_file_index(page);
-+
-+	return page->index;
-+}
-+
- /*
-  * The atomic page->_mapcount, like _count, starts from -1:
-  * so that transitions both from it and to it can be tracked,
-Index: linux-2.6/include/linux/pagemap.h
-===================================================================
---- linux-2.6.orig/include/linux/pagemap.h
-+++ linux-2.6/include/linux/pagemap.h
-@@ -148,6 +148,11 @@ static inline loff_t page_offset(struct 
- 	return ((loff_t)page->index) << PAGE_CACHE_SHIFT;
- }
- 
-+static inline loff_t page_file_offset(struct page *page)
-+{
-+	return ((loff_t)page_file_index(page)) << PAGE_CACHE_SHIFT;
-+}
-+
- static inline pgoff_t linear_page_index(struct vm_area_struct *vma,
- 					unsigned long address)
- {
-Index: linux-2.6/mm/swapfile.c
-===================================================================
---- linux-2.6.orig/mm/swapfile.c
-+++ linux-2.6/mm/swapfile.c
-@@ -1828,6 +1828,25 @@ struct swap_info_struct *page_swap_info(
- }
+--- linux-2.6.orig/include/linux/slab.h
++++ linux-2.6/include/linux/slab.h
+@@ -60,6 +60,8 @@ void kmem_cache_free(struct kmem_cache *
+ unsigned int kmem_cache_size(struct kmem_cache *);
+ const char *kmem_cache_name(struct kmem_cache *);
+ int kmem_ptr_validate(struct kmem_cache *cachep, const void *ptr);
++unsigned kmem_alloc_estimate(struct kmem_cache *cachep,
++			gfp_t flags, int objects);
  
  /*
-+ * out-of-line __page_file_ methods to avoid include hell.
+  * Please use this macro to create slab caches. Simply specify the
+@@ -94,6 +96,8 @@ int kmem_ptr_validate(struct kmem_cache 
+ void * __must_check krealloc(const void *, size_t, gfp_t);
+ void kfree(const void *);
+ size_t ksize(const void *);
++unsigned kmalloc_estimate_fixed(size_t, gfp_t, int);
++unsigned kmalloc_estimate_variable(gfp_t, size_t);
+ 
+ /*
+  * Allocator specific definitions. These are mainly used to establish optimized
+Index: linux-2.6/mm/slub.c
+===================================================================
+--- linux-2.6.orig/mm/slub.c
++++ linux-2.6/mm/slub.c
+@@ -2347,6 +2347,39 @@ const char *kmem_cache_name(struct kmem_
+ EXPORT_SYMBOL(kmem_cache_name);
+ 
+ /*
++ * Calculate the upper bound of pages required to sequentially allocate
++ * @objects objects from @cachep.
++ *
++ * We should use s->min_objects because those are the least efficient.
 + */
-+
-+struct address_space *__page_file_mapping(struct page *page)
++unsigned kmem_alloc_estimate(struct kmem_cache *s, gfp_t flags, int objects)
 +{
-+	VM_BUG_ON(!PageSwapCache(page));
-+	return page_swap_info(page)->swap_file->f_mapping;
-+}
-+EXPORT_SYMBOL_GPL(__page_file_mapping);
++	unsigned long pages;
 +
-+pgoff_t __page_file_index(struct page *page)
-+{
-+	swp_entry_t swap = { .val = page_private(page) };
-+	VM_BUG_ON(!PageSwapCache(page));
-+	return swp_offset(swap);
++	if (WARN_ON(!s) || WARN_ON(!s->min_objects))
++		return 0;
++
++	pages = DIV_ROUND_UP(objects, s->min_objects) << get_order(s->size);
++
++	/*
++	 * Account the possible additional overhead if the slab holds more that
++	 * one object. Use s->max_objects because that's the worst case.
++	 */
++	if (s->max_objects > 1) {
++		/*
++		 * Account the possible additional overhead if per cpu slabs
++		 * are currently empty and have to be allocated. This is very
++		 * unlikely but a possible scenario immediately after
++		 * kmem_cache_shrink.
++		 */
++		pages += num_online_cpus() << s->order;
++	}
++
++	return pages;
 +}
-+EXPORT_SYMBOL_GPL(__page_file_index);
++EXPORT_SYMBOL_GPL(kmem_alloc_estimate);
 +
 +/*
-  * swap_lock prevents swap_map being freed. Don't grab an extra
-  * reference on the swaphandle, it doesn't matter if it becomes unused.
+  * Attempt to free all slabs on a node. Return the number of slabs we
+  * were unable to free.
   */
+@@ -2726,6 +2759,57 @@ static unsigned long count_partial_total
+ }
+ 
+ /*
++ * Calculate the upper bound of pages required to sequentially allocate
++ * @count objects of @size bytes from kmalloc given @flags.
++ */
++unsigned kmalloc_estimate_fixed(size_t size, gfp_t flags, int count)
++{
++	struct kmem_cache *s = get_slab(size, flags);
++	if (!s)
++		return 0;
++
++	return kmem_alloc_estimate(s, flags, count);
++
++}
++EXPORT_SYMBOL_GPL(kmalloc_estimate_fixed);
++
++/*
++ * Calculate the upper bound of pages requires to sequentially allocate @bytes
++ * from kmalloc in an unspecified number of allocations of nonuniform size.
++ */
++unsigned kmalloc_estimate_variable(gfp_t flags, size_t bytes)
++{
++	int i;
++	unsigned long pages;
++
++	/*
++	 * multiply by two, in order to account the worst case slack space
++	 * due to the power-of-two allocation sizes.
++	 */
++	pages = DIV_ROUND_UP(2 * bytes, PAGE_SIZE);
++
++	/*
++	 * add the kmem_cache overhead of each possible kmalloc cache
++	 */
++	for (i = 1; i < PAGE_SHIFT; i++) {
++		struct kmem_cache *s;
++
++#ifdef CONFIG_ZONE_DMA
++		if (unlikely(flags & SLUB_DMA))
++			s = dma_kmalloc_cache(i, flags);
++		else
++#endif
++			s = &kmalloc_caches[i];
++
++		if (s)
++			pages += kmem_alloc_estimate(s, flags, 0);
++	}
++
++	return pages;
++}
++EXPORT_SYMBOL_GPL(kmalloc_estimate_variable);
++
++/*
+  * kmem_cache_shrink removes empty slabs from the partial lists and sorts
+  * the remaining slabs by the number of items in use. The slabs with the
+  * most items in use come first. New allocations will then fill those up
+Index: linux-2.6/mm/slab.c
+===================================================================
+--- linux-2.6.orig/mm/slab.c
++++ linux-2.6/mm/slab.c
+@@ -3847,6 +3847,81 @@ const char *kmem_cache_name(struct kmem_
+ EXPORT_SYMBOL_GPL(kmem_cache_name);
+ 
+ /*
++ * Calculate the upper bound of pages required to sequentially allocate
++ * @objects objects from @cachep.
++ */
++unsigned kmem_alloc_estimate(struct kmem_cache *cachep,
++		gfp_t flags, int objects)
++{
++	/*
++	 * (1) memory for objects,
++	 */
++	unsigned nr_slabs = DIV_ROUND_UP(objects, cachep->num);
++	unsigned nr_pages = nr_slabs << cachep->gfporder;
++
++	/*
++	 * (2) memory for each per-cpu queue (nr_cpu_ids),
++	 * (3) memory for each per-node alien queues (nr_cpu_ids), and
++	 * (4) some amount of memory for the slab management structures
++	 *
++	 * XXX: truely account these
++	 */
++	nr_pages += 1 + ilog2(nr_pages);
++
++	return nr_pages;
++}
++
++/*
++ * Calculate the upper bound of pages required to sequentially allocate
++ * @count objects of @size bytes from kmalloc given @flags.
++ */
++unsigned kmalloc_estimate_fixed(size_t size, gfp_t flags, int count)
++{
++	struct kmem_cache *s = kmem_find_general_cachep(size, flags);
++	if (!s)
++		return 0;
++
++	return kmem_alloc_estimate(s, flags, count);
++}
++EXPORT_SYMBOL_GPL(kmalloc_estimate_fixed);
++
++/*
++ * Calculate the upper bound of pages requires to sequentially allocate @bytes
++ * from kmalloc in an unspecified number of allocations of nonuniform size.
++ */
++unsigned kmalloc_estimate_variable(gfp_t flags, size_t bytes)
++{
++	unsigned long pages;
++	struct cache_sizes *csizep = malloc_sizes;
++
++	/*
++	 * multiply by two, in order to account the worst case slack space
++	 * due to the power-of-two allocation sizes.
++	 */
++	pages = DIV_ROUND_UP(2 * bytes, PAGE_SIZE);
++
++	/*
++	 * add the kmem_cache overhead of each possible kmalloc cache
++	 */
++	for (csizep = malloc_sizes; csizep->cs_cachep; csizep++) {
++		struct kmem_cache *s;
++
++#ifdef CONFIG_ZONE_DMA
++		if (unlikely(flags & __GFP_DMA))
++			s = csizep->cs_dmacachep;
++		else
++#endif
++			s = csizep->cs_cachep;
++
++		if (s)
++			pages += kmem_alloc_estimate(s, flags, 0);
++	}
++
++	return pages;
++}
++EXPORT_SYMBOL_GPL(kmalloc_estimate_variable);
++
++/*
+  * This initializes kmem_list3 or resizes various caches for all nodes.
+  */
+ static int alloc_kmemlist(struct kmem_cache *cachep)
 
 --
 
