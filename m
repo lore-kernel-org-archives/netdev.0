@@ -1,350 +1,175 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 05/30] mm: slb: add knowledge of reserve pages
-Date: Thu, 20 Mar 2008 21:10:47 +0100
-Message-ID: <20080320202121.131372000@chello.nl>
+Subject: [PATCH 26/30] nfs: remove mempools
+Date: Thu, 20 Mar 2008 21:11:08 +0100
+Message-ID: <20080320202125.196698000@chello.nl>
 References: <20080320201042.675090000@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep20-int.chello.at ([62.179.121.40]:44226 "EHLO
-	viefep20-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759637AbYCTU06 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:26:58 -0400
-Content-Disposition: inline; filename=reserve-slub.patch
+Received: from viefep18-int.chello.at ([213.46.255.22]:52442 "EHLO
+	viefep19-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759626AbYCTU04 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:26:56 -0400
+Content-Disposition: inline; filename=nfs-no-mempool.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Restrict objects from reserve slabs (ALLOC_NO_WATERMARKS) to allocation
-contexts that are entitled to it. This is done to ensure reserve pages don't
-leak out and get consumed.
+With the introduction of the shared dirty page accounting in .19, NFS should
+not be able to surpise the VM with all dirty pages. Thus it should always be
+able to free some memory. Hence no more need for mempools.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/linux/slub_def.h |    1 
- mm/slab.c                |   60 +++++++++++++++++++++++++++++++++++++++--------
- mm/slub.c                |   27 +++++++++++++++++----
- 3 files changed, 74 insertions(+), 14 deletions(-)
+ fs/nfs/read.c  |   15 +++------------
+ fs/nfs/write.c |   27 +++++----------------------
+ 2 files changed, 8 insertions(+), 34 deletions(-)
 
-Index: linux-2.6/mm/slub.c
+Index: linux-2.6/fs/nfs/read.c
 ===================================================================
---- linux-2.6.orig/mm/slub.c
-+++ linux-2.6/mm/slub.c
-@@ -21,6 +21,7 @@
- #include <linux/ctype.h>
- #include <linux/kallsyms.h>
- #include <linux/memory.h>
-+#include "internal.h"
+--- linux-2.6.orig/fs/nfs/read.c
++++ linux-2.6/fs/nfs/read.c
+@@ -33,13 +33,10 @@ static const struct rpc_call_ops nfs_rea
+ static const struct rpc_call_ops nfs_read_full_ops;
  
- /*
-  * Lock order:
-@@ -1065,7 +1066,8 @@ static void setup_object(struct kmem_cac
- 		s->ctor(s, object);
+ static struct kmem_cache *nfs_rdata_cachep;
+-static mempool_t *nfs_rdata_mempool;
+-
+-#define MIN_POOL_READ	(32)
+ 
+ struct nfs_read_data *nfs_readdata_alloc(unsigned int pagecount)
+ {
+-	struct nfs_read_data *p = mempool_alloc(nfs_rdata_mempool, GFP_NOFS);
++	struct nfs_read_data *p = kmem_cache_alloc(nfs_rdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -50,7 +47,7 @@ struct nfs_read_data *nfs_readdata_alloc
+ 		else {
+ 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
+ 			if (!p->pagevec) {
+-				mempool_free(p, nfs_rdata_mempool);
++				kmem_cache_free(nfs_rdata_cachep, p);
+ 				p = NULL;
+ 			}
+ 		}
+@@ -63,7 +60,7 @@ static void nfs_readdata_rcu_free(struct
+ 	struct nfs_read_data *p = container_of(head, struct nfs_read_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_rdata_mempool);
++	kmem_cache_free(nfs_rdata_cachep, p);
  }
  
--static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
-+static
-+struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node, int *reserve)
- {
- 	struct page *page;
- 	struct kmem_cache_node *n;
-@@ -1091,6 +1093,7 @@ static struct page *new_slab(struct kmem
- 	if (order)
- 		page[1].inuse = objects;
+ static void nfs_readdata_free(struct nfs_read_data *rdata)
+@@ -595,16 +592,10 @@ int __init nfs_init_readpagecache(void)
+ 	if (nfs_rdata_cachep == NULL)
+ 		return -ENOMEM;
  
-+	*reserve = page->reserve;
- 	n = get_node(s, page_to_nid(page));
- 	if (n) {
- 		atomic_long_inc(&n->nr_slabs);
-@@ -1490,7 +1493,17 @@ static void *__slab_alloc(struct kmem_ca
- {
- 	void **object;
- 	struct page *new;
-+	int reserve;
- 
-+	if (unlikely(c->reserve)) {
-+		/*
-+		 * If the current slab is a reserve slab and the current
-+		 * allocation context does not allow access to the reserves we
-+		 * must force an allocation to test the current levels.
-+		 */
-+		if (!(gfp_to_alloc_flags(gfpflags) & ALLOC_NO_WATERMARKS))
-+			goto grow_slab;
-+	}
- 	if (!c->page)
- 		goto new_slab;
- 
-@@ -1504,7 +1517,7 @@ load_freelist:
- 	object = c->page->freelist;
- 	if (unlikely(!object))
- 		goto another_slab;
--	if (unlikely(SlabDebug(c->page)))
-+	if (unlikely(SlabDebug(c->page) || c->reserve))
- 		goto debug;
- 
- 	c->freelist = object[c->offset];
-@@ -1527,16 +1540,18 @@ new_slab:
- 		goto load_freelist;
- 	}
- 
-+grow_slab:
- 	if (gfpflags & __GFP_WAIT)
- 		local_irq_enable();
- 
--	new = new_slab(s, gfpflags, node);
-+	new = new_slab(s, gfpflags, node, &reserve);
- 
- 	if (gfpflags & __GFP_WAIT)
- 		local_irq_disable();
- 
- 	if (new) {
- 		c = get_cpu_slab(s, smp_processor_id());
-+		c->reserve = reserve;
- 		stat(c, ALLOC_SLAB);
- 		if (c->page)
- 			flush_slab(s, c);
-@@ -1548,7 +1563,8 @@ new_slab:
- 
- 	return NULL;
- debug:
--	if (!alloc_debug_processing(s, c->page, object, addr))
-+	if (SlabDebug(c->page) &&
-+			!alloc_debug_processing(s, c->page, object, addr))
- 		goto another_slab;
- 
- 	c->page->inuse++;
-@@ -2038,10 +2054,11 @@ static struct kmem_cache_node *early_kme
- 	struct page *page;
- 	struct kmem_cache_node *n;
- 	unsigned long flags;
-+	int reserve;
- 
- 	BUG_ON(kmalloc_caches->size < sizeof(struct kmem_cache_node));
- 
--	page = new_slab(kmalloc_caches, gfpflags, node);
-+	page = new_slab(kmalloc_caches, gfpflags, node, &reserve);
- 
- 	BUG_ON(!page);
- 	if (page_to_nid(page) != node) {
-Index: linux-2.6/include/linux/slub_def.h
-===================================================================
---- linux-2.6.orig/include/linux/slub_def.h
-+++ linux-2.6/include/linux/slub_def.h
-@@ -38,6 +38,7 @@ struct kmem_cache_cpu {
- 	int node;		/* The node of the page (or -1 for debug) */
- 	unsigned int offset;	/* Freepointer offset (in word units) */
- 	unsigned int objsize;	/* Size of an object (from kmem_cache) */
-+	int reserve;		/* Did the current page come from the reserve */
- #ifdef CONFIG_SLUB_STATS
- 	unsigned stat[NR_SLUB_STAT_ITEMS];
- #endif
-Index: linux-2.6/mm/slab.c
-===================================================================
---- linux-2.6.orig/mm/slab.c
-+++ linux-2.6/mm/slab.c
-@@ -115,6 +115,8 @@
- #include	<asm/tlbflush.h>
- #include	<asm/page.h>
- 
-+#include 	"internal.h"
-+
- /*
-  * DEBUG	- 1 for kmem_cache_create() to honour; SLAB_RED_ZONE & SLAB_POISON.
-  *		  0 for faster, smaller code (especially in the critical paths).
-@@ -261,7 +263,8 @@ struct array_cache {
- 	unsigned int avail;
- 	unsigned int limit;
- 	unsigned int batchcount;
--	unsigned int touched;
-+	unsigned int touched:1,
-+		     reserve:1;
- 	spinlock_t lock;
- 	void *entry[];	/*
- 			 * Must have this definition in here for the proper
-@@ -757,6 +760,27 @@ static inline struct array_cache *cpu_ca
- 	return cachep->array[smp_processor_id()];
- }
- 
-+/*
-+ * If the last page came from the reserves, and the current allocation context
-+ * does not have access to them, force an allocation to test the watermarks.
-+ */
-+static inline int slab_force_alloc(struct kmem_cache *cachep, gfp_t flags)
-+{
-+	if (unlikely(cpu_cache_get(cachep)->reserve) &&
-+			!(gfp_to_alloc_flags(flags) & ALLOC_NO_WATERMARKS))
-+		return 1;
-+
-+	return 0;
-+}
-+
-+static inline void slab_set_reserve(struct kmem_cache *cachep, int reserve)
-+{
-+	struct array_cache *ac = cpu_cache_get(cachep);
-+
-+	if (unlikely(ac->reserve != reserve))
-+		ac->reserve = reserve;
-+}
-+
- static inline struct kmem_cache *__find_general_cachep(size_t size,
- 							gfp_t gfpflags)
- {
-@@ -956,6 +980,7 @@ static struct array_cache *alloc_arrayca
- 		nc->limit = entries;
- 		nc->batchcount = batchcount;
- 		nc->touched = 0;
-+		nc->reserve = 0;
- 		spin_lock_init(&nc->lock);
- 	}
- 	return nc;
-@@ -1659,7 +1684,8 @@ __initcall(cpucache_init);
-  * did not request dmaable memory, we might get it, but that
-  * would be relatively rare and ignorable.
-  */
--static void *kmem_getpages(struct kmem_cache *cachep, gfp_t flags, int nodeid)
-+static void *kmem_getpages(struct kmem_cache *cachep, gfp_t flags, int nodeid,
-+		int *reserve)
- {
- 	struct page *page;
- 	int nr_pages;
-@@ -1681,6 +1707,7 @@ static void *kmem_getpages(struct kmem_c
- 	if (!page)
- 		return NULL;
- 
-+	*reserve = page->reserve;
- 	nr_pages = (1 << cachep->gfporder);
- 	if (cachep->flags & SLAB_RECLAIM_ACCOUNT)
- 		add_zone_page_state(page_zone(page),
-@@ -2109,6 +2136,7 @@ static int __init_refok setup_cpu_cache(
- 	cpu_cache_get(cachep)->limit = BOOT_CPUCACHE_ENTRIES;
- 	cpu_cache_get(cachep)->batchcount = 1;
- 	cpu_cache_get(cachep)->touched = 0;
-+	cpu_cache_get(cachep)->reserve = 0;
- 	cachep->batchcount = 1;
- 	cachep->limit = BOOT_CPUCACHE_ENTRIES;
+-	nfs_rdata_mempool = mempool_create_slab_pool(MIN_POOL_READ,
+-						     nfs_rdata_cachep);
+-	if (nfs_rdata_mempool == NULL)
+-		return -ENOMEM;
+-
  	return 0;
-@@ -2764,6 +2792,7 @@ static int cache_grow(struct kmem_cache 
- 	size_t offset;
- 	gfp_t local_flags;
- 	struct kmem_list3 *l3;
-+	int reserve;
- 
- 	/*
- 	 * Be lazy and only check for valid flags here,  keeping it out of the
-@@ -2802,7 +2831,7 @@ static int cache_grow(struct kmem_cache 
- 	 * 'nodeid'.
- 	 */
- 	if (!objp)
--		objp = kmem_getpages(cachep, local_flags, nodeid);
-+		objp = kmem_getpages(cachep, local_flags, nodeid, &reserve);
- 	if (!objp)
- 		goto failed;
- 
-@@ -2819,6 +2848,7 @@ static int cache_grow(struct kmem_cache 
- 	if (local_flags & __GFP_WAIT)
- 		local_irq_disable();
- 	check_irq_off();
-+	slab_set_reserve(cachep, reserve);
- 	spin_lock(&l3->list_lock);
- 
- 	/* Make slab active. */
-@@ -2953,7 +2983,8 @@ bad:
- #define check_slabp(x,y) do { } while(0)
- #endif
- 
--static void *cache_alloc_refill(struct kmem_cache *cachep, gfp_t flags)
-+static void *cache_alloc_refill(struct kmem_cache *cachep,
-+		gfp_t flags, int must_refill)
- {
- 	int batchcount;
- 	struct kmem_list3 *l3;
-@@ -2963,6 +2994,8 @@ static void *cache_alloc_refill(struct k
- retry:
- 	check_irq_off();
- 	node = numa_node_id();
-+	if (unlikely(must_refill))
-+		goto force_grow;
- 	ac = cpu_cache_get(cachep);
- 	batchcount = ac->batchcount;
- 	if (!ac->touched && batchcount > BATCHREFILL_LIMIT) {
-@@ -3030,11 +3063,14 @@ alloc_done:
- 
- 	if (unlikely(!ac->avail)) {
- 		int x;
-+force_grow:
- 		x = cache_grow(cachep, flags | GFP_THISNODE, node, NULL);
- 
- 		/* cache_grow can reenable interrupts, then ac could change. */
- 		ac = cpu_cache_get(cachep);
--		if (!x && ac->avail == 0)	/* no objects in sight? abort */
-+
-+		/* no objects in sight? abort */
-+		if (!x && (ac->avail == 0 || must_refill))
- 			return NULL;
- 
- 		if (!ac->avail)		/* objects refilled by interrupt? */
-@@ -3189,17 +3225,18 @@ static inline void *____cache_alloc(stru
- {
- 	void *objp;
- 	struct array_cache *ac;
-+	int must_refill = slab_force_alloc(cachep, flags);
- 
- 	check_irq_off();
- 
- 	ac = cpu_cache_get(cachep);
--	if (likely(ac->avail)) {
-+	if (likely(ac->avail && !must_refill)) {
- 		STATS_INC_ALLOCHIT(cachep);
- 		ac->touched = 1;
- 		objp = ac->entry[--ac->avail];
- 	} else {
- 		STATS_INC_ALLOCMISS(cachep);
--		objp = cache_alloc_refill(cachep, flags);
-+		objp = cache_alloc_refill(cachep, flags, must_refill);
- 	}
- 	return objp;
  }
-@@ -3243,7 +3280,7 @@ static void *fallback_alloc(struct kmem_
- 	struct zone *zone;
- 	enum zone_type high_zoneidx = gfp_zone(flags);
- 	void *obj = NULL;
--	int nid;
-+	int nid, reserve;
  
- 	if (flags & __GFP_THISNODE)
- 		return NULL;
-@@ -3276,10 +3313,11 @@ retry:
- 		if (local_flags & __GFP_WAIT)
- 			local_irq_enable();
- 		kmem_flagcheck(cache, flags);
--		obj = kmem_getpages(cache, local_flags, -1);
-+		obj = kmem_getpages(cache, local_flags, -1, &reserve);
- 		if (local_flags & __GFP_WAIT)
- 			local_irq_disable();
- 		if (obj) {
-+			slab_set_reserve(cache, reserve);
- 			/*
- 			 * Insert into the appropriate per node queues
- 			 */
-@@ -3318,6 +3356,9 @@ static void *____cache_alloc_node(struct
- 	l3 = cachep->nodelists[nodeid];
- 	BUG_ON(!l3);
+ void nfs_destroy_readpagecache(void)
+ {
+-	mempool_destroy(nfs_rdata_mempool);
+ 	kmem_cache_destroy(nfs_rdata_cachep);
+ }
+Index: linux-2.6/fs/nfs/write.c
+===================================================================
+--- linux-2.6.orig/fs/nfs/write.c
++++ linux-2.6/fs/nfs/write.c
+@@ -28,9 +28,6 @@
  
-+	if (unlikely(slab_force_alloc(cachep, flags)))
-+		goto force_grow;
-+
- retry:
- 	check_irq_off();
- 	spin_lock(&l3->list_lock);
-@@ -3355,6 +3396,7 @@ retry:
+ #define NFSDBG_FACILITY		NFSDBG_PAGECACHE
  
- must_grow:
- 	spin_unlock(&l3->list_lock);
-+force_grow:
- 	x = cache_grow(cachep, flags | GFP_THISNODE, nodeid, NULL);
- 	if (x)
- 		goto retry;
+-#define MIN_POOL_WRITE		(32)
+-#define MIN_POOL_COMMIT		(4)
+-
+ /*
+  * Local function declarations
+  */
+@@ -44,12 +41,10 @@ static const struct rpc_call_ops nfs_wri
+ static const struct rpc_call_ops nfs_commit_ops;
+ 
+ static struct kmem_cache *nfs_wdata_cachep;
+-static mempool_t *nfs_wdata_mempool;
+-static mempool_t *nfs_commit_mempool;
+ 
+ struct nfs_write_data *nfs_commit_alloc(void)
+ {
+-	struct nfs_write_data *p = mempool_alloc(nfs_commit_mempool, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -63,7 +58,7 @@ static void nfs_commit_rcu_free(struct r
+ 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_commit_mempool);
++	kmem_cache_free(nfs_wdata_cachep, p);
+ }
+ 
+ void nfs_commit_free(struct nfs_write_data *wdata)
+@@ -73,7 +68,7 @@ void nfs_commit_free(struct nfs_write_da
+ 
+ struct nfs_write_data *nfs_writedata_alloc(unsigned int pagecount)
+ {
+-	struct nfs_write_data *p = mempool_alloc(nfs_wdata_mempool, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -84,7 +79,7 @@ struct nfs_write_data *nfs_writedata_all
+ 		else {
+ 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
+ 			if (!p->pagevec) {
+-				mempool_free(p, nfs_wdata_mempool);
++				kmem_cache_free(nfs_wdata_cachep, p);
+ 				p = NULL;
+ 			}
+ 		}
+@@ -97,7 +92,7 @@ static void nfs_writedata_rcu_free(struc
+ 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_wdata_mempool);
++	kmem_cache_free(nfs_wdata_cachep, p);
+ }
+ 
+ static void nfs_writedata_free(struct nfs_write_data *wdata)
+@@ -1518,16 +1513,6 @@ int __init nfs_init_writepagecache(void)
+ 	if (nfs_wdata_cachep == NULL)
+ 		return -ENOMEM;
+ 
+-	nfs_wdata_mempool = mempool_create_slab_pool(MIN_POOL_WRITE,
+-						     nfs_wdata_cachep);
+-	if (nfs_wdata_mempool == NULL)
+-		return -ENOMEM;
+-
+-	nfs_commit_mempool = mempool_create_slab_pool(MIN_POOL_COMMIT,
+-						      nfs_wdata_cachep);
+-	if (nfs_commit_mempool == NULL)
+-		return -ENOMEM;
+-
+ 	/*
+ 	 * NFS congestion size, scale with available memory.
+ 	 *
+@@ -1553,8 +1538,6 @@ int __init nfs_init_writepagecache(void)
+ 
+ void nfs_destroy_writepagecache(void)
+ {
+-	mempool_destroy(nfs_commit_mempool);
+-	mempool_destroy(nfs_wdata_mempool);
+ 	kmem_cache_destroy(nfs_wdata_cachep);
+ }
+ 
 
 --
 
