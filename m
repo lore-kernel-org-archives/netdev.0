@@ -1,95 +1,38 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [RFC PATCH] kernel: add byteorder macros with alignment fixups
-Date: Thu, 20 Mar 2008 12:22:33 -0700
-Message-ID: <1206040953.17059.13.camel@brick>
-References: <1206034454.17059.4.camel@brick>
-	 <20080320182911.GQ10722@ZenIV.linux.org.uk>
-	 <1206038244.17059.7.camel@brick>
-	 <20080320190953.GR10722@ZenIV.linux.org.uk>
+From: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH/RFC v3] introduce ARCH_CAN_UNALIGNED_ACCESS Kconfig symbol
+Date: Thu, 20 Mar 2008 20:41:01 +0100
+Message-ID: <20080320194101.GC17884@uranus.ravnborg.org>
+References: <1206023695.16475.137.camel@johannes.berg> <20080320181310.GA17884@uranus.ravnborg.org> <1206038373.16475.150.camel@johannes.berg> <1206038734.16475.153.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.182]:44378 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753989AbYCTTWi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 15:22:38 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so1186057wah.23
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2008 12:22:38 -0700 (PDT)
-In-Reply-To: <20080320190953.GR10722@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Linux Kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1206038734.16475.153.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Create linux/unaligned.h to hold a common pattern in the kernel:
+On Thu, Mar 20, 2008 at 07:45:34PM +0100, Johannes Berg wrote:
+> Subject: introduce HAVE_UNALIGNED_ACCESS_SUPPORT Kconfig symbol
+> 
+> In many cases, especially in networking, it can be beneficial to
+> know at compile time whether the architecture can do unaligned
+> accesses. This patch introduces a new Kconfig symbol
+> 	HAVE_UNALIGNED_ACCESS_SUPPORT
+> for that purpose and adds it to the powerpc and x86 architectures.
+> Also add some documentation about alignment and networking, and
+> especially one intended use of this symbol.
+> 
+> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Acked-by: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
 
-le32_to_cpu(get_unaligned((__le32 *)x));
+	Sam
 
-Repeat for various combinations of le/be and 64/32/16 bit.  Add
-a variant that operates on possibly unaligned pointers to
-byteorder/generic.h
-
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
-Now the indirect include of asm/unaligned is opt-in when places
-add the linux/unaligned header.
-
- include/linux/unaligned.h |   42 ++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 42 insertions(+), 0 deletions(-)
-
-diff --git a/include/linux/unaligned.h b/include/linux/unaligned.h
-new file mode 100644
-index 0000000..7d8fddc
---- /dev/null
-+++ b/include/linux/unaligned.h
-@@ -0,0 +1,42 @@
-+#ifndef _LINUX_UNALIGNED_H_
-+#define _LINUX_UNALIGNED_H_
-+
-+#include <linux/types.h>
-+#include <asm/byteorder.h>
-+#include <asm/unaligned.h>
-+
-+#ifdef __KERNEL__
-+
-+static inline u64 le64_to_cpu_unaligned(void *p)
-+{
-+	return __le64_to_cpu(get_unaligned((__le64 *)p));
-+}
-+
-+static inline u32 le32_to_cpu_unaligned(void *p)
-+{
-+	return __le32_to_cpu(get_unaligned((__le32 *)p));
-+}
-+
-+static inline u16 le16_to_cpu_unaligned(void *p)
-+{
-+	return __le16_to_cpu(get_unaligned((__le16 *)p));
-+}
-+
-+static inline u64 be64_to_cpu_unaligned(void *p)
-+{
-+	return __be64_to_cpu(get_unaligned((__be64 *)p));
-+}
-+
-+static inline u32 be32_to_cpu_unaligned(void *p)
-+{
-+	return __be32_to_cpu(get_unaligned((__be32 *)p));
-+}
-+
-+static inline u16 be16_to_cpu_unaligned(void *p)
-+{
-+	return __be16_to_cpu(get_unaligned((__be16 *)p));
-+}
-+
-+#endif /* KERNEL */
-+
-+#endif /* _LINUX_UNALIGNED_H */
--- 
-1.5.4.4.684.g0e08
-
-
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
