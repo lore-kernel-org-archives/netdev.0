@@ -1,47 +1,46 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] MAINTAINERS: lksctp-developers@ is moderated.
-Date: Thu, 20 Mar 2008 08:37:10 -0400
-Message-ID: <47E25A76.1050502@hp.com>
-References: <1206016509-13637-1-git-send-email-fw@strlen.de>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [2.6.25-rc5-mm1] regression: cannot run Postfix sendmail command
+ as non-root
+Date: Thu, 20 Mar 2008 15:52:05 +0300
+Message-ID: <47E25DF5.3090107@openvz.org>
+References: <47D98510.60801@imap.cc> <20080319.154947.78332548.davem@davemloft.net> <939d53060803200126k563b9ae7l7197dea4e96ba1ed@mail.gmail.com> <200803201121.07633.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:25719 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753276AbYCTMhN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 08:37:13 -0400
-In-Reply-To: <1206016509-13637-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Benjamin Thery <ben.thery@gmail.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	tilman@imap.cc, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org,
+	dlezcano@fr.ibm.com, xemul@openvz.org, ebiederm@xmission.com
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756134AbYCTMxV@vger.kernel.org>
+In-Reply-To: <200803201121.07633.rjw@sisk.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Florian Westphal wrote:
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  MAINTAINERS |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+Rafael J. Wysocki wrote:
+> On Thursday, 20 of March 2008, Benjamin Thery wrote:
+>> On Wed, Mar 19, 2008 at 11:49 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Andrew Morton <akpm@linux-foundation.org>
+>>>  Date: Wed, 19 Mar 2008 14:16:08 -0700
+>>>
+>>>
+>>>  > Although this is advertised as a 2.6.25-rc5-mm1 problem, I assume the
+>>>  > regression is also in mainline? 2.6.25-rc6?
+>>>
+>>>  It is in 2.6.25-rc6, correct.
+>>>
+>>>  If Pavel or someone else doesn't produce a good fix soon
+>>>  I'll revert the guilty change as this bug is worse than
+>>>  the problem that changeset fixes.
+>> Andre Noll sent a patch to LKML, acked by Pavel:
+>>
+>> "Fix permissions of /proc/net"
+>> http://thread.gmane.org/gmane.linux.kernel/655148
 > 
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index c13408c..20cd17e 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -3449,7 +3449,7 @@ P:	Vlad Yasevich
->  M:	vladislav.yasevich@hp.com
->  P:	Sridhar Samudrala
->  M:	sri@us.ibm.com
-> -L:	lksctp-developers@lists.sourceforge.net
-> +L:	lksctp-developers@lists.sourceforge.net (moderated for non-subscribers)
->  W:	http://lksctp.sourceforge.net
->  S:	Supported
->  
+> Have you tested that patch?
 
-Due to the amount spam which was driving me completely nuts....
+I did - works OK, that's why I Acked it.
 
-David,  would be it possible to move this list to vger?  I would really
-love to turn off moderation...
-
-Thanks
--vlad
-
+> Rafael
+> 
