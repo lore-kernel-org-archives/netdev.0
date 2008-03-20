@@ -1,57 +1,50 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] ehea: Fix IPv6 support
-Date: Thu, 20 Mar 2008 14:54:56 -0700
-Message-ID: <20080320145456.f0b6d101.akpm@linux-foundation.org>
-References: <200803191355.44266.osstklei@de.ibm.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH/RFC v2] introduce ARCH_CAN_UNALIGNED_ACCESS Kconfig
+	symbol
+Date: Thu, 20 Mar 2008 18:03:48 -0400
+Message-ID: <20080320220348.GC1330@tuxdriver.com>
+References: <1206023695.16475.137.camel@johannes.berg> <20080320181310.GA17884@uranus.ravnborg.org> <1206038373.16475.150.camel@johannes.berg> <20080320.141307.173590705.davem@davemloft.net> <1206048106.16475.161.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, raisch@de.ibm.com, themann@de.ibm.com,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, stefan.roscher@de.ibm.com,
-	hering2@de.ibm.com, stable@kernel.org
-To: Thomas Klein <osstklei@de.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:36546 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756730AbYCTVzb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 17:55:31 -0400
-In-Reply-To: <200803191355.44266.osstklei@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org,
+	dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1206048106.16475.161.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 19 Mar 2008 13:55:43 +0100
-Thomas Klein <osstklei@de.ibm.com> wrote:
-
-> Indicate that HEA calculates IPv4 checksums only
+On Thu, Mar 20, 2008 at 10:21:46PM +0100, Johannes Berg wrote:
 > 
-> Signed-off-by: Thomas Klein <tklein@de.ibm.com>
+> > I think you're semantically testing the wrong thing.
+> > 
+> > It's not if unaligned accesses are supported, it's if they are
+> > efficient enough or not.
+> > 
+> > For example, sparc64 fully handles unaligned accesses but taking the
+> > trap to fix it up is slow.  So sparc64 "can" handle unaligned
+> > accesses, but whether we want to set this symbol or not is another
+> > matter.
 > 
-> ---
-> diff -Nurp -X dontdiff linux-2.6.25-rc6/drivers/net/ehea/ehea.h patched_kernel/drivers/net/ehea/ehea.h
-> --- linux-2.6.25-rc6/drivers/net/ehea/ehea.h	2008-03-17 00:32:14.000000000 +0100
-> +++ patched_kernel/drivers/net/ehea/ehea.h	2008-03-19 08:58:07.000000000 +0100
-> @@ -40,7 +40,7 @@
->  #include <asm/io.h>
->  
->  #define DRV_NAME	"ehea"
-> -#define DRV_VERSION	"EHEA_0087"
-> +#define DRV_VERSION	"EHEA_0089"
->  
->  /* eHEA capability flags */
->  #define DLPAR_PORT_ADD_REM 1
-> diff -Nurp -X dontdiff linux-2.6.25-rc6/drivers/net/ehea/ehea_main.c patched_kernel/drivers/net/ehea/ehea_main.c
-> --- linux-2.6.25-rc6/drivers/net/ehea/ehea_main.c	2008-03-17 00:32:14.000000000 +0100
-> +++ patched_kernel/drivers/net/ehea/ehea_main.c	2008-03-19 08:58:07.000000000 +0100
-> @@ -3108,7 +3108,7 @@ struct ehea_port *ehea_setup_single_port
->  	dev->vlan_rx_add_vid = ehea_vlan_rx_add_vid;
->  	dev->vlan_rx_kill_vid = ehea_vlan_rx_kill_vid;
->  	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_TSO
-> -		      | NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_HW_VLAN_TX
-> +		      | NETIF_F_HIGHDMA | NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_TX
->  		      | NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_FILTER
->  		      | NETIF_F_LLTX;
->  	dev->tx_timeout = &ehea_tx_watchdog;
+> Yeah, good point. Should I rename it to HAVE_EFFICIENT_UNALIGNED_ACCESS
+> or similar? Or have it defined as some sort of number so you can make
+> actually make tradeoffs? Like Dave Woodhouse suggested at some point to
+> have get_unaligned() take an argument that indicates the probability...
 
-That looks like a pretty significant fix to me?  Should it be backported to
-2.6.24.x?
+Ugh...that sounds like premature optimization to me...
+
+While I think Dave has a point, I don't think you should labor the word
+choice too much.  Try to document it as clearly as possible and hope
+for the best -- I hear that the arch maintainers are top notch! :-)
+
+John
+
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
