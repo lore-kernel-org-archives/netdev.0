@@ -1,46 +1,59 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 1/1 net-2.6.26] [IPV4]: sk parameter is unused in ipv4_dst_blackhole.
-Date: Thu, 20 Mar 2008 16:41:38 +0300
-Message-ID: <1206020498-31132-1-git-send-email-den@openvz.org>
-Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: "Benjamin Thery" <ben.thery@gmail.com>
+Subject: Re: [2.6.25-rc5-mm1] regression: cannot run Postfix sendmail command as non-root
+Date: Thu, 20 Mar 2008 14:48:33 +0100
+Message-ID: <939d53060803200648s422969b5m429fa444bdcacc35@mail.gmail.com>
+References: <47D98510.60801@imap.cc>
+	 <20080319.154947.78332548.davem@davemloft.net>
+	 <939d53060803200126k563b9ae7l7197dea4e96ba1ed@mail.gmail.com>
+	 <200803201121.07633.rjw@sisk.pl> <47E25DF5.3090107@openvz.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	"David Miller" <davem@davemloft.net>, akpm@linux-foundation.org,
+	tilman@imap.cc, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org,
+	dlezcano@fr.ibm.com, ebiederm@xmission.com
+To: "Pavel Emelyanov" <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:56831 "EHLO iris.sw.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754024AbYCTNl2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2008 09:41:28 -0400
+Received: from wr-out-0506.google.com ([64.233.184.224]:45992 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754521AbYCTNse (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 09:48:34 -0400
+Received: by wr-out-0506.google.com with SMTP id c48so840858wra.1
+        for <netdev@vger.kernel.org>; Thu, 20 Mar 2008 06:48:34 -0700 (PDT)
+In-Reply-To: <47E25DF5.3090107@openvz.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just remove it.
+On Thu, Mar 20, 2008 at 1:52 PM, Pavel Emelyanov <xemul@openvz.org> wrote:
+>
+> Rafael J. Wysocki wrote:
+>  > On Thursday, 20 of March 2008, Benjamin Thery wrote:
+>  >> On Wed, Mar 19, 2008 at 11:49 PM, David Miller <davem@davemloft.net> wrote:
+>  >>> From: Andrew Morton <akpm@linux-foundation.org>
+>  >>>  Date: Wed, 19 Mar 2008 14:16:08 -0700
+>  >>>
+>  >>>
+>  >>>  > Although this is advertised as a 2.6.25-rc5-mm1 problem, I assume the
+>  >>>  > regression is also in mainline? 2.6.25-rc6?
+>  >>>
+>  >>>  It is in 2.6.25-rc6, correct.
+>  >>>
+>  >>>  If Pavel or someone else doesn't produce a good fix soon
+>  >>>  I'll revert the guilty change as this bug is worse than
+>  >>>  the problem that changeset fixes.
+>  >> Andre Noll sent a patch to LKML, acked by Pavel:
+>  >>
+>  >> "Fix permissions of /proc/net"
+>  >> http://thread.gmane.org/gmane.linux.kernel/655148
+>  >
+>  > Have you tested that patch?
+>
+>  I did - works OK, that's why I Acked it.
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
- net/ipv4/route.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Also tested here. It fixes the regression.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 1051326..9ba3413 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2520,7 +2520,7 @@ static struct dst_ops ipv4_dst_blackhole_ops = {
- };
- 
- 
--static int ipv4_dst_blackhole(struct rtable **rp, struct flowi *flp, struct sock *sk)
-+static int ipv4_dst_blackhole(struct rtable **rp, struct flowi *flp)
- {
- 	struct rtable *ort = *rp;
- 	struct rtable *rt = (struct rtable *)
-@@ -2580,7 +2580,7 @@ int ip_route_output_flow(struct net *net, struct rtable **rp, struct flowi *flp,
- 		err = __xfrm_lookup((struct dst_entry **)rp, flp, sk,
- 				    flags ? XFRM_LOOKUP_WAIT : 0);
- 		if (err == -EREMOTE)
--			err = ipv4_dst_blackhole(rp, flp, sk);
-+			err = ipv4_dst_blackhole(rp, flp);
- 
- 		return err;
- 	}
--- 
-1.5.3.rc5
 
+Benjamin
