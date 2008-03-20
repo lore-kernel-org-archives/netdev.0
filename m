@@ -1,110 +1,185 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 14/30] net: wrap sk->sk_backlog_rcv()
-Date: Thu, 20 Mar 2008 21:10:56 +0100
-Message-ID: <20080320202123.467542000@chello.nl>
+Subject: [PATCH 02/30] mm: gfp_to_alloc_flags()
+Date: Thu, 20 Mar 2008 21:10:44 +0100
+Message-ID: <20080320202120.294551000@chello.nl>
 References: <20080320201042.675090000@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep31-int.chello.at ([62.179.121.49]:59100 "EHLO
-	viefep31-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755435AbYCTUVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:21:15 -0400
-Content-Disposition: inline; filename=net-backlog.patch
+Received: from viefep18-int.chello.at ([213.46.255.22]:8771 "EHLO
+	viefep18-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758030AbYCTUWJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:22:09 -0400
+Content-Disposition: inline; filename=mm-gfp-to-alloc_flags.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wrap calling sk->sk_backlog_rcv() in a function. This will allow extending the
-generic sk_backlog_rcv behaviour.
+Factor out the gfp to alloc_flags mapping so it can be used in other places.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/net/sock.h   |    5 +++++
- include/net/tcp.h    |    2 +-
- net/core/sock.c      |    4 ++--
- net/ipv4/tcp.c       |    2 +-
- net/ipv4/tcp_timer.c |    2 +-
- 5 files changed, 10 insertions(+), 5 deletions(-)
+ mm/internal.h   |   10 +++++
+ mm/page_alloc.c |   95 +++++++++++++++++++++++++++++++-------------------------
+ 2 files changed, 64 insertions(+), 41 deletions(-)
 
-Index: linux-2.6/include/net/sock.h
+Index: linux-2.6/mm/internal.h
 ===================================================================
---- linux-2.6.orig/include/net/sock.h
-+++ linux-2.6/include/net/sock.h
-@@ -475,6 +475,11 @@ static inline void sk_add_backlog(struct
- 	skb->next = NULL;
+--- linux-2.6.orig/mm/internal.h
++++ linux-2.6/mm/internal.h
+@@ -60,4 +60,14 @@ static inline unsigned long page_order(s
+ #define __paginginit __init
+ #endif
+ 
++#define ALLOC_HARDER		0x01 /* try to alloc harder */
++#define ALLOC_HIGH		0x02 /* __GFP_HIGH set */
++#define ALLOC_WMARK_MIN		0x04 /* use pages_min watermark */
++#define ALLOC_WMARK_LOW		0x08 /* use pages_low watermark */
++#define ALLOC_WMARK_HIGH	0x10 /* use pages_high watermark */
++#define ALLOC_NO_WATERMARKS	0x20 /* don't check watermarks at all */
++#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
++
++int gfp_to_alloc_flags(gfp_t gfp_mask);
++
+ #endif
+Index: linux-2.6/mm/page_alloc.c
+===================================================================
+--- linux-2.6.orig/mm/page_alloc.c
++++ linux-2.6/mm/page_alloc.c
+@@ -1135,14 +1135,6 @@ failed:
+ 	return NULL;
  }
  
-+static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+-#define ALLOC_NO_WATERMARKS	0x01 /* don't check watermarks at all */
+-#define ALLOC_WMARK_MIN		0x02 /* use pages_min watermark */
+-#define ALLOC_WMARK_LOW		0x04 /* use pages_low watermark */
+-#define ALLOC_WMARK_HIGH	0x08 /* use pages_high watermark */
+-#define ALLOC_HARDER		0x10 /* try to alloc harder */
+-#define ALLOC_HIGH		0x20 /* __GFP_HIGH set */
+-#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
+-
+ #ifdef CONFIG_FAIL_PAGE_ALLOC
+ 
+ static struct fail_page_alloc_attr {
+@@ -1520,6 +1512,44 @@ static void set_page_owner(struct page *
+ #endif /* CONFIG_PAGE_OWNER */
+ 
+ /*
++ * get the deepest reaching allocation flags for the given gfp_mask
++ */
++int gfp_to_alloc_flags(gfp_t gfp_mask)
 +{
-+	return sk->sk_backlog_rcv(sk, skb);
++	struct task_struct *p = current;
++	int alloc_flags = ALLOC_WMARK_MIN | ALLOC_CPUSET;
++	const gfp_t wait = gfp_mask & __GFP_WAIT;
++
++	/*
++	 * The caller may dip into page reserves a bit more if the caller
++	 * cannot run direct reclaim, or if the caller has realtime scheduling
++	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
++	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
++	 */
++	if (gfp_mask & __GFP_HIGH)
++		alloc_flags |= ALLOC_HIGH;
++
++	if (!wait) {
++		alloc_flags |= ALLOC_HARDER;
++		/*
++		 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
++		 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
++		 */
++		alloc_flags &= ~ALLOC_CPUSET;
++	} else if (unlikely(rt_task(p)) && !in_interrupt())
++		alloc_flags |= ALLOC_HARDER;
++
++	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
++		if (!in_interrupt() &&
++		    ((p->flags & PF_MEMALLOC) ||
++		     unlikely(test_thread_flag(TIF_MEMDIE))))
++			alloc_flags |= ALLOC_NO_WATERMARKS;
++	}
++
++	return alloc_flags;
 +}
 +
- #define sk_wait_event(__sk, __timeo, __condition)			\
- 	({	int __rc;						\
- 		release_sock(__sk);					\
-Index: linux-2.6/net/core/sock.c
-===================================================================
---- linux-2.6.orig/net/core/sock.c
-+++ linux-2.6/net/core/sock.c
-@@ -325,7 +325,7 @@ int sk_receive_skb(struct sock *sk, stru
- 		 */
- 		mutex_acquire(&sk->sk_lock.dep_map, 0, 1, _RET_IP_);
++/*
+  * This is the 'heart' of the zoned buddy allocator.
+  */
+ static struct page *
+@@ -1576,49 +1606,28 @@ restart:
+ 	 * OK, we're below the kswapd watermark and have kicked background
+ 	 * reclaim. Now things get more complex, so set up alloc_flags according
+ 	 * to how we want to proceed.
+-	 *
+-	 * The caller may dip into page reserves a bit more if the caller
+-	 * cannot run direct reclaim, or if the caller has realtime scheduling
+-	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
+-	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
+ 	 */
+-	alloc_flags = ALLOC_WMARK_MIN;
+-	if ((unlikely(rt_task(p)) && !in_interrupt()) || !wait)
+-		alloc_flags |= ALLOC_HARDER;
+-	if (gfp_mask & __GFP_HIGH)
+-		alloc_flags |= ALLOC_HIGH;
+-	if (wait)
+-		alloc_flags |= ALLOC_CPUSET;
++	alloc_flags = gfp_to_alloc_flags(gfp_mask);
  
--		rc = sk->sk_backlog_rcv(sk, skb);
-+		rc = sk_backlog_rcv(sk, skb);
+-	/*
+-	 * Go through the zonelist again. Let __GFP_HIGH and allocations
+-	 * coming from realtime tasks go deeper into reserves.
+-	 *
+-	 * This is the last chance, in general, before the goto nopage.
+-	 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
+-	 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
+-	 */
++	/* This is the last chance, in general, before the goto nopage. */
+ 	page = get_page_from_freelist(gfp_mask, nodemask, order, zonelist,
+-						high_zoneidx, alloc_flags);
++			high_zoneidx, alloc_flags & ~ALLOC_NO_WATERMARKS);
+ 	if (page)
+ 		goto got_pg;
  
- 		mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
- 	} else
-@@ -1360,7 +1360,7 @@ static void __release_sock(struct sock *
- 			struct sk_buff *next = skb->next;
- 
- 			skb->next = NULL;
--			sk->sk_backlog_rcv(sk, skb);
-+			sk_backlog_rcv(sk, skb);
- 
- 			/*
- 			 * We are in process context here with softirqs
-Index: linux-2.6/net/ipv4/tcp.c
-===================================================================
---- linux-2.6.orig/net/ipv4/tcp.c
-+++ linux-2.6/net/ipv4/tcp.c
-@@ -1158,7 +1158,7 @@ static void tcp_prequeue_process(struct 
- 	 * necessary */
- 	local_bh_disable();
- 	while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
--		sk->sk_backlog_rcv(sk, skb);
-+		sk_backlog_rcv(sk, skb);
- 	local_bh_enable();
- 
- 	/* Clear memory counter. */
-Index: linux-2.6/net/ipv4/tcp_timer.c
-===================================================================
---- linux-2.6.orig/net/ipv4/tcp_timer.c
-+++ linux-2.6/net/ipv4/tcp_timer.c
-@@ -203,7 +203,7 @@ static void tcp_delack_timer(unsigned lo
- 		NET_INC_STATS_BH(LINUX_MIB_TCPSCHEDULERFAILED);
- 
- 		while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
--			sk->sk_backlog_rcv(sk, skb);
-+			sk_backlog_rcv(sk, skb);
- 
- 		tp->ucopy.memory = 0;
+ 	/* This allocation should allow future memory freeing. */
+-
+ rebalance:
+-	if (((p->flags & PF_MEMALLOC) || unlikely(test_thread_flag(TIF_MEMDIE)))
+-			&& !in_interrupt()) {
+-		if (!(gfp_mask & __GFP_NOMEMALLOC)) {
++	if (alloc_flags & ALLOC_NO_WATERMARKS) {
+ nofail_alloc:
+-			/* go through the zonelist yet again, ignoring mins */
+-			page = get_page_from_freelist(gfp_mask, nodemask, order,
++		/* go through the zonelist yet again, ignoring mins */
++		page = get_page_from_freelist(gfp_mask, nodemask, order,
+ 				zonelist, high_zoneidx, ALLOC_NO_WATERMARKS);
+-			if (page)
+-				goto got_pg;
+-			if (gfp_mask & __GFP_NOFAIL) {
+-				congestion_wait(WRITE, HZ/50);
+-				goto nofail_alloc;
+-			}
++		if (page)
++			goto got_pg;
++
++		if (wait && (gfp_mask & __GFP_NOFAIL)) {
++			congestion_wait(WRITE, HZ/50);
++			goto nofail_alloc;
+ 		}
+ 		goto nopage;
  	}
-Index: linux-2.6/include/net/tcp.h
-===================================================================
---- linux-2.6.orig/include/net/tcp.h
-+++ linux-2.6/include/net/tcp.h
-@@ -879,7 +879,7 @@ static inline int tcp_prequeue(struct so
- 			BUG_ON(sock_owned_by_user(sk));
+@@ -1627,6 +1636,10 @@ nofail_alloc:
+ 	if (!wait)
+ 		goto nopage;
  
- 			while ((skb1 = __skb_dequeue(&tp->ucopy.prequeue)) != NULL) {
--				sk->sk_backlog_rcv(sk, skb1);
-+				sk_backlog_rcv(sk, skb1);
- 				NET_INC_STATS_BH(LINUX_MIB_TCPPREQUEUEDROPPED);
- 			}
++	/* Avoid recursion of direct reclaim */
++	if (p->flags & PF_MEMALLOC)
++		goto nopage;
++
+ 	cond_resched();
  
+ 	/* We now go into synchronous reclaim */
 
 --
 
