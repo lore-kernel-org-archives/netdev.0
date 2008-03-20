@@ -1,39 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] FIB_TRIE: RCU refine
-Date: Thu, 20 Mar 2008 15:14:10 -0700 (PDT)
-Message-ID: <20080320.151410.131501950.davem@davemloft.net>
-References: <47E1F2DB.20204@cn.fujitsu.com>
-	<20080320083544.581d309c@extreme>
+Subject: Re: [PATCH]: [SCTP]: Fix a race between module load and protosw
+ access
+Date: Thu, 20 Mar 2008 15:18:54 -0700 (PDT)
+Message-ID: <20080320.151854.41734345.davem@davemloft.net>
+References: <47E2670C.1040900@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wangchen@cn.fujitsu.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50537
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55558
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757595AbYCTWNy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 18:13:54 -0400
-In-Reply-To: <20080320083544.581d309c@extreme>
+	by vger.kernel.org with ESMTP id S1757517AbYCTWSh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 18:18:37 -0400
+In-Reply-To: <47E2670C.1040900@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 20 Mar 2008 08:35:44 -0700
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Thu, 20 Mar 2008 09:30:52 -0400
 
+> There is a race is SCTP between the loading of the module
+> and the access by the socket layer to the protocol functions.
+> In particular, a list of addresss that SCTP maintains is
+> not initialized prior to the registration with the protosw.
+> Thus it is possible for a user application to gain access
+> to SCTP functions before everything has been initialized.
+> The problem shows up as odd crashes during connection
+> initializtion when we try to access the SCTP address list.
 > 
-> > David, sorry to send this patch again.
-> > I sent it yesterday, but seems that it was refused by
-> > netdev maillist. I subscribed the mailist and send it
-> > again.
-> > 
-> > On reader side, RCU list-traversal functions, such as
-> > *list_for_each_entry_rcu(), should be within an RCU
-> > read-side critical section.
-> > 
-> > Surround them by rcu_read_*lock()
+> The solution is to refactor how we do registration and
+> initialize the lists prior to registering with the protosw.
+> Care must be taken since the address list initialization
+> depends on some other pieces of SCTP initialization.  Also
+> the clean-up in case of failure now also needs to be refactored.
 > 
-> This patch is unnecessary since rcu_read_lock is already fib_trie_seq_start
-> and fib_trie_seq_stop.
+> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Acked-by: Sridhar Samudrala <sri@us.ibm.com>
 
-COrrect.
+Looks good, applied, thanks Vlad.
