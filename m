@@ -1,185 +1,178 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 02/30] mm: gfp_to_alloc_flags()
-Date: Thu, 20 Mar 2008 21:10:44 +0100
-Message-ID: <20080320202120.294551000@chello.nl>
+Subject: [PATCH 16/30] net: sk_allocation() - concentrate socket related allocations
+Date: Thu, 20 Mar 2008 21:10:58 +0100
+Message-ID: <20080320202123.869960000@chello.nl>
 References: <20080320201042.675090000@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:8771 "EHLO
-	viefep18-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758030AbYCTUWJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:22:09 -0400
-Content-Disposition: inline; filename=mm-gfp-to-alloc_flags.patch
+Received: from viefep20-int.chello.at ([62.179.121.40]:38736 "EHLO
+	viefep20-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755402AbYCTUVP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:21:15 -0400
+Content-Disposition: inline; filename=net-sk_allocation.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Factor out the gfp to alloc_flags mapping so it can be used in other places.
+Introduce sk_allocation(), this function allows to inject sock specific
+flags to each sock related allocation.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- mm/internal.h   |   10 +++++
- mm/page_alloc.c |   95 +++++++++++++++++++++++++++++++-------------------------
- 2 files changed, 64 insertions(+), 41 deletions(-)
+ include/net/sock.h    |    5 +++++
+ net/ipv4/tcp.c        |    3 ++-
+ net/ipv4/tcp_output.c |   12 +++++++-----
+ net/ipv6/tcp_ipv6.c   |   15 ++++++++++-----
+ 4 files changed, 24 insertions(+), 11 deletions(-)
 
-Index: linux-2.6/mm/internal.h
+Index: linux-2.6/net/ipv4/tcp_output.c
 ===================================================================
---- linux-2.6.orig/mm/internal.h
-+++ linux-2.6/mm/internal.h
-@@ -60,4 +60,14 @@ static inline unsigned long page_order(s
- #define __paginginit __init
+--- linux-2.6.orig/net/ipv4/tcp_output.c
++++ linux-2.6/net/ipv4/tcp_output.c
+@@ -2078,7 +2078,8 @@ void tcp_send_fin(struct sock *sk)
+ 	} else {
+ 		/* Socket is locked, keep trying until memory is available. */
+ 		for (;;) {
+-			skb = alloc_skb_fclone(MAX_TCP_HEADER, GFP_KERNEL);
++			skb = alloc_skb_fclone(MAX_TCP_HEADER,
++					       sk_allocation(sk, GFP_KERNEL));
+ 			if (skb)
+ 				break;
+ 			yield();
+@@ -2104,7 +2105,7 @@ void tcp_send_active_reset(struct sock *
+ 	struct sk_buff *skb;
+ 
+ 	/* NOTE: No TCP options attached and we never retransmit this. */
+-	skb = alloc_skb(MAX_TCP_HEADER, priority);
++	skb = alloc_skb(MAX_TCP_HEADER, sk_allocation(sk, priority));
+ 	if (!skb) {
+ 		NET_INC_STATS(LINUX_MIB_TCPABORTFAILED);
+ 		return;
+@@ -2171,7 +2172,8 @@ struct sk_buff *tcp_make_synack(struct s
+ 	__u8 *md5_hash_location;
  #endif
  
-+#define ALLOC_HARDER		0x01 /* try to alloc harder */
-+#define ALLOC_HIGH		0x02 /* __GFP_HIGH set */
-+#define ALLOC_WMARK_MIN		0x04 /* use pages_min watermark */
-+#define ALLOC_WMARK_LOW		0x08 /* use pages_low watermark */
-+#define ALLOC_WMARK_HIGH	0x10 /* use pages_high watermark */
-+#define ALLOC_NO_WATERMARKS	0x20 /* don't check watermarks at all */
-+#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
-+
-+int gfp_to_alloc_flags(gfp_t gfp_mask);
-+
- #endif
-Index: linux-2.6/mm/page_alloc.c
+-	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1, GFP_ATOMIC);
++	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1,
++			sk_allocation(sk, GFP_ATOMIC));
+ 	if (skb == NULL)
+ 		return NULL;
+ 
+@@ -2425,7 +2427,7 @@ void tcp_send_ack(struct sock *sk)
+ 	 * tcp_transmit_skb() will set the ownership to this
+ 	 * sock.
+ 	 */
+-	buff = alloc_skb(MAX_TCP_HEADER, GFP_ATOMIC);
++	buff = alloc_skb(MAX_TCP_HEADER, sk_allocation(sk, GFP_ATOMIC));
+ 	if (buff == NULL) {
+ 		inet_csk_schedule_ack(sk);
+ 		inet_csk(sk)->icsk_ack.ato = TCP_ATO_MIN;
+@@ -2460,7 +2462,7 @@ static int tcp_xmit_probe_skb(struct soc
+ 	struct sk_buff *skb;
+ 
+ 	/* We don't queue it, tcp_transmit_skb() sets ownership. */
+-	skb = alloc_skb(MAX_TCP_HEADER, GFP_ATOMIC);
++	skb = alloc_skb(MAX_TCP_HEADER, sk_allocation(sk, GFP_ATOMIC));
+ 	if (skb == NULL)
+ 		return -1;
+ 
+Index: linux-2.6/include/net/sock.h
 ===================================================================
---- linux-2.6.orig/mm/page_alloc.c
-+++ linux-2.6/mm/page_alloc.c
-@@ -1135,14 +1135,6 @@ failed:
- 	return NULL;
+--- linux-2.6.orig/include/net/sock.h
++++ linux-2.6/include/net/sock.h
+@@ -427,6 +427,11 @@ static inline int sock_flag(struct sock 
+ 	return test_bit(flag, &sk->sk_flags);
  }
  
--#define ALLOC_NO_WATERMARKS	0x01 /* don't check watermarks at all */
--#define ALLOC_WMARK_MIN		0x02 /* use pages_min watermark */
--#define ALLOC_WMARK_LOW		0x04 /* use pages_low watermark */
--#define ALLOC_WMARK_HIGH	0x08 /* use pages_high watermark */
--#define ALLOC_HARDER		0x10 /* try to alloc harder */
--#define ALLOC_HIGH		0x20 /* __GFP_HIGH set */
--#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
--
- #ifdef CONFIG_FAIL_PAGE_ALLOC
- 
- static struct fail_page_alloc_attr {
-@@ -1520,6 +1512,44 @@ static void set_page_owner(struct page *
- #endif /* CONFIG_PAGE_OWNER */
- 
- /*
-+ * get the deepest reaching allocation flags for the given gfp_mask
-+ */
-+int gfp_to_alloc_flags(gfp_t gfp_mask)
++static inline gfp_t sk_allocation(struct sock *sk, gfp_t gfp_mask)
 +{
-+	struct task_struct *p = current;
-+	int alloc_flags = ALLOC_WMARK_MIN | ALLOC_CPUSET;
-+	const gfp_t wait = gfp_mask & __GFP_WAIT;
-+
-+	/*
-+	 * The caller may dip into page reserves a bit more if the caller
-+	 * cannot run direct reclaim, or if the caller has realtime scheduling
-+	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
-+	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
-+	 */
-+	if (gfp_mask & __GFP_HIGH)
-+		alloc_flags |= ALLOC_HIGH;
-+
-+	if (!wait) {
-+		alloc_flags |= ALLOC_HARDER;
-+		/*
-+		 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
-+		 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
-+		 */
-+		alloc_flags &= ~ALLOC_CPUSET;
-+	} else if (unlikely(rt_task(p)) && !in_interrupt())
-+		alloc_flags |= ALLOC_HARDER;
-+
-+	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
-+		if (!in_interrupt() &&
-+		    ((p->flags & PF_MEMALLOC) ||
-+		     unlikely(test_thread_flag(TIF_MEMDIE))))
-+			alloc_flags |= ALLOC_NO_WATERMARKS;
-+	}
-+
-+	return alloc_flags;
++	return gfp_mask;
 +}
 +
-+/*
-  * This is the 'heart' of the zoned buddy allocator.
-  */
- static struct page *
-@@ -1576,49 +1606,28 @@ restart:
- 	 * OK, we're below the kswapd watermark and have kicked background
- 	 * reclaim. Now things get more complex, so set up alloc_flags according
- 	 * to how we want to proceed.
--	 *
--	 * The caller may dip into page reserves a bit more if the caller
--	 * cannot run direct reclaim, or if the caller has realtime scheduling
--	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
--	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
- 	 */
--	alloc_flags = ALLOC_WMARK_MIN;
--	if ((unlikely(rt_task(p)) && !in_interrupt()) || !wait)
--		alloc_flags |= ALLOC_HARDER;
--	if (gfp_mask & __GFP_HIGH)
--		alloc_flags |= ALLOC_HIGH;
--	if (wait)
--		alloc_flags |= ALLOC_CPUSET;
-+	alloc_flags = gfp_to_alloc_flags(gfp_mask);
- 
--	/*
--	 * Go through the zonelist again. Let __GFP_HIGH and allocations
--	 * coming from realtime tasks go deeper into reserves.
--	 *
--	 * This is the last chance, in general, before the goto nopage.
--	 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
--	 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
--	 */
-+	/* This is the last chance, in general, before the goto nopage. */
- 	page = get_page_from_freelist(gfp_mask, nodemask, order, zonelist,
--						high_zoneidx, alloc_flags);
-+			high_zoneidx, alloc_flags & ~ALLOC_NO_WATERMARKS);
- 	if (page)
- 		goto got_pg;
- 
- 	/* This allocation should allow future memory freeing. */
--
- rebalance:
--	if (((p->flags & PF_MEMALLOC) || unlikely(test_thread_flag(TIF_MEMDIE)))
--			&& !in_interrupt()) {
--		if (!(gfp_mask & __GFP_NOMEMALLOC)) {
-+	if (alloc_flags & ALLOC_NO_WATERMARKS) {
- nofail_alloc:
--			/* go through the zonelist yet again, ignoring mins */
--			page = get_page_from_freelist(gfp_mask, nodemask, order,
-+		/* go through the zonelist yet again, ignoring mins */
-+		page = get_page_from_freelist(gfp_mask, nodemask, order,
- 				zonelist, high_zoneidx, ALLOC_NO_WATERMARKS);
--			if (page)
--				goto got_pg;
--			if (gfp_mask & __GFP_NOFAIL) {
--				congestion_wait(WRITE, HZ/50);
--				goto nofail_alloc;
--			}
-+		if (page)
-+			goto got_pg;
-+
-+		if (wait && (gfp_mask & __GFP_NOFAIL)) {
-+			congestion_wait(WRITE, HZ/50);
-+			goto nofail_alloc;
+ static inline void sk_acceptq_removed(struct sock *sk)
+ {
+ 	sk->sk_ack_backlog--;
+Index: linux-2.6/net/ipv6/tcp_ipv6.c
+===================================================================
+--- linux-2.6.orig/net/ipv6/tcp_ipv6.c
++++ linux-2.6/net/ipv6/tcp_ipv6.c
+@@ -568,7 +568,8 @@ static int tcp_v6_md5_do_add(struct sock
+ 	} else {
+ 		/* reallocate new list if current one is full. */
+ 		if (!tp->md5sig_info) {
+-			tp->md5sig_info = kzalloc(sizeof(*tp->md5sig_info), GFP_ATOMIC);
++			tp->md5sig_info = kzalloc(sizeof(*tp->md5sig_info),
++					sk_allocation(sk, GFP_ATOMIC));
+ 			if (!tp->md5sig_info) {
+ 				kfree(newkey);
+ 				return -ENOMEM;
+@@ -581,7 +582,8 @@ static int tcp_v6_md5_do_add(struct sock
  		}
- 		goto nopage;
- 	}
-@@ -1627,6 +1636,10 @@ nofail_alloc:
- 	if (!wait)
- 		goto nopage;
+ 		if (tp->md5sig_info->alloced6 == tp->md5sig_info->entries6) {
+ 			keys = kmalloc((sizeof (tp->md5sig_info->keys6[0]) *
+-				       (tp->md5sig_info->entries6 + 1)), GFP_ATOMIC);
++				       (tp->md5sig_info->entries6 + 1)),
++				       sk_allocation(sk, GFP_ATOMIC));
  
-+	/* Avoid recursion of direct reclaim */
-+	if (p->flags & PF_MEMALLOC)
-+		goto nopage;
-+
- 	cond_resched();
+ 			if (!keys) {
+ 				tcp_free_md5sig_pool();
+@@ -705,7 +707,8 @@ static int tcp_v6_parse_md5_keys (struct
+ 		struct tcp_sock *tp = tcp_sk(sk);
+ 		struct tcp_md5sig_info *p;
  
- 	/* We now go into synchronous reclaim */
+-		p = kzalloc(sizeof(struct tcp_md5sig_info), GFP_KERNEL);
++		p = kzalloc(sizeof(struct tcp_md5sig_info),
++				   sk_allocation(sk, GFP_KERNEL));
+ 		if (!p)
+ 			return -ENOMEM;
+ 
+@@ -1006,7 +1009,7 @@ static void tcp_v6_send_reset(struct soc
+ 	 */
+ 
+ 	buff = alloc_skb(MAX_HEADER + sizeof(struct ipv6hdr) + tot_len,
+-			 GFP_ATOMIC);
++			 sk_allocation(sk, GFP_ATOMIC));
+ 	if (buff == NULL)
+ 		return;
+ 
+@@ -1085,10 +1088,12 @@ static void tcp_v6_send_ack(struct tcp_t
+ 	struct tcp_md5sig_key *key;
+ 	struct tcp_md5sig_key tw_key;
+ #endif
++	gfp_t gfp_mask = GFP_ATOMIC;
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+ 	if (!tw && skb->sk) {
+ 		key = tcp_v6_md5_do_lookup(skb->sk, &ipv6_hdr(skb)->daddr);
++		gfp_mask = sk_allocation(skb->sk, gfp_mask);
+ 	} else if (tw && tw->tw_md5_keylen) {
+ 		tw_key.key = tw->tw_md5_key;
+ 		tw_key.keylen = tw->tw_md5_keylen;
+@@ -1106,7 +1111,7 @@ static void tcp_v6_send_ack(struct tcp_t
+ #endif
+ 
+ 	buff = alloc_skb(MAX_HEADER + sizeof(struct ipv6hdr) + tot_len,
+-			 GFP_ATOMIC);
++			 gfp_mask);
+ 	if (buff == NULL)
+ 		return;
+ 
+Index: linux-2.6/net/ipv4/tcp.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/tcp.c
++++ linux-2.6/net/ipv4/tcp.c
+@@ -636,7 +636,8 @@ struct sk_buff *sk_stream_alloc_skb(stru
+ 	/* The TCP header must be at least 32-bit aligned.  */
+ 	size = ALIGN(size, 4);
+ 
+-	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
++	skb = alloc_skb_fclone(size + sk->sk_prot->max_header,
++			       sk_allocation(sk, gfp));
+ 	if (skb) {
+ 		if (sk_wmem_schedule(sk, skb->truesize)) {
+ 			/*
 
 --
 
