@@ -1,63 +1,41 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH] SCTP: Fix possible memory leak while process INIT chunk with
- AUTH paramters
-Date: Thu, 20 Mar 2008 15:09:28 +0800
-Message-ID: <47E20DA8.1080805@cn.fujitsu.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [AX25] kernel panic
+Date: Thu, 20 Mar 2008 07:30:21 +0000
+Message-ID: <20080320073021.GA4037@ff.dom.local>
+References: <47DF9D21.20807@free.fr> <20080318212531.GA2031@electric-eye.fr.zoreil.com> <47E0C261.3000106@free.fr> <47E17E2E.9050105@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: lksctp-developers@lists.sourceforge.net,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Bernard Pidoux F6BVP <f6bvp@free.fr>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jarek Poplawski <jarkao2@o2.pl>
+To: Bernard Pidoux <bpidoux@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:62120 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753503AbYCTHIg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2008 03:08:36 -0400
+Received: from nf-out-0910.google.com ([64.233.182.191]:14280 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752625AbYCTH2f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 03:28:35 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so393965nfb.21
+        for <netdev@vger.kernel.org>; Thu, 20 Mar 2008 00:28:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <47E17E2E.9050105@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While endpoint received INIT/INIT-ACK chunk with AUTH parameters, such 
-as RANDOM, HMAC_ALGO, CHUNKS parameter, if those parameters appear more 
-then once, memory for store those parameters will be malloc more then 
-once and not free.
+On Wed, Mar 19, 2008 at 09:57:18PM +0100, Bernard Pidoux wrote:
+...
+> I also tried to revert Jarek's mkiss ax_bump() patch, but this did not  
+> prevent
+> kernel lockup, although this time swapper is involved and not ax25ipd.
+...
+> BUG: unable to handle kernel paging request at virtual address 6b6b6c2b
+> printing eip: c013fc67 *pde = 00000000
+> Oops: 0002 [#1] SMP
 
-This patch change to used the first parameter and ignore the others.
+Well, the rest looks very similarly and not trivial... Probably a
+socket is destructed too soon (or something...). Could you try to
+reproduce this with some debugging turned off, e.g.:
+CONFIG_DEBUG_LOCK_ALLOC, CONFIG_DEBUG_PAGEALLOC, (CONFIG_SLUB_DEBUG?).
 
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-
---- a/net/sctp/sm_make_chunk.c	2008-02-11 17:14:05.000000000 -0500
-+++ b/net/sctp/sm_make_chunk.c	2008-02-14 03:57:58.000000000 -0500
-@@ -2458,6 +2458,9 @@ static int sctp_process_param(struct sct
- 		if (!sctp_auth_enable)
- 			goto fall_through;
- 
-+		if (asoc->peer.peer_random)
-+			break;
-+
- 		/* Save peer's random parameter */
- 		asoc->peer.peer_random = kmemdup(param.p,
- 					    ntohs(param.p->length), gfp);
-@@ -2471,6 +2474,9 @@ static int sctp_process_param(struct sct
- 		if (!sctp_auth_enable)
- 			goto fall_through;
- 
-+		if (asoc->peer.peer_hmacs) 
-+			break;
-+
- 		/* Save peer's HMAC list */
- 		asoc->peer.peer_hmacs = kmemdup(param.p,
- 					    ntohs(param.p->length), gfp);
-@@ -2487,6 +2493,9 @@ static int sctp_process_param(struct sct
- 		if (!sctp_auth_enable)
- 			goto fall_through;
- 
-+		if (asoc->peer.peer_chunks)
-+			break;
-+
- 		asoc->peer.peer_chunks = kmemdup(param.p,
- 					    ntohs(param.p->length), gfp);
- 		if (!asoc->peer.peer_chunks)
-
-
-
+Regards,
+Jarek P.
