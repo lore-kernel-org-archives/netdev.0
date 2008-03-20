@@ -1,93 +1,63 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 2/3 nwt-2.6.26] Remove unused ip_options->is_data.
-Date: Wed, 19 Mar 2008 15:42:46 +0300
-Message-ID: <1205930567-30956-2-git-send-email-den@openvz.org>
-References: <1205930508.24116.14.camel@iris.sw.ru>
-Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH] SCTP: Fix possible memory leak while process INIT chunk with
+ AUTH paramters
+Date: Thu, 20 Mar 2008 15:09:28 +0800
+Message-ID: <47E20DA8.1080805@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: lksctp-developers@lists.sourceforge.net,
+	Vlad Yasevich <vladislav.yasevich@hp.com>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:63469 "EHLO iris.sw.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754053AbYCTGkV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2008 02:40:21 -0400
-In-Reply-To: <1205930508.24116.14.camel@iris.sw.ru>
+Received: from cn.fujitsu.com ([222.73.24.84]:62120 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753503AbYCTHIg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2008 03:08:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ip_options->is_data is assigned only and never checked. The structure is
-not a part of kernel interface to the userspace. So, it is safe to remove
-this field.
+While endpoint received INIT/INIT-ACK chunk with AUTH parameters, such 
+as RANDOM, HMAC_ALGO, CHUNKS parameter, if those parameters appear more 
+then once, memory for store those parameters will be malloc more then 
+once and not free.
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
- include/net/inet_sock.h |    3 +--
- net/ipv4/cipso_ipv4.c   |    1 -
- net/ipv4/ip_options.c   |    5 -----
- 3 files changed, 1 insertions(+), 8 deletions(-)
+This patch change to used the first parameter and ignore the others.
 
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 8660cb0..b6db16d 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -43,8 +43,7 @@ struct ip_options {
- 	unsigned char	srr;
- 	unsigned char	rr;
- 	unsigned char	ts;
--	unsigned char	is_data:1,
--			is_strictroute:1,
-+	unsigned char	is_strictroute:1,
- 			srr_is_hit:1,
- 			is_changed:1,
- 			rr_needaddr:1,
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index 8cd357f..4637ded 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -1800,7 +1800,6 @@ int cipso_v4_sock_setattr(struct sock *sk,
- 	}
- 	memcpy(opt->__data, buf, buf_len);
- 	opt->optlen = opt_len;
--	opt->is_data = 1;
- 	opt->cipso = sizeof(struct iphdr);
- 	kfree(buf);
- 	buf = NULL;
-diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-index 7e94bf8..2fa4113 100644
---- a/net/ipv4/ip_options.c
-+++ b/net/ipv4/ip_options.c
-@@ -45,7 +45,6 @@ void ip_options_build(struct sk_buff * skb, struct ip_options * opt,
- 	memcpy(&(IPCB(skb)->opt), opt, sizeof(struct ip_options));
- 	memcpy(iph+sizeof(struct iphdr), opt->__data, opt->optlen);
- 	opt = &(IPCB(skb)->opt);
--	opt->is_data = 0;
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+
+--- a/net/sctp/sm_make_chunk.c	2008-02-11 17:14:05.000000000 -0500
++++ b/net/sctp/sm_make_chunk.c	2008-02-14 03:57:58.000000000 -0500
+@@ -2458,6 +2458,9 @@ static int sctp_process_param(struct sct
+ 		if (!sctp_auth_enable)
+ 			goto fall_through;
  
- 	if (opt->srr)
- 		memcpy(iph+opt->srr+iph[opt->srr+1]-4, &daddr, 4);
-@@ -95,8 +94,6 @@ int ip_options_echo(struct ip_options * dopt, struct sk_buff * skb)
++		if (asoc->peer.peer_random)
++			break;
++
+ 		/* Save peer's random parameter */
+ 		asoc->peer.peer_random = kmemdup(param.p,
+ 					    ntohs(param.p->length), gfp);
+@@ -2471,6 +2474,9 @@ static int sctp_process_param(struct sct
+ 		if (!sctp_auth_enable)
+ 			goto fall_through;
  
- 	memset(dopt, 0, sizeof(struct ip_options));
++		if (asoc->peer.peer_hmacs) 
++			break;
++
+ 		/* Save peer's HMAC list */
+ 		asoc->peer.peer_hmacs = kmemdup(param.p,
+ 					    ntohs(param.p->length), gfp);
+@@ -2487,6 +2493,9 @@ static int sctp_process_param(struct sct
+ 		if (!sctp_auth_enable)
+ 			goto fall_through;
  
--	dopt->is_data = 1;
--
- 	sopt = &(IPCB(skb)->opt);
- 
- 	if (sopt->optlen == 0) {
-@@ -265,7 +262,6 @@ int ip_options_compile(struct ip_options * opt, struct sk_buff * skb)
- 		iph = skb_network_header(skb);
- 		opt->optlen = ((struct iphdr *)iph)->ihl*4 - sizeof(struct iphdr);
- 		optptr = iph + sizeof(struct iphdr);
--		opt->is_data = 0;
- 	} else {
- 		optptr = opt->__data;
- 		iph = optptr - sizeof(struct iphdr);
-@@ -519,7 +515,6 @@ static int ip_options_get_finish(struct ip_options **optp,
- 	while (optlen & 3)
- 		opt->__data[optlen++] = IPOPT_END;
- 	opt->optlen = optlen;
--	opt->is_data = 1;
- 	if (optlen && ip_options_compile(opt, NULL)) {
- 		kfree(opt);
- 		return -EINVAL;
--- 
-1.5.3.rc5
++		if (asoc->peer.peer_chunks)
++			break;
++
+ 		asoc->peer.peer_chunks = kmemdup(param.p,
+ 					    ntohs(param.p->length), gfp);
+ 		if (!asoc->peer.peer_chunks)
+
+
 
