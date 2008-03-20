@@ -1,71 +1,118 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Does HTB traffic shaping happen on leaf classes only or could
-	it happen at root qdisc
-Date: Thu, 20 Mar 2008 20:49:37 +0100
-Message-ID: <20080320194937.GA3193@ami.dom.local>
-References: <4a9dfdec0803180539wb2f9dc7n18cac81a2fe92345@mail.gmail.com> <20080320115100.GB4037@ff.dom.local> <4a9dfdec0803200707v15f65d8oba1933f1b20e406c@mail.gmail.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [PATCH/RFC v4] introduce HAVE_UNALIGNED_ACCESS_SUPPORT Kconfig
+	symbol
+Date: Thu, 20 Mar 2008 20:50:58 +0100
+Message-ID: <1206042658.16475.158.camel@johannes.berg>
+References: <1206023695.16475.137.camel@johannes.berg>
+	 <20080320181310.GA17884@uranus.ravnborg.org>
+	 <1206038373.16475.150.camel@johannes.berg>
+	 <1206038734.16475.153.camel@johannes.berg>
+	 <20080320194101.GC17884@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Djalel Chefrour <cdjalel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.190]:47637 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753476AbYCTTpJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 15:45:09 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so561315rvb.1
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2008 12:45:08 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4a9dfdec0803200707v15f65d8oba1933f1b20e406c@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Linux Kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080320194101.GC17884-QabhHTsIXMSnlFQ6Q1D1Y0B+6BGkLq7r@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 20, 2008 at 03:07:05PM +0100, Djalel Chefrour wrote:
-...
-> >  > # tc -s -d class show dev ppp0
-> >  > class htb 1:110 parent 1:10 leaf 110: prio 0 quantum 1375 rate 110Kbit
-> >  > ceil 220Kbit burst 323b/2 mpu 0b overhead 18b atm cburst 392b/2 mpu 0b
-> >
-> >  Are these default quantum, burst and cburst parameters?
-> >
-> Yes they are. I forget to mention that I am also using tc-atm pacth with:
-> atm overhead 18 nohys mtu 256, for 1:10
-> atm overhead 18 nohys, for 1:20
+In many cases, especially in networking, it can be beneficial to
+know at compile time whether the architecture can do unaligned
+accesses. This patch introduces a new Kconfig symbol
+	HAVE_UNALIGNED_ACCESS_SUPPORT
+for that purpose and adds it to the powerpc and x86 architectures.
+Also add some documentation about alignment and networking, and
+especially one intended use of this symbol.
 
-I don't know this patch, but if it's about some fine graining, maybe
-it's better to get it working with a vanilla version first. Anyway,
-you wondered why 1:110 could be treated unfair vs. 1:20, so I wonder,
-why it has worse parameters than 1:20 (also by default?).
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Acked-by: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
+---
+Didn't I say I was going to fix the subject? Sorry.
 
-> >  > overhead 18b atm level 0
-> >  >  Sent 3888361 bytes 19368 pkts (dropped 0, overlimits 0)
-> >  >  rate 7160bit 35pps
-> >  >  lended: 19348 borrowed: 20 giants: 50
-> >
-> >  giants (>mtu) means something goes out of band here.
-> >
-> Hmmm, that could be explained with mtu set to 256
+ Documentation/unaligned-memory-access.txt |   32 +++++++++++++++++++++++++++---
+ arch/Kconfig                              |    3 ++
+ arch/powerpc/Kconfig                      |    1 
+ arch/x86/Kconfig                          |    1 
+ 4 files changed, 34 insertions(+), 3 deletions(-)
 
-I'm not sure where you set this mtu, or if it's changed by this atm
-patch, but HTB gets packets bigger than it can rate, so you probably
-should set HTB's mtu parameter higher, until these giants are not
-reported.
+--- everything.orig/Documentation/unaligned-memory-access.txt	2008-03-20 15:30:38.000000000 +0100
++++ everything/Documentation/unaligned-memory-access.txt	2008-03-20 19:38:30.000000000 +0100
+@@ -218,9 +218,35 @@ If use of such macros is not convenient,
+ where the source or destination (or both) are of type u8* or unsigned char*.
+ Due to the byte-wise nature of this operation, unaligned accesses are avoided.
+ 
++
++Alignment vs. Networking
++========================
++
++On architectures that require aligned loads, networking requires that the IP
++header is aligned on a four-byte boundary to optimise the IP stack. For
++regular ethernet hardware, the constant NET_IP_ALIGN is used, on most
++architectures this constant has the value 2 because the normal ethernet
++header is 14 bytes long, so in order to get proper alignment one needs to
++DMA to an address that is can be expressed as 4*n + 2. One notable exception
++here is powerpc which defines NET_IP_ALIGN to 0 because DMA to unaligned
++addresses can be very expensive and dwarf the cost of unaligned loads.
++
++For some ethernet hardware that cannot DMA to unaligned addresses like
++4*n+2 or non-ethernet hardware, this can be a problem, and it is then
++required to copy the incoming frame into an aligned buffer. Because this is
++unnecessary on architectures that can do unaligned accesses, the code can be
++made depend on CONFIG_HAVE_UNALIGNED_ACCESS_SUPPORT like so:
++
++#ifdef CONFIG_HAVE_UNALIGNED_ACCESS_SUPPORT
++	skb = original skb
++#else
++	skb = copy skb
++#endif
++
+ --
+-Author: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
++Authors: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
++         Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+ With help from: Alan Cox, Avuton Olrich, Heikki Orsila, Jan Engelhardt,
+-Johannes Berg, Kyle McMartin, Kyle Moffett, Randy Dunlap, Robert Hancock,
+-Uli Kunitz, Vadim Lobanov
++Kyle McMartin, Kyle Moffett, Randy Dunlap, Robert Hancock, Uli Kunitz,
++Vadim Lobanov
+ 
+--- everything.orig/arch/powerpc/Kconfig	2008-03-20 15:30:38.000000000 +0100
++++ everything/arch/powerpc/Kconfig	2008-03-20 19:37:22.000000000 +0100
+@@ -91,6 +91,7 @@ config PPC
+ 	select HAVE_OPROFILE
+ 	select HAVE_KPROBES
+ 	select HAVE_KRETPROBES
++	select HAVE_UNALIGNED_ACCESS_SUPPORT
+ 
+ config EARLY_PRINTK
+ 	bool
+--- everything.orig/arch/x86/Kconfig	2008-03-20 15:30:38.000000000 +0100
++++ everything/arch/x86/Kconfig	2008-03-20 19:38:08.000000000 +0100
+@@ -23,6 +23,7 @@ config X86
+ 	select HAVE_KPROBES
+ 	select HAVE_KRETPROBES
+ 	select HAVE_KVM if ((X86_32 && !X86_VOYAGER && !X86_VISWS && !X86_NUMAQ) || X86_64)
++	select HAVE_UNALIGNED_ACCESS_SUPPORT
+ 
+ 
+ config GENERIC_LOCKBREAK
+--- everything.orig/arch/Kconfig	2008-03-20 19:37:26.000000000 +0100
++++ everything/arch/Kconfig	2008-03-20 19:37:34.000000000 +0100
+@@ -36,3 +36,6 @@ config HAVE_KPROBES
+ 
+ config HAVE_KRETPROBES
+ 	def_bool n
++
++config HAVE_UNALIGNED_ACCESS_SUPPORT
++	def_bool n
 
-> >  No, HTB root qdisc doesn't even have parameter for shaping.
-> >  BTW, did you read this fine manual?:
-> >  http://luxik.cdi.cz/~devik/qos/htb/manual/userg.htm
-> >
-> 
-> Yes, thats what I read too, but the output shows 0 overlimits for all
-> nodes but root !!!
-> So how to interpret this?
 
-I'm not sure if HTB uses these overlimits for classes yet. But, I
-don't see why should you care about this so much: it only tells
-generally how much classes delay sending - not about overloading.
-
-If I don't miss something in your problem, you should check first
-if 1:110 class works OK without any traffic in 1:20, and if so, than
-limit 1:20 parameters until it doesn't affect 1:110 anymore.
-
-Jarek P.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
