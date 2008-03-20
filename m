@@ -1,37 +1,37 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH/RFC v2] introduce ARCH_CAN_UNALIGNED_ACCESS Kconfig symbol
-Date: Thu, 20 Mar 2008 19:39:33 +0100
-Message-ID: <1206038373.16475.150.camel@johannes.berg>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [PATCH/RFC v3] introduce ARCH_CAN_UNALIGNED_ACCESS Kconfig symbol
+Date: Thu, 20 Mar 2008 19:45:34 +0100
+Message-ID: <1206038734.16475.153.camel@johannes.berg>
 References: <1206023695.16475.137.camel@johannes.berg>
 	 <20080320181310.GA17884@uranus.ravnborg.org>
+	 <1206038373.16475.150.camel@johannes.berg>
+	 (sfid-20080320_184016_333600_B74BDE6D)
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Drake <dsd@gentoo.org>,
-	Linux Kernel list <linux-kernel@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Sam Ravnborg <sam@ravnborg.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:49108 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758083AbYCTSjw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 14:39:52 -0400
-In-Reply-To: <20080320181310.GA17884@uranus.ravnborg.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Linux Kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1206038373.16475.150.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org> (sfid-20080320_184016_333600_B74BDE6D)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+Subject: introduce HAVE_UNALIGNED_ACCESS_SUPPORT Kconfig symbol
 
 In many cases, especially in networking, it can be beneficial to
 know at compile time whether the architecture can do unaligned
 accesses. This patch introduces a new Kconfig symbol
-	ARCH_CAN_UNALIGNED_ACCESS
+	HAVE_UNALIGNED_ACCESS_SUPPORT
 for that purpose and adds it to the powerpc and x86 architectures.
 Also add some documentation about alignment and networking, and
 especially one intended use of this symbol.
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 ---
-Fixes thanks to Sam and Will.
+Erm. I should update the patch description and title too...
 
  Documentation/unaligned-memory-access.txt |   32 +++++++++++++++++++++++++++---
  arch/Kconfig                              |    3 ++
@@ -71,9 +71,9 @@ Fixes thanks to Sam and Will.
 +#endif
 +
  --
--Author: Daniel Drake <dsd@gentoo.org>
-+Authors: Daniel Drake <dsd@gentoo.org>,
-+         Johannes Berg <johannes@sipsolutions.net>
+-Author: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
++Authors: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
++         Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
  With help from: Alan Cox, Avuton Olrich, Heikki Orsila, Jan Engelhardt,
 -Johannes Berg, Kyle McMartin, Kyle Moffett, Randy Dunlap, Robert Hancock,
 -Uli Kunitz, Vadim Lobanov
@@ -111,3 +111,7 @@ Fixes thanks to Sam and Will.
 +	def_bool n
 
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
