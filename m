@@ -1,38 +1,75 @@
-From: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH/RFC v3] introduce ARCH_CAN_UNALIGNED_ACCESS Kconfig symbol
-Date: Thu, 20 Mar 2008 20:41:01 +0100
-Message-ID: <20080320194101.GC17884@uranus.ravnborg.org>
-References: <1206023695.16475.137.camel@johannes.berg> <20080320181310.GA17884@uranus.ravnborg.org> <1206038373.16475.150.camel@johannes.berg> <1206038734.16475.153.camel@johannes.berg>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [PATCH] kernel: add byteorder function with alignment fixups
+Date: Thu, 20 Mar 2008 12:41:27 -0700
+Message-ID: <1206042087.17059.15.camel@brick>
+References: <1206034454.17059.4.camel@brick>
+	 <20080320182911.GQ10722@ZenIV.linux.org.uk>
+	 <1206038244.17059.7.camel@brick>
+	 <20080320190953.GR10722@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
-	Linux Kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1206038734.16475.153.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757522AbYCTTlq@vger.kernel.org>
+In-Reply-To: <20080320190953.GR10722@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 20, 2008 at 07:45:34PM +0100, Johannes Berg wrote:
-> Subject: introduce HAVE_UNALIGNED_ACCESS_SUPPORT Kconfig symbol
-> 
-> In many cases, especially in networking, it can be beneficial to
-> know at compile time whether the architecture can do unaligned
-> accesses. This patch introduces a new Kconfig symbol
-> 	HAVE_UNALIGNED_ACCESS_SUPPORT
-> for that purpose and adds it to the powerpc and x86 architectures.
-> Also add some documentation about alignment and networking, and
-> especially one intended use of this symbol.
-> 
-> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Acked-by: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
+Add helpers for the pattern put_unaligned(cpu_to_le32(val), (__le32 *)p)
+to linux/unaligned.h
 
-	Sam
+Repeat for various combinations of le/be and 64/32/16 bit.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+Applies on top of my last patch, makes it a symmetric API.
+
+ include/linux/unaligned.h |   30 ++++++++++++++++++++++++++++++
+ 1 files changed, 30 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/unaligned.h b/include/linux/unaligned.h
+index 7d8fddc..c9aa286 100644
+--- a/include/linux/unaligned.h
++++ b/include/linux/unaligned.h
+@@ -37,6 +37,36 @@ static inline u16 be16_to_cpu_unaligned(void *p)
+ 	return __be16_to_cpu(get_unaligned((__be16 *)p));
+ }
+ 
++static inline void cpu_to_le64_unaligned(u64 val, void *p)
++{
++	put_unaligned(cpu_to_le64(val), (__le64 *)p);
++}
++
++static inline void cpu_to_le32_unaligned(u32 val, void *p)
++{
++	put_unaligned(cpu_to_le32(val), (__le32 *)p);
++}
++
++static inline void cpu_to_le16_unaligned(u16 val, void *p)
++{
++	put_unaligned(cpu_to_le16(val), (__le16 *)p);
++}
++
++static inline void cpu_to_be64_unaligned(u64 val, void *p)
++{
++	put_unaligned(cpu_to_be64(val), (__be64 *)p);
++}
++
++static inline void cpu_to_be32_unaligned(u32 val, void *p)
++{
++	put_unaligned(cpu_to_be32(val), (__be32 *)p);
++}
++
++static inline void cpu_to_be16_unaligned(u16 val, void *p)
++{
++	put_unaligned(cpu_to_be16(val), (__be16 *)p);
++}
++
+ #endif /* KERNEL */
+ 
+ #endif /* _LINUX_UNALIGNED_H */
+-- 
+1.5.4.4.684.g0e08
