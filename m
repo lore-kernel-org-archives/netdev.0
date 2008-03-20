@@ -1,60 +1,43 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: Re: [PATCH #2] [8021Q]: Turn off all the hardware VLAN features for promisc
-Date: Fri, 21 Mar 2008 01:46:02 +0900
-Message-ID: <b25c3fa70803200946w15ef6d27p4cbf84db7a621756@mail.gmail.com>
-References: <20080319081110.GA12081@tp61p-64> <47E278B2.1000102@trash.net>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: r8169 driver fails to see IGMPv2 SAP announcements
+Date: Thu, 20 Mar 2008 10:17:02 -0700
+Message-ID: <OF2A1B6BCC.6EDD542B-ON88257412.005C674C-88257412.005EEFF4@us.ibm.com>
+References: <DE885BD6-C428-48D5-90F4-32C9227F256F@lincor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: Glen Gray <glen.gray@lincor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from el-out-1112.google.com ([209.85.162.177]:44220 "EHLO
-	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754093AbYCTQqG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 12:46:06 -0400
-Received: by el-out-1112.google.com with SMTP id v27so766615ele.17
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2008 09:46:03 -0700 (PDT)
-In-Reply-To: <47E278B2.1000102@trash.net>
-Content-Disposition: inline
+Received: from e32.co.us.ibm.com ([32.97.110.150]:50153 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755498AbYCTRRR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 13:17:17 -0400
+In-Reply-To: <DE885BD6-C428-48D5-90F4-32C9227F256F@lincor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2008/3/20, Patrick McHardy <kaber@trash.net>:
->
-> I think a better way to handle this would be to make packet
-> sockets understand VLAN accerlation, similar to partial
-> checksums. This would mean on TX we get the tag from the
-> packets meta data and put it in the auxillary data.
-> RX should probably be handled by the driver by disabling
-> VLAN filtering when promiscous mode is enabled.
->
-> VLAN stripping would currently also have to be disabled,
-> but since its necessary to move the tag from the CB
-> to the skb anyways for avoiding qdiscs trampling over
-> it, once we've done that we could keep stripping enabled
-> and also store the VID on RX and make it visible to
-> packet sockets.
->
-> This would require to teach userspace about the new
-> auxillary data, but allows to use tcpdump and vlan
-> accerlation at the same time and doesn't require to
-> disabling accerlation when going to promiscous mode
-> for other reasons (like secondary unicast addresses).
->
+> The SAP announcements are made via IGMPv2, however the eth0 device 
+> comes up as IGMPv3 and so doesn't pick up the announcements. I've used 
+> the proc interface force_igmp_version to set all devices to v2, but it 
+> doesn't seem to make any difference.
 
-Thanks Patrick for reviewing this and show me the better way.
+Glen,
+        I don't really know what you're reporting here. If by "doesn't
+seem to make any difference" you mean that you still get v3 reports
+when force_igmp_version=2, that would be news to me, and a packet
+trace demonstrating that on a mainline kernel would be good.
+        If you mean it doesn't fix your data loss problem, then I'd
+just conclude that the loss has nothing to do with IGMP reports.
 
-To summarize your say, disable VLAN filtering by driver handling and
-push new auxillary data to packet socket for RX & TX. Right?
+        I think the things of interest to look at are whether the
+sender side is sending SAP announcements when the failure occurs and
+whether the multicast router ever drops membership when you think
+it shouldn't during a failure. You can use "tcpdump" on the sender
+side to track these, and your multicast router may have some
+logging capability to let you know state changes of interest. I
+recommend looking at those (or posting here, size permitting) to
+narrow down the problem.
 
-Actually for the VLAN filtering, It seemed possible to disable it
-without fixing every driver codes relatively easily, but for now it
-might not be a proper way I think.
-Also I did concern a situation 'promiscuous without tcpdump' like
-secondary unicast addresses.
-I think the opinion that you said is the solution.
-Thanks again.
-I'll try these things.
+                                                                +-DLS
 
-Joonwoo,
