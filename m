@@ -1,98 +1,38 @@
-From: "Robert P. J. Day" <rpjday@crashcourse.ca>
-Subject: [PATCH] BLUETOOTH:  Replace deprecated RW_LOCK_UNLOCKED macros.
-Date: Thu, 20 Mar 2008 11:05:08 -0400 (EDT)
-Message-ID: <alpine.LFD.1.00.0803201100440.6369@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] NETFILTER: per-netns FILTER/MANGLE/RAW tables for real
+Date: Thu, 20 Mar 2008 16:29:42 +0100
+Message-ID: <47E282E6.4070907@trash.net>
+References: <20080303160659.GB19059@localhost.sw.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	Andrew Morton <akpm@osdl.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: xemul@openvz.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, devel@openvz.org
+To: Alexey Dobriyan <adobriyan@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from astoria.ccjclearline.com ([64.235.106.9]:55964 "EHLO
-	astoria.ccjclearline.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753825AbYCTPFN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 11:05:13 -0400
+Received: from viefep32-int.chello.at ([62.179.121.50]:42717 "EHLO
+	viefep32-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755885AbYCTP3v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 11:29:51 -0400
+In-Reply-To: <20080303160659.GB19059@localhost.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Alexey Dobriyan wrote:
+> Commit 9335f047fe61587ec82ff12fbb1220bcfdd32006 aka
+> "[NETFILTER]: ip_tables: per-netns FILTER, MANGLE, RAW"
+> added per-netns _view_ of iptables rules. They were shown to user, but
+> ignored by filtering code. Now that it's possible to at least ping loopback,
+> per-netns tables can affect filtering decisions.
+> 
+> netns is taken in case of
+> 	PRE_ROUTING, LOCAL_IN -- from in device,
+> 	POST_ROUTING, LOCAL_OUT -- from out device,
+> 	FORWARD -- from in device which should be equal to out device's netns.
+> 		   This code is relatively new, so BUG_ON was plugged.
+> 
+> Wrappers were added to a) keep code the same from CONFIG_NET_NS=n users
+> (overwhelming majority), b) consolidate code in one place -- similar
+> changes will be done in ipv6 and arp netfilter code.
 
-The older RW_LOCK_UNLOCKED macros defeat lockdep state tracing so
-replace them with the newer __RW_LOCK_UNLOCKED macros.
-
-Signed-off-by: Robert P. J. Day <rpjday@crashcourse.ca>
-Acked-by: Marcel Holtmann <marcel@holtmann.org>
-
----
-
-  not compile tested, but the transformation seems pretty
-straightforward.  also, marcel specifically told me to add his Ack and
-post to netdev, as he's apparently swamped with bluez work, so whoever
-is appropriate can deal with this however they see fit.
-
- net/bluetooth/hci_sock.c    |    2 +-
- net/bluetooth/l2cap.c       |    2 +-
- net/bluetooth/rfcomm/sock.c |    2 +-
- net/bluetooth/sco.c         |    2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
-index b5d4019..1d36c09 100644
---- a/net/bluetooth/hci_sock.c
-+++ b/net/bluetooth/hci_sock.c
-@@ -84,7 +84,7 @@ static struct hci_sec_filter hci_sec_filter = {
- };
-
- static struct bt_sock_list hci_sk_list = {
--	.lock = RW_LOCK_UNLOCKED
-+	.lock = __RW_LOCK_UNLOCKED(hci_sk_list.lock)
- };
-
- /* Send frame to RAW socket */
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 34f8bf9..2957df4 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -62,7 +62,7 @@ static u32 l2cap_feat_mask = 0x0000;
- static const struct proto_ops l2cap_sock_ops;
-
- static struct bt_sock_list l2cap_sk_list = {
--	.lock = RW_LOCK_UNLOCKED
-+	.lock = __RW_LOCK_UNLOCKED(l2cap_sk_list.lock)
- };
-
- static void __l2cap_sock_close(struct sock *sk, int reason);
-diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
-index c46d510..af4e393 100644
---- a/net/bluetooth/rfcomm/sock.c
-+++ b/net/bluetooth/rfcomm/sock.c
-@@ -60,7 +60,7 @@
- static const struct proto_ops rfcomm_sock_ops;
-
- static struct bt_sock_list rfcomm_sk_list = {
--	.lock = RW_LOCK_UNLOCKED
-+	.lock = __RW_LOCK_UNLOCKED(rfcomm_sk_list.lock)
- };
-
- static void rfcomm_sock_close(struct sock *sk);
-diff --git a/net/bluetooth/sco.c b/net/bluetooth/sco.c
-index b91d3c8..cd887cd 100644
---- a/net/bluetooth/sco.c
-+++ b/net/bluetooth/sco.c
-@@ -58,7 +58,7 @@
- static const struct proto_ops sco_sock_ops;
-
- static struct bt_sock_list sco_sk_list = {
--	.lock = RW_LOCK_UNLOCKED
-+	.lock = __RW_LOCK_UNLOCKED(sco_sk_list.lock)
- };
-
- static void __sco_chan_add(struct sco_conn *conn, struct sock *sk, struct sock *parent);
-
-
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry:
-    Have classroom, will lecture.
-
-http://crashcourse.ca                          Waterloo, Ontario, CANADA
-========================================================================
+Applied, thanks.
