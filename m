@@ -1,43 +1,79 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: r8169 driver fails to see IGMPv2 SAP announcements
-Date: Thu, 20 Mar 2008 10:17:02 -0700
-Message-ID: <OF2A1B6BCC.6EDD542B-ON88257412.005C674C-88257412.005EEFF4@us.ibm.com>
-References: <DE885BD6-C428-48D5-90F4-32C9227F256F@lincor.com>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [RFC PATCH] kernel: add byteorder macros with alignment fixups
+Date: Thu, 20 Mar 2008 10:34:14 -0700
+Message-ID: <1206034454.17059.4.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: Glen Gray <glen.gray@lincor.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:50153 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755498AbYCTRRR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 13:17:17 -0400
-In-Reply-To: <DE885BD6-C428-48D5-90F4-32C9227F256F@lincor.com>
+Received: from el-out-1112.google.com ([209.85.162.176]:51162 "EHLO
+	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755217AbYCTReT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 13:34:19 -0400
+Received: by el-out-1112.google.com with SMTP id v27so788532ele.17
+        for <netdev@vger.kernel.org>; Thu, 20 Mar 2008 10:34:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> The SAP announcements are made via IGMPv2, however the eth0 device 
-> comes up as IGMPv3 and so doesn't pick up the announcements. I've used 
-> the proc interface force_igmp_version to set all devices to v2, but it 
-> doesn't seem to make any difference.
+A common pattern in the kernel (especially networking) is:
 
-Glen,
-        I don't really know what you're reporting here. If by "doesn't
-seem to make any difference" you mean that you still get v3 reports
-when force_igmp_version=2, that would be news to me, and a packet
-trace demonstrating that on a mainline kernel would be good.
-        If you mean it doesn't fix your data loss problem, then I'd
-just conclude that the loss has nothing to do with IGMP reports.
+le32_to_cpu(get_unaligned((__le32 *)x));
 
-        I think the things of interest to look at are whether the
-sender side is sending SAP announcements when the failure occurs and
-whether the multicast router ever drops membership when you think
-it shouldn't during a failure. You can use "tcpdump" on the sender
-side to track these, and your multicast router may have some
-logging capability to let you know state changes of interest. I
-recommend looking at those (or posting here, size permitting) to
-narrow down the problem.
+Repeat for various combinations of le/be and 64/32/16 bit.  Add
+a variant that operates on possibly unaligned pointers to
+byteorder/generic.h
 
-                                                                +-DLS
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+ include/linux/byteorder/generic.h |   16 ++++++++++++++++
+ 1 files changed, 16 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/byteorder/generic.h b/include/linux/byteorder/generic.h
+index d377155..9b1a7a4 100644
+--- a/include/linux/byteorder/generic.h
++++ b/include/linux/byteorder/generic.h
+@@ -73,6 +73,10 @@
+  *	cpu_to_[bl]eXXp(__uXX x)
+  *	[bl]eXX_to_cpup(__uXX x)
+  *
++ * The same, but takes a possibly unaligned pointer to the value to convert
++ *	cpu_to_[bl]eXXp_un(__uXX x)
++ *	[bl]eXX_to_cpup_un(__uXX x)
++ *
+  * The same, but change in situ
+  *	cpu_to_[bl]eXXs(__uXX x)
+  *	[bl]eXX_to_cpus(__uXX x)
+@@ -84,6 +88,8 @@
+ 
+ 
+ #if defined(__KERNEL__)
++#include <asm/unaligned.h>
++
+ /*
+  * inside the kernel, we can use nicknames;
+  * outside of it, we must avoid POSIX namespace pollution...
+@@ -126,6 +132,16 @@
+ #define be16_to_cpus __be16_to_cpus
+ 
+ /*
++ * Operates on possibly unaligned pointers
++ */
++#define le64_to_cpup_un(x) __le64_to_cpu(get_unaligned((__le64 *)(x)))
++#define le32_to_cpup_un(x) __le32_to_cpu(get_unaligned((__le32 *)(x)))
++#define le16_to_cpup_un(x) __le16_to_cpu(get_unaligned((__le16 *)(x)))
++#define be64_to_cpup_un(x) __be64_to_cpu(get_unaligned((__be64 *)(x)))
++#define be32_to_cpup_un(x) __be32_to_cpu(get_unaligned((__be32 *)(x)))
++#define be16_to_cpup_un(x) __be16_to_cpu(get_unaligned((__be16 *)(x)))
++
++/*
+  * They have to be macros in order to do the constant folding
+  * correctly - if the argument passed into a inline function
+  * it is no longer constant according to gcc..
+-- 
+1.5.4.4.684.g0e08
+
+
 
