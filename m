@@ -1,212 +1,58 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH] kernel: create linux/unaligned.h
-Date: Thu, 20 Mar 2008 13:39:27 -0700
-Message-ID: <20080320133927.fa599135.randy.dunlap@oracle.com>
-References: <1206034454.17059.4.camel@brick>
-	<20080320182911.GQ10722@ZenIV.linux.org.uk>
-	<1206038244.17059.7.camel@brick>
-	<20080320190953.GR10722@ZenIV.linux.org.uk>
-	<1206044217.17059.17.camel@brick>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: r8169 driver fails to see IGMPv2 SAP announcements
+Date: Thu, 20 Mar 2008 13:48:33 -0700
+Message-ID: <OF47F0798E.811EA708-ON88257412.0070C381-88257412.00724DBB@us.ibm.com>
+References: <55935F57-5B1B-4F9A-9B37-6236419C6F81@lincor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Al Viro <viro@ZenIV.linux.org.uk>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Harvey Harrison <harvey.harrison@gmail.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: Glen Gray <glen.gray@lincor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:12278 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753139AbYCTUkW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:40:22 -0400
-In-Reply-To: <1206044217.17059.17.camel@brick>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:36019 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752773AbYCTUsh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:48:37 -0400
+In-Reply-To: <55935F57-5B1B-4F9A-9B37-6236419C6F81@lincor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Mar 2008 13:16:57 -0700 Harvey Harrison wrote:
+Hi, Glen,
+        From your detailed description, and particularly the fact
+that the problem seems to be tied to the driver & device, I think
+I'd recommend looking at the multicast address filter code in the
+driver. IGMP is not device dependent, so I doubt that is the
+source of the problem.
+        If you can reproduce the problem, then while it's
+happening:
 
-> Add helpers for the following two patterns currently found in the
-> kernel:
-> 
-> le32_to_cpu(get_unaligned((__le32 *)p));
-> put_unaligned(cpu_to_le32(x), (__le32 *)p);
-> 
-> Becomes:
-> le32_to_cpu_unaligned(p);
-> cpu_to_le32_unaligned(x, p);
-> 
-> There are also some hand-rolled functions implementing this
-> with byte-shifts that can be replaced.  To avoid new indirect
-> includes of asm/unaligned.h, create linux/unaligned.h to make
-> it opt in for new code that wants to use these helpers.
-> 
-> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> ---
-> This is a rollup of all the previous ones, added kerneldocs and
-> have CC'd Randy.
-> 
->  include/linux/unaligned.h |  138 +++++++++++++++++++++++++++++++++++++++++++++
->  1 files changed, 138 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/linux/unaligned.h b/include/linux/unaligned.h
-> new file mode 100644
-> index 0000000..035c1c7
-> --- /dev/null
-> +++ b/include/linux/unaligned.h
-> @@ -0,0 +1,138 @@
-> +#ifndef _LINUX_UNALIGNED_H_
-> +#define _LINUX_UNALIGNED_H_
-> +
-> +#include <linux/types.h>
-> +#include <asm/byteorder.h>
-> +#include <asm/unaligned.h>
-> +
-> +#ifdef __KERNEL__
-> +
-> +/**
-> + * le64_to_cpu_unaligned - read a le64 from a possibly unaligned pointer
+1) catch the group memberships by saving /proc/net/igmp
+2) catch the hardware group memberships by saving
+        /proc/net/dev_mcast
+[I expect from the symptoms that 1) is ok, 2) may or may not be...]
+and...
+3) run tcpdump or wireshark in promiscuous mode
+        - if the device address filter is the problem, when you
+        put the device in promiscuous mode, everything will
+        start working again, until you exit tcpdump. You will
+        also see the packets you aren't receiving are being
+        sent, if that's the problem.
 
-I would write these as "an le64" etc., but then I read them as
-"l e 64".
+I understand you probably can't directly reproduce it, and
+the visual artifacts you mentioned in that one test may or
+may not be the same issue as the other one.
 
+Another possibility that comes to mind is a memory leak,
+if the response problems are related to a low memory
+condition. So, that might be something else to look for.
+Compare memory usage with ordinary usage, check
+for log messages of allocation failures and check "netstat -s"
+output for any indication of drops.
 
-> + * @p: pointer to read from
-> + *
-> + * Returns a u64 in cpu byteorder
+If you can set a program or script to monitor the system
+and detect when you hit the problem, then you could use
+that to trigger running a script that captures the data you
+need when it happens.
 
-And I would write "CPU", but some people don't do that.  ;)
+                                        +-DLS
 
-Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
-
-
-Thanks.
-
-> + */
-> +static inline u64 le64_to_cpu_unaligned(void *p)
-> +{
-> +	return le64_to_cpu(get_unaligned((__le64 *)p));
-> +}
-> +
-> +/**
-> + * le32_to_cpu_unaligned - read a le32 from a possibly unaligned pointer
-> + * @p: pointer to read from
-> + *
-> + * Returns a u32 in cpu byteorder
-> + */
-> +static inline u32 le32_to_cpu_unaligned(void *p)
-> +{
-> +	return le32_to_cpu(get_unaligned((__le32 *)p));
-> +}
-> +
-> +/**
-> + * le16_to_cpu_unaligned - read a le16 from a possibly unaligned pointer
-> + * @p: pointer to read from
-> + *
-> + * Returns a u16 in cpu byteorder
-> + */
-> +static inline u16 le16_to_cpu_unaligned(void *p)
-> +{
-> +	return le16_to_cpu(get_unaligned((__le16 *)p));
-> +}
-> +
-> +/**
-> + * be64_to_cpu_unaligned - read a be64 from a possibly unaligned pointer
-> + * @p: pointer to read from
-> + *
-> + * Returns a u64 in cpu byteorder
-> + */
-> +static inline u64 be64_to_cpu_unaligned(void *p)
-> +{
-> +	return be64_to_cpu(get_unaligned((__be64 *)p));
-> +}
-> +
-> +/**
-> + * be32_to_cpu_unaligned - read a be32 from a possibly unaligned pointer
-> + * @p: pointer to read from
-> + *
-> + * Returns a u32 in cpu byteorder
-> + */
-> +static inline u32 be32_to_cpu_unaligned(void *p)
-> +{
-> +	return be32_to_cpu(get_unaligned((__be32 *)p));
-> +}
-> +
-> +/**
-> + * be16_to_cpu_unaligned - read a be16 from a possibly unaligned pointer
-> + * @p: pointer to read from
-> + *
-> + * Returns a u16 in cpu byteorder
-> + */
-> +static inline u16 be16_to_cpu_unaligned(void *p)
-> +{
-> +	return be16_to_cpu(get_unaligned((__be16 *)p));
-> +}
-> +
-> +/**
-> + * le64_to_cpu_unaligned - write a u64 in le-byteorder to a possibly unaligned pointer
-> + * @val: value to be written
-> + * @p: pointer to write to
-> + */
-> +static inline void cpu_to_le64_unaligned(u64 val, void *p)
-> +{
-> +	put_unaligned(cpu_to_le64(val), (__le64 *)p);
-> +}
-> +
-> +/**
-> + * le32_to_cpu_unaligned - write a u32 in le-byteorder to a possibly unaligned pointer
-> + * @val: value to be written
-> + * @p: pointer to write to
-> + */
-> +static inline void cpu_to_le32_unaligned(u32 val, void *p)
-> +{
-> +	put_unaligned(cpu_to_le32(val), (__le32 *)p);
-> +}
-> +
-> +/**
-> + * le16_to_cpu_unaligned - write a u16 in le-byteorder to a possibly unaligned pointer
-> + * @val: value to be written
-> + * @p: pointer to write to
-> + */
-> +static inline void cpu_to_le16_unaligned(u16 val, void *p)
-> +{
-> +	put_unaligned(cpu_to_le16(val), (__le16 *)p);
-> +}
-> +
-> +/**
-> + * be64_to_cpu_unaligned - write a u64 in be-byteorder to a possibly unaligned pointer
-> + * @val: value to be written
-> + * @p: pointer to write to
-> + */
-> +static inline void cpu_to_be64_unaligned(u64 val, void *p)
-> +{
-> +	put_unaligned(cpu_to_be64(val), (__be64 *)p);
-> +}
-> +
-> +/**
-> + * be32_to_cpu_unaligned - write a u32 in be-byteorder to a possibly unaligned pointer
-> + * @val: value to be written
-> + * @p: pointer to write to
-> + */
-> +static inline void cpu_to_be32_unaligned(u32 val, void *p)
-> +{
-> +	put_unaligned(cpu_to_be32(val), (__be32 *)p);
-> +}
-> +
-> +/**
-> + * be16_to_cpu_unaligned - write a u16 in be-byteorder to a possibly unaligned pointer
-> + * @val: value to be written
-> + * @p: pointer to write to
-> + */
-> +static inline void cpu_to_be16_unaligned(u16 val, void *p)
-> +{
-> +	put_unaligned(cpu_to_be16(val), (__be16 *)p);
-> +}
-> +
-> +#endif /* KERNEL */
-> +
-> +#endif /* _LINUX_UNALIGNED_H */
-> -- 
-
----
-~Randy
