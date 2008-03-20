@@ -1,35 +1,69 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 00/30] Swap over NFS -v17
-Date: Thu, 20 Mar 2008 21:10:42 +0100
-Message-ID: <20080320201042.675090000@chello.nl>
+Subject: [PATCH 11/30] mm: __GFP_MEMALLOC
+Date: Thu, 20 Mar 2008 21:10:53 +0100
+Message-ID: <20080320202122.679587000@chello.nl>
+References: <20080320201042.675090000@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep11-int.chello.at ([62.179.121.31]:62461 "EHLO
+Received: from viefep11-int.chello.at ([62.179.121.31]:51665 "EHLO
 	viefep11-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754663AbYCTUVJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:21:09 -0400
+	with ESMTP id S1754974AbYCTUVM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 16:21:12 -0400
+Content-Disposition: inline; filename=mm-page_alloc-GFP_EMERGENCY.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+__GFP_MEMALLOC will allow the allocation to disregard the watermarks, 
+much like PF_MEMALLOC.
 
-Patches against v2.6.25-rc5-mm1, also online at:
-  http://programming.kicks-ass.net/kernel-patches/vm_deadlock/v2.6.25-rc5-mm1/
+It allows one to pass along the memalloc state in object related allocation
+flags as opposed to task related flags, such as sk->sk_allocation.
 
-A quick post to keep people up-to-date and show I didn't forget about this :-)
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+---
+ include/linux/gfp.h |    3 ++-
+ mm/page_alloc.c     |    4 +++-
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
-The biggest changes are in the reservation code, introduction of allocation
-helpers significantly cleaned up the rest of the code.
+Index: linux-2.6/include/linux/gfp.h
+===================================================================
+--- linux-2.6.orig/include/linux/gfp.h
++++ linux-2.6/include/linux/gfp.h
+@@ -43,6 +43,7 @@ struct vm_area_struct;
+ #define __GFP_REPEAT	((__force gfp_t)0x400u)	/* Retry the allocation.  Might fail */
+ #define __GFP_NOFAIL	((__force gfp_t)0x800u)	/* Retry for ever.  Cannot fail */
+ #define __GFP_NORETRY	((__force gfp_t)0x1000u)/* Do not retry.  Might fail */
++#define __GFP_MEMALLOC  ((__force gfp_t)0x2000u)/* Use emergency reserves */
+ #define __GFP_COMP	((__force gfp_t)0x4000u)/* Add compound page metadata */
+ #define __GFP_ZERO	((__force gfp_t)0x8000u)/* Return zeroed page on success */
+ #define __GFP_NOMEMALLOC ((__force gfp_t)0x10000u) /* Don't use emergency reserves */
+@@ -88,7 +89,7 @@ struct vm_area_struct;
+ /* Control page allocator reclaim behavior */
+ #define GFP_RECLAIM_MASK (__GFP_WAIT|__GFP_HIGH|__GFP_IO|__GFP_FS|\
+ 			__GFP_NOWARN|__GFP_REPEAT|__GFP_NOFAIL|\
+-			__GFP_NORETRY|__GFP_NOMEMALLOC)
++			__GFP_NORETRY|__GFP_MEMALLOC|__GFP_NOMEMALLOC)
+ 
+ /* Control allocation constraints */
+ #define GFP_CONSTRAINT_MASK (__GFP_HARDWALL|__GFP_THISNODE)
+Index: linux-2.6/mm/page_alloc.c
+===================================================================
+--- linux-2.6.orig/mm/page_alloc.c
++++ linux-2.6/mm/page_alloc.c
+@@ -1545,7 +1545,9 @@ int gfp_to_alloc_flags(gfp_t gfp_mask)
+ 		alloc_flags |= ALLOC_HARDER;
+ 
+ 	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
+-		if (!in_irq() && (p->flags & PF_MEMALLOC))
++		if (gfp_mask & __GFP_MEMALLOC)
++			alloc_flags |= ALLOC_NO_WATERMARKS;
++		else if (!in_irq() && (p->flags & PF_MEMALLOC))
+ 			alloc_flags |= ALLOC_NO_WATERMARKS;
+ 		else if (!in_interrupt() &&
+ 				unlikely(test_thread_flag(TIF_MEMDIE)))
 
-I still need to go through that and write more comments, but I wanted to get
-this out there so people can have a look.
-
-I also added Neil's excellent writeup to Documentation/ - I hope I didn't
-ruin it too much :-)
-
-
-
+--
 
