@@ -1,83 +1,58 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-2.6.26] netlink: make socket filters work on netlink
-Date: Fri, 21 Mar 2008 11:05:15 -0700
-Message-ID: <20080321110515.422f9798@extreme>
+From: Phil Oester <kernel@linuxace.com>
+Subject: [PATCH] Fix null dereference in ip_defrag
+Date: Fri, 21 Mar 2008 12:09:30 -0700
+Message-ID: <20080321190930.GA12940@linuxace.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, Jamal <hadi@cyberus.ca>
+Content-Type: multipart/mixed; boundary="ZPt4rx8FFjLCG7dd"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:41750 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754462AbYCUS7y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Mar 2008 14:59:54 -0400
+Received: from adsl-67-120-171-161.dsl.lsan03.pacbell.net ([67.120.171.161]:34638
+	"HELO linuxace.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750844AbYCUTJb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2008 15:09:31 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make socket filters work for netlink unicast and notifications.
-This is useful for applications like Zebra that get overrun with
-messages that are then ignored.
 
-Note: netlink messages are in host byte order, but packet filter
-state machine operations are done as network byte order.
+--ZPt4rx8FFjLCG7dd
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Been seeing occasional panics in my testing of 2.6.25-rc in ip_defrag.
+Offending line in ip_defrag is here:
 
---- a/net/netlink/af_netlink.c	2008-03-21 09:35:54.000000000 -0700
-+++ b/net/netlink/af_netlink.c	2008-03-21 11:00:51.000000000 -0700
-@@ -886,6 +886,13 @@ retry:
- 	if (netlink_is_kernel(sk))
- 		return netlink_unicast_kernel(sk, skb);
+	net = skb->dev->nd_net
+
+where dev is NULL.  Bisected the problem down to commit
+ac18e7509e7df327e30d6e073a787d922eaf211d ([NETNS][FRAGS]: Make the
+inet_frag_queue lookup work in namespaces).  
+
+Below patch (idea from Patrick McHardy) fixes the problem for me.
+
+Signed-off-by: Phil Oester <kernel@linuxace.com>
+Acked-by: Patrick McHardy <kaber@trash.net>
+
+Phil
+
+
+
+--ZPt4rx8FFjLCG7dd
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=patch-ipfrags
+
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index a2e92f9..3b2e5ad 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -568,7 +568,7 @@ int ip_defrag(struct sk_buff *skb, u32 user)
  
-+	if (sk_filter(sk, skb)) {
-+		int err = skb->len;
-+		kfree_skb(skb);
-+		sock_put(sk);
-+		return err;
-+	}
-+
- 	err = netlink_attachskb(sk, skb, nonblock, &timeo, ssk);
- 	if (err == 1)
- 		goto retry;
-@@ -980,6 +987,9 @@ static inline int do_one_broadcast(struc
- 		netlink_overrun(sk);
- 		/* Clone failed. Notify ALL listeners. */
- 		p->failure = 1;
-+	} else if (sk_filter(sk, p->skb2)) {
-+		kfree_skb(p->skb2);
-+		p->skb2 = NULL;
- 	} else if ((val = netlink_broadcast_deliver(sk, p->skb2)) < 0) {
- 		netlink_overrun(sk);
- 	} else {
-@@ -1533,8 +1543,13 @@ static int netlink_dump(struct sock *sk)
+ 	IP_INC_STATS_BH(IPSTATS_MIB_REASMREQDS);
  
- 	if (len > 0) {
- 		mutex_unlock(nlk->cb_mutex);
--		skb_queue_tail(&sk->sk_receive_queue, skb);
--		sk->sk_data_ready(sk, len);
-+
-+		if (sk_filter(sk, skb))
-+			kfree_skb(skb);
-+		else {
-+			skb_queue_tail(&sk->sk_receive_queue, skb);
-+			sk->sk_data_ready(sk, skb->len);
-+		}
- 		return 0;
- 	}
- 
-@@ -1544,8 +1559,12 @@ static int netlink_dump(struct sock *sk)
- 
- 	memcpy(nlmsg_data(nlh), &len, sizeof(len));
- 
--	skb_queue_tail(&sk->sk_receive_queue, skb);
--	sk->sk_data_ready(sk, skb->len);
-+	if (sk_filter(sk, skb))
-+		kfree_skb(skb);
-+	else {
-+		skb_queue_tail(&sk->sk_receive_queue, skb);
-+		sk->sk_data_ready(sk, skb->len);
-+	}
- 
- 	if (cb->done)
- 		cb->done(cb);
+-	net = skb->dev->nd_net;
++	net = skb->dev ? skb->dev->nd_net : skb->dst->dev->nd_net;
+ 	/* Start by cleaning up the memory. */
+ 	if (atomic_read(&net->ipv4.frags.mem) > net->ipv4.frags.high_thresh)
+ 		ip_evictor(net);
+
+--ZPt4rx8FFjLCG7dd--
