@@ -1,39 +1,28 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [AX25] kernel panic
-Date: Fri, 21 Mar 2008 11:22:27 +0000
-Message-ID: <20080321112227.GA4524@ff.dom.local>
-References: <47DF9D21.20807@free.fr> <20080318212531.GA2031@electric-eye.fr.zoreil.com> <47E0C261.3000106@free.fr> <47E17E2E.9050105@free.fr> <20080320073021.GA4037@ff.dom.local> <47E2EC1B.9070405@free.fr> <20080321002846.GA25568@ami.dom.local> <47E3855B.4060304@free.fr>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: 2.6.25-rc5-mm1
+Date: Fri, 21 Mar 2008 13:12:05 +0100
+Message-ID: <20080321121205.GG25225@elte.hu>
+References: <20080311011434.ad8c8d7d.akpm@linux-foundation.org> <20080311202300.GA8957@vino.hallyn.com> <20080311133920.68dc410b.akpm@linux-foundation.org> <64bb37e0803121233v30d12a58i77a1e23fd02ea6f2@mail.gmail.com> <20080312124420.3ba8c3d7.akpm@linux-foundation.org> <64bb37e0803121301u6f836710m9ebb30e065751bec@mail.gmail.com> <64bb37e0803131505u7ae920fdvbbed005cbeb8c98e@mail.gmail.com> <20080313153528.a11795b7.akpm@linux-foundation.org> <1205449809.19403.40.camel@dyn9047017100.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jarek Poplawski <jarkao2@o2.pl>
-To: Bernard Pidoux <bpidoux@free.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.186]:50338 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754794AbYCULUh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2008 07:20:37 -0400
-Received: by fk-out-0910.google.com with SMTP id 19so1823564fkr.5
-        for <netdev@vger.kernel.org>; Fri, 21 Mar 2008 04:20:33 -0700 (PDT)
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Torsten Kaiser <just.for.lkml@googlemail.com>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Badari Pulavarty <pbadari@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756268AbYCUMMa@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <47E3855B.4060304@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1205449809.19403.40.camel@dyn9047017100.beaverton.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 21, 2008 at 10:52:27AM +0100, Bernard Pidoux wrote:
-...
-> The only difference I can see compared to the original spinlock report  
-> is this line :
->
-> [<c01e7409>] _raw_spin_lock+0x69/0x140
 
-Bernard, thanks for these reports. I simply need more time to find
-various places in ax25 which could matter here. Of course any
-additional information could help, but these reports mostly repeat
-the same. BTW, I wonder if it's possible to run this command for
-closing the session which causes the bug with strace?:
-strace -o strace.log a_command
+* Badari Pulavarty <pbadari@gmail.com> wrote:
 
-Regards,
-Jarek P.
+> Yes. I found the following patch to be the culprit.
+> 
+> sched: make sure jiffies is up to date before calling __update_rq_clock
+> ()
+
+thanks Badari, i've backed out this patch.
+
+	Ingo
