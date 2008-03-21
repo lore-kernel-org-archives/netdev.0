@@ -1,37 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix null dereference in ip_defrag
-Date: Fri, 21 Mar 2008 15:00:54 -0700 (PDT)
-Message-ID: <20080321.150054.236561375.davem@davemloft.net>
-References: <20080321190930.GA12940@linuxace.com>
+From: "Keyur Chudgar" <kchudgar.linux@gmail.com>
+Subject: Question regarding netif_tx_disable and netif_stop_queue
+Date: Fri, 21 Mar 2008 15:09:32 -0700
+Message-ID: <a967d7d00803211509g3154f996jc7f0337fd56e0c1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kernel@linuxace.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58478
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751290AbYCUWAi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2008 18:00:38 -0400
-In-Reply-To: <20080321190930.GA12940@linuxace.com>
+Received: from ag-out-0708.google.com ([72.14.246.243]:54639 "EHLO
+	ag-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751200AbYCUWJe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2008 18:09:34 -0400
+Received: by ag-out-0708.google.com with SMTP id 35so2988540aga.10
+        for <netdev@vger.kernel.org>; Fri, 21 Mar 2008 15:09:32 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Oester <kernel@linuxace.com>
-Date: Fri, 21 Mar 2008 12:09:30 -0700
+Hi,
 
-> Been seeing occasional panics in my testing of 2.6.25-rc in ip_defrag.
-> Offending line in ip_defrag is here:
-> 
-> 	net = skb->dev->nd_net
-> 
-> where dev is NULL.  Bisected the problem down to commit
-> ac18e7509e7df327e30d6e073a787d922eaf211d ([NETNS][FRAGS]: Make the
-> inet_frag_queue lookup work in namespaces).  
-> 
-> Below patch (idea from Patrick McHardy) fixes the problem for me.
-> 
-> Signed-off-by: Phil Oester <kernel@linuxace.com>
-> Acked-by: Patrick McHardy <kaber@trash.net>
+I am writing a device driver for new emac hardware. I have a question regarding
+netif_tx_disable and netif_stop_queue.
 
-Thanks, I had this in my queue and will apply this now.
+If the Emac hardware's queue is full and I need to assist the kernel with
+stopping the packet scheduling from kernel, which function should
+I use, if I am invoking it from outside of hard_start_xmit method?
+Probably it will
+be from the interrupt context or polling routine. From the review, I
+understand that
+I should use netif_tx_disable(struct net_device *dev); and not use
+netif_stop_queue
+(this function is generally used from within hard_start_xmit). I think
+netif_tx_disable
+is more suitable for SMP environment also, as it takes care for
+hard_start_xmit method
+is not running on another CPU. But I just would like to make sure about it.
+
+Thanks,
+- Keyur
