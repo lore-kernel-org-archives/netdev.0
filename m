@@ -1,81 +1,41 @@
-From: "Li Yang" <LeoLi@freescale.com>
-Subject: RE: [PATCH] ucc_geth: Add 8 bytes to max TX frame for VLANs
-Date: Fri, 21 Mar 2008 20:20:34 +0800
-Message-ID: <989B956029373F45A0B8AF029708189001D19565@zch01exm26.fsl.freescale.net>
-References: <> <1205853088-30171-1-git-send-email-Joakim.Tjernlund@transmode.se>
+From: Henrique de Moraes Holschuh <hmh-N3TV7GIv+o9fyO9Q7EP/yw@public.gmane.org>
+Subject: Re: use of preempt_count instead of in_atomic() at leds-gpio.c
+Date: Fri, 21 Mar 2008 09:37:08 -0300
+Message-ID: <20080321123708.GE5586@khazad-dum.debian.net>
+References: <20080316184349.GA28543@khazad-dum.debian.net> <200803161246.23909.david-b@pacbell.net> <20080318001429.896acf51.akpm@linux-foundation.org> <20080320225612.GB20788@khazad-dum.debian.net> <20080320164741.734e838c.akpm@linux-foundation.org> <20080321003604.GC20788@khazad-dum.debian.net> <20080320180802.426ad2d1.akpm@linux-foundation.org> <47E37E04.3080303@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "Joakim Tjernlund" <Joakim.Tjernlund@transmode.se>,
-	"Netdev" <netdev@vger.kernel.org>,
-	"Linuxppc-Embedded@Ozlabs.Org" <linuxppc-embedded@ozlabs.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:33071 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751395AbYCUMUl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2008 08:20:41 -0400
-Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
-	by de01egw01.freescale.net (8.12.11/az33egw01) with ESMTP id m2LCKadi025540
-	for <netdev@vger.kernel.org>; Fri, 21 Mar 2008 05:20:37 -0700 (MST)
-Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
-	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id m2LCKZ2r011048
-	for <netdev@vger.kernel.org>; Fri, 21 Mar 2008 07:20:35 -0500 (CDT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1205853088-30171-1-git-send-email-Joakim.Tjernlund@transmode.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>,
+	Richard Purdie <rpurdie-Fm38FmjxZ/leoWH0uzbU5w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	video4linux-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, lm-sensors-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org
+To: Stefan Richter <stefanr-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <47E37E04.3080303-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org 
-> [mailto:netdev-owner@vger.kernel.org] On Behalf Of Joakim Tjernlund
-> Sent: Tuesday, March 18, 2008 11:11 PM
-> To: Netdev; Li Yang
-> Cc: Joakim Tjernlund
-> Subject: [PATCH] ucc_geth: Add 8 bytes to max TX frame for VLANs
-> 
-> Creating a VLAN interface on top of ucc_geth adds 4 bytes to 
-> the frame and the HW controller is not prepared to TX a frame 
-> bigger than 1518 bytes which is 4 bytes too small for a full 
-> VLAN frame. Also add 4 extra bytes for future expansion.
+On Fri, 21 Mar 2008, Stefan Richter wrote:
+> and eth1394 to deal with temporary lack of of tlabels.  Alas I just  
+> recently received a report that eth1394's workaround is unsuccessful on  
+> non-preemptible uniprocessor kernels.  I suspect the same issue exists  
 
-IMO, VLAN and Jumbo packet support is not general case of Ethernet.
-Could you make this change optional?  Thanks.
+Which, I think, is exactly the config where in_atomic() can't be used to
+mean "in_scheduleable_context()" ?
 
-- Leo
-
-> 
-> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> ---
->  drivers/net/ucc_geth.c |    6 +++---
->  1 files changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c 
-> index 348892b..038ec75 100644
-> --- a/drivers/net/ucc_geth.c
-> +++ b/drivers/net/ucc_geth.c
-> @@ -114,10 +114,10 @@ static struct ucc_geth_info 
-> ugeth_primary_info = {
->  	.maxGroupAddrInHash = 4,
->  	.maxIndAddrInHash = 4,
->  	.prel = 7,
-> -	.maxFrameLength = 1518,
-> +	.maxFrameLength = 1518+8, /* Add 4 bytes for VLAN tags 
-> and 4 extra 
-> +bytes */
->  	.minFrameLength = 64,
-> -	.maxD1Length = 1520,
-> -	.maxD2Length = 1520,
-> +	.maxD1Length = 1520+8,
-> +	.maxD2Length = 1520+8,
->  	.vlantype = 0x8100,
->  	.ecamptr = ((uint32_t) NULL),
->  	.eventRegMask = UCCE_OTHER,
-> --
-> 1.5.4.3
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe 
-> netdev" in the body of a message to majordomo@vger.kernel.org 
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+-- 
+  "One disk to rule them all, One disk to find them. One disk to bring
+  them all and in the darkness grind them. In the Land of Redmond
+  where the shadows lie." -- The Silicon Valley Tarot
+  Henrique Holschuh
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
