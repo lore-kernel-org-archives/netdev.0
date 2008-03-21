@@ -1,36 +1,39 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [AX25] kernel panic
-Date: Fri, 21 Mar 2008 01:28:47 +0100
-Message-ID: <20080321002846.GA25568@ami.dom.local>
-References: <47DF9D21.20807@free.fr> <20080318212531.GA2031@electric-eye.fr.zoreil.com> <47E0C261.3000106@free.fr> <47E17E2E.9050105@free.fr> <20080320073021.GA4037@ff.dom.local> <47E2EC1B.9070405@free.fr>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH] FIB_TRIE: RCU refine
+Date: Fri, 21 Mar 2008 08:19:40 +0800
+Message-ID: <47E2FF1C.7060802@cn.fujitsu.com>
+References: <47E1F2DB.20204@cn.fujitsu.com> <20080320083544.581d309c@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jarek Poplawski <jarkao2@o2.pl>
-To: Bernard Pidoux <bpidoux@free.fr>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.191]:51041 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750858AbYCUAWM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2008 20:22:12 -0400
-Received: by mu-out-0910.google.com with SMTP id i10so1629559mue.5
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2008 17:22:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <47E2EC1B.9070405@free.fr>
+Received: from cn.fujitsu.com ([222.73.24.84]:56912 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750916AbYCUAWy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2008 20:22:54 -0400
+In-Reply-To: <20080320083544.581d309c@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 20, 2008 at 11:58:35PM +0100, Bernard Pidoux wrote:
-...
-> I recompiled the kernel after turning off the above options.
-> However there is still a kernel panic documented below.
-> Does it help ?
+Stephen Hemminger said the following on 2008-3-20 23:35:
+>> David, sorry to send this patch again.
+>> I sent it yesterday, but seems that it was refused by
+>> netdev maillist. I subscribed the mailist and send it
+>> again.
+>>
+>> On reader side, RCU list-traversal functions, such as
+>> *list_for_each_entry_rcu(), should be within an RCU
+>> read-side critical section.
+>>
+>> Surround them by rcu_read_*lock()
+> 
+> This patch is unnecessary since rcu_read_lock is already fib_trie_seq_start
+> and fib_trie_seq_stop.
+> 
 
-I wanted to see something more on the stack than lockdep's code only.
-Will see... It seems some memory debugging is still on and doing this
-poisoning with '6b', but I can't check now what it is. (Sometimes this
-could omit some warnings).
+I see.
+Thank you, Stephen.
 
-Thanks,
-Jarek P.
