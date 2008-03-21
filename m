@@ -1,41 +1,32 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [net-2.6.26 patch 0/6][NETNS][IPV6] handling more proc per namespace
-Date: Fri, 21 Mar 2008 11:59:49 +0100
-Message-ID: <47E39525.5070603@fr.ibm.com>
-References: <20080313114609.176640638@mai.toulouse-stg.fr.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: possible lockdep crash
+Date: Fri, 21 Mar 2008 04:04:08 -0700 (PDT)
+Message-ID: <20080321.040408.153242166.davem@davemloft.net>
+References: <20080321093052.M39677@visp.net.lb>
+	<20080321.033530.249188954.davem@davemloft.net>
+	<20080321105404.M46676@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benjamin.thery@bull.net, den@openvz.org
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: denys@visp.net.lb
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.de.ibm.com ([195.212.29.152]:12955 "EHLO
-	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753544AbYCULAV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2008 07:00:21 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate3.de.ibm.com (8.13.8/8.13.8) with ESMTP id m2LB0K6W176544
-	for <netdev@vger.kernel.org>; Fri, 21 Mar 2008 11:00:20 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m2LB0Khm1622178
-	for <netdev@vger.kernel.org>; Fri, 21 Mar 2008 12:00:20 +0100
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m2LB0Jqc016534
-	for <netdev@vger.kernel.org>; Fri, 21 Mar 2008 12:00:20 +0100
-In-Reply-To: <20080313114609.176640638@mai.toulouse-stg.fr.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47968
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754247AbYCULDv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2008 07:03:51 -0400
+In-Reply-To: <20080321105404.M46676@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Lezcano wrote:
-> This patchset makes tcp6/udp6 to have their proc files to be per
-> namespace. This is useful for netstat :)  
-> It fixes also a compilation warning for multicast.
-> 
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Date: Fri, 21 Mar 2008 12:54:50 +0200
 
-Hi David,
+> Let me know if i can improve output to help debugging.
+> If possible it must be minimal risk to hang, cause router is in very 
+> difficult to reach area.
 
-I sent this patchset more than 1 week ago, I know you were very busy 
-with your presentations in Japan. Shall I resend them ? or do you have 
-them in your backlog ?
+Can you disable lockdep and see if the problem persists?
 
-  -- Daniel
+It's killing your routing performance anyways, I have no
+idea why you have it enabled.
