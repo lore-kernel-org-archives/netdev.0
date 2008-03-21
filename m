@@ -1,140 +1,68 @@
-From: Andrew Morton <akpm@linux-foundation.org>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
 Subject: Re: use of preempt_count instead of in_atomic() at leds-gpio.c
-Date: Thu, 20 Mar 2008 18:08:02 -0700
-Message-ID: <20080320180802.426ad2d1.akpm@linux-foundation.org>
-References: <20080316184349.GA28543@khazad-dum.debian.net>
-	<200803161246.23909.david-b@pacbell.net>
-	<20080318001429.896acf51.akpm@linux-foundation.org>
-	<20080320225612.GB20788@khazad-dum.debian.net>
-	<20080320164741.734e838c.akpm@linux-foundation.org>
-	<20080321003604.GC20788@khazad-dum.debian.net>
+Date: Thu, 20 Mar 2008 21:31:44 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.0803202126240.11234-100000@netrider.rowland.org>
+References: <20080320180802.426ad2d1.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Brownell <david-b@pacbell.net>,
-	Richard Purdie <rpurdie@rpsys.net>,
-	linux-kernel@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	netdev@vger.kernel.org,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
-	video4linux-list@redhat.com,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	lm-sensors@lm-sensors.org
-To: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756599AbYCUBKZ@vger.kernel.org>
-In-Reply-To: <20080321003604.GC20788@khazad-dum.debian.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Henrique de Moraes Holschuh <hmh-N3TV7GIv+o9fyO9Q7EP/yw@public.gmane.org>,
+	David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>,
+	Richard Purdie <rpurdie-Fm38FmjxZ/leoWH0uzbU5w@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<video4linux-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Stefan Richter <stefanr-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>,
+	<lm-sensors-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org>
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080320180802.426ad2d1.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Mar 2008 21:36:04 -0300 Henrique de Moraes Holschuh <hmh@hmh.eng.br> wrote:
+On Thu, 20 Mar 2008, Andrew Morton wrote:
 
-> Well, so far so good for LEDs, but what about the other users of in_atomic
-> that apparently should not be doing it either?
+> On Thu, 20 Mar 2008 21:36:04 -0300 Henrique de Moraes Holschuh <hmh-N3TV7GIv+o9fyO9Q7EP/yw@public.gmane.org> wrote:
+> 
+> > Well, so far so good for LEDs, but what about the other users of in_atomic
+> > that apparently should not be doing it either?
+> 
+> Ho hum.  Lots of cc's added.
 
-Ho hum.  Lots of cc's added.
+...
 
+> The usual pattern for most of the above is
+> 
+> 	if (!in_atomic())
+> 		do_something_which_might_sleep();
+> 
+> problem is, in_atomic() returns false inside spinlock on non-preptible
+> kernels.  So if anyone calls those functions inside spinlock they will
+> incorrectly schedule and another task can then come in and try take the
+> already-held lock.
+> 
+> Now, it happens that in_atomic() returns true on non-preemtible kernels
+> when running in interrupt or softirq context.  But if the above code really
+> is using in_atomic() to detect am-i-called-from-interrupt and NOT
+> am-i-called-from-inside-spinlock, they should be using in_irq(),
+> in_softirq() or in_interrupt().
 
+Presumably most of these places are actually trying to detect 
+am-i-allowed-to-sleep.  Isn't that what in_atomic() is supposed to do?  
+Why doesn't it do that in non-preemptible kernels?
 
-./arch/x86/mm/pageattr.c
+For that matter, isn't it also the sort of thing that might_sleep() is 
+supposed to check?  But looking at the definitions in 
+include/linux/kernel.h, it appears that might_sleep() does nothing at 
+all when neither CONFIG_PREEMPT_VOLUNTARY nor 
+CONFIG_DEBUG_SPINLOCK_SLEEP is set.
 
-  Looks wrong.
+Alan Stern
 
-./arch/m68k/atari/time.c
-
-  Possibly buggy: deadlockable
-
-./sound/core/seq/seq_virmidi.c
-
-  Possibly buggy
-
-./net/iucv/iucv.c
-./kernel/power/process.c
-
-  Just a debug check.
-
-./drivers/s390/char/sclp_tty.c
-
-  Possibly buggy: deadlockable
-  
-./drivers/s390/char/sclp_vt220.c
-
-  Possibly buggy: deadlockable
-
-./drivers/s390/net/netiucv.c
-
-  Possibly buggy: deadlockable
-
-./drivers/char/isicom.c
-
-  Possibly buggy: deadlockable
-
-./drivers/usb/misc/sisusbvga/sisusb_con.c
-
-  Possibly buggy: deadlockable
-
-./drivers/net/usb/pegasus.c
-
-  Possibly buggy: deadlockable (I assume)
-
-./drivers/net/wireless/airo.c
-
-  Possibly buggy: deadlockable
-
-./drivers/net/wireless/rt2x00/rt73usb.c
-
-  Possibly buggy: deadlockable (I assume)
-
-./drivers/net/wireless/rt2x00/rt2500usb.c
-
-  Possibly buggy: deadlockable (I assume)
-
-./drivers/net/wireless/hostap/hostap_ioctl.c
-
-  Possibly buggy: deadlockable (I assume)
-
-./drivers/net/wireless/zd1211rw/zd_usb.c
-
-  Possibly buggy: deadlockable (I assume)
-
-./drivers/net/irda/sir_dev.c
-
-  Possibly buggy: deadlockable
-
-./drivers/net/netxen/netxen_nic_niu.c
-
-  Possibly buggy: deadlockable
-
-./drivers/net/netxen/netxen_nic_init.c
-
-  Possibly buggy: deadlockable
-
-./drivers/ieee1394/ieee1394_transactions.c
-
-  Possibly buggy: deadlockable
-
-./drivers/video/amba-clcd.c
-
-  Possibly buggy: deadlockable
-
-./drivers/i2c/i2c-core.c
-
-  Possibly buggy: deadlockable
-
-
-The usual pattern for most of the above is
-
-	if (!in_atomic())
-		do_something_which_might_sleep();
-
-problem is, in_atomic() returns false inside spinlock on non-preptible
-kernels.  So if anyone calls those functions inside spinlock they will
-incorrectly schedule and another task can then come in and try take the
-already-held lock.
-
-Now, it happens that in_atomic() returns true on non-preemtible kernels
-when running in interrupt or softirq context.  But if the above code really
-is using in_atomic() to detect am-i-called-from-interrupt and NOT
-am-i-called-from-inside-spinlock, they should be using in_irq(),
-in_softirq() or in_interrupt().
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
