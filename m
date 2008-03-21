@@ -1,104 +1,176 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 8/9] ixgb: remove irq_sem
-Date: Fri, 21 Mar 2008 11:07:03 -0700
-Message-ID: <20080321180703.24164.49258.stgit@localhost.localdomain>
+Subject: [PATCH 6/9] e1000e: remove irq_sem
+Date: Fri, 21 Mar 2008 11:06:52 -0700
+Message-ID: <20080321180652.24164.86255.stgit@localhost.localdomain>
 References: <20080321180625.24164.46137.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
 To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:41394 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753106AbYCUSSW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Mar 2008 14:18:22 -0400
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 In-Reply-To: <20080321180625.24164.46137.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-ixgb can remove irq_sem by auditing all the call sites to make sure
-that each of them makes sure the adapter is in the correct state
-before re-enabling interrupts.  after doing this to all of our other
-drivers it is becoming easier.
+irq_sem can safely be removed by auditing all irq.*able sites to
+make sure that interrupts don't get enabled unexpectedly when the
+interface is down.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/ixgb/ixgb.h      |    1 -
- drivers/net/ixgb/ixgb_main.c |   18 ++++++------------
- 2 files changed, 6 insertions(+), 13 deletions(-)
+ drivers/net/e1000e/e1000.h  |    3 ---
+ drivers/net/e1000e/netdev.c |   37 ++++++++++++++-----------------------
+ 2 files changed, 14 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ixgb/ixgb.h b/drivers/net/ixgb/ixgb.h
-index a95ab55..f2fff90 100644
---- a/drivers/net/ixgb/ixgb.h
-+++ b/drivers/net/ixgb/ixgb.h
-@@ -158,7 +158,6 @@ struct ixgb_adapter {
- 	uint16_t link_speed;
- 	uint16_t link_duplex;
- 	spinlock_t tx_lock;
--	atomic_t irq_sem;
- 	struct work_struct tx_timeout_task;
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 6e0c6ed..4bf0c6c 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -167,9 +167,6 @@ struct e1000_adapter {
  
- 	struct timer_list blink_timer;
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index d9688bb..9c9bf31 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -197,7 +197,6 @@ module_exit(ixgb_exit_module);
- static void
- ixgb_irq_disable(struct ixgb_adapter *adapter)
- {
+ 	spinlock_t tx_queue_lock; /* prevent concurrent tail updates */
+ 
+-	/* this is still needed for 82571 and above */
+-	atomic_t irq_sem;
+-
+ 	/* track device up/down/testing state */
+ 	unsigned long state;
+ 
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index fc5c63f..f501dd5 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -836,9 +836,7 @@ static irqreturn_t e1000_intr_msi(int irq, void *data)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 icr = er32(ICR);
+ 
+-	/* read ICR disables interrupts using IAM, so keep up with our
+-	 * enable/disable accounting */
 -	atomic_inc(&adapter->irq_sem);
- 	IXGB_WRITE_REG(&adapter->hw, IMC, ~0);
- 	IXGB_WRITE_FLUSH(&adapter->hw);
- 	synchronize_irq(adapter->pdev->irq);
-@@ -211,14 +210,12 @@ ixgb_irq_disable(struct ixgb_adapter *adapter)
- static void
- ixgb_irq_enable(struct ixgb_adapter *adapter)
++	/* read ICR disables interrupts using IAM */
+ 
+ 	if (icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC)) {
+ 		hw->mac.get_link_status = 1;
+@@ -868,8 +866,6 @@ static irqreturn_t e1000_intr_msi(int irq, void *data)
+ 		adapter->total_rx_bytes = 0;
+ 		adapter->total_rx_packets = 0;
+ 		__netif_rx_schedule(netdev, &adapter->napi);
+-	} else {
+-		atomic_dec(&adapter->irq_sem);
+ 	}
+ 
+ 	return IRQ_HANDLED;
+@@ -895,11 +891,8 @@ static irqreturn_t e1000_intr(int irq, void *data)
+ 	if (!(icr & E1000_ICR_INT_ASSERTED))
+ 		return IRQ_NONE;
+ 
+-	/* Interrupt Auto-Mask...upon reading ICR,
+-	 * interrupts are masked.  No need for the
+-	 * IMC write, but it does mean we should
+-	 * account for it ASAP. */
+-	atomic_inc(&adapter->irq_sem);
++	/* Interrupt Auto-Mask...upon reading ICR, interrupts are masked.  No
++	 * need for the IMC write */
+ 
+ 	if (icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC)) {
+ 		hw->mac.get_link_status = 1;
+@@ -931,8 +924,6 @@ static irqreturn_t e1000_intr(int irq, void *data)
+ 		adapter->total_rx_bytes = 0;
+ 		adapter->total_rx_packets = 0;
+ 		__netif_rx_schedule(netdev, &adapter->napi);
+-	} else {
+-		atomic_dec(&adapter->irq_sem);
+ 	}
+ 
+ 	return IRQ_HANDLED;
+@@ -983,7 +974,6 @@ static void e1000_irq_disable(struct e1000_adapter *adapter)
  {
--	if(atomic_dec_and_test(&adapter->irq_sem)) {
--		u32 val = IXGB_INT_RXT0 | IXGB_INT_RXDMT0 |
--			  IXGB_INT_TXDW | IXGB_INT_LSC;
--		if (adapter->hw.subsystem_vendor_id == SUN_SUBVENDOR_ID)
--			val |= IXGB_INT_GPI0;
--		IXGB_WRITE_REG(&adapter->hw, IMS, val);
--		IXGB_WRITE_FLUSH(&adapter->hw);
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
+-	atomic_inc(&adapter->irq_sem);
+ 	ew32(IMC, ~0);
+ 	e1e_flush();
+ 	synchronize_irq(adapter->pdev->irq);
+@@ -996,10 +986,8 @@ static void e1000_irq_enable(struct e1000_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
+-	if (atomic_dec_and_test(&adapter->irq_sem)) {
+-		ew32(IMS, IMS_ENABLE_MASK);
+-		e1e_flush();
 -	}
-+	u32 val = IXGB_INT_RXT0 | IXGB_INT_RXDMT0 |
-+		  IXGB_INT_TXDW | IXGB_INT_LSC;
-+	if (adapter->hw.subsystem_vendor_id == SUN_SUBVENDOR_ID)
-+		val |= IXGB_INT_GPI0;
-+	IXGB_WRITE_REG(&adapter->hw, IMS, val);
-+	IXGB_WRITE_FLUSH(&adapter->hw);
++	ew32(IMS, IMS_ENABLE_MASK);
++	e1e_flush();
  }
  
- int
-@@ -305,7 +302,6 @@ ixgb_down(struct ixgb_adapter *adapter, bool kill_watchdog)
+ /**
+@@ -1427,9 +1415,12 @@ static void e1000_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 vfta, index;
  
- #ifdef CONFIG_IXGB_NAPI
+-	e1000_irq_disable(adapter);
++	if (!test_bit(__E1000_DOWN, &adapter->state))
++		e1000_irq_disable(adapter);
+ 	vlan_group_set_device(adapter->vlgrp, vid, NULL);
+-	e1000_irq_enable(adapter);
++
++	if (!test_bit(__E1000_DOWN, &adapter->state))
++		e1000_irq_enable(adapter);
+ 
+ 	if ((adapter->hw.mng_cookie.status &
+ 	     E1000_MNG_DHCP_COOKIE_STATUS_VLAN) &&
+@@ -1480,7 +1471,8 @@ static void e1000_vlan_rx_register(struct net_device *netdev,
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 ctrl, rctl;
+ 
+-	e1000_irq_disable(adapter);
++	if (!test_bit(__E1000_DOWN, &adapter->state))
++		e1000_irq_disable(adapter);
+ 	adapter->vlgrp = grp;
+ 
+ 	if (grp) {
+@@ -1517,7 +1509,8 @@ static void e1000_vlan_rx_register(struct net_device *netdev,
+ 		}
+ 	}
+ 
+-	e1000_irq_enable(adapter);
++	if (!test_bit(__E1000_DOWN, &adapter->state))
++		e1000_irq_enable(adapter);
+ }
+ 
+ static void e1000_restore_vlan(struct e1000_adapter *adapter)
+@@ -2167,7 +2160,6 @@ void e1000e_down(struct e1000_adapter *adapter)
+ 	msleep(10);
+ 
  	napi_disable(&adapter->napi);
 -	atomic_set(&adapter->irq_sem, 0);
- #endif
- 	/* waiting for NAPI to complete can re-enable interrupts */
- 	ixgb_irq_disable(adapter);
-@@ -594,7 +590,6 @@ ixgb_sw_init(struct ixgb_adapter *adapter)
- 	/* enable flow control to be programmed */
- 	hw->fc.send_xon = 1;
+ 	e1000_irq_disable(adapter);
  
--	atomic_set(&adapter->irq_sem, 1);
- 	spin_lock_init(&adapter->tx_lock);
+ 	del_timer_sync(&adapter->watchdog_timer);
+@@ -2227,7 +2219,6 @@ static int __devinit e1000_sw_init(struct e1000_adapter *adapter)
+ 	spin_lock_init(&adapter->tx_queue_lock);
  
- 	set_bit(__IXGB_DOWN, &adapter->flags);
-@@ -1774,7 +1769,6 @@ ixgb_intr(int irq, void *data)
- 		  of the posted write is intentionally left out.
- 		*/
+ 	/* Explicitly disable IRQ since the NIC can be in any state. */
+-	atomic_set(&adapter->irq_sem, 0);
+ 	e1000_irq_disable(adapter);
  
--		atomic_inc(&adapter->irq_sem);
- 		IXGB_WRITE_REG(&adapter->hw, IMC, ~0);
- 		__netif_rx_schedule(netdev, &adapter->napi);
- 	}
+ 	spin_lock_init(&adapter->stats_lock);
 
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
