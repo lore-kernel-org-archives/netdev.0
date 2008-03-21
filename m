@@ -1,236 +1,83 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [DCCP] [RFC] [Patch 1/1]: Deprecate dccp_so_feat interface
-Date: Fri, 21 Mar 2008 13:22:07 +0000
-Message-ID: <20080321132207.GB12850@gerrit.erg.abdn.ac.uk>
+From: Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
+Subject: Re: use of preempt_count instead of in_atomic() at leds-gpio.c
+Date: Fri, 21 Mar 2008 14:47:50 +0100
+Message-ID: <20080321134750.GB4128@osiris.boeblingen.de.ibm.com>
+References: <Pine.LNX.4.44L0.0803202126240.11234-100000@netrider.rowland.org> <200803210236.52063.mb@bu3sch.de> <20080320192719.6a32386e.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Arnaldo <acme@redhat.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:33298 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753637AbYCUNXD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Mar 2008 09:23:03 -0400
+Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Henrique de Moraes Holschuh <hmh-N3TV7GIv+o9fyO9Q7EP/yw@public.gmane.org>,
+	David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>,
+	Richard Purdie <rpurdie-Fm38FmjxZ/leoWH0uzbU5w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	video4linux-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	Stefan Richter <stefanr-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>,
+	lm-sensors-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20080320192719.6a32386e.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch regards the DCCP test tree and is with regard to removing
-the old socket interface (DCCP_SOCKOPT_CHANGE_L/R) which used the
-following struct:
+On Thu, Mar 20, 2008 at 07:27:19PM -0700, Andrew Morton wrote:
+> On Fri, 21 Mar 2008 02:36:51 +0100 Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> wrote:
+> > On Friday 21 March 2008 02:31:44 Alan Stern wrote:
+> > > On Thu, 20 Mar 2008, Andrew Morton wrote:
+> > > > On Thu, 20 Mar 2008 21:36:04 -0300 Henrique de Moraes Holschuh <hmh-N3TV7GIv+o9fyO9Q7EP/yw@public.gmane.org> wrote:
+> > > > 
+> > > > > Well, so far so good for LEDs, but what about the other users of in_atomic
+> > > > > that apparently should not be doing it either?
+> > > > 
+> > > > Ho hum.  Lots of cc's added.
+> > > 
+> > > ...
+> > > 
+> > > > The usual pattern for most of the above is
+> > > > 
+> > > > 	if (!in_atomic())
+> > > > 		do_something_which_might_sleep();
+> > > > 
+> > > > problem is, in_atomic() returns false inside spinlock on non-preptible
+> > > > kernels.  So if anyone calls those functions inside spinlock they will
+> > > > incorrectly schedule and another task can then come in and try take the
+> > > > already-held lock.
+> > > > 
+> > > > Now, it happens that in_atomic() returns true on non-preemtible kernels
+> > > > when running in interrupt or softirq context.  But if the above code really
+> > > > is using in_atomic() to detect am-i-called-from-interrupt and NOT
+> > > > am-i-called-from-inside-spinlock, they should be using in_irq(),
+> > > > in_softirq() or in_interrupt().
+> > > 
+> > > Presumably most of these places are actually trying to detect 
+> > > am-i-allowed-to-sleep.  Isn't that what in_atomic() is supposed to do?  
+> > 
+> > No, I think there is no such check in the kernel. Most likely for performance
+> > reasons, as it would require a global flag that is set on each spinlock.
+> 
+> Yup.  non-preemptible kernels avoid the inc/dec of
+> current_thread_info->preempt_count on spin_lock/spin_unlock
+> 
+> > You simply must always _know_, if you are allowed to sleep or not. This is
+> > done by defining an API. The call-context is part of any kernel API.
+> 
+> Yup.  99.99% of kernel code manages to do this...
 
-	struct dccp_so_feat {
-	      __u8            dccpsf_feat;
-	      void __user     *dccpsf_val;
-       	      _u8             dccpsf_len;
-	};
-
-Originally there was code to keep supporting this interface, but
-this was extremely ugly and unsafe (can be seen in the patch), since
-
-  * `dccpsf_val' can be either server-priority list or single value;
-  * if it is a single value, it requires typecasting as u64 (which
-    is the base format for NN values, to accommodate Sequence Window);
-  * it is very low-level - the test tree now handles the full 
-    negotiation handshake by itself; it is not necessary to set a
-    socket option to send ChangeL/R options.
-
-Some of the ugliness can be seen in the patch. The proposed replacement is:
-
-  * a separate socket option for all features of interest;
-  * two internal routines local to feat.c:
-    	__feat_register_sp() -- for Server-Priority features;
-    	__feat_register_nn() -- for Non-Negotiable features.
-  * wrappers around the internal functions to work with the sockopt code:
-    	dccp_feat_register_sp()
-	dccp_feat_register_nn()
-
-This patch keeps the old socket options and issues a warning - maybe it
-should also return a negative error code (EOPNOTSUPP)?
-
-To me this design seems cleaner & safer - comments welcome.
-
----
- include/linux/dccp.h |   12 ---------
- net/dccp/feat.c      |   67 +++++++++++++++++++++++++--------------------------
- net/dccp/feat.h      |    5 ++-
- net/dccp/proto.c     |    4 +--
- 4 files changed, 39 insertions(+), 49 deletions(-)
-
---- b/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -195,18 +195,6 @@
- 	DCCPF_MAX_CCID_SPECIFIC = 255,
- };
- 
--/**
-- * struct dccp_so_feat  -  setsockopt struct struct for DCCP_SOCKOPT_CHANGE_X
-- * @dccpsf_feat: feature number (from RFC 4340, 6.4 or related)
-- * @dccpsf_val: single u64 NN value or SP value (u8) plus preference list (u8)
-- * @dccpsf_len: length of @dccpsf_val in bytes (ie. 8 when NN, min 1 when SP)
-- */
--struct dccp_so_feat {
--	__u8		dccpsf_feat;
--	void __user	*dccpsf_val;
--	__u8		dccpsf_len;
--};
--
- /* DCCP socket options */
- #define DCCP_SOCKOPT_PACKET_SIZE	1 /* XXX deprecated, without effect */
- #define DCCP_SOCKOPT_SERVICE		2
---- b/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -535,9 +508,9 @@
- 		DCCP_WARN("sockopt(PACKET_SIZE) is deprecated: fix your app\n");
- 		return 0;
- 	case DCCP_SOCKOPT_CHANGE_L:
--		return dccp_setsockopt_change(sk, optval, optlen, true);
- 	case DCCP_SOCKOPT_CHANGE_R:
--		return dccp_setsockopt_change(sk, optval, optlen, false);
-+		DCCP_WARN("sockopt(CHANGE_L/R) is deprecated: fix your app\n");
-+		return 0;
- 	case DCCP_SOCKOPT_CCID:
- 	case DCCP_SOCKOPT_RX_CCID:
- 	case DCCP_SOCKOPT_TX_CCID:
---- b/net/dccp/feat.h
-+++ b/net/dccp/feat.h
-@@ -108,8 +108,9 @@
- 
- extern int  dccp_feat_init(struct sock *sk);
- extern void dccp_feat_initialise_sysctls(void);
--extern int  dccp_feat_register_change(struct sock *sk, u8 feat,
--				      u8 is_local, u8 *val, u8 len);
-+extern int  dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
-+				  u8 const *list, u8 len);
-+extern int  dccp_feat_register_nn(struct sock *sk, u8 feat, u64 val);
- extern int  dccp_feat_parse_options(struct sock *, struct dccp_request_sock *,
- 				    u8 mand, u8 opt, u8 feat, u8 *val, u8 len);
- extern int  dccp_feat_clone_list(struct list_head const *, struct list_head *);
---- b/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -668,15 +668,15 @@
- }
- 
- /**
-- * dccp_feat_register_nn  -  Register new NN value on socket
-+ * __feat_register_nn  -  Register new NN value on socket
-  * @fn: feature-negotiation list to register with
-  * @feat: an NN feature from %dccp_feature_numbers
-  * @mandatory: use Mandatory option if 1
-  * @nn_val: value to register (restricted to 4 bytes)
-  * Note that NN features are local by definition (RFC 4340, 6.3.2).
-  */
--static int dccp_feat_register_nn(struct list_head *fn, u8 feat,
--				 u8 mandatory, u64 nn_val)
-+static int __feat_register_nn(struct list_head *fn, u8 feat,
-+			      u8 mandatory, u64 nn_val)
- {
- 	dccp_feat_val fval = { .nn = nn_val };
- 
-@@ -692,7 +692,7 @@
- }
- 
- /**
-- * dccp_feat_register_sp  -  Register new SP value/list on socket
-+ * __feat_register_sp  -  Register new SP value/list on socket
-  * @fn: feature-negotiation list to register with
-  * @feat: an SP feature from %dccp_feature_numbers
-  * @is_local: whether the local (1) or the remote (0) @feat is meant
-@@ -700,8 +700,8 @@
-  * @sp_val: SP value followed by optional preference list
-  * @sp_len: length of @sp_val in bytes
-  */
--static int dccp_feat_register_sp(struct list_head *fn, u8 feat, u8 is_local,
--				 u8 mandatory, u8 const *sp_val, u8 sp_len)
-+static int __feat_register_sp(struct list_head *fn, u8 feat, u8 is_local,
-+			      u8 mandatory, u8 const *sp_val, u8 sp_len)
- {
- 	dccp_feat_val fval;
- 
-@@ -720,32 +720,33 @@
- }
- 
- /**
-- * dccp_feat_register_change  -  Register requests for feature negotiation
-+ * dccp_feat_register_sp  -  Register requests to change SP feature values
-  * @sk: client or listening socket
-  * @feat: one of %dccp_feature_numbers
-  * @is_local: whether the local (1) or remote (0) @feat is meant
-- * @val: either interpreted as u64* (NN) or u8* value/list (SP)
-- * @len: length of @val in bytes
-+ * @list: array of preferred values, in descending order of preference
-+ * @len: length of @list in bytes
-  */
--int dccp_feat_register_change(struct sock *sk, u8 feat, u8 is_local,
--			      u8 *val, u8 len)
--{
--	struct list_head *fn = &dccp_sk(sk)->dccps_featneg;
--	u8 type = dccp_feat_type(feat);
-+int dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
-+			  u8 const *list, u8 len)
-+{	 /* any changes must be registered before establishing the connection */
-+	if (sk->sk_state != DCCP_CLOSED)
-+		return -EISCONN;
-+	if (dccp_feat_type(feat) != FEAT_SP)
-+		return -EINVAL;
-+	return __feat_register_sp(&dccp_sk(sk)->dccps_featneg, feat, is_local,
-+				  0, list, len);
-+}
- 
-+/* Analogous to dccp_feat_register_sp(), but for non-negotiable values */
-+int dccp_feat_register_nn(struct sock *sk, u8 feat, u64 val)
-+{
- 	/* any changes must be registered before establishing the connection */
- 	if (sk->sk_state != DCCP_CLOSED)
- 		return -EISCONN;
--
--	if (type == FEAT_SP)
--		return dccp_feat_register_sp(fn, feat, is_local, 0, val, len);
--	else if (type == FEAT_NN) {
--		/* Change R is invalid for NN (6.3.2) */
--		if (len != sizeof(u64) || !is_local)
--			return -EINVAL;
--		return dccp_feat_register_nn(fn, feat, 0, *(u64 *)val);
--	}
--	return -EINVAL;
-+	if (dccp_feat_type(feat) != FEAT_NN)
-+		return -EINVAL;
-+	return __feat_register_nn(&dccp_sk(sk)->dccps_featneg, feat, 0, val);
- }
- 
- /**
-@@ -906,14 +907,14 @@
- 
- 	for (i = 0; rc == 0 && table[i].dependent_feat != DCCPF_RESERVED; i++)
- 		if (dccp_feat_type(table[i].dependent_feat) == FEAT_SP)
--			rc = dccp_feat_register_sp(fn, table[i].dependent_feat,
--						       table[i].is_local,
--						       table[i].is_mandatory,
--						      &table[i].val, 1);
-+			rc = __feat_register_sp(fn, table[i].dependent_feat,
-+						    table[i].is_local,
-+						    table[i].is_mandatory,
-+						    &table[i].val, 1);
- 		else
--			rc = dccp_feat_register_nn(fn, table[i].dependent_feat,
--						       table[i].is_mandatory,
--						       table[i].val);
-+			rc = __feat_register_nn(fn, table[i].dependent_feat,
-+						    table[i].is_mandatory,
-+						    table[i].val);
- 	return rc;
- }
- 
-@@ -1446,10 +1447,10 @@
- 		rc = -ENOPROTOOPT;
- 
- 	for (i = 0; rc == 0 && i < ARRAY_SIZE(nn); i++)
--		rc = dccp_feat_register_nn(fn, nn[i].feat_num, 0, nn[i].val);
-+		rc = __feat_register_nn(fn, nn[i].feat_num, 0, nn[i].val);
- 
- 	for (i = 0; rc == 0 && i < ARRAY_SIZE(sp); i++)
--		rc = dccp_feat_register_sp(fn, sp[i].feat_num, sp[i].is_local,
-+		rc = __feat_register_sp(fn, sp[i].feat_num, sp[i].is_local,
- 					sp[i].mandatory, sp[i].val, sp[i].len);
- 
- 	kfree(sp[0].val);
+This is difficult for console drivers. They get called and are supposed to
+print something and don't have the slightest clue which context they are
+running in and if they are allowed to schedule.
+This is the problem with e.g. s390's sclp driver. If there are no write
+buffers available anymore it tries to allocate memory if schedule is allowed
+or otherwise has to wait until finally a request finished and memory is
+available again.
+And now we have to always busy wait if we are out of buffers, since we
+cannot tell which context we are in?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
