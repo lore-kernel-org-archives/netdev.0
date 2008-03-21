@@ -1,70 +1,83 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 9/9] ixgb: remove unused variable
-Date: Fri, 21 Mar 2008 11:07:08 -0700
-Message-ID: <20080321180708.24164.56221.stgit@localhost.localdomain>
-References: <20080321180625.24164.46137.stgit@localhost.localdomain>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-2.6.26] netlink: make socket filters work on netlink
+Date: Fri, 21 Mar 2008 11:05:15 -0700
+Message-ID: <20080321110515.422f9798@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: jeff@garzik.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, Jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:41394 "EHLO mga11.intel.com"
+Received: from mail.vyatta.com ([216.93.170.194]:41750 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754956AbYCUSSX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Mar 2008 14:18:23 -0400
-In-Reply-To: <20080321180625.24164.46137.stgit@localhost.localdomain>
+	id S1754462AbYCUS7y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Mar 2008 14:59:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+Make socket filters work for netlink unicast and notifications.
+This is useful for applications like Zebra that get overrun with
+messages that are then ignored.
 
-The variable num_group_tail_writes is initialized but never used otherwise.
+Note: netlink messages are in host byte order, but packet filter
+state machine operations are done as network byte order.
 
-The semantic patch that makes this change is as follows:
-(http://www.emn.fr/x-info/coccinelle/)
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-// <smpl>
-@@
-type T;
-identifier i;
-constant C;
-@@
-
-(
-extern T i;
-|
-- T i;
-  <+... when != i
-- i = C;
-  ...+>
-)
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
-
- drivers/net/ixgb/ixgb_main.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index 9c9bf31..c68b182 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -2092,14 +2092,12 @@ ixgb_alloc_rx_buffers(struct ixgb_adapter *adapter)
- 	struct ixgb_buffer *buffer_info;
- 	struct sk_buff *skb;
- 	unsigned int i;
--	int num_group_tail_writes;
- 	long cleancount;
+--- a/net/netlink/af_netlink.c	2008-03-21 09:35:54.000000000 -0700
++++ b/net/netlink/af_netlink.c	2008-03-21 11:00:51.000000000 -0700
+@@ -886,6 +886,13 @@ retry:
+ 	if (netlink_is_kernel(sk))
+ 		return netlink_unicast_kernel(sk, skb);
  
- 	i = rx_ring->next_to_use;
- 	buffer_info = &rx_ring->buffer_info[i];
- 	cleancount = IXGB_DESC_UNUSED(rx_ring);
++	if (sk_filter(sk, skb)) {
++		int err = skb->len;
++		kfree_skb(skb);
++		sock_put(sk);
++		return err;
++	}
++
+ 	err = netlink_attachskb(sk, skb, nonblock, &timeo, ssk);
+ 	if (err == 1)
+ 		goto retry;
+@@ -980,6 +987,9 @@ static inline int do_one_broadcast(struc
+ 		netlink_overrun(sk);
+ 		/* Clone failed. Notify ALL listeners. */
+ 		p->failure = 1;
++	} else if (sk_filter(sk, p->skb2)) {
++		kfree_skb(p->skb2);
++		p->skb2 = NULL;
+ 	} else if ((val = netlink_broadcast_deliver(sk, p->skb2)) < 0) {
+ 		netlink_overrun(sk);
+ 	} else {
+@@ -1533,8 +1543,13 @@ static int netlink_dump(struct sock *sk)
  
--	num_group_tail_writes = IXGB_RX_BUFFER_WRITE;
+ 	if (len > 0) {
+ 		mutex_unlock(nlk->cb_mutex);
+-		skb_queue_tail(&sk->sk_receive_queue, skb);
+-		sk->sk_data_ready(sk, len);
++
++		if (sk_filter(sk, skb))
++			kfree_skb(skb);
++		else {
++			skb_queue_tail(&sk->sk_receive_queue, skb);
++			sk->sk_data_ready(sk, skb->len);
++		}
+ 		return 0;
+ 	}
  
- 	/* leave three descriptors unused */
- 	while(--cleancount > 2) {
-
+@@ -1544,8 +1559,12 @@ static int netlink_dump(struct sock *sk)
+ 
+ 	memcpy(nlmsg_data(nlh), &len, sizeof(len));
+ 
+-	skb_queue_tail(&sk->sk_receive_queue, skb);
+-	sk->sk_data_ready(sk, skb->len);
++	if (sk_filter(sk, skb))
++		kfree_skb(skb);
++	else {
++		skb_queue_tail(&sk->sk_receive_queue, skb);
++		sk->sk_data_ready(sk, skb->len);
++	}
+ 
+ 	if (cb->done)
+ 		cb->done(cb);
