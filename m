@@ -1,57 +1,101 @@
-From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Subject: Re: use of preempt_count instead of in_atomic() at leds-gpio.c
-Date: Fri, 21 Mar 2008 10:04:04 -0700
-Message-ID: <200803211004.05106.david-b@pacbell.net>
-References: <20080316184349.GA28543@khazad-dum.debian.net> <20080321003604.GC20788@khazad-dum.debian.net> <20080320180802.426ad2d1.akpm@linux-foundation.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH net-2.6.26] fib_trie: RCU optimizations
+Date: Fri, 21 Mar 2008 18:25:04 +0100
+Message-ID: <47E3EF70.6080000@cosmosbay.com>
+References: <20080321075521.49347370@extreme> <20080321160103.GG9618@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Henrique de Moraes Holschuh <hmh-N3TV7GIv+o9fyO9Q7EP/yw@public.gmane.org>,
-	Richard Purdie <rpurdie-Fm38FmjxZ/leoWH0uzbU5w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
-	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	video4linux-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Stefan Richter <stefanr-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>,
-	lm-sensors-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080320180802.426ad2d1.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp28.orange.fr ([80.12.242.100]:9258 "EHLO smtp28.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756563AbYCURZO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2008 13:25:14 -0400
+In-Reply-To: <20080321160103.GG9618@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 20 March 2008, Andrew Morton wrote:
-> ./drivers/net/usb/pegasus.c
->=20
-> =A0 Possibly buggy: deadlockable (I assume)
+Paul E. McKenney a =E9crit :
+> On Fri, Mar 21, 2008 at 07:55:21AM -0700, Stephen Hemminger wrote:
+>  =20
+>> Small performance improvements.
+>>
+>> Eliminate unneeded barrier on deletion. The first pointer to update
+>> the head of the list is ordered by the second call to rcu_assign_poi=
+nter.
+>> See hlist_add_after_rcu or comparision.
+>>
+>> Move rcu_derference to the loop check (like hlist_for_each_rcu), and
+>> add a prefetch.
+>>    =20
+>
+> Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+>
+> Justification below.
+>
+>  =20
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>>
+>> --- a/net/ipv4/route.c	2008-03-19 08:45:32.000000000 -0700
+>> +++ b/net/ipv4/route.c	2008-03-19 08:54:57.000000000 -0700
+>> @@ -977,8 +977,8 @@ restart:
+>>  			 * must be visible to another weakly ordered CPU before
+>>  			 * the insertion at the start of the hash chain.
+>>  			 */
+>> -			rcu_assign_pointer(rth->u.dst.rt_next,
+>> -					   rt_hash_table[hash].chain);
+>> +			rth->u.dst.rt_next =3D rt_hash_table[hash].chain;
+>> +
+>>    =20
+>
+> This is OK because it is finalizing a deletion.  If this were instead
+> an insertion, this would of course be grossly illegal and dangerous.
+>
+>  =20
+>>  			/*
+>>  			 * Since lookup is lockfree, the update writes
+>>  			 * must be ordered for consistency on SMP.
+>> @@ -2076,8 +2076,9 @@ int ip_route_input(struct sk_buff *skb,=20
+>>  	hash =3D rt_hash(daddr, saddr, iif);
+>>
+>>  	rcu_read_lock();
+>> -	for (rth =3D rcu_dereference(rt_hash_table[hash].chain); rth;
+>> -	     rth =3D rcu_dereference(rth->u.dst.rt_next)) {
+>> +	for (rth =3D rt_hash_table[hash].chain; rcu_dereference(rth);
+>> +	     rth =3D rth->u.dst.rt_next) {
+>> +		prefetch(rth->u.dst.rt_next);
+>>  		if (rth->fl.fl4_dst =3D=3D daddr &&
+>>  		    rth->fl.fl4_src =3D=3D saddr &&
+>>  		    rth->fl.iif =3D=3D iif &&
+>>    =20
+>
+> Works, though I would guess that increasingly aggressive compiler
+> optimization will eventually force us to change the list.h macros
+> to look like what you had to begin with...  Sigh!!!
+>
+>  =20
 
-Looks just unecessary to me ... ethtool MII ops get called from
-a task context, as I recall, and other drivers just rely on that.
+Hum... I missed the original patch , but this prefetch() is wrong.
 
-- Dave
+On lookups, we dont want to prefetch the begining of "struct rtable"=20
+entries.
 
-=3D=3D=3D=3D=3D=3D=3D=3D=3D CUT HERE
-Remove superfluous in-atomic() check; ethtool MII ops are called
-from task context.
+We were very carefull in the past
+(=20
+http://git2.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.26.git;a=3Dc=
+ommit;h=3D1e19e02ca0c5e33ea73a25127dbe6c3b8fcaac4b=20
 
-Signed-off-by: David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
----
- drivers/net/usb/pegasus.c |    6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
-
---- g26.orig/drivers/net/usb/pegasus.c	2008-03-21 08:53:28.000000000 -0=
-700
-+++ g26/drivers/net/usb/pegasus.c	2008-03-21 08:54:07.000000000 -0700
-@@ -1128,12 +1128,8 @@ pegasus_get_settings(struct net_device *
- {
- 	pegasus_t *pegasus;
+[NET]: Reorder fields of struct dst_entry )
+ to place the "next pointer" at the end of "struct dst" so that lookups=
 =20
--	if (in_atomic())
--		return 0;
--
- 	pegasus =3D netdev_priv(dev);
- 	mii_ethtool_gset(&pegasus->mii, ecmd);
+only bring one cache line per entry.
+
+Thank you
+
+
+
+
