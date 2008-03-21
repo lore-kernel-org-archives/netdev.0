@@ -1,307 +1,137 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: kernel panic, ip_route_input, 2.6.25-rc6-git2
-Date: Fri, 21 Mar 2008 11:33:04 +0200
-Message-ID: <20080321093052.M39677@visp.net.lb>
+From: Bernard Pidoux <bpidoux@free.fr>
+Subject: Re: [AX25] kernel panic
+Date: Fri, 21 Mar 2008 10:40:58 +0100
+Message-ID: <47E382AA.5000804@free.fr>
+References: <47DF9D21.20807@free.fr> <20080318212531.GA2031@electric-eye.fr.zoreil.com> <47E0C261.3000106@free.fr> <47E17E2E.9050105@free.fr> <20080320073021.GA4037@ff.dom.local> <47E2EC1B.9070405@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jarek Poplawski <jarkao2@o2.pl>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:34183 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752422AbYCUJdN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2008 05:33:13 -0400
-Received: from visp.net.lb (localhost [127.0.0.1])
-	by usermail.globalproof.net (Postfix) with ESMTP id ABA94BC431
-	for <netdev@vger.kernel.org>; Fri, 21 Mar 2008 11:33:04 +0200 (EET)
+Received: from smtp5-g19.free.fr ([212.27.42.35]:41336 "EHLO smtp5-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752832AbYCUJlH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Mar 2008 05:41:07 -0400
+In-Reply-To: <47E2EC1B.9070405@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, after trying to boot 2.6.25-rc6-git2 on loaded router, got kernel panic 
-almost immediately (i am able to ssh, but router panic's in next 10-30 
-seconds)
+Hi Jarek,
 
-Here is netconsole output. It crashes also without netconsole (cause i heard 
-patch not in stable yet, i tried to not use netconsole to avoid this bug).
+Please ignore the spinlock report I sent in this previous message.
+I simply forgot to apply back your mkiss ax_bump() patch when doing some 
+trials.
 
+After applying again your patch and turning off the debug you asked for, 
+I observe exactly the same spinlock I first reported i.e. involving ax25ipd.
 
-Mar 21 11:26:46 ROUTER [   12.125124] BUG: unable to handle kernel
-Mar 21 11:26:46 ROUTER paging request
-Mar 21 11:26:46 ROUTER at c013d19a
-Mar 21 11:26:46 ROUTER [   12.125181] IP:
-Mar 21 11:26:46 ROUTER [<c0285798>] ip_route_input+0xa70/0xe56
-Mar 21 11:26:46 ROUTER [   12.125181] Oops: 0003 [#1]
-Mar 21 11:26:46 ROUTER SMP
-Mar 21 11:26:46 ROUTER
-Mar 21 11:26:46 ROUTER [   12.125181] Modules linked in:
-Mar 21 11:26:46 ROUTER softdog
-Mar 21 11:26:46 ROUTER nf_nat_pptp
-Mar 21 11:26:46 ROUTER nf_nat_proto_gre
-Mar 21 11:26:46 ROUTER nf_conntrack_pptp
-Mar 21 11:26:46 ROUTER nf_conntrack_proto_gre
-Mar 21 11:26:46 ROUTER netconsole
-Mar 21 11:26:46 ROUTER configfs
-Mar 21 11:26:46 ROUTER xt_tcpudp
-Mar 21 11:26:46 ROUTER ipt_TTL
-Mar 21 11:26:46 ROUTER ipt_ttl
-Mar 21 11:26:46 ROUTER xt_NOTRACK
-Mar 21 11:26:46 ROUTER iptable_raw
-Mar 21 11:26:46 ROUTER iptable_mangle
-Mar 21 11:26:46 ROUTER ifb
-Mar 21 11:26:46 ROUTER e1000e
-Mar 21 11:26:46 ROUTER em_nbyte
-Mar 21 11:26:46 ROUTER cls_tcindex
-Mar 21 11:26:46 ROUTER act_gact
-Mar 21 11:26:46 ROUTER cls_rsvp
-Mar 21 11:26:46 ROUTER sch_htb
-Mar 21 11:26:46 ROUTER cls_fw
-Mar 21 11:26:46 ROUTER act_mirred
-Mar 21 11:26:46 ROUTER em_u32
-Mar 21 11:26:46 ROUTER sch_red
-Mar 21 11:26:46 ROUTER sch_sfq
-Mar 21 11:26:46 ROUTER sch_tbf
-Mar 21 11:26:46 ROUTER sch_teql
-Mar 21 11:26:46 ROUTER cls_basic
-Mar 21 11:26:46 ROUTER act_police
-Mar 21 11:26:46 ROUTER sch_gred
-Mar 21 11:26:46 ROUTER act_pedit
-Mar 21 11:26:46 ROUTER sch_hfsc
-Mar 21 11:26:46 ROUTER cls_rsvp6
-Mar 21 11:26:46 ROUTER sch_ingress
-Mar 21 11:26:46 ROUTER em_meta
-Mar 21 11:26:46 ROUTER em_text
-Mar 21 11:26:46 ROUTER act_ipt
-Mar 21 11:26:46 ROUTER sch_dsmark
-Mar 21 11:26:46 ROUTER sch_prio
-Mar 21 11:26:46 ROUTER sch_netem
-Mar 21 11:26:46 ROUTER act_simple
-Mar 21 11:26:46 ROUTER cls_u32
-Mar 21 11:26:46 ROUTER em_cmp
-Mar 21 11:26:46 ROUTER sch_cbq
-Mar 21 11:26:46 ROUTER cls_route
-Mar 21 11:26:46 ROUTER xt_TCPMSS
-Mar 21 11:26:46 ROUTER iptable_nat
-Mar 21 11:26:46 ROUTER nf_conntrack_ipv4
-Mar 21 11:26:46 ROUTER ipt_LOG
-Mar 21 11:26:46 ROUTER ipt_MASQUERADE
-Mar 21 11:26:46 ROUTER ipt_REDIRECT
-Mar 21 11:26:46 ROUTER nf_nat
-Mar 21 11:26:46 ROUTER nf_conntrack
-Mar 21 11:26:46 ROUTER nfnetlink
-Mar 21 11:26:46 ROUTER iptable_filter
-Mar 21 11:26:46 ROUTER ip_tables
-Mar 21 11:26:46 ROUTER x_tables
-Mar 21 11:26:46 ROUTER 8021q
-Mar 21 11:26:46 ROUTER tun
-Mar 21 11:26:46 ROUTER tulip
-Mar 21 11:26:46 ROUTER r8169
-Mar 21 11:26:46 ROUTER sky2
-Mar 21 11:26:46 ROUTER via_velocity
-Mar 21 11:26:46 ROUTER via_rhine
-Mar 21 11:26:46 ROUTER sis900
-Mar 21 11:26:46 ROUTER ne2k_pci
-Mar 21 11:26:46 ROUTER 8390
-Mar 21 11:26:46 ROUTER skge
-Mar 21 11:26:46 ROUTER tg3
-Mar 21 11:26:46 ROUTER 8139too
-Mar 21 11:26:46 ROUTER e1000
-Mar 21 11:26:46 ROUTER e100
-Mar 21 11:26:46 ROUTER usb_storage
-Mar 21 11:26:46 ROUTER mtdblock
-Mar 21 11:26:46 ROUTER mtd_blkdevs
-Mar 21 11:26:46 ROUTER usbhid
-Mar 21 11:26:46 ROUTER uhci_hcd
-Mar 21 11:26:46 ROUTER ehci_hcd
-Mar 21 11:26:46 ROUTER ohci_hcd
-Mar 21 11:26:46 ROUTER usbcore
-Mar 21 11:26:46 ROUTER
-Mar 21 11:26:46 ROUTER [   12.125181]
-Mar 21 11:26:46 ROUTER [   12.125181] Pid: 0, comm: swapper Not tainted 
-(2.6.25-rc6-git2-build-0024 #8)
-Mar 21 11:26:46 ROUTER [   12.125181] EIP: 0060:[<c0285798>] EFLAGS: 00010286 
-CPU: 0
-Mar 21 11:26:46 ROUTER [   12.125181] EIP is at ip_route_input+0xa70/0xe56
-Mar 21 11:26:46 ROUTER [   12.125181] EAX: c0999200 EBX: 000000c2 ECX: 
-c038ea2c EDX: c013d182
-Mar 21 11:26:46 ROUTER [   12.125181] ESI: c099ff04 EDI: c099ff04 EBP: 
-c099ff30 ESP: c099fe94
-Mar 21 11:26:46 ROUTER [   12.125181]  DS: 007b ES: 007b FS: 00d8 GS: 0000 
-SS: 0068
-Mar 21 11:26:46 ROUTER [   12.125181] Process swapper (pid: 0, ti=c099f000 
-task=c038e460 task.ti=c03b9000)
-Mar 21 11:26:46 ROUTER
-Mar 21 11:26:46 ROUTER [   12.125181] Stack:
-Mar 21 11:26:46 ROUTER c099fec8
-Mar 21 11:26:46 ROUTER be9a92c2
-Mar 21 11:26:46 ROUTER de0aa8c0
-Mar 21 11:26:46 ROUTER f6fc6cc0
-Mar 21 11:26:46 ROUTER c013bdc3
-Mar 21 11:26:46 ROUTER 00000001
-Mar 21 11:26:46 ROUTER c038e460
-Mar 21 11:26:46 ROUTER 00000001
-Mar 21 11:26:46 ROUTER
-Mar 21 11:26:46 ROUTER [   12.125181]
-Mar 21 11:26:46 ROUTER ffffff8f
-Mar 21 11:26:46 ROUTER 0099fec8
-Mar 21 11:26:46 ROUTER f7c3bc00
-Mar 21 11:26:46 ROUTER c0be25a0
-Mar 21 11:26:46 ROUTER 0038e460
-Mar 21 11:26:46 ROUTER 00000000
-Mar 21 11:26:46 ROUTER 00000003
-Mar 21 11:26:46 ROUTER 00000000
-Mar 21 11:26:46 ROUTER
-Mar 21 11:26:46 ROUTER [   12.125181]
-Mar 21 11:26:46 ROUTER de0aa8c0
-Mar 21 11:26:46 ROUTER be9a92c2
-Mar 21 11:26:46 ROUTER 00000000
-Mar 21 11:26:46 ROUTER 00000000
-Mar 21 11:26:46 ROUTER 00000000
-Mar 21 11:26:46 ROUTER 00000000
-Mar 21 11:26:46 ROUTER 00000000
-Mar 21 11:26:46 ROUTER 00000000
-Mar 21 11:26:46 ROUTER
-Mar 21 11:26:46 ROUTER [   12.125181] Call Trace:
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c013bdc3>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER mark_held_locks+0x41/0x5c
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c013d182>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER lock_release+0x16b/0x172
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c02825e8>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER nf_hook_slow+0xa1/0xc1
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c02871a0>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER ip_rcv_finish+0x2c/0x2f4
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c028789b>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER ip_rcv+0x202/0x22c
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c026c809>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER netif_receive_skb+0x38d/0x3ec
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c026ee8b>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER process_backlog+0x6c/0xd3
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c026ee96>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER process_backlog+0x77/0xd3
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c026e977>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER net_rx_action+0xb3/0x1d8
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c0125846>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER __do_softirq+0x6f/0xe9
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c01060ab>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER do_softirq+0x5e/0xa8
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c0146413>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER handle_fasteoi_irq+0x0/0xb6
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c01257a4>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER irq_exit+0x44/0x77
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c01061af>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER do_IRQ+0xba/0xd3
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c010438e>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER common_interrupt+0x2e/0x34
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c01300d8>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER sys_clock_nanosleep+0x19/0xb0
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c01021ba>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER mwait_idle_with_hints+0x3a/0x3e
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c0102365>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER mwait_idle+0x0/0x14
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c0102377>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER mwait_idle+0x12/0x14
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c010266d>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER cpu_idle+0x8a/0xa6
-Mar 21 11:26:46 ROUTER [   12.125181]  [<c02b86c5>]
-Mar 21 11:26:46 ROUTER ?
-Mar 21 11:26:46 ROUTER rest_init+0x49/0x4b
-Mar 21 11:26:46 ROUTER [   12.125181]  =======================
-Mar 21 11:26:46 ROUTER [   12.125181] Code:
-Mar 21 11:26:46 ROUTER 80
-Mar 21 11:26:46 ROUTER 01
-Mar 21 11:26:46 ROUTER 00
-Mar 21 11:26:46 ROUTER 00
-Mar 21 11:26:46 ROUTER 00
-Mar 21 11:26:46 ROUTER 8b
-Mar 21 11:26:46 ROUTER 55
-Mar 21 11:26:46 ROUTER 8c
-Mar 21 11:26:46 ROUTER f0
-Mar 21 11:26:46 ROUTER ff
-Mar 21 11:26:46 ROUTER 4a
-Mar 21 11:26:46 ROUTER 04
-Mar 21 11:26:46 ROUTER 0f
-Mar 21 11:26:46 ROUTER 94
-Mar 21 11:26:46 ROUTER c0
-Mar 21 11:26:46 ROUTER 84
-Mar 21 11:26:46 ROUTER c0
-Mar 21 11:26:46 ROUTER 74
-Mar 21 11:26:46 ROUTER 07
-Mar 21 11:26:46 ROUTER 89
-Mar 21 11:26:46 ROUTER d0
-Mar 21 11:26:46 ROUTER e8
-Mar 21 11:26:46 ROUTER df
-Mar 21 11:26:46 ROUTER 02
-Mar 21 11:26:46 ROUTER 02
-Mar 21 11:26:46 ROUTER 00
-Mar 21 11:26:46 ROUTER 83
-Mar 21 11:26:46 ROUTER 7d
-Mar 21 11:26:46 ROUTER 80
-Mar 21 11:26:46 ROUTER 00
-Mar 21 11:26:46 ROUTER 0f
-Mar 21 11:26:46 ROUTER 84
-Mar 21 11:26:46 ROUTER e2
-Mar 21 11:26:46 ROUTER 03
-Mar 21 11:26:46 ROUTER 00
-Mar 21 11:26:46 ROUTER 00
-Mar 21 11:26:46 ROUTER 8b
-Mar 21 11:26:46 ROUTER 55
-Mar 21 11:26:46 ROUTER d8
-Mar 21 11:26:46 ROUTER 85
-Mar 21 11:26:46 ROUTER d2
-Mar 21 11:26:46 ROUTER 74
-Mar 21 11:26:46 ROUTER 12
-Mar 21 11:26:46 ROUTER unparseable log message: "<f0> "
-Mar 21 11:26:46 ROUTER ff
-Mar 21 11:26:46 ROUTER 4a
-Mar 21 11:26:46 ROUTER 18
-Mar 21 11:26:46 ROUTER 0f
-Mar 21 11:26:46 ROUTER 94
-Mar 21 11:26:46 ROUTER c0
-Mar 21 11:26:46 ROUTER 84
-Mar 21 11:26:46 ROUTER c0
-Mar 21 11:26:46 ROUTER 74
-Mar 21 11:26:46 ROUTER 07
-Mar 21 11:26:46 ROUTER 89
-Mar 21 11:26:46 ROUTER d0
-Mar 21 11:26:46 ROUTER e8
-Mar 21 11:26:46 ROUTER cf
-Mar 21 11:26:46 ROUTER 7c
-Mar 21 11:26:46 ROUTER 02
-Mar 21 11:26:46 ROUTER 00
-Mar 21 11:26:46 ROUTER 8b
-Mar 21 11:26:46 ROUTER 55
-Mar 21 11:26:46 ROUTER dc
-Mar 21 11:26:46 ROUTER
-Mar 21 11:26:46 ROUTER [   12.125181] EIP: [<c0285798>]
-Mar 21 11:26:46 ROUTER ip_route_input+0xa70/0xe56
-Mar 21 11:26:46 ROUTER SS:ESP 0068:c099fe94
-Mar 21 11:26:46 ROUTER [   12.125181] Kernel panic - not syncing: Fatal 
-exception in interrupt
-Mar 21 11:26:46 ROUTER [   12.125181] Rebooting in 1 seconds..
+Sorry for the confusion.
+
+Regards,
 
 
+Bernard
 
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
 
+Bernard Pidoux wrote:
+> 
+> Jarek Poplawski wrote:
+>> On Wed, Mar 19, 2008 at 09:57:18PM +0100, Bernard Pidoux wrote:
+>> ...
+>>> I also tried to revert Jarek's mkiss ax_bump() patch, but this did 
+>>> not  prevent
+>>> kernel lockup, although this time swapper is involved and not ax25ipd.
+>> ...
+>>> BUG: unable to handle kernel paging request at virtual address 6b6b6c2b
+>>> printing eip: c013fc67 *pde = 00000000
+>>> Oops: 0002 [#1] SMP
+>>
+>> Well, the rest looks very similarly and not trivial... Probably a
+>> socket is destructed too soon (or something...). Could you try to
+>> reproduce this with some debugging turned off, e.g.:
+>> CONFIG_DEBUG_LOCK_ALLOC, CONFIG_DEBUG_PAGEALLOC, (CONFIG_SLUB_DEBUG?).
+>>
+>> Regards,
+>> Jarek P.
+> 
+> I recompiled the kernel after turning off the above options.
+> However there is still a kernel panic documented below.
+> Does it help ?
+> 
+> Bernard Pidoux
+> 
+> 
+> 
+> BUG: spinlock bad magic on CPU#0, swapper/0
+> BUG: unable to handle kernel paging request at virtual address 6b6b6c2f
+> printing eip: c01e730b *pde = 00000000
+> Oops: 0000 [#1] SMP
+> Modules linked in: rose netrom mkiss crc16 ax25 mga drm netconsole 
+> configfs nfsd exportfs nfs lockd nfs_acl sunrpc af_packet ipv6 
+> snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_pcm_oss 
+> snd_mixer_oss binfmt_misc loop usb_storage scsi_mod floppy usbhid 
+> snd_ens1371 snd_rawmidi snd_seq_device snd_ac97_codec snd_pcm snd_timer 
+> snd uhci_hcd intel_agp ne2k_pci ide_cd usbcore soundcore snd_page_alloc 
+> ac97_bus 8390 agpgart genrtc ext3 jbd ide_disk piix ide_core
+> 
+> Pid: 0, comm: swapper Not tainted (2.6.24.3 #8)
+> EIP: 0060:[<c01e730b>] EFLAGS: 00010002 CPU: 0
+> EIP is at spin_bug+0xdb/0xf0
+> EAX: 0000002f EBX: 6b6b6b6b ECX: 6b6b6b6b EDX: 00000082
+> ESI: c07e5a38 EDI: c0333633 EBP: c0379c78 ESP: c0379c54
+>  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+> Process swapper (pid: 0, ti=c0378000 task=c0353340 task.ti=c0378000)
+> Stack: c0333724 c0333633 00000000 c0353509 00000000 00000010 c07e5a38 
+> 00000001
+>        c7b8abb8 c0379cb0 c01e7409 c11448c8 c1147740 00000000 c11448c0 
+> c0379cb8
+>        c114775c c11448c8 c1147740 00000000 00000282 00000001 c7b8abb8 
+> c0379cbc
+> Call Trace:
+>  [<c010527a>] show_trace_log_lvl+0x1a/0x30
+>  [<c0105339>] show_stack_log_lvl+0xa9/0xd0
+>  [<c0105427>] show_registers+0xc7/0x1b0
+>  [<c010561a>] die+0x10a/0x230
+>  [<c0114855>] do_page_fault+0x2f5/0x600
+>  [<c02c039a>] error_code+0x72/0x78
+>  [<c01e7409>] _raw_spin_lock+0x69/0x140
+>  [<c02c01cc>] _spin_lock_irqsave+0xc/0x20
+>  [<c0117c9b>] __wake_up+0x1b/0x50
+>  [<c024badc>] sock_def_write_space+0x9c/0xc0
+>  [<c024bdcc>] sock_wfree+0x3c/0x50
+>  [<c024dfc7>] skb_release_all+0x57/0x130
+>  [<c024d75b>] __kfree_skb+0xb/0x90
+>  [<c024d7f9>] kfree_skb+0x19/0x40
+>  [<c8c49e33>] ax25_frames_acked+0x43/0x70 [ax25]
+>  [<c8c47a30>] ax25_check_iframes_acked+0x40/0x60 [ax25]
+>  [<c8c4949f>] ax25_std_frame_in+0x6af/0x890 [ax25]
+>  [<c8c46dbb>] ax25_kiss_rcv+0x2bb/0x7c0 [ax25]
+>  [<c02531eb>] netif_receive_skb+0x33b/0x420
+>  [<c0255c1b>] process_backlog+0x6b/0xd0
+>  [<c025573f>] net_rx_action+0xff/0x1a0
+>  [<c0122864>] __do_softirq+0x84/0x100
+>  [<c012291b>] do_softirq+0x3b/0x50
+>  [<c0122b69>] irq_exit+0x79/0x90
+>  [<c0106d46>] do_IRQ+0x46/0x80
+>  [<c0104c67>] common_interrupt+0x23/0x28
+>  [<c01025f6>] cpu_idle+0x76/0xa0
+>  [<c02bd8e9>] rest_init+0x49/0x50
+>  [<c037dd55>] start_kernel+0x2b5/0x330
+>  [<00000000>] 0x0
+>  =======================
+> Code: 00 64 8b 0d 08 f0 3a c0 89 44 24 0c 89 4c 24 08 89 54 24 10 89 7c 
+> 24 04 c7 04 24 24 37 33 c0 e8 5c 6f f3 ff 85 db 8b 4e 08 74 83 <8b> 93 
+> c4 00 00 00 8d 83 c9 01 00 00 e9 7c ff ff ff 8d 74 26 00
+> EIP: [<c01e730b>] spin_bug+0xdb/0xf0 SS:ESP 0068:c0379c54
+> Kernel panic - not syncing: Fatal exception in interrupt
+> 
+> 
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
