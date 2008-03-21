@@ -1,7 +1,7 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 5/9] e1000e: remove no longer used e1000e_read_nvm_spi
-Date: Fri, 21 Mar 2008 11:06:47 -0700
-Message-ID: <20080321180647.24164.91005.stgit@localhost.localdomain>
+Subject: [PATCH 8/9] ixgb: remove irq_sem
+Date: Fri, 21 Mar 2008 11:07:03 -0700
+Message-ID: <20080321180703.24164.49258.stgit@localhost.localdomain>
 References: <20080321180625.24164.46137.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,99 +11,94 @@ To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:41394 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760618AbYCUSST (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Mar 2008 14:18:19 -0400
+	id S1753106AbYCUSSW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Mar 2008 14:18:22 -0400
 In-Reply-To: <20080321180625.24164.46137.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function is no longer used now that 82573 uses the eerd
-read method as well. Thanks to Adrian Bunk for pointing this out.
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
+ixgb can remove irq_sem by auditing all the call sites to make sure
+that each of them makes sure the adapter is in the correct state
+before re-enabling interrupts.  after doing this to all of our other
+drivers it is becoming easier.
+
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000e/e1000.h |    1 -
- drivers/net/e1000e/lib.c   |   56 --------------------------------------------
- 2 files changed, 0 insertions(+), 57 deletions(-)
+ drivers/net/ixgb/ixgb.h      |    1 -
+ drivers/net/ixgb/ixgb_main.c |   18 ++++++------------
+ 2 files changed, 6 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index 327c062..6e0c6ed 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -462,7 +462,6 @@ extern s32 e1000e_acquire_nvm(struct e1000_hw *hw);
- extern s32 e1000e_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
- extern s32 e1000e_update_nvm_checksum_generic(struct e1000_hw *hw);
- extern s32 e1000e_poll_eerd_eewr_done(struct e1000_hw *hw, int ee_reg);
--extern s32 e1000e_read_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
- extern s32 e1000e_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
- extern s32 e1000e_validate_nvm_checksum_generic(struct e1000_hw *hw);
- extern void e1000e_release_nvm(struct e1000_hw *hw);
-diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
-index 95f75a4..073934c 100644
---- a/drivers/net/e1000e/lib.c
-+++ b/drivers/net/e1000e/lib.c
-@@ -1852,62 +1852,6 @@ static s32 e1000_ready_nvm_eeprom(struct e1000_hw *hw)
+diff --git a/drivers/net/ixgb/ixgb.h b/drivers/net/ixgb/ixgb.h
+index a95ab55..f2fff90 100644
+--- a/drivers/net/ixgb/ixgb.h
++++ b/drivers/net/ixgb/ixgb.h
+@@ -158,7 +158,6 @@ struct ixgb_adapter {
+ 	uint16_t link_speed;
+ 	uint16_t link_duplex;
+ 	spinlock_t tx_lock;
+-	atomic_t irq_sem;
+ 	struct work_struct tx_timeout_task;
+ 
+ 	struct timer_list blink_timer;
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+index d9688bb..9c9bf31 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -197,7 +197,6 @@ module_exit(ixgb_exit_module);
+ static void
+ ixgb_irq_disable(struct ixgb_adapter *adapter)
+ {
+-	atomic_inc(&adapter->irq_sem);
+ 	IXGB_WRITE_REG(&adapter->hw, IMC, ~0);
+ 	IXGB_WRITE_FLUSH(&adapter->hw);
+ 	synchronize_irq(adapter->pdev->irq);
+@@ -211,14 +210,12 @@ ixgb_irq_disable(struct ixgb_adapter *adapter)
+ static void
+ ixgb_irq_enable(struct ixgb_adapter *adapter)
+ {
+-	if(atomic_dec_and_test(&adapter->irq_sem)) {
+-		u32 val = IXGB_INT_RXT0 | IXGB_INT_RXDMT0 |
+-			  IXGB_INT_TXDW | IXGB_INT_LSC;
+-		if (adapter->hw.subsystem_vendor_id == SUN_SUBVENDOR_ID)
+-			val |= IXGB_INT_GPI0;
+-		IXGB_WRITE_REG(&adapter->hw, IMS, val);
+-		IXGB_WRITE_FLUSH(&adapter->hw);
+-	}
++	u32 val = IXGB_INT_RXT0 | IXGB_INT_RXDMT0 |
++		  IXGB_INT_TXDW | IXGB_INT_LSC;
++	if (adapter->hw.subsystem_vendor_id == SUN_SUBVENDOR_ID)
++		val |= IXGB_INT_GPI0;
++	IXGB_WRITE_REG(&adapter->hw, IMS, val);
++	IXGB_WRITE_FLUSH(&adapter->hw);
  }
  
- /**
-- *  e1000e_read_nvm_spi - Reads EEPROM using SPI
-- *  @hw: pointer to the HW structure
-- *  @offset: offset of word in the EEPROM to read
-- *  @words: number of words to read
-- *  @data: word read from the EEPROM
-- *
-- *  Reads a 16 bit word from the EEPROM.
-- **/
--s32 e1000e_read_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
--{
--	struct e1000_nvm_info *nvm = &hw->nvm;
--	u32 i = 0;
--	s32 ret_val;
--	u16 word_in;
--	u8 read_opcode = NVM_READ_OPCODE_SPI;
--
--	/* A check for invalid values:  offset too large, too many words,
--	 * and not enough words. */
--	if ((offset >= nvm->word_size) || (words > (nvm->word_size - offset)) ||
--	    (words == 0)) {
--		hw_dbg(hw, "nvm parameter(s) out of bounds\n");
--		return -E1000_ERR_NVM;
--	}
--
--	ret_val = nvm->ops.acquire_nvm(hw);
--	if (ret_val)
--		return ret_val;
--
--	ret_val = e1000_ready_nvm_eeprom(hw);
--	if (ret_val) {
--		nvm->ops.release_nvm(hw);
--		return ret_val;
--	}
--
--	e1000_standby_nvm(hw);
--
--	if ((nvm->address_bits == 8) && (offset >= 128))
--		read_opcode |= NVM_A8_OPCODE_SPI;
--
--	/* Send the READ command (opcode + addr) */
--	e1000_shift_out_eec_bits(hw, read_opcode, nvm->opcode_bits);
--	e1000_shift_out_eec_bits(hw, (u16)(offset*2), nvm->address_bits);
--
--	/* Read the data.  SPI NVMs increment the address with each byte
--	 * read and will roll over if reading beyond the end.  This allows
--	 * us to read the whole NVM from any offset */
--	for (i = 0; i < words; i++) {
--		word_in = e1000_shift_in_eec_bits(hw, 16);
--		data[i] = (word_in >> 8) | (word_in << 8);
--	}
--
--	nvm->ops.release_nvm(hw);
--	return 0;
--}
--
--/**
-  *  e1000e_read_nvm_eerd - Reads EEPROM using EERD register
-  *  @hw: pointer to the HW structure
-  *  @offset: offset of word in the EEPROM to read
+ int
+@@ -305,7 +302,6 @@ ixgb_down(struct ixgb_adapter *adapter, bool kill_watchdog)
+ 
+ #ifdef CONFIG_IXGB_NAPI
+ 	napi_disable(&adapter->napi);
+-	atomic_set(&adapter->irq_sem, 0);
+ #endif
+ 	/* waiting for NAPI to complete can re-enable interrupts */
+ 	ixgb_irq_disable(adapter);
+@@ -594,7 +590,6 @@ ixgb_sw_init(struct ixgb_adapter *adapter)
+ 	/* enable flow control to be programmed */
+ 	hw->fc.send_xon = 1;
+ 
+-	atomic_set(&adapter->irq_sem, 1);
+ 	spin_lock_init(&adapter->tx_lock);
+ 
+ 	set_bit(__IXGB_DOWN, &adapter->flags);
+@@ -1774,7 +1769,6 @@ ixgb_intr(int irq, void *data)
+ 		  of the posted write is intentionally left out.
+ 		*/
+ 
+-		atomic_inc(&adapter->irq_sem);
+ 		IXGB_WRITE_REG(&adapter->hw, IMC, ~0);
+ 		__netif_rx_schedule(netdev, &adapter->napi);
+ 	}
 
