@@ -1,58 +1,75 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH] SCTP: Fix possible memory leak while process INIT chunk
- with AUTH paramters
-Date: Fri, 21 Mar 2008 10:16:22 +0800
-Message-ID: <47E31A76.6060903@cn.fujitsu.com>
-References: <47E20DA8.1080805@cn.fujitsu.com> <47E25794.6050001@hp.com>
+From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: use of preempt_count instead of in_atomic() at leds-gpio.c
+Date: Thu, 20 Mar 2008 19:27:19 -0700
+Message-ID: <20080320192719.6a32386e.akpm@linux-foundation.org>
+References: <Pine.LNX.4.44L0.0803202126240.11234-100000@netrider.rowland.org>
+	<200803210236.52063.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:50782 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752171AbYCUCO5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2008 22:14:57 -0400
-In-Reply-To: <47E25794.6050001@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Henrique de Moraes Holschuh <hmh-N3TV7GIv+o9fyO9Q7EP/yw@public.gmane.org>,
+	David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>,
+	Richard Purdie <rpurdie-Fm38FmjxZ/leoWH0uzbU5w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	video4linux-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	Stefan Richter <stefanr-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>,
+	lm-sensors-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200803210236.52063.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Vlad:
+On Fri, 21 Mar 2008 02:36:51 +0100 Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> wrote:
 
-Vlad Yasevich wrote:
-> Hi Wei
->
-> Wei Yongjun wrote:
->> While endpoint received INIT/INIT-ACK chunk with AUTH parameters, 
->> such as RANDOM, HMAC_ALGO, CHUNKS parameter, if those parameters 
->> appear more then once, memory for store those parameters will be 
->> malloc more then once and not free.
->>
->
-> All these parameters must be included only once in the packet.
+> On Friday 21 March 2008 02:31:44 Alan Stern wrote:
+> > On Thu, 20 Mar 2008, Andrew Morton wrote:
+> > 
+> > > On Thu, 20 Mar 2008 21:36:04 -0300 Henrique de Moraes Holschuh <hmh-N3TV7GIv+o9fyO9Q7EP/yw@public.gmane.org> wrote:
+> > > 
+> > > > Well, so far so good for LEDs, but what about the other users of in_atomic
+> > > > that apparently should not be doing it either?
+> > > 
+> > > Ho hum.  Lots of cc's added.
+> > 
+> > ...
+> > 
+> > > The usual pattern for most of the above is
+> > > 
+> > > 	if (!in_atomic())
+> > > 		do_something_which_might_sleep();
+> > > 
+> > > problem is, in_atomic() returns false inside spinlock on non-preptible
+> > > kernels.  So if anyone calls those functions inside spinlock they will
+> > > incorrectly schedule and another task can then come in and try take the
+> > > already-held lock.
+> > > 
+> > > Now, it happens that in_atomic() returns true on non-preemtible kernels
+> > > when running in interrupt or softirq context.  But if the above code really
+> > > is using in_atomic() to detect am-i-called-from-interrupt and NOT
+> > > am-i-called-from-inside-spinlock, they should be using in_irq(),
+> > > in_softirq() or in_interrupt().
+> > 
+> > Presumably most of these places are actually trying to detect 
+> > am-i-allowed-to-sleep.  Isn't that what in_atomic() is supposed to do?  
+> 
+> No, I think there is no such check in the kernel. Most likely for performance
+> reasons, as it would require a global flag that is set on each spinlock.
 
-RFC 4890 has the following text:
+Yup.  non-preemptible kernels avoid the inc/dec of
+current_thread_info->preempt_count on spin_lock/spin_unlock
 
-   The RANDOM parameter MUST be included once in the INIT or INIT-ACK
-   chunk, if the sender wants to send or receive authenticated chunks,
-   to provide a 32-byte Random Number.  For 32-byte Random Numbers, the
-   Padding is empty.
+> You simply must always _know_, if you are allowed to sleep or not. This is
+> done by defining an API. The call-context is part of any kernel API.
 
-
-It said *MUST be included once*, not *only once*, is this right?
-
->
-> If these things are included more then once, we should either ABORT or
-> completely ignore the packet.  I haven't decided which one makes more
-> sense yet.
->
-> If someone when to the trouble of violating the protocol, we should not
-> establish the association with them.
-
-I think do ABORT with protocol violation is better, do the same thing as 
-the other protocol violation case do.
-
-Wei Yongjun
-
+Yup.  99.99% of kernel code manages to do this...
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
