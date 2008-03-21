@@ -1,97 +1,28 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-2.6.26] fib_trie: RCU optimizations
-Date: Fri, 21 Mar 2008 10:31:56 -0700
-Message-ID: <20080321103156.1f0d06aa@extreme>
-References: <20080321075521.49347370@extreme>
-	<20080321160103.GG9618@linux.vnet.ibm.com>
-	<47E3EF70.6080000@cosmosbay.com>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [14/14] vcompound: Avoid vmalloc for ehash_locks
+Date: Fri, 21 Mar 2008 10:31:37 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0803211031290.18671@schroedinger.engr.sgi.com>
+References: <20080321061703.921169367@sgi.com> <20080321061727.491610308@sgi.com>
+ <47E35D73.6060703@cosmosbay.com> <20080321.003100.155729406.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulmck@linux.vnet.ibm.com, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: dada1@cosmosbay.com, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:39410 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752786AbYCURcB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2008 13:32:01 -0400
-In-Reply-To: <47E3EF70.6080000@cosmosbay.com>
+Received: from relay1.sgi.com ([192.48.171.29]:48768 "EHLO relay.sgi.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751500AbYCURdK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Mar 2008 13:33:10 -0400
+In-Reply-To: <20080321.003100.155729406.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 21 Mar 2008 18:25:04 +0100
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+On Fri, 21 Mar 2008, David Miller wrote:
 
-> Paul E. McKenney a =C3=A9crit :
-> > On Fri, Mar 21, 2008 at 07:55:21AM -0700, Stephen Hemminger wrote:
-> >  =20
-> >> Small performance improvements.
-> >>
-> >> Eliminate unneeded barrier on deletion. The first pointer to updat=
-e
-> >> the head of the list is ordered by the second call to rcu_assign_p=
-ointer.
-> >> See hlist_add_after_rcu or comparision.
-> >>
-> >> Move rcu_derference to the loop check (like hlist_for_each_rcu), a=
-nd
-> >> add a prefetch.
-> >>    =20
-> >
-> > Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> >
-> > Justification below.
-> >
-> >  =20
-> >> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> >>
-> >> --- a/net/ipv4/route.c	2008-03-19 08:45:32.000000000 -0700
-> >> +++ b/net/ipv4/route.c	2008-03-19 08:54:57.000000000 -0700
-> >> @@ -977,8 +977,8 @@ restart:
-> >>  			 * must be visible to another weakly ordered CPU before
-> >>  			 * the insertion at the start of the hash chain.
-> >>  			 */
-> >> -			rcu_assign_pointer(rth->u.dst.rt_next,
-> >> -					   rt_hash_table[hash].chain);
-> >> +			rth->u.dst.rt_next =3D rt_hash_table[hash].chain;
-> >> +
-> >>    =20
-> >
-> > This is OK because it is finalizing a deletion.  If this were inste=
-ad
-> > an insertion, this would of course be grossly illegal and dangerous=
-=2E
-> >
-> >  =20
-> >>  			/*
-> >>  			 * Since lookup is lockfree, the update writes
-> >>  			 * must be ordered for consistency on SMP.
-> >> @@ -2076,8 +2076,9 @@ int ip_route_input(struct sk_buff *skb,=20
-> >>  	hash =3D rt_hash(daddr, saddr, iif);
-> >>
-> >>  	rcu_read_lock();
-> >> -	for (rth =3D rcu_dereference(rt_hash_table[hash].chain); rth;
-> >> -	     rth =3D rcu_dereference(rth->u.dst.rt_next)) {
-> >> +	for (rth =3D rt_hash_table[hash].chain; rcu_dereference(rth);
-> >> +	     rth =3D rth->u.dst.rt_next) {
-> >> +		prefetch(rth->u.dst.rt_next);
-> >>  		if (rth->fl.fl4_dst =3D=3D daddr &&
-> >>  		    rth->fl.fl4_src =3D=3D saddr &&
-> >>  		    rth->fl.iif =3D=3D iif &&
-> >>    =20
-> >
-> > Works, though I would guess that increasingly aggressive compiler
-> > optimization will eventually force us to change the list.h macros
-> > to look like what you had to begin with...  Sigh!!!
-> >
-> >  =20
->=20
-> Hum... I missed the original patch , but this prefetch() is wrong.
->=20
-> On lookups, we dont want to prefetch the begining of "struct rtable"=20
-> entries.
+> I agree with Eric, converting any of the networking hash
+> allocations to this new facility is not the right thing
+> to do.
 
-That makes sense when hash is perfect, but under DoS scenario
-the hash table will not match exactly, and the next pointer will
-be needed.
+Ok. Going to drop it.
+ 
