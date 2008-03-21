@@ -1,102 +1,57 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
 Subject: Re: use of preempt_count instead of in_atomic() at leds-gpio.c
-Date: Fri, 21 Mar 2008 09:54:05 -0700
-Message-ID: <20080321165405.GC5766@kroah.com>
-References: <Pine.LNX.4.44L0.0803202126240.11234-100000@netrider.rowland.org> <200803210236.52063.mb@bu3sch.de> <20080320192719.6a32386e.akpm@linux-foundation.org> <20080321134750.GB4128@osiris.boeblingen.de.ibm.com>
+Date: Fri, 21 Mar 2008 10:04:04 -0700
+Message-ID: <200803211004.05106.david-b@pacbell.net>
+References: <20080316184349.GA28543@khazad-dum.debian.net> <20080321003604.GC20788@khazad-dum.debian.net> <20080320180802.426ad2d1.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Henrique de Moraes Holschuh <hmh-N3TV7GIv+o9fyO9Q7EP/yw@public.gmane.org>,
-	David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>,
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Henrique de Moraes Holschuh <hmh-N3TV7GIv+o9fyO9Q7EP/yw@public.gmane.org>,
 	Richard Purdie <rpurdie-Fm38FmjxZ/leoWH0uzbU5w@public.gmane.org>,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
 	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
 	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
 	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	video4linux-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
 	Stefan Richter <stefanr-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>,
 	lm-sensors-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org
-To: Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080320180802.426ad2d1.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20080321134750.GB4128-Pmgahw53EmNLmI7Nx2oIsGnsbthNF6/HVpNB7YpNyf8@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 21, 2008 at 02:47:50PM +0100, Heiko Carstens wrote:
-> On Thu, Mar 20, 2008 at 07:27:19PM -0700, Andrew Morton wrote:
-> > On Fri, 21 Mar 2008 02:36:51 +0100 Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> wrote:
-> > > On Friday 21 March 2008 02:31:44 Alan Stern wrote:
-> > > > On Thu, 20 Mar 2008, Andrew Morton wrote:
-> > > > > On Thu, 20 Mar 2008 21:36:04 -0300 Henrique de Moraes Holschuh <hmh-N3TV7GIv+o9fyO9Q7EP/yw@public.gmane.org> wrote:
-> > > > > 
-> > > > > > Well, so far so good for LEDs, but what about the other users of in_atomic
-> > > > > > that apparently should not be doing it either?
-> > > > > 
-> > > > > Ho hum.  Lots of cc's added.
-> > > > 
-> > > > ...
-> > > > 
-> > > > > The usual pattern for most of the above is
-> > > > > 
-> > > > > 	if (!in_atomic())
-> > > > > 		do_something_which_might_sleep();
-> > > > > 
-> > > > > problem is, in_atomic() returns false inside spinlock on non-preptible
-> > > > > kernels.  So if anyone calls those functions inside spinlock they will
-> > > > > incorrectly schedule and another task can then come in and try take the
-> > > > > already-held lock.
-> > > > > 
-> > > > > Now, it happens that in_atomic() returns true on non-preemtible kernels
-> > > > > when running in interrupt or softirq context.  But if the above code really
-> > > > > is using in_atomic() to detect am-i-called-from-interrupt and NOT
-> > > > > am-i-called-from-inside-spinlock, they should be using in_irq(),
-> > > > > in_softirq() or in_interrupt().
-> > > > 
-> > > > Presumably most of these places are actually trying to detect 
-> > > > am-i-allowed-to-sleep.  Isn't that what in_atomic() is supposed to do?  
-> > > 
-> > > No, I think there is no such check in the kernel. Most likely for performance
-> > > reasons, as it would require a global flag that is set on each spinlock.
-> > 
-> > Yup.  non-preemptible kernels avoid the inc/dec of
-> > current_thread_info->preempt_count on spin_lock/spin_unlock
-> > 
-> > > You simply must always _know_, if you are allowed to sleep or not. This is
-> > > done by defining an API. The call-context is part of any kernel API.
-> > 
-> > Yup.  99.99% of kernel code manages to do this...
-> 
-> This is difficult for console drivers. They get called and are supposed to
-> print something and don't have the slightest clue which context they are
-> running in and if they are allowed to schedule.
-> This is the problem with e.g. s390's sclp driver. If there are no write
-> buffers available anymore it tries to allocate memory if schedule is allowed
-> or otherwise has to wait until finally a request finished and memory is
-> available again.
-> And now we have to always busy wait if we are out of buffers, since we
-> cannot tell which context we are in?
+On Thursday 20 March 2008, Andrew Morton wrote:
+> ./drivers/net/usb/pegasus.c
+>=20
+> =A0 Possibly buggy: deadlockable (I assume)
 
-This is the reason why the drivers/usb/misc/sisusbvga driver is trying
-to test for in_atomic:
-        /* We can't handle console calls in non-schedulable
-         * context due to our locks and the USB transport.
-         * So we simply ignore them. This should only affect
-         * some calls to printk.
-         */
-        if (in_atomic())
-                return NULL;
+Looks just unecessary to me ... ethtool MII ops get called from
+a task context, as I recall, and other drivers just rely on that.
 
+- Dave
 
-So how should this be "fixed" if in_atomic() is not a valid test?
+=3D=3D=3D=3D=3D=3D=3D=3D=3D CUT HERE
+Remove superfluous in-atomic() check; ethtool MII ops are called
+from task context.
 
-thanks,
+Signed-off-by: David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+---
+ drivers/net/usb/pegasus.c |    6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- g26.orig/drivers/net/usb/pegasus.c	2008-03-21 08:53:28.000000000 -0=
+700
++++ g26/drivers/net/usb/pegasus.c	2008-03-21 08:54:07.000000000 -0700
+@@ -1128,12 +1128,8 @@ pegasus_get_settings(struct net_device *
+ {
+ 	pegasus_t *pegasus;
+=20
+-	if (in_atomic())
+-		return 0;
+-
+ 	pegasus =3D netdev_priv(dev);
+ 	mii_ethtool_gset(&pegasus->mii, ecmd);
