@@ -1,55 +1,336 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH RFT] b44: Truncate PHY address
-Date: Sat, 22 Mar 2008 01:24:20 +0100
-Message-ID: <200803220124.21355.mb@bu3sch.de>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: Re: possible lockdep crash
+Date: Sat, 22 Mar 2008 02:46:32 +0200
+Message-ID: <20080322004502.M78412@visp.net.lb>
+References: <20080321093052.M39677@visp.net.lb> <20080321.033530.249188954.davem@davemloft.net> <20080321105404.M46676@visp.net.lb> <20080321.040408.153242166.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Gary Zambrano <zambrano@broadcom.com>, netdev@vger.kernel.org
-To: agb@openwrt.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs166246.vserver.de ([62.75.166.246]:43842 "EHLO
-	vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750728AbYCVA2Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2008 20:28:16 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Some ROMs on embedded devices store incorrect values for
-the PHY address of the ethernet device.
-It looks like the number is sign-extended.
-Truncate the value by applying the PHY-address mask to it.
-
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
-
----
-
-This patch is untested and needs some testing before it
-can go upstream, but I think the chance of introducing bugs
-with this is almost zero, as the PHY address register really is
-only 5 bits long. So this will do The Right Thing (tm) in any case.
-Please report result of the testing back to me. I will also run some
-tests later and then submit the patch for inclusion.
+	charset=koi8-r
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758900AbYCVAqx@vger.kernel.org>
+In-Reply-To: <20080321.040408.153242166.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-Index: wireless-testing/drivers/net/b44.c
-===================================================================
---- wireless-testing.orig/drivers/net/b44.c	2008-02-16 19:08:12.000000000 +0100
-+++ wireless-testing/drivers/net/b44.c	2008-03-22 01:13:21.000000000 +0100
-@@ -2082,6 +2082,11 @@ static int __devinit b44_get_invariants(
- 		addr = sdev->bus->sprom.et0mac;
- 		bp->phy_addr = sdev->bus->sprom.et0phyaddr;
- 	}
-+	/* Some ROMs have buggy PHY addresses with the high
-+	 * bits set (sign extension?). Truncate them to a
-+	 * valid PHY address. */
-+	bp->phy_addr &= 0x1F;
-+
- 	memcpy(bp->dev->dev_addr, addr, 6);
- 
- 	if (!is_valid_ether_addr(&bp->dev->dev_addr[0])){
 
--- 
-Greetings Michael.
+Here is panic without lockdep. Note - i am using FIB_TRIE.
+
+Mar 22 02:42:23 205.177.186.74 [    6.891998] BUG: unable to handle kernel
+Mar 22 02:42:23 205.177.186.74 NULL pointer dereference
+Mar 22 02:42:23 205.177.186.74 at 0000009f
+Mar 22 02:42:23 205.177.186.74 [    6.892094] IP:
+Mar 22 02:42:23 205.177.186.74 [<c0276f0a>] ip_route_input+0x872/0xbd9
+Mar 22 02:42:23 205.177.186.74 [    6.892166] Oops: 0002 [#1]
+Mar 22 02:42:23 205.177.186.74 SMP
+Mar 22 02:42:23 205.177.186.74
+Mar 22 02:42:23 205.177.186.74 [    6.892258] Modules linked in:
+Mar 22 02:42:23 205.177.186.74 netconsole
+Mar 22 02:42:23 205.177.186.74 configfs
+Mar 22 02:42:23 205.177.186.74 hangcheck_timer
+Mar 22 02:42:23 205.177.186.74 xt_tcpudp
+Mar 22 02:42:23 205.177.186.74 ipt_TTL
+Mar 22 02:42:23 205.177.186.74 ipt_ttl
+Mar 22 02:42:23 205.177.186.74 xt_NOTRACK
+Mar 22 02:42:23 205.177.186.74 iptable_raw
+Mar 22 02:42:23 205.177.186.74 iptable_mangle
+Mar 22 02:42:23 205.177.186.74 ifb
+Mar 22 02:42:23 205.177.186.74 e1000e
+Mar 22 02:42:23 205.177.186.74 em_nbyte
+Mar 22 02:42:23 205.177.186.74 cls_tcindex
+Mar 22 02:42:23 205.177.186.74 act_gact
+Mar 22 02:42:23 205.177.186.74 cls_rsvp
+Mar 22 02:42:23 205.177.186.74 sch_htb
+Mar 22 02:42:23 205.177.186.74 cls_fw
+Mar 22 02:42:23 205.177.186.74 act_mirred
+Mar 22 02:42:23 205.177.186.74 em_u32
+Mar 22 02:42:23 205.177.186.74 sch_red
+Mar 22 02:42:23 205.177.186.74 sch_sfq
+Mar 22 02:42:23 205.177.186.74 sch_tbf
+Mar 22 02:42:23 205.177.186.74 sch_teql
+Mar 22 02:42:23 205.177.186.74 cls_basic
+Mar 22 02:42:23 205.177.186.74 act_police
+Mar 22 02:42:23 205.177.186.74 sch_gred
+Mar 22 02:42:23 205.177.186.74 act_pedit
+Mar 22 02:42:23 205.177.186.74 sch_hfsc
+Mar 22 02:42:23 205.177.186.74 cls_rsvp6
+Mar 22 02:42:23 205.177.186.74 sch_ingress
+Mar 22 02:42:23 205.177.186.74 em_meta
+Mar 22 02:42:23 205.177.186.74 em_text
+Mar 22 02:42:23 205.177.186.74 act_ipt
+Mar 22 02:42:23 205.177.186.74 sch_dsmark
+Mar 22 02:42:23 205.177.186.74 sch_prio
+Mar 22 02:42:23 205.177.186.74 sch_netem
+Mar 22 02:42:23 205.177.186.74 act_simple
+Mar 22 02:42:23 205.177.186.74 cls_u32
+Mar 22 02:42:23 205.177.186.74 em_cmp
+Mar 22 02:42:23 205.177.186.74 sch_cbq
+Mar 22 02:42:23 205.177.186.74 cls_route
+Mar 22 02:42:23 205.177.186.74 xt_TCPMSS
+Mar 22 02:42:23 205.177.186.74 iptable_nat
+Mar 22 02:42:23 205.177.186.74 nf_conntrack_ipv4
+Mar 22 02:42:23 205.177.186.74 ipt_LOG
+Mar 22 02:42:23 205.177.186.74 ipt_MASQUERADE
+Mar 22 02:42:23 205.177.186.74 ipt_REDIRECT
+Mar 22 02:42:23 205.177.186.74 nf_nat
+Mar 22 02:42:23 205.177.186.74 nf_conntrack
+Mar 22 02:42:23 205.177.186.74 nfnetlink
+Mar 22 02:42:23 205.177.186.74 iptable_filter
+Mar 22 02:42:23 205.177.186.74 ip_tables
+Mar 22 02:42:23 205.177.186.74 x_tables
+Mar 22 02:42:23 205.177.186.74 8021q
+Mar 22 02:42:23 205.177.186.74 tun
+Mar 22 02:42:23 205.177.186.74 tulip
+Mar 22 02:42:23 205.177.186.74 r8169
+Mar 22 02:42:23 205.177.186.74 sky2
+Mar 22 02:42:23 205.177.186.74 via_velocity
+Mar 22 02:42:23 205.177.186.74 via_rhine
+Mar 22 02:42:23 205.177.186.74 sis900
+Mar 22 02:42:23 205.177.186.74 ne2k_pci
+Mar 22 02:42:23 205.177.186.74 8390
+Mar 22 02:42:23 205.177.186.74 skge
+Mar 22 02:42:23 205.177.186.74 tg3
+Mar 22 02:42:23 205.177.186.74 8139too
+Mar 22 02:42:23 205.177.186.74 e1000
+Mar 22 02:42:23 205.177.186.74 e100
+Mar 22 02:42:23 205.177.186.74 usb_storage
+Mar 22 02:42:23 205.177.186.74 mtdblock
+Mar 22 02:42:23 205.177.186.74 mtd_blkdevs
+Mar 22 02:42:23 205.177.186.74 usbhid
+Mar 22 02:42:23 205.177.186.74 uhci_hcd
+Mar 22 02:42:23 205.177.186.74 ehci_hcd
+Mar 22 02:42:23 205.177.186.74 ohci_hcd
+Mar 22 02:42:23 205.177.186.74 usbcore
+Mar 22 02:42:23 205.177.186.74
+Mar 22 02:42:23 205.177.186.74 [    6.892973]
+Mar 22 02:42:23 205.177.186.74 [    6.892973] Pid: 1880, comm: modprobe Not 
+tainted (2.6.25-rc6-git2-build-0024 #10)
+Mar 22 02:42:23 205.177.186.74 [    6.892973] EIP: 0060:[<c0276f0a>] EFLAGS: 
+00010206 CPU: 1
+Mar 22 02:42:23 205.177.186.74 [    6.892973] EIP is at ip_route_input+0x872/
+0xbd9
+Mar 22 02:42:23 205.177.186.74 [    6.892973] EAX: c0927100 EBX: 000000c0 
+ECX: c092ee08 EDX: 00000087
+Mar 22 02:42:23 205.177.186.74 [    6.892973] ESI: ffffff8f EDI: c092ee98 
+EBP: c092eec4 ESP: c092ee28
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  DS: 007b ES: 007b FS: 00d8 GS: 
+0033 SS: 0068
+Mar 22 02:42:23 205.177.186.74 [    6.892973] Process modprobe (pid: 1880, 
+ti=c092e000 task=f711d050 task.ti=f77fa000)
+Mar 22 02:42:23 205.177.186.74
+Mar 22 02:42:23 205.177.186.74 [    6.892973] Stack:
+Mar 22 02:42:23 205.177.186.74 c092ee5c
+Mar 22 02:42:23 205.177.186.74 201ea8c0
+Mar 22 02:42:23 205.177.186.74 201ea8c0
+Mar 22 02:42:23 205.177.186.74 f7fecc00
+Mar 22 02:42:23 205.177.186.74 00000286
+Mar 22 02:42:23 205.177.186.74 c092ee60
+Mar 22 02:42:23 205.177.186.74 f88d2d1e
+Mar 22 02:42:23 205.177.186.74 f88d219b
+Mar 22 02:42:23 205.177.186.74
+Mar 22 02:42:23 205.177.186.74 [    6.892973]
+Mar 22 02:42:23 205.177.186.74 00000001
+Mar 22 02:42:23 205.177.186.74 00000286
+Mar 22 02:42:23 205.177.186.74 f7f50d00
+Mar 22 02:42:23 205.177.186.74 c096d800
+Mar 22 02:42:23 205.177.186.74 00422000
+Mar 22 02:42:23 205.177.186.74 00000000
+Mar 22 02:42:23 205.177.186.74 00000004
+Mar 22 02:42:23 205.177.186.74 00000000
+Mar 22 02:42:23 205.177.186.74
+Mar 22 02:42:23 205.177.186.74 [    6.892973]
+Mar 22 02:42:23 205.177.186.74 201ea8c0
+Mar 22 02:42:23 205.177.186.74 201ea8c0
+Mar 22 02:42:23 205.177.186.74 00000000
+Mar 22 02:42:23 205.177.186.74 00000000
+Mar 22 02:42:23 205.177.186.74 00000000
+Mar 22 02:42:23 205.177.186.74 00000000
+Mar 22 02:42:23 205.177.186.74 00000000
+Mar 22 02:42:23 205.177.186.74 00000000
+Mar 22 02:42:23 205.177.186.74
+Mar 22 02:42:23 205.177.186.74 [    6.892973] Call Trace:
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<f88d2d1e>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 e100_exec_cb+0xef/0xfa [e100]
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<f88d219b>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 e100_xmit_prepare+0x0/0x7c [e100]
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c0295233>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 arp_process+0x1a5/0x508
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c01554ec>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 add_partial+0x11/0x44
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c0155fec>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 __slab_free+0x54/0x201
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c01554ec>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 add_partial+0x11/0x44
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c0155fec>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 __slab_free+0x54/0x201
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c029567b>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 arp_rcv+0xe5/0xf8
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c025ecf2>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 netif_receive_skb+0x33e/0x3a9
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<f88d3a3e>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 e100_poll+0x17e/0x2de [e100]
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c01315b3>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 run_hrtimer_pending+0xd/0x84
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c0260bcb>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 net_rx_action+0x8f/0x191
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c0123f8b>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 __do_softirq+0x64/0xcd
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c0105f0a>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 do_softirq+0x55/0x89
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c013f39a>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 handle_fasteoi_irq+0x0/0xaa
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c0123ef4>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 irq_exit+0x38/0x6b
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c0105ff8>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 do_IRQ+0xba/0xd2
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c0104287>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 common_interrupt+0x23/0x28
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c01e6456>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 vsnprintf+0x29c/0x40c
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c016e5ab>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 seq_printf+0x2b/0x4b
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c0139d05>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 m_show+0x2a/0x11f
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c016eb52>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 seq_read+0x18b/0x261
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c016e9c7>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 seq_read+0x0/0x261
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c01822d0>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 proc_reg_read+0x56/0x6a
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c018227a>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 proc_reg_read+0x0/0x6a
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c0159e9d>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 vfs_read+0x86/0xf6
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c015a2a2>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 sys_read+0x3b/0x60
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c0103876>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 sysenter_past_esp+0x5f/0x85
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  [<c02a0000>]
+Mar 22 02:42:23 205.177.186.74 ?
+Mar 22 02:42:23 205.177.186.74 fib_hash_table+0x58/0x7b
+Mar 22 02:42:23 205.177.186.74 [    6.892973]  =======================
+Mar 22 02:42:23 205.177.186.74 [    6.892973] Code:
+Mar 22 02:42:23 205.177.186.74 84
+Mar 22 02:42:23 205.177.186.74 01
+Mar 22 02:42:23 205.177.186.74 00
+Mar 22 02:42:23 205.177.186.74 00
+Mar 22 02:42:23 205.177.186.74 00
+Mar 22 02:42:23 205.177.186.74 8b
+Mar 22 02:42:23 205.177.186.74 55
+Mar 22 02:42:23 205.177.186.74 8c
+Mar 22 02:42:23 205.177.186.74 f0
+Mar 22 02:42:23 205.177.186.74 ff
+Mar 22 02:42:23 205.177.186.74 4a
+Mar 22 02:42:23 205.177.186.74 04
+Mar 22 02:42:23 205.177.186.74 0f
+Mar 22 02:42:23 205.177.186.74 94
+Mar 22 02:42:23 205.177.186.74 c0
+Mar 22 02:42:23 205.177.186.74 84
+Mar 22 02:42:23 205.177.186.74 c0
+Mar 22 02:42:23 205.177.186.74 74
+Mar 22 02:42:23 205.177.186.74 07
+Mar 22 02:42:23 205.177.186.74 89
+Mar 22 02:42:23 205.177.186.74 d0
+Mar 22 02:42:23 205.177.186.74 e8
+Mar 22 02:42:23 205.177.186.74 d9
+Mar 22 02:42:23 205.177.186.74 f8
+Mar 22 02:42:23 205.177.186.74 01
+Mar 22 02:42:23 205.177.186.74 00
+Mar 22 02:42:23 205.177.186.74 83
+Mar 22 02:42:23 205.177.186.74 7d
+Mar 22 02:42:23 205.177.186.74 84
+Mar 22 02:42:23 205.177.186.74 00
+Mar 22 02:42:23 205.177.186.74 0f
+Mar 22 02:42:23 205.177.186.74 84
+Mar 22 02:42:23 205.177.186.74 64
+Mar 22 02:42:23 205.177.186.74 03
+Mar 22 02:42:23 205.177.186.74 00
+Mar 22 02:42:23 205.177.186.74 00
+Mar 22 02:42:23 205.177.186.74 8b
+Mar 22 02:42:23 205.177.186.74 55
+Mar 22 02:42:23 205.177.186.74 d8
+Mar 22 02:42:23 205.177.186.74 85
+Mar 22 02:42:23 205.177.186.74 d2
+Mar 22 02:42:23 205.177.186.74 74
+Mar 22 02:42:23 205.177.186.74 12
+Mar 22 02:42:23 205.177.186.74 unparseable log message: "<f0> "
+Mar 22 02:42:23 205.177.186.74 ff
+Mar 22 02:42:23 205.177.186.74 4a
+Mar 22 02:42:23 205.177.186.74 18
+Mar 22 02:42:23 205.177.186.74 0f
+Mar 22 02:42:23 205.177.186.74 94
+Mar 22 02:42:23 205.177.186.74 c0
+Mar 22 02:42:23 205.177.186.74 84
+Mar 22 02:42:23 205.177.186.74 c0
+Mar 22 02:42:23 205.177.186.74 74
+Mar 22 02:42:23 205.177.186.74 07
+Mar 22 02:42:23 205.177.186.74 89
+Mar 22 02:42:23 205.177.186.74 d0
+Mar 22 02:42:23 205.177.186.74 e8
+Mar 22 02:42:23 205.177.186.74 b9
+Mar 22 02:42:23 205.177.186.74 6c
+Mar 22 02:42:23 205.177.186.74 02
+Mar 22 02:42:23 205.177.186.74 00
+Mar 22 02:42:23 205.177.186.74 8b
+Mar 22 02:42:23 205.177.186.74 55
+Mar 22 02:42:23 205.177.186.74 dc
+Mar 22 02:42:23 205.177.186.74
+Mar 22 02:42:23 205.177.186.74 [    6.892973] EIP: [<c0276f0a>]
+Mar 22 02:42:23 205.177.186.74 ip_route_input+0x872/0xbd9
+Mar 22 02:42:23 205.177.186.74 SS:ESP 0068:c092ee28
+Mar 22 02:42:23 205.177.186.74 [    6.892974] Kernel panic - not syncing: 
+Fatal exception in interrupt
+Mar 22 02:42:23 205.177.186.74 [    6.893021] Rebooting in 10 seconds..
+
+
+On Fri, 21 Mar 2008 04:04:08 -0700 (PDT), David Miller wrote
+> From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+> Date: Fri, 21 Mar 2008 12:54:50 +0200
+> 
+> > Let me know if i can improve output to help debugging.
+> > If possible it must be minimal risk to hang, cause router is in very 
+> > difficult to reach area.
+> 
+> Can you disable lockdep and see if the problem persists?
+> 
+> It's killing your routing performance anyways, I have no
+> idea why you have it enabled.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
