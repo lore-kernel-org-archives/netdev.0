@@ -1,36 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3 net-2.6.26] ip_options_compile cleanup
-Date: Sat, 22 Mar 2008 16:36:47 -0700 (PDT)
-Message-ID: <20080322.163647.44112344.davem@davemloft.net>
-References: <1205930508.24116.14.camel@iris.sw.ru>
+Subject: Re: [PATCH net-2.6.26 1/2][SOCK]: Add udp_hash member to struct
+ proto.
+Date: Sat, 22 Mar 2008 16:55:59 -0700 (PDT)
+Message-ID: <20080322.165559.236374100.davem@davemloft.net>
+References: <47DFAC44.9020704@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: den@openvz.org
+Cc: acme@redhat.com, netdev@vger.kernel.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59401
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54051
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754681AbYCVXgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Mar 2008 19:36:36 -0400
-In-Reply-To: <1205930508.24116.14.camel@iris.sw.ru>
+	by vger.kernel.org with ESMTP id S1754272AbYCVXzn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Mar 2008 19:55:43 -0400
+In-Reply-To: <47DFAC44.9020704@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Wed, 19 Mar 2008 15:41:48 +0300
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Tue, 18 Mar 2008 14:49:24 +0300
 
-> This set of patches has been originally sent to to netdev@ two weeks
-> ago.
+> Inspired by the commit ab1e0a13 ([SOCK] proto: Add hashinfo member to 
+> struct proto) from Arnaldo, I made similar thing for UDP/-Lite IPv4 
+> and -v6 protocols.
 > 
-> The idea is the following: ip_options->is_data field is checked only
-> inside ip_options_compile when opt != NULL. This is possible only on the
-> following codepath:
->     ip_options_get_finish
->         opt->is_data = 1;
->         ip_options_compile(opt, NULL)
+> The result is not that exciting, but it removes some levels of
+> indirection in udpxxx_get_port and saves some space in code and text.
 > 
-> ip_options->is_data is not a part of user<->kernel interface and can be
-> removed.
+> The first step is to union existing hashinfo and new udp_hash on the
+> struct proto and give a name to this union, since future initialization 
+> of tcpxxx_prot, dccp_vx_protinfo and udpxxx_protinfo will cause gcc 
+> warning about inability to initialize anonymous member this way.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-All applied and pushed to net-2.6.26, thanks.
+Applied.
