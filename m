@@ -1,47 +1,71 @@
-From: Stefan Richter <stefanr-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>
-Subject: Re: use of preempt_count instead of in_atomic() at leds-gpio.c
-Date: Sat, 22 Mar 2008 12:29:57 +0100
-Message-ID: <47E4EDB5.2080205@s5r6.in-berlin.de>
-References: <20080316184349.GA28543@khazad-dum.debian.net> <200803161246.23909.david-b@pacbell.net> <20080318001429.896acf51.akpm@linux-foundation.org> <20080320225612.GB20788@khazad-dum.debian.net> <20080320164741.734e838c.akpm@linux-foundation.org> <20080321003604.GC20788@khazad-dum.debian.net> <20080320180802.426ad2d1.akpm@linux-foundation.org> <47E37E04.3080303@s5r6.in-berlin.de> <20080321123708.GE5586@khazad-dum.debian.net> <47E3B528.6010200@s5r6.in-berlin.de>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [AX25] kernel panic
+Date: Sat, 22 Mar 2008 12:36:20 +0100
+Message-ID: <20080322113620.GA3213@ami.dom.local>
+References: <47DF9D21.20807@free.fr> <20080318212531.GA2031@electric-eye.fr.zoreil.com> <47E0C261.3000106@free.fr> <47E17E2E.9050105@free.fr> <20080320073021.GA4037@ff.dom.local> <47E2EC1B.9070405@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Henrique de Moraes Holschuh <hmh-N3TV7GIv+o9fyO9Q7EP/yw@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>,
-	Richard Purdie <rpurdie-Fm38FmjxZ/leoWH0uzbU5w@public.gmane.org>,
-	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
-	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	video4linux-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, lm-sensors-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <47E3B528.6010200-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jarek Poplawski <jarkao2@o2.pl>
+To: Bernard Pidoux <bpidoux@free.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.174]:57832 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754247AbYCVLcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Mar 2008 07:32:43 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so1792014ugc.16
+        for <netdev@vger.kernel.org>; Sat, 22 Mar 2008 04:32:42 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <47E2EC1B.9070405@free.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I wrote:
->>> and eth1394 to deal with temporary lack of of tlabels.  Alas I just  
->>> recently received a report that eth1394's workaround is unsuccessful 
->>> on  non-preemptible uniprocessor kernels.  
-> (I haven't started working on a fix, or opened a bugzilla 
-> ticket for it yet.  The reporter currently switched his kernel to 
-> PREEMPT which is not affected.)
+On Thu, Mar 20, 2008 at 11:58:35PM +0100, Bernard Pidoux wrote:
+...
+> BUG: spinlock bad magic on CPU#0, swapper/0
+> BUG: unable to handle kernel paging request at virtual address 6b6b6c2f
+> printing eip: c01e730b *pde = 00000000
+> Oops: 0000 [#1] SMP
+...
+> Pid: 0, comm: swapper Not tainted (2.6.24.3 #8)
+> EIP: 0060:[<c01e730b>] EFLAGS: 00010002 CPU: 0
+> EIP is at spin_bug+0xdb/0xf0
+...
 
-now logged as http://bugzilla.kernel.org/show_bug.cgi?id=10306
+Hi,
 
-> The failure in the workaround is *not* about the in_atomic() being the 
-> wrong question asked in hpsb_get_tlabel() --- no, ieee1394's in_atomic() 
-> abuse works just fine even on UP PREEMPT_NONE.  Instead, the failure is 
-> about kthreads not being scheduled in the way that I thought they would.
--- 
-Stefan Richter
--=====-==--- --== =-==-
-http://arcgraph.de/sr/
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Bernard, could you try this debugging patch?
+
+Thanks,
+Jarek P.
+
+---
+
+diff -Nurp 2.6.24.3-/net/core/sock.c 2.6.24.3+/net/core/sock.c
+--- 2.6.24.3-/net/core/sock.c	2008-01-24 23:58:37.000000000 +0100
++++ 2.6.24.3+/net/core/sock.c	2008-03-22 12:10:10.000000000 +0100
+@@ -1517,14 +1517,21 @@ static void sock_def_write_space(struct 
+ 	 * progress.  --DaveM
+ 	 */
+ 	if ((atomic_read(&sk->sk_wmem_alloc) << 1) <= sk->sk_sndbuf) {
+-		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep)) {
++			if (!sk->sk_socket || sk->sk_socket->sk != sk) {
++				WARN_ON_ONCE(1);
++				sk->sk_socket = NULL;
++				sk->sk_sleep = NULL;
++				goto out;
++			}
+ 			wake_up_interruptible(sk->sk_sleep);
++		}
+ 
+ 		/* Should agree with poll, otherwise some programs break */
+ 		if (sock_writeable(sk))
+ 			sk_wake_async(sk, 2, POLL_OUT);
+ 	}
+-
++out:
+ 	read_unlock(&sk->sk_callback_lock);
+ }
+ 
