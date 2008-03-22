@@ -1,47 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3 (spin 2) resend] TCP_DEFER_ACCEPT updates - process
- as established
-Date: Fri, 21 Mar 2008 16:34:03 -0700 (PDT)
-Message-ID: <20080321.163403.160241605.davem@davemloft.net>
-References: <1206053493.13044.14.camel@tng>
-	<1206053758.13044.24.camel@tng>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] socket: SOCK_DEBUG type checking
+Date: Fri, 21 Mar 2008 17:17:31 -0700
+Message-ID: <20080321171731.2447b435@extreme>
+References: <20080321075132.2fe4ac23@extreme>
+	<20080321.155600.121386813.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: mcmanus@ducksong.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59884
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750890AbYCUXdr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2008 19:33:47 -0400
-In-Reply-To: <1206053758.13044.24.camel@tng>
+Received: from mail.vyatta.com ([216.93.170.194]:49002 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752415AbYCVARj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Mar 2008 20:17:39 -0400
+In-Reply-To: <20080321.155600.121386813.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McManus <mcmanus@ducksong.com>
-Date: Thu, 20 Mar 2008 18:55:58 -0400
+On Fri, 21 Mar 2008 15:56:00 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> commit 4a234b7dd1a5144fe5630f1b0739e3c8c28de2ed
-> Author: Patrick McManus <mcmanus@ducksong.com>
-> Date:   Sun Mar 2 16:52:37 2008 -0500
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Fri, 21 Mar 2008 07:51:32 -0700
 > 
->     Change TCP_DEFER_ACCEPT implementation so that it transitions a
->     connection to ESTABLISHED after handshake is complete instead of
->     leaving it in SYN-RECV until some data arrvies. Place connection in
->     accept queue when first data packet arrives from slow path.
->     
->     Benefits:
->       - established connection is now reset if it never makes it
->        to the accept queue
->     
->      - diagnostic state of established matches with the packet traces
->        showing completed handshake
->     
->      - TCP_DEFER_ACCEPT timeouts are expressed in seconds and can now be
->        enforced with reasonable accuracy instead of rounding up to next
->        exponential back-off of syn-ack retry.
->     
->     Signed-off-by: Patrick McManus <mcmanus@ducksong.com>
+> > Use the inline trick (same as pr_debug) to get checking
+> > of debug statements even if no code is generated.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> Applied, and I'll push to net-2.6.26 after some build
+> testing.
+> 
+> Although the use of SOCK_DEBUG is so esoteric and sparse,
+> I can't see how any of it can be useful for any kind of
+> debugging.
+> 
+> I'd say we should just remove this thing.
 
-Applied and pushed to net-2.6.26, thanks.
+Agreed, that was the other alternative, just saw it while
+looking at filter stuff.
