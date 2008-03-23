@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.25] BNX2X: prevent ethtool from setting port type
-Date: Sun, 23 Mar 2008 03:08:03 -0700 (PDT)
-Message-ID: <20080323.030803.128054786.davem@davemloft.net>
-References: <1206252306.13326.3.camel@lb-tlvb-eliezer.il.broadcom.com>
+Subject: Re: kernel panic, ip_route_input, 2.6.25-rc6-git2
+Date: Sun, 23 Mar 2008 03:11:39 -0700 (PDT)
+Message-ID: <20080323.031139.17629653.davem@davemloft.net>
+References: <20080323073638.M89709@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: eliezert@broadcom.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: denys@visp.net.lb
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34096
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45930
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755714AbYCWKHu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2008 06:07:50 -0400
-In-Reply-To: <1206252306.13326.3.camel@lb-tlvb-eliezer.il.broadcom.com>
+	by vger.kernel.org with ESMTP id S1755676AbYCWKL3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2008 06:11:29 -0400
+In-Reply-To: <20080323073638.M89709@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Date: Sun, 23 Mar 2008 08:05:06 +0200
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Date: Sun, 23 Mar 2008 09:36:38 +0200
 
-> BNX2X: prevent ethtool from setting port type
-> 
-> On 10GBaseT boards setting the type to TP will cause the driver to try
-> to configure 1GBaseT.
-> Since there are currently no boards that support setting of the port
-> type, disable this for now.
-> 
-> Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
+> Recently tested, it crashes also -git6 without lockdep compiled. So it seems 
+> actually networking code bug.
 
-Applied, thanks.
+I'm still not so sure.
+
+The IP is at ip_route_input but the rest of your backtrace
+shows an entirely different code path.
+
+Nothing in the trace matches up, which severely decreases the
+usability of the debugging information you've provided.
+ 
