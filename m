@@ -1,47 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Make /proc/net a symlink on /proc/self/net
-Date: Sun, 23 Mar 2008 06:16:50 -0700 (PDT)
-Message-ID: <20080323.061650.239772151.davem@davemloft.net>
-References: <47CE8FF7.7000701@openvz.org>
-	<200803231400.41397.vda.linux@googlemail.com>
+From: "Robert P. J. Day" <rpjday@crashcourse.ca>
+Subject: [PATCH] NET: Use shorter list_splice_init() macro for brevity.
+Date: Sun, 23 Mar 2008 10:13:48 -0400 (EDT)
+Message-ID: <alpine.LFD.1.00.0803231012460.11270@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, adobriyan@openvz.org
-To: vda.linux@googlemail.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@osdl.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60932
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756020AbYCWNQf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2008 09:16:35 -0400
-In-Reply-To: <200803231400.41397.vda.linux@googlemail.com>
+Received: from astoria.ccjclearline.com ([64.235.106.9]:53898 "EHLO
+	astoria.ccjclearline.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759085AbYCWONw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2008 10:13:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Denys Vlasenko <vda.linux@googlemail.com>
-Date: Sun, 23 Mar 2008 14:00:41 +0100
 
-> On Wednesday 05 March 2008 13:20, Pavel Emelyanov wrote:
-> > Current /proc/net is done with so called "shadows", but current
-> > implementation is broken and has little chances to get fixed.
-> > 
-> > The problem is that dentries subtree of /proc/net directory has
-> > fancy revalidation rules to make processes living in different
-> > net namespaces see different entries in /proc/net subtree, but
-> > currently, tasks see in the /proc/net subdir the contents of any
-> > other namespace, depending on who opened the file first.
-> > 
-> > The proposed fix is to turn /proc/net into a symlink, which points
-> > to /proc/self/net, which in turn shows what previously was in
-> > /proc/net - the network-related info, from the net namespace the
-> > appropriate task lives in.
-> > 
-> > # ls -l /proc/net
-> > lrwxrwxrwx  1 root root 8 Mar  5 15:17 /proc/net -> self/net
-> 
-> This broke tools which read /proc/net/dev. Under non-root,
-> they are no longer working. This is a regression.
+Signed-off-by: Robert P. J. Day <rpjday@crashcourse.ca>
 
-This is fixed with a commit that was made yesterday.
+---
+
+diff --git a/drivers/net/cassini.c b/drivers/net/cassini.c
+index 14299f8..93e1363 100644
+--- a/drivers/net/cassini.c
++++ b/drivers/net/cassini.c
+@@ -532,8 +532,7 @@ static void cas_spare_free(struct cas *cp)
+ 	/* free spare buffers */
+ 	INIT_LIST_HEAD(&list);
+ 	spin_lock(&cp->rx_spare_lock);
+-	list_splice(&cp->rx_spare_list, &list);
+-	INIT_LIST_HEAD(&cp->rx_spare_list);
++	list_splice_init(&cp->rx_spare_list, &list);
+ 	spin_unlock(&cp->rx_spare_lock);
+ 	list_for_each_safe(elem, tmp, &list) {
+ 		cas_page_free(cp, list_entry(elem, cas_page_t, list));
+@@ -546,13 +545,11 @@ static void cas_spare_free(struct cas *cp)
+ 	 * lock than used everywhere else to manipulate this list.
+ 	 */
+ 	spin_lock(&cp->rx_inuse_lock);
+-	list_splice(&cp->rx_inuse_list, &list);
+-	INIT_LIST_HEAD(&cp->rx_inuse_list);
++	list_splice_init(&cp->rx_inuse_list, &list);
+ 	spin_unlock(&cp->rx_inuse_lock);
+ #else
+ 	spin_lock(&cp->rx_spare_lock);
+-	list_splice(&cp->rx_inuse_list, &list);
+-	INIT_LIST_HEAD(&cp->rx_inuse_list);
++	list_splice_init(&cp->rx_inuse_list, &list);
+ 	spin_unlock(&cp->rx_spare_lock);
+ #endif
+ 	list_for_each_safe(elem, tmp, &list) {
+@@ -573,8 +570,7 @@ static void cas_spare_recover(struct cas *cp, const gfp_t flags)
+ 	/* make a local copy of the list */
+ 	INIT_LIST_HEAD(&list);
+ 	spin_lock(&cp->rx_inuse_lock);
+-	list_splice(&cp->rx_inuse_list, &list);
+-	INIT_LIST_HEAD(&cp->rx_inuse_list);
++	list_splice_init(&cp->rx_inuse_list, &list);
+ 	spin_unlock(&cp->rx_inuse_lock);
+
+ 	list_for_each_safe(elem, tmp, &list) {
+
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry:
+    Have classroom, will lecture.
+
+http://crashcourse.ca                          Waterloo, Ontario, CANADA
+========================================================================
