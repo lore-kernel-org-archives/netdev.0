@@ -1,61 +1,59 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: Fix sysfs attribute handling
-Date: Sat, 22 Mar 2008 18:12:34 -0700
-Message-ID: <18749.1206234754@death>
-References: <200803211452.55982.lpechacek@suse.cz> <20080322172704.49fa557b.akpm@linux-foundation.org>
-Cc: Libor Pechacek <lpechacek@suse.cz>,
-	bonding-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, stable@kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [git patches] net driver updates for .26
+Date: Sat, 22 Mar 2008 18:35:22 -0700 (PDT)
+Message-ID: <20080322.183522.124237568.davem@davemloft.net>
+References: <20080318075902.GA18010@havoc.gtf.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:40164 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754835AbYCWBMi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Mar 2008 21:12:38 -0400
-In-reply-to: <20080322172704.49fa557b.akpm@linux-foundation.org> 
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48015
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755529AbYCWBfG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Mar 2008 21:35:06 -0400
+In-Reply-To: <20080318075902.GA18010@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton <akpm@linux-foundation.org> wrote:
+From: Jeff Garzik <jeff@garzik.org>
+Date: Tue, 18 Mar 2008 03:59:02 -0400
 
->On Fri, 21 Mar 2008 14:52:55 +0100 Libor Pechacek <lpechacek@suse.cz> wrote:
->
->> bonding: Fix sysfs attribute handling
->> 
->> For bonding interfaces any attempt to read the sysfs directory contents after
->> module removal results in an oops.  The fix is to release sysfs attributes
->> for the interfaces upon module unload.
->> 
->> Signed-off-by: Libor Pechacek <lpechacek@suse.cz>
->> --
->>  drivers/net/bonding/bond_main.c |    3 +--
->>  1 files changed, 1 insertions(+), 2 deletions(-)
->> 
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index 0942d82..33767d4 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -4528,8 +4528,7 @@ static void bond_free_all(void)
->>  		netif_tx_unlock_bh(bond_dev);
->>  		/* Release the bonded slaves */
->>  		bond_release_all(bond_dev);
->> -		bond_deinit(bond_dev);
->> -		unregister_netdevice(bond_dev);
->> +		bond_destroy(bond);
->>  	}
->
->Is this also needed in 2.6.24.x?
+> 
+> Just sent this upstream to davem for 2.6.26...  snipped the patch I
+> usually post along with a git push, due to mailing list restrictions.
+> 
+> Please pull from 'upstream-net26' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-net26
 
-	Yes (I haven't tested it personally, but the affected code is
-the same).  I was going to forward this to stable when it was accepted
-upstream.  The oops is fairly straightforward to create:
+This fails an allmodconfig build:
 
-# modprobe bonding
-# cd /sys/class/net/bond0/bonding
-# rmmod bonding
-# ls
+drivers/net/8390.c: In function '__inittest':
+drivers/net/8390.c:60: error: 'ns8390_init_module' undeclared (first use in this function)
+drivers/net/8390.c:60: error: (Each undeclared identifier is reported only once
+drivers/net/8390.c:60: error: for each function it appears in.)
 
-	-J
+The fix was easy so I took care of it, this time...
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+There was also a merge conflict in drivers/s390/net/qeth_main.c
+(against a net-2.6.26 change, which is why you really should work
+against that for 2.6.26 bound changes not against Linus's head as you
+did here), which is easy to resolve by putting the conflicting change
+to qeth_main.c into the inetdev notifier in qeth_l3_main.c, which
+I took care of as well.
+
+This time....
+
+There are also some new build warnings such as:
+
+drivers/net/atlx/atl1.c:506: warning: 'atl1_phy_enter_power_saving' defined but not used
+
+Which I fixed up as well, but that atl1_phy_enter_power_saving()
+function is just a jumble of commented out code, yuck!  Please
+review some of this stuff :-/
+
+I'm not doing all of these fixups next time just to make your
+tree pullable, ok?
+
+Thanks.
