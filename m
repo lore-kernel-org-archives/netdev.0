@@ -1,46 +1,32 @@
-From: "Gordon Farquharson" <gordonfarquharson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-02-27
-Date: Sun, 23 Mar 2008 15:23:36 -0600
-Message-ID: <97a0a9ac0803231423v739da7bbtef037a47b98f8068@mail.gmail.com>
-References: <20080228014125.GI3078@tuxdriver.com>
-	 <20080229214240.GH3234@tuxdriver.com>
-	 <20080301130133.GA14250@uranus.ravnborg.org>
-	 <200803011651.13652.mb@bu3sch.de>
-	 <20080302115828.GA15820@uranus.ravnborg.org>
-	 <97a0a9ac0803172107s2ac19268h3b297bb645011a3@mail.gmail.com>
-	 <20080323205126.GB5087@uranus.ravnborg.org>
+From: Matti Aarnio <matti.aarnio@zmailer.org>
+Subject: O(n^2) or worse ?   cat /proc/net/tcp
+Date: Mon, 24 Mar 2008 00:43:07 +0200
+Message-ID: <20080323224307.GL3700@mea-ext.zmailer.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Michael Buesch" <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Andrew Morton" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: "Sam Ravnborg" <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080323205126.GB5087-QabhHTsIXMSnlFQ6Q1D1Y0B+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from z2.cat.iki.fi ([212.16.98.133]:48959 "EHLO z2.cat.iki.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755929AbYCWWnM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Mar 2008 18:43:12 -0400
+Received: (mea@mea-ext) by mail.zmailer.org id S3540613AbYCWWnH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 00:43:07 +0200
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sam
+I have about 750 TCP socket on one multi-threaded server application, and 
+about 250 on three single-threaded clients.
 
-On Sun, Mar 23, 2008 at 2:51 PM, Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org> wrote:
->  Thanks for your paitience.
->  I have been outright busy so I never came around to this.
->  It is pushed for inclusion in 2.6.25 now.
+I did observe odd slowness at first with  "lsof -p .."  program, then at
+"netstat -na".  Same slowdown happens with:  cat /proc/net/tcp
+(that 'cat' took 25 seconds...)
 
-Thanks, Sam. Sorry to have bugged you a little :-) Also, thanks very
-much for creating the patch in the first place.
+Sure this is not earth shatterinly dangerous thing, rather a nuisance
+when a monitoring application is not as fast as one would expect.
 
-Gordon
 
--- 
-Gordon Farquharson
-GnuPG Key ID: 32D6D676
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Application works fine, though.
+
+  /Matti Aarnio
