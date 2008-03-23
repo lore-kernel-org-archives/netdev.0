@@ -1,75 +1,50 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: sungem triggers NAPI warning
-Date: Sun, 23 Mar 2008 23:07:37 +1100
-Message-ID: <1206274057.7197.23.camel@pasglop>
-References: <1203457124.3874.2.camel@johannes.berg>
-	 <20080323.033558.118223124.davem@davemloft.net>
-Reply-To: benh@kernel.crashing.org
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: Re: [PATCH] Make /proc/net a symlink on /proc/self/net
+Date: Sun, 23 Mar 2008 14:00:41 +0100
+Message-ID: <200803231400.41397.vda.linux@googlemail.com>
+References: <47CE8FF7.7000701@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Alexey Dobriyan <adobriyan@openvz.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:51709 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754472AbYCWMIZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Mar 2008 08:08:25 -0400
-In-Reply-To: <20080323.033558.118223124.davem@davemloft.net>
+Received: from fg-out-1718.google.com ([72.14.220.155]:38210 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755883AbYCWNCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2008 09:02:09 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so2438695fgb.17
+        for <netdev@vger.kernel.org>; Sun, 23 Mar 2008 06:02:08 -0700 (PDT)
+In-Reply-To: <47CE8FF7.7000701@openvz.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wednesday 05 March 2008 13:20, Pavel Emelyanov wrote:
+> Current /proc/net is done with so called "shadows", but current
+> implementation is broken and has little chances to get fixed.
+> 
+> The problem is that dentries subtree of /proc/net directory has
+> fancy revalidation rules to make processes living in different
+> net namespaces see different entries in /proc/net subtree, but
+> currently, tasks see in the /proc/net subdir the contents of any
+> other namespace, depending on who opened the file first.
+> 
+> The proposed fix is to turn /proc/net into a symlink, which points
+> to /proc/self/net, which in turn shows what previously was in
+> /proc/net - the network-related info, from the net namespace the
+> appropriate task lives in.
+> 
+> # ls -l /proc/net
+> lrwxrwxrwx  1 root root 8 Mar  5 15:17 /proc/net -> self/net
 
-On Sun, 2008-03-23 at 03:35 -0700, David Miller wrote:
-> From: Johannes Berg <johannes@sipsolutions.net>
-> Date: Tue, 19 Feb 2008 22:38:43 +0100
-> 
-> > In order to trigger it, I have to transfer a lot of data. I have
-> > triggered it now with a full kernel recompilation using -j6 and distcc
-> > onto a fast machine (with tg3 network, direct cable, gbit), and with
-> > rsync transferring 26GiB data between the machines.
-> 
-> I'll push the following fix.
-> 
-> Ben, thanks for letting this fall through the cracks :-)
-
-OOps... sorry.
-
-> commit da990a2402aeaee84837f29054c4628eb02f7493
-> Author: David S. Miller <davem@davemloft.net>
-> Date:   Sun Mar 23 03:35:12 2008 -0700
-> 
->     [SUNGEM]: Fix NAPI assertion failure.
->     
->     As reported by Johannes Berg:
->     
->     I started getting this warning with recent kernels:
->     
->     [  773.908927] ------------[ cut here ]------------
->     [  773.908954] Badness at net/core/dev.c:2204
->      ...
->     
->     If we loop more than once in gem_poll(), we'll
->     use more than the real budget in our gem_rx()
->     calls, thus eventually trigger the caller's
->     assertions in net_rx_action().
->     
->     Subtract "work_done" from "budget" for the second
->     arg to gem_rx() to fix the bug.
->     
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> diff --git a/drivers/net/sungem.c b/drivers/net/sungem.c
-> index 9721279..4291458 100644
-> --- a/drivers/net/sungem.c
-> +++ b/drivers/net/sungem.c
-> @@ -912,7 +912,7 @@ static int gem_poll(struct napi_struct *napi, int budget)
->  		 * rx ring - must call napi_disable(), which
->  		 * schedule_timeout()'s if polling is already disabled.
->  		 */
-> -		work_done += gem_rx(gp, budget);
-> +		work_done += gem_rx(gp, budget - work_done);
->  
->  		if (work_done >= budget)
->  			return work_done;
-
+This broke tools which read /proc/net/dev. Under non-root,
+they are no longer working. This is a regression.
+--
+vda
