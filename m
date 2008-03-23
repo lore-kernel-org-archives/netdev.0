@@ -1,75 +1,66 @@
-From: lpechacek@suse.cz
-Subject: Re: [PATCH] bonding: Fix sysfs attribute handling
-Date: Sun, 23 Mar 2008 21:05:05 +0100 (CET)
-Message-ID: <27198.10.20.10.50.1206302705.squirrel@webmail.suse.cz>
-References: <200803211452.55982.lpechacek@suse.cz>
-    <20080322172704.49fa557b.akpm@linux-foundation.org>
-    <18749.1206234754@death>
+From: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
+Subject: [PATCH 3 of 5] IPv6: do not create temporary adresses with too short
+	preferred lifetime
+Date: Sun, 23 Mar 2008 21:46:11 +0100
+Message-ID: <268e602e19080797193e.1206305171@pirzuine>
+References: <patchbomb.1206305168@pirzuine>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	"Libor Pechacek" <lpechacek@suse.cz>,
-	bonding-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, stable@kernel.org
-To: "Jay Vosburgh" <fubar@us.ibm.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pekkas@netcore.fi, yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:37415 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755982AbYCWUFM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Mar 2008 16:05:12 -0400
-In-Reply-To: <18749.1206234754@death>
+Received: from smtp8-g19.free.fr ([212.27.42.65]:38131 "EHLO smtp8-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752335AbYCWUqP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Mar 2008 16:46:15 -0400
+In-Reply-To: <patchbomb.1206305168@pirzuine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Andrew Morton <akpm@linux-foundation.org> wrote:
->
->>On Fri, 21 Mar 2008 14:52:55 +0100 Libor Pechacek <lpechacek@suse.cz>
->> wrote:
->>
->>> bonding: Fix sysfs attribute handling
->>>
->>> For bonding interfaces any attempt to read the sysfs directory contents
->>> after
->>> module removal results in an oops.  The fix is to release sysfs
->>> attributes
->>> for the interfaces upon module unload.
->>>
->>> Signed-off-by: Libor Pechacek <lpechacek@suse.cz>
->>> --
->>>  drivers/net/bonding/bond_main.c |    3 +--
->>>  1 files changed, 1 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/drivers/net/bonding/bond_main.c
->>> b/drivers/net/bonding/bond_main.c
->>> index 0942d82..33767d4 100644
->>> --- a/drivers/net/bonding/bond_main.c
->>> +++ b/drivers/net/bonding/bond_main.c
->>> @@ -4528,8 +4528,7 @@ static void bond_free_all(void)
->>>  		netif_tx_unlock_bh(bond_dev);
->>>  		/* Release the bonded slaves */
->>>  		bond_release_all(bond_dev);
->>> -		bond_deinit(bond_dev);
->>> -		unregister_netdevice(bond_dev);
->>> +		bond_destroy(bond);
->>>  	}
->>
->>Is this also needed in 2.6.24.x?
->
-> 	Yes (I haven't tested it personally, but the affected code is
-> the same).  I was going to forward this to stable when it was accepted
-> upstream.  The oops is fairly straightforward to create:
->
-> # modprobe bonding
-> # cd /sys/class/net/bond0/bonding
-> # rmmod bonding
-> # ls
+IPv6: do not create temporary adresses with too short preferred lifetime
 
-Yes, exactly.
+>From RFC341:
+A temporary address is created only if this calculated Preferred
+Lifetime is greater than REGEN_ADVANCE time units.  In particular,
+an implementation must not create a temporary address with a zero
+Preferred Lifetime.
 
-I tested the patch with the latest Linus' tree (GIT commit
-49a5ba46c5d1e34bcb07634157b29d7414ce13bd), but I first found the bug in
-2.6.16.
+Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
 
-Libor
-
+diff -r 5e50b19fbb75 -r 268e602e1908 net/ipv6/addrconf.c
+--- a/net/ipv6/addrconf.c	Sat Mar 22 00:41:39 2008 +0100
++++ b/net/ipv6/addrconf.c	Sat Mar 22 00:39:16 2008 +0100
+@@ -776,6 +776,7 @@
+ 	struct inet6_dev *idev = ifp->idev;
+ 	struct in6_addr addr, *tmpaddr;
+ 	unsigned long tmp_prefered_lft, tmp_valid_lft, tmp_cstamp, tmp_tstamp;
++	unsigned int regen_advance;
+ 	int tmp_plen;
+ 	int ret = 0;
+ 	int max_addresses;
+@@ -834,9 +835,24 @@
+ 	max_addresses = idev->cnf.max_addresses;
+ 	tmp_cstamp = ifp->cstamp;
+ 	tmp_tstamp = ifp->tstamp;
++	regen_advance = idev->cnf.regen_max_retry *
++	                idev->cnf.dad_transmits *
++	                idev->nd_parms->retrans_time / HZ;
+ 	spin_unlock_bh(&ifp->lock);
+ 
+ 	write_unlock(&idev->lock);
++
++	/* A temporary address is created only if this calculated Preferred
++	 * Lifetime is greater than REGEN_ADVANCE time units.  In particular,
++	 * an implementation must not create a temporary address with a zero
++	 * Preferred Lifetime.
++	 */
++	if (tmp_prefered_lft <= regen_advance) {
++		in6_ifa_put(ifp);
++		in6_dev_put(idev);
++		ret = -1;
++		goto out;
++	}
+ 
+ 	addr_flags = IFA_F_TEMPORARY;
+ 	/* set in addrconf_prefix_rcv() */
