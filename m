@@ -1,32 +1,38 @@
-From: Denys Vlasenko <vda.linux@googlemail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] Make /proc/net a symlink on /proc/self/net
-Date: Sun, 23 Mar 2008 14:04:03 +0100
-Message-ID: <200803231404.03787.vda.linux@googlemail.com>
-References: <47CE8FF7.7000701@openvz.org> <200803231400.41397.vda.linux@googlemail.com>
+Date: Sun, 23 Mar 2008 06:16:50 -0700 (PDT)
+Message-ID: <20080323.061650.239772151.davem@davemloft.net>
+References: <47CE8FF7.7000701@openvz.org>
+	<200803231400.41397.vda.linux@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Alexey Dobriyan <adobriyan@openvz.org>
-To: Pavel Emelyanov <xemul@openvz.org>
+Cc: xemul@openvz.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ebiederm@xmission.com, adobriyan@openvz.org
+To: vda.linux@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:46497 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755684AbYCWNFc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2008 09:05:32 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so2439822fgb.17
-        for <netdev@vger.kernel.org>; Sun, 23 Mar 2008 06:05:31 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60932
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756020AbYCWNQf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2008 09:16:35 -0400
 In-Reply-To: <200803231400.41397.vda.linux@googlemail.com>
-Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 23 March 2008 14:00, Denys Vlasenko wrote:
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Sun, 23 Mar 2008 14:00:41 +0100
+
+> On Wednesday 05 March 2008 13:20, Pavel Emelyanov wrote:
+> > Current /proc/net is done with so called "shadows", but current
+> > implementation is broken and has little chances to get fixed.
+> > 
+> > The problem is that dentries subtree of /proc/net directory has
+> > fancy revalidation rules to make processes living in different
+> > net namespaces see different entries in /proc/net subtree, but
+> > currently, tasks see in the /proc/net subdir the contents of any
+> > other namespace, depending on who opened the file first.
+> > 
 > > The proposed fix is to turn /proc/net into a symlink, which points
 > > to /proc/self/net, which in turn shows what previously was in
 > > /proc/net - the network-related info, from the net namespace the
@@ -38,8 +44,4 @@ On Sunday 23 March 2008 14:00, Denys Vlasenko wrote:
 > This broke tools which read /proc/net/dev. Under non-root,
 > they are no longer working. This is a regression.
 
-I see that this is already reported & fix is in queue.
-
-Sorry for the noise.
---
-vda
+This is fixed with a commit that was made yesterday.
