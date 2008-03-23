@@ -1,44 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] [IPV6]: Event type in addrconf_ifdown is mis-used.
-Date: Sun, 23 Mar 2008 03:17:24 -0700 (PDT)
-Message-ID: <20080323.031724.208377895.davem@davemloft.net>
-References: <1205850925-11736-1-git-send-email-den@openvz.org>
-	<20080322.173843.71057686.davem@davemloft.net>
-	<1206259996.7528.12.camel@iris.sw.ru>
+Subject: Re: [PATCH]skge napi->poll() locking bug
+Date: Sun, 23 Mar 2008 03:19:43 -0700 (PDT)
+Message-ID: <20080323.031943.23771660.davem@davemloft.net>
+References: <200803231020.10030.mitov@issp.bas.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org, kaber@trash.net,
-	containers@lists.osdl.org, dlezcano@fr.ibm.com,
-	benjamin.thery@bull.net
-To: den@openvz.org
+Cc: linux-kernel@vger.kernel.org, shemminger@linux-foundation.org,
+	jgarzik@pobox.com, netdev@vger.kernel.org
+To: mitov@issp.bas.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44273
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44299
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754619AbYCWKRP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2008 06:17:15 -0400
-In-Reply-To: <1206259996.7528.12.camel@iris.sw.ru>
+	by vger.kernel.org with ESMTP id S1755529AbYCWKTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2008 06:19:33 -0400
+In-Reply-To: <200803231020.10030.mitov@issp.bas.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Sun, 23 Mar 2008 11:13:16 +0300
+From: Marin Mitov <mitov@issp.bas.bg>
+Date: Sun, 23 Mar 2008 10:20:09 +0200
 
-> First, this behaviour is broken for a namespace right now in the 2.6.26
-> tree. inet6_dev pointer will be NULL for a loopback inside the
-> namespace. The case is simple. Just remove all INET6 addresses from a
-> loopback device inside a VE. This will call
->   inet6_addr_del
->     addrconf_ifdown(dev, 1);
->        if (dev == init_net.loopback_dev && how == 1)
->                 how = 0;
-> the condition will be false and how will not be changed here.
+Please send networking things at least CC:'d to netdev
+as many networking developers do not subscribe to
+linux-kernel
 
-That's a bug.
+> According to: Documentation/networking/netdevices.txt:
+> 
+> <cite>
+> napi->poll:
+> ..........
+> 	Context: softirq
+> 	         will be called with interrupts disabled by netconsole.
+> </cite>
+> 
+> napi->poll() could be called either with interrupts enabled 
+> (in softirq context) or disabled (by netconsole), so the irq flag
+> should be preserved.
+> 
+> Inspired by Ingo's resent forcedeth patch :-)
+> 
+> Regards
+> 
+> Marin Mitov
+> 
+> Signed-off-by: Marin Mitov <mitov@issp.bas.bg>
 
-You can't mark any namespace's loopback device's inet6_dev as NULL
-until you know that all routes, devices, and packets referring to such
-devices and routes in that namespace are %100 gone and unreferenced.
-
-It is now obviously apparent that there are several severe errors
-here.
+Acked-by: David S. Miller <davem@davemloft.net>
