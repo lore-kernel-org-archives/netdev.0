@@ -1,68 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sungem triggers NAPI warning
-Date: Sun, 23 Mar 2008 03:35:58 -0700 (PDT)
-Message-ID: <20080323.033558.118223124.davem@davemloft.net>
-References: <1203457124.3874.2.camel@johannes.berg>
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Subject: [PATCH 2.6.25][resend] rndis_host: fix oops when query for
+	OID_GEN_PHYSICAL_MEDIUM fails
+Date: Sun, 23 Mar 2008 12:45:44 +0200
+Message-ID: <20080323104535.10317.33658.stgit@fate.lan>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benh@kernel.crashing.org
-To: johannes@sipsolutions.net
+Cc: dbrownell@users.sourceforge.net, jgarzik@pobox.com,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38719
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756246AbYCWKfr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2008 06:35:47 -0400
-In-Reply-To: <1203457124.3874.2.camel@johannes.berg>
+Received: from pne-smtpout3-sn2.hy.skanova.net ([81.228.8.111]:38348 "EHLO
+	pne-smtpout3-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756289AbYCWKpq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2008 06:45:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Tue, 19 Feb 2008 22:38:43 +0100
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 
-> In order to trigger it, I have to transfer a lot of data. I have
-> triggered it now with a full kernel recompilation using -j6 and distcc
-> onto a fast machine (with tg3 network, direct cable, gbit), and with
-> rsync transferring 26GiB data between the machines.
+When query for OID_GEN_PHYSICAL_MEDIUM fails, uninitialized pointer
+'phym' is being accessed in generic_rndis_bind(), resulting OOPS.
+Patch fixes phym to be initialized and setup correctly when
+rndis_query() for physical medium fails.
 
-I'll push the following fix.
+Bug was introduced by following commit:
+commit 039ee17d1baabaa21783a0d5ab3e8c6d8c794bdf
+Author: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Date:   Sun Jan 27 23:34:33 2008 +0200
 
-Ben, thanks for letting this fall through the cracks :-)
+Reported-by: Dmitri Monakhov <dmonakhov@openvz.org>
+Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Acked-by: David Brownell <dbrownell@users.sourceforge.net>
+---
 
-commit da990a2402aeaee84837f29054c4628eb02f7493
-Author: David S. Miller <davem@davemloft.net>
-Date:   Sun Mar 23 03:35:12 2008 -0700
+ drivers/net/usb/rndis_host.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
-    [SUNGEM]: Fix NAPI assertion failure.
-    
-    As reported by Johannes Berg:
-    
-    I started getting this warning with recent kernels:
-    
-    [  773.908927] ------------[ cut here ]------------
-    [  773.908954] Badness at net/core/dev.c:2204
-     ...
-    
-    If we loop more than once in gem_poll(), we'll
-    use more than the real budget in our gem_rx()
-    calls, thus eventually trigger the caller's
-    assertions in net_rx_action().
-    
-    Subtract "work_done" from "budget" for the second
-    arg to gem_rx() to fix the bug.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/drivers/net/sungem.c b/drivers/net/sungem.c
-index 9721279..4291458 100644
---- a/drivers/net/sungem.c
-+++ b/drivers/net/sungem.c
-@@ -912,7 +912,7 @@ static int gem_poll(struct napi_struct *napi, int budget)
- 		 * rx ring - must call napi_disable(), which
- 		 * schedule_timeout()'s if polling is already disabled.
- 		 */
--		work_done += gem_rx(gp, budget);
-+		work_done += gem_rx(gp, budget - work_done);
+diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+index a613247..1b810ab 100644
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -287,7 +287,7 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
+ 		struct rndis_set_c	*set_c;
+ 		struct rndis_halt	*halt;
+ 	} u;
+-	u32			tmp, *phym;
++	u32			tmp, phym_unspec, *phym;
+ 	int			reply_len;
+ 	unsigned char		*bp;
  
- 		if (work_done >= budget)
- 			return work_done;
+@@ -359,12 +359,15 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
+ 		goto halt_fail_and_release;
+ 
+ 	/* Check physical medium */
++	phym = NULL;
+ 	reply_len = sizeof *phym;
+ 	retval = rndis_query(dev, intf, u.buf, OID_GEN_PHYSICAL_MEDIUM,
+ 			0, (void **) &phym, &reply_len);
+-	if (retval != 0)
++	if (retval != 0 || !phym) {
+ 		/* OID is optional so don't fail here. */
+-		*phym = RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED;
++		phym_unspec = RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED;
++		phym = &phym_unspec;
++	}
+ 	if ((flags & FLAG_RNDIS_PHYM_WIRELESS) &&
+ 			*phym != RNDIS_PHYSICAL_MEDIUM_WIRELESS_LAN) {
+ 		if (netif_msg_probe(dev))
+
