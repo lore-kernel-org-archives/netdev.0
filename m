@@ -1,35 +1,96 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/11 net-2.6.26] UDP/ICMP/TCP for a namespace
-Date: Mon, 24 Mar 2008 15:44:19 -0700 (PDT)
-Message-ID: <20080324.154419.85665963.davem@davemloft.net>
-References: <1206369185.23705.7.camel@iris.sw.ru>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: Re: [PATCH] de2104x: remove BUG_ON() when changing media type
+Date: Tue, 25 Mar 2008 00:02:19 +0100
+Message-ID: <200803250002.21718.linux@rainbow-software.org>
+References: <200801262158.12016.linux@rainbow-software.org> <47C30051.3020909@pobox.com> <20080324024514.GB474@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org,
-	containers@lists.osdl.org, xemul@openvz.org
-To: den@openvz.org
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Grant Grundler <grundler@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44279
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755344AbYCXWo1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 18:44:27 -0400
-In-Reply-To: <1206369185.23705.7.camel@iris.sw.ru>
+Received: from mail.atlantis.sk ([80.94.52.35]:57656 "EHLO mail.atlantis.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752640AbYCXXCd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Mar 2008 19:02:33 -0400
+In-Reply-To: <20080324024514.GB474@colo.lackof.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Mon, 24 Mar 2008 17:33:05 +0300
+On Monday 24 March 2008 03:45:14 Grant Grundler wrote:
+> On Mon, Feb 25, 2008 at 12:52:17PM -0500, Jeff Garzik wrote:
+> > Ondrej Zary wrote:
+> >> When the chip dies (probably because of a bug somewhere in the driver),
+> >> de_stop_rxtx() fails and changing the media type crashes the whole
+> >> machine. Replace BUG_ON() in de_set_media() with a warning.
+> >> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+> >> --- linux-2.6.24-orig/drivers/net/tulip/de2104x.c	2008-02-25
+> >> 18:27:34.000000000 +0100
+> >> +++ linux-2.6.24-pentium/drivers/net/tulip/de2104x.c	2008-02-25
+> >> 18:34:56.000000000 +0100
+> >> @@ -910,7 +910,8 @@
+> >>  	unsigned media = de->media_type;
+> >>  	u32 macmode = dr32(MacMode);
+> >>  -	BUG_ON(de_is_running(de));
+> >> +	if (de_is_running(de))
+> >> +		printk(KERN_WARNING "%s: chip is running while changing media!\n",
+> >> de->dev->name);
+> >
+> > Certainly a sane improvement...
+>
+> Jeff,
+> The above patch was applied and fixes the 'panic' part of the problme.
+> Can you take a look at this patch to fix the "chip is still running"
+> part of this bug?
 
-> This patch set finally enables TCP/UDP and ICMP inside a namespace.
-> In order to do this we fix ARP processing, IP options processing and
-> allow packets to flow to namespace aware protocols.
-> 
-> Finally, this makes namespace functional and alive :)
-> 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
+I'll test it but I doubt that it fixes the problem. IIRC, I tried something 
+like that. Even tried resetting the chip multiple times when this problem 
+appears but everything failed.
 
-Thanks for all of your hard work, applied.
 
-I'll push this to my net-2.6.26 tree after some build
-sanity checking.
+>
+> BTW, I inherited a bug report for the same symptom:
+>     http://bugzilla.kernel.org/show_bug.cgi?id=3156
+>
+> thanks,
+> grant
+>
+> Signed-off-by: Grant Grundler
+>
+> --- linux-2.6.23/drivers/net/tulip/de2104x.c	2007-10-09 13:31:38.000000000
+> -0700 +++ linux-2.6.23/drivers/net/tulip/de2104x.c-ggg	2007-11-02
+> 23:24:46.000000000 -0700 @@ -842,7 +842,7 @@
+>  static void de_stop_rxtx (struct de_private *de)
+>  {
+>  	u32 macmode;
+> -	unsigned int work = 1000;
+> +	unsigned int i = 1300/100;
+>
+>  	macmode = dr32(MacMode);
+>  	if (macmode & RxTx) {
+> @@ -850,10 +850,14 @@
+>  		dr32(MacMode);
+>  	}
+>
+> -	while (--work > 0) {
+> +	/* wait until in-flight frame completes.
+> +	 * Max time @ 10BT: 1500*8b/10Mbps == 1200us (+ 100us margin)
+> +	 * Typically expect this loop to end in < 50 us on 100BT.
+> +	 */
+> +	while (--i) {
+>  		if (!de_is_running(de))
+>  			return;
+> -		cpu_relax();
+> +		udelay(100);
+>  	}
+>
+>  	printk(KERN_WARNING "%s: timeout expired stopping DMA\n", de->dev->name);
+
+
+
+-- 
+Ondrej Zary
