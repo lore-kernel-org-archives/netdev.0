@@ -1,54 +1,49 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: cxgb3: Fix lockdep problems with sge.reg_lock
-Date: Mon, 24 Mar 2008 14:14:58 -0700
-Message-ID: <47E819D2.9040805@chelsio.com>
-References: <adabq59xhmv.fsf@cisco.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6] [TCP]: Must count fack_count also when skipping
+Date: Mon, 24 Mar 2008 14:41:07 -0700 (PDT)
+Message-ID: <20080324.144107.235200795.davem@davemloft.net>
+References: <Pine.LNX.4.64.0803031525390.27064@kivilampi-30.cs.helsinki.fi>
+	<Pine.LNX.4.64.0803031541230.28251@kivilampi-30.cs.helsinki.fi>
+	<pan.2008.03.24.20.36.07@telenet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	Steve Wise <swise@opengridcomputing.com>,
-	Dimitris Michailidis <dm@chelsio.com>,
-	Felix Marti <felix@chelsio.com>
-To: Roland Dreier <rdreier@cisco.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: fhimpe@telenet.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:11834 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752086AbYCXVPK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 17:15:10 -0400
-In-Reply-To: <adabq59xhmv.fsf@cisco.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46700
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752437AbYCXVlI convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Mar 2008 17:41:08 -0400
+In-Reply-To: <pan.2008.03.24.20.36.07@telenet.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roland Dreier wrote:
-> Using iWARP with a Chelsio T3 NIC generates the following lockdep warning:
->
->     =================================
->     [ INFO: inconsistent lock state ]
->     2.6.25-rc6 #50
->     ---------------------------------
->     inconsistent {softirq-on-W} -> {in-softirq-W} usage.
->     swapper/0 [HC0[0]:SC1[1]:HE0:SE0] takes:
->      (&adap->sge.reg_lock){-+..}, at: [<ffffffff880e5ee2>] cxgb_offload_ctl+0x3af/0x507 [cxgb3]
->
-> The problem is that reg_lock is used with plain spin_lock() in
-> drivers/net/cxgb3/sge.c but is used with spin_lock_irqsave() in
-> drivers/net/cxgb3/cxgb3_offload.c.  This is technically a false
-> positive, since the uses in sge.c are only in the initialization and
-> cleanup paths and cannot overlap with any use in interrupt context.
->
-> The best fix is probably just to use spin_lock_irq() with reg_lock in
-> sge.c.  Even though it's not strictly required for correctness, it
-> avoids triggering lockdep and the extra overhead of disabling
-> interrupts is not important at all in the initialization and cleanup
-> slow paths.
->
-> Signed-off-by: Roland Dreier <rolandd@cisco.com>
->   
-Acked-by: Divy Le Ray <divy@chelsio.com>
+=46rom: Frederik Himpe <fhimpe@telenet.be>
+Date: Mon, 24 Mar 2008 20:36:08 +0000 (UTC)
 
-As you mention, the current code is correct even if lockdep disagrees.
+> On Mon, 03 Mar 2008 15:53:12 +0200, Ilpo J=E4rvinen
+> wrote:
+>=20
+> > [PATCH net-2.6] [TCP]: Must count fack_count also when skipping
+> >=20
+> > It makes fackets_out to grow too slowly compared with the real writ=
+e
+> > queue.
+> >=20
+> > This shouldn't cause those BUG_TRAP(packets <=3D tp->packets_out) t=
+o
+> > trigger but how knows how such inconsistent fackets_out affects her=
+e and
+> > there around TCP when everything is nowadays assuming accurate
+> > fackets_out. So lets see if this silences them all.
+> >=20
+> > Reported by Guillaume Chazarain <guichaz@gmail.com>.
+>=20
+> Will this patch be applied to 2.6.24 stable? I think I have been hit =
+by=20
+> the same problem recently:
 
-
-Cheers,
-Divy
+I'll push it to the -stable folks for their next release
+since people are actively hitting it.
