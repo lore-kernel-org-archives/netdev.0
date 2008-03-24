@@ -1,64 +1,67 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 8/8] New driver "sfc" for Solarstorm SFC4000 controller (try #8)
-Date: Mon, 24 Mar 2008 10:34:40 +0000
-Message-ID: <20080324103438.GA24160@solarflare.com>
-References: <20080312012102.GB24160@solarflare.com> <20080312012629.GJ24160@solarflare.com> <20080324085202.GA4845@infradead.org>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.26 1/5][NETNS][UDP]: Register /proc/net/udp in a namespace.
+Date: Mon, 24 Mar 2008 13:46:58 +0300
+Message-ID: <47E786A2.6090505@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Jeff Garzik <jgarzik@pobox.com>,
-	David Miller <davem@davemloft.net>
-To: Christoph Hellwig <hch@infradead.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:53747 "EHLO
-	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753947AbYCXKfL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 06:35:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20080324085202.GA4845@infradead.org>
+Received: from sacred.ru ([62.205.161.221]:41642 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756059AbYCXKrK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Mar 2008 06:47:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christoph Hellwig wrote:
-> > +++ b/drivers/net/sfc/Makefile
-> > @@ -0,0 +1,23 @@
-> > +
-> > +# Final objects
-> > +sfc_o = sfc.o
-> > +
-> > +# Constituent objects
-> > +sfc_elements_o :=
-> > +sfc_elements_o += efx.o
-> > +sfc_elements_o += falcon.o
-> > +sfc_elements_o += tx.o
-> > +sfc_elements_o += rx.o
-> > +sfc_elements_o += falcon_xmac.o
-> > +sfc_elements_o += i2c-direct.o
-> > +sfc_elements_o += ethtool.o
-> > +sfc_elements_o += xfp_phy.o
-> > +sfc_elements_o += mdio_10g.o
-> > +sfc_elements_o += tenxpress.o
-> > +sfc_elements_o += boards.o
-> > +sfc_elements_o += sfe4001.o
-> > +
-> > +obj-$(CONFIG_SFC) += $(sfc_o)
-> > +
-> > +sfc-objs = $(sfc_elements_o)
-> 
-> Very strange makefile.  This should be:
-> 
-> sfc-y			+= efx.o falcon.o tx.o rx.o falcon_xmac.o \					   i2c-direct.o ethtool.o xfp_phy.o mdio_10g.o \
-> 			   tenxpress.o boards.o sfe4001.o
-> 
-> obj-$(CONFIG_SFC)	+= sfc.o
+After the commit a91275eff43a527e1a25d6d034cbcd19ee323e64 ([NETNS][IPV6]
+udp - make proc handle the network namespace) it is now possible to make
+this file present in newly created namespaces.
 
-The Makefile and all the source files are derived from an internal
-version, processed to remove code that's not suitable for upstream.
-But they're not strictly tracking that version any more, so we could
-just write it the simple way.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Ben.
+---
+ net/ipv4/udp.c |   19 +++++++++++++++++--
+ 1 files changed, 17 insertions(+), 2 deletions(-)
 
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 8c1f5ea..7e7f5c2 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1701,14 +1701,29 @@ static struct udp_seq_afinfo udp4_seq_afinfo = {
+ 	.seq_fops	= &udp4_seq_fops,
+ };
+ 
++static int udp4_proc_init_net(struct net *net)
++{
++	return udp_proc_register(net, &udp4_seq_afinfo);
++}
++
++static void udp4_proc_exit_net(struct net *net)
++{
++	udp_proc_unregister(net, &udp4_seq_afinfo);
++}
++
++static struct pernet_operations udp4_net_ops = {
++	.init = udp4_proc_init_net,
++	.exit = udp4_proc_exit_net,
++};
++
+ int __init udp4_proc_init(void)
+ {
+-	return udp_proc_register(&init_net, &udp4_seq_afinfo);
++	return register_pernet_subsys(&udp4_net_ops);
+ }
+ 
+ void udp4_proc_exit(void)
+ {
+-	udp_proc_unregister(&init_net, &udp4_seq_afinfo);
++	unregister_pernet_subsys(&udp4_net_ops);
+ }
+ #endif /* CONFIG_PROC_FS */
+ 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+1.5.3.4
+
