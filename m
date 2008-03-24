@@ -1,65 +1,43 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 2/11 net-2.6.26] [NETNS]: /proc/net/arp namespacing.
-Date: Mon, 24 Mar 2008 17:36:03 +0300
-Message-ID: <1206369372-27711-2-git-send-email-den@openvz.org>
-References: <1206369185.23705.7.camel@iris.sw.ru>
-Cc: netdev@vger.kernel.org, devel@openvz.org,
-	containers@lists.osdl.org, xemul@openvz.org,
-	"Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: Andy Fleming <afleming@freescale.com>
+Subject: [PATCH v2.6.26] Fix frame size calculation when hardware VLAN acceleration is on
+Date: Mon, 24 Mar 2008 10:53:26 -0500
+Message-ID: <1206374009-1292-1-git-send-email-afleming@freescale.com>
+Cc: netdev@vger.kernel.org, Dai Haruki <dai.haruki@freescale.com>,
+	Andy Fleming <afleming@freescale.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:52131 "EHLO iris.sw.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758706AbYCXOfv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2008 10:35:51 -0400
-In-Reply-To: <1206369185.23705.7.camel@iris.sw.ru>
+Received: from de01egw02.freescale.net ([192.88.165.103]:47257 "EHLO
+	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752481AbYCXPxn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 11:53:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Seqfile operation showing /proc/net/arp are already namespace aware. All we
-need is to register this file for each namespace.
+From: Dai Haruki <dai.haruki@freescale.com>
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
+In gfar_change_mtu(), the frame size needs to be increased to account for the
+extra 4 bytes VLAN adds to the ethernet header.  However, it was being increased
+by the length of the whole header (18 bytes), which is wrong.
+
+Signed-off-by: Dai Haruki <dai.haruki@freescale.com>
+Signed-off-by: Andy Fleming <afleming@freescale.com>
 ---
- net/ipv4/arp.c |   20 ++++++++++++++++++--
- 1 files changed, 18 insertions(+), 2 deletions(-)
+ drivers/net/gianfar.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 6d90ec5..832473e 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -1377,13 +1377,29 @@ static const struct file_operations arp_seq_fops = {
- 	.release	= seq_release_net,
- };
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 718cf77..0ab4b26 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1185,7 +1185,7 @@ static int gfar_change_mtu(struct net_device *dev, int new_mtu)
+ 	int frame_size = new_mtu + ETH_HLEN;
  
--static int __init arp_proc_init(void)
-+
-+static int __net_init arp_net_init(struct net *net)
- {
--	if (!proc_net_fops_create(&init_net, "arp", S_IRUGO, &arp_seq_fops))
-+	if (!proc_net_fops_create(net, "arp", S_IRUGO, &arp_seq_fops))
- 		return -ENOMEM;
- 	return 0;
- }
+ 	if (priv->vlan_enable)
+-		frame_size += VLAN_ETH_HLEN;
++		frame_size += VLAN_HLEN;
  
-+static void __net_exit arp_net_exit(struct net *net)
-+{
-+	proc_net_remove(net, "arp");
-+}
-+
-+static struct pernet_operations arp_net_ops = {
-+	.init = arp_net_init,
-+	.exit = arp_net_exit,
-+};
-+
-+static int __init arp_proc_init(void)
-+{
-+	return register_pernet_subsys(&arp_net_ops);
-+}
-+
- #else /* CONFIG_PROC_FS */
- 
- static int __init arp_proc_init(void)
+ 	if (gfar_uses_fcb(priv))
+ 		frame_size += GMAC_FCB_LEN;
 -- 
-1.5.3.rc5
+1.5.4.23.gef5b9
 
