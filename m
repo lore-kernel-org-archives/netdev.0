@@ -1,36 +1,45 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 01/03] ISATAP V2 (header file changes)
-Date: Mon, 24 Mar 2008 14:37:43 +0900 (JST)
-Message-ID: <20080324.143743.113268628.yoshfuji@linux-ipv6.org>
-References: <20071129102940.GC22537@gondor.apana.org.au>
-	<20071129.195459.55971471.yoshfuji@linux-ipv6.org>
-	<39C363776A4E8C4A94691D2BD9D1C9A1029EDDAC@XCH-NW-7V2.nw.nos.boeing.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/8] New driver "sfc" for Solarstorm SFC4000 controller
+ (try #8)
+Date: Sun, 23 Mar 2008 22:37:36 -0700 (PDT)
+Message-ID: <20080323.223736.169461798.davem@davemloft.net>
+References: <20080312012102.GB24160@solarflare.com>
+	<20080312012437.GF24160@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: Fred.L.Templin@boeing.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	jgarzik@pobox.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:54929 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751964AbYCXFgS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 01:36:18 -0400
-In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDDAC@XCH-NW-7V2.nw.nos.boeing.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42753
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752114AbYCXFhh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 01:37:37 -0400
+In-Reply-To: <20080312012437.GF24160@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <39C363776A4E8C4A94691D2BD9D1C9A1029EDDAC@XCH-NW-7V2.nw.nos.boeing.com> (at Tue, 15 Jan 2008 11:57:04 -0800), "Templin, Fred L" <Fred.L.Templin@boeing.com> says:
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 12 Mar 2008 01:24:39 +0000
 
-> This patch updates the Linux the Intra-Site Automatic Tunnel Addressing
-> Protocol (ISATAP) implementation. It places the ISATAP potential router
-> list (PRL) in the kernel and adds three new private ioctls for PRL
-> management. The diffs are specific to the netdev net-2.6.25 development
-> tree taken by "git pull" on 1/14/08.
-> 
-> Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
+> +static void falcon_setup_rss_indir_table(struct efx_nic *efx)
+> +{
+> +	int i = 0;
+> +	unsigned long offset;
+> +	unsigned long flags __attribute__ ((unused));
+> +	efx_dword_t dword;
 
-I applied this into my queue for 2.6.26 (with some modification).
-Thanks.
+Please delete this unused variable.
 
---yoshfuji
+> +static int falcon_mdio_read(struct net_device *net_dev, int phy_id, int addr)
+> +{
+> +	struct efx_nic *efx = (struct efx_nic *)net_dev->priv;
+> +	unsigned int phy_addr = phy_id & FALCON_PHY_ID_ID_MASK;
+> +	efx_oword_t reg;
+> +	int value = -1;
+> +	unsigned long flags __attribute__ ((unused));
+
+This one too.
+
+Otherwise mostly looks fine.
