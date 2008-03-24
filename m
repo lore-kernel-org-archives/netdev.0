@@ -1,93 +1,78 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 5/11 net-2.6.26] [NETNS]: Add namespace parameter to ip_cmsg_send.
-Date: Mon, 24 Mar 2008 17:36:06 +0300
-Message-ID: <1206369372-27711-5-git-send-email-den@openvz.org>
+Subject: [PATCH 9/11 net-2.6.26] [NETNS]: Drop packets in the non-initial namespace on the per/protocol basis.
+Date: Mon, 24 Mar 2008 17:36:10 +0300
+Message-ID: <1206369372-27711-9-git-send-email-den@openvz.org>
 References: <1206369185.23705.7.camel@iris.sw.ru>
 Cc: netdev@vger.kernel.org, devel@openvz.org,
 	containers@lists.osdl.org, xemul@openvz.org,
 	"Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:61459 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:51829 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758734AbYCXOfv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1758750AbYCXOfv (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 24 Mar 2008 10:35:51 -0400
 In-Reply-To: <1206369185.23705.7.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pass the init_net there for now.
+IP layer now can handle multiple namespaces normally. So, process such
+packets normally and drop them only if the transport layer is not aware about
+namespaces.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- include/net/ip.h       |    3 ++-
- net/ipv4/ip_sockglue.c |    4 ++--
- net/ipv4/raw.c         |    2 +-
- net/ipv4/udp.c         |    2 +-
- 4 files changed, 6 insertions(+), 5 deletions(-)
+ include/net/protocol.h |    3 ++-
+ net/ipv4/ip_input.c    |    8 ++++----
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 531270d..6d7bcd5 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -362,7 +362,8 @@ extern int ip_options_rcv_srr(struct sk_buff *skb);
-  */
+diff --git a/include/net/protocol.h b/include/net/protocol.h
+index ad8c584..8d024d7 100644
+--- a/include/net/protocol.h
++++ b/include/net/protocol.h
+@@ -39,7 +39,8 @@ struct net_protocol {
+ 	int			(*gso_send_check)(struct sk_buff *skb);
+ 	struct sk_buff	       *(*gso_segment)(struct sk_buff *skb,
+ 					       int features);
+-	int			no_policy;
++	unsigned int		no_policy:1,
++				netns_ok:1;
+ };
  
- extern void	ip_cmsg_recv(struct msghdr *msg, struct sk_buff *skb);
--extern int	ip_cmsg_send(struct msghdr *msg, struct ipcm_cookie *ipc);
-+extern int	ip_cmsg_send(struct net *net,
-+			     struct msghdr *msg, struct ipcm_cookie *ipc);
- extern int	ip_setsockopt(struct sock *sk, int level, int optname, char __user *optval, int optlen);
- extern int	ip_getsockopt(struct sock *sk, int level, int optname, char __user *optval, int __user *optlen);
- extern int	compat_ip_setsockopt(struct sock *sk, int level,
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 1b86a50..0857f2d 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -163,7 +163,7 @@ void ip_cmsg_recv(struct msghdr *msg, struct sk_buff *skb)
- 		ip_cmsg_recv_security(msg, skb);
- }
+ #if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index eb1fa27..2aeea5d 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -199,6 +199,8 @@ int ip_call_ra_chain(struct sk_buff *skb)
  
--int ip_cmsg_send(struct msghdr *msg, struct ipcm_cookie *ipc)
-+int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_cookie *ipc)
+ static int ip_local_deliver_finish(struct sk_buff *skb)
  {
- 	int err;
- 	struct cmsghdr *cmsg;
-@@ -176,7 +176,7 @@ int ip_cmsg_send(struct msghdr *msg, struct ipcm_cookie *ipc)
- 		switch (cmsg->cmsg_type) {
- 		case IP_RETOPTS:
- 			err = cmsg->cmsg_len - CMSG_ALIGN(sizeof(struct cmsghdr));
--			err = ip_options_get(&init_net, &ipc->opt, CMSG_DATA(cmsg), err < 40 ? err : 40);
-+			err = ip_options_get(net, &ipc->opt, CMSG_DATA(cmsg), err < 40 ? err : 40);
- 			if (err)
- 				return err;
- 			break;
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index b433b48..7d29a05 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -499,7 +499,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	ipc.oif = sk->sk_bound_dev_if;
++	struct net *net = skb->dev->nd_net;
++
+ 	__skb_pull(skb, ip_hdrlen(skb));
  
- 	if (msg->msg_controllen) {
--		err = ip_cmsg_send(msg, &ipc);
-+		err = ip_cmsg_send(&init_net, msg, &ipc);
- 		if (err)
- 			goto out;
- 		if (ipc.opt)
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 8c1f5ea..9d69e9d 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -607,7 +607,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	/* Point into the IP datagram, just past the header. */
+@@ -214,7 +216,8 @@ static int ip_local_deliver_finish(struct sk_buff *skb)
+ 		raw = raw_local_deliver(skb, protocol);
  
- 	ipc.oif = sk->sk_bound_dev_if;
- 	if (msg->msg_controllen) {
--		err = ip_cmsg_send(msg, &ipc);
-+		err = ip_cmsg_send(&init_net, msg, &ipc);
- 		if (err)
- 			return err;
- 		if (ipc.opt)
+ 		hash = protocol & (MAX_INET_PROTOS - 1);
+-		if ((ipprot = rcu_dereference(inet_protos[hash])) != NULL) {
++		ipprot = rcu_dereference(inet_protos[hash]);
++		if (ipprot != NULL && (net == &init_net || ipprot->netns_ok)) {
+ 			int ret;
+ 
+ 			if (!ipprot->no_policy) {
+@@ -375,9 +378,6 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+ 	struct iphdr *iph;
+ 	u32 len;
+ 
+-	if (dev->nd_net != &init_net)
+-		goto drop;
+-
+ 	/* When the interface is in promisc. mode, drop all the crap
+ 	 * that it receives, do not try to analyse it.
+ 	 */
 -- 
 1.5.3.rc5
 
