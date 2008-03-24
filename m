@@ -1,41 +1,30 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: [PATCH 0/5] [IPROUTE2] Add overhead parameter for CBQ, TBF and
-	police
-Date: Mon, 24 Mar 2008 00:46:33 +0100
-Message-ID: <1206315993.15884.56.camel@localhost.localdomain>
-Reply-To: jdb@comx.dk
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: RFC : PATCH for dmfe phy reset needs testing
+Date: Sun, 23 Mar 2008 20:31:02 -0600
+Message-ID: <20080324023102.GA474@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat-server.lanfw.cxnet.dk ([87.72.215.201]:48951 "EHLO
-	comxexch02.comx.local" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756673AbYCWXrn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2008 19:47:43 -0400
+Received: from colo.lackof.org ([198.49.126.79]:55277 "EHLO colo.lackof.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754125AbYCXCbQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Mar 2008 22:31:16 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen
+Hi,
+I'm got a patch to fix this dmfe driver bug report:
+    http://bugzilla.kernel.org/show_bug.cgi?id=2776
 
-This can be view as a maintanance patchset for iproute2.  The overhead
-parameter, introduced in kernel 2.6.24, were only implemented for HTB
-in iproute2/tc.
+But the reporter hasn't responded in ~6 months.
+Can someone with dmfe card test the patch for me?
 
-This patchset adds overhead parameter parsing for the last rate-table
-based schedulers CBQ, TFB and police.
+Patch can be pulled from:
+    http://iou.parisc-linux.org/~grundler/diff/diff-2.6.23-rc3-dmfe_phy-01
 
-The changes are ABI (Application Binary Interface) backward compatible
-with older kernels, but will first have effect from kernel 2.6.24.
+Once it's tested, I'd like to submit and close the bug.
 
-
-See you soon :-)
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
+thanks,
+gran
