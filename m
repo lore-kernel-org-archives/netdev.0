@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][NEIGH]: Fix race between pneigh deletion and ipv6's
- ndisc_recv_ns.
-Date: Sun, 23 Mar 2008 21:49:42 -0700 (PDT)
-Message-ID: <20080323.214942.188347230.davem@davemloft.net>
-References: <47CFD2ED.3060207@openvz.org>
+Subject: Re: [PATCH] [net-2.6.26] [IPV6] Remove unused code in
+ ndisc_send_redirect().
+Date: Sun, 23 Mar 2008 21:58:59 -0700 (PDT)
+Message-ID: <20080323.215859.102821591.davem@davemloft.net>
+References: <eb3ff54b0803080300p3c1d328cja0f937810e526cb0@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: xemul@openvz.org
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47183
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44858
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751507AbYCXEtn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 00:49:43 -0400
-In-Reply-To: <47CFD2ED.3060207@openvz.org>
+	by vger.kernel.org with ESMTP id S1751469AbYCXE7A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 00:59:00 -0400
+In-Reply-To: <eb3ff54b0803080300p3c1d328cja0f937810e526cb0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Thu, 06 Mar 2008 14:18:05 +0300
+From: "Rami Rosen" <ramirose@gmail.com>
+Date: Sat, 8 Mar 2008 13:00:36 +0200
 
-> +struct pneigh_entry *__pneigh_lookup(struct neigh_table *tbl,
-> +		struct net *net, const void *pkey, struct net_device *dev)
-> +{
+>   This patches removes unused code in ndisc_send_redirect() method
+>    in /net/ipv6/ndisc.c.
+>
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-You don't export this to modules, so when IPV6 is modular
-the build fails.
-
-Please fix this up and resubmit, thanks.
+Applied to net-2.6.26
