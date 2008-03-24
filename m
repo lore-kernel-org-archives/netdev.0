@@ -1,64 +1,44 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 5/5][NETNS]: Minor information leak via /proc/net/ptype
- file.
-Date: Mon, 24 Mar 2008 13:55:09 +0300
-Message-ID: <47E7888D.5080308@openvz.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Realtek source
+Date: Mon, 24 Mar 2008 14:18:24 +0100
+Message-ID: <20080324131824.GA18032@electric-eye.fr.zoreil.com>
+References: <20080323230045.GA16510@vsuchard.aplis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Vlastislav SUCHARDA <vsucharda@aplis.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:53643 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757342AbYCXKzM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2008 06:55:12 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:47669 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754668AbYCXNjK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 09:39:10 -0400
+Content-Disposition: inline
+In-Reply-To: <20080323230045.GA16510@vsuchard.aplis.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This file displays the registered packet types, but some of them
-(packet sockets creates such) can be bound to a net device and
-showing them in a wrong namespace is not correct.
+Vlastislav SUCHARDA <vsucharda@aplis.cz> :
+[...]
+> how can I get the source for this specific version of module:
+> 
+> filename:       /lib/modules/2.6.20-1.2962.fc6/kernel/drivers/net/r8169.ko
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+This is a distribution related question so it would not hurt to be asked
+on some Fedora mailing list.
 
----
- net/core/dev.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+Summon your favorite search engine for kernel-2.6.20-1.2962.fc6.src.rpm
+and try something like rpm2cpio kernel-2.6.20-1.2962.fc6.src.rpm | cpio -id
+in a dedicated directory.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f973e38..aebd086 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2615,7 +2615,7 @@ static int ptype_seq_show(struct seq_file *seq, void *v)
- 
- 	if (v == SEQ_START_TOKEN)
- 		seq_puts(seq, "Type Device      Function\n");
--	else {
-+	else if (pt->dev == NULL || pt->dev->nd_net == seq_file_net(seq)) {
- 		if (pt->type == htons(ETH_P_ALL))
- 			seq_puts(seq, "ALL ");
- 		else
-@@ -2639,7 +2639,8 @@ static const struct seq_operations ptype_seq_ops = {
- 
- static int ptype_seq_open(struct inode *inode, struct file *file)
- {
--	return seq_open(file, &ptype_seq_ops);
-+	return seq_open_net(inode, file, &ptype_seq_ops,
-+			sizeof(struct seq_net_private));
- }
- 
- static const struct file_operations ptype_seq_fops = {
-@@ -2647,7 +2648,7 @@ static const struct file_operations ptype_seq_fops = {
- 	.open    = ptype_seq_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release,
-+	.release = seq_release_net,
- };
- 
- 
+[...]
+> That is only version which works well with my pci:v000010ECd00008168sv on
+> my laptop, I need to port on Centos 5.1 latest kernel 2.6.18.
+> My problem is that Rx (copying in) is super, Tx (copying out) is freezing.
+
+Asus laptop ?
+
+I would welcome the complete dmesg of your more recent tested kernel as
+well as a complete lspci -vvxnn.
+
 -- 
-1.5.3.4
-
+Ueimor
