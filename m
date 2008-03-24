@@ -1,30 +1,53 @@
-From: Joonwoo Park <joonwpark81@gmail.com>
-Subject: [PATCH 0/3] llc: fixes for net-2.6
-Date: Mon, 24 Mar 2008 17:29:17 +0900
-Message-ID: <20080324082824.GA19715@tp61p-64>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 8/8] New driver "sfc" for Solarstorm SFC4000 controller
+	(try #8)
+Date: Mon, 24 Mar 2008 04:52:03 -0400
+Message-ID: <20080324085202.GA4845@infradead.org>
+References: <20080312012102.GB24160@solarflare.com> <20080312012629.GJ24160@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jwestfall@surrealistic.net
-To: davem@davemloft.net, acme@ghostprotocols.net
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	Jeff Garzik <jgarzik@pobox.com>,
+	David Miller <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hs-out-0708.google.com ([64.233.178.245]:50199 "EHLO
-	hs-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753017AbYCXI3Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 04:29:24 -0400
-Received: by hs-out-0708.google.com with SMTP id 4so2121231hsl.5
-        for <netdev@vger.kernel.org>; Mon, 24 Mar 2008 01:29:21 -0700 (PDT)
+Received: from bombadil.infradead.org ([18.85.46.34]:34000 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753017AbYCXIwF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 04:52:05 -0400
 Content-Disposition: inline
+In-Reply-To: <20080312012629.GJ24160@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset does fix some problems of the llc.
-It fixes oops which was reported by Jim (http://www.spinics.net/lists/netdev/msg55712.html) and zero source mac address problem.
+> +++ b/drivers/net/sfc/Makefile
+> @@ -0,0 +1,23 @@
+> +
+> +# Final objects
+> +sfc_o = sfc.o
+> +
+> +# Constituent objects
+> +sfc_elements_o :=
+> +sfc_elements_o += efx.o
+> +sfc_elements_o += falcon.o
+> +sfc_elements_o += tx.o
+> +sfc_elements_o += rx.o
+> +sfc_elements_o += falcon_xmac.o
+> +sfc_elements_o += i2c-direct.o
+> +sfc_elements_o += ethtool.o
+> +sfc_elements_o += xfp_phy.o
+> +sfc_elements_o += mdio_10g.o
+> +sfc_elements_o += tenxpress.o
+> +sfc_elements_o += boards.o
+> +sfc_elements_o += sfe4001.o
+> +
+> +obj-$(CONFIG_SFC) += $(sfc_o)
+> +
+> +sfc-objs = $(sfc_elements_o)
 
-[PATCH 1/3] [LLC]: skb allocation size for responses
-[PATCH 2/3] [LLC]: bogus llc packet length
-[PATCH 3/3] [LLC]: zero station mac source address
+Very strange makefile.  This should be:
 
-Dave, Arnaldo, please review and consider applying.
+sfc-y			+= efx.o falcon.o tx.o rx.o falcon_xmac.o \					   i2c-direct.o ethtool.o xfp_phy.o mdio_10g.o \
+			   tenxpress.o boards.o sfe4001.o
 
-Thanks,
-Joonwoo
+obj-$(CONFIG_SFC)	+= sfc.o
