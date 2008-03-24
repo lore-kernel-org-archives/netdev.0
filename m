@@ -1,97 +1,74 @@
-From: Frederik Himpe <fhimpe@telenet.be>
-Subject: Re: [PATCH net-2.6] [TCP]: Must count fack_count also when skipping
-Date: Mon, 24 Mar 2008 20:36:08 +0000 (UTC)
-Message-ID: <pan.2008.03.24.20.36.07@telenet.be>
-References: <858077.97160.qm@web39709.mail.mud.yahoo.com>
-	<20080223000310.4630daa8.akpm@linux-foundation.org>
-	<Pine.LNX.4.64.0802271108290.13029@kivilampi-30.cs.helsinki.fi>
-	<3d8471ca0802271056l320a7ee2m5227e114a968d483@mail.gmail.com>
-	<Pine.LNX.4.64.0802272120430.1741@kivilampi-30.cs.helsinki.fi>
-	<Pine.LNX.4.64.0802281018480.32401@kivilampi-30.cs.helsinki.fi>
-	<3d8471ca0803020420ka42319bu1b9888217c869d9d@mail.gmail.com>
-	<Pine.LNX.4.64.0803021432200.17919@kivilampi-30.cs.helsinki.fi>
-	<3d8471ca0803020515m1e4af9d9xd37a8912e58a4504@mail.gmail.com>
-	<Pine.LNX.4.64.0803022145210.18020@kivilampi-30.cs.helsinki.fi>
-	<Pine.LNX.4.64.0803031025210.18640@kivilampi-30.cs.helsinki.fi>
-	<Pine.LNX.4.64.0803031525390.27064@kivilampi-30.cs.helsinki.fi>
-	<Pine.LNX.4.64.0803031541230.28251@kivilampi-30.cs.helsinki.fi>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [AX25] kernel panic
+Date: Mon, 24 Mar 2008 21:51:05 +0100
+Message-ID: <20080324205104.GA3721@ami.dom.local>
+References: <47DF9D21.20807@free.fr> <20080318212531.GA2031@electric-eye.fr.zoreil.com> <47E0C261.3000106@free.fr> <47E17E2E.9050105@free.fr> <20080320073021.GA4037@ff.dom.local> <47E2EC1B.9070405@free.fr> <20080322113620.GA3213@ami.dom.local> <47E68CA1.2040904@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755102AbYCXUgc@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jarek Poplawski <jarkao2@o2.pl>
+To: Bernard Pidoux <bpidoux@free.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.157]:36798 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752543AbYCXUq4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 16:46:56 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so3115916fgb.17
+        for <netdev@vger.kernel.org>; Mon, 24 Mar 2008 13:46:54 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <47E68CA1.2040904@free.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 03 Mar 2008 15:53:12 +0200, Ilpo J=C3=A4rvinen
-wrote:
+On Sun, Mar 23, 2008 at 06:00:17PM +0100, Bernard Pidoux wrote:
+...
+> Here is the result of your patch :
+>
+>
+> WARNING: at net/core/sock.c:1522 sock_def_write_space()
+> Pid: 3452, comm: mkiss Not tainted 2.6.24.3 #2
+...
 
-> [PATCH net-2.6] [TCP]: Must count fack_count also when skipping
->=20
-> It makes fackets_out to grow too slowly compared with the real write
-> queue.
->=20
-> This shouldn't cause those BUG_TRAP(packets <=3D tp->packets_out) to
-> trigger but how knows how such inconsistent fackets_out affects here =
-and
-> there around TCP when everything is nowadays assuming accurate
-> fackets_out. So lets see if this silences them all.
->=20
-> Reported by Guillaume Chazarain <guichaz@gmail.com>.
+Thanks. Here is one more (to apply after the previous one).
 
-Will this patch be applied to 2.6.24 stable? I think I have been hit by=
-=20
-the same problem recently:
+Happy Holidays...
+Jarek P.
 
-WARNING: at net/ipv4/tcp_input.c:2054 tcp_mark_head_lost()
-Pid: 16959, comm: X Tainted: P        2.6.24.3-desktop-3mnb #1
+---
 
-Call Trace:
- <IRQ>  [<ffffffff8045550c>] tcp_ack+0x180c/0x1d60
- [<ffffffff80494259>] _read_lock_bh+0x9/0x20
- [<ffffffff80458075>] tcp_rcv_state_process+0x3b5/0xd00
- [<ffffffff8045f818>] tcp_v4_do_rcv+0xc8/0x3f0
- [<ffffffff885601b3>] :nf_conntrack_ipv4:ipv4_confirm+0x33/0x60
- [<ffffffff8043c316>] nf_iterate+0x66/0xc0
- [<ffffffff804621b8>] tcp_v4_rcv+0x898/0xaf0
- [<ffffffff80442ec3>] ip_local_deliver_finish+0xc3/0x250
- [<ffffffff80442b64>] ip_rcv_finish+0x114/0x3b0
- [<ffffffff80443365>] ip_rcv+0x205/0x2f0
- [<ffffffff8041c45c>] netif_receive_skb+0x3ac/0x490
- [<ffffffff88184509>] :forcedeth:nv_napi_poll+0xf9/0x850
- [<ffffffff8041eaa8>] net_rx_action+0x128/0x230
- [<ffffffff802412a5>] __do_softirq+0x75/0xe0
- [<ffffffff8020d4fc>] call_softirq+0x1c/0x30
- [<ffffffff8020f6c5>] do_softirq+0x35/0x90
- [<ffffffff80241228>] irq_exit+0x88/0x90
- [<ffffffff8020f910>] do_IRQ+0x80/0x100
- [<ffffffff8020c881>] ret_from_intr+0x0/0xa
- <EOI>=20
-WARNING: at net/ipv4/tcp_input.c:2413 tcp_fastretrans_alert()
-Pid: 4053, comm: rsyslogd Tainted: P        2.6.24.3-desktop-3mnb #1
-
-Call Trace:
- <IRQ>  [<ffffffff80455a2d>] tcp_ack+0x1d2d/0x1d60
- [<ffffffff80494259>] _read_lock_bh+0x9/0x20
- [<ffffffff80458075>] tcp_rcv_state_process+0x3b5/0xd00
- [<ffffffff8045f818>] tcp_v4_do_rcv+0xc8/0x3f0
- [<ffffffff885601b3>] :nf_conntrack_ipv4:ipv4_confirm+0x33/0x60
- [<ffffffff8043c316>] nf_iterate+0x66/0xc0
- [<ffffffff804621b8>] tcp_v4_rcv+0x898/0xaf0
- [<ffffffff80442ec3>] ip_local_deliver_finish+0xc3/0x250
- [<ffffffff80442b64>] ip_rcv_finish+0x114/0x3b0
- [<ffffffff80443365>] ip_rcv+0x205/0x2f0
- [<ffffffff8041c45c>] netif_receive_skb+0x3ac/0x490
- [<ffffffff88184509>] :forcedeth:nv_napi_poll+0xf9/0x850
- [<ffffffff8041eaa8>] net_rx_action+0x128/0x230
- [<ffffffff802412a5>] __do_softirq+0x75/0xe0
- [<ffffffff8020d4fc>] call_softirq+0x1c/0x30
- [<ffffffff8020f6c5>] do_softirq+0x35/0x90
- [<ffffffff80241228>] irq_exit+0x88/0x90
- [<ffffffff8020f910>] do_IRQ+0x80/0x100
- [<ffffffff8020c881>] ret_from_intr+0x0/0xa
- <EOI>
-
---=20
-=46rederik Himpe
+diff -Nurp 2.6.24.3-with1/include/net/sock.h 2.6.24.3-with2/include/net/sock.h
+--- 2.6.24.3-with1/include/net/sock.h	2008-01-24 23:58:37.000000000 +0100
++++ 2.6.24.3-with2/include/net/sock.h	2008-03-24 21:14:43.000000000 +0100
+@@ -263,6 +263,7 @@ struct sock {
+   	int			(*sk_backlog_rcv)(struct sock *sk,
+ 						  struct sk_buff *skb);  
+ 	void                    (*sk_destruct)(struct sock *sk);
++	int			sk_ax25_debug;
+ };
+ 
+ /*
+diff -Nurp 2.6.24.3-with1/net/ax25/af_ax25.c 2.6.24.3-with2/net/ax25/af_ax25.c
+--- 2.6.24.3-with1/net/ax25/af_ax25.c	2008-01-24 23:58:37.000000000 +0100
++++ 2.6.24.3-with2/net/ax25/af_ax25.c	2008-03-23 00:53:51.000000000 +0100
+@@ -936,6 +936,7 @@ struct sock *ax25_make_new(struct sock *
+ 	}
+ 
+ 	sk->sk_protinfo = ax25;
++	sk->sk_ax25_debug = 1;
+ 	ax25->sk    = sk;
+ 
+ 	return sk;
+diff -Nurp 2.6.24.3-with1/net/core/sock.c 2.6.24.3-with2/net/core/sock.c
+--- 2.6.24.3-with1/net/core/sock.c	2008-03-22 12:10:10.000000000 +0100
++++ 2.6.24.3-with2/net/core/sock.c	2008-03-24 21:43:46.000000000 +0100
+@@ -1519,6 +1519,9 @@ static void sock_def_write_space(struct 
+ 	if ((atomic_read(&sk->sk_wmem_alloc) << 1) <= sk->sk_sndbuf) {
+ 		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep)) {
+ 			if (!sk->sk_socket || sk->sk_socket->sk != sk) {
++				if (net_ratelimit())
++					printk(KERN_INFO "sk_ax25_debug = %d, %p\n",
++						 sk->sk_ax25_debug, sk->sk_socket);
+ 				WARN_ON_ONCE(1);
+ 				sk->sk_socket = NULL;
+ 				sk->sk_sleep = NULL;
