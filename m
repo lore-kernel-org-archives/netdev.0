@@ -1,33 +1,29 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: O(n^2) or worse ?   cat /proc/net/tcp
-Date: 24 Mar 2008 05:06:28 +0100
-Message-ID: <87lk487ol7.fsf@basil.nowhere.org>
-References: <20080323224307.GL3700@mea-ext.zmailer.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: take#4: [PATCH] [ATM]: Add error handling for proc_create fail
+Date: Sun, 23 Mar 2008 21:47:26 -0700 (PDT)
+Message-ID: <20080323.214726.07039365.davem@davemloft.net>
+References: <20080302.210926.16120136.davem@davemloft.net>
+	<47CBBAD8.2010802@cn.fujitsu.com>
+	<47CCF9ED.1050006@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Matti Aarnio <matti.aarnio@zmailer.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, chas3@users.sourceforge.net
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out01.alice-dsl.net ([88.44.60.11]:24349 "EHLO
-	smtp-out01.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750886AbYCXEGb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 00:06:31 -0400
-In-Reply-To: <20080323224307.GL3700@mea-ext.zmailer.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47179
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751365AbYCXEr0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 00:47:26 -0400
+In-Reply-To: <47CCF9ED.1050006@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Matti Aarnio <matti.aarnio@zmailer.org> writes:
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Tue, 04 Mar 2008 15:27:41 +0800
+
+> When proc_create() fails, do some error handling work and return -ENOMEM.
 > 
-> I did observe odd slowness at first with  "lsof -p .."  program, 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 
-You could oprofile it.
-
-> then at
-> "netstat -na".  Same slowdown happens with:  cat /proc/net/tcp
-> (that 'cat' took 25 seconds...)
-
-/proc/net/tcp should be only O(n^2) if the application does a lot of 
-open()/seek()/read()/close() for very small chunks, but at least netstat
-doesn't do that. Not sure about lsof though.
-
--Andi
+Applied, thanks a lot.
