@@ -1,61 +1,99 @@
 From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH v2.6.26] Only process completed frames
-Date: Mon, 24 Mar 2008 10:53:27 -0500
-Message-ID: <1206374009-1292-2-git-send-email-afleming@freescale.com>
+Subject: [PATCH v2.6.26] Fix Rx/Tx HW interrupt coalescing counter reset procedure.
+Date: Mon, 24 Mar 2008 10:53:28 -0500
+Message-ID: <1206374009-1292-3-git-send-email-afleming@freescale.com>
 References: <1206374009-1292-1-git-send-email-afleming@freescale.com>
+ <1206374009-1292-2-git-send-email-afleming@freescale.com>
 Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>,
 	Dai Haruki <dai.haruki@freescale.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:48101 "EHLO
+Received: from de01egw02.freescale.net ([192.88.165.103]:48198 "EHLO
 	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752447AbYCXPyG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 11:54:06 -0400
-In-Reply-To: <1206374009-1292-1-git-send-email-afleming@freescale.com>
+	with ESMTP id S1752687AbYCXPyI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 11:54:08 -0400
+In-Reply-To: <1206374009-1292-2-git-send-email-afleming@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the LAST bit is not set in the RxBD, it's possible we're processing an
-incomplete frame, which is bad.  While we're at it, add a constant for
-the error bitmask, so the whole if-clause fits on one line, and is more
-legible.
+- Fix Rx/Tx HW interrupt coalescing counter reset logic. Disabling is required before resetting the counter.
+
+- Update the Default both Rx and Tx coalescing timer threshold. Formerly 4 is set which is equal to 1.5 frame at the line rate of 1GbE interface, and it doesn't match to the coalescing frame count which is set to 16. Threashold 21 is matched to frame count 16.
 
 Signed-off-by: Dai Haruki <dai.haruki@freescale.com>
 Signed-off-by: Andy Fleming <afleming@freescale.com>
 ---
- drivers/net/gianfar.c |    4 +---
- drivers/net/gianfar.h |    3 +++
- 2 files changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/gianfar.c |   18 +++++++++---------
+ drivers/net/gianfar.h |    4 ++--
+ 2 files changed, 11 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 0ab4b26..a59edf7 100644
+index a59edf7..601f93e 100644
 --- a/drivers/net/gianfar.c
 +++ b/drivers/net/gianfar.c
-@@ -1526,9 +1526,7 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
- 		rmb();
- 		skb = priv->rx_skbuff[priv->skb_currx];
+@@ -1299,11 +1299,11 @@ static irqreturn_t gfar_transmit(int irq, void *dev_id)
  
--		if (!(bdp->status &
--		      (RXBD_LARGE | RXBD_SHORT | RXBD_NONOCTET
--		       | RXBD_CRCERR | RXBD_OVERRUN | RXBD_TRUNCATED))) {
-+		if ((bdp->status & RXBD_LAST) && !(bdp->status & RXBD_ERR)) {
- 			/* Increment the number of packets */
- 			dev->stats.rx_packets++;
- 			howmany++;
+ 	/* If we are coalescing the interrupts, reset the timer */
+ 	/* Otherwise, clear it */
+-	if (priv->txcoalescing)
++	if (likely(priv->txcoalescing)) {
++		gfar_write(&priv->regs->txic, 0);
+ 		gfar_write(&priv->regs->txic,
+ 			   mk_ic_value(priv->txcount, priv->txtime));
+-	else
+-		gfar_write(&priv->regs->txic, 0);
++	}
+ 
+ 	spin_unlock(&priv->txlock);
+ 
+@@ -1417,11 +1417,11 @@ irqreturn_t gfar_receive(int irq, void *dev_id)
+ 
+ 	/* If we are coalescing interrupts, update the timer */
+ 	/* Otherwise, clear it */
+-	if (priv->rxcoalescing)
++	if (likely(priv->rxcoalescing)) {
++		gfar_write(&priv->regs->rxic, 0);
+ 		gfar_write(&priv->regs->rxic,
+ 			   mk_ic_value(priv->rxcount, priv->rxtime));
+-	else
+-		gfar_write(&priv->regs->rxic, 0);
++	}
+ 
+ 	spin_unlock_irqrestore(&priv->rxlock, flags);
+ #endif
+@@ -1593,11 +1593,11 @@ static int gfar_poll(struct napi_struct *napi, int budget)
+ 
+ 		/* If we are coalescing interrupts, update the timer */
+ 		/* Otherwise, clear it */
+-		if (priv->rxcoalescing)
++		if (likely(priv->rxcoalescing)) {
++			gfar_write(&priv->regs->rxic, 0);
+ 			gfar_write(&priv->regs->rxic,
+ 				   mk_ic_value(priv->rxcount, priv->rxtime));
+-		else
+-			gfar_write(&priv->regs->rxic, 0);
++		}
+ 	}
+ 
+ 	return howmany;
 diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
-index 46cd773..26eb6ab 100644
+index 26eb6ab..119019a 100644
 --- a/drivers/net/gianfar.h
 +++ b/drivers/net/gianfar.h
-@@ -340,6 +340,9 @@ extern const char gfar_driver_version[];
- #define RXBD_OVERRUN		0x0002
- #define RXBD_TRUNCATED		0x0001
- #define RXBD_STATS		0x01ff
-+#define RXBD_ERR		(RXBD_LARGE | RXBD_SHORT | RXBD_NONOCTET 	\
-+				| RXBD_CRCERR | RXBD_OVERRUN			\
-+				| RXBD_TRUNCATED)
+@@ -124,11 +124,11 @@ extern const char gfar_driver_version[];
  
- /* Rx FCB status field bits */
- #define RXFCB_VLN		0x8000
+ #define DEFAULT_TX_COALESCE 1
+ #define DEFAULT_TXCOUNT	16
+-#define DEFAULT_TXTIME	4
++#define DEFAULT_TXTIME	21
+ 
+ #define DEFAULT_RX_COALESCE 1
+ #define DEFAULT_RXCOUNT	16
+-#define DEFAULT_RXTIME	4
++#define DEFAULT_RXTIME	21
+ 
+ #define TBIPA_VALUE		0x1f
+ #define MIIMCFG_INIT_VALUE	0x00000007
 -- 
 1.5.4.23.gef5b9
 
