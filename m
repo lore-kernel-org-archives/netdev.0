@@ -1,88 +1,96 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: [PATCH] 2.6.25-rc6 tulip_read_eeprom fixes for BUG 4420
-Date: Sun, 23 Mar 2008 23:23:10 -0600
-Message-ID: <20080324052310.GC474@colo.lackof.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/8] New driver "sfc" for Solarstorm SFC4000 controller
+ (try #8)
+Date: Sun, 23 Mar 2008 22:32:38 -0700 (PDT)
+Message-ID: <20080323.223238.86781188.davem@davemloft.net>
+References: <20080312012102.GB24160@solarflare.com>
+	<20080312012246.GC24160@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	jgarzik@pobox.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from colo.lackof.org ([198.49.126.79]:57874 "EHLO colo.lackof.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752173AbYCXFXW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2008 01:23:22 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54684
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752107AbYCXFcj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 01:32:39 -0400
+In-Reply-To: <20080312012246.GC24160@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff,
-If "location" is > "addr_len" bits, the high bits of location would interfere
-with the READ_CMD sent to the eeprom controller.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 12 Mar 2008 01:22:48 +0000
 
-A patch was submitted to bug:
-    http://bugzilla.kernel.org/show_bug.cgi?id=4420
+> +static void efx_link_status_changed(struct efx_nic *efx)
+> +{
+> +	unsigned long flags __attribute__ ((unused));
 
-which simply truncated the "location", read whatever was in "location
-modulo addr_len", and returned that value. That avoids confusing the
-eeprom but seems like the wrong solution to me.
+Please just delete this variable, it really is never
+used not matter what the build configuration.
 
-Correct would be to not read beyond "1 << addr_len" address of the eeprom.
-I am submitting two changes to implement this:
-1) tulip_read_eeprom will return zero (since we can't return -EINVAL)
-   if this is attempted (defensive programming).
-2) In tulip_core.c, fix the tulip_read_eeprom caller so they don't
-   iterate past addr_len bits and make sure the entire tp->eeprom[]
-   array is cleared.
+> +
+> +		if (rss_cpus == 0) {
+> +#ifdef topology_core_siblings
+> +			cpumask_t core_mask;
+> +			int cpu;
+> +
+> +			cpus_clear(core_mask);
+> +			efx->rss_queues = 0;
+> +			for_each_online_cpu(cpu) {
+> +				if (!cpu_isset(cpu, core_mask)) {
+> +					++efx->rss_queues;
+> +					cpus_or(core_mask, core_mask,
+> +						topology_core_siblings(cpu));
+> +				}
+> +			}
+> +#else
+> +			efx->rss_queues = num_online_cpus();
+> +#endif
 
-I konw we don't strictly need both. I would prefer both in the tree
-since it documents the issue and provides a second "defense" from
-the bug from creeping back in.
+Please don't test feature availability this way.
 
-thanks,
-grant
+Either use the proper CONFIG_* option ifdef.
 
-Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
+Or if this is some feature which is not merged yet, remove
+this code and add it back once that necessary feature is
+added upstream.
 
-diff --git a/drivers/net/tulip/eeprom.c b/drivers/net/tulip/eeprom.c
-index 206918b..843f101 100644
---- a/drivers/net/tulip/eeprom.c
-+++ b/drivers/net/tulip/eeprom.c
-@@ -343,6 +343,12 @@ int __devinit tulip_read_eeprom(struct net_device *dev, int location, int addr_l
- 	void __iomem *ee_addr = tp->base_addr + CSR9;
- 	int read_cmd = location | (EE_READ_CMD << addr_len);
- 
-+	/* If location is past the end of what we can address, don't
-+	 * read some other location (ie truncate). Just return zero.
-+	 */	
-+	if (location > (1 << addr_len) - 1)
-+		return 0;
-+
- 	iowrite32(EE_ENB & ~EE_CS, ee_addr);
- 	iowrite32(EE_ENB, ee_addr);
- 
-diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
-index ed600bf..82f404b 100644
---- a/drivers/net/tulip/tulip_core.c
-+++ b/drivers/net/tulip/tulip_core.c
-@@ -1437,6 +1437,7 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
- 	   EEPROM.
- 	   */
- 	ee_data = tp->eeprom;
-+	memset(ee_data, 0, sizeof(tp->eeprom));
- 	sum = 0;
- 	if (chip_idx == LC82C168) {
- 		for (i = 0; i < 3; i++) {
-@@ -1458,8 +1459,12 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
- 		/* A serial EEPROM interface, we read now and sort it out later. */
- 		int sa_offset = 0;
- 		int ee_addr_size = tulip_read_eeprom(dev, 0xff, 8) & 0x40000 ? 8 : 6;
-+		int ee_max_addr = ((1 << ee_addr_size) - 1) * sizeof(u16);
- 
--		for (i = 0; i < sizeof(tp->eeprom); i+=2) {
-+		if (ee_max_addr > sizeof(tp->eeprom))
-+			ee_max_addr = sizeof(tp->eeprom);
-+
-+		for (i = 0; i < ee_max_addr ; i += sizeof(u16)) {
- 			u16 data = tulip_read_eeprom(dev, i/2, ee_addr_size);
- 			ee_data[i] = data & 0xff;
- 			ee_data[i + 1] = data >> 8;
+> +/* Allocate the NAPI dev's.
+> + * Called after we know how many channels there are.
+> + */
+> +static int efx_init_napi(struct efx_nic *efx)
+> +{
+> +	struct efx_channel *channel;
+> +	int rc;
+> +
+> +	/* Allocate the NAPI dev for the port */
+> +	efx->net_dev = alloc_etherdev(0);
+> +	if (!efx->net_dev) {
+> +		rc = -ENOMEM;
+> +		goto err;
+> +	}
+> +	efx->net_dev->priv = efx;
+> +	efx->mii.dev = efx->net_dev;
+
+Please use alloc_etherdev() how is was designed, by
+specifying sizeof(struct efx_nic) as the size argument
+and that way your private area gets setup transparently
+and none of these explicit assignments are necessary.
+
+> +static int efx_reset(struct efx_nic *efx)
+> +{
+> +	struct ethtool_cmd ecmd;
+> +	unsigned long flags __attribute__ ((unused));
+> +	enum reset_type method = efx->reset_pending;
+> +	int rc;
+
+Like the other case, remove this truly unused
+"flags" thing.
+
+If you are doing this because some macro references
+this local variable without an explicit reference in
+the code or the calls to it, you need to fix that.
+
+Otherwise the rest of this part looks OK.
