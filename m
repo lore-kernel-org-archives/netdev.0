@@ -1,55 +1,61 @@
 From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
 Subject: Re: [PATCH][IPSEC] inter address family IPsec tunnel on the fly
-Date: Mon, 24 Mar 2008 16:16:46 +0900
-Message-ID: <20080324161646.5e4ff0eb.kazunori@miyazawa.org>
+Date: Mon, 24 Mar 2008 16:44:28 +0900
+Message-ID: <20080324164428.2c5e9012.kazunori@miyazawa.org>
 References: <47D2A6B5.101@miyazawa.org>
 	<20080308.141506.193713220.davem@davemloft.net>
 	<20080314122314.b877cfab.kazunori@miyazawa.org>
 	<20080321.042048.198566667.davem@davemloft.net>
+	<20080324161646.5e4ff0eb.kazunori@miyazawa.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
+To: Kazunori MIYAZAWA <kazunori@miyazawa.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi004.linux-ipv6.org ([203.178.140.4]:54286 "EHLO
+Received: from usagi004.linux-ipv6.org ([203.178.140.4]:59539 "EHLO
 	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753318AbYCXHQy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2008 03:16:54 -0400
-In-Reply-To: <20080321.042048.198566667.davem@davemloft.net>
+	id S1752681AbYCXHob (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Mar 2008 03:44:31 -0400
+In-Reply-To: <20080324161646.5e4ff0eb.kazunori@miyazawa.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 21 Mar 2008 04:20:48 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On Mon, 24 Mar 2008 16:16:46 +0900
+Kazunori MIYAZAWA <kazunori@miyazawa.org> wrote:
 
-> From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-> Date: Fri, 14 Mar 2008 12:23:14 +0900
+> On Fri, 21 Mar 2008 04:20:48 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> > I made the patch for that.
+> > From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+> > Date: Fri, 14 Mar 2008 12:23:14 +0900
 > > 
-> > Signed-off-by Kazunori MIYAZAWA <kazunori@miyazawa.org>
+> > > I made the patch for that.
+> > > 
+> > > Signed-off-by Kazunori MIYAZAWA <kazunori@miyazawa.org>
+> > 
+> > This looks fine.
+> > 
+> > Because the inner mode is resolved at xfrm creation time, I think the
+> > overall cost is small enough that we can avoid the config option.
+> > And anyways, if something matters for performance we can fix that.
+> > 
+> > Could you respin this patch with it removed?
+> > 
 > 
-> This looks fine.
+> Hi David,
 > 
-> Because the inner mode is resolved at xfrm creation time, I think the
-> overall cost is small enough that we can avoid the config option.
-> And anyways, if something matters for performance we can fix that.
+> Sorry for my late reply because of weekend :-)
 > 
-> Could you respin this patch with it removed?
+> I removed the ifdef from the patch and I roughly tested
+> with compling and doing IPsec for ICMP(v6) on the kernel.
 > 
 
-Hi David,
+Sorry, the patch has typo. Please use this.
 
-Sorry for my late reply because of weekend :-)
+Signed-off-by: Kazunori MIYAZAWA <kazunori@miyazawa.org>
 
-I removed the ifdef from the patch and I roughly tested
-with compling and doing IPsec for ICMP(v6) on the kernel.
-
-Best regards,
-
-
-Signed-off-by Kazunori MIYAZAWA <kazunori@miyazawa.org>
 
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
 index 619c53b..4e6f956 100644
@@ -253,7 +259,7 @@ index 569d377..2519129 100644
  EXPORT_SYMBOL_GPL(xfrm_output);
 +EXPORT_SYMBOL_GPL(xfrm_inner_extract_output);
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 7ba65e8..7576ca3 100644
+index 7ba65e8..d4ca77a 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
 @@ -388,6 +388,8 @@ static void xfrm_state_gc_destroy(struct xfrm_state *x)
@@ -304,7 +310,7 @@ index 7ba65e8..7576ca3 100644
 -		goto error;
 +	if (x->sel.family != AF_UNSPEC) {
 +		inner_mode = xfrm_get_mode(x->props.mode, x->sel.family);
-+		if (x->inner_mode == NULL)
++		if (inner_mode == NULL)
 +			goto error;
 +
 +		if (!(inner_mode->flags & XFRM_MODE_FLAG_TUNNEL) &&
