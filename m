@@ -1,59 +1,66 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 3/3] [LLC]: zero station mac source address
-Date: Mon, 24 Mar 2008 14:19:24 -0300
-Message-ID: <20080324171924.GA22421@ghostprotocols.net>
-References: <47e76799.1cef600a.7b83.6fea@mx.google.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 1/2] include/linux/icmpv6.h - Remove duplicate include,
+	combine #ifdef __KERNEL__ sections
+Date: Mon, 24 Mar 2008 10:46:34 -0700
+Message-ID: <1206380795.4845.31.camel@localhost>
+References: <1205106928.656.102.camel@localhost>
+	 <20080323.221815.84933913.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: joonwpark81@gmail.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:45239 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753316AbYCXRTh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2008 13:19:37 -0400
-Content-Disposition: inline
-In-Reply-To: <47e76799.1cef600a.7b83.6fea@mx.google.com>
+Received: from 136-022.dsl.labridge.com ([206.117.136.22]:4213 "EHLO
+	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1754647AbYCXRrW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 13:47:22 -0400
+In-Reply-To: <20080323.221815.84933913.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Mon, Mar 24, 2008 at 05:34:30PM +0900, joonwpark81@gmail.com escreveu:
-> From: Joonwoo Park <joonwpark81@gmail.com>
-> 
-> The right next device of the lo can have zero dev_addr. e.g. bonding.
-> 
-> Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
-> ---
->  net/llc/llc_core.c |    4 +++-
->  1 files changed, 3 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/llc/llc_core.c b/net/llc/llc_core.c
-> index 248b590..b871e10 100644
-> --- a/net/llc/llc_core.c
-> +++ b/net/llc/llc_core.c
-> @@ -19,6 +19,7 @@
->  #include <linux/slab.h>
->  #include <linux/string.h>
->  #include <linux/init.h>
-> +#include <linux/etherdevice.h>
->  #include <net/net_namespace.h>
->  #include <net/llc.h>
->  
-> @@ -164,8 +165,9 @@ static int __init llc_init(void)
->  	struct net_device *dev;
->  
->  	dev = first_net_device(&init_net);
-> -	if (dev != NULL)
-> +	do {
->  		dev = next_net_device(dev);
-> +	} while (dev && is_zero_ether_addr(dev->dev_addr));
->  
->  	if (dev != NULL)
->  		memcpy(llc_station_mac_sa, dev->dev_addr, ETH_ALEN);
+On Sun, 2008-03-23 at 22:18 -0700, David Miller wrote:
+> Does not apply to net-2.6.26, dropped.
 
-Looks ok, but I think this is an area for further work, using just
-the first device in the list always was wrong, I was too lazy to fix it,
-but since you are working on it, please consider fixing this for good
-:-)
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ include/linux/icmpv6.h |   13 ++++---------
+ 1 files changed, 4 insertions(+), 9 deletions(-)
 
-- Arnaldo
+diff --git a/include/linux/icmpv6.h b/include/linux/icmpv6.h
+index 0306744..c1a30c7 100644
+--- a/include/linux/icmpv6.h
++++ b/include/linux/icmpv6.h
+@@ -75,15 +75,6 @@ struct icmp6hdr {
+ #define icmp6_router_pref	icmp6_dataun.u_nd_ra.router_pref
+ };
+ 
+-#ifdef __KERNEL__
+-#include <linux/skbuff.h>
+-
+-static inline struct icmp6hdr *icmp6_hdr(const struct sk_buff *skb)
+-{
+-	return (struct icmp6hdr *)skb_transport_header(skb);
+-}
+-#endif
+-
+ #define ICMPV6_ROUTER_PREF_LOW		0x3
+ #define ICMPV6_ROUTER_PREF_MEDIUM	0x0
+ #define ICMPV6_ROUTER_PREF_HIGH		0x1
+@@ -170,6 +161,10 @@ struct icmp6_filter {
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
+ 
++static inline struct icmp6hdr *icmp6_hdr(const struct sk_buff *skb)
++{
++	return (struct icmp6hdr *)skb_transport_header(skb);
++}
+ 
+ extern void				icmpv6_send(struct sk_buff *skb,
+ 						    int type, int code,
+-- 
+1.5.4.rc2
+
+
+
