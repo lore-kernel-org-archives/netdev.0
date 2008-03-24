@@ -1,49 +1,108 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [RFC PATCH] kernel: add byteorder macros with alignment fixups
-Date: Mon, 24 Mar 2008 09:35:43 -0700
-Message-ID: <1206376543.9265.5.camel@brick>
-References: <1206034454.17059.4.camel@brick>
-	 <20080320182911.GQ10722@ZenIV.linux.org.uk>
-	 <1206038244.17059.7.camel@brick>
-	 <20080320190953.GR10722@ZenIV.linux.org.uk>
-	 <1206040953.17059.13.camel@brick>  <20080323135939.GC4580@ucw.cz>
+From: Stefan Bader <stefan.bader@canonical.com>
+Subject: [PATCH] Adding blacklist support to the pegasus driver
+Date: Mon, 24 Mar 2008 12:10:14 -0400
+Message-ID: <47E7D266.8050500@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Al Viro <viro@ZenIV.linux.org.uk>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Pavel Machek <pavel@ucw.cz>
+Content-Type: multipart/mixed;
+ boundary="------------080103070407090509070504"
+Cc: petkan@users.sourceforge.net
+To: linux-usb@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.191]:61831 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753385AbYCXQfq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 12:35:46 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so1507433rvb.1
-        for <netdev@vger.kernel.org>; Mon, 24 Mar 2008 09:35:45 -0700 (PDT)
-In-Reply-To: <20080323135939.GC4580@ucw.cz>
+Received: from adelie.canonical.com ([91.189.90.139]:42052 "EHLO
+	adelie.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754440AbYCXQhV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2008 12:37:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2008-03-23 at 14:59 +0100, Pavel Machek wrote:
-> On Thu 2008-03-20 12:22:33, Harvey Harrison wrote:
-> > +#ifdef __KERNEL__
-> > +
-> > +static inline u64 le64_to_cpu_unaligned(void *p)
-> > +{
-> > +	return __le64_to_cpu(get_unaligned((__le64 *)p));
-> > +}
-> 
-> Why the cast? Should le64_to_cpu() take __le64 * parameter, so that normal
-> typechecking still works?
-> 							Pavel
+This is a multi-part message in MIME format.
+--------------080103070407090509070504
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-Well, most places that would use this have a char *, or a u8 * so I was
-avoiding a cast in most callers.
+I have been working on a problem which arose from the fact that (at
+least one vendor) some vendors use the same vendor and model number for
+different pieces of hardware.
+In this case the Belkin bluetooth dongle uses the same numbers as the
+network adapter which causes machines to lock up as soon as the
+bluetooth dongle gets inserted.
+As far as I found there had been discussions about adding some sort of
+blacklisting support to the pegasus module before but I have not found
+any code doing so.
+This is what the attached patch does. There is possibly much room for
+improvement but at least it seems to work. Would it be possible to
+include something like this in the mainline driver?
+Please keep me cc'ed on replies, since I am not subscribed to the
+mailing lists. Thanks.
 
-HPA made a good suggestion about this being in asm-generic allowing
-arches to optimize this, so I'm reworking with that approach.
+Stefan
 
-Harvey
+--------------080103070407090509070504
+Content-Type: text/x-diff;
+ name="0001-Add-blacklisting-support-to-pegasus-u.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="0001-Add-blacklisting-support-to-pegasus-u.patch"
 
+>From 840b9f950175a27173a2e65a10332eb74c4654fc Mon Sep 17 00:00:00 2001
+From: Stefan Bader <stefan.bader@canonical.com>
+Date: Mon, 24 Mar 2008 11:49:40 -0400
+Subject: [PATCH] Add blacklisting support to pegasus usb driver.
+
+Belkin uses the same vendor id for both the ethernet and the bluetooth
+device, but the pegasus driver only checks for the vendor id to decide
+whether to drive a device or not. This locks up computers that are using
+the bluetooth dongle.
+
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+---
+ drivers/net/usb/pegasus.c |   24 ++++++++++++++++++++++++
+ 1 files changed, 24 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+index d1ed68a..198f518 100644
+--- a/drivers/net/usb/pegasus.c
++++ b/drivers/net/usb/pegasus.c
+@@ -1289,6 +1289,24 @@ static void check_carrier(struct work_struct *work)
+ 	}
+ }
+ 
++static int pegasus_blacklisted(struct usb_device *udev)
++{
++	struct usb_device_descriptor *udd = &udev->descriptor;
++
++	/* Special quirk to keep the driver from handling the Belkin Bluetooth
++	 * dongle which happens to have the same ID as the network dongle.
++	 */
++	if (udd->idVendor == VENDOR_BELKIN && udd->idProduct == 0x0121) {
++		if (udd->bDeviceClass == USB_CLASS_WIRELESS_CONTROLLER) {
++			if (udd->bDeviceProtocol == 1) {
++				return 1;
++			}
++		}
++	}
++
++	return 0;
++}
++
+ static int pegasus_probe(struct usb_interface *intf,
+ 			 const struct usb_device_id *id)
+ {
+@@ -1300,6 +1318,12 @@ static int pegasus_probe(struct usb_interface *intf,
+ 	DECLARE_MAC_BUF(mac);
+ 
+ 	usb_get_dev(dev);
++
++	if (pegasus_blacklisted(dev)) {
++			res = -ENODEV;
++			goto out;
++	}
++
+ 	net = alloc_etherdev(sizeof(struct pegasus));
+ 	if (!net) {
+ 		dev_err(&intf->dev, "can't allocate %s\n", "device");
+-- 
+1.5.4.3
+
+
+--------------080103070407090509070504--
