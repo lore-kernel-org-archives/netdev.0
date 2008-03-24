@@ -1,64 +1,33 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 2/3] [LLC]: bogus llc packet length
-Date: Mon, 24 Mar 2008 13:43:10 -0300
-Message-ID: <20080324164310.GD32612@ghostprotocols.net>
-References: <47e7678b.1aba720a.6925.fffff466@mx.google.com>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] Adding blacklist support to the pegasus driver
+Date: Mon, 24 Mar 2008 17:47:14 +0100
+Message-ID: <200803241747.15061.oliver@neukum.org>
+References: <47E7D266.8050500@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: joonwpark81@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:53456 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751808AbYCXQn0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2008 12:43:26 -0400
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Stefan Bader <stefan.bader-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <47E7D266.8050500-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <47e7678b.1aba720a.6925.fffff466@mx.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Em Mon, Mar 24, 2008 at 05:34:16PM +0900, joonwpark81@gmail.com escreveu:
-> From: Joonwoo Park <joonwpark81@gmail.com>
-> 
-> discard llc packet which has bogus packet length.
-> 
-> Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
-> ---
-> diff --git a/net/llc/llc_input.c b/net/llc/llc_input.c
-> index c40c9b2..a2bbc7c 100644
-> --- a/net/llc/llc_input.c
-> +++ b/net/llc/llc_input.c
-> @@ -117,8 +117,12 @@ static inline int llc_fixup_skb(struct sk_buff *skb)
->  	skb_pull(skb, llc_len);
->  	if (skb->protocol == htons(ETH_P_802_2)) {
->  		__be16 pdulen = eth_hdr(skb)->h_proto;
-> -		u16 data_size = ntohs(pdulen) - llc_len;
-> +		s32 data_size = ntohs(pdulen) - llc_len;
->  
-> +		if (data_size < 0
-> +		    || ((skb_tail_pointer(skb) - (u8 *)pdu) - llc_len)
-> +			< data_size)
-> +			return 0;
+Am Montag 24 M=C3=A4rz 2008 schrieb Stefan Bader:
+> I have been working on a problem which arose from the fact that (at
+> least one vendor) some vendors use the same vendor and model number f=
+or
+> different pieces of hardware.
 
-Rewrite this as:
+That issue can be solved with using the correct macros for probing that
+include a device class check.
 
-		if (data_size < 0 ||
-		    ((skb_tail_pointer(skb) -
-		      (u8 *)pdu) - llc_len) < data_size)
+	Regards
+		Oliver
 
-And stick my:
-
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-
-:-)
-
->  		if (unlikely(pskb_trim_rcsum(skb, data_size)))
->  			return 0;
->  	}
-> -- 
-> 1.5.4.3
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
