@@ -1,72 +1,39 @@
-From: Marin Mitov <mitov@issp.bas.bg>
-Subject: [BUG] unsolicited IRQ disabling at the IO-APIC leading to eth0 freezes
-Date: Tue, 25 Mar 2008 17:15:18 +0200
-Message-ID: <200803251715.18694.mitov@issp.bas.bg>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: IPv6 unique local address flushes on up/down
+Date: Wed, 26 Mar 2008 00:24:28 +0900 (JST)
+Message-ID: <20080326.002428.19095257.yoshfuji@linux-ipv6.org>
+References: <200803251557.21563.chunkeey@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755357AbYCYPOh@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hostap@lists.shmoo.com, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: chunkeey@web.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:54994 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754901AbYCYPXD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 11:23:03 -0400
+In-Reply-To: <200803251557.21563.chunkeey@web.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-WAS: net: tx timeouts with skge, 8139too, dmfe drivers/NICs
+In article <200803251557.21563.chunkeey@web.de> (at Tue, 25 Mar 2008 15:57:21 +0100), Chr <chunkeey@web.de> says:
 
-Hi all,
+> Now my question, which _one_ should we fix the applications or the stack?!
+> I think the network stack, but I don't know if there are RFC about this 
+> issue... or is there already some flag/setting which I've missed so far?  
 
-I am observing rare freezes(blocking) of eth0 with:
+Well..., in fact, this is known as an uneasy-to-fix issue.
+The behavior han not been changed for long time, so you definately
+need to have work-around for this issue, anyway.
 
-NETDEV WATCHDOG: eth0: transmit timed out
+>From specification point of view, we need to re-perform DAD (duplicate
+address detection) after down-up cycle or even link-down and up.
+One possible way is to add "tentative" flag for static addresses
+(instead of purging them) when the interface is going down and
+reperform DAD for all of such addresses when the interface is coming up.
+If the link is being down, we might want to use "Optimistic" DAD instead.
 
-in dmesg output.
-
-The problem has been already described in a previous message:
-
-http://lkml.org/lkml/2008/2/25/312
-
-with some additional observations, as described in:
-
-http://lkml.org/lkml/2008/3/12/96
-
-Recently I found that the IRQ# used by the driver/NIC has been
-somehow disabled/masked  at the IO-APIC, blocking the interrupts to
-the driver irq_handler, so the messages: NETDEV WATCHDOG....
-
-Pitting:
-
-disable_irq(_nosync)(irq#);
-enable_irq(irq#);
-
-in the dev->tx_timeout() method restores the working state of eth0,
-(at least for skge), so the interface now works posting (sometimes)
-
-NETDEV WATCHDOG: eth0: transmit timed out
-
-messages in the log.
-
-If I EXPORT_SYMBOL(irq_desc) (from kernel/irq/handle.c)
-I am able to restore the working state of the eth0 interface with
-
-(irq_desc + irq#)->chip->enable(irq#)
-
-or
-
-(irq_desc + irq#)->chip->unmask(irq#)
-
-(properly locked),  instead of disable/enable_irq(irq#), 
-
-Just for info the driver irq_handler always return IRQ_HANDLED and never 
-(verified) IRQ_NONE, so the irq# is not disabled due to unhandled irqs - 
-yes the driver declares IRQF_SHARED, but is the only one on this irq# 
-(as viewed in /proc/interrupts).
-
-The system is runing kernel-2.6.14.3-SMP (AMD64 X2) on Asus A7V Deluxe
-
-Am I observing IRQ locking/rice condition OUT of net driver?
-
-All suggestions for further investigation are wellcome.
-
-Marin Mitov
+--yoshfuji
