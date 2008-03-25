@@ -1,92 +1,39 @@
-From: "Denys" <nuclearcat@nuclearcat.com>
-Subject: Re: [Bugme-new] [Bug 10324] New: kernel panic ip_route_input
-Date: Wed, 26 Mar 2008 01:12:01 +0200
-Message-ID: <20080325230945.M27660@nuclearcat.com>
-References: <bug-10324-10286@http.bugzilla.kernel.org/> <20080325130302.d3f6757c.akpm@linux-foundation.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Realtek RTL-8169 having receive errors
+Date: Tue, 25 Mar 2008 23:56:17 +0100
+Message-ID: <20080325225617.GB2277@electric-eye.fr.zoreil.com>
+References: <3aa654a40803241717g218f3d51pec42ecbb29835248@mail.gmail.com> <20080325221050.GA2277@electric-eye.fr.zoreil.com> <3aa654a40803251551ka5e6287uab79d99626e75ae2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: bugme-daemon@bugzilla.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>
-To: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Avuton Olrich <avuton@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:53167 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757220AbYCYXMT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 19:12:19 -0400
-In-Reply-To: <20080325130302.d3f6757c.akpm@linux-foundation.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:42078 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755405AbYCYXOZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 19:14:25 -0400
+Content-Disposition: inline
+In-Reply-To: <3aa654a40803251551ka5e6287uab79d99626e75ae2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changing from FIB_TRIE to FIB_HASH, and it is not panicing anymore. It seems
-recent patches to FIB_TRIE broke something (i have complicated setup with ifb,
-maybe it will help). If you can point me to any patch, i can reverse it and
-try again with TRIE.
+Avuton Olrich <avuton@gmail.com> :
+[...]
+> shapeshifter ~ # ethtool -s eth1 msglvl 255
+> Cannot set new msglvl: Operation not supported
 
-On Tue, 25 Mar 2008 13:03:02 -0700, Andrew Morton wrote
-> (switched to email.  Please respond via emailed reply-to-all, not 
-> via the bugzilla web interface).
-> 
-> On Tue, 25 Mar 2008 12:48:37 -0700 (PDT)
-> bugme-daemon@bugzilla.kernel.org wrote:
-> 
-> > http://bugzilla.kernel.org/show_bug.cgi?id=10324
-> > 
-> >            Summary: kernel panic ip_route_input
-> >            Product: Networking
-> >            Version: 2.5
-> >      KernelVersion: 2.6.25-rc6-git6
-> >           Platform: All
-> >         OS/Version: Linux
-> >               Tree: Mainline
-> >             Status: NEW
-> >           Severity: normal
-> >           Priority: P1
-> >          Component: IPV4
-> >         AssignedTo: shemminger@linux-foundation.org
-> >         ReportedBy: nuclearcat@nuclearcat.com
-> > 
-> > 
-> > Latest working kernel version: 2.6.24.x
-> > Earliest failing kernel version: 2.6.25-rc6
-> 
-> A post-2.6.24 regression.
-> 
-> > Distribution: Custom
-> > Hardware Environment: Dual CPU, e100 + e1000
-> > Software Environment: Custom build. FIB_TRIE enabled
-> > Problem Description: Kernel panic after few seconds running network on heavy
-> > traffic (around 350 Mbps). 
-> > 
-> > Steps to reproduce: It is complicated configuration. I can provide whole image
-> > of system, around 128MB (it is semi-embedded), but it will need at least few
-> > traffic generators similar to mine. So it is difficult to reproduce. I can
-> > apply any patches required, but highly prefferable if they dont make server
-> > unreachable. I have panic and oops autoreboot sysctl options, nmi-watchdog and
-> > software watchdog enabled.
-> > I think it is critical to fix this bug before releasing 2.6.25.
-> > 
-> > Here is latest message with panic:
-> > CONFIG_DEBUG_RODATA, 4K stacks, Frame pointers, CONFIG_DEBUG_STACKOVERFLOW - 
-> > enabled.
-> > 
-> > It reboots recently after bringing up networking. Sometimes even not reaching 
-> > place where i am loading netconsole.
-> > 
-> > Always in ip_route_input. This is 2.6.25-rc6-git6, 2 panic's. They are easy 
-> > to reproduce, but i cannot do bisect, cause this machine dont have power 
-> > switch and in difficult to reach area.
-> >
-> 
-> I've snipped the log output - it was such a wordwrapped mess :(
-> 
-> Can you please resend it in a reply-to-all to this email, after ensuring
-> that it won't be wordwrapped?
-> 
-> Thanks.
+See ethtool -i eth1 and figure which ethX is relevant for your r8169 :o)
 
+[...]
+> I can't even boot 2.6.23, so that's not doable. I will work on taking
+> this machine down sometime this week, if it's possible and necessary.
 
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
+Don't boot 2.6.23: compile its r8169 driver in a 2.6.22 tree.
 
+Or simply revert d78ae2dcc2acebb9a1048278f47f762c069db75c with current
+git (shot in the dark).
+
+Good night.
+
+-- 
+Ueimor
