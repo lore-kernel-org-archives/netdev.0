@@ -1,89 +1,66 @@
-From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Subject: [PATCH] Better MWI workaround for 21143 rev 65 chip errata
-Date: Tue, 25 Mar 2008 12:39:09 +0100 (CET)
-Message-ID: <20080325113909.82BF8C2B76@solo.franken.de>
-Cc: grundler@parisc-linux.org, kyle@parisc-linux.org,
-	zero@colonel-panic.org
-To: netdev@vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/8] New driver "sfc" for Solarstorm SFC4000 controller (try #8)
+Date: Tue, 25 Mar 2008 12:54:23 +0000
+Message-ID: <20080325125421.GB24160@solarflare.com>
+References: <20080312012246.GC24160@solarflare.com> <20080323.223238.86781188.davem@davemloft.net> <20080324102936.GZ24160@solarflare.com> <20080324.132253.110641003.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	jgarzik@pobox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elvis.franken.de ([193.175.24.41]:46813 "EHLO elvis.franken.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753341AbYCYLjP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 07:39:15 -0400
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:56447 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753262AbYCYMyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 08:54:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20080324.132253.110641003.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Horton <zero@colonel-panic.org>
+David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Mon, 24 Mar 2008 10:29:38 +0000
+> 
+> > David Miller wrote:
+> > > > +
+> > > > +		if (rss_cpus == 0) {
+> > > > +#ifdef topology_core_siblings
+> > > > +			cpumask_t core_mask;
+> > > > +			int cpu;
+> > > > +
+> > > > +			cpus_clear(core_mask);
+> > > > +			efx->rss_queues = 0;
+> > > > +			for_each_online_cpu(cpu) {
+> > > > +				if (!cpu_isset(cpu, core_mask)) {
+> > > > +					++efx->rss_queues;
+> > > > +					cpus_or(core_mask, core_mask,
+> > > > +						topology_core_siblings(cpu));
+> > > > +				}
+> > > > +			}
+> > > > +#else
+> > > > +			efx->rss_queues = num_online_cpus();
+> > > > +#endif
+> > > 
+> > > Please don't test feature availability this way.
+> > > 
+> > > Either use the proper CONFIG_* option ifdef.
+> > 
+> > The macro is defined for some architectures and not for others, and does
+> > not depend on config options.  See Documentation/cputopology.txt.
+> 
+> Then this needs to be fixed at the top level because drivers doing
+> this is beyond ugly.
+> 
+> I'd suggest that some default define be provided by the generic
+> header files so code doesn't have to do this.
 
-This patch works around the MWI bug on the DC21143 rev 65 Tulip by
-ensuring that the receive buffers don't end on a cache line boundary
-(as documented in the errata).
+That would certainly be better, yes.
 
-This patch is required for the MIPS based Cobalt Qube/RaQ as
-supporting the extra PCI commands seems to reduce the chance of a hard
-lockup between the Tulip and the PCI bridge.
+Would you object to our using this test until the default definition exists?
 
-Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
----
+Ben.
 
- drivers/net/tulip/tulip.h      |    7 ++++++-
- drivers/net/tulip/tulip_core.c |   19 +++++--------------
- 2 files changed, 11 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/tulip/tulip.h b/drivers/net/tulip/tulip.h
-index 3f69f53..908422f 100644
---- a/drivers/net/tulip/tulip.h
-+++ b/drivers/net/tulip/tulip.h
-@@ -268,7 +268,12 @@ enum t21143_csr6_bits {
- #define RX_RING_SIZE	128
- #define MEDIA_MASK     31
- 
--#define PKT_BUF_SZ		1536	/* Size of each temporary Rx buffer. */
-+/* The receiver on the DC21143 rev 65 can fail to close the last
-+ * receive descriptor in certain circumstances (see errata) when
-+ * using MWI. This can only occur if the receive buffer ends on
-+ * a cache line boundary, so the "+ 4" below ensures it doesn't.
-+ */
-+#define PKT_BUF_SZ	(1536 + 4)	/* Size of each temporary Rx buffer. */
- 
- #define TULIP_MIN_CACHE_LINE	8	/* in units of 32-bit words */
- 
-diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
-index ed600bf..5781150 100644
---- a/drivers/net/tulip/tulip_core.c
-+++ b/drivers/net/tulip/tulip_core.c
-@@ -1154,18 +1154,13 @@ static void __devinit tulip_mwi_config (struct pci_dev *pdev,
- 
- 	tp->csr0 = csr0 = 0;
- 
--	/* if we have any cache line size at all, we can do MRM */
--	csr0 |= MRM;
-+	/* if we have any cache line size at all, we can do MRM and MWI */
-+	csr0 |= MRM | MWI;
- 
--	/* ...and barring hardware bugs, MWI */
--	if (!(tp->chip_id == DC21143 && tp->revision == 65))
--		csr0 |= MWI;
--
--	/* set or disable MWI in the standard PCI command bit.
--	 * Check for the case where  mwi is desired but not available
-+	/* Enable MWI in the standard PCI command bit.
-+	 * Check for the case where MWI is desired but not available
- 	 */
--	if (csr0 & MWI)	pci_try_set_mwi(pdev);
--	else		pci_clear_mwi(pdev);
-+	pci_try_set_mwi(pdev);
- 
- 	/* read result from hardware (in case bit refused to enable) */
- 	pci_read_config_word(pdev, PCI_COMMAND, &pci_command);
-@@ -1401,10 +1396,6 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
- #ifdef CONFIG_TULIP_MWI
- 	if (!force_csr0 && (tp->flags & HAS_PCI_MWI))
- 		tulip_mwi_config (pdev, dev);
--#else
--	/* MWI is broken for DC21143 rev 65... */
--	if (chip_idx == DC21143 && pdev->revision == 65)
--		tp->csr0 &= ~MWI;
- #endif
- 
- 	/* Stop the chip's Tx and Rx processes. */
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
