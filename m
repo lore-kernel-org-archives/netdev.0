@@ -1,57 +1,66 @@
-From: Petko Manolov <petkan-nPnTwAqkgEqakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH] Adding blacklist support to the pegasus driver
-Date: Tue, 25 Mar 2008 22:44:13 +0200 (EET)
-Message-ID: <alpine.DEB.1.10.0803252242550.3288@bender.nucleusys.com>
-References: <47E7D266.8050500@canonical.com> <200803241747.15061.oliver@neukum.org> <alpine.DEB.1.10.0803252204180.3163@bender.nucleusys.com> <200803252135.29249.oliver@neukum.org>
+From: Florian Fainelli <florian.fainelli@telecomint.eu>
+Subject: Re: [PATCH] Add support the Korina (IDT RC32434) Ethernet MAC
+Date: Tue, 25 Mar 2008 21:55:55 +0100
+Message-ID: <200803252155.56082.florian.fainelli@telecomint.eu>
+References: <200803052345.06610.florian.fainelli@telecomint.eu> <200803192217.25860.florian.fainelli@telecomint.eu> <20080319215535.GB24710@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811350-293716320-1206477853=:3288"
-Cc: Stefan Bader <stefan.bader-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200803252135.29249.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----1463811350-293716320-1206477853=:3288
-Content-Type: TEXT/PLAIN; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>, Felix Fietkau <nbd@openwrt.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.int-evry.fr ([157.159.10.71]:57281 "EHLO
+	smtp4.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752135AbYCYUuY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 16:50:24 -0400
+In-Reply-To: <20080319215535.GB24710@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 25 Mar 2008, Oliver Neukum wrote:
+Hello Francois,
 
-> Am Dienstag, 25. M=C3=A4rz 2008 21:05:31 schrieb Petko Manolov:
->> On Mon, 24 Mar 2008, Oliver Neukum wrote:
->>
->>> Am Montag 24 M=C3=A4rz 2008 schrieb Stefan Bader:
->>>> I have been working on a problem which arose from the fact that (at
->>>> least one vendor) some vendors use the same vendor and model number fo=
-r
->>>> different pieces of hardware.
->>>
->>> That issue can be solved with using the correct macros for probing that
->>> include a device class check.
->>
->> Can you show a driver that is already doing that.  I am sorry to be so
->> lazy, but i can't help it... :-)
+Le mercredi 19 mars 2008, Francois Romieu a =E9crit=A0:
+>                      ^ space before tab
+
+=46ixed.
+
+> If the allocation fails, the driver will have to handle a shorter
+> than expected ring (it is probably ok, I have not checked it). You
+> may consider initializing the link field for each descriptor if
+> possible. See epic_init_ring() for some inspiration.
+
+That is why I use the i variable such that if a break in the loop happe=
+ns, the=20
+ring and last/first decscriptors are properly set.
+
+> The irqs will be disabled for whatever device shares them...
 >
-> http://fixunix.com/kernel/256881-add-infamous-huawei-e220-option-c-3.html
+> [...]
 >
-> Just ask and you shall be answered.
+> > +	free_irq(lp->rx_irq, dev);
+> > +	free_irq(lp->tx_irq, dev);
+> > +	free_irq(lp->ovr_irq, dev);
+> > +	free_irq(lp->und_irq, dev);
+>
+> ... and they will not be enabled again.
+>
+> You should avoid disable_irq here and disable the irq with some
+> korina register write prior to free_irq instead.
 
-Ah, now i see. :-)
+Ethernet MAC datasheet does not seem to mention a way to disable IRQ un=
+less=20
+reseting the ethernet logic itself. Since this MAC is used in an embedd=
+ed=20
+system, closing the ethernet driver usually mean shutting down the devi=
+ce as=20
+well. I will try to work around this.
 
-This (if works) seems simpler and more elegant.  I'll play with it in the=
-=20
-morning.  Thanks for the link.
+> It will work as is but you could merge both of those in a single
+> variable (name it 'rc' and the consequences will appear directly
+> in the diff between this patch and the next version).
 
-
- =09=09Petko
----1463811350-293716320-1206477853=:3288--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+=46ixed, must have been particularly braindead not to realize that befo=
+re.
