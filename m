@@ -1,53 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
-Date: Tue, 25 Mar 2008 10:55:18 -0400
-Message-ID: <47E91256.3010000@garzik.org>
-References: <m3prtzsszg.fsf@maximus.localdomain>	<m3tzj92xq6.fsf@maximus.localdomain> <m33aqedg0a.fsf@maximus.localdomain>
+From: Chr <chunkeey@web.de>
+Subject: IPv6 unique local address flushes on up/down
+Date: Tue, 25 Mar 2008 15:57:21 +0100
+Message-ID: <200803251557.21563.chunkeey@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756363AbYCYOzg@vger.kernel.org>
-In-Reply-To: <m33aqedg0a.fsf@maximus.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: hostap@lists.shmoo.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fmmailgate02.web.de ([217.72.192.227]:39823 "EHLO
+	fmmailgate02.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754493AbYCYO5X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 10:57:23 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Halasa wrote:
-> Hi,
-> 
-> I wrote:
-> 
->> New synchronous PPP implementation for generic HDLC.
-> 
-> So are we leaving the generic-HDLC+PPP in broken state for 2.6.25,
-> aren't we?
-> 
-> If we do, perhaps a "|| BROKEN" in drivers/net/wan/Kconfig would make
-> sense? Any attempt to use it will cause kernel panic immediately (PPP
-> with generic HDLC only; drivers using syncppp.c directly are not
-> affected). I can make that trivial Kconfig patch of course.
+Hi,
 
-In your original email you said
+I have a problem with hostapd & IPv6... 
 
-	I guess it should go into 2.6.25, not sure about "stable"
-	series. I will appreciate any feedback, review and/or test
-	results.
+as you might know, or not... hostapd needs to initialize 
+the interface (e.g it changes it to master/accesspoint mode,
+which can only be done if the interface is down)... 
 
-At the time of the posting 2.6.25-rc6 had already been released, which 
-seems like an inappropriate time for all that new code, which has been 
-given so little exposure to real world testing.
+However if the interface is brought down & up again (e.g whenever
+hostap starts or restarts)... the IPv6 logic flushes the unique-local ipv6 
+address that I gave it (by hand) with ip addr add fddb:xyz...::1//64 dev ath0 
+in /etc/network/interfaces ifup script (-probably debian specific-).
 
-Certainly your original message said PPP panics, but without even 
-minimal testing how do we know that your new code doesn't have equally 
-problematic issues?
+And that's bad, because bind9,ISC dhcp-server v4.1 and racoon(IPsec/VPN)
+needs a static address for their records/lease database and configuration...
 
-So quite honestly a CONFIG_BROKEN patch might indeed be more appropriate 
-since generic HDLC works with Frame Relay at least...
+This wasn't problem with the old IPv4... because there the 
+10.x.y.z or 192.168.a.b addresses aren't deleted when the interface 
+was _reinitialized_ by the hostap...
 
-Comments?  IMO the current code is a known risk (PPP panic, FR works) 
-whereas the new code is an unknown risk very late in 2.6.25-rc -- but 
-with a good chance to make HDLC+PPP work again.
+Now my question, which _one_ should we fix the applications or the stack?!
+I think the network stack, but I don't know if there are RFC about this 
+issue... or is there already some flag/setting which I've missed so far?  
 
-	Jeff
+Regards,
+	Christian
