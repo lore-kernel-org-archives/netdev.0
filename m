@@ -1,7 +1,7 @@
 From: "Denys" <nuclearcat@nuclearcat.com>
 Subject: Re: [Bugme-new] [Bug 10324] New: kernel panic ip_route_input
-Date: Wed, 26 Mar 2008 01:06:58 +0200
-Message-ID: <20080325225844.M82705@nuclearcat.com>
+Date: Wed, 26 Mar 2008 01:12:01 +0200
+Message-ID: <20080325230945.M27660@nuclearcat.com>
 References: <bug-10324-10286@http.bugzilla.kernel.org/> <20080325130302.d3f6757c.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -9,19 +9,18 @@ Content-Type: text/plain;
 Cc: bugme-daemon@bugzilla.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>
 To: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:59280 "EHLO
+Received: from usermail.globalproof.net ([194.146.153.18]:53167 "EHLO
 	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755834AbYCYXHR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 19:07:17 -0400
+	with ESMTP id S1757220AbYCYXMT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 19:12:19 -0400
 In-Reply-To: <20080325130302.d3f6757c.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I upload whole netconsole file at
-http://www.nuclearcat.com/files/ip_route_input_crash.txt 
-There is two crashes.
-
-
+Changing from FIB_TRIE to FIB_HASH, and it is not panicing anymore. It seems
+recent patches to FIB_TRIE broke something (i have complicated setup with ifb,
+maybe it will help). If you can point me to any patch, i can reverse it and
+try again with TRIE.
 
 On Tue, 25 Mar 2008 13:03:02 -0700, Andrew Morton wrote
 > (switched to email.  Please respond via emailed reply-to-all, not 
