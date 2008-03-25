@@ -1,111 +1,130 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 4/7] [CCID-2/3]: Fix sparse warnings
-Date: Tue, 25 Mar 2008 16:20:08 +0000
-Message-ID: <1206462011-24907-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 5/7] [TCP][DCCP]: Consolidate duplicated code for RFC3390 conversion
+Date: Tue, 25 Mar 2008 16:20:09 +0000
+Message-ID: <1206462011-24907-6-git-send-email-gerrit@erg.abdn.ac.uk>
 References: bug_fixes_and_cleanups
  <1206462011-24907-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1206462011-24907-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1206462011-24907-3-git-send-email-gerrit@erg.abdn.ac.uk>
  <1206462011-24907-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1206462011-24907-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52283 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52255 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756201AbYCYQVm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 12:21:42 -0400
-In-Reply-To: <1206462011-24907-4-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1756680AbYCYQWF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Mar 2008 12:22:05 -0400
+In-Reply-To: <1206462011-24907-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the following two sparse warnings:
+While fixing a sparse warning in DCCP I found that the same code (conversion of
+RFC3390 bytes-to-packets) appears identically in 3 different places:
 
- 1. Due to a nested min(max()) expression, sparse gave the following warnings:
+ * TCP uses RFC 3390 in a packet-oriented manner (tcp_input.c);
+ * CCID-2 uses RFC 3390 in packet-oriented manner (RFC 4341);
+ * CCID-3 uses RFC 3390 in a packet-oriented manner
+   (RFC 4342, rfc3448bis).
 
-    net/dccp/ccids/ccid3.c:91:21: warning: symbol '__x' shadows an earlier one
-    net/dccp/ccids/ccid3.c:91:21: warning: symbol '__y' shadows an earlier one
-
-    In addition, in update_x(), the function call to scaled_div() appeared as
-    macro parameter and was thus evaluated multiple times. 
-    Fixed by disentangling the nested expression - code also clearer now.
-
- 2. Declaration of function prototypes was in .c instead of .h file.
-    This resulted in "should it be static" warnings. Corrected by moving the
-    declarations to the tfrc.h file instead of the tfrc.c file.
+This patch consolidates the code common to both TCP and DCCP.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid3.c    |   11 +++++++----
- net/dccp/ccids/lib/tfrc.c |    8 --------
- net/dccp/ccids/lib/tfrc.h |   11 +++++++++--
- 3 files changed, 16 insertions(+), 14 deletions(-)
+ include/net/tcp.h      |   14 ++++++++++++++
+ net/dccp/ccids/ccid2.c |    8 ++------
+ net/dccp/ccids/ccid3.c |    5 +----
+ net/ipv4/tcp_input.c   |   17 ++---------------
+ 4 files changed, 19 insertions(+), 25 deletions(-)
 
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -130,7 +130,8 @@ static u32 ccid3_hc_tx_idle_rtt(struct c
- static void ccid3_hc_tx_update_x(struct sock *sk, ktime_t *stamp)
- {
- 	struct ccid3_hc_tx_sock *hctx = ccid3_hc_tx_sk(sk);
--	u64 min_rate = 2 * hctx->x_recv;
-+	u64 min_rate = 2 * hctx->x_recv,
-+	    low_thresh = ((u64)hctx->s) << 6;
- 	const u64 old_x = hctx->x;
- 	ktime_t now = stamp ? *stamp : ktime_get_real();
- 
-@@ -148,14 +149,16 @@ static void ccid3_hc_tx_update_x(struct 
- 	if (hctx->p > 0) {
- 
- 		hctx->x = min(((u64)hctx->x_calc) << 6, min_rate);
--		hctx->x = max(hctx->x, (((u64)hctx->s) << 6) / TFRC_T_MBI);
-+		low_thresh /= TFRC_T_MBI;
- 
- 	} else if (ktime_us_delta(now, hctx->t_ld) - (s64)hctx->rtt >= 0) {
- 
--		hctx->x = max(min(2 * hctx->x, min_rate),
--			      scaled_div(((u64)hctx->s) << 6, hctx->rtt));
-+		hctx->x = min(2 * old_x, min_rate);
-+		low_thresh = scaled_div(low_thresh, hctx->rtt);
- 		hctx->t_ld = now;
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -809,25 +809,12 @@ void tcp_update_metrics(struct sock *sk)
  	}
-+	if (hctx->x < low_thresh)
-+		hctx->x = low_thresh;
- 
- 	if (hctx->x != old_x) {
- 		ccid3_pr_debug("X_prev=%u, X_now=%u, X_calc=%u, "
---- a/net/dccp/ccids/lib/tfrc.h
-+++ b/net/dccp/ccids/lib/tfrc.h
-@@ -58,7 +58,14 @@ static inline u32 tfrc_ewma(const u32 av
- 	return avg ? (weight * avg + (10 - weight) * newval) / 10 : newval;
  }
  
--extern u32 tfrc_calc_x(u16 s, u32 R, u32 p);
--extern u32 tfrc_calc_x_reverse_lookup(u32 fvalue);
-+extern u32  tfrc_calc_x(u16 s, u32 R, u32 p);
-+extern u32  tfrc_calc_x_reverse_lookup(u32 fvalue);
- 
-+extern int  tfrc_tx_packet_history_init(void);
-+extern void tfrc_tx_packet_history_exit(void);
-+extern int  tfrc_rx_packet_history_init(void);
-+extern void tfrc_rx_packet_history_exit(void);
-+
-+extern int  tfrc_li_init(void);
-+extern void tfrc_li_exit(void);
- #endif /* _TFRC_H_ */
---- a/net/dccp/ccids/lib/tfrc.c
-+++ b/net/dccp/ccids/lib/tfrc.c
-@@ -14,14 +14,6 @@ module_param(tfrc_debug, bool, 0444);
- MODULE_PARM_DESC(tfrc_debug, "Enable debug messages");
- #endif
- 
--extern int  tfrc_tx_packet_history_init(void);
--extern void tfrc_tx_packet_history_exit(void);
--extern int  tfrc_rx_packet_history_init(void);
--extern void tfrc_rx_packet_history_exit(void);
--
--extern int  tfrc_li_init(void);
--extern void tfrc_li_exit(void);
--
- static int __init tfrc_module_init(void)
+-/* Numbers are taken from RFC3390.
+- *
+- * John Heffner states:
+- *
+- *	The RFC specifies a window of no more than 4380 bytes
+- *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
+- *	is a bit misleading because they use a clamp at 4380 bytes
+- *	rather than use a multiplier in the relevant range.
+- */
+ __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst)
  {
- 	int rc = tfrc_li_init();
+ 	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
+ 
+-	if (!cwnd) {
+-		if (tp->mss_cache > 1460)
+-			cwnd = 2;
+-		else
+-			cwnd = (tp->mss_cache > 1095) ? 3 : 4;
+-	}
++	if (!cwnd)
++		cwnd = rfc3390_bytes_to_packets(tp->mss_cache);
+ 	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
+ }
+ 
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -770,6 +770,21 @@ static inline __u32 tcp_current_ssthresh
+ /* Use define here intentionally to get WARN_ON location shown at the caller */
+ #define tcp_verify_left_out(tp)	WARN_ON(tcp_left_out(tp) > tp->packets_out)
+ 
++/*
++ * Convert RFC3390 larger initial windows into an equivalent number of packets.
++ *
++ * John Heffner states:
++ *
++ *	The RFC specifies a window of no more than 4380 bytes
++ *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
++ *	is a bit misleading because they use a clamp at 4380 bytes
++ *	rather than a multiplier in the relevant range.
++ */
++static inline u32 rfc3390_bytes_to_packets(const u32 bytes)
++{
++	return bytes < 1095 ? 4 : (bytes > 1460 ? 2 : 3);
++}
++
+ extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
+ extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
+ 
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -598,12 +598,8 @@ static int ccid2_hc_tx_init(struct ccid 
+ 	/* RFC 4341, 5: initialise ssthresh to arbitrarily high (max) value */
+ 	hctx->ssthresh  = ~0U;
+ 
+-	/*
+-	 * RFC 4341, 5: "The cwnd parameter is initialized to at most four
+-	 * packets for new connections, following the rules from [RFC3390]".
+-	 * We need to convert the bytes of RFC3390 into the packets of RFC 4341.
+-	 */
+-	hctx->cwnd = min(4U, max(2U, 4380U / dp->dccps_mss_cache));
++	/* Use larger initial windows (RFC 3390, rfc2581bis) */
++	hctx->cwnd = rfc3390_bytes_to_packets(dp->dccps_mss_cache);
+ 
+ 	/* Make sure that Ack Ratio is enabled and within bounds. */
+ 	max_ratio = DIV_ROUND_UP(hctx->cwnd, 2);
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -81,15 +81,12 @@ static void ccid3_hc_tx_set_state(struct
+  *
+  *	X_init  =  min(4 * s, max(2 * s, 4380 bytes)) / RTT
+  *
+- * Note that RFC 3390 uses MSS, RFC 4342 refers to RFC 3390, and rfc3448bis
+- * (rev-02) clarifies the use of RFC 3390 with regard to the above formula.
+  * For consistency with other parts of the code, X_init is scaled by 2^6.
+  */
+ static inline u64 rfc3390_initial_rate(struct sock *sk)
+ {
+ 	const struct ccid3_hc_tx_sock *hctx = ccid3_hc_tx_sk(sk);
+-	const u32 w_init = min_t(u32, 4 * hctx->s,
+-				 max_t(u32, 2 * hctx->s, 4380U));
++	const u32 w_init = hctx->s * rfc3390_bytes_to_packets(hctx->s);
+ 
+ 	return scaled_div(w_init << 6, hctx->rtt);
+ }
