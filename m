@@ -1,63 +1,93 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] Add support the Korina (IDT RC32434) Ethernet MAC
-Date: Tue, 25 Mar 2008 23:45:54 +0100
-Message-ID: <20080325224554.GA32429@electric-eye.fr.zoreil.com>
-References: <200803052345.06610.florian.fainelli@telecomint.eu> <200803192217.25860.florian.fainelli@telecomint.eu> <20080319215535.GB24710@electric-eye.fr.zoreil.com> <200803252155.56082.florian.fainelli@telecomint.eu>
+From: "Denys" <nuclearcat@nuclearcat.com>
+Subject: Re: [Bugme-new] [Bug 10324] New: kernel panic ip_route_input
+Date: Wed, 26 Mar 2008 01:06:58 +0200
+Message-ID: <20080325225844.M82705@nuclearcat.com>
+References: <bug-10324-10286@http.bugzilla.kernel.org/> <20080325130302.d3f6757c.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>, Felix Fietkau <nbd@openwrt.org>
-To: Florian Fainelli <florian.fainelli@telecomint.eu>
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: bugme-daemon@bugzilla.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>
+To: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41194 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754527AbYCYXEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 19:04:16 -0400
-Content-Disposition: inline
-In-Reply-To: <200803252155.56082.florian.fainelli@telecomint.eu>
+Received: from usermail.globalproof.net ([194.146.153.18]:59280 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755834AbYCYXHR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 19:07:17 -0400
+In-Reply-To: <20080325130302.d3f6757c.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Florian Fainelli <florian.fainelli@telecomint.eu> :
-> Le mercredi 19 mars 2008, Francois Romieu a ?crit?:
-[...]
-> > If the allocation fails, the driver will have to handle a shorter
-> > than expected ring (it is probably ok, I have not checked it). You
-> > may consider initializing the link field for each descriptor if
-> > possible. See epic_init_ring() for some inspiration.
+I upload whole netconsole file at
+http://www.nuclearcat.com/files/ip_route_input_crash.txt 
+There is two crashes.
+
+
+
+On Tue, 25 Mar 2008 13:03:02 -0700, Andrew Morton wrote
+> (switched to email.  Please respond via emailed reply-to-all, not 
+> via the bugzilla web interface).
 > 
-> That is why I use the i variable such that if a break in the loop happens,
-> the ring and last/first decscriptors are properly set.
+> On Tue, 25 Mar 2008 12:48:37 -0700 (PDT)
+> bugme-daemon@bugzilla.kernel.org wrote:
+> 
+> > http://bugzilla.kernel.org/show_bug.cgi?id=10324
+> > 
+> >            Summary: kernel panic ip_route_input
+> >            Product: Networking
+> >            Version: 2.5
+> >      KernelVersion: 2.6.25-rc6-git6
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: normal
+> >           Priority: P1
+> >          Component: IPV4
+> >         AssignedTo: shemminger@linux-foundation.org
+> >         ReportedBy: nuclearcat@nuclearcat.com
+> > 
+> > 
+> > Latest working kernel version: 2.6.24.x
+> > Earliest failing kernel version: 2.6.25-rc6
+> 
+> A post-2.6.24 regression.
+> 
+> > Distribution: Custom
+> > Hardware Environment: Dual CPU, e100 + e1000
+> > Software Environment: Custom build. FIB_TRIE enabled
+> > Problem Description: Kernel panic after few seconds running network on heavy
+> > traffic (around 350 Mbps). 
+> > 
+> > Steps to reproduce: It is complicated configuration. I can provide whole image
+> > of system, around 128MB (it is semi-embedded), but it will need at least few
+> > traffic generators similar to mine. So it is difficult to reproduce. I can
+> > apply any patches required, but highly prefferable if they dont make server
+> > unreachable. I have panic and oops autoreboot sysctl options, nmi-watchdog and
+> > software watchdog enabled.
+> > I think it is critical to fix this bug before releasing 2.6.25.
+> > 
+> > Here is latest message with panic:
+> > CONFIG_DEBUG_RODATA, 4K stacks, Frame pointers, CONFIG_DEBUG_STACKOVERFLOW - 
+> > enabled.
+> > 
+> > It reboots recently after bringing up networking. Sometimes even not reaching 
+> > place where i am loading netconsole.
+> > 
+> > Always in ip_route_input. This is 2.6.25-rc6-git6, 2 panic's. They are easy 
+> > to reproduce, but i cannot do bisect, cause this machine dont have power 
+> > switch and in difficult to reach area.
+> >
+> 
+> I've snipped the log output - it was such a wordwrapped mess :(
+> 
+> Can you please resend it in a reply-to-all to this email, after ensuring
+> that it won't be wordwrapped?
+> 
+> Thanks.
 
-I was more worried that rx_next_done (in korina_rx) does not seem to
-know that the descriptor ring can actually be shorter than expected.
 
-static void korina_alloc_ring(struct net_device *dev)
-{
-[...]
-	for (i = 0; i < KORINA_NUM_RDS; i++) {
-                struct sk_buff *skb = lp->rx_skb[i];
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
-                skb = dev_alloc_skb(KORINA_RBSIZE + 2);
-                if (!skb)
-                        break;
-[...]
-                lp->rd_ring[i].link = CPHYSADDR(&lp->rd_ring[i+1]);
-[...]
-static int korina_rx(struct net_device *dev, int limit)
-{
-[...]
-                        rd->control = DMA_COUNT(KORINA_RBSIZE) |
-                                DMA_DESC_COD | DMA_DESC_IOD;
-                        lp->rd_ring[(lp->rx_next_done - 1) &
-                                KORINA_RDS_MASK].control &= ~DMA_DESC_COD;
-
-                        lp->rx_next_done = (lp->rx_next_done + 1) & KORINA_RDS_MASK;
-
--> Sooner than later, rx_next_done will force the code through a
-   descriptor ring entry where rd->link is not set while the
-   hardware has already returned to the start of the ring.
-
--- 
-Ueimor
