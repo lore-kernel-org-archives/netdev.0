@@ -1,191 +1,66 @@
 From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: Re: [PATCH 1/3] [LLC]: skb allocation size for responses
-Date: Tue, 25 Mar 2008 14:15:33 +0900
-Message-ID: <b25c3fa70803242215r7451bc85r914fdb371a00d76b@mail.gmail.com>
-References: <47e76779.0f98600a.36ef.ffff9c13@mx.google.com>
-	 <20080324171631.GE32612@ghostprotocols.net>
+Subject: Re: [PATCH 2/3] [LLC]: bogus llc packet length
+Date: Tue, 25 Mar 2008 14:16:40 +0900
+Message-ID: <b25c3fa70803242216w6267905aq26e126891a9e1aba@mail.gmail.com>
+References: <47e7678b.1aba720a.6925.fffff466@mx.google.com>
+	 <20080324164310.GD32612@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: joonwpark81@gmail.com, davem@davemloft.net, netdev@vger.kernel.org,
-	jwestfall@surrealistic.net
-To: "Arnaldo Carvalho de Melo" <acme@redhat.com>
+Cc: netdev@vger.kernel.org, joonwpark81@gmail.com,
+	"Arnaldo Carvalho de Melo" <acme@redhat.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.177]:52435 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754056AbYCYFPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 01:15:35 -0400
-Received: by py-out-1112.google.com with SMTP id u52so4699984pyb.10
-        for <netdev@vger.kernel.org>; Mon, 24 Mar 2008 22:15:34 -0700 (PDT)
-In-Reply-To: <20080324171631.GE32612@ghostprotocols.net>
+Received: from rv-out-0910.google.com ([209.85.198.185]:49277 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754255AbYCYFQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 01:16:41 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so1654280rvb.1
+        for <netdev@vger.kernel.org>; Mon, 24 Mar 2008 22:16:40 -0700 (PDT)
+In-Reply-To: <20080324164310.GD32612@ghostprotocols.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 2008/3/25, Arnaldo Carvalho de Melo <acme@redhat.com>:
-> Em Mon, Mar 24, 2008 at 05:33:57PM +0900, joonwpark81@gmail.com escreveu:
+> Em Mon, Mar 24, 2008 at 05:34:16PM +0900, joonwpark81@gmail.com escreveu:
 > > From: Joonwoo Park <joonwpark81@gmail.com>
 > >
-> > allocate the skb for llc responses with the received packet size by
-> > using the size adjustable llc_frame_alloc.
-> >
-> > Reported by Jim Westfall:
-> > kernel: skb_over_panic: text:c0541fc7 len:1000 put:997 head:c166ac00 data:c166ac2f tail:0xc166b017 end:0xc166ac80 dev:eth0
-> > kernel: ------------[ cut here ]------------
-> > kernel: kernel BUG at net/core/skbuff.c:95!
+> > discard llc packet which has bogus packet length.
 > >
 > > Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
 > > ---
-> > diff --git a/include/net/llc_sap.h b/include/net/llc_sap.h
-> > index 2c56dbe..a5c9f5b 100644
-> > --- a/include/net/llc_sap.h
-> > +++ b/include/net/llc_sap.h
-> > @@ -1,5 +1,8 @@
-> >  #ifndef LLC_SAP_H
-> >  #define LLC_SAP_H
-> > +
-> > +#include <asm/types.h>
-> > +
-> >  /*
-> >   * Copyright (c) 1997 by Procom Technology,Inc.
-> >   *            2001-2003 by Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-> > @@ -20,7 +23,7 @@ extern void llc_sap_rtn_pdu(struct llc_sap *sap, struct sk_buff *skb);
-> >  extern void llc_save_primitive(struct sock *sk, struct sk_buff* skb,
-> >                              unsigned char prim);
-> >  extern struct sk_buff *llc_alloc_frame(struct sock *sk,
-> > -                                    struct net_device *dev);
-> > +                                    struct net_device *dev, u32 size);
+> > diff --git a/net/llc/llc_input.c b/net/llc/llc_input.c
+> > index c40c9b2..a2bbc7c 100644
+> > --- a/net/llc/llc_input.c
+> > +++ b/net/llc/llc_input.c
+> > @@ -117,8 +117,12 @@ static inline int llc_fixup_skb(struct sk_buff *skb)
+> >       skb_pull(skb, llc_len);
+> >       if (skb->protocol == htons(ETH_P_802_2)) {
+> >               __be16 pdulen = eth_hdr(skb)->h_proto;
+> > -             u16 data_size = ntohs(pdulen) - llc_len;
+> > +             s32 data_size = ntohs(pdulen) - llc_len;
 > >
-> >  extern void llc_build_and_send_test_pkt(struct llc_sap *sap,
-> >                                       struct sk_buff *skb,
-> > diff --git a/net/llc/llc_c_ac.c b/net/llc/llc_c_ac.c
-> > index 860140c..a9db49d 100644
-> > --- a/net/llc/llc_c_ac.c
-> > +++ b/net/llc/llc_c_ac.c
-> > @@ -198,7 +198,7 @@ int llc_conn_ac_send_disc_cmd_p_set_x(struct sock *sk, struct sk_buff *skb)
-> >  {
-> >       int rc = -ENOBUFS;
-> >       struct llc_sock *llc = llc_sk(sk);
-> > -     struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
-> > +     struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, 78);
+> > +             if (data_size < 0
+> > +                 || ((skb_tail_pointer(skb) - (u8 *)pdu) - llc_len)
+> > +                     < data_size)
+> > +                     return 0;
 >
-> I know that this ancient code has magic numbers, but I guess we
-> shouldn't introduce new ones :-\ Why 78? (rethoric)
+> Rewrite this as:
+>
+>                if (data_size < 0 ||
+>                    ((skb_tail_pointer(skb) -
+>                      (u8 *)pdu) - llc_len) < data_size)
 
-In fact, I'd like to ask it to you. Why 128? (rhetoric #2) :-)
-Anyway, It's my bad, I was a thoughtless calculator who can only
-subtraction (128 - 50 = 78)
-I'll elminiate old & new magic number(s) at next try.
+Thanks Arnaldo.
+Dave, I'll update this with the others.
 
 >
-> >       if (nskb) {
-> >               struct llc_sap *sap = llc->sap;
-> > @@ -223,7 +223,7 @@ int llc_conn_ac_send_dm_rsp_f_set_p(struct sock *sk, struct sk_buff *skb)
-> >  {
-> >       int rc = -ENOBUFS;
-> >       struct llc_sock *llc = llc_sk(sk);
-> > -     struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
-> > +     struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, 78);
+> And stick my:
 >
-> ditto
+> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 >
-> >       if (nskb) {
-> >               struct llc_sap *sap = llc->sap;
-> > @@ -249,7 +249,7 @@ int llc_conn_ac_send_dm_rsp_f_set_1(struct sock *sk, struct sk_buff *skb)
-> >  {
-> >       int rc = -ENOBUFS;
-> >       struct llc_sock *llc = llc_sk(sk);
-> > -     struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
-> > +     struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, 78);
->
-> ditto
->
-> >       if (nskb) {
-> >               struct llc_sap *sap = llc->sap;
-> > @@ -282,7 +282,7 @@ int llc_conn_ac_send_frmr_rsp_f_set_x(struct sock *sk, struct sk_buff *skb)
-> >               llc_pdu_decode_pf_bit(skb, &f_bit);
-> >       else
-> >               f_bit = 0;
-> > -     nskb = llc_alloc_frame(sk, llc->dev);
-> > +     nskb = llc_alloc_frame(sk, llc->dev, 78);
->
-> ditto
->
-> >       if (nskb) {
-> >               struct llc_sap *sap = llc->sap;
-> >
-> > @@ -306,7 +306,7 @@ int llc_conn_ac_resend_frmr_rsp_f_set_0(struct sock *sk, struct sk_buff *skb)
-> >  {
-> >       int rc = -ENOBUFS;
-> >       struct llc_sock *llc = llc_sk(sk);
-> > -     struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
-> > +     struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, 78);
->
-> ditto
->
->
-> <SNIP>
->
-> > @@ -144,11 +144,18 @@ int llc_sap_action_send_test_r(struct llc_sap *sap, struct sk_buff *skb)
-> >       u8 mac_da[ETH_ALEN], mac_sa[ETH_ALEN], dsap;
-> >       struct sk_buff *nskb;
-> >       int rc = 1;
-> > +     u32 size;
-> >
-> >       llc_pdu_decode_sa(skb, mac_da);
-> >       llc_pdu_decode_da(skb, mac_sa);
-> >       llc_pdu_decode_ssap(skb, &dsap);
-> > -     nskb = llc_alloc_frame(NULL, skb->dev);
-> > +
-> > +#ifdef NET_SKBUFF_DATA_USES_OFFSET
-> > +     size = skb->end + skb->data_len;
-> > +#else
-> > +     size = skb->end - skb->head;
-> > +#endif
->
->
-> huh? Try not to use NET_SKBUFF_DATA_USES_OFFSET, it should die at some
-> point, perhaps today :-)
->
-> Please use one of the existing helpers.
-
-I see. Thanks
-
->
->
-> > +     nskb = llc_alloc_frame(NULL, skb->dev, size);
-> >       if (!nskb)
-> >               goto out;
-> >       llc_pdu_header_init(nskb, LLC_PDU_TYPE_U, sap->laddr.lsap, dsap,
-> > diff --git a/net/llc/llc_sap.c b/net/llc/llc_sap.c
-> > index 2525165..e295549 100644
-> > --- a/net/llc/llc_sap.c
-> > +++ b/net/llc/llc_sap.c
-> > @@ -27,13 +27,15 @@
-> >  /**
-> >   *   llc_alloc_frame - allocates sk_buff for frame
-> >   *   @dev: network device this skb will be sent over
-> > + *   @size: size to allocate
-> >   *
-> >   *   Allocates an sk_buff for frame and initializes sk_buff fields.
-> >   *   Returns allocated skb or %NULL when out of memory.
-> >   */
-> > -struct sk_buff *llc_alloc_frame(struct sock *sk, struct net_device *dev)
-> > +struct sk_buff *llc_alloc_frame(struct sock *sk, struct net_device *dev,
-> > +                             u32 size)
-> >  {
-> > -     struct sk_buff *skb = alloc_skb(128, GFP_ATOMIC);
-> > +     struct sk_buff *skb = alloc_skb(size + 50, GFP_ATOMIC);
->
-> take the opportunity to document what is fifty in this context.
-
-I see. Thanks,
-
->
-> <SNIP>
->
-> - Arnaldo
->
+> :-)
 
 Thanks,
 Joonwoo
