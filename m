@@ -1,26 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL net-2.6.26]: IPv6 Updates.
-Date: Tue, 25 Mar 2008 00:24:12 -0700 (PDT)
-Message-ID: <20080325.002412.219869798.davem@davemloft.net>
-References: <20080325.103846.132932838.yoshfuji@linux-ipv6.org>
+From: "Matvejchikov Ilya" <matvejchikov@gmail.com>
+Subject: [RFC][LAPB] write_queue limit in lapb_data_request
+Date: Tue, 25 Mar 2008 10:45:41 +0300
+Message-ID: <8496f91a0803250045k2fc4040dg74126f30c1487fd@mail.gmail.com>
+Reply-To: matvejchikov@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
-To: yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34987
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750953AbYCYHYM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 03:24:12 -0400
-In-Reply-To: <20080325.103846.132932838.yoshfuji@linux-ipv6.org>
+Received: from py-out-1112.google.com ([64.233.166.181]:53433 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180AbYCYHpn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 03:45:43 -0400
+Received: by py-out-1112.google.com with SMTP id u52so4764435pyb.10
+        for <netdev@vger.kernel.org>; Tue, 25 Mar 2008 00:45:42 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Tue, 25 Mar 2008 10:38:46 +0900 (JST)
+Hi folks,
 
-> Please consider pulling following changes on top of net-2.6.26 available at
->     git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git net-2.6.26-inet-2.6.26-20080325b
+LAPB doesn't check for write_queue length in lapb_data_request(). So
+in some conditions it may grow unlimited. There is a potential problem
+for small systems.
 
-Pulled and pushed back out to net-2.6.26, thanks!
+It seems like this for me:
+
+345 int lapb_data_request(struct net_device *dev, struct sk_buff *skb)
+346 {
+347         struct lapb_cb *lapb = lapb_devtostruct(dev);
+348         int rc = LAPB_BADTOKEN;
+349
+350         if (!lapb)
+351                 goto out;
+352
+353         rc = LAPB_NOTCONNECTED;
+354         if (lapb->state != LAPB_STATE_3 && lapb->state != LAPB_STATE_4)
+355                 goto out_put;
+356
++
++            if (lapb->write_queue.qlen >= LAPB_WRITE_QUEUE_MAX)
++                    goto out_put;
++
+357         skb_queue_tail(&lapb->write_queue, skb);
+358         lapb_kick(lapb);
+359         rc = LAPB_OK;
+360 out_put:
+361         lapb_put(lapb);
+362 out:
+363         return rc;
+364 }
