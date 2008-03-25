@@ -1,172 +1,66 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 6/7] [DCCP]: Clean up slow-path input processing
-Date: Tue, 25 Mar 2008 16:20:10 +0000
-Message-ID: <1206462011-24907-7-git-send-email-gerrit@erg.abdn.ac.uk>
-References: bug_fixes_and_cleanups
- <1206462011-24907-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1206462011-24907-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1206462011-24907-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1206462011-24907-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1206462011-24907-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1206462011-24907-6-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [DCCP] [Patch 0/7]: Bug-Fixes and Clean-Ups
+Date: Tue, 25 Mar 2008 16:20:04 +0000
+Message-ID: <1206462011-24907-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52252 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52255 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755458AbYCYQV1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 12:21:27 -0400
-In-Reply-To: <1206462011-24907-6-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1756732AbYCYQU4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Mar 2008 12:20:56 -0400
+In-Reply-To: bug_fixes_and_cleanups
+References: bug_fixes_and_cleanups
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch rearranges the order of statements of the slow-path input processing
-(i.e. any other state than OPEN), to resolve the following issues.
+This set contains bug-fixes and clean-ups.  The first two are already
+in the test tree:
 
- 1. Dependencies: the order of statements now better matches RFC 4340, 8.5, i.e.
-    step 7 is before step 9 (previously 9 was before 7), and parsing options in
-    step 8 (which can consume resources) now comes after step 7.
- 2. Bug-fix: in state CLOSED, there should not be any sequence number checking
-    or option processing. This is why the test for CLOSED has been moved after
-    the test for LISTEN.
- 3. As before sequence number checks are omitted if in state LISTEN/REQUEST, due
-    to the note underneath the table in RFC 4340, 7.5.3.
- 4. Packets are now passed on to Ack Vector / CCID processing only after
-    - step 7  (receive unexpected packets), 
-    - step 9  (receive Reset),
-    - step 13 (receive CloseReq),
-    - step 14 (receive Close)
-    and only if the state is PARTOPEN. This simplifies CCID processing:
-    - in LISTEN/CLOSED the CCIDs are non-existent;
-    - in RESPOND/REQUEST the CCIDs have not yet been negotiated;
-    - in CLOSEREQ and active-CLOSING the node has already closed this socket;
-    - in passive-CLOSING the client is waiting for its Reset.
-    In the last case, RFC 4340, 8.3 leaves it open to ignore further incoming
-    data, which is the approach taken here.
+Patch #1: Fixes a bug where CCID-3 tries to sample the RTT while the
+          history is empty.
+	  Leandro - I have added the same bug fix in the CCID-4 tree,
+	  just after patch #24.
 
-As a result of (3), CCID processing is now indeed confined to OPEN/PARTOPEN
-states, i.e. congestion control is performed only on the flow of data packets. 
+Patch #2: Deprecates the Ack Ratio sysctl as per earlier discussion.
 
-This avoids pathological cases of doing congestion control on those messages
-which set up and terminate the connection. 
 
-I have done a few checks to see if this creates a problem in other parts of
-the code. This seems not to be the case; even if there were one, it would be
-better to fix it than to perform congestion control on Close/Request/Response
-messages. Similarly for Ack Vectors (as they depend on the negotiated CCID).
+The following are kept back for the moment, since the first patch is
+an RFC patch, and since a lot of the CCID-4 code depends on this:
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/input.c |   69 ++++++++++++++++++++++++++-----------------------------
- 1 file changed, 33 insertions(+), 36 deletions(-)
+Patch #3: Continues for consistency the earlier patch which removed the
+          long prefixes for CCID-3.
+	  Arnaldo - can you please check. Also Leandro, can you also
+	  check this - it has implications for CCID-4, too; which is
+	  why I have not put it into the test tree immediately.
 
---- a/net/dccp/input.c
-+++ b/net/dccp/input.c
-@@ -604,22 +604,36 @@ int dccp_rcv_state_process(struct sock *
- 		/* Caller (dccp_v4_do_rcv) will send Reset */
- 		dcb->dccpd_reset_code = DCCP_RESET_CODE_NO_CONNECTION;
- 		return 1;
-+	} else if (sk->sk_state == DCCP_CLOSED) {
-+		dcb->dccpd_reset_code = DCCP_RESET_CODE_NO_CONNECTION;
-+		return 1;
- 	}
- 
--	if (sk->sk_state != DCCP_REQUESTING && sk->sk_state != DCCP_RESPOND) {
--		if (dccp_check_seqno(sk, skb))
--			goto discard;
--
--		/*
--		 * Step 8: Process options and mark acknowledgeable
--		 */
--		if (dccp_parse_options(sk, NULL, skb))
--			goto discard;
-+	/* Step 6: Check sequence numbers (omitted in LISTEN/REQUEST state) */
-+	if (sk->sk_state != DCCP_REQUESTING && dccp_check_seqno(sk, skb))
-+		goto discard;
- 
--		dccp_handle_ackvec_processing(sk, skb);
--		dccp_deliver_input_to_ccids(sk, skb);
-+	/*
-+	 *   Step 7: Check for unexpected packet types
-+	 *      If (S.is_server and P.type == Response)
-+	 *	    or (S.is_client and P.type == Request)
-+	 *	    or (S.state == RESPOND and P.type == Data),
-+	 *	  Send Sync packet acknowledging P.seqno
-+	 *	  Drop packet and return
-+	 */
-+	if ((dp->dccps_role != DCCP_ROLE_CLIENT &&
-+	     dh->dccph_type == DCCP_PKT_RESPONSE) ||
-+	    (dp->dccps_role == DCCP_ROLE_CLIENT &&
-+	     dh->dccph_type == DCCP_PKT_REQUEST) ||
-+	    (sk->sk_state == DCCP_RESPOND && dh->dccph_type == DCCP_PKT_DATA)) {
-+		dccp_send_sync(sk, dcb->dccpd_seq, DCCP_PKT_SYNC);
-+		goto discard;
- 	}
- 
-+	/*  Step 8: Process options */
-+	if (dccp_parse_options(sk, NULL, skb))
-+		goto discard;
-+
- 	/*
- 	 *  Step 9: Process Reset
- 	 *	If P.type == Reset,
-@@ -627,41 +641,21 @@ int dccp_rcv_state_process(struct sock *
- 	 *		S.state := TIMEWAIT
- 	 *		Set TIMEWAIT timer
- 	 *		Drop packet and return
--	*/
-+	 */
- 	if (dh->dccph_type == DCCP_PKT_RESET) {
- 		dccp_rcv_reset(sk, skb);
- 		return 0;
--		/*
--		 *   Step 7: Check for unexpected packet types
--		 *      If (S.is_server and P.type == Response)
--		 *	    or (S.is_client and P.type == Request)
--		 *	    or (S.state == RESPOND and P.type == Data),
--		 *	  Send Sync packet acknowledging P.seqno
--		 *	  Drop packet and return
--		 */
--	} else if ((dp->dccps_role != DCCP_ROLE_CLIENT &&
--		    dh->dccph_type == DCCP_PKT_RESPONSE) ||
--		    (dp->dccps_role == DCCP_ROLE_CLIENT &&
--		     dh->dccph_type == DCCP_PKT_REQUEST) ||
--		    (sk->sk_state == DCCP_RESPOND &&
--		     dh->dccph_type == DCCP_PKT_DATA)) {
--		dccp_send_sync(sk, dcb->dccpd_seq, DCCP_PKT_SYNC);
--		goto discard;
--	} else if (dh->dccph_type == DCCP_PKT_CLOSEREQ) {
-+	} else if (dh->dccph_type == DCCP_PKT_CLOSEREQ) {	/* Step 13 */
- 		if (dccp_rcv_closereq(sk, skb))
- 			return 0;
- 		goto discard;
--	} else if (dh->dccph_type == DCCP_PKT_CLOSE) {
-+	} else if (dh->dccph_type == DCCP_PKT_CLOSE) {		/* Step 14 */
- 		if (dccp_rcv_close(sk, skb))
- 			return 0;
- 		goto discard;
- 	}
- 
- 	switch (sk->sk_state) {
--	case DCCP_CLOSED:
--		dcb->dccpd_reset_code = DCCP_RESET_CODE_NO_CONNECTION;
--		return 1;
--
- 	case DCCP_REQUESTING:
- 		queued = dccp_rcv_request_sent_state_process(sk, skb, dh, len);
- 		if (queued >= 0)
-@@ -670,8 +664,12 @@ int dccp_rcv_state_process(struct sock *
- 		__kfree_skb(skb);
- 		return 0;
- 
--	case DCCP_RESPOND:
- 	case DCCP_PARTOPEN:
-+		/* Step 8: if using Ack Vectors, mark packet acknowledgeable */
-+		dccp_handle_ackvec_processing(sk, skb);
-+		dccp_deliver_input_to_ccids(sk, skb);
-+		/* fall through */
-+	case DCCP_RESPOND:
- 		queued = dccp_rcv_respond_partopen_state_process(sk, skb,
- 								 dh, len);
- 		break;
+Patch #4: Fixes two sparse warnings.
+
+Patch #5: Found out that RFC3390 code is identically applied in three
+          places (TCP, CCID-2, and CCID-3): this consolidates the
+          duplicated code.
+          Note: there is a fourth place where this code is duplicated
+                (CCID-4), but this needs to be patched separately.
+
+Patch #6: Tidies up the slow-path input processing for DCCP (i.e. input
+	  for states other than OPEN). This addresses some reordering
+          quirks by putting steps in their RFC4340-like order, ensures
+	  that CCID/Ack Vector input is indeed confined to the fast-path,
+	  and contains one bug fix.
+
+Patch #7: Removes dead states, thanks to an observation by Leandro and
+          his colleagues.
+	  Note: This would also need to be ported to CCID-4, since it
+	        uses the same (dead) states.
+
+If no one shouts, I will put that into the tree approximately by the end of
+the week. In any case it would be good to know if the CCID-4 tree is still
+active, since porting these changes will take quite a bit of work.
+
+In particular - patch #5 may be ported to CCID-4 as well, but it depends
+on whether people find the code consolidation acceptable.
+
+The first two patches can be obtained in the sets from
+
+ (1) DCCP     git pull dccp://eden-feed.erg.abdn.ac.uk/dccp_exp +dccp:my_dccp
+ (2) CCID-4   git pull dccp://eden-feed.erg.abdn.ac.uk/dccp_exp +ccid4:my_ccid4
