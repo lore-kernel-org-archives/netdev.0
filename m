@@ -1,54 +1,45 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [Bugme-new] [Bug 10322] New: e1000 is not auto-negotiating to
- 1GB full duplex speed even there is 1GB speed availble
-Date: Tue, 25 Mar 2008 15:02:56 -0700
-Message-ID: <47E97690.7020404@intel.com>
-References: <bug-10322-10286@http.bugzilla.kernel.org/> <20080325123654.91f80b00.akpm@linux-foundation.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Realtek RTL-8169 having receive errors
+Date: Tue, 25 Mar 2008 23:10:50 +0100
+Message-ID: <20080325221050.GA2277@electric-eye.fr.zoreil.com>
+References: <3aa654a40803241717g218f3d51pec42ecbb29835248@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: lqs_xting@sohu.com, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Avuton Olrich <avuton@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:15197 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754549AbYCYWL4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 18:11:56 -0400
-In-Reply-To: <20080325123654.91f80b00.akpm@linux-foundation.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:60154 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752533AbYCYW27 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 18:28:59 -0400
+Content-Disposition: inline
+In-Reply-To: <3aa654a40803241717g218f3d51pec42ecbb29835248@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
->> Hardware Environment: e1000 with 82571 chip
->> Software Environment: CentOS 4.5
->> Problem Description:
->> We have a machine with the e1000(82571) driver which could not detect the
->> correct link mode with a switch supports 1000 Mbps/s. I just find that the
->> ethtool can't support 10 Mbps/s Half and 1000 Mbps/s Full mode. Therefore, the
->> e1000 code should be fixed by add all modes at the 216 lines in
->> e1000_ethtool.c. It is as follow:
->>
->> hw->autoneg_advertised |= ecmd->advertising |
->>                          ADVERTISED_TP |
->>                          ADVERTISED_Autoneg;
->>
->>
->> Steps to reproduce:
->> 1. Add a entry ' ETHTOOL_OPTS="autoneg on" ' in the
->> /etc/sysconfig/network-scripts/ifcfg-eth0;
->> 2. Run '/etc/init.d/network restart';
->> 3. Run 'ethtool eth0', it displays the speed is 100 Mbps/s. But the real link
->> mode should be 1000 Mbps/s
+Avuton Olrich <avuton@gmail.com> :
+[...]
+> On my production server, I recently updated to the latest git at the
+> time and I'm getting receive errors. I'd like to try to minimize the
+> resets, but I'd also like to help track down this problem. Is there a
+> way I can debug this, rather then downgrading back to 2.6.22.x (the
+> stable kernels in between didn't work for different reasons). Thanks!
+[...]
+> On device:
+> eth1      Link encap:Ethernet  HWaddr 00:14:85:35:CE:4D
+>           inet addr:10.0.0.1  Bcast:10.0.0.0  Mask:255.255.0.0
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:101004007 errors:106876 dropped:0 overruns:0 frame:106876
 
-a bit moot because 82571 support is moving to e1000e and thus I will (probably)
-not fix this bug. all 82571 support will be removed from e1000 from 2.6.26 onwards.
+Please increase the device verbosity level ('ethtool -s eth1 msglvl 255')
+and send what appears in dmesg.
 
-Please re-test against e1000e from 2.6.25-rc5 - if the bug is still in that driver
-then we need to look at it again. Either that or reproduce against an 8254x adapter?
+Otherwise dmesg from boot, ethtool -S output and /proc/interrupts content
+for both a working 2.6.22.x and latest git could be interesting but they
+may be harder to collect with a production server.
 
-Auke
+Trying the 2.6.23 driver with a 2.6.22.x kernel would help narrow the
+regression too.
 
-
+-- 
+Ueimor
