@@ -1,66 +1,96 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [DCCP] [Patch 0/7]: Bug-Fixes and Clean-Ups
-Date: Tue, 25 Mar 2008 16:20:04 +0000
-Message-ID: <1206462011-24907-1-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+Subject: [PATCH 1/7] [BUG-FIX] [CCID-3]: Don't interpret feedback when nothing has been sent
+Date: Tue, 25 Mar 2008 16:20:05 +0000
+Message-ID: <1206462011-24907-2-git-send-email-gerrit@erg.abdn.ac.uk>
+References: bug_fixes_and_cleanups
+ <1206462011-24907-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52255 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756732AbYCYQU4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 12:20:56 -0400
-In-Reply-To: bug_fixes_and_cleanups
-References: bug_fixes_and_cleanups
+	id S1756672AbYCYQVa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Mar 2008 12:21:30 -0400
+In-Reply-To: <1206462011-24907-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This set contains bug-fixes and clean-ups.  The first two are already
-in the test tree:
+This is a BUG-Fix for CCID-3 which, on a server, lead to such messages:
 
-Patch #1: Fixes a bug where CCID-3 tries to sample the RTT while the
-          history is empty.
-	  Leandro - I have added the same bug fix in the CCID-4 tree,
-	  just after patch #24.
+  ccid3_hc_tx_packet_recv: server(e7b7d518): DATAACK with bogus ACK-281971487
+  ccid3_hc_tx_packet_recv: server(e7b7d518): DATAACK with bogus ACK-2664160693
+  ccid3_hc_tx_packet_recv: server(e7b7d030): DATAACK with bogus ACK-2775299822
+  ccid3_hc_tx_packet_recv: server(e7b7d518): DATAACK with bogus ACK-3035830110
+  ccid3_hc_tx_packet_recv: server(e7b7d030): DATAACK with bogus ACK-3436194561
 
-Patch #2: Deprecates the Ack Ratio sysctl as per earlier discussion.
+The cause was that the (passive) server hadn't sent anything, i.e. its TX
+history was empty. This patch adds the missing test for an empty TX history,
+i.e. packets carrying Ack information are ignored if nothing has been sent.
 
+I wanted to keep this generic, i.e. use a "hist_empty()" function instead of
+"hctx->hist == NULL". Also replaced multiple occurrences of DCCP_SKB_CB.
 
-The following are kept back for the moment, since the first patch is
-an RFC patch, and since a lot of the CCID-4 code depends on this:
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccids/ccid3.c              |   16 +++++++++-------
+ net/dccp/ccids/lib/packet_history.h |    4 ++++
+ 2 files changed, 13 insertions(+), 7 deletions(-)
 
-Patch #3: Continues for consistency the earlier patch which removed the
-          long prefixes for CCID-3.
-	  Arnaldo - can you please check. Also Leandro, can you also
-	  check this - it has implications for CCID-4, too; which is
-	  why I have not put it into the test tree immediately.
+diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
+index ec7424c..38273dc 100644
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -384,13 +384,15 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct ccid3_hc_tx_sock *hctx = ccid3_hc_tx_sk(sk);
+ 	struct ccid3_options_received *opt_recv;
++	struct dccp_skb_cb *dcb = DCCP_SKB_CB(skb);
+ 	ktime_t now;
+ 	unsigned long t_nfb;
+ 	u32 pinv, r_sample;
+ 
+-	/* we are only interested in ACKs */
+-	if (!(DCCP_SKB_CB(skb)->dccpd_type == DCCP_PKT_ACK ||
+-	      DCCP_SKB_CB(skb)->dccpd_type == DCCP_PKT_DATAACK))
++	/* Ignore if nothing has been sent; feedback is on Ack/DataAck only */
++	if (tfrc_tx_hist_is_empty(hctx->ccid3hctx_hist) ||
++	    !(dcb->dccpd_type == DCCP_PKT_ACK ||
++	      dcb->dccpd_type == DCCP_PKT_DATAACK))
+ 		return;
+ 	/* ... and only in the established state */
+ 	if (hctx->ccid3hctx_state != TFRC_SSTATE_FBACK &&
+@@ -402,11 +404,11 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	/* Estimate RTT from history if ACK number is valid */
+ 	r_sample = tfrc_tx_hist_rtt(hctx->ccid3hctx_hist,
+-				    DCCP_SKB_CB(skb)->dccpd_ack_seq, now);
++				    dcb->dccpd_ack_seq, now);
+ 	if (r_sample == 0) {
+-		DCCP_WARN("%s(%p): %s with bogus ACK-%llu\n", dccp_role(sk), sk,
+-			  dccp_packet_name(DCCP_SKB_CB(skb)->dccpd_type),
+-			  (unsigned long long)DCCP_SKB_CB(skb)->dccpd_ack_seq);
++		DCCP_WARN("%s(%p): %s with bogus ACK #%llu\n",
++			  dccp_role(sk), sk, dccp_packet_name(dcb->dccpd_type),
++			  (unsigned long long)dcb->dccpd_ack_seq);
+ 		return;
+ 	}
+ 
+diff --git a/net/dccp/ccids/lib/packet_history.h b/net/dccp/ccids/lib/packet_history.h
+index c7eeda4..732b07e 100644
+--- a/net/dccp/ccids/lib/packet_history.h
++++ b/net/dccp/ccids/lib/packet_history.h
+@@ -42,6 +42,10 @@
+ 
+ struct tfrc_tx_hist_entry;
+ 
++static inline bool tfrc_tx_hist_is_empty(const struct tfrc_tx_hist_entry *head)
++{
++	return head == NULL;
++}
+ extern int  tfrc_tx_hist_add(struct tfrc_tx_hist_entry **headp, u64 seqno);
+ extern void tfrc_tx_hist_purge(struct tfrc_tx_hist_entry **headp);
+ extern u32  tfrc_tx_hist_rtt(struct tfrc_tx_hist_entry *head,
+-- 
+1.5.3.GIT
 
-Patch #4: Fixes two sparse warnings.
-
-Patch #5: Found out that RFC3390 code is identically applied in three
-          places (TCP, CCID-2, and CCID-3): this consolidates the
-          duplicated code.
-          Note: there is a fourth place where this code is duplicated
-                (CCID-4), but this needs to be patched separately.
-
-Patch #6: Tidies up the slow-path input processing for DCCP (i.e. input
-	  for states other than OPEN). This addresses some reordering
-          quirks by putting steps in their RFC4340-like order, ensures
-	  that CCID/Ack Vector input is indeed confined to the fast-path,
-	  and contains one bug fix.
-
-Patch #7: Removes dead states, thanks to an observation by Leandro and
-          his colleagues.
-	  Note: This would also need to be ported to CCID-4, since it
-	        uses the same (dead) states.
-
-If no one shouts, I will put that into the tree approximately by the end of
-the week. In any case it would be good to know if the CCID-4 tree is still
-active, since porting these changes will take quite a bit of work.
-
-In particular - patch #5 may be ported to CCID-4 as well, but it depends
-on whether people find the code consolidation acceptable.
-
-The first two patches can be obtained in the sets from
-
- (1) DCCP     git pull dccp://eden-feed.erg.abdn.ac.uk/dccp_exp +dccp:my_dccp
- (2) CCID-4   git pull dccp://eden-feed.erg.abdn.ac.uk/dccp_exp +ccid4:my_ccid4
