@@ -1,52 +1,105 @@
-From: "Matvejchikov Ilya" <matvejchikov@gmail.com>
-Subject: [RFC][LAPB] write_queue limit in lapb_data_request
-Date: Tue, 25 Mar 2008 10:45:41 +0300
-Message-ID: <8496f91a0803250045k2fc4040dg74126f30c1487fd@mail.gmail.com>
-Reply-To: matvejchikov@gmail.com
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: [PATCH] ucc_geth: Add 8 bytes to max TX frame for VLANs
+Date: Tue, 25 Mar 2008 10:17:50 +0100
+Message-ID: <1206436671.7589.208.camel@gentoo-jocke.transmode.se>
+References: <>
+	 <1205853088-30171-1-git-send-email-Joakim.Tjernlund@transmode.se>
+	 <989B956029373F45A0B8AF029708189001D19565@zch01exm26.fsl.freescale.net>
+	 <46CAC1281D7CB94A9AEFFB131F9569CA227627@tmnt04.transmode.se>
+Reply-To: joakim.tjernlund@transmode.se
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>,
+	"Linuxppc-Embedded@Ozlabs.Org" <linuxppc-embedded@ozlabs.org>
+To: Li Yang <LeoLi@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.181]:53433 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751180AbYCYHpn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 03:45:43 -0400
-Received: by py-out-1112.google.com with SMTP id u52so4764435pyb.10
-        for <netdev@vger.kernel.org>; Tue, 25 Mar 2008 00:45:42 -0700 (PDT)
-Content-Disposition: inline
+Received: from mail.transmode.se ([83.241.175.147]:53101 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751988AbYCYJRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 05:17:54 -0400
+In-Reply-To: <46CAC1281D7CB94A9AEFFB131F9569CA227627@tmnt04.transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi folks,
 
-LAPB doesn't check for write_queue length in lapb_data_request(). So
-in some conditions it may grow unlimited. There is a potential problem
-for small systems.
+On Sat, 2008-03-22 at 12:51 +0100, Joakim Tjernlund wrote:
+> >> -----Original Message-----
+> >> From: netdev-owner@vger.kernel.org
+> >> [mailto:netdev-owner@vger.kernel.org] On Behalf Of Joakim Tjernlund
+> > Sent: Tuesday, March 18, 2008 11:11 PM
+> >> To: Netdev; Li Yang
+> >> Cc: Joakim Tjernlund
+> >>Subject: [PATCH] ucc_geth: Add 8 bytes to max TX frame for VLANs
+> >>
+> >> Creating a VLAN interface on top of ucc_geth adds 4 bytes to
+> >> the frame and the HW controller is not prepared to TX a frame
+> >> bigger than 1518 bytes which is 4 bytes too small for a full
+> >> VLAN frame. Also add 4 extra bytes for future expansion.
+> > 
+> > IMO, VLAN and Jumbo packet support is not general case of Ethernet.
+> > Could you make this change optional?  Thanks.
+> > 
+> > - Leo
+> 
+> hmm, I do not agree. VLAN is common today.
+> 
+> If you were to enable HW support for VLAN then the ethernet controller
+> would inject an extra 4 bytes into the frame. 
+> This change does not change the visible MTU for the user. As is now,
+> soft VLAN is silently broken. Do you
+> really want the user to find and turn on a controller specific feature
+> to use VLAN?
+> 
+> What does netdev people think? 
+> 
+>  Jocke 
 
-It seems like this for me:
+hmm, I misread the HW specs. The change has nothing to do with TX, it is
+the MAX RX frame size that was too small for VLAN and that is what the
+patch addresses. I see that tg3.c adds 4 bytes to MAX RX pkgs:
+ 	/* MTU + ethernet header + FCS + optional VLAN tag */
+	tw32(MAC_RX_MTU_SIZE, tp->dev->mtu + ETH_HLEN + 8);
+So I don't think this change should be hidden behind a new CONFIG
+option. Updated patch below with changed description.
 
-345 int lapb_data_request(struct net_device *dev, struct sk_buff *skb)
-346 {
-347         struct lapb_cb *lapb = lapb_devtostruct(dev);
-348         int rc = LAPB_BADTOKEN;
-349
-350         if (!lapb)
-351                 goto out;
-352
-353         rc = LAPB_NOTCONNECTED;
-354         if (lapb->state != LAPB_STATE_3 && lapb->state != LAPB_STATE_4)
-355                 goto out_put;
-356
-+
-+            if (lapb->write_queue.qlen >= LAPB_WRITE_QUEUE_MAX)
-+                    goto out_put;
-+
-357         skb_queue_tail(&lapb->write_queue, skb);
-358         lapb_kick(lapb);
-359         rc = LAPB_OK;
-360 out_put:
-361         lapb_put(lapb);
-362 out:
-363         return rc;
-364 }
+ Jocke
+
+>From ec8ca3c9666bdc72652e403ea5f252b38e5a076b Mon Sep 17 00:00:00 2001
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Date: Tue, 18 Mar 2008 15:40:59 +0100
+Subject: [PATCH] ucc_geth: Add 8 bytes to max RX frame for VLANs
+
+Creating a VLAN interface on top of ucc_geth adds 4 bytes
+to the frame and the HW controller is not prepared to
+receive a frame bigger than 1518 bytes which is 4 bytes too
+small for a full VLAN frame. Also add 4 extra bytes for future
+expansion.
+
+Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+---
+ drivers/net/ucc_geth.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 348892b..038ec75 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -114,10 +114,10 @@ static struct ucc_geth_info ugeth_primary_info = {
+ 	.maxGroupAddrInHash = 4,
+ 	.maxIndAddrInHash = 4,
+ 	.prel = 7,
+-	.maxFrameLength = 1518,
++	.maxFrameLength = 1518+8, /* Add 4 bytes for VLAN tags and 4 extra bytes */
+ 	.minFrameLength = 64,
+-	.maxD1Length = 1520,
+-	.maxD2Length = 1520,
++	.maxD1Length = 1520+8,
++	.maxD2Length = 1520+8,
+ 	.vlantype = 0x8100,
+ 	.ecamptr = ((uint32_t) NULL),
+ 	.eventRegMask = UCCE_OTHER,
+-- 
+1.5.4.3
+
+
