@@ -1,31 +1,54 @@
-From: Marcus Better <marcus@better.se>
-Subject: Re: [Bugme-new] [Bug 10327] New: keyboard stops responding after
- "ifdown eth0"
-Date: Tue, 25 Mar 2008 22:43:56 +0100
-Message-ID: <47E9721C.2000306@better.se>
-References: <bug-10327-10286@http.bugzilla.kernel.org/> <20080325143941.300d415f.akpm@linux-foundation.org>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [Bugme-new] [Bug 10322] New: e1000 is not auto-negotiating to
+ 1GB full duplex speed even there is 1GB speed availble
+Date: Tue, 25 Mar 2008 15:02:56 -0700
+Message-ID: <47E97690.7020404@intel.com>
+References: <bug-10322-10286@http.bugzilla.kernel.org/> <20080325123654.91f80b00.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, linux-kernel@vger.kernel.org,
-	linux-input@vger.kernel.org, netdev@vger.kernel.org
+Cc: lqs_xting@sohu.com, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
 To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from public.bindows.net ([66.135.40.169]:53506 "EHLO
-	public.bindows.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761470AbYCYWEW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 18:04:22 -0400
-In-Reply-To: <20080325143941.300d415f.akpm@linux-foundation.org>
+Received: from mga03.intel.com ([143.182.124.21]:15197 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754549AbYCYWL4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Mar 2008 18:11:56 -0400
+In-Reply-To: <20080325123654.91f80b00.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Andrew Morton wrote:
-> Perhaps you could try
-> 
-> 	ifdown eth0 ; sleep 5 ; ifup eth0
+>> Hardware Environment: e1000 with 82571 chip
+>> Software Environment: CentOS 4.5
+>> Problem Description:
+>> We have a machine with the e1000(82571) driver which could not detect the
+>> correct link mode with a switch supports 1000 Mbps/s. I just find that the
+>> ethtool can't support 10 Mbps/s Half and 1000 Mbps/s Full mode. Therefore, the
+>> e1000 code should be fixed by add all modes at the 216 lines in
+>> e1000_ethtool.c. It is as follow:
+>>
+>> hw->autoneg_advertised |= ecmd->advertising |
+>>                          ADVERTISED_TP |
+>>                          ADVERTISED_Autoneg;
+>>
+>>
+>> Steps to reproduce:
+>> 1. Add a entry ' ETHTOOL_OPTS="autoneg on" ' in the
+>> /etc/sysconfig/network-scripts/ifcfg-eth0;
+>> 2. Run '/etc/init.d/network restart';
+>> 3. Run 'ethtool eth0', it displays the speed is 100 Mbps/s. But the real link
+>> mode should be 1000 Mbps/s
 
-Will try. There is also a Debian bug report of the same or a similar 
-problem with kernels from 2.6.18:
+a bit moot because 82571 support is moving to e1000e and thus I will (probably)
+not fix this bug. all 82571 support will be removed from e1000 from 2.6.26 onwards.
 
-http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=415147
+Please re-test against e1000e from 2.6.25-rc5 - if the bug is still in that driver
+then we need to look at it again. Either that or reproduce against an 8254x adapter?
+
+Auke
+
 
