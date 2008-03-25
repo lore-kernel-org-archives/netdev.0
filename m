@@ -1,59 +1,31 @@
-From: Hideo AOKI <haoki@redhat.com>
-Subject: [RFC PATCH] [NET] [1/2] revert audit_expand()
-Date: Tue, 25 Mar 2008 14:41:40 -0400
-Message-ID: <47E94764.6050901@redhat.com>
-References: <47E946C8.6020006@redhat.com>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [Bugme-new] [Bug 10318] New: WARNING: at arch/x86/mm/highmem_32.c:43
+ kmap_atomic_prot+0x87/0x184()
+Date: Tue, 25 Mar 2008 12:01:37 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0803251159500.17356@schroedinger.engr.sgi.com>
+References: <bug-10318-10286@http.bugzilla.kernel.org/>
+ <20080325105750.ff913a83.akpm@linux-foundation.org> <47E9482B.7050005@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, pstaszewski@artcom.pl,
+	linux-mm@kvack.org, Ingo Molnar <mingo@elte.hu>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:41510 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758964AbYCYSti (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 14:49:38 -0400
-In-Reply-To: <47E946C8.6020006@redhat.com>
+Received: from netops-testserver-3-out.sgi.com ([192.48.171.28]:40242 "EHLO
+	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753683AbYCYTDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 15:03:32 -0400
+In-Reply-To: <47E9482B.7050005@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch reverts commit 406a1d868001423c85a3165288e566e65f424fe6
-to apply bug fix of the root cause to kernel.
+On Tue, 25 Mar 2008, Eric Dumazet wrote:
 
-I leave the fix of pskb_expand_head() call in the commit. Changing
-2nd argument from skb_headroom(skb) to 0 is correct, because
-audit_expand() should expand only tail room as its definition.
+> If kzalloc() or __get_free_pages(__GFP_ZERO) is not allowed from softirq then
+> many usages are illegal.
 
-Signed-off-by: Hideo Aoki <haoki@redhat.com>
----
-
- audit.c |    6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
-
-diff -pruN net-2.6/kernel/audit.c net-2.6-mod-p1/kernel/audit.c
---- net-2.6/kernel/audit.c	2008-03-24 09:58:26.000000000 -0400
-+++ net-2.6-mod-p1/kernel/audit.c	2008-03-24 14:22:18.000000000 -0400
-@@ -1117,17 +1117,13 @@ struct audit_buffer *audit_log_start(str
- static inline int audit_expand(struct audit_buffer *ab, int extra)
- {
- 	struct sk_buff *skb = ab->skb;
--	int oldtail = skb_tailroom(skb);
- 	int ret = pskb_expand_head(skb, 0, extra, ab->gfp_mask);
--	int newtail = skb_tailroom(skb);
- 
- 	if (ret < 0) {
- 		audit_log_lost("out of memory in audit_expand");
- 		return 0;
- 	}
--
--	skb->truesize += newtail - oldtail;
--	return newtail;
-+	return skb_tailroom(skb);
- }
- 
- /*
--- 
-Hitachi Computer Products (America) Inc.
-
+There is clearly no problem for GFP_KERNEL. The only issue could arise for 
+GFP_HIGHMEM|__GFP_ZERO. I thought we had dealt with these false positives 
+a while back?
 
