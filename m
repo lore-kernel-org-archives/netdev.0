@@ -1,66 +1,83 @@
-From: Florian Fainelli <florian.fainelli@telecomint.eu>
-Subject: Re: [PATCH] Add support the Korina (IDT RC32434) Ethernet MAC
-Date: Tue, 25 Mar 2008 21:55:55 +0100
-Message-ID: <200803252155.56082.florian.fainelli@telecomint.eu>
-References: <200803052345.06610.florian.fainelli@telecomint.eu> <200803192217.25860.florian.fainelli@telecomint.eu> <20080319215535.GB24710@electric-eye.fr.zoreil.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH net-2.6] [TCP]: Must count fack_count also when skipping
+Date: Tue, 25 Mar 2008 23:24:55 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0803250942450.14461@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0803031525390.27064@kivilampi-30.cs.helsinki.fi>
+ <Pine.LNX.4.64.0803031541230.28251@kivilampi-30.cs.helsinki.fi>
+ <pan.2008.03.24.20.36.07@telenet.be> <20080324.144107.235200795.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>, Felix Fietkau <nbd@openwrt.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: MULTIPART/MIXED; boundary="-696243703-488788762-1206431468=:14461"
+Cc: fhimpe@telenet.be, LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.int-evry.fr ([157.159.10.71]:57281 "EHLO
-	smtp4.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752135AbYCYUuY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 16:50:24 -0400
-In-Reply-To: <20080319215535.GB24710@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:37775 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750745AbYCYVY6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 17:24:58 -0400
+In-Reply-To: <20080324.144107.235200795.davem@davemloft.net>
+Content-ID: <Pine.LNX.4.64.0803252310560.6132@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Francois,
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Le mercredi 19 mars 2008, Francois Romieu a =E9crit=A0:
->                      ^ space before tab
+---696243703-488788762-1206431468=:14461
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0803252302351.6132@kivilampi-30.cs.helsinki.fi>
 
-=46ixed.
+On Mon, 24 Mar 2008, David Miller wrote:
 
-> If the allocation fails, the driver will have to handle a shorter
-> than expected ring (it is probably ok, I have not checked it). You
-> may consider initializing the link field for each descriptor if
-> possible. See epic_init_ring() for some inspiration.
+> From: Frederik Himpe <fhimpe@telenet.be>
+> Date: Mon, 24 Mar 2008 20:36:08 +0000 (UTC)
+> 
+> > On Mon, 03 Mar 2008 15:53:12 +0200, Ilpo Järvinen
+> > wrote:
+> > 
+> > > [PATCH net-2.6] [TCP]: Must count fack_count also when skipping
+> > > 
+> > > It makes fackets_out to grow too slowly compared with the real write
+> > > queue.
+> > > 
+> > > This shouldn't cause those BUG_TRAP(packets <= tp->packets_out) to
+> > > trigger but how knows how such inconsistent fackets_out affects here and
+> > > there around TCP when everything is nowadays assuming accurate
+> > > fackets_out. So lets see if this silences them all.
+> > > 
+> > > Reported by Guillaume Chazarain <guichaz@gmail.com>.
+> > 
+> > Will this patch be applied to 2.6.24 stable? I think I have been hit by 
+> > the same problem recently:
+> 
+> I'll push it to the -stable folks for their next release
+> since people are actively hitting it.
 
-That is why I use the i variable such that if a break in the loop happe=
-ns, the=20
-ring and last/first decscriptors are properly set.
+Please don't, it's not the right fix, it fixed a bug that was
+introduced post 2.6.24 by this commit:
 
-> The irqs will be disabled for whatever device shares them...
->
-> [...]
->
-> > +	free_irq(lp->rx_irq, dev);
-> > +	free_irq(lp->tx_irq, dev);
-> > +	free_irq(lp->ovr_irq, dev);
-> > +	free_irq(lp->und_irq, dev);
->
-> ... and they will not be enabled again.
->
-> You should avoid disable_irq here and disable the irq with some
-> korina register write prior to free_irq instead.
+commit 68f8353b480e5f2e136c38a511abdbb88eaa8ce2
+Author: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+Date:   Thu Nov 15 19:50:37 2007 -0800
 
-Ethernet MAC datasheet does not seem to mention a way to disable IRQ un=
-less=20
-reseting the ethernet logic itself. Since this MAC is used in an embedd=
-ed=20
-system, closing the ethernet driver usually mean shutting down the devi=
-ce as=20
-well. I will try to work around this.
+    [TCP]: Rewrite SACK block processing & sack_recv_cache use
 
-> It will work as is but you could merge both of those in a single
-> variable (name it 'rc' and the consequences will appear directly
-> in the diff between this patch and the next version).
 
-=46ixed, must have been particularly braindead not to realize that befo=
-re.
+There's something else wrong with the 2.6.24.y. I already knew that and 
+was therefore planning next to run extensive set of tests on 2.6.24ish 
+kernel with some torrent mixed with some netem stimuli but haven't yet had 
+time for that as I had to find and resolve an hw incompatibility issues 
+between ddr2s and mobo before being a week away. I'll post an 2.6.24.y 
+adapted TCP debug patch once I get that done for my tests (in case 
+somebody else is interested in running with it besides me).
+
+Btw, it would have been polite to cc me as well (I suppose you just didn't 
+notice that somebody dropped me in between :-)), not a big prob though as 
+I found it out early anyway because I'm trying to catch up what has been 
+reported against TCP during my week away.
+
+
+-- 
+ i.
+---696243703-488788762-1206431468=:14461--
