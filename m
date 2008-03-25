@@ -1,38 +1,22 @@
-From: Bartlomiej Sieka <tur@semihalf.com>
-Subject: AM79C874 support in phylib?
-Date: Tue, 25 Mar 2008 18:17:07 +0100
-Message-ID: <47E93393.9040803@semihalf.com>
+From: "MICROSOFT 2008 ONLINE  AWARD" <microsoftonline107@libero.it>
+Subject: Hello!!!
+Date: Tue, 25 Mar 2008 18:29:40 +0100
+Message-ID: <JYAR9G$63E10FDB1952CCC754DB9208BE78463A@libero.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from semihalf.com ([206.130.101.55]:39735 "EHLO semihalf.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755871AbYCYRak (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 13:30:40 -0400
-Received: from mail.semihalf.com (mail.semihalf.com [83.15.139.206])
-	by semihalf.com (8.13.1/8.13.1) with ESMTP id m2PHI9cl014278
-	for <netdev@vger.kernel.org>; Tue, 25 Mar 2008 11:18:21 -0600
-Received: from localhost (unknown [127.0.0.1])
-	by mail.semihalf.com (Postfix) with ESMTP id D1F9B143BE
-	for <netdev@vger.kernel.org>; Tue, 25 Mar 2008 18:29:58 +0100 (CET)
-Received: from mail.semihalf.com ([127.0.0.1])
- by localhost (mail.semihalf.com [127.0.0.1]) (amavisd-new, port 10024)
- with ESMTP id 27588-01 for <netdev@vger.kernel.org>;
- Tue, 25 Mar 2008 18:29:57 +0100 (CET)
+Received: from smtp-out1.libero.it ([212.52.84.41]:35041 "EHLO
+	smtp-out1.libero.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754828AbYCYReJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 13:34:09 -0400
+Received: from outrelay08.libero.it (192.168.32.103) by smtp-out1.libero.it (7.3.120)
+        id 47C416BE0211832E for netdev@vger.kernel.org; Tue, 25 Mar 2008 18:34:07 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Congratulations!!Your email I.D has  won  you 500,000 GBP  by the microsoft promo
+  contact agent  email :claimsunit102@live.com.
+Thank you.
 
-Is anyone working on supporting the AM79C874 PHY in phylib? I'd like to
-avoid duplicating efforts, and would appreciate any pointers to relevant
-work.
-
-Thanks in advance.
-
-Regards,
-Bartlomiej
-
-P.S. Please CC me on replies, I'm not subscribed to the list.
