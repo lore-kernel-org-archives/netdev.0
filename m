@@ -1,73 +1,59 @@
-From: Chr <chunkeey@web.de>
-Subject: Re: IPv6 unique local address flushes on up/down
-Date: Tue, 25 Mar 2008 17:07:52 +0100
-Message-ID: <200803251707.52528.chunkeey@web.de>
-References: <200803251557.21563.chunkeey@web.de> <20080326.002428.19095257.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hostap@lists.shmoo.com, netdev@vger.kernel.org, chunkeey@web.de
-To: YOSHIFUJI Hideaki /
-	 =?utf-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
+Subject: Re: IPv6 unique local address flushes on up/down
+Date: Wed, 26 Mar 2008 01:20:39 +0900 (JST)
+Message-ID: <20080326.012039.59874360.yoshfuji@linux-ipv6.org>
+References: <200803251557.21563.chunkeey@web.de>
+	<20080326.002428.19095257.yoshfuji@linux-ipv6.org>
+	<200803251707.52528.chunkeey@web.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: hostap@lists.shmoo.com, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: chunkeey@web.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate02.web.de ([217.72.192.227]:57059 "EHLO
-	fmmailgate02.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755472AbYCYQH5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 12:07:57 -0400
-In-Reply-To: <20080326.002428.19095257.yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
+Received: from yue.linux-ipv6.org ([203.178.140.15]:54999 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755626AbYCYQTN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 12:19:13 -0400
+In-Reply-To: <200803251707.52528.chunkeey@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 25 March 2008 16:24:28 YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=
-=E8=8B=B1=E6=98=8E wrote:
-> In article <200803251557.21563.chunkeey@web.de> (at Tue, 25 Mar 2008=20
-15:57:21 +0100), Chr <chunkeey@web.de> says:
-> > Now my question, which _one_ should we fix the applications or the
-> > stack?! I think the network stack, but I don't know if there are RF=
-C
-> > about this issue... or is there already some flag/setting which I'v=
-e
-> > missed so far?
->
-> Well..., in fact, this is known as an uneasy-to-fix issue.
-> The behavior han not been changed for long time, so you definately
-> need to have work-around for this issue, anyway.
->
-> From specification point of view, we need to re-perform DAD (duplicat=
-e
-> address detection) after down-up cycle or even link-down and up.
-> One possible way is to add "tentative" flag for static addresses
-> (instead of purging them) when the interface is going down and
-> reperform DAD for all of such addresses when the interface is coming =
-up.
-> If the link is being down, we might want to use "Optimistic" DAD inst=
-ead.
->
-Ah yeah, ok... I guess... alright! ...=20
+In article <200803251707.52528.chunkeey@web.de> (at Tue, 25 Mar 2008 17:07:52 +0100), Chr <chunkeey@web.de> says:
 
-but another question, about this issue form the userspace side.
+> On Tuesday 25 March 2008 16:24:28 YOSHIFUJI Hideaki / 吉藤英明 wrote:
+> > In article <200803251557.21563.chunkeey@web.de> (at Tue, 25 Mar 2008 
+> 15:57:21 +0100), Chr <chunkeey@web.de> says:
+> > > Now my question, which _one_ should we fix the applications or the
+> > > stack?! I think the network stack, but I don't know if there are RFC
+> > > about this issue... or is there already some flag/setting which I've
+> > > missed so far?
+> >
+> > Well..., in fact, this is known as an uneasy-to-fix issue.
+> > The behavior han not been changed for long time, so you definately
+> > need to have work-around for this issue, anyway.
+> >
+> > From specification point of view, we need to re-perform DAD (duplicate
+> > address detection) after down-up cycle or even link-down and up.
+> > One possible way is to add "tentative" flag for static addresses
+> > (instead of purging them) when the interface is going down and
+> > reperform DAD for all of such addresses when the interface is coming up.
+> > If the link is being down, we might want to use "Optimistic" DAD instead.
+> >
+> Ah yeah, ok... I guess... alright! ... 
+> 
+> but another question, about this issue form the userspace side.
+> 
+> Since I'm going to use the stateful DHCPv6 way... I'm wondering how I can set 
+> the tentative flag from userspace?
+:
 
-Since I'm going to use the stateful DHCPv6 way... I'm wondering how I c=
-an set=20
-the tentative flag from userspace?
+Tentative flag cannot be set from userspace.
+So, if we're going this way, we might need new flag for "admin" or
+"static" or something alike for manual / static addresses
+(including link-local addresses, probably).
 
-Because the DHCPv6 Client uses the ip utility to add the ipv6 address t=
-oo.
-And unlike the _static_ setting for the router, this _stateful_=20
-autoconf-address should be flushed on ifup/down, right?=20
-
-And according to the manual page of my iproute (debian sid - from 2008-=
-01-08).=20
-the ip utility doesn't have this "set flag xy for address zw" capabilit=
-y at=20
-all...=20
-
-so how can I _possibly_ set it, or prevent from being set?=20
-Or do I miss some good and obvious point here again?!=20
-
-Regards,
-	Christian
-
+--yoshfuji
 
