@@ -1,69 +1,71 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [NET]: Fix multicast device ioctl checks
-Date: Tue, 25 Mar 2008 13:54:53 +0100
-Message-ID: <47E8F61D.8040403@trash.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] SCTP: Fix possible memory leak while process INIT chunk
+ with AUTH paramters
+Date: Tue, 25 Mar 2008 09:03:52 -0400
+Message-ID: <47E8F838.1010906@hp.com>
+References: <47E20DA8.1080805@cn.fujitsu.com> <47E25794.6050001@hp.com> <47E31A76.6060903@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020706040801040902020707"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep32-int.chello.at ([62.179.121.50]:36964 "EHLO
-	viefep32-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753335AbYCYMzA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 08:55:00 -0400
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:47142 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752237AbYCYNDz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 09:03:55 -0400
+In-Reply-To: <47E31A76.6060903@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020706040801040902020707
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Wei Yongjun wrote:
+> Hi Vlad:
+> 
+> Vlad Yasevich wrote:
+>> Hi Wei
+>>
+>> Wei Yongjun wrote:
+>>> While endpoint received INIT/INIT-ACK chunk with AUTH parameters, 
+>>> such as RANDOM, HMAC_ALGO, CHUNKS parameter, if those parameters 
+>>> appear more then once, memory for store those parameters will be 
+>>> malloc more then once and not free.
+>>>
+>>
+>> All these parameters must be included only once in the packet.
+> 
+> RFC 4890 has the following text:
+> 
+>   The RANDOM parameter MUST be included once in the INIT or INIT-ACK
+>   chunk, if the sender wants to send or receive authenticated chunks,
+>   to provide a 32-byte Random Number.  For 32-byte Random Numbers, the
+>   Padding is empty.
+> 
+> 
+> It said *MUST be included once*, not *only once*, is this right?
 
+I guess it depends on the interpretation.  If they are allowed more then
+once, then which parameter should be used.  The spec leaves that undefined.
 
---------------020706040801040902020707
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+Undefined behavior on a security extension is usually treated as an exploit.
+That's my take on this.
 
-commit 33fb000e9d0b9b20c226383ce775f06fdcd426bc
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Tue Mar 25 13:53:52 2008 +0100
+> 
+>>
+>> If these things are included more then once, we should either ABORT or
+>> completely ignore the packet.  I haven't decided which one makes more
+>> sense yet.
+>>
+>> If someone when to the trouble of violating the protocol, we should not
+>> establish the association with them.
+> 
+> I think do ABORT with protocol violation is better, do the same thing as 
+> the other protocol violation case do.
 
-    [NET]: Fix multicast device ioctl checks
-    
-    SIOCADDMULTI/SIOCDELMULTI check whether the driver has a set_multicast_list
-    method to determine whether it supports multicast. Drivers implementing
-    secondary unicast support use set_rx_mode however.
-    
-    Check for both dev->set_multicast_mode and dev->set_rx_mode to determine
-    multicast capabilities.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+Yes.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fcdf03c..460e7f9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3329,7 +3329,7 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
- 			return -EOPNOTSUPP;
- 
- 		case SIOCADDMULTI:
--			if (!dev->set_multicast_list ||
-+			if ((!dev->set_multicast_list && !dev->set_rx_mode) ||
- 			    ifr->ifr_hwaddr.sa_family != AF_UNSPEC)
- 				return -EINVAL;
- 			if (!netif_device_present(dev))
-@@ -3338,7 +3338,7 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
- 					  dev->addr_len, 1);
- 
- 		case SIOCDELMULTI:
--			if (!dev->set_multicast_list ||
-+			if ((!dev->set_multicast_list && !dev->set_rx_mode) ||
- 			    ifr->ifr_hwaddr.sa_family != AF_UNSPEC)
- 				return -EINVAL;
- 			if (!netif_device_present(dev))
+-vlad
+> 
+> Wei Yongjun
+> 
 
---------------020706040801040902020707--
