@@ -1,53 +1,35 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH] b44: Truncate PHY address
-Date: Tue, 25 Mar 2008 18:04:46 +0100
-Message-ID: <200803251804.46422.mb@bu3sch.de>
+From: "iioj utaw" <okgrma4@gmail.com>
+Subject: Drop shipper of elec kNdXQ
+Date: Wed, 26 Mar 2008 01:07:49 +0800
+Message-ID: <6d6ef2aa0803251007u40c1eea6p3c2d3fc1956a042f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: agb@openwrt.org, Gary Zambrano <zambrano@broadcom.com>,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: base64
+To: net.impact@anderson.ucla.edu, net@etiennedepaulis.com,
+	netboywins@yahoo.com, netbuyer-fr@cnet.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs166246.vserver.de ([62.75.166.246]:34475 "EHLO
-	vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752895AbYCYRGA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 13:06:00 -0400
+Received: from po-out-1718.google.com ([72.14.252.156]:25493 "EHLO
+	po-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752726AbYCYRHv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 13:07:51 -0400
+Received: by po-out-1718.google.com with SMTP id b23so5131125poe.1
+        for <netdev@vger.kernel.org>; Tue, 25 Mar 2008 10:07:50 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some ROMs on embedded devices store incorrect values for
-the PHY address of the ethernet device.
-It looks like the number is sign-extended.
-Truncate the value by applying the PHY-address mask to it.
-The patch was tested on a bcm47xx embedded system (where the bug
-triggers) and a bcm4400 PCI card.
-
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
-
----
-
-Jeff, this is a bugfix for 2.6.25.
-
-
-Index: wireless-testing/drivers/net/b44.c
-===================================================================
---- wireless-testing.orig/drivers/net/b44.c	2008-02-16 19:08:12.000000000 +0100
-+++ wireless-testing/drivers/net/b44.c	2008-03-22 01:13:21.000000000 +0100
-@@ -2082,6 +2082,11 @@ static int __devinit b44_get_invariants(
- 		addr = sdev->bus->sprom.et0mac;
- 		bp->phy_addr = sdev->bus->sprom.et0phyaddr;
- 	}
-+	/* Some ROMs have buggy PHY addresses with the high
-+	 * bits set (sign extension?). Truncate them to a
-+	 * valid PHY address. */
-+	bp->phy_addr &= 0x1F;
-+
- 	memcpy(bp->dev->dev_addr, addr, 6);
- 
- 	if (!is_valid_ether_addr(&bp->dev->dev_addr[0])){
-
--- 
-Greetings Michael.
+T3VyIENvbXBhbnkgb2ZmaWNpYWwgd2Vic2l0ZSBodHRwOi8vd3d3LmxjZGdvb2QuY29tICwgY29u
+dGFjdHMgRU1BSUwKaXMgIGxjZGdvb2RAaG90bWFpbC5jb20gIC4KCldlIHNlbGwgYWxsIG91ciBw
+cm9kdWN0cyB3aXRoIHRoZSBleC1mYWN0b3J5IHByaWNlIC4gV2UgYXJlIGEgbGFyZ2UKd2hvbGVz
+YWxlciB3aG8gbWFpbmx5IHNlbGwgZWxlY3RyaWNhbCBwcm9kdWN0cyAsc3VjaCBhcyBkaWdpdGFs
+CmNhbWVyYXMsIG1vYmlsZSBwaG9uZXMsIExDRCwgVFYsIExhcHRvcHMsTW90b3JjeWNsZXMsIERp
+Z2l0YWwgVmlkZW8sCk1wNCwgR1BTLCBQUzNhbmQgc28gb24uIFRoZSBxdWFsaXR5IG9mIG91ciBw
+cm9kdWN0cyBpcyBoaWdoZXN0LCBzYWxlCnNlcnZpY2UgaXMgcGVyZmVjdCBhbmQgcHJpY2UgaXMg
+cmVhc29uYWJsZSBhbmQgYmVzdCB0aGUgZWZmaWNpZW5jeSBvZgpvdXIgc2hpcHBpbmcgaXMgdmVy
+eSBmYXN0IC4gV2UgaGF2ZSBvdXIgb3duIHdhcmVob3VzZSBhbmQgc3RvcmVzIHdlCmhhdmUgY2xp
+ZW50cyBhbGwgb3ZlciB0aGUgd29ybGQgYW5kIHdlIGhhdmUgYmVlbiByZWNlaXZlZCB2ZXJ5IGhp
+Z2gKcHJhaXNlIGZyb20gb3VyIGN1c3RvbWVycy4KClNvbWUgcHJvZHVjdHMgYW5kIHByaWNlCgpO
+T0tJQSBOOTUgOEcgob8gIDI0MCBldXJvcyBvciAzNjAgdXNkCgpBcHBsZSBJcGhvbmUgMTYgR0Ig
+ofQgICAyMjAgIGV1cm9zIG9yIDMzMCB1c2QKClNIQVJQIDY1IGluY2ggTENELVRWICCh8CA2MTAg
+ZXVyb3Mgb3IgOTE1IHVzZAoKQXBwbGUgTWFjQm9vayBBaXIgMTMuMyAgobogIDEwNTAgZXVyb3Mg
+b3IgMTU3NSB1c2QKCnNxeXdLVEF3N2tOc3EyVgo=
