@@ -1,47 +1,72 @@
-From: "Denis V. Lunev" <den@parallels.com>
-Subject: Re: IPv6 unique local address flushes on up/down
-Date: Tue, 25 Mar 2008 18:11:38 +0300
-Message-ID: <1206457898.14357.16.camel@iris.sw.ru>
-References: <200803251557.21563.chunkeey@web.de>
+From: Marin Mitov <mitov@issp.bas.bg>
+Subject: [BUG] unsolicited IRQ disabling at the IO-APIC leading to eth0 freezes
+Date: Tue, 25 Mar 2008 17:15:18 +0200
+Message-ID: <200803251715.18694.mitov@issp.bas.bg>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: hostap@lists.shmoo.com, netdev@vger.kernel.org
-To: Chr <chunkeey@web.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:23695 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754174AbYCYPLQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 11:11:16 -0400
-In-Reply-To: <200803251557.21563.chunkeey@web.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755357AbYCYPOh@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2008-03-25 at 15:57 +0100, Chr wrote:
-> Hi,
-> 
-> I have a problem with hostapd & IPv6... 
-> 
-> as you might know, or not... hostapd needs to initialize 
-> the interface (e.g it changes it to master/accesspoint mode,
-> which can only be done if the interface is down)... 
-> 
-> However if the interface is brought down & up again (e.g whenever
-> hostap starts or restarts)... the IPv6 logic flushes the unique-local ipv6 
-> address that I gave it (by hand) with ip addr add fddb:xyz...::1//64 dev ath0 
-> in /etc/network/interfaces ifup script (-probably debian specific-).
-> 
-> And that's bad, because bind9,ISC dhcp-server v4.1 and racoon(IPsec/VPN)
-> needs a static address for their records/lease database and configuration...
-> 
-> This wasn't problem with the old IPv4... because there the 
-> 10.x.y.z or 192.168.a.b addresses aren't deleted when the interface 
-> was _reinitialized_ by the hostap...
-> 
-> Now my question, which _one_ should we fix the applications or the stack?!
-> I think the network stack, but I don't know if there are RFC about this 
-> issue... or is there already some flag/setting which I've missed so far?  
+WAS: net: tx timeouts with skge, 8139too, dmfe drivers/NICs
 
-On interface down IPv6 stack unconditionally deletes all addresses from
-the interface in the addrconf_ifdown routine.
+Hi all,
 
+I am observing rare freezes(blocking) of eth0 with:
+
+NETDEV WATCHDOG: eth0: transmit timed out
+
+in dmesg output.
+
+The problem has been already described in a previous message:
+
+http://lkml.org/lkml/2008/2/25/312
+
+with some additional observations, as described in:
+
+http://lkml.org/lkml/2008/3/12/96
+
+Recently I found that the IRQ# used by the driver/NIC has been
+somehow disabled/masked  at the IO-APIC, blocking the interrupts to
+the driver irq_handler, so the messages: NETDEV WATCHDOG....
+
+Pitting:
+
+disable_irq(_nosync)(irq#);
+enable_irq(irq#);
+
+in the dev->tx_timeout() method restores the working state of eth0,
+(at least for skge), so the interface now works posting (sometimes)
+
+NETDEV WATCHDOG: eth0: transmit timed out
+
+messages in the log.
+
+If I EXPORT_SYMBOL(irq_desc) (from kernel/irq/handle.c)
+I am able to restore the working state of the eth0 interface with
+
+(irq_desc + irq#)->chip->enable(irq#)
+
+or
+
+(irq_desc + irq#)->chip->unmask(irq#)
+
+(properly locked),  instead of disable/enable_irq(irq#), 
+
+Just for info the driver irq_handler always return IRQ_HANDLED and never 
+(verified) IRQ_NONE, so the irq# is not disabled due to unhandled irqs - 
+yes the driver declares IRQF_SHARED, but is the only one on this irq# 
+(as viewed in /proc/interrupts).
+
+The system is runing kernel-2.6.14.3-SMP (AMD64 X2) on Asus A7V Deluxe
+
+Am I observing IRQ locking/rice condition OUT of net driver?
+
+All suggestions for further investigation are wellcome.
+
+Marin Mitov
