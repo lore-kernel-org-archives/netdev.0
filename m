@@ -1,38 +1,61 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] 3c509: convert to isa_driver and pnp_driver v6
-Date: Wed, 26 Mar 2008 00:35:53 -0400
-Message-ID: <47E9D2A9.7040107@garzik.org>
-References: <200803071746.49554.linux@rainbow-software.org>
+Subject: Re: [patch 02/17] qla3xxx: convert byte order of constant instead
+ of variable
+Date: Wed, 26 Mar 2008 00:36:33 -0400
+Message-ID: <47E9D2D1.3030600@garzik.org>
+References: <200803042319.m24NJKLT002661@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Ondrej Zary <linux@rainbow-software.org>
+Cc: netdev@vger.kernel.org, marcin.slusarz@gmail.com,
+	ron.mercer@qlogic.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34224 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:34252 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751577AbYCZEf5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2008 00:35:57 -0400
-In-Reply-To: <200803071746.49554.linux@rainbow-software.org>
+	id S1754634AbYCZEgf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 00:36:35 -0400
+In-Reply-To: <200803042319.m24NJKLT002661@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ondrej Zary wrote:
-> Hello,
-> this patch converts 3c509 driver to isa_driver and pnp_driver. The result is 
-> that autoloading using udev and hibernation works with ISA PnP cards. It also 
-> adds hibernation support for non-PnP ISA cards.
+akpm@linux-foundation.org wrote:
+> From: Marcin Slusarz <marcin.slusarz@gmail.com>
 > 
-> xcvr module parameter was removed as its value was not used.
+> Convert byte order of constant instead of variable which can be done at
+> compile time (vs run time)
 > 
-> Tested using 3 ISA cards in various combinations of PnP and non-PnP modes. 
-> EISA and MCA only compile-tested.
+> Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
+> Acked-by: Ron Mercer <ron.mercer@qlogic.com>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
 > 
-> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+>  drivers/net/qla3xxx.c |    6 ++----
+>  1 file changed, 2 insertions(+), 4 deletions(-)
 > 
+> diff -puN drivers/net/qla3xxx.c~qla3xxx-convert-byte-order-of-constant-instead-of-variable drivers/net/qla3xxx.c
+> --- a/drivers/net/qla3xxx.c~qla3xxx-convert-byte-order-of-constant-instead-of-variable
+> +++ a/drivers/net/qla3xxx.c
+> @@ -2472,8 +2472,7 @@ static int ql_send_map(struct ql3_adapte
+>  
+>  	if (seg_cnt == 1) {
+>  		/* Terminate the last segment. */
+> -		oal_entry->len =
+> -		    cpu_to_le32(le32_to_cpu(oal_entry->len) | OAL_LAST_ENTRY);
+> +		oal_entry->len |= cpu_to_le32(OAL_LAST_ENTRY);
+>  	} else {
+>  		oal = tx_cb->oal;
+>  		for (completed_segs=0; completed_segs<frag_cnt; completed_segs++,seg++) {
+> @@ -2530,8 +2529,7 @@ static int ql_send_map(struct ql3_adapte
+>  					  frag->size);
+>  		}
+>  		/* Terminate the last segment. */
+> -		oal_entry->len =
+> -		    cpu_to_le32(le32_to_cpu(oal_entry->len) | OAL_LAST_ENTRY);
+> +		oal_entry->len |= cpu_to_le32(OAL_LAST_ENTRY);
+>  	}
+>  
 
-ACK, but your patch is word-wrapped and cannot be applied
+applied
 
 
