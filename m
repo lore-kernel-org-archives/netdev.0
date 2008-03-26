@@ -1,61 +1,42 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH] dm9601: Fix multicast hash table handling
-Date: Wed, 26 Mar 2008 08:51:30 +0100
-Message-ID: <87zlsldit9.fsf@macbook.be.48ers.dk>
-References: <1205878614-29065-1-git-send-email-jacmet@sunsite.dk>
-	<47E9C0E3.6040404@garzik.org> <47E9C419.3040706@garzik.org>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: Re: [PATCH 1/2 net-2.6.26] [NETNS]: Compilation fix for
+	include/linux/netdevice.h.
+Date: Wed, 26 Mar 2008 10:52:12 +0300
+Message-ID: <1206517932.20894.5.camel@iris.sw.ru>
+References: <1206517259-29152-1-git-send-email-den@openvz.org>
+	 <20080326.004742.92048899.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devel@openvz.org,
+	containers@lists.osdl.org, xemul@openvz.org,
+	yoshfuji@linux-ipv6.org, dlezcano@fr.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.189]:2285 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751578AbYCZHvy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 03:51:54 -0400
-Received: by fk-out-0910.google.com with SMTP id 19so4614651fkr.5
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2008 00:51:52 -0700 (PDT)
-In-Reply-To: <47E9C419.3040706@garzik.org> (Jeff Garzik's message of "Tue\, 25 Mar 2008 23\:33\:45 -0400")
+Received: from mailhub.sw.ru ([195.214.232.25]:3998 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752274AbYCZHwH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 03:52:07 -0400
+In-Reply-To: <20080326.004742.92048899.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "Jeff" == Jeff Garzik <jeff@garzik.org> writes:
+On Wed, 2008-03-26 at 00:47 -0700, David Miller wrote:
+> From: "Denis V. Lunev" <den@openvz.org>
+> Date: Wed, 26 Mar 2008 10:40:58 +0300
+> 
+> > Commit commit c346dca10840a874240c78efe3f39acf4312a1f2
+> > ([NET] NETNS: Omit net_device->nd_net without CONFIG_NET_NS)
+> > breaks compilation with CONFIG_NET_NS set.
+> > 
+> > Fix the typo.
+> > 
+> > Signed-off-by: Denis V. Lunev <den@openvz.org>
+> 
+> Applied.
+> 
+> Too bad allmodconfig doesn't enable things which are y/n only.
 
- Jeff> I take that back... this breaks the build:  'mlist' not defined
+We are in trouble for this right now :( there we do not work with SYSFS
+enabled right now.
 
-Argh, it seems like I sent the wrong patch - Sorry about that :/
-
-It was ofcause meant to be mc_list instead. I would like to get this
-patch in 2.6.25 if possible.
-
-
->From 7ac36d3b2f78a31c6dc224968f9b19a0d6c71688 Mon Sep 17 00:00:00 2001
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Date: Wed, 26 Mar 2008 08:48:52 +0100
-Subject: [PATCH] dm9601: Fix multicast hash table handling
-
-The loop forgot to walk the net->mc_list list, so only the first
-multicast address was programmed into the hash table.
----
- drivers/net/usb/dm9601.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
-index 0343b00..01660f6 100644
---- a/drivers/net/usb/dm9601.c
-+++ b/drivers/net/usb/dm9601.c
-@@ -354,7 +354,7 @@ static void dm9601_set_multicast(struct net_device *net)
- 		struct dev_mc_list *mc_list = net->mc_list;
- 		int i;
- 
--		for (i = 0; i < net->mc_count; i++) {
-+		for (i = 0; i < net->mc_count; i++, mc_list = mc_list->next) {
- 			u32 crc = ether_crc(ETH_ALEN, mc_list->dmi_addr) >> 26;
- 			hashes[crc >> 3] |= 1 << (crc & 0x7);
- 		}
--- 
-1.5.4.4
-
-
--- 
-Bye, Peter Korsgaard
