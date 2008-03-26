@@ -1,32 +1,63 @@
 From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH 0/2] Two more pasemi_mac patches for 2.6.26
-Date: Tue, 25 Mar 2008 20:56:25 -0500
-Message-ID: <20080326015625.GA23103@lixom.net>
+Subject: [PATCH 1/2] pasemi_mac: Jumbo frame bugfixes
+Date: Tue, 25 Mar 2008 20:57:10 -0500
+Message-ID: <20080326015710.GB23103@lixom.net>
+References: <20080326015625.GA23103@lixom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linuxppc-dev@ozlabs.org, pasemi-linux@ozlabs.org,
 	netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:42042 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:42063 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751434AbYCZBr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 21:47:59 -0400
+	id S1752796AbYCZBso (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Mar 2008 21:48:44 -0400
 Content-Disposition: inline
+In-Reply-To: <20080326015625.GA23103@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jeff,
+Fix a couple of corner cases around interface up/down when jumbo frames are
+configured. Resources weren't always freed and reallocated properly.
+    
+Signed-off-by: Olof Johansson <olof@lixom.net>
 
-The below two patches go on top of the previous patches that were acked
-by you but applied to pasemi.git for feed up through powerpc.git.
-
-One is a couple of fixes for various corner cases in the jumbo support
-configuration. The second is addition of netpoll support, from Nate
-Case.
-
-Review/ack would be appreciated, I'll feed them up the same path as the
-other changes.
-
-
--Olof
+diff --git a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
+index c50f0f4..abb1dc4 100644
+--- a/drivers/net/pasemi_mac.c
++++ b/drivers/net/pasemi_mac.c
+@@ -404,6 +404,7 @@ static void pasemi_mac_free_csring(struct pasemi_mac_csring *csring)
+ 	pasemi_dma_free_flag(csring->events[1]);
+ 	pasemi_dma_free_ring(&csring->chan);
+ 	pasemi_dma_free_chan(&csring->chan);
++	pasemi_dma_free_fun(csring->fun);
+ }
+ 
+ static int pasemi_mac_setup_rx_resources(const struct net_device *dev)
+@@ -1150,7 +1151,10 @@ static int pasemi_mac_open(struct net_device *dev)
+ 	if (!mac->tx)
+ 		goto out_tx_ring;
+ 
+-	if (dev->mtu > 1500) {
++	/* We might already have allocated rings in case mtu was changed
++	 * before interface was brought up.
++	 */
++	if (dev->mtu > 1500 && !mac->num_cs) {
+ 		pasemi_mac_setup_csrings(mac);
+ 		if (!mac->num_cs)
+ 			goto out_tx_ring;
+@@ -1388,8 +1392,12 @@ static int pasemi_mac_close(struct net_device *dev)
+ 	free_irq(mac->tx->chan.irq, mac->tx);
+ 	free_irq(mac->rx->chan.irq, mac->rx);
+ 
+-	for (i = 0; i < mac->num_cs; i++)
++	for (i = 0; i < mac->num_cs; i++) {
+ 		pasemi_mac_free_csring(mac->cs[i]);
++		mac->cs[i] = NULL;
++	}
++
++	mac->num_cs = 0;
+ 
+ 	/* Free resources */
+ 	pasemi_mac_free_rx_resources(mac);
