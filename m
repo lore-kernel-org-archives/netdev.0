@@ -1,52 +1,147 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000e: test MSI interrupts
-Date: Wed, 26 Mar 2008 14:42:25 -0400
-Message-ID: <47EA9911.8040101@garzik.org>
-References: <20080326183631.25114.90265.stgit@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [VLAN]: Reduce memory consumed by vlan_groups
+Date: Wed, 26 Mar 2008 20:50:39 +0100
+Message-ID: <47EAA90F.1090800@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Content-Type: multipart/mixed;
+ boundary="------------010009050506000507020007"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:35012 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758571AbYCZSm1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2008 14:42:27 -0400
-In-Reply-To: <20080326183631.25114.90265.stgit@localhost.localdomain>
+Received: from stinky.trash.net ([213.144.137.162]:38760 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753728AbYCZTum (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 15:50:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Auke Kok wrote:
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> 
-> Test the MSI interrupt physically once before assuming that it
-> actually works. Several platforms have already come across that
-> have non-functional MSI interrupts and this code will attempt
-> to detect those safely. Once the test succeeds MSI interrupts
-> will be enabled.
-> 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> ---
-> 
->  drivers/net/e1000e/defines.h |    1 
->  drivers/net/e1000e/e1000.h   |    1 
->  drivers/net/e1000e/netdev.c  |  161 ++++++++++++++++++++++++++++++++++++++++--
->  3 files changed, 155 insertions(+), 8 deletions(-)
+This is a multi-part message in MIME format.
+--------------010009050506000507020007
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Ah, the perennial add-same-test-to-every-driver conundrum.
+Following is a single VLAN patch from Pavel that is needed for
+further VLAN namespace work to avoid conflicts.
 
-I think we are far enough along with MSI to _not_ do this anymore in 
-drivers.
-
-The platforms with MSI problems should be discovered, made public, and 
-worked around.
-
-Otherwise you hide the same problem, just for someone else to discover 
-with another component of the machine.
-
-	Jeff
+Please apply, thanks.
 
 
+--------------010009050506000507020007
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
+commit d84abbb1607bac6214754fbffd5c387fcc0ef8fb
+Author: Pavel Emelyanov <xemul@openvz.org>
+Date:   Wed Mar 26 20:36:34 2008 +0100
+
+    [VLAN]: Reduce memory consumed by vlan_groups
+    
+    Currently each vlan_groupd contains 8 pointers on arrays with 512
+    pointers on struct net_device each  :)  Such a construction "in many
+    cases ... wastes memory".
+    
+    My proposal is to allow for some of these arrays pointers be NULL,
+    meaning that there are no devices in it. When a new device is added
+    to the vlan_group, the appropriate array is allocated.
+    
+    The check in vlan_group_get_device's is safe, since the pointer
+    vg->vlan_devices_arrays[x] can only switch from NULL to not-NULL.
+    The vlan_group_prealloc_vid() is guarded with rtnl lock and is
+    also safe.
+    
+    I've checked (I hope that) all the places, that use these arrays
+    and found, that the register_vlan_dev is the only place, that can
+    put a vlan device on an empty vlan_group.
+    
+    Rough calculations shows, that after the patch a setup with a
+    single vlan dev (or up to 512 vlans with sequential vids) will
+    occupy approximately 8 times less memory.
+    
+    The question I have is - does this patch makes sense, or a totally
+    new structures are required to store the vlan_devs?
+    
+    Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 79504b2..edd55af 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -93,7 +93,7 @@ static inline struct net_device *vlan_group_get_device(struct vlan_group *vg,
+ {
+ 	struct net_device **array;
+ 	array = vg->vlan_devices_arrays[vlan_id / VLAN_GROUP_ARRAY_PART_LEN];
+-	return array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN];
++	return array ? array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN] : NULL;
+ }
+ 
+ static inline void vlan_group_set_device(struct vlan_group *vg,
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index c35dc23..694be86 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -106,29 +106,35 @@ static void vlan_group_free(struct vlan_group *grp)
+ static struct vlan_group *vlan_group_alloc(int ifindex)
+ {
+ 	struct vlan_group *grp;
+-	unsigned int size;
+-	unsigned int i;
+ 
+ 	grp = kzalloc(sizeof(struct vlan_group), GFP_KERNEL);
+ 	if (!grp)
+ 		return NULL;
+ 
+-	size = sizeof(struct net_device *) * VLAN_GROUP_ARRAY_PART_LEN;
+-
+-	for (i = 0; i < VLAN_GROUP_ARRAY_SPLIT_PARTS; i++) {
+-		grp->vlan_devices_arrays[i] = kzalloc(size, GFP_KERNEL);
+-		if (!grp->vlan_devices_arrays[i])
+-			goto err;
+-	}
+-
+ 	grp->real_dev_ifindex = ifindex;
+ 	hlist_add_head_rcu(&grp->hlist,
+ 			   &vlan_group_hash[vlan_grp_hashfn(ifindex)]);
+ 	return grp;
++}
+ 
+-err:
+-	vlan_group_free(grp);
+-	return NULL;
++static int vlan_group_prealloc_vid(struct vlan_group *vg, int vid)
++{
++	struct net_device **array;
++	unsigned int size;
++
++	ASSERT_RTNL();
++
++	array = vg->vlan_devices_arrays[vid / VLAN_GROUP_ARRAY_PART_LEN];
++	if (array != NULL)
++		return 0;
++
++	size = sizeof(struct net_device *) * VLAN_GROUP_ARRAY_PART_LEN;
++	array = kzalloc(size, GFP_KERNEL);
++	if (array == NULL)
++		return -ENOBUFS;
++
++	vg->vlan_devices_arrays[vid / VLAN_GROUP_ARRAY_PART_LEN] = array;
++	return 0;
+ }
+ 
+ static void vlan_rcu_free(struct rcu_head *rcu)
+@@ -247,6 +253,10 @@ int register_vlan_dev(struct net_device *dev)
+ 			return -ENOBUFS;
+ 	}
+ 
++	err = vlan_group_prealloc_vid(grp, vlan_id);
++	if (err < 0)
++		goto out_free_group;
++
+ 	err = register_netdevice(dev);
+ 	if (err < 0)
+ 		goto out_free_group;
+
+--------------010009050506000507020007--
