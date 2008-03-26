@@ -1,31 +1,30 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [Bugme-new] [Bug 10324] New: kernel panic ip_route_input
-Date: Tue, 25 Mar 2008 16:49:09 -0700
-Message-ID: <20080325164909.7f086142@speedy>
-References: <bug-10324-10286@http.bugzilla.kernel.org/>
-	<20080325130302.d3f6757c.akpm@linux-foundation.org>
-	<20080325230945.M27660@nuclearcat.com>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [Bugme-new] [Bug 10327] New: keyboard stops responding after
+ "ifdown eth0"
+Date: Wed, 26 Mar 2008 01:01:28 +0100
+Message-ID: <47E99258.3060005@s5r6.in-berlin.de>
+References: <bug-10327-10286@http.bugzilla.kernel.org/> <20080325143941.300d415f.akpm@linux-foundation.org> <47E9721C.2000306@better.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>
-To: "Denys" <nuclearcat@nuclearcat.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, linux-kernel@vger.kernel.org,
+	linux-input@vger.kernel.org, netdev@vger.kernel.org
+To: Marcus Better <marcus@better.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:50645 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756490AbYCYXt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 19:49:27 -0400
-In-Reply-To: <20080325230945.M27660@nuclearcat.com>
+Received: from einhorn.in-berlin.de ([192.109.42.8]:56065 "EHLO
+	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755347AbYCZABr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 20:01:47 -0400
+In-Reply-To: <47E9721C.2000306@better.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 26 Mar 2008 01:12:01 +0200
-"Denys" <nuclearcat@nuclearcat.com> wrote:
+One possible reason for unresponsive keyboard is a workqueue job in the 
+shared workqueue sleeping very long or indefinitely.
 
-> Changing from FIB_TRIE to FIB_HASH, and it is not panicing anymore. It seems
-> recent patches to FIB_TRIE broke something (i have complicated setup with ifb,
-> maybe it will help). If you can point me to any patch, i can reverse it and
-> try again with TRIE.
-
-Bisect?
+Sky2.c has only one workqueue job: sky2_restart().
+-- 
+Stefan Richter
+-=====-==--- --== ==-=-
+http://arcgraph.de/sr/
