@@ -1,155 +1,266 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: Re: [PATCH] de2104x: remove BUG_ON() when changing media type
-Date: Wed, 26 Mar 2008 19:29:56 +0100
-Message-ID: <200803261929.59013.linux@rainbow-software.org>
-References: <200801262158.12016.linux@rainbow-software.org> <200803250002.21718.linux@rainbow-software.org> <20080326155957.GA24944@colo.lackof.org>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] e1000e: test MSI interrupts
+Date: Wed, 26 Mar 2008 11:36:34 -0700
+Message-ID: <20080326183631.25114.90265.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Grant Grundler <grundler@parisc-linux.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.atlantis.sk ([80.94.52.35]:59448 "EHLO mail.atlantis.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751878AbYCZSaM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2008 14:30:12 -0400
-In-Reply-To: <20080326155957.GA24944@colo.lackof.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: jeff@garzik.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 26 March 2008 16:59:57 Grant Grundler wrote:
-> On Tue, Mar 25, 2008 at 12:02:19AM +0100, Ondrej Zary wrote:
-> ....
->
-> > > Jeff,
-> > > The above patch was applied and fixes the 'panic' part of the problme.
-> > > Can you take a look at this patch to fix the "chip is still running"
-> > > part of this bug?
-> >
-> > I'll test it but I doubt that it fixes the problem. IIRC, I tried
-> > something like that.
->
-> Thanks (in advance) for testing!
->
-> This patch fixed the same symptom for tulip driver many years ago.
-> It's been validated already and should be applied to de2104x driver too.
->
-> If it doesn't fix the problem, that just means something else
-> is going wrong as well.
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-As I expected, it did not fix the problem. This time, I used only BNC cable. 
-Let ping run, disconnect the cable, change the media type a couple of times 
-and it dies. When "timeout expired stopping DMA" appears, the card is dead 
-until the module is reloaded.
+Test the MSI interrupt physically once before assuming that it
+actually works. Several platforms have already come across that
+have non-functional MSI interrupts and this code will attempt
+to detect those safely. Once the test succeeds MSI interrupts
+will be enabled.
 
-de2104x PCI Ethernet driver v0.7 (Mar 17, 2004)
-ACPI: PCI Interrupt Link [LNKC] enabled at IRQ 11
-ACPI: PCI Interrupt 0000:00:12.0[A] -> Link [LNKC] -> GSI 11 (level, low) -> 
-IRQ 11
-de0: SROM leaf offset 30, default media 10baseT auto
-de0:   media block #0: BNC
-de0:   media block #1: AUI
-de0:   media block #2: 10baseT-FD
-de0:   media block #3: 10baseT-HD
-eth1: 21041 at 0xd1084000, 00:80:48:ea:eb:0a, IRQ 11
-eth1: enabling interface
-eth1: set link 10baseT auto
-eth1:    mode 0x7ffc0040, sia 0x10c4,0xffffef01,0xffffffff,0xffff0008
-eth1:    set mode 0x7ffc0040, set sia 0xef01,0xffff,0x8
-eth1: set link AUI
-eth1:    mode 0x7ffc0000, sia 0x10c4,0xffffef09,0xfffff7fd,0xffff000e
-eth1:    set mode 0x7ffc0000, set sia 0xef09,0xf7fd,0xe
-eth1: link up, media AUI
-eth1: link down
-eth1: set link 10baseT auto
-eth1:    mode 0x7ffc0000, sia 0x10c4,0xffffef01,0xffffffff,0xffff0008
-eth1:    set mode 0x7ffc0000, set sia 0xef01,0xffff,0x8
-eth1: set link AUI
-eth1:    mode 0x7ffc0000, sia 0x10c4,0xffffef09,0xfffff7fd,0xffff000e
-eth1:    set mode 0x7ffc0000, set sia 0xef09,0xf7fd,0xe
-eth1: link up, media AUI
-eth1: link down
-eth1: timeout expired stopping DMA
-eth1: chip is running while changing media!
-eth1: set link 10baseT auto
-eth1:    mode 0x7ffc0000, sia 0x10c4,0xffffef01,0xffffffff,0xffff0008
-eth1:    set mode 0x7ffc0000, set sia 0xef01,0xffff,0x8
-eth1: timeout expired stopping DMA
-eth1: chip is running while changing media!
-eth1: set link AUI
-eth1:    mode 0x7ffc0000, sia 0x11c4,0xffffef09,0xfffff7fd,0xffff000e
-eth1:    set mode 0x7ffc0000, set sia 0xef09,0xf7fd,0xe
-eth1: set link BNC
-eth1:    mode 0x7ffc0000, sia 0x10c4,0xffffef09,0xfffff7fd,0xffff0006
-eth1:    set mode 0x7ffc0000, set sia 0xef09,0xf7fd,0x6
-eth1: link up, media BNC
-eth1: link down
-eth1: set link AUI
-eth1:    mode 0x7ffc0000, sia 0x10c4,0xffffef09,0xfffff7fd,0xffff000e
-eth1:    set mode 0x7ffc0000, set sia 0xef09,0xf7fd,0xe
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
->
-> > Even tried resetting the chip multiple times when this problem
-> > appears but everything failed.
->
-> Can you print the last value from dr32(MacStatus)?
-> (just append the output to the "stopping DMA" printk)
->
-> If resetting the chip isn't working, my guess is the PCI bus is
-> out to lunch. Getting ~0 back on the MMIO read would be evidence
-> of that. But resetting the chip isn't trivial and all sorts of
-> things could go wrong with that.
->
-> thanks,
-> grant
->
-> > > BTW, I inherited a bug report for the same symptom:
-> > >     http://bugzilla.kernel.org/show_bug.cgi?id=3156
-> > >
-> > > thanks,
-> > > grant
-> > >
-> > > Signed-off-by: Grant Grundler
-> > >
-> > > --- linux-2.6.23/drivers/net/tulip/de2104x.c	2007-10-09
-> > > 13:31:38.000000000 -0700 +++
-> > > linux-2.6.23/drivers/net/tulip/de2104x.c-ggg	2007-11-02
-> > > 23:24:46.000000000 -0700 @@ -842,7 +842,7 @@
-> > >  static void de_stop_rxtx (struct de_private *de)
-> > >  {
-> > >  	u32 macmode;
-> > > -	unsigned int work = 1000;
-> > > +	unsigned int i = 1300/100;
-> > >
-> > >  	macmode = dr32(MacMode);
-> > >  	if (macmode & RxTx) {
-> > > @@ -850,10 +850,14 @@
-> > >  		dr32(MacMode);
-> > >  	}
-> > >
-> > > -	while (--work > 0) {
-> > > +	/* wait until in-flight frame completes.
-> > > +	 * Max time @ 10BT: 1500*8b/10Mbps == 1200us (+ 100us margin)
-> > > +	 * Typically expect this loop to end in < 50 us on 100BT.
-> > > +	 */
-> > > +	while (--i) {
-> > >  		if (!de_is_running(de))
-> > >  			return;
-> > > -		cpu_relax();
-> > > +		udelay(100);
-> > >  	}
-> > >
-> > >  	printk(KERN_WARNING "%s: timeout expired stopping DMA\n",
-> > > de->dev->name);
-> >
-> > --
-> > Ondrej Zary
+ drivers/net/e1000e/defines.h |    1 
+ drivers/net/e1000e/e1000.h   |    1 
+ drivers/net/e1000e/netdev.c  |  161 ++++++++++++++++++++++++++++++++++++++++--
+ 3 files changed, 155 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
+index a4f511f..c3593f3 100644
+--- a/drivers/net/e1000e/defines.h
++++ b/drivers/net/e1000e/defines.h
+@@ -385,6 +385,7 @@
+ 
+ /* Interrupt Cause Set */
+ #define E1000_ICS_LSC       E1000_ICR_LSC       /* Link Status Change */
++#define E1000_ICS_RXSEQ     E1000_ICR_RXSEQ     /* rx sequence error */
+ #define E1000_ICS_RXDMT0    E1000_ICR_RXDMT0    /* rx desc min. threshold */
+ 
+ /* Transmit Descriptor Control */
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 4bf0c6c..556b258 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -305,6 +305,7 @@ struct e1000_info {
+ #define FLAG_MSI_ENABLED                  (1 << 27)
+ #define FLAG_RX_CSUM_ENABLED              (1 << 28)
+ #define FLAG_TSO_FORCE                    (1 << 29)
++#define FLAG_MSI_TEST_FAILED              (1 << 30)
+ 
+ #define E1000_RX_DESC_PS(R, i)	    \
+ 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index f501dd5..41d57da 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -932,25 +932,30 @@ static irqreturn_t e1000_intr(int irq, void *data)
+ static int e1000_request_irq(struct e1000_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+-	irq_handler_t handler = e1000_intr;
+ 	int irq_flags = IRQF_SHARED;
+ 	int err;
+ 
+-	if (!pci_enable_msi(adapter->pdev)) {
+-		adapter->flags |= FLAG_MSI_ENABLED;
+-		handler = e1000_intr_msi;
+-		irq_flags = 0;
++	if (!(adapter->flags & FLAG_MSI_TEST_FAILED)) {
++		err = pci_enable_msi(adapter->pdev);
++		if (!err) {
++			adapter->flags |= FLAG_MSI_ENABLED;
++			irq_flags = 0;
++		}
+ 	}
+ 
+-	err = request_irq(adapter->pdev->irq, handler, irq_flags, netdev->name,
+-			  netdev);
++	err = request_irq(adapter->pdev->irq,
++			  (adapter->flags & FLAG_MSI_ENABLED) ?
++			  &e1000_intr_msi : &e1000_intr, irq_flags,
++			  netdev->name, netdev);
+ 	if (err) {
+ 		ndev_err(netdev,
+ 		       "Unable to allocate %s interrupt (return: %d)\n",
+ 			adapter->flags & FLAG_MSI_ENABLED ? "MSI":"INTx",
+ 			err);
+-		if (adapter->flags & FLAG_MSI_ENABLED)
++		if (adapter->flags & FLAG_MSI_ENABLED) {
+ 			pci_disable_msi(adapter->pdev);
++			adapter->flags &= ~FLAG_MSI_ENABLED;
++		}
+ 	}
+ 
+ 	return err;
+@@ -2234,6 +2239,135 @@ err:
+ }
+ 
+ /**
++ * e1000_intr_msi_test - Interrupt Handler
++ * @irq: interrupt number
++ * @data: pointer to a network interface device structure
++ **/
++static irqreturn_t e1000_intr_msi_test(int irq, void *data)
++{
++	struct net_device *netdev = data;
++	struct e1000_adapter *adapter = netdev_priv(netdev);
++	struct e1000_hw *hw = &adapter->hw;
++
++	u32 icr = er32(ICR);
++	ndev_dbg(netdev, "icr is %08X\n", icr);
++	if (icr & E1000_ICR_RXSEQ) {
++		adapter->flags &= ~FLAG_MSI_TEST_FAILED;
++		wmb();
++	}
++
++	return IRQ_HANDLED;
++}
++
++/**
++ * e1000_test_msi_interrupt - Returns 0 for successful test
++ * @adapter: board private struct
++ *
++ * code flow taken from tg3.c
++ **/
++static int e1000_test_msi_interrupt(struct e1000_adapter *adapter)
++{
++	struct net_device *netdev = adapter->netdev;
++	struct e1000_hw *hw = &adapter->hw;
++	int err;
++
++	/* poll_enable hasn't been called yet, so don't need disable */
++	/* clear any pending events */
++	er32(ICR);
++
++	/* free the real vector and request a test handler */
++	e1000_free_irq(adapter);
++
++	err = pci_enable_msi(adapter->pdev);
++	if (err)
++		goto msi_test_failed;
++
++	err = request_irq(adapter->pdev->irq, &e1000_intr_msi_test, 0,
++			  netdev->name, netdev);
++	if (err) {
++		pci_disable_msi(adapter->pdev);
++		goto msi_test_failed;
++	}
++
++	/* Assume that the test fails, if it succeeds then the test
++	 * MSI irq handler will unset this flag */
++	adapter->flags |= FLAG_MSI_TEST_FAILED;
++	wmb();
++
++	e1000_irq_enable(adapter);
++
++	/* fire an unusual interrupt on the test handler */
++	ew32(ICS, E1000_ICS_RXSEQ);
++	e1e_flush();
++	msleep(50);
++
++	e1000_irq_disable(adapter);
++
++	rmb();
++
++	if (adapter->flags & FLAG_MSI_TEST_FAILED) {
++		err = -EIO;
++		ndev_dbg(netdev, "MSI interrupt test failed!\n");
++	}
++
++	free_irq(adapter->pdev->irq, netdev);
++	pci_disable_msi(adapter->pdev);
++
++	if (err == -EIO)
++		goto msi_test_failed;
++
++	/* okay so the test worked, restore settings */
++	ndev_dbg(netdev, "MSI interrupt test succeeded!\n");
++msi_test_failed:
++	/* restore the original vector, even if it failed */
++	e1000_request_irq(adapter);
++	return err;
++}
++
++/**
++ * e1000_test_msi - Returns 0 if MSI test succeeds or INTx mode is restored
++ * @adapter: board private struct
++ *
++ * code flow taken from tg3.c, called with e1000 interrupts disabled.
++ **/
++static int e1000_test_msi(struct e1000_adapter *adapter)
++{
++	int err;
++	u16 pci_cmd;
++
++	if (!(adapter->flags & FLAG_MSI_ENABLED))
++		return 0;
++
++	/* disable SERR in case the MSI write causes a master abort */
++	pci_read_config_word(adapter->pdev, PCI_COMMAND, &pci_cmd);
++	pci_write_config_word(adapter->pdev, PCI_COMMAND,
++			      pci_cmd & ~PCI_COMMAND_SERR);
++
++	err = e1000_test_msi_interrupt(adapter);
++
++	/* restore previous setting of command word */
++	pci_write_config_word(adapter->pdev, PCI_COMMAND, pci_cmd);
++
++	/* success ! */
++	if (!err)
++		return 0;
++
++	/* EIO means MSI test failed */
++	if (err != -EIO)
++		return err;
++
++	/* back to INTx mode */
++	ndev_warn(adapter->netdev, "MSI interrupt test failed, using legacy "
++		  "interrupt.\n");
++
++	e1000_free_irq(adapter);
++
++	err = e1000_request_irq(adapter);
++
++	return err;
++}
++
++/**
+  * e1000_open - Called when a network interface is made active
+  * @netdev: network interface device structure
+  *
+@@ -2288,6 +2422,17 @@ static int e1000_open(struct net_device *netdev)
+ 	if (err)
+ 		goto err_req_irq;
+ 
++	/*
++	 * Work around PCIe errata with MSI interrupts causing some chipsets to
++	 * ignore e1000e MSI messages, which means we need to test our MSI
++	 * interrupt now
++	 */
++	err = e1000_test_msi(adapter);
++	if (err) {
++		ndev_err(netdev, "Interrupt allocation failed\n");
++		goto err_req_irq;
++	}
++
+ 	/* From here on the code is the same as e1000e_up() */
+ 	clear_bit(__E1000_DOWN, &adapter->state);
+ 
 
 
-
--- 
-Ondrej Zary
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
