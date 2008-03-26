@@ -1,35 +1,32 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
-Date: Thu, 27 Mar 2008 00:05:15 +0100
-Message-ID: <m3iqz9jdck.fsf@maximus.localdomain>
-References: <m3prtzsszg.fsf@maximus.localdomain>
-	<m3tzj92xq6.fsf@maximus.localdomain>
-	<m33aqedg0a.fsf@maximus.localdomain> <47E91256.3010000@garzik.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-03-24
+Date: Wed, 26 Mar 2008 16:11:35 -0700 (PDT)
+Message-ID: <20080326.161135.92926153.davem@davemloft.net>
+References: <20080324234951.GA8712@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:40500 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753820AbYCZXFR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2008 19:05:17 -0400
-In-Reply-To: <47E91256.3010000@garzik.org> (Jeff Garzik's message of "Tue\, 25 Mar 2008 10\:55\:18 -0400")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080324234951.GA8712-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jeff@garzik.org> writes:
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Mon, 24 Mar 2008 19:49:51 -0400
 
-> So quite honestly a CONFIG_BROKEN patch might indeed be more
-> appropriate since generic HDLC works with Frame Relay at least...
+> Here is today's round of fixes for 2.6.25.  Most of them are one-liners,
+> including a few typos, a couple of warning fixes, and a new USB ID for
+> rt73.  The only one of much size is a b43 fix relating to the hacks
+> used to overcome the limitations of its DMA hardware.  Overall, I don't
+> think there is anything controversial this time around.
 
-Actually my question was intended for Andrew as he has already
-queued the PPP patch - I probably should have rearranged To/Cc:
-headers, sorry about that.
+Pulled and pushed out to net-2.6, thanks!
 
-The question still stands: I guess it's fair enough to have either
-patch in 2.6.25 (new PPP or "BROKEN" in Kconfig) but I think we
-shouldn't leave it as is.
--- 
-Krzysztof Halasa
+I'll try to get this merged into net-2.6.26 before the
+weekend.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
