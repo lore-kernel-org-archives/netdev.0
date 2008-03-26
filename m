@@ -1,29 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver fixes
-Date: Tue, 25 Mar 2008 23:09:19 -0700 (PDT)
-Message-ID: <20080325.230919.126930392.davem@davemloft.net>
-References: <20080326053149.GA29466@havoc.gtf.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [UML]: uml-net: don't set IFF_ALLMULTI in set_multicast_list
+Date: Wed, 26 Mar 2008 02:10:21 -0400
+Message-ID: <47E9E8CD.1060408@garzik.org>
+References: <47E9E331.1010105@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+Cc: jdike@addtoit.com, user-mode-linux-devel@lists.sourceforge.net,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40031
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751578AbYCZGJW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 02:09:22 -0400
-In-Reply-To: <20080326053149.GA29466@havoc.gtf.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:47823 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752243AbYCZGK3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 02:10:29 -0400
+In-Reply-To: <47E9E331.1010105@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Wed, 26 Mar 2008 01:31:49 -0400
+>  static void uml_net_set_multicast_list(struct net_device *dev)
+>  {
+> -	if (dev->flags & IFF_PROMISC)
+> -		return;
+> -	else if (dev->mc_count)
+> -		dev->flags |= IFF_ALLMULTI;
+> -	else dev->flags &= ~IFF_ALLMULTI;
+> +	return;
+>  }
 
-> 
-> Please pull from 'upstream-davem' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-davem
-> 
-> to receive the following updates:
 
-Pulled and pushed back out to net-2.6, thanks!
+
+Might as well just delete the hook at that point...
+
+	Jeff
+
+
