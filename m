@@ -1,40 +1,46 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Patch 2.6.25 2/2]S2io: Version update for Tx completion patch
-Date: Tue, 25 Mar 2008 23:21:04 -0400
-Message-ID: <47E9C120.1040009@garzik.org>
-References: <Pine.GSO.4.10.10803251512010.22948-100000@guinness>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Improvev netconsole support for RTL8139 NIC driver
+Date: Tue, 25 Mar 2008 20:30:43 -0700 (PDT)
+Message-ID: <20080325.203043.196469543.davem@davemloft.net>
+References: <47E9B39C.5010502@pobox.com>
+	<20080325.194221.16658596.davem@davemloft.net>
+	<47E9BF7B.3030003@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, support@neterion.com
-To: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+Cc: yang.shi@windriver.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43469 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755427AbYCZDVG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 23:21:06 -0400
-In-Reply-To: <Pine.GSO.4.10.10803251512010.22948-100000@guinness>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56604
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752637AbYCZDar (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 23:30:47 -0400
+In-Reply-To: <47E9BF7B.3030003@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sreenivasa Honnur wrote:
-> - Updated version number.
+From: Jeff Garzik <jgarzik@pobox.com>
+Date: Tue, 25 Mar 2008 23:14:03 -0400
+
+> David Miller wrote:
+> > From: Jeff Garzik <jgarzik@pobox.com>
+> > Date: Tue, 25 Mar 2008 22:23:24 -0400
+> > 
+> >> This is bogus -- you should never need to slow down the hot path in such 
+> >> a way.
+> > 
+> > Slow down in what way?  Even on x86 saving the flags is just
+> > about as expensive as a plain sti/cli.
 > 
-> Signed-off-by: Surjit Reang <surjit.reang@neterion.com>
-> ---
-> diff -Nurp 2-0-26-21-1/drivers/net/s2io.c 2-0-26-21-2/drivers/net/s2io.c
-> --- 2-0-26-21-1/drivers/net/s2io.c	2008-03-20 10:22:25.000000000 +0530
-> +++ 2-0-26-21-2/drivers/net/s2io.c	2008-03-20 10:36:33.000000000 +0530
-> @@ -86,7 +86,7 @@
->  #include "s2io.h"
->  #include "s2io-regs.h"
->  
-> -#define DRV_VERSION "2.0.26.19"
-> +#define DRV_VERSION "2.0.26.20"
->  
->  /* S2io Driver name & version. */
->  static char s2io_driver_name[] = "Neterion";
+> Replacing spin_lock() [current 8139too.c] with spin_lock_irqsave() 
+> results in a larger interrupt handler... more CPU instructions for the 
+> same result.
 
-patch failed to apply
+Jeff, please be realistic.
 
+These interrupt handlers about to do a PIO on a status register, which
+will consume on the order of a few hundred cpu cycles.
 
+Counting an I-cache line or two, or 18 cycles here or there,
+is immaterial by comparison.
