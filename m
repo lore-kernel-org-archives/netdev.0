@@ -1,27 +1,29 @@
-From: "Denis V. Lunev" <den@openvz.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Subject: Re: [PATCH 1/2 net-2.6.26] [NETNS]: Compilation fix for
-	include/linux/netdevice.h.
-Date: Wed, 26 Mar 2008 10:52:12 +0300
-Message-ID: <1206517932.20894.5.camel@iris.sw.ru>
+ include/linux/netdevice.h.
+Date: Wed, 26 Mar 2008 17:07:02 +0900 (JST)
+Message-ID: <20080326.170702.24448643.yoshfuji@linux-ipv6.org>
 References: <1206517259-29152-1-git-send-email-den@openvz.org>
-	 <20080326.004742.92048899.davem@davemloft.net>
+	<20080326.004742.92048899.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org,
-	containers@lists.osdl.org, xemul@openvz.org,
-	yoshfuji@linux-ipv6.org, dlezcano@fr.ibm.com
-To: David Miller <davem@davemloft.net>
+Cc: den@openvz.org, netdev@vger.kernel.org, devel@openvz.org,
+	containers@lists.osdl.org, xemul@openvz.org, dlezcano@fr.ibm.com,
+	yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:3998 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752274AbYCZHwH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2008 03:52:07 -0400
+Received: from yue.linux-ipv6.org ([203.178.140.15]:55289 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753969AbYCZIFi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 04:05:38 -0400
 In-Reply-To: <20080326.004742.92048899.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-03-26 at 00:47 -0700, David Miller wrote:
+In article <20080326.004742.92048899.davem@davemloft.net> (at Wed, 26 Mar 2008 00:47:42 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+
 > From: "Denis V. Lunev" <den@openvz.org>
 > Date: Wed, 26 Mar 2008 10:40:58 +0300
 > 
@@ -37,6 +39,9 @@ On Wed, 2008-03-26 at 00:47 -0700, David Miller wrote:
 > 
 > Too bad allmodconfig doesn't enable things which are y/n only.
 
-We are in trouble for this right now :( there we do not work with SYSFS
-enabled right now.
+Sorry for the typo.
 
+Unfortunately, NET_NS depends on !SYSFS,
+so allyesconfig might not help...
+
+--yoshfuji
