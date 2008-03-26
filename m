@@ -1,58 +1,88 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Improvev netconsole support for RTL8139 NIC driver
-Date: Tue, 25 Mar 2008 20:53:31 -0700 (PDT)
-Message-ID: <20080325.205331.02412053.davem@davemloft.net>
-References: <20080325.203043.196469543.davem@davemloft.net>
-	<47E9C56F.2070508@pobox.com>
-	<47E9C784.6050807@garzik.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [git patches] net driver updates for .26
+Date: Wed, 26 Mar 2008 00:07:21 -0400
+Message-ID: <47E9CBF9.3040700@garzik.org>
+References: <20080318075902.GA18010@havoc.gtf.org> <20080322.183522.124237568.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yang.shi@windriver.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+Cc: netdev@vger.kernel.org, Chris Snook <csnook@redhat.com>,
+	Jay Cliburn <jacliburn@bellsouth.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33050
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752043AbYCZDxf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 23:53:35 -0400
-In-Reply-To: <47E9C784.6050807@garzik.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:34881 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750776AbYCZEHY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 00:07:24 -0400
+In-Reply-To: <20080322.183522.124237568.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Tue, 25 Mar 2008 23:48:20 -0400
-
-> Jeff Garzik wrote:
-> > I am being realistic...  it's
-> > 
-> > * not needed
-> > * increases code size
-> > * increases number of CPU instructions executed
-> > * not needed
+David Miller wrote:
+> From: Jeff Garzik <jeff@garzik.org>
+> Date: Tue, 18 Mar 2008 03:59:02 -0400
 > 
-> I also wonder if using spin_lock_irqsave() makes moving to a real-time 
-> kernel with interrupt threads more difficult for that driver.
+>> Just sent this upstream to davem for 2.6.26...  snipped the patch I
+>> usually post along with a git push, due to mailing list restrictions.
+>>
+>> Please pull from 'upstream-net26' branch of
+>> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-net26
 > 
-> And of course we're talking about a hot path here.
+> This fails an allmodconfig build:
+> 
+> drivers/net/8390.c: In function '__inittest':
+> drivers/net/8390.c:60: error: 'ns8390_init_module' undeclared (first use in this function)
+> drivers/net/8390.c:60: error: (Each undeclared identifier is reported only once
+> drivers/net/8390.c:60: error: for each function it appears in.)
+> 
+> The fix was easy so I took care of it, this time...
 
-First, if you mention CPU instructions executed you're
-totally ignoring what I wrote.  Which is that we're
-about to sit spinning on hundreds of cycles doing a PIO
-read on a status register.
+hrm, indeed.  sorry about that.  Something clearly screwed up in my 
+process, because part of that process is an x86-64 allmodconfig before 
+pushing.
 
-Those hand full of cycles doing the irqsave/irqrestore don't matter,
-at all.
 
-Again, you're arguing for 18 cycles or so out of say 800.
-It's peanuts, at best.
+> There was also a merge conflict in drivers/s390/net/qeth_main.c
+> (against a net-2.6.26 change, which is why you really should work
+> against that for 2.6.26 bound changes not against Linus's head as you
+> did here), which is easy to resolve by putting the conflicting change
+> to qeth_main.c into the inetdev notifier in qeth_l3_main.c, which
+> I took care of as well.
+> 
+> This time....
 
-Secondly, this isn't a hot path.  The "hot path" is in the
-->poll() handler which does all of the real packet RX work.
-And that runs lockless, in software interrupt context.
+I mentioned this one on IRC ahead of time, when I asked if it was OK, as 
+an exception, to base off Linus's HEAD.  This was because I had started 
+my for-2.6.26 queue a while before you did.
 
-The HW interrupt handler's cost is lower bound by the cost of doing a
-PIO on the status register, it's impractical to perform any
-micro-optimizations of any sort here.
+And just to state the obvious, unless you and I agree on an exception 
+(which I thought we had done this time), all changes from me will be 
+based on top of your repo(s) rather than Linus's.
 
-Especially those that sacrifice consistency.
+
+> There are also some new build warnings such as:
+> 
+> drivers/net/atlx/atl1.c:506: warning: 'atl1_phy_enter_power_saving' defined but not used
+
+<checks>  doesn't appear in allmodconfig, so it looks like 
+atl1_phy_enter_power_saving() just needs some CONFIG_PM wrappers
+
+(hi Jay, Chris)
+
+
+> Which I fixed up as well, but that atl1_phy_enter_power_saving()
+> function is just a jumble of commented out code, yuck!  Please
+> review some of this stuff :-/
+
+I did not see anything wrong with a maintainer leaving in some 
+commented-out placeholder code.
+
+Some of this stuff should get filled in once Chris and Jay add atl2 
+support to the existing atl1 stuff you see here.
+
+That was a big impetus for this set of atl1 changes -- move things 
+around and massage things so that it is trivial to drop in atl2 support.
+
+	Jeff
+
+
