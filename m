@@ -1,147 +1,32 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [VLAN]: Reduce memory consumed by vlan_groups
-Date: Wed, 26 Mar 2008 20:50:39 +0100
-Message-ID: <47EAA90F.1090800@trash.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
+Date: Wed, 26 Mar 2008 21:14:18 +0100
+Message-ID: <47EAAE9A.9050305@gmail.com>
+References: <47EA7DE8.9070203@sun.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010009050506000507020007"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Matheos Worku <Matheos.Worku@Sun.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38760 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753728AbYCZTum (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 15:50:42 -0400
+Received: from ug-out-1314.google.com ([66.249.92.174]:19473 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754830AbYCZUFF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 16:05:05 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so180153ugc.16
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2008 13:05:03 -0700 (PDT)
+In-Reply-To: <47EA7DE8.9070203@sun.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010009050506000507020007
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Matheos Worku wrote, On 03/26/2008 05:46 PM:
+...
 
-Following is a single VLAN patch from Pavel that is needed for
-further VLAN namespace work to avoid conflicts.
+> outside the driver as well.  I have attached several lockup  error 
+> traces and corresponding profile data. Any clues?
 
-Please apply, thanks.
+Are network cards' irqs balanced? If so, could you reproduce this
+with affinity set?
 
-
---------------010009050506000507020007
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-commit d84abbb1607bac6214754fbffd5c387fcc0ef8fb
-Author: Pavel Emelyanov <xemul@openvz.org>
-Date:   Wed Mar 26 20:36:34 2008 +0100
-
-    [VLAN]: Reduce memory consumed by vlan_groups
-    
-    Currently each vlan_groupd contains 8 pointers on arrays with 512
-    pointers on struct net_device each  :)  Such a construction "in many
-    cases ... wastes memory".
-    
-    My proposal is to allow for some of these arrays pointers be NULL,
-    meaning that there are no devices in it. When a new device is added
-    to the vlan_group, the appropriate array is allocated.
-    
-    The check in vlan_group_get_device's is safe, since the pointer
-    vg->vlan_devices_arrays[x] can only switch from NULL to not-NULL.
-    The vlan_group_prealloc_vid() is guarded with rtnl lock and is
-    also safe.
-    
-    I've checked (I hope that) all the places, that use these arrays
-    and found, that the register_vlan_dev is the only place, that can
-    put a vlan device on an empty vlan_group.
-    
-    Rough calculations shows, that after the patch a setup with a
-    single vlan dev (or up to 512 vlans with sequential vids) will
-    occupy approximately 8 times less memory.
-    
-    The question I have is - does this patch makes sense, or a totally
-    new structures are required to store the vlan_devs?
-    
-    Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 79504b2..edd55af 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -93,7 +93,7 @@ static inline struct net_device *vlan_group_get_device(struct vlan_group *vg,
- {
- 	struct net_device **array;
- 	array = vg->vlan_devices_arrays[vlan_id / VLAN_GROUP_ARRAY_PART_LEN];
--	return array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN];
-+	return array ? array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN] : NULL;
- }
- 
- static inline void vlan_group_set_device(struct vlan_group *vg,
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index c35dc23..694be86 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -106,29 +106,35 @@ static void vlan_group_free(struct vlan_group *grp)
- static struct vlan_group *vlan_group_alloc(int ifindex)
- {
- 	struct vlan_group *grp;
--	unsigned int size;
--	unsigned int i;
- 
- 	grp = kzalloc(sizeof(struct vlan_group), GFP_KERNEL);
- 	if (!grp)
- 		return NULL;
- 
--	size = sizeof(struct net_device *) * VLAN_GROUP_ARRAY_PART_LEN;
--
--	for (i = 0; i < VLAN_GROUP_ARRAY_SPLIT_PARTS; i++) {
--		grp->vlan_devices_arrays[i] = kzalloc(size, GFP_KERNEL);
--		if (!grp->vlan_devices_arrays[i])
--			goto err;
--	}
--
- 	grp->real_dev_ifindex = ifindex;
- 	hlist_add_head_rcu(&grp->hlist,
- 			   &vlan_group_hash[vlan_grp_hashfn(ifindex)]);
- 	return grp;
-+}
- 
--err:
--	vlan_group_free(grp);
--	return NULL;
-+static int vlan_group_prealloc_vid(struct vlan_group *vg, int vid)
-+{
-+	struct net_device **array;
-+	unsigned int size;
-+
-+	ASSERT_RTNL();
-+
-+	array = vg->vlan_devices_arrays[vid / VLAN_GROUP_ARRAY_PART_LEN];
-+	if (array != NULL)
-+		return 0;
-+
-+	size = sizeof(struct net_device *) * VLAN_GROUP_ARRAY_PART_LEN;
-+	array = kzalloc(size, GFP_KERNEL);
-+	if (array == NULL)
-+		return -ENOBUFS;
-+
-+	vg->vlan_devices_arrays[vid / VLAN_GROUP_ARRAY_PART_LEN] = array;
-+	return 0;
- }
- 
- static void vlan_rcu_free(struct rcu_head *rcu)
-@@ -247,6 +253,10 @@ int register_vlan_dev(struct net_device *dev)
- 			return -ENOBUFS;
- 	}
- 
-+	err = vlan_group_prealloc_vid(grp, vlan_id);
-+	if (err < 0)
-+		goto out_free_group;
-+
- 	err = register_netdevice(dev);
- 	if (err < 0)
- 		goto out_free_group;
-
---------------010009050506000507020007--
+Regards,
+Jarek P.
