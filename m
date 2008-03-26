@@ -1,31 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.26][NETNS][ICMP]: Build fix for NET_NS=n case
- (dev->nd_net is omitted).
-Date: Wed, 26 Mar 2008 02:19:40 -0700 (PDT)
-Message-ID: <20080326.021940.29039999.davem@davemloft.net>
-References: <47EA1457.3010706@openvz.org>
+From: Marcus Better <marcus@better.se>
+Subject: Re: [Bugme-new] [Bug 10327] New: keyboard stops responding after
+ "ifdown eth0"
+Date: Wed, 26 Mar 2008 10:19:40 +0100
+Message-ID: <47EA152C.6000008@better.se>
+References: <bug-10327-10286@http.bugzilla.kernel.org/>	<20080325143941.300d415f.akpm@linux-foundation.org>	<47E9721C.2000306@better.se>	<47E99258.3060005@s5r6.in-berlin.de> <20080325171608.509f4ca7.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xemul@openvz.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36034
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753539AbYCZJTl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 05:19:41 -0400
-In-Reply-To: <47EA1457.3010706@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	bugme-daemon@bugzilla.kernel.org, linux-kernel@vger.kernel.org,
+	linux-input@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <20080325171608.509f4ca7.akpm@linux-foundation.org>
+Sender: linux-input-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Wed, 26 Mar 2008 12:16:07 +0300
-
-> I didn't check the kernel build after pulling dev->nd_net access 
-> optimization from net-2.6.26 tree :(
+Andrew Morton wrote:
+> 	( sleep 10 ; echo t > /proc/sysrq-trigger ) &
+> 	ifdown eth0
 > 
-> Sorry.
 > 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> - See if the sysrq-t output made it to /var/log/messages
 
-Applied, thanks.
+No, not a word. It hung after printing this:
+
+...
+DHCPRELEASE ...
+send_packet: Network is unreachable
+send_packet: please consult README ...
+sky2 eth0: disabling interface
+~# sky2 eth0: enabling interface
+
+I'm running ifplugd, but this time there was no network cable connected. 
+Also ran from virtual console this time, the keyboard locked up like before.
+
+SysRq keys work, so I could do sysrq-s, sysrq-b. Also pressed sysrq-t 
+before rebooting.
+
+Any use trying netconsole? Can I run it over the wireless interface?
+
+Marcus
