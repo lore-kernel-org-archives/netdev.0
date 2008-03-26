@@ -1,78 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH][ICMP]: Dst entry leak in icmp_send host re-lookup code.
-Date: Wed, 26 Mar 2008 11:32:00 +0800
-Message-ID: <20080326033200.GA31748@gondor.apana.org.au>
-References: <47E91CD0.8000901@openvz.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] Improvev netconsole support for RTL8139 NIC driver
+Date: Wed, 26 Mar 2008 00:32:28 -0400
+Message-ID: <47E9D1DC.6030201@garzik.org>
+References: <20080325.203043.196469543.davem@davemloft.net>	<47E9C56F.2070508@pobox.com>	<47E9C784.6050807@garzik.org> <20080325.205331.02412053.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Denis Lunev <den@openvz.org>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: yang.shi@windriver.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:48102 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750919AbYCZEYL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 00:24:11 -0400
-Content-Disposition: inline
-In-Reply-To: <47E91CD0.8000901@openvz.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:40173 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750879AbYCZEcb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 00:32:31 -0400
+In-Reply-To: <20080325.205331.02412053.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 25, 2008 at 06:40:00PM +0300, Pavel Emelyanov wrote:
-> Commit 8b7817f3a959ed99d7443afc12f78a7e1fcc2063 ([IPSEC]: Add ICMP host
-> relookup support) introduced some dst leaks on error paths: the rt
-> pointer can be forgotten to be put. Fix it bu going to a proper label.
+David Miller wrote:
+> First, if you mention CPU instructions executed you're
+> totally ignoring what I wrote.  Which is that we're
+> about to sit spinning on hundreds of cycles doing a PIO
+> read on a status register.
 > 
-> Found after net namespace's lo refused to unregister :) Many thanks to 
-> Den for valuable help during debugging.
+> Those hand full of cycles doing the irqsave/irqrestore don't matter,
+> at all.
 > 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
+> Again, you're arguing for 18 cycles or so out of say 800.
+> It's peanuts, at best.
 
-Thanks for catching this!
+No, I hear you.
 
-> diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-> index ff9a8e6..db231cb 100644
-> --- a/net/ipv4/icmp.c
-> +++ b/net/ipv4/icmp.c
-> @@ -594,11 +594,11 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
->  			rt = NULL;
->  			break;
->  		default:
-> -			goto out_unlock;
-> +			goto ende;
->  		}
+I'm not focusing on cycles, but list examples of the negative effects of 
+doing needless work for the sake of consistency:
 
-I'm not sure about this bit though because xfrm_lookup is meant
-to free the route on error.
+* eliminates ability to compile-out spinlocks on UP
+* code size increases (even if miniscule)
+* CPU instructions in a hot path increases (even if lost in the noise)
+* stack usage increases (even if miniscule)
 
->  		if (xfrm_decode_session_reverse(skb_in, &fl, AF_INET))
-> -			goto out_unlock;
-> +			goto ende;
->  
->  		if (inet_addr_type(net, fl.fl4_src) == RTN_LOCAL)
->  			err = __ip_route_output_key(net, &rt2, &fl);
-> @@ -608,7 +608,7 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
->  
->  			fl2.fl4_dst = fl.fl4_src;
->  			if (ip_route_output_key(net, &rt2, &fl2))
-> -				goto out_unlock;
-> +				goto ende;
->  
->  			/* Ugh! */
->  			odst = skb_in->dst;
-> @@ -621,7 +621,7 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
->  		}
->  
->  		if (err)
-> -			goto out_unlock;
-> +			goto ende;
+But those are just examples of the principle:  don't do work you don't 
+need to do.
 
-These ones look good.
+I also think spin_lock -> spin_lock_irqsave amounts to a slight loss of 
+information, too:  Use of spin_lock() rather than spin_lock_irqsave() 
+potentially gives the -rt folks some additional flexibility, by 
+advertising a different set of acceptable irq-disablement states.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Is the effect huge in this specific case?  No.
+
+Does that give us license to add needless code to drivers?  No, again, IMO.
+
+	Jeff
+
+
