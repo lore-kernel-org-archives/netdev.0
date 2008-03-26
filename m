@@ -1,71 +1,127 @@
-From: Hideo AOKI <haoki@redhat.com>
-Subject: Re: [RFC] [NET] [0/2] pskb_expand_head() bugfix
-Date: Wed, 26 Mar 2008 16:47:35 -0400
-Message-ID: <47EAB667.6010308@redhat.com>
-References: <47E946C8.6020006@redhat.com> <20080325235536.GB30298@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, haoki@redhat.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Allan Stephens <allan.stephens@windriver.com>
+Subject: [PATCH net-2.6.26] [TIPC]: Cosmetic cleanup of TIPC polling logic
+Date: Wed, 26 Mar 2008 17:02:39 -0400
+Message-ID: <1206565359-14538-1-git-send-email-allan.stephens@windriver.com>
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:43292 "EHLO mx1.redhat.com"
+Received: from mail.windriver.com ([147.11.1.11]:56262 "EHLO mail.wrs.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757979AbYCZUrr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2008 16:47:47 -0400
-In-Reply-To: <20080325235536.GB30298@gondor.apana.org.au>
+	id S1755140AbYCZVUE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 17:20:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Herbert,
+This patch eliminates an unnecessary poll-related routine
+by merging it into TIPC's main polling routine, and updates
+the comments associated with this code.
 
-Thank you for your quick response.
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+---
+ net/tipc/socket.c |   78 ++++++++++++++++++++++++----------------------------
+ 1 files changed, 36 insertions(+), 42 deletions(-)
 
-Herbert Xu wrote:
-> On Tue, Mar 25, 2008 at 02:39:04PM -0400, Hideo AOKI wrote:
->>
->> Current pskb_expand_head() doesn't change truesize, while it
->> reallocates memory. Then, if argument nhead or ntail aren't 0, caller
->> must update truesize.
->>
->> We had this bug at audit_expand() in January and fixed it as commit
->> 406a1d868001423c85a3165288e566e65f424fe6. However, some drivers and
->> subsystems still use pskb_expand_head() without updating truesize.
-> 
-> Drivers usually aren't supposed to change truesize so doing
-> this would actually create bugs.
-
-I understood your point. 
-
-Since keeping correct truesize is important to network memory
-accounting, I want to fix network subsystem part at least.
-
-I think that it is inconvenient for caller functions to need
-updateing truesize by themselves. How about this change to
-avoid the inconvenience?
-
- - Current implementation is renamed to __pskb_expand_head().
- - Drivers call __pskb_expand_head() instead of pskb_expand_head().
- - New pskb_expand_head() updates truesize after calling 
-  __pskb_expand_head(). 
-
-Or, should I simply add truesize calculation after
-pskb_expand_head() calls which change truesize?
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index ae45df0..1b5fb61 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -102,44 +102,6 @@ static void sock_unlock(struct tipc_sock* tsock)
+ }
  
->> In addition, there is another problem to update truesise. Since
->> pskb_expand_head() aligns memory size before reallocation, caller
->> functions may not update turesize correctly if they just add nhaad
->> and ntail to turesize.
-> 
-> That should be fixable by making sure that nhead + ntail is
-> aligned.
-
-I see.
-
-Regards,
-Hideo
-
+ /**
+- * pollmask - determine the current set of poll() events for a socket
+- * @sock: socket structure
+- *
+- * TIPC sets the returned events as follows:
+- * a) POLLRDNORM and POLLIN are set if the socket's receive queue is non-empty
+- *    or if a connection-oriented socket is does not have an active connection
+- *    (i.e. a read operation will not block).
+- * b) POLLOUT is set except when a socket's connection has been terminated
+- *    (i.e. a write operation will not block).
+- * c) POLLHUP is set when a socket's connection has been terminated.
+- *
+- * IMPORTANT: The fact that a read or write operation will not block does NOT
+- * imply that the operation will succeed!
+- *
+- * Returns pollmask value
+- */
+-
+-static u32 pollmask(struct socket *sock)
+-{
+-	u32 mask;
+-
+-	if ((skb_queue_len(&sock->sk->sk_receive_queue) != 0) ||
+-	    (sock->state == SS_UNCONNECTED) ||
+-	    (sock->state == SS_DISCONNECTING))
+-		mask = (POLLRDNORM | POLLIN);
+-	else
+-		mask = 0;
+-
+-	if (sock->state == SS_DISCONNECTING)
+-		mask |= POLLHUP;
+-	else
+-		mask |= POLLOUT;
+-
+-	return mask;
+-}
+-
+-
+-/**
+  * advance_queue - discard first buffer in queue
+  * @tsock: TIPC socket
+  */
+@@ -390,15 +352,47 @@ static int get_name(struct socket *sock, struct sockaddr *uaddr,
+  * @sock: socket for which to calculate the poll bits
+  * @wait: ???
+  *
+- * Returns the pollmask
++ * Returns pollmask value
++ *
++ * COMMENTARY:
++ * It appears that the usual socket locking mechanisms are not useful here
++ * since the pollmask info is potentially out-of-date the moment this routine
++ * exits.  TCP and other protocols seem to rely on higher level poll routines
++ * to handle any preventable race conditions, so TIPC will do the same ...
++ *
++ * TIPC sets the returned events as follows:
++ * a) POLLRDNORM and POLLIN are set if the socket's receive queue is non-empty
++ *    or if a connection-oriented socket is does not have an active connection
++ *    (i.e. a read operation will not block).
++ * b) POLLOUT is set except when a socket's connection has been terminated
++ *    (i.e. a write operation will not block).
++ * c) POLLHUP is set when a socket's connection has been terminated.
++ *
++ * IMPORTANT: The fact that a read or write operation will not block does NOT
++ * imply that the operation will succeed!
+  */
+ 
+ static unsigned int poll(struct file *file, struct socket *sock,
+ 			 poll_table *wait)
+ {
+-	poll_wait(file, sock->sk->sk_sleep, wait);
+-	/* NEED LOCK HERE? */
+-	return pollmask(sock);
++	struct sock *sk = sock->sk;
++	u32 mask;
++
++	poll_wait(file, sk->sk_sleep, wait);
++
++	if (!skb_queue_empty(&sk->sk_receive_queue) ||
++	    (sock->state == SS_UNCONNECTED) ||
++	    (sock->state == SS_DISCONNECTING))
++		mask = (POLLRDNORM | POLLIN);
++	else
++		mask = 0;
++
++	if (sock->state == SS_DISCONNECTING)
++		mask |= POLLHUP;
++	else
++		mask |= POLLOUT;
++
++	return mask;
+ }
+ 
+ /**
 -- 
-Hitachi Computer Products (America) Inc.
+1.5.3.2
 
