@@ -1,38 +1,55 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/9] e1000: Convert boolean_t to bool
-Date: Wed, 26 Mar 2008 00:34:21 -0400
-Message-ID: <47E9D24D.4010506@garzik.org>
-References: <20080321180625.24164.46137.stgit@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] forcedeth: Use round_jiffies for stats timer
+Date: Wed, 26 Mar 2008 00:35:36 -0400
+Message-ID: <47E9D298.8030609@pobox.com>
+References: <20080318110718.A0AFE9D4143@zog.reactivated.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: netdev@vger.kernel.org, aabdulla@nvidia.com
+To: Daniel Drake <dsd@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34189 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:34209 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751503AbYCZEeX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2008 00:34:23 -0400
-In-Reply-To: <20080321180625.24164.46137.stgit@localhost.localdomain>
+	id S1751599AbYCZEfj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 00:35:39 -0400
+In-Reply-To: <20080318110718.A0AFE9D4143@zog.reactivated.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Auke Kok wrote:
-> From: Joe Perches <joe@perches.com>
+Daniel Drake wrote:
+> This timer doesn't need to run at precise times, so round it to a whole
+> second to decrease wakeups.
 > 
-> On Thu, 2008-03-06 at 10:07 -0800, Kok, Auke wrote:
->> send me a patch for e1000 and for ixgb and I'll happily apply those :)
+> Signed-off-by: Daniel Drake <dsd@gentoo.org>
+> ---
+>  drivers/net/forcedeth.c |    6 ++++--
+>  1 files changed, 4 insertions(+), 2 deletions(-)
 > 
-> boolean_t to bool
-> TRUE to true
-> FALSE to false
-> comment typo ahread to ahead
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+> index 801b4d9..3f0d242 100644
+> --- a/drivers/net/forcedeth.c
+> +++ b/drivers/net/forcedeth.c
+> @@ -3792,7 +3792,8 @@ static void nv_do_stats_poll(unsigned long data)
+>  	nv_get_hw_stats(dev);
+>  
+>  	if (!np->in_shutdown)
+> -		mod_timer(&np->stats_poll, jiffies + STATS_INTERVAL);
+> +		mod_timer(&np->stats_poll,
+> +			round_jiffies(jiffies + STATS_INTERVAL));
+>  }
+>  
+>  static void nv_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+> @@ -4996,7 +4997,8 @@ static int nv_open(struct net_device *dev)
+>  
+>  	/* start statistics timer */
+>  	if (np->driver_data & (DEV_HAS_STATISTICS_V1|DEV_HAS_STATISTICS_V2))
+> -		mod_timer(&np->stats_poll, jiffies + STATS_INTERVAL);
+> +		mod_timer(&np->stats_poll,
+> +			round_jiffies(jiffies + STATS_INTERVAL));
+>  
+>  	spin_unlock_irq(&np->lock);
 
-applied 1-8 of 9
-
-sent #9 via #upstream-fixes (it arrived via a separate cover from you, too)
+applied
 
 
