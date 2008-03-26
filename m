@@ -1,73 +1,52 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.25][resend] rndis_host: fix oops when query for OID_GEN_PHYSICAL_MEDIUM
- fails
-Date: Tue, 25 Mar 2008 23:20:35 -0400
-Message-ID: <47E9C103.8050608@pobox.com>
-References: <20080323104535.10317.33658.stgit@fate.lan>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] b44: Truncate PHY address
+Date: Tue, 25 Mar 2008 23:20:49 -0400
+Message-ID: <47E9C111.2020005@garzik.org>
+References: <200803251804.46422.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dbrownell@users.sourceforge.net,
-	davem@davemloft.net
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Cc: agb@openwrt.org, Gary Zambrano <zambrano@broadcom.com>,
+	netdev@vger.kernel.org
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43434 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:43456 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753013AbYCZDUi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 23:20:38 -0400
-In-Reply-To: <20080323104535.10317.33658.stgit@fate.lan>
+	id S1755256AbYCZDUy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Mar 2008 23:20:54 -0400
+In-Reply-To: <200803251804.46422.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jussi Kivilinna wrote:
-> From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Michael Buesch wrote:
+> Some ROMs on embedded devices store incorrect values for
+> the PHY address of the ethernet device.
+> It looks like the number is sign-extended.
+> Truncate the value by applying the PHY-address mask to it.
+> The patch was tested on a bcm47xx embedded system (where the bug
+> triggers) and a bcm4400 PCI card.
 > 
-> When query for OID_GEN_PHYSICAL_MEDIUM fails, uninitialized pointer
-> 'phym' is being accessed in generic_rndis_bind(), resulting OOPS.
-> Patch fixes phym to be initialized and setup correctly when
-> rndis_query() for physical medium fails.
+> Signed-off-by: Michael Buesch <mb@bu3sch.de>
 > 
-> Bug was introduced by following commit:
-> commit 039ee17d1baabaa21783a0d5ab3e8c6d8c794bdf
-> Author: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-> Date:   Sun Jan 27 23:34:33 2008 +0200
-> 
-> Reported-by: Dmitri Monakhov <dmonakhov@openvz.org>
-> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-> Acked-by: David Brownell <dbrownell@users.sourceforge.net>
 > ---
 > 
->  drivers/net/usb/rndis_host.c |    9 ++++++---
->  1 files changed, 6 insertions(+), 3 deletions(-)
+> Jeff, this is a bugfix for 2.6.25.
 > 
-> diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
-> index a613247..1b810ab 100644
-> --- a/drivers/net/usb/rndis_host.c
-> +++ b/drivers/net/usb/rndis_host.c
-> @@ -287,7 +287,7 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
->  		struct rndis_set_c	*set_c;
->  		struct rndis_halt	*halt;
->  	} u;
-> -	u32			tmp, *phym;
-> +	u32			tmp, phym_unspec, *phym;
->  	int			reply_len;
->  	unsigned char		*bp;
->  
-> @@ -359,12 +359,15 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
->  		goto halt_fail_and_release;
->  
->  	/* Check physical medium */
-> +	phym = NULL;
->  	reply_len = sizeof *phym;
->  	retval = rndis_query(dev, intf, u.buf, OID_GEN_PHYSICAL_MEDIUM,
->  			0, (void **) &phym, &reply_len);
-> -	if (retval != 0)
-> +	if (retval != 0 || !phym) {
->  		/* OID is optional so don't fail here. */
-> -		*phym = RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED;
-> +		phym_unspec = RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED;
-> +		phym = &phym_unspec;
-> +	}
+> 
+> Index: wireless-testing/drivers/net/b44.c
+> ===================================================================
+> --- wireless-testing.orig/drivers/net/b44.c	2008-02-16 19:08:12.000000000 +0100
+> +++ wireless-testing/drivers/net/b44.c	2008-03-22 01:13:21.000000000 +0100
+> @@ -2082,6 +2082,11 @@ static int __devinit b44_get_invariants(
+>  		addr = sdev->bus->sprom.et0mac;
+>  		bp->phy_addr = sdev->bus->sprom.et0phyaddr;
+>  	}
+> +	/* Some ROMs have buggy PHY addresses with the high
+> +	 * bits set (sign extension?). Truncate them to a
+> +	 * valid PHY address. */
+> +	bp->phy_addr &= 0x1F;
+> +
+>  	memcpy(bp->dev->dev_addr, addr, 6);
 
 applied
 
