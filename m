@@ -1,41 +1,36 @@
-From: yshi <yang.shi@windriver.com>
-Subject: Re: [PATCH] Improvev netconsole support for RTL8139 NIC driver
-Date: Wed, 26 Mar 2008 10:52:28 +0800
-Message-ID: <47E9BA6C.2010502@windriver.com>
-References: <47E9B115.9060109@windriver.com>	<47E9B39C.5010502@pobox.com> <20080325.194221.16658596.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT net-2.6.26 0/5] [NET] NETNS: several optimization without
+ CONFIG_NET_NS.
+Date: Tue, 25 Mar 2008 20:03:58 -0700 (PDT)
+Message-ID: <20080325.200358.142617606.davem@davemloft.net>
+References: <20080326.083948.93645750.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: xemul@openvz.org, dlezcano@fr.ibm.com, brian.haley@hp.com,
+	netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:37573 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750727AbYCZCw2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 22:52:28 -0400
-In-Reply-To: <20080325.194221.16658596.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59515
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751311AbYCZDEC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 23:04:02 -0400
+In-Reply-To: <20080326.083948.93645750.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller =E5=86=99=E9=81=93:
-> From: Jeff Garzik <jgarzik@pobox.com>
-> Date: Tue, 25 Mar 2008 22:23:24 -0400
->
->  =20
->> This is bogus -- you should never need to slow down the hot path in =
-such=20
->> a way.
->>    =20
->
-> Slow down in what way?  Even on x86 saving the flags is just
-> about as expensive as a plain sti/cli.
->
-> I would in fact prefer to see drivers unconditionally use
-> spin_lock_irqsave() et al. in the interrupt handler, for
-> consistency.
->  =20
-Yes, I agree. Many NIC drivers do the same thing, like Gianfar, E1000, =
-etc.
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Wed, 26 Mar 2008 08:39:48 +0900 (JST)
 
+> Okay, here's the respin.  Changes:
+> 	Add twsk_net(), twsk_net_set().
+> 	Fix missing seq_file_net() conversion in net/ipv4/route.c.
+> 	Add net_eq().
+> 	Add neigh_parms_net() and pneigh_net().
+> 
+> Full diffs will follow.
+> 
+> Changes are also available (on top of net-2.6.26 tree) at
+>         git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git net-2.6.26-netns-20080326
+
+Looks great, pulled and pushed back out to net-2.6.26!
