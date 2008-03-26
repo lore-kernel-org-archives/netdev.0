@@ -1,49 +1,73 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: cxgb3: Fix lockdep problems with sge.reg_lock
-Date: Tue, 25 Mar 2008 23:20:25 -0400
-Message-ID: <47E9C0F9.9020708@garzik.org>
-References: <adabq59xhmv.fsf@cisco.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2.6.25][resend] rndis_host: fix oops when query for OID_GEN_PHYSICAL_MEDIUM
+ fails
+Date: Tue, 25 Mar 2008 23:20:35 -0400
+Message-ID: <47E9C103.8050608@pobox.com>
+References: <20080323104535.10317.33658.stgit@fate.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Divy Le Ray <divy@chelsio.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	Dimitris Michailidis <dm@chelsio.com>,
-	Felix Marti <felix@chelsio.com>
-To: Roland Dreier <rdreier@cisco.com>
+Cc: netdev@vger.kernel.org, dbrownell@users.sourceforge.net,
+	davem@davemloft.net
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43421 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:43434 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752660AbYCZDU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 23:20:28 -0400
-In-Reply-To: <adabq59xhmv.fsf@cisco.com>
+	id S1753013AbYCZDUi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Mar 2008 23:20:38 -0400
+In-Reply-To: <20080323104535.10317.33658.stgit@fate.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roland Dreier wrote:
-> Using iWARP with a Chelsio T3 NIC generates the following lockdep warning:
+Jussi Kivilinna wrote:
+> From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 > 
->     =================================
->     [ INFO: inconsistent lock state ]
->     2.6.25-rc6 #50
->     ---------------------------------
->     inconsistent {softirq-on-W} -> {in-softirq-W} usage.
->     swapper/0 [HC0[0]:SC1[1]:HE0:SE0] takes:
->      (&adap->sge.reg_lock){-+..}, at: [<ffffffff880e5ee2>] cxgb_offload_ctl+0x3af/0x507 [cxgb3]
+> When query for OID_GEN_PHYSICAL_MEDIUM fails, uninitialized pointer
+> 'phym' is being accessed in generic_rndis_bind(), resulting OOPS.
+> Patch fixes phym to be initialized and setup correctly when
+> rndis_query() for physical medium fails.
 > 
-> The problem is that reg_lock is used with plain spin_lock() in
-> drivers/net/cxgb3/sge.c but is used with spin_lock_irqsave() in
-> drivers/net/cxgb3/cxgb3_offload.c.  This is technically a false
-> positive, since the uses in sge.c are only in the initialization and
-> cleanup paths and cannot overlap with any use in interrupt context.
+> Bug was introduced by following commit:
+> commit 039ee17d1baabaa21783a0d5ab3e8c6d8c794bdf
+> Author: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+> Date:   Sun Jan 27 23:34:33 2008 +0200
 > 
-> The best fix is probably just to use spin_lock_irq() with reg_lock in
-> sge.c.  Even though it's not strictly required for correctness, it
-> avoids triggering lockdep and the extra overhead of disabling
-> interrupts is not important at all in the initialization and cleanup
-> slow paths.
+> Reported-by: Dmitri Monakhov <dmonakhov@openvz.org>
+> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+> Acked-by: David Brownell <dbrownell@users.sourceforge.net>
+> ---
 > 
-> Signed-off-by: Roland Dreier <rolandd@cisco.com>
+>  drivers/net/usb/rndis_host.c |    9 ++++++---
+>  1 files changed, 6 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+> index a613247..1b810ab 100644
+> --- a/drivers/net/usb/rndis_host.c
+> +++ b/drivers/net/usb/rndis_host.c
+> @@ -287,7 +287,7 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
+>  		struct rndis_set_c	*set_c;
+>  		struct rndis_halt	*halt;
+>  	} u;
+> -	u32			tmp, *phym;
+> +	u32			tmp, phym_unspec, *phym;
+>  	int			reply_len;
+>  	unsigned char		*bp;
+>  
+> @@ -359,12 +359,15 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
+>  		goto halt_fail_and_release;
+>  
+>  	/* Check physical medium */
+> +	phym = NULL;
+>  	reply_len = sizeof *phym;
+>  	retval = rndis_query(dev, intf, u.buf, OID_GEN_PHYSICAL_MEDIUM,
+>  			0, (void **) &phym, &reply_len);
+> -	if (retval != 0)
+> +	if (retval != 0 || !phym) {
+>  		/* OID is optional so don't fail here. */
+> -		*phym = RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED;
+> +		phym_unspec = RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED;
+> +		phym = &phym_unspec;
+> +	}
 
 applied
 
