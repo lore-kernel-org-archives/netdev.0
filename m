@@ -1,55 +1,38 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] forcedeth: Use round_jiffies for stats timer
-Date: Wed, 26 Mar 2008 00:35:36 -0400
-Message-ID: <47E9D298.8030609@pobox.com>
-References: <20080318110718.A0AFE9D4143@zog.reactivated.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] 3c509: convert to isa_driver and pnp_driver v6
+Date: Wed, 26 Mar 2008 00:35:53 -0400
+Message-ID: <47E9D2A9.7040107@garzik.org>
+References: <200803071746.49554.linux@rainbow-software.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, aabdulla@nvidia.com
-To: Daniel Drake <dsd@gentoo.org>
+Cc: netdev@vger.kernel.org,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Ondrej Zary <linux@rainbow-software.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34209 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:34224 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751599AbYCZEfj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2008 00:35:39 -0400
-In-Reply-To: <20080318110718.A0AFE9D4143@zog.reactivated.net>
+	id S1751577AbYCZEf5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 00:35:57 -0400
+In-Reply-To: <200803071746.49554.linux@rainbow-software.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Drake wrote:
-> This timer doesn't need to run at precise times, so round it to a whole
-> second to decrease wakeups.
+Ondrej Zary wrote:
+> Hello,
+> this patch converts 3c509 driver to isa_driver and pnp_driver. The result is 
+> that autoloading using udev and hibernation works with ISA PnP cards. It also 
+> adds hibernation support for non-PnP ISA cards.
 > 
-> Signed-off-by: Daniel Drake <dsd@gentoo.org>
-> ---
->  drivers/net/forcedeth.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)
+> xcvr module parameter was removed as its value was not used.
 > 
-> diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-> index 801b4d9..3f0d242 100644
-> --- a/drivers/net/forcedeth.c
-> +++ b/drivers/net/forcedeth.c
-> @@ -3792,7 +3792,8 @@ static void nv_do_stats_poll(unsigned long data)
->  	nv_get_hw_stats(dev);
->  
->  	if (!np->in_shutdown)
-> -		mod_timer(&np->stats_poll, jiffies + STATS_INTERVAL);
-> +		mod_timer(&np->stats_poll,
-> +			round_jiffies(jiffies + STATS_INTERVAL));
->  }
->  
->  static void nv_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
-> @@ -4996,7 +4997,8 @@ static int nv_open(struct net_device *dev)
->  
->  	/* start statistics timer */
->  	if (np->driver_data & (DEV_HAS_STATISTICS_V1|DEV_HAS_STATISTICS_V2))
-> -		mod_timer(&np->stats_poll, jiffies + STATS_INTERVAL);
-> +		mod_timer(&np->stats_poll,
-> +			round_jiffies(jiffies + STATS_INTERVAL));
->  
->  	spin_unlock_irq(&np->lock);
+> Tested using 3 ISA cards in various combinations of PnP and non-PnP modes. 
+> EISA and MCA only compile-tested.
+> 
+> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+> 
 
-applied
+ACK, but your patch is word-wrapped and cannot be applied
 
 
