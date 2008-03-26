@@ -1,41 +1,41 @@
-From: Joakim Koskela <joakim.koskela@hiit.fi>
-Subject: Re: [RFC PATCH resend]: Fix output for BEET ipsec
-Date: Wed, 26 Mar 2008 12:47:31 +0200
-Message-ID: <200803261247.31210.joakim.koskela@hiit.fi>
-References: <200803261115.26157.joakim.koskela@hiit.fi> <47EA13DA.7070708@trash.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/8] New driver "sfc" for Solarstorm SFC4000 controller (try #8)
+Date: Wed, 26 Mar 2008 11:58:19 +0000
+Message-ID: <20080326115818.GD24160@solarflare.com>
+References: <20080324102936.GZ24160@solarflare.com> <20080324.132253.110641003.davem@davemloft.net> <20080325125421.GB24160@solarflare.com> <20080325.163740.38242006.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	Komu Miika <Miika.Komu@hiit.fi>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	jgarzik@pobox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from creon.otaverkko.fi ([212.68.0.5]:58551 "EHLO creon.otaverkko.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754490AbYCZKqe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2008 06:46:34 -0400
-In-Reply-To: <47EA13DA.7070708@trash.net>
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:59031 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752849AbYCZL6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 07:58:41 -0400
 Content-Disposition: inline
+In-Reply-To: <20080325.163740.38242006.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 26 March 2008 11:14, Patrick McHardy wrote:
-> Joakim Koskela wrote:
-> > diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-> > index 091e670..20d214f 100644
-> > --- a/net/ipv4/esp4.c
-> > +++ b/net/ipv4/esp4.c
-> > @@ -404,7 +404,8 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int
-> > mtu) break;
-> >  	case XFRM_MODE_BEET:
-> >  		/* The worst case. */
-> > -		mtu += min_t(u32, IPV4_BEET_PHMAXLEN, rem);
-> > +		/* This will be seen to in the esp header_len */
-> > +		/* mtu += min_t(u32, IPV4_BEET_PHMAXLEN, rem); */
-> >  		break;
-> >  	}
->
-> Why are you disabling this?
+David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Tue, 25 Mar 2008 12:54:23 +0000
+> 
+> > Would you object to our using this test until the default definition exists?
+> 
+> I'm trying to tell you that you should submit first a
+> patch that adds the default definition, as part of
+> your patch set.  Instead of papering around this
+> problem and waiting for the non-existent "someone else"
+> to do the work.
 
-Thanks - can't remember and doesn't seem necessary. I'll reverse that.
+Oh, I'm not waiting.  I have prepared a patch for this.  But it seems
+out-of-scope for networking and we'd rather not have the driver blocked
+on acceptance of that, so I'll take out the topology check for now.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
