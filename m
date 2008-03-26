@@ -1,7 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 5/8] New driver "sfc" for Solarstorm SFC4000 controller (try #9)
-Date: Wed, 26 Mar 2008 12:14:57 +0000
-Message-ID: <20080326121456.GJ24160@solarflare.com>
+Subject: [PATCH 6/8] New driver "sfc" for Solarstorm SFC4000 controller (try #9)
+Date: Wed, 26 Mar 2008 12:15:11 +0000
+Message-ID: <20080326121510.GK24160@solarflare.com>
 References: <20080326121210.GE24160@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,22 +9,22 @@ Cc: linux-net-drivers@solarflare.com, Jeff Garzik <jgarzik@pobox.com>,
 	David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:59139 "EHLO
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:59144 "EHLO
 	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754078AbYCZMPU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 08:15:20 -0400
+	by vger.kernel.org with ESMTP id S1754153AbYCZMPc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 08:15:32 -0400
 Content-Disposition: inline
 In-Reply-To: <20080326121210.GE24160@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-diff --git a/drivers/net/sfc/falcon_hwdefs.h b/drivers/net/sfc/falcon_hwdefs.h
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
 new file mode 100644
-index 0000000..721b698
+index 0000000..786c2a2
 --- /dev/null
-+++ b/drivers/net/sfc/falcon_hwdefs.h
-@@ -0,0 +1,1115 @@
++++ b/drivers/net/sfc/ethtool.c
+@@ -0,0 +1,461 @@
 +/****************************************************************************
 + * Driver for Solarflare Solarstorm network controllers and boards
 + * Copyright 2005-2006 Fen Systems Ltd.
@@ -35,1365 +35,463 @@ index 0000000..721b698
 + * by the Free Software Foundation, incorporated herein by reference.
 + */
 +
-+#ifndef EFX_FALCON_HWDEFS_H
-+#define EFX_FALCON_HWDEFS_H
-+
-+/*
-+ * Falcon hardware value definitions.
-+ * Falcon is the internal codename for the SFC4000 controller that is
-+ * present in SFE400X evaluation boards
-+ */
-+
-+/**************************************************************************
-+ *
-+ * Falcon registers
-+ *
-+ **************************************************************************
-+ */
-+
-+/* Address region register */
-+#define ADR_REGION_REG_KER	0x00
-+#define ADR_REGION0_LBN	0
-+#define ADR_REGION0_WIDTH	18
-+#define ADR_REGION1_LBN	32
-+#define ADR_REGION1_WIDTH	18
-+#define ADR_REGION2_LBN	64
-+#define ADR_REGION2_WIDTH	18
-+#define ADR_REGION3_LBN	96
-+#define ADR_REGION3_WIDTH	18
-+
-+/* Interrupt enable register */
-+#define INT_EN_REG_KER 0x0010
-+#define KER_INT_KER_LBN 3
-+#define KER_INT_KER_WIDTH 1
-+#define DRV_INT_EN_KER_LBN 0
-+#define DRV_INT_EN_KER_WIDTH 1
-+
-+/* Interrupt status address register */
-+#define INT_ADR_REG_KER	0x0030
-+#define NORM_INT_VEC_DIS_KER_LBN 64
-+#define NORM_INT_VEC_DIS_KER_WIDTH 1
-+#define INT_ADR_KER_LBN 0
-+#define INT_ADR_KER_WIDTH EFX_DMA_TYPE_WIDTH(64) /* not 46 for this one */
-+
-+/* Interrupt status register (B0 only) */
-+#define INT_ISR0_B0 0x90
-+#define INT_ISR1_B0 0xA0
-+
-+/* Interrupt acknowledge register (A0/A1 only) */
-+#define INT_ACK_REG_KER_A1 0x0050
-+#define INT_ACK_DUMMY_DATA_LBN 0
-+#define INT_ACK_DUMMY_DATA_WIDTH 32
-+
-+/* Interrupt acknowledge work-around register (A0/A1 only )*/
-+#define WORK_AROUND_BROKEN_PCI_READS_REG_KER_A1 0x0070
-+
-+/* SPI host command register */
-+#define EE_SPI_HCMD_REG_KER 0x0100
-+#define EE_SPI_HCMD_CMD_EN_LBN 31
-+#define EE_SPI_HCMD_CMD_EN_WIDTH 1
-+#define EE_WR_TIMER_ACTIVE_LBN 28
-+#define EE_WR_TIMER_ACTIVE_WIDTH 1
-+#define EE_SPI_HCMD_SF_SEL_LBN 24
-+#define EE_SPI_HCMD_SF_SEL_WIDTH 1
-+#define EE_SPI_EEPROM 0
-+#define EE_SPI_FLASH 1
-+#define EE_SPI_HCMD_DABCNT_LBN 16
-+#define EE_SPI_HCMD_DABCNT_WIDTH 5
-+#define EE_SPI_HCMD_READ_LBN 15
-+#define EE_SPI_HCMD_READ_WIDTH 1
-+#define EE_SPI_READ 1
-+#define EE_SPI_WRITE 0
-+#define EE_SPI_HCMD_DUBCNT_LBN 12
-+#define EE_SPI_HCMD_DUBCNT_WIDTH 2
-+#define EE_SPI_HCMD_ADBCNT_LBN 8
-+#define EE_SPI_HCMD_ADBCNT_WIDTH 2
-+#define EE_SPI_HCMD_ENC_LBN 0
-+#define EE_SPI_HCMD_ENC_WIDTH 8
-+
-+/* SPI host address register */
-+#define EE_SPI_HADR_REG_KER 0x0110
-+#define EE_SPI_HADR_ADR_LBN 0
-+#define EE_SPI_HADR_ADR_WIDTH 24
-+
-+/* SPI host data register */
-+#define EE_SPI_HDATA_REG_KER 0x0120
-+
-+/* PCIE CORE ACCESS REG */
-+#define PCIE_CORE_ADDR_PCIE_DEVICE_CTRL_STAT 0x68
-+#define PCIE_CORE_ADDR_PCIE_LINK_CTRL_STAT 0x70
-+#define PCIE_CORE_ADDR_ACK_RPL_TIMER 0x700
-+#define PCIE_CORE_ADDR_ACK_FREQ 0x70C
-+
-+/* NIC status register */
-+#define NIC_STAT_REG 0x0200
-+#define ONCHIP_SRAM_LBN 16
-+#define ONCHIP_SRAM_WIDTH 1
-+#define SF_PRST_LBN 9
-+#define SF_PRST_WIDTH 1
-+#define EE_PRST_LBN 8
-+#define EE_PRST_WIDTH 1
-+/* See pic_mode_t for decoding of this field */
-+/* These bit definitions are extrapolated from the list of numerical
-+ * values for STRAP_PINS.
-+ */
-+#define STRAP_10G_LBN 2
-+#define STRAP_10G_WIDTH 1
-+#define STRAP_PCIE_LBN 0
-+#define STRAP_PCIE_WIDTH 1
-+
-+/* GPIO control register */
-+#define GPIO_CTL_REG_KER 0x0210
-+#define GPIO_OUTPUTS_LBN   (16)
-+#define GPIO_OUTPUTS_WIDTH (4)
-+#define GPIO_INPUTS_LBN (8)
-+#define GPIO_DIRECTION_LBN (24)
-+#define GPIO_DIRECTION_WIDTH (4)
-+#define GPIO_DIRECTION_OUT (1)
-+#define GPIO_SRAM_SLEEP (1 << 1)
-+
-+#define GPIO3_OEN_LBN (GPIO_DIRECTION_LBN + 3)
-+#define	GPIO3_OEN_WIDTH 1
-+#define	GPIO2_OEN_LBN (GPIO_DIRECTION_LBN + 2)
-+#define	GPIO2_OEN_WIDTH 1
-+#define	GPIO1_OEN_LBN (GPIO_DIRECTION_LBN + 1)
-+#define	GPIO1_OEN_WIDTH 1
-+#define GPIO0_OEN_LBN (GPIO_DIRECTION_LBN + 0)
-+#define	GPIO0_OEN_WIDTH 1
-+
-+#define	GPIO3_OUT_LBN (GPIO_OUTPUTS_LBN + 3)
-+#define	GPIO3_OUT_WIDTH 1
-+#define	GPIO2_OUT_LBN (GPIO_OUTPUTS_LBN + 2)
-+#define	GPIO2_OUT_WIDTH 1
-+#define	GPIO1_OUT_LBN (GPIO_OUTPUTS_LBN + 1)
-+#define	GPIO1_OUT_WIDTH 1
-+#define	GPIO0_OUT_LBN (GPIO_OUTPUTS_LBN + 0)
-+#define	GPIO0_OUT_WIDTH 1
-+
-+#define GPIO3_IN_LBN (GPIO_INPUTS_LBN + 3)
-+#define	GPIO3_IN_WIDTH 1
-+#define	GPIO2_IN_WIDTH 1
-+#define	GPIO1_IN_WIDTH 1
-+#define GPIO0_IN_LBN (GPIO_INPUTS_LBN + 0)
-+#define	GPIO0_IN_WIDTH 1
-+
-+/* Global control register */
-+#define GLB_CTL_REG_KER	0x0220
-+#define EXT_PHY_RST_CTL_LBN 63
-+#define EXT_PHY_RST_CTL_WIDTH 1
-+#define PCIE_SD_RST_CTL_LBN 61
-+#define PCIE_SD_RST_CTL_WIDTH 1
-+
-+#define PCIE_NSTCK_RST_CTL_LBN 58
-+#define PCIE_NSTCK_RST_CTL_WIDTH 1
-+#define PCIE_CORE_RST_CTL_LBN 57
-+#define PCIE_CORE_RST_CTL_WIDTH 1
-+#define EE_RST_CTL_LBN 49
-+#define EE_RST_CTL_WIDTH 1
-+#define RST_XGRX_LBN 24
-+#define RST_XGRX_WIDTH 1
-+#define RST_XGTX_LBN 23
-+#define RST_XGTX_WIDTH 1
-+#define RST_EM_LBN 22
-+#define RST_EM_WIDTH 1
-+#define EXT_PHY_RST_DUR_LBN 1
-+#define EXT_PHY_RST_DUR_WIDTH 3
-+#define SWRST_LBN 0
-+#define SWRST_WIDTH 1
-+#define INCLUDE_IN_RESET 0
-+#define EXCLUDE_FROM_RESET 1
-+
-+/* Fatal interrupt register */
-+#define FATAL_INTR_REG_KER 0x0230
-+#define RBUF_OWN_INT_KER_EN_LBN 39
-+#define RBUF_OWN_INT_KER_EN_WIDTH 1
-+#define TBUF_OWN_INT_KER_EN_LBN 38
-+#define TBUF_OWN_INT_KER_EN_WIDTH 1
-+#define ILL_ADR_INT_KER_EN_LBN 33
-+#define ILL_ADR_INT_KER_EN_WIDTH 1
-+#define MEM_PERR_INT_KER_LBN 8
-+#define MEM_PERR_INT_KER_WIDTH 1
-+#define INT_KER_ERROR_LBN 0
-+#define INT_KER_ERROR_WIDTH 12
-+
-+#define DP_CTRL_REG 0x250
-+#define FLS_EVQ_ID_LBN 0
-+#define FLS_EVQ_ID_WIDTH 11
-+
-+#define MEM_STAT_REG_KER 0x260
-+
-+/* Debug probe register */
-+#define DEBUG_BLK_SEL_MISC 7
-+#define DEBUG_BLK_SEL_SERDES 6
-+#define DEBUG_BLK_SEL_EM 5
-+#define DEBUG_BLK_SEL_SR 4
-+#define DEBUG_BLK_SEL_EV 3
-+#define DEBUG_BLK_SEL_RX 2
-+#define DEBUG_BLK_SEL_TX 1
-+#define DEBUG_BLK_SEL_BIU 0
-+
-+/* FPGA build version */
-+#define ALTERA_BUILD_REG_KER 0x0300
-+#define VER_ALL_LBN 0
-+#define VER_ALL_WIDTH 32
-+
-+/* Spare EEPROM bits register (flash 0x390) */
-+#define SPARE_REG_KER 0x310
-+#define MEM_PERR_EN_TX_DATA_LBN 72
-+#define MEM_PERR_EN_TX_DATA_WIDTH 2
-+
-+/* Timer table for kernel access */
-+#define TIMER_CMD_REG_KER 0x420
-+#define TIMER_MODE_LBN 12
-+#define TIMER_MODE_WIDTH 2
-+#define TIMER_MODE_DIS 0
-+#define TIMER_MODE_INT_HLDOFF 2
-+#define TIMER_VAL_LBN 0
-+#define TIMER_VAL_WIDTH 12
-+
-+/* Driver generated event register */
-+#define DRV_EV_REG_KER 0x440
-+#define DRV_EV_QID_LBN 64
-+#define DRV_EV_QID_WIDTH 12
-+#define DRV_EV_DATA_LBN 0
-+#define DRV_EV_DATA_WIDTH 64
-+
-+/* Buffer table configuration register */
-+#define BUF_TBL_CFG_REG_KER 0x600
-+#define BUF_TBL_MODE_LBN 3
-+#define BUF_TBL_MODE_WIDTH 1
-+#define BUF_TBL_MODE_HALF 0
-+#define BUF_TBL_MODE_FULL 1
-+
-+/* SRAM receive descriptor cache configuration register */
-+#define SRM_RX_DC_CFG_REG_KER 0x610
-+#define SRM_RX_DC_BASE_ADR_LBN 0
-+#define SRM_RX_DC_BASE_ADR_WIDTH 21
-+
-+/* SRAM transmit descriptor cache configuration register */
-+#define SRM_TX_DC_CFG_REG_KER 0x620
-+#define SRM_TX_DC_BASE_ADR_LBN 0
-+#define SRM_TX_DC_BASE_ADR_WIDTH 21
-+
-+/* SRAM configuration register */
-+#define SRM_CFG_REG_KER 0x630
-+#define SRAM_OOB_BT_INIT_EN_LBN 3
-+#define SRAM_OOB_BT_INIT_EN_WIDTH 1
-+#define SRM_NUM_BANKS_AND_BANK_SIZE_LBN 0
-+#define SRM_NUM_BANKS_AND_BANK_SIZE_WIDTH 3
-+#define SRM_NB_BSZ_1BANKS_2M 0
-+#define SRM_NB_BSZ_1BANKS_4M 1
-+#define SRM_NB_BSZ_1BANKS_8M 2
-+#define SRM_NB_BSZ_DEFAULT 3 /* char driver will set the default */
-+#define SRM_NB_BSZ_2BANKS_4M 4
-+#define SRM_NB_BSZ_2BANKS_8M 5
-+#define SRM_NB_BSZ_2BANKS_16M 6
-+#define SRM_NB_BSZ_RESERVED 7
-+
-+/* Special buffer table update register */
-+#define BUF_TBL_UPD_REG_KER 0x0650
-+#define BUF_UPD_CMD_LBN 63
-+#define BUF_UPD_CMD_WIDTH 1
-+#define BUF_CLR_CMD_LBN 62
-+#define BUF_CLR_CMD_WIDTH 1
-+#define BUF_CLR_END_ID_LBN 32
-+#define BUF_CLR_END_ID_WIDTH 20
-+#define BUF_CLR_START_ID_LBN 0
-+#define BUF_CLR_START_ID_WIDTH 20
-+
-+/* Receive configuration register */
-+#define RX_CFG_REG_KER 0x800
-+
-+/* B0 */
-+#define RX_INGR_EN_B0_LBN 47
-+#define RX_INGR_EN_B0_WIDTH 1
-+#define RX_DESC_PUSH_EN_B0_LBN 43
-+#define RX_DESC_PUSH_EN_B0_WIDTH 1
-+#define RX_XON_TX_TH_B0_LBN 33
-+#define RX_XON_TX_TH_B0_WIDTH 5
-+#define RX_XOFF_TX_TH_B0_LBN 28
-+#define RX_XOFF_TX_TH_B0_WIDTH 5
-+#define RX_USR_BUF_SIZE_B0_LBN 19
-+#define RX_USR_BUF_SIZE_B0_WIDTH 9
-+#define RX_XON_MAC_TH_B0_LBN 10
-+#define RX_XON_MAC_TH_B0_WIDTH 9
-+#define RX_XOFF_MAC_TH_B0_LBN 1
-+#define RX_XOFF_MAC_TH_B0_WIDTH 9
-+#define RX_XOFF_MAC_EN_B0_LBN 0
-+#define RX_XOFF_MAC_EN_B0_WIDTH 1
-+
-+/* A1 */
-+#define RX_DESC_PUSH_EN_A1_LBN 35
-+#define RX_DESC_PUSH_EN_A1_WIDTH 1
-+#define RX_XON_TX_TH_A1_LBN 25
-+#define RX_XON_TX_TH_A1_WIDTH 5
-+#define RX_XOFF_TX_TH_A1_LBN 20
-+#define RX_XOFF_TX_TH_A1_WIDTH 5
-+#define RX_USR_BUF_SIZE_A1_LBN 11
-+#define RX_USR_BUF_SIZE_A1_WIDTH 9
-+#define RX_XON_MAC_TH_A1_LBN 6
-+#define RX_XON_MAC_TH_A1_WIDTH 5
-+#define RX_XOFF_MAC_TH_A1_LBN 1
-+#define RX_XOFF_MAC_TH_A1_WIDTH 5
-+#define RX_XOFF_MAC_EN_A1_LBN 0
-+#define RX_XOFF_MAC_EN_A1_WIDTH 1
-+
-+/* Receive filter control register */
-+#define RX_FILTER_CTL_REG 0x810
-+#define UDP_FULL_SRCH_LIMIT_LBN 32
-+#define UDP_FULL_SRCH_LIMIT_WIDTH 8
-+#define NUM_KER_LBN 24
-+#define NUM_KER_WIDTH 2
-+#define UDP_WILD_SRCH_LIMIT_LBN 16
-+#define UDP_WILD_SRCH_LIMIT_WIDTH 8
-+#define TCP_WILD_SRCH_LIMIT_LBN 8
-+#define TCP_WILD_SRCH_LIMIT_WIDTH 8
-+#define TCP_FULL_SRCH_LIMIT_LBN 0
-+#define TCP_FULL_SRCH_LIMIT_WIDTH 8
-+
-+/* RX queue flush register */
-+#define RX_FLUSH_DESCQ_REG_KER 0x0820
-+#define RX_FLUSH_DESCQ_CMD_LBN 24
-+#define RX_FLUSH_DESCQ_CMD_WIDTH 1
-+#define RX_FLUSH_DESCQ_LBN 0
-+#define RX_FLUSH_DESCQ_WIDTH 12
-+
-+/* Receive descriptor update register */
-+#define RX_DESC_UPD_REG_KER_DWORD (0x830 + 12)
-+#define RX_DESC_WPTR_DWORD_LBN 0
-+#define RX_DESC_WPTR_DWORD_WIDTH 12
-+
-+/* Receive descriptor cache configuration register */
-+#define RX_DC_CFG_REG_KER 0x840
-+#define RX_DC_SIZE_LBN 0
-+#define RX_DC_SIZE_WIDTH 2
-+
-+#define RX_DC_PF_WM_REG_KER 0x850
-+#define RX_DC_PF_LWM_LBN 0
-+#define RX_DC_PF_LWM_WIDTH 6
-+
-+/* RX no descriptor drop counter */
-+#define RX_NODESC_DROP_REG_KER 0x880
-+#define RX_NODESC_DROP_CNT_LBN 0
-+#define RX_NODESC_DROP_CNT_WIDTH 16
-+
-+/* RX black magic register */
-+#define RX_SELF_RST_REG_KER 0x890
-+#define RX_ISCSI_DIS_LBN 17
-+#define RX_ISCSI_DIS_WIDTH 1
-+#define RX_NODESC_WAIT_DIS_LBN 9
-+#define RX_NODESC_WAIT_DIS_WIDTH 1
-+#define RX_RECOVERY_EN_LBN 8
-+#define RX_RECOVERY_EN_WIDTH 1
-+
-+/* TX queue flush register */
-+#define TX_FLUSH_DESCQ_REG_KER 0x0a00
-+#define TX_FLUSH_DESCQ_CMD_LBN 12
-+#define TX_FLUSH_DESCQ_CMD_WIDTH 1
-+#define TX_FLUSH_DESCQ_LBN 0
-+#define TX_FLUSH_DESCQ_WIDTH 12
-+
-+/* Transmit descriptor update register */
-+#define TX_DESC_UPD_REG_KER_DWORD (0xa10 + 12)
-+#define TX_DESC_WPTR_DWORD_LBN 0
-+#define TX_DESC_WPTR_DWORD_WIDTH 12
-+
-+/* Transmit descriptor cache configuration register */
-+#define TX_DC_CFG_REG_KER 0xa20
-+#define TX_DC_SIZE_LBN 0
-+#define TX_DC_SIZE_WIDTH 2
-+
-+/* Transmit checksum configuration register (A0/A1 only) */
-+#define TX_CHKSM_CFG_REG_KER_A1 0xa30
-+
-+/* Transmit configuration register */
-+#define TX_CFG_REG_KER 0xa50
-+#define TX_NO_EOP_DISC_EN_LBN 5
-+#define TX_NO_EOP_DISC_EN_WIDTH 1
-+
-+/* Transmit configuration register 2 */
-+#define TX_CFG2_REG_KER 0xa80
-+#define TX_CSR_PUSH_EN_LBN 89
-+#define TX_CSR_PUSH_EN_WIDTH 1
-+#define TX_RX_SPACER_LBN 64
-+#define TX_RX_SPACER_WIDTH 8
-+#define TX_SW_EV_EN_LBN 59
-+#define TX_SW_EV_EN_WIDTH 1
-+#define TX_RX_SPACER_EN_LBN 57
-+#define TX_RX_SPACER_EN_WIDTH 1
-+#define TX_PREF_THRESHOLD_LBN 19
-+#define TX_PREF_THRESHOLD_WIDTH 2
-+#define TX_ONE_PKT_PER_Q_LBN 18
-+#define TX_ONE_PKT_PER_Q_WIDTH 1
-+#define TX_DIS_NON_IP_EV_LBN 17
-+#define TX_DIS_NON_IP_EV_WIDTH 1
-+#define TX_FLUSH_MIN_LEN_EN_B0_LBN 7
-+#define TX_FLUSH_MIN_LEN_EN_B0_WIDTH 1
-+
-+/* PHY management transmit data register */
-+#define MD_TXD_REG_KER 0xc00
-+#define MD_TXD_LBN 0
-+#define MD_TXD_WIDTH 16
-+
-+/* PHY management receive data register */
-+#define MD_RXD_REG_KER 0xc10
-+#define MD_RXD_LBN 0
-+#define MD_RXD_WIDTH 16
-+
-+/* PHY management configuration & status register */
-+#define MD_CS_REG_KER 0xc20
-+#define MD_GC_LBN 4
-+#define MD_GC_WIDTH 1
-+#define MD_RIC_LBN 2
-+#define MD_RIC_WIDTH 1
-+#define MD_RDC_LBN 1
-+#define MD_RDC_WIDTH 1
-+#define MD_WRC_LBN 0
-+#define MD_WRC_WIDTH 1
-+
-+/* PHY management PHY address register */
-+#define MD_PHY_ADR_REG_KER 0xc30
-+#define MD_PHY_ADR_LBN 0
-+#define MD_PHY_ADR_WIDTH 16
-+
-+/* PHY management ID register */
-+#define MD_ID_REG_KER 0xc40
-+#define MD_PRT_ADR_LBN 11
-+#define MD_PRT_ADR_WIDTH 5
-+#define MD_DEV_ADR_LBN 6
-+#define MD_DEV_ADR_WIDTH 5
-+/* Used for writing both at once */
-+#define MD_PRT_DEV_ADR_LBN 6
-+#define MD_PRT_DEV_ADR_WIDTH 10
-+
-+/* PHY management status & mask register (DWORD read only) */
-+#define MD_STAT_REG_KER 0xc50
-+#define MD_BSERR_LBN 2
-+#define MD_BSERR_WIDTH 1
-+#define MD_LNFL_LBN 1
-+#define MD_LNFL_WIDTH 1
-+#define MD_BSY_LBN 0
-+#define MD_BSY_WIDTH 1
-+
-+/* Port 0 and 1 MAC stats registers */
-+#define MAC0_STAT_DMA_REG_KER 0xc60
-+#define MAC_STAT_DMA_CMD_LBN 48
-+#define MAC_STAT_DMA_CMD_WIDTH 1
-+#define MAC_STAT_DMA_ADR_LBN 0
-+#define MAC_STAT_DMA_ADR_WIDTH EFX_DMA_TYPE_WIDTH(46)
-+
-+/* Port 0 and 1 MAC control registers */
-+#define MAC0_CTRL_REG_KER 0xc80
-+#define MAC_XOFF_VAL_LBN 16
-+#define MAC_XOFF_VAL_WIDTH 16
-+#define TXFIFO_DRAIN_EN_B0_LBN 7
-+#define TXFIFO_DRAIN_EN_B0_WIDTH 1
-+#define MAC_BCAD_ACPT_LBN 4
-+#define MAC_BCAD_ACPT_WIDTH 1
-+#define MAC_UC_PROM_LBN 3
-+#define MAC_UC_PROM_WIDTH 1
-+#define MAC_LINK_STATUS_LBN 2
-+#define MAC_LINK_STATUS_WIDTH 1
-+#define MAC_SPEED_LBN 0
-+#define MAC_SPEED_WIDTH 2
-+
-+/* 10G XAUI XGXS default values */
-+#define XX_TXDRV_DEQ_DEFAULT 0xe /* deq=.6 */
-+#define XX_TXDRV_DTX_DEFAULT 0x5 /* 1.25 */
-+#define XX_SD_CTL_DRV_DEFAULT 0  /* 20mA */
-+
-+/* Multicast address hash table */
-+#define MAC_MCAST_HASH_REG0_KER 0xca0
-+#define MAC_MCAST_HASH_REG1_KER 0xcb0
-+
-+/* GMAC registers */
-+#define FALCON_GMAC_REGBANK 0xe00
-+#define FALCON_GMAC_REGBANK_SIZE 0x200
-+#define FALCON_GMAC_REG_SIZE 0x10
-+
-+/* XMAC registers */
-+#define FALCON_XMAC_REGBANK 0x1200
-+#define FALCON_XMAC_REGBANK_SIZE 0x200
-+#define FALCON_XMAC_REG_SIZE 0x10
-+
-+/* XGMAC address register low */
-+#define XM_ADR_LO_REG_MAC 0x00
-+#define XM_ADR_3_LBN 24
-+#define XM_ADR_3_WIDTH 8
-+#define XM_ADR_2_LBN 16
-+#define XM_ADR_2_WIDTH 8
-+#define XM_ADR_1_LBN 8
-+#define XM_ADR_1_WIDTH 8
-+#define XM_ADR_0_LBN 0
-+#define XM_ADR_0_WIDTH 8
-+
-+/* XGMAC address register high */
-+#define XM_ADR_HI_REG_MAC 0x01
-+#define XM_ADR_5_LBN 8
-+#define XM_ADR_5_WIDTH 8
-+#define XM_ADR_4_LBN 0
-+#define XM_ADR_4_WIDTH 8
-+
-+/* XGMAC global configuration */
-+#define XM_GLB_CFG_REG_MAC 0x02
-+#define XM_RX_STAT_EN_LBN 11
-+#define XM_RX_STAT_EN_WIDTH 1
-+#define XM_TX_STAT_EN_LBN 10
-+#define XM_TX_STAT_EN_WIDTH 1
-+#define XM_RX_JUMBO_MODE_LBN 6
-+#define XM_RX_JUMBO_MODE_WIDTH 1
-+#define XM_CORE_RST_LBN 0
-+#define XM_CORE_RST_WIDTH 1
-+
-+/* XGMAC transmit configuration */
-+#define XM_TX_CFG_REG_MAC 0x03
-+#define XM_IPG_LBN 16
-+#define XM_IPG_WIDTH 4
-+#define XM_FCNTL_LBN 10
-+#define XM_FCNTL_WIDTH 1
-+#define XM_TXCRC_LBN 8
-+#define XM_TXCRC_WIDTH 1
-+#define XM_AUTO_PAD_LBN 5
-+#define XM_AUTO_PAD_WIDTH 1
-+#define XM_TX_PRMBL_LBN 2
-+#define XM_TX_PRMBL_WIDTH 1
-+#define XM_TXEN_LBN 1
-+#define XM_TXEN_WIDTH 1
-+
-+/* XGMAC receive configuration */
-+#define XM_RX_CFG_REG_MAC 0x04
-+#define XM_PASS_CRC_ERR_LBN 25
-+#define XM_PASS_CRC_ERR_WIDTH 1
-+#define XM_ACPT_ALL_MCAST_LBN 11
-+#define XM_ACPT_ALL_MCAST_WIDTH 1
-+#define XM_ACPT_ALL_UCAST_LBN 9
-+#define XM_ACPT_ALL_UCAST_WIDTH 1
-+#define XM_AUTO_DEPAD_LBN 8
-+#define XM_AUTO_DEPAD_WIDTH 1
-+#define XM_RXEN_LBN 1
-+#define XM_RXEN_WIDTH 1
-+
-+/* XGMAC flow control register */
-+#define XM_FC_REG_MAC 0x7
-+#define XM_PAUSE_TIME_LBN 16
-+#define XM_PAUSE_TIME_WIDTH 16
-+#define XM_DIS_FCNTL_LBN 0
-+#define XM_DIS_FCNTL_WIDTH 1
-+
-+/* XGMAC pause time count register */
-+#define XM_PAUSE_TIME_REG_MAC 0x9
-+
-+/* XGMAC transmit parameter register */
-+#define XM_TX_PARAM_REG_MAC 0x0d
-+#define XM_TX_JUMBO_MODE_LBN 31
-+#define XM_TX_JUMBO_MODE_WIDTH 1
-+#define XM_MAX_TX_FRM_SIZE_LBN 16
-+#define XM_MAX_TX_FRM_SIZE_WIDTH 14
-+
-+/* XGMAC receive parameter register */
-+#define XM_RX_PARAM_REG_MAC 0x0e
-+#define XM_MAX_RX_FRM_SIZE_LBN 0
-+#define XM_MAX_RX_FRM_SIZE_WIDTH 14
-+
-+/* XGXS/XAUI powerdown/reset register */
-+#define XX_PWR_RST_REG_MAC 0x10
-+
-+#define XX_PWRDND_EN_LBN 15
-+#define XX_PWRDND_EN_WIDTH 1
-+#define XX_PWRDNC_EN_LBN 14
-+#define XX_PWRDNC_EN_WIDTH 1
-+#define XX_PWRDNB_EN_LBN 13
-+#define XX_PWRDNB_EN_WIDTH 1
-+#define XX_PWRDNA_EN_LBN 12
-+#define XX_PWRDNA_EN_WIDTH 1
-+#define XX_RSTPLLCD_EN_LBN 9
-+#define XX_RSTPLLCD_EN_WIDTH 1
-+#define XX_RSTPLLAB_EN_LBN 8
-+#define XX_RSTPLLAB_EN_WIDTH 1
-+#define XX_RESETD_EN_LBN 7
-+#define XX_RESETD_EN_WIDTH 1
-+#define XX_RESETC_EN_LBN 6
-+#define XX_RESETC_EN_WIDTH 1
-+#define XX_RESETB_EN_LBN 5
-+#define XX_RESETB_EN_WIDTH 1
-+#define XX_RESETA_EN_LBN 4
-+#define XX_RESETA_EN_WIDTH 1
-+#define XX_RSTXGXSRX_EN_LBN 2
-+#define XX_RSTXGXSRX_EN_WIDTH 1
-+#define XX_RSTXGXSTX_EN_LBN 1
-+#define XX_RSTXGXSTX_EN_WIDTH 1
-+#define XX_RST_XX_EN_LBN 0
-+#define XX_RST_XX_EN_WIDTH 1
-+
-+/* XGXS/XAUI powerdown/reset control register */
-+#define XX_SD_CTL_REG_MAC 0x11
-+#define XX_HIDRVD_LBN 15
-+#define XX_HIDRVD_WIDTH 1
-+#define XX_LODRVD_LBN 14
-+#define XX_LODRVD_WIDTH 1
-+#define XX_HIDRVC_LBN 13
-+#define XX_HIDRVC_WIDTH 1
-+#define XX_LODRVC_LBN 12
-+#define XX_LODRVC_WIDTH 1
-+#define XX_HIDRVB_LBN 11
-+#define XX_HIDRVB_WIDTH 1
-+#define XX_LODRVB_LBN 10
-+#define XX_LODRVB_WIDTH 1
-+#define XX_HIDRVA_LBN 9
-+#define XX_HIDRVA_WIDTH 1
-+#define XX_LODRVA_LBN 8
-+#define XX_LODRVA_WIDTH 1
-+
-+#define XX_TXDRV_CTL_REG_MAC 0x12
-+#define XX_DEQD_LBN 28
-+#define XX_DEQD_WIDTH 4
-+#define XX_DEQC_LBN 24
-+#define XX_DEQC_WIDTH 4
-+#define XX_DEQB_LBN 20
-+#define XX_DEQB_WIDTH 4
-+#define XX_DEQA_LBN 16
-+#define XX_DEQA_WIDTH 4
-+#define XX_DTXD_LBN 12
-+#define XX_DTXD_WIDTH 4
-+#define XX_DTXC_LBN 8
-+#define XX_DTXC_WIDTH 4
-+#define XX_DTXB_LBN 4
-+#define XX_DTXB_WIDTH 4
-+#define XX_DTXA_LBN 0
-+#define XX_DTXA_WIDTH 4
-+
-+/* XAUI XGXS core status register */
-+#define XX_FORCE_SIG_DECODE_FORCED 0xff
-+#define XX_CORE_STAT_REG_MAC 0x16
-+#define XX_ALIGN_DONE_LBN 20
-+#define XX_ALIGN_DONE_WIDTH 1
-+#define XX_SYNC_STAT_LBN 16
-+#define XX_SYNC_STAT_WIDTH 4
-+#define XX_SYNC_STAT_DECODE_SYNCED 0xf
-+#define XX_COMMA_DET_LBN 12
-+#define XX_COMMA_DET_WIDTH 4
-+#define XX_COMMA_DET_DECODE_DETECTED 0xf
-+#define XX_COMMA_DET_RESET 0xf
-+#define XX_CHARERR_LBN 4
-+#define XX_CHARERR_WIDTH 4
-+#define XX_CHARERR_RESET 0xf
-+#define XX_DISPERR_LBN 0
-+#define XX_DISPERR_WIDTH 4
-+#define XX_DISPERR_RESET 0xf
-+
-+/* Receive filter table */
-+#define RX_FILTER_TBL0 0xF00000
-+
-+/* Receive descriptor pointer table */
-+#define RX_DESC_PTR_TBL_KER_A1 0x11800
-+#define RX_DESC_PTR_TBL_KER_B0 0xF40000
-+#define RX_DESC_PTR_TBL_KER_P0 0x900
-+#define RX_ISCSI_DDIG_EN_LBN 88
-+#define RX_ISCSI_DDIG_EN_WIDTH 1
-+#define RX_ISCSI_HDIG_EN_LBN 87
-+#define RX_ISCSI_HDIG_EN_WIDTH 1
-+#define RX_DESCQ_BUF_BASE_ID_LBN 36
-+#define RX_DESCQ_BUF_BASE_ID_WIDTH 20
-+#define RX_DESCQ_EVQ_ID_LBN 24
-+#define RX_DESCQ_EVQ_ID_WIDTH 12
-+#define RX_DESCQ_OWNER_ID_LBN 10
-+#define RX_DESCQ_OWNER_ID_WIDTH 14
-+#define RX_DESCQ_LABEL_LBN 5
-+#define RX_DESCQ_LABEL_WIDTH 5
-+#define RX_DESCQ_SIZE_LBN 3
-+#define RX_DESCQ_SIZE_WIDTH 2
-+#define RX_DESCQ_SIZE_4K 3
-+#define RX_DESCQ_SIZE_2K 2
-+#define RX_DESCQ_SIZE_1K 1
-+#define RX_DESCQ_SIZE_512 0
-+#define RX_DESCQ_TYPE_LBN 2
-+#define RX_DESCQ_TYPE_WIDTH 1
-+#define RX_DESCQ_JUMBO_LBN 1
-+#define RX_DESCQ_JUMBO_WIDTH 1
-+#define RX_DESCQ_EN_LBN 0
-+#define RX_DESCQ_EN_WIDTH 1
-+
-+/* Transmit descriptor pointer table */
-+#define TX_DESC_PTR_TBL_KER_A1 0x11900
-+#define TX_DESC_PTR_TBL_KER_B0 0xF50000
-+#define TX_DESC_PTR_TBL_KER_P0 0xa40
-+#define TX_NON_IP_DROP_DIS_B0_LBN 91
-+#define TX_NON_IP_DROP_DIS_B0_WIDTH 1
-+#define TX_IP_CHKSM_DIS_B0_LBN 90
-+#define TX_IP_CHKSM_DIS_B0_WIDTH 1
-+#define TX_TCP_CHKSM_DIS_B0_LBN 89
-+#define TX_TCP_CHKSM_DIS_B0_WIDTH 1
-+#define TX_DESCQ_EN_LBN 88
-+#define TX_DESCQ_EN_WIDTH 1
-+#define TX_ISCSI_DDIG_EN_LBN 87
-+#define TX_ISCSI_DDIG_EN_WIDTH 1
-+#define TX_ISCSI_HDIG_EN_LBN 86
-+#define TX_ISCSI_HDIG_EN_WIDTH 1
-+#define TX_DESCQ_BUF_BASE_ID_LBN 36
-+#define TX_DESCQ_BUF_BASE_ID_WIDTH 20
-+#define TX_DESCQ_EVQ_ID_LBN 24
-+#define TX_DESCQ_EVQ_ID_WIDTH 12
-+#define TX_DESCQ_OWNER_ID_LBN 10
-+#define TX_DESCQ_OWNER_ID_WIDTH 14
-+#define TX_DESCQ_LABEL_LBN 5
-+#define TX_DESCQ_LABEL_WIDTH 5
-+#define TX_DESCQ_SIZE_LBN 3
-+#define TX_DESCQ_SIZE_WIDTH 2
-+#define TX_DESCQ_SIZE_4K 3
-+#define TX_DESCQ_SIZE_2K 2
-+#define TX_DESCQ_SIZE_1K 1
-+#define TX_DESCQ_SIZE_512 0
-+#define TX_DESCQ_TYPE_LBN 1
-+#define TX_DESCQ_TYPE_WIDTH 2
-+
-+/* Event queue pointer */
-+#define EVQ_PTR_TBL_KER_A1 0x11a00
-+#define EVQ_PTR_TBL_KER_B0 0xf60000
-+#define EVQ_PTR_TBL_KER_P0 0x500
-+#define EVQ_EN_LBN 23
-+#define EVQ_EN_WIDTH 1
-+#define EVQ_SIZE_LBN 20
-+#define EVQ_SIZE_WIDTH 3
-+#define EVQ_SIZE_32K 6
-+#define EVQ_SIZE_16K 5
-+#define EVQ_SIZE_8K 4
-+#define EVQ_SIZE_4K 3
-+#define EVQ_SIZE_2K 2
-+#define EVQ_SIZE_1K 1
-+#define EVQ_SIZE_512 0
-+#define EVQ_BUF_BASE_ID_LBN 0
-+#define EVQ_BUF_BASE_ID_WIDTH 20
-+
-+/* Event queue read pointer */
-+#define EVQ_RPTR_REG_KER_A1 0x11b00
-+#define EVQ_RPTR_REG_KER_B0 0xfa0000
-+#define EVQ_RPTR_REG_KER_DWORD (EVQ_RPTR_REG_KER + 0)
-+#define EVQ_RPTR_DWORD_LBN 0
-+#define EVQ_RPTR_DWORD_WIDTH 14
-+
-+/* RSS indirection table */
-+#define RX_RSS_INDIR_TBL_B0 0xFB0000
-+#define RX_RSS_INDIR_ENT_B0_LBN 0
-+#define RX_RSS_INDIR_ENT_B0_WIDTH 6
-+
-+/* Special buffer descriptors (full-mode) */
-+#define BUF_FULL_TBL_KER_A1 0x8000
-+#define BUF_FULL_TBL_KER_B0 0x800000
-+#define IP_DAT_BUF_SIZE_LBN 50
-+#define IP_DAT_BUF_SIZE_WIDTH 1
-+#define IP_DAT_BUF_SIZE_8K 1
-+#define IP_DAT_BUF_SIZE_4K 0
-+#define BUF_ADR_REGION_LBN 48
-+#define BUF_ADR_REGION_WIDTH 2
-+#define BUF_ADR_FBUF_LBN 14
-+#define BUF_ADR_FBUF_WIDTH 34
-+#define BUF_OWNER_ID_FBUF_LBN 0
-+#define BUF_OWNER_ID_FBUF_WIDTH 14
-+
-+/* Transmit descriptor */
-+#define TX_KER_PORT_LBN 63
-+#define TX_KER_PORT_WIDTH 1
-+#define TX_KER_CONT_LBN 62
-+#define TX_KER_CONT_WIDTH 1
-+#define TX_KER_BYTE_CNT_LBN 48
-+#define TX_KER_BYTE_CNT_WIDTH 14
-+#define TX_KER_BUF_REGION_LBN 46
-+#define TX_KER_BUF_REGION_WIDTH 2
-+#define TX_KER_BUF_REGION0_DECODE 0
-+#define TX_KER_BUF_REGION1_DECODE 1
-+#define TX_KER_BUF_REGION2_DECODE 2
-+#define TX_KER_BUF_REGION3_DECODE 3
-+#define TX_KER_BUF_ADR_LBN 0
-+#define TX_KER_BUF_ADR_WIDTH EFX_DMA_TYPE_WIDTH(46)
-+
-+/* Receive descriptor */
-+#define RX_KER_BUF_SIZE_LBN 48
-+#define RX_KER_BUF_SIZE_WIDTH 14
-+#define RX_KER_BUF_REGION_LBN 46
-+#define RX_KER_BUF_REGION_WIDTH 2
-+#define RX_KER_BUF_REGION0_DECODE 0
-+#define RX_KER_BUF_REGION1_DECODE 1
-+#define RX_KER_BUF_REGION2_DECODE 2
-+#define RX_KER_BUF_REGION3_DECODE 3
-+#define RX_KER_BUF_ADR_LBN 0
-+#define RX_KER_BUF_ADR_WIDTH EFX_DMA_TYPE_WIDTH(46)
-+
-+/**************************************************************************
-+ *
-+ * Falcon events
-+ *
-+ **************************************************************************
-+ */
-+
-+/* Event queue entries */
-+#define EV_CODE_LBN 60
-+#define EV_CODE_WIDTH 4
-+#define RX_IP_EV_DECODE 0
-+#define TX_IP_EV_DECODE 2
-+#define DRIVER_EV_DECODE 5
-+#define GLOBAL_EV_DECODE 6
-+#define DRV_GEN_EV_DECODE 7
-+#define WHOLE_EVENT_LBN 0
-+#define WHOLE_EVENT_WIDTH 64
-+
-+/* Receive events */
-+#define RX_EV_PKT_OK_LBN 56
-+#define RX_EV_PKT_OK_WIDTH 1
-+#define RX_EV_PAUSE_FRM_ERR_LBN 55
-+#define RX_EV_PAUSE_FRM_ERR_WIDTH 1
-+#define RX_EV_BUF_OWNER_ID_ERR_LBN 54
-+#define RX_EV_BUF_OWNER_ID_ERR_WIDTH 1
-+#define RX_EV_IF_FRAG_ERR_LBN 53
-+#define RX_EV_IF_FRAG_ERR_WIDTH 1
-+#define RX_EV_IP_HDR_CHKSUM_ERR_LBN 52
-+#define RX_EV_IP_HDR_CHKSUM_ERR_WIDTH 1
-+#define RX_EV_TCP_UDP_CHKSUM_ERR_LBN 51
-+#define RX_EV_TCP_UDP_CHKSUM_ERR_WIDTH 1
-+#define RX_EV_ETH_CRC_ERR_LBN 50
-+#define RX_EV_ETH_CRC_ERR_WIDTH 1
-+#define RX_EV_FRM_TRUNC_LBN 49
-+#define RX_EV_FRM_TRUNC_WIDTH 1
-+#define RX_EV_DRIB_NIB_LBN 48
-+#define RX_EV_DRIB_NIB_WIDTH 1
-+#define RX_EV_TOBE_DISC_LBN 47
-+#define RX_EV_TOBE_DISC_WIDTH 1
-+#define RX_EV_PKT_TYPE_LBN 44
-+#define RX_EV_PKT_TYPE_WIDTH 3
-+#define RX_EV_PKT_TYPE_ETH_DECODE 0
-+#define RX_EV_PKT_TYPE_LLC_DECODE 1
-+#define RX_EV_PKT_TYPE_JUMBO_DECODE 2
-+#define RX_EV_PKT_TYPE_VLAN_DECODE 3
-+#define RX_EV_PKT_TYPE_VLAN_LLC_DECODE 4
-+#define RX_EV_PKT_TYPE_VLAN_JUMBO_DECODE 5
-+#define RX_EV_HDR_TYPE_LBN 42
-+#define RX_EV_HDR_TYPE_WIDTH 2
-+#define RX_EV_HDR_TYPE_TCP_IPV4_DECODE 0
-+#define RX_EV_HDR_TYPE_UDP_IPV4_DECODE 1
-+#define RX_EV_HDR_TYPE_OTHER_IP_DECODE 2
-+#define RX_EV_HDR_TYPE_NON_IP_DECODE 3
-+#define RX_EV_HDR_TYPE_HAS_CHECKSUMS(hdr_type) \
-+	((hdr_type) <= RX_EV_HDR_TYPE_UDP_IPV4_DECODE)
-+#define RX_EV_MCAST_HASH_MATCH_LBN 40
-+#define RX_EV_MCAST_HASH_MATCH_WIDTH 1
-+#define RX_EV_MCAST_PKT_LBN 39
-+#define RX_EV_MCAST_PKT_WIDTH 1
-+#define RX_EV_Q_LABEL_LBN 32
-+#define RX_EV_Q_LABEL_WIDTH 5
-+#define RX_EV_JUMBO_CONT_LBN 31
-+#define RX_EV_JUMBO_CONT_WIDTH 1
-+#define RX_EV_BYTE_CNT_LBN 16
-+#define RX_EV_BYTE_CNT_WIDTH 14
-+#define RX_EV_SOP_LBN 15
-+#define RX_EV_SOP_WIDTH 1
-+#define RX_EV_DESC_PTR_LBN 0
-+#define RX_EV_DESC_PTR_WIDTH 12
-+
-+/* Transmit events */
-+#define TX_EV_PKT_ERR_LBN 38
-+#define TX_EV_PKT_ERR_WIDTH 1
-+#define TX_EV_Q_LABEL_LBN 32
-+#define TX_EV_Q_LABEL_WIDTH 5
-+#define TX_EV_WQ_FF_FULL_LBN 15
-+#define TX_EV_WQ_FF_FULL_WIDTH 1
-+#define TX_EV_COMP_LBN 12
-+#define TX_EV_COMP_WIDTH 1
-+#define TX_EV_DESC_PTR_LBN 0
-+#define TX_EV_DESC_PTR_WIDTH 12
-+
-+/* Driver events */
-+#define DRIVER_EV_SUB_CODE_LBN 56
-+#define DRIVER_EV_SUB_CODE_WIDTH 4
-+#define DRIVER_EV_SUB_DATA_LBN 0
-+#define DRIVER_EV_SUB_DATA_WIDTH 14
-+#define TX_DESCQ_FLS_DONE_EV_DECODE 0
-+#define RX_DESCQ_FLS_DONE_EV_DECODE 1
-+#define EVQ_INIT_DONE_EV_DECODE 2
-+#define EVQ_NOT_EN_EV_DECODE 3
-+#define RX_DESCQ_FLSFF_OVFL_EV_DECODE 4
-+#define SRM_UPD_DONE_EV_DECODE 5
-+#define WAKE_UP_EV_DECODE 6
-+#define TX_PKT_NON_TCP_UDP_DECODE 9
-+#define TIMER_EV_DECODE 10
-+#define RX_RECOVERY_EV_DECODE 11
-+#define RX_DSC_ERROR_EV_DECODE 14
-+#define TX_DSC_ERROR_EV_DECODE 15
-+#define DRIVER_EV_TX_DESCQ_ID_LBN 0
-+#define DRIVER_EV_TX_DESCQ_ID_WIDTH 12
-+#define DRIVER_EV_RX_FLUSH_FAIL_LBN 12
-+#define DRIVER_EV_RX_FLUSH_FAIL_WIDTH 1
-+#define DRIVER_EV_RX_DESCQ_ID_LBN 0
-+#define DRIVER_EV_RX_DESCQ_ID_WIDTH 12
-+#define SRM_CLR_EV_DECODE 0
-+#define SRM_UPD_EV_DECODE 1
-+#define SRM_ILLCLR_EV_DECODE 2
-+
-+/* Global events */
-+#define RX_RECOVERY_B0_LBN 12
-+#define RX_RECOVERY_B0_WIDTH 1
-+#define XG_MNT_INTR_B0_LBN 11
-+#define XG_MNT_INTR_B0_WIDTH 1
-+#define RX_RECOVERY_A1_LBN 11
-+#define RX_RECOVERY_A1_WIDTH 1
-+#define XG_PHY_INTR_LBN 9
-+#define XG_PHY_INTR_WIDTH 1
-+#define G_PHY1_INTR_LBN 8
-+#define G_PHY1_INTR_WIDTH 1
-+#define G_PHY0_INTR_LBN 7
-+#define G_PHY0_INTR_WIDTH 1
-+
-+/* Driver-generated test events */
-+#define EVQ_MAGIC_LBN 0
-+#define EVQ_MAGIC_WIDTH 32
-+
-+/**************************************************************************
-+ *
-+ * Falcon MAC stats
-+ *
-+ **************************************************************************
-+ *
-+ */
-+#define GRxGoodOct_offset 0x0
-+#define GRxBadOct_offset 0x8
-+#define GRxMissPkt_offset 0x10
-+#define GRxFalseCRS_offset 0x14
-+#define GRxPausePkt_offset 0x18
-+#define GRxBadPkt_offset 0x1C
-+#define GRxUcastPkt_offset 0x20
-+#define GRxMcastPkt_offset 0x24
-+#define GRxBcastPkt_offset 0x28
-+#define GRxGoodLt64Pkt_offset 0x2C
-+#define GRxBadLt64Pkt_offset 0x30
-+#define GRx64Pkt_offset 0x34
-+#define GRx65to127Pkt_offset 0x38
-+#define GRx128to255Pkt_offset 0x3C
-+#define GRx256to511Pkt_offset 0x40
-+#define GRx512to1023Pkt_offset 0x44
-+#define GRx1024to15xxPkt_offset 0x48
-+#define GRx15xxtoJumboPkt_offset 0x4C
-+#define GRxGtJumboPkt_offset 0x50
-+#define GRxFcsErr64to15xxPkt_offset 0x54
-+#define GRxFcsErr15xxtoJumboPkt_offset 0x58
-+#define GRxFcsErrGtJumboPkt_offset 0x5C
-+#define GTxGoodBadOct_offset 0x80
-+#define GTxGoodOct_offset 0x88
-+#define GTxSglColPkt_offset 0x90
-+#define GTxMultColPkt_offset 0x94
-+#define GTxExColPkt_offset 0x98
-+#define GTxDefPkt_offset 0x9C
-+#define GTxLateCol_offset 0xA0
-+#define GTxExDefPkt_offset 0xA4
-+#define GTxPausePkt_offset 0xA8
-+#define GTxBadPkt_offset 0xAC
-+#define GTxUcastPkt_offset 0xB0
-+#define GTxMcastPkt_offset 0xB4
-+#define GTxBcastPkt_offset 0xB8
-+#define GTxLt64Pkt_offset 0xBC
-+#define GTx64Pkt_offset 0xC0
-+#define GTx65to127Pkt_offset 0xC4
-+#define GTx128to255Pkt_offset 0xC8
-+#define GTx256to511Pkt_offset 0xCC
-+#define GTx512to1023Pkt_offset 0xD0
-+#define GTx1024to15xxPkt_offset 0xD4
-+#define GTx15xxtoJumboPkt_offset 0xD8
-+#define GTxGtJumboPkt_offset 0xDC
-+#define GTxNonTcpUdpPkt_offset 0xE0
-+#define GTxMacSrcErrPkt_offset 0xE4
-+#define GTxIpSrcErrPkt_offset 0xE8
-+#define GDmaDone_offset 0xEC
-+
-+#define XgRxOctets_offset 0x0
-+#define XgRxOctets_WIDTH 48
-+#define XgRxOctetsOK_offset 0x8
-+#define XgRxOctetsOK_WIDTH 48
-+#define XgRxPkts_offset 0x10
-+#define XgRxPkts_WIDTH 32
-+#define XgRxPktsOK_offset 0x14
-+#define XgRxPktsOK_WIDTH 32
-+#define XgRxBroadcastPkts_offset 0x18
-+#define XgRxBroadcastPkts_WIDTH 32
-+#define XgRxMulticastPkts_offset 0x1C
-+#define XgRxMulticastPkts_WIDTH 32
-+#define XgRxUnicastPkts_offset 0x20
-+#define XgRxUnicastPkts_WIDTH 32
-+#define XgRxUndersizePkts_offset 0x24
-+#define XgRxUndersizePkts_WIDTH 32
-+#define XgRxOversizePkts_offset 0x28
-+#define XgRxOversizePkts_WIDTH 32
-+#define XgRxJabberPkts_offset 0x2C
-+#define XgRxJabberPkts_WIDTH 32
-+#define XgRxUndersizeFCSerrorPkts_offset 0x30
-+#define XgRxUndersizeFCSerrorPkts_WIDTH 32
-+#define XgRxDropEvents_offset 0x34
-+#define XgRxDropEvents_WIDTH 32
-+#define XgRxFCSerrorPkts_offset 0x38
-+#define XgRxFCSerrorPkts_WIDTH 32
-+#define XgRxAlignError_offset 0x3C
-+#define XgRxAlignError_WIDTH 32
-+#define XgRxSymbolError_offset 0x40
-+#define XgRxSymbolError_WIDTH 32
-+#define XgRxInternalMACError_offset 0x44
-+#define XgRxInternalMACError_WIDTH 32
-+#define XgRxControlPkts_offset 0x48
-+#define XgRxControlPkts_WIDTH 32
-+#define XgRxPausePkts_offset 0x4C
-+#define XgRxPausePkts_WIDTH 32
-+#define XgRxPkts64Octets_offset 0x50
-+#define XgRxPkts64Octets_WIDTH 32
-+#define XgRxPkts65to127Octets_offset 0x54
-+#define XgRxPkts65to127Octets_WIDTH 32
-+#define XgRxPkts128to255Octets_offset 0x58
-+#define XgRxPkts128to255Octets_WIDTH 32
-+#define XgRxPkts256to511Octets_offset 0x5C
-+#define XgRxPkts256to511Octets_WIDTH 32
-+#define XgRxPkts512to1023Octets_offset 0x60
-+#define XgRxPkts512to1023Octets_WIDTH 32
-+#define XgRxPkts1024to15xxOctets_offset 0x64
-+#define XgRxPkts1024to15xxOctets_WIDTH 32
-+#define XgRxPkts15xxtoMaxOctets_offset 0x68
-+#define XgRxPkts15xxtoMaxOctets_WIDTH 32
-+#define XgRxLengthError_offset 0x6C
-+#define XgRxLengthError_WIDTH 32
-+#define XgTxPkts_offset 0x80
-+#define XgTxPkts_WIDTH 32
-+#define XgTxOctets_offset 0x88
-+#define XgTxOctets_WIDTH 48
-+#define XgTxMulticastPkts_offset 0x90
-+#define XgTxMulticastPkts_WIDTH 32
-+#define XgTxBroadcastPkts_offset 0x94
-+#define XgTxBroadcastPkts_WIDTH 32
-+#define XgTxUnicastPkts_offset 0x98
-+#define XgTxUnicastPkts_WIDTH 32
-+#define XgTxControlPkts_offset 0x9C
-+#define XgTxControlPkts_WIDTH 32
-+#define XgTxPausePkts_offset 0xA0
-+#define XgTxPausePkts_WIDTH 32
-+#define XgTxPkts64Octets_offset 0xA4
-+#define XgTxPkts64Octets_WIDTH 32
-+#define XgTxPkts65to127Octets_offset 0xA8
-+#define XgTxPkts65to127Octets_WIDTH 32
-+#define XgTxPkts128to255Octets_offset 0xAC
-+#define XgTxPkts128to255Octets_WIDTH 32
-+#define XgTxPkts256to511Octets_offset 0xB0
-+#define XgTxPkts256to511Octets_WIDTH 32
-+#define XgTxPkts512to1023Octets_offset 0xB4
-+#define XgTxPkts512to1023Octets_WIDTH 32
-+#define XgTxPkts1024to15xxOctets_offset 0xB8
-+#define XgTxPkts1024to15xxOctets_WIDTH 32
-+#define XgTxPkts1519toMaxOctets_offset 0xBC
-+#define XgTxPkts1519toMaxOctets_WIDTH 32
-+#define XgTxUndersizePkts_offset 0xC0
-+#define XgTxUndersizePkts_WIDTH 32
-+#define XgTxOversizePkts_offset 0xC4
-+#define XgTxOversizePkts_WIDTH 32
-+#define XgTxNonTcpUdpPkt_offset 0xC8
-+#define XgTxNonTcpUdpPkt_WIDTH 16
-+#define XgTxMacSrcErrPkt_offset 0xCC
-+#define XgTxMacSrcErrPkt_WIDTH 16
-+#define XgTxIpSrcErrPkt_offset 0xD0
-+#define XgTxIpSrcErrPkt_WIDTH 16
-+#define XgDmaDone_offset 0xD4
-+
-+#define FALCON_STATS_NOT_DONE 0x00000000
-+#define FALCON_STATS_DONE 0xffffffff
-+
-+/* Interrupt status register bits */
-+#define FATAL_INT_LBN 64
-+#define FATAL_INT_WIDTH 1
-+#define INT_EVQS_LBN 40
-+#define INT_EVQS_WIDTH 4
-+
-+/**************************************************************************
-+ *
-+ * Falcon non-volatile configuration
-+ *
-+ **************************************************************************
-+ */
-+
-+/* Board configuration v2 (v1 is obsolete; later versions are compatible) */
-+struct falcon_nvconfig_board_v2 {
-+	__le16 nports;
-+	u8 port0_phy_addr;
-+	u8 port0_phy_type;
-+	u8 port1_phy_addr;
-+	u8 port1_phy_type;
-+	__le16 asic_sub_revision;
-+	__le16 board_revision;
-+} __attribute__ ((packed));
-+
-+#define NVCONFIG_BASE 0x300
-+#define NVCONFIG_BOARD_MAGIC_NUM 0xFA1C
-+struct falcon_nvconfig {
-+	efx_oword_t ee_vpd_cfg_reg;			/* 0x300 */
-+	u8 mac_address[2][8];			/* 0x310 */
-+	efx_oword_t pcie_sd_ctl0123_reg;		/* 0x320 */
-+	efx_oword_t pcie_sd_ctl45_reg;			/* 0x330 */
-+	efx_oword_t pcie_pcs_ctl_stat_reg;		/* 0x340 */
-+	efx_oword_t hw_init_reg;			/* 0x350 */
-+	efx_oword_t nic_stat_reg;			/* 0x360 */
-+	efx_oword_t glb_ctl_reg;			/* 0x370 */
-+	efx_oword_t srm_cfg_reg;			/* 0x380 */
-+	efx_oword_t spare_reg;				/* 0x390 */
-+	__le16 board_magic_num;			/* 0x3A0 */
-+	__le16 board_struct_ver;
-+	__le16 board_checksum;
-+	struct falcon_nvconfig_board_v2 board_v2;
-+} __attribute__ ((packed));
-+
-+#endif /* EFX_FALCON_HWDEFS_H */
-diff --git a/drivers/net/sfc/falcon_io.h b/drivers/net/sfc/falcon_io.h
-new file mode 100644
-index 0000000..84509ed
---- /dev/null
-+++ b/drivers/net/sfc/falcon_io.h
-@@ -0,0 +1,242 @@
-+/****************************************************************************
-+ * Driver for Solarflare Solarstorm network controllers and boards
-+ * Copyright 2005-2006 Fen Systems Ltd.
-+ * Copyright 2006-2008 Solarflare Communications Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License version 2 as published
-+ * by the Free Software Foundation, incorporated herein by reference.
-+ */
-+
-+#ifndef EFX_FALCON_IO_H
-+#define EFX_FALCON_IO_H
-+
++#include <linux/netdevice.h>
++#include <linux/ethtool.h>
++#include <linux/rtnetlink.h>
++#include <asm/uaccess.h>
 +#include "net_driver.h"
++#include "efx.h"
++#include "ethtool.h"
 +#include "falcon.h"
++#include "gmii.h"
++#include "mac.h"
++
++static int efx_ethtool_set_tx_csum(struct net_device *net_dev, u32 enable);
++
++struct ethtool_string {
++	char name[ETH_GSTRING_LEN];
++};
++
++struct efx_ethtool_stat {
++	const char *name;
++	enum {
++		EFX_ETHTOOL_STAT_SOURCE_mac_stats,
++		EFX_ETHTOOL_STAT_SOURCE_nic,
++		EFX_ETHTOOL_STAT_SOURCE_channel
++	} source;
++	unsigned offset;
++	u64(*get_stat) (void *field); /* Reader function */
++};
++
++/* Initialiser for a struct #efx_ethtool_stat with type-checking */
++#define EFX_ETHTOOL_STAT(stat_name, source_name, field, field_type, \
++				get_stat_function) {			\
++	.name = #stat_name,						\
++	.source = EFX_ETHTOOL_STAT_SOURCE_##source_name,		\
++	.offset = ((((field_type *) 0) ==				\
++		      &((struct efx_##source_name *)0)->field) ?	\
++		    offsetof(struct efx_##source_name, field) :		\
++		    offsetof(struct efx_##source_name, field)),		\
++	.get_stat = get_stat_function,					\
++}
++
++static u64 efx_get_uint_stat(void *field)
++{
++	return *(unsigned int *)field;
++}
++
++static u64 efx_get_ulong_stat(void *field)
++{
++	return *(unsigned long *)field;
++}
++
++static u64 efx_get_u64_stat(void *field)
++{
++	return *(u64 *) field;
++}
++
++static u64 efx_get_atomic_stat(void *field)
++{
++	return atomic_read((atomic_t *) field);
++}
++
++#define EFX_ETHTOOL_ULONG_MAC_STAT(field)			\
++	EFX_ETHTOOL_STAT(field, mac_stats, field, 		\
++			  unsigned long, efx_get_ulong_stat)
++
++#define EFX_ETHTOOL_U64_MAC_STAT(field)				\
++	EFX_ETHTOOL_STAT(field, mac_stats, field, 		\
++			  u64, efx_get_u64_stat)
++
++#define EFX_ETHTOOL_UINT_NIC_STAT(name)				\
++	EFX_ETHTOOL_STAT(name, nic, n_##name,			\
++			 unsigned int, efx_get_uint_stat)
++
++#define EFX_ETHTOOL_ATOMIC_NIC_ERROR_STAT(field)		\
++	EFX_ETHTOOL_STAT(field, nic, field,			\
++			 atomic_t, efx_get_atomic_stat)
++
++#define EFX_ETHTOOL_UINT_CHANNEL_STAT(field)			\
++	EFX_ETHTOOL_STAT(field, channel, n_##field,		\
++			 unsigned int, efx_get_uint_stat)
++
++static struct efx_ethtool_stat efx_ethtool_stats[] = {
++	EFX_ETHTOOL_U64_MAC_STAT(tx_bytes),
++	EFX_ETHTOOL_U64_MAC_STAT(tx_good_bytes),
++	EFX_ETHTOOL_U64_MAC_STAT(tx_bad_bytes),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_packets),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_bad),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_pause),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_control),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_unicast),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_multicast),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_broadcast),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_lt64),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_64),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_65_to_127),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_128_to_255),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_256_to_511),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_512_to_1023),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_1024_to_15xx),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_15xx_to_jumbo),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_gtjumbo),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_collision),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_single_collision),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_multiple_collision),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_excessive_collision),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_deferred),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_late_collision),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_excessive_deferred),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_non_tcpudp),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_mac_src_error),
++	EFX_ETHTOOL_ULONG_MAC_STAT(tx_ip_src_error),
++	EFX_ETHTOOL_U64_MAC_STAT(rx_bytes),
++	EFX_ETHTOOL_U64_MAC_STAT(rx_good_bytes),
++	EFX_ETHTOOL_U64_MAC_STAT(rx_bad_bytes),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_packets),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_good),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_bad),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_pause),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_control),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_unicast),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_multicast),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_broadcast),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_lt64),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_64),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_65_to_127),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_128_to_255),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_256_to_511),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_512_to_1023),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_1024_to_15xx),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_15xx_to_jumbo),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_gtjumbo),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_bad_lt64),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_bad_64_to_15xx),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_bad_15xx_to_jumbo),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_bad_gtjumbo),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_overflow),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_missed),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_false_carrier),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_symbol_error),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_align_error),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_length_error),
++	EFX_ETHTOOL_ULONG_MAC_STAT(rx_internal_error),
++	EFX_ETHTOOL_UINT_NIC_STAT(rx_nodesc_drop_cnt),
++	EFX_ETHTOOL_ATOMIC_NIC_ERROR_STAT(rx_reset),
++	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_tobe_disc),
++	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_ip_hdr_chksum_err),
++	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_tcp_udp_chksum_err),
++	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_frm_trunc),
++};
++
++/* Number of ethtool statistics */
++#define EFX_ETHTOOL_NUM_STATS ARRAY_SIZE(efx_ethtool_stats)
 +
 +/**************************************************************************
 + *
-+ * Falcon hardware access
++ * Ethtool operations
 + *
 + **************************************************************************
-+ *
-+ * Notes on locking strategy:
-+ *
-+ * Most Falcon registers require 16-byte (or 8-byte, for SRAM
-+ * registers) atomic writes which necessitates locking.
-+ * Under normal operation few writes to the Falcon BAR are made and these
-+ * registers (EVQ_RPTR_REG, RX_DESC_UPD_REG and TX_DESC_UPD_REG) are special
-+ * cased to allow 4-byte (hence lockless) accesses.
-+ *
-+ * It *is* safe to write to these 4-byte registers in the middle of an
-+ * access to an 8-byte or 16-byte register.  We therefore use a
-+ * spinlock to protect accesses to the larger registers, but no locks
-+ * for the 4-byte registers.
-+ *
-+ * A write barrier is needed to ensure that DW3 is written after DW0/1/2
-+ * due to the way the 16byte registers are "collected" in the Falcon BIU
-+ *
-+ * We also lock when carrying out reads, to ensure consistency of the
-+ * data (made possible since the BIU reads all 128 bits into a cache).
-+ * Reads are very rare, so this isn't a significant performance
-+ * impact.  (Most data transferred from NIC to host is DMAed directly
-+ * into host memory).
-+ *
-+ * I/O BAR access uses locks for both reads and writes (but is only provided
-+ * for testing purposes).
 + */
 +
-+/* Special buffer descriptors (Falcon SRAM) */
-+#define BUF_TBL_KER_A1 0x18000
-+#define BUF_TBL_KER_B0 0x800000
-+
-+
-+#if BITS_PER_LONG == 64
-+#define FALCON_USE_QWORD_IO 1
-+#endif
-+
-+#define _falcon_writeq(efx, value, reg) \
-+	__raw_writeq((__force u64) (value), (efx)->membase + (reg))
-+#define _falcon_writel(efx, value, reg) \
-+	__raw_writel((__force u32) (value), (efx)->membase + (reg))
-+#define _falcon_readq(efx, reg) \
-+	((__force __le64) __raw_readq((efx)->membase + (reg)))
-+#define _falcon_readl(efx, reg) \
-+	((__force __le32) __raw_readl((efx)->membase + (reg)))
-+
-+/* Writes to a normal 16-byte Falcon register, locking as appropriate. */
-+static inline void falcon_write(struct efx_nic *efx, efx_oword_t *value,
-+				unsigned int reg)
++/* Identify device by flashing LEDs */
++static int efx_ethtool_phys_id(struct net_device *net_dev, u32 seconds)
 +{
-+	unsigned long flags;
++	struct efx_nic *efx = net_dev->priv;
 +
-+	EFX_REGDUMP(efx, "writing register %x with " EFX_OWORD_FMT "\n", reg,
-+		    EFX_OWORD_VAL(*value));
-+
-+	spin_lock_irqsave(&efx->biu_lock, flags);
-+#ifdef FALCON_USE_QWORD_IO
-+	_falcon_writeq(efx, value->u64[0], reg + 0);
-+	wmb();
-+	_falcon_writeq(efx, value->u64[1], reg + 8);
-+#else
-+	_falcon_writel(efx, value->u32[0], reg + 0);
-+	_falcon_writel(efx, value->u32[1], reg + 4);
-+	_falcon_writel(efx, value->u32[2], reg + 8);
-+	wmb();
-+	_falcon_writel(efx, value->u32[3], reg + 12);
-+#endif
-+	mmiowb();
-+	spin_unlock_irqrestore(&efx->biu_lock, flags);
++	efx->board_info.blink(efx, 1);
++	schedule_timeout_interruptible(seconds * HZ);
++	efx->board_info.blink(efx, 0);
++	return 0;
 +}
 +
-+/* Writes to an 8-byte Falcon SRAM register, locking as appropriate. */
-+static inline void falcon_write_sram(struct efx_nic *efx, efx_qword_t *value,
-+				     unsigned int index)
++/* This must be called with rtnl_lock held. */
++int efx_ethtool_get_settings(struct net_device *net_dev,
++			     struct ethtool_cmd *ecmd)
 +{
-+	unsigned int reg = efx->type->buf_tbl_base + (index * sizeof(*value));
-+	unsigned long flags;
++	struct efx_nic *efx = net_dev->priv;
++	int rc;
 +
-+	EFX_REGDUMP(efx, "writing SRAM register %x with " EFX_QWORD_FMT "\n",
-+		    reg, EFX_QWORD_VAL(*value));
++	mutex_lock(&efx->mac_lock);
++	rc = falcon_xmac_get_settings(efx, ecmd);
++	mutex_unlock(&efx->mac_lock);
 +
-+	spin_lock_irqsave(&efx->biu_lock, flags);
-+#ifdef FALCON_USE_QWORD_IO
-+	_falcon_writeq(efx, value->u64[0], reg + 0);
-+#else
-+	_falcon_writel(efx, value->u32[0], reg + 0);
-+	wmb();
-+	_falcon_writel(efx, value->u32[1], reg + 4);
-+#endif
-+	mmiowb();
-+	spin_unlock_irqrestore(&efx->biu_lock, flags);
++	return rc;
 +}
 +
-+/* Write dword to Falcon register that allows partial writes
-+ *
-+ * Some Falcon registers (EVQ_RPTR_REG, RX_DESC_UPD_REG and
-+ * TX_DESC_UPD_REG) can be written to as a single dword.  This allows
-+ * for lockless writes.
++/* This must be called with rtnl_lock held. */
++int efx_ethtool_set_settings(struct net_device *net_dev,
++			     struct ethtool_cmd *ecmd)
++{
++	struct efx_nic *efx = net_dev->priv;
++	int rc;
++
++	mutex_lock(&efx->mac_lock);
++	rc = falcon_xmac_set_settings(efx, ecmd);
++	mutex_unlock(&efx->mac_lock);
++	if (!rc)
++		efx_reconfigure_port(efx);
++
++	return rc;
++}
++
++static void efx_ethtool_get_drvinfo(struct net_device *net_dev,
++				    struct ethtool_drvinfo *info)
++{
++	struct efx_nic *efx = net_dev->priv;
++
++	strlcpy(info->driver, EFX_DRIVER_NAME, sizeof(info->driver));
++	strlcpy(info->version, EFX_DRIVER_VERSION, sizeof(info->version));
++	strlcpy(info->bus_info, pci_name(efx->pci_dev), sizeof(info->bus_info));
++}
++
++static int efx_ethtool_get_stats_count(struct net_device *net_dev)
++{
++	return EFX_ETHTOOL_NUM_STATS;
++}
++
++static void efx_ethtool_get_strings(struct net_device *net_dev,
++				    u32 string_set, u8 *strings)
++{
++	struct ethtool_string *ethtool_strings =
++		(struct ethtool_string *)strings;
++	int i;
++
++	if (string_set == ETH_SS_STATS)
++		for (i = 0; i < EFX_ETHTOOL_NUM_STATS; i++)
++			strncpy(ethtool_strings[i].name,
++				efx_ethtool_stats[i].name,
++				sizeof(ethtool_strings[i].name));
++}
++
++static void efx_ethtool_get_stats(struct net_device *net_dev,
++				  struct ethtool_stats *stats,
++				  u64 *data)
++{
++	struct efx_nic *efx = net_dev->priv;
++	struct efx_mac_stats *mac_stats = &efx->mac_stats;
++	struct efx_ethtool_stat *stat;
++	struct efx_channel *channel;
++	int i;
++
++	EFX_BUG_ON_PARANOID(stats->n_stats != EFX_ETHTOOL_NUM_STATS);
++
++	/* Update MAC and NIC statistics */
++	net_dev->get_stats(net_dev);
++
++	/* Fill detailed statistics buffer */
++	for (i = 0; i < EFX_ETHTOOL_NUM_STATS; i++) {
++		stat = &efx_ethtool_stats[i];
++		switch (stat->source) {
++		case EFX_ETHTOOL_STAT_SOURCE_mac_stats:
++			data[i] = stat->get_stat((void *)mac_stats +
++						 stat->offset);
++			break;
++		case EFX_ETHTOOL_STAT_SOURCE_nic:
++			data[i] = stat->get_stat((void *)efx + stat->offset);
++			break;
++		case EFX_ETHTOOL_STAT_SOURCE_channel:
++			data[i] = 0;
++			efx_for_each_channel(channel, efx)
++				data[i] += stat->get_stat((void *)channel +
++							  stat->offset);
++			break;
++		}
++	}
++}
++
++static int efx_ethtool_set_tx_csum(struct net_device *net_dev, u32 enable)
++{
++	struct efx_nic *efx = net_dev->priv;
++	int rc;
++
++	rc = ethtool_op_set_tx_csum(net_dev, enable);
++	if (rc)
++		return rc;
++
++	efx_flush_queues(efx);
++
++	return 0;
++}
++
++static int efx_ethtool_set_rx_csum(struct net_device *net_dev, u32 enable)
++{
++	struct efx_nic *efx = net_dev->priv;
++
++	/* No way to stop the hardware doing the checks; we just
++	 * ignore the result.
++	 */
++	efx->rx_checksum_enabled = (enable ? 1 : 0);
++
++	return 0;
++}
++
++static u32 efx_ethtool_get_rx_csum(struct net_device *net_dev)
++{
++	struct efx_nic *efx = net_dev->priv;
++
++	return efx->rx_checksum_enabled;
++}
++
++/* Restart autonegotiation */
++static int efx_ethtool_nway_reset(struct net_device *net_dev)
++{
++	struct efx_nic *efx = net_dev->priv;
++
++	return mii_nway_restart(&efx->mii);
++}
++
++static u32 efx_ethtool_get_link(struct net_device *net_dev)
++{
++	struct efx_nic *efx = net_dev->priv;
++
++	return efx->link_up;
++}
++
++static int efx_ethtool_get_coalesce(struct net_device *net_dev,
++				    struct ethtool_coalesce *coalesce)
++{
++	struct efx_nic *efx = net_dev->priv;
++	struct efx_tx_queue *tx_queue;
++	struct efx_rx_queue *rx_queue;
++	struct efx_channel *channel;
++
++	memset(coalesce, 0, sizeof(*coalesce));
++
++	/* Find lowest IRQ moderation across all used TX queues */
++	coalesce->tx_coalesce_usecs_irq = ~((u32) 0);
++	efx_for_each_tx_queue(tx_queue, efx) {
++		channel = tx_queue->channel;
++		if (channel->irq_moderation < coalesce->tx_coalesce_usecs_irq) {
++			if (channel->used_flags != EFX_USED_BY_RX_TX)
++				coalesce->tx_coalesce_usecs_irq =
++					channel->irq_moderation;
++			else
++				coalesce->tx_coalesce_usecs_irq = 0;
++		}
++	}
++
++	/* Find lowest IRQ moderation across all used RX queues */
++	coalesce->rx_coalesce_usecs_irq = ~((u32) 0);
++	efx_for_each_rx_queue(rx_queue, efx) {
++		channel = rx_queue->channel;
++		if (channel->irq_moderation < coalesce->rx_coalesce_usecs_irq)
++			coalesce->rx_coalesce_usecs_irq =
++				channel->irq_moderation;
++	}
++
++	return 0;
++}
++
++/* Set coalescing parameters
++ * The difficulties occur for shared channels
 + */
-+static inline void falcon_writel(struct efx_nic *efx, efx_dword_t *value,
-+				 unsigned int reg)
++static int efx_ethtool_set_coalesce(struct net_device *net_dev,
++				    struct ethtool_coalesce *coalesce)
 +{
-+	EFX_REGDUMP(efx, "writing partial register %x with "EFX_DWORD_FMT"\n",
-+		    reg, EFX_DWORD_VAL(*value));
++	struct efx_nic *efx = net_dev->priv;
++	struct efx_channel *channel;
++	struct efx_tx_queue *tx_queue;
++	unsigned tx_usecs, rx_usecs;
 +
-+	/* No lock required */
-+	_falcon_writel(efx, value->u32[0], reg);
++	if (coalesce->use_adaptive_rx_coalesce ||
++	    coalesce->use_adaptive_tx_coalesce)
++		return -EOPNOTSUPP;
++
++	if (coalesce->rx_coalesce_usecs || coalesce->tx_coalesce_usecs) {
++		EFX_ERR(efx, "invalid coalescing setting. "
++			"Only rx/tx_coalesce_usecs_irq are supported\n");
++		return -EOPNOTSUPP;
++	}
++
++	rx_usecs = coalesce->rx_coalesce_usecs_irq;
++	tx_usecs = coalesce->tx_coalesce_usecs_irq;
++
++	/* If the channel is shared only allow RX parameters to be set */
++	efx_for_each_tx_queue(tx_queue, efx) {
++		if ((tx_queue->channel->used_flags == EFX_USED_BY_RX_TX) &&
++		    tx_usecs) {
++			EFX_ERR(efx, "Channel is shared. "
++				"Only RX coalescing may be set\n");
++			return -EOPNOTSUPP;
++		}
++	}
++
++	efx_init_irq_moderation(efx, tx_usecs, rx_usecs);
++
++	/* Reset channel to pick up new moderation value.  Note that
++	 * this may change the value of the irq_moderation field
++	 * (e.g. to allow for hardware timer granularity).
++	 */
++	efx_for_each_channel(channel, efx)
++		falcon_set_int_moderation(channel);
++
++	return 0;
 +}
 +
-+/* Read from a Falcon register
-+ *
-+ * This reads an entire 16-byte Falcon register in one go, locking as
-+ * appropriate.  It is essential to read the first dword first, as this
-+ * prompts Falcon to load the current value into the shadow register.
-+ */
-+static inline void falcon_read(struct efx_nic *efx, efx_oword_t *value,
-+			       unsigned int reg)
++static int efx_ethtool_set_pauseparam(struct net_device *net_dev,
++				      struct ethtool_pauseparam *pause)
 +{
-+	unsigned long flags;
++	struct efx_nic *efx = net_dev->priv;
++	enum efx_fc_type flow_control = efx->flow_control;
++	int rc;
 +
-+	spin_lock_irqsave(&efx->biu_lock, flags);
-+	value->u32[0] = _falcon_readl(efx, reg + 0);
-+	rmb();
-+	value->u32[1] = _falcon_readl(efx, reg + 4);
-+	value->u32[2] = _falcon_readl(efx, reg + 8);
-+	value->u32[3] = _falcon_readl(efx, reg + 12);
-+	spin_unlock_irqrestore(&efx->biu_lock, flags);
++	flow_control &= ~(EFX_FC_RX | EFX_FC_TX | EFX_FC_AUTO);
++	flow_control |= pause->rx_pause ? EFX_FC_RX : 0;
++	flow_control |= pause->tx_pause ? EFX_FC_TX : 0;
++	flow_control |= pause->autoneg ? EFX_FC_AUTO : 0;
 +
-+	EFX_REGDUMP(efx, "read from register %x, got " EFX_OWORD_FMT "\n", reg,
-+		    EFX_OWORD_VAL(*value));
++	/* Try to push the pause parameters */
++	mutex_lock(&efx->mac_lock);
++	rc = falcon_xmac_set_pause(efx, flow_control);
++	mutex_unlock(&efx->mac_lock);
++
++	if (!rc)
++		efx_reconfigure_port(efx);
++
++	return rc;
 +}
 +
-+/* This reads an 8-byte Falcon SRAM entry in one go. */
-+static inline void falcon_read_sram(struct efx_nic *efx, efx_qword_t *value,
-+				    unsigned int index)
++static void efx_ethtool_get_pauseparam(struct net_device *net_dev,
++				       struct ethtool_pauseparam *pause)
 +{
-+	unsigned int reg = efx->type->buf_tbl_base + (index * sizeof(*value));
-+	unsigned long flags;
++	struct efx_nic *efx = net_dev->priv;
 +
-+	spin_lock_irqsave(&efx->biu_lock, flags);
-+#ifdef FALCON_USE_QWORD_IO
-+	value->u64[0] = _falcon_readq(efx, reg + 0);
-+#else
-+	value->u32[0] = _falcon_readl(efx, reg + 0);
-+	rmb();
-+	value->u32[1] = _falcon_readl(efx, reg + 4);
-+#endif
-+	spin_unlock_irqrestore(&efx->biu_lock, flags);
-+
-+	EFX_REGDUMP(efx, "read from SRAM register %x, got "EFX_QWORD_FMT"\n",
-+		    reg, EFX_QWORD_VAL(*value));
++	pause->rx_pause = (efx->flow_control & EFX_FC_RX) ? 1 : 0;
++	pause->tx_pause = (efx->flow_control & EFX_FC_TX) ? 1 : 0;
++	pause->autoneg = (efx->flow_control & EFX_FC_AUTO) ? 1 : 0;
 +}
 +
-+/* Read dword from Falcon register that allows partial writes (sic) */
-+static inline void falcon_readl(struct efx_nic *efx, efx_dword_t *value,
-+				unsigned int reg)
-+{
-+	value->u32[0] = _falcon_readl(efx, reg);
-+	EFX_REGDUMP(efx, "read from register %x, got "EFX_DWORD_FMT"\n",
-+		    reg, EFX_DWORD_VAL(*value));
-+}
 +
-+/* Write to a register forming part of a table */
-+static inline void falcon_write_table(struct efx_nic *efx, efx_oword_t *value,
-+				      unsigned int reg, unsigned int index)
-+{
-+	falcon_write(efx, value, reg + index * sizeof(efx_oword_t));
-+}
-+
-+/* Read to a register forming part of a table */
-+static inline void falcon_read_table(struct efx_nic *efx, efx_oword_t *value,
-+				     unsigned int reg, unsigned int index)
-+{
-+	falcon_read(efx, value, reg + index * sizeof(efx_oword_t));
-+}
-+
-+/* Write to a dword register forming part of a table */
-+static inline void falcon_writel_table(struct efx_nic *efx, efx_dword_t *value,
-+				       unsigned int reg, unsigned int index)
-+{
-+	falcon_writel(efx, value, reg + index * sizeof(efx_oword_t));
-+}
-+
-+/* Page-mapped register block size */
-+#define FALCON_PAGE_BLOCK_SIZE 0x2000
-+
-+/* Calculate offset to page-mapped register block */
-+#define FALCON_PAGED_REG(page, reg) \
-+	((page) * FALCON_PAGE_BLOCK_SIZE + (reg))
-+
-+/* As for falcon_write(), but for a page-mapped register. */
-+static inline void falcon_write_page(struct efx_nic *efx, efx_oword_t *value,
-+				     unsigned int reg, unsigned int page)
-+{
-+	falcon_write(efx, value, FALCON_PAGED_REG(page, reg));
-+}
-+
-+/* As for falcon_writel(), but for a page-mapped register. */
-+static inline void falcon_writel_page(struct efx_nic *efx, efx_dword_t *value,
-+				      unsigned int reg, unsigned int page)
-+{
-+	falcon_writel(efx, value, FALCON_PAGED_REG(page, reg));
-+}
-+
-+/* Write dword to Falcon page-mapped register with an extra lock.
-+ *
-+ * As for falcon_writel_page(), but for a register that suffers from
-+ * SFC bug 3181. Take out a lock so the BIU collector cannot be
-+ * confused. */
-+static inline void falcon_writel_page_locked(struct efx_nic *efx,
-+					     efx_dword_t *value,
-+					     unsigned int reg,
-+					     unsigned int page)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&efx->biu_lock, flags);
-+	falcon_writel(efx, value, FALCON_PAGED_REG(page, reg));
-+	spin_unlock_irqrestore(&efx->biu_lock, flags);
-+}
-+
-+#endif /* EFX_FALCON_IO_H */
-diff --git a/drivers/net/sfc/spi.h b/drivers/net/sfc/spi.h
++struct ethtool_ops efx_ethtool_ops = {
++	.get_settings		= efx_ethtool_get_settings,
++	.set_settings		= efx_ethtool_set_settings,
++	.get_drvinfo		= efx_ethtool_get_drvinfo,
++	.nway_reset		= efx_ethtool_nway_reset,
++	.get_link		= efx_ethtool_get_link,
++	.get_coalesce		= efx_ethtool_get_coalesce,
++	.set_coalesce		= efx_ethtool_set_coalesce,
++	.get_pauseparam         = efx_ethtool_get_pauseparam,
++	.set_pauseparam         = efx_ethtool_set_pauseparam,
++	.get_rx_csum		= efx_ethtool_get_rx_csum,
++	.set_rx_csum		= efx_ethtool_set_rx_csum,
++	.get_tx_csum		= ethtool_op_get_tx_csum,
++	.set_tx_csum		= efx_ethtool_set_tx_csum,
++	.get_sg			= ethtool_op_get_sg,
++	.set_sg			= ethtool_op_set_sg,
++	.get_flags		= ethtool_op_get_flags,
++	.set_flags		= ethtool_op_set_flags,
++	.get_strings		= efx_ethtool_get_strings,
++	.phys_id		= efx_ethtool_phys_id,
++	.get_stats_count	= efx_ethtool_get_stats_count,
++	.get_ethtool_stats	= efx_ethtool_get_stats,
++};
+diff --git a/drivers/net/sfc/ethtool.h b/drivers/net/sfc/ethtool.h
 new file mode 100644
-index 0000000..34412f3
+index 0000000..3628e43
 --- /dev/null
-+++ b/drivers/net/sfc/spi.h
-@@ -0,0 +1,71 @@
++++ b/drivers/net/sfc/ethtool.h
+@@ -0,0 +1,27 @@
 +/****************************************************************************
 + * Driver for Solarflare Solarstorm network controllers and boards
 + * Copyright 2005 Fen Systems Ltd.
@@ -1404,73 +502,317 @@ index 0000000..34412f3
 + * by the Free Software Foundation, incorporated herein by reference.
 + */
 +
-+#ifndef EFX_SPI_H
-+#define EFX_SPI_H
++#ifndef EFX_ETHTOOL_H
++#define EFX_ETHTOOL_H
 +
 +#include "net_driver.h"
 +
-+/**************************************************************************
-+ *
-+ * Basic SPI command set and bit definitions
-+ *
-+ *************************************************************************/
-+
 +/*
-+ * Commands common to all known devices.
-+ *
++ * Ethtool support
 + */
 +
-+/* Write status register */
-+#define SPI_WRSR 0x01
++extern int efx_ethtool_get_settings(struct net_device *net_dev,
++				    struct ethtool_cmd *ecmd);
++extern int efx_ethtool_set_settings(struct net_device *net_dev,
++				    struct ethtool_cmd *ecmd);
 +
-+/* Write data to memory array */
-+#define SPI_WRITE 0x02
++extern struct ethtool_ops efx_ethtool_ops;
 +
-+/* Read data from memory array */
-+#define SPI_READ 0x03
-+
-+/* Reset write enable latch */
-+#define SPI_WRDI 0x04
-+
-+/* Read status register */
-+#define SPI_RDSR 0x05
-+
-+/* Set write enable latch */
-+#define SPI_WREN 0x06
-+
-+/* SST: Enable write to status register */
-+#define SPI_SST_EWSR 0x50
-+
-+/*
-+ * Status register bits.  Not all bits are supported on all devices.
-+ *
-+ */
-+
-+/* Write-protect pin enabled */
-+#define SPI_STATUS_WPEN 0x80
-+
-+/* Block protection bit 2 */
-+#define SPI_STATUS_BP2 0x10
-+
-+/* Block protection bit 1 */
-+#define SPI_STATUS_BP1 0x08
-+
-+/* Block protection bit 0 */
-+#define SPI_STATUS_BP0 0x04
-+
-+/* State of the write enable latch */
-+#define SPI_STATUS_WEN 0x02
-+
-+/* Device busy flag */
-+#define SPI_STATUS_NRDY 0x01
-+
-+#endif /* EFX_SPI_H */
-diff --git a/drivers/net/sfc/workarounds.h b/drivers/net/sfc/workarounds.h
++#endif /* EFX_ETHTOOL_H */
+diff --git a/drivers/net/sfc/mdio_10g.c b/drivers/net/sfc/mdio_10g.c
 new file mode 100644
-index 0000000..9113ae1
+index 0000000..b3c0916
 --- /dev/null
-+++ b/drivers/net/sfc/workarounds.h
-@@ -0,0 +1,56 @@
++++ b/drivers/net/sfc/mdio_10g.c
+@@ -0,0 +1,282 @@
++/****************************************************************************
++ * Driver for Solarflare Solarstorm network controllers and boards
++ * Copyright 2006-2008 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++/*
++ * Useful functions for working with MDIO clause 45 PHYs
++ */
++#include <linux/types.h>
++#include <linux/ethtool.h>
++#include <linux/delay.h>
++#include "net_driver.h"
++#include "mdio_10g.h"
++#include "boards.h"
++
++int mdio_clause45_reset_mmd(struct efx_nic *port, int mmd,
++			    int spins, int spintime)
++{
++	u32 ctrl;
++	int phy_id = port->mii.phy_id;
++
++	/* Catch callers passing values in the wrong units (or just silly) */
++	EFX_BUG_ON_PARANOID(spins * spintime >= 5000);
++
++	mdio_clause45_write(port, phy_id, mmd, MDIO_MMDREG_CTRL1,
++			    (1 << MDIO_MMDREG_CTRL1_RESET_LBN));
++	/* Wait for the reset bit to clear. */
++	do {
++		msleep(spintime);
++		ctrl = mdio_clause45_read(port, phy_id, mmd, MDIO_MMDREG_CTRL1);
++		spins--;
++
++	} while (spins && (ctrl & (1 << MDIO_MMDREG_CTRL1_RESET_LBN)));
++
++	return spins ? spins : -ETIMEDOUT;
++}
++
++static int mdio_clause45_check_mmd(struct efx_nic *efx, int mmd,
++				   int fault_fatal)
++{
++	int status;
++	int phy_id = efx->mii.phy_id;
++
++	/* Read MMD STATUS2 to check it is responding. */
++	status = mdio_clause45_read(efx, phy_id, mmd, MDIO_MMDREG_STAT2);
++	if (((status >> MDIO_MMDREG_STAT2_PRESENT_LBN) &
++	     ((1 << MDIO_MMDREG_STAT2_PRESENT_WIDTH) - 1)) !=
++	    MDIO_MMDREG_STAT2_PRESENT_VAL) {
++		EFX_ERR(efx, "PHY MMD %d not responding.\n", mmd);
++		return -EIO;
++	}
++
++	/* Read MMD STATUS 1 to check for fault. */
++	status = mdio_clause45_read(efx, phy_id, mmd, MDIO_MMDREG_STAT1);
++	if ((status & (1 << MDIO_MMDREG_STAT1_FAULT_LBN)) != 0) {
++		if (fault_fatal) {
++			EFX_ERR(efx, "PHY MMD %d reporting fatal"
++				" fault: status %x\n", mmd, status);
++			return -EIO;
++		} else {
++			EFX_LOG(efx, "PHY MMD %d reporting status"
++				" %x (expected)\n", mmd, status);
++		}
++	}
++	return 0;
++}
++
++/* This ought to be ridiculous overkill. We expect it to fail rarely */
++#define MDIO45_RESET_TIME	HZ
++#define MDIO45_RESET_ITERS	(100)
++
++int mdio_clause45_wait_reset_mmds(struct efx_nic *efx,
++				  unsigned int mmd_mask)
++{
++	const int spintime = MDIO45_RESET_TIME / MDIO45_RESET_ITERS;
++	int tries = MDIO45_RESET_ITERS;
++	int rc = 0;
++	int in_reset;
++
++	while (tries) {
++		int mask = mmd_mask;
++		int mmd = 0;
++		int stat;
++		in_reset = 0;
++		while (mask) {
++			if (mask & 1) {
++				stat = mdio_clause45_read(efx,
++							  efx->mii.phy_id,
++							  mmd,
++							  MDIO_MMDREG_CTRL1);
++				if (stat < 0) {
++					EFX_ERR(efx, "failed to read status of"
++						" MMD %d\n", mmd);
++					return -EIO;
++				}
++				if (stat & (1 << MDIO_MMDREG_CTRL1_RESET_LBN))
++					in_reset |= (1 << mmd);
++			}
++			mask = mask >> 1;
++			mmd++;
++		}
++		if (!in_reset)
++			break;
++		tries--;
++		msleep(spintime);
++	}
++	if (in_reset != 0) {
++		EFX_ERR(efx, "not all MMDs came out of reset in time."
++			" MMDs still in reset: %x\n", in_reset);
++		rc = -ETIMEDOUT;
++	}
++	return rc;
++}
++
++int mdio_clause45_check_mmds(struct efx_nic *efx,
++			     unsigned int mmd_mask, unsigned int fatal_mask)
++{
++	int devices, mmd = 0;
++	int probe_mmd;
++
++	/* Historically we have probed the PHYXS to find out what devices are
++	 * present,but that doesn't work so well if the PHYXS isn't expected
++	 * to exist, if so just find the first item in the list supplied. */
++	probe_mmd = (mmd_mask & MDIO_MMDREG_DEVS0_PHYXS) ? MDIO_MMD_PHYXS :
++	    __ffs(mmd_mask);
++	devices = mdio_clause45_read(efx, efx->mii.phy_id,
++				     probe_mmd, MDIO_MMDREG_DEVS0);
++
++	/* Check all the expected MMDs are present */
++	if (devices < 0) {
++		EFX_ERR(efx, "failed to read devices present\n");
++		return -EIO;
++	}
++	if ((devices & mmd_mask) != mmd_mask) {
++		EFX_ERR(efx, "required MMDs not present: got %x, "
++			"wanted %x\n", devices, mmd_mask);
++		return -ENODEV;
++	}
++	EFX_TRACE(efx, "Devices present: %x\n", devices);
++
++	/* Check all required MMDs are responding and happy. */
++	while (mmd_mask) {
++		if (mmd_mask & 1) {
++			int fault_fatal = fatal_mask & 1;
++			if (mdio_clause45_check_mmd(efx, mmd, fault_fatal))
++				return -EIO;
++		}
++		mmd_mask = mmd_mask >> 1;
++		fatal_mask = fatal_mask >> 1;
++		mmd++;
++	}
++
++	return 0;
++}
++
++int mdio_clause45_links_ok(struct efx_nic *efx, unsigned int mmd_mask)
++{
++	int phy_id = efx->mii.phy_id;
++	int status;
++	int ok = 1;
++	int mmd = 0;
++	int good;
++
++	while (mmd_mask) {
++		if (mmd_mask & 1) {
++			/* Double reads because link state is latched, and a
++			 * read moves the current state into the register */
++			status = mdio_clause45_read(efx, phy_id,
++						    mmd, MDIO_MMDREG_STAT1);
++			status = mdio_clause45_read(efx, phy_id,
++						    mmd, MDIO_MMDREG_STAT1);
++
++			good = status & (1 << MDIO_MMDREG_STAT1_LINK_LBN);
++			ok = ok && good;
++		}
++		mmd_mask = (mmd_mask >> 1);
++		mmd++;
++	}
++	return ok;
++}
++
++/**
++ * mdio_clause45_get_settings - Read (some of) the PHY settings over MDIO.
++ * @efx:		Efx NIC
++ * @ecmd: 		Buffer for settings
++ *
++ * On return the 'port', 'speed', 'supported' and 'advertising' fields of
++ * ecmd have been filled out based on the PMA type.
++ */
++void mdio_clause45_get_settings(struct efx_nic *efx,
++				struct ethtool_cmd *ecmd)
++{
++	int pma_type;
++
++	/* If no PMA is present we are presumably talking something XAUI-ish
++	 * like CX4. Which we report as FIBRE (see below) */
++	if ((efx->phy_op->mmds & DEV_PRESENT_BIT(MDIO_MMD_PMAPMD)) == 0) {
++		ecmd->speed = SPEED_10000;
++		ecmd->port = PORT_FIBRE;
++		ecmd->supported = SUPPORTED_FIBRE;
++		ecmd->advertising = ADVERTISED_FIBRE;
++		return;
++	}
++
++	pma_type = mdio_clause45_read(efx, efx->mii.phy_id,
++				      MDIO_MMD_PMAPMD, MDIO_MMDREG_CTRL2);
++	pma_type &= MDIO_PMAPMD_CTRL2_TYPE_MASK;
++
++	switch (pma_type) {
++		/* We represent CX4 as fibre in the absence of anything
++		   better. */
++	case MDIO_PMAPMD_CTRL2_10G_CX4:
++		ecmd->speed = SPEED_10000;
++		ecmd->port = PORT_FIBRE;
++		ecmd->supported = SUPPORTED_FIBRE;
++		ecmd->advertising = ADVERTISED_FIBRE;
++		break;
++		/* 10G Base-T */
++	case MDIO_PMAPMD_CTRL2_10G_BT:
++		ecmd->speed = SPEED_10000;
++		ecmd->port = PORT_TP;
++		ecmd->supported = SUPPORTED_TP | SUPPORTED_10000baseT_Full;
++		ecmd->advertising = (ADVERTISED_FIBRE
++				     | ADVERTISED_10000baseT_Full);
++		break;
++	case MDIO_PMAPMD_CTRL2_1G_BT:
++		ecmd->speed = SPEED_1000;
++		ecmd->port = PORT_TP;
++		ecmd->supported = SUPPORTED_TP | SUPPORTED_1000baseT_Full;
++		ecmd->advertising = (ADVERTISED_FIBRE
++				     | ADVERTISED_1000baseT_Full);
++		break;
++	case MDIO_PMAPMD_CTRL2_100_BT:
++		ecmd->speed = SPEED_100;
++		ecmd->port = PORT_TP;
++		ecmd->supported = SUPPORTED_TP | SUPPORTED_100baseT_Full;
++		ecmd->advertising = (ADVERTISED_FIBRE
++				     | ADVERTISED_100baseT_Full);
++		break;
++	case MDIO_PMAPMD_CTRL2_10_BT:
++		ecmd->speed = SPEED_10;
++		ecmd->port = PORT_TP;
++		ecmd->supported = SUPPORTED_TP | SUPPORTED_10baseT_Full;
++		ecmd->advertising = ADVERTISED_FIBRE | ADVERTISED_10baseT_Full;
++		break;
++	/* All the other defined modes are flavours of
++	 * 10G optical */
++	default:
++		ecmd->speed = SPEED_10000;
++		ecmd->port = PORT_FIBRE;
++		ecmd->supported = SUPPORTED_FIBRE;
++		ecmd->advertising = ADVERTISED_FIBRE;
++		break;
++	}
++}
++
++/**
++ * mdio_clause45_set_settings - Set (some of) the PHY settings over MDIO.
++ * @efx:		Efx NIC
++ * @ecmd: 		New settings
++ *
++ * Currently this just enforces that we are _not_ changing the
++ * 'port', 'speed', 'supported' or 'advertising' settings as these
++ * cannot be changed on any currently supported PHY.
++ */
++int mdio_clause45_set_settings(struct efx_nic *efx,
++			       struct ethtool_cmd *ecmd)
++{
++	struct ethtool_cmd tmpcmd;
++	mdio_clause45_get_settings(efx, &tmpcmd);
++	/* None of the current PHYs support more than one mode
++	 * of operation (and only 10GBT ever will), so keep things
++	 * simple for now */
++	if ((ecmd->speed == tmpcmd.speed) && (ecmd->port == tmpcmd.port) &&
++	    (ecmd->supported == tmpcmd.supported) &&
++	    (ecmd->advertising == tmpcmd.advertising))
++		return 0;
++	return -EOPNOTSUPP;
++}
+diff --git a/drivers/net/sfc/mdio_10g.h b/drivers/net/sfc/mdio_10g.h
+new file mode 100644
+index 0000000..2214b6d
+--- /dev/null
++++ b/drivers/net/sfc/mdio_10g.h
+@@ -0,0 +1,232 @@
 +/****************************************************************************
 + * Driver for Solarflare Solarstorm network controllers and boards
 + * Copyright 2006-2008 Solarflare Communications Inc.
@@ -1480,53 +822,229 @@ index 0000000..9113ae1
 + * by the Free Software Foundation, incorporated herein by reference.
 + */
 +
-+#ifndef EFX_WORKAROUNDS_H
-+#define EFX_WORKAROUNDS_H
++#ifndef EFX_MDIO_10G_H
++#define EFX_MDIO_10G_H
 +
 +/*
-+ * Hardware workarounds.
-+ * Bug numbers are from Solarflare's Bugzilla.
++ * Definitions needed for doing 10G MDIO as specified in clause 45
++ * MDIO, which do not appear in Linux yet. Also some helper functions.
 + */
 +
-+#define EFX_WORKAROUND_ALWAYS(efx) 1
-+#define EFX_WORKAROUND_FALCON_A(efx) (FALCON_REV(efx) <= FALCON_REV_A1)
++#include "efx.h"
++#include "boards.h"
 +
-+/* XAUI resets if link not detected */
-+#define EFX_WORKAROUND_5147 EFX_WORKAROUND_ALWAYS
-+/* SNAP frames have TOBE_DISC set */
-+#define EFX_WORKAROUND_5475 EFX_WORKAROUND_ALWAYS
-+/* RX PCIe double split performance issue */
-+#define EFX_WORKAROUND_7575 EFX_WORKAROUND_ALWAYS
-+/* TX pkt parser problem with <= 16 byte TXes */
-+#define EFX_WORKAROUND_9141 EFX_WORKAROUND_ALWAYS
-+/* XGXS and XAUI reset sequencing in SW */
-+#define EFX_WORKAROUND_9388 EFX_WORKAROUND_ALWAYS
-+/* Low rate CRC errors require XAUI reset */
-+#define EFX_WORKAROUND_10750 EFX_WORKAROUND_ALWAYS
-+/* TX_EV_PKT_ERR can be caused by a dangling TX descriptor
-+ * or a PCIe error (bug 11028) */
-+#define EFX_WORKAROUND_10727 EFX_WORKAROUND_ALWAYS
-+/* Transmit flow control may get disabled */
-+#define EFX_WORKAROUND_11482 EFX_WORKAROUND_ALWAYS
-+/* Flush events can take a very long time to appear */
-+#define EFX_WORKAROUND_11557 EFX_WORKAROUND_ALWAYS
++/* Numbering of the MDIO Manageable Devices (MMDs) */
++/* Physical Medium Attachment/ Physical Medium Dependent sublayer */
++#define MDIO_MMD_PMAPMD	(1)
++/* WAN Interface Sublayer */
++#define MDIO_MMD_WIS	(2)
++/* Physical Coding Sublayer */
++#define MDIO_MMD_PCS	(3)
++/* PHY Extender Sublayer */
++#define MDIO_MMD_PHYXS	(4)
++/* Extender Sublayer */
++#define MDIO_MMD_DTEXS	(5)
++/* Transmission convergence */
++#define MDIO_MMD_TC	(6)
++/* Auto negotiation */
++#define MDIO_MMD_AN	(7)
 +
-+/* Spurious parity errors in TSORT buffers */
-+#define EFX_WORKAROUND_5129 EFX_WORKAROUND_FALCON_A
-+/* iSCSI parsing errors */
-+#define EFX_WORKAROUND_5583 EFX_WORKAROUND_FALCON_A
-+/* RX events go missing */
-+#define EFX_WORKAROUND_5676 EFX_WORKAROUND_FALCON_A
-+/* RX_RESET on A1 */
-+#define EFX_WORKAROUND_6555 EFX_WORKAROUND_FALCON_A
-+/* Increase filter depth to avoid RX_RESET */
-+#define EFX_WORKAROUND_7244 EFX_WORKAROUND_FALCON_A
-+/* Flushes may never complete */
-+#define EFX_WORKAROUND_7803 EFX_WORKAROUND_FALCON_A
-+/* Leak overlength packets rather than free */
-+#define EFX_WORKAROUND_8071 EFX_WORKAROUND_FALCON_A
++/* Generic register locations */
++#define MDIO_MMDREG_CTRL1	(0)
++#define MDIO_MMDREG_STAT1	(1)
++#define MDIO_MMDREG_IDHI	(2)
++#define MDIO_MMDREG_IDLOW	(3)
++#define MDIO_MMDREG_SPEED	(4)
++#define MDIO_MMDREG_DEVS0	(5)
++#define MDIO_MMDREG_DEVS1	(6)
++#define MDIO_MMDREG_CTRL2	(7)
++#define MDIO_MMDREG_STAT2	(8)
 +
-+#endif /* EFX_WORKAROUNDS_H */
++/* Bits in MMDREG_CTRL1 */
++/* Reset */
++#define MDIO_MMDREG_CTRL1_RESET_LBN	(15)
++#define MDIO_MMDREG_CTRL1_RESET_WIDTH	(1)
++
++/* Bits in MMDREG_STAT1 */
++#define MDIO_MMDREG_STAT1_FAULT_LBN	(7)
++#define MDIO_MMDREG_STAT1_FAULT_WIDTH	(1)
++/* Link state */
++#define MDIO_MMDREG_STAT1_LINK_LBN	(2)
++#define MDIO_MMDREG_STAT1_LINK_WIDTH	(1)
++
++/* Bits in ID reg */
++#define MDIO_ID_REV(_id32)	(_id32 & 0xf)
++#define MDIO_ID_MODEL(_id32)	((_id32 >> 4) & 0x3f)
++#define MDIO_ID_OUI(_id32)	(_id32 >> 10)
++
++/* Bits in MMDREG_DEVS0. Someone thoughtfully layed things out
++ * so the 'bit present' bit number of an MMD is the number of
++ * that MMD */
++#define DEV_PRESENT_BIT(_b) (1 << _b)
++
++#define MDIO_MMDREG_DEVS0_PHYXS	 DEV_PRESENT_BIT(MDIO_MMD_PHYXS)
++#define MDIO_MMDREG_DEVS0_PCS	 DEV_PRESENT_BIT(MDIO_MMD_PCS)
++#define MDIO_MMDREG_DEVS0_PMAPMD DEV_PRESENT_BIT(MDIO_MMD_PMAPMD)
++
++/* Bits in MMDREG_STAT2 */
++#define MDIO_MMDREG_STAT2_PRESENT_VAL	(2)
++#define MDIO_MMDREG_STAT2_PRESENT_LBN	(14)
++#define MDIO_MMDREG_STAT2_PRESENT_WIDTH (2)
++
++/* PMA type (4 bits) */
++#define MDIO_PMAPMD_CTRL2_10G_CX4	(0x0)
++#define MDIO_PMAPMD_CTRL2_10G_EW	(0x1)
++#define MDIO_PMAPMD_CTRL2_10G_LW	(0x2)
++#define MDIO_PMAPMD_CTRL2_10G_SW	(0x3)
++#define MDIO_PMAPMD_CTRL2_10G_LX4	(0x4)
++#define MDIO_PMAPMD_CTRL2_10G_ER	(0x5)
++#define MDIO_PMAPMD_CTRL2_10G_LR	(0x6)
++#define MDIO_PMAPMD_CTRL2_10G_SR	(0x7)
++/* Reserved */
++#define MDIO_PMAPMD_CTRL2_10G_BT	(0x9)
++/* Reserved */
++/* Reserved */
++#define MDIO_PMAPMD_CTRL2_1G_BT		(0xc)
++/* Reserved */
++#define MDIO_PMAPMD_CTRL2_100_BT	(0xe)
++#define MDIO_PMAPMD_CTRL2_10_BT		(0xf)
++#define MDIO_PMAPMD_CTRL2_TYPE_MASK	(0xf)
++
++/* /\* PHY XGXS lane state *\/ */
++#define MDIO_PHYXS_LANE_STATE		(0x18)
++#define MDIO_PHYXS_LANE_ALIGNED_LBN	(12)
++
++/* AN registers */
++#define MDIO_AN_STATUS			(1)
++#define MDIO_AN_STATUS_XNP_LBN		(7)
++#define MDIO_AN_STATUS_PAGE_LBN		(6)
++#define MDIO_AN_STATUS_AN_DONE_LBN	(5)
++#define MDIO_AN_STATUS_LP_AN_CAP_LBN	(0)
++
++#define MDIO_AN_10GBT_STATUS		(33)
++#define MDIO_AN_10GBT_STATUS_MS_FLT_LBN (15) /* MASTER/SLAVE config fault */
++#define MDIO_AN_10GBT_STATUS_MS_LBN     (14) /* MASTER/SLAVE config */
++#define MDIO_AN_10GBT_STATUS_LOC_OK_LBN (13) /* Local OK */
++#define MDIO_AN_10GBT_STATUS_REM_OK_LBN (12) /* Remote OK */
++#define MDIO_AN_10GBT_STATUS_LP_10G_LBN (11) /* Link partner is 10GBT capable */
++#define MDIO_AN_10GBT_STATUS_LP_LTA_LBN (10) /* LP loop timing ability */
++#define MDIO_AN_10GBT_STATUS_LP_TRR_LBN (9)  /* LP Training Reset Request */
++
++
++/* Packing of the prt and dev arguments of clause 45 style MDIO into a
++ * single int so they can be passed into the mdio_read/write functions
++ * that currently exist. Note that as Falcon is the only current user,
++ * the packed form is chosen to match what Falcon needs to write into
++ * a register. This is checked at compile-time so do not change it. If
++ * your target chip needs things layed out differently you will need
++ * to unpack the arguments in your chip-specific mdio functions.
++ */
++ /* These are defined by the standard. */
++#define MDIO45_PRT_ID_WIDTH  (5)
++#define MDIO45_DEV_ID_WIDTH  (5)
++
++/* The prt ID is just packed in immediately to the left of the dev ID */
++#define MDIO45_PRT_DEV_WIDTH (MDIO45_PRT_ID_WIDTH + MDIO45_DEV_ID_WIDTH)
++
++#define MDIO45_PRT_ID_MASK   ((1 << MDIO45_PRT_DEV_WIDTH) - 1)
++/* This is the prt + dev extended by 1 bit to hold the 'is clause 45' flag. */
++#define MDIO45_XPRT_ID_WIDTH   (MDIO45_PRT_DEV_WIDTH + 1)
++#define MDIO45_XPRT_ID_MASK   ((1 << MDIO45_XPRT_ID_WIDTH) - 1)
++#define MDIO45_XPRT_ID_IS10G   (1 << (MDIO45_XPRT_ID_WIDTH - 1))
++
++
++#define MDIO45_PRT_ID_COMP_LBN   MDIO45_DEV_ID_WIDTH
++#define MDIO45_PRT_ID_COMP_WIDTH  MDIO45_PRT_ID_WIDTH
++#define MDIO45_DEV_ID_COMP_LBN    0
++#define MDIO45_DEV_ID_COMP_WIDTH  MDIO45_DEV_ID_WIDTH
++
++/* Compose port and device into a phy_id */
++static inline int mdio_clause45_pack(u8 prt, u8 dev)
++{
++	efx_dword_t phy_id;
++	EFX_POPULATE_DWORD_2(phy_id, MDIO45_PRT_ID_COMP, prt,
++			     MDIO45_DEV_ID_COMP, dev);
++	return MDIO45_XPRT_ID_IS10G | EFX_DWORD_VAL(phy_id);
++}
++
++static inline void mdio_clause45_unpack(u32 val, u8 *prt, u8 *dev)
++{
++	efx_dword_t phy_id;
++	EFX_POPULATE_DWORD_1(phy_id, EFX_DWORD_0, val);
++	*prt = EFX_DWORD_FIELD(phy_id, MDIO45_PRT_ID_COMP);
++	*dev = EFX_DWORD_FIELD(phy_id, MDIO45_DEV_ID_COMP);
++}
++
++static inline int mdio_clause45_read(struct efx_nic *efx,
++				     u8 prt, u8 dev, u16 addr)
++{
++	return efx->mii.mdio_read(efx->net_dev,
++				  mdio_clause45_pack(prt, dev), addr);
++}
++
++static inline void mdio_clause45_write(struct efx_nic *efx,
++				       u8 prt, u8 dev, u16 addr, int value)
++{
++	efx->mii.mdio_write(efx->net_dev,
++			    mdio_clause45_pack(prt, dev), addr, value);
++}
++
++
++static inline u32 mdio_clause45_read_id(struct efx_nic *efx, int mmd)
++{
++	int phy_id = efx->mii.phy_id;
++	u16 id_low = mdio_clause45_read(efx, phy_id, mmd, MDIO_MMDREG_IDLOW);
++	u16 id_hi = mdio_clause45_read(efx, phy_id, mmd, MDIO_MMDREG_IDHI);
++	return (id_hi << 16) | (id_low);
++}
++
++static inline int mdio_clause45_phyxgxs_lane_sync(struct efx_nic *efx)
++{
++	int i, sync, lane_status;
++
++	for (i = 0; i < 2; ++i)
++		lane_status = mdio_clause45_read(efx, efx->mii.phy_id,
++						 MDIO_MMD_PHYXS,
++						 MDIO_PHYXS_LANE_STATE);
++
++	sync = (lane_status & (1 << MDIO_PHYXS_LANE_ALIGNED_LBN)) != 0;
++	if (!sync)
++		EFX_INFO(efx, "XGXS lane status: %x\n", lane_status);
++	return sync;
++}
++
++extern const char *mdio_clause45_mmd_name(int mmd);
++
++/*
++ * Reset a specific MMD and wait for reset to clear.
++ * Return number of spins left (>0) on success, -%ETIMEDOUT on failure.
++ *
++ * This function will sleep
++ */
++extern int mdio_clause45_reset_mmd(struct efx_nic *efx, int mmd,
++				   int spins, int spintime);
++
++/* As mdio_clause45_check_mmd but for multiple MMDs */
++int mdio_clause45_check_mmds(struct efx_nic *efx,
++			     unsigned int mmd_mask, unsigned int fatal_mask);
++
++/* Check the link status of specified mmds in bit mask */
++extern int mdio_clause45_links_ok(struct efx_nic *efx,
++				  unsigned int mmd_mask);
++
++/* Read (some of) the PHY settings over MDIO */
++extern void mdio_clause45_get_settings(struct efx_nic *efx,
++				       struct ethtool_cmd *ecmd);
++
++/* Set (some of) the PHY settings over MDIO */
++extern int mdio_clause45_set_settings(struct efx_nic *efx,
++				      struct ethtool_cmd *ecmd);
++
++/* Wait for specified MMDs to exit reset within a timeout */
++extern int mdio_clause45_wait_reset_mmds(struct efx_nic *efx,
++					 unsigned int mmd_mask);
++
++#endif /* EFX_MDIO_10G_H */
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
