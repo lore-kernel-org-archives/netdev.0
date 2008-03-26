@@ -1,55 +1,77 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH stable] b44: Truncate PHY address
-Date: Wed, 26 Mar 2008 15:00:08 +0100
-Message-ID: <200803261500.08699.mb@bu3sch.de>
+From: carlos@fisica.ufpr.br (Carlos Carvalho)
+Subject: Re: why are there messages like assertion ((int)tcp_packets_in_flight(tp)...
+Date: Wed, 26 Mar 2008 11:58:59 -0300
+Message-ID: <18410.25779.32254.261486@fisica.ufpr.br>
+References: <18406.49168.311576.570515@fisica.ufpr.br>
+	<Pine.LNX.4.64.0803261353100.24534@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, agb@openwrt.org,
-	Gary Zambrano <zambrano@broadcom.com>, netdev@vger.kernel.org
-To: stable@kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>
+To: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs166246.vserver.de ([62.75.166.246]:56919 "EHLO
-	vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750745AbYCZOEF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 10:04:05 -0400
-Content-Disposition: inline
+Received: from fisica.ufpr.br ([200.17.209.129]:50114 "EHLO fisica.ufpr.br"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750964AbYCZO7D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 10:59:03 -0400
+In-Reply-To: <Pine.LNX.4.64.0803261353100.24534@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some ROMs on embedded devices store incorrect values for
-the PHY address of the ethernet device.
-It looks like the number is sign-extended.
-Truncate the value by applying the PHY-address mask to it.
-The patch was tested on a bcm47xx embedded system (where the bug
-triggers) and a bcm4400 PCI card.
+Ilpo J=E4rvinen (ilpo.jarvinen@helsinki.fi) wrote on 26 March 2008 14:5=
+7:
+ >On Sun, 23 Mar 2008, Carlos Carvalho wrote:
+ >
+ >> We get these messages in the log from time to time:
+ >>=20
+ >> assertion ((int)tcp_packets_in_flight(tp) >=3D 0) failed at net/ipv=
+4/tcp_input.c (1274)
+ >>=20
+ >> What do they mean? Is there a way to get rid of them?
+ >
+ >> They usually appear at high net traffic periods.
+ >
+ >Your mail is lacking key bit of information:
+ >- What kernel version you're using?
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+2.6.22.18.
 
----
+ >- Is this only message?
 
-This patch is applied to the netdev tree.
-Commit is 5ea79631c0c47d28831a0635e8af9da539d449cd
+Yes.
 
+ >Especially I'm interested in if Leak printouts show up, but more
+ >complete snippet of the log wouldn't hurt (I don't need all those
+ >boot up details though :-)).
 
-Index: linux-2.6.24.3/drivers/net/b44.c
-===================================================================
---- linux-2.6.24.3.orig/drivers/net/b44.c	2008-01-24 23:58:37.000000000 +0100
-+++ linux-2.6.24.3/drivers/net/b44.c	2008-03-26 14:54:13.000000000 +0100
-@@ -2066,6 +2066,11 @@ static int __devinit b44_get_invariants(
- 		addr = sdev->bus->sprom.r1.et0mac;
- 		bp->phy_addr = sdev->bus->sprom.r1.et0phyaddr;
- 	}
-+	/* Some ROMs have buggy PHY addresses with the high
-+	 * bits set (sign extension?). Truncate them to a
-+	 * valid PHY address. */
-+	bp->phy_addr &= 0x1F;
-+
- 	memcpy(bp->dev->dev_addr, addr, 6);
- 
- 	if (!is_valid_ether_addr(&bp->dev->dev_addr[0])){
+I don't know what you mean by leak but there aren't any other
+messages.
 
+ >It may mean a number of things. Basically packet counting is not that=
+=20
+ >accurate as it should, whether that's causing bad things or not, it=20
+ >depends...
+ >
+ >...In case it's something before 2.6.24, there's one potential patch=20
+ >available in archives adding one clearly missing left_out adjustment.=
+=20
 
--- 
-Greetings Michael.
+Could you point it to me? I cannot upgrade now because I also use the
+vserver patch. I cannot test without it because this message only
+appears when net traffic is high enough, and this is our only machine
+in this condition.
+
+ >Nobody has confirmed that it actually silences the message nor I've a=
+=20
+ >clear theory how it could cause this. In the case that was debugged=20
+ >(either 2.6.22 or 2.6.23, I don't remember anymore in which), this me=
+ssage=20
+ >was found to occur in a rather harmless situation, ie., when no packe=
+ts=20
+ >are outstanding. Unless they occur in sheer number spamming your logs=
+,=20
+ >it's not that big problem.
+
+In the last 3 days it appeared 6 times, so it's rare.
+
+I'm reporting because I don't know what it means and it could be a bug.
