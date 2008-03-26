@@ -1,98 +1,105 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: [PATCH] de2104x: remove BUG_ON() when changing media type
-Date: Wed, 26 Mar 2008 09:59:57 -0600
-Message-ID: <20080326155957.GA24944@colo.lackof.org>
-References: <200801262158.12016.linux@rainbow-software.org> <47C30051.3020909@pobox.com> <20080324024514.GB474@colo.lackof.org> <200803250002.21718.linux@rainbow-software.org>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: [git patches] net driver updates for .26
+Date: Wed, 26 Mar 2008 12:24:00 -0400
+Message-ID: <47EA78A0.1040801@redhat.com>
+References: <20080318075902.GA18010@havoc.gtf.org> <20080322.183522.124237568.davem@davemloft.net> <47E9CBF9.3040700@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Ondrej Zary <linux@rainbow-software.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jay Cliburn <jacliburn@bellsouth.net>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from colo.lackof.org ([198.49.126.79]:59828 "EHLO colo.lackof.org"
+Received: from mx1.redhat.com ([66.187.233.31]:54570 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752426AbYCZQAJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2008 12:00:09 -0400
-Content-Disposition: inline
-In-Reply-To: <200803250002.21718.linux@rainbow-software.org>
+	id S1756552AbYCZQ0W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 12:26:22 -0400
+In-Reply-To: <47E9CBF9.3040700@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 25, 2008 at 12:02:19AM +0100, Ondrej Zary wrote:
-....
-> > Jeff,
-> > The above patch was applied and fixes the 'panic' part of the problme.
-> > Can you take a look at this patch to fix the "chip is still running"
-> > part of this bug?
+Jeff Garzik wrote:
+> David Miller wrote:
+>> From: Jeff Garzik <jeff@garzik.org>
+>> Date: Tue, 18 Mar 2008 03:59:02 -0400
+>>
+>>> Just sent this upstream to davem for 2.6.26...  snipped the patch I
+>>> usually post along with a git push, due to mailing list restrictions.
+>>>
+>>> Please pull from 'upstream-net26' branch of
+>>> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git 
+>>> upstream-net26
+>>
+>> This fails an allmodconfig build:
+>>
+>> drivers/net/8390.c: In function '__inittest':
+>> drivers/net/8390.c:60: error: 'ns8390_init_module' undeclared (first 
+>> use in this function)
+>> drivers/net/8390.c:60: error: (Each undeclared identifier is reported 
+>> only once
+>> drivers/net/8390.c:60: error: for each function it appears in.)
+>>
+>> The fix was easy so I took care of it, this time...
 > 
-> I'll test it but I doubt that it fixes the problem. IIRC, I tried something 
-> like that.
-
-Thanks (in advance) for testing!
-
-This patch fixed the same symptom for tulip driver many years ago.
-It's been validated already and should be applied to de2104x driver too.
-
-If it doesn't fix the problem, that just means something else
-is going wrong as well.
-
-> Even tried resetting the chip multiple times when this problem 
-> appears but everything failed.
-
-Can you print the last value from dr32(MacStatus)?
-(just append the output to the "stopping DMA" printk)
-
-If resetting the chip isn't working, my guess is the PCI bus is
-out to lunch. Getting ~0 back on the MMIO read would be evidence
-of that. But resetting the chip isn't trivial and all sorts of
-things could go wrong with that.
-
-thanks,
-grant
-
+> hrm, indeed.  sorry about that.  Something clearly screwed up in my 
+> process, because part of that process is an x86-64 allmodconfig before 
+> pushing.
 > 
 > 
-> >
-> > BTW, I inherited a bug report for the same symptom:
-> >     http://bugzilla.kernel.org/show_bug.cgi?id=3156
-> >
-> > thanks,
-> > grant
-> >
-> > Signed-off-by: Grant Grundler
-> >
-> > --- linux-2.6.23/drivers/net/tulip/de2104x.c	2007-10-09 13:31:38.000000000
-> > -0700 +++ linux-2.6.23/drivers/net/tulip/de2104x.c-ggg	2007-11-02
-> > 23:24:46.000000000 -0700 @@ -842,7 +842,7 @@
-> >  static void de_stop_rxtx (struct de_private *de)
-> >  {
-> >  	u32 macmode;
-> > -	unsigned int work = 1000;
-> > +	unsigned int i = 1300/100;
-> >
-> >  	macmode = dr32(MacMode);
-> >  	if (macmode & RxTx) {
-> > @@ -850,10 +850,14 @@
-> >  		dr32(MacMode);
-> >  	}
-> >
-> > -	while (--work > 0) {
-> > +	/* wait until in-flight frame completes.
-> > +	 * Max time @ 10BT: 1500*8b/10Mbps == 1200us (+ 100us margin)
-> > +	 * Typically expect this loop to end in < 50 us on 100BT.
-> > +	 */
-> > +	while (--i) {
-> >  		if (!de_is_running(de))
-> >  			return;
-> > -		cpu_relax();
-> > +		udelay(100);
-> >  	}
-> >
-> >  	printk(KERN_WARNING "%s: timeout expired stopping DMA\n", de->dev->name);
+>> There was also a merge conflict in drivers/s390/net/qeth_main.c
+>> (against a net-2.6.26 change, which is why you really should work
+>> against that for 2.6.26 bound changes not against Linus's head as you
+>> did here), which is easy to resolve by putting the conflicting change
+>> to qeth_main.c into the inetdev notifier in qeth_l3_main.c, which
+>> I took care of as well.
+>>
+>> This time....
+> 
+> I mentioned this one on IRC ahead of time, when I asked if it was OK, as 
+> an exception, to base off Linus's HEAD.  This was because I had started 
+> my for-2.6.26 queue a while before you did.
+> 
+> And just to state the obvious, unless you and I agree on an exception 
+> (which I thought we had done this time), all changes from me will be 
+> based on top of your repo(s) rather than Linus's.
 > 
 > 
+>> There are also some new build warnings such as:
+>>
+>> drivers/net/atlx/atl1.c:506: warning: 'atl1_phy_enter_power_saving' 
+>> defined but not used
 > 
-> -- 
-> Ondrej Zary
+> <checks>  doesn't appear in allmodconfig, so it looks like 
+> atl1_phy_enter_power_saving() just needs some CONFIG_PM wrappers
+> 
+> (hi Jay, Chris)
+> 
+> 
+>> Which I fixed up as well, but that atl1_phy_enter_power_saving()
+>> function is just a jumble of commented out code, yuck!  Please
+>> review some of this stuff :-/
+> 
+> I did not see anything wrong with a maintainer leaving in some 
+> commented-out placeholder code.
+> 
+> Some of this stuff should get filled in once Chris and Jay add atl2 
+> support to the existing atl1 stuff you see here.
+> 
+> That was a big impetus for this set of atl1 changes -- move things 
+> around and massage things so that it is trivial to drop in atl2 support.
+> 
+>     Jeff
+> 
+> 
+
+I'm working on that integration now.  There are a lot of slight 
+differences between atl1 and atl2 that are due mostly to atl1 having 
+been in-tree for a while and getting cleaned up.  Confirming that it's 
+safe to make the corresponding changes to the atl2 code has taken longer 
+than I'd like, but after that's done and we have initial support merged, 
+there will be a rather thorough review.  It seemed better to do that 
+once on the merged code than duplicate the effort on the two codebases.
+
+I'll be posting the initial atl2 patch Real Soon Now.
+
+-- Chris
