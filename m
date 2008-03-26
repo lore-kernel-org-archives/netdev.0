@@ -1,49 +1,37 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26][NETNS][ICMP]: Build fix for NET_NS=n case (dev->nd_net
- is omitted).
-Date: Wed, 26 Mar 2008 12:16:07 +0300
-Message-ID: <47EA1457.3010706@openvz.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC PATCH resend]: Fix output for BEET ipsec
+Date: Wed, 26 Mar 2008 10:14:02 +0100
+Message-ID: <47EA13DA.7070708@trash.net>
+References: <200803261115.26157.joakim.koskela@hiit.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	Komu Miika <Miika.Komu@hiit.fi>
+To: Joakim Koskela <joakim.koskela@hiit.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:58332 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752884AbYCZJQI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2008 05:16:08 -0400
+Received: from stinky.trash.net ([213.144.137.162]:56734 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752587AbYCZJQI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 05:16:08 -0400
+In-Reply-To: <200803261115.26157.joakim.koskela@hiit.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I didn't check the kernel build after pulling dev->nd_net access 
-optimization from net-2.6.26 tree :(
+Joakim Koskela wrote:
+> diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+> index 091e670..20d214f 100644
+> --- a/net/ipv4/esp4.c
+> +++ b/net/ipv4/esp4.c
+> @@ -404,7 +404,8 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
+>  		break;
+>  	case XFRM_MODE_BEET:
+>  		/* The worst case. */
+> -		mtu += min_t(u32, IPV4_BEET_PHMAXLEN, rem);
+> +		/* This will be seen to in the esp header_len */
+> +		/* mtu += min_t(u32, IPV4_BEET_PHMAXLEN, rem); */
+>  		break;
+>  	}
 
-Sorry.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
-
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 7049b3f..3697e05 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -821,7 +821,7 @@ static void icmp_echo(struct sk_buff *skb)
- {
- 	struct net *net;
- 
--	net = skb->dst->dev->nd_net;
-+	net = dev_net(skb->dst->dev);
- 	if (!net->ipv4.sysctl_icmp_echo_ignore_all) {
- 		struct icmp_bxm icmp_param;
- 
-@@ -1027,7 +1027,7 @@ int icmp_rcv(struct sk_buff *skb)
- 	if (rt->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST)) {
- 		struct net *net;
- 
--		net = rt->u.dst.dev->nd_net;
-+		net = dev_net(rt->u.dst.dev);
- 		/*
- 		 *	RFC 1122: 3.2.2.6 An ICMP_ECHO to broadcast MAY be
- 		 *	  silently ignored (we let user decide with a sysctl).
+Why are you disabling this?
