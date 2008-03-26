@@ -1,45 +1,44 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH] dm9601: Fix multicast hash table handling
-Date: Wed, 26 Mar 2008 08:34:23 +0100
-Message-ID: <874paudjls.fsf@macbook.be.48ers.dk>
-References: <1205878614-29065-1-git-send-email-jacmet@sunsite.dk>
-	<47E9C0E3.6040404@garzik.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 1/2 net-2.6.26] [NETNS]: Compilation fix for include/linux/netdevice.h.
+Date: Wed, 26 Mar 2008 10:40:58 +0300
+Message-ID: <1206517259-29152-1-git-send-email-den@openvz.org>
+Cc: netdev@vger.kernel.org, devel@openvz.org,
+	containers@lists.osdl.org, xemul@openvz.org,
+	yoshfuji@linux-ipv6.org, dlezcano@fr.ibm.com,
+	"Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:4585 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750727AbYCZHed (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 03:34:33 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so3910497fgb.17
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2008 00:34:32 -0700 (PDT)
-In-Reply-To: <47E9C0E3.6040404@garzik.org> (Jeff Garzik's message of "Tue\, 25 Mar 2008 23\:20\:03 -0400")
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:52941 "EHLO iris.sw.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751084AbYCZHki (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 03:40:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "Jeff" == Jeff Garzik <jeff@garzik.org> writes:
+Commit commit c346dca10840a874240c78efe3f39acf4312a1f2
+([NET] NETNS: Omit net_device->nd_net without CONFIG_NET_NS)
+breaks compilation with CONFIG_NET_NS set.
 
- Jeff> Peter Korsgaard wrote:
- >> The loop forgot to walk the net->mc_list list, so only the first
- >> multicast address was programmed into the hash table.
- >> 
- >> Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
- >> ---
- >> drivers/net/usb/dm9601.c |    2 +-
- >> 1 files changed, 1 insertions(+), 1 deletions(-)
+Fix the typo.
 
- Jeff> applied three patches.
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ include/linux/netdevice.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Thanks!
-
- Jeff> Please number your patches in the future, to indicate the order of
- Jeff> application -- even if they are roughly independent, it helps to know
- Jeff> they are in the same patch series by some method other than just the
- Jeff> References RFC-822 header
-
-Ok - Will do.
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d146be4..06ca84d 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -756,7 +756,7 @@ static inline
+ void dev_net_set(struct net_device *dev, const struct net *net)
+ {
+ #ifdef CONFIG_NET_NS
+-	dev->nd_dev = net;
++	dev->nd_net = net;
+ #endif
+ }
+ 
 -- 
-Bye, Peter Korsgaard
+1.5.3.rc5
+
