@@ -1,7 +1,7 @@
 From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH 1/2] pasemi_mac: Jumbo frame bugfixes
-Date: Tue, 25 Mar 2008 20:57:10 -0500
-Message-ID: <20080326015710.GB23103@lixom.net>
+Subject: [PATCH 2/2] pasemi_mac: Netpoll support
+Date: Tue, 25 Mar 2008 20:58:01 -0500
+Message-ID: <20080326015801.GC23103@lixom.net>
 References: <20080326015625.GA23103@lixom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,55 +9,58 @@ Cc: linuxppc-dev@ozlabs.org, pasemi-linux@ozlabs.org,
 	netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:42063 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:42096 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752796AbYCZBso (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2008 21:48:44 -0400
+	id S1753012AbYCZBtg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Mar 2008 21:49:36 -0400
 Content-Disposition: inline
 In-Reply-To: <20080326015625.GA23103@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix a couple of corner cases around interface up/down when jumbo frames are
-configured. Resources weren't always freed and reallocated properly.
-    
+Add netpoll support to allow use of netconsole.
+
+Signed-off-by: Nate Case <ncase@xes-inc.com>
 Signed-off-by: Olof Johansson <olof@lixom.net>
 
 diff --git a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
-index c50f0f4..abb1dc4 100644
+index abb1dc4..6030ffe 100644
 --- a/drivers/net/pasemi_mac.c
 +++ b/drivers/net/pasemi_mac.c
-@@ -404,6 +404,7 @@ static void pasemi_mac_free_csring(struct pasemi_mac_csring *csring)
- 	pasemi_dma_free_flag(csring->events[1]);
- 	pasemi_dma_free_ring(&csring->chan);
- 	pasemi_dma_free_chan(&csring->chan);
-+	pasemi_dma_free_fun(csring->fun);
+@@ -1648,6 +1648,26 @@ static int pasemi_mac_poll(struct napi_struct *napi, int budget)
+ 	return pkts;
  }
  
- static int pasemi_mac_setup_rx_resources(const struct net_device *dev)
-@@ -1150,7 +1151,10 @@ static int pasemi_mac_open(struct net_device *dev)
- 	if (!mac->tx)
- 		goto out_tx_ring;
- 
--	if (dev->mtu > 1500) {
-+	/* We might already have allocated rings in case mtu was changed
-+	 * before interface was brought up.
-+	 */
-+	if (dev->mtu > 1500 && !mac->num_cs) {
- 		pasemi_mac_setup_csrings(mac);
- 		if (!mac->num_cs)
- 			goto out_tx_ring;
-@@ -1388,8 +1392,12 @@ static int pasemi_mac_close(struct net_device *dev)
- 	free_irq(mac->tx->chan.irq, mac->tx);
- 	free_irq(mac->rx->chan.irq, mac->rx);
- 
--	for (i = 0; i < mac->num_cs; i++)
-+	for (i = 0; i < mac->num_cs; i++) {
- 		pasemi_mac_free_csring(mac->cs[i]);
-+		mac->cs[i] = NULL;
-+	}
++#ifdef CONFIG_NET_POLL_CONTROLLER
++/*
++ * Polling 'interrupt' - used by things like netconsole to send skbs
++ * without having to re-enable interrupts. It's not called while
++ * the interrupt routine is executing.
++ */
++static void pasemi_mac_netpoll(struct net_device *dev)
++{
++	const struct pasemi_mac *mac = netdev_priv(dev);
 +
-+	mac->num_cs = 0;
++	disable_irq(mac->tx->chan.irq);
++	pasemi_mac_tx_intr(mac->tx->chan.irq, mac->tx);
++	enable_irq(mac->tx->chan.irq);
++
++	disable_irq(mac->rx->chan.irq);
++	pasemi_mac_rx_intr(mac->rx->chan.irq, dev);
++	enable_irq(mac->rx->chan.irq);
++}
++#endif
++
+ static int pasemi_mac_change_mtu(struct net_device *dev, int new_mtu)
+ {
+ 	struct pasemi_mac *mac = netdev_priv(dev);
+@@ -1807,6 +1827,9 @@ pasemi_mac_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	dev->mtu = PE_DEF_MTU;
+ 	/* 1500 MTU + ETH_HLEN + VLAN_HLEN + 2 64B cachelines */
+ 	mac->bufsz = dev->mtu + ETH_HLEN + ETH_FCS_LEN + LOCAL_SKB_ALIGN + 128;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller = pasemi_mac_netpoll;
++#endif
  
- 	/* Free resources */
- 	pasemi_mac_free_rx_resources(mac);
+ 	dev->change_mtu = pasemi_mac_change_mtu;
+ 	dev->ethtool_ops = &pasemi_mac_ethtool_ops;
