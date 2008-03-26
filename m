@@ -1,49 +1,33 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 10327] New: keyboard stops responding after
- "ifdown eth0"
-Date: Tue, 25 Mar 2008 17:16:08 -0700
-Message-ID: <20080325171608.509f4ca7.akpm@linux-foundation.org>
-References: <bug-10327-10286@http.bugzilla.kernel.org/>
-	<20080325143941.300d415f.akpm@linux-foundation.org>
-	<47E9721C.2000306@better.se>
-	<47E99258.3060005@s5r6.in-berlin.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6.26 2008-03-25
+Date: Tue, 25 Mar 2008 17:43:16 -0700 (PDT)
+Message-ID: <20080325.174316.115119935.davem@davemloft.net>
+References: <20080325211557.GA20488@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Marcus Better <marcus@better.se>, bugme-daemon@bugzilla.kernel.org,
-	linux-kernel@vger.kernel.org, linux-input@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <47E99258.3060005@s5r6.in-berlin.de>
-Sender: linux-input-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080325211557.GA20488-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 26 Mar 2008 01:01:28 +0100 Stefan Richter <stefanr@s5r6.in-berlin.de> wrote:
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Tue, 25 Mar 2008 17:15:57 -0400
 
-> One possible reason for unresponsive keyboard is a workqueue job in the 
-> shared workqueue sleeping very long or indefinitely.
-> 
-> Sky2.c has only one workqueue job: sky2_restart().
+> Here is the latest package of wireless changes for 2.6.26.  Included are
+> libertas and iwlwifi driver updates, some mac80211 updates, a few rt2x00
+> driver updates, and a handful of odds and ends.
 
-Yeah.
+Pulled and pushed out to net-2.6.26, thanks!
 
-Marcus, please try something like this:
+> There will be one minor merge conflict in drivers/net/wireless/b43/dma.c
+> when you merge this with the 2.6.25 fixes I posted yesterday.  Just
+> take both sets of changes -- it is pretty obvious.
 
-- become root
-
-- run
-
-	( sleep 10 ; echo t > /proc/sysrq-trigger ) &
-	ifdown eth0
-
-- wait a minute or so
-
-- reboot
-
-- See if the sysrq-t output made it to /var/log/messages
-
-  If it did, please send it as reply-to-all to this email.  Try to avoid
-  wordwrapping it, as many do.
-
-Thanks.
+Thanks will keep that in mind.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
