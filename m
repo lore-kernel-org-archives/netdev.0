@@ -1,49 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] [NET] [0/2] pskb_expand_head() bugfix
-Date: Wed, 26 Mar 2008 07:55:36 +0800
-Message-ID: <20080325235536.GB30298@gondor.apana.org.au>
-References: <47E946C8.6020006@redhat.com>
+From: yshi <yang.shi@windriver.com>
+Subject: [PATCH] Improvev netconsole support for RTL8139 NIC driver
+Date: Wed, 26 Mar 2008 10:12:37 +0800
+Message-ID: <47E9B115.9060109@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Hideo AOKI <haoki@redhat.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35968 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753166AbYCZBxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2008 21:53:12 -0400
-Content-Disposition: inline
-In-Reply-To: <47E946C8.6020006@redhat.com>
+Received: from mail.windriver.com ([147.11.1.11]:55077 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750886AbYCZCMl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Mar 2008 22:12:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 25, 2008 at 02:39:04PM -0400, Hideo AOKI wrote:
-> Hello,
-> 
-> This patch set fixes a potential bug in pskb_expand_head().
-> 
-> Current pskb_expand_head() doesn't change truesize, while it
-> reallocates memory. Then, if argument nhead or ntail aren't 0, caller
-> must update truesize.
-> 
-> We had this bug at audit_expand() in January and fixed it as commit
-> 406a1d868001423c85a3165288e566e65f424fe6. However, some drivers and
-> subsystems still use pskb_expand_head() without updating truesize.
+In current RTL8139 NIC driver, spin_lock()/spin_unlock() is used
+for irq handler. But for netconsole/netpoll, it prefers
+spin_lock_irqsave()/spin_unlcok_irqrestore(). So this patch fixed
+this problem to improve netconsole/netpoll support.
 
-Drivers usually aren't supposed to change truesize so doing
-this would actually create bugs.
+Signed-off-by: Yang Shi <yang.shi@windriver.com>
+---
+ b/drivers/net/8139too.c |    9 +++++++++
+ 1 file changed, 9 insertions(+)
+---
 
-> In addition, there is another problem to update truesise. Since
-> pskb_expand_head() aligns memory size before reallocation, caller
-> functions may not update turesize correctly if they just add nhaad
-> and ntail to turesize.
+--- a/drivers/net/8139too.c
++++ b/drivers/net/8139too.c
+@@ -2136,8 +2136,13 @@ static irqreturn_t rtl8139_interrupt (in
+        u16 status, ackstat;
+        int link_changed = 0; /* avoid bogus "uninit" warning */
+        int handled = 0;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++       unsigned long flags;
 
-That should be fixable by making sure that nhead + ntail is
-aligned.
++       spin_lock_irqsave (&tp->lock, flags);
++#else
+        spin_lock (&tp->lock);
++#endif
+        status = RTL_R16 (IntrStatus);
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+        /* shared irq? */
+@@ -2185,7 +2190,11 @@ static irqreturn_t rtl8139_interrupt (in
+                        RTL_W16 (IntrStatus, TxErr);
+        }
+  out:
++#ifdef CONFIG_NET_POLL_CONTROLLER
++       spin_unlock_irqrestore (&tp->lock, flags);
++#else
+        spin_unlock (&tp->lock);
++#endif
+
+        DPRINTK ("%s: exiting interrupt, intr_status=%#4.4x.\n",
+                 dev->name, RTL_R16 (IntrStatus));
+
