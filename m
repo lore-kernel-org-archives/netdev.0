@@ -1,24 +1,53 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/5] net: ehea: semaphore to mutex
-Date: Wed, 26 Mar 2008 00:40:21 -0400
-Message-ID: <47E9D3B5.8030004@garzik.org>
-References: <20080307031621.590778480@mvista.com>
+Subject: Re: [PATCH] Re: ep93xx_eth PHY problems
+Date: Wed, 26 Mar 2008 00:42:32 -0400
+Message-ID: <47E9D438.4090206@garzik.org>
+References: <47CD4857.2060406@student.tuwien.ac.at> <20080321202202.129c1239@ors>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Daniel Walker <dwalker@mvista.com>
+Cc: netdev@vger.kernel.org, hvr@gnu.org, buytenh@wantstofly.org
+To: Oliver Martin <oliver.martin@student.tuwien.ac.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45649 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:45665 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751983AbYCZEk1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2008 00:40:27 -0400
-In-Reply-To: <20080307031621.590778480@mvista.com>
+	id S1756402AbYCZEmg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 00:42:36 -0400
+In-Reply-To: <20080321202202.129c1239@ors>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ACK from Jan-Bernd, Thomas, others?
+Oliver Martin wrote:
+> Am Tue, 04 Mar 2008 14:02:15 +0100
+> schrieb Oliver Martin <oliver.martin@student.tuwien.ac.at>:
+>> Now I'm having different problems: When auto-negotiation is enabled,
+>> it sometimes randomly changes the link state:
+>>
+>> PHY: 0:01 - Link is Down
+>> PHY: 0:01 - Link is Up - 100/Full
+>>
+> 
+> I've found at least one part of the problem. The MDIO clock divisor
+> wasn't set again after the reset in ep93xx_start_hw. It was left at the
+> default, resulting in a 12.5 MHz clock, which the PHY (Micrel KSZ8721BL)
+> didn't like too much. Calling ep93xx_mdio_reset after the reset fixed
+> it, the link is now perfectly stable in auto-negotiation mode.
+> 
+> There still seems to be another bug with auto-negotiation disabled: It
+> doesn't switch to 1000 Mbps any more, but most times it doesn't stay in
+> the intended configuration either. I haven't done any extensive
+> testing of this yet, though.
+> 
+> Signed-off-by: Oliver Martin <oliver.martin@student.tuwien.ac.at>
+
+ACKs from Lennert, others?
+
+I don't know enough about the hardware to say...
+
+Seems straightforward to me?
+
+2.6.25 or 2.6.26 material?
+
+Any more testing results?
+
 
