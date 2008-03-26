@@ -1,61 +1,79 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] Add support the Korina (IDT RC32434) Ethernet MAC
-Date: Wed, 26 Mar 2008 00:36:19 -0400
-Message-ID: <47E9D2C3.7050006@garzik.org>
-References: <200803052345.06610.florian.fainelli@telecomint.eu> <200803131155.28164.florian.fainelli@telecomint.eu> <20080317223153.GA3462@electric-eye.fr.zoreil.com> <200803191714.52407.florian.fainelli@telecomint.eu>
+Subject: Re: [patch 01/17] drivers/net/mv643xx_eth.c: Use FIELD_SIZEOF
+Date: Wed, 26 Mar 2008 00:36:25 -0400
+Message-ID: <47E9D2C9.1010006@garzik.org>
+References: <200803042319.m24NJK7X002654@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Felix Fietkau <nbd@openwrt.org>
-To: Florian Fainelli <florian.fainelli@telecomint.eu>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, julia@diku.dk
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34247 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:34244 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755743AbYCZEgd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2008 00:36:33 -0400
-In-Reply-To: <200803191714.52407.florian.fainelli@telecomint.eu>
+	id S1755353AbYCZEg2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 00:36:28 -0400
+In-Reply-To: <200803042319.m24NJK7X002654@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46lorian Fainelli wrote:
-> Hi Francois,
->=20
-> Le lundi 17 mars 2008, Francois Romieu a =E9crit :
->>> Thanks for your comments, here is a third try which adresses the
->>> mentionned problems.
->=20
-> It is allright, thanks for your concise answers. 1-2,4-15 should be f=
-ixed now.
->=20
->> 3. korina_rx() still drops the received skb each time dev_alloc_skb =
-fails.
->>    This is far from optimal.
->=20
-> I now simply break into the while loop, which should allow more luck =
-for failed allocation descriptors on next round. Seems like other=20
->=20
-> Also, I fixed the multicast handling which was not done for filtered =
-multicast traffic.
->=20
-> Below is the fourth try of the driver.
+akpm@linux-foundation.org wrote:
+> From: Julia Lawall <julia@diku.dk>
+> 
+> Robert P.J. Day proposed to use the macro FIELD_SIZEOF in replace of code
+> that matches its definition.
+> 
+> The modification was made using the following semantic patch
+> (http://www.emn.fr/x-info/coccinelle/)
+> 
+> // <smpl>
+> @haskernel@
+> @@
+> 
+> #include <linux/kernel.h>
+> 
+> @depends on haskernel@
+> type t;
+> identifier f;
+> @@
+> 
+> - (sizeof(((t*)0)->f))
+> + FIELD_SIZEOF(t, f)
+> 
+> @depends on haskernel@
+> type t;
+> identifier f;
+> @@
+> 
+> - sizeof(((t*)0)->f)
+> + FIELD_SIZEOF(t, f)
+> // </smpl>
+> 
+> Signed-off-by: Julia Lawall <julia@diku.dk>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
+> 
+>  drivers/net/mv643xx_eth.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff -puN drivers/net/mv643xx_eth.c~drivers-net-mv643xx_ethc-use-field_sizeof drivers/net/mv643xx_eth.c
+> --- a/drivers/net/mv643xx_eth.c~drivers-net-mv643xx_ethc-use-field_sizeof
+> +++ a/drivers/net/mv643xx_eth.c
+> @@ -3155,7 +3155,7 @@ struct mv643xx_stats {
+>  	int stat_offset;
+>  };
+>  
+> -#define MV643XX_STAT(m) sizeof(((struct mv643xx_private *)0)->m), \
+> +#define MV643XX_STAT(m) FIELD_SIZEOF(struct mv643xx_private, m), \
+>  					offsetof(struct mv643xx_private, m)
+>  
+>  static const struct mv643xx_stats mv643xx_gstrings_stats[] = {
+> _
 > --
-> From: Florian Fainelli <florian.fainelli@telecomint.eu>
-> Subject: [PATCH] Add support the Korina (IDT RC32434) Ethernet MAC
->=20
-> This patch adds support for the IDT rc32434 Ethernet MAC
-> we can find in the IDT boards and the Mikrotik RB500.
-> Driver references some code from the linux-mips RB500
-> support.
->=20
-> Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
-> Signed-off-by: Felix Fietkau <nbd@openwrt.org>
-> Signed-off-by: Philip Rischel <rischelp@idt.com>
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-I applied this version...  please send changes after this as separate=20
-patches
+applied
 
 
