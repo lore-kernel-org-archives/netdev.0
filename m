@@ -1,160 +1,155 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [AX25] kernel panic
-Date: Wed, 26 Mar 2008 19:35:38 +0100
-Message-ID: <20080326183538.GA14266@ami.dom.local>
-References: <47DF9D21.20807@free.fr> <20080318212531.GA2031@electric-eye.fr.zoreil.com> <47E0C261.3000106@free.fr> <47E17E2E.9050105@free.fr> <20080320073021.GA4037@ff.dom.local> <47E2EC1B.9070405@free.fr> <20080322113620.GA3213@ami.dom.local> <47E68CA1.2040904@free.fr> <20080324205104.GA3721@ami.dom.local> <47E8FCE2.6000308@free.fr>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: Re: [PATCH] de2104x: remove BUG_ON() when changing media type
+Date: Wed, 26 Mar 2008 19:29:56 +0100
+Message-ID: <200803261929.59013.linux@rainbow-software.org>
+References: <200801262158.12016.linux@rainbow-software.org> <200803250002.21718.linux@rainbow-software.org> <20080326155957.GA24944@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jarek Poplawski <jarkao2@o2.pl>
-To: Bernard Pidoux <bpidoux@free.fr>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Grant Grundler <grundler@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.189]:17474 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753774AbYCZS1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 14:27:11 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so1423234nfb.21
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2008 11:27:10 -0700 (PDT)
+Received: from mail.atlantis.sk ([80.94.52.35]:59448 "EHLO mail.atlantis.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751878AbYCZSaM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 14:30:12 -0400
+In-Reply-To: <20080326155957.GA24944@colo.lackof.org>
 Content-Disposition: inline
-In-Reply-To: <47E8FCE2.6000308@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 25, 2008 at 02:23:46PM +0100, Bernard Pidoux wrote:
-...
-> I am prepared for the next step you probably want to explore.
-...
+On Wednesday 26 March 2008 16:59:57 Grant Grundler wrote:
+> On Tue, Mar 25, 2008 at 12:02:19AM +0100, Ondrej Zary wrote:
+> ....
+>
+> > > Jeff,
+> > > The above patch was applied and fixes the 'panic' part of the problme.
+> > > Can you take a look at this patch to fix the "chip is still running"
+> > > part of this bug?
+> >
+> > I'll test it but I doubt that it fixes the problem. IIRC, I tried
+> > something like that.
+>
+> Thanks (in advance) for testing!
+>
+> This patch fixed the same symptom for tulip driver many years ago.
+> It's been validated already and should be applied to de2104x driver too.
+>
+> If it doesn't fix the problem, that just means something else
+> is going wrong as well.
 
-OK, here is the next try. (Apply after all previous patches to any 2.6.24.x;
-there would be more noise, so revert it after catching some data.)
+As I expected, it did not fix the problem. This time, I used only BNC cable. 
+Let ping run, disconnect the cable, change the media type a couple of times 
+and it dies. When "timeout expired stopping DMA" appears, the card is dead 
+until the module is reloaded.
 
-Thanks,
-Jarek P.
+de2104x PCI Ethernet driver v0.7 (Mar 17, 2004)
+ACPI: PCI Interrupt Link [LNKC] enabled at IRQ 11
+ACPI: PCI Interrupt 0000:00:12.0[A] -> Link [LNKC] -> GSI 11 (level, low) -> 
+IRQ 11
+de0: SROM leaf offset 30, default media 10baseT auto
+de0:   media block #0: BNC
+de0:   media block #1: AUI
+de0:   media block #2: 10baseT-FD
+de0:   media block #3: 10baseT-HD
+eth1: 21041 at 0xd1084000, 00:80:48:ea:eb:0a, IRQ 11
+eth1: enabling interface
+eth1: set link 10baseT auto
+eth1:    mode 0x7ffc0040, sia 0x10c4,0xffffef01,0xffffffff,0xffff0008
+eth1:    set mode 0x7ffc0040, set sia 0xef01,0xffff,0x8
+eth1: set link AUI
+eth1:    mode 0x7ffc0000, sia 0x10c4,0xffffef09,0xfffff7fd,0xffff000e
+eth1:    set mode 0x7ffc0000, set sia 0xef09,0xf7fd,0xe
+eth1: link up, media AUI
+eth1: link down
+eth1: set link 10baseT auto
+eth1:    mode 0x7ffc0000, sia 0x10c4,0xffffef01,0xffffffff,0xffff0008
+eth1:    set mode 0x7ffc0000, set sia 0xef01,0xffff,0x8
+eth1: set link AUI
+eth1:    mode 0x7ffc0000, sia 0x10c4,0xffffef09,0xfffff7fd,0xffff000e
+eth1:    set mode 0x7ffc0000, set sia 0xef09,0xf7fd,0xe
+eth1: link up, media AUI
+eth1: link down
+eth1: timeout expired stopping DMA
+eth1: chip is running while changing media!
+eth1: set link 10baseT auto
+eth1:    mode 0x7ffc0000, sia 0x10c4,0xffffef01,0xffffffff,0xffff0008
+eth1:    set mode 0x7ffc0000, set sia 0xef01,0xffff,0x8
+eth1: timeout expired stopping DMA
+eth1: chip is running while changing media!
+eth1: set link AUI
+eth1:    mode 0x7ffc0000, sia 0x11c4,0xffffef09,0xfffff7fd,0xffff000e
+eth1:    set mode 0x7ffc0000, set sia 0xef09,0xf7fd,0xe
+eth1: set link BNC
+eth1:    mode 0x7ffc0000, sia 0x10c4,0xffffef09,0xfffff7fd,0xffff0006
+eth1:    set mode 0x7ffc0000, set sia 0xef09,0xf7fd,0x6
+eth1: link up, media BNC
+eth1: link down
+eth1: set link AUI
+eth1:    mode 0x7ffc0000, sia 0x10c4,0xffffef09,0xfffff7fd,0xffff000e
+eth1:    set mode 0x7ffc0000, set sia 0xef09,0xf7fd,0xe
 
-(debugging patch #3)
----
+>
+> > Even tried resetting the chip multiple times when this problem
+> > appears but everything failed.
+>
+> Can you print the last value from dr32(MacStatus)?
+> (just append the output to the "stopping DMA" printk)
+>
+> If resetting the chip isn't working, my guess is the PCI bus is
+> out to lunch. Getting ~0 back on the MMIO read would be evidence
+> of that. But resetting the chip isn't trivial and all sorts of
+> things could go wrong with that.
+>
+> thanks,
+> grant
+>
+> > > BTW, I inherited a bug report for the same symptom:
+> > >     http://bugzilla.kernel.org/show_bug.cgi?id=3156
+> > >
+> > > thanks,
+> > > grant
+> > >
+> > > Signed-off-by: Grant Grundler
+> > >
+> > > --- linux-2.6.23/drivers/net/tulip/de2104x.c	2007-10-09
+> > > 13:31:38.000000000 -0700 +++
+> > > linux-2.6.23/drivers/net/tulip/de2104x.c-ggg	2007-11-02
+> > > 23:24:46.000000000 -0700 @@ -842,7 +842,7 @@
+> > >  static void de_stop_rxtx (struct de_private *de)
+> > >  {
+> > >  	u32 macmode;
+> > > -	unsigned int work = 1000;
+> > > +	unsigned int i = 1300/100;
+> > >
+> > >  	macmode = dr32(MacMode);
+> > >  	if (macmode & RxTx) {
+> > > @@ -850,10 +850,14 @@
+> > >  		dr32(MacMode);
+> > >  	}
+> > >
+> > > -	while (--work > 0) {
+> > > +	/* wait until in-flight frame completes.
+> > > +	 * Max time @ 10BT: 1500*8b/10Mbps == 1200us (+ 100us margin)
+> > > +	 * Typically expect this loop to end in < 50 us on 100BT.
+> > > +	 */
+> > > +	while (--i) {
+> > >  		if (!de_is_running(de))
+> > >  			return;
+> > > -		cpu_relax();
+> > > +		udelay(100);
+> > >  	}
+> > >
+> > >  	printk(KERN_WARNING "%s: timeout expired stopping DMA\n",
+> > > de->dev->name);
+> >
+> > --
+> > Ondrej Zary
 
-diff -Nurp 2.6.24.3-with2/include/net/sock.h 2.6.24.3-with3/include/net/sock.h
---- 2.6.24.3-with2/include/net/sock.h	2008-03-24 21:14:43.000000000 +0100
-+++ 2.6.24.3-with3/include/net/sock.h	2008-03-26 19:10:33.000000000 +0100
-@@ -1414,4 +1414,20 @@ extern int sysctl_optmem_max;
- extern __u32 sysctl_wmem_default;
- extern __u32 sysctl_rmem_default;
- 
-+static inline int sock_debug_ax25(struct sk_buff *skb, struct sock *ax25_sk)
-+{
-+	struct sock *sk = skb->sk;
-+
-+	if (sk && sk->sk_socket && sk->sk_socket->sk != sk) {
-+		if (net_ratelimit())
-+			printk(KERN_INFO "AX25: %s, %d, %p, %p, %p, %p, %p\n",
-+				__FUNCTION__, __LINE__, sk, sk->sk_socket,
-+				sk->sk_socket->sk, ax25_sk,
-+				ax25_sk == NULL ? NULL : ax25_sk->sk_socket);
-+		skb->destructor = NULL;
-+		return 1;
-+	}
-+	return 0;
-+}
-+
- #endif	/* _SOCK_H */
-diff -Nurp 2.6.24.3-with2/net/ax25/af_ax25.c 2.6.24.3-with3/net/ax25/af_ax25.c
---- 2.6.24.3-with2/net/ax25/af_ax25.c	2008-03-23 00:53:51.000000000 +0100
-+++ 2.6.24.3-with3/net/ax25/af_ax25.c	2008-03-26 18:52:54.000000000 +0100
-@@ -952,6 +952,8 @@ static int ax25_release(struct socket *s
- 
- 	sock_hold(sk);
- 	sock_orphan(sk);
-+	if (net_ratelimit())
-+		printk(KERN_INFO "AX25- %s, %d, %p, %p\n", __FUNCTION__, __LINE__, sk, sock);
- 	lock_sock(sk);
- 	ax25 = ax25_sk(sk);
- 
-@@ -1372,12 +1374,16 @@ static int ax25_accept(struct socket *so
- 	newsk		 = skb->sk;
- 	newsk->sk_socket = newsock;
- 	newsk->sk_sleep	 = &newsock->wait;
-+	newsk->sk_ax25_debug = 2;
- 
- 	/* Now attach up the new socket */
- 	kfree_skb(skb);
- 	sk->sk_ack_backlog--;
- 	newsock->sk    = newsk;
- 	newsock->state = SS_CONNECTED;
-+	if (net_ratelimit())
-+		printk(KERN_INFO "AX25= %s, %d, %p, %p, %p\n",
-+			 __FUNCTION__, __LINE__, newsk, sock, newsock);
- 
- out:
- 	release_sock(sk);
-diff -Nurp 2.6.24.3-with2/net/ax25/ax25_out.c 2.6.24.3-with3/net/ax25/ax25_out.c
---- 2.6.24.3-with2/net/ax25/ax25_out.c	2008-03-26 16:38:23.000000000 +0100
-+++ 2.6.24.3-with3/net/ax25/ax25_out.c	2008-03-26 18:54:47.000000000 +0100
-@@ -98,6 +98,7 @@ ax25_cb *ax25_send_frame(struct sk_buff 
- 
- 	ax25_start_heartbeat(ax25);
- 
-+	sock_debug_ax25(skb, ax25->sk);
- 	ax25_output(ax25, paclen, skb);
- 
- 	return ax25;			/* We had to create it */
-@@ -176,11 +177,13 @@ void ax25_output(ax25_cb *ax25, int pacl
- 			}
- 
- 			skb_pull(skb, len);
-+			sock_debug_ax25(skbn, ax25->sk);
- 			skb_queue_tail(&ax25->write_queue, skbn); /* Throw it on the queue */
- 		}
- 
- 		kfree_skb(skb);
- 	} else {
-+		sock_debug_ax25(skb, ax25->sk);
- 		skb_queue_tail(&ax25->write_queue, skb);	  /* Throw it on the queue */
- 	}
- 
-@@ -274,6 +277,8 @@ void ax25_kick(ax25_cb *ax25)
- 	ax25->vs = start;
- 
- 	do {
-+		sock_debug_ax25(skb, ax25->sk);
-+
- 		if ((skbn = skb_clone(skb, GFP_ATOMIC)) == NULL) {
- 			skb_queue_head(&ax25->write_queue, skb);
- 			break;
-@@ -308,6 +313,8 @@ void ax25_kick(ax25_cb *ax25)
- 		/*
- 		 * Requeue the original data frame.
- 		 */
-+
-+		sock_debug_ax25(skb, ax25->sk);
- 		skb_queue_tail(&ax25->ack_queue, skb);
- 
- 	} while (!last && (skb = skb_dequeue(&ax25->write_queue)) != NULL);
-diff -Nurp 2.6.24.3-with2/net/ax25/ax25_subr.c 2.6.24.3-with3/net/ax25/ax25_subr.c
---- 2.6.24.3-with2/net/ax25/ax25_subr.c	2008-01-24 23:58:37.000000000 +0100
-+++ 2.6.24.3-with3/net/ax25/ax25_subr.c	2008-03-26 19:23:03.000000000 +0100
-@@ -56,6 +56,7 @@ void ax25_frames_acked(ax25_cb *ax25, un
- 	if (ax25->va != nr) {
- 		while (skb_peek(&ax25->ack_queue) != NULL && ax25->va != nr) {
- 			skb = skb_dequeue(&ax25->ack_queue);
-+			sock_debug_ax25(skb, ax25->sk);
- 			kfree_skb(skb);
- 			ax25->va = (ax25->va + 1) % ax25->modulus;
- 		}
-diff -Nurp 2.6.24.3-with2/net/core/sock.c 2.6.24.3-with3/net/core/sock.c
---- 2.6.24.3-with2/net/core/sock.c	2008-03-24 21:43:46.000000000 +0100
-+++ 2.6.24.3-with3/net/core/sock.c	2008-03-26 19:14:37.000000000 +0100
-@@ -1520,8 +1520,10 @@ static void sock_def_write_space(struct 
- 		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep)) {
- 			if (!sk->sk_socket || sk->sk_socket->sk != sk) {
- 				if (net_ratelimit())
--					printk(KERN_INFO "sk_ax25_debug = %d, %p\n",
--						 sk->sk_ax25_debug, sk->sk_socket);
-+					printk(KERN_INFO "sk_ax25_debug = %d, %d, %d, %d, %p, %p, %p\n",
-+						 sk->sk_ax25_debug, sk->sk_family,
-+						 (int)sk->sk_protocol, sk->sk_type, sk->sk_socket,
-+						 sk->sk_socket == NULL ? NULL : sk->sk_socket->sk, sk);
- 				WARN_ON_ONCE(1);
- 				sk->sk_socket = NULL;
- 				sk->sk_sleep = NULL;
+
+
+-- 
+Ondrej Zary
