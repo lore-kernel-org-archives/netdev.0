@@ -1,43 +1,47 @@
-From: Marcus Better <marcus@better.se>
-Subject: Re: [Bugme-new] [Bug 10327] New: keyboard stops responding after
- "ifdown eth0"
-Date: Wed, 26 Mar 2008 10:19:40 +0100
-Message-ID: <47EA152C.6000008@better.se>
-References: <bug-10327-10286@http.bugzilla.kernel.org/>	<20080325143941.300d415f.akpm@linux-foundation.org>	<47E9721C.2000306@better.se>	<47E99258.3060005@s5r6.in-berlin.de> <20080325171608.509f4ca7.akpm@linux-foundation.org>
+From: Alexey Dobriyan <adobriyan@sw.ru>
+Subject: Re: [Devel] Re: [PATCH 1/2 net-2.6.26] [NETNS]: Compilation fix for include/linux/netdevice.h.
+Date: Wed, 26 Mar 2008 12:22:21 +0300
+Message-ID: <200803261222.22409.adobriyan@sw.ru>
+References: <1206517259-29152-1-git-send-email-den@openvz.org> <20080326.004742.92048899.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	bugme-daemon@bugzilla.kernel.org, linux-kernel@vger.kernel.org,
-	linux-input@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <20080325171608.509f4ca7.akpm@linux-foundation.org>
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, den@openvz.org,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	containers@lists.osdl.org
+To: devel@openvz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:38094 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756515AbYCZJXS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2008 05:23:18 -0400
+In-Reply-To: <20080326.004742.92048899.davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
-> 	( sleep 10 ; echo t > /proc/sysrq-trigger ) &
-> 	ifdown eth0
-> 
-> 
-> - See if the sysrq-t output made it to /var/log/messages
+On Wednesday 26 March 2008 10:47:42 David Miller wrote:
+> From: "Denis V. Lunev" <den@openvz.org>
+> Date: Wed, 26 Mar 2008 10:40:58 +0300
+>
+> > Commit commit c346dca10840a874240c78efe3f39acf4312a1f2
+> > ([NET] NETNS: Omit net_device->nd_net without CONFIG_NET_NS)
+> > breaks compilation with CONFIG_NET_NS set.
+> >
+> > Fix the typo.
+> >
+> > Signed-off-by: Denis V. Lunev <den@openvz.org>
+>
+> Applied.
+>
+> Too bad allmodconfig doesn't enable things which are y/n only.
 
-No, not a word. It hung after printing this:
+Right now NET_NS can be more or less reliably selected via:
 
-...
-DHCPRELEASE ...
-send_packet: Network is unreachable
-send_packet: please consult README ...
-sky2 eth0: disabling interface
-~# sky2 eth0: enabling interface
+    echo '# CONFIG_SYSFS is not set' >foo
+    echo 'CONFIG_NET_NS=y'           >>foo
+    KCONFIG_ALLCONFIG=foo make allmodconfig
 
-I'm running ifplugd, but this time there was no network cable connected. 
-Also ran from virtual console this time, the keyboard locked up like before.
-
-SysRq keys work, so I could do sysrq-s, sysrq-b. Also pressed sysrq-t 
-before rebooting.
-
-Any use trying netconsole? Can I run it over the wireless interface?
-
-Marcus
+But this trick a) doesn't work with some options, b) likely to break when
+someone will start selecting SYSFS.
