@@ -1,33 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6.26 2008-03-25
-Date: Tue, 25 Mar 2008 17:43:16 -0700 (PDT)
-Message-ID: <20080325.174316.115119935.davem@davemloft.net>
-References: <20080325211557.GA20488@tuxdriver.com>
+From: Olof Johansson <olof@lixom.net>
+Subject: [PATCH 0/2] Two more pasemi_mac patches for 2.6.26
+Date: Tue, 25 Mar 2008 20:56:25 -0500
+Message-ID: <20080326015625.GA23103@lixom.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080325211557.GA20488-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linuxppc-dev@ozlabs.org, pasemi-linux@ozlabs.org,
+	netdev@vger.kernel.org
+To: jgarzik@pobox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lixom.net ([66.141.50.11]:42042 "EHLO mail.lixom.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751434AbYCZBr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Mar 2008 21:47:59 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Tue, 25 Mar 2008 17:15:57 -0400
+Hi Jeff,
 
-> Here is the latest package of wireless changes for 2.6.26.  Included are
-> libertas and iwlwifi driver updates, some mac80211 updates, a few rt2x00
-> driver updates, and a handful of odds and ends.
+The below two patches go on top of the previous patches that were acked
+by you but applied to pasemi.git for feed up through powerpc.git.
 
-Pulled and pushed out to net-2.6.26, thanks!
+One is a couple of fixes for various corner cases in the jumbo support
+configuration. The second is addition of netpoll support, from Nate
+Case.
 
-> There will be one minor merge conflict in drivers/net/wireless/b43/dma.c
-> when you merge this with the 2.6.25 fixes I posted yesterday.  Just
-> take both sets of changes -- it is pretty obvious.
+Review/ack would be appreciated, I'll feed them up the same path as the
+other changes.
 
-Thanks will keep that in mind.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+-Olof
