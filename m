@@ -1,35 +1,38 @@
-From: "Andrew Paprocki" <andrew@ishiboo.com>
-Subject: Re: [PATCH] ethtool: Add register dump support for all r8169 driver cards
-Date: Wed, 26 Mar 2008 18:11:02 -0400
-Message-ID: <76366b180803261511x518e4475n72dbcee2d1942be3@mail.gmail.com>
-References: <76366b180803260519t7c446210n62d4c91209c5e971@mail.gmail.com>
-	 <20080326214432.GA9356@electric-eye.fr.zoreil.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] ethtool: Add register dump support for all r8169
+	driver cards
+Date: Wed, 26 Mar 2008 23:11:47 +0100
+Message-ID: <20080326221147.GB9034@electric-eye.fr.zoreil.com>
+References: <76366b180803260519t7c446210n62d4c91209c5e971@mail.gmail.com> <20080326214432.GA9356@electric-eye.fr.zoreil.com> <76366b180803261511x518e4475n72dbcee2d1942be3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Jeff Garzik" <jeff@garzik.org>
-To: "Francois Romieu" <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
+To: Andrew Paprocki <andrew@ishiboo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.169]:5661 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753669AbYCZWLD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 18:11:03 -0400
-Received: by wf-out-1314.google.com with SMTP id 28so3525389wff.4
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2008 15:11:02 -0700 (PDT)
-In-Reply-To: <20080326214432.GA9356@electric-eye.fr.zoreil.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:54965 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752978AbYCZWaB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 18:30:01 -0400
 Content-Disposition: inline
+In-Reply-To: <76366b180803261511x518e4475n72dbcee2d1942be3@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 26, 2008 at 5:44 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
->  Please revert: this register is reserved in the 8168.
->
->  PHY access and PHY status are ok for the 8168. TBI and PM registers are not.
->
->  The 8168 should not be included here.
+Andrew Paprocki <andrew@ishiboo.com> :
+[...]
+> I'll update this shortly and re-send again. Do you have 8168 docs
+> showing the differences between it and the 8169 ?
 
-I'll update this shortly and re-send again. Do you have 8168 docs
-showing the differences between it and the 8169? I peeked at this code
-because I'm trying to track down a 8110SC problem where the network
-hangs (sender hangs on sk_stream_wait_memory). Any useful docs on
-these chips would help. Thanks, -Andrew
+edward_hsu@realtek.com.tw may help.
+
+> I peeked at this code because I'm trying to track down a 8110SC
+> problem where the network hangs (sender hangs on sk_stream_wait_memory).
+> Any useful docs on these chips would help.
+
+I am not sure that the 8110/8169 documentation will be of much help but
+you can still give it a try.
+
+Can you elaborate on the kind of hang ? Which kernel do you use ?
+
+-- 
+Ueimor
