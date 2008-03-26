@@ -1,39 +1,76 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
-Date: Wed, 26 Mar 2008 22:53:56 +0100
-Message-ID: <20080326215356.GB16497@ami.dom.local>
-References: <47EA7DE8.9070203@sun.com> <47EAAE9A.9050305@gmail.com> <47EAB158.3080806@sun.com> <20080326214648.GA16497@ami.dom.local>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] ethtool: Add register dump support for all r8169
+	driver cards
+Date: Wed, 26 Mar 2008 22:44:32 +0100
+Message-ID: <20080326214432.GA9356@electric-eye.fr.zoreil.com>
+References: <76366b180803260519t7c446210n62d4c91209c5e971@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Matheos Worku <Matheos.Worku@Sun.COM>
+Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
+To: Andrew Paprocki <andrew@ishiboo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:58132 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756832AbYCZVn4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 17:43:56 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so1478951nfb.21
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2008 14:43:53 -0700 (PDT)
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:34958 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760708AbYCZWCs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 18:02:48 -0400
 Content-Disposition: inline
-In-Reply-To: <20080326214648.GA16497@ami.dom.local>
+In-Reply-To: <76366b180803260519t7c446210n62d4c91209c5e971@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 26, 2008 at 10:46:48PM +0100, Jarek Poplawski wrote:
-> On Wed, Mar 26, 2008 at 01:26:00PM -0700, Matheos Worku wrote:
-...
-> > 454:      19249      93234     907186       2691          0        188    
-> >       0        160   PCI-MSI-edge      eth6
-> ...
-> > .......
-> >
-> > 454:      19249     126519     907186       2691          0        188    
-> >       0        160   PCI-MSI-edge      eth6
-> 
-> 
-> Hmm... Is this before disabling or I miss something?
+Andrew Paprocki <andrew@ishiboo.com> :
+[...]
+> diff --git a/realtek.c b/realtek.c
+> index c56b3f5..7e750da 100644
+> --- a/realtek.c
+> +++ b/realtek.c
+[...]
+> @@ -157,9 +170,7 @@ realtek_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+>  		data[0x2C >> 2]);
+>  	}
+>  
+> -	if (board_type == RTL8169 ||
+> -	    board_type == RTL8169s ||
+> -	    board_type == RTL8110) {
+> +	if (board_type >= RTL8169) {
+>  	fprintf(stdout,
+>  		"0x30: Flash memory read/write                 0x%08x\n",
+>  		data[0x30 >> 2]);
 
-OOPS! I see - only not cleared. So it's OK!
+Please revert: this register is reserved in the 8168.
 
-Sorry,
-Jarek P.
+[...]
+> @@ -272,9 +279,7 @@ realtek_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+>  		"0x5C: Multiple Interrupt Select                   0x%04x\n",
+>  		data[0x5c >> 2] & 0xffff);
+>  
+> -	if (board_type == RTL8169 ||
+> -	    board_type == RTL8169s ||
+> -	    board_type == RTL8110) {
+> +	if (board_type >= RTL8169) {
+>  	fprintf(stdout,
+>  		"0x60: PHY access                              0x%08x\n"
+>  		"0x64: TBI control and status                  0x%08x\n",
+
+PHY access and PHY status are ok for the 8168. TBI and PM registers are not.
+
+[...]
+> @@ -512,6 +514,16 @@ realtek_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+>  	fprintf(stdout,
+>  		"0xFC: External MII register                   0x%08x\n",
+>  		data[0xFC >> 2]);
+> +	} else if (board_type >= RTL8169) {
+> +	fprintf(stdout,
+> +		"0xF0: Func Event                              0x%08x\n"
+> +		"0xF4: Func Event Mask                         0x%08x\n"
+> +		"0xF8: Func Preset State                       0x%08x\n"
+> +		"0xFC: Func Force Event                        0x%08x\n",
+> +		data[0xF0 >> 2],
+> +		data[0xF4 >> 2],
+> +		data[0xF8 >> 2],
+> +		data[0xFC >> 2]);
+
+The 8168 should not be included here.
+
+-- 
+Ueimor
