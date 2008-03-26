@@ -1,47 +1,47 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 1/2 net-2.6.26] [NETNS]: Compilation fix for
- include/linux/netdevice.h.
-Date: Wed, 26 Mar 2008 17:07:02 +0900 (JST)
-Message-ID: <20080326.170702.24448643.yoshfuji@linux-ipv6.org>
-References: <1206517259-29152-1-git-send-email-den@openvz.org>
-	<20080326.004742.92048899.davem@davemloft.net>
+From: "Denys" <nuclearcat@nuclearcat.com>
+Subject: Re: [Bugme-new] [Bug 10324] New: kernel panic ip_route_input
+Date: Wed, 26 Mar 2008 10:20:14 +0200
+Message-ID: <20080326081940.M12656@nuclearcat.com>
+References: <bug-10324-10286@http.bugzilla.kernel.org/> <20080325130302.d3f6757c.akpm@linux-foundation.org> <20080325230945.M27660@nuclearcat.com> <20080325164909.7f086142@speedy>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: den@openvz.org, netdev@vger.kernel.org, devel@openvz.org,
-	containers@lists.osdl.org, xemul@openvz.org, dlezcano@fr.ibm.com,
-	yoshfuji@linux-ipv6.org
-To: davem@davemloft.net
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:55289 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753969AbYCZIFi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 04:05:38 -0400
-In-Reply-To: <20080326.004742.92048899.davem@davemloft.net>
+Received: from usermail.globalproof.net ([194.146.153.18]:44234 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751569AbYCZIUY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 04:20:24 -0400
+In-Reply-To: <20080325164909.7f086142@speedy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <20080326.004742.92048899.davem@davemloft.net> (at Wed, 26 Mar 2008 00:47:42 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+I have to wait when power switch will be installed in that location then.
 
-> From: "Denis V. Lunev" <den@openvz.org>
-> Date: Wed, 26 Mar 2008 10:40:58 +0300
+
+On Tue, 25 Mar 2008 16:49:09 -0700, Stephen Hemminger wrote
+> On Wed, 26 Mar 2008 01:12:01 +0200
+> "Denys" <nuclearcat@nuclearcat.com> wrote:
 > 
-> > Commit commit c346dca10840a874240c78efe3f39acf4312a1f2
-> > ([NET] NETNS: Omit net_device->nd_net without CONFIG_NET_NS)
-> > breaks compilation with CONFIG_NET_NS set.
-> > 
-> > Fix the typo.
-> > 
-> > Signed-off-by: Denis V. Lunev <den@openvz.org>
+> > Changing from FIB_TRIE to FIB_HASH, and it is not panicing anymore. It 
+seems
+> > recent patches to FIB_TRIE broke something (i have complicated setup with 
+ifb,
+> > maybe it will help). If you can point me to any patch, i can reverse it 
+and
+> > try again with TRIE.
 > 
-> Applied.
-> 
-> Too bad allmodconfig doesn't enable things which are y/n only.
+> Bisect?
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Sorry for the typo.
 
-Unfortunately, NET_NS depends on !SYSFS,
-so allyesconfig might not help...
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
---yoshfuji
