@@ -1,37 +1,31 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC PATCH resend]: Fix output for BEET ipsec
-Date: Wed, 26 Mar 2008 10:14:02 +0100
-Message-ID: <47EA13DA.7070708@trash.net>
-References: <200803261115.26157.joakim.koskela@hiit.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.26][NETNS][ICMP]: Build fix for NET_NS=n case
+ (dev->nd_net is omitted).
+Date: Wed, 26 Mar 2008 02:19:40 -0700 (PDT)
+Message-ID: <20080326.021940.29039999.davem@davemloft.net>
+References: <47EA1457.3010706@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	Komu Miika <Miika.Komu@hiit.fi>
-To: Joakim Koskela <joakim.koskela@hiit.fi>
+Cc: netdev@vger.kernel.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56734 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752587AbYCZJQI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 05:16:08 -0400
-In-Reply-To: <200803261115.26157.joakim.koskela@hiit.fi>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36034
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753539AbYCZJTl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 05:19:41 -0400
+In-Reply-To: <47EA1457.3010706@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joakim Koskela wrote:
-> diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-> index 091e670..20d214f 100644
-> --- a/net/ipv4/esp4.c
-> +++ b/net/ipv4/esp4.c
-> @@ -404,7 +404,8 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
->  		break;
->  	case XFRM_MODE_BEET:
->  		/* The worst case. */
-> -		mtu += min_t(u32, IPV4_BEET_PHMAXLEN, rem);
-> +		/* This will be seen to in the esp header_len */
-> +		/* mtu += min_t(u32, IPV4_BEET_PHMAXLEN, rem); */
->  		break;
->  	}
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Wed, 26 Mar 2008 12:16:07 +0300
 
+> I didn't check the kernel build after pulling dev->nd_net access 
+> optimization from net-2.6.26 tree :(
+> 
+> Sorry.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Why are you disabling this?
+Applied, thanks.
