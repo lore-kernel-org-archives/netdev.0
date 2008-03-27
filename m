@@ -1,10 +1,8 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 3/7] [NET]: uninline dev_alloc_skb, de-bloats a lot
-Date: Thu, 27 Mar 2008 14:38:02 +0200
-Message-ID: <1206621486-5408-4-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 1/7] [NET]: uninline skb_put, de-bloats a lot
+Date: Thu, 27 Mar 2008 14:38:00 +0200
+Message-ID: <1206621486-5408-2-git-send-email-ilpo.jarvinen@helsinki.fi>
 References: <1206621486-5408-1-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1206621486-5408-2-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1206621486-5408-3-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -14,90 +12,112 @@ To: Andrew Morton <akpm@linux-foundation.org>,
 	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:42424 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:36880 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757088AbYC0MiJ (ORCPT
+	with ESMTP id S1757077AbYC0MiJ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 08:38:09 -0400
-In-Reply-To: <1206621486-5408-3-git-send-email-ilpo.jarvinen@helsinki.fi>
+In-Reply-To: <1206621486-5408-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Allyesconfig (v2.6.24-mm1):
 
--23668  392 funcs, 104 +, 23772 -, diff: -23668 --- dev_alloc_skb
+~500 files changed
+=2E..
+ 869 funcs, 198 +, 111003 -, diff: -110805 --- skb_put
+  skb_put                       | +104
 
-Without many debug CONFIGs (v2.6.25-rc2-mm1):
+Without number of debug related CONFIGs (v2.6.25-rc2-mm1):
 
--12178  382 funcs, 157 +, 12335 -, diff: -12178 --- dev_alloc_skb
-dev_alloc_skb                 |  +37
+-60744  855 funcs, 861 +, 61605 -, diff: -60744 --- skb_put
+  skb_put                       |  +57
 
 Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 ---
- include/linux/skbuff.h |   17 +----------------
- net/core/skbuff.c      |   18 ++++++++++++++++++
- 2 files changed, 19 insertions(+), 16 deletions(-)
+ include/linux/skbuff.h |   21 +--------------------
+ net/core/skbuff.c      |   21 +++++++++++++++++++++
+ 2 files changed, 22 insertions(+), 20 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 6d6cde7..01a11b0 100644
+index 7beb239..f085955 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -1272,22 +1272,7 @@ static inline struct sk_buff *__dev_alloc_skb(un=
-signed int length,
- 	return skb;
+@@ -892,6 +892,7 @@ static inline void skb_set_tail_pointer(struct sk_b=
+uff *skb, const int offset)
+ /*
+  *	Add data to an sk_buff
+  */
++extern unsigned char *skb_put(struct sk_buff *skb, unsigned int len);
+ static inline unsigned char *__skb_put(struct sk_buff *skb, unsigned i=
+nt len)
+ {
+ 	unsigned char *tmp =3D skb_tail_pointer(skb);
+@@ -901,26 +902,6 @@ static inline unsigned char *__skb_put(struct sk_b=
+uff *skb, unsigned int len)
+ 	return tmp;
  }
 =20
 -/**
-- *	dev_alloc_skb - allocate an skbuff for receiving
-- *	@length: length to allocate
+- *	skb_put - add data to a buffer
+- *	@skb: buffer to use
+- *	@len: amount of data to add
 - *
-- *	Allocate a new &sk_buff and assign it a usage count of one. The
-- *	buffer has unspecified headroom built in. Users should allocate
-- *	the headroom they think they need without accounting for the
-- *	built in space. The built in space is used for optimisations.
-- *
-- *	%NULL is returned if there is no free memory. Although this functio=
-n
-- *	allocates memory it can be called from an interrupt.
+- *	This function extends the used data area of the buffer. If this wou=
+ld
+- *	exceed the total buffer size the kernel will panic. A pointer to th=
+e
+- *	first byte of the extra data is returned.
 - */
--static inline struct sk_buff *dev_alloc_skb(unsigned int length)
+-static inline unsigned char *skb_put(struct sk_buff *skb, unsigned int=
+ len)
 -{
--	return __dev_alloc_skb(length, GFP_ATOMIC);
+-	unsigned char *tmp =3D skb_tail_pointer(skb);
+-	SKB_LINEAR_ASSERT(skb);
+-	skb->tail +=3D len;
+-	skb->len  +=3D len;
+-	if (unlikely(skb->tail > skb->end))
+-		skb_over_panic(skb, len, current_text_addr());
+-	return tmp;
 -}
-+extern struct sk_buff *dev_alloc_skb(unsigned int length);
-=20
- extern struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
- 		unsigned int length, gfp_t gfp_mask);
+-
+ static inline unsigned char *__skb_push(struct sk_buff *skb, unsigned =
+int len)
+ {
+ 	skb->data -=3D len;
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index cf489b6..0daf5c0 100644
+index 0d0fd28..3402eca 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -263,6 +263,24 @@ struct sk_buff *__netdev_alloc_skb(struct net_devi=
-ce *dev,
- 	return skb;
+@@ -857,6 +857,27 @@ free_skb:
+ 	return err;
  }
 =20
 +/**
-+ *	dev_alloc_skb - allocate an skbuff for receiving
-+ *	@length: length to allocate
++ *	skb_put - add data to a buffer
++ *	@skb: buffer to use
++ *	@len: amount of data to add
 + *
-+ *	Allocate a new &sk_buff and assign it a usage count of one. The
-+ *	buffer has unspecified headroom built in. Users should allocate
-+ *	the headroom they think they need without accounting for the
-+ *	built in space. The built in space is used for optimisations.
-+ *
-+ *	%NULL is returned if there is no free memory. Although this functio=
-n
-+ *	allocates memory it can be called from an interrupt.
++ *	This function extends the used data area of the buffer. If this wou=
+ld
++ *	exceed the total buffer size the kernel will panic. A pointer to th=
+e
++ *	first byte of the extra data is returned.
 + */
-+struct sk_buff *dev_alloc_skb(unsigned int length)
++unsigned char *skb_put(struct sk_buff *skb, unsigned int len)
 +{
-+	return __dev_alloc_skb(length, GFP_ATOMIC);
++	unsigned char *tmp =3D skb_tail_pointer(skb);
++	SKB_LINEAR_ASSERT(skb);
++	skb->tail +=3D len;
++	skb->len  +=3D len;
++	if (unlikely(skb->tail > skb->end))
++		skb_over_panic(skb, len, __builtin_return_address(0));
++	return tmp;
 +}
-+EXPORT_SYMBOL(dev_alloc_skb);
++EXPORT_SYMBOL(skb_put);
 +
- static void skb_drop_list(struct sk_buff **listp)
- {
- 	struct sk_buff *list =3D *listp;
+ /* Trims skb to length len. It can change skb pointers.
+  */
+=20
 --=20
 1.5.2.2
 
