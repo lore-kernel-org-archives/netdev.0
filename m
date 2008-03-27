@@ -1,43 +1,35 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [Bugme-new] [Bug 10326] New: inconsistent lock state in net_rx_action
-Date: Thu, 27 Mar 2008 22:56:49 +0100
-Message-ID: <200803272256.50454.rjw@sisk.pl>
-References: <bug-10326-10286@http.bugzilla.kernel.org/> <1206621014.8514.563.camel@twins> <20080327124928.GE2845@ami.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] e1000e: test MSI interrupts
+Date: Thu, 27 Mar 2008 14:59:59 -0700 (PDT)
+Message-ID: <20080327.145959.64040869.davem@davemloft.net>
+References: <47EA9911.8040101@garzik.org>
+	<47EAB54A.1060306@intel.com>
+	<36D9DB17C6DE9E40B059440DB8D95F5204BF07F7@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	marcus@better.se,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: auke-jan.h.kok@intel.com, jeff@garzik.org,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:47447 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756482AbYC0V5T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2008 17:57:19 -0400
-In-Reply-To: <20080327124928.GE2845@ami.dom.local>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55710
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756482AbYC0V77 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 17:59:59 -0400
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5204BF07F7@orsmsx418.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, 27 of March 2008, Jarek Poplawski wrote:
-> On Thu, Mar 27, 2008 at 01:30:14PM +0100, Peter Zijlstra wrote:
-> ...
-> > My guess is that it is a race between polling the device and irq pushing
-> > the packet. That is, normally the IRQ handler wins and netpoll doesn't
-> > have anything to do and it doesn't traverse this code path.
-> > 
-> > (although I must admit to being a little out of my depth here)
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Date: Thu, 27 Mar 2008 10:53:43 -0700
+
+> >> The platforms with MSI problems should be discovered, made public,
+> >> and worked around. 
 > 
-> Probably you're right but there were really a lot of testing and
-> stressing netconsole for misterious lockups for quite a long time
-> with this new napi, so it's hard to believe this was hidden so
-> well...
+> This is our workaround, it is our fault, the incompatible chipset is in
+> an x3850 IBM system.
 
-I assume there will be a patch posted for this issue.  Correct?
+Then you look for that system chipset variant in the e1000e driver and
+not use MSI when it is found.
 
-Rafael
+A generic test really is not warranted.
