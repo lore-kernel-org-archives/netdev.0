@@ -1,107 +1,74 @@
-From: Valentine Barshak <vbarshak@ru.mvista.com>
-Subject: [PATCH 1/2] ibm_newemac: PowerPC 440GX EMAC PHY clock workaround
-Date: Thu, 27 Mar 2008 17:40:44 +0300
-Message-ID: <20080327144044.GA8831@ru.mvista.com>
-References: <20080327085353.6ac04886@zod.rchland.ibm.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] [IXBGE]: Compilation fix for ixgbe_main.c.
+Date: Thu, 27 Mar 2008 08:26:18 -0700
+Message-ID: <47EBBC9A.8010409@intel.com>
+References: <1206617957-32679-1-git-send-email-den@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: benh@kernel.crashing.org, jwboyer@linux.vnet.ibm.com,
-	jeff@garzik.org, netdev@vger.kernel.org
-To: linuxppc-dev@ozlabs.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, cramerj@intel.com,
+	auke-jan.h.kok@intel.com
+To: "Denis V. Lunev" <den@openvz.org>, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [212.176.242.38] ([212.176.242.38]:56391 "EHLO
-	vaxon.spb.rtsoft.ru" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752775AbYC0PIS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 11:08:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20080327085353.6ac04886@zod.rchland.ibm.com>
+Received: from mga03.intel.com ([143.182.124.21]:62813 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756687AbYC0P07 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2008 11:26:59 -0400
+In-Reply-To: <1206617957-32679-1-git-send-email-den@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PowerPC 440GX Taishan board fails to reset EMAC3 (reset timeout error)
-if there's no link. Because of that it fails to find PHY chip. The older ibm_emac
-driver had a workaround for that: the EMAC_CLK_INTERNAL/EMAC_CLK_EXTERNAL macros,
-which toggle the Ethernet Clock Select bit in the SDR0_MFR register. This patch
-does the same for "ibm,emac-440gx" compatible chips. The workaround forces
-clock on -all- EMACs, so we select clock under global emac_phy_map_lock.
+Denis V. Lunev wrote:
+> Under CONFIG_DCA the compilation is broken since the commit
+> bd0362dde080cef377d99fa5beb5c25308c29c73 (ixgbe: Add optional
+> DCA infrastructure).
+> 
+> IXGBE_SUCCESS is not defined anywhere, replace it with 0.
+> 
+> Signed-off-by: Denis V. Lunev <den@openvz.org>
 
-Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
----
- drivers/net/ibm_newemac/core.c |   16 +++++++++++++++-
- drivers/net/ibm_newemac/core.h |    8 ++++++--
- 2 files changed, 21 insertions(+), 3 deletions(-)
 
-diff -pruN linux-2.6.orig/drivers/net/ibm_newemac/core.c linux-2.6/drivers/net/ibm_newemac/core.c
---- linux-2.6.orig/drivers/net/ibm_newemac/core.c	2008-02-22 19:56:26.000000000 +0300
-+++ linux-2.6/drivers/net/ibm_newemac/core.c	2008-02-22 20:38:47.000000000 +0300
-@@ -43,6 +43,8 @@
- #include <asm/io.h>
- #include <asm/dma.h>
- #include <asm/uaccess.h>
-+#include <asm/dcr.h>
-+#include <asm/dcr-regs.h>
- 
- #include "core.h"
- 
-@@ -2323,6 +2325,10 @@ static int __devinit emac_init_phy(struc
- 	dev->phy.mdio_read = emac_mdio_read;
- 	dev->phy.mdio_write = emac_mdio_write;
- 
-+	/* Enable internal clock source */
-+	if (emac_has_feature(dev, EMAC_FTR_440GX_PHY_CLK_FIX))
-+		dcri_clrset(SDR0, SDR0_MFR, 0, SDR0_MFR_ECS);
-+
- 	/* Configure EMAC with defaults so we can at least use MDIO
- 	 * This is needed mostly for 440GX
- 	 */
-@@ -2355,6 +2361,11 @@ static int __devinit emac_init_phy(struc
- 			if (!emac_mii_phy_probe(&dev->phy, i))
- 				break;
- 		}
-+
-+	/* Enable external clock source */
-+	if (emac_has_feature(dev, EMAC_FTR_440GX_PHY_CLK_FIX))
-+		dcri_clrset(SDR0, SDR0_MFR, SDR0_MFR_ECS, 0);
-+
- 	mutex_unlock(&emac_phy_map_lock);
- 	if (i == 0x20) {
- 		printk(KERN_WARNING "%s: can't find PHY!\n", np->full_name);
-@@ -2480,8 +2491,11 @@ static int __devinit emac_init_config(st
- 	}
- 
- 	/* Check EMAC version */
--	if (of_device_is_compatible(np, "ibm,emac4"))
-+	if (of_device_is_compatible(np, "ibm,emac4")) {
- 		dev->features |= EMAC_FTR_EMAC4;
-+		if (of_device_is_compatible(np, "ibm,emac-440gx"))
-+			dev->features |= EMAC_FTR_440GX_PHY_CLK_FIX;
-+	}
- 
- 	/* Fixup some feature bits based on the device tree */
- 	if (of_get_property(np, "has-inverted-stacr-oc", NULL))
-diff -pruN linux-2.6.orig/drivers/net/ibm_newemac/core.h linux-2.6/drivers/net/ibm_newemac/core.h
---- linux-2.6.orig/drivers/net/ibm_newemac/core.h	2008-02-21 16:45:36.000000000 +0300
-+++ linux-2.6/drivers/net/ibm_newemac/core.h	2008-02-22 19:57:44.000000000 +0300
-@@ -301,6 +301,10 @@ struct emac_instance {
-  * Set if we have new type STACR with STAOPC
-  */
- #define EMAC_FTR_HAS_NEW_STACR		0x00000040
-+/*
-+ * Set if we need phy clock workaround for 440gx
-+ */
-+#define EMAC_FTR_440GX_PHY_CLK_FIX	0x00000080
- 
- 
- /* Right now, we don't quite handle the always/possible masks on the
-@@ -312,8 +316,8 @@ enum {
- 
- 	EMAC_FTRS_POSSIBLE	=
- #ifdef CONFIG_IBM_NEW_EMAC_EMAC4
--	    EMAC_FTR_EMAC4	| EMAC_FTR_HAS_NEW_STACR	|
--	    EMAC_FTR_STACR_OC_INVERT	|
-+	    EMAC_FTR_EMAC4 | EMAC_FTR_HAS_NEW_STACR |
-+	    EMAC_FTR_STACR_OC_INVERT | EMAC_FTR_440GX_PHY_CLK_FIX |
- #endif
- #ifdef CONFIG_IBM_NEW_EMAC_TAH
- 	    EMAC_FTR_HAS_TAH	|
+Ack and thanks, but should go to Jeff Garzik instead.
+
+Jeff, please apply.
+
+
+Auke
+
+
+> ---
+>  drivers/net/ixgbe/ixgbe_main.c |    6 +++---
+>  1 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+> index 7ad2993..cb371a8 100644
+> --- a/drivers/net/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ixgbe/ixgbe_main.c
+> @@ -367,7 +367,7 @@ static int __ixgbe_notify_dca(struct device *dev, void *data)
+>  		/* Always use CB2 mode, difference is masked
+>  		 * in the CB driver. */
+>  		IXGBE_WRITE_REG(&adapter->hw, IXGBE_DCA_CTRL, 2);
+> -		if (dca_add_requester(dev) == IXGBE_SUCCESS) {
+> +		if (dca_add_requester(dev) == 0) {
+>  			ixgbe_setup_dca(adapter);
+>  			break;
+>  		}
+> @@ -381,7 +381,7 @@ static int __ixgbe_notify_dca(struct device *dev, void *data)
+>  		break;
+>  	}
+>  
+> -	return IXGBE_SUCCESS;
+> +	return 0;
+>  }
+>  
+>  #endif /* CONFIG_DCA */
+> @@ -3605,7 +3605,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+>  		goto err_register;
+>  
+>  #ifdef CONFIG_DCA
+> -	if (dca_add_requester(&pdev->dev) == IXGBE_SUCCESS) {
+> +	if (dca_add_requester(&pdev->dev) == 0) {
+>  		adapter->flags |= IXGBE_FLAG_DCA_ENABLED;
+>  		/* always use CB2 mode, difference is masked
+>  		 * in the CB driver */
 
