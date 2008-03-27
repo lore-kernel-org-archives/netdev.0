@@ -1,69 +1,107 @@
-From: Dave Jones <davej@codemonkey.org.uk>
-Subject: bluetooth lockdep trace. (.25rc5-git4)
-Date: Thu, 27 Mar 2008 12:21:56 -0400
-Message-ID: <20080327162156.GA8098@codemonkey.org.uk>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: kernel 2.6.25-rc7 highly unstable on high load
+Date: Thu, 27 Mar 2008 17:29:51 +0100
+Message-ID: <47EBCB7F.8040704@cosmosbay.com>
+References: <20080327062502.M51594@visp.net.lb> <20080326.234049.256533912.davem@davemloft.net> <47EB46BD.2080001@cosmosbay.com> <20080327144102.M65267@visp.net.lb> <47EBB4A3.4090102@cosmosbay.com> <20080327151520.M89250@visp.net.lb> <47EBC641.8040405@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kaber@trash.net, netfilter-devel@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from testure.choralone.org ([194.9.77.134]:45409 "EHLO
-	testure.choralone.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756352AbYC0QWE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 12:22:04 -0400
-Received: from c-66-30-206-50.hsd1.ma.comcast.net ([66.30.206.50] helo=gelk.kernelslacker.org)
-	by testure.choralone.org with esmtpsa (TLS-1.0:DHE_RSA_AES_256_CBC_SHA1:32)
-	(Exim 4.69)
-	(envelope-from <davej@gelk.kernelslacker.org>)
-	id 1Jeunf-0007jz-Sx
-	for netdev@vger.kernel.org; Thu, 27 Mar 2008 16:18:00 +0000
-Received: from davej by gelk.kernelslacker.org with local (Exim 4.68)
-	(envelope-from <davej@gelk.kernelslacker.org>)
-	id 1JeurU-0006AA-KK
-	for netdev@vger.kernel.org; Thu, 27 Mar 2008 12:21:56 -0400
-Content-Disposition: inline
+Received: from smtp2e.orange.fr ([80.12.242.113]:26003 "EHLO smtp2e.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754672AbYC0Q34 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 12:29:56 -0400
+In-Reply-To: <47EBC641.8040405@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This came in this morning from a user of a slightly old kernel now, but
-I don't see anything obvious post rc5 that would fix this.
+Eric Dumazet a =C3=A9crit :
+> Denys Fedoryshchenko a =C3=A9crit :
+>> I did this tuning. Not sure what does mean rt_cache_entries, but=20
+>> seems they are still increasing.
+>>
+>> Kup /config #  rtstat -c1000 -i60
+>> rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_ca=
+che|
+>> rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_ca=
+che|
+>> rt_cache|
+>>  entries|  in_hit|in_slow_|in_slow_|in_no_ro| =20
+>> in_brd|in_marti|in_marti|=20
+>> out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hli=
+st|
+>> out_hlis|
+>>         |        |     tot|      mc|     ute|        |  an_dst| =20
+>> an_src|        |    _tot|     _mc|        |      ed|    miss|=20
+>> verflow| _search|t_search|
+>>   274234| 1590009|  271953|       0|    1809|       6|       0|     =
+ =20
+>> 0|   24551|    7365|       0|  279991|  279867|      24|       0|=20
+>> 5438630|   89656|
+>>   280535|   25463|   19956|       0|     187|       0|       0|     =
+ =20
+>> 0|     485|     263|       0|   20407|   20404|       3|       0|  =20
+>> 12796|     242|
+>>   288072|   25367|   19830|       0|     163|       0|       0|     =
+ =20
+>> 0|     493|     256|       0|   20248|   20245|       3|       0|  =20
+>> 17146|     346|
+>>   294943|   25689|   19807|       0|     154|       0|       0|     =
+ =20
+>> 0|     438|     250|       0|   20211|   20208|       3|       0|  =20
+>> 21554|     432|
+>>   301118|   25287|   19645|       0|     170|       0|       0|     =
+ =20
+>> 0|     466|     236|       0|   20052|   20048|       3|       0|  =20
+>> 25713|     528|
+>>   307651|   25663|   20264|       0|     180|       0|       0|     =
+ =20
+>> 0|     472|     234|       0|   20678|   20675|       3|       0|  =20
+>> 30588|     607|
+>>   313767|   25810|   20014|       0|     175|       0|       0|     =
+ =20
+>> 0|     459|     237|       0|   20425|   20422|       3|       0|  =20
+>> 33701|     699|
+>>
+>>
+>>  =20
+> Then try to lower gc_elasticity, to 3, or even 2
+>
+> echo 3 >/proc/sys/net/ipv4/route/gc_elasticity
+>
+>
+One more idea before leaving :)
 
-	Dave
+If rt_cache_entries still increasing, we might have a dst leak somewher=
+e :
+gc tries to evict entries that have a non null refcount -> they are put=
+=20
+in dst_garbage.list
 
-Mar 27 08:10:57 localhost kernel: =============================================
-Mar 27 08:10:57 localhost kernel: [ INFO: possible recursive locking detected ]
-Mar 27 08:10:57 localhost kernel: 2.6.25-0.121.rc5.git4.fc9 #1
-Mar 27 08:10:57 localhost kernel: ---------------------------------------------
-Mar 27 08:10:57 localhost kernel: obex-data-serve/3611 is trying to acquire lock:
-Mar 27 08:10:57 localhost kernel:  (sk_lock-AF_BLUETOOTH){--..}, at: [<f8bd9321>] l2cap_sock_bind+0x29/0x108 [l2cap]
-Mar 27 08:10:57 localhost kernel: 
-Mar 27 08:10:57 localhost kernel: but task is already holding lock:
-Mar 27 08:10:57 localhost kernel:  (sk_lock-AF_BLUETOOTH){--..}, at: [<f8dae136>] rfcomm_sock_connect+0x35/0xc2 [rfcomm]
-Mar 27 08:10:57 localhost kernel: 
-Mar 27 08:10:57 localhost kernel: other info that might help us debug this:
-Mar 27 08:10:57 localhost kernel: 2 locks held by obex-data-serve/3611:
-Mar 27 08:10:57 localhost kernel:  #0:  (sk_lock-AF_BLUETOOTH){--..}, at: [<f8dae136>] rfcomm_sock_connect+0x35/0xc2 [rfcomm]
-Mar 27 08:10:57 localhost kernel:  #1:  (rfcomm_mutex){--..}, at: [<f8dad337>] rfcomm_dlc_open+0x28/0x294 [rfcomm]
-Mar 27 08:10:57 localhost kernel: 
-Mar 27 08:10:57 localhost kernel: stack backtrace:
-Mar 27 08:10:57 localhost kernel: Pid: 3611, comm: obex-data-serve Not tainted 2.6.25-0.121.rc5.git4.fc9 #1
-Mar 27 08:10:57 localhost kernel:  [__lock_acquire+2287/3089] __lock_acquire+0x8ef/0xc11
-Mar 27 08:10:57 localhost kernel:  [sched_clock+8/11] ? sched_clock+0x8/0xb
-Mar 27 08:10:57 localhost kernel:  [lock_acquire+106/144] lock_acquire+0x6a/0x90
-Mar 27 08:10:57 localhost kernel:  [<f8bd9321>] ? l2cap_sock_bind+0x29/0x108 [l2cap]
-Mar 27 08:10:57 localhost kernel:  [lock_sock_nested+182/198] lock_sock_nested+0xb6/0xc6
-Mar 27 08:10:57 localhost kernel:  [<f8bd9321>] ? l2cap_sock_bind+0x29/0x108 [l2cap]
-Mar 27 08:10:57 localhost kernel:  [security_socket_post_create+22/27] ? security_socket_post_create+0x16/0x1b
-Mar 27 08:10:57 localhost kernel:  [__sock_create+388/472] ? __sock_create+0x184/0x1d8
-Mar 27 08:10:57 localhost kernel:  [<f8bd9321>] l2cap_sock_bind+0x29/0x108 [l2cap]
-Mar 27 08:10:57 localhost kernel:  [kernel_bind+10/13] kernel_bind+0xa/0xd
-Mar 27 08:10:57 localhost kernel:  [<f8dad3d7>] rfcomm_dlc_open+0xc8/0x294 [rfcomm]
-Mar 27 08:10:57 localhost kernel:  [lock_sock_nested+187/198] ? lock_sock_nested+0xbb/0xc6
-Mar 27 08:10:57 localhost kernel:  [<f8dae18c>] rfcomm_sock_connect+0x8b/0xc2 [rfcomm]
-Mar 27 08:10:57 localhost kernel:  [sys_connect+96/125] sys_connect+0x60/0x7d
-Mar 27 08:10:57 localhost kernel:  [__lock_acquire+1370/3089] ? __lock_acquire+0x55a/0xc11
-Mar 27 08:10:57 localhost kernel:  [sys_socketcall+140/392] sys_socketcall+0x8c/0x188
-Mar 27 08:10:57 localhost kernel:  [syscall_call+7/11] syscall_call+0x7/0xb
-Mar 27 08:10:57 localhost kernel:  =======================
+=46ollowing patch will show us how dst_garbage behaves.
+ ( printk(KERN_DEBUG "dst_total: %d delayed: %d work_perf: %d" ...)
 
--- 
-http://www.codemonkey.org.uk
+
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 7deef48..e634e5f 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -31,6 +31,8 @@
+  * 3) This list is guarded by a mutex,
+  *    so that the gc_task and dst_dev_event() can be synchronized.
+  */
++#undef RT_CACHE_DEBUG
++#define RT_CACHE_DEBUG 2
+ #if RT_CACHE_DEBUG >=3D 2
+ static atomic_t                         dst_total =3D ATOMIC_INIT(0);
+ #endif
+
+
+
+
+
