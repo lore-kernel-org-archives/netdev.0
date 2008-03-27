@@ -1,61 +1,59 @@
-From: "Rami Rosen" <ramirose@gmail.com>
-Subject: [PATCH net-2.6.26] Remove three unused method declarations in include/net/ipv6.h
-Date: Thu, 27 Mar 2008 11:05:55 +0200
-Message-ID: <eb3ff54b0803270205n4a15a884kaa45852e510b27c6@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 10326] New: inconsistent lock state in
+ net_rx_action
+Date: Thu, 27 Mar 2008 02:18:12 -0700
+Message-ID: <20080327021812.601776b8.akpm@linux-foundation.org>
+References: <bug-10326-10286@http.bugzilla.kernel.org/>
+	<20080325134320.21525479.akpm@linux-foundation.org>
+	<47EAD8A5.3070806@gmail.com>
+	<20080326171403.ad186037.akpm@linux-foundation.org>
+	<20080327085542.GA2778@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_14242_33134566.1206608755587"
-Cc: linux-kernel@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	marcus@better.se,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Ingo Molnar <mingo@elte.hu>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:62711 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753820AbYC0JF5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 05:05:57 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so4451154fgb.17
-        for <netdev@vger.kernel.org>; Thu, 27 Mar 2008 02:05:55 -0700 (PDT)
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55960 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758555AbYC0JSs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 05:18:48 -0400
+In-Reply-To: <20080327085542.GA2778@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_14242_33134566.1206608755587
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Thu, 27 Mar 2008 09:55:42 +0100 Jarek Poplawski <jarkao2@gmail.com> wrote:
 
-Hi,
-This patch removes three unused method declarations in include/net/ipv6.h:
-inet_getfrag_t(), ipv6_build_nfrag_opts() and ipv6_build_frag_opts().
+> On Wed, Mar 26, 2008 at 05:14:03PM -0700, Andrew Morton wrote:
+> ...
+> > > >> http://bugzilla.kernel.org/show_bug.cgi?id=10326
+> ...
+> > No, it's not an irq_disable() thing, directly.
+> > 
+> > What lockdep is saying is that sky2_poll() is taking napi->poll_lock for
+> > writing with softirqs enabled, but net_rx_action() takes the same lock from
+> > within softirq context.
+> > 
+> > If sky2_poll() always takes napi->poll_lock under local_irq_disable() then
+> > that would be a lockdep bug.
+> 
+> sky2_poll() doesn't take napi->poll_lock; this lock is taken by
+> netpoll_poll() before calling sky2_poll(). And before this hardirqs
+> are disabled in write_msg(). So, theoretically lockdep could be right
+> if sky2_poll() would enable irqs after this. (If it were done in
+> netpoll - lockdep should warn before or after sky2_poll() call.)
+> But I really can't see any such possibility in sky2_poll().
 
-Regards,
-Rami Rosen
+I can't spot it from a five-minute read either.  gcc's autoinlining really
+makes this sort of thing much harder than it used to be :(
 
+Anyway, the accusation is that lockdep is busted, in that it doesn't realise that
+local_irq_disable() blocks softirqs.
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
-------=_Part_14242_33134566.1206608755587
-Content-Type: text/plain; name=patch.txt
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_feb3g0hc0
-Content-Disposition: attachment; filename=patch.txt
-
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2lwdjYuaCBiL2luY2x1ZGUvbmV0L2lwdjYuaAppbmRl
-eCAyOTZmNjFkLi41NzM4YzFjIDEwMDY0NAotLS0gYS9pbmNsdWRlL25ldC9pcHY2LmgKKysrIGIv
-aW5jbHVkZS9uZXQvaXB2Ni5oCkBAIC0yNTAsMTUgKzI1MCw2IEBAIGludCBpcDZfZnJhZ19tZW0o
-c3RydWN0IG5ldCAqbmV0KTsKIAogI2RlZmluZSBJUFY2X0ZSQUdfVElNRU9VVAkoNjAqSFopCQkv
-KiA2MCBzZWNvbmRzICovCiAKLS8qCi0gKglGdW5jdGlvbiBwcm90b3R5cGUgZm9yIGJ1aWxkX3ht
-aXQKLSAqLwotCi10eXBlZGVmIGludAkJKCppbmV0X2dldGZyYWdfdCkgKGNvbnN0IHZvaWQgKmRh
-dGEsCi0JCQkJCSAgIHN0cnVjdCBpbjZfYWRkciAqYWRkciwKLQkJCQkJICAgY2hhciAqLAotCQkJ
-CQkgICB1bnNpZ25lZCBpbnQsIHVuc2lnbmVkIGludCk7Ci0KIGV4dGVybiBpbnQgX19pcHY2X2Fk
-ZHJfdHlwZShjb25zdCBzdHJ1Y3QgaW42X2FkZHIgKmFkZHIpOwogc3RhdGljIGlubGluZSBpbnQg
-aXB2Nl9hZGRyX3R5cGUoY29uc3Qgc3RydWN0IGluNl9hZGRyICphZGRyKQogewpAQCAtNTEwLDE0
-ICs1MDEsNiBAQCBleHRlcm4gaW50CQkJaXA2X2xvY2FsX291dChzdHJ1Y3Qgc2tfYnVmZiAqc2ti
-KTsKICAqCUV4dGVuc2lvbiBoZWFkZXIgKG9wdGlvbnMpIHByb2Nlc3NpbmcKICAqLwogCi1leHRl
-cm4gdTggKgkJCWlwdjZfYnVpbGRfbmZyYWdfb3B0cyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAotCQkJ
-CQkJICAgICAgdTggKnByZXZfaGRyLAotCQkJCQkJICAgICAgc3RydWN0IGlwdjZfdHhvcHRpb25z
-ICpvcHQsCi0JCQkJCQkgICAgICBzdHJ1Y3QgaW42X2FkZHIgKmRhZGRyLAotCQkJCQkJICAgICAg
-dTMyIGp1bWJvbGVuKTsKLWV4dGVybiB1OCAqCQkJaXB2Nl9idWlsZF9mcmFnX29wdHMoc3RydWN0
-IHNrX2J1ZmYgKnNrYiwKLQkJCQkJCSAgICAgdTggKnByZXZfaGRyLAotCQkJCQkJICAgICBzdHJ1
-Y3QgaXB2Nl90eG9wdGlvbnMgKm9wdCk7CiBleHRlcm4gdm9pZCAJCQlpcHY2X3B1c2hfbmZyYWdf
-b3B0cyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCQkJCQkJICAgICBzdHJ1Y3QgaXB2Nl90eG9wdGlv
-bnMgKm9wdCwKIAkJCQkJCSAgICAgdTggKnByb3RvLAo=
-------=_Part_14242_33134566.1206608755587--
+I bet the net code is wrong and we missed it ;)
