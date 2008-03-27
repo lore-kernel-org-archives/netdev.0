@@ -1,45 +1,55 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [PATCH 0/2] Two more pasemi_mac patches for 2.6.26
-Date: Thu, 27 Mar 2008 14:22:04 -0500
-Message-ID: <20080327192204.GA17881@lixom.net>
-References: <20080326015625.GA23103@lixom.net> <47E9CD2E.7040203@pobox.com>
+From: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
+Subject: Re: [PATCH 1 of 5] IPv6: do not wrap around when the lifetime has
+	expired
+Date: Thu, 27 Mar 2008 20:38:54 +0100
+Message-ID: <20080327193854.GC8574@ens-lyon.fr>
+References: <patchbomb.1206305168@pirzuine> <dd125a7f86968371046d.1206305169@pirzuine> <20080328.032539.66693379.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linuxppc-dev@ozlabs.org, pasemi-linux@ozlabs.org,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, pekkas@netcore.fi
+To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:55139 "EHLO mail.lixom.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756314AbYC0TNX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2008 15:13:23 -0400
+Received: from pilet.ens-lyon.fr ([140.77.167.16]:44155 "EHLO
+	pilet.ens-lyon.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757222AbYC0Ti6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 15:38:58 -0400
 Content-Disposition: inline
-In-Reply-To: <47E9CD2E.7040203@pobox.com>
+In-Reply-To: <20080328.032539.66693379.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 26, 2008 at 12:12:30AM -0400, Jeff Garzik wrote:
-> Olof Johansson wrote:
->> Hi Jeff,
->>
->> The below two patches go on top of the previous patches that were acked
->> by you but applied to pasemi.git for feed up through powerpc.git.
->>
->> One is a couple of fixes for various corner cases in the jumbo support
->> configuration. The second is addition of netpoll support, from Nate
->> Case.
->>
->> Review/ack would be appreciated, I'll feed them up the same path as the
->> other changes.
->
-> ACK 1-2, though I would consider closely patch #2, whether you need 
-> disable_irq() or spin_lock_irqsave() -- which is best for your specific 
-> driver + platform?
+On Fri, Mar 28, 2008 at 03:25:39AM +0900, YOSHIFUJI Hideaki / =E5=90=89=
+=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> In article <dd125a7f86968371046d.1206305169@pirzuine> (at Sun, 23 Mar=
+ 2008 21:46:09 +0100), Benoit Boissinot <benoit.boissinot@ens-lyon.org>=
+ says:
+>=20
+> > IPv6: do not wrap around when the lifetime has expired
+> >=20
+> > Instead of reporting overly large lifetimes to userspace,
+> > report a lifetime of 0 when a lifetime has expired.
+> >=20
+> > Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
+>=20
+> NAK.
+>=20
+> (signed) lifetime < 0 means it has expired, but 0 does not mean
+> that the lifetime has expired, but it is being expired
+> (within 1 second).
 
-I'm tempted to leave the disable/enable_irq() in there. It's certainly
-heavier than doing cpu-side irq masking, but adding a spinlock to the
-common interrupt path seems worse to me. I didn't think we considered
-the polling to be a hot path anyway...
+It makes sense, so is the output of ip addr correct ?
 
+inet6 2a01:5d8:58a0:ebfc:b5fb:88a3:27a5:ce96/64 scope global secondary =
+deprecated dynamic
+   valid_lft 84064sec preferred_lft 4294964960sec
 
--Olof
+Can iproute2 be "fixed" ? or is it the expected output ?
+
+thanks,
+
+Benoit
+
+--=20
+:wq
