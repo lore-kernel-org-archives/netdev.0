@@ -1,38 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][ICMP]: Dst entry leak in icmp_send host re-lookup code
- (v2).
-Date: Wed, 26 Mar 2008 02:27:33 -0700 (PDT)
-Message-ID: <20080326.022733.159053599.davem@davemloft.net>
-References: <47EA1694.1080208@openvz.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, den@openvz.org,
-	netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56304
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752286AbYCZJ1d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 05:27:33 -0400
-In-Reply-To: <47EA1694.1080208@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bryan Wu <cooloney@kernel.org>
+Subject: [PATCH 1/1] [NETDEV] smc91x driver: Fix bug - Print warning only in interrupt mode.
+Date: Wed, 26 Mar 2008 18:12:46 -0700
+Message-ID: <1206580366-22966-1-git-send-email-cooloney@kernel.org>
+Cc: Sonic Zhang <sonic.zhang@analog.com>,
+	Bryan Wu <cooloney@kernel.org>
+To: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758764AbYCZKNA@vger.kernel.org>
+In-Reply-To: <>
+References: <>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Wed, 26 Mar 2008 12:25:40 +0300
+From: Sonic Zhang <sonic.zhang@analog.com>
 
-> Commit 8b7817f3a959ed99d7443afc12f78a7e1fcc2063 ([IPSEC]: Add ICMP host
-> relookup support) introduced some dst leaks on error paths: the rt
-> pointer can be forgotten to be put. Fix it bu going to a proper label.
-> 
-> Found after net namespace's lo refused to unregister :) Many thanks to 
-> Den for valuable help during debugging.
-> 
-> Herbert pointed out, that xfrm_lookup() will put the rtable in case
-> of error itself, so the first goto fix is redundant.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
+http://blackfin.uclinux.org/gf/project/uclinux-dist/tracker/?action=TrackerItemEdit&tracker_item_id=3956
 
-Looks good, applied, thanks!
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+Signed-off-by: Bryan Wu <cooloney@kernel.org>
+---
+ drivers/net/smc91x.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
+index 4020e9e..63a54e2 100644
+--- a/drivers/net/smc91x.c
++++ b/drivers/net/smc91x.c
+@@ -1326,9 +1326,11 @@ static irqreturn_t smc_interrupt(int irq, void *dev_id)
+ 	SMC_SET_INT_MASK(mask);
+ 	spin_unlock(&lp->lock);
+ 
++#ifndef CONFIG_NET_POLL_CONTROLLER
+ 	if (timeout == MAX_IRQ_LOOPS)
+ 		PRINTK("%s: spurious interrupt (mask = 0x%02x)\n",
+ 		       dev->name, mask);
++#endif
+ 	DBG(3, "%s: Interrupt done (%d loops)\n",
+ 	       dev->name, MAX_IRQ_LOOPS - timeout);
+ 
+-- 
+1.5.4.3
