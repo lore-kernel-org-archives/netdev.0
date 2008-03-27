@@ -1,131 +1,323 @@
-From: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
-Subject: Re: [PATCH] SCTP: Fix Protocol violation when receiving a error length
- INIT ACK
-Date: Thu, 27 Mar 2008 09:40:34 +0800
-Message-ID: <47EAFB12.9040800@cn.fujitsu.com>
-References: <47E73E83.9000301@cn.fujitsu.com> <47E74B17.40907@cn.fujitsu.com> <47E87290.2080205@cn.fujitsu.com> <47E883B9.5040907@cn.fujitsu.com> <47E8A566.6060405@cn.fujitsu.com> <47E915E3.2040501@hp.com>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: kernel 2.6.25-rc7 highly unstable on high load
+Date: Thu, 27 Mar 2008 08:35:06 +0200
+Message-ID: <20080327062502.M51594@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <yjwei@cn.fujitsu.com>,
-	netdev <netdev@vger.kernel.org>,
-	lksctp-dev <lksctp-developers@lists.sourceforge.net>,
-	David Miller <davem@davemloft.net>
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Content-Type: text/plain;
+	charset=koi8-r
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:60380 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754615AbYC0BlU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2008 21:41:20 -0400
-In-Reply-To: <47E915E3.2040501@hp.com>
+Received: from usermail.globalproof.net ([194.146.153.18]:43714 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753519AbYC0GfR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 02:35:17 -0400
+Received: from visp.net.lb (localhost [127.0.0.1])
+	by usermail.globalproof.net (Postfix) with ESMTP id 20515BD396
+	for <netdev@vger.kernel.org>; Thu, 27 Mar 2008 08:35:06 +0200 (EET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vlad Yasevich wrote:
-> There is a side-effect to this patch that now we will completely ignore
-> the verification
-> tag in the INIT-ACK regardless of the violation.
-> 
-> In particular, if the INIT-ACK contains all the fixed parameters but
-> violates structure
-> in some variable parameters, we'll currently use the Initiate Tag from
-> the INIT-ACK in
-> the ABORT.   We should not be changing this behavior.
-> 
-> The simple hack is to add some conditional code into the the different
-> violation functions, but
-> I'd like to see if there is a cleaner way to solve this.
- 
-Vlad,
-  The problem you said has been addressed, this is a new patch. Just treat 
-  an INIT-ACK received during COOKIE-WAIT as a special case. this patch will
-  not break the normal behavior.
+Hi again
 
-Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
----
- include/net/sctp/command.h |    1 +
- net/sctp/outqueue.c        |    3 +++
- net/sctp/sm_sideeffect.c   |    5 ++++-
- net/sctp/sm_statefuns.c    |   18 ++++++++++++++++++
- 4 files changed, 26 insertions(+), 1 deletions(-)
+It seems i am having very bad luck with 2.6.27. As Linus told, it have to be 
+released soon, but it is crashing like hell on high network load.
 
-diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
-index 10ae2da..35b1e83 100644
---- a/include/net/sctp/command.h
-+++ b/include/net/sctp/command.h
-@@ -104,6 +104,7 @@ typedef enum {
- 	SCTP_CMD_ADAPTATION_IND, /* generate and send adaptation event */
- 	SCTP_CMD_ASSOC_SHKEY,    /* generate the association shared keys */
- 	SCTP_CMD_T1_RETRAN,	 /* Mark for retransmission after T1 timeout  */
-+	SCTP_CMD_UPDATE_INITTAG, /* Update peer inittag */
- 	SCTP_CMD_LAST
- } sctp_verb_t;
- 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 1bb3c5c..c071446 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -793,6 +793,9 @@ int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
- 			break;
- 
- 		case SCTP_CID_ABORT:
-+			if (sctp_test_T_bit(chunk)) {
-+				packet->vtag = asoc->c.my_vtag;
-+			}
- 		case SCTP_CID_SACK:
- 		case SCTP_CID_HEARTBEAT:
- 		case SCTP_CID_HEARTBEAT_ACK:
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 28eb38e..2dbc7bd 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -1536,7 +1536,10 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 			error = sctp_auth_asoc_init_active_key(asoc,
- 						GFP_ATOMIC);
- 			break;
--
-+		case SCTP_CMD_UPDATE_INITTAG:
-+			asoc->peer.i.init_tag = cmd->obj.u32;
-+			break;
-+			
- 		default:
- 			printk(KERN_WARNING "Impossible command: %u, %p\n",
- 			       cmd->verb, cmd->obj.ptr);
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index f2ed647..b3ed52c 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -4144,6 +4144,24 @@ static sctp_disposition_t sctp_sf_abort_violation(
- 		goto nomem;
- 
- 	if (asoc) {
-+		/* Treat INIT-ACK as a special case during COOKIE-WAIT. */
-+		if (chunk->chunk_hdr->type == SCTP_CID_INIT_ACK 
-+		    && !asoc->peer.i.init_tag) {
-+			sctp_initack_chunk_t *initack;
-+
-+			initack = (sctp_initack_chunk_t *)chunk->chunk_hdr;
-+			if (!sctp_chunk_length_valid(chunk, 
-+						     sizeof(sctp_initack_chunk_t)))
-+				abort->chunk_hdr->flags |= SCTP_CHUNK_FLAG_T;
-+			else {
-+				unsigned int inittag;
-+				
-+				inittag = ntohl(initack->init_hdr.init_tag);
-+				sctp_add_cmd_sf(commands, SCTP_CMD_UPDATE_INITTAG,
-+						SCTP_U32(inittag));
-+			}
-+		}
-+
- 		sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
- 		SCTP_INC_STATS(SCTP_MIB_OUTCTRLCHUNKS);
- 
--- 
-1.5.3
+Even i change FIB to HASH, still after 3-4 hours running it stuck. And 
+NOTHING helps. Software watchdog (hardware iTCO_wdt probably not working at 
+all on ICH9 Intel boards),nmi_watchdog (even panic on oops set, and reboot on 
+panic set too), hangcheck-timer, shell script with ping watchdog. Nothing 
+helps. So probably people with heavy loaded machines without IPMI and 
+management cards will be very "happy".
+I have now watchdog just doing malloc/free loop, i will try to modify it, so 
+it will send \000 only when ping succeeded.
+
+One crash i had netconsole enabled, next crash it was disabled.
+
+Here is a message i got over syslog on last crash (it was 2.6.25-rc6-git6), 
+available also at http://www.nuclearcat.com/files/crash_2.6.25.txt
+
+Mar 26 02:27:14 ROUTER [ 4698.694693] BUG: NMI Watchdog detected LOCKUP
+Mar 26 02:27:14 ROUTER on CPU1, ip c02ad109, registers:
+Mar 26 02:27:14 ROUTER [ 4698.694693] Process snmpd (pid: 2327, ti=c092e000 
+task=f7459080 task.ti=f70b7000)
+Mar 26 02:27:14 ROUTER 
+Mar 26 02:27:14 ROUTER [ 4698.694693] Stack: 
+Mar 26 02:27:14 ROUTER c092eb14 
+Mar 26 02:27:14 ROUTER c011991e 
+Mar 26 02:27:14 ROUTER f750d600 
+Mar 26 02:27:14 ROUTER f750d600 
+Mar 26 02:27:14 ROUTER c0378058 
+Mar 26 02:27:14 ROUTER 00000001 
+Mar 26 02:27:14 ROUTER c092eb34 
+Mar 26 02:27:14 ROUTER c0119b3b 
+Mar 26 02:27:14 ROUTER 
+Mar 26 02:27:14 ROUTER [ 4698.694693]        
+Mar 26 02:27:14 ROUTER 00000000 
+Mar 26 02:27:14 ROUTER 00000001 
+Mar 26 02:27:14 ROUTER 00000082 
+Mar 26 02:27:14 ROUTER f708af88 
+Mar 26 02:27:14 ROUTER c0378058 
+Mar 26 02:27:14 ROUTER 00000001 
+Mar 26 02:27:14 ROUTER c092eb3c 
+Mar 26 02:27:14 ROUTER c0119bfe 
+Mar 26 02:27:14 ROUTER 
+Mar 26 02:27:14 ROUTER [ 4698.694693]        
+Mar 26 02:27:14 ROUTER c092eb50 
+Mar 26 02:27:14 ROUTER c012f19c 
+Mar 26 02:27:14 ROUTER 00000000 
+Mar 26 02:27:14 ROUTER f708af88 
+Mar 26 02:27:14 ROUTER c0378058 
+Mar 26 02:27:14 ROUTER c092eb74 
+Mar 26 02:27:14 ROUTER c011652a 
+Mar 26 02:27:14 ROUTER 00000000 
+Mar 26 02:27:14 ROUTER 
+Mar 26 02:27:14 ROUTER [ 4698.694693] Call Trace:
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c011991e>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER task_rq_lock+0x31/0x58
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0119b3b>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER try_to_wake_up+0x19/0xd1
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0119bfe>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER default_wake_function+0xb/0xd
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c012f19c>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER autoremove_wake_function+0xf/0x33
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c011652a>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER __wake_up_common+0x2f/0x5a
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c01189b8>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER __wake_up+0x28/0x3b
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c01201a3>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER wake_up_klogd+0x2e/0x31
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c012033d>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER release_console_sem+0x197/0x19f
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0120747>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER vprintk+0x295/0x2e5
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<f899634c>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER death_by_timeout+0x8b/0xa3 [nf_conntrack]
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<f8999d08>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER tcp_packet+0x931/0x9e5 [nf_conntrack]
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c01207ac>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER printk+0x15/0x17
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c011fb65>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER warn_on_slowpath+0x2a/0x51
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c011764a>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER __update_rq_clock+0x1c/0x126
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0116ab3>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER update_curr+0x48/0x64
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<f89961ed>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER nf_ct_invert_tuple+0x63/0x6f [nf_conntrack]
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<f8996cca>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER nf_conntrack_tuple_taken+0xf8/0x100 [nf_conntrack]
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<f899850c>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER __nf_ct_helper_find+0x2c/0x90 [nf_conntrack]
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<f8996b95>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER nf_conntrack_alter_reply+0x4a/0x87 [nf_conntrack]
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<f8974976>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER nf_nat_setup_info+0x3cc/0x55a [nf_nat]
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c011701c>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER dequeue_rt_entity+0x88/0x171
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0117127>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER dequeue_rt_stack+0x22/0x27
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0117425>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER enqueue_task_rt+0x19/0x2c
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c011617f>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER enqueue_task+0xd/0x18
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c01161c0>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER activate_task+0x1e/0x2b
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0119bb1>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER try_to_wake_up+0x8f/0xd1
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0119c1b>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER wake_up_process+0xf/0x11
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c013dfa1>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER softlockup_tick+0x9d/0x10b
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0126f5c>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER run_local_timers+0x17/0x19
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c01272fa>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER update_process_times+0x24/0x49
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0135f4c>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER tick_periodic+0x62/0x6e
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0135f71>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER tick_handle_periodic+0x19/0x68
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c010e87b>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER smp_apic_timer_interrupt+0x6c/0x81
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0104344>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER apic_timer_interrupt+0x28/0x30
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c02ad202>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER _spin_lock_bh+0x20/0x22
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c02751fa>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER rt_garbage_collect+0x132/0x27a
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0262d95>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER dst_alloc+0x19/0x63
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0276eb1>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER ip_route_input+0x6b9/0xbd9
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0278898>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER ip_rcv_finish+0x2c/0x29a
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0278ef8>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER ip_rcv+0x202/0x22c
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c025ee4e>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER netif_receive_skb+0x33e/0x3a9
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c02612c2>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER process_backlog+0x62/0xb5
+Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0260d27>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER net_rx_action+0x8f/0x191
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c01240a7>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER __do_softirq+0x64/0xcd
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0105f0a>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER do_softirq+0x55/0x89
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0123f88>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER local_bh_enable+0x61/0x6d
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0257689>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER lock_sock_nested+0x83/0x8b
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0292e58>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER udp_destroy_sock+0xd/0x20
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0257b9e>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER sk_common_release+0x15/0x60
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c02924a4>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER udp_lib_close+0x8/0xa
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0299006>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER inet_release+0x42/0x48
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c025625b>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER sock_release+0x14/0x60
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c02565d9>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER sock_close+0x29/0x30
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c015a6a2>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER __fput+0x93/0x135
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c015a8e2>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER fput+0x17/0x19
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c01583dc>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER filp_close+0x47/0x51
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0159414>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER sys_close+0x68/0x9d
+Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0103876>] 
+Mar 26 02:27:14 ROUTER ? 
+Mar 26 02:27:14 ROUTER sysenter_past_esp+0x5f/0x85
+Mar 26 02:27:14 ROUTER [ 4698.694694]  =======================
+Mar 26 02:27:14 ROUTER [ 4698.694694] Code: 
+Mar 26 02:27:14 ROUTER 94 
+Mar 26 02:27:14 ROUTER c0 
+Mar 26 02:27:14 ROUTER 84 
+Mar 26 02:27:14 ROUTER c0 
+Mar 26 02:27:14 ROUTER b9 
+Mar 26 02:27:14 ROUTER 01 
+Mar 26 02:27:14 ROUTER 00 
+Mar 26 02:27:14 ROUTER 00 
+Mar 26 02:27:14 ROUTER 00 
+Mar 26 02:27:14 ROUTER 75 
+Mar 26 02:27:14 ROUTER 09 
+Mar 26 02:27:14 ROUTER f0 
+Mar 26 02:27:14 ROUTER 81 
+Mar 26 02:27:14 ROUTER 02 
+Mar 26 02:27:14 ROUTER 00 
+Mar 26 02:27:14 ROUTER 00 
+Mar 26 02:27:14 ROUTER 00 
+Mar 26 02:27:14 ROUTER 01 
+Mar 26 02:27:14 ROUTER 30 
+Mar 26 02:27:14 ROUTER c9 
+Mar 26 02:27:14 ROUTER 5d 
+Mar 26 02:27:14 ROUTER 89 
+Mar 26 02:27:14 ROUTER c8 
+Mar 26 02:27:14 ROUTER c3 
+Mar 26 02:27:14 ROUTER 55 
+Mar 26 02:27:14 ROUTER ba 
+Mar 26 02:27:14 ROUTER 00 
+Mar 26 02:27:14 ROUTER 01 
+Mar 26 02:27:14 ROUTER 00 
+Mar 26 02:27:14 ROUTER 00 
+Mar 26 02:27:14 ROUTER 89 
+Mar 26 02:27:14 ROUTER e5 
+Mar 26 02:27:14 ROUTER f0 
+Mar 26 02:27:14 ROUTER 66 
+Mar 26 02:27:14 ROUTER 0f 
+Mar 26 02:27:14 ROUTER c1 
+Mar 26 02:27:14 ROUTER 10 
+Mar 26 02:27:14 ROUTER 38 
+Mar 26 02:27:14 ROUTER f2 
+Mar 26 02:27:14 ROUTER 74 
+Mar 26 02:27:14 ROUTER 06 
+Mar 26 02:27:14 ROUTER f3 
+Mar 26 02:27:14 ROUTER 90 
+Mar 26 02:27:14 ROUTER unparseable log message: "<8a> "
+Mar 26 02:27:14 ROUTER 10 
+Mar 26 02:27:14 ROUTER eb 
+Mar 26 02:27:14 ROUTER f6 
+Mar 26 02:27:14 ROUTER 5d 
+Mar 26 02:27:14 ROUTER c3 
+Mar 26 02:27:14 ROUTER 55 
+Mar 26 02:27:14 ROUTER 89 
+Mar 26 02:27:14 ROUTER e5 
+Mar 26 02:27:14 ROUTER f0 
+Mar 26 02:27:14 ROUTER 81 
+Mar 26 02:27:14 ROUTER 28 
+Mar 26 02:27:14 ROUTER 00 
+Mar 26 02:27:14 ROUTER 00 
+Mar 26 02:27:14 ROUTER 00 
+Mar 26 02:27:14 ROUTER 01 
+Mar 26 02:27:14 ROUTER 74 
+Mar 26 02:27:14 ROUTER 05 
+Mar 26 02:27:14 ROUTER e8 
+Mar 26 02:27:14 ROUTER 64 
+Mar 26 02:27:14 ROUTER fd 
+Mar 26 02:27:14 ROUTER 
 
 
 
--- 
-Regards
-Gui Jianfeng
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
