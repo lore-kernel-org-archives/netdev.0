@@ -1,53 +1,44 @@
-From: Tsutomu Fujii <t-fujii@nb.jp.nec.com>
-Subject: Bonding in active-backup mode with arp monitoring on Xen
-Date: Thu, 27 Mar 2008 21:49:04 +0900
-Message-ID: <47EB97C0.5010203@nb.jp.nec.com>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: Re: SCTP control socket question
+Date: Thu, 27 Mar 2008 16:09:58 +0300
+Message-ID: <1206623398.32459.19.camel@iris.sw.ru>
+References: <1206619433.32459.9.camel@iris.sw.ru>  <47EB9794.7010407@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Netdev List <netdev@vger.kernel.org>,
+	lksctp-developers@lists.sourceforge.net
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:39752 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755648AbYC0MtJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 08:49:09 -0400
-Received: from mailgate3.nec.co.jp (mailgate53.nec.co.jp [10.7.69.162])
-	by tyo202.gate.nec.co.jp (8.13.8/8.13.4) with ESMTP id m2RCn7Fq021565
-	for <netdev@vger.kernel.org>; Thu, 27 Mar 2008 21:49:07 +0900 (JST)
-Received: (from root@localhost) by mailgate3.nec.co.jp (8.11.7/3.7W-MAILGATE-NEC)
-	id m2RCn7E25391 for netdev@vger.kernel.org; Thu, 27 Mar 2008 21:49:07 +0900 (JST)
-Received: from kaishu.jp.nec.com (kaishu.jp.nec.com [10.26.220.5])
-	by mailsv3.nec.co.jp (8.13.8/8.13.4) with ESMTP id m2RCn6GK024108
-	for <netdev@vger.kernel.org>; Thu, 27 Mar 2008 21:49:06 +0900 (JST)
+Received: from mailhub.sw.ru ([195.214.232.25]:4033 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760532AbYC0NJj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2008 09:09:39 -0400
+In-Reply-To: <47EB9794.7010407@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+On Thu, 2008-03-27 at 08:48 -0400, Vlad Yasevich wrote:
+> Denis V. Lunev wrote:
+> > Hello, Vlad!
+> > 
+> > I have read SCTP sources and found that SCTP control socket
+> > (sctp_ctl_socket) remains hashed unlike similar staff in UDP/TCP etc.
+> > 
+> > Am I wrong, that it should not be hashed or not?
+> 
+> Why do you believe that the socket is hashed?  That socket is only
+> allocated and referenced.  It's should not be in any hash tables
+> since we hold a global reference on it.
 
-A little while ago I posted a patch to fix the communication problem
-when bonding was used in active-backup mode with arp monitoring on Xen
-guest OS.
+sctp_ctl_sock_init
+  __sock_create
+    inet(6)_create
+        sk->sk_prot->hash(sk);
 
-http://marc.info/?l=linux-netdev&m=119362063924723&w=2
+For this purpose sk->sk_prot->unhash is explicitly called for ICMP/TCP
+etc cases.
 
-I have rebased the patch to the latest 2.6.25-rc7 kernel.
+Regards,
+	Den
 
-I've confirmed that active-backup mode works fine with arp monitoring
-with this patch.
-
-Thanks.
-
---
-Tsutomu fujii
-
---- a/drivers/net/bonding/bond_main.c	2008-03-26 10:38:14.000000000 +0900
-+++ b/drivers/net/bonding/bond_main.c	2008-03-27 19:39:06.000000000 +0900
-@@ -3003,7 +3003,7 @@
- 		/* the current slave must tx an arp to ensure backup slaves
- 		 * rx traffic
- 		 */
--		if (slave && bond_has_ip(bond)) {
-+		if (slave && IS_UP(slave->dev)) {
- 			bond_arp_send_all(bond, slave);
- 		}
- 	}
