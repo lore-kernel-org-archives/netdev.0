@@ -1,25 +1,23 @@
 From: "Denys Fedoryshchenko" <denys@visp.net.lb>
 Subject: Re: kernel 2.6.25-rc7 highly unstable on high load
-Date: Thu, 27 Mar 2008 10:36:47 +0200
-Message-ID: <20080327083647.M43794@visp.net.lb>
+Date: Thu, 27 Mar 2008 10:48:24 +0200
+Message-ID: <20080327084811.M5688@visp.net.lb>
 References: <20080327062502.M51594@visp.net.lb> <20080326.234049.256533912.davem@davemloft.net> <47EB46BD.2080001@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset=koi8-r
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:51378 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754060AbYC0Ig6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 04:36:58 -0400
-Received: from visp.net.lb (localhost [127.0.0.1])
-	by usermail.globalproof.net (Postfix) with ESMTP id 9D288BC1CB
-	for <netdev@vger.kernel.org>; Thu, 27 Mar 2008 10:36:47 +0200 (EET)
+Cc: netdev@vger.kernel.org, kaber@trash.net,
+	netfilter-devel@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <47EB46BD.2080001@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Kup ~ # grep . /proc/sys/net/ipv4/route/*
+After some time
+
+Kup /config # grep . /proc/sys/net/ipv4/route/*
 /proc/sys/net/ipv4/route/error_burst:5000
 /proc/sys/net/ipv4/route/error_cost:1000
 grep: /proc/sys/net/ipv4/route/flush: Permission denied
@@ -37,9 +35,8 @@ grep: /proc/sys/net/ipv4/route/flush: Permission denied
 /proc/sys/net/ipv4/route/redirect_number:9
 /proc/sys/net/ipv4/route/redirect_silence:20480
 /proc/sys/net/ipv4/route/secret_interval:600
-
-
-Kup ~ # rtstat -c1 -i10
+Kup /config #
+Kup /config # rtstat -c1 -i10
 rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
 rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
 rt_cache|
@@ -49,25 +46,13 @@ out_hlis|
         |        |     tot|      mc|     ute|        |  an_dst|  
 an_src|        |    _tot|     _mc|        |      ed|    miss| verflow| 
 _search|t_search|
-  247734| 6225923|  482238|       0|    1472|      32|       0|       0|   
-75983|   30203|       0|  508575|  507658|       4|       0|18714805|  250265|
-Kup ~ # rtstat -c1 -i10
-rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
-rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
-rt_cache|
- entries|  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_marti| 
-out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlist|
-out_hlis|
-        |        |     tot|      mc|     ute|        |  an_dst|  
-an_src|        |    _tot|     _mc|        |      ed|    miss| verflow| 
-_search|t_search|
-  246851| 6356930|  496921|       0|    1535|      33|       0|       0|   
-77469|   30908|       0|  524018|  523085|       5|       0|18873741|  252563|
-
-
+  337510| 8928889| 1855387|       0|   14286|      69|       0|       0|  
+110840|   58108|       0| 1922232| 1920809|     377|       0|20908744|  
+294715|
+Kup /config #   
 
 On Thu, 27 Mar 2008 08:03:25 +0100, Eric Dumazet wrote
-> David Miller a :
+> David Miller:
 > > From: "Denys Fedoryshchenko" <denys@visp.net.lb>
 > > Date: Thu, 27 Mar 2008 08:35:06 +0200
 > > 
