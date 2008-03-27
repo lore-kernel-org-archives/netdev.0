@@ -1,181 +1,105 @@
-From: "Andrew Paprocki" <andrew@ishiboo.com>
-Subject: [PATCH] ethtool: Add register dump support for all r8169 driver cards
-Date: Wed, 26 Mar 2008 20:36:43 -0400
-Message-ID: <76366b180803261736y3ff4b34eofef2f48174547995@mail.gmail.com>
+From: "Leandro Sales" <leandroal@gmail.com>
+Subject: Re: [DCCP] [Patch 0/7]: Bug-Fixes and Clean-Ups
+Date: Wed, 26 Mar 2008 21:44:32 -0300
+Message-ID: <5bc4c4570803261744n3a557476qed3b8f52a2ce1def@mail.gmail.com>
+References: <1206462011-24907-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_26128_7236894.1206578203532"
-Cc: "Francois Romieu" <romieu@fr.zoreil.com>,
-	"Jeff Garzik" <jeff@garzik.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org,
+	"Angelo Perkusich" <perkusic@dee.ufcg.edu.br>,
+	"Walter Guerra" <waltinhu@gmail.com>
+To: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.236]:58504 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753063AbYC0Agp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 20:36:45 -0400
-Received: by wr-out-0506.google.com with SMTP id c48so3077419wra.1
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2008 17:36:44 -0700 (PDT)
+Received: from rv-out-0910.google.com ([209.85.198.187]:50975 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753034AbYC0Aog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2008 20:44:36 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so2182329rvb.1
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2008 17:44:33 -0700 (PDT)
+In-Reply-To: <1206462011-24907-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_26128_7236894.1206578203532
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Hello Gerrit
 
-This adds all MAC versions currently found in the r8169 to the RealTek
-table and modifies the dump logic to handle card versions >= RTL8169
-instead of specifically looking at the few previously supported cards.
+On Tue, Mar 25, 2008 at 1:20 PM, Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
+> This set contains bug-fixes and clean-ups.  The first two are already
+>  in the test tree:
+>
+>  Patch #1: Fixes a bug where CCID-3 tries to sample the RTT while the
+>           history is empty.
+>           Leandro - I have added the same bug fix in the CCID-4 tree,
+>           just after patch #24.
 
-Signed-off-by: Andrew Paprocki <andrew@ishiboo.com>
+           That's ok!
 
-------=_Part_26128_7236894.1206578203532
-Content-Type: text/plain;
- name=0001-ethtool-Add-register-dump-support-for-all-r8169-driver-cards.txt
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fealgmim0
-Content-Disposition: attachment;
- filename=0001-ethtool-Add-register-dump-support-for-all-r8169-driver-cards.txt
+>
+>  Patch #2: Deprecates the Ack Ratio sysctl as per earlier discussion.
+>
+>
+>  The following are kept back for the moment, since the first patch is
+>  an RFC patch, and since a lot of the CCID-4 code depends on this:
+>
+>  Patch #3: Continues for consistency the earlier patch which removed the
+>           long prefixes for CCID-3.
+>           Arnaldo - can you please check. Also Leandro, can you also
+>           check this - it has implications for CCID-4, too; which is
+>           why I have not put it into the test tree immediately.
 
-U3ViamVjdDogW1BBVENIXSBldGh0b29sOiBBZGQgcmVnaXN0ZXIgZHVtcCBzdXBwb3J0IGZvciBh
-bGwgcjgxNjkgZHJpdmVyIGNhcmRzCgpUaGlzIGFkZHMgYWxsIE1BQyB2ZXJzaW9ucyBjdXJyZW50
-bHkgZm91bmQgaW4gdGhlIHI4MTY5IHRvIHRoZSBSZWFsVGVrCnRhYmxlIGFuZCBtb2RpZmllcyB0
-aGUgZHVtcCBsb2dpYyB0byBoYW5kbGUgY2FyZCB2ZXJzaW9ucyA+PSBSVEw4MTY5Cmluc3RlYWQg
-b2Ygc3BlY2lmaWNhbGx5IGxvb2tpbmcgYXQgdGhlIGZldyBwcmV2aW91c2x5IHN1cHBvcnRlZCBj
-YXJkcy4KClNpZ25lZC1vZmYtYnk6IEFuZHJldyBQYXByb2NraSA8YW5kcmV3QGlzaGlib28uY29t
-PgotLS0KIHJlYWx0ZWsuYyB8ICAxMTAgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KystLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiAxIGZpbGVzIGNoYW5nZWQsIDY0IGluc2VydGlv
-bnMoKyksIDQ2IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL3JlYWx0ZWsuYyBiL3JlYWx0ZWsu
-YwppbmRleCBjNTZiM2Y1Li4xMWVkODM1IDEwMDY0NAotLS0gYS9yZWFsdGVrLmMKKysrIGIvcmVh
-bHRlay5jCkBAIC01LDggKzUsOSBAQAogCiAjZGVmaW5lIEFSUkFZX1NJWkUoeCkgKHNpemVvZih4
-KSAvIHNpemVvZigoeClbMF0pKQogCi0jZGVmaW5lIEhXX1JFVklEKGIzMCwgYjI5LCBiMjgsIGIy
-NywgYjI2LCBiMjMsIGIyMikgXAotCShiMzA8PDMwIHwgYjI5PDwyOSB8IGIyODw8MjggfCBiMjc8
-PDI3IHwgYjI2PDwyNiB8IGIyMzw8MjMgfCBiMjI8PDIyKQorI2RlZmluZSBIV19SRVZJRChiMzEs
-IGIzMCwgYjI5LCBiMjgsIGIyNywgYjI2LCBiMjMsIGIyMikgXAorCShiMzE8PDMxIHwgYjMwPDwz
-MCB8IGIyOTw8MjkgfCBiMjg8PDI4IHwgXAorCSBiMjc8PDI3IHwgYjI2PDwyNiB8IGIyMzw8MjMg
-fCBiMjI8PDIyKQogCiBlbnVtIGNoaXBfdHlwZSB7CiAJUlRMTk9ORSwKQEAgLTIyLDM0ICsyMyw0
-OCBAQCBlbnVtIGNoaXBfdHlwZSB7CiAJUlRMODEzOUNwLAogCVJUTDgxMDEsCiAJUlRMODE2OSwK
-LQlSVEw4MTY5cywKLQlSVEw4MTEwCisJUlRMODE2OVMsCisJUlRMODExMFMsCisJUlRMODE2OV84
-MTEwU0IsCisJUlRMODE2OV84MTEwU0NkLAorCVJUTDgxNjlfODExMFNDZSwKKwlSVEw4MTY4Xzgx
-MTFCYiwKKwlSVEw4MTY4XzgxMTFCZWYsCisJUlRMODEwMUViYywKKwlSVEw4MTAwRTEsCisJUlRM
-ODEwMEUyLAogfTsKIAogZW51bSB7Ci0JY2hpcF90eXBlX21hc2sgPSBIV19SRVZJRCgxLCAxLCAx
-LCAxLCAxLCAxLCAxKQorCWNoaXBfdHlwZV9tYXNrID0gSFdfUkVWSUQoMSwgMSwgMSwgMSwgMSwg
-MSwgMSwgMSkKIH07CiAKIHN0YXRpYyBzdHJ1Y3QgY2hpcF9pbmZvIHsKIAljb25zdCBjaGFyICpu
-YW1lOwogCXUzMiBpZF9tYXNrOwogfSBydGxfaW5mb190YmxbXSA9IHsKLQl7ICJSVEwtODEzOSIs
-CQlIV19SRVZJRCgxLCAwLCAwLCAwLCAwLCAwLCAwKSB9LAotCXsgIlJUTC04MTM5LUsiLAkJSFdf
-UkVWSUQoMSwgMSwgMCwgMCwgMCwgMCwgMCkgfSwKLQl7ICJSVEwtODEzOUEiLAkJSFdfUkVWSUQo
-MSwgMSwgMSwgMCwgMCwgMCwgMCkgfSwKLQl7ICJSVEwtODEzOUEtRyIsIAlIV19SRVZJRCgxLCAx
-LCAxLCAwLCAwLCAxLCAwKSB9LAotCXsgIlJUTC04MTM5QiIsCQlIV19SRVZJRCgxLCAxLCAxLCAx
-LCAwLCAwLCAwKSB9LAotCXsgIlJUTC04MTMwIiwJCUhXX1JFVklEKDEsIDEsIDEsIDEsIDEsIDAs
-IDApIH0sCi0JeyAiUlRMLTgxMzlDIiwJCUhXX1JFVklEKDEsIDEsIDEsIDAsIDEsIDAsIDApIH0s
-Ci0JeyAiUlRMLTgxMDAiLAkJSFdfUkVWSUQoMSwgMSwgMSwgMSwgMCwgMSwgMCkgfSwKLQl7ICJS
-VEwtODEwMEIvODEzOUQiLAlIV19SRVZJRCgxLCAxLCAxLCAwLCAxLCAwLCAxKSB9LAotCXsgIlJU
-TC04MTM5QysiLAkJSFdfUkVWSUQoMSwgMSwgMSwgMCwgMSwgMSwgMCkgfSwKLQl7ICJSVEwtODEw
-MSIsCQlIV19SRVZJRCgxLCAxLCAxLCAwLCAxLCAxLCAxKSB9LAotCXsgIlJUTC04MTY4Qi84MTEx
-QiIsCUhXX1JFVklEKDAsIDEsIDEsIDEsIDAsIDAsIDApIH0sCi0JeyAiUlRMLTgxMDFFIiwJCUhX
-X1JFVklEKDAsIDEsIDEsIDAsIDEsIDAsIDApIH0sCi0JeyAiUlRMLTgxNjkiLAkJSFdfUkVWSUQo
-MCwgMCwgMCwgMCwgMCwgMCwgMCkgfSwKLQl7ICJSVEwtODE2OXMiLAkJSFdfUkVWSUQoMCwgMCwg
-MCwgMCwgMSwgMCwgMCkgfSwKLQl7ICJSVEwtODExMCIsCQlIV19SRVZJRCgwLCAwLCAxLCAwLCAw
-LCAwLCAwKSB9LAorCXsgIlJUTC04MTM5IiwJCUhXX1JFVklEKDAsIDEsIDAsIDAsIDAsIDAsIDAs
-IDApIH0sCisJeyAiUlRMLTgxMzktSyIsCQlIV19SRVZJRCgwLCAxLCAxLCAwLCAwLCAwLCAwLCAw
-KSB9LAorCXsgIlJUTC04MTM5QSIsCQlIV19SRVZJRCgwLCAxLCAxLCAxLCAwLCAwLCAwLCAwKSB9
-LAorCXsgIlJUTC04MTM5QS1HIiwJSFdfUkVWSUQoMCwgMSwgMSwgMSwgMCwgMCwgMSwgMCkgfSwK
-Kwl7ICJSVEwtODEzOUIiLAkJSFdfUkVWSUQoMCwgMSwgMSwgMSwgMSwgMCwgMCwgMCkgfSwKKwl7
-ICJSVEwtODEzMCIsCQlIV19SRVZJRCgwLCAxLCAxLCAxLCAxLCAxLCAwLCAwKSB9LAorCXsgIlJU
-TC04MTM5QyIsCQlIV19SRVZJRCgwLCAxLCAxLCAxLCAwLCAxLCAwLCAwKSB9LAorCXsgIlJUTC04
-MTAwIiwJCUhXX1JFVklEKDAsIDEsIDEsIDEsIDEsIDAsIDEsIDApIH0sCisJeyAiUlRMLTgxMDBC
-LzgxMzlEIiwJSFdfUkVWSUQoMCwgMSwgMSwgMSwgMCwgMSwgMCwgMSkgfSwKKwl7ICJSVEwtODEz
-OUMrIiwJCUhXX1JFVklEKDAsIDEsIDEsIDEsIDAsIDEsIDEsIDApIH0sCisJeyAiUlRMLTgxMDEi
-LAkJSFdfUkVWSUQoMCwgMSwgMSwgMSwgMCwgMSwgMSwgMSkgfSwKKwl7ICJSVEwtODE2OSIsCQlI
-V19SRVZJRCgwLCAwLCAwLCAwLCAwLCAwLCAwLCAwKSB9LAorCXsgIlJUTC04MTY5UyIsCQlIV19S
-RVZJRCgwLCAwLCAwLCAwLCAwLCAwLCAxLCAwKSB9LAorCXsgIlJUTC04MTEwUyIsCQlIV19SRVZJ
-RCgwLCAwLCAwLCAwLCAwLCAxLCAwLCAwKSB9LAorCXsgIlJUTC04MTY5LzgxMTBTQiIsCUhXX1JF
-VklEKDAsIDAsIDAsIDEsIDAsIDAsIDAsIDApIH0sCisJeyAiUlRMLTgxNjkvODExMFNDZCIsCUhX
-X1JFVklEKDAsIDAsIDAsIDEsIDEsIDAsIDAsIDApIH0sCisJeyAiUlRMLTgxNjkvODExMFNDZSIs
-CUhXX1JFVklEKDEsIDAsIDAsIDEsIDEsIDAsIDAsIDApIH0sCisJeyAiUlRMLTgxNjgvODExMUJi
-IiwJSFdfUkVWSUQoMCwgMCwgMSwgMSwgMCwgMCwgMCwgMCkgfSwKKwl7ICJSVEwtODE2OC84MTEx
-QmVmIiwJSFdfUkVWSUQoMCwgMCwgMSwgMSwgMSwgMCwgMCwgMCkgfSwKKwl7ICJSVEwtODEwMUVi
-YyIsCUhXX1JFVklEKDAsIDAsIDEsIDEsIDAsIDEsIDAsIDApIH0sCisJeyAiUlRMLTgxMDBFKDEp
-IiwJSFdfUkVWSUQoMCwgMCwgMSwgMSwgMCwgMCwgMSwgMCkgfSwKKwl7ICJSVEwtODEwMEUoMiki
-LAlIV19SRVZJRCgwLCAwLCAxLCAxLCAxLCAwLCAxLCAwKSB9LAogCXsgfQogfTsKIApAQCAtODks
-NyArMTA0LDcgQEAgcmVhbHRla19kdW1wX3JlZ3Moc3RydWN0IGV0aHRvb2xfZHJ2aW5mbyAqaW5m
-bywgc3RydWN0IGV0aHRvb2xfcmVncyAqcmVncykKIAkJY2krKzsKIAl9CiAJaWYgKHYgIT0gY2kt
-PmlkX21hc2spIHsKLQkJZnByaW50ZihzdGRlcnIsICJ1bmtub3duIFJlYWxUZWsgY2hpcFxuIik7
-CisJCWZwcmludGYoc3RkZXJyLCAiVW5rbm93biBSZWFsVGVrIGNoaXAgKG1hc2s6IDB4JTA4eClc
-biIsIHYpOwogCQlyZXR1cm4gOTE7CiAJfQogCWZvciAoaSA9IDA7IGkgPCBBUlJBWV9TSVpFKHJ0
-bF9pbmZvX3RibCk7IGkrKykgewpAQCAtMTAxLDcgKzExNiw3IEBAIHJlYWx0ZWtfZHVtcF9yZWdz
-KHN0cnVjdCBldGh0b29sX2RydmluZm8gKmluZm8sIHN0cnVjdCBldGh0b29sX3JlZ3MgKnJlZ3Mp
-CiAKIAlmcHJpbnRmKHN0ZG91dCwKIAkJIlJlYWxUZWsgJXMgcmVnaXN0ZXJzOlxuIgotCQkiLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tXG4iLAorCQkiLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS1cbiIsCiAJCWNpLT5uYW1lKTsKIAog
-CWZwcmludGYoc3Rkb3V0LApAQCAtMTE4LDEwICsxMzMsNyBAQCByZWFsdGVrX2R1bXBfcmVncyhz
-dHJ1Y3QgZXRodG9vbF9kcnZpbmZvICppbmZvLCBzdHJ1Y3QgZXRodG9vbF9yZWdzICpyZWdzKQog
-CQlkYXRhWzB4MDggPj4gMl0sCiAJCWRhdGFbMHgwYyA+PiAyXSk7CiAKLQlpZiAoYm9hcmRfdHlw
-ZSA9PSBSVEw4MTM5Q3AgfHwKLQkgICAgYm9hcmRfdHlwZSA9PSBSVEw4MTY5IHx8Ci0JICAgIGJv
-YXJkX3R5cGUgPT0gUlRMODE2OXMgfHwKLQkgICAgYm9hcmRfdHlwZSA9PSBSVEw4MTEwKSB7CisJ
-aWYgKGJvYXJkX3R5cGUgPT0gUlRMODEzOUNwIHx8IGJvYXJkX3R5cGUgPj0gUlRMODE2OSkgewog
-CWZwcmludGYoc3Rkb3V0LAogCQkiMHgxMDogRHVtcCBUYWxseSBDb3VudGVyIENvbW1hbmQgICAw
-eCUwOHggMHglMDh4XG4iLAogCQlkYXRhWzB4MTAgPj4gMl0sCkBAIC0xNTcsOSArMTY5LDggQEAg
-cmVhbHRla19kdW1wX3JlZ3Moc3RydWN0IGV0aHRvb2xfZHJ2aW5mbyAqaW5mbywgc3RydWN0IGV0
-aHRvb2xfcmVncyAqcmVncykKIAkJZGF0YVsweDJDID4+IDJdKTsKIAl9CiAKLQlpZiAoYm9hcmRf
-dHlwZSA9PSBSVEw4MTY5IHx8Ci0JICAgIGJvYXJkX3R5cGUgPT0gUlRMODE2OXMgfHwKLQkgICAg
-Ym9hcmRfdHlwZSA9PSBSVEw4MTEwKSB7CisJaWYgKGJvYXJkX3R5cGUgIT0gUlRMODE2OF84MTEx
-QmIgJiYgYm9hcmRfdHlwZSAhPSBSVEw4MTY4XzgxMTFCZWYpIHsKKwlpZiAoYm9hcmRfdHlwZSA+
-PSBSVEw4MTY5KSB7CiAJZnByaW50ZihzdGRvdXQsCiAJCSIweDMwOiBGbGFzaCBtZW1vcnkgcmVh
-ZC93cml0ZSAgICAgICAgICAgICAgICAgMHglMDh4XG4iLAogCQlkYXRhWzB4MzAgPj4gMl0pOwpA
-QCAtMTY4LDYgKzE3OSw3IEBAIHJlYWx0ZWtfZHVtcF9yZWdzKHN0cnVjdCBldGh0b29sX2Rydmlu
-Zm8gKmluZm8sIHN0cnVjdCBldGh0b29sX3JlZ3MgKnJlZ3MpCiAJCSIweDMwOiBSeCBidWZmZXIg
-YWRkciAoQyBtb2RlKSAgICAgICAgICAgICAgICAgMHglMDh4XG4iLAogCQlkYXRhWzB4MzAgPj4g
-Ml0pOwogCX0KKwl9CiAKIAl2ID0gZGF0YThbMHgzNl07CiAJZnByaW50ZihzdGRvdXQsCkBAIC0x
-OTQsOSArMjA2LDcgQEAgcmVhbHRla19kdW1wX3JlZ3Moc3RydWN0IGV0aHRvb2xfZHJ2aW5mbyAq
-aW5mbywgc3RydWN0IGV0aHRvb2xfcmVncyAqcmVncykKIAkJdiAmICgxIDw8IDIpID8gIm9uIiA6
-ICJvZmYiLAogCQl2ICYgKDEgPDwgNCkgPyAiLCBSRVNFVCIgOiAiIik7CiAKLQlpZiAoYm9hcmRf
-dHlwZSAhPSBSVEw4MTY5ICYmCi0JICAgIGJvYXJkX3R5cGUgIT0gUlRMODE2OXMgJiYKLQkgICAg
-Ym9hcmRfdHlwZSAhPSBSVEw4MTEwKSB7CisJaWYgKGJvYXJkX3R5cGUgPCBSVEw4MTY5KSB7CiAJ
-ZnByaW50ZihzdGRvdXQsCiAJCSIweDM4OiBDdXJyZW50IEFkZHJlc3Mgb2YgUGFja2V0IFJlYWQg
-KEMgbW9kZSkgICAgIDB4JTA0eFxuIgogCQkiMHgzQTogQ3VycmVudCBSeCBidWZmZXIgYWRkcmVz
-cyAoQyBtb2RlKSAgICAgICAgICAweCUwNHhcbiIsCkBAIC0yMzEsOSArMjQxLDcgQEAgcmVhbHRl
-a19kdW1wX3JlZ3Moc3RydWN0IGV0aHRvb2xfZHJ2aW5mbyAqaW5mbywgc3RydWN0IGV0aHRvb2xf
-cmVncyAqcmVncykKIAkJZGF0YThbMHg1MV0sCiAJCWRhdGE4WzB4NTJdKTsKIAotCWlmIChib2Fy
-ZF90eXBlID09IFJUTDgxNjkgfHwKLQkgICAgYm9hcmRfdHlwZSA9PSBSVEw4MTY5cyB8fAotCSAg
-ICBib2FyZF90eXBlID09IFJUTDgxMTApIHsKKwlpZiAoYm9hcmRfdHlwZSA+PSBSVEw4MTY5KSB7
-CiAJZnByaW50ZihzdGRvdXQsCiAJCSIweDUzOiBDb25maWcgMiAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgMHglMDJ4XG4iCiAJCSIweDU0OiBDb25maWcgMyAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgMHglMDJ4XG4iCkBAIC0yNzIsMjAgKzI4MCwyMSBA
-QCByZWFsdGVrX2R1bXBfcmVncyhzdHJ1Y3QgZXRodG9vbF9kcnZpbmZvICppbmZvLCBzdHJ1Y3Qg
-ZXRodG9vbF9yZWdzICpyZWdzKQogCQkiMHg1QzogTXVsdGlwbGUgSW50ZXJydXB0IFNlbGVjdCAg
-ICAgICAgICAgICAgICAgICAweCUwNHhcbiIsCiAJCWRhdGFbMHg1YyA+PiAyXSAmIDB4ZmZmZik7
-CiAKLQlpZiAoYm9hcmRfdHlwZSA9PSBSVEw4MTY5IHx8Ci0JICAgIGJvYXJkX3R5cGUgPT0gUlRM
-ODE2OXMgfHwKLQkgICAgYm9hcmRfdHlwZSA9PSBSVEw4MTEwKSB7CisJaWYgKGJvYXJkX3R5cGUg
-Pj0gUlRMODE2OSkgeworCWZwcmludGYoc3Rkb3V0LAorCQkiMHg2MDogUEhZIGFjY2VzcyAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgIDB4JTA4eFxuIiwKKwkJZGF0YVsweDYwID4+IDJdKTsK
-KworCWlmIChib2FyZF90eXBlICE9IFJUTDgxNjhfODExMUJiICYmIGJvYXJkX3R5cGUgIT0gUlRM
-ODE2OF84MTExQmVmKSB7CiAJZnByaW50ZihzdGRvdXQsCi0JCSIweDYwOiBQSFkgYWNjZXNzICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgMHglMDh4XG4iCiAJCSIweDY0OiBUQkkgY29udHJv
-bCBhbmQgc3RhdHVzICAgICAgICAgICAgICAgICAgMHglMDh4XG4iLAotCQlkYXRhWzB4NjAgPj4g
-Ml0sCiAJCWRhdGFbMHg2NCA+PiAyXSk7Ci0KIAlmcHJpbnRmKHN0ZG91dCwKIAkJIjB4Njg6IFRC
-SSBBdXRvbmVnb3RpYXRpb24gYWR2ZXJ0aXNlbWVudCAoQU5BUikgICAgMHglMDR4XG4iCiAJCSIw
-eDZBOiBUQkkgTGluayBwYXJ0bmVyIGFiaWxpdHkgKExQQVIpICAgICAgICAgICAgIDB4JTA0eFxu
-IiwKIAkJZGF0YVsweDY4ID4+IDJdICYgMHhmZmZmLAogCQlkYXRhWzB4NjggPj4gMl0gPj4gMTYp
-OworCX0KIAogCWZwcmludGYoc3Rkb3V0LAogCQkiMHg2QzogUEhZIHN0YXR1cyAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgIDB4JTAyeFxuIiwKQEAgLTQ2NSwxMCArNDc0LDcgQEAg
-cmVhbHRla19kdW1wX3JlZ3Moc3RydWN0IGV0aHRvb2xfZHJ2aW5mbyAqaW5mbywgc3RydWN0IGV0
-aHRvb2xfcmVncyAqcmVncykKIAl9CiAJfQogCi0JaWYgKGJvYXJkX3R5cGUgPT0gUlRMODEzOUNw
-IHx8Ci0JICAgIGJvYXJkX3R5cGUgPT0gUlRMODE2OSB8fAotCSAgICBib2FyZF90eXBlID09IFJU
-TDgxNjlzIHx8Ci0JICAgIGJvYXJkX3R5cGUgPT0gUlRMODExMCkgeworCWlmIChib2FyZF90eXBl
-ID09IFJUTDgxMzlDcCB8fCBib2FyZF90eXBlID49IFJUTDgxNjkpIHsKIAl2ID0gZGF0YVsweEUw
-ID4+IDJdICYgMHhmZmZmOwogCWZwcmludGYoc3Rkb3V0LAogCQkiMHhFMDogQysgQ29tbWFuZCAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAweCUwNHhcbiIsCkBAIC01MTIsNiArNTE4
-LDE4IEBAIHJlYWx0ZWtfZHVtcF9yZWdzKHN0cnVjdCBldGh0b29sX2RydmluZm8gKmluZm8sIHN0
-cnVjdCBldGh0b29sX3JlZ3MgKnJlZ3MpCiAJZnByaW50ZihzdGRvdXQsCiAJCSIweEZDOiBFeHRl
-cm5hbCBNSUkgcmVnaXN0ZXIgICAgICAgICAgICAgICAgICAgMHglMDh4XG4iLAogCQlkYXRhWzB4
-RkMgPj4gMl0pOworCX0gZWxzZSBpZiAoYm9hcmRfdHlwZSA+PSBSVEw4MTY5ICYmCisJCSAgIGJv
-YXJkX3R5cGUgIT0gUlRMODE2OF84MTExQmIgJiYKKwkJICAgYm9hcmRfdHlwZSAhPSBSVEw4MTY4
-XzgxMTFCZWYpIHsKKwlmcHJpbnRmKHN0ZG91dCwKKwkJIjB4RjA6IEZ1bmMgRXZlbnQgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAweCUwOHhcbiIKKwkJIjB4RjQ6IEZ1bmMgRXZlbnQgTWFz
-ayAgICAgICAgICAgICAgICAgICAgICAgICAweCUwOHhcbiIKKwkJIjB4Rjg6IEZ1bmMgUHJlc2V0
-IFN0YXRlICAgICAgICAgICAgICAgICAgICAgICAweCUwOHhcbiIKKwkJIjB4RkM6IEZ1bmMgRm9y
-Y2UgRXZlbnQgICAgICAgICAgICAgICAgICAgICAgICAweCUwOHhcbiIsCisJCWRhdGFbMHhGMCA+
-PiAyXSwKKwkJZGF0YVsweEY0ID4+IDJdLAorCQlkYXRhWzB4RjggPj4gMl0sCisJCWRhdGFbMHhG
-QyA+PiAyXSk7CiAJfQogCX0KIAotLSAKMS40LjQuNAoK
-------=_Part_26128_7236894.1206578203532--
+It's fine for me.
+
+>
+>  Patch #4: Fixes two sparse warnings.
+>
+>  Patch #5: Found out that RFC3390 code is identically applied in three
+>           places (TCP, CCID-2, and CCID-3): this consolidates the
+>           duplicated code.
+>           Note: there is a fourth place where this code is duplicated
+>                 (CCID-4), but this needs to be patched separately.
+
+Please, see below.
+
+>
+>  Patch #6: Tidies up the slow-path input processing for DCCP (i.e. input
+>           for states other than OPEN). This addresses some reordering
+>           quirks by putting steps in their RFC4340-like order, ensures
+>           that CCID/Ack Vector input is indeed confined to the fast-path,
+>           and contains one bug fix.
+>
+>  Patch #7: Removes dead states, thanks to an observation by Leandro and
+>           his colleagues.
+>           Note: This would also need to be ported to CCID-4, since it
+>                 uses the same (dead) states.
+
+You're welcome!
+
+>
+>  If no one shouts, I will put that into the tree approximately by the end of
+>  the week. In any case it would be good to know if the CCID-4 tree is still
+>  active, since porting these changes will take quite a bit of work.
+
+Yes, CCID-4 is still active. I'm very busy finishing many datails for
+my dissertation, this includes writing the document, finishing some
+DCCP for GStreamer fixes, and so on. I plan to back to CCID-4
+implementation in the end of April, beginning of May.
+
+>
+>  In particular - patch #5 may be ported to CCID-4 as well, but it depends
+>  on whether people find the code consolidation acceptable.
+
+In my opinion it is ok.
+
+Leandro.
+
+>
+>  The first two patches can be obtained in the sets from
+>
+>   (1) DCCP     git pull dccp://eden-feed.erg.abdn.ac.uk/dccp_exp +dccp:my_dccp
+>   (2) CCID-4   git pull dccp://eden-feed.erg.abdn.ac.uk/dccp_exp +ccid4:my_ccid4
+>  --
+>  To unsubscribe from this list: send the line "unsubscribe dccp" in
+>  the body of a message to majordomo@vger.kernel.org
+>  More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
