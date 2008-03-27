@@ -1,77 +1,41 @@
-From: Marin Mitov <mitov@issp.bas.bg>
-Subject: Re: [patch for 2.6.25? 3/3] skge napi->poll() locking bug
-Date: Thu, 27 Mar 2008 12:03:17 +0200
-Message-ID: <200803271203.17947.mitov@issp.bas.bg>
-References: <200803270745.m2R7jEUA024166@imap1.linux-foundation.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Bugme-new] [Bug 10326] New: inconsistent lock state in
+	net_rx_action
+Date: Thu, 27 Mar 2008 11:07:00 +0100
+Message-ID: <20080327100700.GA2845@ami.dom.local>
+References: <bug-10326-10286@http.bugzilla.kernel.org/> <20080325134320.21525479.akpm@linux-foundation.org> <47EAD8A5.3070806@gmail.com> <20080326171403.ad186037.akpm@linux-foundation.org> <20080327085542.GA2778@ami.dom.local> <20080327021812.601776b8.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="windows-1251"
-Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	marcus@better.se,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Ingo Molnar <mingo@elte.hu>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.issp.bas.bg ([195.96.236.10]:52819 "EHLO mail.issp.bas.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751065AbYC0KBl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2008 06:01:41 -0400
-In-Reply-To: <200803270745.m2R7jEUA024166@imap1.linux-foundation.org>
+Received: from ug-out-1314.google.com ([66.249.92.174]:55588 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751805AbYC0KCZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 06:02:25 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so299145ugc.16
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2008 03:02:24 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <20080327021812.601776b8.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27.3.2008, you wrote:
-> From: Marin Mitov <mitov@issp.bas.bg>
-> 
-> According to: Documentation/networking/netdevices.txt:
-> 
-> <cite>
-> napi->poll:
-> ..........
-> 	Context: softirq
-> 	         will be called with interrupts disabled by netconsole.
-> </cite>
-> 
-> napi->poll() could be called either with interrupts enabled
-> (in softirq context) or disabled (by netconsole), so the irq flag
-> should be preserved.
-> 
-> Inspired by Ingo's resent forcedeth patch :-)
-> 
-As far as skge driver has not changed since 2.6.24, the
-patch could be applied to the stable 2.6.24.5 release too.
+On Thu, Mar 27, 2008 at 02:18:12AM -0700, Andrew Morton wrote:
+...
+> Anyway, the accusation is that lockdep is busted, in that it doesn't realise that
+> local_irq_disable() blocks softirqs.
 
-Marin Mitov
+Usually lockdep gets this right, so I've some doubts too. But here
+it's not only about softirqs; this:
 
-> Signed-off-by: Marin Mitov <mitov@issp.bas.bg>
-> Acked-by: David S. Miller <davem@davemloft.net>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
-> 
->  drivers/net/skge.c |    6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff -puN drivers/net/skge.c~skge-napi-poll-locking-bug drivers/net/skge.c
-> --- a/drivers/net/skge.c~skge-napi-poll-locking-bug
-> +++ a/drivers/net/skge.c
-> @@ -3199,12 +3199,14 @@ static int skge_poll(struct napi_struct 
->  	skge_write8(hw, Q_ADDR(rxqaddr[skge->port], Q_CSR), CSR_START);
->  
->  	if (work_done < to_do) {
-> -		spin_lock_irq(&hw->hw_lock);
-> +		unsigned long flags;
-> +
-> +		spin_lock_irqsave(&hw->hw_lock, flags);
->  		__netif_rx_complete(dev, napi);
->  		hw->intr_mask |= napimask[skge->port];
->  		skge_write32(hw, B0_IMSK, hw->intr_mask);
->  		skge_read32(hw, B0_IMSK);
-> -		spin_unlock_irq(&hw->hw_lock);
-> +		spin_unlock_irqrestore(&hw->hw_lock, flags);
->  	}
->  
->  	return work_done;
-> _
-> 
+> >> Mar 25 19:48:46 better kernel:  #1:  (target_list_lock){--..}, at: [<c0399c0d>]
 
+means lockdep saw hardirqs enabled while acquiring/holding this lock.
 
+Jarek P.
