@@ -1,42 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/7] [NET]: uninline skb_put, de-bloats a lot
-Date: Thu, 27 Mar 2008 15:04:56 -0700 (PDT)
-Message-ID: <20080327.150456.39560267.davem@davemloft.net>
-References: <1206621486-5408-1-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<1206621486-5408-2-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<1206645050.4849.77.camel@localhost>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH] e1000e: test MSI interrupts
+Date: Thu, 27 Mar 2008 18:05:27 -0400
+Message-ID: <20080327220527.GO856@gospo.usersys.redhat.com>
+References: <20080326183631.25114.90265.stgit@localhost.localdomain>
+	<47EA9911.8040101@garzik.org> <47EAB54A.1060306@intel.com>
+	<36D9DB17C6DE9E40B059440DB8D95F5204BF07F7@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	acme@redhat.com, mpm@selenic.com
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49476
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758968AbYC0WE4 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2008 18:04:56 -0400
-In-Reply-To: <1206645050.4849.77.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	"Kok,  Auke-jan H" <auke-jan.h.kok@intel.com>,
+	Jeff Garzik <jeff@garzik.org>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5204BF07F7@orsmsx418.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-=46rom: Joe Perches <joe@perches.com>
-Date: Thu, 27 Mar 2008 12:10:50 -0700
+On Thu, Mar 27, 2008 at 10:53:43AM -0700, Brandeburg, Jesse wrote:
+> Kok, Auke wrote:
+> > Jeff Garzik wrote:
+> >> Auke Kok wrote:
+> >>> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> >>> 
+> >>> Test the MSI interrupt physically once before assuming that it
+> >>> actually works. Several platforms have already come across that
+> >>> have non-functional MSI interrupts and this code will attempt
+> >>> to detect those safely. Once the test succeeds MSI interrupts
+> >>> will be enabled.
+> >>> 
+> >>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> >>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> 
+> >> Ah, the perennial add-same-test-to-every-driver conundrum.
+> >> 
+> >> I think we are far enough along with MSI to _not_ do this anymore in
+> >> drivers. 
+> 
+> Actually, I'm hoping you'll allow this Jeff, we have a production system
+> (see below) we know about that doesn't like the way 82571 formats MSI
+> interrupt messages.  All other systems seem to be okay with this format
+> of MSI messages, but this system implemented a stricter interpretation
+> of the spec, and so even though that system doesn't need a quirk for MSI
+> because MSI works in general, we still MUST test the MSI vector to make
+> sure it works *for us*  In this case it comes down to being an errata
+> workaround.
+> 
+> Since there is no way to "test" generation of an interrupt from any
+> specific hardware device without internal knowledge of said device,
+> there isn't a way for us to help the kernel by writing a generic "test
+> MSI" routine.
+> 
+> I would prefer this "generic test" code be in the driver rather than
+> having to identify all the chipsets that fail and have the driver do
+> *specific chipset* detection ala bnx2.c's 8132 bridge workaround.
+> 
+> >> The platforms with MSI problems should be discovered, made public,
+> >> and worked around. 
+> 
+> This is our workaround, it is our fault, the incompatible chipset is in
+> an x3850 IBM system.
+> 
 
-> On Thu, 2008-03-27 at 14:38 +0200, Ilpo J=E4rvinen wrote:
-> > Allyesconfig (v2.6.24-mm1):
->=20
-> I think this change is only good in severely memory
-> limited uses.  This will very likely negatively impact
-> high speed networking.  It's a speed/size trade off.
+I've seem similar problems on other systems, so this would be a nice bit
+of code to have somewhere.  I can see Jeff's argument for having this
+outside of drivers, but to make my life easier I'd like to see this in
+e1000e (and e1000!).  :-)
 
-I severely doubt this, the bulk of the overhead of
-skb_put() is the atomic operation, not whether the
-instructions get executed inline or not.
+I suppose an more general alternative would be to make this code run as
+an ethtool test (current or new one) and then have a module option to
+disable/enable MSI so all could be done in userspace, but something
+automatic like this sure would be great.
 
-Please run some tests before making claims like this.
-I might give you some slack in this area if you've
-been doing networking performance tuning for 10+ years
-but you haven't.
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
