@@ -1,68 +1,38 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 1/2 net-2.6.26] [NETNS]: Compile NET /proc support only if CONFIG_NET is set.
-Date: Thu, 27 Mar 2008 13:29:56 +0300
-Message-ID: <1206613797-32045-1-git-send-email-den@openvz.org>
-References: <20080327.022206.100283150.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
-	yoshfuji@linux-ipv6.org, --cc@sw.ru,
-	"Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: Toralf =?iso-8859-15?q?F=F6rster?= <toralf.foerster@gmx.de>
+Subject: tx-checksumming for an Intel Corporation 82540EP Gigabit Ethernet Controller (Mobile)
+Date: Thu, 27 Mar 2008 11:44:52 +0100
+Message-ID: <200803271144.52812.toralf.foerster@gmx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:58588 "EHLO iris.sw.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754650AbYC0K30 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2008 06:29:26 -0400
-In-Reply-To: <20080327.022206.100283150.davem@davemloft.net>
+Received: from mail.gmx.net ([213.165.64.20]:49557 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751805AbYC0Ko4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 06:44:56 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fix broken compilation for 'allnoconfig'. This was introduced by
-Introduced by commit 1218854afa6f659be90b748cf1bc7badee954a35 ("[NET]
-NETNS: Omit seq_net_private->net without CONFIG_NET_NS.")
+I'm wondering why I have to add this line in my startup scripts :=20
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
- fs/proc/proc_net.c       |    2 ++
- include/linux/seq_file.h |    2 ++
- 2 files changed, 4 insertions(+), 0 deletions(-)
+$> /usr/sbin/ethtool -K eth0 tx off
+to avoid that all outgoing packets have bad check sums (seen with wires=
+hark).
 
-diff --git a/fs/proc/proc_net.c b/fs/proc/proc_net.c
-index 13cd783..7034fac 100644
---- a/fs/proc/proc_net.c
-+++ b/fs/proc/proc_net.c
-@@ -51,6 +51,7 @@ int seq_open_net(struct inode *ino, struct file *f,
- }
- EXPORT_SYMBOL_GPL(seq_open_net);
- 
-+#ifdef CONFIG_NET
- int seq_release_net(struct inode *ino, struct file *f)
- {
- 	struct seq_file *seq;
-@@ -218,3 +219,4 @@ int __init proc_net_init(void)
- 
- 	return register_pernet_subsys(&proc_net_ns_ops);
- }
-+#endif /* CONFIG_NET */
-diff --git a/include/linux/seq_file.h b/include/linux/seq_file.h
-index d870a82..5da70c3 100644
---- a/include/linux/seq_file.h
-+++ b/include/linux/seq_file.h
-@@ -63,6 +63,7 @@ extern struct list_head *seq_list_start_head(struct list_head *head,
- extern struct list_head *seq_list_next(void *v, struct list_head *head,
- 		loff_t *ppos);
- 
-+#ifdef CONFIG_NET
- struct net;
- struct seq_net_private {
- #ifdef CONFIG_NET_NS
-@@ -81,6 +82,7 @@ static inline struct net *seq_file_net(struct seq_file *seq)
- 	return &init_net;
- #endif
- }
-+#endif	/* CONFIG_NET */
- 
- #endif
- #endif
--- 
-1.5.3.rc5
+Wouldn't it makes sense to make this behaviour as default ?
 
+My system is a ThinkPad T41:
+
+n22 ~ # uname -a
+Linux n22 2.6.24-gentoo-r3 #5 Tue Mar 18 19:26:55 CET 2008 i686 Intel(R=
+) Pentium(R) M processor 1700MHz GenuineIntel GNU/Linux
+
+Pls response to my address too b/c I'm not currently subscribed.
+
+--=20
+MfG/Sincerely
+
+Toralf F=F6rster
+pgp finger print: 7B1A 07F4 EC82 0F90 D4C2 8936 872A E508 7DB6 9DA3
