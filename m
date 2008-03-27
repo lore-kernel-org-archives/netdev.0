@@ -1,95 +1,78 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 4/6 net-2.6.26] [UDP]: Cleanup /proc/udp[6] creation/removal.
-Date: Thu, 27 Mar 2008 17:11:36 +0300
-Message-ID: <1206627098-2456-4-git-send-email-den@openvz.org>
+Subject: [PATCH 1/6 net-2.6.26] [UDP]: Replace struct net on udp_iter_state with seq_net_private.
+Date: Thu, 27 Mar 2008 17:11:33 +0300
+Message-ID: <1206627098-2456-1-git-send-email-den@openvz.org>
 References: <1206627041.2109.15.camel@iris.sw.ru>
 Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:43332 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:41688 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756448AbYC0OLJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755704AbYC0OLJ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 27 Mar 2008 10:11:09 -0400
 In-Reply-To: <1206627041.2109.15.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace seq_open with seq_open_net and remove udp_seq_release completely.
-seq_release_net will do this job just fine.
-
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- net/ipv4/udp.c |   46 +++++++++-------------------------------------
- 1 files changed, 9 insertions(+), 37 deletions(-)
+ include/net/udp.h |    2 +-
+ net/ipv4/udp.c    |    8 ++++----
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 635940d..77af7d4 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -194,7 +194,7 @@ struct udp_seq_afinfo {
+ };
+ 
+ struct udp_iter_state {
+-	struct net              *net;
++	struct seq_net_private  p;
+ 	sa_family_t		family;
+ 	struct hlist_head	*hashtable;
+ 	int			bucket;
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 43920f1..1b1f299 100644
+index 80007c7..6d740ad 100644
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
-@@ -1579,46 +1579,18 @@ static void udp_seq_stop(struct seq_file *seq, void *v)
- static int udp_seq_open(struct inode *inode, struct file *file)
+@@ -1506,7 +1506,7 @@ static struct sock *udp_get_first(struct seq_file *seq)
  {
- 	struct udp_seq_afinfo *afinfo = PDE(inode)->data;
--	struct seq_file *seq;
--	struct net *net;
--	int rc = -ENOMEM;
--	struct udp_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
--
--	if (!s)
--		goto out;
-+	struct udp_iter_state *s;
-+	int err;
+ 	struct sock *sk;
+ 	struct udp_iter_state *state = seq->private;
+-	struct net *net = state->net;
++	struct net *net = seq_file_net(seq);
  
--	rc = -ENXIO;
--	net = get_proc_net(inode);
--	if (!net)
--		goto out_kfree;
-+	err = seq_open_net(inode, file, &afinfo->seq_ops,
-+			   sizeof(struct udp_iter_state));
-+	if (err < 0)
-+		return err;
+ 	for (state->bucket = 0; state->bucket < UDP_HTABLE_SIZE; ++state->bucket) {
+ 		struct hlist_node *node;
+@@ -1525,7 +1525,7 @@ found:
+ static struct sock *udp_get_next(struct seq_file *seq, struct sock *sk)
+ {
+ 	struct udp_iter_state *state = seq->private;
+-	struct net *net = state->net;
++	struct net *net = seq_file_net(seq);
  
-+	s = ((struct seq_file *)file->private_data)->private;
- 	s->family		= afinfo->family;
- 	s->hashtable		= afinfo->hashtable;
--	s->p.net                = net;
--
--	rc = seq_open(file, &afinfo->seq_ops);
--	if (rc)
--		goto out_put_net;
--
--	seq = file->private_data;
--	seq->private = s;
--out:
--	return rc;
--out_put_net:
--	put_net(net);
--out_kfree:
--	kfree(s);
--	goto out;
--}
--
--static int udp_seq_release(struct inode *inode, struct file *file)
--{
--	struct seq_file *seq = file->private_data;
--	struct udp_iter_state *s = seq->private;
--
--	put_net(s->p.net);
--	seq_release_private(inode, file);
--	return 0;
-+	return err;
+ 	do {
+ 		sk = sk_next(sk);
+@@ -1598,7 +1598,7 @@ static int udp_seq_open(struct inode *inode, struct file *file)
+ 	s->seq_ops.next		= udp_seq_next;
+ 	s->seq_ops.show		= afinfo->seq_show;
+ 	s->seq_ops.stop		= udp_seq_stop;
+-	s->net                  = net;
++	s->p.net                = net;
+ 
+ 	rc = seq_open(file, &s->seq_ops);
+ 	if (rc)
+@@ -1620,7 +1620,7 @@ static int udp_seq_release(struct inode *inode, struct file *file)
+ 	struct seq_file *seq = file->private_data;
+ 	struct udp_iter_state *s = seq->private;
+ 
+-	put_net(s->net);
++	put_net(s->p.net);
+ 	seq_release_private(inode, file);
+ 	return 0;
  }
- 
- /* ------------------------------------------------------------------------ */
-@@ -1631,7 +1603,7 @@ int udp_proc_register(struct net *net, struct udp_seq_afinfo *afinfo)
- 	afinfo->seq_fops->open		= udp_seq_open;
- 	afinfo->seq_fops->read		= seq_read;
- 	afinfo->seq_fops->llseek	= seq_lseek;
--	afinfo->seq_fops->release	= udp_seq_release;
-+	afinfo->seq_fops->release	= seq_release_net;
- 
- 	afinfo->seq_ops.start		= udp_seq_start;
- 	afinfo->seq_ops.next		= udp_seq_next;
 -- 
 1.5.3.rc5
 
