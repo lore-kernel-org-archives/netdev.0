@@ -1,46 +1,84 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 0/2] Two more pasemi_mac patches for 2.6.26
-Date: Thu, 27 Mar 2008 15:41:19 -0400
-Message-ID: <47EBF85F.6070200@pobox.com>
-References: <20080326015625.GA23103@lixom.net> <47E9CD2E.7040203@pobox.com> <20080327192204.GA17881@lixom.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] e1000e: test MSI interrupts
+Date: Thu, 27 Mar 2008 15:43:42 -0400
+Message-ID: <47EBF8EE.1000102@garzik.org>
+References: <20080326183631.25114.90265.stgit@localhost.localdomain>
+	<47EA9911.8040101@garzik.org> <47EAB54A.1060306@intel.com>
+	<36D9DB17C6DE9E40B059440DB8D95F5204BF07F7@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, pasemi-linux@ozlabs.org,
-	netdev@vger.kernel.org
-To: Olof Johansson <olof@lixom.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33561 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757234AbYC0TlY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2008 15:41:24 -0400
-In-Reply-To: <20080327192204.GA17881@lixom.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	"Kok,  Auke-jan H" <auke-jan.h.kok@intel.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5204BF07F7@orsmsx418.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Olof Johansson wrote:
-> On Wed, Mar 26, 2008 at 12:12:30AM -0400, Jeff Garzik wrote:
->> Olof Johansson wrote:
->>> Hi Jeff,
->>>
->>> The below two patches go on top of the previous patches that were acked
->>> by you but applied to pasemi.git for feed up through powerpc.git.
->>>
->>> One is a couple of fixes for various corner cases in the jumbo support
->>> configuration. The second is addition of netpoll support, from Nate
->>> Case.
->>>
->>> Review/ack would be appreciated, I'll feed them up the same path as the
->>> other changes.
->> ACK 1-2, though I would consider closely patch #2, whether you need 
->> disable_irq() or spin_lock_irqsave() -- which is best for your specific 
->> driver + platform?
+Brandeburg, Jesse wrote:
+> Kok, Auke wrote:
+>> Jeff Garzik wrote:
+>>> Auke Kok wrote:
+>>>> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>>>>
+>>>> Test the MSI interrupt physically once before assuming that it
+>>>> actually works. Several platforms have already come across that
+>>>> have non-functional MSI interrupts and this code will attempt
+>>>> to detect those safely. Once the test succeeds MSI interrupts
+>>>> will be enabled.
+>>>>
+>>>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>>>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 > 
-> I'm tempted to leave the disable/enable_irq() in there. It's certainly
-> heavier than doing cpu-side irq masking, but adding a spinlock to the
-> common interrupt path seems worse to me. I didn't think we considered
-> the polling to be a hot path anyway...
+>>> Ah, the perennial add-same-test-to-every-driver conundrum.
+>>>
+>>> I think we are far enough along with MSI to _not_ do this anymore in
+>>> drivers. 
+> 
+> Actually, I'm hoping you'll allow this Jeff, we have a production system
+> (see below) we know about that doesn't like the way 82571 formats MSI
+> interrupt messages.  All other systems seem to be okay with this format
+> of MSI messages, but this system implemented a stricter interpretation
+> of the spec, and so even though that system doesn't need a quirk for MSI
+> because MSI works in general, we still MUST test the MSI vector to make
+> sure it works *for us*  In this case it comes down to being an errata
+> workaround.
+> 
+> Since there is no way to "test" generation of an interrupt from any
+> specific hardware device without internal knowledge of said device,
+> there isn't a way for us to help the kernel by writing a generic "test
+> MSI" routine.
+> 
+> I would prefer this "generic test" code be in the driver rather than
+> having to identify all the chipsets that fail and have the driver do
+> *specific chipset* detection ala bnx2.c's 8132 bridge workaround.
 
-Definitely not a hot path :)
+Well if it's a problem with the networking chip rather than the 
+platform, then absolutely stick it in the driver (unless its so severe 
+it needs to be in pci/quirks.c before the driver even loads).
+
+But that seems like a quick id test, with no need for all that generic 
+MSI test code.
+
+Certainly the work is scoped based on where the problem lies, either 
+platform, device, or platform+device.
+
+	Jeff
 
 
+
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
