@@ -1,55 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 10326] New: inconsistent lock state in
- net_rx_action
-Date: Thu, 27 Mar 2008 04:03:34 -0700 (PDT)
-Message-ID: <20080327.040334.25440988.davem@davemloft.net>
-References: <20080327085542.GA2778@ami.dom.local>
-	<20080327021812.601776b8.akpm@linux-foundation.org>
-	<1206615379.8514.502.camel@twins>
+Subject: Re: linux-next: net build failure
+Date: Thu, 27 Mar 2008 04:05:02 -0700 (PDT)
+Message-ID: <20080327.040502.144245837.davem@davemloft.net>
+References: <20080327182441.8d09b8ad.sfr@canb.auug.org.au>
+	<20080327.022206.100283150.davem@davemloft.net>
+	<20080327.193006.132922343.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, jarkao2@gmail.com,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	marcus@better.se, shemminger@linux-foundation.org, rjw@sisk.pl,
-	linux-kernel@vger.kernel.org, mingo@elte.hu
-To: a.p.zijlstra@chello.nl
+Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57782
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38337
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754998AbYC0LDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 07:03:35 -0400
-In-Reply-To: <1206615379.8514.502.camel@twins>
+	by vger.kernel.org with ESMTP id S1755274AbYC0LFC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 07:05:02 -0400
+In-Reply-To: <20080327.193006.132922343.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Date: Thu, 27 Mar 2008 11:56:19 +0100
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Thu, 27 Mar 2008 19:30:06 +0900 (JST)
 
-> How about this:
+> How about this?
+> I believe all functions are not used outside the net subsystem.
 > 
-> <irqs disabled>
+> I'm still testing with allmodconfig but 
+> at least, allnoconfig works for me.
 > 
->   netpoll_poll()
->     poll_napi()
->       spin_trylock(&napi->poll_lock)
->       poll_one_napi()
->         napi->poll() := sky2_poll()
->           napi_complete()
->             local_irq_disable()
->             local_irq_enable() <--- *BUG*
-> 
->   <irq>
->     irq_exit()
->       do_softirq()
->         net_rx_action()
->           spin_lock(&napi->poll_lock) <--- Deadlock!
-> 
-> Because we still hold the lock....
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Yep, that will deadlock.
+Denis has posted a slightly different approach.
 
-Can some test if using local_irq_{save,restore}() in
-napi_complete() cures this lockdep warning?
+I kind of agree with what he is doing, because kobject_uevent
+should not be including any networking headers when CONFIG_NET
+is not set and that causes large portions of the breakage.
 
-Thanks.
+What do you think of his 2 patches?
