@@ -1,84 +1,112 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000e: test MSI interrupts
-Date: Thu, 27 Mar 2008 15:43:42 -0400
-Message-ID: <47EBF8EE.1000102@garzik.org>
-References: <20080326183631.25114.90265.stgit@localhost.localdomain>
-	<47EA9911.8040101@garzik.org> <47EAB54A.1060306@intel.com>
-	<36D9DB17C6DE9E40B059440DB8D95F5204BF07F7@orsmsx418.amr.corp.intel.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: pull request: wireless-2.6 2008-03-27
+Date: Thu, 27 Mar 2008 15:32:12 -0400
+Message-ID: <20080327193212.GA10820@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	"Kok,  Auke-jan H" <auke-jan.h.kok@intel.com>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5204BF07F7@orsmsx418.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Brandeburg, Jesse wrote:
-> Kok, Auke wrote:
->> Jeff Garzik wrote:
->>> Auke Kok wrote:
->>>> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
->>>>
->>>> Test the MSI interrupt physically once before assuming that it
->>>> actually works. Several platforms have already come across that
->>>> have non-functional MSI interrupts and this code will attempt
->>>> to detect those safely. Once the test succeeds MSI interrupts
->>>> will be enabled.
->>>>
->>>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
->>>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> 
->>> Ah, the perennial add-same-test-to-every-driver conundrum.
->>>
->>> I think we are far enough along with MSI to _not_ do this anymore in
->>> drivers. 
-> 
-> Actually, I'm hoping you'll allow this Jeff, we have a production system
-> (see below) we know about that doesn't like the way 82571 formats MSI
-> interrupt messages.  All other systems seem to be okay with this format
-> of MSI messages, but this system implemented a stricter interpretation
-> of the spec, and so even though that system doesn't need a quirk for MSI
-> because MSI works in general, we still MUST test the MSI vector to make
-> sure it works *for us*  In this case it comes down to being an errata
-> workaround.
-> 
-> Since there is no way to "test" generation of an interrupt from any
-> specific hardware device without internal knowledge of said device,
-> there isn't a way for us to help the kernel by writing a generic "test
-> MSI" routine.
-> 
-> I would prefer this "generic test" code be in the driver rather than
-> having to identify all the chipsets that fail and have the driver do
-> *specific chipset* detection ala bnx2.c's 8132 bridge workaround.
+Dave,
 
-Well if it's a problem with the networking chip rather than the 
-platform, then absolutely stick it in the driver (unless its so severe 
-it needs to be in pci/quirks.c before the driver even loads).
+A few more for 2.6.25...please let me know if there are problems!
 
-But that seems like a quick id test, with no need for all that generic 
-MSI test code.
+Thanks,
 
-Certainly the work is scoped based on where the problem lies, either 
-platform, device, or platform+device.
+John
 
-	Jeff
+---
 
+Individual patches are available here:
 
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
 
+---
 
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+The following changes since commit 732c8bd590625e8bc0b88313b82930e336b2bec4:
+  Herbert Xu (1):
+        [IPSEC]: Fix BEET output
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+
+Holger Schurig (1):
+      libertas: fix spinlock recursion bug
+
+Ivo van Doorn (1):
+      rt2x00: Ignore set_state(STATE_SLEEP) failure
+
+Julia Lawall (1):
+      drivers/net/wireless/iwlwifi/iwl-4965.c: correct use of ! and &
+
+ drivers/net/wireless/iwlwifi/iwl-4965.c |    2 +-
+ drivers/net/wireless/libertas/if_cs.c   |    2 --
+ drivers/net/wireless/rt2x00/rt2x00dev.c |   13 +++++++++++--
+ 3 files changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/wireless/iwlwifi/iwl-4965.c b/drivers/net/wireless/iwlwifi/iwl-4965.c
+index d727de8..6576757 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-4965.c
++++ b/drivers/net/wireless/iwlwifi/iwl-4965.c
+@@ -4589,7 +4589,7 @@ static u8 iwl4965_is_fat_tx_allowed(struct iwl4965_priv *priv,
+ 
+ 	if (sta_ht_inf) {
+ 		if ((!sta_ht_inf->ht_supported) ||
+-		   (!sta_ht_inf->cap & IEEE80211_HT_CAP_SUP_WIDTH))
++		   (!(sta_ht_inf->cap & IEEE80211_HT_CAP_SUP_WIDTH)))
+ 			return 0;
+ 	}
+ 
+diff --git a/drivers/net/wireless/libertas/if_cs.c b/drivers/net/wireless/libertas/if_cs.c
+index 5a9cadb..038c66a 100644
+--- a/drivers/net/wireless/libertas/if_cs.c
++++ b/drivers/net/wireless/libertas/if_cs.c
+@@ -677,9 +677,7 @@ sbi_get_int_status_exit:
+ 
+ 	/* Card has a command result for us */
+ 	if (*ireg & IF_CS_C_S_CMD_UPLD_RDY) {
+-		spin_lock(&priv->driver_lock);
+ 		ret = if_cs_receive_cmdres(priv, priv->upld_buf, &priv->upld_len);
+-		spin_unlock(&priv->driver_lock);
+ 		if (ret < 0)
+ 			lbs_pr_err("could not receive cmd from card\n");
+ 	}
+diff --git a/drivers/net/wireless/rt2x00/rt2x00dev.c b/drivers/net/wireless/rt2x00/rt2x00dev.c
+index bd305f7..e873a39 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00dev.c
++++ b/drivers/net/wireless/rt2x00/rt2x00dev.c
+@@ -1393,11 +1393,20 @@ int rt2x00lib_suspend(struct rt2x00_dev *rt2x00dev, pm_message_t state)
+ 
+ exit:
+ 	/*
+-	 * Set device mode to sleep for power management.
++	 * Set device mode to sleep for power management,
++	 * on some hardware this call seems to consistently fail.
++	 * From the specifications it is hard to tell why it fails,
++	 * and if this is a "bad thing".
++	 * Overall it is safe to just ignore the failure and
++	 * continue suspending. The only downside is that the
++	 * device will not be in optimal power save mode, but with
++	 * the radio and the other components already disabled the
++	 * device is as good as disabled.
+ 	 */
+ 	retval = rt2x00dev->ops->lib->set_device_state(rt2x00dev, STATE_SLEEP);
+ 	if (retval)
+-		return retval;
++		WARNING(rt2x00dev, "Device failed to enter sleep state, "
++			"continue suspending.\n");
+ 
+ 	return 0;
+ }
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
