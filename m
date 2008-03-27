@@ -1,347 +1,298 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: Re: kernel 2.6.25-rc7 highly unstable on high load
-Date: Thu, 27 Mar 2008 09:07:26 +0200
-Message-ID: <20080327070209.M96622@visp.net.lb>
-References: <20080327062502.M51594@visp.net.lb> <20080326.234049.256533912.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 1/1] [NETFILTER]: Replate direct proc_fops assignment with proc_create call.
+Date: Thu, 27 Mar 2008 10:20:53 +0300
+Message-ID: <1206602453-11321-1-git-send-email-den@openvz.org>
 Cc: netdev@vger.kernel.org, kaber@trash.net,
-	netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080326.234049.256533912.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:53466 "EHLO iris.sw.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752034AbYC0HUT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2008 03:20:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sorry, mixed 2.6.25-rc7 (rc7 seems migrated to 2X :-))
-sleepless night.
+This elliminates infamous race during module loading when one could lookup
+proc entry without proc_fops assigned.
 
-I can provide image of system (running on 128MB USB flash), it is Core 2 Duo 
-CPU, 3xe100, 1xe1000e, nat, shaping over ifb with htb, sure some iptables 
-filtering rules. But the problem to simulate the load. Biggest problem, why 
-it doesn't reboot with all this watchdog stuff enabled, it makes serious 
-headache by that. Now we are installing power switch, so it will help somehow.
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ net/ipv4/netfilter/ip_queue.c                      |    8 +++-----
+ net/ipv4/netfilter/ipt_CLUSTERIP.c                 |    5 ++---
+ net/ipv4/netfilter/ipt_recent.c                    |    3 +--
+ .../netfilter/nf_conntrack_l3proto_ipv4_compat.c   |    7 ++-----
+ net/ipv6/netfilter/ip6_queue.c                     |    8 +++-----
+ net/netfilter/nf_conntrack_standalone.c            |    9 +++------
+ net/netfilter/nf_log.c                             |    8 ++------
+ net/netfilter/nf_queue.c                           |    7 ++-----
+ net/netfilter/nfnetlink_log.c                      |    9 ++-------
+ net/netfilter/nfnetlink_queue.c                    |    9 ++-------
+ net/netfilter/xt_hashlimit.c                       |   16 ++++++++--------
+ 11 files changed, 30 insertions(+), 59 deletions(-)
 
-On Wed, 26 Mar 2008 23:40:49 -0700 (PDT), David Miller wrote
-> From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-> Date: Thu, 27 Mar 2008 08:35:06 +0200
-> 
-> > It seems i am having very bad luck with 2.6.27. As Linus told, it have to 
-be 
-> > released soon, but it is crashing like hell on high network load.
-> 
-> That's amazing, you've taken a trip into the future and are running
-> 2.6.27 already, please let me borrow your time machine :-)
-> 
-> More seriously, there is obviously something very unique to your
-> setup or else everyone would be reporting this crash, and we have
-> to find out what that might be.
-> 
-> There seems to be bunch of netfilter stuff in your traces, but
-> the top of the trace is somewhere totally unrelated.  This is
-> a common reoccurance in your crash traces, making them less
-> useful than they could be.
-> 
-> I know you asked before what can be done to improve the traces,
-> but I'm not an x86 expert so I have no idea how to help you
-> in that area.
-> 
-> Patrick, could you see if you can make any sense of his log?
-> I see conttrack a lot in the backtraces.
-> 
-> Thanks.
-> 
-> > Here is a message i got over syslog on last crash (it was 2.6.25-rc6-
-git6), 
-> > available also at http://www.nuclearcat.com/files/crash_2.6.25.txt
-> > 
-> > Mar 26 02:27:14 ROUTER [ 4698.694693] BUG: NMI Watchdog detected LOCKUP
-> > Mar 26 02:27:14 ROUTER on CPU1, ip c02ad109, registers:
-> > Mar 26 02:27:14 ROUTER [ 4698.694693] Process snmpd (pid: 2327, 
-ti=c092e000 
-> > task=f7459080 task.ti=f70b7000)
-> > Mar 26 02:27:14 ROUTER 
-> > Mar 26 02:27:14 ROUTER [ 4698.694693] Stack: 
-> > Mar 26 02:27:14 ROUTER c092eb14 
-> > Mar 26 02:27:14 ROUTER c011991e 
-> > Mar 26 02:27:14 ROUTER f750d600 
-> > Mar 26 02:27:14 ROUTER f750d600 
-> > Mar 26 02:27:14 ROUTER c0378058 
-> > Mar 26 02:27:14 ROUTER 00000001 
-> > Mar 26 02:27:14 ROUTER c092eb34 
-> > Mar 26 02:27:14 ROUTER c0119b3b 
-> > Mar 26 02:27:14 ROUTER 
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]        
-> > Mar 26 02:27:14 ROUTER 00000000 
-> > Mar 26 02:27:14 ROUTER 00000001 
-> > Mar 26 02:27:14 ROUTER 00000082 
-> > Mar 26 02:27:14 ROUTER f708af88 
-> > Mar 26 02:27:14 ROUTER c0378058 
-> > Mar 26 02:27:14 ROUTER 00000001 
-> > Mar 26 02:27:14 ROUTER c092eb3c 
-> > Mar 26 02:27:14 ROUTER c0119bfe 
-> > Mar 26 02:27:14 ROUTER 
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]        
-> > Mar 26 02:27:14 ROUTER c092eb50 
-> > Mar 26 02:27:14 ROUTER c012f19c 
-> > Mar 26 02:27:14 ROUTER 00000000 
-> > Mar 26 02:27:14 ROUTER f708af88 
-> > Mar 26 02:27:14 ROUTER c0378058 
-> > Mar 26 02:27:14 ROUTER c092eb74 
-> > Mar 26 02:27:14 ROUTER c011652a 
-> > Mar 26 02:27:14 ROUTER 00000000 
-> > Mar 26 02:27:14 ROUTER 
-> > Mar 26 02:27:14 ROUTER [ 4698.694693] Call Trace:
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c011991e>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER task_rq_lock+0x31/0x58
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0119b3b>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER try_to_wake_up+0x19/0xd1
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0119bfe>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER default_wake_function+0xb/0xd
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c012f19c>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER autoremove_wake_function+0xf/0x33
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c011652a>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER __wake_up_common+0x2f/0x5a
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c01189b8>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER __wake_up+0x28/0x3b
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c01201a3>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER wake_up_klogd+0x2e/0x31
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c012033d>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER release_console_sem+0x197/0x19f
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0120747>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER vprintk+0x295/0x2e5
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<f899634c>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER death_by_timeout+0x8b/0xa3 [nf_conntrack]
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<f8999d08>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER tcp_packet+0x931/0x9e5 [nf_conntrack]
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c01207ac>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER printk+0x15/0x17
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c011fb65>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER warn_on_slowpath+0x2a/0x51
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c011764a>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER __update_rq_clock+0x1c/0x126
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0116ab3>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER update_curr+0x48/0x64
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<f89961ed>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER nf_ct_invert_tuple+0x63/0x6f [nf_conntrack]
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<f8996cca>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER nf_conntrack_tuple_taken+0xf8/0x100 [nf_conntrack]
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<f899850c>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER __nf_ct_helper_find+0x2c/0x90 [nf_conntrack]
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<f8996b95>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER nf_conntrack_alter_reply+0x4a/0x87 [nf_conntrack]
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<f8974976>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER nf_nat_setup_info+0x3cc/0x55a [nf_nat]
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c011701c>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER dequeue_rt_entity+0x88/0x171
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0117127>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER dequeue_rt_stack+0x22/0x27
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0117425>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER enqueue_task_rt+0x19/0x2c
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c011617f>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER enqueue_task+0xd/0x18
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c01161c0>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER activate_task+0x1e/0x2b
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0119bb1>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER try_to_wake_up+0x8f/0xd1
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0119c1b>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER wake_up_process+0xf/0x11
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c013dfa1>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER softlockup_tick+0x9d/0x10b
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0126f5c>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER run_local_timers+0x17/0x19
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c01272fa>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER update_process_times+0x24/0x49
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0135f4c>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER tick_periodic+0x62/0x6e
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0135f71>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER tick_handle_periodic+0x19/0x68
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c010e87b>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER smp_apic_timer_interrupt+0x6c/0x81
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0104344>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER apic_timer_interrupt+0x28/0x30
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c02ad202>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER _spin_lock_bh+0x20/0x22
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c02751fa>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER rt_garbage_collect+0x132/0x27a
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0262d95>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER dst_alloc+0x19/0x63
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0276eb1>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER ip_route_input+0x6b9/0xbd9
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0278898>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER ip_rcv_finish+0x2c/0x29a
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0278ef8>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER ip_rcv+0x202/0x22c
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c025ee4e>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER netif_receive_skb+0x33e/0x3a9
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c02612c2>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER process_backlog+0x62/0xb5
-> > Mar 26 02:27:14 ROUTER [ 4698.694693]  [<c0260d27>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER net_rx_action+0x8f/0x191
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c01240a7>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER __do_softirq+0x64/0xcd
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0105f0a>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER do_softirq+0x55/0x89
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0123f88>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER local_bh_enable+0x61/0x6d
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0257689>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER lock_sock_nested+0x83/0x8b
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0292e58>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER udp_destroy_sock+0xd/0x20
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0257b9e>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER sk_common_release+0x15/0x60
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c02924a4>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER udp_lib_close+0x8/0xa
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0299006>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER inet_release+0x42/0x48
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c025625b>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER sock_release+0x14/0x60
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c02565d9>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER sock_close+0x29/0x30
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c015a6a2>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER __fput+0x93/0x135
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c015a8e2>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER fput+0x17/0x19
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c01583dc>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER filp_close+0x47/0x51
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0159414>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER sys_close+0x68/0x9d
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  [<c0103876>] 
-> > Mar 26 02:27:14 ROUTER ? 
-> > Mar 26 02:27:14 ROUTER sysenter_past_esp+0x5f/0x85
-> > Mar 26 02:27:14 ROUTER [ 4698.694694]  =======================
-> > Mar 26 02:27:14 ROUTER [ 4698.694694] Code: 
-> > Mar 26 02:27:14 ROUTER 94 
-> > Mar 26 02:27:14 ROUTER c0 
-> > Mar 26 02:27:14 ROUTER 84 
-> > Mar 26 02:27:14 ROUTER c0 
-> > Mar 26 02:27:14 ROUTER b9 
-> > Mar 26 02:27:14 ROUTER 01 
-> > Mar 26 02:27:14 ROUTER 00 
-> > Mar 26 02:27:14 ROUTER 00 
-> > Mar 26 02:27:14 ROUTER 00 
-> > Mar 26 02:27:14 ROUTER 75 
-> > Mar 26 02:27:14 ROUTER 09 
-> > Mar 26 02:27:14 ROUTER f0 
-> > Mar 26 02:27:14 ROUTER 81 
-> > Mar 26 02:27:14 ROUTER 02 
-> > Mar 26 02:27:14 ROUTER 00 
-> > Mar 26 02:27:14 ROUTER 00 
-> > Mar 26 02:27:14 ROUTER 00 
-> > Mar 26 02:27:14 ROUTER 01 
-> > Mar 26 02:27:14 ROUTER 30 
-> > Mar 26 02:27:14 ROUTER c9 
-> > Mar 26 02:27:14 ROUTER 5d 
-> > Mar 26 02:27:14 ROUTER 89 
-> > Mar 26 02:27:14 ROUTER c8 
-> > Mar 26 02:27:14 ROUTER c3 
-> > Mar 26 02:27:14 ROUTER 55 
-> > Mar 26 02:27:14 ROUTER ba 
-> > Mar 26 02:27:14 ROUTER 00 
-> > Mar 26 02:27:14 ROUTER 01 
-> > Mar 26 02:27:14 ROUTER 00 
-> > Mar 26 02:27:14 ROUTER 00 
-> > Mar 26 02:27:14 ROUTER 89 
-> > Mar 26 02:27:14 ROUTER e5 
-> > Mar 26 02:27:14 ROUTER f0 
-> > Mar 26 02:27:14 ROUTER 66 
-> > Mar 26 02:27:14 ROUTER 0f 
-> > Mar 26 02:27:14 ROUTER c1 
-> > Mar 26 02:27:14 ROUTER 10 
-> > Mar 26 02:27:14 ROUTER 38 
-> > Mar 26 02:27:14 ROUTER f2 
-> > Mar 26 02:27:14 ROUTER 74 
-> > Mar 26 02:27:14 ROUTER 06 
-> > Mar 26 02:27:14 ROUTER f3 
-> > Mar 26 02:27:14 ROUTER 90 
-> > Mar 26 02:27:14 ROUTER unparseable log message: "<8a> "
-> > Mar 26 02:27:14 ROUTER 10 
-> > Mar 26 02:27:14 ROUTER eb 
-> > Mar 26 02:27:14 ROUTER f6 
-> > Mar 26 02:27:14 ROUTER 5d 
-> > Mar 26 02:27:14 ROUTER c3 
-> > Mar 26 02:27:14 ROUTER 55 
-> > Mar 26 02:27:14 ROUTER 89 
-> > Mar 26 02:27:14 ROUTER e5 
-> > Mar 26 02:27:14 ROUTER f0 
-> > Mar 26 02:27:14 ROUTER 81 
-> > Mar 26 02:27:14 ROUTER 28 
-> > Mar 26 02:27:14 ROUTER 00 
-> > Mar 26 02:27:14 ROUTER 00 
-> > Mar 26 02:27:14 ROUTER 00 
-> > Mar 26 02:27:14 ROUTER 01 
-> > Mar 26 02:27:14 ROUTER 74 
-> > Mar 26 02:27:14 ROUTER 05 
-> > Mar 26 02:27:14 ROUTER e8 
-> > Mar 26 02:27:14 ROUTER 64 
-> > Mar 26 02:27:14 ROUTER fd 
-> > Mar 26 02:27:14 ROUTER 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
+diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+index 500998a..719be29 100644
+--- a/net/ipv4/netfilter/ip_queue.c
++++ b/net/ipv4/netfilter/ip_queue.c
+@@ -588,11 +588,9 @@ static int __init ip_queue_init(void)
+ 	}
+ 
+ #ifdef CONFIG_PROC_FS
+-	proc = create_proc_entry(IPQ_PROC_FS_NAME, 0, init_net.proc_net);
+-	if (proc) {
+-		proc->owner = THIS_MODULE;
+-		proc->proc_fops = &ip_queue_proc_fops;
+-	} else {
++	proc = proc_create(IPQ_PROC_FS_NAME, 0, init_net.proc_net,
++			   &ip_queue_proc_fops);
++	if (!proc) {
+ 		printk(KERN_ERR "ip_queue: failed to create proc entry\n");
+ 		goto cleanup_ipqnl;
+ 	}
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 1b10f36..965b08a 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -167,14 +167,13 @@ clusterip_config_init(struct ipt_clusterip_tgt_info *i, __be32 ip,
+ 
+ 		/* create proc dir entry */
+ 		sprintf(buffer, "%u.%u.%u.%u", NIPQUAD(ip));
+-		c->pde = create_proc_entry(buffer, S_IWUSR|S_IRUSR,
+-					   clusterip_procdir);
++		c->pde = proc_create(buffer, S_IWUSR|S_IRUSR,
++				     clusterip_procdir, &clusterip_proc_fops);
+ 		if (!c->pde) {
+ 			kfree(c);
+ 			return NULL;
+ 		}
+ 	}
+-	c->pde->proc_fops = &clusterip_proc_fops;
+ 	c->pde->data = c;
+ #endif
+ 
+diff --git a/net/ipv4/netfilter/ipt_recent.c b/net/ipv4/netfilter/ipt_recent.c
+index 8e8f042..50e0669 100644
+--- a/net/ipv4/netfilter/ipt_recent.c
++++ b/net/ipv4/netfilter/ipt_recent.c
+@@ -276,12 +276,11 @@ recent_mt_check(const char *tablename, const void *ip,
+ 	for (i = 0; i < ip_list_hash_size; i++)
+ 		INIT_LIST_HEAD(&t->iphash[i]);
+ #ifdef CONFIG_PROC_FS
+-	t->proc = create_proc_entry(t->name, ip_list_perms, proc_dir);
++	t->proc = proc_create(t->name, ip_list_perms, proc_dir, &recent_fops);
+ 	if (t->proc == NULL) {
+ 		kfree(t);
+ 		goto out;
+ 	}
+-	t->proc->proc_fops = &recent_fops;
+ 	t->proc->uid       = ip_list_uid;
+ 	t->proc->gid       = ip_list_gid;
+ 	t->proc->data      = t;
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+index 9668c3a..e60b885 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+@@ -395,13 +395,10 @@ int __init nf_conntrack_ipv4_compat_init(void)
+ 	if (!proc_exp)
+ 		goto err2;
+ 
+-	proc_stat = create_proc_entry("ip_conntrack", S_IRUGO, init_net.proc_net_stat);
++	proc_stat = proc_create("ip_conntrack", S_IRUGO,
++				init_net.proc_net_stat, &ct_cpu_seq_fops);
+ 	if (!proc_stat)
+ 		goto err3;
+-
+-	proc_stat->proc_fops = &ct_cpu_seq_fops;
+-	proc_stat->owner = THIS_MODULE;
+-
+ 	return 0;
+ 
+ err3:
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+index a6d3062..92a36c9 100644
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -591,11 +591,9 @@ static int __init ip6_queue_init(void)
+ 	}
+ 
+ #ifdef CONFIG_PROC_FS
+-	proc = create_proc_entry(IPQ_PROC_FS_NAME, 0, init_net.proc_net);
+-	if (proc) {
+-		proc->owner = THIS_MODULE;
+-		proc->proc_fops = &ip6_queue_proc_fops;
+-	} else {
++	proc = proc_create(IPQ_PROC_FS_NAME, 0, init_net.proc_net,
++			   &ip6_queue_proc_fops);
++	if (!proc) {
+ 		printk(KERN_ERR "ip6_queue: failed to create proc entry\n");
+ 		goto cleanup_ipqnl;
+ 	}
+diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
+index a9bf6e4..9d0b8bb 100644
+--- a/net/netfilter/nf_conntrack_standalone.c
++++ b/net/netfilter/nf_conntrack_standalone.c
+@@ -395,7 +395,7 @@ EXPORT_SYMBOL_GPL(nf_ct_log_invalid);
+ static int __init nf_conntrack_standalone_init(void)
+ {
+ #ifdef CONFIG_PROC_FS
+-	struct proc_dir_entry *proc, *proc_stat;
++	struct proc_dir_entry *proc;
+ #endif
+ 	int ret = 0;
+ 
+@@ -407,12 +407,9 @@ static int __init nf_conntrack_standalone_init(void)
+ 	proc = proc_net_fops_create(&init_net, "nf_conntrack", 0440, &ct_file_ops);
+ 	if (!proc) goto cleanup_init;
+ 
+-	proc_stat = create_proc_entry("nf_conntrack", S_IRUGO, init_net.proc_net_stat);
+-	if (!proc_stat)
++	if (!proc_create("nf_conntrack", S_IRUGO,
++			 init_net.proc_net_stat, &ct_cpu_seq_fops))
+ 		goto cleanup_proc;
+-
+-	proc_stat->proc_fops = &ct_cpu_seq_fops;
+-	proc_stat->owner = THIS_MODULE;
+ #endif
+ #ifdef CONFIG_SYSCTL
+ 	nf_ct_sysctl_header = register_sysctl_paths(nf_ct_path,
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index cec9976..bc11d70 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -168,13 +168,9 @@ static const struct file_operations nflog_file_ops = {
+ int __init netfilter_log_init(void)
+ {
+ #ifdef CONFIG_PROC_FS
+-	struct proc_dir_entry *pde;
+-
+-	pde = create_proc_entry("nf_log", S_IRUGO, proc_net_netfilter);
+-	if (!pde)
++	if (!proc_create("nf_log", S_IRUGO,
++			 proc_net_netfilter, &nflog_file_ops))
+ 		return -1;
+-
+-	pde->proc_fops = &nflog_file_ops;
+ #endif
+ 	return 0;
+ }
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index ddc80ea..bbd2689 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -348,12 +348,9 @@ static const struct file_operations nfqueue_file_ops = {
+ int __init netfilter_queue_init(void)
+ {
+ #ifdef CONFIG_PROC_FS
+-	struct proc_dir_entry *pde;
+-
+-	pde = create_proc_entry("nf_queue", S_IRUGO, proc_net_netfilter);
+-	if (!pde)
++	if (!proc_create("nf_queue", S_IRUGO,
++			 proc_net_netfilter, &nfqueue_file_ops))
+ 		return -1;
+-	pde->proc_fops = &nfqueue_file_ops;
+ #endif
+ 	return 0;
+ }
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index bf3f19b..b8173af 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -923,9 +923,6 @@ static const struct file_operations nful_file_ops = {
+ static int __init nfnetlink_log_init(void)
+ {
+ 	int i, status = -ENOMEM;
+-#ifdef CONFIG_PROC_FS
+-	struct proc_dir_entry *proc_nful;
+-#endif
+ 
+ 	for (i = 0; i < INSTANCE_BUCKETS; i++)
+ 		INIT_HLIST_HEAD(&instance_table[i]);
+@@ -943,11 +940,9 @@ static int __init nfnetlink_log_init(void)
+ 	}
+ 
+ #ifdef CONFIG_PROC_FS
+-	proc_nful = create_proc_entry("nfnetlink_log", 0440,
+-				      proc_net_netfilter);
+-	if (!proc_nful)
++	if (!proc_create("nfnetlink_log", 0440,
++			 proc_net_netfilter, &nful_file_ops))
+ 		goto cleanup_subsys;
+-	proc_nful->proc_fops = &nful_file_ops;
+ #endif
+ 	return status;
+ 
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index 81fb048..2c9fe5c 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -896,9 +896,6 @@ static const struct file_operations nfqnl_file_ops = {
+ static int __init nfnetlink_queue_init(void)
+ {
+ 	int i, status = -ENOMEM;
+-#ifdef CONFIG_PROC_FS
+-	struct proc_dir_entry *proc_nfqueue;
+-#endif
+ 
+ 	for (i = 0; i < INSTANCE_BUCKETS; i++)
+ 		INIT_HLIST_HEAD(&instance_table[i]);
+@@ -911,11 +908,9 @@ static int __init nfnetlink_queue_init(void)
+ 	}
+ 
+ #ifdef CONFIG_PROC_FS
+-	proc_nfqueue = create_proc_entry("nfnetlink_queue", 0440,
+-					 proc_net_netfilter);
+-	if (!proc_nfqueue)
++	if (!proc_create("nfnetlink_queue", 0440,
++			 proc_net_netfilter, &nfqnl_file_ops))
+ 		goto cleanup_subsys;
+-	proc_nfqueue->proc_fops = &nfqnl_file_ops;
+ #endif
+ 
+ 	register_netdevice_notifier(&nfqnl_dev_notifier);
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 5418ce5..dc29007 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -237,14 +237,14 @@ static int htable_create_v0(struct xt_hashlimit_info *minfo, int family)
+ 	hinfo->family = family;
+ 	hinfo->rnd_initialized = 0;
+ 	spin_lock_init(&hinfo->lock);
+-	hinfo->pde = create_proc_entry(minfo->name, 0,
+-				       family == AF_INET ? hashlimit_procdir4 :
+-							   hashlimit_procdir6);
++	hinfo->pde = proc_create(minfo->name, 0,
++				 family == AF_INET ? hashlimit_procdir4 :
++						     hashlimit_procdir6,
++				 &dl_file_ops);
+ 	if (!hinfo->pde) {
+ 		vfree(hinfo);
+ 		return -1;
+ 	}
+-	hinfo->pde->proc_fops = &dl_file_ops;
+ 	hinfo->pde->data = hinfo;
+ 
+ 	setup_timer(&hinfo->timer, htable_gc, (unsigned long )hinfo);
+@@ -301,14 +301,14 @@ static int htable_create(struct xt_hashlimit_mtinfo1 *minfo,
+ 	hinfo->rnd_initialized = 0;
+ 	spin_lock_init(&hinfo->lock);
+ 
+-	hinfo->pde = create_proc_entry(minfo->name, 0,
+-				       family == AF_INET ? hashlimit_procdir4 :
+-							   hashlimit_procdir6);
++	hinfo->pde = proc_create(minfo->name, 0,
++				 family == AF_INET ? hashlimit_procdir4 :
++						     hashlimit_procdir6,
++				 &dl_file_ops);
+ 	if (hinfo->pde == NULL) {
+ 		vfree(hinfo);
+ 		return -1;
+ 	}
+-	hinfo->pde->proc_fops = &dl_file_ops;
+ 	hinfo->pde->data = hinfo;
+ 
+ 	setup_timer(&hinfo->timer, htable_gc, (unsigned long)hinfo);
+-- 
+1.5.3.rc5
 
