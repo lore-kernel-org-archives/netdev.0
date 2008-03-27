@@ -1,26 +1,37 @@
-From: Sebastian Siewior <bigeasy@linutronix.de>
-Subject: [PATCH / RFC 0/2] spinlocks fixup in fec / m68knommu driver
-Date: Thu, 27 Mar 2008 15:00:41 +0100
-Message-ID: <20080327140041.072611004@linutronix.de>
-Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
-	Greg Ungerer <gerg@uclinux.org>
-To: uclinux-dev@uclinux.org
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: SCTP control socket question
+Date: Thu, 27 Mar 2008 17:15:53 +0300
+Message-ID: <47EBAC19.2050301@openvz.org>
+References: <1206619433.32459.9.camel@iris.sw.ru>  <47EB9794.7010407@hp.com>	 <1206623398.32459.19.camel@iris.sw.ru>  <47EB9E0B.2030400@hp.com> <1206625405.2109.7.camel@iris.sw.ru> <47EBA8A7.4080503@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Netdev List <netdev@vger.kernel.org>,
+	lksctp-developers@lists.sourceforge.net
+To: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	"Denis V. Lunev" <den@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:42823 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756680AbYC0OLJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 10:11:09 -0400
+Received: from sacred.ru ([62.205.161.221]:50129 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757450AbYC0OQH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2008 10:16:07 -0400
+In-Reply-To: <47EBA8A7.4080503@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I got into this after turning on spinlock debugging.
+>> will you mind against this?
+>>
+> 
+> That's fine.  My one concern is that someone may erroneously interpret that SCTP
+> sockets are derived from inet_connection_sock, but I can live with that.
 
-Jeff: The dev->hard_start_xmit callback is always called from softirq
-context so it is save to use spin_lock_irq(), right?
+Agree. I'd rename it into some not-so-inet-related function.
 
-Greg: The isr (fec_enet_rx()) calls three functions. All
-but fec_enet_rx() are grabbing the spinlock. Is this on purpose?
-
-Sebastian
--- 
+> -vlad 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
