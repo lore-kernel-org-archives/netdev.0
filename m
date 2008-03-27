@@ -1,70 +1,86 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000e: test MSI interrupts
-Date: Thu, 27 Mar 2008 19:38:17 -0400
-Message-ID: <47EC2FE9.5020400@garzik.org>
-References: <47EAB54A.1060306@intel.com><36D9DB17C6DE9E40B059440DB8D95F5204BF07F7@orsmsx418.amr.corp.intel.com><47EBF8EE.1000102@garzik.org>
-	<20080327.150555.113590579.davem@davemloft.net>
-	<36D9DB17C6DE9E40B059440DB8D95F5204C27573@orsmsx418.amr.corp.intel.com>
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: Re: [PATCH 3/7] [NET]: uninline dev_alloc_skb, de-bloats a lot
+Date: Fri, 28 Mar 2008 00:36:59 +0100
+Message-ID: <200803280036.59311.vda.linux@googlemail.com>
+References: <1206621486-5408-1-git-send-email-ilpo.jarvinen@helsinki.fi> <1206621486-5408-3-git-send-email-ilpo.jarvinen@helsinki.fi> <1206621486-5408-4-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	"Kok,  Auke-jan H" <auke-jan.h.kok@intel.com>,
-	David Miller <davem@davemloft.net>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5204C27573@orsmsx418.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
+To: "Ilpo =?iso-8859-1?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752960AbYC0XjA@vger.kernel.org>
+In-Reply-To: <1206621486-5408-4-git-send-email-ilpo.jarvinen@helsinki.fi>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brandeburg, Jesse wrote:
-> I get your point, but this seems a maintainance problem due to not being
-> able to "future proof" the solution.  I know what is (IDs) available
-> now, but I don't know how many systems in the future IBM will release
-> with a similar bridge but a different device ID that causes the same
-> issue.
-
-Future-proofing in that way is a pipe dream.
-
-You hope to predict what _errata_, what out-of-spec behavior future 
-hardware will have.  Trying to code for such N^M possible futures will 
-lead to code bloat, depression, and eventually madness.
+On Thursday 27 March 2008 13:38, Ilpo J=E4rvinen wrote:
+> Allyesconfig (v2.6.24-mm1):
+>=20
+> -23668  392 funcs, 104 +, 23772 -, diff: -23668 --- dev_alloc_skb
+>=20
+> Without many debug CONFIGs (v2.6.25-rc2-mm1):
+>=20
+> -12178  382 funcs, 157 +, 12335 -, diff: -12178 --- dev_alloc_skb
+> dev_alloc_skb                 |  +37
 
 
-> Should we take on the maintenance of continually having to add
-> every new bridge device that has this issue to our driver?  Users just
-> want this stuff to work when they plug it in.
+This will be very confusing for casual reader:
 
-As David noted, we touch quirks.c all the time for various platform 
-eccentricities.  Adding a new id is easy and takes two seconds.  The 
-same ease of change applies to any driver-local list of ids, too.
+> +struct sk_buff *dev_alloc_skb(unsigned int length)
+> +{
+> +	return __dev_alloc_skb(length, GFP_ATOMIC);
+> +}
+> +EXPORT_SYMBOL(dev_alloc_skb);
 
-Anyway, I think a better question to ask is:  should we bloat up every 
-driver testing for platform quirks found on a minority of platforms?
+"what, they want to save one push instruction per callsite??".
 
-Moreover, "it doesn't work" type errata is typically fixed in future 
-chip generations -- making any such generic test /less/ valuable, 
-because of the lower likelihood that IBM will continue to release this 
-buggy hardware for decades.
+Can you add a comment which explains the intent?
 
-We have an existing "this bridge and MSI don't get along" list.  Adding 
-an id is a one-line patch.
-
-	Jeff
-
++struct sk_buff *dev_alloc_skb(unsigned int length)
++{
++       /* There is more code here than it seems:
++        * __dev_alloc_skb is an inline */
++	return __dev_alloc_skb(length, GFP_ATOMIC);
++}
++EXPORT_SYMBOL(dev_alloc_skb);
 
 
+Another good chunk of code size saving can be achieved
+by introducing dev_alloc_skb_or_warn(), and using it
+in places like these:
 
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+drivers/net/irda/nsc-ircc.c:
+
+                        skb =3D dev_alloc_skb(len+1);
+                        if (skb =3D=3D NULL)  {
+                                IRDA_WARNING("%s(), memory squeeze, "
+                                             "dropping frame.\n",
+                                             __FUNCTION__);
+
+drivers/net/appletalk/ltpc.c:
+
+        skb =3D dev_alloc_skb(3+sklen);
+        if (skb =3D=3D NULL)
+        {
+                printk("%s: dropping packet due to memory squeeze.\n",
+
+net/econet/af_econet.c:
+
+        newskb =3D alloc_skb((len - sizeof(struct aunhdr) + 15) & ~15,
+                           GFP_ATOMIC);
+        if (newskb =3D=3D NULL)
+        {
+                printk(KERN_DEBUG "AUN: memory squeeze, dropping packet=
+=2E\n");
+                /* Send nack and hope sender tries again */
+                goto bad;
+        }
+
+(hmm, this last one also wants s/alloc_skb(GFP_ATOMIC)/dev_alloc_skb/)
+
+--
+vda
