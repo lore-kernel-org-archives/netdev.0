@@ -1,61 +1,52 @@
-From: Toralf =?iso-8859-15?q?F=F6rster?= <toralf.foerster@gmx.de>
-Subject: Re: tx-checksumming for an Intel Corporation 82540EP Gigabit Ethernet Controller (Mobile)
-Date: Thu, 27 Mar 2008 13:14:05 +0100
-Message-ID: <200803271314.08324.toralf.foerster@gmx.de>
-References: <200803271144.52812.toralf.foerster@gmx.de> <47EB8C5C.7060007@isomerica.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Bugme-new] [Bug 10326] New: inconsistent lock state in
+	net_rx_action
+Date: Thu, 27 Mar 2008 13:22:55 +0100
+Message-ID: <20080327122255.GC2845@ami.dom.local>
+References: <bug-10326-10286@http.bugzilla.kernel.org/> <20080325134320.21525479.akpm@linux-foundation.org> <47EAD8A5.3070806@gmail.com> <20080326171403.ad186037.akpm@linux-foundation.org> <20080327085542.GA2778@ami.dom.local> <20080327021812.601776b8.akpm@linux-foundation.org> <1206615379.8514.502.camel@twins>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1641262.8tvXLtKjG4";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dpn@isomerica.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, marcus@better.se,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:33118 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1756483AbYC0MOL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2008 08:14:11 -0400
-In-Reply-To: <47EB8C5C.7060007@isomerica.net>
+Received: from rn-out-0910.google.com ([64.233.170.187]:62169 "EHLO
+	rn-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756021AbYC0MRS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 08:17:18 -0400
+Received: by rn-out-0910.google.com with SMTP id e24so3316947rng.1
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2008 05:17:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1206615379.8514.502.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart1641262.8tvXLtKjG4
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Thu, Mar 27, 2008 at 11:56:19AM +0100, Peter Zijlstra wrote:
+> On Thu, 2008-03-27 at 02:18 -0700, Andrew Morton wrote:
+...
+> > I bet the net code is wrong and we missed it ;)
 
-At Thursday 27 March 2008 13:00:28 Daniel Noe wrote :
-> Number 3 is best, but solution 2 is fine if you don't need to know about=
-=20
-> the checksums.
->=20
-> Hope that helps.
->=20
-> Cheers,
-> Dan
->=20
+It looks like you are natural born winner! Congratulations!
 
-Oh yes, many thanks Dan. Now I've understood the background of this "issue"
-I was aware for a long time w/o a clue why it happens.
+> How about this:
+> 
+> <irqs disabled>
+> 
+>   netpoll_poll()
+>     poll_napi()
+>       spin_trylock(&napi->poll_lock)
+>       poll_one_napi()
+>         napi->poll() := sky2_poll()
+>           napi_complete()
+>             local_irq_disable()
+>             local_irq_enable() <--- *BUG*
 
-=2D-=20
-MfG/Sincerely
+Yes! I missed it's unconditional here... Great catch!
 
-Toralf F=F6rster
-pgp finger print: 7B1A 07F4 EC82 0F90 D4C2 8936 872A E508 7DB6 9DA3
+On the other hand, still a question why lockdep doesn't see this
+every day?
 
---nextPart1641262.8tvXLtKjG4
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.7 (GNU/Linux)
-
-iD8DBQBH64+QhyrlCH22naMRAtx2AJ9jsWN0+n/rPVkzHs7xxe1MiyFwuQCgkHxh
-7YRVmg7z+z1hkw6KXKxF8C0=
-=ccqh
------END PGP SIGNATURE-----
-
---nextPart1641262.8tvXLtKjG4--
+Jarek P.
