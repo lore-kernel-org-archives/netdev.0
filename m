@@ -1,81 +1,34 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [Bugme-new] [Bug 10326] New: inconsistent lock state in
-	net_rx_action
-Date: Thu, 27 Mar 2008 11:56:19 +0100
-Message-ID: <1206615379.8514.502.camel@twins>
-References: <bug-10326-10286@http.bugzilla.kernel.org/>
-	 <20080325134320.21525479.akpm@linux-foundation.org>
-	 <47EAD8A5.3070806@gmail.com>
-	 <20080326171403.ad186037.akpm@linux-foundation.org>
-	 <20080327085542.GA2778@ami.dom.local>
-	 <20080327021812.601776b8.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tx-checksumming for an Intel Corporation 82540EP Gigabit
+ Ethernet Controller (Mobile)
+Date: Thu, 27 Mar 2008 04:01:39 -0700 (PDT)
+Message-ID: <20080327.040139.233337573.davem@davemloft.net>
+References: <200803271144.52812.toralf.foerster@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, marcus@better.se,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: toralf.foerster@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:64011 "EHLO
-	viefep19-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754633AbYC0K4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 06:56:31 -0400
-In-Reply-To: <20080327021812.601776b8.akpm@linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57779
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754534AbYC0LBj convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2008 07:01:39 -0400
+In-Reply-To: <200803271144.52812.toralf.foerster@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-03-27 at 02:18 -0700, Andrew Morton wrote:
-> On Thu, 27 Mar 2008 09:55:42 +0100 Jarek Poplawski <jarkao2@gmail.com> wrote:
-> 
-> > On Wed, Mar 26, 2008 at 05:14:03PM -0700, Andrew Morton wrote:
-> > ...
-> > > > >> http://bugzilla.kernel.org/show_bug.cgi?id=10326
-> > ...
-> > > No, it's not an irq_disable() thing, directly.
-> > > 
-> > > What lockdep is saying is that sky2_poll() is taking napi->poll_lock for
-> > > writing with softirqs enabled, but net_rx_action() takes the same lock from
-> > > within softirq context.
-> > > 
-> > > If sky2_poll() always takes napi->poll_lock under local_irq_disable() then
-> > > that would be a lockdep bug.
-> > 
-> > sky2_poll() doesn't take napi->poll_lock; this lock is taken by
-> > netpoll_poll() before calling sky2_poll(). And before this hardirqs
-> > are disabled in write_msg(). So, theoretically lockdep could be right
-> > if sky2_poll() would enable irqs after this. (If it were done in
-> > netpoll - lockdep should warn before or after sky2_poll() call.)
-> > But I really can't see any such possibility in sky2_poll().
-> 
-> I can't spot it from a five-minute read either.  gcc's autoinlining really
-> makes this sort of thing much harder than it used to be :(
-> 
-> Anyway, the accusation is that lockdep is busted, in that it doesn't realise that
-> local_irq_disable() blocks softirqs.
-> 
-> I bet the net code is wrong and we missed it ;)
+=46rom: Toralf F=F6rster <toralf.foerster@gmx.de>
+Date: Thu, 27 Mar 2008 11:44:52 +0100
 
-How about this:
+> I'm wondering why I have to add this line in my startup scripts :=20
+>=20
+> $> /usr/sbin/ethtool -K eth0 tx off
+> to avoid that all outgoing packets have bad check sums (seen with wir=
+eshark).
+>=20
+> Wouldn't it makes sense to make this behaviour as default ?
 
-<irqs disabled>
-
-  netpoll_poll()
-    poll_napi()
-      spin_trylock(&napi->poll_lock)
-      poll_one_napi()
-        napi->poll() := sky2_poll()
-          napi_complete()
-            local_irq_disable()
-            local_irq_enable() <--- *BUG*
-
-  <irq>
-    irq_exit()
-      do_softirq()
-        net_rx_action()
-          spin_lock(&napi->poll_lock) <--- Deadlock!
-
-Because we still hold the lock....
-
+The checksums are computed by the card, so the packets seen by
+wireshark simply haven't been checksummed by the card yet.
