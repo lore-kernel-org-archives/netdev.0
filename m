@@ -1,58 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 10326] New: inconsistent lock state in
- net_rx_action
-Date: Thu, 27 Mar 2008 15:22:18 -0700 (PDT)
-Message-ID: <20080327.152218.235944668.davem@davemloft.net>
-References: <20080327124928.GE2845@ami.dom.local>
-	<200803272256.50454.rjw@sisk.pl>
-	<20080327222248.GA3596@ami.dom.local>
+From: Olof Johansson <olof@lixom.net>
+Subject: [PATCH 2/2 v2] pasemi_mac: Netpoll support
+Date: Thu, 27 Mar 2008 17:40:07 -0500
+Message-ID: <20080327224007.GB17980@lixom.net>
+References: <20080326015625.GA23103@lixom.net> <20080326015801.GC23103@lixom.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rjw@sisk.pl, a.p.zijlstra@chello.nl, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	marcus@better.se, shemminger@linux-foundation.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu
-To: jarkao2@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linuxppc-dev@ozlabs.org, pasemi-linux@ozlabs.org,
+	netdev@vger.kernel.org, ncase@xes-inc.com
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49034
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754641AbYC0WWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 18:22:19 -0400
-In-Reply-To: <20080327222248.GA3596@ami.dom.local>
+Received: from lixom.net ([66.141.50.11]:51509 "EHLO mail.lixom.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750873AbYC0WbZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2008 18:31:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20080326015801.GC23103@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Thu, 27 Mar 2008 23:22:48 +0100
+Add netpoll support to allow use of netconsole.
+    
+Signed-off-by: Nate Case <ncase@xes-inc.com>
+Signed-off-by: Olof Johansson <olof@lixom.net>
 
-> On Thu, Mar 27, 2008 at 10:56:49PM +0100, Rafael J. Wysocki wrote:
-> ...
-> > I assume there will be a patch posted for this issue.  Correct?
-> 
-> I guess Peter should know the answer!
+---
+Changed the interrupt handler arguments as found by Valentine. Will push
+through powerpc.git with Jeff's ACKs (that were already given).
 
-Instead of going back and forth like this can someone post
-just take it upon themselves to post such an obvious patch
-already :-)
 
-All of this "he'll do it, she'll do it" just wastes time.
+-Olof
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index a2f0032..fae6a7e 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -383,9 +383,11 @@ static inline void __napi_complete(struct napi_struct *n)
- 
- static inline void napi_complete(struct napi_struct *n)
- {
--	local_irq_disable();
-+	unsigned long flags;
-+
-+	local_irq_save(flags);
- 	__napi_complete(n);
--	local_irq_enable();
-+	local_irq_restore(flags);
+diff --git a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
+index abb1dc4..965f2e4 100644
+--- a/drivers/net/pasemi_mac.c
++++ b/drivers/net/pasemi_mac.c
+@@ -1648,6 +1648,26 @@ static int pasemi_mac_poll(struct napi_struct *napi, int budget)
+ 	return pkts;
  }
  
- /**
++#ifdef CONFIG_NET_POLL_CONTROLLER
++/*
++ * Polling 'interrupt' - used by things like netconsole to send skbs
++ * without having to re-enable interrupts. It's not called while
++ * the interrupt routine is executing.
++ */
++static void pasemi_mac_netpoll(struct net_device *dev)
++{
++	const struct pasemi_mac *mac = netdev_priv(dev);
++
++	disable_irq(mac->tx->chan.irq);
++	pasemi_mac_tx_intr(mac->tx->chan.irq, mac->tx);
++	enable_irq(mac->tx->chan.irq);
++
++	disable_irq(mac->rx->chan.irq);
++	pasemi_mac_rx_intr(mac->rx->chan.irq, mac->rx);
++	enable_irq(mac->rx->chan.irq);
++}
++#endif
++
+ static int pasemi_mac_change_mtu(struct net_device *dev, int new_mtu)
+ {
+ 	struct pasemi_mac *mac = netdev_priv(dev);
+@@ -1807,6 +1827,9 @@ pasemi_mac_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	dev->mtu = PE_DEF_MTU;
+ 	/* 1500 MTU + ETH_HLEN + VLAN_HLEN + 2 64B cachelines */
+ 	mac->bufsz = dev->mtu + ETH_HLEN + ETH_FCS_LEN + LOCAL_SKB_ALIGN + 128;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller = pasemi_mac_netpoll;
++#endif
+ 
+ 	dev->change_mtu = pasemi_mac_change_mtu;
+ 	dev->ethtool_ops = &pasemi_mac_ethtool_ops;
