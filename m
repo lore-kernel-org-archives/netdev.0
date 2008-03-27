@@ -1,49 +1,61 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: linux-next: net build failure
-Date: Thu, 27 Mar 2008 21:12:34 +0900 (JST)
-Message-ID: <20080327.211234.18526256.yoshfuji@linux-ipv6.org>
-References: <20080327.022206.100283150.davem@davemloft.net>
-	<20080327.193006.132922343.yoshfuji@linux-ipv6.org>
-	<20080327.040502.144245837.davem@davemloft.net>
+From: Toralf =?iso-8859-15?q?F=F6rster?= <toralf.foerster@gmx.de>
+Subject: Re: tx-checksumming for an Intel Corporation 82540EP Gigabit Ethernet Controller (Mobile)
+Date: Thu, 27 Mar 2008 13:14:05 +0100
+Message-ID: <200803271314.08324.toralf.foerster@gmx.de>
+References: <200803271144.52812.toralf.foerster@gmx.de> <47EB8C5C.7060007@isomerica.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: multipart/signed;
+  boundary="nextPart1641262.8tvXLtKjG4";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org
+To: dpn@isomerica.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:55338 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755275AbYC0MLI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 08:11:08 -0400
-In-Reply-To: <20080327.040502.144245837.davem@davemloft.net>
+Received: from mail.gmx.net ([213.165.64.20]:33118 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1756483AbYC0MOL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2008 08:14:11 -0400
+In-Reply-To: <47EB8C5C.7060007@isomerica.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <20080327.040502.144245837.davem@davemloft.net> (at Thu, 27 Mar 2008 04:05:02 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+--nextPart1641262.8tvXLtKjG4
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-> Date: Thu, 27 Mar 2008 19:30:06 +0900 (JST)
-> 
-> > How about this?
-> > I believe all functions are not used outside the net subsystem.
-> > 
-> > I'm still testing with allmodconfig but 
-> > at least, allnoconfig works for me.
-> > 
-> > Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> 
-> Denis has posted a slightly different approach.
-> 
-> I kind of agree with what he is doing, because kobject_uevent
-> should not be including any networking headers when CONFIG_NET
-> is not set and that causes large portions of the breakage.
-> 
-> What do you think of his 2 patches?
+At Thursday 27 March 2008 13:00:28 Daniel Noe wrote :
+> Number 3 is best, but solution 2 is fine if you don't need to know about=
+=20
+> the checksums.
+>=20
+> Hope that helps.
+>=20
+> Cheers,
+> Dan
+>=20
 
-I agree.
+Oh yes, many thanks Dan. Now I've understood the background of this "issue"
+I was aware for a long time w/o a clue why it happens.
 
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+=2D-=20
+MfG/Sincerely
 
---yoshfuji
+Toralf F=F6rster
+pgp finger print: 7B1A 07F4 EC82 0F90 D4C2 8936 872A E508 7DB6 9DA3
+
+--nextPart1641262.8tvXLtKjG4
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.7 (GNU/Linux)
+
+iD8DBQBH64+QhyrlCH22naMRAtx2AJ9jsWN0+n/rPVkzHs7xxe1MiyFwuQCgkHxh
+7YRVmg7z+z1hkw6KXKxF8C0=
+=ccqh
+-----END PGP SIGNATURE-----
+
+--nextPart1641262.8tvXLtKjG4--
