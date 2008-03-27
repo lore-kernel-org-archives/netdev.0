@@ -1,78 +1,74 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 1/6 net-2.6.26] [UDP]: Replace struct net on udp_iter_state with seq_net_private.
-Date: Thu, 27 Mar 2008 17:11:33 +0300
-Message-ID: <1206627098-2456-1-git-send-email-den@openvz.org>
-References: <1206627041.2109.15.camel@iris.sw.ru>
-Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: Sebastian Siewior <bigeasy@linutronix.de>
+Subject: [PATCH / RFC 1/2] fec: kill warnings
+Date: Thu, 27 Mar 2008 15:00:42 +0100
+Message-ID: <20080327140119.658973905@linutronix.de>
+References: <20080327140041.072611004@linutronix.de>
+Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
+	Greg Ungerer <gerg@uclinux.org>
+To: uclinux-dev@uclinux.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:41688 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755704AbYC0OLJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2008 10:11:09 -0400
-In-Reply-To: <1206627041.2109.15.camel@iris.sw.ru>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:42825 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756799AbYC0OLK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 10:11:10 -0400
+Content-Disposition: inline; filename=m68knommu-remove_unused_in_fec.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
- include/net/udp.h |    2 +-
- net/ipv4/udp.c    |    8 ++++----
- 2 files changed, 5 insertions(+), 5 deletions(-)
+linux-2.6/drivers/net/fec.c: In function 'fec_enet_module_init':
+linux-2.6/drivers/net/fec.c:2627: warning: unused variable 'j'
+linux-2.6/drivers/net/fec.c: At top level:
+linux-2.6/drivers/net/fec.c:2136: warning: 'mii_link_interrupt' defined but not used
 
-diff --git a/include/net/udp.h b/include/net/udp.h
-index 635940d..77af7d4 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -194,7 +194,7 @@ struct udp_seq_afinfo {
+Signed-off-by: Sebastian Siewior <bigeasy@linutronix.de>
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -67,6 +67,11 @@
+ #define	FEC_MAX_PORTS	1
+ #endif
+ 
++#if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
++	defined(CONFIG_M520x) || defined(CONFIG_M532x)
++#define DONT_NEED_mii_link_interrupt
++#endif
++
+ /*
+  * Define the fixed address of the FEC hardware.
+  */
+@@ -1222,7 +1227,7 @@ static phy_info_t const * const phy_info
  };
  
- struct udp_iter_state {
--	struct net              *net;
-+	struct seq_net_private  p;
- 	sa_family_t		family;
- 	struct hlist_head	*hashtable;
- 	int			bucket;
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 80007c7..6d740ad 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1506,7 +1506,7 @@ static struct sock *udp_get_first(struct seq_file *seq)
- {
- 	struct sock *sk;
- 	struct udp_iter_state *state = seq->private;
--	struct net *net = state->net;
-+	struct net *net = seq_file_net(seq);
+ /* ------------------------------------------------------------------------- */
+-#if !defined(CONFIG_M532x)
++#ifndef DONT_NEED_mii_link_interrupt
+ #ifdef CONFIG_RPXCLASSIC
+ static void
+ mii_link_interrupt(void *dev_id);
+@@ -2126,6 +2131,7 @@ mii_discover_phy(uint mii_reg, struct ne
  
- 	for (state->bucket = 0; state->bucket < UDP_HTABLE_SIZE; ++state->bucket) {
- 		struct hlist_node *node;
-@@ -1525,7 +1525,7 @@ found:
- static struct sock *udp_get_next(struct seq_file *seq, struct sock *sk)
- {
- 	struct udp_iter_state *state = seq->private;
--	struct net *net = state->net;
-+	struct net *net = seq_file_net(seq);
+ /* This interrupt occurs when the PHY detects a link change.
+ */
++#ifndef DONT_NEED_mii_link_interrupt
+ #ifdef CONFIG_RPXCLASSIC
+ static void
+ mii_link_interrupt(void *dev_id)
+@@ -2148,6 +2154,7 @@ mii_link_interrupt(int irq, void * dev_i
  
- 	do {
- 		sk = sk_next(sk);
-@@ -1598,7 +1598,7 @@ static int udp_seq_open(struct inode *inode, struct file *file)
- 	s->seq_ops.next		= udp_seq_next;
- 	s->seq_ops.show		= afinfo->seq_show;
- 	s->seq_ops.stop		= udp_seq_stop;
--	s->net                  = net;
-+	s->p.net                = net;
- 
- 	rc = seq_open(file, &s->seq_ops);
- 	if (rc)
-@@ -1620,7 +1620,7 @@ static int udp_seq_release(struct inode *inode, struct file *file)
- 	struct seq_file *seq = file->private_data;
- 	struct udp_iter_state *s = seq->private;
- 
--	put_net(s->net);
-+	put_net(s->p.net);
- 	seq_release_private(inode, file);
- 	return 0;
+ 	return IRQ_HANDLED;
  }
++#endif
+ 
+ static int
+ fec_enet_open(struct net_device *dev)
+@@ -2624,7 +2631,7 @@ fec_stop(struct net_device *dev)
+ static int __init fec_enet_module_init(void)
+ {
+ 	struct net_device *dev;
+-	int i, j, err;
++	int i, err;
+ 	DECLARE_MAC_BUF(mac);
+ 
+ 	printk("FEC ENET Version 0.2\n");
+
 -- 
-1.5.3.rc5
 
