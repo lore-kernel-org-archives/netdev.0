@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] e1000e: test MSI interrupts
-Date: Thu, 27 Mar 2008 14:59:59 -0700 (PDT)
-Message-ID: <20080327.145959.64040869.davem@davemloft.net>
-References: <47EA9911.8040101@garzik.org>
-	<47EAB54A.1060306@intel.com>
-	<36D9DB17C6DE9E40B059440DB8D95F5204BF07F7@orsmsx418.amr.corp.intel.com>
+Subject: Re: kernel 2.6.25-rc7 highly unstable on high load
+Date: Thu, 27 Mar 2008 15:03:08 -0700 (PDT)
+Message-ID: <20080327.150308.205829519.davem@davemloft.net>
+References: <47EBC641.8040405@cosmosbay.com>
+	<20080327183745.M9944@visp.net.lb>
+	<47EBEDC9.6080100@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, jeff@garzik.org,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: jesse.brandeburg@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55710
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756482AbYC0V77 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 17:59:59 -0400
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5204BF07F7@orsmsx418.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: denys@visp.net.lb, kaber@trash.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: dada1@cosmosbay.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <47EBEDC9.6080100@cosmosbay.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Date: Thu, 27 Mar 2008 10:53:43 -0700
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Thu, 27 Mar 2008 19:56:09 +0100
 
-> >> The platforms with MSI problems should be discovered, made public,
-> >> and worked around. 
+> Maybe some netfilter problem ?
 > 
-> This is our workaround, it is our fault, the incompatible chipset is in
-> an x3850 IBM system.
+> Please tell us more about your machine ;)
 
-Then you look for that system chipset variant in the e1000e driver and
-not use MSI when it is found.
+I'm beginning to suspect it's IFB and shaping somehow.
 
-A generic test really is not warranted.
+If those variables could be eliminated by eliminating them
+from the configuration, it would help diagnose this a lot.
