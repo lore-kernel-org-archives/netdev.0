@@ -1,118 +1,190 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH net-2.6.26 2/6][NETNS][SOCK]: Introduce per-net inuse
- counters.
-Date: Fri, 28 Mar 2008 08:36:15 +0100
-Message-ID: <47EC9FEF.1010500@cosmosbay.com>
-References: <47EB550B.8070401@openvz.org> <47EB5711.8040705@openvz.org> <47EC01AE.9010402@cosmosbay.com> <47EC9BD7.8060304@openvz.org>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: Re: kernel 2.6.25-rc7 highly unstable on high load
+Date: Fri, 28 Mar 2008 09:38:54 +0200
+Message-ID: <20080328073854.M73368@visp.net.lb>
+References: <47EBC641.8040405@cosmosbay.com> <20080327183745.M9944@visp.net.lb> <47EBEDC9.6080100@cosmosbay.com> <20080327.150308.205829519.davem@davemloft.net> <20080328052543.M60286@visp.net.lb> <47EC8701.1080604@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp21.orange.fr ([80.12.242.46]:39445 "EHLO smtp21.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751287AbYC1HgV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 03:36:21 -0400
-In-Reply-To: <47EC9BD7.8060304@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset=koi8-r
+To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <47EC8701.1080604@cosmosbay.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pavel Emelyanov a =E9crit :
-> Eric Dumazet wrote:
->  =20
->> Pavel Emelyanov a =E9crit :
->>    =20
->>> This is probably the most controversial part of the set.
->>>
->>> The counters are stored in a per-cpu array on a struct net. To=20
->>> index in this array the prot->inuse is declared as int and used.=20
->>>
->>> Numbers (indices) to protos are generated with the appropriate=20
->>> enum. I though about using some existing IPPROTO_XXX numbers for
->>> protocols but they were too large (IPPROTO_RAW is 255) and did=20
->>> not differ for ipv4 and ipv6 (there's no IP6PROTO_RAW, etc).
->>>
->>> The sock_prot_inuse_(add|get) now use the net argument to
->>> get the counter, but this all hides under CONFIG_NET_NS.
->>>
->>> The sock_prot_inuse_(init|fini) are no-ops. DEFINE_PROTO_INUSE
->>> is empty and REF_PROTO_INUSE assigns an index to a proto.
->>>
->>>  =20
->>>      =20
->> Given that :
->>
->> 1) pcounter should really go away from kernel, since Andrew disagree=
-=20
->> with the implementation.
->>    =20
->
-> Does this and ... (below)
->
->  =20
->> 2) the need to enumerate all protocols in your enum, it seems ... ug=
-ly :)
->>    =20
->
-> Yup :(
->
->  =20
->> 3) alloc_percpu(struct net_prot_inuse) per net is nice because we do=
-nt=20
->> waste memory (if we had to use percpu_counters for each proto for ex=
-ample)
->>
->> I suggest to :
->>
->> 1) not use pcounter anymore
->>    =20
->
-> ... this mean that I can rework the inuse accounting in order not
-> to use pcounters at all even with CONFIG_NET_NS=3Dn? :)
->
->  =20
-Absolutely
+Already patched and tested, it doesn't change anything.
 
-I had to do it eventually but my paid work is currently taking me 10-12=
-=20
-hours per day, so please be my guest :)
+On Fri, 28 Mar 2008 06:49:53 +0100, Eric Dumazet wrote
+> Denys Fedoryshchenko a :
+> > Just to make sure 2.6.24.3 is stable and it is regression i am supplying 
+> > output from it.
+> > Do you want me to submit summary to bugzilla and regression list as well?
+> >
+> > And in short, IMHO 2.6.25 have major issues on routing that have to be 
+fixed 
+> > before release. TRIE is crashing, and even with HASH there is leak. I am 
+> > trying my best to bisect it, but it is major router and i cannot take 
+much 
+> > risk on it, so i wish i can simulate in my home mini-lab. Still i am not 
+able 
+> > to get even proper switch (Lebanon difficult country for IT).
+> >
+> > Kup ~ # uname -a
+> > Linux Kup 2.6.24.3-build-0023 #3 SMP Sat Mar 8 13:01:35 EET 2008 i686 
+unknown
+> >
+> > up ~ # rtstat -i60 -c6000
+> > rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
+> > rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
+> > rt_cache|
+> >  entries|  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_marti| 
+> > out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlist|
+> > out_hlis|
+> >         |        |     tot|      mc|     ute|        |  an_dst|  
+> > an_src|        |    _tot|     _mc|        |      ed|    miss| verflow| 
+> > _search|t_search|
+> >    54750|    4430|    1128|       0|      12|       0|       0|       
+0|     
+> > 263|     190|       0|     709|     708|       0|       0|    3545|     
+313|
+> >    92913|    8829|    1211|       0|       1|       0|       0|       
+0|     
+> > 343|     163|       0|    1375|    1373|       0|       0|   12545|     
+724|
+> >   115323|    8232|     906|       0|       0|       0|       0|       
+0|     
+> > 299|     128|       0|    1035|    1033|       0|       0|   18069|     
+813|
+> >   128985|    8650|     839|       0|       0|       0|       0|       
+0|     
+> > 289|     115|       0|     954|     952|       0|       0|   22515|     
+845|
+> >   116682|    8911|     861|       0|       0|       0|       0|       
+0|     
+> > 288|     117|       0|     978|     976|       0|       0|   23433|     
+775|
+> >    99969|    9164|     889|       0|       0|       0|       0|       
+0|     
+> > 280|     113|       0|    1002|    1000|       0|       0|   26741|     
+839|
+> >   124602|    9395|    1012|       0|       0|       0|       0|       
+0|     
+> > 271|     122|       0|    1134|    1132|       0|       0|   27381|     
+787|
+> >   110051|   10036|     824|       0|       0|       0|       0|       
+0|     
+> > 279|     120|       0|     944|     942|       0|       0|   28558|     
+783|
+> >   126835|   10631|     772|       0|       0|       0|       0|       
+0|     
+> > 274|     117|       0|     888|     886|       0|       0|   29451|     
+780|
+> >   111881|   10357|     762|       0|       0|       0|       0|       
+0|     
+> > 275|     117|       0|     879|     877|       0|       0|   28235|     
+751|
+> >   127018|   10178|     796|       0|       0|       0|       0|       
+0|     
+> > 283|     117|       0|     913|     911|       0|       0|   29480|     
+807|
+> >   112242|    9839|     814|       0|       0|       0|       0|       
+0|     
+> > 293|     115|       0|     929|     927|       0|       0|   28095|     
+796|
+> >    41267|    9493|    1217|       0|       1|       0|       0|       
+0|     
+> > 269|     138|       0|     811|     810|       0|       0|   18545|     
+548|
+> >    76380|    9722|    1060|       0|       1|       0|       0|       
+0|     
+> > 250|     135|       0|    1195|    1193|       0|       0|   14786|     
+414|
+> >    99922|    9811|     779|       0|       0|       0|       0|       
+0|     
+> > 281|     124|       0|     902|     900|       0|       0|   21853|     
+589|
+> >
+> > Kup ~ # rtstat -i60 -c6000
+> > rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
+> > rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
+> > rt_cache|
+> >  entries|  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_marti| 
+> > out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlist|
+> > out_hlis|
+> >         |        |     tot|      mc|     ute|        |  an_dst|  
+> > an_src|        |    _tot|     _mc|        |      ed|    miss| verflow| 
+> > _search|t_search|
+> >
+> >   122053|  150955|   14888|       0|      25|       1|       0|       
+0|    
+> > 4611|    2090|       0|   15820|   15789|       0|       0|  369513|   
+11562|
+> >   105226|   10215|     872|       0|       0|       0|       0|       
+0|     
+> > 279|     116|       0|     988|     986|       0|       0|   30343|     
+799|
+> >   126236|   10462|     924|       0|       0|       0|       0|       
+0|     
+> > 260|     120|       0|    1044|    1042|       0|       0|   31699|     
+782|
+> >   114492|    9782|     884|       0|       0|       0|       0|       
+0|     
+> > 253|     120|       0|    1005|    1003|       0|       0|   29695|     
+722|
+> >
+> > After ip route flush cache
+> > Kup ~ # rtstat -i60 -c6000
+> > rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
+> > rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
+> > rt_cache|
+> >  entries|  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_marti| 
+> > out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlist|
+> > out_hlis|
+> >         |        |     tot|      mc|     ute|        |  an_dst|  
+> > an_src|        |    _tot|     _mc|        |      ed|    miss| verflow| 
+> > _search|t_search|
+> >     9088|  202136|   19262|       0|      29|       1|       0|       
+0|    
+> > 5976|    2696|       0|   20647|   20606|       0|       0|  521714|   
+15415|
+> >
+> >
+> > !!!!!
+> > I am not wrong, ip route flush cache doesn't work at 2.6.25-rc7. I will 
+make 
+> > sure about that now.
+> >   
+> Maybe you are a litle bit too fast for "ip route flush cache" :)
+> 
+> It used to work like that : schedule a timer to start a flush in 
+> about 2 seconds. A flush meaning : scan the whole table and delete 
+> all entries.
+> 
+> On machines with 4 millions dst entries, this was using too much 
+> time and eventually crashing.
+> 
+> On recent kernels, each rtable entry has a special field named 
+> rt_genid, so that "ip route flush cache" doesnt have to scan the 
+> whole table, but only change the global genid. rtables entries will 
+> be deleted later, when their rt_genid is found to be different than 
+> the global genid.
+> 
+> Please try the patch that was suggested yesterday, as it is probably 
+> the cure your router needs.
+> 
+> http://git2.kernel.org/?p=linux/kernel/git/davem/net-
+2.6.git;a=commitdiff;h=7c0ecc4c4f8fd90988aab8a95297b9c0038b6160
+> 
+> Thank you
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-reference : http://kerneltrap.org/mailarchive/linux-kernel/2008/2/16/87=
-3754
 
->> 2) change 'inuse' field to 'inuse_idx' or 'prot_num' that is=20
->> automatically allocated at proto_register time, instead statically a=
-t=20
->> compile time.
->>    =20
->
-> Hm... I like this approach. Will do.
->
->  =20
->> Just provide a big enough NET_INUSE_NR (might depend on IPV6 present=
- or=20
->> not, static or module) to take into account all possible protocols.
->>    =20
->
-> Well, I though about this, but wasn't sure whether such heuristics
-> would be accepted.=20
->
->  =20
->> struct net_prot_inuse {
->> 	int val[NET_INUSE_NR];
->> };
->>
->>
->>    =20
->
->
->  =20
-
-Thank you
-
-
-
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
