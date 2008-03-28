@@ -1,48 +1,63 @@
-From: "Rami Rosen" <ramirose@gmail.com>
-Subject: [PATCH] [net-2.6.26] [IPV6] [CLEANUP] Remove unused method declaration in include/net/addrconf.h.
-Date: Fri, 28 Mar 2008 13:23:53 +0300
-Message-ID: <eb3ff54b0803280323w3b87f3fdy1ecfdb6424e62795@mail.gmail.com>
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: Re: [PATCH / RFC 2/2] fec: fixup spinlocks.
+Date: Fri, 28 Mar 2008 20:24:14 +1000
+Message-ID: <47ECC74E.6010302@snapgear.com>
+References: <20080327140041.072611004@linutronix.de>
+	<20080327140120.068976876@linutronix.de>
+	<47EC9701.4090504@snapgear.com>
+	<20080328092440.GC27124@www.tglx.de>
+Reply-To: uClinux development list <uclinux-dev@uclinux.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_3286_20348528.1206699833583"
-Cc: linux-kernel@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.156]:24300 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753276AbYC1KXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 06:23:55 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so216172fgb.17
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 03:23:53 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-------=_Part_3286_20348528.1206699833583
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
+	uclinux-dev@uclinux.org
+To: Sebastian Siewior <bigeasy@linutronix.de>
+Return-path: <uclinux-dev-bounces@uclinux.org>
+In-Reply-To: <20080328092440.GC27124@www.tglx.de>
+List-Unsubscribe: <http://mailman.uclinux.org/mailman/listinfo/uclinux-dev>,
+	<mailto:uclinux-dev-request@uclinux.org?subject=unsubscribe>
+List-Archive: <http://mailman.uclinux.org/pipermail/uclinux-dev>
+List-Post: <mailto:uclinux-dev@uclinux.org>
+List-Help: <mailto:uclinux-dev-request@uclinux.org?subject=help>
+List-Subscribe: <http://mailman.uclinux.org/mailman/listinfo/uclinux-dev>,
+	<mailto:uclinux-dev-request@uclinux.org?subject=subscribe>
+Sender: uclinux-dev-bounces@uclinux.org
+Errors-To: uclinux-dev-bounces@uclinux.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-  This patches removes unused declaration of addrconf_forwarding_on() method
-  in include/net/addrconf.h.
+Hi Sebastion,
 
-Regards,
-Rami Rosen
+Sebastian Siewior wrote:
+> * Greg Ungerer | 2008-03-28 16:58:09 [+1000]:
+> 
+>> Hi Sebastion,
+> Hi Greg,
+> 
+>>> 4. Use the .*_irqsave variant in that part which may be called from IRQ or
+>>> user mode.
+>> I couldn't see any changes here that switched to use *_irqsave?
+> The only lock user that may be called from both called from both places
+> is mii_queue() and that one allready uses the save variant.
+> I guess you want me to repost that patch without point 4 in the summary
+> right?
+
+No, don't worry about it.
+I just wanted to make sure there wasn't more to the patch.
+
+Thanks
+Greg
 
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
-------=_Part_3286_20348528.1206699833583
-Content-Type: text/plain; name=patch.txt
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fecltz9p0
-Content-Disposition: attachment; filename=patch.txt
-
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2FkZHJjb25mLmggYi9pbmNsdWRlL25ldC9hZGRyY29u
-Zi5oCmluZGV4IGQwYzQ3YzMuLmQ4OWIwYmMgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbmV0L2FkZHJj
-b25mLmgKKysrIGIvaW5jbHVkZS9uZXQvYWRkcmNvbmYuaApAQCAtMTg1LDcgKzE4NSw2IEBAIHN0
-YXRpYyBpbmxpbmUgdm9pZCBpbjZfaWZhX3B1dChzdHJ1Y3QgaW5ldDZfaWZhZGRyICppZnApCiAj
-ZGVmaW5lIGluNl9pZmFfaG9sZChpZnApCWF0b21pY19pbmMoJihpZnApLT5yZWZjbnQpCiAKIAot
-ZXh0ZXJuIHZvaWQJCQlhZGRyY29uZl9mb3J3YXJkaW5nX29uKHZvaWQpOwogLyoKICAqCUhhc2gg
-ZnVuY3Rpb24gdGFrZW4gZnJvbSBuZXRfYWxpYXMuYwogICovCg==
-------=_Part_3286_20348528.1206699833583--
+------------------------------------------------------------------------
+Greg Ungerer  --  Chief Software Dude       EMAIL:     gerg@snapgear.com
+SnapGear -- a Secure Computing Company      PHONE:       +61 7 3435 2888
+825 Stanley St,                             FAX:         +61 7 3891 3630
+Woolloongabba, QLD, 4102, Australia         WEB: http://www.SnapGear.com
+_______________________________________________
+uClinux-dev mailing list
+uClinux-dev@uclinux.org
+http://mailman.uclinux.org/mailman/listinfo/uclinux-dev
+This message was resent by uclinux-dev@uclinux.org
+To unsubscribe see:
+http://mailman.uclinux.org/mailman/options/uclinux-dev
