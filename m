@@ -1,70 +1,35 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 4/8] e1000e: limit EEPROM size accesses
-Date: Fri, 28 Mar 2008 09:15:21 -0700
-Message-ID: <20080328161521.6562.23976.stgit@localhost.localdomain>
-References: <20080328161503.6562.44329.stgit@localhost.localdomain>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: tg3 bad performance, lots of hardware interrupts
+Date: Fri, 28 Mar 2008 09:49:20 -0800
+Message-ID: <1206726560.6866.5.camel@dell>
+References: <alpine.DEB.1.00.0803271532570.30549@penti.org>
+ <20080327.144925.196529669.davem@davemloft.net>
+ <1206666100.5368.6.camel@dell>
+ <alpine.DEB.1.00.0803281440460.23558@penti.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: jeff@garzik.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20080328161503.6562.44329.stgit@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: "David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: "Harald Hannelius" <harald@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3391 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751822AbYC1QsF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 12:48:05 -0400
+In-Reply-To: <alpine.DEB.1.00.0803281440460.23558@penti.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+On Fri, 2008-03-28 at 15:04 +0200, Harald Hannelius wrote:
+> Phew, I thought that running ethtool -t was like doing stop-A-sync on
+> a 
+> Sun. It took almost half an hour to run that ethtool -t command;
 
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+Something is very wrong.  ethtool -t should only take a few seconds to
+complete.  You can try ethtool -t eth0 online to reduce the number of
+tests to see if it makes a difference.
 
- drivers/net/e1000e/82571.c  |    4 ++++
- drivers/net/e1000e/es2lan.c |    4 ++++
- 2 files changed, 8 insertions(+), 0 deletions(-)
+How many of these NICs do you have?  If you have more than one, do they
+all behave the same way?  Have they ever worked well before?
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index f7e1619..9b46a00 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -171,6 +171,10 @@ static s32 e1000_init_nvm_params_82571(struct e1000_hw *hw)
- 		 * for setting word_size.
- 		 */
- 		size += NVM_WORD_SIZE_BASE_SHIFT;
-+
-+		/* EEPROM access above 16k is unsupported */
-+		if (size > 14)
-+			size = 14;
- 		nvm->word_size	= 1 << size;
- 		break;
- 	}
-diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
-index e3f4aee..2689e4b 100644
---- a/drivers/net/e1000e/es2lan.c
-+++ b/drivers/net/e1000e/es2lan.c
-@@ -178,6 +178,10 @@ static s32 e1000_init_nvm_params_80003es2lan(struct e1000_hw *hw)
- 	 * for setting word_size.
- 	 */
- 	size += NVM_WORD_SIZE_BASE_SHIFT;
-+
-+	/* EEPROM access above 16k is unsupported */
-+	if (size > 14)
-+		size = 14;
- 	nvm->word_size	= 1 << size;
- 
- 	return 0;
-
-
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
