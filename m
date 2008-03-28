@@ -1,93 +1,124 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.25-rc7-git2: Reported regressions from 2.6.24
-Date: Fri, 28 Mar 2008 10:46:12 -0700
-Message-ID: <20080328104612.2641fb74.akpm@linux-foundation.org>
-References: <200803272353.51901.rjw@sisk.pl>
-	<alpine.LFD.1.00.0803271859280.14670@woody.linux-foundation.org>
-	<Pine.LNX.4.64.0803272002090.11979@schroedinger.engr.sgi.com>
-	<alpine.LFD.1.00.0803272050290.14670@woody.linux-foundation.org>
-	<47ECCD17.7080908@artcom.pl>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH net-2.6.26 1/5][SOCK]: Enumerate struct proto-s to facilitate
+ percpu inuse accounting (v2).
+Date: Fri, 28 Mar 2008 18:15:51 +0100
+Message-ID: <47ED27C7.5000202@cosmosbay.com>
+References: <47ECE4B7.40806@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Christoph Lameter <clameter@sgi.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	netdev@vger.kernel.org
-To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@artcom.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756974AbYC1RrK@vger.kernel.org>
-In-Reply-To: <47ECCD17.7080908@artcom.pl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp23.orange.fr ([80.12.242.50]:48352 "EHLO smtp23.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757315AbYC1RtO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 13:49:14 -0400
+Received: from smtp23.orange.fr (mwinf2348 [10.232.4.148])
+	by mwinf2305.orange.fr (SMTP Server) with ESMTP id F35541C25936
+	for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 18:16:38 +0100 (CET)
+In-Reply-To: <47ECE4B7.40806@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 28 Mar 2008 11:48:55 +0100 Pawe__ Staszewski <pstaszewski@artcom.pl> wrote:
+Pavel Emelyanov a =E9crit :
+> The inuse counters are going to become a per-cpu array.
+> Introduce an index for this array on the struct proto.
+>
+> To handle the case of proto register-unregister-register
+> loop the bitmap is used. All its bits manipulations are
+> protected with proto_list_lock and a sanity check for the
+> bitmap being exhausted is also added.
+>
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+>
+>  =20
+Acked-by: Eric Dumazet <dada1@cosmosbay.com>
 
-> Linus Torvalds pisze:
-> > On Thu, 27 Mar 2008, Christoph Lameter wrote:
-> >   
-> >> Slab allocations can never use GFP_HIGHMEM.
-> >>     
-> >
-> > Totally irrelevant.
-> >
-> > The page allocation path does
-> >
-> >         if (gfp_flags & __GFP_ZERO)
-> >                 prep_zero_page(page, order, gfp_flags);
-> >
-> > and that will cause a warning REGARDLESS of whether the page is a HIGHMEM 
-> > page or not.
-> >
-> > And the fact is, passing in GFP_ZERO from the SLUB code is a bug 
-> > regardless, because it unnecessarily does the dual memset().
-> >
-> > So here's a damn big clue:
-> >  - SLUB does its own GFP_ZERO handling
-> >  - so passing GFP_ZERO down to the page allocator is a f*cking bug
-> >  - and this has NOTHING what-so-ever to do with GFP_HIGHMEM or even 
-> >    whether the warning is "valid" or not - it's a bug even if the warning 
-> >    had never happened.
-> >
-> > So stop blathering, and just admit that this was buggy. It was also 
-> > fundamentally fragile to leave GFP_ZERO around when it was known to not be 
-> > valid at that point (exactly because GFP_ZERO was handled by the caller).
-> >
-> > 		Linus
-> >
-> >
-> >   
-> Sorry for offtopic but i have the same problem with kernels 2.6.25-*
-> like:
-> http://kerneltrap.org/mailarchive/linux-netdev/2008/3/27/1274804
-> http://kerneltrap.org/mailarchive/linux-netdev/2008/3/27/1270334
-> 
-> I search linux-netdev and found this links.
-> I only sugest that 
-> 
-> 	Denys Fedoryshchenko
-> 
-> can have the same problem that i have with this kernels.
-> I must revert my all kernels to 2.6.23.11 to get stable work on high (ip 
-> traffic) loads.
-> 
-> And there is no documentation for LRO... and Stephen Hemminger write me 
-> that LRO is not compatible with bridgeing and routing.
-> see this link:
-> http://bugzilla.kernel.org/show_bug.cgi?id=10335
-> 
-> 
-> So there must be some documentation for this ... because people can have 
-> many problems with this.
-> 
+> ---
+>  include/net/sock.h |    1 +
+>  net/core/sock.c    |   34 ++++++++++++++++++++++++++++++++++
+>  2 files changed, 35 insertions(+), 0 deletions(-)
+>
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 1c9d059..abc6341 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -562,6 +562,7 @@ struct proto {
+> =20
+>  	/* Keeping track of sockets in use */
+>  #ifdef CONFIG_PROC_FS
+> +	unsigned int		inuse_idx;
+>  	struct pcounter		inuse;
+>  #endif
+> =20
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 3ee9506..7d2c8ad 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -1940,6 +1940,38 @@ EXPORT_SYMBOL(sk_common_release);
+>  static DEFINE_RWLOCK(proto_list_lock);
+>  static LIST_HEAD(proto_list);
+> =20
+> +#ifdef CONFIG_PROC_FS
+> +#define PROTO_INUSE_NR	64	/* should be enough for the first time */
+> +
+> +static DECLARE_BITMAP(proto_inuse_idx, PROTO_INUSE_NR);
+> +
+> +static void assign_proto_idx(struct proto *prot)
+> +{
+> +	prot->inuse_idx =3D find_first_zero_bit(proto_inuse_idx, PROTO_INUS=
+E_NR);
+> +
+> +	if (unlikely(prot->inuse_idx =3D=3D PROTO_INUSE_NR - 1)) {
+> +		printk(KERN_ERR "PROTO_INUSE_NR exhausted\n");
+> +		return;
+> +	}
+> +
+> +	set_bit(prot->inuse_idx, proto_inuse_idx);
+> +}
+> +
+> +static void release_proto_idx(struct proto *prot)
+> +{
+> +	if (prot->inuse_idx !=3D PROTO_INUSE_NR - 1)
+> +		clear_bit(prot->inuse_idx, proto_inuse_idx);
+> +}
+> +#else
+> +static inline void assign_proto_idx(struct proto *prot)
+> +{
+> +}
+> +
+> +static inline void release_proto_idx(struct proto *prot)
+> +{
+> +}
+> +#endif
+> +
+>  int proto_register(struct proto *prot, int alloc_slab)
+>  {
+>  	char *request_sock_slab_name =3D NULL;
+> @@ -2000,6 +2032,7 @@ int proto_register(struct proto *prot, int allo=
+c_slab)
+> =20
+>  	write_lock(&proto_list_lock);
+>  	list_add(&prot->node, &proto_list);
+> +	assign_proto_idx(prot);
+>  	write_unlock(&proto_list_lock);
+>  	return 0;
+> =20
+> @@ -2026,6 +2059,7 @@ EXPORT_SYMBOL(proto_register);
+>  void proto_unregister(struct proto *prot)
+>  {
+>  	write_lock(&proto_list_lock);
+> +	release_proto_idx(prot);
+>  	list_del(&prot->node);
+>  	write_unlock(&proto_list_lock);
+> =20
+>
+>
+>  =20
 
-These are all networking things, so let's cc that list.
 
-> 
-> Sorry for offtopic but this can resolve problems like my and Denys .
 
-It's very on-topic - thanks for the reminder.
 
-Rafael, are these things actually on the list?
