@@ -1,40 +1,51 @@
-From: Guennadi Liakhovetski <lg@denx.de>
-Subject: Bug in cs89x0.c?
-Date: Fri, 28 Mar 2008 16:09:06 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0803281603110.4646@axis700.grange>
+From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+Subject: [patch] net: Comment dev_kfree_skb_irq and dev_kfree_skb_any better
+Date: Fri, 28 Mar 2008 08:13:36 -0700 (PDT)
+Message-ID: <185527.39512.qm@web52004.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:39799 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753355AbYC1PIx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2008 11:08:53 -0400
-Received: from lyakh (helo=localhost)
-	by axis700.grange with local-esmtp (Exim 4.63)
-	(envelope-from <g.liakhovetski@gmx.de>)
-	id 1JfGCY-00023T-I0
-	for netdev@vger.kernel.org; Fri, 28 Mar 2008 16:09:06 +0100
+Received: from web52004.mail.re2.yahoo.com ([206.190.49.251]:47662 "HELO
+	web52004.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753170AbYC1PUT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 11:20:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
 
-Do I understand it right, that this
+Comment dev_kfree_skb_irq and dev_kfree_skb_any better.
 
-705:		i = readreg(dev, PP_LineCTL);
-706:		/* Preserve the setting of the HCB1 pin. */
-707:		if ((i & (HCB1 | HCB1_ENBL)) ==  (HCB1 | HCB1_ENBL))
-708:			lp->adapter_cnf |= A_CNF_DC_DC_POLARITY;
+Signed-off-by: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
 
-(line numbers may deviate slightly) is a bug? HCB1 and HCB1_ENBL bits are 
-from the PP_SelfCTL and not from the PP_LineCTL register...
-
-Thanks
-Guennadi
 ---
-Guennadi Liakhovetski, Ph.D.
 
-DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
-Phone: +49-8142-66989-0 Fax: +49-8142-66989-80  Email: office@denx.de
+--- linux-2.6/include/linux/netdevice.h    2008-03-23 09:06:05.264803500 +0200
++++ linux/include/linux/netdevice.h    2008-03-28 17:08:33.568098500 +0200
+@@ -1072,12 +1072,14 @@ static inline int netif_is_multiqueue(co
+ }
+ 
+ /* Use this variant when it is known for sure that it
+- * is executing from interrupt context.
++ * is executing from hardware interrupt context or with hardware interrupts
++ * disabled.
+  */
+ extern void dev_kfree_skb_irq(struct sk_buff *skb);
+ 
+ /* Use this variant in places where it could be invoked
+- * either from interrupt or non-interrupt context.
++ * from either hardware interrupt or other context, with hardware interrupts
++ * either disabled or enabled.
+  */
+ extern void dev_kfree_skb_any(struct sk_buff *skb);
+ 
+
+
+
+
+
+      ____________________________________________________________________________________
+Be a better friend, newshound, and 
+know-it-all with Yahoo! Mobile.  Try it now.  http://mobile.yahoo.com/;_ylt=Ahu06i62sR8HDtDypao8Wcj9tAcJ
