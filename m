@@ -1,29 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.26] Remove three unused method declarations in
- include/net/ipv6.h
-Date: Thu, 27 Mar 2008 17:39:43 -0700 (PDT)
-Message-ID: <20080327.173943.232327282.davem@davemloft.net>
-References: <eb3ff54b0803270205n4a15a884kaa45852e510b27c6@mail.gmail.com>
+Subject: Re: [PATCH 1/7] [NET]: uninline skb_put, de-bloats a lot
+Date: Thu, 27 Mar 2008 17:43:48 -0700 (PDT)
+Message-ID: <20080327.174348.05360095.davem@davemloft.net>
+References: <1206621486-5408-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<1206621486-5408-2-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: ramirose@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, acme@redhat.com
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39580
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39585
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752225AbYC1Ajn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 20:39:43 -0400
-In-Reply-To: <eb3ff54b0803270205n4a15a884kaa45852e510b27c6@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1752183AbYC1Ant convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2008 20:43:49 -0400
+In-Reply-To: <1206621486-5408-2-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rami Rosen" <ramirose@gmail.com>
-Date: Thu, 27 Mar 2008 11:05:55 +0200
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Thu, 27 Mar 2008 14:38:00 +0200
 
-> This patch removes three unused method declarations in include/net/ipv6.h:
-> inet_getfrag_t(), ipv6_build_nfrag_opts() and ipv6_build_frag_opts().
-> 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> Allyesconfig (v2.6.24-mm1):
+>=20
+> ~500 files changed
+> ...
+>  869 funcs, 198 +, 111003 -, diff: -110805 --- skb_put
+>   skb_put                       | +104
+>=20
+> Without number of debug related CONFIGs (v2.6.25-rc2-mm1):
+>=20
+> -60744  855 funcs, 861 +, 61605 -, diff: -60744 --- skb_put
+>   skb_put                       |  +57
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Applied, thanks.
+Applied.
