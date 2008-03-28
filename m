@@ -1,76 +1,30 @@
-From: Denys Vlasenko <vda.linux@googlemail.com>
-Subject: Re: [PATCH 3/7] [NET]: uninline dev_alloc_skb, de-bloats a lot
-Date: Fri, 28 Mar 2008 23:34:29 +0100
-Message-ID: <200803282334.29975.vda.linux@googlemail.com>
-References: <1206621486-5408-3-git-send-email-ilpo.jarvinen@helsinki.fi> <200803280036.59311.vda.linux@googlemail.com> <20080327.175212.119805454.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 20/21] forcedeth: fix locking bug with netconsole
+Date: Fri, 28 Mar 2008 15:43:53 -0700 (PDT)
+Message-ID: <20080328.154353.43255092.davem@davemloft.net>
+References: <200803282141.m2SLfUwU011858@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_1JX7HKxsXNWw1mp"
-Cc: ilpo.jarvinen@helsinki.fi, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	acme@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org, mingo@elte.hu,
+	aabdulla@nvidia.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:62548 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753246AbYC1WgK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 18:36:10 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so469907fgb.17
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 15:36:06 -0700 (PDT)
-In-Reply-To: <20080327.175212.119805454.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33373
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753246AbYC1WoB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 18:44:01 -0400
+In-Reply-To: <200803282141.m2SLfUwU011858@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_1JX7HKxsXNWw1mp
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+From: akpm@linux-foundation.org
+Date: Fri, 28 Mar 2008 14:41:30 -0700
 
-On Friday 28 March 2008 01:52, David Miller wrote:
-> From: Denys Vlasenko <vda.linux@googlemail.com>
-> Date: Fri, 28 Mar 2008 00:36:59 +0100
+> From: Ingo Molnar <mingo@elte.hu>
 > 
-> > Can you add a comment which explains the intent?
-> > 
-> > +struct sk_buff *dev_alloc_skb(unsigned int length)
-> > +{
-> > +       /* There is more code here than it seems:
-> > +        * __dev_alloc_skb is an inline */
-> > +	return __dev_alloc_skb(length, GFP_ATOMIC);
-> > +}
-> > +EXPORT_SYMBOL(dev_alloc_skb);
-> 
-> I've applied his patch already, if you want this comment
-> please submit the patch to add it and also please use
-> the correct formatting of the comment.
+> While using netconsole on forcedeth, lockdep noticed the following locking
+> bug:
 
-Here it is.
-
-Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
---
-vda
-
---Boundary-00=_1JX7HKxsXNWw1mp
-Content-Type: text/x-diff;
-  charset="iso-8859-1";
-  name="dev_alloc_skb_comment.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="dev_alloc_skb_comment.diff"
-
---- net-2.6.26/net/core/skbuff.c	Fri Mar 28 23:31:05 2008
-+++ net-2.6.26.comment/net/core/skbuff.c	Fri Mar 28 23:33:03 2008
-@@ -277,6 +277,10 @@
-  */
- struct sk_buff *dev_alloc_skb(unsigned int length)
- {
-+	/*
-+	 * There is more code here than it seems:
-+	 * __def_alloc_skb is an inline
-+	 */
- 	return __dev_alloc_skb(length, GFP_ATOMIC);
- }
- EXPORT_SYMBOL(dev_alloc_skb);
-
---Boundary-00=_1JX7HKxsXNWw1mp--
+Please do not mix device driver changes with core networking
+changes.
