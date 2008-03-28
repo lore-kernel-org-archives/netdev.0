@@ -1,44 +1,59 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/4] drivers/atm/firestream.c: suppress uninitialized var warning
-Date: Fri, 28 Mar 2008 14:37:29 -0700
-Message-ID: <200803282137.m2SLbTJl011626@imap1.linux-foundation.org>
+Subject: [patch 03/21] drivers/net/3c505.c: replace init_module&cleanup_module with module_init&module_exit
+Date: Fri, 28 Mar 2008 14:41:16 -0700
+Message-ID: <200803282141.m2SLfGFc011807@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	chas@cmf.nrl.navy.mil, jeff@garzik.org
-To: davem@davemloft.net
+	jkschind@gmail.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:59710 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:60104 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755945AbYC1ViI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 17:38:08 -0400
+	by vger.kernel.org with ESMTP id S1754890AbYC1VlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 17:41:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
+From: Jon Schindler <jkschind@gmail.com>
 
-drivers/atm/firestream.c: In function 'fs_open':
-drivers/atm/firestream.c:870: warning: 'tmc0' may be used uninitialized in this function
+Replace init_module and cleanup_module with static functions and
+module_init/module_exit.
 
-I have confirmed that this is a false positive.
-
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: chas williams <chas@cmf.nrl.navy.mil>
+Signed-off-by: Jon Schindler <jkschind@gmail.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/atm/firestream.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/3c505.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff -puN drivers/atm/firestream.c~drivers-atm-firestreamc-suppress-uninitialized-var-warning drivers/atm/firestream.c
---- a/drivers/atm/firestream.c~drivers-atm-firestreamc-suppress-uninitialized-var-warning
-+++ a/drivers/atm/firestream.c
-@@ -867,7 +867,7 @@ static int fs_open(struct atm_vcc *atm_v
- 	int error;
- 	int bfp;
- 	int to;
--	unsigned short tmc0;
-+	unsigned short uninitialized_var(tmc0);
- 	short vpi = atm_vcc->vpi;
- 	int vci = atm_vcc->vci;
+diff -puN drivers/net/3c505.c~drivers-net-3c505c-replace-init_modulecleanup_module-with-module_initmodule_exit drivers/net/3c505.c
+--- a/drivers/net/3c505.c~drivers-net-3c505c-replace-init_modulecleanup_module-with-module_initmodule_exit
++++ a/drivers/net/3c505.c
+@@ -1615,7 +1615,7 @@ MODULE_PARM_DESC(io, "EtherLink Plus I/O
+ MODULE_PARM_DESC(irq, "EtherLink Plus IRQ number(s) (assigned)");
+ MODULE_PARM_DESC(dma, "EtherLink Plus DMA channel(s)");
  
+-int __init init_module(void)
++static int __init tc505_module_init(void)
+ {
+ 	int this_dev, found = 0;
+ 
+@@ -1651,8 +1651,9 @@ int __init init_module(void)
+ 		return -ENODEV;
+ 	return 0;
+ }
++module_init(tc505_module_init);
+ 
+-void __exit cleanup_module(void)
++static void __exit tc505_module_exit(void)
+ {
+ 	int this_dev;
+ 
+@@ -1665,6 +1666,7 @@ void __exit cleanup_module(void)
+ 		}
+ 	}
+ }
++module_exit(tc505_module_exit);
+ 
+ #endif				/* MODULE */
+ MODULE_LICENSE("GPL");
 _
