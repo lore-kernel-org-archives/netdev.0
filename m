@@ -1,43 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Network/block layer race.
-Date: Fri, 28 Mar 2008 14:07:36 -0700 (PDT)
-Message-ID: <20080328.140736.92315090.davem@davemloft.net>
-References: <20080328092036.GA11924@2ka.mipt.ru>
-	<20080328.134053.122172549.davem@davemloft.net>
-	<20080328205613.GA24812@2ka.mipt.ru>
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: Re: Oops/Warning report for the week of March 28th 2008
+Date: Fri, 28 Mar 2008 17:16:42 -0400
+Message-ID: <20080328171407.ZZRA012@mailhub.coreip.homeip.net>
+References: <47ED3F1A.1090101@linux.intel.com> <alpine.LFD.1.00.0803281310480.14670@woody.linux-foundation.org> <alpine.LFD.1.00.0803281329340.14670@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: axboe@kernel.dk, netdev@vger.kernel.org
-To: johnpol@2ka.mipt.ru
+Content-Type: text/plain; charset=us-ascii
+Cc: Arjan van de Ven <arjan@linux.intel.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39080
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754308AbYC1VHj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 17:07:39 -0400
-In-Reply-To: <20080328205613.GA24812@2ka.mipt.ru>
+Received: from nf-out-0910.google.com ([64.233.182.191]:57163 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751045AbYC1VQt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 17:16:49 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so256453nfb.21
+        for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 14:16:47 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.1.00.0803281329340.14670@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Fri, 28 Mar 2008 23:56:13 +0300
-
-> Hi.
+On Fri, Mar 28, 2008 at 01:51:38PM -0700, Linus Torvalds wrote:
 > 
-> On Fri, Mar 28, 2008 at 01:40:53PM -0700, David Miller (davem@davemloft.net) wrote:
-> > If content protection is desired, higher level things are needed.
-> > For example, SAMBA only uses sendfile() if the remote client
-> > has an OP lock on the file in question.
 > 
-> What I propose is to inform sender about when page is transmitted and
-> received on the other side via implicit acks, which are provided already
-> by tcp, but is not provided to higher layer.
-> We can use it for sendfile and thus do not require higher
-> layer 'distributed' locks, i.e. sync some state between hosts to inform
-> that data was succesfully received. Patch would be minimal, just export
-> sock_wfree() and setup different skb destructor if sk_sock_data is
-> provided, that will allow for special users (like the same samba) to use
-> ->sendpage() path too (with some changes in the code of course, but that
-> is worth whole page copying).
+> On Fri, 28 Mar 2008, Linus Torvalds wrote:
+> > 
+> > Is there something obvious that I'm missing? I'd really like to see the 
+> > whole posting that the oops came from. Do you save the originals or even 
+> > just message ID's from the ones you pick from emails?
+> 
+> Hmm. Definitely not from the kernel mailing list. I'm intrigued, where did 
+> that oops #5814 come from (picked a recent one at random)?
+> 
+> The thing is recent, and oopses on "mutex_lock(dev->mutex)" in 
+> input_release_device. In particular, the path *seems* to be this one:
+> 
+>   evdev_release ->
+>     evdev_ungrab ->
+>       input_release_device ->
+>         mutex_lock ->
+>           mutex_lock_nested ->
+>             __mutex_lock_common ->
+>               list_add_tail(&waiter.list, &lock->wait_list)
+> 
+> where "lock->wait_list.prev" seems to be 0x6b6b6b6b6b6b6b6b, which is the 
+> use-after-free poison pattern.
+> 
+> (In fact, I think the access that actually oopses is when the 
+> debug version of __list_add() does
+> 
+> 	if (unlikely(prev->next != next)) {
+> 
+> because that "prev" pointer is crap).
+> 
+> So it seems that when input_release_device() does:
+> 
+> 	struct input_dev *dev = handle->dev;
+> 
+> 	mutex_lock(&dev->mutex);
+> 
+> the "dev" it uses has already been released. And this only shows up as a 
+> problem when you have slab debugging turned on (like the Fedora kernels 
+> do, thank you all Fedora guys).
+> 
+> The odd thing is that I don't think any of this code has really changed 
+> recently. 
+> 
 
-I'd have to see the patch, feel free to submit it :-)
+There is a patch from Pete that works around the problem by not
+calling input_release_device() on devices that are gone. But what
+I don't understand is why the parent input device is gone since
+sysfs/driver core should be keeping a reference to it since it is
+a parent of evdev. input_dev shoudl only be released after
+evdev_free() is called.
+
+-- 
+Dmitry
