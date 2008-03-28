@@ -1,229 +1,58 @@
-From: Don Harter <donharter@comcast.net>
-Subject: Re: [Bugme-new] [Bug 10350] New: SYN flooding crashed the kernel?
-Date: Fri, 28 Mar 2008 14:44:14 -0500
-Message-ID: <47ED4A8E.6090208@comcast.net>
-References: <bug-10350-10286@http.bugzilla.kernel.org/> <20080328122655.bcd51ccf.akpm@linux-foundation.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 1/7] [NET]: uninline skb_put, de-bloats a lot
+Date: Fri, 28 Mar 2008 21:56:59 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0803282134050.6616@wrl-59.cs.helsinki.fi>
+References: <1206621486-5408-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1206621486-5408-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1206645050.4849.77.camel@localhost>  <20080327.150456.39560267.davem@davemloft.net>
+  <1206663095.4122.82.camel@calx>  <1206665680.4849.137.camel@localhost>
+ <1206667127.4122.94.camel@calx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: harterc1@comcast.net, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
+To: Matt Mackall <mpm@selenic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:42123 "EHLO
-	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752762AbYC1ToS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 15:44:18 -0400
-In-Reply-To: <20080328122655.bcd51ccf.akpm@linux-foundation.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:44736 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753060AbYC1T5D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 15:57:03 -0400
+In-Reply-To: <1206667127.4122.94.camel@calx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have seen some messages like this in my log, but I don't know if there 
-is actually a problem or a problem with smartd
-Mar 28 11:40:26 (none) syslog-ng[2578]: STATS: dropped 0
-Mar 28 11:40:39 (none) smartd[3315]: Device: /dev/sdb, SMART Prefailure 
-Attribute: 1 Raw_Read_Error_Rate changed from 96 to 9
-4
-Mar 28 12:10:38 (none) smartd[3315]: Device: /dev/sdb, SMART Prefailure 
-Attribute: 1 Raw_Read_Error_Rate changed from 94 to 9
-5
-Mar 28 12:10:38 (none) smartd[3315]: Device: /dev/sdb, SMART Usage 
-Attribute: 195 Hardware_ECC_Recovered changed from 48 to 4
-7
-Mar 28 12:40:26 (none) syslog-ng[2578]: STATS: dropped 0
-Mar 28 12:40:39 (none) smartd[3315]: Device: /dev/sdb, SMART Prefailure 
-Attribute: 1 Raw_Read_Error_Rate changed from 95 to 9
-6
-Mar 28 12:40:39 (none) smartd[3315]: Device: /dev/sdb, SMART Usage 
-Attribute: 195 Hardware_ECC_Recovered changed from 47 to 4
-8
-Mar 28 13:10:39 (none) smartd[3315]: Device: /dev/sdb, SMART Prefailure 
-Attribute: 1 Raw_Read_Error_Rate changed from 96 to 9
-8
-Mar 28 13:10:39 (none) smartd[3315]: Device: /dev/sdb, SMART Usage 
-Attribute: 195 Hardware_ECC_Recovered changed from 48 to 4
-7
-Mar 28 13:40:27 (none) syslog-ng[2578]: STATS: dropped 0
-Mar 28 13:47:04 (none) kernel: general protection fault: 0000 [1] SMP
-Mar 28 13:47:04 (none) kernel: CPU 1
+On Thu, 27 Mar 2008, Matt Mackall wrote:
+> On Thu, 2008-03-27 at 17:54 -0700, Joe Perches wrote:
+> > On Thu, 2008-03-27 at 19:11 -0500, Matt Mackall wrote:
+> > > In the 486 era, when CPU performance was close to 1:1 with memory,
+> > > branches were more expensive than sequential memory fetches, and
+> > > registers were scarce, inlining made a fair amount of sense.
+> > > 
+> > > But now we've moved very far away from that indeed:
+> > 
+> > Systems have certainly improved but Linux is used in a
+> > wide variety of CPU Hz, memory & register architectures.
+> > 
+> > Some of those systems haven't changed at all.
+> 
+> It's true. In particular, 486s haven't changed at all since the 486 era.
+> What's changed is that people no longer run 486s to go fast, they run
+> them to save money. Saving memory is a win for those people.
 
-You see I get error messages like this from smartd even though that 
-parameter is specified in the config file.
-Mar 28 14:25:39 (none) smartd[3399]: Device: /dev/sda, opened
-Mar 28 14:25:40 (none) smartd[3399]: Device /dev/sda: ATA disk detected 
-behind SAT layer
-Mar 28 14:25:40 (none) smartd[3399]:   Try adding '-d sat' to the device 
-line in the smartd.conf file.
-Mar 28 14:25:40 (none) smartd[3399]:   For example: '/dev/sda -a -d sat'
-Mar 28 14:25:40 (none) smartd[3399]: Device: /dev/sdb, opened
-Mar 28 14:25:40 (none) smartd[3399]: Device /dev/sdb: ATA disk detected 
-behind SAT layer
-Mar 28 14:25:40 (none) smartd[3399]:   Try adding '-d sat' to the device 
-line in the smartd.conf file.
-Mar 28 14:25:40 (none) smartd[3399]:   For example: '/dev/sdb -a -d sat'
-Mar 28 14:25:40 (none) smartd[3399]: Device: /dev/sda, opened
-Mar 28 14:25:40 (none) sshd[3423]: Server listening on :: port 22.
+I'd guess though that they won't get that big size saving because they
+probably have carefully tuned configs as well.
 
-It causes me to suspect that things are not stable with the nforce 4 
-drivers.
-Anyways I wasn't accessing this /dev/sdb.  I use that drive only for 
-backups.
-Perhaps I should open up the case and reseat any cards and memory.
+> The same goes for embedded systems. Saving memory is much higher on the
+> priority scale than performance. And the fact that saving memory on the
+> low end aligns very nicely with increasing performance on the high end
+> means that's the direction we're going.
 
-After the crash I was still able to submit the bug report.
+Also if some TLB misses are avoided due to uninlining, it may well 
+rebalance the equation (each config & scenario is quite unique though).
 
-My iptables config is partly:
-root:~>iptables -L
-Chain INPUT (policy DROP)
-target     prot opt source               destination
-ACCEPT     all  --  anywhere             anywhere
-ACCEPT     all  --  anywhere             anywhere            state 
-RELATED,ESTABLISHED
-input_ext  all  --  anywhere             anywhere
-input_ext  all  --  anywhere             anywhere
-LOG        all  --  anywhere             anywhere            limit: avg 
-3/min burst 5 LOG level warning tcp-options ip-options prefix 
-`SFW2-IN-ILL-TARGET '
-DROP       all  --  anywhere             anywhere
-This is generated by the Susefirewall2.  I thought I understood iptables 
-but it seems that he first statement accepts all traffic and none of the 
-others get executed.  I took that statement out once and my web browser 
-stopped functioning.  I wasn't running apparmor and perhaps that plays a 
-role somewhere.  I may reboot and try to run the kernel as what suse 
-calls "failsafe".
-
-Andrew Morton wrote:
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
->
-> On Fri, 28 Mar 2008 12:17:43 -0700 (PDT)
-> bugme-daemon@bugzilla.kernel.org wrote:
->
->   
->> http://bugzilla.kernel.org/show_bug.cgi?id=10350
->>
->>            Summary: SYN flooding crashed the kernel?
->>            Product: Networking
->>            Version: 2.5
->>      KernelVersion: 2.6.24.2-default #1 SMP
->>           Platform: All
->>         OS/Version: Linux
->>               Tree: Mainline
->>             Status: NEW
->>           Severity: high
->>           Priority: P1
->>          Component: Netfilter/Iptables
->>         AssignedTo: networking_netfilter-iptables@kernel-bugs.osdl.org
->>         ReportedBy: harterc1@comcast.net
->>
->>
->> Latest working kernel version:
->> Earliest failing kernel version:
->> Distribution: Suse 10.3 untainted
->> Hardware Environment: AMD
->> Software Environment: KDE
->> Problem Description: kernel crashed when running ktorrent
->>
->> Steps to reproduce: haven't yet
->> Mar 28 13:40:27 (none) syslog-ng[2578]: STATS: dropped 0
->> Mar 28 13:47:04 (none) kernel: general protection fault: 0000 [1] SMP
->> Mar 28 13:47:04 (none) kernel: CPU 1
->> Mar 28 13:47:04 (none) kernel: Modules linked in: af_packet snd_pcm_oss
->> snd_mixer_oss snd_seq snd_seq_device ip6t_REJECT cpufreq_conservative
->> cpufreq_ondemand cpufreq_userspace cpufreq_powersave powernow_k8
->> ip6table_mangle freq_table ip6table_filter ip6_tables ipv6 fuse dm_crypt loop
->> dm_mod snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm snd_timer snd soundcore
->> i2c_nforce2 button snd_page_alloc forcedeth i2c_core sg sd_mod edd fan generic
->> thermal processor
->> Mar 28 13:47:04 (none) kernel: Pid: 5733, comm: ktorrent Not tainted
->> 2.6.24.2-default #1
->> Mar 28 13:47:04 (none) kernel: RIP: 0010:[<ffffffff802866c1>] 
->> [<ffffffff802866c1>] kfree+0x6c/0x9f
->> Mar 28 13:47:04 (none) kernel: RSP: 0018:ffff8100249c7ba8  EFLAGS: 00010082
->> Mar 28 13:47:04 (none) kernel: RAX: 0000000000000001 RBX: ffff810001000000 RCX:
->> 0000000000000001
->> Mar 28 13:47:04 (none) kernel: RDX: ffff810001596e28 RSI: ffff810043e042c0 RDI:
->> ff0081007f8036c0
->> Mar 28 13:47:04 (none) kernel: RBP: 0000000000000286 R08: 00000000f8a1426c R09:
->> 0000000000000000
->> Mar 28 13:47:04 (none) kernel: R10: ffff810043e042c0 R11: ffffffff802fdbb8 R12:
->> ffff8100198d3000
->> Mar 28 13:47:04 (none) kernel: R13: 0000000000000000 R14: 0000000000000000 R15:
->> 000000000000020c
->> Mar 28 13:47:04 (none) kernel: FS:  0000000040800950(0063)
->> GS:ffff81007f876cc0(0000) knlGS:00000000b732c9a0
->> Mar 28 13:47:04 (none) kernel: CS:  0010 DS: 0000 ES: 0000 CR0:
->> 0000000080050033
->> Mar 28 13:47:04 (none) kernel: CR2: 00002aaaafc04150 CR3: 0000000070dd7000 CR4:
->> 00000000000006e0
->> Mar 28 13:47:04 (none) kernel: DR0: 0000000000000000 DR1: 0000000000000000 DR2:
->> 0000000000000000
->> Mar 28 13:47:04 (none) kernel: DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
->> 0000000000000400
->> Mar 28 13:47:04 (none) kernel: Process ktorrent (pid: 5733, threadinfo
->> ffff8100249c6000, task ffff81005f86a840)
->> Mar 28 13:47:04 (none) kernel: Stack:  ffff810043e042c0 ffff810043e042c0
->> 000000000000020c ffffffff80428a36
->> Mar 28 13:47:04 (none) kernel:  ffff810024999880 ffffffff804665be
->> 0000000000000000 000000005f86a840
->> Mar 28 13:47:04 (none) kernel:  ffff810024999d28 0000000000100100
->> ffff810024999c80 ffff810024999930
->> Mar 28 13:47:04 (none) kernel: Call Trace:
->> Mar 28 13:47:04 (none) kernel:  [<ffffffff80428a36>] __kfree_skb+0x9/0x6f
->> Mar 28 13:47:04 (none) kernel:  [<ffffffff804665be>] tcp_recvmsg+0x614/0x808
->> Mar 28 13:47:04 (none) kernel:  [<ffffffff80424e56>]
->> sock_common_recvmsg+0x30/0x45
->> Mar 28 13:47:04 (none) kernel:  [<ffffffff804235f6>] sock_recvmsg+0xf0/0x10f
->> Mar 28 13:47:04 (none) kernel:  [<ffffffff80231288>]
->> default_wake_function+0x0/0xe
->> Mar 28 13:47:04 (none) kernel:  [<ffffffff80249e8d>]
->> autoremove_wake_function+0x0/0x2e
->> Mar 28 13:47:04 (none) kernel:  [<ffffffff80231288>]
->> default_wake_function+0x0/0xe
->> Mar 28 13:47:04 c-76-22-167-36 syslog-ng[2578]: last message repeated 2 times
->> Mar 28 13:47:04 (none) kernel:  [<ffffffff80251998>] do_futex+0x8d/0xa3d
->> Mar 28 13:47:04 (none) kernel:  [<ffffffff804246ce>] sys_recvfrom+0xe2/0x130
->> Mar 28 13:47:04 (none) kernel:  [<ffffffff80425572>] release_sock+0x13/0x9a
->> Mar 28 13:47:04 (none) kernel:  [<ffffffff80464c80>] tcp_ioctl+0x11a/0x126
->> Mar 28 13:47:04 (none) kernel:  [<ffffffff80422ddb>] sock_ioctl+0x1dc/0x200
->> Mar 28 13:47:04 (none) kernel:  [<ffffffff80295451>] do_ioctl+0x21/0x6b
->> Mar 28 13:47:04 (none) kernel:  [<ffffffff8020beee>] system_call+0x7e/0x83
->> Mar 28 13:47:04 (none) kernel:
->> Mar 28 13:47:04 (none) kernel:
->> Mar 28 13:47:04 (none) kernel:
->> Mar 28 13:47:04 (none) kernel: Code: 48 8b 1c c7 8b 13 3b 53 04 73 0c 89 d0 4c
->> 89 64 c3 18 8d 42
->> Mar 28 13:47:04 (none) kernel: RIP  [<ffffffff802866c1>] kfree+0x6c/0x9f
->> Mar 28 13:47:04 (none) kernel:  RSP <ffff8100249c7ba8>
->> Mar 28 13:47:04 (none) kernel: ---[ end trace 5b58994d2438c622 ]---
->> Mar 28 13:49:37 (none) kernel: possible SYN flooding on port 6881. Sending
->> cookies.
->> Mar 28 13:50:53 (none) kernel: possible SYN flooding on port 6881. Sending
->> cookies.
->> Mar 28 13:52:48 (none) kernel: possible SYN flooding on port 6881. Sending
->> cookies.
->> Mar 28 13:54:21 (none) kernel: possible SYN flooding on port 6881. Sending
->> cookies.
->> Mar 28 13:58:44 (none) kernel: possible SYN flooding on port 6881. Sending
->> cookies.
->> Mar 28 13:59:46 (none) kernel: possible SYN flooding on port 6881. Sending
->> cookies.
->> Mar 28 14:03:16 (none) kernel: possible SYN flooding on port 6881. Sending
->> cookies.
->> Mar 28 14:07:00 (none) kernel: possible SYN flooding on port 6881. Sending
->> cookies.
->>
->>     
->
-> So all the syn-flooding messages came _after_ the crash?
->
-> If so, the messages are possibly a consequence of the crash - the
-> networking state was left screwed up.
->
-> If this happened a single time on a single machine then perhaps you have an
-> intermittent hardware failure - we'll probably wait this one out, see if
-> other machines exhibit it, or if a means of reproducing it emerges.
->
->
->   
-
+-- 
+ i.
