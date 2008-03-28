@@ -1,33 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: ieee80211_get_channel exported twice
-Date: Fri, 28 Mar 2008 00:47:53 -0700 (PDT)
-Message-ID: <20080328.004753.36505184.davem@davemloft.net>
-References: <20080328004353.7ae30fe4.akpm@linux-foundation.org>
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Subject: [PATCH 0/3] [LLC]: fixes for net-2.6 #2
+Date: Fri, 28 Mar 2008 16:58:59 +0900
+Message-ID: <b25c3fa70803280058h2d011c5fy7c79aff1daffc51e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080328004353.7ae30fe4.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, "Arnaldo Carvalho de Melo" <acme@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0910.google.com ([209.85.198.188]:31776 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752014AbYC1H7B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 03:59:01 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so63815rvb.1
+        for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 00:58:59 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Date: Fri, 28 Mar 2008 00:43:53 -0700
+This is try #2 patchset for net-2.6 llc.
 
-> 
-> ia64 allmodconfig says:
-> 
-> WARNING: net/wireless/cfg80211: 'ieee80211_get_channel' exported twice. Previous export was in net/ieee80211/ieee80211.ko
-> 
-> net/ieee80211/ieee80211_geo.c already has an exported ieee80211_get_channel().
-> 
-> net-2.6.26 adds a new version of ieee80211_get_channel() in
-> net/wireless/util.c and exports that as well.
+[PATCH 1/3] [LLC]: skb allocation size for responses
+[PATCH 2/3] [LLC]: bogus llc packet length
+[PATCH 3/3] [LLC]: station source mac address
 
-It's fixed in the net-2.6.26 tree as of this afternoon.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Dave, Arnaldo, please review and consider applying.
+
+Thanks,
+Joonwoo
