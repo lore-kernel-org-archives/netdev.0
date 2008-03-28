@@ -1,45 +1,57 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: Oops/Warning report for the week of March 28th 2008
-Date: Fri, 28 Mar 2008 15:58:58 -0700
-Message-ID: <47ED7832.5050702@linux.intel.com>
-References: <47ED3F1A.1090101@linux.intel.com> <alpine.LFD.1.00.0803281310480.14670@woody.linux-foundation.org> <47ED7247.3020203@linux.intel.com>
+From: =?utf-8?Q?=E3=80=8ETaiwan_News_Express=E3=80=8F?=
+	<noreply@etaiwannews.com>
+Subject: The natural ecological beauty in Taiwan
+Date: Sat, 29 Mar 2008 07:12:24 +0800
+Message-ID: <ccc1e271dc1542ec44879860de1ec9d4@wlog.etaiwannews.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:50614 "EHLO
-	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754525AbYC1XKS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 19:10:18 -0400
-In-Reply-To: <47ED7247.3020203@linux.intel.com>
+Received: from mailgw.etaiwannews.com ([211.72.1.254]:42119 "EHLO
+	mailgw.etaiwannews.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751609AbYC1XNf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 19:13:35 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by mailgw.etaiwannews.com (Postfix) with ESMTP id 84FD475972
+	for <netdev@vger.kernel.org>; Sat, 29 Mar 2008 07:13:29 +0800 (CST)
+Received: from mailgw.etaiwannews.com ([127.0.0.1])
+	by localhost (mailGW.etaiwannews.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 28957-03 for <netdev@vger.kernel.org>;
+	Sat, 29 Mar 2008 07:13:29 +0800 (CST)
+Received: from wlog.etaiwannews.com (unknown [192.168.0.9])
+	by mailgw.etaiwannews.com (Postfix) with ESMTP id 63A9C75610
+	for <netdev@vger.kernel.org>; Sat, 29 Mar 2008 07:13:29 +0800 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arjan van de Ven wrote:
-> Linus Torvalds wrote:
->>
->>> http://www.kerneloops.org/searchweek.php?search=input_release_device
->>
->> The problem with kerneloops is that it seems to be really hard to 
->> figure out the *source* of the oops. I can find the oopses (and it's 
->> really good with the whole search-and-clump-together-by-version 
->> thing), but then when some oops like this is found, it's hard to see 
->> where your kerneloops scripts found the oops from, so the context of 
->> the oops is all gone.
+Gentle readers:
 
-> I can try doing some sorting tricks in the grouping, so that those 
-> oopses who have more data than this, show
-> up on top... (and maybe a direct link on the search page)
+Taiwan News Express is an information-packed EDM presenting
+information about Taiwan in three major parts and in English,
+=E6=97=A5=E6=9C=AC=E8=AA=9E,=ED=95=9C=EA=B8=80, Deutsch languages. &ldq=
+uo;Exploring
+Taiwan&rdquo;=E3=80=81&ldquo; Magnificent Taiwan &rdquo; and &ldquo;*
+*Taiwan Aspect* &rdquo;*. These impressive reports transport you to
+the beautiful island that is Taiwan by giving you a deeper
+understanding.
 
-I just implemented this; below are two examples of this:
+ Please click on the link below to browse */ /*
 
-http://www.kerneloops.org/searchweek.php?search=tcp_mark_head_lost
-http://www.kerneloops.org/search.php?search=input_release_device
+*/ Taiwan news Express/**.
+*http://www.taiwannews.com.tw/static/express/
 
-The ratio of automatic versus mailinglist/bugzilla mails is quite high in favor
-of the automatic ones so there's not all THAT many of these at this point,
-especially in the "searchweek" version, which only shows the last 7 days of
-reports.
+If you have any trouble connecting with the link, or would like more
+detailed information about the contents, please inquire with Daphne
+at Taiwan News, Daphne (service@etaiwannews.com)
+
+
+
+=20
+
+
+--
+Powered by PHPlist, www.phplist.com --
+
+
+
