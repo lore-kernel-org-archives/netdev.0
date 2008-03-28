@@ -1,8 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 2/5][SOCK]: Introduce a percpu inuse counters array
+Subject: [PATCH net-2.6.26 3/5][SOCK]: Drop per-proto inuse init and fre functions
  (v2).
-Date: Fri, 28 Mar 2008 15:33:18 +0300
-Message-ID: <47ECE58E.5030407@openvz.org>
+Date: Fri, 28 Mar 2008 15:35:17 +0300
+Message-ID: <47ECE605.1050403@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -10,96 +10,103 @@ Cc: Eric Dumazet <dada1@cosmosbay.com>,
 	Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:56999 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:50963 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753476AbYC1Md2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2008 08:33:28 -0400
+	id S1753535AbYC1Mf0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 08:35:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-And redirect sock_prot_inuse_add and _get to use one.
-
-As far as the dereferences are concerned. Before the patch we made
-1 dereference to proto->inuse.add call, the call itself and then
-called the __get_cpu_var() on a static variable. After the patch we 
-make a direct call, then one dereference to proto->inuse_idx and 
-then the same __get_cpu_var() on a still static variable. So this 
-patch doesn't seem to produce performance penalty on SMP.
-
-This is not per-net yet, but I will deliberately make NET_NS=y case
-separated from NET_NS=n one, since it'll cost us one-or-two more 
-dereferences to get the struct net and the inuse counter.
+Constructive part of the set is finished here. We have to
+remove the pcounter, so start with its init and free
+functions.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- include/net/sock.h |   13 +++++--------
- net/core/sock.c    |   22 ++++++++++++++++++++++
- 2 files changed, 27 insertions(+), 8 deletions(-)
+ include/net/sock.h |   18 ------------------
+ net/core/sock.c    |   11 +----------
+ 2 files changed, 1 insertions(+), 28 deletions(-)
 
 diff --git a/include/net/sock.h b/include/net/sock.h
-index abc6341..ebf9552 100644
+index ebf9552..1f42942 100644
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
-@@ -639,18 +639,15 @@ static inline void sk_refcnt_debug_release(const struct sock *sk)
- # define DEFINE_PROTO_INUSE(NAME) DEFINE_PCOUNTER(NAME)
+@@ -640,31 +640,13 @@ static inline void sk_refcnt_debug_release(const struct sock *sk)
  # define REF_PROTO_INUSE(NAME) PCOUNTER_MEMBER_INITIALIZER(NAME, .inuse)
  /* Called with local bh disabled */
--static inline void sock_prot_inuse_add(struct proto *prot, int inc)
+ extern void sock_prot_inuse_add(struct proto *prot, int inc);
+-
+-static inline int sock_prot_inuse_init(struct proto *proto)
 -{
--	pcounter_add(&prot->inuse, inc);
+-	return pcounter_alloc(&proto->inuse);
 -}
-+extern void sock_prot_inuse_add(struct proto *prot, int inc);
-+
- static inline int sock_prot_inuse_init(struct proto *proto)
+-
+ extern int sock_prot_inuse_get(struct proto *proto);
+-
+-static inline void sock_prot_inuse_free(struct proto *proto)
+-{
+-	pcounter_free(&proto->inuse);
+-}
+ #else
+ # define DEFINE_PROTO_INUSE(NAME)
+ # define REF_PROTO_INUSE(NAME)
+ static void inline sock_prot_inuse_add(struct proto *prot, int inc)
  {
- 	return pcounter_alloc(&proto->inuse);
  }
--static inline int sock_prot_inuse_get(struct proto *proto)
+-static int inline sock_prot_inuse_init(struct proto *proto)
 -{
--	return pcounter_getval(&proto->inuse);
+-	return 0;
 -}
-+
-+extern int sock_prot_inuse_get(struct proto *proto);
-+
- static inline void sock_prot_inuse_free(struct proto *proto)
- {
- 	pcounter_free(&proto->inuse);
+-static void inline sock_prot_inuse_free(struct proto *proto)
+-{
+-}
+ #endif
+ 
+ 
 diff --git a/net/core/sock.c b/net/core/sock.c
-index 7d2c8ad..174c64b 100644
+index 174c64b..c1ae56e 100644
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
-@@ -1942,8 +1942,30 @@ static LIST_HEAD(proto_list);
+@@ -1999,11 +1999,6 @@ int proto_register(struct proto *prot, int alloc_slab)
+ 	char *request_sock_slab_name = NULL;
+ 	char *timewait_sock_slab_name;
  
- #ifdef CONFIG_PROC_FS
- #define PROTO_INUSE_NR	64	/* should be enough for the first time */
-+struct prot_inuse {
-+	int val[PROTO_INUSE_NR];
-+};
+-	if (sock_prot_inuse_init(prot) != 0) {
+-		printk(KERN_CRIT "%s: Can't alloc inuse counters!\n", prot->name);
+-		goto out;
+-	}
+-
+ 	if (alloc_slab) {
+ 		prot->slab = kmem_cache_create(prot->name, prot->obj_size, 0,
+ 					       SLAB_HWCACHE_ALIGN, NULL);
+@@ -2011,7 +2006,7 @@ int proto_register(struct proto *prot, int alloc_slab)
+ 		if (prot->slab == NULL) {
+ 			printk(KERN_CRIT "%s: Can't create sock SLAB cache!\n",
+ 			       prot->name);
+-			goto out_free_inuse;
++			goto out;
+ 		}
  
- static DECLARE_BITMAP(proto_inuse_idx, PROTO_INUSE_NR);
-+static DEFINE_PER_CPU(struct prot_inuse, prot_inuse);
-+
-+void sock_prot_inuse_add(struct proto *prot, int val)
-+{
-+	__get_cpu_var(prot_inuse).val[prot->inuse_idx] += val;
-+}
-+EXPORT_SYMBOL_GPL(sock_prot_inuse_add);
-+
-+int sock_prot_inuse_get(struct proto *prot)
-+{
-+	int cpu, idx = prot->inuse_idx;
-+	int res = 0;
-+
-+	for_each_possible_cpu(cpu)
-+		res += per_cpu(prot_inuse, cpu).val[idx];
-+
-+	return res >= 0 ? res : 0;
-+}
-+EXPORT_SYMBOL_GPL(sock_prot_inuse_get);
+ 		if (prot->rsk_prot != NULL) {
+@@ -2070,8 +2065,6 @@ out_free_request_sock_slab_name:
+ out_free_sock_slab:
+ 	kmem_cache_destroy(prot->slab);
+ 	prot->slab = NULL;
+-out_free_inuse:
+-	sock_prot_inuse_free(prot);
+ out:
+ 	return -ENOBUFS;
+ }
+@@ -2085,8 +2078,6 @@ void proto_unregister(struct proto *prot)
+ 	list_del(&prot->node);
+ 	write_unlock(&proto_list_lock);
  
- static void assign_proto_idx(struct proto *prot)
- {
+-	sock_prot_inuse_free(prot);
+-
+ 	if (prot->slab != NULL) {
+ 		kmem_cache_destroy(prot->slab);
+ 		prot->slab = NULL;
 -- 
 1.5.3.4
 
