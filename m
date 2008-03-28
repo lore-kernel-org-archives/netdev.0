@@ -1,39 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: kernel 2.6.25-rc7 highly unstable on high load
-Date: Fri, 28 Mar 2008 16:21:37 -0700 (PDT)
-Message-ID: <20080328.162137.132976647.davem@davemloft.net>
-References: <20080328132359.15573601@speedy>
-	<20080328203358.M8487@visp.net.lb>
-	<47ED6066.2010407@cosmosbay.com>
+Subject: Re: [PATCH] Net: Don't send ICMP_FRAG_NEEDED for GSO packets
+Date: Fri, 28 Mar 2008 16:24:12 -0700 (PDT)
+Message-ID: <20080328.162412.50278632.davem@davemloft.net>
+References: <200803281934.09308.rusty@rustcorp.com.au>
+	<20080328084043.GA22513@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: denys@visp.net.lb, stephen.hemminger@vyatta.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: dada1@cosmosbay.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org, jheffner@psc.edu
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35759
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35516
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755571AbYC1XVi convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2008 19:21:38 -0400
-In-Reply-To: <47ED6066.2010407@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1755950AbYC1XYR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 19:24:17 -0400
+In-Reply-To: <20080328084043.GA22513@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 28 Mar 2008 22:17:26 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 28 Mar 2008 16:40:43 +0800
 
-> Denys Fedoryshchenko a =E9crit :
-> > It seems or patch change something (but it is just showing debug, s=
-trange),=20
-> > or there is something fixed between 2.6.25-rc7-git1 and 2.6.25-rc7-=
-git3. LC-
-> > trie working fine, HASH also i cannot see any leaks.
->=20
-> Yes, the fix is the patch we mentioned yesterday, and you told us you=
- tried it :(
+> On Fri, Mar 28, 2008 at 07:34:08PM +1100, Rusty Russell wrote:
+> > Commit 9af3912ec9e30509b76cb376abb65a4d8af27df3 added a new check to
+> > send ICMP fragmentation needed for large packets.
+> > 
+> > Unlike the check in ip_finish_output(), it doesn't check for GSO.  I
+> > triggered this with the GSO TUN patches, so not sure if it needs to be
+> > in 2.6.25 or not (do we otherwise forward GSO packets?).
+> > 
+> > Cc: John Heffner <jheffner@psc.edu>
+> > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> 
+> Since this is a regression for Xen, I would say yes.
 
-Denys please be more careful in the future :-(
+Applied.
 
-So much time and effort got wasted because of this.
+But Rusty, when referencing commits, always provide a
+text string of the commit's header line because in
+different trees and backports the commit ID may
+change.
+
+I fixed it up this time...
+
+Thanks.
