@@ -1,116 +1,162 @@
-From: Harald Hannelius <harald@iki.fi>
-Subject: Re: tg3 bad performance, lots of hardware interrupts
-Date: Fri, 28 Mar 2008 15:04:25 +0200 (EET)
-Message-ID: <alpine.DEB.1.00.0803281440460.23558@penti.org>
-References: <alpine.DEB.1.00.0803271532570.30549@penti.org> <20080327.144925.196529669.davem@davemloft.net> <1206666100.5368.6.camel@dell>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: WARNING while bringing up macvlan
+Date: Fri, 28 Mar 2008 15:05:20 +0200
+Message-ID: <20080328125409.M80978@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758293AbYC1NEp@vger.kernel.org>
-In-Reply-To: <1206666100.5368.6.camel@dell>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset=koi8-r
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usermail.globalproof.net ([194.146.153.18]:53182 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754222AbYC1NFk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 09:05:40 -0400
+Received: from visp.net.lb (localhost [127.0.0.1])
+	by usermail.globalproof.net (Postfix) with ESMTP id AF465BDCA2
+	for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 15:05:20 +0200 (EET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+To trigger just run:
+ip link add link eth0 eth2 type macvlan
+ip link set eth2 up
+
+i have enabled
+CONFIG_DEBUG_KERNEL=y
+CONFIG_SCHED_DEBUG=y
+CONFIG_DEBUG_SPINLOCK=y
+CONFIG_DEBUG_MUTEXES=y
+CONFIG_DEBUG_LOCK_ALLOC=y
+CONFIG_DEBUG_BUGVERBOSE=y
+CONFIG_DEBUG_VM=y
+CONFIG_DEBUG_LIST=y
+CONFIG_DEBUG_SG=y
+CONFIG_DEBUG_STACKOVERFLOW=y
+CONFIG_DEBUG_RODATA=y
 
 
-On Thu, 27 Mar 2008, Michael Chan wrote:
+[ 1212.916288] ------------[ cut here ]------------
+[ 1212.916322] WARNING: at kernel/mutex.c:353 mutex_trylock+0x3c/0xef()
+[ 1212.916354] Modules linked in: macvlan softdog nf_nat_pptp 
+nf_conntrack_pptp nf_conntrack_proto_gre nf_nat_proto_gre hangcheck_timer 
+xt_tcpudp ipt_TTL ipt_ttl xt_NOTRACK iptable_raw iptable_mangle ifb e1000e 
+em_nbyte cls_tcindex act_gact cls_rsvp sch_htb cls_fw act_mirred em_u32 
+sch_red sch_sfq sch_tbf sch_teql cls_basic act_police sch_gred act_pedit 
+sch_hfsc cls_rsvp6 sch_ingress em_meta em_text act_ipt sch_dsmark sch_prio 
+sch_netem act_simple cls_u32 em_cmp sch_cbq cls_route xt_TCPMSS iptable_nat 
+nf_conntrack_ipv4 ipt_LOG ipt_MASQUERADE ipt_REDIRECT nf_nat nf_conntrack 
+nfnetlink iptable_filter ip_tables x_tables 8021q tun tulip r8169 sky2 
+via_velocity via_rhine sis900 ne2k_pci 8390 skge tg3 8139too e1000 e100 
+usb_storage mtdblock mtd_blkdevs usbhid uhci_hcd ehci_hcd ohci_hcd usbcore
+[ 1212.916781] Pid: 2572, comm: ip Not tainted 2.6.25-rc7-git1-build-0026 #34
+[ 1212.916818]  [<c0121038>] warn_on_slowpath+0x41/0x51
+[ 1212.916859]  [<c012f652>] ? __kernel_text_address+0x1b/0x27
+[ 1212.916895]  [<c010493a>] ? dump_trace+0xce/0xda
+[ 1212.916927]  [<c0109ea6>] ? save_stack_address+0x0/0x2c
+[ 1212.916965]  [<c013afc8>] ? mark_held_locks+0x41/0x5c
+[ 1212.916999]  [<c015cdef>] ? kmem_cache_alloc+0x69/0xa1
+[ 1212.917033]  [<c013b12d>] ? trace_hardirqs_on+0xcb/0x102
+[ 1212.917067]  [<c02ba549>] mutex_trylock+0x3c/0xef
+[ 1212.917099]  [<c0272796>] rtnl_trylock+0xd/0xf
+[ 1212.917131]  [<c0268bc8>] __dev_set_promiscuity+0x15/0xa9
+[ 1212.917164]  [<c0268c97>] __dev_set_rx_mode+0x3b/0x75
+[ 1212.917196]  [<c026c1ab>] dev_unicast_add+0x79/0x94
+[ 1212.917228]  [<f8a6565f>] macvlan_open+0x2c/0x73 [macvlan]
+[ 1212.917264]  [<c026b6f6>] dev_open+0x42/0x74
+[ 1212.917293]  [<c026a392>] dev_change_flags+0x9f/0x14f
+[ 1212.917326]  [<c0271b19>] do_setlink+0x248/0x2fd
+[ 1212.917360]  [<c0272eab>] rtnl_newlink+0x24a/0x399
+[ 1212.917403]  [<c02bab26>] ? mutex_lock_nested+0x1e8/0x1fa
+[ 1212.917438]  [<c0272c61>] ? rtnl_newlink+0x0/0x399
+[ 1212.917470]  [<c027297e>] rtnetlink_rcv_msg+0x193/0x1ad
+[ 1212.917504]  [<c02727ca>] ? rtnl_lock+0xf/0x11
+[ 1212.917537]  [<c02727eb>] ? rtnetlink_rcv_msg+0x0/0x1ad
+[ 1212.917571]  [<c027cf52>] netlink_rcv_skb+0x30/0x82
+[ 1212.917603]  [<c02727e3>] rtnetlink_rcv+0x17/0x1f
+[ 1212.917635]  [<c027cd32>] netlink_unicast+0x1bb/0x220
+[ 1212.917657]  [<c027d4ea>] netlink_sendmsg+0x243/0x250
+[ 1212.917693]  [<c0260580>] sock_sendmsg+0xca/0xe1
+[ 1212.917728]  [<c013106e>] ? autoremove_wake_function+0x0/0x33
+[ 1212.917764]  [<c013106e>] ? autoremove_wake_function+0x0/0x33
+[ 1212.917800]  [<c013106e>] ? autoremove_wake_function+0x0/0x33
+[ 1212.917837]  [<c01f080a>] ? copy_from_user+0x2c/0x4f
+[ 1212.917871]  [<c0266acd>] ? verify_iovec+0x40/0x73
+[ 1212.917904]  [<c02606e6>] sys_sendmsg+0x14f/0x1aa
+[ 1212.917936]  [<c0260ebf>] ? sys_recvmsg+0x117/0x17f
+[ 1212.917971]  [<c013afc8>] ? mark_held_locks+0x41/0x5c
+[ 1212.918012]  [<c0152cfe>] ? handle_mm_fault+0x2d0/0x2e3
+[ 1212.918047]  [<c02bba34>] ? _spin_unlock+0x1d/0x20
+[ 1212.918084]  [<c0261386>] sys_socketcall+0x14e/0x166
+[ 1212.918117]  [<c01038e9>] ? sysenter_past_esp+0x9a/0xa5
+[ 1212.918151]  [<c01038ae>] sysenter_past_esp+0x5f/0xa5
+[ 1212.918187]  =======================
+[ 1212.918654] ---[ end trace 06fb1c0a761da1b0 ]---
 
-> On Thu, 2008-03-27 at 14:49 -0700, David Miller wrote:
->> From: Harald Hannelius <harald@iki.fi>
->> Date: Thu, 27 Mar 2008 15:53:56 +0200 (EET)
->>
->>> I experience a lot of hardware interrupts with a BCM5751 PCI-express NIC
->>> (tg3). modprobe tg3, ifconfig ethX up and friends makes the system
->>> unresponsive. Just having the interface up makes the system sluggish.
->>>
->
-> I just tested a similar NIC using the same kernel and driver, but I did
-> not notice anything unusual.  netperf gave me 941Mbps.
->
->>> Onboard forcedeth works fine (with the same cable).
->>>
->>> iperf gives me just 2Mbps on a 1Gbps ethernet. Load average near 1.0. top
->>> reports 40-50%hi (hardware interrupts) when generating traffic over that
->>> interface.
->
-> Can you look at /proc/interrupts to see roughly how many are reported
-> per second when link is down, link is up with no traffic, and with
-> traffic?
->
-> Finally, you can also try ethtool -t eth0 to see if it passes a simple
-> self test.
+one more
 
-Phew, I thought that running ethtool -t was like doing stop-A-sync on a 
-Sun. It took almost half an hour to run that ethtool -t command;
-
-'mpstat 2' output while running 'ethtool -t eth2':
-
-Full log here (2160 lines): http://www.iki.fi/~harald/mpstat.log
-
-A few lines from that log here;
-
-Linux 2.6.24.4 (mauer)  03/28/2008
-
-10:37:14 AM  CPU   %user   %nice    %sys %iowait    %irq   %soft  %steal   %idle    intr/s
-10:37:16 AM  all    0.00    0.00    0.00    0.00    0.00    0.00    0.00  100.00    115.50
-10:37:18 AM  all    0.00    0.00    1.00    0.00    0.00    0.00    0.00  99.00    123.50
-10:37:20 AM  all    0.00    0.00    0.75    0.00    0.00    0.00    0.00   99.25    142.79
-10:37:23 AM  all    0.00    0.00   25.66    0.00   23.77    2.26    0.00   48.30     76.38
-10:37:25 AM  all    0.00    0.00   17.13    0.00   31.12   21.68    0.00   30.07     75.12
-10:37:27 AM  all    0.00    0.00   12.17    0.00   25.48   28.90    0.00   33.46    103.00
-10:37:29 AM  all    0.00    0.00    0.40    0.00   38.15   23.29    0.00   38.15     70.15
-10:37:31 AM  all    0.00    0.00    0.40    0.00   41.90   23.32    0.00   34.39     71.43
-10:37:33 AM  all    0.00    0.00    2.83    0.00   29.68   34.98    0.00   32.51    123.38
-10:37:35 AM  all    0.00    0.00   11.07    0.00   33.21   24.81    0.00   30.92     78.74
-... goes on like this for almost half-an-hour ...
-11:04:03 AM  all    0.00    0.00    0.00    0.00   34.69   22.86    0.00   42.45     71.50
-11:04:05 AM  all    0.00    0.00    1.53    0.00   33.72   26.82    0.00   37.93     84.50
-11:04:07 AM  all    0.00    0.00    0.40    0.00   38.15   22.89    0.00   38.55     74.26
-11:04:09 AM  all    0.00    0.00    0.00    0.00   38.80   21.60    0.00   39.60     72.64
-11:04:11 AM  all    0.00    0.00    0.00    0.00   42.17   23.29    0.00   34.54     69.50
-11:04:13 AM  all    0.00    0.00    3.60    1.44   31.29   33.45    0.00   30.22    111.39
-11:04:15 AM  all    0.00    0.00    0.00    0.00    0.51    0.76    0.00   98.73    110.50
-11:04:17 AM  all    0.00    0.00    0.00    0.00    0.00    0.00    0.00  100.00    119.50
-11:04:19 AM  all    0.00    0.00    0.25    1.24    0.00    0.00    0.00  98.51    126.87
-11:04:21 AM  all    0.00    0.00    0.00    0.00    0.00    0.00    0.00  100.00    106.50
-... command finished ...
-
-Sadly I didn't capture the output from ethtool -t, failed anyway. I'm 
-running that test a second time right now, I'll post the output later 
-(when finished). While the 'ethtool -t eth2' is running eth0 (forcedeth) 
-doesn't respond to ping, when going to the console it didn't wake up with 
-a keypress, nor did capslock/numlock react.
-
-'mpstat 2' while running modprobe tg3:
-Linux 2.6.24.4 (mauer)  03/28/2008
-
-02:47:05 PM  CPU   %user   %nice    %sys %iowait    %irq   %soft  %steal   %idle    intr/s
-02:47:07 PM  all    0.00    0.00    0.75    0.00    0.00    0.00    0.00   99.25    138.00
-02:47:09 PM  all    0.00    0.00    0.25    0.00    0.00    0.00    0.00   99.75    120.00
-02:47:11 PM  all    0.00    0.00    0.00    0.00    0.00    0.00    0.00  100.00    132.50
-02:47:13 PM  all    0.00    0.00   14.19    0.00   17.16    1.65    0.00  67.00     92.08
-02:47:15 PM  all    0.00    0.00   19.60    0.00   30.40    1.20    0.00  48.80     60.50
-02:47:17 PM  all    0.56    0.00    4.20    0.00    5.88    0.28    0.00  89.08    127.14
-02:47:19 PM  all    0.00    0.00    0.75    0.00    0.25    0.00    0.00  99.00    127.00
-
-'mpstat 2' while running ifconfig eth2 up:
-Linux 2.6.24.4 (mauer)  03/28/2008
-
-02:47:50 PM  CPU   %user   %nice    %sys %iowait    %irq   %soft  %steal   %idle    intr/s
-02:47:52 PM  all    0.00    0.00    0.40    0.00   44.95   16.49    0.00   38.16    194.47
-02:47:54 PM  all    0.00    0.00    0.76    0.00   46.91   16.77    0.00   35.56    205.47
-02:47:56 PM  all    0.00    0.00    2.06    0.00   15.88   14.12    0.00   67.94    107.96
-
-Hope my overlong lines don't get wrapped...
-
-
-No hints on dmesg on what's going on.
+[   49.772366] ------------[ cut here ]------------
+[   49.772416] WARNING: at kernel/mutex.c:353 mutex_trylock+0x3c/0xef()
+[   49.772447] Modules linked in: macvlan softdog nf_nat_pptp 
+nf_conntrack_pptp nf_conntrack_proto_gre nf_nat_proto_gre hangcheck_timer 
+xt_tcpudp ipt_TTL ipt_ttl xt_NOTRACK iptable_raw iptable_mangle ifb e1000e 
+em_nbyte cls_tcindex act_gact cls_rsvp sch_htb cls_fw act_mirred em_u32 
+sch_red sch_sfq sch_tbf sch_teql cls_basic act_police sch_gred act_pedit 
+sch_hfsc cls_rsvp6 sch_ingress em_meta em_text act_ipt sch_dsmark sch_prio 
+sch_netem act_simple cls_u32 em_cmp sch_cbq cls_route xt_TCPMSS iptable_nat 
+nf_conntrack_ipv4 ipt_LOG ipt_MASQUERADE ipt_REDIRECT nf_nat nf_conntrack 
+nfnetlink iptable_filter ip_tables x_tables 8021q tun tulip r8169 sky2 
+via_velocity via_rhine sis900 ne2k_pci 8390 skge tg3 8139too e1000 e100 
+usb_storage mtdblock mtd_blkdevs usbhid uhci_hcd ehci_hcd ohci_hcd usbcore
+[   49.774284] Pid: 2415, comm: ip Not tainted 2.6.25-rc7-git1-build-0026 #34
+[   49.774354]  [<c0121038>] warn_on_slowpath+0x41/0x51
+[   49.774427]  [<c013b963>] ? __lock_acquire+0x45c/0xabd
+[   49.774510]  [<c012f652>] ? __kernel_text_address+0x1b/0x27
+[   49.774597]  [<c010493a>] ? dump_trace+0xce/0xda
+[   49.774680]  [<c0109ea6>] ? save_stack_address+0x0/0x2c
+[   49.774769]  [<c013afc8>] ? mark_held_locks+0x41/0x5c
+[   49.774853]  [<c015cdef>] ? kmem_cache_alloc+0x69/0xa1
+[   49.774938]  [<c013b12d>] ? trace_hardirqs_on+0xcb/0x102
+[   49.775022]  [<c02ba549>] mutex_trylock+0x3c/0xef
+[   49.775088]  [<c0272796>] rtnl_trylock+0xd/0xf
+[   49.775154]  [<c0268bc8>] __dev_set_promiscuity+0x15/0xa9
+[   49.775221]  [<c0268c97>] __dev_set_rx_mode+0x3b/0x75
+[   49.775286]  [<c026c1ab>] dev_unicast_add+0x79/0x94
+[   49.775352]  [<f8a6565f>] macvlan_open+0x2c/0x73 [macvlan]
+[   49.775448]  [<c026b6f6>] dev_open+0x42/0x74
+[   49.775512]  [<c026a392>] dev_change_flags+0x9f/0x14f
+[   49.775578]  [<c0271b19>] do_setlink+0x248/0x2fd
+[   49.775645]  [<c0272eab>] rtnl_newlink+0x24a/0x399
+[   49.775722]  [<c02bab26>] ? mutex_lock_nested+0x1e8/0x1fa
+[   49.775807]  [<c0272c61>] ? rtnl_newlink+0x0/0x399
+[   49.775890]  [<c027297e>] rtnetlink_rcv_msg+0x193/0x1ad
+[   49.775957]  [<c02727ca>] ? rtnl_lock+0xf/0x11
+[   49.776040]  [<c02727eb>] ? rtnetlink_rcv_msg+0x0/0x1ad
+[   49.776124]  [<c027cf52>] netlink_rcv_skb+0x30/0x82
+[   49.776190]  [<c02727e3>] rtnetlink_rcv+0x17/0x1f
+[   49.776255]  [<c027cd32>] netlink_unicast+0x1bb/0x220
+[   49.776322]  [<c027d4ea>] netlink_sendmsg+0x243/0x250
+[   49.776391]  [<c0260580>] sock_sendmsg+0xca/0xe1
+[   49.776451]  [<c013106e>] ? autoremove_wake_function+0x0/0x33
+[   49.776538]  [<c013106e>] ? autoremove_wake_function+0x0/0x33
+[   49.776625]  [<c013106e>] ? autoremove_wake_function+0x0/0x33
+[   49.776713]  [<c01f080a>] ? copy_from_user+0x2c/0x4f
+[   49.776797]  [<c0266acd>] ? verify_iovec+0x40/0x73
+[   49.776881]  [<c02606e6>] sys_sendmsg+0x14f/0x1aa
+[   49.776947]  [<c0260ebf>] ? sys_recvmsg+0x117/0x17f
+[   49.777032]  [<c013afc8>] ? mark_held_locks+0x41/0x5c
+[   49.777124]  [<c0152cfe>] ? handle_mm_fault+0x2d0/0x2e3
+[   49.777210]  [<c02bba34>] ? _spin_unlock+0x1d/0x20
+[   49.777296]  [<c0261386>] sys_socketcall+0x14e/0x166
+[   49.777363]  [<c01038e9>] ? sysenter_past_esp+0x9a/0xa5
+[   49.777447]  [<c01038ae>] sysenter_past_esp+0x5f/0xa5
+[   49.777517]  =======================
+[   49.777560] ---[ end trace e18ee8b62e9cda31 ]---
 
 
 
--- 
-A: Top Posters!                                      |  s/y Charlotta |
-Q: What is the most annoying thing on mailing lists? |    FIN-2674    |
-   http://www.fe83.org/ Finn Express Purjehtijat ry   |  ============= |
-Harald H Hannelius | harald (At) iki (dot) fi | GSM +358 50 594 1020
+
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
+
