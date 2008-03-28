@@ -1,31 +1,36 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] SCTP: Remove an useless parameter from
-Date: Fri, 28 Mar 2008 09:36:00 -0400
-Message-ID: <47ECF440.3030801@hp.com>
-References: <47EC4F56.6000300@cn.fujitsu.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
+Date: Fri, 28 Mar 2008 14:38:45 +0100
+Message-ID: <20080328133845.GA14565@ami.dom.local>
+References: <47EC3182.7080005@sun.com> <20080327.170235.53674739.davem@davemloft.net> <47EC399E.90804@sun.com> <20080327.173418.18777696.davem@davemloft.net> <20080328012234.GA20465@gondor.apana.org.au> <47EC50BA.6080908@sun.com> <20080328103809.GB23039@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	lksctp-dev <lksctp-developers@lists.sourceforge.net>,
-	David Miller <davem@davemloft.net>
-To: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Matheos Worku <Matheos.Worku@Sun.COM>,
+	David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
+	netdev@vger.kernel.org, hadi@cyberus.ca
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:35322 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752126AbYC1NgC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 09:36:02 -0400
-In-Reply-To: <47EC4F56.6000300@cn.fujitsu.com>
+Received: from el-out-1112.google.com ([209.85.162.180]:37409 "EHLO
+	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752570AbYC1NmV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 09:42:21 -0400
+Received: by el-out-1112.google.com with SMTP id v27so80771ele.17
+        for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 06:42:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080328103809.GB23039@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gui Jianfeng wrote:
-> Vlad,
-> There is an useless parameter in sctp_cmd_hb_timer_update,
-> remove it.
-> 
-> Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+On Fri, Mar 28, 2008 at 06:38:09PM +0800, Herbert Xu wrote:
+...
+> Given that premise, we might as well let one CPU transmit as much
+> as possible since moving to another CPU after each packet is going
+> to bounce a lot more than just the spin lock and that is going to
+> be expensive.
 
-Applied, thanks.  Will push to David shortly.
+Considering this, I wonder why using this __LINK_STATE_QDISC_RUNNING
+flag to control enqueuing as well would be a wrong idea? Wouldn't this
+enforce pseudo affinity?
 
--vlad
+Regards,
+Jarek P.
