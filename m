@@ -1,69 +1,40 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: Re: [PATCH 2/11 net-2.6.26] [DCCP]: Replace socket with sock for
-	reset sending.
-Date: Fri, 28 Mar 2008 18:08:42 +0300
-Message-ID: <1206716922.4294.0.camel@iris.sw.ru>
-References: <1206695071.3271.8.camel@iris.sw.ru>
-	 <1206695338-5947-2-git-send-email-den@openvz.org>
-	 <20080328143959.GT14945@ghostprotocols.net>
+From: Guennadi Liakhovetski <lg@denx.de>
+Subject: Bug in cs89x0.c?
+Date: Fri, 28 Mar 2008 16:09:06 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0803281603110.4646@axis700.grange>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	containers@lists.osdl.org
-To: Arnaldo Carvalho de Melo <acme@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:39309 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753052AbYC1PIe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2008 11:08:34 -0400
-In-Reply-To: <20080328143959.GT14945@ghostprotocols.net>
+Received: from mail.gmx.net ([213.165.64.20]:39799 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753355AbYC1PIx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 11:08:53 -0400
+Received: from lyakh (helo=localhost)
+	by axis700.grange with local-esmtp (Exim 4.63)
+	(envelope-from <g.liakhovetski@gmx.de>)
+	id 1JfGCY-00023T-I0
+	for netdev@vger.kernel.org; Fri, 28 Mar 2008 16:09:06 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-03-28 at 11:39 -0300, Arnaldo Carvalho de Melo wrote:
-> Em Fri, Mar 28, 2008 at 12:08:49PM +0300, Denis V. Lunev escreveu:
-> > Replace dccp_v(4|6)_ctl_socket with sock to unify a code with TCP/ICMP.
-> > 
-> > Signed-off-by: Denis V. Lunev <den@openvz.org>
-> > ---
-> >  net/dccp/ipv4.c |   16 +++++++++-------
-> >  net/dccp/ipv6.c |   10 ++++++----
-> >  2 files changed, 15 insertions(+), 11 deletions(-)
-> > 
-> > diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-> > index 4ca8b0c..79a9a4a 100644
-> > --- a/net/dccp/ipv4.c
-> > +++ b/net/dccp/ipv4.c
-> > @@ -36,7 +36,7 @@
-> >   * the Out-of-the-blue (OOTB) packets. A control sock will be created
-> >   * for this socket at the initialization time.
-> >   */
-> > -static struct socket *dccp_v4_ctl_socket;
-> > +static struct sock *dccp_v4_ctl_sk;
-> >  
-> >  int dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
-> >  {
-> > @@ -514,11 +514,11 @@ static void dccp_v4_ctl_send_reset(struct sock *sk, struct sk_buff *rxskb)
-> >  	if (rxskb->rtable->rt_type != RTN_LOCAL)
-> >  		return;
-> >  
-> > -	dst = dccp_v4_route_skb(dccp_v4_ctl_socket->sk, rxskb);
-> > +	dst = dccp_v4_route_skb(dccp_v4_ctl_sk, rxskb);
-> >  	if (dst == NULL)
-> >  		return;
-> >  
-> > -	skb = dccp_ctl_make_reset(dccp_v4_ctl_socket, rxskb);
-> > +	skb = dccp_ctl_make_reset(dccp_v4_ctl_sk->sk_socket, rxskb);
-> 
-> Why not make dccp_ctl_make_reset receive a struct sock too? It only uses
-> ctl->sk anyway. But I guess that can be on a follow-up patch, could you
-> that?
+Hi
 
-sure!
+Do I understand it right, that this
 
-Thank you for pointing this out :)
+705:		i = readreg(dev, PP_LineCTL);
+706:		/* Preserve the setting of the HCB1 pin. */
+707:		if ((i & (HCB1 | HCB1_ENBL)) ==  (HCB1 | HCB1_ENBL))
+708:			lp->adapter_cnf |= A_CNF_DC_DC_POLARITY;
 
-Regards,
-	Den
+(line numbers may deviate slightly) is a bug? HCB1 and HCB1_ENBL bits are 
+from the PP_SelfCTL and not from the PP_LineCTL register...
 
+Thanks
+Guennadi
+---
+Guennadi Liakhovetski, Ph.D.
+
+DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
+HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+Phone: +49-8142-66989-0 Fax: +49-8142-66989-80  Email: office@denx.de
