@@ -1,48 +1,37 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Network/block layer race.
-Date: Fri, 28 Mar 2008 12:20:36 +0300
-Message-ID: <20080328092036.GA11924@2ka.mipt.ru>
+From: Sebastian Siewior <bigeasy@linutronix.de>
+Subject: Re: [PATCH / RFC 2/2] fec: fixup spinlocks.
+Date: Fri, 28 Mar 2008 10:24:40 +0100
+Message-ID: <20080328092440.GC27124@www.tglx.de>
+References: <20080327140041.072611004@linutronix.de> <20080327140120.068976876@linutronix.de> <47EC9701.4090504@snapgear.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jens Axboe <axboe@kernel.dk>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: uclinux-dev@uclinux.org, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Greg Ungerer <gerg@snapgear.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:36380 "EHLO 2ka.mipt.ru"
+Received: from www.tglx.de ([62.245.132.106]:57597 "EHLO www.tglx.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754292AbYC1JRX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2008 05:17:23 -0400
+	id S1752190AbYC1JZq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 05:25:46 -0400
 Content-Disposition: inline
+In-Reply-To: <47EC9701.4090504@snapgear.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+* Greg Ungerer | 2008-03-28 16:58:09 [+1000]:
 
-There is a race between ->sendpage() and block layer, when the latter
-can override the page while it is queued in hardware, qdisk or tcp
-queue. Although page's reference counter is handled correctly, and page
-will not be freed until fully transferred, block layer can reuse it,
-since it assumes that after ->sendpage() returns, page is no longer
-used. It is invalid assumption, but there is no way currently to
-determine when page is no longer used by network except invoke a
-callback during skb freeing.
+>Hi Sebastion,
+Hi Greg,
 
-Block layer pages do not use page->lru.next, at least in kernel afaics,
-which is a kmem_cache pointer, so some users, who do know, what they are
-doing, can set it up to private data structure and replace skb
-destructor with own callback, which in turn will invoke sock_wfree()
-when needed (transmit only is interesing), so there will not be any
-changes in skb structure, maybe some extension of the sock (a single
-pointer to private callback or reuse sk_user_data, which is only used by
-rpc code, and export of the sock_wfree() function.
+>>4. Use the .*_irqsave variant in that part which may be called from IRQ or
+>>user mode.
+>
+>I couldn't see any changes here that switched to use *_irqsave?
+The only lock user that may be called from both called from both places
+is mii_queue() and that one allready uses the save variant.
+I guess you want me to repost that patch without point 4 in the summary
+right?
 
-I do not know if we have to fix sendfile()/splice() since everyone is
-used to have that race, but some other out-of-tree network storage
-projects (like distributed storage) would greatly benefit from it.
-
-So far it is a request for comments and idea has to be better tested if
-accepted, so the question is: will such a hack be accepted?
-
-Thanks.
-
--- 
-	Evgeniy Polyakov
+>Regards
+>Greg
+Sebastian
