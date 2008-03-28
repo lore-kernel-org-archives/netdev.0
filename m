@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/11 net-2.6.26] [DCCP]: dccp_v(4|6)_ctl_socket is
- leaked.
-Date: Fri, 28 Mar 2008 16:34:27 -0700 (PDT)
-Message-ID: <20080328.163427.230723908.davem@davemloft.net>
-References: <1206717778.4294.4.camel@iris.sw.ru>
-	<20080328164752.GX14945@ghostprotocols.net>
-	<1206724191.8599.0.camel@iris.sw.ru>
+Subject: Re: [PATCH] net-2.6.26 - Rename inet_frag.h identifiers COMPLETE,
+ FIRST_IN, LAST_IN to INET_FRAG_*
+Date: Fri, 28 Mar 2008 16:35:36 -0700 (PDT)
+Message-ID: <20080328.163536.254060614.davem@davemloft.net>
+References: <20080328032449.cbc09f3b.akpm@linux-foundation.org>
+	<1206728791.3445.39.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: acme@redhat.com, netdev@vger.kernel.org, containers@lists.osdl.org
-To: den@openvz.org
+Cc: akpm@linux-foundation.org, jirislaby@gmail.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55446
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55451
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756085AbYC1Xee (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 19:34:34 -0400
-In-Reply-To: <1206724191.8599.0.camel@iris.sw.ru>
+	by vger.kernel.org with ESMTP id S1754422AbYC1Xfm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 19:35:42 -0400
+In-Reply-To: <1206728791.3445.39.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Fri, 28 Mar 2008 20:09:51 +0300
+From: Joe Perches <joe@perches.com>
+Date: Fri, 28 Mar 2008 11:26:31 -0700
 
-> seems logical. OK, I'll redo this.
+> On Fri, 2008-03-28 at 03:24 -0700, Andrew Morton wrote:
+> > they should all be renamed.
+> 
+> Done for include/net and net
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-I'm dropping this patch set for now, please make a full
-resubmission when you've done the fixups.
-
-Thanks!
+Applied, thanks.
