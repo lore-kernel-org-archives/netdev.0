@@ -1,33 +1,27 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [patch 02/21] drivers/net/3c501.c: replace init_module&cleanup_module with module_init&module_exit
-Date: Fri, 28 Mar 2008 21:47:55 +0000
-Message-ID: <20080328214755.GE10722@ZenIV.linux.org.uk>
-References: <200803282141.m2SLfGGa011804@imap1.linux-foundation.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Network/block layer race.
+Date: Sat, 29 Mar 2008 00:51:31 +0300
+Message-ID: <20080328215131.GB24812@2ka.mipt.ru>
+References: <20080328092036.GA11924@2ka.mipt.ru> <20080328.134053.122172549.davem@davemloft.net> <20080328205613.GA24812@2ka.mipt.ru> <20080328.140736.92315090.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, jkschind@gmail.com
-To: akpm@linux-foundation.org
+Cc: axboe@kernel.dk, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:43904 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755220AbYC1VsF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 17:48:05 -0400
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:51669 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756079AbYC1VsR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 17:48:17 -0400
 Content-Disposition: inline
-In-Reply-To: <200803282141.m2SLfGGa011804@imap1.linux-foundation.org>
+In-Reply-To: <20080328.140736.92315090.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 28, 2008 at 02:41:16PM -0700, akpm@linux-foundation.org wrote:
+On Fri, Mar 28, 2008 at 02:07:36PM -0700, David Miller (davem@davemloft.net) wrote:
+> I'd have to see the patch, feel free to submit it :-)
 
-> Replace init_module and cleanup_module with static functions and
-> module_init/module_exit.
+So, you do not afraid if word 'hack' is used in description, which is a good
+sign for start :)
 
-Would the esteemed sir bother to build the resulting tree with drivers
-in question non-modular?
-
-Damnit, people, try to think for a minute.  If these functions were
-not called directly in non-modular case, the driver would not work
-built-in.  Which is not apriori impossible, but might warrant some
-further investigation.  Use of grep, for starters...
-
-IOW, please unapply the patches in question.
+-- 
+	Evgeniy Polyakov
