@@ -1,27 +1,53 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Network/block layer race.
-Date: Sat, 29 Mar 2008 00:51:31 +0300
-Message-ID: <20080328215131.GB24812@2ka.mipt.ru>
-References: <20080328092036.GA11924@2ka.mipt.ru> <20080328.134053.122172549.davem@davemloft.net> <20080328205613.GA24812@2ka.mipt.ru> <20080328.140736.92315090.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: axboe@kernel.dk, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: akpm@linux-foundation.org
+Subject: [patch 16/21] netdev: ehea: locking order correction
+Date: Fri, 28 Mar 2008 14:41:27 -0700
+Message-ID: <200803282141.m2SLfRhN011846@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	dwalker@mvista.com, raisch@de.ibm.com, themann@de.ibm.com,
+	tklein@de.ibm.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:51669 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756079AbYC1VsR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2008 17:48:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20080328.140736.92315090.davem@davemloft.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48443 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756954AbYC1Vsm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 17:48:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 28, 2008 at 02:07:36PM -0700, David Miller (davem@davemloft.net) wrote:
-> I'd have to see the patch, feel free to submit it :-)
+From: Daniel Walker <dwalker@mvista.com>
 
-So, you do not afraid if word 'hack' is used in description, which is a good
-sign for start :)
+Nested locks always need to be taken in the same order.  This change factors
+out the ehea_fw_handles.lock to make the locking order consistent.
 
--- 
-	Evgeniy Polyakov
+Signed-off-by: Daniel Walker <dwalker@mvista.com>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Christoph Raisch <raisch@de.ibm.com>
+Cc: Jan-Bernd Themann <themann@de.ibm.com>
+Cc: Thomas Klein <tklein@de.ibm.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ drivers/net/ehea/ehea_main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff -puN drivers/net/ehea/ehea_main.c~net-ehea-locking-order-correction drivers/net/ehea/ehea_main.c
+--- a/drivers/net/ehea/ehea_main.c~net-ehea-locking-order-correction
++++ a/drivers/net/ehea/ehea_main.c
+@@ -2567,14 +2567,14 @@ static int ehea_down(struct net_device *
+ 	if (port->state == EHEA_PORT_DOWN)
+ 		return 0;
+ 
++	mutex_lock(&ehea_fw_handles.lock);
++
+ 	down(&ehea_bcmc_regs.lock);
+ 	ehea_drop_multicast_list(dev);
+ 	ehea_broadcast_reg_helper(port, H_DEREG_BCMC);
+ 
+ 	ehea_free_interrupts(dev);
+ 
+-	mutex_lock(&ehea_fw_handles.lock);
+-
+ 	port->state = EHEA_PORT_DOWN;
+ 
+ 	ehea_update_bcmc_registrations();
+_
