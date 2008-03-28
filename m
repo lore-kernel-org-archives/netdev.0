@@ -1,42 +1,73 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [patch 20/21] forcedeth: fix locking bug with netconsole
-Date: Sat, 29 Mar 2008 00:46:28 +0100
-Message-ID: <20080328234628.GA8459@elte.hu>
-References: <200803282141.m2SLfUwU011858@imap1.linux-foundation.org> <20080328.154353.43255092.davem@davemloft.net> <47ED75CE.1080400@garzik.org> <20080328164209.e8b723d8.akpm@linux-foundation.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch 1/4] drivers/atm/firestream.c: suppress uninitialized
+ var warning
+Date: Fri, 28 Mar 2008 16:54:37 -0700
+Message-ID: <20080328165437.bfd7726c.akpm@linux-foundation.org>
+References: <200803282137.m2SLbTJl011626@imap1.linux-foundation.org>
+	<20080328.162017.169462194.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, aabdulla@nvidia.com,
-	linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758147AbYC1XrR@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080328164209.e8b723d8.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil, jeff@garzik.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:39903 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750793AbYC1XzG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 19:55:06 -0400
+In-Reply-To: <20080328.162017.169462194.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, 28 Mar 2008 16:20:17 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
 
-* Andrew Morton <akpm@linux-foundation.org> wrote:
-
-> > > Please do not mix device driver changes with core networking 
-> > > changes.
-> > 
-> > FWIW my plan was to snip the net/* stuff and only apply the 
-> > forcedeth portion.
-> > 
-> > (leaving <whomever> to pick up the pieces, should they so desire)
-> > 
+> From: akpm@linux-foundation.org
+> Date: Fri, 28 Mar 2008 14:37:29 -0700
 > 
-> Just drop 'em completely I'd say.
+> > From: Andrew Morton <akpm@linux-foundation.org>
+> > 
+> > drivers/atm/firestream.c: In function 'fs_open':
+> > drivers/atm/firestream.c:870: warning: 'tmc0' may be used uninitialized in this function
+> > 
+> > I have confirmed that this is a false positive.
+> > 
+> > Cc: David S. Miller <davem@davemloft.net>
+> > Cc: Jeff Garzik <jeff@garzik.org>
+> > Cc: chas williams <chas@cmf.nrl.navy.mil>
+> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> 
+> Andrew, I'm not applying patches that use that sinful
+> uninitialized_var() thing.
 
-you mean the netpoll.c bits? sure.
+Your call, but it isn't sinful.  It has documentary value - it tells the
+reader "we don't really need to do this, but gcc isn't smart enough".
 
-> otoh, drivers do seem a bit flakey in the netpoll-support area, so a 
-> bit of extra debug wouldn't hurt.  But checking irqs_disabled() either 
-> side of a udelay() was a bit paranoid ;)
+> I'll apply the following instead.
+> 
+> commit d41a95e04ae80b77ddc186d0d97e6b439684adb8
+> Author: David S. Miller <davem@davemloft.net>
+> Date:   Fri Mar 28 16:19:26 2008 -0700
+> 
+>     [ATM] firestream: Fix uninitialized var warning.
+>     
+>     All code paths set tmc0 in some way, but GCC can't
+>     see that for some reason.  Explicitly initialize
+>     to zero.
+>     
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> diff --git a/drivers/atm/firestream.c b/drivers/atm/firestream.c
+> index 47c57a4..98099f5 100644
+> --- a/drivers/atm/firestream.c
+> +++ b/drivers/atm/firestream.c
+> @@ -978,6 +978,7 @@ static int fs_open(struct atm_vcc *atm_vcc)
+>  		/* Docs are vague about this atm_hdr field. By the way, the FS
+>  		 * chip makes odd errors if lower bits are set.... -- REW */
+>  		tc->atm_hdr =  (vpi << 20) | (vci << 4); 
+> +		tmc0 = 0;
+>  		{
+>  			int pcr = atm_pcr_goal (txtp);
 
-yeah. i completely forgot about those bits. But lets make sure the 
-forcedeth.c fix gets into .25 - it's obvious and it fixes a nasty bug. 
-Without that fix netconsole is unusable on forcedeth.
+Whereas the reader doesn't know why that unneeded initialisation is there.
 
-	Ingo
+And it generates additional, unneeded code.
