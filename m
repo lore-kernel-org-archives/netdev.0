@@ -1,41 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] e1000e: test MSI interrupts
-Date: Thu, 27 Mar 2008 17:03:50 -0700 (PDT)
-Message-ID: <20080327.170350.113054010.davem@davemloft.net>
-References: <36D9DB17C6DE9E40B059440DB8D95F5204C27573@orsmsx418.amr.corp.intel.com>
-	<47EC2FE9.5020400@garzik.org> <47EC3393.5010901@intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/7] [NET]: uninline skb_put, de-bloats a lot
+Date: Thu, 27 Mar 2008 17:02:37 -0700
+Message-ID: <1206662557.4849.112.camel@localhost>
+References: <1206621486-5408-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+	 <1206621486-5408-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+	 <1206645050.4849.77.camel@localhost>
+	 <20080327.150456.39560267.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, jeff@garzik.org
-To: auke-jan.h.kok@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <47EC3393.5010901@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: ilpo.jarvinen@helsinki.fi, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	acme@redhat.com, mpm@selenic.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 136-022.dsl.labridge.com ([206.117.136.22]:1165 "EHLO
+	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1755707AbYC1ADp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 20:03:45 -0400
+In-Reply-To: <20080327.150456.39560267.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Date: Thu, 27 Mar 2008 16:53:55 -0700
+On Thu, 2008-03-27 at 15:04 -0700, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> > This will very likely negatively impact
+> > high speed networking.
+> Please run some tests before making claims like this.
 
-> the only alternative I see is that we have a quirk in the e1000
-> driver that acts when the combination of an 82571 and this
-> particular chipset is found, but I have no information ATM on the
-> chipset id's yet and on how to identify this configuration.
+I think this is the sort of change you might have argued
+against accepting without performance testing not long ago.
 
-And this is how you will fix this bug, once you know these
-IDs.
+> I might give you some slack in this area if you've
+> been doing networking performance tuning for 10+ years
+> but you haven't.
 
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+I've done some work in network performance testing.
+
+cheers, Joe
+
