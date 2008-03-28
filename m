@@ -1,54 +1,105 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
-Date: Fri, 28 Mar 2008 08:19:19 -0400
-Message-ID: <1206706759.4429.58.camel@localhost>
-References: <47EC399E.90804@sun.com>
-	 <20080327.173418.18777696.davem@davemloft.net>
-	 <20080328012234.GA20465@gondor.apana.org.au>
-	 <20080327.183844.74572930.davem@davemloft.net>
-	 <20080328102931.GA23039@gondor.apana.org.au>
-	 <20080328105629.GG1011@elte.hu>
-	 <20080328110621.GA23342@gondor.apana.org.au>
-	 <20080328112928.GA23547@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.26 1/5][SOCK]: Enumerate struct proto-s to facilitate
+ percpu inuse accounting (v2).
+Date: Fri, 28 Mar 2008 15:29:43 +0300
+Message-ID: <47ECE4B7.40806@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@elte.hu>, Matheos.Worku@Sun.COM,
-	jesse.brandeburg@intel.com, jarkao2@gmail.com,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.179]:9366 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750995AbYC1MUA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 08:20:00 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so278714wah.23
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 05:19:59 -0700 (PDT)
-In-Reply-To: <20080328112928.GA23547@gondor.apana.org.au>
+Received: from sacred.ru ([62.205.161.221]:56345 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752122AbYC1M37 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 08:29:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-28-03 at 19:29 +0800, Herbert Xu wrote:
+The inuse counters are going to become a per-cpu array.
+Introduce an index for this array on the struct proto.
 
-> OK, since we don't really have any good ways of balancing softirq
-> events with each other, I've taken Dave's suggestion of checking
-> the jiffies as is done with NAPI.  I've kept the need_resched to
-> minimise the scheduling latency.
+To handle the case of proto register-unregister-register
+loop the bitmap is used. All its bits manipulations are
+protected with proto_list_lock and a sanity check for the
+bitmap being exhausted is also added.
 
-i think the need_resched would be effective.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-**** heres something that has not yet resolved in my mind (even for the
-NAPI case which was inherited from code that has been there forever).
-Theres probably a very simple answer ;->
-say we have two machines:
-one faster and we decide HZ = 1000 meaning 1ms for a jiffy; the other
-slower and we make HZ 100 i.e 10ms jiffy.
-Logically, shouldnt the slower machine allocate less time running the
-loop since it has less resources? in the above case it would spend 10
-times more. 
+---
+ include/net/sock.h |    1 +
+ net/core/sock.c    |   34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 35 insertions(+), 0 deletions(-)
 
-cheers,
-jamal
-
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 1c9d059..abc6341 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -562,6 +562,7 @@ struct proto {
+ 
+ 	/* Keeping track of sockets in use */
+ #ifdef CONFIG_PROC_FS
++	unsigned int		inuse_idx;
+ 	struct pcounter		inuse;
+ #endif
+ 
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 3ee9506..7d2c8ad 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1940,6 +1940,38 @@ EXPORT_SYMBOL(sk_common_release);
+ static DEFINE_RWLOCK(proto_list_lock);
+ static LIST_HEAD(proto_list);
+ 
++#ifdef CONFIG_PROC_FS
++#define PROTO_INUSE_NR	64	/* should be enough for the first time */
++
++static DECLARE_BITMAP(proto_inuse_idx, PROTO_INUSE_NR);
++
++static void assign_proto_idx(struct proto *prot)
++{
++	prot->inuse_idx = find_first_zero_bit(proto_inuse_idx, PROTO_INUSE_NR);
++
++	if (unlikely(prot->inuse_idx == PROTO_INUSE_NR - 1)) {
++		printk(KERN_ERR "PROTO_INUSE_NR exhausted\n");
++		return;
++	}
++
++	set_bit(prot->inuse_idx, proto_inuse_idx);
++}
++
++static void release_proto_idx(struct proto *prot)
++{
++	if (prot->inuse_idx != PROTO_INUSE_NR - 1)
++		clear_bit(prot->inuse_idx, proto_inuse_idx);
++}
++#else
++static inline void assign_proto_idx(struct proto *prot)
++{
++}
++
++static inline void release_proto_idx(struct proto *prot)
++{
++}
++#endif
++
+ int proto_register(struct proto *prot, int alloc_slab)
+ {
+ 	char *request_sock_slab_name = NULL;
+@@ -2000,6 +2032,7 @@ int proto_register(struct proto *prot, int alloc_slab)
+ 
+ 	write_lock(&proto_list_lock);
+ 	list_add(&prot->node, &proto_list);
++	assign_proto_idx(prot);
+ 	write_unlock(&proto_list_lock);
+ 	return 0;
+ 
+@@ -2026,6 +2059,7 @@ EXPORT_SYMBOL(proto_register);
+ void proto_unregister(struct proto *prot)
+ {
+ 	write_lock(&proto_list_lock);
++	release_proto_idx(prot);
+ 	list_del(&prot->node);
+ 	write_unlock(&proto_list_lock);
+ 
