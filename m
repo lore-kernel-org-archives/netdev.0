@@ -1,8 +1,8 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 6/8] e1000e: convert ndev_ printks to
-	something smaller
-Date: Fri, 28 Mar 2008 09:15:31 -0700
-Message-ID: <20080328161531.6562.8515.stgit@localhost.localdomain>
+Subject: [PATCH 5/8] e1000e: Make arrays out of these Rx/Tx
+	registers
+Date: Fri, 28 Mar 2008 09:15:26 -0700
+Message-ID: <20080328161526.6562.29621.stgit@localhost.localdomain>
 References: <20080328161503.6562.44329.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,610 +22,300 @@ Sender: e1000-devel-bounces@lists.sourceforge.net
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-The ndev_* printk's are too lenghty and we don't need to specify
-the adapter/netdev struct at all, making this a lot more readable.
+With multiple queues coming into the code these base control
+registers need to be made into arrays.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000e/e1000.h   |   27 ++++----
- drivers/net/e1000e/ethtool.c |   38 +++++------
- drivers/net/e1000e/netdev.c  |  148 +++++++++++++++++++-----------------------
- drivers/net/e1000e/param.c   |   31 +++------
- 4 files changed, 108 insertions(+), 136 deletions(-)
+ drivers/net/e1000e/82571.c   |   24 ++++++++++++------------
+ drivers/net/e1000e/es2lan.c  |   24 ++++++++++++------------
+ drivers/net/e1000e/hw.h      |   10 ++++++----
+ drivers/net/e1000e/ich8lan.c |   24 ++++++++++++------------
+ drivers/net/e1000e/netdev.c  |   16 ++++++++--------
+ 5 files changed, 50 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index b941a6b..e48e353 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -41,24 +41,25 @@
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index 9b46a00..85e4764 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -836,19 +836,19 @@ static s32 e1000_init_hw_82571(struct e1000_hw *hw)
+ 	ret_val = e1000_setup_link_82571(hw);
  
- struct e1000_info;
+ 	/* Set the transmit descriptor write-back policy */
+-	reg_data = er32(TXDCTL);
++	reg_data = er32(TXDCTL(0));
+ 	reg_data = (reg_data & ~E1000_TXDCTL_WTHRESH) |
+ 		   E1000_TXDCTL_FULL_TX_DESC_WB |
+ 		   E1000_TXDCTL_COUNT_DESC;
+-	ew32(TXDCTL, reg_data);
++	ew32(TXDCTL(0), reg_data);
  
--#define ndev_printk(level, netdev, format, arg...) \
--	printk(level "%s: " format, (netdev)->name, ## arg)
-+#define e_printk(level, adapter, format, arg...) \
-+	printk(level "%s: %s: " format, pci_name(adapter->pdev), \
-+	       adapter->netdev->name, ## arg)
- 
- #ifdef DEBUG
--#define ndev_dbg(netdev, format, arg...) \
--	ndev_printk(KERN_DEBUG , netdev, format, ## arg)
-+#define e_dbg(format, arg...) \
-+	e_printk(KERN_DEBUG , adapter, format, ## arg)
- #else
--#define ndev_dbg(netdev, format, arg...) do { (void)(netdev); } while (0)
-+#define e_dbg(format, arg...) do { (void)(adapter); } while (0)
- #endif
- 
--#define ndev_err(netdev, format, arg...) \
--	ndev_printk(KERN_ERR , netdev, format, ## arg)
--#define ndev_info(netdev, format, arg...) \
--	ndev_printk(KERN_INFO , netdev, format, ## arg)
--#define ndev_warn(netdev, format, arg...) \
--	ndev_printk(KERN_WARNING , netdev, format, ## arg)
--#define ndev_notice(netdev, format, arg...) \
--	ndev_printk(KERN_NOTICE , netdev, format, ## arg)
-+#define e_err(format, arg...) \
-+	e_printk(KERN_ERR, adapter, format, ## arg)
-+#define e_info(format, arg...) \
-+	e_printk(KERN_INFO, adapter, format, ## arg)
-+#define e_warn(format, arg...) \
-+	e_printk(KERN_WARNING, adapter, format, ## arg)
-+#define e_notice(format, arg...) \
-+	e_printk(KERN_NOTICE, adapter, format, ## arg)
- 
- 
- /* Tx/Rx descriptor defines */
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index 4ae0056..8398dbc 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -189,8 +189,7 @@ static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u16 spddplx)
- 	/* Fiber NICs only allow 1000 gbps Full duplex */
- 	if ((adapter->hw.phy.media_type == e1000_media_type_fiber) &&
- 		spddplx != (SPEED_1000 + DUPLEX_FULL)) {
--		ndev_err(adapter->netdev, "Unsupported Speed/Duplex "
--			 "configuration\n");
-+		e_err("Unsupported Speed/Duplex configuration\n");
- 		return -EINVAL;
- 	}
- 
-@@ -213,8 +212,7 @@ static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u16 spddplx)
- 		break;
- 	case SPEED_1000 + DUPLEX_HALF: /* not supported */
- 	default:
--		ndev_err(adapter->netdev, "Unsupported Speed/Duplex "
--			 "configuration\n");
-+		e_err("Unsupported Speed/Duplex configuration\n");
- 		return -EINVAL;
- 	}
- 	return 0;
-@@ -231,8 +229,8 @@ static int e1000_set_settings(struct net_device *netdev,
- 	 * cannot be changed
- 	 */
- 	if (e1000_check_reset_block(hw)) {
--		ndev_err(netdev, "Cannot change link "
--			 "characteristics when SoL/IDER is active.\n");
-+		e_err("Cannot change link characteristics when SoL/IDER"
-+		      " is active.\n");
- 		return -EINVAL;
- 	}
- 
-@@ -380,8 +378,7 @@ static int e1000_set_tso(struct net_device *netdev, u32 data)
- 		netdev->features &= ~NETIF_F_TSO6;
- 	}
- 
--	ndev_info(netdev, "TSO is %s\n",
--		  data ? "Enabled" : "Disabled");
-+	e_info("TSO is %s\n", data ? "Enabled" : "Disabled");
- 	adapter->flags |= FLAG_TSO_FORCE;
- 	return 0;
- }
-@@ -712,8 +709,8 @@ static bool reg_pattern_test_array(struct e1000_adapter *adapter, u64 *data,
- 				      (test[i] & write));
- 		read = E1000_READ_REG_ARRAY(&adapter->hw, reg, offset);
- 		if (read != (test[i] & write & mask)) {
--			ndev_err(adapter->netdev, "pattern test reg %04X "
--				 "failed: got 0x%08X expected 0x%08X\n",
-+			e_err("pattern test reg %04X failed: got "
-+			      "0x%08X expected 0x%08X\n",
- 				 reg + offset,
- 				 read, (test[i] & write & mask));
- 			*data = reg;
-@@ -730,8 +727,8 @@ static bool reg_set_and_check(struct e1000_adapter *adapter, u64 *data,
- 	__ew32(&adapter->hw, reg, write & mask);
- 	read = __er32(&adapter->hw, reg);
- 	if ((write & mask) != (read & mask)) {
--		ndev_err(adapter->netdev, "set/check reg %04X test failed: "
--			 "got 0x%08X expected 0x%08X\n", reg, (read & mask),
-+		e_err("set/check reg %04X test failed: got 0x%08X"
-+		      "expected 0x%08X\n", reg, (read & mask),
- 			 (write & mask));
- 		*data = reg;
- 		return true;
-@@ -761,7 +758,6 @@ static int e1000_reg_test(struct e1000_adapter *adapter, u64 *data)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct e1000_mac_info *mac = &adapter->hw.mac;
--	struct net_device *netdev = adapter->netdev;
- 	u32 value;
- 	u32 before;
- 	u32 after;
-@@ -794,7 +790,7 @@ static int e1000_reg_test(struct e1000_adapter *adapter, u64 *data)
- 	ew32(STATUS, toggle);
- 	after = er32(STATUS) & toggle;
- 	if (value != after) {
--		ndev_err(netdev, "failed STATUS register test got: "
-+		e_err("failed STATUS register test got: "
- 			 "0x%08X expected: 0x%08X\n", after, value);
- 		*data = 1;
- 		return 1;
-@@ -901,8 +897,7 @@ static int e1000_intr_test(struct e1000_adapter *adapter, u64 *data)
- 		*data = 1;
- 		return -1;
- 	}
--	ndev_info(netdev, "testing %s interrupt\n",
--		  (shared_int ? "shared" : "unshared"));
-+	e_info("testing %s interrupt\n", (shared_int ? "shared" : "unshared"));
- 
- 	/* Disable all the interrupts */
- 	ew32(IMC, 0xFFFFFFFF);
-@@ -1502,8 +1497,7 @@ static int e1000_loopback_test(struct e1000_adapter *adapter, u64 *data)
- 	 * sessions are active
- 	 */
- 	if (e1000_check_reset_block(&adapter->hw)) {
--		ndev_err(adapter->netdev, "Cannot do PHY loopback test "
--			 "when SoL/IDER is active.\n");
-+		e_err("Cannot do PHY loopback test when SoL/IDER is active.\n");
- 		*data = 0;
- 		goto out;
- 	}
-@@ -1588,7 +1582,7 @@ static void e1000_diag_test(struct net_device *netdev,
- 		forced_speed_duplex = adapter->hw.mac.forced_speed_duplex;
- 		autoneg = adapter->hw.mac.autoneg;
- 
--		ndev_info(netdev, "offline testing starting\n");
-+		e_info("offline testing starting\n");
- 
- 		/*
- 		 * Link test performed before hardware reset so autoneg doesn't
-@@ -1634,7 +1628,7 @@ static void e1000_diag_test(struct net_device *netdev,
- 		if (if_running)
- 			dev_open(netdev);
+ 	/* ...for both queues. */
+ 	if (mac->type != e1000_82573) {
+-		reg_data = er32(TXDCTL1);
++		reg_data = er32(TXDCTL(1));
+ 		reg_data = (reg_data & ~E1000_TXDCTL_WTHRESH) |
+ 			   E1000_TXDCTL_FULL_TX_DESC_WB |
+ 			   E1000_TXDCTL_COUNT_DESC;
+-		ew32(TXDCTL1, reg_data);
++		ew32(TXDCTL(1), reg_data);
  	} else {
--		ndev_info(netdev, "online testing starting\n");
-+		e_info("online testing starting\n");
- 		/* Online tests */
- 		if (e1000_link_test(adapter, &data[4]))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
-@@ -1670,8 +1664,8 @@ static void e1000_get_wol(struct net_device *netdev,
- 		wol->supported &= ~WAKE_UCAST;
+ 		e1000e_enable_tx_pkt_filtering(hw);
+ 		reg_data = er32(GCR);
+@@ -878,17 +878,17 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
+ 	u32 reg;
  
- 		if (adapter->wol & E1000_WUFC_EX)
--			ndev_err(netdev, "Interface does not support "
--				 "directed (unicast) frame wake-up packets\n");
-+			e_err("Interface does not support directed (unicast)"
-+			      " frame wake-up packets\n");
+ 	/* Transmit Descriptor Control 0 */
+-	reg = er32(TXDCTL);
++	reg = er32(TXDCTL(0));
+ 	reg |= (1 << 22);
+-	ew32(TXDCTL, reg);
++	ew32(TXDCTL(0), reg);
+ 
+ 	/* Transmit Descriptor Control 1 */
+-	reg = er32(TXDCTL1);
++	reg = er32(TXDCTL(1));
+ 	reg |= (1 << 22);
+-	ew32(TXDCTL1, reg);
++	ew32(TXDCTL(1), reg);
+ 
+ 	/* Transmit Arbitration Control 0 */
+-	reg = er32(TARC0);
++	reg = er32(TARC(0));
+ 	reg &= ~(0xF << 27); /* 30:27 */
+ 	switch (hw->mac.type) {
+ 	case e1000_82571:
+@@ -898,10 +898,10 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
+ 	default:
+ 		break;
  	}
+-	ew32(TARC0, reg);
++	ew32(TARC(0), reg);
  
- 	if (adapter->wol & E1000_WUFC_EX)
+ 	/* Transmit Arbitration Control 1 */
+-	reg = er32(TARC1);
++	reg = er32(TARC(1));
+ 	switch (hw->mac.type) {
+ 	case e1000_82571:
+ 	case e1000_82572:
+@@ -911,7 +911,7 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
+ 			reg &= ~(1 << 28);
+ 		else
+ 			reg |= (1 << 28);
+-		ew32(TARC1, reg);
++		ew32(TARC(1), reg);
+ 		break;
+ 	default:
+ 		break;
+diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
+index 2689e4b..10e17cf 100644
+--- a/drivers/net/e1000e/es2lan.c
++++ b/drivers/net/e1000e/es2lan.c
+@@ -792,16 +792,16 @@ static s32 e1000_init_hw_80003es2lan(struct e1000_hw *hw)
+ 	ret_val = e1000e_setup_link(hw);
+ 
+ 	/* Set the transmit descriptor write-back policy */
+-	reg_data = er32(TXDCTL);
++	reg_data = er32(TXDCTL(0));
+ 	reg_data = (reg_data & ~E1000_TXDCTL_WTHRESH) |
+ 		   E1000_TXDCTL_FULL_TX_DESC_WB | E1000_TXDCTL_COUNT_DESC;
+-	ew32(TXDCTL, reg_data);
++	ew32(TXDCTL(0), reg_data);
+ 
+ 	/* ...for both queues. */
+-	reg_data = er32(TXDCTL1);
++	reg_data = er32(TXDCTL(1));
+ 	reg_data = (reg_data & ~E1000_TXDCTL_WTHRESH) |
+ 		   E1000_TXDCTL_FULL_TX_DESC_WB | E1000_TXDCTL_COUNT_DESC;
+-	ew32(TXDCTL1, reg_data);
++	ew32(TXDCTL(1), reg_data);
+ 
+ 	/* Enable retransmit on late collisions */
+ 	reg_data = er32(TCTL);
+@@ -846,29 +846,29 @@ static void e1000_initialize_hw_bits_80003es2lan(struct e1000_hw *hw)
+ 	u32 reg;
+ 
+ 	/* Transmit Descriptor Control 0 */
+-	reg = er32(TXDCTL);
++	reg = er32(TXDCTL(0));
+ 	reg |= (1 << 22);
+-	ew32(TXDCTL, reg);
++	ew32(TXDCTL(0), reg);
+ 
+ 	/* Transmit Descriptor Control 1 */
+-	reg = er32(TXDCTL1);
++	reg = er32(TXDCTL(1));
+ 	reg |= (1 << 22);
+-	ew32(TXDCTL1, reg);
++	ew32(TXDCTL(1), reg);
+ 
+ 	/* Transmit Arbitration Control 0 */
+-	reg = er32(TARC0);
++	reg = er32(TARC(0));
+ 	reg &= ~(0xF << 27); /* 30:27 */
+ 	if (hw->phy.media_type != e1000_media_type_copper)
+ 		reg &= ~(1 << 20);
+-	ew32(TARC0, reg);
++	ew32(TARC(0), reg);
+ 
+ 	/* Transmit Arbitration Control 1 */
+-	reg = er32(TARC1);
++	reg = er32(TARC(1));
+ 	if (er32(TCTL) & E1000_TCTL_MULR)
+ 		reg &= ~(1 << 28);
+ 	else
+ 		reg |= (1 << 28);
+-	ew32(TARC1, reg);
++	ew32(TARC(1), reg);
+ }
+ 
+ /**
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index 0b4145a..53f1ac6 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -93,6 +93,8 @@ enum e1e_registers {
+ 	E1000_RDH      = 0x02810, /* Rx Descriptor Head - RW */
+ 	E1000_RDT      = 0x02818, /* Rx Descriptor Tail - RW */
+ 	E1000_RDTR     = 0x02820, /* Rx Delay Timer - RW */
++	E1000_RXDCTL_BASE = 0x02828, /* Rx Descriptor Control - RW */
++#define E1000_RXDCTL(_n)   (E1000_RXDCTL_BASE + (_n << 8))
+ 	E1000_RADV     = 0x0282C, /* RX Interrupt Absolute Delay Timer - RW */
+ 
+ /* Convenience macros
+@@ -111,11 +113,11 @@ enum e1e_registers {
+ 	E1000_TDH      = 0x03810, /* Tx Descriptor Head - RW */
+ 	E1000_TDT      = 0x03818, /* Tx Descriptor Tail - RW */
+ 	E1000_TIDV     = 0x03820, /* Tx Interrupt Delay Value - RW */
+-	E1000_TXDCTL   = 0x03828, /* Tx Descriptor Control - RW */
++	E1000_TXDCTL_BASE = 0x03828, /* Tx Descriptor Control - RW */
++#define E1000_TXDCTL(_n)   (E1000_TXDCTL_BASE + (_n << 8))
+ 	E1000_TADV     = 0x0382C, /* Tx Interrupt Absolute Delay Val - RW */
+-	E1000_TARC0    = 0x03840, /* Tx Arbitration Count (0) */
+-	E1000_TXDCTL1  = 0x03928, /* Tx Descriptor Control (1) - RW */
+-	E1000_TARC1    = 0x03940, /* Tx Arbitration Count (1) */
++	E1000_TARC_BASE = 0x03840, /* Tx Arbitration Count (0) */
++#define E1000_TARC(_n)   (E1000_TARC_BASE + (_n << 8))
+ 	E1000_CRCERRS  = 0x04000, /* CRC Error Count - R/clr */
+ 	E1000_ALGNERRC = 0x04004, /* Alignment Error Count - R/clr */
+ 	E1000_SYMERRS  = 0x04008, /* Symbol Error Count - R/clr */
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index e358a77..bbb51e1 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -1753,18 +1753,18 @@ static s32 e1000_init_hw_ich8lan(struct e1000_hw *hw)
+ 	ret_val = e1000_setup_link_ich8lan(hw);
+ 
+ 	/* Set the transmit descriptor write-back policy for both queues */
+-	txdctl = er32(TXDCTL);
++	txdctl = er32(TXDCTL(0));
+ 	txdctl = (txdctl & ~E1000_TXDCTL_WTHRESH) |
+ 		 E1000_TXDCTL_FULL_TX_DESC_WB;
+ 	txdctl = (txdctl & ~E1000_TXDCTL_PTHRESH) |
+ 		 E1000_TXDCTL_MAX_TX_DESC_PREFETCH;
+-	ew32(TXDCTL, txdctl);
+-	txdctl = er32(TXDCTL1);
++	ew32(TXDCTL(0), txdctl);
++	txdctl = er32(TXDCTL(1));
+ 	txdctl = (txdctl & ~E1000_TXDCTL_WTHRESH) |
+ 		 E1000_TXDCTL_FULL_TX_DESC_WB;
+ 	txdctl = (txdctl & ~E1000_TXDCTL_PTHRESH) |
+ 		 E1000_TXDCTL_MAX_TX_DESC_PREFETCH;
+-	ew32(TXDCTL1, txdctl);
++	ew32(TXDCTL(1), txdctl);
+ 
+ 	/*
+ 	 * ICH8 has opposite polarity of no_snoop bits.
+@@ -1807,30 +1807,30 @@ static void e1000_initialize_hw_bits_ich8lan(struct e1000_hw *hw)
+ 	ew32(CTRL_EXT, reg);
+ 
+ 	/* Transmit Descriptor Control 0 */
+-	reg = er32(TXDCTL);
++	reg = er32(TXDCTL(0));
+ 	reg |= (1 << 22);
+-	ew32(TXDCTL, reg);
++	ew32(TXDCTL(0), reg);
+ 
+ 	/* Transmit Descriptor Control 1 */
+-	reg = er32(TXDCTL1);
++	reg = er32(TXDCTL(1));
+ 	reg |= (1 << 22);
+-	ew32(TXDCTL1, reg);
++	ew32(TXDCTL(1), reg);
+ 
+ 	/* Transmit Arbitration Control 0 */
+-	reg = er32(TARC0);
++	reg = er32(TARC(0));
+ 	if (hw->mac.type == e1000_ich8lan)
+ 		reg |= (1 << 28) | (1 << 29);
+ 	reg |= (1 << 23) | (1 << 24) | (1 << 26) | (1 << 27);
+-	ew32(TARC0, reg);
++	ew32(TARC(0), reg);
+ 
+ 	/* Transmit Arbitration Control 1 */
+-	reg = er32(TARC1);
++	reg = er32(TARC(1));
+ 	if (er32(TCTL) & E1000_TCTL_MULR)
+ 		reg &= ~(1 << 28);
+ 	else
+ 		reg |= (1 << 28);
+ 	reg |= (1 << 24) | (1 << 26) | (1 << 30);
+-	ew32(TARC1, reg);
++	ew32(TARC(1), reg);
+ 
+ 	/* Device Status */
+ 	if (hw->mac.type == e1000_ich8lan) {
 diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index b8bb4fe..7ea7234 100644
+index d70bde0..b8bb4fe 100644
 --- a/drivers/net/e1000e/netdev.c
 +++ b/drivers/net/e1000e/netdev.c
-@@ -401,8 +401,7 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- 		 * packet, also make sure the frame isn't just CRC only */
- 		if (!(status & E1000_RXD_STAT_EOP) || (length <= 4)) {
- 			/* All receives must fit into a single buffer */
--			ndev_dbg(netdev, "%s: Receive packet consumed "
--				 "multiple buffers\n", netdev->name);
-+			e_dbg("Receive packet consumed multiple buffers\n");
- 			/* recycle */
- 			buffer_info->skb = skb;
- 			goto next_desc;
-@@ -493,28 +492,26 @@ static void e1000_print_tx_hang(struct e1000_adapter *adapter)
- 	unsigned int i = tx_ring->next_to_clean;
- 	unsigned int eop = tx_ring->buffer_info[i].next_to_watch;
- 	struct e1000_tx_desc *eop_desc = E1000_TX_DESC(*tx_ring, eop);
--	struct net_device *netdev = adapter->netdev;
+@@ -1639,24 +1639,24 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
+ 		(E1000_COLLISION_THRESHOLD << E1000_CT_SHIFT);
  
- 	/* detected Tx unit hang */
--	ndev_err(netdev,
--		 "Detected Tx Unit Hang:\n"
--		 "  TDH                  <%x>\n"
--		 "  TDT                  <%x>\n"
--		 "  next_to_use          <%x>\n"
--		 "  next_to_clean        <%x>\n"
--		 "buffer_info[next_to_clean]:\n"
--		 "  time_stamp           <%lx>\n"
--		 "  next_to_watch        <%x>\n"
--		 "  jiffies              <%lx>\n"
--		 "  next_to_watch.status <%x>\n",
--		 readl(adapter->hw.hw_addr + tx_ring->head),
--		 readl(adapter->hw.hw_addr + tx_ring->tail),
--		 tx_ring->next_to_use,
--		 tx_ring->next_to_clean,
--		 tx_ring->buffer_info[eop].time_stamp,
--		 eop,
--		 jiffies,
--		 eop_desc->upper.fields.status);
-+	e_err("Detected Tx Unit Hang:\n"
-+	      "  TDH                  <%x>\n"
-+	      "  TDT                  <%x>\n"
-+	      "  next_to_use          <%x>\n"
-+	      "  next_to_clean        <%x>\n"
-+	      "buffer_info[next_to_clean]:\n"
-+	      "  time_stamp           <%lx>\n"
-+	      "  next_to_watch        <%x>\n"
-+	      "  jiffies              <%lx>\n"
-+	      "  next_to_watch.status <%x>\n",
-+	      readl(adapter->hw.hw_addr + tx_ring->head),
-+	      readl(adapter->hw.hw_addr + tx_ring->tail),
-+	      tx_ring->next_to_use,
-+	      tx_ring->next_to_clean,
-+	      tx_ring->buffer_info[eop].time_stamp,
-+	      eop,
-+	      jiffies,
-+	      eop_desc->upper.fields.status);
- }
- 
- /**
-@@ -664,8 +661,8 @@ static bool e1000_clean_rx_irq_ps(struct e1000_adapter *adapter,
- 		buffer_info->dma = 0;
- 
- 		if (!(staterr & E1000_RXD_STAT_EOP)) {
--			ndev_dbg(netdev, "%s: Packet Split buffers didn't pick "
--				 "up the full packet\n", netdev->name);
-+			e_dbg("Packet Split buffers didn't pick up the full"
-+			      " packet\n");
- 			dev_kfree_skb_irq(skb);
- 			goto next_desc;
- 		}
-@@ -678,8 +675,8 @@ static bool e1000_clean_rx_irq_ps(struct e1000_adapter *adapter,
- 		length = le16_to_cpu(rx_desc->wb.middle.length0);
- 
- 		if (!length) {
--			ndev_dbg(netdev, "%s: Last part of the packet spanning"
--				 " multiple descriptors\n", netdev->name);
-+			e_dbg("Last part of the packet spanning multiple"
-+			      " descriptors\n");
- 			dev_kfree_skb_irq(skb);
- 			goto next_desc;
- 		}
-@@ -979,12 +976,11 @@ static int e1000_request_irq(struct e1000_adapter *adapter)
- 	err = request_irq(adapter->pdev->irq, handler, irq_flags, netdev->name,
- 			  netdev);
- 	if (err) {
--		ndev_err(netdev,
--		       "Unable to allocate %s interrupt (return: %d)\n",
--			adapter->flags & FLAG_MSI_ENABLED ? "MSI":"INTx",
--			err);
--		if (adapter->flags & FLAG_MSI_ENABLED)
-+		if (adapter->flags & FLAG_MSI_ENABLED) {
- 			pci_disable_msi(adapter->pdev);
-+			adapter->flags &= ~FLAG_MSI_ENABLED;
-+		}
-+		e_err("Unable to allocate interrupt, Error: %d\n", err);
+ 	if (adapter->flags & FLAG_TARC_SPEED_MODE_BIT) {
+-		tarc = er32(TARC0);
++		tarc = er32(TARC(0));
+ 		/*
+ 		 * set the speed mode bit, we'll clear it if we're not at
+ 		 * gigabit link later
+ 		 */
+ #define SPEED_MODE_BIT (1 << 21)
+ 		tarc |= SPEED_MODE_BIT;
+-		ew32(TARC0, tarc);
++		ew32(TARC(0), tarc);
  	}
  
- 	return err;
-@@ -1123,8 +1119,7 @@ int e1000e_setup_tx_resources(struct e1000_adapter *adapter)
- 	return 0;
- err:
- 	vfree(tx_ring->buffer_info);
--	ndev_err(adapter->netdev,
--	"Unable to allocate memory for the transmit descriptor ring\n");
-+	e_err("Unable to allocate memory for the transmit descriptor ring\n");
- 	return err;
- }
- 
-@@ -1178,8 +1173,7 @@ err_pages:
- 	}
- err:
- 	vfree(rx_ring->buffer_info);
--	ndev_err(adapter->netdev,
--	"Unable to allocate memory for the transmit descriptor ring\n");
-+	e_err("Unable to allocate memory for the transmit descriptor ring\n");
- 	return err;
- }
- 
-@@ -2158,7 +2152,7 @@ void e1000e_reset(struct e1000_adapter *adapter)
- 	ew32(WUC, 0);
- 
- 	if (mac->ops.init_hw(hw))
--		ndev_err(adapter->netdev, "Hardware Error\n");
-+		e_err("Hardware Error\n");
- 
- 	e1000_update_mng_vlan(adapter);
- 
-@@ -2292,7 +2286,7 @@ static int __devinit e1000_sw_init(struct e1000_adapter *adapter)
- 	return 0;
- 
- err:
--	ndev_err(netdev, "Unable to allocate memory for queues\n");
-+	e_err("Unable to allocate memory for queues\n");
- 	kfree(adapter->rx_ring);
- 	kfree(adapter->tx_ring);
- 	return -ENOMEM;
-@@ -2636,18 +2630,16 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
- static void e1000_print_link_info(struct e1000_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
--	struct net_device *netdev = adapter->netdev;
- 	u32 ctrl = er32(CTRL);
- 
--	ndev_info(netdev,
--		"Link is Up %d Mbps %s, Flow Control: %s\n",
--		adapter->link_speed,
--		(adapter->link_duplex == FULL_DUPLEX) ?
-+	e_info("Link is Up %d Mbps %s, Flow Control: %s\n",
-+	       adapter->link_speed,
-+	       (adapter->link_duplex == FULL_DUPLEX) ?
- 				"Full Duplex" : "Half Duplex",
--		((ctrl & E1000_CTRL_TFCE) && (ctrl & E1000_CTRL_RFCE)) ?
-+	       ((ctrl & E1000_CTRL_TFCE) && (ctrl & E1000_CTRL_RFCE)) ?
- 				"RX/TX" :
--		((ctrl & E1000_CTRL_RFCE) ? "RX" :
--		((ctrl & E1000_CTRL_TFCE) ? "TX" : "None" )));
-+	       ((ctrl & E1000_CTRL_RFCE) ? "RX" :
-+	       ((ctrl & E1000_CTRL_TFCE) ? "TX" : "None")));
- }
- 
- static bool e1000_has_link(struct e1000_adapter *adapter)
-@@ -2687,8 +2679,7 @@ static bool e1000_has_link(struct e1000_adapter *adapter)
- 	if ((ret_val == E1000_ERR_PHY) && (hw->phy.type == e1000_phy_igp_3) &&
- 	    (er32(CTRL) & E1000_PHY_CTRL_GBE_DISABLE)) {
- 		/* See e1000_kmrn_lock_loss_workaround_ich8lan() */
--		ndev_info(adapter->netdev,
--			  "Gigabit has been disabled, downgrading speed\n");
-+		e_info("Gigabit has been disabled, downgrading speed\n");
+ 	/* errata: program both queues to unweighted RR */
+ 	if (adapter->flags & FLAG_TARC_SET_BIT_ZERO) {
+-		tarc = er32(TARC0);
++		tarc = er32(TARC(0));
+ 		tarc |= 1;
+-		ew32(TARC0, tarc);
+-		tarc = er32(TARC1);
++		ew32(TARC(0), tarc);
++		tarc = er32(TARC(1));
+ 		tarc |= 1;
+-		ew32(TARC1, tarc);
++		ew32(TARC(1), tarc);
  	}
  
- 	return link_active;
-@@ -2788,8 +2779,7 @@ static void e1000_watchdog_task(struct work_struct *work)
- 				switch (adapter->link_speed) {
- 				case SPEED_10:
- 				case SPEED_100:
--					ndev_info(netdev,
--					"10/100 speed: disabling TSO\n");
-+					e_info("10/100 speed: disabling TSO\n");
- 					netdev->features &= ~NETIF_F_TSO;
- 					netdev->features &= ~NETIF_F_TSO6;
- 					break;
-@@ -2822,7 +2812,7 @@ static void e1000_watchdog_task(struct work_struct *work)
- 		if (netif_carrier_ok(netdev)) {
- 			adapter->link_speed = 0;
- 			adapter->link_duplex = 0;
--			ndev_info(netdev, "Link is Down\n");
-+			e_info("Link is Down\n");
- 			netif_carrier_off(netdev);
- 			netif_stop_queue(netdev);
- 			if (!test_bit(__E1000_DOWN, &adapter->state))
-@@ -3295,8 +3285,7 @@ static int e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 
- 			pull_size = min((unsigned int)4, skb->data_len);
- 			if (!__pskb_pull_tail(skb, pull_size)) {
--				ndev_err(netdev,
--					 "__pskb_pull_tail failed.\n");
-+				e_err("__pskb_pull_tail failed.\n");
- 				dev_kfree_skb_any(skb);
- 				return NETDEV_TX_OK;
+ 	e1000e_config_collision_dist(hw);
+@@ -2775,9 +2775,9 @@ static void e1000_watchdog_task(struct work_struct *work)
+ 			if ((adapter->flags & FLAG_TARC_SPEED_MODE_BIT) &&
+ 			    !txb2b) {
+ 				u32 tarc0;
+-				tarc0 = er32(TARC0);
++				tarc0 = er32(TARC(0));
+ 				tarc0 &= ~SPEED_MODE_BIT;
+-				ew32(TARC0, tarc0);
++				ew32(TARC(0), tarc0);
  			}
-@@ -3428,25 +3417,25 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
  
- 	if ((max_frame < ETH_ZLEN + ETH_FCS_LEN) ||
- 	    (max_frame > MAX_JUMBO_FRAME_SIZE)) {
--		ndev_err(netdev, "Invalid MTU setting\n");
-+		e_err("Invalid MTU setting\n");
- 		return -EINVAL;
- 	}
- 
- 	/* Jumbo frame size limits */
- 	if (max_frame > ETH_FRAME_LEN + ETH_FCS_LEN) {
- 		if (!(adapter->flags & FLAG_HAS_JUMBO_FRAMES)) {
--			ndev_err(netdev, "Jumbo Frames not supported.\n");
-+			e_err("Jumbo Frames not supported.\n");
- 			return -EINVAL;
- 		}
- 		if (adapter->hw.phy.type == e1000_phy_ife) {
--			ndev_err(netdev, "Jumbo Frames not supported.\n");
-+			e_err("Jumbo Frames not supported.\n");
- 			return -EINVAL;
- 		}
- 	}
- 
- #define MAX_STD_JUMBO_FRAME_SIZE 9234
- 	if (max_frame > MAX_STD_JUMBO_FRAME_SIZE) {
--		ndev_err(netdev, "MTU > 9216 not supported.\n");
-+		e_err("MTU > 9216 not supported.\n");
- 		return -EINVAL;
- 	}
- 
-@@ -3481,8 +3470,7 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- 		adapter->rx_buffer_len = ETH_FRAME_LEN + VLAN_HLEN
- 					 + ETH_FCS_LEN;
- 
--	ndev_info(netdev, "changing MTU from %d to %d\n",
--		netdev->mtu, new_mtu);
-+	e_info("changing MTU from %d to %d\n", netdev->mtu, new_mtu);
- 	netdev->mtu = new_mtu;
- 
- 	if (netif_running(netdev))
-@@ -3827,22 +3815,20 @@ static void e1000_print_device_info(struct e1000_adapter *adapter)
- 	u32 part_num;
- 
- 	/* print bus type/speed/width info */
--	ndev_info(netdev, "(PCI Express:2.5GB/s:%s) "
--		  "%02x:%02x:%02x:%02x:%02x:%02x\n",
--		  /* bus width */
--		 ((hw->bus.width == e1000_bus_width_pcie_x4) ? "Width x4" :
--		  "Width x1"),
--		  /* MAC address */
--		  netdev->dev_addr[0], netdev->dev_addr[1],
--		  netdev->dev_addr[2], netdev->dev_addr[3],
--		  netdev->dev_addr[4], netdev->dev_addr[5]);
--	ndev_info(netdev, "Intel(R) PRO/%s Network Connection\n",
--		  (hw->phy.type == e1000_phy_ife)
--		   ? "10/100" : "1000");
-+	e_info("(PCI Express:2.5GB/s:%s) %02x:%02x:%02x:%02x:%02x:%02x\n",
-+	       /* bus width */
-+	      ((hw->bus.width == e1000_bus_width_pcie_x4) ? "Width x4" :
-+	       "Width x1"),
-+	       /* MAC address */
-+	       netdev->dev_addr[0], netdev->dev_addr[1],
-+	       netdev->dev_addr[2], netdev->dev_addr[3],
-+	       netdev->dev_addr[4], netdev->dev_addr[5]);
-+	e_info("Intel(R) PRO/%s Network Connection\n",
-+	       (hw->phy.type == e1000_phy_ife) ? "10/100" : "1000");
- 	e1000e_read_part_num(hw, &part_num);
--	ndev_info(netdev, "MAC: %d, PHY: %d, PBA No: %06x-%03x\n",
--		  hw->mac.type, hw->phy.type,
--		  (part_num >> 8), (part_num & 0xff));
-+	e_info("MAC: %d, PHY: %d, PBA No: %06x-%03x\n",
-+	       hw->mac.type, hw->phy.type,
-+	       (part_num >> 8), (part_num & 0xff));
- }
- 
- /**
-@@ -3990,8 +3976,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	}
- 
- 	if (e1000_check_reset_block(&adapter->hw))
--		ndev_info(netdev,
--			  "PHY reset is blocked due to SOL/IDER session.\n");
-+		e_info("PHY reset is blocked due to SOL/IDER session.\n");
- 
- 	netdev->features = NETIF_F_SG |
- 			   NETIF_F_HW_CSUM |
-@@ -4030,7 +4015,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 		if (e1000_validate_nvm_checksum(&adapter->hw) >= 0)
- 			break;
- 		if (i == 2) {
--			ndev_err(netdev, "The NVM Checksum Is Not Valid\n");
-+			e_err("The NVM Checksum Is Not Valid\n");
- 			err = -EIO;
- 			goto err_eeprom;
- 		}
-@@ -4038,17 +4023,16 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 
- 	/* copy the MAC address out of the NVM */
- 	if (e1000e_read_mac_addr(&adapter->hw))
--		ndev_err(netdev, "NVM Read Error while reading MAC address\n");
-+		e_err("NVM Read Error while reading MAC address\n");
- 
- 	memcpy(netdev->dev_addr, adapter->hw.mac.addr, netdev->addr_len);
- 	memcpy(netdev->perm_addr, adapter->hw.mac.addr, netdev->addr_len);
- 
- 	if (!is_valid_ether_addr(netdev->perm_addr)) {
--		ndev_err(netdev, "Invalid MAC Address: "
--			 "%02x:%02x:%02x:%02x:%02x:%02x\n",
--			 netdev->perm_addr[0], netdev->perm_addr[1],
--			 netdev->perm_addr[2], netdev->perm_addr[3],
--			 netdev->perm_addr[4], netdev->perm_addr[5]);
-+		e_err("Invalid MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
-+		      netdev->dev_addr[0], netdev->dev_addr[1],
-+		      netdev->dev_addr[2], netdev->dev_addr[3],
-+		      netdev->dev_addr[4], netdev->dev_addr[5]);
- 		err = -EIO;
- 		goto err_eeprom;
- 	}
-diff --git a/drivers/net/e1000e/param.c b/drivers/net/e1000e/param.c
-index a66b92e..8effc31 100644
---- a/drivers/net/e1000e/param.c
-+++ b/drivers/net/e1000e/param.c
-@@ -27,6 +27,7 @@
- *******************************************************************************/
- 
- #include <linux/netdevice.h>
-+#include <linux/pci.h>
- 
- #include "e1000.h"
- 
-@@ -162,17 +163,16 @@ static int __devinit e1000_validate_option(unsigned int *value,
- 	case enable_option:
- 		switch (*value) {
- 		case OPTION_ENABLED:
--			ndev_info(adapter->netdev, "%s Enabled\n", opt->name);
-+			e_info("%s Enabled\n", opt->name);
- 			return 0;
- 		case OPTION_DISABLED:
--			ndev_info(adapter->netdev, "%s Disabled\n", opt->name);
-+			e_info("%s Disabled\n", opt->name);
- 			return 0;
- 		}
- 		break;
- 	case range_option:
- 		if (*value >= opt->arg.r.min && *value <= opt->arg.r.max) {
--			ndev_info(adapter->netdev,
--					"%s set to %i\n", opt->name, *value);
-+			e_info("%s set to %i\n", opt->name, *value);
- 			return 0;
- 		}
- 		break;
-@@ -184,8 +184,7 @@ static int __devinit e1000_validate_option(unsigned int *value,
- 			ent = &opt->arg.l.p[i];
- 			if (*value == ent->i) {
- 				if (ent->str[0] != '\0')
--					ndev_info(adapter->netdev, "%s\n",
--						  ent->str);
-+					e_info("%s\n", ent->str);
- 				return 0;
- 			}
- 		}
-@@ -195,8 +194,8 @@ static int __devinit e1000_validate_option(unsigned int *value,
- 		BUG();
- 	}
- 
--	ndev_info(adapter->netdev, "Invalid %s value specified (%i) %s\n",
--	       opt->name, *value, opt->err);
-+	e_info("Invalid %s value specified (%i) %s\n", opt->name, *value,
-+	       opt->err);
- 	*value = opt->def;
- 	return -1;
- }
-@@ -213,13 +212,11 @@ static int __devinit e1000_validate_option(unsigned int *value,
- void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
--	struct net_device *netdev = adapter->netdev;
- 	int bd = adapter->bd_number;
- 
- 	if (bd >= E1000_MAX_NIC) {
--		ndev_notice(netdev,
--		       "Warning: no configuration for board #%i\n", bd);
--		ndev_notice(netdev, "Using defaults for all values\n");
-+		e_notice("Warning: no configuration for board #%i\n", bd);
-+		e_notice("Using defaults for all values\n");
- 	}
- 
- 	{ /* Transmit Interrupt Delay */
-@@ -313,19 +310,15 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 			adapter->itr = InterruptThrottleRate[bd];
- 			switch (adapter->itr) {
- 			case 0:
--				ndev_info(netdev, "%s turned off\n",
--					opt.name);
-+				e_info("%s turned off\n", opt.name);
- 				break;
- 			case 1:
--				ndev_info(netdev,
--					  "%s set to dynamic mode\n",
--					  opt.name);
-+				e_info("%s set to dynamic mode\n", opt.name);
- 				adapter->itr_setting = adapter->itr;
- 				adapter->itr = 20000;
- 				break;
- 			case 3:
--				ndev_info(netdev,
--					"%s set to dynamic conservative mode\n",
-+				e_info("%s set to dynamic conservative mode\n",
- 					opt.name);
- 				adapter->itr_setting = adapter->itr;
- 				adapter->itr = 20000;
+ 			/*
 
 
 -------------------------------------------------------------------------
