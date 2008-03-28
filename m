@@ -1,35 +1,35 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 5 of 5] IPv6: temporary address: update the timer for
- tentative addresses
-Date: Fri, 28 Mar 2008 12:25:58 +0900 (JST)
-Message-ID: <20080328.122558.13389103.yoshfuji@linux-ipv6.org>
-References: <patchbomb.1206305168@pirzuine>
-	<4765830d9f3848ef14e6.1206305173@pirzuine>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] GENETLINK: Global lock refined to family granularity
+Date: Thu, 27 Mar 2008 20:29:58 -0700 (PDT)
+Message-ID: <20080327.202958.17409612.davem@davemloft.net>
+References: <47EB8D8D.8020506@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
-To: benoit.boissinot@ens-lyon.org
+Cc: netdev@vger.kernel.org, tgraf@suug.ch
+To: richard.musil@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:55397 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753162AbYC1DY2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 23:24:28 -0400
-In-Reply-To: <4765830d9f3848ef14e6.1206305173@pirzuine>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39737
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751800AbYC1D36 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 23:29:58 -0400
+In-Reply-To: <47EB8D8D.8020506@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <4765830d9f3848ef14e6.1206305173@pirzuine> (at Sun, 23 Mar 2008 21:46:13 +0100), Benoit Boissinot <benoit.boissinot@ens-lyon.org> says:
+From: Richard MUSIL <richard.musil@st.com>
+Date: Thu, 27 Mar 2008 13:05:33 +0100
 
-> IPv6: temporary address: update the timer for tentative addresses
+> This patch is a revive of the patch I posted half a year ago. In
+> that time Thomas Graf (who was acting as maintainer of genetlink
+> module) accepted the idea, but suggested to do it using RCU
+> lists. Since I did not have and experience with RCU lists, we
+> agreed, he will implement it himself.
 > 
-> Even for tentative addresses, we should update the timer,
-> otherwise if the preferred lifetime is too short we will
-> miss the opportunity to regenerate the adress.
+> Since that time, he neither did it, nor replied to my recent emails
+> and I guess he is no longer active.
 
-Well, but it this ever happens, it implies that the lifetime
-is too short, doesn't it?
-We don't want such temporary address too much.
+He is active, just very busy this past few months.
 
---yoshfuji
+Please, be patient.
+
