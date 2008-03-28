@@ -1,101 +1,54 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [AX25] kernel panic
-Date: Fri, 28 Mar 2008 13:07:21 +0100
-Message-ID: <20080328120721.GA11060@ami.dom.local>
-References: <20080318212531.GA2031@electric-eye.fr.zoreil.com> <47E0C261.3000106@free.fr> <47E17E2E.9050105@free.fr> <20080320073021.GA4037@ff.dom.local> <47E2EC1B.9070405@free.fr> <20080322113620.GA3213@ami.dom.local> <47E68CA1.2040904@free.fr> <20080324205104.GA3721@ami.dom.local> <47E8FCE2.6000308@free.fr> <20080326183538.GA14266@ami.dom.local>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
+Date: Fri, 28 Mar 2008 08:19:19 -0400
+Message-ID: <1206706759.4429.58.camel@localhost>
+References: <47EC399E.90804@sun.com>
+	 <20080327.173418.18777696.davem@davemloft.net>
+	 <20080328012234.GA20465@gondor.apana.org.au>
+	 <20080327.183844.74572930.davem@davemloft.net>
+	 <20080328102931.GA23039@gondor.apana.org.au>
+	 <20080328105629.GG1011@elte.hu>
+	 <20080328110621.GA23342@gondor.apana.org.au>
+	 <20080328112928.GA23547@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jarek Poplawski <jarkao2@o2.pl>
-To: Bernard Pidoux <bpidoux@free.fr>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@elte.hu>, Matheos.Worku@Sun.COM,
+	jesse.brandeburg@intel.com, jarkao2@gmail.com,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.226]:26820 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751155AbYC1MBd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 08:01:33 -0400
-Received: by wr-out-0506.google.com with SMTP id c48so132226wra.1
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 05:01:32 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080326183538.GA14266@ami.dom.local>
+Received: from wa-out-1112.google.com ([209.85.146.179]:9366 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750995AbYC1MUA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 08:20:00 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so278714wah.23
+        for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 05:19:59 -0700 (PDT)
+In-Reply-To: <20080328112928.GA23547@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 26, 2008 at 07:35:38PM +0100, Jarek Poplawski wrote:
-...
-> OK, here is the next try. (Apply after all previous patches to any 2.6.24.x;
-> there would be more noise, so revert it after catching some data.)
+On Fri, 2008-28-03 at 19:29 +0800, Herbert Xu wrote:
 
-Bernard, I fucked it up with this #3: (changed macro to function at
-the last minute). I'm currently reading this, and maybe I'll figure
-out something, but if it's not a big problem for you to repeat this
-after adding this #4 (after all previous) it should be 'a bit' easier.
-(But no need to hurry.)
+> OK, since we don't really have any good ways of balancing softirq
+> events with each other, I've taken Dave's suggestion of checking
+> the jiffies as is done with NAPI.  I've kept the need_resched to
+> minimise the scheduling latency.
 
-Very sorry,
-Jarek P.
+i think the need_resched would be effective.
 
-(debugging patch #4)
----
+**** heres something that has not yet resolved in my mind (even for the
+NAPI case which was inherited from code that has been there forever).
+Theres probably a very simple answer ;->
+say we have two machines:
+one faster and we decide HZ = 1000 meaning 1ms for a jiffy; the other
+slower and we make HZ 100 i.e 10ms jiffy.
+Logically, shouldnt the slower machine allocate less time running the
+loop since it has less resources? in the above case it would spend 10
+times more. 
 
-diff -Nurp 2.6.24.3-with3/include/net/sock.h 2.6.24.3-with4/include/net/sock.h
---- 2.6.24.3-with3/include/net/sock.h	2008-03-26 19:10:33.000000000 +0100
-+++ 2.6.24.3-with4/include/net/sock.h	2008-03-28 12:42:19.000000000 +0100
-@@ -1414,20 +1414,18 @@ extern int sysctl_optmem_max;
- extern __u32 sysctl_wmem_default;
- extern __u32 sysctl_rmem_default;
- 
--static inline int sock_debug_ax25(struct sk_buff *skb, struct sock *ax25_sk)
--{
--	struct sock *sk = skb->sk;
--
--	if (sk && sk->sk_socket && sk->sk_socket->sk != sk) {
--		if (net_ratelimit())
--			printk(KERN_INFO "AX25: %s, %d, %p, %p, %p, %p, %p\n",
--				__FUNCTION__, __LINE__, sk, sk->sk_socket,
--				sk->sk_socket->sk, ax25_sk,
--				ax25_sk == NULL ? NULL : ax25_sk->sk_socket);
--		skb->destructor = NULL;
--		return 1;
--	}
--	return 0;
--}
-+#define sock_debug_ax25(__skb, __ax25_sk) 					\
-+({										\
-+	struct sock *__sk = __skb->sk;						\
-+										\
-+	if (__sk && __sk->sk_socket && __sk->sk_socket->sk != __sk) {		\
-+		if (net_ratelimit())						\
-+			printk(KERN_INFO "AX25: %s, %d, %p, %p, %p, %p, %p\n",	\
-+				__FUNCTION__, __LINE__, __sk, __sk->sk_socket,	\
-+				__sk->sk_socket->sk, __ax25_sk,			\
-+				__ax25_sk == NULL ? NULL : __ax25_sk->sk_socket);	\
-+		__skb->destructor = NULL;					\
-+	}									\
-+})
- 
- #endif	/* _SOCK_H */
-diff -Nurp 2.6.24.3-with3/net/ax25/af_ax25.c 2.6.24.3-with4/net/ax25/af_ax25.c
---- 2.6.24.3-with3/net/ax25/af_ax25.c	2008-03-26 18:52:54.000000000 +0100
-+++ 2.6.24.3-with4/net/ax25/af_ax25.c	2008-03-28 12:50:35.000000000 +0100
-@@ -866,6 +866,9 @@ static int ax25_create(struct net *net, 
- 
- 	ax25->sk    = sk;
- 
-+	if (net_ratelimit())
-+		printk(KERN_INFO "AX25+ %s, %d, %p, %p\n", __FUNCTION__, __LINE__, sk, sock);
-+
- 	return 0;
- }
- 
-@@ -939,6 +942,10 @@ struct sock *ax25_make_new(struct sock *
- 	sk->sk_ax25_debug = 1;
- 	ax25->sk    = sk;
- 
-+	if (net_ratelimit())
-+		printk(KERN_INFO "AX25; %s, %d, %p, %p\n",
-+			 __FUNCTION__, __LINE__, sk, sk->sk_socket);
-+
- 	return sk;
- }
- 
+cheers,
+jamal
+
