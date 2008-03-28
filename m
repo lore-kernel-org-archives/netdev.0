@@ -1,50 +1,39 @@
-From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 3/11 net-2.6.26] [DCCP]: dccp_v(4|6)_ctl_socket is leaked.
-Date: Fri, 28 Mar 2008 20:09:51 +0300
-Message-ID: <1206724191.8599.0.camel@iris.sw.ru>
-References: <1206695071.3271.8.camel@iris.sw.ru>
-	<1206695338-5947-3-git-send-email-den@openvz.org>
-	<20080328144446.GU14945@ghostprotocols.net>
-	<1206717778.4294.4.camel@iris.sw.ru>
-	<20080328164752.GX14945@ghostprotocols.net>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: tg3 bad performance, lots of hardware interrupts
+Date: Fri, 28 Mar 2008 18:12:22 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0803281811420.32241@twin.jikos.cz>
+References: <alpine.DEB.1.00.0803271532570.30549@penti.org>
+ <20080327.144925.196529669.davem@davemloft.net> <1206666100.5368.6.camel@dell>
+ <alpine.DEB.1.00.0803281440460.23558@penti.org> <1206726560.6866.5.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Arnaldo Carvalho de Melo <acme-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20080328164752.GX14945-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Harald Hannelius <harald@iki.fi>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from twin.jikos.cz ([213.151.79.26]:34056 "EHLO twin.jikos.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753558AbYC1RMm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 13:12:42 -0400
+In-Reply-To: <1206726560.6866.5.camel@dell>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-03-28 at 13:47 -0300, Arnaldo Carvalho de Melo wrote:
-> Em Fri, Mar 28, 2008 at 06:22:58PM +0300, Denis V. Lunev escreveu:
-> > On Fri, 2008-03-28 at 11:44 -0300, Arnaldo Carvalho de Melo wrote:
-> > > Em Fri, Mar 28, 2008 at 12:08:50PM +0300, Denis V. Lunev escreveu:
-> > > > This seems a purism as module can't be unloaded, but though if cleanup method
-> > > > is present it should be correct and clean all staff created.
-> > > 
-> > > Its the right thing to do :-) But perhaps we could have a
-> > > inet_csk_ctl_sock_destroy() as we have inet_csk_ctl_sock_create?
-> > > 
-> > > And since this is not csk at all, could you please rename it to
-> > > inet_ctl_sock_{create,destroy}()? I Agree with Vlad and Pavel that this
-> > > would make it more clear, as SCTP is not (yet) a inet_connection_sock.
-> > 
-> > Basically, after these sockets will be moved into namespace we'll use
-> > sk_release_kernel for them.
-> > 
-> > Can I send a rename as a follow up on Monday :) ?
-> 
-> Logically the rename should be done first, then its use, but its up to
-> Dave/you.
+On Fri, 28 Mar 2008, Michael Chan wrote:
 
-seems logical. OK, I'll redo this.
+> > Phew, I thought that running ethtool -t was like doing stop-A-sync on 
+> > a Sun. It took almost half an hour to run that ethtool -t command;
+> Something is very wrong.  ethtool -t should only take a few seconds to
+> complete.  You can try ethtool -t eth0 online to reduce the number of
+> tests to see if it makes a difference.
+> How many of these NICs do you have?  If you have more than one, do they
+> all behave the same way?  Have they ever worked well before?
+
+Harald, is the IRQ of eth0 shared with any other device? (cat 
+/proc/interrupts will show).
+
+-- 
+Jiri Kosina
+SUSE Labs
+
