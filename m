@@ -1,79 +1,62 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: Oops/Warning report for the week of March 28th 2008
-Date: Fri, 28 Mar 2008 17:16:42 -0400
-Message-ID: <20080328171407.ZZRA012@mailhub.coreip.homeip.net>
-References: <47ED3F1A.1090101@linux.intel.com> <alpine.LFD.1.00.0803281310480.14670@woody.linux-foundation.org> <alpine.LFD.1.00.0803281329340.14670@woody.linux-foundation.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: kernel 2.6.25-rc7 highly unstable on high load
+Date: Fri, 28 Mar 2008 22:17:26 +0100
+Message-ID: <47ED6066.2010407@cosmosbay.com>
+References: <47EBC641.8040405@cosmosbay.com> <20080327183745.M9944@visp.net.lb> <47EBEDC9.6080100@cosmosbay.com> <20080327.150308.205829519.davem@davemloft.net> <20080328052543.M60286@visp.net.lb> <47EC8701.1080604@cosmosbay.com> <20080328073854.M73368@visp.net.lb> <47ECA24C.10803@cosmosbay.com> <47ED1583.5010204@cosmosbay.com> <20080328132359.15573601@speedy> <20080328203358.M8487@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@linux.intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:57163 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751045AbYC1VQt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 17:16:49 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so256453nfb.21
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 14:16:47 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.1.00.0803281329340.14670@woody.linux-foundation.org>
+Received: from neuf-infra-smtp-out-sp604006av.neufgp.fr ([84.96.92.121]:35888
+	"EHLO neuf-infra-smtp-out-sp604006av.neufgp.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756420AbYC1VSf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 17:18:35 -0400
+In-Reply-To: <20080328203358.M8487@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 28, 2008 at 01:51:38PM -0700, Linus Torvalds wrote:
-> 
-> 
-> On Fri, 28 Mar 2008, Linus Torvalds wrote:
-> > 
-> > Is there something obvious that I'm missing? I'd really like to see the 
-> > whole posting that the oops came from. Do you save the originals or even 
-> > just message ID's from the ones you pick from emails?
-> 
-> Hmm. Definitely not from the kernel mailing list. I'm intrigued, where did 
-> that oops #5814 come from (picked a recent one at random)?
-> 
-> The thing is recent, and oopses on "mutex_lock(dev->mutex)" in 
-> input_release_device. In particular, the path *seems* to be this one:
-> 
->   evdev_release ->
->     evdev_ungrab ->
->       input_release_device ->
->         mutex_lock ->
->           mutex_lock_nested ->
->             __mutex_lock_common ->
->               list_add_tail(&waiter.list, &lock->wait_list)
-> 
-> where "lock->wait_list.prev" seems to be 0x6b6b6b6b6b6b6b6b, which is the 
-> use-after-free poison pattern.
-> 
-> (In fact, I think the access that actually oopses is when the 
-> debug version of __list_add() does
-> 
-> 	if (unlikely(prev->next != next)) {
-> 
-> because that "prev" pointer is crap).
-> 
-> So it seems that when input_release_device() does:
-> 
-> 	struct input_dev *dev = handle->dev;
-> 
-> 	mutex_lock(&dev->mutex);
-> 
-> the "dev" it uses has already been released. And this only shows up as a 
-> problem when you have slab debugging turned on (like the Fedora kernels 
-> do, thank you all Fedora guys).
-> 
-> The odd thing is that I don't think any of this code has really changed 
-> recently. 
-> 
+Denys Fedoryshchenko a =C3=A9crit :
+> It seems or patch change something (but it is just showing debug, str=
+ange),=20
+> or there is something fixed between 2.6.25-rc7-git1 and 2.6.25-rc7-gi=
+t3. LC-
+> trie working fine, HASH also i cannot see any leaks.
 
-There is a patch from Pete that works around the problem by not
-calling input_release_device() on devices that are gone. But what
-I don't understand is why the parent input device is gone since
-sysfs/driver core should be keeping a reference to it since it is
-a parent of evdev. input_dev shoudl only be released after
-evdev_free() is called.
+Yes, the fix is the patch we mentioned yesterday, and you told us you t=
+ried it :(
 
--- 
-Dmitry
+commit 7c0ecc4c4f8fd90988aab8a95297b9c0038b6160
+
+[ICMP]: Dst entry leak in icmp_send host re-lookup code (v2).
+
+Commit 8b7817f3a959ed99d7443afc12f78a7e1fcc2063 ([IPSEC]: Add ICMP host
+relookup support) introduced some dst leaks on error paths: the rt
+pointer can be forgotten to be put. Fix it bu going to a proper label.
+
+=46ound after net namespace's lo refused to unregister :) Many thanks t=
+o
+Den for valuable help during debugging.
+
+Herbert pointed out, that xfrm_lookup() will put the rtable in case
+of error itself, so the first goto fix is redundant.
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+>=20
+> I  will have to wait 5-6 hours to make sure. After this time pass, if=
+ i will=20
+> not see bug again, i will try to run kernel just with default debug l=
+ike=20
+> before.
+>=20
+> If it is required, i can test performance and cpu load with/without r=
+outing=20
+> cache on real workload. Sure it is better to have syntetic tests befo=
+re that.
+
