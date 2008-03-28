@@ -1,62 +1,63 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH] SCTP: Remove an useless parameter from
-Date: Thu, 27 Mar 2008 23:54:04 -0300
-Message-ID: <20080328025404.GO14945@ghostprotocols.net>
-References: <47EC4F56.6000300@cn.fujitsu.com> <20080328020754.GN14945@ghostprotocols.net> <47EC570E.5090004@cn.fujitsu.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 4 of 5] IPv6: fix lifetime calculation on temporary
+ address creation
+Date: Fri, 28 Mar 2008 12:04:01 +0900 (JST)
+Message-ID: <20080328.120401.89511262.yoshfuji@linux-ipv6.org>
+References: <patchbomb.1206305168@pirzuine>
+	<ec551b4a5bb25cda00ff.1206305172@pirzuine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	vladislav <vladislav.yasevich@hp.com>,
-	netdev <netdev@vger.kernel.org>,
-	lksctp-dev <lksctp-developers@lists.sourceforge.net>,
-	David Miller <davem@davemloft.net>
-To: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
+To: benoit.boissinot@ens-lyon.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:49406 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755994AbYC1Cyt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2008 22:54:49 -0400
-Content-Disposition: inline
-In-Reply-To: <47EC570E.5090004@cn.fujitsu.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:55380 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755276AbYC1DCc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 23:02:32 -0400
+In-Reply-To: <ec551b4a5bb25cda00ff.1206305172@pirzuine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Fri, Mar 28, 2008 at 10:25:18AM +0800, Gui Jianfeng escreveu:
-> Arnaldo Carvalho de Melo wrote:
-> > Em Fri, Mar 28, 2008 at 09:52:22AM +0800, Gui Jianfeng escreveu:
-> >> Vlad,
-> >> There is an useless parameter in sctp_cmd_hb_timer_update,
-> >> remove it.
-> >>
-> >> Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
-> >> ---
-> >>  net/sctp/sm_sideeffect.c |    3 +--
-> >>  1 files changed, 1 insertions(+), 2 deletions(-)
-> >>
-> >> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> >> index 28eb38e..5daeab5 100644
-> >> --- a/net/sctp/sm_sideeffect.c
-> >> +++ b/net/sctp/sm_sideeffect.c
-> >> @@ -593,7 +593,6 @@ static void sctp_cmd_t3_rtx_timers_stop(sctp_cmd_seq_t *cmds,
-> >>  
-> >>  /* Helper function to update the heartbeat timer. */
-> >>  static void sctp_cmd_hb_timer_update(sctp_cmd_seq_t *cmds,
-> >> -				     struct sctp_association *asoc,
-> >>  				     struct sctp_transport *t)
-> >>  {
-> >>  	/* Update the heartbeat timer.  */
-> >> @@ -1457,7 +1456,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
-> >>  
-> >>  		case SCTP_CMD_HB_TIMER_UPDATE:
-> >>  			t = cmd->obj.transport;
-> >> -			sctp_cmd_hb_timer_update(commands, asoc, t);
-> >> +			sctp_cmd_hb_timer_update(commands, t);
-> >>  			break;
-> > 
-> > you mean it was not compiling before?
+In article <ec551b4a5bb25cda00ff.1206305172@pirzuine> (at Sun, 23 Mar 2008 21:46:12 +0100), Benoit Boissinot <benoit.boissinot@ens-lyon.org> says:
+
+> IPv6: fix lifetime calculation on temporary address creation
 > 
->   I mean this parameter is never used in this function.
+> The lifetime calculation was buggy since it copied the tstamp
+> from the associated public address.
+> If (now - ifp->prefered_lft)/HZ (ie the elapsed time since the
+> timestamp was set in the public address) was greater than
+> temp_prefered_lft, you would always get deprecated addresses.
+> 
+> This patch corrects the lifetime calculation by setting the tstamp
+> to "now" and calculating the remaining time from the public address.
+> 
+> Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
+:
+>  	memcpy(&addr.s6_addr[8], idev->rndid, 8);
+> -	tmp_valid_lft = min_t(__u32,
+> -			      ifp->valid_lft,
+> -			      idev->cnf.temp_valid_lft);
+> -	tmp_prefered_lft = min_t(__u32,
+> -				 ifp->prefered_lft,
+> -				 idev->cnf.temp_prefered_lft - desync_factor / HZ);
+> +	now = jiffies;
+> +	elapsed = (now - ifp->tstamp) / HZ;
+> +	if (elapsed >= ifp->valid_lft)
+> +		tmp_valid_lft = 0;
+> +	else
+> +		tmp_valid_lft = min_t(__u32,
+> +				      ifp->valid_lft - elapsed,
+> +				      idev->cnf.temp_valid_lft);
+> +	if (elapsed >= ifp->prefered_lft)
+> +		tmp_prefered_lft = 0;
+> +	else
+> +		tmp_prefered_lft = min_t(__u32,
+> +					 ifp->prefered_lft - elapsed,
+> +					 idev->cnf.temp_prefered_lft - desync_factor / HZ);
 
-Sorry for the disturbance, you're of course right.
+Basically I agree, but it is possible to expire the temporary
+address AFTER public address, which is not good.  Please fix this.
 
-- Arnaldo
+--yoshfuji
