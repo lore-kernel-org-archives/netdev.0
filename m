@@ -1,63 +1,99 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [patch 02/21] drivers/net/3c501.c: replace init_module&cleanup_module with module_init&module_exit
-Date: Fri, 28 Mar 2008 21:58:17 +0000
-Message-ID: <20080328215817.GF10722@ZenIV.linux.org.uk>
-References: <200803282141.m2SLfGGa011804@imap1.linux-foundation.org> <20080328214755.GE10722@ZenIV.linux.org.uk>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.25-rc7-git2: Reported regressions from 2.6.24
+Date: Fri, 28 Mar 2008 22:57:54 +0100
+Message-ID: <200803282257.55696.rjw@sisk.pl>
+References: <200803272353.51901.rjw@sisk.pl> <47ECCD17.7080908@artcom.pl> <20080328104612.2641fb74.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, jkschind@gmail.com
-To: akpm@linux-foundation.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: =?iso-8859-2?q?Pawe=B3_Staszewski?= <pstaszewski@artcom.pl>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:39444 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757519AbYC1V6V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 17:58:21 -0400
+Received: from ogre.sisk.pl ([217.79.144.158]:54697 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756311AbYC1V6j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 17:58:39 -0400
+In-Reply-To: <20080328104612.2641fb74.akpm@linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20080328214755.GE10722@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 28, 2008 at 09:47:55PM +0000, Al Viro wrote:
-> On Fri, Mar 28, 2008 at 02:41:16PM -0700, akpm@linux-foundation.org wrote:
+On Friday, 28 of March 2008, Andrew Morton wrote:
+> On Fri, 28 Mar 2008 11:48:55 +0100 Pawe__ Staszewski <pstaszewski@artcom.pl> wrote:
 > 
-> > Replace init_module and cleanup_module with static functions and
-> > module_init/module_exit.
+> > Linus Torvalds pisze:
+> > > On Thu, 27 Mar 2008, Christoph Lameter wrote:
+> > >   
+> > >> Slab allocations can never use GFP_HIGHMEM.
+> > >>     
+> > >
+> > > Totally irrelevant.
+> > >
+> > > The page allocation path does
+> > >
+> > >         if (gfp_flags & __GFP_ZERO)
+> > >                 prep_zero_page(page, order, gfp_flags);
+> > >
+> > > and that will cause a warning REGARDLESS of whether the page is a HIGHMEM 
+> > > page or not.
+> > >
+> > > And the fact is, passing in GFP_ZERO from the SLUB code is a bug 
+> > > regardless, because it unnecessarily does the dual memset().
+> > >
+> > > So here's a damn big clue:
+> > >  - SLUB does its own GFP_ZERO handling
+> > >  - so passing GFP_ZERO down to the page allocator is a f*cking bug
+> > >  - and this has NOTHING what-so-ever to do with GFP_HIGHMEM or even 
+> > >    whether the warning is "valid" or not - it's a bug even if the warning 
+> > >    had never happened.
+> > >
+> > > So stop blathering, and just admit that this was buggy. It was also 
+> > > fundamentally fragile to leave GFP_ZERO around when it was known to not be 
+> > > valid at that point (exactly because GFP_ZERO was handled by the caller).
+> > >
+> > > 		Linus
+> > >
+> > >
+> > >   
+> > Sorry for offtopic but i have the same problem with kernels 2.6.25-*
+> > like:
+> > http://kerneltrap.org/mailarchive/linux-netdev/2008/3/27/1274804
+> > http://kerneltrap.org/mailarchive/linux-netdev/2008/3/27/1270334
+> > 
+> > I search linux-netdev and found this links.
+> > I only sugest that 
+> > 
+> > 	Denys Fedoryshchenko
+> > 
+> > can have the same problem that i have with this kernels.
+> > I must revert my all kernels to 2.6.23.11 to get stable work on high (ip 
+> > traffic) loads.
+> > 
+> > And there is no documentation for LRO... and Stephen Hemminger write me 
+> > that LRO is not compatible with bridgeing and routing.
+> > see this link:
+> > http://bugzilla.kernel.org/show_bug.cgi?id=10335
+> > 
+> > 
+> > So there must be some documentation for this ... because people can have 
+> > many problems with this.
+> > 
 > 
-> Would the esteemed sir bother to build the resulting tree with drivers
-> in question non-modular?
+> These are all networking things, so let's cc that list.
 > 
-> Damnit, people, try to think for a minute.  If these functions were
-> not called directly in non-modular case, the driver would not work
-> built-in.  Which is not apriori impossible, but might warrant some
-> further investigation.  Use of grep, for starters...
+> > 
+> > Sorry for offtopic but this can resolve problems like my and Denys .
+> 
+> It's very on-topic - thanks for the reminder.
+> 
+> Rafael, are these things actually on the list?
 
-Argh.  My apologies for sloppiness of flame.  Conclusion still stands.
-
-	* This conversion makes the modular-case init run in built-in case.
-	* Either driver does not work built-in, or we'd just gained duplicate
-init for built-in.
-	* Built-in init would have to be non-static.  Therefore, looking for
-non-static functions in that sucker would be a good idea.
-	* The very first one is
- * el1_probe:           -       probe for a 3c501
- * @dev: The device structure passed in to probe.
- *
- * This can be called from two places. The network layer will probe using
- * a device structure passed in with the probe information completed. For a
- * modular driver we use #init_module to fill in our own structure and probe
- * for it.
- *
- * Returns 0 on success. ENXIO if asked not to probe and ENODEV if asked to
- * probe and failing to find anything.
- */
-
-struct net_device * __init el1_probe(int unit)
-
-	* Explanatory comment aside, grep for el1_probe() in drivers/net
-immediately shows that it *is* called from drivers/net/Space.c and yes,
-with the patch in question you are a happy owner of messed probe/init
-sequence.  Looking at drivers/net/Space.c shows that it's called from
-/*  Statically configured drivers -- order matters here. */
-static int __init net_olddevs_init(void)
-and yes, it *does* matter - google for gory details, but it's very much
-a "hang the box on blind probe in the wrong order" territory.
+Well, this isn't a recent regression, at least not from 2.6.24, so I don't
+list it.
