@@ -1,62 +1,48 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] 2.6.25-rc4 de_stop_rxtx polling wrong
-Date: Fri, 28 Mar 2008 18:02:47 -0400
-Message-ID: <47ED6B07.5000101@garzik.org>
-References: <20080309013316.GD25083@colo.lackof.org> <47DE605F.1060100@garzik.org> <20080324050933.GA9944@colo.lackof.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch 02/21] drivers/net/3c501.c: replace
+ init_module&cleanup_module with module_init&module_exit
+Date: Fri, 28 Mar 2008 15:07:10 -0700
+Message-ID: <20080328150710.6a664440.akpm@linux-foundation.org>
+References: <200803282141.m2SLfGGa011804@imap1.linux-foundation.org>
+	<20080328214755.GE10722@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
-To: Grant Grundler <grundler@parisc-linux.org>
+Cc: jeff@garzik.org, netdev@vger.kernel.org, jkschind@gmail.com
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:53472 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758415AbYC1WCt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2008 18:02:49 -0400
-In-Reply-To: <20080324050933.GA9944@colo.lackof.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:36497 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755766AbYC1WHp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 18:07:45 -0400
+In-Reply-To: <20080328214755.GE10722@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Grant Grundler wrote:
-> On Mon, Mar 17, 2008 at 08:13:19AM -0400, Jeff Garzik wrote:
->> Grant Grundler wrote:
->>> Jeff,
->>> This untested patch _should_ fix:
->>> 	"(net de2104x) Kernel panic with de2104x tulip driver on boot"	
->>> 	http://bugzilla.kernel.org/show_bug.cgi?id=3156
->>> But the bug submitter isn't responding.  Same fix has been applied
->>> to tulip.c (several years ago) and uli526x.c (Feb 2008) drivers.
->>> Patch was originally against 2.6.23 but applies clean against 2.6.25-rc4.
->>> [ The panic reported in the bug report was removed in a recently
->>>   (march 2008) accepted patch from Ondrej Zary. ]
->>> Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
->> applied
+On Fri, 28 Mar 2008 21:47:55 +0000
+Al Viro <viro@ZenIV.linux.org.uk> wrote:
+
+> On Fri, Mar 28, 2008 at 02:41:16PM -0700, akpm@linux-foundation.org wrote:
 > 
-> Thanks!
+> > Replace init_module and cleanup_module with static functions and
+> > module_init/module_exit.
 > 
->> Please include comments like "Jeff," and "Patch was originally[...]" after 
->> the "---" separator, so that the automated tools may omit these comments 
->> without human intervention.
+> Would the esteemed sir bother to build the resulting tree with drivers
+> in question non-modular?
 > 
-> Which separator is that? I didn't explicitly add one unless you are
-> referring to the patch itself.
+> Damnit, people, try to think for a minute.  If these functions were
+> not called directly in non-modular case, the driver would not work
+> built-in.  Which is not apriori impossible, but might warrant some
+> further investigation.  Use of grep, for starters...
+> 
 
-See #14 of Documentation/SubmittingPatches.
+well...  The probe functions are still called, only they're now called at
+initcall-time as well as from the infamous Space.c.
 
-Basically, anything after "---" in the email body (except for the patch 
-content itself) is intentionally ignored -- and thus is used for 
-comments like "Jeff, quit sitting on your ass and apply this damned 
-patch" that are relevant but do not belong in the permanent kernel history.
+So I guess these patches should at least have removed the calls from
+Space.c tables, but iirc things aren't as simple as that.  I don't remember
+why.
 
+> IOW, please unapply the patches in question.
 
-> Or tell me which automated tool you are using and I'd be happy to
-> figure out how to seperate logistical comments from what should
-> go in the "change log" (ie land in git history).
-
-git-am, Linus's tool that many of us git'ers use for importing patches 
-from email.
-
-	Jeff
-
-
-
+always happy to do that.
