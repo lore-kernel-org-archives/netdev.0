@@ -1,42 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 10326] New: inconsistent lock state in
- net_rx_action
-Date: Thu, 27 Mar 2008 17:59:39 -0700 (PDT)
-Message-ID: <20080327.175939.165029213.davem@davemloft.net>
-References: <20080327222248.GA3596@ami.dom.local>
-	<20080327.152218.235944668.davem@davemloft.net>
-	<20080327223913.GB3596@ami.dom.local>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-03-27
+Date: Thu, 27 Mar 2008 18:00:39 -0700 (PDT)
+Message-ID: <20080327.180039.150930147.davem@davemloft.net>
+References: <20080327193212.GA10820@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rjw@sisk.pl, a.p.zijlstra@chello.nl, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	marcus@better.se, shemminger@linux-foundation.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35014
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752127AbYC1A7j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 20:59:39 -0400
-In-Reply-To: <20080327223913.GB3596@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080327193212.GA10820-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Thu, 27 Mar 2008 23:39:13 +0100
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Thu, 27 Mar 2008 15:32:12 -0400
 
-> On Thu, Mar 27, 2008 at 03:22:18PM -0700, David Miller wrote:
-> ...
-> > Instead of going back and forth like this can someone post
-> > just take it upon themselves to post such an obvious patch
-> > already :-)
-> > 
-> > All of this "he'll do it, she'll do it" just wastes time.
-> 
-> Right! She or he should also remember to add Peter's lockup
-> scenario and his signed-off-by...
+> A few more for 2.6.25...please let me know if there are problems!
 
-I didn't put in a Signed-off-by since Peter didn't give
-one, but I did give him credit for the discovery and I
-did list explicitly his given logic.
+Pulled, thanks a lot John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
