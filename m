@@ -1,72 +1,53 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 1/11 net-2.6.26] [TCP]: Replace socket with sock for reset sending.
-Date: Fri, 28 Mar 2008 12:08:48 +0300
-Message-ID: <1206695338-5947-1-git-send-email-den@openvz.org>
+Subject: [PATCH 3/11 net-2.6.26] [DCCP]: dccp_v(4|6)_ctl_socket is leaked.
+Date: Fri, 28 Mar 2008 12:08:50 +0300
+Message-ID: <1206695338-5947-3-git-send-email-den@openvz.org>
 References: <1206695071.3271.8.camel@iris.sw.ru>
 Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
 	"Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:46957 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:39248 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753733AbYC1JIb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2008 05:08:31 -0400
+	id S1753155AbYC1JIa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 05:08:30 -0400
 In-Reply-To: <1206695071.3271.8.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is more effective (less derefferences on fast paths). Additionally,
-the approach is unified to one used in ICMP.
+This seems a purism as module can't be unloaded, but though if cleanup method
+is present it should be correct and clean all staff created.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- net/ipv4/tcp_ipv4.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+ net/dccp/ipv4.c |    1 +
+ net/dccp/ipv6.c |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 2a5881c..9d47870 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -89,7 +89,7 @@ int sysctl_tcp_low_latency __read_mostly;
- #define ICMP_MIN_LENGTH 8
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 79a9a4a..4ee34db 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -1023,6 +1023,7 @@ out_proto_unregister:
  
- /* Socket used for sending RSTs */
--static struct socket *tcp_socket __read_mostly;
-+static struct sock *tcp_sock __read_mostly;
- 
- void tcp_v4_send_check(struct sock *sk, int len, struct sk_buff *skb);
- 
-@@ -598,7 +598,7 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
- 				      sizeof(struct tcphdr), IPPROTO_TCP, 0);
- 	arg.csumoffset = offsetof(struct tcphdr, check) / 2;
- 
--	ip_send_reply(tcp_socket->sk, skb, &arg, arg.iov[0].iov_len);
-+	ip_send_reply(tcp_sock, skb, &arg, arg.iov[0].iov_len);
- 
- 	TCP_INC_STATS_BH(TCP_MIB_OUTSEGS);
- 	TCP_INC_STATS_BH(TCP_MIB_OUTRSTS);
-@@ -693,7 +693,7 @@ static void tcp_v4_send_ack(struct tcp_timewait_sock *twsk,
- 	if (twsk)
- 		arg.bound_dev_if = twsk->tw_sk.tw_bound_dev_if;
- 
--	ip_send_reply(tcp_socket->sk, skb, &arg, arg.iov[0].iov_len);
-+	ip_send_reply(tcp_sock, skb, &arg, arg.iov[0].iov_len);
- 
- 	TCP_INC_STATS_BH(TCP_MIB_OUTSEGS);
- }
-@@ -2493,9 +2493,11 @@ struct proto tcp_prot = {
- 
- void __init tcp_v4_init(void)
+ static void __exit dccp_v4_exit(void)
  {
--	if (inet_csk_ctl_sock_create(&tcp_socket, PF_INET, SOCK_RAW,
-+	struct socket *__tcp_socket;
-+	if (inet_csk_ctl_sock_create(&__tcp_socket, PF_INET, SOCK_RAW,
- 				     IPPROTO_TCP) < 0)
- 		panic("Failed to create the TCP control socket.\n");
-+	tcp_sock = __tcp_socket->sk;
- }
++	sock_release(dccp_v4_ctl_sk->sk_socket);
+ 	inet_unregister_protosw(&dccp_v4_protosw);
+ 	inet_del_protocol(&dccp_v4_protocol, IPPROTO_DCCP);
+ 	proto_unregister(&dccp_v4_prot);
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 249640d..85665d5 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -1205,6 +1205,7 @@ out_unregister_proto:
  
- EXPORT_SYMBOL(ipv4_specific);
+ static void __exit dccp_v6_exit(void)
+ {
++	sock_release(dccp_v6_ctl_sk->sk_socket);
+ 	inet6_del_protocol(&dccp_v6_protocol, IPPROTO_DCCP);
+ 	inet6_unregister_protosw(&dccp_v6_protosw);
+ 	proto_unregister(&dccp_v6_prot);
 -- 
 1.5.3.rc5
 
