@@ -1,37 +1,65 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
-Date: Fri, 28 Mar 2008 15:39:53 +0100
-Message-ID: <20080328143953.GA14642@ami.dom.local>
-References: <47EC3182.7080005@sun.com> <20080327.170235.53674739.davem@davemloft.net> <47EC399E.90804@sun.com> <20080327.173418.18777696.davem@davemloft.net> <20080328012234.GA20465@gondor.apana.org.au> <47EC50BA.6080908@sun.com> <20080328103809.GB23039@gondor.apana.org.au> <20080328133845.GA14565@ami.dom.local> <20080328135338.GA24374@gondor.apana.org.au>
+From: Jean Delvare <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org>
+Subject: Re: COMPLETE is a poor global identifier
+Date: Fri, 28 Mar 2008 15:38:33 +0100
+Message-ID: <20080328153833.1074868a@hyperion.delvare>
+References: <20080328032449.cbc09f3b.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matheos Worku <Matheos.Worku@Sun.COM>,
-	David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org, hadi@cyberus.ca
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:26287 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755785AbYC1Ocy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 10:32:54 -0400
-Received: by ug-out-1314.google.com with SMTP id z38so726956ugc.16
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 07:32:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080328135338.GA24374@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, i2c-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org,
+	Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <i2c-bounces-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org>
+In-Reply-To: <20080328032449.cbc09f3b.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+List-Unsubscribe: <http://lists.lm-sensors.org/mailman/listinfo/i2c>,
+	<mailto:i2c-request-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.lm-sensors.org/pipermail/i2c>
+List-Post: <mailto:i2c-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org>
+List-Help: <mailto:i2c-request-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.lm-sensors.org/mailman/listinfo/i2c>,
+	<mailto:i2c-request-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org?subject=subscribe>
+Sender: i2c-bounces-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org
+Errors-To: i2c-bounces-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 28, 2008 at 09:53:38PM +0800, Herbert Xu wrote:
-> On Fri, Mar 28, 2008 at 02:38:45PM +0100, Jarek Poplawski wrote:
-> > 
-> > Considering this, I wonder why using this __LINK_STATE_QDISC_RUNNING
-> > flag to control enqueuing as well would be a wrong idea? Wouldn't this
-> > enforce pseudo affinity?
+Hi Andrew,
+
+On Fri, 28 Mar 2008 03:24:49 -0700, Andrew Morton wrote:
 > 
-> Could you elaborate on how you intend to use it to control the
-> act of enqueueing?
+> powerpc allmodconfig:
+> 
+> In file included from drivers/char/rio/rio_linux.c:81:
+> drivers/char/rio/cirrus.h:202:1: warning: "COMPLETE" redefined
+> In file included from include/net/netns/ipv4.h:8,
+>                  from include/net/net_namespace.h:13,
+>                  from include/linux/seq_file.h:7,
+>                  from include/asm/machdep.h:12,
+>                  from include/asm/pci.h:17,
+>                  from include/linux/pci.h:951,
+>                  from drivers/char/rio/rio_linux.c:50:
+> include/net/inet_frag.h:28:1: warning: this is the location of the previous definition
+> 
+> In file included from drivers/char/ip2/ip2main.c:128:
+> drivers/char/ip2/i2ellis.h:608:1: warning: "COMPLETE" redefined
+> In file included from include/net/netns/ipv4.h:8,
+>                  from include/net/net_namespace.h:13,
+>                  from include/linux/seq_file.h:7,
+>                  from include/asm/machdep.h:12,
+>                  from include/asm/pci.h:17,
+>                  from include/linux/pci.h:951,
+>                  from drivers/char/ip2/ip2main.c:95:
+> include/net/inet_frag.h:28:1: warning: this is the location of the previous definition
+> 
+> 
+> they should all be renamed.  These can cause runtime failures, so it's not
+> a trivial thing.
 
-Probably some backlog would be necessary, similarly to RX. The main
-question is how much cache problem is such enqueuing from other CPUs.
+How is this related to i2c?
 
-Jarek P.
+-- 
+Jean Delvare
+
+_______________________________________________
+i2c mailing list
+i2c-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org
+http://lists.lm-sensors.org/mailman/listinfo/i2c
