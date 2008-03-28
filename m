@@ -1,88 +1,40 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 2/4] [SCTP]: Add check for hmac_algo parameter in sctp_verify_param()
-Date: Fri, 28 Mar 2008 10:56:18 -0400
-Message-ID: <1206716180-16573-3-git-send-email-vladislav.yasevich@hp.com>
-References: <1206716180-16573-1-git-send-email-vladislav.yasevich@hp.com>
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: davem@davemloft.net
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: WARNING while bringing up macvlan
+Date: Fri, 28 Mar 2008 16:00:40 +0100
+Message-ID: <47ED0818.3030409@trash.net>
+References: <20080328125409.M80978@visp.net.lb>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:21049 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754399AbYC1O4Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 10:56:24 -0400
-In-Reply-To: <1206716180-16573-1-git-send-email-vladislav.yasevich@hp.com>
+Received: from stinky.trash.net ([213.144.137.162]:34898 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753581AbYC1PAp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 11:00:45 -0400
+In-Reply-To: <20080328125409.M80978@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Denys Fedoryshchenko wrote:
+> To trigger just run:
+> ip link add link eth0 eth2 type macvlan
+> ip link set eth2 up
+> 
+> [ 1212.916818]  [<c0121038>] warn_on_slowpath+0x41/0x51
+> [ 1212.916859]  [<c012f652>] ? __kernel_text_address+0x1b/0x27
+> [ 1212.916895]  [<c010493a>] ? dump_trace+0xce/0xda
+> [ 1212.916927]  [<c0109ea6>] ? save_stack_address+0x0/0x2c
+> [ 1212.916965]  [<c013afc8>] ? mark_held_locks+0x41/0x5c
+> [ 1212.916999]  [<c015cdef>] ? kmem_cache_alloc+0x69/0xa1
+> [ 1212.917033]  [<c013b12d>] ? trace_hardirqs_on+0xcb/0x102
+> [ 1212.917067]  [<c02ba549>] mutex_trylock+0x3c/0xef
+> [ 1212.917099]  [<c0272796>] rtnl_trylock+0xd/0xf
+> [ 1212.917131]  [<c0268bc8>] __dev_set_promiscuity+0x15/0xa9
 
-RFC 4890 has the following text:
 
-  The HMAC algorithm based on SHA-1 MUST be supported and
-  included in the HMAC-ALGO parameter.
-
-As a result, we need to check in sctp_verify_param() that HMAC_SHA1 is
-present in the list.  If not, we should probably treat this as a
-protocol violation.
-
-It should also be a protocol violation if the HMAC parameter is empty.
-
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- net/sctp/sm_make_chunk.c |   29 ++++++++++++++++++++++++++---
- 1 files changed, 26 insertions(+), 3 deletions(-)
-
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index b489f51..63c1490 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -1982,7 +1982,10 @@ static sctp_ierror_t sctp_verify_param(const struct sctp_association *asoc,
- 					struct sctp_chunk *chunk,
- 					struct sctp_chunk **err_chunk)
- {
-+	struct sctp_hmac_algo_param *hmacs;
- 	int retval = SCTP_IERROR_NO_ERROR;
-+	__u16 n_elt, id = 0;
-+	int i;
- 
- 	/* FIXME - This routine is not looking at each parameter per the
- 	 * chunk type, i.e., unrecognized parameters should be further
-@@ -2056,9 +2059,29 @@ static sctp_ierror_t sctp_verify_param(const struct sctp_association *asoc,
- 		break;
- 
- 	case SCTP_PARAM_HMAC_ALGO:
--		if (sctp_auth_enable)
--			break;
--		/* Fall Through */
-+		if (!sctp_auth_enable)
-+			goto fallthrough;
-+
-+		hmacs = (struct sctp_hmac_algo_param *)param.p;
-+		n_elt = (ntohs(param.p->length) - sizeof(sctp_paramhdr_t)) >> 1;
-+
-+		/* SCTP-AUTH: Section 6.1
-+		 * The HMAC algorithm based on SHA-1 MUST be supported and
-+		 * included in the HMAC-ALGO parameter.
-+		 */
-+		for (i = 0; i < n_elt; i++) {
-+			id = ntohs(hmacs->hmac_ids[i]);
-+
-+			if (id == SCTP_AUTH_HMAC_ID_SHA1)
-+				break;
-+		}
-+
-+		if (id != SCTP_AUTH_HMAC_ID_SHA1) {
-+			sctp_process_inv_paramlength(asoc, param.p, chunk,
-+						     err_chunk);
-+			retval = SCTP_IERROR_ABORT;
-+		}
-+		break;
- fallthrough:
- 	default:
- 		SCTP_DEBUG_PRINTK("Unrecognized param: %d for chunk %d.\n",
--- 
-1.5.3.5
-
+This is a known harmless warning caused by ASSERT_RTNL calling
+rtnl_trylock. To fix this we'd need to move multicast list
+programming into process context. For now you can simply
+ignore it.
