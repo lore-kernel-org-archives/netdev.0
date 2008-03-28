@@ -1,40 +1,69 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: WARNING while bringing up macvlan
-Date: Fri, 28 Mar 2008 16:00:40 +0100
-Message-ID: <47ED0818.3030409@trash.net>
-References: <20080328125409.M80978@visp.net.lb>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: Re: [PATCH 2/11 net-2.6.26] [DCCP]: Replace socket with sock for
+	reset sending.
+Date: Fri, 28 Mar 2008 18:08:42 +0300
+Message-ID: <1206716922.4294.0.camel@iris.sw.ru>
+References: <1206695071.3271.8.camel@iris.sw.ru>
+	 <1206695338-5947-2-git-send-email-den@openvz.org>
+	 <20080328143959.GT14945@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	containers@lists.osdl.org
+To: Arnaldo Carvalho de Melo <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34898 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753581AbYC1PAp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 11:00:45 -0400
-In-Reply-To: <20080328125409.M80978@visp.net.lb>
+Received: from mailhub.sw.ru ([195.214.232.25]:39309 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753052AbYC1PIe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 11:08:34 -0400
+In-Reply-To: <20080328143959.GT14945@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryshchenko wrote:
-> To trigger just run:
-> ip link add link eth0 eth2 type macvlan
-> ip link set eth2 up
+On Fri, 2008-03-28 at 11:39 -0300, Arnaldo Carvalho de Melo wrote:
+> Em Fri, Mar 28, 2008 at 12:08:49PM +0300, Denis V. Lunev escreveu:
+> > Replace dccp_v(4|6)_ctl_socket with sock to unify a code with TCP/ICMP.
+> > 
+> > Signed-off-by: Denis V. Lunev <den@openvz.org>
+> > ---
+> >  net/dccp/ipv4.c |   16 +++++++++-------
+> >  net/dccp/ipv6.c |   10 ++++++----
+> >  2 files changed, 15 insertions(+), 11 deletions(-)
+> > 
+> > diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+> > index 4ca8b0c..79a9a4a 100644
+> > --- a/net/dccp/ipv4.c
+> > +++ b/net/dccp/ipv4.c
+> > @@ -36,7 +36,7 @@
+> >   * the Out-of-the-blue (OOTB) packets. A control sock will be created
+> >   * for this socket at the initialization time.
+> >   */
+> > -static struct socket *dccp_v4_ctl_socket;
+> > +static struct sock *dccp_v4_ctl_sk;
+> >  
+> >  int dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+> >  {
+> > @@ -514,11 +514,11 @@ static void dccp_v4_ctl_send_reset(struct sock *sk, struct sk_buff *rxskb)
+> >  	if (rxskb->rtable->rt_type != RTN_LOCAL)
+> >  		return;
+> >  
+> > -	dst = dccp_v4_route_skb(dccp_v4_ctl_socket->sk, rxskb);
+> > +	dst = dccp_v4_route_skb(dccp_v4_ctl_sk, rxskb);
+> >  	if (dst == NULL)
+> >  		return;
+> >  
+> > -	skb = dccp_ctl_make_reset(dccp_v4_ctl_socket, rxskb);
+> > +	skb = dccp_ctl_make_reset(dccp_v4_ctl_sk->sk_socket, rxskb);
 > 
-> [ 1212.916818]  [<c0121038>] warn_on_slowpath+0x41/0x51
-> [ 1212.916859]  [<c012f652>] ? __kernel_text_address+0x1b/0x27
-> [ 1212.916895]  [<c010493a>] ? dump_trace+0xce/0xda
-> [ 1212.916927]  [<c0109ea6>] ? save_stack_address+0x0/0x2c
-> [ 1212.916965]  [<c013afc8>] ? mark_held_locks+0x41/0x5c
-> [ 1212.916999]  [<c015cdef>] ? kmem_cache_alloc+0x69/0xa1
-> [ 1212.917033]  [<c013b12d>] ? trace_hardirqs_on+0xcb/0x102
-> [ 1212.917067]  [<c02ba549>] mutex_trylock+0x3c/0xef
-> [ 1212.917099]  [<c0272796>] rtnl_trylock+0xd/0xf
-> [ 1212.917131]  [<c0268bc8>] __dev_set_promiscuity+0x15/0xa9
+> Why not make dccp_ctl_make_reset receive a struct sock too? It only uses
+> ctl->sk anyway. But I guess that can be on a follow-up patch, could you
+> that?
 
+sure!
 
-This is a known harmless warning caused by ASSERT_RTNL calling
-rtnl_trylock. To fix this we'd need to move multicast list
-programming into process context. For now you can simply
-ignore it.
+Thank you for pointing this out :)
+
+Regards,
+	Den
+
