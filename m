@@ -1,8 +1,7 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 5/8] e1000e: Make arrays out of these Rx/Tx
-	registers
-Date: Fri, 28 Mar 2008 09:15:26 -0700
-Message-ID: <20080328161526.6562.29621.stgit@localhost.localdomain>
+Subject: [PATCH 7/8] e1000e: rename a few functions
+Date: Fri, 28 Mar 2008 09:15:37 -0700
+Message-ID: <20080328161536.6562.46067.stgit@localhost.localdomain>
 References: <20080328161503.6562.44329.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,298 +23,200 @@ List-Id: netdev.vger.kernel.org
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-With multiple queues coming into the code these base control
-registers need to be made into arrays.
+Several minor cosmetic function renames.
 
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000e/82571.c   |   24 ++++++++++++------------
- drivers/net/e1000e/es2lan.c  |   24 ++++++++++++------------
- drivers/net/e1000e/hw.h      |   10 ++++++----
- drivers/net/e1000e/ich8lan.c |   24 ++++++++++++------------
- drivers/net/e1000e/netdev.c  |   16 ++++++++--------
- 5 files changed, 50 insertions(+), 48 deletions(-)
+ drivers/net/e1000e/82571.c   |    8 ++++----
+ drivers/net/e1000e/e1000.h   |    4 ++--
+ drivers/net/e1000e/es2lan.c  |    4 ++--
+ drivers/net/e1000e/ich8lan.c |    6 +++---
+ drivers/net/e1000e/lib.c     |    6 +++---
+ drivers/net/e1000e/netdev.c  |    8 ++++----
+ 6 files changed, 18 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 9b46a00..85e4764 100644
+index 85e4764..01c8866 100644
 --- a/drivers/net/e1000e/82571.c
 +++ b/drivers/net/e1000e/82571.c
-@@ -836,19 +836,19 @@ static s32 e1000_init_hw_82571(struct e1000_hw *hw)
- 	ret_val = e1000_setup_link_82571(hw);
+@@ -248,7 +248,7 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
+ 	return 0;
+ }
  
- 	/* Set the transmit descriptor write-back policy */
--	reg_data = er32(TXDCTL);
-+	reg_data = er32(TXDCTL(0));
- 	reg_data = (reg_data & ~E1000_TXDCTL_WTHRESH) |
- 		   E1000_TXDCTL_FULL_TX_DESC_WB |
- 		   E1000_TXDCTL_COUNT_DESC;
--	ew32(TXDCTL, reg_data);
-+	ew32(TXDCTL(0), reg_data);
+-static s32 e1000_get_invariants_82571(struct e1000_adapter *adapter)
++static s32 e1000_get_variants_82571(struct e1000_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	static int global_quad_port_a; /* global port a indication */
+@@ -1337,7 +1337,7 @@ struct e1000_info e1000_82571_info = {
+ 				  | FLAG_TARC_SPEED_MODE_BIT /* errata */
+ 				  | FLAG_APME_CHECK_PORT_B,
+ 	.pba			= 38,
+-	.get_invariants		= e1000_get_invariants_82571,
++	.get_variants		= e1000_get_variants_82571,
+ 	.mac_ops		= &e82571_mac_ops,
+ 	.phy_ops		= &e82_phy_ops_igp,
+ 	.nvm_ops		= &e82571_nvm_ops,
+@@ -1355,7 +1355,7 @@ struct e1000_info e1000_82572_info = {
+ 				  | FLAG_HAS_STATS_ICR_ICT
+ 				  | FLAG_TARC_SPEED_MODE_BIT, /* errata */
+ 	.pba			= 38,
+-	.get_invariants		= e1000_get_invariants_82571,
++	.get_variants		= e1000_get_variants_82571,
+ 	.mac_ops		= &e82571_mac_ops,
+ 	.phy_ops		= &e82_phy_ops_igp,
+ 	.nvm_ops		= &e82571_nvm_ops,
+@@ -1375,7 +1375,7 @@ struct e1000_info e1000_82573_info = {
+ 				  | FLAG_HAS_ERT
+ 				  | FLAG_HAS_SWSM_ON_LOAD,
+ 	.pba			= 20,
+-	.get_invariants		= e1000_get_invariants_82571,
++	.get_variants		= e1000_get_variants_82571,
+ 	.mac_ops		= &e82571_mac_ops,
+ 	.phy_ops		= &e82_phy_ops_m88,
+ 	.nvm_ops		= &e82571_nvm_ops,
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index e48e353..0e95f14 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -272,7 +272,7 @@ struct e1000_info {
+ 	enum e1000_mac_type	mac;
+ 	unsigned int		flags;
+ 	u32			pba;
+-	s32			(*get_invariants)(struct e1000_adapter *);
++	s32			(*get_variants)(struct e1000_adapter *);
+ 	struct e1000_mac_operations *mac_ops;
+ 	struct e1000_phy_operations *phy_ops;
+ 	struct e1000_nvm_operations *nvm_ops;
+@@ -358,7 +358,7 @@ extern struct e1000_info e1000_ich8_info;
+ extern struct e1000_info e1000_ich9_info;
+ extern struct e1000_info e1000_es2_info;
  
- 	/* ...for both queues. */
- 	if (mac->type != e1000_82573) {
--		reg_data = er32(TXDCTL1);
-+		reg_data = er32(TXDCTL(1));
- 		reg_data = (reg_data & ~E1000_TXDCTL_WTHRESH) |
- 			   E1000_TXDCTL_FULL_TX_DESC_WB |
- 			   E1000_TXDCTL_COUNT_DESC;
--		ew32(TXDCTL1, reg_data);
-+		ew32(TXDCTL(1), reg_data);
- 	} else {
- 		e1000e_enable_tx_pkt_filtering(hw);
- 		reg_data = er32(GCR);
-@@ -878,17 +878,17 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
- 	u32 reg;
+-extern s32 e1000e_read_part_num(struct e1000_hw *hw, u32 *part_num);
++extern s32 e1000e_read_pba_num(struct e1000_hw *hw, u32 *pba_num);
  
- 	/* Transmit Descriptor Control 0 */
--	reg = er32(TXDCTL);
-+	reg = er32(TXDCTL(0));
- 	reg |= (1 << 22);
--	ew32(TXDCTL, reg);
-+	ew32(TXDCTL(0), reg);
+ extern s32  e1000e_commit_phy(struct e1000_hw *hw);
  
- 	/* Transmit Descriptor Control 1 */
--	reg = er32(TXDCTL1);
-+	reg = er32(TXDCTL(1));
- 	reg |= (1 << 22);
--	ew32(TXDCTL1, reg);
-+	ew32(TXDCTL(1), reg);
- 
- 	/* Transmit Arbitration Control 0 */
--	reg = er32(TARC0);
-+	reg = er32(TARC(0));
- 	reg &= ~(0xF << 27); /* 30:27 */
- 	switch (hw->mac.type) {
- 	case e1000_82571:
-@@ -898,10 +898,10 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
- 	default:
- 		break;
- 	}
--	ew32(TARC0, reg);
-+	ew32(TARC(0), reg);
- 
- 	/* Transmit Arbitration Control 1 */
--	reg = er32(TARC1);
-+	reg = er32(TARC(1));
- 	switch (hw->mac.type) {
- 	case e1000_82571:
- 	case e1000_82572:
-@@ -911,7 +911,7 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
- 			reg &= ~(1 << 28);
- 		else
- 			reg |= (1 << 28);
--		ew32(TARC1, reg);
-+		ew32(TARC(1), reg);
- 		break;
- 	default:
- 		break;
 diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
-index 2689e4b..10e17cf 100644
+index 10e17cf..d59a99a 100644
 --- a/drivers/net/e1000e/es2lan.c
 +++ b/drivers/net/e1000e/es2lan.c
-@@ -792,16 +792,16 @@ static s32 e1000_init_hw_80003es2lan(struct e1000_hw *hw)
- 	ret_val = e1000e_setup_link(hw);
+@@ -238,7 +238,7 @@ static s32 e1000_init_mac_params_80003es2lan(struct e1000_adapter *adapter)
+ 	return 0;
+ }
  
- 	/* Set the transmit descriptor write-back policy */
--	reg_data = er32(TXDCTL);
-+	reg_data = er32(TXDCTL(0));
- 	reg_data = (reg_data & ~E1000_TXDCTL_WTHRESH) |
- 		   E1000_TXDCTL_FULL_TX_DESC_WB | E1000_TXDCTL_COUNT_DESC;
--	ew32(TXDCTL, reg_data);
-+	ew32(TXDCTL(0), reg_data);
+-static s32 e1000_get_invariants_80003es2lan(struct e1000_adapter *adapter)
++static s32 e1000_get_variants_80003es2lan(struct e1000_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	s32 rc;
+@@ -1243,7 +1243,7 @@ struct e1000_info e1000_es2_info = {
+ 				  | FLAG_DISABLE_FC_PAUSE_TIME /* errata */
+ 				  | FLAG_TIPG_MEDIUM_FOR_80003ESLAN,
+ 	.pba			= 38,
+-	.get_invariants		= e1000_get_invariants_80003es2lan,
++	.get_variants		= e1000_get_variants_80003es2lan,
+ 	.mac_ops		= &es2_mac_ops,
+ 	.phy_ops		= &es2_phy_ops,
+ 	.nvm_ops		= &es2_nvm_ops,
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index bbb51e1..768485d 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -316,7 +316,7 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_adapter *adapter)
+ 	return 0;
+ }
  
- 	/* ...for both queues. */
--	reg_data = er32(TXDCTL1);
-+	reg_data = er32(TXDCTL(1));
- 	reg_data = (reg_data & ~E1000_TXDCTL_WTHRESH) |
- 		   E1000_TXDCTL_FULL_TX_DESC_WB | E1000_TXDCTL_COUNT_DESC;
--	ew32(TXDCTL1, reg_data);
-+	ew32(TXDCTL(1), reg_data);
+-static s32 e1000_get_invariants_ich8lan(struct e1000_adapter *adapter)
++static s32 e1000_get_variants_ich8lan(struct e1000_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	s32 rc;
+@@ -2253,7 +2253,7 @@ struct e1000_info e1000_ich8_info = {
+ 				  | FLAG_HAS_FLASH
+ 				  | FLAG_APME_IN_WUC,
+ 	.pba			= 8,
+-	.get_invariants		= e1000_get_invariants_ich8lan,
++	.get_variants		= e1000_get_variants_ich8lan,
+ 	.mac_ops		= &ich8_mac_ops,
+ 	.phy_ops		= &ich8_phy_ops,
+ 	.nvm_ops		= &ich8_nvm_ops,
+@@ -2270,7 +2270,7 @@ struct e1000_info e1000_ich9_info = {
+ 				  | FLAG_HAS_FLASH
+ 				  | FLAG_APME_IN_WUC,
+ 	.pba			= 10,
+-	.get_invariants		= e1000_get_invariants_ich8lan,
++	.get_variants		= e1000_get_variants_ich8lan,
+ 	.mac_ops		= &ich8_mac_ops,
+ 	.phy_ops		= &ich8_phy_ops,
+ 	.nvm_ops		= &ich8_nvm_ops,
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index ea3ff63..f1f4e9d 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -2477,7 +2477,7 @@ bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw)
+ 	return ret_val;
+ }
  
- 	/* Enable retransmit on late collisions */
- 	reg_data = er32(TCTL);
-@@ -846,29 +846,29 @@ static void e1000_initialize_hw_bits_80003es2lan(struct e1000_hw *hw)
- 	u32 reg;
+-s32 e1000e_read_part_num(struct e1000_hw *hw, u32 *part_num)
++s32 e1000e_read_pba_num(struct e1000_hw *hw, u32 *pba_num)
+ {
+ 	s32 ret_val;
+ 	u16 nvm_data;
+@@ -2487,14 +2487,14 @@ s32 e1000e_read_part_num(struct e1000_hw *hw, u32 *part_num)
+ 		hw_dbg(hw, "NVM Read Error\n");
+ 		return ret_val;
+ 	}
+-	*part_num = (u32)(nvm_data << 16);
++	*pba_num = (u32)(nvm_data << 16);
  
- 	/* Transmit Descriptor Control 0 */
--	reg = er32(TXDCTL);
-+	reg = er32(TXDCTL(0));
- 	reg |= (1 << 22);
--	ew32(TXDCTL, reg);
-+	ew32(TXDCTL(0), reg);
+ 	ret_val = e1000_read_nvm(hw, NVM_PBA_OFFSET_1, 1, &nvm_data);
+ 	if (ret_val) {
+ 		hw_dbg(hw, "NVM Read Error\n");
+ 		return ret_val;
+ 	}
+-	*part_num |= nvm_data;
++	*pba_num |= nvm_data;
  
- 	/* Transmit Descriptor Control 1 */
--	reg = er32(TXDCTL1);
-+	reg = er32(TXDCTL(1));
- 	reg |= (1 << 22);
--	ew32(TXDCTL1, reg);
-+	ew32(TXDCTL(1), reg);
+ 	return 0;
+ }
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 7ea7234..25009b1 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -3812,7 +3812,7 @@ static void e1000_print_device_info(struct e1000_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct net_device *netdev = adapter->netdev;
+-	u32 part_num;
++	u32 pba_num;
  
- 	/* Transmit Arbitration Control 0 */
--	reg = er32(TARC0);
-+	reg = er32(TARC(0));
- 	reg &= ~(0xF << 27); /* 30:27 */
- 	if (hw->phy.media_type != e1000_media_type_copper)
- 		reg &= ~(1 << 20);
--	ew32(TARC0, reg);
-+	ew32(TARC(0), reg);
- 
- 	/* Transmit Arbitration Control 1 */
--	reg = er32(TARC1);
-+	reg = er32(TARC(1));
- 	if (er32(TCTL) & E1000_TCTL_MULR)
- 		reg &= ~(1 << 28);
- 	else
- 		reg |= (1 << 28);
--	ew32(TARC1, reg);
-+	ew32(TARC(1), reg);
+ 	/* print bus type/speed/width info */
+ 	e_info("(PCI Express:2.5GB/s:%s) %02x:%02x:%02x:%02x:%02x:%02x\n",
+@@ -3825,10 +3825,10 @@ static void e1000_print_device_info(struct e1000_adapter *adapter)
+ 	       netdev->dev_addr[4], netdev->dev_addr[5]);
+ 	e_info("Intel(R) PRO/%s Network Connection\n",
+ 	       (hw->phy.type == e1000_phy_ife) ? "10/100" : "1000");
+-	e1000e_read_part_num(hw, &part_num);
++	e1000e_read_pba_num(hw, &pba_num);
+ 	e_info("MAC: %d, PHY: %d, PBA No: %06x-%03x\n",
+ 	       hw->mac.type, hw->phy.type,
+-	       (part_num >> 8), (part_num & 0xff));
++	       (pba_num >> 8), (pba_num & 0xff));
  }
  
  /**
-diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index 0b4145a..53f1ac6 100644
---- a/drivers/net/e1000e/hw.h
-+++ b/drivers/net/e1000e/hw.h
-@@ -93,6 +93,8 @@ enum e1e_registers {
- 	E1000_RDH      = 0x02810, /* Rx Descriptor Head - RW */
- 	E1000_RDT      = 0x02818, /* Rx Descriptor Tail - RW */
- 	E1000_RDTR     = 0x02820, /* Rx Delay Timer - RW */
-+	E1000_RXDCTL_BASE = 0x02828, /* Rx Descriptor Control - RW */
-+#define E1000_RXDCTL(_n)   (E1000_RXDCTL_BASE + (_n << 8))
- 	E1000_RADV     = 0x0282C, /* RX Interrupt Absolute Delay Timer - RW */
+@@ -3960,7 +3960,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 	memcpy(&hw->nvm.ops, ei->nvm_ops, sizeof(hw->nvm.ops));
+ 	memcpy(&hw->phy.ops, ei->phy_ops, sizeof(hw->phy.ops));
  
- /* Convenience macros
-@@ -111,11 +113,11 @@ enum e1e_registers {
- 	E1000_TDH      = 0x03810, /* Tx Descriptor Head - RW */
- 	E1000_TDT      = 0x03818, /* Tx Descriptor Tail - RW */
- 	E1000_TIDV     = 0x03820, /* Tx Interrupt Delay Value - RW */
--	E1000_TXDCTL   = 0x03828, /* Tx Descriptor Control - RW */
-+	E1000_TXDCTL_BASE = 0x03828, /* Tx Descriptor Control - RW */
-+#define E1000_TXDCTL(_n)   (E1000_TXDCTL_BASE + (_n << 8))
- 	E1000_TADV     = 0x0382C, /* Tx Interrupt Absolute Delay Val - RW */
--	E1000_TARC0    = 0x03840, /* Tx Arbitration Count (0) */
--	E1000_TXDCTL1  = 0x03928, /* Tx Descriptor Control (1) - RW */
--	E1000_TARC1    = 0x03940, /* Tx Arbitration Count (1) */
-+	E1000_TARC_BASE = 0x03840, /* Tx Arbitration Count (0) */
-+#define E1000_TARC(_n)   (E1000_TARC_BASE + (_n << 8))
- 	E1000_CRCERRS  = 0x04000, /* CRC Error Count - R/clr */
- 	E1000_ALGNERRC = 0x04004, /* Alignment Error Count - R/clr */
- 	E1000_SYMERRS  = 0x04008, /* Symbol Error Count - R/clr */
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index e358a77..bbb51e1 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -1753,18 +1753,18 @@ static s32 e1000_init_hw_ich8lan(struct e1000_hw *hw)
- 	ret_val = e1000_setup_link_ich8lan(hw);
+-	err = ei->get_invariants(adapter);
++	err = ei->get_variants(adapter);
+ 	if (err)
+ 		goto err_hw_init;
  
- 	/* Set the transmit descriptor write-back policy for both queues */
--	txdctl = er32(TXDCTL);
-+	txdctl = er32(TXDCTL(0));
- 	txdctl = (txdctl & ~E1000_TXDCTL_WTHRESH) |
- 		 E1000_TXDCTL_FULL_TX_DESC_WB;
- 	txdctl = (txdctl & ~E1000_TXDCTL_PTHRESH) |
- 		 E1000_TXDCTL_MAX_TX_DESC_PREFETCH;
--	ew32(TXDCTL, txdctl);
--	txdctl = er32(TXDCTL1);
-+	ew32(TXDCTL(0), txdctl);
-+	txdctl = er32(TXDCTL(1));
- 	txdctl = (txdctl & ~E1000_TXDCTL_WTHRESH) |
- 		 E1000_TXDCTL_FULL_TX_DESC_WB;
- 	txdctl = (txdctl & ~E1000_TXDCTL_PTHRESH) |
- 		 E1000_TXDCTL_MAX_TX_DESC_PREFETCH;
--	ew32(TXDCTL1, txdctl);
-+	ew32(TXDCTL(1), txdctl);
- 
- 	/*
- 	 * ICH8 has opposite polarity of no_snoop bits.
-@@ -1807,30 +1807,30 @@ static void e1000_initialize_hw_bits_ich8lan(struct e1000_hw *hw)
- 	ew32(CTRL_EXT, reg);
- 
- 	/* Transmit Descriptor Control 0 */
--	reg = er32(TXDCTL);
-+	reg = er32(TXDCTL(0));
- 	reg |= (1 << 22);
--	ew32(TXDCTL, reg);
-+	ew32(TXDCTL(0), reg);
- 
- 	/* Transmit Descriptor Control 1 */
--	reg = er32(TXDCTL1);
-+	reg = er32(TXDCTL(1));
- 	reg |= (1 << 22);
--	ew32(TXDCTL1, reg);
-+	ew32(TXDCTL(1), reg);
- 
- 	/* Transmit Arbitration Control 0 */
--	reg = er32(TARC0);
-+	reg = er32(TARC(0));
- 	if (hw->mac.type == e1000_ich8lan)
- 		reg |= (1 << 28) | (1 << 29);
- 	reg |= (1 << 23) | (1 << 24) | (1 << 26) | (1 << 27);
--	ew32(TARC0, reg);
-+	ew32(TARC(0), reg);
- 
- 	/* Transmit Arbitration Control 1 */
--	reg = er32(TARC1);
-+	reg = er32(TARC(1));
- 	if (er32(TCTL) & E1000_TCTL_MULR)
- 		reg &= ~(1 << 28);
- 	else
- 		reg |= (1 << 28);
- 	reg |= (1 << 24) | (1 << 26) | (1 << 30);
--	ew32(TARC1, reg);
-+	ew32(TARC(1), reg);
- 
- 	/* Device Status */
- 	if (hw->mac.type == e1000_ich8lan) {
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index d70bde0..b8bb4fe 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -1639,24 +1639,24 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 		(E1000_COLLISION_THRESHOLD << E1000_CT_SHIFT);
- 
- 	if (adapter->flags & FLAG_TARC_SPEED_MODE_BIT) {
--		tarc = er32(TARC0);
-+		tarc = er32(TARC(0));
- 		/*
- 		 * set the speed mode bit, we'll clear it if we're not at
- 		 * gigabit link later
- 		 */
- #define SPEED_MODE_BIT (1 << 21)
- 		tarc |= SPEED_MODE_BIT;
--		ew32(TARC0, tarc);
-+		ew32(TARC(0), tarc);
- 	}
- 
- 	/* errata: program both queues to unweighted RR */
- 	if (adapter->flags & FLAG_TARC_SET_BIT_ZERO) {
--		tarc = er32(TARC0);
-+		tarc = er32(TARC(0));
- 		tarc |= 1;
--		ew32(TARC0, tarc);
--		tarc = er32(TARC1);
-+		ew32(TARC(0), tarc);
-+		tarc = er32(TARC(1));
- 		tarc |= 1;
--		ew32(TARC1, tarc);
-+		ew32(TARC(1), tarc);
- 	}
- 
- 	e1000e_config_collision_dist(hw);
-@@ -2775,9 +2775,9 @@ static void e1000_watchdog_task(struct work_struct *work)
- 			if ((adapter->flags & FLAG_TARC_SPEED_MODE_BIT) &&
- 			    !txb2b) {
- 				u32 tarc0;
--				tarc0 = er32(TARC0);
-+				tarc0 = er32(TARC(0));
- 				tarc0 &= ~SPEED_MODE_BIT;
--				ew32(TARC0, tarc0);
-+				ew32(TARC(0), tarc0);
- 			}
- 
- 			/*
 
 
 -------------------------------------------------------------------------
