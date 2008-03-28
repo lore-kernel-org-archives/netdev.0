@@ -1,32 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/7] [NET]: uninline skb_put, de-bloats a lot
-Date: Thu, 27 Mar 2008 17:04:54 -0700 (PDT)
-Message-ID: <20080327.170454.124353224.davem@davemloft.net>
-References: <1206645050.4849.77.camel@localhost>
-	<20080327.150456.39560267.davem@davemloft.net>
-	<1206662557.4849.112.camel@localhost>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: tg3 bad performance, lots of hardware interrupts
+Date: Thu, 27 Mar 2008 17:01:38 -0800
+Message-ID: <1206666100.5368.6.camel@dell>
+References: <alpine.DEB.1.00.0803271532570.30549@penti.org>
+ <20080327.144925.196529669.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	acme@redhat.com, mpm@selenic.com
-To: joe@perches.com
+Cc: harald@iki.fi, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36728
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753625AbYC1AEy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 20:04:54 -0400
-In-Reply-To: <1206662557.4849.112.camel@localhost>
+Received: from mms2.broadcom.com ([216.31.210.18]:1067 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753112AbYC1AGm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2008 20:06:42 -0400
+In-Reply-To: <20080327.144925.196529669.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Thu, 27 Mar 2008 17:02:37 -0700
+On Thu, 2008-03-27 at 14:49 -0700, David Miller wrote:
+> From: Harald Hannelius <harald@iki.fi>
+> Date: Thu, 27 Mar 2008 15:53:56 +0200 (EET)
+> 
+> > I experience a lot of hardware interrupts with a BCM5751 PCI-express NIC 
+> > (tg3). modprobe tg3, ifconfig ethX up and friends makes the system 
+> > unresponsive. Just having the interface up makes the system sluggish.
+> > 
 
-> I think this is the sort of change you might have argued
-> against accepting without performance testing not long ago.
+I just tested a similar NIC using the same kernel and driver, but I did
+not notice anything unusual.  netperf gave me 941Mbps.
 
-Look at how complicated the assembler of this function
-is.  Any inlining performance gains will be trumped by
-the instruction cache usage bloat.
+> > Onboard forcedeth works fine (with the same cable).
+> > 
+> > iperf gives me just 2Mbps on a 1Gbps ethernet. Load average near 1.0. top 
+> > reports 40-50%hi (hardware interrupts) when generating traffic over that 
+> > interface.
+
+Can you look at /proc/interrupts to see roughly how many are reported
+per second when link is down, link is up with no traffic, and with
+traffic?
+
+Finally, you can also try ethtool -t eth0 to see if it passes a simple
+self test.
+
