@@ -1,65 +1,55 @@
-From: Matheos Worku <Matheos.Worku@Sun.COM>
-Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
-Date: Thu, 27 Mar 2008 18:58:18 -0700
-Message-ID: <47EC50BA.6080908@sun.com>
-References: <47EC3182.7080005@sun.com>
- <20080327.170235.53674739.davem@davemloft.net> <47EC399E.90804@sun.com>
- <20080327.173418.18777696.davem@davemloft.net>
- <20080328012234.GA20465@gondor.apana.org.au>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH] SCTP: Remove an useless parameter from
+Date: Thu, 27 Mar 2008 23:07:54 -0300
+Message-ID: <20080328020754.GN14945@ghostprotocols.net>
+References: <47EC4F56.6000300@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=ISO-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
-	jarkao2@gmail.com, netdev@vger.kernel.org, hadi@cyberus.ca
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: vladislav <vladislav.yasevich@hp.com>,
+	netdev <netdev@vger.kernel.org>,
+	lksctp-dev <lksctp-developers@lists.sourceforge.net>,
+	David Miller <davem@davemloft.net>
+To: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sca-es-mail-1.Sun.COM ([192.18.43.132]:42363 "EHLO
-	sca-es-mail-1.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754023AbYC1B7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 21:59:32 -0400
-Received: from fe-sfbay-10.sun.com ([192.18.43.129])
-	by sca-es-mail-1.sun.com (8.13.7+Sun/8.12.9) with ESMTP id m2S1xTFD013171
-	for <netdev@vger.kernel.org>; Thu, 27 Mar 2008 18:59:30 -0700 (PDT)
-Received: from conversion-daemon.fe-sfbay-10.sun.com by fe-sfbay-10.sun.com
- (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
- id <0JYF0020145PVJ00@fe-sfbay-10.sun.com>
- (original mail from Matheos.Worku@Sun.COM) for netdev@vger.kernel.org; Thu,
- 27 Mar 2008 18:59:29 -0700 (PDT)
-In-reply-to: <20080328012234.GA20465@gondor.apana.org.au>
+Received: from mx1.redhat.com ([66.187.233.31]:44388 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753990AbYC1CIR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2008 22:08:17 -0400
+Content-Disposition: inline
+In-Reply-To: <47EC4F56.6000300@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Thu, Mar 27, 2008 at 05:34:18PM -0700, David Miller wrote:
->   
->> The first cpu will get into __qdisc_run(), but the other
->> ones will just q->enqueue() and exit since the first cpu
->> has indicated it is processing the qdisc.
->>     
->
-> Indeed.  Since I created the problem it's only fair that I get
-> to fix it too :)
->
-> [NET]: Add preemption point in qdisc_run
->
-> The qdisc_run loop is currently unbounded and runs entirely
-> in a softirq.  This is bad as it may create an unbounded softirq
-> run.
->
-> This patch fixes this by calling need_resched and breaking out
-> if necessary.
->
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->
-> Thanks,
->   
-Great.
+Em Fri, Mar 28, 2008 at 09:52:22AM +0800, Gui Jianfeng escreveu:
+> Vlad,
+> There is an useless parameter in sctp_cmd_hb_timer_update,
+> remove it.
+> 
+> Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+> ---
+>  net/sctp/sm_sideeffect.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index 28eb38e..5daeab5 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -593,7 +593,6 @@ static void sctp_cmd_t3_rtx_timers_stop(sctp_cmd_seq_t *cmds,
+>  
+>  /* Helper function to update the heartbeat timer. */
+>  static void sctp_cmd_hb_timer_update(sctp_cmd_seq_t *cmds,
+> -				     struct sctp_association *asoc,
+>  				     struct sctp_transport *t)
+>  {
+>  	/* Update the heartbeat timer.  */
+> @@ -1457,7 +1456,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
+>  
+>  		case SCTP_CMD_HB_TIMER_UPDATE:
+>  			t = cmd->obj.transport;
+> -			sctp_cmd_hb_timer_update(commands, asoc, t);
+> +			sctp_cmd_hb_timer_update(commands, t);
+>  			break;
 
-In general, while the TX serialization  improves performance in terms to 
-lock contention, wouldn't it reduce throughput since only one guy is 
-doing the actual TX at any given time.  Wondering if it would be 
-worthwhile to have an  enable/disable option specially for multi queue TX.
+you mean it was not compiling before?
 
-Regards
-Matheos
-
+- Arnaldo
