@@ -1,51 +1,99 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [Bugme-new] [Bug 10326] New: inconsistent lock state in
-	net_rx_action
-Date: Fri, 28 Mar 2008 11:12:11 +0100
-Message-ID: <1206699131.8514.612.camel@twins>
-References: <20080327222248.GA3596@ami.dom.local>
-	 <20080327.152218.235944668.davem@davemloft.net>
-	 <20080327223913.GB3596@ami.dom.local>
-	 <20080327.175939.165029213.davem@davemloft.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH net-2.6.26 1/5][SOCK]: Enumerate struct proto-s to facilitate
+ percpu inuse accounting.
+Date: Fri, 28 Mar 2008 13:17:57 +0300
+Message-ID: <47ECC5D5.4040208@openvz.org>
+References: <47ECB362.5050104@openvz.org> <47ECBDDB.2040203@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, rjw@sisk.pl, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	marcus@better.se, shemminger@linux-foundation.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:6417 "EHLO
-	viefep14-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751827AbYC1KMX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 06:12:23 -0400
-In-Reply-To: <20080327.175939.165029213.davem@davemloft.net>
+Received: from sacred.ru ([62.205.161.221]:48014 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752696AbYC1KSA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 06:18:00 -0400
+In-Reply-To: <47ECBDDB.2040203@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-03-27 at 17:59 -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Thu, 27 Mar 2008 23:39:13 +0100
-> 
-> > On Thu, Mar 27, 2008 at 03:22:18PM -0700, David Miller wrote:
-> > ...
-> > > Instead of going back and forth like this can someone post
-> > > just take it upon themselves to post such an obvious patch
-> > > already :-)
-> > > 
-> > > All of this "he'll do it, she'll do it" just wastes time.
-> > 
-> > Right! She or he should also remember to add Peter's lockup
-> > scenario and his signed-off-by...
-> 
-> I didn't put in a Signed-off-by since Peter didn't give
-> one, but I did give him credit for the discovery and I
-> did list explicitly his given logic.
+Eric Dumazet wrote:
+> Pavel Emelyanov a =E9crit :
+>> This add the inuse_idx to struct proto and generates one in proto_re=
+gister.
+>> The ++ in generator is protected with write-locked proto_list_lock.
+>>
+>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+>>
+>> ---
+>>  include/net/sock.h |    1 +
+>>  net/core/sock.c    |   10 ++++++++++
+>>  2 files changed, 11 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/include/net/sock.h b/include/net/sock.h
+>> index 1c9d059..abc6341 100644
+>> --- a/include/net/sock.h
+>> +++ b/include/net/sock.h
+>> @@ -562,6 +562,7 @@ struct proto {
+>> =20
+>>  	/* Keeping track of sockets in use */
+>>  #ifdef CONFIG_PROC_FS
+>> +	unsigned int		inuse_idx;
+>>  	struct pcounter		inuse;
+>>  #endif
+>> =20
+>> diff --git a/net/core/sock.c b/net/core/sock.c
+>> index 3ee9506..a7faf30 100644
+>> --- a/net/core/sock.c
+>> +++ b/net/core/sock.c
+>> @@ -1940,6 +1940,15 @@ EXPORT_SYMBOL(sk_common_release);
+>>  static DEFINE_RWLOCK(proto_list_lock);
+>>  static LIST_HEAD(proto_list);
+>> =20
+>> +static void assign_proto_idx(struct proto *prot)
+>> +{
+>> +#ifdef CONFIG_PROC_FS
+>> +	static unsigned int idx =3D 0;
+>> +
+>>  =20
+> I believe some protocols can be registered, then unregistered, then=20
+> re-registered (module loads, unloads, ...)
 
-Hehe, nr_emails > loc_changed situation alert!
+Well yes :) I found this soon after I'd sent this set.
+If you don't have other objections I'll send the v2 do Dave.
 
-Fwiw here's my ACK:
-
-Acked-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> So you probably want to use a bitmap instead of a counter that will=20
+> eventually reach PROTO_INUSE_NR
+>=20
+> assign_proto_idx() should find a zero bit, and you should free this b=
+it=20
+> at proto_unregister() time
+>=20
+>> +	prot->inuse_idx =3D idx++;
+>> +#endif
+>> +}
+>> +
+>>  int proto_register(struct proto *prot, int alloc_slab)
+>>  {
+>>  	char *request_sock_slab_name =3D NULL;
+>> @@ -2000,6 +2009,7 @@ int proto_register(struct proto *prot, int all=
+oc_slab)
+>> =20
+>>  	write_lock(&proto_list_lock);
+>>  	list_add(&prot->node, &proto_list);
+>> +	assign_proto_idx(prot);
+>>  	write_unlock(&proto_list_lock);
+>>  	return 0;
+>> =20
+>>  =20
+>=20
+>=20
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
 
