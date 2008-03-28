@@ -1,55 +1,66 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
+From: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
 Subject: Re: [PATCH] SCTP: Remove an useless parameter from
-Date: Thu, 27 Mar 2008 23:07:54 -0300
-Message-ID: <20080328020754.GN14945@ghostprotocols.net>
-References: <47EC4F56.6000300@cn.fujitsu.com>
+Date: Fri, 28 Mar 2008 10:25:18 +0800
+Message-ID: <47EC570E.5090004@cn.fujitsu.com>
+References: <47EC4F56.6000300@cn.fujitsu.com> <20080328020754.GN14945@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vladislav <vladislav.yasevich@hp.com>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
+	vladislav <vladislav.yasevich@hp.com>,
 	netdev <netdev@vger.kernel.org>,
-	lksctp-dev <lksctp-developers@lists.sourceforge.net>,
-	David Miller <davem@davemloft.net>
-To: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+	lksctp-dev <lksctp-deve
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:44388 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753990AbYC1CIR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2008 22:08:17 -0400
-Content-Disposition: inline
-In-Reply-To: <47EC4F56.6000300@cn.fujitsu.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:51155 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754891AbYC1C0G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2008 22:26:06 -0400
+In-Reply-To: <20080328020754.GN14945@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Fri, Mar 28, 2008 at 09:52:22AM +0800, Gui Jianfeng escreveu:
-> Vlad,
-> There is an useless parameter in sctp_cmd_hb_timer_update,
-> remove it.
+Arnaldo Carvalho de Melo wrote:
+> Em Fri, Mar 28, 2008 at 09:52:22AM +0800, Gui Jianfeng escreveu:
+>> Vlad,
+>> There is an useless parameter in sctp_cmd_hb_timer_update,
+>> remove it.
+>>
+>> Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+>> ---
+>>  net/sctp/sm_sideeffect.c |    3 +--
+>>  1 files changed, 1 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+>> index 28eb38e..5daeab5 100644
+>> --- a/net/sctp/sm_sideeffect.c
+>> +++ b/net/sctp/sm_sideeffect.c
+>> @@ -593,7 +593,6 @@ static void sctp_cmd_t3_rtx_timers_stop(sctp_cmd_seq_t *cmds,
+>>  
+>>  /* Helper function to update the heartbeat timer. */
+>>  static void sctp_cmd_hb_timer_update(sctp_cmd_seq_t *cmds,
+>> -				     struct sctp_association *asoc,
+>>  				     struct sctp_transport *t)
+>>  {
+>>  	/* Update the heartbeat timer.  */
+>> @@ -1457,7 +1456,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
+>>  
+>>  		case SCTP_CMD_HB_TIMER_UPDATE:
+>>  			t = cmd->obj.transport;
+>> -			sctp_cmd_hb_timer_update(commands, asoc, t);
+>> +			sctp_cmd_hb_timer_update(commands, t);
+>>  			break;
 > 
-> Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
-> ---
->  net/sctp/sm_sideeffect.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
+> you mean it was not compiling before?
+
+  I mean this parameter is never used in this function.
 > 
-> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> index 28eb38e..5daeab5 100644
-> --- a/net/sctp/sm_sideeffect.c
-> +++ b/net/sctp/sm_sideeffect.c
-> @@ -593,7 +593,6 @@ static void sctp_cmd_t3_rtx_timers_stop(sctp_cmd_seq_t *cmds,
->  
->  /* Helper function to update the heartbeat timer. */
->  static void sctp_cmd_hb_timer_update(sctp_cmd_seq_t *cmds,
-> -				     struct sctp_association *asoc,
->  				     struct sctp_transport *t)
->  {
->  	/* Update the heartbeat timer.  */
-> @@ -1457,7 +1456,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
->  
->  		case SCTP_CMD_HB_TIMER_UPDATE:
->  			t = cmd->obj.transport;
-> -			sctp_cmd_hb_timer_update(commands, asoc, t);
-> +			sctp_cmd_hb_timer_update(commands, t);
->  			break;
+> - Arnaldo
+> 
+> 
+> 
 
-you mean it was not compiling before?
+-- 
+Regards
+Gui Jianfeng
 
-- Arnaldo
