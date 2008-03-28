@@ -1,57 +1,60 @@
-From: =?utf-8?Q?=E3=80=8ETaiwan_News_Express=E3=80=8F?=
-	<noreply@etaiwannews.com>
-Subject: The natural ecological beauty in Taiwan
-Date: Sat, 29 Mar 2008 07:12:24 +0800
-Message-ID: <ccc1e271dc1542ec44879860de1ec9d4@wlog.etaiwannews.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 2/4] drivers/net/bonding/bond_sysfs.c: suppress
+ uninitialized var warning
+Date: Fri, 28 Mar 2008 16:16:07 -0700 (PDT)
+Message-ID: <20080328.161607.259609373.davem@davemloft.net>
+References: <200803282137.m2SLbUn3011629@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw.etaiwannews.com ([211.72.1.254]:42119 "EHLO
-	mailgw.etaiwannews.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751609AbYC1XNf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 19:13:35 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by mailgw.etaiwannews.com (Postfix) with ESMTP id 84FD475972
-	for <netdev@vger.kernel.org>; Sat, 29 Mar 2008 07:13:29 +0800 (CST)
-Received: from mailgw.etaiwannews.com ([127.0.0.1])
-	by localhost (mailGW.etaiwannews.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 28957-03 for <netdev@vger.kernel.org>;
-	Sat, 29 Mar 2008 07:13:29 +0800 (CST)
-Received: from wlog.etaiwannews.com (unknown [192.168.0.9])
-	by mailgw.etaiwannews.com (Postfix) with ESMTP id 63A9C75610
-	for <netdev@vger.kernel.org>; Sat, 29 Mar 2008 07:13:29 +0800 (CST)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59534
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753087AbYC1XQH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 19:16:07 -0400
+In-Reply-To: <200803282137.m2SLbUn3011629@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gentle readers:
+From: akpm@linux-foundation.org
+Date: Fri, 28 Mar 2008 14:37:30 -0700
 
-Taiwan News Express is an information-packed EDM presenting
-information about Taiwan in three major parts and in English,
-=E6=97=A5=E6=9C=AC=E8=AA=9E,=ED=95=9C=EA=B8=80, Deutsch languages. &ldq=
-uo;Exploring
-Taiwan&rdquo;=E3=80=81&ldquo; Magnificent Taiwan &rdquo; and &ldquo;*
-*Taiwan Aspect* &rdquo;*. These impressive reports transport you to
-the beautiful island that is Taiwan by giving you a deeper
-understanding.
+> From: Andrew Morton <akpm@linux-foundation.org>
+> 
+> drivers/net/bonding/bond_sysfs.c: In function `bonding_store_slaves':
+> drivers/net/bonding/bond_sysfs.c:250: warning: 'original_mtu' might be used uninitialized in this function
+> 
+> Cc: Jay Vosburgh <fubar@us.ibm.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
- Please click on the link below to browse */ /*
+Barf!
 
-*/ Taiwan news Express/**.
-*http://www.taiwannews.com.tw/static/express/
+I'll fix it like this:
 
-If you have any trouble connecting with the link, or would like more
-detailed information about the contents, please inquire with Daphne
-at Taiwan News, Daphne (service@etaiwannews.com)
+commit 6952d8923bcc8d6b8b43b065cfe9a31bb24f0d58
+Author: David S. Miller <davem@davemloft.net>
+Date:   Fri Mar 28 16:15:38 2008 -0700
 
+    [BOND]: Fix warning in bond_sysfs.c
+    
+    original_mtu is only used if we end up with a non-NULL
+    dev, and it is assigned in all such cases, but GCC can't
+    see that.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-
-=20
-
-
---
-Powered by PHPlist, www.phplist.com --
-
-
-
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 90a1f31..979c2d0 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -341,6 +341,7 @@ static ssize_t bonding_store_slaves(struct device *d,
+ 
+ 	if (command[0] == '-') {
+ 		dev = NULL;
++		original_mtu = 0;
+ 		bond_for_each_slave(bond, slave, i)
+ 			if (strnicmp(slave->dev->name, ifname, IFNAMSIZ) == 0) {
+ 				dev = slave->dev;
