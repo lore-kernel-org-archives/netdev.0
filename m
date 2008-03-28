@@ -1,33 +1,135 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
-Date: Fri, 28 Mar 2008 16:47:36 +0100
-Message-ID: <20080328154736.GC14642@ami.dom.local>
-References: <47EC399E.90804@sun.com> <20080327.173418.18777696.davem@davemloft.net> <20080328012234.GA20465@gondor.apana.org.au> <47EC50BA.6080908@sun.com> <20080328103809.GB23039@gondor.apana.org.au> <20080328133845.GA14565@ami.dom.local> <20080328135338.GA24374@gondor.apana.org.au> <20080328143953.GA14642@ami.dom.local> <20080328145634.GA24712@gondor.apana.org.au> <20080328152953.GB14642@ami.dom.local>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: kernel 2.6.25-rc7 highly unstable on high load
+Date: Fri, 28 Mar 2008 16:57:55 +0100
+Message-ID: <47ED1583.5010204@cosmosbay.com>
+References: <47EBC641.8040405@cosmosbay.com> <20080327183745.M9944@visp.net.lb> <47EBEDC9.6080100@cosmosbay.com> <20080327.150308.205829519.davem@davemloft.net> <20080328052543.M60286@visp.net.lb> <47EC8701.1080604@cosmosbay.com> <20080328073854.M73368@visp.net.lb> <47ECA24C.10803@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matheos Worku <Matheos.Worku@Sun.COM>,
-	David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org, hadi@cyberus.ca
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hu-out-0506.google.com ([72.14.214.229]:14140 "EHLO
-	hu-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751977AbYC1PkG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 11:40:06 -0400
-Received: by hu-out-0506.google.com with SMTP id 19so2965794hue.21
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 08:40:05 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080328152953.GB14642@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------030405050904090000040809"
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <47ECA24C.10803@cosmosbay.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 28, 2008 at 04:29:53PM +0100, Jarek Poplawski wrote:
-...
-> But during this, now limited, time of qdisc_run() there is a contention
-> for queue_lock and probably some additional cache updating because of
-> this other enqueuing, which could be delayed especially if queue length
-> is above some level.
+This is a multi-part message in MIME format.
+--------------030405050904090000040809
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-...Hm... this would need some special treatment for RT traffic yet...
+Eric Dumazet a =C3=A9crit :
+> Denys Fedoryshchenko a =C3=A9crit :
+>> Already patched and tested, it doesn't change anything.
+>>
+>>  =20
+>
+> We still leak dsts somewhere.
+>
+> You could try git bisect, or try to patch net/core/dst.c so that=20
+> dst_gc_task() (line 83) displays
+> route informations for say 10 first entries found in the dst_busy_list
+> (refcnt, interface, source IP, dest IP, things like that) that could=20
+> ring a bell given your netfilter rules or network conf.
 
-Jarek P.
+I cooked a patch (untested) to implement this idea :
+
+It should display lines similar to /proc/net/rt_cache (reusing the same=20
+helper function)
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+ include/net/dst.h |    2 +
+ net/core/dst.c    |    7 ++++++
+ net/ipv4/route.c  |   47 ++++++++++++++++++++++++++------------------
+ 3 files changed, 37 insertions(+), 19 deletions(-)
+
+
+
+--------------030405050904090000040809
+Content-Type: text/plain;
+ name="show_info.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="show_info.patch"
+
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2RzdC5oIGIvaW5jbHVkZS9uZXQvZHN0LmgKaW5k
+ZXggMDAyNTAwZS4uMmZlOWE2YyAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvZHN0LmgKKysr
+IGIvaW5jbHVkZS9uZXQvZHN0LmgKQEAgLTEwMyw2ICsxMDMsOCBAQCBzdHJ1Y3QgZHN0X29w
+cwogCXZvaWQJCQkoKmxpbmtfZmFpbHVyZSkoc3RydWN0IHNrX2J1ZmYgKik7CiAJdm9pZAkJ
+CSgqdXBkYXRlX3BtdHUpKHN0cnVjdCBkc3RfZW50cnkgKmRzdCwgdTMyIG10dSk7CiAJaW50
+CQkJKCpsb2NhbF9vdXQpKHN0cnVjdCBza19idWZmICpza2IpOworCXNpemVfdAkJCSgqaW5m
+b19zaG93KShzdHJ1Y3QgZHN0X2VudHJ5ICosIGNoYXIgKmJ1ZmYsCisJCQkJCSAgICAgc2l6
+ZV90IGxlbik7CiAJaW50CQkJZW50cnlfc2l6ZTsKIAogCWF0b21pY190CQllbnRyaWVzOwpk
+aWZmIC0tZ2l0IGEvbmV0L2NvcmUvZHN0LmMgYi9uZXQvY29yZS9kc3QuYwppbmRleCBmZTAz
+MjY2Li4wODM5NWU4IDEwMDY0NAotLS0gYS9uZXQvY29yZS9kc3QuYworKysgYi9uZXQvY29y
+ZS9kc3QuYwpAQCAtNzAsNiArNzAsNyBAQCBzdGF0aWMgdm9pZCBkc3RfZ2NfdGFzayhzdHJ1
+Y3Qgd29ya19zdHJ1Y3QgKndvcmspCiAjaWYgUlRfQ0FDSEVfREVCVUcgPj0gMgogCWt0aW1l
+X3QgdGltZV9zdGFydCA9IGt0aW1lX2dldCgpOwogCXN0cnVjdCB0aW1lc3BlYyBlbGFwc2Vk
+OworCWNoYXIgaW5mb1sxMjhdOwogI2VuZGlmCiAKIAltdXRleF9sb2NrKCZkc3RfZ2NfbXV0
+ZXgpOwpAQCAtODIsNiArODMsMTIgQEAgbG9vcDoKIAkJaWYgKGxpa2VseShhdG9taWNfcmVh
+ZCgmZHN0LT5fX3JlZmNudCkpKSB7CiAJCQlsYXN0LT5uZXh0ID0gZHN0OwogCQkJbGFzdCA9
+IGRzdDsKKyNpZiBSVF9DQUNIRV9ERUJVRyA+PSAyCisJCQlpZiAoZGVsYXllZCA8IDEwICYm
+IGRzdC0+b3BzLT5pbmZvX3Nob3cpIHsKKwkJCQlkc3QtPm9wcy0+aW5mb19zaG93KGRzdCwg
+aW5mbywgc2l6ZW9mKGluZm8pKTsKKwkJCQlwcmludGsoS0VSTl9ERUJVRyAiZHN0Z2MgWyVk
+XSAlc1xuIiwgZGVsYXllZCwgaW5mbyk7CisJCQl9CisjZW5kaWYKIAkJCWRlbGF5ZWQrKzsK
+IAkJCWNvbnRpbnVlOwogCQl9CmRpZmYgLS1naXQgYS9uZXQvaXB2NC9yb3V0ZS5jIGIvbmV0
+L2lwdjQvcm91dGUuYwppbmRleCAyMzA3MTZjLi5lZjhjM2I3IDEwMDY0NAotLS0gYS9uZXQv
+aXB2NC9yb3V0ZS5jCisrKyBiL25ldC9pcHY0L3JvdXRlLmMKQEAgLTE0OCw2ICsxNDgsOCBA
+QCBzdGF0aWMgc3RydWN0IGRzdF9lbnRyeSAqaXB2NF9uZWdhdGl2ZV9hZHZpY2Uoc3RydWN0
+IGRzdF9lbnRyeSAqZHN0KTsKIHN0YXRpYyB2b2lkCQkgaXB2NF9saW5rX2ZhaWx1cmUoc3Ry
+dWN0IHNrX2J1ZmYgKnNrYik7CiBzdGF0aWMgdm9pZAkJIGlwX3J0X3VwZGF0ZV9wbXR1KHN0
+cnVjdCBkc3RfZW50cnkgKmRzdCwgdTMyIG10dSk7CiBzdGF0aWMgaW50IHJ0X2dhcmJhZ2Vf
+Y29sbGVjdChzdHJ1Y3QgZHN0X29wcyAqb3BzKTsKK3N0YXRpYyBzaXplX3QJCSBydF9pbmZv
+X3Nob3coc3RydWN0IGRzdF9lbnRyeSAqZHN0LAorCQkJCSAgICAgIGNoYXIgKmJ1ZmYsIHNp
+emVfdCBtYXhsZW4pOwogCiAKIHN0YXRpYyBzdHJ1Y3QgZHN0X29wcyBpcHY0X2RzdF9vcHMg
+PSB7CkBAIC0xNjEsNiArMTYzLDcgQEAgc3RhdGljIHN0cnVjdCBkc3Rfb3BzIGlwdjRfZHN0
+X29wcyA9IHsKIAkubGlua19mYWlsdXJlID0JCWlwdjRfbGlua19mYWlsdXJlLAogCS51cGRh
+dGVfcG10dSA9CQlpcF9ydF91cGRhdGVfcG10dSwKIAkubG9jYWxfb3V0ID0JCWlwX2xvY2Fs
+X291dCwKKwkuaW5mb19zaG93ID0JCXJ0X2luZm9fc2hvdywKIAkuZW50cnlfc2l6ZSA9CQlz
+aXplb2Yoc3RydWN0IHJ0YWJsZSksCiAJLmVudHJpZXMgPQkJQVRPTUlDX0lOSVQoMCksCiB9
+OwpAQCAtMjY5LDYgKzI3MiwyOCBAQCBzdGF0aWMgdW5zaWduZWQgaW50IHJ0X2hhc2hfY29k
+ZSh1MzIgZGFkZHIsIHUzMiBzYWRkcikKIAlydF9oYXNoX2NvZGUoKF9fZm9yY2UgdTMyKShf
+X2JlMzIpKGRhZGRyKSxcCiAJCSAgICAgKF9fZm9yY2UgdTMyKShfX2JlMzIpKHNhZGRyKSBe
+ICgoaWR4KSA8PCA1KSkKIAorc3RhdGljIHNpemVfdCBydF9pbmZvX3Nob3coc3RydWN0IGRz
+dF9lbnRyeSAqZHN0LCBjaGFyICpidWZmLCBzaXplX3QgbWF4bGVuKQoreworCXN0cnVjdCBy
+dGFibGUgKnIgPSAoc3RydWN0IHJ0YWJsZSAqKWRzdDsKKworCXJldHVybiBzbnByaW50Zihi
+dWZmLCBtYXhsZW4sICIlc1x0JTA4bFhcdCUwOGxYXHQlOFhcdCVkXHQldVx0JWRcdCIKKwkJ
+ICAgICAgIiUwOGxYXHQlZFx0JXVcdCV1XHQlMDJYXHQlZFx0JTFkXHQlMDhYIiwKKwkJci0+
+dS5kc3QuZGV2ID8gci0+dS5kc3QuZGV2LT5uYW1lIDogIioiLAorCQkodW5zaWduZWQgbG9u
+ZylyLT5ydF9kc3QsICh1bnNpZ25lZCBsb25nKXItPnJ0X2dhdGV3YXksCisJCXItPnJ0X2Zs
+YWdzLCBhdG9taWNfcmVhZCgmci0+dS5kc3QuX19yZWZjbnQpLAorCQlyLT51LmRzdC5fX3Vz
+ZSwgMCwgKHVuc2lnbmVkIGxvbmcpci0+cnRfc3JjLAorCQkoZHN0X21ldHJpYygmci0+dS5k
+c3QsIFJUQVhfQURWTVNTKSA/CisJCSAgICAgKGludClkc3RfbWV0cmljKCZyLT51LmRzdCwg
+UlRBWF9BRFZNU1MpICsgNDAgOiAwKSwKKwkJZHN0X21ldHJpYygmci0+dS5kc3QsIFJUQVhf
+V0lORE9XKSwKKwkJKGludCkoKGRzdF9tZXRyaWMoJnItPnUuZHN0LCBSVEFYX1JUVCkgPj4g
+MykgKworCQkgICAgICBkc3RfbWV0cmljKCZyLT51LmRzdCwgUlRBWF9SVFRWQVIpKSwKKwkJ
+ci0+ZmwuZmw0X3RvcywKKwkJci0+dS5kc3QuaGggPyBhdG9taWNfcmVhZCgmci0+dS5kc3Qu
+aGgtPmhoX3JlZmNudCkgOiAtMSwKKwkJci0+dS5kc3QuaGggPyAoci0+dS5kc3QuaGgtPmho
+X291dHB1dCA9PQorCQkJICAgICAgIGRldl9xdWV1ZV94bWl0KSA6IDAsCisJCXItPnJ0X3Nw
+ZWNfZHN0KTsKK30KKwogI2lmZGVmIENPTkZJR19QUk9DX0ZTCiBzdHJ1Y3QgcnRfY2FjaGVf
+aXRlcl9zdGF0ZSB7CiAJc3RydWN0IHNlcV9uZXRfcHJpdmF0ZSBwOwpAQCAtMzY4LDI1ICsz
+OTMsOSBAQCBzdGF0aWMgaW50IHJ0X2NhY2hlX3NlcV9zaG93KHN0cnVjdCBzZXFfZmlsZSAq
+c2VxLCB2b2lkICp2KQogCQkJICAgIk1ldHJpY1x0U291cmNlXHRcdE1UVVx0V2luZG93XHRJ
+UlRUXHRUT1NcdEhIUmVmXHQiCiAJCQkgICAiSEhVcHRvZFx0U3BlY0RzdCIpOwogCWVsc2Ug
+ewotCQlzdHJ1Y3QgcnRhYmxlICpyID0gdjsKLQkJY2hhciB0ZW1wWzI1Nl07Ci0KLQkJc3By
+aW50Zih0ZW1wLCAiJXNcdCUwOGxYXHQlMDhsWFx0JThYXHQlZFx0JXVcdCVkXHQiCi0JCQkg
+ICAgICAiJTA4bFhcdCVkXHQldVx0JXVcdCUwMlhcdCVkXHQlMWRcdCUwOFgiLAotCQkJci0+
+dS5kc3QuZGV2ID8gci0+dS5kc3QuZGV2LT5uYW1lIDogIioiLAotCQkJKHVuc2lnbmVkIGxv
+bmcpci0+cnRfZHN0LCAodW5zaWduZWQgbG9uZylyLT5ydF9nYXRld2F5LAotCQkJci0+cnRf
+ZmxhZ3MsIGF0b21pY19yZWFkKCZyLT51LmRzdC5fX3JlZmNudCksCi0JCQlyLT51LmRzdC5f
+X3VzZSwgMCwgKHVuc2lnbmVkIGxvbmcpci0+cnRfc3JjLAotCQkJKGRzdF9tZXRyaWMoJnIt
+PnUuZHN0LCBSVEFYX0FEVk1TUykgPwotCQkJICAgICAoaW50KWRzdF9tZXRyaWMoJnItPnUu
+ZHN0LCBSVEFYX0FEVk1TUykgKyA0MCA6IDApLAotCQkJZHN0X21ldHJpYygmci0+dS5kc3Qs
+IFJUQVhfV0lORE9XKSwKLQkJCShpbnQpKChkc3RfbWV0cmljKCZyLT51LmRzdCwgUlRBWF9S
+VFQpID4+IDMpICsKLQkJCSAgICAgIGRzdF9tZXRyaWMoJnItPnUuZHN0LCBSVEFYX1JUVFZB
+UikpLAotCQkJci0+ZmwuZmw0X3RvcywKLQkJCXItPnUuZHN0LmhoID8gYXRvbWljX3JlYWQo
+JnItPnUuZHN0LmhoLT5oaF9yZWZjbnQpIDogLTEsCi0JCQlyLT51LmRzdC5oaCA/IChyLT51
+LmRzdC5oaC0+aGhfb3V0cHV0ID09Ci0JCQkJICAgICAgIGRldl9xdWV1ZV94bWl0KSA6IDAs
+Ci0JCQlyLT5ydF9zcGVjX2RzdCk7CisJCWNoYXIgdGVtcFsxMjhdOworCisJCXJ0X2luZm9f
+c2hvdyh2LCB0ZW1wLCAxMjgpOwogCQlzZXFfcHJpbnRmKHNlcSwgIiUtMTI3c1xuIiwgdGVt
+cCk7CiAJfQogCXJldHVybiAwOwo=
+--------------030405050904090000040809--
+
+
