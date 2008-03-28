@@ -1,208 +1,45 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: kernel 2.6.25-rc7 highly unstable on high load
-Date: Fri, 28 Mar 2008 06:49:53 +0100
-Message-ID: <47EC8701.1080604@cosmosbay.com>
-References: <47EBC641.8040405@cosmosbay.com> <20080327183745.M9944@visp.net.lb> <47EBEDC9.6080100@cosmosbay.com> <20080327.150308.205829519.davem@davemloft.net> <20080328052543.M60286@visp.net.lb>
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: Re: [PATCH / RFC 0/2] spinlocks fixup in fec / m68knommu driver
+Date: Fri, 28 Mar 2008 16:51:35 +1000
+Message-ID: <47EC9577.2090402@snapgear.com>
+References: <20080327140041.072611004@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080328052543.M60286@visp.net.lb>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: uclinux-dev@uclinux.org, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Sebastian Siewior <bigeasy@linutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rex.snapgear.com ([203.143.235.140]:42437 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753994AbYC1Gvr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 02:51:47 -0400
+In-Reply-To: <20080327140041.072611004@linutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryshchenko a =C3=A9crit :
-> Just to make sure 2.6.24.3 is stable and it is regression i am supply=
-ing=20
-> output from it.
-> Do you want me to submit summary to bugzilla and regression list as w=
-ell?
->
-> And in short, IMHO 2.6.25 have major issues on routing that have to b=
-e fixed=20
-> before release. TRIE is crashing, and even with HASH there is leak. I=
- am=20
-> trying my best to bisect it, but it is major router and i cannot take=
- much=20
-> risk on it, so i wish i can simulate in my home mini-lab. Still i am =
-not able=20
-> to get even proper switch (Lebanon difficult country for IT).
->
-> Kup ~ # uname -a
-> Linux Kup 2.6.24.3-build-0023 #3 SMP Sat Mar 8 13:01:35 EET 2008 i686=
- unknown
->
-> up ~ # rtstat -i60 -c6000
-> rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cac=
-he|
-> rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cac=
-he|
-> rt_cache|
->  entries|  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_mar=
-ti|=20
-> out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlis=
-t|
-> out_hlis|
->         |        |     tot|      mc|     ute|        |  an_dst| =20
-> an_src|        |    _tot|     _mc|        |      ed|    miss| verflow=
-|=20
-> _search|t_search|
->    54750|    4430|    1128|       0|      12|       0|       0|      =
- 0|    =20
-> 263|     190|       0|     709|     708|       0|       0|    3545|  =
-   313|
->    92913|    8829|    1211|       0|       1|       0|       0|      =
- 0|    =20
-> 343|     163|       0|    1375|    1373|       0|       0|   12545|  =
-   724|
->   115323|    8232|     906|       0|       0|       0|       0|      =
- 0|    =20
-> 299|     128|       0|    1035|    1033|       0|       0|   18069|  =
-   813|
->   128985|    8650|     839|       0|       0|       0|       0|      =
- 0|    =20
-> 289|     115|       0|     954|     952|       0|       0|   22515|  =
-   845|
->   116682|    8911|     861|       0|       0|       0|       0|      =
- 0|    =20
-> 288|     117|       0|     978|     976|       0|       0|   23433|  =
-   775|
->    99969|    9164|     889|       0|       0|       0|       0|      =
- 0|    =20
-> 280|     113|       0|    1002|    1000|       0|       0|   26741|  =
-   839|
->   124602|    9395|    1012|       0|       0|       0|       0|      =
- 0|    =20
-> 271|     122|       0|    1134|    1132|       0|       0|   27381|  =
-   787|
->   110051|   10036|     824|       0|       0|       0|       0|      =
- 0|    =20
-> 279|     120|       0|     944|     942|       0|       0|   28558|  =
-   783|
->   126835|   10631|     772|       0|       0|       0|       0|      =
- 0|    =20
-> 274|     117|       0|     888|     886|       0|       0|   29451|  =
-   780|
->   111881|   10357|     762|       0|       0|       0|       0|      =
- 0|    =20
-> 275|     117|       0|     879|     877|       0|       0|   28235|  =
-   751|
->   127018|   10178|     796|       0|       0|       0|       0|      =
- 0|    =20
-> 283|     117|       0|     913|     911|       0|       0|   29480|  =
-   807|
->   112242|    9839|     814|       0|       0|       0|       0|      =
- 0|    =20
-> 293|     115|       0|     929|     927|       0|       0|   28095|  =
-   796|
->    41267|    9493|    1217|       0|       1|       0|       0|      =
- 0|    =20
-> 269|     138|       0|     811|     810|       0|       0|   18545|  =
-   548|
->    76380|    9722|    1060|       0|       1|       0|       0|      =
- 0|    =20
-> 250|     135|       0|    1195|    1193|       0|       0|   14786|  =
-   414|
->    99922|    9811|     779|       0|       0|       0|       0|      =
- 0|    =20
-> 281|     124|       0|     902|     900|       0|       0|   21853|  =
-   589|
->
-> Kup ~ # rtstat -i60 -c6000
-> rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cac=
-he|
-> rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cac=
-he|
-> rt_cache|
->  entries|  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_mar=
-ti|=20
-> out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlis=
-t|
-> out_hlis|
->         |        |     tot|      mc|     ute|        |  an_dst| =20
-> an_src|        |    _tot|     _mc|        |      ed|    miss| verflow=
-|=20
-> _search|t_search|
->
->   122053|  150955|   14888|       0|      25|       1|       0|      =
- 0|   =20
-> 4611|    2090|       0|   15820|   15789|       0|       0|  369513| =
-  11562|
->   105226|   10215|     872|       0|       0|       0|       0|      =
- 0|    =20
-> 279|     116|       0|     988|     986|       0|       0|   30343|  =
-   799|
->   126236|   10462|     924|       0|       0|       0|       0|      =
- 0|    =20
-> 260|     120|       0|    1044|    1042|       0|       0|   31699|  =
-   782|
->   114492|    9782|     884|       0|       0|       0|       0|      =
- 0|    =20
-> 253|     120|       0|    1005|    1003|       0|       0|   29695|  =
-   722|
->
-> After ip route flush cache
-> Kup ~ # rtstat -i60 -c6000
-> rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cac=
-he|
-> rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cac=
-he|
-> rt_cache|
->  entries|  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_mar=
-ti|=20
-> out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlis=
-t|
-> out_hlis|
->         |        |     tot|      mc|     ute|        |  an_dst| =20
-> an_src|        |    _tot|     _mc|        |      ed|    miss| verflow=
-|=20
-> _search|t_search|
->     9088|  202136|   19262|       0|      29|       1|       0|      =
- 0|   =20
-> 5976|    2696|       0|   20647|   20606|       0|       0|  521714| =
-  15415|
->
->
-> !!!!!
-> I am not wrong, ip route flush cache doesn't work at 2.6.25-rc7. I wi=
-ll make=20
-> sure about that now.
->  =20
-Maybe you are a litle bit too fast for "ip route flush cache" :)
+Hi Sebastion,
 
-It used to work like that : schedule a timer to start a flush in about =
-2=20
-seconds. A flush meaning : scan the whole table and delete all entries.
+Sebastian Siewior wrote:
+> I got into this after turning on spinlock debugging.
+> 
+> Jeff: The dev->hard_start_xmit callback is always called from softirq
+> context so it is save to use spin_lock_irq(), right?
+> 
+> Greg: The isr (fec_enet_rx()) calls three functions. All
+                 (fec_enet_interrupt())
+> but fec_enet_rx() are grabbing the spinlock. Is this on purpose?
 
-On machines with 4 millions dst entries, this was using too much time=20
-and eventually crashing.
+No, it looks broken :-(
 
-On recent kernels, each rtable entry has a special field named rt_genid=
-,=20
-so that "ip route flush cache" doesnt have to scan the whole table, but=
-=20
-only change the global genid. rtables entries will be deleted later,=20
-when their rt_genid is found to be different than the global genid.
-
-Please try the patch that was suggested yesterday, as it is probably th=
-e=20
-cure your router needs.
-
-http://git2.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dcomm=
-itdiff;h=3D7c0ecc4c4f8fd90988aab8a95297b9c0038b6160
-
-Thank you
+Regards
+Greg
 
 
 
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+------------------------------------------------------------------------
+Greg Ungerer  --  Chief Software Dude       EMAIL:     gerg@snapgear.com
+Secure Computing Corporation                PHONE:       +61 7 3435 2888
+825 Stanley St,                             FAX:         +61 7 3891 3630
+Woolloongabba, QLD, 4102, Australia         WEB: http://www.SnapGear.com
