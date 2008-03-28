@@ -1,82 +1,45 @@
 From: akpm@linux-foundation.org
-Subject: [patch 09/21] forcedeth: power down phy when interface is down
-Date: Fri, 28 Mar 2008 14:41:20 -0700
-Message-ID: <200803282141.m2SLfKth011825@imap1.linux-foundation.org>
+Subject: [patch 01/21] usb net: asix does not really need 10/100mbit
+Date: Fri, 28 Mar 2008 14:41:15 -0700
+Message-ID: <200803282141.m2SLfFEh011801@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	eswierk@arastra.com, aabdulla@nvidia.com
+	vapier@gentoo.org, david-b@pacbell.net, greg@kroah.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:40292 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:33892 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756574AbYC1Vl3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 17:41:29 -0400
+	by vger.kernel.org with ESMTP id S1756083AbYC1Vl0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 17:41:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ed Swierk" <eswierk@arastra.com>
+From: Mike Frysinger <vapier@gentoo.org>
 
-Bring the physical link down when the interface is down by placing the PHY
-in power-down state, unless WOL is enabled.  This mirrors the behavior of
-other drivers including e1000 and tg3.
+The asix usb driver currently depends on NET_ETHERNET which means you
+cannot enable this driver if you only have 1000mbit enabled in your kernel.
+Since there is no real dependency between the NET_ETHERNET portion and the
+asix driver, simply drop it.
 
-Without the patch, ifconfig down leaves the physical link up, which confuses
-datacenter users who expect the link lights both on the NIC and the switch to
-go out when they bring an interface down.
-
-Furthermore, even though the phy is powered on, autonegotiation stops working,
-so a normally gigabit link might suddenly become 100 Mbit half-duplex when the
-interface goes down, and become gigabit when it comes up again.
-
-Ayaz said:
-
-  I would not include this patch until further testing is performed.  NVIDIA
-  MCP chips use 3rd party PHY vendors.  By powering down the phy, it could
-  have adverse affects on certain phys.
-
-Signed-off-by: Ed Swierk <eswierk@arastra.com>
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+Cc: Greg KH <greg@kroah.com>
 Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: David Brownell <david-b@pacbell.net>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/forcedeth.c |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/usb/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
-+++ a/drivers/net/forcedeth.c
-@@ -1344,9 +1344,9 @@ static int phy_init(struct net_device *d
- 	/* some phys clear out pause advertisment on reset, set it back */
- 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
+diff -puN drivers/net/usb/Kconfig~usb-net-asix-does-not-really-need-10-100mbit drivers/net/usb/Kconfig
+--- a/drivers/net/usb/Kconfig~usb-net-asix-does-not-really-need-10-100mbit
++++ a/drivers/net/usb/Kconfig
+@@ -129,7 +129,7 @@ config USB_USBNET
  
--	/* restart auto negotiation */
-+	/* restart auto negotiation, power down phy */
- 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
--	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
-+	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
- 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
- 		return PHY_ERROR;
- 	}
-@@ -4930,6 +4930,10 @@ static int nv_open(struct net_device *de
- 
- 	dprintk(KERN_DEBUG "nv_open: begin\n");
- 
-+	/* power up phy */
-+	mii_rw(dev, np->phyaddr, MII_BMCR,
-+	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
-+
- 	/* erase previous misconfiguration */
- 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
- 		nv_mac_reset(dev);
-@@ -5113,6 +5117,10 @@ static int nv_close(struct net_device *d
- 	if (np->wolenabled) {
- 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
- 		nv_start_rx(dev);
-+	} else {
-+		/* power down phy */
-+		mii_rw(dev, np->phyaddr, MII_BMCR,
-+		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
- 	}
- 
- 	/* FIXME: power down nic */
+ config USB_NET_AX8817X
+ 	tristate "ASIX AX88xxx Based USB 2.0 Ethernet Adapters"
+-	depends on USB_USBNET && NET_ETHERNET
++	depends on USB_USBNET
+ 	select CRC32
+ 	default y
+ 	help
 _
