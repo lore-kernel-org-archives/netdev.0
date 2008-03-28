@@ -1,104 +1,119 @@
-From: Harald Hannelius <harald@iki.fi>
-Subject: Re: tg3 bad performance, lots of hardware interrupts
-Date: Fri, 28 Mar 2008 19:37:29 +0200 (EET)
-Message-ID: <alpine.DEB.1.00.0803281931060.5286@penti.org>
-References: <alpine.DEB.1.00.0803271532570.30549@penti.org> <20080327.144925.196529669.davem@davemloft.net> <1206666100.5368.6.camel@dell> <alpine.DEB.1.00.0803281440460.23558@penti.org> <1206726560.6866.5.camel@dell>
- <Pine.LNX.4.64.0803281811420.32241@twin.jikos.cz>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] [2.6.26 / RFC] e1000: remove PCI Express
+	device IDs
+Date: Fri, 28 Mar 2008 10:41:46 -0700
+Message-ID: <20080328174146.11857.94690.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Michael Chan <mchan@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from penti.org ([193.167.33.200]:54122 "EHLO penti.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752337AbYC1Rhi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2008 13:37:38 -0400
-In-Reply-To: <Pine.LNX.4.64.0803281811420.32241@twin.jikos.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, torvalds@linux-foundation.org,
+	jeff@garzik.org
+To: netdev@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+We do not want to prolong the situation much longer that e1000
+and e1000e support these devices at the same time. As a result,
+take out the bandage that was added for the interim period
+and remove all the PCI Express device IDs from e1000.
+
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Jeff Garzik <jeff@garzik.org>
+---
+
+ drivers/net/Kconfig            |    3 ---
+ drivers/net/e1000/e1000_main.c |   33 ---------------------------------
+ 2 files changed, 0 insertions(+), 36 deletions(-)
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 95d1b61..ec764a9 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2028,9 +2028,6 @@ config E1000E
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called e1000e.
+ 
+-config E1000E_ENABLED
+-	def_bool E1000E != n
+-
+ config IP1000
+ 	tristate "IP1000 Gigabit Ethernet support"
+ 	depends on PCI && EXPERIMENTAL
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 757d02f..f12de3c 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -47,12 +47,6 @@ static const char e1000_copyright[] = "Copyright (c) 1999-2006 Intel Corporation
+  * Macro expands to...
+  *   {PCI_DEVICE(PCI_VENDOR_ID_INTEL, device_id)}
+  */
+-#ifdef CONFIG_E1000E_ENABLED
+-  #define PCIE(x) 
+-#else
+-  #define PCIE(x) x,
+-#endif
+-
+ static struct pci_device_id e1000_pci_tbl[] = {
+ 	INTEL_E1000_ETHERNET_DEVICE(0x1000),
+ 	INTEL_E1000_ETHERNET_DEVICE(0x1001),
+@@ -79,14 +73,6 @@ static struct pci_device_id e1000_pci_tbl[] = {
+ 	INTEL_E1000_ETHERNET_DEVICE(0x1026),
+ 	INTEL_E1000_ETHERNET_DEVICE(0x1027),
+ 	INTEL_E1000_ETHERNET_DEVICE(0x1028),
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1049))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x104A))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x104B))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x104C))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x104D))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x105E))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x105F))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1060))
+ 	INTEL_E1000_ETHERNET_DEVICE(0x1075),
+ 	INTEL_E1000_ETHERNET_DEVICE(0x1076),
+ 	INTEL_E1000_ETHERNET_DEVICE(0x1077),
+@@ -95,28 +81,9 @@ PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1060))
+ 	INTEL_E1000_ETHERNET_DEVICE(0x107A),
+ 	INTEL_E1000_ETHERNET_DEVICE(0x107B),
+ 	INTEL_E1000_ETHERNET_DEVICE(0x107C),
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x107D))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x107E))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x107F))
+ 	INTEL_E1000_ETHERNET_DEVICE(0x108A),
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x108B))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x108C))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1096))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1098))
+ 	INTEL_E1000_ETHERNET_DEVICE(0x1099),
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x109A))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10A4))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10A5))
+ 	INTEL_E1000_ETHERNET_DEVICE(0x10B5),
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10B9))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10BA))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10BB))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10BC))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10C4))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10C5))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10D5))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10D9))
+-PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10DA))
+ 	/* required last entry */
+ 	{0,}
+ };
 
 
-On Fri, 28 Mar 2008, Jiri Kosina wrote:
-> On Fri, 28 Mar 2008, Michael Chan wrote:
-
->>> Phew, I thought that running ethtool -t was like doing stop-A-sync on
->>> a Sun. It took almost half an hour to run that ethtool -t command;
->> Something is very wrong.  ethtool -t should only take a few seconds to
->> complete.  You can try ethtool -t eth0 online to reduce the number of
->> tests to see if it makes a difference.
->> How many of these NICs do you have?  If you have more than one, do they
->> all behave the same way?  Have they ever worked well before?
->
-> Harald, is the IRQ of eth0 shared with any other device? (cat
-> /proc/interrupts will show).
-
-# cat /proc/interrupts
-            CPU0       CPU1
-   0:        111          1   IO-APIC-edge      timer
-   1:          0          2   IO-APIC-edge      i8042
-   2:          0          0    XT-PIC-XT        cascade
-   5:          0          0   IO-APIC-fasteoi   sata_nv
-   7:        856         51   IO-APIC-fasteoi   ohci_hcd:usb2
-  10:          0          3   IO-APIC-fasteoi   sata_nv, ehci_hcd:usb1
-  11:       4305          7   IO-APIC-fasteoi   sata_nv
-  12:          0          4   IO-APIC-edge      i8042
-216:       4217     128932   PCI-MSI-edge      eth2
-217:     161107     685351   PCI-MSI-edge      eth0
-NMI:          0          0   Non-maskable interrupts
-LOC:    2380762    2619917   Local timer interrupts
-RES:       3000       3269   Rescheduling interrupts
-CAL:         16         31   function call interrupts
-TLB:         64        111   TLB shootdowns
-TRM:          0          0   Thermal event interrupts
-SPU:          0          0   Spurious interrupts
-ERR:          1
-MIS:          0
-
-Well, shared or not, yes and no. I think that /proc/interrupts contains 
-soft-interrupts. The problem child is interface eth2.
-
-As rapported by ifconfig the interface is on IRQ 5:
-
-# ifconfig eth2
-eth2      Link encap:Ethernet  HWaddr 00:10:18:30:E6:D6
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:196898 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:19 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:69887991 (66.6 MiB)  TX bytes:1216 (1.1 KiB)
-           Interrupt:5
-
-That'd be the same as sata_nv.
-
-# ifconfig eth2
-eth2      Link encap:Ethernet  HWaddr 00:10:18:30:E6:D6
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:196898 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:19 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:69887991 (66.6 MiB)  TX bytes:1216 (1.1 KiB)
-           Interrupt:5
-
-I changed the settings "PnP OS" in the BIOS (acpi on/off?) and tried 
-booting with both pci=routeirq (or smth like that, see original post) on 
-and off to no avail.
-
-I'm stumped. I have never experienced anything quite like this before. 
-Usually an IRQ-conflict has crashed my computers, not just slowed them 
-down (or maybe these dual-core opterons are just that incredibly fast 
-nowadays that the do nothing incredibly fast :) ). Then again, I haven't 
-had an IRQ-conflict on my boxen in years.
-
-Buggy motherboard? Buggy NIC? The motherboard has the latest available 
-BIOS as per supermicro's webpage.
-
-I'm getting three PCIe e1000's next week, I'll try with these instead.
-
-
--- 
-A: Top Posters!                                      |  s/y Charlotta |
-Q: What is the most annoying thing on mailing lists? |    FIN-2674    |
-   http://www.fe83.org/ Finn Express Purjehtijat ry   |  ============= |
-Harald H Hannelius | harald (At) iki (dot) fi | GSM +358 50 594 1020
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
