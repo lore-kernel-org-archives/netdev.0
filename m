@@ -1,46 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
-Date: Thu, 27 Mar 2008 18:38:44 -0700 (PDT)
-Message-ID: <20080327.183844.74572930.davem@davemloft.net>
-References: <47EC399E.90804@sun.com>
-	<20080327.173418.18777696.davem@davemloft.net>
-	<20080328012234.GA20465@gondor.apana.org.au>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 3/7] [NET]: uninline dev_alloc_skb, de-bloats a lot
+Date: Thu, 27 Mar 2008 22:42:20 -0300
+Message-ID: <20080328014220.GK14945@ghostprotocols.net>
+References: <1206621486-5408-3-git-send-email-ilpo.jarvinen@helsinki.fi> <1206621486-5408-4-git-send-email-ilpo.jarvinen@helsinki.fi> <200803280036.59311.vda.linux@googlemail.com> <20080327.175212.119805454.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Matheos.Worku@Sun.COM, jesse.brandeburg@intel.com,
-	jarkao2@gmail.com, netdev@vger.kernel.org, hadi@cyberus.ca
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: vda.linux@googlemail.com, ilpo.jarvinen@helsinki.fi,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, acme@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33986
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753484AbYC1Bio (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 21:38:44 -0400
-In-Reply-To: <20080328012234.GA20465@gondor.apana.org.au>
+Received: from mx1.redhat.com ([66.187.233.31]:54974 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753682AbYC1Bmd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2008 21:42:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20080327.175212.119805454.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 28 Mar 2008 09:22:34 +0800
+Em Thu, Mar 27, 2008 at 05:52:12PM -0700, David Miller escreveu:
+> From: Denys Vlasenko <vda.linux@googlemail.com>
+> Date: Fri, 28 Mar 2008 00:36:59 +0100
+> 
+> > Can you add a comment which explains the intent?
+> > 
+> > +struct sk_buff *dev_alloc_skb(unsigned int length)
+> > +{
+> > +       /* There is more code here than it seems:
+> > +        * __dev_alloc_skb is an inline */
+> > +	return __dev_alloc_skb(length, GFP_ATOMIC);
+> > +}
+> > +EXPORT_SYMBOL(dev_alloc_skb);
+> 
+> I've applied his patch already, if you want this comment
+> please submit the patch to add it and also please use
+> the correct formatting of the comment.
 
-> @@ -187,6 +187,10 @@ void __qdisc_run(struct net_device *dev)
->  	do {
->  		if (!qdisc_restart(dev))
->  			break;
-> +		if (need_resched()) {
-> +			netif_schedule(dev);
-> +			break;
-> +		}
->  	} while (!netif_queue_stopped(dev));
->  
->  	clear_bit(__LINK_STATE_QDISC_RUNNING, &dev->state);
+Which is, of course:
 
-This runs from softirqs, the local thread's scheduling
-state is updated from timers which also run from softirqs,
-so this need_resched() test won't work.
+	/*
+	 * There is more code here than it seems:
+	 * __def_alloc_skb is an inline
+	 */
 
-Probably you'll need something similar to the ->poll()
-NAPI breakout logic, which uses 2 jiffies as the breakout
-point.  (it uses 2, because we could be very close to
-transitioning to the next jiffie and thus don't want
-to breakout prematurely in that case)
+Ilpo: Keep up the debloating jihad/crusade/campaign/surge/kamppailla! 8-)
+
+- arnaldo
