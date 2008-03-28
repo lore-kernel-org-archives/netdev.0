@@ -1,119 +1,93 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH] [2.6.26 / RFC] e1000: remove PCI Express
-	device IDs
-Date: Fri, 28 Mar 2008 10:41:46 -0700
-Message-ID: <20080328174146.11857.94690.stgit@localhost.localdomain>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: 2.6.25-rc7-git2: Reported regressions from 2.6.24
+Date: Fri, 28 Mar 2008 10:46:12 -0700
+Message-ID: <20080328104612.2641fb74.akpm@linux-foundation.org>
+References: <200803272353.51901.rjw@sisk.pl>
+	<alpine.LFD.1.00.0803271859280.14670@woody.linux-foundation.org>
+	<Pine.LNX.4.64.0803272002090.11979@schroedinger.engr.sgi.com>
+	<alpine.LFD.1.00.0803272050290.14670@woody.linux-foundation.org>
+	<47ECCD17.7080908@artcom.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, torvalds@linux-foundation.org,
-	jeff@garzik.org
-To: netdev@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	netdev@vger.kernel.org
+To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@artcom.pl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756974AbYC1RrK@vger.kernel.org>
+In-Reply-To: <47ECCD17.7080908@artcom.pl>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We do not want to prolong the situation much longer that e1000
-and e1000e support these devices at the same time. As a result,
-take out the bandage that was added for the interim period
-and remove all the PCI Express device IDs from e1000.
+On Fri, 28 Mar 2008 11:48:55 +0100 Pawe__ Staszewski <pstaszewski@artcom.pl> wrote:
 
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Jeff Garzik <jeff@garzik.org>
----
+> Linus Torvalds pisze:
+> > On Thu, 27 Mar 2008, Christoph Lameter wrote:
+> >   
+> >> Slab allocations can never use GFP_HIGHMEM.
+> >>     
+> >
+> > Totally irrelevant.
+> >
+> > The page allocation path does
+> >
+> >         if (gfp_flags & __GFP_ZERO)
+> >                 prep_zero_page(page, order, gfp_flags);
+> >
+> > and that will cause a warning REGARDLESS of whether the page is a HIGHMEM 
+> > page or not.
+> >
+> > And the fact is, passing in GFP_ZERO from the SLUB code is a bug 
+> > regardless, because it unnecessarily does the dual memset().
+> >
+> > So here's a damn big clue:
+> >  - SLUB does its own GFP_ZERO handling
+> >  - so passing GFP_ZERO down to the page allocator is a f*cking bug
+> >  - and this has NOTHING what-so-ever to do with GFP_HIGHMEM or even 
+> >    whether the warning is "valid" or not - it's a bug even if the warning 
+> >    had never happened.
+> >
+> > So stop blathering, and just admit that this was buggy. It was also 
+> > fundamentally fragile to leave GFP_ZERO around when it was known to not be 
+> > valid at that point (exactly because GFP_ZERO was handled by the caller).
+> >
+> > 		Linus
+> >
+> >
+> >   
+> Sorry for offtopic but i have the same problem with kernels 2.6.25-*
+> like:
+> http://kerneltrap.org/mailarchive/linux-netdev/2008/3/27/1274804
+> http://kerneltrap.org/mailarchive/linux-netdev/2008/3/27/1270334
+> 
+> I search linux-netdev and found this links.
+> I only sugest that 
+> 
+> 	Denys Fedoryshchenko
+> 
+> can have the same problem that i have with this kernels.
+> I must revert my all kernels to 2.6.23.11 to get stable work on high (ip 
+> traffic) loads.
+> 
+> And there is no documentation for LRO... and Stephen Hemminger write me 
+> that LRO is not compatible with bridgeing and routing.
+> see this link:
+> http://bugzilla.kernel.org/show_bug.cgi?id=10335
+> 
+> 
+> So there must be some documentation for this ... because people can have 
+> many problems with this.
+> 
 
- drivers/net/Kconfig            |    3 ---
- drivers/net/e1000/e1000_main.c |   33 ---------------------------------
- 2 files changed, 0 insertions(+), 36 deletions(-)
+These are all networking things, so let's cc that list.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 95d1b61..ec764a9 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2028,9 +2028,6 @@ config E1000E
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called e1000e.
- 
--config E1000E_ENABLED
--	def_bool E1000E != n
--
- config IP1000
- 	tristate "IP1000 Gigabit Ethernet support"
- 	depends on PCI && EXPERIMENTAL
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 757d02f..f12de3c 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -47,12 +47,6 @@ static const char e1000_copyright[] = "Copyright (c) 1999-2006 Intel Corporation
-  * Macro expands to...
-  *   {PCI_DEVICE(PCI_VENDOR_ID_INTEL, device_id)}
-  */
--#ifdef CONFIG_E1000E_ENABLED
--  #define PCIE(x) 
--#else
--  #define PCIE(x) x,
--#endif
--
- static struct pci_device_id e1000_pci_tbl[] = {
- 	INTEL_E1000_ETHERNET_DEVICE(0x1000),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1001),
-@@ -79,14 +73,6 @@ static struct pci_device_id e1000_pci_tbl[] = {
- 	INTEL_E1000_ETHERNET_DEVICE(0x1026),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1027),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1028),
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1049))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x104A))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x104B))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x104C))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x104D))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x105E))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x105F))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1060))
- 	INTEL_E1000_ETHERNET_DEVICE(0x1075),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1076),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1077),
-@@ -95,28 +81,9 @@ PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1060))
- 	INTEL_E1000_ETHERNET_DEVICE(0x107A),
- 	INTEL_E1000_ETHERNET_DEVICE(0x107B),
- 	INTEL_E1000_ETHERNET_DEVICE(0x107C),
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x107D))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x107E))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x107F))
- 	INTEL_E1000_ETHERNET_DEVICE(0x108A),
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x108B))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x108C))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1096))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1098))
- 	INTEL_E1000_ETHERNET_DEVICE(0x1099),
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x109A))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10A4))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10A5))
- 	INTEL_E1000_ETHERNET_DEVICE(0x10B5),
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10B9))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10BA))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10BB))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10BC))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10C4))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10C5))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10D5))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10D9))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10DA))
- 	/* required last entry */
- 	{0,}
- };
+> 
+> Sorry for offtopic but this can resolve problems like my and Denys .
 
+It's very on-topic - thanks for the reminder.
 
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+Rafael, are these things actually on the list?
