@@ -1,53 +1,43 @@
-From: jamal <hadi@cyberus.ca>
+From: Ingo Molnar <mingo@elte.hu>
 Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
-Date: Fri, 28 Mar 2008 10:07:29 -0400
-Message-ID: <1206713249.4429.69.camel@localhost>
-References: <47EC399E.90804@sun.com>
-	 <20080327.173418.18777696.davem@davemloft.net>
-	 <20080328012234.GA20465@gondor.apana.org.au>
-	 <20080327.183844.74572930.davem@davemloft.net>
-	 <20080328102931.GA23039@gondor.apana.org.au>
-	 <20080328105629.GG1011@elte.hu>
-	 <20080328110621.GA23342@gondor.apana.org.au>
-	 <20080328112928.GA23547@gondor.apana.org.au>
-	 <1206706759.4429.58.camel@localhost>
-	 <20080328132643.GA24180@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+Date: Fri, 28 Mar 2008 15:09:24 +0100
+Message-ID: <20080328140924.GC29218@elte.hu>
+References: <47EC399E.90804@sun.com> <20080327.173418.18777696.davem@davemloft.net> <20080328012234.GA20465@gondor.apana.org.au> <20080327.183844.74572930.davem@davemloft.net> <20080328102931.GA23039@gondor.apana.org.au> <20080328105629.GG1011@elte.hu> <20080328110621.GA23342@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@elte.hu>, Matheos.Worku@Sun.COM,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Matheos.Worku@Sun.COM,
 	jesse.brandeburg@intel.com, jarkao2@gmail.com,
-	netdev@vger.kernel.org
+	netdev@vger.kernel.org, hadi@cyberus.ca
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from el-out-1112.google.com ([209.85.162.182]:10890 "EHLO
-	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755283AbYC1OIS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 10:08:18 -0400
-Received: by el-out-1112.google.com with SMTP id v27so92833ele.17
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 07:08:18 -0700 (PDT)
-In-Reply-To: <20080328132643.GA24180@gondor.apana.org.au>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:39136 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752708AbYC1OJu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 10:09:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20080328110621.GA23342@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-28-03 at 21:26 +0800, Herbert Xu wrote:
-> I agree that using jiffies is a pretty coarse approximation of
-> proper scheduling.  However, in the absence of a better solution
-> we have to live with it.
 
-I know it works well enough and has for years; sure you could do better
-but i wasnt questioning the solution - more than anything on my part
-that was curiosity.
+* Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Perhaps running these out of process context is the correct
-> approach.
+> On Fri, Mar 28, 2008 at 11:56:29AM +0100, Ingo Molnar wrote:
+> >
+> > hm, what's the context of this discussion? The call chain looks ok, 
+> > that's how we preempt tasks from the timer tick. But other code besides 
+> > the scheduler shouldnt do this.
+> 
+> The code under discussion is __qdisc_run from net/sched/sch_generic.c.
+> 
+> It runs with BH off from either process context or softirq context. As 
+> it is it can keep running forever.  We were discussing adding a 
+> need_resched check in there.  So the question is would need_resched 
+> ever get updated while BH is disabled?
 
-I saw something from Max Krasnyansky along those lines but havent quiet
-followed it up. Should be interesting to see the effect over a large
-types of workloads.
+yes, certainly - as long as the timer irq is allowed. (i.e. hardirqs are 
+not disabled) The scheduler tick runs from hardirq context, not from 
+softirq context. (that's how we can preempt softirq threads on the -rt 
+kernel for example)
 
-cheers,
-jamal
-
+	Ingo
