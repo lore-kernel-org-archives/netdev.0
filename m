@@ -1,8 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 1/5][SOCK]: Enumerate struct proto-s to facilitate
- percpu inuse accounting (v2).
-Date: Fri, 28 Mar 2008 15:29:43 +0300
-Message-ID: <47ECE4B7.40806@openvz.org>
+Subject: [PATCH net-2.6.26 2/5][SOCK]: Introduce a percpu inuse counters array
+ (v2).
+Date: Fri, 28 Mar 2008 15:33:18 +0300
+Message-ID: <47ECE58E.5030407@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -10,96 +10,97 @@ Cc: Eric Dumazet <dada1@cosmosbay.com>,
 	Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:56345 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:56999 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752122AbYC1M37 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2008 08:29:59 -0400
+	id S1753476AbYC1Md2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 08:33:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The inuse counters are going to become a per-cpu array.
-Introduce an index for this array on the struct proto.
+And redirect sock_prot_inuse_add and _get to use one.
 
-To handle the case of proto register-unregister-register
-loop the bitmap is used. All its bits manipulations are
-protected with proto_list_lock and a sanity check for the
-bitmap being exhausted is also added.
+As far as the dereferences are concerned. Before the patch we made
+1 dereference to proto->inuse.add call, the call itself and then
+called the __get_cpu_var() on a static variable. After the patch we 
+make a direct call, then one dereference to proto->inuse_idx and 
+then the same __get_cpu_var() on a still static variable. So this 
+patch doesn't seem to produce performance penalty on SMP.
+
+This is not per-net yet, but I will deliberately make NET_NS=y case
+separated from NET_NS=n one, since it'll cost us one-or-two more 
+dereferences to get the struct net and the inuse counter.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- include/net/sock.h |    1 +
- net/core/sock.c    |   34 ++++++++++++++++++++++++++++++++++
- 2 files changed, 35 insertions(+), 0 deletions(-)
+ include/net/sock.h |   13 +++++--------
+ net/core/sock.c    |   22 ++++++++++++++++++++++
+ 2 files changed, 27 insertions(+), 8 deletions(-)
 
 diff --git a/include/net/sock.h b/include/net/sock.h
-index 1c9d059..abc6341 100644
+index abc6341..ebf9552 100644
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
-@@ -562,6 +562,7 @@ struct proto {
- 
- 	/* Keeping track of sockets in use */
- #ifdef CONFIG_PROC_FS
-+	unsigned int		inuse_idx;
- 	struct pcounter		inuse;
- #endif
- 
+@@ -639,18 +639,15 @@ static inline void sk_refcnt_debug_release(const struct sock *sk)
+ # define DEFINE_PROTO_INUSE(NAME) DEFINE_PCOUNTER(NAME)
+ # define REF_PROTO_INUSE(NAME) PCOUNTER_MEMBER_INITIALIZER(NAME, .inuse)
+ /* Called with local bh disabled */
+-static inline void sock_prot_inuse_add(struct proto *prot, int inc)
+-{
+-	pcounter_add(&prot->inuse, inc);
+-}
++extern void sock_prot_inuse_add(struct proto *prot, int inc);
++
+ static inline int sock_prot_inuse_init(struct proto *proto)
+ {
+ 	return pcounter_alloc(&proto->inuse);
+ }
+-static inline int sock_prot_inuse_get(struct proto *proto)
+-{
+-	return pcounter_getval(&proto->inuse);
+-}
++
++extern int sock_prot_inuse_get(struct proto *proto);
++
+ static inline void sock_prot_inuse_free(struct proto *proto)
+ {
+ 	pcounter_free(&proto->inuse);
 diff --git a/net/core/sock.c b/net/core/sock.c
-index 3ee9506..7d2c8ad 100644
+index 7d2c8ad..174c64b 100644
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
-@@ -1940,6 +1940,38 @@ EXPORT_SYMBOL(sk_common_release);
- static DEFINE_RWLOCK(proto_list_lock);
- static LIST_HEAD(proto_list);
+@@ -1942,8 +1942,30 @@ static LIST_HEAD(proto_list);
  
-+#ifdef CONFIG_PROC_FS
-+#define PROTO_INUSE_NR	64	/* should be enough for the first time */
+ #ifdef CONFIG_PROC_FS
+ #define PROTO_INUSE_NR	64	/* should be enough for the first time */
++struct prot_inuse {
++	int val[PROTO_INUSE_NR];
++};
+ 
+ static DECLARE_BITMAP(proto_inuse_idx, PROTO_INUSE_NR);
++static DEFINE_PER_CPU(struct prot_inuse, prot_inuse);
 +
-+static DECLARE_BITMAP(proto_inuse_idx, PROTO_INUSE_NR);
-+
-+static void assign_proto_idx(struct proto *prot)
++void sock_prot_inuse_add(struct proto *prot, int val)
 +{
-+	prot->inuse_idx = find_first_zero_bit(proto_inuse_idx, PROTO_INUSE_NR);
-+
-+	if (unlikely(prot->inuse_idx == PROTO_INUSE_NR - 1)) {
-+		printk(KERN_ERR "PROTO_INUSE_NR exhausted\n");
-+		return;
-+	}
-+
-+	set_bit(prot->inuse_idx, proto_inuse_idx);
++	__get_cpu_var(prot_inuse).val[prot->inuse_idx] += val;
 +}
++EXPORT_SYMBOL_GPL(sock_prot_inuse_add);
 +
-+static void release_proto_idx(struct proto *prot)
++int sock_prot_inuse_get(struct proto *prot)
 +{
-+	if (prot->inuse_idx != PROTO_INUSE_NR - 1)
-+		clear_bit(prot->inuse_idx, proto_inuse_idx);
-+}
-+#else
-+static inline void assign_proto_idx(struct proto *prot)
-+{
-+}
++	int cpu, idx = prot->inuse_idx;
++	int res = 0;
 +
-+static inline void release_proto_idx(struct proto *prot)
-+{
-+}
-+#endif
++	for_each_possible_cpu(cpu)
++		res += per_cpu(prot_inuse, cpu).val[idx];
 +
- int proto_register(struct proto *prot, int alloc_slab)
++	return res >= 0 ? res : 0;
++}
++EXPORT_SYMBOL_GPL(sock_prot_inuse_get);
+ 
+ static void assign_proto_idx(struct proto *prot)
  {
- 	char *request_sock_slab_name = NULL;
-@@ -2000,6 +2032,7 @@ int proto_register(struct proto *prot, int alloc_slab)
- 
- 	write_lock(&proto_list_lock);
- 	list_add(&prot->node, &proto_list);
-+	assign_proto_idx(prot);
- 	write_unlock(&proto_list_lock);
- 	return 0;
- 
-@@ -2026,6 +2059,7 @@ EXPORT_SYMBOL(proto_register);
- void proto_unregister(struct proto *prot)
- {
- 	write_lock(&proto_list_lock);
-+	release_proto_idx(prot);
- 	list_del(&prot->node);
- 	write_unlock(&proto_list_lock);
- 
+-- 
+1.5.3.4
+
+
