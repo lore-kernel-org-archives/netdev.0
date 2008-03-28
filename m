@@ -1,51 +1,39 @@
-From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
-Subject: [patch] net: Comment dev_kfree_skb_irq and dev_kfree_skb_any better
-Date: Fri, 28 Mar 2008 08:13:36 -0700 (PDT)
-Message-ID: <185527.39512.qm@web52004.mail.re2.yahoo.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
+Date: Fri, 28 Mar 2008 16:29:53 +0100
+Message-ID: <20080328152953.GB14642@ami.dom.local>
+References: <20080327.170235.53674739.davem@davemloft.net> <47EC399E.90804@sun.com> <20080327.173418.18777696.davem@davemloft.net> <20080328012234.GA20465@gondor.apana.org.au> <47EC50BA.6080908@sun.com> <20080328103809.GB23039@gondor.apana.org.au> <20080328133845.GA14565@ami.dom.local> <20080328135338.GA24374@gondor.apana.org.au> <20080328143953.GA14642@ami.dom.local> <20080328145634.GA24712@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: Matheos Worku <Matheos.Worku@Sun.COM>,
+	David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
+	netdev@vger.kernel.org, hadi@cyberus.ca
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web52004.mail.re2.yahoo.com ([206.190.49.251]:47662 "HELO
-	web52004.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753170AbYC1PUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 11:20:19 -0400
+Received: from qb-out-0506.google.com ([72.14.204.232]:24381 "EHLO
+	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750995AbYC1PWk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 11:22:40 -0400
+Received: by qb-out-0506.google.com with SMTP id e11so5739580qbe.15
+        for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 08:22:39 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080328145634.GA24712@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+On Fri, Mar 28, 2008 at 10:56:34PM +0800, Herbert Xu wrote:
+> On Fri, Mar 28, 2008 at 03:39:53PM +0100, Jarek Poplawski wrote:
+> > 
+> > Probably some backlog would be necessary, similarly to RX. The main
+> 
+> Sorry but I still don't understand how this would differ from
+> what we do now.  As it stands the packet would be queued for
+> later processing if another CPU is doing a qdisc run.
 
-Comment dev_kfree_skb_irq and dev_kfree_skb_any better.
+But during this, now limited, time of qdisc_run() there is a contention
+for queue_lock and probably some additional cache updating because of
+this other enqueuing, which could be delayed especially if queue length
+is above some level.
 
-Signed-off-by: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
-
----
-
---- linux-2.6/include/linux/netdevice.h    2008-03-23 09:06:05.264803500 +0200
-+++ linux/include/linux/netdevice.h    2008-03-28 17:08:33.568098500 +0200
-@@ -1072,12 +1072,14 @@ static inline int netif_is_multiqueue(co
- }
- 
- /* Use this variant when it is known for sure that it
-- * is executing from interrupt context.
-+ * is executing from hardware interrupt context or with hardware interrupts
-+ * disabled.
-  */
- extern void dev_kfree_skb_irq(struct sk_buff *skb);
- 
- /* Use this variant in places where it could be invoked
-- * either from interrupt or non-interrupt context.
-+ * from either hardware interrupt or other context, with hardware interrupts
-+ * either disabled or enabled.
-  */
- extern void dev_kfree_skb_any(struct sk_buff *skb);
- 
-
-
-
-
-
-      ____________________________________________________________________________________
-Be a better friend, newshound, and 
-know-it-all with Yahoo! Mobile.  Try it now.  http://mobile.yahoo.com/;_ylt=Ahu06i62sR8HDtDypao8Wcj9tAcJ
+Cheers,
+Jarek P.
