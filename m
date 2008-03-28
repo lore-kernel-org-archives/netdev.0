@@ -1,81 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
-Date: Thu, 27 Mar 2008 17:34:18 -0700 (PDT)
-Message-ID: <20080327.173418.18777696.davem@davemloft.net>
-References: <47EC3182.7080005@sun.com>
-	<20080327.170235.53674739.davem@davemloft.net>
-	<47EC399E.90804@sun.com>
+Subject: Re: [PATCH net-2.6.26 2/6][NETNS][SOCK]: Introduce per-net inuse
+ counters.
+Date: Thu, 27 Mar 2008 17:38:23 -0700 (PDT)
+Message-ID: <20080327.173823.107235292.davem@davemloft.net>
+References: <47EB550B.8070401@openvz.org>
+	<47EB5711.8040705@openvz.org>
+	<47EC01AE.9010402@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jesse.brandeburg@intel.com, jarkao2@gmail.com,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	hadi@cyberus.ca
-To: Matheos.Worku@Sun.COM
+Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50258
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50265
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752984AbYC1AeT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 20:34:19 -0400
-In-Reply-To: <47EC399E.90804@sun.com>
+	by vger.kernel.org with ESMTP id S1753205AbYC1AiX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2008 20:38:23 -0400
+In-Reply-To: <47EC01AE.9010402@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matheos Worku <Matheos.Worku@Sun.COM>
-Date: Thu, 27 Mar 2008 17:19:42 -0700
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Thu, 27 Mar 2008 21:21:02 +0100
 
-> Actually I am running a version of the nxge driver which uses only one 
-> TX ring, no LLTX enabled so the driver does single threaded TX.
+> Given that :
+> 
+> 1) pcounter should really go away from kernel, since Andrew disagree 
+> with the implementation.
+> 
+> 2) the need to enumerate all protocols in your enum, it seems ... ugly :)
+> 
+> 3) alloc_percpu(struct net_prot_inuse) per net is nice because we dont 
+> waste memory (if we had to use percpu_counters for each proto for example)
+> 
+> I suggest to :
+> 
+> 1) not use pcounter anymore
+> 
+> 2) change 'inuse' field to 'inuse_idx' or 'prot_num' that is 
+> automatically allocated at proto_register time, instead statically at 
+> compile time.
+> 
+> Just provide a big enough NET_INUSE_NR (might depend on IPV6 present or 
+> not, static or module) to take into account all possible protocols.
+> 
+> struct net_prot_inuse {
+> 	int val[NET_INUSE_NR];
+> };
 
-Ok.
-
-> On the other hand, uperf (or iperf, netperf ) is running multiple TX
-> connections in parallel and the connections are bound on multiple
-> processors, hence they are running in parallel.
-
-Yes, this is what I was interested in.
-
-I think I know what's wrong.
-
-If one cpu gets into the "qdisc remove, give to device" loop, other
-cpus will simply add to the qdisc and that first cpu will do the all
-of the TX processing.
-
-This helps performance, but in your case it is clear that if the
-device is fast enough and there are enough other cpus generating TX
-traffic, it is quite trivial to get a cpu wedged there and never exit.
-
-The code in question is net/sched/sch_generic.c:__qdisc_run(), it just
-loops there until the device TX fills up or there are no more packets
-in the qdisc queue.
-
-qdisc_run() (in include/linux/pkt_sched.h) sets
-__LINK_STATE_QDISC_RUNNING to tell other cpus that there is a cpu
-processing the queue inside of __qdisc_run().
-
-net/core/dev.c:dev_queue_xmit() then goes:
-
-	if (q->enqueue) {
-		/* Grab device queue */
-		spin_lock(&dev->queue_lock);
-		q = dev->qdisc;
-		if (q->enqueue) {
-			/* reset queue_mapping to zero */
-			skb_set_queue_mapping(skb, 0);
-			rc = q->enqueue(skb, q);
-			qdisc_run(dev);
-			spin_unlock(&dev->queue_lock);
-
-			rc = rc == NET_XMIT_BYPASS ? NET_XMIT_SUCCESS : rc;
-			goto out;
-		}
-		spin_unlock(&dev->queue_lock);
-	}
-
-The first cpu will get into __qdisc_run(), but the other
-ones will just q->enqueue() and exit since the first cpu
-has indicated it is processing the qdisc.
-
-I'm not sure how we should fix this at the moment, we want
-to keep the behavior but on the other hand we need to
-break out of this so we don't get stuck here for too long.
+I agree mostly, and I'll thus hold off on these patches
+until the details are hashed out.
