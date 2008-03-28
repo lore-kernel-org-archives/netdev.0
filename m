@@ -1,70 +1,65 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: Re: kernel 2.6.25-rc7 highly unstable on high load
-Date: Fri, 28 Mar 2008 22:45:03 +0200
-Message-ID: <20080328203358.M8487@visp.net.lb>
-References: <47EBC641.8040405@cosmosbay.com> <20080327183745.M9944@visp.net.lb> <47EBEDC9.6080100@cosmosbay.com> <20080327.150308.205829519.davem@davemloft.net> <20080328052543.M60286@visp.net.lb> <47EC8701.1080604@cosmosbay.com> <20080328073854.M73368@visp.net.lb> <47ECA24C.10803@cosmosbay.com> <47ED1583.5010204@cosmosbay.com> <20080328132359.15573601@speedy>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: Oops/Warning report for the week of March 28th 2008
+Date: Fri, 28 Mar 2008 13:51:38 -0700 (PDT)
+Message-ID: <alpine.LFD.1.00.0803281329340.14670@woody.linux-foundation.org>
+References: <47ED3F1A.1090101@linux.intel.com> <alpine.LFD.1.00.0803281310480.14670@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080328132359.15573601@speedy>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-It seems or patch change something (but it is just showing debug, strange), 
-or there is something fixed between 2.6.25-rc7-git1 and 2.6.25-rc7-git3. LC-
-trie working fine, HASH also i cannot see any leaks.
-
-I  will have to wait 5-6 hours to make sure. After this time pass, if i will 
-not see bug again, i will try to run kernel just with default debug like 
-before.
-
-If it is required, i can test performance and cpu load with/without routing 
-cache on real workload. Sure it is better to have syntetic tests before that.
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>, Dmitry Torokhov <dtor@mail.ru>
+To: Arjan van de Ven <arjan@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:42062 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757670AbYC1Uvr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 16:51:47 -0400
+In-Reply-To: <alpine.LFD.1.00.0803281310480.14670@woody.linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-On Fri, 28 Mar 2008 13:23:59 -0700, Stephen Hemminger wrote
-> On Fri, 28 Mar 2008 16:57:55 +0100
-> Eric Dumazet <dada1@cosmosbay.com> wrote:
+
+On Fri, 28 Mar 2008, Linus Torvalds wrote:
 > 
-> > Eric Dumazet a [UTF-8?] :
-> > > Denys Fedoryshchenko a [UTF-8?] :
-> > >> Already patched and tested, it doesn't change anything.
-> > >>
-> > >>   
-> > >
-> > > We still leak dsts somewhere.
-> > >
-> > > You could try git bisect, or try to patch net/core/dst.c so that 
-> > > dst_gc_task() (line 83) displays
-> > > route informations for say 10 first entries found in the dst_busy_list
-> > > (refcnt, interface, source IP, dest IP, things like that) that could 
-> > > ring a bell given your netfilter rules or network conf.
-> > 
-> > I cooked a patch (untested) to implement this idea :
-> > 
-> > It should display lines similar to /proc/net/rt_cache (reusing the same 
-> > helper function)
-> > 
-> >
-> 
-> I wonder how much the route cache really helps when it grows so 
-> large? Robert Olsson had suggested that turning it off when routing 
-> would help. Perhaps the route cache is only really useful for local 
-> destinations? If the cost of maintaining the route cache exceeds the 
-> cost of just using the existing route table, there is no value to 
-> having a route cache.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Is there something obvious that I'm missing? I'd really like to see the 
+> whole posting that the oops came from. Do you save the originals or even 
+> just message ID's from the ones you pick from emails?
 
+Hmm. Definitely not from the kernel mailing list. I'm intrigued, where did 
+that oops #5814 come from (picked a recent one at random)?
 
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
+The thing is recent, and oopses on "mutex_lock(dev->mutex)" in 
+input_release_device. In particular, the path *seems* to be this one:
 
+  evdev_release ->
+    evdev_ungrab ->
+      input_release_device ->
+        mutex_lock ->
+          mutex_lock_nested ->
+            __mutex_lock_common ->
+              list_add_tail(&waiter.list, &lock->wait_list)
+
+where "lock->wait_list.prev" seems to be 0x6b6b6b6b6b6b6b6b, which is the 
+use-after-free poison pattern.
+
+(In fact, I think the access that actually oopses is when the 
+debug version of __list_add() does
+
+	if (unlikely(prev->next != next)) {
+
+because that "prev" pointer is crap).
+
+So it seems that when input_release_device() does:
+
+	struct input_dev *dev = handle->dev;
+
+	mutex_lock(&dev->mutex);
+
+the "dev" it uses has already been released. And this only shows up as a 
+problem when you have slab debugging turned on (like the Fedora kernels 
+do, thank you all Fedora guys).
+
+The odd thing is that I don't think any of this code has really changed 
+recently. 
+
+			Linus
