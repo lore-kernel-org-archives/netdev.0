@@ -1,47 +1,62 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ibm_newemac: emac_tx_csum typo fix
-Date: Fri, 28 Mar 2008 21:54:06 -0400
-Message-ID: <47EDA13E.3080504@garzik.org>
-References: <20080327144357.GA9111@ru.mvista.com>
+Subject: Re: [PATCH 4/8] e1000e: limit EEPROM size accesses
+Date: Fri, 28 Mar 2008 21:58:53 -0400
+Message-ID: <47EDA25D.7040406@garzik.org>
+References: <20080328161503.6562.44329.stgit@localhost.localdomain> <20080328161521.6562.23976.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: Valentine Barshak <vbarshak@ru.mvista.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20080327144357.GA9111@ru.mvista.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: Auke Kok <auke-jan.h.kok@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:59676 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755672AbYC2B67 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 21:58:59 -0400
+In-Reply-To: <20080328161521.6562.23976.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Valentine Barshak wrote:
-> Move the "&& skb->ip_summed == CHECKSUM_PARTIAL" part out of
-> emac_has_feature parameters.
+Auke Kok wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > 
-> Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 > ---
->  drivers/net/ibm_newemac/core.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
 > 
-> diff -pruN linux-2.6.orig/drivers/net/ibm_newemac/core.c linux-2.6/drivers/net/ibm_newemac/core.c
-> --- linux-2.6.orig/drivers/net/ibm_newemac/core.c	2008-02-21 16:45:36.000000000 +0300
-> +++ linux-2.6/drivers/net/ibm_newemac/core.c	2008-02-22 19:55:29.000000000 +0300
-> @@ -1235,8 +1235,8 @@ static int emac_close(struct net_device 
->  static inline u16 emac_tx_csum(struct emac_instance *dev,
->  			       struct sk_buff *skb)
->  {
-> -	if (emac_has_feature(dev, EMAC_FTR_HAS_TAH &&
-> -			     skb->ip_summed == CHECKSUM_PARTIAL)) {
-> +	if (emac_has_feature(dev, EMAC_FTR_HAS_TAH) &&
-> +		(skb->ip_summed == CHECKSUM_PARTIAL)) {
->  		++dev->stats.tx_packets_csum;
->  		return EMAC_TX_CTRL_TAH_CSUM;
+>  drivers/net/e1000e/82571.c  |    4 ++++
+>  drivers/net/e1000e/es2lan.c |    4 ++++
+>  2 files changed, 8 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+> index f7e1619..9b46a00 100644
+> --- a/drivers/net/e1000e/82571.c
+> +++ b/drivers/net/e1000e/82571.c
+> @@ -171,6 +171,10 @@ static s32 e1000_init_nvm_params_82571(struct e1000_hw *hw)
+>  		 * for setting word_size.
+>  		 */
+>  		size += NVM_WORD_SIZE_BASE_SHIFT;
+> +
+> +		/* EEPROM access above 16k is unsupported */
+> +		if (size > 14)
+> +			size = 14;
+>  		nvm->word_size	= 1 << size;
+>  		break;
+>  	}
+> diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
+> index e3f4aee..2689e4b 100644
+> --- a/drivers/net/e1000e/es2lan.c
+> +++ b/drivers/net/e1000e/es2lan.c
+> @@ -178,6 +178,10 @@ static s32 e1000_init_nvm_params_80003es2lan(struct e1000_hw *hw)
+>  	 * for setting word_size.
+>  	 */
+>  	size += NVM_WORD_SIZE_BASE_SHIFT;
+> +
+> +	/* EEPROM access above 16k is unsupported */
+> +	if (size > 14)
+> +		size = 14;
+>  	nvm->word_size	= 1 << size;
 
-applied
+Is this 2.6.25-rc material?
+
+
