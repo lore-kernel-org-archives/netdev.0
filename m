@@ -1,64 +1,36 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch (for 2.6.25?) 1/1] smc91x driver: fix bug: print warning
- only in interrupt mode
-Date: Fri, 28 Mar 2008 21:45:02 -0400
-Message-ID: <47ED9F1E.8000102@garzik.org>
-References: <200803282152.m2SLqfmg012431@imap1.linux-foundation.org>
+Subject: Re: [PATCH 1/2] Blackfin EMAC driver: finish removing remnants of
+ old BF537_PORT_H option
+Date: Fri, 28 Mar 2008 21:47:13 -0400
+Message-ID: <47ED9FA1.8000000@garzik.org>
+References: <> <1206580918-24720-2-git-send-email-cooloney@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sonic.zhang@analog.com, cooloney@kernel.org
-To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mike Frysinger <vapier.adi@gmail.com>
+To: Bryan Wu <cooloney@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48709 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48722 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751095AbYC2BpS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2008 21:45:18 -0400
-In-Reply-To: <200803282152.m2SLqfmg012431@imap1.linux-foundation.org>
+	id S1753167AbYC2BrP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 21:47:15 -0400
+In-Reply-To: <1206580918-24720-2-git-send-email-cooloney@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-akpm@linux-foundation.org wrote:
-> From: Sonic Zhang <sonic.zhang@analog.com>
+Bryan Wu wrote:
+> From: Mike Frysinger <vapier.adi@gmail.com>
 > 
-> http://blackfin.uclinux.org/gf/project/uclinux-dist/tracker/?action=TrackerItemEdit&tracker_item_id=3956
-> 
-> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+> Signed-off-by: Mike Frysinger <vapier.adi@gmail.com>
 > Signed-off-by: Bryan Wu <cooloney@kernel.org>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 > ---
-> 
->  drivers/net/smc91x.c |    2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff -puN drivers/net/smc91x.c~smc91x-driver-fix-bug-print-warning-only-in-interrupt-mode drivers/net/smc91x.c
-> --- a/drivers/net/smc91x.c~smc91x-driver-fix-bug-print-warning-only-in-interrupt-mode
-> +++ a/drivers/net/smc91x.c
-> @@ -1326,9 +1326,11 @@ static irqreturn_t smc_interrupt(int irq
->  	SMC_SET_INT_MASK(lp, mask);
->  	spin_unlock(&lp->lock);
->  
-> +#ifndef CONFIG_NET_POLL_CONTROLLER
->  	if (timeout == MAX_IRQ_LOOPS)
->  		PRINTK("%s: spurious interrupt (mask = 0x%02x)\n",
->  		       dev->name, mask);
-> +#endif
->  	DBG(3, "%s: Interrupt done (%d loops)\n",
->  	       dev->name, MAX_IRQ_LOOPS - timeout);
+>  arch/blackfin/mach-bf537/head.S |   12 ------------
+>  drivers/net/Kconfig             |    2 +-
+>  2 files changed, 1 insertions(+), 13 deletions(-)
 
-NAK
+ACK
 
-Either this code is OK or it isn't.  This patch simply hides a problem 
-inside a configuration the developer probably doesn't use.
+please send via blackfin arch tree to Linus
 
-What's the _real_ problem?  Looking at the tracker, I'd guess that some 
-events need to be masked, but are not?
-
-If the hardware is asserting events continually, the current code does 
-the right thing -- keep processing interrupt events flagged, until (a) 
-no more events asserted or (b) max loop count reached.
-
-So the question is to find out why you are hitting the timeout, and what 
-to do about it.
 
