@@ -1,40 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Is typing "make" too much to ask?
-Date: Fri, 28 Mar 2008 19:53:25 -0700 (PDT)
-Message-ID: <20080328.195325.220482995.davem@davemloft.net>
+Subject: Re: [git patches] net driver fixes
+Date: Fri, 28 Mar 2008 19:57:07 -0700 (PDT)
+Message-ID: <20080328.195707.62158194.davem@davemloft.net>
+References: <20080329022349.GA22612@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: joonwpark81@gmail.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49828
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39256
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754725AbYC2Cx0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 22:53:26 -0400
+	by vger.kernel.org with ESMTP id S1754746AbYC2C5H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 22:57:07 -0400
+In-Reply-To: <20080329022349.GA22612@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jeff Garzik <jeff@garzik.org>
+Date: Fri, 28 Mar 2008 22:23:49 -0400
 
-I merely ask that things submitted to me actully compile... :-(
+> Fixes for net-2.6.
+> 
+> Please pull from 'upstream-davem' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-davem
+> 
+> to receive the following updates:
 
-commit 9f09243890a4e7d2e06d40b56f26a64f88c6ec8b
-Author: David S. Miller <davem@davemloft.net>
-Date:   Fri Mar 28 19:51:40 2008 -0700
-
-    [LLC]: Kill llc_station_mac_sa symbol export.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/llc/llc_core.c b/net/llc/llc_core.c
-index 00de27c..50d5b10 100644
---- a/net/llc/llc_core.c
-+++ b/net/llc/llc_core.c
-@@ -179,7 +179,6 @@ static void __exit llc_exit(void)
- module_init(llc_init);
- module_exit(llc_exit);
- 
--EXPORT_SYMBOL(llc_station_mac_sa);
- EXPORT_SYMBOL(llc_sap_list);
- EXPORT_SYMBOL(llc_sap_list_lock);
- EXPORT_SYMBOL(llc_sap_find);
+Pulled and pushed back out to net-2.6, thanks Jeff!
