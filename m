@@ -1,7 +1,7 @@
 From: "Yinghai Lu" <yhlu.kernel@gmail.com>
 Subject: Re: [PATCH] e1000: fix IRQx nobody cared for shared irq with INTx
-Date: Sat, 29 Mar 2008 16:46:53 -0700
-Message-ID: <86802c440803291646i13ef28e6kf77f675dd6fb583c@mail.gmail.com>
+Date: Sat, 29 Mar 2008 16:50:58 -0700
+Message-ID: <86802c440803291650v5cec6e95sb71ed10664e2799a@mail.gmail.com>
 References: <200803291403.23479.yhlu.kernel@gmail.com>
 	 <47EEB154.9060605@garzik.org>
 Mime-Version: 1.0
@@ -14,12 +14,12 @@ Cc: "Andrew Morton" <akpm@linux-foundation.org>,
 	netdev@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
 To: "Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.191]:2719 "EHLO
+Received: from rv-out-0910.google.com ([209.85.198.187]:9962 "EHLO
 	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750947AbYC2Xqx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2008 19:46:53 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so509185rvb.1
-        for <netdev@vger.kernel.org>; Sat, 29 Mar 2008 16:46:53 -0700 (PDT)
+	with ESMTP id S1750962AbYC2Xu7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2008 19:50:59 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so509893rvb.1
+        for <netdev@vger.kernel.org>; Sat, 29 Mar 2008 16:50:58 -0700 (PDT)
 In-Reply-To: <47EEB154.9060605@garzik.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -153,17 +153,41 @@ On Sat, Mar 29, 2008 at 2:15 PM, Jeff Garzik <jeff@garzik.org> wrote:
 >
 >  Any pci_* call before pci_enable_device() is questionable.  I would put
 >  it after pci_enable_device(), unless there is a _strong_ reason.
->
->  PCI devices are not considered available, with resources assigned, until
->  pci_enable_device()
->
->  I am also curious what irq events are being raised?  That seems like
->  another problem area to address, since pci_intx() is just a band-aid
->  hiding that behavior.
 
-in comments,
+pci_intx should be safe.
 
->  > and some case, the e1000 sent out irq (hw bug or first kernel doesn't call
->  > e1000_irq_disable?)
+void
+pci_intx(struct pci_dev *pdev, int enable)
+{
+        u16 pci_command, new;
+
+        pci_read_config_word(pdev, PCI_COMMAND, &pci_command);
+
+        if (enable) {
+                new = pci_command & ~PCI_COMMAND_INTX_DISABLE;
+        } else {
+                new = pci_command | PCI_COMMAND_INTX_DISABLE;
+        }
+
+        if (new != pci_command) {
+                struct pci_devres *dr;
+
+                pci_write_config_word(pdev, PCI_COMMAND, new);
+
+                dr = find_pci_dr(pdev);
+                if (dr && !dr->restore_intx) {
+                        dr->restore_intx = 1;
+                        dr->orig_intx = !enable;
+                }
+        }
+}
+
+static struct pci_devres * find_pci_dr(struct pci_dev *pdev)
+{
+        if (pci_is_managed(pdev))
+                return devres_find(&pdev->dev, pcim_release, NULL, NULL);
+        return NULL;
+}
+
 
 YH
