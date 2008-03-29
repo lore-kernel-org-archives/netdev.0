@@ -1,45 +1,66 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 1/2] ibm_newemac: PowerPC 440GX EMAC PHY clock workaround
-Date: Sat, 29 Mar 2008 14:28:16 +1100
-Message-ID: <1206761296.10388.85.camel@pasglop>
-References: <20080327144044.GA8831@ru.mvista.com> <47EDA6F1.9080206@garzik.org>
-Reply-To: benh@kernel.crashing.org
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH 3/7] [NET]: uninline dev_alloc_skb, de-bloats a lot
+Date: Sat, 29 Mar 2008 00:52:26 -0400
+Message-ID: <20080329005226.3fe0ea85.billfink@mindspring.com>
+References: <1206621486-5408-3-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<200803280036.59311.vda.linux@googlemail.com>
+	<20080327.175212.119805454.davem@davemloft.net>
+	<200803282334.29975.vda.linux@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <47EDA6F1.9080206@garzik.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: David Miller <davem@davemloft.net>, ilpo.jarvinen@helsinki.fi,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, acme@redhat.com
+To: Denys Vlasenko <vda.linux@googlemail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755532AbYC2Ews@vger.kernel.org>
+In-Reply-To: <200803282334.29975.vda.linux@googlemail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Typo in patch (see below):
 
-On Fri, 2008-03-28 at 22:18 -0400, Jeff Garzik wrote:
-> Valentine Barshak wrote:
-> > The PowerPC 440GX Taishan board fails to reset EMAC3 (reset timeout error)
-> > if there's no link. Because of that it fails to find PHY chip. The older ibm_emac
-> > driver had a workaround for that: the EMAC_CLK_INTERNAL/EMAC_CLK_EXTERNAL macros,
-> > which toggle the Ethernet Clock Select bit in the SDR0_MFR register. This patch
-> > does the same for "ibm,emac-440gx" compatible chips. The workaround forces
-> > clock on -all- EMACs, so we select clock under global emac_phy_map_lock.
+On Fri, 28 Mar 2008, Denys Vlasenko wrote:
+
+> On Friday 28 March 2008 01:52, David Miller wrote:
+> > From: Denys Vlasenko <vda.linux@googlemail.com>
+> > Date: Fri, 28 Mar 2008 00:36:59 +0100
 > > 
-> > Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
-> > ---
-> >  drivers/net/ibm_newemac/core.c |   16 +++++++++++++++-
-> >  drivers/net/ibm_newemac/core.h |    8 ++++++--
-> >  2 files changed, 21 insertions(+), 3 deletions(-)
+> > > Can you add a comment which explains the intent?
+> > > 
+> > > +struct sk_buff *dev_alloc_skb(unsigned int length)
+> > > +{
+> > > +       /* There is more code here than it seems:
+> > > +        * __dev_alloc_skb is an inline */
+> > > +	return __dev_alloc_skb(length, GFP_ATOMIC);
+> > > +}
+> > > +EXPORT_SYMBOL(dev_alloc_skb);
+> > 
+> > I've applied his patch already, if you want this comment
+> > please submit the patch to add it and also please use
+> > the correct formatting of the comment.
 > 
-> is this for 2.6.25-rc?
+> Here it is.
+> 
+> Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+> --
+> vda
+> 
+> --- net-2.6.26/net/core/skbuff.c	Fri Mar 28 23:31:05 2008
+> +++ net-2.6.26.comment/net/core/skbuff.c	Fri Mar 28 23:33:03 2008
+> @@ -277,6 +277,10 @@
+>   */
+>  struct sk_buff *dev_alloc_skb(unsigned int length)
+>  {
+> +	/*
+> +	 * There is more code here than it seems:
+> +	 * __def_alloc_skb is an inline
+               ^
+               v
 
-Nah, too late imho.
+> +	 */
+>  	return __dev_alloc_skb(length, GFP_ATOMIC);
+>  }
+>  EXPORT_SYMBOL(dev_alloc_skb);
 
-Ben.
+						-Bill
