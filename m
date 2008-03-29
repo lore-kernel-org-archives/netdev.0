@@ -1,42 +1,65 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 11/21] 3c509: convert to isa_driver and pnp_driver
-Date: Fri, 28 Mar 2008 22:15:28 -0400
-Message-ID: <47EDA640.6070904@garzik.org>
-References: <200803282141.m2SLfNQG011831@imap1.linux-foundation.org>
+Subject: Re: [PATCH] [IXBGE]: Compilation fix for ixgbe_main.c.
+Date: Fri, 28 Mar 2008 22:15:36 -0400
+Message-ID: <47EDA648.9080406@garzik.org>
+References: <1206617957-32679-1-git-send-email-den@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@rainbow-software.org
-To: akpm@linux-foundation.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, cramerj@intel.com,
+	auke-jan.h.kok@intel.com
+To: "Denis V. Lunev" <den@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47918 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:47928 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753998AbYC2CPc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2008 22:15:32 -0400
-In-Reply-To: <200803282141.m2SLfNQG011831@imap1.linux-foundation.org>
+	id S1754220AbYC2CPj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 22:15:39 -0400
+In-Reply-To: <1206617957-32679-1-git-send-email-den@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-akpm@linux-foundation.org wrote:
-> From: Ondrej Zary <linux@rainbow-software.org>
+Denis V. Lunev wrote:
+> Under CONFIG_DCA the compilation is broken since the commit
+> bd0362dde080cef377d99fa5beb5c25308c29c73 (ixgbe: Add optional
+> DCA infrastructure).
 > 
-> Convert 3c509 driver to isa_driver and pnp_driver.  The result is that
-> autoloading using udev and hibernation works with ISA PnP cards.  It also adds
-> hibernation support for non-PnP ISA cards.
+> IXGBE_SUCCESS is not defined anywhere, replace it with 0.
 > 
-> xcvr module parameter was removed as its value was not used.
-> 
-> Tested using 3 ISA cards in various combinations of PnP and non-PnP modes. 
-> EISA and MCA only compile-tested.
-> 
-> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> Signed-off-by: Denis V. Lunev <den@openvz.org>
 > ---
+>  drivers/net/ixgbe/ixgbe_main.c |    6 +++---
+>  1 files changed, 3 insertions(+), 3 deletions(-)
 > 
->  drivers/net/3c509.c |  729 +++++++++++++++++++++---------------------
->  1 file changed, 372 insertions(+), 357 deletions(-)
+> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+> index 7ad2993..cb371a8 100644
+> --- a/drivers/net/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ixgbe/ixgbe_main.c
+> @@ -367,7 +367,7 @@ static int __ixgbe_notify_dca(struct device *dev, void *data)
+>  		/* Always use CB2 mode, difference is masked
+>  		 * in the CB driver. */
+>  		IXGBE_WRITE_REG(&adapter->hw, IXGBE_DCA_CTRL, 2);
+> -		if (dca_add_requester(dev) == IXGBE_SUCCESS) {
+> +		if (dca_add_requester(dev) == 0) {
+>  			ixgbe_setup_dca(adapter);
+>  			break;
+>  		}
+> @@ -381,7 +381,7 @@ static int __ixgbe_notify_dca(struct device *dev, void *data)
+>  		break;
+>  	}
+>  
+> -	return IXGBE_SUCCESS;
+> +	return 0;
+>  }
+>  
+>  #endif /* CONFIG_DCA */
+> @@ -3605,7 +3605,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+>  		goto err_register;
+>  
+>  #ifdef CONFIG_DCA
+> -	if (dca_add_requester(&pdev->dev) == IXGBE_SUCCESS) {
+> +	if (dca_add_requester(&pdev->dev) == 0) {
+>  		adapter->flags |= IXGBE_FLAG_DCA_ENABLED;
 
-applied 11-19
+applied
 
 
