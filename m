@@ -1,36 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
-Date: Sat, 29 Mar 2008 09:06:10 +0800
-Message-ID: <20080329010610.GA27652@gondor.apana.org.au>
-References: <47EC399E.90804@sun.com> <20080327.173418.18777696.davem@davemloft.net> <20080328012234.GA20465@gondor.apana.org.au> <47EC50BA.6080908@sun.com> <20080328103809.GB23039@gondor.apana.org.au> <20080328133845.GA14565@ami.dom.local> <20080328135338.GA24374@gondor.apana.org.au> <20080328143953.GA14642@ami.dom.local> <20080328145634.GA24712@gondor.apana.org.au> <20080328152953.GB14642@ami.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.25rc7 lockdep trace
+Date: Fri, 28 Mar 2008 18:06:31 -0700 (PDT)
+Message-ID: <20080328.180631.91055366.davem@davemloft.net>
+References: <20080328000013.GA8193@codemonkey.org.uk>
+	<20080328.173414.22278840.davem@davemloft.net>
+	<1206752049.22530.105.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matheos Worku <Matheos.Worku@Sun.COM>,
-	David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org, hadi@cyberus.ca
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davej@codemonkey.org.uk, netdev@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:41596 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755960AbYC2BGV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 21:06:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20080328152953.GB14642@ami.dom.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44163
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755962AbYC2BGb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 21:06:31 -0400
+In-Reply-To: <1206752049.22530.105.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 28, 2008 at 04:29:53PM +0100, Jarek Poplawski wrote:
->
-> But during this, now limited, time of qdisc_run() there is a contention
-> for queue_lock and probably some additional cache updating because of
-> this other enqueuing, which could be delayed especially if queue length
-> is above some level.
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Sat, 29 Mar 2008 01:54:09 +0100
 
-You mean delaying into a per-cpu queue? That sounds interesting.
+> Maybe we should check which schedule_work users actually lock the rtnl
+> within the work function and move them to a uses-rtnl-in-work workqueue
+> so that everybody else can have rtnl around flush.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The issue is that linkwatch goes: workqueue lock --> RTNL
+
+And thus taking workqueue lock within RTNL is deadlock
+prone no matter where you do it.
