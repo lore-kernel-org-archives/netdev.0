@@ -1,45 +1,96 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [AX25] kernel panic
-Date: Sat, 29 Mar 2008 13:24:52 +0100
-Message-ID: <20080329122452.GB3407@ami.dom.local>
-References: <47E17E2E.9050105@free.fr> <20080320073021.GA4037@ff.dom.local> <47E2EC1B.9070405@free.fr> <20080322113620.GA3213@ami.dom.local> <47E68CA1.2040904@free.fr> <20080324205104.GA3721@ami.dom.local> <47E8FCE2.6000308@free.fr> <20080326183538.GA14266@ami.dom.local> <20080328120721.GA11060@ami.dom.local> <47EE3040.3050208@free.fr>
+From: =?iso-8859-1?Q?Bj=F6rn?= Steinbrink <B.Steinbrink@gmx.de>
+Subject: Re: Oops/Warning report for the week of March 28th 2008
+Date: Sat, 29 Mar 2008 13:20:10 +0100
+Message-ID: <20080329122010.GA10058@atjola.homenet>
+References: <47ED3F1A.1090101@linux.intel.com> <alpine.LFD.1.00.0803281310480.14670@woody.linux-foundation.org> <alpine.LFD.1.00.0803281329340.14670@woody.linux-foundation.org> <20080328171407.ZZRA012@mailhub.coreip.homeip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jarek Poplawski <jarkao2@o2.pl>
-To: Bernard Pidoux <bpidoux@free.fr>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:51213 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751000AbYC2MTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2008 08:19:17 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so311984nfb.21
-        for <netdev@vger.kernel.org>; Sat, 29 Mar 2008 05:19:16 -0700 (PDT)
+Received: from mail.gmx.net ([213.165.64.20]:59837 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751047AbYC2MUP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Mar 2008 08:20:15 -0400
 Content-Disposition: inline
-In-Reply-To: <47EE3040.3050208@free.fr>
+In-Reply-To: <20080328171407.ZZRA012@mailhub.coreip.homeip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 29, 2008 at 01:04:16PM +0100, Bernard Pidoux wrote:
-...
-> Please find below an extract of /var/log/messages
-> The time of interest is around 12:03
->
->
->  Mar 29 11:52:53 f6bvp-9 kernel: AX25+ ax25_create, 866, c15602e0, c0f0a820
->  Mar 29 11:52:53 f6bvp-9 kernel: AX25- ax25_release, 959, c15602e0,  
-> c0f0a820
->  Mar 29 11:52:53 f6bvp-9 kernel: AX25+ ax25_create, 866, c15602e0, c0f0a820
->  Mar 29 11:52:53 f6bvp-9 kernel: AX25- ax25_release, 959, c15602e0,  
-> c0f0a820
->  Mar 29 11:52:59 f6bvp-9 kernel: AX25: ax25_frames_acked, 59, c6ae2bc8,  
-> c0f0a040, 6b6b6b6b, 00000000, 00000000
-...
+On 2008.03.28 17:16:42 -0400, Dmitry Torokhov wrote:
+> On Fri, Mar 28, 2008 at 01:51:38PM -0700, Linus Torvalds wrote:
+> >=20
+> >=20
+> > On Fri, 28 Mar 2008, Linus Torvalds wrote:
+> > >=20
+> > > Is there something obvious that I'm missing? I'd really like to s=
+ee the=20
+> > > whole posting that the oops came from. Do you save the originals =
+or even=20
+> > > just message ID's from the ones you pick from emails?
+> >=20
+> > Hmm. Definitely not from the kernel mailing list. I'm intrigued, wh=
+ere did=20
+> > that oops #5814 come from (picked a recent one at random)?
+> >=20
+> > The thing is recent, and oopses on "mutex_lock(dev->mutex)" in=20
+> > input_release_device. In particular, the path *seems* to be this on=
+e:
+> >=20
+> >   evdev_release ->
+> >     evdev_ungrab ->
+> >       input_release_device ->
+> >         mutex_lock ->
+> >           mutex_lock_nested ->
+> >             __mutex_lock_common ->
+> >               list_add_tail(&waiter.list, &lock->wait_list)
+> >=20
+> > where "lock->wait_list.prev" seems to be 0x6b6b6b6b6b6b6b6b, which =
+is the=20
+> > use-after-free poison pattern.
+> >=20
+> > (In fact, I think the access that actually oopses is when the=20
+> > debug version of __list_add() does
+> >=20
+> > 	if (unlikely(prev->next !=3D next)) {
+> >=20
+> > because that "prev" pointer is crap).
+> >=20
+> > So it seems that when input_release_device() does:
+> >=20
+> > 	struct input_dev *dev =3D handle->dev;
+> >=20
+> > 	mutex_lock(&dev->mutex);
+> >=20
+> > the "dev" it uses has already been released. And this only shows up=
+ as a=20
+> > problem when you have slab debugging turned on (like the Fedora ker=
+nels=20
+> > do, thank you all Fedora guys).
+> >=20
+> > The odd thing is that I don't think any of this code has really cha=
+nged=20
+> > recently.=20
+> >=20
+>=20
+> There is a patch from Pete that works around the problem by not
+> calling input_release_device() on devices that are gone. But what
+> I don't understand is why the parent input device is gone since
+> sysfs/driver core should be keeping a reference to it since it is
+> a parent of evdev. input_dev shoudl only be released after
+> evdev_free() is called.
 
-Thanks Bernard! ...On the other hand, if you could hold these patches
-a while yet and maybe find more of these "AX25:" it should be very
-helpful (of course with other AX25* lines).
+Hm? evdev_free only does the final kfree call. The calls to device_del
+and put_device are already happening in device_disconnect, so the paren=
+t
+can go away any time after that. Do you say that that should be moved
+into evdev_free instead? I'm not familiar with the code, but at first
+sight, I'd say that we should have a "if (evdev->grab)
+evdev_ungrab(evdev, evdev->grab)" in evdev_cleanup, looks like the
+logical place to do that. Anything I'm missing?
 
-Regards,
-Jarek P.
+Bj=F6rn
