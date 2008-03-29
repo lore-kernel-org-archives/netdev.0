@@ -1,38 +1,29 @@
-From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Subject: Re: [PATCH 1/2] ibm_newemac: PowerPC 440GX EMAC PHY clock
- workaround
-Date: Fri, 28 Mar 2008 22:30:05 -0500
-Message-ID: <20080328223005.34181eb7@zod.rchland.ibm.com>
-References: <20080327144044.GA8831@ru.mvista.com>
-	<47EDA6F1.9080206@garzik.org>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 1/2] ibm_newemac: PowerPC 440GX EMAC PHY clock workaround
+Date: Sat, 29 Mar 2008 14:28:16 +1100
+Message-ID: <1206761296.10388.85.camel@pasglop>
+References: <20080327144044.GA8831@ru.mvista.com> <47EDA6F1.9080206@garzik.org>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Valentine Barshak <vbarshak@ru.mvista.com>,
-	linuxppc-dev@ozlabs.org, benh@kernel.crashing.org,
-	netdev@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:37423 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753726AbYC2Dd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 23:33:26 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e36.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m2T3XHVa025115
-	for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 23:33:17 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m2T3XGeg074792
-	for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 21:33:16 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m2T3XGgs030156
-	for <netdev@vger.kernel.org>; Fri, 28 Mar 2008 21:33:16 -0600
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
 In-Reply-To: <47EDA6F1.9080206@garzik.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 28 Mar 2008 22:18:25 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
 
+On Fri, 2008-03-28 at 22:18 -0400, Jeff Garzik wrote:
 > Valentine Barshak wrote:
 > > The PowerPC 440GX Taishan board fails to reset EMAC3 (reset timeout error)
 > > if there's no link. Because of that it fails to find PHY chip. The older ibm_emac
@@ -49,9 +40,6 @@ Jeff Garzik <jeff@garzik.org> wrote:
 > 
 > is this for 2.6.25-rc?
 
-No.  This, and patch 2/2, are for 2.6.26 and depend on a patch in my
-tree.  These are the two Ben asked about going through the powerpc tree
-but naturally we wanted an Ack from you first.
+Nah, too late imho.
 
-thx,
-josh 
+Ben.
