@@ -1,34 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][LAPB] write_queue limit in lapb_data_request
-Date: Fri, 28 Mar 2008 18:30:52 -0700 (PDT)
-Message-ID: <20080328.183052.72394821.davem@davemloft.net>
-References: <8496f91a0803250045k2fc4040dg74126f30c1487fd@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: tulip driver receive but not send 2.6.25-rc6-git7
+Date: Fri, 28 Mar 2008 21:34:44 -0400
+Message-ID: <47ED9CB4.7010603@garzik.org>
+References: <200803281828.39948.gustavo@compunauta.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: matvejchikov@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, NetDev <netdev@vger.kernel.org>,
+	Grant Grundler <grundler@parisc-linux.org>
+To: =?ISO-8859-1?Q?Gustavo_Guillermo_P=E9rez?= <gustavo@compunauta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60873
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753615AbYC2Baw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 21:30:52 -0400
-In-Reply-To: <8496f91a0803250045k2fc4040dg74126f30c1487fd@mail.gmail.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:46094 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755677AbYC2Beq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 21:34:46 -0400
+In-Reply-To: <200803281828.39948.gustavo@compunauta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matvejchikov Ilya" <matvejchikov@gmail.com>
-Date: Tue, 25 Mar 2008 10:45:41 +0300
+Gustavo Guillermo P=E9rez wrote:
+> I'm putting all wires on the same swirch for testing.
+> eth0 is a sis embedded card (good one).
+> dealing with dhcp I see that request arrives to the board but the off=
+ers never=20
+> appears on client. system clean no iptables rules, just dhcpd.
 
-> LAPB doesn't check for write_queue length in lapb_data_request(). So
-> in some conditions it may grow unlimited. There is a potential problem
-> for small systems.
-> 
-> It seems like this for me:
+> I'm gonna try with rc7-git4 and 2.6.24
 
-It doesn't enforce limits on any of it's queued from what
-I can tell.
+Please do.
 
-Without a thorough audit of resource limit enforcement in
-this protocol stack, changing things here might be more
-trouble than it's worth.
+Also, try the 'dmfe' driver, as it was written specifically for these c=
+hips.
+
+	Jeff
+
+
