@@ -1,67 +1,47 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: kernel 2.6.25-rc7 highly unstable on high load
-Date: Sat, 29 Mar 2008 09:31:55 +0100
-Message-ID: <47EDFE7B.7030700@cosmosbay.com>
-References: <47EBC641.8040405@cosmosbay.com> <20080327183745.M9944@visp.net.lb> <47EBEDC9.6080100@cosmosbay.com> <20080327.150308.205829519.davem@davemloft.net> <20080328052543.M60286@visp.net.lb> <47EC8701.1080604@cosmosbay.com> <20080328073854.M73368@visp.net.lb> <47ECA24C.10803@cosmosbay.com> <47ED1583.5010204@cosmosbay.com> <20080328132359.15573601@speedy> <20080328203358.M8487@visp.net.lb> <47ED6066.2010407@cosmosbay.com> <20080328220902.M5377@visp.net.lb>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
+Date: Sat, 29 Mar 2008 10:11:01 +0100
+Message-ID: <20080329091101.GA3407@ami.dom.local>
+References: <20080327.173418.18777696.davem@davemloft.net> <20080328012234.GA20465@gondor.apana.org.au> <47EC50BA.6080908@sun.com> <20080328103809.GB23039@gondor.apana.org.au> <20080328133845.GA14565@ami.dom.local> <20080328135338.GA24374@gondor.apana.org.au> <20080328143953.GA14642@ami.dom.local> <20080328145634.GA24712@gondor.apana.org.au> <20080328152953.GB14642@ami.dom.local> <20080329010610.GA27652@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=us-ascii
+Cc: Matheos Worku <Matheos.Worku@Sun.COM>,
+	David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
+	netdev@vger.kernel.org, hadi@cyberus.ca
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from neuf-infra-smtp-out-sp604006av.neufgp.fr ([84.96.92.121]:48310
-	"EHLO neuf-infra-smtp-out-sp604006av.neufgp.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752940AbYC2IcL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2008 04:32:11 -0400
-In-Reply-To: <20080328220902.M5377@visp.net.lb>
+Received: from ug-out-1314.google.com ([66.249.92.172]:3820 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751014AbYC2JGw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2008 05:06:52 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so62849ugc.16
+        for <netdev@vger.kernel.org>; Sat, 29 Mar 2008 02:06:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080329010610.GA27652@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryshchenko a =C3=A9crit :
-> It looks like probably i did mistake while applying it. Very strange,=
- cause i=20
-> rechecked it, and i did make clean before building system image.
-> I will make sure on vanilla code that everything is fine.
->=20
-> Btw, i see permanently 4 "delayed"(?) records.
->=20
-> [ 6261.050827] dstgc [0] lo     09E9FED5        09E9FED5       =20
-> 80000000        5       29      0       8F323353        0       0    =
-  =20
-> 0       00      -1  009E9FED5
-> [ 6261.050834] dstgc [1] lo     09E9FED5        09E9FED5       =20
-> 80000000        37      358     0       FC9B62D4        0       0    =
-  =20
-> 0       00      -1  009E9FED5
-> [ 6261.050838] dstgc [2] lo     09E9FED5        09E9FED5       =20
-> 80000000        4       8       0       7048DF48        0       0    =
-  =20
-> 0       00      -1  009E9FED5
-> [ 6261.050842] dstgc [3] lo     09E9FED5        09E9FED5       =20
-> 80000000        6       5       0       6924E846        0       0    =
-  =20
-> 0       00      -1  009E9FED5
-> [ 6261.050851] dst_total: 129123 delayed: 4 work_perf: 0 expires: 680=
-00=20
-> elapsed: 27 us
->=20
-> Especially interesting one with refcnt 37 and dst.__use 358. I check =
-for=20
-> around 5 minutes - there is no traffic at all. This record staying fo=
-r long=20
-> time and there is no activity on it over "tcpdump -ni any host=20
-> 212.98.155.252" , and it is not flushing it over ip route flush cache=
-=2E
->=20
+On Sat, Mar 29, 2008 at 09:06:10AM +0800, Herbert Xu wrote:
+> On Fri, Mar 28, 2008 at 04:29:53PM +0100, Jarek Poplawski wrote:
+> >
+> > But during this, now limited, time of qdisc_run() there is a contention
+> > for queue_lock and probably some additional cache updating because of
+> > this other enqueuing, which could be delayed especially if queue length
+> > is above some level.
+> 
+> You mean delaying into a per-cpu queue? That sounds interesting.
 
-This route with refcnt 37 has Source IP =3D FC9B62D4, which is 212.98.1=
-55.252
+I mean any delaying could be necessary here. After rethinking it seems
+to me this solution with the flag could be wrong even after current fix.
 
-Check that you dont have some tcp sessions with this remote address :
+The owner of the flag has to give up queue_lock for some time, and
+because of this its chances for regaining the lock are worse: other CPUs
+could take it in a loop, winning the cache, and adding packets, which
+are imediately dumped (or requeued).
 
-ss dst 212.98.155.252
+So, it would make a kind of reverse lockup situation. Then, even normal
+contention for both locks seems safer against such races: throughput
+could be worse, but probably no such "(soft)lockup" risk.
 
-As long as you have no activity on it, refcnt wont change.
-
+Regards,
+Jarek P.
