@@ -1,48 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC,PATCH] loopback: calls netif_receive_skb() instead of
- netif_rx()
-Date: Fri, 28 Mar 2008 18:36:52 -0700 (PDT)
-Message-ID: <20080328.183652.99818676.davem@davemloft.net>
-References: <47C92F49.4070100@cosmosbay.com>
-	<20080323.032949.194309002.davem@davemloft.net>
-	<47E6A5FD.6060407@cosmosbay.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch (for 2.6.25?) 1/1] smc91x driver: fix bug: print warning
+ only in interrupt mode
+Date: Fri, 28 Mar 2008 21:45:02 -0400
+Message-ID: <47ED9F1E.8000102@garzik.org>
+References: <200803282152.m2SLqfmg012431@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: netdev@vger.kernel.org, sonic.zhang@analog.com, cooloney@kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57361
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750850AbYC2Bgw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 21:36:52 -0400
-In-Reply-To: <47E6A5FD.6060407@cosmosbay.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:48709 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751095AbYC2BpS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2008 21:45:18 -0400
+In-Reply-To: <200803282152.m2SLqfmg012431@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Sun, 23 Mar 2008 19:48:29 +0100
+akpm@linux-foundation.org wrote:
+> From: Sonic Zhang <sonic.zhang@analog.com>
+> 
+> http://blackfin.uclinux.org/gf/project/uclinux-dist/tracker/?action=TrackerItemEdit&tracker_item_id=3956
+> 
+> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+> Signed-off-by: Bryan Wu <cooloney@kernel.org>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
+> 
+>  drivers/net/smc91x.c |    2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff -puN drivers/net/smc91x.c~smc91x-driver-fix-bug-print-warning-only-in-interrupt-mode drivers/net/smc91x.c
+> --- a/drivers/net/smc91x.c~smc91x-driver-fix-bug-print-warning-only-in-interrupt-mode
+> +++ a/drivers/net/smc91x.c
+> @@ -1326,9 +1326,11 @@ static irqreturn_t smc_interrupt(int irq
+>  	SMC_SET_INT_MASK(lp, mask);
+>  	spin_unlock(&lp->lock);
+>  
+> +#ifndef CONFIG_NET_POLL_CONTROLLER
+>  	if (timeout == MAX_IRQ_LOOPS)
+>  		PRINTK("%s: spurious interrupt (mask = 0x%02x)\n",
+>  		       dev->name, mask);
+> +#endif
+>  	DBG(3, "%s: Interrupt done (%d loops)\n",
+>  	       dev->name, MAX_IRQ_LOOPS - timeout);
 
-> [PATCH] loopback: calls netif_receive_skb() instead of netif_rx()
+NAK
 
-Hmmm...
+Either this code is OK or it isn't.  This patch simply hides a problem 
+inside a configuration the developer probably doesn't use.
 
-+static int enough_stack_space(void)
-+{
-+#ifdef CONFIG_STACK_GROWSUP
-+	return 0;
-+#else
-+	unsigned long free = (unsigned long)&free -
-+			     (unsigned long)end_of_stack(current);
-+	return free >= THREAD_SIZE/3 ;
-+#endif
-+}
-+
+What's the _real_ problem?  Looking at the tracker, I'd guess that some 
+events need to be masked, but are not?
 
-This will always fail when we are on an interrupt stack,
-I think you'd want it to succeed in such a case.
+If the hardware is asserting events continually, the current code does 
+the right thing -- keep processing interrupt events flagged, until (a) 
+no more events asserted or (b) max loop count reached.
 
-Can you agree that, at least to a point, this is getting a bit
-convoluted and perhaps adding more complexity than this optimization
-deserves? :-)
+So the question is to find out why you are hitting the timeout, and what 
+to do about it.
 
