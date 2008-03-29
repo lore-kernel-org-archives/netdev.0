@@ -1,102 +1,134 @@
-From: Carsten Jacobi <carsten@ccac.rwth-aachen.de>
-Subject: [PATCH] lne390 and Jensen Alphas
-Date: Sat, 29 Mar 2008 15:48:18 +0100
-Message-ID: <209D18A1-2B61-47F8-B1DC-067C1E676B9D@ccac.rwth-aachen.de>
-Mime-Version: 1.0 (Apple Message framework v753)
-Content-Type: multipart/mixed; boundary=Apple-Mail-2-861632122
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-in-05.arcor-online.net ([151.189.21.45]:42344 "EHLO
-	mail-in-05.arcor-online.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751822AbYC2OsU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2008 10:48:20 -0400
-Received: from mail-in-09-z2.arcor-online.net (mail-in-09-z2.arcor-online.net [151.189.8.21])
-	by mail-in-05.arcor-online.net (Postfix) with ESMTP id 4F30F183575
-	for <netdev@vger.kernel.org>; Sat, 29 Mar 2008 15:48:19 +0100 (CET)
-Received: from mail-in-01.arcor-online.net (mail-in-01.arcor-online.net [151.189.21.41])
-	by mail-in-09-z2.arcor-online.net (Postfix) with ESMTP id 368AE28EDD5
-	for <netdev@vger.kernel.org>; Sat, 29 Mar 2008 15:48:19 +0100 (CET)
-Received: from [192.168.0.5] (dslb-084-057-167-130.pools.arcor-ip.net [84.57.167.130])
-	by mail-in-01.arcor-online.net (Postfix) with ESMTP id 0DC8C10476F
-	for <netdev@vger.kernel.org>; Sat, 29 Mar 2008 15:48:19 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---Apple-Mail-2-861632122
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain;
-	charset=US-ASCII;
-	delsp=yes;
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Subject: Re: [PATCH] [NETFILTER] xt_TCPMSS: combine nearly identical
+ reverse_mtu4/6
+Date: Sat, 29 Mar 2008 16:24:18 +0100 (CET)
+Message-ID: <alpine.LNX.1.10.0803291621170.28605@fbirervta.pbzchgretzou.qr>
+References: <Pine.LNX.4.64.0803291520210.8374@wrl-59.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1;
 	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick Hardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0803291520210.8374@wrl-59.cs.helsinki.fi>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
 
-I am coming back with an old issue (and I mean 10 years). I have a  
-patch for the Mylex LNE390 EISA network adapter that will make it  
-work on the Alpha Jensen boards.
-The patch has already made public in 1998 (http://lkml.org/lkml/ 
-1998/8/9/16) and again in 2003 (http://linux.derkeiler.com/Mailing- 
-Lists/Kernel/2003-10/2341.html). I am running the adapter ever since  
-in my Jensen Alpha and it had been working just fine during the last  
-10 years.
-Now, since I posted the patch twice to the linux-kernel mailing list  
-without having any snippet of the code getting into the official  
-kernel source I try it with this mailing list for a change.
-The code itself is supposed for the kernel 2.4.x series but should  
-apply to 2.6.x as well. Is there something that speaks against  
-pushing it up to the git repository?
+On Saturday 2008-03-29 14:25, Ilpo J=E4rvinen wrote:
+>
+> Added tcpmss_reverse_mtu, only flowi setup and family differ
+>
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> ---
+> net/netfilter/xt_TCPMSS.c |   34 ++++++++++++++--------------------
+> 1 files changed, 14 insertions(+), 20 deletions(-)
 
-With kind regards,
+How about this one instead?
 
-Carsten Jacobi
+commit 1143bd2cbcddb9fcdbffea6a2edfde42dca5bb46
+Author: Jan Engelhardt <jengelh@computergmbh.de>
+Date:   Sat Mar 29 16:20:13 2008 +0100
 
-PS.: I have attached the patch once more
---Apple-Mail-2-861632122
-Content-Transfer-Encoding: base64
-Content-Type: application/octet-stream;
-	x-unix-mode=0644;
-	name=998_lne390.c.diff.bz2
-Content-Disposition: attachment;
-	filename=998_lne390.c.diff.bz2
+     [NETFILTER]: Collapse tcpmss_reverse_mtu{4,6} into one function
 
-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
+     Signed-off-by: Jan Engelhardt <jengelh@computergmbh.de>
+---
+  net/netfilter/xt_TCPMSS.c |   44 ++++++++++++++----------------------=
+--------
+  1 files changed, 14 insertions(+), 30 deletions(-)
 
---Apple-Mail-2-861632122--
+diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
+index 217e2b6..2e3fe8e 100644
+--- a/net/netfilter/xt_TCPMSS.c
++++ b/net/netfilter/xt_TCPMSS.c
+@@ -147,15 +147,19 @@ tcpmss_mangle_packet(struct sk_buff *skb,
+  	return TCPOLEN_MSS;
+  }
+
+-static u_int32_t tcpmss_reverse_mtu4(const struct iphdr *iph)
++static u_int32_t tcpmss_reverse_mtu(const struct sk_buff *skb,
++                                    unsigned int family)
+  {
+-	struct flowi fl =3D {
+-		.fl4_dst =3D iph->saddr,
+-	};
++	struct flowi fl =3D {};
+  	const struct nf_afinfo *ai;
+  	struct rtable *rt =3D NULL;
+  	u_int32_t mtu     =3D ~0U;
+
++	if (family =3D=3D AF_INET)
++		fl.fl4_dst =3D ip_hdr(skb)->saddr;
++	else
++		fl.fl6_dst =3D ipv6_hdr(skb)->saddr;
++
+  	rcu_read_lock();
+  	ai =3D nf_get_afinfo(AF_INET);
+  	if (ai !=3D NULL)
+@@ -178,9 +182,10 @@ tcpmss_tg4(struct sk_buff *skb, const struct net_d=
+evice *in,
+  	__be16 newlen;
+  	int ret;
+
+-	ret =3D tcpmss_mangle_packet(skb, targinfo, tcpmss_reverse_mtu4(iph),
+-				   iph->ihl * 4,
+-				   sizeof(*iph) + sizeof(struct tcphdr));
++	ret =3D tcpmss_mangle_packet(skb, targinfo,
++	                           tcpmss_reverse_mtu(skb, AF_INET),
++	                           iph->ihl * 4,
++	                           sizeof(*iph) + sizeof(struct tcphdr));
+  	if (ret < 0)
+  		return NF_DROP;
+  	if (ret > 0) {
+@@ -193,28 +198,6 @@ tcpmss_tg4(struct sk_buff *skb, const struct net_d=
+evice *in,
+  }
+
+  #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES=
+_MODULE)
+-static u_int32_t tcpmss_reverse_mtu6(const struct ipv6hdr *iph)
+-{
+-	struct flowi fl =3D {
+-		.fl6_dst =3D iph->saddr,
+-	};
+-	const struct nf_afinfo *ai;
+-	struct rtable *rt =3D NULL;
+-	u_int32_t mtu     =3D ~0U;
+-
+-	rcu_read_lock();
+-	ai =3D nf_get_afinfo(AF_INET6);
+-	if (ai !=3D NULL)
+-		ai->route((struct dst_entry **)&rt, &fl);
+-	rcu_read_unlock();
+-
+-	if (rt !=3D NULL) {
+-		mtu =3D dst_mtu(&rt->u.dst);
+-		dst_release(&rt->u.dst);
+-	}
+-	return mtu;
+-}
+-
+  static unsigned int
+  tcpmss_tg6(struct sk_buff *skb, const struct net_device *in,
+             const struct net_device *out, unsigned int hooknum,
+@@ -229,7 +212,8 @@ tcpmss_tg6(struct sk_buff *skb, const struct net_de=
+vice *in,
+  	tcphoff =3D ipv6_skip_exthdr(skb, sizeof(*ipv6h), &nexthdr);
+  	if (tcphoff < 0)
+  		return NF_DROP;
+-	ret =3D tcpmss_mangle_packet(skb, targinfo, tcpmss_reverse_mtu6(ipv6h=
+),
++	ret =3D tcpmss_mangle_packet(skb, targinfo,
++	                           tcpmss_reverse_mtu(skb, AF_INET6),
+  				   tcphoff,
+  				   sizeof(*ipv6h) + sizeof(struct tcphdr));
+  	if (ret < 0)
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
