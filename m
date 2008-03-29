@@ -1,80 +1,102 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: 2.6.25rc7 lockdep trace
-Date: Sat, 29 Mar 2008 13:50:55 +0100
-Message-ID: <1206795055.22530.140.camel@johannes.berg>
-References: <20080328000013.GA8193@codemonkey.org.uk>
-	 <20080328.173414.22278840.davem@davemloft.net>
-	 <1206752049.22530.105.camel@johannes.berg>
-	 <20080328.180631.91055366.davem@davemloft.net>
-	 <1206784948.22530.128.camel@johannes.berg>  <47EE3B8C.8090707@gmail.com>
-	 (sfid-20080329_124640_019940_A386AF33)
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] [NETFILTER] xt_TCPMSS: combine nearly identical reverse_mtu4/6
+Date: Sat, 29 Mar 2008 15:25:42 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0803291520210.8374@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-oKb515x9hne8iyFX4ht0"
-Cc: David Miller <davem@davemloft.net>, davej@codemonkey.org.uk,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:34905 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751047AbYC2MvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2008 08:51:06 -0400
-In-Reply-To: <47EE3B8C.8090707@gmail.com> (sfid-20080329_124640_019940_A386AF33)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-474323254-1206797142=:8374"
+Cc: netfilter-devel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Patrick Hardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696208474-474323254-1206797142=:8374
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
 
---=-oKb515x9hne8iyFX4ht0
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Added tcpmss_reverse_mtu, only flowi setup and family differ
 
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/netfilter/xt_TCPMSS.c |   34 ++++++++++++++--------------------
+ 1 files changed, 14 insertions(+), 20 deletions(-)
 
-> > When you call cancel_work_sync(), the work struct will be grabbed by th=
-e
-> > code (really __cancel_work_timer) and removed from the queue. That just
-> > operates on bits and a spinlock, not locks held across the struct work
-> > function execution, and ensures it is race-free without needing any suc=
-h
-> > locks
->=20
-> ...
->=20
-> > However, as I just tried to explain, cancel_work_sync() _is_ safe to ru=
-n
-> > while holding the RTNL because it doesn't need any runqueue lock.
->=20
-> These issues are so seldom now that I forget these details each time
->=20
-> "after use", so maybe I miss something again, but shouldn't this rather
-> read something like this?:
->=20
-> cancel_work_sync() _is_ safe to run while holding the RTNL against
-> works which don't take RTNL.
+diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
+index 217e2b6..1619166 100644
+--- a/net/netfilter/xt_TCPMSS.c
++++ b/net/netfilter/xt_TCPMSS.c
+@@ -147,28 +147,35 @@ tcpmss_mangle_packet(struct sk_buff *skb,
+ 	return TCPOLEN_MSS;
+ }
+ 
+-static u_int32_t tcpmss_reverse_mtu4(const struct iphdr *iph)
++static u_int32_t tcpmss_reverse_mtu(struct flowi *fl, unsigned short family)
+ {
+-	struct flowi fl = {
+-		.fl4_dst = iph->saddr,
+-	};
+ 	const struct nf_afinfo *ai;
+ 	struct rtable *rt = NULL;
+ 	u_int32_t mtu     = ~0U;
+ 
+ 	rcu_read_lock();
+-	ai = nf_get_afinfo(AF_INET);
++	ai = nf_get_afinfo(family);
+ 	if (ai != NULL)
+-		ai->route((struct dst_entry **)&rt, &fl);
++		ai->route((struct dst_entry **)&rt, fl);
+ 	rcu_read_unlock();
+ 
+ 	if (rt != NULL) {
+ 		mtu = dst_mtu(&rt->u.dst);
+ 		dst_release(&rt->u.dst);
+ 	}
++
+ 	return mtu;
+ }
+ 
++static u_int32_t tcpmss_reverse_mtu4(const struct iphdr *iph)
++{
++	struct flowi fl = {
++		.fl4_dst = iph->saddr,
++	};
++
++	return tcpmss_reverse_mtu(&fl, AF_INET);
++}
++
+ static unsigned int
+ tcpmss_tg4(struct sk_buff *skb, const struct net_device *in,
+            const struct net_device *out, unsigned int hooknum,
+@@ -198,21 +205,8 @@ static u_int32_t tcpmss_reverse_mtu6(const struct ipv6hdr *iph)
+ 	struct flowi fl = {
+ 		.fl6_dst = iph->saddr,
+ 	};
+-	const struct nf_afinfo *ai;
+-	struct rtable *rt = NULL;
+-	u_int32_t mtu     = ~0U;
+-
+-	rcu_read_lock();
+-	ai = nf_get_afinfo(AF_INET6);
+-	if (ai != NULL)
+-		ai->route((struct dst_entry **)&rt, &fl);
+-	rcu_read_unlock();
+ 
+-	if (rt != NULL) {
+-		mtu = dst_mtu(&rt->u.dst);
+-		dst_release(&rt->u.dst);
+-	}
+-	return mtu;
++	return tcpmss_reverse_mtu(&fl, AF_INET6);
+ }
+ 
+ static unsigned int
+-- 
+1.5.2.2
 
-Yes, indeed, I should have said that.
-
-johannes
-
---=-oKb515x9hne8iyFX4ht0
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUAR+47LqVg1VMiehFYAQJ6xg/8D1uG3AJmIdFz56c34O9iG3M7d6Ezb4Ce
-AYtEszcJYnbA+a3/5IRYOdGrni/geXHbD8q1Pgol+n3TBkGdJhkTmLGYXkRyHH/d
-8PSKX9q2dHXB5bEUsdgWZsbzvT2gWxzm3pB7p0xLjrY/Sr9+xdkTl2uI418c2maj
-CmGykT0QrJG4AOTQFWvtoz8zqOxA1PC4pINMujV3hw7qw6QXZY3jgcpdeqqd17l7
-LgnGtFEHIBOltl58F+/WKeMYaXhT2xt6uovuEKxaOSCl5zUSXWaosNMFVKngVsTA
-m9WDzFHHwHLnwNClvkf0SlGhj4AaifjgMqMTB8X4EUJiUZ2WfpjbyhJsZHk9Mxnq
-d1kKgms3dYUBslAIodL+3S1BOtIwlzEl2KeDZtDcKNJR2U7O/vL7ZCFvxl10T3u7
-hzg3pajF72QEh2LIRrTQFslMSxXzmDUbThGQanQClhiaCYTqfGjJC37FGZZxOPBK
-a9fKl5g3oNMdtIZZznQ0P7PdN+xNIY+IuXOF74GklF4z0vzSYn9xDdn3cxzymlmI
-PH6AqzL1KJ4Xr5AZcLiy/gyRWz9xESfPC0siwJsONTUCtvWzXNhJobN07T8/7AIm
-whWgjL5Kgus+sxhmhftjO5jPivFU8ReHZ036P1mJLU6Ne7ahdrgCkqvjsheyYZYb
-N1pX3PQR/1Q=
-=uXU3
------END PGP SIGNATURE-----
-
---=-oKb515x9hne8iyFX4ht0--
-
+---696208474-474323254-1206797142=:8374--
