@@ -1,57 +1,36 @@
-From: Hideo AOKI <haoki@redhat.com>
-Subject: Re: [RFC] [NET] [0/2] pskb_expand_head() bugfix
-Date: Fri, 28 Mar 2008 21:02:41 -0400
-Message-ID: <47ED9531.7060901@redhat.com>
-References: <47E946C8.6020006@redhat.com> <20080327.164820.194326039.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.24 BUG: soft lockup - CPU#X
+Date: Sat, 29 Mar 2008 09:06:10 +0800
+Message-ID: <20080329010610.GA27652@gondor.apana.org.au>
+References: <47EC399E.90804@sun.com> <20080327.173418.18777696.davem@davemloft.net> <20080328012234.GA20465@gondor.apana.org.au> <47EC50BA.6080908@sun.com> <20080328103809.GB23039@gondor.apana.org.au> <20080328133845.GA14565@ami.dom.local> <20080328135338.GA24374@gondor.apana.org.au> <20080328143953.GA14642@ami.dom.local> <20080328145634.GA24712@gondor.apana.org.au> <20080328152953.GB14642@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	haoki@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Matheos Worku <Matheos.Worku@Sun.COM>,
+	David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
+	netdev@vger.kernel.org, hadi@cyberus.ca
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:34393 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755371AbYC2BCq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2008 21:02:46 -0400
-In-Reply-To: <20080327.164820.194326039.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:41596 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755960AbYC2BGV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 21:06:21 -0400
+Content-Disposition: inline
+In-Reply-To: <20080328152953.GB14642@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+On Fri, Mar 28, 2008 at 04:29:53PM +0100, Jarek Poplawski wrote:
+>
+> But during this, now limited, time of qdisc_run() there is a contention
+> for queue_lock and probably some additional cache updating because of
+> this other enqueuing, which could be delayed especially if queue length
+> is above some level.
 
-David Miller wrote:
-> From: Hideo AOKI <haoki@redhat.com>
-> Date: Tue, 25 Mar 2008 14:39:04 -0400
-> 
->> Current pskb_expand_head() doesn't change truesize, while it
->> reallocates memory. Then, if argument nhead or ntail aren't 0, caller
->> must update truesize.
->>
->> We had this bug at audit_expand() in January and fixed it as commit
->> 406a1d868001423c85a3165288e566e65f424fe6. However, some drivers and
->> subsystems still use pskb_expand_head() without updating truesize.
->>
->> In addition, there is another problem to update truesise. Since
->> pskb_expand_head() aligns memory size before reallocation, caller
->> functions may not update turesize correctly if they just add nhaad
->> and ntail to turesize.
-> 
-> Drivers may not update truesize, because as I explained in
-> Tokyo a fundamental issue is the case where SKB is charged
-> already to a socket.  In such a case, skb->truesize may not
-> be modified without corrupting socket write queue allocation
-> state.
-> 
-> And at these very spots in drivers, the transmit path, the
-> SKB is very likely to be owned by a socket.
+You mean delaying into a per-cpu queue? That sounds interesting.
 
-Thank you for explaining.
-
-OK. I don't change driver code to avoid double charge.
-
-Best regards,
-Hideo
-
---
-Hitachi Computer Products (America) Inc.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
