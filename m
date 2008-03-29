@@ -1,49 +1,68 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.25rc7 lockdep trace
-Date: Fri, 28 Mar 2008 18:09:24 -0700 (PDT)
-Message-ID: <20080328.180924.154907485.davem@davemloft.net>
-References: <20080328.173414.22278840.davem@davemloft.net>
-	<1206752049.22530.105.camel@johannes.berg>
-	<1206752485.22530.108.camel@johannes.berg>
+Subject: Re: [RFC] [NET] [0/2] pskb_expand_head() bugfix
+Date: Fri, 28 Mar 2008 18:11:29 -0700 (PDT)
+Message-ID: <20080328.181129.55134037.davem@davemloft.net>
+References: <47E946C8.6020006@redhat.com>
+	<20080327.164820.194326039.davem@davemloft.net>
+	<47ED9531.7060901@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davej@codemonkey.org.uk, netdev@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: haoki@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57584
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57587
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755246AbYC2BJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 21:09:24 -0400
-In-Reply-To: <1206752485.22530.108.camel@johannes.berg>
+	by vger.kernel.org with ESMTP id S1752940AbYC2BL3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2008 21:11:29 -0400
+In-Reply-To: <47ED9531.7060901@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Sat, 29 Mar 2008 02:01:25 +0100
+From: Hideo AOKI <haoki@redhat.com>
+Date: Fri, 28 Mar 2008 21:02:41 -0400
 
+> Hello David,
 > 
-> > > You can't flush a workqueue in the device close handler
-> > > exactly because of this locking conflict.
-> > > 
-> > > Nobody has come up with a suitable way to fix this yet.
+> David Miller wrote:
+> > From: Hideo AOKI <haoki@redhat.com>
+> > Date: Tue, 25 Mar 2008 14:39:04 -0400
 > > 
-> > Maybe we should check which schedule_work users actually lock the rtnl
-> > within the work function and move them to a uses-rtnl-in-work workqueue
-> > so that everybody else can have rtnl around flush.
+> >> Current pskb_expand_head() doesn't change truesize, while it
+> >> reallocates memory. Then, if argument nhead or ntail aren't 0, caller
+> >> must update truesize.
+> >>
+> >> We had this bug at audit_expand() in January and fixed it as commit
+> >> 406a1d868001423c85a3165288e566e65f424fe6. However, some drivers and
+> >> subsystems still use pskb_expand_head() without updating truesize.
+> >>
+> >> In addition, there is another problem to update truesise. Since
+> >> pskb_expand_head() aligns memory size before reallocation, caller
+> >> functions may not update turesize correctly if they just add nhaad
+> >> and ntail to turesize.
+> > 
+> > Drivers may not update truesize, because as I explained in
+> > Tokyo a fundamental issue is the case where SKB is charged
+> > already to a socket.  In such a case, skb->truesize may not
+> > be modified without corrupting socket write queue allocation
+> > state.
+> > 
+> > And at these very spots in drivers, the transmit path, the
+> > SKB is very likely to be owned by a socket.
 > 
-> On the other hand, most drivers don't actually care that their work has
-> run, they just care that it won't run in the future after they give up
-> resources or similar, hence they can and should use cancel_work_sync()
-> which doesn't suffer from the deadlock. But that needs actual inspection
-> because it does change behaviour from "run and wait for it if scheduled"
-> to "cancel if scheduled".
+> Thank you for explaining.
+> 
+> OK. I don't change driver code to avoid double charge.
 
-I don't see how you can not race with the transition from
-scheduled to "executing" without taking the runqueue lock
-for the testing.
+This also applies to the output path, which I would say is about %95
+of the "truesize buggy" functions you quoted in your previous email.
 
-And it is crucial that the workqueue function doesn't
-execute "accidently" due to such a race before the module
-and thus the workqueue code is about to get potentially
-unloaded.
+So we are back to where we started when Herbert and I started replying
+in this thread, in that there is one (audit) or perhaps 1 or 2 more
+other cases that need truesize adjustment, nothing more.
+
+Audit is fixed, and if you can find other relevant cases they can
+be fixed locally.
+
+We cannot change pskb_expand_head() to make truesize adjustments, it
+would break things in %95 of the places where it is called.
