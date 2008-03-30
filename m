@@ -1,64 +1,68 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [AX25] kernel panic
-Date: Sun, 30 Mar 2008 20:49:06 +0200
-Message-ID: <20080330184906.GB5133@ami.dom.local>
-References: <47E68CA1.2040904@free.fr> <20080324205104.GA3721@ami.dom.local> <47E8FCE2.6000308@free.fr> <20080326183538.GA14266@ami.dom.local> <20080328120721.GA11060@ami.dom.local> <47EE3040.3050208@free.fr> <20080329122452.GB3407@ami.dom.local> <47EF529B.8060108@free.fr> <20080330091636.GA2847@ami.dom.local> <47EFD02B.8080006@free.fr>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH 2.6] [IPV6] MCAST: Ensure to check multicast listener(s).
+Date: Sun, 30 Mar 2008 13:05:36 -0700
+Message-ID: <OF02C9B6A8.C301DBC1-ON8825741C.006D7AD5-8825741C.006E608E@us.ibm.com>
+References: <20080330.231247.105318612.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jarek Poplawski <jarkao2@o2.pl>
-To: Bernard Pidoux <bpidoux@free.fr>
+Content-Type: text/plain; charset="ISO-2022-JP"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:12333 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751808AbYC3Skr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Mar 2008 14:40:47 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so418966nfb.21
-        for <netdev@vger.kernel.org>; Sun, 30 Mar 2008 11:40:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <47EFD02B.8080006@free.fr>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:41028 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752799AbYC3UFi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Mar 2008 16:05:38 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m2UK5cOs002491
+	for <netdev@vger.kernel.org>; Sun, 30 Mar 2008 16:05:38 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m2UK5cG8189586
+	for <netdev@vger.kernel.org>; Sun, 30 Mar 2008 14:05:38 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m2UK5bJd023569
+	for <netdev@vger.kernel.org>; Sun, 30 Mar 2008 14:05:38 -0600
+In-Reply-To: <20080330.231247.105318612.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 30, 2008 at 07:38:51PM +0200, Bernard Pidoux wrote:
-...
-> There is no more warnings and no more ax25_frames_acked or
-> sk_ax25_debug.
->
-> We only get ax25_create and ax25_release data, plus ax25_make_new when  
-> there is an AX25 connexion.
->
-> cat /var/log/messages | grep 'Mar 30 17' | grep AX...
-> Mar 30 17:00:58 f6bvp-9 kernel: AX25+ ax25_create, 866, c73a6738, c3300040
-> Mar 30 17:00:58 f6bvp-9 kernel: AX25- ax25_release, 959, c73a6738, c3300040
-> Mar 30 17:00:58 f6bvp-9 kernel: AX25+ ax25_create, 866, c73a6738, c3300040
-> Mar 30 17:00:58 f6bvp-9 kernel: AX25- ax25_release, 959, c73a6738, c3300040
-> Mar 30 17:01:23 f6bvp-9 kernel: AX25; ax25_make_new, 943, c73a6738, c762a820
-> Mar 30 17:01:23 f6bvp-9 kernel: AX25= ax25_accept, 1386, c73a6738,  
-> c762a820, c3300040
-> Mar 30 17:01:58 f6bvp-9 kernel: AX25+ ax25_create, 866, c73a6f68, c7673ac0
-> Mar 30 17:01:58 f6bvp-9 kernel: AX25- ax25_release, 959, c73a6f68, c7673ac0
-> Mar 30 17:01:58 f6bvp-9 kernel: AX25+ ax25_create, 866, c73a6f68, c7673ac0
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote on 03/30/2008 
+07:12:47 AM:
 
-Yes, if it's only like this, it's OK.
->
->
-> Please excuse the following questions if you find they are too naive.
-> Could you tell us how did you suspect ROSE socket from the data  
-> collected ? and why improperly released ROSE sockets could interfere  
-> with AX25 ?
+> In article 
+<OFA7B9706D.1E52ED5D-ON8825741C.004BE625-8825741C.004BFD53@us.ibm.
+> com> (at Sun, 30 Mar 2008 06:49:58 -0700), David Stevens 
+<dlstevens@us.ibm.com> says:
+> 
+> >  > After commit ae7bf20a6316272acfcaef5d265b18aaa54b41e4, all packets
+> > > for multicast destinations are delivered to upper layer if
+> > > IFF_PROMISC or IFF_ALLMULTI is set.
+> > 
+> >         Isn't that the intent of IFF_PROMISC and IFF_ALLMULTI?
+> 
+> Original intent for that flag check was for optimization.
+> This was assuming, WITHOUT those flags, L2 appropriately filters
+> unwanted multicast packets; not true.
+> 
+> L2 is expected to pass all multicast to L3, but even with those flags,
+> we should filter them according to our listeners, upper layer
+> (extension header etc.) should not see them.
 
-No problem! Patch #3 added to "sk_ax25_debug =" sk->sk_family as the
-2nd number, and 11 according to include/linux/socket.h means AF_ROSE.
+Yoshifuji-san,
+        I would assume that IFF_PROMISC or IFF_ALLMULTI means that an
+INADDR_ANY listener would receive all multicasts on the link, not
+just ones for groups that have been joined. This would be particularly
+useful for older version multicast routers or monitoring programs.
+Doesn't your change remove this capability?
+        If the flags are not set, the check for group membership is
+done. My concern is that when one or both are set, your change
+appears to prevent delivery of multicasts that currently are
+delivered, meaning that you can't write an application that, for
+example, monitors all multicast packets, short of joining all
+groups or using a packet socket. If the IFF_ALLMULTI flag isn't
+equivalent, for INADDR_ANY-bound sockets, of joining all groups,
+then I don't see that it has any purpose at all.
 
-sock_def_write() function in net/core/sock.c where the OOPs triggered
-runs some cleaning on sockets when their skbs are kfreed, but this
-shouldn't be done after socket had been closed (sock_orphan() removes
-some pointers). When ROSE sends it's skbs with ax25_send_frame(), they
-are added to AX25 queues, and kfreed after transmitting. If it's after
-ROSE socket had been released, but not properly updated, the cleaning
-is done on kfreed memory not used by the socket anymore.
+                                                                +-DLS
 
-Cheers,
-Jarek P.
