@@ -1,817 +1,424 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] forgotten bits of Sangoma drivers removal
-Date: Mon, 31 Mar 2008 01:49:01 +0300
-Message-ID: <20080330224901.GW28445@cs181133002.pp.htv.fi>
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: [PATCH] sb1000.c: stop inlining largish static functions
+Date: Mon, 31 Mar 2008 01:02:43 +0200
+Message-ID: <200803310102.43277.vda.linux@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Robert P. J. Day" <rpjday@crashcourse.ca>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.pp.htv.fi ([213.243.153.39]:53256 "EHLO smtp5.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756024AbYC3WtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Mar 2008 18:49:16 -0400
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_TwB8HLzBgrvpwo5"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755458AbYC3XEl@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Boundary-00=_TwB8HLzBgrvpwo5
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Robert P. J. Day spotted that my removal of the Sangoma drivers missed a 
-few bits.
+Hi Jeff,
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Can you take this patch into your net driver fixes tree?
 
----
+drivers/net/sb1000.c has lots of inlined static functions.
 
-This patch has been sent on:
-- 25 Feb 2008
+Mst of them are used at initialization, wait for some
+hardware register to change (wait using yield, sleep etc),
+or do slow port-based I/O. Inlining thse "for speed" makes no sense.
 
- Documentation/networking/00-INDEX       |    2 
- Documentation/networking/wan-router.txt |  621 ------------------------
- include/linux/Kbuild                    |    1 
- include/linux/if_wanpipe.h              |  124 ----
- 4 files changed, 748 deletions(-)
+This patch removes "inline" from biggest static function
+(regardless of number of callsites - gcc nowadays auto-inlines
+statics with one callsite).
 
-b448ba4228b3dfaacfa7e043e3aa23579d06d36b diff --git a/Documentation/networking/00-INDEX b/Documentation/networking/00-INDEX
-index 02e56d4..61ac35a 100644
---- a/Documentation/networking/00-INDEX
-+++ b/Documentation/networking/00-INDEX
-@@ -103,8 +103,6 @@ tuntap.txt
- 	- TUN/TAP device driver, allowing user space Rx/Tx of packets.
- vortex.txt
- 	- info on using 3Com Vortex (3c590, 3c592, 3c595, 3c597) Ethernet cards.
--wan-router.txt
--	- WAN router documentation
- wavelan.txt
- 	- AT&T GIS (nee NCR) WaveLAN card: An Ethernet-like radio transceiver
- x25.txt
-diff --git a/Documentation/networking/wan-router.txt b/Documentation/networking/wan-router.txt
-deleted file mode 100644
-index bc2ab41..0000000
---- a/Documentation/networking/wan-router.txt
-+++ /dev/null
-@@ -1,621 +0,0 @@
--------------------------------------------------------------------------------
--Linux WAN Router Utilities Package
--------------------------------------------------------------------------------
--Version 2.2.1 
--Mar 28, 2001
--Author: Nenad Corbic <ncorbic@sangoma.com>
--Copyright (c) 1995-2001 Sangoma Technologies Inc.
--------------------------------------------------------------------------------
--
--INTRODUCTION
--
--Wide Area Networks (WANs) are used to interconnect Local Area Networks (LANs)
--and/or stand-alone hosts over vast distances with data transfer rates
--significantly higher than those achievable with commonly used dial-up
--connections.
--
--Usually an external device called `WAN router' sitting on your local network
--or connected to your machine's serial port provides physical connection to
--WAN.  Although router's job may be as simple as taking your local network
--traffic, converting it to WAN format and piping it through the WAN link, these
--devices are notoriously expensive, with prices as much as 2 - 5 times higher
--then the price of a typical PC box.
--
--Alternatively, considering robustness and multitasking capabilities of Linux,
--an internal router can be built (most routers use some sort of stripped down
--Unix-like operating system anyway). With a number of relatively inexpensive WAN
--interface cards available on the market, a perfectly usable router can be
--built for less than half a price of an external router.  Yet a Linux box
--acting as a router can still be used for other purposes, such as fire-walling,
--running FTP, WWW or DNS server, etc.
--
--This kernel module introduces the notion of a WAN Link Driver (WLD) to Linux
--operating system and provides generic hardware-independent services for such
--drivers.  Why can existing Linux network device interface not be used for
--this purpose?  Well, it can.  However, there are a few key differences between
--a typical network interface (e.g. Ethernet) and a WAN link.
--
--Many WAN protocols, such as X.25 and frame relay, allow for multiple logical
--connections (known as `virtual circuits' in X.25 terminology) over a single
--physical link.  Each such virtual circuit may (and almost always does) lead
--to a different geographical location and, therefore, different network.  As a
--result, it is the virtual circuit, not the physical link, that represents a
--route and, therefore, a network interface in Linux terms.
--
--To further complicate things, virtual circuits are usually volatile in nature
--(excluding so called `permanent' virtual circuits or PVCs).  With almost no
--time required to set up and tear down a virtual circuit, it is highly desirable
--to implement on-demand connections in order to minimize network charges.  So
--unlike a typical network driver, the WAN driver must be able to handle multiple
--network interfaces and cope as multiple virtual circuits come into existence
--and go away dynamically.
-- 
--Last, but not least, WAN configuration is much more complex than that of say
--Ethernet and may well amount to several dozens of parameters.  Some of them
--are "link-wide"  while others are virtual circuit-specific.  The same holds
--true for WAN statistics which is by far more extensive and extremely useful
--when troubleshooting WAN connections.  Extending the ifconfig utility to suit
--these needs may be possible, but does not seem quite reasonable.  Therefore, a
--WAN configuration utility and corresponding application programmer's interface
--is needed for this purpose.
--
--Most of these problems are taken care of by this module.  Its goal is to
--provide a user with more-or-less standard look and feel for all WAN devices and
--assist a WAN device driver writer by providing common services, such as:
--
-- o User-level interface via /proc file system
-- o Centralized configuration
-- o Device management (setup, shutdown, etc.)
-- o Network interface management (dynamic creation/destruction)
-- o Protocol encapsulation/decapsulation
--
--To ba able to use the Linux WAN Router you will also need a WAN Tools package
--available from
--
--	ftp.sangoma.com/pub/linux/current_wanpipe/wanpipe-X.Y.Z.tgz
--
--where vX.Y.Z represent the wanpipe version number.
--
--For technical questions and/or comments please e-mail to ncorbic@sangoma.com.
--For general inquiries please contact Sangoma Technologies Inc. by
--
--	Hotline:	1-800-388-2475	(USA and Canada, toll free)
--	Phone:		(905) 474-1990  ext: 106
--	Fax:		(905) 474-9223
--	E-mail:		dm@sangoma.com	(David Mandelstam)
--	WWW:		http://www.sangoma.com
--
--
--INSTALLATION
--
--Please read the WanpipeForLinux.pdf manual on how to 
--install the WANPIPE tools and drivers properly. 
--
--
--After installing wanpipe package: /usr/local/wanrouter/doc. 
--On the ftp.sangoma.com : /linux/current_wanpipe/doc
--
--
--COPYRIGHT AND LICENSING INFORMATION
--
--This program is free software; you can redistribute it and/or modify it under
--the terms of the GNU General Public License as published by the Free Software
--Foundation; either version 2, or (at your option) any later version.
--
--This program is distributed in the hope that it will be useful, but WITHOUT
--ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
--FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
--
--You should have received a copy of the GNU General Public License along with
--this program; if not, write to the Free Software Foundation, Inc., 675 Mass
--Ave, Cambridge, MA 02139, USA.
--
--
--
--ACKNOWLEDGEMENTS
--
--This product is based on the WANPIPE(tm) Multiprotocol WAN Router developed
--by Sangoma Technologies Inc. for Linux 2.0.x and 2.2.x.  Success of the WANPIPE
--together with the next major release of Linux kernel in summer 1996 commanded
--adequate changes to the WANPIPE code to take full advantage of new Linux
--features.
--
--Instead of continuing developing proprietary interface tied to Sangoma WAN
--cards, we decided to separate all hardware-independent code into a separate
--module and defined two levels of interfaces - one for user-level applications
--and another for kernel-level WAN drivers.  WANPIPE is now implemented as a
--WAN driver compliant with the WAN Link Driver interface.  Also a general
--purpose WAN configuration utility and a set of shell scripts was developed to 
--support WAN router at the user level.
--
--Many useful ideas concerning hardware-independent interface implementation
--were given by Mike McLagan <mike.mclagan@linux.org> and his implementation
--of the Frame Relay router and drivers for Sangoma cards (dlci/sdla).
--
--With the new implementation of the APIs being incorporated into the WANPIPE,
--a special thank goes to Alan Cox in providing insight into BSD sockets.
--
--Special thanks to all the WANPIPE users who performed field-testing, reported
--bugs and made valuable comments and suggestions that help us to improve this
--product.
--
--
--
--NEW IN THIS RELEASE
--
--	o Updated the WANCFG utility
--		Calls the pppconfig to configure the PPPD
--		for async connections.
--
--	o Added the PPPCONFIG utility
--		Used to configure the PPPD daemon for the
--		WANPIPE Async PPP and standard serial port.
--		The wancfg calls the pppconfig to configure
--		the pppd.
--
--	o Fixed the PCI autodetect feature.  
--		The SLOT 0 was used as an autodetect option
--		however, some high end PC's slot numbers start
--		from 0. 
--
--	o This release has been tested with the new backupd
--	  daemon release.
--	
--
--PRODUCT COMPONENTS AND RELATED FILES
--
--/etc: (or user defined)
--	wanpipe1.conf	default router configuration file
--
--/lib/modules/X.Y.Z/misc:
--	wanrouter.o	router kernel loadable module
--	af_wanpipe.o	wanpipe api socket module
--
--/lib/modules/X.Y.Z/net:
--	sdladrv.o	Sangoma SDLA support module
--	wanpipe.o	Sangoma WANPIPE(tm) driver module
--
--/proc/net/wanrouter
--	Config		reads current router configuration
--	Status		reads current router status
--	{name}		reads WAN driver statistics
--
--/usr/sbin:
--	wanrouter	wanrouter start-up script
--	wanconfig	wanrouter configuration utility
--	sdladump	WANPIPE adapter memory dump utility
--        fpipemon        Monitor for Frame Relay
--        cpipemon        Monitor for Cisco HDLC
--	ppipemon 	Monitor for PPP
--	xpipemon 	Monitor for X25
--	wpkbdmon        WANPIPE keyboard led monitor/debugger
--
--/usr/local/wanrouter:
--	README		this file
--	COPYING		GNU General Public License
--	Setup		installation script
--	Filelist	distribution definition file
--	wanrouter.rc	meta-configuration file 
--			(used by the Setup and wanrouter script)
--
--/usr/local/wanrouter/doc:
--	wanpipeForLinux.pdf 	WAN Router User's Manual
--
--/usr/local/wanrouter/patches:
--	wanrouter-v2213.gz  	patch for Linux kernels 2.2.11 up to 2.2.13.
--	wanrouter-v2214.gz	patch for Linux kernel 2.2.14. 
--	wanrouter-v2215.gz	patch for Linux kernels 2.2.15 to 2.2.17.
--	wanrouter-v2218.gz	patch for Linux kernels 2.2.18 and up.
--	wanrouter-v240.gz	patch for Linux kernel 2.4.0.  
--	wanrouter-v242.gz	patch for Linux kernel 2.4.2 and up.
--	wanrouter-v2034.gz	patch for Linux kernel 2.0.34
--	wanrouter-v2036.gz 	patch for Linux kernel 2.0.36 and up. 
--
--/usr/local/wanrouter/patches/kdrivers:
--	Sources of the latest WANPIPE device drivers.
--	These are used to UPGRADE the linux kernel to the newest
--	version if the kernel source has already been patched with
--	WANPIPE drivers.
--
--/usr/local/wanrouter/samples:
--	interface	sample interface configuration file
--	wanpipe1.cpri 	CHDLC primary port
--     	wanpipe2.csec 	CHDLC secondary port
--     	wanpipe1.fr   	Frame Relay protocol
--     	wanpipe1.ppp  	PPP protocol ) 
--	wanpipe1.asy	CHDLC ASYNC protocol
--	wanpipe1.x25	X25 protocol
--	wanpipe1.stty	Sync TTY driver (Used by Kernel PPPD daemon)
--	wanpipe1.atty	Async TTY driver (Used by Kernel PPPD daemon)
--	wanrouter.rc	sample meta-configuration file
--
--/usr/local/wanrouter/util:
--	*		wan-tools utilities source code
--
--/usr/local/wanrouter/api/x25:
--	*		x25 api sample programs.
--/usr/local/wanrouter/api/chdlc:
--	*		chdlc api sample programs.
--/usr/local/wanrouter/api/fr:
--	*		fr api sample programs.
--/usr/local/wanrouter/config/wancfg:
--	wancfg		WANPIPE GUI configuration program.
--                        Creates wanpipe#.conf files. 
--/usr/local/wanrouter/config/cfgft1:
--	cfgft1		GUI CSU/DSU configuration program.
--
--/usr/include/linux:
--	wanrouter.h	router API definitions
--	wanpipe.h	WANPIPE API definitions
--	sdladrv.h	SDLA support module API definitions
--	sdlasfm.h	SDLA firmware module definitions
--	if_wanpipe.h	WANPIPE Socket definitions
--	sdlapci.h	WANPIPE PCI definitions
--	
--
--/usr/src/linux/net/wanrouter:
--	*		wanrouter source code
--
--/var/log:
--	wanrouter	wanrouter start-up log (created by the Setup script)
--
--/var/lock:  (or /var/lock/subsys for RedHat)
--	wanrouter	wanrouter lock file (created by the Setup script)
--
--/usr/local/wanrouter/firmware:
--	fr514.sfm	Frame relay firmware for Sangoma S508/S514 card
--	cdual514.sfm	Dual Port Cisco HDLC firmware for Sangoma S508/S514 card
--	ppp514.sfm      PPP Firmware for Sangoma S508 and S514 cards
--	x25_508.sfm	X25 Firmware for Sangoma S508 card.
--
--
--REVISION HISTORY
--
--1.0.0	December 31, 1996	Initial version
--
--1.0.1	January 30, 1997	Status and statistics can be read via /proc
--				filesystem entries.
--
--1.0.2   April 30, 1997          Added UDP management via monitors.
--
--1.0.3	June 3, 1997		UDP management for multiple boards using Frame
--				Relay and PPP
--				Enabled continuous transmission of Configure 
--				Request Packet for PPP (for 508 only)
--				Connection Timeout for PPP changed from 900 to 0
--				Flow Control Problem fixed for Frame Relay
--
--1.0.4	July 10, 1997		S508/FT1 monitoring capability in fpipemon and
--				ppipemon utilities.
--				Configurable TTL for UDP packets.
--				Multicast and Broadcast IP source addresses are
--				silently discarded.
--
--1.0.5	July 28, 1997		Configurable T391,T392,N391,N392,N393 for Frame
--				Relay in router.conf.
--				Configurable Memory Address through router.conf 
--				for Frame Relay, PPP and X.25. (commenting this
-- 				out enables auto-detection).
--				Fixed freeing up received buffers using kfree()
-- 				for Frame Relay and X.25.
--				Protect sdla_peek() by calling save_flags(),
--				cli() and restore_flags().
--				Changed number of Trace elements from 32 to 20
--				Added DLCI specific data monitoring in FPIPEMON. 
--2.0.0	Nov 07, 1997		Implemented protection of RACE conditions by 
--				critical flags for FRAME RELAY and PPP.
--				DLCI List interrupt mode implemented.
--				IPX support in FRAME RELAY and PPP.
--				IPX Server Support (MARS)
--				More driver specific stats included in FPIPEMON
--				and PIPEMON.
--
--2.0.1	Nov 28, 1997		Bug Fixes for version 2.0.0.
--				Protection of "enable_irq()" while 
--				"disable_irq()" has been enabled from any other
--				routine (for Frame Relay, PPP and X25).
--				Added additional Stats for Fpipemon and Ppipemon
--				Improved Load Sharing for multiple boards
--
--2.0.2	Dec 09, 1997		Support for PAP and CHAP for ppp has been
--				implemented.
--
--2.0.3	Aug 15, 1998		New release supporting Cisco HDLC, CIR for Frame
--				relay, Dynamic IP assignment for PPP and Inverse
--				Arp support for Frame-relay.  Man Pages are 
--				included for better support and a new utility
--				for configuring FT1 cards.
--
--2.0.4	Dec 09, 1998	        Dual Port support for Cisco HDLC.
--				Support for HDLC (LAPB) API.
--				Supports BiSync Streaming code for S502E 
--				and S503 cards.
--				Support for Streaming HDLC API.
--				Provides a BSD socket interface for 
--				creating applications using BiSync
--   				streaming.        
--
--2.0.5   Aug 04, 1999 		CHDLC initialization bug fix.
--				PPP interrupt driven driver: 
--  				Fix to the PPP line hangup problem.
--				New PPP firmware
--				Added comments to the startup SYSTEM ERROR messages
--				Xpipemon debugging application for the X25 protocol
--				New USER_MANUAL.txt
--				Fixed the odd boundary 4byte writes to the board.
--				BiSync Streaming code has been taken out.  
--				 Available as a patch.
--				Streaming HDLC API has been taken out.  
--				 Available as a patch.                 
--
--2.0.6   Aug 17, 1999		Increased debugging in statup scripts
--				Fixed installation bugs from 2.0.5
--				Kernel patch works for both 2.2.10 and 2.2.11 kernels.
--				There is no functional difference between the two packages         
--
--2.0.7   Aug 26, 1999		o  Merged X25API code into WANPIPE.
--				o  Fixed a memory leak for X25API
--				o  Updated the X25API code for 2.2.X kernels.
--				o  Improved NEM handling.   
--
--2.1.0	Oct 25, 1999		o New code for S514 PCI Card
--				o New CHDLC and Frame Relay drivers
--				o PPP and X25 are not supported in this release    
--
--2.1.1	Nov 30, 1999		o PPP support for S514 PCI Cards
--
--2.1.3   Apr 06, 2000		o Socket based x25api 
--				o Socket based chdlc api
--				o Socket based fr api
--				o Dual Port Receive only CHDLC support.
--				o Asynchronous CHDLC support (Secondary Port)
--				o cfgft1 GUI csu/dsu configurator
--				o wancfg GUI configuration file 
--				  configurator.
--				o Architectural directory changes.
--
--beta-2.1.4 Jul 2000		o Dynamic interface configuration:
--					Network interfaces reflect the state
--					of protocol layer.  If the protocol becomes
--					disconnected, driver will bring down
--					the interface.  Once the protocol reconnects
--					the interface will be brought up. 
--					
--					Note: This option is turned off by default.
--
--				o Dynamic wanrouter setup using 'wanconfig':
--					wanconfig utility can be used to
--					shutdown,restart,start or reconfigure 
--					a virtual circuit dynamically.
--				     
--					Frame Relay:  Each DLCI can be: 
--						      created,stopped,restarted and reconfigured
--						      dynamically using wanconfig.
--					
--						      ex: wanconfig card wanpipe1 dev wp1_fr16 up
--				  
--				o Wanrouter startup via command line arguments:
--					wanconfig also supports wanrouter startup via command line
--					arguments.  Thus, there is no need to create a wanpipe#.conf
--					configuration file.  
--
--				o Socket based x25api update/bug fixes.
--					Added support for LCN numbers greater than 255.
--					Option to pass up modem messages.
--					Provided a PCI IRQ check, so a single S514
--					card is guaranteed to have a non-sharing interrupt.
--
--				o Fixes to the wancfg utility.
--				o New FT1 debugging support via *pipemon utilities.
--				o Frame Relay ARP support Enabled.
--
--beta3-2.1.4 Jul 2000		o X25 M_BIT Problem fix.
--				o Added the Multi-Port PPP
--				  Updated utilities for the Multi-Port PPP.
--
--2.1.4	Aut 2000
--				o In X25API:
--					Maximum packet an application can send
--					to the driver has been extended to 4096 bytes.
--
--					Fixed the x25 startup bug. Enable 
--					communications only after all interfaces
--					come up.  HIGH SVC/PVC is used to calculate
--					the number of channels.
--					Enable protocol only after all interfaces
--					are enabled.
--
--				o Added an extra state to the FT1 config, kernel module.
--				o Updated the pipemon debuggers.
--
--				o Blocked the Multi-Port PPP from running on kernels
--				  2.2.16 or greater, due to syncppp kernel module
--				  change. 
--	  
--beta1-2.1.5 	Nov 15 2000
--				o Fixed the MultiPort PPP Support for kernels 2.2.16 and above.
--				  2.2.X kernels only
--
--				o Secured the driver UDP debugging calls
--					- All illegal network debugging calls are reported to
--					  the log.
--					- Defined a set of allowed commands, all other denied.
--					
--				o Cpipemon
--					- Added set FT1 commands to the cpipemon. Thus CSU/DSU
--					  configuration can be performed using cpipemon.
--					  All systems that cannot run cfgft1 GUI utility should
--					  use cpipemon to configure the on board CSU/DSU.
--
--
--				o Keyboard Led Monitor/Debugger
--					- A new utility /usr/sbin/wpkbdmon uses keyboard leds
--					  to convey operational statistic information of the 
--					  Sangoma WANPIPE cards.
--					NUM_LOCK    = Line State  (On=connected,    Off=disconnected)
--					CAPS_LOCK   = Tx data     (On=transmitting, Off=no tx data)
--					SCROLL_LOCK = Rx data     (On=receiving,    Off=no rx data
--					
--				o Hardware probe on module load and dynamic device allocation
--					- During WANPIPE module load, all Sangoma cards are probed
--					  and found information is printed in the /var/log/messages.
--					- If no cards are found, the module load fails.
--					- Appropriate number of devices are dynamically loaded 
--					  based on the number of Sangoma cards found.
--
--					  Note: The kernel configuration option 
--						CONFIG_WANPIPE_CARDS has been taken out.
--					
--				o Fixed the Frame Relay and Chdlc network interfaces so they are
--				  compatible with libpcap libraries.  Meaning, tcpdump, snort,
--				  ethereal, and all other packet sniffers and debuggers work on
--				  all WANPIPE network interfaces.
--					- Set the network interface encoding type to ARPHRD_PPP.
--					  This tell the sniffers that data obtained from the
--					  network interface is in pure IP format.
--				  Fix for 2.2.X kernels only.
--				
--				o True interface encoding option for Frame Relay and CHDLC
--					- The above fix sets the network interface encoding
--					  type to ARPHRD_PPP, however some customers use
--					  the encoding interface type to determine the
--					  protocol running.  Therefore, the TURE ENCODING
--					  option will set the interface type back to the
--					  original value.  
--
--					  NOTE: If this option is used with Frame Relay and CHDLC
--						libpcap library support will be broken.  
--						i.e. tcpdump will not work.
--					Fix for 2.2.x Kernels only.
--						
--				o Ethernet Bridgind over Frame Relay
--					- The Frame Relay bridging has been developed by 
--					  Kristian Hoffmann and Mark Wells.  
--					- The Linux kernel bridge is used to send ethernet 
--					  data over the frame relay links.
--					For 2.2.X Kernels only.
--
--				o Added extensive 2.0.X support. Most new features of
--				  2.1.5 for protocols Frame Relay, PPP and CHDLC are
--				  supported under 2.0.X kernels. 
--
--beta1-2.2.0 	Dec 30 2000
--				o Updated drivers for 2.4.X kernels.
--				o Updated drivers for SMP support.
--				o X25API is now able to share PCI interrupts.
--				o Took out a general polling routine that was used
--				  only by X25API. 
--				o Added appropriate locks to the dynamic reconfiguration
--				  code.
--				o Fixed a bug in the keyboard debug monitor.
--
--beta2-2.2.0	Jan 8 2001
--				o Patches for 2.4.0 kernel
--				o Patches for 2.2.18 kernel
--				o Minor updates to PPP and CHLDC drivers.
--				  Note: No functional difference.
--
--beta3-2.2.9	Jan 10 2001
--				o I missed the 2.2.18 kernel patches in beta2-2.2.0
--				  release.  They are included in this release.
--
--Stable Release
--2.2.0		Feb 01 2001
--				o Bug fix in wancfg GUI configurator.
--					The edit function didn't work properly.
--
--
--bata1-2.2.1	Feb 09 2001
--			o WANPIPE TTY Driver emulation. 
--			  Two modes of operation Sync and Async.
--				Sync: Using the PPPD daemon, kernel SyncPPP layer
--				      and the Wanpipe sync TTY driver: a PPP protocol 
--				      connection can be established via Sangoma adapter, over
--				      a T1 leased line.
--			
--				      The 2.4.0 kernel PPP layer supports MULTILINK
--				      protocol, that can be used to bundle any number of Sangoma
--				      adapters (T1 lines) into one, under a single IP address.
--				      Thus, efficiently obtaining multiple T1 throughput. 
--
--				      NOTE: The remote side must also implement MULTILINK PPP
--					    protocol.
--
--				Async:Using the PPPD daemon, kernel AsyncPPP layer
--				      and the WANPIPE async TTY driver: a PPP protocol
--				      connection can be established via Sangoma adapter and
--				      a modem, over a telephone line.
--
--				      Thus, the WANPIPE async TTY driver simulates a serial
--				      TTY driver that would normally be used to interface the 
--				      MODEM to the linux kernel.
--				
--			o WANPIPE PPP Backup Utility
--				This utility will monitor the state of the PPP T1 line.
--				In case of failure, a dial up connection will be established
--				via pppd daemon, ether via a serial tty driver (serial port), 
--				or a WANPIPE async TTY driver (in case serial port is unavailable).
--				
--				Furthermore, while in dial up mode, the primary PPP T1 link
--				will be monitored for signs of life.  
--
--				If the PPP T1 link comes back to life, the dial up connection
--				will be shutdown and T1 line re-established.
--			
--
--			o New Setup installation script.
--				Option to UPGRADE device drivers if the kernel source has
--				already been patched with WANPIPE.
--
--				Option to COMPILE WANPIPE modules against the currently 
--				running kernel, thus no need for manual kernel and module
--				re-compilation.
--			
--			o Updates and Bug Fixes to wancfg utility.
--
--bata2-2.2.1	Feb 20 2001
--
--			o Bug fixes to the CHDLC device drivers.
--				The driver had compilation problems under kernels
--				2.2.14 or lower.
--
--			o Bug fixes to the Setup installation script.
--				The device drivers compilation options didn't work
--				properly.
--
--			o Update to the wpbackupd daemon.  
--				Optimized the cross-over times, between the primary
--				link and the backup dialup.
--
--beta3-2.2.1	Mar 02 2001
--			o Patches for 2.4.2 kernel.
--
--			o Bug fixes to util/ make files.
--			o Bug fixes to the Setup installation script.
--
--			o Took out the backupd support and made it into
--			  as separate package.
--			  
--beta4-2.2.1     Mar 12 2001
--
--		o Fix to the Frame Relay Device driver.
--			IPSAC sends a packet of zero length
--			header to the frame relay driver.  The
--			driver tries to push its own 2 byte header
--			into the packet, which causes the driver to
--			crash.
--
--		o Fix the WANPIPE re-configuration code.
--			Bug was found by trying to run  the cfgft1 while the
--			interface was already running.  
--
--		o Updates to cfgft1.
--			Writes a wanpipe#.cfgft1 configuration file
--			once the CSU/DSU is configured. This file can
--			holds the current CSU/DSU configuration.
--
--
--
-->>>>>> END OF README <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
--
--
-diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-index aada32f..441a108 100644
---- a/include/linux/Kbuild
-+++ b/include/linux/Kbuild
-@@ -233,7 +233,6 @@ unifdef-y += if_pppox.h
- unifdef-y += if_tr.h
- unifdef-y += if_tun.h
- unifdef-y += if_vlan.h
--unifdef-y += if_wanpipe.h
- unifdef-y += igmp.h
- unifdef-y += inet_diag.h
- unifdef-y += in.h
-diff --git a/include/linux/if_wanpipe.h b/include/linux/if_wanpipe.h
-deleted file mode 100644
-index e594ca6..0000000
---- a/include/linux/if_wanpipe.h
-+++ /dev/null
-@@ -1,124 +0,0 @@
--/*****************************************************************************
--* if_wanpipe.h	Header file for the Sangoma AF_WANPIPE Socket 	
--*
--* Author: 	Nenad Corbic 	
--*
--* Copyright:	(c) 2000 Sangoma Technologies Inc.
--*
--*		This program is free software; you can redistribute it and/or
--*		modify it under the terms of the GNU General Public License
--*		as published by the Free Software Foundation; either version
--*		2 of the License, or (at your option) any later version.
--* ============================================================================
--*
--* Jan 28, 2000	Nenad Corbic 	Initial Version
--*
--*****************************************************************************/
--
--#ifndef __LINUX_IF_WAN_PACKET_H
--#define __LINUX_IF_WAN_PACKET_H
--
--struct wan_sockaddr_ll
--{
--	unsigned short	sll_family;
--	unsigned short	sll_protocol;
--	int		sll_ifindex;
--	unsigned short	sll_hatype;
--	unsigned char	sll_pkttype;
--	unsigned char	sll_halen;
--	unsigned char	sll_addr[8];
--	unsigned char   sll_device[14];
--	unsigned char 	sll_card[14];
--};
--
--typedef struct 
--{
--	unsigned char free;
--	unsigned char state_sk;
--	int rcvbuf;
--	int sndbuf;
--	int rmem;
--	int wmem;
--	int sk_count;
--	unsigned char bound;
--	char name[14];
--	unsigned char d_state;
--	unsigned char svc;
--	unsigned short lcn;
--	unsigned char mbox;
--	unsigned char cmd_busy;
--	unsigned char command;
--	unsigned poll;
--	unsigned poll_cnt;
--	int rblock;	
--} wan_debug_hdr_t;
--
--#define MAX_NUM_DEBUG  10
--#define X25_PROT       0x16
--#define PVC_PROT       0x17	
--
--typedef struct
--{
--	wan_debug_hdr_t debug[MAX_NUM_DEBUG];
--}wan_debug_t;
--
--#define	SIOC_WANPIPE_GET_CALL_DATA	(SIOCPROTOPRIVATE + 0)
--#define	SIOC_WANPIPE_SET_CALL_DATA	(SIOCPROTOPRIVATE + 1)
--#define SIOC_WANPIPE_ACCEPT_CALL	(SIOCPROTOPRIVATE + 2)
--#define SIOC_WANPIPE_CLEAR_CALL	        (SIOCPROTOPRIVATE + 3)
--#define SIOC_WANPIPE_RESET_CALL	        (SIOCPROTOPRIVATE + 4)
--#define SIOC_WANPIPE_DEBUG	        (SIOCPROTOPRIVATE + 5)
--#define SIOC_WANPIPE_SET_NONBLOCK	(SIOCPROTOPRIVATE + 6)
--#define SIOC_WANPIPE_CHECK_TX		(SIOCPROTOPRIVATE + 7)
--#define SIOC_WANPIPE_SOCK_STATE		(SIOCPROTOPRIVATE + 8)
--
--/* Packet types */
--
--#define WAN_PACKET_HOST		0		/* To us		*/
--#define WAN_PACKET_BROADCAST	1		/* To all		*/
--#define WAN_PACKET_MULTICAST	2		/* To group		*/
--#define WAN_PACKET_OTHERHOST	3		/* To someone else 	*/
--#define WAN_PACKET_OUTGOING		4		/* Outgoing of any type */
--/* These ones are invisible by user level */
--#define WAN_PACKET_LOOPBACK		5		/* MC/BRD frame looped back */
--#define WAN_PACKET_FASTROUTE	6		/* Fastrouted frame	*/
--
--
--/* X25 specific */
--#define WAN_PACKET_DATA 	7
--#define WAN_PACKET_CMD 		8
--#define WAN_PACKET_ASYNC	9
--#define WAN_PACKET_ERR	       10
--
--/* Packet socket options */
--
--#define WAN_PACKET_ADD_MEMBERSHIP		1
--#define WAN_PACKET_DROP_MEMBERSHIP		2
--
--#define WAN_PACKET_MR_MULTICAST	0
--#define WAN_PACKET_MR_PROMISC	1
--#define WAN_PACKET_MR_ALLMULTI	2
--
--#ifdef __KERNEL__
--
--/* Private wanpipe socket structures. */
--struct wanpipe_opt
--{
--	void   *mbox;		/* Mail box  */
--	void   *card; 		/* Card bouded to */
--	struct net_device *dev;	/* Bounded device */
--	unsigned short lcn;	/* Binded LCN */
--	unsigned char  svc;	/* 0=pvc, 1=svc */
--	unsigned char  timer;   /* flag for delayed transmit*/	
--	struct timer_list tx_timer;
--	unsigned poll_cnt;
--	unsigned char force;	/* Used to force sock release */
--	atomic_t packet_sent;   
--	unsigned short num; 
--};
--
--#define wp_sk(__sk) ((struct wanpipe_opt *)(__sk)->sk_protinfo)
--
--#endif
--
--#endif
+Size difference for 32bit x86:
 
+   text    data     bss     dec     hex filename
+   6299     129       0    6428    191c linux-2.6-ALLYES/drivers/net/sb1000.o
+   5418     129       0    5547    15ab linux-2.6.inline-ALLYES/drivers/net/sb1000.o
+
+(I also see some other optimization opportunities,
+will test and send a patch separately).
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+--
+vda
+
+--Boundary-00=_TwB8HLzBgrvpwo5
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="deinline_sb1000.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="deinline_sb1000.diff"
+
+diff -urp -U 10 linux-2.6/drivers/net/sb1000.c linux-2.6.inline/drivers/net/sb1000.c
+--- linux-2.6/drivers/net/sb1000.c	2008-03-30 03:27:45.000000000 +0200
++++ linux-2.6.inline/drivers/net/sb1000.c	2008-03-31 00:46:20.000000000 +0200
+@@ -81,59 +81,59 @@ struct sb1000_private {
+ /* prototypes for Linux interface */
+ extern int sb1000_probe(struct net_device *dev);
+ static int sb1000_open(struct net_device *dev);
+ static int sb1000_dev_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd);
+ static int sb1000_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ static irqreturn_t sb1000_interrupt(int irq, void *dev_id);
+ static int sb1000_close(struct net_device *dev);
+ 
+ 
+ /* SB1000 hardware routines to be used during open/configuration phases */
+-static inline int card_wait_for_busy_clear(const int ioaddr[],
++static int card_wait_for_busy_clear(const int ioaddr[],
+ 	const char* name);
+-static inline int card_wait_for_ready(const int ioaddr[], const char* name,
++static int card_wait_for_ready(const int ioaddr[], const char* name,
+ 	unsigned char in[]);
+ static int card_send_command(const int ioaddr[], const char* name,
+ 	const unsigned char out[], unsigned char in[]);
+ 
+ /* SB1000 hardware routines to be used during frame rx interrupt */
+-static inline int sb1000_wait_for_ready(const int ioaddr[], const char* name);
+-static inline int sb1000_wait_for_ready_clear(const int ioaddr[],
++static int sb1000_wait_for_ready(const int ioaddr[], const char* name);
++static int sb1000_wait_for_ready_clear(const int ioaddr[],
+ 	const char* name);
+-static inline void sb1000_send_command(const int ioaddr[], const char* name,
++static void sb1000_send_command(const int ioaddr[], const char* name,
+ 	const unsigned char out[]);
+-static inline void sb1000_read_status(const int ioaddr[], unsigned char in[]);
+-static inline void sb1000_issue_read_command(const int ioaddr[],
++static void sb1000_read_status(const int ioaddr[], unsigned char in[]);
++static void sb1000_issue_read_command(const int ioaddr[],
+ 	const char* name);
+ 
+ /* SB1000 commands for open/configuration */
+-static inline int sb1000_reset(const int ioaddr[], const char* name);
+-static inline int sb1000_check_CRC(const int ioaddr[], const char* name);
++static int sb1000_reset(const int ioaddr[], const char* name);
++static int sb1000_check_CRC(const int ioaddr[], const char* name);
+ static inline int sb1000_start_get_set_command(const int ioaddr[],
+ 	const char* name);
+-static inline int sb1000_end_get_set_command(const int ioaddr[],
++static int sb1000_end_get_set_command(const int ioaddr[],
+ 	const char* name);
+-static inline int sb1000_activate(const int ioaddr[], const char* name);
++static int sb1000_activate(const int ioaddr[], const char* name);
+ static int sb1000_get_firmware_version(const int ioaddr[],
+ 	const char* name, unsigned char version[], int do_end);
+ static int sb1000_get_frequency(const int ioaddr[], const char* name,
+ 	int* frequency);
+ static int sb1000_set_frequency(const int ioaddr[], const char* name,
+ 	int frequency);
+ static int sb1000_get_PIDs(const int ioaddr[], const char* name,
+ 	short PID[]);
+ static int sb1000_set_PIDs(const int ioaddr[], const char* name,
+ 	const short PID[]);
+ 
+ /* SB1000 commands for frame rx interrupt */
+-static inline int sb1000_rx(struct net_device *dev);
+-static inline void sb1000_error_dpc(struct net_device *dev);
++static int sb1000_rx(struct net_device *dev);
++static void sb1000_error_dpc(struct net_device *dev);
+ 
+ static const struct pnp_device_id sb1000_pnp_ids[] = {
+ 	{ "GIC1000", 0 },
+ 	{ "", 0 }
+ };
+ MODULE_DEVICE_TABLE(pnp, sb1000_pnp_ids);
+ 
+ static int
+ sb1000_probe_one(struct pnp_dev *pdev, const struct pnp_device_id *id)
+ {
+@@ -243,21 +243,21 @@ static struct pnp_driver sb1000_driver =
+ };
+ 
+ 
+ /*
+  * SB1000 hardware routines to be used during open/configuration phases
+  */
+ 
+ static const int TimeOutJiffies = (875 * HZ) / 100;
+ 
+ /* Card Wait For Busy Clear (cannot be used during an interrupt) */
+-static inline int
++static int
+ card_wait_for_busy_clear(const int ioaddr[], const char* name)
+ {
+ 	unsigned char a;
+ 	unsigned long timeout;
+ 
+ 	a = inb(ioaddr[0] + 7);
+ 	timeout = jiffies + TimeOutJiffies;
+ 	while (a & 0x80 || a & 0x40) {
+ 		/* a little sleep */
+ 		yield();
+@@ -267,21 +267,21 @@ card_wait_for_busy_clear(const int ioadd
+ 			printk(KERN_WARNING "%s: card_wait_for_busy_clear timeout\n",
+ 				name);
+ 			return -ETIME;
+ 		}
+ 	}
+ 
+ 	return 0;
+ }
+ 
+ /* Card Wait For Ready (cannot be used during an interrupt) */
+-static inline int
++static int
+ card_wait_for_ready(const int ioaddr[], const char* name, unsigned char in[])
+ {
+ 	unsigned char a;
+ 	unsigned long timeout;
+ 
+ 	a = inb(ioaddr[1] + 6);
+ 	timeout = jiffies + TimeOutJiffies;
+ 	while (a & 0x80 || !(a & 0x40)) {
+ 		/* a little sleep */
+ 		yield();
+@@ -347,21 +347,21 @@ card_send_command(const int ioaddr[], co
+ 	return 0;
+ }
+ 
+ 
+ /*
+  * SB1000 hardware routines to be used during frame rx interrupt
+  */
+ static const int Sb1000TimeOutJiffies = 7 * HZ;
+ 
+ /* Card Wait For Ready (to be used during frame rx) */
+-static inline int
++static int
+ sb1000_wait_for_ready(const int ioaddr[], const char* name)
+ {
+ 	unsigned long timeout;
+ 
+ 	timeout = jiffies + Sb1000TimeOutJiffies;
+ 	while (inb(ioaddr[1] + 6) & 0x80) {
+ 		if (time_after_eq(jiffies, timeout)) {
+ 			printk(KERN_WARNING "%s: sb1000_wait_for_ready timeout\n",
+ 				name);
+ 			return -ETIME;
+@@ -373,21 +373,21 @@ sb1000_wait_for_ready(const int ioaddr[]
+ 			printk(KERN_WARNING "%s: sb1000_wait_for_ready timeout\n",
+ 				name);
+ 			return -ETIME;
+ 		}
+ 	}
+ 	inb(ioaddr[0] + 7);
+ 	return 0;
+ }
+ 
+ /* Card Wait For Ready Clear (to be used during frame rx) */
+-static inline int
++static int
+ sb1000_wait_for_ready_clear(const int ioaddr[], const char* name)
+ {
+ 	unsigned long timeout;
+ 
+ 	timeout = jiffies + Sb1000TimeOutJiffies;
+ 	while (inb(ioaddr[1] + 6) & 0x80) {
+ 		if (time_after_eq(jiffies, timeout)) {
+ 			printk(KERN_WARNING "%s: sb1000_wait_for_ready_clear timeout\n",
+ 				name);
+ 			return -ETIME;
+@@ -398,66 +398,66 @@ sb1000_wait_for_ready_clear(const int io
+ 		if (time_after_eq(jiffies, timeout)) {
+ 			printk(KERN_WARNING "%s: sb1000_wait_for_ready_clear timeout\n",
+ 				name);
+ 			return -ETIME;
+ 		}
+ 	}
+ 	return 0;
+ }
+ 
+ /* Card Send Command (to be used during frame rx) */
+-static inline void
++static void
+ sb1000_send_command(const int ioaddr[], const char* name,
+ 	const unsigned char out[])
+ {
+ 	outb(out[2], ioaddr[0] + 1);
+ 	outb(out[3], ioaddr[0] + 2);
+ 	outb(out[4], ioaddr[0] + 3);
+ 	outb(out[5], ioaddr[0] + 4);
+ 	outb(out[1], ioaddr[0] + 5);
+ 	outb(out[0], ioaddr[0] + 7);
+ 	if (sb1000_debug > 3)
+ 		printk(KERN_DEBUG "%s: sb1000_send_command out: %02x%02x%02x%02x"
+ 			"%02x%02x\n", name, out[0], out[1], out[2], out[3], out[4], out[5]);
+ 	return;
+ }
+ 
+ /* Card Read Status (to be used during frame rx) */
+-static inline void
++static void
+ sb1000_read_status(const int ioaddr[], unsigned char in[])
+ {
+ 	in[1] = inb(ioaddr[0] + 1);
+ 	in[2] = inb(ioaddr[0] + 2);
+ 	in[3] = inb(ioaddr[0] + 3);
+ 	in[4] = inb(ioaddr[0] + 4);
+ 	in[0] = inb(ioaddr[0] + 5);
+ 	return;
+ }
+ 
+ /* Issue Read Command (to be used during frame rx) */
+-static inline void
++static void
+ sb1000_issue_read_command(const int ioaddr[], const char* name)
+ {
+ 	const unsigned char Command0[6] = {0x20, 0x00, 0x00, 0x01, 0x00, 0x00};
+ 
+ 	sb1000_wait_for_ready_clear(ioaddr, name);
+ 	outb(0xa0, ioaddr[0] + 6);
+ 	sb1000_send_command(ioaddr, name, Command0);
+ 	return;
+ }
+ 
+ 
+ /*
+  * SB1000 commands for open/configuration
+  */
+ /* reset SB1000 card */
+-static inline int
++static int
+ sb1000_reset(const int ioaddr[], const char* name)
+ {
+ 	unsigned char st[7];
+ 	int port, status;
+ 	const unsigned char Command0[6] = {0x80, 0x16, 0x00, 0x00, 0x00, 0x00};
+ 
+ 	port = ioaddr[1] + 6;
+ 	outb(0x4, port);
+ 	inb(port);
+ 	udelay(1000);
+@@ -472,21 +472,21 @@ sb1000_reset(const int ioaddr[], const c
+ 	udelay(0);
+ 
+ 	if ((status = card_send_command(ioaddr, name, Command0, st)))
+ 		return status;
+ 	if (st[3] != 0xf0)
+ 		return -EIO;
+ 	return 0;
+ }
+ 
+ /* check SB1000 firmware CRC */
+-static inline int
++static int
+ sb1000_check_CRC(const int ioaddr[], const char* name)
+ {
+ 	unsigned char st[7];
+ 	int crc, status;
+ 	const unsigned char Command0[6] = {0x80, 0x1f, 0x00, 0x00, 0x00, 0x00};
+ 
+ 	/* check CRC */
+ 	if ((status = card_send_command(ioaddr, name, Command0, st)))
+ 		return status;
+ 	if (st[1] != st[3] || st[2] != st[4])
+@@ -497,34 +497,34 @@ sb1000_check_CRC(const int ioaddr[], con
+ 
+ static inline int
+ sb1000_start_get_set_command(const int ioaddr[], const char* name)
+ {
+ 	unsigned char st[7];
+ 	const unsigned char Command0[6] = {0x80, 0x1b, 0x00, 0x00, 0x00, 0x00};
+ 
+ 	return card_send_command(ioaddr, name, Command0, st);
+ }
+ 
+-static inline int
++static int
+ sb1000_end_get_set_command(const int ioaddr[], const char* name)
+ {
+ 	unsigned char st[7];
+ 	int status;
+ 	const unsigned char Command0[6] = {0x80, 0x1b, 0x02, 0x00, 0x00, 0x00};
+ 	const unsigned char Command1[6] = {0x20, 0x00, 0x00, 0x00, 0x00, 0x00};
+ 
+ 	if ((status = card_send_command(ioaddr, name, Command0, st)))
+ 		return status;
+ 	return card_send_command(ioaddr, name, Command1, st);
+ }
+ 
+-static inline int
++static int
+ sb1000_activate(const int ioaddr[], const char* name)
+ {
+ 	unsigned char st[7];
+ 	int status;
+ 	const unsigned char Command0[6] = {0x80, 0x11, 0x00, 0x00, 0x00, 0x00};
+ 	const unsigned char Command1[6] = {0x80, 0x16, 0x00, 0x00, 0x00, 0x00};
+ 
+ 	ssleep(1);
+ 	if ((status = card_send_command(ioaddr, name, Command0, st)))
+ 		return status;
+@@ -687,21 +687,21 @@ sb1000_set_PIDs(const int ioaddr[], cons
+ 	Command3[2] = p & 0xff;
+ 	if ((status = card_send_command(ioaddr, name, Command3, st)))
+ 		return status;
+ 
+ 	if ((status = card_send_command(ioaddr, name, Command4, st)))
+ 		return status;
+ 	return sb1000_end_get_set_command(ioaddr, name);
+ }
+ 
+ 
+-static inline void
++static void
+ sb1000_print_status_buffer(const char* name, unsigned char st[],
+ 	unsigned char buffer[], int size)
+ {
+ 	int i, j, k;
+ 
+ 	printk(KERN_DEBUG "%s: status: %02x %02x\n", name, st[0], st[1]);
+ 	if (buffer[24] == 0x08 && buffer[25] == 0x00 && buffer[26] == 0x45) {
+ 		printk(KERN_DEBUG "%s: length: %d protocol: %d from: %d.%d.%d.%d:%d "
+ 			"to %d.%d.%d.%d:%d\n", name, buffer[28] << 8 | buffer[29],
+ 			buffer[35], buffer[38], buffer[39], buffer[40], buffer[41],
+@@ -718,21 +718,21 @@ sb1000_print_status_buffer(const char* n
+ 	}
+ 	return;
+ }
+ 
+ /*
+  * SB1000 commands for frame rx interrupt
+  */
+ /* receive a single frame and assemble datagram
+  * (this is the heart of the interrupt routine)
+  */
+-static inline int
++static int
+ sb1000_rx(struct net_device *dev)
+ {
+ 
+ #define FRAMESIZE 184
+ 	unsigned char st[2], buffer[FRAMESIZE], session_id, frame_id;
+ 	short dlen;
+ 	int ioaddr, ns;
+ 	unsigned int skbsize;
+ 	struct sk_buff *skb;
+ 	struct sb1000_private *lp = netdev_priv(dev);
+@@ -881,21 +881,21 @@ dropped_frame:
+ 	if (ns < NPIDS) {
+ 		if ((skb = lp->rx_skb[ns])) {
+ 			dev_kfree_skb(skb);
+ 			lp->rx_skb[ns] = NULL;
+ 		}
+ 		lp->rx_session_id[ns] |= 0x40;
+ 	}
+ 	return -1;
+ }
+ 
+-static inline void
++static void
+ sb1000_error_dpc(struct net_device *dev)
+ {
+ 	char *name;
+ 	unsigned char st[5];
+ 	int ioaddr[2];
+ 	struct sb1000_private *lp = netdev_priv(dev);
+ 	const unsigned char Command0[6] = {0x80, 0x26, 0x00, 0x00, 0x00, 0x00};
+ 	const int ErrorDpcCounterInitialize = 200;
+ 
+ 	ioaddr[0] = dev->base_addr;
+
+--Boundary-00=_TwB8HLzBgrvpwo5--
