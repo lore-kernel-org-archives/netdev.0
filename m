@@ -1,65 +1,47 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 1/3 net-2.6.26] [NETNS]: Merge ifdef CONFIG_NET in include/net/net_namespace.h.
-Date: Mon, 31 Mar 2008 19:47:00 +0400
-Message-ID: <1206978422-13088-1-git-send-email-den@openvz.org>
-References: <1206978361.10660.31.camel@iris.sw.ru>
-Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
-	yoshfuji@linux-ipv6.org, "Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: Greg KH <greg@kroah.com>
+Subject: Re: [BUILD_FAILURE] linux-next: Tree for March 31 build fails with
+	CONFIG_SLICOSS=y
+Date: Mon, 31 Mar 2008 08:55:54 -0700
+Message-ID: <20080331155554.GE3696@kroah.com>
+References: <20080331181118.7964d4a9.sfr@canb.auug.org.au> <47F0E456.5080201@linux.vnet.ibm.com> <20080401003110.d4834b07.sfr@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Andy Whitcroft <apw@shadowen.org>,
+	Christopher Harrer <charrer@alacritech.com>,
+	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:37975 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751567AbYCaPrL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2008 11:47:11 -0400
-In-Reply-To: <1206978361.10660.31.camel@iris.sw.ru>
+Received: from pentafluge.infradead.org ([213.146.154.40]:56253 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752642AbYCaPud (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 11:50:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20080401003110.d4834b07.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
- include/net/net_namespace.h |   18 ++++++++++--------
- 1 files changed, 10 insertions(+), 8 deletions(-)
+On Tue, Apr 01, 2008 at 12:31:10AM +1100, Stephen Rothwell wrote:
+> Hi Greg,
+> 
+> Strike two!  Again, these drivers need to build (or not try to build) for
+> all architectures ... Its out until you tell me the above is true.
+> 
+> #if defined(CONFIG_X86_64)
+>         hcmd->cmdsize = (ulong32) ((((ulong64) & ihcmd->u.slic_buffers.bufs[1] -
+>                                      (ulong64) hcmd) + 31) >> 5);
+> #elif defined(CONFIG_X86)
+>         hcmd->cmdsize = ((((ulong32) & ihcmd->u.slic_buffers.bufs[1] -
+>                            (ulong32) hcmd) + 31) >> 5);
+> #else
+>         Stop Compilation;
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index f8f3d1a..035ebff 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -61,25 +61,27 @@ struct net {
- #endif
- };
- 
-+
- #ifdef CONFIG_NET
- /* Init's network namespace */
- extern struct net init_net;
- #define INIT_NET_NS(net_ns) .net_ns = &init_net,
--#else
--#define INIT_NET_NS(net_ns)
--#endif
- 
--extern struct list_head net_namespace_list;
--
--#ifdef CONFIG_NET
- extern struct net *copy_net_ns(unsigned long flags, struct net *net_ns);
--#else
-+
-+#else /* CONFIG_NET */
-+
-+#define INIT_NET_NS(net_ns)
-+
- static inline struct net *copy_net_ns(unsigned long flags, struct net *net_ns)
- {
- 	/* There is nothing to copy so this is a noop */
- 	return net_ns;
- }
--#endif
-+#endif /* CONFIG_NET */
-+
-+
-+extern struct list_head net_namespace_list;
- 
- #ifdef CONFIG_NET_NS
- extern void __put_net(struct net *net);
--- 
-1.5.3.rc5
+Ah, missed that one, that's why it built on my machines (x86-64 and
+i386), but would die on anything else.  That test is just wrong, I'll
+fix it up to get it to build on all arches (doesn't mean it will run
+though, it assumes that port io is memory mapped flat on all machines
+and still needs a lot of work to be fixed.
 
+thanks,
+
+greg k-h
