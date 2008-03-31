@@ -1,50 +1,92 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: Adding IPv6 support to IPVS: some general questions about kernel development
-Date: Mon, 31 Mar 2008 20:29:30 +0200
-Message-ID: <f4845fc0803311129w4bdb0415p56c3f11c935c3020@mail.gmail.com>
-References: <f4845fc0803310753o56ccbae5uda1e216fa139857@mail.gmail.com>
-	 <47F123C5.70804@trash.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 10371] New: On big-endian machines getsockopt
+ returns 0 (via optval) for optlen==1 when returned value should 255
+Date: Mon, 31 Mar 2008 11:33:49 -0700
+Message-ID: <20080331113349.1c3abb48.akpm@linux-foundation.org>
+References: <bug-10371-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Simon Horman" <horms@verge.net.au>
-To: "Patrick McHardy" <kaber@trash.net>
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: M.Piechaczek@osmosys.tv
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:9702 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752667AbYCaS3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 14:29:36 -0400
-Received: from zps75.corp.google.com (zps75.corp.google.com [172.25.146.75])
-	by smtp-out.google.com with ESMTP id m2VITWN1022017
-	for <netdev@vger.kernel.org>; Mon, 31 Mar 2008 11:29:32 -0700
-Received: from rn-out-0910.google.com (rnge13.prod.google.com [10.38.207.13])
-	by zps75.corp.google.com with ESMTP id m2VITVU5025758
-	for <netdev@vger.kernel.org>; Mon, 31 Mar 2008 11:29:31 -0700
-Received: by rn-out-0910.google.com with SMTP id e13so662919rng.16
-        for <netdev@vger.kernel.org>; Mon, 31 Mar 2008 11:29:31 -0700 (PDT)
-In-Reply-To: <47F123C5.70804@trash.net>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:50914 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753263AbYCaSeB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 14:34:01 -0400
+In-Reply-To: <bug-10371-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 31, 2008, Patrick McHardy <kaber@trash.net> wrote:
->  net/ipvs or net/netfilter/ipvs sound fine. The second is probably
->  better since at some point we should try to merge the duplicated
->  conntrack functionality if possible.
+On Mon, 31 Mar 2008 08:16:05 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
 
-Sure, since IPVS is basically a netfilter extension, that sounds good
-to me. Could all the IPv4- and IPv6-specific functionality (as opposed
-to the commonly used code) also end up in there or would that still
-have to reside under ipv[4,6]/...?
+> http://bugzilla.kernel.org/show_bug.cgi?id=10371
+> 
+>            Summary: On big-endian machines getsockopt returns 0 (via optval)
+>                     for optlen==1 when returned value should 255
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.24
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: M.Piechaczek@osmosys.tv
+> 
+> 
+> Latest working kernel version: 
+> Earliest failing kernel version: all 2.6
+> Distribution: 
+> Hardware Environment: 
+> Software Environment: 
+> Problem Description: 
+> 
+> On big-endian machines getsockopt fails for optlen==1 when returned value is
+> 255.
+> Eg. after calling
+>   unsigned char ttl = 255;
+>   socklen_t     len = sizeof(ttl);
+>   setsockopt(socket, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, &len);
+> the following call will fail:
+>   getsockopt(socket, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, &len);
+> "ttl" returned will be 0.
+> 
+> 
+> It's because of bug in /net/ipv4/ip_sockglue.c:
+> 
+>  static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+>                             char __user *optval, int __user *optlen) 
+>  ....
+>         if (len < sizeof(int) && len > 0 && val>=0 && val<255) {
+>                 unsigned char ucval = (unsigned char)val;
+>                 len = 1;
+>                 if (put_user(len, optlen))
+>                         return -EFAULT;
+>                 if (copy_to_user(optval,&ucval,1))
+>                         return -EFAULT;
+>         } else {
+>                 len = min_t(unsigned int, sizeof(int), len);
+>                 if (put_user(len, optlen))
+>                         return -EFAULT;
+>                 if (copy_to_user(optval,&val,len))
+>                         return -EFAULT;
+>         }
+>         return 0;
+> } 
+> 
+> The comparision in if-statement should be:
+>         if (len < sizeof(int) && len > 0 && val>=0 && val<=255)
+> 
+> Otherwise on big-endian machines copy_to_user(optval,&val,len) routine copies
+> first (highest) byte which is 0 in that case.
+> 
+> 
+> This bug does not occur on low-endian machines since
+> copy_to_user(optval,&val,len) copies right (lowest) byte in that case.
+> 
 
-Does it seem wise to do this move as the first thing in this process?
-That would probably be a good starter exercise to get to know the
-whole process!
-
-Thanks so much for helping!
-
-Kind Regards,
-Julius
-
--- 
-Google Switzerland GmbH
+You've done all the hard work - please email us a tested patch?
