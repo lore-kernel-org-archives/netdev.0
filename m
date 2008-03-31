@@ -1,68 +1,40 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 4/8] e1000e: limit EEPROM size accesses
-Date: Mon, 31 Mar 2008 09:33:36 -0700
-Message-ID: <47F11260.6070808@intel.com>
-References: <20080328161503.6562.44329.stgit@localhost.localdomain> <20080328161521.6562.23976.stgit@localhost.localdomain> <47EDA25D.7040406@garzik.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [UML]: uml-net: don't set IFF_ALLMULTI in
+	set_multicast_list
+Date: Mon, 31 Mar 2008 19:46:07 +0200
+Message-ID: <47F1235F.4000704@trash.net>
+References: <47E9E331.1010105@trash.net>
+	<20080331140930.GD6540@c2.user-mode-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:13605 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752411AbYCaQfH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2008 12:35:07 -0400
-In-Reply-To: <47EDA25D.7040406@garzik.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	user-mode-linux-devel@lists.sourceforge.net
+To: Jeff Dike <jdike@addtoit.com>
+Return-path: <user-mode-linux-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20080331140930.GD6540@c2.user-mode-linux.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/user-mode-linux-devel>,
+	<mailto:user-mode-linux-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=user-mode-linux-devel>
+List-Post: <mailto:user-mode-linux-devel@lists.sourceforge.net>
+List-Help: <mailto:user-mode-linux-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/user-mode-linux-devel>,
+	<mailto:user-mode-linux-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: user-mode-linux-devel-bounces@lists.sourceforge.net
+Errors-To: user-mode-linux-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Auke Kok wrote:
->> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->> ---
->>
->>  drivers/net/e1000e/82571.c  |    4 ++++
->>  drivers/net/e1000e/es2lan.c |    4 ++++
->>  2 files changed, 8 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
->> index f7e1619..9b46a00 100644
->> --- a/drivers/net/e1000e/82571.c
->> +++ b/drivers/net/e1000e/82571.c
->> @@ -171,6 +171,10 @@ static s32 e1000_init_nvm_params_82571(struct
->> e1000_hw *hw)
->>           * for setting word_size.
->>           */
->>          size += NVM_WORD_SIZE_BASE_SHIFT;
->> +
->> +        /* EEPROM access above 16k is unsupported */
->> +        if (size > 14)
->> +            size = 14;
->>          nvm->word_size    = 1 << size;
->>          break;
->>      }
->> diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
->> index e3f4aee..2689e4b 100644
->> --- a/drivers/net/e1000e/es2lan.c
->> +++ b/drivers/net/e1000e/es2lan.c
->> @@ -178,6 +178,10 @@ static s32
->> e1000_init_nvm_params_80003es2lan(struct e1000_hw *hw)
->>       * for setting word_size.
->>       */
->>      size += NVM_WORD_SIZE_BASE_SHIFT;
->> +
->> +    /* EEPROM access above 16k is unsupported */
->> +    if (size > 14)
->> +        size = 14;
->>      nvm->word_size    = 1 << size;
+Jeff Dike wrote:
+> On Wed, Mar 26, 2008 at 06:46:25AM +0100, Patrick McHardy wrote:
+>>     [UML]: uml-net: don't set IFF_ALLMULTI in set_multicast_list
 > 
-> Is this 2.6.25-rc material?
+> I don't really understand this, but the people who do seem to like it,
+> so I'll drop it in my tree and forward it along if no one else does.
 
-hardly, there are no known bugs again us reading too far in the eeprom. 2.6.26+ is
-fine.
+Thanks, its already in Linus' tree.
 
-Auke
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
