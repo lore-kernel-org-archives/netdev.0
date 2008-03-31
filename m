@@ -1,42 +1,47 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [patch 1/4] drivers/atm/firestream.c: suppress uninitialized var warning
-Date: Mon, 31 Mar 2008 16:57:32 +0100
-Message-ID: <20080331155732.GK9785@ZenIV.linux.org.uk>
-References: <20080328165437.bfd7726c.akpm@linux-foundation.org> <20080328.165812.253071507.davem@davemloft.net> <20080328171128.ff03ec02.akpm@linux-foundation.org> <20080328.173523.66723417.davem@davemloft.net> <20080328173946.23903be0.akpm@linux-foundation.org>
+From: Richard MUSIL <richard.musil@st.com>
+Subject: Re: [PATCH] GENETLINK: Global lock refined to family granularity
+Date: Mon, 31 Mar 2008 18:14:40 +0200
+Message-ID: <47F10DF0.2040102@st.com>
+References: <47EB8D8D.8020506@st.com> <20080331103350.GZ20815@postel.suug.ch> <47F0C942.9070603@st.com> <20080331122648.GA20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	chas@cmf.nrl.navy.mil, jeff@garzik.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:47755 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750943AbYCaP5h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 11:57:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20080328173946.23903be0.akpm@linux-foundation.org>
+Received: from s200aog11.obsmtp.com ([207.126.144.125]:35464 "EHLO
+	s200aog11.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754591AbYCaQO6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 12:14:58 -0400
+In-Reply-To: <20080331122648.GA20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 28, 2008 at 05:39:46PM -0700, Andrew Morton wrote:
-> On Fri, 28 Mar 2008 17:35:23 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
+On 31.3.2008 14:26, Thomas Graf wrote:
+> * Richard MUSIL <richard.musil@st.com> 2008-03-31 13:21
+>> It takes two locks, instead of one. I do not see, how it could be less
+>> (in terms of synchronization primitives - but not necessarily mutexes)
+>> if I want that level of granularity. Might be more efficient with RCU
+>> lists (but I do not know), but complexity remains the same.
 > 
-> > From: Andrew Morton <akpm@linux-foundation.org>
-> > Date: Fri, 28 Mar 2008 17:11:28 -0700
-> > 
-> > > Plus uninitialized_var() gives us something to grep for and
-> > > experiment with if/when future gcc's get smarter.
-> > 
-> > That's sounds like a great investment of your time.
-> > 
-> > I guess there aren't any more interesting things to work
-> > on, nor bugs to fix.
-> 
-> So you're all outa reasons.
+> The synchronization mutex in genl_recv() remains and you add an
+> additional global mutex genl_fam_lock and a per family lock. That's
+> 2 vs 6 lock operations. It is possible to use RCU to manage the
 
-Not really...  "we know better, gcc must STFU" applies _now_.  And gcc getting
-smarter is not the only way it can become false - code change in the function
-can create real uninitialized use.  gcc tends to change the warning on that,
-but not if it's told to STFU in either way.
+Shame on me, I should know better (what my patch is doing). You are
+right, the global lock in genl_recv remains. I guess my further
+arguments are now irrelevant.
+Concerning the RCU lists, I am also for better solution, the problem is,
+I have never used them before, so the probability I will do it right, is
+far small - but I may give it try.
 
-IOW, my preference would be to leave the warning as is.
+<skipped the most since it is no longer relevant>
+
+> I'm not against the idea, I just feel that the gains in your patch in
+> its current form do not justify the additional locking and complextity
+> costs. Combined with parallel processing and RCU lists it would be a
+> no brainer and probably merged instantly.
+
+Ok, I will see, what I can do.
+
+Richard
