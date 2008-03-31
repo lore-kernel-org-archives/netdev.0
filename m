@@ -1,51 +1,54 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [PATCH] [IP] UDP: Use SEQ_START_TOKEN.
-Date: Mon, 31 Mar 2008 17:56:52 +0900 (JST)
-Message-ID: <20080331.175652.131042307.yoshfuji@linux-ipv6.org>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: [2.6 PATCH] IPV6: Check length of optval provided by user in setsockopt()
+Date: Mon, 31 Mar 2008 17:08:38 +0800
+Message-ID: <47F0AA16.1070900@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: davem@davemloft.net
+Cc: NETDEV <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:55647 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752904AbYCaIzU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 04:55:20 -0400
+Received: from cn.fujitsu.com ([222.73.24.84]:54702 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754744AbYCaJJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Mar 2008 05:09:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Check length of setsockopt's optval, which provided by user, before copy it
+from user space.
 
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 ---
- net/ipv4/udp.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/ipv6/ipv6_sockglue.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 7ea1b67..1704c14 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1556,14 +1556,14 @@ static void *udp_seq_start(struct seq_file *seq, loff_t *pos)
- 	__acquires(udp_hash_lock)
- {
- 	read_lock(&udp_hash_lock);
--	return *pos ? udp_get_idx(seq, *pos-1) : (void *)1;
-+	return *pos ? udp_get_idx(seq, *pos-1) : SEQ_START_TOKEN;
- }
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index bf2a686..1ad0ac9 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -557,6 +557,9 @@ done:
+ 	{
+ 		struct ipv6_mreq mreq;
  
- static void *udp_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- {
- 	struct sock *sk;
++		if (optlen != sizeof(struct ipv6_mreq))
++			goto e_inval;
++
+ 		retv = -EPROTO;
+ 		if (inet_sk(sk)->is_icsk)
+ 			break;
+@@ -595,6 +598,9 @@ done:
+ 		struct group_req greq;
+ 		struct sockaddr_in6 *psin6;
  
--	if (v == (void *)1)
-+	if (v == SEQ_START_TOKEN)
- 		sk = udp_get_idx(seq, 0);
- 	else
- 		sk = udp_get_next(seq, v);
++		if (optlen != sizeof(struct group_req))
++			goto e_inval;
++
+ 		retv = -EFAULT;
+ 		if (copy_from_user(&greq, optval, sizeof(struct group_req)))
+ 			break;
 -- 
-1.4.4.4
+1.5.3.4
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+
