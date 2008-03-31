@@ -1,36 +1,40 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 0/13 net-2.6.26] UDP/ICMP/TCP for a namespace v2
-Date: Mon, 31 Mar 2008 17:16:07 +0400
-Message-ID: <1206969367.10660.16.camel@iris.sw.ru>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Netdev List <netdev@vger.kernel.org>, devel@openvz.org,
-	containers <containers@lists.osdl.org>, xemul <xemul@openvz.org>
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH 10/13 net-2.6.26] [INET]: uc_ttl assignment in inet_ctl_sock_create is redundant.
+Date: Mon, 31 Mar 2008 17:16:50 +0400
+Message-ID: <1206969413-12096-10-git-send-email-den@openvz.org>
+References: <1206969367.10660.16.camel@iris.sw.ru>
+Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
+	"Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:44994 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:3737 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755074AbYCaNQu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2008 09:16:50 -0400
+	id S1755224AbYCaNRA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Mar 2008 09:17:00 -0400
+In-Reply-To: <1206969367.10660.16.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, Dave!
-
-This patch set finally enables TCP/UDP and ICMP inside a namespace.
-In order to do this we fix ARP processing, IP options processing and
-allow packets to flow to namespace aware protocols.
-
-Finally, this makes namespace functional and alive :)
-
-Changed from v1:
-- inet_csk_ctl_sock_create is renamed to inet_ctl_sock_create. Thanks
-  to Arnaldo Carvalho de Melo <acme@redhat.com and Vlad Yasevich
-  <vladislav.yasevich@hp.com>
-- dccp_ctl_make_reset now accept sock rather than socket. Thanks to
-  Arnaldo Carvalho de Melo <acme@redhat.com>
-- added inet_ctl_sock_destroy
+uc_ttl is initialized in inet(6)_create and never changed except setsockopt
+ioctl. Remove this assignment.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ net/ipv4/af_inet.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index cf766ad..72ae8ed 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1260,7 +1260,6 @@ int inet_ctl_sock_create(struct sock **sk, unsigned short family,
+ 	if (rc == 0) {
+ 		*sk = sock->sk;
+ 		(*sk)->sk_allocation = GFP_ATOMIC;
+-		inet_sk(*sk)->uc_ttl = -1;
+ 		/*
+ 		 * Unhash it so that IP input processing does not even see it,
+ 		 * we do not wish this socket to see incoming packets.
+-- 
+1.5.3.rc5
 
