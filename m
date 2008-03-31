@@ -1,92 +1,47 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 10371] New: On big-endian machines getsockopt
- returns 0 (via optval) for optlen==1 when returned value should 255
-Date: Mon, 31 Mar 2008 11:33:49 -0700
-Message-ID: <20080331113349.1c3abb48.akpm@linux-foundation.org>
-References: <bug-10371-10286@http.bugzilla.kernel.org/>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: gianfar: multiqueue, vlan pbits -> qos?
+Date: Mon, 31 Mar 2008 11:33:07 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32904CA4A45@orsmsx414.amr.corp.intel.com>
+References: <47EE9CCD.8080304@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: M.Piechaczek@osmosys.tv
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <afleming@freescale.com>
+To: "Randy Macleod" <macleodr@nortel.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:50914 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753263AbYCaSeB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 14:34:01 -0400
-In-Reply-To: <bug-10371-10286@http.bugzilla.kernel.org/>
+Received: from mga03.intel.com ([143.182.124.21]:47680 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753870AbYCaSep convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 14:34:45 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <47EE9CCD.8080304@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 31 Mar 2008 08:16:05 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+> Has anyone done this already?
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=10371
-> 
->            Summary: On big-endian machines getsockopt returns 0 (via optval)
->                     for optlen==1 when returned value should 255
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.24
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: M.Piechaczek@osmosys.tv
-> 
-> 
-> Latest working kernel version: 
-> Earliest failing kernel version: all 2.6
-> Distribution: 
-> Hardware Environment: 
-> Software Environment: 
-> Problem Description: 
-> 
-> On big-endian machines getsockopt fails for optlen==1 when returned value is
-> 255.
-> Eg. after calling
->   unsigned char ttl = 255;
->   socklen_t     len = sizeof(ttl);
->   setsockopt(socket, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, &len);
-> the following call will fail:
->   getsockopt(socket, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, &len);
-> "ttl" returned will be 0.
-> 
-> 
-> It's because of bug in /net/ipv4/ip_sockglue.c:
-> 
->  static int do_ip_getsockopt(struct sock *sk, int level, int optname,
->                             char __user *optval, int __user *optlen) 
->  ....
->         if (len < sizeof(int) && len > 0 && val>=0 && val<255) {
->                 unsigned char ucval = (unsigned char)val;
->                 len = 1;
->                 if (put_user(len, optlen))
->                         return -EFAULT;
->                 if (copy_to_user(optval,&ucval,1))
->                         return -EFAULT;
->         } else {
->                 len = min_t(unsigned int, sizeof(int), len);
->                 if (put_user(len, optlen))
->                         return -EFAULT;
->                 if (copy_to_user(optval,&val,len))
->                         return -EFAULT;
->         }
->         return 0;
-> } 
-> 
-> The comparision in if-statement should be:
->         if (len < sizeof(int) && len > 0 && val>=0 && val<=255)
-> 
-> Otherwise on big-endian machines copy_to_user(optval,&val,len) routine copies
-> first (highest) byte which is 0 in that case.
-> 
-> 
-> This bug does not occur on low-endian machines since
-> copy_to_user(optval,&val,len) copies right (lowest) byte in that case.
-> 
+Take a look at the ixgbe driver (multiple Tx queues, multiple Rx with
+RSS queues) in the net-2.6.26 tree.
 
-You've done all the hard work - please email us a tested patch?
+> I'm also poking at the multi-queue work that has been done and
+wondering how that might fit into a solution.
+> I haven't read the e1000 multiqueue driver yet...
+
+E1000 was my original target for multiqueue, but ixgbe made more sense
+while the e1000/e1000e driver split was happening.  Basically the way
+the multiqueue kernel side works is to use a multiqueue-aware qdisc
+(prio or round-robin).  When you filter (via tc, iptables and tc), the
+packet's skb->queue_mapping field is populated.  Then use that field in
+your driver to select which Tx queue to use.
+
+As for Rx, you'll need some sort of hardware support to truly filter off
+the wire without heavy driver lifting.  Look at e1000, e1000e, igb, or
+ixgbe, for the RSS setup for Rx.  I'm not sure what your hardware
+supports, but this might be there already.
+
+Hope this helps.  Feel free to ping me about the Tx multiqueue stuff if
+you have additional questions,
+
+Cheers,
+-PJ Waskiewicz
