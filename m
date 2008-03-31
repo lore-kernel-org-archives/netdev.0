@@ -1,101 +1,66 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 6/6][IPV6][NETNS]: Display per-net info in sockstat6
- file.
-Date: Mon, 31 Mar 2008 16:20:01 +0400
-Message-ID: <47F0D6F1.7000105@openvz.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] GENETLINK: Global lock refined to family granularity
+Date: Mon, 31 Mar 2008 14:26:48 +0200
+Message-ID: <20080331122648.GA20815@postel.suug.ch>
+References: <47EB8D8D.8020506@st.com> <20080331103350.GZ20815@postel.suug.ch> <47F0C942.9070603@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Richard MUSIL <richard.musil@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:34687 "EHLO sacred.ru"
+Received: from postel.suug.ch ([194.88.212.233]:52433 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753849AbYCaMUC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2008 08:20:02 -0400
+	id S1754670AbYCaM02 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Mar 2008 08:26:28 -0400
+Content-Disposition: inline
+In-Reply-To: <47F0C942.9070603@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do with the sockstat6 file what we've already done for the sockstat. 
-Same good side effect - ipv6 reassembling stats are now shown per-net.
+* Richard MUSIL <richard.musil@st.com> 2008-03-31 13:21
+> It takes two locks, instead of one. I do not see, how it could be less
+> (in terms of synchronization primitives - but not necessarily mutexes)
+> if I want that level of granularity. Might be more efficient with RCU
+> lists (but I do not know), but complexity remains the same.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+The synchronization mutex in genl_recv() remains and you add an
+additional global mutex genl_fam_lock and a per family lock. That's
+2 vs 6 lock operations. It is possible to use RCU to manage the
+family, ops and groups list and make the processing path lockless.
+All you have to do is synchronize the family unregister function to
+message processing as dumping can't disable preempt. Given this, your
+patch would be a lot more acceptable to me as the biggest cost would
+be reduced and the cost vs gain ratio would be a lot better.
 
----
- net/ipv6/proc.c |   41 ++++++++++++++++++++++++++++++++++-------
- 1 files changed, 34 insertions(+), 7 deletions(-)
+> In that case, nothing can be done. Of course, trying to unregister
+> family form its own handler could lead to either crash or deadlock. The
+> point was, it would not deadlock when manipulating other family - which
+> happens with current implementation.
+> Also, it would allow processing of different messages in parallel as
+> long as they are belonging to different families. Right now, the
+> processing is blocked as long as any single message is processed.
 
-diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
-index 5623660..ca8b82f 100644
---- a/net/ipv6/proc.c
-+++ b/net/ipv6/proc.c
-@@ -35,16 +35,18 @@ static struct proc_dir_entry *proc_net_devsnmp6;
- 
- static int sockstat6_seq_show(struct seq_file *seq, void *v)
- {
-+	struct net *net = seq->private;
-+
- 	seq_printf(seq, "TCP6: inuse %d\n",
--		       sock_prot_inuse_get(&init_net, &tcpv6_prot));
-+		       sock_prot_inuse_get(net, &tcpv6_prot));
- 	seq_printf(seq, "UDP6: inuse %d\n",
--		       sock_prot_inuse_get(&init_net, &udpv6_prot));
-+		       sock_prot_inuse_get(net, &udpv6_prot));
- 	seq_printf(seq, "UDPLITE6: inuse %d\n",
--			sock_prot_inuse_get(&init_net, &udplitev6_prot));
-+			sock_prot_inuse_get(net, &udplitev6_prot));
- 	seq_printf(seq, "RAW6: inuse %d\n",
--		       sock_prot_inuse_get(&init_net, &rawv6_prot));
-+		       sock_prot_inuse_get(net, &rawv6_prot));
- 	seq_printf(seq, "FRAG6: inuse %d memory %d\n",
--		       ip6_frag_nqueues(&init_net), ip6_frag_mem(&init_net));
-+		       ip6_frag_nqueues(net), ip6_frag_mem(net));
- 	return 0;
- }
- 
-@@ -183,7 +185,32 @@ static int snmp6_seq_show(struct seq_file *seq, void *v)
- 
- static int sockstat6_seq_open(struct inode *inode, struct file *file)
- {
--	return single_open(file, sockstat6_seq_show, NULL);
-+	int err;
-+	struct net *net;
-+
-+	err = -ENXIO;
-+	net = get_proc_net(inode);
-+	if (net == NULL)
-+		goto err_net;
-+
-+	err = single_open(file, sockstat6_seq_show, net);
-+	if (err < 0)
-+		goto err_open;
-+
-+	return 0;
-+
-+err_open:
-+	put_net(net);
-+err_net:
-+	return err;
-+}
-+
-+static int sockstat6_seq_release(struct inode *inode, struct file *file)
-+{
-+	struct net *net = ((struct seq_file *)file->private_data)->private;
-+
-+	put_net(net);
-+	return single_release(inode, file);
- }
- 
- static const struct file_operations sockstat6_seq_fops = {
-@@ -191,7 +218,7 @@ static const struct file_operations sockstat6_seq_fops = {
- 	.open	 = sockstat6_seq_open,
- 	.read	 = seq_read,
- 	.llseek	 = seq_lseek,
--	.release = single_release,
-+	.release = sockstat6_seq_release,
- };
- 
- static int snmp6_seq_open(struct inode *inode, struct file *file)
--- 
-1.5.3.4
+The old behaviour is well defined and obvious. If you allow manipulation
+during message processing then allow it for all objects not just some.
 
+I'm all for parallel processing. It has been requested for some time now
+by various people but so far nobody got around implementing it. It would
+be a very legitimate reason to complicate locking and would even be
+worth some additional locking costs. I'm all for this.
+
+> I am not convinced about that. Does it mean you suggest that any
+> genetlink message handler should by default offload processing to
+> workqueue, so it won't block any other message processing from any other
+> family?
+
+I meant deferring the registration of operations to after message
+processing using workqueues. Much like it is done for many other things
+which can't be done in current locking context.
+
+> You right it does not. Should I look into it, or was your answer
+> definitive no?
+
+I'm not against the idea, I just feel that the gains in your patch in
+its current form do not justify the additional locking and complextity
+costs. Combined with parallel processing and RCU lists it would be a
+no brainer and probably merged instantly.
