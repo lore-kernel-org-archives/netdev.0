@@ -1,66 +1,101 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] GENETLINK: Global lock refined to family granularity
-Date: Mon, 31 Mar 2008 14:26:48 +0200
-Message-ID: <20080331122648.GA20815@postel.suug.ch>
-References: <47EB8D8D.8020506@st.com> <20080331103350.GZ20815@postel.suug.ch> <47F0C942.9070603@st.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][VLAN]: Proc entry is not renamed when vlan device name changes.
+Date: Mon, 31 Mar 2008 17:06:15 +0400
+Message-ID: <47F0E1C7.7040908@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Richard MUSIL <richard.musil@st.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:52433 "EHLO postel.suug.ch"
+Received: from sacred.ru ([62.205.161.221]:50226 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754670AbYCaM02 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2008 08:26:28 -0400
-Content-Disposition: inline
-In-Reply-To: <47F0C942.9070603@st.com>
+	id S1751986AbYCaNGU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Mar 2008 09:06:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Richard MUSIL <richard.musil@st.com> 2008-03-31 13:21
-> It takes two locks, instead of one. I do not see, how it could be less
-> (in terms of synchronization primitives - but not necessarily mutexes)
-> if I want that level of granularity. Might be more efficient with RCU
-> lists (but I do not know), but complexity remains the same.
+This may lead to situations, when each of two proc entries produce
+data for the other's device.
 
-The synchronization mutex in genl_recv() remains and you add an
-additional global mutex genl_fam_lock and a per family lock. That's
-2 vs 6 lock operations. It is possible to use RCU to manage the
-family, ops and groups list and make the processing path lockless.
-All you have to do is synchronize the family unregister function to
-message processing as dumping can't disable preempt. Given this, your
-patch would be a lot more acceptable to me as the biggest cost would
-be reduced and the cost vs gain ratio would be a lot better.
+Looks like a BUG, so this patch is for net-2.6. It will not apply 
+to net-2.6.26 since dev->nd_net access is replaced with dev_net(dev) 
+one. Should I rework the patch to fit 2.6.26?
 
-> In that case, nothing can be done. Of course, trying to unregister
-> family form its own handler could lead to either crash or deadlock. The
-> point was, it would not deadlock when manipulating other family - which
-> happens with current implementation.
-> Also, it would allow processing of different messages in parallel as
-> long as they are belonging to different families. Right now, the
-> processing is blocked as long as any single message is processed.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-The old behaviour is well defined and obvious. If you allow manipulation
-during message processing then allow it for all objects not just some.
+---
 
-I'm all for parallel processing. It has been requested for some time now
-by various people but so far nobody got around implementing it. It would
-be a very legitimate reason to complicate locking and would even be
-worth some additional locking costs. I'm all for this.
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index dbc81b9..b33410a 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -374,17 +374,35 @@ static void vlan_sync_address(struct net_device *dev,
+ 	memcpy(vlan->real_dev_addr, dev->dev_addr, ETH_ALEN);
+ }
+ 
++static void __vlan_device_event(struct net_device *dev, unsigned long event)
++{
++	switch (event) {
++	case NETDEV_CHANGENAME:
++		vlan_proc_rem_dev(dev);
++		if (vlan_proc_add_dev(dev) < 0)
++			pr_warning("8021q: failed to change proc name for %s\n",
++					dev->name);
++		break;
++	}
++}
++
+ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 			     void *ptr)
+ {
+ 	struct net_device *dev = ptr;
+-	struct vlan_group *grp = __vlan_find_group(dev->ifindex);
++	struct vlan_group *grp;
+ 	int i, flgs;
+ 	struct net_device *vlandev;
+ 
+ 	if (dev->nd_net != &init_net)
+ 		return NOTIFY_DONE;
+ 
++	if (is_vlan_dev(dev)) {
++		__vlan_device_event(dev, event);
++		goto out;
++	}
++
++	grp = __vlan_find_group(dev->ifindex);
+ 	if (!grp)
+ 		goto out;
+ 
+diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
+index 73efcc7..51271ae 100644
+--- a/net/8021q/vlan.h
++++ b/net/8021q/vlan.h
+@@ -45,4 +45,9 @@ void vlan_netlink_fini(void);
+ 
+ extern struct rtnl_link_ops vlan_link_ops;
+ 
++static inline int is_vlan_dev(struct net_device *dev)
++{
++	return dev->priv_flags & IFF_802_1Q_VLAN;
++}
++
+ #endif /* !(__BEN_VLAN_802_1Q_INC__) */
+diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
+index 146cfb0..9671aa5 100644
+--- a/net/8021q/vlanproc.c
++++ b/net/8021q/vlanproc.c
+@@ -210,11 +210,6 @@ int vlan_proc_rem_dev(struct net_device *vlandev)
+  * The following few functions build the content of /proc/net/vlan/config
+  */
+ 
+-static inline int is_vlan_dev(struct net_device *dev)
+-{
+-	return dev->priv_flags & IFF_802_1Q_VLAN;
+-}
+-
+ /* start read of /proc/net/vlan/config */
+ static void *vlan_seq_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(dev_base_lock)
 
-> I am not convinced about that. Does it mean you suggest that any
-> genetlink message handler should by default offload processing to
-> workqueue, so it won't block any other message processing from any other
-> family?
-
-I meant deferring the registration of operations to after message
-processing using workqueues. Much like it is done for many other things
-which can't be done in current locking context.
-
-> You right it does not. Should I look into it, or was your answer
-> definitive no?
-
-I'm not against the idea, I just feel that the gains in your patch in
-its current form do not justify the additional locking and complextity
-costs. Combined with parallel processing and RCU lists it would be a
-no brainer and probably merged instantly.
