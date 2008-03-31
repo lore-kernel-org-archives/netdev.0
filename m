@@ -1,200 +1,195 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 11/13 net-2.6.26] [IPV6]: Simplify IPv6 control sockets creation.
-Date: Mon, 31 Mar 2008 17:16:51 +0400
-Message-ID: <1206969413-12096-11-git-send-email-den@openvz.org>
+Subject: [PATCH 4/13 net-2.6.26] [INET]: Rename inet_csk_ctl_sock_create to inet_ctl_sock_create.
+Date: Mon, 31 Mar 2008 17:16:44 +0400
+Message-ID: <1206969413-12096-4-git-send-email-den@openvz.org>
 References: <1206969367.10660.16.camel@iris.sw.ru>
 Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
 	"Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:41337 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:26413 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755352AbYCaNRG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2008 09:17:06 -0400
+	id S1755347AbYCaNRA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Mar 2008 09:17:00 -0400
 In-Reply-To: <1206969367.10660.16.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do this by replacing sock_create_kern with inet_ctl_sock_create.
+This call is nothing common with INET connection sockets code. It simply
+creates an unhashes kernel sockets for protocol messages.
+
+Move the new call into af_inet.c after the rename.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- net/ipv6/icmp.c  |   16 ++++++----------
- net/ipv6/mcast.c |   19 ++++++-------------
- net/ipv6/ndisc.c |   12 +++++-------
- 3 files changed, 17 insertions(+), 30 deletions(-)
+ include/net/inet_common.h          |    5 +++++
+ include/net/inet_connection_sock.h |    5 -----
+ net/dccp/ipv4.c                    |    4 ++--
+ net/dccp/ipv6.c                    |    4 ++--
+ net/ipv4/af_inet.c                 |   19 +++++++++++++++++++
+ net/ipv4/inet_connection_sock.c    |   19 -------------------
+ net/ipv4/tcp_ipv4.c                |    4 ++--
+ net/ipv6/tcp_ipv6.c                |    3 ++-
+ 8 files changed, 32 insertions(+), 31 deletions(-)
 
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index 63309d1..24a657e 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -64,6 +64,7 @@
- #include <net/addrconf.h>
- #include <net/icmp.h>
- #include <net/xfrm.h>
+diff --git a/include/net/inet_common.h b/include/net/inet_common.h
+index 38d5a1e..d6238bd 100644
+--- a/include/net/inet_common.h
++++ b/include/net/inet_common.h
+@@ -39,6 +39,11 @@ extern int			inet_getname(struct socket *sock,
+ extern int			inet_ioctl(struct socket *sock, 
+ 					   unsigned int cmd, unsigned long arg);
+ 
++extern int			inet_ctl_sock_create(struct socket **sock,
++						     unsigned short family,
++						     unsigned short type,
++						     unsigned char protocol);
++
+ #endif
+ 
+ 
+diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
+index f00f057..2ff545a 100644
+--- a/include/net/inet_connection_sock.h
++++ b/include/net/inet_connection_sock.h
+@@ -327,11 +327,6 @@ extern void inet_csk_listen_stop(struct sock *sk);
+ 
+ extern void inet_csk_addr2sockaddr(struct sock *sk, struct sockaddr *uaddr);
+ 
+-extern int inet_csk_ctl_sock_create(struct socket **sock,
+-				    unsigned short family,
+-				    unsigned short type,
+-				    unsigned char protocol);
+-
+ extern int inet_csk_compat_getsockopt(struct sock *sk, int level, int optname,
+ 				      char __user *optval, int __user *optlen);
+ extern int inet_csk_compat_setsockopt(struct sock *sk, int level, int optname,
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 6d8f684..feb3fa5 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -1003,8 +1003,8 @@ static int __init dccp_v4_init(void)
+ 
+ 	inet_register_protosw(&dccp_v4_protosw);
+ 
+-	err = inet_csk_ctl_sock_create(&socket, PF_INET,
+-				       SOCK_DCCP, IPPROTO_DCCP);
++	err = inet_ctl_sock_create(&socket, PF_INET,
++				   SOCK_DCCP, IPPROTO_DCCP);
+ 	if (err)
+ 		goto out_unregister_protosw;
+ 	dccp_v4_ctl_sk = socket->sk;
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index c5d9d1b..5690fbd 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -1185,8 +1185,8 @@ static int __init dccp_v6_init(void)
+ 
+ 	inet6_register_protosw(&dccp_v6_protosw);
+ 
+-	err = inet_csk_ctl_sock_create(&socket, PF_INET6,
+-				       SOCK_DCCP, IPPROTO_DCCP);
++	err = inet_ctl_sock_create(&socket, PF_INET6,
++				   SOCK_DCCP, IPPROTO_DCCP);
+ 	if (err != 0)
+ 		goto out_unregister_protosw;
+ 	dccp_v6_ctl_sk = socket->sk;
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 5882a13..7ab0bd6 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1250,6 +1250,25 @@ out:
+ 	return segs;
+ }
+ 
++int inet_ctl_sock_create(struct socket **sock, unsigned short family,
++			 unsigned short type, unsigned char protocol)
++{
++	int rc = sock_create_kern(family, type, protocol, sock);
++
++	if (rc == 0) {
++		(*sock)->sk->sk_allocation = GFP_ATOMIC;
++		inet_sk((*sock)->sk)->uc_ttl = -1;
++		/*
++		 * Unhash it so that IP input processing does not even see it,
++		 * we do not wish this socket to see incoming packets.
++		 */
++		(*sock)->sk->sk_prot->unhash((*sock)->sk);
++	}
++	return rc;
++}
++
++EXPORT_SYMBOL_GPL(inet_ctl_sock_create);
++
+ unsigned long snmp_fold_field(void *mib[], int offt)
+ {
+ 	unsigned long res = 0;
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index a7fcaf2..ee55678 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -651,25 +651,6 @@ void inet_csk_addr2sockaddr(struct sock *sk, struct sockaddr *uaddr)
+ 
+ EXPORT_SYMBOL_GPL(inet_csk_addr2sockaddr);
+ 
+-int inet_csk_ctl_sock_create(struct socket **sock, unsigned short family,
+-			     unsigned short type, unsigned char protocol)
+-{
+-	int rc = sock_create_kern(family, type, protocol, sock);
+-
+-	if (rc == 0) {
+-		(*sock)->sk->sk_allocation = GFP_ATOMIC;
+-		inet_sk((*sock)->sk)->uc_ttl = -1;
+-		/*
+-		 * Unhash it so that IP input processing does not even see it,
+-		 * we do not wish this socket to see incoming packets.
+-		 */
+-		(*sock)->sk->sk_prot->unhash((*sock)->sk);
+-	}
+-	return rc;
+-}
+-
+-EXPORT_SYMBOL_GPL(inet_csk_ctl_sock_create);
+-
+ #ifdef CONFIG_COMPAT
+ int inet_csk_compat_getsockopt(struct sock *sk, int level, int optname,
+ 			       char __user *optval, int __user *optlen)
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 1d77f37..edf5a37 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2491,8 +2491,8 @@ struct proto tcp_prot = {
+ void __init tcp_v4_init(void)
+ {
+ 	struct socket *__tcp_socket;
+-	if (inet_csk_ctl_sock_create(&__tcp_socket, PF_INET, SOCK_RAW,
+-				     IPPROTO_TCP) < 0)
++	if (inet_ctl_sock_create(&__tcp_socket, PF_INET, SOCK_RAW,
++				 IPPROTO_TCP) < 0)
+ 		panic("Failed to create the TCP control socket.\n");
+ 	tcp_sock = __tcp_socket->sk;
+ }
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 6d851c3..d98222f 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -60,6 +60,7 @@
+ #include <net/dsfield.h>
+ #include <net/timewait_sock.h>
+ #include <net/netdma.h>
 +#include <net/inet_common.h>
  
  #include <asm/uaccess.h>
- #include <asm/system.h>
-@@ -808,9 +809,8 @@ static int __net_init icmpv6_sk_init(struct net *net)
- 		return -ENOMEM;
  
- 	for_each_possible_cpu(i) {
--		struct socket *sock;
--		err = sock_create_kern(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6,
--				       &sock);
-+		err = inet_ctl_sock_create(&sk, PF_INET6,
-+					   SOCK_RAW, IPPROTO_ICMPV6, net);
- 		if (err < 0) {
- 			printk(KERN_ERR
- 			       "Failed to initialize the ICMP6 control socket "
-@@ -819,10 +819,8 @@ static int __net_init icmpv6_sk_init(struct net *net)
- 			goto fail;
- 		}
- 
--		net->ipv6.icmp_sk[i] = sk = sock->sk;
--		sk_change_net(sk, net);
-+		net->ipv6.icmp_sk[i] = sk;
- 
--		sk->sk_allocation = GFP_ATOMIC;
- 		/*
- 		 * Split off their lock-class, because sk->sk_dst_lock
- 		 * gets used from softirqs, which is safe for
-@@ -837,14 +835,12 @@ static int __net_init icmpv6_sk_init(struct net *net)
- 		 */
- 		sk->sk_sndbuf =
- 			(2 * ((64 * 1024) + sizeof(struct sk_buff)));
--
--		sk->sk_prot->unhash(sk);
- 	}
- 	return 0;
- 
-  fail:
- 	for (j = 0; j < i; j++)
--		sk_release_kernel(net->ipv6.icmp_sk[j]);
-+		inet_ctl_sock_destroy(net->ipv6.icmp_sk[j]);
- 	kfree(net->ipv6.icmp_sk);
- 	return err;
- }
-@@ -854,7 +850,7 @@ static void __net_exit icmpv6_sk_exit(struct net *net)
- 	int i;
- 
- 	for_each_possible_cpu(i) {
--		sk_release_kernel(net->ipv6.icmp_sk[i]);
-+		inet_ctl_sock_destroy(net->ipv6.icmp_sk[i]);
- 	}
- 	kfree(net->ipv6.icmp_sk);
- }
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index d810cff..2e6a53f 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -59,6 +59,7 @@
- #include <net/ndisc.h>
- #include <net/addrconf.h>
- #include <net/ip6_route.h>
-+#include <net/inet_common.h>
- 
- #include <net/ip6_checksum.h>
- 
-@@ -2672,12 +2673,10 @@ static void igmp6_proc_exit(struct net *net)
- 
- static int igmp6_net_init(struct net *net)
- {
--	struct ipv6_pinfo *np;
--	struct socket *sock;
--	struct sock *sk;
- 	int err;
- 
--	err = sock_create_kern(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6, &sock);
-+	err = inet_ctl_sock_create(&net->ipv6.igmp_sk, PF_INET6,
-+				   SOCK_RAW, IPPROTO_ICMPV6, net);
- 	if (err < 0) {
- 		printk(KERN_ERR
- 		       "Failed to initialize the IGMP6 control socket (err %d).\n",
-@@ -2685,13 +2684,7 @@ static int igmp6_net_init(struct net *net)
- 		goto out;
- 	}
- 
--	net->ipv6.igmp_sk = sk = sock->sk;
--	sk_change_net(sk, net);
--	sk->sk_allocation = GFP_ATOMIC;
--	sk->sk_prot->unhash(sk);
--
--	np = inet6_sk(sk);
--	np->hop_limit = 1;
-+	inet6_sk(net->ipv6.igmp_sk)->hop_limit = 1;
- 
- 	err = igmp6_proc_init(net);
- 	if (err)
-@@ -2700,13 +2693,13 @@ out:
- 	return err;
- 
- out_sock_create:
--	sk_release_kernel(net->ipv6.igmp_sk);
-+	inet_ctl_sock_destroy(net->ipv6.igmp_sk);
- 	goto out;
- }
- 
- static void igmp6_net_exit(struct net *net)
- {
--	sk_release_kernel(net->ipv6.igmp_sk);
-+	inet_ctl_sock_destroy(net->ipv6.igmp_sk);
- 	igmp6_proc_exit(net);
- }
- 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 510aa74..06d80c6 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -84,6 +84,7 @@
- 
- #include <net/flow.h>
- #include <net/ip6_checksum.h>
-+#include <net/inet_common.h>
- #include <linux/proc_fs.h>
- 
- #include <linux/netfilter.h>
-@@ -1731,12 +1732,12 @@ static int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl, int __user *name,
- 
- static int ndisc_net_init(struct net *net)
- {
--	struct socket *sock;
- 	struct ipv6_pinfo *np;
+@@ -2202,7 +2203,7 @@ static int tcpv6_net_init(struct net *net)
+ 	struct socket *sock;
  	struct sock *sk;
- 	int err;
  
--	err = sock_create_kern(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6, &sock);
-+	err = inet_ctl_sock_create(&sk, PF_INET6,
-+				   SOCK_RAW, IPPROTO_ICMPV6, net);
- 	if (err < 0) {
- 		ND_PRINTK0(KERN_ERR
- 			   "ICMPv6 NDISC: Failed to initialize the control socket (err %d).\n",
-@@ -1744,22 +1745,19 @@ static int ndisc_net_init(struct net *net)
+-	err = inet_csk_ctl_sock_create(&sock, PF_INET6, SOCK_RAW, IPPROTO_TCP);
++	err = inet_ctl_sock_create(&sock, PF_INET6, SOCK_RAW, IPPROTO_TCP);
+ 	if (err)
  		return err;
- 	}
  
--	net->ipv6.ndisc_sk = sk = sock->sk;
--	sk_change_net(sk, net);
-+	net->ipv6.ndisc_sk = sk;
- 
- 	np = inet6_sk(sk);
--	sk->sk_allocation = GFP_ATOMIC;
- 	np->hop_limit = 255;
- 	/* Do not loopback ndisc messages */
- 	np->mc_loop = 0;
--	sk->sk_prot->unhash(sk);
- 
- 	return 0;
- }
- 
- static void ndisc_net_exit(struct net *net)
- {
--	sk_release_kernel(net->ipv6.ndisc_sk);
-+	inet_ctl_sock_destroy(net->ipv6.ndisc_sk);
- }
- 
- static struct pernet_operations ndisc_net_ops = {
 -- 
 1.5.3.rc5
 
