@@ -1,47 +1,42 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [BUILD_FAILURE] linux-next: Tree for March 31 build fails with
-	CONFIG_SLICOSS=y
-Date: Mon, 31 Mar 2008 08:55:54 -0700
-Message-ID: <20080331155554.GE3696@kroah.com>
-References: <20080331181118.7964d4a9.sfr@canb.auug.org.au> <47F0E456.5080201@linux.vnet.ibm.com> <20080401003110.d4834b07.sfr@canb.auug.org.au>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [patch 1/4] drivers/atm/firestream.c: suppress uninitialized var warning
+Date: Mon, 31 Mar 2008 16:57:32 +0100
+Message-ID: <20080331155732.GK9785@ZenIV.linux.org.uk>
+References: <20080328165437.bfd7726c.akpm@linux-foundation.org> <20080328.165812.253071507.davem@davemloft.net> <20080328171128.ff03ec02.akpm@linux-foundation.org> <20080328.173523.66723417.davem@davemloft.net> <20080328173946.23903be0.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Andy Whitcroft <apw@shadowen.org>,
-	Christopher Harrer <charrer@alacritech.com>,
-	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	chas@cmf.nrl.navy.mil, jeff@garzik.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:56253 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752642AbYCaPud (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 11:50:33 -0400
+Received: from zeniv.linux.org.uk ([195.92.253.2]:47755 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750943AbYCaP5h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 11:57:37 -0400
 Content-Disposition: inline
-In-Reply-To: <20080401003110.d4834b07.sfr@canb.auug.org.au>
+In-Reply-To: <20080328173946.23903be0.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 01, 2008 at 12:31:10AM +1100, Stephen Rothwell wrote:
-> Hi Greg,
+On Fri, Mar 28, 2008 at 05:39:46PM -0700, Andrew Morton wrote:
+> On Fri, 28 Mar 2008 17:35:23 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
 > 
-> Strike two!  Again, these drivers need to build (or not try to build) for
-> all architectures ... Its out until you tell me the above is true.
+> > From: Andrew Morton <akpm@linux-foundation.org>
+> > Date: Fri, 28 Mar 2008 17:11:28 -0700
+> > 
+> > > Plus uninitialized_var() gives us something to grep for and
+> > > experiment with if/when future gcc's get smarter.
+> > 
+> > That's sounds like a great investment of your time.
+> > 
+> > I guess there aren't any more interesting things to work
+> > on, nor bugs to fix.
 > 
-> #if defined(CONFIG_X86_64)
->         hcmd->cmdsize = (ulong32) ((((ulong64) & ihcmd->u.slic_buffers.bufs[1] -
->                                      (ulong64) hcmd) + 31) >> 5);
-> #elif defined(CONFIG_X86)
->         hcmd->cmdsize = ((((ulong32) & ihcmd->u.slic_buffers.bufs[1] -
->                            (ulong32) hcmd) + 31) >> 5);
-> #else
->         Stop Compilation;
+> So you're all outa reasons.
 
-Ah, missed that one, that's why it built on my machines (x86-64 and
-i386), but would die on anything else.  That test is just wrong, I'll
-fix it up to get it to build on all arches (doesn't mean it will run
-though, it assumes that port io is memory mapped flat on all machines
-and still needs a lot of work to be fixed.
+Not really...  "we know better, gcc must STFU" applies _now_.  And gcc getting
+smarter is not the only way it can become false - code change in the function
+can create real uninitialized use.  gcc tends to change the warning on that,
+but not if it's told to STFU in either way.
 
-thanks,
-
-greg k-h
+IOW, my preference would be to leave the warning as is.
