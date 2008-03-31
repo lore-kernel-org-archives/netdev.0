@@ -1,60 +1,105 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Adding IPv6 support to IPVS: some general questions about kernel development
-Date: Mon, 31 Mar 2008 16:53:08 +0200
-Message-ID: <f4845fc0803310753o56ccbae5uda1e216fa139857@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Fw: [Bug 10371] New: On big-endian machines getsockopt returns 0
+ (via optval) for optlen==1 when returned value should 255
+Date: Mon, 31 Mar 2008 08:45:22 -0700
+Message-ID: <20080331084522.5c9a2732@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:3025 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751312AbYCaOxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 10:53:15 -0400
-Received: from zps76.corp.google.com (zps76.corp.google.com [172.25.146.76])
-	by smtp-out.google.com with ESMTP id m2VEr95T031909
-	for <netdev@vger.kernel.org>; Mon, 31 Mar 2008 15:53:10 +0100
-Received: from ik-out-1112.google.com (ikab35.prod.google.com [10.68.53.35])
-	by zps76.corp.google.com with ESMTP id m2VEqMGV025655
-	for <netdev@vger.kernel.org>; Mon, 31 Mar 2008 07:53:09 -0700
-Received: by ik-out-1112.google.com with SMTP id b35so251814ika.7
-        for <netdev@vger.kernel.org>; Mon, 31 Mar 2008 07:53:08 -0700 (PDT)
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:43363 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751130AbYCaPpc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 11:45:32 -0400
+Received: from extreme (97-115-66-114.ptld.qwest.net [97.115.66.114])
+	(authenticated bits=0)
+	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id m2VFjTK7012653
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 31 Mar 2008 08:45:31 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-I was redirected here from lvs-devel for a particular question. As
-part of an internship at Google, I am currently looking at porting the
-IPVS (IP virtual server) kernel part of LVS to support IPv6. First
-off, I am neither a real specialist in any of the involved areas yet
-(IPv6, load balancing) nor do I have much experience writing kernel
-code (mainly reading it for some time now), but I will try to learn as
-much as I can each day. Do expect lots of newbie questions though ;)
 
-One question I had on lvs-devel that people here might know more
-about: IPVS is currently sitting at "net/ipv4/ipvs/..." in the kernel.
-A lot of this code would probably be the same for an IPv6 version, so
-the code would have to be refactored somehow and partially moved to a
-location where it can be used by both the IPv4 and IPv6 code. Are
-there any special rules for this and what do I have to think of? For
-example, could I just move the common code to a directory "net/ipvs"
-(or even all of the code, for both IPv4 and IPv6) or would people
-object?
+Begin forwarded message:
 
-I'm also not sure yet on how to best begin coding in such a manner
-that the whole thing will be manageable with small, separate patches
-that each have a chance of being accepted (would that mean that each
-small patch would have to be useful on its own in a way? That seems
-difficult). This is just because I also don't have a lot of experience
-patching other people's projects in this manner.
+Date: Mon, 31 Mar 2008 08:16:05 -0700 (PDT)
+From: bugme-daemon@bugzilla.kernel.org
+To: shemminger@linux-foundation.org
+Subject: [Bug 10371] New: On big-endian machines getsockopt returns 0 (via optval) for optlen==1 when returned value should 255
 
-If any of you could offer some advice on these issues, I would greatly
-appreciate it!
 
-Kind Regards,
-Julius Volz
+http://bugzilla.kernel.org/show_bug.cgi?id=10371
+
+           Summary: On big-endian machines getsockopt returns 0 (via optval)
+                    for optlen==1 when returned value should 255
+           Product: Networking
+           Version: 2.5
+     KernelVersion: 2.6.24
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: M.Piechaczek@osmosys.tv
+
+
+Latest working kernel version: 
+Earliest failing kernel version: all 2.6
+Distribution: 
+Hardware Environment: 
+Software Environment: 
+Problem Description: 
+
+On big-endian machines getsockopt fails for optlen==1 when returned value is
+255.
+Eg. after calling
+  unsigned char ttl = 255;
+  socklen_t     len = sizeof(ttl);
+  setsockopt(socket, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, &len);
+the following call will fail:
+  getsockopt(socket, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, &len);
+"ttl" returned will be 0.
+
+
+It's because of bug in /net/ipv4/ip_sockglue.c:
+
+ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+                            char __user *optval, int __user *optlen) 
+ ....
+        if (len < sizeof(int) && len > 0 && val>=0 && val<255) {
+                unsigned char ucval = (unsigned char)val;
+                len = 1;
+                if (put_user(len, optlen))
+                        return -EFAULT;
+                if (copy_to_user(optval,&ucval,1))
+                        return -EFAULT;
+        } else {
+                len = min_t(unsigned int, sizeof(int), len);
+                if (put_user(len, optlen))
+                        return -EFAULT;
+                if (copy_to_user(optval,&val,len))
+                        return -EFAULT;
+        }
+        return 0;
+} 
+
+The comparision in if-statement should be:
+        if (len < sizeof(int) && len > 0 && val>=0 && val<=255)
+
+Otherwise on big-endian machines copy_to_user(optval,&val,len) routine copies
+first (highest) byte which is 0 in that case.
+
+
+This bug does not occur on low-endian machines since
+copy_to_user(optval,&val,len) copies right (lowest) byte in that case.
+
 
 -- 
-Google Switzerland GmbH
+Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug, or are watching the assignee.
