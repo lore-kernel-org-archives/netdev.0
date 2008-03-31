@@ -1,41 +1,26 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC,PATCH] loopback: calls netif_receive_skb() instead of netif_rx()
-Date: Mon, 31 Mar 2008 08:38:22 +0200
-Message-ID: <47F086DE.20306@cosmosbay.com>
-References: <47E6A5FD.6060407@cosmosbay.com>	<20080328.183652.99818676.davem@davemloft.net>	<47EDFB3B.3060206@cosmosbay.com> <20080329.165415.86797572.davem@davemloft.net>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH 2.6] [IPV6] MCAST: Ensure to check multicast listener(s).
+Date: Sun, 30 Mar 2008 23:52:01 -0700
+Message-ID: <OF0A2DBFAC.23FF411A-ON8825741D.00259A0E-8825741D.0025B8AE@us.ibm.com>
+References: <20080331.115001.70855239.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from neuf-infra-smtp-out-sp604003av.neufgp.fr ([84.96.92.124]:56046
-	"EHLO neuf-infra-smtp-out-sp604003av.neufgp.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752149AbYCaGic (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 02:38:32 -0400
-In-Reply-To: <20080329.165415.86797572.davem@davemloft.net>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:47381 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751191AbYCaGwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 02:52:03 -0400
+In-Reply-To: <20080331.115001.70855239.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Sat, 29 Mar 2008 09:18:03 +0100
->=20
->> BTW, can loopback_xmit() be called on an interrupt stack ?
->=20
-> Absolutely, softirq processes TCP data, ACK goes out in
-> softirq context.
+Sounds reasonable enough to me.
 
-yes, ICMP messages (if any are sent) too.
+                        +-DLS
 
->=20
-> Softirqs run on interrupt stacks just as hardirqs do.
->=20
+Acked-by: David L Stevens <dlstevens@us.ibm.com>
 
-Well, it depends.
-
-Not on x86_32 with 8K stacks, and some other arches.
-do_softirq() can use the underlying stack too.
-
-Thank you
