@@ -1,145 +1,104 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 4/6][SOCK][NETNS]: Register sockstat(6) files in
- each net.
-Date: Mon, 31 Mar 2008 16:17:41 +0400
-Message-ID: <47F0D665.9010807@openvz.org>
+Subject: [PATCH net-2.6.26 5/6][IPV4][NETNS]: Display per-net info in sockstat
+ file.
+Date: Mon, 31 Mar 2008 16:19:01 +0400
+Message-ID: <47F0D6B5.7080008@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:41762 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:34469 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751986AbYCaMRm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2008 08:17:42 -0400
+	id S1753571AbYCaMTD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Mar 2008 08:19:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently they live in init_net only, but now almost all the info
-they can provide is available per-net.
+Besides, now we can see per-net fragments statistics in the
+same file, since this stats is already per-net.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- net/ipv4/proc.c |   27 ++++++++++++++++++++++-----
- net/ipv6/proc.c |   29 ++++++++++++++++++++++++-----
- 2 files changed, 46 insertions(+), 10 deletions(-)
+ net/ipv4/proc.c |   41 ++++++++++++++++++++++++++++++++++-------
+ 1 files changed, 34 insertions(+), 7 deletions(-)
 
 diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 8156c26..24ae23b 100644
+index 24ae23b..552169b 100644
 --- a/net/ipv4/proc.c
 +++ b/net/ipv4/proc.c
-@@ -426,25 +426,42 @@ static const struct file_operations netstat_seq_fops = {
- 	.release = single_release,
- };
- 
-+static __net_init int ip_proc_init_net(struct net *net)
-+{
-+	if (!proc_net_fops_create(net, "sockstat", S_IRUGO, &sockstat_seq_fops))
-+		return -ENOMEM;
-+	return 0;
-+}
-+
-+static __net_exit void ip_proc_exit_net(struct net *net)
-+{
-+	proc_net_remove(net, "sockstat");
-+}
-+
-+static __net_initdata struct pernet_operations ip_proc_ops = {
-+	.init = ip_proc_init_net,
-+	.exit = ip_proc_exit_net,
-+};
-+
- int __init ip_misc_proc_init(void)
+@@ -51,27 +51,54 @@
+  */
+ static int sockstat_seq_show(struct seq_file *seq, void *v)
  {
- 	int rc = 0;
- 
-+	if (register_pernet_subsys(&ip_proc_ops))
-+		goto out_pernet;
++	struct net *net = seq->private;
 +
- 	if (!proc_net_fops_create(&init_net, "netstat", S_IRUGO, &netstat_seq_fops))
- 		goto out_netstat;
- 
- 	if (!proc_net_fops_create(&init_net, "snmp", S_IRUGO, &snmp_seq_fops))
- 		goto out_snmp;
--
--	if (!proc_net_fops_create(&init_net, "sockstat", S_IRUGO, &sockstat_seq_fops))
--		goto out_sockstat;
- out:
- 	return rc;
--out_sockstat:
--	proc_net_remove(&init_net, "snmp");
- out_snmp:
- 	proc_net_remove(&init_net, "netstat");
- out_netstat:
-+	unregister_pernet_subsys(&ip_proc_ops);
-+out_pernet:
- 	rc = -ENOMEM;
- 	goto out;
- }
-diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
-index 4b9d5a9..5623660 100644
---- a/net/ipv6/proc.c
-+++ b/net/ipv6/proc.c
-@@ -243,27 +243,45 @@ int snmp6_unregister_dev(struct inet6_dev *idev)
+ 	socket_seq_show(seq);
+ 	seq_printf(seq, "TCP: inuse %d orphan %d tw %d alloc %d mem %d\n",
+-		   sock_prot_inuse_get(&init_net, &tcp_prot),
++		   sock_prot_inuse_get(net, &tcp_prot),
+ 		   atomic_read(&tcp_orphan_count),
+ 		   tcp_death_row.tw_count, atomic_read(&tcp_sockets_allocated),
+ 		   atomic_read(&tcp_memory_allocated));
+ 	seq_printf(seq, "UDP: inuse %d mem %d\n",
+-		   sock_prot_inuse_get(&init_net, &udp_prot),
++		   sock_prot_inuse_get(net, &udp_prot),
+ 		   atomic_read(&udp_memory_allocated));
+ 	seq_printf(seq, "UDPLITE: inuse %d\n",
+-		   sock_prot_inuse_get(&init_net, &udplite_prot));
++		   sock_prot_inuse_get(net, &udplite_prot));
+ 	seq_printf(seq, "RAW: inuse %d\n",
+-		   sock_prot_inuse_get(&init_net, &raw_prot));
++		   sock_prot_inuse_get(net, &raw_prot));
+ 	seq_printf(seq,  "FRAG: inuse %d memory %d\n",
+-			ip_frag_nqueues(&init_net), ip_frag_mem(&init_net));
++			ip_frag_nqueues(net), ip_frag_mem(net));
  	return 0;
  }
  
-+static int ipv6_proc_init_net(struct net *net)
-+{
-+	if (!proc_net_fops_create(net, "sockstat6", S_IRUGO,
-+			&sockstat6_seq_fops))
-+		return -ENOMEM;
-+	return 0;
-+}
-+
-+static void ipv6_proc_exit_net(struct net *net)
-+{
-+	proc_net_remove(net, "sockstat6");
-+}
-+
-+static struct pernet_operations ipv6_proc_ops = {
-+	.init = ipv6_proc_init_net,
-+	.exit = ipv6_proc_exit_net,
-+};
-+
- int __init ipv6_misc_proc_init(void)
+ static int sockstat_seq_open(struct inode *inode, struct file *file)
  {
- 	int rc = 0;
- 
-+	if (register_pernet_subsys(&ipv6_proc_ops))
-+		goto proc_net_fail;
+-	return single_open(file, sockstat_seq_show, NULL);
++	int err;
++	struct net *net;
 +
- 	if (!proc_net_fops_create(&init_net, "snmp6", S_IRUGO, &snmp6_seq_fops))
- 		goto proc_snmp6_fail;
- 
- 	proc_net_devsnmp6 = proc_mkdir("dev_snmp6", init_net.proc_net);
- 	if (!proc_net_devsnmp6)
- 		goto proc_dev_snmp6_fail;
--
--	if (!proc_net_fops_create(&init_net, "sockstat6", S_IRUGO, &sockstat6_seq_fops))
--		goto proc_sockstat6_fail;
- out:
- 	return rc;
- 
--proc_sockstat6_fail:
--	proc_net_remove(&init_net, "dev_snmp6");
- proc_dev_snmp6_fail:
- 	proc_net_remove(&init_net, "snmp6");
- proc_snmp6_fail:
-+	unregister_pernet_subsys(&ipv6_proc_ops);
-+proc_net_fail:
- 	rc = -ENOMEM;
- 	goto out;
- }
-@@ -273,5 +291,6 @@ void ipv6_misc_proc_exit(void)
- 	proc_net_remove(&init_net, "sockstat6");
- 	proc_net_remove(&init_net, "dev_snmp6");
- 	proc_net_remove(&init_net, "snmp6");
-+	unregister_pernet_subsys(&ipv6_proc_ops);
++	err = -ENXIO;
++	net = get_proc_net(inode);
++	if (net == NULL)
++		goto err_net;
++
++	err = single_open(file, sockstat_seq_show, net);
++	if (err < 0)
++		goto err_open;
++
++	return 0;
++
++err_open:
++	put_net(net);
++err_net:
++	return err;
++}
++
++static int sockstat_seq_release(struct inode *inode, struct file *file)
++{
++	struct net *net = ((struct seq_file *)file->private_data)->private;
++
++	put_net(net);
++	return single_release(inode, file);
  }
  
+ static const struct file_operations sockstat_seq_fops = {
+@@ -79,7 +106,7 @@ static const struct file_operations sockstat_seq_fops = {
+ 	.open	 = sockstat_seq_open,
+ 	.read	 = seq_read,
+ 	.llseek	 = seq_lseek,
+-	.release = single_release,
++	.release = sockstat_seq_release,
+ };
+ 
+ /* snmp items */
 -- 
 1.5.3.4
 
