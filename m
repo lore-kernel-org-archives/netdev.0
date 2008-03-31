@@ -1,91 +1,101 @@
-From: Richard MUSIL <richard.musil@st.com>
-Subject: Re: [PATCH] GENETLINK: Global lock refined to family granularity
-Date: Mon, 31 Mar 2008 13:21:38 +0200
-Message-ID: <47F0C942.9070603@st.com>
-References: <47EB8D8D.8020506@st.com> <20080331103350.GZ20815@postel.suug.ch>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: poor network loopback performance and scalability (was: Re:
+	[RFC,PATCH] loopback: calls netif_receive_skb() instead of
+	netif_rx())
+Date: Mon, 31 Mar 2008 13:36:02 +0200
+Message-ID: <20080331113602.GA13526@elte.hu>
+References: <20080331094823.GA11651@elte.hu> <20080331.030848.175668431.davem@davemloft.net> <20080331104403.GA12681@elte.hu> <20080331.040242.214941948.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, a.p.zijlstra@chello.nl
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s200aog16.obsmtp.com ([207.126.144.130]:55962 "EHLO
-	s200aog16.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752353AbYCaLXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 07:23:55 -0400
-In-Reply-To: <20080331103350.GZ20815@postel.suug.ch>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:57717 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752857AbYCaLgX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Mar 2008 07:36:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20080331.040242.214941948.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 31.3.2008 12:33, Thomas Graf wrote:
-> * Richard MUSIL <richard.musil@st.com> 2008-03-27 13:05
->> This patch is a revive of the patch I posted half a year ago. In that time
->> Thomas Graf (who was acting as maintainer of genetlink module) accepted
->> the idea, but suggested to do it using RCU lists. Since I did not have
->> and experience with RCU lists, we agreed, he will implement it himself.
->>
->> Since that time, he neither did it, nor replied to my recent emails and
->> I guess he is no longer active.
+
+* David Miller <davem@davemloft.net> wrote:
+
+> From: Ingo Molnar <mingo@elte.hu>
+> Date: Mon, 31 Mar 2008 12:44:03 +0200
 > 
-> Sorry but I didn't receive any recent emails.
-
-Sent two of them, one on 25.9.2007 and one on 25.1.2008, no reply, must
-got lost.
-
->> I am asking, whomever maintains genetlink right now, for including this
->> patch. (Currently, this is patch to linux-2.6.25-rc7.)
->>
->> The idea behind (i.e. why I needed it) is device driver, which uses
->> genetlink to talk to userspace and which creates virtual devices and
->> registers families for them in the runtime. So these devices can also
->> talk to userspace using genetlink.
->>
->> Current implementation prevents that, because processing any single
->> genetlink message blocks complete genetlink infrastructure (i.e.
->> registrations, and deregistrations).
+> > and it's not just about scalability, the plain algorithmic overhead is 
+> > way too high as well:
+> > 
+> >  $ taskset 1 ./bw_tcp -s
+> >  $ taskset 1 ./bw_tcp localhost
+> >  Socket bandwidth using localhost: 2607.09 MB/sec
+> >  $ taskset 1 ./bw_pipe
+> >  Pipe bandwidth: 3680.44 MB/sec
 > 
-> On a first sight your patch seemed very legitimate although the amount
-> of locks taken for every single message received was very irritating.
+> Set your loopback MTU to some larger value if this result and the 
+> locking overhead upsets you.
 
-It takes two locks, instead of one. I do not see, how it could be less
-(in terms of synchronization primitives - but not necessarily mutexes)
-if I want that level of granularity. Might be more efficient with RCU
-lists (but I do not know), but complexity remains the same.
+yes, of course it "upsets me" - it shows up in macrobenchmarks as well 
+(not just lmbench) - wouldnt (and shouldnt) that upset you?
 
-> Also your patch explicitely allows registration operations but when the
-> family being currently received on is manipulated, it will simply deadlock.
+And even with a ridiculously high MTU of 1048576 there's only a 13% 
+improvement:
 
-In that case, nothing can be done. Of course, trying to unregister
-family form its own handler could lead to either crash or deadlock. The
-point was, it would not deadlock when manipulating other family - which
-happens with current implementation.
-Also, it would allow processing of different messages in parallel as
-long as they are belonging to different families. Right now, the
-processing is blocked as long as any single message is processed.
+   # ifconfig lo mtu 1048576
+   # taskset 1 ./bw_tcp -s
+   # taskset 1 ./bw_tcp localhost
+   Socket bandwidth using localhost: 2951.51 MB/sec
 
-> So this patch is about allowing registration of operations for other
-> families at the cost of two additional locks for every message received
+pipes are still another ~25% faster:
 
-I am not sure about two additional locks, so far I see only one - the
-family lock.
+   # taskset 1 ./bw_pipe
+   Pipe bandwidth: 3657.40 MB/sec
 
-> combined with complex locking logic. All a bit much for something that
-> can be easly solved using a workqueue.
+> > i dont think this is acceptable. Either we should fix loopback TCP 
+> > performance or we should transparently switch to VFS pipes as a 
+> > transport method when an app establishes a plain loopback connection 
+> > (as long as there are no frills like content-modifying component in 
+> > the delivery path of packets after a connection has been established 
+> > - which covers 99.9% of the real-life loopback cases).
+> >
+> > I'm not suggesting we shouldnt use TCP for connection establishing - 
+> > but if the TCP loopback packet transport is too slow we should use 
+> > the VFS transport which is both more scalable, less cache-intense 
+> > and has lower straight overhead as well.
+[...]
 
-I am not convinced about that. Does it mean you suggest that any
-genetlink message handler should by default offload processing to
-workqueue, so it won't block any other message processing from any other
-family?
+> Also, woe be to the application that wants fast local interprocess 
+> communication and doesn't use IPC_SHM, MAP_SHARED, pipes, or AF_UNIX 
+> sockets.  (there's not just one better facility, there are _four_!)
+> 
+> From this perspective, people way-overemphasize loopback performance, 
+> and 999 times out of 1000 they prove their points using synthetic 
+> benchmarks.
+> 
+> And don't give me this garbage about the application wanting to be 
+> generic and therefore use IP sockets for everything.  Either they want 
+> to be generic, or they want the absolute best performance.  Trying to 
+> get an "or" and have both at the same time will result in ludicrious 
+> hacks ending up in the kernel.
 
-I can imagine running two completely different families with two
-completely different needs which do not know about each other at all.
-Right now, the one can easily block the other.
+i talked about the localhost data transport only (in the portion you 
+dropped from your quotes), not about the connection API or the overall 
+management of such sockets. There's absolutely no good technical reason 
+i can see why plain loopback sockets should be forced to go over a 
+global lock, or why apps should be forced to change to another API when 
+the real problem is that kernel developers are lazy or incompetent to 
+fix their code.
 
-So the workqueue does not seem that obvious to me.
+And i'm still trying to establish whether we have common ground for 
+discussion: do you accept my numbers that TCP loopback transport 
+performs badly when compared to pipes (i think you accepted that 
+implicitly, but i dont want to put anything into your mouth).
 
-> BTW, your patch does not account for multicast group registration.
+Having agreed on that, do you share my view that it should be and could 
+be fixed? Or do you claim that it cannot be fixed and wont ever be 
+fixed?
 
-You right it does not. Should I look into it, or was your answer
-definitive no?
-
-Richard
+	Ingo
