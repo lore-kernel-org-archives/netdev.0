@@ -1,67 +1,95 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 13/13 net-2.6.26] [NETNS]: Use TCP control socket from a correct namespace.
-Date: Mon, 31 Mar 2008 17:16:53 +0400
-Message-ID: <1206969413-12096-13-git-send-email-den@openvz.org>
+Subject: [PATCH 9/13 net-2.6.26] [ICMP]: Simplify ICMP control socket creation.
+Date: Mon, 31 Mar 2008 17:16:49 +0400
+Message-ID: <1206969413-12096-9-git-send-email-den@openvz.org>
 References: <1206969367.10660.16.camel@iris.sw.ru>
 Cc: netdev@vger.kernel.org, containers@lists.osdl.org,
 	"Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:17818 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:36557 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755530AbYCaNRA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2008 09:17:00 -0400
+	id S1755347AbYCaNRF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Mar 2008 09:17:05 -0400
 In-Reply-To: <1206969367.10660.16.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Denis V.Lunev <den@openvz.org>
----
- net/ipv4/tcp_ipv4.c |   10 ++++------
- 1 files changed, 4 insertions(+), 6 deletions(-)
+Replace sock_create_kern with inet_ctl_sock_create.
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 1d4a77a..df89a56 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -88,9 +88,6 @@ int sysctl_tcp_low_latency __read_mostly;
- /* Check TCP sequence numbers in ICMP packets. */
- #define ICMP_MIN_LENGTH 8
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ net/ipv4/icmp.c |   25 +++++++------------------
+ 1 files changed, 7 insertions(+), 18 deletions(-)
+
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 803bc9f..efc7cbe 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -93,6 +93,7 @@
+ #include <asm/uaccess.h>
+ #include <net/checksum.h>
+ #include <net/xfrm.h>
++#include <net/inet_common.h>
  
--/* Socket used for sending RSTs */
--static struct sock *tcp_sock __read_mostly;
+ /*
+  *	Build xmit assembly blocks
+@@ -1136,7 +1137,7 @@ static void __net_exit icmp_sk_exit(struct net *net)
+ 	int i;
+ 
+ 	for_each_possible_cpu(i)
+-		sk_release_kernel(net->ipv4.icmp_sk[i]);
++		inet_ctl_sock_destroy(net->ipv4.icmp_sk[i]);
+ 	kfree(net->ipv4.icmp_sk);
+ 	net->ipv4.icmp_sk = NULL;
+ }
+@@ -1152,17 +1153,13 @@ int __net_init icmp_sk_init(struct net *net)
+ 
+ 	for_each_possible_cpu(i) {
+ 		struct sock *sk;
+-		struct socket *sock;
+-		struct inet_sock *inet;
+ 
+-		err = sock_create_kern(PF_INET, SOCK_RAW, IPPROTO_ICMP, &sock);
++		err = inet_ctl_sock_create(&sk, PF_INET,
++					   SOCK_RAW, IPPROTO_ICMP, net);
+ 		if (err < 0)
+ 			goto fail;
+ 
+-		net->ipv4.icmp_sk[i] = sk = sock->sk;
+-		sk_change_net(sk, net);
 -
- void tcp_v4_send_check(struct sock *sk, int len, struct sk_buff *skb);
+-		sk->sk_allocation = GFP_ATOMIC;
++		net->ipv4.icmp_sk[i] = sk;
  
- #ifdef CONFIG_TCP_MD5SIG
-@@ -598,7 +595,8 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
- 				      sizeof(struct tcphdr), IPPROTO_TCP, 0);
- 	arg.csumoffset = offsetof(struct tcphdr, check) / 2;
+ 		/* Enough space for 2 64K ICMP packets, including
+ 		 * sk_buff struct overhead.
+@@ -1170,15 +1167,7 @@ int __net_init icmp_sk_init(struct net *net)
+ 		sk->sk_sndbuf =
+ 			(2 * ((64 * 1024) + sizeof(struct sk_buff)));
  
--	ip_send_reply(tcp_sock, skb, &arg, arg.iov[0].iov_len);
-+	ip_send_reply(dev_net(skb->dst->dev)->ipv4.tcp_sock, skb,
-+		      &arg, arg.iov[0].iov_len);
+-		inet = inet_sk(sk);
+-		inet->uc_ttl = -1;
+-		inet->pmtudisc = IP_PMTUDISC_DONT;
+-
+-		/* Unhash it so that IP input processing does not even
+-		 * see it, we do not wish this socket to see incoming
+-		 * packets.
+-		 */
+-		sk->sk_prot->unhash(sk);
++		inet_sk(sk)->pmtudisc = IP_PMTUDISC_DONT;
+ 	}
  
- 	TCP_INC_STATS_BH(TCP_MIB_OUTSEGS);
- 	TCP_INC_STATS_BH(TCP_MIB_OUTRSTS);
-@@ -693,7 +691,8 @@ static void tcp_v4_send_ack(struct tcp_timewait_sock *twsk,
- 	if (twsk)
- 		arg.bound_dev_if = twsk->tw_sk.tw_bound_dev_if;
+ 	/* Control parameters for ECHO replies. */
+@@ -1208,7 +1197,7 @@ int __net_init icmp_sk_init(struct net *net)
  
--	ip_send_reply(tcp_sock, skb, &arg, arg.iov[0].iov_len);
-+	ip_send_reply(dev_net(skb->dev)->ipv4.tcp_sock, skb,
-+		      &arg, arg.iov[0].iov_len);
- 
- 	TCP_INC_STATS_BH(TCP_MIB_OUTSEGS);
+ fail:
+ 	for_each_possible_cpu(i)
+-		sk_release_kernel(net->ipv4.icmp_sk[i]);
++		inet_ctl_sock_destroy(net->ipv4.icmp_sk[i]);
+ 	kfree(net->ipv4.icmp_sk);
+ 	return err;
  }
-@@ -2509,7 +2508,6 @@ void __init tcp_v4_init(void)
- {
- 	if (register_pernet_device(&tcp_sk_ops))
- 		panic("Failed to create the TCP control socket.\n");
--	tcp_sock = init_net.ipv4.tcp_sock;
- }
- 
- EXPORT_SYMBOL(ipv4_specific);
 -- 
 1.5.3.rc5
 
