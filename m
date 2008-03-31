@@ -1,18 +1,19 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+From: Joe Perches <joe@perches.com>
 Subject: Re: [PATCH 6/8] e1000e: convert ndev_ printks
 	to	something smaller
-Date: Mon, 31 Mar 2008 11:36:23 -0700
-Message-ID: <47F12F27.802@intel.com>
+Date: Mon, 31 Mar 2008 12:09:39 -0700
+Message-ID: <1206990579.23161.32.camel@localhost>
 References: <20080328161503.6562.44329.stgit@localhost.localdomain>
 	<20080328161531.6562.8515.stgit@localhost.localdomain>
-	<47EDA38F.6080301@garzik.org>
+	<47EDA38F.6080301@garzik.org>  <47F12F27.802@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-reply-to: <47EDA38F.6080301@garzik.org>
+In-Reply-To: <47F12F27.802@intel.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -24,43 +25,21 @@ Sender: e1000-devel-bounces@lists.sourceforge.net
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Auke Kok wrote:
->> From: Bruce Allan <bruce.w.allan@intel.com>
->>
->> The ndev_* printk's are too lenghty and we don't need to specify
->> the adapter/netdev struct at all, making this a lot more readable.
->>
->> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->> ---
->>
->>  drivers/net/e1000e/e1000.h   |   27 ++++----
->>  drivers/net/e1000e/ethtool.c |   38 +++++------
->>  drivers/net/e1000e/netdev.c  |  148 +++++++++++++++++++-----------------------
->>  drivers/net/e1000e/param.c   |   31 +++------
->>  4 files changed, 108 insertions(+), 136 deletions(-)
+On Mon, 2008-03-31 at 11:36 -0700, Kok, Auke wrote:
+> yes and I even tried pushing for a generic netdev printk that incorporates the
+> msg_enable bits properly
 > 
-> This stuff should just be removed.
-> 
-> Either the code should be outputting "ethX: blahblah" via printk(), or 
-> the code should be outputting the standard dev_printk() prefix [driver 
-> name, PCI device info].
-> 
-> Also, it is recommended to use the NETIF_MSG_xxx bits to permit 
-> fine-grained control over which messages are output, on a per-port basis 
-> (controlled via ethtool).  grep around for 'msg_enable'
+> I also got absolutely unwelcome responses to that, if not none :)
 
-yes and I even tried pushing for a generic netdev printk that incorporates the
-msg_enable bits properly
+http://www.mail-archive.com/netdev@vger.kernel.org/msg40070.html
 
-I also got absolutely unwelcome responses to that, if not none :)
+It still makes sense to me.
 
-once we get such a thing, we can incorporate this into e1000 with this patch by
-changing 2 lines. so I think this patch is still a good thing, and it certainly
-removes a lot of wrapped lines.
+I think the overall amount of churn is low,
+readability would improve, existing errors in
+msg_enable would be eliminated during the churn
+and the newly introduced error rate would be lower.
 
-Auke
 
 
 -------------------------------------------------------------------------
