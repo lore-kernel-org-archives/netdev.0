@@ -1,60 +1,83 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2.6] [IPV6] MCAST: Ensure to check multicast
- listener(s).
-Date: Mon, 31 Mar 2008 11:50:01 +0900 (JST)
-Message-ID: <20080331.115001.70855239.yoshfuji@linux-ipv6.org>
-References: <20080330.231247.105318612.yoshfuji@linux-ipv6.org>
-	<OF02C9B6A8.C301DBC1-ON8825741C.006D7AD5-8825741C.006E608E@us.ibm.com>
+From: "Zhang, Sonic" <Sonic.Zhang@analog.com>
+Subject: RE: [patch (for 2.6.25?) 1/1] smc91x driver: fix bug: print warning only in interrupt mode
+Date: Mon, 31 Mar 2008 11:53:25 +0800
+Message-ID: <0F1B54C89D5F954D8535DB252AF412FA01B55940@chinexm1.ad.analog.com>
+References: <200803282152.m2SLqfmg012431@imap1.linux-foundation.org> <47ED9F1E.8000102@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: dlstevens@us.ibm.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <sonic.zhang@analog.com>,
+	<cooloney@kernel.org>
+To: "Jeff Garzik" <jeff@garzik.org>, <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:55484 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751626AbYCaCsa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Mar 2008 22:48:30 -0400
-In-Reply-To: <OF02C9B6A8.C301DBC1-ON8825741C.006D7AD5-8825741C.006E608E@us.ibm.com>
+Received: from nwd2mail10.analog.com ([137.71.25.55]:28583 "EHLO
+	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751250AbYCaDxR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Mar 2008 23:53:17 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <47ED9F1E.8000102@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <OF02C9B6A8.C301DBC1-ON8825741C.006D7AD5-8825741C.006E608E@us.ibm.com> (at Sun, 30 Mar 2008 13:05:36 -0700), David Stevens <dlstevens@us.ibm.com> says:
+In netpoll mode,  smc_interrupt() is invoked repeatedly till a net
+packet is received. Timeout is meaning less here.
 
-> > L2 is expected to pass all multicast to L3, but even with those flags,
-> > we should filter them according to our listeners, upper layer
-> > (extension header etc.) should not see them.
+Sonic
+
+-----Original Message-----
+From: Jeff Garzik [mailto:jeff@garzik.org] 
+Sent: Saturday, March 29, 2008 9:45 AM
+To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org; sonic.zhang@analog.com; cooloney@kernel.org
+Subject: Re: [patch (for 2.6.25?) 1/1] smc91x driver: fix bug: print
+warning only in interrupt mode
+
+akpm@linux-foundation.org wrote:
+> From: Sonic Zhang <sonic.zhang@analog.com>
 > 
-> Yoshifuji-san,
->         I would assume that IFF_PROMISC or IFF_ALLMULTI means that an
-> INADDR_ANY listener would receive all multicasts on the link, not
-> just ones for groups that have been joined. This would be particularly
-> useful for older version multicast routers or monitoring programs.
-> Doesn't your change remove this capability?
+> http://blackfin.uclinux.org/gf/project/uclinux-dist/tracker/?action=Tr
+> ackerItemEdit&tracker_item_id=3956
+> 
+> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+> Signed-off-by: Bryan Wu <cooloney@kernel.org>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
+> 
+>  drivers/net/smc91x.c |    2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff -puN 
+> drivers/net/smc91x.c~smc91x-driver-fix-bug-print-warning-only-in-inter
+> rupt-mode drivers/net/smc91x.c
+> --- 
+> a/drivers/net/smc91x.c~smc91x-driver-fix-bug-print-warning-only-in-int
+> errupt-mode
+> +++ a/drivers/net/smc91x.c
+> @@ -1326,9 +1326,11 @@ static irqreturn_t smc_interrupt(int irq
+>  	SMC_SET_INT_MASK(lp, mask);
+>  	spin_unlock(&lp->lock);
+>  
+> +#ifndef CONFIG_NET_POLL_CONTROLLER
+>  	if (timeout == MAX_IRQ_LOOPS)
+>  		PRINTK("%s: spurious interrupt (mask = 0x%02x)\n",
+>  		       dev->name, mask);
+> +#endif
+>  	DBG(3, "%s: Interrupt done (%d loops)\n",
+>  	       dev->name, MAX_IRQ_LOOPS - timeout);
 
-No, do not mix L2 and L3 here, and AFAIK, BSDs does not mix also.
-Regardless if IFF_PROMISC and/or IFF_ALLMULTI is set, packet delivery
-to standard sockets must not be changed.
-This does NOT change OLDER applications because we did not have this
-kind of confusion before.
+NAK
 
->         If the flags are not set, the check for group membership is
-> done. My concern is that when one or both are set, your change
-> appears to prevent delivery of multicasts that currently are
-> delivered, meaning that you can't write an application that, for
-> example, monitors all multicast packets, short of joining all
-> groups or using a packet socket. If the IFF_ALLMULTI flag isn't
-> equivalent, for INADDR_ANY-bound sockets, of joining all groups,
-> then I don't see that it has any purpose at all.
+Either this code is OK or it isn't.  This patch simply hides a problem
+inside a configuration the developer probably doesn't use.
 
-Even if IFF_PROMISC is set we do not receive unicast packet on  
-standard socket bound on ::.  Same for multicast.
-Current behavior is broken (*) and must be fixed.
-If you really really want the short-cut, we could introduce a new 
-socket option (say, IPV6_MULTICAST_ALL).
+What's the _real_ problem?  Looking at the tracker, I'd guess that some
+events need to be masked, but are not?
 
-*: It was slightly broken before the commit, and 2.4 is not broken.
+If the hardware is asserting events continually, the current code does
+the right thing -- keep processing interrupt events flagged, until (a)
+no more events asserted or (b) max loop count reached.
 
---yoshfuji
+So the question is to find out why you are hitting the timeout, and what
+to do about it.
