@@ -1,617 +1,407 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [net patch] remove Documentation/networking/sk98lin.txt
-Date: Mon, 31 Mar 2008 02:22:31 +0300
-Message-ID: <20080330232231.GS28445@cs181133002.pp.htv.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH] [Syncookies:] Add support for TCP-options via timestamps.
+Date: Mon, 31 Mar 2008 02:09:42 +0200
+Message-ID: <1206922182-2214-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+	Glenn Griffin <ggriffin.kernel@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6.pp.htv.fi ([213.243.153.40]:58970 "EHLO smtp6.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756243AbYC3XWp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Mar 2008 19:22:45 -0400
-Content-Disposition: inline
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:49149 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753674AbYCaAJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Mar 2008 20:09:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since the driver is gone there's no point in keeping the documentation.
+Allow the use of SACK and window scaling when syncookies are used
+and the client supports tcp timestamps. Options are then restored
+from the timestamp echo.
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Based on earlier work by Glenn Griffin.
+This patch avoids increasing the size of structs by encoding TCP
+options into the least significant bits of the timestamp and
+by not using any 'timestamp offset'.
 
+The downside is that the timestamp sent in the packet after the synack
+will increase by several seconds.
+
+Reviewed-by: Hagen Paul Pfeifer <hagen@jauu.net>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+CC: Glenn Griffin <ggriffin.kernel@gmail.com>
 ---
 
- Documentation/networking/00-INDEX    |    3 
- Documentation/networking/sk98lin.txt |  568 ---------------------------
- 2 files changed, 571 deletions(-)
+Glenns original patch:
+http://marc.info/?l=linux-netdev&m=120309729612244&w=2
 
-f8dd8a5e03cbc0ce7f1ebc6827cc3e467de9fcfe diff --git a/Documentation/networking/00-INDEX b/Documentation/networking/00-INDEX
-index 02e56d4..c485ee0 100644
---- a/Documentation/networking/00-INDEX
-+++ b/Documentation/networking/00-INDEX
-@@ -84,9 +84,6 @@ policy-routing.txt
- 	- IP policy-based routing
- ray_cs.txt
- 	- Raylink Wireless LAN card driver info.
--sk98lin.txt
--	- Marvell Yukon Chipset / SysKonnect SK-98xx compliant Gigabit
--	  Ethernet Adapter family driver info
- skfp.txt
- 	- SysKonnect FDDI (SK-5xxx, Compaq Netelligent) driver info.
- smc9.txt
-diff --git a/Documentation/networking/sk98lin.txt b/Documentation/networking/sk98lin.txt
-deleted file mode 100644
-index 8590a95..0000000
---- a/Documentation/networking/sk98lin.txt
-+++ /dev/null
-@@ -1,568 +0,0 @@
--(C)Copyright 1999-2004 Marvell(R).
--All rights reserved
--===========================================================================
--
--sk98lin.txt created 13-Feb-2004
--
--Readme File for sk98lin v6.23
--Marvell Yukon/SysKonnect SK-98xx Gigabit Ethernet Adapter family driver for LINUX
--
--This file contains
-- 1  Overview
-- 2  Required Files
-- 3  Installation
--    3.1  Driver Installation
--    3.2  Inclusion of adapter at system start
-- 4  Driver Parameters
--    4.1  Per-Port Parameters
--    4.2  Adapter Parameters
-- 5  Large Frame Support
-- 6  VLAN and Link Aggregation Support (IEEE 802.1, 802.1q, 802.3ad)
-- 7  Troubleshooting
--
--===========================================================================
--
--
--1  Overview
--===========
--
--The sk98lin driver supports the Marvell Yukon and SysKonnect 
--SK-98xx/SK-95xx compliant Gigabit Ethernet Adapter on Linux. It has 
--been tested with Linux on Intel/x86 machines.
--***
--
--
--2  Required Files
--=================
--
--The linux kernel source.
--No additional files required.
--***
--
--
--3  Installation
--===============
--
--It is recommended to download the latest version of the driver from the 
--SysKonnect web site www.syskonnect.com. If you have downloaded the latest
--driver, the Linux kernel has to be patched before the driver can be 
--installed. For details on how to patch a Linux kernel, refer to the 
--patch.txt file.
--
--3.1  Driver Installation
--------------------------
--
--The following steps describe the actions that are required to install
--the driver and to start it manually. These steps should be carried
--out for the initial driver setup. Once confirmed to be ok, they can
--be included in the system start.
--
--NOTE 1: To perform the following tasks you need 'root' access.
--
--NOTE 2: In case of problems, please read the section "Troubleshooting" 
--        below.
--
--The driver can either be integrated into the kernel or it can be compiled 
--as a module. Select the appropriate option during the kernel 
--configuration.
--
--Compile/use the driver as a module
------------------------------------
--To compile the driver, go to the directory /usr/src/linux and
--execute the command "make menuconfig" or "make xconfig" and proceed as 
--follows:
--
--To integrate the driver permanently into the kernel, proceed as follows:
--
--1. Select the menu "Network device support" and then "Ethernet(1000Mbit)"
--2. Mark "Marvell Yukon Chipset / SysKonnect SK-98xx family support" 
--   with (*) 
--3. Build a new kernel when the configuration of the above options is 
--   finished.
--4. Install the new kernel.
--5. Reboot your system.
--
--To use the driver as a module, proceed as follows:
--
--1. Enable 'loadable module support' in the kernel.
--2. For automatic driver start, enable the 'Kernel module loader'.
--3. Select the menu "Network device support" and then "Ethernet(1000Mbit)"
--4. Mark "Marvell Yukon Chipset / SysKonnect SK-98xx family support" 
--   with (M)
--5. Execute the command "make modules".
--6. Execute the command "make modules_install".
--   The appropriate modules will be installed.
--7. Reboot your system.
--
--
--Load the module manually
--------------------------
--To load the module manually, proceed as follows:
--
--1. Enter "modprobe sk98lin".
--2. If a Marvell Yukon or SysKonnect SK-98xx adapter is installed in 
--   your computer and you have a /proc file system, execute the command:
--   "ls /proc/net/sk98lin/" 
--   This should produce an output containing a line with the following 
--   format:
--   eth0   eth1  ...
--   which indicates that your adapter has been found and initialized.
--   
--   NOTE 1: If you have more than one Marvell Yukon or SysKonnect SK-98xx 
--           adapter installed, the adapters will be listed as 'eth0', 
--                   'eth1', 'eth2', etc.
--                   For each adapter, repeat steps 3 and 4 below.
--
--   NOTE 2: If you have other Ethernet adapters installed, your Marvell
--           Yukon or SysKonnect SK-98xx adapter will be mapped to the 
--                   next available number, e.g. 'eth1'. The mapping is executed 
--                   automatically.
--           The module installation message (displayed either in a system
--           log file or on the console) prints a line for each adapter 
--           found containing the corresponding 'ethX'.
--
--3. Select an IP address and assign it to the respective adapter by 
--   entering:
--   ifconfig eth0 <ip-address>
--   With this command, the adapter is connected to the Ethernet. 
--   
--   SK-98xx Gigabit Ethernet Server Adapters: The yellow LED on the adapter 
--   is now active, the link status LED of the primary port is active and 
--   the link status LED of the secondary port (on dual port adapters) is 
--   blinking (if the ports are connected to a switch or hub).
--   SK-98xx V2.0 Gigabit Ethernet Adapters: The link status LED is active.
--   In addition, you will receive a status message on the console stating
--   "ethX: network connection up using port Y" and showing the selected 
--   connection parameters (x stands for the ethernet device number 
--   (0,1,2, etc), y stands for the port name (A or B)).
--
--   NOTE: If you are in doubt about IP addresses, ask your network
--         administrator for assistance.
--  
--4. Your adapter should now be fully operational.
--   Use 'ping <otherstation>' to verify the connection to other computers 
--   on your network.
--5. To check the adapter configuration view /proc/net/sk98lin/[devicename].
--   For example by executing:    
--   "cat /proc/net/sk98lin/eth0" 
--
--Unload the module
-------------------
--To stop and unload the driver modules, proceed as follows:
--
--1. Execute the command "ifconfig eth0 down".
--2. Execute the command "rmmod sk98lin".
--
--3.2  Inclusion of adapter at system start
-------------------------------------------
--
--Since a large number of different Linux distributions are 
--available, we are unable to describe a general installation procedure
--for the driver module.
--Because the driver is now integrated in the kernel, installation should
--be easy, using the standard mechanism of your distribution.
--Refer to the distribution's manual for installation of ethernet adapters.
--
--***
--
--4  Driver Parameters
--====================
--
--Parameters can be set at the command line after the module has been 
--loaded with the command 'modprobe'.
--In some distributions, the configuration tools are able to pass parameters
--to the driver module.
--
--If you use the kernel module loader, you can set driver parameters
--in the file /etc/modprobe.conf (or /etc/modules.conf in 2.4 or earlier).
--To set the driver parameters in this file, proceed as follows:
--
--1. Insert a line of the form :
--   options sk98lin ...
--   For "...", the same syntax is required as described for the command
--   line parameters of modprobe below.
--2. To activate the new parameters, either reboot your computer
--   or 
--   unload and reload the driver.
--   The syntax of the driver parameters is:
--
--        modprobe sk98lin parameter=value1[,value2[,value3...]]
--
--   where value1 refers to the first adapter, value2 to the second etc.
--
--NOTE: All parameters are case sensitive. Write them exactly as shown 
--      below.
--
--Example:
--Suppose you have two adapters. You want to set auto-negotiation
--on the first adapter to ON and on the second adapter to OFF.
--You also want to set DuplexCapabilities on the first adapter
--to FULL, and on the second adapter to HALF.
--Then, you must enter:
--
--        modprobe sk98lin AutoNeg_A=On,Off DupCap_A=Full,Half
--
--NOTE: The number of adapters that can be configured this way is
--      limited in the driver (file skge.c, constant SK_MAX_CARD_PARAM).
--      The current limit is 16. If you happen to install
--      more adapters, adjust this and recompile.
--
--
--4.1  Per-Port Parameters
--------------------------
--
--These settings are available for each port on the adapter.
--In the following description, '?' stands for the port for
--which you set the parameter (A or B).
--
--Speed
-------
--Parameter:    Speed_?
--Values:       10, 100, 1000, Auto
--Default:      Auto
--
--This parameter is used to set the speed capabilities. It is only valid 
--for the SK-98xx V2.0 copper adapters.
--Usually, the speed is negotiated between the two ports during link 
--establishment. If this fails, a port can be forced to a specific setting
--with this parameter.
--
--Auto-Negotiation
------------------
--Parameter:    AutoNeg_?
--Values:       On, Off, Sense
--Default:      On
--  
--The "Sense"-mode automatically detects whether the link partner supports
--auto-negotiation or not.
--
--Duplex Capabilities
---------------------
--Parameter:    DupCap_?
--Values:       Half, Full, Both
--Default:      Both
--
--This parameters is only relevant if auto-negotiation for this port is 
--not set to "Sense". If auto-negotiation is set to "On", all three values
--are possible. If it is set to "Off", only "Full" and "Half" are allowed.
--This parameter is useful if your link partner does not support all
--possible combinations.
--
--Flow Control
--------------
--Parameter:    FlowCtrl_?
--Values:       Sym, SymOrRem, LocSend, None
--Default:      SymOrRem
--
--This parameter can be used to set the flow control capabilities the 
--port reports during auto-negotiation. It can be set for each port 
--individually.
--Possible modes:
--   -- Sym      = Symmetric: both link partners are allowed to send 
--                  PAUSE frames
--   -- SymOrRem = SymmetricOrRemote: both or only remote partner 
--                  are allowed to send PAUSE frames
--   -- LocSend  = LocalSend: only local link partner is allowed 
--                  to send PAUSE frames
--   -- None     = no link partner is allowed to send PAUSE frames
--  
--NOTE: This parameter is ignored if auto-negotiation is set to "Off".
--
--Role in Master-Slave-Negotiation (1000Base-T only)
----------------------------------------------------
--Parameter:    Role_?
--Values:       Auto, Master, Slave
--Default:      Auto
--
--This parameter is only valid for the SK-9821 and SK-9822 adapters.
--For two 1000Base-T ports to communicate, one must take the role of the
--master (providing timing information), while the other must be the 
--slave. Usually, this is negotiated between the two ports during link 
--establishment. If this fails, a port can be forced to a specific setting
--with this parameter.
--
--
--4.2  Adapter Parameters
-------------------------
--
--Connection Type (SK-98xx V2.0 copper adapters only)
-----------------
--Parameter:    ConType
--Values:       Auto, 100FD, 100HD, 10FD, 10HD
--Default:      Auto
--
--The parameter 'ConType' is a combination of all five per-port parameters
--within one single parameter. This simplifies the configuration of both ports
--of an adapter card! The different values of this variable reflect the most 
--meaningful combinations of port parameters.
--
--The following table shows the values of 'ConType' and the corresponding
--combinations of the per-port parameters:
--
--    ConType   |  DupCap   AutoNeg   FlowCtrl   Role             Speed
--    ----------+------------------------------------------------------
--    Auto      |  Both     On        SymOrRem   Auto             Auto
--    100FD     |  Full     Off       None       Auto (ignored)   100
--    100HD     |  Half     Off       None       Auto (ignored)   100
--    10FD      |  Full     Off       None       Auto (ignored)   10
--    10HD      |  Half     Off       None       Auto (ignored)   10
--
--Stating any other port parameter together with this 'ConType' variable
--will result in a merged configuration of those settings. This due to 
--the fact, that the per-port parameters (e.g. Speed_? ) have a higher
--priority than the combined variable 'ConType'.
--
--NOTE: This parameter is always used on both ports of the adapter card.
--
--Interrupt Moderation
----------------------
--Parameter:    Moderation
--Values:       None, Static, Dynamic
--Default:      None
--
--Interrupt moderation is employed to limit the maximum number of interrupts
--the driver has to serve. That is, one or more interrupts (which indicate any
--transmit or receive packet to be processed) are queued until the driver 
--processes them. When queued interrupts are to be served, is determined by the
--'IntsPerSec' parameter, which is explained later below.
--
--Possible modes:
--
--   -- None - No interrupt moderation is applied on the adapter card. 
--      Therefore, each transmit or receive interrupt is served immediately
--      as soon as it appears on the interrupt line of the adapter card.
--
--   -- Static - Interrupt moderation is applied on the adapter card. 
--      All transmit and receive interrupts are queued until a complete
--      moderation interval ends. If such a moderation interval ends, all
--      queued interrupts are processed in one big bunch without any delay.
--      The term 'static' reflects the fact, that interrupt moderation is
--      always enabled, regardless how much network load is currently 
--      passing via a particular interface. In addition, the duration of
--      the moderation interval has a fixed length that never changes while
--      the driver is operational.
--
--   -- Dynamic - Interrupt moderation might be applied on the adapter card,
--      depending on the load of the system. If the driver detects that the
--      system load is too high, the driver tries to shield the system against 
--      too much network load by enabling interrupt moderation. If - at a later
--      time - the CPU utilization decreases again (or if the network load is 
--      negligible) the interrupt moderation will automatically be disabled.
--
--Interrupt moderation should be used when the driver has to handle one or more
--interfaces with a high network load, which - as a consequence - leads also to a
--high CPU utilization. When moderation is applied in such high network load 
--situations, CPU load might be reduced by 20-30%.
--
--NOTE: The drawback of using interrupt moderation is an increase of the round-
--trip-time (RTT), due to the queueing and serving of interrupts at dedicated
--moderation times.
--
--Interrupts per second
-----------------------
--Parameter:    IntsPerSec
--Values:       30...40000 (interrupts per second)
--Default:      2000
--
--This parameter is only used if either static or dynamic interrupt moderation
--is used on a network adapter card. Using this parameter if no moderation is
--applied will lead to no action performed.
--
--This parameter determines the length of any interrupt moderation interval. 
--Assuming that static interrupt moderation is to be used, an 'IntsPerSec' 
--parameter value of 2000 will lead to an interrupt moderation interval of
--500 microseconds. 
--
--NOTE: The duration of the moderation interval is to be chosen with care.
--At first glance, selecting a very long duration (e.g. only 100 interrupts per 
--second) seems to be meaningful, but the increase of packet-processing delay 
--is tremendous. On the other hand, selecting a very short moderation time might
--compensate the use of any moderation being applied.
--
--
--Preferred Port
----------------
--Parameter:    PrefPort
--Values:       A, B
--Default:      A
--
--This is used to force the preferred port to A or B (on dual-port network 
--adapters). The preferred port is the one that is used if both are detected
--as fully functional.
--
--RLMT Mode (Redundant Link Management Technology)
--------------------------------------------------
--Parameter:    RlmtMode
--Values:       CheckLinkState,CheckLocalPort, CheckSeg, DualNet
--Default:      CheckLinkState
--
--RLMT monitors the status of the port. If the link of the active port 
--fails, RLMT switches immediately to the standby link. The virtual link is 
--maintained as long as at least one 'physical' link is up. 
--
--Possible modes:
--
--   -- CheckLinkState - Check link state only: RLMT uses the link state
--      reported by the adapter hardware for each individual port to 
--      determine whether a port can be used for all network traffic or 
--      not.
--
--   -- CheckLocalPort - In this mode, RLMT monitors the network path 
--      between the two ports of an adapter by regularly exchanging packets
--      between them. This mode requires a network configuration in which 
--      the two ports are able to "see" each other (i.e. there must not be 
--      any router between the ports).
--
--   -- CheckSeg - Check local port and segmentation: This mode supports the
--      same functions as the CheckLocalPort mode and additionally checks 
--      network segmentation between the ports. Therefore, this mode is only
--      to be used if Gigabit Ethernet switches are installed on the network
--      that have been configured to use the Spanning Tree protocol. 
--
--   -- DualNet - In this mode, ports A and B are used as separate devices. 
--      If you have a dual port adapter, port A will be configured as eth0 
--      and port B as eth1. Both ports can be used independently with 
--      distinct IP addresses. The preferred port setting is not used. 
--      RLMT is turned off.
--   
--NOTE: RLMT modes CLP and CLPSS are designed to operate in configurations 
--      where a network path between the ports on one adapter exists. 
--      Moreover, they are not designed to work where adapters are connected
--      back-to-back.
--***
--
--
--5  Large Frame Support
--======================
--
--The driver supports large frames (also called jumbo frames). Using large 
--frames can result in an improved throughput if transferring large amounts 
--of data.
--To enable large frames, set the MTU (maximum transfer unit) of the 
--interface to the desired value (up to 9000), execute the following 
--command:
--      ifconfig eth0 mtu 9000
--This will only work if you have two adapters connected back-to-back
--or if you use a switch that supports large frames. When using a switch, 
--it should be configured to allow large frames and auto-negotiation should  
--be set to OFF. The setting must be configured on all adapters that can be 
--reached by the large frames. If one adapter is not set to receive large 
--frames, it will simply drop them.
--
--You can switch back to the standard ethernet frame size by executing the 
--following command:
--      ifconfig eth0 mtu 1500
--
--To permanently configure this setting, add a script with the 'ifconfig' 
--line to the system startup sequence (named something like "S99sk98lin" 
--in /etc/rc.d/rc2.d).
--***
--
--
--6  VLAN and Link Aggregation Support (IEEE 802.1, 802.1q, 802.3ad)
--==================================================================
--
--The Marvell Yukon/SysKonnect Linux drivers are able to support VLAN and 
--Link Aggregation according to IEEE standards 802.1, 802.1q, and 802.3ad. 
--These features are only available after installation of open source 
--modules available on the Internet:
--For VLAN go to: http://www.candelatech.com/~greear/vlan.html
--For Link Aggregation go to: http://www.st.rim.or.jp/~yumo
--
--NOTE: SysKonnect GmbH does not offer any support for these open source 
--      modules and does not take the responsibility for any kind of 
--      failures or problems arising in connection with these modules.
--
--NOTE: Configuring Link Aggregation on a SysKonnect dual link adapter may 
--      cause problems when unloading the driver.
--
--
--7  Troubleshooting
--==================
--
--If any problems occur during the installation process, check the 
--following list:
--
--
--Problem:  The SK-98xx adapter cannot be found by the driver.
--Solution: In /proc/pci search for the following entry:
--             'Ethernet controller: SysKonnect SK-98xx ...'
--          If this entry exists, the SK-98xx or SK-98xx V2.0 adapter has 
--          been found by the system and should be operational.
--          If this entry does not exist or if the file '/proc/pci' is not 
--          found, there may be a hardware problem or the PCI support may 
--          not be enabled in your kernel.
--          The adapter can be checked using the diagnostics program which 
--          is available on the SysKonnect web site:
--          www.syskonnect.com
--          
--          Some COMPAQ machines have problems dealing with PCI under Linux.
--          This problem is described in the 'PCI howto' document
--          (included in some distributions or available from the
--          web, e.g. at 'www.linux.org'). 
--
--
--Problem:  Programs such as 'ifconfig' or 'route' cannot be found or the 
--          error message 'Operation not permitted' is displayed.
--Reason:   You are not logged in as user 'root'.
--Solution: Logout and login as 'root' or change to 'root' via 'su'.
--
--
--Problem:  Upon use of the command 'ping <address>' the message
--          "ping: sendto: Network is unreachable" is displayed.
--Reason:   Your route is not set correctly.
--Solution: If you are using RedHat, you probably forgot to set up the 
--          route in the 'network configuration'.
--          Check the existing routes with the 'route' command and check 
--          if an entry for 'eth0' exists, and if so, if it is set correctly.
--
--
--Problem:  The driver can be started, the adapter is connected to the 
--          network, but you cannot receive or transmit any packets; 
--          e.g. 'ping' does not work.
--Reason:   There is an incorrect route in your routing table.
--Solution: Check the routing table with the command 'route' and read the 
--          manual help pages dealing with routes (enter 'man route').
--
--NOTE: Although the 2.2.x kernel versions generate the routing entry 
--      automatically, problems of this kind may occur here as well. We've 
--      come across a situation in which the driver started correctly at 
--      system start, but after the driver has been removed and reloaded,
--      the route of the adapter's network pointed to the 'dummy0'device 
--      and had to be corrected manually.
--
--
--Problem:  Your computer should act as a router between multiple 
--          IP subnetworks (using multiple adapters), but computers in 
--          other subnetworks cannot be reached.
--Reason:   Either the router's kernel is not configured for IP forwarding 
--          or the routing table and gateway configuration of at least one 
--          computer is not working.
--
--Problem:  Upon driver start, the following error message is displayed:
--          "eth0: -- ERROR --
--          Class: internal Software error
--          Nr:    0xcc
--          Msg:   SkGeInitPort() cannot init running ports"
--Reason:   You are using a driver compiled for single processor machines 
--          on a multiprocessor machine with SMP (Symmetric MultiProcessor) 
--          kernel.
--Solution: Configure your kernel appropriately and recompile the kernel or
--          the modules.
--
--
--
--If your problem is not listed here, please contact SysKonnect's technical
--support for help (linux@syskonnect.de).
--When contacting our technical support, please ensure that the following 
--information is available:
--- System Manufacturer and HW Informations (CPU, Memory... )
--- PCI-Boards in your system
--- Distribution
--- Kernel version
--- Driver version
--***
--
--
--
--***End of Readme File***
+Also see
+http://marc.info/?l=linux-netdev&m=120309729512241&w=2
+for the previous discussion of Glenns patch set.
+
+ include/net/request_sock.h |    2 +-
+ include/net/tcp.h          |    3 +
+ net/ipv4/syncookies.c      |   94 +++++++++++++++++++++++++++++++++++++++++--
+ net/ipv4/tcp_ipv4.c        |    5 +-
+ net/ipv4/tcp_output.c      |    6 ++-
+ net/ipv6/syncookies.c      |   53 +++++++++++++++++++++++--
+ net/ipv6/tcp_ipv6.c        |    5 +-
+ 7 files changed, 151 insertions(+), 17 deletions(-)
+
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index 0369f98..b987813 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -45,7 +45,7 @@ struct request_sock {
+ 	struct request_sock		*dl_next; /* Must be first member! */
+ 	u16				mss;
+ 	u8				retrans;
+-	u8				__pad;
++	u8				cookie_ts; /* syncookie: encode tcpopts in timestamp */
+ 	/* The following two fields can be easily recomputed I think -AK */
+ 	u32				window_clamp; /* window clamp at creation time */
+ 	u32				rcv_wnd;	  /* rcv_wnd offered first time */
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 723b368..83ad43b 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -442,6 +442,8 @@ extern struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ extern __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, 
+ 				     __u16 *mss);
+ 
++extern __u32 cookie_init_timestamp(struct request_sock *req);
++
+ /* From net/ipv6/syncookies.c */
+ extern struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb);
+ extern __u32 cookie_v6_init_sequence(struct sock *sk, struct sk_buff *skb,
+@@ -956,6 +958,7 @@ static inline void tcp_openreq_init(struct request_sock *req,
+ 	struct inet_request_sock *ireq = inet_rsk(req);
+ 
+ 	req->rcv_wnd = 0;		/* So that tcp_send_synack() knows! */
++	req->cookie_ts = 0;
+ 	tcp_rsk(req)->rcv_isn = TCP_SKB_CB(skb)->seq;
+ 	req->mss = rx_opt->mss_clamp;
+ 	req->ts_recent = rx_opt->saw_tstamp ? rx_opt->rcv_tsval : 0;
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index abc752d..274a27d 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -19,6 +19,10 @@
+ #include <linux/kernel.h>
+ #include <net/tcp.h>
+ 
++/* Timestamps: lowest 9 bits store TCP options */
++#define TSBITS 9
++#define TSMASK (((__u32)1 << TSBITS) - 1)
++
+ extern int sysctl_tcp_syncookies;
+ 
+ __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
+@@ -51,6 +55,43 @@ static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
+ 	return tmp[17];
+ }
+ 
++
++static u32 options_encode(u32 options)
++{
++	u32 ts, ts_now = tcp_time_stamp;
++
++	if (unlikely(options > ts_now)) { /* recent overflow */
++		options |= ~(TSMASK);
++		return options;
++	}
++	ts = ts_now & ~TSMASK;
++	ts |= options;
++	if (ts > ts_now) { /* try to fix up ... */
++		ts >>= TSBITS;
++		ts--;
++		ts <<= TSBITS;
++		ts |= options;
++	}
++        return ts;
++}
++
++
++__u32 cookie_init_timestamp(struct request_sock *req)
++{
++	struct inet_request_sock *ireq;
++	u32 options = 0;
++
++	ireq = inet_rsk(req);
++	if (ireq->wscale_ok) {
++		options = ireq->snd_wscale;
++		options |= ireq->rcv_wscale << 4;
++	}
++	options |= ireq->sack_ok << 8;
++
++	return options_encode(options);
++}
++
++
+ static __u32 secure_tcp_syn_cookie(__be32 saddr, __be32 daddr, __be16 sport,
+ 				   __be16 dport, __u32 sseq, __u32 count,
+ 				   __u32 data)
+@@ -185,6 +226,36 @@ static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+ 	return child;
+ }
+ 
++
++/*
++ * when syncookies are in effect and tcp timestamps are enabled we store
++ * additional tcp options in the timestamp value.
++ *
++ *
++ *
++ * The lowest 4 bits are for snd_wscale
++ * The next 4 lsb are for rcv_wscale
++ * The next 1 lsb are for sack_ok
++ */
++static void cookie_check_timestamp(struct tcp_options_received *tcp_opt)
++{
++	/* echoed timestamp, 9 lowest bits contain options */
++	u32 options = tcp_opt->rcv_tsecr & TSMASK;
++
++	tcp_opt->snd_wscale = options & 0xf;
++	options >>= 4;
++	tcp_opt->rcv_wscale = options & 0xf;
++
++	tcp_opt->sack_ok = (options >> 4) & 0x1;
++
++	if (tcp_opt->sack_ok)
++		tcp_sack_reset(tcp_opt);
++
++	if (tcp_opt->snd_wscale || tcp_opt->rcv_wscale)
++		tcp_opt->wscale_ok = 1;
++}
++
++
+ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 			     struct ip_options *opt)
+ {
+@@ -198,6 +269,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 	int mss;
+ 	struct rtable *rt;
+ 	__u8 rcv_wscale;
++	struct tcp_options_received tcp_opt;
+ 
+ 	if (!sysctl_tcp_syncookies || !th->ack)
+ 		goto out;
+@@ -210,6 +282,13 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 
+ 	NET_INC_STATS_BH(LINUX_MIB_SYNCOOKIESRECV);
+ 
++	/* check for timestamp cookie support */
++	memset(&tcp_opt, 0, sizeof(tcp_opt));
++	tcp_parse_options(skb, &tcp_opt, 0);
++
++	if (tcp_opt.saw_tstamp)
++		cookie_check_timestamp(&tcp_opt);
++
+ 	ret = NULL;
+ 	req = reqsk_alloc(&tcp_request_sock_ops); /* for safety */
+ 	if (!req)
+@@ -228,6 +307,12 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 	ireq->loc_addr		= ip_hdr(skb)->daddr;
+ 	ireq->rmt_addr		= ip_hdr(skb)->saddr;
+ 	ireq->opt		= NULL;
++	ireq->snd_wscale	= tcp_opt.snd_wscale;
++	ireq->rcv_wscale	= tcp_opt.rcv_wscale;
++	ireq->sack_ok		= tcp_opt.sack_ok;
++	ireq->wscale_ok		= tcp_opt.wscale_ok;
++	ireq->tstamp_ok		= tcp_opt.saw_tstamp;
++	req->ts_recent		= tcp_opt.saw_tstamp ? tcp_opt.rcv_tsval : 0;
+ 
+ 	/* We throwed the options of the initial SYN away, so we hope
+ 	 * the ACK carries the same options again (see RFC1122 4.2.3.8)
+@@ -242,8 +327,6 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 		}
+ 	}
+ 
+-	ireq->snd_wscale = ireq->rcv_wscale = ireq->tstamp_ok = 0;
+-	ireq->wscale_ok	 = ireq->sack_ok = 0;
+ 	req->expires	= 0UL;
+ 	req->retrans	= 0;
+ 
+@@ -272,11 +355,12 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 	}
+ 
+ 	/* Try to redo what tcp_v4_send_synack did. */
+-	req->window_clamp = dst_metric(&rt->u.dst, RTAX_WINDOW);
++	req->window_clamp = tp->window_clamp ? :dst_metric(&rt->u.dst, RTAX_WINDOW);
++
+ 	tcp_select_initial_window(tcp_full_space(sk), req->mss,
+ 				  &req->rcv_wnd, &req->window_clamp,
+-				  0, &rcv_wscale);
+-	/* BTW win scale with syncookies is 0 by definition */
++				  ireq->wscale_ok, &rcv_wscale);
++
+ 	ireq->rcv_wscale  = rcv_wscale;
+ 
+ 	ret = get_cookie_sock(sk, skb, req, &rt->u.dst);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index ef141b8..0d4d990 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1300,10 +1300,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 
+ 	tcp_parse_options(skb, &tmp_opt, 0);
+ 
+-	if (want_cookie) {
++	if (want_cookie && !tmp_opt.saw_tstamp)
+ 		tcp_clear_options(&tmp_opt);
+-		tmp_opt.saw_tstamp = 0;
+-	}
+ 
+ 	if (tmp_opt.saw_tstamp && !tmp_opt.rcv_tsval) {
+ 		/* Some OSes (unknown ones, but I see them on web server, which
+@@ -1331,6 +1329,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (want_cookie) {
+ #ifdef CONFIG_SYN_COOKIES
+ 		syn_flood_warning(skb);
++		req->cookie_ts = tmp_opt.tstamp_ok;
+ #endif
+ 		isn = cookie_v4_init_sequence(sk, skb, &req->mss);
+ 	} else if (!isn) {
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index a627616..76b3653 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2233,7 +2233,11 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 
+ 	/* RFC1323: The window in SYN & SYN/ACK segments is never scaled. */
+ 	th->window = htons(min(req->rcv_wnd, 65535U));
+-
++#ifdef CONFIG_SYN_COOKIES
++	if (unlikely(req->cookie_ts))
++		TCP_SKB_CB(skb)->when = cookie_init_timestamp(req);
++	else
++#endif
+ 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
+ 	tcp_syn_build_options((__be32 *)(th + 1), dst_metric(dst, RTAX_ADVMSS), ireq->tstamp_ok,
+ 			      ireq->sack_ok, ireq->wscale_ok, ireq->rcv_wscale,
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index 3a622e7..2737862 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -21,6 +21,9 @@
+ #include <net/ipv6.h>
+ #include <net/tcp.h>
+ 
++/* Timestamps: lowest 9 bits store TCP options */
++#define TSMASK (((__u32)1 << 9) - 1)
++
+ extern int sysctl_tcp_syncookies;
+ extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
+ 
+@@ -156,6 +159,36 @@ static inline int cookie_check(struct sk_buff *skb, __u32 cookie)
+ 	return mssind < NUM_MSS ? msstab[mssind] + 1 : 0;
+ }
+ 
++
++/*
++ * when syncookies are in effect and tcp timestamps are enabled we store
++ * additional tcp options in the timestamp value.
++ *
++ *
++ *
++ * The lowest 4 bits are for snd_wscale
++ * The next 4 lsb are for rcv_wscale
++ * The next 1 lsb are for sack_ok
++ */
++static void cookie_check_timestamp(struct tcp_options_received *tcp_opt)
++{
++	/* echoed timestamp, 9 lowest bits contain options */
++	u32 options = tcp_opt->rcv_tsecr & TSMASK;
++
++	tcp_opt->snd_wscale = options & 0xf;
++	options >>= 4;
++	tcp_opt->rcv_wscale = options & 0xf;
++
++	tcp_opt->sack_ok = (options >> 4) & 0x1;
++
++	if (tcp_opt->sack_ok)
++		tcp_sack_reset(tcp_opt);
++
++	if (tcp_opt->snd_wscale || tcp_opt->rcv_wscale)
++		tcp_opt->wscale_ok = 1;
++}
++
++
+ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct inet_request_sock *ireq;
+@@ -170,6 +203,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 	int mss;
+ 	struct dst_entry *dst;
+ 	__u8 rcv_wscale;
++	struct tcp_options_received tcp_opt;
+ 
+ 	if (!sysctl_tcp_syncookies || !th->ack)
+ 		goto out;
+@@ -182,6 +216,13 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 
+ 	NET_INC_STATS_BH(LINUX_MIB_SYNCOOKIESRECV);
+ 
++	/* check for timestamp cookie support */
++	memset(&tcp_opt, 0, sizeof(tcp_opt));
++	tcp_parse_options(skb, &tcp_opt, 0);
++
++	if (tcp_opt.saw_tstamp)
++		cookie_check_timestamp(&tcp_opt);
++
+ 	ret = NULL;
+ 	req = inet6_reqsk_alloc(&tcp6_request_sock_ops);
+ 	if (!req)
+@@ -216,8 +257,12 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 
+ 	req->expires = 0UL;
+ 	req->retrans = 0;
+-	ireq->snd_wscale = ireq->rcv_wscale = ireq->tstamp_ok = 0;
+-	ireq->wscale_ok = ireq->sack_ok = 0;
++	ireq->snd_wscale	= tcp_opt.snd_wscale;
++	ireq->rcv_wscale	= tcp_opt.rcv_wscale;
++	ireq->sack_ok		= tcp_opt.sack_ok;
++	ireq->wscale_ok		= tcp_opt.wscale_ok;
++	ireq->tstamp_ok		= tcp_opt.saw_tstamp;
++	req->ts_recent		= tcp_opt.saw_tstamp ? tcp_opt.rcv_tsval : 0;
+ 	treq->rcv_isn = ntohl(th->seq) - 1;
+ 	treq->snt_isn = cookie;
+ 
+@@ -253,10 +298,10 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 			goto out;
+ 	}
+ 
+-	req->window_clamp = dst_metric(dst, RTAX_WINDOW);
++	req->window_clamp = tp->window_clamp ? :dst_metric(dst, RTAX_WINDOW);
+ 	tcp_select_initial_window(tcp_full_space(sk), req->mss,
+ 				  &req->rcv_wnd, &req->window_clamp,
+-				  0, &rcv_wscale);
++				  ireq->wscale_ok, &rcv_wscale);
+ 
+ 	ireq->rcv_wscale = rcv_wscale;
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 6d851c3..822dbca 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1289,10 +1289,8 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 
+ 	tcp_parse_options(skb, &tmp_opt, 0);
+ 
+-	if (want_cookie) {
++	if (want_cookie && !tmp_opt.saw_tstamp)
+ 		tcp_clear_options(&tmp_opt);
+-		tmp_opt.saw_tstamp = 0;
+-	}
+ 
+ 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
+ 	tcp_openreq_init(req, &tmp_opt, skb);
+@@ -1306,6 +1304,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 
+ 	if (want_cookie) {
+ 		isn = cookie_v6_init_sequence(sk, skb, &req->mss);
++		req->cookie_ts = tmp_opt.tstamp_ok;
+ 	} else if (!isn) {
+ 		if (ipv6_opt_accepted(sk, skb) ||
+ 		    np->rxopt.bits.rxinfo || np->rxopt.bits.rxoinfo ||
+-- 
+1.5.3.7
 
