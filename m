@@ -1,53 +1,70 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [E1000-devel] [PATCH] [2.6.26 / RFC] e1000: remove PCI Express
- device IDs
-Date: Mon, 31 Mar 2008 11:32:12 -0700
-Message-ID: <47F12E2C.9010800@intel.com>
-References: <20080328174146.11857.94690.stgit@localhost.localdomain>
- <47EDA6CD.50308@garzik.org>
+Subject: Re: [PATCH 6/8] e1000e: convert ndev_ printks
+	to	something smaller
+Date: Mon, 31 Mar 2008 11:36:23 -0700
+Message-ID: <47F12F27.802@intel.com>
+References: <20080328161503.6562.44329.stgit@localhost.localdomain>
+	<20080328161531.6562.8515.stgit@localhost.localdomain>
+	<47EDA38F.6080301@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms048pub.verizon.net ([206.46.252.48]:61915 "EHLO
-	vms048pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751497AbYCaSjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 14:39:01 -0400
-Received: from ahkok-mobl.jf.intel.com ([192.102.209.4])
- by vms048.mailsrvcs.net
- (Sun Java System Messaging Server 6.2-6.01 (built Apr  3 2006))
- with ESMTPA id <0JYL003B0YGN9863@vms048.mailsrvcs.net> for
- netdev@vger.kernel.org; Mon, 31 Mar 2008 13:38:48 -0500 (CDT)
-In-reply-to: <47EDA6CD.50308@garzik.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-reply-to: <47EDA38F.6080301@garzik.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
 Jeff Garzik wrote:
 > Auke Kok wrote:
->> We do not want to prolong the situation much longer that e1000
->> and e1000e support these devices at the same time. As a result,
->> take out the bandage that was added for the interim period
->> and remove all the PCI Express device IDs from e1000.
+>> From: Bruce Allan <bruce.w.allan@intel.com>
 >>
+>> The ndev_* printk's are too lenghty and we don't need to specify
+>> the adapter/netdev struct at all, making this a lot more readable.
+>>
+>> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 >> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->> Cc: Linus Torvalds <torvalds@linux-foundation.org>
->> Cc: Jeff Garzik <jeff@garzik.org>
 >> ---
 >>
->>  drivers/net/Kconfig            |    3 ---
->>  drivers/net/e1000/e1000_main.c |   33 ---------------------------------
->>  2 files changed, 0 insertions(+), 36 deletions(-)
+>>  drivers/net/e1000e/e1000.h   |   27 ++++----
+>>  drivers/net/e1000e/ethtool.c |   38 +++++------
+>>  drivers/net/e1000e/netdev.c  |  148 +++++++++++++++++++-----------------------
+>>  drivers/net/e1000e/param.c   |   31 +++------
+>>  4 files changed, 108 insertions(+), 136 deletions(-)
 > 
-> I'm certainly fine with this for 2.6.26.
+> This stuff should just be removed.
 > 
-> Do we need to make a public "move to e1000e" announcement, or were the 
-> previous threads sufficient?  :)
+> Either the code should be outputting "ethX: blahblah" via printk(), or 
+> the code should be outputting the standard dev_printk() prefix [driver 
+> name, PCI device info].
+> 
+> Also, it is recommended to use the NETIF_MSG_xxx bits to permit 
+> fine-grained control over which messages are output, on a per-port basis 
+> (controlled via ethtool).  grep around for 'msg_enable'
 
-I'm OK with that and will write one such thing to lkml+netdev during the next
-merge window. ok?
+yes and I even tried pushing for a generic netdev printk that incorporates the
+msg_enable bits properly
+
+I also got absolutely unwelcome responses to that, if not none :)
+
+once we get such a thing, we can incorporate this into e1000 with this patch by
+changing 2 lines. so I think this patch is still a good thing, and it certainly
+removes a lot of wrapped lines.
 
 Auke
+
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
