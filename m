@@ -1,101 +1,62 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][VLAN]: Proc entry is not renamed when vlan device name changes.
-Date: Mon, 31 Mar 2008 17:06:15 +0400
-Message-ID: <47F0E1C7.7040908@openvz.org>
+From: jamal <hadi@cyberus.ca>
+Subject: speaking of stacks
+Date: Mon, 31 Mar 2008 09:15:56 -0400
+Message-ID: <1206969356.4424.120.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Cc: Joern Engel <joern@lazybastard.org>,
+	David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:50226 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751986AbYCaNGU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2008 09:06:20 -0400
+Received: from an-out-0708.google.com ([209.85.132.251]:7591 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754699AbYCaNQB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 09:16:01 -0400
+Received: by an-out-0708.google.com with SMTP id d31so430084and.103
+        for <netdev@vger.kernel.org>; Mon, 31 Mar 2008 06:16:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This may lead to situations, when each of two proc entries produce
-data for the other's device.
 
-Looks like a BUG, so this patch is for net-2.6. It will not apply 
-to net-2.6.26 since dev->nd_net access is replaced with dev_net(dev) 
-one. Should I rework the patch to fit 2.6.26?
+All this talk about stacks got me thirsty.
+Heres something thats a mystery to me; probably very basic
+when doing static check analysis (kernel make checkstack)
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+I have ipsec turned on in the linus git tree kernel and
+net/xfrm/xfrm_user.c::xfrm_get_policy() shows up as one of
+the top offenders. Eyeballing reveals that
+struct xfrm_policy seems to be the offender 
+in the else {} after if (p->index) in that function.
+That seems understandable - once variable "tmp" is declared it goes
+on the stack and it is freakin huge. 
+However, checkstack only seems to catch it if i have the
+line "memset(&tmp, 0, sizeof(struct xfrm_policy))". If i remove
+that line - even though tmp is on the stack - checkstack doesnt catch
+it.
 
----
+What gives?
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index dbc81b9..b33410a 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -374,17 +374,35 @@ static void vlan_sync_address(struct net_device *dev,
- 	memcpy(vlan->real_dev_addr, dev->dev_addr, ETH_ALEN);
- }
- 
-+static void __vlan_device_event(struct net_device *dev, unsigned long event)
-+{
-+	switch (event) {
-+	case NETDEV_CHANGENAME:
-+		vlan_proc_rem_dev(dev);
-+		if (vlan_proc_add_dev(dev) < 0)
-+			pr_warning("8021q: failed to change proc name for %s\n",
-+					dev->name);
-+		break;
-+	}
-+}
-+
- static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 			     void *ptr)
- {
- 	struct net_device *dev = ptr;
--	struct vlan_group *grp = __vlan_find_group(dev->ifindex);
-+	struct vlan_group *grp;
- 	int i, flgs;
- 	struct net_device *vlandev;
- 
- 	if (dev->nd_net != &init_net)
- 		return NOTIFY_DONE;
- 
-+	if (is_vlan_dev(dev)) {
-+		__vlan_device_event(dev, event);
-+		goto out;
-+	}
-+
-+	grp = __vlan_find_group(dev->ifindex);
- 	if (!grp)
- 		goto out;
- 
-diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
-index 73efcc7..51271ae 100644
---- a/net/8021q/vlan.h
-+++ b/net/8021q/vlan.h
-@@ -45,4 +45,9 @@ void vlan_netlink_fini(void);
- 
- extern struct rtnl_link_ops vlan_link_ops;
- 
-+static inline int is_vlan_dev(struct net_device *dev)
-+{
-+	return dev->priv_flags & IFF_802_1Q_VLAN;
-+}
-+
- #endif /* !(__BEN_VLAN_802_1Q_INC__) */
-diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
-index 146cfb0..9671aa5 100644
---- a/net/8021q/vlanproc.c
-+++ b/net/8021q/vlanproc.c
-@@ -210,11 +210,6 @@ int vlan_proc_rem_dev(struct net_device *vlandev)
-  * The following few functions build the content of /proc/net/vlan/config
-  */
- 
--static inline int is_vlan_dev(struct net_device *dev)
--{
--	return dev->priv_flags & IFF_802_1Q_VLAN;
--}
--
- /* start read of /proc/net/vlan/config */
- static void *vlan_seq_start(struct seq_file *seq, loff_t *pos)
- 	__acquires(dev_base_lock)
+----
+hadi@lilsol:~$ gcc -v
+Using built-in specs.
+Target: i486-linux-gnu
+Configured with: ../src/configure -v --enable-languages=c,c
+++,fortran,objc,obj-c++,treelang --prefix=/usr --enable-shared
+--with-system-zlib --libexecdir=/usr/lib --without-included-gettext
+--enable-threads=posix --enable-nls --program-suffix=-4.1
+--enable-__cxa_atexit --enable-clocale=gnu --enable-libstdcxx-debug
+--enable-mpfr --with-tune=i686 --enable-checking=release i486-linux-gnu
+Thread model: posix
+gcc version 4.1.2 20061115 (prerelease) (Debian 4.1.1-21)
+-----
+
+Not a gcc guru by far.
+Anyone interested, I can send you the .o before and after commenting
+for your perusal.
+
+cheers,
+jamal
 
