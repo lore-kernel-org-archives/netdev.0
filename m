@@ -1,124 +1,61 @@
-From: Roel Kluin <12o3l@tiscali.nl>
-Subject: [PATCH 3/8] : replace `__attribute' by `__attribute__'
-Date: Tue, 01 Apr 2008 19:36:55 +0200
-Message-ID: <47F272B7.6020701@tiscali.nl>
-References: <47F26FF6.8070300@tiscali.nl>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Fix for the fundamental network/block layer race in sendfile().
+Date: Tue, 1 Apr 2008 21:47:59 +0400
+Message-ID: <20080401174759.GB28217@2ka.mipt.ru>
+References: <20080328092036.GA11924@2ka.mipt.ru> <20080328.134053.122172549.davem@davemloft.net> <20080328205613.GA24812@2ka.mipt.ru> <20080328.140736.92315090.davem@davemloft.net> <20080328215131.GB24812@2ka.mipt.ru> <20080401164904.GA2382@2ka.mipt.ru> <47F26EAB.7040900@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, lkml <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, axboe@kernel.dk,
+	netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out3.tiscali.nl ([195.241.79.178]:32870 "EHLO
-	smtp-out3.tiscali.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756362AbYDARg7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 13:36:59 -0400
-In-Reply-To: <47F26FF6.8070300@tiscali.nl>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:54982 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756549AbYDARsR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2008 13:48:17 -0400
+Content-Disposition: inline
+In-Reply-To: <47F26EAB.7040900@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-replace `__attribute' by `__attribute__'
+Hi.
 
-Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
----
-diff --git a/drivers/net/3c527.h b/drivers/net/3c527.h
-index 75e28fe..21c59bd 100644
---- a/drivers/net/3c527.h
-+++ b/drivers/net/3c527.h
-@@ -34,7 +34,7 @@ struct mc32_mailbox
- {
-  	u16 mbox;
-  	u16 data[1];
--} __attribute((packed));
-+} __attribute__((packed));
- 
- struct skb_header
- {
-@@ -43,7 +43,7 @@ struct skb_header
- 	u16 next;	/* Do not change! */
- 	u16 length;
- 	u32 data;
--} __attribute((packed));
-+} __attribute__((packed));
- 
- struct mc32_stats
- {
-@@ -68,7 +68,7 @@ struct mc32_stats
- 	u32 dataA[6];
- 	u16 dataB[5];
- 	u32 dataC[14];
--} __attribute((packed));
-+} __attribute__((packed));
- 
- #define STATUS_MASK	0x0F
- #define COMPLETED	(1<<7)
-diff --git a/drivers/net/irda/vlsi_ir.h b/drivers/net/irda/vlsi_ir.h
-index c8b9c74..200af2b 100644
---- a/drivers/net/irda/vlsi_ir.h
-+++ b/drivers/net/irda/vlsi_ir.h
-@@ -545,7 +545,7 @@ struct ring_descr_hw {
- 			u8		addr_res[3];
- 			volatile u8	status;		/* descriptor status */
- 		} __attribute__((packed)) rd_s;
--	} __attribute((packed)) rd_u;
-+	} __attribute__((packed)) rd_u;
- } __attribute__ ((packed));
- 
- #define rd_addr		rd_u.addr
-diff --git a/drivers/net/lib8390.c b/drivers/net/lib8390.c
-index 0c5447d..c681056 100644
---- a/drivers/net/lib8390.c
-+++ b/drivers/net/lib8390.c
-@@ -1116,7 +1116,7 @@ static void NS8390_trigger_send(struct net_device *dev, unsigned int length,
- 								int start_page)
- {
- 	unsigned long e8390_base = dev->base_addr;
-- 	struct ei_device *ei_local __attribute((unused)) = (struct ei_device *) netdev_priv(dev);
-+ 	struct ei_device *ei_local __attribute__((unused)) = (struct ei_device *) netdev_priv(dev);
- 
- 	ei_outb_p(E8390_NODMA+E8390_PAGE0, e8390_base+E8390_CMD);
- 
-diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_cs.c
-index ce95c5d..69b31d4 100644
---- a/drivers/net/pcmcia/axnet_cs.c
-+++ b/drivers/net/pcmcia/axnet_cs.c
-@@ -1812,7 +1812,7 @@ static void NS8390_trigger_send(struct net_device *dev, unsigned int length,
- 								int start_page)
- {
- 	long e8390_base = dev->base_addr;
-- 	struct ei_device *ei_local __attribute((unused)) = (struct ei_device *) netdev_priv(dev);
-+ 	struct ei_device *ei_local __attribute__((unused)) = (struct ei_device *) netdev_priv(dev);
-     
- 	if (inb_p(e8390_base) & E8390_TRANS) 
- 	{
-diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-index 7bb3ba9..8cae15f 100644
---- a/drivers/net/sky2.h
-+++ b/drivers/net/sky2.h
-@@ -1947,21 +1947,21 @@ struct sky2_tx_le {
- 	__le16	length;	/* also vlan tag or checksum start */
- 	u8	ctrl;
- 	u8	opcode;
--} __attribute((packed));
-+} __attribute__((packed));
- 
- struct sky2_rx_le {
- 	__le32	addr;
- 	__le16	length;
- 	u8	ctrl;
- 	u8	opcode;
--} __attribute((packed));
-+} __attribute__((packed));
- 
- struct sky2_status_le {
- 	__le32	status;	/* also checksum */
- 	__le16	length;	/* also vlan tag */
- 	u8	css;
- 	u8	opcode;
--} __attribute((packed));
-+} __attribute__((packed));
- 
- struct tx_ring_info {
- 	struct sk_buff	*skb;
+On Tue, Apr 01, 2008 at 07:19:39PM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
+> >@@ -762,6 +765,12 @@ static ssize_t do_sendfile(int out_fd, int in_fd, 
+> >loff_t *ppos,
+> > 		count = max - pos;
+> > 	}
+> > 
+> >+	sock = out_file->private_data;
+> >+	sk = sock->sk;
+> >+
+> >+	sk->sk_user_data = &skb_splice_destructor;
+> >+	sk->sk_flags |= SO_PRIVATE_CALLBACK;
+> 
+> Ouch...
+> 
+> this seems very ugly (sorry).
+> 
+> 1) Is out_file garanted to be a socket ?
 
+Yep.
 
+> 2) SO_PRIVATE_CALLBACK is defined to be 37 later on your patch. Is ORing 37 
+> to sk_flags really working ???
+
+Kind of... Not as supposed to be, since sk_flags is a long.
+Will put that flag into socket instead.
+
+> 3) So, once a socket has been used for a sendfile(), all subsequent 
+> sendmsg() will call skb_splice_destructor ? (I see no clearing of 
+> SO_PRIVATE_CALLBACK)
+>  This will probably crash.
+
+Yep, need to clear.
+
+> 4) god_blessed_us name ... Oh I got it, its April the first !!!!
+
+But it still works :)
+
+-- 
+	Evgeniy Polyakov
