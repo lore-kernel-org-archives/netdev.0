@@ -1,147 +1,182 @@
-From: "Dave Young" <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: bluetooth lockdep trace. (.25rc5-git4)
-Date: Tue, 1 Apr 2008 16:58:46 +0800
-Message-ID: <a8e1da0804010158u26d8b2f6pcf18face16a60714@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC,PATCH] loopback: calls netif_receive_skb() instead of	netif_rx()
+Date: Tue, 01 Apr 2008 11:19:06 +0200
+Message-ID: <47F1FE0A.9090501@cosmosbay.com>
+References: <47BDC848.50607@cosmosbay.com> <20080226.182120.183405235.davem@davemloft.net> <47C92F49.4070100@cosmosbay.com> <20080323.032949.194309002.davem@davemloft.net> <47E6A5FD.6060407@cosmosbay.com> <20080331094823.GA11651@elte.hu> <47F0B66C.6080404@cosmosbay.com> <20080331101237.GA12324@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: multipart/mixed;
+ boundary="------------020607020203040007000907"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2f.orange.fr ([80.12.242.152]:53789 "EHLO smtp2f.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753882AbYDAJTS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2008 05:19:18 -0400
+In-Reply-To: <20080331101237.GA12324@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------020607020203040007000907
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+
+Ingo Molnar a =E9crit :
+> * Eric Dumazet <dada1@cosmosbay.com> wrote:
+>
+>  =20
+>> Problem is to check available space :
+>>
+>> It depends on stack growing UP or DOWN, and depends on caller running =
+
+>> on process stack, or softirq stack, or even hardirq stack.
+>>    =20
+>
+> ok - i wish such threads were on lkml so that everyone not just the=20
+> netdev kabal can read it. It's quite ugly, but if we want to check stac=
+k=20
+> free space i'd suggest for you to put a stack_can_recurse() call into=20
+> arch/x86/kernel/process.c and offer a default __weak implementation in =
+
+> kernel/fork.c that always returns 0.
+>
+> the rule on x86 should be something like this: on 4K stacks and 64-bit =
+
+> [which have irqstacks] free stack space can go as low as 25%. On 8K=20
+> stacks [which doesnt have irqstacks but nests irqs] it should not go=20
+> below 50% before falling back to the explicitly queued packet branch.
+>
+> this way other pieces of kernel code code can choose between on-stack=20
+> fast recursion and explicit iterators. Although i'm not sure i like the=
+=20
+> whole concept to begin with ...
+>
+>  =20
+
+Hi Ingo
+
+I took the time to prepare a patch to implement =20
+arch_stack_can_recurse() as you suggested.
+
+Thank you
+
+[PATCH] x86 : arch_stack_can_recurse() introduction
+
+Some paths in kernel would like to chose between on-stack fast recursion =
+
+and explicit iterators.
+
+One identified spot is in net loopback driver, where we can avoid=20
+netif_rx() and its slowdown if
+sufficient stack space is available.
+
+We introduce a generic arch_stack_can_recurse() which default to a weak=20
+function returning 0.
+
+ On x86 arch, we implement following logic :
+
+   32 bits and 4K stacks (separate irq stacks) : can use up to 25% of sta=
+ck
+   64 bits, 8K stacks (separate irq stacks)    : can use up to 25% of sta=
+ck
+   32 bits and 8K stacks (no irq stacks)       : can use up to 50% of sta=
+ck
+
+Example of use in drivers/net/loopback.c, function  loopback_xmit()
+
+if (arch_stack_can_recurse())
+    netif_receive_skb(skb); /* immediate delivery to stack */
+else
+    netif_rx(skb); /* defer to softirq handling */
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+
+
+--------------020607020203040007000907
+Content-Type: text/plain;
+ name="can_recurse.patch"
 Content-Transfer-Encoding: 7bit
-Cc: davej-rdkfGonbjUTCLXcRTR1eJlpr/1R2p/CL@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Marcel Holtmann" <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-To: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Disposition: inline;
+ filename="can_recurse.patch"
 
-On Tue, Apr 1, 2008 at 4:59 PM, Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
->  Bcc:
->  Subject: Re: bluetooth lockdep trace. (.25rc5-git4)
->  Reply-To:
->  In-Reply-To: <20080328.182021.46780895.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->
->  On Fri, Mar 28, 2008 at 06:20:21PM -0700, David Miller wrote:
->  > From: Dave Jones <davej-rdkfGonbjUTCLXcRTR1eJlpr/1R2p/CL@public.gmane.org>
->  > Date: Thu, 27 Mar 2008 12:21:56 -0400
->  >
->  > > Mar 27 08:10:57 localhost kernel: Pid: 3611, comm: obex-data-serve Not tainted 2.6.25-0.121.rc5.git4.fc9 #1
->  > > Mar 27 08:10:57 localhost kernel:  [__lock_acquire+2287/3089] __lock_acquire+0x8ef/0xc11
->  > > Mar 27 08:10:57 localhost kernel:  [sched_clock+8/11] ? sched_clock+0x8/0xb
->  > > Mar 27 08:10:57 localhost kernel:  [lock_acquire+106/144] lock_acquire+0x6a/0x90
->  > > Mar 27 08:10:57 localhost kernel:  [<f8bd9321>] ? l2cap_sock_bind+0x29/0x108 [l2cap]
->  > > Mar 27 08:10:57 localhost kernel:  [lock_sock_nested+182/198] lock_sock_nested+0xb6/0xc6
->  > > Mar 27 08:10:57 localhost kernel:  [<f8bd9321>] ? l2cap_sock_bind+0x29/0x108 [l2cap]
->  > > Mar 27 08:10:57 localhost kernel:  [security_socket_post_create+22/27] ? security_socket_post_create+0x16/0x1b
->  > > Mar 27 08:10:57 localhost kernel:  [__sock_create+388/472] ? __sock_create+0x184/0x1d8
->  > > Mar 27 08:10:57 localhost kernel:  [<f8bd9321>] l2cap_sock_bind+0x29/0x108 [l2cap]
->  > > Mar 27 08:10:57 localhost kernel:  [kernel_bind+10/13] kernel_bind+0xa/0xd
->  > > Mar 27 08:10:57 localhost kernel:  [<f8dad3d7>] rfcomm_dlc_open+0xc8/0x294 [rfcomm]
->  > > Mar 27 08:10:57 localhost kernel:  [lock_sock_nested+187/198] ? lock_sock_nested+0xbb/0xc6
->  > > Mar 27 08:10:57 localhost kernel:  [<f8dae18c>] rfcomm_sock_connect+0x8b/0xc2 [rfcomm]
->  > > Mar 27 08:10:57 localhost kernel:  [sys_connect+96/125] sys_connect+0x60/0x7d
->  > > Mar 27 08:10:57 localhost kernel:  [__lock_acquire+1370/3089] ? __lock_acquire+0x55a/0xc11
->  > > Mar 27 08:10:57 localhost kernel:  [sys_socketcall+140/392] sys_socketcall+0x8c/0x188
->  > > Mar 27 08:10:57 localhost kernel:  [syscall_call+7/11] syscall_call+0x7/0xb
->  >
->  > rfcomm connect locks the socket, then does rfcomm_dlc_open which in
->  > turn can do a l2cap_sock_bind on a seperate second socket which in
->  > turn locks that second socket.
->  >
->  > Both of these sockets are AF_BLUETOOTH family, so lockdep thinks there
->  > is a locking conflict, even though what is happening here is perfectly
->  > fine since the two sockets are totally different AF_BLUETOOTH
->  > sub-types.
->  >
->  > Bluetooth will need to use sock_lock_init_class_and_name() and
->  > lock sub-classes per AF_BLUETOOTH socket sub-type.
->  >
->  > David, could you or someone else work on this?
->
->  Does this fix the problem?
->
->  ---
->  'rfcomm connect' will trigger lockdep warnings which is caused by
->  locking diffrent kinds of bluetooth sockets at the same time.
->
->  So using sub-classes per AF_BLUETOOTH sub-type for lockdep.
->
->  Thanks for the hints from dave jones.
->
->
->  Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->
->  ---
->  net/bluetooth/af_bluetooth.c |   40 ++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 40 insertions(+)
->
->  diff -upr linux/net/bluetooth/af_bluetooth.c linux.new/net/bluetooth/af_bluetooth.c
->  --- linux/net/bluetooth/af_bluetooth.c  2008-04-01 16:09:17.000000000 +0800
->  +++ linux.new/net/bluetooth/af_bluetooth.c      2008-04-01 16:08:52.000000000 +0800
->  @@ -53,6 +53,30 @@
->   /* Bluetooth sockets */
->   #define BT_MAX_PROTO   8
->   static struct net_proto_family *bt_proto[BT_MAX_PROTO];
->  +
->  +static struct lock_class_key bt_slock_key[BT_MAX_PROTO];
->  +static struct lock_class_key bt_lock_key[BT_MAX_PROTO];
->  +static const char *bt_key_strings[BT_MAX_PROTO] = {
->  +       "sk_lock-AF_BLUETOOTH-BTPROTO_L2CAP",
->  +       "sk_lock-AF_BLUETOOTH-BTPROTO_HCI",
->  +       "sk_lock-AF_BLUETOOTH-BTPROTO_SCO",
->  +       "sk_lock-AF_BLUETOOTH-BTPROTO_RFCOMM",
->  +       "sk_lock-AF_BLUETOOTH-BTPROTO_BNEP",
->  +       "sk_lock-AF_BLUETOOTH-BTPROTO_CMTP",
->  +       "sk_lock-AF_BLUETOOTH-BTPROTO_HIDP",
->  +       "sk_lock-AF_BLUETOOTH-BTPROTO_AVDTP",
->  +};
->  +
->  +static const char *bt_slock_key_strings[BT_MAX_PROTO] = {
->  +       "slock-AF_BLUETOOTH-BTPROTO_L2CAP",
->  +       "slock-AF_BLUETOOTH-BTPROTO_HCI",
->  +       "slock-AF_BLUETOOTH-BTPROTO_SCO",
->  +       "slock-AF_BLUETOOTH-BTPROTO_RFCOMM",
->  +       "slock-AF_BLUETOOTH-BTPROTO_BNEP",
->  +       "slock-AF_BLUETOOTH-BTPROTO_CMTP",
->  +       "slock-AF_BLUETOOTH-BTPROTO_HIDP",
->  +       "slock-AF_BLUETOOTH-BTPROTO_AVDTP",
->  +};
->   static DEFINE_RWLOCK(bt_proto_lock);
->
->   int bt_sock_register(int proto, struct net_proto_family *ops)
->  @@ -95,6 +119,21 @@ int bt_sock_unregister(int proto)
->   }
->   EXPORT_SYMBOL(bt_sock_unregister);
->
->  +static void bt_reclassify_sock_lock(struct socket *sock, int proto)
->  +{
->  +       struct sock *sk = sock->sk;
->  +
->  +       if (!sk)
->  +               return;
->  +       BUG_ON(sock_owned_by_user(sk));
->  +
->  +       sock_lock_init_class_and_name(sk,
->  +                       bt_slock_key_strings[proto],
->  +                       &bt_slock_key[proto],
->  +                       bt_key_strings[proto],
->  +                       &bt_lock_key[proto]);
->  +}
->  +
->   static int bt_sock_create(struct net *net, struct socket *sock, int proto)
->   {
->         int err;
->  @@ -117,6 +156,7 @@ static int bt_sock_create(struct net *ne
->
->         if (bt_proto[proto] && try_module_get(bt_proto[proto]->owner)) {
->                 err = bt_proto[proto]->create(net, sock, proto);
->  +               bt_reclassify_sock_lock(sock, proto);
->                 module_put(bt_proto[proto]->owner);
->         }
->
->
+diff --git a/arch/x86/kernel/process.c b/arch/x86/kernel/process.c
+index 0e613e7..6edc1d3 100644
+--- a/arch/x86/kernel/process.c
++++ b/arch/x86/kernel/process.c
+@@ -43,3 +43,25 @@ void arch_task_cache_init(void)
+ 				  __alignof__(union thread_xstate),
+ 				  SLAB_PANIC, NULL);
+ }
++
++
++/*
++ * Used to check if we can recurse without risking stack overflow
++ * Rules are :
++ *   32 bits and 4K stacks (separate irq stacks) : can use up to 25% of stack
++ *   64 bits, 8K stacks (separate irq stacks)    : can use up to 25% of stack
++ *   32 bits and 8K stacks (no irq stacks)       : can use up to 50% of stack
++ */
++#if defined(CONFIG_4KSTACKS) || defined(CONFIG_X86_64)
++# define STACK_RECURSE_LIMIT (THREAD_SIZE/4)
++#else
++# define STACK_RECURSE_LIMIT (THREAD_SIZE/2)
++#endif
++
++int arch_stack_can_recurse()
++{
++	unsigned long offset_stack = current_stack_pointer & (THREAD_SIZE - 1);
++	unsigned long avail_stack = offset_stack - sizeof(struct thread_info);
++
++	return avail_stack >= STACK_RECURSE_LIMIT;
++}
+diff --git a/include/asm-x86/thread_info_64.h b/include/asm-x86/thread_info_64.h
+index f23fefc..9a913c4 100644
+--- a/include/asm-x86/thread_info_64.h
++++ b/include/asm-x86/thread_info_64.h
+@@ -60,6 +60,9 @@ struct thread_info {
+ #define init_thread_info	(init_thread_union.thread_info)
+ #define init_stack		(init_thread_union.stack)
+ 
++/* how to get the current stack pointer from C */
++register unsigned long current_stack_pointer asm("rsp") __used;
++
+ static inline struct thread_info *current_thread_info(void)
+ {
+ 	struct thread_info *ti;
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index ca720f0..445b8da 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1600,6 +1600,8 @@ union thread_union {
+ 	unsigned long stack[THREAD_SIZE/sizeof(long)];
+ };
+ 
++extern int arch_stack_can_recurse(void);
++
+ #ifndef __HAVE_ARCH_KSTACK_END
+ static inline int kstack_end(void *addr)
+ {
+diff --git a/kernel/fork.c b/kernel/fork.c
+index a19df75..cd5d1e1 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -136,6 +136,11 @@ void __attribute__((weak)) arch_task_cache_init(void)
+ {
+ }
+ 
++int __attribute__((weak)) arch_stack_can_recurse(void)
++{
++	return 0;
++}
++
+ void __init fork_init(unsigned long mempages)
+ {
+ #ifndef __HAVE_ARCH_TASK_STRUCT_ALLOCATOR
 
-Sorry, the subject was cut by my mistake, please don't mind.
+--------------020607020203040007000907--
 
-Regards
-dave
+
