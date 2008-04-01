@@ -1,43 +1,44 @@
-From: Ursula Braun <braunu@de.ibm.com>
-Subject: [patch 2/3] iucv: get rid of in_atomic() use.
-Date: Tue, 01 Apr 2008 15:45:23 +0200
-Message-ID: <20080401135709.170734000@linux.vnet.ibm.com>
-References: <20080401134521.169525000@linux.vnet.ibm.com>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH net-2.6.26] netlink: make socket filters work on netlink
+Date: Tue, 01 Apr 2008 10:04:06 -0400
+Message-ID: <1207058646.4424.218.camel@localhost>
+References: <47EAAFEC.6000805@trash.net>	<20080331123311.64e4ca37@extreme>
+	 <47F13E43.2040404@trash.net>
+	 <20080331.130757.199769025.davem@davemloft.net>
+	 <47F1467F.2080407@trash.net> <1207000143.4424.167.camel@localhost>
+	 <47F22211.5080100@trash.net>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:39744 "EHLO
-	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755146AbYDAN5L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 09:57:11 -0400
-Content-Disposition: inline; filename=722-iucv-inatomic.diff
+Received: from ti-out-0910.google.com ([209.85.142.190]:48768 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755092AbYDAOES (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 10:04:18 -0400
+Received: by ti-out-0910.google.com with SMTP id 28so633022tif.23
+        for <netdev@vger.kernel.org>; Tue, 01 Apr 2008 07:04:16 -0700 (PDT)
+In-Reply-To: <47F22211.5080100@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
+On Tue, 2008-01-04 at 13:52 +0200, Patrick McHardy wrote:
 
-This BUG_ON is not needed, since all (debug) checks are also done
-in smp_call_function() which gets called by this function.
+> Isn't that what nlmsg_pid already contains?
 
-Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
-Signed-off-by: Ursula Braun <braunu@de.ibm.com>
----
+would work only on the case of user<->user.
+On kernel->user it is supposed to be owned by the kernel and set to 0.
 
- net/iucv/iucv.c |    1 -
- 1 file changed, 1 deletion(-)
+OTOH, one could use the nlmsg seq as a "cookie" (since that is untouched
+by the kernel) with the hope that no other process will use that same
+cookie - then you can filter events based on the cookie. Note this is
+only useful if you can guarantee that all processes running on a system
+guarantee such uniqueness of such cookies amongst each other; which is
+typically a bad assumption for a generic solution but would work.
 
-Index: net-2.6.26-uschi/net/iucv/iucv.c
-===================================================================
---- net-2.6.26-uschi.orig/net/iucv/iucv.c
-+++ net-2.6.26-uschi/net/iucv/iucv.c
-@@ -795,7 +795,6 @@ int iucv_path_connect(struct iucv_path *
- 	union iucv_param *parm;
- 	int rc;
- 
--	BUG_ON(in_atomic());
- 	spin_lock_bh(&iucv_table_lock);
- 	iucv_cleanup_queue();
- 	parm = iucv_param[smp_processor_id()];
+cheers,
+jamal
 
--- 
