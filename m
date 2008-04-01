@@ -1,42 +1,30 @@
-From: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
-Subject: [PATCH] SCTP: Remove useless assignment from __sctp_rcv_lookup_endpoint
-Date: Tue, 01 Apr 2008 14:11:28 +0800
-Message-ID: <47F1D210.9070209@cn.fujitsu.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH][VLAN]: Proc entry is not renamed when vlan device name
+ changes.
+Date: Tue, 01 Apr 2008 08:53:12 +0200
+Message-ID: <47F1DBD8.9080603@trash.net>
+References: <47F0E1C7.7040908@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	lksctp-dev <lksctp-developers@lists.sourceforge.net>
-To: David Miller <davem@davemloft.net>,
-	vladislav <vladislav.yasevich@hp.com>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:55975 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751430AbYDAGMJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2008 02:12:09 -0400
+Received: from stinky.trash.net ([213.144.137.162]:50109 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751703AbYDAGxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 02:53:17 -0400
+In-Reply-To: <47F0E1C7.7040908@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove useless assignment from __sctp_rcv_lookup_endpoint
+Pavel Emelyanov wrote:
+> This may lead to situations, when each of two proc entries produce
+> data for the other's device.
+> 
+> Looks like a BUG, so this patch is for net-2.6. It will not apply 
+> to net-2.6.26 since dev->nd_net access is replaced with dev_net(dev) 
+> one. Should I rework the patch to fit 2.6.26?
 
-Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
----
- net/sctp/input.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index 812ff17..1878d82 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -725,7 +725,6 @@ static struct sctp_endpoint *__sctp_rcv_lookup_endpoint(const union sctp_addr *l
- 	}
- 
- 	ep = sctp_sk((sctp_get_ctl_sock()))->ep;
--	epb = &ep->base;
- 
- hit:
- 	sctp_endpoint_hold(ep);
--- 
-1.5.3
-
-
+No, since its a bugfix it should go in net-2.6. Dave, please apply.
