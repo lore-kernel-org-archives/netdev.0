@@ -1,75 +1,80 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2 of 2] IPv6: do not create temporary adresses with too
- short preferred lifetime
-Date: Wed, 02 Apr 2008 08:50:11 +0900 (JST)
-Message-ID: <20080402.085011.124380410.yoshfuji@linux-ipv6.org>
-References: <patchbomb.1207091339@pirzuine>
-	<00affc24c178e6da3a3b.1207091341@pirzuine>
+From: Bernard Pidoux <bpidoux@free.fr>
+Subject: Re: [AX25] kernel panic
+Date: Tue, 01 Apr 2008 22:37:02 +0200
+Message-ID: <47F29CEE.10307@free.fr>
+References: <47E68CA1.2040904@free.fr> <20080324205104.GA3721@ami.dom.local> <47E8FCE2.6000308@free.fr> <20080326183538.GA14266@ami.dom.local> <20080328120721.GA11060@ami.dom.local> <47EE3040.3050208@free.fr> <20080329122452.GB3407@ami.dom.local> <47EE38BA.9090500@free.fr> <20080329130451.GC3407@ami.dom.local> <47EF6479.7030702@free.fr> <20080330115958.GA4975@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pekkas@netcore.fi
-To: benoit.boissinot@ens-lyon.org, davem@davemloft.net
+Cc: Jarek Poplawski <jarkao2@o2.pl>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Ralf Baechle DL5RB <ralf@linux-mips.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:59681 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756180AbYDAXsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 19:48:35 -0400
-In-Reply-To: <00affc24c178e6da3a3b.1207091341@pirzuine>
+Received: from smtp5-g19.free.fr ([212.27.42.35]:43165 "EHLO smtp5-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756732AbYDBABY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2008 20:01:24 -0400
+In-Reply-To: <20080330115958.GA4975@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <00affc24c178e6da3a3b.1207091341@pirzuine> (at Wed, 02 Apr 2008 01:09:01 +0200), Benoit Boissinot <benoit.boissinot@ens-lyon.org> says:
 
-> IPv6: do not create temporary adresses with too short preferred lifetime
+Jarek Poplawski wrote:
+> On Sun, Mar 30, 2008 at 11:59:21AM +0200, Bernard Pidoux wrote:
+> ...
+>> I would not be surprised if ROSE was involved as, remember, I first  
+>> found the bug when I closed an AX25 session established through a level  
+>> 3 ROSE network (FPAC) via AXUDP link (ax25ipd). As I said in my first  
+>> bug report, the bug is not triggered when connecting locally or via AX25  
+>> call through LAN. Thus ROSE level is involved.
+>>
+>> However, I guess that lower layer (AX25) should stand a possible error  
+>> in the upper layer protocol (ROSE).
 > 
-> >From RFC341:
-> A temporary address is created only if this calculated Preferred
-> Lifetime is greater than REGEN_ADVANCE time units.  In particular,
-> an implementation must not create a temporary address with a zero
-> Preferred Lifetime.
+> I think ROSE breaks some general rules here: bugs trigger in sock.c
+> code when ROSE packets are destroyed after closing its sockets, but
+> without proper information on this.
 > 
-> Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
+>> ROSE is actually an AX25 packet routing protocol with only three byte  
+>> offset added to AX25 frames (encapsulation). Of course it has its own  
+>> bugs...
+> 
+> Probably... BTW, my today's patch adds some locking, so there is always
+> some risk of a lockup or some new lockdep warning. And if accidentally
+> it works, after testing with these debugging patches there would be
+> needed later a test of this #5 alone, as well.
+> 
+> Thanks,
+> Jarek P.
+> 
+> 
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-> 
-> diff -r 0c33481968e0 -r 00affc24c178 net/ipv6/addrconf.c
-> --- a/net/ipv6/addrconf.c	Sat Mar 22 00:41:39 2008 +0100
-> +++ b/net/ipv6/addrconf.c	Sat Mar 22 00:39:16 2008 +0100
-> @@ -776,6 +776,7 @@
->  	struct inet6_dev *idev = ifp->idev;
->  	struct in6_addr addr, *tmpaddr;
->  	unsigned long tmp_prefered_lft, tmp_valid_lft, tmp_cstamp, tmp_tstamp;
-> +	unsigned long regen_advance;
->  	int tmp_plen;
->  	int ret = 0;
->  	int max_addresses;
-> @@ -836,7 +837,22 @@
->  	tmp_tstamp = ifp->tstamp;
->  	spin_unlock_bh(&ifp->lock);
->  
-> +	regen_advance = idev->cnf.regen_max_retry *
-> +	                idev->cnf.dad_transmits *
-> +	                idev->nd_parms->retrans_time / HZ;
->  	write_unlock(&idev->lock);
-> +
-> +	/* A temporary address is created only if this calculated Preferred
-> +	 * Lifetime is greater than REGEN_ADVANCE time units.  In particular,
-> +	 * an implementation must not create a temporary address with a zero
-> +	 * Preferred Lifetime.
-> +	 */
-> +	if (tmp_prefered_lft <= regen_advance) {
-> +		in6_ifa_put(ifp);
-> +		in6_dev_put(idev);
-> +		ret = -1;
-> +		goto out;
-> +	}
->  
->  	addr_flags = IFA_F_TEMPORARY;
->  	/* set in addrconf_prefix_rcv() */
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I did what you suggested and reversed your patches #2,#3 and #4 to 
+verify that there was no system incompatibilities with the new locks you 
+introduced into rose_release().
+
+Patch #1 has also been removed on another machine running a 64 bit Core2 
+duo CPU.
+
+
+Three Linux boxes have been are running for more than 24 hours now with 
+only patch #5. They handled a lot of AX25 connections with no problems.
+
+Thus, we can reasonably expect that things are going to stay stable.
+
+If you want to commit patch#5 I will sustain it very much.
+
+I hope that it will be accepted quickly in order to make a coherent 
+system with AX25 patches already applied or not yet applied (if any).
+
+Thank you very much Jarek for this very nice job.
+
+
+Best regards,
+
+
+Bernard Pidoux,
+F6BVP
+
