@@ -1,52 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET_SCHED 00/04]: External SFQ classifiers/flow classifier
-Date: Tue, 01 Apr 2008 14:39:17 +0200
-Message-ID: <47F22CF5.4080806@trash.net>
-References: <20080131175758.25151.20370.sendpatchset@localhost.localdomain> <47A4FB81.80700@fatooh.org> <47A74FEE.6080103@trash.net> <47EED247.50801@andyfurniss.entadsl.com>
+From: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+Subject: Setting alternate MAC addresses on e1000
+Date: Tue, 01 Apr 2008 15:15:54 +0200
+Message-ID: <47F2358A.8080505@aei.mpg.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Corey Hickey <bugfood-ml@fatooh.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: lists@andyfurniss.entadsl.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60861 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752047AbYDAMjV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 08:39:21 -0400
-In-Reply-To: <47EED247.50801@andyfurniss.entadsl.com>
+Received: from welcomes-you.com ([85.214.50.128]:36337 "EHLO welcomes-you.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754507AbYDANmr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2008 09:42:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Furniss wrote:
-> Patrick McHardy wrote:
-> 
->> tc filter add dev eth0 protocol ip pref 1 parent 1: handle 1 \
->>         flow hash keys dst divisor 1024
->>
-> 
-> I've been trying to incorporate this into my own setup but haven't got 
-> very far :-)
-> 
-> I don't even know if it's possible to attach to htb subclasses and 
-> expect it to work. If it is do you have an example (is this what 
-> baseclass is for?).
-> 
-> I can attach to a filter to other than parent 1:0 OK but it doesn't do 
-> anything.
-> 
-> I have also tried incorporating flow into the 1:0 filters that filter to 
-> the htb subclasses that have the sfqs attached to them, but can't get 
-> ematch to work - but then I have never been able to get ematch to work. 
-> I can't find any examples. All I need if this is the way to go is to 
-> match on mark and match on anything.
-> 
-> Is this possible and if so, do you have/know of any examples?
+Hi,
 
-What exactly are you trying to do? If you attach the classifier
-to HTB, it will classify to HTB classes. I guess you actually
-want to use it for SFQ, which should work with:
+I know that quite a few e1000 experts are reading here, so I hope to 
+have some luck here:
 
-tc qdisc add ... handle x: sfq
-tc filter add parent x: protocol all flow ...
+I need to reprogram the MAC addresses of several 82573E/L NICs. I tried 
+the obvious approach first using ethtool -E to write the numbers into 
+the first six bytes and this works quite ok [1], except that I need to 
+specifically change the second MAC not necessarily the first one. This 
+approach only changed the first NIC and left the second unchanged.
 
+I've browsed http://download.intel.com/design/network/manuals/31608004.pdf
+quite a bit, but except finding that I seem to need to set word 0x37 to 
+point to 12 free bytes I have not come up with much. For example, I 
+don't know where I would find those 12 free bytes.
+
+Anyone with a different approach or a hint how to succeed?
+
+TIA
+
+Carsten
+
+[1] Along the lines of
+ethtool -E eth0 magic $MAGIC offset 0x0 value 0x${numbers[0]}
+[...]
+where magic is MAGIC=0x108c8086
+
+However this does not work on eth1 :(
