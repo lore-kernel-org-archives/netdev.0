@@ -1,31 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] [LLC]: skb allocation size for responses
-Date: Mon, 31 Mar 2008 21:06:37 -0700 (PDT)
-Message-ID: <20080331.210637.166654595.davem@davemloft.net>
-References: <20080329120223.GZ14945@ghostprotocols.net>
-	<20080331.192730.101669442.davem@davemloft.net>
-	<20080401034509.GA14715@tp61p-64.geninetworks.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: Adding IPv6 support to IPVS: some general questions about
+	kernel development
+Date: Tue, 1 Apr 2008 14:20:05 +0900
+Message-ID: <20080401052003.GC21127@verge.net.au>
+References: <f4845fc0803310753o56ccbae5uda1e216fa139857@mail.gmail.com> <47F123C5.70804@trash.net> <f4845fc0803311129w4bdb0415p56c3f11c935c3020@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: acme@redhat.com, netdev@vger.kernel.org
-To: joonwpark81@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Julius Volz <juliusv@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35878
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750897AbYDAEGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 00:06:37 -0400
-In-Reply-To: <20080401034509.GA14715@tp61p-64.geninetworks.com>
+Received: from koto.vergenet.net ([210.128.90.7]:43746 "EHLO koto.vergenet.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752821AbYDAFUG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2008 01:20:06 -0400
+Content-Disposition: inline
+In-Reply-To: <f4845fc0803311129w4bdb0415p56c3f11c935c3020@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joonwoo Park <joonwpark81@gmail.com>
-Date: Tue, 1 Apr 2008 12:45:09 +0900
-
-> should be : ARPHDR -> ARPHRD, thr -> trh
+On Mon, Mar 31, 2008 at 08:29:30PM +0200, Julius Volz wrote:
+> On Mon, Mar 31, 2008, Patrick McHardy <kaber@trash.net> wrote:
+> >  net/ipvs or net/netfilter/ipvs sound fine. The second is probably
+> >  better since at some point we should try to merge the duplicated
+> >  conntrack functionality if possible.
 > 
-> ---
-> [LLC]: skb allocation size for responses
+> Sure, since IPVS is basically a netfilter extension, that sounds good
+> to me. Could all the IPv4- and IPv6-specific functionality (as opposed
+> to the commonly used code) also end up in there or would that still
+> have to reside under ipv[4,6]/...?
+> 
+> Does it seem wise to do this move as the first thing in this process?
+> That would probably be a good starter exercise to get to know the
+> whole process!
 
-Applied, thanks.
+I think that sounds like an excellent idea. net/netfilter/ipvs sounds
+fine to me, though think that IPVS is fairly loosely tied to nefilter,
+so if it was only up to me I would go for net/ipvs.
+
+-- 
+Horms
 
