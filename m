@@ -1,34 +1,87 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Fix for the fundamental network/block layer race in sendfile().
-Date: Tue, 1 Apr 2008 23:45:27 +0400
-Message-ID: <20080401194527.GA26833@2ka.mipt.ru>
-References: <20080328092036.GA11924@2ka.mipt.ru> <20080328.134053.122172549.davem@davemloft.net> <20080328205613.GA24812@2ka.mipt.ru> <20080328.140736.92315090.davem@davemloft.net> <20080328215131.GB24812@2ka.mipt.ru> <20080401164904.GA2382@2ka.mipt.ru> <47F26EAB.7040900@cosmosbay.com> <20080401174759.GB28217@2ka.mipt.ru> <20080401180751.GA3263@2ka.mipt.ru> <47F28B2F.2070609@cosmosbay.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 3/6] IPV4 : use xor rather than multiple ands for route
+ compare
+Date: Tue, 1 Apr 2008 13:08:42 -0700
+Message-ID: <20080401130842.579e0ebc@extreme>
+References: <20080401004708.009204033@vyatta.com>
+	<20080401004724.601457403@vyatta.com>
+	<47F1CD83.8090905@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, axboe@kernel.dk,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:45685 "EHLO 2ka.mipt.ru"
+Received: from mail.vyatta.com ([216.93.170.194]:33655 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756793AbYDATpn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2008 15:45:43 -0400
-Content-Disposition: inline
-In-Reply-To: <47F28B2F.2070609@cosmosbay.com>
+	id S1755754AbYDAUIu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 16:08:50 -0400
+In-Reply-To: <47F1CD83.8090905@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 01, 2008 at 09:21:19PM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> I see no socket locking, so multiple threads could use sendfile() & 
-> sendmsg() on same socket, and crash kernel...
+On Tue, 01 Apr 2008 07:52:03 +0200
+Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-How?
-Those who use sendfile() automatically install page->lru.prev which is
-checked in release path, only those with given value will be processed
-as spliced (i.e. new callback).
+> Stephen Hemminger a =C3=A9crit :
+> > The comparison in ip_route_input is a hot path, by recoding the C
+> > "and" as bit operations, fewer conditional branches get generated
+> > so the code should be faster. Maybe someday Gcc will be smart
+> > enough to do this?
+> >=20
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> >=20
+> > --- a/net/ipv4/route.c	2008-03-31 10:57:30.000000000 -0700
+> > +++ b/net/ipv4/route.c	2008-03-31 11:10:44.000000000 -0700
+> > @@ -2079,14 +2079,14 @@ int ip_route_input(struct sk_buff *skb,=20
+> >  	rcu_read_lock();
+> >  	for (rth =3D rcu_dereference(rt_hash_table[hash].chain); rth;
+> >  	     rth =3D rcu_dereference(rth->u.dst.rt_next)) {
+> > -		if (rth->fl.fl4_dst =3D=3D daddr &&
+> > -		    rth->fl.fl4_src =3D=3D saddr &&
+> > -		    rth->fl.iif =3D=3D iif &&
+> > -		    rth->fl.oif =3D=3D 0 &&
+> > -		    rth->fl.mark =3D=3D skb->mark &&
+> > -		    rth->fl.fl4_tos =3D=3D tos &&
+> > -		    net_eq(dev_net(rth->u.dst.dev), net) &&
+> > -		    rth->rt_genid =3D=3D atomic_read(&rt_genid)) {
+> > +		if (((rth->fl.fl4_dst ^ daddr) |
+> > +		     (rth->fl.fl4_src ^ saddr) |
+> > +		     (rth->fl.iif ^ iif) |
+> > +		     rth->fl.oif |
+> > +		     (rth->fl.mark ^ skb->mark) |
+> > +		     (rth->fl.fl4_tos ^ tos) |
+> > +		     (rth->rt_genid ^ atomic_read(&rt_genid))) =3D=3D 0 &&
+> > +		    net_eq(dev_net(rth->u.dst.dev), net)) {
+> >  			dst_use(&rth->u.dst, jiffies);
+> >  			RT_CACHE_STAT_INC(in_hit);
+> >  			rcu_read_unlock();
+> >=20
+>=20
+> Are you sure all fields share same cache lines, on 32bit and 64bit ar=
+ches ?
 
-It is safe to install new callback on skbs which were not spliced, since
-for that skbs it will be pure sock_wfree().
+The flow fields are all together, and the other parameters are local va=
+riables
+in registers so that compare should be in one cache line.
 
--- 
-	Evgeniy Polyakov
+--- a/net/ipv4/route.c	2008-03-31 17:12:30.000000000 -0700
++++ b/net/ipv4/route.c	2008-04-01 13:05:46.000000000 -0700
+@@ -2079,12 +2079,12 @@ int ip_route_input(struct sk_buff *skb,=20
+ 	rcu_read_lock();
+ 	for (rth =3D rcu_dereference(rt_hash_table[hash].chain); rth;
+ 	     rth =3D rcu_dereference(rth->u.dst.rt_next)) {
+-		if (rth->fl.fl4_dst =3D=3D daddr &&
+-		    rth->fl.fl4_src =3D=3D saddr &&
+-		    rth->fl.iif =3D=3D iif &&
+-		    rth->fl.oif =3D=3D 0 &&
++		if (((rth->fl.fl4_dst ^ daddr) |
++		     (rth->fl.fl4_src ^ saddr) |
++		     (rth->fl.iif ^ iif) |
++		     rth->fl.oif |
++		     (rth->fl.fl4_tos ^ tos)) =3D=3D 0 &&
+ 		    rth->fl.mark =3D=3D skb->mark &&
+-		    rth->fl.fl4_tos =3D=3D tos &&
+ 		    net_eq(dev_net(rth->u.dst.dev), net) &&
+ 		    rth->rt_genid =3D=3D atomic_read(&rt_genid)) {
+ 			dst_use(&rth->u.dst, jiffies);
