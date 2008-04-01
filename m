@@ -1,41 +1,43 @@
 From: Ursula Braun <braunu@de.ibm.com>
-Subject: [patch 1/3] af_iucv: Use non-deprecated __RW_LOCK_UNLOCKED macro.
-Date: Tue, 01 Apr 2008 15:45:22 +0200
-Message-ID: <20080401135707.973984000@linux.vnet.ibm.com>
+Subject: [patch 2/3] iucv: get rid of in_atomic() use.
+Date: Tue, 01 Apr 2008 15:45:23 +0200
+Message-ID: <20080401135709.170734000@linux.vnet.ibm.com>
 References: <20080401134521.169525000@linux.vnet.ibm.com>
-Cc: "Robert P. J. Day" <rpjday@crashcourse.ca>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.de.ibm.com ([195.212.29.157]:13338 "EHLO
-	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755092AbYDAN5L (ORCPT
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:39744 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755146AbYDAN5L (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 09:57:11 -0400
-Content-Disposition: inline; filename=721-afiucv.diff
+Content-Disposition: inline; filename=722-iucv-inatomic.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robert P. J. Day <rpjday@crashcourse.ca>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
 
-Signed-off-by: Robert P. J. Day <rpjday@crashcourse.ca>
+This BUG_ON is not needed, since all (debug) checks are also done
+in smp_call_function() which gets called by this function.
+
+Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
 Signed-off-by: Ursula Braun <braunu@de.ibm.com>
 ---
 
- net/iucv/af_iucv.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/iucv/iucv.c |    1 -
+ 1 file changed, 1 deletion(-)
 
-Index: net-2.6.26-uschi/net/iucv/af_iucv.c
+Index: net-2.6.26-uschi/net/iucv/iucv.c
 ===================================================================
---- net-2.6.26-uschi.orig/net/iucv/af_iucv.c
-+++ net-2.6.26-uschi/net/iucv/af_iucv.c
-@@ -53,7 +53,7 @@ static int iucv_callback_connreq(struct 
- static void iucv_callback_connrej(struct iucv_path *, u8 ipuser[16]);
+--- net-2.6.26-uschi.orig/net/iucv/iucv.c
++++ net-2.6.26-uschi/net/iucv/iucv.c
+@@ -795,7 +795,6 @@ int iucv_path_connect(struct iucv_path *
+ 	union iucv_param *parm;
+ 	int rc;
  
- static struct iucv_sock_list iucv_sk_list = {
--	.lock = RW_LOCK_UNLOCKED,
-+	.lock = __RW_LOCK_UNLOCKED(iucv_sk_list.lock),
- 	.autobind_name = ATOMIC_INIT(0)
- };
- 
+-	BUG_ON(in_atomic());
+ 	spin_lock_bh(&iucv_table_lock);
+ 	iucv_cleanup_queue();
+ 	parm = iucv_param[smp_processor_id()];
 
 -- 
