@@ -1,44 +1,36 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [DCCP] [Patch 0/7]: Bug-Fixes and Clean-Ups
-Date: Tue, 1 Apr 2008 10:52:15 +0100
-Message-ID: <20080401095215.GA27232@gerrit.erg.abdn.ac.uk>
-References: <1206462011-24907-1-git-send-email-gerrit@erg.abdn.ac.uk> <5bc4c4570803261744n3a557476qed3b8f52a2ce1def@mail.gmail.com>
+From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+Subject: iproute2:patch
+Date: Tue, 01 Apr 2008 15:43:29 +0530
+Message-ID: <47F20AC9.9090809@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Angelo Perkusich <perkusic@dee.ufcg.edu.br>,
-	Walter Guerra <waltinhu@gmail.com>
-To: Leandro Sales <leandroal@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:35981 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756242AbYDAJwZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2008 05:52:25 -0400
-Content-Disposition: inline
-In-Reply-To: <5bc4c4570803261744n3a557476qed3b8f52a2ce1def@mail.gmail.com>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:43684 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756243AbYDAKIj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2008 06:08:39 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m31A8ct1016157
+	for <netdev@vger.kernel.org>; Tue, 1 Apr 2008 06:08:38 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m31A8chd248626
+	for <netdev@vger.kernel.org>; Tue, 1 Apr 2008 06:08:38 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m31A8cpb012740
+	for <netdev@vger.kernel.org>; Tue, 1 Apr 2008 06:08:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| >  If no one shouts, I will put that into the tree approximately by the end of
-| >  the week. In any case it would be good to know if the CCID-4 tree is still
-| >  active, since porting these changes will take quite a bit of work.
-| 
-| Yes, CCID-4 is still active. I'm very busy finishing many datails for
-| my dissertation, this includes writing the document, finishing some
-| DCCP for GStreamer fixes, and so on. I plan to back to CCID-4
-| implementation in the end of April, beginning of May.
-| 
-Updated git://eden-feed.erg.abdn.ac.uk/dccp_exp [ccid4] subtree to track
-the recent changes in CCID-3. There are two patches in there, one mirrors
-the prefix change, the other aggregates all recent bug fixes and changes
-made to CCID-3.
+Hi Stephen,
 
-This is a bit work-intensive since there are many small patches, while the
-actual CCID-4 code is a smaller part of that. It would be good to fold the 
-many patches into fewer ones soon. Most of the patches also don't compile 
-standalone (only as set), I have done some work on re-ordering chunks to
-fix this, but also have other work to do.
+                     I had send a patch to fix a bug in iproute2. This
+is regarding default address configuration table.
+http://www.mail-archive.com/netdev@vger.kernel.org/msg61796.html
+I did not get any response for the patch, so incase it got lost please
+add this to your queue.
 
-
-The University of Aberdeen is a charity registered in Scotland, No SC013683.
-
+Regards,
+Varun
