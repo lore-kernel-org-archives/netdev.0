@@ -1,34 +1,39 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [IPROUTE2 PATCH 1/2]: Add more aliases for tunnel subcommand.
-Date: Tue, 1 Apr 2008 12:22:58 -0700
-Message-ID: <20080401122258.592f035f@extreme>
-References: <20080313.111754.126763958.yoshfuji@linux-ipv6.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 0/5] [IPROUTE2] Add overhead parameter for CBQ, TBF and
+ police
+Date: Tue, 1 Apr 2008 12:23:51 -0700
+Message-ID: <20080401122351.752e5ecf@extreme>
+References: <1206312248.15884.26.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki / =?UTF-8?B?5ZCJ6Jek6Iux5piO?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: jdb@comx.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:43507 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756131AbYDATXS convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2008 15:23:18 -0400
-In-Reply-To: <20080313.111754.126763958.yoshfuji@linux-ipv6.org>
+Received: from mail.vyatta.com ([216.93.170.194]:60781 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755072AbYDATX4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2008 15:23:56 -0400
+In-Reply-To: <1206312248.15884.26.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 13 Mar 2008 11:17:54 -0400 (EDT)
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E  <yoshfuji@lin=
-ux-ipv6.org> wrote:
+On Sun, 23 Mar 2008 23:44:08 +0100
+Jesper Dangaard Brouer <jdb@comx.dk> wrote:
 
-> Add more aliases to synchronize IPv4 and IPv6 tunnel command, e.g.,
->   IPv4: hoplimit (alias to ttl), tclass (alias to tos)
->   IPv6: dsfield, tos (alias to tc, or tclass), ttl (alias to hoplimit=
-)
->=20
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
->=20
+> Hi Stephen
+> 
+> This can be view as a maintanance patchset for iproute2.  The overhead
+> parameter, introduced in kernel 2.6.24, were only implemented for HTB
+> in iproute2/tc.
+> 
+> This patchset adds overhead parameter parsing for the last rate-table
+> based schedulers CBQ, TFB and police.
+> 
+> The changes are ABI (Application Binary Interface) backward compatible
+> with older kernels, but will first have effect from kernel 2.6.24.
+> 
+> 
+> See you soon :-)
 
-applied to git for 2.6.25
+Appled for 2.6.25 version
