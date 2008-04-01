@@ -1,49 +1,122 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/2] [CCID-3]: Remove duplicate documentation
-Date: Tue,  1 Apr 2008 10:44:11 +0100
-Message-ID: <1207043051-27165-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/2] [Patch v2] [CCID2/3]: Fix sparse warnings
+Date: Tue,  1 Apr 2008 10:44:10 +0100
+Message-ID: <1207043051-27165-2-git-send-email-gerrit@erg.abdn.ac.uk>
 References: dccp_patch_set_revisions
  <1207043051-27165-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1207043051-27165-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:35738 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:35749 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755970AbYDAJoy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2008 05:44:54 -0400
-In-Reply-To: <1207043051-27165-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1756246AbYDAJo4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2008 05:44:56 -0400
+In-Reply-To: <1207043051-27165-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This removes RX-socket documentation which is either duplicate or non-existent.
+This is revision 2 of the patch. The first revision had a bug: the 
+"if (x < low_thresh)" appeared in the main control flow so that if p == 0
+and t_now - t_ld < RTT, x was reduced to 1 packet per second. This is
+fixed now by making the test dependent on whether X was actually changed.
+
+---------------------> Patch v2 <---------------------------------------------
+
+This patch fixes the following two sparse warnings:
+
+ 1. Due to a nested min(max()) expression, sparse gave the following warnings:
+
+    net/dccp/ccids/ccid3.c:91:21: warning: symbol '__x' shadows an earlier one
+    net/dccp/ccids/ccid3.c:91:21: warning: symbol '__y' shadows an earlier one
+
+    In addition, in update_x(), the function call to scaled_div() appeared as
+    macro parameter and was thus evaluated multiple times.
+    Fixed by disentangling the nested expression - code also clearer now.
+
+ 2. Declaration of function prototypes was in .c instead of .h file.
+    This resulted in "should it be static" warnings. Corrected by moving the
+    declarations to the tfrc.h file instead of the tfrc.c file.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid3.h |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+ net/dccp/ccids/ccid3.c    |   12 ++++++++----
+ net/dccp/ccids/lib/tfrc.c |    8 --------
+ net/dccp/ccids/lib/tfrc.h |   11 +++++++++--
+ 3 files changed, 17 insertions(+), 14 deletions(-)
 
---- a/net/dccp/ccids/ccid3.h
-+++ b/net/dccp/ccids/ccid3.h
-@@ -130,16 +130,12 @@ enum ccid3_hc_rx_states {
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -129,7 +129,8 @@ static u32 ccid3_hc_tx_idle_rtt(struct ccid3_hc_tx_sock *hctx, ktime_t now)
+ static void ccid3_hc_tx_update_x(struct sock *sk, ktime_t *stamp)
+ {
+ 	struct ccid3_hc_tx_sock *hctx = ccid3_hc_tx_sk(sk);
+-	u64 min_rate = 2 * hctx->x_recv;
++	u64 min_rate = 2 * hctx->x_recv,
++	    low_thresh = ((u64)hctx->s) << 6;
+ 	const u64 old_x = hctx->x;
+ 	ktime_t now = stamp ? *stamp : ktime_get_real();
  
- /** struct ccid3_hc_rx_sock - CCID3 receiver half-connection socket
-  *
-- *  @x_recv  -  Receiver estimate of send rate (RFC 3448 4.3)
-- *  @rtt  -  Receiver estimate of rtt (non-standard)
-- *  @p  -  Current loss event rate (RFC 3448 5.4)
-  *  @last_counter  -  Tracks window counter (RFC 4342, 8.1)
-  *  @state  -  Receiver state, one of %ccid3_hc_rx_states
-  *  @bytes_recv  -  Total sum of DCCP payload bytes
-  *  @x_recv  -  Receiver estimate of send rate (RFC 3448, sec. 4.3)
-  *  @rtt  -  Receiver estimate of RTT
-  *  @tstamp_last_feedback  -  Time at which last feedback was sent
-- *  @tstamp_last_ack  -  Time at which last feedback was sent
-  *  @hist  -  Packet history (loss detection + RTT sampling)
-  *  @li_hist  -  Loss Interval database
-  *  @s  -  Received packet size in bytes
+@@ -147,16 +148,19 @@ static void ccid3_hc_tx_update_x(struct sock *sk, ktime_t *stamp)
+ 	if (hctx->p > 0) {
+ 
+ 		hctx->x = min(((u64)hctx->x_calc) << 6, min_rate);
+-		hctx->x = max(hctx->x, (((u64)hctx->s) << 6) / TFRC_T_MBI);
++		low_thresh /= TFRC_T_MBI;
+ 
+ 	} else if (ktime_us_delta(now, hctx->t_ld) - (s64)hctx->rtt >= 0) {
+ 
+-		hctx->x = max(min(2 * hctx->x, min_rate),
+-			      scaled_div(((u64)hctx->s) << 6, hctx->rtt));
++		hctx->x    = min(2 * old_x, min_rate);
++		low_thresh = scaled_div(low_thresh, hctx->rtt);
+ 		hctx->t_ld = now;
+ 	}
+ 
+ 	if (hctx->x != old_x) {
++		if (hctx->x < low_thresh)
++			hctx->x = low_thresh;
++
+ 		ccid3_pr_debug("X_prev=%u, X_now=%u, X_calc=%u, "
+ 			       "X_recv=%u\n", (unsigned)(old_x >> 6),
+ 			       (unsigned)(hctx->x >> 6), hctx->x_calc,
+--- a/net/dccp/ccids/lib/tfrc.c
++++ b/net/dccp/ccids/lib/tfrc.c
+@@ -14,14 +14,6 @@ module_param(tfrc_debug, bool, 0444);
+ MODULE_PARM_DESC(tfrc_debug, "Enable debug messages");
+ #endif
+ 
+-extern int  tfrc_tx_packet_history_init(void);
+-extern void tfrc_tx_packet_history_exit(void);
+-extern int  tfrc_rx_packet_history_init(void);
+-extern void tfrc_rx_packet_history_exit(void);
+-
+-extern int  tfrc_li_init(void);
+-extern void tfrc_li_exit(void);
+-
+ static int __init tfrc_module_init(void)
+ {
+ 	int rc = tfrc_li_init();
+--- a/net/dccp/ccids/lib/tfrc.h
++++ b/net/dccp/ccids/lib/tfrc.h
+@@ -58,7 +58,14 @@ static inline u32 tfrc_ewma(const u32 avg, const u32 newval, const u8 weight)
+ 	return avg ? (weight * avg + (10 - weight) * newval) / 10 : newval;
+ }
+ 
+-extern u32 tfrc_calc_x(u16 s, u32 R, u32 p);
+-extern u32 tfrc_calc_x_reverse_lookup(u32 fvalue);
++extern u32  tfrc_calc_x(u16 s, u32 R, u32 p);
++extern u32  tfrc_calc_x_reverse_lookup(u32 fvalue);
+ 
++extern int  tfrc_tx_packet_history_init(void);
++extern void tfrc_tx_packet_history_exit(void);
++extern int  tfrc_rx_packet_history_init(void);
++extern void tfrc_rx_packet_history_exit(void);
++
++extern int  tfrc_li_init(void);
++extern void tfrc_li_exit(void);
+ #endif /* _TFRC_H_ */
 -- 
 1.5.3.GIT
 
