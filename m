@@ -1,159 +1,78 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6.26 2008-04-01
-Date: Tue, 1 Apr 2008 18:02:26 -0400
-Message-ID: <20080401220225.GA32555@tuxdriver.com>
+From: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
+Subject: Re: [PATCH 1 of 5] IPv6: do not wrap around when the lifetime has
+	expired
+Date: Wed, 2 Apr 2008 00:43:58 +0200
+Message-ID: <20080401224358.GA32592@pirzuine>
+References: <dd125a7f86968371046d.1206305169@pirzuine> <20080328.032539.66693379.yoshfuji@linux-ipv6.org> <20080327193854.GC8574@ens-lyon.fr> <20080328.120622.73826877.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, pekkas@netcore.fi
+To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4075 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756129AbYDAWda (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2008 18:33:30 -0400
+Received: from pilet.ens-lyon.fr ([140.77.167.16]:48461 "EHLO
+	pilet.ens-lyon.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752874AbYDAWoC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 18:44:02 -0400
 Content-Disposition: inline
+In-Reply-To: <20080328.120622.73826877.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+Ok, I think I missed something.
 
-Another week, another load of patches for 2.6.26.  This round includes
-some locking and other cleanups for mac80211, a few important rt2x00
-patches that fix problems already living in net-2.6.26, and some more
-libertas and iwlwifi patches.
+On Fri, Mar 28, 2008 at 12:06:22PM +0900, YOSHIFUJI Hideaki / =E5=90=89=
+=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> In article <20080327193854.GC8574@ens-lyon.fr> (at Thu, 27 Mar 2008 2=
+0:38:54 +0100), Benoit Boissinot <benoit.boissinot@ens-lyon.org> says:
+>=20
+> > On Fri, Mar 28, 2008 at 03:25:39AM +0900, YOSHIFUJI Hideaki / =E5=90=
+=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> > > In article <dd125a7f86968371046d.1206305169@pirzuine> (at Sun, 23=
+ Mar 2008 21:46:09 +0100), Benoit Boissinot <benoit.boissinot@ens-lyon.=
+org> says:
+> > >=20
+> > > > IPv6: do not wrap around when the lifetime has expired
+> > > >=20
+> > > > Instead of reporting overly large lifetimes to userspace,
+> > > > report a lifetime of 0 when a lifetime has expired.
+> > > >=20
+> > > > Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
+> > >=20
+> > > NAK.
+> > >=20
+> > > (signed) lifetime < 0 means it has expired, but 0 does not mean
+> > > that the lifetime has expired, but it is being expired
+> > > (within 1 second).
 
-Please let me know if there are problems!
+I re-checked the code, and while it is true that some path takes care
+not to use a too big lifetime (one that is > 0x7fffffffUL/HZ), for
+example:
+- inet6_addr_{add,modify}
+there are other places where there are no checks, eg:
+- addrconf_prefix_rcv, ipv6_create_tempaddr
 
-Thanks,
+=46urthermore, at least for the case of the preferred lifetime, a lifet=
+ime
+of 0 received from RA means deprecated (=3D=3D expired ?).
+And due to the rounding, if age =3D (now - ift->tsamp)/HZ
+then (age =3D=3D lifetime) being true means that the lifetime has fully=
+ expired right ?
 
-John
+In any case, the current code is buggy, because if preferred =3D=3D 1 a=
+nd tval =3D=3D 2,
+then we will send INFINITY_LIFETIME to userspace.
 
----
+=46inally, cstamp and tstamp are sent via netlink, it could be useful t=
+o
+solve this issue from userspace, but it's useless as it is since the
+tstamp sent is relative to the lifetime stored in the kernel, not
+relative to the lifetime we send (we should send "jiffies" for it to be
+useful).
 
-Individual patches are available here:
+regards,
 
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6.26/
-
----
-
-The following changes since commit dfb12eb70fc926562488515a9596c88b8eadc545:
-  Pavel Emelyanov (1):
-        [IPV6][NETNS]: Display per-net info in sockstat6 file.
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.26.git master
-
-Al Viro (1):
-      endianness annotations: drivers/net/wireless/rtl8180_dev.c
-
-Andrew Morton (1):
-      net/mac80211/debugfs_netdev.c: use of bool triggers a gcc bug
-
-Holger Schurig (4):
-      libertas: convert CMD_802_11_MAC_ADDRESS to a direct command
-      libertas: convert CMD_802_11_EEPROM_ACCESS to a direct command
-      libertas: convert sleep/wake config direct commands
-      libertas: don't depend on IEEE80211
-
-Ivo van Doorn (3):
-      rt2x00: Invert scheduled packet_filter check
-      rt2x00: TO_DS filter depends on intf_ap_count
-      rt2x00: Remove MAC80211_LEDS dependency
-
-Johannes Berg (6):
-      mac80211 ibss: flush only stations belonging to current interface
-      mac80211: fix sta_info_destroy(NULL)
-      mac80211: automatically free sta struct when insertion fails
-      mac80211: clean up sta_info_destroy() users wrt. RCU/locking
-      mac80211: sta_info_flush() fixes
-      mac80211: fix sparse complaint in ieee80211_sta_def_wmm_params
-
-John W. Linville (2):
-      rt2x00: fixup some non-functional merge errors
-      wireless: fix various printk warnings on ia64 (and others)
-
-Luis Carlos Cobo (5):
-      mac80211: fix deadlocks in debugfs_netdev.c
-      mac80211: fix spinlock recursion on sta expiration
-      mac80211: use recent multicast table for all mesh multicast frames
-      mac80211: check for mesh_config length on incoming management frames
-      mac80211: use a struct for bss->mesh_config
-
-Mohamed Abbas (3):
-      iwlwifi: add notification infrastructure to iwlcore
-      iwlwifi: hook iwlwifi with Linux rfkill
-      iwlwifi: fix race condition during driver unload
-
-Reinette Chatre (1):
-      iwlwifi: move rate registration to module load
-
-Ron Rindjunsky (1):
-      iwlwifi: unregister to upper stack before releasing resources
-
-Tomas Winkler (2):
-      iwlwifi: LED initialize before registering
-      iwlwifi: Fix synchronous host command
-
- drivers/net/wireless/Kconfig                |    1 -
- drivers/net/wireless/ath5k/base.c           |    9 +-
- drivers/net/wireless/iwlwifi/Kconfig        |    6 +
- drivers/net/wireless/iwlwifi/Makefile       |    4 +
- drivers/net/wireless/iwlwifi/iwl-3945-rs.c  |    6 +-
- drivers/net/wireless/iwlwifi/iwl-3945-rs.h  |    4 +-
- drivers/net/wireless/iwlwifi/iwl-3945.h     |   35 +++---
- drivers/net/wireless/iwlwifi/iwl-4965-rs.c  |    6 +-
- drivers/net/wireless/iwlwifi/iwl-4965-rs.h  |    4 +-
- drivers/net/wireless/iwlwifi/iwl-4965.c     |   12 +-
- drivers/net/wireless/iwlwifi/iwl-4965.h     |   40 +++---
- drivers/net/wireless/iwlwifi/iwl-core.c     |   25 ++++
- drivers/net/wireless/iwlwifi/iwl-core.h     |   16 ++-
- drivers/net/wireless/iwlwifi/iwl-hcmd.c     |    8 +-
- drivers/net/wireless/iwlwifi/iwl-led.c      |    6 +-
- drivers/net/wireless/iwlwifi/iwl-rfkill.c   |  174 ++++++++++++++++++++++++
- drivers/net/wireless/iwlwifi/iwl-rfkill.h   |   56 ++++++++
- drivers/net/wireless/iwlwifi/iwl3945-base.c |   65 ++++++++--
- drivers/net/wireless/iwlwifi/iwl4965-base.c |  124 +++++++++++------
- drivers/net/wireless/libertas/cmd.c         |   84 ++----------
- drivers/net/wireless/libertas/cmdresp.c     |   63 +--------
- drivers/net/wireless/libertas/decl.h        |    5 +
- drivers/net/wireless/libertas/dev.h         |    6 +-
- drivers/net/wireless/libertas/ethtool.c     |   67 +++-------
- drivers/net/wireless/libertas/hostcmd.h     |   22 ++--
- drivers/net/wireless/libertas/main.c        |   68 ++++++----
- drivers/net/wireless/libertas/wext.h        |   11 --
- drivers/net/wireless/rt2x00/Kconfig         |   14 +--
- drivers/net/wireless/rt2x00/rt2400pci.c     |   66 ++++++----
- drivers/net/wireless/rt2x00/rt2500pci.c     |   66 ++++++----
- drivers/net/wireless/rt2x00/rt2500usb.c     |   88 ++++++-------
- drivers/net/wireless/rt2x00/rt2x00.h        |    7 +-
- drivers/net/wireless/rt2x00/rt2x00dev.c     |   14 +-
- drivers/net/wireless/rt2x00/rt2x00leds.c    |  131 +++++++++---------
- drivers/net/wireless/rt2x00/rt2x00leds.h    |   21 +---
- drivers/net/wireless/rt2x00/rt2x00lib.h     |   12 ++
- drivers/net/wireless/rt2x00/rt2x00mac.c     |   17 ++-
- drivers/net/wireless/rt2x00/rt61pci.c       |   67 ++++++----
- drivers/net/wireless/rt2x00/rt73usb.c       |   73 ++++++----
- drivers/net/wireless/rtl8180_dev.c          |    4 +-
- net/mac80211/cfg.c                          |    8 +-
- net/mac80211/debugfs_netdev.c               |   16 ++-
- net/mac80211/ieee80211.c                    |    2 +-
- net/mac80211/ieee80211_i.h                  |   15 ++-
- net/mac80211/ieee80211_sta.c                |   54 +++++---
- net/mac80211/key.c                          |    9 ++
- net/mac80211/mesh.c                         |    4 -
- net/mac80211/mesh.h                         |   10 ++
- net/mac80211/mesh_plink.c                   |    6 +-
- net/mac80211/rx.c                           |    2 +-
- net/mac80211/sta_info.c                     |  193 +++++++++++++++++++++------
- net/mac80211/sta_info.h                     |    3 +
- 52 files changed, 1134 insertions(+), 695 deletions(-)
- create mode 100644 drivers/net/wireless/iwlwifi/iwl-rfkill.c
- create mode 100644 drivers/net/wireless/iwlwifi/iwl-rfkill.h
-
-Omnibus patch available here:
-
-	http://www.kenrnel.org/pub/linux/kernel/people/linville/wireless-2.6.26-2008-04-01.patch.bz2
--- 
-John W. Linville
-linville@tuxdriver.com
+Benoit
+--=20
+:wq
