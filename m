@@ -1,29 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.26 6/6][IPV6][NETNS]: Display per-net info in
- sockstat6 file.
-Date: Mon, 31 Mar 2008 20:19:25 -0700 (PDT)
-Message-ID: <20080331.201925.06507066.davem@davemloft.net>
-References: <47F0D6F1.7000105@openvz.org>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: [PATCH 1/2] SCTP: fix wrong debug counting of datamsg
+Date: Tue, 01 Apr 2008 11:41:15 +0800
+Message-ID: <47F1AEDB.1080300@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
+Cc: vladislav.yasevich@hp.com, lksctp-developers@lists.sourceforge.net,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47824
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753475AbYDADTZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 23:19:25 -0400
-In-Reply-To: <47F0D6F1.7000105@openvz.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:62008 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752224AbYDADnQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Mar 2008 23:43:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Mon, 31 Mar 2008 16:20:01 +0400
+Should not count it if the allocation of this object
+failed.
 
-> Do with the sockstat6 file what we've already done for the sockstat. 
-> Same good side effect - ipv6 reassembling stats are now shown per-net.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
+---
+ net/sctp/chunk.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-Applied.
+diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
+index 4d3128f..099b0af 100644
+--- a/net/sctp/chunk.c
++++ b/net/sctp/chunk.c
+@@ -66,9 +66,10 @@ SCTP_STATIC struct sctp_datamsg *sctp_datamsg_new(gfp_t gfp)
+ {
+ 	struct sctp_datamsg *msg;
+ 	msg = kmalloc(sizeof(struct sctp_datamsg), gfp);
+-	if (msg)
++	if (msg) {
+ 		sctp_datamsg_init(msg);
+-	SCTP_DBG_OBJCNT_INC(datamsg);
++		SCTP_DBG_OBJCNT_INC(datamsg);
++	}
+ 	return msg;
+ }
+ 
+-- 
+1.5.4.rc3
+
