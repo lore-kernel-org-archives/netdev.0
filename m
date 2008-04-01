@@ -1,109 +1,159 @@
-From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
-Subject: 2.6.25-rc6-git2: warn_on_slowpath for tcp_simple_retransmit
-Date: Wed, 2 Apr 2008 00:28:36 +0200
-Message-ID: <5a4c581d0804011528g786550c5sfd6bf90c0c37706@mail.gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-2.6.26 2008-04-01
+Date: Tue, 1 Apr 2008 18:02:26 -0400
+Message-ID: <20080401220225.GA32555@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Linux Kernel" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:63092 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759713AbYDAW2k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 18:28:40 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so1003025nfb.21
-        for <netdev@vger.kernel.org>; Tue, 01 Apr 2008 15:28:37 -0700 (PDT)
+Received: from ra.tuxdriver.com ([70.61.120.52]:4075 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756129AbYDAWda (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2008 18:33:30 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Found this in my FC6-based bittorrent box (K7-800 running
- a 2.6.25-rc6-git2 kernel) this evening.
+Dave,
 
-The kernel was upgraded two weeks ago to fix the bug
- in which an USB VIA driver hammered the PCI bus
- causing ATA disk performance to drop, and has been
- running since then (it still is).
+Another week, another load of patches for 2.6.26.  This round includes
+some locking and other cleanups for mac80211, a few important rt2x00
+patches that fix problems already living in net-2.6.26, and some more
+libertas and iwlwifi patches.
 
-So it's actually 2.6.25-rc6-git2 plus patch as in here
-http://www.gossamer-threads.com/lists/linux/kernel/895506#895506
+Please let me know if there are problems!
 
-If there's anything useful I can do, just ask. Thanks !
+Thanks,
 
-[1164423.381894] WARNING: at net/ipv4/tcp_output.c:1811
-tcp_simple_retransmit+0xde/0x167()
-[1164423.382797] Modules linked in: iptable_filter ip_tables x_tables
-ipv6 sd_mod floppy usb_storage scsi_mod parport_pc parport ehci_hcd
-uhci_hcd
-[1164423.384115] Pid: 11864, comm: peerguardnf Not tainted 2.6.25-rc6-git2 #2
-[1164423.384734]  [<c0114964>] warn_on_slowpath+0x41/0x51
-[1164423.385262]  [<c012e0ab>] ? __lock_acquire+0xac8/0xb10
-[1164423.385803]  [<c012e0ab>] ? __lock_acquire+0xac8/0xb10
-[1164423.386235]  [<c02d6dfc>] ? __inet_lookup_established+0x171/0x17b
-[1164423.386837]  [<c02e7235>] ? tcp_v4_err+0xf4/0x353
-[1164423.387338]  [<c02e3f71>] tcp_simple_retransmit+0xde/0x167
-[1164423.387883]  [<c02e733b>] tcp_v4_err+0x1fa/0x353
-[1164423.388369]  [<c02eec6f>] ? icmp_unreach+0x1e7/0x280
-[1164423.388893]  [<c02eecc6>] icmp_unreach+0x23e/0x280
-[1164423.389392]  [<c02ee1ea>] icmp_rcv+0x1c9/0x1f1
-[1164423.389893]  [<c02d08b2>] ip_local_deliver_finish+0xf6/0x1a1
-[1164423.390453]  [<c02cc3c1>] nf_reinject+0xc3/0x136
-[1164423.390940]  [<c02fb3d0>] ipq_rcv_skb+0x359/0x3b5
-[1164423.391441]  [<c02c8d5c>] netlink_unicast+0x1b8/0x21c
-[1164423.391968]  [<c02c98f9>] netlink_sendmsg+0x241/0x24e
-[1164423.392487]  [<c02b166b>] sock_sendmsg+0xc9/0xe0
-[1164423.392981]  [<c012455d>] ? autoremove_wake_function+0x0/0x33
-[1164423.393560]  [<c020c81c>] ? copy_from_user+0x3b/0x5e
-[1164423.394226]  [<c02b7d58>] ? verify_iovec+0x40/0x70
-[1164423.394733]  [<c02b17cf>] sys_sendmsg+0x14d/0x1a8
-[1164423.395228]  [<c020ca54>] ? copy_to_user+0x3d/0x49
-[1164423.395733]  [<c02b1f57>] ? move_addr_to_user+0x3b/0x52
-[1164423.396268]  [<c02b21a5>] ? sys_recvfrom+0xb8/0xc3
-[1164423.396774]  [<c012e0ab>] ? __lock_acquire+0xac8/0xb10
-[1164423.397305]  [<c010463e>] ? do_softirq+0x9a/0xa8
-[1164423.397893]  [<c0102c8b>] ? restore_nocheck+0x12/0x15
-[1164423.398417]  [<c012d209>] ? trace_hardirqs_on+0xe6/0x10d
-[1164423.398957]  [<c0102c8b>] ? restore_nocheck+0x12/0x15
-[1164423.399483]  [<c02b2577>] sys_socketcall+0x14e/0x166
-[1164423.399995]  [<c0102bdd>] ? sysenter_past_esp+0x9a/0xa5
-[1164423.400528]  [<c0102ba2>] sysenter_past_esp+0x5f/0xa5
-[1164423.401047]  [<c0172824>] ? bio_fs_destructor+0x0/0x10
-[1164423.401580]  =======================
-[1164423.401892] ---[ end trace ec1e34ea2cdbd7ae ]---
-[1164425.080514] ------------[ cut here ]------------
-[1164425.081052] WARNING: at net/ipv4/tcp_input.c:1771
-tcp_enter_frto+0x150/0x1ec()
-[1164425.081910] Modules linked in: iptable_filter ip_tables x_tables
-ipv6 sd_mod floppy usb_storage scsi_mod parport_pc parport ehci_hcd
-uhci_hcd
-[1164425.083225] Pid: 0, comm: swapper Not tainted 2.6.25-rc6-git2 #2
-[1164425.083797]  [<c0114964>] warn_on_slowpath+0x41/0x51
-[1164425.084323]  [<c012e0ab>] ? __lock_acquire+0xac8/0xb10
-[1164425.084844]  [<c012e0ab>] ? __lock_acquire+0xac8/0xb10
-[1164425.085374]  [<c012e0ab>] ? __lock_acquire+0xac8/0xb10
-[1164425.085904]  [<c02e4eed>] ? tcp_write_timer+0x16/0x575
-[1164425.086434]  [<c02e0644>] tcp_enter_frto+0x150/0x1ec
-[1164425.086943]  [<c02e524c>] tcp_write_timer+0x375/0x575
-[1164425.087458]  [<c011bb23>] run_timer_softirq+0x112/0x16d
-[1164425.087985]  [<c02e4ed7>] ? tcp_write_timer+0x0/0x575
-[1164425.088490]  [<c02e4ed7>] ? tcp_write_timer+0x0/0x575
-[1164425.089012]  [<c0118c8e>] __do_softirq+0x51/0xa8
-[1164425.089505]  [<c01045fc>] do_softirq+0x58/0xa8
-[1164425.089986]  [<c013647d>] ? handle_level_irq+0x0/0xbf
-[1164425.090511]  [<c0118bee>] irq_exit+0x3b/0x47
-[1164425.090975]  [<c01046e4>] do_IRQ+0x98/0xad
-[1164425.091428]  [<c0102e3a>] common_interrupt+0x2e/0x34
-[1164425.091939]  [<c01017e5>] ? default_idle+0x45/0x72
-[1164425.092490]  [<c01017a0>] ? default_idle+0x0/0x72
-[1164425.092989]  [<c0101778>] cpu_idle+0x60/0x88
-[1164425.093451]  [<c031b6f4>] rest_init+0x5c/0x5e
-[1164425.093927]  =======================
-[1164425.094334] ---[ end trace ec1e34ea2cdbd7ae ]---
+John
 
---alessandro
+---
 
- "Hold back the years, hold back the hours
-  I want to live to see the sun break through these days"
+Individual patches are available here:
 
-   (Patrick Wolf, 'This Weather')
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6.26/
+
+---
+
+The following changes since commit dfb12eb70fc926562488515a9596c88b8eadc545:
+  Pavel Emelyanov (1):
+        [IPV6][NETNS]: Display per-net info in sockstat6 file.
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.26.git master
+
+Al Viro (1):
+      endianness annotations: drivers/net/wireless/rtl8180_dev.c
+
+Andrew Morton (1):
+      net/mac80211/debugfs_netdev.c: use of bool triggers a gcc bug
+
+Holger Schurig (4):
+      libertas: convert CMD_802_11_MAC_ADDRESS to a direct command
+      libertas: convert CMD_802_11_EEPROM_ACCESS to a direct command
+      libertas: convert sleep/wake config direct commands
+      libertas: don't depend on IEEE80211
+
+Ivo van Doorn (3):
+      rt2x00: Invert scheduled packet_filter check
+      rt2x00: TO_DS filter depends on intf_ap_count
+      rt2x00: Remove MAC80211_LEDS dependency
+
+Johannes Berg (6):
+      mac80211 ibss: flush only stations belonging to current interface
+      mac80211: fix sta_info_destroy(NULL)
+      mac80211: automatically free sta struct when insertion fails
+      mac80211: clean up sta_info_destroy() users wrt. RCU/locking
+      mac80211: sta_info_flush() fixes
+      mac80211: fix sparse complaint in ieee80211_sta_def_wmm_params
+
+John W. Linville (2):
+      rt2x00: fixup some non-functional merge errors
+      wireless: fix various printk warnings on ia64 (and others)
+
+Luis Carlos Cobo (5):
+      mac80211: fix deadlocks in debugfs_netdev.c
+      mac80211: fix spinlock recursion on sta expiration
+      mac80211: use recent multicast table for all mesh multicast frames
+      mac80211: check for mesh_config length on incoming management frames
+      mac80211: use a struct for bss->mesh_config
+
+Mohamed Abbas (3):
+      iwlwifi: add notification infrastructure to iwlcore
+      iwlwifi: hook iwlwifi with Linux rfkill
+      iwlwifi: fix race condition during driver unload
+
+Reinette Chatre (1):
+      iwlwifi: move rate registration to module load
+
+Ron Rindjunsky (1):
+      iwlwifi: unregister to upper stack before releasing resources
+
+Tomas Winkler (2):
+      iwlwifi: LED initialize before registering
+      iwlwifi: Fix synchronous host command
+
+ drivers/net/wireless/Kconfig                |    1 -
+ drivers/net/wireless/ath5k/base.c           |    9 +-
+ drivers/net/wireless/iwlwifi/Kconfig        |    6 +
+ drivers/net/wireless/iwlwifi/Makefile       |    4 +
+ drivers/net/wireless/iwlwifi/iwl-3945-rs.c  |    6 +-
+ drivers/net/wireless/iwlwifi/iwl-3945-rs.h  |    4 +-
+ drivers/net/wireless/iwlwifi/iwl-3945.h     |   35 +++---
+ drivers/net/wireless/iwlwifi/iwl-4965-rs.c  |    6 +-
+ drivers/net/wireless/iwlwifi/iwl-4965-rs.h  |    4 +-
+ drivers/net/wireless/iwlwifi/iwl-4965.c     |   12 +-
+ drivers/net/wireless/iwlwifi/iwl-4965.h     |   40 +++---
+ drivers/net/wireless/iwlwifi/iwl-core.c     |   25 ++++
+ drivers/net/wireless/iwlwifi/iwl-core.h     |   16 ++-
+ drivers/net/wireless/iwlwifi/iwl-hcmd.c     |    8 +-
+ drivers/net/wireless/iwlwifi/iwl-led.c      |    6 +-
+ drivers/net/wireless/iwlwifi/iwl-rfkill.c   |  174 ++++++++++++++++++++++++
+ drivers/net/wireless/iwlwifi/iwl-rfkill.h   |   56 ++++++++
+ drivers/net/wireless/iwlwifi/iwl3945-base.c |   65 ++++++++--
+ drivers/net/wireless/iwlwifi/iwl4965-base.c |  124 +++++++++++------
+ drivers/net/wireless/libertas/cmd.c         |   84 ++----------
+ drivers/net/wireless/libertas/cmdresp.c     |   63 +--------
+ drivers/net/wireless/libertas/decl.h        |    5 +
+ drivers/net/wireless/libertas/dev.h         |    6 +-
+ drivers/net/wireless/libertas/ethtool.c     |   67 +++-------
+ drivers/net/wireless/libertas/hostcmd.h     |   22 ++--
+ drivers/net/wireless/libertas/main.c        |   68 ++++++----
+ drivers/net/wireless/libertas/wext.h        |   11 --
+ drivers/net/wireless/rt2x00/Kconfig         |   14 +--
+ drivers/net/wireless/rt2x00/rt2400pci.c     |   66 ++++++----
+ drivers/net/wireless/rt2x00/rt2500pci.c     |   66 ++++++----
+ drivers/net/wireless/rt2x00/rt2500usb.c     |   88 ++++++-------
+ drivers/net/wireless/rt2x00/rt2x00.h        |    7 +-
+ drivers/net/wireless/rt2x00/rt2x00dev.c     |   14 +-
+ drivers/net/wireless/rt2x00/rt2x00leds.c    |  131 +++++++++---------
+ drivers/net/wireless/rt2x00/rt2x00leds.h    |   21 +---
+ drivers/net/wireless/rt2x00/rt2x00lib.h     |   12 ++
+ drivers/net/wireless/rt2x00/rt2x00mac.c     |   17 ++-
+ drivers/net/wireless/rt2x00/rt61pci.c       |   67 ++++++----
+ drivers/net/wireless/rt2x00/rt73usb.c       |   73 ++++++----
+ drivers/net/wireless/rtl8180_dev.c          |    4 +-
+ net/mac80211/cfg.c                          |    8 +-
+ net/mac80211/debugfs_netdev.c               |   16 ++-
+ net/mac80211/ieee80211.c                    |    2 +-
+ net/mac80211/ieee80211_i.h                  |   15 ++-
+ net/mac80211/ieee80211_sta.c                |   54 +++++---
+ net/mac80211/key.c                          |    9 ++
+ net/mac80211/mesh.c                         |    4 -
+ net/mac80211/mesh.h                         |   10 ++
+ net/mac80211/mesh_plink.c                   |    6 +-
+ net/mac80211/rx.c                           |    2 +-
+ net/mac80211/sta_info.c                     |  193 +++++++++++++++++++++------
+ net/mac80211/sta_info.h                     |    3 +
+ 52 files changed, 1134 insertions(+), 695 deletions(-)
+ create mode 100644 drivers/net/wireless/iwlwifi/iwl-rfkill.c
+ create mode 100644 drivers/net/wireless/iwlwifi/iwl-rfkill.h
+
+Omnibus patch available here:
+
+	http://www.kenrnel.org/pub/linux/kernel/people/linville/wireless-2.6.26-2008-04-01.patch.bz2
+-- 
+John W. Linville
+linville@tuxdriver.com
