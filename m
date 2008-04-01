@@ -1,45 +1,39 @@
-From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [ANN] WiMAX stack and drivers for Intel WiMAX Link 5050
-Date: Tue, 1 Apr 2008 11:18:02 -0700
-Message-ID: <20080401111802.65fe259f@extreme>
-References: <200804011107.38563.inaky@linux.intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: iproute2:patch
+Date: Tue, 1 Apr 2008 11:20:55 -0700
+Message-ID: <20080401112055.3e215094@extreme>
+References: <47F20AC9.9090809@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Inaky Perez-Gonzalez <inaky-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200804011107.38563.inaky-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([216.93.170.194]:59003 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759762AbYDASVD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2008 14:21:03 -0400
+In-Reply-To: <47F20AC9.9090809@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 1 Apr 2008 11:07:37 -0700
-Inaky Perez-Gonzalez <inaky-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> wrote:
+On Tue, 01 Apr 2008 15:43:29 +0530
+Varun Chandramohan <varunc@linux.vnet.ibm.com> wrote:
 
+> Hi Stephen,
 > 
-> Intel would like to announce the initial release of a Linux WiMAX 
-> common stack and drivers for its WiMAX devices (eg: Intel(r) 
-> WiMAX/WiFi Link 5050, with estimated availability around third 
-> quarter of 2008).
+>                      I had send a patch to fix a bug in iproute2. This
+> is regarding default address configuration table.
+> http://www.mail-archive.com/netdev@vger.kernel.org/msg61796.html
+> I did not get any response for the patch, so incase it got lost please
+> add this to your queue.
 > 
-> The project follows a standard layered approach: a generic WiMAX 
-> kernel stack provides a common interface to control WiMAX devices. 
-> A user space daemon and libraries provide a high level API for 
-> control (network scanning, connection, disconnection, roaming 
-> management, etc) and access to the drivers. 
-> 
-> Currently much of this higher level code is tailored to Intel's 
-> device, but we wanted to get it out as soon as possible.
-> 
-> You can find the code and additional information at
-> http://linuxwimax.org.
-> 
+> Regards,
+> Varun
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Code review occurs on patch submittable not by pointing developers off
-to an external project. Most likely there will be feedback that requires
-changes to API and other choices so you want to do this soon.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Patch is in current git version, I am waiting to make a new release
+after 2.6.25 final.
