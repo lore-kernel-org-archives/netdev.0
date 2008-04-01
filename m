@@ -1,38 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net-2.6.26] netlink: make socket filters work on netlink
-Date: Tue, 01 Apr 2008 13:52:49 +0200
-Message-ID: <47F22211.5080100@trash.net>
-References: <47EAAFEC.6000805@trash.net>	<20080331123311.64e4ca37@extreme>	 <47F13E43.2040404@trash.net>	 <20080331.130757.199769025.davem@davemloft.net>	 <47F1467F.2080407@trash.net> <1207000143.4424.167.camel@localhost>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH][ICMP]: Dst entry leak in icmp_send host re-lookup code (v2).
+Date: Tue, 1 Apr 2008 20:15:32 +0800
+Message-ID: <20080401121532.GA24470@gondor.apana.org.au>
+References: <47EA1694.1080208@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Denis Lunev <den@openvz.org>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59260 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753958AbYDALwz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 07:52:55 -0400
-In-Reply-To: <1207000143.4424.167.camel@localhost>
+Received: from rhun.apana.org.au ([64.62.148.172]:42195 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753343AbYDAMPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 08:15:36 -0400
+Content-Disposition: inline
+In-Reply-To: <47EA1694.1080208@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-jamal wrote:
-> On Mon, 2008-31-03 at 22:15 +0200, Patrick McHardy wrote:
-> 
->> I'll cook something up based on my and Stephen's patches.
-> 
-> Nice - now we can move all the filtering off iproute2;->
-> 
-> My view is that the nature of most stuff to filter on _events_ will
-> depend on something along a "whodunnit" field. Route messages have a
-> rudimentary form of such a field (the "protocol" field on the quagga
-> patch Stephen posted for example uses it). It would be really nice to be
-> able to generate such a field on all events to emit say the processid of
-> the process which caused the event. Ive been thinking of adding a
-> permanent field like that on the actions/filters. What are peoples
-> thoughts on that?
+On Wed, Mar 26, 2008 at 12:25:40PM +0300, Pavel Emelyanov wrote:
+> Commit 8b7817f3a959ed99d7443afc12f78a7e1fcc2063 ([IPSEC]: Add ICMP host
+> relookup support) introduced some dst leaks on error paths: the rt
+> pointer can be forgotten to be put. Fix it bu going to a proper label.
 
+I just remembered that we have exactly the same code path in IPv6
+and sure enough it also has the same bug.
 
-Isn't that what nlmsg_pid already contains?
+[IPV6]: Fix ICMP relookup error path dst leak
+
+When we encounter an error while looking up the dst the second
+time we need to drop the first dst.  This patch is pretty much
+the same as the one for IPv4.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Thakns,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 121d517..f204a72 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -436,10 +436,10 @@ void icmpv6_send(struct sk_buff *skb, int type, int code, __u32 info,
+ 	}
+ 
+ 	if (xfrm_decode_session_reverse(skb, &fl2, AF_INET6))
+-		goto out;
++		goto out_dst_release;
+ 
+ 	if (ip6_dst_lookup(sk, &dst2, &fl))
+-		goto out;
++		goto out_dst_release;
+ 
+ 	err = xfrm_lookup(&dst2, &fl, sk, XFRM_LOOKUP_ICMP);
+ 	if (err == -ENOENT) {
