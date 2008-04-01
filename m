@@ -1,47 +1,35 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: gianfar: multiqueue, vlan pbits -> qos?
-Date: Mon, 31 Mar 2008 21:04:26 -0500
-Message-ID: <531286A6-5CDB-4D96-9C7A-ECC19898A4D3@freescale.com>
-References: <47EE9CCD.8080304@nortel.com>
-Mime-Version: 1.0 (Apple Message framework v919.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] [LLC]: skb allocation size for responses
+Date: Mon, 31 Mar 2008 19:27:30 -0700 (PDT)
+Message-ID: <20080331.192730.101669442.davem@davemloft.net>
+References: <20080328131202.GP14945@ghostprotocols.net>
+	<20080329060655.GA15023@tp64>
+	<20080329120223.GZ14945@ghostprotocols.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Randy Macleod <macleodr@nortel.com>
+Cc: joonwpark81@gmail.com, netdev@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:42257 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751282AbYDACEh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 22:04:37 -0400
-In-Reply-To: <47EE9CCD.8080304@nortel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40941
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752074AbYDAC1a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2008 22:27:30 -0400
+In-Reply-To: <20080329120223.GZ14945@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Sat, 29 Mar 2008 09:02:23 -0300
 
-On Mar 29, 2008, at 14:47, Randy Macleod wrote:
+> Perfect, thanks a lot:
+> 
+> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-> Hey Netdevers...
->
->  I'm looking into extending the gianfar driver to
-> make use of multiple rx (and maybe tx) queues.
-> I've started to read the gianfar source, the Freescale docs and  
-> netdev.
->
-> Has anyone done this already?
->
-> My interest is in LAN network QOS,
-> primarily selective discard under overload.
-> I'm thinking that I'll create several vlans in my
-> network and do a strict vlan priority bit based servicing.
->
-> I'm also poking at the multi-queue work that has been
-> done and wondering how that might fit into a solution.
-> I haven't read the e1000 multiqueue driver yet...
->
-> Any tips, flames or code?
+Breaks the build:
 
-Excellent!  I've been wanting to do this for some time, but haven't  
-managed to get it to the front of my queue (pun retroactively  
-intended).  Feel free to contact me if you have any questions.
-
-Andy
+net/llc/llc_sap.c: In function 'llc_mac_header_len':
+net/llc/llc_sap.c:34: error: 'ARPHDR_IEEE802_TR' undeclared (first use in this function)
+net/llc/llc_sap.c:34: error: (Each undeclared identifier is reported only once
+net/llc/llc_sap.c:34: error: for each function it appears in.)
+net/llc/llc_sap.c:35: error: invalid application of 'sizeof' to incomplete type 'struct thr_hdr' 
