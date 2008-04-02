@@ -1,161 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH][ICMP]: Dst entry leak in icmp_send host re-lookup code (v2).
-Date: Wed, 2 Apr 2008 20:40:24 +0800
-Message-ID: <20080402124024.GA9547@gondor.apana.org.au>
-References: <47EA1694.1080208@openvz.org> <20080401121532.GA24470@gondor.apana.org.au> <Pine.LNX.4.58.0804021146500.29472@u.domain.uli>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net-2.6.26] netlink: make socket filters work on netlink
+Date: Wed, 02 Apr 2008 14:45:54 +0200
+Message-ID: <47F38002.70005@trash.net>
+References: <47EAAFEC.6000805@trash.net> <20080331123311.64e4ca37@extreme>	 <47F13E43.2040404@trash.net>	 <20080331.130757.199769025.davem@davemloft.net>	 <47F1467F.2080407@trash.net> <1207000143.4424.167.camel@localhost>	 <47F22211.5080100@trash.net> <1207058646.4424.218.camel@localhost>	 <47F35933.5080305@trash.net>  <20080402112103.GB20815@postel.suug.ch>	 <1207137667.4451.143.camel@localhost>  <47F37762.2030705@trash.net> <1207139106.4451.155.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@openvz.org>, Julian Anastasov <ja@ssi.bg>,
-	Denis Lunev <den@openvz.org>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:53927 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753471AbYDBMkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 08:40:31 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0804021146500.29472@u.domain.uli>
+Received: from stinky.trash.net ([213.144.137.162]:64352 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756114AbYDBMqC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 08:46:02 -0400
+In-Reply-To: <1207139106.4451.155.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 02, 2008 at 12:19:06PM +0300, Julian Anastasov wrote:
->
-> 	OK, we found there was a leak, but why it happens? Initially,
-> I thought it was caused by saddr=0 provided to ip_route_input. Some
-> debugging shows that in the case with forwarded skb (with attached
-> input route) saddr is set to 0 but later xfrm_decode_session_reverse
-> rebuilds fl with addresses from packet. So, it was not that we
-> play with saddr=0. In my test setup with 2 interfaces ip_route_input
-> failed because I don't have route to the original destination
-> which is now provided as saddr to ip_route_input. No ICMP was sent
-> to sender while previous kernels send ICMP.
+jamal wrote:
+> On Wed, 2008-02-04 at 14:09 +0200, Patrick McHardy wrote:
+> 
+>> Yes, but it was the use of current->pid that was wrong.
+> 
+> There are many many apps out there which still use ioctls - hence the
+> ambiguity of "is it the kernel that generated the command that caused
+> the event or was it merely a proxy for some app". 
+> You need to resolve that. 
 
-Yes this was an oversight.
+Mhh .. we could use a magic nlmsg_pid value (just like zero)
+to indicate it was done on behalf of a process using ioctls or
+some other, non-netlink means. I'm wondering how useful this
+(or any other "whodunit" identifier) would be for filtering
+though, I think you're usually more interested in certain
+objects than certain processes, like all routes to 192.168.0.0/16,
+no matter who changes them.
 
-[ICMP]: Ensure that ICMP relookup maintains status quo
+>> If one of those calls are in a path invoked through netlink
+>> it should set nlmsg_pid.
+> 
+> Nod - I think thats mostly taken care of; havent looked lately. I know
+> Alexey didnt object to any patches i submitted that did change how
+> nlmsg_pid was set on events to match this thought and I cant think of a
+> reason it would violate any netlink ettiquette. 
+> 
+> Note, I find the whoddunit field (not the pid) to be also useful for
+> aesthetics and debugging other than for the non-ambiguity in the
+> filtering.
 
-The ICMP relookup path is only meant to modify behaviour when
-appropriate IPsec policies are in place and marked as requiring
-relookups.  It is certainly not meant to modify behaviour when
-IPsec policies don't exist at all.
+Unfortunately we can't add a new field to the existing headers
+without breaking things, so anything new would likely be subsystem
+specific.
 
-However, due to an oversight on the error paths existing behaviour
-may in fact change should one of the relookup steps fail.
-
-This patch corrects this by redirecting all errors on relookup
-failures to the previous code path.  That is, if the initial
-xfrm_lookup let the packet pass, we will stand by that decision
-should the relookup fail due to an error.
-
-This should be safe from a security point-of-view because compliant
-systems must install a default deny policy so the packet would'nt
-have passed in that case.
-
-Many thanks to Julian Anastasov for pointing out this error.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index a944e80..40508ba 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -591,7 +591,7 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
- 		}
- 
- 		if (xfrm_decode_session_reverse(skb_in, &fl, AF_INET))
--			goto ende;
-+			goto relookup_failed;
- 
- 		if (inet_addr_type(net, fl.fl4_src) == RTN_LOCAL)
- 			err = __ip_route_output_key(net, &rt2, &fl);
-@@ -601,7 +601,7 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
- 
- 			fl2.fl4_dst = fl.fl4_src;
- 			if (ip_route_output_key(net, &rt2, &fl2))
--				goto ende;
-+				goto relookup_failed;
- 
- 			/* Ugh! */
- 			odst = skb_in->dst;
-@@ -614,21 +614,23 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
- 		}
- 
- 		if (err)
--			goto ende;
-+			goto relookup_failed;
- 
- 		err = xfrm_lookup((struct dst_entry **)&rt2, &fl, NULL,
- 				  XFRM_LOOKUP_ICMP);
--		if (err == -ENOENT) {
-+		switch (err) {
-+		case 0:
-+			dst_release(&rt->u.dst);
-+			rt = rt2;
-+			break;
-+		case -EPERM:
-+			goto ende;
-+		default:
-+relookup_failed:
- 			if (!rt)
- 				goto out_unlock;
--			goto route_done;
-+			break;
- 		}
--
--		dst_release(&rt->u.dst);
--		rt = rt2;
--
--		if (err)
--			goto out_unlock;
- 	}
- 
- route_done:
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index f204a72..893287e 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -436,24 +436,26 @@ void icmpv6_send(struct sk_buff *skb, int type, int code, __u32 info,
- 	}
- 
- 	if (xfrm_decode_session_reverse(skb, &fl2, AF_INET6))
--		goto out_dst_release;
-+		goto relookup_failed;
- 
- 	if (ip6_dst_lookup(sk, &dst2, &fl))
--		goto out_dst_release;
-+		goto relookup_failed;
- 
- 	err = xfrm_lookup(&dst2, &fl, sk, XFRM_LOOKUP_ICMP);
--	if (err == -ENOENT) {
-+	switch (err) {
-+	case 0:
-+		dst_release(dst);
-+		dst = dst2;
-+		break;
-+	case -EPERM:
-+		goto out_dst_release;
-+	default:
-+relookup_failed:
- 		if (!dst)
- 			goto out;
--		goto route_done;
-+		break;
- 	}
- 
--	dst_release(dst);
--	dst = dst2;
--
--	if (err)
--		goto out;
--
- route_done:
- 	if (ipv6_addr_is_multicast(&fl.fl6_dst))
- 		hlimit = np->mcast_hops;
