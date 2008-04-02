@@ -1,52 +1,63 @@
-From: Max Krasnyanskiy <maxk@qualcomm.com>
-Subject: Re: [PATCH net-2.6.26 3/3][TUN][NETNS]: Allow to register tun devices
- in namespace.
-Date: Wed, 02 Apr 2008 15:54:29 -0700
-Message-ID: <47F40EA5.1030705@qualcomm.com>
-References: <47F391BE.20008@openvz.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH][ICMP]: Dst entry leak in icmp_send host re-lookup code
+ (v2).
+Date: Thu, 3 Apr 2008 02:29:55 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0804030136090.3169@u.domain.uli>
+References: <47EA1694.1080208@openvz.org> <20080401121532.GA24470@gondor.apana.org.au>
+ <Pine.LNX.4.58.0804021146500.29472@u.domain.uli> <20080402124024.GA9547@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	Denis Lunev <den@openvz.org>,
 	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:33903 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755995AbYDBWyb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 18:54:31 -0400
-In-Reply-To: <47F391BE.20008@openvz.org>
+Received: from ja.ssi.bg ([217.79.71.194]:54822 "EHLO u.domain.uli"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756752AbYDBXeF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Apr 2008 19:34:05 -0400
+In-Reply-To: <20080402124024.GA9547@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Pavel,
 
-All three patches look perfectly fine to me.
-Feel free to add Acked-by: Max Krasnyansky <maxk@qualcomm.com>
+	Hello,
 
-Pavel Emelyanov wrote:
-> This is basically means that a net is set for a new device, but
-> actually this involves two more steps:
+On Wed, 2 Apr 2008, Herbert Xu wrote:
+
+> On Wed, Apr 02, 2008 at 12:19:06PM +0300, Julian Anastasov wrote:
+> >
+> > play with saddr=0. In my test setup with 2 interfaces ip_route_input
+> > failed because I don't have route to the original destination
+> > which is now provided as saddr to ip_route_input. No ICMP was sent
+> > to sender while previous kernels send ICMP.
 > 
-> 1. mark the tun device as "local", i.e. do not allow for it to
->    move across namespaces.
+> Yes this was an oversight.
 > 
-> This is done so, since tun device is most often associated to some
-> file (and thus to some process) and moving the device alone is not
-> valid while keeping the file and the process outside.
+> [ICMP]: Ensure that ICMP relookup maintains status quo
 > 
-> 2. get the tun device's net when tun becomes attached and put one
->    when it becomes detached.
+> The ICMP relookup path is only meant to modify behaviour when
+> appropriate IPsec policies are in place and marked as requiring
+> relookups.  It is certainly not meant to modify behaviour when
+> IPsec policies don't exist at all.
 > 
-> This is needed to handle the case when a task owning the tun dies,
-> but a files lives for some more time - in this case we must not
-> allow for net to be freed, since its exit hook will spoil that file's
-> private data by unregistering the tun from under tun_chr_close.
-I'm not sure what you mean "by file lives on" here. I believe you're talking 
-about persistent tun devices. ie Those that exist in detached state and are 
-not attached to any file descriptors.
-"net" refcounting logic there looks fine to me.
+> However, due to an oversight on the error paths existing behaviour
+> may in fact change should one of the relookup steps fail.
+> 
+> This patch corrects this by redirecting all errors on relookup
+> failures to the previous code path.  That is, if the initial
+> xfrm_lookup let the packet pass, we will stand by that decision
+> should the relookup fail due to an error.
 
-Max
+	I tested this fix and now ICMP error is sent correctly.
+There is mistake in my previous email, I said there is no route but
+I have route to my destination, only that ARP resolution fails (after
+SNAT which makes the things more funny) and ICMP host unreachable
+error should be sent. But it does not matter much, only that NAT
+can confuse these xfrm calls but this is out of my knowledge.
 
+Regards
 
+--
+Julian Anastasov <ja@ssi.bg>
