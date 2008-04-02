@@ -1,68 +1,118 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 4 of 5] IPv6: fix lifetime calculation on temporary
- address creation
-Date: Wed, 02 Apr 2008 09:25:14 +0900 (JST)
-Message-ID: <20080402.092514.75146790.yoshfuji@linux-ipv6.org>
-References: <20080401215657.GP475@pirzuine>
-	<20080402.084114.60517414.yoshfuji@linux-ipv6.org>
-	<20080402001706.GD32592@pirzuine>
+From: =?iso-8859-1?Q?Bj=F6rn?= Steinbrink <B.Steinbrink@gmx.de>
+Subject: Re: [PATCH] forcedeth: mac address fix
+Date: Wed, 2 Apr 2008 02:24:59 +0200
+Message-ID: <20080402002459.GA22649@atjola.homenet>
+References: <47F1534A.7020402@nvidia.com> <20080401000502.GB7423@atjola.homenet> <47F180B8.6010801@nvidia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
-To: benoit.boissinot@ens-lyon.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+To: Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:59687 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756600AbYDBAXj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 20:23:39 -0400
-In-Reply-To: <20080402001706.GD32592@pirzuine>
+Received: from mail.gmx.net ([213.165.64.20]:45209 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752824AbYDBAZD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2008 20:25:03 -0400
+Content-Disposition: inline
+In-Reply-To: <47F180B8.6010801@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <20080402001706.GD32592@pirzuine> (at Wed, 2 Apr 2008 02:17:06 +0200), Benoit Boissinot <benoit.boissinot@ens-lyon.org> says:
+On 2008.03.31 19:24:24 -0500, Ayaz Abdulla wrote:
+>
+>
+> Bj=F6rn Steinbrink wrote:
+>> On 2008.03.31 16:10:34 -0500, Ayaz Abdulla wrote:
+>>
+>>> This critical patch fixes a mac address issue recently introduced. =
+If=20
+>>> =20
+>>
+>>
+>> Does "recently" mean my commit 2e3884b5b16795c03a7bf295797c1b2402885=
+b88?
+>> If so, I like to be told directly when I break stuff ;-)
+>>
+> Thats why I cc'd you. :)
 
-> On Wed, Apr 02, 2008 at 08:41:14AM +0900, YOSHIFUJI Hideaki / 吉藤英明 wrote:
-> > In article <20080401215657.GP475@pirzuine> (at Tue, 1 Apr 2008 23:56:57 +0200), Benoit Boissinot <benoit.boissinot@ens-lyon.org> says:
-> > 
-> > > On Fri, Mar 28, 2008 at 12:04:01PM +0900, YOSHIFUJI Hideaki / 吉藤英明 wrote:
-> > > > In article <ec551b4a5bb25cda00ff.1206305172@pirzuine> (at Sun, 23 Mar 2008 21:46:12 +0100), Benoit Boissinot <benoit.boissinot@ens-lyon.org> says:
-> > > > 
-> > > > > IPv6: fix lifetime calculation on temporary address creation
-> > > [snip]
-> > > > > +	now = jiffies;
-> > > > > +	elapsed = (now - ifp->tstamp) / HZ;
-> > > > > +	if (elapsed >= ifp->valid_lft)
-> > > > > +		tmp_valid_lft = 0;
-> > > > > +	else
-> > > > > +		tmp_valid_lft = min_t(__u32,
-> > > > > +				      ifp->valid_lft - elapsed,
-> > > > > +				      idev->cnf.temp_valid_lft);
-> > > > > +	if (elapsed >= ifp->prefered_lft)
-> > > > > +		tmp_prefered_lft = 0;
-> > > > > +	else
-> > > > > +		tmp_prefered_lft = min_t(__u32,
-> > > > > +					 ifp->prefered_lft - elapsed,
-> > > > > +					 idev->cnf.temp_prefered_lft - desync_factor / HZ);
-> > > > 
-> > > > Basically I agree, but it is possible to expire the temporary
-> > > > address AFTER public address, which is not good.  Please fix this.
-> > > 
-> > > do you mean because of the rounding of 'elapsed' ? otherwise I don't see
-> > > what the problem is, sorry.
-> > 
-> > Right.  Maybe we could substruct "now" by adj = (now - ifp->tstamp) % HZ;
-> >    now = jiffies
-> >    elapsed = (now - ifp->tstamp) / HZ;
-> >    now -= (now - ifp->tstamp) % HZ;
-> 
-> Why not just simply round it above:
-> elapsed = (now - ifp->tstamp + HZ - 1) / HZ; /* round it up */
-> and the rest stays the same.
-> 
-> Or do we care about having a lifetime a little bit (<1s) shorter ?
+OK, it's just that "recently broken" can mean about anything ;-) So I
+would have welcomed a "broken by xxx" in the commit message, or a small
+note below the --- line. :-)
 
-Yes, I do.
+>>> the device's mac address was in correct order and the flag  =20
+>>> NVREG_TRANSMITPOLL_MAC_ADDR_REV was set, during nv_remove the flag=20
+>>> would  get cleared. During next load, the mac address would get=20
+>>> reversed  because the flag is missing.
+>>
+>>
+>> Hm, but nv_remove also writes back the reversed mac address. I don't=
+ see
+>> how a plain remove/probe cycle would mess things up.
+>>
+>>
+>
+> For example, NVREG_TRANSMITPOLL_MAC_ADDR_REV is set. That would mean =
+=20
+> that orig_mac will be stored with correct address. Then you call =20
+> nv_remove (via ifdown) which set orig_mac back into the register and =
+=20
+> will clear the flag. On the next nv_probe (via ifup), you would perfo=
+rm =20
+> the logic to reverse the mac address. But it is still in correct orde=
+r.
 
---yoshfuji
+OK, that's the case when we had two consecutive nv_probe calls, without
+a call to nv_remove in between, right? So yeah, kexec + rmmod + modprob=
+e
+breaks. AFAICT.
+
+>>> As it has been indicated previously, the flag is cleared across a l=
+ow=20
+>>>  power transition. Therefore, the driver should set the mac address=
+=20
+>>> back  into the reversed order when clearing the flag.
+>>
+>>
+>> That's what nv_remove is supposed to do. Is there a case where nv_re=
+move
+>> is not called?
+>>
+>
+> Sorry for the confusion. I was merely stating what needs to be done a=
+s =20
+> the full solution. This logic was already in place by your patch.
+>
+>>
+>>> Also, the driver should set back the flag after a low power=20
+>>> transition  to protect against kexec command calling nv_probe a=20
+>>> second time.
+>>
+>>
+>> Sounds like suspend stopped calling nv_remove? That would make sense
+>> then. I never checked whether suspend ever actually did call nv_remo=
+ve
+>> (I think), but as my patch worked, it basically must have done so, a=
+t
+>> least in the past, right?
+>>
+>
+> My understanding is that nv_suspend will call nv_close and then =20
+> nv_resume will call nv_open. I don't think nv_probe/nv_remove is call=
+ed =20
+> during the low power transitions.
+
+Hm, then I fail to see why my patch had any effect. I only touched
+nv_probe and nv_remove, and it solved the mac reversal on suspend
+problem... *confused*
+
+> We want to set back the flag in nv_resume in case kexec is call after=
+ =20
+> anytime nv_resume is called. Otherwise, nv_probe (via kexec ?) will =20
+> think it needs to reverse the address.
+
+Hmhm, that also somehow conflicts with the fact that my patch did
+anything... I think.=20
+
+Bj=F6rn
