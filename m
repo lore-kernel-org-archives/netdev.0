@@ -1,107 +1,31 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 1/5] e1000: remove PCI Express device IDs
-Date: Wed, 02 Apr 2008 13:48:02 -0700
-Message-ID: <20080402204802.29122.81707.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: GFP_ATOMIC page allocation failures.
+Date: Wed, 02 Apr 2008 13:53:46 -0700 (PDT)
+Message-ID: <20080402.135346.212926761.davem@davemloft.net>
+References: <20080402195428.95A3.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+	<20080402.114441.78726196.davem@davemloft.net>
+	<1207167128.5311.5.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: jeff@garzik.org
+Cc: mcarlson@broadcom.com, kosaki.motohiro@jp.fujitsu.com,
+	akpm@linux-foundation.org, csnook@redhat.com,
+	davej@codemonkey.org.uk, nickpiggin@yahoo.com.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:17890 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755031AbYDBUwj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Apr 2008 16:52:39 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33611
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755207AbYDBUxq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 16:53:46 -0400
+In-Reply-To: <1207167128.5311.5.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We do not want to prolong the situation much longer that e1000
-and e1000e support these devices at the same time. As a result,
-take out the bandage that was added for the interim period
-and remove all the PCI Express device IDs from e1000.
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 02 Apr 2008 12:12:06 -0800
 
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Jeff Garzik <jeff@garzik.org>
----
+> tg3 hardware has a jumbo rx ring that can accommodate non-linear SKBs.
+> Matt is working on some patches to add this feature.
 
- drivers/net/Kconfig            |    3 ---
- drivers/net/e1000/e1000_main.c |   33 ---------------------------------
- 2 files changed, 0 insertions(+), 36 deletions(-)
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 95d1b61..ec764a9 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2028,9 +2028,6 @@ config E1000E
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called e1000e.
- 
--config E1000E_ENABLED
--	def_bool E1000E != n
--
- config IP1000
- 	tristate "IP1000 Gigabit Ethernet support"
- 	depends on PCI && EXPERIMENTAL
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 757d02f..f12de3c 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -47,12 +47,6 @@ static const char e1000_copyright[] = "Copyright (c) 1999-2006 Intel Corporation
-  * Macro expands to...
-  *   {PCI_DEVICE(PCI_VENDOR_ID_INTEL, device_id)}
-  */
--#ifdef CONFIG_E1000E_ENABLED
--  #define PCIE(x) 
--#else
--  #define PCIE(x) x,
--#endif
--
- static struct pci_device_id e1000_pci_tbl[] = {
- 	INTEL_E1000_ETHERNET_DEVICE(0x1000),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1001),
-@@ -79,14 +73,6 @@ static struct pci_device_id e1000_pci_tbl[] = {
- 	INTEL_E1000_ETHERNET_DEVICE(0x1026),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1027),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1028),
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1049))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x104A))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x104B))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x104C))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x104D))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x105E))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x105F))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1060))
- 	INTEL_E1000_ETHERNET_DEVICE(0x1075),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1076),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1077),
-@@ -95,28 +81,9 @@ PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1060))
- 	INTEL_E1000_ETHERNET_DEVICE(0x107A),
- 	INTEL_E1000_ETHERNET_DEVICE(0x107B),
- 	INTEL_E1000_ETHERNET_DEVICE(0x107C),
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x107D))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x107E))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x107F))
- 	INTEL_E1000_ETHERNET_DEVICE(0x108A),
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x108B))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x108C))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1096))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x1098))
- 	INTEL_E1000_ETHERNET_DEVICE(0x1099),
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x109A))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10A4))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10A5))
- 	INTEL_E1000_ETHERNET_DEVICE(0x10B5),
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10B9))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10BA))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10BB))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10BC))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10C4))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10C5))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10D5))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10D9))
--PCIE(	INTEL_E1000_ETHERNET_DEVICE(0x10DA))
- 	/* required last entry */
- 	{0,}
- };
-
+Excellent.
