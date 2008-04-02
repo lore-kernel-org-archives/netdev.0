@@ -1,37 +1,31 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-2.6.26] netlink: make socket filters work on netlink
-Date: Wed, 2 Apr 2008 13:21:03 +0200
-Message-ID: <20080402112103.GB20815@postel.suug.ch>
-References: <47EAAFEC.6000805@trash.net> <20080331123311.64e4ca37@extreme> <47F13E43.2040404@trash.net> <20080331.130757.199769025.davem@davemloft.net> <47F1467F.2080407@trash.net> <1207000143.4424.167.camel@localhost> <47F22211.5080100@trash.net> <1207058646.4424.218.camel@localhost> <47F35933.5080305@trash.net>
+From: Sebastian Siewior <bigeasy@linutronix.de>
+Subject: Re: [PATCH / RFC 0/2] spinlocks fixup in fec / m68knommu driver
+Date: Wed, 02 Apr 2008 13:28:21 +0200
+Message-ID: <47F36DD5.20902@linutronix.de>
+References: <20080327140041.072611004@linutronix.de> <47EC9577.2090402@snapgear.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, David Miller <davem@davemloft.net>,
-	shemminger@vyatta.com, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: uclinux-dev@uclinux.org, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Greg Ungerer <gerg@snapgear.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:47201 "EHLO postel.suug.ch"
+Received: from www.tglx.de ([62.245.132.106]:35580 "EHLO www.tglx.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753073AbYDBLUn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Apr 2008 07:20:43 -0400
-Content-Disposition: inline
-In-Reply-To: <47F35933.5080305@trash.net>
+	id S1752846AbYDBLXI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Apr 2008 07:23:08 -0400
+In-Reply-To: <47EC9577.2090402@snapgear.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Patrick McHardy <kaber@trash.net> 2008-04-02 12:00
-> jamal wrote:
-> >On Tue, 2008-01-04 at 13:52 +0200, Patrick McHardy wrote:
-> >
-> >>Isn't that what nlmsg_pid already contains?
-> >
-> >would work only on the case of user<->user.
-> >On kernel->user it is supposed to be owned by the kernel and set to 0.
-> 
-> 
-> No, in the case of events its supposed to be set to the pid of the
-> socket that caused the event. Check out qdisc_notify() or rtmsg_ifa()
-> for example.
+Greg Ungerer wrote:
+> Hi Sebastion,
+s/o/a :)
 
-Unfortunately in many cases the pid is also set to 0 because the
-information is lost when carrying the event using the notifier
-interface. Probably fixable though.
+> No, it looks broken :-(
+I'm going to post a cleanup patch and a locking fixup patch. The missing 
+lock is more serious than I though in first place.
+
+> Regards
+> Greg
+Sebastian
