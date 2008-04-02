@@ -1,84 +1,68 @@
-From: Yinghai Lu <yhlu.kernel.send@gmail.com>
-Subject: [PATCH] ixgb/e: fix IRQx nobody cared for shared irq with INTx
-Date: Tue, 1 Apr 2008 17:20:03 -0700
-Message-ID: <200804011720.03569.yhlu.kernel@gmail.com>
-References: <200803291403.23479.yhlu.kernel@gmail.com> <200803311458.56119.yhlu.kernel@gmail.com>
-Reply-To: yhlu.kernel@gmail.com
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 4 of 5] IPv6: fix lifetime calculation on temporary
+ address creation
+Date: Wed, 02 Apr 2008 09:25:14 +0900 (JST)
+Message-ID: <20080402.092514.75146790.yoshfuji@linux-ipv6.org>
+References: <20080401215657.GP475@pirzuine>
+	<20080402.084114.60517414.yoshfuji@linux-ipv6.org>
+	<20080402001706.GD32592@pirzuine>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: kernel list <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz
-To: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Jeff Garzik <jeff@garzik.org>, Greg KH <greg@kroah.com>,
-	Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758165AbYDBAS7@vger.kernel.org>
-In-Reply-To: <200803311458.56119.yhlu.kernel@gmail.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
+To: benoit.boissinot@ens-lyon.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:59687 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756600AbYDBAXj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 20:23:39 -0400
+In-Reply-To: <20080402001706.GD32592@pirzuine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[PATCH] ixgb/e: fix IRQx nobody cared for shared irq with INTx
+In article <20080402001706.GD32592@pirzuine> (at Wed, 2 Apr 2008 02:17:06 +0200), Benoit Boissinot <benoit.boissinot@ens-lyon.org> says:
 
-solve
-	ixgb on pci-x and mptsas on pci-x. sometime mptsas get confused.
+> On Wed, Apr 02, 2008 at 08:41:14AM +0900, YOSHIFUJI Hideaki / 吉藤英明 wrote:
+> > In article <20080401215657.GP475@pirzuine> (at Tue, 1 Apr 2008 23:56:57 +0200), Benoit Boissinot <benoit.boissinot@ens-lyon.org> says:
+> > 
+> > > On Fri, Mar 28, 2008 at 12:04:01PM +0900, YOSHIFUJI Hideaki / 吉藤英明 wrote:
+> > > > In article <ec551b4a5bb25cda00ff.1206305172@pirzuine> (at Sun, 23 Mar 2008 21:46:12 +0100), Benoit Boissinot <benoit.boissinot@ens-lyon.org> says:
+> > > > 
+> > > > > IPv6: fix lifetime calculation on temporary address creation
+> > > [snip]
+> > > > > +	now = jiffies;
+> > > > > +	elapsed = (now - ifp->tstamp) / HZ;
+> > > > > +	if (elapsed >= ifp->valid_lft)
+> > > > > +		tmp_valid_lft = 0;
+> > > > > +	else
+> > > > > +		tmp_valid_lft = min_t(__u32,
+> > > > > +				      ifp->valid_lft - elapsed,
+> > > > > +				      idev->cnf.temp_valid_lft);
+> > > > > +	if (elapsed >= ifp->prefered_lft)
+> > > > > +		tmp_prefered_lft = 0;
+> > > > > +	else
+> > > > > +		tmp_prefered_lft = min_t(__u32,
+> > > > > +					 ifp->prefered_lft - elapsed,
+> > > > > +					 idev->cnf.temp_prefered_lft - desync_factor / HZ);
+> > > > 
+> > > > Basically I agree, but it is possible to expire the temporary
+> > > > address AFTER public address, which is not good.  Please fix this.
+> > > 
+> > > do you mean because of the rounding of 'elapsed' ? otherwise I don't see
+> > > what the problem is, sorry.
+> > 
+> > Right.  Maybe we could substruct "now" by adj = (now - ifp->tstamp) % HZ;
+> >    now = jiffies
+> >    elapsed = (now - ifp->tstamp) / HZ;
+> >    now -= (now - ifp->tstamp) % HZ;
+> 
+> Why not just simply round it above:
+> elapsed = (now - ifp->tstamp + HZ - 1) / HZ; /* round it up */
+> and the rest stays the same.
+> 
+> Or do we care about having a lifetime a little bit (<1s) shorter ?
 
-same to
-	[PATCH] e1000: fix IRQx nobody cared for shared irq with INTx
-	http://lkml.org/lkml/2008/3/29/103
+Yes, I do.
 
-Signed-off-by: Yinghai Lu <yhlu.kernel@gmail.com>
-
-Index: linux-2.6/drivers/net/ixgb/ixgb_main.c
-===================================================================
---- linux-2.6.orig/drivers/net/ixgb/ixgb_main.c
-+++ linux-2.6/drivers/net/ixgb/ixgb_main.c
-@@ -290,6 +290,11 @@ ixgb_up(struct ixgb_adapter *adapter)
- #endif
- 	ixgb_irq_enable(adapter);
- 
-+	if (!adapter->have_msi) {
-+		/* enable INTx if not using MSI */
-+		pci_intx(adapter->pdev, 1);
-+	}
-+
- 	return 0;
- }
- 
-@@ -368,6 +373,8 @@ ixgb_probe(struct pci_dev *pdev,
- 	int i;
- 	int err;
- 
-+	/* disable INTx at first */
-+	pci_intx(pdev, 0);
- 	if((err = pci_enable_device(pdev)))
- 		return err;
- 
-Index: linux-2.6/drivers/net/ixgbe/ixgbe_main.c
-===================================================================
---- linux-2.6.orig/drivers/net/ixgbe/ixgbe_main.c
-+++ linux-2.6/drivers/net/ixgbe/ixgbe_main.c
-@@ -1988,6 +1988,12 @@ try_intr_reinit:
- 	if (err)
- 		goto err_up;
- 
-+	if (!(adapter->flags &
-+	      (IXGBE_FLAG_MSI_ENABLED | IXGBE_FLAG_MSIX_ENABLED))) {
-+		/* enable INTx if not using MSI/MSIX */
-+		pci_intx(adapter->pdev, 1);
-+	}
-+
- 	return 0;
- 
- err_up:
-@@ -2627,6 +2633,8 @@ static int __devinit ixgbe_probe(struct 
- 	u16 link_status, link_speed, link_width;
- 	u32 part_num;
- 
-+	/* disable INTx at first */
-+	pci_intx(pdev, 0);
- 	err = pci_enable_device(pdev);
- 	if (err)
- 		return err;
+--yoshfuji
