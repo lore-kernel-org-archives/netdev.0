@@ -1,35 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PING^2] [PATCH] srandom32 fixes for networking
-Date: Wed, 02 Apr 2008 01:03:24 -0700 (PDT)
-Message-ID: <20080402.010324.121433616.davem@davemloft.net>
-References: <20080401113408.GA625@basil.nowhere.org>
-	<20080402.001824.161259886.davem@davemloft.net>
-	<20080402075011.GL29105@one.firstfloor.org>
+From: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+Subject: Re: Setting alternate MAC addresses on e1000
+Date: Wed, 02 Apr 2008 10:07:18 +0200
+Message-ID: <47F33EB6.1050402@aei.mpg.de>
+References: <47F2358A.8080505@aei.mpg.de> <36D9DB17C6DE9E40B059440DB8D95F5204D09A67@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andi@firstfloor.org
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50580
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754423AbYDBIDY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 04:03:24 -0400
-In-Reply-To: <20080402075011.GL29105@one.firstfloor.org>
+Received: from welcomes-you.com ([85.214.50.128]:36817 "EHLO welcomes-you.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751785AbYDBIHX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Apr 2008 04:07:23 -0400
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5204D09A67@orsmsx418.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Wed, 2 Apr 2008 09:50:11 +0200
+Hi Jesse,
 
-> Can you send me your config please? I don't see any build problem
-> here with the patch on top of -rc7-git something on either i386 nor x86-64.
+thanks for the hint, I was stupid to think these two NIC are just using 
+the very same EEPROM.
 
-I found it with "git grep srandom32", I guess I'm quite old school in
-that I actually check the tree when interfaces are being changed.
+Brandeburg, Jesse wrote:
+> Carsten Aulbert wrote:
+>> where magic is MAGIC=0x108c8086
+>>
+>> However this does not work on eth1 :(
+> 
+> I think you need a different MAGIC for eth1 since they are separate
+> parts (different device ID) with separate eeproms, then the first 6 byte
+> change should work for eth1 too.
+> 
 
-Even if this code is not built into the tree somehow, knowingly
-breaking code like this is not very nice.
+Yes, with MAGIC=0x109a8086 I can set the MAC address of eth1.
 
-It does seem to get built with CONFIG_CPA_DEBUG, which
-is available from arch/x86/Kconfig.debug
+> in the future e1000-devel@lists.sf.net might be more appropriate to
+> Intel specific hardware questions.  but copying netdev is still okay.
+
+Will do, starting with a closely related question:
+
+The Intel specs state that word 37H is a pointer to an "alternate MAC 
+address". My boss things it would be wise to let the original MAC 
+address in place and just add another MAC address, so that we can easily 
+revert to the old "official" one by writing 0xffff into that word.
+
+Has anyone experience with that approach? In principle that should be 
+easy, however, I don't know where/how to find 6 free bytes from the 
+table given in Intel's docs.
+
+Thanks again and hopefully someone has some light for my brain ;)
+
+Cheers
+
+Carsten
