@@ -1,32 +1,117 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6.26 2008-04-01
-Date: Tue, 01 Apr 2008 22:14:01 -0700 (PDT)
-Message-ID: <20080401.221401.257167991.davem@davemloft.net>
-References: <20080401220225.GA32555@tuxdriver.com>
+From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/2] bluetooth : use lockdep sub-classes for diffrent
+	bluetooth protocol
+Date: Wed, 2 Apr 2008 13:59:56 +0800
+Message-ID: <20080402055956.GA3050@darkstar.te-china.tietoenator.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080401220225.GA32555-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davej-rdkfGonbjUTCLXcRTR1eJlpr/1R2p/CL@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Tue, 1 Apr 2008 18:02:26 -0400
+'rfcomm connect' will trigger lockdep warnings which is caused by
+locking diffrent kinds of bluetooth sockets at the same time.
 
-> Another week, another load of patches for 2.6.26.  This round includes
-> some locking and other cleanups for mac80211, a few important rt2x00
-> patches that fix problems already living in net-2.6.26, and some more
-> libertas and iwlwifi patches.
-> 
-> Please let me know if there are problems!
+So using sub-classes per AF_BLUETOOTH sub-type for lockdep.
 
-Pulled, will push to net-2.6.26 after test builds complete.
+Thanks for the hints from dave jones.
 
-Thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---
+> From: Dave Jones <davej-rdkfGonbjUTCLXcRTR1eJlpr/1R2p/CL@public.gmane.org>
+> Date: Thu, 27 Mar 2008 12:21:56 -0400
+>
+> > Mar 27 08:10:57 localhost kernel: Pid: 3611, comm: obex-data-serve Not tainted 2.6.25-0.121.rc5.git4.fc9 #1
+> > Mar 27 08:10:57 localhost kernel:  [__lock_acquire+2287/3089] __lock_acquire+0x8ef/0xc11
+> > Mar 27 08:10:57 localhost kernel:  [sched_clock+8/11] ? sched_clock+0x8/0xb
+> > Mar 27 08:10:57 localhost kernel:  [lock_acquire+106/144] lock_acquire+0x6a/0x90
+> > Mar 27 08:10:57 localhost kernel:  [<f8bd9321>] ? l2cap_sock_bind+0x29/0x108 [l2cap]
+> > Mar 27 08:10:57 localhost kernel:  [lock_sock_nested+182/198] lock_sock_nested+0xb6/0xc6
+> > Mar 27 08:10:57 localhost kernel:  [<f8bd9321>] ? l2cap_sock_bind+0x29/0x108 [l2cap]
+> > Mar 27 08:10:57 localhost kernel:  [security_socket_post_create+22/27] ? security_socket_post_create+0x16/0x1b
+> > Mar 27 08:10:57 localhost kernel:  [__sock_create+388/472] ? __sock_create+0x184/0x1d8
+> > Mar 27 08:10:57 localhost kernel:  [<f8bd9321>] l2cap_sock_bind+0x29/0x108 [l2cap]
+> > Mar 27 08:10:57 localhost kernel:  [kernel_bind+10/13] kernel_bind+0xa/0xd
+> > Mar 27 08:10:57 localhost kernel:  [<f8dad3d7>] rfcomm_dlc_open+0xc8/0x294 [rfcomm]
+> > Mar 27 08:10:57 localhost kernel:  [lock_sock_nested+187/198] ? lock_sock_nested+0xbb/0xc6
+> > Mar 27 08:10:57 localhost kernel:  [<f8dae18c>] rfcomm_sock_connect+0x8b/0xc2 [rfcomm]
+> > Mar 27 08:10:57 localhost kernel:  [sys_connect+96/125] sys_connect+0x60/0x7d
+> > Mar 27 08:10:57 localhost kernel:  [__lock_acquire+1370/3089] ? __lock_acquire+0x55a/0xc11
+> > Mar 27 08:10:57 localhost kernel:  [sys_socketcall+140/392] sys_socketcall+0x8c/0x188
+> > Mar 27 08:10:57 localhost kernel:  [syscall_call+7/11] syscall_call+0x7/0xb
+---
+
+Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+---
+net/bluetooth/af_bluetooth.c |   40 ++++++++++++++++++++++++++++++++++++++++
+1 file changed, 40 insertions(+)
+
+diff -upr linux/net/bluetooth/af_bluetooth.c linux.new/net/bluetooth/af_bluetooth.c
+--- linux/net/bluetooth/af_bluetooth.c	2008-04-01 16:09:17.000000000 +0800
++++ linux.new/net/bluetooth/af_bluetooth.c	2008-04-01 16:08:52.000000000 +0800
+@@ -53,6 +53,30 @@
+ /* Bluetooth sockets */
+ #define BT_MAX_PROTO	8
+ static struct net_proto_family *bt_proto[BT_MAX_PROTO];
++
++static struct lock_class_key bt_slock_key[BT_MAX_PROTO];
++static struct lock_class_key bt_lock_key[BT_MAX_PROTO];
++static const char *bt_key_strings[BT_MAX_PROTO] = {
++	"sk_lock-AF_BLUETOOTH-BTPROTO_L2CAP",
++	"sk_lock-AF_BLUETOOTH-BTPROTO_HCI",
++	"sk_lock-AF_BLUETOOTH-BTPROTO_SCO",
++	"sk_lock-AF_BLUETOOTH-BTPROTO_RFCOMM",
++	"sk_lock-AF_BLUETOOTH-BTPROTO_BNEP",
++	"sk_lock-AF_BLUETOOTH-BTPROTO_CMTP",
++	"sk_lock-AF_BLUETOOTH-BTPROTO_HIDP",
++	"sk_lock-AF_BLUETOOTH-BTPROTO_AVDTP",
++};
++
++static const char *bt_slock_key_strings[BT_MAX_PROTO] = {
++	"slock-AF_BLUETOOTH-BTPROTO_L2CAP",
++	"slock-AF_BLUETOOTH-BTPROTO_HCI",
++	"slock-AF_BLUETOOTH-BTPROTO_SCO",
++	"slock-AF_BLUETOOTH-BTPROTO_RFCOMM",
++	"slock-AF_BLUETOOTH-BTPROTO_BNEP",
++	"slock-AF_BLUETOOTH-BTPROTO_CMTP",
++	"slock-AF_BLUETOOTH-BTPROTO_HIDP",
++	"slock-AF_BLUETOOTH-BTPROTO_AVDTP",
++};
+ static DEFINE_RWLOCK(bt_proto_lock);
+ 
+ int bt_sock_register(int proto, struct net_proto_family *ops)
+@@ -95,6 +119,21 @@ int bt_sock_unregister(int proto)
+ }
+ EXPORT_SYMBOL(bt_sock_unregister);
+ 
++static void bt_reclassify_sock_lock(struct socket *sock, int proto)
++{
++	struct sock *sk = sock->sk;
++
++	if (!sk)
++		return;
++	BUG_ON(sock_owned_by_user(sk));
++
++	sock_lock_init_class_and_name(sk,
++			bt_slock_key_strings[proto],
++			&bt_slock_key[proto],
++			bt_key_strings[proto],
++			&bt_lock_key[proto]);
++}
++
+ static int bt_sock_create(struct net *net, struct socket *sock, int proto)
+ {
+ 	int err;
+@@ -117,6 +156,7 @@ static int bt_sock_create(struct net *ne
+ 
+ 	if (bt_proto[proto] && try_module_get(bt_proto[proto]->owner)) {
+ 		err = bt_proto[proto]->create(net, sock, proto);
++		bt_reclassify_sock_lock(sock, proto);
+ 		module_put(bt_proto[proto]->owner);
+ 	}
+ 
