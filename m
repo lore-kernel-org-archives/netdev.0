@@ -1,53 +1,34 @@
-From: Dan Noe <dpn@isomerica.net>
-Subject: [PATCH] cxgb3: Fix __must_check warning.
-Date: Tue,  1 Apr 2008 23:35:42 -0400
-Message-ID: <1207107342276-git-send-email-dpn@isomerica.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-04-01
+Date: Tue, 01 Apr 2008 21:58:48 -0700 (PDT)
+Message-ID: <20080401.215848.19057123.davem@davemloft.net>
+References: <20080401201530.GA25094@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dan Noe <dpn@isomerica.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from colobus.isomerica.net ([216.93.242.10]:57190 "EHLO
-	colobus.isomerica.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753907AbYDBDkN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 23:40:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080401201530.GA25094-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46ix the warning:
-drivers/net/cxgb3/cxgb3_main.c: In function =E2=80=98offload_open=E2=80=
-=99:
-drivers/net/cxgb3/cxgb3_main.c:936: warning: ignoring return value of =E2=
-=80=98sysfs_create_group=E2=80=99, declared with attribute warn_unused_=
-result
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Tue, 1 Apr 2008 16:15:30 -0400
 
-Now the return value is checked; if sysfs_create_group() returns failur=
-e,
-a warning is printed, and the code continues as before.
+> A few more for 2.6.25...one of them isn't really a bug fix, but
+> it includes messages which might be useful for future debugging.
+> All of them are relatively minor, but I think it would be good to
+> have them now rather than later.
+> 
+> Please let me know if there are problems!
 
-Signed-off-by: Dan Noe <dpn@isomerica.net>
----
- drivers/net/cxgb3/cxgb3_main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+Pulled, I'll push this out to net-2.6 after my sanity
+build checks complete.
 
-My first patch - feedback is appreciated, please be gentle.  Thanks!
+Thanks!
 
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_m=
-ain.c
-index fd2e05b..3007fe1 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -1015,7 +1015,8 @@ static int offload_open(struct net_device *dev)
- 	init_smt(adapter);
-=20
- 	/* Never mind if the next step fails */
--	sysfs_create_group(&tdev->lldev->dev.kobj, &offload_attr_group);
-+	if (sysfs_create_group(&tdev->lldev->dev.kobj, &offload_attr_group))
-+		printk(KERN_WARNING DRV_NAME ": cannot create sysfs group\n");
-=20
- 	/* Call back all registered clients */
- 	cxgb3_add_clients(tdev);
---=20
-1.5.2.5
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
