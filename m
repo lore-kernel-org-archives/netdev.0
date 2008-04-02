@@ -1,48 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3 net-2.6.26] Compilation fixes.
-Date: Wed, 02 Apr 2008 13:56:09 -0700 (PDT)
-Message-ID: <20080402.135609.145425148.davem@davemloft.net>
-References: <1207130474.17626.2.camel@iris.sw.ru>
-	<20080402.114229.131377251.davem@davemloft.net>
-	<1207165579.7118.4.camel@iris.sw.ru>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	containers@lists.osdl.org
-To: den@openvz.org
+From: Sebastian Siewior <bigeasy@linutronix.de>
+Subject: [PATCH 3/5] m68knommu: fec typedef a function
+Date: Wed, 02 Apr 2008 22:58:29 +0200
+Message-ID: <20080402210103.987045815@linutronix.de>
+References: <20080402204417.597098190@linutronix.de>
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	uclinux-dev@uclinux.org
+To: Greg Ungerer <gerg@uclinux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48584
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755847AbYDBU4J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 16:56:09 -0400
-In-Reply-To: <1207165579.7118.4.camel@iris.sw.ru>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:58657 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754351AbYDBU6e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 16:58:34 -0400
+Content-Disposition: inline; filename=m68knommu-fec-typedef_mii_func.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Wed, 02 Apr 2008 23:46:19 +0400
+Make a typedef for a function that is refered as a function pointer.
+Also move the conditial call of the callback function in fec_enet_mii()
+of the area that is protected with spinlock beacause the callbacked
+function might grab the same lock.
 
-> On Wed, 2008-04-02 at 11:42 -0700, David Miller wrote:
-> > From: "Denis V. Lunev" <den@openvz.org>
-> > Date: Wed, 02 Apr 2008 14:01:14 +0400
-> > 
-> > > Dave, could you pls conside this addition. This should fix problem
-> > > reported by the Kamalesh Babulal <kamalesh@linux.vnet.ibm.com> recently.
-> > 
-> > Then this invalidates enourmous amounts of CONFIG_NET tests
-> > we've put into the headers over the past few days. 
-> > 
-> > All of them were explicitly to avoid having to provide the
-> > init_net symbol when CONFIG_NET is not set.
-> 
-> OK. do you suggest to insert another CONFIG_NET check into if_pppox
-> header or separate fs/compat_ioctl.c into two files:
-> - for net ioctls
-> - for the rest?
+Signed-off-by: Sebastian Siewior <bigeasy@linutronix.de>
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -116,10 +116,10 @@ static unsigned char fec_mac_default[] =
+ 
+ /* Forward declarations of some structures to support different PHYs
+ */
+-
++typedef void (mii_func)(uint val, struct net_device *dev);
+ typedef struct {
+ 	uint mii_data;
+-	void (*funct)(uint mii_reg, struct net_device *dev);
++	mii_func *funct;
+ } phy_cmd_t;
+ 
+ typedef struct {
+@@ -258,8 +258,7 @@ static mii_list_t *mii_free;
+ static mii_list_t *mii_head;
+ static mii_list_t *mii_tail;
+ 
+-static int mii_queue(struct net_device *dev, int request,
+-		     void (*func) (uint, struct net_device *));
++static int mii_queue(struct net_device *dev, int request, mii_func *funct);
+ 
+ /* Make MII read/write commands for the FEC.
+ */
+@@ -693,6 +692,7 @@ static void fec_enet_mii(struct net_devi
+ 	volatile fec_t *ep;
+ 	mii_list_t *mip;
+ 	uint mii_reg;
++	mii_func *mii_func = NULL;
+ 
+ 	fep = netdev_priv(dev);
+ 	ep = fep->hwp;
+@@ -706,7 +706,7 @@ static void fec_enet_mii(struct net_devi
+ 	}
+ 
+ 	if (mip->mii_func != NULL)
+-		(*(mip->mii_func)) (mii_reg, dev);
++		mii_func = *(mip->mii_func);
+ 
+ 	mii_head = mip->mii_next;
+ 	mip->mii_next = mii_free;
+@@ -717,11 +717,11 @@ static void fec_enet_mii(struct net_devi
+ 
+ unlock:
+ 	spin_unlock(&fep->lock);
++	if (mii_func)
++		mii_func(mii_reg, dev);
+ }
+ 
+-static int
+-mii_queue(struct net_device *dev, int regval,
+-	  void (*func) (uint, struct net_device *))
++static int mii_queue(struct net_device *dev, int regval, mii_func *func)
+ {
+ 	struct fec_enet_private *fep;
+ 	unsigned long flags;
 
-It's probably better to go your route.  That is, unprotect
-the init_net extern, and remove the CONFIG_NET's we added
-which are no longer necessary.
+-- 
 
-Could you do such a patch set?  Thanks.
