@@ -1,22 +1,21 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: [PATCH 1/3] sc92031: use net_device stats
-Date: Wed, 2 Apr 2008 10:08:30 -0700
-Message-ID: <20080402100830.42f320c1@extreme>
+Date: Wed, 2 Apr 2008 10:11:20 -0700
+Message-ID: <20080402101120.67f8fa87@extreme>
 References: <bug-10380-10286@http.bugzilla.kernel.org/>
-	<20080402091435.39f99428.akpm@linux-foundation.org>
-	<20080402094923.185f15dc@extreme>
+ <20080402091435.39f99428.akpm@linux-foundation.org>
+ <20080402094923.185f15dc@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>,
 	Cesar Eduardo Barros <cesarb@cesarb.net>, tom@sharkbay.at
-To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:59832 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([216.93.170.194]:59986 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754162AbYDBRIf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Apr 2008 13:08:35 -0400
+	id S1754546AbYDBRNW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Apr 2008 13:13:22 -0400
 In-Reply-To: <20080402094923.185f15dc@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
