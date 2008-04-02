@@ -1,117 +1,47 @@
-From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 1/2] bluetooth : use lockdep sub-classes for diffrent
-	bluetooth protocol
-Date: Wed, 2 Apr 2008 13:59:56 +0800
-Message-ID: <20080402055956.GA3050@darkstar.te-china.tietoenator.com>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: [PATCH 4 of 5] IPv6: fix lifetime calculation on temporary
+ address creation
+Date: Wed, 2 Apr 2008 08:56:39 +0300 (EEST)
+Message-ID: <alpine.LRH.1.10.0804020849410.29568@netcore.fi>
+References: <20080401215657.GP475@pirzuine> <20080402.084114.60517414.yoshfuji@linux-ipv6.org> <20080402001706.GD32592@pirzuine> <20080402.092514.75146790.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davej-rdkfGonbjUTCLXcRTR1eJlpr/1R2p/CL@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: benoit.boissinot@ens-lyon.org, netdev@vger.kernel.org
+To: =?ISO-2022-JP?Q?YOSHIFUJI_Hideaki_=2F_=1B$B5HF#1QL=40=1B=28J?=
+	<yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from netcore.fi ([193.94.160.1]:53437 "EHLO netcore.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751139AbYDBF5R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Apr 2008 01:57:17 -0400
+In-Reply-To: <20080402.092514.75146790.yoshfuji@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-'rfcomm connect' will trigger lockdep warnings which is caused by
-locking diffrent kinds of bluetooth sockets at the same time.
-
-So using sub-classes per AF_BLUETOOTH sub-type for lockdep.
-
-Thanks for the hints from dave jones.
-
----
-> From: Dave Jones <davej-rdkfGonbjUTCLXcRTR1eJlpr/1R2p/CL@public.gmane.org>
-> Date: Thu, 27 Mar 2008 12:21:56 -0400
+On Wed, 2 Apr 2008, YOSHIFUJI Hideaki / ???? wrote:
+>> Why not just simply round it above:
+>> elapsed = (now - ifp->tstamp + HZ - 1) / HZ; /* round it up */
+>> and the rest stays the same.
+>>
+>> Or do we care about having a lifetime a little bit (<1s) shorter ?
 >
-> > Mar 27 08:10:57 localhost kernel: Pid: 3611, comm: obex-data-serve Not tainted 2.6.25-0.121.rc5.git4.fc9 #1
-> > Mar 27 08:10:57 localhost kernel:  [__lock_acquire+2287/3089] __lock_acquire+0x8ef/0xc11
-> > Mar 27 08:10:57 localhost kernel:  [sched_clock+8/11] ? sched_clock+0x8/0xb
-> > Mar 27 08:10:57 localhost kernel:  [lock_acquire+106/144] lock_acquire+0x6a/0x90
-> > Mar 27 08:10:57 localhost kernel:  [<f8bd9321>] ? l2cap_sock_bind+0x29/0x108 [l2cap]
-> > Mar 27 08:10:57 localhost kernel:  [lock_sock_nested+182/198] lock_sock_nested+0xb6/0xc6
-> > Mar 27 08:10:57 localhost kernel:  [<f8bd9321>] ? l2cap_sock_bind+0x29/0x108 [l2cap]
-> > Mar 27 08:10:57 localhost kernel:  [security_socket_post_create+22/27] ? security_socket_post_create+0x16/0x1b
-> > Mar 27 08:10:57 localhost kernel:  [__sock_create+388/472] ? __sock_create+0x184/0x1d8
-> > Mar 27 08:10:57 localhost kernel:  [<f8bd9321>] l2cap_sock_bind+0x29/0x108 [l2cap]
-> > Mar 27 08:10:57 localhost kernel:  [kernel_bind+10/13] kernel_bind+0xa/0xd
-> > Mar 27 08:10:57 localhost kernel:  [<f8dad3d7>] rfcomm_dlc_open+0xc8/0x294 [rfcomm]
-> > Mar 27 08:10:57 localhost kernel:  [lock_sock_nested+187/198] ? lock_sock_nested+0xbb/0xc6
-> > Mar 27 08:10:57 localhost kernel:  [<f8dae18c>] rfcomm_sock_connect+0x8b/0xc2 [rfcomm]
-> > Mar 27 08:10:57 localhost kernel:  [sys_connect+96/125] sys_connect+0x60/0x7d
-> > Mar 27 08:10:57 localhost kernel:  [__lock_acquire+1370/3089] ? __lock_acquire+0x55a/0xc11
-> > Mar 27 08:10:57 localhost kernel:  [sys_socketcall+140/392] sys_socketcall+0x8c/0x188
-> > Mar 27 08:10:57 localhost kernel:  [syscall_call+7/11] syscall_call+0x7/0xb
----
+> Yes, I do.
 
-Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Did I understand correctly that this issue is about the 0..1second 
+interval being (for simplicity sake) being a bit shorter than exactly 
+1 second?
 
----
-net/bluetooth/af_bluetooth.c |   40 ++++++++++++++++++++++++++++++++++++++++
-1 file changed, 40 insertions(+)
+Is there a good reason why this would be a problem?
 
-diff -upr linux/net/bluetooth/af_bluetooth.c linux.new/net/bluetooth/af_bluetooth.c
---- linux/net/bluetooth/af_bluetooth.c	2008-04-01 16:09:17.000000000 +0800
-+++ linux.new/net/bluetooth/af_bluetooth.c	2008-04-01 16:08:52.000000000 +0800
-@@ -53,6 +53,30 @@
- /* Bluetooth sockets */
- #define BT_MAX_PROTO	8
- static struct net_proto_family *bt_proto[BT_MAX_PROTO];
-+
-+static struct lock_class_key bt_slock_key[BT_MAX_PROTO];
-+static struct lock_class_key bt_lock_key[BT_MAX_PROTO];
-+static const char *bt_key_strings[BT_MAX_PROTO] = {
-+	"sk_lock-AF_BLUETOOTH-BTPROTO_L2CAP",
-+	"sk_lock-AF_BLUETOOTH-BTPROTO_HCI",
-+	"sk_lock-AF_BLUETOOTH-BTPROTO_SCO",
-+	"sk_lock-AF_BLUETOOTH-BTPROTO_RFCOMM",
-+	"sk_lock-AF_BLUETOOTH-BTPROTO_BNEP",
-+	"sk_lock-AF_BLUETOOTH-BTPROTO_CMTP",
-+	"sk_lock-AF_BLUETOOTH-BTPROTO_HIDP",
-+	"sk_lock-AF_BLUETOOTH-BTPROTO_AVDTP",
-+};
-+
-+static const char *bt_slock_key_strings[BT_MAX_PROTO] = {
-+	"slock-AF_BLUETOOTH-BTPROTO_L2CAP",
-+	"slock-AF_BLUETOOTH-BTPROTO_HCI",
-+	"slock-AF_BLUETOOTH-BTPROTO_SCO",
-+	"slock-AF_BLUETOOTH-BTPROTO_RFCOMM",
-+	"slock-AF_BLUETOOTH-BTPROTO_BNEP",
-+	"slock-AF_BLUETOOTH-BTPROTO_CMTP",
-+	"slock-AF_BLUETOOTH-BTPROTO_HIDP",
-+	"slock-AF_BLUETOOTH-BTPROTO_AVDTP",
-+};
- static DEFINE_RWLOCK(bt_proto_lock);
- 
- int bt_sock_register(int proto, struct net_proto_family *ops)
-@@ -95,6 +119,21 @@ int bt_sock_unregister(int proto)
- }
- EXPORT_SYMBOL(bt_sock_unregister);
- 
-+static void bt_reclassify_sock_lock(struct socket *sock, int proto)
-+{
-+	struct sock *sk = sock->sk;
-+
-+	if (!sk)
-+		return;
-+	BUG_ON(sock_owned_by_user(sk));
-+
-+	sock_lock_init_class_and_name(sk,
-+			bt_slock_key_strings[proto],
-+			&bt_slock_key[proto],
-+			bt_key_strings[proto],
-+			&bt_lock_key[proto]);
-+}
-+
- static int bt_sock_create(struct net *net, struct socket *sock, int proto)
- {
- 	int err;
-@@ -117,6 +156,7 @@ static int bt_sock_create(struct net *ne
- 
- 	if (bt_proto[proto] && try_module_get(bt_proto[proto]->owner)) {
- 		err = bt_proto[proto]->create(net, sock, proto);
-+		bt_reclassify_sock_lock(sock, proto);
- 		module_put(bt_proto[proto]->owner);
- 	}
- 
+I observe that the granularity (and I one could argue the accuracy) of 
+Valid/Preferred Lifetime information is one second, so I'm not sure if 
+the user should expect accuracy that's much finer than that (e.g. 0.1 
+seconds).  Typically Valid/Preferred lifetimes are configured to be in 
+the order of hours or even days, so what happens (with 0.1-0.01 second 
+accuracy) during the last second doesn't seem very interesting from 
+the practical point of view.
+
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
