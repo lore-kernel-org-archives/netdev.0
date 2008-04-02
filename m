@@ -1,80 +1,142 @@
-From: Bernard Pidoux <bpidoux@free.fr>
-Subject: Re: [AX25] kernel panic
-Date: Tue, 01 Apr 2008 22:37:02 +0200
-Message-ID: <47F29CEE.10307@free.fr>
-References: <47E68CA1.2040904@free.fr> <20080324205104.GA3721@ami.dom.local> <47E8FCE2.6000308@free.fr> <20080326183538.GA14266@ami.dom.local> <20080328120721.GA11060@ami.dom.local> <47EE3040.3050208@free.fr> <20080329122452.GB3407@ami.dom.local> <47EE38BA.9090500@free.fr> <20080329130451.GC3407@ami.dom.local> <47EF6479.7030702@free.fr> <20080330115958.GA4975@ami.dom.local>
+From: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
+Subject: Re: [PATCH 4 of 5] IPv6: fix lifetime calculation on temporary
+	address creation
+Date: Wed, 2 Apr 2008 02:17:06 +0200
+Message-ID: <20080402001706.GD32592@pirzuine>
+References: <ec551b4a5bb25cda00ff.1206305172@pirzuine> <20080328.120401.89511262.yoshfuji@linux-ipv6.org> <20080401215657.GP475@pirzuine> <20080402.084114.60517414.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@o2.pl>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Ralf Baechle DL5RB <ralf@linux-mips.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, pekkas@netcore.fi
+To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g19.free.fr ([212.27.42.35]:43165 "EHLO smtp5-g19.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756732AbYDBABY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2008 20:01:24 -0400
-In-Reply-To: <20080330115958.GA4975@ami.dom.local>
+Received: from pilet.ens-lyon.fr ([140.77.167.16]:52673 "EHLO
+	pilet.ens-lyon.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752869AbYDBARK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 20:17:10 -0400
+Content-Disposition: inline
+In-Reply-To: <20080402.084114.60517414.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Apr 02, 2008 at 08:41:14AM +0900, YOSHIFUJI Hideaki / =E5=90=89=
+=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> In article <20080401215657.GP475@pirzuine> (at Tue, 1 Apr 2008 23:56:=
+57 +0200), Benoit Boissinot <benoit.boissinot@ens-lyon.org> says:
+>=20
+> > On Fri, Mar 28, 2008 at 12:04:01PM +0900, YOSHIFUJI Hideaki / =E5=90=
+=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> > > In article <ec551b4a5bb25cda00ff.1206305172@pirzuine> (at Sun, 23=
+ Mar 2008 21:46:12 +0100), Benoit Boissinot <benoit.boissinot@ens-lyon.=
+org> says:
+> > >=20
+> > > > IPv6: fix lifetime calculation on temporary address creation
+> > [snip]
+> > > > +	now =3D jiffies;
+> > > > +	elapsed =3D (now - ifp->tstamp) / HZ;
+> > > > +	if (elapsed >=3D ifp->valid_lft)
+> > > > +		tmp_valid_lft =3D 0;
+> > > > +	else
+> > > > +		tmp_valid_lft =3D min_t(__u32,
+> > > > +				      ifp->valid_lft - elapsed,
+> > > > +				      idev->cnf.temp_valid_lft);
+> > > > +	if (elapsed >=3D ifp->prefered_lft)
+> > > > +		tmp_prefered_lft =3D 0;
+> > > > +	else
+> > > > +		tmp_prefered_lft =3D min_t(__u32,
+> > > > +					 ifp->prefered_lft - elapsed,
+> > > > +					 idev->cnf.temp_prefered_lft - desync_factor / HZ);
+> > >=20
+> > > Basically I agree, but it is possible to expire the temporary
+> > > address AFTER public address, which is not good.  Please fix this=
+=2E
+> >=20
+> > do you mean because of the rounding of 'elapsed' ? otherwise I don'=
+t see
+> > what the problem is, sorry.
+>=20
+> Right.  Maybe we could substruct "now" by adj =3D (now - ifp->tstamp)=
+ % HZ;
+>    now =3D jiffies
+>    elapsed =3D (now - ifp->tstamp) / HZ;
+>    now -=3D (now - ifp->tstamp) % HZ;
 
-Jarek Poplawski wrote:
-> On Sun, Mar 30, 2008 at 11:59:21AM +0200, Bernard Pidoux wrote:
-> ...
->> I would not be surprised if ROSE was involved as, remember, I first  
->> found the bug when I closed an AX25 session established through a level  
->> 3 ROSE network (FPAC) via AXUDP link (ax25ipd). As I said in my first  
->> bug report, the bug is not triggered when connecting locally or via AX25  
->> call through LAN. Thus ROSE level is involved.
->>
->> However, I guess that lower layer (AX25) should stand a possible error  
->> in the upper layer protocol (ROSE).
-> 
-> I think ROSE breaks some general rules here: bugs trigger in sock.c
-> code when ROSE packets are destroyed after closing its sockets, but
-> without proper information on this.
-> 
->> ROSE is actually an AX25 packet routing protocol with only three byte  
->> offset added to AX25 frames (encapsulation). Of course it has its own  
->> bugs...
-> 
-> Probably... BTW, my today's patch adds some locking, so there is always
-> some risk of a lockup or some new lockdep warning. And if accidentally
-> it works, after testing with these debugging patches there would be
-> needed later a test of this #5 alone, as well.
-> 
-> Thanks,
-> Jarek P.
-> 
-> 
+Why not just simply round it above:
+elapsed =3D (now - ifp->tstamp + HZ - 1) / HZ; /* round it up */
+and the rest stays the same.
 
+Or do we care about having a lifetime a little bit (<1s) shorter ?
 
-I did what you suggested and reversed your patches #2,#3 and #4 to 
-verify that there was no system incompatibilities with the new locks you 
-introduced into rose_release().
+updated patch below:
 
-Patch #1 has also been removed on another machine running a 64 bit Core2 
-duo CPU.
+IPv6: fix lifetime calculation on temporary address creation
 
+The lifetime calculation was buggy since it copied the tstamp
+from the associated public address.
+If (now - ifp->prefered_lft)/HZ (ie the elapsed time since the
+timestamp was set in the public address) was greater than
+temp_prefered_lft, you would always get deprecated addresses.
 
-Three Linux boxes have been are running for more than 24 hours now with 
-only patch #5. They handled a lot of AX25 connections with no problems.
+This patch corrects the lifetime calculation by setting the tstamp
+to "now" and calculating the remaining time from the public address.
 
-Thus, we can reasonably expect that things are going to stay stable.
+Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
 
-If you want to commit patch#5 I will sustain it very much.
+diff -r 00affc24c178 net/ipv6/addrconf.c
+--- a/net/ipv6/addrconf.c	Sat Mar 22 00:39:16 2008 +0100
++++ b/net/ipv6/addrconf.c	Wed Apr 02 02:14:13 2008 +0200
+@@ -775,8 +775,7 @@
+ {
+ 	struct inet6_dev *idev =3D ifp->idev;
+ 	struct in6_addr addr, *tmpaddr;
+-	unsigned long tmp_prefered_lft, tmp_valid_lft, tmp_cstamp, tmp_tstamp=
+;
+-	unsigned long regen_advance;
++	unsigned long tmp_prefered_lft, tmp_valid_lft, elapsed, regen_advance=
+;
+ 	int tmp_plen;
+ 	int ret =3D 0;
+ 	int max_addresses;
+@@ -825,16 +824,21 @@
+ 		goto out;
+ 	}
+ 	memcpy(&addr.s6_addr[8], idev->rndid, 8);
+-	tmp_valid_lft =3D min_t(__u32,
+-			      ifp->valid_lft,
+-			      idev->cnf.temp_valid_lft);
+-	tmp_prefered_lft =3D min_t(__u32,
+-				 ifp->prefered_lft,
+-				 idev->cnf.temp_prefered_lft - desync_factor / HZ);
++	elapsed =3D (jiffies - ifp->tstamp + HZ - 1) / HZ; /* round above */
++	if (elapsed >=3D ifp->valid_lft)
++		tmp_valid_lft =3D 0;
++	else
++		tmp_valid_lft =3D min_t(__u32,
++				      ifp->valid_lft - elapsed,
++				      idev->cnf.temp_valid_lft);
++	if (elapsed >=3D ifp->prefered_lft)
++		tmp_prefered_lft =3D 0;
++	else
++		tmp_prefered_lft =3D min_t(__u32,
++					 ifp->prefered_lft - elapsed,
++					 idev->cnf.temp_prefered_lft - desync_factor / HZ);
+ 	tmp_plen =3D ifp->prefix_len;
+ 	max_addresses =3D idev->cnf.max_addresses;
+-	tmp_cstamp =3D ifp->cstamp;
+-	tmp_tstamp =3D ifp->tstamp;
+ 	spin_unlock_bh(&ifp->lock);
+=20
+ 	regen_advance =3D idev->cnf.regen_max_retry *
+@@ -878,8 +882,6 @@
+ 	ift->ifpub =3D ifp;
+ 	ift->valid_lft =3D tmp_valid_lft;
+ 	ift->prefered_lft =3D tmp_prefered_lft;
+-	ift->cstamp =3D tmp_cstamp;
+-	ift->tstamp =3D tmp_tstamp;
+ 	spin_unlock_bh(&ift->lock);
+=20
+ 	addrconf_dad_start(ift, 0);
 
-I hope that it will be accepted quickly in order to make a coherent 
-system with AX25 patches already applied or not yet applied (if any).
-
-Thank you very much Jarek for this very nice job.
-
-
-Best regards,
-
-
-Bernard Pidoux,
-F6BVP
-
+--=20
+:wq
