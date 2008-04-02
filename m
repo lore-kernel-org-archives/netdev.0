@@ -1,49 +1,53 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: RE: [PATCH] Add Fixed PHY support for ucc_geth
-Date: Wed, 02 Apr 2008 14:15:52 +0200
-Message-ID: <1207138552.9675.61.camel@gentoo-jocke.transmode.se>
-References: <>
-	 <1205833615-15833-1-git-send-email-Joakim.Tjernlund@transmode.se>
-	 <989B956029373F45A0B8AF029708189001D1954D@zch01exm26.fsl.freescale.net>
-Reply-To: joakim.tjernlund@transmode.se
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH net-2.6.26] netlink: make socket filters work on netlink
+Date: Wed, 02 Apr 2008 08:25:06 -0400
+Message-ID: <1207139106.4451.155.camel@localhost>
+References: <47EAAFEC.6000805@trash.net> <20080331123311.64e4ca37@extreme>
+	 <47F13E43.2040404@trash.net>
+	 <20080331.130757.199769025.davem@davemloft.net>
+	 <47F1467F.2080407@trash.net> <1207000143.4424.167.camel@localhost>
+	 <47F22211.5080100@trash.net> <1207058646.4424.218.camel@localhost>
+	 <47F35933.5080305@trash.net>  <20080402112103.GB20815@postel.suug.ch>
+	 <1207137667.4451.143.camel@localhost>  <47F37762.2030705@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, Netdev <netdev@vger.kernel.org>,
-	"Linuxppc-Embedded@Ozlabs.Org" <linuxppc-embedded@ozlabs.org>
-To: Li Yang <LeoLi@freescale.com>
+Cc: Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:12826 "EHLO
-	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752563AbYDBMPx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 08:15:53 -0400
-In-Reply-To: <989B956029373F45A0B8AF029708189001D1954D@zch01exm26.fsl.freescale.net>
+Received: from an-out-0708.google.com ([209.85.132.251]:53873 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754303AbYDBMZi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 08:25:38 -0400
+Received: by an-out-0708.google.com with SMTP id d31so679730and.103
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2008 05:25:35 -0700 (PDT)
+In-Reply-To: <47F37762.2030705@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2008-02-04 at 14:09 +0200, Patrick McHardy wrote:
 
-On Fri, 2008-03-21 at 16:51 +0800, Li Yang wrote:
-> > -----Original Message-----
-> > From: Joakim Tjernlund [mailto:Joakim.Tjernlund@transmode.se] 
-> > Sent: Tuesday, March 18, 2008 5:47 PM
-> > To: Netdev; Li Yang; Linuxppc-Embedded@Ozlabs.Org
-> > Cc: Joakim Tjernlund
-> > Subject: [PATCH] Add Fixed PHY support for ucc_geth
-> > 
-> > The new Fixed PHY method, fixed-link property, isn't
-> > impl. for ucc_geth which makes fixed PHYs non functional.
-> > Add support for the new method to restore the Fixed PHY
-> > functionality.
-> > 
-> > Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> 
-> Signed-off-by: Li Yang <leoli@freescale.com>
-> 
-> ---
-> Ps: This patch depends on the patch "ucc_geth: use correct thread number
-> for 10/100Mbps link" to apply, which hasn't made to Linus' tree for now
-> but has already been in Jeff and David's trees.
+> Yes, but it was the use of current->pid that was wrong.
 
-What happened to this patch? It is not in Linus tree.
+There are many many apps out there which still use ioctls - hence the
+ambiguity of "is it the kernel that generated the command that caused
+the event or was it merely a proxy for some app". 
+You need to resolve that. 
 
- Jocke
+> If one of those calls are in a path invoked through netlink
+> it should set nlmsg_pid.
+
+Nod - I think thats mostly taken care of; havent looked lately. I know
+Alexey didnt object to any patches i submitted that did change how
+nlmsg_pid was set on events to match this thought and I cant think of a
+reason it would violate any netlink ettiquette. 
+
+Note, I find the whoddunit field (not the pid) to be also useful for
+aesthetics and debugging other than for the non-ambiguity in the
+filtering.
+
+cheers,
+jamal
+
