@@ -1,36 +1,40 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] bluetooth : __rfcomm_dlc_close lock fix
-Date: Wed, 02 Apr 2008 00:00:17 -0700 (PDT)
-Message-ID: <20080402.000017.222512990.davem@davemloft.net>
-References: <20080402060243.GB3050@darkstar.te-china.tietoenator.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1 of 2] IPv6: only update the lifetime of the relevant
+ temporary address
+Date: Wed, 02 Apr 2008 00:02:08 -0700 (PDT)
+Message-ID: <20080402.000208.151037088.davem@davemloft.net>
+References: <patchbomb.1207091339@pirzuine>
+	<0c33481968e0b6b8efd7.1207091340@pirzuine>
+	<20080402.084836.12035236.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: davej-rdkfGonbjUTCLXcRTR1eJlpr/1R2p/CL@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
-To: hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080402060243.GB3050-4/PLUo9XfK+r2/o/tYUWRb82SWQ1Dih0B/ovq0HbDYUAvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: benoit.boissinot@ens-lyon.org, netdev@vger.kernel.org,
+	pekkas@netcore.fi
+To: yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47903
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755902AbYDBHCI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 03:02:08 -0400
+In-Reply-To: <20080402.084836.12035236.yoshfuji@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed, 2 Apr 2008 14:02:43 +0800
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Wed, 02 Apr 2008 08:48:36 +0900 (JST)
 
-> Lockdep warning will be trigged while rfcomm connection closing.
+> In article <0c33481968e0b6b8efd7.1207091340@pirzuine> (at Wed, 02 Apr 2008 01:09:00 +0200), Benoit Boissinot <benoit.boissinot@ens-lyon.org> says:
 > 
-> The locks taken in rfcomm_dev_add:
-> rfcomm_dev_lock --> d->lock
+> > IPv6: only update the lifetime of the relevant temporary address
+> > 
+> > When receiving a prefix information from a routeur, only update the lifetimes
+> > of the temporary address associated with that prefix.
+> > Otherwise if one deprecated prefix is advertized, all your temporary addresses
+> > will become deprecated.
+> > 
+> > Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
 > 
-> In __rfcomm_dlc_close:
-> d->lock --> rfcomm_dev_lock (in rfcomm_dev_state_change)
-> 
-> There's two way to fix it, one is in rfcomm_dev_add we first locking
-> d->lock then the rfcomm_dev_lock
-> 
-> The other (in this patch), remove the locking of d->lock for
-> rfcomm_dev_state_change because just locking "d->state = BT_CLOSED;"
-> is enough.
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Also applied, thanks a lot Dave!
+Applied.
