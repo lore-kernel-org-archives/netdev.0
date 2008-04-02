@@ -1,82 +1,58 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 3/3][TUN][NETNS]: Allow to register tun devices
- in namespace.
-Date: Wed, 02 Apr 2008 18:01:34 +0400
-Message-ID: <47F391BE.20008@openvz.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-2.6.26] netlink: make socket filters work on netlink
+Date: Wed, 2 Apr 2008 16:05:38 +0200
+Message-ID: <20080402140538.GC20815@postel.suug.ch>
+References: <20080331123311.64e4ca37@extreme> <47F13E43.2040404@trash.net> <20080331.130757.199769025.davem@davemloft.net> <47F1467F.2080407@trash.net> <1207000143.4424.167.camel@localhost> <47F22211.5080100@trash.net> <1207058646.4424.218.camel@localhost> <47F35933.5080305@trash.net> <1207136533.4451.132.camel@localhost> <47F37702.1080702@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Maxim Krasnyansky <maxk@qualcomm.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, David Miller <davem@davemloft.net>,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:40348 "EHLO sacred.ru"
+Received: from postel.suug.ch ([194.88.212.233]:50208 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754554AbYDBNtx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Apr 2008 09:49:53 -0400
+	id S1752846AbYDBOFS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Apr 2008 10:05:18 -0400
+Content-Disposition: inline
+In-Reply-To: <47F37702.1080702@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is basically means that a net is set for a new device, but
-actually this involves two more steps:
+* Patrick McHardy <kaber@trash.net> 2008-04-02 14:07
+> jamal wrote:
+> >a) that the pid belonged to the source - and 0 means "kernel". 
 
-1. mark the tun device as "local", i.e. do not allow for it to
-   move across namespaces.
+I'm using the term netlink port for now, it avoids the confusion
+and makes it clear what nlmsg_pid really is.
 
-This is done so, since tun device is most often associated to some
-file (and thus to some process) and moving the device alone is not
-valid while keeping the file and the process outside.
+> Yes, for ioctl it can't carry anything but zero because it
+> should contains the netlink socket pid, not the process ID,
+> which obviously doesn't exist in that case.
 
-2. get the tun device's net when tun becomes attached and put one
-   when it becomes detached.
+I like the idea of a magic number although I would define it as
+originator is userspace but we do not know the netlink port number.
 
-This is needed to handle the case when a task owning the tun dies,
-but a files lives for some more time - in this case we must not
-allow for net to be freed, since its exit hook will spoil that file's
-private data by unregistering the tun from under tun_chr_close.
+> >b) The pid could also be some negative number (even in qdisc_notify) if
+> >you have multiple netlink sockets in one process (resolvable if you
+> >getname())
+> 
+> True, but that doesn't really matter. You also can't assume that
+> a positive number matches the process ID.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+The netlink port is a unsigned 32 bit value, period.
 
----
- drivers/net/tun.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+> >c) what happens when processid goes to > 32-bit?
+> 
+> Wouldn't be a problem, its the netlink socket pids, which are 32
+> bit no matter what.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index e3210bf..bcc4ced 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -438,6 +438,7 @@ static void tun_setup(struct net_device *dev)
- 	dev->stop = tun_net_close;
- 	dev->ethtool_ops = &tun_ethtool_ops;
- 	dev->destructor = free_netdev;
-+	dev->features |= NETIF_F_NETNS_LOCAL;
- }
- 
- static struct tun_struct *tun_get_by_name(struct net *net, const char *name)
-@@ -503,6 +504,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		if (!dev)
- 			return -ENOMEM;
- 
-+		dev_net_set(dev, net);
- 		tun = netdev_priv(dev);
- 		tun->dev = dev;
- 		tun->flags = flags;
-@@ -542,6 +544,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 
- 	file->private_data = tun;
- 	tun->attached = 1;
-+	get_net(dev_net(tun->dev));
- 
- 	strcpy(ifr->ifr_name, tun->dev->name);
- 	return 0;
-@@ -757,6 +760,7 @@ static int tun_chr_close(struct inode *inode, struct file *file)
- 	/* Detach from net device */
- 	file->private_data = NULL;
- 	tun->attached = 0;
-+	put_net(dev_net(tun->dev));
- 
- 	/* Drop read queue */
- 	skb_queue_purge(&tun->readq);
--- 
-1.5.3.4
+Also the process id is not even 32 bit so far which gives libnl the
+ability to generate unique netlink ports based on the real process id
+plus some iterator value. Applications using libnl which do not
+generate the port number themselves could theoretiaclly resolve the real
+process id back even if there are multiple sockets per application.
 
+> In my opinion we should try to set nlmsg_pid properly since thats
+> whats defined as unique identifier for netlink sockets.
+
+Agreed.
