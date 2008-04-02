@@ -1,72 +1,43 @@
-From: Oleg Nesterov <oleg@tv-sign.ru>
-Subject: Re: 2.6.25rc7 lockdep trace
-Date: Wed, 2 Apr 2008 12:51:26 +0400
-Message-ID: <20080402085126.GA96@tv-sign.ru>
-References: <20080328.173414.22278840.davem@davemloft.net> <1206752049.22530.105.camel@johannes.berg> <1206752485.22530.108.camel@johannes.berg> <20080328.180924.154907485.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net-2.6.26] netlink: make socket filters work on netlink
+Date: Wed, 02 Apr 2008 12:00:19 +0200
+Message-ID: <47F35933.5080305@trash.net>
+References: <47EAAFEC.6000805@trash.net>	<20080331123311.64e4ca37@extreme>	 <47F13E43.2040404@trash.net>	 <20080331.130757.199769025.davem@davemloft.net>	 <47F1467F.2080407@trash.net> <1207000143.4424.167.camel@localhost>	 <47F22211.5080100@trash.net> <1207058646.4424.218.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johannes@sipsolutions.net, davej@codemonkey.org.uk,
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from x346.tv-sign.ru ([89.108.83.215]:50910 "EHLO mail.screens.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751890AbYDBJvw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Apr 2008 05:51:52 -0400
-Content-Disposition: inline
-In-Reply-To: <20080328.180924.154907485.davem@davemloft.net>
+Received: from stinky.trash.net ([213.144.137.162]:59915 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751886AbYDBKAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 06:00:22 -0400
+In-Reply-To: <1207058646.4424.218.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/28, David Miller wrote:
->
-> From: Johannes Berg <johannes@sipsolutions.net>
-> Date: Sat, 29 Mar 2008 02:01:25 +0100
+jamal wrote:
+> On Tue, 2008-01-04 at 13:52 +0200, Patrick McHardy wrote:
 > 
-> > 
-> > > > You can't flush a workqueue in the device close handler
-> > > > exactly because of this locking conflict.
-> > > > 
-> > > > Nobody has come up with a suitable way to fix this yet.
-> > > 
-> > > Maybe we should check which schedule_work users actually lock the rtnl
-> > > within the work function and move them to a uses-rtnl-in-work workqueue
-> > > so that everybody else can have rtnl around flush.
-> > 
-> > On the other hand, most drivers don't actually care that their work has
-> > run, they just care that it won't run in the future after they give up
-> > resources or similar, hence they can and should use cancel_work_sync()
-> > which doesn't suffer from the deadlock. But that needs actual inspection
-> > because it does change behaviour from "run and wait for it if scheduled"
-> > to "cancel if scheduled".
+>> Isn't that what nlmsg_pid already contains?
 > 
-> I don't see how you can not race with the transition from
-> scheduled to "executing" without taking the runqueue lock
-> for the testing.
-
-Yes, cancel_work_sync() takes cwq->lock but this is fine (unless it is buggy ;)
-Please note that run_workqueue() drops this lock before calling work->func().
-
-If the caller of cancel_work_sync(work) doesn't share locks with work->func()
-we can't deadlock, even if there are other pending/running work_structs which
-need the same locks as the caller (say, RTNL).
-
-But, perhaps, you mean wq->lockdep_map? As Johannes pointed out this lock is
-fake, but I think this doesn't matter, from the correctness POV it is "real"
-lock. What does matter is that cancel_work_sync() doesn't use this lock at all.
-
-(again, Johannes has already explained this all).
-
-> And it is crucial that the workqueue function doesn't
-> execute "accidently" due to such a race before the module
-> and thus the workqueue code is about to get potentially
-> unloaded.
-
-Which race? Unless explicitly queued afterwards, work->func() can't execute
-after return from cancel_work_sync(work).
+> would work only on the case of user<->user.
+> On kernel->user it is supposed to be owned by the kernel and set to 0.
 
 
-David, I think you misunderstood Johannes, or perhaps I missed something.
+No, in the case of events its supposed to be set to the pid of the
+socket that caused the event. Check out qdisc_notify() or rtmsg_ifa()
+for example.
 
-Oleg.
+> OTOH, one could use the nlmsg seq as a "cookie" (since that is untouched
+> by the kernel) with the hope that no other process will use that same
+> cookie - then you can filter events based on the cookie. Note this is
+> only useful if you can guarantee that all processes running on a system
+> guarantee such uniqueness of such cookies amongst each other; which is
+> typically a bad assumption for a generic solution but would work.
 
+
+nlmsg_seq is already used by userspace to match responses to requests,
+so that probably wouldn't work very well.
