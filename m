@@ -1,68 +1,60 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [E1000-devel] [PATCH 6/8] e1000e: convert ndev_ printks	to	something
- smaller
-Date: Wed, 02 Apr 2008 11:55:46 -0700
-Message-ID: <47F3D6B2.9070306@intel.com>
-References: <20080328161503.6562.44329.stgit@localhost.localdomain>	<20080328161531.6562.8515.stgit@localhost.localdomain>	<47EDA38F.6080301@garzik.org> <47F12F27.802@intel.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: GFP_ATOMIC page allocation failures.
+Date: Wed, 02 Apr 2008 15:06:43 -0400
+Message-ID: <47F3D943.5040201@garzik.org>
+References: <20080402171104.9591.KOSAKI.MOTOHIRO@jp.fujitsu.com>	<20080402.012406.246863209.davem@davemloft.net>	<1207134299.8514.771.camel@twins> <20080402.114545.17950613.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: peterz@infradead.org, kosaki.motohiro@jp.fujitsu.com,
+	akpm@linux-foundation.org, csnook@redhat.com,
+	davej@codemonkey.org.uk, nickpiggin@yahoo.com.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:64175 "EHLO mga03.intel.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:53374 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755108AbYDBS4a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Apr 2008 14:56:30 -0400
-In-Reply-To: <47F12F27.802@intel.com>
+	id S1760524AbYDBTH0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Apr 2008 15:07:26 -0400
+In-Reply-To: <20080402.114545.17950613.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kok, Auke wrote:
-> Jeff Garzik wrote:
->> Auke Kok wrote:
->>> From: Bruce Allan <bruce.w.allan@intel.com>
->>>
->>> The ndev_* printk's are too lenghty and we don't need to specify
->>> the adapter/netdev struct at all, making this a lot more readable.
->>>
->>> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
->>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->>> ---
->>>
->>>  drivers/net/e1000e/e1000.h   |   27 ++++----
->>>  drivers/net/e1000e/ethtool.c |   38 +++++------
->>>  drivers/net/e1000e/netdev.c  |  148 +++++++++++++++++++-----------------------
->>>  drivers/net/e1000e/param.c   |   31 +++------
->>>  4 files changed, 108 insertions(+), 136 deletions(-)
->> This stuff should just be removed.
->>
->> Either the code should be outputting "ethX: blahblah" via printk(), or 
->> the code should be outputting the standard dev_printk() prefix [driver 
->> name, PCI device info].
->>
->> Also, it is recommended to use the NETIF_MSG_xxx bits to permit 
->> fine-grained control over which messages are output, on a per-port basis 
->> (controlled via ethtool).  grep around for 'msg_enable'
+David Miller wrote:
+> From: Peter Zijlstra <peterz@infradead.org>
+> Date: Wed, 02 Apr 2008 13:04:59 +0200
 > 
-> yes and I even tried pushing for a generic netdev printk that incorporates the
-> msg_enable bits properly
+>> Would we not hope that most net drivers can handle {,net}dev_alloc_skb()
+>> failing? Otherwise we have some serious trouble.
 > 
-> I also got absolutely unwelcome responses to that, if not none :)
+> False presumption.
 > 
-> once we get such a thing, we can incorporate this into e1000 with this patch by
-> changing 2 lines. so I think this patch is still a good thing, and it certainly
-> removes a lot of wrapped lines.
+> Most can but some legacy ones really do not handle this well.
 
-Jeff,
+Correct...
 
-I'm not sure how to proceed with this mess cleanup so I'm removing that patch from
-the series I sent, and I will revisit this issue later.
+In addition, I remain worried about potential edge cases in drivers that 
+do "burst refill" style allocations, rather than the [IMO safer] 
+as-you-go style that tg3 employs.
 
-I'm resending the ones I have sent once but are on hold pending this discussion.
-They are all meant for #upstream and should apply OK.
+I haven't done a serious audit, but I have nagging doubts about the 
+behavior of burst-refill drivers when faced with a burst of failed 
+allocations...  do they stop DMA operation, or do they permit hardware 
+to wander into part of the DMA ring where, in the previous "cycle" 
+through the ring, valid DMA addresses were placed.  But now with a 
+string of allocation failures, you have a sequence of DMA ring 
+descriptors that point to invalid memory.  If the DMA engine is not 
+stopped, or in some other way made to avoid those invalid DMA 
+descriptors, then you can easily run into problems.
 
-thanks,
+Sometimes, it's as easy as making sure to properly police the 'OWN' bit 
+of each descriptor, something easily and commonly done as a matter of 
+course.  But modern hardware with multi-descriptor packets make things 
+more complex, so it is actually getting more difficult to get these 
+details right.
 
-Auke
+</ramble>
+
+	Jeff
+
 
