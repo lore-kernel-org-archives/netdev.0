@@ -1,37 +1,64 @@
-From: Thomas Scheiblauer <thomas.scheiblauer@hauptversammlung.at>
-Subject: Re: [Bugme-new] [Bug 10380] New: sc92031 does not create a device
-	link in sysfs
-Date: Wed, 02 Apr 2008 19:08:40 +0200
-Message-ID: <1207156120.8068.26.camel@tigershark.sharkbay.at>
-References: <bug-10380-10286@http.bugzilla.kernel.org/>
-	 <20080402091435.39f99428.akpm@linux-foundation.org>
-	 <20080402094923.185f15dc@extreme>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: Setting alternate MAC addresses on e1000
+Date: Wed, 2 Apr 2008 10:41:55 -0700
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5204D419D6@orsmsx418.amr.corp.intel.com>
+References: <47F2358A.8080505@aei.mpg.de>
+	<36D9DB17C6DE9E40B059440DB8D95F5204D09A67@orsmsx418.amr.corp.intel.com>
+	<47F33EB6.1050402@aei.mpg.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Cesar Eduardo Barros <cesarb@cesarb.net>, tom@sharkbay.at
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15253013.onlinehome-server.info ([87.106.130.51]:35542 "EHLO
-	hauptversammlung.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755573AbYDBRmy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 13:42:54 -0400
-In-Reply-To: <20080402094923.185f15dc@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: "Carsten Aulbert" <carsten.aulbert@aei.mpg.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-class: urn:content-classes:message
+In-Reply-To: <47F33EB6.1050402@aei.mpg.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Mit, 2008-04-02 at 09:49 -0700, Stephen Hemminger wrote:
-> Add missing sysfs device association. Compile tested only -ENOHW.
+Carsten Aulbert wrote:
+> Yes, with MAGIC=0x109a8086 I can set the MAC address of eth1.
+
+good, I think you need to just use that way.
+ 
+> The Intel specs state that word 37H is a pointer to an "alternate MAC
+> address". My boss things it would be wise to let the original MAC
+> address in place and just add another MAC address, so that we can
+> easily revert to the old "official" one by writing 0xffff into that
+> word. 
+
+The alternate MAC address typically refers to a MAC used only for
+management/ASF/IPMI traffic.  I don't think that is what you want.
+
+According to our internal documents that I have access to, word 37h is
+not what you think it is on 82573V/L.
+
+PXE Words (words 30h thru 3Eh)
+Words 30h through 3Eh have been reserved for configuration and version
+values to be used by PXE code.
+ 
+> Has anyone experience with that approach? In principle that should be
+> easy, however, I don't know where/how to find 6 free bytes from the
+> table given in Intel's docs.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> ---
-> Patch against 2.6.25-rc8, ignore previous patch.
-> 
-> ...
+> Thanks again and hopefully someone has some light for my brain ;)
 
-Works for me!
-Thank you, that was fast.
+I think that you should stick with programming the original MAC address.
+Start messing around with other words and you're bound to get yourself
+into trouble.
 
+Jesse
 
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
