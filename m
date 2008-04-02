@@ -1,69 +1,79 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH][ICMP]: Dst entry leak in icmp_send host re-lookup code
- (v2).
-Date: Wed, 2 Apr 2008 12:19:06 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0804021146500.29472@u.domain.uli>
-References: <47EA1694.1080208@openvz.org> <20080401121532.GA24470@gondor.apana.org.au>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PING^2] [PATCH] srandom32 fixes for networking
+Date: Wed, 2 Apr 2008 11:44:37 +0200
+Message-ID: <20080402094437.GO29105@one.firstfloor.org>
+References: <20080402075011.GL29105@one.firstfloor.org> <20080402.010324.121433616.davem@davemloft.net> <20080402082103.GN29105@one.firstfloor.org> <20080402.012022.106064938.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pavel Emelyanov <xemul@openvz.org>,
-	David Miller <davem@davemloft.net>,
-	Denis Lunev <den@openvz.org>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: andi@firstfloor.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:50721 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750706AbYDBJTO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Apr 2008 05:19:14 -0400
-In-Reply-To: <20080401121532.GA24470@gondor.apana.org.au>
+Received: from one.firstfloor.org ([213.235.205.2]:52098 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751404AbYDBJkq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 05:40:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20080402.012022.106064938.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-	Hello,
-
-On Tue, 1 Apr 2008, Herbert Xu wrote:
-
-> On Wed, Mar 26, 2008 at 12:25:40PM +0300, Pavel Emelyanov wrote:
-> > Commit 8b7817f3a959ed99d7443afc12f78a7e1fcc2063 ([IPSEC]: Add ICMP host
-> > relookup support) introduced some dst leaks on error paths: the rt
-> > pointer can be forgotten to be put. Fix it bu going to a proper label.
+> You have to decide how to submit this without introducing
+> the build failure then.
 > 
-> I just remembered that we have exactly the same code path in IPv6
-> and sure enough it also has the same bug.
+> I would suggest getting your first change in, and when that
+> happens, resubmit this one.
 
-	OK, we found there was a leak, but why it happens? Initially,
-I thought it was caused by saddr=0 provided to ip_route_input. Some
-debugging shows that in the case with forwarded skb (with attached
-input route) saddr is set to 0 but later xfrm_decode_session_reverse
-rebuilds fl with addresses from packet. So, it was not that we
-play with saddr=0. In my test setup with 2 interfaces ip_route_input
-failed because I don't have route to the original destination
-which is now provided as saddr to ip_route_input. No ICMP was sent
-to sender while previous kernels send ICMP.
+I did a new version that just updates all CPUs without the rename,
+so no dependency.
 
-	As result, this new code adds some new checks that are not
-valid for all cases. When kernel wants to say that destination is
-unreachable it can not do it. We should talk with sender without
-considering destination address.
+I will resubmit the rename later after the x86 maintainers
+apply the patch to remove the call in pageattr-test.c (they unfortunately 
+usually need at least three pings too..)
 
-	May be this code should be reverted for 2.6.25 or some extra 
-checks should be added considering the different variants where
-icmp_send can be called:
+--- 
+srandom32 fixes for networking v2
 
-- original packet is incoming, destined to localhost (rt->fl.iif!=0
-	and rt->rt_flags & RTCF_LOCAL)
-- original packet is incoming, destined to remote host (rt->fl.iif!=0
-	and !(rt->rt_flags & RTCF_LOCAL))
-- original packet is outgoing, destined to localhost
-- original packet is outgoing, destined to remote host
+- Let it update the state of all CPUs. The network stack goes
+into pains to feed the current IP addresses in, but it is not very
+effective if that is only done for some random CPU instead of all.
+So change it to feed bits into all CPUs.  I decided to do that lockless 
+because well somewhat random results are ok.
 
-	In my case even SNAT happened before icmp_send, so
-ip_route_input failed for saddr=ORIGINAL_TARGET and
-daddr=MASQ_ADDR_WHICH_IS_LOCAL indev=MADDR_DEVICE
+v2: Dropped rename for now
 
-Regards
+Signed-off-by: Andi Kleen <ak@suse.de>
+---
+ include/linux/net.h    |    2 +-
+ include/linux/random.h |    2 +-
+ lib/random32.c         |   19 ++++++++++++-------
+ 3 files changed, 14 insertions(+), 9 deletions(-)
 
---
-Julian Anastasov <ja@ssi.bg>
+Index: linux/lib/random32.c
+===================================================================
+--- linux.orig/lib/random32.c
++++ linux/lib/random32.c
+@@ -97,13 +97,18 @@ EXPORT_SYMBOL(random32);
+  *	@seed: seed value
+  *
+  *	Add some additional seeding to the random32() pool.
+- *	Note: this pool is per cpu so it only affects current CPU.
+  */
+ void srandom32(u32 entropy)
+ {
+-	struct rnd_state *state = &get_cpu_var(net_rand_state);
+-	__set_random32(state, state->s1 ^ entropy);
+-	put_cpu_var(state);
++	int i;
++	/*
++	 * No locking on the CPUs, but then somewhat random results are, well,
++	 * expected.
++	 */
++	for_each_possible_cpu (i) {
++		struct rnd_state *state = &per_cpu(net_rand_state, i);
++		__set_random32(state, state->s1 ^ entropy);
++	}
+ }
+ EXPORT_SYMBOL(srandom32);
+ 
+
+
