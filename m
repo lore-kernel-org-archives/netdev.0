@@ -1,194 +1,280 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: Re: [PATCH] forcedeth: mac address fix
-Date: Mon, 31 Mar 2008 21:39:00 -0500
-Message-ID: <47F1A044.6070200@nvidia.com>
-References: <47F1534A.7020402@nvidia.com> <20080401000502.GB7423@atjola.homenet> <47F180B8.6010801@nvidia.com> <20080402002459.GA22649@atjola.homenet>
+From: "Robert P. J. Day" <rpjday@crashcourse.ca>
+Subject: [PATCH] SUNRPC: Strip __KERNEL__ testing from unexported headers.
+Date: Tue, 1 Apr 2008 22:03:39 -0400 (EDT)
+Message-ID: <alpine.LFD.1.00.0804012202260.11223@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Bj=F6rn_Steinbrink?= <B.Steinbrink@gmx.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate04.nvidia.com ([216.228.112.152]:7515 "EHLO
-	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755017AbYDBByb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 21:54:31 -0400
-In-Reply-To: <20080402002459.GA22649@atjola.homenet>
+Received: from astoria.ccjclearline.com ([64.235.106.9]:50989 "EHLO
+	astoria.ccjclearline.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751516AbYDBCDn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 22:03:43 -0400
+Received: from cpe001d60ad7267-cm001225dbafb6.cpe.net.cable.rogers.com ([99.236.100.208] helo=crashcourse.ca)
+	by astoria.ccjclearline.com with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.68)
+	(envelope-from <rpjday@crashcourse.ca>)
+	id 1JgsKD-0005tx-Nr
+	for netdev@vger.kernel.org; Tue, 01 Apr 2008 22:03:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+Signed-off-by: Robert P. J. Day <rpjday@crashcourse.ca>
 
-Bj=F6rn Steinbrink wrote:
-> On 2008.03.31 19:24:24 -0500, Ayaz Abdulla wrote:
->=20
->>
->>Bj=F6rn Steinbrink wrote:
->>
->>>On 2008.03.31 16:10:34 -0500, Ayaz Abdulla wrote:
->>>
->>>
->>>>This critical patch fixes a mac address issue recently introduced. =
-If=20
->>>>=20
->>>
->>>
->>>Does "recently" mean my commit 2e3884b5b16795c03a7bf295797c1b2402885=
-b88?
->>>If so, I like to be told directly when I break stuff ;-)
->>>
->>
->>Thats why I cc'd you. :)
->=20
->=20
-> OK, it's just that "recently broken" can mean about anything ;-) So I
-> would have welcomed a "broken by xxx" in the commit message, or a sma=
-ll
-> note below the --- line. :-)
->=20
->=20
->>>>the device's mac address was in correct order and the flag  =20
->>>>NVREG_TRANSMITPOLL_MAC_ADDR_REV was set, during nv_remove the flag=20
->>>>would  get cleared. During next load, the mac address would get=20
->>>>reversed  because the flag is missing.
->>>
->>>
->>>Hm, but nv_remove also writes back the reversed mac address. I don't=
- see
->>>how a plain remove/probe cycle would mess things up.
->>>
->>>
->>
->>For example, NVREG_TRANSMITPOLL_MAC_ADDR_REV is set. That would mean =
-=20
->>that orig_mac will be stored with correct address. Then you call =20
->>nv_remove (via ifdown) which set orig_mac back into the register and =
-=20
->>will clear the flag. On the next nv_probe (via ifup), you would perfo=
-rm =20
->>the logic to reverse the mac address. But it is still in correct orde=
-r.
->=20
->=20
-> OK, that's the case when we had two consecutive nv_probe calls, witho=
-ut
-> a call to nv_remove in between, right? So yeah, kexec + rmmod + modpr=
-obe
-> breaks. AFAICT.
->=20
-Actually, I just realized the case I am looking at is different then=20
-ifdown/ifup. But it looks like you got it: kexec (nv_probe) + rmmod=20
-(nv_remove) + modprobe(nv_probe). I have seen it with=20
-insmod/rmmod/insmod since I don't know how kexec works.
+---
 
-=46or clarity, here is the data path.
+  not compile tested since it seemed fairly straightforward.
 
-On the first insmod, it will copy the mac address and store it in orig_=
-mac:
+ include/linux/sunrpc/auth.h        |    3 ---
+ include/linux/sunrpc/auth_gss.h    |    3 ---
+ include/linux/sunrpc/clnt.h        |    3 ---
+ include/linux/sunrpc/gss_api.h     |    2 --
+ include/linux/sunrpc/gss_err.h     |    3 ---
+ include/linux/sunrpc/msg_prot.h    |    3 ---
+ include/linux/sunrpc/rpc_pipe_fs.h |    3 ---
+ include/linux/sunrpc/svcauth.h     |    4 ----
+ include/linux/sunrpc/svcauth_gss.h |    2 --
+ include/linux/sunrpc/xdr.h         |    4 ----
+ include/linux/sunrpc/xprt.h        |    4 ----
+ include/linux/sunrpc/xprtsock.h    |    4 ----
+ 12 files changed, 38 deletions(-)
 
-	np->orig_mac[0] =3D readl(base + NvRegMacAddrA);
-	np->orig_mac[1] =3D readl(base + NvRegMacAddrB);
+diff --git a/include/linux/sunrpc/auth.h b/include/linux/sunrpc/auth.h
+index 7a69ca3..eac1d6f 100644
+--- a/include/linux/sunrpc/auth.h
++++ b/include/linux/sunrpc/auth.h
+@@ -9,8 +9,6 @@
+ #ifndef _LINUX_SUNRPC_AUTH_H
+ #define _LINUX_SUNRPC_AUTH_H
 
-Then, it will go into the "if" block because=20
-NVREG_TRANSMITPOLL_MAC_ADDR_REV is set:
+-#ifdef __KERNEL__
+-
+ #include <linux/sunrpc/sched.h>
+ #include <linux/sunrpc/msg_prot.h>
+ #include <linux/sunrpc/xdr.h>
+@@ -158,5 +156,4 @@ struct rpc_cred *	get_rpccred(struct rpc_cred *cred)
+ 	return cred;
+ }
 
-	if ((txreg & NVREG_TRANSMITPOLL_MAC_ADDR_REV) ||
-	    (id->driver_data & DEV_HAS_CORRECT_MACADDR)) {
-		/* mac address is already in correct order */
-		dev->dev_addr[0] =3D (np->orig_mac[0] >>  0) & 0xff;
-		dev->dev_addr[1] =3D (np->orig_mac[0] >>  8) & 0xff;
-		dev->dev_addr[2] =3D (np->orig_mac[0] >> 16) & 0xff;
-		dev->dev_addr[3] =3D (np->orig_mac[0] >> 24) & 0xff;
-		dev->dev_addr[4] =3D (np->orig_mac[1] >>  0) & 0xff;
-		dev->dev_addr[5] =3D (np->orig_mac[1] >>  8) & 0xff;
+-#endif /* __KERNEL__ */
+ #endif /* _LINUX_SUNRPC_AUTH_H */
+diff --git a/include/linux/sunrpc/auth_gss.h b/include/linux/sunrpc/auth_gss.h
+index 67658e1..a7341fe 100644
+--- a/include/linux/sunrpc/auth_gss.h
++++ b/include/linux/sunrpc/auth_gss.h
+@@ -14,7 +14,6 @@
+ #ifndef _LINUX_SUNRPC_AUTH_GSS_H
+ #define _LINUX_SUNRPC_AUTH_GSS_H
 
+-#ifdef __KERNEL__
+ #include <linux/sunrpc/auth.h>
+ #include <linux/sunrpc/svc.h>
+ #include <linux/sunrpc/gss_api.h>
+@@ -86,6 +85,4 @@ struct gss_cred {
+ 	struct gss_upcall_msg	*gc_upcall;
+ };
 
-Now, if you do a rmmod, nv_remove gets called. You store the correct=20
-address back into the hw register (since orig_mac was correct) but clea=
-r=20
-the "correct" flag:
+-#endif /* __KERNEL__ */
+ #endif /* _LINUX_SUNRPC_AUTH_GSS_H */
+-
+diff --git a/include/linux/sunrpc/clnt.h b/include/linux/sunrpc/clnt.h
+index 129a86e..e9f78df 100644
+--- a/include/linux/sunrpc/clnt.h
++++ b/include/linux/sunrpc/clnt.h
+@@ -93,8 +93,6 @@ struct rpc_procinfo {
+ 	char *			p_name;		/* name of procedure */
+ };
 
-	writel(np->orig_mac[0], base + NvRegMacAddrA);
-	writel(np->orig_mac[1], base + NvRegMacAddrB);
-	writel(readl(base + NvRegTransmitPoll) & ~NVREG_TRANSMITPOLL_MAC_ADDR_=
-REV,
-	       base + NvRegTransmitPoll);
+-#ifdef __KERNEL__
+-
+ struct rpc_create_args {
+ 	int			protocol;
+ 	struct sockaddr		*address;
+@@ -141,5 +139,4 @@ void		rpc_force_rebind(struct rpc_clnt *);
+ size_t		rpc_peeraddr(struct rpc_clnt *, struct sockaddr *, size_t);
+ const char	*rpc_peeraddr2str(struct rpc_clnt *, enum rpc_display_format_t);
 
-Now, on next insmod, it will save the mac address into orig_mac (which=20
-is the correct one). But, this time it will take the "else" path becaus=
-e=20
-the previous nv_remove cleared the flag:
+-#endif /* __KERNEL__ */
+ #endif /* _LINUX_SUNRPC_CLNT_H */
+diff --git a/include/linux/sunrpc/gss_api.h b/include/linux/sunrpc/gss_api.h
+index 459c5fc..593d0d9 100644
+--- a/include/linux/sunrpc/gss_api.h
++++ b/include/linux/sunrpc/gss_api.h
+@@ -14,7 +14,6 @@
+ #ifndef _LINUX_SUNRPC_GSS_API_H
+ #define _LINUX_SUNRPC_GSS_API_H
 
+-#ifdef __KERNEL__
+ #include <linux/sunrpc/xdr.h>
+ #include <linux/uio.h>
 
-		/* need to reverse mac address to correct order */
-		dev->dev_addr[0] =3D (np->orig_mac[1] >>  8) & 0xff;
-		dev->dev_addr[1] =3D (np->orig_mac[1] >>  0) & 0xff;
-		dev->dev_addr[2] =3D (np->orig_mac[0] >> 24) & 0xff;
-		dev->dev_addr[3] =3D (np->orig_mac[0] >> 16) & 0xff;
-		dev->dev_addr[4] =3D (np->orig_mac[0] >>  8) & 0xff;
-		dev->dev_addr[5] =3D (np->orig_mac[0] >>  0) & 0xff;
-		writel(txreg|NVREG_TRANSMITPOLL_MAC_ADDR_REV, base + NvRegTransmitPol=
-l);
+@@ -131,6 +130,5 @@ struct gss_api_mech * gss_mech_get(struct gss_api_mech *);
+  * corresponding call to gss_mech_put. */
+ void gss_mech_put(struct gss_api_mech *);
 
-This will cause the mac address to be reversed! That is how your patch=20
-has had some negative effect.
+-#endif /* __KERNEL__ */
+ #endif /* _LINUX_SUNRPC_GSS_API_H */
 
+diff --git a/include/linux/sunrpc/gss_err.h b/include/linux/sunrpc/gss_err.h
+index a680786..b73c329 100644
+--- a/include/linux/sunrpc/gss_err.h
++++ b/include/linux/sunrpc/gss_err.h
+@@ -34,8 +34,6 @@
+ #ifndef _LINUX_SUNRPC_GSS_ERR_H
+ #define _LINUX_SUNRPC_GSS_ERR_H
 
+-#ifdef __KERNEL__
+-
+ typedef unsigned int OM_uint32;
 
->=20
->>>>As it has been indicated previously, the flag is cleared across a l=
-ow=20
->>>> power transition. Therefore, the driver should set the mac address=
-=20
->>>>back  into the reversed order when clearing the flag.
->>>
->>>
->>>That's what nv_remove is supposed to do. Is there a case where nv_re=
-move
->>>is not called?
->>>
->>
->>Sorry for the confusion. I was merely stating what needs to be done a=
-s =20
->>the full solution. This logic was already in place by your patch.
->>
->>
->>>>Also, the driver should set back the flag after a low power=20
->>>>transition  to protect against kexec command calling nv_probe a=20
->>>>second time.
->>>
->>>
->>>Sounds like suspend stopped calling nv_remove? That would make sense
->>>then. I never checked whether suspend ever actually did call nv_remo=
-ve
->>>(I think), but as my patch worked, it basically must have done so, a=
-t
->>>least in the past, right?
->>>
->>
->>My understanding is that nv_suspend will call nv_close and then =20
->>nv_resume will call nv_open. I don't think nv_probe/nv_remove is call=
-ed =20
->>during the low power transitions.
->=20
->=20
-> Hm, then I fail to see why my patch had any effect. I only touched
-> nv_probe and nv_remove, and it solved the mac reversal on suspend
-> problem... *confused*
->=20
-AFAICT nv_remove is not called during the power transitions.
+ /*
+@@ -163,5 +161,4 @@ typedef unsigned int OM_uint32;
+ /* XXXX This is a necessary evil until the spec is fixed */
+ #define GSS_S_CRED_UNAVAIL GSS_S_FAILURE
 
->=20
->>We want to set back the flag in nv_resume in case kexec is call after=
- =20
->>anytime nv_resume is called. Otherwise, nv_probe (via kexec ?) will =20
->>think it needs to reverse the address.
->=20
->=20
-> Hmhm, that also somehow conflicts with the fact that my patch did
-> anything... I think.=20
->=20
-> Bj=F6rn
+-#endif /* __KERNEL__ */
+ #endif /* __LINUX_SUNRPC_GSS_ERR_H */
+diff --git a/include/linux/sunrpc/msg_prot.h b/include/linux/sunrpc/msg_prot.h
+index 70df4f1..43394a7 100644
+--- a/include/linux/sunrpc/msg_prot.h
++++ b/include/linux/sunrpc/msg_prot.h
+@@ -7,8 +7,6 @@
+ #ifndef _LINUX_SUNRPC_MSGPROT_H_
+ #define _LINUX_SUNRPC_MSGPROT_H_
+
+-#ifdef __KERNEL__ /* user programs should get these from the rpc header files */
+-
+ #define RPC_VERSION 2
+
+ /* size of an XDR encoding unit in bytes, i.e. 32bit */
+@@ -191,5 +189,4 @@ typedef __be32	rpc_fraghdr;
+  */
+ #define RPCBIND_MAXUADDRLEN	(56u)
+
+-#endif /* __KERNEL__ */
+ #endif /* _LINUX_SUNRPC_MSGPROT_H_ */
+diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
+index 51b977a..c7ee15d 100644
+--- a/include/linux/sunrpc/rpc_pipe_fs.h
++++ b/include/linux/sunrpc/rpc_pipe_fs.h
+@@ -1,8 +1,6 @@
+ #ifndef _LINUX_SUNRPC_RPC_PIPE_FS_H
+ #define _LINUX_SUNRPC_RPC_PIPE_FS_H
+
+-#ifdef __KERNEL__
+-
+ struct rpc_pipe_msg {
+ 	struct list_head list;
+ 	void *data;
+@@ -53,4 +51,3 @@ extern int register_rpc_pipefs(void);
+ extern void unregister_rpc_pipefs(void);
+
+ #endif
+-#endif
+diff --git a/include/linux/sunrpc/svcauth.h b/include/linux/sunrpc/svcauth.h
+index 22e1ef8..6e6a1da 100644
+--- a/include/linux/sunrpc/svcauth.h
++++ b/include/linux/sunrpc/svcauth.h
+@@ -9,8 +9,6 @@
+ #ifndef _LINUX_SUNRPC_SVCAUTH_H_
+ #define _LINUX_SUNRPC_SVCAUTH_H_
+
+-#ifdef __KERNEL__
+-
+ #include <linux/string.h>
+ #include <linux/sunrpc/msg_prot.h>
+ #include <linux/sunrpc/cache.h>
+@@ -166,6 +164,4 @@ static inline unsigned long hash_mem(char *buf, int length, int bits)
+ 	return hash >> (BITS_PER_LONG - bits);
+ }
+
+-#endif /* __KERNEL__ */
+-
+ #endif /* _LINUX_SUNRPC_SVCAUTH_H_ */
+diff --git a/include/linux/sunrpc/svcauth_gss.h b/include/linux/sunrpc/svcauth_gss.h
+index 417a1de..4ea40e4 100644
+--- a/include/linux/sunrpc/svcauth_gss.h
++++ b/include/linux/sunrpc/svcauth_gss.h
+@@ -11,7 +11,6 @@
+ #ifndef _LINUX_SUNRPC_SVCAUTH_GSS_H
+ #define _LINUX_SUNRPC_SVCAUTH_GSS_H
+
+-#ifdef __KERNEL__
+ #include <linux/sched.h>
+ #include <linux/sunrpc/types.h>
+ #include <linux/sunrpc/xdr.h>
+@@ -24,5 +23,4 @@ void gss_svc_shutdown(void);
+ int svcauth_gss_register_pseudoflavor(u32 pseudoflavor, char * name);
+ u32 svcauth_gss_flavor(struct auth_domain *dom);
+
+-#endif /* __KERNEL__ */
+ #endif /* _LINUX_SUNRPC_SVCAUTH_GSS_H */
+diff --git a/include/linux/sunrpc/xdr.h b/include/linux/sunrpc/xdr.h
+index e4057d7..2285c7b 100644
+--- a/include/linux/sunrpc/xdr.h
++++ b/include/linux/sunrpc/xdr.h
+@@ -7,8 +7,6 @@
+ #ifndef _SUNRPC_XDR_H_
+ #define _SUNRPC_XDR_H_
+
+-#ifdef __KERNEL__
+-
+ #include <linux/uio.h>
+ #include <asm/byteorder.h>
+ #include <linux/scatterlist.h>
+@@ -220,6 +218,4 @@ extern void xdr_read_pages(struct xdr_stream *xdr, unsigned int len);
+ extern void xdr_enter_page(struct xdr_stream *xdr, unsigned int len);
+ extern int xdr_process_buf(struct xdr_buf *buf, unsigned int offset, unsigned int len, int (*actor)(struct scatterlist *, void *), void *data);
+
+-#endif /* __KERNEL__ */
+-
+ #endif /* _SUNRPC_XDR_H_ */
+diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.h
+index b3ff9a8..a33ff50 100644
+--- a/include/linux/sunrpc/xprt.h
++++ b/include/linux/sunrpc/xprt.h
+@@ -17,8 +17,6 @@
+ #include <linux/sunrpc/xdr.h>
+ #include <linux/sunrpc/msg_prot.h>
+
+-#ifdef __KERNEL__
+-
+ #define RPC_MIN_SLOT_TABLE	(2U)
+ #define RPC_DEF_SLOT_TABLE	(16U)
+ #define RPC_MAX_SLOT_TABLE	(128U)
+@@ -322,6 +320,4 @@ static inline int xprt_test_and_set_binding(struct rpc_xprt *xprt)
+ 	return test_and_set_bit(XPRT_BINDING, &xprt->state);
+ }
+
+-#endif /* __KERNEL__*/
+-
+ #endif /* _LINUX_SUNRPC_XPRT_H */
+diff --git a/include/linux/sunrpc/xprtsock.h b/include/linux/sunrpc/xprtsock.h
+index c2a46c4..f9f76d0 100644
+--- a/include/linux/sunrpc/xprtsock.h
++++ b/include/linux/sunrpc/xprtsock.h
+@@ -7,8 +7,6 @@
+ #ifndef _LINUX_SUNRPC_XPRTSOCK_H
+ #define _LINUX_SUNRPC_XPRTSOCK_H
+
+-#ifdef __KERNEL__
+-
+ int		init_socket_xprt(void);
+ void		cleanup_socket_xprt(void);
+
+@@ -40,6 +38,4 @@ extern unsigned int xprt_max_resvport;
+ #define RPC_DEF_MIN_RESVPORT	(665U)
+ #define RPC_DEF_MAX_RESVPORT	(1023U)
+
+-#endif /* __KERNEL__ */
+-
+ #endif /* _LINUX_SUNRPC_XPRTSOCK_H */
+
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry:
+    Have classroom, will lecture.
+
+http://crashcourse.ca                          Waterloo, Ontario, CANADA
+========================================================================
