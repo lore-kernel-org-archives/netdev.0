@@ -1,42 +1,33 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: GFP_ATOMIC page allocation failures.
-Date: Wed, 02 Apr 2008 13:04:59 +0200
-Message-ID: <1207134299.8514.771.camel@twins>
-References: <47F32789.2070703@redhat.com>
-	 <20080402005646.f8df1c1b.akpm@linux-foundation.org>
-	 <20080402171104.9591.KOSAKI.MOTOHIRO@jp.fujitsu.com>
-	 <20080402.012406.246863209.davem@davemloft.net>
+From: Sebastian Siewior <netdev@ml.breakpoint.cc>
+Subject: Re: [PATCH / RFC 0/2] spinlocks fixup in fec / m68knommu driver
+Date: Wed, 2 Apr 2008 13:11:12 +0200
+Message-ID: <20080402111112.GA11054@Chamillionaire.breakpoint.cc>
+References: <20080327140041.072611004@linutronix.de> <47EDA791.4090402@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro@jp.fujitsu.com, akpm@linux-foundation.org,
-	csnook@redhat.com, davej@codemonkey.org.uk,
-	nickpiggin@yahoo.com.au, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756067AbYDBLFi@vger.kernel.org>
-In-Reply-To: <20080402.012406.246863209.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Sebastian Siewior <bigeasy@linutronix.de>, uclinux-dev@uclinux.org,
+	netdev@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:39367 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753218AbYDBLLY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 07:11:24 -0400
+Content-Disposition: inline
+In-Reply-To: <47EDA791.4090402@pobox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-04-02 at 01:24 -0700, David Miller wrote:
-> From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-> Date: Wed, 02 Apr 2008 17:17:50 +0900
-> 
-> > if network guys hope known-good driver should call 
-> > __netdev_alloc_skb(dev, length, GFP_ATOMIC|__GFP_NOWARN) instead netdev_alloc_skb,
-> > I think we should make netdev_alloc_skb_nowarn.
-> 
-> Giving it a proper name like this takes away the indication that this
-> situation is very special.
-> 
-> Two leading underscores to an interface means "something special and
-> unusual requiring more careful consideration than usual is occuring
-> here."  netdev_alloc_skb_nowarn() on the other hand, does not
-> convey this meaning.
-> 
-> And we will have very few drivers that use this construct, thus it
-> really is best to handle things the way Andrew has.
+* Jeff Garzik | 2008-03-28 22:21:05 [-0400]:
 
-Would we not hope that most net drivers can handle {,net}dev_alloc_skb()
-failing? Otherwise we have some serious trouble.
+> Sebastian Siewior wrote:
+>> I got into this after turning on spinlock debugging.
+>> Jeff: The dev->hard_start_xmit callback is always called from softirq
+>> context so it is save to use spin_lock_irq(), right?
+>> Greg: The isr (fec_enet_rx()) calls three functions. All
+>> but fec_enet_rx() are grabbing the spinlock. Is this on purpose?
+
+Jeff please drop that one, I form a new patch just located another BUG.
+That one triggers on high load on a non-smp, non-preempt machine.
+
+Sebastian
