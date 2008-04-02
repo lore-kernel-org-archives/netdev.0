@@ -1,74 +1,30 @@
 From: Sebastian Siewior <bigeasy@linutronix.de>
-Subject: [PATCH 1/5] fec: kill warnings
-Date: Wed, 02 Apr 2008 22:58:29 +0200
-Message-ID: <20080402210103.046161355@linutronix.de>
-References: <20080402204417.597098190@linutronix.de>
+Subject: [PATCH 0/5] fixup locking on m68knommu fec
+Date: Wed, 02 Apr 2008 22:58:28 +0200
+Message-ID: <20080402204417.597098190@linutronix.de>
 Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
 	uclinux-dev@uclinux.org
 To: Greg Ungerer <gerg@uclinux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:58664 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:58661 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758568AbYDBU6m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 16:58:42 -0400
-Content-Disposition: inline; filename=m68knommu_remove_unused_var.patch
+	by vger.kernel.org with ESMTP id S1757252AbYDBU6e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 16:58:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-linux-2.6-mk68/drivers/net/fec.c: In function 'fec_enet_module_init':
-linux-2.6-mk68/drivers/net/fec.c:2627: warning: unused variable 'j'
-linux-2.6-mk68/drivers/net/fec.c: At top level:
-linux-2.6-mk68/drivers/net/fec.c:2136: warning: 'mii_link_interrupt' defined but not used
+This series basically fixes my locking problem. We have here:
+#1 the old one which removes some undefined vars.
+#2 cleans the file with lident. I had trouble reading the code...
+#3 type def a function pointer so we don't have the long defines
+   and move the callback after releasing the lock.
+#4 This one fixes the locking I guess. My mcf5235 did not race anymore
+   after that one. I saw 0a504779d while forming the patch so I guess
+   we could revert that one, Greg?
+#5 removes the registration of interrupt handlers & enabling interrupt
+   sources that are not handled. I stepped into this after I thought that
+   it is over :) Greg, Should we also remove that part where we enable
+   the irq controller (I though request_irq() is doing that).
 
-Signed-off-by: Sebastian Siewior <bigeasy@linutronix.de>
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -67,6 +67,11 @@
- #define	FEC_MAX_PORTS	1
- #endif
- 
-+#if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
-+	defined(CONFIG_M520x) || defined(CONFIG_M532x)
-+#define DONT_NEED_mii_link_interrupt
-+#endif
-+
- /*
-  * Define the fixed address of the FEC hardware.
-  */
-@@ -1222,7 +1227,7 @@ static phy_info_t const * const phy_info
- };
- 
- /* ------------------------------------------------------------------------- */
--#if !defined(CONFIG_M532x)
-+#ifndef DONT_NEED_mii_link_interrupt
- #ifdef CONFIG_RPXCLASSIC
- static void
- mii_link_interrupt(void *dev_id);
-@@ -2126,6 +2131,7 @@ mii_discover_phy(uint mii_reg, struct ne
- 
- /* This interrupt occurs when the PHY detects a link change.
- */
-+#ifndef DONT_NEED_mii_link_interrupt
- #ifdef CONFIG_RPXCLASSIC
- static void
- mii_link_interrupt(void *dev_id)
-@@ -2148,6 +2154,7 @@ mii_link_interrupt(int irq, void * dev_i
- 
- 	return IRQ_HANDLED;
- }
-+#endif
- 
- static int
- fec_enet_open(struct net_device *dev)
-@@ -2624,7 +2631,7 @@ fec_stop(struct net_device *dev)
- static int __init fec_enet_module_init(void)
- {
- 	struct net_device *dev;
--	int i, j, err;
-+	int i, err;
- 	DECLARE_MAC_BUF(mac);
- 
- 	printk("FEC ENET Version 0.2\n");
-
--- 
+Sebastian
 
