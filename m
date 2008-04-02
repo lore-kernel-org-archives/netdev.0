@@ -1,45 +1,72 @@
-From: "Matvejchikov Ilya" <matvejchikov@gmail.com>
-Subject: [RFC][LAPB] write_queue limit in lapb_data_request
-Date: Wed, 2 Apr 2008 13:50:17 +0400
-Message-ID: <8496f91a0804020250o35e08732ya68e799550e074fa@mail.gmail.com>
-References: <8496f91a0803250045k2fc4040dg74126f30c1487fd@mail.gmail.com>
-	 <20080328.183052.72394821.davem@davemloft.net>
-	 <8496f91a0803291311q705a0278hf1a437ab905dba7a@mail.gmail.com>
-Reply-To: matvejchikov@gmail.com
+From: Oleg Nesterov <oleg@tv-sign.ru>
+Subject: Re: 2.6.25rc7 lockdep trace
+Date: Wed, 2 Apr 2008 12:51:26 +0400
+Message-ID: <20080402085126.GA96@tv-sign.ru>
+References: <20080328.173414.22278840.davem@davemloft.net> <1206752049.22530.105.camel@johannes.berg> <1206752485.22530.108.camel@johannes.berg> <20080328.180924.154907485.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: johannes@sipsolutions.net, davej@codemonkey.org.uk,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.180]:13740 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751721AbYDBJuU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 05:50:20 -0400
-Received: by py-out-1112.google.com with SMTP id u52so3657028pyb.10
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2008 02:50:18 -0700 (PDT)
-In-Reply-To: <8496f91a0803291311q705a0278hf1a437ab905dba7a@mail.gmail.com>
+Received: from x346.tv-sign.ru ([89.108.83.215]:50910 "EHLO mail.screens.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751890AbYDBJvw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Apr 2008 05:51:52 -0400
 Content-Disposition: inline
+In-Reply-To: <20080328.180924.154907485.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->  > LAPB doesn't check for write_queue length in lapb_data_request(). So
->  > in some conditions it may grow unlimited. There is a potential problem
->  > for small systems.
->  >
->  > It seems like this for me:
+On 03/28, David Miller wrote:
 >
->  It doesn't enforce limits on any of it's queued from what
->  I can tell.
+> From: Johannes Berg <johannes@sipsolutions.net>
+> Date: Sat, 29 Mar 2008 02:01:25 +0100
+> 
+> > 
+> > > > You can't flush a workqueue in the device close handler
+> > > > exactly because of this locking conflict.
+> > > > 
+> > > > Nobody has come up with a suitable way to fix this yet.
+> > > 
+> > > Maybe we should check which schedule_work users actually lock the rtnl
+> > > within the work function and move them to a uses-rtnl-in-work workqueue
+> > > so that everybody else can have rtnl around flush.
+> > 
+> > On the other hand, most drivers don't actually care that their work has
+> > run, they just care that it won't run in the future after they give up
+> > resources or similar, hence they can and should use cancel_work_sync()
+> > which doesn't suffer from the deadlock. But that needs actual inspection
+> > because it does change behaviour from "run and wait for it if scheduled"
+> > to "cancel if scheduled".
+> 
+> I don't see how you can not race with the transition from
+> scheduled to "executing" without taking the runqueue lock
+> for the testing.
 
-I'm sorry. It's not quiet clear to me what you mean. As far as I know
-LAPB internals there is only one place where write_queue may increase.
-In other cases the ack_queue is used.
+Yes, cancel_work_sync() takes cwq->lock but this is fine (unless it is buggy ;)
+Please note that run_workqueue() drops this lock before calling work->func().
 
->
->  Without a thorough audit of resource limit enforcement in
->  this protocol stack, changing things here might be more
->  trouble than it's worth.
->
+If the caller of cancel_work_sync(work) doesn't share locks with work->func()
+we can't deadlock, even if there are other pending/running work_structs which
+need the same locks as the caller (say, RTNL).
 
-Thanks.
+But, perhaps, you mean wq->lockdep_map? As Johannes pointed out this lock is
+fake, but I think this doesn't matter, from the correctness POV it is "real"
+lock. What does matter is that cancel_work_sync() doesn't use this lock at all.
+
+(again, Johannes has already explained this all).
+
+> And it is crucial that the workqueue function doesn't
+> execute "accidently" due to such a race before the module
+> and thus the workqueue code is about to get potentially
+> unloaded.
+
+Which race? Unless explicitly queued afterwards, work->func() can't execute
+after return from cancel_work_sync(work).
+
+
+David, I think you misunderstood Johannes, or perhaps I missed something.
+
+Oleg.
+
