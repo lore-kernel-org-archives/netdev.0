@@ -1,57 +1,47 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Fwd: [SPARC64] INO problem Re: [Bug 10273] New: Sun GEM (PCI) -
-	network device doesn't work
-Date: Wed, 2 Apr 2008 20:26:55 +0200
-Message-ID: <20080402182655.GA2739@ami.dom.local>
-References: <20080317143624.da313311.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3 net-2.6.26] Compilation fixes.
+Date: Wed, 02 Apr 2008 11:42:29 -0700 (PDT)
+Message-ID: <20080402.114229.131377251.davem@davemloft.net>
+References: <1206978361.10660.31.camel@iris.sw.ru>
+	<20080402.001048.267915281.davem@davemloft.net>
+	<1207130474.17626.2.camel@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: seraph@xs4all.nl, Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	containers@lists.osdl.org
+To: den@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.188]:36472 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755970AbYDBSXB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 14:23:01 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so1214102nfb.21
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2008 11:22:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080317143624.da313311.akpm@linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40586
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1761935AbYDBSm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 14:42:29 -0400
+In-Reply-To: <1207130474.17626.2.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: "Denis V. Lunev" <den@openvz.org>
+Date: Wed, 02 Apr 2008 14:01:14 +0400
 
-Nice work Jos! I forward it to the author and the lists.
-
-Jarek P.
-
-Andrew Morton wrote, On 03/17/2008 10:36 PM:
-
-> On Mon, 17 Mar 2008 14:25:50 -0700 (PDT)
-> bugme-daemon@bugzilla.kernel.org wrote:
+> On Wed, 2008-04-02 at 00:10 -0700, David Miller wrote:
+> > From: "Denis V. Lunev" <den@openvz.org>
+> > Date: Mon, 31 Mar 2008 19:46:01 +0400
+> > 
+> > > Hello, Dave!
+> > > 
+> > > Recently I have seen several issues post to the netdev@ blaming
+> > > inclusion of the net_namespace.h from seq_file. This set fixes this
+> > > problem after two small cleanups.
+> > 
+> > All applied, thanks Denis.
+> > 
+> > I'll push to net-2.6.26 after some build sanity checks.
 > 
->> http://bugzilla.kernel.org/show_bug.cgi?id=10273
->>
->>            Summary: Sun GEM (PCI) - network device doesn't work
+> Dave, could you pls conside this addition. This should fix problem
+> reported by the Kamalesh Babulal <kamalesh@linux.vnet.ibm.com> recently.
 
------ Forwarded message from bugme-daemon@bugzilla.kernel.org -----
+Then this invalidates enourmous amounts of CONFIG_NET tests
+we've put into the headers over the past few days.
 
-> ------- Comment #24 from seraph@xs4all.nl  2008-04-02 07:24 -------
-> I did bisection. The bad commit is:
-> 
-> 5a606b72a4309a656cd1a19ad137dc5557c4b8ea is first bad commit
-> commit 5a606b72a4309a656cd1a19ad137dc5557c4b8ea
-> Author: David S. Miller <davem@sunset.davemloft.net>
-> Date:   Mon Jul 9 22:40:36 2007 -0700
-> 
->     [SPARC64]: Do not ACK an INO if it is disabled or inprogress.
-> 
-> 
-> -- 
-> Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
-
------ End forwarded message -----
+All of them were explicitly to avoid having to provide the
+init_net symbol when CONFIG_NET is not set.
