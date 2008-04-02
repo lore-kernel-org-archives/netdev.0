@@ -1,48 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PING^2] [PATCH] srandom32 fixes for networking
-Date: Wed, 02 Apr 2008 01:20:22 -0700 (PDT)
-Message-ID: <20080402.012022.106064938.davem@davemloft.net>
-References: <20080402075011.GL29105@one.firstfloor.org>
-	<20080402.010324.121433616.davem@davemloft.net>
-	<20080402082103.GN29105@one.firstfloor.org>
+Subject: Re: GFP_ATOMIC page allocation failures.
+Date: Wed, 02 Apr 2008 01:24:06 -0700 (PDT)
+Message-ID: <20080402.012406.246863209.davem@davemloft.net>
+References: <47F32789.2070703@redhat.com>
+	<20080402005646.f8df1c1b.akpm@linux-foundation.org>
+	<20080402171104.9591.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andi@firstfloor.org
+Cc: akpm@linux-foundation.org, csnook@redhat.com,
+	davej@codemonkey.org.uk, nickpiggin@yahoo.com.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: kosaki.motohiro@jp.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47332
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47336
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752037AbYDBIUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 04:20:21 -0400
-In-Reply-To: <20080402082103.GN29105@one.firstfloor.org>
+	by vger.kernel.org with ESMTP id S1752394AbYDBIYG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 04:24:06 -0400
+In-Reply-To: <20080402171104.9591.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Wed, 2 Apr 2008 10:21:03 +0200
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Date: Wed, 02 Apr 2008 17:17:50 +0900
 
-> On Wed, Apr 02, 2008 at 01:03:24AM -0700, David Miller wrote:
-> > From: Andi Kleen <andi@firstfloor.org>
-> > Date: Wed, 2 Apr 2008 09:50:11 +0200
-> > 
-> > > Can you send me your config please? I don't see any build problem
-> > > here with the patch on top of -rc7-git something on either i386 nor x86-64.
-> > 
-> > I found it with "git grep srandom32", I guess I'm quite old school in
-> > that I actually check the tree when interfaces are being changed.
-> 
-> Ah I see the problem now.  The patch requires 
-> 
-> ftp://firstfloor.org/pub/ak/misc/patches/pageattr-own-random
-> 
-> applied first to remove this reference. Sorry should 
-> have made that more clear.  The original post had both
-> patches, but in the reposts the reference to the dependency
-> got dropped somehow, sorry.
+> if network guys hope known-good driver should call 
+> __netdev_alloc_skb(dev, length, GFP_ATOMIC|__GFP_NOWARN) instead netdev_alloc_skb,
+> I think we should make netdev_alloc_skb_nowarn.
 
-You have to decide how to submit this without introducing
-the build failure then.
+Giving it a proper name like this takes away the indication that this
+situation is very special.
 
-I would suggest getting your first change in, and when that
-happens, resubmit this one.
+Two leading underscores to an interface means "something special and
+unusual requiring more careful consideration than usual is occuring
+here."  netdev_alloc_skb_nowarn() on the other hand, does not
+convey this meaning.
+
+And we will have very few drivers that use this construct, thus it
+really is best to handle things the way Andrew has.
