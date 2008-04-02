@@ -1,142 +1,84 @@
-From: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
-Subject: Re: [PATCH 4 of 5] IPv6: fix lifetime calculation on temporary
-	address creation
-Date: Wed, 2 Apr 2008 02:17:06 +0200
-Message-ID: <20080402001706.GD32592@pirzuine>
-References: <ec551b4a5bb25cda00ff.1206305172@pirzuine> <20080328.120401.89511262.yoshfuji@linux-ipv6.org> <20080401215657.GP475@pirzuine> <20080402.084114.60517414.yoshfuji@linux-ipv6.org>
+From: Yinghai Lu <yhlu.kernel.send@gmail.com>
+Subject: [PATCH] ixgb/e: fix IRQx nobody cared for shared irq with INTx
+Date: Tue, 1 Apr 2008 17:20:03 -0700
+Message-ID: <200804011720.03569.yhlu.kernel@gmail.com>
+References: <200803291403.23479.yhlu.kernel@gmail.com> <200803311458.56119.yhlu.kernel@gmail.com>
+Reply-To: yhlu.kernel@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, pekkas@netcore.fi
-To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
-	<yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pilet.ens-lyon.fr ([140.77.167.16]:52673 "EHLO
-	pilet.ens-lyon.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752869AbYDBARK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2008 20:17:10 -0400
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: kernel list <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz
+To: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Jeff Garzik <jeff@garzik.org>, Greg KH <greg@kroah.com>,
+	Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758165AbYDBAS7@vger.kernel.org>
+In-Reply-To: <200803311458.56119.yhlu.kernel@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20080402.084114.60517414.yoshfuji@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 02, 2008 at 08:41:14AM +0900, YOSHIFUJI Hideaki / =E5=90=89=
-=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
-> In article <20080401215657.GP475@pirzuine> (at Tue, 1 Apr 2008 23:56:=
-57 +0200), Benoit Boissinot <benoit.boissinot@ens-lyon.org> says:
->=20
-> > On Fri, Mar 28, 2008 at 12:04:01PM +0900, YOSHIFUJI Hideaki / =E5=90=
-=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
-> > > In article <ec551b4a5bb25cda00ff.1206305172@pirzuine> (at Sun, 23=
- Mar 2008 21:46:12 +0100), Benoit Boissinot <benoit.boissinot@ens-lyon.=
-org> says:
-> > >=20
-> > > > IPv6: fix lifetime calculation on temporary address creation
-> > [snip]
-> > > > +	now =3D jiffies;
-> > > > +	elapsed =3D (now - ifp->tstamp) / HZ;
-> > > > +	if (elapsed >=3D ifp->valid_lft)
-> > > > +		tmp_valid_lft =3D 0;
-> > > > +	else
-> > > > +		tmp_valid_lft =3D min_t(__u32,
-> > > > +				      ifp->valid_lft - elapsed,
-> > > > +				      idev->cnf.temp_valid_lft);
-> > > > +	if (elapsed >=3D ifp->prefered_lft)
-> > > > +		tmp_prefered_lft =3D 0;
-> > > > +	else
-> > > > +		tmp_prefered_lft =3D min_t(__u32,
-> > > > +					 ifp->prefered_lft - elapsed,
-> > > > +					 idev->cnf.temp_prefered_lft - desync_factor / HZ);
-> > >=20
-> > > Basically I agree, but it is possible to expire the temporary
-> > > address AFTER public address, which is not good.  Please fix this=
-=2E
-> >=20
-> > do you mean because of the rounding of 'elapsed' ? otherwise I don'=
-t see
-> > what the problem is, sorry.
->=20
-> Right.  Maybe we could substruct "now" by adj =3D (now - ifp->tstamp)=
- % HZ;
->    now =3D jiffies
->    elapsed =3D (now - ifp->tstamp) / HZ;
->    now -=3D (now - ifp->tstamp) % HZ;
+[PATCH] ixgb/e: fix IRQx nobody cared for shared irq with INTx
 
-Why not just simply round it above:
-elapsed =3D (now - ifp->tstamp + HZ - 1) / HZ; /* round it up */
-and the rest stays the same.
+solve
+	ixgb on pci-x and mptsas on pci-x. sometime mptsas get confused.
 
-Or do we care about having a lifetime a little bit (<1s) shorter ?
+same to
+	[PATCH] e1000: fix IRQx nobody cared for shared irq with INTx
+	http://lkml.org/lkml/2008/3/29/103
 
-updated patch below:
+Signed-off-by: Yinghai Lu <yhlu.kernel@gmail.com>
 
-IPv6: fix lifetime calculation on temporary address creation
-
-The lifetime calculation was buggy since it copied the tstamp
-from the associated public address.
-If (now - ifp->prefered_lft)/HZ (ie the elapsed time since the
-timestamp was set in the public address) was greater than
-temp_prefered_lft, you would always get deprecated addresses.
-
-This patch corrects the lifetime calculation by setting the tstamp
-to "now" and calculating the remaining time from the public address.
-
-Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
-
-diff -r 00affc24c178 net/ipv6/addrconf.c
---- a/net/ipv6/addrconf.c	Sat Mar 22 00:39:16 2008 +0100
-+++ b/net/ipv6/addrconf.c	Wed Apr 02 02:14:13 2008 +0200
-@@ -775,8 +775,7 @@
- {
- 	struct inet6_dev *idev =3D ifp->idev;
- 	struct in6_addr addr, *tmpaddr;
--	unsigned long tmp_prefered_lft, tmp_valid_lft, tmp_cstamp, tmp_tstamp=
-;
--	unsigned long regen_advance;
-+	unsigned long tmp_prefered_lft, tmp_valid_lft, elapsed, regen_advance=
-;
- 	int tmp_plen;
- 	int ret =3D 0;
- 	int max_addresses;
-@@ -825,16 +824,21 @@
- 		goto out;
- 	}
- 	memcpy(&addr.s6_addr[8], idev->rndid, 8);
--	tmp_valid_lft =3D min_t(__u32,
--			      ifp->valid_lft,
--			      idev->cnf.temp_valid_lft);
--	tmp_prefered_lft =3D min_t(__u32,
--				 ifp->prefered_lft,
--				 idev->cnf.temp_prefered_lft - desync_factor / HZ);
-+	elapsed =3D (jiffies - ifp->tstamp + HZ - 1) / HZ; /* round above */
-+	if (elapsed >=3D ifp->valid_lft)
-+		tmp_valid_lft =3D 0;
-+	else
-+		tmp_valid_lft =3D min_t(__u32,
-+				      ifp->valid_lft - elapsed,
-+				      idev->cnf.temp_valid_lft);
-+	if (elapsed >=3D ifp->prefered_lft)
-+		tmp_prefered_lft =3D 0;
-+	else
-+		tmp_prefered_lft =3D min_t(__u32,
-+					 ifp->prefered_lft - elapsed,
-+					 idev->cnf.temp_prefered_lft - desync_factor / HZ);
- 	tmp_plen =3D ifp->prefix_len;
- 	max_addresses =3D idev->cnf.max_addresses;
--	tmp_cstamp =3D ifp->cstamp;
--	tmp_tstamp =3D ifp->tstamp;
- 	spin_unlock_bh(&ifp->lock);
-=20
- 	regen_advance =3D idev->cnf.regen_max_retry *
-@@ -878,8 +882,6 @@
- 	ift->ifpub =3D ifp;
- 	ift->valid_lft =3D tmp_valid_lft;
- 	ift->prefered_lft =3D tmp_prefered_lft;
--	ift->cstamp =3D tmp_cstamp;
--	ift->tstamp =3D tmp_tstamp;
- 	spin_unlock_bh(&ift->lock);
-=20
- 	addrconf_dad_start(ift, 0);
-
---=20
-:wq
+Index: linux-2.6/drivers/net/ixgb/ixgb_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/ixgb/ixgb_main.c
++++ linux-2.6/drivers/net/ixgb/ixgb_main.c
+@@ -290,6 +290,11 @@ ixgb_up(struct ixgb_adapter *adapter)
+ #endif
+ 	ixgb_irq_enable(adapter);
+ 
++	if (!adapter->have_msi) {
++		/* enable INTx if not using MSI */
++		pci_intx(adapter->pdev, 1);
++	}
++
+ 	return 0;
+ }
+ 
+@@ -368,6 +373,8 @@ ixgb_probe(struct pci_dev *pdev,
+ 	int i;
+ 	int err;
+ 
++	/* disable INTx at first */
++	pci_intx(pdev, 0);
+ 	if((err = pci_enable_device(pdev)))
+ 		return err;
+ 
+Index: linux-2.6/drivers/net/ixgbe/ixgbe_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/ixgbe/ixgbe_main.c
++++ linux-2.6/drivers/net/ixgbe/ixgbe_main.c
+@@ -1988,6 +1988,12 @@ try_intr_reinit:
+ 	if (err)
+ 		goto err_up;
+ 
++	if (!(adapter->flags &
++	      (IXGBE_FLAG_MSI_ENABLED | IXGBE_FLAG_MSIX_ENABLED))) {
++		/* enable INTx if not using MSI/MSIX */
++		pci_intx(adapter->pdev, 1);
++	}
++
+ 	return 0;
+ 
+ err_up:
+@@ -2627,6 +2633,8 @@ static int __devinit ixgbe_probe(struct 
+ 	u16 link_status, link_speed, link_width;
+ 	u32 part_num;
+ 
++	/* disable INTx at first */
++	pci_intx(pdev, 0);
+ 	err = pci_enable_device(pdev);
+ 	if (err)
+ 		return err;
