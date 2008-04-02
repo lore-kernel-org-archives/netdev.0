@@ -1,99 +1,76 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Subject: Re: GFP_ATOMIC page allocation failures.
-Date: Wed, 02 Apr 2008 19:00:25 +0900
-Message-ID: <20080402175857.959A.KOSAKI.MOTOHIRO@jp.fujitsu.com>
-References: <20080402171104.9591.KOSAKI.MOTOHIRO@jp.fujitsu.com> <20080402.012406.246863209.davem@davemloft.net>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: Re: [PATCH 0/3 net-2.6.26] Compilation fixes.
+Date: Wed, 02 Apr 2008 14:01:14 +0400
+Message-ID: <1207130474.17626.2.camel@iris.sw.ru>
+References: <1206978361.10660.31.camel@iris.sw.ru>
+	 <20080402.001048.267915281.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro@jp.fujitsu.com, akpm@linux-foundation.org,
-	csnook@redhat.com, davej@codemonkey.org.uk,
-	nickpiggin@yahoo.com.au, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>
+Content-Type: multipart/mixed; boundary="=-2CQ8bcs6nJ0+IHn5IVvh"
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	containers <containers@lists.osdl.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:33960 "EHLO
-	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751501AbYDBKBB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 06:01:01 -0400
-In-Reply-To: <20080402.012406.246863209.davem@davemloft.net>
+Received: from mailhub.sw.ru ([195.214.232.25]:38647 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751404AbYDBKB5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Apr 2008 06:01:57 -0400
+In-Reply-To: <20080402.001048.267915281.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
 
-> > if network guys hope known-good driver should call 
-> > __netdev_alloc_skb(dev, length, GFP_ATOMIC|__GFP_NOWARN) instead netdev_alloc_skb,
-> > I think we should make netdev_alloc_skb_nowarn.
+--=-2CQ8bcs6nJ0+IHn5IVvh
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+On Wed, 2008-04-02 at 00:10 -0700, David Miller wrote:
+> From: "Denis V. Lunev" <den@openvz.org>
+> Date: Mon, 31 Mar 2008 19:46:01 +0400
 > 
-> Giving it a proper name like this takes away the indication that this
-> situation is very special.
+> > Hello, Dave!
+> > 
+> > Recently I have seen several issues post to the netdev@ blaming
+> > inclusion of the net_namespace.h from seq_file. This set fixes this
+> > problem after two small cleanups.
+> 
+> All applied, thanks Denis.
+> 
+> I'll push to net-2.6.26 after some build sanity checks.
 
-Hmmm,
+Dave, could you pls conside this addition. This should fix problem
+reported by the Kamalesh Babulal <kamalesh@linux.vnet.ibm.com> recently.
 
-at least, tg3 driver often output the same message on my test environment.
-(because I often run stress test ;)
-I doubt almost driver has the same problem under heavy workload.
+--=-2CQ8bcs6nJ0+IHn5IVvh
+Content-Disposition: attachment; filename=diff-netns-compile.txt
+Content-Type: text/plain; name=diff-netns-compile.txt; charset=KOI8-R
+Content-Transfer-Encoding: 7bit
 
-and I think tg3 is known-good driver too.
-because its alloc failure doesn't cause any bad thing at all.
+[NETNS]: Declare init_net even without CONFIG_NET defined.
 
-Do you favorite the following patch?
+This seems bogus but there is no other way for now. There are several
+placec when networking headers are included even without CONFIG_NET and
+the possibility of the similar reports in the nearest future is great.
 
-
----------------------------------------------------------------------
-We get rather a lot of reports of page allocation warnings coming out of
-tg3.  But this driver is know to handle them properly so let's suppress
-them.
-
-Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-CC: David Miller <davem@davemloft.net>
-CC: Andrew Morton <akpm@linux-foundation.org>
-CC: Michael Chan <mchan@broadcom.com>
----
- drivers/net/tg3.c |   11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
-
-Index: b/drivers/net/tg3.c
-===================================================================
---- a/drivers/net/tg3.c 2008-03-14 21:38:12.000000000 +0900
-+++ b/drivers/net/tg3.c 2008-04-02 18:54:15.000000000 +0900
-@@ -307,6 +307,11 @@ static const struct {
-        { "interrupt test (offline)" },
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+----
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 6c9a48a..0ab62ed 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -60,11 +60,12 @@ struct net {
  };
-
-+static inline void *tg3_alloc_skb(struct net_device *dev, unsigned int length)
-+{
-+       return __netdev_alloc_skb(dev, length, GFP_ATOMIC|__GFP_NOWARN);
-+}
+ 
+ 
+-#ifdef CONFIG_NET
+ #include <linux/seq_file_net.h>
+ 
+ /* Init's network namespace */
+ extern struct net init_net;
 +
- static void tg3_write32(struct tg3 *tp, u32 off, u32 val)
- {
-        writel(val, tp->regs + off);
-@@ -3437,7 +3442,7 @@ static int tg3_alloc_rx_skb(struct tg3 *
-         * Callers depend upon this behavior and assume that
-         * we leave everything unchanged if we fail.
-         */
--       skb = netdev_alloc_skb(tp->dev, skb_size);
-+       skb = tg3_alloc_skb(tp->dev, skb_size);
-        if (skb == NULL)
-                return -ENOMEM;
-@@ -3609,7 +3614,7 @@ static int tg3_rx(struct tg3 *tp, int bu
-                        tg3_recycle_rx(tp, opaque_key,
-                                       desc_idx, *post_ptr);
++#ifdef CONFIG_NET
+ #define INIT_NET_NS(net_ns) .net_ns = &init_net,
+ 
+ extern struct net *copy_net_ns(unsigned long flags, struct net *net_ns);
 
--                       copy_skb = netdev_alloc_skb(tp->dev, len + 2);
-+                       copy_skb = tg3_alloc_skb(tp->dev, len + 2);
-                        if (copy_skb == NULL)
-                                goto drop_it_no_recycle;
-
-@@ -9370,7 +9375,7 @@ static int tg3_run_loopback(struct tg3 *
-        err = -EIO;
-
-        tx_len = 1514;
--       skb = netdev_alloc_skb(tp->dev, tx_len);
-+       skb = tg3_alloc_skb(tp->dev, tx_len);
-        if (!skb)
-                return -ENOMEM;
-
+--=-2CQ8bcs6nJ0+IHn5IVvh--
 
