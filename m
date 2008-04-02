@@ -1,57 +1,41 @@
-From: Dan Noe <dpn@isomerica.net>
-Subject: [PATCH] cxgb3: Fix __must_check warning with dev_dbg.
-Date: Wed,  2 Apr 2008 07:50:04 -0400
-Message-ID: <12071370042107-git-send-email-dpn@isomerica.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH net-2.6.26] netlink: make socket filters work on netlink
+Date: Wed, 02 Apr 2008 08:01:07 -0400
+Message-ID: <1207137667.4451.143.camel@localhost>
+References: <47EAAFEC.6000805@trash.net> <20080331123311.64e4ca37@extreme>
+	 <47F13E43.2040404@trash.net>
+	 <20080331.130757.199769025.davem@davemloft.net>
+	 <47F1467F.2080407@trash.net> <1207000143.4424.167.camel@localhost>
+	 <47F22211.5080100@trash.net> <1207058646.4424.218.camel@localhost>
+	 <47F35933.5080305@trash.net>  <20080402112103.GB20815@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dan Noe <dpn@isomerica.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from colobus.isomerica.net ([216.93.242.10]:34671 "EHLO
-	colobus.isomerica.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753950AbYDBLyc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 07:54:32 -0400
-In-Reply-To: 47F34ECC.7040905@redhat.com
-References: 47F34ECC.7040905@redhat.com
+Received: from wx-out-0506.google.com ([66.249.82.227]:53526 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752846AbYDBMBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 08:01:11 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so2811574wxd.4
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2008 05:01:10 -0700 (PDT)
+In-Reply-To: <20080402112103.GB20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ix the warning:
-drivers/net/cxgb3/cxgb3_main.c: In function =E2=80=98offload_open=E2=80=
-=99:
-drivers/net/cxgb3/cxgb3_main.c:936: warning: ignoring return value of
- =E2=80=98sysfs_create_group=E2=80=99, declared with attribute warn_unu=
-sed_result
+On Wed, 2008-02-04 at 13:21 +0200, Thomas Graf wrote:
 
-Now the return value is checked; if sysfs_create_group() returns failur=
-e,
-a warning is printed using dev_dbg, and the code continues as before.  =
-Use
-of dev_dbg ensures printk is not needlessly included unless desired for
-debugging.
+> Probably fixable though.
 
-Signed-off-by: Dan Noe <dpn@isomerica.net>
----
- drivers/net/cxgb3/cxgb3_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+One way "i fixed it" was removed by Alexey in commit:
+28633514afd68afa77ed2fa34fa53626837bf2d5
 
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_m=
-ain.c
-index fd2e05b..0ddc34a 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -1014,8 +1014,8 @@ static int offload_open(struct net_device *dev)
- 		     adapter->port[0]->mtu : 0xffff);
- 	init_smt(adapter);
-=20
--	/* Never mind if the next step fails */
--	sysfs_create_group(&tdev->lldev->dev.kobj, &offload_attr_group);
-+	if (sysfs_create_group(&tdev->lldev->dev.kobj, &offload_attr_group))
-+		dev_dbg(&dev->dev, ": cannot create sysfs group\n");
-=20
- 	/* Call back all registered clients */
- 	cxgb3_add_clients(tdev);
---=20
-1.5.2.5
+Note: Alexey is right of course.
+
+cheers,
+jamal
 
