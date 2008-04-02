@@ -1,39 +1,39 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: 2.6.25-rc6-git2: warn_on_slowpath for tcp_simple_retransmit
-Date: Wed, 2 Apr 2008 11:10:38 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0804021110190.10371@wrl-59.cs.helsinki.fi>
-References: <5a4c581d0804011528g786550c5sfd6bf90c0c37706@mail.gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PING^2] [PATCH] srandom32 fixes for networking
+Date: Wed, 2 Apr 2008 10:21:03 +0200
+Message-ID: <20080402082103.GN29105@one.firstfloor.org>
+References: <20080401113408.GA625@basil.nowhere.org> <20080402.001824.161259886.davem@davemloft.net> <20080402075011.GL29105@one.firstfloor.org> <20080402.010324.121433616.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Alessandro Suardi <alessandro.suardi@gmail.com>
+Cc: andi@firstfloor.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:35631 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751685AbYDBIKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 04:10:40 -0400
-In-Reply-To: <5a4c581d0804011528g786550c5sfd6bf90c0c37706@mail.gmail.com>
+Received: from one.firstfloor.org ([213.235.205.2]:42005 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752243AbYDBIRN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 04:17:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20080402.010324.121433616.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2 Apr 2008, Alessandro Suardi wrote:
-
-> Found this in my FC6-based bittorrent box (K7-800 running
->  a 2.6.25-rc6-git2 kernel) this evening.
+On Wed, Apr 02, 2008 at 01:03:24AM -0700, David Miller wrote:
+> From: Andi Kleen <andi@firstfloor.org>
+> Date: Wed, 2 Apr 2008 09:50:11 +0200
 > 
-> The kernel was upgraded two weeks ago to fix the bug
->  in which an USB VIA driver hammered the PCI bus
->  causing ATA disk performance to drop, and has been
->  running since then (it still is).
+> > Can you send me your config please? I don't see any build problem
+> > here with the patch on top of -rc7-git something on either i386 nor x86-64.
 > 
-> So it's actually 2.6.25-rc6-git2 plus patch as in here
-> http://www.gossamer-threads.com/lists/linux/kernel/895506#895506
-> 
-> If there's anything useful I can do, just ask. Thanks !
+> I found it with "git grep srandom32", I guess I'm quite old school in
+> that I actually check the tree when interfaces are being changed.
 
-Can you reproduce?
+Ah I see the problem now.  The patch requires 
 
--- 
- i.
+ftp://firstfloor.org/pub/ak/misc/patches/pageattr-own-random
+
+applied first to remove this reference. Sorry should 
+have made that more clear.  The original post had both
+patches, but in the reposts the reference to the dependency
+got dropped somehow, sorry.
+
+-Andi
