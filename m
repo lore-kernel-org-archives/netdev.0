@@ -1,33 +1,37 @@
-From: Sebastian Siewior <netdev@ml.breakpoint.cc>
-Subject: Re: [PATCH / RFC 0/2] spinlocks fixup in fec / m68knommu driver
-Date: Wed, 2 Apr 2008 13:11:12 +0200
-Message-ID: <20080402111112.GA11054@Chamillionaire.breakpoint.cc>
-References: <20080327140041.072611004@linutronix.de> <47EDA791.4090402@pobox.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-2.6.26] netlink: make socket filters work on netlink
+Date: Wed, 2 Apr 2008 13:21:03 +0200
+Message-ID: <20080402112103.GB20815@postel.suug.ch>
+References: <47EAAFEC.6000805@trash.net> <20080331123311.64e4ca37@extreme> <47F13E43.2040404@trash.net> <20080331.130757.199769025.davem@davemloft.net> <47F1467F.2080407@trash.net> <1207000143.4424.167.camel@localhost> <47F22211.5080100@trash.net> <1207058646.4424.218.camel@localhost> <47F35933.5080305@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Sebastian Siewior <bigeasy@linutronix.de>, uclinux-dev@uclinux.org,
-	netdev@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, David Miller <davem@davemloft.net>,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:39367 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753218AbYDBLLY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2008 07:11:24 -0400
+Received: from postel.suug.ch ([194.88.212.233]:47201 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753073AbYDBLUn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Apr 2008 07:20:43 -0400
 Content-Disposition: inline
-In-Reply-To: <47EDA791.4090402@pobox.com>
+In-Reply-To: <47F35933.5080305@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Jeff Garzik | 2008-03-28 22:21:05 [-0400]:
+* Patrick McHardy <kaber@trash.net> 2008-04-02 12:00
+> jamal wrote:
+> >On Tue, 2008-01-04 at 13:52 +0200, Patrick McHardy wrote:
+> >
+> >>Isn't that what nlmsg_pid already contains?
+> >
+> >would work only on the case of user<->user.
+> >On kernel->user it is supposed to be owned by the kernel and set to 0.
+> 
+> 
+> No, in the case of events its supposed to be set to the pid of the
+> socket that caused the event. Check out qdisc_notify() or rtmsg_ifa()
+> for example.
 
-> Sebastian Siewior wrote:
->> I got into this after turning on spinlock debugging.
->> Jeff: The dev->hard_start_xmit callback is always called from softirq
->> context so it is save to use spin_lock_irq(), right?
->> Greg: The isr (fec_enet_rx()) calls three functions. All
->> but fec_enet_rx() are grabbing the spinlock. Is this on purpose?
-
-Jeff please drop that one, I form a new patch just located another BUG.
-That one triggers on high load on a non-smp, non-preempt machine.
-
-Sebastian
+Unfortunately in many cases the pid is also set to 0 because the
+information is lost when carrying the event using the notifier
+interface. Probably fixable though.
