@@ -1,59 +1,65 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: GFP_ATOMIC page allocation failures.
-Date: Thu, 03 Apr 2008 14:20:03 -0400
-Message-ID: <47F51FD3.604@garzik.org>
-References: <20080401235609.GA6947@codemonkey.org.uk> <20080402103355.77ef22ff.akpm@linux-foundation.org> <47F3CE10.1060903@garzik.org> <200804031657.43895.nickpiggin@yahoo.com.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC] Change mii_bus id field to a string
+Date: Thu, 3 Apr 2008 20:26:04 +0100
+Message-ID: <20080403192603.GM21637@solarflare.com>
+References: <1207176592-4224-1-git-send-email-afleming@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Chris Snook <csnook@redhat.com>,
-	Dave Jones <davej@codemonkey.org.uk>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Nick Piggin <nickpiggin@yahoo.com.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, ncase@xes-inc.com
+To: Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49546 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756953AbYDCSUR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Apr 2008 14:20:17 -0400
-In-Reply-To: <200804031657.43895.nickpiggin@yahoo.com.au>
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:51585 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755100AbYDCT0P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 15:26:15 -0400
+Content-Disposition: inline
+In-Reply-To: <1207176592-4224-1-git-send-email-afleming@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nick Piggin wrote:
-> On Thursday 03 April 2008 05:18, Jeff Garzik wrote:
-> 
->> Turning to Nick's comment,
->>
->>> It's still actually nice to know how often it is happening even for
->>> these known good sites because too much can indicate a problem and
->>> that you could actually bring performance up by tuning some things.
->> then create a counter or acculuation buffer somewhere.
->>
->> We don't need spew every time there is memory pressure of this magnitude.
-> 
-> Not a complete solution. Counter would be nice, but you need backtraces
-> and want a way to more proactively warn the user/tester/developer.
-> 
-> I agree that I don't exactly like adding nowarns around, and I don't think
-> places like driver writers should have to know about this stuff.
-> 
-> 
->> IMO there are much better ways than printk(), to inform tasks, and
->> humans, of allocation failures.
-> 
-> I think with a tweaked warning message, a ratelimited printk is OK.
+Andy Fleming wrote:
+> diff --git a/include/linux/phy.h b/include/linux/phy.h
+> index 5e43ae7..92a4829 100644
+> --- a/include/linux/phy.h
+> +++ b/include/linux/phy.h
+> @@ -63,8 +63,6 @@ typedef enum {
+>  	PHY_INTERFACE_MODE_RTBI
+>  } phy_interface_t;
+>  
+> -#define MII_BUS_MAX 4
+> -
+>  
+>  #define PHY_INIT_TIMEOUT	100000
+>  #define PHY_STATE_TIME		1
+> @@ -74,20 +72,30 @@ typedef enum {
+>  #define PHY_MAX_ADDR	32
+>  
+>  /* Used when trying to connect to a specific phy (mii bus id:phy device id) */
+> -#define PHY_ID_FMT "%x:%02x"
+> +#define PHY_ID_FMT "%s:%02x"
+> +
+> +/*
+> + * Need to be a little smaller than phydev->dev.bus_id to leave room
+> + * for the ":%02x"
+> + */
+> +#define MII_BUS_ID_SIZE	BUS_ID_SIZE - 3
 
-No objections here, and agreed on all points.
+The macro's definition should be parenthesised.
 
-Though IMO adding __GFP_NOWARN to netdev_alloc_skb() falls into that 
-category (should not generally be in a driver or driver API).
+>  
+> -/* The Bus class for PHYs.  Devices which provide access to
+> - * PHYs should register using this structure */
+> +/*
+> + * The Bus class for PHYs.  Devices which provide access to
+> + * PHYs should register using this structure
+> + */ 
 
-	Jeff
+I'm not sure why you reformatted this and other comments.  If you really
+think it's necessary to do that, you should probably post a separate patch
+rather than combining it with this functional change.
 
+Ben.
 
-
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
