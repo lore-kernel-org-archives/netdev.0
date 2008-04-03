@@ -1,67 +1,26 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-2.6.26] [DCCP]: Use snmp_mib_{init,free}().
-Date: Fri, 04 Apr 2008 00:16:11 +0900 (JST)
-Message-ID: <20080404.001611.118922084.yoshfuji@linux-ipv6.org>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH net-2.6.26] [DCCP]: Use snmp_mib_{init,free}().
+Date: Thu, 3 Apr 2008 12:36:05 -0300
+Message-ID: <20080403153605.GA14630@ghostprotocols.net>
+References: <20080404.001611.118922084.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:60299 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756717AbYDCPOf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 11:14:35 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:35528 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755995AbYDCPgO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Apr 2008 11:36:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20080404.001611.118922084.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Em Fri, Apr 04, 2008 at 12:16:11AM +0900, YOSHIFUJI Hideaki / =E5=90=89=
+=E8=97=A4=E8=8B=B1=E6=98=8E escreveu:
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
----
-diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index e3f5d37..d534cdf 100644
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -1010,33 +1010,14 @@ void dccp_shutdown(struct sock *sk, int how)
- 
- EXPORT_SYMBOL_GPL(dccp_shutdown);
- 
--static int __init dccp_mib_init(void)
-+static inline int dccp_mib_init(void)
- {
--	int rc = -ENOMEM;
--
--	dccp_statistics[0] = alloc_percpu(struct dccp_mib);
--	if (dccp_statistics[0] == NULL)
--		goto out;
--
--	dccp_statistics[1] = alloc_percpu(struct dccp_mib);
--	if (dccp_statistics[1] == NULL)
--		goto out_free_one;
--
--	rc = 0;
--out:
--	return rc;
--out_free_one:
--	free_percpu(dccp_statistics[0]);
--	dccp_statistics[0] = NULL;
--	goto out;
--
-+	return snmp_mib_init((void**)dccp_statistics, sizeof(struct dccp_mib));
- }
- 
--static void dccp_mib_exit(void)
-+static inline void dccp_mib_exit(void)
- {
--	free_percpu(dccp_statistics[0]);
--	free_percpu(dccp_statistics[1]);
--	dccp_statistics[0] = dccp_statistics[1] = NULL;
-+	snmp_mib_free((void**)dccp_statistics);
- }
- 
- static int thash_entries;
-
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
