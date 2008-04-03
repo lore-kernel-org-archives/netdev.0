@@ -1,52 +1,50 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: Re: Three TCP/IP warnings in 2.6.25-rc7-git1
-Date: Thu, 3 Apr 2008 08:56:07 +0300
-Message-ID: <20080403055435.M45441@visp.net.lb>
-References: <47F15200.3060706@linux.intel.com> <47F46945.40500@linux.intel.com> <20080402.222846.92587028.davem@davemloft.net>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Subject: Re: GFP_ATOMIC page allocation failures.
+Date: Thu, 3 Apr 2008 16:57:43 +1100
+Message-ID: <200804031657.43895.nickpiggin@yahoo.com.au>
+References: <20080401235609.GA6947@codemonkey.org.uk> <20080402103355.77ef22ff.akpm@linux-foundation.org> <47F3CE10.1060903@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset=koi8-r
-Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi
-To: David Miller <davem@davemloft.net>, arjan@linux.intel.com
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Chris Snook <csnook@redhat.com>,
+	Dave Jones <davej@codemonkey.org.uk>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:34442 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757818AbYDCF4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 01:56:16 -0400
-In-Reply-To: <20080402.222846.92587028.davem@davemloft.net>
+Received: from smtp113.mail.mud.yahoo.com ([209.191.84.66]:27893 "HELO
+	smtp113.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757366AbYDCF5u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 01:57:50 -0400
+In-Reply-To: <47F3CE10.1060903@garzik.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I can reproduce it during one day on my loaded proxies. I have:
+On Thursday 03 April 2008 05:18, Jeff Garzik wrote:
 
-[223178.376188] WARNING: at net/ipv4/tcp_input.c:2532 tcp_ack+0xd83/0x17bd()
-and
-[273139.505308] WARNING: at net/ipv4/tcp_input.c:2173
-tcp_mark_head_lost+0x11e/0x126()
+> Turning to Nick's comment,
+>
+> > It's still actually nice to know how often it is happening even for
+> > these known good sites because too much can indicate a problem and
+> > that you could actually bring performance up by tuning some things.
+>
+> then create a counter or acculuation buffer somewhere.
+>
+> We don't need spew every time there is memory pressure of this magnitude.
 
-This two... maybe third, but i didn't notice it yet.
+Not a complete solution. Counter would be nice, but you need backtraces
+and want a way to more proactively warn the user/tester/developer.
 
-On Wed, 02 Apr 2008 22:28:46 -0700 (PDT), David Miller wrote
-> From: Arjan van de Ven <arjan@linux.intel.com>
-> Date: Wed, 02 Apr 2008 22:21:09 -0700
-> 
-> > It would be not so nice to ship a 2.6.25 that triggers these frequently,
-> > it has the risk of causing many user bugreports to this list and other
-> > places...
-> 
-> I wouldn't call it frequently, on at least an individual basis,
-> because nobody we try to get feedback from can reproduce this
-> reliably.  That's the only reason this isn't fixed yet, despite
-> all of Ilpo's efforts.
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I agree that I don't exactly like adding nowarns around, and I don't think
+places like driver writers should have to know about this stuff.
 
 
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
+> IMO there are much better ways than printk(), to inform tasks, and
+> humans, of allocation failures.
 
+I think with a tweaked warning message, a ratelimited printk is OK.
