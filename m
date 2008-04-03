@@ -1,44 +1,58 @@
-From: Jonas Bonn <jonas@southpole.se>
-Subject: struct pci_device_id cleanups
-Date: Thu, 03 Apr 2008 08:48:51 +0200
-Message-ID: <47F47DD3.8090402@southpole.se>
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: Re: [PATCH 0/5] fixup locking on m68knommu fec
+Date: Thu, 03 Apr 2008 16:54:06 +1000
+Message-ID: <47F47F0E.9030803@snapgear.com>
+References: <20080402204417.597098190@linutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jgarzik@pobox.com
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	uclinux-dev@uclinux.org
+To: Sebastian Siewior <bigeasy@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.southpole.se ([193.12.106.18]:40173 "EHLO
-	mail.southpole.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758096AbYDCGsx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 02:48:53 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by mail.southpole.se (Postfix) with SMTP id C6FF9A0013
-	for <netdev@vger.kernel.org>; Thu,  3 Apr 2008 08:48:51 +0200 (CEST)
+Received: from rex.snapgear.com ([203.143.235.140]:40124 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756850AbYDCGyJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 02:54:09 -0400
+In-Reply-To: <20080402204417.597098190@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Sebastian,
 
-In the "net" branch of my repo, there are a series of changesets that 
-modify the definition of struct pci_device_id to use the macro 
-DEFINE_PCI_DEVICE_TABLE.  All the changesets in the public tree are 
-one-liners of the type:
+Sebastian Siewior wrote:
+> This series basically fixes my locking problem. We have here:
+> #1 the old one which removes some undefined vars.
+> #2 cleans the file with lident. I had trouble reading the code...
+> #3 type def a function pointer so we don't have the long defines
+>    and move the callback after releasing the lock.
+> #4 This one fixes the locking I guess. My mcf5235 did not race anymore
+>    after that one. I saw 0a504779d while forming the patch so I guess
+>    we could revert that one, Greg?
 
--static struct pci_device_id myri10ge_pci_tbl[] = {
-+static DEFINE_PCI_DEVICE_TABLE(myri10ge_pci_tbl) = {
-	...
-
-The change to using this macro has two effects:
-i)  Makes the structure 'const'
-ii)  Puts the structure in section __devinitconst
-
-Both these changes are as per the documentation.
-
-Please pull and review these changes from the "net" branch at:
-
-git://www.southpole.se/~jonas/git/linux.git
-
-Regards,
-Jonas
+Yes, certainly we can.
+I'd like to do some testing on this as well :-)
 
 
+> #5 removes the registration of interrupt handlers & enabling interrupt
+>    sources that are not handled. I stepped into this after I thought that
+>    it is over :) Greg, Should we also remove that part where we enable
+>    the irq controller (I though request_irq() is doing that).
+
+Currently it doesn't. The main sticking point is what to do
+with the hardware based priority setting logic. We don't really
+rely on it, but they need to be set to sane values.
+
+Need to expand the interrupt controller setup code some more
+before we can take that out.
+
+Regards
+Greg
+
+
+
+------------------------------------------------------------------------
+Greg Ungerer  --  Chief Software Dude       EMAIL:     gerg@snapgear.com
+Secure Computing Corporation                PHONE:       +61 7 3435 2888
+825 Stanley St,                             FAX:         +61 7 3891 3630
+Woolloongabba, QLD, 4102, Australia         WEB: http://www.SnapGear.com
