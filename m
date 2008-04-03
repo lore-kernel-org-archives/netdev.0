@@ -1,40 +1,39 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] ibm_newemac: Add support for 460EX/GT-type MAL
-	rx-channel handling
-Date: Fri, 04 Apr 2008 00:10:20 +1100
-Message-ID: <1207228220.10388.323.camel@pasglop>
-References: <1207223110-27281-1-git-send-email-sr@denx.de>
-	 <1207225740.10388.321.camel@pasglop>  <200804031435.39999.sr@denx.de>
-Reply-To: benh@kernel.crashing.org
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Three TCP/IP warnings in 2.6.25-rc7-git1
+Date: Thu, 3 Apr 2008 16:11:13 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0804031517270.21524@wrl-59.cs.helsinki.fi>
+References: <47F15200.3060706@linux.intel.com> <47F46945.40500@linux.intel.com>
+ <20080402.222846.92587028.davem@davemloft.net> <20080403055435.M45441@visp.net.lb>
+ <Pine.LNX.4.64.0804030934040.10964@wrl-59.cs.helsinki.fi>
+ <20080403121337.M42798@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Stefan Roese <sr@denx.de>
+Cc: David Miller <davem@davemloft.net>, arjan@linux.intel.com,
+	Netdev <netdev@vger.kernel.org>
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:54178 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751902AbYDCNLD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Apr 2008 09:11:03 -0400
-In-Reply-To: <200804031435.39999.sr@denx.de>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:48060 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754443AbYDCNLP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 09:11:15 -0400
+In-Reply-To: <20080403121337.M42798@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 3 Apr 2008, Denys Fedoryshchenko wrote:
 
-On Thu, 2008-04-03 at 14:35 +0200, Stefan Roese wrote:
-> On Thursday 03 April 2008, Benjamin Herrenschmidt wrote:
-> > On Thu, 2008-04-03 at 13:45 +0200, Stefan Roese wrote:
-> > > On some 4xx PPC's (e.g. 460EX/GT), the rx channel number is a multiple
-> > > of 8 (e.g. 8 for EMAC1, 16 for EMAC2), but enabling in MAL_RXCASR needs
-> > > the divided by 8 value for the bitmask.
-> >
-> > Sounds ok, but I wonder if we ever have a MAL with more than 8 chans, do
-> > we need to make this shift conditional to some device tree prop ?
-> 
-> I suggest we postpone such a conditional setup until we see such a MAL. OK?
+> I will apply this patch tonight. And will send all output most probably at
+> morning. At the current moment probably expensive things i cannot try, because
+> it is loaded proxy. But after 2-3 days when i will be a bit free - we can try
+> to do them, maybe it will withstand.
 
-Agreed. I got a bit carried away..
-
-Ben.
+IMHO there's no need to take risks currently, lets see what the debug 
+info reveals, it might even show that some (maybe even all because 
+sacktag bugs haven't been seen for a while) fackets_out problems occur 
+for non-SACK TCP, which won't be a problem at all and that one could 
+safely be silenced if so desired...
 
 
+-- 
+ i.
