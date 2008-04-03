@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.25rc7 lockdep trace
-Date: Thu, 03 Apr 2008 13:48:13 -0700 (PDT)
-Message-ID: <20080403.134813.201577998.davem@davemloft.net>
-References: <1206752049.22530.105.camel@johannes.berg>
-	<20080328.180631.91055366.davem@davemloft.net>
-	<1206784948.22530.128.camel@johannes.berg>
+Subject: Re: [PING^3] [PATCH] srandom32 fixes for networking v2
+Date: Thu, 03 Apr 2008 14:07:23 -0700 (PDT)
+Message-ID: <20080403.140723.249778614.davem@davemloft.net>
+References: <20080403203611.GA25305@basil.nowhere.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davej@codemonkey.org.uk, netdev@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: netdev@vger.kernel.org
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40597
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60156
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753217AbYDCUsN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 16:48:13 -0400
-In-Reply-To: <1206784948.22530.128.camel@johannes.berg>
+	by vger.kernel.org with ESMTP id S1755248AbYDCVHX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 17:07:23 -0400
+In-Reply-To: <20080403203611.GA25305@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Sat, 29 Mar 2008 11:02:28 +0100
+From: Andi Kleen <andi@firstfloor.org>
+Date: Thu, 3 Apr 2008 22:36:11 +0200
 
-> However, as I just tried to explain, cancel_work_sync() _is_ safe to run
-> while holding the RTNL because it doesn't need any runqueue lock.
+> srandom32 fixes for networking v2
+> 
+> - Let it update the state of all CPUs. The network stack goes
+> into pains to feed the current IP addresses in, but it is not very
+> effective if that is only done for some random CPU instead of all.
+> So change it to feed bits into all CPUs.  I decided to do that lockless 
+> because well somewhat random results are ok.
+> 
+> v2: Drop rename so that this patch doesn't depend on x86 maintainers
+> 
+> Signed-off-by: Andi Kleen <ak@suse.de>
 
-So in theory we should be able to safely transform
-flush_scheduled_work() calls in network driver close
-methods into cancel_work_sync()?
-
-Could someone prepare that patch?
-
-Thanks.
+Applied, thanks.
