@@ -1,60 +1,34 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: [PING^3] [PATCH] srandom32 fixes for networking v2
-Date: Thu, 3 Apr 2008 22:36:11 +0200
-Message-ID: <20080403203611.GA25305@basil.nowhere.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.25rc7 lockdep trace
+Date: Thu, 03 Apr 2008 13:48:13 -0700 (PDT)
+Message-ID: <20080403.134813.201577998.davem@davemloft.net>
+References: <1206752049.22530.105.camel@johannes.berg>
+	<20080328.180631.91055366.davem@davemloft.net>
+	<1206784948.22530.128.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davej@codemonkey.org.uk, netdev@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out01.alice-dsl.net ([88.44.60.11]:3724 "EHLO
-	smtp-out01.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752988AbYDCUgR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 16:36:17 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40597
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753217AbYDCUsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 16:48:13 -0400
+In-Reply-To: <1206784948.22530.128.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-srandom32 fixes for networking v2
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Sat, 29 Mar 2008 11:02:28 +0100
 
-- Let it update the state of all CPUs. The network stack goes
-into pains to feed the current IP addresses in, but it is not very
-effective if that is only done for some random CPU instead of all.
-So change it to feed bits into all CPUs.  I decided to do that lockless 
-because well somewhat random results are ok.
+> However, as I just tried to explain, cancel_work_sync() _is_ safe to run
+> while holding the RTNL because it doesn't need any runqueue lock.
 
-v2: Drop rename so that this patch doesn't depend on x86 maintainers
+So in theory we should be able to safely transform
+flush_scheduled_work() calls in network driver close
+methods into cancel_work_sync()?
 
-Signed-off-by: Andi Kleen <ak@suse.de>
----
- include/linux/net.h    |    2 +-
- include/linux/random.h |    2 +-
- lib/random32.c         |   19 ++++++++++++-------
- 3 files changed, 14 insertions(+), 9 deletions(-)
+Could someone prepare that patch?
 
-Index: linux/lib/random32.c
-===================================================================
---- linux.orig/lib/random32.c
-+++ linux/lib/random32.c
-@@ -97,13 +97,18 @@ EXPORT_SYMBOL(random32);
-  *	@seed: seed value
-  *
-  *	Add some additional seeding to the random32() pool.
-- *	Note: this pool is per cpu so it only affects current CPU.
-  */
- void srandom32(u32 entropy)
- {
--	struct rnd_state *state = &get_cpu_var(net_rand_state);
--	__set_random32(state, state->s1 ^ entropy);
--	put_cpu_var(state);
-+	int i;
-+	/*
-+	 * No locking on the CPUs, but then somewhat random results are, well,
-+	 * expected.
-+	 */
-+	for_each_possible_cpu (i) {
-+		struct rnd_state *state = &per_cpu(net_rand_state, i);
-+		__set_random32(state, state->s1 ^ entropy);
-+	}
- }
- EXPORT_SYMBOL(srandom32);
- 
+Thanks.
