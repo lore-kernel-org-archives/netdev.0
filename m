@@ -1,32 +1,70 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: Re: Three TCP/IP warnings in 2.6.25-rc7-git1
-Date: Thu, 3 Apr 2008 15:14:41 +0300
-Message-ID: <20080403121337.M42798@visp.net.lb>
-References: <47F15200.3060706@linux.intel.com> <47F46945.40500@linux.intel.com> <20080402.222846.92587028.davem@davemloft.net> <20080403055435.M45441@visp.net.lb> <Pine.LNX.4.64.0804030934040.10964@wrl-59.cs.helsinki.fi>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] ibm_newemac: Add support for 460EX/GT-type MAL
+	rx-channel handling
+Date: Thu, 03 Apr 2008 23:29:00 +1100
+Message-ID: <1207225740.10388.321.camel@pasglop>
+References: <1207223110-27281-1-git-send-email-sr@denx.de>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, arjan@linux.intel.com,
-	Netdev <netdev@vger.kernel.org>
-To: "Ilpo [UTF-8?]=?KOI8-R?Q?J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Stefan Roese <sr@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:37880 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582AbYDCMO5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 08:14:57 -0400
-In-Reply-To: <Pine.LNX.4.64.0804030934040.10964@wrl-59.cs.helsinki.fi>
+Received: from gate.crashing.org ([63.228.1.57]:60488 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751061AbYDCM3j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Apr 2008 08:29:39 -0400
+In-Reply-To: <1207223110-27281-1-git-send-email-sr@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-I will apply this patch tonight. And will send all output most probably at
-morning. At the current moment probably expensive things i cannot try, because
-it is loaded proxy. But after 2-3 days when i will be a bit free - we can try
-to do them, maybe it will withstand.
+On Thu, 2008-04-03 at 13:45 +0200, Stefan Roese wrote:
+> On some 4xx PPC's (e.g. 460EX/GT), the rx channel number is a multiple
+> of 8 (e.g. 8 for EMAC1, 16 for EMAC2), but enabling in MAL_RXCASR needs
+> the divided by 8 value for the bitmask.
 
+Sounds ok, but I wonder if we ever have a MAL with more than 8 chans, do
+we need to make this shift conditional to some device tree prop ?
 
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
+> Signed-off-by: Stefan Roese <sr@denx.de>
+> ---
+>  drivers/net/ibm_newemac/mal.c |   16 ++++++++++++++++
+>  1 files changed, 16 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ibm_newemac/mal.c b/drivers/net/ibm_newemac/mal.c
+> index 6869f08..fb9c9eb 100644
+> --- a/drivers/net/ibm_newemac/mal.c
+> +++ b/drivers/net/ibm_newemac/mal.c
+> @@ -136,6 +136,14 @@ void mal_enable_rx_channel(struct mal_instance *mal, int channel)
+>  {
+>  	unsigned long flags;
+>  
+> +	/*
+> +	 * On some 4xx PPC's (e.g. 460EX/GT), the rx channel is a multiple
+> +	 * of 8, but enabling in MAL_RXCASR needs the divided by 8 value
+> +	 * for the bitmask
+> +	 */
+> +	if (!(channel % 8))
+> +		channel >>= 3;
+> +
+>  	spin_lock_irqsave(&mal->lock, flags);
+>  
+>  	MAL_DBG(mal, "enable_rx(%d)" NL, channel);
+> @@ -148,6 +156,14 @@ void mal_enable_rx_channel(struct mal_instance *mal, int channel)
+>  
+>  void mal_disable_rx_channel(struct mal_instance *mal, int channel)
+>  {
+> +	/*
+> +	 * On some 4xx PPC's (e.g. 460EX/GT), the rx channel is a multiple
+> +	 * of 8, but enabling in MAL_RXCASR needs the divided by 8 value
+> +	 * for the bitmask
+> +	 */
+> +	if (!(channel % 8))
+> +		channel >>= 3;
+> +
+>  	set_mal_dcrn(mal, MAL_RXCARR, MAL_CHAN_MASK(channel));
+>  
+>  	MAL_DBG(mal, "disable_rx(%d)" NL, channel);
 
