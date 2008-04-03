@@ -1,94 +1,236 @@
 From: Greg Ungerer <gerg@snapgear.com>
-Subject: Re: [PATCH 1/5] fec: kill warnings
-Date: Thu, 03 Apr 2008 16:30:48 +1000
-Message-ID: <47F47998.1080702@snapgear.com>
-References: <20080402204417.597098190@linutronix.de> <20080402210103.046161355@linutronix.de>
+Subject: Re: [PATCH 5/5] m68knommu: dont allocate unused
+	interrupts
+Date: Thu, 03 Apr 2008 16:47:58 +1000
+Message-ID: <47F47D9E.3080901@snapgear.com>
+References: <20080402204417.597098190@linutronix.de>
+	<20080402210104.745627947@linutronix.de>
+Reply-To: uClinux development list <uclinux-dev@uclinux.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	uclinux-dev@uclinux.org
+Cc: netdev@vger.kernel.org,
+	Sebastian Siewior <sebastian@linutronix.de>,
+	Jeff Garzik <jgarzik@pobox.com>, uclinux-dev@uclinux.org
 To: Sebastian Siewior <bigeasy@linutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.snapgear.com ([203.143.235.140]:38022 "EHLO
-	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757659AbYDCGav (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 02:30:51 -0400
-In-Reply-To: <20080402210103.046161355@linutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <uclinux-dev-bounces@uclinux.org>
+In-Reply-To: <20080402210104.745627947@linutronix.de>
+List-Unsubscribe: <http://mailman.uclinux.org/mailman/listinfo/uclinux-dev>,
+	<mailto:uclinux-dev-request@uclinux.org?subject=unsubscribe>
+List-Archive: <http://mailman.uclinux.org/pipermail/uclinux-dev>
+List-Post: <mailto:uclinux-dev@uclinux.org>
+List-Help: <mailto:uclinux-dev-request@uclinux.org?subject=help>
+List-Subscribe: <http://mailman.uclinux.org/mailman/listinfo/uclinux-dev>,
+	<mailto:uclinux-dev-request@uclinux.org?subject=subscribe>
+Sender: uclinux-dev-bounces@uclinux.org
+Errors-To: uclinux-dev-bounces@uclinux.org
+List-Id: netdev.vger.kernel.org
 
 Hi Sebastian,
 
 Sebastian Siewior wrote:
-> linux-2.6-mk68/drivers/net/fec.c: In function 'fec_enet_module_init':
-> linux-2.6-mk68/drivers/net/fec.c:2627: warning: unused variable 'j'
-> linux-2.6-mk68/drivers/net/fec.c: At top level:
-> linux-2.6-mk68/drivers/net/fec.c:2136: warning: 'mii_link_interrupt' defined but not used
+> After fixing (hopefully) fixing locking I run into this:
+> |irq 88: nobody cared (try booting with the "irqpoll" option)
+> |Stack from 00214b74:
+> |        00214b88 00047940 00179b88 00046c36 00179b88 00214bc8 00047b20 00000058
+> |        00179b88 00000000 00000058 00179bb8 002cdf40 001415ba 00242000 0014163e
+> |        00179b88 00046c36 0014163e 000479a6 00179b88 00214bfc 00046da8 00000058
+> |        00179b88 00000000 00000000 00241c00 00247484 40001000 002473e0 002cf080
+> |        00247000 002334ac 00214c0c 00020a56 00000058 002cf088 00214c58 000238a6
+> |        00000058 00214c1c ffff9c00 002cf088 00241c00 00247484 40001000 00214000
+> |Call Trace:
+> | [00047940] __report_bad_irq+0x32/0x98
+> | [00047b20] note_interrupt+0x17a/0x28e
+> | [00046da8] __do_IRQ+0xe4/0x13a
+> | [00020a56] do_IRQ+0x26/0x3c
+> | [000238a6] inthandler+0x6a/0x74
+> | [000c7da0] fec_enet_start_xmit+0xc0/0x154
+> | [000ef11e] dev_hard_start_xmit+0x152/0x268
+> | [000fcba4] __qdisc_run+0x158/0x1e0
+> | [000f1cb6] dev_queue_xmit+0x218/0x2de
+> | [0010a284] ip_finish_output+0xe8/0x2c4
+> | [0010a508] ip_output+0x7a/0x86
+> | [001097bc] ip_push_pending_frames+0x1d4/0x3bc
+> | [00129d5e] icmp_push_reply+0xda/0x106
+> | [00129f40] icmp_reply+0x11c/0x1e4
+> | [0012a49a] icmp_echo+0x4a/0x50
+> | [0012a166] icmp_rcv+0x15e/0x174
+> | [00105e7c] ip_local_deliver+0xac/0x16a
+> | [001061ae] ip_rcv+0x274/0x4b6
+> | [000eeb4e] netif_receive_skb+0x166/0x232
+> | [000f1926] process_backlog+0x74/0x104
+> | [000f13d4] net_rx_action+0xac/0x188
+> | [0002e2b0] __do_softirq+0x84/0xae
+> | [0002e316] do_softirq+0x3c/0x40
+> | [0002e664] ksoftirqd+0x66/0xf0
+> | [0003cae2] kthread+0x64/0x80
+> | [00020ce8] kernel_thread+0x2a/0x3a
+> |
+> |handlers:
+> |[<000c710c>] (fec_enet_interrupt+0x0/0x426)
+> |Disabling IRQ #88
 > 
-> Signed-off-by: Sebastian Siewior <bigeasy@linutronix.de>
-> --- a/drivers/net/fec.c
-> +++ b/drivers/net/fec.c
-> @@ -67,6 +67,11 @@
->  #define	FEC_MAX_PORTS	1
->  #endif
->  
-> +#if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
-> +	defined(CONFIG_M520x) || defined(CONFIG_M532x)
-> +#define DONT_NEED_mii_link_interrupt
+> This is because we register & enable way more interrupt sources than we
+> actually handle. FEC_ENET_RXF (packet received), FEC_ENET_TXF (packet
+> trasmitted) and FEC_ENET_MII (mii command done) are handled by the ISR.
+> In my case FEC_ENET_RXB caused this because it was not handled, registered and
+> rarely the only flag in the status reg. Registering an interrupt source without
+> enabling it is also pointless.
+> This patch removes them all except the three that are handled by the isr.
 
-I think using normal positive logic would be clearer, eg:
-
-   HAVE_mii_link_interupt
-
-Very few of the boards I have come across with the FEC silicon
-actually hook up the MII interrupt, so the list of devices that
-have it will be smaller.
+After the last discussions on uclinux-dev about this I have
+a patch virtualy identical to this prepared for inclusion
+in the 2.6.26 merge window.
 
 Regards
 Greg
 
 
 
-> +#endif
-> +
->  /*
->   * Define the fixed address of the FEC hardware.
->   */
-> @@ -1222,7 +1227,7 @@ static phy_info_t const * const phy_info
->  };
+> Signed-off-by: Sebastian Siewior <sebastian@linutronix.de>
+> --- a/drivers/net/fec.c
+> +++ b/drivers/net/fec.c
+> @@ -1257,12 +1257,15 @@ static void fec_request_intrs(struct net
+>  		unsigned short irq;
+>  		irq_handler_t handler;
+>  	} *idp, id[] = {
+> -		{
+> -		"fec(RX)", 86, fec_enet_interrupt}, {
+> -		"fec(TX)", 87, fec_enet_interrupt}, {
+> -		"fec(OTHER)", 88, fec_enet_interrupt}, {
+> -		"fec(MII)", 66, mii_link_interrupt}, {
+> -	NULL},};
+> +		/*
+> +		 * Available but not allocated because not handled:
+> +		 * fec(OTHER) 88
+> +		 */
+> +		{ "fec(RX)", 86, fec_enet_interrupt},
+> +		{ "fec(TX)", 87, fec_enet_interrupt},
+> +		{ "fec(MII)", 66, mii_link_interrupt},
+> +		{ NULL, 0 },
+> +	};
 >  
->  /* ------------------------------------------------------------------------- */
-> -#if !defined(CONFIG_M532x)
-> +#ifndef DONT_NEED_mii_link_interrupt
->  #ifdef CONFIG_RPXCLASSIC
->  static void
->  mii_link_interrupt(void *dev_id);
-> @@ -2126,6 +2131,7 @@ mii_discover_phy(uint mii_reg, struct ne
+>  	/* Setup interrupt handlers. */
+>  	for (idp = id; idp->name; idp++) {
+> @@ -1381,21 +1384,17 @@ static void fec_request_intrs(struct net
+>  		char *name;
+>  		unsigned short irq;
+>  	} *idp, id[] = {
+> -		{
+> -		"fec(TXF)", 23}, {
+> -		"fec(TXB)", 24}, {
+> -		"fec(TXFIFO)", 25}, {
+> -		"fec(TXCR)", 26}, {
+> -		"fec(RXF)", 27}, {
+> -		"fec(RXB)", 28}, {
+> -		"fec(MII)", 29}, {
+> -		"fec(LC)", 30}, {
+> -		"fec(HBERR)", 31}, {
+> -		"fec(GRA)", 32}, {
+> -		"fec(EBERR)", 33}, {
+> -		"fec(BABT)", 34}, {
+> -		"fec(BABR)", 35}, {
+> -	NULL},};
+> +		/*
+> +		 * Available but not allocated because not handled:
+> +		 * fec(TXB) 24, fec(TXFIFO) 25, fec(TXCR) 26, fec(RXB) 28,
+> +		 * fec(LC) 30, fec(HBERR) 31, fec(GRA) 32, fec(EBERR) 33,
+> +		 * fec(BABT) 34, fec(BABR), 35
+> +		 */
+> +		{ "fec(TXF)", 23},
+> +		{ "fec(RXF)", 27},
+> +		{ "fec(MII)", 29},
+> +		{ NULL, 0},
+> +	};
 >  
->  /* This interrupt occurs when the PHY detects a link change.
->  */
-> +#ifndef DONT_NEED_mii_link_interrupt
->  #ifdef CONFIG_RPXCLASSIC
->  static void
->  mii_link_interrupt(void *dev_id)
-> @@ -2148,6 +2154,7 @@ mii_link_interrupt(int irq, void * dev_i
+>  	fep = netdev_priv(dev);
+>  	b = (fep->index) ? 128 : 64;
+> @@ -1559,21 +1558,17 @@ static void fec_request_intrs(struct net
+>  		char *name;
+>  		unsigned short irq;
+>  	} *idp, id[] = {
+> -		{
+> -		"fec(TXF)", 23}, {
+> -		"fec(TXB)", 24}, {
+> -		"fec(TXFIFO)", 25}, {
+> -		"fec(TXCR)", 26}, {
+> -		"fec(RXF)", 27}, {
+> -		"fec(RXB)", 28}, {
+> -		"fec(MII)", 29}, {
+> -		"fec(LC)", 30}, {
+> -		"fec(HBERR)", 31}, {
+> -		"fec(GRA)", 32}, {
+> -		"fec(EBERR)", 33}, {
+> -		"fec(BABT)", 34}, {
+> -		"fec(BABR)", 35}, {
+> -	NULL},};
+> +		/*
+> +		 * Available but not allocated because not handled:
+> +		 * fec(TXB) 24, fec(TXFIFO) 25, fec(TXCR) 26, fec(RXB) 28,
+> +		 * fec(LC) 30, fec(HBERR) 31, fec(GRA) 32, fec(EBERR) 33,
+> +		 * fec(BABT) 34, fec(BABR) 35
+> +		 */
+> +		{ "fec(TXF)", 23},
+> +		{ "fec(RXF)", 27},
+> +		{ "fec(MII)", 29},
+> +		{ NULL, 0},
+> +	};
 >  
->  	return IRQ_HANDLED;
+>  	fep = netdev_priv(dev);
+>  	b = 64 + 13;
+> @@ -1693,21 +1688,17 @@ static void fec_request_intrs(struct net
+>  		char *name;
+>  		unsigned short irq;
+>  	} *idp, id[] = {
+> -		{
+> -		"fec(TXF)", 36}, {
+> -		"fec(TXB)", 37}, {
+> -		"fec(TXFIFO)", 38}, {
+> -		"fec(TXCR)", 39}, {
+> -		"fec(RXF)", 40}, {
+> -		"fec(RXB)", 41}, {
+> -		"fec(MII)", 42}, {
+> -		"fec(LC)", 43}, {
+> -		"fec(HBERR)", 44}, {
+> -		"fec(GRA)", 45}, {
+> -		"fec(EBERR)", 46}, {
+> -		"fec(BABT)", 47}, {
+> -		"fec(BABR)", 48}, {
+> -	NULL},};
+> +		/*
+> +		 * Available but not allocated because not handled:
+> +		 * fec(TXB) 37, fec(TXFIFO) 38, fec(TXCR) 39, fec(RXB) 41,
+> +		 * fec(LC) 43, fec(HBERR) 44, fec(GRA) 45, fec(EBERR) 46,
+> +		 * fec(BABT) 47, fec(BABR) 48
+> +		 */
+> +		{ "fec(TXF)", 36},
+> +		{ "fec(RXF)", 40},
+> +		{ "fec(MII)", 42},
+> +		{ NULL, 0},
+> +	};
+>  
+>  	fep = netdev_priv(dev);
+>  	b = (fep->index) ? 128 : 64;
+> @@ -2503,8 +2494,7 @@ int __init fec_enet_init(struct net_devi
+>  
+>  	/* Clear and enable interrupts */
+>  	fecp->fec_ievent = 0xffc00000;
+> -	fecp->fec_imask = (FEC_ENET_TXF | FEC_ENET_TXB |
+> -			   FEC_ENET_RXF | FEC_ENET_RXB | FEC_ENET_MII);
+> +	fecp->fec_imask = (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII);
+>  
+>  	/* Queue up command to detect the PHY and initialize the
+>  	 * remainder of the interface.
+> @@ -2630,8 +2620,7 @@ static void fec_restart(struct net_devic
+>  
+>  	/* Enable interrupts we wish to service.
+>  	 */
+> -	fecp->fec_imask = (FEC_ENET_TXF | FEC_ENET_TXB |
+> -			   FEC_ENET_RXF | FEC_ENET_RXB | FEC_ENET_MII);
+> +	fecp->fec_imask = (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII);
 >  }
-> +#endif
 >  
->  static int
->  fec_enet_open(struct net_device *dev)
-> @@ -2624,7 +2631,7 @@ fec_stop(struct net_device *dev)
->  static int __init fec_enet_module_init(void)
->  {
->  	struct net_device *dev;
-> -	int i, j, err;
-> +	int i, err;
->  	DECLARE_MAC_BUF(mac);
->  
->  	printk("FEC ENET Version 0.2\n");
+>  static void fec_stop(struct net_device *dev)
 > 
 
 -- 
@@ -97,3 +239,10 @@ Greg Ungerer  --  Chief Software Dude       EMAIL:     gerg@snapgear.com
 Secure Computing Corporation                PHONE:       +61 7 3435 2888
 825 Stanley St,                             FAX:         +61 7 3891 3630
 Woolloongabba, QLD, 4102, Australia         WEB: http://www.SnapGear.com
+_______________________________________________
+uClinux-dev mailing list
+uClinux-dev@uclinux.org
+http://mailman.uclinux.org/mailman/listinfo/uclinux-dev
+This message was resent by uclinux-dev@uclinux.org
+To unsubscribe see:
+http://mailman.uclinux.org/mailman/options/uclinux-dev
