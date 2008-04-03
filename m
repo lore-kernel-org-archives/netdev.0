@@ -1,89 +1,60 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 2/2] ipv4: fib_trie leaf free optimization
-Date: Wed, 2 Apr 2008 21:58:59 -0700
-Message-ID: <20080402215859.7d024d19@extreme>
-References: <20080402215724.4cf5fbf0@extreme>
+Subject: [PATCH 1/2] ipv4: fib_trie remove unused argument
+Date: Wed, 2 Apr 2008 21:57:24 -0700
+Message-ID: <20080402215724.4cf5fbf0@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:47733 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([216.93.170.194]:47731 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751587AbYDCE7L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751198AbYDCE7L (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 3 Apr 2008 00:59:11 -0400
-In-Reply-To: <20080402215724.4cf5fbf0@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoid unneeded test in the case where object to be freed
-has to be a leaf. Don't need to use the generic tnode_free()
-function, instead just setup leaf to be freed.
+The trie pointer is passed down to flush_list and flush_leaf
+but never used.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/net/ipv4/fib_trie.c	2008-04-02 10:50:42.000000000 -0700
-+++ b/net/ipv4/fib_trie.c	2008-04-02 10:50:43.000000000 -0700
-@@ -160,7 +160,6 @@ static void tnode_put_child_reorg(struct
- static struct node *resize(struct trie *t, struct tnode *tn);
- static struct tnode *inflate(struct trie *t, struct tnode *tn);
- static struct tnode *halve(struct trie *t, struct tnode *tn);
--static void tnode_free(struct tnode *tn);
- 
- static struct kmem_cache *fn_alias_kmem __read_mostly;
- static struct kmem_cache *trie_leaf_kmem __read_mostly;
-@@ -334,6 +333,11 @@ static void __leaf_free_rcu(struct rcu_h
- 	kmem_cache_free(trie_leaf_kmem, l);
+--- a/net/ipv4/fib_trie.c	2008-04-02 10:55:44.000000000 -0700
++++ b/net/ipv4/fib_trie.c	2008-04-02 11:01:04.000000000 -0700
+@@ -1665,7 +1665,7 @@ static int fn_trie_delete(struct fib_tab
+ 	return 0;
  }
  
-+static inline void free_leaf(struct leaf *l)
-+{
-+	call_rcu_bh(&l->rcu, __leaf_free_rcu);
-+}
-+
- static void __leaf_info_free_rcu(struct rcu_head *head)
+-static int trie_flush_list(struct trie *t, struct list_head *head)
++static int trie_flush_list(struct list_head *head)
  {
- 	kfree(container_of(head, struct leaf_info, rcu));
-@@ -372,10 +376,9 @@ static void __tnode_free_rcu(struct rcu_
+ 	struct fib_alias *fa, *fa_node;
+ 	int found = 0;
+@@ -1683,7 +1683,7 @@ static int trie_flush_list(struct trie *
+ 	return found;
+ }
  
- static inline void tnode_free(struct tnode *tn)
+-static int trie_flush_leaf(struct trie *t, struct leaf *l)
++static int trie_flush_leaf(struct leaf *l)
  {
--	if (IS_LEAF(tn)) {
--		struct leaf *l = (struct leaf *) tn;
--		call_rcu_bh(&l->rcu, __leaf_free_rcu);
--	} else
-+	if (IS_LEAF(tn))
-+		free_leaf((struct leaf *) tn);
-+	else
- 		call_rcu(&tn->rcu, __tnode_free_rcu);
- }
+ 	int found = 0;
+ 	struct hlist_head *lih = &l->list;
+@@ -1691,7 +1691,7 @@ static int trie_flush_leaf(struct trie *
+ 	struct leaf_info *li = NULL;
  
-@@ -1086,7 +1089,7 @@ static struct list_head *fib_insert_node
- 	li = leaf_info_new(plen);
+ 	hlist_for_each_entry_safe(li, node, tmp, lih, hlist) {
+-		found += trie_flush_list(t, &li->falh);
++		found += trie_flush_list(&li->falh);
  
- 	if (!li) {
--		tnode_free((struct tnode *) l);
-+		free_leaf(l);
- 		return NULL;
- 	}
+ 		if (list_empty(&li->falh)) {
+ 			hlist_del_rcu(&li->hlist);
+@@ -1782,7 +1782,7 @@ static int fn_trie_flush(struct fib_tabl
+ 	int found = 0;
  
-@@ -1122,7 +1125,7 @@ static struct list_head *fib_insert_node
+ 	for (l = trie_firstleaf(t); l; l = trie_nextleaf(l)) {
+-		found += trie_flush_leaf(t, l);
++		found += trie_flush_leaf(l);
  
- 		if (!tn) {
- 			free_leaf_info(li);
--			tnode_free((struct tnode *) l);
-+			free_leaf(l);
- 			return NULL;
- 		}
- 
-@@ -1578,7 +1581,7 @@ static void trie_leaf_remove(struct trie
- 	} else
- 		rcu_assign_pointer(t->trie, NULL);
- 
--	tnode_free((struct tnode *) l);
-+	free_leaf(l);
- }
- 
- /*
-
+ 		if (ll && hlist_empty(&ll->list))
+ 			trie_leaf_remove(t, ll);
