@@ -1,34 +1,34 @@
-From: Stefan Roese <sr@denx.de>
-Subject: Re: [PATCH] ibm_newemac: Add support for 460EX/GT-type MAL  rx-channel handling
-Date: Thu, 3 Apr 2008 14:35:39 +0200
-Message-ID: <200804031435.39999.sr@denx.de>
-References: <1207223110-27281-1-git-send-email-sr@denx.de> <1207225740.10388.321.camel@pasglop>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: 2.6.25-rc8 regression with openswan
+Date: Thu, 03 Apr 2008 14:35:53 +0200
+Message-ID: <47F4CF29.2000104@trash.net>
+References: <BAY103-DAV8D067EC595CECC2C4281CB2F70@phx.gbl> <47F4BD3F.30703@trash.net> <BAY103-DAV6A19A7FE52B2CD3AD1B0EB2F70@phx.gbl> <47F4C833.1020607@trash.net> <BAY103-DAV8C5CABF10D4685C448331B2F70@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: benh@kernel.crashing.org
+Cc: netdev@vger.kernel.org
+To: Marco Berizzi <pupilla@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:58215 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751832AbYDCMfz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 08:35:55 -0400
-In-Reply-To: <1207225740.10388.321.camel@pasglop>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:33054 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752657AbYDCMf6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 08:35:58 -0400
+In-Reply-To: <BAY103-DAV8C5CABF10D4685C448331B2F70@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 03 April 2008, Benjamin Herrenschmidt wrote:
-> On Thu, 2008-04-03 at 13:45 +0200, Stefan Roese wrote:
-> > On some 4xx PPC's (e.g. 460EX/GT), the rx channel number is a multiple
-> > of 8 (e.g. 8 for EMAC1, 16 for EMAC2), but enabling in MAL_RXCASR needs
-> > the divided by 8 value for the bitmask.
->
-> Sounds ok, but I wonder if we ever have a MAL with more than 8 chans, do
-> we need to make this shift conditional to some device tree prop ?
+Marco Berizzi wrote:
+> Patrick McHardy wrote:
+> 
+>> haven't been much patches in this area since -rc4, does
+>> reverting commit df9dcb458 help?
+> 
+> yess, I have reverted that commit:
+> now openswan is happy again.
+> As always, thanks a lot Patrick
 
-I suggest we postpone such a conditional setup until we see such a MAL. OK?
 
-Best regards,
-Stefan
+Thanks, now we just have to figure out whats wrong with
+that commit :)
+
+I'll give it a try myself once the compile finishes.
