@@ -1,33 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: 2.6.25-rc8 regression with openswan
-Date: Thu, 03 Apr 2008 13:19:27 +0200
-Message-ID: <47F4BD3F.30703@trash.net>
-References: <BAY103-DAV8D067EC595CECC2C4281CB2F70@phx.gbl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Marco Berizzi <pupilla@hotmail.com>
+From: Stefan Roese <sr@denx.de>
+Subject: [PATCH] ibm_newemac: Add support for 460EX/GT-type MAL rx-channel handling
+Date: Thu,  3 Apr 2008 13:45:10 +0200
+Message-ID: <1207223110-27281-1-git-send-email-sr@denx.de>
+Cc: benh@kernel.crashing.org
+To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63719 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756128AbYDCLTe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 07:19:34 -0400
-In-Reply-To: <BAY103-DAV8D067EC595CECC2C4281CB2F70@phx.gbl>
+Received: from moutng.kundenserver.de ([212.227.126.183]:52410 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756373AbYDCLp2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 07:45:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marco Berizzi wrote:
-> Hi everybody,
-> 
-> openswan 2.4.12 doesn't work anymore
-> with 2.6.25-rc8: quick mode is failing
-> with this error:
-> 
-> ERROR: netlink response for Add SA esp.8a56fa21@1.1.1.1 included errno
-> 93: Protocol not supported
-> 
-> I have tried both with des3 and aes but
-> I get always the same error.
+On some 4xx PPC's (e.g. 460EX/GT), the rx channel number is a multiple
+of 8 (e.g. 8 for EMAC1, 16 for EMAC2), but enabling in MAL_RXCASR needs
+the divided by 8 value for the bitmask.
 
-What does your policy look like?
+Signed-off-by: Stefan Roese <sr@denx.de>
+---
+ drivers/net/ibm_newemac/mal.c |   16 ++++++++++++++++
+ 1 files changed, 16 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ibm_newemac/mal.c b/drivers/net/ibm_newemac/mal.c
+index 6869f08..fb9c9eb 100644
+--- a/drivers/net/ibm_newemac/mal.c
++++ b/drivers/net/ibm_newemac/mal.c
+@@ -136,6 +136,14 @@ void mal_enable_rx_channel(struct mal_instance *mal, int channel)
+ {
+ 	unsigned long flags;
+ 
++	/*
++	 * On some 4xx PPC's (e.g. 460EX/GT), the rx channel is a multiple
++	 * of 8, but enabling in MAL_RXCASR needs the divided by 8 value
++	 * for the bitmask
++	 */
++	if (!(channel % 8))
++		channel >>= 3;
++
+ 	spin_lock_irqsave(&mal->lock, flags);
+ 
+ 	MAL_DBG(mal, "enable_rx(%d)" NL, channel);
+@@ -148,6 +156,14 @@ void mal_enable_rx_channel(struct mal_instance *mal, int channel)
+ 
+ void mal_disable_rx_channel(struct mal_instance *mal, int channel)
+ {
++	/*
++	 * On some 4xx PPC's (e.g. 460EX/GT), the rx channel is a multiple
++	 * of 8, but enabling in MAL_RXCASR needs the divided by 8 value
++	 * for the bitmask
++	 */
++	if (!(channel % 8))
++		channel >>= 3;
++
+ 	set_mal_dcrn(mal, MAL_RXCARR, MAL_CHAN_MASK(channel));
+ 
+ 	MAL_DBG(mal, "disable_rx(%d)" NL, channel);
+-- 
+1.5.4.5
+
