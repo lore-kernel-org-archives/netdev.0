@@ -1,32 +1,61 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [GIT PULL net-2.6.26] [IPV6] MROUTE: Support multicast routing.
-Date: Thu, 03 Apr 2008 16:31:44 +0900 (JST)
-Message-ID: <20080403.163144.18289606.yoshfuji@linux-ipv6.org>
-References: <147a89290804022314w7968fd47y7de78a9e87c2d289@mail.gmail.com>
-	<20080403.152341.59206559.yoshfuji@linux-ipv6.org>
-	<147a89290804030016x7fc67a6bg56af8ed329c6a544@mail.gmail.com>
+From: Sebastian Siewior <bigeasy@linutronix.de>
+Subject: Re: [PATCH 5/5] m68knommu: dont allocate unused interrupts
+Date: Thu, 3 Apr 2008 09:43:23 +0200
+Message-ID: <20080403074323.GA778@Chamillionaire.breakpoint.cc>
+References: <20080402204417.597098190@linutronix.de> <20080402210104.745627947@linutronix.de> <47F47D9E.3080901@snapgear.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: johnsonzjo@gmail.com
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	uclinux-dev@uclinux.org
+To: Greg Ungerer <gerg@snapgear.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:60268 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759256AbYDCHaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 03:30:08 -0400
-In-Reply-To: <147a89290804030016x7fc67a6bg56af8ed329c6a544@mail.gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:34911 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757304AbYDCHni (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 03:43:38 -0400
+Content-Disposition: inline
+In-Reply-To: <47F47D9E.3080901@snapgear.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <147a89290804030016x7fc67a6bg56af8ed329c6a544@mail.gmail.com> (at Thu, 3 Apr 2008 10:16:41 +0300), "Andy Johnson" <johnsonzjo@gmail.com> says:
+* Greg Ungerer | 2008-04-03 16:47:58 [+1000]:
 
-> Do we have to replace some user space headers so that mcast tools will
-> compile successfully ?
+> Hi Sebastian,
+Hi Greg,
 
-Thanks for the report.
-Not all can be built and pim6sd is the main target so far.
+>> This is because we register & enable way more interrupt sources than we
+>> actually handle. FEC_ENET_RXF (packet received), FEC_ENET_TXF (packet
+>> trasmitted) and FEC_ENET_MII (mii command done) are handled by the ISR.
+>> In my case FEC_ENET_RXB caused this because it was not handled, registered 
+>> and
+>> rarely the only flag in the status reg. Registering an interrupt source 
+>> without
+>> enabling it is also pointless.
+>> This patch removes them all except the three that are handled by the isr.
+>
+> After the last discussions on uclinux-dev about this I have
+> a patch virtualy identical to this prepared for inclusion
+> in the 2.6.26 merge window.
 
---yoshfuji
+So you drop this one. Great. That's why I asked you about a devel tree.
+The latest uclinux patch is linux-2.6.24-uc0.patch.gz which does not
+contain such a fix. The latest dist snapshot patch is from 2008-03-05
+and is about 147 MiB. I took a look at the diffstat
+(9.67 KB/s) - `uClinux-dist-20070130-20080305.diffstat' saved
+and yes, there are some modifications to fec.c but 10KiB/sec take me
+forever. I stared leeching it. The CVS [1] has no linux-2.6 directory.
+Therefore I assumed that is the latest one.
+I've been browsing the mailing list archive and did not find anything
+close to it (I found multicast discussions for instance).
+
+Could please Cc me in future on your m68k patches? I would setup a git
+tree and feed them there. Alternatively I would be pleased if you could
+give me a pointer to your quilt series since I'm obviously not clever
+enough to find it.
+
+[1] http://cvs.uclinux.org/cgi-bin/cvsweb.cgi/uClinux-dist/
+
+> Regards
+> Greg
+
+Sebastian
