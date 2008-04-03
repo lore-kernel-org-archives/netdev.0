@@ -1,177 +1,59 @@
-From: Mandeep Singh Baines <msb@google.com>
-Subject: Re: [PATCH] [ETHTOOL]: Add support for large eeproms
-Date: Thu, 3 Apr 2008 11:00:21 -0700
-Message-ID: <20080403180021.GA5974@google.com>
-References: <1207195123.23161.291.camel@localhost>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: GFP_ATOMIC page allocation failures.
+Date: Thu, 03 Apr 2008 14:20:03 -0400
+Message-ID: <47F51FD3.604@garzik.org>
+References: <20080401235609.GA6947@codemonkey.org.uk> <20080402103355.77ef22ff.akpm@linux-foundation.org> <47F3CE10.1060903@garzik.org> <200804031657.43895.nickpiggin@yahoo.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nil@google.com, thockin@google.com
-To: netdev@vger.kernel.org, jeff@garzik.org, matthew@wil.cx,
-	davem@davemloft.net, joe@perches.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Chris Snook <csnook@redhat.com>,
+	Dave Jones <davej@codemonkey.org.uk>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Nick Piggin <nickpiggin@yahoo.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:43195 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752931AbYDCSAx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 14:00:53 -0400
-Received: from zps77.corp.google.com (zps77.corp.google.com [172.25.146.77])
-	by smtp-out.google.com with ESMTP id m33I0h0v019966
-	for <netdev@vger.kernel.org>; Thu, 3 Apr 2008 19:00:44 +0100
-Received: from gv-out-0910.google.com (gveo2.prod.google.com [10.16.166.2])
-	by zps77.corp.google.com with ESMTP id m33I0PC5030593
-	for <netdev@vger.kernel.org>; Thu, 3 Apr 2008 11:00:42 -0700
-Received: by gv-out-0910.google.com with SMTP id o2so694577gve.3
-        for <netdev@vger.kernel.org>; Thu, 03 Apr 2008 11:00:42 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1207195123.23161.291.camel@localhost>
+Received: from srv5.dvmed.net ([207.36.208.214]:49546 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756953AbYDCSUR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Apr 2008 14:20:17 -0400
+In-Reply-To: <200804031657.43895.nickpiggin@yahoo.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Joe,
-
-Fixed and updated patch. Please take another look.
-
-Regards,
-Mandeep
-
-Joe Perches (joe@perches.com) wrote:
-> On Wed, 2008-04-02 at 19:12 -0700, Mandeep Singh Baines wrote:
-> > diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> > index 1163eb2..54f1004 100644
+Nick Piggin wrote:
+> On Thursday 03 April 2008 05:18, Jeff Garzik wrote:
 > 
-> please run scripts/checkpatch.pl
+>> Turning to Nick's comment,
+>>
+>>> It's still actually nice to know how often it is happening even for
+>>> these known good sites because too much can indicate a problem and
+>>> that you could actually bring performance up by tuning some things.
+>> then create a counter or acculuation buffer somewhere.
+>>
+>> We don't need spew every time there is memory pressure of this magnitude.
 > 
-
-Fixed
-
-> > @@ -329,8 +330,10 @@ static int ethtool_set_eeprom(struct net_device *dev, void __user *useraddr)
-> >  {
-> >  	struct ethtool_eeprom eeprom;
-> >  	const struct ethtool_ops *ops = dev->ethtool_ops;
-> > +	void __user *userbuf = useraddr + sizeof(eeprom);
-> > +	u32 bytes_remaining;
-> >  	u8 *data;
-> > -	int ret;
-> > +	int ret = 0;
+> Not a complete solution. Counter would be nice, but you need backtraces
+> and want a way to more proactively warn the user/tester/developer.
 > 
-> You don't need to initialize this.
+> I agree that I don't exactly like adding nowarns around, and I don't think
+> places like driver writers should have to know about this stuff.
 > 
+> 
+>> IMO there are much better ways than printk(), to inform tasks, and
+>> humans, of allocation failures.
+> 
+> I think with a tweaked warning message, a ratelimited printk is OK.
 
-Fixed
+No objections here, and agreed on all points.
 
----
-Currently, it is not possible to read/write to an eeprom larger than
-128k in size because the buffer used for temporarily storing the
-eeprom contents is allocated using kmalloc. kmalloc can only allocate
-a maximum of 128k depending on architecture.
+Though IMO adding __GFP_NOWARN to netdev_alloc_skb() falls into that 
+category (should not generally be in a driver or driver API).
 
-Modified ethtool_get/set_eeprom to only allocate a page of memory and
-then copy the eeprom a page at a time.
+	Jeff
 
-Signed-off-by: Mandeep Singh Baines <msb@google.com>
----
- net/core/ethtool.c |   57 +++++++++++++++++++++++++++++----------------------
- 1 files changed, 32 insertions(+), 25 deletions(-)
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 1163eb2..45d5f35 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -284,6 +284,8 @@ static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
- {
- 	struct ethtool_eeprom eeprom;
- 	const struct ethtool_ops *ops = dev->ethtool_ops;
-+	void __user *userbuf = useraddr + sizeof(eeprom);
-+	u32 bytes_remaining;
- 	u8 *data;
- 	int ret;
- 
-@@ -301,26 +303,26 @@ static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
- 	if (eeprom.offset + eeprom.len > ops->get_eeprom_len(dev))
- 		return -EINVAL;
- 
--	data = kmalloc(eeprom.len, GFP_USER);
-+	data = kmalloc(PAGE_SIZE, GFP_USER);
- 	if (!data)
- 		return -ENOMEM;
- 
--	ret = -EFAULT;
--	if (copy_from_user(data, useraddr + sizeof(eeprom), eeprom.len))
--		goto out;
--
--	ret = ops->get_eeprom(dev, &eeprom, data);
--	if (ret)
--		goto out;
-+	bytes_remaining = eeprom.len;
-+	while (bytes_remaining > 0) {
-+		eeprom.len = min(bytes_remaining, (u32)PAGE_SIZE);
- 
--	ret = -EFAULT;
--	if (copy_to_user(useraddr, &eeprom, sizeof(eeprom)))
--		goto out;
--	if (copy_to_user(useraddr + sizeof(eeprom), data, eeprom.len))
--		goto out;
--	ret = 0;
-+		ret = ops->get_eeprom(dev, &eeprom, data)
-+		if (ret)
-+			break;
-+		ret = -EFAULT;
-+		if (copy_to_user(userbuf, data, eeprom.len))
-+			break;
-+		ret = 0;
-+		userbuf += eeprom.len;
-+		eeprom.offset += eeprom.len;
-+		bytes_remaining -= eeprom.len;
-+	}
- 
-- out:
- 	kfree(data);
- 	return ret;
- }
-@@ -329,6 +331,8 @@ static int ethtool_set_eeprom(struct net_device *dev, void __user *useraddr)
- {
- 	struct ethtool_eeprom eeprom;
- 	const struct ethtool_ops *ops = dev->ethtool_ops;
-+	void __user *userbuf = useraddr + sizeof(eeprom);
-+	u32 bytes_remaining;
- 	u8 *data;
- 	int ret;
- 
-@@ -346,22 +350,25 @@ static int ethtool_set_eeprom(struct net_device *dev, void __user *useraddr)
- 	if (eeprom.offset + eeprom.len > ops->get_eeprom_len(dev))
- 		return -EINVAL;
- 
--	data = kmalloc(eeprom.len, GFP_USER);
-+	data = kmalloc(PAGE_SIZE, GFP_USER);
- 	if (!data)
- 		return -ENOMEM;
- 
--	ret = -EFAULT;
--	if (copy_from_user(data, useraddr + sizeof(eeprom), eeprom.len))
--		goto out;
--
--	ret = ops->set_eeprom(dev, &eeprom, data);
--	if (ret)
--		goto out;
-+	bytes_remaining = eeprom.len;
-+	while (bytes_remaining > 0) {
-+		eeprom.len = min(bytes_remaining, (u32)PAGE_SIZE);
- 
--	if (copy_to_user(useraddr + sizeof(eeprom), data, eeprom.len))
- 		ret = -EFAULT;
-+		if (copy_from_user(data, userbuf, eeprom.len))
-+			break;
-+		ret = ops->set_eeprom(dev, &eeprom, data);
-+		if (ret)
-+			break;
-+		userbuf += eeprom.len;
-+		eeprom.offset += eeprom.len;
-+		bytes_remaining -= eeprom.len;
-+	}
- 
-- out:
- 	kfree(data);
- 	return ret;
- }
--- 
-1.5.2.5
+
 
