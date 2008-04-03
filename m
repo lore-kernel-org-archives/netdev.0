@@ -1,60 +1,58 @@
-From: Sebastian Siewior <bigeasy@linutronix.de>
-Subject: Re: [PATCH 0/5] fixup locking on m68knommu fec
-Date: Thu, 3 Apr 2008 09:52:12 +0200
-Message-ID: <20080403075212.GC778@Chamillionaire.breakpoint.cc>
-References: <20080402204417.597098190@linutronix.de> <47F47F0E.9030803@snapgear.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: GFP_ATOMIC page allocation failures.
+Date: Thu, 3 Apr 2008 12:59:22 +0400
+Message-ID: <20080403085922.GA10874@2ka.mipt.ru>
+References: <20080401235609.GA6947@codemonkey.org.uk> <200804022012.58760.nickpiggin@yahoo.com.au> <20080402085437.7d9abf1f.akpm@linux-foundation.org> <200804031622.26973.nickpiggin@yahoo.com.au> <20080402223254.5ac50337.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	uclinux-dev@uclinux.org
-To: Greg Ungerer <gerg@snapgear.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>,
+	Chris Snook <csnook@redhat.com>,
+	Dave Jones <davej@codemonkey.org.uk>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:50788 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756429AbYDCHw1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 03:52:27 -0400
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:49659 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752582AbYDCJDq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Apr 2008 05:03:46 -0400
 Content-Disposition: inline
-In-Reply-To: <47F47F0E.9030803@snapgear.com>
+In-Reply-To: <20080402223254.5ac50337.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Greg Ungerer | 2008-04-03 16:54:06 [+1000]:
+On Wed, Apr 02, 2008 at 10:32:54PM -0700, Andrew Morton (akpm@linux-foundation.org) wrote:
+> > > It also tells us when we mucked up the net driver - I doubt if we (or at
+> > > least, I) would have discovered that e1000 does a 32k allocation for a
+> > > 5k(?) frame if this warning wasn't coming out.
+> > 
+> > Is that right? If it is allocating for 9K MTU, then the slab allocator
+> > (slub in this case) will bump that up to the 16K kmalloc slab. If it is
+> > a 5K frame, then it would get the 8K kmalloc slab I think.
+> > 
+> > Oh, but SLUB's default MIN_OBJECTS is 4, so 4*8 is 32 indeed. So slub
+> > is probably deciding to round the kmalloc-8192 allocations up to order-3.
+> > I think. How did you know it was a 5k frame? :)
+> 
+> urgh, it was a while ago, and I don't know if e1000e retains the behaviour.
+> 
+> iirc the issue was with some errant versions of the hardware needing
+> exorbitant alignment and additional padding at the end because of
+> occasional DMA overruns.  Something like that.
 
-> Hi Sebastian,
-Hi Greg,
+e1000 hardware does require power-of-two alignment, network stack adds
+additional structure at the end, so with e1000 it ends up with two
+rounds to the higher power of two.
+5k ends up with 16k allocations, 9k - to 32k.
 
-> Sebastian Siewior wrote:
->> This series basically fixes my locking problem. We have here:
->> #1 the old one which removes some undefined vars.
->> #2 cleans the file with lident. I had trouble reading the code...
->> #3 type def a function pointer so we don't have the long defines
->>    and move the callback after releasing the lock.
->> #4 This one fixes the locking I guess. My mcf5235 did not race anymore
->>    after that one. I saw 0a504779d while forming the patch so I guess
->>    we could revert that one, Greg?
->
-> Yes, certainly we can.
-> I'd like to do some testing on this as well :-)
-No problem. I did ping -f from one box and a single ping from another
-box for like an hour.
-The only thing I don't really like is that do { } while (int flags) in
-the ISR. Is the interrupt level or edge? /proc/interrupts wasn't clear on
-this if I remember correctly.
+This problem is known for years already and number of fixes was
+proposed, but the really good one is to rewrite e1000 allocation path to
+use fragments, which I believe was done in the new e1000 driver.
 
->> #5 removes the registration of interrupt handlers & enabling interrupt
->>    sources that are not handled. I stepped into this after I thought that
->>    it is over :) Greg, Should we also remove that part where we enable
->>    the irq controller (I though request_irq() is doing that).
->
-> Currently it doesn't. The main sticking point is what to do
-> with the hardware based priority setting logic. We don't really
-> rely on it, but they need to be set to sane values.
->
-> Need to expand the interrupt controller setup code some more
-> before we can take that out.
-Okey.
+And as a side note: shuting allocation failures is a very bad step,
+since it hides allocation problems for drivers. if people do care about
+it add __GFP_SMALL_WARN flag which will just print that allocation
+failed, its order and function where it happend.
 
-> Regards
-> Greg
-
-Sebastian
+-- 
+	Evgeniy Polyakov
