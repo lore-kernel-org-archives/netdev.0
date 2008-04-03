@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PING^3] [PATCH] srandom32 fixes for networking v2
-Date: Thu, 03 Apr 2008 14:07:23 -0700 (PDT)
-Message-ID: <20080403.140723.249778614.davem@davemloft.net>
-References: <20080403203611.GA25305@basil.nowhere.org>
+Subject: Re: [NET]: Sink IPv6 options into its own submenu
+Date: Thu, 03 Apr 2008 14:10:28 -0700 (PDT)
+Message-ID: <20080403.141028.154673064.davem@davemloft.net>
+References: <alpine.LNX.1.10.0803311145520.2554@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: andi@firstfloor.org
+To: jengelh@computergmbh.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60156
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60161
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755248AbYDCVHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 17:07:23 -0400
-In-Reply-To: <20080403203611.GA25305@basil.nowhere.org>
+	by vger.kernel.org with ESMTP id S1755299AbYDCVK1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 17:10:27 -0400
+In-Reply-To: <alpine.LNX.1.10.0803311145520.2554@fbirervta.pbzchgretzou.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Thu, 3 Apr 2008 22:36:11 +0200
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Date: Mon, 31 Mar 2008 11:47:13 +0200 (CEST)
 
-> srandom32 fixes for networking v2
+>      [NET]: Sink IPv6 menuconfig options into its own submenu
 > 
-> - Let it update the state of all CPUs. The network stack goes
-> into pains to feed the current IP addresses in, but it is not very
-> effective if that is only done for some random CPU instead of all.
-> So change it to feed bits into all CPUs.  I decided to do that lockless 
-> because well somewhat random results are ok.
-> 
-> v2: Drop rename so that this patch doesn't depend on x86 maintainers
-> 
-> Signed-off-by: Andi Kleen <ak@suse.de>
+>      Signed-off-by: Jan Engelhardt <jengelh@computergmbh.de>
 
-Applied, thanks.
+I'm OK with this, could you respin it against net-2.6.26
+as this version no longer applies properly?
+
+Thank you.
