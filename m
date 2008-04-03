@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] [IPV6]: Event type in addrconf_ifdown is mis-used.
-Date: Thu, 03 Apr 2008 13:33:56 -0700 (PDT)
-Message-ID: <20080403.133356.257567635.davem@davemloft.net>
-References: <1206259996.7528.12.camel@iris.sw.ru>
-	<20080323.031724.208377895.davem@davemloft.net>
-	<1206282899.7528.18.camel@iris.sw.ru>
+Subject: Re: [PATCHv8 1/2] Interface group: core and netlink part
+Date: Thu, 03 Apr 2008 13:35:59 -0700 (PDT)
+Message-ID: <20080403.133559.37298080.davem@davemloft.net>
+References: <1204812239968-git-send-email-panther@balabit.hu>
+	<20080306.111519.46454329.davem@davemloft.net>
+	<47D137AB.9040305@balabit.hu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org, kaber@trash.net,
-	containers@lists.osdl.org, dlezcano@fr.ibm.com,
-	benjamin.thery@bull.net
-To: den@openvz.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: panther@balabit.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42018
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42026
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751262AbYDCUd4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 16:33:56 -0400
-In-Reply-To: <1206282899.7528.18.camel@iris.sw.ru>
+	by vger.kernel.org with ESMTP id S1750757AbYDCUf7 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Apr 2008 16:35:59 -0400
+In-Reply-To: <47D137AB.9040305@balabit.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Sun, 23 Mar 2008 17:34:59 +0300
+=46rom: Laszlo Attila Toth <panther@balabit.hu>
+Date: Fri, 07 Mar 2008 13:40:11 +0100
 
-> You are perfectly correct and the place in addrconf_cleanup is that
-> place when we believe that we should destroy all the staff.
-> 
-> You see, it is pretty useless to call addrconf_ifdown(dev, 2) after
-> addrconf_dev(dev, 0) for a loopback in the current code! No new cleanups
-> will be performed for 2, pls check :)
+> David Miller =EDrta:
+> > If that's all it is, userland can record such mappings
+> > in the filesystem or elsewhere such that multiple
+> > applications can work with and maintain the relationships.
+> > There is zero reason to add this bloat to the kernel in
+> > such a case.
+>=20
+> Yeah, without the netfilter rules this would be unnecessary in the=20
+> kernel but it depends on it.
 
-I've rereviewed these three patches and I agree with your
-assesment.
-
-Therefore, I've applied these three patches to net-2.6 and
-will push them out after some build validation.
+Ok, I'm convinced, please resubmit your patch against
+net-2.6.26
 
 Thanks!
