@@ -1,126 +1,68 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: 2.6.25-rc8-mm1 -- INFO: possible circular locking dependency
- detected (while using iw to debug a wireless issue)
-Date: Fri, 4 Apr 2008 12:11:33 -0700
-Message-ID: <20080404121133.7b0983d8@extreme>
-References: <a44ae5cd0804030741jc9c7aebx21a7635e827b190f@mail.gmail.com>
-	<1207323936.19189.58.camel@johannes.berg>
-	<20080404104302.7445e41f.akpm@linux-foundation.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Linux 2.6.25-rc6: WARNING: at net/ipv4/tcp_input.c:2510
+Date: Fri, 4 Apr 2008 22:15:43 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0804042209530.415@wrl-59.cs.helsinki.fi>
+References: <47EBCB75.6030600@unixsol.org> <Pine.LNX.4.64.0804031315360.21524@wrl-59.cs.helsinki.fi>
+ <47F5C7D1.1080906@unixsol.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Miles Lane <miles.lane@gmail.com>, netdev@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>,
-	ALSA development <alsa-devel@alsa-project.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1742740919-1207336543=:415"
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Georgi Chorbadzhiyski <gf@unixsol.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:41080 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751133AbYDDTLo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 15:11:44 -0400
-In-Reply-To: <20080404104302.7445e41f.akpm@linux-foundation.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:42911 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752389AbYDDTSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 15:18:25 -0400
+In-Reply-To: <47F5C7D1.1080906@unixsol.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 4 Apr 2008 10:43:02 -0700
-Andrew Morton <akpm@linux-foundation.org> wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> On Fri, 04 Apr 2008 17:45:36 +0200 Johannes Berg <johannes@sipsolutions.net> wrote:
+---696208474-1742740919-1207336543=:415
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Fri, 4 Apr 2008, Georgi Chorbadzhiyski wrote:
+
+> Around 04/03/08 13:17, Ilpo Järvinen scribbled:
+> > On Thu, 27 Mar 2008, Georgi Chorbadzhiyski wrote:
+> > 
+> >> A week ago I updated one of my servers to 2.6.25-rc6 and today looking
+> >> through logs I've found these:
+> >>
+> >> [380219.823434] ------------[ cut here ]------------
+> >> [380219.823450] WARNING: at net/ipv4/tcp_input.c:2510 tcp_ack+0xc7e/0x177d()
+> > 
+> > Is this reproducable for you? If yes, is it possible for you to run 
 > 
-> > 
-> > On Thu, 2008-04-03 at 10:41 -0400, Miles Lane wrote:
-> > > After collecting the wireshark log, I found this in my messages log:
-> > 
-> > Below is a better version of the trace Miles sent me privately, but I
-> > have no idea what would be causing it. I don't think it's related to
-> > wireless.
-> > 
-> > ___=======================================================
-> > [ INFO: possible circular locking dependency detected ]
-> > 2.6.25-rc8-mm1 #15
-> > -------------------------------------------------------
-> > iw/9417 is trying to acquire lock:
-> > (genl_mutex){--..}, at: [ctrl_dumpfamily+0x37/0xda] ctrl_dumpfamily+0x37/0xda
-> > 
-> > but task is already holding lock:
-> > (nlk->cb_mutex){--..}, at: [netlink_dump+0x39/0x22e] netlink_dump+0x39/0x22e
-> > 
-> > which lock already depends on the new lock.
-> > 
-> > the existing dependency chain (in reverse order) is:
-> > 
-> > -> #1 (nlk->cb_mutex){--..}:
-> > [__lock_acquire+0xa02/0xbaf] __lock_acquire+0xa02/0xbaf
-> > [lock_acquire+0x76/0x9d] lock_acquire+0x76/0x9d
-> > [snd_mixer_oss:mutex_lock_nested+0xd5/0x67b] mutex_lock_nested+0xd5/0x274
-> > [netlink_dump_start+0xbd/0x15a] netlink_dump_start+0xbd/0x15a
-> > [genl_rcv_msg+0x9d/0x13a] genl_rcv_msg+0x9d/0x13a
-> > [netlink_rcv_skb+0x30/0x75] netlink_rcv_skb+0x30/0x75
-> > [genl_rcv+0x1e/0x2e] genl_rcv+0x1e/0x2e
-> > [cfg80211:netlink_unicast+0x1c1/0x1867] netlink_unicast+0x1c1/0x293
-> > [netlink_sendmsg+0x21f/0x22c] netlink_sendmsg+0x21f/0x22c
-> > [sock_sendmsg+0xca/0xe1] sock_sendmsg+0xca/0xe1
-> > [sys_sendmsg+0x14d/0x1a8] sys_sendmsg+0x14d/0x1a8
-> > [sys_socketcall+0x163/0x17e] sys_socketcall+0x163/0x17e
-> > [sysenter_past_esp+0x6d/0xc5] sysenter_past_esp+0x6d/0xc5
-> >        [<ffffffff>] 0xffffffff
-> > -> #0 (genl_mutex){--..}:
-> > [__lock_acquire+0x929/0xbaf] __lock_acquire+0x929/0xbaf
-> > [lock_acquire+0x76/0x9d] lock_acquire+0x76/0x9d
-> > [snd_mixer_oss:mutex_lock_nested+0xd5/0x67b] mutex_lock_nested+0xd5/0x274
-> > [ctrl_dumpfamily+0x37/0xda] ctrl_dumpfamily+0x37/0xda
-> > [netlink_dump+0x51/0x22e] netlink_dump+0x51/0x22e
-> > [netlink_recvmsg+0x156/0x203] netlink_recvmsg+0x156/0x203
-> > [sock_recvmsg+0xd1/0xe9] sock_recvmsg+0xd1/0xe9
-> > [sys_recvmsg+0xf2/0x17f] sys_recvmsg+0xf2/0x17f
-> > [sys_socketcall+0x16f/0x17e] sys_socketcall+0x16f/0x17e
-> > [sysenter_past_esp+0x6d/0xc5] sysenter_past_esp+0x6d/0xc5
-> >        [<ffffffff>] 0xffffffff
-> > 
-> > other info that might help us debug this:
-> > 
-> > 1 lock held by iw/9417:
-> >  #0: (nlk->cb_mutex){--..}, at: [netlink_dump+0x39/0x22e] netlink_dump+0x39/0x22e
-> > 
-> > stack backtrace:
-> > Pid: 9417, comm: iw Not tainted 2.6.25-rc8-mm1 #15
-> > [print_circular_bug_tail+0x5b/0x66] print_circular_bug_tail+0x5b/0x66
-> > [print_circular_bug_header+0xa5/0xb0] ? print_circular_bug_header+0xa5/0xb0
-> > [__lock_acquire+0x929/0xbaf] __lock_acquire+0x929/0xbaf
-> > [lock_acquire+0x76/0x9d] lock_acquire+0x76/0x9d
-> > [ctrl_dumpfamily+0x37/0xda] ? ctrl_dumpfamily+0x37/0xda
-> > [snd_mixer_oss:mutex_lock_nested+0xd5/0x67b] mutex_lock_nested+0xd5/0x274
-> > [ctrl_dumpfamily+0x37/0xda] ? ctrl_dumpfamily+0x37/0xda
-> > [ctrl_dumpfamily+0x37/0xda] ? ctrl_dumpfamily+0x37/0xda
-> > [ctrl_dumpfamily+0x37/0xda] ctrl_dumpfamily+0x37/0xda
-> > [netlink_dump+0x51/0x22e] netlink_dump+0x51/0x22e
-> > [mac80211:kfree_skb+0x40/0x45] ? kfree_skb+0x40/0x45
-> > [netlink_recvmsg+0x156/0x203] netlink_recvmsg+0x156/0x203
-> > [sock_sendmsg+0xca/0xe1] ? sock_sendmsg+0xca/0xe1
-> > [sock_recvmsg+0xd1/0xe9] sock_recvmsg+0xd1/0xe9
-> > [<c01313d9>] ? autoremove_wake_function+0x0/0x30
-> > [snd_pcm_oss:copy_from_user+0x3b/0x236] ? copy_from_user+0x3b/0x5e
-> > [verify_iovec+0x40/0x70] ? verify_iovec+0x40/0x70
-> > [sys_recvmsg+0xf2/0x17f] sys_recvmsg+0xf2/0x17f
-> > [snd_hda_intel:_spin_unlock_irqrestore+0x56/0x6c] ? _spin_unlock_irqrestore+0x56/0x6c
-> > [paravirt_get_lazy_mode+0xe/0x1b] ? paravirt_get_lazy_mode+0xe/0x1b
-> > [crypto_algapi:kunmap_atomic+0x9e/0x2e8e] ? kunmap_atomic+0x9e/0xbb
-> > [handle_mm_fault+0x7aa/0x7bb] ? handle_mm_fault+0x7aa/0x7bb
-> > [sys_socketcall+0x16f/0x17e] sys_socketcall+0x16f/0x17e
-> > [processor:trace_hardirqs_on+0xf0/0x5d38] ? trace_hardirqs_on+0xf0/0x12c
-> > [sysenter_past_esp+0x6d/0xc5] sysenter_past_esp+0x6d/0xc5
-> > 
+> Not in the moment.
+>
+> I'm not getting such errors in the log since my last report. Today I'll 
+> update to latest -git and will restart the server.
+
+Yeah, the reason why these still happen is that they are quite hard to 
+hit.
+
+> The machine that gave me this error is a http and ftp server handling not
+> very busy distro mirror (if this can give you any clues).
+>
+> > processing expensive verification of TCP state (validates TCP write queue 
+> > invariants multiple times per ACK by scanning through the write queue) on 
+> > such machine?
 > 
-> Yes, that looks like a problem in the core netlink code.  git-net contains
-> several largeish changes to it..
+> How to run such a thing, can you give me some pointers?
 
-The changes in git-net don't look locking related.  I suspect either:
-wireless is calling netlink without holding rtnl_lock;
-or more likely conditional locking ctrl_dumpfamily is confusing lockdep.
+I sent the patch recently to netdev/lkml:
 
-ctrl_dumpfamily only acquires genl_lock if one of the incoming parameters (chains_to_skip)
-is non-zero. Not sure what the design reason is, Thomas could you add a comment?
+  http://marc.info/?l=linux-netdev&m=120733529216457&w=2
+
+But it's very expensive in processing wise so it might not be wise to put 
+it in if performance is important for you.
+
+
+-- 
+ i.
+---696208474-1742740919-1207336543=:415--
