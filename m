@@ -1,45 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] NET: remove support for Davicom 9102 from the Tulip
- driver
-Date: Fri, 04 Apr 2008 15:02:49 -0700 (PDT)
-Message-ID: <20080404.150249.132264075.davem@davemloft.net>
-References: <Pine.SOC.4.64.0804031209540.2017@math.ut.ee>
-	<47F69FBE.3020308@garzik.org>
+Subject: Re: [git patches] net driver fixes (v2)
+Date: Fri, 04 Apr 2008 15:04:29 -0700 (PDT)
+Message-ID: <20080404.150429.264658368.davem@davemloft.net>
+References: <20080404212917.GA28174@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mroos@linux.ee, cebbert@redhat.com, netdev@vger.kernel.org,
-	grundler@parisc-linux.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41220
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751485AbYDDWCs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 18:02:48 -0400
-In-Reply-To: <47F69FBE.3020308@garzik.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752442AbYDDWE6@vger.kernel.org>
+In-Reply-To: <20080404212917.GA28174@havoc.gtf.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Jeff Garzik <jeff@garzik.org>
-Date: Fri, 04 Apr 2008 17:38:06 -0400
+Date: Fri, 4 Apr 2008 17:29:17 -0400
 
-> Meelis Roos wrote:
-> > CE> We have two reports that agree the tulip driver doesn't work for
-> > CE> the Davicom 9102 (PCI id 1282:9102). The dmfe driver does work
-> > CE> and also claims the same PCI ID.
-> > 
-> > NAK, dmfe does not work on some Sparc64 machines but tulip does.
-> > 
-> > I happent to have a Sun Fire V100 with 2 Davicom NICs (1282:9102 (rev 
-> > 31)).
-> > tulip driver works for them, dmfe doesn't. Tried with 2.6.25-rc7, first 
-> > it
-> > gets MAC addresses all zeroed and second, it only results in Tx 
-> > timeouts.
 > 
-> At the very least, it sounds like some SROM parsing problems on dmfe's 
-> part -- assuming a standard SROM when sparc64 provides a more 
-> complicated one.
+> NOTE: dropped dmfe change, would cause regression noted by Meelis
+> 
+> Please pull from 'upstream-davem' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-davem
+> 
 
-With the onboard Sparc64 davicoms, the SROM is essentially empty.
-
+Pulled and pushed back out to net-2.6, thanks Jeff!
