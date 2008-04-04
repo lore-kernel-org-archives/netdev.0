@@ -1,64 +1,37 @@
-From: Dave Hansen <dave@linux.vnet.ibm.com>
-Subject: Re: [ANNOUNCE] e1000 to e1000e migration of PCI Express devices
-Date: Fri, 04 Apr 2008 14:31:09 -0700
-Message-ID: <1207344669.26869.33.camel@nimitz.home.sr71.net>
-References: <47F69965.7030303@intel.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: RE: A Linux TCP SACK Question
+Date: Sat, 5 Apr 2008 00:33:00 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
+References: <fc471cb97cfd.47f5520e@fnal.gov>
+ <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
+ <000001c8967c$496efa20$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
+ <000b01c89699$00e99590$c95ee183@D2GT6T71>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	e1000-list <e1000-devel@lists.sourceforge.net>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	Greg KH <greg@kroah.com>,
-	Arjan van de Ven <arjan@linux.intel.com>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: 'John Heffner' <johnwheffner@gmail.com>,
+	'Netdev' <netdev@vger.kernel.org>
+To: Wenji Wu <wenji@fnal.gov>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:35029 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751003AbYDDVbP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 17:31:15 -0400
-In-Reply-To: <47F69965.7030303@intel.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:46535 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751204AbYDDVdE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 17:33:04 -0400
+In-Reply-To: <000b01c89699$00e99590$c95ee183@D2GT6T71>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-04-04 at 14:11 -0700, Kok, Auke wrote:
-> >From kernel 2.6.26 onward all *PCI Express* device IDs previously
-> supported by e1000 will be moving to the e1000e driver.  This includes
-> ich8 and ich9 onboard LAN, server 5000 platform onboard LAN (es2) and
-> 82571/2/3 chipset based adapters and variants.
+On Fri, 4 Apr 2008, Wenji Wu wrote:
+
 > 
-> If you have not already enabled CONFIG_E1000E make sure that you do so.
-> You can already do this with 2.6.25.  From 2.6.26 on this change will be
-> required if you have such a device.
+> >I'd suggest that you don't waste too much effort for 2.6.24. ...Most of it 
+> >is recoded/updated since then.
+> 
+> I just tried it on 2.6.25-rc8. The result is still the same: the throughput
+> with SACK on is less than with SACK off.
 
-I've been bitten by one or two of these in the past.  Can we do
-something like this for a couple of releases?
+Hmm, can you also try if playing around with FRTO setting makes some 
+difference (tcp_frto sysctl)?
 
-Shouldn't this default the E1000E config option to the same thing that
-people have the E1000 set as?  It should catch the dumb people like me
-who's enter key gets held down during a 'make oldconfig'. :)
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 3a0b20a..aa0fe14 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2005,6 +2005,7 @@ config E1000_DISABLE_PACKET_SPLIT
- config E1000E
-        tristate "Intel(R) PRO/1000 PCI-Express Gigabit Ethernet support"
-        depends on PCI
-+       default E1000
-        ---help---
-          This driver supports the PCI-Express Intel(R) PRO/1000 gigabit
-          ethernet family of adapters. For PCI or PCI-X e1000 adapters,
-
-
--- Dave
-
+-- 
+ i.
