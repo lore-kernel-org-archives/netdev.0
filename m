@@ -1,40 +1,44 @@
-From: Georgi Chorbadzhiyski <gf@unixsol.org>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2173 tcp_mark_head_lost+0x173/0x1a0()
-Date: Fri, 04 Apr 2008 13:01:43 +0300
-Message-ID: <47F5FC87.504@unixsol.org>
-References: <20080402224137.GB25768@curie-int.orbis-terrarum.net> <20080403211913.3a0c1d00.akpm@linux-foundation.org> <200804041150.34046.rjw@sisk.pl>
+From: "Julius Volz" <juliusv@google.com>
+Subject: [PATCH] Move IPVS from net/ipv4/ipvs to net/netfilter/ipvs in preparation for IPv6 support
+Date: Fri, 4 Apr 2008 12:40:36 +0200
+Message-ID: <f4845fc0804040340x5e93754crcd680d26fd8982f7@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Robin H. Johnson" <robbat2@gentoo.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.unixsol.org ([193.110.159.2]:49724 "EHLO ns.unixsol.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751027AbYDDKBo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 06:01:44 -0400
-In-Reply-To: <200804041150.34046.rjw@sisk.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Simon Horman" <horms@verge.net.au>
+To: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Around 04/04/08 12:50, Rafael J. Wysocki scribbled:
-> On Friday, 4 of April 2008, Andrew Morton wrote:
->> (cc netdev)
->>
->> (and Rafael - I assume 2.6.24 didn't do this..)
->>
->> On Wed, 2 Apr 2008 15:41:37 -0700 "Robin H. Johnson" <robbat2@gentoo.org> wrote:
-> 
-> That's http://bugzilla.kernel.org/show_bug.cgi?id=10346 , I think. 
-> 
-> Robin, please add yourself to the CC list in the bugzilla entry above.
+Hi,
 
-No idea about 2.6.24 behavior. The kernel I was using before
-upgrading to 2.6.25-rc6 was 2.6.21-rc7.
+This patch moves IPVS from net/ipv4/ipvs to net/netfilter/ipvs, as
+discussed earlier with Horms and Patrick McHardy. This is done as a
+preparation for later adding IPv6 functionality to IPVS. The patch is
+600kb, so I uploaded it here:
+
+http://www-user.tu-chemnitz.de/~volz/move_ipvs_to_netfilter.patch
+
+--------------------------
+Description:
+Move IPVS from net/ipv4/ipvs to net/netfilter/ipvs as a preparation
+for adding IPv6 support to IPVS later on.
+
+Signed-off-by: Julius R. Volz <juliusv@google.com>
+--------------------------
+
+It applies to the current net-2.6 tree and IPVS is working after these
+changes. The patch also moves the IPVS menu options into the Netfilter
+menu subtree. Please let me know if that is ok or has to be changed
+(it seems ok to me, as IPVS depends on Netfilter).
+
+Again, I'm pretty new to kernel development, so let me know of
+anything that can be done better.
+
+Thanks,
+Julius Volz
 
 -- 
-Georgi Chorbadzhiyski
-http://georgi.unixsol.org/
+Google Switzerland GmbH
