@@ -1,42 +1,54 @@
-From: Wenji Wu <wenji@fnal.gov>
-Subject: A Linux TCP SACK Question
-Date: Thu, 03 Apr 2008 21:54:22 -0700
-Message-ID: <fc471cb97cfd.47f5520e@fnal.gov>
+From: Georgi Chorbadzhiyski <gf@unixsol.org>
+Subject: Re: Linux 2.6.25-rc6: WARNING: at net/ipv4/tcp_input.c:2510
+Date: Fri, 04 Apr 2008 09:16:49 +0300
+Message-ID: <47F5C7D1.1080906@unixsol.org>
+References: <47EBCB75.6030600@unixsol.org> <Pine.LNX.4.64.0804031315360.21524@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.fnal.gov ([131.225.111.11]:56832 "EHLO mailgw1.fnal.gov"
+Received: from ns.unixsol.org ([193.110.159.2]:44169 "EHLO ns.unixsol.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751740AbYDDGMH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 02:12:07 -0400
-Received: from mailav2.fnal.gov (mailav2.fnal.gov [131.225.111.20])
- by mailgw1.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- with SMTP id <0JYS00INFAYD6H@mailgw1.fnal.gov> for netdev@vger.kernel.org;
- Thu, 03 Apr 2008 23:54:23 -0500 (CDT)
-Received: from mailgw2.fnal.gov ([131.225.111.12])
- by mailav2.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008040323542300166 for
- <netdev@vger.kernel.org>; Thu, 03 Apr 2008 23:54:23 -0500
-Received: from conversion-daemon.mailgw2.fnal.gov by mailgw2.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- id <0JYS00401AXASX@mailgw2.fnal.gov> (original mail from wenji@fnal.gov)
- for netdev@vger.kernel.org; Thu, 03 Apr 2008 23:54:23 -0500 (CDT)
-Received: from fnal.gov (imap2.fnal.gov [131.225.111.7])
- by mailgw2.fnal.gov (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28
- 2005)) with ESMTP id <0JYS0019MAYMIT@mailgw2.fnal.gov> for
- netdev@vger.kernel.org; Thu, 03 Apr 2008 23:54:22 -0500 (CDT)
-Content-language: en
-Content-disposition: inline
+	id S1752031AbYDDGQu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2008 02:16:50 -0400
+In-Reply-To: <Pine.LNX.4.64.0804031315360.21524@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Could any body help me out with Linux TCP SACK? Thanks in advance.
+Around 04/03/08 13:17, Ilpo J=E4rvinen scribbled:
+> On Thu, 27 Mar 2008, Georgi Chorbadzhiyski wrote:
+>=20
+>> A week ago I updated one of my servers to 2.6.25-rc6 and today looki=
+ng
+>> through logs I've found these:
+>>
+>> [380219.823434] ------------[ cut here ]------------
+>> [380219.823450] WARNING: at net/ipv4/tcp_input.c:2510 tcp_ack+0xc7e/=
+0x177d()
+>=20
+> Is this reproducable for you? If yes, is it possible for you to run=20
 
-I run iperf to send traffic from sender to receiver. and add packet reordering in both forward and reverse directions. I found when I turn off the SACK/DSACK option, the throughput is better than with the SACK/DSACK on? How could it happen in this way? did anybody encounter this phenomenon before?
+Not in the moment.
 
+I'm not getting such errors in the log since my last report. Today I'll=
+ update
+to latest -git and will restart the server.
 
-thanks,
+The machine that gave me this error is a http and ftp server handling n=
+ot
+very busy distro mirror (if this can give you any clues).
 
-wenji
+> processing expensive verification of TCP state (validates TCP write q=
+ueue=20
+> invariants multiple times per ACK by scanning through the write queue=
+) on=20
+> such machine?
+
+How to run such a thing, can you give me some pointers?
+
+--=20
+Georgi Chorbadzhiyski
+http://georgi.unixsol.org/
