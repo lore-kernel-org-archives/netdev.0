@@ -1,74 +1,82 @@
-From: Bodo Eggert <7eggert@gmx.de>
-Subject: Re: GFP_ATOMIC page allocation failures.
-Date: Fri, 4 Apr 2008 13:35:48 +0200 (CEST)
-Message-ID: <Pine.LNX.4.58.0804041307500.9036@be10.lrz>
-References: <adYyJ-20N-11@gated-at.bofh.it> <aeqF6-45P-29@gated-at.bofh.it>
- <E1Jhib4-0000md-FP@be1.7eggert.dyndns.org> <200804042159.54220.nickpiggin@yahoo.com.au>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [DCCP]: Fix skb->cb conflicts with IP
+Date: Fri, 04 Apr 2008 14:13:16 +0200
+Message-ID: <47F61B5C.8090105@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: 7eggert@gmx.de, Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Chris Snook <csnook@redhat.com>,
-	Dave Jones <davej@codemonkey.org.uk>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Nick Piggin <nickpiggin@yahoo.com.au>
+Content-Type: multipart/mixed;
+ boundary="------------050908030403050805050803"
+Cc: dccp@vger.kernel.org, Linux Netdev List <netdev@vger.kernel.org>
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.177]:63306 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751652AbYDDLhA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 07:37:00 -0400
-In-Reply-To: <200804042159.54220.nickpiggin@yahoo.com.au>
+Received: from stinky.trash.net ([213.144.137.162]:35148 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751462AbYDDMNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 08:13:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 4 Apr 2008, Nick Piggin wrote:
+This is a multi-part message in MIME format.
+--------------050908030403050805050803
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> On Friday 04 April 2008 20:52, Bodo Eggert wrote:
-> > Nick Piggin <nickpiggin@yahoo.com.au> wrote:
-> > > On Thursday 03 April 2008 05:18, Jeff Garzik wrote:
-> > >> Turning to Nick's comment,
-> > >>
-> > >> > It's still actually nice to know how often it is happening even for
-> > >> > these known good sites because too much can indicate a problem and
-> > >> > that you could actually bring performance up by tuning some things.
-> > >>
-> > >> then create a counter or acculuation buffer somewhere.
-> > >>
-> > >> We don't need spew every time there is memory pressure of this
-> > >> magnitude.
-> > >
-> > > Not a complete solution. Counter would be nice, but you need backtraces
-> > > and want a way to more proactively warn the user/tester/developer.
-> > >
-> > > I agree that I don't exactly like adding nowarns around, and I don't
-> > > think places like driver writers should have to know about this stuff.
-> >
-> > What about reverse ratelimiting: If the limit is reached, a backtrace will
-> > be generated (and, off cause, positively ratelimited)?
-> 
-> I was thinking about that. I got as far as writing a simple patch to
-> printk  so that it would not start to trigger until it gets a 2nd event
-> within 'n' jiffies of the first.
 
-I think there was a standalone ratelimit function. I'd use it like this:
+--------------050908030403050805050803
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-static atomic_alloc_ratelimit; /* needs to be initialized ... */
+commit eced67957ee99f7b5fafdc73a58bcd037a1789b2
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Fri Apr 4 14:10:23 2008 +0200
 
-{
-	...
-	if (success)
-		return mem;
-	if(!debug && ratelimit(atomic_alloc_ratelimit))
-		return err_ptr(-ENOMEM);
-	if (printk_ratelimit(first line) > 0) {
-		printk(rest);
-	}
-}
+    [DCCP]: Fix skb->cb conflicts with IP
+    
+    dev_queue_xmit() and the other IP output functions expect to get a skb
+    with clear or properly initialized skb->cb. Unlike TCP and UDP, the
+    dccp_skb_cb doesn't contain a struct inet_skb_parm at the beginning,
+    so the DCCP-specific data is interpreted by the IP output functions.
+    This can cause false negatives for the conditional POST_ROUTING hook
+    invocation, making the packet bypass the hook.
+    
+    Add a inet_skb_parm/inet6_skb_parm union to the beginning of
+    dccp_skb_cb to avoid clashes. Also add a BUILD_BUG_ON to make
+    sure it fits in the cb.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-> But actually developers do sometimes want see the event even if it is
-> relatively infrequent...
+diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
+index fe7726b..f44d492 100644
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -325,6 +325,12 @@ static inline int dccp_bad_service_code(const struct sock *sk,
+  * This is used for transmission as well as for reception.
+  */
+ struct dccp_skb_cb {
++	union {
++		struct inet_skb_parm	h4;
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
++		struct inet6_skb_parm	h6;
++#endif
++	} header;
+ 	__u8  dccpd_type:4;
+ 	__u8  dccpd_ccval:4;
+ 	__u8  dccpd_reset_code,
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index e3f5d37..c91d3c1 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -1057,6 +1057,9 @@ static int __init dccp_init(void)
+ 	int ehash_order, bhash_order, i;
+ 	int rc = -ENOBUFS;
+ 
++	BUILD_BUG_ON(sizeof(struct dccp_skb_cb) >
++		     FIELD_SIZEOF(struct sk_buff, cb));
++
+ 	dccp_hashinfo.bind_bucket_cachep =
+ 		kmem_cache_create("dccp_bind_bucket",
+ 				  sizeof(struct inet_bind_bucket), 0,
 
-You shouldn't frighten the users either. /proc/sys/vm/debug?
+--------------050908030403050805050803--
