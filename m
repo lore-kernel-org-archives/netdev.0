@@ -1,56 +1,59 @@
-From: Wenji Wu <wenji@fnal.gov>
-Subject: Re: RE: A Linux TCP SACK Question
-Date: Fri, 04 Apr 2008 16:40:52 -0500
-Message-ID: <fbdee7bf38be.47f65a14@fnal.gov>
-References: <fc471cb97cfd.47f5520e@fnal.gov>
- <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
- <000001c8967c$496efa20$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
- <000b01c89699$00e99590$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [E1000-devel] [ANNOUNCE] e1000 to e1000e migration of PCI	Express
+ devices
+Date: Fri, 04 Apr 2008 14:49:06 -0700
+Message-ID: <47F6A252.3020105@intel.com>
+References: <47F69965.7030303@intel.com> <1207344669.26869.33.camel@nimitz.home.sr71.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: 'John Heffner' <johnwheffner@gmail.com>,
-	'Netdev' <netdev@vger.kernel.org>
-To: =?iso-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>,
+	e1000-list <e1000-devel@lists.sourceforge.net>,
+	NetDev <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Greg KH <greg@kroah.com>,
+	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Dave Hansen <dave@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw2.fnal.gov ([131.225.111.12]:34735 "EHLO mailgw2.fnal.gov"
+Received: from mga01.intel.com ([192.55.52.88]:10805 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751623AbYDDVuS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 17:50:18 -0400
-Received: from mailav2.fnal.gov (mailav2.fnal.gov [131.225.111.20])
- by mailgw2.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- with SMTP id <0JYT00DVKLBMDV@mailgw2.fnal.gov> for netdev@vger.kernel.org;
- Fri, 04 Apr 2008 16:40:53 -0500 (CDT)
-Received: from mailgw2.fnal.gov ([131.225.111.12])
- by mailav2.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008040416405308464 for
- <netdev@vger.kernel.org>; Fri, 04 Apr 2008 16:40:53 -0500
-Received: from conversion-daemon.mailgw2.fnal.gov by mailgw2.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- id <0JYT00001LFGCD@mailgw2.fnal.gov> (original mail from wenji@fnal.gov)
- for netdev@vger.kernel.org; Fri, 04 Apr 2008 16:40:53 -0500 (CDT)
-In-reply-to: <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
-Content-language: en
-Content-disposition: inline
+	id S1751614AbYDDVwK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2008 17:52:10 -0400
+In-Reply-To: <1207344669.26869.33.camel@nimitz.home.sr71.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-> On Fri, 4 Apr 2008, Wenji Wu wrote:
+Dave Hansen wrote:
+> On Fri, 2008-04-04 at 14:11 -0700, Kok, Auke wrote:
+>> >From kernel 2.6.26 onward all *PCI Express* device IDs previously
+>> supported by e1000 will be moving to the e1000e driver.  This includes
+>> ich8 and ich9 onboard LAN, server 5000 platform onboard LAN (es2) and
+>> 82571/2/3 chipset based adapters and variants.
+>>
+>> If you have not already enabled CONFIG_E1000E make sure that you do so.
+>> You can already do this with 2.6.25.  From 2.6.26 on this change will be
+>> required if you have such a device.
 > 
-> > 
-> > >I'd suggest that you don't waste too much effort for 2.6.24. 
-> ...Most of it 
-> > >is recoded/updated since then.
-> > 
-> > I just tried it on 2.6.25-rc8. The result is still the same: the throughput
-> > with SACK on is less than with SACK off.
+> I've been bitten by one or two of these in the past.  Can we do
+> something like this for a couple of releases?
 > 
-> Hmm, can you also try if playing around with FRTO setting makes some 
-> difference (tcp_frto sysctl)?
+> Shouldn't this default the E1000E config option to the same thing that
+> people have the E1000 set as?  It should catch the dumb people like me
+> who's enter key gets held down during a 'make oldconfig'. :)
 
-Still the same, I just tried with FRTO, FACK. No difference, SACK on is worse than SACK off.
+that discussion went into the bar and never came out again last time it was
+proposed. I really do not want to have any more bandages around.
 
-wenji
+Also your patch will not help much since in 2.6.24 there already is a
+CONFIG_E1000E option so we've passed the stage for many people where this hack
+would work.
+
+Auke
+
