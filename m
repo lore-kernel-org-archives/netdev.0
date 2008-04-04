@@ -1,48 +1,35 @@
-From: Wenji Wu <wenji@fnal.gov>
-Subject: RE: A Linux TCP SACK Question
-Date: Fri, 04 Apr 2008 16:15:26 -0500
-Message-ID: <000b01c89699$00e99590$c95ee183@D2GT6T71>
-References: <fc471cb97cfd.47f5520e@fnal.gov>
- <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
- <000001c8967c$496efa20$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
-Reply-To: wenji@fnal.gov
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch] NET: remove support for Davicom 9102 from the Tulip driver
+Date: Fri, 04 Apr 2008 17:27:00 -0400
+Message-ID: <47F69D24.4050305@garzik.org>
+References: <Pine.SOC.4.64.0804041154150.11646@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: 'John Heffner' <johnwheffner@gmail.com>,
-	'Netdev' <netdev@vger.kernel.org>
-To: =?iso-8859-1?Q?'Ilpo_J=E4rvinen'?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Meelis Roos <mroos@linux.ee>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.fnal.gov ([131.225.111.11]:50423 "EHLO mailgw1.fnal.gov"
+Received: from srv5.dvmed.net ([207.36.208.214]:59116 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751131AbYDDVSe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 17:18:34 -0400
-Received: from mailav2.fnal.gov (mailav2.fnal.gov [131.225.111.20])
- by mailgw1.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- with SMTP id <0JYT00H4AKDXLQ@mailgw1.fnal.gov> for netdev@vger.kernel.org;
- Fri, 04 Apr 2008 16:15:33 -0500 (CDT)
-Received: from mailgw1.fnal.gov ([131.225.111.11])
- by mailav2.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008040416153306608 for
- <netdev@vger.kernel.org>; Fri, 04 Apr 2008 16:15:33 -0500
-Received: from conversion-daemon.mailgw1.fnal.gov by mailgw1.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- id <0JYT00601KD2VC@mailgw1.fnal.gov> (original mail from wenji@fnal.gov)
- for netdev@vger.kernel.org; Fri, 04 Apr 2008 16:15:33 -0500 (CDT)
-In-reply-to: <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
+	id S1751038AbYDDV1D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2008 17:27:03 -0400
+In-Reply-To: <Pine.SOC.4.64.0804041154150.11646@math.ut.ee>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Meelis Roos wrote:
+>>> -     { 0x1282, 0x9102, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
+> 
+>> applied
+> 
+> Hmm, did you see my yesterdays answer to that patch - that dmfe should 
+> first be fixed to work on all  cards with this PCI ID? Currenty dmfe 
+> fails to work on at least Sun Fire V100 and Sun Netra X1 boxes, only 
+> tulip works.
 
->I'd suggest that you don't waste too much effort for 2.6.24. ...Most of it 
->is recoded/updated since then.
+I didn't see that, no...   thanks for poking me.
 
-Hi, Ilpo,
+	Jeff
 
-I just tried it on 2.6.25-rc8. The result is still the same: the throughput
-with SACK on is less than with SACK off.
-
-wenji
 
 
