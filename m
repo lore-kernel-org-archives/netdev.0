@@ -1,46 +1,51 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Better MWI workaround for 21143 rev 65 chip errata
-Date: Fri, 04 Apr 2008 18:07:20 -0400
-Message-ID: <47F6A698.1010400@pobox.com>
-References: <20080325113909.82BF8C2B76@solo.franken.de> <20080404064216.GA8791@colo.lackof.org>
+From: Wenji Wu <wenji@fnal.gov>
+Subject: RE: A Linux TCP SACK Question
+Date: Fri, 04 Apr 2008 17:14:02 -0500
+Message-ID: <000f01c896a1$3022fec0$c95ee183@D2GT6T71>
+References: <fc471cb97cfd.47f5520e@fnal.gov>
+ <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
+ <000001c8967c$496efa20$c95ee183@D2GT6T71>
+ <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
+ <000b01c89699$00e99590$c95ee183@D2GT6T71>
+ <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
+ <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
+Reply-To: wenji@fnal.gov
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-	netdev@vger.kernel.org, kyle@parisc-linux.org,
-	zero@colonel-panic.org
-To: Grant Grundler <grundler@parisc-linux.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: 'John Heffner' <johnwheffner@gmail.com>,
+	'Netdev' <netdev@vger.kernel.org>
+To: =?iso-8859-1?Q?'Ilpo_J=E4rvinen'?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51460 "EHLO mail.dvmed.net"
+Received: from mailgw2.fnal.gov ([131.225.111.12]:39512 "EHLO mailgw2.fnal.gov"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751535AbYDDWH2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 18:07:28 -0400
-In-Reply-To: <20080404064216.GA8791@colo.lackof.org>
+	id S1751941AbYDDWRv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2008 18:17:51 -0400
+Received: from mailav2.fnal.gov (mailav2.fnal.gov [131.225.111.20])
+ by mailgw2.fnal.gov
+ (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
+ with SMTP id <0JYT00FMVMRD28@mailgw2.fnal.gov> for netdev@vger.kernel.org;
+ Fri, 04 Apr 2008 17:14:09 -0500 (CDT)
+Received: from mailgw2.fnal.gov ([131.225.111.12])
+ by mailav2.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008040417140910834 for
+ <netdev@vger.kernel.org>; Fri, 04 Apr 2008 17:14:09 -0500
+Received: from conversion-daemon.mailgw2.fnal.gov by mailgw2.fnal.gov
+ (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
+ id <0JYT00D01N2TO6@mailgw2.fnal.gov> (original mail from wenji@fnal.gov)
+ for netdev@vger.kernel.org; Fri, 04 Apr 2008 17:14:09 -0500 (CDT)
+In-reply-to: <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Grant Grundler wrote:
-> On Tue, Mar 25, 2008 at 12:39:09PM +0100, Thomas Bogendoerfer wrote:
->> From: Peter Horton <zero@colonel-panic.org>
->>
->> This patch works around the MWI bug on the DC21143 rev 65 Tulip by
->> ensuring that the receive buffers don't end on a cache line boundary
->> (as documented in the errata).
->>
->> This patch is required for the MIPS based Cobalt Qube/RaQ as
->> supporting the extra PCI commands seems to reduce the chance of a hard
->> lockup between the Tulip and the PCI bridge.
->>
->> Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-> 
-> Acked-by: Grant Grundler <grundler@parisc-linux.org>
-> 
-> thanks!
-> I haven't tested this but it looks correct to me.
 
-Wanna give it a quick test then someone bounce me the patch?  :)  I 
-don't have the original.
+>...Assuming it wasn't disabled already. If you find that there's 
+>significant difference, you could try also with SACK+basic FRTO (set 
+>the tcp_frto sysctl to 1).
 
-	Jeff
+No, still the same. I tried tcp_frto with 0, 1, 2. 
+
+SACK On is worse than SACK off.
+
+wenji
 
 
