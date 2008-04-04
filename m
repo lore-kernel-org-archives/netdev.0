@@ -1,64 +1,57 @@
-From: Gilles Espinasse <g.esp@free.fr>
-Subject: Re: [git patches] net driver fixes
-Date: Fri, 04 Apr 2008 12:37:24 +0200
-Message-ID: <1207305444.47f604e4c37b0@imp.free.fr>
-References: <20080404063359.GA13309@havoc.gtf.org>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Subject: Re: GFP_ATOMIC page allocation failures.
+Date: Fri, 4 Apr 2008 21:59:53 +1100
+Message-ID: <200804042159.54220.nickpiggin@yahoo.com.au>
+References: <adYyJ-20N-11@gated-at.bofh.it> <aeqF6-45P-29@gated-at.bofh.it> <E1Jhib4-0000md-FP@be1.7eggert.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Chris Snook <csnook@redhat.com>,
+	Dave Jones <davej@codemonkey.org.uk>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: 7eggert@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wmproxy1-g27.free.fr ([212.27.42.91]:50148 "EHLO
-	wmproxy1-g27.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753190AbYDDKsL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 06:48:11 -0400
-In-Reply-To: <20080404063359.GA13309@havoc.gtf.org>
+Received: from smtp118.mail.mud.yahoo.com ([209.191.84.167]:47468 "HELO
+	smtp118.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755071AbYDDLAD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 07:00:03 -0400
+In-Reply-To: <E1Jhib4-0000md-FP@be1.7eggert.dyndns.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Selon Jeff Garzik <jeff@garzik.org>:
-
-> I will have another batch to send in the next day or so, including a
-> notable forcedeth fix.
+On Friday 04 April 2008 20:52, Bodo Eggert wrote:
+> Nick Piggin <nickpiggin@yahoo.com.au> wrote:
+> > On Thursday 03 April 2008 05:18, Jeff Garzik wrote:
+> >> Turning to Nick's comment,
+> >>
+> >> > It's still actually nice to know how often it is happening even for
+> >> > these known good sites because too much can indicate a problem and
+> >> > that you could actually bring performance up by tuning some things.
+> >>
+> >> then create a counter or acculuation buffer somewhere.
+> >>
+> >> We don't need spew every time there is memory pressure of this
+> >> magnitude.
+> >
+> > Not a complete solution. Counter would be nice, but you need backtraces
+> > and want a way to more proactively warn the user/tester/developer.
+> >
+> > I agree that I don't exactly like adding nowarns around, and I don't
+> > think places like driver writers should have to know about this stuff.
 >
-> Please pull from 'upstream-davem' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
-> upstream-davem
->
-> to receive the following updates:
->
->  drivers/net/forcedeth.c         |    5 ++---
->  drivers/net/phy/marvell.c       |    2 --
->  drivers/net/tokenring/olympic.c |    6 +++---
->  drivers/net/tulip/tulip_core.c  |    1 -
->  4 files changed, 5 insertions(+), 9 deletions(-)
->
-...
-> Chuck Ebbert (1):
->       NET: remove support for Davicom 9102 from the Tulip driver
-...
-> diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
-> index 82f404b..4443f0f 100644
-> --- a/drivers/net/tulip/tulip_core.c
-> +++ b/drivers/net/tulip/tulip_core.c
-> @@ -231,7 +231,6 @@ static struct pci_device_id tulip_pci_tbl[] = {
->  	{ 0x11F6, 0x9881, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMPEX9881 },
->  	{ 0x8086, 0x0039, PCI_ANY_ID, PCI_ANY_ID, 0, 0, I21145 },
->  	{ 0x1282, 0x9100, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
-> -	{ 0x1282, 0x9102, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
->  	{ 0x1113, 0x1216, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
->  	{ 0x1113, 0x1217, PCI_ANY_ID, PCI_ANY_ID, 0, 0, MX98715 },
->  	{ 0x1113, 0x9511, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
+> What about reverse ratelimiting: If the limit is reached, a backtrace will
+> be generated (and, off cause, positively ratelimited)?
 
-I was looking at some dfme vs tulip google search.
+I was thinking about that. I got as far as writing a simple patch to
+printk  so that it would not start to trigger until it gets a 2nd event
+within 'n' jiffies of the first.
 
-How the id removal accord to this debian bug report
-http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=400837
-
-Looking at dmfe history on git, it is not clearly stated this problem has been
-fixed.
-http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.24.y.git;a=history;f=drivers/net/tulip/dmfe.c;h=656200472fa17aa3e5e8e5d592c4fc2fa1ff2077;hb=HEAD
-
-Gilles
+But actually developers do sometimes want see the event even if it is
+relatively infrequent...
