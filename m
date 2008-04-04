@@ -1,37 +1,48 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: 2.6.25-rc8-mm1 -- INFO: possible circular locking dependency detected (while using iw to debug a wireless issue)
-Date: Fri, 4 Apr 2008 21:53:23 +0200
-Message-ID: <20080404195323.GF20815@postel.suug.ch>
-References: <a44ae5cd0804030741jc9c7aebx21a7635e827b190f@mail.gmail.com> <1207323936.19189.58.camel@johannes.berg> <20080404104302.7445e41f.akpm@linux-foundation.org> <20080404121133.7b0983d8@extreme>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: RE: A Linux TCP SACK Question
+Date: Fri, 4 Apr 2008 23:00:53 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
+References: <fc471cb97cfd.47f5520e@fnal.gov>
+ <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
+ <000001c8967c$496efa20$c95ee183@D2GT6T71>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Miles Lane <miles.lane@gmail.com>, netdev@vger.kernel.org,
-	ALSA development <alsa-devel@alsa-project.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Transfer-Encoding: 7bit
+Cc: 'John Heffner' <johnwheffner@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Wenji Wu <wenji@fnal.gov>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:51060 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756713AbYDDTxF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 15:53:05 -0400
-Content-Disposition: inline
-In-Reply-To: <20080404121133.7b0983d8@extreme>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45543 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755750AbYDDUAy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 16:00:54 -0400
+In-Reply-To: <000001c8967c$496efa20$c95ee183@D2GT6T71>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Stephen Hemminger <shemminger@vyatta.com> 2008-04-04 12:11
-> The changes in git-net don't look locking related.  I suspect either:
-> wireless is calling netlink without holding rtnl_lock;
-> or more likely conditional locking ctrl_dumpfamily is confusing lockdep.
-> 
-> ctrl_dumpfamily only acquires genl_lock if one of the incoming parameters (chains_to_skip)
-> is non-zero. Not sure what the design reason is, Thomas could you add a comment?
+On Fri, 4 Apr 2008, Wenji Wu wrote:
 
-First call to ctrl_dumpfamily() is coming directly from the message
-processing context where genl_lock is already held. Subsequence calls
-come from netlink_recvmsg() so we have to take the lock separately.
+> Every system runs Linux 2.6.24.
 
-However, I just noticed the condition should really be
-	chains_to_skip != 0 || fams_to_skip != 0
+You should have reported kernel version right from the beginning. It may 
+have a huge effect... ;-)
+
+> When sack is on, the throughput is around 180Mbps
+> When sack is off, the throughput is around 260Mbps
+
+Not a surprise, once some reordering is detected, SACK TCP switches away 
+from FACK to something that's not what you'd expect (in 2.6.24), you 
+should try 2.6.25-rcs first in which the non-FACK is very close to 
+RFC3517.
+
+> I was thinking that if the reordered ACKs/SACKs cause confusion in the
+> sender, and sender will unnecessarily reduce either the CWND or the
+> TCP_REORDERING threshold. I might need to take a serious look at the 
+> SACK implementation. 
+
+I'd suggest that you don't waste too much effort for 2.6.24. ...Most of it 
+is recoded/updated since then.
+
+
+-- 
+ i.
