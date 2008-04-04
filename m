@@ -1,43 +1,79 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: speaking of stacks
-Date: Fri, 4 Apr 2008 18:31:43 -0400
-Message-ID: <200804041831.43578.paul.moore@hp.com>
-References: <1206969356.4424.120.camel@localhost> <200804040832.33785.paul.moore@hp.com> <1207312863.4402.80.camel@localhost>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: [patch] NET: remove support for Davicom 9102 from the Tulip
+	driver
+Date: Fri, 4 Apr 2008 17:26:50 -0600
+Message-ID: <20080404232650.GE27826@colo.lackof.org>
+References: <Pine.SOC.4.64.0804031209540.2017@math.ut.ee> <47F69FBE.3020308@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	joern@lazybastard.org, herbert@gondor.apana.org.au,
-	James Morris <jmorris@namei.org>
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: cebbert@redhat.com, netdev@vger.kernel.org,
+	Grant Grundler <grundler@parisc-linux.org>
+To: Jeff Garzik <jeff@garzik.org>, Meelis Roos <mroos@linux.ee>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:31386 "EHLO
-	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753863AbYDDWbs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 18:31:48 -0400
-In-Reply-To: <1207312863.4402.80.camel@localhost>
+Received: from colo.lackof.org ([198.49.126.79]:41769 "EHLO colo.lackof.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751491AbYDDX1D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2008 19:27:03 -0400
 Content-Disposition: inline
+In-Reply-To: <47F69FBE.3020308@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 04 April 2008 8:41:03 am jamal wrote:
-> On Fri, 2008-04-04 at 08:32 -0400, Paul Moore wrote:
-> > Sorry, I've been stuck under a rock for about the past month.
-> > Unless somebody is really anxious to do this I'll see if I can whip
-> > up an RFC patch and get it out either today or early next week.
+On Fri, Apr 04, 2008 at 05:38:06PM -0400, Jeff Garzik wrote:
+> Meelis Roos wrote:
+>> CE> We have two reports that agree the tulip driver doesn't work for
+>> CE> the Davicom 9102 (PCI id 1282:9102). The dmfe driver does work
+>> CE> and also claims the same PCI ID.
+>> NAK, dmfe does not work on some Sparc64 machines but tulip does.
+
+jeff and davem already answered the basic SROM/MAC address issue.
+Patches to fix this are associated with
+	http://bugzilla.kernel.org/show_bug.cgi?id=9106
+
+There is another "dmfe" issue reported in:
+	http://bugzilla.kernel.org/show_bug.cgi?id=9094
+
+But I think this one is related to something newer gcc versions (early
+4.2 and current gcc-4.3. I've seen the same behavior with tulip driver
+on parisc as described in bug #9094.
+
+
+>> I happent to have a Sun Fire V100 with 2 Davicom NICs (1282:9102 (rev 
+>> 31)).
+>> tulip driver works for them, dmfe doesn't.
+
+This experience doesn't agree with the bug report.
+Meelis, can you please take a look at the bug report and add comments?
+
+>> Tried with 2.6.25-rc7, first it
+>> gets MAC addresses all zeroed and second, it only results in Tx timeouts.
 >
-> No rush - it is an enhancement not a bug fix. If you need my help let
-> me know.
+> At the very least, it sounds like some SROM parsing problems on dmfe's part 
+> -- assuming a standard SROM when sparc64 provides a more complicated one.
+>
+>
+>> This issue was debugged somemonths ago on sparclinux mailing list. DaveM
+>> fixed some bugs IIRC but it still does not work.
+>
+> URL to more info?
 
-It would still be nice to get into 2.6.26 and I figure we only have a 
-few weeks before the merge window opens.  I've got a patch cobbled 
-together that does what Dave suggested plus all the other "left as an 
-exercise for the reader" pieces that compiles I just haven't had a 
-chance to test it yet, my test machines are busy testing some other 
-bits right now.  You should see from mail from me early next week, 
-review and additional testing is always welcome :)
+http://bugzilla.kernel.org/show_bug.cgi?id=9106
 
--- 
-paul moore
-linux @ hp
+> Overall we need someone to either (a) work on tulip to get it working with 
+> popular 9102's, or (b) work on dmfe to get it working on sparc64...  
+
+We tried (b) but didn't get it working on V100 previously.
+Several patches are attached to the bug report.
+
+
+> Installers and users will continue to be confused by the present situation, 
+> where the same PCI ID is claimed by two different drivers, and you just 
+> sorta haveta "know" which one is right.
+
+Agreed.  But I don't have consistent evidence that one is better than
+the other. I'm open to reports of evidence for remove specific PCI IDs
+from either driver.
+
+thanks for adding me to the CC list.
+
+grant
