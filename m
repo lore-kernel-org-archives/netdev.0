@@ -1,82 +1,84 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [DCCP]: Fix skb->cb conflicts with IP
-Date: Fri, 04 Apr 2008 14:13:16 +0200
-Message-ID: <47F61B5C.8090105@trash.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: speaking of stacks
+Date: Fri, 04 Apr 2008 08:24:12 -0400
+Message-ID: <1207311852.4402.63.camel@localhost>
+References: <1206969356.4424.120.camel@localhost>
+	 <20080403.141815.218859276.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050908030403050805050803"
-Cc: dccp@vger.kernel.org, Linux Netdev List <netdev@vger.kernel.org>
-To: acme@redhat.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, joern@lazybastard.org,
+	herbert@gondor.apana.org.au, Paul Moore <paul.moore@hp.com>,
+	James Morris <jmorris@namei.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35148 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751462AbYDDMNZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 08:13:25 -0400
+Received: from py-out-1112.google.com ([64.233.166.178]:51326 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750770AbYDDMYS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 08:24:18 -0400
+Received: by py-out-1112.google.com with SMTP id u52so40047pyb.10
+        for <netdev@vger.kernel.org>; Fri, 04 Apr 2008 05:24:15 -0700 (PDT)
+In-Reply-To: <20080403.141815.218859276.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------050908030403050805050803
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+On Thu, 2008-03-04 at 14:18 -0700, David Miller wrote:
 
+> You probably have most of the security infrastructure turned
+> off, therefore GCC can see that 'tmp' is basically unused
+> and can therefore be totally eliminated.
+> 
+> The memset() call makes 'tmp' get passed by reference to
+> another function, and thus become used.
 
---------------050908030403050805050803
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+Indeed, thanks - that resolves the mystery;->
 
-commit eced67957ee99f7b5fafdc73a58bcd037a1789b2
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Apr 4 14:10:23 2008 +0200
+Testing by moving the tmp memseting inside security_xfrm_policy_alloc()
+so memset is only invoked when CONFIG_SECURITY_NETWORK_XFRM resolves the
+stack abuse.
+BTW, of the top 10 stack abusers _in the kernel_ (should say based on my
+config) constitute 3-4 spots which are caused by this exact thing.
+I could send a patch that resolves the issue by moving memset but that
+would only fix it for people like myself who turn off SELinux.
 
-    [DCCP]: Fix skb->cb conflicts with IP
-    
-    dev_queue_xmit() and the other IP output functions expect to get a skb
-    with clear or properly initialized skb->cb. Unlike TCP and UDP, the
-    dccp_skb_cb doesn't contain a struct inet_skb_parm at the beginning,
-    so the DCCP-specific data is interpreted by the IP output functions.
-    This can cause false negatives for the conditional POST_ROUTING hook
-    invocation, making the packet bypass the hook.
-    
-    Add a inet_skb_parm/inet6_skb_parm union to the beginning of
-    dccp_skb_cb to avoid clashes. Also add a BUILD_BUG_ON to make
-    sure it fits in the cb.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+> This whole song and dance here is for SELINUX to set only
+> the policy->security, so that we can pass that back down
+> into the subsequent xfrm_policy_bysel_ctx().
+> 
+> The thing to do is to rearrange these security layer hooks
+> so that they take a "struct xfrm_sec_ctx **" instead of
+> a full policy pointer.
+> 
+> Then the code would look like:
+> 
+> 		struct nlattr *rt = attrs[XFRMA_SEC_CTX];
+> 		struct xfrm_sec_ctx *ctx;
+> 
+> 		err = verify_sec_ctx_len(attrs);
+> 		if (err)
+> 			return err;
+> 
+> 		if (rt) {
+> 			struct xfrm_user_sec_ctx *uctx = nla_data(rt);
+> 
+> 			if ((err = security_xfrm_policy_alloc(&ctx, uctx)))
+> 				return err;
+> 		}
+> 		xp = xfrm_policy_bysel_ctx(type, p->dir, &p->sel, ctx,
+> 					   delete, &err);
+> 		security_xfrm_policy_free(ctx);
+> 
+> And thus the xfrm_policy wouldn't need to be on the stack
+> any longer.
 
-diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
-index fe7726b..f44d492 100644
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -325,6 +325,12 @@ static inline int dccp_bad_service_code(const struct sock *sk,
-  * This is used for transmission as well as for reception.
-  */
- struct dccp_skb_cb {
-+	union {
-+		struct inet_skb_parm	h4;
-+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+		struct inet6_skb_parm	h6;
-+#endif
-+	} header;
- 	__u8  dccpd_type:4;
- 	__u8  dccpd_ccval:4;
- 	__u8  dccpd_reset_code,
-diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index e3f5d37..c91d3c1 100644
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -1057,6 +1057,9 @@ static int __init dccp_init(void)
- 	int ehash_order, bhash_order, i;
- 	int rc = -ENOBUFS;
- 
-+	BUILD_BUG_ON(sizeof(struct dccp_skb_cb) >
-+		     FIELD_SIZEOF(struct sk_buff, cb));
-+
- 	dccp_hashinfo.bind_bucket_cachep =
- 		kmem_cache_create("dccp_bind_bucket",
- 				  sizeof(struct inet_bind_bucket), 0,
+Yes, that would be cleaner than what i did; i will give the opportunity
+to the SELinux folks to take a first crack at it with the above
+approach. 
 
---------------050908030403050805050803--
+CCing some of the SElinux folks. 
+Thanks Dave.
+
+cheers,
+jamal
+
