@@ -1,48 +1,40 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch] NET: remove support for Davicom 9102 from the Tulip driver
-Date: Fri, 04 Apr 2008 01:46:11 -0400
-Message-ID: <47F5C0A3.4020003@garzik.org>
-References: <47F40CE1.2080708@redhat.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] sc92031: sysfs link missing
+Date: Fri, 04 Apr 2008 01:46:05 -0400
+Message-ID: <47F5C09D.5000200@pobox.com>
+References: <bug-10380-10286@http.bugzilla.kernel.org/>	<20080402091435.39f99428.akpm@linux-foundation.org> <20080402093956.2520ebfd@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Chuck Ebbert <cebbert@redhat.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Cesar Eduardo Barros <cesarb@cesarb.net>, tom@sharkbay.at
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59872 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59874 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753026AbYDDFqN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 01:46:13 -0400
-In-Reply-To: <47F40CE1.2080708@redhat.com>
+	id S1754410AbYDDFqP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2008 01:46:15 -0400
+In-Reply-To: <20080402093956.2520ebfd@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chuck Ebbert wrote:
-> NET: remove support for Davicom 9102 from the Tulip driver
+Stephen Hemminger wrote:
+> Add missing sysfs device association. Compile tested only -ENOHW.
 > 
-> We have two reports that agree the tulip driver doesn't work for
-> the Davicom 9102 (PCI id 1282:9102). The dmfe driver does work
-> and also claims the same PCI ID.
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> https://bugzilla.redhat.com/show_bug.cgi?id=277731
-> https://bugzilla.redhat.com/show_bug.cgi?id=236928
 > 
-> Signed-off-by: Chuck Ebbert <cebbert@redhat.com>
-> 
-> ---
->  drivers/net/tulip/tulip_core.c |    1 -
->  1 file changed, 1 deletion(-)
-> 
-> --- linux-2.6.24.noarch.orig/drivers/net/tulip/tulip_core.c
-> +++ linux-2.6.24.noarch/drivers/net/tulip/tulip_core.c
-> @@ -231,7 +231,6 @@ static struct pci_device_id tulip_pci_tb
->  	{ 0x11F6, 0x9881, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMPEX9881 },
->  	{ 0x8086, 0x0039, PCI_ANY_ID, PCI_ANY_ID, 0, 0, I21145 },
->  	{ 0x1282, 0x9100, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
-> -	{ 0x1282, 0x9102, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
->  	{ 0x1113, 0x1216, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
->  	{ 0x1113, 0x1217, PCI_ANY_ID, PCI_ANY_ID, 0, 0, MX98715 },
->  	{ 0x1113, 0x9511, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
+> --- a/drivers/net/sc92031.c	2008-04-02 09:34:35.000000000 -0700
+> +++ b/drivers/net/sc92031.c	2008-04-02 09:36:53.000000000 -0700
+> @@ -1446,6 +1446,7 @@ static int __devinit sc92031_probe(struc
+>  	}
+>  
+>  	pci_set_drvdata(pdev, dev);
+> +	SET_NETDEV_DEV(dev, &hw->pdev->dev);
+>  
+>  #if SC92031_USE_BAR == 0
+>  	dev->mem_start = pci_resource_start(pdev, SC92031_USE_BAR);
 
 applied
 
