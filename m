@@ -1,44 +1,38 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: [PATCH] Move IPVS from net/ipv4/ipvs to net/netfilter/ipvs in preparation for IPv6 support
-Date: Fri, 4 Apr 2008 12:40:36 +0200
-Message-ID: <f4845fc0804040340x5e93754crcd680d26fd8982f7@mail.gmail.com>
+From: Andy Furniss <lists@andyfurniss.entadsl.com>
+Subject: Re: [NET_SCHED 00/04]: External SFQ classifiers/flow classifier
+Date: Fri, 04 Apr 2008 11:42:54 +0100
+Message-ID: <47F6062E.9050804@andyfurniss.entadsl.com>
+References: <20080131175758.25151.20370.sendpatchset@localhost.localdomain> <47A4FB81.80700@fatooh.org> <47A74FEE.6080103@trash.net> <47EED247.50801@andyfurniss.entadsl.com> <47F22CF5.4080806@trash.net> <47F28758.1010401@andyfurniss.entadsl.com> <47F37139.9080303@andyfurniss.entadsl.com> <47F37E04.4010001@trash.net> <47F3B3C5.6000701@andyfurniss.entadsl.com>
+Reply-To: lists@andyfurniss.entadsl.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Simon Horman" <horms@verge.net.au>
-To: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	Corey Hickey <bugfood-ml@fatooh.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: lists@andyfurniss.entadsl.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.ukfsn.org ([77.75.108.10]:52379 "EHLO mail.ukfsn.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751031AbYDDKl1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2008 06:41:27 -0400
+In-Reply-To: <47F3B3C5.6000701@andyfurniss.entadsl.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Andy Furniss wrote:
 
-This patch moves IPVS from net/ipv4/ipvs to net/netfilter/ipvs, as
-discussed earlier with Horms and Patrick McHardy. This is done as a
-preparation for later adding IPv6 functionality to IPVS. The patch is
-600kb, so I uploaded it here:
+> OK - FWIW I've been looking harder and have now seen the full range of 
+> +/- 32k so I assume it's just not getting initialised properly.
 
-http://www-user.tu-chemnitz.de/~volz/move_ipvs_to_netfilter.patch
+Hmm I am not so sure now maybe it's a stats thing - I have seen flows 
+apparently stuck with -ve allot but behaving normally.
 
---------------------------
-Description:
-Move IPVS from net/ipv4/ipvs to net/netfilter/ipvs as a preparation
-for adding IPv6 support to IPVS later on.
+I notice allot is short (16bits?) in sfq but see
 
-Signed-off-by: Julius R. Volz <juliusv@google.com>
---------------------------
++struct tc_sfq_xstats
++{
++	__s32		allot;
++};
 
-It applies to the current net-2.6 tree and IPVS is working after these
-changes. The patch also moves the IPVS menu options into the Netfilter
-menu subtree. Please let me know if that is ok or has to be changed
-(it seems ok to me, as IPVS depends on Netfilter).
-
-Again, I'm pretty new to kernel development, so let me know of
-anything that can be done better.
-
-Thanks,
-Julius Volz
-
--- 
-Google Switzerland GmbH
+Andy.
