@@ -1,54 +1,115 @@
-From: Georgi Chorbadzhiyski <gf@unixsol.org>
-Subject: Re: Linux 2.6.25-rc6: WARNING: at net/ipv4/tcp_input.c:2510
-Date: Fri, 04 Apr 2008 09:16:49 +0300
-Message-ID: <47F5C7D1.1080906@unixsol.org>
-References: <47EBCB75.6030600@unixsol.org> <Pine.LNX.4.64.0804031315360.21524@wrl-59.cs.helsinki.fi>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [git patches] net driver fixes
+Date: Fri, 4 Apr 2008 02:33:59 -0400
+Message-ID: <20080404063359.GA13309@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.unixsol.org ([193.110.159.2]:44169 "EHLO ns.unixsol.org"
+Received: from havoc.gtf.org ([69.61.125.42]:45114 "EHLO havoc.gtf.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752031AbYDDGQu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 02:16:50 -0400
-In-Reply-To: <Pine.LNX.4.64.0804031315360.21524@wrl-59.cs.helsinki.fi>
+	id S1752928AbYDDGeA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2008 02:34:00 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Around 04/03/08 13:17, Ilpo J=E4rvinen scribbled:
-> On Thu, 27 Mar 2008, Georgi Chorbadzhiyski wrote:
->=20
->> A week ago I updated one of my servers to 2.6.25-rc6 and today looki=
-ng
->> through logs I've found these:
->>
->> [380219.823434] ------------[ cut here ]------------
->> [380219.823450] WARNING: at net/ipv4/tcp_input.c:2510 tcp_ack+0xc7e/=
-0x177d()
->=20
-> Is this reproducable for you? If yes, is it possible for you to run=20
+I will have another batch to send in the next day or so, including a
+notable forcedeth fix.
 
-Not in the moment.
+Please pull from 'upstream-davem' branch of
+master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-davem
 
-I'm not getting such errors in the log since my last report. Today I'll=
- update
-to latest -git and will restart the server.
+to receive the following updates:
 
-The machine that gave me this error is a http and ftp server handling n=
-ot
-very busy distro mirror (if this can give you any clues).
+ drivers/net/forcedeth.c         |    5 ++---
+ drivers/net/phy/marvell.c       |    2 --
+ drivers/net/tokenring/olympic.c |    6 +++---
+ drivers/net/tulip/tulip_core.c  |    1 -
+ 4 files changed, 5 insertions(+), 9 deletions(-)
 
-> processing expensive verification of TCP state (validates TCP write q=
-ueue=20
-> invariants multiple times per ACK by scanning through the write queue=
-) on=20
-> such machine?
+Adrian Bunk (1):
+      net/tokenring/olympic.c section fixes
 
-How to run such a thing, can you give me some pointers?
+Al Viro (1):
+      fix endian lossage in forcedeth
 
---=20
-Georgi Chorbadzhiyski
-http://georgi.unixsol.org/
+Chuck Ebbert (1):
+      NET: remove support for Davicom 9102 from the Tulip driver
+
+Harvey Harrison (1):
+      net: marvell.c fix sparse shadowed variable warning
+
+diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+index 980c2c2..419f533 100644
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -2112,9 +2112,8 @@ static inline void nv_tx_flip_ownership(struct net_device *dev)
+ 
+ 	np->tx_pkts_in_progress--;
+ 	if (np->tx_change_owner) {
+-		__le32 flaglen = le32_to_cpu(np->tx_change_owner->first_tx_desc->flaglen);
+-		flaglen |= NV_TX2_VALID;
+-		np->tx_change_owner->first_tx_desc->flaglen = cpu_to_le32(flaglen);
++		np->tx_change_owner->first_tx_desc->flaglen |=
++			cpu_to_le32(NV_TX2_VALID);
+ 		np->tx_pkts_in_progress++;
+ 
+ 		np->tx_change_owner = np->tx_change_owner->next_tx_ctx;
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index 3353991..32a8503 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -211,8 +211,6 @@ static int m88e1111_config_init(struct phy_device *phydev)
+ 	}
+ 
+ 	if (phydev->interface == PHY_INTERFACE_MODE_SGMII) {
+-		int temp;
+-
+ 		temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
+ 		if (temp < 0)
+ 			return temp;
+diff --git a/drivers/net/tokenring/olympic.c b/drivers/net/tokenring/olympic.c
+index 433c994..db4ca4f 100644
+--- a/drivers/net/tokenring/olympic.c
++++ b/drivers/net/tokenring/olympic.c
+@@ -117,7 +117,7 @@
+  * Official releases will only have an a.b.c version number format. 
+  */
+ 
+-static char version[] __devinitdata = 
++static char version[] =
+ "Olympic.c v1.0.5 6/04/02 - Peter De Schrijver & Mike Phillips" ; 
+ 
+ static char *open_maj_error[]  = {"No error", "Lobe Media Test", "Physical Insertion",
+@@ -290,7 +290,7 @@ op_disable_dev:
+ 	return i;
+ }
+ 
+-static int __devinit olympic_init(struct net_device *dev)
++static int olympic_init(struct net_device *dev)
+ {
+     	struct olympic_private *olympic_priv;
+ 	u8 __iomem *olympic_mmio, *init_srb,*adapter_addr;
+@@ -434,7 +434,7 @@ static int __devinit olympic_init(struct net_device *dev)
+ 
+ }
+ 
+-static int __devinit olympic_open(struct net_device *dev) 
++static int olympic_open(struct net_device *dev)
+ {
+ 	struct olympic_private *olympic_priv=netdev_priv(dev);
+ 	u8 __iomem *olympic_mmio=olympic_priv->olympic_mmio,*init_srb;
+diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
+index 82f404b..4443f0f 100644
+--- a/drivers/net/tulip/tulip_core.c
++++ b/drivers/net/tulip/tulip_core.c
+@@ -231,7 +231,6 @@ static struct pci_device_id tulip_pci_tbl[] = {
+ 	{ 0x11F6, 0x9881, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMPEX9881 },
+ 	{ 0x8086, 0x0039, PCI_ANY_ID, PCI_ANY_ID, 0, 0, I21145 },
+ 	{ 0x1282, 0x9100, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
+-	{ 0x1282, 0x9102, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
+ 	{ 0x1113, 0x1216, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
+ 	{ 0x1113, 0x1217, PCI_ANY_ID, PCI_ANY_ID, 0, 0, MX98715 },
+ 	{ 0x1113, 0x9511, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
