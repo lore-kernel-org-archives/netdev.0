@@ -1,35 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] NET: remove support for Davicom 9102 from the Tulip
- driver
-Date: Fri, 04 Apr 2008 15:05:30 -0700 (PDT)
-Message-ID: <20080404.150530.225808747.davem@davemloft.net>
-References: <Pine.SOC.4.64.0804041154150.11646@math.ut.ee>
-	<47F6A4DC.3070504@garzik.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch] NET: remove support for Davicom 9102 from the Tulip driver
+Date: Fri, 04 Apr 2008 18:06:17 -0400
+Message-ID: <47F6A659.7000100@garzik.org>
+References: <Pine.SOC.4.64.0804031209540.2017@math.ut.ee>	<47F69FBE.3020308@garzik.org> <20080404.150249.132264075.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mroos@linux.ee, netdev@vger.kernel.org, grundler@parisc-linux.org
-To: jeff@garzik.org
+Cc: mroos@linux.ee, cebbert@redhat.com, netdev@vger.kernel.org,
+	grundler@parisc-linux.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41231
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751653AbYDDWF3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 18:05:29 -0400
-In-Reply-To: <47F6A4DC.3070504@garzik.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:51446 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752239AbYDDWGW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2008 18:06:22 -0400
+In-Reply-To: <20080404.150249.132264075.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Fri, 04 Apr 2008 17:59:56 -0400
-
-> A zeroed MAC address leads me to believe that dmfe's SROM parsing isn't 
-> quite as capable as tulip's, though that's just a guess.
+David Miller wrote:
+> From: Jeff Garzik <jeff@garzik.org>
+> Date: Fri, 04 Apr 2008 17:38:06 -0400
 > 
-> Just checked dmfe with sparse and it reports clean, though looking at 
-> the code it could use some cleanups.
+>> Meelis Roos wrote:
+>>> CE> We have two reports that agree the tulip driver doesn't work for
+>>> CE> the Davicom 9102 (PCI id 1282:9102). The dmfe driver does work
+>>> CE> and also claims the same PCI ID.
+>>>
+>>> NAK, dmfe does not work on some Sparc64 machines but tulip does.
+>>>
+>>> I happent to have a Sun Fire V100 with 2 Davicom NICs (1282:9102 (rev 
+>>> 31)).
+>>> tulip driver works for them, dmfe doesn't. Tried with 2.6.25-rc7, first 
+>>> it
+>>> gets MAC addresses all zeroed and second, it only results in Tx 
+>>> timeouts.
+>> At the very least, it sounds like some SROM parsing problems on dmfe's 
+>> part -- assuming a standard SROM when sparc64 provides a more 
+>> complicated one.
+> 
+> With the onboard Sparc64 davicoms, the SROM is essentially empty.
 
-The sparc64 onboard davicoms don't indicate anything in the
-SROM area.
+In this case, should dmfe be retrieving the MAC address via
 
-Properties such as MAC addresses need to be obtained via
-openfirmware probing methods.
+	addr = of_get_property(dp, "local-mac-address", &len);
+
+as tulip is doing?
+
+One thing that seems quite obvious is that dmfe is missing all the 
+CONFIG_SPARC goodies that tulip has.
+
+	Jeff
+
+
+
