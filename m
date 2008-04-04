@@ -1,166 +1,74 @@
-From: Mandeep Singh Baines <msb@google.com>
-Subject: Re: [PATCH] [ETHTOOL]: Add support for large eeproms
-Date: Thu, 3 Apr 2008 18:41:30 -0700
-Message-ID: <20080404014129.GA28593@google.com>
-References: <20080403180021.GA5974@google.com> <1207267417.23161.353.camel@localhost>
+From: "Xiaoliang \"David\" Wei" <davidwei79@gmail.com>
+Subject: Re: Why is tcp_reno_min_cwnd() ssthresh/2?
+Date: Thu, 3 Apr 2008 19:35:50 -0700
+Message-ID: <7335583a0804031935g49a843dbq8b8c132411501a8b@mail.gmail.com>
+References: <aa7d2c6d0804031800r7d796b40oc011e684bcd2f0c0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jeff@garzik.org, matthew@wil.cx,
-	davem@davemloft.net, nil@google.com, thockin@google.com
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: "Lachlan Andrew" <lachlan.andrew@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:30872 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755215AbYDDBm1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 21:42:27 -0400
-Received: from zps37.corp.google.com (zps37.corp.google.com [172.25.146.37])
-	by smtp-out.google.com with ESMTP id m341gHlU022966
-	for <netdev@vger.kernel.org>; Fri, 4 Apr 2008 02:42:18 +0100
-Received: from an-out-0708.google.com (anac25.prod.google.com [10.100.54.25])
-	by zps37.corp.google.com with ESMTP id m341gGTp000676
-	for <netdev@vger.kernel.org>; Thu, 3 Apr 2008 18:42:16 -0700
-Received: by an-out-0708.google.com with SMTP id c25so2405877ana.77
-        for <netdev@vger.kernel.org>; Thu, 03 Apr 2008 18:42:16 -0700 (PDT)
+Received: from fg-out-1718.google.com ([72.14.220.155]:16242 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755805AbYDDCfw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 22:35:52 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so3611414fgb.17
+        for <netdev@vger.kernel.org>; Thu, 03 Apr 2008 19:35:50 -0700 (PDT)
+In-Reply-To: <aa7d2c6d0804031800r7d796b40oc011e684bcd2f0c0@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <1207267417.23161.353.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joe Perches (joe@perches.com) wrote:
-> This looks better.
-> There's a typo at line 315 though, it needs a ";".
-> 
+Hi Lachlan,
 
-Oops. In my haste to get out the revised patch I didn't bother to test.
-Bad Mandeep.
+    I think the reno_min_cwnd gives a lower bound of the cwnd during
+one round of rate halving. So it is not *always* that cwnd will go to
+reno_min_cwnd. If the recovery is done before the cwnd dropping to
+reno_min_cwnd, the cwnd will be drop by at least one half. I think the
+assumption is that normally one round of rate-halving will end up with
+a half of congestion window so this lower bound is not activated.
 
-> I was also wrong that int ret _does_ need to be
-> initialized to 0 in case (eeprom.len == 0)
-> 
+    The last time I examined this algorithm, I got the following
+document about rate halving:
+http://www.psc.edu/networking/papers/FACKnotes/current/
 
-I knew I had that there for a reason. But I forgot to initialize ret in
-ethtool_get_eeprom. You've fixed this in your update to the patch:)
+    (It might be possible that the assumptions in this draft might be
+out-dated or I misunderstood the algorithms :)
 
-> I think this should be written as below:
-> 
+-David
 
-Agreed. You've fixed my bugs and I think setting ret inside the if
-makes the code easier to reason about.
+On Thu, Apr 3, 2008 at 6:00 PM, Lachlan Andrew <lachlan.andrew@gmail.com> wrote:
+> Greetings all,
+>
+>  Apologies if this is a dumb question, but why does
+>  tcp_reno_min_cwnd()  return  ssthresh/2?
+>
+>  Since   ssthresh <- snd_cwnd/2   on loss, this looks like it tries to
+>  reduce  snd_cwnd  to 1/4 its value before a loss event, presumably
+>  then slow-starting back to half of the original  snd_cwnd.
+>
+>  As Tom Quetchenbach pointed out, it is also odd that  omitting
+>  min_cwnd()  from a congestion control module causes  ssthresh  to be
+>  used, giving different results from using  tcp_reno_min_cwnd().
+>
+>  Thanks,
+>  Lachlan
+>
+>  --
+>  Lachlan Andrew  Dept of Computer Science, Caltech
+>  1200 E California Blvd, Mail Code 256-80, Pasadena CA 91125, USA
+>  Ph: +1 (626) 395-8820    Fax: +1 (626) 568-3603
+>  http://netlab.caltech.edu/lachlan
+>  --
+>  To unsubscribe from this list: send the line "unsubscribe netdev" in
+>  the body of a message to majordomo@vger.kernel.org
+>  More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
 
-I've tested your updated version of the patch and it looks good.
 
-> cheers, Joe
-> 
->  net/core/ethtool.c |   68 +++++++++++++++++++++++++++++-----------------------
->  1 files changed, 38 insertions(+), 30 deletions(-)
-> 
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index 1163eb2..a29b43d 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -284,8 +284,10 @@ static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
->  {
->  	struct ethtool_eeprom eeprom;
->  	const struct ethtool_ops *ops = dev->ethtool_ops;
-> +	void __user *userbuf = useraddr + sizeof(eeprom);
-> +	u32 bytes_remaining;
->  	u8 *data;
-> -	int ret;
-> +	int ret = 0;
->  
->  	if (!ops->get_eeprom || !ops->get_eeprom_len)
->  		return -EOPNOTSUPP;
-> @@ -301,26 +303,26 @@ static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
->  	if (eeprom.offset + eeprom.len > ops->get_eeprom_len(dev))
->  		return -EINVAL;
->  
-> -	data = kmalloc(eeprom.len, GFP_USER);
-> +	data = kmalloc(PAGE_SIZE, GFP_USER);
->  	if (!data)
->  		return -ENOMEM;
->  
-> -	ret = -EFAULT;
-> -	if (copy_from_user(data, useraddr + sizeof(eeprom), eeprom.len))
-> -		goto out;
-> -
-> -	ret = ops->get_eeprom(dev, &eeprom, data);
-> -	if (ret)
-> -		goto out;
-> +	bytes_remaining = eeprom.len;
-> +	while (bytes_remaining > 0) {
-> +		eeprom.len = min(bytes_remaining, (u32)PAGE_SIZE);
->  
-> -	ret = -EFAULT;
-> -	if (copy_to_user(useraddr, &eeprom, sizeof(eeprom)))
-> -		goto out;
-> -	if (copy_to_user(useraddr + sizeof(eeprom), data, eeprom.len))
-> -		goto out;
-> -	ret = 0;
-> +		ret = ops->get_eeprom(dev, &eeprom, data);
-> +		if (ret)
-> +			break;
-> +		if (copy_to_user(userbuf, data, eeprom.len)) {
-> +			ret = -EFAULT;
-> +			break;
-> +		}
-> +		userbuf += eeprom.len;
-> +		eeprom.offset += eeprom.len;
-> +		bytes_remaining -= eeprom.len;
-> +	}
->  
-> - out:
->  	kfree(data);
->  	return ret;
->  }
-> @@ -329,8 +331,10 @@ static int ethtool_set_eeprom(struct net_device *dev, void __user *useraddr)
->  {
->  	struct ethtool_eeprom eeprom;
->  	const struct ethtool_ops *ops = dev->ethtool_ops;
-> +	void __user *userbuf = useraddr + sizeof(eeprom);
-> +	u32 bytes_remaining;
->  	u8 *data;
-> -	int ret;
-> +	int ret = 0;
->  
->  	if (!ops->set_eeprom || !ops->get_eeprom_len)
->  		return -EOPNOTSUPP;
-> @@ -346,22 +350,26 @@ static int ethtool_set_eeprom(struct net_device *dev, void __user *useraddr)
->  	if (eeprom.offset + eeprom.len > ops->get_eeprom_len(dev))
->  		return -EINVAL;
->  
-> -	data = kmalloc(eeprom.len, GFP_USER);
-> +	data = kmalloc(PAGE_SIZE, GFP_USER);
->  	if (!data)
->  		return -ENOMEM;
->  
-> -	ret = -EFAULT;
-> -	if (copy_from_user(data, useraddr + sizeof(eeprom), eeprom.len))
-> -		goto out;
-> -
-> -	ret = ops->set_eeprom(dev, &eeprom, data);
-> -	if (ret)
-> -		goto out;
-> +	bytes_remaining = eeprom.len;
-> +	while (bytes_remaining > 0) {
-> +		eeprom.len = min(bytes_remaining, (u32)PAGE_SIZE);
->  
-> -	if (copy_to_user(useraddr + sizeof(eeprom), data, eeprom.len))
-> -		ret = -EFAULT;
-> +		if (copy_from_user(data, userbuf, eeprom.len)) {
-> +			ret = -EFAULT;
-> +			break;
-> +		}
-> +		ret = ops->set_eeprom(dev, &eeprom, data);
-> +		if (ret)
-> +			break;
-> +		userbuf += eeprom.len;
-> +		eeprom.offset += eeprom.len;
-> +		bytes_remaining -= eeprom.len;
-> +	}
->  
-> - out:
->  	kfree(data);
->  	return ret;
->  }
-> 
-> 
+
+-- 
+Xiaoliang "David" Wei
+http://davidwei.org
+***********************************************
