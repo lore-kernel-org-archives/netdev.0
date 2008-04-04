@@ -1,26 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver fixes (v2)
-Date: Fri, 04 Apr 2008 15:04:29 -0700 (PDT)
-Message-ID: <20080404.150429.264658368.davem@davemloft.net>
-References: <20080404212917.GA28174@havoc.gtf.org>
+Subject: Re: [patch] NET: remove support for Davicom 9102 from the Tulip
+ driver
+Date: Fri, 04 Apr 2008 15:05:30 -0700 (PDT)
+Message-ID: <20080404.150530.225808747.davem@davemloft.net>
+References: <Pine.SOC.4.64.0804041154150.11646@math.ut.ee>
+	<47F6A4DC.3070504@garzik.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: mroos@linux.ee, netdev@vger.kernel.org, grundler@parisc-linux.org
 To: jeff@garzik.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752442AbYDDWE6@vger.kernel.org>
-In-Reply-To: <20080404212917.GA28174@havoc.gtf.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41231
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751653AbYDDWF3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 18:05:29 -0400
+In-Reply-To: <47F6A4DC.3070504@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Garzik <jeff@garzik.org>
-Date: Fri, 4 Apr 2008 17:29:17 -0400
+Date: Fri, 04 Apr 2008 17:59:56 -0400
 
+> A zeroed MAC address leads me to believe that dmfe's SROM parsing isn't 
+> quite as capable as tulip's, though that's just a guess.
 > 
-> NOTE: dropped dmfe change, would cause regression noted by Meelis
-> 
-> Please pull from 'upstream-davem' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-davem
-> 
+> Just checked dmfe with sparse and it reports clean, though looking at 
+> the code it could use some cleanups.
 
-Pulled and pushed back out to net-2.6, thanks Jeff!
+The sparc64 onboard davicoms don't indicate anything in the
+SROM area.
+
+Properties such as MAC addresses need to be obtained via
+openfirmware probing methods.
