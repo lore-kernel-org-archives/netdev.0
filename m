@@ -1,54 +1,50 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch] NET: remove support for Davicom 9102 from the Tulip driver
-Date: Fri, 04 Apr 2008 17:38:06 -0400
-Message-ID: <47F69FBE.3020308@garzik.org>
-References: <Pine.SOC.4.64.0804031209540.2017@math.ut.ee>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: RE: A Linux TCP SACK Question
+Date: Sat, 5 Apr 2008 00:39:32 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
+References: <fc471cb97cfd.47f5520e@fnal.gov>
+ <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
+ <000001c8967c$496efa20$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
+ <000b01c89699$00e99590$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: cebbert@redhat.com, netdev@vger.kernel.org,
-	Grant Grundler <grundler@parisc-linux.org>
-To: Meelis Roos <mroos@linux.ee>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-2053985785-1207345172=:8186"
+Cc: 'John Heffner' <johnwheffner@gmail.com>,
+	'Netdev' <netdev@vger.kernel.org>
+To: Wenji Wu <wenji@fnal.gov>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:57766 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751783AbYDDViK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 17:38:10 -0400
-In-Reply-To: <Pine.SOC.4.64.0804031209540.2017@math.ut.ee>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:47388 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751513AbYDDVjh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 17:39:37 -0400
+In-Reply-To: <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Meelis Roos wrote:
-> CE> We have two reports that agree the tulip driver doesn't work for
-> CE> the Davicom 9102 (PCI id 1282:9102). The dmfe driver does work
-> CE> and also claims the same PCI ID.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696208474-2053985785-1207345172=:8186
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Sat, 5 Apr 2008, Ilpo Järvinen wrote:
+
+> On Fri, 4 Apr 2008, Wenji Wu wrote:
 > 
-> NAK, dmfe does not work on some Sparc64 machines but tulip does.
+> > 
+> > >I'd suggest that you don't waste too much effort for 2.6.24. ...Most of it 
+> > >is recoded/updated since then.
+> > 
+> > I just tried it on 2.6.25-rc8. The result is still the same: the throughput
+> > with SACK on is less than with SACK off.
 > 
-> I happent to have a Sun Fire V100 with 2 Davicom NICs (1282:9102 (rev 
-> 31)).
-> tulip driver works for them, dmfe doesn't. Tried with 2.6.25-rc7, first 
-> it
-> gets MAC addresses all zeroed and second, it only results in Tx 
-> timeouts.
+> Hmm, can you also try if playing around with FRTO setting makes some 
+> difference (tcp_frto sysctl)?
 
-At the very least, it sounds like some SROM parsing problems on dmfe's 
-part -- assuming a standard SROM when sparc64 provides a more 
-complicated one.
+...Assuming it wasn't disabled already. If you find that there's 
+significant difference, you could try also with SACK+basic FRTO (set 
+the tcp_frto sysctl to 1).
 
-
-> This issue was debugged somemonths ago on sparclinux mailing list. DaveM
-> fixed some bugs IIRC but it still does not work.
-
-URL to more info?
-
-Overall we need someone to either (a) work on tulip to get it working 
-with popular 9102's, or (b) work on dmfe to get it working on sparc64... 
-  Installers and users will continue to be confused by the present 
-situation, where the same PCI ID is claimed by two different drivers, 
-and you just sorta haveta "know" which one is right.
-
-	Jeff
-
-
-
+-- 
+ i.
+---696208474-2053985785-1207345172=:8186--
