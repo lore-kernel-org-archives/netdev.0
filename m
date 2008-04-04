@@ -1,28 +1,64 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: Re: [patch] NET: remove support for Davicom 9102 from the Tulip
- driver
-Date: Fri, 4 Apr 2008 11:56:44 +0300 (EEST)
-Message-ID: <Pine.SOC.4.64.0804041154150.11646@math.ut.ee>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][VLAN]: Fix egress priority mappings leak.
+Date: Fri, 04 Apr 2008 14:07:19 +0400
+Message-ID: <47F5FDD7.1060608@openvz.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.it.da.ut.ee ([193.40.5.67]:36372 "EHLO smtp2.it.da.ut.ee"
+Received: from sacred.ru ([62.205.161.221]:47191 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753597AbYDDI4p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 04:56:45 -0400
+	id S1752325AbYDDJnw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2008 05:43:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+These entries are allocated in vlan_dev_set_egress_priority, 
+but are never released and leaks on vlan device removal.
 
->> -     { 0x1282, 0x9102, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
+Drop these in vlan's ->uninit callback - after the device is 
+brought down and everyone is notified about it is going to
+be unregistered.
 
-> applied
+Found during testing vlan netnsization patchset.
 
-Hmm, did you see my yesterdays answer to that patch - that dmfe should 
-first be fixed to work on all  cards with this PCI ID? Currenty dmfe 
-fails to work on at least Sun Fire V100 and Sun Netra X1 boxes, only 
-tulip works.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
--- 
-Meelis Roos (mroos@linux.ee)
+---
+
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 480ea90..41a76a0 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -692,6 +692,20 @@ static int vlan_dev_init(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static void vlan_dev_uninit(struct net_device *dev)
++{
++	struct vlan_priority_tci_mapping *pm;
++	struct vlan_dev_info *vlan = vlan_dev_info(dev);
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(vlan->egress_priority_map); i++) {
++		while ((pm = vlan->egress_priority_map[i]) != NULL) {
++			vlan->egress_priority_map[i] = pm->next;
++			kfree(pm);
++		}
++	}
++}
++
+ void vlan_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
+@@ -701,6 +715,7 @@ void vlan_setup(struct net_device *dev)
+ 
+ 	dev->change_mtu		= vlan_dev_change_mtu;
+ 	dev->init		= vlan_dev_init;
++	dev->uninit		= vlan_dev_uninit;
+ 	dev->open		= vlan_dev_open;
+ 	dev->stop		= vlan_dev_stop;
+ 	dev->set_mac_address	= vlan_dev_set_mac_address;
