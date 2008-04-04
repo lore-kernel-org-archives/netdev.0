@@ -1,66 +1,48 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [2.6 patch] net/tokenring/olympic.c section fixes
-Date: Fri, 04 Apr 2008 01:45:59 -0400
-Message-ID: <47F5C097.9010801@pobox.com>
-References: <20080330224004.GC28445@cs181133002.pp.htv.fi>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch] NET: remove support for Davicom 9102 from the Tulip driver
+Date: Fri, 04 Apr 2008 01:46:11 -0400
+Message-ID: <47F5C0A3.4020003@garzik.org>
+References: <47F40CE1.2080708@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Cc: Netdev <netdev@vger.kernel.org>
+To: Chuck Ebbert <cebbert@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59864 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59872 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750783AbYDDFqD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 01:46:03 -0400
-In-Reply-To: <20080330224004.GC28445@cs181133002.pp.htv.fi>
+	id S1753026AbYDDFqN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2008 01:46:13 -0400
+In-Reply-To: <47F40CE1.2080708@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adrian Bunk wrote:
-> My previous section fix only turned one section problem into another 
-> section problem.
+Chuck Ebbert wrote:
+> NET: remove support for Davicom 9102 from the Tulip driver
 > 
-> This patch fixes it for real.
+> We have two reports that agree the tulip driver doesn't work for
+> the Davicom 9102 (PCI id 1282:9102). The dmfe driver does work
+> and also claims the same PCI ID.
 > 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> https://bugzilla.redhat.com/show_bug.cgi?id=277731
+> https://bugzilla.redhat.com/show_bug.cgi?id=236928
+> 
+> Signed-off-by: Chuck Ebbert <cebbert@redhat.com>
 > 
 > ---
+>  drivers/net/tulip/tulip_core.c |    1 -
+>  1 file changed, 1 deletion(-)
 > 
->  drivers/net/tokenring/olympic.c |    6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> 59aa404d6b07f60a839e06f3dc772c9de63f5eea diff --git a/drivers/net/tokenring/olympic.c b/drivers/net/tokenring/olympic.c
-> index 433c994..df2bbd7 100644
-> --- a/drivers/net/tokenring/olympic.c
-> +++ b/drivers/net/tokenring/olympic.c
-> @@ -117,7 +117,7 @@
->   * Official releases will only have an a.b.c version number format. 
->   */
->  
-> -static char version[] __devinitdata = 
-> +static char version[] = 
->  "Olympic.c v1.0.5 6/04/02 - Peter De Schrijver & Mike Phillips" ; 
->  
->  static char *open_maj_error[]  = {"No error", "Lobe Media Test", "Physical Insertion",
-> @@ -290,7 +290,7 @@ op_disable_dev:
->  	return i;
->  }
->  
-> -static int __devinit olympic_init(struct net_device *dev)
-> +static int olympic_init(struct net_device *dev)
->  {
->      	struct olympic_private *olympic_priv;
->  	u8 __iomem *olympic_mmio, *init_srb,*adapter_addr;
-> @@ -434,7 +434,7 @@ static int __devinit olympic_init(struct net_device *dev)
->  
->  }
->  
-> -static int __devinit olympic_open(struct net_device *dev) 
-> +static int olympic_open(struct net_device *dev) 
->  {
->  	struct olympic_private *olympic_priv=netdev_priv(dev);
->  	u8 __iomem *olympic_mmio=olympic_priv->olympic_mmio,*init_srb;
+> --- linux-2.6.24.noarch.orig/drivers/net/tulip/tulip_core.c
+> +++ linux-2.6.24.noarch/drivers/net/tulip/tulip_core.c
+> @@ -231,7 +231,6 @@ static struct pci_device_id tulip_pci_tb
+>  	{ 0x11F6, 0x9881, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMPEX9881 },
+>  	{ 0x8086, 0x0039, PCI_ANY_ID, PCI_ANY_ID, 0, 0, I21145 },
+>  	{ 0x1282, 0x9100, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
+> -	{ 0x1282, 0x9102, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
+>  	{ 0x1113, 0x1216, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
+>  	{ 0x1113, 0x1217, PCI_ANY_ID, PCI_ANY_ID, 0, 0, MX98715 },
+>  	{ 0x1113, 0x9511, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
 
 applied
 
