@@ -1,43 +1,53 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Why is tcp_reno_min_cwnd() ssthresh/2?
-Date: Fri, 4 Apr 2008 11:31:14 -0700
-Message-ID: <20080404113114.2181a146@extreme>
-References: <aa7d2c6d0804031800r7d796b40oc011e684bcd2f0c0@mail.gmail.com>
-	<7335583a0804031935g49a843dbq8b8c132411501a8b@mail.gmail.com>
-	<1e41a3230804040924q34d009c9w97dded92f13392dc@mail.gmail.com>
+From: "Andrew Brampton" <andrew@bramp.freeserve.co.uk>
+Subject: sock_get_timestamp() ktime_to_timeval returns -2?
+Date: Fri, 4 Apr 2008 19:38:42 +0100
+Message-ID: <013101c89683$1bd00940$0a00a8c0@Andrew>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
 Content-Transfer-Encoding: 7bit
-Cc: "Xiaoliang David Wei" <davidwei79@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: "John Heffner" <johnwheffner@gmail.com>,
-	"Lachlan Andrew" <lachlan.andrew@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:40032 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752067AbYDDSbW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 14:31:22 -0400
-In-Reply-To: <1e41a3230804040924q34d009c9w97dded92f13392dc@mail.gmail.com>
+Received: from ptb-relay02.plus.net ([212.159.14.213]:46798 "EHLO
+	ptb-relay02.plus.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757328AbYDDSik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 14:38:40 -0400
+Received: from [80.229.232.206] (helo=Andrew)
+	 by ptb-relay02.plus.net with smtp (Exim) id 1Jhqo9-0001hx-SZ
+	for netdev@vger.kernel.org; Fri, 04 Apr 2008 19:38:38 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Greetings all,
-> 
-> Apologies if this is a dumb question, but why does
-> tcp_reno_min_cwnd()  return  ssthresh/2?
-> 
-> Since   ssthresh <- snd_cwnd/2   on loss, this looks like it tries to
-> reduce  snd_cwnd  to 1/4 its value before a loss event, presumably
-> then slow-starting back to half of the original  snd_cwnd.
-> 
-> As Tom Quetchenbach pointed out, it is also odd that  omitting
-> min_cwnd()  from a congestion control module causes  ssthresh  to be
-> used, giving different results from using  tcp_reno_min_cwnd().
-> 
-> Thanks,
-> Lachlan
+Hi,
+I'm using the following piece of code to record the received time of my 
+packets.
 
-First sighed 5 years ago, and every times it comes up, the original
-behaviour is retained.
+struct timeval tv = {0,0};
+if ( ioctl(s, SIOCGSTAMP, &tv) )
+   return 0;
 
-http://oss.sgi.com/archives/netdev/2003-01/msg00114.html
+When I use UDP this is all great, but when I use TCP this stops working. I 
+have since found out that I can't use this for TCP packets[1], but the 
+reason I'm writing this email is because ioctl returns zero when using TCP 
+and tv has a odd value in it. tv.tv_sec = -2, and tv.tv_usec = 999999.
+
+Now I assume -2 is some kind of error code, so I dug into the linux code to 
+try and figure out what it means. The ioctl eventually calls 
+sock_get_timestamp() which in turn calls ktime_to_timeval. I can see in 
+sock_get_timestamp() that tv_sec is compared to -1 and ioctl returns an 
+error, however I can not find where tv_sec is set to -2. If -2 is another 
+error code then it should be checked inside sock_get_timestamp().
+
+So I'm wondering if this is a bug in the kernel somewhere, or should I just 
+expect ioctl to fail yet return 0? I have not included a test app, but if 
+you want I'll be happy to code a short app to show this problem, but the 
+critital lines are the ioctl call and that a TCP socket is used. This occurs 
+on both the 2.6.22-3-amd64 kernel as well as on 2.6.24.
+
+Thanks
+Andrew
+
+[1] http://www.ussg.iu.edu/hypermail/linux/kernel/0301.2/1248.html 
+
