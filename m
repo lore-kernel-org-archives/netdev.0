@@ -1,42 +1,64 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET_SCHED 00/04]: External SFQ classifiers/flow classifier
-Date: Fri, 04 Apr 2008 12:45:44 +0200
-Message-ID: <47F606D8.108@trash.net>
-References: <20080131175758.25151.20370.sendpatchset@localhost.localdomain> <47A4FB81.80700@fatooh.org> <47A74FEE.6080103@trash.net> <47EED247.50801@andyfurniss.entadsl.com> <47F22CF5.4080806@trash.net> <47F28758.1010401@andyfurniss.entadsl.com> <47F37139.9080303@andyfurniss.entadsl.com> <47F37E04.4010001@trash.net> <47F3B3C5.6000701@andyfurniss.entadsl.com> <47F6062E.9050804@andyfurniss.entadsl.com>
+From: Gilles Espinasse <g.esp@free.fr>
+Subject: Re: [git patches] net driver fixes
+Date: Fri, 04 Apr 2008 12:37:24 +0200
+Message-ID: <1207305444.47f604e4c37b0@imp.free.fr>
+References: <20080404063359.GA13309@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Corey Hickey <bugfood-ml@fatooh.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: lists@andyfurniss.entadsl.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33093 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752667AbYDDKpp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 06:45:45 -0400
-In-Reply-To: <47F6062E.9050804@andyfurniss.entadsl.com>
+Received: from wmproxy1-g27.free.fr ([212.27.42.91]:50148 "EHLO
+	wmproxy1-g27.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753190AbYDDKsL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 06:48:11 -0400
+In-Reply-To: <20080404063359.GA13309@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Furniss wrote:
-> Andy Furniss wrote:
-> 
->> OK - FWIW I've been looking harder and have now seen the full range of 
->> +/- 32k so I assume it's just not getting initialised properly.
-> 
-> Hmm I am not so sure now maybe it's a stats thing - I have seen flows 
-> apparently stuck with -ve allot but behaving normally.
-> 
-> I notice allot is short (16bits?) in sfq but see
-> 
-> +struct tc_sfq_xstats
-> +{
-> +    __s32        allot;
-> +};
+Selon Jeff Garzik <jeff@garzik.org>:
 
-That doesn't matter, its promoted to a 32 bit value. But now
-that you mention it, the SFQ patch for iproute I submitted
-used a different type. Stephen has resynced it with the kernel
-in the mean time, but you might be using the broken version.
+> I will have another batch to send in the next day or so, including a
+> notable forcedeth fix.
+>
+> Please pull from 'upstream-davem' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+> upstream-davem
+>
+> to receive the following updates:
+>
+>  drivers/net/forcedeth.c         |    5 ++---
+>  drivers/net/phy/marvell.c       |    2 --
+>  drivers/net/tokenring/olympic.c |    6 +++---
+>  drivers/net/tulip/tulip_core.c  |    1 -
+>  4 files changed, 5 insertions(+), 9 deletions(-)
+>
+...
+> Chuck Ebbert (1):
+>       NET: remove support for Davicom 9102 from the Tulip driver
+...
+> diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
+> index 82f404b..4443f0f 100644
+> --- a/drivers/net/tulip/tulip_core.c
+> +++ b/drivers/net/tulip/tulip_core.c
+> @@ -231,7 +231,6 @@ static struct pci_device_id tulip_pci_tbl[] = {
+>  	{ 0x11F6, 0x9881, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMPEX9881 },
+>  	{ 0x8086, 0x0039, PCI_ANY_ID, PCI_ANY_ID, 0, 0, I21145 },
+>  	{ 0x1282, 0x9100, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
+> -	{ 0x1282, 0x9102, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
+>  	{ 0x1113, 0x1216, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
+>  	{ 0x1113, 0x1217, PCI_ANY_ID, PCI_ANY_ID, 0, 0, MX98715 },
+>  	{ 0x1113, 0x9511, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
 
+I was looking at some dfme vs tulip google search.
 
+How the id removal accord to this debian bug report
+http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=400837
+
+Looking at dmfe history on git, it is not clearly stated this problem has been
+fixed.
+http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.24.y.git;a=history;f=drivers/net/tulip/dmfe.c;h=656200472fa17aa3e5e8e5d592c4fc2fa1ff2077;hb=HEAD
+
+Gilles
