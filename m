@@ -1,147 +1,40 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] [ETHTOOL]: Add support for large eeproms
-Date: Thu, 03 Apr 2008 17:03:37 -0700
-Message-ID: <1207267417.23161.353.camel@localhost>
-References: <20080403180021.GA5974@google.com>
+From: "Lachlan Andrew" <lachlan.andrew@gmail.com>
+Subject: Why is tcp_reno_min_cwnd() ssthresh/2?
+Date: Thu, 3 Apr 2008 17:00:04 -0800
+Message-ID: <aa7d2c6d0804031800r7d796b40oc011e684bcd2f0c0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, matthew@wil.cx,
-	davem@davemloft.net, nil@google.com, thockin@google.com
-To: Mandeep Singh Baines <msb@google.com>
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.labridge.com ([206.117.136.22]:2582 "EHLO
-	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751566AbYDDAEG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 20:04:06 -0400
-In-Reply-To: <20080403180021.GA5974@google.com>
+Received: from py-out-1112.google.com ([64.233.166.181]:47888 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755355AbYDDBAi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2008 21:00:38 -0400
+Received: by py-out-1112.google.com with SMTP id u52so4907209pyb.10
+        for <netdev@vger.kernel.org>; Thu, 03 Apr 2008 18:00:37 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-04-03 at 11:00 -0700, Mandeep Singh Baines wrote:
-> Fixed and updated patch. Please take another look.
-Hi Mandeep,
+Greetings all,
 
-This looks better.
-There's a typo at line 315 though, it needs a ";".
+Apologies if this is a dumb question, but why does
+tcp_reno_min_cwnd()  return  ssthresh/2?
 
-I was also wrong that int ret _does_ need to be
-initialized to 0 in case (eeprom.len == 0)
+Since   ssthresh <- snd_cwnd/2   on loss, this looks like it tries to
+reduce  snd_cwnd  to 1/4 its value before a loss event, presumably
+then slow-starting back to half of the original  snd_cwnd.
 
-I think this should be written as below:
+As Tom Quetchenbach pointed out, it is also odd that  omitting
+min_cwnd()  from a congestion control module causes  ssthresh  to be
+used, giving different results from using  tcp_reno_min_cwnd().
 
-cheers, Joe
+Thanks,
+Lachlan
 
- net/core/ethtool.c |   68 +++++++++++++++++++++++++++++-----------------------
- 1 files changed, 38 insertions(+), 30 deletions(-)
-
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 1163eb2..a29b43d 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -284,8 +284,10 @@ static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
- {
- 	struct ethtool_eeprom eeprom;
- 	const struct ethtool_ops *ops = dev->ethtool_ops;
-+	void __user *userbuf = useraddr + sizeof(eeprom);
-+	u32 bytes_remaining;
- 	u8 *data;
--	int ret;
-+	int ret = 0;
- 
- 	if (!ops->get_eeprom || !ops->get_eeprom_len)
- 		return -EOPNOTSUPP;
-@@ -301,26 +303,26 @@ static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
- 	if (eeprom.offset + eeprom.len > ops->get_eeprom_len(dev))
- 		return -EINVAL;
- 
--	data = kmalloc(eeprom.len, GFP_USER);
-+	data = kmalloc(PAGE_SIZE, GFP_USER);
- 	if (!data)
- 		return -ENOMEM;
- 
--	ret = -EFAULT;
--	if (copy_from_user(data, useraddr + sizeof(eeprom), eeprom.len))
--		goto out;
--
--	ret = ops->get_eeprom(dev, &eeprom, data);
--	if (ret)
--		goto out;
-+	bytes_remaining = eeprom.len;
-+	while (bytes_remaining > 0) {
-+		eeprom.len = min(bytes_remaining, (u32)PAGE_SIZE);
- 
--	ret = -EFAULT;
--	if (copy_to_user(useraddr, &eeprom, sizeof(eeprom)))
--		goto out;
--	if (copy_to_user(useraddr + sizeof(eeprom), data, eeprom.len))
--		goto out;
--	ret = 0;
-+		ret = ops->get_eeprom(dev, &eeprom, data);
-+		if (ret)
-+			break;
-+		if (copy_to_user(userbuf, data, eeprom.len)) {
-+			ret = -EFAULT;
-+			break;
-+		}
-+		userbuf += eeprom.len;
-+		eeprom.offset += eeprom.len;
-+		bytes_remaining -= eeprom.len;
-+	}
- 
-- out:
- 	kfree(data);
- 	return ret;
- }
-@@ -329,8 +331,10 @@ static int ethtool_set_eeprom(struct net_device *dev, void __user *useraddr)
- {
- 	struct ethtool_eeprom eeprom;
- 	const struct ethtool_ops *ops = dev->ethtool_ops;
-+	void __user *userbuf = useraddr + sizeof(eeprom);
-+	u32 bytes_remaining;
- 	u8 *data;
--	int ret;
-+	int ret = 0;
- 
- 	if (!ops->set_eeprom || !ops->get_eeprom_len)
- 		return -EOPNOTSUPP;
-@@ -346,22 +350,26 @@ static int ethtool_set_eeprom(struct net_device *dev, void __user *useraddr)
- 	if (eeprom.offset + eeprom.len > ops->get_eeprom_len(dev))
- 		return -EINVAL;
- 
--	data = kmalloc(eeprom.len, GFP_USER);
-+	data = kmalloc(PAGE_SIZE, GFP_USER);
- 	if (!data)
- 		return -ENOMEM;
- 
--	ret = -EFAULT;
--	if (copy_from_user(data, useraddr + sizeof(eeprom), eeprom.len))
--		goto out;
--
--	ret = ops->set_eeprom(dev, &eeprom, data);
--	if (ret)
--		goto out;
-+	bytes_remaining = eeprom.len;
-+	while (bytes_remaining > 0) {
-+		eeprom.len = min(bytes_remaining, (u32)PAGE_SIZE);
- 
--	if (copy_to_user(useraddr + sizeof(eeprom), data, eeprom.len))
--		ret = -EFAULT;
-+		if (copy_from_user(data, userbuf, eeprom.len)) {
-+			ret = -EFAULT;
-+			break;
-+		}
-+		ret = ops->set_eeprom(dev, &eeprom, data);
-+		if (ret)
-+			break;
-+		userbuf += eeprom.len;
-+		eeprom.offset += eeprom.len;
-+		bytes_remaining -= eeprom.len;
-+	}
- 
-- out:
- 	kfree(data);
- 	return ret;
- }
-
-
+-- 
+Lachlan Andrew  Dept of Computer Science, Caltech
+1200 E California Blvd, Mail Code 256-80, Pasadena CA 91125, USA
+Ph: +1 (626) 395-8820    Fax: +1 (626) 568-3603
+http://netlab.caltech.edu/lachlan
