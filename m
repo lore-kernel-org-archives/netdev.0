@@ -1,100 +1,122 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [DCCP]: Fix skb->cb conflicts with IP
-Date: Fri, 4 Apr 2008 10:47:11 -0300
-Message-ID: <20080404134711.GB5989@ghostprotocols.net>
-References: <47F61B5C.8090105@trash.net> <20080404132525.GB29904@gerrit.erg.abdn.ac.uk>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [RFC][PATCH 1/3] Introduce the net_device_ops structure.
+Date: Fri, 04 Apr 2008 18:10:52 +0400
+Message-ID: <47F636EC.5070506@openvz.org>
+References: <47F63681.1030603@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Patrick McHardy <kaber@trash.net>, dccp@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:55775 "EHLO mx1.redhat.com"
+Received: from sacred.ru ([62.205.161.221]:33898 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755562AbYDDNrR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 09:47:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20080404132525.GB29904@gerrit.erg.abdn.ac.uk>
+	id S1752554AbYDDNrQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2008 09:47:16 -0400
+Received: from [10.30.3.76] (swsoft-msk-nat.sw.ru [195.214.232.10])
+	(authenticated bits=0)
+	by sacred.ru (8.13.8/8.13.8) with ESMTP id m34Dl88B009305
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 4 Apr 2008 17:47:09 +0400
+In-Reply-To: <47F63681.1030603@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Fri, Apr 04, 2008 at 02:25:25PM +0100, Gerrit Renker escreveu:
-> Arnaldo,
-> 
-> just a thought - I recall that there used to be a bug related to this,
-> which required to insert the following before sending an skb:
->      
->      memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt))
-> 
-> This was about 1+1/2 .. 2 years ago and lead to crashes when the memset
-> was removed. Maybe with this solution the memsets are then no longer
-> necessary? The reference is
->  * output.c:dccp_transmit_skb()
->  * ipv4.c:dccp_v4_send_response()
+And fill it with copied from net_device.
 
-Well spotted, yes, those can now be safely removed, since we don't touch
-the initial inet6?_skb_parm area it will remain as zeros (alloc_skb did
-that for us) and we don't have to zero it anymore before passing it to
-IP.
+Also make newly created devices be assigned to the 
+(currently empty) nd_default_ops.
 
-- Arnaldo
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-> Gerrit	
-> 
-> | commit eced67957ee99f7b5fafdc73a58bcd037a1789b2
-> | Author: Patrick McHardy <kaber@trash.net>
-> | Date:   Fri Apr 4 14:10:23 2008 +0200
-> | 
-> |     [DCCP]: Fix skb->cb conflicts with IP
-> |     
-> |     dev_queue_xmit() and the other IP output functions expect to get a skb
-> |     with clear or properly initialized skb->cb. Unlike TCP and UDP, the
-> |     dccp_skb_cb doesn't contain a struct inet_skb_parm at the beginning,
-> |     so the DCCP-specific data is interpreted by the IP output functions.
-> |     This can cause false negatives for the conditional POST_ROUTING hook
-> |     invocation, making the packet bypass the hook.
-> |     
-> |     Add a inet_skb_parm/inet6_skb_parm union to the beginning of
-> |     dccp_skb_cb to avoid clashes. Also add a BUILD_BUG_ON to make
-> |     sure it fits in the cb.
-> |     
-> |     Signed-off-by: Patrick McHardy <kaber@trash.net>
-> | 
-> | diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
-> | index fe7726b..f44d492 100644
-> | --- a/net/dccp/dccp.h
-> | +++ b/net/dccp/dccp.h
-> | @@ -325,6 +325,12 @@ static inline int dccp_bad_service_code(const struct sock *sk,
-> |   * This is used for transmission as well as for reception.
-> |   */
-> |  struct dccp_skb_cb {
-> | +	union {
-> | +		struct inet_skb_parm	h4;
-> | +#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-> | +		struct inet6_skb_parm	h6;
-> | +#endif
-> | +	} header;
-> |  	__u8  dccpd_type:4;
-> |  	__u8  dccpd_ccval:4;
-> |  	__u8  dccpd_reset_code,
-> | diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-> | index e3f5d37..c91d3c1 100644
-> | --- a/net/dccp/proto.c
-> | +++ b/net/dccp/proto.c
-> | @@ -1057,6 +1057,9 @@ static int __init dccp_init(void)
-> |  	int ehash_order, bhash_order, i;
-> |  	int rc = -ENOBUFS;
-> |  
-> | +	BUILD_BUG_ON(sizeof(struct dccp_skb_cb) >
-> | +		     FIELD_SIZEOF(struct sk_buff, cb));
-> | +
-> |  	dccp_hashinfo.bind_bucket_cachep =
-> |  		kmem_cache_create("dccp_bind_bucket",
-> |  				  sizeof(struct inet_bind_bucket), 0,
-> 
-> 
-> -- 
-> 
-> 
-> The University of Aberdeen is a charity registered in Scotland, No SC013683.
-> 
+---
+ include/linux/netdevice.h |   39 +++++++++++++++++++++++++++++++++++++++
+ net/core/dev.c            |    9 +++++++++
+ 2 files changed, 48 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 8b17ed4..33f00ff 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -447,6 +447,43 @@ static inline void napi_synchronize(const struct napi_struct *n)
+  *	moves out.
+  */
+ 
++struct net_device_ops {
++	int			(*init)(struct net_device *dev);
++	struct net_device_stats* (*get_stats)(struct net_device *dev);
++	int			(*hard_start_xmit) (struct sk_buff *skb,
++						    struct net_device *dev);
++	void			(*uninit)(struct net_device *dev);
++	void			(*destructor)(struct net_device *dev);
++	int			(*open)(struct net_device *dev);
++	int			(*stop)(struct net_device *dev);
++	void			(*change_rx_flags)(struct net_device *dev,
++						   int flags);
++	void			(*set_rx_mode)(struct net_device *dev);
++	void			(*set_multicast_list)(struct net_device *dev);
++	int			(*set_mac_address)(struct net_device *dev,
++						   void *addr);
++	int			(*validate_addr)(struct net_device *dev);
++	int			(*do_ioctl)(struct net_device *dev,
++					    struct ifreq *ifr, int cmd);
++	int			(*set_config)(struct net_device *dev,
++					      struct ifmap *map);
++	int			(*change_mtu)(struct net_device *dev,
++						int new_mtu);
++	void			(*tx_timeout) (struct net_device *dev);
++
++	void			(*vlan_rx_register)(struct net_device *dev,
++						    struct vlan_group *grp);
++	void			(*vlan_rx_add_vid)(struct net_device *dev,
++						   unsigned short vid);
++	void			(*vlan_rx_kill_vid)(struct net_device *dev,
++						    unsigned short vid);
++	int			(*neigh_setup)(struct net_device *dev,
++						struct neigh_parms *);
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	void                    (*poll_controller)(struct net_device *dev);
++#endif
++};
++
+ struct net_device
+ {
+ 
+@@ -662,6 +699,8 @@ struct net_device
+ 	       NETREG_RELEASED,		/* called free_netdev */
+ 	} reg_state;
+ 
++	struct net_device_ops	*nd_ops;
++
+ 	/* Called after device is detached from network. */
+ 	void			(*uninit)(struct net_device *dev);
+ 	/* Called after last user reference disappears. */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7aa0112..5e7bf79 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3976,6 +3976,13 @@ static struct net_device_stats *internal_stats(struct net_device *dev)
+ 	return &dev->stats;
+ }
+ 
++/*
++ * temporary devices operations - to be removed very soon
++ */
++
++static struct net_device_ops nd_default_ops = {
++};
++
+ /**
+  *	alloc_netdev_mq - allocate network device
+  *	@sizeof_priv:	size of private data to allocate space for
+@@ -4027,6 +4034,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 	dev->get_stats = internal_stats;
+ 	netpoll_netdev_init(dev);
+ 	setup(dev);
++	if (dev->nd_ops == NULL)
++		dev->nd_ops = &nd_default_ops;
+ 	strcpy(dev->name, name);
+ 	return dev;
+ }
+-- 
+1.5.3.4
+
