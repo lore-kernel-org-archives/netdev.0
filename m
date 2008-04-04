@@ -1,65 +1,100 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [RFC][PATCH 0/3] Make loopback device weight twice as little.
-Date: Fri, 04 Apr 2008 18:09:05 +0400
-Message-ID: <47F63681.1030603@openvz.org>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [DCCP]: Fix skb->cb conflicts with IP
+Date: Fri, 4 Apr 2008 10:47:11 -0300
+Message-ID: <20080404134711.GB5989@ghostprotocols.net>
+References: <47F61B5C.8090105@trash.net> <20080404132525.GB29904@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Patrick McHardy <kaber@trash.net>, dccp@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33460 "EHLO sacred.ru"
+Received: from mx1.redhat.com ([66.187.233.31]:55775 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751987AbYDDNpa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2008 09:45:30 -0400
-Received: from [10.30.3.76] (swsoft-msk-nat.sw.ru [195.214.232.10])
-	(authenticated bits=0)
-	by sacred.ru (8.13.8/8.13.8) with ESMTP id m34DjM8v007736
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 4 Apr 2008 17:45:22 +0400
+	id S1755562AbYDDNrR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2008 09:47:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20080404132525.GB29904@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I noticed, that on a 32bit box with a non-debug config the 
-sizeof(struct net_device) is slightly more than 1024. This 
-means, that for example loopback device (with sizeof_priv == 0) 
-is allocated from the size-2048 cache and thus we have ~1000
-wasted bytes.
+Em Fri, Apr 04, 2008 at 02:25:25PM +0100, Gerrit Renker escreveu:
+> Arnaldo,
+> 
+> just a thought - I recall that there used to be a bug related to this,
+> which required to insert the following before sending an skb:
+>      
+>      memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt))
+> 
+> This was about 1+1/2 .. 2 years ago and lead to crashes when the memset
+> was removed. Maybe with this solution the memsets are then no longer
+> necessary? The reference is
+>  * output.c:dccp_transmit_skb()
+>  * ipv4.c:dccp_v4_send_response()
 
-I know, that this is not that much, all the more so on most of
-the setups the lo device is single :) but with the net-namespaced
-kernel each namespace has its own loopback device, so this problem
-becomes more relevant.
+Well spotted, yes, those can now be safely removed, since we don't touch
+the initial inet6?_skb_parm area it will remain as zeros (alloc_skb did
+that for us) and we don't have to zero it anymore before passing it to
+IP.
 
-I also guess, that the net_device struct allows many ways to get
-shrunk, but I noticed, that is has ~20 pointers on functions for
-different purposes, like init, hard_start_xmit, neigh_setup, etc.
+- Arnaldo
 
-The proposal is to _move_ all these callbacks on a new structure
-called net_device_ops and put a pointer on it on the net_device.
-I've checked how much will the net_device weigh after this and
-it turned out, that this difference (80 bytes) is enough to get
-the 1024-sized net_device and thus a halved loopback.
-
-To make this change smooth, I propose the following plan (however,
-three patches I sent will demonstrate the idea better). 
-
-* First - declare an empty nd_default_ops and make all new devices 
-  point on this new ops temporarily. 
-* Then replace each call to dev->xxx() with the dev->nd_ops->xxx() 
-  one step by step. The ns_ops->xxx() will be the nd_default_ops->xxx
-  then and they all will (temporarily) look like
-	static void nd_default_xxx(struct net_device *dev, ...)
-	{
-		if (dev->xxx)
-			dev->xxx(dev, ...)
-	}
-* After this patch switch all the drivers (lots of work :( but it can
-  be done driver-by-driver, i.e. without HUGE patches) from on-device
-  ops to nd_ops pointer.
-* Finally - remove all the ops from the net_device and the default 
-  stubs described above.
-
-Does this idea worth being developed further?
-
-Thanks,
-Pavel
+> Gerrit	
+> 
+> | commit eced67957ee99f7b5fafdc73a58bcd037a1789b2
+> | Author: Patrick McHardy <kaber@trash.net>
+> | Date:   Fri Apr 4 14:10:23 2008 +0200
+> | 
+> |     [DCCP]: Fix skb->cb conflicts with IP
+> |     
+> |     dev_queue_xmit() and the other IP output functions expect to get a skb
+> |     with clear or properly initialized skb->cb. Unlike TCP and UDP, the
+> |     dccp_skb_cb doesn't contain a struct inet_skb_parm at the beginning,
+> |     so the DCCP-specific data is interpreted by the IP output functions.
+> |     This can cause false negatives for the conditional POST_ROUTING hook
+> |     invocation, making the packet bypass the hook.
+> |     
+> |     Add a inet_skb_parm/inet6_skb_parm union to the beginning of
+> |     dccp_skb_cb to avoid clashes. Also add a BUILD_BUG_ON to make
+> |     sure it fits in the cb.
+> |     
+> |     Signed-off-by: Patrick McHardy <kaber@trash.net>
+> | 
+> | diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
+> | index fe7726b..f44d492 100644
+> | --- a/net/dccp/dccp.h
+> | +++ b/net/dccp/dccp.h
+> | @@ -325,6 +325,12 @@ static inline int dccp_bad_service_code(const struct sock *sk,
+> |   * This is used for transmission as well as for reception.
+> |   */
+> |  struct dccp_skb_cb {
+> | +	union {
+> | +		struct inet_skb_parm	h4;
+> | +#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
+> | +		struct inet6_skb_parm	h6;
+> | +#endif
+> | +	} header;
+> |  	__u8  dccpd_type:4;
+> |  	__u8  dccpd_ccval:4;
+> |  	__u8  dccpd_reset_code,
+> | diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+> | index e3f5d37..c91d3c1 100644
+> | --- a/net/dccp/proto.c
+> | +++ b/net/dccp/proto.c
+> | @@ -1057,6 +1057,9 @@ static int __init dccp_init(void)
+> |  	int ehash_order, bhash_order, i;
+> |  	int rc = -ENOBUFS;
+> |  
+> | +	BUILD_BUG_ON(sizeof(struct dccp_skb_cb) >
+> | +		     FIELD_SIZEOF(struct sk_buff, cb));
+> | +
+> |  	dccp_hashinfo.bind_bucket_cachep =
+> |  		kmem_cache_create("dccp_bind_bucket",
+> |  				  sizeof(struct inet_bind_bucket), 0,
+> 
+> 
+> -- 
+> 
+> 
+> The University of Aberdeen is a charity registered in Scotland, No SC013683.
+> 
