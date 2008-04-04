@@ -1,64 +1,37 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2173	tcp_mark_head_lost+0x173/0x1a0()
-Date: Fri, 4 Apr 2008 22:48:29 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0804042244260.415@wrl-59.cs.helsinki.fi>
-References: <20080402224137.GB25768@curie-int.orbis-terrarum.net>
- <20080403211913.3a0c1d00.akpm@linux-foundation.org>
- <20080403212038.ec0a4244.akpm@linux-foundation.org>
- <20080404082201.GC20121@curie-int.orbis-terrarum.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: 2.6.25-rc8-mm1 -- INFO: possible circular locking dependency detected (while using iw to debug a wireless issue)
+Date: Fri, 4 Apr 2008 21:53:23 +0200
+Message-ID: <20080404195323.GF20815@postel.suug.ch>
+References: <a44ae5cd0804030741jc9c7aebx21a7635e827b190f@mail.gmail.com> <1207323936.19189.58.camel@johannes.berg> <20080404104302.7445e41f.akpm@linux-foundation.org> <20080404121133.7b0983d8@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
 Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: "Robin H. Johnson" <robbat2@gentoo.org>
+	Johannes Berg <johannes@sipsolutions.net>,
+	Miles Lane <miles.lane@gmail.com>, netdev@vger.kernel.org,
+	ALSA development <alsa-devel@alsa-project.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:39997 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753125AbYDDTsc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 15:48:32 -0400
-In-Reply-To: <20080404082201.GC20121@curie-int.orbis-terrarum.net>
+Received: from postel.suug.ch ([194.88.212.233]:51060 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756713AbYDDTxF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2008 15:53:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20080404121133.7b0983d8@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 4 Apr 2008, Robin H. Johnson wrote:
-
-> On Thu, Apr 03, 2008 at 09:20:38PM -0700, Andrew Morton wrote:
-> > On Thu, 3 Apr 2008 21:19:13 -0700 Andrew Morton <akpm@linux-foundation.org> wrote:
-> > 
-> > > 
-> > > (cc netdev)
-> > > 
-> > > (and Rafael - I assume 2.6.24 didn't do this..)
-> > 
-> > urgh.
-> > 
-> > > On Wed, 2 Apr 2008 15:41:37 -0700 "Robin H. Johnson" <robbat2@gentoo.org> wrote:
-> > > 
-> > > > (Please CC, not on LKML).
-> > > > 
-> > > > One of the nodes in my web-serving cluster (isohunt.com) started showing this:
-> > > > 
-> > > > ------------[ cut here ]------------
-> > > > WARNING: at net/ipv4/tcp_input.c:2173 tcp_mark_head_lost+0x173/0x1a0()
-> > > > Modules linked in: lm85 hwmon_vid nfs lockd nfs_acl sunrpc bonding reiserfs k8temp hwmon i2c_nforce2 i2c_core sg
-> > > > Pid: 32500, comm: php-cgi Not tainted 2.6.25-rc4-git2 #7
-> > I misread that as -rc8.
-> > We fixed a lot of stuff since -rc4.  Please retest current mainline?
+* Stephen Hemminger <shemminger@vyatta.com> 2008-04-04 12:11
+> The changes in git-net don't look locking related.  I suspect either:
+> wireless is calling netlink without holding rtnl_lock;
+> or more likely conditional locking ctrl_dumpfamily is confusing lockdep.
 > 
-> Hopefully this is new enough. -git3 was released right while I was writing this
-> email after testing, and I don't see anything in there that seems related.
-> 
-> ------------[ cut here ]------------
-> WARNING: at net/ipv4/tcp_input.c:1771 tcp_enter_frto+0x2bb/0x2c0()
+> ctrl_dumpfamily only acquires genl_lock if one of the incoming parameters (chains_to_skip)
+> is non-zero. Not sure what the design reason is, Thomas could you add a comment?
 
-Is this _the first one_ you encounter? It's very strange place because
-tcp_enter_frto won't touch those sacked_out / lost_out counters at all
-so it hardly could cause an overflow there.
+First call to ctrl_dumpfamily() is coming directly from the message
+processing context where genl_lock is already held. Subsequence calls
+come from netlink_recvmsg() so we have to take the lock separately.
 
-
-
--- 
- i.
+However, I just noticed the condition should really be
+	chains_to_skip != 0 || fams_to_skip != 0
