@@ -1,38 +1,49 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: GFP_ATOMIC page allocation failures.
-Date: Sat, 5 Apr 2008 12:06:37 +1100
-Message-ID: <200804051206.37394.nickpiggin@yahoo.com.au>
-References: <adYyJ-20N-11@gated-at.bofh.it> <200804042159.54220.nickpiggin@yahoo.com.au> <Pine.LNX.4.58.0804041307500.9036@be10.lrz>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] Move IPVS from net/ipv4/ipvs to net/netfilter/ipvs in
+	preparation for IPv6 support
+Date: Sat, 5 Apr 2008 10:07:09 +0900
+Message-ID: <20080405010707.GB27827@verge.net.au>
+References: <f4845fc0804040340x5e93754crcd680d26fd8982f7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Chris Snook <csnook@redhat.com>,
-	Dave Jones <davej@codemonkey.org.uk>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Bodo Eggert <7eggert@gmx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp112.mail.mud.yahoo.com ([209.191.84.65]:32723 "HELO
-	smtp112.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751378AbYDEBGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2008 21:06:45 -0400
-In-Reply-To: <Pine.LNX.4.58.0804041307500.9036@be10.lrz>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <f4845fc0804040340x5e93754crcd680d26fd8982f7@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 04 April 2008 22:35, Bodo Eggert wrote:
-> On Fri, 4 Apr 2008, Nick Piggin wrote:
+On Fri, Apr 04, 2008 at 12:40:36PM +0200, Julius Volz wrote:
+> Hi,
+> 
+> This patch moves IPVS from net/ipv4/ipvs to net/netfilter/ipvs, as
+> discussed earlier with Horms and Patrick McHardy. This is done as a
+> preparation for later adding IPv6 functionality to IPVS. The patch is
+> 600kb, so I uploaded it here:
+> 
+> http://www-user.tu-chemnitz.de/~volz/move_ipvs_to_netfilter.patch
+> 
+> --------------------------
+> Description:
+> Move IPVS from net/ipv4/ipvs to net/netfilter/ipvs as a preparation
+> for adding IPv6 support to IPVS later on.
+> 
+> Signed-off-by: Julius R. Volz <juliusv@google.com>
+> --------------------------
+> 
+> It applies to the current net-2.6 tree and IPVS is working after these
+> changes. The patch also moves the IPVS menu options into the Netfilter
+> menu subtree. Please let me know if that is ok or has to be changed
+> (it seems ok to me, as IPVS depends on Netfilter).
+> 
+> Again, I'm pretty new to kernel development, so let me know of
+> anything that can be done better.
 
-> > But actually developers do sometimes want see the event even if it is
-> > relatively infrequent...
->
-> You shouldn't frighten the users either. /proc/sys/vm/debug?
+Thanks, I've grabbed the patch and will review it ASAP.
+I am going to be mostly offline for about 5 days as I am moving.
+So I apologise in advance for being a bit undresponsive during that time.
 
-Hence changing the message a to make it clear that it is not a
-problem if it is infrequent.
+-- 
+Horms
+
