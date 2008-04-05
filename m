@@ -1,49 +1,95 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: [PATCH] Better MWI workaround for 21143 rev 65 chip errata
-Date: Sat, 5 Apr 2008 12:19:31 -0600
-Message-ID: <20080405181931.GA30312@colo.lackof.org>
-References: <20080325113909.82BF8C2B76@solo.franken.de> <20080404064216.GA8791@colo.lackof.org> <47F6A698.1010400@pobox.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: 2.6.25-rc8: WARNING: at net/ipv4/tcp_input.c:2173
+ tcp_mark_head_lost+0x11d/0x150()
+Date: Sat, 5 Apr 2008 21:41:03 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0804052136030.8813@wrl-59.cs.helsinki.fi>
+References: <1207199456.7616.3.camel@localhost>
+ <Pine.LNX.4.64.0804031616330.21524@wrl-59.cs.helsinki.fi>
+ <1207230008.4513.14.camel@localhost>  <Pine.LNX.4.64.0804031744190.32094@wrl-59.cs.helsinki.fi>
+  <1207413634.4597.4.camel@localhost>  <Pine.LNX.4.64.0804052043230.8668@wrl-59.cs.helsinki.fi>
+ <1207419283.4597.12.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-	netdev@vger.kernel.org, kyle@parisc-linux.org,
-	zero@colonel-panic.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: MULTIPART/MIXED; boundary="-696208474-548770356-1207420748=:8813"
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Soeren Sonnenburg <kernel@nn7.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from colo.lackof.org ([198.49.126.79]:34609 "EHLO colo.lackof.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752827AbYDESTm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Apr 2008 14:19:42 -0400
-Content-Disposition: inline
-In-Reply-To: <47F6A698.1010400@pobox.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:56216 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752308AbYDESlF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Apr 2008 14:41:05 -0400
+In-Reply-To: <1207419283.4597.12.camel@localhost>
+Content-ID: <Pine.LNX.4.64.0804052139510.8816@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 04, 2008 at 06:07:20PM -0400, Jeff Garzik wrote:
-> Grant Grundler wrote:
->> On Tue, Mar 25, 2008 at 12:39:09PM +0100, Thomas Bogendoerfer wrote:
->>> From: Peter Horton <zero@colonel-panic.org>
->>>
->>> This patch works around the MWI bug on the DC21143 rev 65 Tulip by
->>> ensuring that the receive buffers don't end on a cache line boundary
->>> (as documented in the errata).
->>>
->>> This patch is required for the MIPS based Cobalt Qube/RaQ as
->>> supporting the extra PCI commands seems to reduce the chance of a hard
->>> lockup between the Tulip and the PCI bridge.
->>>
->>> Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
->> Acked-by: Grant Grundler <grundler@parisc-linux.org>
->> thanks!
->> I haven't tested this but it looks correct to me.
->
-> Wanna give it a quick test then someone bounce me the patch?  :)  I don't 
-> have the original.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Tested on j6000 (parisc) with 2.6.25-rc6 + gcc 4.2.
-Seems to be working fine.
-I'll bounce it next.
+---696208474-548770356-1207420748=:8813
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0804052139511.8816@wrl-59.cs.helsinki.fi>
 
-thanks,
-grant
+On Sat, 5 Apr 2008, Soeren Sonnenburg wrote:
+
+> On Sat, 2008-04-05 at 20:52 +0300, Ilpo Järvinen wrote:
+> > On Sat, 5 Apr 2008, Soeren Sonnenburg wrote:
+> > 
+> > > On Fri, 2008-04-04 at 21:51 +0300, Ilpo Järvinen wrote:
+> > > > On Thu, 3 Apr 2008, Soeren Sonnenburg wrote:
+> > > > 
+> > > > > On Thu, 2008-04-03 at 16:26 +0300, Ilpo Järvinen wrote:
+> > > > > > On Thu, 3 Apr 2008, Soeren Sonnenburg wrote:
+> > > > > > 
+> > > > > > > trying to download things, I am seeing this (ignore the tainted, it is
+> > > > > > > from madwifi and although the module is loaded the device was never
+> > > > > > > used)
+> > > > > > > 
+> > > > > > > Could anyone make sense of this please?
+> [...]
+> > > > 
+> > > > Here's a debug patch which expensively verifies TCP's state in a number
+> > > > of places during ACK to find first spot where the actual bug occurs.
+> > > 
+> > > OK I am getting this now as the first spot:
+> > > 
+> > > P: 4 L: 2 vs 2 S: 0 vs 3 F: 0 vs 0 w: 4023500226-4023505874 (0)
+> > > skb 0 f495c180
+> > > skb 1 f480a180
+> > > skb 2 f4994600
+> > > head 3 f495c780
+> > > skb 4 f5b32480
+> > > TCP wq(s) LL  <
+> > > WARNING: at net/ipv4/tcp_ipv4.c:240 tcp_verify_wq+0x319/0x3c0()
+> > >
+> > > another one:
+> > > WARNING: at net/ipv4/tcp_output.c:1475 __tcp_push_pending_frames+0x70/0x830()
+> > > 
+> > > 
+> > > P: 4 L: 2 vs 2 S: 0 vs 3 F: 0 vs 0 w: 4023500226-4023505874 (0)
+> > > skb 0 f495c180
+> > > skb 1 f480a180
+> > > skb 2 f4994600
+> > > head 3 f495c780
+> > > skb 4 f5b32480
+> > > TCP wq(s) LL  <
+> > > TCP wq(h) +-++<
+> > > l2 s3 f0 p4 seq: su4023500226 hs241530103 sn4023505874
+> > > ------------[ cut here ]------------
+> > > WARNING: at net/ipv4/tcp_ipv4.c:240 tcp_verify_wq+0x319/0x3c0()
+> > 
+> > Please don't cut the log! It is caught here because 2+3 > 4 :-) but I need 
+> > the full log with stacktraces this time to figure it out.
+> 
+> Look here 
+> http://nn7.de/debugging/tcp.log :-)
+
+Thanks. I had already figured it out while waiting :-), it's GSO+NewReno 
+bad interaction, I'll fix it on Monday (unless somebody is faster than 
+me)... And once again, this ain't a regression. Thanks for helping out 
+enourmously.
+
+-- 
+ i.
+---696208474-548770356-1207420748=:8813--
