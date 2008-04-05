@@ -1,107 +1,209 @@
-From: Soeren Sonnenburg <kernel@nn7.de>
-Subject: Re: 2.6.25-rc8: WARNING: at net/ipv4/tcp_input.c:2173
-	tcp_mark_head_lost+0x11d/0x150()
-Date: Sat, 05 Apr 2008 18:40:34 +0200
-Message-ID: <1207413634.4597.4.camel@localhost>
-References: <1207199456.7616.3.camel@localhost>
-	 <Pine.LNX.4.64.0804031616330.21524@wrl-59.cs.helsinki.fi>
-	 <1207230008.4513.14.camel@localhost>
-	 <Pine.LNX.4.64.0804031744190.32094@wrl-59.cs.helsinki.fi>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [PATCH RFC 1/5] vringfd syscall
+Date: Sat, 05 Apr 2008 12:13:41 -0500
+Message-ID: <47F7B345.1080200@codemonkey.ws>
+References: <200804052202.09157.rusty__7324.67876882783$1207397085$gmane$org@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Max Krasnyansky <maxk@qualcomm.com>,
+	virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nn7.de ([85.214.94.156]:44482 "EHLO nn7.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752489AbYDEQlA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Apr 2008 12:41:00 -0400
-In-Reply-To: <Pine.LNX.4.64.0804031744190.32094@wrl-59.cs.helsinki.fi>
+Received: from rn-out-0910.google.com ([64.233.170.189]:50927 "EHLO
+	rn-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752483AbYDERNr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Apr 2008 13:13:47 -0400
+Received: by rn-out-0910.google.com with SMTP id e24so616641rng.1
+        for <netdev@vger.kernel.org>; Sat, 05 Apr 2008 10:13:46 -0700 (PDT)
+In-Reply-To: <200804052202.09157.rusty__7324.67876882783$1207397085$gmane$org@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-04-04 at 21:51 +0300, Ilpo J=E4rvinen wrote:
-> On Thu, 3 Apr 2008, Soeren Sonnenburg wrote:
->=20
-> > On Thu, 2008-04-03 at 16:26 +0300, Ilpo J=E4rvinen wrote:
-> > > On Thu, 3 Apr 2008, Soeren Sonnenburg wrote:
-> > >=20
-> > > > trying to download things, I am seeing this (ignore the tainted=
-, it is
-> > > > from madwifi and although the module is loaded the device was n=
-ever
-> > > > used)
-> > > >=20
-> > > > Could anyone make sense of this please?
-> > >=20
-> > > ...I'm just trying to find out who and where invariants of the TC=
-P code
-> > > are broken. These were relatively recently enabled (pre-2.6.24 ju=
-st didn't=20
-> > > care too much). A number of long standing issues plus bugs from m=
-y=20
-> > > modifications have been fixed because of the more rigid checking =
-:-).
-> > >=20
-> > > > ------------[ cut here ]------------
-> > > > WARNING: at net/ipv4/tcp_input.c:2173 tcp_mark_head_lost+0x11d/=
-0x150()
-> > >=20
-> > > > ------------[ cut here ]------------
-> > > > WARNING: at net/ipv4/tcp_input.c:1771 tcp_enter_frto+0x267/0x27=
-0()
-> > >=20
-> > > > ------------[ cut here ]------------
-> > > > WARNING: at net/ipv4/tcp_input.c:2532 tcp_ack+0x1a6f/0x1d60()
-> > >=20
-> > > Can you reproduce it?=20
-> >=20
-> > Yes, by massively downloading things :-) But I have no real recipe =
-to
-> > make it easily reproducible...
->=20
-> Good :-), no need for recipes, just that you can trigger it more ofte=
-n=20
-> tha once per month or so :-). I probably couldn't trigger it anyway h=
-ere=20
-> because they're often rather sensitive to network "weather", thus if =
-you=20
-> have problems in reproducing, doing tests around the same phase of th=
-e=20
-> date cycle you saw it the first time might help.
->=20
-> Here's a debug patch which expensively verifies TCP's state in a numb=
-er
-> of places during ACK to find first spot where the actual bug occurs.
+Rusty Russell wrote:
+> For virtualization, we've developed virtio_ring for efficient communication.
+> This would also work well for userspace-kernel communication, particularly
+> for things like the tun device.  By using the same ABI, we can join guests
+> to the host kernel trivially.
+> 
+> These patches are fairly alpha; I've seen some network stalls I have to
+> track down and there are some fixmes.
+> 
+> Comments welcome!
+> Rusty.
+> 
+> diff -r 99132ad16999 Documentation/test_vring.c
+> --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
+> +++ b/Documentation/test_vring.c	Sat Apr 05 21:31:40 2008 +1100
+> @@ -0,0 +1,47 @@
+> +#include <unistd.h>
+> +#include <linux/virtio_ring.h>
+> +#include <stdio.h>
+> +#include <stdint.h>
+> +#include <err.h>
+> +#include <poll.h>
+> +
+> +#ifndef __NR_vringfd
+> +#define __NR_vringfd		327
+> +#endif
+> +
+> +int main()
+> +{
+> +	int fd, r;
+> +	struct vring vr;
+> +	uint16_t used = 0;
+> +	struct pollfd pfd;
+> +	void *buf = calloc(vring_size(256, getpagesize()), 0);
 
-OK I am getting this now as the first spot:
+Shouldn't this be calloc(1, vring_size(256, getpagesize()));?
 
-P: 4 L: 2 vs 2 S: 0 vs 3 F: 0 vs 0 w: 4023500226-4023505874 (0)
-skb 0 f495c180
-skb 1 f480a180
-skb 2 f4994600
-head 3 f495c780
-skb 4 f5b32480
-TCP wq(s) LL  <
-WARNING: at net/ipv4/tcp_ipv4.c:240 tcp_verify_wq+0x319/0x3c0()
+> +	vring_init(&vr, 256, buf, getpagesize());
+> +
+> +	fd = syscall(__NR_vringfd, buf, 256, &used);
+> +	if (fd < 0)
+> +		err(1, "vringfd gave %i", fd);
+> +
+> +	pfd.fd = fd;
+> +	pfd.events = POLLIN;
+> +	r = poll(&pfd, 1, 0);
+> +	
+> +	if (r != 0)
+> +		err(1, "poll gave %i", r);
+> +
+> +	vr.used->idx++;
+> +	r = poll(&pfd, 1, 0);
+> +	
+> +	if (r != 1)
+> +		err(1, "poll after buf used gave %i", r);
+> +
+> +	used++;
+> +	r = poll(&pfd, 1, 0);
+> +	
+> +	if (r != 0)
+> +		err(1, "poll after used incremented gave %i", r);
 
-another one:
-WARNING: at net/ipv4/tcp_output.c:1475 __tcp_push_pending_frames+0x70/0=
-x830()
+I have a tough time seeing what you're demonstrating here.  Perhaps some 
+comments?
 
+> +	close(fd);
+> +	return 0;
+> +}
+> diff -r 99132ad16999 arch/x86/kernel/syscall_table_32.S
+> --- a/arch/x86/kernel/syscall_table_32.S	Sat Apr 05 21:20:32 2008 +1100
+> +++ b/arch/x86/kernel/syscall_table_32.S	Sat Apr 05 21:31:40 2008 +1100
+> @@ -326,3 +326,4 @@ ENTRY(sys_call_table)
+>  	.long sys_fallocate
+>  	.long sys_timerfd_settime	/* 325 */
+>  	.long sys_timerfd_gettime
+> +	.long sys_vringfd
+> diff -r 99132ad16999 fs/Kconfig
+> --- a/fs/Kconfig	Sat Apr 05 21:20:32 2008 +1100
+> +++ b/fs/Kconfig	Sat Apr 05 21:31:40 2008 +1100
+> @@ -2135,4 +2135,14 @@ source "fs/nls/Kconfig"
+>  source "fs/nls/Kconfig"
+>  source "fs/dlm/Kconfig"
+>  
+> +config VRINGFD
+> +       bool "vring fd support (EXPERIMENTAL)"
+> +       depends on EXPERIMENTAL
+> +       help
+> +         vring is a ringbuffer implementation for efficient I/O.  It is
+> +	 currently used by virtualization hosts (lguest, kvm) for efficient
+> +	 networking using the tun driver.
+> +
+> +	 If unsure, say N.
+> +
 
-P: 4 L: 2 vs 2 S: 0 vs 3 F: 0 vs 0 w: 4023500226-4023505874 (0)
-skb 0 f495c180
-skb 1 f480a180
-skb 2 f4994600
-head 3 f495c780
-skb 4 f5b32480
-TCP wq(s) LL  <
-TCP wq(h) +-++<
-l2 s3 f0 p4 seq: su4023500226 hs241530103 sn4023505874
-------------[ cut here ]------------
-WARNING: at net/ipv4/tcp_ipv4.c:240 tcp_verify_wq+0x319/0x3c0()
+Should select VIRTIO && VIRTIO_RING
 
-Soeren
+<snip>
+
+> +/* Returns an error, or 0 (no buffers), or an id for vring_used_buffer() */
+> +int vring_get_buffer(struct vring_info *vr,
+> +		     struct iovec *in_iov,
+> +		     unsigned int *num_in, unsigned long *in_len,
+> +		     struct iovec *out_iov,
+> +		     unsigned int *num_out, unsigned long *out_len)
+> +{
+
+It seems unlikely that a caller could place both in_iov/out_iov on the 
+stack since to do it safely, you would have to use vring.num which is 
+determined by userspace.  Since you have to kmalloc() the buffers 
+anyway, why not just allocate a single data structure within this 
+function and return it.
+
+> +void vring_used_buffer_atomic(struct vring_info *vr, int id, u32 len)
+> +{
+> +	struct vring_used_elem *used;
+> +
+> +	BUG_ON(id <= 0 || id > vr->ring.num);
+> +	BUG_ON(!vr->used);
+> +
+> +	used = &vr->used->ring[vr->used->idx & vr->mask];
+> +	used->id = id - 1;
+> +	used->len = len;
+> +	/* Make sure buffer is written before we update index. */
+> +	wmb();
+> +	vr->used->idx++;
+> +}
+> +EXPORT_SYMBOL_GPL(vring_used_buffer_atomic);
+
+When is this actually safe to use?
+
+> +
+> +void vring_wake(struct vring_info *vr)
+> +{
+> +	wake_up(&vr->poll_wait);
+> +}
+> +EXPORT_SYMBOL_GPL(vring_wake);
+> +
+> +struct vring_info *vring_attach(int fd, const struct vring_ops *ops,
+> +				void *data, bool atomic_use)
+> +{
+> +	struct file *filp;
+> +	struct vring_info *vr;
+> +
+> +	/* Must be a valid fd, and must be one of ours. */
+> +	filp = fget(fd);
+> +	if (!filp) {
+> +		vr = ERR_PTR(-EBADF);
+> +		goto out;
+> +	}
+> +
+> +	if (filp->f_op != &vring_fops) {
+> +		vr = ERR_PTR(-EBADF);
+> +		goto fput;
+> +	}
+> +
+> +	/* Mutex simply protects against parallel vring_attach. */
+> +	mutex_lock(&vring_lock);
+> +	vr = filp->private_data;
+> +	if (vr->ops) {
+> +		vr = ERR_PTR(-EBUSY);
+> +		goto unlock;
+> +	}
+> +
+> +	/* If they want to use atomically, we have to map the page. */
+> +	if (atomic_use) {
+> +		if (get_user_pages(current, current->mm,
+> +				   (unsigned long)vr->ring.used, 1, 1, 1,
+> +				   &vr->used_page, NULL) != 1) {
+> +			vr = ERR_PTR(-EFAULT);
+> +			goto unlock;
+> +		}
+
+Oh, this is when it's safe to use.  You don't seem to be acquiring 
+current->mm->mmap_sem here.  Also, this assumes the used ring fits 
+within a single page which isn't true with a ring > 512 elements.
+
+A consequence of this is that devices that interact with a ring queue 
+atomically now have an additional capability: pinning an arbitrary 
+amount of physical memory.
+
+I think this means that it's no longer safe to give a tap fd to an 
+unprivileged process regardless of how you're routing the traffic.
+
+Regards,
+
+Anthony Liguori
