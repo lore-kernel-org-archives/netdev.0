@@ -1,151 +1,107 @@
-From: Dan Nicholson <dbn.lists@gmail.com>
-Subject: [PATCH] sundance: Set carrier status on link change events
-Date: Sat,  5 Apr 2008 07:21:06 -0700
-Message-ID: <1207405266-2634-1-git-send-email-dbn.lists@gmail.com>
-Cc: akpm@osdl.org, jeff@garzik.org
-To: netdev@vger.kernel.org
+From: Soeren Sonnenburg <kernel@nn7.de>
+Subject: Re: 2.6.25-rc8: WARNING: at net/ipv4/tcp_input.c:2173
+	tcp_mark_head_lost+0x11d/0x150()
+Date: Sat, 05 Apr 2008 18:40:34 +0200
+Message-ID: <1207413634.4597.4.camel@localhost>
+References: <1207199456.7616.3.camel@localhost>
+	 <Pine.LNX.4.64.0804031616330.21524@wrl-59.cs.helsinki.fi>
+	 <1207230008.4513.14.camel@localhost>
+	 <Pine.LNX.4.64.0804031744190.32094@wrl-59.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:50589
-	"EHLO QMTA05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751890AbYDEOVQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Apr 2008 10:21:16 -0400
+Received: from nn7.de ([85.214.94.156]:44482 "EHLO nn7.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752489AbYDEQlA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Apr 2008 12:41:00 -0400
+In-Reply-To: <Pine.LNX.4.64.0804031744190.32094@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check if the link is available when a changed interrupt has been
-received and set the carrier status appropriately. The code is copied
-nearly verbatim from the dl2k module. The link status could be used in
-more places in the driver, but this is enough to get the carrier status
-reported to userspace. Fixes kernel bug #7487:
+On Fri, 2008-04-04 at 21:51 +0300, Ilpo J=E4rvinen wrote:
+> On Thu, 3 Apr 2008, Soeren Sonnenburg wrote:
+>=20
+> > On Thu, 2008-04-03 at 16:26 +0300, Ilpo J=E4rvinen wrote:
+> > > On Thu, 3 Apr 2008, Soeren Sonnenburg wrote:
+> > >=20
+> > > > trying to download things, I am seeing this (ignore the tainted=
+, it is
+> > > > from madwifi and although the module is loaded the device was n=
+ever
+> > > > used)
+> > > >=20
+> > > > Could anyone make sense of this please?
+> > >=20
+> > > ...I'm just trying to find out who and where invariants of the TC=
+P code
+> > > are broken. These were relatively recently enabled (pre-2.6.24 ju=
+st didn't=20
+> > > care too much). A number of long standing issues plus bugs from m=
+y=20
+> > > modifications have been fixed because of the more rigid checking =
+:-).
+> > >=20
+> > > > ------------[ cut here ]------------
+> > > > WARNING: at net/ipv4/tcp_input.c:2173 tcp_mark_head_lost+0x11d/=
+0x150()
+> > >=20
+> > > > ------------[ cut here ]------------
+> > > > WARNING: at net/ipv4/tcp_input.c:1771 tcp_enter_frto+0x267/0x27=
+0()
+> > >=20
+> > > > ------------[ cut here ]------------
+> > > > WARNING: at net/ipv4/tcp_input.c:2532 tcp_ack+0x1a6f/0x1d60()
+> > >=20
+> > > Can you reproduce it?=20
+> >=20
+> > Yes, by massively downloading things :-) But I have no real recipe =
+to
+> > make it easily reproducible...
+>=20
+> Good :-), no need for recipes, just that you can trigger it more ofte=
+n=20
+> tha once per month or so :-). I probably couldn't trigger it anyway h=
+ere=20
+> because they're often rather sensitive to network "weather", thus if =
+you=20
+> have problems in reproducing, doing tests around the same phase of th=
+e=20
+> date cycle you saw it the first time might help.
+>=20
+> Here's a debug patch which expensively verifies TCP's state in a numb=
+er
+> of places during ACK to find first spot where the actual bug occurs.
 
-    http://bugzilla.kernel.org/show_bug.cgi?id=7487
+OK I am getting this now as the first spot:
 
-Signed-off-by: Dan Nicholson <dbn.lists@gmail.com>
----
- drivers/net/sundance.c |   94 +++++++++++++++++++++++++++++++-----------------
- 1 files changed, 61 insertions(+), 33 deletions(-)
+P: 4 L: 2 vs 2 S: 0 vs 3 F: 0 vs 0 w: 4023500226-4023505874 (0)
+skb 0 f495c180
+skb 1 f480a180
+skb 2 f4994600
+head 3 f495c780
+skb 4 f5b32480
+TCP wq(s) LL  <
+WARNING: at net/ipv4/tcp_ipv4.c:240 tcp_verify_wq+0x319/0x3c0()
 
-diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
-index 7d5561b..79ca0f6 100644
---- a/drivers/net/sundance.c
-+++ b/drivers/net/sundance.c
-@@ -409,6 +409,7 @@ static int  change_mtu(struct net_device *dev, int new_mtu);
- static int  eeprom_read(void __iomem *ioaddr, int location);
- static int  mdio_read(struct net_device *dev, int phy_id, int location);
- static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
-+static int  mdio_wait_link (struct net_device *dev, int wait);
- static int  netdev_open(struct net_device *dev);
- static void check_duplex(struct net_device *dev);
- static void netdev_timer(unsigned long data);
-@@ -785,6 +786,24 @@ static void mdio_write(struct net_device *dev, int phy_id, int location, int val
- 	return;
- }
- 
-+static int mdio_wait_link (struct net_device *dev, int wait)
-+{
-+	int bmsr;
-+	int phy_id;
-+	struct netdev_private *np;
-+
-+	np = netdev_priv(dev);
-+	phy_id = np->phys[0];
-+
-+	do {
-+		bmsr = mdio_read (dev, phy_id, MII_BMSR);
-+		if (bmsr & 0x0004)
-+			return 0;
-+		mdelay (1);
-+	} while (--wait > 0);
-+	return -1;
-+}
-+
- static int netdev_open(struct net_device *dev)
- {
- 	struct netdev_private *np = netdev_priv(dev);
-@@ -1393,41 +1412,50 @@ static void netdev_error(struct net_device *dev, int intr_status)
- 	int speed;
- 
- 	if (intr_status & LinkChange) {
--		if (np->an_enable) {
--			mii_advertise = mdio_read (dev, np->phys[0], MII_ADVERTISE);
--			mii_lpa= mdio_read (dev, np->phys[0], MII_LPA);
--			mii_advertise &= mii_lpa;
--			printk (KERN_INFO "%s: Link changed: ", dev->name);
--			if (mii_advertise & ADVERTISE_100FULL) {
--				np->speed = 100;
--				printk ("100Mbps, full duplex\n");
--			} else if (mii_advertise & ADVERTISE_100HALF) {
--				np->speed = 100;
--				printk ("100Mbps, half duplex\n");
--			} else if (mii_advertise & ADVERTISE_10FULL) {
--				np->speed = 10;
--				printk ("10Mbps, full duplex\n");
--			} else if (mii_advertise & ADVERTISE_10HALF) {
--				np->speed = 10;
--				printk ("10Mbps, half duplex\n");
--			} else
--				printk ("\n");
-+		if (mdio_wait_link (dev, 10) == 0) {
-+			printk (KERN_INFO "%s: Link up\n", dev->name);
-+			if (np->an_enable) {
-+				mii_advertise = mdio_read (dev, np->phys[0],
-+							   MII_ADVERTISE);
-+				mii_lpa= mdio_read (dev, np->phys[0], MII_LPA);
-+				mii_advertise &= mii_lpa;
-+				printk (KERN_INFO "%s: Link changed: ",
-+					dev->name);
-+				if (mii_advertise & ADVERTISE_100FULL) {
-+					np->speed = 100;
-+					printk ("100Mbps, full duplex\n");
-+				} else if (mii_advertise & ADVERTISE_100HALF) {
-+					np->speed = 100;
-+					printk ("100Mbps, half duplex\n");
-+				} else if (mii_advertise & ADVERTISE_10FULL) {
-+					np->speed = 10;
-+					printk ("10Mbps, full duplex\n");
-+				} else if (mii_advertise & ADVERTISE_10HALF) {
-+					np->speed = 10;
-+					printk ("10Mbps, half duplex\n");
-+				} else
-+					printk ("\n");
- 
-+			} else {
-+				mii_ctl = mdio_read (dev, np->phys[0], MII_BMCR);
-+				speed = (mii_ctl & BMCR_SPEED100) ? 100 : 10;
-+				np->speed = speed;
-+				printk (KERN_INFO "%s: Link changed: %dMbps ,",
-+					dev->name, speed);
-+				printk ("%s duplex.\n", (mii_ctl & BMCR_FULLDPLX) ?
-+					"full" : "half");
-+			}
-+			check_duplex (dev);
-+			if (np->flowctrl && np->mii_if.full_duplex) {
-+				iowrite16(ioread16(ioaddr + MulticastFilter1+2) | 0x0200,
-+					ioaddr + MulticastFilter1+2);
-+				iowrite16(ioread16(ioaddr + MACCtrl0) | EnbFlowCtrl,
-+					ioaddr + MACCtrl0);
-+			}
-+			netif_carrier_on(dev);
- 		} else {
--			mii_ctl = mdio_read (dev, np->phys[0], MII_BMCR);
--			speed = (mii_ctl & BMCR_SPEED100) ? 100 : 10;
--			np->speed = speed;
--			printk (KERN_INFO "%s: Link changed: %dMbps ,",
--				dev->name, speed);
--			printk ("%s duplex.\n", (mii_ctl & BMCR_FULLDPLX) ?
--				"full" : "half");
--		}
--		check_duplex (dev);
--		if (np->flowctrl && np->mii_if.full_duplex) {
--			iowrite16(ioread16(ioaddr + MulticastFilter1+2) | 0x0200,
--				ioaddr + MulticastFilter1+2);
--			iowrite16(ioread16(ioaddr + MACCtrl0) | EnbFlowCtrl,
--				ioaddr + MACCtrl0);
-+			printk (KERN_INFO "%s: Link down\n", dev->name);
-+			netif_carrier_off(dev);
- 		}
- 	}
- 	if (intr_status & StatsMax) {
--- 
-1.5.3.2
+another one:
+WARNING: at net/ipv4/tcp_output.c:1475 __tcp_push_pending_frames+0x70/0=
+x830()
 
+
+P: 4 L: 2 vs 2 S: 0 vs 3 F: 0 vs 0 w: 4023500226-4023505874 (0)
+skb 0 f495c180
+skb 1 f480a180
+skb 2 f4994600
+head 3 f495c780
+skb 4 f5b32480
+TCP wq(s) LL  <
+TCP wq(h) +-++<
+l2 s3 f0 p4 seq: su4023500226 hs241530103 sn4023505874
+------------[ cut here ]------------
+WARNING: at net/ipv4/tcp_ipv4.c:240 tcp_verify_wq+0x319/0x3c0()
+
+Soeren
