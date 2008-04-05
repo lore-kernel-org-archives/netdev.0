@@ -1,79 +1,40 @@
-From: Anthony Liguori <anthony@codemonkey.ws>
-Subject: Re: [PATCH RFC 3/5] tun: vringfd receive support.
-Date: Sat, 05 Apr 2008 12:26:57 -0500
-Message-ID: <47F7B661.6090606@codemonkey.ws>
-References: <200804052202.09157.rusty@rustcorp.com.au>	<200804052204.28518.rusty@rustcorp.com.au> <200804052205.43824.rusty__2650.41595926068$1207397436$gmane$org@rustcorp.com.au>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: RE: A Linux TCP SACK Question
+Date: Sat, 5 Apr 2008 20:42:19 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0804052041480.8668@wrl-59.cs.helsinki.fi>
+References: <fc471cb97cfd.47f5520e@fnal.gov>
+ <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
+ <000001c8967c$496efa20$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
+ <000b01c89699$00e99590$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
+ <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
+ <000f01c896a1$3022fec0$c95ee183@D2GT6T71>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Max Krasnyansky <maxk@qualcomm.com>,
-	virtualization@lists.linux-foundation.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: 'John Heffner' <johnwheffner@gmail.com>,
+	'Netdev' <netdev@vger.kernel.org>
+To: Wenji Wu <wenji@fnal.gov>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rn-out-0910.google.com ([64.233.170.184]:12090 "EHLO
-	rn-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752567AbYDER1D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Apr 2008 13:27:03 -0400
-Received: by rn-out-0910.google.com with SMTP id e24so622541rng.1
-        for <netdev@vger.kernel.org>; Sat, 05 Apr 2008 10:27:00 -0700 (PDT)
-In-Reply-To: <200804052205.43824.rusty__2650.41595926068$1207397436$gmane$org@rustcorp.com.au>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45460 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752679AbYDERmW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Apr 2008 13:42:22 -0400
+In-Reply-To: <000f01c896a1$3022fec0$c95ee183@D2GT6T71>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rusty Russell wrote:
-> This patch modifies tun to allow a vringfd to specify the receive
-> buffer.  Because we can't copy to userspace in bh context, we queue
-> like normal then use the "pull" hook to actually do the copy.
+On Fri, 4 Apr 2008, Wenji Wu wrote:
+
 > 
-> More thought needs to be put into the possible races with ring
-> registration and a simultaneous close, for example (see FIXME).
+> >...Assuming it wasn't disabled already. If you find that there's 
+> >significant difference, you could try also with SACK+basic FRTO (set 
+> >the tcp_frto sysctl to 1).
 > 
-> We use struct virtio_net_hdr prepended to packets in the ring to allow
-> userspace to receive GSO packets in future (at the moment, the tun
-> driver doesn't tell the stack it can handle them, so these cases are
-> never taken).
+> No, still the same. I tried tcp_frto with 0, 1, 2. 
 > 
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> SACK On is worse than SACK off.
 
-<snip>
+No easy solution then, we'll have to take a look on tcpdumps.
 
-> +
-> +#ifdef CONFIG_VRINGFD
-
-I think the rest of the code needs these for it to actually work without 
-VRINGFD.
-
-> +static void unset_recv(void *_tun)
-> +{
-> +	struct tun_struct *tun = _tun;
-> +
-> +	tun->inring = NULL;
-> +}
-> +
-> +/* Returns number of used buffers, or negative errno. */
-> +static int pull_recv_skbs(void *_tun)
-> +{
-> +	struct tun_struct *tun = _tun;
-> +	int err = 0, num_copied = 0;
-> +	struct sk_buff *skb;
-> +
-> +	while ((skb = skb_dequeue(&tun->readq)) != NULL) {
-> +		struct iovec iov[1+MAX_SKB_FRAGS];
-> +		struct virtio_net_hdr gso = { 0 }; /* no info leak */
-> +		unsigned int iovnum = ARRAY_SIZE(iov);
-> +		unsigned long len;
-> +		int id;
-> +
-> +		id = vring_get_buffer(tun->inring, iov, &iovnum, &len,
-> +				      NULL, NULL, NULL);
-> +		if (id <= 0) {
-> +			err = id;
-> +			break;
-> +		}
-
-Ah, I see now why you're passing something from the stack.
-
-Regards,
-
-Anthony Liguori
+-- 
+ i.
