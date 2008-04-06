@@ -1,38 +1,46 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH] net: add destructor for skb data.
-Date: Sun, 6 Apr 2008 13:20:18 +0400
-Message-ID: <20080406092018.GA32293@2ka.mipt.ru>
-References: <200804052156.05318.rusty@rustcorp.com.au> <20080405130647.GA21337@2ka.mipt.ru> <200804061320.59485.rusty@rustcorp.com.au>
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Subject: [PATCH 2.6.25] BNX2X: Correct bringing chip out of reset
+Date: Sun, 06 Apr 2008 12:44:42 +0300
+Message-ID: <1207475082.13326.17.camel@lb-tlvb-eliezer.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: "davem@davemloft.net" <davem@davemloft.net>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:42568 "EHLO 2ka.mipt.ru"
+Received: from mms3.broadcom.com ([216.31.210.19]:2966 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751579AbYDFJUc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Apr 2008 05:20:32 -0400
-Content-Disposition: inline
-In-Reply-To: <200804061320.59485.rusty@rustcorp.com.au>
+	id S1751641AbYDFJw4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Apr 2008 05:52:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Rusty.
+BNX2X: Correct bringing chip out of reset
 
-On Sun, Apr 06, 2008 at 01:20:59PM +1000, Rusty Russell (rusty@rustcorp.com.au) wrote:
->     I don't think so.  For a start, the skb destructor is called while the skb 
-> is still in the socket queue (ie. the data is still live).  Secondly, the 
-> original skb can be freed while clones still reference the data.
+Fixed bug: Wrong register was written to when bringing the chip out of reset.
 
-That is what it is for - to remove data from any queues and free it.
-One can check if skb was cloned and do not perform some steps, instead
-call old destructor. Destructor for the last clone will cleanup whatever
-is needed. Thoughts?
+Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
+---
+ drivers/net/bnx2x.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Actually I'm not that opposed agains additional destructor, I just want
-to bring attention to this topic, since this is second time some steps
-are going to be setup for the destruction time, so I want a clear
-solution :)
-
+diff --git a/drivers/net/bnx2x.c b/drivers/net/bnx2x.c
+index de32b3f..ff15454 100644
+--- a/drivers/net/bnx2x.c
++++ b/drivers/net/bnx2x.c
+@@ -6153,7 +6153,7 @@ static int bnx2x_function_init(struct bnx2x *bp, int mode)
+ 		   func, mode);
+ 		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET,
+ 		       0xffffffff);
+-		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET,
++		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET,
+ 		       0xfffc);
+ 		bnx2x_init_block(bp, MISC_COMMON_START, MISC_COMMON_END);
+ 
 -- 
-	Evgeniy Polyakov
+1.5.3.2
+
+
+
+
