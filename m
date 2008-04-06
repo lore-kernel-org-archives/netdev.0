@@ -1,47 +1,34 @@
-From: Bodo Eggert <7eggert@gmx.de>
-Subject: Re: GFP_ATOMIC page allocation failures.
-Date: Sun, 6 Apr 2008 14:12:03 +0200 (CEST)
-Message-ID: <alpine.LSU.0.999.0804061406380.3361@be1.lrz>
-References: <adYyJ-20N-11@gated-at.bofh.it> <200804042159.54220.nickpiggin@yahoo.com.au>
- <Pine.LNX.4.58.0804041307500.9036@be10.lrz>
- <200804051206.37394.nickpiggin@yahoo.com.au>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH] net: add destructor for skb data.
+Date: Sun, 6 Apr 2008 17:32:17 +0400
+Message-ID: <20080406133217.GA19671@2ka.mipt.ru>
+References: <200804052156.05318.rusty@rustcorp.com.au> <20080405130647.GA21337@2ka.mipt.ru> <200804061320.59485.rusty@rustcorp.com.au> <20080406092018.GA32293@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Bodo Eggert <7eggert@gmx.de>, Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Chris Snook <csnook@redhat.com>,
-	Dave Jones <davej@codemonkey.org.uk>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Nick Piggin <nickpiggin@yahoo.com.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:56658 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751402AbYDFMMt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Apr 2008 08:12:49 -0400
-In-Reply-To: <200804051206.37394.nickpiggin@yahoo.com.au>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:49032 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751143AbYDFNcc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Apr 2008 09:32:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20080406092018.GA32293@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 5 Apr 2008, Nick Piggin wrote:
-> On Friday 04 April 2008 22:35, Bodo Eggert wrote:
-> > On Fri, 4 Apr 2008, Nick Piggin wrote:
+Hi.
 
-> > > But actually developers do sometimes want see the event even if it is
-> > > relatively infrequent...
-> >
-> > You shouldn't frighten the users either. /proc/sys/vm/debug?
-> 
-> Hence changing the message a to make it clear that it is not a
-> problem if it is infrequent.
+On Sun, Apr 06, 2008 at 01:20:18PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> Actually I'm not that opposed agains additional destructor, I just want
+> to bring attention to this topic, since this is second time some steps
+> are going to be setup for the destruction time, so I want a clear
+> solution :)
 
-If it's no problem when infrequent, and if it's possible and cheap (less 
-extra code than sizeof(explanation)) to not show a message if it's 
-infrequent, why should the users be bothered at all? The system needs less 
-than one ms to do the job, the admin needs five minutes to grep the logs.
+Actually the question is who is allowed to set that callback?
+Essentially what I want is to get the same notifications as you propose
+in patch 4 but for socket layer. AFAICS this will not collide with
+tun/tap skbs.
 
 -- 
-Top 100 things you don't want the sysadmin to say:
-72. My leave starts tomorrow.
+	Evgeniy Polyakov
