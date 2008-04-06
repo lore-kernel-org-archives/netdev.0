@@ -1,46 +1,47 @@
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: [PATCH 2.6.25] BNX2X: Correct bringing chip out of reset
-Date: Sun, 06 Apr 2008 12:44:42 +0300
-Message-ID: <1207475082.13326.17.camel@lb-tlvb-eliezer.il.broadcom.com>
+From: Bodo Eggert <7eggert@gmx.de>
+Subject: Re: GFP_ATOMIC page allocation failures.
+Date: Sun, 6 Apr 2008 14:12:03 +0200 (CEST)
+Message-ID: <alpine.LSU.0.999.0804061406380.3361@be1.lrz>
+References: <adYyJ-20N-11@gated-at.bofh.it> <200804042159.54220.nickpiggin@yahoo.com.au>
+ <Pine.LNX.4.58.0804041307500.9036@be10.lrz>
+ <200804051206.37394.nickpiggin@yahoo.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: "davem@davemloft.net" <davem@davemloft.net>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Bodo Eggert <7eggert@gmx.de>, Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Chris Snook <csnook@redhat.com>,
+	Dave Jones <davej@codemonkey.org.uk>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Nick Piggin <nickpiggin@yahoo.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2966 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751641AbYDFJw4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Apr 2008 05:52:56 -0400
+Received: from moutng.kundenserver.de ([212.227.126.186]:56658 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751402AbYDFMMt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Apr 2008 08:12:49 -0400
+In-Reply-To: <200804051206.37394.nickpiggin@yahoo.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-BNX2X: Correct bringing chip out of reset
+On Sat, 5 Apr 2008, Nick Piggin wrote:
+> On Friday 04 April 2008 22:35, Bodo Eggert wrote:
+> > On Fri, 4 Apr 2008, Nick Piggin wrote:
 
-Fixed bug: Wrong register was written to when bringing the chip out of reset.
+> > > But actually developers do sometimes want see the event even if it is
+> > > relatively infrequent...
+> >
+> > You shouldn't frighten the users either. /proc/sys/vm/debug?
+> 
+> Hence changing the message a to make it clear that it is not a
+> problem if it is infrequent.
 
-Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
----
- drivers/net/bnx2x.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+If it's no problem when infrequent, and if it's possible and cheap (less 
+extra code than sizeof(explanation)) to not show a message if it's 
+infrequent, why should the users be bothered at all? The system needs less 
+than one ms to do the job, the admin needs five minutes to grep the logs.
 
-diff --git a/drivers/net/bnx2x.c b/drivers/net/bnx2x.c
-index de32b3f..ff15454 100644
---- a/drivers/net/bnx2x.c
-+++ b/drivers/net/bnx2x.c
-@@ -6153,7 +6153,7 @@ static int bnx2x_function_init(struct bnx2x *bp, int mode)
- 		   func, mode);
- 		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET,
- 		       0xffffffff);
--		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET,
-+		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET,
- 		       0xfffc);
- 		bnx2x_init_block(bp, MISC_COMMON_START, MISC_COMMON_END);
- 
 -- 
-1.5.3.2
-
-
-
-
+Top 100 things you don't want the sysadmin to say:
+72. My leave starts tomorrow.
