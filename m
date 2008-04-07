@@ -1,59 +1,48 @@
-From: Wenji Wu <wenji@fnal.gov>
-Subject: RE: A Linux TCP SACK Question
-Date: Mon, 07 Apr 2008 09:56:46 -0500
-Message-ID: <000701c898bf$99fc3f80$c95ee183@D2GT6T71>
-References: <fc471cb97cfd.47f5520e@fnal.gov>
- <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
- <000001c8967c$496efa20$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
- <000b01c89699$00e99590$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
- <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
- <000f01c896a1$3022fec0$c95ee183@D2GT6T71>
- <649aecc70804051417l4cf9b30asec8ca8d55e79e051@mail.gmail.com>
- <fb8e9e4f102e.47f8ebfd@fnal.gov>
- <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
-Reply-To: wenji@fnal.gov
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC] fib_trie: memory waste solutions
+Date: Mon, 7 Apr 2008 17:15:03 +0200
+Message-ID: <20080407151503.GD16647@one.firstfloor.org>
+References: <20080401172702.094c0700@extreme> <47F33D42.9080302@cosmosbay.com> <47F39998.8040605@cosmosbay.com> <20080402110335.66b04181@extreme> <47F3E031.1030806@cosmosbay.com> <20080404090257.2ec38b0c@extreme> <18425.50538.876583.892728@robur.slu.se> <87bq4mrt9v.fsf@basil.nowhere.org> <18426.13019.345218.79888@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: =?iso-8859-1?Q?'Ilpo_J=E4rvinen'?= <ilpo.jarvinen@helsinki.fi>,
-	'John Heffner' <johnwheffner@gmail.com>,
-	'Netdev' <netdev@vger.kernel.org>
-To: 'Sangtae Ha' <sangtae.ha@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org
+To: Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.fnal.gov ([131.225.111.11]:36098 "EHLO mailgw1.fnal.gov"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753343AbYDGPBs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Apr 2008 11:01:48 -0400
-Received: from mailav1.fnal.gov (mailav1.fnal.gov [131.225.111.18])
- by mailgw1.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- with SMTP id <0JYY00IUVMSQ2R@mailgw1.fnal.gov> for netdev@vger.kernel.org;
- Mon, 07 Apr 2008 09:56:51 -0500 (CDT)
-Received: from mailgw2.fnal.gov ([131.225.111.12])
- by mailav1.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008040709565002888 for
- <netdev@vger.kernel.org>; Mon, 07 Apr 2008 09:56:50 -0500
-Received: from conversion-daemon.mailgw2.fnal.gov by mailgw2.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- id <0JYY00E01MU1HB@mailgw2.fnal.gov> (original mail from wenji@fnal.gov)
- for netdev@vger.kernel.org; Mon, 07 Apr 2008 09:56:51 -0500 (CDT)
-In-reply-to: <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
+Received: from one.firstfloor.org ([213.235.205.2]:42498 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752011AbYDGPKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 11:10:45 -0400
+Content-Disposition: inline
+In-Reply-To: <18426.13019.345218.79888@robur.slu.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Apr 07, 2008 at 04:42:35PM +0200, Robert Olsson wrote:
+> 
+> Andi Kleen writes:
+> 
+>  > >  Do we get slower with vmalloc due to TLB-lookups etc? Guess this
+>  > >  should be investigated.
+>  > 
+>  > In some cases it might even go faster because a lot of x86 CPUs
+>  > have far more 4K TLBs than 2M TLBs. vmalloc is just quite expensive
+>  > in setup/free time, but that shouldn't be a big issue here.
+> 
+> 
+>  I've did some rDoS testing and the lookup performance is the same or 
+>  slightly better. So it should be fine.  
 
->I don't think reorderings frequently happened in your directly
->connected networking scenario. Please post your tcpdump file for
->clearing out all doubts.
+If you want more realistic worst case numbers run something in user space in 
+the background that thrashes the TLBs constantly and then see how
+the numbers change.
 
-https://plone3.fnal.gov/P0/WAN/Members/wenji/tcp_dump_files_sack/
+The main advantage of using large pages is that they tend to be separated
+from 4K TLBs and since most user space doesn't use large pages it 
+gives the kernel an effective private TLB pool.
 
-Two tcpdump files: one with SACK on, the other with SACK off. The test
-configures described in my previous emails.
+With vmalloc it will now compete with whatever other TLB pigs are active.
 
-Best,
-
-wenji
-
-
+-Andi
