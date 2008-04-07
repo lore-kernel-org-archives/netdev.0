@@ -1,51 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET_SCHED 00/04]: External SFQ classifiers/flow classifier
-Date: Mon, 07 Apr 2008 15:44:35 +0200
-Message-ID: <47FA2543.1080609@trash.net>
-References: <20080131175758.25151.20370.sendpatchset@localhost.localdomain> <47A4FB81.80700@fatooh.org> <47A74FEE.6080103@trash.net> <47EED247.50801@andyfurniss.entadsl.com> <47F22CF5.4080806@trash.net> <47F28758.1010401@andyfurniss.entadsl.com> <47F37139.9080303@andyfurniss.entadsl.com> <47F37E04.4010001@trash.net> <47F3B3C5.6000701@andyfurniss.entadsl.com> <47F6062E.9050804@andyfurniss.entadsl.com> <47F606D8.108@trash.net> <47F65EDE.3010507@andyfurniss.entadsl.com> <47F6794D.7070302@andyfurniss.entadsl.com> <47FA2509.8060303@andyfurniss.entadsl.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [TOMOYO #7 30/30] Hooks for SAKURA and TOMOYO.
+Date: Mon, 7 Apr 2008 22:56:58 +0900
+Message-ID: <200804072256.IFJ17170.QFOJFHtLSOOVFM@I-love.SAKURA.ne.jp>
+References: <20080404122242.867070732@I-love.SAKURA.ne.jp><20080404122408.986477936@I-love.SAKURA.ne.jp><1207326576.21308.71.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Corey Hickey <bugfood-ml@fatooh.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: lists@andyfurniss.entadsl.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35598 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750975AbYDGNoj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 09:44:39 -0400
-In-Reply-To: <47FA2509.8060303@andyfurniss.entadsl.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, takedakn@nttdata.co.jp,
+	haradats@nttdata.co.jp, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: dwalker@mvista.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1207326576.21308.71.camel@localhost.localdomain>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andy Furniss wrote:
-> Andy Furniss wrote:
->> Andy Furniss wrote:
->>
->>> Looking at the sfq code it seems that enqueue doesn't init/zero allot 
->>> for a new flow unless it's the first and most of what I see fits with 
->>> this. 
->>
->>> But rarely it doesn't look like that's all there is to it.
->>
->> Actually it fits perfectly, so that is all there is to it. Dequeue 
->> dequeues first then checks allot so even if the allot is stuck at 
->> -20345 or something the flow will still get 1 packet per round which 
->> is what I've seen. I first thought it should have moved towards 0 like 
->> it does when it starts too high.
+Daniel Walker wrote:
+> From a reviews perspective what I would want is each set of changes,
+> file system, networking, arch, etc split into separate patches. For
+> example you have a number of patches just adding header files. You could
+> merge the header file with the hook additions. Then you have a natural
+> code split up which should be easier to review..
+Filesystem part to fsdevel, socket operation part to netdev. That's OK.
+But I wonder where to post the rest part.
+Since the patches for passing "struct vfsmount" to LSM has been rejected,
+TOMOYO has been unable to use LSM.
+Thus, I proposed this patch set as a non-LSM version, but it bothers me
+where to post this patch. If you know, please teach me where to post.
+
+> > --- linux-2.6.25-rc8-mm1.orig/include/linux/init_task.h
+> > +++ linux-2.6.25-rc8-mm1/include/linux/init_task.h
+> > @@ -197,6 +197,10 @@ extern struct group_info init_groups;
+> >  	INIT_IDS							\
+> >  	INIT_TRACE_IRQFLAGS						\
+> >  	INIT_LOCKDEP							\
+> > +	/***** TOMOYO Linux start. *****/        \
+> > +	.domain_info = &KERNEL_DOMAIN,           \
+> > +	.tomoyo_flags = 0,                       \
+> > +	/***** TOMOYO Linux end. *****/          \
+> >  }
 > 
-> Seems like this change fixes it for me, though I since noticed that 
-> requeue will need the same change as well.
+> ifdef's ?
+
+Or security_initcall()?
+
+> > @@ -1278,6 +1283,10 @@ struct task_struct {
+> >  	int latency_record_count;
+> >  	struct latency_record latency_record[LT_SAVECOUNT];
+> >  #endif
+> > +	/***** TOMOYO Linux start. *****/
+> > +	struct domain_info *domain_info;
+> > +	u32 tomoyo_flags;
+> > +	/***** TOMOYO Linux end. *****/
+> >  };
 > 
-> --- sch_sfq.c.orig      2008-04-07 11:42:36.000000000 +0100
-> +++ sch_sfq.c   2008-04-07 11:46:41.000000000 +0100
-> @@ -317,6 +317,7 @@
->                         q->next[x] = q->next[q->tail];
->                         q->next[q->tail] = x;
->                         q->tail = x;
-> +                       q->allot[x] = 0;
+> ifdefs? 
+>
+I see.
 
-
-That might fix the symptom, but I don't think its correct.
-As I said, you can't simply reset to zero since it might cause
-unfairness of bursty flows against non-bursty flows.
+Thank you.
