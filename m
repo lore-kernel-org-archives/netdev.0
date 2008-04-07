@@ -1,52 +1,59 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [INET]: sk_reuse is valbool
-Date: Mon, 7 Apr 2008 16:01:33 +0100
-Message-ID: <20080407150133.GB16869@gerrit.erg.abdn.ac.uk>
+From: Wenji Wu <wenji@fnal.gov>
+Subject: RE: A Linux TCP SACK Question
+Date: Mon, 07 Apr 2008 09:56:46 -0500
+Message-ID: <000701c898bf$99fc3f80$c95ee183@D2GT6T71>
+References: <fc471cb97cfd.47f5520e@fnal.gov>
+ <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
+ <000001c8967c$496efa20$c95ee183@D2GT6T71>
+ <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
+ <000b01c89699$00e99590$c95ee183@D2GT6T71>
+ <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
+ <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
+ <000f01c896a1$3022fec0$c95ee183@D2GT6T71>
+ <649aecc70804051417l4cf9b30asec8ca8d55e79e051@mail.gmail.com>
+ <fb8e9e4f102e.47f8ebfd@fnal.gov>
+ <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
+Reply-To: wenji@fnal.gov
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: =?iso-8859-1?Q?'Ilpo_J=E4rvinen'?= <ilpo.jarvinen@helsinki.fi>,
+	'John Heffner' <johnwheffner@gmail.com>,
+	'Netdev' <netdev@vger.kernel.org>
+To: 'Sangtae Ha' <sangtae.ha@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:62263 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752896AbYDGPBg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Apr 2008 11:01:36 -0400
-Received: from gerrit.erg.abdn.ac.uk (Debian-exim@gerrit.erg.abdn.ac.uk [139.133.204.176])
-	by erg.abdn.ac.uk (8.13.4/8.13.4) with ESMTP id m37F1WVc001919
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 7 Apr 2008 16:01:32 +0100 (BST)
-Received: from gerrit by gerrit.erg.abdn.ac.uk with local (Exim 4.69)
-	(envelope-from <gerrit@gerrit.erg.abdn.ac.uk>)
-	id 1Jisqj-0004Rd-1B
-	for netdev@vger.kernel.org; Mon, 07 Apr 2008 16:01:33 +0100
-Content-Disposition: inline
+Received: from mailgw1.fnal.gov ([131.225.111.11]:36098 "EHLO mailgw1.fnal.gov"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753343AbYDGPBs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Apr 2008 11:01:48 -0400
+Received: from mailav1.fnal.gov (mailav1.fnal.gov [131.225.111.18])
+ by mailgw1.fnal.gov
+ (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
+ with SMTP id <0JYY00IUVMSQ2R@mailgw1.fnal.gov> for netdev@vger.kernel.org;
+ Mon, 07 Apr 2008 09:56:51 -0500 (CDT)
+Received: from mailgw2.fnal.gov ([131.225.111.12])
+ by mailav1.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008040709565002888 for
+ <netdev@vger.kernel.org>; Mon, 07 Apr 2008 09:56:50 -0500
+Received: from conversion-daemon.mailgw2.fnal.gov by mailgw2.fnal.gov
+ (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
+ id <0JYY00E01MU1HB@mailgw2.fnal.gov> (original mail from wenji@fnal.gov)
+ for netdev@vger.kernel.org; Mon, 07 Apr 2008 09:56:51 -0500 (CDT)
+In-reply-to: <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I found this while checking how DCCP handles duplicate bind operations;
-it seems it is a remainder of earlier code and now defunct.
 
------------------------------------> Patch <---------------------------------------
-[INET]: sk_reuse is valbool
+>I don't think reorderings frequently happened in your directly
+>connected networking scenario. Please post your tcpdump file for
+>clearing out all doubts.
 
-sk_reuse is declared as "unsigned char", but is set as type valbool in net/core/sock.c.
-There is no other place in net/ where sk->sk_reuse is set to a value > 1, so the test 
-"sk_reuse > 1" can not be true.
+https://plone3.fnal.gov/P0/WAN/Members/wenji/tcp_dump_files_sack/
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
---
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -133,8 +133,6 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 	goto tb_not_found;
- tb_found:
- 	if (!hlist_empty(&tb->owners)) {
--		if (sk->sk_reuse > 1)
--			goto success;
- 		if (tb->fastreuse > 0 &&
- 		    sk->sk_reuse && sk->sk_state != TCP_LISTEN) {
- 			goto success;
--- 
+Two tcpdump files: one with SACK on, the other with SACK off. The test
+configures described in my previous emails.
 
+Best,
 
-The University of Aberdeen is a charity registered in Scotland, No SC013683.
+wenji
+
 
