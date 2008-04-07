@@ -1,36 +1,51 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [RFC] fib_trie: memory waste solutions
-Date: Mon, 07 Apr 2008 09:58:04 +0200
-Message-ID: <87bq4mrt9v.fsf@basil.nowhere.org>
-References: <20080401172702.094c0700@extreme> <47F33D42.9080302@cosmosbay.com>
-	<47F39998.8040605@cosmosbay.com> <20080402110335.66b04181@extreme>
-	<47F3E031.1030806@cosmosbay.com> <20080404090257.2ec38b0c@extreme>
-	<18425.50538.876583.892728@robur.slu.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org
-To: Robert Olsson <Robert.Olsson@data.slu.se>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH net-2.6 0/3]: TCP fixes
+Date: Mon,  7 Apr 2008 14:25:34 +0300
+Message-ID: <1207567537-16393-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"Robin H. Johnson" <robbat2@gentoo.org>,
+	Georgi Chorbadzhiyski <gf@unixsol.org>,
+	Soeren Sonnenburg <kernel@nn7.de>,
+	Denys Fedoryshchenko <denys@visp.net.lb>,
+	Alessandro Suardi <alessandro.suardi@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out03.alice-dsl.net ([88.44.63.5]:5919 "EHLO
-	smtp-out03.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753106AbYDGINW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 04:13:22 -0400
-In-Reply-To: <18425.50538.876583.892728@robur.slu.se> (Robert Olsson's message of "Mon, 7 Apr 2008 08:55:38 +0200")
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:53225 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753616AbYDGLZk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 07:25:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Olsson <Robert.Olsson@data.slu.se> writes:
->
->  Do we get slower with vmalloc due to TLB-lookups etc? Guess this
->  should be investigated.
+Hi Dave,
 
-In some cases it might even go faster because a lot of x86 CPUs
-have far more 4K TLBs than 2M TLBs. vmalloc is just quite expensive
-in setup/free time, but that shouldn't be a big issue here.
+Here are some TCP fixes that resulted from the last weeks reports
+& debug. The first one is quite likely to hit but it's considerably
+harder to get it print an overflow warning, while I've seen two
+reports about the second one (one of them is for 2.6.24.y), please
+ignore the earlier version of the tcp_simple_retransmit patch. The
+FRTO patch is once again result of code review rather than some   
+report but seems necessary to avoid detection of some not that    
+likely cases as spurious RTOs when there were some other losses
+in the same window with the probe. Nevertheless, it should be safe
+to return non-FRTO behavior.
 
-The memory savings are impressive.
+...So far, they're just compile tested. I'll see if I find some time
+to boot them on the evening.
 
--Andi
+There might still be one fackets_out miscounter awaiting detection
+with debug patch (I hope Georgi catches it) because none of these   
+seem an obvious reason for triggery of the !sacked_out && fackets_out
+trap.
+
+All of them are also valid for stables but please note that it won't
+be too easy, at least for the first & second patch, because of recent
+changes (especially if stable != 2.6.24.y). I'll try to do the
+adapted versions later on for the stable.
+
+--
+ i.
+
 
