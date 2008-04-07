@@ -1,113 +1,91 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCHv2 net-2.6 2/4] [TCP]: Fix NewReno's fast rexmit/recovery problems with GSOed skb
-Date: Mon,  7 Apr 2008 14:55:42 +0300
-Message-ID: <1207569344-19687-3-git-send-email-ilpo.jarvinen@helsinki.fi>
-References: <1207569344-19687-1-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1207569344-19687-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Dmitry Butskoy <buc@odusz.so-cdu.ru>
+Subject: [PATCH] for reopen bug #8747 -- complete the fix
+Date: Mon, 07 Apr 2008 16:11:44 +0400
+Message-ID: <47FA0F80.2080701@odu.neva.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Robin H. Johnson" <robbat2@gentoo.org>,
-	Georgi Chorbadzhiyski <gf@unixsol.org>,
-	Soeren Sonnenburg <kernel@nn7.de>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	Alessandro Suardi <alessandro.suardi@gmail.com>,
-	"=?utf-8?q?Ilpo=20J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+ boundary="------------030105000506000108020905"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:51302 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757025AbYDGLzy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 07:55:54 -0400
-In-Reply-To: <1207569344-19687-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+Received: from mail2.odu.neva.ru ([194.85.100.6]:57642 "EHLO mail2.odu.neva.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757433AbYDGMLq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Apr 2008 08:11:46 -0400
+Received: from buc.odu.neva.ru (buc.odu.neva.ru [194.85.100.33])
+	by mail2.odu.neva.ru (Postfix) with ESMTP id CFE3878011
+	for <netdev@vger.kernel.org>; Mon,  7 Apr 2008 16:11:44 +0400 (MSD)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ixes a long-standing bug which makes NewReno recovery crippled.
-With GSO the whole head skb was marked as LOST which is in
-violation of NewReno procedure that only wants to mark one packet
-and ended up breaking our TCP code by causing counter overflow
-because our code was built on top of assumption about valid
-NewReno procedure. This manifested as triggering a WARN_ON for
-the overflow in a number of places.
+This is a multi-part message in MIME format.
+--------------030105000506000108020905
+Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Transfer-Encoding: 7bit
 
-It seems relatively safe alternative to just do nothing if
-tcp_fragment fails due to oom because another duplicate ACK is
-likely to be received soon and the fragmentation will be retried.
+There was a bug #8747, http://bugzilla.kernel.org/show_bug.cgi?id=8747,
 
-Special thanks goes to Soeren Sonnenburg <kernel@nn7.de> who was
-lucky enough to be able to reproduce this so that the warning
-for the overflow was hit. It's not as easy task as it seems even
-if this bug happens quite often because the amount of outstanding
-data is pretty significant for the mismarkings to lead to an
-overflow.
+"MSG_ERRQUEUE messages do not pass to connected raw sockets",
 
-Because it's very late in 2.6.25-rc cycle (if this even makes in
-time), I didn't want to touch anything with SACK enabled here.
-=46ragmenting might be useful for it as well but it's more or less
-a policy decision rather than mandatory fix. Thus there's no need
-to rush and we can postpone considering tcp_fragment with SACK
-for 2.6.26.
+which still is not fixed, due to absence of proper tests.
 
-In 2.6.24 and earlier, this very same bug existed but the effect
-is slightly different because of a small changes in the if
-conditions that fit to the patch's context. With them nothing
-got lost marker and thus no retransmissions happened.
 
-Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_input.c |   22 ++++++++++++++++++----
- 1 files changed, 18 insertions(+), 4 deletions(-)
+I've made an additional patch (attached), against the 2.6.24.4 tree. The 
+patch fixes the issue completely for me. Tested.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index f82b573..f053bfe 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2138,7 +2138,9 @@ static void tcp_mark_head_lost(struct sock *sk, i=
-nt packets)
- {
- 	struct tcp_sock *tp =3D tcp_sk(sk);
- 	struct sk_buff *skb;
--	int cnt;
-+	int cnt, oldcnt;
-+	int err;
-+	unsigned int mss;
-=20
- 	BUG_TRAP(packets <=3D tp->packets_out);
- 	if (tp->lost_skb_hint) {
-@@ -2157,13 +2159,25 @@ static void tcp_mark_head_lost(struct sock *sk,=
- int packets)
- 		tp->lost_skb_hint =3D skb;
- 		tp->lost_cnt_hint =3D cnt;
-=20
-+		if (after(TCP_SKB_CB(skb)->end_seq, tp->high_seq))
-+			break;
-+
-+		oldcnt =3D cnt;
- 		if (tcp_is_fack(tp) || tcp_is_reno(tp) ||
- 		    (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED))
- 			cnt +=3D tcp_skb_pcount(skb);
-=20
--		if ((cnt > packets) ||
--		    after(TCP_SKB_CB(skb)->end_seq, tp->high_seq))
--			break;
-+		if (cnt > packets) {
-+			if (tcp_is_sack(tp) || (oldcnt >=3D packets))
-+				break;
-+
-+			mss =3D skb_shinfo(skb)->gso_size;
-+			err =3D tcp_fragment(sk, skb, (packets - oldcnt) * mss, mss);
-+			if (err < 0)
-+				break;
-+			cnt =3D packets;
-+		}
-+
- 		if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_SACKED_ACKED|TCPCB_LOST))) {
- 			TCP_SKB_CB(skb)->sacked |=3D TCPCB_LOST;
- 			tp->lost_out +=3D tcp_skb_pcount(skb);
---=20
-1.5.2.2
+Sorry that I have not checked up the previous attempt in real tests. I
+assumed that the "typo" which I had found at that time (saddr/daddr
+swapped) is just "a typo", and things "obviously" should work then...
+Unfortunately, it seems that I am a first person who actually use
+MSG_ERRQUEUE on connected ipv6 raw sockets. It is a reason why all the 
+last years nobody reported this bug.
 
+Note, that "connected raw sockets" is a good feature for new
+traceroute(8) implementation for Linux 
+(http://traceroute.sourceforge.net), included now into Fedora and other 
+distros. This feature allows to filter all alien packets from the 
+socket's input. Without this, the program will receive all the incoming 
+raw packets (for the "icmp" and "tcp" tracerouting methods, which use 
+raw sockets).
+
+Because of that wrong assumption, I've implemented a check, whether the 
+kernel version is more than 2.6.22.2, and if so, allow raw ipv6 sockets 
+to connect. But since 2.6.22.2, the issue still not fixed, and now any 
+combination of "traceroute >= 2.0.8" and "kernel >= 2.6.22.2" leads to 
+impossibility to do "icmp" and "tcp" tracerouting for IPv6. :(
+
+Now I have to ship an update for traceroute. If the bug can be fixed in 
+the nearest future (note the patch is too simple), I'll just change the 
+version to check. If not, I'll be compelled to drop the raw sockets 
+connection for a while.
+
+
+Regards,
+Dmitry Butskoy
+http://www.fedoraproject.org/wiki/DmitryButskoy
+An upstream maintainer of http://traceroute.sourceforge.net
+
+
+--------------030105000506000108020905
+Content-Type: text/x-diff;
+ name="ipv6-raw_socket_msg_errqueue.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ipv6-raw_socket_msg_errqueue.patch"
+
+diff -Nrbu ipv6/icmp.c ipv6.OK/icmp.c
+--- ipv6/icmp.c	2007-10-10 00:31:38.000000000 +0400
++++ ipv6.OK/icmp.c	2008-04-03 16:31:11.000000000 +0400
+@@ -584,8 +584,8 @@
+ 	if (!pskb_may_pull(skb, inner_offset+8))
+ 		return;
+ 
+-	saddr = &ipv6_hdr(skb)->saddr;
+-	daddr = &ipv6_hdr(skb)->daddr;
++	saddr = &((struct ipv6hdr *)skb->data)->saddr;
++	daddr = &((struct ipv6hdr *)skb->data)->daddr;
+ 
+ 	/* BUGGG_FUTURE: we should try to parse exthdrs in this packet.
+ 	   Without this we will not able f.e. to make source routed
+
+
+--------------030105000506000108020905--
