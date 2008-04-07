@@ -1,78 +1,81 @@
-From: "Sangtae Ha" <sangtae.ha@gmail.com>
-Subject: Re: A Linux TCP SACK Question
-Date: Sun, 6 Apr 2008 18:43:02 -0400
-Message-ID: <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
-References: <fc471cb97cfd.47f5520e@fnal.gov>
-	 <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
-	 <000001c8967c$496efa20$c95ee183@D2GT6T71>
-	 <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
-	 <000b01c89699$00e99590$c95ee183@D2GT6T71>
-	 <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
-	 <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
-	 <000f01c896a1$3022fec0$c95ee183@D2GT6T71>
-	 <649aecc70804051417l4cf9b30asec8ca8d55e79e051@mail.gmail.com>
-	 <fb8e9e4f102e.47f8ebfd@fnal.gov>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [2.6 PATCH] IPV6: Check length of optval provided by user in
+ setsockopt()
+Date: Mon, 07 Apr 2008 09:42:07 +0800
+Message-ID: <47F97BEF.2070205@cn.fujitsu.com>
+References: <47F0AA16.1070900@cn.fujitsu.com>	<20080331.181551.118587102.yoshfuji@linux-ipv6.org>	<47F0C101.9090302@cn.fujitsu.com> <20080331.195323.83430743.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
-	"John Heffner" <johnwheffner@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: "Wenji Wu" <wenji@fnal.gov>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.28]:56776 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753539AbYDFWnD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Apr 2008 18:43:03 -0400
-Received: by yw-out-2324.google.com with SMTP id 5so180866ywb.1
-        for <netdev@vger.kernel.org>; Sun, 06 Apr 2008 15:43:02 -0700 (PDT)
-In-Reply-To: <fb8e9e4f102e.47f8ebfd@fnal.gov>
-Content-Disposition: inline
+Received: from cn.fujitsu.com ([222.73.24.84]:49976 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752800AbYDGBnB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Apr 2008 21:43:01 -0400
+In-Reply-To: <20080331.195323.83430743.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When our 40 students had the same lab experiment comparing between
-TCP-SACK and TCP-NewReno, they had come up with similar results. The
-settings are identical to your setting (one linux sender, one linux
-receiver, and one nettem machine in between) . When we introduced some
-loss using a nettem, TCP-SACK showed a bit better performance while
-they had similar throughput most of cases.
+YOSHIFUJI Hideaki said the following on 2008-3-31 18:53:
+> POSIX, as we have some comments in that file ;-).
+> If it is shorter than expected, -EINVAL, otherwise, no error.
+> We need to fix other sites as well.
+> 
 
-I don't think reorderings frequently happened in your directly
-connected networking scenario. Please post your tcpdump file for
-clearing out all doubts.
+Check length of setsockopt's optval, which provided by user, before copy it
+from user space.
+For POSIX compliant, return -EINVAL for setsockopt of short lengths.
 
-Sangtae
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+ net/ipv6/ipv6_sockglue.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-On 4/6/08, Wenji Wu <wenji@fnal.gov> wrote:
->
->
-> > Can you run the attached script and run your testing again?
-> > I think it might be the problem of your dual cores balance the
-> > interrupts on your testing NIC.
-> > As we do a lot of things with SACK, cache misses and etc. might affect
-> > your performance.
-> >
-> > In default setting, I disabled tcp segment offload and did a smp
-> > affinity setting to CPU 0.
-> > Please change "INF" to your interface name and let us know the results.
->
-> I bound the network interrupts and iperf both the CPU0, and CPU0 will be ilde most of the time. The results are still the same.
->
-> At this throughput level, the SACK processing won't take much CPU.
->
-> It is not the interrupt/cpu affinity that cause the difference.
->
-> I am beleving that it is the ACK reordering that cuase the confusion in the sender, which lead the sender uncecessarily to reduce CWND or REORDERING_THRESHOLD.
->
-> wenji
->
-
-
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index bf2a686..a5ac121 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -557,6 +557,9 @@ done:
+ 	{
+ 		struct ipv6_mreq mreq;
+ 
++		if (optlen < sizeof(struct ipv6_mreq))
++			goto e_inval;
++
+ 		retv = -EPROTO;
+ 		if (inet_sk(sk)->is_icsk)
+ 			break;
+@@ -576,7 +579,7 @@ done:
+ 	{
+ 		struct ipv6_mreq mreq;
+ 
+-		if (optlen != sizeof(struct ipv6_mreq))
++		if (optlen < sizeof(struct ipv6_mreq))
+ 			goto e_inval;
+ 
+ 		retv = -EFAULT;
+@@ -595,6 +598,9 @@ done:
+ 		struct group_req greq;
+ 		struct sockaddr_in6 *psin6;
+ 
++		if (optlen < sizeof(struct group_req))
++			goto e_inval;
++
+ 		retv = -EFAULT;
+ 		if (copy_from_user(&greq, optval, sizeof(struct group_req)))
+ 			break;
+@@ -619,7 +625,7 @@ done:
+ 		struct group_source_req greqs;
+ 		int omode, add;
+ 
+-		if (optlen != sizeof(struct group_source_req))
++		if (optlen < sizeof(struct group_source_req))
+ 			goto e_inval;
+ 		if (copy_from_user(&greqs, optval, sizeof(greqs))) {
+ 			retv = -EFAULT;
 -- 
-----------------------------------------------------------------
- Sangtae Ha, http://www4.ncsu.edu/~sha2
- PhD. Student,
- Department of Computer Science,
- North Carolina State University, USA
-----------------------------------------------------------------
+1.5.4
+
