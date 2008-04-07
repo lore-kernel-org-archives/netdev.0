@@ -1,52 +1,48 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCHv2 net-2.6 0/4 (was 0/3)]: TCP fixes
-Date: Tue, 8 Apr 2008 00:59:45 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0804080050060.20948@wrl-59.cs.helsinki.fi>
-References: <1207569344-19687-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [TOMOYO #7 30/30] Hooks for SAKURA and TOMOYO.
+Date: Mon, 7 Apr 2008 15:57:16 -0700 (PDT)
+Message-ID: <312131.8802.qm@web36601.mail.mud.yahoo.com>
+References: <200804071140.59247.paul.moore@hp.com>
+Reply-To: casey@schaufler-ca.com
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-335314727-1207605585=:20948"
-Cc: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Robin H. Johnson" <robbat2@gentoo.org>,
-	Georgi Chorbadzhiyski <gf@unixsol.org>,
-	Soeren Sonnenburg <kernel@nn7.de>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	Alessandro Suardi <alessandro.suardi@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:49580 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757361AbYDGV7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 17:59:47 -0400
-In-Reply-To: <1207569344-19687-1-git-send-email-ilpo.jarvinen@helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696208474-335314727-1207605585=:20948
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Mon, 7 Apr 2008, Ilpo Järvinen wrote:
-
-> Ok, here's the v2 series 
-
-[...snip...]
-
-> ...So far, they're just compile tested. I'll see if I find some time
-> to boot them on the evening.
-
-$ uptime
- 00:53:23 up  1:20,  6 users,  load average: 0.54, 0.22, 0.13
-
-...some torrent & browsing, mainly with tso & tcp_sack = 0. Didn't hit 
-any problems with it (I had my debug patch in as well).
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Kentaro Takeda <takedakn@nttdata.co.jp>,
+	Toshiharu Harada <haradats@nttdata.co.jp>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Paul Moore <paul.moore@hp.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <200804071140.59247.paul.moore@hp.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
--- 
- i.
----696208474-335314727-1207605585=:20948--
+--- Paul Moore <paul.moore@hp.com> wrote:
+
+> On Friday 04 April 2008 8:23:12 am Tetsuo Handa wrote:
+> > This file contains modifications against kernel source code
+> > needed to use TOMOYO Linux 1.6.
+> >
+> > Although LSM hooks are provided for performing access control,
+> > TOMOYO Linux 1.6 doesn't use LSM because of the following reasons.
+> 
+> Hello,
+> 
+> I understand your frustration with the existing LSM hooks/API and your 
+> reasoning for abandoning LSM in favor of a new set of hooks, however, I 
+> think this sets a dangerous precedence which could result in an 
+> abundance of security related hooks scattered throughout the kernel.  I 
+> would much rather see the LSM API extended/tweaked to support the needs 
+> of SAKURA and TOMOYO than ignored and duplicated; I suspect several 
+> others will say the same.
+
+The same.
+
+
+
+Casey Schaufler
+casey@schaufler-ca.com
