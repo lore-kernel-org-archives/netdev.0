@@ -1,58 +1,64 @@
-From: Andy Furniss <lists@andyfurniss.entadsl.com>
-Subject: Re: [NET_SCHED 00/04]: External SFQ classifiers/flow classifier
-Date: Mon, 07 Apr 2008 16:14:14 +0100
-Message-ID: <47FA3A46.20207@andyfurniss.entadsl.com>
-References: <20080131175758.25151.20370.sendpatchset@localhost.localdomain> <47A4FB81.80700@fatooh.org> <47A74FEE.6080103@trash.net> <47EED247.50801@andyfurniss.entadsl.com> <47F22CF5.4080806@trash.net> <47F28758.1010401@andyfurniss.entadsl.com> <47F37139.9080303@andyfurniss.entadsl.com> <47F37E04.4010001@trash.net> <47F3B3C5.6000701@andyfurniss.entadsl.com> <47F6062E.9050804@andyfurniss.entadsl.com> <47F606D8.108@trash.net> <47F65EDE.3010507@andyfurniss.entadsl.com> <47F6794D.7070302@andyfurniss.entadsl.com> <47FA2509.8060303@andyfurniss.entadsl.com> <47FA2543.1080609@trash.net>
-Reply-To: lists@andyfurniss.entadsl.com
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC] fib_trie: memory waste solutions
+Date: Mon, 07 Apr 2008 17:36:59 +0200
+Message-ID: <47FA3F9B.6040303@cosmosbay.com>
+References: <20080401172702.094c0700@extreme> <47F33D42.9080302@cosmosbay.com> <47F39998.8040605@cosmosbay.com> <20080402110335.66b04181@extreme> <47F3E031.1030806@cosmosbay.com> <20080404090257.2ec38b0c@extreme> <18425.50538.876583.892728@robur.slu.se> <87bq4mrt9v.fsf@basil.nowhere.org> <18426.13019.345218.79888@robur.slu.se> <20080407151503.GD16647@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Corey Hickey <bugfood-ml@fatooh.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.ukfsn.org ([77.75.108.10]:39410 "EHLO mail.ukfsn.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751483AbYDGPM3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Apr 2008 11:12:29 -0400
-In-Reply-To: <47FA2543.1080609@trash.net>
+Received: from smtp19.orange.fr ([80.12.242.18]:45612 "EHLO smtp19.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751804AbYDGPhT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 11:37:19 -0400
+In-Reply-To: <20080407151503.GD16647@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Andy Furniss wrote:
+Andi Kleen a =E9crit :
+> On Mon, Apr 07, 2008 at 04:42:35PM +0200, Robert Olsson wrote:
+>  =20
+>> Andi Kleen writes:
+>>
+>>  > >  Do we get slower with vmalloc due to TLB-lookups etc? Guess th=
+is
+>>  > >  should be investigated.
+>>  >=20
+>>  > In some cases it might even go faster because a lot of x86 CPUs
+>>  > have far more 4K TLBs than 2M TLBs. vmalloc is just quite expensi=
+ve
+>>  > in setup/free time, but that shouldn't be a big issue here.
+>>
+>>
+>>  I've did some rDoS testing and the lookup performance is the same o=
+r=20
+>>  slightly better. So it should be fine. =20
+>>    =20
+>
+> If you want more realistic worst case numbers run something in user s=
+pace in=20
+> the background that thrashes the TLBs constantly and then see how
+> the numbers change.
+>
+> The main advantage of using large pages is that they tend to be separ=
+ated
+> from 4K TLBs and since most user space doesn't use large pages it=20
+> gives the kernel an effective private TLB pool.
+>
+> With vmalloc it will now compete with whatever other TLB pigs are act=
+ive.
+>  =20
+Yes, but with vmalloc(), NUMA machines have some chance to distribute=20
+this big area on several nodes
 
->> --- sch_sfq.c.orig      2008-04-07 11:42:36.000000000 +0100
->> +++ sch_sfq.c   2008-04-07 11:46:41.000000000 +0100
->> @@ -317,6 +317,7 @@
->>                         q->next[x] = q->next[q->tail];
->>                         q->next[q->tail] = x;
->>                         q->tail = x;
->> +                       q->allot[x] = 0;
-> 
-> 
-> That might fix the symptom, but I don't think its correct.
-> As I said, you can't simply reset to zero since it might cause
-> unfairness of bursty flows against non-bursty flows.
+(only if the process currently expanding the fib_trie root node has an=20
+appropriate numa_policy.... ah well :) :) )
 
-I guess it would be nice in some ways to make a drr that has memory but 
-I think this is a bug.
-
-It was the same pre jhash when perturb was needed so the slots would 
-change anyway.
-
-If it were intended to be a memory of allot it fails because allot 
-should never be as wide as +/- 32k (maybe that could be fixed - but only 
-recently became practical with jhash/no perturb).
-
-Currently a new flow (but not the fist) gets dealt a seemingly random 
-allot of +/- 32k which means it either gets to monopolise the link until 
-it has wound down to <=0 or if allot is -ve it gets disadvantaged in the 
-case that it's packet size is < than the others until its allot has 
-crept up to 0. If it's packets are MTU size it just gets 1 packet per 
-round and allot stays -ve.
-
-Andy.
 
 
 
