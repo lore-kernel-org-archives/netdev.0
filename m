@@ -1,61 +1,43 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [TOMOYO #7 30/30] Hooks for SAKURA and TOMOYO.
-Date: Mon, 7 Apr 2008 22:56:58 +0900
-Message-ID: <200804072256.IFJ17170.QFOJFHtLSOOVFM@I-love.SAKURA.ne.jp>
-References: <20080404122242.867070732@I-love.SAKURA.ne.jp><20080404122408.986477936@I-love.SAKURA.ne.jp><1207326576.21308.71.camel@localhost.localdomain>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: [patch] NET: remove support for Davicom 9102 from the Tulip
+ driver
+Date: Mon, 7 Apr 2008 17:28:03 +0300 (EEST)
+Message-ID: <Pine.SOC.4.64.0804071726210.29033@math.ut.ee>
+References: <Pine.SOC.4.64.0804031209540.2017@math.ut.ee> <47F69FBE.3020308@garzik.org>
+ <20080404232650.GE27826@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, takedakn@nttdata.co.jp,
-	haradats@nttdata.co.jp, linux-fsdevel@vger.kernel.org,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jeff@garzik.org>, cebbert@redhat.com,
 	netdev@vger.kernel.org
-To: dwalker@mvista.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1207326576.21308.71.camel@localhost.localdomain>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Grant Grundler <grundler@parisc-linux.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.it.da.ut.ee ([193.40.5.67]:34115 "EHLO smtp2.it.da.ut.ee"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753575AbYDGO2G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Apr 2008 10:28:06 -0400
+In-Reply-To: <20080404232650.GE27826@colo.lackof.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Daniel Walker wrote:
-> From a reviews perspective what I would want is each set of changes,
-> file system, networking, arch, etc split into separate patches. For
-> example you have a number of patches just adding header files. You could
-> merge the header file with the hook additions. Then you have a natural
-> code split up which should be easier to review..
-Filesystem part to fsdevel, socket operation part to netdev. That's OK.
-But I wonder where to post the rest part.
-Since the patches for passing "struct vfsmount" to LSM has been rejected,
-TOMOYO has been unable to use LSM.
-Thus, I proposed this patch set as a non-LSM version, but it bothers me
-where to post this patch. If you know, please teach me where to post.
+> jeff and davem already answered the basic SROM/MAC address issue.
+> Patches to fix this are associated with
+> 	http://bugzilla.kernel.org/show_bug.cgi?id=9106
 
-> > --- linux-2.6.25-rc8-mm1.orig/include/linux/init_task.h
-> > +++ linux-2.6.25-rc8-mm1/include/linux/init_task.h
-> > @@ -197,6 +197,10 @@ extern struct group_info init_groups;
-> >  	INIT_IDS							\
-> >  	INIT_TRACE_IRQFLAGS						\
-> >  	INIT_LOCKDEP							\
-> > +	/***** TOMOYO Linux start. *****/        \
-> > +	.domain_info = &KERNEL_DOMAIN,           \
-> > +	.tomoyo_flags = 0,                       \
-> > +	/***** TOMOYO Linux end. *****/          \
-> >  }
+> >> I happent to have a Sun Fire V100 with 2 Davicom NICs (1282:9102 (rev 
+> >> 31)).
+> >> tulip driver works for them, dmfe doesn't.
 > 
-> ifdef's ?
+> This experience doesn't agree with the bug report.
+> Meelis, can you please take a look at the bug report and add comments?
 
-Or security_initcall()?
+Comments added.
 
-> > @@ -1278,6 +1283,10 @@ struct task_struct {
-> >  	int latency_record_count;
-> >  	struct latency_record latency_record[LT_SAVECOUNT];
-> >  #endif
-> > +	/***** TOMOYO Linux start. *****/
-> > +	struct domain_info *domain_info;
-> > +	u32 tomoyo_flags;
-> > +	/***** TOMOYO Linux end. *****/
-> >  };
-> 
-> ifdefs? 
->
-I see.
+> We tried (b) but didn't get it working on V100 previously.
+> Several patches are attached to the bug report.
 
-Thank you.
+There was one patch (for getting the MAC from OpenFirmware) but as 
+people reported that the Tx timeouts still happen, I didn't try it. Any 
+reason to try?
+
+-- 
+Meelis Roos (mroos@linux.ee)
