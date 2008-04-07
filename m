@@ -1,8 +1,10 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCHv2 net-2.6 1/4] [TCP]: Restore 2.6.24 mark_head_lost behavior for newreno/fack
-Date: Mon,  7 Apr 2008 14:55:41 +0300
-Message-ID: <1207569344-19687-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: [PATCHv2 net-2.6 3/4] [TCP]: tcp_simple_retransmit can cause S+L
+Date: Mon,  7 Apr 2008 14:55:43 +0300
+Message-ID: <1207569344-19687-4-git-send-email-ilpo.jarvinen@helsinki.fi>
 References: <1207569344-19687-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1207569344-19687-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1207569344-19687-3-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -17,86 +19,137 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	"=?utf-8?q?Ilpo=20J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:47053 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:60044 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756024AbYDGLzv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 07:55:51 -0400
-In-Reply-To: <1207569344-19687-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+	with ESMTP id S1756593AbYDGLzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 07:55:52 -0400
+In-Reply-To: <1207569344-19687-3-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The fast retransmission can be forced locally to the rfc3517
-branch in tcp_update_scoreboard instead of making such fragile
-constructs deeper in tcp_mark_head_lost.
+This fixes Bugzilla #10384
 
-This is necessary for the next patch which must not have
-loopholes for cnt > packets check. As one can notice,
-readability got some improvements too because of this :-).
+tcp_simple_retransmit does L increment without any checking
+whatsoever for overflowing S+L when Reno is in use.
+
+The simplest scenario I can currently think of is rather
+complex in practice (there might be some more straightforward
+cases though). Ie., if mss is reduced during mtu probing, it
+may end up marking everything lost and if some duplicate ACKs
+arrived prior to that sacked_out will be non-zero as well,
+leading to S+L > packets_out, tcp_clean_rtx_queue on the next
+cumulative ACK or tcp_fastretrans_alert on the next duplicate
+ACK will fix the S counter.
+
+More straightforward (but questionable) solution would be to
+just call tcp_reset_reno_sack() in tcp_simple_retransmit but
+it would negatively impact the probe's retransmission, ie.,
+the retransmissions would not occur if some duplicate ACKs
+had arrived.
+
+So I had to add reno sacked_out reseting to CA_Loss state
+when the first cumulative ACK arrives (this stale sacked_out
+might actually be the explanation for the reports of left_out
+overflows in kernel prior to 2.6.23 and S+L overflow reports
+of 2.6.24). However, this alone won't be enough to fix kernel
+before 2.6.24 because it is building on top of the commit
+1b6d427bb7e ([TCP]: Reduce sacked_out with reno when purging
+write_queue) to keep the sacked_out from overflowing.
 
 Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+Reported-by: Alessandro Suardi <alessandro.suardi@gmail.com>
 ---
- net/ipv4/tcp_input.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+ include/net/tcp.h     |    2 ++
+ net/ipv4/tcp_input.c  |   24 ++++++++++++++++++------
+ net/ipv4/tcp_output.c |    3 +++
+ 3 files changed, 23 insertions(+), 6 deletions(-)
 
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 723b368..8f5fc52 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -760,6 +760,8 @@ static inline unsigned int tcp_packets_in_flight(co=
+nst struct tcp_sock *tp)
+ 	return tp->packets_out - tcp_left_out(tp) + tp->retrans_out;
+ }
+=20
++extern int tcp_limit_reno_sacked(struct tcp_sock *tp);
++
+ /* If cwnd > ssthresh, we may raise ssthresh to be half-way to cwnd.
+  * The exception is rate halving phase, when cwnd is decreasing toward=
+s
+  * ssthresh.
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 6e46b4c..f82b573 100644
+index f053bfe..a2a06d6 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -2134,7 +2134,7 @@ static void tcp_verify_retransmit_hint(struct tcp=
-_sock *tp, struct sk_buff *skb)
- /* Mark head of queue up as lost. With RFC3517 SACK, the packets is
-  * is against sacked "cnt", otherwise it's against facked "cnt"
+@@ -1625,13 +1625,11 @@ out:
+ 	return flag;
+ }
+=20
+-/* If we receive more dupacks than we expected counting segments
+- * in assumption of absent reordering, interpret this as reordering.
+- * The only another reason could be bug in receiver TCP.
++/* Limits sacked_out so that sum with lost_out isn't ever larger than
++ * packets_out. Returns zero if sacked_out adjustement wasn't necessar=
+y.
   */
--static void tcp_mark_head_lost(struct sock *sk, int packets, int fast_=
-rexmit)
-+static void tcp_mark_head_lost(struct sock *sk, int packets)
+-static void tcp_check_reno_reordering(struct sock *sk, const int adden=
+d)
++int tcp_limit_reno_sacked(struct tcp_sock *tp)
  {
- 	struct tcp_sock *tp =3D tcp_sk(sk);
- 	struct sk_buff *skb;
-@@ -2161,7 +2161,7 @@ static void tcp_mark_head_lost(struct sock *sk, i=
-nt packets, int fast_rexmit)
- 		    (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED))
- 			cnt +=3D tcp_skb_pcount(skb);
+-	struct tcp_sock *tp =3D tcp_sk(sk);
+ 	u32 holes;
 =20
--		if (((!fast_rexmit || (tp->lost_out > 0)) && (cnt > packets)) ||
-+		if ((cnt > packets) ||
- 		    after(TCP_SKB_CB(skb)->end_seq, tp->high_seq))
- 			break;
- 		if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_SACKED_ACKED|TCPCB_LOST))) {
-@@ -2180,17 +2180,17 @@ static void tcp_update_scoreboard(struct sock *=
-sk, int fast_rexmit)
- 	struct tcp_sock *tp =3D tcp_sk(sk);
+ 	holes =3D max(tp->lost_out, 1U);
+@@ -1639,8 +1637,20 @@ static void tcp_check_reno_reordering(struct soc=
+k *sk, const int addend)
 =20
- 	if (tcp_is_reno(tp)) {
--		tcp_mark_head_lost(sk, 1, fast_rexmit);
-+		tcp_mark_head_lost(sk, 1);
- 	} else if (tcp_is_fack(tp)) {
- 		int lost =3D tp->fackets_out - tp->reordering;
- 		if (lost <=3D 0)
- 			lost =3D 1;
--		tcp_mark_head_lost(sk, lost, fast_rexmit);
-+		tcp_mark_head_lost(sk, lost);
- 	} else {
- 		int sacked_upto =3D tp->sacked_out - tp->reordering;
--		if (sacked_upto < 0)
--			sacked_upto =3D 0;
--		tcp_mark_head_lost(sk, sacked_upto, fast_rexmit);
-+		if (sacked_upto < fast_rexmit)
-+			sacked_upto =3D fast_rexmit;
-+		tcp_mark_head_lost(sk, sacked_upto);
+ 	if ((tp->sacked_out + holes) > tp->packets_out) {
+ 		tp->sacked_out =3D tp->packets_out - holes;
+-		tcp_update_reordering(sk, tp->packets_out + addend, 0);
++		return 1;
  	}
++	return 0;
++}
++
++/* If we receive more dupacks than we expected counting segments
++ * in assumption of absent reordering, interpret this as reordering.
++ * The only another reason could be bug in receiver TCP.
++ */
++static void tcp_check_reno_reordering(struct sock *sk, const int adden=
+d)
++{
++	struct tcp_sock *tp =3D tcp_sk(sk);
++	if (tcp_limit_reno_sacked(tp))
++		tcp_update_reordering(sk, tp->packets_out + addend, 0);
+ }
 =20
- 	/* New heuristics: it is possible only after we switched
-@@ -2524,7 +2524,7 @@ static void tcp_fastretrans_alert(struct sock *sk=
+ /* Emulate SACKs for SACKless connection: account for a new dupack. */
+@@ -2600,6 +2610,8 @@ static void tcp_fastretrans_alert(struct sock *sk=
 , int pkts_acked, int flag)
- 	    before(tp->snd_una, tp->high_seq) &&
- 	    icsk->icsk_ca_state !=3D TCP_CA_Open &&
- 	    tp->fackets_out > tp->reordering) {
--		tcp_mark_head_lost(sk, tp->fackets_out - tp->reordering, 0);
-+		tcp_mark_head_lost(sk, tp->fackets_out - tp->reordering);
- 		NET_INC_STATS_BH(LINUX_MIB_TCPLOSS);
- 	}
+ 	case TCP_CA_Loss:
+ 		if (flag & FLAG_DATA_ACKED)
+ 			icsk->icsk_retransmits =3D 0;
++		if (tcp_is_reno(tp) && flag & FLAG_SND_UNA_ADVANCED)
++			tcp_reset_reno_sack(tp);
+ 		if (!tcp_try_undo_loss(sk)) {
+ 			tcp_moderate_cwnd(tp);
+ 			tcp_xmit_retransmit_queue(sk);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 6e25540..441fdd3 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1808,6 +1808,9 @@ void tcp_simple_retransmit(struct sock *sk)
+ 	if (!lost)
+ 		return;
 =20
++	if (tcp_is_reno(tp))
++		tcp_limit_reno_sacked(tp);
++
+ 	tcp_verify_left_out(tp);
+=20
+ 	/* Don't muck with the congestion window here.
 --=20
 1.5.2.2
 
