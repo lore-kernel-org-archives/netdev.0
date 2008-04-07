@@ -1,44 +1,50 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [GIT PULL net-2.6.26] [IPV6] MROUTE: Support multicast routing.
-Date: Mon, 07 Apr 2008 23:37:09 +0900 (JST)
-Message-ID: <20080407.233709.01728201.yoshfuji@linux-ipv6.org>
-References: <147a89290804030016x7fc67a6bg56af8ed329c6a544@mail.gmail.com>
-	<20080403.163144.18289606.yoshfuji@linux-ipv6.org>
-	<147a89290804070613o5274432frb50995433a9a95f3@mail.gmail.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [RFC] fib_trie: memory waste solutions
+Date: Mon, 7 Apr 2008 16:42:35 +0200
+Message-ID: <18426.13019.345218.79888@robur.slu.se>
+References: <20080401172702.094c0700@extreme>
+	<47F33D42.9080302@cosmosbay.com>
+	<47F39998.8040605@cosmosbay.com>
+	<20080402110335.66b04181@extreme>
+	<47F3E031.1030806@cosmosbay.com>
+	<20080404090257.2ec38b0c@extreme>
+	<18425.50538.876583.892728@robur.slu.se>
+	<87bq4mrt9v.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: johnsonzjo@gmail.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:60919 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757826AbYDGOfa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 10:35:30 -0400
-In-Reply-To: <147a89290804070613o5274432frb50995433a9a95f3@mail.gmail.com>
+Received: from mx1.slu.se ([130.238.96.70]:47377 "EHLO mx1.slu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755394AbYDGOmu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Apr 2008 10:42:50 -0400
+In-Reply-To: <87bq4mrt9v.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <147a89290804070613o5274432frb50995433a9a95f3@mail.gmail.com> (at Mon, 7 Apr 2008 16:13:59 +0300), "Andy Johnson" <johnsonzjo@gmail.com> says:
 
->   I had compilation errors when trying to build pim6sd soleley , and
-> it seems to me that the code should be changed for it to compile.
+Andi Kleen writes:
 
-It SHOULD compile and work...
-If you fail to build pim6sd, please drop a report to me.  Thanks.
+ > >  Do we get slower with vmalloc due to TLB-lookups etc? Guess this
+ > >  should be investigated.
+ > 
+ > In some cases it might even go faster because a lot of x86 CPUs
+ > have far more 4K TLBs than 2M TLBs. vmalloc is just quite expensive
+ > in setup/free time, but that shouldn't be a big issue here.
 
-> I found another PIM-sm open source project, which **does** build
-> cleanly on my Linux box:
-> It is mrd6:
-> http://fivebits.net/proj/mrd6/
-> 
-> Perhaps you have any ideas:
-> Should it work with  multicast routing with this kernel patch ? are
-> there specific requirements which mcast-tools fulfiils (and maybe mrd6
-> does not) ?
 
-MRD6 seems independent from this kernel patch so far.
-The kernel patch is regarding in-kernel multicast forwarding.
+ I've did some rDoS testing and the lookup performance is the same or 
+ slightly better. So it should be fine.  
 
---yoshfuji
+
+ Cheers
+					--ro
+
+ 
+
+  
