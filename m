@@ -1,34 +1,39 @@
-From: corbet@lwn.net (Jonathan Corbet)
-Subject: Re: [PATCH RFC 1/5] vringfd syscall
-Date: Mon, 07 Apr 2008 11:54:34 -0600
-Message-ID: <12555.1207590874@vena.lwn.net>
-References: <200804052202.09157.rusty@rustcorp.com.au>
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Max Krasnyansky <maxk@qualcomm.com>,
-	linux-kernel@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753293AbYDGRyp@vger.kernel.org>
-In-reply-to: Your message of "Sat, 05 Apr 2008 22:02:08 +1000."
-             <200804052202.09157.rusty@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH] Fix kernel-doc for skb_segment
+Date: Mon, 7 Apr 2008 19:28:45 +0100
+Message-ID: <20080407182844.GP21637@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 82-69-137-158.dsl.in-addr.zen.co.uk ([82.69.137.158]:34851 "EHLO
+	uklogin.uk.level5networks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750975AbYDGS2w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 14:28:52 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hey, Rusty,
+The kernel-doc comment for skb_segment is clearly wrong.  This states what
+it actually does.
 
-> For virtualization, we've developed virtio_ring for efficient communication.
-> This would also work well for userspace-kernel communication, particularly
-> for things like the tun device.  By using the same ABI, we can join guests
-> to the host kernel trivially.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 0d0fd28..6087013 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2131,8 +2131,8 @@ EXPORT_SYMBOL_GPL(skb_pull_rcsum);
+  *	@features: features for the output path (see dev->features)
+  *
+  *	This function performs segmentation on the given skb.  It returns
+- *	the segment at the given position.  It returns NULL if there are
+- *	no more segments to generate, or when an error is encountered.
++ *	a pointer to the first in a list of new skbs for the segments.
++ *	In case of error it returns ERR_PTR(err).
+  */
+ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
+ {
 
-I'm *sure* you meant to document that somewhat non-trivial proposed new
-kernel API as soon as you got a moment.  But, since I went to the
-trouble of reverse engineering it, I decided not to wait and to make a
-little unreliable guide of my own.  For those who are curious about how
-vringfd() is meant to work (or about how badly I misunderstood it), the
-info is at:
-
-	http://lwn.net/SubscriberLink/276856/8c927025c53ad7ce/
-
-Hopefully it will be helpful,
-
-jon
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
