@@ -1,59 +1,61 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH RFC 4/5] tun: vringfd xmit support.
-Date: Tue, 8 Apr 2008 11:51:43 +1000
-Message-ID: <200804081151.43599.rusty@rustcorp.com.au>
-References: <E1Jijfs-0004Lo-00@gondolin.me.apana.org.au> <200804071724.51781.rusty@rustcorp.com.au> <20080407.003528.96136816.davem@davemloft.net>
+Subject: Re: [PATCH RFC 1/5] vringfd syscall
+Date: Tue, 8 Apr 2008 08:34:55 +1000
+Message-ID: <200804080834.56943.rusty@rustcorp.com.au>
+References: <12555.1207590874@vena.lwn.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	maxk@qualcomm.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Max Krasnyansky <maxk@qualcomm.com>,
+	linux-kernel@vger.kernel.org
+To: Jonathan Corbet <corbet@lwn.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:36579 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:36574 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756615AbYDHCEV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Apr 2008 22:04:21 -0400
-In-Reply-To: <20080407.003528.96136816.davem@davemloft.net>
+	id S1751519AbYDHCEN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Apr 2008 22:04:13 -0400
+In-Reply-To: <12555.1207590874@vena.lwn.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 07 April 2008 17:35:28 David Miller wrote:
-> From: Rusty Russell <rusty@rustcorp.com.au>
-> Date: Mon, 7 Apr 2008 17:24:51 +1000
+On Tuesday 08 April 2008 03:54:34 Jonathan Corbet wrote:
+> Hey, Rusty,
 >
-> > On Monday 07 April 2008 15:13:44 Herbert Xu wrote:
-> > > On second thought, this is not going to work.  The network stack
-> > > can clone individual pages out of this skb and put it into a new
-> > > skb.  Therefore whatever scheme we come up with will either need
-> > > to be page-based, or add a flag to tell the network stack that it
-> > > can't clone those pages.
-> >
-> > Erk... I'll put in the latter for now.   A page-level solution is not
-> > really an option: if userspace hands us mmaped pages for example.
+> > For virtualization, we've developed virtio_ring for efficient
+> > communication. This would also work well for userspace-kernel
+> > communication, particularly for things like the tun device.  By using the
+> > same ABI, we can join guests to the host kernel trivially.
 >
-> Keep in mind that the core of the TCP stack really depends
-> upon being able to slice and dice paged SKBs as is pleases
-> in order to send packets out.
->
-> In fact, it also does such splitting during SACK processing.
->
-> It really is a base requirement for efficient TSO support.
-> Otherwise the above operations would be so incredibly
-> expensive we might as well rip all of the TSO support out.
+> I'm *sure* you meant to document that somewhat non-trivial proposed new
+> kernel API as soon as you got a moment.
 
-In this case that's OK; these are only for packets coming from 
-userspace/guest, so the only interaction with the tcp code is possibly as a 
-recipient.
+Actually, yes.  But I wanted to get it out there before I start the treck 
+across to the virtualization summit.
 
-If tcp wanted to do zero-copy aio xmit, I think we'd need something else.
+A few points:
+'The page alignment for the used array is important - that array might be 
+mapped separately into kernel space.'
+   Well, the used array is written by one side only, so it's possible to split 
+the ring here and make each part r/o to the other side.  More importantly, a 
+page boundary is almost certainly a cacheline boundary, and we already have a 
+userspace interface for it.
 
-Cheers,
+'Note that the flags fields in the vring_avail and vring_used structures 
+appear to be unused.'
+   virtio uses these for wakeup/interrupt suppression.  It's a cheap way to 
+avoid hypercalls, and we can use them the same way to avoid system calls (you 
+set the suppression bit while you're actually looking at the ring).
+
+The need for the kmap (and hence the atomic horror) has now been alleviated: I 
+changed the shinfo destructor code to allow the destructor to hold onto the 
+skb data so it can queue it and free it later.
+
+BTW, the only place currently where both output and input buffers are used is 
+the virtio_blk driver doing a read, where the header describes the operation, 
+and the other buffers are overwritten with the data.
+
+Thanks!
 Rusty.
-
-
-
-
