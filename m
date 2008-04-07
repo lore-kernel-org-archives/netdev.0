@@ -1,86 +1,138 @@
 From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC] fib_trie: memory waste solutions
-Date: Mon, 07 Apr 2008 18:46:29 +0200
-Message-ID: <47FA4FE5.5010500@cosmosbay.com>
-References: <20080401172702.094c0700@extreme>	<47F33D42.9080302@cosmosbay.com>	<47F39998.8040605@cosmosbay.com>	<20080402110335.66b04181@extreme>	<47F3E031.1030806@cosmosbay.com> <20080404090257.2ec38b0c@extreme>
+Subject: Re: [PATCH net-2.6.26 1/2] Shrink size of net_device by filling alignment
+ holes in it.
+Date: Mon, 07 Apr 2008 19:04:38 +0200
+Message-ID: <47FA5426.10704@cosmosbay.com>
+References: <47FA4ADE.1020308@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2e.orange.fr ([80.12.242.113]:63029 "EHLO smtp2e.orange.fr"
+Received: from smtp20.orange.fr ([80.12.242.26]:34865 "EHLO smtp20.orange.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750981AbYDGQqr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 12:46:47 -0400
-In-Reply-To: <20080404090257.2ec38b0c@extreme>
+	id S1752268AbYDGREs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 13:04:48 -0400
+In-Reply-To: <47FA4ADE.1020308@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger a =E9crit :
-> Eric wisely pointed out that for larger sizes of nodes, the
-> current allocation in fib_trie wastes lots of memory.  For a sample
-> of routes extracted from the bugzilla bug the largest node grows
-> to 2M bytes on 64 bit system. This leads to 2044K of wasted memory.
+Pavel Emelyanov a =E9crit :
+> I've found a much easier way to shrink the net_device structure=20
+> rather that moving all the operations out of it. However, since
+> the net_device may grow further, moving the operations into a
+> separate place may look reasonable.
 >
-> There are two possible solutions (see attached). One uses vmalloc()
-> rather than alloc_pages, but has to add complexity on freeing.
-> The other adds a layer of indirection to the tnode lookup.
->
-> Both have been tested on net-2.6.26 with the huge route table.
-> I slightly prefer the vmalloc version, but both work fine.
+> The pahole tool showed, that there are a 124 and 80 bytes holes
+> before the queue_lock and the _xmit_lock respectively. Moving most
+> of the devices callbacks into the 2nd hole makes the sizeof of the
+> structure be 1024 bytes.
 >
 >  =20
-> ---------------------------------------------------------------------=
----
+On 32 bits platform and CONFIG_X86_L1_CACHE_SHIFT=3D7
+I presume :)
+
+Could you check if x86_64 machines with  X86_L1_CACHE_SHIFT =3D 7 or 8=20
+dont suffer from this patch ?
+
+At first glance I would say it seems OK, but this net_device is really=20
+touchy for SMP performance :)
+
+> The hard_start_xmit callback is not moved to keep it in previous
+> cacheline.
 >
-> IPV4: fib_trie use vmalloc for large tnodes
+> I think it's OK to make such a reordering, since all these hooks
+> are a) read-only and b) not called on fast paths, so their place=20
+> within the structure looks not very important.
 >
-> Use vmalloc rather than alloc_pages to avoid wasting memory.
-> The problem is that tnode structure has a power of 2 sized array,
-> plus a header. So the current code wastes almost half the memory
-> allocated because it always needs the next bigger size to hold
-> that small header.
+> Unfortunately diff makes the patch look like moving other fields,
+> rater than the ops :)
 >
-> This is similar to an earlier patch by Eric, but instead of a list
-> and lock, I used a workqueue to handle the fact that vfree can't
-> be done in interrupt context.
->
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 >
 > ---
->  net/ipv4/fib_trie.c |   25 +++++++++++++++----------
->  1 file changed, 15 insertions(+), 10 deletions(-)
+>  include/linux/netdevice.h |   47 +++++++++++++++++++++++------------=
+----------
+>  1 files changed, 24 insertions(+), 23 deletions(-)
 >
-> --- a/net/ipv4/fib_trie.c	2008-04-04 08:57:01.000000000 -0700
-> +++ b/net/ipv4/fib_trie.c	2008-04-04 08:57:03.000000000 -0700
-> @@ -122,7 +122,10 @@ struct tnode {
->  	unsigned char bits;		/* 2log(KEYLENGTH) bits needed */
->  	unsigned int full_children;	/* KEYLENGTH bits needed */
->  	unsigned int empty_children;	/* KEYLENGTH bits needed */
-> -	struct rcu_head rcu;
-> +	union {
-> +		struct rcu_head rcu;
-> +		struct work_struct work;
-> +	};
->  	struct node *child[0];
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 8b17ed4..3397919 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -483,9 +483,6 @@ struct net_device
+>  	struct list_head	napi_list;
+>  #endif
+>  =09
+> -	/* The device initialization function. Called only once. */
+> -	int			(*init)(struct net_device *dev);
+> -
+>  	/* ------- Fields preinitialized in Space.c finish here ------- */
+> =20
+>  	/* Net device features */
+> @@ -641,27 +638,9 @@ struct net_device
+>  	int			watchdog_timeo; /* used by dev_watchdog() */
+>  	struct timer_list	watchdog_timer;
+> =20
+> -/*
+> - * refcnt is a very hot point, so align it on SMP
+> - */
+> -	/* Number of references to this device */
+> -	atomic_t		refcnt ____cacheline_aligned_in_smp;
+> -
+> -	/* delayed register/unregister */
+> -	struct list_head	todo_list;
+> -	/* device index hash chain */
+> -	struct hlist_node	index_hlist;
+> -
+> -	struct net_device	*link_watch_next;
+> -
+> -	/* register/unregister state machine */
+> -	enum { NETREG_UNINITIALIZED=3D0,
+> -	       NETREG_REGISTERED,	/* completed register_netdevice */
+> -	       NETREG_UNREGISTERING,	/* called unregister_netdevice */
+> -	       NETREG_UNREGISTERED,	/* completed unregister todo */
+> -	       NETREG_RELEASED,		/* called free_netdev */
+> -	} reg_state;
+> =20
+> +	/* The device initialization function. Called only once. */
+> +	int			(*init)(struct net_device *dev);
+>  	/* Called after device is detached from network. */
+>  	void			(*uninit)(struct net_device *dev);
+>  	/* Called after last user reference disappears. */
+> @@ -703,6 +682,28 @@ struct net_device
+>  						    unsigned short vid);
+> =20
+>  	int			(*neigh_setup)(struct net_device *dev, struct neigh_parms *);
+> +
+> +/*
+> + * refcnt is a very hot point, so align it on SMP
+> + */
+> +	/* Number of references to this device */
+> +	atomic_t		refcnt ____cacheline_aligned_in_smp;
+> +
+> +	/* delayed register/unregister */
+> +	struct list_head	todo_list;
+> +	/* device index hash chain */
+> +	struct hlist_node	index_hlist;
+> +
+> +	struct net_device	*link_watch_next;
+> +
+> +	/* register/unregister state machine */
+> +	enum { NETREG_UNINITIALIZED=3D0,
+> +	       NETREG_REGISTERED,	/* completed register_netdevice */
+> +	       NETREG_UNREGISTERING,	/* called unregister_netdevice */
+> +	       NETREG_UNREGISTERED,	/* completed unregister todo */
+> +	       NETREG_RELEASED,		/* called free_netdev */
+> +	} reg_state;
+> +
+>  #ifdef CONFIG_NETPOLL
+>  	struct netpoll_info	*npinfo;
+>  #endif
 >  =20
-Hum...
-
-I prefer my patch Stephen, as your version enlarges every tnode with an=
-=20
-embedded "struct work_struct" which can be larger than a "struct rcu_he=
-ad"
-
-And as your 2nd patch doesnt use vmalloc() at all, we only can gain one=
-=20
-order for the max bits in root node (19 instead of 18) :
-We will hit the 'bug' again in a couple of months, or if router memory=20
-is somehow fragmented.
-
 
 
 
