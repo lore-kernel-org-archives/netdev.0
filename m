@@ -1,37 +1,34 @@
-From: Anthony Liguori <aliguori@us.ibm.com>
-Subject: [PATCH] virtio_net: remove overzealous printk
-Date: Mon,  7 Apr 2008 15:33:16 -0500
-Message-ID: <1207600396-28454-1-git-send-email-aliguori@us.ibm.com>
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	Anthony Liguori <aliguori@us.ibm.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+From: "Andrew Brampton" <andrew@bramp.freeserve.co.uk>
+Subject: Re: sock_get_timestamp() ktime_to_timeval returns -2?
+Date: Mon, 7 Apr 2008 22:57:50 +0100
+Message-ID: <01a801c898fa$6cd95ed0$0a00a8c0@Andrew>
+References: <013101c89683$1bd00940$0a00a8c0@Andrew> <47F772C7.6020700@cosmosbay.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>, "Eric Dumazet" <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:49886 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752515AbYDGUdT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 16:33:19 -0400
+Received: from pih-relay05.plus.net ([212.159.14.132]:55055 "EHLO
+	pih-relay05.plus.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751927AbYDGV6A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 17:58:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 'disable_cb' is really just a hint and as such, it's possible for more
-work to get queued up while callbacks are disabled.  Under stress with an
-SMP guest, this printk triggers very frequently.  There is no race here, this
-is how things are designed to work so let's just remove the printk.
+From: "Eric Dumazet"
+>
+> I believe the following patch should make sure ENOENT is delivered to the
+> application. And yes, SIOCGSTAMP has a meaning only for UDP or other 
+> packet
+> protocols.
+>
 
-Signed-off-by: Anthony Liguori <aliguori@us.ibm.com>
-Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+Thanks Eric, I didn't expect someone to identify and fix this bug so 
+quickly!. I have tested your patch and my problems have gone away.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index b58472c..d1a200f 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -284,7 +284,6 @@ again:
- 		/* Activate callback for using skbs: if this returns false it
- 		 * means some were used in the meantime. */
- 		if (unlikely(!vi->svq->vq_ops->enable_cb(vi->svq))) {
--			printk("Unlikely: restart svq race\n");
- 			vi->svq->vq_ops->disable_cb(vi->svq);
- 			netif_start_queue(dev);
- 			goto again;
+thanks
+Andrew 
+
