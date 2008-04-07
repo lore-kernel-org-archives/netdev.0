@@ -1,34 +1,52 @@
-From: "Andrew Brampton" <andrew@bramp.freeserve.co.uk>
-Subject: Re: sock_get_timestamp() ktime_to_timeval returns -2?
-Date: Mon, 7 Apr 2008 22:57:50 +0100
-Message-ID: <01a801c898fa$6cd95ed0$0a00a8c0@Andrew>
-References: <013101c89683$1bd00940$0a00a8c0@Andrew> <47F772C7.6020700@cosmosbay.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCHv2 net-2.6 0/4 (was 0/3)]: TCP fixes
+Date: Tue, 8 Apr 2008 00:59:45 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0804080050060.20948@wrl-59.cs.helsinki.fi>
+References: <1207569344-19687-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=original
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>, "Eric Dumazet" <dada1@cosmosbay.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-335314727-1207605585=:20948"
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"Robin H. Johnson" <robbat2@gentoo.org>,
+	Georgi Chorbadzhiyski <gf@unixsol.org>,
+	Soeren Sonnenburg <kernel@nn7.de>,
+	Denys Fedoryshchenko <denys@visp.net.lb>,
+	Alessandro Suardi <alessandro.suardi@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pih-relay05.plus.net ([212.159.14.132]:55055 "EHLO
-	pih-relay05.plus.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751927AbYDGV6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 17:58:00 -0400
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:49580 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757361AbYDGV7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 17:59:47 -0400
+In-Reply-To: <1207569344-19687-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eric Dumazet"
->
-> I believe the following patch should make sure ENOENT is delivered to the
-> application. And yes, SIOCGSTAMP has a meaning only for UDP or other 
-> packet
-> protocols.
->
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Thanks Eric, I didn't expect someone to identify and fix this bug so 
-quickly!. I have tested your patch and my problems have gone away.
+---696208474-335314727-1207605585=:20948
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-thanks
-Andrew 
+On Mon, 7 Apr 2008, Ilpo Järvinen wrote:
 
+> Ok, here's the v2 series 
+
+[...snip...]
+
+> ...So far, they're just compile tested. I'll see if I find some time
+> to boot them on the evening.
+
+$ uptime
+ 00:53:23 up  1:20,  6 users,  load average: 0.54, 0.22, 0.13
+
+...some torrent & browsing, mainly with tso & tcp_sack = 0. Didn't hit 
+any problems with it (I had my debug patch in as well).
+
+
+-- 
+ i.
+---696208474-335314727-1207605585=:20948--
