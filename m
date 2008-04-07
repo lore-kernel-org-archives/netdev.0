@@ -1,34 +1,40 @@
-From: Kasper Sandberg <lkml@metanurb.dk>
-Subject: Re: Realtek 8111c weirdness problems, apic/msi, and normal bug
-Date: Mon, 07 Apr 2008 06:09:00 +0200
-Message-ID: <1207541340.30698.18.camel@localhost>
-References: <1207407804.14885.27.camel@localhost>
-	 <20080405232354.57ff2fac.akpm@linux-foundation.org>
-	 <20080406140624.GA24479@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML Mailinglist <linux-kernel@vger.kernel.org>,
-	linux-acpi@vger.kernel.org, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20080406140624.GA24479@electric-eye.fr.zoreil.com>
-Sender: linux-acpi-owner@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH RFC 4/5] tun: vringfd xmit support.
+Date: Mon, 07 Apr 2008 13:13:44 +0800
+Message-ID: <E1Jijfs-0004Lo-00@gondolin.me.apana.org.au>
+References: <200804052206.33922.rusty@rustcorp.com.au>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, maxk@qualcomm.com
+To: rusty@rustcorp.com.au (Rusty Russell)
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755846AbYDGFOE@vger.kernel.org>
+In-Reply-To: <200804052206.33922.rusty@rustcorp.com.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Rusty Russell <rusty@rustcorp.com.au> wrote:
+>
+> +/* We are done with this skb: put it in the used pile. */
+> +static void skb_finished(struct skb_shared_info *sinfo)
+> +{
+> +       struct skb_shinfo_tun *sht = (void *)(sinfo + 1);
+> +
+> +       /* FIXME: Race prevention */
+> +       vring_used_buffer_atomic(sht->tun->outring, sht->id, sht->len);
+> +       vring_wake(sht->tun->outring);
+> +
+> +       /* Release device. */
+> +       dev_put(sht->tun->dev);
+> +}
 
-I apologize, but it will have to wait a few days, as the fan on the
-graphics card just broke, and it overheats almost instantly.
+On second thought, this is not going to work.  The network stack
+can clone individual pages out of this skb and put it into a new
+skb.  Therefore whatever scheme we come up with will either need
+to be page-based, or add a flag to tell the network stack that it
+can't clone those pages.
 
-I will post as soon as possible, sorry for the inconvenience.
-
-On Sun, 2008-04-06 at 16:06 +0200, Francois Romieu wrote:
-> Andrew Morton <akpm@linux-foundation.org> :
-> [...]
-> > > /proc/interrupts, dmesg, ethtool on .25 apic/nomsi?
-> 
-> Complete dmesg and lspci -vvxn for a start.
-> 
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
