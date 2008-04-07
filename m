@@ -1,56 +1,92 @@
-From: "John Heffner" <johnwheffner@gmail.com>
-Subject: Re: A Linux TCP SACK Question
-Date: Tue, 8 Apr 2008 07:07:51 -0700
-Message-ID: <1e41a3230804080707t2e3ece4p3786eceaa8ea6d64@mail.gmail.com>
-References: <fc471cb97cfd.47f5520e@fnal.gov>
-	 <000b01c89699$00e99590$c95ee183@D2GT6T71>
-	 <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
-	 <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
-	 <000f01c896a1$3022fec0$c95ee183@D2GT6T71>
-	 <649aecc70804051417l4cf9b30asec8ca8d55e79e051@mail.gmail.com>
-	 <fb8e9e4f102e.47f8ebfd@fnal.gov>
-	 <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
-	 <000701c898bf$99fc3f80$c95ee183@D2GT6T71>
-	 <Pine.LNX.4.64.0804080007020.20936@wrl-59.cs.helsinki.fi>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [RFC] fib_trie: memory waste solutions
+Date: Mon, 7 Apr 2008 15:48:00 -0700
+Message-ID: <20080407154800.6912ad1d@speedy>
+References: <20080401172702.094c0700@extreme>
+ <47F33D42.9080302@cosmosbay.com>
+ <47F39998.8040605@cosmosbay.com>
+ <20080402110335.66b04181@extreme>
+ <47F3E031.1030806@cosmosbay.com>
+ <20080404090257.2ec38b0c@extreme>
+ <47FA4FE5.5010500@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Wenji Wu" <wenji@fnal.gov>, "Sangtae Ha" <sangtae.ha@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from el-out-1112.google.com ([209.85.162.179]:58070 "EHLO
-	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752109AbYDHOHx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 10:07:53 -0400
-Received: by el-out-1112.google.com with SMTP id v27so1446335ele.17
-        for <netdev@vger.kernel.org>; Tue, 08 Apr 2008 07:07:53 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0804080007020.20936@wrl-59.cs.helsinki.fi>
-Content-Disposition: inline
+Received: from mail.vyatta.com ([216.93.170.194]:60833 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752314AbYDHOTg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 10:19:36 -0400
+In-Reply-To: <47FA4FE5.5010500@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 7, 2008 at 11:36 PM, Ilpo J=E4rvinen
-<ilpo.jarvinen@helsinki.fi> wrote:
->
-> On Mon, 7 Apr 2008, Wenji Wu wrote:
->
->  > >I don't think reorderings frequently happened in your directly
->  > >connected networking scenario. Please post your tcpdump file for
->  > >clearing out all doubts.
->  >
->  > https://plone3.fnal.gov/P0/WAN/Members/wenji/tcp_dump_files_sack/
->  >
->  > Two tcpdump files: one with SACK on, the other with SACK off. The =
-test
->  > configures described in my previous emails.
->
->  NewReno never retransmitted anything in them (except at the very end=
- of
->  the transfer). Probably something related to how tp->reordering beha=
-ves
->  I suppose...
+On Mon, 07 Apr 2008 18:46:29 +0200
+Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-Yes, this looks very suspicious.  Can we see this again with TSO off?
+> Stephen Hemminger a =C3=A9crit :
+> > Eric wisely pointed out that for larger sizes of nodes, the
+> > current allocation in fib_trie wastes lots of memory.  For a sample
+> > of routes extracted from the bugzilla bug the largest node grows
+> > to 2M bytes on 64 bit system. This leads to 2044K of wasted memory.
+> >
+> > There are two possible solutions (see attached). One uses vmalloc()
+> > rather than alloc_pages, but has to add complexity on freeing.
+> > The other adds a layer of indirection to the tnode lookup.
+> >
+> > Both have been tested on net-2.6.26 with the huge route table.
+> > I slightly prefer the vmalloc version, but both work fine.
+> >
+> >  =20
+> > -------------------------------------------------------------------=
+-----
+> >
+> > IPV4: fib_trie use vmalloc for large tnodes
+> >
+> > Use vmalloc rather than alloc_pages to avoid wasting memory.
+> > The problem is that tnode structure has a power of 2 sized array,
+> > plus a header. So the current code wastes almost half the memory
+> > allocated because it always needs the next bigger size to hold
+> > that small header.
+> >
+> > This is similar to an earlier patch by Eric, but instead of a list
+> > and lock, I used a workqueue to handle the fact that vfree can't
+> > be done in interrupt context.
+> >
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> >
+> > ---
+> >  net/ipv4/fib_trie.c |   25 +++++++++++++++----------
+> >  1 file changed, 15 insertions(+), 10 deletions(-)
+> >
+> > --- a/net/ipv4/fib_trie.c	2008-04-04 08:57:01.000000000 -0700
+> > +++ b/net/ipv4/fib_trie.c	2008-04-04 08:57:03.000000000 -0700
+> > @@ -122,7 +122,10 @@ struct tnode {
+> >  	unsigned char bits;		/* 2log(KEYLENGTH) bits needed */
+> >  	unsigned int full_children;	/* KEYLENGTH bits needed */
+> >  	unsigned int empty_children;	/* KEYLENGTH bits needed */
+> > -	struct rcu_head rcu;
+> > +	union {
+> > +		struct rcu_head rcu;
+> > +		struct work_struct work;
+> > +	};
+> >  	struct node *child[0];
+> >  =20
+> Hum...
+>=20
+> I prefer my patch Stephen, as your version enlarges every tnode with =
+an=20
+> embedded "struct work_struct" which can be larger than a "struct rcu_=
+head"
 
-  -John
+The number of tnode's is small and the size growth of 2*(unsigned long)=
+ is not
+worth worrying about. Also theoretically, my version could have multipl=
+e
+work elements processed at once.
+
