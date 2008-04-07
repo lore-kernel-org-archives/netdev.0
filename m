@@ -1,40 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH RFC 4/5] tun: vringfd xmit support.
-Date: Mon, 07 Apr 2008 13:13:44 +0800
-Message-ID: <E1Jijfs-0004Lo-00@gondolin.me.apana.org.au>
-References: <200804052206.33922.rusty@rustcorp.com.au>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, maxk@qualcomm.com
-To: rusty@rustcorp.com.au (Rusty Russell)
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755846AbYDGFOE@vger.kernel.org>
-In-Reply-To: <200804052206.33922.rusty@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Bugme-new] [Bug 10375] New: IPSec tunnel kernel panic
+Date: Mon, 7 Apr 2008 06:37:53 +0000
+Message-ID: <20080407063753.GA4172@ff.dom.local>
+References: <20080401120646.9b2f3b6a.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	yuri@itinteg.net
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.169]:40142 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751493AbYDGGfd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 02:35:33 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so419036ugc.16
+        for <netdev@vger.kernel.org>; Sun, 06 Apr 2008 23:35:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080401120646.9b2f3b6a.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rusty Russell <rusty@rustcorp.com.au> wrote:
->
-> +/* We are done with this skb: put it in the used pile. */
-> +static void skb_finished(struct skb_shared_info *sinfo)
-> +{
-> +       struct skb_shinfo_tun *sht = (void *)(sinfo + 1);
-> +
-> +       /* FIXME: Race prevention */
-> +       vring_used_buffer_atomic(sht->tun->outring, sht->id, sht->len);
-> +       vring_wake(sht->tun->outring);
-> +
-> +       /* Release device. */
-> +       dev_put(sht->tun->dev);
-> +}
+On 01-04-2008 20:06, Andrew Morton wrote:
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+> 
+> On Tue,  1 Apr 2008 11:44:10 -0700 (PDT)
+> bugme-daemon@bugzilla.kernel.org wrote:
+...
+>> http://bugzilla.kernel.org/show_bug.cgi?id=10375
+>> Steps to reproduce: Configured IPSec tunnel between two Linux with same kernel
+>> versions. One of machines, connected via ADSL fall with kernel panic.
+>>
+>> 2.6.24.4:
+>>
+>> kernel BUG at include/linux/skbuff.h:948!
+>> invalid opcode: 0000 [#1] SMP
+>> Modules linked in: esp4 ah4 xfrm4_mode_tunnel ppp_synctty ppp_async
+...
+>> Pid: 2867, comm: pppoe Not tainted (2.6.24.4-1 #1)
+>> EIP: 0060:[<dfb3d50b>] EFLAGS: 00010293 CPU: 0
+>> EIP is at esp_input+0x3b2/0x3b6 [esp4]
 
-On second thought, this is not going to work.  The network stack
-can clone individual pages out of this skb and put it into a new
-skb.  Therefore whatever scheme we come up with will either need
-to be page-based, or add a flag to tell the network stack that it
-can't clone those pages.
+Probably this new Thomas Graf's patch to esp_input() should help with
+this problem:
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=920fc941a9617f95ccb283037fe6f8a38d95bb69
+
+Regards,
+Jarek P.
