@@ -1,43 +1,53 @@
-From: "Andy Johnson" <johnsonzjo@gmail.com>
-Subject: Re: [GIT PULL net-2.6.26] [IPV6] MROUTE: Support multicast routing.
-Date: Mon, 7 Apr 2008 16:13:59 +0300
-Message-ID: <147a89290804070613o5274432frb50995433a9a95f3@mail.gmail.com>
-References: <147a89290804022314w7968fd47y7de78a9e87c2d289@mail.gmail.com>
-	 <20080403.152341.59206559.yoshfuji@linux-ipv6.org>
-	 <147a89290804030016x7fc67a6bg56af8ed329c6a544@mail.gmail.com>
-	 <20080403.163144.18289606.yoshfuji@linux-ipv6.org>
+From: Andy Furniss <lists@andyfurniss.entadsl.com>
+Subject: Re: [NET_SCHED 00/04]: External SFQ classifiers/flow classifier
+Date: Mon, 07 Apr 2008 14:43:37 +0100
+Message-ID: <47FA2509.8060303@andyfurniss.entadsl.com>
+References: <20080131175758.25151.20370.sendpatchset@localhost.localdomain> <47A4FB81.80700@fatooh.org> <47A74FEE.6080103@trash.net> <47EED247.50801@andyfurniss.entadsl.com> <47F22CF5.4080806@trash.net> <47F28758.1010401@andyfurniss.entadsl.com> <47F37139.9080303@andyfurniss.entadsl.com> <47F37E04.4010001@trash.net> <47F3B3C5.6000701@andyfurniss.entadsl.com> <47F6062E.9050804@andyfurniss.entadsl.com> <47F606D8.108@trash.net> <47F65EDE.3010507@andyfurniss.entadsl.com> <47F6794D.7070302@andyfurniss.entadsl.com>
+Reply-To: lists@andyfurniss.entadsl.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "=?UTF-8?Q?YOSHIFUJI_Hideaki_/_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?="
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Corey Hickey <bugfood-ml@fatooh.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:46007 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757278AbYDGNOB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 09:14:01 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so1424081fgb.17
-        for <netdev@vger.kernel.org>; Mon, 07 Apr 2008 06:13:59 -0700 (PDT)
-In-Reply-To: <20080403.163144.18289606.yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
+Received: from mx1.ukfsn.org ([77.75.108.10]:33981 "EHLO mail.ukfsn.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757539AbYDGNlw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Apr 2008 09:41:52 -0400
+In-Reply-To: <47F6794D.7070302@andyfurniss.entadsl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8sCiAgSSBoYWQgY29tcGlsYXRpb24gZXJyb3JzIHdoZW4gdHJ5aW5nIHRvIGJ1aWxkIHBp
-bTZzZCBzb2xlbGV5ICwgYW5kCml0IHNlZW1zIHRvIG1lIHRoYXQgdGhlIGNvZGUgc2hvdWxkIGJl
-IGNoYW5nZWQgZm9yIGl0IHRvIGNvbXBpbGUuCgpJIGZvdW5kIGFub3RoZXIgUElNLXNtIG9wZW4g
-c291cmNlIHByb2plY3QsIHdoaWNoICoqZG9lcyoqIGJ1aWxkCmNsZWFubHkgb24gbXkgTGludXgg
-Ym94OgpJdCBpcyBtcmQ2OgpodHRwOi8vZml2ZWJpdHMubmV0L3Byb2ovbXJkNi8KClBlcmhhcHMg
-eW91IGhhdmUgYW55IGlkZWFzOgpTaG91bGQgaXQgd29yayB3aXRoICBtdWx0aWNhc3Qgcm91dGlu
-ZyB3aXRoIHRoaXMga2VybmVsIHBhdGNoID8gYXJlCnRoZXJlIHNwZWNpZmljIHJlcXVpcmVtZW50
-cyB3aGljaCBtY2FzdC10b29scyBmdWxmaWlscyAoYW5kIG1heWJlIG1yZDYKZG9lcyBub3QpID8K
-ClJlZ2FyZHMsCkFKCgoKCgoKT24gVGh1LCBBcHIgMywgMjAwOCBhdCAxMDozMSBBTSwgWU9TSElG
-VUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4KPHlvc2hmdWppQGxpbnV4LWlwdjYub3JnPiB3cm90
-ZToKPiBJbiBhcnRpY2xlIDwxNDdhODkyOTA4MDQwMzAwMTZ4N2ZjNjdhNmJnNTZhZjhlZDMyOWM2
-YTU0NEBtYWlsLmdtYWlsLmNvbT4gKGF0IFRodSwgMyBBcHIgMjAwOCAxMDoxNjo0MSArMDMwMCks
-ICJBbmR5IEpvaG5zb24iIDxqb2huc29uempvQGdtYWlsLmNvbT4gc2F5czoKPgo+ICA+IERvIHdl
-IGhhdmUgdG8gcmVwbGFjZSBzb21lIHVzZXIgc3BhY2UgaGVhZGVycyBzbyB0aGF0IG1jYXN0IHRv
-b2xzIHdpbGwKPiAgPiBjb21waWxlIHN1Y2Nlc3NmdWxseSA/Cj4KPiAgVGhhbmtzIGZvciB0aGUg
-cmVwb3J0Lgo+ICBOb3QgYWxsIGNhbiBiZSBidWlsdCBhbmQgcGltNnNkIGlzIHRoZSBtYWluIHRh
-cmdldCBzbyBmYXIuCj4KPiAgLS15b3NoZnVqaQo+Cg==
+Andy Furniss wrote:
+> Andy Furniss wrote:
+> 
+>> Looking at the sfq code it seems that enqueue doesn't init/zero allot 
+>> for a new flow unless it's the first and most of what I see fits with 
+>> this. 
+> 
+>> But rarely it doesn't look like that's all there is to it.
+> 
+> Actually it fits perfectly, so that is all there is to it. Dequeue 
+> dequeues first then checks allot so even if the allot is stuck at -20345 
+> or something the flow will still get 1 packet per round which is what 
+> I've seen. I first thought it should have moved towards 0 like it does 
+> when it starts too high.
+
+Seems like this change fixes it for me, though I since noticed that 
+requeue will need the same change as well.
+
+--- sch_sfq.c.orig      2008-04-07 11:42:36.000000000 +0100
++++ sch_sfq.c   2008-04-07 11:46:41.000000000 +0100
+@@ -317,6 +317,7 @@
+                         q->next[x] = q->next[q->tail];
+                         q->next[q->tail] = x;
+                         q->tail = x;
++                       q->allot[x] = 0;
+                 }
+         }
+         if (++sch->q.qlen <= q->limit) {
+
+
+Andy.
