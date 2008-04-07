@@ -1,58 +1,87 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.26 2/2] Do not allocate unneeded memory for dev->priv
- alignment.
-Date: Mon, 07 Apr 2008 20:31:12 +0400
-Message-ID: <47FA4C50.3080405@openvz.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC] fib_trie: memory waste solutions
+Date: Mon, 07 Apr 2008 18:46:29 +0200
+Message-ID: <47FA4FE5.5010500@cosmosbay.com>
+References: <20080401172702.094c0700@extreme>	<47F33D42.9080302@cosmosbay.com>	<47F39998.8040605@cosmosbay.com>	<20080402110335.66b04181@extreme>	<47F3E031.1030806@cosmosbay.com> <20080404090257.2ec38b0c@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:42516 "EHLO sacred.ru"
+Received: from smtp2e.orange.fr ([80.12.242.113]:63029 "EHLO smtp2e.orange.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759101AbYDGQHk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Apr 2008 12:07:40 -0400
+	id S1750981AbYDGQqr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 12:46:47 -0400
+In-Reply-To: <20080404090257.2ec38b0c@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The alloc_netdev_mq() tries to produce 32-bytes alignment for both
-the net_device itself and its private data. The second alignment is
-achieved by adding the NETDEV_ALIGN_CONST to the whole size of
-the memory to be allocated.
-
-However, for those devices that do not need the private area, this
-addition just makes the net_device weight 1024 + 32 = 1068 bytes,
-i.e. consume twice as much memory.
-
-Since loopback device is such (sizeof_priv == 0 for it), and each
-net namespace creates one, this can save a noticeable amount of
-memory for kernel with net namespaces turned on.
-
-After this set the lo device is actually allocated from a size-1024
-kmem cache on i386 box even with NETPOLL and WIRELESS_EXT turned on.
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
+Stephen Hemminger a =E9crit :
+> Eric wisely pointed out that for larger sizes of nodes, the
+> current allocation in fib_trie wastes lots of memory.  For a sample
+> of routes extracted from the bugzilla bug the largest node grows
+> to 2M bytes on 64 bit system. This leads to 2044K of wasted memory.
+>
+> There are two possible solutions (see attached). One uses vmalloc()
+> rather than alloc_pages, but has to add complexity on freeing.
+> The other adds a layer of indirection to the tnode lookup.
+>
+> Both have been tested on net-2.6.26 with the huge route table.
+> I slightly prefer the vmalloc version, but both work fine.
+>
+>  =20
+> ---------------------------------------------------------------------=
 ---
- net/core/dev.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+>
+> IPV4: fib_trie use vmalloc for large tnodes
+>
+> Use vmalloc rather than alloc_pages to avoid wasting memory.
+> The problem is that tnode structure has a power of 2 sized array,
+> plus a header. So the current code wastes almost half the memory
+> allocated because it always needs the next bigger size to hold
+> that small header.
+>
+> This is similar to an earlier patch by Eric, but instead of a list
+> and lock, I used a workqueue to handle the fact that vfree can't
+> be done in interrupt context.
+>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>
+> ---
+>  net/ipv4/fib_trie.c |   25 +++++++++++++++----------
+>  1 file changed, 15 insertions(+), 10 deletions(-)
+>
+> --- a/net/ipv4/fib_trie.c	2008-04-04 08:57:01.000000000 -0700
+> +++ b/net/ipv4/fib_trie.c	2008-04-04 08:57:03.000000000 -0700
+> @@ -122,7 +122,10 @@ struct tnode {
+>  	unsigned char bits;		/* 2log(KEYLENGTH) bits needed */
+>  	unsigned int full_children;	/* KEYLENGTH bits needed */
+>  	unsigned int empty_children;	/* KEYLENGTH bits needed */
+> -	struct rcu_head rcu;
+> +	union {
+> +		struct rcu_head rcu;
+> +		struct work_struct work;
+> +	};
+>  	struct node *child[0];
+>  =20
+Hum...
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 7aa0112..80e103a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4000,7 +4000,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST +
- 		     (sizeof(struct net_device_subqueue) * (queue_count - 1))) &
- 		     ~NETDEV_ALIGN_CONST;
--	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
-+	if (sizeof_priv)
-+		alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
- 
- 	p = kzalloc(alloc_size, GFP_KERNEL);
- 	if (!p) {
--- 
-1.5.3.4
+I prefer my patch Stephen, as your version enlarges every tnode with an=
+=20
+embedded "struct work_struct" which can be larger than a "struct rcu_he=
+ad"
+
+And as your 2nd patch doesnt use vmalloc() at all, we only can gain one=
+=20
+order for the max bits in root node (19 instead of 18) :
+We will hit the 'bug' again in a couple of months, or if router memory=20
+is somehow fragmented.
+
+
+
+
 
