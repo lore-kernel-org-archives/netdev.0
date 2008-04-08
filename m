@@ -1,71 +1,55 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH net-2.6.26 1/2] Shrink size of net_device by filling	alignment
- holes in it.
-Date: Tue, 08 Apr 2008 12:41:18 +0400
-Message-ID: <47FB2FAE.3080008@openvz.org>
-References: <47FA4ADE.1020308@openvz.org> <47FA5426.10704@cosmosbay.com> <47FA5717.4070901@cosmosbay.com> <20080407174745.GE15681@ghostprotocols.net>
+Subject: Re: [PATCH net-2.6.26 2/2] Do not allocate unneeded memory for dev->priv
+   alignment.
+Date: Tue, 08 Apr 2008 12:42:27 +0400
+Message-ID: <47FB2FF3.90104@openvz.org>
+References: <47FA4C50.3080405@openvz.org> <47FA5D62.5040806@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	Stephen Hemminger <shemminger@vyatta.com>,
 	Patrick McHardy <kaber@trash.net>
-To: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	Eric Dumazet <dada1@cosmosbay.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:35743 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:35981 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751149AbYDHISO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2008 04:18:14 -0400
-In-Reply-To: <20080407174745.GE15681@ghostprotocols.net>
+	id S1751553AbYDHITU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2008 04:19:20 -0400
+In-Reply-To: <47FA5D62.5040806@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ok, here are the results (summary):
+Jarek Poplawski wrote:
+> Pavel Emelyanov wrote, On 04/07/2008 06:31 PM:
+> ...
+> 
+>> ---
+>>  net/core/dev.c |    3 ++-
+>>  1 files changed, 2 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 7aa0112..80e103a 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -4000,7 +4000,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+>>  	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST +
+>>  		     (sizeof(struct net_device_subqueue) * (queue_count - 1))) &
+>>  		     ~NETDEV_ALIGN_CONST;
+>> -	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
+>> +	if (sizeof_priv)
+>> +		alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
+>>  
+>>  	p = kzalloc(alloc_size, GFP_KERNEL);
+>>  	if (!p) {
+> 
+> 
+> IMHO this second "+ NETDEV_ALIGN_CONST" is needed here because of "~NETDEV_ALIGN_CONST".
 
-i386, no patch, L1_CACHE_SHIFT=6:
-        /* size: 1024, cachelines: 16 */
-        /* sum members: 897, holes: 5, sum holes: 115 */
-        /* padding: 12 */
+Hmm, AFAIC, the net_device alignment is done earlier, while this one
+makes sense in case the priv pointer alignment.
 
-i386, no patch, L1_CACHE_SHIFT=7:
-        /* size: 1280, cachelines: 20 */
-        /* sum members: 897, holes: 5, sum holes: 307 */
-        /* padding: 76 */
+> Regards,
+> Jarek P.
+> 
 
-i386, with patch, L1_CACHE_SHIFT=6:
-        /* size: 960, cachelines: 15 */
-        /* sum members: 897, holes: 4, sum holes: 47 */
-        /* padding: 16 */
-
-i386, with patch, L1_CACHE_SHIFT=7:
-        /* size: 1024, cachelines: 16 */
-        /* sum members: 897, holes: 4, sum holes: 111 */
-        /* padding: 16 */
-
-x86_64, no patch, L1_CACHE_SHIFT=7:
-        /* size: 1792, cachelines: 28 */
-        /* sum members: 1589, holes: 13, sum holes: 155 */
-        /* padding: 48 */
-        /* paddings: 1, sum paddings: 4 */
-
-x86_64, with patch, L1_CACHE_SHIFT=7:
-        /* size: 1920, cachelines: 30 */
-        /* sum members: 1589, holes: 13, sum holes: 275 */
-        /* padding: 56 */
-        /* paddings: 1, sum paddings: 4 */
-
-The +128 bytes on x86_64 is due to enlarged hole before
-the refcnt field :(
-
-So, on the i386 the structure shrinks, but on x86_64 - grows, but
-on i386 it can be allocated from a twice smaller cache, while on
-x86_64 nothing changes - it still fits the size-2048.
-
-BTW, L1_CACHE_SHIFT=7 is set by default for distributions such as
-rhel5, suse10 and fedora8...
-
-So, does it worth trying to push them to Dave? :)
-
-Thanks,
-Pavel
