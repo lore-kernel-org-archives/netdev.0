@@ -1,65 +1,134 @@
-From: "Andy Johnson" <johnsonzjo@gmail.com>
-Subject: Re: [GIT PULL net-2.6.26] [IPV6] MROUTE: Support multicast routing.
-Date: Tue, 8 Apr 2008 09:57:39 +0300
-Message-ID: <147a89290804072357i3bccbe81tfa6bb4b3d0331592@mail.gmail.com>
-References: <147a89290804030016x7fc67a6bg56af8ed329c6a544@mail.gmail.com>
-	 <20080403.163144.18289606.yoshfuji@linux-ipv6.org>
-	 <147a89290804070613o5274432frb50995433a9a95f3@mail.gmail.com>
-	 <20080407.233709.01728201.yoshfuji@linux-ipv6.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] forcedeth: new backoff implementation
+Date: Tue, 8 Apr 2008 01:14:25 -0700
+Message-ID: <20080408011425.ff2dc98a.akpm@linux-foundation.org>
+References: <47FA94CC.7070300@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "=?UTF-8?Q?YOSHIFUJI_Hideaki_/_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?="
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	nedev <netdev@vger.kernel.org>
+To: Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:3891 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753362AbYDHG5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 02:57:41 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so1787796fgb.17
-        for <netdev@vger.kernel.org>; Mon, 07 Apr 2008 23:57:39 -0700 (PDT)
-In-Reply-To: <20080407.233709.01728201.yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:60836 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751791AbYDHIOh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 04:14:37 -0400
+In-Reply-To: <47FA94CC.7070300@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8sCgpUaGlzIGlzIHdoYXQgSSBnZXQgd2hlbiB0cnlpbmcgdG8gYnVpbGQgcGltNnNkOgoK
-Z2l0LWNsb25lIGdpdDovL2dpdC5saW51eC1pcHY2Lm9yZy9naXRyb290L3lvc2hmdWppL21jYXN0
-LXRvb2xzLmdpdAoKY2QgbWNhc3QtdG9vbHMKCmFjbG9jYWw7IGF1dG9tYWtlOyBhdXRvY29uZgou
-L2NvbmZpZ3VyZQpjZCBwaW02c2QKbWFrZQoKQW5kIHRoaXMgaXMgdGhlIG91dHB1dDoKCk1ha2lu
-ZyBhbGwgaW4gLgptYWtlWzFdOiBFbnRlcmluZyBkaXJlY3RvcnkgYC9zcmMxL21jYXN0LXRvb2xz
-L3BpbTZzZCcKZ2NjIC1ESEFWRV9DT05GSUdfSCAtSS4gLUkuLi9pbmNsdWRlICAgICAtZyAtTzIg
-LU1UIG1sZDYubyAtTUQgLU1QIC1NRgouZGVwcy9tbGQ2LlRwbyAtYyAtbyBtbGQ2Lm8gbWxkNi5j
-Cm1sZDYuYzogSW4gZnVuY3Rpb24gJ2luaXRfbWxkNic6Cm1sZDYuYzoyMTA6IGVycm9yOiAnSUNN
-UDZfTUVNQkVSU0hJUF9RVUVSWScgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluCnRoaXMgZnVuY3Rp
-b24pCm1sZDYuYzoyMTA6IGVycm9yOiAoRWFjaCB1bmRlY2xhcmVkIGlkZW50aWZpZXIgaXMgcmVw
-b3J0ZWQgb25seSBvbmNlCm1sZDYuYzoyMTA6IGVycm9yOiBmb3IgZWFjaCBmdW5jdGlvbiBpdCBh
-cHBlYXJzIGluLikKbWxkNi5jOjIxMTogZXJyb3I6ICdJQ01QNl9NRU1CRVJTSElQX1JFUE9SVCcg
-dW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluCnRoaXMgZnVuY3Rpb24pCm1sZDYuYzoyMTI6IGVycm9y
-OiAnSUNNUDZfTUVNQkVSU0hJUF9SRURVQ1RJT04nIHVuZGVjbGFyZWQgKGZpcnN0IHVzZQppbiB0
-aGlzIGZ1bmN0aW9uKQptbGQ2LmM6IEluIGZ1bmN0aW9uICdhY2NlcHRfbWxkNic6Cm1sZDYuYzo0
-NTE6IGVycm9yOiAnTUxEX0xJU1RFTkVSX0RPTkUnIHVuZGVjbGFyZWQgKGZpcnN0IHVzZSBpbiB0
-aGlzIGZ1bmN0aW9uKQptYWtlWzFdOiAqKiogW21sZDYub10gRXJyb3IgMQptYWtlWzFdOiBMZWF2
-aW5nIGRpcmVjdG9yeSBgL3NyYzEvbWNhc3QtdG9vbHMvcGltNnNkJwptYWtlOiAqKiogW2FsbC1y
-ZWN1cnNpdmVdIEVycm9yIDEKCgpJIGFtIHJ1bm5pbmcgaXQgb24gRmVvZHJhIENvcmUgOCAoNjQg
-Yml0KS4gVGhlIHNhbWUgZXJyb3JzIG9jY3VycmVkIGFsc28Kb24gRmVvZHJhIENvcmUgOCAoMzIg
-Yml0KQoKQW55IGlkZWFzID8KCkFKCgoKCk9uIE1vbiwgQXByIDcsIDIwMDggYXQgNTozNyBQTSwg
-WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4KPHlvc2hmdWppQGxpbnV4LWlwdjYub3Jn
-PiB3cm90ZToKPiBJbiBhcnRpY2xlIDwxNDdhODkyOTA4MDQwNzA2MTNvNTI3NDQzMmZyYjUwOTk1
-NDMzYTlhOTVmM0BtYWlsLmdtYWlsLmNvbT4gKGF0IE1vbiwgNyBBcHIgMjAwOCAxNjoxMzo1OSAr
-MDMwMCksICJBbmR5IEpvaG5zb24iIDxqb2huc29uempvQGdtYWlsLmNvbT4gc2F5czoKPgo+ICA+
-ICAgSSBoYWQgY29tcGlsYXRpb24gZXJyb3JzIHdoZW4gdHJ5aW5nIHRvIGJ1aWxkIHBpbTZzZCBz
-b2xlbGV5ICwgYW5kCj4gID4gaXQgc2VlbXMgdG8gbWUgdGhhdCB0aGUgY29kZSBzaG91bGQgYmUg
-Y2hhbmdlZCBmb3IgaXQgdG8gY29tcGlsZS4KPgo+ICBJdCBTSE9VTEQgY29tcGlsZSBhbmQgd29y
-ay4uLgo+ICBJZiB5b3UgZmFpbCB0byBidWlsZCBwaW02c2QsIHBsZWFzZSBkcm9wIGEgcmVwb3J0
-IHRvIG1lLiAgVGhhbmtzLgo+Cj4KPiAgPiBJIGZvdW5kIGFub3RoZXIgUElNLXNtIG9wZW4gc291
-cmNlIHByb2plY3QsIHdoaWNoICoqZG9lcyoqIGJ1aWxkCj4gID4gY2xlYW5seSBvbiBteSBMaW51
-eCBib3g6Cj4gID4gSXQgaXMgbXJkNjoKPiAgPiBodHRwOi8vZml2ZWJpdHMubmV0L3Byb2ovbXJk
-Ni8KPiAgPgo+ICA+IFBlcmhhcHMgeW91IGhhdmUgYW55IGlkZWFzOgo+ICA+IFNob3VsZCBpdCB3
-b3JrIHdpdGggIG11bHRpY2FzdCByb3V0aW5nIHdpdGggdGhpcyBrZXJuZWwgcGF0Y2ggPyBhcmUK
-PiAgPiB0aGVyZSBzcGVjaWZpYyByZXF1aXJlbWVudHMgd2hpY2ggbWNhc3QtdG9vbHMgZnVsZmlp
-bHMgKGFuZCBtYXliZSBtcmQ2Cj4gID4gZG9lcyBub3QpID8KPgo+ICBNUkQ2IHNlZW1zIGluZGVw
-ZW5kZW50IGZyb20gdGhpcyBrZXJuZWwgcGF0Y2ggc28gZmFyLgo+ICBUaGUga2VybmVsIHBhdGNo
-IGlzIHJlZ2FyZGluZyBpbi1rZXJuZWwgbXVsdGljYXN0IGZvcndhcmRpbmcuCj4KPiAgLS15b3No
-ZnVqaQo+Cg==
+On Mon, 07 Apr 2008 17:40:28 -0400 Ayaz Abdulla <aabdulla@nvidia.com> wrote:
+
+> This patch adds support for a new backoff algorithm for half duplex 
+> supported in newer hardware. The old method is will be designated as 
+> legacy mode.
+> 
+> Re-seeding random values for the backoff algorithms are performed when a 
+> transmit has failed due to a maximum retry count (1 to 15, where max is 
+> considered the wraparound case of 0).
+> 
+> ...
+>
+> +static void nv_legacybackoff_reseed(struct net_device *dev)
+> +{
+> +	u8 __iomem *base = get_hwbase(dev);
+> +	u32 reg;
+> +	u32 low;
+> +	int tx_status = 0;
+> +
+> +	reg = readl(base + NvRegSlotTime) & ~NVREG_SLOTTIME_MASK;
+> +	rdtscl(low);
+> +	reg |= low & NVREG_SLOTTIME_MASK;
+> +
+> +	/* need to stop tx before change takes effect */
+> +	tx_status = readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_START;
+> +	if (tx_status)
+> +		nv_stop_tx(dev);
+> +	nv_stop_rx(dev);
+> +	writel(reg, base + NvRegSlotTime);
+> +	if (tx_status)
+> +		nv_start_tx(dev);
+> +	nv_start_rx(dev);
+> +}
+
+Is there sufficient locking in place to prevent some other thread of
+control coming in and trying to stop or start tx and/or rx while this
+function is running?
+
+> +static void nv_gear_backoff_reseed(struct net_device *dev)
+> +{
+> +	u8 __iomem *base = get_hwbase(dev);
+> +	u32 miniseed1, miniseed2, miniseed2_reversed, miniseed3, miniseed3_reversed;
+> +	u32 temp, seedset, combinedSeed;
+> +	int i;
+> +
+> +	/* Setup seed for free running LFSR */
+> +	/* We are going to read the time stamp counter 3 times and swizzle bits around to increase randomness */
+
+I see this driver rigorously observes the 800-column-xterm convention.
+
+> +	rdtscl(miniseed1);
+
+err, no.  We don't have sufficient Kconfig dependencies in place to be able
+to do this.  You just broke all non-x86.
+
+Suitable fixes would be
+
+a) add #ifdef CONFIG_X86 all over the place
+
+b) use do_gettimeofday() (might be tricky if called from interrupt)
+
+c) use cpu_clock().
+
+> +	miniseed1 &= 0x0fff;
+> +	if (miniseed1 == 0)
+> +		miniseed1 = 0xabc;
+> +
+> +	rdtscl(miniseed2);
+> +	miniseed2 &= 0x0fff;
+> +	if (miniseed2 == 0)
+> +		miniseed2 = 0xabc;
+> +	miniseed2_reversed = ((miniseed2 & 0xF00) >> 8) | (miniseed2 & 0x0F0) | ((miniseed2 & 0x00F) << 8);
+> +
+> +	rdtscl(miniseed3);
+> +	miniseed3 &= 0x0fff;
+> +	if (miniseed3 == 0)
+> +		miniseed3 = 0xabc;
+> +	miniseed3_reversed = ((miniseed3 & 0xF00) >> 8) | (miniseed3 & 0x0F0) | ((miniseed3 & 0x00F) << 8);
+> +
+> +	combinedSeed = ((miniseed1 ^ miniseed2_reversed) << 12) | (miniseed2 ^ miniseed3_reversed);
+> +
+> +	/* Seeds can not be zero */
+> +	if ((combinedSeed & NVREG_BKOFFCTRL_SEED_MASK) == 0)
+> +		combinedSeed |= 0x08;
+> +	if ((combinedSeed & (NVREG_BKOFFCTRL_SEED_MASK << NVREG_BKOFFCTRL_GEAR)) == 0)
+> +		combinedSeed |= 0x8000;
+> +
+> +	/* Ensure seeds are not the same */
+> +	if ((combinedSeed & NVREG_BKOFFCTRL_SEED_MASK) ==
+> +	    (combinedSeed & (NVREG_BKOFFCTRL_SEED_MASK << NVREG_BKOFFCTRL_GEAR)))
+> +		combinedSeed = 0x3FF3FF;
+> +
+> +	/* No need to disable tx here */
+> +	temp = NVREG_BKOFFCTRL_DEFAULT | (0 << NVREG_BKOFFCTRL_SELECT);
+> +	temp |= combinedSeed & NVREG_BKOFFCTRL_SEED_MASK;
+> +	temp |= combinedSeed >> NVREG_BKOFFCTRL_GEAR;
+> +	writel(temp,base + NvRegBackOffControl);
+> +
+> +    	/* Setup seeds for all gear LFSRs. */
+> +	rdtscl(seedset);
+> +	seedset = seedset % BACKOFF_SEEDSET_ROWS;
+> +	for (i = 1; i <= BACKOFF_SEEDSET_LFSRS; i++)
+> +	{
+> +		temp = NVREG_BKOFFCTRL_DEFAULT | (i << NVREG_BKOFFCTRL_SELECT);
+> +		temp |= gMainSeedSet[seedset][i-1] & 0x3ff;
+> +		temp |= ((gGearSeedSet[seedset][i-1] & 0x3ff) << NVREG_BKOFFCTRL_GEAR);
+> +		writel(temp, base + NvRegBackOffControl);
+> +	}
+> +}
+
+Is lib/random32.c not useful here?  Perhaps after suitable modification?
+
+
