@@ -1,62 +1,69 @@
-From: "John Heffner" <johnwheffner@gmail.com>
-Subject: Re: RE: A Linux TCP SACK Question
-Date: Tue, 8 Apr 2008 08:57:27 -0700
-Message-ID: <1e41a3230804080857w12d4cc1dkc6b52e51e3335a3d@mail.gmail.com>
-References: <fc471cb97cfd.47f5520e@fnal.gov>
-	 <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
-	 <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
-	 <000f01c896a1$3022fec0$c95ee183@D2GT6T71>
-	 <649aecc70804051417l4cf9b30asec8ca8d55e79e051@mail.gmail.com>
-	 <fb8e9e4f102e.47f8ebfd@fnal.gov>
-	 <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
-	 <000701c898bf$99fc3f80$c95ee183@D2GT6T71>
-	 <Pine.LNX.4.64.0804080007020.20936@wrl-59.cs.helsinki.fi>
-	 <fbbce0572843.47fb038c@fnal.gov>
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: Re: [PATCH] forcedeth: new backoff implementation
+Date: Tue, 08 Apr 2008 18:15:32 +0200
+Message-ID: <47FB9A24.7030709@colorfullife.com>
+References: <47FA94CC.7070300@nvidia.com> <20080408011425.ff2dc98a.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
-	"Sangtae Ha" <sangtae.ha@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: "Wenji Wu" <wenji@fnal.gov>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>, nedev <netdev@vger.kernel.org>
+To: Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.30]:14865 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755531AbYDHP5g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 11:57:36 -0400
-Received: by yw-out-2324.google.com with SMTP id 5so370417ywb.1
-        for <netdev@vger.kernel.org>; Tue, 08 Apr 2008 08:57:28 -0700 (PDT)
-In-Reply-To: <fbbce0572843.47fb038c@fnal.gov>
-Content-Disposition: inline
+Received: from fg-out-1718.google.com ([72.14.220.158]:8407 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751776AbYDHQPk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 12:15:40 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so1961583fgb.17
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2008 09:15:39 -0700 (PDT)
+In-Reply-To: <20080408011425.ff2dc98a.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 8, 2008 at 5:33 AM, Wenji Wu <wenji@fnal.gov> wrote:
-> > NewReno never retransmitted anything in them (except at the very end
->  > of
->  > the transfer). Probably something related to how tp->reordering behaves
->  > I suppose...
+Andrew Morton wrote:
+> On Mon, 07 Apr 2008 17:40:28 -0400 Ayaz Abdulla <aabdulla@nvidia.com> wrote:
+>   
+>> +static void nv_gear_backoff_reseed(struct net_device *dev)
+>> +{
+>> +	u8 __iomem *base = get_hwbase(dev);
+>> +	u32 miniseed1, miniseed2, miniseed2_reversed, miniseed3, miniseed3_reversed;
+>> +	u32 temp, seedset, combinedSeed;
+>> +	int i;
+>> +
+>> +	/* Setup seed for free running LFSR */
+>> +	/* We are going to read the time stamp counter 3 times and swizzle bits around to increase randomness */
+>>     
 >
->  Yes, the adaptive tp->reordering will play a role here.
+> I see this driver rigorously observes the 800-column-xterm convention.
+>
+>   
+>> +	rdtscl(miniseed1);
+>>     
+>
+> err, no.  We don't have sufficient Kconfig dependencies in place to be able
+> to do this.  You just broke all non-x86.
+>
+> Suitable fixes would be
+>
+> a) add #ifdef CONFIG_X86 all over the place
+>
+> b) use do_gettimeofday() (might be tricky if called from interrupt)
+>
+> c) use cpu_clock().
+>
+>   
+d) use get_random_bytes()?
+It's irq-safe, used e.g. by the network code for the TCP sequence numbers.
+>> +	/* Ensure seeds are not the same */
+>> +	if ((combinedSeed & NVREG_BKOFFCTRL_SEED_MASK) ==
+>> +	    (combinedSeed & (NVREG_BKOFFCTRL_SEED_MASK << NVREG_BKOFFCTRL_GEAR)))
+>> +		combinedSeed = 0x3FF3FF;
+>> +
+>>     
+I don't understand this block: The seed consists of two parts, each 12 bits.
+Both parts mustn't be identical. If both parts are identical, then both 
+are set to 0x3ff.
+But if both are 0x3ff, then they are identical. Is that intentional?
 
-I remember several years ago when I first looked at chronic reordering
-with a high BDP, the problem I had was that:
-1) Only acks of new data can advance cwnd, and these only advance by
-the normal amount per ack, so cwnd grows very slowly.
-2) Reordering caused slow start to exit early, before the reordering
-threshold had adapted
-3) The "undo" code didn't work well because of cwnd moderation
-4) There were bugs in the reordering calculation that caused the
-threshold to be pulled back
-
-Some of these shouldn't matter to you because your rtt is low, but I
-thought i would be worth mentioning.  I'm not sure what is keeping
-your cwnd from growing -- it always seems to be within a small range
-in both cases, which is not right unless there's a bottleneck at the
-sender.  The fact reno does a little better than sack seems like the
-less important problem.
-
-Also, what's the behavior when turning off reordering, in each or both
-directions?
-
-  -John
+--
+    Manfred
