@@ -1,73 +1,65 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: RE: A Linux TCP SACK Question
-Date: Tue, 8 Apr 2008 09:36:44 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0804080007020.20936@wrl-59.cs.helsinki.fi>
-References: <fc471cb97cfd.47f5520e@fnal.gov>
- <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
- <000001c8967c$496efa20$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
- <000b01c89699$00e99590$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
- <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
- <000f01c896a1$3022fec0$c95ee183@D2GT6T71> <649aecc70804051417l4cf9b30asec8ca8d55e79e051@mail.gmail.com>
- <fb8e9e4f102e.47f8ebfd@fnal.gov> <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
- <000701c898bf$99fc3f80$c95ee183@D2GT6T71>
+From: "Andy Johnson" <johnsonzjo@gmail.com>
+Subject: Re: [GIT PULL net-2.6.26] [IPV6] MROUTE: Support multicast routing.
+Date: Tue, 8 Apr 2008 09:57:39 +0300
+Message-ID: <147a89290804072357i3bccbe81tfa6bb4b3d0331592@mail.gmail.com>
+References: <147a89290804030016x7fc67a6bg56af8ed329c6a544@mail.gmail.com>
+	 <20080403.163144.18289606.yoshfuji@linux-ipv6.org>
+	 <147a89290804070613o5274432frb50995433a9a95f3@mail.gmail.com>
+	 <20080407.233709.01728201.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: 'Sangtae Ha' <sangtae.ha@gmail.com>,
-	'John Heffner' <johnwheffner@gmail.com>,
-	'Netdev' <netdev@vger.kernel.org>
-To: Wenji Wu <wenji@fnal.gov>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: "=?UTF-8?Q?YOSHIFUJI_Hideaki_/_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?="
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:50801 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751170AbYDHGgs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 02:36:48 -0400
-In-Reply-To: <000701c898bf$99fc3f80$c95ee183@D2GT6T71>
+Received: from fg-out-1718.google.com ([72.14.220.159]:3891 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753362AbYDHG5l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 02:57:41 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so1787796fgb.17
+        for <netdev@vger.kernel.org>; Mon, 07 Apr 2008 23:57:39 -0700 (PDT)
+In-Reply-To: <20080407.233709.01728201.yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 7 Apr 2008, Wenji Wu wrote:
-
-> >I don't think reorderings frequently happened in your directly
-> >connected networking scenario. Please post your tcpdump file for
-> >clearing out all doubts.
-> 
-> https://plone3.fnal.gov/P0/WAN/Members/wenji/tcp_dump_files_sack/
-> 
-> Two tcpdump files: one with SACK on, the other with SACK off. The test
-> configures described in my previous emails.
-
-NewReno never retransmitted anything in them (except at the very end of 
-the transfer). Probably something related to how tp->reordering behaves
-I suppose...
-
-ijjarvin@pointhope:~/linux/debug$ /usr/sbin/tcpdump -n -r nosack | grep 
-"4888[35] >" | cut -d ' ' -f 7- | cut -d ':' -f 1 | awk '{if ($1 < old) 
-{print $1}; old=$1;}'
-reading from file nosack, link-type EN10MB (Ethernet)
-1
-641080641
-ijjarvin@pointhope:~/linux/debug$ 
-
-ijjarvin@pointhope:~/linux/debug$ /usr/sbin/tcpdump -n -r sack | grep 
-"4888[35] >" | cut -d ' ' -f 7- | cut -d ':' -f 1 | awk '{if ($1 < old) 
-{print $1}; old=$1;}'
-reading from file sack, link-type EN10MB (Ethernet)
-1
-7265
-10161
-141929
-175233
-196953
-446558881
-3542223511
-ijjarvin@pointhope:~/linux/debug$ 
-
-
-This is probably far fetched but could you tell us how you make sure that 
-earlier connection's metrics are not affecting the latter connection? 
-Ie., the discovered reordering is not transferred across the flows (in CBI 
-like manner) and thus newreno has unfair advantage?
-
--- 
- i.
+SGVsbG8sCgpUaGlzIGlzIHdoYXQgSSBnZXQgd2hlbiB0cnlpbmcgdG8gYnVpbGQgcGltNnNkOgoK
+Z2l0LWNsb25lIGdpdDovL2dpdC5saW51eC1pcHY2Lm9yZy9naXRyb290L3lvc2hmdWppL21jYXN0
+LXRvb2xzLmdpdAoKY2QgbWNhc3QtdG9vbHMKCmFjbG9jYWw7IGF1dG9tYWtlOyBhdXRvY29uZgou
+L2NvbmZpZ3VyZQpjZCBwaW02c2QKbWFrZQoKQW5kIHRoaXMgaXMgdGhlIG91dHB1dDoKCk1ha2lu
+ZyBhbGwgaW4gLgptYWtlWzFdOiBFbnRlcmluZyBkaXJlY3RvcnkgYC9zcmMxL21jYXN0LXRvb2xz
+L3BpbTZzZCcKZ2NjIC1ESEFWRV9DT05GSUdfSCAtSS4gLUkuLi9pbmNsdWRlICAgICAtZyAtTzIg
+LU1UIG1sZDYubyAtTUQgLU1QIC1NRgouZGVwcy9tbGQ2LlRwbyAtYyAtbyBtbGQ2Lm8gbWxkNi5j
+Cm1sZDYuYzogSW4gZnVuY3Rpb24gJ2luaXRfbWxkNic6Cm1sZDYuYzoyMTA6IGVycm9yOiAnSUNN
+UDZfTUVNQkVSU0hJUF9RVUVSWScgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluCnRoaXMgZnVuY3Rp
+b24pCm1sZDYuYzoyMTA6IGVycm9yOiAoRWFjaCB1bmRlY2xhcmVkIGlkZW50aWZpZXIgaXMgcmVw
+b3J0ZWQgb25seSBvbmNlCm1sZDYuYzoyMTA6IGVycm9yOiBmb3IgZWFjaCBmdW5jdGlvbiBpdCBh
+cHBlYXJzIGluLikKbWxkNi5jOjIxMTogZXJyb3I6ICdJQ01QNl9NRU1CRVJTSElQX1JFUE9SVCcg
+dW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluCnRoaXMgZnVuY3Rpb24pCm1sZDYuYzoyMTI6IGVycm9y
+OiAnSUNNUDZfTUVNQkVSU0hJUF9SRURVQ1RJT04nIHVuZGVjbGFyZWQgKGZpcnN0IHVzZQppbiB0
+aGlzIGZ1bmN0aW9uKQptbGQ2LmM6IEluIGZ1bmN0aW9uICdhY2NlcHRfbWxkNic6Cm1sZDYuYzo0
+NTE6IGVycm9yOiAnTUxEX0xJU1RFTkVSX0RPTkUnIHVuZGVjbGFyZWQgKGZpcnN0IHVzZSBpbiB0
+aGlzIGZ1bmN0aW9uKQptYWtlWzFdOiAqKiogW21sZDYub10gRXJyb3IgMQptYWtlWzFdOiBMZWF2
+aW5nIGRpcmVjdG9yeSBgL3NyYzEvbWNhc3QtdG9vbHMvcGltNnNkJwptYWtlOiAqKiogW2FsbC1y
+ZWN1cnNpdmVdIEVycm9yIDEKCgpJIGFtIHJ1bm5pbmcgaXQgb24gRmVvZHJhIENvcmUgOCAoNjQg
+Yml0KS4gVGhlIHNhbWUgZXJyb3JzIG9jY3VycmVkIGFsc28Kb24gRmVvZHJhIENvcmUgOCAoMzIg
+Yml0KQoKQW55IGlkZWFzID8KCkFKCgoKCk9uIE1vbiwgQXByIDcsIDIwMDggYXQgNTozNyBQTSwg
+WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4KPHlvc2hmdWppQGxpbnV4LWlwdjYub3Jn
+PiB3cm90ZToKPiBJbiBhcnRpY2xlIDwxNDdhODkyOTA4MDQwNzA2MTNvNTI3NDQzMmZyYjUwOTk1
+NDMzYTlhOTVmM0BtYWlsLmdtYWlsLmNvbT4gKGF0IE1vbiwgNyBBcHIgMjAwOCAxNjoxMzo1OSAr
+MDMwMCksICJBbmR5IEpvaG5zb24iIDxqb2huc29uempvQGdtYWlsLmNvbT4gc2F5czoKPgo+ICA+
+ICAgSSBoYWQgY29tcGlsYXRpb24gZXJyb3JzIHdoZW4gdHJ5aW5nIHRvIGJ1aWxkIHBpbTZzZCBz
+b2xlbGV5ICwgYW5kCj4gID4gaXQgc2VlbXMgdG8gbWUgdGhhdCB0aGUgY29kZSBzaG91bGQgYmUg
+Y2hhbmdlZCBmb3IgaXQgdG8gY29tcGlsZS4KPgo+ICBJdCBTSE9VTEQgY29tcGlsZSBhbmQgd29y
+ay4uLgo+ICBJZiB5b3UgZmFpbCB0byBidWlsZCBwaW02c2QsIHBsZWFzZSBkcm9wIGEgcmVwb3J0
+IHRvIG1lLiAgVGhhbmtzLgo+Cj4KPiAgPiBJIGZvdW5kIGFub3RoZXIgUElNLXNtIG9wZW4gc291
+cmNlIHByb2plY3QsIHdoaWNoICoqZG9lcyoqIGJ1aWxkCj4gID4gY2xlYW5seSBvbiBteSBMaW51
+eCBib3g6Cj4gID4gSXQgaXMgbXJkNjoKPiAgPiBodHRwOi8vZml2ZWJpdHMubmV0L3Byb2ovbXJk
+Ni8KPiAgPgo+ICA+IFBlcmhhcHMgeW91IGhhdmUgYW55IGlkZWFzOgo+ICA+IFNob3VsZCBpdCB3
+b3JrIHdpdGggIG11bHRpY2FzdCByb3V0aW5nIHdpdGggdGhpcyBrZXJuZWwgcGF0Y2ggPyBhcmUK
+PiAgPiB0aGVyZSBzcGVjaWZpYyByZXF1aXJlbWVudHMgd2hpY2ggbWNhc3QtdG9vbHMgZnVsZmlp
+bHMgKGFuZCBtYXliZSBtcmQ2Cj4gID4gZG9lcyBub3QpID8KPgo+ICBNUkQ2IHNlZW1zIGluZGVw
+ZW5kZW50IGZyb20gdGhpcyBrZXJuZWwgcGF0Y2ggc28gZmFyLgo+ICBUaGUga2VybmVsIHBhdGNo
+IGlzIHJlZ2FyZGluZyBpbi1rZXJuZWwgbXVsdGljYXN0IGZvcndhcmRpbmcuCj4KPiAgLS15b3No
+ZnVqaQo+Cg==
