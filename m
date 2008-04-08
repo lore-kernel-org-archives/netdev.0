@@ -1,138 +1,71 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-2.6 2008-04-07
-Date: Mon, 7 Apr 2008 23:06:51 -0400
-Message-ID: <20080408030651.GA8849@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "Eric B." <ebenze@hotmail.com>
+Subject: How to verify/log/debug which route table being used?
+Date: Mon, 7 Apr 2008 23:44:07 -0400
+Message-ID: <fteppj$kl8$1@ger.gmane.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from main.gmane.org ([80.91.229.2]:47797 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750942AbYDHDuE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Apr 2008 23:50:04 -0400
+Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1Jj4qQ-0006GC-OJ
+	for netdev@vger.kernel.org; Tue, 08 Apr 2008 03:50:02 +0000
+Received: from 76-10-148-227.dsl.teksavvy.com ([76.10.148.227])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2008 03:50:02 +0000
+Received: from ebenze by 76-10-148-227.dsl.teksavvy.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2008 03:50:02 +0000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave,
+Hi,
 
-Here is another batch of fixes intended for 2.6.25 if at all possible.
-We are mostly down to a smattering of one-liners, but there is a little
-fix that keeps b43legacy from crashing with certain bcm4303 hardware.
+I'm trying to configure my server to route different packets via different
+kernel route tables.  I thought I had things configured properly, but from
+some quick tests, return packets from my server don't seem to be making the
+return trip.  I look at my iptables log output and see that my packets are
+formed as I would expect, but the logs on my router don't show them showing
+up.
 
-Let me know if there are problems!
+Is there a way I can verify / validate that my packets are acutally using
+the routing table I have specified and are being retransmitted to the
+correct gateway?
 
-Thanks,
+My setup is as follows (RHEL 4.2):
+# iptables -t mangle -A PREROUTING -d 192.168.104.64 -j MARK --set-mark 3
+# iptables -t nat -A POSTROUTING -m mark --mark 3 -j SNAT --to-source
+192.168.104.64
+# ip rule add fwmark 3 table 3
+# ip route add unicast default via 192.168.104.251 table 3
 
-John
+My goal is as follows:
+My server is multi-homed; the same NIC serving both 192.168.101.64 and
+192.168.104.64.
+I'm looking to configure it such that any incoming packets destined for
+192.168.104.64 get a mark added to them.  Any response to that packet will
+get routed to gateway 192.168.104.251 (from the default route in table 3),
+and have its source address modified to 192.168.104.64.
 
----
+However, if I check my logs on my router at 192.168.104.251, I don't see any
+return packets showing up.
 
-Individual patches are available here:
+Is there any way I can debug (using tcpdump somehow?  Although not quite
+sure what to look for in its output - help would be appreciated how best to
+use it) the outgoing packets to ensure that they are being sent to
+192.168.104.251, and not my default gateway from my main routing table?
 
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
+Thanks!
 
----
+Eric
 
-The following changes since commit bfe87dbc7b4da5b05a1a78480e996787a500cc6f:
-  David S. Miller (1):
-        Merge branch 'upstream-davem' of master.kernel.org:/.../jgarzik/netdev-2.6
 
-are available in the git repository at:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Abhijeet Kolekar (1):
-      iwlwifi: fix n-band association problem
-
-Daniel Drake (1):
-      ipw2200: set MAC address on radiotap interface
-
-Holger Schurig (1):
-      libertas: fix mode initialization problem
-
-Johannes Berg (1):
-      nl80211: fix STA AID bug
-
-Stefano Brivio (1):
-      b43legacy: fix bcm4303 crash
-
- drivers/net/wireless/ipw2200.c        |    1 +
- drivers/net/wireless/iwlwifi/Kconfig  |    1 -
- drivers/net/wireless/libertas/assoc.c |    2 +-
- drivers/ssb/main.c                    |    6 ++++++
- net/wireless/nl80211.c                |    2 +-
- 5 files changed, 9 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
-index a56d9fc..b34c275 100644
---- a/drivers/net/wireless/ipw2200.c
-+++ b/drivers/net/wireless/ipw2200.c
-@@ -11576,6 +11576,7 @@ static int ipw_prom_alloc(struct ipw_priv *priv)
- 	priv->prom_priv->priv = priv;
- 
- 	strcpy(priv->prom_net_dev->name, "rtap%d");
-+	memcpy(priv->prom_net_dev->dev_addr, priv->mac_addr, ETH_ALEN);
- 
- 	priv->prom_net_dev->type = ARPHRD_IEEE80211_RADIOTAP;
- 	priv->prom_net_dev->open = ipw_prom_open;
-diff --git a/drivers/net/wireless/iwlwifi/Kconfig b/drivers/net/wireless/iwlwifi/Kconfig
-index b79a35a..b54ff71 100644
---- a/drivers/net/wireless/iwlwifi/Kconfig
-+++ b/drivers/net/wireless/iwlwifi/Kconfig
-@@ -35,7 +35,6 @@ config IWL4965_HT
- 	bool "Enable 802.11n HT features in iwl4965 driver"
- 	depends on EXPERIMENTAL
- 	depends on IWL4965 && IWL4965_QOS
--	depends on n
- 	---help---
- 	  This option enables IEEE 802.11n High Throughput features
- 	  for the iwl4965 driver.
-diff --git a/drivers/net/wireless/libertas/assoc.c b/drivers/net/wireless/libertas/assoc.c
-index 87e145f..6a24ed6 100644
---- a/drivers/net/wireless/libertas/assoc.c
-+++ b/drivers/net/wireless/libertas/assoc.c
-@@ -541,7 +541,7 @@ void lbs_association_worker(struct work_struct *work)
- 	}
- 
- 	if (find_any_ssid) {
--		u8 new_mode;
-+		u8 new_mode = assoc_req->mode;
- 
- 		ret = lbs_find_best_network_ssid(priv, assoc_req->ssid,
- 				&assoc_req->ssid_len, assoc_req->mode, &new_mode);
-diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
-index bedb2b4..72017bf 100644
---- a/drivers/ssb/main.c
-+++ b/drivers/ssb/main.c
-@@ -1044,6 +1044,12 @@ int ssb_bus_may_powerdown(struct ssb_bus *bus)
- 		goto out;
- 
- 	cc = &bus->chipco;
-+
-+	if (!cc->dev)
-+		goto out;
-+	if (cc->dev->id.revision < 5)
-+		goto out;
-+
- 	ssb_chipco_set_clockmode(cc, SSB_CLKMODE_SLOW);
- 	err = ssb_pci_xtal(bus, SSB_GPIO_XTAL | SSB_GPIO_PLL, 0);
- 	if (err)
-diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index e3a214f..f68a5c8 100644
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -945,7 +945,7 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
- 		nla_len(info->attrs[NL80211_ATTR_STA_SUPPORTED_RATES]);
- 	params.listen_interval =
- 		nla_get_u16(info->attrs[NL80211_ATTR_STA_LISTEN_INTERVAL]);
--	params.listen_interval = nla_get_u16(info->attrs[NL80211_ATTR_STA_AID]);
-+	params.aid = nla_get_u16(info->attrs[NL80211_ATTR_STA_AID]);
- 
- 	if (parse_station_flags(info->attrs[NL80211_ATTR_STA_FLAGS],
- 				&params.station_flags))
 -- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Posted via a free Usenet account from http://www.teranews.com
+
+
+
+
