@@ -1,40 +1,70 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH RFC 2/5] vringfd base/offset
-Date: Tue, 8 Apr 2008 07:14:36 +0200
-Message-ID: <200804080714.37011.arnd@arndb.de>
-References: <200804052202.09157.rusty@rustcorp.com.au> <200804052204.28518.rusty@rustcorp.com.au>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch 16/18] FS: Socket inode defragmentation
+Date: Mon, 7 Apr 2008 23:13:50 -0700
+Message-ID: <20080407231350.4ae53204.akpm@linux-foundation.org>
+References: <20080404230158.365359425@sgi.com>
+	<20080404230229.401345769@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Max Krasnyansky <maxk@qualcomm.com>
-To: virtualization@lists.linux-foundation.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, Mel Gorman <mel@skynet.ie>,
+	andi@firstfloor.org, Nick Piggin <npiggin@suse.de>,
+	Rik van Riel <riel@redhat.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>, netdev@vger.kernel.org
+To: Christoph Lameter <clameter@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:51900 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751121AbYDHFOo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 01:14:44 -0400
-In-Reply-To: <200804052204.28518.rusty@rustcorp.com.au>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:35168 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751325AbYDHGOy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 02:14:54 -0400
+In-Reply-To: <20080404230229.401345769@sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 05 April 2008, Rusty Russell wrote:
-> =A0static const struct file_operations vring_fops =3D {
-> =A0=A0=A0=A0=A0=A0=A0=A0.release=A0=A0=A0=A0=A0=A0=A0=A0=3D vring_rel=
-ease,
-> =A0=A0=A0=A0=A0=A0=A0=A0.write=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=3D vring=
-_write,
-> =A0=A0=A0=A0=A0=A0=A0=A0.poll=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=3D vri=
-ng_poll,
-> +=A0=A0=A0=A0=A0=A0=A0.ioctl=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=3D vring_i=
-octl,
-> =A0};
+On Fri, 04 Apr 2008 16:02:14 -0700 Christoph Lameter <clameter@sgi.com> wrote:
 
-This should also set the .compat_ioctl pointer. If the argument=20
-is defined as an actual memory location instead of a pointer,
-you also don't need the compat_ptr() conversion for s390x, so
-both can point to the same vring_ioctl function.
+> From: Christoph Lameter <clameter@sgi.com>
+> To: akpm@linux-foundation.org
+> Cc: linux-mm@kvack.org
+> Cc: Mel Gorman <mel@skynet.ie>
+> Cc: andi@firstfloor.org
+> Cc: Nick Piggin <npiggin@suse.de>
+> Cc: Rik van Riel <riel@redhat.com>
+> Cc: Pekka Enberg <penberg@cs.helsinki.fi>
 
-	Arnd <><
+The net people should get to hear about this, I guess..
+
+> Support inode defragmentation for sockets
+> 
+> Reviewed-by: Rik van Riel <riel@redhat.com>
+> Signed-off-by: Christoph Lameter <clameter@sgi.com>
+> ---
+>  net/socket.c |    8 ++++++++
+>  1 files changed, 8 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/socket.c b/net/socket.c
+> index 9d3fbfb..205f450 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -269,6 +269,12 @@ static void init_once(struct kmem_cache *cachep, void *foo)
+>  	inode_init_once(&ei->vfs_inode);
+>  }
+>  
+> +static void *sock_get_inodes(struct kmem_cache *s, int nr, void **v)
+> +{
+> +	return fs_get_inodes(s, nr, v,
+> +		offsetof(struct socket_alloc, vfs_inode));
+> +}
+> +
+>  static int init_inodecache(void)
+>  {
+>  	sock_inode_cachep = kmem_cache_create("sock_inode_cache",
+> @@ -280,6 +286,8 @@ static int init_inodecache(void)
+>  					      init_once);
+>  	if (sock_inode_cachep == NULL)
+>  		return -ENOMEM;
+> +	kmem_cache_setup_defrag(sock_inode_cachep,
+> +			sock_get_inodes, kick_inodes);
+>  	return 0;
+>  }
+>  
