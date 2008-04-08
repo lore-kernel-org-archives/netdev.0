@@ -1,24 +1,48 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [TCP 0/6 net-2.6.26]: tcp_proc_register simplification.
-Date: Tue, 08 Apr 2008 17:28:38 +0400
-Message-ID: <1207661318.7171.22.camel@iris.sw.ru>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH] [TCP]: No need to check afinfo != NULL in tcp_proc_(un)register.
+Date: Tue,  8 Apr 2008 17:29:48 +0400
+Message-ID: <1207661392-13570-2-git-send-email-den@openvz.org>
+References: <1207661318.7171.22.camel@iris.sw.ru>
+Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:5239 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:7279 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751872AbYDHN2R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2008 09:28:17 -0400
+	id S1751976AbYDHN3b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2008 09:29:31 -0400
+In-Reply-To: <1207661318.7171.22.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have found that tcp_proc_register looks in the same way as
-udp_proc_register. So, I have ported improvements made in the commits
-6f191efe48af62dd5f8917dd21d187f896cd6c81..4ad96d39a2d74c1b2e400b602da2594f5098fc26
-to TCP.
+tcp_proc_register/tcp_proc_unregister are called with a static pointer only.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ net/ipv4/tcp_ipv4.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index fc1b505..e5dd52b 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2264,8 +2264,6 @@ int tcp_proc_register(struct net *net, struct tcp_seq_afinfo *afinfo)
+ 	int rc = 0;
+ 	struct proc_dir_entry *p;
+ 
+-	if (!afinfo)
+-		return -EINVAL;
+ 	afinfo->seq_fops->owner		= afinfo->owner;
+ 	afinfo->seq_fops->open		= tcp_seq_open;
+ 	afinfo->seq_fops->read		= seq_read;
+@@ -2282,8 +2280,6 @@ int tcp_proc_register(struct net *net, struct tcp_seq_afinfo *afinfo)
+ 
+ void tcp_proc_unregister(struct net *net, struct tcp_seq_afinfo *afinfo)
+ {
+-	if (!afinfo)
+-		return;
+ 	proc_net_remove(net, afinfo->name);
+ 	memset(afinfo->seq_fops, 0, sizeof(*afinfo->seq_fops));
+ }
+-- 
+1.5.3.rc5
 
