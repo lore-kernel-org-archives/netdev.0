@@ -1,50 +1,91 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: New sparse warning in net/mac80211/debugfs_sta.c
-Date: Tue, 08 Apr 2008 15:09:33 -0700
-Message-ID: <1207692573.1020.134.camel@localhost>
-References: <1203589042.17534.145.camel@johannes.berg>
-	 <1203616486.7181.269.camel@localhost>	<47BDBC23.5080007@trash.net>
-	 <20080223.200202.255773165.davem@davemloft.net>
-	 <47C2AAC8.8020202@trash.net> <1203969502.19319.279.camel@localhost>
-	 <47FBD30A.1010003@trash.net> <1207688549.1020.90.camel@localhost>
-	 <47FBE16E.6010504@trash.net>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: Re: [PATCH] forcedeth: new backoff implementation
+Date: Tue, 08 Apr 2008 15:13:07 -0400
+Message-ID: <47FBC3C3.8090900@nvidia.com>
+References: <47FA94CC.7070300@nvidia.com> <20080408011425.ff2dc98a.akpm@linux-foundation.org> <47FB9A24.7030709@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, johannes@sipsolutions.net,
-	harvey.harrison@gmail.com, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>, nedev <netdev@vger.kernel.org>
+To: Manfred Spraul <manfred@colorfullife.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.labridge.com ([206.117.136.22]:4629 "EHLO
-	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1752420AbYDHWKi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 18:10:38 -0400
-In-Reply-To: <47FBE16E.6010504@trash.net>
+Received: from hqemgate03.nvidia.com ([216.228.112.145]:7168 "EHLO
+	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752602AbYDHWPI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 18:15:08 -0400
+In-Reply-To: <47FB9A24.7030709@colorfullife.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-04-08 at 23:19 +0200, Patrick McHardy wrote:
-> This might work (codiff should be able to tell). But I
-> just see that Dave also favours to use MAC_FMT directly,
-> so please just do this.
+Thanks for the review. I will update the patch and resend it.
 
-Precisely what are you objecting to Patrick?
+Manfred Spraul wrote:
+> Andrew Morton wrote:
+> 
+>> On Mon, 07 Apr 2008 17:40:28 -0400 Ayaz Abdulla <aabdulla@nvidia.com> 
+>> wrote:
+>>  
+>>
+>>> +static void nv_gear_backoff_reseed(struct net_device *dev)
+>>> +{
+>>> +    u8 __iomem *base = get_hwbase(dev);
+>>> +    u32 miniseed1, miniseed2, miniseed2_reversed, miniseed3, 
+>>> miniseed3_reversed;
+>>> +    u32 temp, seedset, combinedSeed;
+>>> +    int i;
+>>> +
+>>> +    /* Setup seed for free running LFSR */
+>>> +    /* We are going to read the time stamp counter 3 times and 
+>>> swizzle bits around to increase randomness */
+>>>     
+>>
+>>
+>> I see this driver rigorously observes the 800-column-xterm convention.
+>>
+>>  
+>>
+>>> +    rdtscl(miniseed1);
+>>>     
+>>
+>>
+>> err, no.  We don't have sufficient Kconfig dependencies in place to be 
+>> able
+>> to do this.  You just broke all non-x86.
+>>
+>> Suitable fixes would be
+>>
+>> a) add #ifdef CONFIG_X86 all over the place
+>>
+>> b) use do_gettimeofday() (might be tricky if called from interrupt)
+>>
+>> c) use cpu_clock().
+>>
+>>   
+> 
+> d) use get_random_bytes()?
+> It's irq-safe, used e.g. by the network code for the TCP sequence numbers.
+> 
+>>> +    /* Ensure seeds are not the same */
+>>> +    if ((combinedSeed & NVREG_BKOFFCTRL_SEED_MASK) ==
+>>> +        (combinedSeed & (NVREG_BKOFFCTRL_SEED_MASK << 
+>>> NVREG_BKOFFCTRL_GEAR)))
+>>> +        combinedSeed = 0x3FF3FF;
+>>> +
+>>>     
+> 
+> I don't understand this block: The seed consists of two parts, each 12 
+> bits.
+> Both parts mustn't be identical. If both parts are identical, then both 
+> are set to 0x3ff.
+> But if both are 0x3ff, then they are identical. Is that intentional?
+> 
+> -- 
+>    Manfred
 
-Are you objecting to the existence of an additional
-function call in a printk or the unnecessary call to
-print_mac in functions like pr_debug that the compiler
-can not optimize away?
-
-Your long list seems to be mostly a list of functions
-that are converted from direct use of MAC_FMT with
-6 arguments on stack to a call to print_mac.
-
-I think the only things that should be changed are those
-functions that add a useless call to print_mac because 
-pr_debug is optimized away.
-
-I do _not_ think that merely because print_mac is used
-as a printk argument it should be reverted.
-
-cheers, Joe
-
+-----------------------------------------------------------------------------------
+This email message is for the sole use of the intended recipient(s) and may contain
+confidential information.  Any unauthorized review, use, disclosure or distribution
+is prohibited.  If you are not the intended recipient, please contact the sender by
+reply email and destroy all copies of the original message.
+-----------------------------------------------------------------------------------
