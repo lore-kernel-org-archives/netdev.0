@@ -1,75 +1,56 @@
-From: Wenji Wu <wenji@fnal.gov>
-Subject: Re: RE: A Linux TCP SACK Question
-Date: Tue, 08 Apr 2008 10:27:14 -0500
-Message-ID: <fbd3c4827acd.47fb4882@fnal.gov>
-References: <fc471cb97cfd.47f5520e@fnal.gov>
- <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
- <000001c8967c$496efa20$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
- <000b01c89699$00e99590$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
- <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
- <000f01c896a1$3022fec0$c95ee183@D2GT6T71>
- <649aecc70804051417l4cf9b30asec8ca8d55e79e051@mail.gmail.com>
- <fb8e9e4f102e.47f8ebfd@fnal.gov>
- <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
- <000701c898bf$99fc3f80$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804080007020.20936@wrl-59.cs.helsinki.fi>
- <fbbce0572843.47fb038c@fnal.gov>
- <Pine.LNX.4.64.0804081623500.21784@wrl-59.cs.helsinki.fi>
- <fba201de4228.47fb3b26@fnal.gov>
- <Pine.LNX.4.64.0804081742270.21784@wrl-59.cs.helsinki.fi>
+From: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>
+Subject: Re: [PATCH] Stochastic Fair Blue queue discipline
+Date: Tue, 08 Apr 2008 17:38:47 +0200
+Message-ID: <7i3apwbblk.fsf@lanthane.pps.jussieu.fr>
+References: <87skxxb8br.fsf@pirx.pps.jussieu.fr>
+	<873apwrc4t.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: 'Sangtae Ha' <sangtae.ha@gmail.com>,
-	'John Heffner' <johnwheffner@gmail.com>,
-	'Netdev' <netdev@vger.kernel.org>
-To: =?iso-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw2.fnal.gov ([131.225.111.12]:50263 "EHLO mailgw2.fnal.gov"
+Received: from shiva.jussieu.fr ([134.157.0.129]:63555 "EHLO shiva.jussieu.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751536AbYDHPd5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2008 11:33:57 -0400
-Received: from mailav2.fnal.gov (mailav2.fnal.gov [131.225.111.20])
- by mailgw2.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- with SMTP id <0JZ000FEJIQBY1@mailgw2.fnal.gov> for netdev@vger.kernel.org;
- Tue, 08 Apr 2008 10:27:15 -0500 (CDT)
-Received: from mailgw2.fnal.gov ([131.225.111.12])
- by mailav2.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008040810271509026 for
- <netdev@vger.kernel.org>; Tue, 08 Apr 2008 10:27:15 -0500
-Received: from conversion-daemon.mailgw2.fnal.gov by mailgw2.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- id <0JZ000J01IOWFH@mailgw2.fnal.gov> (original mail from wenji@fnal.gov)
- for netdev@vger.kernel.org; Tue, 08 Apr 2008 10:27:15 -0500 (CDT)
-In-reply-to: <Pine.LNX.4.64.0804081742270.21784@wrl-59.cs.helsinki.fi>
-Content-language: en
-Content-disposition: inline
+	id S1752294AbYDHPko (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2008 11:40:44 -0400
+In-Reply-To: <873apwrc4t.fsf@basil.nowhere.org> (Andi Kleen's message of "Tue\, 08 Apr 2008 10\:20\:34 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-> It's a bit hard for me to believe, considering what the last weeks 
-> debug 
-> has revealed about internals of it. Have you checked it from the dumps 
-> or 
-> from the overall results, a similarity in the latter could be due to 
-> other factors related to the differences in reordering detection 
-> between 
-> NewReno/SACK.
-> 
+> (read Documentation/CodingStyle)
 
-> ...There might be some bug which causes it to get skipped under some 
-> circumstances though (which I haven't yet remembered to fix). I don't 
-> 
-> remember too well anymore, probably some goto which caused skipping 
-> most 
-> of what's in there.
-> 
+Will do, thanks for the pointer.
 
-Get back to you later, and post the tcpdump file for 2.6.25. 
+>> +static unsigned sfb_hash(struct sk_buff *skb, int hash, int filter,
+>> +                         struct sfb_sched_data *q)
 
-wenji
+> I think we have multiple qdiscs now doing very similar such hashes.
+> Any chance this could be factored out into a common library function 
+> first?
 
+I'll be glad to do so.  Where shall I put it?
 
+> Getting high res time can be actually somewhat expensive on different
+> platforms. I would recommend to only use it if it's actually needed in
+> the inelastic flow case below and use jiffies to check for rehashing.
+
+Good point.
+
+> /dev/random is a precious resource (some systems have very little
+> true entropy) and getting that much data from it regularly is not
+> a good idea because you take it away from other users who really
+> need it
+
+In the default configuration, I'm getting 32 bytes every 10 minutes,
+which seemed reasonable.  This code was copied from sch_sfq (function
+sfq_perturbation), which does the very same thing.
+
+> But in any case it is likely better you only get the
+> get_random_bytes() entropy once and then use that to init some kind
+> of RNG (either a secure one if it's for security or some random fast
+> one if it's not) and then use that output for rehashing.
+
+Could do, but in that case the RNG should be shared between sfq and
+sfb.  Shall I simply use net_random (which calls random32) ?
+
+                                        Juliusz
