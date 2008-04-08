@@ -1,61 +1,41 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
+From: Arnd Bergmann <arnd@arndb.de>
 Subject: Re: [PATCH RFC 1/5] vringfd syscall
-Date: Tue, 8 Apr 2008 08:34:55 +1000
-Message-ID: <200804080834.56943.rusty@rustcorp.com.au>
-References: <12555.1207590874@vena.lwn.net>
+Date: Tue, 8 Apr 2008 04:35:53 +0200
+Message-ID: <200804080435.54012.arnd@arndb.de>
+References: <200804052202.09157.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Max Krasnyansky <maxk@qualcomm.com>,
-	linux-kernel@vger.kernel.org
-To: Jonathan Corbet <corbet@lwn.net>
+  charset="iso-8859-1"
+Content-Transfer-Encoding: base64
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Max Krasnyansky <maxk@qualcomm.com>
+To: virtualization@lists.linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:36574 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751519AbYDHCEN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Apr 2008 22:04:13 -0400
-In-Reply-To: <12555.1207590874@vena.lwn.net>
+Received: from moutng.kundenserver.de ([212.227.126.186]:58251 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753491AbYDHCgR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 22:36:17 -0400
+In-Reply-To: <200804052202.09157.rusty@rustcorp.com.au>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 08 April 2008 03:54:34 Jonathan Corbet wrote:
-> Hey, Rusty,
->
-> > For virtualization, we've developed virtio_ring for efficient
-> > communication. This would also work well for userspace-kernel
-> > communication, particularly for things like the tun device.  By using the
-> > same ABI, we can join guests to the host kernel trivially.
->
-> I'm *sure* you meant to document that somewhat non-trivial proposed new
-> kernel API as soon as you got a moment.
-
-Actually, yes.  But I wanted to get it out there before I start the treck 
-across to the virtualization summit.
-
-A few points:
-'The page alignment for the used array is important - that array might be 
-mapped separately into kernel space.'
-   Well, the used array is written by one side only, so it's possible to split 
-the ring here and make each part r/o to the other side.  More importantly, a 
-page boundary is almost certainly a cacheline boundary, and we already have a 
-userspace interface for it.
-
-'Note that the flags fields in the vring_avail and vring_used structures 
-appear to be unused.'
-   virtio uses these for wakeup/interrupt suppression.  It's a cheap way to 
-avoid hypercalls, and we can use them the same way to avoid system calls (you 
-set the suppression bit while you're actually looking at the ring).
-
-The need for the kmap (and hence the atomic horror) has now been alleviated: I 
-changed the shinfo destructor code to allow the destructor to hold onto the 
-skb data so it can queue it and free it later.
-
-BTW, the only place currently where both output and input buffers are used is 
-the virtio_blk driver doing a read, where the header describes the operation, 
-and the other buffers are overwritten with the data.
-
-Thanks!
-Rusty.
+T24gU2F0dXJkYXkgMDUgQXByaWwgMjAwOCwgUnVzdHkgUnVzc2VsbCB3cm90ZToKPiArYXNtbGlu
+a2FnZSBsb25nIHN5c192cmluZ2ZkKHZvaWQgX191c2VyICphZGRyLAo+ICugoKCgoKCgoKCgoKCg
+oKCgoKCgoKCgoCCgIKB1bnNpZ25lZCBudW1fZGVzY3MsCj4gK6CgoKCgoKCgoKCgoKCgoKCgoKCg
+oKCgIKAgoHUxNiBfX3VzZXIgKmxhc3RfdXNlZCkKPiArewo+ICugoKCgoKCgaW50IGZkLCBlcnI7
+Cj4gK6CgoKCgoKBzdHJ1Y3QgZmlsZSAqZmlscDsKPiAroKCgoKCgoHN0cnVjdCB2cmluZ19pbmZv
+ICp2cjsKPiArCj4gK6CgoKCgoKAvKiBNdXN0IGJlIGEgcG93ZXIgb2YgdHdvLCBhbmQgcmVwcmVz
+ZW50YWJsZSBieSB1MTYgKi8KPiAroKCgoKCgoGlmICghbnVtX2Rlc2NzIHx8IChudW1fZGVzY3Mg
+JiAobnVtX2Rlc2NzLTEpKSB8fCBudW1fZGVzY3MgPiA2NTUzNikgewo+ICugoKCgoKCgoKCgoKCg
+oKBlcnIgPSAtRUlOVkFMOwo+ICugoKCgoKCgoKCgoKCgoKBnb3RvIG91dDsKPiAroKCgoKCgoH0K
+PiArCj4gK6CgoKCgoKBmZCA9IGdldF91bnVzZWRfZmQoKTsKPiAroKCgoKCgoGlmIChmZCA8IDAp
+IHsKPiAroKCgoKCgoKCgoKCgoKCgZXJyID0gZmQ7Cj4gK6CgoKCgoKCgoKCgoKCgoGdvdG8gb3V0
+Owo+ICugoKCgoKCgfQo+ICsKPiAroKCgoKCgoGZpbHAgPSBhbGxvY19maWxlKHZyaW5nX21udCwg
+ZGdldCh2cmluZ19tbnQtPm1udF9yb290KSwgRk1PREVfV1JJVEUsCj4gK6CgoKCgoKCgoKCgoKCg
+oKCgoKCgoKCgIKAmdnJpbmdfZm9wcyk7Cj4gK6CgoKCgoKBpZiAoIWZpbHApIHsKPiAroKCgoKCg
+oKCgoKCgoKCgZXJyID0gLUVORklMRTsKPiAroKCgoKCgoKCgoKCgoKCgZ290byBwdXRfZmQ7Cj4g
+K6CgoKCgoKB9CgpUaGlzIGxvb2tzIGxpa2UgYSBjYW5kaWRhdGUgZm9yIGFub25faW5vZGVfZ2V0
+ZmQoKSwgd2hpY2ggd291bGQgbGV0IHlvdQpnZXQgcmlkIG9mIHRoZSBjb2RlIGZvciByZWdpc3Rl
+cmluZyB5b3VyIG93biBmaWxlIHN5c3RlbS4KCglBcm5kIDw+PAo=
