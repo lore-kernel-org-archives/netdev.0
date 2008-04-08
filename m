@@ -1,115 +1,52 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [ANNOUNCE] e1000 to e1000e migration of PCI
-	Express devices
-Date: Tue, 08 Apr 2008 09:18:03 -0700
-Message-ID: <47FB9ABB.9080403@intel.com>
-References: <47F69965.7030303@intel.com> <20080408083606.GA20863@elte.hu>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: RE: A Linux TCP SACK Question
+Date: Tue, 8 Apr 2008 20:26:36 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0804082024410.23237@wrl-59.cs.helsinki.fi>
+References: <fc471cb97cfd.47f5520e@fnal.gov>
+ <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
+ <000001c8967c$496efa20$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
+ <000b01c89699$00e99590$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
+ <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
+ <000f01c896a1$3022fec0$c95ee183@D2GT6T71> <649aecc70804051417l4cf9b30asec8ca8d55e79e051@mail.gmail.com>
+ <fb8e9e4f102e.47f8ebfd@fnal.gov> <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
+ <000701c898bf$99fc3f80$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804080007020.20936@wrl-59.cs.helsinki.fi>
+ <fbbce0572843.47fb038c@fnal.gov> <Pine.LNX.4.64.0804081623500.21784@wrl-59.cs.helsinki.fi>
+ <fba201de4228.47fb3b26@fnal.gov> <Pine.LNX.4.64.0804081742270.21784@wrl-59.cs.helsinki.fi>
+ <fbd3c4827acd.47fb4882@fnal.gov>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	e1000-list <e1000-devel@lists.sourceforge.net>,
-	NetDev <netdev@vger.kernel.org>,
-	"Allan,  Bruce W" <bruce.w.allan@intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak,  John" <john.ronciak@intel.com>,
-	Arjan van de Ven <arjan@linux.intel.com>, Greg KH <greg@kroah.com>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20080408083606.GA20863@elte.hu>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: 'Sangtae Ha' <sangtae.ha@gmail.com>,
+	'John Heffner' <johnwheffner@gmail.com>,
+	'Netdev' <netdev@vger.kernel.org>
+To: Wenji Wu <wenji@fnal.gov>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:41542 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752510AbYDHR0j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 13:26:39 -0400
+In-Reply-To: <fbd3c4827acd.47fb4882@fnal.gov>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar wrote:
-> * Kok, Auke <auke-jan.h.kok@intel.com> wrote:
-> 
->> From kernel 2.6.26 onward all *PCI Express* device IDs previously 
->> supported by e1000 will be moving to the e1000e driver.  This includes 
->> ich8 and ich9 onboard LAN, server 5000 platform onboard LAN (es2) and 
->> 82571/2/3 chipset based adapters and variants.
->>
->> If you have not already enabled CONFIG_E1000E make sure that you do 
->> so. You can already do this with 2.6.25.  From 2.6.26 on this change 
->> will be required if you have such a device.
-> 
-> i'm not sure it's a good idea to unsupport hardware in a driver. It's OK 
-> to phase out a driver and restrict it to legacy hardware, it's OK to 
-> have an opt-in .config option for distros to select (or maybe even 
-> opt-out) to narrow down the number of PCI IDs that a driver recognizes, 
-> but lets not artificially break setups that worked before.
-> 
-> ( sidenote: isnt there some facility that selects the "better" driver in 
->   case there is an overlap between PCI IDs - with the ability for users 
->   to override that selection? )
-> 
-> such driver transitions are never smooth. For example there's an open 
-> e1000e/e1000 regression in .25 in this area that i just noticed on a 
-> testbox while doing randconfig testing. (that's why i noticed this 
-> message of yours on lkml, i was searching for e1000 regression reports).
-> 
-> The following .config results in a non-working e1000 driver in a 
-> bzImage:
-> 
->  CONFIG_E1000=y
->  CONFIG_E1000_NAPI=y
->  CONFIG_E1000_DISABLE_PACKET_SPLIT=y
->  CONFIG_E1000E=m
->  CONFIG_E1000E_ENABLED=y
-> 
-> the interface just doesnt come up.
-> 
-> This makes it work:
-> 
->  CONFIG_E1000=y
->  CONFIG_E1000_NAPI=y
->  CONFIG_E1000_DISABLE_PACKET_SPLIT=y
->  # CONFIG_E1000E is not set
->  # CONFIG_E1000E_ENABLED is not set
-> 
-> please fix such interactions and make the transition as smooth and as 
-> compatible as possible.
+On Tue, 8 Apr 2008, Wenji Wu wrote:
 
-This is really a vague report. Maybe you need to adjust your network setup to
-explicitly load the correct driver at boot? The adapter works correct here and I
-have a stock T60 here as well, just as you.
+>  
+> > It's a bit hard for me to believe, considering what the last weeks 
+> > debug 
+> > has revealed about internals of it. Have you checked it from the dumps 
+> > or 
+> > from the overall results, a similarity in the latter could be due to 
+> > other factors related to the differences in reordering detection 
+> > between 
+> > NewReno/SACK.
+> > 
+>
+> Get back to you later, and post the tcpdump file for 2.6.25. 
 
-e1000e is a new module, so in your case maybe `CONFIG_E1000E=y` should just work?
-Or just 'modprobe e1000e' ?
+Please, if possible use a kernel version where my today applied tcp fixes 
+are in, ie., at least DaveM's net-2.6 already has them, I didn't check if 
+Linus has pulled them in yet.
 
-> the hardware is a stock T60 laptop with:
-> 
-> 02:00.0 Ethernet controller: Intel Corporation 82573L Gigabit Ethernet Controller
-> 
-> ich7 onboard LAN. (can send more info if needed.)
-> 
-> I just tried the same .config on another box with onboard e1000 (a 
-> desktop system with a different e1000 version), which is ich9, and that 
-> broke too.
-
-Just like Jeff is pointing out, we really cannot keep these device IDs around (not
-just for my sanity) on the long term.
-
-I really hate to have this discussion again (third time already) and I fear that
-this will not be the last time :(
-
-Auke
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
-Register now and save $200. Hurry, offer ends at 11:59 p.m., 
-Monday, April 7! Use priority code J8TLD2. 
-http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
+-- 
+ i.
