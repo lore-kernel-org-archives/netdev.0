@@ -1,107 +1,89 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH] [TCP]: Place file operations directly into tcp_seq_afinfo.
-Date: Tue,  8 Apr 2008 17:29:51 +0400
-Message-ID: <1207661392-13570-5-git-send-email-den@openvz.org>
+Subject: [PATCH] [TCP]: Replace struct net on tcp_iter_state with seq_net_private.
+Date: Tue,  8 Apr 2008 17:29:47 +0400
+Message-ID: <1207661392-13570-1-git-send-email-den@openvz.org>
 References: <1207661318.7171.22.camel@iris.sw.ru>
 Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:18993 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:38171 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751954AbYDHN3b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2008 09:29:31 -0400
+	id S1751990AbYDHN3c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2008 09:29:32 -0400
 In-Reply-To: <1207661318.7171.22.camel@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No need to have separate never-used variable.
-
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
  include/net/tcp.h   |    2 +-
- net/ipv4/tcp_ipv4.c |   15 ++++++---------
- net/ipv6/tcp_ipv6.c |    2 --
- 3 files changed, 7 insertions(+), 12 deletions(-)
+ net/ipv4/tcp_ipv4.c |   11 +++++------
+ 2 files changed, 6 insertions(+), 7 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index a386bdd..23915f3 100644
+index 723b368..f9d6b89 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -1324,7 +1324,7 @@ struct tcp_seq_afinfo {
- 	struct module		*owner;
- 	char			*name;
- 	sa_family_t		family;
--	struct file_operations	*seq_fops;
-+	struct file_operations	seq_fops;
- 	struct seq_operations	seq_ops;
+@@ -1329,7 +1329,7 @@ struct tcp_seq_afinfo {
  };
  
+ struct tcp_iter_state {
+-	struct net              *net;
++	struct seq_net_private	p;
+ 	sa_family_t		family;
+ 	enum tcp_seq_states	state;
+ 	struct sock		*syn_wait_sk;
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 287af10..ebef394 100644
+index df89a56..fc1b505 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -2233,17 +2233,17 @@ int tcp_proc_register(struct net *net, struct tcp_seq_afinfo *afinfo)
- 	int rc = 0;
- 	struct proc_dir_entry *p;
+@@ -1955,7 +1955,7 @@ static void *listening_get_next(struct seq_file *seq, void *cur)
+ 	struct hlist_node *node;
+ 	struct sock *sk = cur;
+ 	struct tcp_iter_state* st = seq->private;
+-	struct net *net = st->net;
++	struct net *net = seq_file_net(seq);
  
--	afinfo->seq_fops->owner		= afinfo->owner;
--	afinfo->seq_fops->open		= tcp_seq_open;
--	afinfo->seq_fops->read		= seq_read;
--	afinfo->seq_fops->llseek	= seq_lseek;
--	afinfo->seq_fops->release	= seq_release_net;
-+	afinfo->seq_fops.owner		= afinfo->owner;
-+	afinfo->seq_fops.open		= tcp_seq_open;
-+	afinfo->seq_fops.read		= seq_read;
-+	afinfo->seq_fops.llseek		= seq_lseek;
-+	afinfo->seq_fops.release	= seq_release_net;
- 
- 	afinfo->seq_ops.start		= tcp_seq_start;
- 	afinfo->seq_ops.next		= tcp_seq_next;
- 	afinfo->seq_ops.stop		= tcp_seq_stop;
- 
--	p = proc_net_fops_create(net, afinfo->name, S_IRUGO, afinfo->seq_fops);
-+	p = proc_net_fops_create(net, afinfo->name, S_IRUGO, &afinfo->seq_fops);
- 	if (p)
- 		p->data = afinfo;
- 	else
-@@ -2254,7 +2254,6 @@ int tcp_proc_register(struct net *net, struct tcp_seq_afinfo *afinfo)
- void tcp_proc_unregister(struct net *net, struct tcp_seq_afinfo *afinfo)
+ 	if (!sk) {
+ 		st->bucket = 0;
+@@ -2036,7 +2036,7 @@ static void *listening_get_idx(struct seq_file *seq, loff_t *pos)
+ static void *established_get_first(struct seq_file *seq)
  {
- 	proc_net_remove(net, afinfo->name);
--	memset(afinfo->seq_fops, 0, sizeof(*afinfo->seq_fops));
- }
+ 	struct tcp_iter_state* st = seq->private;
+-	struct net *net = st->net;
++	struct net *net = seq_file_net(seq);
+ 	void *rc = NULL;
  
- static void get_openreq4(struct sock *sk, struct request_sock *req,
-@@ -2383,12 +2382,10 @@ out:
+ 	for (st->bucket = 0; st->bucket < tcp_hashinfo.ehash_size; ++st->bucket) {
+@@ -2077,7 +2077,7 @@ static void *established_get_next(struct seq_file *seq, void *cur)
+ 	struct inet_timewait_sock *tw;
+ 	struct hlist_node *node;
+ 	struct tcp_iter_state* st = seq->private;
+-	struct net *net = st->net;
++	struct net *net = seq_file_net(seq);
+ 
+ 	++st->num;
+ 
+@@ -2234,7 +2234,7 @@ static int tcp_seq_open(struct inode *inode, struct file *file)
+ 	s->seq_ops.next		= tcp_seq_next;
+ 	s->seq_ops.show		= afinfo->seq_show;
+ 	s->seq_ops.stop		= tcp_seq_stop;
+-	s->net                  = net;
++	s->p.net                = net;
+ 
+ 	rc = seq_open(file, &s->seq_ops);
+ 	if (rc)
+@@ -2253,9 +2253,8 @@ out_kfree:
+ static int tcp_seq_release(struct inode *inode, struct file *file)
+ {
+ 	struct seq_file *seq = file->private_data;
+-	struct tcp_iter_state *s = seq->private;
+ 
+-	put_net(s->net);
++	put_net(seq_file_net(seq));
+ 	seq_release_private(inode, file);
  	return 0;
  }
- 
--static struct file_operations tcp4_seq_fops;
- static struct tcp_seq_afinfo tcp4_seq_afinfo = {
- 	.owner		= THIS_MODULE,
- 	.name		= "tcp",
- 	.family		= AF_INET,
--	.seq_fops	= &tcp4_seq_fops,
- 	.seq_ops	= {
- 		.show		= tcp4_seq_show,
- 	},
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 09d9184..15c7044 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -2121,12 +2121,10 @@ out:
- 	return 0;
- }
- 
--static struct file_operations tcp6_seq_fops;
- static struct tcp_seq_afinfo tcp6_seq_afinfo = {
- 	.owner		= THIS_MODULE,
- 	.name		= "tcp6",
- 	.family		= AF_INET6,
--	.seq_fops	= &tcp6_seq_fops,
- 	.seq_ops	= {
- 		.show		= tcp6_seq_show,
- 	},
 -- 
 1.5.3.rc5
 
