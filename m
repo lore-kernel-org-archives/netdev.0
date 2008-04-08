@@ -1,156 +1,115 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: Setting alternate MAC addresses on e1000
-Date: Tue, 8 Apr 2008 13:02:17 -0400
-Message-ID: <20080408170217.GA26591@gospo.usersys.redhat.com>
-References: <47F2358A.8080505@aei.mpg.de>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [ANNOUNCE] e1000 to e1000e migration of PCI
+	Express devices
+Date: Tue, 08 Apr 2008 09:18:03 -0700
+Message-ID: <47FB9ABB.9080403@intel.com>
+References: <47F69965.7030303@intel.com> <20080408083606.GA20863@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bill.hayes@hp.com
-To: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:33845 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751814AbYDHRCZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2008 13:02:25 -0400
-Content-Disposition: inline
-In-Reply-To: <47F2358A.8080505@aei.mpg.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>,
+	e1000-list <e1000-devel@lists.sourceforge.net>,
+	NetDev <netdev@vger.kernel.org>,
+	"Allan,  Bruce W" <bruce.w.allan@intel.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak,  John" <john.ronciak@intel.com>,
+	Arjan van de Ven <arjan@linux.intel.com>, Greg KH <greg@kroah.com>,
+	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20080408083606.GA20863@elte.hu>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 01, 2008 at 03:15:54PM +0200, Carsten Aulbert wrote:
-> Hi,
+Ingo Molnar wrote:
+> * Kok, Auke <auke-jan.h.kok@intel.com> wrote:
 > 
-> I know that quite a few e1000 experts are reading here, so I hope to 
-> have some luck here:
+>> From kernel 2.6.26 onward all *PCI Express* device IDs previously 
+>> supported by e1000 will be moving to the e1000e driver.  This includes 
+>> ich8 and ich9 onboard LAN, server 5000 platform onboard LAN (es2) and 
+>> 82571/2/3 chipset based adapters and variants.
+>>
+>> If you have not already enabled CONFIG_E1000E make sure that you do 
+>> so. You can already do this with 2.6.25.  From 2.6.26 on this change 
+>> will be required if you have such a device.
 > 
-> I need to reprogram the MAC addresses of several 82573E/L NICs. I tried 
-> the obvious approach first using ethtool -E to write the numbers into 
-> the first six bytes and this works quite ok [1], except that I need to 
-> specifically change the second MAC not necessarily the first one. This 
-> approach only changed the first NIC and left the second unchanged.
+> i'm not sure it's a good idea to unsupport hardware in a driver. It's OK 
+> to phase out a driver and restrict it to legacy hardware, it's OK to 
+> have an opt-in .config option for distros to select (or maybe even 
+> opt-out) to narrow down the number of PCI IDs that a driver recognizes, 
+> but lets not artificially break setups that worked before.
 > 
-> I've browsed http://download.intel.com/design/network/manuals/31608004.pdf
-> quite a bit, but except finding that I seem to need to set word 0x37 to 
-> point to 12 free bytes I have not come up with much. For example, I 
-> don't know where I would find those 12 free bytes.
+> ( sidenote: isnt there some facility that selects the "better" driver in 
+>   case there is an overlap between PCI IDs - with the ability for users 
+>   to override that selection? )
 > 
-> Anyone with a different approach or a hint how to succeed?
+> such driver transitions are never smooth. For example there's an open 
+> e1000e/e1000 regression in .25 in this area that i just noticed on a 
+> testbox while doing randconfig testing. (that's why i noticed this 
+> message of yours on lkml, i was searching for e1000 regression reports).
 > 
-> TIA
+> The following .config results in a non-working e1000 driver in a 
+> bzImage:
 > 
-> Carsten
+>  CONFIG_E1000=y
+>  CONFIG_E1000_NAPI=y
+>  CONFIG_E1000_DISABLE_PACKET_SPLIT=y
+>  CONFIG_E1000E=m
+>  CONFIG_E1000E_ENABLED=y
 > 
+> the interface just doesnt come up.
+> 
+> This makes it work:
+> 
+>  CONFIG_E1000=y
+>  CONFIG_E1000_NAPI=y
+>  CONFIG_E1000_DISABLE_PACKET_SPLIT=y
+>  # CONFIG_E1000E is not set
+>  # CONFIG_E1000E_ENABLED is not set
+> 
+> please fix such interactions and make the transition as smooth and as 
+> compatible as possible.
 
-Bill posted a patch for this a while back (but it was not accepted since
-support for that hardware is offically moving to e1000e).  This may be
-what you want....
+This is really a vague report. Maybe you need to adjust your network setup to
+explicitly load the correct driver at boot? The adapter works correct here and I
+have a stock T60 here as well, just as you.
 
+e1000e is a new module, so in your case maybe `CONFIG_E1000E=y` should just work?
+Or just 'modprobe e1000e' ?
 
+> the hardware is a stock T60 laptop with:
+> 
+> 02:00.0 Ethernet controller: Intel Corporation 82573L Gigabit Ethernet Controller
+> 
+> ich7 onboard LAN. (can send more info if needed.)
+> 
+> I just tried the same .config on another box with onboard e1000 (a 
+> desktop system with a different e1000 version), which is ich9, and that 
+> broke too.
 
+Just like Jeff is pointing out, we really cannot keep these device IDs around (not
+just for my sanity) on the long term.
 
-Port alternate MAC address support from the sourceforge 
-e1000 driver to the upstream e1000 driver.
+I really hate to have this discussion again (third time already) and I fear that
+this will not be the last time :(
 
-Signed-off-by: Bill Hayes <bill.hayes@hp.com>
----
+Auke
 
- drivers/net/e1000/e1000_hw.c |   42 +++++++++++++++++++++++++++++++++++++++---
- drivers/net/e1000/e1000_hw.h |    2 ++
- 2 files changed, 41 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
-index 8fa0fe4..07e3178 100644
---- a/drivers/net/e1000/e1000_hw.c
-+++ b/drivers/net/e1000/e1000_hw.c
-@@ -719,6 +719,11 @@ e1000_reset_hw(struct e1000_hw *hw)
-     DEBUGOUT("Masking off all interrupts\n");
-     E1000_WRITE_REG(hw, IMC, 0xffffffff);
- 
-+    if (hw->mac_type == e1000_82571 && hw->alt_mac_addr_is_present) {
-+    	hw->laa_is_present = 1;
-+    	e1000_rar_set(hw, hw->mac_addr, E1000_RAR_ENTRIES - 1);
-+    }
-+
-     /* Clear any pending interrupt events. */
-     icr = E1000_READ_REG(hw, ICR);
- 
-@@ -5693,11 +5698,41 @@ e1000_read_mac_addr(struct e1000_hw * hw)
- {
-     uint16_t offset;
-     uint16_t eeprom_data, i;
-+    u16 mac_addr_offset = 0;
- 
-     DEBUGFUNC("e1000_read_mac_addr");
- 
-+    if (hw->mac_type == e1000_82571) {
-+        /* Check for an alternate MAC address.  An alternate MAC address can
-+         * be setup by pre-boot software and must be treated like a permanent
-+         * address and must override the actual permanent MAC address. */
-+        if (e1000_read_eeprom(hw, EEPROM_ALT_MAC_ADDR_PTR, 1,
-+                              &mac_addr_offset) < 0) {
-+            DEBUGOUT("EEPROM Read Error\n");
-+            return -E1000_ERR_EEPROM;
-+        }
-+        if (mac_addr_offset == 0xFFFF)
-+            mac_addr_offset = 0;
-+
-+        if (mac_addr_offset) {
-+            if (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1)
-+                mac_addr_offset += NODE_ADDRESS_SIZE/sizeof(u16);
-+
-+            /* make sure we have a valid mac address here before using it */
-+            if (e1000_read_eeprom(hw, mac_addr_offset, 1, &eeprom_data) < 0) {
-+                DEBUGOUT("EEPROM Read Error\n");
-+                return -E1000_ERR_EEPROM;
-+            }
-+            if (eeprom_data & 0x0001)
-+                mac_addr_offset = 0;
-+	}
-+
-+        if (mac_addr_offset) 
-+                hw->alt_mac_addr_is_present = 1;
-+    }
-+
-     for (i = 0; i < NODE_ADDRESS_SIZE; i += 2) {
--        offset = i >> 1;
-+        offset = mac_addr_offset + (i >> 1);
-         if (e1000_read_eeprom(hw, offset, 1, &eeprom_data) < 0) {
-             DEBUGOUT("EEPROM Read Error\n");
-             return -E1000_ERR_EEPROM;
-@@ -5713,8 +5748,9 @@ e1000_read_mac_addr(struct e1000_hw * hw)
-     case e1000_82546_rev_3:
-     case e1000_82571:
-     case e1000_80003es2lan:
--        if (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1)
--            hw->perm_mac_addr[5] ^= 0x01;
-+        if (!mac_addr_offset &&
-+            (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1))
-+                hw->perm_mac_addr[5] ^= 0x01;
-         break;
-     }
- 
-diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
-index a2a86c5..e18760d 100644
---- a/drivers/net/e1000/e1000_hw.h
-+++ b/drivers/net/e1000/e1000_hw.h
-@@ -1456,6 +1456,7 @@ struct e1000_hw {
- 	boolean_t		tbi_compatibility_en;
- 	boolean_t		tbi_compatibility_on;
- 	boolean_t		laa_is_present;
-+	boolean_t		alt_mac_addr_is_present;
- 	boolean_t		phy_reset_disable;
- 	boolean_t		initialize_hw_bits_disable;
- 	boolean_t		fc_send_xon;
-@@ -2286,6 +2287,7 @@ struct e1000_host_command_info {
- #define EEPROM_INIT_CONTROL3_PORT_A   0x0024
- #define EEPROM_CFG                    0x0012
- #define EEPROM_FLASH_VERSION          0x0032
-+#define EEPROM_ALT_MAC_ADDR_PTR       0x0037
- #define EEPROM_CHECKSUM_REG           0x003F
- 
- #define E1000_EEPROM_CFG_DONE         0x00040000   /* MNG config cycle done */
-
--
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-------------------------------------------------------------------------
+This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
+Register now and save $200. Hurry, offer ends at 11:59 p.m., 
+Monday, April 7! Use priority code J8TLD2. 
+http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
