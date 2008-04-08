@@ -1,81 +1,178 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [regression] e1000e broke e1000
-Date: Tue, 08 Apr 2008 16:56:09 -0400
-Message-ID: <47FBDBE9.9040700@garzik.org>
-References: <47F69965.7030303@intel.com> <20080408083606.GA20863@elte.hu> <47FB9ABB.9080403@intel.com> <20080408183921.GA20803@elte.hu> <20080408193245.GG11962@parisc-linux.org> <20080408195123.GA28148@elte.hu> <47FBCE00.2020309@garzik.org> <20080408200652.GC28148@elte.hu> <47FBD34A.6080508@garzik.org> <20080408203314.GA28952@elte.hu>
+From: Inaky Perez-Gonzalez <inaky-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [ANN] WiMAX stack and drivers for Intel WiMAX Link 5050
+Date: Tue, 8 Apr 2008 13:59:03 -0700
+Message-ID: <200804081359.03611.inaky@linux.intel.com>
+References: <200804011107.38563.inaky@linux.intel.com> <20080408135601.5dad3566@speedy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Matthew Wilcox <matthew@wil.cx>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	e1000-list <e1000-devel@lists.sourceforge.net>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	Greg KH <greg@kroah.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39510 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751776AbYDHU4S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2008 16:56:18 -0400
-In-Reply-To: <20080408203314.GA28952@elte.hu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: wimax-BPSAo7wm5JOHVYUYWc+uSQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Stephen Hemminger <stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080408135601.5dad3566@speedy>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Ingo Molnar wrote:
-> No other 
-> PCI driver breaks like this.
+On Tuesday 08 April 2008, Stephen Hemminger wrote:
+> This is the short (not in depth) code review of kernel component of Wimax.
+> 
+> Generic stack: drivers/net/wimax
+> 
+> 1. Why spread those over 8 files of 100 lines each. Better to have a single
+>    file with 1000 lines and get reduced namespace and better compiler inlining
+>    etc.
 
-That's because PCI ID transitions are extremely, extremely rare.
+Style difference, simplifies maintenance. Each file is logically grouped. 
+Everything for doing X is in file X. I know you are a fan of big files, 
+I am not :)
 
-Not because this transition is particularly unusual.
+There is almost no inlining because each X only does stuff from itself. If
+there is a need for inlined stuff (I missed it) it should go to one of the
+header files --internal or external.
 
+> 2. The debug infrastructure is a mess of ugly macros that are unlikely
+>    to accepted in the current form, rework or delete it.
 
-> We've got three thousand Kconfig options - 
-> it is clearly not realistic for users to keep such details in mind to 
-> avoid pitfalls.
+Ok, I'll figure a way to clean it up. Need to move most to inlines,
+still making sure anything that is disabled is compiled out.
+ 
+> 3. Use of sysfs for family and version ok, but why bother?
+>    Please don't build sysfs version checks into the API.
 
-Agreed -- hence the multiple announcements, including in this thread, to 
-put said details into mind.
+family ID: it makes it easy to map device<->family-id without
+expensive look ups the kernel like an attribute with the device 
+name would be. Rationale is most systems will have a single wimax
+device in the kernel. include/linux/wimax.h and drivers/net/wimax/id-table.c
+should have this documented...ouch, just remembered. The code drop
+out there shouldn't be as complete (documentation wise) as what
+I need to publish. Pls hold for it, will be available.
 
-It's an unusual situation, thus it received announcements so that people 
-are aware of the transition taking place, and what to do about it.
+version: I anticipate the wimax API exported to user space is
+going to undergo a lot of changes while we all agree on what
+is the best interface. Because things might break, I want to
+make sure user space stuff can detect that and fail cleanly. 
+Hence the versioning. 
 
+It is designed to be flexible so that adding new APIs allows 
+old code to work (however, changing existing APIs is where it 
+breaks). From the docs:
 
-> E1000=y && E1000E=m is uncommon but can easily happen. 
-> E1000=y && E1000E=m simply makes no sense in light of the PCI ID 
-> stealing that occurs if E1000E is enabled.
+ * Each WiMAX device exports two sysfs files declaring the generic
+ * netlink family ID associated to the interface and another one which
+ * version it supports. The version code has to fit in one byte
+ * (restrictions imposed by generic netlink); we use version / 10 for
+ * the major version and version % 10 for the minor. This gives 9
+ * minors for each major and 25 majors.
+ *
+ * The inexistence of any of this means the device does not support
+ * the WiMAX extensions.
+ *
+ * The version change protocol is as follow:
+ *
+>* - Major versions: needs to be increased if an existing message is
+>*   changed or removed. Doesn't need to be changed if a new message
+>*   is added.
+ *
+>* - Minor verion: needs to be increased if new messages are being
+>*   added or some other consideration that doesn't impact too much
+>*   (like some kind of bug fix) and that is kind of left up in the
+>*   air to common sense.
+ *
+ * Your user space code should not try to work if the major version it
+ * was compiled for differs from what the kernel offers. As well, it
+ * should not work if the minor version of the kernel interface is
+ * lower than the one the user space code was compiled for.
+ *
+ * libwimax's wimax_open() takes care of all this for you.
 
-"makes no sense"...  for your personal situation.
+> 
+> 4. __wimax_flush_queue: is a nop, just remove
 
-They are two independent drivers, and that's a valid mix of Kconfig 
-settings.
+Removed in newer code.
 
-Someone could easily have an e1000 card in an e1000e machine, and come 
-up with that specific config mix.
+> 5. Stack is using generic netlink instead use newer netlink interface
+>    for management of devices: newlink/dellink instead see macvlan
 
-It is not denial to say "people other than Ingo might validly choose 
-that config mix."
+Geeze, I hide out for one week and a new system pops up? 
 
+What is the advantage of newlink dellink vs generic netlink? Pointers
+to doc? Generic netlink is fitting the bill pretty well as of now,
+so unless it is going away from the kernel, I feel we should not
+move it.
+ 
+> i2400m hardware driver
+> 
+> 1. sysfs
+>   the inflight file is being used in a /proc style. Either change to
+>   one value per file or move to /proc/net/i2400m/ethX or better yet use debugfs
+>   /debugfs/i2400m/ethX/xxx
 
+All that is gone from current tip.
 
-Overall, fundamentally, any transition of a user base from one driver to 
-another is going to be an ad-hoc process.  That's the nature of the 
-problem -- each case is different.
+> 2. Use internal dev->stats for network stats (may not need get_stats at all)
 
-So we avoid driver transitions if at all possible, as a general rule. 
-In this case, a rare exception to that rule, you have to hammer out a 
-user-education process as best you can.
+Noted, will do.
 
-	Jeff
+> 3. No ioctl stub if not implemented
 
+Ack.
 
+> 4. Use netdev_alloc_skb rather than alloc_skb for new code.
+
+Any rationales for it? other than the padding and setting
+skb->dev, they seem the same.
+
+> 5. Use skb_copy_to_linear_data in i2400m_net_rx
+>
+> 6. Since hardware has to copy every received frame. Don't bother with
+>    checksum offload, the copy does the checksum for you and is safer.
+
+Current tip code receives data from the device to an skb and then 
+clones the different packets to deliver to netdev. This is not 
+needed/done any more.
+ 
+> 7. Fine grain file organization in i2400m is bogus, put in one file and use
+>    proper name scope. Having 100 line files is unneeded
+
+Again, style differences, a 10k file is already way too big for me.
+ 
+> 8. Fix the FIXME's?
+
+En route, most of them fixed in tip.
+ 
+> 9. Anyway to reuse existing usbnet infrastructure?
+
+Nope, the 2400 is a pure IP device (as Marcel mentioned). As well, we need
+to provide for using other bus connections (SDIO in the works), so that would
+break it up. OTOH, the hw protocol makes it different to plug into USBNET,
+as we can receive many packets in a single transaction.
+ 
+> 10. Since device is USB, Rx is in workqueue, so no need to go through
+>     netif_rx() softirq, should be able to go through netif_receive_skb
+
+Good point. Ack.
+ 
+> 11. net_device and private data are zero on allocation, so no need
+>    for memset.
+
+Ack
+ 
+> 12. Since this is new code elminate all legacy ifdef's
+
+Done in tip.
+
+We need to keep backwards compatibility to certain kernels for OSV support.
+]Trying to make that as unobstrusive as possible. The git tip tree will
+be mostly backward-stuff clean.
+
+Hey thanks a lot, this is great feedback
+
+-- 
+Inaky
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
