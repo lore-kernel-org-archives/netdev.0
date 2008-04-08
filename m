@@ -1,71 +1,40 @@
-From: "Eric B." <ebenze@hotmail.com>
-Subject: How to verify/log/debug which route table being used?
-Date: Mon, 7 Apr 2008 23:44:07 -0400
-Message-ID: <fteppj$kl8$1@ger.gmane.org>
-To: netdev@vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH RFC 2/5] vringfd base/offset
+Date: Tue, 8 Apr 2008 07:14:36 +0200
+Message-ID: <200804080714.37011.arnd@arndb.de>
+References: <200804052202.09157.rusty@rustcorp.com.au> <200804052204.28518.rusty@rustcorp.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Max Krasnyansky <maxk@qualcomm.com>
+To: virtualization@lists.linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:47797 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750942AbYDHDuE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Apr 2008 23:50:04 -0400
-Received: from root by ciao.gmane.org with local (Exim 4.43)
-	id 1Jj4qQ-0006GC-OJ
-	for netdev@vger.kernel.org; Tue, 08 Apr 2008 03:50:02 +0000
-Received: from 76-10-148-227.dsl.teksavvy.com ([76.10.148.227])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 08 Apr 2008 03:50:02 +0000
-Received: from ebenze by 76-10-148-227.dsl.teksavvy.com with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 08 Apr 2008 03:50:02 +0000
+Received: from moutng.kundenserver.de ([212.227.126.186]:51900 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751121AbYDHFOo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 01:14:44 -0400
+In-Reply-To: <200804052204.28518.rusty@rustcorp.com.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Saturday 05 April 2008, Rusty Russell wrote:
+> =A0static const struct file_operations vring_fops =3D {
+> =A0=A0=A0=A0=A0=A0=A0=A0.release=A0=A0=A0=A0=A0=A0=A0=A0=3D vring_rel=
+ease,
+> =A0=A0=A0=A0=A0=A0=A0=A0.write=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=3D vring=
+_write,
+> =A0=A0=A0=A0=A0=A0=A0=A0.poll=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=3D vri=
+ng_poll,
+> +=A0=A0=A0=A0=A0=A0=A0.ioctl=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=3D vring_i=
+octl,
+> =A0};
 
-I'm trying to configure my server to route different packets via different
-kernel route tables.  I thought I had things configured properly, but from
-some quick tests, return packets from my server don't seem to be making the
-return trip.  I look at my iptables log output and see that my packets are
-formed as I would expect, but the logs on my router don't show them showing
-up.
+This should also set the .compat_ioctl pointer. If the argument=20
+is defined as an actual memory location instead of a pointer,
+you also don't need the compat_ptr() conversion for s390x, so
+both can point to the same vring_ioctl function.
 
-Is there a way I can verify / validate that my packets are acutally using
-the routing table I have specified and are being retransmitted to the
-correct gateway?
-
-My setup is as follows (RHEL 4.2):
-# iptables -t mangle -A PREROUTING -d 192.168.104.64 -j MARK --set-mark 3
-# iptables -t nat -A POSTROUTING -m mark --mark 3 -j SNAT --to-source
-192.168.104.64
-# ip rule add fwmark 3 table 3
-# ip route add unicast default via 192.168.104.251 table 3
-
-My goal is as follows:
-My server is multi-homed; the same NIC serving both 192.168.101.64 and
-192.168.104.64.
-I'm looking to configure it such that any incoming packets destined for
-192.168.104.64 get a mark added to them.  Any response to that packet will
-get routed to gateway 192.168.104.251 (from the default route in table 3),
-and have its source address modified to 192.168.104.64.
-
-However, if I check my logs on my router at 192.168.104.251, I don't see any
-return packets showing up.
-
-Is there any way I can debug (using tcpdump somehow?  Although not quite
-sure what to look for in its output - help would be appreciated how best to
-use it) the outgoing packets to ensure that they are being sent to
-192.168.104.251, and not my default gateway from my main routing table?
-
-Thanks!
-
-Eric
-
-
-
--- 
-Posted via a free Usenet account from http://www.teranews.com
-
-
-
-
+	Arnd <><
