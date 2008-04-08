@@ -1,134 +1,71 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] forcedeth: new backoff implementation
-Date: Tue, 8 Apr 2008 01:14:25 -0700
-Message-ID: <20080408011425.ff2dc98a.akpm@linux-foundation.org>
-References: <47FA94CC.7070300@nvidia.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH net-2.6.26 1/2] Shrink size of net_device by filling	alignment
+ holes in it.
+Date: Tue, 08 Apr 2008 12:41:18 +0400
+Message-ID: <47FB2FAE.3080008@openvz.org>
+References: <47FA4ADE.1020308@openvz.org> <47FA5426.10704@cosmosbay.com> <47FA5717.4070901@cosmosbay.com> <20080407174745.GE15681@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	nedev <netdev@vger.kernel.org>
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:60836 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751791AbYDHIOh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 04:14:37 -0400
-In-Reply-To: <47FA94CC.7070300@nvidia.com>
+Received: from sacred.ru ([62.205.161.221]:35743 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751149AbYDHISO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2008 04:18:14 -0400
+In-Reply-To: <20080407174745.GE15681@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 07 Apr 2008 17:40:28 -0400 Ayaz Abdulla <aabdulla@nvidia.com> wrote:
+Ok, here are the results (summary):
 
-> This patch adds support for a new backoff algorithm for half duplex 
-> supported in newer hardware. The old method is will be designated as 
-> legacy mode.
-> 
-> Re-seeding random values for the backoff algorithms are performed when a 
-> transmit has failed due to a maximum retry count (1 to 15, where max is 
-> considered the wraparound case of 0).
-> 
-> ...
->
-> +static void nv_legacybackoff_reseed(struct net_device *dev)
-> +{
-> +	u8 __iomem *base = get_hwbase(dev);
-> +	u32 reg;
-> +	u32 low;
-> +	int tx_status = 0;
-> +
-> +	reg = readl(base + NvRegSlotTime) & ~NVREG_SLOTTIME_MASK;
-> +	rdtscl(low);
-> +	reg |= low & NVREG_SLOTTIME_MASK;
-> +
-> +	/* need to stop tx before change takes effect */
-> +	tx_status = readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_START;
-> +	if (tx_status)
-> +		nv_stop_tx(dev);
-> +	nv_stop_rx(dev);
-> +	writel(reg, base + NvRegSlotTime);
-> +	if (tx_status)
-> +		nv_start_tx(dev);
-> +	nv_start_rx(dev);
-> +}
+i386, no patch, L1_CACHE_SHIFT=6:
+        /* size: 1024, cachelines: 16 */
+        /* sum members: 897, holes: 5, sum holes: 115 */
+        /* padding: 12 */
 
-Is there sufficient locking in place to prevent some other thread of
-control coming in and trying to stop or start tx and/or rx while this
-function is running?
+i386, no patch, L1_CACHE_SHIFT=7:
+        /* size: 1280, cachelines: 20 */
+        /* sum members: 897, holes: 5, sum holes: 307 */
+        /* padding: 76 */
 
-> +static void nv_gear_backoff_reseed(struct net_device *dev)
-> +{
-> +	u8 __iomem *base = get_hwbase(dev);
-> +	u32 miniseed1, miniseed2, miniseed2_reversed, miniseed3, miniseed3_reversed;
-> +	u32 temp, seedset, combinedSeed;
-> +	int i;
-> +
-> +	/* Setup seed for free running LFSR */
-> +	/* We are going to read the time stamp counter 3 times and swizzle bits around to increase randomness */
+i386, with patch, L1_CACHE_SHIFT=6:
+        /* size: 960, cachelines: 15 */
+        /* sum members: 897, holes: 4, sum holes: 47 */
+        /* padding: 16 */
 
-I see this driver rigorously observes the 800-column-xterm convention.
+i386, with patch, L1_CACHE_SHIFT=7:
+        /* size: 1024, cachelines: 16 */
+        /* sum members: 897, holes: 4, sum holes: 111 */
+        /* padding: 16 */
 
-> +	rdtscl(miniseed1);
+x86_64, no patch, L1_CACHE_SHIFT=7:
+        /* size: 1792, cachelines: 28 */
+        /* sum members: 1589, holes: 13, sum holes: 155 */
+        /* padding: 48 */
+        /* paddings: 1, sum paddings: 4 */
 
-err, no.  We don't have sufficient Kconfig dependencies in place to be able
-to do this.  You just broke all non-x86.
+x86_64, with patch, L1_CACHE_SHIFT=7:
+        /* size: 1920, cachelines: 30 */
+        /* sum members: 1589, holes: 13, sum holes: 275 */
+        /* padding: 56 */
+        /* paddings: 1, sum paddings: 4 */
 
-Suitable fixes would be
+The +128 bytes on x86_64 is due to enlarged hole before
+the refcnt field :(
 
-a) add #ifdef CONFIG_X86 all over the place
+So, on the i386 the structure shrinks, but on x86_64 - grows, but
+on i386 it can be allocated from a twice smaller cache, while on
+x86_64 nothing changes - it still fits the size-2048.
 
-b) use do_gettimeofday() (might be tricky if called from interrupt)
+BTW, L1_CACHE_SHIFT=7 is set by default for distributions such as
+rhel5, suse10 and fedora8...
 
-c) use cpu_clock().
+So, does it worth trying to push them to Dave? :)
 
-> +	miniseed1 &= 0x0fff;
-> +	if (miniseed1 == 0)
-> +		miniseed1 = 0xabc;
-> +
-> +	rdtscl(miniseed2);
-> +	miniseed2 &= 0x0fff;
-> +	if (miniseed2 == 0)
-> +		miniseed2 = 0xabc;
-> +	miniseed2_reversed = ((miniseed2 & 0xF00) >> 8) | (miniseed2 & 0x0F0) | ((miniseed2 & 0x00F) << 8);
-> +
-> +	rdtscl(miniseed3);
-> +	miniseed3 &= 0x0fff;
-> +	if (miniseed3 == 0)
-> +		miniseed3 = 0xabc;
-> +	miniseed3_reversed = ((miniseed3 & 0xF00) >> 8) | (miniseed3 & 0x0F0) | ((miniseed3 & 0x00F) << 8);
-> +
-> +	combinedSeed = ((miniseed1 ^ miniseed2_reversed) << 12) | (miniseed2 ^ miniseed3_reversed);
-> +
-> +	/* Seeds can not be zero */
-> +	if ((combinedSeed & NVREG_BKOFFCTRL_SEED_MASK) == 0)
-> +		combinedSeed |= 0x08;
-> +	if ((combinedSeed & (NVREG_BKOFFCTRL_SEED_MASK << NVREG_BKOFFCTRL_GEAR)) == 0)
-> +		combinedSeed |= 0x8000;
-> +
-> +	/* Ensure seeds are not the same */
-> +	if ((combinedSeed & NVREG_BKOFFCTRL_SEED_MASK) ==
-> +	    (combinedSeed & (NVREG_BKOFFCTRL_SEED_MASK << NVREG_BKOFFCTRL_GEAR)))
-> +		combinedSeed = 0x3FF3FF;
-> +
-> +	/* No need to disable tx here */
-> +	temp = NVREG_BKOFFCTRL_DEFAULT | (0 << NVREG_BKOFFCTRL_SELECT);
-> +	temp |= combinedSeed & NVREG_BKOFFCTRL_SEED_MASK;
-> +	temp |= combinedSeed >> NVREG_BKOFFCTRL_GEAR;
-> +	writel(temp,base + NvRegBackOffControl);
-> +
-> +    	/* Setup seeds for all gear LFSRs. */
-> +	rdtscl(seedset);
-> +	seedset = seedset % BACKOFF_SEEDSET_ROWS;
-> +	for (i = 1; i <= BACKOFF_SEEDSET_LFSRS; i++)
-> +	{
-> +		temp = NVREG_BKOFFCTRL_DEFAULT | (i << NVREG_BKOFFCTRL_SELECT);
-> +		temp |= gMainSeedSet[seedset][i-1] & 0x3ff;
-> +		temp |= ((gGearSeedSet[seedset][i-1] & 0x3ff) << NVREG_BKOFFCTRL_GEAR);
-> +		writel(temp, base + NvRegBackOffControl);
-> +	}
-> +}
-
-Is lib/random32.c not useful here?  Perhaps after suitable modification?
-
-
+Thanks,
+Pavel
