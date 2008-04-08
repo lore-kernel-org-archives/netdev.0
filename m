@@ -1,41 +1,36 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>
 Subject: Re: [PATCH] Stochastic Fair Blue queue discipline
-Date: Tue, 08 Apr 2008 17:45:25 +0200
-Message-ID: <47FB9315.5030109@trash.net>
-References: <87skxxb8br.fsf@pirx.pps.jussieu.fr>	<873apwrc4t.fsf@basil.nowhere.org> <47FB60EF.1080004@trash.net> <7iy77o9wzb.fsf@lanthane.pps.jussieu.fr>
+Date: Tue, 08 Apr 2008 17:28:48 +0200
+Message-ID: <7i7if8bc27.fsf@lanthane.pps.jussieu.fr>
+References: <87skxxb8br.fsf@pirx.pps.jussieu.fr> <47FAB688.7010807@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org
-To: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42817 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751696AbYDHPp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 11:45:28 -0400
-In-Reply-To: <7iy77o9wzb.fsf@lanthane.pps.jussieu.fr>
+Received: from shiva.jussieu.fr ([134.157.0.129]:58739 "EHLO shiva.jussieu.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752111AbYDHP4h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2008 11:56:37 -0400
+In-Reply-To: <47FAB688.7010807@trash.net> (Patrick McHardy's message of "Tue\, 08 Apr 2008 02\:04\:24 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Juliusz Chroboczek wrote:
->>> I think we have multiple qdiscs now doing very similar such hashes.
->>> Any chance this could be factored out into a common library function
->>> first?
-> 
->> I'd suggest to use the flow classifier for this. For simplicity
->> you could attach a default classifier that uses the same keys as
->> this one.
-> 
-> I'm not sure I know what you're speaking about.  Could you please
-> point me at code somewhere?
+> I experienced with SFB myself some time ago and recall
+> getting huge unfairness towards non-ECN connections.
 
-Check out a recent tree (either Linus' current tree or ideally
-the net-2.6.26.git tree from
+I've only done informal checking, but didn't test ECN against non-ECN.
+Will do, and I'll let you know the results.
 
-git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.26.git
+> I just found my old tree and it was just Blue, which might explain this
 
-and look at net/sched/cls_flow.c and the recent changes to
-net/sched/sch_sfq.c for external classifiers. There are also
-a number of other incompatible changes that your patch needs
-to be adapter to, most importantly the use of the new netlink
-infrastructure.
+Blue is supposed to be roughly fair w.r.t. TCP-compliant flows with
+similar RTT.  If you see long-term unfairness with Blue at a single
+RTT, then something is wrong at the sender.  I'll see if I can repeat
+your issues.
+
+Earlier versions of Linux did not reduce their sending rate when they
+received ECE and the congestion window was just 1 MSS.  I don't know
+if this bug has been fixed.
+
+                                        Juliusz
