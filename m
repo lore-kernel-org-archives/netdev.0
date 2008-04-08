@@ -1,51 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC net-2.6.26] [IPV6] SIT: ISATAP Updates.
-Date: Tue, 08 Apr 2008 03:08:41 -0700 (PDT)
-Message-ID: <20080408.030841.66945263.davem@davemloft.net>
-References: <20080403.113811.105715223.yoshfuji@linux-ipv6.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC PATCH 2/2] LSM: Make the Labeled IPsec hooks more stack
+	friendly
+Date: Tue, 08 Apr 2008 06:24:52 -0400
+Message-ID: <1207650292.30750.43.camel@localhost>
+References: <20080407231143.8087.77531.stgit@flek.lan>
+	 <20080407231635.8087.42161.stgit@flek.lan>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fred.l.templin@boeing.com
-To: yoshfuji@linux-ipv6.org
+Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov
+To: Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42890
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751690AbYDHKIk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 06:08:40 -0400
-In-Reply-To: <20080403.113811.105715223.yoshfuji@linux-ipv6.org>
+Received: from py-out-1112.google.com ([64.233.166.177]:31135 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750950AbYDHKYz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 06:24:55 -0400
+Received: by py-out-1112.google.com with SMTP id u52so2866886pyb.10
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2008 03:24:55 -0700 (PDT)
+In-Reply-To: <20080407231635.8087.42161.stgit@flek.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Thu, 03 Apr 2008 11:38:11 +0900 (JST)
+On Mon, 2008-07-04 at 19:16 -0400, Paul Moore wrote:
+> The xfrm_get_policy() and xfrm_add_pol_expire() put some rather large structs
+> on the stack to work around the LSM API.
 
-> This updates ISATAP implementation in Linux kernel
-> based on the update from Templin, Fred L <fred.l.templin@boeing.com>.
-> 
-> One big question is the "dump" support (4th commit).
-> Since we cannot use copy_to_user family inside the lock,
-> nasty kcalloc() is used inside the lock so far...
-> 
-> Patches are also available at
-> 	git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git net-2.6.26-isatap-20080403
+You missed a spot which applies similar logic:
+net/key/af_key.c::pfkey_spddelete()
 
-I think this is fine and I've pulled it into net-2.6.26
+cheers,
+jamal
 
-About the kcalloc() code, what you could do is add a mutex
-that is held across these changes.  Use it to augment the
-rwlock, not to replace it.
-
-So you're grab it around calls to ipip6_tunnel_{link,unlink}(),
-ipip6_tunnel_{add,del}_prl(), and the piece of code in
-ipip6_tunnel_uninit() that sets tunnels_wc[0] to NULL.
-
-Then you also take this mutex around the dump code, so
-you don't need to do the kcalloc() stuff.
-
-You might be tempted to hold the mutex across all of
-ipip6_tunnel_uninit(), but it may not be safe to hold
-it across the dev_put().  Although I cannot prove it,
-it might be possible for that to end up calling back
-into some of these paths.  Better safe than sorry.
-:-)
