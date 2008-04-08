@@ -1,70 +1,48 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 10423] New: af_rose sendmsg length check
-Date: Tue, 8 Apr 2008 10:39:17 -0700
-Message-ID: <20080408103917.d062a810.akpm@linux-foundation.org>
-References: <bug-10423-10286@http.bugzilla.kernel.org/>
+From: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+Subject: Re: Setting alternate MAC addresses on e1000
+Date: Tue, 08 Apr 2008 19:45:25 +0200
+Message-ID: <47FBAF35.5030004@aei.mpg.de>
+References: <47F2358A.8080505@aei.mpg.de> <20080408170217.GA26591@gospo.usersys.redhat.com> <47FBAAAF.9060206@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: thomas.pollet@gmail.com
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	bill.hayes@hp.com
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:34903 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751632AbYDHRjs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 13:39:48 -0400
-In-Reply-To: <bug-10423-10286@http.bugzilla.kernel.org/>
+Received: from welcomes-you.com ([85.214.50.128]:47657 "EHLO welcomes-you.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754961AbYDHRpg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2008 13:45:36 -0400
+In-Reply-To: <47FBAAAF.9060206@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi all,
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+Kok, Auke schrieb:
+>> Bill posted a patch for this a while back (but it was not accepted since
+>> support for that hardware is offically moving to e1000e).  This may be
+>> what you want....
+> 
+> yeah I thought of that as well and after digging through the documentation I don't
+> think this will work for 82573's - it seems that only 82571 hardware supports this
+> feature, which is not what Carsten needs.
+> 
+> as stated above, the alternate eeprom layout of the 82573 seems to also indicate that.
 
-On Tue,  8 Apr 2008 06:48:27 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+Thanks for not forgetting me :)
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=10423
-> 
->            Summary: af_rose sendmsg length check
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.24.4
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: thomas.pollet@gmail.com
-> 
-> 
-> Hi,
-> 
-> the code from rose_sendmsg in sys/net/af_rose.c doesn't check the value of len. 
-> suppose len is very big (0xfffffff8 for example) then "size" would overflow.
-> 
->         size = len + AX25_BPQ_HEADER_LEN + AX25_MAX_HEADER_LEN + ROSE_MIN_LEN;
-> 
-> resulting in a buffer that's too small.
-> 
-> if ((skb = sock_alloc_send_skb(sk, size, msg->msg_flags & MSG_DONTWAIT, &err))
-> == NULL)
->                 return err;
-> 
-> the buffer is filled here:
-> 
-> 1115         skb_put(skb, len);
-> 1116 
-> 1117         err = memcpy_fromiovec(skb_transport_header(skb), msg->msg_iov,
-> len);
-> 
-> 
+I wasn't able to reply yet because I'm buried in work, but the initial 
+tip, to just use a different ID for the second device worked already. 
+Though I don't use the alternate MAC possibility, I can change the MAC 
+address easily - and already did that on ~280 nodes on Sunday.
 
-It might be that it doesn't need to check.  We check that the total length
-didn't overflow negative in sys_sendmsg()'s call to verify_iovec().
+So, I would say, please consider my problem solved.
 
-Of course, the addition which you identify might make a very large length
-overflow 0x7fffffff, and subsequent code might handle that incorrectly.
+Thanks to all of you who replied and the rest for the thoughts and the 
+software!
 
+Cheers
+
+Carsten
