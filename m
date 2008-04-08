@@ -1,47 +1,66 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: 2.6.25-rc8 regression with openswan
-Date: Tue, 08 Apr 2008 21:08:31 +0200
-Message-ID: <47FBC2AF.7050508@trash.net>
-References: <BAY103-DAV8D067EC595CECC2C4281CB2F70@phx.gbl> <47F4BD3F.30703@trash.net> <BAY103-DAV6A19A7FE52B2CD3AD1B0EB2F70@phx.gbl> <47F4C833.1020607@trash.net> <BAY103-DAV8C5CABF10D4685C448331B2F70@phx.gbl> <47F4CF29.2000104@trash.net> <47F4E12B.3040508@trash.net> <BAY103-DAV125214C1E537F51083DAB6B2F70@phx.gbl> <47F4EB73.1040705@trash.net>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: [PATCH] natsemi: fix for PPC 44x platforms
+Date: Tue, 8 Apr 2008 23:31:23 +0400
+Message-ID: <200804082331.23270.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Kazunori MIYAZAWA <kazunori@miyazawa.org>
-To: Marco Berizzi <pupilla@hotmail.com>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49383 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751797AbYDHTLV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 15:11:21 -0400
-In-Reply-To: <47F4EB73.1040705@trash.net>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:3005 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752165AbYDHTcH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 15:32:07 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> The problem appears to be that openswan doesn't initialize the
-> selectors family when adding new SAs. xfrm_init_state() uses
-> the family to decide whether to set up inter family SAs or
-> regular SAs. We used to fix up the family in xfrm_user, but
-> this is now only done for transport mode SAs.
->
-> -       /*
-> -        * Set inner address family if the KM left it as zero.
-> -        * See comment in validate_tmpl.
-> -        */
-> -       if (!x->sel.family)
-> +       if (x->props.mode == XFRM_MODE_TRANSPORT)
->                 x->sel.family = p->family;
-> +
->
-> Reverting this part should fix it, but would break inter family
-> tunnels again. It seems we need a different indication for
-> xfrm_init_state() for inter family SAs.
->
-> Kazunori, any ideas?
+The driver stores the the PCI resource address into 'unsigned long' variable
+before calling ioremap() on it. This warrants kernel oops when the registers
+are accessed on PPC 44x platforms which (being 32-bit) have PCI memory space
+mapped beyond 4 GB.
 
+The arch/ppc/ kernel has a fixup in ioremap() that creates an illusion of the
+PCI I/O and memory resources are mapped below 4 GB, but arch/powerpc/ code got
+rid of this trick, having instead CONFIG_RESOURCES_64BIT enabled.
 
-Did you have a chance to look into this? This is most likely
-going to break a lot of setups, so a fix is really needed
-before 2.6.25 is released.
+Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
+---
+This is the same issue as the one that has been recently addressed by commits
+3c34ac36ac1084e571ef9b6fb1d6a5b10ccc1fd0 (e1000: Fix for 32 bits platforms with
+64 bits resources) and c976816b6e901341ec3c4653147316c15549a1c4 (siimage: fix
+kernel oops on PPC 44x).  The patch has only been compile tested though...
+
+ drivers/net/natsemi.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
+
+Index: linux-2.6/drivers/net/natsemi.c
+===================================================================
+--- linux-2.6.orig/drivers/net/natsemi.c
++++ linux-2.6/drivers/net/natsemi.c
+@@ -786,7 +786,8 @@ static int __devinit natsemi_probe1 (str
+ 	struct netdev_private *np;
+ 	int i, option, irq, chip_idx = ent->driver_data;
+ 	static int find_cnt = -1;
+-	unsigned long iostart, iosize;
++	resource_size_t iostart;
++	unsigned long iosize;
+ 	void __iomem *ioaddr;
+ 	const int pcibar = 1; /* PCI base address register */
+ 	int prev_eedata;
+@@ -946,9 +947,9 @@ static int __devinit natsemi_probe1 (str
+ 		goto err_create_file;
+ 
+ 	if (netif_msg_drv(np)) {
+-		printk(KERN_INFO "natsemi %s: %s at %#08lx "
++		printk(KERN_INFO "natsemi %s: %s at %#08llx "
+ 		       "(%s), %s, IRQ %d",
+-		       dev->name, natsemi_pci_info[chip_idx].name, iostart,
++		       dev->name, natsemi_pci_info[chip_idx].name, (u64)iostart,
+ 		       pci_name(np->pci_dev), print_mac(mac, dev->dev_addr), irq);
+ 		if (dev->if_port == PORT_TP)
+ 			printk(", port TP.\n");
 
