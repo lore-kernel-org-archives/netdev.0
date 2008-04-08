@@ -1,403 +1,50 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH] forcedeth: new backoff implementation
-Date: Mon, 07 Apr 2008 17:40:28 -0400
-Message-ID: <47FA94CC.7070300@nvidia.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] Stochastic Fair Blue queue discipline
+Date: Tue, 08 Apr 2008 02:56:49 +0200
+Message-ID: <47FAC2D1.6010909@trash.net>
+References: <87skxxb8br.fsf@pirx.pps.jussieu.fr> <47FAB688.7010807@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030109050302040004080603"
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Juliusz Chroboczek <jch@pps.jussieu.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate03.nvidia.com ([216.228.112.145]:18028 "EHLO
-	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754111AbYDHApE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 20:45:04 -0400
+Received: from stinky.trash.net ([213.144.137.162]:52635 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752586AbYDHA7n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2008 20:59:43 -0400
+In-Reply-To: <47FAB688.7010807@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------030109050302040004080603
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Patrick McHardy wrote:
+> Juliusz Chroboczek wrote:
+>> Hello,
+>>
+>> The attached is an implementation of the Stochastic Fair Blue queue
+>> discipline for Linux.
+>>
+>> I would like to request a review of the following code, and whether it
+>> is worthwile to add the Kconfig bits and submit it for inclusion into
+>> the mainline kernel.
+>>
+>> You will find a ready to build tarball on
+>>
+>>   http://www.pps.jussieu.fr/~jch/software/files/sch_sfb-20080407.tar.gz
+>>   
+>> http://www.pps.jussieu.fr/~jch/software/files/sch_sfb-20080407.tar.gz.asc 
+>>
+>>
+>> and a short description on
+>>
+>>   http://www.pps.jussieu.fr/~jch/software/sfb/
+>
+> Do you have some graphs or something showing the effects?
+> I experienced with SFB myself some time ago and recall
+> getting huge unfairness towards non-ECN connections.
+> I can't remember exactly how good it behaved overall.
 
-This patch adds support for a new backoff algorithm for half duplex 
-supported in newer hardware. The old method is will be designated as 
-legacy mode.
+I just found my old tree and it was just Blue, which might explain
+this :) Thanks for posting this, I'll have a closer look at your
+patch tommorrow.
 
-Re-seeding random values for the backoff algorithms are performed when a 
-transmit has failed due to a maximum retry count (1 to 15, where max is 
-considered the wraparound case of 0).
-
-Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
-
-
-
---------------030109050302040004080603
-Content-Type: text/plain;
- name="patch-forcedeth-new-backoff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-new-backoff"
-
---- old/drivers/net/forcedeth.c	2008-04-07 17:35:34.000000000 -0400
-+++ new/drivers/net/forcedeth.c	2008-04-07 17:35:37.000000000 -0400
-@@ -185,6 +185,7 @@
- #define DEV_HAS_PAUSEFRAME_TX_V2   0x10000  /* device supports tx pause frames version 2 */
- #define DEV_HAS_PAUSEFRAME_TX_V3   0x20000  /* device supports tx pause frames version 3 */
- #define DEV_NEED_TX_LIMIT          0x40000  /* device needs to limit tx */
-+#define DEV_HAS_GEAR_MODE          0x80000  /* device supports gear mode */
- 
- enum {
- 	NvRegIrqStatus = 0x000,
-@@ -263,11 +264,13 @@
- 	NvRegReceiverStatus = 0x98,
- #define NVREG_RCVSTAT_BUSY	0x01
- 
--	NvRegRandomSeed = 0x9c,
--#define NVREG_RNDSEED_MASK	0x00ff
--#define NVREG_RNDSEED_FORCE	0x7f00
--#define NVREG_RNDSEED_FORCE2	0x2d00
--#define NVREG_RNDSEED_FORCE3	0x7400
-+	NvRegSlotTime = 0x9c,
-+#define NVREG_SLOTTIME_LEGBF_ENABLED	0x80000000
-+#define NVREG_SLOTTIME_10_100_FULL	0x00007f00
-+#define NVREG_SLOTTIME_1000_FULL 	0x0003ff00
-+#define NVREG_SLOTTIME_HALF		0x0000ff00
-+#define NVREG_SLOTTIME_DEFAULT	 	0x00007f00
-+#define NVREG_SLOTTIME_MASK		0x000000ff
- 
- 	NvRegTxDeferral = 0xA0,
- #define NVREG_TX_DEFERRAL_DEFAULT		0x15050f
-@@ -290,6 +293,11 @@
- 
- 	NvRegPhyInterface = 0xC0,
- #define PHY_RGMII		0x10000000
-+	NvRegBackOffControl = 0xC4,
-+#define NVREG_BKOFFCTRL_DEFAULT			0x70000000
-+#define NVREG_BKOFFCTRL_SEED_MASK		0x000003ff
-+#define NVREG_BKOFFCTRL_SELECT			24
-+#define NVREG_BKOFFCTRL_GEAR			12
- 
- 	NvRegTxRingPhysAddr = 0x100,
- 	NvRegRxRingPhysAddr = 0x104,
-@@ -441,6 +449,7 @@
- 
- #define NV_TX_LASTPACKET	(1<<16)
- #define NV_TX_RETRYERROR	(1<<19)
-+#define NV_TX_RETRYCOUNT_MASK	(0xF<<20)
- #define NV_TX_FORCED_INTERRUPT	(1<<24)
- #define NV_TX_DEFERRED		(1<<26)
- #define NV_TX_CARRIERLOST	(1<<27)
-@@ -451,6 +460,7 @@
- 
- #define NV_TX2_LASTPACKET	(1<<29)
- #define NV_TX2_RETRYERROR	(1<<18)
-+#define NV_TX2_RETRYCOUNT_MASK	(0xF<<19)
- #define NV_TX2_FORCED_INTERRUPT	(1<<30)
- #define NV_TX2_DEFERRED		(1<<25)
- #define NV_TX2_CARRIERLOST	(1<<26)
-@@ -1834,6 +1844,110 @@
- 	return (u32)(np->tx_ring_size - ((np->tx_ring_size + (np->put_tx_ctx - np->get_tx_ctx)) % np->tx_ring_size));
- }
- 
-+static void nv_legacybackoff_reseed(struct net_device *dev)
-+{
-+	u8 __iomem *base = get_hwbase(dev);
-+	u32 reg;
-+	u32 low;
-+	int tx_status = 0;
-+
-+	reg = readl(base + NvRegSlotTime) & ~NVREG_SLOTTIME_MASK;
-+	rdtscl(low);
-+	reg |= low & NVREG_SLOTTIME_MASK;
-+
-+	/* need to stop tx before change takes effect */
-+	tx_status = readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_START;
-+	if (tx_status)
-+		nv_stop_tx(dev);
-+	nv_stop_rx(dev);
-+	writel(reg, base + NvRegSlotTime);
-+	if (tx_status)
-+		nv_start_tx(dev);
-+	nv_start_rx(dev);
-+}
-+
-+/* Gear Backoff Seeds */
-+#define BACKOFF_SEEDSET_ROWS	8
-+#define BACKOFF_SEEDSET_LFSRS	15
-+
-+/* Known Good seed sets */
-+u32 gMainSeedSet[BACKOFF_SEEDSET_ROWS][BACKOFF_SEEDSET_LFSRS] = {
-+    {145, 155, 165, 175, 185, 196, 235, 245, 255, 265, 275, 285, 660, 690, 874},
-+    {245, 255, 265, 575, 385, 298, 335, 345, 355, 366, 375, 385, 761, 790, 974},
-+    {145, 155, 165, 175, 185, 196, 235, 245, 255, 265, 275, 285, 660, 690, 874},
-+    {245, 255, 265, 575, 385, 298, 335, 345, 355, 366, 375, 386, 761, 790, 974},
-+    {266, 265, 276, 585, 397, 208, 345, 355, 365, 376, 385, 396, 771, 700, 984},
-+    {266, 265, 276, 586, 397, 208, 346, 355, 365, 376, 285, 396, 771, 700, 984},
-+    {366, 365, 376, 686, 497, 308, 447, 455, 466, 476, 485, 496, 871, 800,  84},
-+    {466, 465, 476, 786, 597, 408, 547, 555, 566, 576, 585, 597, 971, 900, 184}};
-+
-+u32 gGearSeedSet[BACKOFF_SEEDSET_ROWS][BACKOFF_SEEDSET_LFSRS] = {
-+    {251, 262, 273, 324, 319, 508, 375, 364, 341, 371, 398, 193, 375,  30, 295},
-+    {351, 375, 373, 469, 551, 639, 477, 464, 441, 472, 498, 293, 476, 130, 395},
-+    {351, 375, 373, 469, 551, 639, 477, 464, 441, 472, 498, 293, 476, 130, 397},
-+    {251, 262, 273, 324, 319, 508, 375, 364, 341, 371, 398, 193, 375,  30, 295},
-+    {251, 262, 273, 324, 319, 508, 375, 364, 341, 371, 398, 193, 375,  30, 295},
-+    {351, 375, 373, 469, 551, 639, 477, 464, 441, 472, 498, 293, 476, 130, 395},
-+    {351, 375, 373, 469, 551, 639, 477, 464, 441, 472, 498, 293, 476, 130, 395},
-+    {351, 375, 373, 469, 551, 639, 477, 464, 441, 472, 498, 293, 476, 130, 395}};
-+
-+static void nv_gear_backoff_reseed(struct net_device *dev)
-+{
-+	u8 __iomem *base = get_hwbase(dev);
-+	u32 miniseed1, miniseed2, miniseed2_reversed, miniseed3, miniseed3_reversed;
-+	u32 temp, seedset, combinedSeed;
-+	int i;
-+
-+	/* Setup seed for free running LFSR */
-+	/* We are going to read the time stamp counter 3 times and swizzle bits around to increase randomness */
-+	rdtscl(miniseed1);
-+	miniseed1 &= 0x0fff;
-+	if (miniseed1 == 0)
-+		miniseed1 = 0xabc;
-+
-+	rdtscl(miniseed2);
-+	miniseed2 &= 0x0fff;
-+	if (miniseed2 == 0)
-+		miniseed2 = 0xabc;
-+	miniseed2_reversed = ((miniseed2 & 0xF00) >> 8) | (miniseed2 & 0x0F0) | ((miniseed2 & 0x00F) << 8);
-+
-+	rdtscl(miniseed3);
-+	miniseed3 &= 0x0fff;
-+	if (miniseed3 == 0)
-+		miniseed3 = 0xabc;
-+	miniseed3_reversed = ((miniseed3 & 0xF00) >> 8) | (miniseed3 & 0x0F0) | ((miniseed3 & 0x00F) << 8);
-+
-+	combinedSeed = ((miniseed1 ^ miniseed2_reversed) << 12) | (miniseed2 ^ miniseed3_reversed);
-+
-+	/* Seeds can not be zero */
-+	if ((combinedSeed & NVREG_BKOFFCTRL_SEED_MASK) == 0)
-+		combinedSeed |= 0x08;
-+	if ((combinedSeed & (NVREG_BKOFFCTRL_SEED_MASK << NVREG_BKOFFCTRL_GEAR)) == 0)
-+		combinedSeed |= 0x8000;
-+
-+	/* Ensure seeds are not the same */
-+	if ((combinedSeed & NVREG_BKOFFCTRL_SEED_MASK) ==
-+	    (combinedSeed & (NVREG_BKOFFCTRL_SEED_MASK << NVREG_BKOFFCTRL_GEAR)))
-+		combinedSeed = 0x3FF3FF;
-+
-+	/* No need to disable tx here */
-+	temp = NVREG_BKOFFCTRL_DEFAULT | (0 << NVREG_BKOFFCTRL_SELECT);
-+	temp |= combinedSeed & NVREG_BKOFFCTRL_SEED_MASK;
-+	temp |= combinedSeed >> NVREG_BKOFFCTRL_GEAR;
-+	writel(temp,base + NvRegBackOffControl);
-+
-+    	/* Setup seeds for all gear LFSRs. */
-+	rdtscl(seedset);
-+	seedset = seedset % BACKOFF_SEEDSET_ROWS;
-+	for (i = 1; i <= BACKOFF_SEEDSET_LFSRS; i++)
-+	{
-+		temp = NVREG_BKOFFCTRL_DEFAULT | (i << NVREG_BKOFFCTRL_SELECT);
-+		temp |= gMainSeedSet[seedset][i-1] & 0x3ff;
-+		temp |= ((gGearSeedSet[seedset][i-1] & 0x3ff) << NVREG_BKOFFCTRL_GEAR);
-+		writel(temp, base + NvRegBackOffControl);
-+	}
-+}
-+
- /*
-  * nv_start_xmit: dev->hard_start_xmit function
-  * Called with netif_tx_lock held.
-@@ -2153,6 +2267,8 @@
- 						dev->stats.tx_fifo_errors++;
- 					if (flags & NV_TX_CARRIERLOST)
- 						dev->stats.tx_carrier_errors++;
-+					if ((flags & NV_TX_RETRYERROR) && !(flags & NV_TX_RETRYCOUNT_MASK))
-+						nv_legacybackoff_reseed(dev);
- 					dev->stats.tx_errors++;
- 				} else {
- 					dev->stats.tx_packets++;
-@@ -2168,6 +2284,8 @@
- 						dev->stats.tx_fifo_errors++;
- 					if (flags & NV_TX2_CARRIERLOST)
- 						dev->stats.tx_carrier_errors++;
-+					if ((flags & NV_TX2_RETRYERROR) && !(flags & NV_TX2_RETRYCOUNT_MASK))
-+						nv_legacybackoff_reseed(dev);
- 					dev->stats.tx_errors++;
- 				} else {
- 					dev->stats.tx_packets++;
-@@ -2209,6 +2327,15 @@
- 		if (flags & NV_TX2_LASTPACKET) {
- 			if (!(flags & NV_TX2_ERROR))
- 				dev->stats.tx_packets++;
-+			else {
-+				if ((flags & NV_TX2_RETRYERROR) && !(flags & NV_TX2_RETRYCOUNT_MASK)) {
-+					if (np->driver_data & DEV_HAS_GEAR_MODE)
-+						nv_gear_backoff_reseed(dev);
-+					else
-+						nv_legacybackoff_reseed(dev);
-+				}
-+			}
-+
- 			dev_kfree_skb_any(np->get_tx_ctx->skb);
- 			np->get_tx_ctx->skb = NULL;
- 
-@@ -2973,15 +3100,14 @@
- 	}
- 
- 	if (np->gigabit == PHY_GIGABIT) {
--		phyreg = readl(base + NvRegRandomSeed);
-+		phyreg = readl(base + NvRegSlotTime);
- 		phyreg &= ~(0x3FF00);
--		if ((np->linkspeed & 0xFFF) == NVREG_LINKSPEED_10)
--			phyreg |= NVREG_RNDSEED_FORCE3;
--		else if ((np->linkspeed & 0xFFF) == NVREG_LINKSPEED_100)
--			phyreg |= NVREG_RNDSEED_FORCE2;
-+		if (((np->linkspeed & 0xFFF) == NVREG_LINKSPEED_10) ||
-+		    ((np->linkspeed & 0xFFF) == NVREG_LINKSPEED_100))
-+			phyreg |= NVREG_SLOTTIME_10_100_FULL;
- 		else if ((np->linkspeed & 0xFFF) == NVREG_LINKSPEED_1000)
--			phyreg |= NVREG_RNDSEED_FORCE;
--		writel(phyreg, base + NvRegRandomSeed);
-+			phyreg |= NVREG_SLOTTIME_1000_FULL;
-+		writel(phyreg, base + NvRegSlotTime);
- 	}
- 
- 	phyreg = readl(base + NvRegPhyInterface);
-@@ -4927,6 +5053,7 @@
- 	u8 __iomem *base = get_hwbase(dev);
- 	int ret = 1;
- 	int oom, i;
-+	u32 low;
- 
- 	dprintk(KERN_DEBUG "nv_open: begin\n");
- 
-@@ -4986,8 +5113,20 @@
- 	writel(np->rx_buf_sz, base + NvRegOffloadConfig);
- 
- 	writel(readl(base + NvRegReceiverStatus), base + NvRegReceiverStatus);
--	get_random_bytes(&i, sizeof(i));
--	writel(NVREG_RNDSEED_FORCE | (i&NVREG_RNDSEED_MASK), base + NvRegRandomSeed);
-+
-+	rdtscl(low);
-+	low &= NVREG_SLOTTIME_MASK;
-+	if (np->desc_ver == DESC_VER_1) {
-+		writel(low|NVREG_SLOTTIME_DEFAULT, base + NvRegSlotTime);
-+	} else {
-+		if (!(np->driver_data & DEV_HAS_GEAR_MODE)) {
-+			/* setup legacy backoff */
-+			writel(NVREG_SLOTTIME_LEGBF_ENABLED|NVREG_SLOTTIME_10_100_FULL|low, base + NvRegSlotTime);
-+		} else {
-+			writel(NVREG_SLOTTIME_10_100_FULL, base + NvRegSlotTime);
-+			nv_gear_backoff_reseed(dev);
-+		}
-+	}
- 	writel(NVREG_TX_DEFERRAL_DEFAULT, base + NvRegTxDeferral);
- 	writel(NVREG_RX_DEFERRAL_DEFAULT, base + NvRegRxDeferral);
- 	if (poll_interval == -1) {
-@@ -5694,83 +5833,83 @@
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_20),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT|DEV_NEED_TX_LIMIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_21),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_22),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_23),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP67 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_24),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP67 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_25),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP67 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_26),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP67 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_27),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP73 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_28),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP73 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_29),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP73 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_30),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP73 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_31),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP77 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_32),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP77 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_33),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP77 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_34),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP77 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_35),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP79 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_36),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP79 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_37),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP79 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_38),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
- 	},
- 	{	/* MCP79 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_39),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
- 	},
- 	{0,},
- };
-
---------------030109050302040004080603--
