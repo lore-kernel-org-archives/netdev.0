@@ -1,88 +1,60 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: why are there messages like assertion ((int)tcp_packets_in_flight(tp)...
-Date: Tue, 8 Apr 2008 12:17:07 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0804081213200.32028@wrl-59.cs.helsinki.fi>
-References: <18406.49168.311576.570515@fisica.ufpr.br>
- <Pine.LNX.4.64.0803261353100.24534@kivilampi-30.cs.helsinki.fi>
- <18410.25779.32254.261486@fisica.ufpr.br> <Pine.LNX.4.64.0803262246460.14579@kivilampi-30.cs.helsinki.fi>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-2.6.26 2/2] Do not allocate unneeded memory for
+	dev->priv alignment.
+Date: Tue, 8 Apr 2008 09:22:53 +0000
+Message-ID: <20080408092253.GA4048@ff.dom.local>
+References: <47FA4C50.3080405@openvz.org> <47FA5D62.5040806@gmail.com> <47FB2FF3.90104@openvz.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/Mixed; boundary="-696243703-797132128-1206564814=:14579"
-Cc: Netdev <netdev@vger.kernel.org>
-To: Carlos Carvalho <carlos@fisica.ufpr.br>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:52044 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751954AbYDHJRK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 05:17:10 -0400
-In-Reply-To: <Pine.LNX.4.64.0803262246460.14579@kivilampi-30.cs.helsinki.fi>
-Content-ID: <Pine.LNX.4.64.0804081213201.32028@wrl-59.cs.helsinki.fi>
+Received: from an-out-0708.google.com ([209.85.132.247]:34982 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753313AbYDHJU0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 05:20:26 -0400
+Received: by an-out-0708.google.com with SMTP id d31so420609and.103
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2008 02:20:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <47FB2FF3.90104@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696243703-797132128-1206564814=:14579
-Content-Type: TEXT/PLAIN; charset=iso-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0803262318381.11089@svm-3.cs.Helsinki.FI>
-
-On Wed, 26 Mar 2008, Ilpo Järvinen wrote:
-
-> On Wed, 26 Mar 2008, Carlos Carvalho wrote:
+On Tue, Apr 08, 2008 at 12:42:27PM +0400, Pavel Emelyanov wrote:
+> Jarek Poplawski wrote:
+> > Pavel Emelyanov wrote, On 04/07/2008 06:31 PM:
+> > ...
+> > 
+> >> ---
+> >>  net/core/dev.c |    3 ++-
+> >>  1 files changed, 2 insertions(+), 1 deletions(-)
+> >>
+> >> diff --git a/net/core/dev.c b/net/core/dev.c
+> >> index 7aa0112..80e103a 100644
+> >> --- a/net/core/dev.c
+> >> +++ b/net/core/dev.c
+> >> @@ -4000,7 +4000,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+> >>  	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST +
+> >>  		     (sizeof(struct net_device_subqueue) * (queue_count - 1))) &
+> >>  		     ~NETDEV_ALIGN_CONST;
+> >> -	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
+> >> +	if (sizeof_priv)
+> >> +		alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
+> >>  
+> >>  	p = kzalloc(alloc_size, GFP_KERNEL);
+> >>  	if (!p) {
+> > 
+> > 
+> > IMHO this second "+ NETDEV_ALIGN_CONST" is needed here because of "~NETDEV_ALIGN_CONST".
 > 
-> > Ilpo Järvinen (ilpo.jarvinen@helsinki.fi) wrote on 26 March 2008 14:57:
-> >  >On Sun, 23 Mar 2008, Carlos Carvalho wrote:
-> >  >
-> >  >> We get these messages in the log from time to time:
-> >  >> 
-> >  >> assertion ((int)tcp_packets_in_flight(tp) >= 0) failed at net/ipv4/tcp_input.c (1274)
-> >  >> 
-> >  >> What do they mean? Is there a way to get rid of them?
-> >  >
-> >  >> They usually appear at high net traffic periods.
-> >  >
-> >  >Your mail is lacking key bit of information:
-> >  >- What kernel version you're using?
-> > 
-> > 2.6.22.18.
-> >  >- Is this only message?
-> > 
-> > Yes.
-> > 
-> >  >Especially I'm interested in if Leak printouts show up, but more
-> >  >complete snippet of the log wouldn't hurt (I don't need all those
-> >  >boot up details though :-)).
-> > 
-> > I don't know what you mean by leak but there aren't any other
-> > messages.
-> 
-> Since there aren't any other messages, it very likely equals to the case 
-> I already debugged enough to analyze its effect...
->
-> >  >It may mean a number of things. Basically packet counting is not that 
-> >  >accurate as it should, whether that's causing bad things or not, it 
-> >  >depends...
-> >  >
-> >  >...In case it's something before 2.6.24, there's one potential patch 
-> >  >available in archives adding one clearly missing left_out adjustment. 
-> > 
-> > Could you point it to me? I cannot upgrade now because I also use the
-> > vserver patch. I cannot test without it because this message only
-> > appears when net traffic is high enough, and this is our only machine
-> > in this condition.
-> 
-> http://marc.info/?l=linux-netdev&m=119910263911111&w=2
-> 
-> ...I think it should apply cleanly to 2.6.22 as well.
+> Hmm, AFAIC, the net_device alignment is done earlier, while this one
+> makes sense in case the priv pointer alignment.
 
-Another place that could cause it is the recently discovered flaw with 
-newreno in tcp_simple_retransmit. A patch (which won't work with 2.6.22 
-though) and a bit description of it:
+Hmm, one NETDEV_ALIGN_CONST is later used just for net_device alignment,
+and you could not fit this struct after "~NETDEV_ALIGN_CONST" without
+adding anything. So you should probably skip "~NETDEV_ALIGN_CONST" in
+this no priv case too?
 
-  http://marc.info/?l=linux-netdev&m=120756760521961&w=2
-
-
--- 
- i.
----696243703-797132128-1206564814=:14579--
+Jarek P.
