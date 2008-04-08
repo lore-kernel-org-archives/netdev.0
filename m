@@ -1,66 +1,48 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: [PATCH] natsemi: fix for PPC 44x platforms
-Date: Tue, 8 Apr 2008 23:31:23 +0400
-Message-ID: <200804082331.23270.sshtylyov@ru.mvista.com>
+From: Matthew Wilcox <matthew@wil.cx>
+Subject: Re: [regression] e1000e broke e1000 (was: Re: [ANNOUNCE] e1000 to e1000e migration of PCI Express devices)
+Date: Tue, 8 Apr 2008 13:32:45 -0600
+Message-ID: <20080408193245.GG11962@parisc-linux.org>
+References: <47F69965.7030303@intel.com> <20080408083606.GA20863@elte.hu> <47FB9ABB.9080403@intel.com> <20080408183921.GA20803@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>,
+	e1000-list <e1000-devel@lists.sourceforge.net>,
+	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
+	Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	Greg KH <greg@kroah.com>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:3005 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752165AbYDHTcH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 15:32:07 -0400
+Received: from palinux.external.hp.com ([192.25.206.14]:45519 "EHLO
+	mail.parisc-linux.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753200AbYDHTdD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 15:33:03 -0400
 Content-Disposition: inline
+In-Reply-To: <20080408183921.GA20803@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver stores the the PCI resource address into 'unsigned long' variable
-before calling ioremap() on it. This warrants kernel oops when the registers
-are accessed on PPC 44x platforms which (being 32-bit) have PCI memory space
-mapped beyond 4 GB.
+On Tue, Apr 08, 2008 at 08:39:21PM +0200, Ingo Molnar wrote:
+> so the pure presence of the e1000e module breaks the e1000 driver. That 
+> is a regression and a bug that should be fixed.
 
-The arch/ppc/ kernel has a fixup in ioremap() that creates an illusion of the
-PCI I/O and memory resources are mapped below 4 GB, but arch/powerpc/ code got
-rid of this trick, having instead CONFIG_RESOURCES_64BIT enabled.
+I think you've found the wrong problem ... it looks deliberate to me that
+enabling e1000e disables e1000 from claiming the PCI IDs (see the PCIE()
+macro right before the e1000_pci_tbl in drivers/net/e1000/e1000_main.c).
 
-Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+The question is why e1000e isn't claiming the device ...
 
----
-This is the same issue as the one that has been recently addressed by commits
-3c34ac36ac1084e571ef9b6fb1d6a5b10ccc1fd0 (e1000: Fix for 32 bits platforms with
-64 bits resources) and c976816b6e901341ec3c4653147316c15549a1c4 (siimage: fix
-kernel oops on PPC 44x).  The patch has only been compile tested though...
-
- drivers/net/natsemi.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
-
-Index: linux-2.6/drivers/net/natsemi.c
-===================================================================
---- linux-2.6.orig/drivers/net/natsemi.c
-+++ linux-2.6/drivers/net/natsemi.c
-@@ -786,7 +786,8 @@ static int __devinit natsemi_probe1 (str
- 	struct netdev_private *np;
- 	int i, option, irq, chip_idx = ent->driver_data;
- 	static int find_cnt = -1;
--	unsigned long iostart, iosize;
-+	resource_size_t iostart;
-+	unsigned long iosize;
- 	void __iomem *ioaddr;
- 	const int pcibar = 1; /* PCI base address register */
- 	int prev_eedata;
-@@ -946,9 +947,9 @@ static int __devinit natsemi_probe1 (str
- 		goto err_create_file;
- 
- 	if (netif_msg_drv(np)) {
--		printk(KERN_INFO "natsemi %s: %s at %#08lx "
-+		printk(KERN_INFO "natsemi %s: %s at %#08llx "
- 		       "(%s), %s, IRQ %d",
--		       dev->name, natsemi_pci_info[chip_idx].name, iostart,
-+		       dev->name, natsemi_pci_info[chip_idx].name, (u64)iostart,
- 		       pci_name(np->pci_dev), print_mac(mac, dev->dev_addr), irq);
- 		if (dev->if_port == PORT_TP)
- 			printk(", port TP.\n");
-
+-- 
+Intel are signing my paycheques ... these opinions are still mine
+"Bill, look, we understand that you're interested in selling us this
+operating system, but compare it to ours.  We can't possibly take such
+a retrograde step."
