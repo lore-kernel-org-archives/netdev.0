@@ -1,88 +1,170 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take 2] Fix for the fundamental network/block layer race in sendfile().
-Date: Tue, 8 Apr 2008 21:26:52 +0400
-Message-ID: <20080408172652.GA4877@2ka.mipt.ru>
-References: <20080328092036.GA11924@2ka.mipt.ru> <20080328.134053.122172549.davem@davemloft.net> <20080328205613.GA24812@2ka.mipt.ru> <20080328.140736.92315090.davem@davemloft.net> <20080328215131.GB24812@2ka.mipt.ru> <20080401164904.GA2382@2ka.mipt.ru> <20080408122545.GA31729@2ka.mipt.ru> <47FB6C03.3070708@cosmosbay.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: Setting alternate MAC addresses on e1000
+Date: Tue, 08 Apr 2008 10:26:07 -0700
+Message-ID: <47FBAAAF.9060206@intel.com>
+References: <47F2358A.8080505@aei.mpg.de> <20080408170217.GA26591@gospo.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Jens Axboe <axboe@kernel.dk>,
-	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Carsten Aulbert <carsten.aulbert@aei.mpg.de>,
+	netdev@vger.kernel.org, bill.hayes@hp.com
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:43162 "EHLO 2ka.mipt.ru"
+Received: from mga03.intel.com ([143.182.124.21]:2176 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752387AbYDHR1R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2008 13:27:17 -0400
-Content-Disposition: inline
-In-Reply-To: <47FB6C03.3070708@cosmosbay.com>
+	id S1752539AbYDHR1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2008 13:27:25 -0400
+In-Reply-To: <20080408170217.GA26591@gospo.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 08, 2008 at 02:58:43PM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> >With this patch it is now guaranteed that data was transferred over the
-> >wire after splice/sendfile returns.
-> >
-> 1) So a nonblocking operation (O_NDELAY) can become a blocking one now ?
-
-No, it should not - ->sendpage() will return -EAGAIN and we will break
-from the main loop before going into sleep.
-
-> >P.S. Previous patch was not an April 1 joke as long as this one :)
-> >
-> >  
-> Hum, I see you forgot me in CC list, dont try to escape :)
-
-My fault, sorry :)
-
-> >+static void skb_splice_destructor(struct skb_shared_info *shi)
-> >+{
-> >+	if (shi->nr_frags) {
-> >+		int i;
-> >+		struct pipe_inode_info *pipe;
-> >+
-> >+		for (i = 0; i < shi->nr_frags; i++) {
-> >+			struct page *page = shi->frags[i].page;
-> >+
-> >+			if (page->lru.prev == (struct list_head *)page) {
-> >+				pipe = (struct pipe_inode_info 
-> >*)page->lru.next;
-> >  
->    Unless I mistaken, you store in page->lru.next some info to find 
-> your pipe pointer, assuming it is unique for this page.
+Andy Gospodarek wrote:
+> On Tue, Apr 01, 2008 at 03:15:54PM +0200, Carsten Aulbert wrote:
+>> Hi,
+>>
+>> I know that quite a few e1000 experts are reading here, so I hope to 
+>> have some luck here:
+>>
+>> I need to reprogram the MAC addresses of several 82573E/L NICs. I tried 
+>> the obvious approach first using ethtool -E to write the numbers into 
+>> the first six bytes and this works quite ok [1], except that I need to 
+>> specifically change the second MAC not necessarily the first one. This 
+>> approach only changed the first NIC and left the second unchanged.
+>>
+>> I've browsed http://download.intel.com/design/network/manuals/31608004.pdf
+>> quite a bit, but except finding that I seem to need to set word 0x37 to 
+>> point to 12 free bytes I have not come up with much. For example, I 
+>> don't know where I would find those 12 free bytes.
+>>
+>> Anyone with a different approach or a hint how to succeed?
+>>
+>> TIA
+>>
+>> Carsten
+>>
 > 
-> What happens if two threads are doing a splice()/sendfile() using the 
-> same underlying (source) file (and same pages in this file)
+> Bill posted a patch for this a while back (but it was not accepted since
+> support for that hardware is offically moving to e1000e).  This may be
+> what you want....
 
-Page will be referenced twice (for each thread) and each thread will
-have own pipe_inode_info structure, so each one will sleep on own wait
-queue and will be awakened separately, where its release counter will be
-dropped.
+yeah I thought of that as well and after digging through the documentation I don't
+think this will work for 82573's - it seems that only 82571 hardware supports this
+feature, which is not what Carsten needs.
 
-> >diff --git a/fs/splice.c b/fs/splice.c
-> >index 0670c91..dcda32e 100644
-> >--- a/fs/splice.c
-> >+++ b/fs/splice.c
-> >@@ -29,6 +29,7 @@
-> > #include <linux/syscalls.h>
-> > #include <linux/uio.h>
-> > #include <linux/security.h>
-> >+#include <net/sock.h>
-> > 
-> > /*
-> >  * Attempt to steal a page from a pipe buffer. This should perhaps go into
-> >@@ -535,6 +536,8 @@ static int pipe_to_sendpage(struct pipe_inode_info 
-> >*pipe,
-> > 	if (!ret) {
-> > 		more = (sd->flags & SPLICE_F_MORE) || sd->len < 
-> > 		sd->total_len;
-> > 
-> >+		buf->page->lru.next = (void *)pipe;
-> >  
-> is it really allowed here, are you the only user ot this page ?
+as stated above, the alternate eeprom layout of the 82573 seems to also indicate that.
 
-Yes, it should be safe - afaics no slab pages or slab allocated data are
-allowed in ->sendpage() (there is even BUG_ON() somewhere in
-tcp_sendpage()/release code), so both lru pointers can be reused.
+Auke
 
--- 
-	Evgeniy Polyakov
+
+
+> Port alternate MAC address support from the sourceforge 
+> e1000 driver to the upstream e1000 driver.
+> 
+> Signed-off-by: Bill Hayes <bill.hayes@hp.com>
+> ---
+> 
+>  drivers/net/e1000/e1000_hw.c |   42 +++++++++++++++++++++++++++++++++++++++---
+>  drivers/net/e1000/e1000_hw.h |    2 ++
+>  2 files changed, 41 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
+> index 8fa0fe4..07e3178 100644
+> --- a/drivers/net/e1000/e1000_hw.c
+> +++ b/drivers/net/e1000/e1000_hw.c
+> @@ -719,6 +719,11 @@ e1000_reset_hw(struct e1000_hw *hw)
+>      DEBUGOUT("Masking off all interrupts\n");
+>      E1000_WRITE_REG(hw, IMC, 0xffffffff);
+>  
+> +    if (hw->mac_type == e1000_82571 && hw->alt_mac_addr_is_present) {
+> +    	hw->laa_is_present = 1;
+> +    	e1000_rar_set(hw, hw->mac_addr, E1000_RAR_ENTRIES - 1);
+> +    }
+> +
+>      /* Clear any pending interrupt events. */
+>      icr = E1000_READ_REG(hw, ICR);
+>  
+> @@ -5693,11 +5698,41 @@ e1000_read_mac_addr(struct e1000_hw * hw)
+>  {
+>      uint16_t offset;
+>      uint16_t eeprom_data, i;
+> +    u16 mac_addr_offset = 0;
+>  
+>      DEBUGFUNC("e1000_read_mac_addr");
+>  
+> +    if (hw->mac_type == e1000_82571) {
+> +        /* Check for an alternate MAC address.  An alternate MAC address can
+> +         * be setup by pre-boot software and must be treated like a permanent
+> +         * address and must override the actual permanent MAC address. */
+> +        if (e1000_read_eeprom(hw, EEPROM_ALT_MAC_ADDR_PTR, 1,
+> +                              &mac_addr_offset) < 0) {
+> +            DEBUGOUT("EEPROM Read Error\n");
+> +            return -E1000_ERR_EEPROM;
+> +        }
+> +        if (mac_addr_offset == 0xFFFF)
+> +            mac_addr_offset = 0;
+> +
+> +        if (mac_addr_offset) {
+> +            if (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1)
+> +                mac_addr_offset += NODE_ADDRESS_SIZE/sizeof(u16);
+> +
+> +            /* make sure we have a valid mac address here before using it */
+> +            if (e1000_read_eeprom(hw, mac_addr_offset, 1, &eeprom_data) < 0) {
+> +                DEBUGOUT("EEPROM Read Error\n");
+> +                return -E1000_ERR_EEPROM;
+> +            }
+> +            if (eeprom_data & 0x0001)
+> +                mac_addr_offset = 0;
+> +	}
+> +
+> +        if (mac_addr_offset) 
+> +                hw->alt_mac_addr_is_present = 1;
+> +    }
+> +
+>      for (i = 0; i < NODE_ADDRESS_SIZE; i += 2) {
+> -        offset = i >> 1;
+> +        offset = mac_addr_offset + (i >> 1);
+>          if (e1000_read_eeprom(hw, offset, 1, &eeprom_data) < 0) {
+>              DEBUGOUT("EEPROM Read Error\n");
+>              return -E1000_ERR_EEPROM;
+> @@ -5713,8 +5748,9 @@ e1000_read_mac_addr(struct e1000_hw * hw)
+>      case e1000_82546_rev_3:
+>      case e1000_82571:
+>      case e1000_80003es2lan:
+> -        if (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1)
+> -            hw->perm_mac_addr[5] ^= 0x01;
+> +        if (!mac_addr_offset &&
+> +            (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1))
+> +                hw->perm_mac_addr[5] ^= 0x01;
+>          break;
+>      }
+>  
+> diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
+> index a2a86c5..e18760d 100644
+> --- a/drivers/net/e1000/e1000_hw.h
+> +++ b/drivers/net/e1000/e1000_hw.h
+> @@ -1456,6 +1456,7 @@ struct e1000_hw {
+>  	boolean_t		tbi_compatibility_en;
+>  	boolean_t		tbi_compatibility_on;
+>  	boolean_t		laa_is_present;
+> +	boolean_t		alt_mac_addr_is_present;
+>  	boolean_t		phy_reset_disable;
+>  	boolean_t		initialize_hw_bits_disable;
+>  	boolean_t		fc_send_xon;
+> @@ -2286,6 +2287,7 @@ struct e1000_host_command_info {
+>  #define EEPROM_INIT_CONTROL3_PORT_A   0x0024
+>  #define EEPROM_CFG                    0x0012
+>  #define EEPROM_FLASH_VERSION          0x0032
+> +#define EEPROM_ALT_MAC_ADDR_PTR       0x0037
+>  #define EEPROM_CHECKSUM_REG           0x003F
+>  
+>  #define E1000_EEPROM_CFG_DONE         0x00040000   /* MNG config cycle done */
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
