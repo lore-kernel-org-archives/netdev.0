@@ -1,138 +1,72 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: [regression] e1000e broke e1000 (was: Re: [ANNOUNCE]
-	e1000 to	e1000e migration of PCI Express devices)
-Date: Tue, 8 Apr 2008 20:39:21 +0200
-Message-ID: <20080408183921.GA20803@elte.hu>
-References: <47F69965.7030303@intel.com> <20080408083606.GA20863@elte.hu>
-	<47FB9ABB.9080403@intel.com>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [ANN] WiMAX stack and drivers for Intel WiMAX Link 5050
+Date: Tue, 8 Apr 2008 13:56:01 -0500
+Message-ID: <20080408135601.5dad3566@speedy>
+References: <200804011107.38563.inaky@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	e1000-list <e1000-devel@lists.sourceforge.net>,
-	NetDev <netdev@vger.kernel.org>,
-	"Allan,  Bruce W" <bruce.w.allan@intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak,  John" <john.ronciak@intel.com>,
-	Arjan van de Ven <arjan@linux.intel.com>, Greg KH <greg@kroah.com>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <47FB9ABB.9080403@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: wimax@linuxwimax.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([216.93.170.194]:39899 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757218AbYDHS4I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2008 14:56:08 -0400
+In-Reply-To: <200804011107.38563.inaky@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This is the short (not in depth) code review of kernel component of Wimax.
 
-* Kok, Auke <auke-jan.h.kok@intel.com> wrote:
+Generic stack: drivers/net/wimax
 
-> > such driver transitions are never smooth. For example there's an 
-> > open e1000e/e1000 regression in .25 in this area that i just noticed 
-> > on a testbox while doing randconfig testing. (that's why i noticed 
-> > this message of yours on lkml, i was searching for e1000 regression 
-> > reports).
+1. Why spread those over 8 files of 100 lines each. Better to have a single
+   file with 1000 lines and get reduced namespace and better compiler inlining
+   etc.
 
-> This is really a vague report. Maybe you need to adjust your network 
-> setup to explicitly load the correct driver at boot? The adapter works 
-> correct here and I have a stock T60 here as well, just as you.
+2. The debug infrastructure is a mess of ugly macros that are unlikely
+   to accepted in the current form, rework or delete it.
 
-this is a simple bzImage kernel, no modules at all. Here's the full 
-regression report:
+3. Use of sysfs for family and version ok, but why bother?
+   Please don't build sysfs version checks into the API.
 
-kernel used: latest -git, head 7180c4c9e09888db0a188f729c96c6d7bd61fa83. 
-Regression seems to have been introduced into v2.6.25 by this commit:
+4. __wimax_flush_queue: is a nop, just remove
 
-| commit 040babf9d84e7010c457e9ce69e9eb1c27927c9e
-| Author: Auke Kok <auke-jan.h.kok@intel.com>
-| Date:   Wed Oct 31 15:22:05 2007 -0700
-|
-|    e1000/e1000e: Move PCI-Express device IDs over to e1000e
+5. Stack is using generic netlink instead use newer netlink interface
+   for management of devices: newlink/dellink instead see macvlan
 
-v2.6.25-rc8 regresses relative to v2.6.24, with the following config, 
-which config works fine in v2.6.24:
+i2400m hardware driver
 
-   http://redhat.com/~mingo/misc/config.e1000.bad
+1. sysfs
+  the inflight file is being used in a /proc style. Either change to
+  one value per file or move to /proc/net/i2400m/ethX or better yet use debugfs
+  /debugfs/i2400m/ethX/xxx
 
-the eth0 interface is not detected at all:
+2. Use internal dev->stats for network stats (may not need get_stats at all)
 
-   http://redhat.com/~mingo/misc/dmesg.e1000.bad
+3. No ioctl stub if not implemented
 
-after more than an hour of experimenting around and bisecting the 
-.config variances it turned out that turning off E1000E driver _module_ 
-completely (which isnt even loaded, nor attempted to be loaded) made the 
-kernel boot again:
+4. Use netdev_alloc_skb rather than alloc_skb for new code.
 
-   http://redhat.com/~mingo/misc/config.e1000.good
+5. Use skb_copy_to_linear_data in i2400m_net_rx
 
-and the e1000 interface is detected fine just like it was in v2.6.24:
+6. Since hardware has to copy every received frame. Don't bother with
+   checksum offload, the copy does the checksum for you and is safer.
 
-   http://redhat.com/~mingo/misc/dmesg.e1000.good
+7. Fine grain file organization in i2400m is bogus, put in one file and use
+   proper name scope. Having 100 line files is unneeded
 
-the difference in the config is:
+8. Fix the FIXME's?
 
---- config.e1000.good	2008-04-08 20:24:30.000000000 +0200
-+++ config.e1000.bad	2008-04-08 20:20:53.000000000 +0200
-@@ -1400,8 +1400,8 @@ CONFIG_DL2K=m
- CONFIG_E1000=y
- CONFIG_E1000_NAPI=y
- # CONFIG_E1000_DISABLE_PACKET_SPLIT is not set
--# CONFIG_E1000E is not set
--# CONFIG_E1000E_ENABLED is not set
-+CONFIG_E1000E=m
-+CONFIG_E1000E_ENABLED=y
- # CONFIG_IP1000 is not set
- # CONFIG_IGB is not set
- CONFIG_NS83820=m
+9. Anyway to reuse existing usbnet infrastructure?
 
-it results in the following bootup difference:
+10. Since device is USB, Rx is in workqueue, so no need to go through
+    netif_rx() softirq, should be able to go through netif_receive_skb
 
---- dmesg.e1000.good	2008-04-08 20:27:20.000000000 +0200
-+++ dmesg.e1000.bad	2008-04-08 20:27:20.000000000 +0200
-@@ -1269,14 +1269,8 @@ initcall 0xc06b7ce9 ran for 0 msecs: cpq
- Calling initcall 0xc06b81e1: e1000_init_module+0x0/0x6e()
- Intel(R) PRO/1000 Network Driver - version 7.3.20-k2-NAPI
- Copyright (c) 1999-2006 Intel Corporation.
--ACPI: PCI Interrupt 0000:02:00.0[A] -> GSI 16 (level, low) -> IRQ 16
--PCI: Setting latency timer of device 0000:02:00.0 to 64
--e1000: 0000:02:00.0: e1000_probe: (PCI Express:2.5Gb/s:Width x1) 00:16:41:17:49:d2
--e1000: 0000:02:00.0: e1000_probe: This device (id 8086:109a) will no longer be supported by this driver in the future.
--e1000: 0000:02:00.0: e1000_probe: please use the "e1000e" driver instead.
--e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
- initcall 0xc06b81e1: e1000_init_module+0x0/0x6e() returned 0.
--initcall 0xc06b81e1 ran for 81 msecs: e1000_init_module+0x0/0x6e()
-+initcall 0xc06b81e1 ran for 0 msecs: e1000_init_module+0x0/0x6e()
- Calling initcall 0xc06b824f: e100_init_module+0x0/0x4d()
- e100: Intel(R) PRO/100 Network Driver, 3.5.23-k4-NAPI
- e100: Copyright(c) 1999-2006 Intel Corporation
-@@ -2087,7 +2080,6 @@ warning: `dbus-daemon' uses 32-bit capab
- 	Capabilities: [e0] Express Endpoint, MSI 00
- 	Capabilities: [100] Advanced Error Reporting <?>
- 	Capabilities: [140] Device Serial Number d2-49-17-ff-ff-41-16-00
--	Kernel driver in use: e1000
- 
- 03:00.0 Network controller: Intel Corporation PRO/Wireless 3945ABG Network Connection (rev 02)
- 	Subsystem: Intel Corporation Unknown device 1010
+11. net_device and private data are zero on allocation, so no need
+   for memset.
 
-so the pure presence of the e1000e module breaks the e1000 driver. That 
-is a regression and a bug that should be fixed.
+12. Since this is new code elminate all legacy ifdef's
 
-	Ingo
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
-Register now and save $200. Hurry, offer ends at 11:59 p.m., 
-Monday, April 7! Use priority code J8TLD2. 
-http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
