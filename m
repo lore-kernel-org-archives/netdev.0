@@ -1,48 +1,54 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Subject: Re: [regression] e1000e broke e1000 (was: Re: [ANNOUNCE] e1000 to e1000e migration of PCI Express devices)
-Date: Tue, 8 Apr 2008 13:32:45 -0600
-Message-ID: <20080408193245.GG11962@parisc-linux.org>
-References: <47F69965.7030303@intel.com> <20080408083606.GA20863@elte.hu> <47FB9ABB.9080403@intel.com> <20080408183921.GA20803@elte.hu>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: [PATCH] tg3: fix for PPC 44x platforms
+Date: Tue, 8 Apr 2008 23:33:26 +0400
+Message-ID: <200804082333.26115.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	e1000-list <e1000-devel@lists.sourceforge.net>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	Greg KH <greg@kroah.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palinux.external.hp.com ([192.25.206.14]:45519 "EHLO
-	mail.parisc-linux.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753200AbYDHTdD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 15:33:03 -0400
+Received: from rtsoft3.corbina.net ([85.21.88.6]:3025 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755180AbYDHTeG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 15:34:06 -0400
 Content-Disposition: inline
-In-Reply-To: <20080408183921.GA20803@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 08, 2008 at 08:39:21PM +0200, Ingo Molnar wrote:
-> so the pure presence of the e1000e module breaks the e1000 driver. That 
-> is a regression and a bug that should be fixed.
+The driver stores the the PCI resource addresses into 'unsigned long' variable
+before calling ioremap() on them. This warrants kernel oops when the registers
+are accesse on PPC 44x platforms which (being 32-bit) have PCI memory space
+mapped beyond 4 GB.
 
-I think you've found the wrong problem ... it looks deliberate to me that
-enabling e1000e disables e1000 from claiming the PCI IDs (see the PCIE()
-macro right before the e1000_pci_tbl in drivers/net/e1000/e1000_main.c).
+The arch/ppc/ kernel has a fixup in ioremap() that creates an illusion of the
+PCI I/O and memory resources are mapped below 4 GB, but arch/powerpc/ code got
+rid of this trick, having instead CONFIG_RESOURCES_64BIT enabled.
 
-The question is why e1000e isn't claiming the device ...
+Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
--- 
-Intel are signing my paycheques ... these opinions are still mine
-"Bill, look, we understand that you're interested in selling us this
-operating system, but compare it to ours.  We can't possibly take such
-a retrograde step."
+---
+This is the same issue as the one that has been recently addressed by commits
+3c34ac36ac1084e571ef9b6fb1d6a5b10ccc1fd0 (e1000: Fix for 32 bits platforms with
+64 bits resources) and c976816b6e901341ec3c4653147316c15549a1c4 (siimage: fix
+kernel oops on PPC 44x).  The patch has only been compile tested though...
+
+ drivers/net/tg3.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletion(-)
+
+Index: linux-2.6/drivers/net/tg3.c
+===================================================================
+--- linux-2.6.orig/drivers/net/tg3.c
++++ linux-2.6/drivers/net/tg3.c
+@@ -12578,7 +12578,8 @@ static int __devinit tg3_init_one(struct
+ 				  const struct pci_device_id *ent)
+ {
+ 	static int tg3_version_printed = 0;
+-	unsigned long tg3reg_base, tg3reg_len;
++	resource_size_t tg3reg_base;
++	unsigned long tg3reg_len;
+ 	struct net_device *dev;
+ 	struct tg3 *tp;
+ 	int err, pm_cap;
+
