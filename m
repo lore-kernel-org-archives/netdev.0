@@ -1,52 +1,88 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: RE: A Linux TCP SACK Question
-Date: Tue, 8 Apr 2008 20:26:36 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0804082024410.23237@wrl-59.cs.helsinki.fi>
-References: <fc471cb97cfd.47f5520e@fnal.gov>
- <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
- <000001c8967c$496efa20$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
- <000b01c89699$00e99590$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
- <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
- <000f01c896a1$3022fec0$c95ee183@D2GT6T71> <649aecc70804051417l4cf9b30asec8ca8d55e79e051@mail.gmail.com>
- <fb8e9e4f102e.47f8ebfd@fnal.gov> <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
- <000701c898bf$99fc3f80$c95ee183@D2GT6T71> <Pine.LNX.4.64.0804080007020.20936@wrl-59.cs.helsinki.fi>
- <fbbce0572843.47fb038c@fnal.gov> <Pine.LNX.4.64.0804081623500.21784@wrl-59.cs.helsinki.fi>
- <fba201de4228.47fb3b26@fnal.gov> <Pine.LNX.4.64.0804081742270.21784@wrl-59.cs.helsinki.fi>
- <fbd3c4827acd.47fb4882@fnal.gov>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take 2] Fix for the fundamental network/block layer race in sendfile().
+Date: Tue, 8 Apr 2008 21:26:52 +0400
+Message-ID: <20080408172652.GA4877@2ka.mipt.ru>
+References: <20080328092036.GA11924@2ka.mipt.ru> <20080328.134053.122172549.davem@davemloft.net> <20080328205613.GA24812@2ka.mipt.ru> <20080328.140736.92315090.davem@davemloft.net> <20080328215131.GB24812@2ka.mipt.ru> <20080401164904.GA2382@2ka.mipt.ru> <20080408122545.GA31729@2ka.mipt.ru> <47FB6C03.3070708@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: 'Sangtae Ha' <sangtae.ha@gmail.com>,
-	'John Heffner' <johnwheffner@gmail.com>,
-	'Netdev' <netdev@vger.kernel.org>
-To: Wenji Wu <wenji@fnal.gov>
+Cc: David Miller <davem@davemloft.net>, Jens Axboe <axboe@kernel.dk>,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:41542 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752510AbYDHR0j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2008 13:26:39 -0400
-In-Reply-To: <fbd3c4827acd.47fb4882@fnal.gov>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:43162 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752387AbYDHR1R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2008 13:27:17 -0400
+Content-Disposition: inline
+In-Reply-To: <47FB6C03.3070708@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 8 Apr 2008, Wenji Wu wrote:
+On Tue, Apr 08, 2008 at 02:58:43PM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
+> >With this patch it is now guaranteed that data was transferred over the
+> >wire after splice/sendfile returns.
+> >
+> 1) So a nonblocking operation (O_NDELAY) can become a blocking one now ?
 
->  
-> > It's a bit hard for me to believe, considering what the last weeks 
-> > debug 
-> > has revealed about internals of it. Have you checked it from the dumps 
-> > or 
-> > from the overall results, a similarity in the latter could be due to 
-> > other factors related to the differences in reordering detection 
-> > between 
-> > NewReno/SACK.
+No, it should not - ->sendpage() will return -EAGAIN and we will break
+from the main loop before going into sleep.
+
+> >P.S. Previous patch was not an April 1 joke as long as this one :)
+> >
+> >  
+> Hum, I see you forgot me in CC list, dont try to escape :)
+
+My fault, sorry :)
+
+> >+static void skb_splice_destructor(struct skb_shared_info *shi)
+> >+{
+> >+	if (shi->nr_frags) {
+> >+		int i;
+> >+		struct pipe_inode_info *pipe;
+> >+
+> >+		for (i = 0; i < shi->nr_frags; i++) {
+> >+			struct page *page = shi->frags[i].page;
+> >+
+> >+			if (page->lru.prev == (struct list_head *)page) {
+> >+				pipe = (struct pipe_inode_info 
+> >*)page->lru.next;
+> >  
+>    Unless I mistaken, you store in page->lru.next some info to find 
+> your pipe pointer, assuming it is unique for this page.
+> 
+> What happens if two threads are doing a splice()/sendfile() using the 
+> same underlying (source) file (and same pages in this file)
+
+Page will be referenced twice (for each thread) and each thread will
+have own pipe_inode_info structure, so each one will sleep on own wait
+queue and will be awakened separately, where its release counter will be
+dropped.
+
+> >diff --git a/fs/splice.c b/fs/splice.c
+> >index 0670c91..dcda32e 100644
+> >--- a/fs/splice.c
+> >+++ b/fs/splice.c
+> >@@ -29,6 +29,7 @@
+> > #include <linux/syscalls.h>
+> > #include <linux/uio.h>
+> > #include <linux/security.h>
+> >+#include <net/sock.h>
 > > 
->
-> Get back to you later, and post the tcpdump file for 2.6.25. 
+> > /*
+> >  * Attempt to steal a page from a pipe buffer. This should perhaps go into
+> >@@ -535,6 +536,8 @@ static int pipe_to_sendpage(struct pipe_inode_info 
+> >*pipe,
+> > 	if (!ret) {
+> > 		more = (sd->flags & SPLICE_F_MORE) || sd->len < 
+> > 		sd->total_len;
+> > 
+> >+		buf->page->lru.next = (void *)pipe;
+> >  
+> is it really allowed here, are you the only user ot this page ?
 
-Please, if possible use a kernel version where my today applied tcp fixes 
-are in, ie., at least DaveM's net-2.6 already has them, I didn't check if 
-Linus has pulled them in yet.
+Yes, it should be safe - afaics no slab pages or slab allocated data are
+allowed in ->sendpage() (there is even BUG_ON() somewhere in
+tcp_sendpage()/release code), so both lru pointers can be reused.
 
 -- 
- i.
+	Evgeniy Polyakov
