@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 2.6.25] BNX2X: Correct bringing chip out of reset
-Date: Wed, 09 Apr 2008 15:23:29 -0700 (PDT)
-Message-ID: <20080409.152329.173321785.davem@davemloft.net>
+Date: Wed, 09 Apr 2008 15:26:29 -0700 (PDT)
+Message-ID: <20080409.152629.24175116.davem@davemloft.net>
 References: <1207475082.13326.17.camel@lb-tlvb-eliezer.il.broadcom.com>
-	<1207756187.13326.27.camel@lb-tlvb-eliezer.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: jeff@garzik.org, netdev@vger.kernel.org
 To: eliezert@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50040
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54727
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752024AbYDIWX2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 18:23:28 -0400
-In-Reply-To: <1207756187.13326.27.camel@lb-tlvb-eliezer.il.broadcom.com>
+	by vger.kernel.org with ESMTP id S1753918AbYDIW03 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 18:26:29 -0400
+In-Reply-To: <1207475082.13326.17.camel@lb-tlvb-eliezer.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: "Eliezer Tamir" <eliezert@broadcom.com>
-Date: Wed, 09 Apr 2008 18:49:47 +0300
+Date: Sun, 06 Apr 2008 12:44:42 +0300
 
-> If it is needed I will gladly resubmit the patch.
+> BNX2X: Correct bringing chip out of reset
+> 
+> Fixed bug: Wrong register was written to when bringing the chip out of reset.
+> 
+> Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
 
-Just simply, be patient.  You're not the only one with
-"critical" bug fixes in the queue.
+Applied, Mr. Impatient.
 
+I had to bump the driver version and release date, please
+always do this in your patches especially when making
+bug fixes of this magnitude.
