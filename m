@@ -1,57 +1,87 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [ANN] WiMAX stack and drivers for Intel WiMAX Link 5050
-Date: Wed, 9 Apr 2008 22:31:38 +0200
-Message-ID: <20080409203138.GH30885@one.firstfloor.org>
-References: <200804011107.38563.inaky@linux.intel.com> <200804081359.03611.inaky@linux.intel.com> <871w5fpnhs.fsf@basil.nowhere.org> <200804091109.25265.inaky@linux.intel.com>
+From: Frans Pop <elendil@planet.nl>
+Subject: Re: [patch] e1000=y && e1000e=m regression fix (was:
+	Re: [regression] e1000e broke e1000)
+Date: Wed, 9 Apr 2008 22:49:20 +0200
+Message-ID: <200804092249.23111.elendil@planet.nl>
+References: <20080408083606.GA20863@elte.hu> <47FB9ABB.9080403@intel.com>
+	<20080408183921.GA20803@elte.hu>
+	<20080408193245.GG11962@parisc-linux.org>
+	<20080408195123.GA28148@elte.hu> <47FBCE00.2020309@garzik.org>
+	<20080408200652.GC28148@elte.hu> <47FBD34A.6080508@garzik.org>
+	<20080408203314.GA28952@elte.hu> <47FBDBE9.9040700@garzik.org>
+	<47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	Inaky Perez-Gonzalez
-	<public-inaky-VuQAYsv1563Yd54FQh9/CA@hugh.gmane.org>,
-	Stephen Hemminger
-	<public-stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@hugh.gmane.org>,
-	public-wimax-BPSAo7wm5JOHVYUYWc+uSQ@hugh.gmane.org,
-	public-linux-wireless-u79uwXL29TY76Z2rM5mHXA@hugh.gmane.org,
-	public-netdev-u79uwXL29TY76Z2rM5mHXA@hugh.gmane.org,
-	public-linux-kernel-u79uwXL29TY76Z2rM5mHXA@hugh.gmane.org
-To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from blaine.gmane.org ([80.91.229.8]:52263 "EHLO hugh.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753381AbYDIU10 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Apr 2008 16:27:26 -0400
-Received: from public by hugh.gmane.org with local (Exim 4.63)
-	(envelope-from <public@hugh.gmane.org>)
-	id 1Jjgt7-0005ag-BF
-	for netdev@vger.kernel.org; Wed, 09 Apr 2008 22:27:21 +0200
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: auke-jan.h.kok@intel.com, jeff@garzik.org, matthew@wil.cx,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	bruce.w.allan@intel.com, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, rjw@sisk.pl, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, arjan@linux.intel.com, greg@kroah.com,
+	linux-pci@atrey.karlin.mff.cuni.cz, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-reply-To: <20080409193850.GA11763@elte.hu>
 Content-Disposition: inline
-In-Reply-To: <200804091109.25265.inaky@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-
-
-On Wed, Apr 09, 2008 at 11:09:24AM -0700, Inaky Perez-Gonzalez wrote:
-> On Tuesday 08 April 2008, Andi Kleen wrote:
+Ingo Molnar wrote:
+> Subject: e1000=y && e1000e=m regression fix
+> From: Ingo Molnar <mingo@elte.hu>
+> Date: Wed Apr 09 21:09:35 CEST 2008
 > 
-> > > version: I anticipate the wimax API exported to user space is
-> > > going to undergo a lot of changes while we all agree on what
-> > > is the best interface. Because things might break, I want to
-> > > make sure user space stuff can detect that and fail cleanly. 
-> > > Hence the versioning. 
-> > 
-> > It's still a bad way to do that (I agree with Stephen on that).
-> > Was also always a mess on wireless.
-> > 
-> > If you don't want expandable TLAs another better alternative to 
-> > versions is ext2 style compatible/incompatible feature bitmaps.
+> fix a regression from v2.6.24: do not transfer the e1000e PCI IDs from
+> e1000 to e1000e if e1000 is built-in and e1000e is a module.
 > 
-> Ain't that another way of saying versions? Sorry guys, but I am 
+> Built-in drivers take precedence over modules in many ways - and in this
+> case it's clear that the user intended the e1000 driver to be the
+> primary one. "Silently change behavior and break existing configs" is
+> never a good migration strategy. Most users will use distro kernels that
+> are not affected by this problem at all - nor are they affected by this
+> patch - but this problem can hit users and developers who build their
+> kernels themselves and migrate from v2.6.24 to v2.6.25.
+> 
+> this fixes: http://bugzilla.kernel.org/show_bug.cgi?id=10427
+> 
+> Signed-off-by: Ingo Molnar <mingo@elte.hu>
 
-It's a related way, but an actually sane way.
+Speaking as someone who's mostly (guestimated at 97% ;-) a user, I'd be in 
+favor of a patch like this.
 
-With compat/incompat bitmaps user space can actually make a educated
-decision if it should fail or not
+The scenario I have in mind that would lead to exactly the situation Ingo is 
+trying to solve is this:
+Fairly experienced user wants a kernel which supports his hardware without 
+having to load modules, but wants other modules available "just in case".
+So he takes his distro kernel and selectively changes some modules to 
+built-ins, including e1000.
+Next he upgrades to 2.6.25 and finds his NIC no longer works. Files bug 
+reports all over the place and loads of people waste valuable time trying 
+to help him. I doubt any of the people trying to help (who are trying to do 
+so without access to the hardware) will soon think of this scenario. It's 
+much more likely they'll get stuck on "but e1000e is available as a module, 
+so it should get loaded, right".
+Maybe, just very maybe, someone, in an act of desperation will say "ok, try 
+compiling in the module, see if that works".
 
--Andi
+Or maybe they will stumble on this thread at some point. Anyway, I 
+completely agree with Ingo that it would be really nice if all the wasted 
+time and frustration could just be avoided.
 
+Cheers,
+FJP
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
+Don't miss this year's exciting event. There's still time to save $100. 
+Use priority code J8TL2D2. 
+http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
