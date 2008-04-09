@@ -1,41 +1,56 @@
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: Re: [PATCH 2.6.25] BNX2X: Correct bringing chip out of reset
-Date: Wed, 09 Apr 2008 18:49:47 +0300
-Message-ID: <1207756187.13326.27.camel@lb-tlvb-eliezer.il.broadcom.com>
-References: <1207475082.13326.17.camel@lb-tlvb-eliezer.il.broadcom.com>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: [patch] NET: remove support for Davicom 9102 from the Tulip
+	driver
+Date: Wed, 9 Apr 2008 09:54:39 -0600
+Message-ID: <20080409155439.GA1624@colo.lackof.org>
+References: <Pine.SOC.4.64.0804031209540.2017@math.ut.ee> <47F69FBE.3020308@garzik.org> <20080404232650.GE27826@colo.lackof.org> <Pine.SOC.4.64.0804071726210.29033@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	Jeff Garzik <jeff@garzik.org>, cebbert@redhat.com,
+	netdev@vger.kernel.org
+To: Meelis Roos <mroos@linux.ee>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2292 "EHLO mms2.broadcom.com"
+Received: from colo.lackof.org ([198.49.126.79]:38134 "EHLO colo.lackof.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753879AbYDIPt6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Apr 2008 11:49:58 -0400
-In-Reply-To: <1207475082.13326.17.camel@lb-tlvb-eliezer.il.broadcom.com>
+	id S1752076AbYDIPyv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Apr 2008 11:54:51 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.SOC.4.64.0804071726210.29033@math.ut.ee>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Sun, 2008-04-06 at 02:44 -0700, Eliezer Tamir wrote:
-> BNX2X: Correct bringing chip out of reset
+On Mon, Apr 07, 2008 at 05:28:03PM +0300, Meelis Roos wrote:
+> > jeff and davem already answered the basic SROM/MAC address issue.
+> > Patches to fix this are associated with
+> > 	http://bugzilla.kernel.org/show_bug.cgi?id=9106
 > 
-> Fixed bug: Wrong register was written to when bringing the chip out of
-> reset.
+> > >> I happent to have a Sun Fire V100 with 2 Davicom NICs (1282:9102 (rev 
+> > >> 31)).
+> > >> tulip driver works for them, dmfe doesn't.
+> > 
+> > This experience doesn't agree with the bug report.
+> > Meelis, can you please take a look at the bug report and add comments?
 > 
-I know that everyone has a huge backlog because of the recent problems
-with vger.
+> Comments added.
 
-Is is very important that this patch makes it into 2.6.25, since the bug
-that it solves can be very painful on one hand, and on the other it is
-very hard to trace. 
-If you load the driver a second time without a full power down you will
-not see any problem.
+thanks!
+I saw the comments were added but haven't read them yet.
 
-If it is needed I will gladly resubmit the patch.
+> > We tried (b) but didn't get it working on V100 previously.
+> > Several patches are attached to the bug report.
+> 
+> There was one patch (for getting the MAC from OpenFirmware) but as 
+> people reported that the Tx timeouts still happen, I didn't try it. Any 
+> reason to try?
 
-Thanks
-Eliezer
+Documenting the configuration that does work is the only reason.
+I don't think pursueing dmfe is worthwhile if in general tulip driver
+is expected to work.
 
+thanks,
+grant
 
+> 
+> -- 
+> Meelis Roos (mroos@linux.ee)
