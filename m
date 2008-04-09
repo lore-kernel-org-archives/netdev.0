@@ -1,87 +1,112 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: [patch] e1000=y && e1000e=m regression fix (was:
-	Re: [regression] e1000e broke e1000)
-Date: Wed, 9 Apr 2008 22:49:20 +0200
-Message-ID: <200804092249.23111.elendil@planet.nl>
-References: <20080408083606.GA20863@elte.hu> <47FB9ABB.9080403@intel.com>
-	<20080408183921.GA20803@elte.hu>
-	<20080408193245.GG11962@parisc-linux.org>
-	<20080408195123.GA28148@elte.hu> <47FBCE00.2020309@garzik.org>
-	<20080408200652.GC28148@elte.hu> <47FBD34A.6080508@garzik.org>
-	<20080408203314.GA28952@elte.hu> <47FBDBE9.9040700@garzik.org>
-	<47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu>
+From: Paul Moore <paul.moore@hp.com>
+Subject: [RFC PATCH v2 1/2] NetLabel: Allow passing the LSM domain as a shared
+	pointer
+Date: Wed, 09 Apr 2008 16:50:39 -0400
+Message-ID: <20080409205039.26774.50884.stgit@flek.lan>
+References: <20080409204936.26774.55254.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, jeff@garzik.org, matthew@wil.cx,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	bruce.w.allan@intel.com, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, rjw@sisk.pl, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com, arjan@linux.intel.com, greg@kroah.com,
-	linux-pci@atrey.karlin.mff.cuni.cz, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-reply-To: <20080409193850.GA11763@elte.hu>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+To: linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20080409204936.26774.55254.stgit@flek.lan>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ingo Molnar wrote:
-> Subject: e1000=y && e1000e=m regression fix
-> From: Ingo Molnar <mingo@elte.hu>
-> Date: Wed Apr 09 21:09:35 CEST 2008
-> 
-> fix a regression from v2.6.24: do not transfer the e1000e PCI IDs from
-> e1000 to e1000e if e1000 is built-in and e1000e is a module.
-> 
-> Built-in drivers take precedence over modules in many ways - and in this
-> case it's clear that the user intended the e1000 driver to be the
-> primary one. "Silently change behavior and break existing configs" is
-> never a good migration strategy. Most users will use distro kernels that
-> are not affected by this problem at all - nor are they affected by this
-> patch - but this problem can hit users and developers who build their
-> kernels themselves and migrate from v2.6.24 to v2.6.25.
-> 
-> this fixes: http://bugzilla.kernel.org/show_bug.cgi?id=10427
-> 
-> Signed-off-by: Ingo Molnar <mingo@elte.hu>
+Smack doesn't have the need to create a private copy of the LSM "domain" when
+setting NetLabel security attributes like SELinux, however, the current
+NetLabel code requires a private copy of the LSM "domain".  This patches fixes
+that by letting the LSM determine how it wants to pass the domain value.
 
-Speaking as someone who's mostly (guestimated at 97% ;-) a user, I'd be in 
-favor of a patch like this.
+ * NETLBL_SECATTR_DOMAIN_CPY
+   The current behavior, NetLabel assumes that the domain value is a copy and
+   frees it when done
 
-The scenario I have in mind that would lead to exactly the situation Ingo is 
-trying to solve is this:
-Fairly experienced user wants a kernel which supports his hardware without 
-having to load modules, but wants other modules available "just in case".
-So he takes his distro kernel and selectively changes some modules to 
-built-ins, including e1000.
-Next he upgrades to 2.6.25 and finds his NIC no longer works. Files bug 
-reports all over the place and loads of people waste valuable time trying 
-to help him. I doubt any of the people trying to help (who are trying to do 
-so without access to the hardware) will soon think of this scenario. It's 
-much more likely they'll get stuck on "but e1000e is available as a module, 
-so it should get loaded, right".
-Maybe, just very maybe, someone, in an act of desperation will say "ok, try 
-compiling in the module, see if that works".
+ * NETLBL_SECATTR_DOMAIN
+   New, Smack-friendly behavior, NetLabel assumes that the domain value is a
+   reference to a string managed by the LSM and does not free it when done
 
-Or maybe they will stumble on this thread at some point. Anyway, I 
-completely agree with Ingo that it would be really nice if all the wasted 
-time and frustration could just be avoided.
+Signed-off-by: Paul Moore <paul.moore@hp.com>
+---
 
-Cheers,
-FJP
+ include/net/netlabel.h         |   14 ++++++++++----
+ security/selinux/ss/services.c |    2 +-
+ security/smack/smack_lsm.c     |    2 +-
+ 3 files changed, 12 insertions(+), 6 deletions(-)
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
-Don't miss this year's exciting event. There's still time to save $100. 
-Use priority code J8TL2D2. 
-http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
+diff --git a/include/net/netlabel.h b/include/net/netlabel.h
+index 0ca67d7..5e53a85 100644
+--- a/include/net/netlabel.h
++++ b/include/net/netlabel.h
+@@ -162,7 +162,7 @@ struct netlbl_lsm_secattr_catmap {
+ 
+ /**
+  * struct netlbl_lsm_secattr - NetLabel LSM security attributes
+- * @flags: indicate which attributes are contained in this structure
++ * @flags: indicate structure attributes, see NETLBL_SECATTR_*
+  * @type: indicate the NLTYPE of the attributes
+  * @domain: the NetLabel LSM domain
+  * @cache: NetLabel LSM specific cache
+@@ -180,17 +180,22 @@ struct netlbl_lsm_secattr_catmap {
+  * NetLabel itself when returning security attributes to the LSM.
+  *
+  */
++struct netlbl_lsm_secattr {
++	u32 flags;
++	/* bitmap values for 'flags' */
+ #define NETLBL_SECATTR_NONE             0x00000000
+ #define NETLBL_SECATTR_DOMAIN           0x00000001
++#define NETLBL_SECATTR_DOMAIN_CPY       (NETLBL_SECATTR_DOMAIN | \
++					 NETLBL_SECATTR_FREE_DOMAIN)
+ #define NETLBL_SECATTR_CACHE            0x00000002
+ #define NETLBL_SECATTR_MLS_LVL          0x00000004
+ #define NETLBL_SECATTR_MLS_CAT          0x00000008
+ #define NETLBL_SECATTR_SECID            0x00000010
++	/* bitmap meta-values for 'flags' */
++#define NETLBL_SECATTR_FREE_DOMAIN      0x01000000
+ #define NETLBL_SECATTR_CACHEABLE        (NETLBL_SECATTR_MLS_LVL | \
+ 					 NETLBL_SECATTR_MLS_CAT | \
+ 					 NETLBL_SECATTR_SECID)
+-struct netlbl_lsm_secattr {
+-	u32 flags;
+ 	u32 type;
+ 	char *domain;
+ 	struct netlbl_lsm_cache *cache;
+@@ -303,7 +308,8 @@ static inline void netlbl_secattr_init(struct netlbl_lsm_secattr *secattr)
+  */
+ static inline void netlbl_secattr_destroy(struct netlbl_lsm_secattr *secattr)
+ {
+-	kfree(secattr->domain);
++	if (secattr->flags & NETLBL_SECATTR_FREE_DOMAIN)
++		kfree(secattr->domain);
+ 	if (secattr->flags & NETLBL_SECATTR_CACHE)
+ 		netlbl_secattr_cache_free(secattr->cache);
+ 	if (secattr->flags & NETLBL_SECATTR_MLS_CAT)
+diff --git a/security/selinux/ss/services.c b/security/selinux/ss/services.c
+index 3f2bad2..5fd54f2 100644
+--- a/security/selinux/ss/services.c
++++ b/security/selinux/ss/services.c
+@@ -2651,7 +2651,7 @@ int security_netlbl_sid_to_secattr(u32 sid, struct netlbl_lsm_secattr *secattr)
+ 		goto netlbl_sid_to_secattr_failure;
+ 	secattr->domain = kstrdup(policydb.p_type_val_to_name[ctx->type - 1],
+ 				  GFP_ATOMIC);
+-	secattr->flags |= NETLBL_SECATTR_DOMAIN;
++	secattr->flags |= NETLBL_SECATTR_DOMAIN_CPY;
+ 	mls_export_netlbl_lvl(ctx, secattr);
+ 	rc = mls_export_netlbl_cat(ctx, secattr);
+ 	if (rc != 0)
+diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
+index 732ba27..e2d6f7c 100644
+--- a/security/smack/smack_lsm.c
++++ b/security/smack/smack_lsm.c
+@@ -1275,7 +1275,7 @@ static void smack_to_secattr(char *smack, struct netlbl_lsm_secattr *nlsp)
+ 
+ 	switch (smack_net_nltype) {
+ 	case NETLBL_NLTYPE_CIPSOV4:
+-		nlsp->domain = kstrdup(smack, GFP_ATOMIC);
++		nlsp->domain = smack;
+ 		nlsp->flags = NETLBL_SECATTR_DOMAIN | NETLBL_SECATTR_MLS_LVL;
+ 
+ 		rc = smack_to_cipso(smack, &cipso);
+
