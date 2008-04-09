@@ -1,57 +1,36 @@
-From: Gertjan Hofman <gertjan_hofman@yahoo.com>
-Subject: VLAN & ARP requests fail for ARM EABI (2.6.24)
-Date: Wed, 9 Apr 2008 15:06:48 -0700 (PDT)
-Message-ID: <293225.82676.qm@web32605.mail.mud.yahoo.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-2.6.26 2008-04-08
+Date: Wed, 09 Apr 2008 15:19:58 -0700 (PDT)
+Message-ID: <20080409.151958.240894682.davem@davemloft.net>
+References: <20080408211043.GA17197@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web32605.mail.mud.yahoo.com ([68.142.207.232]:40101 "HELO
-	web32605.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754052AbYDIWNa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 18:13:30 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56433
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752465AbYDIWT5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 18:19:57 -0400
+In-Reply-To: <20080408211043.GA17197@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Sirs,
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Tue, 8 Apr 2008 17:10:43 -0400
 
-Since the VLAN mailing list is closed, its author suggested I post here. 
-We have an ARM920T processor based system. When compiling the kernel 2.6.24 using OABI (and appropiate 4.1.1 cross toolchain), VLAN functionality is fine. When setting the CONFIG_EABI flag and using  the 4.2.2 toolchain (created by the OpenEmbedded project) a VLAN device fails to respond.
+> Another week, another 50+ patches for 2.6.26...
+> 
+> There are the usual libertas, iwlwifi, and b43 (and ssb) updates, plus a
+> few other fixes for issues already in net-2.6.26.  There is also some
+> movement of files to more convenient places or names.
+> 
+> Please let me know if there are problems!
 
-When pinging through the ARM VLAN device to a (PC based) VLAN device, the following is seen in the vlan driver:
-The ping request is sent out, followed by an ARP request. The PC returns the ARP reply and it is seen by the VLAN driver (vlan_skb_recv) which calls netif_rx(). This repeats a couple of pings later i.e. the arp reply is not used or received properly.
+Pulled, thanks.
 
-Similarly, when pinging from the PC, the ARP request is seen by vlan_skb_recv() but there is no ARP reply from the ARM cascading through the vlan driver.
+I'll push it out to net-2.6.26 after some basic build validations
+pass.
 
-It seems to me that either the issue is with the code that handles the ARP request when compiling in EABI format, or that VLAN doesnt process the frame properly and sends it on incorrectly. Recompile the kernel with OABI and everything is fine.
-
-Note that communication works fine on either OABI or EABI when using 'normal' devices (eth0 etc). This puts the suspicion back on vlan.
-
-
-Since EABI changes structure packing and other things, I suspect the cause is some networking code that knows a bit too much about its size & packing.
-
-I am happy to troubleshoot, but I am no kernel expert. Tips would be appreciated. Like how to dump the sbk buffer in both cases..
-
-Sincerely,
-
-Gertjan
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-__________________________________________________
-Do You Yahoo!?
-Tired of spam?  Yahoo! Mail has the best spam protection around 
-http://mail.yahoo.com 
+Thanks again John!
