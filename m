@@ -1,36 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6.26 2008-04-08
-Date: Wed, 09 Apr 2008 15:19:58 -0700 (PDT)
-Message-ID: <20080409.151958.240894682.davem@davemloft.net>
-References: <20080408211043.GA17197@tuxdriver.com>
+Subject: Re: [PATCH 2.6.25] BNX2X: Correct bringing chip out of reset
+Date: Wed, 09 Apr 2008 15:23:29 -0700 (PDT)
+Message-ID: <20080409.152329.173321785.davem@davemloft.net>
+References: <1207475082.13326.17.camel@lb-tlvb-eliezer.il.broadcom.com>
+	<1207756187.13326.27.camel@lb-tlvb-eliezer.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: eliezert@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56433
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50040
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752465AbYDIWT5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 18:19:57 -0400
-In-Reply-To: <20080408211043.GA17197@tuxdriver.com>
+	by vger.kernel.org with ESMTP id S1752024AbYDIWX2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 18:23:28 -0400
+In-Reply-To: <1207756187.13326.27.camel@lb-tlvb-eliezer.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 8 Apr 2008 17:10:43 -0400
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Date: Wed, 09 Apr 2008 18:49:47 +0300
 
-> Another week, another 50+ patches for 2.6.26...
-> 
-> There are the usual libertas, iwlwifi, and b43 (and ssb) updates, plus a
-> few other fixes for issues already in net-2.6.26.  There is also some
-> movement of files to more convenient places or names.
-> 
-> Please let me know if there are problems!
+> If it is needed I will gladly resubmit the patch.
 
-Pulled, thanks.
+Just simply, be patient.  You're not the only one with
+"critical" bug fixes in the queue.
 
-I'll push it out to net-2.6.26 after some basic build validations
-pass.
-
-Thanks again John!
