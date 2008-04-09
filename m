@@ -1,52 +1,59 @@
-From: Soeren Sonnenburg <kernel@nn7.de>
-Subject: Re: [PATCHv2 net-2.6 0/4 (was 0/3)]: TCP fixes
-Date: Wed, 09 Apr 2008 07:56:18 +0200
-Message-ID: <1207720578.9487.37.camel@localhost>
-References: <1207569344-19687-1-git-send-email-ilpo.jarvinen@helsinki.fi>
-	 <Pine.LNX.4.64.0804080050060.20948@wrl-59.cs.helsinki.fi>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [ANN] WiMAX stack and drivers for Intel WiMAX Link 5050
+Date: Wed, 09 Apr 2008 08:10:23 +0200
+Message-ID: <871w5fpnhs.fsf__3820.35947773165$1207723096$gmane$org@basil.nowhere.org>
+References: <200804011107.38563.inaky@linux.intel.com>
+	<20080408135601.5dad3566@speedy>
+	<200804081359.03611.inaky@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Rafael J\. Wysocki" <rjw@sisk.pl>,
-	"Robin H\. Johnson" <robbat2@gentoo.org>,
-	Georgi Chorbadzhiyski <gf@unixsol.org>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	Alessandro Suardi <alessandro.suardi@gmail.com>
-To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger
+	<public-stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@hugh.gmane.org>,
+	public-wimax-BPSAo7wm5JOHVYUYWc+uSQ@hugh.gmane.org,
+	public-linux-wireless-u79uwXL29TY76Z2rM5mHXA@hugh.gmane.org,
+	public-netdev-u79uwXL29TY76Z2rM5mHXA@hugh.gmane.org,
+	public-linux-kernel-u79uwXL29TY76Z2rM5mHXA@hugh.gmane.org
+To: Inaky Perez-Gonzalez
+	<public-inaky-VuQAYsv1563Yd54FQh9/CA@hugh.gmane.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nn7.de ([85.214.94.156]:44965 "EHLO nn7.de"
+Received: from blaine.gmane.org ([80.91.229.8]:42071 "EHLO hugh.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751594AbYDIF5L convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 01:57:11 -0400
-In-Reply-To: <Pine.LNX.4.64.0804080050060.20948@wrl-59.cs.helsinki.fi>
+	id S1752843AbYDIGhR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Apr 2008 02:37:17 -0400
+Received: from public by hugh.gmane.org with local (Exim 4.63)
+	(envelope-from <public@hugh.gmane.org>)
+	id 1JjTWM-0007lW-Ov
+	for netdev@vger.kernel.org; Wed, 09 Apr 2008 08:10:58 +0200
+In-Reply-To: <200804081359.03611.inaky@linux.intel.com> (Inaky Perez-Gonzalez's message of "Tue, 8 Apr 2008 13:59:03 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-04-08 at 00:59 +0300, Ilpo J=E4rvinen wrote:
-> On Mon, 7 Apr 2008, Ilpo J=E4rvinen wrote:
->=20
-> > Ok, here's the v2 series=20
->=20
-> [...snip...]
->=20
-> > ...So far, they're just compile tested. I'll see if I find some tim=
-e
-> > to boot them on the evening.
->=20
-> $ uptime
->  00:53:23 up  1:20,  6 users,  load average: 0.54, 0.22, 0.13
->=20
-> ...some torrent & browsing, mainly with tso & tcp_sack =3D 0. Didn't =
-hit=20
-> any problems with it (I had my debug patch in as well).
 
-I've applied the 4 patches and created massive network load over the
-last 12 hours - the problem did not re-appear and the machine is still
-alive and kicking.
 
-So I guess you've fixed it :-)
-Soeren.
+Inaky Perez-Gonzalez <inaky-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> writes:
+>
+> There is almost no inlining because each X only does stuff from itself. If
+> there is a need for inlined stuff (I missed it) it should go to one of the
+> header files --internal or external.
+
+Inlining gets more and more discouraged. Also longer term I would 
+expect that gcc will do inlining over files anyways (it already supports
+that, but needs special support in the Makefiles which the kernel
+doesn't have). So even with inlining you wouldn't need to merge files
+or move code into headers.
+
+> version: I anticipate the wimax API exported to user space is
+> going to undergo a lot of changes while we all agree on what
+> is the best interface. Because things might break, I want to
+> make sure user space stuff can detect that and fail cleanly. 
+> Hence the versioning. 
+
+It's still a bad way to do that (I agree with Stephen on that).
+Was also always a mess on wireless.
+
+If you don't want expandable TLAs another better alternative to 
+versions is ext2 style compatible/incompatible feature bitmaps.
+
+-Andi
+
+
