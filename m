@@ -1,69 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Andi Kleen <andi@firstfloor.org>
 Subject: Re: [PATCH] Stochastic Fair Blue queue discipline
-Date: Wed, 09 Apr 2008 18:00:38 +0200
-Message-ID: <47FCE826.2030106@trash.net>
-References: <87skxxb8br.fsf@pirx.pps.jussieu.fr>	<873apwrc4t.fsf@basil.nowhere.org> <47FB60EF.1080004@trash.net>	<7iy77o9wzb.fsf@lanthane.pps.jussieu.fr> <47FB9315.5030109@trash.net> <7ifxtvghaz.fsf@lanthane.pps.jussieu.fr>
+Date: Wed, 9 Apr 2008 19:49:54 +0200
+Message-ID: <20080409174954.GD30885@one.firstfloor.org>
+References: <87skxxb8br.fsf@pirx.pps.jussieu.fr> <873apwrc4t.fsf@basil.nowhere.org> <7i3apwbblk.fsf@lanthane.pps.jussieu.fr> <20080408163252.GS16647@one.firstfloor.org> <7iwsn8s107.fsf@lanthane.pps.jussieu.fr> <20080408175353.GA17147@one.firstfloor.org> <7ik5j7ghgh.fsf@lanthane.pps.jussieu.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org
 To: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51789 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752783AbYDIQAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 12:00:42 -0400
-In-Reply-To: <7ifxtvghaz.fsf@lanthane.pps.jussieu.fr>
+Received: from one.firstfloor.org ([213.235.205.2]:51785 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752024AbYDIRpY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 13:45:24 -0400
+Content-Disposition: inline
+In-Reply-To: <7ik5j7ghgh.fsf@lanthane.pps.jussieu.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Juliusz Chroboczek wrote:
->>>> I'd suggest to use the flow classifier for this. For simplicity
->>>> you could attach a default classifier that uses the same keys as
->>>> this one.
+> Random32 is initialised from get_random_bytes; so the per-cpu
+> pseudo-random sequences should be uncorrelated.  I fail to see how an
+> arbitrary interleaving of uncorrelated good pseudo-random sequences
+> can fail to be good.
+
+They are not necessarily uncorreleated, especially on platforms
+which do have poor entropy support and when your initialization happens
+at boot time. Take a look at how the random pool starts in random.c.
+
 > 
->>> I'm not sure I know what you're speaking about.  Could you please
->>> point me at code somewhere?
-> 
->> Check out a recent tree (either Linus' current tree or ideally
->> the net-2.6.26.git tree from
->>
->> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.26.git
->>
->> and look at net/sched/cls_flow.c and the recent changes to
->> net/sched/sch_sfq.c for external classifiers.
-> 
-> Thanks for the pointer.  Unfortunately, it will need some changes to
-> work with sfb -- since we do double-buffering, we need some overlap
-> between the old and new classifiers when we choose to reclassify.  I'm
-> not quite sure how to do that.
+> Looking at line 448 of sch_sfq.c in Linus' current HEAD, I see that
+> somebody else thinks the same as I do.  So please let me know if sfq
+> needs fixed, or whether I can use net_random in sfb.
 
-You mean for perturbation? Yes, thats something not currently
-supported. I'd suggest to ignore this for now, I intend
-to add support, just need to figure out a way to reliably
-kill the timer on cleanup (can't use del_timer_sync since
-we're holding a lock). Shouldn't be that hard ...
+A lot of people get this wrong, but this doesn't mean that the
+problem should be readded in new code again.
 
-> Other than that, it will require some changes to sfb (which currently
-> assumes we can get an arbitrary amount of hash data for a single
-> packet, while the classifiers only give 32 bits), but these changes
-> are a good thing -- 32 bits should be enough.
-
-Actually its only (max) 16 bits, the qdisc handle is always
-encoded in the upper 16 bits. If you need more you could
-combine it with other data. I recall seeing a paper about bloom
-filters that analyzed the effectiveness of this compared to
-perfect hashing, they concluded that the increase in false
-positives is negligible.
-
-I'll see if I can find it again in case you're interested.
-
-> Would you have an example of how this stuff is configured from
-> user-space?
-
-I'm using this for per-dst hashing to 1024 classes
-(1400:1 - 1400:1025).
-
-tc filter add dev eth0 protocol ip pref 1 parent 1400: handle 1 \
-         flow hash keys dst divisor 1024 
-
+-Andi
