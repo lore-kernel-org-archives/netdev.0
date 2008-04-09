@@ -1,46 +1,55 @@
 From: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>
 Subject: Re: [PATCH] Stochastic Fair Blue queue discipline
-Date: Wed, 09 Apr 2008 17:45:34 +0200
-Message-ID: <7ik5j7ghgh.fsf@lanthane.pps.jussieu.fr>
+Date: Wed, 09 Apr 2008 17:48:52 +0200
+Message-ID: <7ifxtvghaz.fsf@lanthane.pps.jussieu.fr>
 References: <87skxxb8br.fsf@pirx.pps.jussieu.fr>
-	<873apwrc4t.fsf@basil.nowhere.org>
-	<7i3apwbblk.fsf@lanthane.pps.jussieu.fr>
-	<20080408163252.GS16647@one.firstfloor.org>
-	<7iwsn8s107.fsf@lanthane.pps.jussieu.fr>
-	<20080408175353.GA17147@one.firstfloor.org>
+	<873apwrc4t.fsf@basil.nowhere.org> <47FB60EF.1080004@trash.net>
+	<7iy77o9wzb.fsf@lanthane.pps.jussieu.fr> <47FB9315.5030109@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shiva.jussieu.fr ([134.157.0.129]:63398 "EHLO shiva.jussieu.fr"
+Received: from shiva.jussieu.fr ([134.157.0.129]:50243 "EHLO shiva.jussieu.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752425AbYDIPpk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Apr 2008 11:45:40 -0400
-In-Reply-To: <20080408175353.GA17147@one.firstfloor.org> (Andi Kleen's message of "Tue\, 8 Apr 2008 19\:53\:53 +0200")
+	id S1755816AbYDIPtB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Apr 2008 11:49:01 -0400
+In-Reply-To: <47FB9315.5030109@trash.net> (Patrick McHardy's message of "Tue\, 08 Apr 2008 17\:45\:25 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> > no net_random/srandom32 is per CPU and likely does the wrong thing for you.
+>>> I'd suggest to use the flow classifier for this. For simplicity
+>>> you could attach a default classifier that uses the same keys as
+>>> this one.
 
->> Why is that?  I'm only using this to initialise a global data
->> structure, why should it matter that I use per-cpu state?
+>> I'm not sure I know what you're speaking about.  Could you please
+>> point me at code somewhere?
 
-> Because they're independent and there is no guarantee you always 
-> run on the same CPU and sampling them randomly will not necessarily
-> give you a good random number sequence.
+> Check out a recent tree (either Linus' current tree or ideally
+> the net-2.6.26.git tree from
+>
+> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.26.git
+>
+> and look at net/sched/cls_flow.c and the recent changes to
+> net/sched/sch_sfq.c for external classifiers.
 
-I'm sorry to be such a pain, but I still don't understand.
+Thanks for the pointer.  Unfortunately, it will need some changes to
+work with sfb -- since we do double-buffering, we need some overlap
+between the old and new classifiers when we choose to reclassify.  I'm
+not quite sure how to do that.
 
-Random32 is initialised from get_random_bytes; so the per-cpu
-pseudo-random sequences should be uncorrelated.  I fail to see how an
-arbitrary interleaving of uncorrelated good pseudo-random sequences
-can fail to be good.
+Other than that, it will require some changes to sfb (which currently
+assumes we can get an arbitrary amount of hash data for a single
+packet, while the classifiers only give 32 bits), but these changes
+are a good thing -- 32 bits should be enough.
 
-Looking at line 448 of sch_sfq.c in Linus' current HEAD, I see that
-somebody else thinks the same as I do.  So please let me know if sfq
-needs fixed, or whether I can use net_random in sfb.
+Would you have an example of how this stuff is configured from
+user-space?
 
-Thanks,
+> There are also a number of other incompatible changes that your
+> patch needs to be adapter to, most importantly the use of the new
+> netlink infrastructure.
+
+Done, thanks for the pointer.
 
                                         Juliusz
