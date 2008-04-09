@@ -1,52 +1,44 @@
-From: Roel Kluin <12o3l@tiscali.nl>
-Subject: [PATCH] smc911x: test after postfix decrement fails in smc911x_{reset,drop_pkt}
-Date: Wed, 09 Apr 2008 11:53:46 +0200
-Message-ID: <47FC922A.6030309@tiscali.nl>
+From: Jens Axboe <jens.axboe@oracle.com>
+Subject: Re: [take 2] Fix for the fundamental network/block layer race in sendfile().
+Date: Wed, 9 Apr 2008 13:33:21 +0200
+Message-ID: <20080409113321.GK12774@kernel.dk>
+References: <20080328092036.GA11924@2ka.mipt.ru> <20080328.134053.122172549.davem@davemloft.net> <20080328205613.GA24812@2ka.mipt.ru> <20080328.140736.92315090.davem@davemloft.net> <20080328215131.GB24812@2ka.mipt.ru> <20080401164904.GA2382@2ka.mipt.ru> <20080408122545.GA31729@2ka.mipt.ru> <47FB6C03.3070708@cosmosbay.com> <20080408172652.GA4877@2ka.mipt.ru> <20080408213054.GA8791@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>
-To: nico@cam.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out3.tiscali.nl ([195.241.79.178]:49542 "EHLO
-	smtp-out3.tiscali.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751416AbYDIJzL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 05:55:11 -0400
+Received: from brick.kernel.dk ([87.55.233.238]:3290 "EHLO kernel.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752864AbYDILd0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Apr 2008 07:33:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20080408213054.GA8791@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When timeout reaches 0 the postfix decrement still subtracts, so the test fails
+On Wed, Apr 09 2008, Evgeniy Polyakov wrote:
+> On Tue, Apr 08, 2008 at 09:26:52PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> > >    Unless I mistaken, you store in page->lru.next some info to find 
+> > > your pipe pointer, assuming it is unique for this page.
+> > > 
+> > > What happens if two threads are doing a splice()/sendfile() using the 
+> > > same underlying (source) file (and same pages in this file)
+> > 
+> > Page will be referenced twice (for each thread) and each thread will
+> > have own pipe_inode_info structure, so each one will sleep on own wait
+> > queue and will be awakened separately, where its release counter will be
+> > dropped.
+> 
+> I was wrong, here will be a problem - page can be shared between multiple
+> threads, since it is unlocked after putting it into page cache, so it is
+> not allowed to put into it some per-thread private data.
 
-Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
----
-diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
-index 76cc1d3..2126d24 100644
---- a/drivers/net/smc911x.c
-+++ b/drivers/net/smc911x.c
-@@ -243,7 +243,7 @@ static void smc911x_reset(struct net_device *dev)
- 		do {
- 			udelay(10);
- 			reg = SMC_GET_PMT_CTRL() & PMT_CTRL_READY_;
--		} while ( timeout-- && !reg);
-+		} while ( --timeout && !reg);
- 		if (timeout == 0) {
- 			PRINTK("%s: smc911x_reset timeout waiting for PM restore\n", dev->name);
- 			return;
-@@ -267,7 +267,7 @@ static void smc911x_reset(struct net_device *dev)
- 				resets++;
- 				break;
- 			}
--		} while ( timeout-- && (reg & HW_CFG_SRST_));
-+		} while ( --timeout && (reg & HW_CFG_SRST_));
- 	}
- 	if (timeout == 0) {
- 		PRINTK("%s: smc911x_reset timeout waiting for reset\n", dev->name);
-@@ -413,7 +413,7 @@ static inline void smc911x_drop_pkt(struct net_device *dev)
- 		do {
- 			udelay(10);
- 			reg = SMC_GET_RX_DP_CTRL() & RX_DP_CTRL_FFWD_BUSY_;
--		} while ( timeout-- && reg);
-+		} while ( --timeout && reg);
- 		if (timeout == 0) {
- 			PRINTK("%s: timeout waiting for RX fast forward\n", dev->name);
- 		}
+Threads or not, it does not matter. Even simpler, the same page could be
+in multiple pipes. So that trick definitely will not work at all.
+
+-- 
+Jens Axboe
+
