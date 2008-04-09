@@ -1,54 +1,66 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: [TOMOYO #7 30/30] Hooks for SAKURA and TOMOYO.
-Date: Wed, 09 Apr 2008 09:26:26 -0400
-Message-ID: <1207747586.21223.413.camel@moss-spartans.epoch.ncsc.mil>
-References: <20080404122242.867070732@I-love.SAKURA.ne.jp>
-	 <20080404122408.986477936@I-love.SAKURA.ne.jp>
-	 <200804071140.59247.paul.moore@hp.com> <47FC8052.9070409@nttdata.co.jp>
-	 <20080409131151.GK11962@parisc-linux.org>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][SCTP]: IPv4 vs IPv6 addresses mess in sctp_inet[6]addr_event.
+Date: Wed, 09 Apr 2008 18:46:15 +0400
+Message-ID: <47FCD6B7.8070609@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Toshiharu Harada <haradats@nttdata.co.jp>,
-	Paul Moore <paul.moore@hp.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Kentaro Takeda <takedakn@nttdata.co.jp>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Matthew Wilcox <matthew@wil.cx>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20080409131151.GK11962@parisc-linux.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	lksctp-developers@lists.sourceforge.net, devel@openvz.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:32795 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752020AbYDIOWI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Apr 2008 10:22:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+All IP addresses that are present in a system are duplicated on 
+struct sctp_sockaddr_entry. They are linked in the global list
+called sctp_local_addr_list. And this struct unions IPv4 and IPv6 
+addresses.
 
-On Wed, 2008-04-09 at 07:11 -0600, Matthew Wilcox wrote:
-> On Wed, Apr 09, 2008 at 05:37:38PM +0900, Toshiharu Harada wrote:
-> > LWN article 239962 says, "At the 2006 summit, Linus took a clear
-> > position that the use of pathnames for security policies seemed
-> > reasonable to him". Current LSM implementation is sufficient for SELinux
-> > and other label based MACs but not for pathname-based MACs.
-> > This has been argued in the AppAmor thread for quite a long time.
-> > Though proposals had been posted by AppArmor and TOMOYO Linux project,
-> > none has been merged until now.
-> 
-> How about an approach which doesn't require the vfsmount to be passed
-> down?
-> 
-> When the rule is put in place, say "No modifications to /etc/passwd",
-> look up the inode and major:minor of /etc/passwd.  If there's a rename,
-> look up the new inode number.  If it's mounted elsewhere, it doesn't
-> matter, they still can't modify it because it has the same
-> major:minor:inode.
-> 
-> Is this workable?
+So, there can be rare case, when a sockaddr_in.sin_addr coincides
+with the corresponding part of the sockaddr_in6 and the notifier
+for IPv4 will carry away an IPv6 entry.
 
-Sounds similar to audit watches, e.g. see audit_add_watch() and
-audit_handle_ievent().  That leverages inotify internally.
+The fix is to check the family before comparing the addresses.
 
--- 
-Stephen Smalley
-National Security Agency
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index b1e05d7..85f1495 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -110,8 +110,9 @@ static int sctp_inet6addr_event(struct notifier_block *this, unsigned long ev,
+ 		spin_lock_bh(&sctp_local_addr_lock);
+ 		list_for_each_entry_safe(addr, temp,
+ 					&sctp_local_addr_list, list) {
+-			if (ipv6_addr_equal(&addr->a.v6.sin6_addr,
+-					     &ifa->addr)) {
++			if (addr->a.sa.sa_family == AF_INET6 &&
++					ipv6_addr_equal(&addr->a.v6.sin6_addr,
++						&ifa->addr)) {
+ 				found = 1;
+ 				addr->valid = 0;
+ 				list_del_rcu(&addr->list);
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index f90091a..c2dd65d 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -647,7 +647,9 @@ static int sctp_inetaddr_event(struct notifier_block *this, unsigned long ev,
+ 		spin_lock_bh(&sctp_local_addr_lock);
+ 		list_for_each_entry_safe(addr, temp,
+ 					&sctp_local_addr_list, list) {
+-			if (addr->a.v4.sin_addr.s_addr == ifa->ifa_local) {
++			if (addr->a.sa.sa_family == AF_INET &&
++					addr->a.v4.sin_addr.s_addr ==
++					ifa->ifa_local) {
+ 				found = 1;
+ 				addr->valid = 0;
+ 				list_del_rcu(&addr->list);
 
