@@ -1,106 +1,48 @@
-From: Mark Lord <lkml@rtr.ca>
-Subject: Re: 2.6.25-rc8: FTP transfer errors
-Date: Thu, 10 Apr 2008 17:05:11 -0400
-Message-ID: <47FE8107.4050400@rtr.ca>
-References: <47FCF9DD.6080007@rtr.ca> <20080410.023045.16227424.yoshfuji@linux-ipv6.org> <47FD138B.2060801@rtr.ca> <20080409.152933.132174258.davem@davemloft.net> <47FD590C.5020003@rtr.ca> <Pine.LNX.4.64.0804101147070.24841@wrl-59.cs.helsinki.fi>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: [patch] e1000=y && e1000e=m regression fix
+Date: Thu, 10 Apr 2008 15:20:13 -0600
+Message-ID: <47FE848D.6050700@nortel.com>
+References: <20080408203314.GA28952@elte.hu> <47FBDBE9.9040700@garzik.org> <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <200804092249.23111.elendil@planet.nl> <m363uqwpds.fsf@maximus.localdomain> <alpine.LFD.1.00.0804091838330.3143@woody.linux-foundation.org> <m34paaav7o.fsf@maximus.localdomain> <alpine.LFD.1.00.0804100724220.3143@woody.linux-foundation.org> <20080410175503.GA11440@colo.lackof.org> <20080410180412.GV11962@parisc-linux.org> <47FE5BE8.9000206@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
-	Jeff Garzik <jeff@garzik.org>, rjw@sisk.pl,
-	LKML <linux-kernel@vger.kernel.org>, linux-net@vger.kernel.org,
-	Netdev <netdev@vger.kernel.org>
-To: =?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759088AbYDJVF0@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0804101147070.24841@wrl-59.cs.helsinki.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Matthew Wilcox <matthew@wil.cx>,
+	Grant Grundler <grundler@parisc-linux.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Frans Pop <elendil@planet.nl>, Ingo Molnar <mingo@elte.hu>,
+	jeff@garzik.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	linux-pci@atrey.karlin.mff.cuni.cz, akpm@linux-foundation.org,
+	davem@davemloft.net, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, bruce.w.allan@intel.com, greg@kroah.com,
+	arjan@linux.intel.com, rjw@sisk.pl
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zcars04f.nortel.com ([47.129.242.57]:43331 "EHLO
+	zcars04f.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756548AbYDJVU3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 17:20:29 -0400
+In-Reply-To: <47FE5BE8.9000206@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ilpo J=C3=A4rvinen wrote:
-> On Wed, 9 Apr 2008, Mark Lord wrote:
->=20
->> David Miller wrote:
->>> From: Mark Lord <lkml@rtr.ca>
->>> Date: Wed, 09 Apr 2008 15:05:47 -0400
->>>
->>>> But it would be far more useful for whoever has been working on th=
-e
->>>> stack to suggest some possible/likely commits to look at instead.
->>> Personally all I see is that one side closes the socket before all
->>> data packets received have been read into the application, resultin=
-g
->>> in a (correct) reset going out.
->>>
->>> I can't think of any change we've made over the course of this
->>> release that would change behvaior in that area.
->>>
->>> So you will likely need to bisect.
->> ..
->>
->> Or I can ignore it, like the net developers, since I have a workarou=
-nd.
->> And then we'll see what other apps are broken upon 2.6.25 final rele=
-ase.
->>
->> Really, folks.  Bug reports are intended to *help* the developers,
->> not something to be thrown back in their faces.
->>
->> There do seem to have been a *lot* of changes around the tcp closing=
-/close
->> code (as I see from diff'ing 2.6.24 against latest -git).
-=2E.
-> I might help if would add netdev on cc list in case you really want t=
-o=20
-> reac net developers, otherwise they might just end up "ignoring it"..=
-=2E ;-)
-=2E.
+Kok, Auke wrote:
 
-Oh.. I didn't know about that list.  How does that differ from linux-ne=
-t ?
-(Thanks)
+> We want to move users over to e1000e, because with 2.6.26 they must (or at one
+> point in time anyway).
+> 
+> I'm all for making the move easier, but I'm really against prolonging these hacks
+> that make people just bump their noses later. If they hit the problem now instead
+> of when 2.6.26 ships, then it's all for the better IMHO.
 
->=20
->> reducing the mountain of commits to a big handful or two.
->=20
-> Those touching fin/close are mostly whitespace/move things, so I doub=
-t=20
-> that you find these useful but in case you insist, here's the list:
->
-> 056834d9f6f6eaf4cc7268569e53acab957aac27 [TCP]: cleanup tcp_{in,out}p=
-ut.c style
-> 058dc3342b71ffb3531c4f9df7c35f943f392b8d [TCP]: reduce tcp_output's i=
-ndentation levels a bit
-> 490d5046930276aae50dd16942649bfc626056f7 [TCP]: Uninline tcp_set_stat=
-e
->=20
-> In addition, there's this one (...though I have read it number of tim=
-es=20
-> through and still cannot catch something that would cause the wrongne=
-ss=20
-> you're seeing):
->=20
-> e870a8efcddaaa3da7e180b6ae21239fb96aa2bb [TCP]: Perform setting of co=
-mmon=20
-> control fields in one place
->=20
-> There's very little really on interesting side I can think of, mostly=
-=20
-> thinks are congestion control related changes... ...maybe either one =
-of=20
-> these could cause something unpleasant in some corner case:
->=20
-> bd515c3e48ececd774eb3128e81b669dbbd32637 [TCP]: Fix TSO deferring
-> 0e3a4803aa06cd7bc2cfc1d04289df4f6027640a [TCP]: Force TSO splits to M=
-SS boundaries
->=20
-> ...e.g., if the latter causes a return with zero limit under some=20
-> conditions, tso_fragment might generate, well, interesting packets an=
-d=20
-> never finish if the condition persists but.
-=2E.
+Obviously e1000e hasn't been out for long enough to become common 
+knowledge.  (Both Ingo and Linus running into the problem is probably a 
+sign...)
 
-That matches my own assessment there, too: lot's of whitespace changes,
-and not much real code difference on most paths.  Bummer.  :)
+Maybe it would make sense to have "e1000 implies setting e1000e to the 
+same as e1000" for a couple releases, so that word gets around a bit 
+more.  Then you can remove the auto-select of e1000e and anyone that 
+hasn't updated by then will get bit.
 
--ml
+Chris
