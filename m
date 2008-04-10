@@ -1,60 +1,54 @@
-From: wendy xiong <wendyx@us.ibm.com>
-Subject: [PATCH 2/2 2.6.25-rc8] ixgbe: save and restore pcie/msi state to
-	support EEH recovery
-Date: Thu, 10 Apr 2008 14:40:34 -0500
-Message-ID: <1207856434.24768.27.camel@wendyx.austin.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com,
-	jesse.brandeburg@intel.com, e1000-devel@lists.sourceforge.net
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH 3/5] [SCTP]: Remove an unused parameter from sctp_cmd_hb_timer_update
+Date: Thu, 10 Apr 2008 15:39:53 -0400
+Message-ID: <1207856394-19321-4-git-send-email-vladislav.yasevich@hp.com>
+References: <1207856394-19321-1-git-send-email-vladislav.yasevich@hp.com>
+Cc: linux-sctp@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org,
+	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:48580 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755922AbYDJTkg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2008 15:40:36 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3AJgeaH026477
-	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 15:42:40 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3AJeZMF293386
-	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 15:40:35 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3AJeZeh005659
-	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 15:40:35 -0400
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:48638 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753192AbYDJTkE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 15:40:04 -0400
+In-Reply-To: <1207856394-19321-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
 
-To enable EEH support for pci-express network adapters, pcie/msi state
-needs to be saved and restored for that adapter.
+The 'asoc' parameter to sctp_cmd_hb_timer_update() is unused, and
+we can remove it.
 
-We have tested this EEH patch with Intel 10G pci-express ixgbe adapter.
+Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ net/sctp/sm_sideeffect.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-Signed-off-by: Wendy Xiong <wendyx@us.ibm.com>
-
-
-diff -Nuarp linux-2.6.25-rc8.orig/drivers/net/ixgbe/ixgbe_main.c linux-2.6.25-rc8/drivers/net/ixgbe/ixgbe_main.c
---- linux-2.6.25-rc8.orig/drivers/net/ixgbe/ixgbe_main.c        2008-04-07 19:18:08.000000000 -0500
-+++ linux-2.6.25-rc8/drivers/net/ixgbe/ixgbe_main.c     2008-04-10 12:54:17.000000000 -0500
-@@ -2654,6 +2654,7 @@ static int __devinit ixgbe_probe(struct
-        }
-
-        pci_set_master(pdev);
-+       pci_save_state(pdev);
-
-        netdev = alloc_etherdev(sizeof(struct ixgbe_adapter));
-        if (!netdev) {
-@@ -2910,6 +2911,7 @@ static pci_ers_result_t ixgbe_io_slot_re
-                return PCI_ERS_RESULT_DISCONNECT;
-        }
-        pci_set_master(pdev);
-+       pci_restore_state(pdev);
-
-        pci_enable_wake(pdev, PCI_D3hot, 0);
-        pci_enable_wake(pdev, PCI_D3cold, 0);
-
-
-
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 5fdb623..13beed2 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -589,7 +589,6 @@ static void sctp_cmd_t3_rtx_timers_stop(sctp_cmd_seq_t *cmds,
+ 
+ /* Helper function to update the heartbeat timer. */
+ static void sctp_cmd_hb_timer_update(sctp_cmd_seq_t *cmds,
+-				     struct sctp_association *asoc,
+ 				     struct sctp_transport *t)
+ {
+ 	/* Update the heartbeat timer.  */
+@@ -1451,7 +1450,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
+ 
+ 		case SCTP_CMD_HB_TIMER_UPDATE:
+ 			t = cmd->obj.transport;
+-			sctp_cmd_hb_timer_update(commands, asoc, t);
++			sctp_cmd_hb_timer_update(commands, t);
+ 			break;
+ 
+ 		case SCTP_CMD_HB_TIMERS_STOP:
+-- 
+1.5.3.5
 
