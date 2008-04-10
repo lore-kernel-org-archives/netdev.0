@@ -1,52 +1,61 @@
-From: Bill Davidsen <davidsen@tmr.com>
-Subject: Re: [regression] e1000e broke e1000
-Date: Wed, 09 Apr 2008 20:52:05 -0400
-Message-ID: <47FD64B5.1050309@tmr.com>
-References: <47F69965.7030303@intel.com> <20080408083606.GA20863@elte.hu>	<47FB9ABB.9080403@intel.com> <20080408183921.GA20803@elte.hu>	<20080408193245.GG11962@parisc-linux.org> <20080408195123.GA28148@elte.hu>
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Subject: Re: [XFRM]: xfrm_user: fix selector family initialization
+Date: Thu, 10 Apr 2008 09:50:44 +0900
+Message-ID: <47FD6464.2000608@miyazawa.org>
+References: <47F4EB73.1040705@trash.net>	<47FBC2AF.7050508@trash.net>	<47FCE30F.8060400@trash.net> <20080409.150931.93235087.davem@davemloft.net> <47FD5B1C.3060005@miyazawa.org> <47FD5CBC.6040905@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756522AbYDJAsb@vger.kernel.org>
-In-Reply-To: <20080408195123.GA28148@elte.hu>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, pupilla@hotmail.com,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usagi004.linux-ipv6.org ([203.178.140.4]:44405 "EHLO
+	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754130AbYDJAvY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Apr 2008 20:51:24 -0400
+In-Reply-To: <47FD5CBC.6040905@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar wrote:
-> * Matthew Wilcox <matthew@wil.cx> wrote:
-> 
->> On Tue, Apr 08, 2008 at 08:39:21PM +0200, Ingo Molnar wrote:
->>> so the pure presence of the e1000e module breaks the e1000 driver. That 
->>> is a regression and a bug that should be fixed.
->> I think you've found the wrong problem ... it looks deliberate to me 
->> that enabling e1000e disables e1000 from claiming the PCI IDs (see the 
->> PCIE() macro right before the e1000_pci_tbl in 
->> drivers/net/e1000/e1000_main.c).
+Patrick McHardy wrote:
+> Kazunori MIYAZAWA wrote:
+>> David Miller wrote:
+>>> From: Patrick McHardy <kaber@trash.net>
+>>> Date: Wed, 09 Apr 2008 17:38:55 +0200
+>>>
+>>>>     [XFRM]: xfrm_user: fix selector family initialization
+>>>>         Commit df9dcb45 ([IPSEC]: Fix inter address family IPsec 
+>>>> tunnel handling)
+>>>>     broke openswan by removing the selector initialization for 
+>>>> tunnel mode
+>>>>     in case it is uninitialized.
+>>>>         This patch restores the initialization, fixing openswan, but 
+>>>> probably
+>>>>     breaking inter-family tunnels again (unknown since the patch author
+>>>>     disappeared). The correct thing for inter-family tunnels is 
+>>>> probably
+>>>>     to simply initialize the selector family explicitly.
+>>>>         Signed-off-by: Patrick McHardy <kaber@trash.net>
+>>>
+>>> I've applied this to net-2.6, thanks Patrick.
+>>>
+>>> Once we resolve how to get inter-family working without
+>>> breaking existing setups, we can put better logic back
+>>> in here.  But for now the regression is more important.
 >>
->> The question is why e1000e isn't claiming the device ...
+>> Sorry, I missed the thread.
+>> I have no idea to solve the regression.
 > 
-> because i have e1000 built-in and dont load the e1000e module at all. 
-> That worked before and doesnt work now.
 > 
-> the solution is rather straightforward: if E1000 is built-in then E1000E 
-> should be built-in as well or disabled (i.e. it should not be possible 
-> to build it as a module in that case) - because the PCI ID stealing 
-> trick now connects the two drivers unconditionally. [ If e1000 is a 
-> module then e1000e can be a module (or disabled) - this would be the 
-> most common configuration. ]
-> 
-And this would seem to break the most common means of testing a new 
-driver for existing (and working!) hardware, which is to build both 
-drivers as modules, install the new one, and if it appears to have 
-problems either remove and insert the old driver by hand, or boot 
-forcing the old driver.
+> Wouldn't explicitly initializing the SA family for
+> inter-family tunnels work?
 
-I can't be the only person who tests kernels on machines I wouldn't use 
-to build a kernel, and uses modprobe.conf to test new driver functionality.
+I guess it is same as the original Herbert's patch.
+It needs to explicitly initialize the family for inter-family tunnel.
 
--- 
-Bill Davidsen <davidsen@tmr.com>
-   "We have more to fear from the bungling of the incompetent than from
-the machinations of the wicked."  - from Slashdot
+Best regards,
+
+--
+Kazunori Miyazawa
+
