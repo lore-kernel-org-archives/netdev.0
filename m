@@ -1,7 +1,7 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 7/14][VLAN]: Tag vlan_group with device, not ifindex.
-Date: Thu, 10 Apr 2008 19:13:28 +0400
-Message-ID: <47FE2E98.1040502@openvz.org>
+Subject: [PATCH 9/14][VLAN]: Add net argument to proc init/cleanup calls.
+Date: Thu, 10 Apr 2008 19:16:54 +0400
+Message-ID: <47FE2F66.60001@openvz.org>
 References: <47FE2AD4.9080609@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -11,125 +11,149 @@ Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, Denis Lunev <den@openvz.org>,
 	Benjamin Thery <benjamin.thery@bull.net>
 To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33286 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:39684 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755589AbYDJOuI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2008 10:50:08 -0400
+	id S1758142AbYDJOxN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Apr 2008 10:53:13 -0400
 In-Reply-To: <47FE2AD4.9080609@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We'll have to lookup the vlan_group by two keys - ifindex and
-net. Turning the vlan_group lookup key to struct net_device
-pointer will make this process easier.
+Proc files will be created in each net, so prepare them for this
+change just to make patches smaller.
 
-Besides, this will eliminate one more place in the networking,
-that assumes that indexes are unique in the kernel.
+The net != &init_net checks in them are for git-bisect sanity, but
+I'll drop them soon.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- include/linux/if_vlan.h |    4 +++-
- net/8021q/vlan.c        |   22 +++++++++++-----------
- 2 files changed, 14 insertions(+), 12 deletions(-)
+ net/8021q/vlan.c     |   15 +++++++--------
+ net/8021q/vlanproc.c |   12 +++++++++---
+ net/8021q/vlanproc.h |   10 ++++++----
+ 3 files changed, 22 insertions(+), 15 deletions(-)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index edd55af..15ace02 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -81,7 +81,9 @@ extern void vlan_ioctl_set(int (*hook)(struct net *, void __user *));
- #define VLAN_GROUP_ARRAY_PART_LEN     (VLAN_GROUP_ARRAY_LEN/VLAN_GROUP_ARRAY_SPLIT_PARTS)
- 
- struct vlan_group {
--	int real_dev_ifindex; /* The ifindex of the ethernet(like) device the vlan is attached to. */
-+	struct net_device	*real_dev; /* The ethernet(like) device
-+					    * the vlan is attached to.
-+					    */
- 	unsigned int		nr_vlans;
- 	struct hlist_node	hlist;	/* linked list */
- 	struct net_device **vlan_devices_arrays[VLAN_GROUP_ARRAY_SPLIT_PARTS];
 diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 5975ec3..cf8d810 100644
+index 9296601..541542e 100644
 --- a/net/8021q/vlan.c
 +++ b/net/8021q/vlan.c
-@@ -65,14 +65,14 @@ static inline unsigned int vlan_grp_hashfn(unsigned int idx)
+@@ -642,8 +642,14 @@ static int vlan_init_net(struct net *net)
+ 	if (err < 0)
+ 		goto err_assign;
+ 
++	err = vlan_proc_init(net);
++	if (err < 0)
++		goto err_proc;
++
+ 	return 0;
+ 
++err_proc:
++	/* nothing */
+ err_assign:
+ 	kfree(vn);
+ err_alloc:
+@@ -655,6 +661,7 @@ static void vlan_exit_net(struct net *net)
+ 	struct vlan_net *vn;
+ 
+ 	vn = net_generic(net, vlan_net_id);
++	vlan_proc_cleanup(net);
+ 	kfree(vn);
  }
  
- /* Must be invoked with RCU read lock (no preempt) */
--static struct vlan_group *__vlan_find_group(int real_dev_ifindex)
-+static struct vlan_group *__vlan_find_group(struct net_device *real_dev)
+@@ -674,10 +681,6 @@ static int __init vlan_proto_init(void)
+ 	if (err < 0)
+ 		goto err0;
+ 
+-	err = vlan_proc_init();
+-	if (err < 0)
+-		goto err1;
+-
+ 	err = register_netdevice_notifier(&vlan_notifier_block);
+ 	if (err < 0)
+ 		goto err2;
+@@ -693,8 +696,6 @@ static int __init vlan_proto_init(void)
+ err3:
+ 	unregister_netdevice_notifier(&vlan_notifier_block);
+ err2:
+-	vlan_proc_cleanup();
+-err1:
+ 	unregister_pernet_gen_device(vlan_net_id, &vlan_net_ops);
+ err0:
+ 	return err;
+@@ -715,8 +716,6 @@ static void __exit vlan_cleanup_module(void)
+ 	for (i = 0; i < VLAN_GRP_HASH_SIZE; i++)
+ 		BUG_ON(!hlist_empty(&vlan_group_hash[i]));
+ 
+-	vlan_proc_cleanup();
+-
+ 	unregister_pernet_gen_device(vlan_net_id, &vlan_net_ops);
+ 
+ 	synchronize_net();
+diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
+index 24cd96e..4d13aeb 100644
+--- a/net/8021q/vlanproc.c
++++ b/net/8021q/vlanproc.c
+@@ -138,8 +138,11 @@ static const char *vlan_name_type_str[VLAN_NAME_TYPE_HIGHEST] = {
+  *	Clean up /proc/net/vlan entries
+  */
+ 
+-void vlan_proc_cleanup(void)
++void vlan_proc_cleanup(struct net *net)
  {
- 	struct vlan_group *grp;
- 	struct hlist_node *n;
--	int hash = vlan_grp_hashfn(real_dev_ifindex);
-+	int hash = vlan_grp_hashfn(real_dev->ifindex);
++	if (net != &init_net)
++		return;
++
+ 	if (proc_vlan_conf)
+ 		remove_proc_entry(name_conf, proc_vlan_dir);
  
- 	hlist_for_each_entry_rcu(grp, n, &vlan_group_hash[hash], hlist) {
--		if (grp->real_dev_ifindex == real_dev_ifindex)
-+		if (grp->real_dev == real_dev)
- 			return grp;
- 	}
+@@ -155,8 +158,11 @@ void vlan_proc_cleanup(void)
+  *	Create /proc/net/vlan entries
+  */
  
-@@ -86,7 +86,7 @@ static struct vlan_group *__vlan_find_group(int real_dev_ifindex)
- struct net_device *__find_vlan_dev(struct net_device *real_dev,
- 				   unsigned short VID)
+-int __init vlan_proc_init(void)
++int vlan_proc_init(struct net *net)
  {
--	struct vlan_group *grp = __vlan_find_group(real_dev->ifindex);
-+	struct vlan_group *grp = __vlan_find_group(real_dev);
++	if (net != &init_net)
++		return 0;
++
+ 	proc_vlan_dir = proc_mkdir(name_root, init_net.proc_net);
+ 	if (!proc_vlan_dir)
+ 		goto err;
+@@ -169,7 +175,7 @@ int __init vlan_proc_init(void)
  
- 	if (grp)
- 		return vlan_group_get_device(grp, VID);
-@@ -103,7 +103,7 @@ static void vlan_group_free(struct vlan_group *grp)
- 	kfree(grp);
+ err:
+ 	pr_err("%s: can't create entry in proc filesystem!\n", __func__);
+-	vlan_proc_cleanup();
++	vlan_proc_cleanup(net);
+ 	return -ENOBUFS;
  }
  
--static struct vlan_group *vlan_group_alloc(int ifindex)
-+static struct vlan_group *vlan_group_alloc(struct net_device *real_dev)
- {
- 	struct vlan_group *grp;
+diff --git a/net/8021q/vlanproc.h b/net/8021q/vlanproc.h
+index da542ca..063f60a 100644
+--- a/net/8021q/vlanproc.h
++++ b/net/8021q/vlanproc.h
+@@ -2,15 +2,17 @@
+ #define __BEN_VLAN_PROC_INC__
  
-@@ -111,9 +111,9 @@ static struct vlan_group *vlan_group_alloc(int ifindex)
- 	if (!grp)
- 		return NULL;
+ #ifdef CONFIG_PROC_FS
+-int vlan_proc_init(void);
++struct net;
++
++int vlan_proc_init(struct net *net);
+ int vlan_proc_rem_dev(struct net_device *vlandev);
+ int vlan_proc_add_dev(struct net_device *vlandev);
+-void vlan_proc_cleanup(void);
++void vlan_proc_cleanup(struct net *net);
  
--	grp->real_dev_ifindex = ifindex;
-+	grp->real_dev = real_dev;
- 	hlist_add_head_rcu(&grp->hlist,
--			   &vlan_group_hash[vlan_grp_hashfn(ifindex)]);
-+			&vlan_group_hash[vlan_grp_hashfn(real_dev->ifindex)]);
- 	return grp;
- }
+ #else /* No CONFIG_PROC_FS */
  
-@@ -151,7 +151,7 @@ void unregister_vlan_dev(struct net_device *dev)
- 
- 	ASSERT_RTNL();
- 
--	grp = __vlan_find_group(real_dev->ifindex);
-+	grp = __vlan_find_group(real_dev);
- 	BUG_ON(!grp);
- 
- 	vlan_proc_rem_dev(dev);
-@@ -246,9 +246,9 @@ int register_vlan_dev(struct net_device *dev)
- 	struct vlan_group *grp, *ngrp = NULL;
- 	int err;
- 
--	grp = __vlan_find_group(real_dev->ifindex);
-+	grp = __vlan_find_group(real_dev);
- 	if (!grp) {
--		ngrp = grp = vlan_group_alloc(real_dev->ifindex);
-+		ngrp = grp = vlan_group_alloc(real_dev);
- 		if (!grp)
- 			return -ENOBUFS;
- 	}
-@@ -412,7 +412,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 		goto out;
- 	}
- 
--	grp = __vlan_find_group(dev->ifindex);
-+	grp = __vlan_find_group(dev);
- 	if (!grp)
- 		goto out;
- 
+-#define vlan_proc_init()	(0)
+-#define vlan_proc_cleanup()	do {} while (0)
++#define vlan_proc_init(net)	(0)
++#define vlan_proc_cleanup(net)	do {} while (0)
+ #define vlan_proc_add_dev(dev)	({(void)(dev), 0; })
+ #define vlan_proc_rem_dev(dev)	({(void)(dev), 0; })
+ #endif
 -- 
 1.5.3.4
 
