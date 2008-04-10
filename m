@@ -1,50 +1,35 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: [PATCH] [NET] [ISDN]: Do not validate ISDN net device address
-	prior to interface-up
-Date: Thu, 10 Apr 2008 17:00:17 +0200
-Message-ID: <1207839617.4311.6.camel@compaq.thuisdomein>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: [PATCH] macb: Call phy_disconnect on removing
+Date: Thu, 10 Apr 2008 23:30:07 +0900 (JST)
+Message-ID: <20080410.233007.41197293.anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@redhat.com>
-To: netdev@vger.kernel.org, isdn4linux@listserv.isdn4linux.de
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+To: Haavard Skinnemoen <hskinnemoen@atmel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out0.tiscali.nl ([195.241.79.175]:33041 "EHLO
-	smtp-out0.tiscali.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755698AbYDJPCQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 11:02:16 -0400
+Received: from mba.ocn.ne.jp ([122.1.235.107]:55651 "EHLO smtp.mba.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756703AbYDJPJh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Apr 2008 11:09:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Bolle <pebolle@tiscali.nl>
-   
-Commit bada339 (Validate device addr prior to interface-up) caused a regression
-in the ISDN network code, see: http://bugzilla.kernel.org/show_bug.cgi?id=9923
-The trivial fix is to remove the pointer to eth_validate_addr() in the
-net_device struct in isdn_net_init().
-    
-Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+Call phy_disconnect() on remove routine.  Otherwise the phy timer
+causes a kernel crash when unloading.
+
+Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 ---
-Please note that I hardly know what the device address validation is good for.
-Neither do I know much about the ISDN network code or why the device address
-validation fails for ISDN interfaces. This patch however basically reverts 
-commit bada339 just for the ISDN network code. I can't think of any side
-effects.
-
-http://bugzilla.kernel.org/show_bug.cgi?id=9923 would have been much easier to
-track down if eth_validate_addr() would somehow complain aloud if an address 
-is invalid. Shouldn't it make at least some noise?
-
-diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
-index ced83c2..ef1a300 100644
---- a/drivers/isdn/i4l/isdn_net.c
-+++ b/drivers/isdn/i4l/isdn_net.c
-@@ -2010,6 +2010,7 @@ isdn_net_init(struct net_device *ndev)
- 	ndev->flags = IFF_NOARP|IFF_POINTOPOINT;
- 	ndev->type = ARPHRD_ETHER;
- 	ndev->addr_len = ETH_ALEN;
-+	ndev->validate_addr = NULL;
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index 1d210ed..10fcea5 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -1257,6 +1257,8 @@ static int __exit macb_remove(struct platform_device *pdev)
  
- 	/* for clients with MPPP maybe higher values better */
- 	ndev->tx_queue_len = 30;
-
+ 	if (dev) {
+ 		bp = netdev_priv(dev);
++		if (bp->phy_dev)
++			phy_disconnect(bp->phy_dev);
+ 		mdiobus_unregister(&bp->mii_bus);
+ 		kfree(bp->mii_bus.irq);
+ 		unregister_netdev(dev);
