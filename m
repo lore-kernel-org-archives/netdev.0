@@ -1,81 +1,99 @@
-From: Max Krasnyanskiy <maxk@qualcomm.com>
-Subject: Re: [PATCH RFC 3/5] tun: vringfd receive support.
-Date: Thu, 10 Apr 2008 10:18:52 -0700
-Message-ID: <47FE4BFC.6000705@qualcomm.com>
-References: <200804052202.09157.rusty@rustcorp.com.au> <200804052205.43824.rusty@rustcorp.com.au> <47FBCC3B.7080104@qualcomm.com> <200804101544.17736.rusty@rustcorp.com.au>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 10437] New: MSG_ERRQUEUE messages do not pass
+ to connected raw sockets
+Date: Thu, 10 Apr 2008 10:34:44 -0700
+Message-ID: <20080410103444.d7309e1f.akpm@linux-foundation.org>
+References: <bug-10437-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: dmitry@butskoy.name
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:28579 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753404AbYDJRSy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 13:18:54 -0400
-In-Reply-To: <200804101544.17736.rusty@rustcorp.com.au>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:33694 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756672AbYDJRfR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 13:35:17 -0400
+In-Reply-To: <bug-10437-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rusty Russell wrote:
-> On Wednesday 09 April 2008 05:49:15 Max Krasnyansky wrote:
->> Rusty Russell wrote:
->>> This patch modifies tun to allow a vringfd to specify the receive
->>> buffer.  Because we can't copy to userspace in bh context, we queue
->>> like normal then use the "pull" hook to actually do the copy.
->>>
->>> More thought needs to be put into the possible races with ring
->>> registration and a simultaneous close, for example (see FIXME).
->>>
->>> We use struct virtio_net_hdr prepended to packets in the ring to allow
->>> userspace to receive GSO packets in future (at the moment, the tun
->>> driver doesn't tell the stack it can handle them, so these cases are
->>> never taken).
->> In general the code looks good. The only thing I could not convince myself
->> in is whether having generic ring buffer makes sense or not.
->> At least the TUN driver would be more efficient if it had its own simple
->> ring implementation. Less indirection, fewer callbacks, fewer if()s, etc.
->> TUN already has the file descriptor and having two additional fds for rx
->> and tx ring is a waste (think of a VPN server that has to have a bunch of
->> TUN fds). Also as I mentioned before Jamal and I wanted to expose some of
->> the SKB fields through TUN device. With the rx/tx rings the natural way of
->> doing that would be the ring descriptor itself. It can of course be done
->> the same way we copy proto info (PI) and GSO stuff before the packet but
->> that means more copy_to_user() calls and yet more checks.
->>
->> So. What am I missing ? Why do we need generic ring for the TUN ? I looked
->> at the lguest code a bit and it seems that we need a bunch of network
->> specific code anyway. The cool thing is that you can now mmap the rings
->> into the guest directly but the same thing can be done with TUN specific
->> rings.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Thu, 10 Apr 2008 05:53:39 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=10437
 > 
-> I started modifying tun to do this directly, but it ended up with a whole heap 
-> of code just for the rings, and a lot of current code (eg. read, write, poll) 
-> ended up inside an 'if (tun->rings) ... else {'.  Having a natural poll() 
-> interface for the rings made more sense, so being their own fds fell out 
-> naturally.
-Hmm, the version that I sent you awhile ago (remember I sent you an attachment 
-with prototype of the new tun driver and user space code) was not that bad in 
-that area. It mean it did not touch existing read()/write() path. The 
-difference was that it allocated the rings and the data buffer in the kernel 
-and mapped into the user-space. Which is not what you guys need but that's a 
-separate thing.
+>            Summary: MSG_ERRQUEUE messages do not pass to connected raw
+>                     sockets
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.24
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: IPV6
+>         AssignedTo: yoshfuji@linux-ipv6.org
+>         ReportedBy: dmitry@butskoy.name
+> 
+> 
+> There was a similar bug #8747 , but the fix is not somplete.
+> 
+> Problem Description:
+> 
+> It is related to the possibility to obtain MSG_ERRQUEUE messages from the udp
+> and raw sockets, both connected and unconnected.
+> 
+> There is a bug in net/ipv6/icmp.c code, which prevents such messages to
+> be delivered to the errqueue of the correspond raw socket, when the socket is
+> CONNECTED. The bug is related to wrong obtaining of the saddr/daddr pair, used
+> to find the raw socket.
+> 
+> Consider __raw_v6_lookup() function from net/ipv6/raw.c. When a raw socket is
+> looked up usual way, it is something like:
+> 
+> sk = __raw_v6_lookup(sk, nexthdr, daddr, saddr, IP6CB(skb)->iif);
+> 
+> where "daddr" is a destination address of the incoming packet (IOW our local
+> address), "saddr" is a source address of the incoming packet (the remote end).
+> 
+> But when the raw socket is looked up for some icmp error report, in
+> net/ipv6/icmp.c:icmpv6_notify() , daddr/saddr must be obtained from the echoed
+> fragment of the "bad" packet, not from the ipv6 header of the icmp packet
+> itself.
+> 
+> Consider:
+> 
+> ipv6_header -- icmp_header -- echoed_ipv6_header -- at_least_8_bytes ...
+> 
+> Now saddr/daddr, used for __raw_v6_lookup, are from the first "ipv6_header",
+> but must be from the "echoed_ipv6_header" .
+> 
+> 
+> In the previous bug #8747, I assumed that the issue is just a typo, by
+> switching saddr/daddr in agrument list. Unfortunately, it appears that the pair
+> is even obtained from the wrong place...
+> 
+> 
+> Steps to reproduce:
+> 
+> Create some raw socket, connect it to an address, and cause some error
+> situation: f.e. set ttl=1 where the remote address is more than 1 hop to reach.
+> Set IPV6_RECVERR .
+> Then send something and wait for the error (f.e. poll() with POLLERR|POLLIN).
+> You should receive "time exceeded" icmp message (because of "ttl=1"), but the
+> socket do not receive it.
+> 
+> If you do not connect your raw socket, you will receive MSG_ERRQUEUE 
+> successfully. (The reason is that for unconnected socket there are no actual
+> checks for local/remote addresses).
+> 
 
-The fd thing could be an issue. As I mentioned the example would be a VPN 
-server (OpenVPN, etc) with a bunch of client connection (typically tun per 
-connection).
+(There's more info, and a patch at the above link).
 
-> I decided to float this version because it does minimal damage to tun, and I
-> know that other people have wanted rings before: I'd like to know if this is
-> likely to be generic enough for them.
-I see.
-
-I'll try to spend some time on this in a near future and take a crack at the 
-version with the TUN specific rings. Although I said that many times now and 
-it may not happen in the near enough future :). In the mean time if your 
-current version helps you guys a lot I do not mind us putting it in. We can 
-always add another mode or something that uses internal rings and gradually 
-obsolete old read()/write() and generic rings.
-
-Max
+Dmitry, I'd suggest that you send the patch via email to
+netdev@vger.kernel.org and to YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>.
