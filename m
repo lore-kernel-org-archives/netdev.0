@@ -1,46 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [Syncookies]: Add support for TCP options via
- timestamps.
-Date: Thu, 10 Apr 2008 03:12:57 -0700 (PDT)
-Message-ID: <20080410.031257.07927100.davem@davemloft.net>
-References: <1207101252-29941-1-git-send-email-fw@strlen.de>
+Subject: Re: [PATCH net-2.6.26 1/3][TUN][NETNS]: Introduce the tun_net
+ structure.
+Date: Thu, 10 Apr 2008 03:29:21 -0700 (PDT)
+Message-ID: <20080410.032921.216641570.davem@davemloft.net>
+References: <47F38F1D.2060605@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ggriffin.kernel@gmail.com
-To: fw@strlen.de
+Cc: maxk@qualcomm.com, netdev@vger.kernel.org, devel@openvz.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44083
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44961
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751605AbYDJKM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 06:12:56 -0400
-In-Reply-To: <1207101252-29941-1-git-send-email-fw@strlen.de>
+	by vger.kernel.org with ESMTP id S1751605AbYDJK3U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 06:29:20 -0400
+In-Reply-To: <47F38F1D.2060605@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Wed,  2 Apr 2008 03:54:12 +0200
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Wed, 02 Apr 2008 17:50:21 +0400
 
-> Allow the use of SACK and window scaling when syncookies are used
-> and the client supports tcp timestamps. Options are encoded into
-> the timestamp sent in the syn-ack and restored from the timestamp
-> echo when the ack is received.
+> This is the first step in making tuntap devices work in net 
+> namespaces. The structure mentioned is pointed by struct net 
+> and tun driver will fill this one on load. It will contain only 
+> the tun devices list.
 > 
-> Based on earlier work by Glenn Griffin.
-> This patch avoids increasing the size of structs by encoding TCP
-> options into the least significant bits of the timestamp and
-> by not using any 'timestamp offset'.
+> So declare this structure and introduce net init and exit hooks.
 > 
-> The downside is that the timestamp sent in the packet after the synack
-> will increase by several seconds.
-> 
-> Reviewed-by: Hagen Paul Pfeifer <hagen@jauu.net>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> CC: Glenn Griffin <ggriffin.kernel@gmail.com>
-> ---
->  changes since v1:
->  don't duplicate timestamp echo decoding function, put it into ipv4/syncookie.c
->  and have ipv6/syncookies.c use it.
->  Feedback from Glenn Griffin: fix line indented with spaces, kill redundant if ()
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Looks good, patch applied, thanks!
+I don't want struct net to become a dumping ground for
+everything and anything that is networking and might
+want to be namespace aware.
+
+We are at the point where some kind of dynamic registry
+is in order, don't you think?
+
+I'm dropping these patches for now.
