@@ -1,159 +1,142 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 9/14][VLAN]: Add net argument to proc init/cleanup calls.
-Date: Thu, 10 Apr 2008 19:16:54 +0400
-Message-ID: <47FE2F66.60001@openvz.org>
+From: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 8/14][VLAN]: Introduce the vlan_net structure.
+Date: Thu, 10 Apr 2008 19:14:58 +0400
+Message-ID: <47FE2EF2.2020401@openvz.org>
 References: <47FE2AD4.9080609@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, Denis Lunev <den@openvz.org>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:39684 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758142AbYDJOxN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2008 10:53:13 -0400
-In-Reply-To: <47FE2AD4.9080609@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>, Denis Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
+        Benjamin Thery <benjamin.thery-6ktuUTfB/bM@public.gmane.org>
+To: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <47FE2AD4.9080609-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Proc files will be created in each net, so prepare them for this
-change just to make patches smaller.
+It is empty now, but it will be populated later.
+And it uses net generic pointers like TUN does.
 
-The net != &init_net checks in them are for git-bisect sanity, but
-I'll drop them soon.
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed-off-by: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 
 ---
- net/8021q/vlan.c     |   15 +++++++--------
- net/8021q/vlanproc.c |   12 +++++++++---
- net/8021q/vlanproc.h |   10 ++++++----
- 3 files changed, 22 insertions(+), 15 deletions(-)
+ net/8021q/vlan.c |   46 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/8021q/vlan.h |    5 +++++
+ 2 files changed, 51 insertions(+), 0 deletions(-)
 
 diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 9296601..541542e 100644
+index cf8d810..9296601 100644
 --- a/net/8021q/vlan.c
 +++ b/net/8021q/vlan.c
-@@ -642,8 +642,14 @@ static int vlan_init_net(struct net *net)
- 	if (err < 0)
- 		goto err_assign;
+@@ -32,6 +32,7 @@
+ #include <linux/rtnetlink.h>
+ #include <linux/notifier.h>
+ #include <net/net_namespace.h>
++#include <net/netns/generic.h>
  
-+	err = vlan_proc_init(net);
-+	if (err < 0)
-+		goto err_proc;
+ #include <linux/if_vlan.h>
+ #include "vlan.h"
+@@ -41,6 +42,8 @@
+ 
+ /* Global VLAN variables */
+ 
++int vlan_net_id;
 +
- 	return 0;
+ /* Our listing of VLAN group(s) */
+ static struct hlist_head vlan_group_hash[VLAN_GRP_HASH_SIZE];
  
-+err_proc:
-+	/* nothing */
- err_assign:
- 	kfree(vn);
- err_alloc:
-@@ -655,6 +661,7 @@ static void vlan_exit_net(struct net *net)
- 	struct vlan_net *vn;
- 
- 	vn = net_generic(net, vlan_net_id);
-+	vlan_proc_cleanup(net);
- 	kfree(vn);
- }
- 
-@@ -674,10 +681,6 @@ static int __init vlan_proto_init(void)
- 	if (err < 0)
- 		goto err0;
- 
--	err = vlan_proc_init();
--	if (err < 0)
--		goto err1;
--
- 	err = register_netdevice_notifier(&vlan_notifier_block);
- 	if (err < 0)
- 		goto err2;
-@@ -693,8 +696,6 @@ static int __init vlan_proto_init(void)
- err3:
- 	unregister_netdevice_notifier(&vlan_notifier_block);
- err2:
--	vlan_proc_cleanup();
--err1:
- 	unregister_pernet_gen_device(vlan_net_id, &vlan_net_ops);
- err0:
+@@ -625,6 +628,41 @@ out:
  	return err;
-@@ -715,8 +716,6 @@ static void __exit vlan_cleanup_module(void)
- 	for (i = 0; i < VLAN_GRP_HASH_SIZE; i++)
- 		BUG_ON(!hlist_empty(&vlan_group_hash[i]));
- 
--	vlan_proc_cleanup();
--
- 	unregister_pernet_gen_device(vlan_net_id, &vlan_net_ops);
- 
- 	synchronize_net();
-diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
-index 24cd96e..4d13aeb 100644
---- a/net/8021q/vlanproc.c
-+++ b/net/8021q/vlanproc.c
-@@ -138,8 +138,11 @@ static const char *vlan_name_type_str[VLAN_NAME_TYPE_HIGHEST] = {
-  *	Clean up /proc/net/vlan entries
-  */
- 
--void vlan_proc_cleanup(void)
-+void vlan_proc_cleanup(struct net *net)
- {
-+	if (net != &init_net)
-+		return;
-+
- 	if (proc_vlan_conf)
- 		remove_proc_entry(name_conf, proc_vlan_dir);
- 
-@@ -155,8 +158,11 @@ void vlan_proc_cleanup(void)
-  *	Create /proc/net/vlan entries
-  */
- 
--int __init vlan_proc_init(void)
-+int vlan_proc_init(struct net *net)
- {
-+	if (net != &init_net)
-+		return 0;
-+
- 	proc_vlan_dir = proc_mkdir(name_root, init_net.proc_net);
- 	if (!proc_vlan_dir)
- 		goto err;
-@@ -169,7 +175,7 @@ int __init vlan_proc_init(void)
- 
- err:
- 	pr_err("%s: can't create entry in proc filesystem!\n", __func__);
--	vlan_proc_cleanup();
-+	vlan_proc_cleanup(net);
- 	return -ENOBUFS;
  }
  
-diff --git a/net/8021q/vlanproc.h b/net/8021q/vlanproc.h
-index da542ca..063f60a 100644
---- a/net/8021q/vlanproc.h
-+++ b/net/8021q/vlanproc.h
-@@ -2,15 +2,17 @@
- #define __BEN_VLAN_PROC_INC__
- 
- #ifdef CONFIG_PROC_FS
--int vlan_proc_init(void);
-+struct net;
++static int vlan_init_net(struct net *net)
++{
++	int err;
++	struct vlan_net *vn;
 +
-+int vlan_proc_init(struct net *net);
- int vlan_proc_rem_dev(struct net_device *vlandev);
- int vlan_proc_add_dev(struct net_device *vlandev);
--void vlan_proc_cleanup(void);
-+void vlan_proc_cleanup(struct net *net);
++	err = -ENOMEM;
++	vn = kzalloc(sizeof(struct vlan_net), GFP_KERNEL);
++	if (vn == NULL)
++		goto err_alloc;
++
++	err = net_assign_generic(net, vlan_net_id, vn);
++	if (err < 0)
++		goto err_assign;
++
++	return 0;
++
++err_assign:
++	kfree(vn);
++err_alloc:
++	return err;
++}
++
++static void vlan_exit_net(struct net *net)
++{
++	struct vlan_net *vn;
++
++	vn = net_generic(net, vlan_net_id);
++	kfree(vn);
++}
++
++static struct pernet_operations vlan_net_ops = {
++	.init = vlan_init_net,
++	.exit = vlan_exit_net,
++};
++
+ static int __init vlan_proto_init(void)
+ {
+ 	int err;
+@@ -632,6 +670,10 @@ static int __init vlan_proto_init(void)
+ 	pr_info("%s v%s %s\n", vlan_fullname, vlan_version, vlan_copyright);
+ 	pr_info("All bugs added by %s\n", vlan_buggyright);
  
- #else /* No CONFIG_PROC_FS */
++	err = register_pernet_gen_device(&vlan_net_id, &vlan_net_ops);
++	if (err < 0)
++		goto err0;
++
+ 	err = vlan_proc_init();
+ 	if (err < 0)
+ 		goto err1;
+@@ -653,6 +695,8 @@ err3:
+ err2:
+ 	vlan_proc_cleanup();
+ err1:
++	unregister_pernet_gen_device(vlan_net_id, &vlan_net_ops);
++err0:
+ 	return err;
+ }
  
--#define vlan_proc_init()	(0)
--#define vlan_proc_cleanup()	do {} while (0)
-+#define vlan_proc_init(net)	(0)
-+#define vlan_proc_cleanup(net)	do {} while (0)
- #define vlan_proc_add_dev(dev)	({(void)(dev), 0; })
- #define vlan_proc_rem_dev(dev)	({(void)(dev), 0; })
- #endif
+@@ -673,6 +717,8 @@ static void __exit vlan_cleanup_module(void)
+ 
+ 	vlan_proc_cleanup();
+ 
++	unregister_pernet_gen_device(vlan_net_id, &vlan_net_ops);
++
+ 	synchronize_net();
+ }
+ 
+diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
+index 51271ae..f27d8d6 100644
+--- a/net/8021q/vlan.h
++++ b/net/8021q/vlan.h
+@@ -50,4 +50,9 @@ static inline int is_vlan_dev(struct net_device *dev)
+ 	return dev->priv_flags & IFF_802_1Q_VLAN;
+ }
+ 
++extern int vlan_net_id;
++
++struct vlan_net {
++};
++
+ #endif /* !(__BEN_VLAN_802_1Q_INC__) */
 -- 
 1.5.3.4
-
