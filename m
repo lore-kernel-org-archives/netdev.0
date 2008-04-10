@@ -1,37 +1,49 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: bnx2 probe order change from 2.6.21 -> 2.6.24
-Date: Thu, 10 Apr 2008 12:15:50 -0700
-Message-ID: <1207854953.5248.2.camel@dell>
-References: <20080410154401.GA14486@linuxace.com>
- <1207853118.5557.6.camel@dell> <20080410175455.GA16754@linuxace.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [patch] e1000=y && e1000e=m regression fix
+Date: Thu, 10 Apr 2008 11:26:48 -0700
+Message-ID: <47FE5BE8.9000206@intel.com>
+References: <20080408203314.GA28952@elte.hu> <47FBDBE9.9040700@garzik.org> <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <200804092249.23111.elendil@planet.nl> <m363uqwpds.fsf@maximus.localdomain> <alpine.LFD.1.00.0804091838330.3143@woody.linux-foundation.org> <m34paaav7o.fsf@maximus.localdomain> <alpine.LFD.1.00.0804100724220.3143@woody.linux-foundation.org> <20080410175503.GA11440@colo.lackof.org> <20080410180412.GV11962@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: "Phil Oester" <kernel@linuxace.com>
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Frans Pop <elendil@planet.nl>, Ingo Molnar <mingo@elte.hu>,
+	jeff@garzik.org, auke-jan.h.kok@intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net,
+	linux-pci@atrey.karlin.mff.cuni.cz, akpm@linux-foundation.org,
+	davem@davemloft.net, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, bruce.w.allan@intel.com, greg@kroah.com,
+	arjan@linux.intel.com, rjw@sisk.pl
+To: Matthew Wilcox <matthew@wil.cx>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3280 "EHLO mms2.broadcom.com"
+Received: from mga09.intel.com ([134.134.136.24]:60252 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758813AbYDJSXG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2008 14:23:06 -0400
-In-Reply-To: <20080410175455.GA16754@linuxace.com>
+	id S1755371AbYDJScW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Apr 2008 14:32:22 -0400
+In-Reply-To: <20080410180412.GV11962@parisc-linux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-04-10 at 10:54 -0700, Phil Oester wrote:
-> On Thu, Apr 10, 2008 at 11:45:16AM -0700, Michael Chan wrote:
-> > I know there is a difference in PCI probing order between 2.4 and 2.6
-> > kernels on x86 machines, but I'm not aware of changes in these 2 recent
-> > 2.6 kernels you mentioned above.  Various kernel parameters such as
-> > pci=nosort, pci=bfsort, pci=nobfsort can affect the order.  Are you
-> > using any of these?
+Matthew Wilcox wrote:
+> On Thu, Apr 10, 2008 at 11:55:03AM -0600, Grant Grundler wrote:
+>> Agreed. I like Ingo's Kconfig patch which forces both drivers
+>> (e1000 and e1000e) to be built the same way (ie both modules or both
+>> builtin).
 > 
-> No - nothing like that.  And the e1000 devices in the box (eth0 - 7) are probing
-> in the same order, which (perhaps incorrectly) leads me to believe it's not
-> PCI related, but specific to bnx2.
-> 
+> Uh, that's /not/ what Ingo's patch does.  His patch makes e1000 claim
+> the e1000e IDs if e1000 is built-in and e1000e is a module.
 
-The driver has no control over the ordering of these devices.  The PCI
-layer scans the buses in the order it chooses and calls the driver's
-probe method for every matching device that it finds.
+It does? that's definately not the right thing to do at all, so I'd like to
+retract my ACK to that patch.
 
+We want to move users over to e1000e, because with 2.6.26 they must (or at one
+point in time anyway).
+
+I'm all for making the move easier, but I'm really against prolonging these hacks
+that make people just bump their noses later. If they hit the problem now instead
+of when 2.6.26 ships, then it's all for the better IMHO.
+
+Auke
