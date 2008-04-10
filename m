@@ -1,61 +1,43 @@
-From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [XFRM]: xfrm_user: fix selector family initialization
-Date: Thu, 10 Apr 2008 09:50:44 +0900
-Message-ID: <47FD6464.2000608@miyazawa.org>
-References: <47F4EB73.1040705@trash.net>	<47FBC2AF.7050508@trash.net>	<47FCE30F.8060400@trash.net> <20080409.150931.93235087.davem@davemloft.net> <47FD5B1C.3060005@miyazawa.org> <47FD5CBC.6040905@trash.net>
+Date: Thu, 10 Apr 2008 02:55:46 +0200
+Message-ID: <47FD6592.609@trash.net>
+References: <47F4EB73.1040705@trash.net>	<47FBC2AF.7050508@trash.net>	<47FCE30F.8060400@trash.net> <20080409.150931.93235087.davem@davemloft.net> <47FD5B1C.3060005@miyazawa.org> <47FD5CBC.6040905@trash.net> <47FD6464.2000608@miyazawa.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, pupilla@hotmail.com,
 	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+To: Kazunori MIYAZAWA <kazunori@miyazawa.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi004.linux-ipv6.org ([203.178.140.4]:44405 "EHLO
-	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754130AbYDJAvY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Apr 2008 20:51:24 -0400
-In-Reply-To: <47FD5CBC.6040905@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:64402 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753197AbYDJAzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 20:55:50 -0400
+In-Reply-To: <47FD6464.2000608@miyazawa.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Kazunori MIYAZAWA wrote:
->> David Miller wrote:
->>> From: Patrick McHardy <kaber@trash.net>
->>> Date: Wed, 09 Apr 2008 17:38:55 +0200
+Kazunori MIYAZAWA wrote:
+> Patrick McHardy wrote:
+>> Kazunori MIYAZAWA wrote:
 >>>
->>>>     [XFRM]: xfrm_user: fix selector family initialization
->>>>         Commit df9dcb45 ([IPSEC]: Fix inter address family IPsec 
->>>> tunnel handling)
->>>>     broke openswan by removing the selector initialization for 
->>>> tunnel mode
->>>>     in case it is uninitialized.
->>>>         This patch restores the initialization, fixing openswan, but 
->>>> probably
->>>>     breaking inter-family tunnels again (unknown since the patch author
->>>>     disappeared). The correct thing for inter-family tunnels is 
->>>> probably
->>>>     to simply initialize the selector family explicitly.
->>>>         Signed-off-by: Patrick McHardy <kaber@trash.net>
->>>
->>> I've applied this to net-2.6, thanks Patrick.
->>>
->>> Once we resolve how to get inter-family working without
->>> breaking existing setups, we can put better logic back
->>> in here.  But for now the regression is more important.
+>>> Sorry, I missed the thread.
+>>> I have no idea to solve the regression.
 >>
->> Sorry, I missed the thread.
->> I have no idea to solve the regression.
+>>
+>> Wouldn't explicitly initializing the SA family for
+>> inter-family tunnels work?
 > 
-> 
-> Wouldn't explicitly initializing the SA family for
-> inter-family tunnels work?
+> I guess it is same as the original Herbert's patch.
+> It needs to explicitly initialize the family for inter-family tunnel.
 
-I guess it is same as the original Herbert's patch.
-It needs to explicitly initialize the family for inter-family tunnel.
 
-Best regards,
+Thanks for looking into this, I haven't seen Herbert's patch,
+but I'd assume comparing the SA family to the policy family
+would work for determining whether its an inter-family tunnel
+in case the family in explicitly initialized. The only thing
+that would need to be changed in the kernel is the check
+in xfrm_init_state().
 
---
-Kazunori Miyazawa
 
