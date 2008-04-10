@@ -1,141 +1,54 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH v2.6.26] phy: Clean up header style
-Date: Wed,  9 Apr 2008 19:38:27 -0500
-Message-ID: <1207787907-9222-1-git-send-email-afleming@freescale.com>
-Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
-To: jgarzik@pobox.com
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: VLAN & ARP requests fail for ARM EABI (2.6.24)
+Date: Thu, 10 Apr 2008 02:40:45 +0200
+Message-ID: <47FD620D.90707@trash.net>
+References: <293225.82676.qm@web32605.mail.mud.yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Gertjan Hofman <gertjan_hofman@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:52182 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752465AbYDJAia (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 20:38:30 -0400
-Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id m3A0cS5Y009443
-	for <netdev@vger.kernel.org>; Wed, 9 Apr 2008 17:38:28 -0700 (MST)
-Received: from ld0175-tx32.am.freescale.net (ld0175-tx32.am.freescale.net [10.82.19.125])
-	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id m3A0cS1t013059
-	for <netdev@vger.kernel.org>; Wed, 9 Apr 2008 19:38:28 -0500 (CDT)
+Received: from stinky.trash.net ([213.144.137.162]:64100 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753271AbYDJAku (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 20:40:50 -0400
+In-Reply-To: <293225.82676.qm@web32605.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Multi-line comments weren't all CodingStyle compliant
+Gertjan Hofman wrote:
+> Dear Sirs,
+> 
+> Since the VLAN mailing list is closed, its author suggested I post here. 
+> We have an ARM920T processor based system. When compiling the kernel 2.6.24 using OABI (and appropiate 4.1.1 cross toolchain), VLAN functionality is fine. When setting the CONFIG_EABI flag and using  the 4.2.2 toolchain (created by the OpenEmbedded project) a VLAN device fails to respond.
+> 
+> When pinging through the ARM VLAN device to a (PC based) VLAN device, the following is seen in the vlan driver:
+> The ping request is sent out, followed by an ARP request. The PC returns the ARP reply and it is seen by the VLAN driver (vlan_skb_recv) which calls netif_rx(). This repeats a couple of pings later i.e. the arp reply is not used or received properly.
+> 
+> Similarly, when pinging from the PC, the ARP request is seen by vlan_skb_recv() but there is no ARP reply from the ARM cascading through the vlan driver.
+> 
+> It seems to me that either the issue is with the code that handles the ARP request when compiling in EABI format, or that VLAN doesnt process the frame properly and sends it on incorrectly. Recompile the kernel with OABI and everything is fine.
+> 
+> Note that communication works fine on either OABI or EABI when using 'normal' devices (eth0 etc). This puts the suspicion back on vlan.
+> 
+> 
+> Since EABI changes structure packing and other things, I suspect the cause is some networking code that knows a bit too much about its size & packing.
+> 
+> I am happy to troubleshoot, but I am no kernel expert. Tips would be appreciated. Like how to dump the sbk buffer in both cases..
 
-Signed-off-by: Andy Fleming <afleming@freescale.com>
----
- include/linux/phy.h |   48 ++++++++++++++++++++++++++++++++----------------
- 1 files changed, 32 insertions(+), 16 deletions(-)
 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 6509f37..2d83844 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -39,7 +39,8 @@
- 				 SUPPORTED_1000baseT_Half | \
- 				 SUPPORTED_1000baseT_Full)
- 
--/* Set phydev->irq to PHY_POLL if interrupts are not supported,
-+/*
-+ * Set phydev->irq to PHY_POLL if interrupts are not supported,
-  * or not desired for this PHY.  Set to PHY_IGNORE_INTERRUPT if
-  * the attached driver handles the interrupt
-  */
-@@ -80,8 +81,10 @@ typedef enum {
-  */
- #define MII_BUS_ID_SIZE	(BUS_ID_SIZE - 3)
- 
--/* The Bus class for PHYs.  Devices which provide access to
-- * PHYs should register using this structure */
-+/*
-+ * The Bus class for PHYs.  Devices which provide access to
-+ * PHYs should register using this structure
-+ */
- struct mii_bus {
- 	const char *name;
- 	char id[MII_BUS_ID_SIZE];
-@@ -90,8 +93,10 @@ struct mii_bus {
- 	int (*write)(struct mii_bus *bus, int phy_id, int regnum, u16 val);
- 	int (*reset)(struct mii_bus *bus);
- 
--	/* A lock to ensure that only one thing can read/write
--	 * the MDIO bus at a time */
-+	/*
-+	 * A lock to ensure that only one thing can read/write
-+	 * the MDIO bus at a time
-+	 */
- 	struct mutex mdio_lock;
- 
- 	struct device *dev;
-@@ -102,8 +107,10 @@ struct mii_bus {
- 	/* Phy addresses to be ignored when probing */
- 	u32 phy_mask;
- 
--	/* Pointer to an array of interrupts, each PHY's
--	 * interrupt at the index matching its address */
-+	/*
-+	 * Pointer to an array of interrupts, each PHY's
-+	 * interrupt at the index matching its address
-+	 */
- 	int *irq;
- };
- 
-@@ -255,7 +262,8 @@ struct phy_device {
- 	/* Bus address of the PHY (0-32) */
- 	int addr;
- 
--	/* forced speed & duplex (no autoneg)
-+	/*
-+	 * forced speed & duplex (no autoneg)
- 	 * partner speed & duplex & pause (autoneg)
- 	 */
- 	int speed;
-@@ -278,8 +286,10 @@ struct phy_device {
- 
- 	int link_timeout;
- 
--	/* Interrupt number for this PHY
--	 * -1 means no interrupt */
-+	/*
-+	 * Interrupt number for this PHY
-+	 * -1 means no interrupt
-+	 */
- 	int irq;
- 
- 	/* private data pointer */
-@@ -329,22 +339,28 @@ struct phy_driver {
- 	u32 features;
- 	u32 flags;
- 
--	/* Called to initialize the PHY,
--	 * including after a reset */
-+	/*
-+	 * Called to initialize the PHY,
-+	 * including after a reset
-+	 */
- 	int (*config_init)(struct phy_device *phydev);
- 
--	/* Called during discovery.  Used to set
--	 * up device-specific structures, if any */
-+	/*
-+	 * Called during discovery.  Used to set
-+	 * up device-specific structures, if any
-+	 */
- 	int (*probe)(struct phy_device *phydev);
- 
- 	/* PHY Power Management */
- 	int (*suspend)(struct phy_device *phydev);
- 	int (*resume)(struct phy_device *phydev);
- 
--	/* Configures the advertisement and resets
-+	/*
-+	 * Configures the advertisement and resets
- 	 * autonegotiation if phydev->autoneg is on,
- 	 * forces the speed to the current settings in phydev
--	 * if phydev->autoneg is off */
-+	 * if phydev->autoneg is off
-+	 */
- 	int (*config_aneg)(struct phy_device *phydev);
- 
- 	/* Determines the negotiated speed and duplex */
--- 
-1.5.4.GIT
+I actually have no idea about the differences between
+OABI and EABI, but I know a mix of both broke some
+iptables setups (kernel EABI/userspace OABI or something
+like that). Could you fetch the latest iproute and try
+again with adding your VLANs using iproute?
+
+The syntax is:
+
+ip link add link <lowerdev> [name] <name> type vlan id VID
+
+If that works the problem is most likely an inappropriate
+ABI mix.
+
 
