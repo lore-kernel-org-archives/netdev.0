@@ -1,59 +1,62 @@
-From: "Gabor Fekete" <kotrelmaller.borgenbach@gmail.com>
-Subject: Handling of TAP interface packets by the kernel
-Date: Thu, 10 Apr 2008 15:20:11 +0300
-Message-ID: <690153640804100520o2b5c08c7j89a204f4e24636ff@mail.gmail.com>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: [TOMOYO #7 30/30] Hooks for SAKURA and TOMOYO.
+Date: Thu, 10 Apr 2008 08:51:22 -0400
+Message-ID: <1207831882.21223.694.camel@moss-spartans.epoch.ncsc.mil>
+References: <20080404122242.867070732@I-love.SAKURA.ne.jp>
+	 <20080404122408.986477936@I-love.SAKURA.ne.jp>
+	 <200804071140.59247.paul.moore@hp.com>  <47FC8052.9070409@nttdata.co.jp>
+	 <1207745357.21223.391.camel@moss-spartans.epoch.ncsc.mil>
+	 <47FDAC57.9000701@nttdata.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.170]:50532 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755314AbYDJMUM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 08:20:12 -0400
-Received: by wf-out-1314.google.com with SMTP id 28so3020672wff.4
-        for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 05:20:11 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Paul Moore <paul.moore@hp.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Kentaro Takeda <takedakn@nttdata.co.jp>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Toshiharu Harada <haradats@nttdata.co.jp>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <47FDAC57.9000701@nttdata.co.jp>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
 
-I have some weirdness with tap interfaces.
+On Thu, 2008-04-10 at 14:57 +0900, Toshiharu Harada wrote:
+> On 4/9/2008 9:49 PM, Stephen Smalley wrote:
+> >> We cordially request LSM changes to pass vfsmount parameters.
+> > 
+> > Don't cordially request it - submit patches to make it happen.  Or work
+> > with others who have been submitting such patches.
+> 
+> You are (always) right. :)
 
-I have the following setup:
-o one pc offline
-o eth0 has ip 192.168.2.1/24 and 192.168.2.5/24
-o tap0 has ip 192.168.2.1/32
+Definitely not always.
 
-I have a test C code. Which sends packets to 192.168.2.1 port 9090 like so:
-#1 sends a forged IP datagram with raw socket to TCP port 9090 (IP_HDRINCL set).
-#2 sends a UDP datagram to port 9090 with a regular UDP socket
-#3 attempts connecting to port 9090 with a regular TCP socket
-#4 sends a forged ETH datagram (same as in #1 but with an ETH header added) to
-    TCP port 9090 via the tap0 interface by writing it to the tap file
-descriptor. This tap0
-    interface is created by this test code.
+> > There are two options:
+> > 1) Submit patches to pass down the vfsmounts to the vfs helpers so that
+> > they can be passed to the existing security_inode hooks. -or-
+> > 2) Submit patches to add new security hooks to the callers where the
+> > vfsmount is already available (some have suggested moving the existing
+> > security_inode hooks to the callers, but that would cause problems for
+> > SELinux as I've posted elsewhere, so adding new hooks is preferable, and
+> > then SELinux can just default to the dummy functions for those new
+> > hooks).
+> 
+> Thank you for your suggestions. I drew a diagram. Is this correct?
 
-The source IP of the forged datagram is 192.168.2.5, source port is 49152,
-the destination IP is 192.168.2.1 and destination port is 9090.
-There is no socket in existence with source port 49152 on the machine.
+I think the text above is self-explanatory; I'm not sure what the
+diagram adds.  Also, Matthew Wilcox pointed out a third option that you
+ought to consider, and you can look to the example of audit filesystem
+watches there, which leverages inotify internally.
 
-I have no process listening on port 9090 at all on localhost.
-When I run the test and capture "any" with wireshark I see:
-#1 TCP RST sent back
-#2 ICMP Dest unreach sent back (port unreach)
-#3 TCP RST sent back
-#4 nothing is sent back at all even thou I see the SYN arrive!
+If that isn't feasible for some reason, then option (2) should be fairly
+straightforward - you just define and insert some new security hooks in
+the callers where the vfsmount is already available.
 
-Any idea why don't I see the TCP RST in #4?
+-- 
+Stephen Smalley
+National Security Agency
 
-What I try to do is to have a TAP virtual interface and inject packets
-to the kernel so that it would deliver it to either the localhost or forward it
-to the internet. I though I could use TAP for this.
-Also, I need the packets that are coming from tap0 and are forwarded
-by the kernel
-to also go through iptables.
-
-Thanks,
-Gabor
