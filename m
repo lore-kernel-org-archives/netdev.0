@@ -1,77 +1,50 @@
-From: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 14/14][VLAN]: Migrate proc files when vlan device is moved
-	to namespace.
-Date: Thu, 10 Apr 2008 19:23:59 +0400
-Message-ID: <47FE310F.7020805@openvz.org>
-References: <47FE2AD4.9080609@openvz.org>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: [PATCH] [NET] [ISDN]: Do not validate ISDN net device address
+	prior to interface-up
+Date: Thu, 10 Apr 2008 17:00:17 +0200
+Message-ID: <1207839617.4311.6.camel@compaq.thuisdomein>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>, Denis Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
-        Benjamin Thery <benjamin.thery-6ktuUTfB/bM@public.gmane.org>
-To: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <47FE2AD4.9080609-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Jeff Garzik <jgarzik@redhat.com>
+To: netdev@vger.kernel.org, isdn4linux@listserv.isdn4linux.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out0.tiscali.nl ([195.241.79.175]:33041 "EHLO
+	smtp-out0.tiscali.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755698AbYDJPCQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 11:02:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The preparations to this are done with my patch, that fixed 
-proc on vlan device rename. 
-
-This makes /proc/net/vlan/<device> file migrate from one
-proc tree to another...
-
-Signed-off-by: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-
+From: Paul Bolle <pebolle@tiscali.nl>
+   
+Commit bada339 (Validate device addr prior to interface-up) caused a regression
+in the ISDN network code, see: http://bugzilla.kernel.org/show_bug.cgi?id=9923
+The trivial fix is to remove the pointer to eth_validate_addr() in the
+net_device struct in isdn_net_init().
+    
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
 ---
- net/8021q/vlan.c |   13 ++++++++-----
- 1 files changed, 8 insertions(+), 5 deletions(-)
+Please note that I hardly know what the device address validation is good for.
+Neither do I know much about the ISDN network code or why the device address
+validation fails for ISDN interfaces. This patch however basically reverts 
+commit bada339 just for the ISDN network code. I can't think of any side
+effects.
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 7e9d22e..2a739ad 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -154,8 +154,6 @@ void unregister_vlan_dev(struct net_device *dev)
- 	grp = __vlan_find_group(real_dev);
- 	BUG_ON(!grp);
+http://bugzilla.kernel.org/show_bug.cgi?id=9923 would have been much easier to
+track down if eth_validate_addr() would somehow complain aloud if an address 
+is invalid. Shouldn't it make at least some noise?
+
+diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
+index ced83c2..ef1a300 100644
+--- a/drivers/isdn/i4l/isdn_net.c
++++ b/drivers/isdn/i4l/isdn_net.c
+@@ -2010,6 +2010,7 @@ isdn_net_init(struct net_device *ndev)
+ 	ndev->flags = IFF_NOARP|IFF_POINTOPOINT;
+ 	ndev->type = ARPHRD_ETHER;
+ 	ndev->addr_len = ETH_ALEN;
++	ndev->validate_addr = NULL;
  
--	vlan_proc_rem_dev(dev);
--
- 	/* Take it out of our own structures, but be sure to interlock with
- 	 * HW accelerating devices or SW vlan input packet processing.
- 	 */
-@@ -278,9 +276,6 @@ int register_vlan_dev(struct net_device *dev)
- 	if (real_dev->features & NETIF_F_HW_VLAN_FILTER)
- 		real_dev->vlan_rx_add_vid(real_dev, vlan_id);
- 
--	if (vlan_proc_add_dev(dev) < 0)
--		pr_warning("8021q: failed to add proc entry for %s\n",
--			   dev->name);
- 	return 0;
- 
- out_free_group:
-@@ -396,6 +391,14 @@ static void __vlan_device_event(struct net_device *dev, unsigned long event)
- 			pr_warning("8021q: failed to change proc name for %s\n",
- 					dev->name);
- 		break;
-+	case NETDEV_REGISTER:
-+		if (vlan_proc_add_dev(dev) < 0)
-+			pr_warning("8021q: failed to add proc entry for %s\n",
-+					dev->name);
-+		break;
-+	case NETDEV_UNREGISTER:
-+		vlan_proc_rem_dev(dev);
-+		break;
- 	}
- }
- 
--- 
-1.5.3.4
+ 	/* for clients with MPPP maybe higher values better */
+ 	ndev->tx_queue_len = 30;
+
