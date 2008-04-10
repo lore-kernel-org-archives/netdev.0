@@ -1,7 +1,7 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 4/14][TUN]: Actually make the tun_dev_list per-net.
-Date: Thu, 10 Apr 2008 19:07:38 +0400
-Message-ID: <47FE2D3A.7040908@openvz.org>
+Subject: [PATCH 5/14][TUN]: Allow to register tun devices in namespace.
+Date: Thu, 10 Apr 2008 19:09:34 +0400
+Message-ID: <47FE2DAE.4010507@openvz.org>
 References: <47FE2AD4.9080609@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -11,147 +11,77 @@ Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, Denis Lunev <den@openvz.org>,
 	Benjamin Thery <benjamin.thery@bull.net>
 To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:50872 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:51312 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756145AbYDJOoA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2008 10:44:00 -0400
+	id S1755332AbYDJOpz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Apr 2008 10:45:55 -0400
 In-Reply-To: <47FE2AD4.9080609@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove the static tun_dev_list and replace its occurrences in
-driver with per-net one.
+This is basically means that a net is set for a new device, but
+actually this involves two more steps:
 
-It is used in two places - in tun_set_iff and tun_cleanup. In 
-the first case it's legal to use current net_ns. In the cleanup
-call - move the loop, that unregisters all devices in net exit
-hook.
+1. mark the tun device as "local", i.e. do not allow for it to
+   move across namespaces.
 
-This shows how to use the generic pointer.
+This is done so, since tun device is most often associated to some
+file (and thus to some process) and moving the device alone is not
+valid while keeping the file and the process outside (and the tun 
+devices are not always "persistent" ;) ).
+
+2. get the tun device's net when tun becomes attached and put one
+   when it becomes detached.
+
+This is needed to handle the case when a task owning the tun dies,
+but a files lives for some more time - in this case we must not
+allow for net to be freed, since its exit hook will spoil that file's
+private data by unregistering the tun from under tun_chr_close.
+
+(The TUN virtualization patches were approved by TUN maintainer)
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- drivers/net/tun.c |   37 +++++++++++++++++++------------------
- 1 files changed, 19 insertions(+), 18 deletions(-)
+ drivers/net/tun.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 9bfba02..74263a4 100644
+index 74263a4..893e92f 100644
 --- a/drivers/net/tun.c
 +++ b/drivers/net/tun.c
-@@ -62,6 +62,7 @@
- #include <linux/if_ether.h>
- #include <linux/if_tun.h>
- #include <linux/crc32.h>
-+#include <linux/nsproxy.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
- 
-@@ -79,7 +80,6 @@ struct tun_net {
- 	struct list_head dev_list;
- };
- 
--static LIST_HEAD(tun_dev_list);
- static const struct ethtool_ops tun_ethtool_ops;
- 
- /* Net device open. */
-@@ -443,12 +443,12 @@ static void tun_setup(struct net_device *dev)
+@@ -441,6 +441,7 @@ static void tun_setup(struct net_device *dev)
+ 	dev->stop = tun_net_close;
+ 	dev->ethtool_ops = &tun_ethtool_ops;
  	dev->destructor = free_netdev;
++	dev->features |= NETIF_F_NETNS_LOCAL;
  }
  
--static struct tun_struct *tun_get_by_name(const char *name)
-+static struct tun_struct *tun_get_by_name(struct tun_net *tn, const char *name)
- {
- 	struct tun_struct *tun;
+ static struct tun_struct *tun_get_by_name(struct tun_net *tn, const char *name)
+@@ -508,6 +509,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		if (!dev)
+ 			return -ENOMEM;
  
- 	ASSERT_RTNL();
--	list_for_each_entry(tun, &tun_dev_list, list) {
-+	list_for_each_entry(tun, &tn->dev_list, list) {
- 		if (!strncmp(tun->dev->name, name, IFNAMSIZ))
- 		    return tun;
- 	}
-@@ -456,13 +456,15 @@ static struct tun_struct *tun_get_by_name(const char *name)
- 	return NULL;
- }
++		dev_net_set(dev, net);
+ 		tun = netdev_priv(dev);
+ 		tun->dev = dev;
+ 		tun->flags = flags;
+@@ -547,6 +549,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
  
--static int tun_set_iff(struct file *file, struct ifreq *ifr)
-+static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- {
-+	struct tun_net *tn;
- 	struct tun_struct *tun;
- 	struct net_device *dev;
- 	int err;
+ 	file->private_data = tun;
+ 	tun->attached = 1;
++	get_net(dev_net(tun->dev));
  
--	tun = tun_get_by_name(ifr->ifr_name);
-+	tn = net_generic(net, tun_net_id);
-+	tun = tun_get_by_name(tn, ifr->ifr_name);
- 	if (tun) {
- 		if (tun->attached)
- 			return -EBUSY;
-@@ -475,7 +477,7 @@ static int tun_set_iff(struct file *file, struct ifreq *ifr)
- 		     !capable(CAP_NET_ADMIN))
- 			return -EPERM;
- 	}
--	else if (__dev_get_by_name(&init_net, ifr->ifr_name))
-+	else if (__dev_get_by_name(net, ifr->ifr_name))
- 		return -EINVAL;
- 	else {
- 		char *name;
-@@ -528,7 +530,7 @@ static int tun_set_iff(struct file *file, struct ifreq *ifr)
- 		if (err < 0)
- 			goto err_free_dev;
+ 	strcpy(ifr->ifr_name, tun->dev->name);
+ 	return 0;
+@@ -762,6 +765,7 @@ static int tun_chr_close(struct inode *inode, struct file *file)
+ 	/* Detach from net device */
+ 	file->private_data = NULL;
+ 	tun->attached = 0;
++	put_net(dev_net(tun->dev));
  
--		list_add(&tun->list, &tun_dev_list);
-+		list_add(&tun->list, &tn->dev_list);
- 	}
- 
- 	DBG(KERN_INFO "%s: tun_set_iff\n", tun->dev->name);
-@@ -573,7 +575,7 @@ static int tun_chr_ioctl(struct inode *inode, struct file *file,
- 		ifr.ifr_name[IFNAMSIZ-1] = '\0';
- 
- 		rtnl_lock();
--		err = tun_set_iff(file, &ifr);
-+		err = tun_set_iff(current->nsproxy->net_ns, file, &ifr);
- 		rtnl_unlock();
- 
- 		if (err)
-@@ -900,8 +902,17 @@ static int tun_init_net(struct net *net)
- static void tun_exit_net(struct net *net)
- {
- 	struct tun_net *tn;
-+	struct tun_struct *tun, *nxt;
- 
- 	tn = net_generic(net, tun_net_id);
-+
-+	rtnl_lock();
-+	list_for_each_entry_safe(tun, nxt, &tn->dev_list, list) {
-+		DBG(KERN_INFO "%s cleaned up\n", tun->dev->name);
-+		unregister_netdevice(tun->dev);
-+	}
-+	rtnl_unlock();
-+
- 	kfree(tn);
- }
- 
-@@ -938,17 +949,7 @@ err_pernet:
- 
- static void tun_cleanup(void)
- {
--	struct tun_struct *tun, *nxt;
--
- 	misc_deregister(&tun_miscdev);
--
--	rtnl_lock();
--	list_for_each_entry_safe(tun, nxt, &tun_dev_list, list) {
--		DBG(KERN_INFO "%s cleaned up\n", tun->dev->name);
--		unregister_netdevice(tun->dev);
--	}
--	rtnl_unlock();
--
- 	unregister_pernet_gen_device(tun_net_id, &tun_net_ops);
- }
- 
+ 	/* Drop read queue */
+ 	skb_queue_purge(&tun->readq);
 -- 
 1.5.3.4
-
 
