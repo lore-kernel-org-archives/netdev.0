@@ -1,43 +1,43 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [XFRM]: xfrm_user: fix selector family initialization
-Date: Thu, 10 Apr 2008 02:55:46 +0200
-Message-ID: <47FD6592.609@trash.net>
-References: <47F4EB73.1040705@trash.net>	<47FBC2AF.7050508@trash.net>	<47FCE30F.8060400@trash.net> <20080409.150931.93235087.davem@davemloft.net> <47FD5B1C.3060005@miyazawa.org> <47FD5CBC.6040905@trash.net> <47FD6464.2000608@miyazawa.org>
+Subject: Re: [PATCH] Stochastic Fair Blue queue discipline
+Date: Thu, 10 Apr 2008 03:23:26 +0200
+Message-ID: <47FD6C0E.7040808@trash.net>
+References: <87skxxb8br.fsf@pirx.pps.jussieu.fr> <873apwrc4t.fsf@basil.nowhere.org> <7i3apwbblk.fsf@lanthane.pps.jussieu.fr> <20080408163252.GS16647@one.firstfloor.org> <7iwsn8s107.fsf@lanthane.pps.jussieu.fr> <20080408175353.GA17147@one.firstfloor.org> <7ik5j7ghgh.fsf@lanthane.pps.jussieu.fr> <20080409174954.GD30885@one.firstfloor.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, pupilla@hotmail.com,
+Cc: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>,
 	netdev@vger.kernel.org
-To: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64402 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:64945 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753197AbYDJAzu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 20:55:50 -0400
-In-Reply-To: <47FD6464.2000608@miyazawa.org>
+	with ESMTP id S1751010AbYDJBXc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 21:23:32 -0400
+In-Reply-To: <20080409174954.GD30885@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kazunori MIYAZAWA wrote:
-> Patrick McHardy wrote:
->> Kazunori MIYAZAWA wrote:
->>>
->>> Sorry, I missed the thread.
->>> I have no idea to solve the regression.
->>
->>
->> Wouldn't explicitly initializing the SA family for
->> inter-family tunnels work?
+Andi Kleen wrote:
+>> Random32 is initialised from get_random_bytes; so the per-cpu
+>> pseudo-random sequences should be uncorrelated.  I fail to see how an
+>> arbitrary interleaving of uncorrelated good pseudo-random sequences
+>> can fail to be good.
 > 
-> I guess it is same as the original Herbert's patch.
-> It needs to explicitly initialize the family for inter-family tunnel.
+> They are not necessarily uncorreleated, especially on platforms
+> which do have poor entropy support and when your initialization happens
+> at boot time. Take a look at how the random pool starts in random.c.
+> 
+>> Looking at line 448 of sch_sfq.c in Linus' current HEAD, I see that
+>> somebody else thinks the same as I do.  So please let me know if sfq
+>> needs fixed, or whether I can use net_random in sfb.
+> 
+> A lot of people get this wrong, but this doesn't mean that the
+> problem should be readded in new code again.
 
 
-Thanks for looking into this, I haven't seen Herbert's patch,
-but I'd assume comparing the SA family to the policy family
-would work for determining whether its an inter-family tunnel
-in case the family in explicitly initialized. The only thing
-that would need to be changed in the kernel is the check
-in xfrm_init_state().
-
+Well, if I'm not mistaken net_random() used to be a function
+(in net/core/utils.c) that didn't have this problem. So these
+problems seem to have been introduced by the conversion to
+srandom().
 
