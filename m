@@ -1,35 +1,25 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: [PATCH] sky2: missing chip name for Yukon Supreme
-Date: Thu, 10 Apr 2008 15:06:14 -0500
-Message-ID: <20080410150614.7da71ff8@speedy>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH] sky2: missing chip name for Yukon Supreme
+Date: Thu, 10 Apr 2008 16:14:21 -0400
+Message-ID: <20080410201421.GA27486@infradead.org>
+References: <20080410150614.7da71ff8@speedy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:45814 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752046AbYDJUGa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2008 16:06:30 -0400
+Received: from bombadil.infradead.org ([18.85.46.34]:36192 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757485AbYDJUOa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 16:14:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20080410150614.7da71ff8@speedy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Any usage of sky2 on new Yukon Supreme would cause a NULL dereference.
-The chip is very new, so the support is still untested; vendor has
-not sent any eval hardware.
+On Thu, Apr 10, 2008 at 03:06:14PM -0500, Stephen Hemminger wrote:
+> Any usage of sky2 on new Yukon Supreme would cause a NULL dereference.
+> The chip is very new, so the support is still untested; vendor has
+> not sent any eval hardware.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
----
-Please apply for 2.6.25
-
---- a/drivers/net/sky2.c	2008-04-10 14:01:05.000000000 -0500
-+++ b/drivers/net/sky2.c	2008-04-10 14:04:23.000000000 -0500
-@@ -154,6 +154,7 @@ static const char *yukon2_name[] = {
- 	"EC",		/* 0xb6 */
- 	"FE",		/* 0xb7 */
- 	"FE+",		/* 0xb8 */
-+	"Supreme",	/* 0xb9 */
- };
- 
- static void sky2_set_multicast(struct net_device *dev);
+What about also making the driver not oops in case another variant is added?
