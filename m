@@ -1,116 +1,103 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [patch] e1000=y && e1000e=m regression fix
-Date: Thu, 10 Apr 2008 11:29:29 -0700
-Message-ID: <47FE5C89.5060209@intel.com>
-References: <20080408083606.GA20863@elte.hu> <47FB9ABB.9080403@intel.com> <20080408183921.GA20803@elte.hu> <20080408193245.GG11962@parisc-linux.org> <20080408195123.GA28148@elte.hu> <47FBCE00.2020309@garzik.org> <20080408200652.GC28148@elte.hu> <47FBD34A.6080508@garzik.org> <20080408203314.GA28952@elte.hu> <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <47FD2325.2030705@intel.com>
+From: Jim Westfall <jwestfall@surrealistic.net>
+Subject: Re: bnx2 probe order change from 2.6.21 -> 2.6.24
+Date: Thu, 10 Apr 2008 11:44:55 -0700
+Message-ID: <20080410184455.GL84358@surrealistic.net>
+References: <20080410154401.GA14486@linuxace.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, Matthew Wilcox <matthew@wil.cx>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	e1000-list <e1000-devel@lists.sourceforge.net>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	Greg KH <greg@kroah.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, mchan@broadcom.com
+To: Phil Oester <kernel@linuxace.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:24188 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756143AbYDJSfH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2008 14:35:07 -0400
-In-Reply-To: <47FD2325.2030705@intel.com>
+Received: from snapper.surrealistic.net ([67.40.222.186]:60376 "EHLO
+	snapper.surrealistic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750702AbYDJTJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 15:09:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20080410154401.GA14486@linuxace.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kok, Auke wrote:
-> Ingo Molnar wrote:
->> * Jeff Garzik <jeff@garzik.org> wrote:
->>
->>>> We've got three thousand Kconfig options - it is clearly not 
->>>> realistic for users to keep such details in mind to avoid pitfalls.
->>> Agreed -- hence the multiple announcements, including in this thread, 
->>> to put said details into mind.
->> which part of "it took a kernel developer more than an hour to figure 
->> out why his laptop had a dead network interface" did you not understand? 
->> Whatever you did, it was not apparent to me. I dont follow every tiny 
->> detail of the e1000 driver family, nor do 99%+ [*] of our users.
->>
->> find the fix below, against current -git.
->>
->> the current upstream behavior is the worst possible one and is just a 
->> plain bug, and the solution is dead-simple.
+Phil Oester <kernel@linuxace.com> wrote [04.10.08]:
+> Apologies if this has been covered already, but I searched the archives and
+> couldn't find anything.
+> 
+> I recently upgraded a Dell Poweredge 1950 from 2.6.21 to 2.6.24, and found
+> that the onboard Broadcom NetXtreme II nics got probed in the reverse order.
+> 
+> 2.6.21:
+> 
+> Broadcom NetXtreme II Gigabit Ethernet Driver bnx2 v1.5.8.1 (May 7, 2007)
+> ACPI: PCI Interrupt 0000:04:00.0[A] -> GSI 16 (level, low) -> IRQ 16
+> eth8: Broadcom NetXtreme II BCM5708 1000Base-T (B1) PCI-X 64-bit 133MHz found at mem f8000000, IRQ 16, node addr 0015c5eaef1c
+> ACPI: PCI Interrupt 0000:08:00.0[A] -> GSI 16 (level, low) -> IRQ 16
+> eth9: Broadcom NetXtreme II BCM5708 1000Base-T (B1) PCI-X 64-bit 133MHz found at mem f4000000, IRQ 16, node addr 0015c5eaef1e
+> 
+> 2.6.24:
+> 
+> Broadcom NetXtreme II Gigabit Ethernet Driver bnx2 v1.6.9 (December 8, 2007)
+> ACPI: PCI Interrupt 0000:08:00.0[A] -> GSI 16 (level, low) -> IRQ 16
+> eth8: Broadcom NetXtreme II BCM5708 1000Base-T (B1) PCI-X 64-bit 133MHz found at mem f4000000, IRQ 16, node addr 00:15:c5:ea:ef:1e
+> ACPI: PCI Interrupt 0000:04:00.0[A] -> GSI 16 (level, low) -> IRQ 16
+> udev: renamed network interface eth8 to eth9
+> eth8: Broadcom NetXtreme II BCM5708 1000Base-T (B1) PCI-X 64-bit 133MHz found at mem f8000000, IRQ 16, node addr 00:15:c5:ea:ef:1c
 > 
 > 
-> If this makes people happy then I am happy to ack this.
+> Is this known/expected?  Seems somewhat odd from both a MAC address
+> perspective (1c < 1e) and a PCI bus order (04 < 08).  Thoughts?
 > 
-> Acked-by: Auke Kok <auke-jan.h.kok@intel.com>
-> 
->> 	Ingo
->>
->> [*] guesstimate
->>
->> --------------->
->> Subject: e1000=y && e1000e=m regression fix
->> From: Ingo Molnar <mingo@elte.hu>
->> Date: Wed Apr 09 21:09:35 CEST 2008
->>
->> fix a regression from v2.6.24: do not transfer the e1000e PCI IDs from 
->> e1000 to e1000e if e1000 is built-in and e1000e is a module.
->>
->> Built-in drivers take precedence over modules in many ways - and in this 
->> case it's clear that the user intended the e1000 driver to be the 
->> primary one. "Silently change behavior and break existing configs" is 
->> never a good migration strategy. Most users will use distro kernels that 
->> are not affected by this problem at all - nor are they affected by this 
->> patch - but this problem can hit users and developers who build their 
->> kernels themselves and migrate from v2.6.24 to v2.6.25.
->>
->> this fixes: http://bugzilla.kernel.org/show_bug.cgi?id=10427
->>
->> Signed-off-by: Ingo Molnar <mingo@elte.hu>
->> ---
->>  drivers/net/Kconfig |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> Index: linux-x86.q/drivers/net/Kconfig
->> ===================================================================
->> --- linux-x86.q.orig/drivers/net/Kconfig
->> +++ linux-x86.q/drivers/net/Kconfig
->> @@ -2022,7 +2022,7 @@ config E1000E
->>  	  will be called e1000e.
->>  
->>  config E1000E_ENABLED
->> -	def_bool E1000E != n
->> +	def_bool E1000E = y || ((E1000E != n) && (E1000 = E1000E))
+
+Hi
+
+We ran into this issue as well when going from 2.6.20 to 2.6.23 on dell 
+1950/2950s.
+
+If you check your dmesg output from your older kernel you should see
+
+PCI: Dell PowerEdge 1950 detected, enabling pci=bfsort.
+
+With the newer kernel the code path that triggers the above is removed if 
+you have ACPI enabled in the kernel.
+
+We have been using the following patch which re-adds the code path to the 
+ACPI PCI code.
+
+thanks
+jim
 
 
-Matthew Wilcox wrote:
-> On Thu, Apr 10, 2008 at 11:55:03AM -0600, Grant Grundler wrote:
->> Agreed. I like Ingo's Kconfig patch which forces both drivers
->> (e1000 and e1000e) to be built the same way (ie both modules or both
->> builtin).
->
-> Uh, that's /not/ what Ingo's patch does.  His patch makes e1000 claim
-> the e1000e IDs if e1000 is built-in and e1000e is a module.
-
-
-
-so that's definately _not_ what I would like to see at all. Matthew points out
-that this will just prolong users to use e1000 instead of e1000e (which is what
-they should be encouraged to switch to in those cases).
-
-so I'm dropping my ACK
-
-this patch doesn't solve anything and we'll have the same issue back when 2.6.26
-ships which will have no PCI Express device IDs in e1000.
-
-Auke
-
+diff -ur linux-2.6.23.16-orig/arch/i386/pci/acpi.c linux-2.6.23.16-inap3/arch/i386/pci/acpi.c
+--- linux-2.6.23.16-orig/arch/i386/pci/acpi.c   2008-02-10 22:06:32.000000000 -0800
++++ linux-2.6.23.16-inap3/arch/i386/pci/acpi.c  2008-02-21 16:27:19.000000000 -0800
+@@ -2,9 +2,12 @@
+ #include <linux/acpi.h>
+ #include <linux/init.h>
+ #include <linux/irq.h>
++#include <linux/dmi.h>
+ #include <asm/numa.h>
+ #include "pci.h"
+ 
++extern struct dmi_system_id __devinitdata pciprobe_dmi_table[];
++
+ struct pci_bus * __devinit pci_acpi_scan_root(struct acpi_device *device, int domain, int busnum)
+ {
+        struct pci_bus *bus;
+@@ -27,6 +30,7 @@
+                return NULL;
+        }
+ 
++       dmi_check_system(pciprobe_dmi_table);
+        sd->node = -1;
+ 
+        pxm = acpi_get_pxm(device->handle);
+diff -ur linux-2.6.23.16-orig/arch/i386/pci/common.c linux-2.6.23.16-inap3/arch/i386/pci/common.c
+--- linux-2.6.23.16-orig/arch/i386/pci/common.c 2008-02-10 22:06:32.000000000 -0800
++++ linux-2.6.23.16-inap3/arch/i386/pci/common.c        2008-02-21 16:27:19.000000000 -0800
+@@ -145,7 +145,7 @@
+ }
+ #endif
+ 
+-static struct dmi_system_id __devinitdata pciprobe_dmi_table[] = {
++struct dmi_system_id __devinitdata pciprobe_dmi_table[] = {
+ #ifdef __i386__
+ /*
+ 
