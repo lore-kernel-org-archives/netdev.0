@@ -1,44 +1,39 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [patch] e1000=y && e1000e=m regression fix (was: Re: [regression] e1000e broke e1000)
-Date: Thu, 10 Apr 2008 11:57:15 +0200
-Message-ID: <m34paaav7o.fsf@maximus.localdomain>
-References: <20080408083606.GA20863@elte.hu> <47FB9ABB.9080403@intel.com>
-	<20080408183921.GA20803@elte.hu>
-	<20080408193245.GG11962@parisc-linux.org>
-	<20080408195123.GA28148@elte.hu> <47FBCE00.2020309@garzik.org>
-	<20080408200652.GC28148@elte.hu> <47FBD34A.6080508@garzik.org>
-	<20080408203314.GA28952@elte.hu> <47FBDBE9.9040700@garzik.org>
-	<47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu>
-	<200804092249.23111.elendil@planet.nl>
-	<m363uqwpds.fsf@maximus.localdomain>
-	<alpine.LFD.1.00.0804091838330.3143@woody.linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] fib_trie: memory waste solutions
+Date: Thu, 10 Apr 2008 02:57:17 -0700 (PDT)
+Message-ID: <20080410.025717.04755660.davem@davemloft.net>
+References: <20080404090257.2ec38b0c@extreme>
+	<47FA4FE5.5010500@cosmosbay.com>
+	<20080407154800.6912ad1d@speedy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Frans Pop <elendil@planet.nl>, Ingo Molnar <mingo@elte.hu>,
-	jeff@garzik.org, matthew@wil.cx, auke-jan.h.kok@intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net,
-	linux-pci@atrey.karlin.mff.cuni.cz, akpm@linux-foundation.org,
-	davem@davemloft.net, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com, bruce.w.allan@intel.com, greg@kroah.com,
-	arjan@linux.intel.com, rjw@sisk.pl
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dada1@cosmosbay.com, shemminger@vyatta.com,
+	Robert.Olsson@data.slu.se, netdev@vger.kernel.org
+To: stephen.hemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ZSM1387.piap.pl ([195.187.100.11]:51726 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752171AbYDJJ5R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2008 05:57:17 -0400
-In-Reply-To: <alpine.LFD.1.00.0804091838330.3143@woody.linux-foundation.org> (Linus Torvalds's message of "Wed\, 9 Apr 2008 18\:40\:24 -0700 \(PDT\)")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53675
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752198AbYDJJ5R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 05:57:17 -0400
+In-Reply-To: <20080407154800.6912ad1d@speedy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Linus Torvalds <torvalds@linux-foundation.org> writes:
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Date: Mon, 7 Apr 2008 15:48:00 -0700
 
->> Nope, udev with normal distro config will load e1000e just fine.
->
-> Not for us that don't compile modules at all, or only modules for the 
-> devices we actually have.
+> On Mon, 07 Apr 2008 18:46:29 +0200
+> Eric Dumazet <dada1@cosmosbay.com> wrote:
+> 
+> > I prefer my patch Stephen, as your version enlarges every tnode with an 
+> > embedded "struct work_struct" which can be larger than a "struct rcu_head"
+> 
+> The number of tnode's is small and the size growth of 2*(unsigned long) is not
+> worth worrying about. Also theoretically, my version could have multiple
+> work elements processed at once.
 
-That would work, too.
--- 
-Krzysztof Halasa
+I pretty much agree with Stephen and thus applied his patch
+to net-2.6.26.
+
+We can tweak this further if new data supports that.
