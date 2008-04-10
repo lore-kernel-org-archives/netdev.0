@@ -1,204 +1,416 @@
 From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH v2.6.26] gianfar: Support NAPI for TX Frames
-Date: Wed,  9 Apr 2008 19:37:51 -0500
-Message-ID: <1207787871-9164-1-git-send-email-afleming@freescale.com>
-Cc: netdev@vger.kernel.org, Dai Haruki <dai.haruki@freescale.com>,
-	Andy Fleming <afleming@freescale.com>
+Subject: [PATCH v2.6.26] phy: Change mii_bus id field to a string
+Date: Wed,  9 Apr 2008 19:38:13 -0500
+Message-ID: <1207787893-9200-1-git-send-email-afleming@freescale.com>
+Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:51949 "EHLO
+Received: from az33egw01.freescale.net ([192.88.158.102]:52091 "EHLO
 	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752024AbYDJAhz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 20:37:55 -0400
-Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id m3A0bqWU009078
-	for <netdev@vger.kernel.org>; Wed, 9 Apr 2008 17:37:53 -0700 (MST)
+	with ESMTP id S1753988AbYDJAiU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 20:38:20 -0400
+Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
+	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id m3A0cGu6009329
+	for <netdev@vger.kernel.org>; Wed, 9 Apr 2008 17:38:16 -0700 (MST)
 Received: from ld0175-tx32.am.freescale.net (ld0175-tx32.am.freescale.net [10.82.19.125])
-	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id m3A0bq7h012834
-	for <netdev@vger.kernel.org>; Wed, 9 Apr 2008 19:37:52 -0500 (CDT)
+	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id m3A0cD8H015484
+	for <netdev@vger.kernel.org>; Wed, 9 Apr 2008 19:38:13 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dai Haruki <dai.haruki@freescale.com>
+Having the id field be an int was making more complex bus topologies
+excessively difficult.  For now, just convert it to a string, and
+change all instances of "bus->id = val" to
+snprintf(id, MII_BUS_ID_LEN, "%x", val).
 
-Poll the completed TX frames in gfar_poll().  This prevents the tx
-completion interrupt from interfering with processing of received
-frames.
-
-We also disable hardware rx coalescing when NAPI is enabled.
-
-Signed-off-by: Dai Haruki <dai.haruki@freescale.com>
 Signed-off-by: Andy Fleming <afleming@freescale.com>
 ---
- drivers/net/gianfar.c |   56 ++++++++++++++++++++++++++++++++++++------------
- drivers/net/gianfar.h |   13 +++++++++-
- 2 files changed, 53 insertions(+), 16 deletions(-)
+ arch/powerpc/platforms/82xx/ep8248e.c     |    2 +-
+ arch/powerpc/platforms/pasemi/gpio_mdio.c |    2 +-
+ arch/powerpc/sysdev/fsl_soc.c             |    5 +++--
+ drivers/net/au1000_eth.c                  |    6 +++---
+ drivers/net/bfin_mac.c                    |    2 +-
+ drivers/net/cpmac.c                       |    5 ++---
+ drivers/net/fec_mpc52xx.c                 |    2 +-
+ drivers/net/fec_mpc52xx_phy.c             |    2 +-
+ drivers/net/fs_enet/fs_enet-main.c        |    4 ++--
+ drivers/net/fs_enet/mii-bitbang.c         |    4 ++--
+ drivers/net/fs_enet/mii-fec.c             |    4 ++--
+ drivers/net/gianfar_mii.c                 |    2 +-
+ drivers/net/macb.c                        |    2 +-
+ drivers/net/pasemi_mac.c                  |    2 +-
+ drivers/net/phy/fixed.c                   |    2 +-
+ drivers/net/sb1250-mac.c                  |    2 +-
+ drivers/net/ucc_geth.c                    |    2 +-
+ drivers/net/ucc_geth.h                    |    2 +-
+ drivers/net/ucc_geth_mii.c                |    2 +-
+ include/linux/fsl_devices.h               |    2 +-
+ include/linux/phy.h                       |   12 ++++++++----
+ 21 files changed, 36 insertions(+), 32 deletions(-)
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 601f93e..c8c3df7 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1250,17 +1250,12 @@ static void gfar_timeout(struct net_device *dev)
+diff --git a/arch/powerpc/platforms/82xx/ep8248e.c b/arch/powerpc/platforms/82xx/ep8248e.c
+index ba93d8a..d5770fd 100644
+--- a/arch/powerpc/platforms/82xx/ep8248e.c
++++ b/arch/powerpc/platforms/82xx/ep8248e.c
+@@ -138,7 +138,7 @@ static int __devinit ep8248e_mdio_probe(struct of_device *ofdev,
+ 
+ 	bus->name = "ep8248e-mdio-bitbang";
+ 	bus->dev = &ofdev->dev;
+-	bus->id = res.start;
++	snprintf(bus->id, MII_BUS_ID_SIZE, "%x", res.start);
+ 
+ 	return mdiobus_register(bus);
  }
+diff --git a/arch/powerpc/platforms/pasemi/gpio_mdio.c b/arch/powerpc/platforms/pasemi/gpio_mdio.c
+index b465429..ab69554 100644
+--- a/arch/powerpc/platforms/pasemi/gpio_mdio.c
++++ b/arch/powerpc/platforms/pasemi/gpio_mdio.c
+@@ -241,7 +241,7 @@ static int __devinit gpio_mdio_probe(struct of_device *ofdev,
+ 	new_bus->reset = &gpio_mdio_reset;
  
- /* Interrupt Handler for Transmit complete */
--static irqreturn_t gfar_transmit(int irq, void *dev_id)
-+int gfar_clean_tx_ring(struct net_device *dev)
- {
--	struct net_device *dev = (struct net_device *) dev_id;
--	struct gfar_private *priv = netdev_priv(dev);
- 	struct txbd8 *bdp;
-+	struct gfar_private *priv = netdev_priv(dev);
-+	int howmany = 0;
+ 	prop = of_get_property(np, "reg", NULL);
+-	new_bus->id = *prop;
++	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%x", *prop);
+ 	new_bus->priv = priv;
  
--	/* Clear IEVENT */
--	gfar_write(&priv->regs->ievent, IEVENT_TX_MASK);
--
--	/* Lock priv */
--	spin_lock(&priv->txlock);
- 	bdp = priv->dirty_tx;
- 	while ((bdp->status & TXBD_READY) == 0) {
- 		/* If dirty_tx and cur_tx are the same, then either the */
-@@ -1269,7 +1264,7 @@ static irqreturn_t gfar_transmit(int irq, void *dev_id)
- 		if ((bdp == priv->cur_tx) && (netif_queue_stopped(dev) == 0))
- 			break;
+ 	new_bus->phy_mask = 0;
+diff --git a/arch/powerpc/sysdev/fsl_soc.c b/arch/powerpc/sysdev/fsl_soc.c
+index 2c5388c..3581416 100644
+--- a/arch/powerpc/sysdev/fsl_soc.c
++++ b/arch/powerpc/sysdev/fsl_soc.c
+@@ -341,7 +341,7 @@ static int __init gfar_of_init(void)
+ 				goto unreg;
+ 			}
  
--		dev->stats.tx_packets++;
-+		howmany++;
+-			gfar_data.bus_id = 0;
++			snprintf(gfar_data.bus_id, MII_BUS_ID_SIZE, "0");
+ 			gfar_data.phy_id = fixed_link[0];
+ 		} else {
+ 			phy = of_find_node_by_phandle(*ph);
+@@ -362,7 +362,8 @@ static int __init gfar_of_init(void)
+ 			}
  
- 		/* Deferred means some collisions occurred during transmit, */
- 		/* but we eventually sent the packet. */
-@@ -1278,11 +1273,15 @@ static irqreturn_t gfar_transmit(int irq, void *dev_id)
+ 			gfar_data.phy_id = *id;
+-			gfar_data.bus_id = res.start;
++			snprintf(gfar_data.bus_id, MII_BUS_ID_SIZE, "%x",
++					res.start);
  
- 		/* Free the sk buffer associated with this TxBD */
- 		dev_kfree_skb_irq(priv->tx_skbuff[priv->skb_dirtytx]);
-+
- 		priv->tx_skbuff[priv->skb_dirtytx] = NULL;
- 		priv->skb_dirtytx =
- 		    (priv->skb_dirtytx +
- 		     1) & TX_RING_MOD_MASK(priv->tx_ring_size);
- 
-+		/* Clean BD length for empty detection */
-+		bdp->length = 0;
-+
- 		/* update bdp to point at next bd in the ring (wrapping if necessary) */
- 		if (bdp->status & TXBD_WRAP)
- 			bdp = priv->tx_bd_base;
-@@ -1297,6 +1296,25 @@ static irqreturn_t gfar_transmit(int irq, void *dev_id)
- 			netif_wake_queue(dev);
- 	} /* while ((bdp->status & TXBD_READY) == 0) */
- 
-+	dev->stats.tx_packets += howmany;
-+
-+	return howmany;
-+}
-+
-+/* Interrupt Handler for Transmit complete */
-+static irqreturn_t gfar_transmit(int irq, void *dev_id)
-+{
-+	struct net_device *dev = (struct net_device *) dev_id;
-+	struct gfar_private *priv = netdev_priv(dev);
-+
-+	/* Clear IEVENT */
-+	gfar_write(&priv->regs->ievent, IEVENT_TX_MASK);
-+
-+	/* Lock priv */
-+	spin_lock(&priv->txlock);
-+
-+	gfar_clean_tx_ring(dev);
-+
- 	/* If we are coalescing the interrupts, reset the timer */
- 	/* Otherwise, clear it */
- 	if (likely(priv->txcoalescing)) {
-@@ -1392,15 +1410,15 @@ irqreturn_t gfar_receive(int irq, void *dev_id)
- 	unsigned long flags;
+ 			of_node_put(phy);
+ 			of_node_put(mdio);
+diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
+index 504b7ce..3634b5f 100644
+--- a/drivers/net/au1000_eth.c
++++ b/drivers/net/au1000_eth.c
+@@ -701,7 +701,7 @@ static struct net_device * au1000_probe(int port_num)
+ 	aup->mii_bus.write = mdiobus_write;
+ 	aup->mii_bus.reset = mdiobus_reset;
+ 	aup->mii_bus.name = "au1000_eth_mii";
+-	aup->mii_bus.id = aup->mac_id;
++	snprintf(aup->mii_bus.id, MII_BUS_ID_SIZE, "%x", aup->mac_id);
+ 	aup->mii_bus.irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
+ 	for(i = 0; i < PHY_MAX_ADDR; ++i)
+ 		aup->mii_bus.irq[i] = PHY_POLL;
+@@ -709,11 +709,11 @@ static struct net_device * au1000_probe(int port_num)
+ 	/* if known, set corresponding PHY IRQs */
+ #if defined(AU1XXX_PHY_STATIC_CONFIG)
+ # if defined(AU1XXX_PHY0_IRQ)
+-	if (AU1XXX_PHY0_BUSID == aup->mii_bus.id)
++	if (AU1XXX_PHY0_BUSID == aup->mac_id)
+ 		aup->mii_bus.irq[AU1XXX_PHY0_ADDR] = AU1XXX_PHY0_IRQ;
+ # endif
+ # if defined(AU1XXX_PHY1_IRQ)
+-	if (AU1XXX_PHY1_BUSID == aup->mii_bus.id)
++	if (AU1XXX_PHY1_BUSID == aup->mac_id)
+ 		aup->mii_bus.irq[AU1XXX_PHY1_ADDR] = AU1XXX_PHY1_IRQ;
+ # endif
  #endif
+diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
+index 26b2dd5..717dcc1 100644
+--- a/drivers/net/bfin_mac.c
++++ b/drivers/net/bfin_mac.c
+@@ -969,7 +969,7 @@ static int __init bf537mac_probe(struct net_device *dev)
+ 	lp->mii_bus.write = mdiobus_write;
+ 	lp->mii_bus.reset = mdiobus_reset;
+ 	lp->mii_bus.name = "bfin_mac_mdio";
+-	lp->mii_bus.id = 0;
++	snprintf(lp->mii_bus.id, MII_BUS_ID_SIZE, "0");
+ 	lp->mii_bus.irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
+ 	for (i = 0; i < PHY_MAX_ADDR; ++i)
+ 		lp->mii_bus.irq[i] = PHY_POLL;
+diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
+index c85194f..9da7ff4 100644
+--- a/drivers/net/cpmac.c
++++ b/drivers/net/cpmac.c
+@@ -987,7 +987,7 @@ static int external_switch;
+ static int __devinit cpmac_probe(struct platform_device *pdev)
+ {
+ 	int rc, phy_id, i;
+-	int mdio_bus_id = cpmac_mii.id;
++	char *mdio_bus_id = "0";
+ 	struct resource *mem;
+ 	struct cpmac_priv *priv;
+ 	struct net_device *dev;
+@@ -1008,8 +1008,6 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
+ 		if (external_switch || dumb_switch) {
+ 			struct fixed_phy_status status = {};
  
--	/* Clear IEVENT, so rx interrupt isn't called again
--	 * because of this interrupt */
--	gfar_write(&priv->regs->ievent, IEVENT_RX_MASK);
+-			mdio_bus_id = 0;
 -
- 	/* support NAPI */
- #ifdef CONFIG_GFAR_NAPI
-+	/* Clear IEVENT, so interrupts aren't called again
-+	 * because of the packets that have already arrived */
-+	gfar_write(&priv->regs->ievent, IEVENT_RTX_MASK);
-+
- 	if (netif_rx_schedule_prep(dev, &priv->napi)) {
- 		tempval = gfar_read(&priv->regs->imask);
--		tempval &= IMASK_RX_DISABLED;
-+		tempval &= IMASK_RTX_DISABLED;
- 		gfar_write(&priv->regs->imask, tempval);
- 
- 		__netif_rx_schedule(dev, &priv->napi);
-@@ -1411,6 +1429,9 @@ irqreturn_t gfar_receive(int irq, void *dev_id)
- 				gfar_read(&priv->regs->imask));
+ 			/*
+ 			 * FIXME: this should be in the platform code!
+ 			 * Since there is not platform code at all (that is,
+@@ -1143,6 +1141,7 @@ int __devinit cpmac_init(void)
  	}
- #else
-+	/* Clear IEVENT, so rx interrupt isn't called again
-+	 * because of this interrupt */
-+	gfar_write(&priv->regs->ievent, IEVENT_RX_MASK);
  
- 	spin_lock_irqsave(&priv->rxlock, flags);
- 	gfar_clean_rx_ring(dev, priv->rx_ring_size);
-@@ -1580,6 +1601,13 @@ static int gfar_poll(struct napi_struct *napi, int budget)
- 	struct gfar_private *priv = container_of(napi, struct gfar_private, napi);
- 	struct net_device *dev = priv->dev;
- 	int howmany;
-+	unsigned long flags;
+ 	cpmac_mii.phy_mask = ~(mask | 0x80000000);
++	snprintf(cpmac_mii.id, MII_BUS_ID_SIZE, "0");
+ 
+ 	res = mdiobus_register(&cpmac_mii);
+ 	if (res)
+diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+index 58b71e6..43b5f30 100644
+--- a/drivers/net/fec_mpc52xx.c
++++ b/drivers/net/fec_mpc52xx.c
+@@ -198,7 +198,7 @@ static int mpc52xx_fec_init_phy(struct net_device *dev)
+ 	struct phy_device *phydev;
+ 	char phy_id[BUS_ID_SIZE];
+ 
+-	snprintf(phy_id, BUS_ID_SIZE, PHY_ID_FMT,
++	snprintf(phy_id, BUS_ID_SIZE, "%x:%02x",
+ 			(unsigned int)dev->base_addr, priv->phy_addr);
+ 
+ 	priv->link = PHY_DOWN;
+diff --git a/drivers/net/fec_mpc52xx_phy.c b/drivers/net/fec_mpc52xx_phy.c
+index 6a3ac4e..956836f 100644
+--- a/drivers/net/fec_mpc52xx_phy.c
++++ b/drivers/net/fec_mpc52xx_phy.c
+@@ -124,7 +124,7 @@ static int mpc52xx_fec_mdio_probe(struct of_device *of, const struct of_device_i
+ 		goto out_free;
+ 	}
+ 
+-	bus->id = res.start;
++	snprintf(bus->id, MII_BUS_ID_SIZE, "%x", res.start);
+ 	bus->priv = priv;
+ 
+ 	bus->dev = dev;
+diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
+index af869cf..44a1f30 100644
+--- a/drivers/net/fs_enet/fs_enet-main.c
++++ b/drivers/net/fs_enet/fs_enet-main.c
+@@ -1177,7 +1177,7 @@ static int __devinit find_phy(struct device_node *np,
+ 
+ 	data  = of_get_property(np, "fixed-link", NULL);
+ 	if (data) {
+-		snprintf(fpi->bus_id, 16, PHY_ID_FMT, 0, *data);
++		snprintf(fpi->bus_id, 16, "%x:%02x", 0, *data);
+ 		return 0;
+ 	}
+ 
+@@ -1201,7 +1201,7 @@ static int __devinit find_phy(struct device_node *np,
+ 	if (!data || len != 4)
+ 		goto out_put_mdio;
+ 
+-	snprintf(fpi->bus_id, 16, PHY_ID_FMT, res.start, *data);
++	snprintf(fpi->bus_id, 16, "%x:%02x", res.start, *data);
+ 
+ out_put_mdio:
+ 	of_node_put(mdionode);
+diff --git a/drivers/net/fs_enet/mii-bitbang.c b/drivers/net/fs_enet/mii-bitbang.c
+index b8e4a73..1620030 100644
+--- a/drivers/net/fs_enet/mii-bitbang.c
++++ b/drivers/net/fs_enet/mii-bitbang.c
+@@ -130,7 +130,7 @@ static int __devinit fs_mii_bitbang_init(struct mii_bus *bus,
+ 	 * we get is an int, and the odds of multiple bitbang mdio buses
+ 	 * is low enough that it's not worth going too crazy.
+ 	 */
+-	bus->id = res.start;
++	snprintf(bus->id, MII_BUS_ID_SIZE, "%x", res.start);
+ 
+ 	data = of_get_property(np, "fsl,mdio-pin", &len);
+ 	if (!data || len != 4)
+@@ -307,7 +307,7 @@ static int __devinit fs_enet_mdio_probe(struct device *dev)
+ 		return -ENOMEM;
+ 
+ 	new_bus->name = "BB MII Bus",
+-	new_bus->id = pdev->id;
++	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%x", pdev->id);
+ 
+ 	new_bus->phy_mask = ~0x9;
+ 	pdata = (struct fs_mii_bb_platform_info *)pdev->dev.platform_data;
+diff --git a/drivers/net/fs_enet/mii-fec.c b/drivers/net/fs_enet/mii-fec.c
+index a89cf15..ba75efc 100644
+--- a/drivers/net/fs_enet/mii-fec.c
++++ b/drivers/net/fs_enet/mii-fec.c
+@@ -196,7 +196,7 @@ static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
+ 	if (ret)
+ 		return ret;
+ 
+-	new_bus->id = res.start;
++	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%x", res.start);
+ 
+ 	fec->fecp = ioremap(res.start, res.end - res.start + 1);
+ 	if (!fec->fecp)
+@@ -309,7 +309,7 @@ static int __devinit fs_enet_fec_mdio_probe(struct device *dev)
+ 	new_bus->read = &fs_enet_fec_mii_read,
+ 	new_bus->write = &fs_enet_fec_mii_write,
+ 	new_bus->reset = &fs_enet_fec_mii_reset,
+-	new_bus->id = pdev->id;
++	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%x", pdev->id);
+ 
+ 	pdata = (struct fs_mii_fec_platform_info *)pdev->dev.platform_data;
+ 
+diff --git a/drivers/net/gianfar_mii.c b/drivers/net/gianfar_mii.c
+index 2432762..b889892 100644
+--- a/drivers/net/gianfar_mii.c
++++ b/drivers/net/gianfar_mii.c
+@@ -173,7 +173,7 @@ int gfar_mdio_probe(struct device *dev)
+ 	new_bus->read = &gfar_mdio_read,
+ 	new_bus->write = &gfar_mdio_write,
+ 	new_bus->reset = &gfar_mdio_reset,
+-	new_bus->id = pdev->id;
++	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%x", pdev->id);
+ 
+ 	pdata = (struct gianfar_mdio_data *)pdev->dev.platform_data;
+ 
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index 1d210ed..06e860b 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -246,7 +246,7 @@ static int macb_mii_init(struct macb *bp)
+ 	bp->mii_bus.read = &macb_mdio_read,
+ 	bp->mii_bus.write = &macb_mdio_write,
+ 	bp->mii_bus.reset = &macb_mdio_reset,
+-	bp->mii_bus.id = bp->pdev->id,
++	snprintf(bp->mii_bus.id, MII_BUS_ID_SIZE, "%x", bp->pdev->id);
+ 	bp->mii_bus.priv = bp,
+ 	bp->mii_bus.dev = &bp->dev->dev;
+ 	pdata = bp->pdev->dev.platform_data;
+diff --git a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
+index 2e39e02..bcd7f98 100644
+--- a/drivers/net/pasemi_mac.c
++++ b/drivers/net/pasemi_mac.c
+@@ -1012,7 +1012,7 @@ static int pasemi_mac_phy_init(struct net_device *dev)
+ 		goto err;
+ 
+ 	phy_id = *prop;
+-	snprintf(mac->phy_id, BUS_ID_SIZE, PHY_ID_FMT, (int)r.start, phy_id);
++	snprintf(mac->phy_id, BUS_ID_SIZE, "%x:%02x", (int)r.start, phy_id);
+ 
+ 	of_node_put(phy_dn);
+ 
+diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
+index ca9b040..4e07956 100644
+--- a/drivers/net/phy/fixed.c
++++ b/drivers/net/phy/fixed.c
+@@ -213,7 +213,7 @@ static int __init fixed_mdio_bus_init(void)
+ 		goto err_pdev;
+ 	}
+ 
+-	fmb->mii_bus.id = 0;
++	snprintf(fmb->mii_bus.id, MII_BUS_ID_SIZE, "0");
+ 	fmb->mii_bus.name = "Fixed MDIO Bus";
+ 	fmb->mii_bus.dev = &pdev->dev;
+ 	fmb->mii_bus.read = &fixed_mdio_read;
+diff --git a/drivers/net/sb1250-mac.c b/drivers/net/sb1250-mac.c
+index 7b53d65..888b7de 100644
+--- a/drivers/net/sb1250-mac.c
++++ b/drivers/net/sb1250-mac.c
+@@ -2374,7 +2374,7 @@ static int sbmac_init(struct platform_device *pldev, long long base)
+ 	       dev->name, base, print_mac(mac, eaddr));
+ 
+ 	sc->mii_bus.name = sbmac_mdio_string;
+-	sc->mii_bus.id = idx;
++	snprintf(sc->mii_bus.id, MII_BUS_ID_SIZE, "%x", idx);
+ 	sc->mii_bus.priv = sc;
+ 	sc->mii_bus.read = sbmac_mii_read;
+ 	sc->mii_bus.write = sbmac_mii_write;
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 8cc3166..0ae3cbd 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3991,7 +3991,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 	if (err)
+ 		return -1;
+ 
+-	ug_info->mdio_bus = res.start;
++	snprintf(ug_info->mdio_bus, MII_BUS_ID_SIZE, "%x", res.start);
+ 
+ 	if (netif_msg_probe(&debug))
+ 		printk(KERN_INFO "ucc_geth: UCC%1d at 0x%8x (irq = %d) \n",
+diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
+index 4fb95b3..9f8b758 100644
+--- a/drivers/net/ucc_geth.h
++++ b/drivers/net/ucc_geth.h
+@@ -1156,7 +1156,7 @@ struct ucc_geth_info {
+ 	u16 pausePeriod;
+ 	u16 extensionField;
+ 	u8 phy_address;
+-	u32 mdio_bus;
++	char mdio_bus[MII_BUS_ID_SIZE];
+ 	u8 weightfactor[NUM_TX_QUEUES];
+ 	u8 interruptcoalescingmaxvalue[NUM_RX_QUEUES];
+ 	u8 l2qt[UCC_GETH_VLAN_PRIORITY_MAX];
+diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
+index c69e654..e4d3f33 100644
+--- a/drivers/net/ucc_geth_mii.c
++++ b/drivers/net/ucc_geth_mii.c
+@@ -157,7 +157,7 @@ static int uec_mdio_probe(struct of_device *ofdev, const struct of_device_id *ma
+ 	if (err)
+ 		goto reg_map_fail;
+ 
+-	new_bus->id = res.start;
++	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%x", res.start);
+ 
+ 	new_bus->irq = kmalloc(32 * sizeof(int), GFP_KERNEL);
+ 
+diff --git a/include/linux/fsl_devices.h b/include/linux/fsl_devices.h
+index 1831b19..2cad5c6 100644
+--- a/include/linux/fsl_devices.h
++++ b/include/linux/fsl_devices.h
+@@ -50,7 +50,7 @@ struct gianfar_platform_data {
+ 	u32	device_flags;
+ 	/* board specific information */
+ 	u32	board_flags;
+-	u32	bus_id;
++	char	bus_id[MII_BUS_ID_SIZE];
+ 	u32	phy_id;
+ 	u8	mac_addr[6];
+ 	phy_interface_t interface;
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 5e43ae7..6509f37 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -63,8 +63,6 @@ typedef enum {
+ 	PHY_INTERFACE_MODE_RTBI
+ } phy_interface_t;
+ 
+-#define MII_BUS_MAX 4
+-
+ 
+ #define PHY_INIT_TIMEOUT	100000
+ #define PHY_STATE_TIME		1
+@@ -74,13 +72,19 @@ typedef enum {
+ #define PHY_MAX_ADDR	32
+ 
+ /* Used when trying to connect to a specific phy (mii bus id:phy device id) */
+-#define PHY_ID_FMT "%x:%02x"
++#define PHY_ID_FMT "%s:%02x"
 +
-+	/* If we fail to get the lock, don't bother with the TX BDs */
-+	if (spin_trylock_irqsave(&priv->txlock, flags)) {
-+		gfar_clean_tx_ring(dev);
-+		spin_unlock_irqrestore(&priv->txlock, flags);
-+	}
++/*
++ * Need to be a little smaller than phydev->dev.bus_id to leave room
++ * for the ":%02x"
++ */
++#define MII_BUS_ID_SIZE	(BUS_ID_SIZE - 3)
  
- 	howmany = gfar_clean_rx_ring(dev, budget);
- 
-diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
-index ea8671f..0d08836 100644
---- a/drivers/net/gianfar.h
-+++ b/drivers/net/gianfar.h
-@@ -126,9 +126,16 @@ extern const char gfar_driver_version[];
- #define DEFAULT_TXCOUNT	16
- #define DEFAULT_TXTIME	21
- 
-+#define DEFAULT_RXTIME	21
-+
-+/* Non NAPI Case */
-+#ifndef CONFIG_GFAR_NAPI
- #define DEFAULT_RX_COALESCE 1
- #define DEFAULT_RXCOUNT	16
--#define DEFAULT_RXTIME	21
-+#else
-+#define DEFAULT_RX_COALESCE 0
-+#define DEFAULT_RXCOUNT	0
-+#endif /* CONFIG_GFAR_NAPI */
- 
- #define TBIPA_VALUE		0x1f
- #define MIIMCFG_INIT_VALUE	0x00000007
-@@ -242,6 +249,7 @@ extern const char gfar_driver_version[];
- #define IEVENT_PERR		0x00000001
- #define IEVENT_RX_MASK          (IEVENT_RXB0 | IEVENT_RXF0)
- #define IEVENT_TX_MASK          (IEVENT_TXB | IEVENT_TXF)
-+#define IEVENT_RTX_MASK         (IEVENT_RX_MASK | IEVENT_TX_MASK)
- #define IEVENT_ERR_MASK         \
- (IEVENT_RXC | IEVENT_BSY | IEVENT_EBERR | IEVENT_MSRO | \
-  IEVENT_BABT | IEVENT_TXC | IEVENT_TXE | IEVENT_LC \
-@@ -269,11 +277,12 @@ extern const char gfar_driver_version[];
- #define IMASK_FIQ		0x00000004
- #define IMASK_DPE		0x00000002
- #define IMASK_PERR		0x00000001
--#define IMASK_RX_DISABLED ~(IMASK_RXFEN0 | IMASK_BSY)
- #define IMASK_DEFAULT  (IMASK_TXEEN | IMASK_TXFEN | IMASK_TXBEN | \
- 		IMASK_RXFEN0 | IMASK_BSY | IMASK_EBERR | IMASK_BABR | \
- 		IMASK_XFUN | IMASK_RXC | IMASK_BABT | IMASK_DPE \
- 		| IMASK_PERR)
-+#define IMASK_RTX_DISABLED ((~(IMASK_RXFEN0 | IMASK_TXFEN | IMASK_BSY)) \
-+			   & IMASK_DEFAULT)
- 
- /* Fifo management */
- #define FIFO_TX_THR_MASK	0x01ff
+ /* The Bus class for PHYs.  Devices which provide access to
+  * PHYs should register using this structure */
+ struct mii_bus {
+ 	const char *name;
+-	int id;
++	char id[MII_BUS_ID_SIZE];
+ 	void *priv;
+ 	int (*read)(struct mii_bus *bus, int phy_id, int regnum);
+ 	int (*write)(struct mii_bus *bus, int phy_id, int regnum, u16 val);
 -- 
 1.5.4.GIT
 
