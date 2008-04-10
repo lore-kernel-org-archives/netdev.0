@@ -1,103 +1,151 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 3/5] [SCTP]: Fix compiler warning about const qualifiers
-Date: Thu, 10 Apr 2008 14:18:32 -0400
-Message-ID: <1207851513-17021-4-git-send-email-vladislav.yasevich@hp.com>
-References: <1207851513-17021-1-git-send-email-vladislav.yasevich@hp.com>
-Cc: lksctp-developers@lists.sourceforge.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: davem@davemloft.net
+From: Max Krasnyanskiy <maxk@qualcomm.com>
+Subject: Re: [PATCH 1/2] net: make struct tun_struct private to tun.c
+Date: Thu, 10 Apr 2008 11:18:04 -0700
+Message-ID: <47FE59DC.3050600@qualcomm.com>
+References: <200804052153.55676.rusty@rustcorp.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:39554 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756884AbYDJSSn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 14:18:43 -0400
-In-Reply-To: <1207851513-17021-1-git-send-email-vladislav.yasevich@hp.com>
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:3505 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754814AbYDJSSH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 14:18:07 -0400
+In-Reply-To: <200804052153.55676.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix 3 warnings about discarding const qualifiers:
+Ack.
+Dave, can you please take this patch.
 
-net/sctp/ulpevent.c:862: warning: passing argument 1 of 'sctp_event2skb' discards qualifiers from pointer target type
-net/sctp/sm_statefuns.c:4393: warning: passing argument 1 of 'SCTP_ASOC' discards qualifiers from pointer target type
-net/sctp/socket.c:5874: warning: passing argument 1 of 'cmsg_nxthdr' discards qualifiers from pointer target type
+Max
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- include/net/sctp/ulpevent.h |    2 +-
- net/sctp/sm_statefuns.c     |    5 +++--
- net/sctp/socket.c           |    5 +++--
- net/sctp/ulpevent.c         |    2 +-
- 4 files changed, 8 insertions(+), 6 deletions(-)
-
-diff --git a/include/net/sctp/ulpevent.h b/include/net/sctp/ulpevent.h
-index 9bcfc12..7ea12e8 100644
---- a/include/net/sctp/ulpevent.h
-+++ b/include/net/sctp/ulpevent.h
-@@ -67,7 +67,7 @@ struct sctp_ulpevent {
- };
- 
- /* Retrieve the skb this event sits inside of. */
--static inline struct sk_buff *sctp_event2skb(struct sctp_ulpevent *ev)
-+static inline struct sk_buff *sctp_event2skb(const struct sctp_ulpevent *ev)
- {
- 	return container_of((void *)ev, struct sk_buff, cb);
- }
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 3ef9749..07194c2 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -4367,6 +4367,7 @@ sctp_disposition_t sctp_sf_do_prm_asoc(const struct sctp_endpoint *ep,
- 				       sctp_cmd_seq_t *commands)
- {
- 	struct sctp_chunk *repl;
-+	struct sctp_association* my_asoc;
- 
- 	/* The comment below says that we enter COOKIE-WAIT AFTER
- 	 * sending the INIT, but that doesn't actually work in our
-@@ -4390,8 +4391,8 @@ sctp_disposition_t sctp_sf_do_prm_asoc(const struct sctp_endpoint *ep,
- 	/* Cast away the const modifier, as we want to just
- 	 * rerun it through as a sideffect.
- 	 */
--	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_ASOC,
--			SCTP_ASOC((struct sctp_association *) asoc));
-+	my_asoc = (struct sctp_association *)asoc;
-+	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_ASOC, SCTP_ASOC(my_asoc));
- 
- 	/* Choose transport for INIT. */
- 	sctp_add_cmd_sf(commands, SCTP_CMD_INIT_CHOOSE_TRANSPORT,
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index d994d82..998e63a 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -5868,11 +5868,12 @@ SCTP_STATIC int sctp_msghdr_parse(const struct msghdr *msg,
- 				  sctp_cmsgs_t *cmsgs)
- {
- 	struct cmsghdr *cmsg;
-+	struct msghdr *my_msg = (struct msghdr *)msg;
- 
- 	for (cmsg = CMSG_FIRSTHDR(msg);
- 	     cmsg != NULL;
--	     cmsg = CMSG_NXTHDR((struct msghdr*)msg, cmsg)) {
--		if (!CMSG_OK(msg, cmsg))
-+	     cmsg = CMSG_NXTHDR(my_msg, cmsg)) {
-+		if (!CMSG_OK(my_msg, cmsg))
- 			return -EINVAL;
- 
- 		/* Should we parse this header or ignore?  */
-diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
-index b43f1f1..ce6cda6 100644
---- a/net/sctp/ulpevent.c
-+++ b/net/sctp/ulpevent.c
-@@ -859,7 +859,7 @@ __u16 sctp_ulpevent_get_notification_type(const struct sctp_ulpevent *event)
- 	union sctp_notification *notification;
- 	struct sk_buff *skb;
- 
--	skb = sctp_event2skb((struct sctp_ulpevent *)event);
-+	skb = sctp_event2skb(event);
- 	notification = (union sctp_notification *) skb->data;
- 	return notification->sn_header.sn_type;
- }
--- 
-1.5.3.5
+Rusty Russell wrote:
+> There's no reason for this to be in the header, and it just hurts
+> recompile time.
+> 
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> 
+> diff -r f657af5295ee drivers/net/tun.c
+> --- a/drivers/net/tun.c	Tue Apr 01 21:19:09 2008 +1000
+> +++ b/drivers/net/tun.c	Fri Apr 04 16:03:31 2008 +1100
+> @@ -67,9 +67,42 @@
+>  #include <asm/system.h>
+>  #include <asm/uaccess.h>
+>  
+> +/* Uncomment to enable debugging */
+> +/* #define TUN_DEBUG 1 */
+> +
+>  #ifdef TUN_DEBUG
+>  static int debug;
+> +
+> +#define DBG  if(tun->debug)printk
+> +#define DBG1 if(debug==2)printk
+> +#else
+> +#define DBG( a... )
+> +#define DBG1( a... )
+>  #endif
+> +
+> +struct tun_struct {
+> +	struct list_head        list;
+> +	unsigned long 		flags;
+> +	int			attached;
+> +	uid_t			owner;
+> +	gid_t			group;
+> +
+> +	wait_queue_head_t	read_wait;
+> +	struct sk_buff_head	readq;
+> +
+> +	struct net_device	*dev;
+> +
+> +	struct fasync_struct    *fasync;
+> +
+> +	unsigned long if_flags;
+> +	u8 dev_addr[ETH_ALEN];
+> +	u32 chr_filter[2];
+> +	u32 net_filter[2];
+> +
+> +#ifdef TUN_DEBUG	
+> +	int debug;
+> +#endif  
+> +};
+>  
+>  /* Network device part of the driver */
+>  
+> diff -r f657af5295ee include/linux/Kbuild
+> --- a/include/linux/Kbuild	Tue Apr 01 21:19:09 2008 +1000
+> +++ b/include/linux/Kbuild	Fri Apr 04 16:03:31 2008 +1100
+> @@ -86,6 +86,7 @@ header-y += if_ppp.h
+>  header-y += if_ppp.h
+>  header-y += if_slip.h
+>  header-y += if_strip.h
+> +header-y += if_tun.h
+>  header-y += if_tunnel.h
+>  header-y += in6.h
+>  header-y += in_route.h
+> @@ -229,7 +230,6 @@ unifdef-y += if_pppol2tp.h
+>  unifdef-y += if_pppol2tp.h
+>  unifdef-y += if_pppox.h
+>  unifdef-y += if_tr.h
+> -unifdef-y += if_tun.h
+>  unifdef-y += if_vlan.h
+>  unifdef-y += if_wanpipe.h
+>  unifdef-y += igmp.h
+> diff -r f657af5295ee include/linux/if_tun.h
+> --- a/include/linux/if_tun.h	Tue Apr 01 21:19:09 2008 +1000
+> +++ b/include/linux/if_tun.h	Fri Apr 04 16:03:31 2008 +1100
+> @@ -18,46 +18,7 @@
+>  #ifndef __IF_TUN_H
+>  #define __IF_TUN_H
+>  
+> -/* Uncomment to enable debugging */
+> -/* #define TUN_DEBUG 1 */
+> -
+>  #include <linux/types.h>
+> -
+> -#ifdef __KERNEL__
+> -
+> -#ifdef TUN_DEBUG
+> -#define DBG  if(tun->debug)printk
+> -#define DBG1 if(debug==2)printk
+> -#else
+> -#define DBG( a... )
+> -#define DBG1( a... )
+> -#endif
+> -
+> -struct tun_struct {
+> -	struct list_head        list;
+> -	unsigned long 		flags;
+> -	int			attached;
+> -	uid_t			owner;
+> -	gid_t			group;
+> -
+> -	wait_queue_head_t	read_wait;
+> -	struct sk_buff_head	readq;
+> -
+> -	struct net_device	*dev;
+> -
+> -	struct fasync_struct    *fasync;
+> -
+> -	unsigned long if_flags;
+> -	u8 dev_addr[ETH_ALEN];
+> -	u32 chr_filter[2];
+> -	u32 net_filter[2];
+> -
+> -#ifdef TUN_DEBUG	
+> -	int debug;
+> -#endif  
+> -};
+> -
+> -#endif /* __KERNEL__ */
+>  
+>  /* Read queue size */
+>  #define TUN_READQ_SIZE	500
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
