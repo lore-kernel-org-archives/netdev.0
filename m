@@ -1,638 +1,1310 @@
 From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: [PATCH 6/6] tc35815: Whitespace cleanup
-Date: Fri, 11 Apr 2008 00:25:31 +0900 (JST)
-Message-ID: <20080411.002531.72708711.anemo@mba.ocn.ne.jp>
+Subject: [PATCH 5/6] tc35815: Use generic PHY layer
+Date: Fri, 11 Apr 2008 00:25:23 +0900 (JST)
+Message-ID: <20080411.002523.18305938.anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
 To: linux-mips@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mba.ocn.ne.jp ([122.1.235.107]:53138 "EHLO smtp.mba.ocn.ne.jp"
+Received: from mba.ocn.ne.jp ([122.1.235.107]:52561 "EHLO smtp.mba.ocn.ne.jp"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758070AbYDJPYm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2008 11:24:42 -0400
+	id S1758070AbYDJPYe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Apr 2008 11:24:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cosmetic TAB/whitespace cleanups and some style cleanups.  No
-functional changes.
+Convert the tc35815 driver to use the generic PHY layer in
+drivers/net/phy.
 
 Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 ---
- drivers/net/tc35815.c |  372 +++++++++++++++++++++++++------------------------
- 1 files changed, 187 insertions(+), 185 deletions(-)
+ drivers/net/Kconfig   |    2 +-
+ drivers/net/tc35815.c | 1028 ++++++++++++++-----------------------------------
+ 2 files changed, 291 insertions(+), 739 deletions(-)
 
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 757ba15..c1f2fd5 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -1431,7 +1431,7 @@ config CS89x0
+ config TC35815
+ 	tristate "TOSHIBA TC35815 Ethernet support"
+ 	depends on NET_PCI && PCI && MIPS
+-	select MII
++	select PHYLIB
+ 
+ config EEPRO100
+ 	tristate "EtherExpressPro/100 support (eepro100, original Becker driver)"
 diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index de8b18e..090f46e 100644
+index 60eff78..de8b18e 100644
 --- a/drivers/net/tc35815.c
 +++ b/drivers/net/tc35815.c
-@@ -81,7 +81,7 @@ static const struct pci_device_id tc35815_pci_tbl[] = {
- 	{PCI_DEVICE(PCI_VENDOR_ID_TOSHIBA_2, PCI_DEVICE_ID_TOSHIBA_TC35815_TX4939), .driver_data = TC35815_TX4939 },
- 	{0,}
- };
--MODULE_DEVICE_TABLE (pci, tc35815_pci_tbl);
-+MODULE_DEVICE_TABLE(pci, tc35815_pci_tbl);
- 
- /* see MODULE_PARM_DESC */
- static struct tc35815_options {
-@@ -130,159 +130,159 @@ struct tc35815_regs {
-  * Bit assignments
+@@ -23,9 +23,9 @@
   */
- /* DMA_Ctl bit asign ------------------------------------------------------- */
--#define DMA_RxAlign            0x00c00000 /* 1:Reception Alignment           */
--#define DMA_RxAlign_1          0x00400000
--#define DMA_RxAlign_2          0x00800000
--#define DMA_RxAlign_3          0x00c00000
--#define DMA_M66EnStat          0x00080000 /* 1:66MHz Enable State            */
--#define DMA_IntMask            0x00040000 /* 1:Interupt mask                 */
--#define DMA_SWIntReq           0x00020000 /* 1:Software Interrupt request    */
--#define DMA_TxWakeUp           0x00010000 /* 1:Transmit Wake Up              */
--#define DMA_RxBigE             0x00008000 /* 1:Receive Big Endian            */
--#define DMA_TxBigE             0x00004000 /* 1:Transmit Big Endian           */
--#define DMA_TestMode           0x00002000 /* 1:Test Mode                     */
--#define DMA_PowrMgmnt          0x00001000 /* 1:Power Management              */
--#define DMA_DmBurst_Mask       0x000001fc /* DMA Burst size                  */
-+#define DMA_RxAlign	       0x00c00000 /* 1:Reception Alignment	     */
-+#define DMA_RxAlign_1	       0x00400000
-+#define DMA_RxAlign_2	       0x00800000
-+#define DMA_RxAlign_3	       0x00c00000
-+#define DMA_M66EnStat	       0x00080000 /* 1:66MHz Enable State	     */
-+#define DMA_IntMask	       0x00040000 /* 1:Interupt mask		     */
-+#define DMA_SWIntReq	       0x00020000 /* 1:Software Interrupt request    */
-+#define DMA_TxWakeUp	       0x00010000 /* 1:Transmit Wake Up		     */
-+#define DMA_RxBigE	       0x00008000 /* 1:Receive Big Endian	     */
-+#define DMA_TxBigE	       0x00004000 /* 1:Transmit Big Endian	     */
-+#define DMA_TestMode	       0x00002000 /* 1:Test Mode		     */
-+#define DMA_PowrMgmnt	       0x00001000 /* 1:Power Management		     */
-+#define DMA_DmBurst_Mask       0x000001fc /* DMA Burst size		     */
  
- /* RxFragSize bit asign ---------------------------------------------------- */
--#define RxFrag_EnPack          0x00008000 /* 1:Enable Packing                */
--#define RxFrag_MinFragMask     0x00000ffc /* Minimum Fragment                */
-+#define RxFrag_EnPack	       0x00008000 /* 1:Enable Packing		     */
-+#define RxFrag_MinFragMask     0x00000ffc /* Minimum Fragment		     */
- 
- /* MAC_Ctl bit asign ------------------------------------------------------- */
--#define MAC_Link10             0x00008000 /* 1:Link Status 10Mbits           */
--#define MAC_EnMissRoll         0x00002000 /* 1:Enable Missed Roll            */
--#define MAC_MissRoll           0x00000400 /* 1:Missed Roll                   */
--#define MAC_Loop10             0x00000080 /* 1:Loop 10 Mbps                  */
--#define MAC_Conn_Auto          0x00000000 /*00:Connection mode (Automatic)   */
--#define MAC_Conn_10M           0x00000020 /*01:                (10Mbps endec)*/
--#define MAC_Conn_Mll           0x00000040 /*10:                (Mll clock)   */
--#define MAC_MacLoop            0x00000010 /* 1:MAC Loopback                  */
--#define MAC_FullDup            0x00000008 /* 1:Full Duplex 0:Half Duplex     */
--#define MAC_Reset              0x00000004 /* 1:Software Reset                */
--#define MAC_HaltImm            0x00000002 /* 1:Halt Immediate                */
--#define MAC_HaltReq            0x00000001 /* 1:Halt request                  */
-+#define MAC_Link10	       0x00008000 /* 1:Link Status 10Mbits	     */
-+#define MAC_EnMissRoll	       0x00002000 /* 1:Enable Missed Roll	     */
-+#define MAC_MissRoll	       0x00000400 /* 1:Missed Roll		     */
-+#define MAC_Loop10	       0x00000080 /* 1:Loop 10 Mbps		     */
-+#define MAC_Conn_Auto	       0x00000000 /*00:Connection mode (Automatic)   */
-+#define MAC_Conn_10M	       0x00000020 /*01:		       (10Mbps endec)*/
-+#define MAC_Conn_Mll	       0x00000040 /*10:		       (Mll clock)   */
-+#define MAC_MacLoop	       0x00000010 /* 1:MAC Loopback		     */
-+#define MAC_FullDup	       0x00000008 /* 1:Full Duplex 0:Half Duplex     */
-+#define MAC_Reset	       0x00000004 /* 1:Software Reset		     */
-+#define MAC_HaltImm	       0x00000002 /* 1:Halt Immediate		     */
-+#define MAC_HaltReq	       0x00000001 /* 1:Halt request		     */
- 
- /* PROM_Ctl bit asign ------------------------------------------------------ */
--#define PROM_Busy              0x00008000 /* 1:Busy (Start Operation)        */
--#define PROM_Read              0x00004000 /*10:Read operation                */
--#define PROM_Write             0x00002000 /*01:Write operation               */
--#define PROM_Erase             0x00006000 /*11:Erase operation               */
--                                          /*00:Enable or Disable Writting,   */
--                                          /*      as specified in PROM_Addr. */
--#define PROM_Addr_Ena          0x00000030 /*11xxxx:PROM Write enable         */
--                                          /*00xxxx:           disable        */
-+#define PROM_Busy	       0x00008000 /* 1:Busy (Start Operation)	     */
-+#define PROM_Read	       0x00004000 /*10:Read operation		     */
-+#define PROM_Write	       0x00002000 /*01:Write operation		     */
-+#define PROM_Erase	       0x00006000 /*11:Erase operation		     */
-+					  /*00:Enable or Disable Writting,   */
-+					  /*	  as specified in PROM_Addr. */
-+#define PROM_Addr_Ena	       0x00000030 /*11xxxx:PROM Write enable	     */
-+					  /*00xxxx:	      disable	     */
- 
- /* CAM_Ctl bit asign ------------------------------------------------------- */
--#define CAM_CompEn             0x00000010 /* 1:CAM Compare Enable            */
--#define CAM_NegCAM             0x00000008 /* 1:Reject packets CAM recognizes,*/
--                                          /*                    accept other */
--#define CAM_BroadAcc           0x00000004 /* 1:Broadcast assept              */
--#define CAM_GroupAcc           0x00000002 /* 1:Multicast assept              */
--#define CAM_StationAcc         0x00000001 /* 1:unicast accept                */
-+#define CAM_CompEn	       0x00000010 /* 1:CAM Compare Enable	     */
-+#define CAM_NegCAM	       0x00000008 /* 1:Reject packets CAM recognizes,*/
-+					  /*			accept other */
-+#define CAM_BroadAcc	       0x00000004 /* 1:Broadcast assept		     */
-+#define CAM_GroupAcc	       0x00000002 /* 1:Multicast assept		     */
-+#define CAM_StationAcc	       0x00000001 /* 1:unicast accept		     */
- 
- /* CAM_Ena bit asign ------------------------------------------------------- */
--#define CAM_ENTRY_MAX                  21   /* CAM Data entry max count      */
-+#define CAM_ENTRY_MAX		       21   /* CAM Data entry max count	     */
- #define CAM_Ena_Mask ((1<<CAM_ENTRY_MAX)-1) /* CAM Enable bits (Max 21bits)  */
--#define CAM_Ena_Bit(index)         (1<<(index))
-+#define CAM_Ena_Bit(index)	(1 << (index))
- #define CAM_ENTRY_DESTINATION	0
- #define CAM_ENTRY_SOURCE	1
- #define CAM_ENTRY_MACCTL	20
- 
- /* Tx_Ctl bit asign -------------------------------------------------------- */
--#define Tx_En                  0x00000001 /* 1:Transmit enable               */
--#define Tx_TxHalt              0x00000002 /* 1:Transmit Halt Request         */
--#define Tx_NoPad               0x00000004 /* 1:Suppress Padding              */
--#define Tx_NoCRC               0x00000008 /* 1:Suppress Padding              */
--#define Tx_FBack               0x00000010 /* 1:Fast Back-off                 */
--#define Tx_EnUnder             0x00000100 /* 1:Enable Underrun               */
--#define Tx_EnExDefer           0x00000200 /* 1:Enable Excessive Deferral     */
--#define Tx_EnLCarr             0x00000400 /* 1:Enable Lost Carrier           */
--#define Tx_EnExColl            0x00000800 /* 1:Enable Excessive Collision    */
--#define Tx_EnLateColl          0x00001000 /* 1:Enable Late Collision         */
--#define Tx_EnTxPar             0x00002000 /* 1:Enable Transmit Parity        */
--#define Tx_EnComp              0x00004000 /* 1:Enable Completion             */
-+#define Tx_En		       0x00000001 /* 1:Transmit enable		     */
-+#define Tx_TxHalt	       0x00000002 /* 1:Transmit Halt Request	     */
-+#define Tx_NoPad	       0x00000004 /* 1:Suppress Padding		     */
-+#define Tx_NoCRC	       0x00000008 /* 1:Suppress Padding		     */
-+#define Tx_FBack	       0x00000010 /* 1:Fast Back-off		     */
-+#define Tx_EnUnder	       0x00000100 /* 1:Enable Underrun		     */
-+#define Tx_EnExDefer	       0x00000200 /* 1:Enable Excessive Deferral     */
-+#define Tx_EnLCarr	       0x00000400 /* 1:Enable Lost Carrier	     */
-+#define Tx_EnExColl	       0x00000800 /* 1:Enable Excessive Collision    */
-+#define Tx_EnLateColl	       0x00001000 /* 1:Enable Late Collision	     */
-+#define Tx_EnTxPar	       0x00002000 /* 1:Enable Transmit Parity	     */
-+#define Tx_EnComp	       0x00004000 /* 1:Enable Completion	     */
- 
- /* Tx_Stat bit asign ------------------------------------------------------- */
--#define Tx_TxColl_MASK         0x0000000F /* Tx Collision Count              */
--#define Tx_ExColl              0x00000010 /* Excessive Collision             */
--#define Tx_TXDefer             0x00000020 /* Transmit Defered                */
--#define Tx_Paused              0x00000040 /* Transmit Paused                 */
--#define Tx_IntTx               0x00000080 /* Interrupt on Tx                 */
--#define Tx_Under               0x00000100 /* Underrun                        */
--#define Tx_Defer               0x00000200 /* Deferral                        */
--#define Tx_NCarr               0x00000400 /* No Carrier                      */
--#define Tx_10Stat              0x00000800 /* 10Mbps Status                   */
--#define Tx_LateColl            0x00001000 /* Late Collision                  */
--#define Tx_TxPar               0x00002000 /* Tx Parity Error                 */
--#define Tx_Comp                0x00004000 /* Completion                      */
--#define Tx_Halted              0x00008000 /* Tx Halted                       */
--#define Tx_SQErr               0x00010000 /* Signal Quality Error(SQE)       */
-+#define Tx_TxColl_MASK	       0x0000000F /* Tx Collision Count		     */
-+#define Tx_ExColl	       0x00000010 /* Excessive Collision	     */
-+#define Tx_TXDefer	       0x00000020 /* Transmit Defered		     */
-+#define Tx_Paused	       0x00000040 /* Transmit Paused		     */
-+#define Tx_IntTx	       0x00000080 /* Interrupt on Tx		     */
-+#define Tx_Under	       0x00000100 /* Underrun			     */
-+#define Tx_Defer	       0x00000200 /* Deferral			     */
-+#define Tx_NCarr	       0x00000400 /* No Carrier			     */
-+#define Tx_10Stat	       0x00000800 /* 10Mbps Status		     */
-+#define Tx_LateColl	       0x00001000 /* Late Collision		     */
-+#define Tx_TxPar	       0x00002000 /* Tx Parity Error		     */
-+#define Tx_Comp		       0x00004000 /* Completion			     */
-+#define Tx_Halted	       0x00008000 /* Tx Halted			     */
-+#define Tx_SQErr	       0x00010000 /* Signal Quality Error(SQE)	     */
- 
- /* Rx_Ctl bit asign -------------------------------------------------------- */
--#define Rx_EnGood              0x00004000 /* 1:Enable Good                   */
--#define Rx_EnRxPar             0x00002000 /* 1:Enable Receive Parity         */
--#define Rx_EnLongErr           0x00000800 /* 1:Enable Long Error             */
--#define Rx_EnOver              0x00000400 /* 1:Enable OverFlow               */
--#define Rx_EnCRCErr            0x00000200 /* 1:Enable CRC Error              */
--#define Rx_EnAlign             0x00000100 /* 1:Enable Alignment              */
--#define Rx_IgnoreCRC           0x00000040 /* 1:Ignore CRC Value              */
--#define Rx_StripCRC            0x00000010 /* 1:Strip CRC Value               */
--#define Rx_ShortEn             0x00000008 /* 1:Short Enable                  */
--#define Rx_LongEn              0x00000004 /* 1:Long Enable                   */
--#define Rx_RxHalt              0x00000002 /* 1:Receive Halt Request          */
--#define Rx_RxEn                0x00000001 /* 1:Receive Intrrupt Enable       */
-+#define Rx_EnGood	       0x00004000 /* 1:Enable Good		     */
-+#define Rx_EnRxPar	       0x00002000 /* 1:Enable Receive Parity	     */
-+#define Rx_EnLongErr	       0x00000800 /* 1:Enable Long Error	     */
-+#define Rx_EnOver	       0x00000400 /* 1:Enable OverFlow		     */
-+#define Rx_EnCRCErr	       0x00000200 /* 1:Enable CRC Error		     */
-+#define Rx_EnAlign	       0x00000100 /* 1:Enable Alignment		     */
-+#define Rx_IgnoreCRC	       0x00000040 /* 1:Ignore CRC Value		     */
-+#define Rx_StripCRC	       0x00000010 /* 1:Strip CRC Value		     */
-+#define Rx_ShortEn	       0x00000008 /* 1:Short Enable		     */
-+#define Rx_LongEn	       0x00000004 /* 1:Long Enable		     */
-+#define Rx_RxHalt	       0x00000002 /* 1:Receive Halt Request	     */
-+#define Rx_RxEn		       0x00000001 /* 1:Receive Intrrupt Enable	     */
- 
- /* Rx_Stat bit asign ------------------------------------------------------- */
--#define Rx_Halted              0x00008000 /* Rx Halted                       */
--#define Rx_Good                0x00004000 /* Rx Good                         */
--#define Rx_RxPar               0x00002000 /* Rx Parity Error                 */
--                            /* 0x00001000    not use                         */
--#define Rx_LongErr             0x00000800 /* Rx Long Error                   */
--#define Rx_Over                0x00000400 /* Rx Overflow                     */
--#define Rx_CRCErr              0x00000200 /* Rx CRC Error                    */
--#define Rx_Align               0x00000100 /* Rx Alignment Error              */
--#define Rx_10Stat              0x00000080 /* Rx 10Mbps Status                */
--#define Rx_IntRx               0x00000040 /* Rx Interrupt                    */
--#define Rx_CtlRecd             0x00000020 /* Rx Control Receive              */
--
--#define Rx_Stat_Mask           0x0000EFC0 /* Rx All Status Mask              */
-+#define Rx_Halted	       0x00008000 /* Rx Halted			     */
-+#define Rx_Good		       0x00004000 /* Rx Good			     */
-+#define Rx_RxPar	       0x00002000 /* Rx Parity Error		     */
-+			    /* 0x00001000    not use			     */
-+#define Rx_LongErr	       0x00000800 /* Rx Long Error		     */
-+#define Rx_Over		       0x00000400 /* Rx Overflow		     */
-+#define Rx_CRCErr	       0x00000200 /* Rx CRC Error		     */
-+#define Rx_Align	       0x00000100 /* Rx Alignment Error		     */
-+#define Rx_10Stat	       0x00000080 /* Rx 10Mbps Status		     */
-+#define Rx_IntRx	       0x00000040 /* Rx Interrupt		     */
-+#define Rx_CtlRecd	       0x00000020 /* Rx Control Receive		     */
-+
-+#define Rx_Stat_Mask	       0x0000EFC0 /* Rx All Status Mask		     */
- 
- /* Int_En bit asign -------------------------------------------------------- */
--#define Int_NRAbtEn            0x00000800 /* 1:Non-recoverable Abort Enable  */
--#define Int_TxCtlCmpEn         0x00000400 /* 1:Transmit Control Complete Enable */
--#define Int_DmParErrEn         0x00000200 /* 1:DMA Parity Error Enable       */
--#define Int_DParDEn            0x00000100 /* 1:Data Parity Error Enable      */
--#define Int_EarNotEn           0x00000080 /* 1:Early Notify Enable           */
--#define Int_DParErrEn          0x00000040 /* 1:Detected Parity Error Enable  */
--#define Int_SSysErrEn          0x00000020 /* 1:Signalled System Error Enable */
--#define Int_RMasAbtEn          0x00000010 /* 1:Received Master Abort Enable  */
--#define Int_RTargAbtEn         0x00000008 /* 1:Received Target Abort Enable  */
--#define Int_STargAbtEn         0x00000004 /* 1:Signalled Target Abort Enable */
--#define Int_BLExEn             0x00000002 /* 1:Buffer List Exhausted Enable  */
--#define Int_FDAExEn            0x00000001 /* 1:Free Descriptor Area          */
--                                          /*               Exhausted Enable  */
-+#define Int_NRAbtEn	       0x00000800 /* 1:Non-recoverable Abort Enable  */
-+#define Int_TxCtlCmpEn	       0x00000400 /* 1:Transmit Ctl Complete Enable  */
-+#define Int_DmParErrEn	       0x00000200 /* 1:DMA Parity Error Enable	     */
-+#define Int_DParDEn	       0x00000100 /* 1:Data Parity Error Enable	     */
-+#define Int_EarNotEn	       0x00000080 /* 1:Early Notify Enable	     */
-+#define Int_DParErrEn	       0x00000040 /* 1:Detected Parity Error Enable  */
-+#define Int_SSysErrEn	       0x00000020 /* 1:Signalled System Error Enable */
-+#define Int_RMasAbtEn	       0x00000010 /* 1:Received Master Abort Enable  */
-+#define Int_RTargAbtEn	       0x00000008 /* 1:Received Target Abort Enable  */
-+#define Int_STargAbtEn	       0x00000004 /* 1:Signalled Target Abort Enable */
-+#define Int_BLExEn	       0x00000002 /* 1:Buffer List Exhausted Enable  */
-+#define Int_FDAExEn	       0x00000001 /* 1:Free Descriptor Area	     */
-+					  /*		   Exhausted Enable  */
- 
- /* Int_Src bit asign ------------------------------------------------------- */
--#define Int_NRabt              0x00004000 /* 1:Non Recoverable error         */
--#define Int_DmParErrStat       0x00002000 /* 1:DMA Parity Error & Clear      */
--#define Int_BLEx               0x00001000 /* 1:Buffer List Empty & Clear     */
--#define Int_FDAEx              0x00000800 /* 1:FDA Empty & Clear             */
--#define Int_IntNRAbt           0x00000400 /* 1:Non Recoverable Abort         */
--#define	Int_IntCmp             0x00000200 /* 1:MAC control packet complete   */
--#define Int_IntExBD            0x00000100 /* 1:Interrupt Extra BD & Clear    */
--#define Int_DmParErr           0x00000080 /* 1:DMA Parity Error & Clear      */
--#define Int_IntEarNot          0x00000040 /* 1:Receive Data write & Clear    */
--#define Int_SWInt              0x00000020 /* 1:Software request & Clear      */
--#define Int_IntBLEx            0x00000010 /* 1:Buffer List Empty & Clear     */
--#define Int_IntFDAEx           0x00000008 /* 1:FDA Empty & Clear             */
--#define Int_IntPCI             0x00000004 /* 1:PCI controller & Clear        */
--#define Int_IntMacRx           0x00000002 /* 1:Rx controller & Clear         */
--#define Int_IntMacTx           0x00000001 /* 1:Tx controller & Clear         */
-+#define Int_NRabt	       0x00004000 /* 1:Non Recoverable error	     */
-+#define Int_DmParErrStat       0x00002000 /* 1:DMA Parity Error & Clear	     */
-+#define Int_BLEx	       0x00001000 /* 1:Buffer List Empty & Clear     */
-+#define Int_FDAEx	       0x00000800 /* 1:FDA Empty & Clear	     */
-+#define Int_IntNRAbt	       0x00000400 /* 1:Non Recoverable Abort	     */
-+#define Int_IntCmp	       0x00000200 /* 1:MAC control packet complete   */
-+#define Int_IntExBD	       0x00000100 /* 1:Interrupt Extra BD & Clear    */
-+#define Int_DmParErr	       0x00000080 /* 1:DMA Parity Error & Clear	     */
-+#define Int_IntEarNot	       0x00000040 /* 1:Receive Data write & Clear    */
-+#define Int_SWInt	       0x00000020 /* 1:Software request & Clear	     */
-+#define Int_IntBLEx	       0x00000010 /* 1:Buffer List Empty & Clear     */
-+#define Int_IntFDAEx	       0x00000008 /* 1:FDA Empty & Clear	     */
-+#define Int_IntPCI	       0x00000004 /* 1:PCI controller & Clear	     */
-+#define Int_IntMacRx	       0x00000002 /* 1:Rx controller & Clear	     */
-+#define Int_IntMacTx	       0x00000001 /* 1:Tx controller & Clear	     */
- 
- /* MD_CA bit asign --------------------------------------------------------- */
--#define MD_CA_PreSup           0x00001000 /* 1:Preamble Supress              */
--#define MD_CA_Busy             0x00000800 /* 1:Busy (Start Operation)        */
--#define MD_CA_Wr               0x00000400 /* 1:Write 0:Read                  */
-+#define MD_CA_PreSup	       0x00001000 /* 1:Preamble Supress		     */
-+#define MD_CA_Busy	       0x00000800 /* 1:Busy (Start Operation)	     */
-+#define MD_CA_Wr	       0x00000400 /* 1:Write 0:Read		     */
- 
+ #ifdef TC35815_NAPI
+-#define DRV_VERSION	"1.36-NAPI"
++#define DRV_VERSION	"1.37-NAPI"
+ #else
+-#define DRV_VERSION	"1.36"
++#define DRV_VERSION	"1.37"
+ #endif
+ static const char *version = "tc35815.c:v" DRV_VERSION "\n";
+ #define MODNAME			"tc35815"
+@@ -47,8 +47,8 @@ static const char *version = "tc35815.c:v" DRV_VERSION "\n";
+ #include <linux/skbuff.h>
+ #include <linux/delay.h>
+ #include <linux/pci.h>
+-#include <linux/mii.h>
+-#include <linux/ethtool.h>
++#include <linux/phy.h>
++#include <linux/workqueue.h>
+ #include <linux/platform_device.h>
+ #include <asm/io.h>
+ #include <asm/byteorder.h>
+@@ -87,7 +87,6 @@ MODULE_DEVICE_TABLE (pci, tc35815_pci_tbl);
+ static struct tc35815_options {
+ 	int speed;
+ 	int duplex;
+-	int doforce;
+ } options;
  
  /*
-@@ -306,24 +306,24 @@ struct BDesc {
- #define FD_ALIGN	16
+@@ -401,15 +400,6 @@ struct FrFD {
  
- /* Frame Descripter bit asign ---------------------------------------------- */
--#define FD_FDLength_MASK       0x0000FFFF /* Length MASK                     */
--#define FD_BDCnt_MASK          0x001F0000 /* BD count MASK in FD             */
--#define FD_FrmOpt_MASK         0x7C000000 /* Frame option MASK               */
-+#define FD_FDLength_MASK       0x0000FFFF /* Length MASK		     */
-+#define FD_BDCnt_MASK	       0x001F0000 /* BD count MASK in FD	     */
-+#define FD_FrmOpt_MASK	       0x7C000000 /* Frame option MASK		     */
- #define FD_FrmOpt_BigEndian    0x40000000 /* Tx/Rx */
--#define FD_FrmOpt_IntTx        0x20000000 /* Tx only */
--#define FD_FrmOpt_NoCRC        0x10000000 /* Tx only */
-+#define FD_FrmOpt_IntTx	       0x20000000 /* Tx only */
-+#define FD_FrmOpt_NoCRC	       0x10000000 /* Tx only */
- #define FD_FrmOpt_NoPadding    0x08000000 /* Tx only */
- #define FD_FrmOpt_Packing      0x04000000 /* Rx only */
--#define FD_CownsFD             0x80000000 /* FD Controller owner bit         */
--#define FD_Next_EOL            0x00000001 /* FD EOL indicator                */
--#define FD_BDCnt_SHIFT         16
-+#define FD_CownsFD	       0x80000000 /* FD Controller owner bit	     */
-+#define FD_Next_EOL	       0x00000001 /* FD EOL indicator		     */
-+#define FD_BDCnt_SHIFT	       16
+ #define TC35815_TX_TIMEOUT  msecs_to_jiffies(400)
  
- /* Buffer Descripter bit asign --------------------------------------------- */
--#define BD_BuffLength_MASK     0x0000FFFF /* Recieve Data Size               */
--#define BD_RxBDID_MASK         0x00FF0000 /* BD ID Number MASK               */
--#define BD_RxBDSeqN_MASK       0x7F000000 /* Rx BD Sequence Number           */
--#define BD_CownsBD             0x80000000 /* BD Controller owner bit         */
--#define BD_RxBDID_SHIFT        16
-+#define BD_BuffLength_MASK     0x0000FFFF /* Recieve Data Size		     */
-+#define BD_RxBDID_MASK	       0x00FF0000 /* BD ID Number MASK		     */
-+#define BD_RxBDSeqN_MASK       0x7F000000 /* Rx BD Sequence Number	     */
-+#define BD_CownsBD	       0x80000000 /* BD Controller owner bit	     */
-+#define BD_RxBDID_SHIFT	       16
- #define BD_RxBDSeqN_SHIFT      24
- 
- 
-@@ -352,8 +352,10 @@ struct BDesc {
- /* Tuning parameters */
- #define DMA_BURST_SIZE	32
- #define TX_THRESHOLD	1024
--#define TX_THRESHOLD_MAX 1536       /* used threshold with packet max byte for low pci transfer ability.*/
--#define TX_THRESHOLD_KEEP_LIMIT 10  /* setting threshold max value when overrun error occured this count. */
-+/* used threshold with packet max byte for low pci transfer ability.*/
-+#define TX_THRESHOLD_MAX 1536
-+/* setting threshold max value when overrun error occured this count. */
-+#define TX_THRESHOLD_KEEP_LIMIT 10
- 
- /* 16 + RX_BUF_NUM * 8 + RX_FD_NUM * 16 + TX_FD_NUM * 32 <= PAGE_SIZE*FD_PAGE_NUM */
- #ifdef TC35815_USE_PACKEDBUFFER
-@@ -412,7 +414,7 @@ struct tc35815_local {
- 		int max_tx_qlen;
- 		int tx_ints;
- 		int rx_ints;
--	        int tx_underrun;
-+		int tx_underrun;
- 	} lstats;
- 
- 	/* Tx control lock.  This protects the transmit buffer ring
-@@ -441,7 +443,7 @@ struct tc35815_local {
- 	 *	RX_BUF_NUM BD in Free Buffer FD.
- 	 *	One Free Buffer BD has ETH_FRAME_LEN data buffer.
+-/* Timer state engine. */
+-enum tc35815_timer_state {
+-	arbwait  = 0,	/* Waiting for auto negotiation to complete.          */
+-	lupwait  = 1,	/* Auto-neg complete, awaiting link-up status.        */
+-	ltrywait = 2,	/* Forcing try of all modes, from fastest to slowest. */
+-	asleep   = 3,	/* Time inactive.                                     */
+-	lcheck   = 4,	/* Check link status.                                 */
+-};
+-
+ /* Information that need to be kept for each board. */
+ struct tc35815_local {
+ 	struct pci_dev *pci_dev;
+@@ -432,12 +422,12 @@ struct tc35815_local {
  	 */
--	void * fd_buf;	/* for TxFD, RxFD, FrFD */
-+	void *fd_buf;	/* for TxFD, RxFD, FrFD */
- 	dma_addr_t fd_buf_dma;
- 	struct TxFD *tfd_base;
- 	unsigned int tfd_start;
-@@ -452,7 +454,7 @@ struct tc35815_local {
- 	struct FrFD *fbl_ptr;
- #ifdef TC35815_USE_PACKEDBUFFER
- 	unsigned char fbl_curid;
--	void * data_buf[RX_BUF_NUM];		/* packing */
-+	void *data_buf[RX_BUF_NUM];		/* packing */
- 	dma_addr_t data_buf_dma[RX_BUF_NUM];
- 	struct {
- 		struct sk_buff *skb;
-@@ -493,13 +495,14 @@ static inline void *rxbuf_bus_to_virt(struct tc35815_local *lp, dma_addr_t bus)
- }
+ 	spinlock_t lock;
  
- #define TC35815_DMA_SYNC_ONDEMAND
--static void* alloc_rxbuf_page(struct pci_dev *hwdev, dma_addr_t *dma_handle)
-+static void *alloc_rxbuf_page(struct pci_dev *hwdev, dma_addr_t *dma_handle)
- {
- #ifdef TC35815_DMA_SYNC_ONDEMAND
- 	void *buf;
- 	/* pci_map + pci_dma_sync will be more effective than
- 	 * pci_alloc_consistent on some archs. */
--	if ((buf = (void *)__get_free_page(GFP_ATOMIC)) == NULL)
-+	buf = (void *)__get_free_page(GFP_ATOMIC);
-+	if (!buf)
- 		return NULL;
- 	*dma_handle = pci_map_single(hwdev, buf, PAGE_SIZE,
- 				     PCI_DMA_FROMDEVICE);
-@@ -564,7 +567,7 @@ static void	tc35815_txdone(struct net_device *dev);
- static int	tc35815_close(struct net_device *dev);
- static struct	net_device_stats *tc35815_get_stats(struct net_device *dev);
- static void	tc35815_set_multicast_list(struct net_device *dev);
--static void     tc35815_tx_timeout(struct net_device *dev);
-+static void	tc35815_tx_timeout(struct net_device *dev);
- static int	tc35815_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void	tc35815_poll_controller(struct net_device *dev);
-@@ -572,8 +575,8 @@ static void	tc35815_poll_controller(struct net_device *dev);
- static const struct ethtool_ops tc35815_ethtool_ops;
+-	int phy_addr;
+-	int fullduplex;
+-	unsigned short saved_lpa;
+-	struct timer_list timer;
+-	enum tc35815_timer_state timer_state; /* State of auto-neg timer. */
+-	unsigned int timer_ticks;	/* Number of clicks at each state  */
++	struct mii_bus mii_bus;
++	struct phy_device *phy_dev;
++	int duplex;
++	int speed;
++	int link;
++	struct work_struct restart_work;
  
+ 	/*
+ 	 * Transmitting: Batch Mode.
+@@ -475,8 +465,6 @@ struct tc35815_local {
+ 		dma_addr_t skb_dma;
+ 	} tx_skbs[TX_FD_NUM], rx_skbs[RX_BUF_NUM];
+ #endif
+-	struct mii_if_info mii;
+-	unsigned short mii_id[2];
+ 	u32 msg_enable;
+ 	board_t boardtype;
+ };
+@@ -586,19 +574,218 @@ static const struct ethtool_ops tc35815_ethtool_ops;
  /* Example routines you must write ;->. */
--static void 	tc35815_chip_reset(struct net_device *dev);
--static void 	tc35815_chip_init(struct net_device *dev);
-+static void	tc35815_chip_reset(struct net_device *dev);
-+static void	tc35815_chip_init(struct net_device *dev);
+ static void 	tc35815_chip_reset(struct net_device *dev);
+ static void 	tc35815_chip_init(struct net_device *dev);
+-static void	tc35815_find_phy(struct net_device *dev);
+-static void 	tc35815_phy_chip_init(struct net_device *dev);
  
  #ifdef DEBUG
  static void	panic_queues(struct net_device *dev);
-@@ -821,7 +824,7 @@ static int __devinit tc35815_read_plat_dev_addr(struct net_device *dev)
- }
  #endif
  
--static int __devinit tc35815_init_dev_addr (struct net_device *dev)
-+static int __devinit tc35815_init_dev_addr(struct net_device *dev)
+-static void tc35815_timer(unsigned long data);
+-static void tc35815_start_auto_negotiation(struct net_device *dev,
+-					   struct ethtool_cmd *ep);
+-static int tc_mdio_read(struct net_device *dev, int phy_id, int location);
+-static void tc_mdio_write(struct net_device *dev, int phy_id, int location,
+-			  int val);
++static void tc35815_restart_work(struct work_struct *work);
++
++static int tc_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
++{
++	struct net_device *dev = bus->priv;
++	struct tc35815_regs __iomem *tr =
++		(struct tc35815_regs __iomem *)dev->base_addr;
++	unsigned long timeout = jiffies + 10;
++
++	tc_writel(MD_CA_Busy | (mii_id << 5) | (regnum & 0x1f), &tr->MD_CA);
++	while (tc_readl(&tr->MD_CA) & MD_CA_Busy) {
++		if (time_after(jiffies, timeout))
++			return -EIO;
++		cpu_relax();
++	}
++	return tc_readl(&tr->MD_Data) & 0xffff;
++}
++
++static int tc_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 val)
++{
++	struct net_device *dev = bus->priv;
++	struct tc35815_regs __iomem *tr =
++		(struct tc35815_regs __iomem *)dev->base_addr;
++	unsigned long timeout = jiffies + 10;
++
++	tc_writel(val, &tr->MD_Data);
++	tc_writel(MD_CA_Busy | MD_CA_Wr | (mii_id << 5) | (regnum & 0x1f),
++		  &tr->MD_CA);
++	while (tc_readl(&tr->MD_CA) & MD_CA_Busy) {
++		if (time_after(jiffies, timeout))
++			return -EIO;
++		cpu_relax();
++	}
++	return 0;
++}
++
++static void tc_handle_link_change(struct net_device *dev)
++{
++	struct tc35815_local *lp = netdev_priv(dev);
++	struct phy_device *phydev = lp->phy_dev;
++	unsigned long flags;
++	int status_change = 0;
++
++	spin_lock_irqsave(&lp->lock, flags);
++	if (phydev->link &&
++	    (lp->speed != phydev->speed || lp->duplex != phydev->duplex)) {
++		struct tc35815_regs __iomem *tr =
++			(struct tc35815_regs __iomem *)dev->base_addr;
++		u32 reg;
++
++		reg = tc_readl(&tr->MAC_Ctl);
++		reg |= MAC_HaltReq;
++		tc_writel(reg, &tr->MAC_Ctl);
++		if (phydev->duplex == DUPLEX_FULL)
++			reg |= MAC_FullDup;
++		else
++			reg &= ~MAC_FullDup;
++		tc_writel(reg, &tr->MAC_Ctl);
++		reg &= ~MAC_HaltReq;
++		tc_writel(reg, &tr->MAC_Ctl);
++
++		/*
++		 * TX4939 PCFG.SPEEDn bit will be changed on
++		 * NETDEV_CHANGE event.
++		 */
++
++#if !defined(NO_CHECK_CARRIER) && defined(WORKAROUND_LOSTCAR)
++		/*
++		 * WORKAROUND: enable LostCrS only if half duplex
++		 * operation.
++		 * (TX4939 does not have EnLCarr)
++		 */
++		if (phydev->duplex == DUPLEX_HALF &&
++		    lp->boardtype != TC35815_TX4939)
++			tc_writel(tc_readl(&tr->Tx_Ctl) | Tx_EnLCarr,
++				  &tr->Tx_Ctl);
++#endif
++
++		lp->speed = phydev->speed;
++		lp->duplex = phydev->duplex;
++		status_change = 1;
++	}
++
++	if (phydev->link != lp->link) {
++		if (phydev->link) {
++#ifdef WORKAROUND_100HALF_PROMISC
++			/* delayed promiscuous enabling */
++			if (dev->flags & IFF_PROMISC)
++				tc35815_set_multicast_list(dev);
++#endif
++			netif_schedule(dev);
++		} else {
++			lp->speed = 0;
++			lp->duplex = -1;
++		}
++		lp->link = phydev->link;
++
++		status_change = 1;
++	}
++	spin_unlock_irqrestore(&lp->lock, flags);
++
++	if (status_change && netif_msg_link(lp)) {
++		phy_print_status(phydev);
++#ifdef DEBUG
++		printk(KERN_DEBUG
++		       "%s: MII BMCR %04x BMSR %04x LPA %04x\n",
++		       dev->name,
++		       phy_read(phydev, MII_BMCR),
++		       phy_read(phydev, MII_BMSR),
++		       phy_read(phydev, MII_LPA));
++#endif
++	}
++}
++
++static int tc_mii_probe(struct net_device *dev)
++{
++	struct tc35815_local *lp = netdev_priv(dev);
++	struct phy_device *phydev = NULL;
++	int phy_addr;
++
++	/* find the first phy */
++	for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
++		if (lp->mii_bus.phy_map[phy_addr]) {
++			phydev = lp->mii_bus.phy_map[phy_addr];
++			break;
++		}
++	}
++
++	if (!phydev) {
++		printk(KERN_ERR "%s: no PHY found\n", dev->name);
++		return -ENODEV;
++	}
++
++	/* attach the mac to the phy */
++	phydev = phy_connect(dev, phydev->dev.bus_id,
++			     &tc_handle_link_change, 0,
++			     lp->boardtype == TC35815_TX4939 ?
++			     PHY_INTERFACE_MODE_RMII : PHY_INTERFACE_MODE_MII);
++	if (IS_ERR(phydev)) {
++		printk(KERN_ERR "%s: Could not attach to PHY\n", dev->name);
++		return PTR_ERR(phydev);
++	}
++	printk(KERN_INFO "%s: attached PHY driver [%s] "
++		"(mii_bus:phy_addr=%s, id=%x)\n",
++		dev->name, phydev->drv->name, phydev->dev.bus_id,
++		phydev->phy_id);
++
++	/* mask with MAC supported features */
++	phydev->supported &= PHY_BASIC_FEATURES;
++	if (options.speed == 10)
++		phydev->supported &=
++			~(SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full);
++	else if (options.speed == 100)
++		phydev->supported &=
++			~(SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full);
++	if (options.duplex == 1)
++		phydev->supported &=
++			~(SUPPORTED_10baseT_Full | SUPPORTED_100baseT_Full);
++	else if (options.duplex == 2)
++		phydev->supported &=
++			~(SUPPORTED_10baseT_Half | SUPPORTED_100baseT_Half);
++	phydev->advertising = phydev->supported;
++
++	lp->link = 0;
++	lp->speed = 0;
++	lp->duplex = -1;
++	lp->phy_dev = phydev;
++
++	return 0;
++}
++
++static int tc_mii_init(struct net_device *dev)
++{
++	struct tc35815_local *lp = netdev_priv(dev);
++	int err;
++	int i;
++
++	lp->mii_bus.name = "tc35815_mii_bus",
++	lp->mii_bus.read = tc_mdio_read,
++	lp->mii_bus.write = tc_mdio_write,
++	lp->mii_bus.id = lp->pci_dev->devfn,
++	lp->mii_bus.priv = dev,
++	lp->mii_bus.dev = &lp->pci_dev->dev;
++	lp->mii_bus.irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
++	if (!lp->mii_bus.irq) {
++		err = -ENOMEM;
++		goto err_out;
++	}
++
++	for (i = 0; i < PHY_MAX_ADDR; i++)
++		lp->mii_bus.irq[i] = PHY_POLL;
++
++	err = mdiobus_register(&lp->mii_bus);
++	if (err)
++		goto err_out_free_mdio_irq;
++	err = tc_mii_probe(dev);
++	if (err)
++		goto err_out_unregister_bus;
++	return 0;
++
++err_out_unregister_bus:
++	mdiobus_unregister(&lp->mii_bus);
++err_out_free_mdio_irq:
++	kfree(lp->mii_bus.irq);
++err_out:
++	return err;
++}
+ 
+ #ifdef CONFIG_CPU_TX49XX
+ /*
+@@ -669,8 +856,8 @@ static int __devinit tc35815_init_one (struct pci_dev *pdev,
+ 	if (!printed_version++) {
+ 		printk(version);
+ 		dev_printk(KERN_DEBUG, &pdev->dev,
+-			   "speed:%d duplex:%d doforce:%d\n",
+-			   options.speed, options.duplex, options.doforce);
++			   "speed:%d duplex:%d\n",
++			   options.speed, options.duplex);
+ 	}
+ 
+ 	if (!pdev->irq) {
+@@ -718,6 +905,7 @@ static int __devinit tc35815_init_one (struct pci_dev *pdev,
+ 	dev->irq = pdev->irq;
+ 	dev->base_addr = (unsigned long) ioaddr;
+ 
++	INIT_WORK(&lp->restart_work, tc35815_restart_work);
+ 	spin_lock_init(&lp->lock);
+ 	lp->pci_dev = pdev;
+ 	lp->boardtype = ent->driver_data;
+@@ -746,19 +934,14 @@ static int __devinit tc35815_init_one (struct pci_dev *pdev,
+ 		print_mac(mac, dev->dev_addr),
+ 		dev->irq);
+ 
+-	setup_timer(&lp->timer, tc35815_timer, (unsigned long) dev);
+-	lp->mii.dev = dev;
+-	lp->mii.mdio_read = tc_mdio_read;
+-	lp->mii.mdio_write = tc_mdio_write;
+-	lp->mii.phy_id_mask = 0x1f;
+-	lp->mii.reg_num_mask = 0x1f;
+-	tc35815_find_phy(dev);
+-	lp->mii.phy_id = lp->phy_addr;
+-	lp->mii.full_duplex = 0;
+-	lp->mii.force_media = 0;
++	rc = tc_mii_init(dev);
++	if (rc)
++		goto err_out_unregister;
+ 
+ 	return 0;
+ 
++err_out_unregister:
++	unregister_netdev(dev);
+ err_out:
+ 	free_netdev (dev);
+ 	return rc;
+@@ -768,7 +951,11 @@ err_out:
+ static void __devexit tc35815_remove_one (struct pci_dev *pdev)
  {
+ 	struct net_device *dev = pci_get_drvdata (pdev);
++	struct tc35815_local *lp = netdev_priv(dev);
+ 
++	phy_disconnect(lp->phy_dev);
++	mdiobus_unregister(&lp->mii_bus);
++	kfree(lp->mii_bus.irq);
+ 	unregister_netdev (dev);
+ 	free_netdev (dev);
+ 
+@@ -1098,20 +1285,15 @@ static int tc35815_tx_full(struct net_device *dev)
+ static void tc35815_restart(struct net_device *dev)
+ {
+ 	struct tc35815_local *lp = netdev_priv(dev);
+-	int pid = lp->phy_addr;
+-	int do_phy_reset = 1;
+-	del_timer(&lp->timer);		/* Kill if running	*/
+ 
+-	if (lp->mii_id[0] == 0x0016 && (lp->mii_id[1] & 0xfc00) == 0xf800) {
++	if (lp->phy_dev && (lp->phy_dev->phy_id & 0xfffffc00) != 0x0016f800) {
+ 		/* Resetting PHY cause problem on some chip... (SEEQ 80221) */
+-		do_phy_reset = 0;
+-	}
+-	if (do_phy_reset) {
+ 		int timeout;
+-		tc_mdio_write(dev, pid, MII_BMCR, BMCR_RESET);
++
++		phy_write(lp->phy_dev, MII_BMCR, BMCR_RESET);
+ 		timeout = 100;
+ 		while (--timeout) {
+-			if (!(tc_mdio_read(dev, pid, MII_BMCR) & BMCR_RESET))
++			if (!(phy_read(lp->phy_dev, MII_BMCR) & BMCR_RESET))
+ 				break;
+ 			udelay(1);
+ 		}
+@@ -1119,41 +1301,49 @@ static void tc35815_restart(struct net_device *dev)
+ 			printk(KERN_ERR "%s: BMCR reset failed.\n", dev->name);
+ 	}
+ 
++	spin_lock_irq(&lp->lock);
+ 	tc35815_chip_reset(dev);
+ 	tc35815_clear_queues(dev);
+ 	tc35815_chip_init(dev);
+ 	/* Reconfigure CAM again since tc35815_chip_init() initialize it. */
+ 	tc35815_set_multicast_list(dev);
++	spin_unlock_irq(&lp->lock);
++
++	netif_wake_queue(dev);
+ }
+ 
+-static void tc35815_tx_timeout(struct net_device *dev)
++static void tc35815_restart_work(struct work_struct *work)
++{
++	struct tc35815_local *lp =
++		container_of(work, struct tc35815_local, restart_work);
++	struct net_device *dev = lp->dev;
++
++	tc35815_restart(dev);
++}
++
++static void tc35815_schedule_restart(struct net_device *dev)
+ {
+ 	struct tc35815_local *lp = netdev_priv(dev);
  	struct tc35815_regs __iomem *tr =
  		(struct tc35815_regs __iomem *)dev->base_addr;
-@@ -843,8 +846,8 @@ static int __devinit tc35815_init_dev_addr (struct net_device *dev)
- 	return 0;
- }
  
--static int __devinit tc35815_init_one (struct pci_dev *pdev,
--				       const struct pci_device_id *ent)
-+static int __devinit tc35815_init_one(struct pci_dev *pdev,
-+				      const struct pci_device_id *ent)
- {
- 	void __iomem *ioaddr = NULL;
- 	struct net_device *dev;
-@@ -866,7 +869,7 @@ static int __devinit tc35815_init_one (struct pci_dev *pdev,
- 	}
++	/* disable interrupts */
++	tc_writel(0, &tr->Int_En);
++	tc_writel(tc_readl(&tr->DMA_Ctl) | DMA_IntMask, &tr->DMA_Ctl);
++	schedule_work(&lp->restart_work);
++}
++
++static void tc35815_tx_timeout(struct net_device *dev)
++{
++	struct tc35815_regs __iomem *tr =
++		(struct tc35815_regs __iomem *)dev->base_addr;
++
+ 	printk(KERN_WARNING "%s: transmit timed out, status %#x\n",
+ 	       dev->name, tc_readl(&tr->Tx_Stat));
  
- 	/* dev zeroed in alloc_etherdev */
--	dev = alloc_etherdev (sizeof (*lp));
-+	dev = alloc_etherdev(sizeof(*lp));
- 	if (dev == NULL) {
- 		dev_err(&pdev->dev, "unable to alloc new ethernet\n");
- 		return -ENOMEM;
-@@ -903,7 +906,7 @@ static int __devinit tc35815_init_one (struct pci_dev *pdev,
- #endif
- 
- 	dev->irq = pdev->irq;
--	dev->base_addr = (unsigned long) ioaddr;
-+	dev->base_addr = (unsigned long)ioaddr;
- 
- 	INIT_WORK(&lp->restart_work, tc35815_restart_work);
- 	spin_lock_init(&lp->lock);
-@@ -922,7 +925,7 @@ static int __devinit tc35815_init_one (struct pci_dev *pdev,
- 		random_ether_addr(dev->dev_addr);
- 	}
- 
--	rc = register_netdev (dev);
-+	rc = register_netdev(dev);
- 	if (rc)
- 		goto err_out;
- 
-@@ -943,23 +946,22 @@ static int __devinit tc35815_init_one (struct pci_dev *pdev,
- err_out_unregister:
- 	unregister_netdev(dev);
- err_out:
--	free_netdev (dev);
-+	free_netdev(dev);
- 	return rc;
- }
- 
- 
--static void __devexit tc35815_remove_one (struct pci_dev *pdev)
-+static void __devexit tc35815_remove_one(struct pci_dev *pdev)
- {
--	struct net_device *dev = pci_get_drvdata (pdev);
-+	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct tc35815_local *lp = netdev_priv(dev);
- 
- 	phy_disconnect(lp->phy_dev);
- 	mdiobus_unregister(&lp->mii_bus);
- 	kfree(lp->mii_bus.irq);
--	unregister_netdev (dev);
--	free_netdev (dev);
+ 	/* Try to restart the adaptor. */
+-	spin_lock_irq(&lp->lock);
+-	tc35815_restart(dev);
+-	spin_unlock_irq(&lp->lock);
 -
--	pci_set_drvdata (pdev, NULL);
-+	unregister_netdev(dev);
-+	free_netdev(dev);
-+	pci_set_drvdata(pdev, NULL);
++	tc35815_schedule_restart(dev);
+ 	dev->stats.tx_errors++;
+-
+-	/* If we have space available to accept new transmit
+-	 * requests, wake up the queueing layer.  This would
+-	 * be the case if the chipset_init() call above just
+-	 * flushes out the tx queue and empties it.
+-	 *
+-	 * If instead, the tx queue is retained then the
+-	 * netif_wake_queue() call should be placed in the
+-	 * TX completion interrupt handler of the driver instead
+-	 * of here.
+-	 */
+-	if (!tc35815_tx_full(dev))
+-		netif_wake_queue(dev);
  }
  
- static int
-@@ -976,11 +978,17 @@ tc35815_init_queues(struct net_device *dev)
- 		       sizeof(struct TxFD) * TX_FD_NUM >
- 		       PAGE_SIZE * FD_PAGE_NUM);
- 
--		if ((lp->fd_buf = pci_alloc_consistent(lp->pci_dev, PAGE_SIZE * FD_PAGE_NUM, &lp->fd_buf_dma)) == 0)
-+		lp->fd_buf = pci_alloc_consistent(lp->pci_dev,
-+						  PAGE_SIZE * FD_PAGE_NUM,
-+						  &lp->fd_buf_dma);
-+		if (!lp->fd_buf)
- 			return -ENOMEM;
- 		for (i = 0; i < RX_BUF_NUM; i++) {
- #ifdef TC35815_USE_PACKEDBUFFER
--			if ((lp->data_buf[i] = alloc_rxbuf_page(lp->pci_dev, &lp->data_buf_dma[i])) == NULL) {
-+			lp->data_buf[i] =
-+				alloc_rxbuf_page(lp->pci_dev,
-+						 &lp->data_buf_dma[i]);
-+			if (!lp->data_buf[i]) {
- 				while (--i >= 0) {
- 					free_rxbuf_page(lp->pci_dev,
- 							lp->data_buf[i],
-@@ -1023,18 +1031,17 @@ tc35815_init_queues(struct net_device *dev)
- #endif
- 		printk("\n");
- 	} else {
--		for (i = 0; i < FD_PAGE_NUM; i++) {
--			clear_page((void *)((unsigned long)lp->fd_buf + i * PAGE_SIZE));
--		}
-+		for (i = 0; i < FD_PAGE_NUM; i++)
-+			clear_page((void *)((unsigned long)lp->fd_buf +
-+					    i * PAGE_SIZE));
- 	}
- 	fd_addr = (unsigned long)lp->fd_buf;
- 
- 	/* Free Descriptors (for Receive) */
- 	lp->rfd_base = (struct RxFD *)fd_addr;
- 	fd_addr += sizeof(struct RxFD) * RX_FD_NUM;
--	for (i = 0; i < RX_FD_NUM; i++) {
-+	for (i = 0; i < RX_FD_NUM; i++)
- 		lp->rfd_base[i].fd.FDCtl = cpu_to_le32(FD_CownsFD);
--	}
- 	lp->rfd_cur = lp->rfd_base;
- 	lp->rfd_limit = (struct RxFD *)fd_addr - (RX_FD_RESERVE + 1);
- 
-@@ -1214,7 +1221,7 @@ dump_rxfd(struct RxFD *fd)
- 	       le32_to_cpu(fd->fd.FDStat),
- 	       le32_to_cpu(fd->fd.FDCtl));
- 	if (le32_to_cpu(fd->fd.FDCtl) & FD_CownsFD)
--	    return 0;
-+		return 0;
- 	printk("BD: ");
- 	for (i = 0; i < bd_count; i++)
- 		printk(" %08x %08x",
-@@ -1363,9 +1370,9 @@ tc35815_open(struct net_device *dev)
- 	 * This is used if the interrupt line can turned off (shared).
- 	 * See 3c503.c for an example of selecting the IRQ at config-time.
- 	 */
--	if (request_irq(dev->irq, &tc35815_interrupt, IRQF_SHARED, dev->name, dev)) {
-+	if (request_irq(dev->irq, &tc35815_interrupt, IRQF_SHARED,
-+			dev->name, dev))
+ /*
+@@ -1177,7 +1367,6 @@ tc35815_open(struct net_device *dev)
  		return -EAGAIN;
--	}
+ 	}
  
+-	del_timer(&lp->timer);		/* Kill if running	*/
  	tc35815_chip_reset(dev);
  
-@@ -2049,7 +2056,7 @@ tc35815_txdone(struct net_device *dev)
- 				struct tc35815_regs __iomem *tr =
- 					(struct tc35815_regs __iomem *)dev->base_addr;
- 				int head = (lp->tfd_start + TX_FD_NUM - 1) % TX_FD_NUM;
--				struct TxFD* txhead = &lp->tfd_base[head];
-+				struct TxFD *txhead = &lp->tfd_base[head];
- 				int qlen = (lp->tfd_start + TX_FD_NUM
- 					    - lp->tfd_end) % TX_FD_NUM;
+ 	if (tc35815_init_queues(dev) != 0) {
+@@ -1194,6 +1383,9 @@ tc35815_open(struct net_device *dev)
+ 	tc35815_chip_init(dev);
+ 	spin_unlock_irq(&lp->lock);
  
-@@ -2084,7 +2091,7 @@ tc35815_txdone(struct net_device *dev)
- 	 * condition, and space has now been made available,
- 	 * wake up the queue.
++	/* schedule a link state check */
++	phy_start(lp->phy_dev);
++
+ 	/* We are now ready to accept transmit requeusts from
+ 	 * the queueing layer of the networking.
  	 */
--	if (netif_queue_stopped(dev) && ! tc35815_tx_full(dev))
-+	if (netif_queue_stopped(dev) && !tc35815_tx_full(dev))
- 		netif_wake_queue(dev);
+@@ -1314,7 +1506,7 @@ static void tc35815_fatal_error_interrupt(struct net_device *dev, u32 status)
+ 		panic("%s: Too many fatal errors.", dev->name);
+ 	printk(KERN_WARNING "%s: Resetting ...\n", dev->name);
+ 	/* Try to restart the adaptor. */
+-	tc35815_restart(dev);
++	tc35815_schedule_restart(dev);
  }
  
-@@ -2181,8 +2188,7 @@ tc35815_set_multicast_list(struct net_device *dev)
- 	struct tc35815_regs __iomem *tr =
- 		(struct tc35815_regs __iomem *)dev->base_addr;
+ #ifdef TC35815_NAPI
+@@ -1739,8 +1931,9 @@ tc35815_check_tx_stat(struct net_device *dev, int status)
+ 		status &= ~Tx_NCarr;
+ #ifdef WORKAROUND_LOSTCAR
+ 	/* WORKAROUND: ignore LostCrS in full duplex operation */
+-	if ((lp->timer_state != asleep && lp->timer_state != lcheck)
+-	    || lp->fullduplex)
++	if (!(lp->phy_dev->state == PHY_RUNNING ||
++	      lp->phy_dev->state == PHY_CHANGELINK) ||
++	    lp->duplex == DUPLEX_FULL)
+ 		status &= ~Tx_NCarr;
+ #endif
+ #endif
+@@ -1905,10 +2098,11 @@ tc35815_close(struct net_device *dev)
+ #ifdef TC35815_NAPI
+ 	napi_disable(&lp->napi);
+ #endif
++	if (lp->phy_dev)
++		phy_stop(lp->phy_dev);
++	cancel_work_sync(&lp->restart_work);
  
--	if (dev->flags&IFF_PROMISC)
--	{
-+	if (dev->flags & IFF_PROMISC) {
- #ifdef WORKAROUND_100HALF_PROMISC
+ 	/* Flush the Tx and disable Rx here. */
+-
+-	del_timer(&lp->timer);		/* Kill if running	*/
+ 	tc35815_chip_reset(dev);
+ 	free_irq(dev->irq, dev);
+ 
+@@ -1993,8 +2187,8 @@ tc35815_set_multicast_list(struct net_device *dev)
  		/* With some (all?) 100MHalf HUB, controller will hang
  		 * if we enabled promiscuous mode before linkup... */
-@@ -2193,16 +2199,13 @@ tc35815_set_multicast_list(struct net_device *dev)
+ 		struct tc35815_local *lp = netdev_priv(dev);
+-		int pid = lp->phy_addr;
+-		if (!(tc_mdio_read(dev, pid, MII_BMSR) & BMSR_LSTATUS))
++
++		if (!lp->link)
+ 			return;
  #endif
  		/* Enable promiscuous mode */
- 		tc_writel(CAM_CompEn | CAM_BroadAcc | CAM_GroupAcc | CAM_StationAcc, &tr->CAM_Ctl);
--	}
--	else if((dev->flags&IFF_ALLMULTI) || dev->mc_count > CAM_ENTRY_MAX - 3)
--	{
-+	} else if ((dev->flags & IFF_ALLMULTI) ||
-+		  dev->mc_count > CAM_ENTRY_MAX - 3) {
- 		/* CAM 0, 1, 20 are reserved. */
- 		/* Disable promiscuous mode, use normal mode. */
- 		tc_writel(CAM_CompEn | CAM_BroadAcc | CAM_GroupAcc, &tr->CAM_Ctl);
--	}
--	else if(dev->mc_count)
--	{
--		struct dev_mc_list* cur_addr = dev->mc_list;
-+	} else if (dev->mc_count) {
-+		struct dev_mc_list *cur_addr = dev->mc_list;
- 		int i;
- 		int ena_bits = CAM_Ena_Bit(CAM_ENTRY_SOURCE);
+@@ -2041,60 +2235,19 @@ static void tc35815_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *
+ static int tc35815_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct tc35815_local *lp = netdev_priv(dev);
+-	spin_lock_irq(&lp->lock);
+-	mii_ethtool_gset(&lp->mii, cmd);
+-	spin_unlock_irq(&lp->lock);
+-	return 0;
+-}
+-
+-static int tc35815_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	struct tc35815_local *lp = netdev_priv(dev);
+-	int rc;
+-#if 1	/* use our negotiation method... */
+-	/* Verify the settings we care about. */
+-	if (cmd->autoneg != AUTONEG_ENABLE &&
+-	    cmd->autoneg != AUTONEG_DISABLE)
+-		return -EINVAL;
+-	if (cmd->autoneg == AUTONEG_DISABLE &&
+-	    ((cmd->speed != SPEED_100 &&
+-	      cmd->speed != SPEED_10) ||
+-	     (cmd->duplex != DUPLEX_HALF &&
+-	      cmd->duplex != DUPLEX_FULL)))
+-		return -EINVAL;
  
-@@ -2217,8 +2220,7 @@ tc35815_set_multicast_list(struct net_device *dev)
- 		}
- 		tc_writel(ena_bits, &tr->CAM_Ena);
- 		tc_writel(CAM_CompEn | CAM_BroadAcc, &tr->CAM_Ctl);
+-	/* Ok, do it to it. */
+-	spin_lock_irq(&lp->lock);
+-	del_timer(&lp->timer);
+-	tc35815_start_auto_negotiation(dev, cmd);
+-	spin_unlock_irq(&lp->lock);
+-	rc = 0;
+-#else
+-	spin_lock_irq(&lp->lock);
+-	rc = mii_ethtool_sset(&lp->mii, cmd);
+-	spin_unlock_irq(&lp->lock);
+-#endif
+-	return rc;
++	if (!lp->phy_dev)
++		return -ENODEV;
++	return phy_ethtool_gset(lp->phy_dev, cmd);
+ }
+ 
+-static int tc35815_nway_reset(struct net_device *dev)
++static int tc35815_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct tc35815_local *lp = netdev_priv(dev);
+-	int rc;
+-	spin_lock_irq(&lp->lock);
+-	rc = mii_nway_restart(&lp->mii);
+-	spin_unlock_irq(&lp->lock);
+-	return rc;
+-}
+ 
+-static u32 tc35815_get_link(struct net_device *dev)
+-{
+-	struct tc35815_local *lp = netdev_priv(dev);
+-	int rc;
+-	spin_lock_irq(&lp->lock);
+-	rc = mii_link_ok(&lp->mii);
+-	spin_unlock_irq(&lp->lock);
+-	return rc;
++	if (!lp->phy_dev)
++		return -ENODEV;
++	return phy_ethtool_sset(lp->phy_dev, cmd);
+ }
+ 
+ static u32 tc35815_get_msglevel(struct net_device *dev)
+@@ -2148,8 +2301,7 @@ static const struct ethtool_ops tc35815_ethtool_ops = {
+ 	.get_drvinfo		= tc35815_get_drvinfo,
+ 	.get_settings		= tc35815_get_settings,
+ 	.set_settings		= tc35815_set_settings,
+-	.nway_reset		= tc35815_nway_reset,
+-	.get_link		= tc35815_get_link,
++	.get_link		= ethtool_op_get_link,
+ 	.get_msglevel		= tc35815_get_msglevel,
+ 	.set_msglevel		= tc35815_set_msglevel,
+ 	.get_strings		= tc35815_get_strings,
+@@ -2160,610 +2312,12 @@ static const struct ethtool_ops tc35815_ethtool_ops = {
+ static int tc35815_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct tc35815_local *lp = netdev_priv(dev);
+-	int rc;
+ 
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
+-
+-	spin_lock_irq(&lp->lock);
+-	rc = generic_mii_ioctl(&lp->mii, if_mii(rq), cmd, NULL);
+-	spin_unlock_irq(&lp->lock);
+-
+-	return rc;
+-}
+-
+-static int tc_mdio_read(struct net_device *dev, int phy_id, int location)
+-{
+-	struct tc35815_regs __iomem *tr =
+-		(struct tc35815_regs __iomem *)dev->base_addr;
+-	u32 data;
+-	tc_writel(MD_CA_Busy | (phy_id << 5) | location, &tr->MD_CA);
+-	while (tc_readl(&tr->MD_CA) & MD_CA_Busy)
+-		;
+-	data = tc_readl(&tr->MD_Data);
+-	return data & 0xffff;
+-}
+-
+-static void tc_mdio_write(struct net_device *dev, int phy_id, int location,
+-			  int val)
+-{
+-	struct tc35815_regs __iomem *tr =
+-		(struct tc35815_regs __iomem *)dev->base_addr;
+-	tc_writel(val, &tr->MD_Data);
+-	tc_writel(MD_CA_Busy | MD_CA_Wr | (phy_id << 5) | location, &tr->MD_CA);
+-	while (tc_readl(&tr->MD_CA) & MD_CA_Busy)
+-		;
+-}
+-
+-/* Auto negotiation.  The scheme is very simple.  We have a timer routine
+- * that keeps watching the auto negotiation process as it progresses.
+- * The DP83840 is first told to start doing it's thing, we set up the time
+- * and place the timer state machine in it's initial state.
+- *
+- * Here the timer peeks at the DP83840 status registers at each click to see
+- * if the auto negotiation has completed, we assume here that the DP83840 PHY
+- * will time out at some point and just tell us what (didn't) happen.  For
+- * complete coverage we only allow so many of the ticks at this level to run,
+- * when this has expired we print a warning message and try another strategy.
+- * This "other" strategy is to force the interface into various speed/duplex
+- * configurations and we stop when we see a link-up condition before the
+- * maximum number of "peek" ticks have occurred.
+- *
+- * Once a valid link status has been detected we configure the BigMAC and
+- * the rest of the Happy Meal to speak the most efficient protocol we could
+- * get a clean link for.  The priority for link configurations, highest first
+- * is:
+- *                 100 Base-T Full Duplex
+- *                 100 Base-T Half Duplex
+- *                 10 Base-T Full Duplex
+- *                 10 Base-T Half Duplex
+- *
+- * We start a new timer now, after a successful auto negotiation status has
+- * been detected.  This timer just waits for the link-up bit to get set in
+- * the BMCR of the DP83840.  When this occurs we print a kernel log message
+- * describing the link type in use and the fact that it is up.
+- *
+- * If a fatal error of some sort is signalled and detected in the interrupt
+- * service routine, and the chip is reset, or the link is ifconfig'd down
+- * and then back up, this entire process repeats itself all over again.
+- */
+-/* Note: Above comments are come from sunhme driver. */
+-
+-static int tc35815_try_next_permutation(struct net_device *dev)
+-{
+-	struct tc35815_local *lp = netdev_priv(dev);
+-	int pid = lp->phy_addr;
+-	unsigned short bmcr;
+-
+-	bmcr = tc_mdio_read(dev, pid, MII_BMCR);
+-
+-	/* Downgrade from full to half duplex.  Only possible via ethtool.  */
+-	if (bmcr & BMCR_FULLDPLX) {
+-		bmcr &= ~BMCR_FULLDPLX;
+-		printk(KERN_DEBUG "%s: try next permutation (BMCR %x)\n", dev->name, bmcr);
+-		tc_mdio_write(dev, pid, MII_BMCR, bmcr);
+-		return 0;
 -	}
--	else {
-+	} else {
- 		tc_writel(CAM_Ena_Bit(CAM_ENTRY_SOURCE), &tr->CAM_Ena);
- 		tc_writel(CAM_CompEn | CAM_BroadAcc, &tr->CAM_Ctl);
- 	}
+-
+-	/* Downgrade from 100 to 10. */
+-	if (bmcr & BMCR_SPEED100) {
+-		bmcr &= ~BMCR_SPEED100;
+-		printk(KERN_DEBUG "%s: try next permutation (BMCR %x)\n", dev->name, bmcr);
+-		tc_mdio_write(dev, pid, MII_BMCR, bmcr);
+-		return 0;
+-	}
+-
+-	/* We've tried everything. */
+-	return -1;
+-}
+-
+-static void
+-tc35815_display_link_mode(struct net_device *dev)
+-{
+-	struct tc35815_local *lp = netdev_priv(dev);
+-	int pid = lp->phy_addr;
+-	unsigned short lpa, bmcr;
+-	char *speed = "", *duplex = "";
+-
+-	lpa = tc_mdio_read(dev, pid, MII_LPA);
+-	bmcr = tc_mdio_read(dev, pid, MII_BMCR);
+-	if (options.speed ? (bmcr & BMCR_SPEED100) : (lpa & (LPA_100HALF | LPA_100FULL)))
+-		speed = "100Mb/s";
+-	else
+-		speed = "10Mb/s";
+-	if (options.duplex ? (bmcr & BMCR_FULLDPLX) : (lpa & (LPA_100FULL | LPA_10FULL)))
+-		duplex = "Full Duplex";
+-	else
+-		duplex = "Half Duplex";
+-
+-	if (netif_msg_link(lp))
+-		printk(KERN_INFO "%s: Link is up at %s, %s.\n",
+-		       dev->name, speed, duplex);
+-	printk(KERN_DEBUG "%s: MII BMCR %04x BMSR %04x LPA %04x\n",
+-	       dev->name,
+-	       bmcr, tc_mdio_read(dev, pid, MII_BMSR), lpa);
+-}
+-
+-static void tc35815_display_forced_link_mode(struct net_device *dev)
+-{
+-	struct tc35815_local *lp = netdev_priv(dev);
+-	int pid = lp->phy_addr;
+-	unsigned short bmcr;
+-	char *speed = "", *duplex = "";
+-
+-	bmcr = tc_mdio_read(dev, pid, MII_BMCR);
+-	if (bmcr & BMCR_SPEED100)
+-		speed = "100Mb/s";
+-	else
+-		speed = "10Mb/s";
+-	if (bmcr & BMCR_FULLDPLX)
+-		duplex = "Full Duplex.\n";
+-	else
+-		duplex = "Half Duplex.\n";
+-
+-	if (netif_msg_link(lp))
+-		printk(KERN_INFO "%s: Link has been forced up at %s, %s",
+-		       dev->name, speed, duplex);
+-}
+-
+-static void tc35815_set_link_modes(struct net_device *dev)
+-{
+-	struct tc35815_local *lp = netdev_priv(dev);
+-	struct tc35815_regs __iomem *tr =
+-		(struct tc35815_regs __iomem *)dev->base_addr;
+-	int pid = lp->phy_addr;
+-	unsigned short bmcr, lpa;
+-	int speed;
+-
+-	if (lp->timer_state == arbwait) {
+-		lpa = tc_mdio_read(dev, pid, MII_LPA);
+-		bmcr = tc_mdio_read(dev, pid, MII_BMCR);
+-		printk(KERN_DEBUG "%s: MII BMCR %04x BMSR %04x LPA %04x\n",
+-		       dev->name,
+-		       bmcr, tc_mdio_read(dev, pid, MII_BMSR), lpa);
+-		if (!(lpa & (LPA_10HALF | LPA_10FULL |
+-			     LPA_100HALF | LPA_100FULL))) {
+-			/* fall back to 10HALF */
+-			printk(KERN_INFO "%s: bad ability %04x - falling back to 10HD.\n",
+-			       dev->name, lpa);
+-			lpa = LPA_10HALF;
+-		}
+-		if (options.duplex ? (bmcr & BMCR_FULLDPLX) : (lpa & (LPA_100FULL | LPA_10FULL)))
+-			lp->fullduplex = 1;
+-		else
+-			lp->fullduplex = 0;
+-		if (options.speed ? (bmcr & BMCR_SPEED100) : (lpa & (LPA_100HALF | LPA_100FULL)))
+-			speed = 100;
+-		else
+-			speed = 10;
+-	} else {
+-		/* Forcing a link mode. */
+-		bmcr = tc_mdio_read(dev, pid, MII_BMCR);
+-		if (bmcr & BMCR_FULLDPLX)
+-			lp->fullduplex = 1;
+-		else
+-			lp->fullduplex = 0;
+-		if (bmcr & BMCR_SPEED100)
+-			speed = 100;
+-		else
+-			speed = 10;
+-	}
+-
+-	tc_writel(tc_readl(&tr->MAC_Ctl) | MAC_HaltReq, &tr->MAC_Ctl);
+-	if (lp->fullduplex) {
+-		tc_writel(tc_readl(&tr->MAC_Ctl) | MAC_FullDup, &tr->MAC_Ctl);
+-	} else {
+-		tc_writel(tc_readl(&tr->MAC_Ctl) & ~MAC_FullDup, &tr->MAC_Ctl);
+-	}
+-	tc_writel(tc_readl(&tr->MAC_Ctl) & ~MAC_HaltReq, &tr->MAC_Ctl);
+-
+-	/* TX4939 PCFG.SPEEDn bit will be changed on NETDEV_CHANGE event. */
+-
+-#ifndef NO_CHECK_CARRIER
+-	/* TX4939 does not have EnLCarr */
+-	if (lp->boardtype != TC35815_TX4939) {
+-#ifdef WORKAROUND_LOSTCAR
+-		/* WORKAROUND: enable LostCrS only if half duplex operation */
+-		if (!lp->fullduplex && lp->boardtype != TC35815_TX4939)
+-			tc_writel(tc_readl(&tr->Tx_Ctl) | Tx_EnLCarr, &tr->Tx_Ctl);
+-#endif
+-	}
+-#endif
+-	lp->mii.full_duplex = lp->fullduplex;
+-}
+-
+-static void tc35815_timer(unsigned long data)
+-{
+-	struct net_device *dev = (struct net_device *)data;
+-	struct tc35815_local *lp = netdev_priv(dev);
+-	int pid = lp->phy_addr;
+-	unsigned short bmsr, bmcr, lpa;
+-	int restart_timer = 0;
+-
+-	spin_lock_irq(&lp->lock);
+-
+-	lp->timer_ticks++;
+-	switch (lp->timer_state) {
+-	case arbwait:
+-		/*
+-		 * Only allow for 5 ticks, thats 10 seconds and much too
+-		 * long to wait for arbitration to complete.
+-		 */
+-		/* TC35815 need more times... */
+-		if (lp->timer_ticks >= 10) {
+-			/* Enter force mode. */
+-			if (!options.doforce) {
+-				printk(KERN_NOTICE "%s: Auto-Negotiation unsuccessful,"
+-				       " cable probblem?\n", dev->name);
+-				/* Try to restart the adaptor. */
+-				tc35815_restart(dev);
+-				goto out;
+-			}
+-			printk(KERN_NOTICE "%s: Auto-Negotiation unsuccessful,"
+-			       " trying force link mode\n", dev->name);
+-			printk(KERN_DEBUG "%s: BMCR %x BMSR %x\n", dev->name,
+-			       tc_mdio_read(dev, pid, MII_BMCR),
+-			       tc_mdio_read(dev, pid, MII_BMSR));
+-			bmcr = BMCR_SPEED100;
+-			tc_mdio_write(dev, pid, MII_BMCR, bmcr);
+-
+-			/*
+-			 * OK, seems we need do disable the transceiver
+-			 * for the first tick to make sure we get an
+-			 * accurate link state at the second tick.
+-			 */
+-
+-			lp->timer_state = ltrywait;
+-			lp->timer_ticks = 0;
+-			restart_timer = 1;
+-		} else {
+-			/* Anything interesting happen? */
+-			bmsr = tc_mdio_read(dev, pid, MII_BMSR);
+-			if (bmsr & BMSR_ANEGCOMPLETE) {
+-				/* Just what we've been waiting for... */
+-				tc35815_set_link_modes(dev);
+-
+-				/*
+-				 * Success, at least so far, advance our state
+-				 * engine.
+-				 */
+-				lp->timer_state = lupwait;
+-				restart_timer = 1;
+-			} else {
+-				restart_timer = 1;
+-			}
+-		}
+-		break;
+-
+-	case lupwait:
+-		/*
+-		 * Auto negotiation was successful and we are awaiting a
+-		 * link up status.  I have decided to let this timer run
+-		 * forever until some sort of error is signalled, reporting
+-		 * a message to the user at 10 second intervals.
+-		 */
+-		bmsr = tc_mdio_read(dev, pid, MII_BMSR);
+-		if (bmsr & BMSR_LSTATUS) {
+-			/*
+-			 * Wheee, it's up, display the link mode in use and put
+-			 * the timer to sleep.
+-			 */
+-			tc35815_display_link_mode(dev);
+-			netif_carrier_on(dev);
+-#ifdef WORKAROUND_100HALF_PROMISC
+-			/* delayed promiscuous enabling */
+-			if (dev->flags & IFF_PROMISC)
+-				tc35815_set_multicast_list(dev);
+-#endif
+-#if 1
+-			lp->saved_lpa = tc_mdio_read(dev, pid, MII_LPA);
+-			lp->timer_state = lcheck;
+-			restart_timer = 1;
+-#else
+-			lp->timer_state = asleep;
+-			restart_timer = 0;
+-#endif
+-		} else {
+-			if (lp->timer_ticks >= 10) {
+-				printk(KERN_NOTICE "%s: Auto negotiation successful, link still "
+-				       "not completely up.\n", dev->name);
+-				lp->timer_ticks = 0;
+-				restart_timer = 1;
+-			} else {
+-				restart_timer = 1;
+-			}
+-		}
+-		break;
+-
+-	case ltrywait:
+-		/*
+-		 * Making the timeout here too long can make it take
+-		 * annoyingly long to attempt all of the link mode
+-		 * permutations, but then again this is essentially
+-		 * error recovery code for the most part.
+-		 */
+-		bmsr = tc_mdio_read(dev, pid, MII_BMSR);
+-		bmcr = tc_mdio_read(dev, pid, MII_BMCR);
+-		if (lp->timer_ticks == 1) {
+-			/*
+-			 * Re-enable transceiver, we'll re-enable the
+-			 * transceiver next tick, then check link state
+-			 * on the following tick.
+-			 */
+-			restart_timer = 1;
+-			break;
+-		}
+-		if (lp->timer_ticks == 2) {
+-			restart_timer = 1;
+-			break;
+-		}
+-		if (bmsr & BMSR_LSTATUS) {
+-			/* Force mode selection success. */
+-			tc35815_display_forced_link_mode(dev);
+-			netif_carrier_on(dev);
+-			tc35815_set_link_modes(dev);
+-#ifdef WORKAROUND_100HALF_PROMISC
+-			/* delayed promiscuous enabling */
+-			if (dev->flags & IFF_PROMISC)
+-				tc35815_set_multicast_list(dev);
+-#endif
+-#if 1
+-			lp->saved_lpa = tc_mdio_read(dev, pid, MII_LPA);
+-			lp->timer_state = lcheck;
+-			restart_timer = 1;
+-#else
+-			lp->timer_state = asleep;
+-			restart_timer = 0;
+-#endif
+-		} else {
+-			if (lp->timer_ticks >= 4) { /* 6 seconds or so... */
+-				int ret;
+-
+-				ret = tc35815_try_next_permutation(dev);
+-				if (ret == -1) {
+-					/*
+-					 * Aieee, tried them all, reset the
+-					 * chip and try all over again.
+-					 */
+-					printk(KERN_NOTICE "%s: Link down, "
+-					       "cable problem?\n",
+-					       dev->name);
+-
+-					/* Try to restart the adaptor. */
+-					tc35815_restart(dev);
+-					goto out;
+-				}
+-				lp->timer_ticks = 0;
+-				restart_timer = 1;
+-			} else {
+-				restart_timer = 1;
+-			}
+-		}
+-		break;
+-
+-	case lcheck:
+-		bmcr = tc_mdio_read(dev, pid, MII_BMCR);
+-		lpa = tc_mdio_read(dev, pid, MII_LPA);
+-		if (bmcr & (BMCR_PDOWN | BMCR_ISOLATE | BMCR_RESET)) {
+-			printk(KERN_ERR "%s: PHY down? (BMCR %x)\n", dev->name,
+-			       bmcr);
+-		} else if ((lp->saved_lpa ^ lpa) &
+-			   (LPA_100FULL|LPA_100HALF|LPA_10FULL|LPA_10HALF)) {
+-			printk(KERN_NOTICE "%s: link status changed"
+-			       " (BMCR %x LPA %x->%x)\n", dev->name,
+-			       bmcr, lp->saved_lpa, lpa);
+-		} else {
+-			/* go on */
+-			restart_timer = 1;
+-			break;
+-		}
+-		/* Try to restart the adaptor. */
+-		tc35815_restart(dev);
+-		goto out;
+-
+-	case asleep:
+-	default:
+-		/* Can't happens.... */
+-		printk(KERN_ERR "%s: Aieee, link timer is asleep but we got "
+-		       "one anyways!\n", dev->name);
+-		restart_timer = 0;
+-		lp->timer_ticks = 0;
+-		lp->timer_state = asleep; /* foo on you */
+-		break;
+-	}
+-
+-	if (restart_timer) {
+-		lp->timer.expires = jiffies + msecs_to_jiffies(1200);
+-		add_timer(&lp->timer);
+-	}
+-out:
+-	spin_unlock_irq(&lp->lock);
+-}
+-
+-static void tc35815_start_auto_negotiation(struct net_device *dev,
+-					   struct ethtool_cmd *ep)
+-{
+-	struct tc35815_local *lp = netdev_priv(dev);
+-	int pid = lp->phy_addr;
+-	unsigned short bmsr, bmcr, advertize;
+-	int timeout;
+-
+-	netif_carrier_off(dev);
+-	bmsr = tc_mdio_read(dev, pid, MII_BMSR);
+-	bmcr = tc_mdio_read(dev, pid, MII_BMCR);
+-	advertize = tc_mdio_read(dev, pid, MII_ADVERTISE);
+-
+-	if (ep == NULL || ep->autoneg == AUTONEG_ENABLE) {
+-		if (options.speed || options.duplex) {
+-			/* Advertise only specified configuration. */
+-			advertize &= ~(ADVERTISE_10HALF |
+-				       ADVERTISE_10FULL |
+-				       ADVERTISE_100HALF |
+-				       ADVERTISE_100FULL);
+-			if (options.speed != 10) {
+-				if (options.duplex != 1)
+-					advertize |= ADVERTISE_100FULL;
+-				if (options.duplex != 2)
+-					advertize |= ADVERTISE_100HALF;
+-			}
+-			if (options.speed != 100) {
+-				if (options.duplex != 1)
+-					advertize |= ADVERTISE_10FULL;
+-				if (options.duplex != 2)
+-					advertize |= ADVERTISE_10HALF;
+-			}
+-			if (options.speed == 100)
+-				bmcr |= BMCR_SPEED100;
+-			else if (options.speed == 10)
+-				bmcr &= ~BMCR_SPEED100;
+-			if (options.duplex == 2)
+-				bmcr |= BMCR_FULLDPLX;
+-			else if (options.duplex == 1)
+-				bmcr &= ~BMCR_FULLDPLX;
+-		} else {
+-			/* Advertise everything we can support. */
+-			if (bmsr & BMSR_10HALF)
+-				advertize |= ADVERTISE_10HALF;
+-			else
+-				advertize &= ~ADVERTISE_10HALF;
+-			if (bmsr & BMSR_10FULL)
+-				advertize |= ADVERTISE_10FULL;
+-			else
+-				advertize &= ~ADVERTISE_10FULL;
+-			if (bmsr & BMSR_100HALF)
+-				advertize |= ADVERTISE_100HALF;
+-			else
+-				advertize &= ~ADVERTISE_100HALF;
+-			if (bmsr & BMSR_100FULL)
+-				advertize |= ADVERTISE_100FULL;
+-			else
+-				advertize &= ~ADVERTISE_100FULL;
+-		}
+-
+-		tc_mdio_write(dev, pid, MII_ADVERTISE, advertize);
+-
+-		/* Enable Auto-Negotiation, this is usually on already... */
+-		bmcr |= BMCR_ANENABLE;
+-		tc_mdio_write(dev, pid, MII_BMCR, bmcr);
+-
+-		/* Restart it to make sure it is going. */
+-		bmcr |= BMCR_ANRESTART;
+-		tc_mdio_write(dev, pid, MII_BMCR, bmcr);
+-		printk(KERN_DEBUG "%s: ADVERTISE %x BMCR %x\n", dev->name, advertize, bmcr);
+-
+-		/* BMCR_ANRESTART self clears when the process has begun. */
+-		timeout = 64;  /* More than enough. */
+-		while (--timeout) {
+-			bmcr = tc_mdio_read(dev, pid, MII_BMCR);
+-			if (!(bmcr & BMCR_ANRESTART))
+-				break; /* got it. */
+-			udelay(10);
+-		}
+-		if (!timeout) {
+-			printk(KERN_ERR "%s: TC35815 would not start auto "
+-			       "negotiation BMCR=0x%04x\n",
+-			       dev->name, bmcr);
+-			printk(KERN_NOTICE "%s: Performing force link "
+-			       "detection.\n", dev->name);
+-			goto force_link;
+-		} else {
+-			printk(KERN_DEBUG "%s: auto negotiation started.\n", dev->name);
+-			lp->timer_state = arbwait;
+-		}
+-	} else {
+-force_link:
+-		/* Force the link up, trying first a particular mode.
+-		 * Either we are here at the request of ethtool or
+-		 * because the Happy Meal would not start to autoneg.
+-		 */
+-
+-		/* Disable auto-negotiation in BMCR, enable the duplex and
+-		 * speed setting, init the timer state machine, and fire it off.
+-		 */
+-		if (ep == NULL || ep->autoneg == AUTONEG_ENABLE) {
+-			bmcr = BMCR_SPEED100;
+-		} else {
+-			if (ep->speed == SPEED_100)
+-				bmcr = BMCR_SPEED100;
+-			else
+-				bmcr = 0;
+-			if (ep->duplex == DUPLEX_FULL)
+-				bmcr |= BMCR_FULLDPLX;
+-		}
+-		tc_mdio_write(dev, pid, MII_BMCR, bmcr);
+-
+-		/* OK, seems we need do disable the transceiver for the first
+-		 * tick to make sure we get an accurate link state at the
+-		 * second tick.
+-		 */
+-		lp->timer_state = ltrywait;
+-	}
+-
+-	del_timer(&lp->timer);
+-	lp->timer_ticks = 0;
+-	lp->timer.expires = jiffies + msecs_to_jiffies(1200);
+-	add_timer(&lp->timer);
+-}
+-
+-static void tc35815_find_phy(struct net_device *dev)
+-{
+-	struct tc35815_local *lp = netdev_priv(dev);
+-	int pid = lp->phy_addr;
+-	unsigned short id0;
+-
+-	/* find MII phy */
+-	for (pid = 31; pid >= 0; pid--) {
+-		id0 = tc_mdio_read(dev, pid, MII_BMSR);
+-		if (id0 != 0xffff && id0 != 0x0000 &&
+-		    (id0 & BMSR_RESV) != (0xffff & BMSR_RESV) /* paranoia? */
+-			) {
+-			lp->phy_addr = pid;
+-			break;
+-		}
+-	}
+-	if (pid < 0) {
+-		printk(KERN_ERR "%s: No MII Phy found.\n",
+-		       dev->name);
+-		lp->phy_addr = pid = 0;
+-	}
+-
+-	lp->mii_id[0] = tc_mdio_read(dev, pid, MII_PHYSID1);
+-	lp->mii_id[1] = tc_mdio_read(dev, pid, MII_PHYSID2);
+-	if (netif_msg_hw(lp))
+-		printk(KERN_INFO "%s: PHY(%02x) ID %04x %04x\n", dev->name,
+-		       pid, lp->mii_id[0], lp->mii_id[1]);
+-}
+-
+-static void tc35815_phy_chip_init(struct net_device *dev)
+-{
+-	struct tc35815_local *lp = netdev_priv(dev);
+-	int pid = lp->phy_addr;
+-	unsigned short bmcr;
+-	struct ethtool_cmd ecmd, *ep;
+-
+-	/* dis-isolate if needed. */
+-	bmcr = tc_mdio_read(dev, pid, MII_BMCR);
+-	if (bmcr & BMCR_ISOLATE) {
+-		int count = 32;
+-		printk(KERN_DEBUG "%s: unisolating...", dev->name);
+-		tc_mdio_write(dev, pid, MII_BMCR, bmcr & ~BMCR_ISOLATE);
+-		while (--count) {
+-			if (!(tc_mdio_read(dev, pid, MII_BMCR) & BMCR_ISOLATE))
+-				break;
+-			udelay(20);
+-		}
+-		printk(" %s.\n", count ? "done" : "failed");
+-	}
+-
+-	if (options.speed && options.duplex) {
+-		ecmd.autoneg = AUTONEG_DISABLE;
+-		ecmd.speed = options.speed == 10 ? SPEED_10 : SPEED_100;
+-		ecmd.duplex = options.duplex == 1 ? DUPLEX_HALF : DUPLEX_FULL;
+-		ep = &ecmd;
+-	} else {
+-		ep = NULL;
+-	}
+-	tc35815_start_auto_negotiation(dev, ep);
++	if (!lp->phy_dev)
++		return -ENODEV;
++	return phy_mii_ioctl(lp->phy_dev, if_mii(rq), cmd);
+ }
+ 
+ static void tc35815_chip_reset(struct net_device *dev)
+@@ -2815,8 +2369,6 @@ static void tc35815_chip_init(struct net_device *dev)
+ 		(struct tc35815_regs __iomem *)dev->base_addr;
+ 	unsigned long txctl = TX_CTL_CMD;
+ 
+-	tc35815_phy_chip_init(dev);
+-
+ 	/* load station address to CAM */
+ 	tc35815_set_cam_entry(dev, CAM_ENTRY_SOURCE, dev->dev_addr);
+ 
+@@ -2857,8 +2409,10 @@ static void tc35815_chip_init(struct net_device *dev)
+ 		txctl &= ~Tx_EnLCarr;
+ #ifdef WORKAROUND_LOSTCAR
+ 	/* WORKAROUND: ignore LostCrS in full duplex operation */
+-	if ((lp->timer_state != asleep && lp->timer_state != lcheck) ||
+-	    lp->fullduplex)
++	if (!lp->phy_dev ||
++	    !(lp->phy_dev->state == PHY_RUNNING ||
++	      lp->phy_dev->state == PHY_CHANGELINK) ||
++	    lp->duplex == DUPLEX_FULL)
+ 		txctl &= ~Tx_EnLCarr;
+ #endif
+ #endif /* !NO_CHECK_CARRIER */
+@@ -2879,8 +2433,9 @@ static int tc35815_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	if (!netif_running(dev))
+ 		return 0;
+ 	netif_device_detach(dev);
++	if (lp->phy_dev)
++		phy_stop(lp->phy_dev);
+ 	spin_lock_irqsave(&lp->lock, flags);
+-	del_timer(&lp->timer);		/* Kill if running	*/
+ 	tc35815_chip_reset(dev);
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+ 	pci_set_power_state(pdev, PCI_D3hot);
+@@ -2891,15 +2446,14 @@ static int tc35815_resume(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct tc35815_local *lp = netdev_priv(dev);
+-	unsigned long flags;
+ 
+ 	pci_restore_state(pdev);
+ 	if (!netif_running(dev))
+ 		return 0;
+ 	pci_set_power_state(pdev, PCI_D0);
+-	spin_lock_irqsave(&lp->lock, flags);
+ 	tc35815_restart(dev);
+-	spin_unlock_irqrestore(&lp->lock, flags);
++	if (lp->phy_dev)
++		phy_start(lp->phy_dev);
+ 	netif_device_attach(dev);
+ 	return 0;
+ }
+@@ -2920,8 +2474,6 @@ module_param_named(speed, options.speed, int, 0);
+ MODULE_PARM_DESC(speed, "0:auto, 10:10Mbps, 100:100Mbps");
+ module_param_named(duplex, options.duplex, int, 0);
+ MODULE_PARM_DESC(duplex, "0:auto, 1:half, 2:full");
+-module_param_named(doforce, options.doforce, int, 0);
+-MODULE_PARM_DESC(doforce, "try force link mode if auto-negotiation failed");
+ 
+ static int __init tc35815_init_module(void)
+ {
