@@ -1,44 +1,162 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH v2 0/2] Labeled networking patches for 2.6.26
-Date: Thu, 10 Apr 2008 15:47:20 -0700 (PDT)
-Message-ID: <20080410.154720.05259434.davem@davemloft.net>
-References: <200804101725.59604.paul.moore@hp.com>
-	<Xine.LNX.4.64.0804110802140.1313@us.intercode.com.au>
-	<200804101812.36542.paul.moore@hp.com>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: RE: [PATCH] Add Fixed PHY support for ucc_geth
+Date: Fri, 11 Apr 2008 00:54:43 +0200
+Message-ID: <1207868083.9544.10.camel@gentoo-jocke.transmode.se>
+References: <>
+	 <1205833615-15833-1-git-send-email-Joakim.Tjernlund@transmode.se>
+	 <989B956029373F45A0B8AF029708189001D1954D@zch01exm26.fsl.freescale.net>
+	 <1207138552.9675.61.camel@gentoo-jocke.transmode.se>
+Reply-To: joakim.tjernlund@transmode.se
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org, selinux@tycho.nsa.gov
-To: paul.moore@hp.com
+Cc: Netdev <netdev@vger.kernel.org>, Jeff Garzik <jeff@garzik.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43099
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757425AbYDJWrT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 18:47:19 -0400
-In-Reply-To: <200804101812.36542.paul.moore@hp.com>
+Received: from mail.transmode.se ([83.241.175.147]:62640 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751778AbYDJWyq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 18:54:46 -0400
+In-Reply-To: <1207138552.9675.61.camel@gentoo-jocke.transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Thu, 10 Apr 2008 18:12:36 -0400
 
-> On Thursday 10 April 2008 6:04:32 pm James Morris wrote:
-> > On Thu, 10 Apr 2008, Paul Moore wrote:
-> > > Just a quick follow-up on testing, I've run this for a few hours on
-> > > two Fedora systems with both labeled and unlabeled IPsec in use
-> > > with SAs rekeying every 5 minutes and didn't notice anything evil.
-> > >
-> > > At this point I'd strip the "RFC" from the patchset and ask that
-> > > they be considered for inclusion in 2.6.26 assuming there are no
-> > > objections.
-> >
-> > I suggest pushing them via DaveM's tree, unless they depend on
-> > anything in my tree.
+On Wed, 2008-04-02 at 14:15 +0200, Joakim Tjernlund wrote:
+> On Fri, 2008-03-21 at 16:51 +0800, Li Yang wrote:
+> > > -----Original Message-----
+> > > From: Joakim Tjernlund [mailto:Joakim.Tjernlund@transmode.se] 
+> > > Sent: Tuesday, March 18, 2008 5:47 PM
+> > > To: Netdev; Li Yang; Linuxppc-Embedded@Ozlabs.Org
+> > > Cc: Joakim Tjernlund
+> > > Subject: [PATCH] Add Fixed PHY support for ucc_geth
+> > > 
+> > > The new Fixed PHY method, fixed-link property, isn't
+> > > impl. for ucc_geth which makes fixed PHYs non functional.
+> > > Add support for the new method to restore the Fixed PHY
+> > > functionality.
+> > > 
+> > > Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> > 
+> > Signed-off-by: Li Yang <leoli@freescale.com>
+> > 
+> > ---
+> > Ps: This patch depends on the patch "ucc_geth: use correct thread number
+> > for 10/100Mbps link" to apply, which hasn't made to Linus' tree for now
+> > but has already been in Jeff and David's trees.
 > 
-> Okay.  It sounds like DaveM is working through a backlog right now, if I 
-> don't see them in his tree by next week I'll resubmit them.
+> What happened to this patch? It is not in Linus tree.
+> 
+>  Jocke
 
-I'll pull this stuff in at the next opportunity.
+David,
 
-Thanks guys.
+Perhaps you can look into this patch? It has been signedoffed by its
+maintainer and Jeff hasn't commented or applied it.
+
+ Jocke
+
+>From 9851f2cffb2eaa3f3dfa02c07d01a93b1a260d78 Mon Sep 17 00:00:00 2001
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Date: Tue, 18 Mar 2008 10:33:43 +0100
+Subject: [PATCH] Add Fixed PHY support for ucc_geth
+
+The new Fixed PHY method, fixed-link property, isn't
+impl. for ucc_geth which makes fixed PHYs non functional.
+Add support for the new method to restore the Fixed PHY
+functionality.
+
+Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+---
+
+This is a regression as fixed PHYs works in 2.6.23 and I am
+using it.
+
+ drivers/net/ucc_geth.c |   53 +++++++++++++++++++++++++++--------------------
+ 1 files changed, 30 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index ecc5712..18c8b39 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3836,6 +3836,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 	struct device_node *phy;
+ 	int err, ucc_num, max_speed = 0;
+ 	const phandle *ph;
++	const u32 *fixed_link;
+ 	const unsigned int *prop;
+ 	const char *sprop;
+ 	const void *mac_addr;
+@@ -3926,18 +3927,38 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 
+ 	ug_info->uf_info.regs = res.start;
+ 	ug_info->uf_info.irq = irq_of_parse_and_map(np, 0);
++	fixed_link = of_get_property(np, "fixed-link", NULL);
++	if (fixed_link) {
++		ug_info->mdio_bus = 0;
++		ug_info->phy_address = fixed_link[0];
++		phy = NULL;
++	} else {
++		ph = of_get_property(np, "phy-handle", NULL);
++		phy = of_find_node_by_phandle(*ph);
+ 
+-	ph = of_get_property(np, "phy-handle", NULL);
+-	phy = of_find_node_by_phandle(*ph);
++		if (phy == NULL)
++			return -ENODEV;
+ 
+-	if (phy == NULL)
+-		return -ENODEV;
++		/* set the PHY address */
++		prop = of_get_property(phy, "reg", NULL);
++		if (prop == NULL)
++			return -1;
++		ug_info->phy_address = *prop;
++
++		/* Set the bus id */
++		mdio = of_get_parent(phy);
++
++		if (mdio == NULL)
++			return -1;
+ 
+-	/* set the PHY address */
+-	prop = of_get_property(phy, "reg", NULL);
+-	if (prop == NULL)
+-		return -1;
+-	ug_info->phy_address = *prop;
++		err = of_address_to_resource(mdio, 0, &res);
++		of_node_put(mdio);
++
++		if (err)
++			return -1;
++
++		ug_info->mdio_bus = res.start;
++	}
+ 
+ 	/* get the phy interface type, or default to MII */
+ 	prop = of_get_property(np, "phy-connection-type", NULL);
+@@ -3982,20 +4003,6 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 		ug_info->numThreadsRx = UCC_GETH_NUM_OF_THREADS_4;
+ 	}
+ 
+-	/* Set the bus id */
+-	mdio = of_get_parent(phy);
+-
+-	if (mdio == NULL)
+-		return -1;
+-
+-	err = of_address_to_resource(mdio, 0, &res);
+-	of_node_put(mdio);
+-
+-	if (err)
+-		return -1;
+-
+-	ug_info->mdio_bus = res.start;
+-
+ 	if (netif_msg_probe(&debug))
+ 		printk(KERN_INFO "ucc_geth: UCC%1d at 0x%8x (irq = %d) \n",
+ 			ug_info->uf_info.ucc_num + 1, ug_info->uf_info.regs,
+-- 
+1.5.4.3
+
+
