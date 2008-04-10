@@ -1,99 +1,106 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] net/bonding: Send more than one gratuitous ARP when slave takes over
-Date: Thu, 10 Apr 2008 13:57:49 -0700
-Message-ID: <25865.1207861069@death>
-References: <47FE2D2D.2040504@voltaire.com> <D5C1322C3E673F459512FB59E0DDC32904DEAE99@orsmsx414.amr.corp.intel.com>
-Cc: monis@voltaire.com, "netdev" <netdev@vger.kernel.org>,
-	"Olga Stern" <olgas@voltaire.com>,
-	"Or Gerlitz" <ogerlitz@voltaire.com>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:50371 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756862AbYDJU5x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 16:57:53 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3AKvpw6004412
-	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 16:57:51 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3AKvorh194224
-	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 14:57:50 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3AKvohP023577
-	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 14:57:50 -0600
-In-reply-to: <D5C1322C3E673F459512FB59E0DDC32904DEAE99@orsmsx414.amr.corp.intel.com> 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mark Lord <lkml@rtr.ca>
+Subject: Re: 2.6.25-rc8: FTP transfer errors
+Date: Thu, 10 Apr 2008 17:05:11 -0400
+Message-ID: <47FE8107.4050400@rtr.ca>
+References: <47FCF9DD.6080007@rtr.ca> <20080410.023045.16227424.yoshfuji@linux-ipv6.org> <47FD138B.2060801@rtr.ca> <20080409.152933.132174258.davem@davemloft.net> <47FD590C.5020003@rtr.ca> <Pine.LNX.4.64.0804101147070.24841@wrl-59.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
+	Jeff Garzik <jeff@garzik.org>, rjw@sisk.pl,
+	LKML <linux-kernel@vger.kernel.org>, linux-net@vger.kernel.org,
+	Netdev <netdev@vger.kernel.org>
+To: =?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759088AbYDJVF0@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0804101147070.24841@wrl-59.cs.helsinki.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Waskiewicz Jr, Peter P <peter.p.waskiewicz.jr@intel.com> wrote:
+Ilpo J=C3=A4rvinen wrote:
+> On Wed, 9 Apr 2008, Mark Lord wrote:
+>=20
+>> David Miller wrote:
+>>> From: Mark Lord <lkml@rtr.ca>
+>>> Date: Wed, 09 Apr 2008 15:05:47 -0400
+>>>
+>>>> But it would be far more useful for whoever has been working on th=
+e
+>>>> stack to suggest some possible/likely commits to look at instead.
+>>> Personally all I see is that one side closes the socket before all
+>>> data packets received have been read into the application, resultin=
+g
+>>> in a (correct) reset going out.
+>>>
+>>> I can't think of any change we've made over the course of this
+>>> release that would change behvaior in that area.
+>>>
+>>> So you will likely need to bisect.
+>> ..
+>>
+>> Or I can ignore it, like the net developers, since I have a workarou=
+nd.
+>> And then we'll see what other apps are broken upon 2.6.25 final rele=
+ase.
+>>
+>> Really, folks.  Bug reports are intended to *help* the developers,
+>> not something to be thrown back in their faces.
+>>
+>> There do seem to have been a *lot* of changes around the tcp closing=
+/close
+>> code (as I see from diff'ing 2.6.24 against latest -git).
+=2E.
+> I might help if would add netdev on cc list in case you really want t=
+o=20
+> reac net developers, otherwise they might just end up "ignoring it"..=
+=2E ;-)
+=2E.
 
->> @@ -104,6 +105,8 @@ struct bond_params bonding_defaults;
->>  
->> module_param(max_bonds, int, 0);
->> MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
->> +module_param(num_grat_arp, int, 0644);
->> +MODULE_PARM_DESC(num_grat_arp, "Number of gratuitous ARP packet to
->sned on failover");
+Oh.. I didn't know about that list.  How does that differ from linux-ne=
+t ?
+(Thanks)
+
+>=20
+>> reducing the mountain of commits to a big handful or two.
+>=20
+> Those touching fin/close are mostly whitespace/move things, so I doub=
+t=20
+> that you find these useful but in case you insist, here's the list:
 >
->Check your spelling here.  s/sned/send/
->
->Also, num_grat_arp is declared int, where send_grat_arp is s8.  What
->happens if you overflow send_grat_arp?  Either your module parameter
->needs to change to match what's in the bonding struct, or you needs some
->bounds checking to validate your inputs.
+> 056834d9f6f6eaf4cc7268569e53acab957aac27 [TCP]: cleanup tcp_{in,out}p=
+ut.c style
+> 058dc3342b71ffb3531c4f9df7c35f943f392b8d [TCP]: reduce tcp_output's i=
+ndentation levels a bit
+> 490d5046930276aae50dd16942649bfc626056f7 [TCP]: Uninline tcp_set_stat=
+e
+>=20
+> In addition, there's this one (...though I have read it number of tim=
+es=20
+> through and still cannot catch something that would cause the wrongne=
+ss=20
+> you're seeing):
+>=20
+> e870a8efcddaaa3da7e180b6ae21239fb96aa2bb [TCP]: Perform setting of co=
+mmon=20
+> control fields in one place
+>=20
+> There's very little really on interesting side I can think of, mostly=
+=20
+> thinks are congestion control related changes... ...maybe either one =
+of=20
+> these could cause something unpleasant in some corner case:
+>=20
+> bd515c3e48ececd774eb3128e81b669dbbd32637 [TCP]: Fix TSO deferring
+> 0e3a4803aa06cd7bc2cfc1d04289df4f6027640a [TCP]: Force TSO splits to M=
+SS boundaries
+>=20
+> ...e.g., if the latter causes a return with zero limit under some=20
+> conditions, tso_fragment might generate, well, interesting packets an=
+d=20
+> never finish if the condition persists but.
+=2E.
 
-	I'd vote for bounds checking, myself.  I think a legal range of
-0 - 255 is appropriate.
+That matches my own assessment there, too: lot's of whitespace changes,
+and not much real code difference on most paths.  Bummer.  :)
 
->> @@ -1109,14 +1112,16 @@ void bond_change_active_slave(struct bon
->> 		if (new_active && bond->params.fail_over_mac)
->> 			memcpy(bond->dev->dev_addr,
->new_active->dev->dev_addr,
->> 				new_active->dev->addr_len);
->> +		bond->send_grat_arp = num_grat_arp;
->> 		if (bond->curr_active_slave &&
->>  			test_bit(__LINK_STATE_LINKWATCH_PENDING,
->> -
->&bond->curr_active_slave->dev->state)) {
->> +
->&bond->curr_active_slave->dev->state))
->> 			dprintk("delaying gratuitous arp on %s\n",
->> 				bond->curr_active_slave->dev->name);
->> -			bond->send_grat_arp = 1;
->> -		} else
->> +		else {
->> 			bond_send_gratuitous_arp(bond);
->> +			bond->send_grat_arp--;
->> +		}
->
->Don't modify the if () else () formatting here.  Kernel coding
->guidelines read if any part of your if/else statement requires braces,
->all sections need braces.  So it still should be, with your changes:
-
-	Agreed.
-
-[...]
->> @@ -2144,7 +2149,7 @@ static int __bond_mii_monitor(struct bon
->>  			dprintk("sending delayed gratuitous arp on on
->%s\n",
->>  				bond->curr_active_slave->dev->name);
->>  			bond_send_gratuitous_arp(bond);
->> -			bond->send_grat_arp = 0;
->> +			bond->send_grat_arp--;
->
->Can this ever cause send_grat_arp to become less than zero?  What will
->happen if it does drop below zero?  I think some bounds checking might
->be needed here.
-
-	I don't believe that send_grat_arp can go negative, because this
-block is entered on an "if (bond->send_grat_arp)" that's just above the
-context in the patch.
-
-	The patch as a whole also needs a sysfs entry to permit
-modification and inspection of the num_grat_arp parameter, as is done
-for other parameters.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+-ml
