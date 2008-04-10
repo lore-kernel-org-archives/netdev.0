@@ -1,64 +1,34 @@
-From: vincent-perrier <vincent-perrier@club-internet.fr>
-Subject: Re: 2.6.25-rc8: FTP transfer errors
-Date: Fri, 11 Apr 2008 01:51:03 +0200
-Message-ID: <1207871463.13528.4.camel@localhost>
-References: <1207869029.19683.13.camel@localhost>
-	 <20080410.161453.52032573.davem@davemloft.net>
-	 <1207870334.13150.11.camel@localhost>
-	 <20080410.164106.192045155.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: the sis190 linux kernel module
+Date: Fri, 11 Apr 2008 01:54:10 +0200
+Message-ID: <20080410235410.GB22465@electric-eye.fr.zoreil.com>
+References: <1207818653.4973.37.camel@linux-q5nk.site>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jesper.juhl@gmail.com, tilman@imap.cc, lkml@rtr.ca,
-	yoshfuji@linux-ipv6.org, jeff@garzik.org, rjw@sisk.pl,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758026AbYDJXvX@vger.kernel.org>
-In-Reply-To: <20080410.164106.192045155.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Sampsa Riikonen <sampsa.riikonen@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:53842 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752389AbYDKAMP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 20:12:15 -0400
+Content-Disposition: inline
+In-Reply-To: <1207818653.4973.37.camel@linux-q5nk.site>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks to you, and also to Jesper for the "git bisect" explanation,
-you have powerfull tools, it is all for the best, millions of users
-are relying on you!
+Sampsa Riikonen <sampsa.riikonen@iki.fi> :
+[...]
+> With the latest kernel (2.6.22.17-0.1-default),
+> and using OpenSuse 10.3 I get the following errors:
+[...]
+> Is there a driver available for the sis191 card or
+> should the sis190 driver do the work?
 
-On Thu, 2008-04-10 at 16:41 -0700, David Miller wrote:
-> From: vincent-perrier <vincent-perrier@club-internet.fr>
-> Date: Fri, 11 Apr 2008 01:32:14 +0200
-> 
-> [ Please use netdev@vger.kernel.org so that this discussion
->   reaches the networking develops. ]
-> 
-> > Even if the patch is not good, the line dst_free(&rt->u.dst); 
-> > when rt is still in tree leads to a crash, but when you do not
-> > do the dst_free, when rt is in tree, then it may have hidden 
-> > other bugs, but at least I can keep working.
-> > 
-> > 
-> > I never said my patch was good, but it does the minimum to avoid my bug:
-> > 
-> > 
-> >                 if (fn->leaf == NULL) {
-> >                         bug_8895_clownix_provisional_workaround = 1;
-> >                         fn->leaf = rt;
-> >                         atomic_inc(&rt->rt6i_ref);
-> >                 }
-> > ...
-> > 
-> > ip6_fib.c, line 796:
-> > 
-> >                 if (!bug_8895_clownix_provisional_workaround)
-> >                         dst_free(&rt->u.dst);
-> > 
-> > That way at least it does not crash.
-> > 
-> > I cannot provide more than the line and the reason for the crash, I am
-> > one of the numerous brainless users.
-> 
-> Now that the discussion has reached the mailing list, it won't die in
-> bugzilla like most such bugs do, and very likely will get fixed
-> quickly as a result.
-> 
-> Thank you.
-> &#0;
-> 
+Though far from perfect, the sis190 should (and has actually
+been reported to) do the work.
+
+The driver in 2.6.22.something is too old. Please upgrade.
+
+-- 
+Ueimor
