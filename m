@@ -1,62 +1,139 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [patch] e1000=y && e1000e=m regression fix (was:
- Re: [regression] e1000e broke e1000)
-Date: Wed, 9 Apr 2008 18:40:24 -0700 (PDT)
-Message-ID: <alpine.LFD.1.00.0804091838330.3143@woody.linux-foundation.org>
-References: <20080408083606.GA20863@elte.hu> <47FB9ABB.9080403@intel.com>
-	<20080408183921.GA20803@elte.hu>
-	<20080408193245.GG11962@parisc-linux.org>
-	<20080408195123.GA28148@elte.hu> <47FBCE00.2020309@garzik.org>
-	<20080408200652.GC28148@elte.hu>
-	<47FBD34A.6080508@garzik.org> <20080408203314.GA28952@elte.hu>
-	<47FBDBE9.9040700@garzik.org> <47FBDBE9.9040700@garzik.org>
-	<20080409193850.GA11763@elte.hu>
-	<200804092249.23111.elendil@planet.nl>
-	<m363uqwpds.fsf@maximus.localdomain>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [RFC PATCH 1/2] NetLabel: Allow passing the LSM domain as a shared pointer
+Date: Wed, 9 Apr 2008 19:08:57 -0700 (PDT)
+Message-ID: <66343.68126.qm@web36603.mail.mud.yahoo.com>
+References: <20080407231629.8087.43341.stgit@flek.lan>
+Reply-To: casey@schaufler-ca.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, akpm@linux-foundation.org,
-	jeff@garzik.org, matthew@wil.cx, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, Frans Pop <elendil@planet.nl>,
-	bruce.w.allan@intel.com, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, rjw@sisk.pl, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com, greg@kroah.com, Ingo Molnar <mingo@elte.hu>,
-	arjan@linux.intel.com, linux-pci@atrey.karlin.mff.cuni.cz
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <m363uqwpds.fsf@maximus.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Paul Moore <paul.moore@hp.com>,
+	linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20080407231629.8087.43341.stgit@flek.lan>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
+--- Paul Moore <paul.moore@hp.com> wrote:
 
-On Thu, 10 Apr 2008, Krzysztof Halasa wrote:
+> Smack doesn't have the need to create a private copy of the LSM "domain" when
+> setting NetLabel security attributes like SELinux, however, the current
+> NetLabel code requires a private copy of the LSM "domain".  This patches
+> fixes
+> that by letting the LSM determine how it wants to pass the domain value.
 > 
-> Nope, udev with normal distro config will load e1000e just fine.
+>  * NETLBL_SECATTR_DOMAIN_CPY
+>    The current behavior, NetLabel assumes that the domain value is a copy and
+>    frees it when done
+> 
+>  * NETLBL_SECATTR_DOMAIN
+>    New, Smack-friendly behavior, NetLabel assumes that the domain value is a
+>    reference to a string managed by the LSM and does not free it when done
+> 
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
 
-Not for us that don't compile modules at all, or only modules for the 
-devices we actually have.
+Acked-by: Casey Schaufler <casey@schaufler-ca.com>
 
-Which should be about 99% of all kernel developers, because otherwise 
-you're just wasting your time.
+Works fine for Smack. Sorry for the delay. Real Life and RSA
+got in the way.
 
-I certainly want the configurations to be sane by default, because I'm not 
-in the insane camp that has every single module and depend on udev picking 
-the right one out.
+> ---
+> 
+>  include/net/netlabel.h         |   14 ++++++++++----
+>  security/selinux/ss/services.c |    2 +-
+>  security/smack/smack_lsm.c     |    2 +-
+>  3 files changed, 12 insertions(+), 6 deletions(-)
+> 
+> diff --git a/include/net/netlabel.h b/include/net/netlabel.h
+> index 0ca67d7..5e53a85 100644
+> --- a/include/net/netlabel.h
+> +++ b/include/net/netlabel.h
+> @@ -162,7 +162,7 @@ struct netlbl_lsm_secattr_catmap {
+>  
+>  /**
+>   * struct netlbl_lsm_secattr - NetLabel LSM security attributes
+> - * @flags: indicate which attributes are contained in this structure
+> + * @flags: indicate structure attributes, see NETLBL_SECATTR_*
+>   * @type: indicate the NLTYPE of the attributes
+>   * @domain: the NetLabel LSM domain
+>   * @cache: NetLabel LSM specific cache
+> @@ -180,17 +180,22 @@ struct netlbl_lsm_secattr_catmap {
+>   * NetLabel itself when returning security attributes to the LSM.
+>   *
+>   */
+> +struct netlbl_lsm_secattr {
+> +	u32 flags;
+> +	/* bitmap values for 'flags' */
+>  #define NETLBL_SECATTR_NONE             0x00000000
+>  #define NETLBL_SECATTR_DOMAIN           0x00000001
+> +#define NETLBL_SECATTR_DOMAIN_CPY       (NETLBL_SECATTR_DOMAIN | \
+> +					 NETLBL_SECATTR_FREE_DOMAIN)
+>  #define NETLBL_SECATTR_CACHE            0x00000002
+>  #define NETLBL_SECATTR_MLS_LVL          0x00000004
+>  #define NETLBL_SECATTR_MLS_CAT          0x00000008
+>  #define NETLBL_SECATTR_SECID            0x00000010
+> +	/* bitmap meta-values for 'flags' */
+> +#define NETLBL_SECATTR_FREE_DOMAIN      0x01000000
+>  #define NETLBL_SECATTR_CACHEABLE        (NETLBL_SECATTR_MLS_LVL | \
+>  					 NETLBL_SECATTR_MLS_CAT | \
+>  					 NETLBL_SECATTR_SECID)
+> -struct netlbl_lsm_secattr {
+> -	u32 flags;
+>  	u32 type;
+>  	char *domain;
+>  	struct netlbl_lsm_cache *cache;
+> @@ -303,7 +308,8 @@ static inline void netlbl_secattr_init(struct
+> netlbl_lsm_secattr *secattr)
+>   */
+>  static inline void netlbl_secattr_destroy(struct netlbl_lsm_secattr
+> *secattr)
+>  {
+> -	kfree(secattr->domain);
+> +	if (secattr->flags & NETLBL_SECATTR_FREE_DOMAIN)
+> +		kfree(secattr->domain);
+>  	if (secattr->flags & NETLBL_SECATTR_CACHE)
+>  		netlbl_secattr_cache_free(secattr->cache);
+>  	if (secattr->flags & NETLBL_SECATTR_MLS_CAT)
+> diff --git a/security/selinux/ss/services.c b/security/selinux/ss/services.c
+> index f374186..47295ac 100644
+> --- a/security/selinux/ss/services.c
+> +++ b/security/selinux/ss/services.c
+> @@ -2649,7 +2649,7 @@ int security_netlbl_sid_to_secattr(u32 sid, struct
+> netlbl_lsm_secattr *secattr)
+>  		goto netlbl_sid_to_secattr_failure;
+>  	secattr->domain = kstrdup(policydb.p_type_val_to_name[ctx->type - 1],
+>  				  GFP_ATOMIC);
+> -	secattr->flags |= NETLBL_SECATTR_DOMAIN;
+> +	secattr->flags |= NETLBL_SECATTR_DOMAIN_CPY;
+>  	mls_export_netlbl_lvl(ctx, secattr);
+>  	rc = mls_export_netlbl_cat(ctx, secattr);
+>  	if (rc != 0)
+> diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
+> index 732ba27..e2d6f7c 100644
+> --- a/security/smack/smack_lsm.c
+> +++ b/security/smack/smack_lsm.c
+> @@ -1275,7 +1275,7 @@ static void smack_to_secattr(char *smack, struct
+> netlbl_lsm_secattr *nlsp)
+>  
+>  	switch (smack_net_nltype) {
+>  	case NETLBL_NLTYPE_CIPSOV4:
+> -		nlsp->domain = kstrdup(smack, GFP_ATOMIC);
+> +		nlsp->domain = smack;
+>  		nlsp->flags = NETLBL_SECATTR_DOMAIN | NETLBL_SECATTR_MLS_LVL;
+>  
+>  		rc = smack_to_cipso(smack, &cipso);
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe
+> linux-security-module" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
+> 
 
-			Linus
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
-Don't miss this year's exciting event. There's still time to save $100. 
-Use priority code J8TL2D2. 
-http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
+Casey Schaufler
+casey@schaufler-ca.com
