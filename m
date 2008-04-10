@@ -1,73 +1,50 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 4/5] [SCTP]: IPv4 vs IPv6 addresses mess in sctp_inet[6]addr_event.
-Date: Thu, 10 Apr 2008 14:18:33 -0400
-Message-ID: <1207851513-17021-5-git-send-email-vladislav.yasevich@hp.com>
-References: <1207851513-17021-1-git-send-email-vladislav.yasevich@hp.com>
-Cc: lksctp-developers@lists.sourceforge.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	Pavel Emelyanov <xemul@openvz.org>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: davem@davemloft.net
+From: Max Krasnyanskiy <maxk@qualcomm.com>
+Subject: Re: [PATCH 2/2] net: check for underlength tap writes
+Date: Thu, 10 Apr 2008 11:19:38 -0700
+Message-ID: <47FE5A3A.9050109@qualcomm.com>
+References: <200804052153.55676.rusty@rustcorp.com.au> <200804052154.33636.rusty@rustcorp.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:23728 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757020AbYDJSSo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 14:18:44 -0400
-In-Reply-To: <1207851513-17021-1-git-send-email-vladislav.yasevich@hp.com>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:33222 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757163AbYDJSTj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 14:19:39 -0400
+In-Reply-To: <200804052154.33636.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
+Ack. I've been meaning to fix this as well.
+Dave, can please merge it.
 
-All IP addresses that are present in a system are duplicated on
-struct sctp_sockaddr_entry. They are linked in the global list
-called sctp_local_addr_list. And this struct unions IPv4 and IPv6
-addresses.
+Thanx
+Max
 
-So, there can be rare case, when a sockaddr_in.sin_addr coincides
-with the corresponding part of the sockaddr_in6 and the notifier
-for IPv4 will carry away an IPv6 entry.
 
-The fix is to check the family before comparing the addresses.
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- net/sctp/ipv6.c     |    5 +++--
- net/sctp/protocol.c |    4 +++-
- 2 files changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index b1e05d7..85f1495 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -110,8 +110,9 @@ static int sctp_inet6addr_event(struct notifier_block *this, unsigned long ev,
- 		spin_lock_bh(&sctp_local_addr_lock);
- 		list_for_each_entry_safe(addr, temp,
- 					&sctp_local_addr_list, list) {
--			if (ipv6_addr_equal(&addr->a.v6.sin6_addr,
--					     &ifa->addr)) {
-+			if (addr->a.sa.sa_family == AF_INET6 &&
-+					ipv6_addr_equal(&addr->a.v6.sin6_addr,
-+						&ifa->addr)) {
- 				found = 1;
- 				addr->valid = 0;
- 				list_del_rcu(&addr->list);
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index f90091a..c2dd65d 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -647,7 +647,9 @@ static int sctp_inetaddr_event(struct notifier_block *this, unsigned long ev,
- 		spin_lock_bh(&sctp_local_addr_lock);
- 		list_for_each_entry_safe(addr, temp,
- 					&sctp_local_addr_list, list) {
--			if (addr->a.v4.sin_addr.s_addr == ifa->ifa_local) {
-+			if (addr->a.sa.sa_family == AF_INET &&
-+					addr->a.v4.sin_addr.s_addr ==
-+					ifa->ifa_local) {
- 				found = 1;
- 				addr->valid = 0;
- 				list_del_rcu(&addr->list);
--- 
-1.5.3.5
+Rusty Russell wrote:
+> If the user gives a packet under 14 bytes, we'll end up reading off the end
+> of the skb (not oopsing, just reading off the end).
+> 
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> 
+> diff -r 99132ad16999 drivers/net/tun.c
+> --- a/drivers/net/tun.c	Sat Apr 05 21:20:32 2008 +1100
+> +++ b/drivers/net/tun.c	Sat Apr 05 22:47:20 2008 +1100
+> @@ -286,8 +286,11 @@ static __inline__ ssize_t tun_get_user(s
+>  			return -EFAULT;
+>  	}
+>  
+> -	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV)
+> +	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
+>  		align = NET_IP_ALIGN;
+> +		if (unlikely(len < ETH_HLEN))
+> +			return -EINVAL;
+> +	}
+>  
+>  	if (!(skb = alloc_skb(len + align, GFP_KERNEL))) {
+>  		tun->dev->stats.rx_dropped++;
+> 
 
