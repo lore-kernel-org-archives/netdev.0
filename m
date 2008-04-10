@@ -1,91 +1,154 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 11/14][VLAN]: Make /proc/net/vlan/conf file show per-net info.
-Date: Thu, 10 Apr 2008 19:19:36 +0400
-Message-ID: <47FE3008.5020205@openvz.org>
+From: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 10/14][VLAN]: Create proc files in proper net.
+Date: Thu, 10 Apr 2008 19:18:14 +0400
+Message-ID: <47FE2FB6.4020204@openvz.org>
 References: <47FE2AD4.9080609@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, Denis Lunev <den@openvz.org>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:40134 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755914AbYDJOzi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2008 10:55:38 -0400
-In-Reply-To: <47FE2AD4.9080609@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>, Denis Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
+        Benjamin Thery <benjamin.thery-6ktuUTfB/bM@public.gmane.org>
+To: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <47FE2AD4.9080609-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-And this one if PATCH #9 part 3 :)
-After this proc may show relevant to each net namespace info.
+This is essentially a PATCH #9 part 2 - use the net
+pointer passed in.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed-off-by: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 
 ---
- net/8021q/vlanproc.c |   13 ++++++++-----
- 1 files changed, 8 insertions(+), 5 deletions(-)
+ net/8021q/vlan.h     |    6 ++++++
+ net/8021q/vlanproc.c |   44 +++++++++++++++++---------------------------
+ 2 files changed, 23 insertions(+), 27 deletions(-)
 
-diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
-index 995544b..cc17b72 100644
---- a/net/8021q/vlanproc.c
-+++ b/net/8021q/vlanproc.c
-@@ -80,7 +80,8 @@ static const struct seq_operations vlan_seq_ops = {
+diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
+index f27d8d6..7258357 100644
+--- a/net/8021q/vlan.h
++++ b/net/8021q/vlan.h
+@@ -52,7 +52,13 @@ static inline int is_vlan_dev(struct net_device *dev)
  
- static int vlan_seq_open(struct inode *inode, struct file *file)
- {
--	return seq_open(file, &vlan_seq_ops);
-+	return seq_open_net(inode, file, &vlan_seq_ops,
-+			sizeof(struct seq_net_private));
- }
+ extern int vlan_net_id;
  
- static const struct file_operations vlan_fops = {
-@@ -88,7 +89,7 @@ static const struct file_operations vlan_fops = {
- 	.open    = vlan_seq_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release,
-+	.release = seq_release_net,
++struct proc_dir_entry;
++
+ struct vlan_net {
++	/* /proc/net/vlan */
++	struct proc_dir_entry *proc_vlan_dir;
++	/* /proc/net/vlan/config */
++	struct proc_dir_entry *proc_vlan_conf;
  };
  
- /*
-@@ -211,6 +212,7 @@ static void *vlan_seq_start(struct seq_file *seq, loff_t *pos)
- 	__acquires(dev_base_lock)
+ #endif /* !(__BEN_VLAN_802_1Q_INC__) */
+diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
+index 4d13aeb..995544b 100644
+--- a/net/8021q/vlanproc.c
++++ b/net/8021q/vlanproc.c
+@@ -34,6 +34,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/if_vlan.h>
+ #include <net/net_namespace.h>
++#include <net/netns/generic.h>
+ #include "vlanproc.h"
+ #include "vlan.h"
+ 
+@@ -111,18 +112,6 @@ static const struct file_operations vlandev_fops = {
+  * Proc filesystem derectory entries.
+  */
+ 
+-/*
+- *	/proc/net/vlan
+- */
+-
+-static struct proc_dir_entry *proc_vlan_dir;
+-
+-/*
+- *	/proc/net/vlan/config
+- */
+-
+-static struct proc_dir_entry *proc_vlan_conf;
+-
+ /* Strings */
+ static const char *vlan_name_type_str[VLAN_NAME_TYPE_HIGHEST] = {
+     [VLAN_NAME_TYPE_RAW_PLUS_VID]        = "VLAN_NAME_TYPE_RAW_PLUS_VID",
+@@ -140,14 +129,13 @@ static const char *vlan_name_type_str[VLAN_NAME_TYPE_HIGHEST] = {
+ 
+ void vlan_proc_cleanup(struct net *net)
  {
- 	struct net_device *dev;
-+	struct net *net = seq_file_net(seq);
- 	loff_t i = 1;
+-	if (net != &init_net)
+-		return;
++	struct vlan_net *vn = net_generic(net, vlan_net_id);
  
- 	read_lock(&dev_base_lock);
-@@ -218,7 +220,7 @@ static void *vlan_seq_start(struct seq_file *seq, loff_t *pos)
- 	if (*pos == 0)
- 		return SEQ_START_TOKEN;
+-	if (proc_vlan_conf)
+-		remove_proc_entry(name_conf, proc_vlan_dir);
++	if (vn->proc_vlan_conf)
++		remove_proc_entry(name_conf, vn->proc_vlan_dir);
  
--	for_each_netdev(&init_net, dev) {
-+	for_each_netdev(net, dev) {
- 		if (!is_vlan_dev(dev))
- 			continue;
+-	if (proc_vlan_dir)
+-		proc_net_remove(&init_net, name_root);
++	if (vn->proc_vlan_dir)
++		proc_net_remove(net, name_root);
  
-@@ -232,14 +234,15 @@ static void *vlan_seq_start(struct seq_file *seq, loff_t *pos)
- static void *vlan_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ 	/* Dynamically added entries should be cleaned up as their vlan_device
+ 	 * is removed, so we should not have to take care of it here...
+@@ -160,16 +148,15 @@ void vlan_proc_cleanup(struct net *net)
+ 
+ int vlan_proc_init(struct net *net)
  {
- 	struct net_device *dev;
-+	struct net *net = seq_file_net(seq);
+-	if (net != &init_net)
+-		return 0;
++	struct vlan_net *vn = net_generic(net, vlan_net_id);
  
- 	++*pos;
+-	proc_vlan_dir = proc_mkdir(name_root, init_net.proc_net);
+-	if (!proc_vlan_dir)
++	vn->proc_vlan_dir = proc_net_mkdir(net, name_root, net->proc_net);
++	if (!vn->proc_vlan_dir)
+ 		goto err;
  
- 	dev = (struct net_device *)v;
- 	if (v == SEQ_START_TOKEN)
--		dev = net_device_entry(&init_net.dev_base_head);
-+		dev = net_device_entry(&net->dev_base_head);
+-	proc_vlan_conf = proc_create(name_conf, S_IFREG|S_IRUSR|S_IWUSR,
+-				     proc_vlan_dir, &vlan_fops);
+-	if (!proc_vlan_conf)
++	vn->proc_vlan_conf = proc_create(name_conf, S_IFREG|S_IRUSR|S_IWUSR,
++				     vn->proc_vlan_dir, &vlan_fops);
++	if (!vn->proc_vlan_conf)
+ 		goto err;
+ 	return 0;
  
--	for_each_netdev_continue(&init_net, dev) {
-+	for_each_netdev_continue(net, dev) {
- 		if (!is_vlan_dev(dev))
- 			continue;
+@@ -186,9 +173,10 @@ err:
+ int vlan_proc_add_dev(struct net_device *vlandev)
+ {
+ 	struct vlan_dev_info *dev_info = vlan_dev_info(vlandev);
++	struct vlan_net *vn = net_generic(dev_net(vlandev), vlan_net_id);
  
+ 	dev_info->dent = proc_create(vlandev->name, S_IFREG|S_IRUSR|S_IWUSR,
+-				     proc_vlan_dir, &vlandev_fops);
++				     vn->proc_vlan_dir, &vlandev_fops);
+ 	if (!dev_info->dent)
+ 		return -ENOBUFS;
+ 
+@@ -201,10 +189,12 @@ int vlan_proc_add_dev(struct net_device *vlandev)
+  */
+ int vlan_proc_rem_dev(struct net_device *vlandev)
+ {
++	struct vlan_net *vn = net_generic(dev_net(vlandev), vlan_net_id);
++
+ 	/** NOTE:  This will consume the memory pointed to by dent, it seems. */
+ 	if (vlan_dev_info(vlandev)->dent) {
+ 		remove_proc_entry(vlan_dev_info(vlandev)->dent->name,
+-				  proc_vlan_dir);
++				  vn->proc_vlan_dir);
+ 		vlan_dev_info(vlandev)->dent = NULL;
+ 	}
+ 	return 0;
 -- 
 1.5.3.4
-
