@@ -1,213 +1,99 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [PATCH 1/14][NETNS]: Introduce the net-subsys id generator.
-Date: Thu, 10 Apr 2008 22:52:44 +0200
-Message-ID: <47FE7E1C.50403@fr.ibm.com>
-References: <47FE2AD4.9080609@openvz.org> <47FE2BB5.4070708@openvz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Denis Lunev <den@openvz.org>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: Pavel Emelyanov <xemul@openvz.org>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] net/bonding: Send more than one gratuitous ARP when slave takes over
+Date: Thu, 10 Apr 2008 13:57:49 -0700
+Message-ID: <25865.1207861069@death>
+References: <47FE2D2D.2040504@voltaire.com> <D5C1322C3E673F459512FB59E0DDC32904DEAE99@orsmsx414.amr.corp.intel.com>
+Cc: monis@voltaire.com, "netdev" <netdev@vger.kernel.org>,
+	"Olga Stern" <olgas@voltaire.com>,
+	"Or Gerlitz" <ogerlitz@voltaire.com>
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:54636 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756419AbYDJU5V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 16:57:21 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate5.de.ibm.com (8.13.8/8.13.8) with ESMTP id m3AKvJFd386608
-	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 20:57:19 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3AKvJX82437284
-	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 22:57:19 +0200
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3AKvJHh021724
-	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 22:57:19 +0200
-In-Reply-To: <47FE2BB5.4070708@openvz.org>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:50371 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756862AbYDJU5x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 16:57:53 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3AKvpw6004412
+	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 16:57:51 -0400
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3AKvorh194224
+	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 14:57:50 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3AKvohP023577
+	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 14:57:50 -0600
+In-reply-to: <D5C1322C3E673F459512FB59E0DDC32904DEAE99@orsmsx414.amr.corp.intel.com> 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pavel Emelyanov wrote:
-> To make some per-net generic pointers, we need some way to
-> address them, i.e. - IDs. This is simple IDA-based IDs
-> generator for pernet subsystems. They will be used in the
-> next patches.
->=20
-> Since it will be used by devices only (tun and vlan), I make
-> it resemble the register_pernet_device functionality.
->=20
-> The new ids is stored in the *id pointer _before_ calling the
-> init callback to make this id available in this callback.
->=20
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
->=20
-> ---
->  include/net/net_namespace.h |    2 ++
->  net/core/net_namespace.c    |   36 +++++++++++++++++++++++++++++++++=
-+++
->  2 files changed, 38 insertions(+), 0 deletions(-)
->=20
-> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.=
-h
-> index 0ab62ed..6971fdb 100644
-> --- a/include/net/net_namespace.h
-> +++ b/include/net/net_namespace.h
-> @@ -181,6 +181,8 @@ extern int register_pernet_subsys(struct pernet_o=
-perations *);
->  extern void unregister_pernet_subsys(struct pernet_operations *);
->  extern int register_pernet_device(struct pernet_operations *);
->  extern void unregister_pernet_device(struct pernet_operations *);
-> +extern int register_pernet_gen_device(int *id, struct pernet_operati=
-ons *);
-> +extern void unregister_pernet_gen_device(int id, struct pernet_opera=
-tions *);
->=20
->  struct ctl_path;
->  struct ctl_table;
-> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-> index 7b66083..7ef3bac 100644
-> --- a/net/core/net_namespace.c
-> +++ b/net/core/net_namespace.c
-> @@ -5,6 +5,7 @@
->  #include <linux/list.h>
->  #include <linux/delay.h>
->  #include <linux/sched.h>
-> +#include <linux/idr.h>
->  #include <net/net_namespace.h>
->=20
->  /*
-> @@ -253,6 +254,8 @@ static void unregister_pernet_operations(struct p=
-ernet_operations *ops)
->  }
->  #endif
->=20
-> +static DEFINE_IDA(net_generic_ids);
-> +
->  /**
->   *      register_pernet_subsys - register a network namespace subsys=
-tem
->   *	@ops:  pernet operations structure for the subsystem
-> @@ -330,6 +333,28 @@ int register_pernet_device(struct pernet_operati=
-ons *ops)
->  }
->  EXPORT_SYMBOL_GPL(register_pernet_device);
->=20
-> +int register_pernet_gen_device(int *id, struct pernet_operations *op=
-s)
-> +{
-> +	int error;
-> +	mutex_lock(&net_mutex);
-> +again:
-> +	error =3D ida_get_new_above(&net_generic_ids, 1, id);
-> +	if (error) {
-> +		if (error =3D=3D -EAGAIN) {
-> +			ida_pre_get(&net_generic_ids, GFP_KERNEL);
-> +			goto again;
-> +		}
+Waskiewicz Jr, Peter P <peter.p.waskiewicz.jr@intel.com> wrote:
 
-		goto out;
+>> @@ -104,6 +105,8 @@ struct bond_params bonding_defaults;
+>>  
+>> module_param(max_bonds, int, 0);
+>> MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
+>> +module_param(num_grat_arp, int, 0644);
+>> +MODULE_PARM_DESC(num_grat_arp, "Number of gratuitous ARP packet to
+>sned on failover");
+>
+>Check your spelling here.  s/sned/send/
+>
+>Also, num_grat_arp is declared int, where send_grat_arp is s8.  What
+>happens if you overflow send_grat_arp?  Either your module parameter
+>needs to change to match what's in the bonding struct, or you needs some
+>bounds checking to validate your inputs.
 
-> +	}
-> +	error =3D register_pernet_operations(first_device, ops);
-> +	if (error)
-> +		ida_remove(&net_generic_ids, *id);
-> +	else if (first_device =3D=3D &pernet_list)
-> +		first_device =3D &ops->list;
+	I'd vote for bounds checking, myself.  I think a legal range of
+0 - 255 is appropriate.
 
-out:
+>> @@ -1109,14 +1112,16 @@ void bond_change_active_slave(struct bon
+>> 		if (new_active && bond->params.fail_over_mac)
+>> 			memcpy(bond->dev->dev_addr,
+>new_active->dev->dev_addr,
+>> 				new_active->dev->addr_len);
+>> +		bond->send_grat_arp = num_grat_arp;
+>> 		if (bond->curr_active_slave &&
+>>  			test_bit(__LINK_STATE_LINKWATCH_PENDING,
+>> -
+>&bond->curr_active_slave->dev->state)) {
+>> +
+>&bond->curr_active_slave->dev->state))
+>> 			dprintk("delaying gratuitous arp on %s\n",
+>> 				bond->curr_active_slave->dev->name);
+>> -			bond->send_grat_arp = 1;
+>> -		} else
+>> +		else {
+>> 			bond_send_gratuitous_arp(bond);
+>> +			bond->send_grat_arp--;
+>> +		}
+>
+>Don't modify the if () else () formatting here.  Kernel coding
+>guidelines read if any part of your if/else statement requires braces,
+>all sections need braces.  So it still should be, with your changes:
 
-> +	mutex_unlock(&net_mutex);
-> +	return error;
-> +}
-> +EXPORT_SYMBOL_GPL(register_pernet_gen_device);
-> +
->  /**
->   *      unregister_pernet_device - unregister a network namespace ne=
-tdevice
->   *	@ops: pernet operations structure to manipulate
-> @@ -348,3 +373,14 @@ void unregister_pernet_device(struct pernet_oper=
-ations *ops)
->  	mutex_unlock(&net_mutex);
->  }
->  EXPORT_SYMBOL_GPL(unregister_pernet_device);
-> +
-> +void unregister_pernet_gen_device(int id, struct pernet_operations *=
-ops)
-> +{
-> +	mutex_lock(&net_mutex);
-> +	if (&ops->list =3D=3D first_device)
-> +		first_device =3D first_device->next;
-> +	unregister_pernet_operations(ops);
-> +	ida_remove(&net_generic_ids, id);
-> +	mutex_unlock(&net_mutex);
-> +}
-> +EXPORT_SYMBOL_GPL(unregister_pernet_gen_device);
+	Agreed.
 
+[...]
+>> @@ -2144,7 +2149,7 @@ static int __bond_mii_monitor(struct bon
+>>  			dprintk("sending delayed gratuitous arp on on
+>%s\n",
+>>  				bond->curr_active_slave->dev->name);
+>>  			bond_send_gratuitous_arp(bond);
+>> -			bond->send_grat_arp = 0;
+>> +			bond->send_grat_arp--;
+>
+>Can this ever cause send_grat_arp to become less than zero?  What will
+>happen if it does drop below zero?  I think some bounds checking might
+>be needed here.
 
---=20
+	I don't believe that send_grat_arp can go negative, because this
+block is entered on an "if (bond->send_grat_arp)" that's just above the
+context in the patch.
 
+	The patch as a whole also needs a sysfs entry to permit
+modification and inspection of the num_grat_arp parameter, as is done
+for other parameters.
 
+	-J
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Sauf indication contraire ci-dessus:
-Compagnie IBM France
-Si=E8ge Social : Tour Descartes, 2, avenue Gambetta, La D=E9fense 5, 92=
-400
-Courbevoie
-RCS Nanterre 552 118 465
-=46orme Sociale : S.A.S.
-Capital Social : 542.737.118 ?
-SIREN/SIRET : 552 118 465 02430
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
