@@ -1,106 +1,43 @@
-From: "Daniel Hokka Zakrisson" <daniel-nym3zxDgnZcAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 6/14][RTNL]: Introduce the rtnl_kill_links call.
-Date: Fri, 11 Apr 2008 00:09:55 +0200 (CEST)
-Message-ID: <37533.192.168.101.12.1207865395.squirrel@intranet>
-References: <47FE2AD4.9080609@openvz.org> <47FE2E01.6030000@openvz.org>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [RFC PATCH v2 0/2] Labeled networking patches for 2.6.26
+Date: Thu, 10 Apr 2008 18:12:36 -0400
+Message-ID: <200804101812.36542.paul.moore@hp.com>
+References: <20080409204936.26774.55254.stgit@flek.lan> <200804101725.59604.paul.moore@hp.com> <Xine.LNX.4.64.0804110802140.1313@us.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Benjamin Thery <benjamin.thery-6ktuUTfB/bM@public.gmane.org>, Denis Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: "Pavel Emelyanov" <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <47FE2E01.6030000-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov
+To: James Morris <jmorris@namei.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:43620 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756168AbYDJWMv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 18:12:51 -0400
+In-Reply-To: <Xine.LNX.4.64.0804110802140.1313@us.intercode.com.au>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pavel Emelyanov wrote:
-> ... which will kill all the devices in the given net with
-> the given rtnl_link_ops. Will be used in VLAN patches later.
+On Thursday 10 April 2008 6:04:32 pm James Morris wrote:
+> On Thu, 10 Apr 2008, Paul Moore wrote:
+> > Just a quick follow-up on testing, I've run this for a few hours on
+> > two Fedora systems with both labeled and unlabeled IPsec in use
+> > with SAs rekeying every 5 minutes and didn't notice anything evil.
+> >
+> > At this point I'd strip the "RFC" from the patchset and ask that
+> > they be considered for inclusion in 2.6.26 assuming there are no
+> > objections.
 >
-> Signed-off-by: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
->
-> ---
->  include/net/rtnetlink.h |    1 +
->  net/core/rtnetlink.c    |   29 +++++++++++++++++++++--------
->  2 files changed, 22 insertions(+), 8 deletions(-)
->
-> diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-> index 793863e..3c1895e 100644
-> --- a/include/net/rtnetlink.h
-> +++ b/include/net/rtnetlink.h
-> @@ -74,6 +74,7 @@ struct rtnl_link_ops {
->
->  extern int	__rtnl_link_register(struct rtnl_link_ops *ops);
->  extern void	__rtnl_link_unregister(struct rtnl_link_ops *ops);
-> +extern void	rtnl_kill_links(struct net *net, struct rtnl_link_ops *ops);
->
->  extern int	rtnl_link_register(struct rtnl_link_ops *ops);
->  extern void	rtnl_link_unregister(struct rtnl_link_ops *ops);
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index da99ac0..bc39e41 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -269,6 +269,26 @@ int rtnl_link_register(struct rtnl_link_ops *ops)
->
->  EXPORT_SYMBOL_GPL(rtnl_link_register);
->
-> +static void __rtnl_kill_links(struct net *net, struct rtnl_link_ops *ops)
-> +{
-> +	struct net_device *dev;
-> +restart:
-> +	for_each_netdev(net, dev) {
-> +		if (dev->rtnl_link_ops == ops) {
-> +			ops->dellink(dev);
-> +			goto restart;
-> +		}
-> +	}
-> +}
-> +
-> +void rtnl_kill_links(struct net *net, struct rtnl_link_ops *ops)
-> +{
-> +	rtnl_lock();
-> +	__rtnl_kill_links(net, ops);
-> +	rtnl_unlock();
-> +}
-> +EXPORT_SYMBOL_GPL(rtnl_kill_links);
-> +
->  /**
->   * __rtnl_link_unregister - Unregister rtnl_link_ops from rtnetlink.
->   * @ops: struct rtnl_link_ops * to unregister
-> @@ -277,17 +297,10 @@ EXPORT_SYMBOL_GPL(rtnl_link_register);
->   */
->  void __rtnl_link_unregister(struct rtnl_link_ops *ops)
->  {
-> -	struct net_device *dev, *n;
->  	struct net *net;
->
->  	for_each_net(net) {
-> -restart:
-> -		for_each_netdev_safe(net, dev, n) {
-> -			if (dev->rtnl_link_ops == ops) {
-> -				ops->dellink(dev);
-> -				goto restart;
-> -			}
-> -		}
-> +		__rtnl_kill_links(net, ops);
+> I suggest pushing them via DaveM's tree, unless they depend on
+> anything in my tree.
 
-This was _safe, and now it's not. Is that intentional?
+Okay.  It sounds like DaveM is working through a backlog right now, if I 
+don't see them in his tree by next week I'll resubmit them.
 
->  	}
->  	list_del(&ops->list);
->  }
-> --
-> 1.5.3.4
+Thanks.
 
 -- 
-Daniel Hokka Zakrisson
+paul moore
+linux @ hp
