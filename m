@@ -1,103 +1,38 @@
-From: Jim Westfall <jwestfall@surrealistic.net>
-Subject: Re: bnx2 probe order change from 2.6.21 -> 2.6.24
-Date: Thu, 10 Apr 2008 11:44:55 -0700
-Message-ID: <20080410184455.GL84358@surrealistic.net>
-References: <20080410154401.GA14486@linuxace.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [patch] e1000=y && e1000e=m regression fix (was: Re: [regression]
+ e1000e broke e1000)
+Date: Thu, 10 Apr 2008 12:27:45 -0700 (PDT)
+Message-ID: <alpine.LFD.1.00.0804101225570.3143@woody.linux-foundation.org>
+References: <47FBD34A.6080508@garzik.org> <20080408203314.GA28952@elte.hu> <47FBDBE9.9040700@garzik.org> <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <200804092249.23111.elendil@planet.nl> <m363uqwpds.fsf@maximus.localdomain>
+ <alpine.LFD.1.00.0804091838330.3143@woody.linux-foundation.org> <m34paaav7o.fsf@maximus.localdomain> <alpine.LFD.1.00.0804100724220.3143@woody.linux-foundation.org> <20080410175503.GA11440@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, mchan@broadcom.com
-To: Phil Oester <kernel@linuxace.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from snapper.surrealistic.net ([67.40.222.186]:60376 "EHLO
-	snapper.surrealistic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750702AbYDJTJj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 15:09:39 -0400
-Content-Disposition: inline
-In-Reply-To: <20080410154401.GA14486@linuxace.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Krzysztof Halasa <khc@pm.waw.pl>, Frans Pop <elendil@planet.nl>,
+	Ingo Molnar <mingo@elte.hu>, jeff@garzik.org, matthew@wil.cx,
+	auke-jan.h.kok@intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	linux-pci@atrey.karlin.mff.cuni.cz, akpm@linux-foundation.org,
+	davem@davemloft.net, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, bruce.w.allan@intel.com, greg@kroah.com,
+	arjan@linux.intel.com, rjw@sisk.pl
+To: Grant Grundler <grundler@parisc-linux.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758454AbYDJT3j@vger.kernel.org>
+In-Reply-To: <20080410175503.GA11440@colo.lackof.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Phil Oester <kernel@linuxace.com> wrote [04.10.08]:
-> Apologies if this has been covered already, but I searched the archives and
-> couldn't find anything.
+
+
+On Thu, 10 Apr 2008, Grant Grundler wrote:
 > 
-> I recently upgraded a Dell Poweredge 1950 from 2.6.21 to 2.6.24, and found
-> that the onboard Broadcom NetXtreme II nics got probed in the reverse order.
-> 
-> 2.6.21:
-> 
-> Broadcom NetXtreme II Gigabit Ethernet Driver bnx2 v1.5.8.1 (May 7, 2007)
-> ACPI: PCI Interrupt 0000:04:00.0[A] -> GSI 16 (level, low) -> IRQ 16
-> eth8: Broadcom NetXtreme II BCM5708 1000Base-T (B1) PCI-X 64-bit 133MHz found at mem f8000000, IRQ 16, node addr 0015c5eaef1c
-> ACPI: PCI Interrupt 0000:08:00.0[A] -> GSI 16 (level, low) -> IRQ 16
-> eth9: Broadcom NetXtreme II BCM5708 1000Base-T (B1) PCI-X 64-bit 133MHz found at mem f4000000, IRQ 16, node addr 0015c5eaef1e
-> 
-> 2.6.24:
-> 
-> Broadcom NetXtreme II Gigabit Ethernet Driver bnx2 v1.6.9 (December 8, 2007)
-> ACPI: PCI Interrupt 0000:08:00.0[A] -> GSI 16 (level, low) -> IRQ 16
-> eth8: Broadcom NetXtreme II BCM5708 1000Base-T (B1) PCI-X 64-bit 133MHz found at mem f4000000, IRQ 16, node addr 00:15:c5:ea:ef:1e
-> ACPI: PCI Interrupt 0000:04:00.0[A] -> GSI 16 (level, low) -> IRQ 16
-> udev: renamed network interface eth8 to eth9
-> eth8: Broadcom NetXtreme II BCM5708 1000Base-T (B1) PCI-X 64-bit 133MHz found at mem f8000000, IRQ 16, node addr 00:15:c5:ea:ef:1c
-> 
-> 
-> Is this known/expected?  Seems somewhat odd from both a MAC address
-> perspective (1c < 1e) and a PCI bus order (04 < 08).  Thoughts?
-> 
+> If e1000e is not getting compiled, my understanding was the original e1000
+> driver will claim whatever devices it historically has.
 
-Hi
+Yes. And the patch to do so was done by yours truly, exactly because I hit 
+this thing ;)
 
-We ran into this issue as well when going from 2.6.20 to 2.6.23 on dell 
-1950/2950s.
+But it only works when the e1000e driver isn't enabled at all, which is 
+why the "e1000e=m" case ends up being different, and Ingo then hit that 
+one.
 
-If you check your dmesg output from your older kernel you should see
-
-PCI: Dell PowerEdge 1950 detected, enabling pci=bfsort.
-
-With the newer kernel the code path that triggers the above is removed if 
-you have ACPI enabled in the kernel.
-
-We have been using the following patch which re-adds the code path to the 
-ACPI PCI code.
-
-thanks
-jim
-
-
-diff -ur linux-2.6.23.16-orig/arch/i386/pci/acpi.c linux-2.6.23.16-inap3/arch/i386/pci/acpi.c
---- linux-2.6.23.16-orig/arch/i386/pci/acpi.c   2008-02-10 22:06:32.000000000 -0800
-+++ linux-2.6.23.16-inap3/arch/i386/pci/acpi.c  2008-02-21 16:27:19.000000000 -0800
-@@ -2,9 +2,12 @@
- #include <linux/acpi.h>
- #include <linux/init.h>
- #include <linux/irq.h>
-+#include <linux/dmi.h>
- #include <asm/numa.h>
- #include "pci.h"
- 
-+extern struct dmi_system_id __devinitdata pciprobe_dmi_table[];
-+
- struct pci_bus * __devinit pci_acpi_scan_root(struct acpi_device *device, int domain, int busnum)
- {
-        struct pci_bus *bus;
-@@ -27,6 +30,7 @@
-                return NULL;
-        }
- 
-+       dmi_check_system(pciprobe_dmi_table);
-        sd->node = -1;
- 
-        pxm = acpi_get_pxm(device->handle);
-diff -ur linux-2.6.23.16-orig/arch/i386/pci/common.c linux-2.6.23.16-inap3/arch/i386/pci/common.c
---- linux-2.6.23.16-orig/arch/i386/pci/common.c 2008-02-10 22:06:32.000000000 -0800
-+++ linux-2.6.23.16-inap3/arch/i386/pci/common.c        2008-02-21 16:27:19.000000000 -0800
-@@ -145,7 +145,7 @@
- }
- #endif
- 
--static struct dmi_system_id __devinitdata pciprobe_dmi_table[] = {
-+struct dmi_system_id __devinitdata pciprobe_dmi_table[] = {
- #ifdef __i386__
- /*
- 
+		Linus
