@@ -1,54 +1,52 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: VLAN & ARP requests fail for ARM EABI (2.6.24)
-Date: Thu, 10 Apr 2008 02:40:45 +0200
-Message-ID: <47FD620D.90707@trash.net>
-References: <293225.82676.qm@web32605.mail.mud.yahoo.com>
+From: Bill Davidsen <davidsen@tmr.com>
+Subject: Re: [regression] e1000e broke e1000
+Date: Wed, 09 Apr 2008 20:52:05 -0400
+Message-ID: <47FD64B5.1050309@tmr.com>
+References: <47F69965.7030303@intel.com> <20080408083606.GA20863@elte.hu>	<47FB9ABB.9080403@intel.com> <20080408183921.GA20803@elte.hu>	<20080408193245.GG11962@parisc-linux.org> <20080408195123.GA28148@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Gertjan Hofman <gertjan_hofman@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64100 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753271AbYDJAku (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2008 20:40:50 -0400
-In-Reply-To: <293225.82676.qm@web32605.mail.mud.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756522AbYDJAsb@vger.kernel.org>
+In-Reply-To: <20080408195123.GA28148@elte.hu>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Gertjan Hofman wrote:
-> Dear Sirs,
+Ingo Molnar wrote:
+> * Matthew Wilcox <matthew@wil.cx> wrote:
 > 
-> Since the VLAN mailing list is closed, its author suggested I post here. 
-> We have an ARM920T processor based system. When compiling the kernel 2.6.24 using OABI (and appropiate 4.1.1 cross toolchain), VLAN functionality is fine. When setting the CONFIG_EABI flag and using  the 4.2.2 toolchain (created by the OpenEmbedded project) a VLAN device fails to respond.
+>> On Tue, Apr 08, 2008 at 08:39:21PM +0200, Ingo Molnar wrote:
+>>> so the pure presence of the e1000e module breaks the e1000 driver. That 
+>>> is a regression and a bug that should be fixed.
+>> I think you've found the wrong problem ... it looks deliberate to me 
+>> that enabling e1000e disables e1000 from claiming the PCI IDs (see the 
+>> PCIE() macro right before the e1000_pci_tbl in 
+>> drivers/net/e1000/e1000_main.c).
+>>
+>> The question is why e1000e isn't claiming the device ...
 > 
-> When pinging through the ARM VLAN device to a (PC based) VLAN device, the following is seen in the vlan driver:
-> The ping request is sent out, followed by an ARP request. The PC returns the ARP reply and it is seen by the VLAN driver (vlan_skb_recv) which calls netif_rx(). This repeats a couple of pings later i.e. the arp reply is not used or received properly.
+> because i have e1000 built-in and dont load the e1000e module at all. 
+> That worked before and doesnt work now.
 > 
-> Similarly, when pinging from the PC, the ARP request is seen by vlan_skb_recv() but there is no ARP reply from the ARM cascading through the vlan driver.
+> the solution is rather straightforward: if E1000 is built-in then E1000E 
+> should be built-in as well or disabled (i.e. it should not be possible 
+> to build it as a module in that case) - because the PCI ID stealing 
+> trick now connects the two drivers unconditionally. [ If e1000 is a 
+> module then e1000e can be a module (or disabled) - this would be the 
+> most common configuration. ]
 > 
-> It seems to me that either the issue is with the code that handles the ARP request when compiling in EABI format, or that VLAN doesnt process the frame properly and sends it on incorrectly. Recompile the kernel with OABI and everything is fine.
-> 
-> Note that communication works fine on either OABI or EABI when using 'normal' devices (eth0 etc). This puts the suspicion back on vlan.
-> 
-> 
-> Since EABI changes structure packing and other things, I suspect the cause is some networking code that knows a bit too much about its size & packing.
-> 
-> I am happy to troubleshoot, but I am no kernel expert. Tips would be appreciated. Like how to dump the sbk buffer in both cases..
+And this would seem to break the most common means of testing a new 
+driver for existing (and working!) hardware, which is to build both 
+drivers as modules, install the new one, and if it appears to have 
+problems either remove and insert the old driver by hand, or boot 
+forcing the old driver.
 
+I can't be the only person who tests kernels on machines I wouldn't use 
+to build a kernel, and uses modprobe.conf to test new driver functionality.
 
-I actually have no idea about the differences between
-OABI and EABI, but I know a mix of both broke some
-iptables setups (kernel EABI/userspace OABI or something
-like that). Could you fetch the latest iproute and try
-again with adding your VLANs using iproute?
-
-The syntax is:
-
-ip link add link <lowerdev> [name] <name> type vlan id VID
-
-If that works the problem is most likely an inappropriate
-ABI mix.
-
-
+-- 
+Bill Davidsen <davidsen@tmr.com>
+   "We have more to fear from the bungling of the incompetent than from
+the machinations of the wicked."  - from Slashdot
