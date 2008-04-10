@@ -1,206 +1,204 @@
 From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: [PATCH 1/6] tc35815: Statistics cleanup
-Date: Fri, 11 Apr 2008 00:24:12 +0900 (JST)
-Message-ID: <20080411.002412.03977557.anemo@mba.ocn.ne.jp>
+Subject: [PATCH 4/6] tc35815: Use managed pci iomap helper
+Date: Fri, 11 Apr 2008 00:24:45 +0900 (JST)
+Message-ID: <20080411.002445.122254468.anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
 To: linux-mips@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mba.ocn.ne.jp ([122.1.235.107]:64119 "EHLO smtp.mba.ocn.ne.jp"
+Received: from mba.ocn.ne.jp ([122.1.235.107]:50068 "EHLO smtp.mba.ocn.ne.jp"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758032AbYDJPXW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2008 11:23:22 -0400
+	id S1758048AbYDJPXz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Apr 2008 11:23:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use struct net_device_stats embedded in struct net_device.
+Use managed pci functions and kill unnecessary volatiles.
 
 Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 ---
- drivers/net/tc35815.c |   61 +++++++++++++++++++++++++------------------------
- 1 files changed, 31 insertions(+), 30 deletions(-)
+ drivers/net/tc35815.c |  121 +++++++++++++++---------------------------------
+ 1 files changed, 38 insertions(+), 83 deletions(-)
 
 diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index 370d329..f0e9566 100644
+index 5f4a14f..60eff78 100644
 --- a/drivers/net/tc35815.c
 +++ b/drivers/net/tc35815.c
-@@ -418,7 +418,6 @@ struct tc35815_local {
- 	struct napi_struct napi;
- 
- 	/* statistics */
--	struct net_device_stats stats;
- 	struct {
- 		int max_tx_qlen;
- 		int tx_ints;
-@@ -1192,7 +1191,7 @@ static void tc35815_tx_timeout(struct net_device *dev)
- 	tc35815_restart(dev);
- 	spin_unlock_irq(&lp->lock);
- 
--	lp->stats.tx_errors++;
-+	dev->stats.tx_errors++;
- 
- 	/* If we have space available to accept new transmit
- 	 * requests, wake up the queueing layer.  This would
-@@ -1392,7 +1391,7 @@ static int tc35815_do_interrupt(struct net_device *dev, u32 status)
- 		printk(KERN_WARNING
- 		       "%s: Free Descriptor Area Exhausted (%#x).\n",
- 		       dev->name, status);
--		lp->stats.rx_dropped++;
-+		dev->stats.rx_dropped++;
- 		ret = 0;
- 	}
- 	if (status & Int_IntBLEx) {
-@@ -1401,14 +1400,14 @@ static int tc35815_do_interrupt(struct net_device *dev, u32 status)
- 		printk(KERN_WARNING
- 		       "%s: Buffer List Exhausted (%#x).\n",
- 		       dev->name, status);
--		lp->stats.rx_dropped++;
-+		dev->stats.rx_dropped++;
- 		ret = 0;
- 	}
- 	if (status & Int_IntExBD) {
- 		printk(KERN_WARNING
- 		       "%s: Excessive Buffer Descriptiors (%#x).\n",
- 		       dev->name, status);
--		lp->stats.rx_length_errors++;
-+		dev->stats.rx_length_errors++;
- 		ret = 0;
- 	}
- 
-@@ -1532,7 +1531,7 @@ tc35815_rx(struct net_device *dev)
- 			if (skb == NULL) {
- 				printk(KERN_NOTICE "%s: Memory squeeze, dropping packet.\n",
- 				       dev->name);
--				lp->stats.rx_dropped++;
-+				dev->stats.rx_dropped++;
- 				break;
- 			}
- 			skb_reserve(skb, 2);   /* 16 bit alignment */
-@@ -1602,10 +1601,10 @@ tc35815_rx(struct net_device *dev)
- 			netif_rx(skb);
- #endif
- 			dev->last_rx = jiffies;
--			lp->stats.rx_packets++;
--			lp->stats.rx_bytes += pkt_len;
-+			dev->stats.rx_packets++;
-+			dev->stats.rx_bytes += pkt_len;
- 		} else {
--			lp->stats.rx_errors++;
-+			dev->stats.rx_errors++;
- 			printk(KERN_DEBUG "%s: Rx error (status %x)\n",
- 			       dev->name, status & Rx_Stat_Mask);
- 			/* WORKAROUND: LongErr and CRCErr means Overflow. */
-@@ -1613,10 +1612,14 @@ tc35815_rx(struct net_device *dev)
- 				status &= ~(Rx_LongErr|Rx_CRCErr);
- 				status |= Rx_Over;
- 			}
--			if (status & Rx_LongErr) lp->stats.rx_length_errors++;
--			if (status & Rx_Over) lp->stats.rx_fifo_errors++;
--			if (status & Rx_CRCErr) lp->stats.rx_crc_errors++;
--			if (status & Rx_Align) lp->stats.rx_frame_errors++;
-+			if (status & Rx_LongErr)
-+				dev->stats.rx_length_errors++;
-+			if (status & Rx_Over)
-+				dev->stats.rx_fifo_errors++;
-+			if (status & Rx_CRCErr)
-+				dev->stats.rx_crc_errors++;
-+			if (status & Rx_Align)
-+				dev->stats.rx_frame_errors++;
- 		}
- 
- 		if (bd_count > 0) {
-@@ -1777,9 +1780,9 @@ tc35815_check_tx_stat(struct net_device *dev, int status)
- 
- 	/* count collisions */
- 	if (status & Tx_ExColl)
--		lp->stats.collisions += 16;
-+		dev->stats.collisions += 16;
- 	if (status & Tx_TxColl_MASK)
--		lp->stats.collisions += status & Tx_TxColl_MASK;
-+		dev->stats.collisions += status & Tx_TxColl_MASK;
- 
- #ifndef NO_CHECK_CARRIER
- 	/* TX4939 does not have NCarr */
-@@ -1795,17 +1798,17 @@ tc35815_check_tx_stat(struct net_device *dev, int status)
- 
- 	if (!(status & TX_STA_ERR)) {
- 		/* no error. */
--		lp->stats.tx_packets++;
-+		dev->stats.tx_packets++;
- 		return;
- 	}
- 
--	lp->stats.tx_errors++;
-+	dev->stats.tx_errors++;
- 	if (status & Tx_ExColl) {
--		lp->stats.tx_aborted_errors++;
-+		dev->stats.tx_aborted_errors++;
- 		msg = "Excessive Collision.";
- 	}
- 	if (status & Tx_Under) {
--		lp->stats.tx_fifo_errors++;
-+		dev->stats.tx_fifo_errors++;
- 		msg = "Tx FIFO Underrun.";
- 		if (lp->lstats.tx_underrun < TX_THRESHOLD_KEEP_LIMIT) {
- 			lp->lstats.tx_underrun++;
-@@ -1818,25 +1821,25 @@ tc35815_check_tx_stat(struct net_device *dev, int status)
- 		}
- 	}
- 	if (status & Tx_Defer) {
--		lp->stats.tx_fifo_errors++;
-+		dev->stats.tx_fifo_errors++;
- 		msg = "Excessive Deferral.";
- 	}
- #ifndef NO_CHECK_CARRIER
- 	if (status & Tx_NCarr) {
--		lp->stats.tx_carrier_errors++;
-+		dev->stats.tx_carrier_errors++;
- 		msg = "Lost Carrier Sense.";
- 	}
- #endif
- 	if (status & Tx_LateColl) {
--		lp->stats.tx_aborted_errors++;
-+		dev->stats.tx_aborted_errors++;
- 		msg = "Late Collision.";
- 	}
- 	if (status & Tx_TxPar) {
--		lp->stats.tx_fifo_errors++;
-+		dev->stats.tx_fifo_errors++;
- 		msg = "Transmit Parity Error.";
- 	}
- 	if (status & Tx_SQErr) {
--		lp->stats.tx_heartbeat_errors++;
-+		dev->stats.tx_heartbeat_errors++;
- 		msg = "Signal Quality Error.";
- 	}
- 	if (msg && netif_msg_tx_err(lp))
-@@ -1878,7 +1881,7 @@ tc35815_txdone(struct net_device *dev)
- 		BUG_ON(lp->tx_skbs[lp->tfd_end].skb != skb);
- #endif
- 		if (skb) {
--			lp->stats.tx_bytes += skb->len;
-+			dev->stats.tx_bytes += skb->len;
- 			pci_unmap_single(lp->pci_dev, lp->tx_skbs[lp->tfd_end].skb_dma, skb->len, PCI_DMA_TODEVICE);
- 			lp->tx_skbs[lp->tfd_end].skb = NULL;
- 			lp->tx_skbs[lp->tfd_end].skb_dma = 0;
-@@ -1972,15 +1975,13 @@ tc35815_close(struct net_device *dev)
+@@ -94,37 +94,37 @@ static struct tc35815_options {
+  * Registers
   */
- static struct net_device_stats *tc35815_get_stats(struct net_device *dev)
- {
--	struct tc35815_local *lp = dev->priv;
- 	struct tc35815_regs __iomem *tr =
- 		(struct tc35815_regs __iomem *)dev->base_addr;
--	if (netif_running(dev)) {
-+	if (netif_running(dev))
- 		/* Update the statistics from the device registers. */
--		lp->stats.rx_missed_errors = tc_readl(&tr->Miss_Cnt);
+ struct tc35815_regs {
+-	volatile __u32 DMA_Ctl;		/* 0x00 */
+-	volatile __u32 TxFrmPtr;
+-	volatile __u32 TxThrsh;
+-	volatile __u32 TxPollCtr;
+-	volatile __u32 BLFrmPtr;
+-	volatile __u32 RxFragSize;
+-	volatile __u32 Int_En;
+-	volatile __u32 FDA_Bas;
+-	volatile __u32 FDA_Lim;		/* 0x20 */
+-	volatile __u32 Int_Src;
+-	volatile __u32 unused0[2];
+-	volatile __u32 PauseCnt;
+-	volatile __u32 RemPauCnt;
+-	volatile __u32 TxCtlFrmStat;
+-	volatile __u32 unused1;
+-	volatile __u32 MAC_Ctl;		/* 0x40 */
+-	volatile __u32 CAM_Ctl;
+-	volatile __u32 Tx_Ctl;
+-	volatile __u32 Tx_Stat;
+-	volatile __u32 Rx_Ctl;
+-	volatile __u32 Rx_Stat;
+-	volatile __u32 MD_Data;
+-	volatile __u32 MD_CA;
+-	volatile __u32 CAM_Adr;		/* 0x60 */
+-	volatile __u32 CAM_Data;
+-	volatile __u32 CAM_Ena;
+-	volatile __u32 PROM_Ctl;
+-	volatile __u32 PROM_Data;
+-	volatile __u32 Algn_Cnt;
+-	volatile __u32 CRC_Cnt;
+-	volatile __u32 Miss_Cnt;
++	__u32 DMA_Ctl;		/* 0x00 */
++	__u32 TxFrmPtr;
++	__u32 TxThrsh;
++	__u32 TxPollCtr;
++	__u32 BLFrmPtr;
++	__u32 RxFragSize;
++	__u32 Int_En;
++	__u32 FDA_Bas;
++	__u32 FDA_Lim;		/* 0x20 */
++	__u32 Int_Src;
++	__u32 unused0[2];
++	__u32 PauseCnt;
++	__u32 RemPauCnt;
++	__u32 TxCtlFrmStat;
++	__u32 unused1;
++	__u32 MAC_Ctl;		/* 0x40 */
++	__u32 CAM_Ctl;
++	__u32 Tx_Ctl;
++	__u32 Tx_Stat;
++	__u32 Rx_Ctl;
++	__u32 Rx_Stat;
++	__u32 MD_Data;
++	__u32 MD_CA;
++	__u32 CAM_Adr;		/* 0x60 */
++	__u32 CAM_Data;
++	__u32 CAM_Ena;
++	__u32 PROM_Ctl;
++	__u32 PROM_Data;
++	__u32 Algn_Cnt;
++	__u32 CRC_Cnt;
++	__u32 Miss_Cnt;
+ };
+ 
+ /*
+@@ -396,8 +396,8 @@ struct FrFD {
+ };
+ 
+ 
+-#define tc_readl(addr)	readl(addr)
+-#define tc_writel(d, addr)	writel(d, addr)
++#define tc_readl(addr)	ioread32(addr)
++#define tc_writel(d, addr)	iowrite32(d, addr)
+ 
+ #define TC35815_TX_TIMEOUT  msecs_to_jiffies(400)
+ 
+@@ -663,7 +663,6 @@ static int __devinit tc35815_init_one (struct pci_dev *pdev,
+ 	struct net_device *dev;
+ 	struct tc35815_local *lp;
+ 	int rc;
+-	unsigned long mmio_start, mmio_end, mmio_flags, mmio_len;
+ 	DECLARE_MAC_BUF(mac);
+ 
+ 	static int printed_version;
+@@ -690,45 +689,14 @@ static int __devinit tc35815_init_one (struct pci_dev *pdev,
+ 	lp->dev = dev;
+ 
+ 	/* enable device (incl. PCI PM wakeup), and bus-mastering */
+-	rc = pci_enable_device (pdev);
++	rc = pcim_enable_device(pdev);
+ 	if (rc)
+ 		goto err_out;
+-
+-	mmio_start = pci_resource_start (pdev, 1);
+-	mmio_end = pci_resource_end (pdev, 1);
+-	mmio_flags = pci_resource_flags (pdev, 1);
+-	mmio_len = pci_resource_len (pdev, 1);
+-
+-	/* set this immediately, we need to know before
+-	 * we talk to the chip directly */
+-
+-	/* make sure PCI base addr 1 is MMIO */
+-	if (!(mmio_flags & IORESOURCE_MEM)) {
+-		dev_err(&pdev->dev, "region #1 not an MMIO resource, aborting\n");
+-		rc = -ENODEV;
+-		goto err_out;
 -	}
-+		dev->stats.rx_missed_errors = tc_readl(&tr->Miss_Cnt);
+-
+-	/* check for weird/broken PCI region reporting */
+-	if ((mmio_len < sizeof(struct tc35815_regs))) {
+-		dev_err(&pdev->dev, "Invalid PCI region size(s), aborting\n");
+-		rc = -ENODEV;
+-		goto err_out;
+-	}
+-
+-	rc = pci_request_regions (pdev, MODNAME);
++	rc = pcim_iomap_regions(pdev, 1 << 1, MODNAME);
+ 	if (rc)
+ 		goto err_out;
+-
+-	pci_set_master (pdev);
+-
+-	/* ioremap MMIO region */
+-	ioaddr = ioremap (mmio_start, mmio_len);
+-	if (ioaddr == NULL) {
+-		dev_err(&pdev->dev, "cannot remap MMIO, aborting\n");
+-		rc = -EIO;
+-		goto err_out_free_res;
+-	}
++	pci_set_master(pdev);
++	ioaddr = pcim_iomap_table(pdev)[1];
  
--	return &lp->stats;
-+	return &dev->stats;
- }
+ 	/* Initialize the device structure. */
+ 	dev->open = tc35815_open;
+@@ -768,7 +736,7 @@ static int __devinit tc35815_init_one (struct pci_dev *pdev,
  
- static void tc35815_set_cam_entry(struct net_device *dev, int index, unsigned char *addr)
+ 	rc = register_netdev (dev);
+ 	if (rc)
+-		goto err_out_unmap;
++		goto err_out;
+ 
+ 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 	printk(KERN_INFO "%s: %s at 0x%lx, %s, IRQ %d\n",
+@@ -791,10 +759,6 @@ static int __devinit tc35815_init_one (struct pci_dev *pdev,
+ 
+ 	return 0;
+ 
+-err_out_unmap:
+-	iounmap(ioaddr);
+-err_out_free_res:
+-	pci_release_regions (pdev);
+ err_out:
+ 	free_netdev (dev);
+ 	return rc;
+@@ -804,17 +768,8 @@ err_out:
+ static void __devexit tc35815_remove_one (struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata (pdev);
+-	unsigned long mmio_addr;
+-
+-	mmio_addr = dev->base_addr;
+ 
+ 	unregister_netdev (dev);
+-
+-	if (mmio_addr) {
+-		iounmap ((void __iomem *)mmio_addr);
+-		pci_release_regions (pdev);
+-	}
+-
+ 	free_netdev (dev);
+ 
+ 	pci_set_drvdata (pdev, NULL);
