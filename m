@@ -1,37 +1,116 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [net-2.6.26] [IPV6] Remove unused declarations in
- include/net/ip6_route.h.
-Date: Thu, 10 Apr 2008 02:32:08 -0700 (PDT)
-Message-ID: <20080410.023208.161440301.davem@davemloft.net>
-References: <eb3ff54b0804011145na2b25bdo4cbe7f45457b1e1c@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: ramirose@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45645
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752198AbYDJJcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 05:32:08 -0400
-In-Reply-To: <eb3ff54b0804011145na2b25bdo4cbe7f45457b1e1c@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
 From: "Rami Rosen" <ramirose@gmail.com>
-Date: Tue, 1 Apr 2008 21:45:15 +0300
+Subject: [PATCH net-2.6.26] [IPV6] Adjust IPV6 multicast routing module (ip6mr.c) to use mroute6 header declarations .
+Date: Thu, 10 Apr 2008 12:40:10 +0300
+Message-ID: <eb3ff54b0804100240x2cc3d21el3ce06b21ce7b5320@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_Part_11451_21059545.1207820410472"
+Cc: linux-kernel@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755796AbYDJJk3@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Hi,
->   This patches removes unused declarations in include/net/ip6_route.h
-> 	
-> 	1) Standlaone ip6_null_entry is no longer needed as it is replaced by
-> 	the ip6_null_entry member of ipv6 (instance of struct netns_ipv6)	in
-> 	struct net (as a result of Network Namespaces patches).
-> 	
-> 	
-> 	2) These 3 methods from this same header are not defined anywhere:
-> 	   ip6_rt_addr_add(), ip6_rt_addr_del(), rt6_sndmsg()
->
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+------=_Part_11451_21059545.1207820410472
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Applied, thanks.
+Hi,
+- This patch adjusts IPv6 multicast routing module, net/ipv6/ip6mr.c,
+to use mroute6 header definitions instead of mroute.
+ (MFC6_LINES instead of MFC_LINES, MAXMIFS instead of MAXVIFS, mifi_t
+instead of vifi_t.)
+
+- In addition, inclusion of some headers was removed as it is not needed.
+
+Regards,
+Rami Rosen
+
+
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+------=_Part_11451_21059545.1207820410472
+Content-Type: text/plain; name=patch.txt
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fev4zwwo0
+Content-Disposition: attachment; filename=patch.txt
+
+ZGlmZiAtLWdpdCBhL25ldC9pcHY2L2lwNm1yLmMgYi9uZXQvaXB2Ni9pcDZtci5jCmluZGV4IGRh
+NjczZWYuLmQ1MjBlMzQgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L2lwNm1yLmMKKysrIGIvbmV0L2lw
+djYvaXA2bXIuYwpAQCAtMjcsMjcgKzI3LDE4IEBACiAjaW5jbHVkZSA8bGludXgvZmNudGwuaD4K
+ICNpbmNsdWRlIDxsaW51eC9zdGF0Lmg+CiAjaW5jbHVkZSA8bGludXgvc29ja2V0Lmg+Ci0jaW5j
+bHVkZSA8bGludXgvaW4uaD4KICNpbmNsdWRlIDxsaW51eC9pbmV0Lmg+CiAjaW5jbHVkZSA8bGlu
+dXgvbmV0ZGV2aWNlLmg+CiAjaW5jbHVkZSA8bGludXgvaW5ldGRldmljZS5oPgotI2luY2x1ZGUg
+PGxpbnV4L2lnbXAuaD4KICNpbmNsdWRlIDxsaW51eC9wcm9jX2ZzLmg+CiAjaW5jbHVkZSA8bGlu
+dXgvc2VxX2ZpbGUuaD4KLSNpbmNsdWRlIDxsaW51eC9tcm91dGUuaD4KICNpbmNsdWRlIDxsaW51
+eC9pbml0Lmg+Ci0jaW5jbHVkZSA8bmV0L2lwLmg+CiAjaW5jbHVkZSA8bmV0L3Byb3RvY29sLmg+
+CiAjaW5jbHVkZSA8bGludXgvc2tidWZmLmg+CiAjaW5jbHVkZSA8bmV0L3NvY2suaD4KLSNpbmNs
+dWRlIDxuZXQvaWNtcC5oPgotI2luY2x1ZGUgPG5ldC91ZHAuaD4KICNpbmNsdWRlIDxuZXQvcmF3
+Lmg+Ci0jaW5jbHVkZSA8bmV0L3JvdXRlLmg+CiAjaW5jbHVkZSA8bGludXgvbm90aWZpZXIuaD4K
+ICNpbmNsdWRlIDxsaW51eC9pZl9hcnAuaD4KLSNpbmNsdWRlIDxsaW51eC9uZXRmaWx0ZXJfaXB2
+NC5oPgotI2luY2x1ZGUgPG5ldC9pcGlwLmg+CiAjaW5jbHVkZSA8bmV0L2NoZWNrc3VtLmg+CiAj
+aW5jbHVkZSA8bmV0L25ldGxpbmsuaD4KIApAQCAtODMsNyArNzQsNyBAQCBzdGF0aWMgaW50IG1y
+b3V0ZV9kb19waW07CiAjZGVmaW5lIG1yb3V0ZV9kb19waW0gMAogI2VuZGlmCiAKLXN0YXRpYyBz
+dHJ1Y3QgbWZjNl9jYWNoZSAqbWZjNl9jYWNoZV9hcnJheVtNRkNfTElORVNdOwkvKiBGb3J3YXJk
+aW5nIGNhY2hlCSovCitzdGF0aWMgc3RydWN0IG1mYzZfY2FjaGUgKm1mYzZfY2FjaGVfYXJyYXlb
+TUZDNl9MSU5FU107CS8qIEZvcndhcmRpbmcgY2FjaGUJKi8KIAogc3RhdGljIHN0cnVjdCBtZmM2
+X2NhY2hlICptZmNfdW5yZXNfcXVldWU7CQkvKiBRdWV1ZSBvZiB1bnJlc29sdmVkIGVudHJpZXMg
+Ki8KIHN0YXRpYyBhdG9taWNfdCBjYWNoZV9yZXNvbHZlX3F1ZXVlX2xlbjsJCS8qIFNpemUgb2Yg
+dW5yZXNvbHZlZAkqLwpAQCAtMTAyLDcgKzkzLDcgQEAgc3RhdGljIERFRklORV9TUElOTE9DSyht
+ZmNfdW5yZXNfbG9jayk7CiBzdGF0aWMgc3RydWN0IGttZW1fY2FjaGUgKm1ydF9jYWNoZXAgX19y
+ZWFkX21vc3RseTsKIAogc3RhdGljIGludCBpcDZfbXJfZm9yd2FyZChzdHJ1Y3Qgc2tfYnVmZiAq
+c2tiLCBzdHJ1Y3QgbWZjNl9jYWNoZSAqY2FjaGUpOwotc3RhdGljIGludCBpcDZtcl9jYWNoZV9y
+ZXBvcnQoc3RydWN0IHNrX2J1ZmYgKnBrdCwgdmlmaV90IHZpZmksIGludCBhc3NlcnQpOworc3Rh
+dGljIGludCBpcDZtcl9jYWNoZV9yZXBvcnQoc3RydWN0IHNrX2J1ZmYgKnBrdCwgbWlmaV90IG1p
+ZmksIGludCBhc3NlcnQpOwogc3RhdGljIGludCBpcDZtcl9maWxsX21yb3V0ZShzdHJ1Y3Qgc2tf
+YnVmZiAqc2tiLCBzdHJ1Y3QgbWZjNl9jYWNoZSAqYywgc3RydWN0IHJ0bXNnICpydG0pOwogCiAj
+aWZkZWYgQ09ORklHX0lQVjZfUElNU01fVjIKQEAgLTU5Nyw5ICs1ODgsOSBAQCBzdGF0aWMgdm9p
+ZCBpcDZtcl91cGRhdGVfdGhyZXNob2xkcyhzdHJ1Y3QgbWZjNl9jYWNoZSAqY2FjaGUsIHVuc2ln
+bmVkIGNoYXIgKnR0bAogewogCWludCB2aWZpOwogCi0JY2FjaGUtPm1mY191bi5yZXMubWludmlm
+ID0gTUFYVklGUzsKKwljYWNoZS0+bWZjX3VuLnJlcy5taW52aWYgPSBNQVhNSUZTOwogCWNhY2hl
+LT5tZmNfdW4ucmVzLm1heHZpZiA9IDA7Ci0JbWVtc2V0KGNhY2hlLT5tZmNfdW4ucmVzLnR0bHMs
+IDI1NSwgTUFYVklGUyk7CisJbWVtc2V0KGNhY2hlLT5tZmNfdW4ucmVzLnR0bHMsIDI1NSwgTUFY
+TUlGUyk7CiAKIAlmb3IgKHZpZmkgPSAwOyB2aWZpIDwgbWF4dmlmOyB2aWZpKyspIHsKIAkJaWYg
+KE1JRl9FWElTVFModmlmaSkgJiYgdHRsc1t2aWZpXSAmJiB0dGxzW3ZpZmldIDwgMjU1KSB7CkBA
+IC03MDAsNyArNjkxLDcgQEAgc3RhdGljIHN0cnVjdCBtZmM2X2NhY2hlICppcDZtcl9jYWNoZV9h
+bGxvYyh2b2lkKQogCWlmIChjID09IE5VTEwpCiAJCXJldHVybiBOVUxMOwogCW1lbXNldChjLCAw
+LCBzaXplb2YoKmMpKTsKLQljLT5tZmNfdW4ucmVzLm1pbnZpZiA9IE1BWFZJRlM7CisJYy0+bWZj
+X3VuLnJlcy5taW52aWYgPSBNQVhNSUZTOwogCXJldHVybiBjOwogfQogCkBAIC03NTMsNyArNzQ0
+LDcgQEAgc3RhdGljIHZvaWQgaXA2bXJfY2FjaGVfcmVzb2x2ZShzdHJ1Y3QgbWZjNl9jYWNoZSAq
+dWMsIHN0cnVjdCBtZmM2X2NhY2hlICpjKQogICoJQ2FsbGVkIHVuZGVyIG1ydF9sb2NrLgogICov
+CiAKLXN0YXRpYyBpbnQgaXA2bXJfY2FjaGVfcmVwb3J0KHN0cnVjdCBza19idWZmICpwa3QsIHZp
+ZmlfdCB2aWZpLCBpbnQgYXNzZXJ0KQorc3RhdGljIGludCBpcDZtcl9jYWNoZV9yZXBvcnQoc3Ry
+dWN0IHNrX2J1ZmYgKnBrdCwgbWlmaV90IG1pZmksIGludCBhc3NlcnQpCiB7CiAJc3RydWN0IHNr
+X2J1ZmYgKnNrYjsKIAlzdHJ1Y3QgbXJ0Nm1zZyAqbXNnOwpAQCAtODE1LDcgKzgwNiw3IEBAIHN0
+YXRpYyBpbnQgaXA2bXJfY2FjaGVfcmVwb3J0KHN0cnVjdCBza19idWZmICpwa3QsIHZpZmlfdCB2
+aWZpLCBpbnQgYXNzZXJ0KQogCiAJbXNnLT5pbTZfbWJ6ID0gMDsKIAltc2ctPmltNl9tc2d0eXBl
+ID0gYXNzZXJ0OwotCW1zZy0+aW02X21pZiA9IHZpZmk7CisJbXNnLT5pbTZfbWlmID0gbWlmaTsK
+IAltc2ctPmltNl9wYWQgPSAwOwogCWlwdjZfYWRkcl9jb3B5KCZtc2ctPmltNl9zcmMsICZpcHY2
+X2hkcihwa3QpLT5zYWRkcik7CiAJaXB2Nl9hZGRyX2NvcHkoJm1zZy0+aW02X2RzdCwgJmlwdjZf
+aGRyKHBrdCktPmRhZGRyKTsKQEAgLTg0OCw3ICs4MzksNyBAQCBzdGF0aWMgaW50IGlwNm1yX2Nh
+Y2hlX3JlcG9ydChzdHJ1Y3Qgc2tfYnVmZiAqcGt0LCB2aWZpX3QgdmlmaSwgaW50IGFzc2VydCkK
+ICAqLwogCiBzdGF0aWMgaW50Ci1pcDZtcl9jYWNoZV91bnJlc29sdmVkKHZpZmlfdCB2aWZpLCBz
+dHJ1Y3Qgc2tfYnVmZiAqc2tiKQoraXA2bXJfY2FjaGVfdW5yZXNvbHZlZChtaWZpX3QgbWlmaSwg
+c3RydWN0IHNrX2J1ZmYgKnNrYikKIHsKIAlpbnQgZXJyOwogCXN0cnVjdCBtZmM2X2NhY2hlICpj
+OwpAQCAtODgzLDcgKzg3NCw3IEBAIGlwNm1yX2NhY2hlX3VucmVzb2x2ZWQodmlmaV90IHZpZmks
+IHN0cnVjdCBza19idWZmICpza2IpCiAJCS8qCiAJCSAqCVJlZmxlY3QgZmlyc3QgcXVlcnkgYXQg
+cGltNnNkCiAJCSAqLwotCQlpZiAoKGVyciA9IGlwNm1yX2NhY2hlX3JlcG9ydChza2IsIHZpZmks
+IE1SVDZNU0dfTk9DQUNIRSkpIDwgMCkgeworCQlpZiAoKGVyciA9IGlwNm1yX2NhY2hlX3JlcG9y
+dChza2IsIG1pZmksIE1SVDZNU0dfTk9DQUNIRSkpIDwgMCkgewogCQkJLyogSWYgdGhlIHJlcG9y
+dCBmYWlsZWQgdGhyb3cgdGhlIGNhY2hlIGVudHJ5CiAJCQkgICBvdXQgLSBCcmFkIFBhcmtlcgog
+CQkJICovCkBAIC05OTIsMTEgKzk4MywxMSBAQCBzdGF0aWMgaW50IGlwNm1yX21mY19hZGQoc3Ry
+dWN0IG1mNmNjdGwgKm1mYywgaW50IG1ydHNvY2spCiB7CiAJaW50IGxpbmU7CiAJc3RydWN0IG1m
+YzZfY2FjaGUgKnVjLCAqYywgKipjcDsKLQl1bnNpZ25lZCBjaGFyIHR0bHNbTUFYVklGU107CisJ
+dW5zaWduZWQgY2hhciB0dGxzW01BWE1JRlNdOwogCWludCBpOwogCi0JbWVtc2V0KHR0bHMsIDI1
+NSwgTUFYVklGUyk7Ci0JZm9yIChpID0gMDsgaSA8IE1BWFZJRlM7IGkrKykgeworCW1lbXNldCh0
+dGxzLCAyNTUsIE1BWE1JRlMpOworCWZvciAoaSA9IDA7IGkgPCBNQVhNSUZTOyBpKyspIHsKIAkJ
+aWYgKElGX0lTU0VUKGksICZtZmMtPm1mNmNjX2lmc2V0KSkKIAkJCXR0bHNbaV0gPSAxOwogCkBA
+IC0xMTg4LDcgKzExNzksNyBAQCBpbnQgaXA2X21yb3V0ZV9zZXRzb2Nrb3B0KHN0cnVjdCBzb2Nr
+ICpzaywgaW50IG9wdG5hbWUsIGNoYXIgX191c2VyICpvcHR2YWwsIGludAogCQkJcmV0dXJuIC1F
+SU5WQUw7CiAJCWlmIChjb3B5X2Zyb21fdXNlcigmdmlmLCBvcHR2YWwsIHNpemVvZih2aWYpKSkK
+IAkJCXJldHVybiAtRUZBVUxUOwotCQlpZiAodmlmLm1pZjZjX21pZmkgPj0gTUFYVklGUykKKwkJ
+aWYgKHZpZi5taWY2Y19taWZpID49IE1BWE1JRlMpCiAJCQlyZXR1cm4gLUVORklMRTsKIAkJcnRu
+bF9sb2NrKCk7CiAJCXJldCA9IG1pZjZfYWRkKCZ2aWYsIHNrID09IG1yb3V0ZTZfc29ja2V0KTsK
+
+------=_Part_11451_21059545.1207820410472--
