@@ -1,84 +1,67 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [patch] e1000=y && e1000e=m regression fix
-Date: Thu, 10 Apr 2008 14:23:50 -0700
-Message-ID: <47FE8566.5040809@intel.com>
-References: <20080408193245.GG11962@parisc-linux.org> <20080408195123.GA28148@elte.hu> <47FBCE00.2020309@garzik.org> <20080408200652.GC28148@elte.hu> <47FBD34A.6080508@garzik.org> <20080408203314.GA28952@elte.hu> <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <47FD2325.2030705@intel.com> <47FE5C89.5060209@intel.com> <20080410192714.GA14055@elte.hu>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [patch] e1000=y && e1000e=m regression fix (was:
+	Re: [regression] e1000e broke e1000)
+Date: Thu, 10 Apr 2008 23:35:37 +0200
+Message-ID: <m3prsxpf4m.fsf@maximus.localdomain>
+References: <20080408083606.GA20863@elte.hu> <47FB9ABB.9080403@intel.com>
+	<20080408183921.GA20803@elte.hu>
+	<20080408193245.GG11962@parisc-linux.org>
+	<20080408195123.GA28148@elte.hu> <47FBCE00.2020309@garzik.org>
+	<20080408200652.GC28148@elte.hu> <47FBD34A.6080508@garzik.org>
+	<20080408203314.GA28952@elte.hu> <47FBDBE9.9040700@garzik.org>
+	<47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu>
+	<200804092249.23111.elendil@planet.nl>
+	<m363uqwpds.fsf@maximus.localdomain>
+	<alpine.LFD.1.00.0804091838330.3143@woody.linux-foundation.org>
+	<m34paaav7o.fsf@maximus.localdomain>
+	<alpine.LFD.1.00.0804100724220.3143@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Jeff Garzik <jeff@garzik.org>, Matthew Wilcox <matthew@wil.cx>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	e1000-list <e1000-devel@lists.sourceforge.net>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	Greg KH <greg@kroah.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759256AbYDJV11@vger.kernel.org>
-In-Reply-To: <20080410192714.GA14055@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: auke-jan.h.kok@intel.com, akpm@linux-foundation.org,
+	jeff@garzik.org, matthew@wil.cx, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, Frans Pop <elendil@planet.nl>,
+	bruce.w.allan@intel.com, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, rjw@sisk.pl, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, greg@kroah.com, Ingo Molnar <mingo@elte.hu>,
+	arjan@linux.intel.com, linux-pci@atrey.karlin.mff.cuni.cz
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <alpine.LFD.1.00.0804100724220.3143@woody.linux-foundation.org>
+	(Linus Torvalds's message of "Thu\,
+	10 Apr 2008 07\:30\:34 -0700 \(PDT\)")
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Ingo Molnar wrote:
-> * Kok, Auke <auke-jan.h.kok@intel.com> wrote:
-> 
->>>>  config E1000E_ENABLED
->>>> -	def_bool E1000E != n
->>>> +	def_bool E1000E = y || ((E1000E != n) && (E1000 = E1000E))
->>> Uh, that's /not/ what Ingo's patch does.  His patch makes e1000 
->>> claim the e1000e IDs if e1000 is built-in and e1000e is a module.
->> so that's definately _not_ what I would like to see at all. Matthew 
->> points out that this will just prolong users to use e1000 instead of 
->> e1000e (which is what they should be encouraged to switch to in those 
->> cases).
->>
->> so I'm dropping my ACK
-> 
-> why you want to cripple an existing, rather well working and popular 
-> Linux driver is beyond me.
+Linus Torvalds <torvalds@linux-foundation.org> writes:
 
-Because we decided a long time ago to do this driver split. And everyone at that
-time agreed with that, and we set out to do this. And part of that plan was to
-move (not copy) the device IDs over.
+> No it wouldn't, not when the driver we used forever suddenly stopped 
+> supporting them.
 
-We accepted that that might break some kernel developers' systems in the process
-and consulted several vendors and distros if they were OK with the change and they
-all agreed with the plan.
+In this case e1000 stops supporting them only if you enable e1000e
+too. No e1000e, e1000 still does those IDs. For now, if I understand
+it correctly. And it seems to print a warning.
 
-I do not want people with PCI Express e1000 cards to use e1000 for any day longer
-than is strictly needed, and I certainly do not want to prolong the period where
-both drivers could work on their adapters. That will be a far bigger nightmare for
-me than just a few kernel developers having a bad day.
+So it doesn't work if you make e1000e a module and don't load it.
 
-I guarantee, I will get e-mails about 2.6.25+e1000(e) issues for far longer then
-you guys :)
+> And no, I'm not talking about some theoretical "this could happen" thing. 
+> I hit exactly that with commit
+> 040babf9d84e7010c457e9ce69e9eb1c27927c9e 
 
-Users will outnumber us kernel developers in complaints if we keep the situation
-unclear to them, and we already told them that they need to switch to e1000e for
-their PCI Express devices. If we now do stuff like what you proposed in that
-patch, we just prolong this confusion. That cannot be good for anyone. Imagine if
-distro's start picking random device IDs or worse. Stuff like that is already
-happening, and discussions like these just add to the confusion.
+Right. Now it's a different situation, though.
+-- 
+Krzysztof Halasa
 
-Again - If there is a way to auto-enable e1000e in the right way so that more
-systems migrate better then I'm all for it (even if forcing E1000E=y). But it
-seems that the various patches proposed don't cut it and frankly Kconfig is
-completely inadequate as a hardware enabling script since it knows absolutely
-nothing about the hardware in the first place. And it wasn't meant for that
-either. `make oldconfig` is not the answer ;).
-
-Again - this has happened before, I remember many of my boxes not booting because
-SATA Kconfig options changed and all my boxes failed to move the proper Kconfig
-symbols over when I ran `make oldconfig` myself. Somewhere around 2.6.20 or so.
-
-
-
-Auke
+-------------------------------------------------------------------------
+This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
+Don't miss this year's exciting event. There's still time to save $100. 
+Use priority code J8TL2D2. 
+http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
