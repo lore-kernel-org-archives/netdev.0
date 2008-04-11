@@ -1,164 +1,87 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH 3/14][TUN]: Introduce the tun_net structure.
-Date: Fri, 11 Apr 2008 11:55:59 +0400
-Message-ID: <47FF198F.3070806@openvz.org>
-References: <47FE2AD4.9080609@openvz.org> <47FE2CF0.6080100@openvz.org> <20080411010142.GA16878@linux.vnet.ibm.com>
+Subject: Re: [PATCH 6/14][RTNL]: Introduce the rtnl_kill_links call.
+Date: Fri, 11 Apr 2008 12:01:31 +0400
+Message-ID: <47FF1ADB.1090805@openvz.org>
+References: <47FE2AD4.9080609@openvz.org> <47FE2E01.6030000@openvz.org> <37533.192.168.101.12.1207865395.squirrel@intranet>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Denis Lunev <den@openvz.org>,
 	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: paulmck@linux.vnet.ibm.com
+	Denis Lunev <den@openvz.org>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	Patrick McHardy <kaber@trash.net>
+To: Daniel Hokka Zakrisson <daniel@hozac.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33648 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:48438 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755189AbYDKHeN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2008 03:34:13 -0400
-In-Reply-To: <20080411010142.GA16878@linux.vnet.ibm.com>
+	id S1755166AbYDKHhf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2008 03:37:35 -0400
+In-Reply-To: <37533.192.168.101.12.1207865395.squirrel@intranet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paul E. McKenney wrote:
-> On Thu, Apr 10, 2008 at 07:06:24PM +0400, Pavel Emelyanov wrote:
->> This is the first step in making tuntap devices work in net 
->> namespaces. The structure mentioned is pointed by generic
->> net pointer with tun_net_id id, and tun driver fills one on 
->> its load. It will contain only the tun devices list.
+>> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+>> index da99ac0..bc39e41 100644
+>> --- a/net/core/rtnetlink.c
+>> +++ b/net/core/rtnetlink.c
+>> @@ -269,6 +269,26 @@ int rtnl_link_register(struct rtnl_link_ops *ops)
 >>
->> So declare this structure and introduce net init and exit hooks.
-> 
-> OK, I have to ask...  What prevents someone else from invoking
-> net_generic() concurrently with a call to tun_exit_net(), potentially
-> obtaining a pointer to the structure that tun_exit_net() is about
-> to kfree()?
-
-It's the same as if the tun_net was directly pointed by the struct 
-net. Nobody can grant, that the pointer got by you from the struct
-net is not going to become free, unless you provide this security
-by yourself.
-
-But if you call net_generic to get some pointer other than tun_net,
-then you're fine (due to RCU), providing you play the same rules with
-the pointer you're getting.
-
-Maybe I'm missing something in your question, can you provide some
-testcase, that you suspect may cause an OOPS?
-
-> 						Thanx, Paul
-> 
->> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+>>  EXPORT_SYMBOL_GPL(rtnl_link_register);
 >>
->> ---
->>  drivers/net/tun.c |   53 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
->>  1 files changed, 52 insertions(+), 1 deletions(-)
->>
->> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> index 7b816a0..9bfba02 100644
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
->> @@ -63,6 +63,7 @@
->>  #include <linux/if_tun.h>
->>  #include <linux/crc32.h>
->>  #include <net/net_namespace.h>
->> +#include <net/netns/generic.h>
->>
->>  #include <asm/system.h>
->>  #include <asm/uaccess.h>
->> @@ -73,6 +74,11 @@ static int debug;
->>
->>  /* Network device part of the driver */
->>
->> +static unsigned int tun_net_id;
->> +struct tun_net {
->> +	struct list_head dev_list;
->> +};
->> +
->>  static LIST_HEAD(tun_dev_list);
->>  static const struct ethtool_ops tun_ethtool_ops;
->>
->> @@ -873,6 +879,37 @@ static const struct ethtool_ops tun_ethtool_ops = {
->>  	.set_rx_csum	= tun_set_rx_csum
->>  };
->>
->> +static int tun_init_net(struct net *net)
+>> +static void __rtnl_kill_links(struct net *net, struct rtnl_link_ops *ops)
 >> +{
->> +	struct tun_net *tn;
->> +
->> +	tn = kmalloc(sizeof(*tn), GFP_KERNEL);
->> +	if (tn == NULL)
->> +		return -ENOMEM;
->> +
->> +	INIT_LIST_HEAD(&tn->dev_list);
->> +
->> +	if (net_assign_generic(net, tun_net_id, tn)) {
->> +		kfree(tn);
->> +		return -ENOMEM;
+>> +	struct net_device *dev;
+>> +restart:
+>> +	for_each_netdev(net, dev) {
+>> +		if (dev->rtnl_link_ops == ops) {
+>> +			ops->dellink(dev);
+>> +			goto restart;
+>> +		}
 >> +	}
->> +
->> +	return 0;
 >> +}
 >> +
->> +static void tun_exit_net(struct net *net)
+>> +void rtnl_kill_links(struct net *net, struct rtnl_link_ops *ops)
 >> +{
->> +	struct tun_net *tn;
->> +
->> +	tn = net_generic(net, tun_net_id);
->> +	kfree(tn);
+>> +	rtnl_lock();
+>> +	__rtnl_kill_links(net, ops);
+>> +	rtnl_unlock();
 >> +}
+>> +EXPORT_SYMBOL_GPL(rtnl_kill_links);
 >> +
->> +static struct pernet_operations tun_net_ops = {
->> +	.init = tun_init_net,
->> +	.exit = tun_exit_net,
->> +};
->> +
->>  static int __init tun_init(void)
+>>  /**
+>>   * __rtnl_link_unregister - Unregister rtnl_link_ops from rtnetlink.
+>>   * @ops: struct rtnl_link_ops * to unregister
+>> @@ -277,17 +297,10 @@ EXPORT_SYMBOL_GPL(rtnl_link_register);
+>>   */
+>>  void __rtnl_link_unregister(struct rtnl_link_ops *ops)
 >>  {
->>  	int ret = 0;
->> @@ -880,9 +917,22 @@ static int __init tun_init(void)
->>  	printk(KERN_INFO "tun: %s, %s\n", DRV_DESCRIPTION, DRV_VERSION);
->>  	printk(KERN_INFO "tun: %s\n", DRV_COPYRIGHT);
+>> -	struct net_device *dev, *n;
+>>  	struct net *net;
 >>
->> +	ret = register_pernet_gen_device(&tun_net_id, &tun_net_ops);
->> +	if (ret) {
->> +		printk(KERN_ERR "tun: Can't register pernet ops\n");
->> +		goto err_pernet;
->> +	}
->> +
->>  	ret = misc_register(&tun_miscdev);
->> -	if (ret)
->> +	if (ret) {
->>  		printk(KERN_ERR "tun: Can't register misc device %d\n", TUN_MINOR);
->> +		goto err_misc;
->> +	}
->> +	return 0;
->> +
->> +err_misc:
->> +	unregister_pernet_gen_device(tun_net_id, &tun_net_ops);
->> +err_pernet:
->>  	return ret;
->>  }
->>
->> @@ -899,6 +949,7 @@ static void tun_cleanup(void)
+>>  	for_each_net(net) {
+>> -restart:
+>> -		for_each_netdev_safe(net, dev, n) {
+>> -			if (dev->rtnl_link_ops == ops) {
+>> -				ops->dellink(dev);
+>> -				goto restart;
+>> -			}
+>> -		}
+>> +		__rtnl_kill_links(net, ops);
+> 
+> This was _safe, and now it's not. Is that intentional?
+
+Yup - we goto restart in case we del some link, so there's no need
+in _safe iteration. 
+
+This goto was added by Partick (commit 68365458 [NET]: rtnl_link: 
+fix use-after-free) and I suspect he simply forgot to remove the 
+_safe iterator (I put him in Cc to correct me if I'm wrong).
+
 >>  	}
->>  	rtnl_unlock();
->>
->> +	unregister_pernet_gen_device(tun_net_id, &tun_net_ops);
+>>  	list_del(&ops->list);
 >>  }
->>
->>  module_init(tun_init);
->> -- 
->> 1.5.3.4
->>
 >> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> 1.5.3.4
 > 
 
