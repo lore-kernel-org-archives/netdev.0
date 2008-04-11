@@ -1,50 +1,54 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch] e1000=y && e1000e=m regression fix
-Date: Fri, 11 Apr 2008 18:21:03 -0400
-Message-ID: <47FFE44F.90706@garzik.org>
-References: <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <47FD2325.2030705@intel.com> <47FE5C89.5060209@intel.com> <20080410192714.GA14055@elte.hu> <47FE8566.5040809@intel.com> <20080411112653.GC9205@elte.hu> <20080411113644.GA7767@infradead.org> <20080411121606.GA25661@elte.hu> <47FF9060.5040202@intel.com> <20080411164542.GA4066@infradead.org> <alpine.LFD.1.00.0804111028540.3143@woody.linux-foundation.org> <alpine.LNX.1.00.0804111700550.19665@iabervon.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: 2.6.25-rc8: FTP transfer errors
+Date: Sat, 12 Apr 2008 02:25:36 +0400
+Message-ID: <20080411222536.GA25893@2ka.mipt.ru>
+References: <47FEADCB.7070104@rtr.ca> <20080410.172453.44434205.davem@davemloft.net> <47FEB062.3020003@rtr.ca> <20080410.173911.179180620.davem@davemloft.net> <47FEBDAA.7010305@rtr.ca> <Pine.LNX.4.64.0804110849520.28360@wrl-59.cs.helsinki.fi> <47FF6555.50004@rtr.ca> <20080411143537.GA27874@2ka.mipt.ru> <47FFE33C.1000707@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Ingo Molnar <mingo@elte.hu>, Matthew Wilcox <matthew@wil.cx>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	e1000-list <e1000-devel@lists.sourceforge.net>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	Greg KH <greg@kroah.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Daniel Barkalow <barkalow@iabervon.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Lord <lkml@rtr.ca>,
+	Ilpo =?utf-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>,
+	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, Jeff Garzik <jeff@garzik.org>,
+	rjw@sisk.pl, LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Tilman Schmidt <tilman@imap.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36191 "EHLO mail.dvmed.net"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:44441 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756352AbYDKWVa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2008 18:21:30 -0400
-In-Reply-To: <alpine.LNX.1.00.0804111700550.19665@iabervon.org>
+	id S1756352AbYDKW0E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2008 18:26:04 -0400
+Content-Disposition: inline
+In-Reply-To: <47FFE33C.1000707@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Barkalow wrote:
-> Right now, E1000 means "support both PCI and PCI-E E1000" and E1000E means 
-> "support PCI-E E1000".
+On Sat, Apr 12, 2008 at 12:16:28AM +0200, Tilman Schmidt (tilman@imap.cc) wrote:
+> > Actually that will be the best decision from evolutional point of view. 
+> 
+> So I was right after all? Bug reports from people who (for whatever
+> reason, including having to earn their living) cannot do a bisect are
+> not welcome?
 
-It's even more confusing than that :)
+You got it wrong.
 
-E1000 means "support PCI and a few PCI-E"
+If bug is subtle and developers can not reproduce it, there are only two
+ways out of the problem: to help developers or not to help.
 
-E1000E means "all PCI-E"
+In the latter case bug report is useless (except that to show that it
+exists, since practically no one can fix it until some new details
+added).
 
-There is a goodly number of PCI-E not supported by e1000 (some ich8, all 
-ich9 and thereafter).
+In the former case there is a discussion between developers and
+reporters, so things have progress. In this particular case there were
+no healthy discussion, that is why all this is about.
 
-	Jeff
+Bisection was just an example of the help, reporter can provide. In this
+case there were no other suggestions remotely useful or they were
+already tried. If you can not proceed with what was suggested, then do
+not piss anyone off because you were told to do something to help.
 
+If you go to the doctor because of aching throat and he asks you to
+open a mouth, you will not blame him for asking you to do that.
 
+-- 
+	Evgeniy Polyakov
