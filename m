@@ -1,44 +1,51 @@
-From: akpm@linux-foundation.org
-Subject: [patch for 2.6.25? 3/3] sc92031: sysfs link missing
-Date: Thu, 10 Apr 2008 21:30:38 -0700
-Message-ID: <200804110430.m3B4UcVU000439@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	shemminger@vyatta.com, cesarb@cesarb.net, jgarzik@pobox.com,
-	tom@sharkbay.at
-To: jeff@garzik.org
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: [PATCH 2/7] ATM cell alignment.
+Date: Fri, 11 Apr 2008 06:53:46 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0804110650390.16547@ask.diku.dk>
+References: <200804101435.m3AEZ0bf008603@cmf.nrl.navy.mil>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+To: chas3@users.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:59635 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750957AbYDKEbQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 00:31:16 -0400
+Received: from mgw1.diku.dk ([130.225.96.91]:44803 "EHLO mgw1.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757936AbYDKExu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2008 00:53:50 -0400
+In-Reply-To: <200804101435.m3AEZ0bf008603@cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
+On Thu, 10 Apr 2008, Chas Williams (CONTRACTOR) wrote:
 
-Add missing sysfs device association. Compile tested only -ENOHW.
+> In message <Pine.LNX.4.64.0804092259460.21022@ask.diku.dk>,Jesper Dangaard Brou
+> er writes:
+>> +#define ATM_CELL_SIZE               53  /* ATM cell size incl. header */
+>> +#define ATM_CELL_PAYLOAD            48  /* ATM payload size */
+>
+> these constants are already in linux/atm.h
 
-Addresses http://bugzilla.kernel.org/show_bug.cgi?id=10380
+Yes, I remember.  My original patch also contained some #ifndef's to 
+handle that case.  I cannot remember, but there was some reason why I 
+needed those, something about the ATM part of TC not always being 
+included.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>
-Cc: Cesar Eduardo Barros <cesarb@cesarb.net>
-Cc: <tom@sharkbay.at>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
++#ifndef ATM_CELL_SIZE
++#define ATM_CELL_SIZE               53  /* ATM cell size incl. header */
++#endif
++#ifndef ATM_CELL_PAYLOAD
++#define ATM_CELL_PAYLOAD            48  /* ATM payload size */
++#endif
 
- drivers/net/sc92031.c |    1 +
- 1 file changed, 1 insertion(+)
+Hilsen
+   Jesper Brouer
 
-diff -puN drivers/net/sc92031.c~sc92031-sysfs-link-missing drivers/net/sc92031.c
---- a/drivers/net/sc92031.c~sc92031-sysfs-link-missing
-+++ a/drivers/net/sc92031.c
-@@ -1444,6 +1444,7 @@ static int __devinit sc92031_probe(struc
- 	}
- 
- 	pci_set_drvdata(pdev, dev);
-+	SET_NETDEV_DEV(dev, &pdev->dev);
- 
- #if SC92031_USE_BAR == 0
- 	dev->mem_start = pci_resource_start(pdev, SC92031_USE_BAR);
-_
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
