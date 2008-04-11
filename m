@@ -1,12 +1,12 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [regression] e1000e broke e1000
-Date: Fri, 11 Apr 2008 13:30:18 +0200
-Message-ID: <20080411113018.GD9205@elte.hu>
-References: <20080408083606.GA20863@elte.hu> <47FB9ABB.9080403@intel.com> <20080408183921.GA20803@elte.hu> <20080408193245.GG11962@parisc-linux.org> <20080408195123.GA28148@elte.hu> <47FBCE00.2020309@garzik.org> <20080408200652.GC28148@elte.hu> <47FBD620.1080508@intel.com> <20080409191256.GB9276@elte.hu> <47FD19F5.9020509@garzik.org>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [patch] e1000=y && e1000e=m regression fix
+Date: Fri, 11 Apr 2008 07:36:44 -0400
+Message-ID: <20080411113644.GA7767@infradead.org>
+References: <20080408200652.GC28148@elte.hu> <47FBD34A.6080508@garzik.org> <20080408203314.GA28952@elte.hu> <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <47FD2325.2030705@intel.com> <47FE5C89.5060209@intel.com> <20080410192714.GA14055@elte.hu> <47FE8566.5040809@intel.com> <20080411112653.GC9205@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Matthew Wilcox <matthew@wil.cx>,
+	Jeff Garzik <jeff@garzik.org>, Matthew Wilcox <matthew@wil.cx>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	NetDev <netdev@vger.kernel.org>,
 	e1000-list <e1000-devel@lists.sourceforge.net>,
@@ -20,38 +20,44 @@ Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
 	Greg KH <greg@kroah.com>,
 	Arjan van de Ven <arjan@linux.intel.com>,
 	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760290AbYDKLbP@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760312AbYDKLha@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <47FD19F5.9020509@garzik.org>
+In-Reply-To: <20080411112653.GC9205@elte.hu>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Apr 11, 2008 at 01:26:53PM +0200, Ingo Molnar wrote:
+> really, just because you do exceedingly good things to Linux does not 
+> give you a free card to do something bad to Linux in exchange. The two 
+> do not cancel out each other - because the bad things _add up_ and drive 
+> away users, irreversibly. To you e1000 is the center of the universe so 
+> you feel the price is worth paying. For others it is not. We want the 
+> good things from you and we'll say no thanks to the bad ideas. Kernel 
+> developers, especially old-timers, regularly forget about that.
 
-* Jeff Garzik <jeff@garzik.org> wrote:
+Hey, hey calm down.  The device moving over to e1000e shouldn never
+have been added to e1000.  They're totally differnet and the only reason
+they got added in thefirst time was because soemone talked intel into
+it.
 
->> So i'm not sure why you are arguing about all this. Please just fix 
->> this bug, simple as that.
->
-> I haven't said NAK, but I think the suggested fix is a waste of time 
-> because
->
-> 1) it breaks (by disallowing) a valid setup based on one report
->
-> 2) it only happens to experienced kernel hackers with weird configs
->
-> 3) the suggested fix binds together more tightly two drivers we are 
-> trying to keep separate
->
-> 4) it is a temporary situation that will go away in 2.6.26 anyway
+We discussed this a long time and came to a wide agreement it should
+move out.  Now the actual transition could and should have been handled
+better, but with all the pci-e hardware in a separate driver we're all
+off better in the long term.
 
-well, your 2.6.26 plans, if i understand them correctly, is to move 
-currently working PCI IDs from e1000 to e1000e, like you attempted to d 
-it in v2.6.24, which Linus reverted - correct? I.e. e1000 simply wont 
-support eth0 on my T60 from 2.6.26 on? That is still an incredibly 
-stupid plan, and no amount of announcement on lkml will make it any less 
-stupid.
+And this is not really comparable to the libata transition at all,
+there's no user-visible changed.  For every distro kernel that just
+builds both driver it's a completely seamless transition, and for
+people who build their own kernel we should find some Kconfig trickery
+to make the transition easier.  For example we could just built e1000e
+when CONFIG_E1000 is set and spill a warning that starting from 1.1.2009
+you will have to have CONFIG_E1000E set aswell.
 
-... which pretty much pulls the rug from under your argument, no?
-
-	Ingo
+> 
+> 	Ingo
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---end quoted text---
