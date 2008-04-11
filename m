@@ -1,72 +1,47 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [patch] e1000=y && e1000e=m regression fix
-Date: Fri, 11 Apr 2008 10:26:05 -0700
-Message-ID: <47FF9F2D.1040107@intel.com>
-References: <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <47FD2325.2030705@intel.com> <47FE5C89.5060209@intel.com> <20080410192714.GA14055@elte.hu> <47FE8566.5040809@intel.com> <20080411112653.GC9205@elte.hu> <20080411113644.GA7767@infradead.org> <20080411121606.GA25661@elte.hu> <47FF9060.5040202@intel.com> <20080411164542.GA4066@infradead.org>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [PATCH 2/2] [POWERPC] UCC nodes cleanup
+Date: Fri, 11 Apr 2008 21:31:00 +0400
+Message-ID: <20080411173100.GA20439@polina.dev.rtsoft.ru>
+References: <20080311171045.GB4684@localhost.localdomain> <82E8E38A-C159-4C23-BDE8-086D4429F366@kernel.crashing.org> <20080411160654.GA25506@polina.dev.rtsoft.ru> <47FF9665.7020403@freescale.com> <20080411170657.GA15270@polina.dev.rtsoft.ru> <20080411171109.GA16119@polina.dev.rtsoft.ru> <47FF9BFE.5000201@freescale.com> <20080411172106.GA17786@polina.dev.rtsoft.ru>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>, Ingo Molnar <mingo@elte.hu>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	e1000-list <e1000-devel@lists.sourceforge.net>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	Greg KH <greg@kroah.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Jeff Garzik <jeff@garzik.org>, NetDev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761900AbYDKRaX@vger.kernel.org>
-In-Reply-To: <20080411164542.GA4066@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf8
+Cc: linuxppc-dev@ozlabs.org, Jeff Garzik <jgarzik@pobox.com>,
+	linux-serial@vger.kernel.org, netdev@vger.kernel.org
+To: Timur Tabi <timur@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:7071 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1760012AbYDKRbC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 13:31:02 -0400
+Content-Disposition: inline
+In-Reply-To: <20080411172106.GA17786@polina.dev.rtsoft.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Christoph Hellwig wrote:
-> On Fri, Apr 11, 2008 at 09:22:56AM -0700, Kok, Auke wrote:
->> You don't provide a solution, nor does anyone, and I don't see any solution to
->> what you want but to completely cancel this driver split.
->>
->> And I'm _not_ going to do that.
+On Fri, Apr 11, 2008 at 09:21:06PM +0400, Anton Vorontsov wrote:
+> On Fri, Apr 11, 2008 at 12:12:30PM -0500, Timur Tabi wrote:
+> > Anton Vorontsov wrote:
+> > 
+> > > Or maybe I'm thinking here in terms of "fsl,ucc"... and cell-index is
+> > > indeed should be -1... don't know. Please decide. ;-)
+> > 
+> > Well, that's what I was thinking.  cell-index is zero-based, so UCC1 should have
+> > cell-index = <0>.
+> > 
+> > Of course, this means all the code needs to change, since I think device-id is
+> > one-based.
 > 
-> As a start we could do two driver keyed off a single Kconfig variable.
-> And then find a way to get users informed that they might need to
-> enabled the other one
+> Yup. You raised a really good question, because we're _introducing_
+> cell-index for UCC nodes, and if we'll choice wrong numbering scheme
+> now, then there will be no way back w/o breaking backward compatibility.
 
+Hm... thinking about it more, we're introducing implementation for the
+cell-index, but device tree was "infected" already.
 
-This is probably the ugliest way to do it, but I just checked and if E1000=m then
-automatically becomes E1000E=m etc.
+So, too late. :-D
 
-Using 'default' will not work as people will misunderstand the issue and disable
-e1000e anyway, while they often need e1000e instead of e1000.
-
-Yes, this does mean that it's impossible to have e1000 but not enable e1000e, but
-given the threads I think this is becoming more reasonable then ever for this
-particular issue.
-
----
-e1000e: select automatically if e1000 is enabled
-
-This terrible Kconfig hack prevents most people from accidentally forgetting to
-enable e1000e where appropriate - just enable it by default. This patch should be
-removed once e1000e merge is done and settled.
-
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index ec764a9..19b5b2b 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1968,6 +1968,7 @@ config DL2K
- config E1000
- 	tristate "Intel(R) PRO/1000 Gigabit Ethernet support"
- 	depends on PCI
-+	select E1000E
- 	---help---
- 	  This driver supports Intel(R) PRO/1000 gigabit ethernet family of
- 	  adapters.  For more information on how to identify your adapter, go
+-- 
+Anton Vorontsov
+email: cbouatmailru@gmail.com
+irc://irc.freenode.net/bd2
