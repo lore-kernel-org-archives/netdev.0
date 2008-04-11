@@ -1,71 +1,75 @@
-From: Philip Craig <philipc@snapgear.com>
-Subject: Re: [patch] e1000=y && e1000e=m regression fix
-Date: Fri, 11 Apr 2008 10:46:00 +1000
-Message-ID: <47FEB4C8.3020303@snapgear.com>
-References: <20080408193245.GG11962@parisc-linux.org> <20080408195123.GA28148@elte.hu> <47FBCE00.2020309@garzik.org> <20080408200652.GC28148@elte.hu> <47FBD34A.6080508@garzik.org> <20080408203314.GA28952@elte.hu> <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <47FD2325.2030705@intel.com> <47FE5C89.5060209@intel.com> <20080410192714.GA14055@elte.hu> <47FE8566.5040809@intel.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: 2.6.25-rc8: FTP transfer errors
+Date: Fri, 11 Apr 2008 02:56:49 +0200
+Message-ID: <47FEB751.7040703@imap.cc>
+References: <9a8748490804101509l5d043ff8w565dc44dfeaf0072@mail.gmail.com>	<20080410.154651.101700010.davem@davemloft.net>	<47FEADCB.7070104@rtr.ca> <20080410.172453.44434205.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Jeff Garzik <jeff@garzik.org>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	e1000-list <e1000-devel@lists.sourceforge.net>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	Greg KH <greg@kroah.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig40C9103EC9432D9674B44DBE"
+Cc: lkml@rtr.ca, jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org,
+	jeff@garzik.org, rjw@sisk.pl, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.snapgear.com ([203.143.235.140]:50945 "EHLO
-	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750949AbYDKAqL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 20:46:11 -0400
-In-Reply-To: <47FE8566.5040809@intel.com>
+Received: from out1.smtp.messagingengine.com ([66.111.4.25]:49321 "EHLO
+	out1.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751213AbYDKA5I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 20:57:08 -0400
+In-Reply-To: <20080410.172453.44434205.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kok, Auke wrote:
-> Again - If there is a way to auto-enable e1000e in the right way so that more
-> systems migrate better then I'm all for it (even if forcing E1000E=y). But it
-> seems that the various patches proposed don't cut it and frankly Kconfig is
-> completely inadequate as a hardware enabling script since it knows absolutely
-> nothing about the hardware in the first place. And it wasn't meant for that
-> either. `make oldconfig` is not the answer ;).
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig40C9103EC9432D9674B44DBE
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-One problem is that the meaning of E1000 has been changed.  It covers less
-hardware than it used to.
+David Miller schrieb:
+> From: Mark Lord <lkml@rtr.ca>
+> Date: Thu, 10 Apr 2008 20:16:11 -0400
+>=20
+>> Duh.. more like, "If I take 5-8 hours to attempt a bisect (which may n=
+ot
+>> even work), then that's 5-8 hours I do not get paid for."
+>=20
+> And if I invest my spare time on your bug how does this statement
+> apply to me?  Or does it only apply to you?
+>=20
+> Every single argument you make that supports why you should not be
+> investing the necessary time into the bug applies equally to the
+> very developers you are so quickly to quip at and want help from.
 
-You could add a new option to control the e1000 driver, and make E1000 set
-both this new option and E1000E.  Thus it will always cover at least all
-the IDs that the original e1000 driver handled.
+I think you got it backwards. Mark and other bug reporters (including,
+at times, yours truly) are helping you and other developers to make
+Linux better. Most of the times I report a bug, I am not asking for help
+- I have no personal need to get it fixed, as I can easily avoid it, and
+I only report it to give developers like you a chance to fix it before
+it really hurts someone - and I gather that Mark has been in a similar
+position wrt to the bug in question.
 
-config E1000
-	tristate "Both Intel(R) PRO/1000 Gigabit Ethernet support"
-	depends on PCI
+So what would you have us do? Not report the bugs we find so that you
+don't have to invest your spare time on "our" bugs? Report them and
+accept a rebuke for our "unwillingness" to do even more benevolent work
+than we already did? Report only those for which we really need a fix,
+and are consequently willing to invest additional time?
 
-config E1000_ONLY
-	tristate "Intel(R) PRO/1000 Gigabit Ethernet support" if E1000=n
-	default E1000
-	depends on PCI
+Thanks,
+Tilman
 
-config E1000E
-	tristate "Intel(R) PRO/1000 PCI-Express Gigabit Ethernet support" if E1000=n
-	default E1000
-	depends on PCI
 
-The E1000E prompt restriction is required to upgrade existing E1000=y,
-E1000E=m configs to E1000E=y.
+--------------enig40C9103EC9432D9674B44DBE
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-But it will also upgrade E1000=y/m,E1000E=n to E1000E=y/m, which may not
-always be right.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.4-svn0 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
 
-This still doesn't solve any problems with loading modules for E1000=m.
-Loading the e1000 module will still load support for less than it used to.
-(Because make oldconfig is not the answer ;-)
+iD8DBQFH/rdfQ3+did9BuFsRAs/qAJ9nUM42Vci9MoLh0ffXZav9jxHn9ACbBFlz
+AvcVqBJoHOAcvecMN7ox+OE=
+=/5bk
+-----END PGP SIGNATURE-----
+
+--------------enig40C9103EC9432D9674B44DBE--
