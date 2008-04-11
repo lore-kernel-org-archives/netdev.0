@@ -1,72 +1,50 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: 2.6.25-rc8: FTP transfer errors
-Date: Sat, 12 Apr 2008 00:16:28 +0200
-Message-ID: <47FFE33C.1000707@imap.cc>
-References: <47FEADCB.7070104@rtr.ca> <20080410.172453.44434205.davem@davemloft.net> <47FEB062.3020003@rtr.ca> <20080410.173911.179180620.davem@davemloft.net> <47FEBDAA.7010305@rtr.ca> <Pine.LNX.4.64.0804110849520.28360@wrl-59.cs.helsinki.fi> <47FF6555.50004@rtr.ca> <20080411143537.GA27874@2ka.mipt.ru>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch] e1000=y && e1000e=m regression fix
+Date: Fri, 11 Apr 2008 18:21:03 -0400
+Message-ID: <47FFE44F.90706@garzik.org>
+References: <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <47FD2325.2030705@intel.com> <47FE5C89.5060209@intel.com> <20080410192714.GA14055@elte.hu> <47FE8566.5040809@intel.com> <20080411112653.GC9205@elte.hu> <20080411113644.GA7767@infradead.org> <20080411121606.GA25661@elte.hu> <47FF9060.5040202@intel.com> <20080411164542.GA4066@infradead.org> <alpine.LFD.1.00.0804111028540.3143@woody.linux-foundation.org> <alpine.LNX.1.00.0804111700550.19665@iabervon.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig6A43D906AE25848C812516AA"
-Cc: Mark Lord <lkml@rtr.ca>,
-	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
-	yoshfuji@linux-ipv6.org, Jeff Garzik <jeff@garzik.org>,
-	rjw@sisk.pl, LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Ingo Molnar <mingo@elte.hu>, Matthew Wilcox <matthew@wil.cx>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>,
+	e1000-list <e1000-devel@lists.sourceforge.net>,
+	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	Greg KH <greg@kroah.com>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: Daniel Barkalow <barkalow@iabervon.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1.smtp.messagingengine.com ([66.111.4.25]:46132 "EHLO
-	out1.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752616AbYDKWQo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 18:16:44 -0400
-In-Reply-To: <20080411143537.GA27874@2ka.mipt.ru>
+Received: from srv5.dvmed.net ([207.36.208.214]:36191 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756352AbYDKWVa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2008 18:21:30 -0400
+In-Reply-To: <alpine.LNX.1.00.0804111700550.19665@iabervon.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig6A43D906AE25848C812516AA
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Daniel Barkalow wrote:
+> Right now, E1000 means "support both PCI and PCI-E E1000" and E1000E means 
+> "support PCI-E E1000".
 
-On Fri, 11 Apr 2008 18:35:37 +0400, Evgeniy Polyakov wrote:
-> On Fri, Apr 11, 2008 at 09:19:17AM -0400, Mark Lord (lkml@rtr.ca) wrote=
-:
+It's even more confusing than that :)
 
->> I offered tons of help, gave it, and said I didn't have time for a ful=
-l
->> bisect at that juncture.
->>
->> For that, I get repeatedly slammed by the netdev folks.
->> Even after I put aside *paid* work to submit to your demands.
->>
->> Next time around, I won't bother reporting bugs to you folks,
->> that's for damned sure.
->=20
-> Actually that will be the best decision from evolutional point of view.=
-=20
+E1000 means "support PCI and a few PCI-E"
 
-So I was right after all? Bug reports from people who (for whatever
-reason, including having to earn their living) cannot do a bisect are
-not welcome?
+E1000E means "all PCI-E"
 
-:-(
-T.
+There is a goodly number of PCI-E not supported by e1000 (some ich8, all 
+ich9 and thereafter).
+
+	Jeff
 
 
-
-
---------------enig6A43D906AE25848C812516AA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.4-svn0 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
-
-iD8DBQFH/+NHQ3+did9BuFsRAgTEAJ9qsR99e4X90ZMkvaew0Ce6g6H6GQCdG4/5
-Cd/xkGPRbTZowqOGsEYIVY4=
-=KpDO
------END PGP SIGNATURE-----
-
---------------enig6A43D906AE25848C812516AA--
