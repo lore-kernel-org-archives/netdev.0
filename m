@@ -1,75 +1,155 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: 2.6.25-rc8: FTP transfer errors
-Date: Fri, 11 Apr 2008 02:56:49 +0200
-Message-ID: <47FEB751.7040703@imap.cc>
-References: <9a8748490804101509l5d043ff8w565dc44dfeaf0072@mail.gmail.com>	<20080410.154651.101700010.davem@davemloft.net>	<47FEADCB.7070104@rtr.ca> <20080410.172453.44434205.davem@davemloft.net>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 3/14][TUN]: Introduce the tun_net structure.
+Date: Thu, 10 Apr 2008 18:01:42 -0700
+Message-ID: <20080411010142.GA16878@linux.vnet.ibm.com>
+References: <47FE2AD4.9080609@openvz.org> <47FE2CF0.6080100@openvz.org>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig40C9103EC9432D9674B44DBE"
-Cc: lkml@rtr.ca, jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org,
-	jeff@garzik.org, rjw@sisk.pl, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Denis Lunev <den@openvz.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	Benjamin Thery <benjamin.thery@bull.net>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1.smtp.messagingengine.com ([66.111.4.25]:49321 "EHLO
-	out1.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751213AbYDKA5I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 20:57:08 -0400
-In-Reply-To: <20080410.172453.44434205.davem@davemloft.net>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:49149 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756006AbYDKBBy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 21:01:54 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3B11i4f013663
+	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 21:01:44 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3B11iSb195306
+	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 19:01:44 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3B11hh0014205
+	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 19:01:44 -0600
+Content-Disposition: inline
+In-Reply-To: <47FE2CF0.6080100@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig40C9103EC9432D9674B44DBE
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Thu, Apr 10, 2008 at 07:06:24PM +0400, Pavel Emelyanov wrote:
+> This is the first step in making tuntap devices work in net 
+> namespaces. The structure mentioned is pointed by generic
+> net pointer with tun_net_id id, and tun driver fills one on 
+> its load. It will contain only the tun devices list.
+> 
+> So declare this structure and introduce net init and exit hooks.
 
-David Miller schrieb:
-> From: Mark Lord <lkml@rtr.ca>
-> Date: Thu, 10 Apr 2008 20:16:11 -0400
->=20
->> Duh.. more like, "If I take 5-8 hours to attempt a bisect (which may n=
-ot
->> even work), then that's 5-8 hours I do not get paid for."
->=20
-> And if I invest my spare time on your bug how does this statement
-> apply to me?  Or does it only apply to you?
->=20
-> Every single argument you make that supports why you should not be
-> investing the necessary time into the bug applies equally to the
-> very developers you are so quickly to quip at and want help from.
+OK, I have to ask...  What prevents someone else from invoking
+net_generic() concurrently with a call to tun_exit_net(), potentially
+obtaining a pointer to the structure that tun_exit_net() is about
+to kfree()?
 
-I think you got it backwards. Mark and other bug reporters (including,
-at times, yours truly) are helping you and other developers to make
-Linux better. Most of the times I report a bug, I am not asking for help
-- I have no personal need to get it fixed, as I can easily avoid it, and
-I only report it to give developers like you a chance to fix it before
-it really hurts someone - and I gather that Mark has been in a similar
-position wrt to the bug in question.
+						Thanx, Paul
 
-So what would you have us do? Not report the bugs we find so that you
-don't have to invest your spare time on "our" bugs? Report them and
-accept a rebuke for our "unwillingness" to do even more benevolent work
-than we already did? Report only those for which we really need a fix,
-and are consequently willing to invest additional time?
-
-Thanks,
-Tilman
-
-
---------------enig40C9103EC9432D9674B44DBE
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.4-svn0 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
-
-iD8DBQFH/rdfQ3+did9BuFsRAs/qAJ9nUM42Vci9MoLh0ffXZav9jxHn9ACbBFlz
-AvcVqBJoHOAcvecMN7ox+OE=
-=/5bk
------END PGP SIGNATURE-----
-
---------------enig40C9103EC9432D9674B44DBE--
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> 
+> ---
+>  drivers/net/tun.c |   53 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
+>  1 files changed, 52 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 7b816a0..9bfba02 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -63,6 +63,7 @@
+>  #include <linux/if_tun.h>
+>  #include <linux/crc32.h>
+>  #include <net/net_namespace.h>
+> +#include <net/netns/generic.h>
+> 
+>  #include <asm/system.h>
+>  #include <asm/uaccess.h>
+> @@ -73,6 +74,11 @@ static int debug;
+> 
+>  /* Network device part of the driver */
+> 
+> +static unsigned int tun_net_id;
+> +struct tun_net {
+> +	struct list_head dev_list;
+> +};
+> +
+>  static LIST_HEAD(tun_dev_list);
+>  static const struct ethtool_ops tun_ethtool_ops;
+> 
+> @@ -873,6 +879,37 @@ static const struct ethtool_ops tun_ethtool_ops = {
+>  	.set_rx_csum	= tun_set_rx_csum
+>  };
+> 
+> +static int tun_init_net(struct net *net)
+> +{
+> +	struct tun_net *tn;
+> +
+> +	tn = kmalloc(sizeof(*tn), GFP_KERNEL);
+> +	if (tn == NULL)
+> +		return -ENOMEM;
+> +
+> +	INIT_LIST_HEAD(&tn->dev_list);
+> +
+> +	if (net_assign_generic(net, tun_net_id, tn)) {
+> +		kfree(tn);
+> +		return -ENOMEM;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +static void tun_exit_net(struct net *net)
+> +{
+> +	struct tun_net *tn;
+> +
+> +	tn = net_generic(net, tun_net_id);
+> +	kfree(tn);
+> +}
+> +
+> +static struct pernet_operations tun_net_ops = {
+> +	.init = tun_init_net,
+> +	.exit = tun_exit_net,
+> +};
+> +
+>  static int __init tun_init(void)
+>  {
+>  	int ret = 0;
+> @@ -880,9 +917,22 @@ static int __init tun_init(void)
+>  	printk(KERN_INFO "tun: %s, %s\n", DRV_DESCRIPTION, DRV_VERSION);
+>  	printk(KERN_INFO "tun: %s\n", DRV_COPYRIGHT);
+> 
+> +	ret = register_pernet_gen_device(&tun_net_id, &tun_net_ops);
+> +	if (ret) {
+> +		printk(KERN_ERR "tun: Can't register pernet ops\n");
+> +		goto err_pernet;
+> +	}
+> +
+>  	ret = misc_register(&tun_miscdev);
+> -	if (ret)
+> +	if (ret) {
+>  		printk(KERN_ERR "tun: Can't register misc device %d\n", TUN_MINOR);
+> +		goto err_misc;
+> +	}
+> +	return 0;
+> +
+> +err_misc:
+> +	unregister_pernet_gen_device(tun_net_id, &tun_net_ops);
+> +err_pernet:
+>  	return ret;
+>  }
+> 
+> @@ -899,6 +949,7 @@ static void tun_cleanup(void)
+>  	}
+>  	rtnl_unlock();
+> 
+> +	unregister_pernet_gen_device(tun_net_id, &tun_net_ops);
+>  }
+> 
+>  module_init(tun_init);
+> -- 
+> 1.5.3.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
