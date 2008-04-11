@@ -1,123 +1,56 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 3/14][TUN]: Introduce the tun_net structure.
-Date: Fri, 11 Apr 2008 09:27:52 -0700
-Message-ID: <20080411162752.GB29878@linux.vnet.ibm.com>
-References: <47FE2AD4.9080609@openvz.org> <47FE2CF0.6080100@openvz.org> <20080411010142.GA16878@linux.vnet.ibm.com> <47FF198F.3070806@openvz.org> <20080411150440.GA8354@linux.vnet.ibm.com> <47FF8782.6010006@openvz.org>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [patch] e1000=y && e1000e=m regression fix
+Date: Fri, 11 Apr 2008 09:22:56 -0700
+Message-ID: <47FF9060.5040202@intel.com>
+References: <47FBD34A.6080508@garzik.org> <20080408203314.GA28952@elte.hu> <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <47FD2325.2030705@intel.com> <47FE5C89.5060209@intel.com> <20080410192714.GA14055@elte.hu> <47FE8566.5040809@intel.com> <20080411112653.GC9205@elte.hu> <20080411113644.GA7767@infradead.org> <20080411121606.GA25661@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Denis Lunev <den@openvz.org>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Jeff Garzik <jeff@garzik.org>, Matthew Wilcox <matthew@wil.cx>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>,
+	e1000-list <e1000-devel@lists.sourceforge.net>,
+	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	Greg KH <greg@kroah.com>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:42392 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761396AbYDKQ15 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 12:27:57 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3BGPtef028524
-	for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 12:25:55 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3BGRtid193802
-	for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 10:27:55 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3BGRqT7016834
-	for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 10:27:55 -0600
-Content-Disposition: inline
-In-Reply-To: <47FF8782.6010006@openvz.org>
+Received: from mga01.intel.com ([192.55.52.88]:43660 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758329AbYDKQhd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2008 12:37:33 -0400
+In-Reply-To: <20080411121606.GA25661@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 11, 2008 at 07:45:06PM +0400, Pavel Emelyanov wrote:
-> Paul E. McKenney wrote:
-> > On Fri, Apr 11, 2008 at 11:55:59AM +0400, Pavel Emelyanov wrote:
-> >> Paul E. McKenney wrote:
-> >>> On Thu, Apr 10, 2008 at 07:06:24PM +0400, Pavel Emelyanov wrote:
-> >>>> This is the first step in making tuntap devices work in net 
-> >>>> namespaces. The structure mentioned is pointed by generic
-> >>>> net pointer with tun_net_id id, and tun driver fills one on 
-> >>>> its load. It will contain only the tun devices list.
-> >>>>
-> >>>> So declare this structure and introduce net init and exit hooks.
-> >>> OK, I have to ask...  What prevents someone else from invoking
-> >>> net_generic() concurrently with a call to tun_exit_net(), potentially
-> >>> obtaining a pointer to the structure that tun_exit_net() is about
-> >>> to kfree()?
-> >> It's the same as if the tun_net was directly pointed by the struct 
-> >> net. Nobody can grant, that the pointer got by you from the struct
-> >> net is not going to become free, unless you provide this security
-> >> by yourself.
-> > 
-> > So tun_net acquires some lock before calling net_generic(), and that
-> > same lock is held when calling tun_exit_net()?  Or is there but a
-> 
-> No.
-> 
-> > single tun_net task, so that it will never call tun_net_exit()
-> > at the same time that it calls net_generic() for the tun_net pointer?
-> 
-> tun_net_exit is called only when a struct net is no longer referenced
-> and is going to be kfree-ed itself, so it's impossible (or BUGy by its
-> own) that someone still has a pointer on this net.
-> 
-> Providing the struct net is alive (!), the net->gen array is alive (or
-> is scheduled for kfree after RCU grace period). Thus, if your code 
-> holds the net and uses the net_generic() call, then it will get alive 
-> net->gen array and alive tun_net pointer.
-> 
-> Next, what happens after net_generic() completes and leaves the RCU-read 
-> section? Simple - the struct net is (should be) still referenced, so the
-> tun_net_exit cannot yet be called and thus the tun_net pointer obtained
-> earlier is alive. Unlike the (possibly) former instance of the net_generic
-> array, but nobody references this one in my code (and should not do so,
-> hm... I think I'll add this rule to the comments).
-> 
-> >> But if you call net_generic to get some pointer other than tun_net,
-> >> then you're fine (due to RCU), providing you play the same rules with
-> >> the pointer you're getting.
-> > 
-> > Agreed, RCU protects the net_generic structure, but not the structures
-> > pointed to by that structure.
-> 
-> They are protected by struct net reference counting.
+Ingo Molnar wrote:
+> i dont really care _how_ this gets solved - i'm not maintaining this 
+> code. What forced me to deal with it was this outright denial of my 
+> problem, the ridiculing and NACK-ing of it and general stonewalling.
 
-Ah, OK, got it!  Thank you for the tutorial!
+this is a gross misrepresentation and misunderstanding. You're completely ignoring
+the fact that:
 
-> >> Maybe I'm missing something in your question, can you provide some
-> >> testcase, that you suspect may cause an OOPS?
-> > 
-> > Just trying to understand what prevents one task from calling
-> > net_generic() to pick up the tun_net pointer at the same time some other
-> > task calls tun_net_exit().
-> 
-> If this task dereferences a "held" struct net, then should be OK. If 
-> this task does not, this will OOPs in any case.
-> 
-> Consider the struct net to look like
-> 
-> struct net {
-> 	...
-> 	void *ptrs[N];
-> }
-> 
-> and the net_generic to be just
-> 
-> static inline void net_generic(struct net *net, int id)
-> {
-> 	BUG_ON(id >= N);
-> 	return net->ptrs[id - 1];
-> }
-> 
-> That's the same to what I propose, except for the ptrs array is on the
-> RCU protected memory.
+(1) I debated whether it was a "regression" - in my opinion design changes that
+deliberately break things are hardly worth this incredibly negative stamp
 
-So RCU is protecting -only- the net_generic structure that net_generic()
-is traversing, and the structure returned by net_generic() is protected
-by a reference counter in the upper-level struct net.
+(2) I never NACK'ed your patch. I just withdrew my ack.
 
-If this is the approach, I am happy.  ;-)
+(3) You're stonewalling me by pretty much forcing me to completely drop the driver
+split and not showing any understanding for the reason behind the split at all.
 
-							Thanx, Paul
+
+You don't provide a solution, nor does anyone, and I don't see any solution to
+what you want but to completely cancel this driver split.
+
+And I'm _not_ going to do that.
+
+
