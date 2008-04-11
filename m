@@ -1,57 +1,75 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: 2.6.25-rc8: FTP transfer errors
-Date: Fri, 11 Apr 2008 15:58:47 -0400
-Message-ID: <22897.1207943927@turing-police.cc.vt.edu>
-References: <47FEADCB.7070104@rtr.ca> <20080410.172453.44434205.davem@davemloft.net> <47FEB062.3020003@rtr.ca> <20080410.173911.179180620.davem@davemloft.net> <47FEBDAA.7010305@rtr.ca> <Pine.LNX.4.64.0804110849520.28360@wrl-59.cs.helsinki.fi> <47FF6555.50004@rtr.ca> <20080411143537.GA27874@2ka.mipt.ru>
-            <47FF7CED.9090601@rtr.ca>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [patch] e1000=y && e1000e=m regression fix
+Date: Fri, 11 Apr 2008 13:21:52 -0700 (PDT)
+Message-ID: <alpine.LFD.1.00.0804111307440.3143@woody.linux-foundation.org>
+References: <20080410192714.GA14055@elte.hu> <47FE8566.5040809@intel.com>
+	<20080411112653.GC9205@elte.hu>
+	<20080411113644.GA7767@infradead.org>
+	<20080411121606.GA25661@elte.hu> <47FF9060.5040202@intel.com>
+	<20080411164542.GA4066@infradead.org>
+	<alpine.LFD.1.00.0804111028540.3143@woody.linux-foundation.org>
+	<20080411175304.GF11962@parisc-linux.org>
+	<alpine.LFD.1.00.0804111146450.3143@woody.linux-foundation.org>
+	<20080411190128.GG11962@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1207943927_4539P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	=?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
-	tilman@imap.cc, yoshfuji@linux-ipv6.org,
-	Jeff Garzik <jeff@garzik.org>, rjw@sisk.pl,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Mark Lord <lkml@rtr.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from turing-police.cc.vt.edu ([128.173.14.107]:45028 "EHLO
-	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757321AbYDKUG5 (ORCPT
-	<RFC822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 16:06:57 -0400
-In-Reply-To: Your message of "Fri, 11 Apr 2008 10:59:57 EDT."
-             <47FF7CED.9090601@rtr.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
---==_Exmh_1207943927_4539P
-Content-Type: text/plain; charset=us-ascii
-
-On Fri, 11 Apr 2008 10:59:57 EDT, Mark Lord said:
-
-> The one thing I did not have time for initially,
-> was a painstaking blunt instrument binary search of
-> every commit since v2.6.24.
-
-The nice thing about binary search is that it's by definition an
-O(log2(N)) operation, which isn't bad at all as far as algorithms go.
-
-The truly blunt instrument here would be a linear search of every commit...
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>,
+	e1000-list <e1000-devel@lists.sourceforge.net>,
+	NetDev <netdev@vger.kernel.org>,
+	"Allan,  Bruce W" <bruce.w.allan@intel.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Christoph Hellwig <hch@infradead.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak,  John" <john.ronciak@intel.com>, Greg KH <greg@kroah.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>
+To: Matthew Wilcox <matthew@wil.cx>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20080411190128.GG11962@parisc-linux.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
 
 
---==_Exmh_1207943927_4539P
-Content-Type: application/pgp-signature
+On Fri, 11 Apr 2008, Matthew Wilcox wrote:
+> 
+> We only support people keeping their old configs after they run 'make
+> oldconfig', right?  At which point they'd be prompted for E1000_SUPPORT.
+> Presumably they'd think "That's odd.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
+Ok, I'm not even interested in discussing this.
 
-iD8DBQFH/8L3cC3lWbTT17ARAqJAAKC17YoTbNXtjO74Cjix2TH8lXnMEgCgxEhM
-zVFXyJR40oOzhDfY/4004+k=
-=DXhx
------END PGP SIGNATURE-----
+Have you followed the discussion at all? Did you even notice _why_ we're 
+discussing it?
 
---==_Exmh_1207943927_4539P--
+Here's a damn big hint: teh thing you say "Presumably they'd think" is 
+exactly what we're talking about, AND HELL NO THEY DIDN'T!
+
+That goes for both me and Ingo.
+
+So stop blathering. The _fact_ is that two kernel developers were really 
+upset about the fact that their machines stopped working with old 
+configurations. Stop the inane ".. but that would never happen", because 
+the whole discussion is because IT DID HAPPEN!
+
+		Linus
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
+Don't miss this year's exciting event. There's still time to save $100. 
+Use priority code J8TL2D2. 
+http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
