@@ -1,211 +1,68 @@
-From: Joonwoo Park <joonwpark81@gmail.com>
-Subject: [PATCH 2/5] [VLAN]: Add vlan tag into PACKET_AUXDATA
-Date: Fri, 11 Apr 2008 22:57:45 +0900
-Message-ID: <20080411135745.GB8137@tp64>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [DCCP]: Fix skb->cb conflicts with IP
+Date: Fri, 11 Apr 2008 14:59:08 +0100
+Message-ID: <20080411135908.GA20937@gerrit.erg.abdn.ac.uk>
+References: <47F61B5C.8090105@trash.net> <20080404132644.GA5989@ghostprotocols.net> <47FF6A8D.30705@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: kaber@trash.net
+Content-Type: multipart/mixed; boundary="NzB8fVQJ5HfG6fxh"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	dccp@vger.kernel.org, Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from el-out-1112.google.com ([209.85.162.179]:42377 "EHLO
-	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753062AbYDKN6O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 09:58:14 -0400
-Received: by el-out-1112.google.com with SMTP id v27so373974ele.17
-        for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 06:58:12 -0700 (PDT)
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43692 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758869AbYDKN7g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2008 09:59:36 -0400
 Content-Disposition: inline
+In-Reply-To: <47FF6A8D.30705@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The hardware vlan acceleration feature of netdev strips vlan tag.
-This patch put the tag into auxdata if it was stripped.
-Since the skb->cb has no additional room for the tag, this patch
-eliminates sll_family from the skb->cb which is AF_PACKET always.
 
-Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
----
- include/linux/if_packet.h |    1 +
- net/packet/af_packet.c    |   78 +++++++++++++++++++++++++++++++++++----------
- 2 files changed, 62 insertions(+), 17 deletions(-)
+--NzB8fVQJ5HfG6fxh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
-index ad09609..08ba915 100644
---- a/include/linux/if_packet.h
-+++ b/include/linux/if_packet.h
-@@ -57,6 +57,7 @@ struct tpacket_auxdata
- 	__u32		tp_snaplen;
- 	__u16		tp_mac;
- 	__u16		tp_net;
-+	__u16		tp_vlan_TCI;
- };
+>>>     [DCCP]: Fix skb->cb conflicts with IP
+>>>         dev_queue_xmit() and the other IP output functions expect to 
+<snip>
+>
+> Dave, I'm not sure whether you've missed this or expect it
+> to go through Arnaldo, just want to make sure it doesn't
+> get missed because of a misunderstanding :)
+>
+>
+If it is not too much work, can you please also remove the two attached
+hunks which are now redundant thanks to the above patch.
+
+
+The University of Aberdeen is a charity registered in Scotland, No SC013683.
+
+
+--NzB8fVQJ5HfG6fxh
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="remove_unused_memset.diff"
+
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -489,7 +489,6 @@ static int dccp_v4_send_response(struct sock *sk, struct request_sock *req,
  
- struct tpacket_hdr
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index b8b827c..2897aaf 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -79,6 +79,7 @@
- #include <linux/poll.h>
- #include <linux/module.h>
- #include <linux/init.h>
-+#include <linux/if_vlan.h>
+ 		dh->dccph_checksum = dccp_v4_csum_finish(skb, ireq->loc_addr,
+ 							      ireq->rmt_addr);
+-		memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+ 		err = ip_build_and_send_pkt(skb, sk, ireq->loc_addr,
+ 					    ireq->rmt_addr,
+ 					    ireq->opt);
+--- a/net/dccp/output.c
++++ b/net/dccp/output.c
+@@ -126,7 +126,6 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
  
- #ifdef CONFIG_INET
- #include <net/inet_common.h>
-@@ -191,11 +192,26 @@ struct packet_sock {
- #endif
- };
+ 		DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
  
-+struct sockaddr_ll_af {
-+	/* unsigned short	sll_family; */
-+	__be16			sll_protocol;
-+	int			sll_ifindex;
-+	unsigned short		sll_hatype;
-+	unsigned char		sll_pkttype;
-+	unsigned char		sll_halen;
-+	unsigned char		sll_addr[8];
-+} __attribute__ ((packed));
-+
-+#define BUILD_OFFSET_BUG_ON(ll, offset)					\
-+	BUILD_BUG_ON(offsetof(struct sockaddr_ll_af, ll) + offset	\
-+		     != offsetof(struct sockaddr_ll, ll));
-+
- struct packet_skb_cb {
--	unsigned int origlen;
-+	unsigned int		origlen;
-+	unsigned short		vlan_TCI;
- 	union {
- 		struct sockaddr_pkt pkt;
--		struct sockaddr_ll ll;
-+		struct sockaddr_ll_af ll_af;
- 	} sa;
- };
- 
-@@ -241,6 +257,7 @@ static int packet_rcv_spkt(struct sk_buff *skb, struct net_device *dev,  struct
- {
- 	struct sock *sk;
- 	struct sockaddr_pkt *spkt;
-+	unsigned short tag;
- 
- 	/*
- 	 *	When we registered the protocol we saved the socket in the data
-@@ -288,6 +305,13 @@ static int packet_rcv_spkt(struct sk_buff *skb, struct net_device *dev,  struct
- 	strlcpy(spkt->spkt_device, dev->name, sizeof(spkt->spkt_device));
- 	spkt->spkt_protocol = skb->protocol;
- 
-+	if (dev->features & (NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX))
-+		__vlan_hwaccel_get_tag(skb, &tag);
-+	else
-+		tag = 0;
-+
-+	PACKET_SKB_CB(skb)->vlan_TCI = tag;
-+
- 	/*
- 	 *	Charge the memory to the socket. This is done specifically
- 	 *	to prevent sockets using all the memory up.
-@@ -439,11 +463,12 @@ static inline unsigned int run_filter(struct sk_buff *skb, struct sock *sk,
- static int packet_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
- {
- 	struct sock *sk;
--	struct sockaddr_ll *sll;
-+	struct sockaddr_ll_af *sll_af;
- 	struct packet_sock *po;
- 	u8 * skb_head = skb->data;
- 	int skb_len = skb->len;
- 	unsigned int snaplen, res;
-+	unsigned short tag;
- 
- 	if (skb->pkt_type == PACKET_LOOPBACK)
- 		goto drop;
-@@ -500,17 +525,23 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev, struct packet
- 	BUILD_BUG_ON(sizeof(*PACKET_SKB_CB(skb)) + MAX_ADDR_LEN - 8 >
- 		     sizeof(skb->cb));
- 
--	sll = &PACKET_SKB_CB(skb)->sa.ll;
--	sll->sll_family = AF_PACKET;
--	sll->sll_hatype = dev->type;
--	sll->sll_protocol = skb->protocol;
--	sll->sll_pkttype = skb->pkt_type;
-+	if (dev->features & (NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX))
-+		__vlan_hwaccel_get_tag(skb, &tag);
-+	else
-+		tag = 0;
-+
-+	sll_af = &PACKET_SKB_CB(skb)->sa.ll_af;
-+	sll_af->sll_hatype = dev->type;
-+	sll_af->sll_protocol = skb->protocol;
-+	sll_af->sll_pkttype = skb->pkt_type;
- 	if (unlikely(po->origdev))
--		sll->sll_ifindex = orig_dev->ifindex;
-+		sll_af->sll_ifindex = orig_dev->ifindex;
- 	else
--		sll->sll_ifindex = dev->ifindex;
-+		sll_af->sll_ifindex = dev->ifindex;
- 
--	sll->sll_halen = dev_parse_header(skb, sll->sll_addr);
-+	sll_af->sll_halen = dev_parse_header(skb, sll_af->sll_addr);
-+
-+	PACKET_SKB_CB(skb)->vlan_TCI = tag;
- 
- 	PACKET_SKB_CB(skb)->origlen = skb->len;
- 
-@@ -1034,7 +1065,7 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	struct sock *sk = sock->sk;
- 	struct sk_buff *skb;
- 	int copied, err;
--	struct sockaddr_ll *sll;
-+	struct sockaddr_ll_af *sll_af;
- 
- 	err = -EINVAL;
- 	if (flags & ~(MSG_PEEK|MSG_DONTWAIT|MSG_TRUNC|MSG_CMSG_COMPAT))
-@@ -1071,11 +1102,12 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	 *	it in now.
- 	 */
- 
--	sll = &PACKET_SKB_CB(skb)->sa.ll;
-+	sll_af = &PACKET_SKB_CB(skb)->sa.ll_af;
- 	if (sock->type == SOCK_PACKET)
- 		msg->msg_namelen = sizeof(struct sockaddr_pkt);
- 	else
--		msg->msg_namelen = sll->sll_halen + offsetof(struct sockaddr_ll, sll_addr);
-+		msg->msg_namelen = sll_af->sll_halen
-+				   + offsetof(struct sockaddr_ll_af, sll_addr);
- 
- 	/*
- 	 *	You lose any data beyond the buffer you gave. If it worries a
-@@ -1095,9 +1127,20 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
- 
- 	sock_recv_timestamp(msg, sk, skb);
- 
--	if (msg->msg_name)
--		memcpy(msg->msg_name, &PACKET_SKB_CB(skb)->sa,
--		       msg->msg_namelen);
-+	if (msg->msg_name) {
-+		struct sockaddr_ll *ll = (struct sockaddr_ll*)msg->msg_name;
-+
-+		BUILD_OFFSET_BUG_ON(sll_protocol,  sizeof(ll->sll_family));
-+		BUILD_OFFSET_BUG_ON(sll_ifindex,  sizeof(ll->sll_family));
-+		BUILD_OFFSET_BUG_ON(sll_hatype,  sizeof(ll->sll_family));
-+		BUILD_OFFSET_BUG_ON(sll_pkttype,  sizeof(ll->sll_family));
-+		BUILD_OFFSET_BUG_ON(sll_halen,  sizeof(ll->sll_family));
-+		BUILD_OFFSET_BUG_ON(sll_addr,  sizeof(ll->sll_family));
-+
-+		ll->sll_family = AF_PACKET;
-+		memcpy((unsigned char*)ll + sizeof(ll->sll_family),
-+		       &PACKET_SKB_CB(skb)->sa, msg->msg_namelen);
-+	}
- 
- 	if (pkt_sk(sk)->auxdata) {
- 		struct tpacket_auxdata aux;
-@@ -1109,6 +1152,7 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		aux.tp_snaplen = skb->len;
- 		aux.tp_mac = 0;
- 		aux.tp_net = skb_network_offset(skb);
-+		aux.tp_vlan_TCI = PACKET_SKB_CB(skb)->vlan_TCI;
- 
- 		put_cmsg(msg, SOL_PACKET, PACKET_AUXDATA, sizeof(aux), &aux);
+-		memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+ 		err = icsk->icsk_af_ops->queue_xmit(skb, 0);
+ 		return net_xmit_eval(err);
  	}
--- 
-1.5.4.3
 
-
+--NzB8fVQJ5HfG6fxh--
