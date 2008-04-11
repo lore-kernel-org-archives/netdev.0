@@ -1,70 +1,60 @@
-From: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 2/14][NETNS]: Generic per-net pointers.
-Date: Fri, 11 Apr 2008 18:29:13 +0400
-Message-ID: <47FF75B9.2090508@openvz.org>
-References: <47FE2AD4.9080609@openvz.org> <47FE2C78.1030207@openvz.org>
-	<47FF6B1B.5090106@fr.ibm.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [TOMOYO #7 30/30] Hooks for SAKURA and TOMOYO.
+Date: Fri, 11 Apr 2008 23:12:27 +0900
+Message-ID: <200804112312.HGE69734.LFOOHQOSFFMJtV@I-love.SAKURA.ne.jp>
+References: <20080404122242.867070732@I-love.SAKURA.ne.jp>
+	<20080404122408.986477936@I-love.SAKURA.ne.jp>
+	<200804071140.59247.paul.moore@hp.com>
+	<47FC8052.9070409@nttdata.co.jp>
+	<20080409131151.GK11962@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Benjamin Thery <benjamin.thery-6ktuUTfB/bM@public.gmane.org>, Denis Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <47FF6B1B.5090106-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: paul.moore@hp.com, penguin-kernel@I-love.SAKURA.ne.jp,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, takedakn@nttdata.co.jp,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
+To: matthew@wil.cx
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20080409131151.GK11962@parisc-linux.org>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[snip]
+Sorry for slow response.
 
->> @@ -29,10 +32,21 @@ static __net_init int setup_net(struct net *net)
->>  	/* Must be called with net_mutex held */
->>  	struct pernet_operations *ops;
->>  	int error;
->> +	struct net_generic *ng;
->>
->>  	atomic_set(&net->count, 1);
->>  	atomic_set(&net->use_count, 0);
->>
->> +	error = -ENOMEM;
->> +	ng = kzalloc(sizeof(struct net_generic) +
->> +			INITIAL_NET_GEN_PTRS * sizeof(void *), GFP_KERNEL);
-> 
-> Why do you need to allocate more than sizeof(struct net_generic) ?
+Matthew Wilcox wrote:
+> When the rule is put in place, say "No modifications to /etc/passwd",
+> look up the inode and major:minor of /etc/passwd.  If there's a rename,
+> look up the new inode number.  If it's mounted elsewhere, it doesn't
+> matter, they still can't modify it because it has the same
+> major:minor:inode.
 
-That's just an optimization to avoid many reallocations in the
-nearest future. I planned to make similar in net_assign_generic
-(allocate a bit more that required), but decided to do it later
-to keep net_assign_generic simpler.
+If write access is denied because of a rule "No modifications to /etc/passwd",
+a rule "Allow modifications to /tmp/passwd" can no longer be enforced after
+"mount --bind /etc/ /tmp/" or "mount --bind /etc/passwd /tmp/passwd" or
+"mv /etc/passwd /tmp/passwd" or "ln /etc/passwd /tmp/passwd" is done.
 
-Currently I have only 5 users of generic pointers (tun and vlan
-you see and I have patches for ipip, ipgre and sit tunnels), so
-that's enough for the first time.
+"No modifications" (i.e. "forbid modifications") and
+"Allow modifications" (i.e. "don't forbid modifications") are incompatible
+rules as long as the rules are described using pathnames but the judgment is
+done using inodes (or labels).
 
-[snip]
+If rules are described like "No modifications to passwd_t",
+it is correct to deny modifications of the file when the file
+with passwd_t was renamed or bind-mounted or hard-linked.
+Those who want to do access restriction based on the entity of the file
+prefer rules described using inodes (or labels).
 
->> +int net_assign_generic(struct net *net, int id, void *data)
->> +{
->> +	struct net_generic *ng, *old_ng;
->> +
->> +	BUG_ON(!mutex_is_locked(&net_mutex));
->> +	BUG_ON(id == 0);
->> +
->> +	ng = old_ng = net->gen;
-> 
-> shouldn't it be rcu_dereferenced ?
+If rules are described like "No modifications to /etc/passwd" and
+"Allow modifications to /tmp/passwd", it is wrong to deny modifications of
+the file when /etc/passwd was renamed or bind-mounted or hard-linked to
+/tmp/passwd .
+Those who want to do access restriction based on the location of the file
+prefer rules described using pathnames.
 
-Nope - nobody can race with us and change this pointer, so it's
-safe to get one without rcu_dereference.
+SELinux and Smack are the former.
+AppArmor and TOMOYO Linux are the latter.
 
-Thanks,
-Pavel
+> Is this workable?
+I'm afraid it is unlikely.
+
+Thank you.
