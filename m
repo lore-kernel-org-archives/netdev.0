@@ -1,125 +1,71 @@
 From: Joonwoo Park <joonwpark81@gmail.com>
-Subject: [PATCH 1/5] [VLAN]: Unclassified vlan packet
-Date: Fri, 11 Apr 2008 22:57:14 +0900
-Message-ID: <20080411135714.GA8137@tp64>
+Subject: [PATCH 3/5] [VLAN]: Use is_vlan_dev()
+Date: Fri, 11 Apr 2008 22:58:25 +0900
+Message-ID: <20080411135825.GC8137@tp64>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.174]:3081 "EHLO
+Received: from wf-out-1314.google.com ([209.85.200.175]:5278 "EHLO
 	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758793AbYDKN50 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 09:57:26 -0400
-Received: by wf-out-1314.google.com with SMTP id 28so498992wff.4
-        for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 06:57:26 -0700 (PDT)
+	with ESMTP id S1758868AbYDKN6i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 09:58:38 -0400
+Received: by wf-out-1314.google.com with SMTP id 28so499384wff.4
+        for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 06:58:38 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To be polite to the PACKET,
-Don't kill the unclassified & hardware accelerated vlan packets if netdev
-is in promiscuous, set packet type with PACKET_OTHERHOST. 
-Put the vlan tag into skb->cb for all hardware accelerated vlan packets.
+Use simplified is_vlan_dev function.
 
 Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
 ---
- include/linux/if_vlan.h |   56 +++++++++++++++++++++++++++++-----------------
- 1 files changed, 35 insertions(+), 21 deletions(-)
+ net/8021q/vlan.c     |    3 +--
+ net/8021q/vlan_dev.c |    2 +-
+ net/8021q/vlanproc.c |    2 +-
+ 3 files changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 79504b2..e400141 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -62,6 +62,9 @@ struct vlan_ethhdr {
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index b33410a..a213bd1 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -527,8 +527,7 @@ static int vlan_ioctl_handler(struct net *net, void __user *arg)
+ 			goto out;
  
- #include <linux/skbuff.h>
- 
-+static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *skb,
-+						     unsigned short tag);
-+
- static inline struct vlan_ethhdr *vlan_eth_hdr(const struct sk_buff *skb)
- {
- 	return (struct vlan_ethhdr *)skb_mac_header(skb);
-@@ -175,14 +178,19 @@ static inline int __vlan_hwaccel_rx(struct sk_buff *skb,
- 				    unsigned short vlan_tag, int polling)
- {
- 	struct net_device_stats *stats;
-+	struct net_device *vlan_dev;
- 
- 	if (skb_bond_should_drop(skb)) {
- 		dev_kfree_skb_any(skb);
- 		return NET_RX_DROP;
+ 		err = -EINVAL;
+-		if (args.cmd != ADD_VLAN_CMD &&
+-		    !(dev->priv_flags & IFF_802_1Q_VLAN))
++		if (args.cmd != ADD_VLAN_CMD && !is_vlan_dev(dev))
+ 			goto out;
  	}
  
--	skb->dev = vlan_group_get_device(grp, vlan_tag & VLAN_VID_MASK);
--	if (skb->dev == NULL) {
-+	vlan_dev = vlan_group_get_device(grp, vlan_tag & VLAN_VID_MASK);
-+	if (vlan_dev)
-+		skb->dev = vlan_dev;
-+	else if (skb->dev->flags & IFF_PROMISC)
-+		skb->pkt_type = PACKET_OTHERHOST;
-+	else {
- 		dev_kfree_skb_any(skb);
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 480ea90..df9786f 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -684,7 +684,7 @@ static int vlan_dev_init(struct net_device *dev)
+ 		dev->hard_start_xmit = vlan_dev_hard_start_xmit;
+ 	}
  
- 		/* Not NET_RX_DROP, this is not being dropped
-@@ -191,31 +199,37 @@ static inline int __vlan_hwaccel_rx(struct sk_buff *skb,
+-	if (real_dev->priv_flags & IFF_802_1Q_VLAN)
++	if (is_vlan_dev(real_dev))
+ 		subclass = 1;
+ 
+ 	lockdep_set_class_and_subclass(&dev->_xmit_lock,
+diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
+index 9671aa5..5727f57 100644
+--- a/net/8021q/vlanproc.c
++++ b/net/8021q/vlanproc.c
+@@ -289,7 +289,7 @@ static int vlandev_seq_show(struct seq_file *seq, void *offset)
+ 	static const char fmt[] = "%30s %12lu\n";
+ 	int i;
+ 
+-	if (!(vlandev->priv_flags & IFF_802_1Q_VLAN))
++	if (!is_vlan_dev(vlandev))
  		return 0;
- 	}
  
-+	/* Deliever vlan_tag to PACKET */
-+	__vlan_hwaccel_put_tag(skb, vlan_tag);
-+
- 	skb->dev->last_rx = jiffies;
- 
- 	stats = &skb->dev->stats;
- 	stats->rx_packets++;
- 	stats->rx_bytes += skb->len;
- 
--	skb->priority = vlan_get_ingress_priority(skb->dev, vlan_tag);
--	switch (skb->pkt_type) {
--	case PACKET_BROADCAST:
--		break;
--
--	case PACKET_MULTICAST:
--		stats->multicast++;
--		break;
--
--	case PACKET_OTHERHOST:
--		/* Our lower layer thinks this is not local, let's make sure.
--		 * This allows the VLAN to have a different MAC than the underlying
--		 * device, and still route correctly.
--		 */
--		if (!compare_ether_addr(eth_hdr(skb)->h_dest,
--				       	skb->dev->dev_addr))
--			skb->pkt_type = PACKET_HOST;
--		break;
--	};
-+	if (vlan_dev) {
-+		skb->priority = vlan_get_ingress_priority(skb->dev, vlan_tag);
-+		switch (skb->pkt_type) {
-+		case PACKET_BROADCAST:
-+			break;
-+
-+		case PACKET_MULTICAST:
-+			stats->multicast++;
-+			break;
-+
-+		case PACKET_OTHERHOST:
-+			/* Our lower layer thinks this is not local, let's
-+			 * make sure.
-+			 * This allows the VLAN to have a different MAC than
-+			 * the underlying device, and still route correctly.
-+			 */
-+			if (!compare_ether_addr(eth_hdr(skb)->h_dest,
-+							skb->dev->dev_addr))
-+				skb->pkt_type = PACKET_HOST;
-+			break;
-+		};
-+	}
- 
- 	return (polling ? netif_receive_skb(skb) : netif_rx(skb));
- }
+ 	seq_printf(seq,
 -- 
 1.5.4.3
 
