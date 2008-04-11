@@ -1,43 +1,37 @@
-From: Jeremy Jackson <jerj@coplanar.net>
-Subject: Re: Re-queueing of skb in vlan_skb_recv
-Date: Fri, 11 Apr 2008 08:53:24 -0400
-Message-ID: <1207918405.22152.97.camel@ragnarok>
-References: <8A9D56C5E50F774BABE033F1710B357601084C42@BBY1EXM11.pmc_nt.nt.pmc-sierra.bc.ca>
-	 <47FF5DAB.1060906@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH][NET_SCHED] cls_u32: refcounting fix for u32_delete()
+Date: Fri, 11 Apr 2008 14:55:27 +0200
+Message-ID: <47FF5FBF.6030802@trash.net>
+References: <20080411124519.GA2701@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Brian Oostenbrink <Brian_Oostenbrink@pmc-sierra.com>,
-	linux-net@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <47FF5DAB.1060906@trash.net>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:53734 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758456AbYDKMza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 08:55:30 -0400
+In-Reply-To: <20080411124519.GA2701@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-04-11 at 14:46 +0200, Patrick McHardy wrote:
-> Brian Oostenbrink wrote:
-> > In vlan_skb_recv, packets are generally stripped of their vlan header,
-> > and then re-queued via netif_rx().  Is there a reason for re-queuing
-> > these instead of calling netif_receive_skb() directly?  On our system
-> > (an embedded linux router), this re-queuing has a significant
-> > performance penalty.
+Jarek Poplawski wrote:
+> [NET_SCHED] cls_u32: refcounting fix for u32_delete()
 > 
-> Its done to save stack space. There's currently a discussion
-> about making loopback use netif_receive_skb in case enough
-> stack is still available. Once that patch gets merged I'll
-> change VLAN in a similar way.
+> @@ -441,8 +443,10 @@ static int u32_delete(struct tcf_proto *tp, unsigned long arg)
+>  	if (tp->root == ht)
+>  		return -EINVAL;
+>  
+> -	if (--ht->refcnt == 0)
+> +	if (ht->refcnt == 1) {
+> +		ht->refcnt--;
+>  		u32_destroy_hnode(tp, ht);
+> +	}
+>  
 
-There was a patch floating around fixing VLAN + Bridge, I'm wondering if
-it got any traction (ie merged), or if this would affect future merge of
-that feature?
-
-
--- 
-Jeremy Jackson
-Coplanar Networks
-(519)489-4903
-http://www.coplanar.net
-jerj@coplanar.net
-
+Shouldn't the refcount be decremented unconditionally?
+Otherwise I'd suggest to reject the removal if refcnt > 1,
+but silently doing nothing doesn't seem right.
