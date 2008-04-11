@@ -1,54 +1,56 @@
-From: Mark Lord <lkml@rtr.ca>
+From: David Miller <davem@davemloft.net>
 Subject: Re: 2.6.25-rc8: FTP transfer errors
-Date: Thu, 10 Apr 2008 20:29:23 -0400
-Message-ID: <47FEB0E3.8080507@rtr.ca>
-References: <9a8748490804101509l5d043ff8w565dc44dfeaf0072@mail.gmail.com>	<20080410.154651.101700010.davem@davemloft.net>	<47FEADCB.7070104@rtr.ca> <20080410.172648.187059862.davem@davemloft.net>
+Date: Thu, 10 Apr 2008 17:39:11 -0700 (PDT)
+Message-ID: <20080410.173911.179180620.davem@davemloft.net>
+References: <47FEADCB.7070104@rtr.ca>
+	<20080410.172453.44434205.davem@davemloft.net>
+	<47FEB062.3020003@rtr.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: jesper.juhl@gmail.com, tilman@imap.cc, yoshfuji@linux-ipv6.org,
 	jeff@garzik.org, rjw@sisk.pl, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, xemul@openvz.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtr.ca ([76.10.145.34]:1035 "EHLO mail.rtr.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753564AbYDKA3Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2008 20:29:25 -0400
-In-Reply-To: <20080410.172648.187059862.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netdev@vger.kernel.org
+To: lkml@rtr.ca
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758217AbYDKAjY@vger.kernel.org>
+In-Reply-To: <47FEB062.3020003@rtr.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Mark Lord <lkml@rtr.ca>
-> Date: Thu, 10 Apr 2008 20:16:11 -0400
-> 
->> [c67499c0e772064b37ad75eb69b28fc218752636 is first bad commit
->> commit c67499c0e772064b37ad75eb69b28fc218752636
->> Author: Pavel Emelyanov <xemul@openvz.org>
->> Date:   Thu Jan 31 05:06:40 2008 -0800
->>
->>     [NETNS]: Tcp-v4 sockets per-net lookup.
->>
->>     Add a net argument to inet_lookup and propagate it further
->>     into lookup calls. Plus tune the __inet_check_established.
->>
->>     The dccp and inet_diag, which use that lookup functions
->>     pass the init_net into them.
->>
->>     Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
->>     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> Thanks Mark.
-> 
-> Pavel can you take a look?  I suspect that the namespace
-> changes or gets NULL'd out somehow and this leads to the
-> resets because the socket can no longer be found.  Perhaps
-> it's even a problem with time-wait socket namespace
-> propagation.
-..
+From: Mark Lord <lkml@rtr.ca>
+Date: Thu, 10 Apr 2008 20:27:14 -0400
 
-My system here is now set up for quick/easy retest, if you have any
-suggestions or patches to try out.
+> It's *your* bug -- you signed off on the commit.
 
-Thanks guys.
+I sign off on basically every networking commit, does that mean I have
+to fix every networking bug and every networking bug is "mine"?
+
+Of course not, that doesn't scale at all.  What does scale is a
+combination of good fully formed bug reports from users combined with
+the efforts of the global developer pool.
+
+Linus signs off on every patch from Andrew Morton he puts into the
+tree, which is a lot, but does Linus work on every bug introduced by
+one of those patches and are such bugs "his" bugs?  Of course he
+doesn't, and of course not.  They get pushed up to the person
+who wrote the patch once identified as such, and the patch is
+reverted if the developer is unresponsive and this will have
+consequences for patches they submit in the future.
+
+I still think you have a very self-centered attitude about things.
+This is about distributing effort, not forcing it upon individuals
+or a constrained resource.
+
+If I get hit by a bus, networking bugs would still get fixed if
+handled properly.
+
+And it's a win-win situation.  The incentive for a capable user to do
+a bisect or whatever else is that if they do it their bug gets fixed
+quickly.  That is the free market economy of Linux kernel bug
+reporting.
+
+It addresses the issue that in reality we'll never fix all bugs, and
+therefore we prioritize.  And therefore if there is a bisected bug
+report and also another one from a user who refuses to do that, guess
+which bug gets worked on with a higher priority and which bug gets
+fixed first?
