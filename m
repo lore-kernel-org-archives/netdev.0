@@ -1,36 +1,42 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Re-queueing of skb in vlan_skb_recv
-Date: Fri, 11 Apr 2008 15:02:39 +0200
-Message-ID: <47FF616F.6090309@trash.net>
-References: <8A9D56C5E50F774BABE033F1710B357601084C42@BBY1EXM11.pmc_nt.nt.pmc-sierra.bc.ca>	 <47FF5DAB.1060906@trash.net> <1207918405.22152.97.camel@ragnarok>
+Subject: Re: [PATCH 0/5]: [VLAN] fixes for PACKET
+Date: Fri, 11 Apr 2008 15:04:22 +0200
+Message-ID: <47FF61D6.3090206@trash.net>
+References: <20080411092523.GA6873@tp64>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Brian Oostenbrink <Brian_Oostenbrink@pmc-sierra.com>,
-	linux-net@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jeremy Jackson <jerj@coplanar.net>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <1207918405.22152.97.camel@ragnarok>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: auke-jan.h.kok@intel.com, davem@davemloft.net, jeff@garzik.org,
+	netdev@vger.kernel.org
+To: Joonwoo Park <joonwpark81@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:53936 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758041AbYDKNE0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 09:04:26 -0400
+In-Reply-To: <20080411092523.GA6873@tp64>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jeremy Jackson wrote:
-> On Fri, 2008-04-11 at 14:46 +0200, Patrick McHardy wrote:
->> Brian Oostenbrink wrote:
->>> In vlan_skb_recv, packets are generally stripped of their vlan header,
->>> and then re-queued via netif_rx().  Is there a reason for re-queuing
->>> these instead of calling netif_receive_skb() directly?  On our system
->>> (an embedded linux router), this re-queuing has a significant
->>> performance penalty.
->> Its done to save stack space. There's currently a discussion
->> about making loopback use netif_receive_skb in case enough
->> stack is still available. Once that patch gets merged I'll
->> change VLAN in a similar way.
+Joonwoo Park wrote:
+> Hi,
+> This patchset is the v3 for resolving the issue about VLAN & PACKET.
+> It contains some cleanups for vlan as well.
 > 
-> There was a patch floating around fixing VLAN + Bridge, I'm wondering if
-> it got any traction (ie merged), or if this would affect future merge of
-> that feature?
+> Related previous discussions are below:
+> http://bugzilla.kernel.org/show_bug.cgi?id=8218
+> http://thread.gmane.org/gmane.linux.drivers.e1000.devel/2587
+> http://thread.gmane.org/gmane.linux.network/88488
+> 
+> [PATCH 1/5] [VLAN]: Unclassified vlan packet
+> [PATCH 2/5] [VLAN]: Add vlan tag into PACKET_AUXDATA
+> [PATCH 3/5] [VLAN]: Use is_vlan_dev()
+> [PATCH 4/5] [E1000]: [VLAN] Turn off the HW vlan filter if promisc
+> [PATCH 5/5] [E1000e]: [VLAN] Turn off the HW vlan filter if promisc
+> 
+> Thanks Patrick for the suggestions.
+> 
+> Please review and consider applying.
 
-Whats broken with VLAN + Bridge? Do you have a pointer to
-this patch?
+
+Your patches don't seem to have made it to the list or my inbox.
