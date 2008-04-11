@@ -1,85 +1,244 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH take2][NET_SCHED] cls_u32: refcounting fix for u32_delete()
-Date: Fri, 11 Apr 2008 13:48:18 +0000
-Message-ID: <20080411134818.GA3776@ff.dom.local>
-References: <20080411124519.GA2701@ff.dom.local> <47FF5FBF.6030802@trash.net> <20080411132304.GB2701@ff.dom.local> <47FF662B.2040302@trash.net>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [PATCH 2/14][NETNS]: Generic per-net pointers.
+Date: Fri, 11 Apr 2008 15:43:55 +0200
+Message-ID: <47FF6B1B.5090106@fr.ibm.com>
+References: <47FE2AD4.9080609@openvz.org> <47FE2C78.1030207@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Denis Lunev <den@openvz.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	Benjamin Thery <benjamin.thery@bull.net>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:21028 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751625AbYDKNpy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 09:45:54 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so185736nfb.21
-        for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 06:45:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <47FF662B.2040302@trash.net>
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:13120 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754689AbYDKNsc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 09:48:32 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate6.de.ibm.com (8.13.8/8.13.8) with ESMTP id m3BDmUha209816
+	for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 13:48:30 GMT
+Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3BDmUNG4014198
+	for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 15:48:30 +0200
+Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3BDmTON020310
+	for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 15:48:30 +0200
+In-Reply-To: <47FE2C78.1030207@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 11, 2008 at 03:22:51PM +0200, Patrick McHardy wrote:
-...
-> I'd suggest to behave similar to qdiscs when trying to
-> removing classes that are still referenced, return -EBUSY.
+Pavel Emelyanov wrote:
+> Add the elastic array of void * pointer to the struct net.
+> The access rules are simple:
+> 
+>  1. register the ops with register_pernet_gen_device to get
+>     the id of your private pointer
+>  2. call net_assign_generic() to put the private data on the
+>     struct net (most preferably this should be done in the
+>     ->init callback of the ops registered)
+>  3. do not change this pointer while the net is alive;
+>  4. use the net_generic() to get the pointer.
+> 
+> When adding a new pointer, I copy the old array, replace it
+> with a new one and schedule the old for kfree after an RCU
+> grace period.
+> 
+> Since the net_generic explores the net->gen array inside rcu
+> read section and once set the net->gen->ptr[x] pointer never 
+> changes, this grants us a safe access to generic pointers.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> 
+> ---
+>  include/net/net_namespace.h |    2 +
+>  include/net/netns/generic.h |   49 ++++++++++++++++++++++++++++++++++
+>  net/core/net_namespace.c    |   62 +++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 113 insertions(+), 0 deletions(-)
+>  create mode 100644 include/net/netns/generic.h
+> 
+> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+> index 6971fdb..e3d4eb4 100644
+> --- a/include/net/net_namespace.h
+> +++ b/include/net/net_namespace.h
+> @@ -19,6 +19,7 @@ struct proc_dir_entry;
+>  struct net_device;
+>  struct sock;
+>  struct ctl_table_header;
+> +struct net_generic;
+> 
+>  struct net {
+>  	atomic_t		count;		/* To decided when the network
+> @@ -57,6 +58,7 @@ struct net {
+>  #ifdef CONFIG_NETFILTER
+>  	struct netns_xt		xt;
+>  #endif
+> +	struct net_generic	*gen;
+>  };
+> 
+> 
+> diff --git a/include/net/netns/generic.h b/include/net/netns/generic.h
+> new file mode 100644
+> index 0000000..e8a6d27
+> --- /dev/null
+> +++ b/include/net/netns/generic.h
+> @@ -0,0 +1,49 @@
+> +/*
+> + * generic net pointers
+> + */
+> +
+> +#ifndef __NET_GENERIC_H__
+> +#define __NET_GENERIC_H__
+> +
+> +#include <linux/rcupdate.h>
+> +
+> +/*
+> + * Generic net pointers are to be used by modules
+> + * to put some private stuff on the struct net without
+> + * explicit struct net modification
+> + *
+> + * The rules are simple:
+> + * 1. register the ops with register_pernet_gen_device to get
+> + *    the id of your private pointer
+> + * 2. call net_assign_generic() to put the private data on the
+> + *    struct net (most preferably this should be done in the
+> + *    ->init callback of the ops registered)
+> + * 3. do not change this pointer while the net is alive.
+> + *
+> + * After accomplishing all of the above, the private pointer
+> + * can be accessed with the net_generic() call.
+> + */
+> +
+> +struct net_generic {
+> +	unsigned int len;
+> +	struct rcu_head rcu;
+> +
+> +	void *ptr[0];
+> +};
+> +
+> +static inline void *net_generic(struct net *net, int id)
+> +{
+> +	struct net_generic *ng;
+> +	void *ptr;
+> +
+> +	rcu_read_lock();
+> +	ng = rcu_dereference(net->gen);
+> +	BUG_ON(id == 0 || id > ng->len);
+> +	ptr = ng->ptr[id - 1];
+> +	rcu_read_unlock();
+> +
+> +	return ptr;
+> +}
+> +
+> +extern int net_assign_generic(struct net *net, int id, void *data);
+> +#endif
+> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+> index 7ef3bac..b384840 100644
+> --- a/net/core/net_namespace.c
+> +++ b/net/core/net_namespace.c
+> @@ -7,6 +7,7 @@
+>  #include <linux/sched.h>
+>  #include <linux/idr.h>
+>  #include <net/net_namespace.h>
+> +#include <net/netns/generic.h>
+> 
+>  /*
+>   *	Our network namespace constructor/destructor lists
+> @@ -21,6 +22,8 @@ LIST_HEAD(net_namespace_list);
+>  struct net init_net;
+>  EXPORT_SYMBOL(init_net);
+> 
+> +#define INITIAL_NET_GEN_PTRS	13 /* +1 for len +2 for rcu_head */
+> +
+>  /*
+>   * setup_net runs the initializers for the network namespace object.
+>   */
+> @@ -29,10 +32,21 @@ static __net_init int setup_net(struct net *net)
+>  	/* Must be called with net_mutex held */
+>  	struct pernet_operations *ops;
+>  	int error;
+> +	struct net_generic *ng;
+> 
+>  	atomic_set(&net->count, 1);
+>  	atomic_set(&net->use_count, 0);
+> 
+> +	error = -ENOMEM;
+> +	ng = kzalloc(sizeof(struct net_generic) +
+> +			INITIAL_NET_GEN_PTRS * sizeof(void *), GFP_KERNEL);
 
-Of course you are right!
+Why do you need to allocate more than sizeof(struct net_generic) ?
 
-Jarek P.
+> +	if (ng == NULL)
+> +		goto out;
+> +
+> +	ng->len = INITIAL_NET_GEN_PTRS;
+> +	INIT_RCU_HEAD(&ng->rcu);
+> +	rcu_assign_pointer(net->gen, ng);
+> +
+>  	error = 0;
+>  	list_for_each_entry(ops, &pernet_list, list) {
+>  		if (ops->init) {
+> @@ -54,6 +68,7 @@ out_undo:
+>  	}
+> 
+>  	rcu_barrier();
+> +	kfree(ng);
+>  	goto out;
+>  }
+> 
+> @@ -384,3 +399,50 @@ void unregister_pernet_gen_device(int id, struct pernet_operations *ops)
+>  	mutex_unlock(&net_mutex);
+>  }
+>  EXPORT_SYMBOL_GPL(unregister_pernet_gen_device);
+> +
+> +static void net_generic_release(struct rcu_head *rcu)
+> +{
+> +	struct net_generic *ng;
+> +
+> +	ng = container_of(rcu, struct net_generic, rcu);
+> +	kfree(ng);
+> +}
+> +
+> +int net_assign_generic(struct net *net, int id, void *data)
+> +{
+> +	struct net_generic *ng, *old_ng;
+> +
+> +	BUG_ON(!mutex_is_locked(&net_mutex));
+> +	BUG_ON(id == 0);
+> +
+> +	ng = old_ng = net->gen;
 
--------------------> (take 2)
+shouldn't it be rcu_dereferenced ?
 
-[NET_SCHED] cls_u32: refcounting fix for u32_delete()
+> +	if (old_ng->len >= id)
+> +		goto assign;
+> +
+> +	ng = kzalloc(sizeof(struct net_generic) +
+> +			id * sizeof(void *), GFP_KERNEL);
+> +	if (ng == NULL)
+> +		return -ENOMEM;
+> +
+> +	/*
+> +	 * Some synchronisation notes:
+> +	 *
+> +	 * The net_generic explores the net->gen array inside rcu
+> +	 * read section. Besides once set the net->gen->ptr[x]
+> +	 * pointer never changes (see rules in netns/generic.h).
+> +	 *
+> +	 * That said, we simply duplicate this array and schedule
+> +	 * the old copy for kfree after a grace period.
+> +	 */
+> +
+> +	ng->len = id;
+> +	INIT_RCU_HEAD(&ng->rcu);
+> +	memcpy(&ng->ptr, &old_ng->ptr, old_ng->len);
+> +
+> +	rcu_assign_pointer(net->gen, ng);
+> +	call_rcu(&old_ng->rcu, net_generic_release);
+> +assign:
+> +	ng->ptr[id - 1] = data;
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(net_assign_generic);
 
-Deleting of nonroot hnodes mostly doesn't work in u32_delete():
-refcnt == 1 is expected, but such hnodes' refcnts are initialized
-with 0 and charged only with "link" nodes. Now they'll start with
-1 like usual. Thanks to Patrick McHardy for an improving suggestion.
-
-
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>
-
----
-
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index c5c16b4..4d75544 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -411,8 +411,10 @@ static void u32_destroy(struct tcf_proto *tp)
- 			}
- 		}
- 
--		for (ht=tp_c->hlist; ht; ht = ht->next)
-+		for (ht = tp_c->hlist; ht; ht = ht->next) {
-+			ht->refcnt--;
- 			u32_clear_hnode(tp, ht);
-+		}
- 
- 		while ((ht = tp_c->hlist) != NULL) {
- 			tp_c->hlist = ht->next;
-@@ -441,8 +443,12 @@ static int u32_delete(struct tcf_proto *tp, unsigned long arg)
- 	if (tp->root == ht)
- 		return -EINVAL;
- 
--	if (--ht->refcnt == 0)
-+	if (ht->refcnt == 1) {
-+		ht->refcnt--;
- 		u32_destroy_hnode(tp, ht);
-+	} else {
-+		return -EBUSY;
-+	}
- 
- 	return 0;
- }
-@@ -568,7 +574,7 @@ static int u32_change(struct tcf_proto *tp, unsigned long base, u32 handle,
- 		if (ht == NULL)
- 			return -ENOBUFS;
- 		ht->tp_c = tp_c;
--		ht->refcnt = 0;
-+		ht->refcnt = 1;
- 		ht->divisor = divisor;
- 		ht->handle = handle;
- 		ht->prio = tp->prio;
