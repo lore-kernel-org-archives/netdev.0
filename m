@@ -1,46 +1,60 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: [PATCH] macb: Use semicolon instead of comma for statement
-Date: Sat, 12 Apr 2008 00:58:14 +0900 (JST)
-Message-ID: <20080412.005814.26099357.anemo@mba.ocn.ne.jp>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH 0/14 (3 subsets)] Make tuns and vlans devices work per-net.
+Date: Fri, 11 Apr 2008 19:57:25 +0400
+Message-ID: <47FF8A65.7030605@openvz.org>
+References: <47FE2AD4.9080609@openvz.org> <47FF86FE.7030209@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
-To: Haavard Skinnemoen <hskinnemoen@atmel.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Denis Lunev <den@openvz.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	Benjamin Thery <benjamin.thery@bull.net>
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mba.ocn.ne.jp ([122.1.235.107]:63866 "EHLO smtp.mba.ocn.ne.jp"
+Received: from sacred.ru ([62.205.161.221]:39944 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759113AbYDKP5X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2008 11:57:23 -0400
+	id S1759907AbYDKP64 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2008 11:58:56 -0400
+In-Reply-To: <47FF86FE.7030209@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It seems no good reason to use comma here.
+Daniel Lezcano wrote:
+> Pavel Emelyanov wrote:
+>> Hi, guys.
+>>
+>> I've recently sent a TUN devices virtualization, but it was rejected
+>> by Dave, since the struct net is becoming a dumping ground.
+>>
+>> I agree with him - we really need some way to register on-net data
+>> dynamically. That's my view of such a thing and two examples of how
+>> to use it (TUN and VLAN devices virtualization).
+>>
+>> If this will be found good, I'll send these sets to David, hoping he
+>> will accept them :)
+> 
+> Pavel,
+> 
+> seems to be a smart solution :)
 
-Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
----
-diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index 1d210ed..0881690 100644
---- a/drivers/net/macb.c
-+++ b/drivers/net/macb.c
-@@ -242,12 +242,12 @@ static int macb_mii_init(struct macb *bp)
- 	/* Enable managment port */
- 	macb_writel(bp, NCR, MACB_BIT(MPE));
- 
--	bp->mii_bus.name = "MACB_mii_bus",
--	bp->mii_bus.read = &macb_mdio_read,
--	bp->mii_bus.write = &macb_mdio_write,
--	bp->mii_bus.reset = &macb_mdio_reset,
--	bp->mii_bus.id = bp->pdev->id,
--	bp->mii_bus.priv = bp,
-+	bp->mii_bus.name = "MACB_mii_bus";
-+	bp->mii_bus.read = &macb_mdio_read;
-+	bp->mii_bus.write = &macb_mdio_write;
-+	bp->mii_bus.reset = &macb_mdio_reset;
-+	bp->mii_bus.id = bp->pdev->id;
-+	bp->mii_bus.priv = bp;
- 	bp->mii_bus.dev = &bp->dev->dev;
- 	pdata = bp->pdev->dev.platform_data;
- 
+Thanks :) However, I've already found a bug in the 1st patch (already fixed).
 
+> I am just afraid with the performances when the network resources are to 
+> be accessed in the fast path like a routing table (that seems not to be 
+> the case for tun and vlan). Shall we assume the fast path should always 
+> go to struct net and non critical path can go to net_generic ?
+
+Hm... I put call to net_generic() into tunnels rcv call and measured 
+the performance with netperf - no performance penalty. I tried to make 
+net_generic() work w/o any locks and looks like I've managed to make 
+it fast enough :)
+
+I think, that core kernel code and protocols should/may use the struct 
+net, while modules are better to work via generic pointers. However, if
+the generic pointers cause noticeable performance degradation, then we
+may ask Dave to bear with on-net members :)
+
+>    -- Daniel
+> 
 
