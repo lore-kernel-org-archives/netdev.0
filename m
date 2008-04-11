@@ -1,117 +1,85 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [DCCP]: Fix skb->cb conflicts with IP
-Date: Fri, 11 Apr 2008 15:41:33 +0200
-Message-ID: <47FF6A8D.30705@trash.net>
-References: <47F61B5C.8090105@trash.net> <20080404132644.GA5989@ghostprotocols.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH take2][NET_SCHED] cls_u32: refcounting fix for u32_delete()
+Date: Fri, 11 Apr 2008 13:48:18 +0000
+Message-ID: <20080411134818.GA3776@ff.dom.local>
+References: <20080411124519.GA2701@ff.dom.local> <47FF5FBF.6030802@trash.net> <20080411132304.GB2701@ff.dom.local> <47FF662B.2040302@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020302070507040701080709"
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54931 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759596AbYDKNlm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 09:41:42 -0400
-In-Reply-To: <20080404132644.GA5989@ghostprotocols.net>
+Received: from nf-out-0910.google.com ([64.233.182.191]:21028 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625AbYDKNpy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 09:45:54 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so185736nfb.21
+        for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 06:45:52 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <47FF662B.2040302@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020302070507040701080709
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+On Fri, Apr 11, 2008 at 03:22:51PM +0200, Patrick McHardy wrote:
+...
+> I'd suggest to behave similar to qdiscs when trying to
+> removing classes that are still referenced, return -EBUSY.
 
-Arnaldo Carvalho de Melo wrote:
-> Em Fri, Apr 04, 2008 at 02:13:16PM +0200, Patrick McHardy escreveu:
-> 
->> commit eced67957ee99f7b5fafdc73a58bcd037a1789b2
->> Author: Patrick McHardy <kaber@trash.net>
->> Date:   Fri Apr 4 14:10:23 2008 +0200
->>
->>     [DCCP]: Fix skb->cb conflicts with IP
->>     
->>     dev_queue_xmit() and the other IP output functions expect to get a skb
->>     with clear or properly initialized skb->cb. Unlike TCP and UDP, the
->>     dccp_skb_cb doesn't contain a struct inet_skb_parm at the beginning,
->>     so the DCCP-specific data is interpreted by the IP output functions.
->>     This can cause false negatives for the conditional POST_ROUTING hook
->>     invocation, making the packet bypass the hook.
->>     
->>     Add a inet_skb_parm/inet6_skb_parm union to the beginning of
->>     dccp_skb_cb to avoid clashes. Also add a BUILD_BUG_ON to make
->>     sure it fits in the cb.
->>     
->>     Signed-off-by: Patrick McHardy <kaber@trash.net>
-> 
-> Thanks Patrick,
-> 
-> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Of course you are right!
+
+Jarek P.
+
+-------------------> (take 2)
+
+[NET_SCHED] cls_u32: refcounting fix for u32_delete()
+
+Deleting of nonroot hnodes mostly doesn't work in u32_delete():
+refcnt == 1 is expected, but such hnodes' refcnts are initialized
+with 0 and charged only with "link" nodes. Now they'll start with
+1 like usual. Thanks to Patrick McHardy for an improving suggestion.
 
 
-Dave, I'm not sure whether you've missed this or expect it
-to go through Arnaldo, just want to make sure it doesn't
-get missed because of a misunderstanding :)
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>
 
+---
 
-
---------------020302070507040701080709
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-commit eced67957ee99f7b5fafdc73a58bcd037a1789b2
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Apr 4 14:10:23 2008 +0200
-
-    [DCCP]: Fix skb->cb conflicts with IP
-    
-    dev_queue_xmit() and the other IP output functions expect to get a skb
-    with clear or properly initialized skb->cb. Unlike TCP and UDP, the
-    dccp_skb_cb doesn't contain a struct inet_skb_parm at the beginning,
-    so the DCCP-specific data is interpreted by the IP output functions.
-    This can cause false negatives for the conditional POST_ROUTING hook
-    invocation, making the packet bypass the hook.
-    
-    Add a inet_skb_parm/inet6_skb_parm union to the beginning of
-    dccp_skb_cb to avoid clashes. Also add a BUILD_BUG_ON to make
-    sure it fits in the cb.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
-index fe7726b..f44d492 100644
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -325,6 +325,12 @@ static inline int dccp_bad_service_code(const struct sock *sk,
-  * This is used for transmission as well as for reception.
-  */
- struct dccp_skb_cb {
-+	union {
-+		struct inet_skb_parm	h4;
-+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+		struct inet6_skb_parm	h6;
-+#endif
-+	} header;
- 	__u8  dccpd_type:4;
- 	__u8  dccpd_ccval:4;
- 	__u8  dccpd_reset_code,
-diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index e3f5d37..c91d3c1 100644
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -1057,6 +1057,9 @@ static int __init dccp_init(void)
- 	int ehash_order, bhash_order, i;
- 	int rc = -ENOBUFS;
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index c5c16b4..4d75544 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -411,8 +411,10 @@ static void u32_destroy(struct tcf_proto *tp)
+ 			}
+ 		}
  
-+	BUILD_BUG_ON(sizeof(struct dccp_skb_cb) >
-+		     FIELD_SIZEOF(struct sk_buff, cb));
-+
- 	dccp_hashinfo.bind_bucket_cachep =
- 		kmem_cache_create("dccp_bind_bucket",
- 				  sizeof(struct inet_bind_bucket), 0,
-
---------------020302070507040701080709--
+-		for (ht=tp_c->hlist; ht; ht = ht->next)
++		for (ht = tp_c->hlist; ht; ht = ht->next) {
++			ht->refcnt--;
+ 			u32_clear_hnode(tp, ht);
++		}
+ 
+ 		while ((ht = tp_c->hlist) != NULL) {
+ 			tp_c->hlist = ht->next;
+@@ -441,8 +443,12 @@ static int u32_delete(struct tcf_proto *tp, unsigned long arg)
+ 	if (tp->root == ht)
+ 		return -EINVAL;
+ 
+-	if (--ht->refcnt == 0)
++	if (ht->refcnt == 1) {
++		ht->refcnt--;
+ 		u32_destroy_hnode(tp, ht);
++	} else {
++		return -EBUSY;
++	}
+ 
+ 	return 0;
+ }
+@@ -568,7 +574,7 @@ static int u32_change(struct tcf_proto *tp, unsigned long base, u32 handle,
+ 		if (ht == NULL)
+ 			return -ENOBUFS;
+ 		ht->tp_c = tp_c;
+-		ht->refcnt = 0;
++		ht->refcnt = 1;
+ 		ht->divisor = divisor;
+ 		ht->handle = handle;
+ 		ht->prio = tp->prio;
