@@ -1,42 +1,45 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [patch] e1000=y && e1000e=m regression fix
-Date: Fri, 11 Apr 2008 12:45:42 -0400
-Message-ID: <20080411164542.GA4066@infradead.org>
-References: <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <47FD2325.2030705@intel.com> <47FE5C89.5060209@intel.com> <20080410192714.GA14055@elte.hu> <47FE8566.5040809@intel.com> <20080411112653.GC9205@elte.hu> <20080411113644.GA7767@infradead.org> <20080411121606.GA25661@elte.hu> <47FF9060.5040202@intel.com>
+From: Timur Tabi <timur@freescale.com>
+Subject: Re: [PATCH 2/2] [POWERPC] UCC nodes cleanup
+Date: Fri, 11 Apr 2008 11:48:37 -0500
+Message-ID: <47FF9665.7020403@freescale.com>
+References: <20080311171045.GB4684@localhost.localdomain>	<82E8E38A-C159-4C23-BDE8-086D4429F366@kernel.crashing.org>
+	<20080411160654.GA25506@polina.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, Christoph Hellwig <hch@infradead.org>,
-	Jeff Garzik <jeff@garzik.org>, Matthew Wilcox <matthew@wil.cx>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	e1000-list <e1000-devel@lists.sourceforge.net>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	Greg KH <greg@kroah.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:60490 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758527AbYDKQp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 12:45:59 -0400
-Content-Disposition: inline
-In-Reply-To: <47FF9060.5040202@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, Jeff Garzik <jgarzik@pobox.com>,
+	linux-serial@vger.kernel.org, netdev@vger.kernel.org
+To: avorontsov@ru.mvista.com
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20080411160654.GA25506@polina.dev.rtsoft.ru>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 11, 2008 at 09:22:56AM -0700, Kok, Auke wrote:
-> You don't provide a solution, nor does anyone, and I don't see any solution to
-> what you want but to completely cancel this driver split.
+Anton Vorontsov wrote:
+> On Fri, Apr 11, 2008 at 09:13:36AM -0500, Kumar Gala wrote:
+>> On Mar 11, 2008, at 12:10 PM, Anton Vorontsov wrote:
+>>> - get rid of `model = "UCC"' in the ucc nodes
+>>>  It isn't used anywhere, so remove it. If we'll ever need something
+>>>  like this, we'll use compatible property instead.
+>>> - replace cell-index and device-id properties by fsl,ucc.
+>>>
+>>> Drivers are modified for backward compatibility's sake.
+>> I'd prefer we use cell-index and not introduce "fsl,ucc".  I'm ok with  
+>> dropping device-id and model (its implied in the compatiable).
 > 
-> And I'm _not_ going to do that.
+> Ok. Here it is. netdev and linux-serial Cc'ed.
 
-As a start we could do two driver keyed off a single Kconfig variable.
-And then find a way to get users informed that they might need to
-enabled the other one
+Do we want the first UCC to have a cell-index of 1?  Maybe we should fix this
+off-by-one error once and for all, and number all UCCs from 0?
+
+-- 
+Timur Tabi
+Linux kernel developer at Freescale
