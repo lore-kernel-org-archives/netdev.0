@@ -1,42 +1,38 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH] e1000e: set CONFIG_E1000E=y in x86
-	defconfigs
-Date: Fri, 11 Apr 2008 10:59:42 +0200
-Message-ID: <20080411085942.GB10801@elte.hu>
-References: <20080409201739.14581.7454.stgit@localhost.localdomain>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH net-2.6.26] [IPV6] Adjust IPV6 multicast routing module
+ (ip6mr.c) to use mroute6 header declarations .
+Date: Fri, 11 Apr 2008 18:11:19 +0900 (JST)
+Message-ID: <20080411.181119.12087415.yoshfuji@linux-ipv6.org>
+References: <eb3ff54b0804100240x2cc3d21el3ce06b21ce7b5320@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	andi@firstfloor.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, davem@davemloft.net
-To: Auke Kok <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <20080409201739.14581.7454.stgit@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: ramirose@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:33299 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758102AbYDKJJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 05:09:35 -0400
+In-Reply-To: <eb3ff54b0804100240x2cc3d21el3ce06b21ce7b5320@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+In article <eb3ff54b0804100240x2cc3d21el3ce06b21ce7b5320@mail.gmail.com> (at Thu, 10 Apr 2008 12:40:10 +0300), "Rami Rosen" <ramirose@gmail.com> says:
 
-* Auke Kok <auke-jan.h.kok@intel.com> wrote:
+> Hi,
+> - This patch adjusts IPv6 multicast routing module, net/ipv6/ip6mr.c,
+> to use mroute6 header definitions instead of mroute.
+>  (MFC6_LINES instead of MFC_LINES, MAXMIFS instead of MAXVIFS, mifi_t
+> instead of vifi_t.)
+> 
+> - In addition, inclusion of some headers was removed as it is not needed.
+> 
+> Regards,
+> Rami Rosen
 
-> This adds to the already default CONFIG_E1000=y in these files.
+Applied, thanks.
 
-thanks, applied.
-
-	Ingo
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
-Don't miss this year's exciting event. There's still time to save $100. 
-Use priority code J8TL2D2. 
-http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
+--yoshfuji
