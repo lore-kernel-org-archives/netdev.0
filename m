@@ -1,63 +1,92 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [patch] e1000=y && e1000e=m regression fix
-Date: Fri, 11 Apr 2008 07:36:44 -0400
-Message-ID: <20080411113644.GA7767@infradead.org>
-References: <20080408200652.GC28148@elte.hu> <47FBD34A.6080508@garzik.org> <20080408203314.GA28952@elte.hu> <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <47FD2325.2030705@intel.com> <47FE5C89.5060209@intel.com> <20080410192714.GA14055@elte.hu> <47FE8566.5040809@intel.com> <20080411112653.GC9205@elte.hu>
+From: Dmitry Butskoy <buc@odusz.so-cdu.ru>
+Subject: Re: [PATCH] [IPV6]: bug 10437: MSG_ERRQUEUE messages do not pass
+ to connected raw sockets
+Date: Fri, 11 Apr 2008 15:39:52 +0400
+Message-ID: <47FF4E08.8060209@odu.neva.ru>
+References: <bug-10437-10286@http.bugzilla.kernel.org/>	<20080410103444.d7309e1f.akpm@linux-foundation.org>	<47FF455C.2070205@odu.neva.ru> <20080411.201201.91849801.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Jeff Garzik <jeff@garzik.org>, Matthew Wilcox <matthew@wil.cx>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	e1000-list <e1000-devel@lists.sourceforge.net>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	Greg KH <greg@kroah.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760312AbYDKLha@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080411112653.GC9205@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------070204060606020503020400"
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.odu.neva.ru ([194.85.100.6]:53445 "EHLO mail2.odu.neva.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759695AbYDKLjy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2008 07:39:54 -0400
+In-Reply-To: <20080411.201201.91849801.yoshfuji@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 11, 2008 at 01:26:53PM +0200, Ingo Molnar wrote:
-> really, just because you do exceedingly good things to Linux does not 
-> give you a free card to do something bad to Linux in exchange. The two 
-> do not cancel out each other - because the bad things _add up_ and drive 
-> away users, irreversibly. To you e1000 is the center of the universe so 
-> you feel the price is worth paying. For others it is not. We want the 
-> good things from you and we'll say no thanks to the bad ideas. Kernel 
-> developers, especially old-timers, regularly forget about that.
+This is a multi-part message in MIME format.
+--------------070204060606020503020400
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
 
-Hey, hey calm down.  The device moving over to e1000e shouldn never
-have been added to e1000.  They're totally differnet and the only reason
-they got added in thefirst time was because soemone talked intel into
-it.
+YOSHIFUJI Hideaki / 吉藤英明 wrote:
+> In article <47FF455C.2070205@odu.neva.ru> (at Fri, 11 Apr 2008 15:02:52 +0400), Dmitry Butskoy <buc@odusz.so-cdu.ru> says:
+>
+>   
+>> Andrew Morton wrote:
+>>     
+>>> Dmitry, I'd suggest that you send the patch via email to
+>>> netdev@vger.kernel.org 
+>>>       
+>> OK, resend
+>>
+>>     
+>>> and to YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>.
+>>>   
+>>>       
+>> It seems that I cannot reach this e-mail address from my country :( (some terrible antispam?)
+>>
+>>
+>>
+>> The small patch to fix bug #10437 .
+>>
+>> See description of the bug at 
+>> http://bugzilla.kernel.org/show_bug.cgi?id=10437
+>>     
+>
+> I'm going to agree.
+>
+> Your patch is for 2.6.24-stable
+> Can you provide patches for linux-2.6.25-rc, please?
+>   
 
-We discussed this a long time and came to a wide agreement it should
-move out.  Now the actual transition could and should have been handled
-better, but with all the pci-e hardware in a separate driver we're all
-off better in the long term.
+Attached.
 
-And this is not really comparable to the libata transition at all,
-there's no user-visible changed.  For every distro kernel that just
-builds both driver it's a completely seamless transition, and for
-people who build their own kernel we should find some Kconfig trickery
-to make the transition easier.  For example we could just built e1000e
-when CONFIG_E1000 is set and spill a warning that starting from 1.1.2009
-you will have to have CONFIG_E1000E set aswell.
+Could it be fixed for, say 2.6.24.5, as well?
 
-> 
-> 	Ingo
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
----end quoted text---
+If it is possible, please, report me at what next stable kernel version 
+it will appear to be fixed...
+
+
+~buc
+
+
+
+--------------070204060606020503020400
+Content-Type: text/x-diff;
+ name="ipv6-2.6.25-raw_socket_msg_errqueue.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ipv6-2.6.25-raw_socket_msg_errqueue.patch"
+
+diff -Nrbu ipv6/raw.c ipv6.OK/raw.c
+--- ipv6/raw.c	2008-04-01 23:44:26.000000000 +0400
++++ ipv6.OK/raw.c	2008-04-11 15:33:30.000000000 +0400
+@@ -372,8 +372,8 @@
+ 	read_lock(&raw_v6_hashinfo.lock);
+ 	sk = sk_head(&raw_v6_hashinfo.ht[hash]);
+ 	if (sk != NULL) {
+-		saddr = &ipv6_hdr(skb)->saddr;
+-		daddr = &ipv6_hdr(skb)->daddr;
++		saddr = &((struct ipv6hdr *)skb->data)->saddr;
++		daddr = &((struct ipv6hdr *)skb->data)->daddr;
+ 		net = skb->dev->nd_net;
+ 
+ 		while ((sk = __raw_v6_lookup(net, sk, nexthdr, saddr, daddr,
+
+--------------070204060606020503020400--
