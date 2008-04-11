@@ -1,51 +1,51 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: [PATCH 2/2] [POWERPC] UCC nodes cleanup
-Date: Fri, 11 Apr 2008 21:11:09 +0400
-Message-ID: <20080411171109.GA16119@polina.dev.rtsoft.ru>
-References: <20080311171045.GB4684@localhost.localdomain> <82E8E38A-C159-4C23-BDE8-086D4429F366@kernel.crashing.org> <20080411160654.GA25506@polina.dev.rtsoft.ru> <47FF9665.7020403@freescale.com> <20080411170657.GA15270@polina.dev.rtsoft.ru>
-Reply-To: avorontsov@ru.mvista.com
+From: Martin Mares <mj@ucw.cz>
+Subject: Re: [patch] e1000=y && e1000e=m regression fix
+Date: Fri, 11 Apr 2008 19:10:26 +0200
+Message-ID: <mj+md-20080411.170932.9941.albireo@ucw.cz>
+References: <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <47FD2325.2030705@intel.com> <47FE5C89.5060209@intel.com> <20080410192714.GA14055@elte.hu> <47FE8566.5040809@intel.com> <20080411112653.GC9205@elte.hu> <20080411113644.GA7767@infradead.org> <20080411121606.GA25661@elte.hu> <47FF9060.5040202@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: Kumar Gala <galak@kernel.crashing.org>, linuxppc-dev@ozlabs.org,
-	Jeff Garzik <jgarzik@pobox.com>, linux-serial@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Timur Tabi <timur@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>, Christoph Hellwig <hch@infradead.org>,
+	Jeff Garzik <jeff@garzik.org>, Matthew Wilcox <matthew@wil.cx>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>,
+	e1000-list <e1000-devel@lists.sourceforge.net>,
+	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	Greg KH <greg@kroah.com>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:7029 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1759521AbYDKRLK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 13:11:10 -0400
+Received: from jabberwock.ucw.cz ([89.250.246.4]:37808 "EHLO jabberwock.ucw.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760634AbYDKRMn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2008 13:12:43 -0400
+Received: from albireo.ucw.cz (albireo.ucw.cz [89.239.2.32])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client CN "albireo.ucw.cz", Issuer "ucw.cz" (verified OK))
+	by jabberwock.ucw.cz (Postfix) with ESMTP id 6E4FD342A2
+	for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 19:12:40 +0200 (CEST)
 Content-Disposition: inline
-In-Reply-To: <20080411170657.GA15270@polina.dev.rtsoft.ru>
+In-Reply-To: <47FF9060.5040202@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 11, 2008 at 09:06:57PM +0400, Anton Vorontsov wrote:
-> On Fri, Apr 11, 2008 at 11:48:37AM -0500, Timur Tabi wrote:
-> > Anton Vorontsov wrote:
-> > > On Fri, Apr 11, 2008 at 09:13:36AM -0500, Kumar Gala wrote:
-> > >> On Mar 11, 2008, at 12:10 PM, Anton Vorontsov wrote:
-> > >>> - get rid of `model = "UCC"' in the ucc nodes
-> > >>>  It isn't used anywhere, so remove it. If we'll ever need something
-> > >>>  like this, we'll use compatible property instead.
-> > >>> - replace cell-index and device-id properties by fsl,ucc.
-> > >>>
-> > >>> Drivers are modified for backward compatibility's sake.
-> > >> I'd prefer we use cell-index and not introduce "fsl,ucc".  I'm ok with  
-> > >> dropping device-id and model (its implied in the compatiable).
-> > > 
-> > > Ok. Here it is. netdev and linux-serial Cc'ed.
-> > 
-> > Do we want the first UCC to have a cell-index of 1?  Maybe we should fix this
-> > off-by-one error once and for all, and number all UCCs from 0?
-> 
-> Isn't documentation numbers UCC from 1? Then I believe we should stick
-> with it for device tree, since off by one is Linux implementation details.
+Hello!
 
-Or maybe I'm thinking here in terms of "fsl,ucc"... and cell-index is
-indeed should be -1... don't know. Please decide. ;-)
+> You don't provide a solution, nor does anyone, and I don't see any solution to
+> what you want but to completely cancel this driver split.
 
+Maybe you could rename both configuration switches, so that you bring it to
+the attention of everybody who does make oldconfig?
+
+				Have a nice fortnight
 -- 
-Anton Vorontsov
-email: cbouatmailru@gmail.com
-irc://irc.freenode.net/bd2
+Martin `MJ' Mares                          <mj@ucw.cz>   http://mj.ucw.cz/
+Faculty of Math and Physics, Charles University, Prague, Czech Rep., Earth
+main(){char *s="main(){char *s=%c%s%c;printf(s,34,s,34);}";printf(s,34,s,34);}
