@@ -1,50 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2173
- tcp_mark_head_lost+0x173/0x1a0()
-Date: Fri, 11 Apr 2008 11:22:33 -0700 (PDT)
-Message-ID: <20080411.112233.262377127.davem@davemloft.net>
-References: <20080403211913.3a0c1d00.akpm@linux-foundation.org>
-	<200804041150.34046.rjw@sisk.pl>
-	<Pine.LNX.4.64.0804111553450.28474@wrl-59.cs.helsinki.fi>
+Subject: Re: [DCCP]: Fix skb->cb conflicts with IP
+Date: Fri, 11 Apr 2008 11:24:12 -0700 (PDT)
+Message-ID: <20080411.112412.161949691.davem@davemloft.net>
+References: <20080411135908.GA20937@gerrit.erg.abdn.ac.uk>
+	<47FF6F9E.5050807@trash.net>
+	<20080411140501.GR8192@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: robbat2@gentoo.org, rjw@sisk.pl, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	gf@unixsol.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36692
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36698
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759846AbYDKSWc convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2008 14:22:32 -0400
-In-Reply-To: <Pine.LNX.4.64.0804111553450.28474@wrl-59.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1758913AbYDKSYL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 14:24:11 -0400
+In-Reply-To: <20080411140501.GR8192@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Fri, 11 Apr 2008 16:05:32 +0300 (EEST)
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Fri, 11 Apr 2008 11:05:01 -0300
 
-> On Fri, 4 Apr 2008, Rafael J. Wysocki wrote:
->=20
-> > That's http://bugzilla.kernel.org/show_bug.cgi?id=3D10346 , I think=
-=2E=20
-> >=20
-> > Robin, please add yourself to the CC list in the bugzilla entry abo=
-ve.
-> >=20
-> > > > One of the nodes in my web-serving cluster (isohunt.com) starte=
-d showing this:
-> > > >=20
-> > > > ------------[ cut here ]------------
-> > > > WARNING: at net/ipv4/tcp_input.c:2173 tcp_mark_head_lost+0x173/=
-0x1a0()
->=20
-> Once Linus pulls net-2.6 fixes in, Robin's bug should be among the fi=
-xed=20
-> ones (NewReno&TSO fix). ...Whereas the bugzilla's report might be due=
- to=20
-> another bug (it's different warn_on in any case).
+> Em Fri, Apr 11, 2008 at 04:03:10PM +0200, Patrick McHardy escreveu:
+> > Gerrit Renker wrote:
+> >>>>>     [DCCP]: Fix skb->cb conflicts with IP
+> >>>>>         dev_queue_xmit() and the other IP output functions expect to 
+> >> <snip>
+> >>> Dave, I'm not sure whether you've missed this or expect it
+> >>> to go through Arnaldo, just want to make sure it doesn't
+> >>> get missed because of a misunderstanding :)
+> >>>
+> >>>
+> >> If it is not too much work, can you please also remove the two attached
+> >> hunks which are now redundant thanks to the above patch.
+> >
+> >
+> > I've added it to the patch, thanks.
+> 
+> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-Linus has pulled those changes in.
+And for the record, I have it and will merge :-)
