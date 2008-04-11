@@ -1,84 +1,48 @@
-From: Mark Lord <lkml@rtr.ca>
-Subject: Re: 2.6.25-rc8: FTP transfer errors
-Date: Fri, 11 Apr 2008 09:19:17 -0400
-Message-ID: <47FF6555.50004@rtr.ca>
-References: <47FEADCB.7070104@rtr.ca> <20080410.172453.44434205.davem@davemloft.net> <47FEB062.3020003@rtr.ca> <20080410.173911.179180620.davem@davemloft.net> <47FEBDAA.7010305@rtr.ca> <Pine.LNX.4.64.0804110849520.28360@wrl-59.cs.helsinki.fi>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH][NET_SCHED] cls_u32: refcounting fix for u32_delete()
+Date: Fri, 11 Apr 2008 13:23:04 +0000
+Message-ID: <20080411132304.GB2701@ff.dom.local>
+References: <20080411124519.GA2701@ff.dom.local> <47FF5FBF.6030802@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
-	tilman@imap.cc, yoshfuji@linux-ipv6.org,
-	Jeff Garzik <jeff@garzik.org>, rjw@sisk.pl,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: =?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtr.ca ([76.10.145.34]:1031 "EHLO mail.rtr.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751768AbYDKNTW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2008 09:19:22 -0400
-In-Reply-To: <Pine.LNX.4.64.0804110849520.28360@wrl-59.cs.helsinki.fi>
+Received: from fg-out-1718.google.com ([72.14.220.159]:63503 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758841AbYDKNUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 09:20:41 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so402001fgb.17
+        for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 06:20:39 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <47FF5FBF.6030802@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilpo J=C3=A4rvinen wrote:
-> On Thu, 10 Apr 2008, Mark Lord wrote:
->=20
->> David Miller wrote:
->>> From: Mark Lord <lkml@rtr.ca>
->>> Date: Thu, 10 Apr 2008 20:27:14 -0400
->>>
->>>> It's *your* bug -- you signed off on the commit.
->>> I sign off on basically every networking commit, does that mean I h=
-ave
->>> to fix every networking bug and every networking bug is "mine"?
->> ..
+On Fri, Apr 11, 2008 at 02:55:27PM +0200, Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+>> [NET_SCHED] cls_u32: refcounting fix for u32_delete()
 >>
->> Absolutely, though to a varying degree.  That's the responsibility
->> that goes with the role of a subsystem maintainer.  I once had
->> such a role, and gave it up when I felt I could no longer keep up. =20
->> You still keep refering to it as "your (my) bug".
->> It's not.  I had nothing to do with it, other than stumbling over it=
-=2E
->=20
-> This bug is perfect example where bisect clearly was useful :-). Nobo=
-dy=20
-> knew whose bug it actually was until your bisect gave directions.
->=20
->> When people stumble over a libata bug, I look hard to see if my code
->> could possibly cause it.  Jeff looks even harder, because he's the
->> current subsystem dude for libata.
->>
->> I never suggest a user search through a mountain of unrelated commit=
-s
->> for something I've screwed up on.
->=20
-> But it is ok for you to ask an innocent net developer to do that (eve=
-n=20
-> with your terms as I hadn't signed off _anything_ related to that one=
-),
-> hmm?
->=20
-> ...You had this pretty demanding tone earlier:
->=20
->> Or I can ignore it, like the net developers, since I have a workarou=
-nd.
->> And then we'll see what other apps are broken upon 2.6.25 final rele=
-ase.
-=2E.
+>> @@ -441,8 +443,10 @@ static int u32_delete(struct tcf_proto *tp, unsigned long arg)
+>>  	if (tp->root == ht)
+>>  		return -EINVAL;
+>>  -	if (--ht->refcnt == 0)
+>> +	if (ht->refcnt == 1) {
+>> +		ht->refcnt--;
+>>  		u32_destroy_hnode(tp, ht);
+>> +	}
+>>  
+>
+> Shouldn't the refcount be decremented unconditionally?
+> Otherwise I'd suggest to reject the removal if refcnt > 1,
+> but silently doing nothing doesn't seem right.
 
-That's not demanding, that's quite relaxed.  I had a good workaround,
-and didn't really care any more at that point.  Just though it was rath=
-er
-odd that none of the developers seemed interested in tracking it down.
-I offered tons of help, gave it, and said I didn't have time for a full
-bisect at that juncture.
+If someone tries deleting and the refcnt is e.g. 3 (2 links)
+unconditional deleting could decrease refcnt without deleting
+and then unlinking would make it below 0. I think it's OK now:
+we can't delete hnode until it's referenced, but I could add
+a warning if you like?
 
-=46or that, I get repeatedly slammed by the netdev folks.
-Even after I put aside *paid* work to submit to your demands.
-
-Next time around, I won't bother reporting bugs to you folks,
-that's for damned sure.
-
-Cheers
+Thanks,
+Jarek P.
