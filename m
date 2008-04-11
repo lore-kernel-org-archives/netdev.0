@@ -1,119 +1,72 @@
-From: Daniel Barkalow <barkalow@iabervon.org>
-Subject: Re: [patch] e1000=y && e1000e=m regression fix
-Date: Fri, 11 Apr 2008 18:06:34 -0400 (EDT)
-Message-ID: <alpine.LNX.1.00.0804111700550.19665@iabervon.org>
-References: <47FBDBE9.9040700@garzik.org> <20080409193850.GA11763@elte.hu> <47FD2325.2030705@intel.com> <47FE5C89.5060209@intel.com> <20080410192714.GA14055@elte.hu> <47FE8566.5040809@intel.com> <20080411112653.GC9205@elte.hu> <20080411113644.GA7767@infradead.org>
- <20080411121606.GA25661@elte.hu> <47FF9060.5040202@intel.com> <20080411164542.GA4066@infradead.org> <alpine.LFD.1.00.0804111028540.3143@woody.linux-foundation.org>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: 2.6.25-rc8: FTP transfer errors
+Date: Sat, 12 Apr 2008 00:16:28 +0200
+Message-ID: <47FFE33C.1000707@imap.cc>
+References: <47FEADCB.7070104@rtr.ca> <20080410.172453.44434205.davem@davemloft.net> <47FEB062.3020003@rtr.ca> <20080410.173911.179180620.davem@davemloft.net> <47FEBDAA.7010305@rtr.ca> <Pine.LNX.4.64.0804110849520.28360@wrl-59.cs.helsinki.fi> <47FF6555.50004@rtr.ca> <20080411143537.GA27874@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Christoph Hellwig <hch@infradead.org>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Ingo Molnar <mingo@elte.hu>, Jeff Garzik <jeff@garzik.org>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	e1000-list <e1000-devel@lists.sourceforge.net>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	Greg KH <greg@kroah.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig6A43D906AE25848C812516AA"
+Cc: Mark Lord <lkml@rtr.ca>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, Jeff Garzik <jeff@garzik.org>,
+	rjw@sisk.pl, LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iabervon.org ([66.92.72.58]:39358 "EHLO iabervon.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756178AbYDKWGj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2008 18:06:39 -0400
-In-Reply-To: <alpine.LFD.1.00.0804111028540.3143@woody.linux-foundation.org>
+Received: from out1.smtp.messagingengine.com ([66.111.4.25]:46132 "EHLO
+	out1.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752616AbYDKWQo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 18:16:44 -0400
+In-Reply-To: <20080411143537.GA27874@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 11 Apr 2008, Linus Torvalds wrote:
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig6A43D906AE25848C812516AA
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-> On Fri, 11 Apr 2008, Christoph Hellwig wrote:
-> > 
-> > As a start we could do two driver keyed off a single Kconfig variable.
-> > And then find a way to get users informed that they might need to
-> > enabled the other one
-> 
-> I think that's a great solution.
-> 
-> Here's a suggested patch. Not much tested, but it's fairly obvious.
-> 
-> It basically makes one top-level config option (E1000) to pick the driver 
-> at all, and two sub-options (E1000_PCI and E1000_PCIE) that you can choose 
-> between.
-> 
-> If you pick E1000 support, you're given the choice between "PCI only", 
-> "PCI-E only" or "support both", and that will then pick the right 
-> combination of support for E1000_PCI and E1000_PCIE.
+On Fri, 11 Apr 2008 18:35:37 +0400, Evgeniy Polyakov wrote:
+> On Fri, Apr 11, 2008 at 09:19:17AM -0400, Mark Lord (lkml@rtr.ca) wrote=
+:
 
-Wouldn't it make more sense to turn E1000 into a option that does nothing 
-except select both E1000E and E1000_PCI, and have those two be the options 
-that build drivers? Then, after a while, we drop the E1000 option 
-entirely, and people are fine as long as they used any of the kernels in 
-between (since the system will have forgotten that E1000E was only set by 
-an option that has disappeared).
+>> I offered tons of help, gave it, and said I didn't have time for a ful=
+l
+>> bisect at that juncture.
+>>
+>> For that, I get repeatedly slammed by the netdev folks.
+>> Even after I put aside *paid* work to submit to your demands.
+>>
+>> Next time around, I won't bother reporting bugs to you folks,
+>> that's for damned sure.
+>=20
+> Actually that will be the best decision from evolutional point of view.=
+=20
 
-Right now, E1000 means "support both PCI and PCI-E E1000" and E1000E means 
-"support PCI-E E1000". I don't see any reason not to add a "support PCI 
-E1000" option and keep the semantics of existing options the same and just 
-change the implementation.
+So I was right after all? Bug reports from people who (for whatever
+reason, including having to earn their living) cannot do a bisect are
+not welcome?
 
-AFAICT, this makes "make oldconfig" always give the same support that the 
-the earlier kernel had and people get set it to what they actually want if 
-they notice.
+:-(
+T.
 
-I.e., something like this (plus removing the ID-stealing in e1000):
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index f337800..9078bde 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1955,6 +1955,11 @@ config DL2K
- 
- config E1000
- 	tristate "Intel(R) PRO/1000 Gigabit Ethernet support"
-+	select E1000_PCI
-+	select E1000E
-+
-+config E1000_PCI
-+	tristate "Intel(R) PRO/1000 PCI Gigabit Ethernet support"
- 	depends on PCI
- 	---help---
- 	  This driver supports Intel(R) PRO/1000 gigabit ethernet family of
-@@ -1976,7 +1981,7 @@ config E1000
- 
- config E1000_NAPI
- 	bool "Use Rx Polling (NAPI)"
--	depends on E1000
-+	depends on E1000_PCI
- 	help
- 	  NAPI is a new driver API designed to reduce CPU and interrupt load
- 	  when the driver is receiving lots of packets from the card. It is
-@@ -1990,7 +1995,7 @@ config E1000_NAPI
- 
- config E1000_DISABLE_PACKET_SPLIT
- 	bool "Disable Packet Split for PCI express adapters"
--	depends on E1000
-+	depends on E1000_PCI
- 	help
- 	  Say Y here if you want to use the legacy receive path for PCI express
- 	  hardware.
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 3b1ea32..8026e63 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -2,7 +2,7 @@
- # Makefile for the Linux network (ethercard) device drivers.
- #
- 
--obj-$(CONFIG_E1000) += e1000/
-+obj-$(CONFIG_E1000_PCI) += e1000/
- obj-$(CONFIG_E1000E) += e1000e/
- obj-$(CONFIG_IBM_EMAC) += ibm_emac/
- obj-$(CONFIG_IBM_NEW_EMAC) += ibm_newemac/
+
+
+--------------enig6A43D906AE25848C812516AA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.4-svn0 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
+
+iD8DBQFH/+NHQ3+did9BuFsRAgTEAJ9qsR99e4X90ZMkvaew0Ce6g6H6GQCdG4/5
+Cd/xkGPRbTZowqOGsEYIVY4=
+=KpDO
+-----END PGP SIGNATURE-----
+
+--------------enig6A43D906AE25848C812516AA--
