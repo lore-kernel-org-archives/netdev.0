@@ -1,43 +1,43 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [PATCH] forcedeth: new backoff implementation
-Date: Fri, 11 Apr 2008 18:52:38 +0200
-Message-ID: <200804111852.39156.netdev@axxeo.de>
-References: <47FE7066.5060703@nvidia.com>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [PATCH 2/2] [POWERPC] UCC nodes cleanup
+Date: Fri, 11 Apr 2008 21:06:57 +0400
+Message-ID: <20080411170657.GA15270@polina.dev.rtsoft.ru>
+References: <20080311171045.GB4684@localhost.localdomain> <82E8E38A-C159-4C23-BDE8-086D4429F366@kernel.crashing.org> <20080411160654.GA25506@polina.dev.rtsoft.ru> <47FF9665.7020403@freescale.com>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
-To: Ayaz Abdulla <aabdulla@nvidia.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:43853 "EHLO mail.axxeo.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760098AbYDKQxt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2008 12:53:49 -0400
-In-Reply-To: <47FE7066.5060703@nvidia.com>
+Content-Type: text/plain; charset=utf8
+Cc: Kumar Gala <galak@kernel.crashing.org>, linuxppc-dev@ozlabs.org,
+	Jeff Garzik <jgarzik@pobox.com>, linux-serial@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Timur Tabi <timur@freescale.com>
+Return-path: <linux-serial-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <47FF9665.7020403@freescale.com>
+Sender: linux-serial-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Ayaz,
-
-Ayaz Abdulla schrieb:
-> This patch adds support for a new backoff algorithm for half duplex 
-> supported in newer hardware. The old method is will be designated as 
-> legacy mode.
+On Fri, Apr 11, 2008 at 11:48:37AM -0500, Timur Tabi wrote:
+> Anton Vorontsov wrote:
+> > On Fri, Apr 11, 2008 at 09:13:36AM -0500, Kumar Gala wrote:
+> >> On Mar 11, 2008, at 12:10 PM, Anton Vorontsov wrote:
+> >>> - get rid of `model = "UCC"' in the ucc nodes
+> >>>  It isn't used anywhere, so remove it. If we'll ever need something
+> >>>  like this, we'll use compatible property instead.
+> >>> - replace cell-index and device-id properties by fsl,ucc.
+> >>>
+> >>> Drivers are modified for backward compatibility's sake.
+> >> I'd prefer we use cell-index and not introduce "fsl,ucc".  I'm ok with  
+> >> dropping device-id and model (its implied in the compatiable).
+> > 
+> > Ok. Here it is. netdev and linux-serial Cc'ed.
 > 
-> Re-seeding random values for the backoff algorithms are performed when a 
-> transmit has failed due to a maximum retry count (1 to 15, where max is 
-> considered the wraparound case of 0).
-> 
-> Resending based on feedback.
+> Do we want the first UCC to have a cell-index of 1?  Maybe we should fix this
+> off-by-one error once and for all, and number all UCCs from 0?
 
-It still uses u32 for the tables, which wastes at least 580 bytes
-of code. Please use u16 for that.
+Isn't documentation numbers UCC from 1? Then I believe we should stick
+with it for device tree, since off by one is Linux implementation details.
 
-
-Best Regards
-
-Ingo Oeser
+-- 
+Anton Vorontsov
+email: cbouatmailru@gmail.com
+irc://irc.freenode.net/bd2
