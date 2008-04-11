@@ -1,87 +1,162 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH 6/14][RTNL]: Introduce the rtnl_kill_links call.
-Date: Fri, 11 Apr 2008 12:01:31 +0400
-Message-ID: <47FF1ADB.1090805@openvz.org>
-References: <47FE2AD4.9080609@openvz.org> <47FE2E01.6030000@openvz.org> <37533.192.168.101.12.1207865395.squirrel@intranet>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+From: Glen Gray <glen.gray@lincor.com>
+Subject: Re: r8169 driver fails to see IGMPv2 SAP announcements
+Date: Fri, 11 Apr 2008 08:43:55 +0100
+Message-ID: <857EF17F-C708-4656-A7AF-D64A63223854@lincor.com>
+References: <OF47F0798E.811EA708-ON88257412.0070C381-88257412.00724DBB@us.ibm.com>
+Mime-Version: 1.0 (Apple Message framework v919.2)
+Content-Type: text/plain; charset="US-ASCII"; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Containers <containers@lists.osdl.org>,
-	Denis Lunev <den@openvz.org>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	Patrick McHardy <kaber@trash.net>
-To: Daniel Hokka Zakrisson <daniel@hozac.com>
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: David Stevens <dlstevens@us.ibm.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:48438 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755166AbYDKHhf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2008 03:37:35 -0400
-In-Reply-To: <37533.192.168.101.12.1207865395.squirrel@intranet>
+Received: from mail.station1.mxsweep.com ([212.147.136.149]:2708 "EHLO
+	mail2.mxsweep.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758977AbYDKHoD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 03:44:03 -0400
+In-Reply-To: <OF47F0798E.811EA708-ON88257412.0070C381-88257412.00724DBB@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
->> index da99ac0..bc39e41 100644
->> --- a/net/core/rtnetlink.c
->> +++ b/net/core/rtnetlink.c
->> @@ -269,6 +269,26 @@ int rtnl_link_register(struct rtnl_link_ops *ops)
->>
->>  EXPORT_SYMBOL_GPL(rtnl_link_register);
->>
->> +static void __rtnl_kill_links(struct net *net, struct rtnl_link_ops *ops)
->> +{
->> +	struct net_device *dev;
->> +restart:
->> +	for_each_netdev(net, dev) {
->> +		if (dev->rtnl_link_ops == ops) {
->> +			ops->dellink(dev);
->> +			goto restart;
->> +		}
->> +	}
->> +}
->> +
->> +void rtnl_kill_links(struct net *net, struct rtnl_link_ops *ops)
->> +{
->> +	rtnl_lock();
->> +	__rtnl_kill_links(net, ops);
->> +	rtnl_unlock();
->> +}
->> +EXPORT_SYMBOL_GPL(rtnl_kill_links);
->> +
->>  /**
->>   * __rtnl_link_unregister - Unregister rtnl_link_ops from rtnetlink.
->>   * @ops: struct rtnl_link_ops * to unregister
->> @@ -277,17 +297,10 @@ EXPORT_SYMBOL_GPL(rtnl_link_register);
->>   */
->>  void __rtnl_link_unregister(struct rtnl_link_ops *ops)
->>  {
->> -	struct net_device *dev, *n;
->>  	struct net *net;
->>
->>  	for_each_net(net) {
->> -restart:
->> -		for_each_netdev_safe(net, dev, n) {
->> -			if (dev->rtnl_link_ops == ops) {
->> -				ops->dellink(dev);
->> -				goto restart;
->> -			}
->> -		}
->> +		__rtnl_kill_links(net, ops);
-> 
-> This was _safe, and now it's not. Is that intentional?
+Ok, further to this, I've managed to do some testing at last but I'm  
+looking for further advice on how to debug this further.
 
-Yup - we goto restart in case we del some link, so there's no need
-in _safe iteration. 
+I'm still sure this is tied to the igmp version as that's all that's  
+different from what I can see. So if I know why the net device is  
+getting setup as igmp v3 and not v2 then I might be closer to solving  
+this. From looking at the code, it seems the igmp version is decided  
+upon by looking for igmp packets. If version 1 or version 2 are seen  
+in a particular time frame, then the version is set to v1 or v2  
+depending on what was seen otherwise it's set to v3 by default. Is  
+this correct ?
 
-This goto was added by Partick (commit 68365458 [NET]: rtnl_link: 
-fix use-after-free) and I suspect he simply forgot to remove the 
-_safe iterator (I put him in Cc to correct me if I'm wrong).
+I've built the latest r8169 driver from Realtek on my current kernel  
+and the latest Fedora 8 2.6.24.4 kernel rpm with some debugs in the  
+rtl_set_rx_mode function. I can see that under both kernels, the  
+mc_filter[0/1] elements are getting set to the same values, as is the  
+rx_mode
 
->>  	}
->>  	list_del(&ops->list);
->>  }
->> --
->> 1.5.3.4
-> 
+I performed a somewhat crude test by doing the following
+
+ethtool -S eth0; noting the multicast and broadcast counts
+tcpdump -i eth0 ether multicast; dumping to a file for a period of time
+ethtool -S eth0; got the new counts and worked out the differences and  
+compared that to a wc -l of the tcpdump.
+
+I ran that test a couple of times and in all cases there's a large  
+difference between what tcpdump reports (in promiscuous mode) and what  
+the net device stats are showing, namely that there's more packets  
+reported by ethtool -S eth0 than I can see with tcpdump
+
+Unfortunately, I can't do a similar test against the working Realtek  
+driver on the older kernel as it doesn't support the ethtool -S  
+command. And I can't compile the Realtek driver against the current  
+2.6.24 kernel due to API changes.
+
+A tcpdump on a working Realtek driver/older kernel shows the following  
+packets (same device, same net/switch)
+16:05:54.147532 IP exterity1.labs.lincor.com.sapv1 >  
+239.255.255.255.sapv1: UDP, length 296
+16:05:54.148298 IP exterity1.labs.lincor.com.sapv1 >  
+239.255.255.255.sapv1: UDP, length 287
+16:05:54.149046 IP exterity1.labs.lincor.com.sapv1 >  
+239.255.255.255.sapv1: UDP, length 292
+16:05:54.149776 IP exterity1.labs.lincor.com.sapv1 >  
+239.255.255.255.sapv1: UDP, length 291
+16:05:54.150490 IP exterity1.labs.lincor.com.sapv1 >  
+239.255.255.255.sapv1: UDP, length 279
+
+A working /proc/net/igmp
+Idx	Device    : Count Querier	Group    Users Timer	Reporter
+1	lo        :     0      V3
+				010000E0     1 0:00000000		0
+2	eth0      :     8      V2
+				FF0000E0     1 0:00000000		1
+				FFFFFFEF     2 0:00000000		1
+				FFFFC3EF     1 0:00000000		1
+				FE7F02E0     1 0:00000000		1
+				010000E0     1 0:00000000		0
+
+A working /proc/net/dev_mcast
+2    eth0            12    0     333300027ffe
+2    eth0            1     0     01005e0000ff
+2    eth0            1     0     01005e7fffff
+2    eth0            1     0     01005e43ffff
+2    eth0            1     0     01005e027ffe
+2    eth0            1     0     3333ff402cbe
+2    eth0            1     0     333300000001
+2    eth0            1     0     01005e000001
+
+
+For a 2.6.24 kernel, tcpdump just doesn't have the SAP packets
+
+Not working /proc/net/igmp
+Idx	Device    : Count Querier	Group    Users Timer	Reporter
+1	lo        :     0      V3
+				010000E0     1 0:00000000		0
+2	eth0      :     8      V3
+				FF0000E0     1 0:00000000		0
+				FFFFFFEF     2 0:00000000		0
+				FFFFC3EF     1 0:00000000		0
+				FE7F02E0     1 0:00000000		0
+				010000E0     1 0:00000000		0
+
+[root@webnote root]# cat /proc/net/dev_mcast
+2    eth0            12    0     333300027ffe
+2    eth0            1     0     01005e0000ff
+2    eth0            1     0     01005e7fffff
+2    eth0            1     0     01005e43ffff
+2    eth0            1     0     01005e027ffe
+2    eth0            1     0     3333ff402cbe
+2    eth0            1     0     333300000001
+2    eth0            1     0     01005e000001
+
+Pointers on where to look next are most welcome.
+
+Kind Regards,
+--
+Glen Gray <glen.gray@lincor.com>         Digital Depot, Thomas Street
+Senior Software Engineer                            Dublin 8, Ireland
+Lincor Solutions Ltd.                          Ph: +353 (0) 1 4893682
+
+On 20 Mar 2008, at 20:48, David Stevens wrote:
+> Hi, Glen,
+>        From your detailed description, and particularly the fact
+> that the problem seems to be tied to the driver & device, I think
+> I'd recommend looking at the multicast address filter code in the
+> driver. IGMP is not device dependent, so I doubt that is the
+> source of the problem.
+>        If you can reproduce the problem, then while it's
+> happening:
+>
+> 1) catch the group memberships by saving /proc/net/igmp
+> 2) catch the hardware group memberships by saving
+>        /proc/net/dev_mcast
+> [I expect from the symptoms that 1) is ok, 2) may or may not be...]
+> and...
+> 3) run tcpdump or wireshark in promiscuous mode
+>        - if the device address filter is the problem, when you
+>        put the device in promiscuous mode, everything will
+>        start working again, until you exit tcpdump. You will
+>        also see the packets you aren't receiving are being
+>        sent, if that's the problem.
+>
+> I understand you probably can't directly reproduce it, and
+> the visual artifacts you mentioned in that one test may or
+> may not be the same issue as the other one.
+>
+> Another possibility that comes to mind is a memory leak,
+> if the response problems are related to a low memory
+> condition. So, that might be something else to look for.
+> Compare memory usage with ordinary usage, check
+> for log messages of allocation failures and check "netstat -s"
+> output for any indication of drops.
+>
+> If you can set a program or script to monitor the system
+> and detect when you hit the problem, then you could use
+> that to trigger running a script that captures the data you
+> need when it happens.
+>
+>                                        +-DLS
+>
 
