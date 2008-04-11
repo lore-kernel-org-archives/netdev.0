@@ -1,36 +1,36 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/7] ATM cell alignment.
-Date: Fri, 11 Apr 2008 14:51:05 +0200
-Message-ID: <47FF5EB9.2010108@trash.net>
-References: <Pine.LNX.4.64.0804092249550.21022@ask.diku.dk> <Pine.LNX.4.64.0804092259460.21022@ask.diku.dk>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: Re-queueing of skb in vlan_skb_recv
+Date: Fri, 11 Apr 2008 13:53:13 +0100
+Message-ID: <20080411125313.GI9785@ZenIV.linux.org.uk>
+References: <8A9D56C5E50F774BABE033F1710B357601084C42@BBY1EXM11.pmc_nt.nt.pmc-sierra.bc.ca> <47FF5DAB.1060906@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Brian Oostenbrink <Brian_Oostenbrink@pmc-sierra.com>,
+	linux-net@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53601 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758030AbYDKMvJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 08:51:09 -0400
-In-Reply-To: <Pine.LNX.4.64.0804092259460.21022@ask.diku.dk>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:46853 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757919AbYDKMxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2008 08:53:19 -0400
+Content-Disposition: inline
+In-Reply-To: <47FF5DAB.1060906@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Dangaard Brouer wrote:
-> @@ -87,6 +111,16 @@ int tc_calc_rtable(struct tc_ratespec *r, __u32 
-> *rtab, int cell_log, unsigned mt
->          unsigned sz = ((i+1)<<cell_log);
->          if (sz < mpu)
->              sz = mpu;
-> +        switch (linklayer) {
-> +        case LINKLAYER_ATM:
-> +            sz = tc_align_to_atm(sz);
-> +            break;
-> +        case LINKLAYER_ETHERNET:
-> +            // No size adjustments on Ethernet
-> +            break;
+On Fri, Apr 11, 2008 at 02:46:35PM +0200, Patrick McHardy wrote:
+> Brian Oostenbrink wrote:
+> >In vlan_skb_recv, packets are generally stripped of their vlan header,
+> >and then re-queued via netif_rx().  Is there a reason for re-queuing
+> >these instead of calling netif_receive_skb() directly?  On our system
+> >(an embedded linux router), this re-queuing has a significant
+> >performance penalty.
+> 
+> Its done to save stack space. There's currently a discussion
+> about making loopback use netif_receive_skb in case enough
+> stack is still available. Once that patch gets merged I'll
+> change VLAN in a similar way.
 
-Couldn't this use the ARPHRD values?
+Another possibility would be to allow ->func() of packet_type to return an
+skb for reprocessing...
