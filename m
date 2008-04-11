@@ -1,155 +1,46 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 3/14][TUN]: Introduce the tun_net structure.
-Date: Thu, 10 Apr 2008 18:01:42 -0700
-Message-ID: <20080411010142.GA16878@linux.vnet.ibm.com>
-References: <47FE2AD4.9080609@openvz.org> <47FE2CF0.6080100@openvz.org>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.25-rc8: FTP transfer errors
+Date: Thu, 10 Apr 2008 18:08:00 -0700 (PDT)
+Message-ID: <20080410.180800.62052963.davem@davemloft.net>
+References: <47FEADCB.7070104@rtr.ca>
+	<20080410.172453.44434205.davem@davemloft.net>
+	<47FEB751.7040703@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Denis Lunev <den@openvz.org>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: lkml@rtr.ca, jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org,
+	jeff@garzik.org, rjw@sisk.pl, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: tilman@imap.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:49149 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756006AbYDKBBy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 21:01:54 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m3B11i4f013663
-	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 21:01:44 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m3B11iSb195306
-	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 19:01:44 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m3B11hh0014205
-	for <netdev@vger.kernel.org>; Thu, 10 Apr 2008 19:01:44 -0600
-Content-Disposition: inline
-In-Reply-To: <47FE2CF0.6080100@openvz.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32894
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752862AbYDKBH7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2008 21:07:59 -0400
+In-Reply-To: <47FEB751.7040703@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 10, 2008 at 07:06:24PM +0400, Pavel Emelyanov wrote:
-> This is the first step in making tuntap devices work in net 
-> namespaces. The structure mentioned is pointed by generic
-> net pointer with tun_net_id id, and tun driver fills one on 
-> its load. It will contain only the tun devices list.
-> 
-> So declare this structure and introduce net init and exit hooks.
+From: Tilman Schmidt <tilman@imap.cc>
+Date: Fri, 11 Apr 2008 02:56:49 +0200
 
-OK, I have to ask...  What prevents someone else from invoking
-net_generic() concurrently with a call to tun_exit_net(), potentially
-obtaining a pointer to the structure that tun_exit_net() is about
-to kfree()?
+> I think you got it backwards. Mark and other bug reporters (including,
+> at times, yours truly) are helping you and other developers to make
+> Linux better.
 
-						Thanx, Paul
+I appreciate the bug reports, believe me.
 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> 
-> ---
->  drivers/net/tun.c |   53 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
->  1 files changed, 52 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 7b816a0..9bfba02 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -63,6 +63,7 @@
->  #include <linux/if_tun.h>
->  #include <linux/crc32.h>
->  #include <net/net_namespace.h>
-> +#include <net/netns/generic.h>
-> 
->  #include <asm/system.h>
->  #include <asm/uaccess.h>
-> @@ -73,6 +74,11 @@ static int debug;
-> 
->  /* Network device part of the driver */
-> 
-> +static unsigned int tun_net_id;
-> +struct tun_net {
-> +	struct list_head dev_list;
-> +};
-> +
->  static LIST_HEAD(tun_dev_list);
->  static const struct ethtool_ops tun_ethtool_ops;
-> 
-> @@ -873,6 +879,37 @@ static const struct ethtool_ops tun_ethtool_ops = {
->  	.set_rx_csum	= tun_set_rx_csum
->  };
-> 
-> +static int tun_init_net(struct net *net)
-> +{
-> +	struct tun_net *tn;
-> +
-> +	tn = kmalloc(sizeof(*tn), GFP_KERNEL);
-> +	if (tn == NULL)
-> +		return -ENOMEM;
-> +
-> +	INIT_LIST_HEAD(&tn->dev_list);
-> +
-> +	if (net_assign_generic(net, tun_net_id, tn)) {
-> +		kfree(tn);
-> +		return -ENOMEM;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static void tun_exit_net(struct net *net)
-> +{
-> +	struct tun_net *tn;
-> +
-> +	tn = net_generic(net, tun_net_id);
-> +	kfree(tn);
-> +}
-> +
-> +static struct pernet_operations tun_net_ops = {
-> +	.init = tun_init_net,
-> +	.exit = tun_exit_net,
-> +};
-> +
->  static int __init tun_init(void)
->  {
->  	int ret = 0;
-> @@ -880,9 +917,22 @@ static int __init tun_init(void)
->  	printk(KERN_INFO "tun: %s, %s\n", DRV_DESCRIPTION, DRV_VERSION);
->  	printk(KERN_INFO "tun: %s\n", DRV_COPYRIGHT);
-> 
-> +	ret = register_pernet_gen_device(&tun_net_id, &tun_net_ops);
-> +	if (ret) {
-> +		printk(KERN_ERR "tun: Can't register pernet ops\n");
-> +		goto err_pernet;
-> +	}
-> +
->  	ret = misc_register(&tun_miscdev);
-> -	if (ret)
-> +	if (ret) {
->  		printk(KERN_ERR "tun: Can't register misc device %d\n", TUN_MINOR);
-> +		goto err_misc;
-> +	}
-> +	return 0;
-> +
-> +err_misc:
-> +	unregister_pernet_gen_device(tun_net_id, &tun_net_ops);
-> +err_pernet:
->  	return ret;
->  }
-> 
-> @@ -899,6 +949,7 @@ static void tun_cleanup(void)
->  	}
->  	rtnl_unlock();
-> 
-> +	unregister_pernet_gen_device(tun_net_id, &tun_net_ops);
->  }
-> 
->  module_init(tun_init);
-> -- 
-> 1.5.3.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The issue is which of the limited developer resources get put onto
+which bugs.
+
+A developer who does this for fun is going to prioritize to things
+that are pleasant and interesting to work on, and also a good
+effective use of their time.
+
+So people prioritize.
+
+Therefore, my point is, the net result is that user have a direct
+influence on which bugs get worked on with the highest priority and
+thus get fixed faster.  And those are the ones that have the most
+information available, and in particular bisec results when
+appropriate.
