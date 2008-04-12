@@ -1,101 +1,89 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Realtek 8111c weirdness problems, apic/msi, and normal bug
-Date: Sat, 12 Apr 2008 21:22:15 +0200
-Message-ID: <20080412192215.GA17669@electric-eye.fr.zoreil.com>
-References: <1207407804.14885.27.camel@localhost> <20080405232354.57ff2fac.akpm@linux-foundation.org> <20080406140624.GA24479@electric-eye.fr.zoreil.com> <1207541340.30698.18.camel@localhost> <1207829872.1514.3.camel@localhost> <1207876315.1514.21.camel@localhost>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
+Date: Sat, 12 Apr 2008 22:19:28 +0200
+Message-ID: <m33apqomgf.fsf@maximus.localdomain>
+References: <m3prtzsszg.fsf@maximus.localdomain>
+	<m3tzj92xq6.fsf@maximus.localdomain>
+	<m33aqedg0a.fsf@maximus.localdomain>
+	<m37if4oz1g.fsf@maximus.localdomain>
+	<20080411221448.22b69ff5.akpm@linux-foundation.org>
+	<m3prsva3y7.fsf@maximus.localdomain> <20080412115950.1cbb9cfa@core>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML Mailinglist <linux-kernel@vger.kernel.org>,
-	linux-acpi@vger.kernel.org, netdev@vger.kernel.org
-To: Kasper Sandberg <lkml@metanurb.dk>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1207876315.1514.21.camel@localhost>
-Sender: linux-acpi-owner@vger.kernel.org
+	Jeff Garzik <jeff@garzik.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758201AbYDLUTq@vger.kernel.org>
+In-Reply-To: <20080412115950.1cbb9cfa@core> (Alan Cox's message of "Sat\, 12 Apr 2008 11\:59\:50 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kasper Sandberg <lkml@metanurb.dk> :
-> Sorry for top posting, but its just easier in this case :)
+Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
 
-Tsk, tsk.
+>> PPP support in generic HDLC in Linux 2.6.25 is broken and will cause
+>> a kernel panic when a device configured in PPP mode is activated.
+>> 
+>> It will be replaced by new PPP implementation after Linux 2.6.25 is
+>> released.
+>
+> Thats a pretty bad regression. Surely the correct fix is to revert the
+> change series that caused the breakage then re-merge that and fixes for
+> HDLC PPP for 2.6.26, not just leave it broken ?
 
-> I may have just gotten some new information to share.
-> 
-> I just built -git8. and the nic didnt work.. by booting with
-> noapic/nomsi i got it running though. then i did some tests, and
-> rebooted into the default(has worked mostly for me) noapic/msi boot.
-> Then it worked.
+It's not that simple - it was broken between 2.6.22 and 2.6.23 (2.6.23
+was already broken), I just haven't noticed (I don't use PPP myself,
+except for tests).
 
-Can you try a simple 'nomsi' boot ?
+author	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+	 Fri, 6 Jul 2007 20:36:20 +0000 (13:36 -0700)
+commit	f25f4e44808f0f6c9875d94ef1c41ef86c288eb2
 
-The lspci in your previous message (2008/04/10) suggested that
-something was very wrong at the PCI level:
-[...]
-05:00.0 0200: 10ec:8168 (rev ff) (prog-if ff)
-        !!! Unknown header type 7f
-        Kernel driver in use: r8169
-        Kernel modules: r8169
-00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-20: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+[CORE] Stack changes to add multiqueue hardware support API
+Add the multiqueue hardware device support API to the core network
+stack.  Allow drivers to allocate multiple queues and manage them at
+the netdev level if they choose to do so.
 
-(but this was on an older kernel, right ?)
+Added a new field to sk_buff, namely queue_mapping, for drivers to
+know which tx_ring to select based on OS classification of the flow.
 
-When you see such an output, can you try to see if the direct access
-option of lspci (-H{1/2}) makes a difference ?
+And it included:
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -565,9 +578,7 @@ struct net_device
+ 
+ static inline void *netdev_priv(const struct net_device *dev)
+ {
+-       return (char *)dev + ((sizeof(struct net_device)
+-                                       + NETDEV_ALIGN_CONST)
+-                               & ~NETDEV_ALIGN_CONST);
++       return dev->priv;
+ }
+ 
+ #define SET_MODULE_OWNER(dev) do { } while (0)
 
-[...]
-> if its a boot where the nic works, i can usually rmmod/modprobe the
-> module once without it giving error, however if its a boot where the nic
-> doesent work, first time i rmmod and modprobe, it gives me an error..
-> 
-> the error is:
-> PCI: cache line size of 32 is not supported by device 0000:05:00.0
-> ACPI: PCI interrupt for device 0000:05:00.0 disabled
-> r8169: probe of 0000:05:00.0 failed with error -22
 
-What does lspci say here ?
+HDLC PPP sits between hardware drivers and (in this case) syncppp.c,
+and it (hdlc_ppp module) was using netdev_priv() as a pointer to the
+memory allocated with (after) the netdev structure. dev->priv was used
+by syncppp.c.
 
-> I have attached some dmesgs(sorry, but my client messes up inlines..)
-> also.. link detecting isnt working properly, sometimes it will detect a
-> link as down after a while.. its quite weird..
+HDLC FR was also broken by this change but the fix was easy because
+there is no external protocol module to interface to.
 
-(please increase the size of your kernel log buffer)
+I didn't want to add to the HDLC PPP mess anymore and have rewritten
+it instead (in process, it turned out syncppp alone, and syncppp +
+HDLC have much more problems than I thought). Obviously I was way too
+late for 2.6.25 (past 2.6.25-rc5 and the new code wasn't much tested).
 
-> (oh, and this time its without nvidia just to be 100000% sure)
 
-Thanks.
+Yes, I could add another dirty "interface fix" to the HDLC + syncppp
+combo (hdlc_ppp), but I don't really see a sense, especially that I
+have the new implementation ready and working (my time resources are
+currently quite limited and if I have to choose between adding another
+glue fix and writing a better PPP replacement I pick the latter).
 
-> I hope this can help to get it resolved, alot of people are having
-> problems with these controllers.. i can however confirm that a similar
-> controller is working perfectly on a friends gigabyte motherboard, thats
-> with P35 chipset though, i have X48. He has only 1 of them onboard.
 
-You can ask your friend to grep for the 'XID' line in the kernel log
-written by the r8169 driver. If the values match, you have got the same
-816x hardware.
-
-There are different problems with the 8168
-- older kernel with broken mmconfig / msi / etc.
-- newer 8168 chipsets which are currently not correctly handled
-- plain 8168 driver bugs
-- ...
-
-(that being said, it really works for some users too)
-
-> also something which may be of interrest, realtek offers a modified
-> r8169 driver called "r8168", which supposedly fixes this. I have been
-> unable to get it to compile though, but i saw it on ubuntu forums.
-
-I am looking very closely at Realtek's drivers but the diff between 
-the different revisions of their 8168 driver are not always as
-readable as I would hope for (things have improved though).
-
-Realtek is working at fixing its 8168 driver for recent kernels. It
-should be easier to compare its behavior against the in-kernel driver
-with recent kernels soon. It will makes everybody's life easier.
-
+My original post: http://lkml.org/lkml/2008/3/12/277
 -- 
-Ueimor
+Krzysztof Halasa
