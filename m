@@ -1,68 +1,59 @@
-From: Kasper Sandberg <lkml@metanurb.dk>
-Subject: Re: Realtek 8111c weirdness problems, apic/msi, and normal bug
-Date: Sat, 12 Apr 2008 14:23:28 +0200
-Message-ID: <1208003008.1514.38.camel@localhost>
-References: <1207407804.14885.27.camel@localhost>
-	 <20080405232354.57ff2fac.akpm@linux-foundation.org>
-	 <20080406140624.GA24479@electric-eye.fr.zoreil.com>
-	 <1207541340.30698.18.camel@localhost>  <1207829872.1514.3.camel@localhost>
-	 <1207876315.1514.21.camel@localhost>  <1207937216.1514.30.camel@localhost>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [patch] e1000=y && e1000e=m regression fix
+Date: Sat, 12 Apr 2008 09:07:33 -0400
+Message-ID: <20080412130733.GA21572@infradead.org>
+References: <47FE8566.5040809@intel.com> <20080411112653.GC9205@elte.hu> <20080411113644.GA7767@infradead.org> <20080411121606.GA25661@elte.hu> <47FF9060.5040202@intel.com> <20080411164542.GA4066@infradead.org> <alpine.LFD.1.00.0804111028540.3143@woody.linux-foundation.org> <alpine.LNX.1.00.0804111700550.19665@iabervon.org> <alpine.LFD.1.00.0804111556200.3143@woody.linux-foundation.org> <47FFF7B5.3000609@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML Mailinglist <linux-kernel@vger.kernel.org>,
-	linux-acpi@vger.kernel.org, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Daniel Barkalow <barkalow@iabervon.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Ingo Molnar <mingo@elte.hu>, Matthew Wilcox <matthew@wil.cx>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>,
+	e1000-list <e1000-devel@lists.sourceforge.net>,
+	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	Greg KH <greg@kroah.com>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:53907 "EHLO pasmtpA.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932161AbYDLMZ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Apr 2008 08:25:57 -0400
-In-Reply-To: <1207937216.1514.30.camel@localhost>
+Received: from bombadil.infradead.org ([18.85.46.34]:43143 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752487AbYDLNIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 09:08:07 -0400
+Content-Disposition: inline
+In-Reply-To: <47FFF7B5.3000609@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've got some more information (though probably not too helpful).
-Realtek has modified(i probably mentioned this earlier) the r8169
-driver, under the name of r8168. It might be worth checking out what
-they have done. people are reporting that it works:
-http://damienkane.livejournal.com/5574.html
-http://www.mail-archive.com/ubuntu-bugs%
-40lists.ubuntu.com/msg730229.html
+On Fri, Apr 11, 2008 at 07:43:49PM -0400, Jeff Garzik wrote:
+> However, due to a mistake now released to the public -- a tiny few PCI-E 
+> chips are supported by e1000 -- you have a widely disparate feature set:
+>
+> 	e1000, old chips:		full support
+>
+> 	e1000, a few PCI-E chips:	basic support
+>
+> 	e1000e, all PCI-E chips:	full support
+>
+> Since e1000e is all new and fancy AND CLEAN, the code for the same chips is 
+> different -- thus Intel must make every PCI-E fix _twice_.
+>
+> It also means WE HAVE TO KEEP TOUCHING E1000, while supporting PCI-E chips. 
+>  After this PCI-E issue is resolved, I want to let e1000 sit and be stable 
+> and not be touched.
+>
+> For a temporary situation, this is fine.  Give me transition suggestions, 
+> please!
 
-the driver can be found at:
-http://www.realtek.com.tw/downloads/downloadsView.aspx?Langid=1&PNid=13&PFid=5&Level=5&Conn=4&DownTypeID=3&GetDown=false
-if that doesent work, do: http://www.realtek.com.tw/downloads ->
-communication networks ics -> network interface controllers ->
-10/100/1000 gigabit ethernet -> pci express.
-
-I will try myself, but i have zero knowledge about this stuff in the
-kernel, and will probably not be able to find anything of use.
-
-
-On Fri, 2008-04-11 at 20:06 +0200, Kasper Sandberg wrote:
-> I've got more information again. This is dmesg, and /proc/interrupts
-> from a livecd (systemrescuecd), its a .23.14, and only 1 nic works (the
-<snip>
-> 
-> On Fri, 2008-04-11 at 03:11 +0200, Kasper Sandberg wrote:
-> > Sorry for top posting, but its just easier in this case :)
-> > 
-> <snip>
-> > > 
-> > > 
-> > > > > 
-> > > > 
-> > > > --
-> > > > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> > > > the body of a message to majordomo@vger.kernel.org
-> > > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > > > Please read the FAQ at  http://www.tux.org/lkml/
-> > > 
-> > > --
-> > > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> > > the body of a message to majordomo@vger.kernel.org
-> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > > Please read the FAQ at  http://www.tux.org/lkml/
-
+PCI-E support should be removed from the e1000 driver ASAP, that is .26.
+What we need is a way to have CONFIG_E1000 pull in the e1000e driver
+automatically to not confuse kernel developers that don't know what
+hardware they actually have..
