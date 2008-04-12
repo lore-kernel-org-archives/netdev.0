@@ -1,30 +1,38 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/6] tc35815: Statistics cleanup
-Date: Sat, 12 Apr 2008 05:00:49 -0400
-Message-ID: <48007A41.2000803@garzik.org>
-References: <20080411.002412.03977557.anemo@mba.ocn.ne.jp>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH v2.6.26] gianfar: Support NAPI for TX Frames
+Date: Sat, 12 Apr 2008 05:01:16 -0400
+Message-ID: <48007A5C.7070609@pobox.com>
+References: <1207787871-9164-1-git-send-email-afleming@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Cc: netdev@vger.kernel.org, Dai Haruki <dai.haruki@freescale.com>
+To: Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59324 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59337 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756287AbYDLJAz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Apr 2008 05:00:55 -0400
-In-Reply-To: <20080411.002412.03977557.anemo@mba.ocn.ne.jp>
+	id S1757018AbYDLJBT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Apr 2008 05:01:19 -0400
+In-Reply-To: <1207787871-9164-1-git-send-email-afleming@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Atsushi Nemoto wrote:
-> Use struct net_device_stats embedded in struct net_device.
+Andy Fleming wrote:
+> From: Dai Haruki <dai.haruki@freescale.com>
 > 
-> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+> Poll the completed TX frames in gfar_poll().  This prevents the tx
+> completion interrupt from interfering with processing of received
+> frames.
+> 
+> We also disable hardware rx coalescing when NAPI is enabled.
+> 
+> Signed-off-by: Dai Haruki <dai.haruki@freescale.com>
+> Signed-off-by: Andy Fleming <afleming@freescale.com>
 > ---
->  drivers/net/tc35815.c |   61 +++++++++++++++++++++++++------------------------
->  1 files changed, 31 insertions(+), 30 deletions(-)
+>  drivers/net/gianfar.c |   56 ++++++++++++++++++++++++++++++++++++------------
+>  drivers/net/gianfar.h |   13 +++++++++-
+>  2 files changed, 53 insertions(+), 16 deletions(-)
 
-applied 1-6
+applied
 
 
