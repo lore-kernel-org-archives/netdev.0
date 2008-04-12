@@ -1,43 +1,78 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
-Date: Fri, 11 Apr 2008 22:14:48 -0700
-Message-ID: <20080411221448.22b69ff5.akpm@linux-foundation.org>
-References: <m3prtzsszg.fsf@maximus.localdomain>
-	<m3tzj92xq6.fsf@maximus.localdomain>
-	<m33aqedg0a.fsf@maximus.localdomain>
-	<m37if4oz1g.fsf@maximus.localdomain>
+From: "Andy Johnson" <johnsonzjo@gmail.com>
+Subject: Re: [PATCH] [mcast-tools] Changing the type of pim_cksum.
+Date: Sat, 12 Apr 2008 08:20:51 +0300
+Message-ID: <147a89290804112220m4ca7a2e7q5b4b937f3d08f554@mail.gmail.com>
+References: <147a89290804110214nb1cc55fp4645ce1f913d74d6@mail.gmail.com>
+	 <20080411.182410.01537607.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: "=?UTF-8?Q?YOSHIFUJI_Hideaki_/_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?="
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:35204 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752499AbYDLFO6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 01:14:58 -0400
-In-Reply-To: <m37if4oz1g.fsf@maximus.localdomain>
+Received: from fg-out-1718.google.com ([72.14.220.158]:26464 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752095AbYDLFUx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 01:20:53 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so626309fgb.17
+        for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 22:20:52 -0700 (PDT)
+In-Reply-To: <20080411.182410.01537607.yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 11 Apr 2008 23:35:23 +0200 Krzysztof Halasa <khc@pm.waw.pl> wrote:
-
-> Hi,
-> 
-> I wrote:
-> 
-> > So are we leaving the generic-HDLC+PPP in broken state for 2.6.25,
-> > aren't we?
-> >
-> > If we do, perhaps a "|| BROKEN" in drivers/net/wan/Kconfig would make
-> > sense?
-> 
-> Linus just made 2.6.25-rclast (I hope), I understand 2.6.25 will have
-> broken drivers/net/wan/hdlc_ppp, any chance to apply the temporary
-> Kconfig ("depends on BROKEN") patch?
-> 
-> Would you like me to resend it?
-
-It never hurts to resend.  It was 6000 patches ago and my mind is a blank.
-
+SGVsbG8sCgpJdCBjb3VsZCBiZSB0aGF0IHlvdSBhcmUgcmlnaHQ7IG9uIHRoZSBvdGhlciBoYW5k
+LCBJIGhhZCBsb29rZWQgYXQKaWNtcHY2LmgsIGZvciBleGFtcGxlIG9mIF9fYmUxNiB1c2FnZS4K
+SXQgc2VlbXMgdG8gbWUgdGhhdCB0aGUgYXR0aXR1ZGUgdGhlcmUgaXMgZGlmZmVyZW50LgoKVW5k
+ZXIgL3Vzci9pbmNsdWRlIHdlIGhhdmUgdHdvIGZpbGVzIG5hbWVkIGljbXB2Ni5oOgoJT25lIGlz
+IC91c3IvaW5jbHVkZS9saW51eC9pY21wdjYuaCAod2hpY2ggYmVsb25ncyB0byBrZXJuZWwtaGVh
+ZGVycykuClRoZSBvdGhlciBpcyAgL3Vzci9pbmNsdWRlL25ldGluZXQvaWNtcDYuaAp3aGljaCBi
+ZWxvbmdzIHRvIGdsaWJjLWhlYWRlcnMuCgpJbiAvdXNyL2luY2x1ZGUvbGludXgvaWNtcHY2Lmgg
+KGtlcm5lbC1oZWFkZXJzKSB3ZSBoYXZlOgpzdHJ1Y3QgaWNtcDZoZHIgewoKICAgICAgICB1bmlv
+biB7CiAgICAgICAgICAgICAgICBfX2JlMzIgICAgICAgICAgICAgICAgICB1bl9kYXRhMzJbMV07
+CiAgICAgICAgICAgICAgICBfX2JlMTYgICAgICAgICAgICAgICAgICB1bl9kYXRhMTZbMl07CiAg
+ICAgICAgICAgICAgICBfX3U4ICAgICAgICAgICAgICAgICAgICB1bl9kYXRhOFs0XTsKCgoKSW4g
+L3Vzci9pbmNsdWRlL25ldGluZXQvaWNtcDYuaCAoZ2xpYmMtaGVhZGVycykgd2UgaGF2ZToKc3Ry
+dWN0IGljbXA2X2hkcgogIHsKICAgIHVuaW9uCiAgICAgIHsKICAgICAgICB1aW50MzJfdCAgaWNt
+cDZfdW5fZGF0YTMyWzFdOyAvKiB0eXBlLXNwZWNpZmljIGZpZWxkICovCiAgICAgICAgdWludDE2
+X3QgIGljbXA2X3VuX2RhdGExNlsyXTsgLyogdHlwZS1zcGVjaWZpYyBmaWVsZCAqLwogICAgICAg
+IHVpbnQ4X3QgICBpY21wNl91bl9kYXRhOFs0XTsgIC8qIHR5cGUtc3BlY2lmaWMgZmllbGQgKi8K
+ICAgICAgfSBpY21wNl9kYXRhdW47CiAgfTsKCgkKTm90ZSB0aGF0IHRoZSBfX2JlMTYgd2FzIHJl
+cGxhY2VkIGJ5IAl1aW50MTZfdCwgYW5kIHRoYXQgX19iZTMyIHdhcwpyZXBsYWNlZCBieSB1aW50
+MzJfdC4gSSBkb24ndCB0aGluayB0aGF0IGluIHlvdSB3aWxsIGZpbmQgdHlwZWRlZiBmb3IgX19i
+ZSogZm9yCmEgdXNlciBzcGFjZSBwYXJ0IGluIGFueSBsaW51eCBrZXJuZWwgaGVhZGVycy4gSWRl
+YXM/CgpSZWdhcmRzLApBSgoKCk9uIEZyaSwgQXByIDExLCAyMDA4IGF0IDEyOjI0IFBNLCBZT1NI
+SUZVSkkgSGlkZWFraSAvIOWQieiXpOiLseaYjgo8eW9zaGZ1amlAbGludXgtaXB2Ni5vcmc+IHdy
+b3RlOgo+Cj4gSW4gYXJ0aWNsZSA8MTQ3YTg5MjkwODA0MTEwMjE0bmIxY2M1NWZwNDY0NWNlMWY5
+MTNkNzRkNkBtYWlsLmdtYWlsLmNvbT4gKGF0IEZyaSwgMTEgQXByIDIwMDggMTI6MTQ6MzcgKzAz
+MDApLCAiQW5keSBKb2huc29uIiA8am9obnNvbnpqb0BnbWFpbC5jb20+IHNheXM6Cj4KPiAgPiBI
+ZWxsbywKPiAgPgo+ICA+ID5JbiBnbGliYy0yLjMueCBib3RoIGRlZmluZXMgd2VyZSBwcm92aWRl
+ZCwgYnV0IGFmdGVyIHRoYXQgdGhlIG9sZAo+ICA+ID5JQ01QNl8qIGRlZmluZXMgd2VyZSBjb21w
+bGV0ZWx5IHJlbW92ZWQuCj4gID4KPiAgPiA+UHJvYmFibHkgWW9zaGlmdWppLXNhbiB0ZXN0cyB0
+aGUgdXNlciB0b29sIGJ1aWxkcyBvbiBhIGdsaWJjLTIuMy54IG9yCj4gID4gPmVhcmxpZXIgc3lz
+dGVtLCB3aGljaCBoYXMgdGhlIG9sZCBkZXByZWNhdGVkIGRlZmluZXMuCj4gID4KPiAgPgo+ICA+
+IEkgY291bGQgZ2V0IGFjY2VzcyB0b2RheSAoYXQgbGFzdC4uLikgdG8gYSBtYWNoaW5lIHJ1bm5p
+bmcgZ2xpYmMtMi4zLjQtMi4xMy4KPiAgPiBJIGhhZCBkb25lIHRoZSBmb2xsb3dpbmc6Cj4gID4g
+Z2l0LWNsb25lIGdpdDovL2dpdC5saW51eC1pcHY2Lm9yZy9naXRyb290L3lvc2hmdWppL21jYXN0
+LXRvb2xzLmdpdAo+ICA+Cj4gID4gY2QgbWNhc3QtdG9vbHMKPiAgPgo+ICA+IGFjbG9jYWw7IGF1
+dG9tYWtlOyBhdXRvY29uZgo+ICA+IC4vY29uZmlndXJlCj4gID4gY2QgcGltNnNkCj4gID4gbWFr
+ZQo+ICA+Cj4gID4KPiAgPiBJIGdvdCB0aGUgZm9sbG93aW5nIGVycm9yOgo+ICA+Cj4gID4gSW4g
+ZmlsZSBpbmNsdWRlZCBmcm9tIGRlYnVnLmM6NzE6Cj4gID4gLi4vaW5jbHVkZS9saW51eC9waW0u
+aDoxNzogZXJyb3I6IHN5bnRheCBlcnJvciBiZWZvcmUgIl9fYmUxNiIKPiAgPiAuLi9pbmNsdWRl
+L2xpbnV4L3BpbS5oOjE3OiB3YXJuaW5nOiBubyBzZW1pY29sb24gYXQgZW5kIG9mIHN0cnVjdCBv
+ciB1bmlvbgo+ICA+IG1ha2VbMV06ICoqKiBbZGVidWcub10gRXJyb3IgMQo+ICA+IG1ha2VbMV06
+IExlYXZpbmcgZGlyZWN0b3J5IC4uLgo+ICA+IG1ha2U6ICoqKiBbYWxsLXJlY3Vyc2l2ZV0gRXJy
+b3IgMQo+ICA+Cj4gID4gQXMgZmFyIGFzIEkgdW5kZXJzdGFuZCwgdGhlIF9fYmUxNiBpcyBnb29k
+IGZvciBrZXJuZWwgaGVhZGVycywgYnV0IG5vdAo+ICA+IGZvciB1c2VyIHNwYWNlIGhlYWRlcnMu
+IEkgYW0gbm90IHN1cmUgYWJvdXQgaXQuIEhvd2V2ZXIsIGluIGNhc2UgSSBhbQo+ICA+IHJpZ2h0
+LCBJIGNoYW5nZWQgaXQgdG8gICJ1aW50MTZfdCBwaW1fY2tzdW0iIGluc3RlYWQgb2YgICJfX2Jl
+MTYgIHBpbV9ja3N1bSIKPiAgPiBpbiAvaW5jbHVkZS9saW51eC9waW0uaDsKPiAgPiBhbmQgdGhl
+biAibWFrZSIgZmluc2loZWQgb2suCj4gID4gQW5kIGF0dGFjaGVkIGhlcmUgaXMgdGhlIHBhdGNo
+LiBXaGF0IGRvIHlvdSB0aGluayA/Cj4KPiAgTm8sIEkgdGhpbmsgX19iZTE2IHNob3VsZCBiZSBk
+ZWNsYXJlZCAodHlwZWRlZidlZCkgaW4gdXNlci1zcGFjZS4KPiAgSSdtIG5vdCBzdXJlIGlmIHdl
+IGNhbiBzb2x2ZSBieSBpbmNsdWRpbmcgcmlnaHQgZmlsZS4KPgo+ICBBY3R1YWxseSB3aGF0IEkg
+d2FudCB0byBkbyBpcyB0byBzcGVjaWZ5IGtlcm5lbCBpbmNsdWRlIGZpbGVzIGluCj4gIG1jYXN0
+LXRvb2xzIC0gc29tZXRoaW5nIGxpa2U6Cj4gICAgLi9jb25maWd1ZSAtLXdpdGgta2VybmVsLWhl
+YWRlcnM9L2hvbWUveW9zaGZ1amkvbGludXgtMi42LWRldmkvaW5jbHVkZQo+Cj4gIFJlZ2FyZHMs
+Cj4KPiAgLS15b3NoZnVqaQo+Cg==
