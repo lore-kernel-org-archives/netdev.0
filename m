@@ -1,34 +1,48 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [2.6 patch] make netxen_workq static
-Date: Sat, 12 Apr 2008 05:02:50 -0400
-Message-ID: <48007ABA.7030705@pobox.com>
-References: <20080330232218.GP28445@cs181133002.pp.htv.fi>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] sb1000.c: stop inlining largish static functions
+Date: Sat, 12 Apr 2008 05:08:16 -0400
+Message-ID: <48007C00.7070100@garzik.org>
+References: <200803310102.43277.vda.linux@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dhananjay Phadke <dhananjay@netxen.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Denys Vlasenko <vda.linux@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59425 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:38831 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756971AbYDLJCy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Apr 2008 05:02:54 -0400
-In-Reply-To: <20080330232218.GP28445@cs181133002.pp.htv.fi>
+	id S1758880AbYDLJIS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Apr 2008 05:08:18 -0400
+In-Reply-To: <200803310102.43277.vda.linux@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adrian Bunk wrote:
-> netxen_workq can now become static.
+Denys Vlasenko wrote:
+> Hi Jeff,
 > 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> Can you take this patch into your net driver fixes tree?
 > 
-> ---
+> drivers/net/sb1000.c has lots of inlined static functions.
 > 
->  drivers/net/netxen/netxen_nic.h      |   17 -----------------
->  drivers/net/netxen/netxen_nic_main.c |   20 +++++++++++++++++++-
->  2 files changed, 19 insertions(+), 18 deletions(-)
+> Mst of them are used at initialization, wait for some
+> hardware register to change (wait using yield, sleep etc),
+> or do slow port-based I/O. Inlining thse "for speed" makes no sense.
+> 
+> This patch removes "inline" from biggest static function
+> (regardless of number of callsites - gcc nowadays auto-inlines
+> statics with one callsite).
+> 
+> Size difference for 32bit x86:
+> 
+>    text    data     bss     dec     hex filename
+>    6299     129       0    6428    191c linux-2.6-ALLYES/drivers/net/sb1000.o
+>    5418     129       0    5547    15ab linux-2.6.inline-ALLYES/drivers/net/sb1000.o
+> 
+> (I also see some other optimization opportunities,
+> will test and send a patch separately).
+> 
+> Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
 
-applied this and the other netxen cleanup
+applied both patches
 
 
