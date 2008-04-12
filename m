@@ -1,40 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.25-rc8: FTP transfer errors
-Date: Sat, 12 Apr 2008 02:49:52 -0700 (PDT)
-Message-ID: <20080412.024952.151646629.davem@davemloft.net>
-References: <20080411151821.GA32398@2ka.mipt.ru>
-	<20080411.110702.146231359.davem@davemloft.net>
-	<20080412084400.GA30259@1wt.eu>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][NETFILTER]: Fix race between clusterip_config_find_get and
+ _entry_put.
+Date: Sat, 12 Apr 2008 14:44:18 +0400
+Message-ID: <48009282.9040808@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, lkml@rtr.ca, ilpo.jarvinen@helsinki.fi,
-	jesper.juhl@gmail.com, tilman@imap.cc, yoshfuji@linux-ipv6.org,
-	jeff@garzik.org, rjw@sisk.pl, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: w@1wt.eu
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50376
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757747AbYDLJtw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 05:49:52 -0400
-In-Reply-To: <20080412084400.GA30259@1wt.eu>
+Received: from sacred.ru ([62.205.161.221]:39656 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757524AbYDLKpY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Apr 2008 06:45:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willy Tarreau <w@1wt.eu>
-Date: Sat, 12 Apr 2008 10:44:00 +0200
+Consider we are putting a clusterip_config entry with the "entries"
+count == 1, and on the other CPU there's a clusterip_config_find_get
+in progress:
 
-> While it is a powerful tool, we must accept that it cannot efficiently
-> work in some circumstances, such as :
+CPU1:							CPU2:
+clusterip_config_entry_put:				clusterip_config_find_get:
+if (atomic_dec_and_test(&c->entries)) { 
+	/* true */
+							read_lock_bh(&clusterip_lock);
+							c = __clusterip_config_find(clusterip);
+							/* found - it's still in list */
+							...
+							atomic_inc(&c->entries);
+							read_unlock_bh(&clusterip_lock);
 
-Everyone is well aware of all of this, that's why I specifically asked
-for a bisect, because I knew it would be crucial to pinpointing this
-particular bug.
+	write_lock_bh(&clusterip_lock);
+	list_del(&c->list);
+	write_unlock_bh(&clusterip_lock);
+	...
+	dev_put(c->dev);
 
-And lo' and behold in 15 minutes after the bisect results were
-available it got fixed.
+Oops! We have an entry returned by the clusterip_config_find_get,
+which is a) not in list b) has a stale dev pointer.
 
-Yes it takes judgment, and nobody ever suggested that a revert
-is the way to go.  Git bisect results must be parsed by a human
-brain.  Nothing else was ever implied in any way shape or form.
+The problems will happen when the CPU2 will release the entry - it
+will remove it from the list for the 2nd time, thus spoiling it, and
+will put a stale dev pointer.
+
+The fix is to make atomic_dec_and_test under the clusterip_lock.
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 52926c8..a12dd32 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -82,8 +82,8 @@ clusterip_config_put(struct clusterip_config *c)
+ static inline void
+ clusterip_config_entry_put(struct clusterip_config *c)
+ {
++	write_lock_bh(&clusterip_lock);
+ 	if (atomic_dec_and_test(&c->entries)) {
+-		write_lock_bh(&clusterip_lock);
+ 		list_del(&c->list);
+ 		write_unlock_bh(&clusterip_lock);
+ 
+@@ -96,7 +96,9 @@ clusterip_config_entry_put(struct clusterip_config *c)
+ #ifdef CONFIG_PROC_FS
+ 		remove_proc_entry(c->pde->name, c->pde->parent);
+ #endif
++		return;
+ 	}
++	write_unlock_bh(&clusterip_lock);
+ }
+ 
+ static struct clusterip_config *
