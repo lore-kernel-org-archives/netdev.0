@@ -1,61 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 10443] New: VLAN: link level multicasts
- addresses disappears...
-Date: Sat, 12 Apr 2008 00:10:45 -0700 (PDT)
-Message-ID: <20080412.001045.177916063.davem@davemloft.net>
-References: <bug-10443-10286@http.bugzilla.kernel.org/>
-	<20080411214134.dd7a9ffc.akpm@linux-foundation.org>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
+Date: Sat, 12 Apr 2008 10:10:40 +0200
+Message-ID: <m3prsva3y7.fsf@maximus.localdomain>
+References: <m3prtzsszg.fsf@maximus.localdomain>
+	<m3tzj92xq6.fsf@maximus.localdomain>
+	<m33aqedg0a.fsf@maximus.localdomain>
+	<m37if4oz1g.fsf@maximus.localdomain>
+	<20080411221448.22b69ff5.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	dmitry@butskoy.name, greearb@candelatech.com
-To: akpm@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47655
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759897AbYDLHKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 03:10:45 -0400
-In-Reply-To: <20080411214134.dd7a9ffc.akpm@linux-foundation.org>
+Received: from khc.piap.pl ([195.187.100.11]:55103 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755415AbYDLIKu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Apr 2008 04:10:50 -0400
+In-Reply-To: <20080411221448.22b69ff5.akpm@linux-foundation.org> (Andrew Morton's message of "Fri\, 11 Apr 2008 22\:14\:48 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Fri, 11 Apr 2008 21:41:34 -0700
+Andrew Morton <akpm@linux-foundation.org> writes:
 
-> There's a test case in the bugzilla report.
+> It never hurts to resend.  It was 6000 patches ago and my mind is a blank.
 
-Could be fixed by:
+Sure, here is it. Some description, well:
 
-commit 0ed21b321a13421e2dfeaa70a6c324e05e3e91e6
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Mar 26 00:15:17 2008 -0700
+PPP support in generic HDLC in Linux 2.6.25 is broken and will cause
+a kernel panic when a device configured in PPP mode is activated.
 
-    [VLAN]: Don't copy ALLMULTI/PROMISC flags from underlying device
-    
-    Changing these flags requires to use dev_set_allmulti/dev_set_promiscuity
-    or dev_change_flags. Setting it directly causes two unwanted effects:
-    
-    - the next dev_change_flags call will notice a difference between
-      dev->gflags and the actual flags, enable promisc/allmulti
-      mode and incorrectly update dev->gflags
-    
-    - this keeps the underlying device in promisc/allmulti mode until
-      the VLAN device is deleted
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+It will be replaced by new PPP implementation after Linux 2.6.25 is
+released.
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 8fbcefe..480ea90 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -660,7 +660,7 @@ static int vlan_dev_init(struct net_device *dev)
- 	int subclass = 0;
+This affects only PPP support in generic HDLC (mostly Hitachi SCA
+and SCA-II based drivers, wanxl, and few others). Standalone syncppp
+and async PPP support are not affected.
+
+Untested :-)
+
+Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+
+--- a/drivers/net/wan/Kconfig
++++ b/drivers/net/wan/Kconfig
+@@ -150,9 +150,13 @@ config HDLC_FR
  
- 	/* IFF_BROADCAST|IFF_MULTICAST; ??? */
--	dev->flags  = real_dev->flags & ~IFF_UP;
-+	dev->flags  = real_dev->flags & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI);
- 	dev->iflink = real_dev->ifindex;
- 	dev->state  = (real_dev->state & ((1<<__LINK_STATE_NOCARRIER) |
- 					  (1<<__LINK_STATE_DORMANT))) |
+ config HDLC_PPP
+ 	tristate "Synchronous Point-to-Point Protocol (PPP) support"
+-	depends on HDLC
++	depends on HDLC && BROKEN
+ 	help
+ 	  Generic HDLC driver supporting PPP over WAN connections.
++	  This module is currently broken and will cause a kernel panic
++	  when a device configured in PPP mode is activated.
++
++	  It will be replaced by new PPP implementation in Linux 2.6.26.
+ 
+ 	  If unsure, say N.
+ 
