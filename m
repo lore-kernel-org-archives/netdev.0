@@ -1,43 +1,53 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Please pull for-2.6.26 branch of linux-2.6-mv643xx_eth.git
-Date: Sat, 12 Apr 2008 05:10:10 -0400
-Message-ID: <48007C72.5000906@pobox.com>
-References: <20080401190314.GA13017@farnsworth.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] [ETHTOOL]: Add support for large eeproms
+Date: Sat, 12 Apr 2008 05:10:56 -0400
+Message-ID: <48007CA0.6030002@garzik.org>
+References: <20080403180021.GA5974@google.com> <1207267417.23161.353.camel@localhost> <20080404014129.GA28593@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Lennert Buytenhek <buytenh@marvell.com>
-To: Dale Farnsworth <dale@farnsworth.org>
+Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	matthew@wil.cx, davem@davemloft.net, nil@google.com,
+	thockin@google.com
+To: Mandeep Singh Baines <msb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:41647 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:41657 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753389AbYDLJKO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Apr 2008 05:10:14 -0400
-In-Reply-To: <20080401190314.GA13017@farnsworth.org>
+	id S1754018AbYDLJLB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Apr 2008 05:11:01 -0400
+In-Reply-To: <20080404014129.GA28593@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dale Farnsworth wrote:
-> Hi Jeff,
+Mandeep Singh Baines wrote:
+> Joe Perches (joe@perches.com) wrote:
+>> This looks better.
+>> There's a typo at line 315 though, it needs a ";".
+>>
 > 
-> Please pull from the following git repository:
->   git://git.farnsworth.org/dale/linux-2.6-mv643xx_eth.git for-2.6.26
+> Oops. In my haste to get out the revised patch I didn't bother to test.
+> Bad Mandeep.
 > 
-> It contains the commits below, which were previously posted on netdev.
+>> I was also wrong that int ret _does_ need to be
+>> initialized to 0 in case (eeprom.len == 0)
+>>
 > 
-> Thanks,
-> -Dale
+> I knew I had that there for a reason. But I forgot to initialize ret in
+> ethtool_get_eeprom. You've fixed this in your update to the patch:)
 > 
+>> I think this should be written as below:
+>>
 > 
-> Lennert Buytenhek (7):
->       mv643xx_eth: mp->tx_desc_count needs spinlock protection
->       mv643xx_eth: various cleanups
->       mv643xx_eth: identify ports by struct mv643xx_private *
->       mv643xx_eth: report netdev name in all printks
->       mv643xx_eth: pass port identifier to register accessors
->       mv643xx_eth: only print banner once
->       mv643xx_eth: update copyright
+> Agreed. You've fixed my bugs and I think setting ret inside the if
+> makes the code easier to reason about.
+> 
+> I've tested your updated version of the patch and it looks good.
+> 
+>> cheers, Joe
+>>
+>>  net/core/ethtool.c |   68 +++++++++++++++++++++++++++++-----------------------
+>>  1 files changed, 38 insertions(+), 30 deletions(-)
 
-pulled
+someone wanna resend with proper sign-offs?
 
 
