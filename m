@@ -1,32 +1,35 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/3] sc92031: use net_device stats
-Date: Sat, 12 Apr 2008 05:02:00 -0400
-Message-ID: <48007A88.9010307@pobox.com>
-References: <bug-10380-10286@http.bugzilla.kernel.org/> <20080402091435.39f99428.akpm@linux-foundation.org> <20080402094923.185f15dc@extreme> <20080402101120.67f8fa87@extreme>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2/5] e1000e: limit EEPROM size accesses
+Date: Sat, 12 Apr 2008 05:02:27 -0400
+Message-ID: <48007AA3.2010405@garzik.org>
+References: <20080402204802.29122.81707.stgit@localhost.localdomain> <20080402204807.29122.77075.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Cesar Eduardo Barros <cesarb@cesarb.net>, tom@sharkbay.at,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59394 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59401 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758622AbYDLJCG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Apr 2008 05:02:06 -0400
-In-Reply-To: <20080402101120.67f8fa87@extreme>
+	id S1757051AbYDLJCa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Apr 2008 05:02:30 -0400
+In-Reply-To: <20080402204807.29122.77075.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> Statistics structure is available for use in net_device structure.
-> Compile tested only.
+Auke Kok wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 > ---
-> Patch against 2.6.25-rc8 with previous SET_NETDEV_DEV patch
-> applied.
+> 
+>  drivers/net/e1000e/82571.c  |    4 ++++
+>  drivers/net/e1000e/es2lan.c |    4 ++++
+>  2 files changed, 8 insertions(+), 0 deletions(-)
 
-applied 1-3
+applied 2-5
+
+leaving patch #1 out of this patch due to discussion :/
 
 
