@@ -1,78 +1,79 @@
-From: "Andy Johnson" <johnsonzjo@gmail.com>
-Subject: Re: [PATCH] [mcast-tools] Changing the type of pim_cksum.
-Date: Sat, 12 Apr 2008 08:20:51 +0300
-Message-ID: <147a89290804112220m4ca7a2e7q5b4b937f3d08f554@mail.gmail.com>
-References: <147a89290804110214nb1cc55fp4645ce1f913d74d6@mail.gmail.com>
-	 <20080411.182410.01537607.yoshfuji@linux-ipv6.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: 2.6.25-rc8: FTP transfer errors
+Date: Sat, 12 Apr 2008 09:37:48 +0400
+Message-ID: <20080412053748.GA8111@2ka.mipt.ru>
+References: <20080410.172453.44434205.davem@davemloft.net> <47FEB062.3020003@rtr.ca> <20080410.173911.179180620.davem@davemloft.net> <47FEBDAA.7010305@rtr.ca> <Pine.LNX.4.64.0804110849520.28360@wrl-59.cs.helsinki.fi> <47FF6555.50004@rtr.ca> <20080411143537.GA27874@2ka.mipt.ru> <47FFE33C.1000707@imap.cc> <20080411222536.GA25893@2ka.mipt.ru> <47FFF2E5.9040807@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "=?UTF-8?Q?YOSHIFUJI_Hideaki_/_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?="
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Lord <lkml@rtr.ca>,
+	Ilpo =?utf-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>,
+	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, Jeff Garzik <jeff@garzik.org>,
+	rjw@sisk.pl, LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Tilman Schmidt <tilman@imap.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:26464 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752095AbYDLFUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 01:20:53 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so626309fgb.17
-        for <netdev@vger.kernel.org>; Fri, 11 Apr 2008 22:20:52 -0700 (PDT)
-In-Reply-To: <20080411.182410.01537607.yoshfuji@linux-ipv6.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:52329 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752095AbYDLFiV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Apr 2008 01:38:21 -0400
 Content-Disposition: inline
+In-Reply-To: <47FFF2E5.9040807@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8sCgpJdCBjb3VsZCBiZSB0aGF0IHlvdSBhcmUgcmlnaHQ7IG9uIHRoZSBvdGhlciBoYW5k
-LCBJIGhhZCBsb29rZWQgYXQKaWNtcHY2LmgsIGZvciBleGFtcGxlIG9mIF9fYmUxNiB1c2FnZS4K
-SXQgc2VlbXMgdG8gbWUgdGhhdCB0aGUgYXR0aXR1ZGUgdGhlcmUgaXMgZGlmZmVyZW50LgoKVW5k
-ZXIgL3Vzci9pbmNsdWRlIHdlIGhhdmUgdHdvIGZpbGVzIG5hbWVkIGljbXB2Ni5oOgoJT25lIGlz
-IC91c3IvaW5jbHVkZS9saW51eC9pY21wdjYuaCAod2hpY2ggYmVsb25ncyB0byBrZXJuZWwtaGVh
-ZGVycykuClRoZSBvdGhlciBpcyAgL3Vzci9pbmNsdWRlL25ldGluZXQvaWNtcDYuaAp3aGljaCBi
-ZWxvbmdzIHRvIGdsaWJjLWhlYWRlcnMuCgpJbiAvdXNyL2luY2x1ZGUvbGludXgvaWNtcHY2Lmgg
-KGtlcm5lbC1oZWFkZXJzKSB3ZSBoYXZlOgpzdHJ1Y3QgaWNtcDZoZHIgewoKICAgICAgICB1bmlv
-biB7CiAgICAgICAgICAgICAgICBfX2JlMzIgICAgICAgICAgICAgICAgICB1bl9kYXRhMzJbMV07
-CiAgICAgICAgICAgICAgICBfX2JlMTYgICAgICAgICAgICAgICAgICB1bl9kYXRhMTZbMl07CiAg
-ICAgICAgICAgICAgICBfX3U4ICAgICAgICAgICAgICAgICAgICB1bl9kYXRhOFs0XTsKCgoKSW4g
-L3Vzci9pbmNsdWRlL25ldGluZXQvaWNtcDYuaCAoZ2xpYmMtaGVhZGVycykgd2UgaGF2ZToKc3Ry
-dWN0IGljbXA2X2hkcgogIHsKICAgIHVuaW9uCiAgICAgIHsKICAgICAgICB1aW50MzJfdCAgaWNt
-cDZfdW5fZGF0YTMyWzFdOyAvKiB0eXBlLXNwZWNpZmljIGZpZWxkICovCiAgICAgICAgdWludDE2
-X3QgIGljbXA2X3VuX2RhdGExNlsyXTsgLyogdHlwZS1zcGVjaWZpYyBmaWVsZCAqLwogICAgICAg
-IHVpbnQ4X3QgICBpY21wNl91bl9kYXRhOFs0XTsgIC8qIHR5cGUtc3BlY2lmaWMgZmllbGQgKi8K
-ICAgICAgfSBpY21wNl9kYXRhdW47CiAgfTsKCgkKTm90ZSB0aGF0IHRoZSBfX2JlMTYgd2FzIHJl
-cGxhY2VkIGJ5IAl1aW50MTZfdCwgYW5kIHRoYXQgX19iZTMyIHdhcwpyZXBsYWNlZCBieSB1aW50
-MzJfdC4gSSBkb24ndCB0aGluayB0aGF0IGluIHlvdSB3aWxsIGZpbmQgdHlwZWRlZiBmb3IgX19i
-ZSogZm9yCmEgdXNlciBzcGFjZSBwYXJ0IGluIGFueSBsaW51eCBrZXJuZWwgaGVhZGVycy4gSWRl
-YXM/CgpSZWdhcmRzLApBSgoKCk9uIEZyaSwgQXByIDExLCAyMDA4IGF0IDEyOjI0IFBNLCBZT1NI
-SUZVSkkgSGlkZWFraSAvIOWQieiXpOiLseaYjgo8eW9zaGZ1amlAbGludXgtaXB2Ni5vcmc+IHdy
-b3RlOgo+Cj4gSW4gYXJ0aWNsZSA8MTQ3YTg5MjkwODA0MTEwMjE0bmIxY2M1NWZwNDY0NWNlMWY5
-MTNkNzRkNkBtYWlsLmdtYWlsLmNvbT4gKGF0IEZyaSwgMTEgQXByIDIwMDggMTI6MTQ6MzcgKzAz
-MDApLCAiQW5keSBKb2huc29uIiA8am9obnNvbnpqb0BnbWFpbC5jb20+IHNheXM6Cj4KPiAgPiBI
-ZWxsbywKPiAgPgo+ICA+ID5JbiBnbGliYy0yLjMueCBib3RoIGRlZmluZXMgd2VyZSBwcm92aWRl
-ZCwgYnV0IGFmdGVyIHRoYXQgdGhlIG9sZAo+ICA+ID5JQ01QNl8qIGRlZmluZXMgd2VyZSBjb21w
-bGV0ZWx5IHJlbW92ZWQuCj4gID4KPiAgPiA+UHJvYmFibHkgWW9zaGlmdWppLXNhbiB0ZXN0cyB0
-aGUgdXNlciB0b29sIGJ1aWxkcyBvbiBhIGdsaWJjLTIuMy54IG9yCj4gID4gPmVhcmxpZXIgc3lz
-dGVtLCB3aGljaCBoYXMgdGhlIG9sZCBkZXByZWNhdGVkIGRlZmluZXMuCj4gID4KPiAgPgo+ICA+
-IEkgY291bGQgZ2V0IGFjY2VzcyB0b2RheSAoYXQgbGFzdC4uLikgdG8gYSBtYWNoaW5lIHJ1bm5p
-bmcgZ2xpYmMtMi4zLjQtMi4xMy4KPiAgPiBJIGhhZCBkb25lIHRoZSBmb2xsb3dpbmc6Cj4gID4g
-Z2l0LWNsb25lIGdpdDovL2dpdC5saW51eC1pcHY2Lm9yZy9naXRyb290L3lvc2hmdWppL21jYXN0
-LXRvb2xzLmdpdAo+ICA+Cj4gID4gY2QgbWNhc3QtdG9vbHMKPiAgPgo+ICA+IGFjbG9jYWw7IGF1
-dG9tYWtlOyBhdXRvY29uZgo+ICA+IC4vY29uZmlndXJlCj4gID4gY2QgcGltNnNkCj4gID4gbWFr
-ZQo+ICA+Cj4gID4KPiAgPiBJIGdvdCB0aGUgZm9sbG93aW5nIGVycm9yOgo+ICA+Cj4gID4gSW4g
-ZmlsZSBpbmNsdWRlZCBmcm9tIGRlYnVnLmM6NzE6Cj4gID4gLi4vaW5jbHVkZS9saW51eC9waW0u
-aDoxNzogZXJyb3I6IHN5bnRheCBlcnJvciBiZWZvcmUgIl9fYmUxNiIKPiAgPiAuLi9pbmNsdWRl
-L2xpbnV4L3BpbS5oOjE3OiB3YXJuaW5nOiBubyBzZW1pY29sb24gYXQgZW5kIG9mIHN0cnVjdCBv
-ciB1bmlvbgo+ICA+IG1ha2VbMV06ICoqKiBbZGVidWcub10gRXJyb3IgMQo+ICA+IG1ha2VbMV06
-IExlYXZpbmcgZGlyZWN0b3J5IC4uLgo+ICA+IG1ha2U6ICoqKiBbYWxsLXJlY3Vyc2l2ZV0gRXJy
-b3IgMQo+ICA+Cj4gID4gQXMgZmFyIGFzIEkgdW5kZXJzdGFuZCwgdGhlIF9fYmUxNiBpcyBnb29k
-IGZvciBrZXJuZWwgaGVhZGVycywgYnV0IG5vdAo+ICA+IGZvciB1c2VyIHNwYWNlIGhlYWRlcnMu
-IEkgYW0gbm90IHN1cmUgYWJvdXQgaXQuIEhvd2V2ZXIsIGluIGNhc2UgSSBhbQo+ICA+IHJpZ2h0
-LCBJIGNoYW5nZWQgaXQgdG8gICJ1aW50MTZfdCBwaW1fY2tzdW0iIGluc3RlYWQgb2YgICJfX2Jl
-MTYgIHBpbV9ja3N1bSIKPiAgPiBpbiAvaW5jbHVkZS9saW51eC9waW0uaDsKPiAgPiBhbmQgdGhl
-biAibWFrZSIgZmluc2loZWQgb2suCj4gID4gQW5kIGF0dGFjaGVkIGhlcmUgaXMgdGhlIHBhdGNo
-LiBXaGF0IGRvIHlvdSB0aGluayA/Cj4KPiAgTm8sIEkgdGhpbmsgX19iZTE2IHNob3VsZCBiZSBk
-ZWNsYXJlZCAodHlwZWRlZidlZCkgaW4gdXNlci1zcGFjZS4KPiAgSSdtIG5vdCBzdXJlIGlmIHdl
-IGNhbiBzb2x2ZSBieSBpbmNsdWRpbmcgcmlnaHQgZmlsZS4KPgo+ICBBY3R1YWxseSB3aGF0IEkg
-d2FudCB0byBkbyBpcyB0byBzcGVjaWZ5IGtlcm5lbCBpbmNsdWRlIGZpbGVzIGluCj4gIG1jYXN0
-LXRvb2xzIC0gc29tZXRoaW5nIGxpa2U6Cj4gICAgLi9jb25maWd1ZSAtLXdpdGgta2VybmVsLWhl
-YWRlcnM9L2hvbWUveW9zaGZ1amkvbGludXgtMi42LWRldmkvaW5jbHVkZQo+Cj4gIFJlZ2FyZHMs
-Cj4KPiAgLS15b3NoZnVqaQo+Cg==
+On Sat, Apr 12, 2008 at 01:23:17AM +0200, Tilman Schmidt (tilman@imap.cc) wrote:
+> > If you can not proceed with what was suggested, then do
+> > not piss anyone off because you were told to do something to help.
+> 
+> If a polite "sorry, I don't have the time" already counts as pissing
+> off, the only choice left is to avoid the situation in which I'd have to
+> say that. IOW, don't report bugs if I don't have the time to follow
+> through. Again: if that is what you want, I have no problem with it.
+
+We want bug report, but we definitely do not want, when we ask for
+additionl help, to listen crap that reporter does not have to help and
+it is our roblem.
+
+> > If you go to the doctor because of aching throat and he asks you to
+> > open a mouth, you will not blame him for asking you to do that.
+> 
+> That analogy is wrong on so many accounts. It is not my throat that's
+> aching. A doctor would not insult me for not wanting to open my mouth
+> but rather ask if there was perhaps a valid reason for that. Not to
+> mention that opening my mouth takes substantially less time than a Linux
+> kernel bisection ...
+
+It is your throat, since doctor's one is ok, and no one else came with
+the same problems. Doctor will not insult you if you will not piss him
+off. Read the thread from the beginning.
+
+> A better analogy would be if I see an object lying on the highway, and I
+> stop at the next service area to call the police and alert them about
+> the possible danger. If they'd ask me to drive back to the place where I
+> saw it in order to describe precisely where it lay and what it looked
+> like, I think I might indeed become a bit upset.
+
+Yeah, they first asked how it looked and where it was, then they asked
+to move here, and you told them, that it is they who have to do that,
+that it is exactly their problem, that you are not paid to do that.
+
+Did I miss something, yeah, probably part, where you then tell, that you
+care about highways, so you moved there and did what was asked.
+Although, no, you first tell to police, that you spend your paid time
+and will teach them how to do thing or similar crap. Only few hours
+later, to some other people, you will tell that you care about highways,
+global warming, Uganda childs and adron collider danger.
+
+Ugh, just removing that object, when you were there 'takes
+substantially less time than a Linux kernel bisection'.
+Fortunately flooding developers with tons of urine during the whole day
+is much more comfortable and ego-boosting, since it allows to close eyes
+and do not see, that this took much more time than bisection.
+
+Hope you got it right: we want bug reports and help. If you do not want
+to provide some help, do not expect bug will be fixed, although bug
+eistence is significant sign. So, be cool, and everything will be ok.
+
+-- 
+	Evgeniy Polyakov
