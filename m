@@ -1,134 +1,70 @@
-From: Gertjan Hofman <gertjan_hofman@yahoo.com>
-Subject: Re: VLAN & ARP requests fail for ARM EABI (2.6.24)
-Date: Sat, 12 Apr 2008 09:58:32 -0700 (PDT)
-Message-ID: <719893.13386.qm@web32602.mail.mud.yahoo.com>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: [PATCH] natsemi: fix MMIO for PPC 44x platforms
+Date: Sat, 12 Apr 2008 20:58:30 +0400
+Message-ID: <200804122058.31075.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web32602.mail.mud.yahoo.com ([68.142.207.229]:26640 "HELO
-	web32602.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753776AbYDLQ6d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 12:58:33 -0400
+Received: from rtsoft3.corbina.net ([85.21.88.6]:9149 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753123AbYDLQ7P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 12:59:15 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick,
+The driver stores the PCI resource address into 'unsigned long' variable before
+calling ioremap()  on it. This warrants a kernel oops when the registers are
+accessed on PPC 44x platforms which (being 32-bit) have PCI memory space mapped
+beyond 4 GB.
 
-Ben mentioned you might be the person to talk to. Just to make sure I did what you suggested:
+The arch/ppc/ kernel has a fixup in ioremap() that creates an illusion of the
+PCI memory resources are mapped below 4 GB, but arch/powerpc/ code got rid of
+this trick, having instead CONFIG_RESOURCES_64BIT enabled.
 
-From:  http://devresources.linux-foundation.org/dev/iproute2/download/   I downloaded:
-iproute2-2.6.24-rc7.tar.bz2       08-Jan-2008 09:06  336K  and cross compiled EABI.
+Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
-I created the VLAN with:
+---
+Reposting the patch with the typecast, log, and summary corrected.
+This is the same issue as the one that has been recently addressed by commits
+3c34ac36ac1084e571ef9b6fb1d6a5b10ccc1fd0 (e1000: Fix for 32 bits platforms with
+64 bits resources) and c976816b6e901341ec3c4653147316c15549a1c4 (siimage: fix
+kernel oops on PPC 44x).  The patch has only been compile tested though...
 
- ./ip link add link eth0 eth0.0  type vlan id 0   (did I get the syntax correct  ?)
+ drivers/net/natsemi.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-/proc/net/vlan/ indicated eth0.0 is there and looks fine.
+Index: linux-2.6/drivers/net/natsemi.c
+===================================================================
+--- linux-2.6.orig/drivers/net/natsemi.c
++++ linux-2.6/drivers/net/natsemi.c
+@@ -786,7 +786,8 @@ static int __devinit natsemi_probe1 (str
+ 	struct netdev_private *np;
+ 	int i, option, irq, chip_idx = ent->driver_data;
+ 	static int find_cnt = -1;
+-	unsigned long iostart, iosize;
++	resource_size_t iostart;
++	unsigned long iosize;
+ 	void __iomem *ioaddr;
+ 	const int pcibar = 1; /* PCI base address register */
+ 	int prev_eedata;
+@@ -946,10 +947,11 @@ static int __devinit natsemi_probe1 (str
+ 		goto err_create_file;
+ 
+ 	if (netif_msg_drv(np)) {
+-		printk(KERN_INFO "natsemi %s: %s at %#08lx "
++		printk(KERN_INFO "natsemi %s: %s at %#08llx "
+ 		       "(%s), %s, IRQ %d",
+-		       dev->name, natsemi_pci_info[chip_idx].name, iostart,
+-		       pci_name(np->pci_dev), print_mac(mac, dev->dev_addr), irq);
++		       dev->name, natsemi_pci_info[chip_idx].name,
++		       (unsigned long long)iostart, pci_name(np->pci_dev),
++		       print_mac(mac, dev->dev_addr), irq);
+ 		if (dev->if_port == PORT_TP)
+ 			printk(", port TP.\n");
+ 		else if (np->ignore_phy)
 
-
-Unfortunately pinging through a VLAN to this VLAN fails as before withthe same symptoms - ARP requests are received but not answered.
-
-About OABI/EABI incompatibilities - I didnt explicitly mention it but when testing the EABI, the entire file system is EABI and when testingOABI  the entire filesystem is also OABI - so it should not be theproblem.
-
-
-We spent quite of bit of time tracking this problem deeper down thestack but with limited results.  It looks like  the calling sequence is:
-
-driver-->
-  -- ?
-   - ---> vlan.c 
-        ---> ifnet_tx
-           --->  ?
-              ---->  arp.c
-                    ---> (arp_process)
-                      ----> ip_route_input 
-                        ----> ip_route_input_slow
-                          ----> fib_validate_source
-
-
-Its in fib_validate_source that things go wrong.
-
-In the EABI (faulty kernel), we print values of the device pointers, which are considered in fib_validate_source()
- FIB_RES_DEV(res) : 0xC3C77000 
- dev                          : 0xC3E2E800
-
-These are not the same,  so the variable rpf is checked and it bails returning  -EINVAL. You can fake it, by setting rpf=0 using  echo 0>   /proc/sys/net/ipv4/conf/eth2.0/rp_filter --> 0 and then pingsfrom the foreign PC to the ARM work.  Still, pings from ARM to PC  dontwork - the ARP request goes out, but the response (which gets to arp.c)is ignored. Presumable for a similar reason - some device pointer check fails.
-
-My guess is that there is a problem with the dev pointer all  the wayback in the vlan.c code, which only manifest itself with the EABIcompiler.
-If you run the working kernel version, in   fib_validate_source:
-
-if (in_dev) {
-        no_addr = in_dev->ifa_list == NULL;
-        rpf = IN_DEV_RPFILTER(in_dev);          ---->  rpfreturns 0 here eventhough the proc/sys/net/ipv4/conf/eth2.0/rp_filteris set to 1.
-
-        if (DEBUG_XXX == 0xDEADBEEF)
-          printk(KERN_INFO "*********rpf = 0x%X\n", rpf);
-    }
-
-
-If EABI  rpf =1 , in OABI rpf=0.  So there is something different about  the in_dev. pointer
-
-Do you know what IN_DEV_RPFILTER(in_dev) does exactly ?   
-
-I think I need to check the validity of the device pointer already at the VLAN level, but I am not sure how to do this. Any tips ?
-
-Thanks
-
-Gertjan
-
-
-
-
-
-
------ Original Message ----
-From: Patrick McHardy <kaber@trash.net>
-To: Gertjan Hofman <gertjan_hofman@yahoo.com>
-Cc: netdev@vger.kernel.org
-Sent: Wednesday, April 9, 2008 5:40:45 PM
-Subject: Re: VLAN & ARP requests fail for ARM EABI (2.6.24)
-
-Gertjan Hofman wrote:
-> Dear Sirs,
-> 
-> Since the VLAN mailing list is closed, its author suggested I post here. 
-> We have an ARM920T processor based system. When compiling the kernel 2.6.24 using OABI (and appropiate 4.1.1 cross toolchain), VLAN functionality is fine. When setting the CONFIG_EABI flag and using  the 4.2.2 toolchain (created by the OpenEmbedded project) a VLAN device fails to respond.
-> 
-> When pinging through the ARM VLAN device to a (PC based) VLAN device, the following is seen in the vlan driver:
-> The ping request is sent out, followed by an ARP request. The PC returns the ARP reply and it is seen by the VLAN driver (vlan_skb_recv) which calls netif_rx(). This repeats a couple of pings later i.e. the arp reply is not used or received properly.
-> 
-> Similarly, when pinging from the PC, the ARP request is seen by vlan_skb_recv() but there is no ARP reply from the ARM cascading through the vlan driver.
-> 
-> It seems to me that either the issue is with the code that handles the ARP request when compiling in EABI format, or that VLAN doesnt process the frame properly and sends it on incorrectly. Recompile the kernel with OABI and everything is fine.
-> 
-> Note that communication works fine on either OABI or EABI when using 'normal' devices (eth0 etc). This puts the suspicion back on vlan.
-> 
-> 
-> Since EABI changes structure packing and other things, I suspect the cause is some networking code that knows a bit too much about its size & packing.
-> 
-> I am happy to troubleshoot, but I am no kernel expert. Tips would be appreciated. Like how to dump the sbk buffer in both cases..
-
-
-I actually have no idea about the differences between
-OABI and EABI, but I know a mix of both broke some
-iptables setups (kernel EABI/userspace OABI or something
-like that). Could you fetch the latest iproute and try
-again with adding your VLANs using iproute?
-
-The syntax is:
-
-ip link add link <lowerdev> [name] <name> type vlan id VID
-
-If that works the problem is most likely an inappropriate
-ABI mix.
-
-
-
-
-
-
-__________________________________________________
-Do You Yahoo!?
-Tired of spam?  Yahoo! Mail has the best spam protection around 
-http://mail.yahoo.com 
