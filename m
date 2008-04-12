@@ -1,41 +1,30 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
-Date: Sat, 12 Apr 2008 04:50:03 -0400
-Message-ID: <480077BB.4000109@garzik.org>
-References: <m3prtzsszg.fsf@maximus.localdomain>	<m3tzj92xq6.fsf@maximus.localdomain>	<m33aqedg0a.fsf@maximus.localdomain>	<m37if4oz1g.fsf@maximus.localdomain>	<20080411221448.22b69ff5.akpm@linux-foundation.org> <m3prsva3y7.fsf@maximus.localdomain>
+Subject: Re: [PATCH 1/6] tc35815: Statistics cleanup
+Date: Sat, 12 Apr 2008 05:00:49 -0400
+Message-ID: <48007A41.2000803@garzik.org>
+References: <20080411.002412.03977557.anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
+To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:41456 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59324 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760494AbYDLIuI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Apr 2008 04:50:08 -0400
-In-Reply-To: <m3prsva3y7.fsf@maximus.localdomain>
+	id S1756287AbYDLJAz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Apr 2008 05:00:55 -0400
+In-Reply-To: <20080411.002412.03977557.anemo@mba.ocn.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Halasa wrote:
-> --- a/drivers/net/wan/Kconfig
-> +++ b/drivers/net/wan/Kconfig
-> @@ -150,9 +150,13 @@ config HDLC_FR
->  
->  config HDLC_PPP
->  	tristate "Synchronous Point-to-Point Protocol (PPP) support"
-> -	depends on HDLC
-> +	depends on HDLC && BROKEN
->  	help
->  	  Generic HDLC driver supporting PPP over WAN connections.
-> +	  This module is currently broken and will cause a kernel panic
-> +	  when a device configured in PPP mode is activated.
-> +
-> +	  It will be replaced by new PPP implementation in Linux 2.6.26.
->  
->  	  If unsure, say N.
+Atsushi Nemoto wrote:
+> Use struct net_device_stats embedded in struct net_device.
+> 
+> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+> ---
+>  drivers/net/tc35815.c |   61 +++++++++++++++++++++++++------------------------
+>  1 files changed, 31 insertions(+), 30 deletions(-)
 
+applied 1-6
 
-applied
 
