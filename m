@@ -1,55 +1,114 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: [PATCH] tg3: fix MMIO for PPC 44x platforms
-Date: Sat, 12 Apr 2008 21:01:22 +0400
-Message-ID: <200804122101.22438.sshtylyov@ru.mvista.com>
+From: Marcelo Tosatti <mtosatti@redhat.com>
+Subject: Re: [PATCH RFC 1/5] vringfd syscall
+Date: Sat, 12 Apr 2008 14:18:20 -0300
+Message-ID: <20080412171820.GA29568@dmt>
+References: <200804052202.09157.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Max Krasnyansky <maxk@qualcomm.com>,
+	virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:9174 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754077AbYDLRCE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 13:02:04 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:44506 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754269AbYDLRPL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Apr 2008 13:15:11 -0400
 Content-Disposition: inline
+In-Reply-To: <200804052202.09157.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver stores the PCI resource addresses into 'unsigned long' variable
-before calling ioremap_nocache() on them. This warrants kernel oops when the
-registers are accessed on PPC 44x platforms which (being 32-bit) have PCI
-memory space mapped beyond 4 GB.
+Hi Rusty,
 
-The arch/ppc/ kernel has a fixup in ioremap() that creates an illusion that
-the PCI memory resource is mapped below 4 GB, but arch/powerpc/ code got rid
-of this trick, having instead CONFIG_RESOURCES_64BIT enabled.
+A couple comments below.
 
-Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+On Sat, Apr 05, 2008 at 10:02:08PM +1000, Rusty Russell wrote:
 
----
-Reposting the patch with the log and summary corrected.
-This is the same issue as the one that has been recently addressed by commits
-3c34ac36ac1084e571ef9b6fb1d6a5b10ccc1fd0 (e1000: Fix for 32 bits platforms with
-64 bits resources) and c976816b6e901341ec3c4653147316c15549a1c4 (siimage: fix
-kernel oops on PPC 44x).  The patch has only been compile tested though...
+> +static unsigned int vring_poll(struct file *filp,
+> +			       struct poll_table_struct *poll)
+> +{
+> +	struct vring_info *vr = filp->private_data;
+> +	int err;
+> +	unsigned int mask;
+> +	u16 used, last_used;
+> +
+> +	/* Some uses of vrings require updating in user context.  This
+> +	 * is best done close to the caller, ie. here. */
+> +	if (vr->ops && vr->ops->pull) {
+> +		err = vr->ops->pull(vr->ops_data);
+> +		if (unlikely(err < 0))
+> +			return err;
+> +
+> +		if (err > 0) {
+> +			/* Buffers have been used, no need to check indices */
+> +			mask = POLLIN | POLLRDNORM;
+> +			goto poll_wait;
+> +		}
+> +	}
+> +
+> +	err = get_user(used, &vr->ring.used->idx);
+> +	if (unlikely(err))
+> +		return err;
+> +
+> +	err = get_user(last_used, vr->last_used);
+> +	if (unlikely(err))
+> +		return err;
+> +
+> +	/* More buffers have been used?  It's 'readable'. */
+> +	if (used != last_used)
+> +		mask = POLLIN | POLLRDNORM;
+> +	else
+> +		mask = 0;
+> +
+> +poll_wait:
+> +	poll_wait(filp, &vr->poll_wait, poll);
+> +
+> +	return mask;
+> +}
 
- drivers/net/tg3.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletion(-)
+I suppose you are doing data copy in ->poll instead of ->read to save
+a system call? This is weird, not conformant to what the interface is
+supposed to do.
 
-Index: linux-2.6/drivers/net/tg3.c
-===================================================================
---- linux-2.6.orig/drivers/net/tg3.c
-+++ linux-2.6/drivers/net/tg3.c
-@@ -12578,7 +12578,8 @@ static int __devinit tg3_init_one(struct
- 				  const struct pci_device_id *ent)
- {
- 	static int tg3_version_printed = 0;
--	unsigned long tg3reg_base, tg3reg_len;
-+	resource_size_t tg3reg_base;
-+	unsigned long tg3reg_len;
- 	struct net_device *dev;
- 	struct tg3 *tp;
- 	int err, pm_cap;
+This way select/poll syscalls might block in userspace datacopy. The
+application might have a higher priority fd in the fdset to be informed
+of, for example.
 
+So why not change this to the common arrangement, with vring_poll adding
+the waitqueue with poll_wait() and vring_read doing the actual data copy ?
+
+> +struct vring_info *vring_attach(int fd, const struct vring_ops *ops,
+> +				void *data, bool atomic_use)
+> +{
+> +	struct file *filp;
+> +	struct vring_info *vr;
+> +
+> +	/* Must be a valid fd, and must be one of ours. */
+> +	filp = fget(fd);
+> +	if (!filp) {
+> +		vr = ERR_PTR(-EBADF);
+> +		goto out;
+> +	}
+> +
+> +	if (filp->f_op != &vring_fops) {
+> +		vr = ERR_PTR(-EBADF);
+> +		goto fput;
+> +	}
+> +
+> +	/* Mutex simply protects against parallel vring_attach. */
+> +	mutex_lock(&vring_lock);
+> +	vr = filp->private_data;
+> +	if (vr->ops) {
+> +		vr = ERR_PTR(-EBUSY);
+> +		goto unlock;
+> +	}
+> +
+> +	/* If they want to use atomically, we have to map the page. */
+> +	if (atomic_use) {
+> +		if (get_user_pages(current, current->mm,
+> +				   (unsigned long)vr->ring.used, 1, 1, 1,
+> +				   &vr->used_page, NULL) != 1) {
+
+Can't the same be achieved by the app mlocking the vring pages, which
+then goes through standard rlimit checking ?
