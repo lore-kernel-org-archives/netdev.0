@@ -1,77 +1,40 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][NETFILTER]: Fix race between clusterip_config_find_get and
- _entry_put.
-Date: Sat, 12 Apr 2008 14:44:18 +0400
-Message-ID: <48009282.9040808@openvz.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
+Date: Sat, 12 Apr 2008 11:59:50 +0100
+Message-ID: <20080412115950.1cbb9cfa@core>
+References: <m3prtzsszg.fsf@maximus.localdomain>
+	<m3tzj92xq6.fsf@maximus.localdomain>
+	<m33aqedg0a.fsf@maximus.localdomain>
+	<m37if4oz1g.fsf@maximus.localdomain>
+	<20080411221448.22b69ff5.akpm@linux-foundation.org>
+	<m3prsva3y7.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:39656 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757524AbYDLKpY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Apr 2008 06:45:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Krzysztof Halasa <khc@pm.waw.pl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761488AbYDLLEy@vger.kernel.org>
+In-Reply-To: <m3prsva3y7.fsf@maximus.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Consider we are putting a clusterip_config entry with the "entries"
-count == 1, and on the other CPU there's a clusterip_config_find_get
-in progress:
+On Sat, 12 Apr 2008 10:10:40 +0200
+Krzysztof Halasa <khc@pm.waw.pl> wrote:
 
-CPU1:							CPU2:
-clusterip_config_entry_put:				clusterip_config_find_get:
-if (atomic_dec_and_test(&c->entries)) { 
-	/* true */
-							read_lock_bh(&clusterip_lock);
-							c = __clusterip_config_find(clusterip);
-							/* found - it's still in list */
-							...
-							atomic_inc(&c->entries);
-							read_unlock_bh(&clusterip_lock);
+> Andrew Morton <akpm@linux-foundation.org> writes:
+> 
+> > It never hurts to resend.  It was 6000 patches ago and my mind is a blank.
+> 
+> Sure, here is it. Some description, well:
+> 
+> PPP support in generic HDLC in Linux 2.6.25 is broken and will cause
+> a kernel panic when a device configured in PPP mode is activated.
+> 
+> It will be replaced by new PPP implementation after Linux 2.6.25 is
+> released.
 
-	write_lock_bh(&clusterip_lock);
-	list_del(&c->list);
-	write_unlock_bh(&clusterip_lock);
-	...
-	dev_put(c->dev);
-
-Oops! We have an entry returned by the clusterip_config_find_get,
-which is a) not in list b) has a stale dev pointer.
-
-The problems will happen when the CPU2 will release the entry - it
-will remove it from the list for the 2nd time, thus spoiling it, and
-will put a stale dev pointer.
-
-The fix is to make atomic_dec_and_test under the clusterip_lock.
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
-
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index 52926c8..a12dd32 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -82,8 +82,8 @@ clusterip_config_put(struct clusterip_config *c)
- static inline void
- clusterip_config_entry_put(struct clusterip_config *c)
- {
-+	write_lock_bh(&clusterip_lock);
- 	if (atomic_dec_and_test(&c->entries)) {
--		write_lock_bh(&clusterip_lock);
- 		list_del(&c->list);
- 		write_unlock_bh(&clusterip_lock);
- 
-@@ -96,7 +96,9 @@ clusterip_config_entry_put(struct clusterip_config *c)
- #ifdef CONFIG_PROC_FS
- 		remove_proc_entry(c->pde->name, c->pde->parent);
- #endif
-+		return;
- 	}
-+	write_unlock_bh(&clusterip_lock);
- }
- 
- static struct clusterip_config *
+Thats a pretty bad regression. Surely the correct fix is to revert the
+change series that caused the breakage then re-merge that and fixes for
+HDLC PPP for 2.6.26, not just leave it broken ?
