@@ -1,51 +1,43 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] ixgb: convert uint16_t style integers
-	to u16
-Date: Sat, 12 Apr 2008 05:08:28 -0400
-Message-ID: <48007C0C.4090302@garzik.org>
-References: <20080403170625.22624.13870.stgit@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Please pull for-2.6.26 branch of linux-2.6-mv643xx_eth.git
+Date: Sat, 12 Apr 2008 05:10:10 -0400
+Message-ID: <48007C72.5000906@pobox.com>
+References: <20080401190314.GA13017@farnsworth.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Auke Kok <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20080403170625.22624.13870.stgit@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Lennert Buytenhek <buytenh@marvell.com>
+To: Dale Farnsworth <dale@farnsworth.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:41647 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753389AbYDLJKO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Apr 2008 05:10:14 -0400
+In-Reply-To: <20080401190314.GA13017@farnsworth.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Auke Kok wrote:
-> From: Joe Perches <joe@perches.com>
+Dale Farnsworth wrote:
+> Hi Jeff,
 > 
-> Conglomerate of 4 separate patches by Joe.
+> Please pull from the following git repository:
+>   git://git.farnsworth.org/dale/linux-2.6-mv643xx_eth.git for-2.6.26
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> ---
+> It contains the commits below, which were previously posted on netdev.
 > 
->  drivers/net/ixgb/ixgb.h         |   32 +++--
->  drivers/net/ixgb/ixgb_ee.c      |   74 ++++++------
->  drivers/net/ixgb/ixgb_ee.h      |   10 +-
->  drivers/net/ixgb/ixgb_ethtool.c |   50 ++++----
->  drivers/net/ixgb/ixgb_hw.c      |  144 ++++++++++++------------
->  drivers/net/ixgb/ixgb_hw.h      |  234 ++++++++++++++++++++-------------------
->  drivers/net/ixgb/ixgb_main.c    |   60 +++++-----
->  7 files changed, 302 insertions(+), 302 deletions(-)
+> Thanks,
+> -Dale
+> 
+> 
+> Lennert Buytenhek (7):
+>       mv643xx_eth: mp->tx_desc_count needs spinlock protection
+>       mv643xx_eth: various cleanups
+>       mv643xx_eth: identify ports by struct mv643xx_private *
+>       mv643xx_eth: report netdev name in all printks
+>       mv643xx_eth: pass port identifier to register accessors
+>       mv643xx_eth: only print banner once
+>       mv643xx_eth: update copyright
 
-applied 1-2
+pulled
 
 
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
-Don't miss this year's exciting event. There's still time to save $100. 
-Use priority code J8TL2D2. 
-http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
