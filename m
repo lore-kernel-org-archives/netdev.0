@@ -1,53 +1,33 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH RFC 1/5] vringfd syscall
-Date: Sun, 13 Apr 2008 04:19:54 +1000
-Message-ID: <200804130419.55083.rusty@rustcorp.com.au>
-References: <200804052202.09157.rusty@rustcorp.com.au> <20080412171820.GA29568@dmt>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH v2] Re: WAN: new PPP code for generic HDLC
+Date: Sat, 12 Apr 2008 21:25:55 +0200
+Message-ID: <m37if2ooxo.fsf@maximus.localdomain>
+References: <m3prtzsszg.fsf@maximus.localdomain>
+	<m3tzj92xq6.fsf@maximus.localdomain>
+	<m33aqedg0a.fsf@maximus.localdomain>
+	<m37if4oz1g.fsf@maximus.localdomain>
+	<20080411221448.22b69ff5.akpm@linux-foundation.org>
+	<m3prsva3y7.fsf@maximus.localdomain> <480077BB.4000109@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Max Krasnyansky <maxk@qualcomm.com>,
-	virtualization@lists.linux-foundation.org
-To: Marcelo Tosatti <mtosatti@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:41004 "EHLO ozlabs.org"
+Received: from khc.piap.pl ([195.187.100.11]:41913 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755387AbYDLSUD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Apr 2008 14:20:03 -0400
-In-Reply-To: <20080412171820.GA29568@dmt>
-Content-Disposition: inline
+	id S1753423AbYDLTZ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Apr 2008 15:25:57 -0400
+In-Reply-To: <480077BB.4000109@garzik.org> (Jeff Garzik's message of "Sat\, 12 Apr 2008 04\:50\:03 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 13 April 2008 03:18:20 Marcelo Tosatti wrote:
-> I suppose you are doing data copy in ->poll instead of ->read to save
-> a system call? This is weird, not conformant to what the interface is
-> supposed to do.
+Jeff Garzik <jeff@garzik.org> writes:
 
-Hi Marcelo,
+> applied
 
-   Thanks for reading this.
+[two of them]
 
-   Yeah, I dislike it too.  The main motivation was that not all rings need to 
-be "pulled" in this way, but it turns out that userspace can detect this 
-(poll, check ring, if nothing, try read, check ring).  So next version will 
-unscrew the poll callback.
-
-> > +	/* If they want to use atomically, we have to map the page. */
-> > +	if (atomic_use) {
-> > +		if (get_user_pages(current, current->mm,
-> > +				   (unsigned long)vr->ring.used, 1, 1, 1,
-> > +				   &vr->used_page, NULL) != 1) {
->
-> Can't the same be achieved by the app mlocking the vring pages, which
-> then goes through standard rlimit checking ?
-
-Tun/tap writes to this from any context.  Fortunately, this too is changing, 
-as I came up with a sane way of queueing to userspace context for this case.
-
-Expect updated patches Monday.
-
-Thanks!
-Rusty.
+Great, thanks.
+-- 
+Krzysztof Halasa
