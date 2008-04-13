@@ -1,43 +1,57 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Re-queueing of skb in vlan_skb_recv
-Date: Sun, 13 Apr 2008 06:47:13 +0200
-Message-ID: <48019051.3090009@trash.net>
-References: <47FF5DAB.1060906@trash.net>	<20080411125313.GI9785@ZenIV.linux.org.uk>	<47FF614E.7040500@trash.net> <20080411.105413.34923074.davem@davemloft.net>
+Subject: Re: [PATCH][NETFILTER]: Fix race between clusterip_config_find_get
+ and _entry_put.
+Date: Sun, 13 Apr 2008 06:55:47 +0200
+Message-ID: <48019253.2090007@trash.net>
+References: <48009282.9040808@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: viro@ZenIV.linux.org.uk, Brian_Oostenbrink@pmc-sierra.com,
-	linux-net@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:32790 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750741AbYDMErS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 00:47:18 -0400
-In-Reply-To: <20080411.105413.34923074.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <48009282.9040808@openvz.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Fri, 11 Apr 2008 15:02:06 +0200
+[Please remeber to CC netfilter-devel]
+
+Pavel Emelyanov wrote:
+> Consider we are putting a clusterip_config entry with the "entries"
+> count == 1, and on the other CPU there's a clusterip_config_find_get
+> in progress:
 > 
->> Al Viro wrote:
->>> Another possibility would be to allow ->func() of packet_type to return an
->>> skb for reprocessing...
- >>>
->> That should work fine for VLAN, but not for loopback since its
->> called on the TX path. I think I prefer Eric's suggested way
->> because it doesn't require to change all the other existing
->> packet_type users.
+> CPU1:							CPU2:
+> clusterip_config_entry_put:				clusterip_config_find_get:
+> if (atomic_dec_and_test(&c->entries)) { 
+> 	/* true */
+> 							read_lock_bh(&clusterip_lock);
+> 							c = __clusterip_config_find(clusterip);
+> 							/* found - it's still in list */
+> 							...
+> 							atomic_inc(&c->entries);
+> 							read_unlock_bh(&clusterip_lock);
 > 
-> I think Al's idea is the most elegant proposed so far and we could do
-> something similar on the TX side as well.
+> 	write_lock_bh(&clusterip_lock);
+> 	list_del(&c->list);
+> 	write_unlock_bh(&clusterip_lock);
+> 	...
+> 	dev_put(c->dev);
 > 
-> Yes, it means diddling with a lot of call sites, but we do that all
-> the time and it's heaps better then these "check the stack space
-> remaining" hacks being proposed.
+> Oops! We have an entry returned by the clusterip_config_find_get,
+> which is a) not in list b) has a stale dev pointer.
+> 
+> The problems will happen when the CPU2 will release the entry - it
+> will remove it from the list for the 2nd time, thus spoiling it, and
+> will put a stale dev pointer.
+> 
+> The fix is to make atomic_dec_and_test under the clusterip_lock.
 
-Agreed on second thought, I guess I was just being lazy :)
+I guess an alternative would have been to use atomic_inc_not_zero
+in clusterip_config_find_get. But this is only called very rarely,
+so it doesn't really matter.
 
-
+Applied, thanks.
