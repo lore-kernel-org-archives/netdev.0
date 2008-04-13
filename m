@@ -1,49 +1,42 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [TOMOYO #7 30/30] Hooks for SAKURA and TOMOYO.
-Date: Sun, 13 Apr 2008 11:36:58 -0500
-Message-ID: <20080413163658.GC7010@sergelap.austin.ibm.com>
-References: <20080404122242.867070732@I-love.SAKURA.ne.jp> <20080404122408.986477936@I-love.SAKURA.ne.jp> <200804071140.59247.paul.moore@hp.com> <47FC8052.9070409@nttdata.co.jp> <20080409131151.GK11962@parisc-linux.org> <200804112312.HGE69734.LFOOHQOSFFMJtV@I-love.SAKURA.ne.jp> <20080411143013.GB11962@parisc-linux.org>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.25-rc8: FTP transfer errors
+Date: Sun, 13 Apr 2008 20:15:20 +0200
+Message-ID: <200804132015.21742.rjw@sisk.pl>
+References: <20080411151821.GA32398@2ka.mipt.ru> <20080412084400.GA30259@1wt.eu> <20080412.024952.151646629.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	paul.moore@hp.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, takedakn@nttdata.co.jp,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-	crispin@crispincowan.com
-To: Matthew Wilcox <matthew@wil.cx>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: w@1wt.eu, johnpol@2ka.mipt.ru, lkml@rtr.ca,
+	ilpo.jarvinen@helsinki.fi, jesper.juhl@gmail.com, tilman@imap.cc,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:36491 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751972AbYDMSO5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Apr 2008 14:14:57 -0400
+In-Reply-To: <20080412.024952.151646629.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20080411143013.GB11962@parisc-linux.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Matthew Wilcox (matthew@wil.cx):
-> On Fri, Apr 11, 2008 at 11:12:27PM +0900, Tetsuo Handa wrote:
-> > Matthew Wilcox wrote:
-> > > When the rule is put in place, say "No modifications to /etc/passwd",
-> > > look up the inode and major:minor of /etc/passwd.  If there's a rename,
-> > > look up the new inode number.  If it's mounted elsewhere, it doesn't
-> > > matter, they still can't modify it because it has the same
-> > > major:minor:inode.
-> > 
-> > If write access is denied because of a rule "No modifications to /etc/passwd",
-> > a rule "Allow modifications to /tmp/passwd" can no longer be enforced after
-> > "mount --bind /etc/ /tmp/" or "mount --bind /etc/passwd /tmp/passwd" or
-> > "mv /etc/passwd /tmp/passwd" or "ln /etc/passwd /tmp/passwd" is done.
+On Saturday, 12 of April 2008, David Miller wrote:
+> From: Willy Tarreau <w@1wt.eu>
+> Date: Sat, 12 Apr 2008 10:44:00 +0200
 > 
-> That's a fundamental limitation of pathname-based security though.
-> If the same file exists in two places, you have to resolve the question
-> of which rule overrides the other.
+> > While it is a powerful tool, we must accept that it cannot efficiently
+> > work in some circumstances, such as :
+> 
+> Everyone is well aware of all of this, that's why I specifically asked
+> for a bisect, because I knew it would be crucial to pinpointing this
+> particular bug.
+> 
+> And lo' and behold in 15 minutes after the bisect results were
+> available it got fixed.
 
-In the past, Crispin has given clear, concise explanations of a few of
-the things pathname based access control in fact excels at.  Crispin,
-can you recite those again so we can think constructively about which
-(if any) of the currently considered options are or are not sufficient?
+I can't find the fix, btw.  Can you please point me to it?
 
-I.e. what would be a motivation for a rule like 'no modifications to
-/etc/passwd', and what precisely would and would not be accepted ways to
-get around it (and why)?
-
-thanks,
--serge
+Thanks,
+Rafael
