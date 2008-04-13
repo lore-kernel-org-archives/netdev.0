@@ -1,84 +1,87 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: 2.6.25-rc9: Reported regressions from 2.6.24
-Date: Sun, 13 Apr 2008 22:18:54 +0200
-Message-ID: <48026AAE.8040500@trash.net>
-References: <RR4Oy_oXY2J.A.b0H.A3lAIB@albercik> <480262E9.4030500@trash.net> <480267C0.6020402@trash.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Reporting bugs and bisection (was: Re: 2.6.25-rc8: FTP transfer errors)
+Date: Mon, 14 Apr 2008 00:21:18 +0400
+Message-ID: <20080413202118.GA29658@2ka.mipt.ru>
+References: <47FEADCB.7070104@rtr.ca> <22880.1207943922@turing-police.cc.vt.edu> <47FFE5DA.8000709@imap.cc> <200804132040.12138.rjw@sisk.pl> <20080413184730.GD8474@1wt.eu> <20080413121831.d89dd424.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070408080903060201090903"
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	andy@greyhouse.net
-To: Pavel Emelyanov <xemul@openvz.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756242AbYDMUWi@vger.kernel.org>
-In-Reply-To: <480267C0.6020402@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Willy Tarreau <w@1wt.eu>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Tilman Schmidt <tilman@imap.cc>, Valdis.Kletnieks@vt.edu,
+	Mark Lord <lkml@rtr.ca>, David Miller <davem@davemloft.net>,
+	jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:48090 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754737AbYDMUWv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Apr 2008 16:22:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20080413121831.d89dd424.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------070408080903060201090903
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Hi.
 
-Patrick McHardy wrote:
->>>
->>> Bug-Entry    : http://bugzilla.kernel.org/show_bug.cgi?id=10323
->>> Subject        : panic using bridging on linus kernel 2.6.25-rc6
->>> Submitter    : Andy Gospodarek <andy@greyhouse.net>
->>> Date        : 2008-03-25 11:40 (20 days old)
->>
->> This looks like another network-namespace regression.
->> icmp_send() does:
->>
->>        net = rt->u.dst.dev->nd_net;
->>
->> The bridge netfilter code attaches a fake dst_entry to the
->> skb which has dev == NULL when passing it to IPv4 netfilter.
->>
->> Pavel, do you have a better ideas for fixing this than
->> instantiating a dst_entry in br_netfilter.c for every
->> device (or at least for every namespace)? 
->
-> The description of the problem was not entirely correct, the
-> bridge-netfilter dst_entry does have a proper device pointer,
-> it points to a dummy net_device structure however that doesn't
-> have a namespace associated with it. This blows up in
-> __ip_route_output_key.
+On Sun, Apr 13, 2008 at 12:18:31PM -0700, Andrew Morton (akpm@linux-foundation.org) wrote:
+> >  One other thing which might get confusing/frustrating on the
+> > user side is that currently, Linux is the *only* product which requires
+> > the bug reporter to find the fault change
+> 
+> That's because many (probably most) Linux bugs are dependent upon the
+> hardware which they run on, and developers cannot reproduce the failure on
+> their hardware.  Other software products don't have that problem.
 
-For now I suggest this fix. Andy, could you please test whether it
-fixes the problem?
+Bugs are bugs, they either depend on hardware or do not. 
+There is no perfect world where after reporting subtle bug it will be
+fixed. It is not Linux, it is everywhere. Bugs are only fixed when
+they have major impact. Only. Either by having exploit, or crash,
+or good testcase. Or bisect result.
 
+This just a tool to help both parties. And a huge help for regressions.
+If bug would exist for years, bisection unlikely to help.
+ 
+> That being said..  four or five years ago, developers would often work
+> closely with the reporter working out why the reporter's failure was
+> occurring.  Several days of back-and-forth.
 
+Yeah, spent two weeks kicking all possible stuff around and eventually
+drop that namespace patch at all to find where the problem was. We
+started to move further.
 
---------------070408080903060201090903
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="x"
+Bisect is just a tool. It is not something developers throw into user
+when they do not want to work. This _is_ a help, which allows both to
+solve problem in the fastest way.
 
-W0JSSURHRV06IEZpeCBjcmFzaCBpbiBfX2lwX3JvdXRlX291dHB1dF9rZXkgd2l0aCBicmlk
-Z2UgbmV0ZmlsdGVyCgpUaGUgYnJpZGdlIG5ldGZpbHRlciBjb2RlIGF0dGFjaGVzIGEgZmFr
-ZSBkc3RfZW50cnkgd2l0aCBhIHBvaW50ZXIgdG8gYQpmYWtlIG5ldF9kZXZpY2Ugc3RydWN0
-dXJlIHRvIHNrYnMgaXQgcGFzc2VzIHVwIHRvIElQdjQgbmV0ZmlsdGVyLiBUaGlzCmxlYWRz
-IHRvIGNyYXNoZXMgd2hlbiB0aGUgc2tiIGlzIHBhc3NlZCB0byBfX2lwX3JvdXRlX291dHB1
-dF9rZXkgd2hlbgpkZXJlZmVyZW5jaW5nIHRoZSBuYW1lc3BhY2UgcG9pbnRlci4KClNpbmNl
-IGJyaWRnaW5nIGNhbiBjdXJyZW50bHkgb25seSBvcGVyYXRlIGluIHRoZSBpbml0X25ldCBu
-YW1lc3BhY2UsCnRoZSBlYXNpZXN0IGZpeCBmb3Igbm93IGlzIHRvIGluaXRpYWxpemUgdGhl
-IG5kX25ldCBwb2ludGVyIG9mIHRoZQpmYWtlIG5ldF9kZXZpY2Ugc3RydWN0IHRvICZpbml0
-X25ldC4KClNob3VsZCBmaXggYnVnemlsbGEgMTAzMjM6IGh0dHA6Ly9idWd6aWxsYS5rZXJu
-ZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0xMDMyMwoKU2lnbmVkLW9mZi1ieTogUGF0cmljayBN
-Y0hhcmR5IDxrYWJlckB0cmFzaC5uZXQ+CgpkaWZmIC0tZ2l0IGEvbmV0L2JyaWRnZS9icl9u
-ZXRmaWx0ZXIuYyBiL25ldC9icmlkZ2UvYnJfbmV0ZmlsdGVyLmMKaW5kZXggMWMwZWZkOC4u
-YWY3ZThiZSAxMDA2NDQKLS0tIGEvbmV0L2JyaWRnZS9icl9uZXRmaWx0ZXIuYworKysgYi9u
-ZXQvYnJpZGdlL2JyX25ldGZpbHRlci5jCkBAIC0xMTAsNyArMTEwLDggQEAgc3RhdGljIGlu
-bGluZSBfX2JlMTYgcHBwb2VfcHJvdG8oY29uc3Qgc3RydWN0IHNrX2J1ZmYgKnNrYikKICAq
-IGlwdF9SRUpFQ1QgbmVlZHMgaXQuICBGdXR1cmUgbmV0ZmlsdGVyIG1vZHVsZXMgbWlnaHQK
-ICAqIHJlcXVpcmUgdXMgdG8gZmlsbCBhZGRpdGlvbmFsIGZpZWxkcy4gKi8KIHN0YXRpYyBz
-dHJ1Y3QgbmV0X2RldmljZSBfX2Zha2VfbmV0X2RldmljZSA9IHsKLQkuaGFyZF9oZWFkZXJf
-bGVuCT0gRVRIX0hMRU4KKwkuaGFyZF9oZWFkZXJfbGVuCT0gRVRIX0hMRU4sCisJLm5kX25l
-dAkJCT0gJmluaXRfbmV0LAogfTsKIAogc3RhdGljIHN0cnVjdCBydGFibGUgX19mYWtlX3J0
-YWJsZSA9IHsK
---------------070408080903060201090903--
+If the same would be done on developers machine and huge patches would
+be sent to jump between changesets, that would be a real 'work closely
+with the reporter working out why the reporter's failure was occurring'?
+
+You pointed it yourself: several days of back-and-forth.
+With this helping automation tool called bisect bug was resolved in 15
+minutes after completion. Completion itself took couple of hours.
+
+> We dont' do that as much nowadays - there's a tendency to
+> 
+> a) throw the problem back at the reporter, often asking them to bisect. 
+>    If the reporter is running a distro kernel (eg: Fedora) then that's
+>    quite hard, and often isn't a think they have knowledge to do.  So
+>    they'll just disappear.  Or
+> 
+> b) just ignore the report altogether.
+
+There is also global warming tendency. IIRC.
+
+Bugs _are_ fixed, Andrew. And developers did not change suddenly to
+selfish bastards who do not care for users. They just developed a tool,
+which greatly helps to both and saves lots of users time, since
+regression gets fixed with this tool really quickly. Bisect is not asked
+to be performed without a reason. For subtle bug it is the fastest way,
+but otherwise there might be a long conversation. And even in this
+really subtle case there was a dialog.
+
+Bisect automation does not add kind relations though, but we can ask
+Linus to add couple of smiles into the output.
+
+-- 
+	Evgeniy Polyakov
