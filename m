@@ -1,127 +1,35 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-2.6.26] [IPV6]: Share common code-paths for sticky
- socket options.
-Date: Sun, 13 Apr 2008 16:58:35 +0900 (JST)
-Message-ID: <20080413.165835.51630475.yoshfuji@linux-ipv6.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] [NET] [ISDN]: Do not validate ISDN net device address
+   prior to interface-up
+Date: Sun, 13 Apr 2008 10:06:52 +0200
+Message-ID: <4801BF1C.30207@gmail.com>
+References: <1207839617.4311.6.camel@compaq.thuisdomein> <4801A85F.8090906@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: Paul Bolle <pebolle@tiscali.nl>, netdev@vger.kernel.org,
+	isdn4linux@listserv.isdn4linux.de, Jeff Garzik <jgarzik@redhat.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:33445 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752129AbYDMH4s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 03:56:48 -0400
+Received: from fg-out-1718.google.com ([72.14.220.158]:41817 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751589AbYDMICh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 04:02:37 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so1072289fgb.17
+        for <netdev@vger.kernel.org>; Sun, 13 Apr 2008 01:02:36 -0700 (PDT)
+In-Reply-To: <4801A85F.8090906@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/ipv6/ipv6_sockglue.c |   64 ++++++++++++++++++----------------------------
- 1 files changed, 25 insertions(+), 39 deletions(-)
+Patrick McHardy wrote, On 04/13/2008 08:29 AM:
+...
 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 2f1244d..06de9d0 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -103,6 +103,29 @@ int ip6_ra_control(struct sock *sk, int sel, void (*destructor)(struct sock *))
- 	return 0;
- }
- 
-+static
-+struct ipv6_txoptions *ipv6_update_options(struct sock *sk,
-+					   struct ipv6_txoptions *opt)
-+{
-+	if (inet_sk(sk)->is_icsk) {
-+		if (opt &&
-+		    !((1 << sk->sk_state) & (TCPF_LISTEN | TCPF_CLOSE)) &&
-+		    inet_sk(sk)->daddr != LOOPBACK4_IPV6) {
-+			struct inet_connection_sock *icsk = inet_csk(sk);
-+			icsk->icsk_ext_hdr_len = opt->opt_flen + opt->opt_nflen;
-+			icsk->icsk_sync_mss(sk, icsk->icsk_pmtu_cookie);
-+		}
-+		opt = xchg(&inet6_sk(sk)->opt, opt);
-+	} else {
-+		write_lock(&sk->sk_dst_lock);
-+		opt = xchg(&inet6_sk(sk)->opt, opt);
-+		write_unlock(&sk->sk_dst_lock);
-+	}
-+	sk_dst_reset(sk);
-+
-+	return opt;
-+}
-+
- static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 		    char __user *optval, int optlen)
- {
-@@ -351,25 +374,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 		}
- 
- 		retv = 0;
--		if (inet_sk(sk)->is_icsk) {
--			if (opt) {
--				struct inet_connection_sock *icsk = inet_csk(sk);
--				if (!((1 << sk->sk_state) &
--				      (TCPF_LISTEN | TCPF_CLOSE))
--				    && inet_sk(sk)->daddr != LOOPBACK4_IPV6) {
--					icsk->icsk_ext_hdr_len =
--						opt->opt_flen + opt->opt_nflen;
--					icsk->icsk_sync_mss(sk, icsk->icsk_pmtu_cookie);
--				}
--			}
--			opt = xchg(&np->opt, opt);
--			sk_dst_reset(sk);
--		} else {
--			write_lock(&sk->sk_dst_lock);
--			opt = xchg(&np->opt, opt);
--			write_unlock(&sk->sk_dst_lock);
--			sk_dst_reset(sk);
--		}
-+		opt = ipv6_update_options(sk, opt);
- sticky_done:
- 		if (opt)
- 			sock_kfree_s(sk, opt, opt->tot_len);
-@@ -415,26 +420,7 @@ sticky_done:
- 			goto done;
- update:
- 		retv = 0;
--		if (inet_sk(sk)->is_icsk) {
--			if (opt) {
--				struct inet_connection_sock *icsk = inet_csk(sk);
--				if (!((1 << sk->sk_state) &
--				      (TCPF_LISTEN | TCPF_CLOSE))
--				    && inet_sk(sk)->daddr != LOOPBACK4_IPV6) {
--					icsk->icsk_ext_hdr_len =
--						opt->opt_flen + opt->opt_nflen;
--					icsk->icsk_sync_mss(sk, icsk->icsk_pmtu_cookie);
--				}
--			}
--			opt = xchg(&np->opt, opt);
--			sk_dst_reset(sk);
--		} else {
--			write_lock(&sk->sk_dst_lock);
--			opt = xchg(&np->opt, opt);
--			write_unlock(&sk->sk_dst_lock);
--			sk_dst_reset(sk);
--		}
--
-+		opt = ipv6_update_options(sk, opt);
- done:
- 		if (opt)
- 			sock_kfree_s(sk, opt, opt->tot_len);
--- 
-1.4.4.4
+> I guess it should return -EADDRNOTAVAIL similar to eth_mac_addr()
+> when validation fails.
 
+I think an additional printk should really save some time in guessing
+what's wrong and with which address, especially if the same config
+works OK with earlier kernels.
 
-
-
-
-
-
-
-
-
-
-
+Regards,
+Jarek P.
