@@ -1,44 +1,30 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: arcnet - weird printk arc%d
-Date: Sat, 12 Apr 2008 18:17:21 -0700
-Message-ID: <20080412181721.34d50f0b@extreme>
-References: <236742536@web.de>
-	<48015CC8.4000004@isomerica.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [git patches] net driver fixes for .25
+Date: Sat, 12 Apr 2008 18:29:35 -0700 (PDT)
+Message-ID: <20080412.182935.11029443.davem@davemloft.net>
+References: <20080412093012.GA24827@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devzero@web.de, netdev@vger.kernel.org
-To: dpn@isomerica.net
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:51383 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753683AbYDMBR2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Apr 2008 21:17:28 -0400
-In-Reply-To: <48015CC8.4000004@isomerica.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50704
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753873AbYDMB3e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 21:29:34 -0400
+In-Reply-To: <20080412093012.GA24827@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 12 Apr 2008 21:07:20 -0400
-Dan Noe <dpn@isomerica.net> wrote:
+From: Jeff Garzik <jeff@garzik.org>
+Date: Sat, 12 Apr 2008 05:30:12 -0400
 
-> devzero@web.de wrote:
-> > Apr 13 01:25:50 neo klogd:  arc%d: Given: node 00h, shmem 0h, irq 0
-> > Apr 13 01:25:50 neo klogd:  arc%d: No autoprobe for RIM I; you must specify the shmem and irq!
-> > Apr 13 01:25:50 neo klogd:  arc%d: No autoprobe for IO mapped cards; you must specify the base address!
-> > 
-> > arc%d looks weird - is this intenitonal ?
 > 
-> The %d is normally replaced by the interface number after 
-> register_netdev is called.  But these error messages are printed in 
-> arcrimi_found() *before* register_netdev() is called (because the device 
-> hasn't been found yet).
+> Please pull from 'upstream-davem' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-davem
 > 
-> I'm not sure what the best approach to fixing this is.  Most likely the 
-> log printouts at that point should not be using the macros that rely on 
-> dev->name being fully correct.
-> 
-> Cheers,
-> Dan
-> 
+> to receive the following updates:
 
-use dev_info et al, to print out using the bus id.
+Pulled and pushed back out to net-2.6, thanks Jeff!
