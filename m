@@ -1,57 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: 2.6.25-rc9: Reported regressions from 2.6.24
-Date: Sun, 13 Apr 2008 22:06:24 +0200
-Message-ID: <480267C0.6020402@trash.net>
-References: <RR4Oy_oXY2J.A.b0H.A3lAIB@albercik> <480262E9.4030500@trash.net>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: Reporting bugs and bisection (was: Re: 2.6.25-rc8: FTP
+	transfer errors)
+Date: Sun, 13 Apr 2008 23:10:28 +0300
+Message-ID: <20080413201028.GE13920@cs181133002.pp.htv.fi>
+References: <47FEADCB.7070104@rtr.ca> <22880.1207943922@turing-police.cc.vt.edu> <47FFE5DA.8000709@imap.cc> <200804132040.12138.rjw@sisk.pl> <20080413184730.GD8474@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	andy@greyhouse.net
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain; charset=utf-8
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, Tilman Schmidt <tilman@imap.cc>,
+	Valdis.Kletnieks@vt.edu, Mark Lord <lkml@rtr.ca>,
+	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51539 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752595AbYDMUJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 16:09:53 -0400
-In-Reply-To: <480262E9.4030500@trash.net>
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:60993 "EHLO smtp4.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752635AbYDMUL3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Apr 2008 16:11:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20080413184730.GD8474@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[CC list trimmed slightly]
+On Sun, Apr 13, 2008 at 08:47:30PM +0200, Willy Tarreau wrote:
+>...
+> Very true. One other thing which might get confusing/frustrating on the
+> user side is that currently, Linux is the *only* product which requires
+> the bug reporter to find the fault change (yes, I know, it's scalable).
+>...
 
-Patrick McHardy wrote:
-> Rafael J. Wysocki wrote:
->> This message contains a list of some regressions from 2.6.24, for 
->> which there
->> are no fixes in the mainline I know of.  If any of them have been 
->> fixed already,
->> please let me know.
->>
->>
->> Bug-Entry    : http://bugzilla.kernel.org/show_bug.cgi?id=10323
->> Subject        : panic using bridging on linus kernel 2.6.25-rc6
->> Submitter    : Andy Gospodarek <andy@greyhouse.net>
->> Date        : 2008-03-25 11:40 (20 days old)
->
-> This looks like another network-namespace regression.
-> icmp_send() does:
->
->        net = rt->u.dst.dev->nd_net;
->
-> The bridge netfilter code attaches a fake dst_entry to the
-> skb which has dev == NULL when passing it to IPv4 netfilter.
->
-> Pavel, do you have a better ideas for fixing this than
-> instantiating a dst_entry in br_netfilter.c for every
-> device (or at least for every namespace)? 
+That's not true, for several regressions I reported to the Wine Bugzilla 
+I had been asked to git bisect for the commit that broke it.
 
-The description of the problem was not entirely correct, the
-bridge-netfilter dst_entry does have a proper device pointer,
-it points to a dummy net_device structure however that doesn't
-have a namespace associated with it. This blows up in
-__ip_route_output_key.
+And I'd actually assume that it's quite common for git using open source 
+projects to ask the user to bisect regressions.
+
+> Regards,
+> Willy
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
