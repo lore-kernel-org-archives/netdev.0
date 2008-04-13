@@ -1,77 +1,70 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: HTB and ingress scheduler SMP Soft Lockup in 2.6.23-2.6.25-rc8
-Date: Sun, 13 Apr 2008 14:10:31 +0200
-Message-ID: <20080413121031.GA5211@ami.dom.local>
-References: <47FFAFFA.7070802@superclick.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: [CAN] Update documentation of struct sockaddr_can (for 2.6.25)
+Date: Sun, 13 Apr 2008 14:26:29 +0200
+Message-ID: <4801FBF5.2050209@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Enrico Demarin <enrico@superclick.com>
+Content-Type: multipart/mixed;
+ boundary="------------090408040303040209010808"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:35717 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753841AbYDMMMk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 08:12:40 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so1140808fgb.17
-        for <netdev@vger.kernel.org>; Sun, 13 Apr 2008 05:12:39 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <47FFAFFA.7070802@superclick.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:63460 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756899AbYDMMhj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 08:37:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enrico Demarin wrote, On 04/11/2008 08:37 PM:
+This is a multi-part message in MIME format.
+--------------090408040303040209010808
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Hi everyone,
-> 
-> I stumbled by chance in a deadlock condition using HTB and the ingress 
-> scheduler at the same time.
-> 
-> - The bug seems to have been introduced in 2.6.23 and forward ( 2.6.22 
-> works fine )
-> - Tested up to  2.6.25-rc8
-> 
-> I found a temporary workaround  ( the ingress didnt have a reason to be 
-> there in first place , just omitting it from the script avoids the 
-> condition ), but it would be nice to have a proper fix. Let me know if 
-> more data/testing is needed.
+Hello Dave,
 
-Hi,
-
-It's a very nice test and results, but alas I don't have 3 boxes
-around, so I wonder if you could try this debugging patch below?
-
-I think one of possible reasons could be a qdisc with the same
-handle and parent ids, like ingress, but I can't see how it could
-be referenced by your htb classes yet...
+as there are still some things pending for the final 2.6.25 please add 
+the following patch to fix the current documentation.
 
 Thanks,
-Jarek P.
+Oliver
 
----
+------------------
 
- net/sched/sch_api.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+The struct sockaddr_can has been simplified in the code review process. 
+This patch updates this simplification also in the associated 
+documentation in can.txt .
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 15b91a9..de52b17 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -386,11 +386,18 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
- 	if (n == 0)
- 		return;
- 	while ((parentid = sch->parent)) {
-+		struct Qdisc *sch_old = sch;
+Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
+
+
+
+
+
+--------------090408040303040209010808
+Content-Type: text/x-diff;
+ name="can.txt.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="can.txt.diff"
+
+diff --git a/Documentation/networking/can.txt b/Documentation/networking/can.txt
+index f1b2de1..641d2af 100644
+--- a/Documentation/networking/can.txt
++++ b/Documentation/networking/can.txt
+@@ -281,10 +281,10 @@ solution for a couple of reasons:
+             sa_family_t can_family;
+             int         can_ifindex;
+             union {
+-                    struct { canid_t rx_id, tx_id; } tp16;
+-                    struct { canid_t rx_id, tx_id; } tp20;
+-                    struct { canid_t rx_id, tx_id; } mcnet;
+-                    struct { canid_t rx_id, tx_id; } isotp;
++                    /* transport protocol class address info (e.g. ISOTP) */
++                    struct { canid_t rx_id, tx_id; } tp;
 +
- 		sch = qdisc_lookup(sch->dev, TC_H_MAJ(parentid));
- 		if (sch == NULL) {
- 			WARN_ON(parentid != TC_H_ROOT);
- 			return;
- 		}
-+		if (sch == sch_old) {
-+			printk("qdisc loop: %p, %x\n", sch, sch->parent);
-+			return;
-+		}
-+
- 		cops = sch->ops->cl_ops;
- 		if (cops->qlen_notify) {
- 			cl = cops->get(sch, parentid);
++                    /* reserved for future CAN protocols address information */
+             } can_addr;
+     };
+ 
+
+--------------090408040303040209010808--
