@@ -1,44 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [DCCP]: Fix skb->cb conflicts with IP
-Date: Sat, 12 Apr 2008 18:35:58 -0700 (PDT)
-Message-ID: <20080412.183558.100508594.davem@davemloft.net>
-References: <20080411135908.GA20937@gerrit.erg.abdn.ac.uk>
-	<47FF6F9E.5050807@trash.net>
-	<20080411140501.GR8192@ghostprotocols.net>
+Subject: Re: [PATCH take2][NET_SCHED] cls_u32: refcounting fix for
+ u32_delete()
+Date: Sat, 12 Apr 2008 18:37:23 -0700 (PDT)
+Message-ID: <20080412.183723.161646190.davem@davemloft.net>
+References: <47FF662B.2040302@trash.net>
+	<20080411134818.GA3776@ff.dom.local>
+	<1207922127.4419.85.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: acme@redhat.com
+Cc: jarkao2@gmail.com, kaber@trash.net, netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42512
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42518
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754243AbYDMBf5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 21:35:57 -0400
-In-Reply-To: <20080411140501.GR8192@ghostprotocols.net>
+	by vger.kernel.org with ESMTP id S1754837AbYDMBhW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 21:37:22 -0400
+In-Reply-To: <1207922127.4419.85.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date: Fri, 11 Apr 2008 11:05:01 -0300
+From: jamal <hadi@cyberus.ca>
+Date: Fri, 11 Apr 2008 09:55:27 -0400
 
-> Em Fri, Apr 11, 2008 at 04:03:10PM +0200, Patrick McHardy escreveu:
-> > Gerrit Renker wrote:
-> >>>>>     [DCCP]: Fix skb->cb conflicts with IP
-> >>>>>         dev_queue_xmit() and the other IP output functions expect to 
-> >> <snip>
-> >>> Dave, I'm not sure whether you've missed this or expect it
-> >>> to go through Arnaldo, just want to make sure it doesn't
-> >>> get missed because of a misunderstanding :)
-> >>>
-> >>>
-> >> If it is not too much work, can you please also remove the two attached
-> >> hunks which are now redundant thanks to the above patch.
-> >
-> >
-> > I've added it to the patch, thanks.
+> On Fri, 2008-11-04 at 13:48 +0000, Jarek Poplawski wrote:
+> > On Fri, Apr 11, 2008 at 03:22:51PM +0200, Patrick McHardy wrote:
+> > ...
+> > > I'd suggest to behave similar to qdiscs when trying to
+> > > removing classes that are still referenced, return -EBUSY.
+> > 
+> > Of course you are right!
+> > 
+> > Jarek P.
+> > 
+> > -------------------> (take 2)
+> > 
+> > [NET_SCHED] cls_u32: refcounting fix for u32_delete()
+> > 
+> > Deleting of nonroot hnodes mostly doesn't work in u32_delete():
+> > refcnt == 1 is expected, but such hnodes' refcnts are initialized
+> > with 0 and charged only with "link" nodes. Now they'll start with
+> > 1 like usual. Thanks to Patrick McHardy for an improving suggestion.
+> > 
+> > 
+> > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> > Cc: Jamal Hadi Salim <hadi@cyberus.ca>
 > 
-> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> Thanks as always Jarek.
+> 
+> Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
-Applied to net-2.6, thanks everyone.
+Applied, thanks everyone.
