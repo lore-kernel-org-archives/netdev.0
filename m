@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: fix MMIO for PPC 44x platforms
-Date: Sat, 12 Apr 2008 18:31:20 -0700 (PDT)
-Message-ID: <20080412.183120.265079925.davem@davemloft.net>
-References: <200804122101.22438.sshtylyov@ru.mvista.com>
+Subject: Re: [PATCH][AX25]: Potential ax25_uid_assoc-s leaks on module
+ unload.
+Date: Sat, 12 Apr 2008 18:34:01 -0700 (PDT)
+Message-ID: <20080412.183401.80819932.davem@davemloft.net>
+References: <4800A598.10506@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: sshtylyov@ru.mvista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39635
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753873AbYDMBbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 21:31:19 -0400
-In-Reply-To: <200804122101.22438.sshtylyov@ru.mvista.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ralf@linux-mips.org, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org
+To: xemul@openvz.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <4800A598.10506@openvz.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Date: Sat, 12 Apr 2008 21:01:22 +0400
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Sat, 12 Apr 2008 16:05:44 +0400
 
-> The driver stores the PCI resource addresses into 'unsigned long' variable
-> before calling ioremap_nocache() on them. This warrants kernel oops when the
-> registers are accessed on PPC 44x platforms which (being 32-bit) have PCI
-> memory space mapped beyond 4 GB.
+> The ax25_uid_free call walks the ax25_uid_list and releases
+> entries from it. The problem is that after the fisrt call to
+> hlist_del_init the hlist_for_each_entry (which hides behind
+> the ax25_uid_for_each) will consider the current position to
+> be the last and will return.
 > 
-> The arch/ppc/ kernel has a fixup in ioremap() that creates an illusion that
-> the PCI memory resource is mapped below 4 GB, but arch/powerpc/ code got rid
-> of this trick, having instead CONFIG_RESOURCES_64BIT enabled.
+> Thus, the whole list will be left not freed.
 > 
-> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Applied, thanks.
-
-I added a bump of the driver version and release date for
-the changeset.
+Applied, thanks Pavel.
