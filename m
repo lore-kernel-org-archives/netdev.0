@@ -1,70 +1,41 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: [CAN] Update documentation of struct sockaddr_can (for 2.6.25)
-Date: Sun, 13 Apr 2008 14:26:29 +0200
-Message-ID: <4801FBF5.2050209@hartkopp.net>
+From: Moni Shoua <monis@voltaire.com>
+Subject: Re: [PATCH]: net/bonding: Enable to change device type before enslaving
+Date: Sun, 13 Apr 2008 17:09:20 +0300
+Message-ID: <48021410.5040806@voltaire.com>
+References: <47FE2DBF.7080803@voltaire.com> <21771.1207860504@death>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090408040303040209010808"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Olga Stern <olgas@voltaire.com>,
+	Or Gerlitz <ogerlitz@voltaire.com>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:63460 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756899AbYDMMhj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 08:37:39 -0400
+Received: from fwil.voltaire.com ([193.47.165.2]:36455 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757322AbYDMOJd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Apr 2008 10:09:33 -0400
+In-Reply-To: <21771.1207860504@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------090408040303040209010808
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Hello Dave,
+> 	Does this mean that the automatic selection on first enslavement
+> is no longer needed, and all setting of the type for IB devices must
+> occur prior to first enslavement?
+> 
+> 	Or is this more of a special case for some devices, and the
+> automatic selection is still correct for most cases?
+> 
 
-as there are still some things pending for the final 2.6.25 please add 
-the following patch to fix the current documentation.
+I think that the later is closer to the truth. 
+The goal is to modify the bonding module to work with IPoIB slaves but
+with as small as possible changes to what already exists.
 
-Thanks,
-Oliver
-
-------------------
-
-The struct sockaddr_can has been simplified in the code review process. 
-This patch updates this simplification also in the associated 
-documentation in can.txt .
-
-Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
+In details, the bonding net device device gets its type by ether_setup(),
+which runs for all types of slaves and I don't see a way to change that.
+However, bonding master for IPoIB slaves requires a different device type setting 
+before it comes up for some OSs (redhat 4 for instance). On other OSs I don't see the problem 
+and I guess that this is because master becomes up only after it has slaves.
 
 
 
-
-
---------------090408040303040209010808
-Content-Type: text/x-diff;
- name="can.txt.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="can.txt.diff"
-
-diff --git a/Documentation/networking/can.txt b/Documentation/networking/can.txt
-index f1b2de1..641d2af 100644
---- a/Documentation/networking/can.txt
-+++ b/Documentation/networking/can.txt
-@@ -281,10 +281,10 @@ solution for a couple of reasons:
-             sa_family_t can_family;
-             int         can_ifindex;
-             union {
--                    struct { canid_t rx_id, tx_id; } tp16;
--                    struct { canid_t rx_id, tx_id; } tp20;
--                    struct { canid_t rx_id, tx_id; } mcnet;
--                    struct { canid_t rx_id, tx_id; } isotp;
-+                    /* transport protocol class address info (e.g. ISOTP) */
-+                    struct { canid_t rx_id, tx_id; } tp;
-+
-+                    /* reserved for future CAN protocols address information */
-             } can_addr;
-     };
- 
-
---------------090408040303040209010808--
