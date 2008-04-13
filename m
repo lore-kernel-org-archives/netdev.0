@@ -1,25 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL net-2.6.26]: IPv6 Updates
-Date: Sat, 12 Apr 2008 19:39:48 -0700 (PDT)
-Message-ID: <20080412.193948.127159465.davem@davemloft.net>
-References: <20080412.134909.53979908.yoshfuji@linux-ipv6.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/7] ATM cell alignment.
+Date: Sun, 13 Apr 2008 06:44:57 +0200
+Message-ID: <48018FC9.9030808@trash.net>
+References: <Pine.LNX.4.64.0804092249550.21022@ask.diku.dk> <Pine.LNX.4.64.0804092259460.21022@ask.diku.dk> <47FF5EB9.2010108@trash.net> <Pine.LNX.4.64.0804111916590.3759@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48530
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755055AbYDMCjr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 22:39:47 -0400
-In-Reply-To: <20080412.134909.53979908.yoshfuji@linux-ipv6.org>
+Received: from stinky.trash.net ([213.144.137.162]:65522 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750732AbYDMEpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 00:45:03 -0400
+In-Reply-To: <Pine.LNX.4.64.0804111916590.3759@ask.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Sat, 12 Apr 2008 13:49:09 +0900 (JST)
+Jesper Dangaard Brouer wrote:
+> On Fri, 11 Apr 2008, Patrick McHardy wrote:
+> 
+>> Jesper Dangaard Brouer wrote:
+>>> @@ -87,6 +111,16 @@ int tc_calc_rtable(struct tc_ratespec *r, __u32
+>>>  *rtab, int cell_log, unsigned mt
+>>>           unsigned sz = ((i+1)<<cell_log);
+>>>           if (sz < mpu)
+>>>               sz = mpu;
+>>>  +        switch (linklayer) {
+>>>  +        case LINKLAYER_ATM:
+>>>  +            sz = tc_align_to_atm(sz);
+>>>  +            break;
+>>>  +        case LINKLAYER_ETHERNET:
+>>>  +            // No size adjustments on Ethernet
+>>>  +            break;
+>>
+>> Couldn't this use the ARPHRD values?
+> 
+> It would make it more difficult to expand to new linklayer types.  For 
+> example I cannot find a define suitable for DOCSIS (cabel modems) (Thats 
+> next om my list to make DaveM happy ;-))
 
-> git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git net-2.6.26-misc-20080412b
-
-Pulled and pushed back out to net-2.6.26, thanks!
+Fair enough, I guess ARPHRD is not the perfect match for this.
