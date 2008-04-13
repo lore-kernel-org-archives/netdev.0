@@ -1,45 +1,43 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/7] ATM cell alignment.
-Date: Sun, 13 Apr 2008 06:44:57 +0200
-Message-ID: <48018FC9.9030808@trash.net>
-References: <Pine.LNX.4.64.0804092249550.21022@ask.diku.dk> <Pine.LNX.4.64.0804092259460.21022@ask.diku.dk> <47FF5EB9.2010108@trash.net> <Pine.LNX.4.64.0804111916590.3759@ask.diku.dk>
+Subject: Re: Re-queueing of skb in vlan_skb_recv
+Date: Sun, 13 Apr 2008 06:47:13 +0200
+Message-ID: <48019051.3090009@trash.net>
+References: <47FF5DAB.1060906@trash.net>	<20080411125313.GI9785@ZenIV.linux.org.uk>	<47FF614E.7040500@trash.net> <20080411.105413.34923074.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
+Cc: viro@ZenIV.linux.org.uk, Brian_Oostenbrink@pmc-sierra.com,
+	linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:65522 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:32790 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750732AbYDMEpD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 00:45:03 -0400
-In-Reply-To: <Pine.LNX.4.64.0804111916590.3759@ask.diku.dk>
+	with ESMTP id S1750741AbYDMErS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 00:47:18 -0400
+In-Reply-To: <20080411.105413.34923074.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Dangaard Brouer wrote:
-> On Fri, 11 Apr 2008, Patrick McHardy wrote:
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Fri, 11 Apr 2008 15:02:06 +0200
 > 
->> Jesper Dangaard Brouer wrote:
->>> @@ -87,6 +111,16 @@ int tc_calc_rtable(struct tc_ratespec *r, __u32
->>>  *rtab, int cell_log, unsigned mt
->>>           unsigned sz = ((i+1)<<cell_log);
->>>           if (sz < mpu)
->>>               sz = mpu;
->>>  +        switch (linklayer) {
->>>  +        case LINKLAYER_ATM:
->>>  +            sz = tc_align_to_atm(sz);
->>>  +            break;
->>>  +        case LINKLAYER_ETHERNET:
->>>  +            // No size adjustments on Ethernet
->>>  +            break;
->>
->> Couldn't this use the ARPHRD values?
+>> Al Viro wrote:
+>>> Another possibility would be to allow ->func() of packet_type to return an
+>>> skb for reprocessing...
+ >>>
+>> That should work fine for VLAN, but not for loopback since its
+>> called on the TX path. I think I prefer Eric's suggested way
+>> because it doesn't require to change all the other existing
+>> packet_type users.
 > 
-> It would make it more difficult to expand to new linklayer types.  For 
-> example I cannot find a define suitable for DOCSIS (cabel modems) (Thats 
-> next om my list to make DaveM happy ;-))
+> I think Al's idea is the most elegant proposed so far and we could do
+> something similar on the TX side as well.
+> 
+> Yes, it means diddling with a lot of call sites, but we do that all
+> the time and it's heaps better then these "check the stack space
+> remaining" hacks being proposed.
 
-Fair enough, I guess ARPHRD is not the perfect match for this.
+Agreed on second thought, I guess I was just being lazy :)
+
+
