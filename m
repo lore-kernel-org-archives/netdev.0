@@ -1,45 +1,46 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] [NET] [ISDN]: Do not validate ISDN net device address
-	prior to interface-up
-Date: Sun, 13 Apr 2008 10:51:35 +0200
-Message-ID: <20080413085135.GB2788@ami.dom.local>
-References: <1207839617.4311.6.camel@compaq.thuisdomein> <4801A85F.8090906@trash.net> <4801BF1C.30207@gmail.com> <4801BEB4.6090909@trash.net> <20080413082738.GA2788@ami.dom.local> <4801C3C9.4070408@trash.net>
+From: Andy Furniss <lists@andyfurniss.entadsl.com>
+Subject: Re: [PATCH 2/7] ATM cell alignment.
+Date: Sun, 13 Apr 2008 12:24:41 +0100
+Message-ID: <4801ED79.5090502@andyfurniss.entadsl.com>
+References: <Pine.LNX.4.64.0804092249550.21022@ask.diku.dk> <Pine.LNX.4.64.0804092259460.21022@ask.diku.dk>
+Reply-To: lists@andyfurniss.entadsl.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Bolle <pebolle@tiscali.nl>, netdev@vger.kernel.org,
-	isdn4linux@listserv.isdn4linux.de, Jeff Garzik <jgarzik@redhat.com>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:2794 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754112AbYDMIq6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 04:46:58 -0400
-Received: by fg-out-1718.google.com with SMTP id l27so1084130fgb.17
-        for <netdev@vger.kernel.org>; Sun, 13 Apr 2008 01:46:57 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4801C3C9.4070408@trash.net>
+Received: from mx1.ukfsn.org ([77.75.108.10]:34119 "EHLO mail.ukfsn.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755742AbYDMLYp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Apr 2008 07:24:45 -0400
+In-Reply-To: <Pine.LNX.4.64.0804092259460.21022@ask.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 13, 2008 at 10:26:49AM +0200, Patrick McHardy wrote:
-...
-> This one is simply a bug, not a functional change.
+Jesper Dangaard Brouer wrote:
 
-I agree 100%. But since it worked for some people for long time...
+> + The align to ATM cells is used for determining the (ATM) SAR
+> + alignment overhead at the ATM layer. (SAR = Segmentation And
+> + Reassembly).  This is for example needed when scheduling packet on an
+> + ADSL connection.  Note that the extra ATM-AAL overhead is _not_
+> + included in this calculation. This overhead is added in the kernel
+> + before doing the rate table lookup, as this gives better precision
+> + (as the table will always be aligned for 48 bytes).
 
->>  BTW, I've assisted some similar case in
->> bugzilla, and I guess users will still ask for an explanation after
->> this error code change.
->>   
->
-> Well, I don't have particulary strong feelings about this, but
-> I think adding a printk to one out of thousands of possible
-> errors won't help much.
+I see overhead is unsigned short. For me using pppoa/vc mux my overhead 
+is IP + 10. I am shaping on eth so skb->len is IP+14 hence I need a 
+negative overhead.
 
-Maybe you are right, we can simply wait. I know Paul, me and a few
-more people lost "a bit" of time because of this fix already, and
-I hope the next time there will be somebody like you around to give
-an advice before git bisect was finished or a few kB of logs are sent
-here.
+Recently built a 2.6.25-rc7 and noticed the cell_align has been added 
+and the tables jigged. I am (ab)using this at -5 now. Handy that I only 
+need to patch TC rather than kernel and I guess I could use other TCs if 
+I needed to shape other not atm ifs.
 
-Jarek P.
+Russel Stuart's patches handled this case IIRC, has it been lost or have 
+I missed something (as usual)?
+
+Andy.
