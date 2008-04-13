@@ -1,46 +1,77 @@
-From: Andy Furniss <lists@andyfurniss.entadsl.com>
-Subject: Re: [PATCH 2/7] ATM cell alignment.
-Date: Sun, 13 Apr 2008 12:24:41 +0100
-Message-ID: <4801ED79.5090502@andyfurniss.entadsl.com>
-References: <Pine.LNX.4.64.0804092249550.21022@ask.diku.dk> <Pine.LNX.4.64.0804092259460.21022@ask.diku.dk>
-Reply-To: lists@andyfurniss.entadsl.com
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: HTB and ingress scheduler SMP Soft Lockup in 2.6.23-2.6.25-rc8
+Date: Sun, 13 Apr 2008 14:10:31 +0200
+Message-ID: <20080413121031.GA5211@ami.dom.local>
+References: <47FFAFFA.7070802@superclick.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Enrico Demarin <enrico@superclick.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.ukfsn.org ([77.75.108.10]:34119 "EHLO mail.ukfsn.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755742AbYDMLYp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Apr 2008 07:24:45 -0400
-In-Reply-To: <Pine.LNX.4.64.0804092259460.21022@ask.diku.dk>
+Received: from fg-out-1718.google.com ([72.14.220.152]:35717 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753841AbYDMMMk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 08:12:40 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so1140808fgb.17
+        for <netdev@vger.kernel.org>; Sun, 13 Apr 2008 05:12:39 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <47FFAFFA.7070802@superclick.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Dangaard Brouer wrote:
+Enrico Demarin wrote, On 04/11/2008 08:37 PM:
 
-> + The align to ATM cells is used for determining the (ATM) SAR
-> + alignment overhead at the ATM layer. (SAR = Segmentation And
-> + Reassembly).  This is for example needed when scheduling packet on an
-> + ADSL connection.  Note that the extra ATM-AAL overhead is _not_
-> + included in this calculation. This overhead is added in the kernel
-> + before doing the rate table lookup, as this gives better precision
-> + (as the table will always be aligned for 48 bytes).
+> Hi everyone,
+> 
+> I stumbled by chance in a deadlock condition using HTB and the ingress 
+> scheduler at the same time.
+> 
+> - The bug seems to have been introduced in 2.6.23 and forward ( 2.6.22 
+> works fine )
+> - Tested up to  2.6.25-rc8
+> 
+> I found a temporary workaround  ( the ingress didnt have a reason to be 
+> there in first place , just omitting it from the script avoids the 
+> condition ), but it would be nice to have a proper fix. Let me know if 
+> more data/testing is needed.
 
-I see overhead is unsigned short. For me using pppoa/vc mux my overhead 
-is IP + 10. I am shaping on eth so skb->len is IP+14 hence I need a 
-negative overhead.
+Hi,
 
-Recently built a 2.6.25-rc7 and noticed the cell_align has been added 
-and the tables jigged. I am (ab)using this at -5 now. Handy that I only 
-need to patch TC rather than kernel and I guess I could use other TCs if 
-I needed to shape other not atm ifs.
+It's a very nice test and results, but alas I don't have 3 boxes
+around, so I wonder if you could try this debugging patch below?
 
-Russel Stuart's patches handled this case IIRC, has it been lost or have 
-I missed something (as usual)?
+I think one of possible reasons could be a qdisc with the same
+handle and parent ids, like ingress, but I can't see how it could
+be referenced by your htb classes yet...
 
-Andy.
+Thanks,
+Jarek P.
+
+---
+
+ net/sched/sch_api.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
+
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 15b91a9..de52b17 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -386,11 +386,18 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
+ 	if (n == 0)
+ 		return;
+ 	while ((parentid = sch->parent)) {
++		struct Qdisc *sch_old = sch;
++
+ 		sch = qdisc_lookup(sch->dev, TC_H_MAJ(parentid));
+ 		if (sch == NULL) {
+ 			WARN_ON(parentid != TC_H_ROOT);
+ 			return;
+ 		}
++		if (sch == sch_old) {
++			printk("qdisc loop: %p, %x\n", sch, sch->parent);
++			return;
++		}
++
+ 		cops = sch->ops->cl_ops;
+ 		if (cops->qlen_notify) {
+ 			cl = cops->get(sch, parentid);
