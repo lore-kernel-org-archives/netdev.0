@@ -1,31 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][AX25]: Potential ax25_uid_assoc-s leaks on module
- unload.
-Date: Sat, 12 Apr 2008 18:34:01 -0700 (PDT)
-Message-ID: <20080412.183401.80819932.davem@davemloft.net>
-References: <4800A598.10506@openvz.org>
+Subject: Re: [DCCP]: Fix skb->cb conflicts with IP
+Date: Sat, 12 Apr 2008 18:35:58 -0700 (PDT)
+Message-ID: <20080412.183558.100508594.davem@davemloft.net>
+References: <20080411135908.GA20937@gerrit.erg.abdn.ac.uk>
+	<47FF6F9E.5050807@trash.net>
+	<20080411140501.GR8192@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org
-To: xemul@openvz.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <4800A598.10506@openvz.org>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kaber@trash.net, gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: acme@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42512
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754243AbYDMBf5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2008 21:35:57 -0400
+In-Reply-To: <20080411140501.GR8192@ghostprotocols.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Sat, 12 Apr 2008 16:05:44 +0400
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Fri, 11 Apr 2008 11:05:01 -0300
 
-> The ax25_uid_free call walks the ax25_uid_list and releases
-> entries from it. The problem is that after the fisrt call to
-> hlist_del_init the hlist_for_each_entry (which hides behind
-> the ax25_uid_for_each) will consider the current position to
-> be the last and will return.
+> Em Fri, Apr 11, 2008 at 04:03:10PM +0200, Patrick McHardy escreveu:
+> > Gerrit Renker wrote:
+> >>>>>     [DCCP]: Fix skb->cb conflicts with IP
+> >>>>>         dev_queue_xmit() and the other IP output functions expect to 
+> >> <snip>
+> >>> Dave, I'm not sure whether you've missed this or expect it
+> >>> to go through Arnaldo, just want to make sure it doesn't
+> >>> get missed because of a misunderstanding :)
+> >>>
+> >>>
+> >> If it is not too much work, can you please also remove the two attached
+> >> hunks which are now redundant thanks to the above patch.
+> >
+> >
+> > I've added it to the patch, thanks.
 > 
-> Thus, the whole list will be left not freed.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-Applied, thanks Pavel.
+Applied to net-2.6, thanks everyone.
