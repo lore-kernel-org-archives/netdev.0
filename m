@@ -1,61 +1,55 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Reporting bugs and bisection (was: Re: 2.6.25-rc8: FTP transfer errors)
-Date: Sun, 13 Apr 2008 20:40:11 +0200
-Message-ID: <200804132040.12138.rjw@sisk.pl>
-References: <47FEADCB.7070104@rtr.ca> <22880.1207943922@turing-police.cc.vt.edu> <47FFE5DA.8000709@imap.cc>
+From: "Sergio Luis" <sergio@uece.br>
+Subject: Re: 2.6.25-rc8: FTP transfer errors
+Date: Sun, 13 Apr 2008 15:51:13 -0300
+Message-ID: <ce0170d90804131151ia99147bv9ad12e625191be5e@mail.gmail.com>
+References: <20080411151821.GA32398@2ka.mipt.ru>
+	 <20080412084400.GA30259@1wt.eu>
+	 <20080412.024952.151646629.davem@davemloft.net>
+	 <200804132015.21742.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Valdis.Kletnieks@vt.edu, Mark Lord <lkml@rtr.ca>,
-	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
-	yoshfuji@linux-ipv6.org, jeff@garzik.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Tilman Schmidt <tilman@imap.cc>
+Cc: "David Miller" <davem@davemloft.net>, w@1wt.eu,
+	johnpol@2ka.mipt.ru, lkml@rtr.ca, ilpo.jarvinen@helsinki.fi,
+	jesper.juhl@gmail.com, tilman@imap.cc, yoshfuji@linux-ipv6.org,
+	jeff@garzik.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:36629 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752162AbYDMSj6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Apr 2008 14:39:58 -0400
-In-Reply-To: <47FFE5DA.8000709@imap.cc>
+Received: from fk-out-0910.google.com ([209.85.128.186]:27980 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752615AbYDMSvP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 14:51:15 -0400
+Received: by fk-out-0910.google.com with SMTP id 19so1330789fkr.5
+        for <netdev@vger.kernel.org>; Sun, 13 Apr 2008 11:51:13 -0700 (PDT)
+In-Reply-To: <200804132015.21742.rjw@sisk.pl>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday, 12 of April 2008, Tilman Schmidt wrote:
-> On Fri, 11 Apr 2008 15:58:42 -0400, Valdis.Kletnieks@vt.edu wrote:
-> > On Thu, 10 Apr 2008 21:23:54 EDT, Mark Lord said:
-> > 
-> >> You still keep refering to it as "your (my) bug".
-> >> It's not.  I had nothing to do with it, other than stumbling over it.
-> > 
-> > Like it or not, when you're the owner of the only box that can reliably
-> > reproduce an error condition, it's your bug.
-> 
-> Thanks for the advice. I'll keep it in mind next time I have to decide
-> whether to report a bug I'm stumbling over.
+On Sun, Apr 13, 2008 at 3:15 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+> On Saturday, 12 of April 2008, David Miller wrote:
+>  > From: Willy Tarreau <w@1wt.eu>
+>  > Date: Sat, 12 Apr 2008 10:44:00 +0200
+>  >
+>  > > While it is a powerful tool, we must accept that it cannot efficiently
+>  > > work in some circumstances, such as :
+>  >
+>  > Everyone is well aware of all of this, that's why I specifically asked
+>  > for a bisect, because I knew it would be crucial to pinpointing this
+>  > particular bug.
+>  >
+>  > And lo' and behold in 15 minutes after the bisect results were
+>  > available it got fixed.
+>
+>  I can't find the fix, btw.  Can you please point me to it?
 
-Well, the fact is, reporting bugs is always welcome.
+there you go
+http://lkml.org/lkml/2008/4/10/409
+http://lkml.org/lkml/2008/4/10/410
 
-However, it may not be immediately obvious what causes the bug to appear
-as well as the bug need not be readily reproducible on any other system than
-yours, at least at the moment.
+>
+>  Thanks,
+>  Rafael
 
-In which case whether or not the bug will be fixed depends on the reporter.
-Namely, if the reporter wants and has the time to provide developers with
-additional information, the bug has a good chance to be fixed.  Otherwise,
-it'll probably stay there until there's a more persistent reporter or it's
-fixed as a result of a related change.
-
-So, if people ask you to do a bisection, they probably mean "we don't see
-what the problem is and can't reproduce it, so please get us more information,
-otherwise we won't know how to fix it".  In that case, you could provide them
-with a reproducible test case just as well.
-
-That said, there may be some developers who just don't want to spend time on
-analysing code and put the burden of finding the offending change on the
-reporter, but I don't think it's common practice.
-
-Thanks,
-Rafael
+  -sergio
