@@ -1,28 +1,41 @@
-From: Moni Shoua <monis@voltaire.com>
-Subject: Re: [PATCH] net/bonding: Send more than one gratuitous ARP when slave
- takes over
-Date: Sun, 13 Apr 2008 17:13:20 +0300
-Message-ID: <48021500.8080901@voltaire.com>
-References: <47FE2D2D.2040504@voltaire.com> <D5C1322C3E673F459512FB59E0DDC32904DEAE99@orsmsx414.amr.corp.intel.com> <25865.1207861069@death>
+From: Kostya B <bkostya@hotmail.com>
+Subject: UFO csum - udp4_hwcsum_outgoing
+Date: Sun, 13 Apr 2008 14:41:39 +0000
+Message-ID: <BAY121-W330A647FE33FFA81C4F7DFB6E90@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	netdev <netdev@vger.kernel.org>, Olga Stern <olgas@voltaire.com>,
-	Or Gerlitz <ogerlitz@voltaire.com>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset="windows-1255"
+Content-Transfer-Encoding: 8bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:38793 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753144AbYDMONd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Apr 2008 10:13:33 -0400
-In-Reply-To: <25865.1207861069@death>
+Received: from bay0-omc1-s22.bay0.hotmail.com ([65.54.246.94]:12330 "EHLO
+	bay0-omc1-s22.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752286AbYDMOlk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 10:41:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay, Peter,
 
-Thanks for the comments. I'll resubmit tomorrow.
+Hi,
+Suppose a network driver with both TSO and UFO support (2.6.22.18). 
+Normally on Tx, all outgoing skb are checksummed as PARTIAL. However, the udp4_hwcsum_outgoing() could change it to be CHECKSUM_NONE.
 
- MoniS
+In that case such skb  becomes netif_needs_gso() and wrongly ask for software gso:
 
+	return skb_is_gso(skb) &&
+	       (!skb_gso_ok(skb, dev->features) ||
+		unlikely(skb->ip_summed != CHECKSUM_PARTIAL));
+
+
+Is that intentional? It looks quite weird, because UFO drivers declare NETIF_F_HW_CSUM.
+Furthermore it treated by __software__  skb_gso_segment() and fails on 
+
+BUG_ON(skb_shinfo(skb)->frag_list); 
+
+Please advice.
+
+- Kostya
+
+
+_________________________________________________________________
+Explore the seven wonders of the world
+http://search.msn.com/results.aspx?q=7+wonders+world&mkt=en-US&form=QBRE
