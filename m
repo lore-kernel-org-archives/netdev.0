@@ -1,47 +1,53 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH] lne390 and Jensen Alphas
-Date: Sun, 13 Apr 2008 23:11:44 +0100
-Message-ID: <20080413221144.GR9785@ZenIV.linux.org.uk>
-References: <209D18A1-2B61-47F8-B1DC-067C1E676B9D@ccac.rwth-aachen.de> <200803291932.30204.florian.fainelli@telecomint.eu> <20080413210646.GA8178@heisenberg.ccac.rwth-aachen.de>
+From: Stephen Clark <sclark46@earthlink.net>
+Subject: Re: Reporting bugs and bisection
+Date: Sun, 13 Apr 2008 18:24:48 -0400
+Message-ID: <48028830.6020703@earthlink.net>
+References: <47FEADCB.7070104@rtr.ca> <20080413121831.d89dd424.akpm@linux-foundation.org> <20080413202118.GA29658@2ka.mipt.ru> <200804132233.50491.rjw@sisk.pl> <20080413205406.GA9190@2ka.mipt.ru>
+Reply-To: sclark46@earthlink.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <florian.fainelli@telecomint.eu>,
-	netdev@vger.kernel.org
-To: Carsten Jacobi <carsten@ccac.rwth-aachen.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Willy Tarreau <w@1wt.eu>, Tilman Schmidt <tilman@imap.cc>,
+	Valdis.Kletnieks@vt.edu, Mark Lord <lkml@rtr.ca>,
+	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:33256 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752960AbYDMWLq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 18:11:46 -0400
-Content-Disposition: inline
-In-Reply-To: <20080413210646.GA8178@heisenberg.ccac.rwth-aachen.de>
+Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:47096 "EHLO
+	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752267AbYDMWZm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 18:25:42 -0400
+In-Reply-To: <20080413205406.GA9190@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 13, 2008 at 11:06:46PM +0200, Carsten Jacobi wrote:
-> +	/* The mylex lne390 adapter requires 32bit access (see above) for every
-> +	 * operation to the shared mem buffer. Since the block buffer is hardly
-> +	 * aligned to a 32bit boundary memcpy_toio() will use 16bit
-> +	 * operations to access the buffer ... we must use something else here. */
-> +
-> +	const void *from = buf;
-> +	count -= 4;
-> +	do {
-> +		__raw_writel(*(const u16 *)from | (*(const u16 *)(from+2))<<16,
-> +		(unsigned long) shmem);
+Evgeniy Polyakov wrote:
+> On Sun, Apr 13, 2008 at 10:33:49PM +0200, Rafael J. Wysocki (rjw@sisk.pl) wrote:
+>> Things like this are very disappointing and have a very negative impact on bug
+>> reporters.  We should do our best to avoid them.
+> 
+> Shit happens. This is a matter of either bug report or those who were in
+> the copy list. There are different people and different situations, in
+> which they do not reply.
+> 
+Well less shit would happen if developers would take the time to at least test 
+their patches before they were submitted. It like we will just have the poor 
+user do our testing for us. What kind of testing do developers do. I been a 
+linux user and have followed the LKML for a number of years and have yet to see
+any test plans for any submitted patches.
 
-The last argument of __raw_writel() is void __iomem *, not unsigned long.
-WTF is that cast doing that?  Besides, it looks like misspelled
-		const __le32 *from = buf;
-		...
-		__raw_writel(get_unaligned(from), shmem);
+My $.02
+Steve Clark
 
-> +		(unsigned long) shmem += 4;
+-- 
 
-Write in C, please.  This isn't - you might as well write something like
-	shmem * 2 -= 4;
-since result of cast is not an l-value.
+"They that give up essential liberty to obtain temporary safety,
+deserve neither liberty nor safety."  (Ben Franklin)
 
-Finally, how much of that actually depends on Jensen and how much is
-actually "oh, on x86 we use rep movsl in memcpy_toio(), so it ends up
-with 32bit accesses"?
+"The course of history shows that as a government grows, liberty
+decreases."  (Thomas Jefferson)
+
+
