@@ -1,36 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Reporting bugs and bisection
-Date: Sun, 13 Apr 2008 12:47:26 -0700 (PDT)
-Message-ID: <20080413.124726.122432429.davem@davemloft.net>
-References: <200804132040.12138.rjw@sisk.pl>
-	<20080413184730.GD8474@1wt.eu>
-	<20080413121831.d89dd424.akpm@linux-foundation.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: 2.6.25-rc9: Reported regressions from 2.6.24
+Date: Sun, 13 Apr 2008 21:45:45 +0200
+Message-ID: <480262E9.4030500@trash.net>
+References: <RR4Oy_oXY2J.A.b0H.A3lAIB@albercik>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: w@1wt.eu, rjw@sisk.pl, tilman@imap.cc, Valdis.Kletnieks@vt.edu,
-	lkml@rtr.ca, jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org,
-	jeff@garzik.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: akpm@linux-foundation.org
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	andy@greyhouse.net, Pavel Emelyanov <xemul@openvz.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57358
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756599AbYDMTrZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 15:47:25 -0400
-In-Reply-To: <20080413121831.d89dd424.akpm@linux-foundation.org>
+Received: from stinky.trash.net ([213.144.137.162]:51065 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758004AbYDMTtP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2008 15:49:15 -0400
+In-Reply-To: <RR4Oy_oXY2J.A.b0H.A3lAIB@albercik>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Sun, 13 Apr 2008 12:18:31 -0700
+Rafael J. Wysocki wrote:
+> This message contains a list of some regressions from 2.6.24, for which there
+> are no fixes in the mainline I know of.  If any of them have been fixed already,
+> please let me know.
+>
+>
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=10323
+> Subject		: panic using bridging on linus kernel 2.6.25-rc6
+> Submitter	: Andy Gospodarek <andy@greyhouse.net>
+> Date		: 2008-03-25 11:40 (20 days old)
 
-> That being said..  four or five years ago, developers would often work
-> closely with the reporter working out why the reporter's failure was
-> occurring.  Several days of back-and-forth.
+This looks like another network-namespace regression.
+icmp_send() does:
 
-The ratio of bug reports to developers was significantly different
-back then.
+        net = rt->u.dst.dev->nd_net;
 
-I pine for the "good ole' days" of kernel development sometimes too,
-but I try to be realistic and understand why things are different now.
+The bridge netfilter code attaches a fake dst_entry to the
+skb which has dev == NULL when passing it to IPv4 netfilter.
+
+Pavel, do you have a better ideas for fixing this than
+instantiating a dst_entry in br_netfilter.c for every
+device (or at least for every namespace)?
+
+
+
