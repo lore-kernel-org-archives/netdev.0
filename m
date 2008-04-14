@@ -1,74 +1,95 @@
-From: Wenji Wu <wenji@fnal.gov>
-Subject: Re: RE: A Linux TCP SACK Question
-Date: Mon, 14 Apr 2008 17:07:21 -0500
-Message-ID: <fbbd26f52a58.48038f49@fnal.gov>
-References: <fc471cb97cfd.47f5520e@fnal.gov>
- <1e41a3230804040927j3ce53a84u6a95ec37dff1b5b0@mail.gmail.com>
- <000001c8967c$496efa20$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804042253000.415@wrl-59.cs.helsinki.fi>
- <000b01c89699$00e99590$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804050031400.8186@wrl-59.cs.helsinki.fi>
- <Pine.LNX.4.64.0804050037380.8186@wrl-59.cs.helsinki.fi>
- <000f01c896a1$3022fec0$c95ee183@D2GT6T71>
- <649aecc70804051417l4cf9b30asec8ca8d55e79e051@mail.gmail.com>
- <fb8e9e4f102e.47f8ebfd@fnal.gov>
- <649aecc70804061543v3ca3d0dau2ce303ecd2310bdc@mail.gmail.com>
- <000701c898bf$99fc3f80$c95ee183@D2GT6T71>
- <Pine.LNX.4.64.0804080007020.20936@wrl-59.cs.helsinki.fi>
- <000001c89e4a$019f1330$6b5ee183@D2GT6T71>
- <Pine.LNX.4.64.0804141927060.28474@wrl-59.cs.helsinki.fi>
+From: Rene Herman <rene.herman@keyaccess.nl>
+Subject: Re: Reporting bugs and bisection
+Date: Tue, 15 Apr 2008 00:18:24 +0200
+Message-ID: <4803D830.7000206@keyaccess.nl>
+References: <47FEADCB.7070104@rtr.ca>	<20080413121831.d89dd424.akpm@linux-foundation.org>	<20080413202118.GA29658@2ka.mipt.ru>	<200804132233.50491.rjw@sisk.pl>	<20080413205406.GA9190@2ka.mipt.ru>	<48028830.6020703@earthlink.net>	<alpine.DEB.1.10.0804131546370.9318@asgard>	<20080414043939.GA6862@1wt.eu>	<20080414053943.GU9785@ZenIV.linux.org.uk>	<20080413232441.e216a02c.akpm@linux-foundation.org>	<4803ACE5.4020502@keyaccess.nl> <20080414133802.4535e4da.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: 'Netdev' <netdev@vger.kernel.org>
-To: =?iso-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.fnal.gov ([131.225.111.11]:37095 "EHLO mailgw1.fnal.gov"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754762AbYDNWOW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Apr 2008 18:14:22 -0400
-Received: from mailav1.fnal.gov (mailav1.fnal.gov [131.225.111.18])
- by mailgw1.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- with SMTP id <0JZC00LCR5CPTM@mailgw1.fnal.gov> for netdev@vger.kernel.org;
- Mon, 14 Apr 2008 17:07:21 -0500 (CDT)
-Received: from mailgw1.fnal.gov ([131.225.111.11])
- by mailav1.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008041417072122589 for
- <netdev@vger.kernel.org>; Mon, 14 Apr 2008 17:07:21 -0500
-Received: from conversion-daemon.mailgw1.fnal.gov by mailgw1.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- id <0JZC001014USFF@mailgw1.fnal.gov> (original mail from wenji@fnal.gov)
- for netdev@vger.kernel.org; Mon, 14 Apr 2008 17:07:21 -0500 (CDT)
-In-reply-to: <Pine.LNX.4.64.0804141927060.28474@wrl-59.cs.helsinki.fi>
-Content-language: en
-Content-disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: viro@ZenIV.linux.org.uk, w@1wt.eu, david@lang.hm,
+	sclark46@earthlink.net, johnpol@2ka.mipt.ru, rjw@sisk.pl,
+	tilman@imap.cc, Valdis.Kletnieks@vt.edu, lkml@rtr.ca,
+	davem@davemloft.net, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel@vger.kernel.org, git@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <git-owner@vger.kernel.org>
+In-Reply-To: <20080414133802.4535e4da.akpm@linux-foundation.org>
+Sender: git-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 14-04-08 22:38, Andrew Morton wrote:
 
-> Hmm, now there are even less retransmissions (barely some with
-> the SACK in the end).
+> On Mon, 14 Apr 2008 21:13:41 +0200
+> Rene Herman <rene.herman@keyaccess.nl> wrote:
 > 
-> I suppose the reordering detection is good enough to kill them. ...You 
+>> Does that mean you're not going to take patches that align the right end of 
+>> lines in comments? :-(
 > 
-> could perhaps figure that out from MIBs if you would want to.
+> erm, was that ":-(" supposed to be a ":-)"?
+
+The ":-(" was supposed to add to the implicitly obvious ":-)". That is, was 
+indeed joking (Al mentioned them) but with a slightly serious undertone:
+
+> I don't like to merge patches which fix typos and spellos and grammaros 
+> in comments, simply because I'd be buried in the things. I do take such 
+> fixes for user-visible text (Documentation/, kerneldoc comments and 
+> printks).
 > 
+> Right-justification of comments would fall rather a long way below
+> spelling fixes.
 
-Yes, the web100 shows that the tcp_reordering could be as large as 127.
+You, particularly, seem to be very good at picking up trivia. I've posted 
+completely trivial patches from time to time for small things I encounter 
+while looking at something else. Things at the "are people going to look 
+funny at me for even bothering or..." level but you picking them up means 
+it's still useful to post, so I sometimes do.
 
-I just rerun the following experimetns to show why there are few retransmissions in my previous posts.
+Now, in fact, Linux as a _whole_ doesn't seem bad at accepting that kind of 
+small janitorial stuff but I have been noticing some backlash to it as well. 
+I'm not sure it's worse or better than historically, but the "checkpatch 
+syndrome" certainly triggers more of it.
 
-(1) Flush the sytem routing cache by running "ip route flush cache" before running and tcpdumping the traffic
-(2) Before running and tcpdumping the traffic, run a data transmission test to generate tcp_reordering in the routing cache.
-Do not flush the routing cache. Then running and tcpdumping the traffic.
+Al specifically wanted more new eyes but the way to reward those new eyes is 
+accepting their small changes. Al also specifically doesn't like those small 
+changes when at the level of the automated and semi-brainless checkpatch level.
 
-Both experiments with sack off. 
+I believe the janitorial work has been over-organized, both through the 
+kernel-janitors and checkpatch since while these are very useful in guiding 
+a newbie in _what_ to do they cause "automated" huge tree-wide trivia storms 
+which people then don't react overly favourable to and the new eyes who did 
+all that work of generating it all dim again...
 
-The results is posted to
-https://plone3.fnal.gov/P0/WAN/Members/wenji/adaptive_tcp_reordering/
+Frankly, the kernel really is fairly complex these days when starting at 0. 
+Much more complex certainly than, say, back in 2.0 or 2.2 days and while 
+Al's scenario of per-subsystem reviews might be good, I don't believe it's 
+very realistic. Companies don't pay to have those done and for newbies it's 
+generally too complex since understanding most parts of the kernel fully, 
+requires understanding most of the rest kernel rather well also.
 
-So, the few retransmissions in my previous post are really caused by the routing cache. 
+So you get the really promising newbies? Yeah, that, or you don't get anyone 
+and if some promising newbies are building up 137 part checkpatch inspired 
+patchsets that don't help none.
 
-But flushing cahce has nothing to do with SACK on/off. Still the trhoughput with SACK off is better than that of with SACK on.
+So, what am I saying (what _am_ I saying?!?) ...
 
-wenji
+I seemed to observe somewhat of an internal contradiction in Al's message 
+about new eyes and his dislike of the trivial stuff but the contradiction 
+only exists if the dislike wouldn't be limited to these kinds of huge trivia 
+storms. I believe it is, and I furthermore believe that yes, it's 
+over-organization that causes many new eyes to focus on the brainless aspects.
+
+Now, do those new eyes have many other options when very few (to none) of 
+the core crowd ever does things like answer question on the kernelnewbies 
+list? From the established names, I only remember ever seeing Greg KH and 
+Adrian Bunk there. And I'm _still_ pissed that noone would or could tell me 
+what was wrong with the legacy CD-ROM driver I and Pekka Enberg were toying 
+around with a while ago. Frankly, I care a whole lot less about a hundred 
+sparse warning fixes.
+
+In short -- the kernel in it's current state is already quite complex and if 
+new eyes are wanted they'll need to be coached more. I'm seeing very little 
+of that.
+
+Rene.
