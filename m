@@ -1,48 +1,78 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 2/5] e1000e: Add interrupt moderation run-time ethtool
- interface
-Date: Mon, 14 Apr 2008 13:09:42 -0700
-Message-ID: <4803BA06.1000908@intel.com>
-References: <20080414170557.23286.71580.stgit@localhost.localdomain>	<20080414170604.23286.86187.stgit@localhost.localdomain> <873apoutnt.fsf@basil.nowhere.org> <4803B20E.7090101@garzik.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH][NET_SCHED] sch_api: fix qdisc_tree_decrease_qlen() loop
+Date: Mon, 14 Apr 2008 22:26:06 +0200
+Message-ID: <20080414202605.GA6164@ami.dom.local>
+References: <47FFAFFA.7070802@superclick.com> <20080413121031.GA5211@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Enrico Demarin <enrico@superclick.com>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:12419 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751007AbYDNUKx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Apr 2008 16:10:53 -0400
-In-Reply-To: <4803B20E.7090101@garzik.org>
+Received: from fg-out-1718.google.com ([72.14.220.159]:50005 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751792AbYDNU2f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 16:28:35 -0400
+Received: by fg-out-1718.google.com with SMTP id l27so1692137fgb.17
+        for <netdev@vger.kernel.org>; Mon, 14 Apr 2008 13:28:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080413121031.GA5211@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik wrote:
-> Andi Kleen wrote:
->> Auke Kok <auke-jan.h.kok@intel.com> writes:
->>
->>> The ethtool -c / -C interface can now be used to modify the
->>> irq moderation algorithm. This change does not require an
->>> adapter reset and can thus be used at all times. The adapter
->>> only supports changing/reading rx-usecs which has special
->>> values for 0, 1 and 3:
->>>
->>> 0 - no irq moderation whatsoever
->>> 1 - normal moderation favoring regular mixed traffic (default)
->>> 3 - best attempt at low latency possible at cost of CPU
->>
->> It would be nice if ethtool instead of having this as a obscure magic
->> number had a higher level "--low-latency" or similar parameter
->> (that could also potentially set similar settings on other NICs)
-> 
-> That would be fine with me -- that's one of the goals of ethtool:  make
-> the setting of hardware-specific settings as generic and easy as possible.
+On Sun, Apr 13, 2008 at 02:10:31PM +0200, Jarek Poplawski wrote:
+> Enrico Demarin wrote, On 04/11/2008 08:37 PM:
+...
+> > I stumbled by chance in a deadlock condition using HTB and the ingress 
+> > scheduler at the same time.
+...
+> I think one of possible reasons could be a qdisc with the same
+> handle and parent ids, like ingress, but I can't see how it could
+> be referenced by your htb classes yet...
 
-yes I think that's a good addition, and might hook better into power management
-and other high-level configuration tools.
+I think I got it! Enrico wrote to me he will not be able to test
+before monday, but IMHO this fix is obvious here...
 
-I'm all for that :)
+Regards,
+Jarek P. 
 
-Auke
+--------------->
+
+[NET_SCHED] sch_api: fix qdisc_tree_decrease_qlen() loop
+
+TC_H_MAJ(parentid) for root classes is the same as for ingress, and if
+ingress qdisc is created qdisc_lookup() returns its pointer (without
+ingress NULL is returned). After this all qdisc_lookups give the same,
+and we get endless loop. (I don't know how this could hide for so
+long - it should trigger with every leaf class deleted if it's qdisc
+isn't empty.)
+
+After this fix qdisc_lookup() is omitted both for ingress and root
+parents, but looking for root is only wasting a little time here...
+Many thanks to Enrico Demarin for finding a test for catching this
+bug, which probably bothered quite a lot of admins.
+ 
+
+Reported-by: Enrico Demarin <enrico@superclick.com>,
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Cc: Patrick McHardy <kaber@trash.net>
+
+---
+
+ net/sched/sch_api.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 15b91a9..c40773c 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -386,6 +386,9 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
+ 	if (n == 0)
+ 		return;
+ 	while ((parentid = sch->parent)) {
++		if (TC_H_MAJ(parentid) == TC_H_MAJ(TC_H_INGRESS))
++			return;
++
+ 		sch = qdisc_lookup(sch->dev, TC_H_MAJ(parentid));
+ 		if (sch == NULL) {
+ 			WARN_ON(parentid != TC_H_ROOT);
