@@ -1,146 +1,98 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [TOMOYO #7 30/30] Hooks for SAKURA and TOMOYO.
-Date: Mon, 14 Apr 2008 10:05:21 -0700 (PDT)
-Message-ID: <484889.77284.qm@web36604.mail.mud.yahoo.com>
-References: <1208182620.18883.92.camel@moss-spartans.epoch.ncsc.mil>
-Reply-To: casey@schaufler-ca.com
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH 3/5] e1000e: Allow TSO to trickle down to VLAN device
+Date: Mon, 14 Apr 2008 10:06:09 -0700
+Message-ID: <20080414170609.23286.42880.stgit@localhost.localdomain>
+References: <20080414170557.23286.71580.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	paul.moore@hp.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, takedakn@nttdata.co.jp,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Smalley <sds@tycho.nsa.gov>,
-	Crispin Cowan <crispin@crispincowan.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761870AbYDNRFq@vger.kernel.org>
-In-Reply-To: <1208182620.18883.92.camel@moss-spartans.epoch.ncsc.mil>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:61921 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759099AbYDNRGm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2008 13:06:42 -0400
+In-Reply-To: <20080414170557.23286.71580.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Fix TSO over VLAN's by propagating settings to our VLAN devices.
 
---- Stephen Smalley <sds@tycho.nsa.gov> wrote:
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-> 
-> ...
-> 
-> I think some might argue that the integrity of the data in /etc/shadow
-> and your .ssh files is very important, not just their names.
+ drivers/net/e1000e/ethtool.c |   16 ++++++++++++++++
+ drivers/net/e1000e/netdev.c  |    8 ++++++++
+ 2 files changed, 24 insertions(+), 0 deletions(-)
 
-I believe that the key word here is "just". If you go back to
-the Orange Book you will see that the combination of the object
-and the name by which it is referenced is important. The audit
-requirements are most interesting, as they make it clear that
-without a relevant name associated with the object an audit
-record has no value.
-
-The Orange Book Unix evaluations raised enormous issues regarding
-the file system name space. I know that at least two vendors
-stated that the name of the object was its device/inode pair and
-that the pathname stuff was there strictly for user convenience
-and was not security relevent. This is of course hogwash, but
-was logically consistant in the context of security policy
-documentation. These same vendors had to then make completely
-distinct arguments about their audit systems in order to meet
-the name identification requirements there.
-
-The question of protections on the object named /etc/passwd came
-up time and time again. The notion that /etc/passwd could be a
-symlink to /home/smalley/heeheehee really gave evaluators the
-whillies. As did the chroot environment, where /roots/crispin/etc/passwd
-could magicly become /etc/passwd. One reason that the object
-access model is so firmly ingrained is that it allows the
-security documentation to wave it's paw and say "bah" when
-these questions arise.
-
-> And as
-> names are themselves just data contained by directories, the integrity
-> of the names is a particular case of the data integrity problem.  And
-> ultimately data integrity requires information flow control to preserve.
-
-Good example of my point. The argument is true, and the implications
-important, but the conclusion is not satisfactory.
-
-> >     * *Dynamic Access Control:* A special case of the above pertains to
-> >       files that may or may not exist. If you don't *have* a /etc/hosts
-> >       file, it is still important to have a rule that controls whether
-> >       it can be created. This is hard to do in label-based systems,
-> >       because the file does not exist to put a label on, so you have to
-> >       kludge it by either creating the file with zero length and
-> >       labeling it, or by creating more complex policy for the parent
-> >       /etc directory, and that's hard given the number of uses for /etc
-> >       such as /etc/motd. In a name based scheme, you simply don't
-> >       provide write permission to "/etc/hosts" unless you mean it, and
-> >       it can be enforced even if such a file does not exist.
-> 
-> I'd view this as another example of practical or legacy concerns, as it
-> wouldn't pose a problem if either of the following were true:
-> - /etc was further partitioned into multiple subdirectories (seemingly
-> true in an increasing number of cases, so we seem to be moving in that
-> direction regardless) so that inheritance from parent directory would
-> suffice, or
-> - specific programs were used to create or update the individual files
-> (true for some of the files in /etc, and generally helpful for ensuring
-> proper data formatting and applying basic sanity checks on the content)
-> so that the files created by them could be labeled based on the creating
-> domain or via appropriate instrumentation of the programs to set the
-> attributes (the latter is not fundamentally different than the situation
-> for DAC ownership/mode or ACLs).
-
-Yes, a proper design of the administrative data and interfaces
-would solve the problem of /etc/passwd right quick. It would not
-address the general issue which is assuring that access is controlled
-based on the names that people use.
-
-> Also, note that in the case of SELinux, we do have a solution to the
-> above situation, namely restorecond, which leverages the kernel's
-> inotify mechanism.
-
-Well, I don't see that addressing the case where /etc/passwd is
-a symlink unless restorecond is more sophisticated than I understand
-it to be (correct me if I'm wrong) and I certainly can't see it
-being used on every file on a multiple pedabyte filesystem.
-
-> As an example where the name-based schemes have difficulties with
-> "dynamic" data, files created at runtime in /tmp and other shared
-> directories often have security-irrelevant names, yet protecting them
-> from tampering by others can be very relevant to security.  There the
-> attribute-based schemes have the advantage.
-
-Very true.
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+index ce045ac..23e9703 100644
+--- a/drivers/net/e1000e/ethtool.c
++++ b/drivers/net/e1000e/ethtool.c
+@@ -32,6 +32,7 @@
+ #include <linux/ethtool.h>
+ #include <linux/pci.h>
+ #include <linux/delay.h>
++#include <linux/if_vlan.h>
  
-> ...
+ #include "e1000.h"
+ 
+@@ -371,6 +372,8 @@ static int e1000_set_tx_csum(struct net_device *netdev, u32 data)
+ static int e1000_set_tso(struct net_device *netdev, u32 data)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
++	int i;
++	struct net_device *v_netdev;
+ 
+ 	if (data) {
+ 		netdev->features |= NETIF_F_TSO;
+@@ -378,8 +381,21 @@ static int e1000_set_tso(struct net_device *netdev, u32 data)
+ 	} else {
+ 		netdev->features &= ~NETIF_F_TSO;
+ 		netdev->features &= ~NETIF_F_TSO6;
++		/* disable TSO on all VLANs if they're present */
++		if (!adapter->vlgrp)
++			goto tso_out;
++		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
++			v_netdev = vlan_group_get_device(adapter->vlgrp, i);
++			if (!v_netdev)
++				continue;
++
++			v_netdev->features &= ~NETIF_F_TSO;
++			v_netdev->features &= ~NETIF_F_TSO6;
++			vlan_group_set_device(adapter->vlgrp, i, v_netdev);
++		}
+ 	}
+ 
++tso_out:
+ 	ndev_info(netdev, "TSO is %s\n",
+ 		  data ? "Enabled" : "Disabled");
+ 	adapter->flags |= FLAG_TSO_FORCE;
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 9d1143a..146edf7 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -1432,6 +1432,7 @@ static void e1000_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 vfta, index;
++	struct net_device *v_netdev;
+ 
+ 	/* don't update vlan cookie if already programmed */
+ 	if ((adapter->hw.mng_cookie.status &
+@@ -1443,6 +1444,13 @@ static void e1000_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
+ 	vfta = E1000_READ_REG_ARRAY(hw, E1000_VFTA, index);
+ 	vfta |= (1 << (vid & 0x1F));
+ 	e1000e_write_vfta(hw, index, vfta);
++	/*
++	 * Copy feature flags from netdev to the vlan netdev for this vid.
++	 * This allows things like TSO to bubble down to our vlan device.
++	 */
++	v_netdev = vlan_group_get_device(adapter->vlgrp, vid);
++	v_netdev->features |= adapter->netdev->features;
++	vlan_group_set_device(adapter->vlgrp, vid, v_netdev);
+ }
+ 
+ static void e1000_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
 
-> The weaknesses from my POV are:
-> - no system-wide view of the subjects and objects and thus of the
-> policy,
-> - no uniform abstraction for handling objects (not everything has a
-> pathname), leading to inconsistent or incomplete control,
-> - no useful information for runtime objects,
-> - forcing policy to be written in terms of individual objects and
-> filesystem layout rather than security properties.
-
-These are all legitimate concerns, but it is really hard to say
-that they outweigh the value of controlling access to /etc/passwd
-by specifying that you want to control access to /etc/passwd.
-The real problem lies in the perfectly reasonable but nontheless
-untrue assumptions that users, administrators, and developers
-make about the relationship between names and objects on *ix
-filesystems. The object model is more correct, and the dickins
-easier to write kernel code for I might add. The problem is that
-the object model is not what is exposed by the syscall interface,
-it's the filesystem namespace. I have oft considered an OS (casex?)
-that exposes the device/inode pair and leaves all the pathname
-stuff to application space, but I doubt it would be popular
-because the namespace is riddled with handy features.
-
-We could fix the filesystem namespace, and then the issue would
-evaporate, but I think too many people would think it was fixed
-in the veterenary sense.
-
-
-Casey Schaufler
-casey@schaufler-ca.com
