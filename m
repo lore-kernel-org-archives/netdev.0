@@ -1,94 +1,39 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-2.6.26 2/2] [TCP]: Format addresses appropriately in
- debug messages.
-Date: Mon, 14 Apr 2008 18:25:59 +0900 (JST)
-Message-ID: <20080414.182559.96264354.yoshfuji@linux-ipv6.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: Reporting bugs and bisection
+Date: Mon, 14 Apr 2008 11:26:24 +0200
+Message-ID: <87d4oswzwf.fsf@basil.nowhere.org>
+References: <47FEADCB.7070104@rtr.ca>
+	<20080413121831.d89dd424.akpm@linux-foundation.org>
+	<20080413202118.GA29658@2ka.mipt.ru> <200804132233.50491.rjw@sisk.pl>
+	<20080413205406.GA9190@2ka.mipt.ru> <48028830.6020703@earthlink.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Willy Tarreau <w@1wt.eu>, Tilman Schmidt <tilman@imap.cc>,
+	Valdis.Kletnieks@vt.edu, Mark Lord <lkml@rtr.ca>,
+	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: sclark46@earthlink.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:33510 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750701AbYDNJYN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 05:24:13 -0400
+Received: from smtp-out01.alice-dsl.net ([88.44.60.11]:17485 "EHLO
+	smtp-out01.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750821AbYDNJ1R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 05:27:17 -0400
+In-Reply-To: <48028830.6020703@earthlink.net> (Stephen Clark's message of "Sun, 13 Apr 2008 18:24:48 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/ipv4/tcp_input.c |   25 +++++++++++++++++++------
- net/ipv4/tcp_timer.c |   12 ++++++++++--
- 2 files changed, 29 insertions(+), 8 deletions(-)
+Stephen Clark <sclark46@earthlink.net> writes:
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index af2ec61..032ffdf 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2280,12 +2280,25 @@ static void DBGUNDO(struct sock *sk, const char *msg)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct inet_sock *inet = inet_sk(sk);
- 
--	printk(KERN_DEBUG "Undo %s " NIPQUAD_FMT "/%u c%u l%u ss%u/%u p%u\n",
--	       msg,
--	       NIPQUAD(inet->daddr), ntohs(inet->dport),
--	       tp->snd_cwnd, tcp_left_out(tp),
--	       tp->snd_ssthresh, tp->prior_ssthresh,
--	       tp->packets_out);
-+	if (sk->sk_family == AF_INET) {
-+		printk(KERN_DEBUG "Undo %s " NIPQUAD_FMT "/%u c%u l%u ss%u/%u p%u\n",
-+		       msg,
-+		       NIPQUAD(inet->daddr), ntohs(inet->dport),
-+		       tp->snd_cwnd, tcp_left_out(tp),
-+		       tp->snd_ssthresh, tp->prior_ssthresh,
-+		       tp->packets_out);
-+	}
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+	else if (sk->sk_family == AF_INET6) {
-+		struct ipv6_pinfo *np = inet6_sk(sk);
-+		printk(KERN_DEBUG "Undo %s " NIP6_FMT "/%u c%u l%u ss%u/%u p%u\n",
-+		       msg,
-+		       NIP6(np->daddr), ntohs(inet->dport),
-+		       tp->snd_cwnd, tcp_left_out(tp),
-+		       tp->snd_ssthresh, tp->prior_ssthresh,
-+		       tp->packets_out);
-+	}
-+#endif
- }
- #else
- #define DBGUNDO(x...) do { } while (0)
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index e588d6d..4de68cf 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -299,12 +299,20 @@ static void tcp_retransmit_timer(struct sock *sk)
- 		 * we cannot allow such beasts to hang infinitely.
- 		 */
- #ifdef TCP_DEBUG
--		if (1) {
--			struct inet_sock *inet = inet_sk(sk);
-+		struct inet_sock *inet = inet_sk(sk);
-+		if (sk->sk_family == AF_INET) {
- 			LIMIT_NETDEBUG(KERN_DEBUG "TCP: Treason uncloaked! Peer " NIPQUAD_FMT ":%u/%u shrinks window %u:%u. Repaired.\n",
- 			       NIPQUAD(inet->daddr), ntohs(inet->dport),
- 			       inet->num, tp->snd_una, tp->snd_nxt);
- 		}
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+		else if (sk->sk_family == AF_INET6) {
-+			struct ipv6_pinfo *np = inet6_sk(sk);
-+			LIMIT_NETDEBUG(KERN_DEBUG "TCP: Treason uncloaked! Peer " NIP6_FMT ":%u/%u shrinks window %u:%u. Repaired.\n",
-+			       NIP6(np->daddr), ntohs(inet->dport),
-+			       inet->num, tp->snd_una, tp->snd_nxt);
-+		}
-+#endif
- #endif
- 		if (tcp_time_stamp - tp->rcv_tstamp > TCP_RTO_MAX) {
- 			tcp_write_err(sk);
--- 
-1.4.4.4
+> I been a linux user and have followed the LKML for a
+> number of years and have yet to see
+> any test plans for any submitted patches.
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+You haven't looked closely then. While it's not very common there 
+is a non trivial number of patches who describe how they got tested
+in the patch description.
+
+-Andi
