@@ -1,547 +1,493 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 4/5] e1000e: Fix HW Error on es2lan, ARP capture issue by BMC
-Date: Mon, 14 Apr 2008 10:06:14 -0700
-Message-ID: <20080414170614.23286.62770.stgit@localhost.localdomain>
-References: <20080414170557.23286.71580.stgit@localhost.localdomain>
+Subject: [PATCH 1/5] e1000e: cleanup several stats issues
+Date: Mon, 14 Apr 2008 10:05:57 -0700
+Message-ID: <20080414170557.23286.71580.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:63565 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:61597 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761148AbYDNRGX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Apr 2008 13:06:23 -0400
-In-Reply-To: <20080414170557.23286.71580.stgit@localhost.localdomain>
+	id S1753537AbYDNRGL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2008 13:06:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Graham <david.graham@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Several components to this complex fix. The es2lan cards occasionally
-gave a "HW Error" especially when forcing speed. Some users also
-reported that the BMC stole ARP packets.
+Several stats registers are completely unused and we just waste pci
+bus time reading them. We also omit using the high 32 bits of the GORC/
+GOTC counters. We can just read clear them and only read the low registers.
 
-The fixes include setting the proper SW_FW bits to tell the BMC
-that we're active and not do any un-initialization at all, so the
-setup routine is largely changed.
+Mii-tool can also break es2lan if it executes a MII PHY register
+ioctl while the device is in autonegotiation. Unfortunately it seems
+that several applications and installations still perform this ioctl
+call periodically and especially in this crucial startup time. We
+can fool the ioctl by providing fail safe information that mimics
+the "down" link state and only perform the dangerous PHY reads once
+after link comes up to fill in the real values. As long as link
+stays up the information will not change.
 
-Signed-off-by: David Graham <david.graham@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000e/defines.h |    1 
- drivers/net/e1000e/e1000.h   |    2 +
- drivers/net/e1000e/es2lan.c  |  127 +++++++++++++++++++++++++++++++-----------
- drivers/net/e1000e/phy.c     |   73 +++++++++++++-----------
- 4 files changed, 137 insertions(+), 66 deletions(-)
+ drivers/net/e1000e/82571.c   |    6 --
+ drivers/net/e1000e/defines.h |    2 +
+ drivers/net/e1000e/e1000.h   |   25 +++++--
+ drivers/net/e1000e/es2lan.c  |    2 -
+ drivers/net/e1000e/ethtool.c |    6 +-
+ drivers/net/e1000e/hw.h      |   12 +--
+ drivers/net/e1000e/netdev.c  |  155 +++++++++++++++++++++++++-----------------
+ 7 files changed, 122 insertions(+), 86 deletions(-)
 
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index 01c8866..462351c 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -1326,12 +1326,10 @@ struct e1000_info e1000_82571_info = {
+ 	.mac			= e1000_82571,
+ 	.flags			= FLAG_HAS_HW_VLAN_FILTER
+ 				  | FLAG_HAS_JUMBO_FRAMES
+-				  | FLAG_HAS_STATS_PTC_PRC
+ 				  | FLAG_HAS_WOL
+ 				  | FLAG_APME_IN_CTRL3
+ 				  | FLAG_RX_CSUM_ENABLED
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD
+-				  | FLAG_HAS_STATS_ICR_ICT
+ 				  | FLAG_HAS_SMART_POWER_DOWN
+ 				  | FLAG_RESET_OVERWRITES_LAA /* errata */
+ 				  | FLAG_TARC_SPEED_MODE_BIT /* errata */
+@@ -1347,12 +1345,10 @@ struct e1000_info e1000_82572_info = {
+ 	.mac			= e1000_82572,
+ 	.flags			= FLAG_HAS_HW_VLAN_FILTER
+ 				  | FLAG_HAS_JUMBO_FRAMES
+-				  | FLAG_HAS_STATS_PTC_PRC
+ 				  | FLAG_HAS_WOL
+ 				  | FLAG_APME_IN_CTRL3
+ 				  | FLAG_RX_CSUM_ENABLED
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD
+-				  | FLAG_HAS_STATS_ICR_ICT
+ 				  | FLAG_TARC_SPEED_MODE_BIT, /* errata */
+ 	.pba			= 38,
+ 	.get_variants		= e1000_get_variants_82571,
+@@ -1365,11 +1361,9 @@ struct e1000_info e1000_82573_info = {
+ 	.mac			= e1000_82573,
+ 	.flags			= FLAG_HAS_HW_VLAN_FILTER
+ 				  | FLAG_HAS_JUMBO_FRAMES
+-				  | FLAG_HAS_STATS_PTC_PRC
+ 				  | FLAG_HAS_WOL
+ 				  | FLAG_APME_IN_CTRL3
+ 				  | FLAG_RX_CSUM_ENABLED
+-				  | FLAG_HAS_STATS_ICR_ICT
+ 				  | FLAG_HAS_SMART_POWER_DOWN
+ 				  | FLAG_HAS_AMT
+ 				  | FLAG_HAS_ERT
 diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
-index 4fb9d87..2a53875 100644
+index 572cfd4..4fb9d87 100644
 --- a/drivers/net/e1000e/defines.h
 +++ b/drivers/net/e1000e/defines.h
-@@ -184,6 +184,7 @@
- #define E1000_SWFW_EEP_SM   0x1
- #define E1000_SWFW_PHY0_SM  0x2
- #define E1000_SWFW_PHY1_SM  0x4
-+#define E1000_SWFW_CSR_SM   0x8
+@@ -527,8 +527,10 @@
+ #define PHY_ID2          0x03 /* Phy Id Reg (word 2) */
+ #define PHY_AUTONEG_ADV  0x04 /* Autoneg Advertisement */
+ #define PHY_LP_ABILITY   0x05 /* Link Partner Ability (Base Page) */
++#define PHY_AUTONEG_EXP  0x06 /* Autoneg Expansion Reg */
+ #define PHY_1000T_CTRL   0x09 /* 1000Base-T Control Reg */
+ #define PHY_1000T_STATUS 0x0A /* 1000Base-T Status Reg */
++#define PHY_EXT_STATUS   0x0F /* Extended Status Reg */
  
- /* Device Control */
- #define E1000_CTRL_FD       0x00000001  /* Full duplex.0=half; 1=full */
+ /* NVM Control */
+ #define E1000_EECD_SK        0x00000001 /* NVM Clock */
 diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index 79a426f..f6835c3 100644
+index 5a89dff..4d3d1c2 100644
 --- a/drivers/net/e1000e/e1000.h
 +++ b/drivers/net/e1000e/e1000.h
-@@ -449,6 +449,8 @@ extern s32 e1000e_read_kmrn_reg(struct e1000_hw *hw, u32 offset, u16 *data);
- extern s32 e1000e_phy_has_link_generic(struct e1000_hw *hw, u32 iterations,
- 			       u32 usec_interval, bool *success);
- extern s32 e1000e_phy_reset_dsp(struct e1000_hw *hw);
-+extern s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data);
-+extern s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data);
- extern s32 e1000e_check_downshift(struct e1000_hw *hw);
+@@ -147,6 +147,18 @@ struct e1000_ring {
+ 	struct e1000_queue_stats stats;
+ };
  
- static inline s32 e1000_phy_hw_reset(struct e1000_hw *hw)
++/* PHY register snapshot values */
++struct e1000_phy_regs {
++	u16 bmcr;		/* basic mode control register    */
++	u16 bmsr;		/* basic mode status register     */
++	u16 advertise;		/* auto-negotiation advertisement */
++	u16 lpa;		/* link partner ability register  */
++	u16 expansion;		/* auto-negotiation expansion reg */
++	u16 ctrl1000;		/* 1000BASE-T control register    */
++	u16 stat1000;		/* 1000BASE-T status register     */
++	u16 estatus;		/* extended status register       */
++};
++
+ /* board specific private data structure */
+ struct e1000_adapter {
+ 	struct timer_list watchdog_timer;
+@@ -202,8 +214,8 @@ struct e1000_adapter {
+ 	/* Tx stats */
+ 	u64 tpt_old;
+ 	u64 colc_old;
+-	u64 gotcl_old;
+-	u32 gotcl;
++	u32 gotc;
++	u64 gotc_old;
+ 	u32 tx_timeout_count;
+ 	u32 tx_fifo_head;
+ 	u32 tx_head_addr;
+@@ -227,8 +239,8 @@ struct e1000_adapter {
+ 	u64 hw_csum_err;
+ 	u64 hw_csum_good;
+ 	u64 rx_hdr_split;
+-	u64 gorcl_old;
+-	u32 gorcl;
++	u32 gorc;
++	u64 gorc_old;
+ 	u32 alloc_rx_buff_failed;
+ 	u32 rx_dma_failed;
+ 
+@@ -250,6 +262,9 @@ struct e1000_adapter {
+ 	struct e1000_phy_info phy_info;
+ 	struct e1000_phy_stats phy_stats;
+ 
++	/* Snapshot of PHY registers */
++	struct e1000_phy_regs phy_regs;
++
+ 	struct e1000_ring test_tx_ring;
+ 	struct e1000_ring test_rx_ring;
+ 	u32 test_icr;
+@@ -286,8 +301,6 @@ struct e1000_info {
+ #define FLAG_HAS_CTRLEXT_ON_LOAD          (1 << 5)
+ #define FLAG_HAS_SWSM_ON_LOAD             (1 << 6)
+ #define FLAG_HAS_JUMBO_FRAMES             (1 << 7)
+-#define FLAG_HAS_STATS_ICR_ICT            (1 << 9)
+-#define FLAG_HAS_STATS_PTC_PRC            (1 << 10)
+ #define FLAG_HAS_SMART_POWER_DOWN         (1 << 11)
+ #define FLAG_IS_QUAD_PORT_A               (1 << 12)
+ #define FLAG_IS_QUAD_PORT                 (1 << 13)
 diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
-index 13a6f44..dc552d7 100644
+index d59a99a..13a6f44 100644
 --- a/drivers/net/e1000e/es2lan.c
 +++ b/drivers/net/e1000e/es2lan.c
-@@ -41,6 +41,7 @@
- #define E1000_KMRNCTRLSTA_OFFSET_FIFO_CTRL	 0x00
- #define E1000_KMRNCTRLSTA_OFFSET_INB_CTRL	 0x02
- #define E1000_KMRNCTRLSTA_OFFSET_HD_CTRL	 0x10
-+#define E1000_KMRNCTRLSTA_OFFSET_MAC2PHY_OPMODE	 0x1F
+@@ -1231,12 +1231,10 @@ struct e1000_info e1000_es2_info = {
+ 	.mac			= e1000_80003es2lan,
+ 	.flags			= FLAG_HAS_HW_VLAN_FILTER
+ 				  | FLAG_HAS_JUMBO_FRAMES
+-				  | FLAG_HAS_STATS_PTC_PRC
+ 				  | FLAG_HAS_WOL
+ 				  | FLAG_APME_IN_CTRL3
+ 				  | FLAG_RX_CSUM_ENABLED
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD
+-				  | FLAG_HAS_STATS_ICR_ICT
+ 				  | FLAG_RX_NEEDS_RESTART /* errata */
+ 				  | FLAG_TARC_SET_BIT_ZERO /* errata */
+ 				  | FLAG_APME_CHECK_PORT_B
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+index 6d1b257..c894a6f 100644
+--- a/drivers/net/e1000e/ethtool.c
++++ b/drivers/net/e1000e/ethtool.c
+@@ -46,8 +46,8 @@ struct e1000_stats {
+ static const struct e1000_stats e1000_gstrings_stats[] = {
+ 	{ "rx_packets", E1000_STAT(stats.gprc) },
+ 	{ "tx_packets", E1000_STAT(stats.gptc) },
+-	{ "rx_bytes", E1000_STAT(stats.gorcl) },
+-	{ "tx_bytes", E1000_STAT(stats.gotcl) },
++	{ "rx_bytes", E1000_STAT(stats.gorc) },
++	{ "tx_bytes", E1000_STAT(stats.gotc) },
+ 	{ "rx_broadcast", E1000_STAT(stats.bprc) },
+ 	{ "tx_broadcast", E1000_STAT(stats.bptc) },
+ 	{ "rx_multicast", E1000_STAT(stats.mprc) },
+@@ -83,7 +83,7 @@ static const struct e1000_stats e1000_gstrings_stats[] = {
+ 	{ "rx_flow_control_xoff", E1000_STAT(stats.xoffrxc) },
+ 	{ "tx_flow_control_xon", E1000_STAT(stats.xontxc) },
+ 	{ "tx_flow_control_xoff", E1000_STAT(stats.xofftxc) },
+-	{ "rx_long_byte_count", E1000_STAT(stats.gorcl) },
++	{ "rx_long_byte_count", E1000_STAT(stats.gorc) },
+ 	{ "rx_csum_offload_good", E1000_STAT(hw_csum_good) },
+ 	{ "rx_csum_offload_errors", E1000_STAT(hw_csum_err) },
+ 	{ "rx_header_split", E1000_STAT(rx_hdr_split) },
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index 53f1ac6..a930e6d 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -592,10 +592,8 @@ struct e1000_hw_stats {
+ 	u64 bprc;
+ 	u64 mprc;
+ 	u64 gptc;
+-	u64 gorcl;
+-	u64 gorch;
+-	u64 gotcl;
+-	u64 gotch;
++	u64 gorc;
++	u64 gotc;
+ 	u64 rnbc;
+ 	u64 ruc;
+ 	u64 rfc;
+@@ -604,10 +602,8 @@ struct e1000_hw_stats {
+ 	u64 mgprc;
+ 	u64 mgpdc;
+ 	u64 mgptc;
+-	u64 torl;
+-	u64 torh;
+-	u64 totl;
+-	u64 toth;
++	u64 tor;
++	u64 tot;
+ 	u64 tpr;
+ 	u64 tpt;
+ 	u64 ptc64;
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index c8dc47f..9d1143a 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -466,10 +466,10 @@ next_desc:
+ 	if (cleaned_count)
+ 		adapter->alloc_rx_buf(adapter, cleaned_count);
  
- #define E1000_KMRNCTRLSTA_FIFO_CTRL_RX_BYPASS	 0x0008
- #define E1000_KMRNCTRLSTA_FIFO_CTRL_TX_BYPASS	 0x0800
-@@ -48,6 +49,7 @@
- 
- #define E1000_KMRNCTRLSTA_HD_CTRL_10_100_DEFAULT 0x0004
- #define E1000_KMRNCTRLSTA_HD_CTRL_1000_DEFAULT	 0x0000
-+#define E1000_KMRNCTRLSTA_OPMODE_E_IDLE		 0x2000
- 
- #define E1000_TCTL_EXT_GCEX_MASK 0x000FFC00 /* Gigabit Carry Extend Padding */
- #define DEFAULT_TCTL_EXT_GCEX_80003ES2LAN	 0x00010000
-@@ -85,6 +87,9 @@
- /* Kumeran Mode Control Register (Page 193, Register 16) */
- #define GG82563_KMCR_PASS_FALSE_CARRIER		 0x0800
- 
-+/* Max number of times Kumeran read/write should be validated */
-+#define GG82563_MAX_KMRN_RETRY  0x5
-+
- /* Power Management Control Register (Page 193, Register 20) */
- #define GG82563_PMCR_ENABLE_ELECTRICAL_IDLE	 0x0001
- 					   /* 1=Enable SERDES Electrical Idle */
-@@ -270,6 +275,7 @@ static s32 e1000_acquire_phy_80003es2lan(struct e1000_hw *hw)
- 	u16 mask;
- 
- 	mask = hw->bus.func ? E1000_SWFW_PHY1_SM : E1000_SWFW_PHY0_SM;
-+	mask |= E1000_SWFW_CSR_SM;
- 
- 	return e1000_acquire_swfw_sync_80003es2lan(hw, mask);
+-	adapter->total_rx_packets += total_rx_packets;
+ 	adapter->total_rx_bytes += total_rx_bytes;
+-	adapter->net_stats.rx_packets += total_rx_packets;
++	adapter->total_rx_packets += total_rx_packets;
+ 	adapter->net_stats.rx_bytes += total_rx_bytes;
++	adapter->net_stats.rx_packets += total_rx_packets;
+ 	return cleaned;
  }
-@@ -286,6 +292,8 @@ static void e1000_release_phy_80003es2lan(struct e1000_hw *hw)
- 	u16 mask;
  
- 	mask = hw->bus.func ? E1000_SWFW_PHY1_SM : E1000_SWFW_PHY0_SM;
-+	mask |= E1000_SWFW_CSR_SM;
-+
- 	e1000_release_swfw_sync_80003es2lan(hw, mask);
+@@ -606,8 +606,8 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
+ 	}
+ 	adapter->total_tx_bytes += total_tx_bytes;
+ 	adapter->total_tx_packets += total_tx_packets;
+-	adapter->net_stats.tx_packets += total_tx_packets;
+ 	adapter->net_stats.tx_bytes += total_tx_bytes;
++	adapter->net_stats.tx_packets += total_tx_packets;
+ 	return cleaned;
  }
  
-@@ -410,20 +418,27 @@ static s32 e1000_read_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
- 	u32 page_select;
- 	u16 temp;
+@@ -775,10 +775,10 @@ next_desc:
+ 	if (cleaned_count)
+ 		adapter->alloc_rx_buf(adapter, cleaned_count);
  
-+	ret_val = e1000_acquire_phy_80003es2lan(hw);
-+	if (ret_val)
-+		return ret_val;
+-	adapter->total_rx_packets += total_rx_packets;
+ 	adapter->total_rx_bytes += total_rx_bytes;
+-	adapter->net_stats.rx_packets += total_rx_packets;
++	adapter->total_rx_packets += total_rx_packets;
+ 	adapter->net_stats.rx_bytes += total_rx_bytes;
++	adapter->net_stats.rx_packets += total_rx_packets;
+ 	return cleaned;
+ }
+ 
+@@ -2506,56 +2506,27 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+ 
+ 	adapter->stats.crcerrs += er32(CRCERRS);
+ 	adapter->stats.gprc += er32(GPRC);
+-	adapter->stats.gorcl += er32(GORCL);
+-	adapter->stats.gorch += er32(GORCH);
++	adapter->stats.gorc += er32(GORCL);
++	er32(GORCH); /* Clear gorc */
+ 	adapter->stats.bprc += er32(BPRC);
+ 	adapter->stats.mprc += er32(MPRC);
+ 	adapter->stats.roc += er32(ROC);
+ 
+-	if (adapter->flags & FLAG_HAS_STATS_PTC_PRC) {
+-		adapter->stats.prc64 += er32(PRC64);
+-		adapter->stats.prc127 += er32(PRC127);
+-		adapter->stats.prc255 += er32(PRC255);
+-		adapter->stats.prc511 += er32(PRC511);
+-		adapter->stats.prc1023 += er32(PRC1023);
+-		adapter->stats.prc1522 += er32(PRC1522);
+-		adapter->stats.symerrs += er32(SYMERRS);
+-		adapter->stats.sec += er32(SEC);
+-	}
+-
+ 	adapter->stats.mpc += er32(MPC);
+ 	adapter->stats.scc += er32(SCC);
+ 	adapter->stats.ecol += er32(ECOL);
+ 	adapter->stats.mcc += er32(MCC);
+ 	adapter->stats.latecol += er32(LATECOL);
+ 	adapter->stats.dc += er32(DC);
+-	adapter->stats.rlec += er32(RLEC);
+ 	adapter->stats.xonrxc += er32(XONRXC);
+ 	adapter->stats.xontxc += er32(XONTXC);
+ 	adapter->stats.xoffrxc += er32(XOFFRXC);
+ 	adapter->stats.xofftxc += er32(XOFFTXC);
+-	adapter->stats.fcruc += er32(FCRUC);
+ 	adapter->stats.gptc += er32(GPTC);
+-	adapter->stats.gotcl += er32(GOTCL);
+-	adapter->stats.gotch += er32(GOTCH);
++	adapter->stats.gotc += er32(GOTCL);
++	er32(GOTCH); /* Clear gotc */
+ 	adapter->stats.rnbc += er32(RNBC);
+ 	adapter->stats.ruc += er32(RUC);
+-	adapter->stats.rfc += er32(RFC);
+-	adapter->stats.rjc += er32(RJC);
+-	adapter->stats.torl += er32(TORL);
+-	adapter->stats.torh += er32(TORH);
+-	adapter->stats.totl += er32(TOTL);
+-	adapter->stats.toth += er32(TOTH);
+-	adapter->stats.tpr += er32(TPR);
+-
+-	if (adapter->flags & FLAG_HAS_STATS_PTC_PRC) {
+-		adapter->stats.ptc64 += er32(PTC64);
+-		adapter->stats.ptc127 += er32(PTC127);
+-		adapter->stats.ptc255 += er32(PTC255);
+-		adapter->stats.ptc511 += er32(PTC511);
+-		adapter->stats.ptc1023 += er32(PTC1023);
+-		adapter->stats.ptc1522 += er32(PTC1522);
+-	}
+ 
+ 	adapter->stats.mptc += er32(MPTC);
+ 	adapter->stats.bptc += er32(BPTC);
+@@ -2574,19 +2545,6 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+ 	adapter->stats.tsctc += er32(TSCTC);
+ 	adapter->stats.tsctfc += er32(TSCTFC);
+ 
+-	adapter->stats.iac += er32(IAC);
+-
+-	if (adapter->flags & FLAG_HAS_STATS_ICR_ICT) {
+-		adapter->stats.icrxoc += er32(ICRXOC);
+-		adapter->stats.icrxptc += er32(ICRXPTC);
+-		adapter->stats.icrxatc += er32(ICRXATC);
+-		adapter->stats.ictxptc += er32(ICTXPTC);
+-		adapter->stats.ictxatc += er32(ICTXATC);
+-		adapter->stats.ictxqec += er32(ICTXQEC);
+-		adapter->stats.ictxqmtc += er32(ICTXQMTC);
+-		adapter->stats.icrxdmtc += er32(ICRXDMTC);
+-	}
+-
+ 	/* Fill out the OS statistics structure */
+ 	adapter->net_stats.multicast = adapter->stats.mprc;
+ 	adapter->net_stats.collisions = adapter->stats.colc;
+@@ -2633,6 +2591,54 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+ 	spin_unlock_irqrestore(&adapter->stats_lock, irq_flags);
+ }
+ 
++/**
++ * e1000_phy_read_status - Update the PHY register status snapshot
++ * @adapter: board private structure
++ **/
++static void e1000_phy_read_status(struct e1000_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++	struct e1000_phy_regs *phy = &adapter->phy_regs;
++	int ret_val;
++	unsigned long irq_flags;
 +
- 	/* Select Configuration Page */
--	if ((offset & MAX_PHY_REG_ADDRESS) < GG82563_MIN_ALT_REG)
-+	if ((offset & MAX_PHY_REG_ADDRESS) < GG82563_MIN_ALT_REG) {
- 		page_select = GG82563_PHY_PAGE_SELECT;
--	else
++
++	spin_lock_irqsave(&adapter->stats_lock, irq_flags);
++
++	if ((er32(STATUS) & E1000_STATUS_LU) &&
++	    (adapter->hw.phy.media_type == e1000_media_type_copper)) {
++		ret_val  = e1e_rphy(hw, PHY_CONTROL, &phy->bmcr);
++		ret_val |= e1e_rphy(hw, PHY_STATUS, &phy->bmsr);
++		ret_val |= e1e_rphy(hw, PHY_AUTONEG_ADV, &phy->advertise);
++		ret_val |= e1e_rphy(hw, PHY_LP_ABILITY, &phy->lpa);
++		ret_val |= e1e_rphy(hw, PHY_AUTONEG_EXP, &phy->expansion);
++		ret_val |= e1e_rphy(hw, PHY_1000T_CTRL, &phy->ctrl1000);
++		ret_val |= e1e_rphy(hw, PHY_1000T_STATUS, &phy->stat1000);
++		ret_val |= e1e_rphy(hw, PHY_EXT_STATUS, &phy->estatus);
++		if (ret_val)
++			ndev_warn(adapter->netdev,
++				  "Error reading PHY register\n");
 +	} else {
- 		/*
- 		 * Use Alternative Page Select register to access
- 		 * registers 30 and 31
- 		 */
- 		page_select = GG82563_PHY_PAGE_SELECT_ALT;
++		/*
++		 * Do not read PHY registers if link is not up
++		 * Set values to typical power-on defaults
++		 */
++		phy->bmcr = (BMCR_SPEED1000 | BMCR_ANENABLE | BMCR_FULLDPLX);
++		phy->bmsr = (BMSR_100FULL | BMSR_100HALF | BMSR_10FULL |
++			     BMSR_10HALF | BMSR_ESTATEN | BMSR_ANEGCAPABLE |
++			     BMSR_ERCAP);
++		phy->advertise = (ADVERTISE_PAUSE_ASYM | ADVERTISE_PAUSE_CAP |
++				  ADVERTISE_ALL | ADVERTISE_CSMA);
++		phy->lpa = 0;
++		phy->expansion = EXPANSION_ENABLENPAGE;
++		phy->ctrl1000 = ADVERTISE_1000FULL;
++		phy->stat1000 = 0;
++		phy->estatus = (ESTATUS_1000_TFULL | ESTATUS_1000_THALF);
 +	}
- 
- 	temp = (u16)((u16)offset >> GG82563_PAGE_SHIFT);
--	ret_val = e1000e_write_phy_reg_m88(hw, page_select, temp);
--	if (ret_val)
-+	ret_val = e1000e_write_phy_reg_mdic(hw, page_select, temp);
-+	if (ret_val) {
-+		e1000_release_phy_80003es2lan(hw);
- 		return ret_val;
-+	}
- 
- 	/*
- 	 * The "ready" bit in the MDIC register may be incorrectly set
-@@ -433,20 +448,21 @@ static s32 e1000_read_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
- 	udelay(200);
- 
- 	/* ...and verify the command was successful. */
--	ret_val = e1000e_read_phy_reg_m88(hw, page_select, &temp);
-+	ret_val = e1000e_read_phy_reg_mdic(hw, page_select, &temp);
- 
- 	if (((u16)offset >> GG82563_PAGE_SHIFT) != temp) {
- 		ret_val = -E1000_ERR_PHY;
-+		e1000_release_phy_80003es2lan(hw);
- 		return ret_val;
- 	}
- 
- 	udelay(200);
- 
--	ret_val = e1000e_read_phy_reg_m88(hw,
--					 MAX_PHY_REG_ADDRESS & offset,
--					 data);
-+	ret_val = e1000e_read_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & offset,
-+					   data);
- 
- 	udelay(200);
-+	e1000_release_phy_80003es2lan(hw);
- 
- 	return ret_val;
- }
-@@ -467,20 +483,27 @@ static s32 e1000_write_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
- 	u32 page_select;
- 	u16 temp;
- 
-+	ret_val = e1000_acquire_phy_80003es2lan(hw);
-+	if (ret_val)
-+		return ret_val;
 +
- 	/* Select Configuration Page */
--	if ((offset & MAX_PHY_REG_ADDRESS) < GG82563_MIN_ALT_REG)
-+	if ((offset & MAX_PHY_REG_ADDRESS) < GG82563_MIN_ALT_REG) {
- 		page_select = GG82563_PHY_PAGE_SELECT;
--	else
-+	} else {
- 		/*
- 		 * Use Alternative Page Select register to access
- 		 * registers 30 and 31
- 		 */
- 		page_select = GG82563_PHY_PAGE_SELECT_ALT;
-+	}
- 
- 	temp = (u16)((u16)offset >> GG82563_PAGE_SHIFT);
--	ret_val = e1000e_write_phy_reg_m88(hw, page_select, temp);
--	if (ret_val)
-+	ret_val = e1000e_write_phy_reg_mdic(hw, page_select, temp);
-+	if (ret_val) {
-+		e1000_release_phy_80003es2lan(hw);
- 		return ret_val;
-+	}
- 
- 
- 	/*
-@@ -491,18 +514,20 @@ static s32 e1000_write_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
- 	udelay(200);
- 
- 	/* ...and verify the command was successful. */
--	ret_val = e1000e_read_phy_reg_m88(hw, page_select, &temp);
-+	ret_val = e1000e_read_phy_reg_mdic(hw, page_select, &temp);
- 
--	if (((u16)offset >> GG82563_PAGE_SHIFT) != temp)
-+	if (((u16)offset >> GG82563_PAGE_SHIFT) != temp) {
-+		e1000_release_phy_80003es2lan(hw);
- 		return -E1000_ERR_PHY;
-+	}
- 
- 	udelay(200);
- 
--	ret_val = e1000e_write_phy_reg_m88(hw,
--					  MAX_PHY_REG_ADDRESS & offset,
--					  data);
-+	ret_val = e1000e_write_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & offset,
-+					    data);
- 
- 	udelay(200);
-+	e1000_release_phy_80003es2lan(hw);
- 
- 	return ret_val;
- }
-@@ -882,10 +907,10 @@ static s32 e1000_copper_link_setup_gg82563_80003es2lan(struct e1000_hw *hw)
- 	struct e1000_phy_info *phy = &hw->phy;
- 	s32 ret_val;
- 	u32 ctrl_ext;
--	u16 data;
-+	u32 i = 0;
-+	u16 data, data2;
- 
--	ret_val = e1e_rphy(hw, GG82563_PHY_MAC_SPEC_CTRL,
--				     &data);
-+	ret_val = e1e_rphy(hw, GG82563_PHY_MAC_SPEC_CTRL, &data);
- 	if (ret_val)
- 		return ret_val;
- 
-@@ -893,8 +918,7 @@ static s32 e1000_copper_link_setup_gg82563_80003es2lan(struct e1000_hw *hw)
- 	/* Use 25MHz for both link down and 1000Base-T for Tx clock. */
- 	data |= GG82563_MSCR_TX_CLK_1000MBPS_25;
- 
--	ret_val = e1e_wphy(hw, GG82563_PHY_MAC_SPEC_CTRL,
--				      data);
-+	ret_val = e1e_wphy(hw, GG82563_PHY_MAC_SPEC_CTRL, data);
- 	if (ret_val)
- 		return ret_val;
- 
-@@ -954,6 +978,18 @@ static s32 e1000_copper_link_setup_gg82563_80003es2lan(struct e1000_hw *hw)
- 	if (ret_val)
- 		return ret_val;
- 
-+	ret_val = e1000e_read_kmrn_reg(hw,
-+				       E1000_KMRNCTRLSTA_OFFSET_MAC2PHY_OPMODE,
-+				       &data);
-+	if (ret_val)
-+		return ret_val;
-+	data |= E1000_KMRNCTRLSTA_OPMODE_E_IDLE;
-+	ret_val = e1000e_write_kmrn_reg(hw,
-+					E1000_KMRNCTRLSTA_OFFSET_MAC2PHY_OPMODE,
-+					data);
-+	if (ret_val)
-+		return ret_val;
++	spin_unlock_irqrestore(&adapter->stats_lock, irq_flags);
++}
 +
- 	ret_val = e1e_rphy(hw, GG82563_PHY_SPEC_CTRL_2, &data);
- 	if (ret_val)
- 		return ret_val;
-@@ -983,9 +1019,18 @@ static s32 e1000_copper_link_setup_gg82563_80003es2lan(struct e1000_hw *hw)
- 		if (ret_val)
- 			return ret_val;
- 
--		ret_val = e1e_rphy(hw, GG82563_PHY_KMRN_MODE_CTRL, &data);
--		if (ret_val)
--			return ret_val;
-+		do {
-+			ret_val = e1e_rphy(hw, GG82563_PHY_KMRN_MODE_CTRL,
-+					   &data);
-+			if (ret_val)
-+				return ret_val;
-+
-+			ret_val = e1e_rphy(hw, GG82563_PHY_KMRN_MODE_CTRL,
-+					   &data2);
-+			if (ret_val)
-+				return ret_val;
-+			i++;
-+		} while ((data != data2) && (i < GG82563_MAX_KMRN_RETRY));
- 
- 		data &= ~GG82563_KMCR_PASS_FALSE_CARRIER;
- 		ret_val = e1e_wphy(hw, GG82563_PHY_KMRN_MODE_CTRL, data);
-@@ -1074,7 +1119,8 @@ static s32 e1000_cfg_kmrn_10_100_80003es2lan(struct e1000_hw *hw, u16 duplex)
+ static void e1000_print_link_info(struct e1000_adapter *adapter)
  {
- 	s32 ret_val;
- 	u32 tipg;
--	u16 reg_data;
-+	u32 i = 0;
-+	u16 reg_data, reg_data2;
+ 	struct e1000_hw *hw = &adapter->hw;
+@@ -2745,6 +2751,7 @@ static void e1000_watchdog_task(struct work_struct *work)
+ 		if (!netif_carrier_ok(netdev)) {
+ 			bool txb2b = 1;
+ 			/* update snapshot of PHY registers on LSC */
++			e1000_phy_read_status(adapter);
+ 			mac->ops.get_link_up_info(&adapter->hw,
+ 						   &adapter->link_speed,
+ 						   &adapter->link_duplex);
+@@ -2842,10 +2849,10 @@ link_up:
+ 	mac->collision_delta = adapter->stats.colc - adapter->colc_old;
+ 	adapter->colc_old = adapter->stats.colc;
  
- 	reg_data = E1000_KMRNCTRLSTA_HD_CTRL_10_100_DEFAULT;
- 	ret_val = e1000e_write_kmrn_reg(hw, E1000_KMRNCTRLSTA_OFFSET_HD_CTRL,
-@@ -1088,9 +1134,16 @@ static s32 e1000_cfg_kmrn_10_100_80003es2lan(struct e1000_hw *hw, u16 duplex)
- 	tipg |= DEFAULT_TIPG_IPGT_10_100_80003ES2LAN;
- 	ew32(TIPG, tipg);
+-	adapter->gorcl = adapter->stats.gorcl - adapter->gorcl_old;
+-	adapter->gorcl_old = adapter->stats.gorcl;
+-	adapter->gotcl = adapter->stats.gotcl - adapter->gotcl_old;
+-	adapter->gotcl_old = adapter->stats.gotcl;
++	adapter->gorc = adapter->stats.gorc - adapter->gorc_old;
++	adapter->gorc_old = adapter->stats.gorc;
++	adapter->gotc = adapter->stats.gotc - adapter->gotc_old;
++	adapter->gotc_old = adapter->stats.gotc;
  
--	ret_val = e1e_rphy(hw, GG82563_PHY_KMRN_MODE_CTRL, &reg_data);
--	if (ret_val)
--		return ret_val;
-+	do {
-+		ret_val = e1e_rphy(hw, GG82563_PHY_KMRN_MODE_CTRL, &reg_data);
-+		if (ret_val)
-+			return ret_val;
-+
-+		ret_val = e1e_rphy(hw, GG82563_PHY_KMRN_MODE_CTRL, &reg_data2);
-+		if (ret_val)
-+			return ret_val;
-+		i++;
-+	} while ((reg_data != reg_data2) && (i < GG82563_MAX_KMRN_RETRY));
+ 	e1000e_update_adaptive(&adapter->hw);
  
- 	if (duplex == HALF_DUPLEX)
- 		reg_data |= GG82563_KMCR_PASS_FALSE_CARRIER;
-@@ -1112,8 +1165,9 @@ static s32 e1000_cfg_kmrn_10_100_80003es2lan(struct e1000_hw *hw, u16 duplex)
- static s32 e1000_cfg_kmrn_1000_80003es2lan(struct e1000_hw *hw)
+@@ -3500,7 +3507,6 @@ static int e1000_mii_ioctl(struct net_device *netdev, struct ifreq *ifr,
  {
- 	s32 ret_val;
--	u16 reg_data;
-+	u16 reg_data, reg_data2;
- 	u32 tipg;
-+	u32 i = 0;
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct mii_ioctl_data *data = if_mii(ifr);
+-	unsigned long irq_flags;
  
- 	reg_data = E1000_KMRNCTRLSTA_HD_CTRL_1000_DEFAULT;
- 	ret_val = e1000e_write_kmrn_reg(hw, E1000_KMRNCTRLSTA_OFFSET_HD_CTRL,
-@@ -1127,9 +1181,16 @@ static s32 e1000_cfg_kmrn_1000_80003es2lan(struct e1000_hw *hw)
- 	tipg |= DEFAULT_TIPG_IPGT_1000_80003ES2LAN;
- 	ew32(TIPG, tipg);
- 
--	ret_val = e1e_rphy(hw, GG82563_PHY_KMRN_MODE_CTRL, &reg_data);
--	if (ret_val)
--		return ret_val;
-+	do {
-+		ret_val = e1e_rphy(hw, GG82563_PHY_KMRN_MODE_CTRL, &reg_data);
-+		if (ret_val)
-+			return ret_val;
-+
-+		ret_val = e1e_rphy(hw, GG82563_PHY_KMRN_MODE_CTRL, &reg_data2);
-+		if (ret_val)
-+			return ret_val;
-+		i++;
-+	} while ((reg_data != reg_data2) && (i < GG82563_MAX_KMRN_RETRY));
- 
- 	reg_data &= ~GG82563_KMCR_PASS_FALSE_CARRIER;
- 	ret_val = e1e_wphy(hw, GG82563_PHY_KMRN_MODE_CTRL, reg_data);
-diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
-index 3a4574c..e102332 100644
---- a/drivers/net/e1000e/phy.c
-+++ b/drivers/net/e1000e/phy.c
-@@ -116,7 +116,7 @@ s32 e1000e_phy_reset_dsp(struct e1000_hw *hw)
- }
- 
- /**
-- *  e1000_read_phy_reg_mdic - Read MDI control register
-+ *  e1000e_read_phy_reg_mdic - Read MDI control register
-  *  @hw: pointer to the HW structure
-  *  @offset: register offset to be read
-  *  @data: pointer to the read data
-@@ -124,7 +124,7 @@ s32 e1000e_phy_reset_dsp(struct e1000_hw *hw)
-  *  Reads the MDI control register in the PHY at offset and stores the
-  *  information read to data.
-  **/
--static s32 e1000_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
-+s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
- {
- 	struct e1000_phy_info *phy = &hw->phy;
- 	u32 i, mdic = 0;
-@@ -150,7 +150,7 @@ static s32 e1000_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
- 	 * Increasing the time out as testing showed failures with
- 	 * the lower time out
- 	 */
--	for (i = 0; i < 64; i++) {
-+	for (i = 0; i < (E1000_GEN_POLL_TIMEOUT * 3); i++) {
- 		udelay(50);
- 		mdic = er32(MDIC);
- 		if (mdic & E1000_MDIC_READY)
-@@ -170,14 +170,14 @@ static s32 e1000_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
- }
- 
- /**
-- *  e1000_write_phy_reg_mdic - Write MDI control register
-+ *  e1000e_write_phy_reg_mdic - Write MDI control register
-  *  @hw: pointer to the HW structure
-  *  @offset: register offset to write to
-  *  @data: data to write to register at offset
-  *
-  *  Writes data to MDI control register in the PHY at offset.
-  **/
--static s32 e1000_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
-+s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
- {
- 	struct e1000_phy_info *phy = &hw->phy;
- 	u32 i, mdic = 0;
-@@ -199,9 +199,13 @@ static s32 e1000_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
- 
- 	ew32(MDIC, mdic);
- 
--	/* Poll the ready bit to see if the MDI read completed */
--	for (i = 0; i < E1000_GEN_POLL_TIMEOUT; i++) {
--		udelay(5);
-+	/*
-+	 * Poll the ready bit to see if the MDI read completed
-+	 * Increasing the time out as testing showed failures with
-+	 * the lower time out
-+	 */
-+	for (i = 0; i < (E1000_GEN_POLL_TIMEOUT * 3); i++) {
-+		udelay(50);
- 		mdic = er32(MDIC);
- 		if (mdic & E1000_MDIC_READY)
- 			break;
-@@ -210,6 +214,10 @@ static s32 e1000_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
- 		hw_dbg(hw, "MDI Write did not complete\n");
- 		return -E1000_ERR_PHY;
- 	}
-+	if (mdic & E1000_MDIC_ERROR) {
-+		hw_dbg(hw, "MDI Error\n");
-+		return -E1000_ERR_PHY;
-+	}
- 
- 	return 0;
- }
-@@ -232,9 +240,8 @@ s32 e1000e_read_phy_reg_m88(struct e1000_hw *hw, u32 offset, u16 *data)
- 	if (ret_val)
- 		return ret_val;
- 
--	ret_val = e1000_read_phy_reg_mdic(hw,
--					  MAX_PHY_REG_ADDRESS & offset,
--					  data);
-+	ret_val = e1000e_read_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & offset,
-+					   data);
- 
- 	hw->phy.ops.release_phy(hw);
- 
-@@ -258,9 +265,8 @@ s32 e1000e_write_phy_reg_m88(struct e1000_hw *hw, u32 offset, u16 data)
- 	if (ret_val)
- 		return ret_val;
- 
--	ret_val = e1000_write_phy_reg_mdic(hw,
--					   MAX_PHY_REG_ADDRESS & offset,
--					   data);
-+	ret_val = e1000e_write_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & offset,
-+					    data);
- 
- 	hw->phy.ops.release_phy(hw);
- 
-@@ -286,18 +292,17 @@ s32 e1000e_read_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 *data)
- 		return ret_val;
- 
- 	if (offset > MAX_PHY_MULTI_PAGE_REG) {
--		ret_val = e1000_write_phy_reg_mdic(hw,
--						   IGP01E1000_PHY_PAGE_SELECT,
--						   (u16)offset);
-+		ret_val = e1000e_write_phy_reg_mdic(hw,
-+						    IGP01E1000_PHY_PAGE_SELECT,
-+						    (u16)offset);
- 		if (ret_val) {
- 			hw->phy.ops.release_phy(hw);
- 			return ret_val;
+ 	if (adapter->hw.phy.media_type != e1000_media_type_copper)
+ 		return -EOPNOTSUPP;
+@@ -3512,13 +3518,40 @@ static int e1000_mii_ioctl(struct net_device *netdev, struct ifreq *ifr,
+ 	case SIOCGMIIREG:
+ 		if (!capable(CAP_NET_ADMIN))
+ 			return -EPERM;
+-		spin_lock_irqsave(&adapter->stats_lock, irq_flags);
+-		if (e1e_rphy(&adapter->hw, data->reg_num & 0x1F,
+-				   &data->val_out)) {
+-			spin_unlock_irqrestore(&adapter->stats_lock, irq_flags);
++		switch (data->reg_num & 0x1F) {
++		case MII_BMCR:
++			data->val_out = adapter->phy_regs.bmcr;
++			break;
++		case MII_BMSR:
++			data->val_out = adapter->phy_regs.bmsr;
++			break;
++		case MII_PHYSID1:
++			data->val_out = (adapter->hw.phy.id >> 16);
++			break;
++		case MII_PHYSID2:
++			data->val_out = (adapter->hw.phy.id & 0xFFFF);
++			break;
++		case MII_ADVERTISE:
++			data->val_out = adapter->phy_regs.advertise;
++			break;
++		case MII_LPA:
++			data->val_out = adapter->phy_regs.lpa;
++			break;
++		case MII_EXPANSION:
++			data->val_out = adapter->phy_regs.expansion;
++			break;
++		case MII_CTRL1000:
++			data->val_out = adapter->phy_regs.ctrl1000;
++			break;
++		case MII_STAT1000:
++			data->val_out = adapter->phy_regs.stat1000;
++			break;
++		case MII_ESTATUS:
++			data->val_out = adapter->phy_regs.estatus;
++			break;
++		default:
+ 			return -EIO;
  		}
- 	}
- 
--	ret_val = e1000_read_phy_reg_mdic(hw,
--					  MAX_PHY_REG_ADDRESS & offset,
--					  data);
-+	ret_val = e1000e_read_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & offset,
-+					   data);
- 
- 	hw->phy.ops.release_phy(hw);
- 
-@@ -322,18 +327,17 @@ s32 e1000e_write_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 data)
- 		return ret_val;
- 
- 	if (offset > MAX_PHY_MULTI_PAGE_REG) {
--		ret_val = e1000_write_phy_reg_mdic(hw,
--						   IGP01E1000_PHY_PAGE_SELECT,
--						   (u16)offset);
-+		ret_val = e1000e_write_phy_reg_mdic(hw,
-+						    IGP01E1000_PHY_PAGE_SELECT,
-+						    (u16)offset);
- 		if (ret_val) {
- 			hw->phy.ops.release_phy(hw);
- 			return ret_val;
- 		}
- 	}
- 
--	ret_val = e1000_write_phy_reg_mdic(hw,
--					   MAX_PHY_REG_ADDRESS & offset,
--					   data);
-+	ret_val = e1000e_write_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & offset,
-+					    data);
- 
- 	hw->phy.ops.release_phy(hw);
- 
-@@ -420,7 +424,9 @@ s32 e1000e_copper_link_setup_m88(struct e1000_hw *hw)
- 	if (ret_val)
- 		return ret_val;
- 
--	phy_data |= M88E1000_PSCR_ASSERT_CRS_ON_TX;
-+	/* For newer PHYs this bit is downshift enable */
-+	if (phy->type == e1000_phy_m88)
-+		phy_data |= M88E1000_PSCR_ASSERT_CRS_ON_TX;
- 
- 	/*
- 	 * Options:
-@@ -463,7 +469,7 @@ s32 e1000e_copper_link_setup_m88(struct e1000_hw *hw)
- 	if (ret_val)
- 		return ret_val;
- 
--	if (phy->revision < 4) {
-+	if ((phy->type == e1000_phy_m88) && (phy->revision < 4)) {
- 		/*
- 		 * Force TX_CLK in the Extended PHY Specific Control Register
- 		 * to 25MHz clock.
-@@ -518,8 +524,11 @@ s32 e1000e_copper_link_setup_igp(struct e1000_hw *hw)
- 		return ret_val;
- 	}
- 
--	/* Wait 15ms for MAC to configure PHY from NVM settings. */
--	msleep(15);
-+	/*
-+	 * Wait 100ms for MAC to configure PHY from NVM settings, to avoid
-+	 * timeout issues when LFS is enabled.
-+	 */
-+	msleep(100);
- 
- 	/* disable lplu d0 during driver init */
- 	ret_val = e1000_set_d0_lplu_state(hw, 0);
-@@ -1152,9 +1161,7 @@ s32 e1000e_set_d3_lplu_state(struct e1000_hw *hw, bool active)
- 
- 	if (!active) {
- 		data &= ~IGP02E1000_PM_D3_LPLU;
--		ret_val = e1e_wphy(hw,
--					     IGP02E1000_PHY_POWER_MGMT,
--					     data);
-+		ret_val = e1e_wphy(hw, IGP02E1000_PHY_POWER_MGMT, data);
- 		if (ret_val)
- 			return ret_val;
- 		/*
+-		spin_unlock_irqrestore(&adapter->stats_lock, irq_flags);
+ 		break;
+ 	case SIOCSMIIREG:
+ 	default:
 
