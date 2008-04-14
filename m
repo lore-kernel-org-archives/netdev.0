@@ -1,63 +1,80 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: bugreport: The r8169.c driver is calling netif_receive_skb from
- hardirq and with interrupts off
-Date: Mon, 14 Apr 2008 11:24:04 -0700
-Message-ID: <4803A144.3030300@linux.intel.com>
-References: <48039BEC.7070008@linux.intel.com> <20080414112210.3c7ab1bb@extreme>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: Reporting bugs and bisection
+Date: Mon, 14 Apr 2008 11:24:44 -0700
+Message-ID: <20080414112444.2504b48d@laptopd505.fenrus.org>
+References: <47FEADCB.7070104@rtr.ca>
+	<20080413121831.d89dd424.akpm@linux-foundation.org>
+	<20080413202118.GA29658@2ka.mipt.ru>
+	<200804132233.50491.rjw@sisk.pl>
+	<20080413205406.GA9190@2ka.mipt.ru>
+	<48028830.6020703@earthlink.net>
+	<alpine.DEB.1.10.0804131546370.9318@asgard>
+	<20080414043939.GA6862@1wt.eu>
+	<20080414053943.GU9785@ZenIV.linux.org.uk>
+	<20080413232441.e216a02c.akpm@linux-foundation.org>
+	<20080414072328.GW9785@ZenIV.linux.org.uk>
+	<20080414010412.c42dc560.akpm@linux-foundation.org>
+	<20080414074349.24fa90f8@laptopd505.fenrus.org>
+	<20080414105152.9cc06fab.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	NetDev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Al Viro <viro@ZenIV.linux.org.uk>, Willy Tarreau <w@1wt.eu>,
+	david@lang.hm, Stephen Clark <sclark46@earthlink.net>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Tilman Schmidt <tilman@imap.cc>,
+	Valdis.Kletnieks@vt.edu, Mark Lord <lkml@rtr.ca>,
+	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
+	yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel <linux-kernel@vger.kernel.org>, git@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:19426 "EHLO
-	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933796AbYDNSYM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 14:24:12 -0400
-In-Reply-To: <20080414112210.3c7ab1bb@extreme>
+Received: from pentafluge.infradead.org ([213.146.154.40]:50258 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754005AbYDNSbL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 14:31:11 -0400
+In-Reply-To: <20080414105152.9cc06fab.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Mon, 14 Apr 2008 11:01:16 -0700
-> Arjan van de Ven <arjan@linux.intel.com> wrote:
+On Mon, 14 Apr 2008 10:51:52 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
+
+
+> Well OK.  But I don't think we can generalise from oops-causing bugs
+
+including all WARN_ON's and various other kernel backtrace-causing bugs.
+
+
+> all the way to all bugs.  Very few bugs actually cause oopses, and
+> oopses tend to be the thing which developers will zoom in on and pay
+> attention to.
+
+maybe.
 > 
->> The r8169.c driver is calling netif_receive_skb from hardirq and with interrupts off,
->> which seems to be invalid (the comments of netif_receive_skb) certainly say so.
->>
->> The calltrace is like this:
->>
->> packet_rcv
->> netif_receive_skb
->> rtl8168_rx_interrupt
->> rtl8168_interrupt
->> handle_IRQ_event
->> handle_fasteoi_irq
->> do_IRQ
->>
->>
->> Which triggers a warning in packet_rcv() since that does a local_bh_enable(),
->> which gives a WARN_ON if irqs are disabled (rightfully so it seems).
->>
->> The code looks is in rtl8169_rx_interrupt() line 2832 and looks like
->>
->>                          if (rtl8169_rx_vlan_skb(tp, desc, skb) < 0)
->>                                  rtl8169_rx_skb(skb);
->>
->> with
->> #define rtl8169_rx_skb                  netif_receive_skb
->> higher up in the file.
->>
->> This is the 46th highest ranking warnon/oops report for 2.6.25-rc
->>
-> 
-> rtl8169_rx_skb is defined as netif_receive_skb only if NAPI is enabled.
-> But the backtrace has CONFIG_R8169_NAPI disabled.
+> If we had metrics on "time goes backwards" or anything containing
+> "ASUS", things might be different.
 
-what makes you think this config option is disabled ?
-(just curious)
+Sounds really like we need to add more strategic WARN_ON's and other diagnostics in 
+the kernel to track these issues down.
 
-> I also concerned that the reset_task calls rx_interrupt with different locking
-> than normal interrupt. 
 
+Because another thing that I found so far is that what hits LKML is by far not representative
+on what happens for users. The most obvious example was the whole input layer refcounting disaster
+in 2.6.25-rc; this was about 1/3rd of TOTAL reports for a few weeks in a row, but there
+was hardly an LKML posting for it (in fact there was only 1 half one).
+We need diagnostics and stuff the kernel spits out so that automated tools can detect these,
+otherwise we'll very likely not get good information on what is actually wrong with the kernel.
+
+
+In case you want to see the 2.6.25-rc data, the top 100 list is at
+http://www.kerneloops.org/twentyfive.html
+
+(I'm still working on annotating the individual items, but since there's 100
+that does take time)
+
+-- 
+If you want to reach me at my work email, use arjan@linux.intel.com
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
