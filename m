@@ -1,59 +1,47 @@
-From: "Andrew Bird (Sphere Systems)" <ajb@spheresystems.co.uk>
-Subject: Re: [RFC] Patch to option HSO driver to the kernel
-Date: Mon, 14 Apr 2008 23:42:07 +0100
-Message-ID: <200804142342.08116.ajb@spheresystems.co.uk>
-References: <20080414213238.GB28833@kroah.com> <20080414215905.GD16272@one-eyed-alien.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: Reporting bugs and bisection
+Date: Mon, 14 Apr 2008 16:05:13 -0700
+Message-ID: <20080414160513.9f57e5ba.akpm@linux-foundation.org>
+References: <20080413232441.e216a02c.akpm@linux-foundation.org>
+	<20080414072328.GW9785@ZenIV.linux.org.uk>
+	<Xine.LNX.4.64.0804150131300.4160@us.intercode.com.au>
+	<20080414.150105.101568769.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Filip Aben <f.aben@option.com>,
-	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-To: Matthew Dharm <mdharm-usb@one-eyed-alien.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from maggie.spheresystems.co.uk ([82.71.70.17]:36198 "EHLO
-	maggie.spheresystems.co.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753475AbYDNXEo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 19:04:44 -0400
-In-Reply-To: <20080414215905.GD16272@one-eyed-alien.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jmorris@namei.org, viro@ZenIV.linux.org.uk, w@1wt.eu,
+	david@lang.hm, sclark46@earthlink.net, johnpol@2ka.mipt.ru,
+	rjw@sisk.pl, tilman@imap.cc, Valdis.Kletnieks@vt.edu, lkml@rtr.ca,
+	jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org, jeff@garzik.org,
+	linux-kernel@vger.kernel.org, git@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <git-owner@vger.kernel.org>
+In-Reply-To: <20080414.150105.101568769.davem@davemloft.net>
+Sender: git-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Matthew,
-	I'd prefer the keep it as just 'hso' and change the textual description if 
-necessary. I think module names are just arbitrary, and should not 
-necessarily reflect the original usage too well, otherwise you end up with a 
-situation like with the 'option' module. That module is now used for many 
-devices from differing manufacturers and it doesn't really make much sense to 
-load the option module to service a device from Novatel, Sierra Wireless or 
-Huawei.
+On Mon, 14 Apr 2008 15:01:05 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Just my two pence,
+> From: James Morris <jmorris@namei.org>
+> Date: Tue, 15 Apr 2008 01:54:00 +1000 (EST)
+> 
+> > - Things like "who made the kernel" statistics and related articles ignore 
+> >   code review.
+> 
+> Note the apparent irony in that the person who ends up often on the
+> top of those lists, Al Viro, is also someone who also does a
+> significant amount of code review.
+> 
+> I think this is no accident.
 
+"who made the kernel" was an interesting and useful exercise, but if you
+like irony then...
 
-Andrew
+- The way to boost your commit count is to submit buggy patches and to
+  then fix your own bugs.
 
-
-On Monday 14 April 2008 22:59, Matthew Dharm wrote:
-> I will be the first to admit that I'm picking a nit here, but...
->
-> On Mon, Apr 14, 2008 at 02:32:39PM -0700, Greg KH wrote:
-> > Subject: USB: add option hso driver
-> >
-> > +config USB_HSO
-> > +	tristate "Option USB High Speed Mobile Devices"
-> >
-> > + * Driver for Option High Speed Mobile Devices.
-> >
-> > +#define MOD_DESCRIPTION			"USB High Speed Option driver"
->
-> Would it be possible to pick one of "High Speed Option" and "Option...
-> High Speed" and then be consistent with the acronym of "hso" or "ohs"?  Or
-> maybe call it "option_hs" or something even more clear?
->
-> Mixing them just makes it more difficult for people to use grep and google.
->
-> Matt
+- The way to lower your commit count is to fix things in other people's
+  patches, then fold your fix into the base patch.  I've lost over 1000
+  commits that way.  Unless they are counting '^    [akpm' as a commit.
