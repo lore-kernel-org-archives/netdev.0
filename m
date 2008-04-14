@@ -1,38 +1,90 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [NET] [Patch 0/4]: Removing some redundancies in skbuff.h
-Date: Mon, 14 Apr 2008 07:11:06 +0100
-Message-ID: <1208153470-9847-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/4] [SKB]: __skb_queue_after(prev) = __skb_insert(prev, prev->next)
+Date: Mon, 14 Apr 2008 07:11:08 +0100
+Message-ID: <1208153470-9847-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <skbuff_h_small_patchset>
+ <1208153470-9847-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1208153470-9847-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:35085 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753083AbYDNGLR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Apr 2008 02:11:17 -0400
-Received: from gerrit.erg.abdn.ac.uk (Debian-exim@gerrit.erg.abdn.ac.uk [139.133.204.176])
-	by erg.abdn.ac.uk (8.13.4/8.13.4) with ESMTP id m3E6BA4b021228
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 14 Apr 2008 07:11:12 +0100 (BST)
-Received: from root by gerrit.erg.abdn.ac.uk with local (Exim 4.69)
-	(envelope-from <root@gerrit.erg.abdn.ac.uk>)
-	id 1JlHuI-0002ZX-5O
-	for netdev@vger.kernel.org; Mon, 14 Apr 2008 07:11:10 +0100
-In-Reply-To: <skbuff_h_small_patchset>
+	id S1753864AbYDNGLV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2008 02:11:21 -0400
+In-Reply-To: <1208153470-9847-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a small set of tiny patches reducing duplications in skbuff.h.
+By reordering, __skb_queue_after() is expressed in terms of __skb_insert().
 
-They can be seen as one single patch, but split apart it is more immediate
-to see what they do.
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ include/linux/skbuff.h |   34 ++++++++++++----------------------
+ 1 file changed, 12 insertions(+), 22 deletions(-)
 
-Patch #1: Expresses __skb_dequeue     in terms of skb_peek and __skb_unlink.
-Patch #2: Expresses __skb_queue_after in terms of __skb_insert. 
-Patch #3: Expresses   skb_append      in terms of __skb_queue_after.
-Patch #4: Expresses __skb_queue_tail  in terms of __skb_insert.
-
-Also removed a comment 'XXX more streamlined implementation'.
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -657,11 +657,21 @@ static inline void skb_queue_head_init_c
+ }
+ 
+ /*
+- *	Insert an sk_buff at the start of a list.
++ *	Insert an sk_buff on a list.
+  *
+  *	The "__skb_xxxx()" functions are the non-atomic ones that
+  *	can only be called with interrupts disabled.
+  */
++extern void        skb_insert(struct sk_buff *old, struct sk_buff *newsk, struct sk_buff_head *list);
++static inline void __skb_insert(struct sk_buff *newsk,
++				struct sk_buff *prev, struct sk_buff *next,
++				struct sk_buff_head *list)
++{
++	newsk->next = next;
++	newsk->prev = prev;
++	next->prev  = prev->next = newsk;
++	list->qlen++;
++}
+ 
+ /**
+  *	__skb_queue_after - queue a buffer at the list head
+@@ -678,13 +688,7 @@ static inline void __skb_queue_after(str
+ 				     struct sk_buff *prev,
+ 				     struct sk_buff *newsk)
+ {
+-	struct sk_buff *next;
+-	list->qlen++;
+-
+-	next = prev->next;
+-	newsk->next = next;
+-	newsk->prev = prev;
+-	next->prev  = prev->next = newsk;
++	__skb_insert(newsk, prev, prev->next, list);
+ }
+ 
+ /**
+@@ -729,20 +733,6 @@ static inline void __skb_queue_tail(stru
+ }
+ 
+ /*
+- *	Insert a packet on a list.
+- */
+-extern void        skb_insert(struct sk_buff *old, struct sk_buff *newsk, struct sk_buff_head *list);
+-static inline void __skb_insert(struct sk_buff *newsk,
+-				struct sk_buff *prev, struct sk_buff *next,
+-				struct sk_buff_head *list)
+-{
+-	newsk->next = next;
+-	newsk->prev = prev;
+-	next->prev  = prev->next = newsk;
+-	list->qlen++;
+-}
+-
+-/*
+  *	Place a packet after a given packet in a list.
+  */
+ extern void	   skb_append(struct sk_buff *old, struct sk_buff *newsk, struct sk_buff_head *list);
 
 
 The University of Aberdeen is a charity registered in Scotland, No SC013683.
