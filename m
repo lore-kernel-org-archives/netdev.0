@@ -1,84 +1,89 @@
 From: David Woodhouse <dwmw2@infradead.org>
 Subject: Re: udev can't name PS3's network devices correctly
-Date: Mon, 14 Apr 2008 14:16:12 +0100
-Message-ID: <1208178972.31695.90.camel@pmac.infradead.org>
+Date: Mon, 14 Apr 2008 14:38:03 +0100
+Message-ID: <1208180283.3005.14.camel@pmac.infradead.org>
 References: <ftdb3v$tls$1@ger.gmane.org>
 	 <20080407143805.GA9492@bongo.bofh.it>
 	 <1208167737.31695.32.camel@pmac.infradead.org>
-	 <3ae72650804140503g73f8c281w438defb1c6477ba9@mail.gmail.com>
-	 <1208175549.31695.67.camel@pmac.infradead.org>
-	 <1208177531.2572.26.camel@lov.site>
+	 <20080414125100.GA13564@bongo.bofh.it>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Marco d'Itri <md@linux.it>, Harald Hoyer <harald@redhat.com>,
-	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org
-To: Kay Sievers <kay.sievers@vrfy.org>
+Cc: Harald Hoyer <harald@redhat.com>, linux-hotplug@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Marco d'Itri <md@Linux.IT>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:44480 "EHLO
+Received: from bombadil.infradead.org ([18.85.46.34]:43656 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753780AbYDNNQ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 09:16:59 -0400
-In-Reply-To: <1208177531.2572.26.camel@lov.site>
+	with ESMTP id S1750846AbYDNNih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 09:38:37 -0400
+In-Reply-To: <20080414125100.GA13564@bongo.bofh.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-04-14 at 14:52 +0200, Kay Sievers wrote:
-> On Mon, 2008-04-14 at 13:19 +0100, David Woodhouse wrote:
-> > On Mon, 2008-04-14 at 14:03 +0200, Kay Sievers wrote:
-> > > 
-> > > >  One thing I don't understand: Don't we already emit a KERNEL== criterion
-> > > >  in the case where there is already a udev rule 'reserving' the name that
-> > > >  the kernel used for the current device? Why is that one OK, and why only
-> > > >  in that case? This patch just makes it consistent.
-> > > 
-> > > Yes, we do that in the recent udev versions. We only make sure we keep
-> > > the enumeration across the same basename, not across different device
-> > > names.
-> > 
-> > Right, but you _only_ do that when you're asked to create a rule for a
-> > device where the kernel's name matches a pre-existing rule.
+On Mon, 2008-04-14 at 14:51 +0200, Marco d'Itri wrote: 
+> On Apr 14, David Woodhouse <dwmw2@infradead.org> wrote:
 > 
-> We do it for all new rules, regardless of pre-existing rules with that
-> name. It just does not add KERNEL, if some external tool tried to
-> overwrite the kernel name, we write a rule for.
-
-Ah, yes -- that's an improvement on the version in udev-120, which would
-only write it if $INTERFACE_NAME wasn't set _AND_ the current interface
-name is already reserved by an existing rule.
-
-> Not sure why Fedora rules are mangling INTERFACE_NAME here:
->   https://bugzilla.redhat.com/show_bug.cgi?id=440568#c4
-
-It's for compatibility with older configuration. Before udev, the Fedora
-network configuration used to allow you to set a MAC address for each
-configured interface, and would rename interfaces accordingly. This
-preserves that functionality, automatically converting it to udev rules.
-
-If we were to include the KERNEL== criterion even when $INTERFACE_NAME
-is set, that would solve the problem for now.
-
-> > You don't do it consistently --
+> > Actually it's a generic problem. It also occurs on OLPC, where the
+> > libertas wireless device presents two interfaces with the same MAC
+> And on some Sun systems as well.
 > 
-> Right, we will do that, if there are no other issues coming up with the
-> general approach of adding KERNEL matches.
+> > > Unconditionally adding a KERNEL key means that persistent names will
+> > > break if a driver changes the base name (e.g. wlan* -> eth*).
+> > Drivers shouldn't do that. It'll change the name of the device and may
+> But they do...
 
-That would be good. :)
+And when they do, they change the name that userspace sees. Film at 11 :)
 
-> > We probably also want to do the dev_id thing, but maybe not for PS3 and
-> > Libertas (since it affects their IPv6 addressing too).
-> 
-> It can just be in all rules, like the ATTR{type} match, right?
+> > We could modify the libertas and gelic (and any other affected) drivers
+> > to provide a dev_id, make sure it's exported in sysfs, and then use that
+> > in the udev rules. Would that make you happy?
+> Yes, I like not fixing just the symptoms. :-)
 
-I think so, yes. The only problem I can foresee is if you write rules
-with a new kernel (with the patch I just posted), and then boot into an
-older kernel. Since the dev_id attribute will no longer exist, your rule
-won't match... and you'll get a new rule without the dev_id.
+I wouldn't put it like that. We are looking for some way to tell the
+difference between the two interfaces. If the kernel uses a different
+basename (wlan%d vs. eth%d, or eth%d vs. msh%d), that's a fairly strong
+hint about which is which -- and is fairly reliable to boot.
 
-I'm not sure how much we care about that case -- perhaps the latter rule
-should have a 'TEST!="dev_id"' criterion? And/or maybe when we generate
-rules where dev_id==0x0, we should make it a special case which accepts
-either 0x0, or no dev_id attribute at all?
+The dev_id provides _another_ strong hint which helps us tell which
+device is which, but that doesn't mean that using the basename is wrong.
+
+> > It has implications w.r.t. the autoconfigured IPv6 addresses of those
+> > devices,
+> How so?
+
+The low 64 bits of the autoconfigured IPv6 address are derived from the
+MAC address, so for example a MAC address of 00:50:43:28:0A:FC would
+give you an IPv6 link-local address of fe80::250:43ff:fe28:afc -- and a
+corresponding global address like 2001:8b0:10b:1:250:43ff:fe28:afc.
+
+When you set dev_id to anything other than zero, that 'ff:fe' in the
+middle changes. So with my patches, the mesh device on the same libertas
+hardware becomes fe80::50:4300:128:afc -- using the newly-provided
+dev_id (0x0001) instead of 0xFFFE.
+
+See net/ipv6/addrconf.c for more details. But basically, it means we are
+changing the public IPv6 addresses of the affected machines, just to
+help udev tell the difference between the interfaces -- when in fact, it
+already _could_ tell the difference, due to the kernel's choice of name.
+
+We should do the dev_id thing in sysfs and udev anyway, because there
+are cases where it's the right thing to do (like S390, where I think
+it'll let us drop the existing hack we have, and probably also the Sun
+hardware you mention).
+
+But I don't think we should add dev_id to the gelic and libertas
+drivers. We should just make write_net_rules consistently include the
+KERNEL criterion -- even when $INTERFACE_NAME is set. It does it in all
+other cases anyway, now.
+
+> > > This workaround should be confined to the PS3 install media, there is
+> > > no reason to add it to general-purpose distributions.
+> > Our general-purpose distribution installs and runs on PS3. :)
+> So if PS3 needs special hacks they should be special-cased to only by
+> used on PS3 hardware.
+
+It's not a problem which is limited to PS3.
 
 -- 
 dwmw2
