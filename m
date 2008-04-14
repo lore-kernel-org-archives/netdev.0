@@ -1,39 +1,62 @@
-From: Andi Kleen <andi@firstfloor.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: Reporting bugs and bisection
-Date: Mon, 14 Apr 2008 12:29:26 +0200
-Message-ID: <87ve2kviex.fsf@basil.nowhere.org>
-References: <47FEADCB.7070104@rtr.ca>
-	<22880.1207943922@turing-police.cc.vt.edu> <47FFE5DA.8000709@imap.cc>
-	<200804132040.12138.rjw@sisk.pl> <20080413184730.GD8474@1wt.eu>
-	<20080413121831.d89dd424.akpm@linux-foundation.org>
-	<20080414101813.GB14549@elte.hu>
+Date: Mon, 14 Apr 2008 03:41:16 -0700 (PDT)
+Message-ID: <20080414.034116.24468363.davem@davemloft.net>
+References: <20080414010412.c42dc560.akpm@linux-foundation.org>
+	<20080414.013058.149905948.davem@davemloft.net>
+	<20080414031530.2507660d.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Willy Tarreau <w@1wt.eu>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Tilman Schmidt <tilman@imap.cc>, Valdis.Kletnieks@vt.edu,
-	Mark Lord <lkml@rtr.ca>, David Miller <davem@davemloft.net>,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: viro@ZenIV.linux.org.uk, w@1wt.eu, david@lang.hm,
+	sclark46@earthlink.net, johnpol@2ka.mipt.ru, rjw@sisk.pl,
+	tilman@imap.cc, Valdis.Kletnieks@vt.edu, lkml@rtr.ca,
 	jesper.juhl@gmail.com, yoshfuji@linux-ipv6.org, jeff@garzik.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757028AbYDNKbk@vger.kernel.org>
-In-Reply-To: <20080414101813.GB14549@elte.hu> (Ingo Molnar's message of "Mon, 14 Apr 2008 12:18:13 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
+	linux-kernel@vger.kernel.org, git@vger.kernel.org,
+	netdev@vger.kernel.org
+To: akpm@linux-foundation.org
+Return-path: <git-owner@vger.kernel.org>
+In-Reply-To: <20080414031530.2507660d.akpm@linux-foundation.org>
+Sender: git-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ingo Molnar <mingo@elte.hu> writes:
->
-> doing _kernel_ bisection is totally hard at the moment - it disrupts the 
-> user way too much and causes many hours of work for most users. 
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Mon, 14 Apr 2008 03:15:30 -0700
 
-It depends. Sometimes the bisection can be done in qemu/kvm/xen or
-similar tools.  At least if the problem is not too hardware
-dependent. And more and more people actually run in such environments.
+> You carefully deleted my text so that you could misquote it, thereby
+> flagrantly misrepresenting everything I said.
 
-I can also do it faster with autoboot or nfs root/powerswitch, but 
-admittedly that's a very specialized setup most people don't have.
+Not the intention, but anyways:
 
-Still I agree with your basic point that it should be only
-last resort.
+> Here it is again:
+> 
+> : The steps to be taken are:
+> : 
+> : a) agree that we have a problem
+> : 
+> : b) agree that we need to address it
+> : 
+> : c) identify the day-to-day work practices which will help address it (as
+> :    you have done)
+> : 
+> : d) identify the process changes which will force us to adopt those practices
+> : 
+> : e) implement those process changes.
+> 
+> Forcing a discipline upon oneself is totally different from having it
+> forced upon you by someone else.
+> 
+> Each step will need general agreement and buyin, otherwise none of it will
+> (or should) work.
 
--Andi
+The "force" is to "us" which is a group.
+
+And I imagine that newcomers will be expected to adopt these
+"practices".  So in effect, they will be "forced" into the process
+changes as well.
+
+I'm getting more and more sensitive to issues on this level over time,
+because I realize that the fundamental issue in all human group issues
+is getting people to "want" to do things.  And "force", in any form,
+tends to be incompatible with "want".  And in particular, people will
+often even shun things they "want" when it is "forced" to them.
