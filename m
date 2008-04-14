@@ -1,38 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET] [Patch 0/4]: Removing some redundancies in skbuff.h
-Date: Sun, 13 Apr 2008 23:44:53 -0700 (PDT)
-Message-ID: <20080413.234453.118301281.davem@davemloft.net>
-References: <skbuff_h_small_patchset>
-	<1208153470-9847-1-git-send-email-gerrit@erg.abdn.ac.uk>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-2.6 2/2] [IPV6] ADDRCONF: Don't generate temporary
+ address for ip6-ip6 interface.
+Date: Mon, 14 Apr 2008 15:47:06 +0900 (JST)
+Message-ID: <20080414.154706.62976282.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41721
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753500AbYDNGov (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 02:44:51 -0400
-In-Reply-To: <1208153470-9847-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:33488 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753564AbYDNGpV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 02:45:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Mon, 14 Apr 2008 07:11:06 +0100
+As far as I can remember, I was going to disable privacy extensions
+on all "tunnel" interfaces.  Disable it on ip6-ip6 interface as well.
 
-> This is a small set of tiny patches reducing duplications in skbuff.h.
-> 
-> They can be seen as one single patch, but split apart it is more immediate
-> to see what they do.
-> 
-> Patch #1: Expresses __skb_dequeue     in terms of skb_peek and __skb_unlink.
-> Patch #2: Expresses __skb_queue_after in terms of __skb_insert. 
-> Patch #3: Expresses   skb_append      in terms of __skb_queue_after.
-> Patch #4: Expresses __skb_queue_tail  in terms of __skb_insert.
-> 
-> Also removed a comment 'XXX more streamlined implementation'.
+Also, just remove ifdefs for SIT for simplicity.
 
-These don't apply to net-2.6.26, which is where I'd like to apply them.
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv6/addrconf.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-Please respin, thank you.
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index b9eeb4f..e08955b 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -384,9 +384,8 @@ static struct inet6_dev * ipv6_add_dev(struct net_device *dev)
+ 	setup_timer(&ndev->regen_timer, ipv6_regen_rndid, (unsigned long)ndev);
+ 	if ((dev->flags&IFF_LOOPBACK) ||
+ 	    dev->type == ARPHRD_TUNNEL ||
+-#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
++	    dev->type == ARPHRD_TUNNEL6 ||
+ 	    dev->type == ARPHRD_SIT ||
+-#endif
+ 	    dev->type == ARPHRD_NONE) {
+ 		printk(KERN_INFO
+ 		       "%s: Disabled Privacy Extensions\n",
+-- 
+1.4.4.4
+
