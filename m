@@ -1,42 +1,77 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: Re: [PATCH 1/1 net-2.6.26] [XFRM]: Compilation warnings in
-	xfrm_user.c.
-Date: Tue, 15 Apr 2008 09:48:52 +0400
-Message-ID: <1208238532.21529.14.camel@iris.sw.ru>
-References: <1208178219-18754-1-git-send-email-den@openvz.org>
-	 <20080414.144839.258760879.davem@davemloft.net>
+From: Milan Kocian <milon@wq.cz>
+Subject: 4-port pci card (4x Via VT6105) and SIS964 chipset problem
+Date: Mon, 14 Apr 2008 18:12:22 +0200
+Message-ID: <20080414161221.GC3208@ntm.vs.lam.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, paul.moore@hp.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:22654 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754276AbYDOFsz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2008 01:48:55 -0400
-In-Reply-To: <20080414.144839.258760879.davem@davemloft.net>
+Received: from gw-sitel.lam.cz ([212.71.129.172]:35192 "EHLO ntm.vs.lam.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752150AbYDOGjF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2008 02:39:05 -0400
+Received: from milon by ntm.vs.lam.cz with local (Exim 4.69)
+	(envelope-from <milon@wq.cz>)
+	id 1JlRI6-0001WW-BL
+	for netdev@vger.kernel.org; Mon, 14 Apr 2008 18:12:22 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-04-14 at 14:48 -0700, David Miller wrote:
-> From: "Denis V. Lunev" <den@openvz.org>
-> Date: Mon, 14 Apr 2008 17:03:39 +0400
-> 
-> > When CONFIG_SECURITY_NETWORK_XFRM is undefined the following warnings appears:
-> > net/xfrm/xfrm_user.c: In function 'xfrm_add_pol_expire':
-> > net/xfrm/xfrm_user.c:1576: warning: 'ctx' may be used uninitialized in this function
-> > net/xfrm/xfrm_user.c: In function 'xfrm_get_policy':
-> > net/xfrm/xfrm_user.c:1340: warning: 'ctx' may be used uninitialized in this function
-> > (security_xfrm_policy_alloc is noop for the case).
-> > 
-> > It seems that they are result of the commit
-> > 03e1ad7b5d871d4189b1da3125c2f12d1b5f7d0b
-> 
-> Needs commit header-line text reference after commit ID, which I've
-> added.  I think I've mentioned this issue to you on several occaisions
-> already :-/
+hello everyone,
 
-got it again. Thank you.
+after loading of via-rhine module I see:
 
+MMIO do not match PIO [06] (ff != 00)
+via-rhine: probe of 0000:02:08.0 failed with error -5
+MMIO do not match PIO [06] (ff != 00)
+via-rhine: probe of 0000:02:09.0 failed with error -5
+MMIO do not match PIO [06] (ff != 6c)
+via-rhine: probe of 0000:02:0a.0 failed with error -5
+
+And only one port is functional. So I tried to disable MMIO & PIO
+check in via-rhine.c :
+
+/*      while (mmio_verify_registers[i]) {
+                int reg = mmio_verify_registers[i++];
+                unsigned char a = inb(pioaddr+reg);
+                unsigned char b = readb(ioaddr+reg);
+                if (a != b) {
+                        rc = -EIO;
+                        printk(KERN_ERR "MMIO do not match PIO [%02x] "
+                               "(%02x != %02x)\n", reg, a, b);
+                        goto err_out_unmap;
+                }
+        }
+*/
+
+Now all ports are working. 
+And amateurish question: What can happen if it will be deactivated ?
+Is this check so important ?
+
+Kernel 2.6.23.10 (IMHO no essential changes in newest kernels). With intel
+chipset it works without problem.
+
+lspci:
+00:00.0 Host bridge: Silicon Integrated Systems [SiS] 662 Host (rev 01)
+00:01.0 PCI bridge: Silicon Integrated Systems [SiS] SiS AGP Port (virtual PCI-to-PCI bridge)
+00:02.0 ISA bridge: Silicon Integrated Systems [SiS] SiS964 [MuTIOL Media IO] (rev 36)
+00:02.5 IDE interface: Silicon Integrated Systems [SiS] 5513 [IDE] (rev 01)
+00:02.7 Multimedia audio controller: Silicon Integrated Systems [SiS] AC'97 Sound Controller (rev a0)
+00:03.0 USB Controller: Silicon Integrated Systems [SiS] USB 1.1 Controller (rev 0f)
+00:03.1 USB Controller: Silicon Integrated Systems [SiS] USB 1.1 Controller (rev 0f)
+00:03.2 USB Controller: Silicon Integrated Systems [SiS] USB 1.1 Controller (rev 0f)
+00:03.3 USB Controller: Silicon Integrated Systems [SiS] USB 2.0 Controller
+00:04.0 Ethernet controller: Silicon Integrated Systems [SiS] SiS900 PCI Fast Ethernet (rev 91)
+00:06.0 PCI bridge: Hint Corp HB6 Universal PCI-PCI bridge (non-transparent mode) (rev 15)
+00:1f.0 PCI bridge: Silicon Integrated Systems [SiS] PCI-to-PCI bridge
+01:00.0 VGA compatible controller: Silicon Integrated Systems [SiS] 661/741/760 PCI/AGP or 662/761Gx PCIE VGA Display Adapter (rev 04)
+02:08.0 Ethernet controller: VIA Technologies, Inc. VT6105 [Rhine-III] (rev 86)
+02:09.0 Ethernet controller: VIA Technologies, Inc. VT6105 [Rhine-III] (rev 86)
+02:0a.0 Ethernet controller: VIA Technologies, Inc. VT6105 [Rhine-III] (rev 86)
+02:0b.0 Ethernet controller: VIA Technologies, Inc. VT6105 [Rhine-III] (rev 86)
+
+Thanks for answers.
+
+-- 
+Milan Kocian
