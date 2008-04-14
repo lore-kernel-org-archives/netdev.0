@@ -1,31 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 2/2] [IPV6] ADDRCONF: Don't generate temporary
- address for ip6-ip6 interface.
-Date: Sun, 13 Apr 2008 23:47:23 -0700 (PDT)
-Message-ID: <20080413.234723.181065466.davem@davemloft.net>
-References: <20080414.154706.62976282.yoshfuji@linux-ipv6.org>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 0/5] [DCCP]: Queuing policies
+Date: Mon, 14 Apr 2008 07:50:41 +0100
+Message-ID: <20080414065041.GA4431@gerrit.erg.abdn.ac.uk>
+References: <200804111224.06958.tomasz@grobelny.oswiecenia.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41733
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754317AbYDNGrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 02:47:21 -0400
-In-Reply-To: <20080414.154706.62976282.yoshfuji@linux-ipv6.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36065 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752950AbYDNGvW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2008 02:51:22 -0400
+Content-Disposition: inline
+In-Reply-To: <200804111224.06958.tomasz@grobelny.oswiecenia.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Mon, 14 Apr 2008 15:47:06 +0900 (JST)
+| This is resubmission of queuing policy related patches for DCCP. Queuing 
+| policies allow userspace applications to more effectively use DCCP.
+Thanks a lot -- all patches applied cleanly. As promised, I have created
+a tree "qpolicy" for these patches, which can be checked out via
 
-> As far as I can remember, I was going to disable privacy extensions
-> on all "tunnel" interfaces.  Disable it on ip6-ip6 interface as well.
-> 
-> Also, just remove ifdefs for SIT for simplicity.
-> 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+	# using a recent netdev-2.6 kernel
+	git checkout -b qpolicy master
+	git pull git://eden-feed.erg.abdn.ac.uk/dccp_exp  qpolicy
 
-Also applied, thank you.
+I have left your patches unchanged (apart from adapting them to apply
+on the most recent base). 
+
+There are four other patches in this repository: I am interested in merging
+your patches into the test tree and thus have worked on integrating it.
+
+Rather than sending those new 4 patches individually, I will send the result
+(combined with your patch set) as a single RFC patch to the list.
+
+Please have a look at the repository and the subsequent patch -- I would
+like to know if you are ok with the changes and/or discuss these.
+
+
+The University of Aberdeen is a charity registered in Scotland, No SC013683.
+
