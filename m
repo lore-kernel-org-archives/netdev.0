@@ -1,53 +1,68 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Reporting bugs and bisection
-Date: Mon, 14 Apr 2008 22:30:55 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0804142221480.7090@wrl-59.cs.helsinki.fi>
-References: <47FEADCB.7070104@rtr.ca> <20080413121831.d89dd424.akpm@linux-foundation.org>
- <20080413202118.GA29658@2ka.mipt.ru> <200804132233.50491.rjw@sisk.pl>
- <20080413205406.GA9190@2ka.mipt.ru> <48028830.6020703@earthlink.net>
- <alpine.DEB.1.10.0804131546370.9318@asgard> <20080414043939.GA6862@1wt.eu>
- <20080414053943.GU9785@ZenIV.linux.org.uk> <20080413232441.e216a02c.akpm@linux-foundation.org>
- <20080414072328.GW9785@ZenIV.linux.org.uk> <20080414010412.c42dc560.akpm@linux-foundation.org>
- <20080414074349.24fa90f8@laptopd505.fenrus.org> <20080414105152.9cc06fab.akpm@linux-foundation.org>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH 2/5] e1000e: Add interrupt moderation
+ run-time ethtool interface
+Date: Mon, 14 Apr 2008 12:31:45 -0700
+Message-ID: <4803B121.2060501@hp.com>
+References: <20080414170557.23286.71580.stgit@localhost.localdomain>	<20080414170604.23286.86187.stgit@localhost.localdomain>
+	<873apoutnt.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Al Viro <viro@ZenIV.linux.org.uk>, Willy Tarreau <w@1wt.eu>,
-	david@lang.hm, Stephen Clark <sclark46@earthlink.net>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Tilman Schmidt <tilman@imap.cc>,
-	Valdis.Kletnieks@vt.edu, Mark Lord <lkml@rtr.ca>,
-	David Miller <davem@davemloft.net>, jesper.juhl@gmail.com,
-	yoshfuji@linux-ipv6.org, Jeff Garzik <jeff@garzik.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>, git@vger.kernel.org,
-	Netdev <netdev@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Arjan van de Ven <arjan@infradead.org>
-Return-path: <git-owner@vger.kernel.org>
-In-Reply-To: <20080414105152.9cc06fab.akpm@linux-foundation.org>
-Sender: git-owner@vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Auke Kok <auke-jan.h.kok@intel.com>, jeff@garzik.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <873apoutnt.fsf@basil.nowhere.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Mon, 14 Apr 2008, Andrew Morton wrote:
-
-> On Mon, 14 Apr 2008 07:43:49 -0700 Arjan van de Ven <arjan@infradead.org> wrote:
+Andi Kleen wrote:
+> Auke Kok <auke-jan.h.kok@intel.com> writes:
 > 
-> > I'll be writing a report with more details about this soon with more analysis and statistics
-> > (I'll be looking at more detail around the top 25 issues, when they got introduced, when they got fixed etc)
 > 
-> Well OK.  But I don't think we can generalise from oops-causing bugs all
-> the way to all bugs.  Very few bugs actually cause oopses, and oopses tend
-> to be the thing which developers will zoom in on and pay attention to.
+>>The ethtool -c / -C interface can now be used to modify the
+>>irq moderation algorithm. This change does not require an
+>>adapter reset and can thus be used at all times. The adapter
+>>only supports changing/reading rx-usecs which has special
+>>values for 0, 1 and 3:
+>>
+>>0 - no irq moderation whatsoever
+>>1 - normal moderation favoring regular mixed traffic (default)
+>>3 - best attempt at low latency possible at cost of CPU
 > 
-> If we had metrics on "time goes backwards" or anything containing "ASUS",
-> things might be different.
+> 
+> It would be nice if ethtool instead of having this as a obscure magic
+> number had a higher level "--low-latency" or similar parameter
+> (that could also potentially set similar settings on other NICs)
+> 
+> You think there would be a clean way to implement this? 
 
-Even oopses have pitfalls, like in 25-rcs where those WARN_ON TCP 
-backtraces were due to three different bugs (there might be fourth one 
-still remaining). ...kerneloops.org didn't even make difference between 
-different WARN_ONs in a function though that would have helped only little 
-in the case of 25-rc TCP because of different bugs causing failures in the 
-same invariant.
+The biggest problems might be ones of interpretation as to whether a 
+given setting was indeed:
 
--- 
- i.
+--favor-latency
+--favor-throutput
+--favor-mixed
+
+But it would indeed at one level be more "clear" to a random admin (IMO).
+
+I use "--favor-mumble" above since what might be the --low-latency 
+through one NIC might not be as low as the "--low-latency" though 
+another NIC, and it also sort of implicitly suggests a trade-off is 
+being made.
+
+rick jones
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by the 2008 JavaOne(SM) Conference 
+Don't miss this year's exciting event. There's still time to save $100. 
+Use priority code J8TL2D2. 
+http://ad.doubleclick.net/clk;198757673;13503038;p?http://java.sun.com/javaone
