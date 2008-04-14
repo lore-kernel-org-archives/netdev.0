@@ -1,67 +1,71 @@
-From: md@Linux.IT (Marco d'Itri)
+From: Kay Sievers <kay.sievers@vrfy.org>
 Subject: Re: udev can't name PS3's network devices correctly
-Date: Mon, 14 Apr 2008 14:51:00 +0200
-Message-ID: <20080414125100.GA13564@bongo.bofh.it>
-References: <ftdb3v$tls$1@ger.gmane.org> <20080407143805.GA9492@bongo.bofh.it> <1208167737.31695.32.camel@pmac.infradead.org>
+Date: Mon, 14 Apr 2008 14:52:11 +0200
+Message-ID: <1208177531.2572.26.camel@lov.site>
+References: <ftdb3v$tls$1@ger.gmane.org>
+	 <20080407143805.GA9492@bongo.bofh.it>
+	 <1208167737.31695.32.camel@pmac.infradead.org>
+	 <3ae72650804140503g73f8c281w438defb1c6477ba9@mail.gmail.com>
+	 <1208175549.31695.67.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="HlL+5n6rz5pIUxbD"
-Cc: Harald Hoyer <harald@redhat.com>, linux-hotplug@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Marco d'Itri <md@linux.it>, Harald Hoyer <harald@redhat.com>,
+	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org
 To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1208167737.31695.32.camel@pmac.infradead.org>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.186]:62687 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752267AbYDNMwc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2008 08:52:32 -0400
+In-Reply-To: <1208175549.31695.67.camel@pmac.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2008-04-14 at 13:19 +0100, David Woodhouse wrote:
+> On Mon, 2008-04-14 at 14:03 +0200, Kay Sievers wrote:
+> > 
+> > >  One thing I don't understand: Don't we already emit a KERNEL== criterion
+> > >  in the case where there is already a udev rule 'reserving' the name that
+> > >  the kernel used for the current device? Why is that one OK, and why only
+> > >  in that case? This patch just makes it consistent.
+> > 
+> > Yes, we do that in the recent udev versions. We only make sure we keep
+> > the enumeration across the same basename, not across different device
+> > names.
+> 
+> Right, but you _only_ do that when you're asked to create a rule for a
+> device where the kernel's name matches a pre-existing rule.
 
---HlL+5n6rz5pIUxbD
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+We do it for all new rules, regardless of pre-existing rules with that
+name. It just does not add KERNEL, if some external tool tried to
+overwrite the kernel name, we write a rule for.
 
-On Apr 14, David Woodhouse <dwmw2@infradead.org> wrote:
+Not sure why Fedora rules are mangling INTERFACE_NAME here:
+  https://bugzilla.redhat.com/show_bug.cgi?id=440568#c4
 
-> Actually it's a generic problem. It also occurs on OLPC, where the
-> libertas wireless device presents two interfaces with the same MAC
-And on some Sun systems as well.
+> You don't do it consistently --
 
-> > Unconditionally adding a KERNEL key means that persistent names will
-> > break if a driver changes the base name (e.g. wlan* -> eth*).
-> Drivers shouldn't do that. It'll change the name of the device and may
-But they do...
+Right, we will do that, if there are no other issues coming up with the
+general approach of adding KERNEL matches.
 
-> We could modify the libertas and gelic (and any other affected) drivers
-> to provide a dev_id, make sure it's exported in sysfs, and then use that
-> in the udev rules. Would that make you happy?
-Yes, I like not fixing just the symptoms. :-)
+> and Marco was objecting to a patch which just made it
+> happen consistently.
 
-> It has implications w.r.t. the autoconfigured IPv6 addresses of those
-> devices,
-How so?
+Right, I'm just waiting for Marco to comment on this.
 
-> > This workaround should be confined to the PS3 install media, there is
-> > no reason to add it to general-purpose distributions.
-> Our general-purpose distribution installs and runs on PS3. :)
-So if PS3 needs special hacks they should be special-cased to only by
-used on PS3 hardware.
+> That patch on its own would be sufficient to fix the PS3 and Libertas
+> problems, since the kernel uses a different basename for the logical
+> devices we want to disambiguate. (It would also fix the clash between
+> wlan0 and wmaster0 on mac80211 interfaces).
 
---=20
-ciao,
-Marco
+Sure, that's why we have it in every default rule.
 
---HlL+5n6rz5pIUxbD
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+> We probably also want to do the dev_id thing, but maybe not for PS3 and
+> Libertas (since it affects their IPv6 addressing too).
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
+It can just be in all rules, like the ATTR{type} match, right?
 
-iD8DBQFIA1M0FGfw2OHuP7ERAp+SAJ9mMgHuRlCg09jj7Vi9EmSiGV16TACbBRhG
-Artj7C2zTFLsKfcU1QT1O2k=
-=xie9
------END PGP SIGNATURE-----
+Thanks,
+Kay
 
---HlL+5n6rz5pIUxbD--
